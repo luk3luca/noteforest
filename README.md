@@ -4,26 +4,31 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 in progress: adaptive layout + paginator + real-text PDF. Planning is ratified; application code outside the spike is not yet approved.
+Spike 1 is complete (technical foundation merged); **M2 — editor shell + branch editor** is in progress. PDF/page work is deferred until the editor is usable. Planning is ratified; code outside M2 is not approved.
 
-## Running Spike 1
+## Running the current code
 
-This worktree uses **npm workspaces** (`apps/desktop`, `packages/layout`, `packages/pdf`) because pnpm is not installed on the reference machine. Node 22+ is required.
+This worktree uses **npm workspaces** (`apps/desktop`, `packages/core`, `packages/layout`, `packages/pdf`). Node 22+ is required.
 
 ```bash
 npm install
 npm run typecheck   # strict TypeScript across the workspaces
-npm test            # Vitest layout/paginator geometry tests
-npm run e2e         # Playwright-driven Electron smoke and PDF tests
-npm run gates       # full Spike 1 gate harness; writes artifacts/spike-01
-npm run pdf:verify -- fixtures/long-50-pages.json artifacts/spike-01/spike-01-long-50-pages.pdf
+npm test            # unit/geometry tests
+npm run e2e         # Playwright-driven Electron smoke tests
 ```
 
-- `npm run dev` and `npm start` launch the Electron shell. The scripts unset `ELECTRON_RUN_AS_NODE` (the host environment sets it); the e2e and gate launchers remove it explicitly.
-- The app loads fixtures from `fixtures/`, renders a continuous reader and a paginated A4 page view, and exports a Page PDF from the same derived pages.
-- Spike artifacts (PDFs, screenshots, PDF rasters, `gates.json`) are written to `artifacts/spike-01/` and are not committed. Key evidence is copied to `docs/spikes/artifacts/`.
-- The report is `docs/spikes/spike-01-report.md`.
-- No editor, persistence, external API, MCP, outline UI, themes, or packaging are included.
+- `npm run dev` and `npm start` launch the Electron shell. The scripts unset `ELECTRON_RUN_AS_NODE` (the host environment sets it).
+- The current renderer is still the Spike 1 fixture demo; M2 replaces it with the editor shell and branch editor.
+- Spike 1 evidence: `docs/spikes/spike-01-report.md` and `docs/spikes/artifacts/`.
+- The PDF gate harness remains available: `npm run gates`.
+
+## M2 status
+
+- Shell spec: `docs/ux-shell.md`.
+- Core brief: `docs/tasks/m2a-document-core.md`.
+- Shell/editor brief: `docs/tasks/m2-editor-shell.md`.
+- UI decisions: `docs/adr/0004-ui-shell-and-branch-editor.md`.
+- UI research: `research/ui-components.md`.
 
 
 - `AGENTS.md` — team, rules, and current decisions.

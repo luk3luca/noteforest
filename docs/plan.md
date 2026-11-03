@@ -70,9 +70,20 @@ What is deferred:
 - Block model: chapters, top-level blocks, primary children, stable IDs, labels, collapse, reorder.
 - **Basic primary branches (the distinguishing feature)**: create a child from a block, reparent/reorder, delete the primary edge (target becomes top-level); one primary parent per block; acyclic; visible arrows. No span anchors, reference edges, or shared children yet.
 - TipTap block editor: paragraphs, headings, lists, blockquotes, code, inline/display math, images, tables; Enter/Tab/Backspace structural commands; one active editor.
-- Keyboard: `⌘B` sidebar, `⌘T` new document, `⌘W` close tab, `⌘1…9` tab switch, `⌘S` save, `⌘K` command palette (basic).
+- Keyboard: `⌘\` sidebar (`⌘B` is bold), `⌘N` new document, `⌘W` close tab, `⌘1…9` tab switch, `⌘S` save, `⌘K` command palette (basic).
 - Dark mode default; light mode may be deferred.
+- UI stack: shadcn/ui with the React Aria base + Tailwind v4; React Aria Tree; custom tabs; `react-resizable-panels`; dnd-kit tabs; Sonner; Zustand; lucide; TipTap 3; custom SVG edge overlay. See ADR-0004 and `research/ui-components.md`.
 - Documentation: `docs/ux-shell.md` and `docs/tasks/m2-editor-shell.md`.
+
+**M2 design decisions (approved):**
+
+- Top-level block measure 34 rem (544 px), child 160–420 px; editor canvas max ~1,100 px.
+- Wrap indent 18 px; sibling gap 24 px; block padding 12 px; radius 4 px.
+- Edges are orthogonal elbows; wrapped children use a bottom trunk-and-bus; arrowhead only at the child.
+- Selected block highlights the root→block path; other edges dim.
+- Child cards use a subtle surface, no default border; top-level blocks are transparent.
+- Reparent is `Move to…` menu/keyboard only; drag reorders siblings. No free drag-to-reparent in M2.
+- Scroll only; no zoom/pan/minimap. Reference edges reserve a dashed token but no UI.
 
 **Out of scope for M2:**
 

@@ -45,7 +45,9 @@ The next slice is therefore the **editable shell with the distinguishing feature
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-### Tab bar (top, 38 px)
+**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar (traffic lights, app/document title, `⌘K`, settings) + 36 px tab strip below; sidebar 264 px default (208–360, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,100 px with 40–56 px padding. The sidebar and editor scroll independently.
+
+### Tab strip (36 px)
 
 - macOS traffic-light inset; the bar is draggable.
 - One tab per open document, in open order.
@@ -56,37 +58,37 @@ The next slice is therefore the **editable shell with the distinguishing feature
 - `⌘1…9` switches to tab N; `⌘⇧[` / `⌘⇧]` previous/next.
 - No nested tabs, no split view, no pinned tabs in M2.
 
-### Sidebar (left, 260–320 px, resizable)
+### Sidebar (left, 264 px default, resizable 208–360 px)
 
 - Header: app name (small caps or 12 px semibold), workspace/document search (`⌘K` command palette), `+ New note`.
 - **Library:** a flat list of documents in the chosen folder, with a search field and a "Recent" section. Each row has a document icon, title, and (on hover) a `⋯` menu: rename, reveal in Finder, close.
 - **Outline:** the active document's tree: chapters → top-level blocks → direct children. Expand/collapse with chevrons; indentation 12 px per level; guide lines 1 px and low contrast. Clicking a row focuses the block in the editor.
 - M2 tree is read-only except click-to-focus and chapter collapse; block reorder via drag is optional if stable.
 - Footer: settings icon, theme indicator, version. No user avatar, no "upgrade" card, no announcement.
-- Collapse via `⌘B`; drag the divider to resize; width persists per window.
+- Collapse via `⌘\`; drag the divider to resize; width persists per window. (`⌘B` is bold in the editor.)
 
 ### Editor (center)
 
 - A continuous **spatial branch editor**, not a paginated page and not a plain linear list. The page view is M4.
-- Top-level blocks stack vertically in chapter order. A child is placed to the right of its parent when there is room; otherwise it wraps below the parent with a slight indent.
-- Card widths are content-driven, clamped to a readable max (~420 px) or the available editor width for wide content (code, tables, images).
-- Block cards: 1 px border, 6 px radius, 12–16 px padding. The focused block gets a quiet accent border; selection is text selection, not a card highlight.
-- Primary arrows are SVG, drawn in an overlay above the cards: from the source block's right/bottom port to the target's left/top port. Solid, 1.25 px, muted; the selected arrow uses the accent color.
-- Arrow routing must read forward: a child to the right uses a short horizontal curve; a child wrapped below uses a vertical/diagonal curve from the source bottom, never a loop back across the source card. If a route would cross the source, choose the nearest clear port.
+- Top-level blocks stack vertically in chapter order. A child is placed to the right of its parent when there is room; otherwise it wraps below the parent with an 18 px indent.
+- Geometry: editor canvas max ~1,100 px with 40–56 px padding; top-level block measure max 34 rem (544 px); child cards 10–26.25 rem (160–420 px); long code/tables may use the available width.
+- Block cards: child cards use `--surface-1` with no default border; top-level blocks are transparent. Focused block gets a quiet inset accent ring; selection is text selection, not a card highlight.
+- Primary arrows are SVG, drawn in an overlay above the cards: from the source block's right/bottom port to the target's left/top port. 1.25 px neutral; the selected root→block path is 1.75 px accent.
+- Arrow routing must read forward: a child to the right uses a short orthogonal elbow; children wrapped below use a bottom trunk-and-bus with the arrow entering the top; never a loop back across the source card. If a route would cross the source, choose the nearest clear port.
 - Only primary edges exist in M2: one parent per child, no reference edges, no shared children. The tree is acyclic; a cycle is rejected before mutation.
 - No free positioning, no pins, no manual x/y. Only sibling order changes; layout is automatic and deterministic.
 - Only one block editor is active at a time. Clicking a block opens it; `Esc` commits and returns to navigation; inactive cards render read-only.
 - Inline formatting toolbar appears on text selection (bold, italic, code, link, math). No permanent toolbar.
 - Slash menu `/` for block types is a SHOULD in M2; command palette is the fallback.
 - Empty block shows a quiet placeholder ("Type something, or press /").
-- Collapse control on a block with children; hidden-count badge hides its subtree and arrows.
-- A branch handle on each card starts a new child or a drag-to-reparent. The drop target highlights; an illegal drop is rejected.
+- Collapse control on a block with children; child count is plain tertiary text; hidden subtree and its arrows disappear.
+- A 20 px block gutter holds a six-dot drag handle and a `+` add-child action; reorder among siblings only, reparent via `Move to…`.
 - No page-break markers, no page guides, no PDF controls in M2.
 
 ### Branch arrows (M2)
 
 - Every primary child gets exactly one arrow from its parent. The arrow starts at the parent card's right edge (or bottom edge when the child wraps) and ends at the child's left edge (or top edge).
-- Arrows are behind the active editor overlay but above the background; they never capture text selection.
+- Arrows are behind the active editor overlay but above the background; they never capture text selection. They are `aria-hidden` and not tabbable.
 - Clicking an arrow selects the edge and shows a small inline action: delete branch (target becomes top-level) or add label (SHOULD).
 - Deleting a block with children uses the delete dialog: promote children or delete subtree; both keep arrows consistent.
 - Reparenting moves the child and its subtree; the arrow re-routes and the layout reflows. Reordering siblings changes vertical order only.
@@ -103,21 +105,24 @@ The next slice is therefore the **editable shell with the distinguishing feature
 
 | Action | Shortcut / behavior |
 |---|---|
-| Toggle sidebar | `⌘B` |
+| Toggle sidebar | `⌘\` (`⌘B` is bold in the editor) |
 | Command palette | `⌘K` |
-| New document | `⌘T` (opens a new untitled doc in a tab) |
+| New document | `⌘N` (opens a new untitled doc in a tab) |
 | Open document | `⌘O` or sidebar click |
 | Save | `⌘S`; autosave after 800 ms idle |
 | Close tab | `⌘W`; prompt if dirty |
+| Close window | `⌘⇧W` |
+| Reopen closed tab | `⌘⇧T` |
 | Switch tab | `⌘1…9`, `⌘⇧[` / `⌘⇧]` |
 | New block below | `Enter` at end of block (sibling) |
-| New child branch | `Tab` on a block, or drag from its branch handle to empty space |
-| Reparent | Drag a block onto a legal parent, or `Tab` on the block under the previous sibling |
+| New child branch | `Tab` on a block, `⌘Enter`, or the block gutter `+` |
+| Reparent | `Move to…` in the block menu (M2); drag reparent is deferred |
 | Outdent | `Shift-Tab` (target becomes a sibling of its parent) |
 | Merge with previous | `Backspace` at start of an empty/first block |
 | Focus previous/next block | `⌘↑` / `⌘↓` |
 | Collapse/expand block | `⌘.` or chevron |
 | Select/delete branch | Click the arrow; `Delete` or the inline action; target becomes top-level |
+| Insert link | `⌘⇧K` (frees `⌘K` for the palette) |
 | Rename document | double-click title in tab/sidebar |
 | Delete block | `⌘⌫` with promote/subtree choice if it has children |
 
@@ -133,33 +138,39 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 
 ## Visual direction (dark default)
 
-**Mood:** a quiet desk at night. Near-black, low contrast, one restrained accent, excellent type.
+**Direction: Graphite.** Cool near-black, one dusty slate-blue accent, hairline borders, real typography. Detailed rationale and anti-slop checklist: `research/ui-components.md` §6 and ADR-0004.
 
 | Token | Value |
 |---|---|
-| `--bg` | `#1b1b1b` |
-| `--bg-sidebar` | `#171717` |
-| `--bg-elevated` | `#202020` |
-| `--border` | `#2b2b2b` |
-| `--border-strong` | `#3a3a3a` |
-| `--text` | `#d7d7d7` |
-| `--text-muted` | `#8b8b8b` |
-| `--text-faint` | `#666666` |
-| `--accent` | `#9ec5a8` (muted forest green) |
-| `--accent-strong` | `#bfe0c7` |
-| `--danger` | `#d98b8b` |
-| `--selection` | `rgba(158, 197, 168, 0.22)` |
+| `--canvas` | `#17181A` |
+| `--sidebar` | `#131416` |
+| `--surface-1` | `#1B1D20` |
+| `--surface-2` | `#202329` |
+| `--surface-3` | `#262A30` |
+| `--border` | `#2E3238` |
+| `--border-strong` | `#3C4148` |
+| `--text` | `#E7E8EA` |
+| `--text-secondary` | `#A6ABB2` |
+| `--text-tertiary` | `#7E848C` |
+| `--accent` | `#9BB7D4` |
+| `--accent-soft` | `#26313C` |
+| `--edge` | `#5E6670` |
+| `--edge-active` | `#9BB7D4` |
+| `--edge-muted` | `#3A3F46` |
+| `--danger` | `#D98B8B` |
+| `--success` | `#8FBF9F` |
+| `--warning` | `#D6B17A` |
 
-- **UI type:** `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui`; 13 px/1.4; tab labels 12.5 px; sidebar rows 13 px.
-- **Editor type:** `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui`; 16 px/1.65; max 68–72 characters per line; headings 22/18/16 px semibold.
-- **Code:** `"SF Mono", ui-monospace, Menlo, monospace`; 13 px/1.55.
+- **UI type:** `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif`; 13 px/1.45; tab labels 12.5 px; sidebar rows 12.5 px/26 px.
+- **Editor type:** `"Source Serif 4", Georgia, serif`; 17 px/1.65; 66–72 characters per line; headings 22/19/17 px semibold.
+- **Code:** `"JetBrains Mono", ui-monospace, SF Mono, monospace`; 13.5 px/1.55.
 - **Math:** KaTeX; inherit body color; display math centered with 12 px vertical margin.
-- **Radius:** 6 px for cards/inputs; 4 px for small controls; never pill-shaped except tags.
-- **Borders:** 1 px; no card shadows. Menus/popovers may use one soft shadow.
-- **Icons:** Lucide, 16 px, 1.5 px stroke; no colored emoji.
-- **Motion:** 120–160 ms ease-out for sidebar/tabs/menus; no bounce, no spring, no shimmer.
-- **Focus:** 1 px accent border/ring, not a glow.
-- **Empty state:** plain text and one primary action; no illustration, no mascot.
+- **Radius:** 3 px controls, 4 px blocks, 6 px overlays; never > 6 px.
+- **Borders:** 1 px hairline; no shadows on chrome, cards, tabs, or sidebar; overlays only (`0 8px 24px rgb(0 0 0 / .35)` popover, `0 24px 64px rgb(0 0 0 / .55)` dialog).
+- **Icons:** Lucide, 16 px, 1.5 px stroke; no filled/multicolour icons, no emoji, no sparkle/bot/wand.
+- **Motion:** 120 ms hover, 160 ms overlay, 180 ms sidebar; `cubic-bezier(.2,.7,.2,1)`; no spring/bounce; 0 ms under `prefers-reduced-motion`.
+- **Focus:** 2 px `--focus-ring`, 1 px offset, inset inside blocks; always visible.
+- **Empty state:** one line of secondary text and one action; no illustration, no mascot.
 
 ## Anti-slop checklist
 
@@ -188,7 +199,7 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 - App launches to a restored session or a calm empty state.
 - Create a document, add chapters/blocks, edit rich text, autosave, reopen; content is preserved.
 - Open two documents in tabs; switch, close, dirty state, per-tab scroll/focus.
-- Sidebar library and outline are readable and navigable; `⌘B` collapses.
+- Sidebar library and outline are readable and navigable; `⌘\` collapses.
 - Create a child branch from a block; the arrow is visible, starts at the source and ends at the target, and never loops backwards across the source.
 - Reparent/reorder updates the arrow and layout; deleting the edge makes the target top-level; a primary cycle is rejected.
 - Keyboard structural commands work; undo is predictable.
@@ -198,4 +209,12 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 
 ## Component source
 
-The concrete component library and copy-in map are decided in `research/ui-components.md` (Scout). The shell must adapt components to these tokens; do not ship a library's default dashboard look.
+Decided in ADR-0004 and `research/ui-components.md`:
+
+- **shadcn/ui with the React Aria base** + Tailwind v4 (copy-in components, not a runtime design system).
+- React Aria `Tree` for the sidebar; custom tab strip with `@dnd-kit` for reorder; `react-resizable-panels@4` for the split; shadcn React Aria Command for `⌘K`; Sonner; Zustand; lucide.
+- TipTap 3 with a custom `block` node and `BlockCard` node view; one ProseMirror document per open document.
+- Custom SVG edge overlay + pure orthogonal router; no React Flow, tldraw, or Excalidraw.
+- RareUI is rejected (licence + look); BoardUI is reference only (MIT free components, dashboard theme, Pro paid).
+
+Do not ship a library's default dashboard look. Adapt every component to the Graphite tokens above.

@@ -146,10 +146,12 @@ Research remains useful as input for components, not as an open stack decision. 
 - `docs/review-checklist.md` — review checklist (Sentinel).
 - `docs/definition-of-done.md` — DoD and test strategy (Sentinel).
 - `docs/plan.md` — milestones and tasks (Orchestrator).
-- `docs/ux-shell.md` — desktop shell + editor spec for M2.
-- `docs/adr/` — architecture decision records: stack, PDF, External API.
+- `docs/ux-shell.md` — desktop shell + branch editor spec for M2.
+- `docs/tasks/` — M2a core and M2b shell/editor briefs.
+- `docs/adr/` — architecture decision records: stack, PDF, External API, UI shell/editor.
 - `docs/spike-01-layout-paginator-pdf.md` — Spike 1 brief and gates.
 - `docs/spikes/` — Spike 1 report, gate evidence, and artifacts.
+- `research/ui-components.md` — M2 shell/editor component and visual research.
 
 ## Repo layout
 
