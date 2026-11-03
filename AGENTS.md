@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-Discovery and planning. Research is done (`research/landscape.md`). Architect, UX, and Sentinel are writing `docs/spec.md`, `docs/ux.md`, `docs/review-checklist.md`, and `docs/definition-of-done.md`. **No application code** until the spec and the first spike plan are approved. The working name is **NoteForest**. The v1 stack is decided (Electron + React + TypeScript + TipTap/ProseMirror + CodeMirror 6 + KaTeX + React Flow + `printToPDF`); details are in Current decisions.
+Discovery and planning. Research is done (`research/landscape.md`). Architect, UX, and Sentinel are writing `docs/spec.md`, `docs/ux.md`, `docs/review-checklist.md`, and `docs/definition-of-done.md`. **No application code** until the spec, the stack review, and the first spike plan are approved. The working name is **NoteForest**. The v1 stack is **under review**: Electron + React is the provisional baseline while Scout evaluates native/Rust alternatives and open-source Markdown/math/PDF components.
 
 ## Language
 
@@ -66,13 +66,50 @@ These override any conflicting research input below.
 
 - Product model: Document → Chapters → content blocks; DAG (shared children); outline + reader/page views; Markdown/LaTeX/code/images; optional block border; annotations are a separate study layer (out of scope for v1); PDF export with real text.
 - Edge roles: primary edge per block (drives outline/layout) + reference edges (multi-parent/cross-links); pending final spec.
-- Layout: adaptive tree layout with content-driven widths; children go right or wrap below the parent with a slight indent; only sibling order changes; pages are derived by the paginator; no content block split across pages; continuation markers; no free positioning/pins.
+- Layout: adaptive tree layout with content-driven widths; children go right or wrap below the parent with a slight indent; only sibling order changes; pages are derived by the paginator; content blocks atomic by default, long blocks may continue at safe internal boundaries with continuation markers; hybrid stable reflow with freeze; no free positioning/pins.
 - Content model: structured JSON/ProseMirror JSON as canonical, with Markdown import/export; keep an adapter so the decision can be revisited after the prototype. The product owner delegated the choice.
-- File format: flat JSON document + assets folder; schema versioned; model and storage separated. Page size/orientation/margins and optional manual break hints are document settings; pages themselves are derived.
-- Stack: Electron + React + TypeScript + TipTap/ProseMirror + CodeMirror 6 + KaTeX + React Flow + `printToPDF` for v1. Revisit GPUI/other frameworks later only if justified by a real bottleneck.
+- File format: single JSON document + assets folder; schema versioned; model and storage separated. Notes are standard files in a user-chosen folder, not in git. Orientation is document-wide; page size/margins and optional manual break hints are document settings; pages themselves are derived.
+- Stack: **under review**. Electron + React + TypeScript + TipTap/ProseMirror + CodeMirror 6 + KaTeX + React Flow + `printToPDF` is the provisional baseline, but Scout is doing a second research pass on GPUI-like native/Rust frameworks and open-source Markdown/math/PDF components before we commit. Do not scaffold application code until the stack review is complete.
 - Name: **NoteForest** (working title). Scout found an existing NoteForest study/spaced-repetition app; public-release clearance or rename is required before packaging.
-- PDF: page-based, real text, A4 portrait/landscape, produced by the paginator via `printToPDF`; no separate reader PDF in v1. Reader view is an editor view, not a separate export.
-- Views: one continuous layout engine; reader view (continuous scroll + page-break markers) and page view (paginated WYSIWYG) as two renderers; evaluate the tradeoff in the prototype.
+- PDF: page-based, real text, A4 portrait/landscape, produced by the paginator; no separate reader PDF in v1. The export pipeline depends on the final stack (Electron `printToPDF`, native PDFKit, Rust/Typst, etc.) and will be spiked before the stack decision.
+- Views: one continuous layout engine; reader view (continuous scroll + page-break markers) and page view (paginated WYSIWYG) as two renderers; reader is the primary editor in v1, page view is a preview.
+
+## Decisions locked (product owner)
+
+- **Long blocks**: a content block that exceeds the page may continue at safe internal boundaries (paragraph/list item) with a continuation marker. Never cut a line, image, or code line.
+- **Layout stability**: hybrid — incremental stable reflow, freeze mode for study, full reflow on request or after idle.
+- **Page orientation**: one document-wide orientation (portrait or landscape) at a time. Changing it reflows all pages.
+- **Git**: code and project docs only. User note documents are not in git. Notes are standard files in a user-chosen folder (single JSON + assets), with autosave and backups.
+- **Visual**: clean, Obsidian-like, minimal. Dark mode is the default.
+- **Name**: NoteForest (working title). Personal-first; public release needs clearance or a rename.
+- **Cross-page**: ghost parent + “continued from …” at the top of the next page; “continues” at the bottom of the previous page.
+- **Broken anchors**: visible marker + fallback to the whole block + repair dialog; never silent data loss.
+- **V1 scope**: all core features discussed — reader, page preview, PDF, chapters, blocks, branches, text/formula/image anchors, images, code, shared children, outline, multiple documents, search, dark mode, external agent API (no in-app agent panel) — delivered in vertical slices; polish later. Non-goals remain: iPad/Pencil, annotations, collaboration, plugins, spaced repetition, in-app agent chat/autonomy.
+- **Testing**: T3 Code internal browser for manual/visual checks; Playwright for automated e2e, visual regression, and PDF text extraction.
+- **Performance**: 300 blocks guaranteed, 1,000 usable with virtualization/collapse/focus. This is a rendering/layout limit, not a hard Electron limit; GPUI is a later option only if benchmarks justify a rewrite.
+
+## External agent API (v1)
+
+No in-app agent panel in v1. The app must expose a typed local API so external agents (Hermes, OpenCode, etc.) can read and mutate documents through the same command layer as the UI.
+
+- All document mutations are typed commands with undo/redo, validation, and audit logging.
+- API is local-only by default: bind to 127.0.0.1, token auth, explicit read/write scopes.
+- Transport: a local HTTP JSON API plus an MCP adapter for agents that support MCP; a CLI can wrap the same client.
+- Commands: open/read document, create/edit/delete block, create branch from block or anchor, reorder/reparent, create chapter, export PDF, search.
+- Destructive commands require an explicit flag/confirmation; the API returns a dry-run/proposal where practical.
+- No background autonomy in the app; the external agent drives. No web access from the app.
+- Open: exact API shape (HTTP JSON vs MCP-first), auth model, concurrency/file-locking, whether to expose raw commands or higher-level operations.
+
+## Research in progress (stack review)
+
+Scout is evaluating non-Electron/native options before we commit:
+
+- GPUI (Zed), egui, Iced, Slint, Dioxus/Leptos, Makepad, Xilem, Floem, Freya/Blitz, Tauri, Wails, Flutter, SwiftUI/AppKit, Qt.
+- Open-source Markdown/render components, math (KaTeX/MathJax alternatives), syntax highlighting, rich-text editing, canvas/text measurement, PDF export (PDFKit, Typst, printpdf), licenses and maintenance.
+- Existing GitHub projects we can reuse or learn from.
+- Assessment: can a non-Electron stack meet Markdown/LaTeX/code, adaptive page layout, and real-text PDF within a reasonable timeline for a small agent team? If yes, what is the migration cost? If no, Electron remains the baseline.
+
+No application scaffolding until this review is complete.
 
 ## Research input (Scout, `research/landscape.md`)
 
@@ -101,7 +138,7 @@ Treat these as inputs to evaluate, not final decisions:
 ## Repo layout (proposed)
 
 ```
-apps/desktop/       # Electron main + renderer (React)
+apps/desktop/       # desktop shell + renderer (stack TBD)
 packages/core/      # document model, schema, commands, serialization
 packages/layout/    # pure layout engine + paginator + fixtures
 docs/
@@ -109,7 +146,7 @@ research/
 AGENTS.md
 ```
 
-Do not create application scaffolding until the spec and spike plan are approved.
+Do not create application scaffolding until the stack review, spec, and spike plan are approved.
 
 ## Reporting format
 

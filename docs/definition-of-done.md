@@ -1,6 +1,6 @@
 # Definition of Done
 
-**Status:** v3 — updated for adaptive layout and derived pagination.
+**Status:** v4 — adaptive layout, derived pagination, External Agent API, stack under review.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/review-checklist.md` (review procedure, severity, report template).
@@ -9,20 +9,24 @@
 
 ## Phase note
 
-The stack is approved (Electron + React + TypeScript + TipTap/ProseMirror + CodeMirror 6 + KaTeX +
-React Flow + `printToPDF`). Until `docs/spec.md` and `docs/ux.md` are approved, this document still
-governs **documents, not code**. A docs task is done when:
+The stack and PDF pipeline are under review; Electron is provisional. Until `docs/spec.md` and
+`docs/ux.md` are approved, this document still governs **documents, not code**. A docs task is done
+when:
 
 - factual claims are sourced or labelled opinion;
 - decisions are recorded with alternatives and consequences;
 - acceptance criteria are testable;
 - terminology matches `AGENTS.md`;
-- nothing contradicts the approved stack or the layout model (no freeform canvas, pins, fixed
-  columns, stored page containers, or separate reader PDF);
+- nothing contradicts the locked layout model (no freeform canvas, pins, fixed columns, stored page
+  containers, or separate reader PDF);
+- no candidate-specific stack or PDF assumption is presented as final; the choice is recorded in an
+  ADR;
+- the in-app chat/agent panel is treated as a v1 non-goal; the agent surface is the External Agent
+  API;
 - the Reviewer has approved the document.
 
-Code-related sections activate when implementation starts. A change to the approved stack or page
-model without an ADR is not done, even if it works.
+Code-related sections activate when implementation starts. A change to the chosen stack, PDF
+pipeline, or layout/pagination model without an ADR is not done, even if it works.
 
 ---
 
@@ -47,7 +51,8 @@ implementer claim.
 - [ ] Typecheck is clean; suppressions are justified in the diff.
 - [ ] Lint and format are clean; no new warnings.
 - [ ] No secrets, credentials, or machine-specific paths.
-- [ ] The packaged Electron build launches, not only the dev server.
+- [ ] The packaged desktop build launches on the chosen shell, not only the dev server; Electron is
+      provisional.
 
 ### 1.3 Tests
 
@@ -58,8 +63,8 @@ implementer claim.
 - [ ] Tests are deterministic: no sleeps, network, real clock, or order dependence.
 - [ ] Fixtures are added or updated and named.
 - [ ] Property tests cover any layout or model invariant the task touches.
-- [ ] Pagination tests cover A4 portrait and landscape, page breaks, continuation markers, and page
-      count when the task touches layout or export.
+- [ ] Pagination tests cover A4 portrait and landscape, page breaks, long-block safe boundaries,
+      continuation markers, and page count when the task touches layout or export.
 - [ ] Visual, PDF, and performance checks were run when the task touches those areas.
 
 ### 1.4 Manual verification and evidence
@@ -70,6 +75,10 @@ implementer claim.
 - [ ] Adjacent flows were spot-checked: outline/reader/page-view sync, anchor behavior, pagination,
       and continuation markers.
 - [ ] Reader and page views were checked in A4 portrait and landscape, with the page count recorded.
+- [ ] Dark mode (default) and light mode were checked; the PDF stays light in both.
+- [ ] Freeze mode is read-only; exit offers incremental or full reflow; selection and page survive.
+- [ ] External Agent API work verified token scopes, the dry-run diff, apply, undo, audit entry, and
+      document lock.
 - [ ] A UI change includes a screenshot or short recording, with before/after when visual.
 - [ ] Evidence is attached to the task as paths or links, not "see above".
 - [ ] Performance-sensitive work includes measured numbers with machine and method.
@@ -82,20 +91,24 @@ implementer claim.
 - [ ] No silent deletion of blocks, branches, anchors, manual break hints, or assets.
 - [ ] Page settings and manual break hints survive save and reload; derived pages recompute
       deterministically.
+- [ ] View state (mode, page, scroll, zoom, selection, collapse) is not written as document data,
+      and stale references are dropped on load.
 - [ ] A failure leaves the document unchanged or recoverable.
 
 ### 1.6 Performance
 
 - [ ] Within the budgets in §5 for the task's scale.
 - [ ] Measured, not estimated; the method is recorded.
-- [ ] No new long task on typing, pan, zoom, or page switch.
+- [ ] No new long task on typing, pan, zoom, page switch, or repagination.
 - [ ] No unbounded memory or listener growth.
 
 ### 1.7 Accessibility and UX
 
+- [ ] First run defaults to dark mode; light mode is available and the choice persists.
 - [ ] New UI has a keyboard path; focus is visible; Esc works.
 - [ ] Interactive elements have labels and roles; a screen-reader sanity check was done.
-- [ ] Contrast and non-color cues are present.
+- [ ] Contrast and non-color cues are present in dark mode (default) and light mode.
+- [ ] Visual language is clean and minimal, with consistent spacing and typography across views.
 - [ ] Empty, loading, error, pagination, and continuation states are designed and implemented.
 - [ ] Copy is English, consistent, and actionable.
 - [ ] Reduced motion is respected.
@@ -130,21 +143,57 @@ implementer claim.
 - [ ] The review report is attached (template in `docs/review-checklist.md`).
 - [ ] The reviewer did not review their own work.
 
-### 1.12 Stack-specific checks (Electron)
+### 1.12 Stack and PDF pipeline checks (TBD)
 
-- [ ] **Desktop shell:** the packaged Electron app launches; open/save uses shell APIs; file
-      association and recent documents work; no dev-only path.
-- [ ] **Renderer:** Chromium behavior verified for fonts, zoom, IME, text measurement, and page
-      rendering.
-- [ ] **Security model:** `contextIsolation` on, `nodeIntegration` off, privileged work through a
-      narrow preload API; no remote code.
-- [ ] **PDF path:** Electron `printToPDF` renders the shared paginator's page view with CSS `@page`,
-      correct A4 size/orientation/margins, continuation markers, a real text layer, and no scaling
-      drift.
+The stack and PDF pipeline are under review; Electron is provisional. Fill the matching checks once
+an ADR records the choice.
+
+- [ ] The chosen stack is recorded in an ADR; no candidate is presented as final in the meantime.
+- [ ] **Desktop shell:** the packaged app launches; open/save uses shell APIs; file association and
+      recent documents work; no dev-only path.
+- [ ] **Renderer:** behavior verified on the chosen engine (Chromium, WKWebView, or native) for
+      fonts, zoom, IME, text measurement, and page rendering.
+- [ ] **Security model:** renderer least privilege; for Electron, context isolation on and Node
+      integration off; privileged work behind a narrow preload API; no remote code.
+- [ ] **PDF pipeline:** the chosen path consumes the shared paginator; it verifies page geometry,
+      ghost/continuation markers, a real text layer, embedded fonts, and no second pagination. The
+      candidates are Electron `printToPDF`, native PDFKit, Rust/Typst, and WKWebView.
 - [ ] **File system:** atomic rename works on APFS; sandbox permissions or security-scoped bookmarks
       are handled if sandboxed.
 - [ ] **Packaging:** the build is reproducible even before signing and notarization exist.
-- [ ] **No stack drift:** no Tauri/WKWebView path or alternative renderer is added without an ADR.
+- [ ] A stack or PDF-pipeline change requires an ADR and reopens this section.
+
+### 1.13 External Agent API
+
+The in-app chat/agent panel is a v1 non-goal. The agent surface is a local API.
+
+- [ ] The API is off by default; the user enables it, chooses a port, and issues or revokes tokens.
+- [ ] API mutations use the shared typed command API; there is no API-only store, file, or model
+      mutation.
+- [ ] The HTTP JSON API and the MCP adapter map to the same command catalog; there is no second
+      command surface.
+- [ ] The server binds loopback or a Unix socket only.
+- [ ] Bearer tokens are shown once, stored hashed, compared in constant time, and revocable; scopes
+      are `read`, `write`, `export`, `destructive`, and `audit`, and a token cannot self-escalate.
+- [ ] Token secrets never appear in the document package, git, PDF metadata, logs, errors, or the
+      audit log.
+- [ ] Tokens can be document- or library-scoped; path traversal and arbitrary filesystem access are
+      rejected.
+- [ ] Dry-run returns a structured diff; commands validate `baseRevision`; apply is atomic;
+      destructive actions require explicit confirmation; a stale revision is refused.
+- [ ] Responses return created/updated IDs, diff, new revision, undo token, and audit ID; apply then
+      undo reverts one entry on the shared stack.
+- [ ] One writer lock per document; concurrent writers conflict instead of corrupting; lock TTL is
+      recoverable.
+- [ ] Every request (read, write, dry-run, export, failure) is audit-logged with token/client,
+      command, document, base revision, result, affected IDs, and duration; no note body by default.
+- [ ] No write is silent: every mutation returns a command ID and audit entry, and the UI reflects it.
+- [ ] Note content is untrusted; malicious content cannot trigger a command without an explicit API
+      call.
+- [ ] Auth, scope, validation, conflict, lock, and rate-limit errors are structured; no partial
+      mutation; retries are idempotent; no outbound network.
+- [ ] Auth/scope, MCP mapping, audit, dry-run/apply/undo, lock/concurrency, malicious-content, and
+      no-network tests pass.
 
 ---
 
@@ -165,6 +214,7 @@ Non-goals:
 Dependencies approved:
 Files expected:
 Page/layout impact (size, orientation, margins, pagination, manual breaks, page count):
+External API impact (commands, scopes, audit, lock):
 Test plan:
 Fixtures:
 Evidence (links):
@@ -189,6 +239,7 @@ Rules:
 - A fixture or a reproducible starting state.
 - Approved dependencies.
 - Page size, orientation, margins, pagination rule, and expected page count.
+- External Agent API scope and permissions, when the task touches the API.
 - No open product decision.
 - For UI work, the expected states and keyboard model.
 
@@ -206,8 +257,9 @@ If any is missing, the task is **Blocked**, not started.
 | **Property-based** | Invariants over generated documents | Every commit or nightly | No counterexample |
 | **Integration** | Model + storage, editor + marks, layout + measurement, commands + undo | Every PR | Must pass |
 | **End-to-end** | User flows on the packaged app | Every PR (smoke) and nightly (full) | Must pass |
-| **Visual** | Screenshots and geometry snapshots | Every PR on a fixed runner | No unintended diff |
-| **PDF** | Page fidelity, text extraction, page count, fonts | Every export change; every release | Must pass |
+| **Visual** | T3 internal browser for manual/visual checks; Playwright screenshots and geometry snapshots | Every PR on a fixed runner | No unintended diff |
+| **PDF** | Page fidelity, text extraction, page count, fonts; Playwright plus `pdftotext` | Every export change; every release | Must pass |
+| **External API** | Auth/scopes, dry-run, apply/undo, audit, locking, malicious content | Every API change; every release | Must pass |
 | **Performance** | Budgets on fixed fixtures | Nightly or weekly; every release | No regression over 20% |
 | **Migration / crash / fuzz** | Old files, kill mid-save, malformed input | Every schema change and every release | Must pass |
 
@@ -222,15 +274,16 @@ If any is missing, the task is **Blocked**, not started.
 
 Generate valid documents and assert:
 
-1. No block, callout, label, or arrow crosses the page content box or its margins in page view.
+1. A block either fits inside the page content box or is reported as a layout defect; nothing
+   silently crosses a margin or is clipped.
 2. Layout produces no overlapping rectangles after applying the minimum gap.
 3. Widths are content-driven: they depend on the block's content and subtree, and the same document
    yields the same widths. No fixed pixel column per depth exists.
 4. A child is either to the right of its parent, or below it with a slight indent when horizontal
    room is insufficient. There is no arbitrary placement.
 5. Top-level blocks follow chapter order with no overlap.
-6. An anchored callout is below its anchor within tolerance; if it reaches the page bottom, it
-   continues on the next page and is never split.
+6. An anchored callout is below its anchor within tolerance; if it reaches the page bottom, the
+   branch continues on the next page with continuity markers and no text line, image, formula, table row, or code line is cut.
 7. An anchor rectangle lies inside its block rectangle, or is flagged as orphaned.
 8. Layout is idempotent: `layout(layout(doc))` equals `layout(doc)`.
 9. Adding or removing a reference edge changes no node position or page break.
@@ -243,7 +296,9 @@ Generate valid documents and assert:
 14. Undo then redo returns to a byte-identical serialized state.
 15. No sequence of reparent commands can create a primary cycle.
 16. An anchor edit either preserves the anchor or marks it orphaned; it never silently retargets.
-17. Pagination breaks only between blocks; no block is split across pages.
+17. Normal blocks are atomic. A long block continues only at a safe internal boundary (paragraph,
+    list item, blockquote paragraph, or between code lines), never through a text line, image,
+    formula, table row, or code line, and the block exists once.
 18. Pagination is idempotent and deterministic: the same layout and settings give the same breaks
     and page count.
 19. Every block appears exactly once in reading order across the derived pages.
@@ -252,17 +307,43 @@ Generate valid documents and assert:
 21. A manual break hint, if honored, falls between blocks; an invalid hint resolves deterministically
     and never splits a block.
 22. Reader view and page view derive identical page breaks from the same layout and settings.
+23. Every top-level block belongs to exactly one chapter and is itself a content block; chapter
+    order is deterministic and introduces no synthetic super-root or page container.
+24. A block that is too wide, or too tall with no safe internal boundary, is reported as a layout
+    defect; it is never clipped, auto-scaled, or cut through a line, and export is blocked until
+    resolved.
+25. Each chapter starts at the top of a new derived page, and top-level blocks stack in chapter
+    order.
+26. Page geometry uses A4 210 × 297 mm portrait or 297 × 210 mm landscape with the configured
+    margins (20 mm default); orientation is document-wide and mixed orientation is absent in v1.
+27. Freeze mode is read-only and freezes the layout/pagination snapshot; exiting offers incremental
+    or full reflow, and full reflow on request or after the configured idle period converges to the
+    same deterministic layout and pagination.
+28. Every External Agent API mutation maps to shared commands; dry-run is non-mutating; apply is
+    all-or-none and undoable as one entry.
+
+Stability suite gates: adding one block keeps at least 95% of pre-existing blocks within 2 px in
+continuous coordinates; deleting one moves survivors outside the affected parent subtree and
+sibling group by no more than 1 px; unrelated chapters do not move. Page breaks may change.
 
 Log the seed. Save any shrunk failure as a named regression fixture.
 
 ### 3.4 Integration tests
 
 - **Storage:** temp directory, atomic save, simulated crash, backup rotation, missing asset.
-- **Editor:** transaction mapping of anchor marks, split and merge, paste, IME.
+- **Editor:** transaction mapping of anchor marks, paragraph split and merge, paste, IME.
 - **Layout:** real measurement in the renderer (jsdom cannot measure text); compare geometry and
   widths; assert no overlap and that every block is inside the page content box in page view.
-- **Pagination:** breaks between blocks, continuation markers, manual break hints, orientation and
-  margin changes, and page-count transitions.
+- **Pagination:** chapter boundaries start new pages; breaks fall between blocks; automatic and
+  manual markers; ghost-parent and continuation labels at both ends; a block too wide, or too tall
+  with no safe boundary, becomes a reported defect; manual hints are best-effort and report when
+  ignored; pagination waits for fonts and image dimensions.
+- **Long blocks:** continuation only at paragraph or list-item boundaries; no line, image, or code
+  line is cut; the block exists once.
+- **Freeze mode:** read-only freeze, freeze badge, exit to incremental or full reflow, selection/page
+  preserved, and full reflow converging to the same deterministic layout and pagination.
+- **External API:** token auth and scopes, dry-run, apply/undo, audit, stale proposal, concurrent
+  writers, file locking, atomic failure, and malicious-content isolation.
 - **Reader/page parity:** the two views derive the same layout and break positions; switching
   preserves reading position and selection.
 - **Undo:** coalescing rules and save boundaries.
@@ -273,30 +354,39 @@ Log the seed. Save any shrunk failure as a named regression fixture.
 - Playwright or the shell equivalent, on the target macOS runner.
 - Load fixtures through an app API, not through UI setup, to keep tests fast and stable.
 - Cover: create, edit, branch, anchor, save/reload, collapse, page navigation, reader/page switch,
-  pagination, continuation markers, export PDF, keyboard-only path.
+  page-break marker actions, pagination, continuation markers, long-block continuation, freeze and
+  reflow, dark/light switch, External API dry-run/apply/undo with scopes, export preflight, export
+  PDF, keyboard-only path.
 - No arbitrary sleeps; wait for explicit app signals.
 - One smoke path on every PR; full matrix nightly.
-- Test the packaged Electron app on macOS; no Tauri or WKWebView path.
+- Test the packaged app on the chosen shell; Electron is provisional. If WKWebView or native is
+  selected, verify its specific rendering and PDF behavior.
 
 ### 3.6 Visual regression
 
 - Fixed runner, pinned fonts, same OS and browser engine as the target.
+- Manual visual checks run in the T3 Code internal browser; Playwright owns the automated baselines.
 - Disable animations, hide the caret, move the mouse away, mask timestamps.
 - Prefer geometry snapshots (node positions, edge paths) for layout; pixels only for style.
 - Use element screenshots of page-view regions and reader-view page-break markers, not the whole
   window, with `maxDiffPixelRatio` for anti-aliasing.
 - Baselines are reviewed like code; intentional updates go in a dedicated commit.
-- Check A4 portrait and landscape in reader and page views at fit-page, 100%, and 150%; light and
-  dark if supported.
+- Dark mode is the default baseline; light mode baselines are included; PDF output stays light.
+- Check A4 portrait and landscape in reader and page views at fit-page, 100%, and 150%.
 
 ### 3.7 PDF tests
 
 - Generate fixture PDFs and assert every block's sentinel text with `pdftotext`, page by page.
 - Use `pdfinfo` for page count, page size, and orientation; `pdffonts` for embedded fonts.
 - Assert the PDF page count and page breaks equal the page view and the shared paginator.
-- Assert no block is split across PDF pages and continuation markers appear where the page view
-  shows them.
-- Assert A4 portrait and landscape documents keep their dimensions, orientation, and margins.
+- Assert no text line, image, formula, table row, or code line is cut across PDF pages; long blocks continue only at safe
+  internal boundaries; ghost-parent and continuation markers match the page view.
+- Assert the PDF is light in both app themes.
+- Assert A4 portrait and landscape pages are exactly 210 × 297 mm or 297 × 210 mm with the
+  configured margins.
+- Assert export is blocked when a block is too wide or unbreakably too tall and the affected block is
+  named.
+- Assert unhonored manual break hints are reported and the PDF uses the paginator's actual breaks.
 - Detect `�`, blank pages, and text rendered as images.
 - Visually check formulas, code, arrow vector quality, and that content stays inside the margins.
 - Page count, page breaks, size, orientation, and margins must be deterministic across repeated
@@ -330,8 +420,27 @@ Log the seed. Save any shrunk failure as a named regression fixture.
 - No test-only branches in production code.
 - No order dependence; each test owns its fixtures.
 - No network; time and randomness are injected.
-- Coverage is not a target. Anchors, layout, persistence, and migration must cover failure paths;
-  uncovered critical lines are justified in review.
+- Coverage is not a target. Anchors, layout, pagination, persistence, migration, and External API
+  commands must cover failure paths; uncovered critical lines are justified in review.
+
+### 3.11 External Agent API tests
+
+- Command/schema unit tests: valid arguments, unknown fields, missing fields, oversized payloads.
+- Auth tests: missing, invalid, revoked, and expired tokens; constant-time comparison; token rotation.
+- Scope tests: read-only token cannot write; document/folder scope cannot reach another file; scope
+  is checked per command.
+- Dry-run tests: structured diff, no mutation, no audit write beyond the read/dry-run event.
+- Apply/undo tests: atomic apply, one-entry undo, stale document version returns a conflict, retry
+  with the same idempotency key does not duplicate.
+- MCP adapter tests: every MCP tool maps to the same command catalog and validates scopes/revisions.
+- Audit tests: every request including read, dry-run, export, and failure gets an entry with
+  token/client, command, base revision, result, and duration; no secrets or note body by default;
+  append-only and survives restart.
+- Concurrency tests: two writers, one lock, second gets a conflict; stale lock TTL recovers; no
+  interleaved or corrupt save.
+- Malicious-content fixtures: instructions in note text, fake command JSON, hidden text, malicious
+  links, huge content; none triggers a command without an explicit call.
+- No-network default test; token never logged; rate limits and timeouts bounded.
 
 ---
 
@@ -345,9 +454,13 @@ purpose, expected invariants, and owning tests.
 | **formula-two-anchors** | A math block with two anchored terms, each with one branch | Distinct anchors; editing one does not move the other; both paginate correctly if the page ends; both survive reload |
 | **shared-child** | A primary→C and B reference→C, plus a normal child; C near a page break | C rendered once from A; outline shows it once with a reference indicator; the reference does not move C or change page breaks; removing it changes nothing |
 | **collapsed-subtree** | Three-level branch, middle node collapsed | Space reclaimed; hidden-count badge; expand restores; outline sync; save/reload preserves; page count repaginates deterministically |
-| **broken-anchor** | A branch whose anchor text was deleted | Branch kept; orphan UI; quote shown; reattach works; save/reload preserves the orphan; export warns |
-| **pagination-break** | A continuous document longer than one A4 page, with a lower-level block continuing at a break; portrait and landscape variants | Breaks occur only between blocks; no block is split; a continuation marker appears on the next page; page count equals the paginator; order preserved; no block duplicated or lost |
-| **large-document** | 300 and 1,000 blocks across multiple derived pages, mixed text, math, code, and images | Budgets met; page navigation; reader/page parity; PDF export; no freeze; page count deterministic |
+| **broken-anchor** | A branch whose anchor text was deleted | Branch kept and falls back to the whole block; repair dialog offers relink/attach/delete; quote shown; save/reload preserves the state; export warns |
+| **long-block-continuation** | A text/list block longer than one page with safe internal break points, plus a single unbreakable code line/image taller than a page | Break only at a paragraph, list-item, blockquote-paragraph, or between-code-lines boundary; no text line/image/formula/table row/code line cut; ghost parent and both continuation labels; the unbreakable case is a reported defect with export blocked |
+| **pagination-break** | A continuous document longer than one A4 page, with a lower-level branch continuing at a break; portrait and landscape variants | Normal blocks are atomic; long-block continuation uses safe boundaries; ghost parent and both labels; the block exists once; page count equals the paginator |
+| **layout-defects** | A block wider than the page (long code/table/image), an unbreakable tall image/code line, and an impossible manual break | Each is a reported layout defect with a warning and resolution actions; export is blocked; nothing is clipped, auto-scaled, or cut |
+| **large-document** | 300 and 1,000 blocks across multiple derived pages, mixed text, math, code, and images | 300 guaranteed; 1,000 usable with virtualization/collapse/focus; page navigation; reader/page parity; PDF; app stays responsive |
+| **external-agent-malicious-content** | Notes containing prompt injection, fake command JSON, hidden instructions, malicious links, and very large text | No command is triggered without an explicit API call; content is treated as data; no token or note content leaks |
+| **external-agent-conflict** | A dry-run built against a document that then changes; a destructive command; a read-only token; a second writer | Stale `baseRevision` returns a conflict; destructive action requires confirmation; scope denial changes nothing; the second writer gets a lock conflict |
 | **malformed-file** | Invalid JSON, invalid schema, newer version, duplicate IDs, primary cycle, two primary parents, missing asset, invalid page settings, invalid manual break hint | Each fails gracefully with a specific error; no overwrite; backup offered |
 
 Recommended additional fixtures:
@@ -357,12 +470,18 @@ Recommended additional fixtures:
 - **long-code:** a 2,000-line code block, horizontal scroll, token anchor.
 - **image-anchor:** region anchor, crop, replace, missing asset.
 - **multi-top-level-pages:** multiple top-level blocks across several pages, deep and wide trees.
+- **chapter-boundaries:** three chapters with several top-level blocks; each chapter starts a new
+  page; chapter reorder/delete changes page numbers but not internal chapter layout.
 - **landscape:** landscape-only document with the same content as the portrait fixture; page count
   may differ deterministically.
 - **manual-break-hints:** a hint between blocks, a hint inside a block (invalid), a hint at a
   collapsed boundary, and undo/redo.
-- **pagination-boundaries:** a block at the start and end of a page, a very tall block, and a nested
-  branch crossing a break.
+- **freeze-mode:** read-only freeze, blocked edit attempt, exit to incremental and full reflow,
+  selection/page preserved.
+- **dark-light:** the same document in dark (default) and light, including code, math, images, and a
+  light PDF.
+- **pagination-boundaries:** a block at the start and end of a page, a long block at a safe boundary,
+  and a nested branch crossing a break.
 
 Fixture rules:
 
@@ -378,8 +497,8 @@ Fixture rules:
 
 ## 5. Performance budgets
 
-Proposed numbers; ratify them in the page-layout/performance ADR. Target machine: base Apple
-silicon Mac (M1, 16 GB), release build, fit-page and 100% zoom, light theme, no DevTools, cold
+Proposed numbers; ratify them in the pagination/performance ADR. Target machine: base Apple silicon
+Mac (M1, 16 GB), release build, fit-page and 100% zoom, dark theme (default), no DevTools, cold
 cache for open.
 
 | Metric | 300 blocks | 1,000 blocks | Method |
@@ -388,6 +507,7 @@ cache for open.
 | Open to interactive | < 2 s | < 5 s | Open mark to first accepted input |
 | First content paint | < 1 s | < 2 s | Trace |
 | Full layout | < 50 ms p95 | < 250 ms p95 | Instrumented layout call |
+| Pagination (layout to breaks) | < 30 ms p95 | < 150 ms p95 | Instrumented paginator |
 | Incremental layout (≤ 20 affected nodes) | < 8 ms p95 | < 8 ms p95 | Same instrumentation |
 | Keystroke to paint | < 50 ms p95 | < 50 ms p95 | Input timestamp to frame |
 | Pan/zoom frame | p95 ≤ 18 ms on a full A4 page | p95 ≤ 18 ms on a full A4 page | Trace during a 5 s gesture |
@@ -403,19 +523,23 @@ cache for open.
 
 Correctness gates, not performance:
 
-- PDF page count equals canvas page count exactly.
-- Every PDF page is A4 with the correct orientation; no scaling drift.
-- Every block sits inside the page content box in both portrait and landscape.
+- PDF page count and page breaks equal the page view and the shared paginator exactly.
+- Every PDF page is A4 with the correct orientation and margins; no scaling drift.
+- No text line, image, formula, table row, or code line is cut across pages; long-block continuation uses safe boundaries;
+  ghost-parent and continuation markers match the page view.
+- Every block either fits inside the page content box in page view or is reported as a layout defect;
+  it is never silently clipped or auto-scaled.
 
 Notes:
 
-- **300 blocks is the guaranteed target.** 1,000 blocks across many pages must stay usable; only
-  the current page is rendered. Do not claim 60 fps with every page visible.
+- **300 blocks is the guaranteed target.** 1,000 blocks across derived pages must stay usable with
+  virtualization, collapse, and focus; only the visible pages are rendered, and pagination is
+  cached. Do not claim 60 fps with every page visible.
 - Do not promise 5,000+ blocks. If the product needs it, that is a new ADR with virtualization.
 - Budgets are release gates. PRs gate on a regression over 20% for stable metrics.
 - If a budget is missed: optimize, reduce scope, or write an ADR with a user-visible mitigation.
   Never silently raise the number.
-- Re-baseline after the page-layout spec and ADR are approved; record the machine and date.
+- Re-baseline after the pagination spec and ADR are approved; record the machine and date.
 
 ---
 
@@ -423,10 +547,11 @@ Notes:
 
 ### Scope and quality
 
+- [ ] Stack and PDF pipeline ADR approved; no candidate is still provisional.
 - [ ] Milestone tasks are approved; no S1 or S2 is open.
 - [ ] Known limitations are documented.
-- [ ] No half-built feature is visible: annotation layer, collaboration, iPad, reader mode, freeform
-      canvas, pins.
+- [ ] No half-built feature is visible: annotation layer, collaboration, iPad, in-app chat/agent
+      panel, separate reader PDF, freeform canvas, pins, fixed columns, stored page containers.
 - [ ] NoteForest name/trademark clearance completed or a rename decided before packaging
       (public-release blocker; an existing NoteForest study app is known).
 
@@ -438,10 +563,27 @@ Notes:
 - [ ] Crash recovery: kill mid-save, reopen, restore from backup.
 - [ ] Fresh install, upgrade, uninstall/reinstall; the document package opens in Finder.
 - [ ] File association, recent documents, and permissions work.
-- [ ] PDF: three representative documents exported and imported into Notability; A4 portrait and
-      landscape; page count matches the canvas; text searchable and highlightable; fonts embedded.
-- [ ] Page navigation, orientation switch, split, and merge verified on a multi-page document.
-- [ ] Large document with 1,000 blocks across pages: open, navigate, edit, export, memory.
+- [ ] PDF: three representative documents exported and imported into Notability; one document-wide
+      A4 orientation (portrait or landscape); page count and breaks match the page view; no line,
+      image, or code line cut; long-block safe continuation; ghost-parent and continuation markers;
+      text searchable and highlightable; fonts embedded; PDF light.
+- [ ] Page navigation, reader/page parity, pagination, and manual break hints verified on a
+      multi-page document.
+- [ ] Page-break marker actions (remove manual break, keep this break, explain) work in outline and
+      reader; markers are skipped by arrow navigation.
+- [ ] Export preflight blocks a block that is too wide or unbreakably too tall, and reports unhonored
+      manual hints, lost anchors, missing assets, and formula errors.
+- [ ] Freeze mode verified as read-only; exit to incremental/full reflow preserves selection and
+      page and is deterministic.
+- [ ] Dark mode (default) and light mode verified across reader, page, code, math, and images.
+- [ ] Broken anchors show the whole-block fallback and repair dialog; no branch is silently lost.
+- [ ] External Agent API: off by default, loopback-only, token shown once with read/write/export/
+      destructive/audit scopes, dry-run and baseRevision, atomic apply/undo, audit of every request,
+      lock/concurrency, MCP mapping, and no outbound network.
+- [ ] T3 Code internal browser manual checks completed; Playwright e2e, visual, and PDF text
+      extraction green.
+- [ ] Large document with 1,000 blocks across derived pages: usable with virtualization, collapse,
+      and focus; open, navigate, edit, export, memory.
 - [ ] Performance budgets verified on the minimum-spec Mac.
 - [ ] Accessibility: keyboard-only, VoiceOver on core flows, contrast, reduced motion.
 - [ ] Security: dependency audit, no telemetry, CSP, sanitization, license notices.
@@ -462,8 +604,8 @@ Notes:
 
 - A waiver needs an ADR or orchestrator approval, a reason, a user-visible risk, and an expiry or
   milestone.
-- Waivers never apply to data loss, security, a missing PDF text layer, or a wrong PDF page count,
-  page size, or orientation.
+- Waivers never apply to data loss, security, a missing PDF text layer, a wrong PDF page count, page
+  size or orientation, or a line/image/code line cut across pages.
 - "Temporary" without an issue is not a waiver.
 
 ---
@@ -477,7 +619,12 @@ Notes:
 - performance is unmeasured;
 - a UI change has no screenshot;
 - migration is untested;
-- page overflow is clipped, silently reflowed, or split without undo;
-- PDF page count, size, or orientation differs from the canvas;
+- layout defects are clipped, auto-scaled, or cut through a line instead of blocked;
+- pagination cuts a text line, image, formula, table row, or code line, uses an unsafe boundary, or
+  omits ghost/continuation markers;
+- PDF page count or page breaks differ from the page view, or content is cut across PDF pages;
+- pages are stored as containers or fixed columns are reintroduced without an ADR;
+- an External Agent API write bypasses auth/scope/audit, applies without confirmation, or exposes
+  the token;
 - the reviewer has not approved;
 - a normal action can lose data.

@@ -1,6 +1,6 @@
 # Review checklist
 
-**Status:** v3 — updated for adaptive layout and derived pagination.
+**Status:** v4 — adaptive layout, derived pagination, External Agent API, stack under review.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).
@@ -77,6 +77,10 @@ to the orchestrator.
 - For UI work, capture a screenshot or a short recording at the claimed state; include fit-page,
   100%, and 150% zoom when layout is involved.
 - For page work, check both A4 orientations, the reader and page views, and record the page count.
+- For visual and PDF work, run the manual check in the T3 Code internal browser and capture the
+  result; Playwright covers the repeatable e2e, visual-regression, and PDF text-extraction subset.
+- For External Agent API work, use a local token with read and write scopes, exercise dry-run →
+  apply → undo, and check the audit entry and lock behavior.
 
 ### 1.5 Probe beyond the happy path
 
@@ -105,10 +109,12 @@ anchor, or content at a page break, it is S1 regardless of how rare it looks.
 - **Coverage:** a percentage is not evidence of correctness.
 - **Summaries:** verify the file, not the sentence. A confident summary is a lead, not a proof.
 - **Absence of errors:** no console error does not prove the positive state; check the output.
+- **External API evidence:** require the token scope, structured dry-run diff, audit entry, command
+  ID, and post-apply undo state; a transcript is not evidence.
 
 ### 1.7 Verdict and report
 
-- Use the verdicts and severities in §8.
+- Use the verdicts and severities in §9.
 - Every finding gets: severity, location, reproduction, expected vs actual, and a direction
   (not a patch).
 - Record what you could not verify. An honest gap is better than a false approval.
@@ -123,9 +129,10 @@ anchor, or content at a page break, it is S1 regardless of how rare it looks.
 
 ### 1.9 Reviewing docs and specs (current phase)
 
-Until the spec and UX docs are approved, most reviews are of documents. The stack is already
-approved (Electron + React + TypeScript + TipTap/ProseMirror + CodeMirror 6 + KaTeX + React Flow +
-`printToPDF`), so a doc review also checks that nothing contradicts it. A doc review checks:
+Until the spec and UX docs are approved, most reviews are of documents. The stack and PDF pipeline
+are under review; Electron is provisional. A doc review checks that no candidate-specific
+assumption is baked into a product doc and that the chosen stack is recorded in an ADR. A doc
+review checks:
 
 - every MUST is testable and every acceptance criterion has a pass/fail condition;
 - states are covered: empty, loading, error, partial, large, offline;
@@ -138,8 +145,10 @@ approved (Electron + React + TypeScript + TipTap/ProseMirror + CodeMirror 6 + Ka
   page view, paginator, page break, continuation marker, primary/reference edge;
 - page size, orientation, and margins are document settings; pages are derived by the paginator,
   not stored;
-- pagination rules are defined: breaks only between blocks, no block split, continuation markers,
-  optional manual break hints;
+- pagination rules are defined: normal blocks atomic, long blocks only at safe internal boundaries,
+  continuation markers, optional manual break hints;
+- the in-app agent panel/chat is a non-goal; external agent access is an API with local binding,
+  token scopes, audit, and explicit confirmation;
 - adaptive geometry is stated: content-driven widths, wrap below the parent with a slight indent,
   sibling-only reordering;
 - anchored branch placement below the anchor and how it paginates are defined;
@@ -190,11 +199,15 @@ A well-written document with untestable acceptance criteria is not done.
 
 ### 2.3 State and undo
 
-- [ ] Selection, focus, zoom, and hover are view state, not document state (unless the spec says
-      otherwise).
-- [ ] Undo/redo covers block edits, edge create/delete/reparent, anchor create/remove, sibling
-      reorder, manual break hint insertion/removal, page settings changes, and collapse.
-- [ ] Undo after save/reload behaves as specified (session-only is acceptable only if documented).
+- [ ] Selection, focus, zoom, current page, scroll, and hover are view state, not document state
+      (unless the spec says otherwise).
+- [ ] Undo/redo covers block edits, edge create/delete/reparent, anchor create/remove, sibling and
+      top-level reorder, chapter operations, manual break hint insertion/removal, and page setup
+      changes. Collapse, view switches, and navigation are not undoable.
+- [ ] Undo restores selection and focus at the affected block; the typing-versus-command undo
+      routing is tested at boundaries.
+- [ ] Multi-step actions such as create anchored child are one undo entry, not several.
+- [ ] Undo history is session-only in v1; reopening a document starts a fresh stack.
 - [ ] Autosave does not clear undo or interrupt an in-flight edit.
 - [ ] Async work (measurement, save, export) cannot interleave into a corrupt state; stale results
       are discarded.
@@ -219,8 +232,15 @@ Verify these at the command layer **and** on load (a hostile file must not hang 
       pin is persisted.
 - [ ] Pages are derived by the paginator, not stored as containers; page size, orientation,
       margins, and optional manual break hints are document state.
-- [ ] Page breaks occur only between blocks; no block is split; continuation markers are derived
-      from the break.
+- [ ] No synthetic super-root or page container is introduced in the model or serialized data.
+- [ ] Chapter hierarchy is consistent: every top-level block belongs to exactly one chapter, and
+      chapter order is defined.
+- [ ] A top-level block is itself a content block, not a chapter-only placeholder; chapters group
+      top-level blocks and add no layout node.
+- [ ] Normal blocks are atomic. A long block may continue only at a safe internal boundary
+      (paragraph, list item, blockquote paragraph, or between code lines), never through a text line,
+      image, formula, table row, or code line; continuation is derived, marked on both sides, and
+      never creates a second block.
 - [ ] A block's horizontal position and width are content-driven and derived, not stored as fixed
       pixel columns.
 - [ ] Pagination is deterministic and idempotent for the same document and page settings.
@@ -241,8 +261,9 @@ Verify these at the command layer **and** on load (a hostile file must not hang 
 
 ### 2.6 Performance
 
-- [ ] No O(n²) behavior in layout, anchor resolution, or edge routing at 1,000 blocks.
-- [ ] Layout touches only the dirty subtree; no full reflow per keystroke.
+- [ ] No O(n²) behavior in layout, pagination, anchor resolution, or edge routing at 1,000 blocks.
+- [ ] Layout touches only the dirty subtree and the affected pagination; no full-document reflow per
+      keystroke.
 - [ ] No full document re-render on selection, hover, zoom, or page navigation.
 - [ ] Page navigation does not relayout or repaginate the whole document; pagination is cached and
       invalidated only by dirty content.
@@ -257,8 +278,8 @@ Verify these at the command layer **and** on load (a hostile file must not hang 
 - [ ] LaTeX is limited to KaTeX-safe commands; no `javascript:` links.
 - [ ] Images are validated; SVG is treated as untrusted or rasterized.
 - [ ] File access is confined to the document folder; asset paths cannot traverse.
-- [ ] Electron renderer runs with context isolation and no Node integration; privileged work goes
-      through a narrow preload API.
+- [ ] For the chosen shell, the renderer runs with least privilege; if Electron, context isolation
+      is on and Node integration is off, with privileged work behind a narrow preload API.
 - [ ] CSP where applicable; no remote code; no remote fonts by default.
 - [ ] No telemetry, analytics, or background network calls; no secrets in the repo or logs.
 - [ ] PDF export fetches no remote resources and executes no script.
@@ -310,12 +331,15 @@ Run with a fresh profile and a named fixture; record the session.
 - [ ] Zoom works with pinch, Cmd+scroll, buttons, fit-page, and actual size; limits are enforced;
       zoom is anchored at the pointer.
 - [ ] The page view does not jump after zoom, pan, page switch, or reload.
-- [ ] Page navigation works: next/previous page, page indicator or picker, and go-to-page; the
-      current page survives reload.
+- [ ] Page view navigation works: next/previous page, page indicator or picker, and go-to-page;
+      reader view scrolls continuously and shows page-break markers. The current page survives
+      reload.
 - [ ] Reader view and page view can be switched; both show the same content and page breaks, and the
       switch preserves reading position and selection.
-- [ ] Page settings (A4 size, orientation, margins) update both views; portrait and landscape render
-      without clipping.
+- [ ] Editing works in the primary authoring view defined by the UX spec; the other view reflects
+      the edit and pagination without a manual refresh.
+- [ ] Page settings (A4 size, document-wide orientation, margins) update both views; portrait and
+      landscape render without clipping; mixed orientation is absent in v1.
 - [ ] There is no drag-to-position. Dragging a block is disabled, or reorders siblings only if the
       UX spec says so; the affordance makes the difference clear.
 - [ ] Creating and deleting a branch works with pointer and keyboard; the target is highlighted;
@@ -326,6 +350,8 @@ Run with a fresh profile and a named fixture; record the session.
 - [ ] Panning does not select text; dragging does not start an edit.
 - [ ] Page margins and page-break markers are visible in the reader view; no content is clipped at a
       page boundary.
+- [ ] Page-break markers are not blocks, are skipped by arrow navigation, and expose the marker menu
+      (remove manual break, keep this break, explain).
 
 ### 3.2 Keyboard, focus, selection
 
@@ -342,23 +368,36 @@ Run with a fresh profile and a named fixture; record the session.
 - [ ] Selection survives reflow, repagination, and view switches because it is stored by ID, not
       coordinates.
 - [ ] Arrow-key navigation between blocks and in the outline matches the UX doc.
+- [ ] Navigating to a hidden block (search, reference follow, reveal) expands the necessary ancestors
+      and lands on its derived page without a document edit.
 - [ ] Screen reader announces block role, selection, branch, anchor, page number, and page change;
       edges have text alternatives where feasible.
 
 ### 3.3 Layout stability and feedback
 
 - [ ] Typing does not shift the block being edited or move the page viewport.
-- [ ] Adding or removing a block moves only the affected branch; page count changes only when
-      pagination changes.
+- [ ] Adding or removing a block moves only the affected branch; pagination after the edit may
+      shift, but block order and content are preserved.
 - [ ] Reordering siblings changes only that sibling set; unrelated branches keep their positions
       unless the page break shifts.
 - [ ] Page breaks are visible and deterministic; content is never clipped at a page boundary.
 - [ ] Manual break hint insertion/removal, if offered, is undoable and never splits a block.
-- [ ] A lower-level block that continues on the next page shows a continuation marker at the break.
-- [ ] An anchored branch may wrap or paginate; it is never split across pages, clipped, or
-      overlapped with the footer.
+- [ ] A lower-level branch that continues on the next page shows a ghost parent and continuation
+      labels at both ends.
+- [ ] An anchored branch may wrap or paginate; its blocks follow the normal atomic/long-block rule,
+      no text line, image, formula, table row, or code line is cut, and it is never clipped or overlapped with the footer.
 - [ ] Reader and page views agree on break positions after every edit.
+- [ ] Hybrid reflow: incremental stable reflow during authoring, with a freeze control that enters a
+      read-only study mode with layout and pagination frozen.
+- [ ] Freeze state is visible; editing is disabled; exiting offers incremental reflow or a full
+      reflow, and both are deterministic.
+- [ ] Switching freeze on or off preserves selection, current page, and reading position.
+- [ ] Full reflow runs on request or after the configured idle period; it preserves the logical tree
+      and shows a notice when page breaks change.
 - [ ] Collapse shows the hidden count; expand restores a predictable state.
+- [ ] Collapse state is shared by outline, reader, and page views; collapse is view state, not an
+      undoable document command.
+- [ ] When content moves page breaks, page numbers update and a "Pages updated" status is shown.
 - [ ] Animations are 120–200 ms, disabled for keyboard edits and reduced motion.
 - [ ] No flicker on page switch, load, save, or theme change.
 
@@ -367,22 +406,25 @@ Run with a fresh profile and a named fixture; record the session.
 - [ ] An anchored span has a visible, non-intrusive marker; hover reveals the branch or a preview.
 - [ ] Clicking or keyboard-activating the marker focuses the target; back navigation works.
 - [ ] The branch is placed below the anchor; if it reaches the page bottom it continues on the next
-      page with a continuation marker. The block is never split across pages or clipped.
-- [ ] Reader and page views show the branch at the same position and break.
-- [ ] A broken anchor is visibly distinct, not merely missing, and reachable from an orphan panel.
+      page with a ghost parent and continuation labels. No content block in the branch is split
+      through a text line, image, formula, table row, or code line.
+- [ ] Reader and page views show the branch under the same anchor and with the same page breaks.
+- [ ] A broken anchor is visibly distinct, falls back to the whole block, and opens a repair dialog;
+      it is not merely missing.
 - [ ] Reattach shows the stored quote and context and requires confirmation when ambiguous.
 - [ ] Creating an anchor does not alter the text or the Markdown export unexpectedly.
 - [ ] Deleting anchored text warns or preserves the branch; no silent cascade.
 
 ### 3.5 States and content
 
+- [ ] First run defaults to dark mode; light mode is available; the choice persists.
 - [ ] Empty document and empty page view give guidance; neither is a dead end.
 - [ ] Loading shows progress; content arrival does not jump the layout.
 - [ ] Errors are actionable: missing asset, corrupt file, export failure, save failure; no stack
       traces in the UI.
 - [ ] Pagination limits, manual-break conflicts, and pagination failures have defined states.
 - [ ] Page size, orientation, and margin changes have a clear state; no content is lost.
-- [ ] Documents with many pages show page count and navigation and do not freeze.
+- [ ] Documents with many pages show page count and navigation and stay responsive.
 - [ ] Reader/page view switch has a defined state and preserves position.
 - [ ] Long words, URLs, and code lines wrap or scroll without breaking the page content box.
 - [ ] Images have alt text, a broken-image placeholder, and the correct aspect ratio.
@@ -391,11 +433,15 @@ Run with a fresh profile and a named fixture; record the session.
 
 ### 3.6 Accessibility and visual quality
 
-- [ ] Contrast meets WCAG AA for text and meaningful graphics.
+- [ ] Contrast meets WCAG AA for text and meaningful graphics in dark mode (default) and light mode.
+- [ ] Dark mode keeps images, math, and code readable without inversion artifacts; PDF output stays
+      light.
 - [ ] Information is not conveyed by color alone (edge role, selection, error).
 - [ ] Ports and anchor markers have adequate hit targets independent of zoom.
 - [ ] Reduced motion is respected.
-- [ ] Works at fit-page, 100%, and 150% zoom, narrow window, and light/dark if supported.
+- [ ] Works at fit-page, 100%, and 150% zoom, narrow window, and in dark (default) and light themes.
+- [ ] Visual language is clean and minimal: restrained color, no decorative shadows or noise,
+      consistent spacing and typography across views.
 - [ ] Screenshots match the baseline; the diff is understood, not accepted.
 - [ ] No clipped text, overlapping toolbars, or off-screen dialogs.
 
@@ -409,25 +455,39 @@ and landscape in reader and page views at fit-page and 150% zoom.
 
 ### 4.1 Adaptive geometry and pagination
 
-- [ ] In page view, everything stays inside the page content box (margins excluded); no block,
-      callout, label, or arrowhead crosses a margin.
-- [ ] No node–node overlap when rectangles are inflated by the minimum gap (16 px until the UX doc
-      defines a token).
+- [ ] In page view, every block either fits inside the A4 content box (210 × 297 mm portrait,
+      297 × 210 mm landscape, default 20 mm margins) or is a reported layout defect; nothing
+      silently crosses a margin.
+- [ ] Each chapter starts on a new derived page; top-level blocks stack vertically in chapter order.
+- [ ] No node–node overlap when rectangles are inflated by the minimum clear gap (16 logical px at
+      100%).
 - [ ] No block–callout, callout–callout, or label–node overlap.
-- [ ] An anchored callout starts below its anchor and aligns to the anchor's left within 2 px at
-      100%; if it reaches the page bottom, it paginates by the normal rule.
+- [ ] An anchored callout starts below its anchor, aligns to the anchor's left within 2 px at 100%,
+      and paginates by the normal rule if it reaches the page bottom.
 - [ ] Widths are content-driven and adaptive: a large subtree may take more horizontal space, a leaf
       sibling may be narrow, and there is no fixed pixel column per depth.
-- [ ] Siblings may have different widths and still fill the available width without overlap.
+- [ ] Siblings stack vertically in branch order; sibling subtrees do not overlap.
+- [ ] Siblings may have different widths and still share the available width without overlap.
 - [ ] A child is placed to the right of its parent when there is room; otherwise it is placed below
       the parent with a slight indent. The choice is deterministic, never an arbitrary x/y.
-- [ ] Only sibling order changes the layout; there is no nudge, pin, or free drag.
-- [ ] Top-level blocks follow chapter order and are laid out deterministically.
-- [ ] Page breaks occur only between blocks; no block is split across pages.
-- [ ] A lower-level block that continues on the next page shows a continuation marker at the break.
+- [ ] Only sibling order, top-level order, and chapter order change the layout; there is no nudge,
+      pin, or free drag.
+- [ ] Page breaks fall between blocks; a long block may continue only at a safe internal boundary
+      (paragraph, list item, blockquote paragraph, or between code lines), never through a text line,
+      image, formula, table row, or code line.
+- [ ] A page never overflows: the paginator adds pages instead of clipping.
+- [ ] A block that is too wide, or too tall with no safe internal boundary, is a layout defect: it
+      gets a warning, export is blocked, and the UI offers shorten/split or page-setup actions. It is
+      never clipped, auto-scaled, or cut through a text line, image, formula, table row, or code line.
+- [ ] A lower-level branch that continues on the next page shows a ghost parent and "continued from
+      page M" at the top of the next page, and "continues on page N" at the bottom of the previous
+      page; the block exists once.
+- [ ] The continuation label names the nearest top-level block or chapter and matches the UX copy.
+- [ ] Automatic page-break markers are dashed and manual markers are solid and labeled; the marker
+      menu offers the UX-defined actions (remove manual break, keep this break, explain).
 - [ ] Page count is derived, with no empty trailing page.
-- [ ] Changing page size, orientation, or margins re-paginates without clipping; the page count may
-      change.
+- [ ] Changing page size, document-wide orientation, or margins re-paginates without clipping; the
+      page count may change and the logical tree does not.
 - [ ] Reader and page views produce identical break positions for the same document and settings.
 
 ### 4.2 Edges and ports
@@ -437,8 +497,8 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] The edge ends at the target's in-port; the arrowhead points at the target, not empty space.
 - [ ] No edge passes through a node; if it must, it is routed around.
 - [ ] Reference edges are visually distinct and do not change any position or page break.
-- [ ] A reference to a block on another page uses the spec's cross-page affordance (link chip,
-      continuation label); no line runs off the page.
+- [ ] A reference to a block on another page ends at a page-edge indicator with the target page
+      number; no line runs off the page.
 - [ ] An edge that crosses a page break uses the continuation marker, not a line drawn across the
       page boundary.
 - [ ] Labels are readable, unclipped, and attached to the correct edge.
@@ -450,13 +510,17 @@ and landscape in reader and page views at fit-page and 150% zoom.
 
 - [ ] The branch begins at the anchor, not at the block edge.
 - [ ] The callout is placed below the anchor; it may wrap or paginate like any other branch.
+- [ ] Multiple callouts from one anchor stack in branch order; callouts from different anchors follow
+      anchor order and do not overlap.
+- [ ] A callout that cannot fit the page width after wrapping is reported as a layout defect, not
+      clipped or auto-scaled.
 - [ ] When the anchor is near the bottom of the page, the branch continues on the next page with a
-      continuation marker; there is no block split, overlap, or clipping.
+      continuation marker; there is no unsafe block split, overlap, or clipping.
 - [ ] Page zoom and pan keep the edge attached to the live anchor rectangle.
 - [ ] Editing text above the anchor moves the edge, not the callout content.
-- [ ] When pagination moves part of the branch, the continuation marker is shown; no branch block is
-      split across pages.
-- [ ] Reader and page views show the branch at the same position and break.
+- [ ] When pagination moves part of the branch, ghost parent and continuation markers are shown; no
+      text line, image, formula, table row, or code line is cut.
+- [ ] Reader and page views show the branch under the same anchor and with the same page breaks.
 - [ ] Deleting the anchor does not leave an edge pointing at a stale rectangle.
 
 ### 4.4 Shared children and DAG behavior
@@ -466,6 +530,8 @@ and landscape in reader and page views at fit-page and 150% zoom.
       reference edges do not move it.
 - [ ] The outline shows it once under the primary parent, with a visible "also referenced by"
       affordance.
+- [ ] The outline, reader/page view, and PDF use the same reading order: anchored children first,
+      then direct children, per the spec.
 - [ ] Adding a second parent creates a reference edge, not a duplicate block.
 - [ ] Changing the primary parent moves the block once, updates the outline and pagination, and
       re-routes reference edges.
@@ -476,7 +542,8 @@ and landscape in reader and page views at fit-page and 150% zoom.
 
 ### 4.5 Collapse, pagination, and stability
 
-- [ ] Collapse hides descendants, reclaims space, shows the hidden count, and keeps an edge stub.
+- [ ] Collapse hides descendants, including anchored callouts, reclaims space, shows the hidden
+      count, and keeps an edge stub.
 - [ ] Expand restores positions if content and settings are unchanged; otherwise reflow is
       deterministic.
 - [ ] A selection inside a collapsed subtree is cleared or preserved with a visible indication.
@@ -489,10 +556,14 @@ and landscape in reader and page views at fit-page and 150% zoom.
       duplicated.
 - [ ] Changing orientation or margins preserves reading order and loses no blocks; the page count
       changes deterministically.
-- [ ] **Add leaf:** nodes before the first affected page break keep their exact positions; later
-      nodes may shift by pagination but never overlap.
-- [ ] **Delete leaf:** the gap closes; nodes before the first affected break keep their positions;
-      later nodes may shift by pagination.
+- [ ] **Add stability:** across the stability fixture suite, at least 95% of pre-existing blocks keep
+      continuous x and y within 2 px after adding one block; unrelated chapters do not move. Page
+      breaks may change.
+- [ ] **Delete stability:** outside the deleted block's former parent subtree and sibling group,
+      every surviving block moves no more than 1 px; unrelated chapters do not move. Page breaks may
+      change.
+- [ ] **Chapter operations:** insert, delete, and reorder keep existing chapters' internal continuous
+      layout; only chapter order and page numbers change.
 - [ ] **Rename or longer content:** only the affected subtree reflows; downstream page breaks may
       shift; content is never clipped.
 - [ ] **Undo:** restores the exact previous positions, page count, and manual break hints.
@@ -500,13 +571,18 @@ and landscape in reader and page views at fit-page and 150% zoom.
       count.
 - [ ] Layout and pagination are deterministic for the same document, page settings, and viewport.
 - [ ] The same document and settings give identical positions and breaks on two runs.
+- [ ] Freeze mode is read-only: no edit, layout, or pagination change occurs while active; exiting
+      offers incremental or full reflow, and the full reflow matches a deterministic layout.
+- [ ] Pagination waits for fonts and image dimensions; late-loading assets do not silently change
+      page breaks.
 - [ ] Editing and then undoing returns to the previous page breaks without oscillation.
 
 ### 4.6 Layout performance
 
-- [ ] Meets the DoD budgets for 300 and 1,000 blocks across pages.
-- [ ] An incremental edit does not trigger a full-document layout; verify with instrumentation, not
-      by watching the screen.
+- [ ] Meets the DoD budgets: 300 blocks guaranteed; 1,000 usable with virtualization, collapse, and
+      focus.
+- [ ] An incremental edit does not trigger a full-document layout or full repagination; verify with
+      instrumentation, not by watching the screen.
 - [ ] No long task over 50 ms during pan, zoom, or page switch.
 - [ ] Page switch renders only the target page and does not relayout or repaginate the whole
       document.
@@ -557,15 +633,17 @@ and landscape in reader and page views at fit-page and 150% zoom.
 
 ### 5.5 Cross-cutting anchor rules
 
-- [ ] Anchor IDs are unique; one anchor cannot belong to two blocks.
+- [ ] Multi-block anchor selection is rejected with a clear message; no partial anchor is created.
 - [ ] Deleting a block has defined anchor and edge semantics and is undoable.
 - [ ] The orphan panel lists every broken anchor with quote, source block, and available actions.
+- [ ] A broken anchor falls back to the whole block and opens a repair dialog (relink, attach to
+      block, or delete) without losing the branch.
 - [ ] Orphan state persists across save/reload; export warns about it.
 - [ ] No action silently deletes a branch or an anchor; destructive actions confirm or are
       undoable.
 - [ ] Anchor creation and removal are in the undo history.
-- [ ] An anchored branch is placed below its anchor and paginates like any other block; it is never
-      split across pages or clipped.
+- [ ] An anchored branch is placed below its anchor and paginates like any other branch; long-block
+      continuation uses safe boundaries and never cuts a text line, image, formula, table row, or code line.
 - [ ] Manual break hints, page settings, and pagination have defined semantics for anchors and
       branches; no branch is silently lost.
 - [ ] Markdown and PDF export represent anchored branches without claiming false fidelity.
@@ -603,13 +681,16 @@ and landscape in reader and page views at fit-page and 150% zoom.
 
 - [ ] PDF page breaks equal the paginator's breaks and the page view's breaks; export does not
       repaginate.
-- [ ] No block, formula, code block, or image is split across PDF pages; breaks occur only between
-      blocks.
-- [ ] Continuation markers match the page view exactly.
+- [ ] No text line, image, formula, table row, or code line is cut across PDF pages; a long block
+      continues only at a safe internal boundary (paragraph, list item, blockquote paragraph, or
+      between code lines) with matching continuity markers.
+- [ ] Ghost-parent and continuation markers match the page view exactly; the block exists once.
 - [ ] No blank pages and no empty trailing page.
-- [ ] A4 portrait and landscape export with the correct dimensions, orientation, and margins.
+- [ ] A4 portrait or landscape export uses the document-wide orientation with the correct dimensions
+      and margins.
 - [ ] Page count is deterministic for the same document and settings.
-- [ ] Manual break hints, if offered, are honored in the PDF exactly as in the page view.
+- [ ] Manual break hints follow the page view: a hint that is honored starts the same page in the PDF;
+      an ignored hint is reported and both views use the paginator's actual break.
 
 ### 6.4 Graphics, fonts, assets
 
@@ -619,12 +700,17 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] Images have adequate DPI, correct aspect ratio, and no upscaling blur; missing assets show a
       placeholder.
 - [ ] Links work if emitted; otherwise no dead links are emitted.
+- [ ] The PDF is light regardless of the app's dark/light appearance; no dark background is printed.
 - [ ] The PDF opens in Preview, Chrome, and Notability without warnings.
 
 ### 6.5 Scale and failure
 
 - [ ] 300 blocks export in under 10 s; 1,000 in under 30 s; progress is shown; cancel works.
 - [ ] A cancelled or failed export leaves no partial file and no locked document.
+- [ ] Preflight blocks export when a block is too wide or unbreakably too tall, naming the affected
+      blocks and offering resolution actions.
+- [ ] Unhonored manual break hints, lost anchors, missing assets, and formula errors are reported;
+      the export still uses the paginator's actual breaks where the UX allows it.
 - [ ] Memory stays under 1.5 GB for 1,000 blocks.
 - [ ] Export does not mutate the document or the autosave state.
 - [ ] A document with broken anchors still exports and marks them.
@@ -636,19 +722,27 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] Annotations: v1 scope excludes the study layer. If a toggle exists, test both modes; a
       visible toggle is a scope violation unless an ADR approved it.
 
-### 6.6 Stack-specific checks (Electron)
+### 6.6 PDF pipeline checks (TBD)
 
-- [ ] Export uses Electron `printToPDF` from the shared paginator; `printToPDF` does not compute
-      its own page breaks. `preferCSSPageSize: true` is set and the CSS `@page` rule supplies the
-      document's size, orientation, and margins.
-- [ ] The print renderer waits for layout, pagination, `document.fonts.ready`, image decode, and
-      KaTeX before printing.
-- [ ] The print DOM mirrors the page view exactly; the page view is not screenshotted.
-- [ ] CSS size, orientation, and margins match the PDF output; no scaling drift between page view and
-      PDF.
-- [ ] Export works from the packaged app, not only the dev server.
-- [ ] No Tauri or WKWebView export path is present or claimed in v1; changing the stack reopens this
-      section through an ADR.
+The stack and PDF pipeline are under review; Electron is provisional. The paginator remains the
+single source of page breaks. Select the matching candidate checks and record the choice in an ADR.
+
+- [ ] The chosen pipeline consumes the shared paginator's page breaks; it does not compute a second
+      pagination.
+- [ ] Text remains real text (not outlines or screenshots) and fonts are embedded.
+- [ ] Page size, orientation, margins, breaks, and ghost/continuation markers match the page view.
+- [ ] Vector arrows and images print correctly.
+- [ ] **If Electron `printToPDF`:** `preferCSSPageSize`/CSS `@page` supplies size and margins; the
+      renderer waits for layout, pagination, fonts, images, and KaTeX; the print DOM mirrors the page
+      view and is not screenshotted.
+- [ ] **If native PDFKit:** page boxes and margins come from the paginator; font embedding and the
+      text layer are verified.
+- [ ] **If Rust/Typst:** the export consumes the shared paginator output or shared layout data; it
+      does not duplicate pagination; text layer and fonts are verified.
+- [ ] **If WKWebView:** the pagination spike passed; there is no single-long-page output and no
+      16,384 px truncation; the text layer is verified.
+- [ ] The chosen pipeline exports from the packaged app, not only the dev server.
+- [ ] A pipeline change requires an ADR and reopens this section.
 
 ---
 
@@ -659,8 +753,10 @@ and landscape in reader and page views at fit-page and 150% zoom.
       versions.
 - [ ] A golden fixture per schema version migrates; page size, orientation, margins, manual break
       hints, IDs, anchors, and edges are preserved.
-- [ ] Document page settings persist; pages themselves are recomputed deterministically, and
-      reopening gives the same page count for the same settings.
+- [ ] Document page settings (A4, orientation, 20 mm default margins) persist; pages themselves are
+      recomputed deterministically, and reopening gives the same page count for the same settings.
+- [ ] View state (mode, page, scroll, zoom, selection, collapse) is non-canonical; stale references
+      to deleted blocks or pages are dropped on load.
 - [ ] Manual break hint insertion/removal is atomic and undoable; no derived page container is
       written to disk.
 - [ ] Migration backs up first; a failed migration leaves the original intact.
@@ -685,14 +781,94 @@ and landscape in reader and page views at fit-page and 150% zoom.
 
 ---
 
-## 8. Severity and verdicts
+## 8. External Agent API checks
 
-### 8.1 Severity
+No in-app chat or agent panel ships in v1; that is a non-goal. External agents use a local API over
+the same typed commands as the UI.
+
+### 8.1 Shared command surface
+
+- [ ] Every API mutation maps to a public typed command also used by the UI; there is no API-only
+      store, file, or model mutation path.
+- [ ] Commands validate preconditions (primary cycle, anchor validity, safe continuation boundary,
+      document lock) before mutating; a rejected command changes nothing.
+- [ ] Schemas are typed and versioned; unknown fields and oversized payloads are rejected with
+      structured errors.
+- [ ] API commands are undoable with the same labels and grouping as UI commands, and return a
+      command ID.
+- [ ] The local HTTP JSON API and the MCP adapter map to the same command catalog; there is no second
+      command surface.
+- [ ] No API-only bypass of validation, confirmation, scope, or audit.
+
+### 8.2 Local-only binding, auth, and scopes
+
+- [ ] The API is off by default; the user enables it, chooses a port, and issues or revokes tokens.
+- [ ] The server binds loopback or a Unix socket only; it is not reachable from the LAN or a remote
+      tunnel by default.
+- [ ] Every request requires a bearer token; the secret is shown once, stored hashed, compared in
+      constant time, and revocable.
+- [ ] The token secret never appears in the document package, git, PDF metadata, logs, errors, or the
+      audit log (only a token ID).
+- [ ] Scopes are `read`, `write`, `export`, `destructive`, and `audit`; read and write are separate,
+      and a write token cannot grant itself destructive scope.
+- [ ] A token can be limited to one document or library; path traversal and arbitrary filesystem
+      access are rejected.
+- [ ] Rate limits and timeouts bound malformed or abusive requests.
+
+### 8.3 Dry run, confirmation, apply, and undo
+
+- [ ] A dry-run/proposal endpoint returns a structured diff (blocks, branches, anchors, page
+      settings, manual breaks) without mutating.
+- [ ] Destructive actions (delete, overwrite, chapter reorder, page setup, manual break removal)
+      require explicit confirmation or a scoped confirmation token; no silent apply.
+- [ ] Apply is atomic: all commands apply or none; partial apply is impossible.
+- [ ] A stale `baseRevision` or document-version conflict returns a structured conflict and is never
+      applied silently.
+- [ ] The response is typed: created/updated IDs, human-readable diff, new revision, undo token, and
+      audit ID.
+- [ ] Undo/redo through the API uses the shared command stack; apply then undo reverts as one entry
+      and the UI sees the result.
+- [ ] An idempotency key prevents duplicate apply on retry.
+- [ ] The API does not change view state (page, zoom, selection) by default.
+
+### 8.4 Concurrency, locking, and audit
+
+- [ ] One writer lock per document; API and UI serialize through it; commands validate `baseRevision`;
+      a second writer gets a conflict, not a corrupt file.
+- [ ] The lock is released on disconnect or crash with a TTL; a stale lock is recoverable.
+- [ ] Open/save respects the lock and atomic save; no interleaved writes.
+- [ ] Every request (read, write, dry-run, export, failure) gets an audit entry with timestamp,
+      token/client ID, command, document, base revision, result, affected IDs, and duration; note
+      content is omitted by default.
+- [ ] The audit log is local and append-only; it does not leak into the document package, git, or PDF
+      metadata.
+- [ ] No write is silent: every successful mutation returns a command ID and an audit entry, and the
+      UI reflects the change.
+- [ ] Every write is attributable; there are no anonymous mutations.
+- [ ] The audit log survives restart and can be exported or cleared per policy.
+
+### 8.5 Content trust, errors, and tests
+
+- [ ] Note content is treated as data, not instructions; API responses label it as such.
+- [ ] Malicious note content cannot cause a command unless the agent explicitly calls one; nothing is
+      auto-executed.
+- [ ] Auth, scope, validation, conflict, lock, and rate-limit errors are structured and actionable,
+      with no partial mutation.
+- [ ] Retries are idempotent; timeouts cancel; no duplicate commands.
+- [ ] No background autonomy or web access; the API is local and makes no outbound network call.
+- [ ] Tests cover auth/scopes, audit, dry-run/apply/undo, lock/concurrency, malicious content, and
+      the no-network default.
+
+---
+
+## 9. Severity and verdicts
+
+### 9.1 Severity
 
 | Level | Definition | Examples | Gate |
 |---|---|---|---|
-| **S1 Blocker** | Data loss or corruption, crash on a core path, security/privacy breach, silent anchor detachment, PDF without a text layer, content lost at a page break, primary cycle accepted on load | Typing before an anchor breaks it after reload; deleting a block silently deletes its subtree; pagination drops or duplicates a block; autosave truncates the file; the PDF has no selectable text or the wrong page count | Never merge or release |
-| **S2 Major** | Acceptance criterion unmet, common-case adaptive-layout overlap, broken undo, budget missed on target hardware, block split across pages, core flow inaccessible, misleading save/export state | A reference edge changes pagination; adaptive widths overlap a sibling; a block is split at a page boundary; a keyboard-only user cannot create a branch; save fails silently | Blocks task done |
+| **S1 Blocker** | Data loss or corruption, crash on a core path, security/privacy breach, silent anchor detachment, PDF without a text layer, content loss at a page break, unauthorized External Agent API write, token exposure, primary cycle accepted on load | Typing before an anchor breaks it after reload; deleting a block silently deletes its subtree; pagination drops or duplicates a block; autosave truncates the file; the PDF has no selectable text or the wrong page count; an API request writes without a token or scope | Never merge or release |
+| **S2 Major** | Acceptance criterion unmet, common-case adaptive-layout overlap, broken undo, budget missed on target hardware, unsafe block split, missing continuation marker, core flow inaccessible, misleading save/export state | A reference edge changes pagination; adaptive widths overlap a sibling; a text line, image, formula, table row, or code line is cut at a page boundary; a ghost-parent marker is missing; a keyboard-only user cannot create a branch; save fails silently | Blocks task done |
 | **S3 Minor** | Edge-case visual defect, copy inconsistency, missing tooltip, non-blocking performance | Arrow endpoint 2 px off at 150% zoom; a landscape margin differs slightly from portrait; "link" vs "branch" in a tooltip; a label overlaps only with an unusually long title | Follow-up issue allowed |
 | **S4 Nit** | Style, naming, comment, formatting | Variable name, comment wording, import order | Optional |
 
@@ -705,7 +881,7 @@ Rules:
 - Do not inflate severity to win an argument; do not downgrade it to ship.
 - State confidence and evidence. If unsure, say so and mark the item for investigation.
 
-### 8.2 Verdicts
+### 9.2 Verdicts
 
 - **Approve:** every acceptance criterion is evidenced, no S1/S2, no material unverified risk.
 - **Approve with nits:** only S3/S4; list them; follow-up is allowed.
@@ -715,7 +891,7 @@ Rules:
 
 ---
 
-## 9. Review report template
+## 10. Review report template
 
 ```text
 # Review — <task ID> <title>
@@ -724,7 +900,10 @@ Rules:
 - Date:
 - Commit / branch:
 - Environment: macOS version, build type, display scale
-- Page settings / views: size, orientation, margins, page count, reader/page parity
+- Stack/PDF candidate (if under review): Electron printToPDF | native PDFKit | Rust/Typst | WKWebView
+- Theme: dark (default) or light
+- Page settings / views: size, orientation, margins, page count and breaks, reader/page parity
+- External API: token scope, command ID, audit ID (when relevant)
 - Verdict: Approve | Approve with nits | Request changes | Blocked
 
 ## Scope reviewed
@@ -762,7 +941,7 @@ Rules:
 
 ---
 
-## 10. Ten-question gate
+## 11. Approval gate
 
 Before approving, answer each question:
 
@@ -776,6 +955,7 @@ Before approving, answer each question:
 8. Did I verify shared-child and reference-edge behavior, including cross-page references?
 9. Did I check PDF page fidelity, continuation markers, and text extraction if the task touches
    export?
-10. Can I state what I could not verify?
+10. Did I verify External Agent API auth/scopes, dry-run, audit, locking, and undo?
+11. Can I state what I could not verify?
 
 Any "no" means the task is not approved.

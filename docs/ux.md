@@ -4,32 +4,39 @@
 **Owner:** UX / Product
 **Date:** 3 November 2026
 **Working title:** NoteForest (clearance or rename required before packaging)
-**Approved stack (context, not a UX choice):** Electron + React + TipTap/ProseMirror + CodeMirror + React Flow + `printToPDF`
+**Stack (under review):** Electron is provisional. This document defines UX behavior and must not depend on Electron-specific behavior or APIs.
 **Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` (pending), `docs/plan.md` (pending)
 
-This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. It records the approved stack for context but does not make stack, content-model, or file-format decisions; those live in `AGENTS.md` and the spec.
+This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is under review; this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md` and the spec.
 
-**Revision note.** This version replaces the earlier page-as-container model. Pages are now a pagination result, not a structural level. Fixed depth columns, manual pins, nudges, free positioning, page create/duplicate/delete/split/move commands, and a separate reader/outline PDF export are removed. The structure is Document → Chapters → top-level content blocks; one continuous layout engine feeds two spatial renderers, Reader and Page.
+**Revision note.** This version implements the corrected model: pages are a pagination result, not a structural level. Fixed depth columns, pins, nudges, free positioning, page create/duplicate/delete/split/move commands, and a separate reader/outline PDF export are not part of the model. The structure is Document → Chapters → top-level content blocks; one continuous layout engine feeds two spatial renderers, Reader and Page.
 
 ---
 
-## 0. UX decisions proposed in v1.2
+## 0. UX decisions for v1.2
+
+**Locked by the product owner (v1):** Reader is the primary authoring surface; Page is a read-only preview and the PDF target; page orientation is document-wide; visual direction is clean, Obsidian-like and minimal with dark mode default; long blocks continue at safe boundaries; layout uses incremental reflow plus a freeze mode; broken anchors fall back to the whole block; external agent integration is API-only. The relevant open questions are marked resolved below.
 
 | # | Decision | Why |
 |---|---|---|
 | D1 | One window per document; no tab strip and no document library in v1 | A study document is a place, not a tab. Keeps the window chrome simple. |
-| D2 | Three views: Outline, Reader, Page. One main view at a time; no split view in v1 | Outline is the fastest structural editor; Reader is the continuous spatial view; Page is the paginated WYSIWYG. Split view doubles focus and space. |
+| D2 | Three views: Outline, Reader, Page. One main view at a time; no split view in v1. Reader is the primary spatial authoring surface; Page is a read-only preview and the PDF target; Outline remains the structural editor | Outline is the fastest structural editor; Reader preserves flow for authoring; Page shows exactly what the PDF will render. Split view doubles focus and space. |
 | D3 | `Return` creates a new block; `Shift+Return` inserts a line break inside the block | The block is the unit of structure. This is the outliner contract that makes authoring fast. |
 | D4 | `Tab` / `Shift+Tab` change block structure; list-item indentation uses `⌘]` / `⌘[` | One predictable meaning for Tab in an outliner. The conflict with lists is real; see Q9. |
 | D5 | Fixed logical order, adaptive geometry: only sibling order changes. No free positioning, no pins, no nudges | The product owner's model. Structure is stable; the layout adapts to content and page width. |
 | D6 | Pages are derived by a paginator, not stored as containers. No New Page, Duplicate Page, Delete Page, Split Page, or Move to Page command | A page is a rendering of the continuous layout at a given page size. Treating pages as containers would make the document and the PDF diverge. |
-| D7 | A page break can fall between any two blocks; a content block is never split across pages. A lower-level subtree that continues gets a continuation marker | The tree stays intact, and the reader can follow a branch across a page boundary. |
+| D7 | A page break can fall between blocks, and a long block may continue at safe internal boundaries (paragraph, list-item, or line boundaries). A line, image, code block, or formula is never cut. Continuations get a ghost parent and continuation markers | The tree stays intact; long text flows, while atomic elements remain whole and readable. |
 | D8 | Chapters group top-level blocks; a chapter can start on a new page (default on) | The document is organized by topics, not by pages. Chapter starts are a stable, user-meaningful break hint. |
 | D9 | An anchor is created together with a branch. Standalone highlights are a separate, non-structural mark | Anchor-only marks add UI and model weight without a user job. Highlight covers "mark this phrase". |
 | D10 | v1 exports one PDF from the same paginator, all pages, real text. No separate reader export | The PDF is the paginated rendering of the same layout the Page view shows. |
 | D11 | Collapse/expand is an outline-only navigation aid in v1; Reader and Page always show the full layout | Hiding content in a spatial view would change pagination and what exports. Spatial folding is Q10. |
 | D12 | One visible undo stack, with a documented routing rule between text editing and structure | Users should not have to know which stack they are in. |
 | D13 | No hover-only action. Every pointer action has a menu item and a keyboard path | Required for accessibility, and it makes the product usable without a mouse. |
+| D14 | Page orientation is one document-wide setting; changing it reflows all pages | Mixed orientation would complicate the paginator and the PDF; one orientation keeps the document coherent. |
+| D15 | Layout stability uses hybrid incremental reflow, a freeze mode for study, and full reflow on request/after idle | Keeps authoring responsive and reading stable; freeze prevents page breaks moving under the reader. |
+| D16 | Visual direction: clean, Obsidian-like, minimal; dark mode default | Content-first, low chrome; dark reduces glare in study sessions. |
+| D17 | A broken anchor falls back to the whole block, with a visible marker and a repair flow | A branch is never lost; the fallback keeps the relationship usable while the user repairs it. |
+| D18 | The External Agent API is opt-in, local-only, and token-scoped (read-only or read-write). In-app agent chat and autonomy are non-goals for v1 | External tools integrate through a controlled API; the app stays focused on authoring. |
 
 ---
 
@@ -40,11 +47,16 @@ This document defines how NoteForest behaves for a person at a Mac: interaction 
 - Authoring a study document made of chapters, content blocks, branches, and anchors.
 - Document → Chapters → top-level content blocks → descendants.
 - Adaptive tree layout with content-driven widths; children go right when there is room, otherwise wrap below the parent with a slight indent.
-- One continuous layout engine, rendered as Reader (continuous vertical scroll) and Page (paginated WYSIWYG).
-- Derived pagination with page-break markers, manual break hints, continuation markers, and block-level overflow handling.
+- One continuous layout engine, rendered as Reader (continuous vertical scroll), Page preview (paginated WYSIWYG), and Outline.
+- Derived pagination with page-break markers, manual break hints, continuation markers, ghost parents, and unbreakable-element overflow handling.
 - Primary structural branches and reference cross-links, including cross-page references.
+- Text, formula, code, and image-region anchors; images; code; shared children.
 - Markdown-authoring inside blocks, LaTeX formulas, code blocks, images, lists.
 - Real-text PDF export of all pages, generated by the same paginator.
+- Multiple documents, each in its own window, with recent documents.
+- Search across the current document.
+- External Agent API: an opt-in local API with read-only or read-write tokens, for external tools. No in-app chat UI.
+- Clean, minimal visual language; dark mode default.
 - Flat document files with assets; autosave and manual save.
 - Mac only.
 
@@ -55,8 +67,11 @@ This document defines how NoteForest behaves for a person at a Mac: interaction 
 - A separate reader/outline PDF export. Reader is an editor view, not an export mode.
 - Freehand ink, handwritten annotations, highlights drawn on the page. Annotations happen in Notability after export.
 - Collaboration, comments, presence, accounts, sync.
-- A document library, tags, databases, backlink queries, daily notes.
-- AI generation, summarization, flashcards, spaced repetition.
+- A document library, tab strip, tags, databases, backlink queries, daily notes. Multiple documents open in separate windows with recents.
+- Per-page orientation (v1 uses one document-wide orientation at a time).
+- In-app agent chat, agent sidebars, and autonomous agents. External integration is through the opt-in local API only.
+- Web browsing, URL fetching, external tool execution, and automatic apply by any external agent.
+- AI features beyond the external API: flashcards, spaced repetition, automatic document generation.
 - iPad and Apple Pencil. The UX must not block them, but v1 does not implement them.
 - Freeform whiteboard features: shapes, sticky notes, drawing tools, templates.
 - Markdown as the live document format. Markdown is an import/export concern.
@@ -75,15 +90,15 @@ This document defines how NoteForest behaves for a person at a Mac: interaction 
 | **Anchor** | A span inside a block (text, formula source, code range, image region) that a branch starts from | Tooltip: "Anchor: λ · 1 branch" |
 | **Anchored branch** | A branch whose source is an anchor; its child sits below the anchor | "Branch from “λ”" in the inspector |
 | **Shared block** | A block with one primary parent and at least one reference link to it | Badge: "Shared"; tooltip: "Also linked from 2 places" |
-| **Reader** | The continuous spatial view: vertical scroll, one layout, page-break markers | "Reader"; the primary spatial view in this proposal |
+| **Reader** | The continuous spatial view: vertical scroll, one layout, page-break markers | "Reader"; the primary authoring surface in v1 |
 | **Page view** | The paginated WYSIWYG renderer of the same layout | "Page view" or "Pages"; the product owner calls it the canvas |
 | **Page** | A pagination result at the current page size; not a container | "Page 2 of 5"; derived |
 | **Page break** | A computed boundary between two blocks in reading order | Shown as a marker in Reader/Outline and as a page boundary in Page view |
 | **Manual break hint** | A stored request to start a page before a block | "Manual break"; the paginator honors it when possible |
-| **Continuation marker** | A label at a page break when a lower-level subtree continues | "Chapter 1 · Eigenvalues continues on page 2" |
+| **Continuation marker** | A label at a page break when a subtree or a long block continues | "Chapter 1 · Eigenvalues continues on page 2" |
 | **Paginator** | The component that computes pages from the continuous layout | Internal; UI says "pagination" |
 | **Adaptive width** | Content-driven block width; siblings may differ; a child may wrap below its parent | "Wraps below" in the inspector, if needed |
-| **Overflow** | A block that cannot fit on a page even alone (too tall or too wide) | "This block doesn't fit a page"; export blocked |
+| **Overflow** | An unbreakable element (line, image, code block, or formula) that cannot fit a page; long text continues at safe boundaries instead | "This element doesn't fit a page"; export blocked |
 | **Collapse** | Hide a block's descendants in the outline | Outline only in v1 |
 | **Focus** | Outline: hoist a subtree. Reader: dim/zoom. Page: zoom | "Focus"; `Esc` exits |
 
@@ -127,7 +142,7 @@ Luca opens a six-month-old document. He half-remembers a term but not where it l
 | T4 | Read continuously and check the paginated result | P2 | Weekly | < 10 min | `⌘2` Reader, `⌘3` Page, `⌥↑↓` |
 | T5 | Export all pages as a PDF for Notability | P2 | Weekly | < 30 s | `⌘⇧E` or `⌘P` |
 | T6 | Find a block and understand its chapter and page | P3 | Weekly | < 1 min | `⌘F`, breadcrumbs, `⌘[` / `⌘]` |
-| T7 | Recover from a lost anchor, an oversized block, or a save conflict | P3 | Rare | < 2 min, no data loss | Status chip, block banner, conflict sheet |
+| T7 | Recover from a lost anchor, an unbreakable overflow, or a save conflict | P3 | Rare | < 2 min, no data loss | Status chip, element banner, conflict sheet |
 | T8 | Start a new chapter and move blocks into it | P1 | Occasional | < 1 min | Chapter menu, drag across chapter divider |
 | T9 | Insert a manual break to stabilize pagination | P1, P2 | Occasional | < 15 s | Block menu → **Insert Page Break Before** |
 
@@ -142,7 +157,7 @@ Luca opens a six-month-old document. He half-remembers a term but not where it l
 | Branch from a word | selection + 1 key | Select with keyboard or mouse, `⌘⇧Return` |
 | Switch view | 1 key | `⌘1` / `⌘2` / `⌘3` |
 | Previous / next page | 1 key | `⌥↑` / `⌥↓` |
-| Fit width / fit page | 1 key | `⇧1` / `⇧2` |
+| Fit view (Reader: width; Page: page) | 1 key | `⇧1` |
 | Export all pages | 1 key | `⌘P` |
 | Export with preview | 1 key | `⌘⇧E` |
 | Manual page break before a block | 1 key | `⌘⌥B` |
@@ -153,7 +168,7 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 
 **A. Capturing a lecture (P1).** Luca hits `⌘N`, types "Eigenvalues and eigenvectors" as the first top-level block in Chapter 1, presses `Return` for a sibling and `Tab` to make it a child, types the definition, selects "λ" and presses `⌘⇧Return`, types one sentence about the stretch factor, then `Esc`, `⌘Return` on the top-level block for the next branch. He starts Chapter 2 for the algorithm with `⌘⌥C`. He never opens the inspector. The Reader is laying out continuously in the background; page-break markers appear where the paginator breaks. He will switch to Page view later to check the print.
 
-**B. Studying before an exam (P2).** Luca opens the same document, presses `⌘2` for Reader, follows chapter 1 to the `det(A − λI)` anchor, reads the expansion in the callout below it, presses `⌘⇧F` to focus that subtree, `Esc`, then `⌘3` to check the Page view: chapter 2 starts on page 2, and a continuation marker shows where chapter 1's last branch resumes. He presses `⌘⇧E`, exports all pages, and AirDrops the PDF to the iPad for Notability.
+**B. Studying before an exam (P2).** Luca opens the same document, presses `⌘2` for Reader, follows chapter 1 to the `det(A − λI)` anchor, reads the expansion in the callout below it, presses `⌘⇧F` to focus that subtree, `Esc`, then `⌘3` to check the Page view: chapter 2 starts on page 2, and a ghost parent with a continuation marker shows where chapter 1's last branch resumes. He presses `⌘⇧E`, exports all pages, and AirDrops the PDF to the iPad for Notability.
 
 ---
 
@@ -165,27 +180,29 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 2. **One layout engine, two renderers.** Reader and Page are two views of the same continuous layout. The paginator is the only source of page breaks; the PDF uses it too. There is no second layout to drift.
 3. **Fixed logical order, adaptive geometry.** The tree order is stable; widths adapt to content, and children wrap below the parent when horizontal room runs out. Only sibling order changes. No free positioning.
 4. **Pages are a result, not a container.** The user never creates, moves, duplicates, or deletes a page. They edit content, add manual break hints, and the paginator recomputes.
-5. **Never split a block.** A block moves whole to the next page. A lower-level subtree may continue across pages, with a continuation marker.
-6. **Spatial memory is preserved by order and by the tree.** A branch stays under its parent; a page break is a labeled event, not a silent cut.
-7. **Nothing is lost silently.** A lost anchor stays with a repair path. A block that cannot fit a page is an explicit overflow, not clipped content.
+5. **Long blocks flow; atomic elements stay whole.** A long block may continue at safe internal boundaries. A line, image, code block, or formula is never cut.
+6. **Spatial memory is preserved by order and by the tree.** A branch stays under its parent; a page break is a labeled event with a ghost parent and a continuation marker, not a silent cut.
+7. **Nothing is lost silently.** A lost anchor falls back to the whole block, with a visible marker and a repair path. An unbreakable element that cannot fit a page is an explicit overflow, not clipped content.
 8. **Structure is explicit.** A line between two blocks means something. The UI distinguishes "this is my parent" from "this is related".
 9. **The pointer is optional; the keyboard is complete.** Every flow can be completed without a mouse. Every pointer action has a menu equivalent.
 10. **Export is a product surface, not a side effect.** The PDF is what the user studies on; it is the paginated rendering of the same layout and must be previewed and tested like a screen.
+11. **Layout stability is a feature.** Incremental reflow keeps authoring fast; freeze mode keeps study stable; a full reflow runs on request or after idle.
 
 ### 3.2 Invariants (testable)
 
 1. Any action available with the pointer is available with the keyboard alone.
-2. Editing text never deletes a branch. A lost anchor is surfaced, never silently removed.
+2. Editing text never deletes a branch. A lost anchor falls back to the whole block, is visibly marked, and can be repaired; it is never silently removed.
 3. Adding, removing or editing a reference link never changes any block's position, outline order, or pagination.
 4. Switching views preserves selection, focus, chapter, and the block's position in the layout.
-5. Export never clips or splits a block. A block that cannot fit a page blocks export with a fix path.
+5. Export never clips content. Long blocks continue at safe boundaries; an unbreakable element that cannot fit a page blocks export with a fix path.
 6. Undo restores the previous structure exactly: blocks, branches, anchors, chapters, manual break hints.
-7. Pagination is deterministic: the same document and page setup produce the same pages in Reader, Page, and PDF.
-8. A content block is never split across pages. Pagination breaks only between blocks.
+7. Pagination is deterministic: the same document, page setup and manual break hints produce the same pages in Reader, Page, and PDF.
+8. A block may continue only at safe internal boundaries; no line, image, code block, or formula is cut.
 9. The only spatial change a user can make is sibling order. There is no free positioning, pin, or nudge state.
-10. A page is never a container: inserting or deleting content changes pagination, not a page object.
-11. No destructive action is triggered by a single unmodified click.
-12. No meaning is carried by color alone.
+10. The External Agent API is off by default, local-only, and scoped by a token; it never runs autonomously.
+11. A page is never a container: inserting or deleting content changes pagination, not a page object.
+12. No destructive action is triggered by a single unmodified click.
+13. No meaning is carried by color alone.
 
 ---
 
@@ -202,7 +219,7 @@ One document per window. The window has six regions:
 │ Toolbar          [Outline | Reader | Page]  chapter breadcrumb        │
 │                                     Page 2 of 5   − +   [Export]     │
 ├──────────────────────────────────────────────────────────────────────┤
-│ Context bar      Pagination status · focus path · selection count     │
+│ Context bar      Pagination/layout status · focus path · selection    │
 ├───────────────────────────────────────────────────────┬──────────────┤
 │                                                       │ Inspector    │
 │   Main view: Outline / Reader / Page                  │ (optional)   │
@@ -219,7 +236,7 @@ One document per window. The window has six regions:
 | **Context bar** | Pagination status, focus path, "3 selected" | Only appears when it has something to say |
 | **Main view** | Outline, Reader, or Page | Exactly one is active; all render the same document and layout |
 | **Inspector** | Block, branch, anchors, links, chapter, pagination, document | Optional; never required to complete a flow |
-| **Status bar** | Save state, page count, block count, lost-anchor chip, overflow chip, zoom | Warnings are clickable and open the relevant surface |
+| **Status bar** | Save state, page count, block count, lost-anchor chip, overflow chip, layout/API status, zoom | Warnings are clickable and open the relevant surface |
 
 ### 4.2 The three views
 
@@ -227,16 +244,17 @@ One document per window. The window has six regions:
 |---|---|---|---|---|
 | **Outline** | A vertical list of chapters and blocks with page-break markers | Fast structural authoring, keyboard work, long documents | Marker rows between blocks | Full |
 | **Reader** | One continuous vertical layout of the tree, with page-break markers drawn across it | Reading a topic in one flow; spatial authoring; following anchored branches | Horizontal markers with page numbers and continuation labels | Full, with continuous reflow |
-| **Page** | The same layout paginated into A4 pages, WYSIWYG | Checking what fits, what the PDF will look like, page-level reading | Page boundaries and footers | Full, with pagination frozen during an edit |
+| **Page** | The same layout paginated into A4 pages, WYSIWYG | Checking what fits, what the PDF will look like, page-level reading | Page boundaries and footers | Read-only preview; the PDF target |
 
-**Tradeoff.** Reader is better for authoring and reading because page boundaries do not interrupt the flow, and a long branch stays visible. Page is better for judging fit and for the exact print result, but its boundaries interrupt the argument and editing can move content between pages. Outline is still the fastest way to build structure. The v1.2 recommendation is: **Reader is the default spatial view and the primary spatial authoring surface; Page is the WYSIWYG check and export preview; Outline remains the structural editor.** The final choice is Q1 after the prototype; the doc defines both so the prototype can compare them.
+**Resolved for v1.** Reader is the primary spatial authoring surface: page boundaries do not interrupt the flow, and a long branch stays visible. Page is a read-only preview and the PDF target: it is the best place to judge fit and see the exact print result, but it is not an editing surface. Outline remains the fastest way to build structure.
 
 Rules:
 
 - The view switcher is a three-segment control: `⌘1` Outline, `⌘2` Reader, `⌘3` Page.
 - The view is persisted per document for the session.
-- There is no split view in v1 (Q1).
+- There is no split view in v1 (Q21).
 - If the window is too narrow for the inspector, the inspector overlays the main view.
+- Page is read-only for content: selection, page navigation, zoom, focus, Page Setup and Export. Editing happens in Outline or Reader.
 - Reader and Page share selection, focus, scroll anchor, and zoom intent; their exact scroll positions are per view.
 
 ### 4.3 Document, chapters, and top-level blocks
@@ -260,26 +278,28 @@ DOCUMENT
 | **Document** | The file. It has a title and one or more chapters. |
 | **Chapter** | A named group of top-level blocks. It has a title, an order, and a "start on a new page" setting (default on). |
 | **Top-level block** | A content block with no primary parent, inside a chapter. It can be a standalone sentence or a 1–2 word phrase with children. |
-| **Chapter heading** | A heading, not a content block. It has no branches, anchors, or child blocks. It is editable in the outline and the Reader/Page heading. |
+| **Chapter heading** | A heading, not a content block. It has no branches, anchors, or child blocks. It is editable in the outline and Reader; Page shows the heading read-only. |
 | **Top-level order** | Chapters are ordered; top-level blocks are ordered inside a chapter. The document order is chapter order, then top-level order, then depth-first child order. |
 | **Pages** | Derived by the paginator. They are not stored, not named, and not editable as objects. |
-| **Page break** | Computed between two blocks in reading order. It never falls inside a block. |
+| **Page break** | Computed between blocks, or at a safe internal boundary inside a long block. It never falls inside a line, image, code block, or formula. |
+| **Safe boundary** | An internal break point in a long block: between paragraphs, list items, or lines. Never inside a line, image, code block, or formula. |
 | **Manual break hint** | A stored request to start a page before a block. It is a hint, not a page object. |
-| **Continuation** | When a page break falls inside a subtree, the parent's branch continues; a continuation marker labels the break. |
-| **Empty chapter** | Allowed, but it must contain one empty top-level block to be editable. A document always has at least one chapter. |
+| **Continuation** | When a page break falls inside a subtree or a long block, the content continues on the next page with a continuation marker and a ghost parent. |
+| **Ghost parent** | A dimmed, non-editable copy of the nearest ancestor at the top of a continuation page, with "continued from page N"; clicking it jumps to the real parent. |
+| **Empty chapter** | A chapter always has at least one top-level block. If all content is deleted, the chapter shows one empty block and an empty-state prompt. A document always has at least one chapter. |
 
 Page setup (document-level in v1):
 
 | Setting | Default | Options | Effect |
 |---|---|---|---|
 | Page size | A4 | A4, Letter | Re-paginates the whole document |
-| Orientation | Portrait | Portrait, Landscape | Re-paginates; landscape helps wide content |
+| Orientation | Portrait | Portrait, Landscape | One document-wide orientation at a time; changing it reflows all pages |
 | Margins | Normal | Normal, Wide right (≈30% extra, for Notability) | Changes the printable area |
 | Chapter start | New page | New page, Continuous | A manual break hint at each chapter heading |
 | Page numbers | On | On, Off | Footer, part of every page |
 | Running header | Document title | On, Off | Small header outside the content area |
 
-Changing page size, orientation, margins, or chapter start re-paginates the document. Page numbers may change; manual breaks may become invalid. The change is undoable and is preceded by a warning that names the page count and the number of manual breaks affected.
+Page setup is document-level. Orientation is one document-wide setting at a time; there is no mixed orientation. Changing page size, orientation, margins, or chapter start reflows all pages. Page numbers may change; manual breaks may become invalid. The change is undoable and is preceded by a warning that names the page count and the number of manual breaks affected.
 
 ### 4.4 Adaptive layout and pagination
 
@@ -294,10 +314,25 @@ The layout is a tree, not a grid:
 | **Only sibling order** | The user can reorder siblings. There is no arbitrary x/y, no pin, no nudge. |
 | **Anchored branches** | The child is placed below its anchor. It wraps and paginates like any other branch. |
 | **Reference links** | Cross-links do not affect layout or pagination. |
-| **Pagination** | The paginator scans the continuous layout in reading order and breaks between blocks when the next block does not fit. It never splits a block. |
-| **Continuation** | If the break is inside a subtree, a continuation marker is shown at the break and at the resume point. |
+| **Pagination** | The paginator scans the continuous layout in reading order and breaks between blocks, or at a safe internal boundary inside a long block. It never cuts a line, image, code block, or formula. |
+| **Continuation** | If the break is inside a subtree or a long block, a continuation marker is shown at the break and at the resume point, with a ghost parent at the top of the next page. |
 
 A page is a **result** of this process. It has no identity, no content list, and no edit operations. If content changes, the paginator may produce a different number of pages, and page numbers may shift.
+
+**Layout stability.** The layout is not recomputed from scratch on every keystroke:
+
+| Mode | Behavior |
+|---|---|
+| **Incremental reflow** | An edit reflows the affected subtree and the page breaks below it. The rest of the document keeps its positions. |
+| **Freeze mode** (`⌘⌥L`) | Locks layout and pagination for study. Page breaks and block positions stay put while reading. Edits are still allowed, but the layout does not update until **Reflow Now** or unfreeze; a chip shows "Layout frozen · 3 changes pending." Freeze is a per-window view state, not a document change. |
+| **Full reflow** | Runs on request (`⌘⌥R`), after a short idle period (target: 1.5 s) when freeze is off, and always after Page Setup. It normalizes all page breaks and continuation markers. |
+
+The model is hybrid: incremental reflow while authoring, full reflow on request or after idle, and freeze for study.
+
+- Incremental reflow is the default while authoring; freeze is for studying or for keeping a page stable while annotating a PDF.
+- Page Setup always reflows all pages; if freeze is on, applying Page Setup exits freeze with a notice.
+- Freeze never changes the document; it only defers layout updates.
+- A frozen layout can be stale; the chip says so, and **Reflow Now** is one click away.
 
 ### 4.5 Selection, focus, and navigation
 
@@ -309,9 +344,9 @@ A page is a **result** of this process. It has no identity, no content list, and
 | Concept | How it is entered | Visual | Notes |
 |---|---|---|---|
 | No selection | Click empty view / `Esc` twice | Nothing highlighted | Status bar shows document counts |
-| Block selected | Click gutter/row in outline; click block in Reader/Page; `Esc` from editing | Accent ring, no caret | Single-object mode |
-| Editing | `Return` on a selected block, click text, double-click in Reader/Page | Caret, editing ring | Text selection inside is native |
-| Multi-select | `⇧`-click, `⌘`-click, marquee (Reader/Page), `⇧↑↓` when not editing | Rings on all, "N selected" | Inspector shows bulk actions; no group positioning |
+| Block selected | Click gutter/row in outline; click block in Reader/Page; `Esc` from editing (Outline/Reader) | Accent ring, no caret | Single-object mode |
+| Editing | `Return` on a selected block, click text, double-click in Reader (Page is read-only) | Caret, editing ring | Text selection inside is native |
+| Multi-select | `⇧`-click, `⌘`-click, marquee (Reader/Page), `⇧↑↓` when not editing | Rings on all, "N selected" | Inspector shows bulk actions; Reader/Outline can delete, Page is inspect/copy only; no group positioning |
 | Focused subtree | `⌘⇧F`, or `F` in Reader/Page | Outline: hoisted; Reader: dimmed/zoomed; Page: zoomed | `Esc` exits |
 | Anchor selected | Click an anchor dot / chip | Anchor span and its branch highlighted | Inspector shows the anchor |
 | Branch selected | Click a branch or a branch row in the inspector | Branch and both endpoints highlighted | `⌫` removes per branch rules |
@@ -335,8 +370,8 @@ A right-hand panel, collapsed by default, toggled with `⌘⌥I`. On windows nar
 | **Branches** | Block has children, or a branch is selected | Outgoing branches with role, label, target, page if cross-page; "Add Child", "Link to Block…" |
 | **Linked from** | Block has reference links | Source blocks with quote and chapter; click to navigate |
 | **Chapter** | A block or chapter heading is selected | Chapter title, top-level count, "Start on new page" toggle, **Move to Chapter…** |
-| **Pagination** | Always, in Reader/Page | Page count, current page, manual break count, **Page Setup…**, **Insert Page Break Before**, **Remove Manual Break** |
-| **Selection** | Multiple blocks selected | Count, bulk delete, copy as Markdown; no bulk move |
+| **Pagination** | All views; per-block manual-break edits only in Reader/Outline | Page count, current page, manual break count, **Page Setup…**, **Insert Page Break Before**, **Remove Manual Break** |
+| **Selection** | Multiple blocks selected | Count, bulk delete (Reader/Outline), copy as Markdown; Page inspect/copy only; no bulk move |
 | **Document** | Nothing selected | Title, chapter count, page count, block count, export presets, lost-anchor count |
 
 Rules:
@@ -365,6 +400,7 @@ Rules:
 | X4 | Keyboard shortcuts | Discoverability | Help menu, `⌘⇧/` |
 | X5 | Settings | Appearance, editor, export defaults, shortcuts | `⌘,` |
 | X6 | Delete confirmation | Large subtrees, chapters | `⌘⇧⌫`, Chapter menu |
+| X7 | External Agent API settings | Enable local API, token, read/write scope | Settings → Integrations |
 
 ---
 
@@ -393,10 +429,9 @@ The first launch opens **W1 Welcome**:
 
 | Case | Message | Actions |
 |---|---|---|
-| Document has no blocks | "Nothing to read yet." / "Nothing to paginate yet." | **Add a Top-Level Block** (focuses it, switches to Outline), **Open the Sample** |
-| Chapter has no blocks | "This chapter is empty." | **Add a Top-Level Block**, **Move a Block Here…** |
+| Document has no content | "Nothing to read yet." / "Nothing to paginate yet." | **Add a Top-Level Block** (focuses it, switches to Outline), **Open the Sample** |
+| Chapter has no content | "This chapter is empty." | **Add a Top-Level Block**, **Move a Block Here…** |
 | Selection is outside the viewport | "“Spectral radius” is in Chapter 1." | **Go to Chapter 1** |
-| Page view has no page content (impossible: the paginator always makes a page) | — | — |
 
 The Page view never shows a blank infinite grid. It shows a page with an edge, margins, a footer, and an explanation if the document is empty.
 
@@ -450,7 +485,7 @@ Dismissing a coach mark hides it permanently; they never block clicks.
 4. Press `⌘2`, then scroll or `⌥↓` to the page-break marker. The marker reads "Page 2 · Chapter 2 starts here".
 5. Press `⌘3`. The Page view opens on page 2; the chapter heading is at the top, and the footer reads "Page 2 of 2".
 6. Click B8. Its inspector shows the reference link "bound → Spectral radius (Chapter 1, page 1)". Clicking it jumps to B6 in Reader or page 1 in Page view.
-7. Double-click B7, select `A @ v`, press `⌘⇧Return`, type "why normalization matters". A new block appears below the anchor. The Reader reflows continuously; the Page view, if open, freezes pagination during the edit and re-paginates on commit. If the new block moves to another page, the Page view follows it and shows a brief "Moved to page 2" chip.
+7. Press `⌘2` to return to Reader, double-click B7, select `A @ v`, press `⌘⇧Return`, type "why normalization matters". A new block appears below the anchor. The Reader reflows continuously. Press `⌘3` to see the paginated result; if the new block moves to another page, the page indicator updates and the preview shows the new pagination.
 8. Press `⌘⇧E`. The preview shows 2 A4 pages. Export all pages.
 9. Open the PDF. Text is selectable; page 2 matches the Page view; the anchored branch appears in place below the code block.
 
@@ -519,12 +554,14 @@ Flow index:
 
 ### F2 — Add a chapter, top-level, sibling or child block
 
-| Action | Keyboard | Menu | Reader/Page |
+| Action | Keyboard | Menu | Reader |
 |---|---|---|---|
 | New chapter | `⌘⌥C` | Chapter → New Chapter | Chapter menu |
 | New top-level block in the current chapter | `⌘⌥Return` | Block → Add Top-Level Block | Block menu |
 | New sibling below | `Return` | Block → Add Sibling | Context menu → Add Sibling |
 | New child | `⌘Return` | Block → Add Child Block | `⌘Return`, or click the branch handle |
+
+Page is a read-only preview: add, edit, and delete commands are disabled there. Use Reader or Outline.
 
 **Steps (outline, sibling)**
 
@@ -549,7 +586,7 @@ Flow index:
 
 **Text / Markdown**
 
-1. Click text, press `Return` on a selected block, or double-click in Reader/Page.
+1. Click text, press `Return` on a selected block, or double-click in Reader (Page is read-only).
 2. Type. Markdown input rules convert as you type: `# `, `- `, `1. `, `> `, `**bold**`, `*italic*`, `` `code` ``, `$...$`, `$$` at the start of a block, triple backticks at the start of a block.
 3. `Esc` leaves editing and commits. It does not cancel; use `⌘Z` to undo.
 4. `Return` creates a block (or continues a list); `⇧Return` inserts a line break.
@@ -576,7 +613,7 @@ Flow index:
 2. The image is copied into the document's assets; the external file is not referenced.
 3. The block shows the image at block width; the inspector exposes alt text.
 4. Very large images show progress while copying; the editor stays responsive.
-5. If the image makes the block taller than a page, the block overflows (F9); it is never silently shrunk or clipped.
+5. If the image is taller than a page, it is an unbreakable overflow (F9); it is never silently shrunk or clipped.
 
 **Lists inside a block**
 
@@ -600,12 +637,13 @@ Flow index:
 3. A new empty child is created, the parent expands, the branch is drawn, the caret is in the child.
 4. Type.
 
-**Reader / Page**
+**Reader**
 
 1. Select a block.
 2. `⌘Return`, the right-edge **branch handle**, or the context menu → **Add Child**.
-3. A new empty child is created below its siblings (or in the next adaptive position). The Reader reflows continuously; the Page view freezes pagination during the edit and re-paginates on commit.
+3. A new empty child is created below its siblings (or in the next adaptive position). The Reader reflows continuously.
 4. If the new block causes a block-level overflow, the overflow banner appears.
+5. Page is a read-only preview; switch to it to see the new pagination.
 
 **Rules**
 
@@ -646,11 +684,13 @@ Flow index:
 
 **Rules**
 
+- Anchors are created in Outline or Reader. Page is read-only: clicking an anchor dot follows its branch, but does not create one.
 - An anchor must be inside one block. A multi-block selection disables **Branch** with "Anchors work within one block."
 - If nothing is selected, `⌘⇧Return` branches from the whole block.
 - Anchors are unique per span. Branching the same span again creates another branch from the same anchor, not a second anchor.
 - Removing the last branch from an anchor removes the anchor marker (undoable).
-- Anchored children are placed below the anchor. They wrap and paginate like any branch. If a callout would cross a page boundary, the paginator moves the child whole to the next page and shows a continuation marker; it never splits the child block.
+- If an anchor span is lost (text edited away, formula replaced, image replaced), the branch falls back to the whole block, shows a broken-anchor marker, and stays repairable. The child is never deleted.
+- Anchored children are placed below the anchor. They wrap and paginate like any branch. If a callout crosses a page boundary, atomic children move whole and long text children continue at a safe boundary, with a ghost parent and continuation marker.
 - Highlight (`⌘⇧H`) is a text mark with no structural meaning.
 
 ### F6 — Reorder, reparent, detach, move between chapters
@@ -668,7 +708,7 @@ Flow index:
 | Drag across a chapter divider | Drag a top-level block across the divider | Moves the block and subtree to that chapter |
 | Detach | Block menu → **Detach** | Becomes a top-level block at the top of the current chapter |
 
-**Reader / Page**
+**Reader**
 
 | Action | Result |
 |---|---|
@@ -678,6 +718,8 @@ Flow index:
 | Drag from the branch handle to a block | Makes the target a child of the source; role popover if the target already has a parent |
 | `⌥`-drag from the branch handle to a block | Reference link from source to target |
 | Drag to empty space | Nothing; snaps back. No free positioning. |
+
+Page is read-only: it accepts selection, page navigation, zoom and focus, but no drag, reparent, or reorder. Use Reader or Outline to change structure.
 
 **Rules**
 
@@ -714,8 +756,9 @@ A block has exactly one primary parent. It may have any number of reference link
 **Alternative gestures**
 
 - Outline: `⌥`-drag a block onto another.
-- Reader/Page: `⌥`-drag a block body, or `⌥`-drag from a branch handle.
-- Reader/Page: `⌥`-drop from an anchor drag creates a reference link from the anchor.
+- Reader: `⌥`-drag a block body, or `⌥`-drag from a branch handle.
+- Reader: `⌥`-drop from an anchor drag creates a reference link from the anchor.
+- Page: read-only; click a "See page N" chip or a reference branch to follow it. Link creation happens in Reader or Outline.
 
 **Rules**
 
@@ -730,14 +773,14 @@ A block has exactly one primary parent. It may have any number of reference link
 
 ### F9 — Pagination, page breaks, continuation, overflow
 
-This replaces page containers, page fit, split page, and page management.
+Pagination is derived. There is no page container, page split, or page management.
 
 **How pagination works**
 
 1. The layout is continuous: chapters, top-level blocks, children, anchored callouts.
-2. The paginator scans the layout in reading order and breaks between blocks when the next block would cross the printable page bottom.
-3. It never splits a block. If a block does not fit, it moves whole to the next page.
-4. If the break falls inside a subtree, a continuation marker labels the break and the resume point.
+2. The paginator scans the layout in reading order and breaks between blocks, or at a safe internal boundary inside a long block, when the next content would cross the printable page bottom.
+3. It never cuts a line, image, code block, or formula. A long text block may continue; an atomic element moves whole to the next page.
+4. If the break falls inside a subtree or a long block, a continuation marker and a ghost parent label the break and the resume point.
 5. A manual break hint ("Insert Page Break Before") asks the paginator to start a page before a block. It is honored when possible.
 6. A chapter "start on new page" setting is a manual break hint at the chapter heading.
 7. Page numbers and page count are results. They can change when content or page setup changes.
@@ -760,29 +803,31 @@ Rules:
 
 **Continuation markers**
 
-A continuation marker appears when a break falls inside a subtree, not at a chapter or top-level boundary:
+A continuation marker appears when a break falls inside a subtree or a long block, not at a chapter or top-level boundary:
 
 - Bottom of the page / at the marker: `↳ “Eigenvalues and eigenvectors” continues on page 2`.
-- Top of the next page / at the resume block: `Continued from page 1`.
+- Top of the next page / at the resume block: a **ghost parent** (dimmed, non-editable ancestor) plus `Continued from page 1`.
+- The ghost parent shows the nearest top-level block or chapter heading; clicking it jumps to the real parent.
 - The marker names the nearest top-level block or chapter, whichever is clearer; if both, use the chapter and the top-level block.
-- The child block is not split. The marker is a label, not a new block.
-- In Reader, the marker sits on the page-break line; in Page, it is a small label above the resumed block; in the outline, it is part of the page-break marker row.
+- A long text block continues at a safe boundary (paragraph/list item/line). A line, image, code block, or formula is never cut.
+- In Reader, the marker sits on the page-break line and the ghost parent at the top of the next page; in Page, both are in the page flow; in the outline, the marker row carries the continuation label.
 - A continuation marker is not an error and does not block export.
 
 **Overflow**
 
-A page never overflows: the paginator adds pages. A **block** can overflow when it cannot fit on a page even alone.
+A page never overflows: the paginator adds pages. A block overflows only when it has no safe break point, or an atomic element is too tall or too wide.
 
 | Type | Cause | UI | Recovery |
 |---|---|---|---|
-| **Block too tall** | A text/code/image block is taller than the printable height | Warning outline around the block; banner "This block is taller than a page"; export blocked | Shorten the block, split its content into multiple blocks, resize the image, or switch to landscape |
-| **Block too wide** | A code line, table, or image cannot wrap within the page width | Warning outline; banner "This block is wider than the page"; export blocked | Wrap the code/table, resize the image, shorten the line, or switch to landscape |
-| **Manual break invalid** | A manual break before a block that still overflows | The break marker is shown with a warning; the block overflows | Remove the break, fix the block, or move the break |
+| **Unbreakable element too tall** | A single line, image, code block, or formula is taller than the printable height | Warning outline; banner "This element is taller than a page"; export blocked | Resize the image, shorten the code/formula, split the text around the element, or switch to landscape |
+| **Element too wide** | A code line, table, or image cannot wrap within the page width | Warning outline; banner "This element is wider than the page"; export blocked | Wrap the code/table, resize the image, shorten the line, or switch to landscape |
+| **Manual break invalid** | A manual break before a block whose unbreakable element still overflows | The break marker is shown with a warning; the element overflows | Remove the break, fix the element, or move the break |
 | **Pagination changed** | Content edits moved page breaks | Status chip "Pages updated"; page numbers in the Reader/Outline update | Insert manual breaks to stabilize, if needed |
 
 Rules:
 
-- The app never splits a block automatically. Splitting content into multiple blocks is a user edit (cut/paste), undoable as normal editing.
+- A long text block continues at a safe boundary (paragraph/list item/line); the app never cuts a line, image, code block, or formula.
+- Splitting content into multiple blocks is a user edit (cut/paste), undoable as normal editing.
 - A block that overflows is shown in a warning state; it is not clipped, and export is blocked until it fits.
 - A manual break is a hint, not a guarantee. If it cannot be honored, the app says so; it does not silently ignore it.
 - Page numbers may change as content changes. The document is the source of truth; page numbers are a view of the current pagination.
@@ -791,7 +836,7 @@ Rules:
 
 1. `⌘1` Outline, `⌘2` Reader, `⌘3` Page.
 2. If an editor is open, the edit is committed first.
-3. Selection, focus, breadcrumbs, chapter, and focus mode carry over.
+3. Selection, focus, breadcrumbs, chapter, focus mode, and layout freeze carry over.
 4. Reader scrolls to the block's layout position; Page scrolls to the block's page; Outline scrolls to the row.
 5. If a block is hidden by a collapsed ancestor in the outline, expand it. If the block is in another chapter, scroll to that chapter.
 6. With no selection, each view restores its last focus or the top of the document.
@@ -841,7 +886,7 @@ v1 has one export: all pages, generated by the same paginator as the Page view, 
 
 **Step 2 — Preflight.**
 
-- **Block overflow (N)**: blocking. The PDF cannot be produced without clipping, so **Export** is disabled. Actions: **Review Block**, **Page Setup…** (landscape), **Cancel**.
+- **Unbreakable overflow (N)**: blocking. The PDF cannot be produced without clipping, so **Export** is disabled. Actions: **Review Element**, **Page Setup…** (landscape), **Cancel**.
 - **Manual breaks that cannot be honored (N)**: warning; the PDF will still export with the paginator's actual breaks. The list names the blocks.
 - **Lost anchors (N)**: warning; exported as a note attached to the block, without a span marker.
 - **Missing assets (N)**: warning; labeled placeholder.
@@ -853,11 +898,11 @@ v1 has one export: all pages, generated by the same paginator as the Page view, 
 
 **Rules**
 
-- The PDF follows document order: chapters, top-level blocks, children, anchored callouts. It uses the same page breaks, continuation markers, page numbers and header as the Page view.
+- The PDF follows document order: chapters, top-level blocks, children, anchored callouts. It uses the same page breaks, continuation markers, ghost parents, page numbers and header as the Page view.
 - The PDF is light, regardless of the app's dark appearance (Q16).
 - Text is real and selectable. If the PDF has no text layer, the export has failed.
 - Export is a snapshot; later edits do not change the file.
-- The document title, chapter titles, page count and page numbers are in the PDF metadata and footer.
+- The document title, chapter titles and page count are in the PDF metadata; page numbers are in the footer.
 - **Notability workflow:** choose A4, portrait, and the **Wide right** margin in Page Setup for handwriting space. Import the PDF into Notability and annotate. The app does not write ink back into the document.
 
 ### F13 — Search and navigate
@@ -875,10 +920,10 @@ Search is a navigation tool, not a query language. A document-wide search palett
 
 **Page Setup** (`⌘⌥P` or Page → Page Setup…):
 
-1. Choose size (A4, Letter), orientation (portrait, landscape), margins (Normal, Wide right), and chapter start (new page, continuous).
+1. Choose size (A4, Letter), one document-wide orientation (portrait or landscape), margins (Normal, Wide right), and chapter start (new page, continuous).
 2. Choose page numbers and running header on/off.
 3. The sheet shows a live preview of page 1 and a warning: "Changing the page geometry will re-paginate all 5 pages. 2 manual breaks may be affected."
-4. **Apply**. The paginator recomputes. The action is undoable. If a block overflows, the block banner appears and export is blocked until it fits.
+4. **Apply**. The paginator recomputes. The action is undoable. If an element overflows, the overflow banner appears and export is blocked until it fits.
 5. A **Notability** preset sets A4, portrait, wide right margin, page numbers on, chapter start on a new page.
 
 **Manual break hints**
@@ -892,15 +937,15 @@ Search is a navigation tool, not a query language. A document-wide search palett
 
 **Rules**
 
-- Page setup is document-level in v1. Per-page orientation is Q13.
+- Page setup is document-level. Orientation is one document-wide setting at a time; there is no mixed orientation.
 - Pages are derived; there is no page create, duplicate, delete, split, move, or reorder command.
 - A document always has at least one chapter; deleting the last chapter replaces it with a new empty chapter.
-- A chapter can have zero blocks only if it contains an empty top-level block; the empty state offers **Add a Top-Level Block**.
+- A chapter always has at least one top-level block. If all content is deleted, the chapter shows one empty block and the empty state offers **Add a Top-Level Block**.
 
 ### F15 — Manage chapters
 
-- **New Chapter** (`⌘⌥C`): adds a chapter after the current one, with one empty top-level block and a "start on new page" hint.
-- **Rename**: click the chapter heading in the outline or Reader/Page; type; `Return`.
+- **New Chapter** (`⌘⌥C`): adds a chapter after the current one, with one empty top-level block and a "start on new page" hint. Focus goes to the chapter title; `Return` commits the title and moves the caret to the first top-level block.
+- **Rename**: click the chapter heading in the outline or Reader; type; `Return`. Page shows the heading read-only.
 - **Reorder**: drag the chapter heading in the outline, or Chapter → Move Up/Down. Chapter order is document order.
 - **Delete**: Chapter menu → Delete Chapter. If it has content, confirm with block count; undoable. Deleting the last chapter leaves a new empty chapter.
 - **Start on new page**: a toggle in the chapter inspector or Chapter menu; it is a manual break hint at the heading. Default on.
@@ -919,18 +964,20 @@ Reader and Page render the same continuous layout. They share:
 - Selection and focus.
 - Chapter and block order.
 - Page-break positions from the paginator.
-- The same block editor and keyboard commands.
+- Layout freeze state (per window).
 - The same anchors, branches, and reference links.
 
-They differ in how the layout is presented:
+They differ in how the layout is presented and edited:
 
 | | Reader | Page |
 |---|---|---|
 | Scroll | Continuous vertical | Page by page |
 | Page breaks | Horizontal markers across the layout | Page boundaries |
 | Page numbers | In the marker labels and footer | In the footer |
-| Editing | Continuous reflow | Pagination frozen during the edit, re-run on commit |
+| Editing | Full authoring; continuous reflow | Read-only preview; no editing |
 | Best for | Flow, authoring, long branches | Fit, print, WYSIWYG check |
+
+Page is the PDF target: it shows what the PDF will render. Editing happens in Outline or Reader; Page updates when you switch to it or when pagination changes.
 
 ### 7.2 Reader
 
@@ -943,6 +990,7 @@ They differ in how the layout is presented:
 | `⌘0` | 100% | |
 | `⇧1` | Fit width | 200 ms ease |
 | `⌥↑` / `⌥↓` | Jump to previous/next page-break marker | Marker highlights; page indicator updates |
+| Click a ghost parent | Jump to the real parent | Scrolls; selects the parent |
 | Click a block | Select | Ring |
 | `⇧`-click | Add/remove from selection | Ring |
 | Drag empty space | Marquee | Live rectangle |
@@ -966,10 +1014,11 @@ They differ in how the layout is presented:
 Reader rules:
 
 - The Reader is continuous. Page-break markers are lines, not gaps; the layout does not stop at a page.
+- A continuation page starts with a ghost parent immediately after the page-break marker; it is dimmed and not editable.
 - Editing in Reader reflows continuously. Page-break markers move live if content changes; a small "Pages updated" chip appears if the page count changes.
 - Focus dims everything outside the focused subtree and its ancestor path, and zooms to fit it. Clicking a dimmed block exits focus and selects it.
 - Page navigation jumps to markers, not to a page container.
-- The Reader is the recommended primary spatial authoring surface (Q1).
+- The Reader is the primary authoring surface for v1 (resolved; see Q1).
 
 ### 7.3 Page view
 
@@ -982,45 +1031,55 @@ Reader rules:
 | `⇧1` | Fit page | 200 ms |
 | `⇧2` | Fit width | 200 ms |
 | `⌥↑` / `⌥↓` | Previous/next page | Page indicator |
-| Click block | Select | Ring |
-| Drag block vertically | Reorder siblings | Drop line |
-| Drag onto block (`⇧` / `⌥`) | Reparent / reference | Drop target |
-| Double-click block | Edit in place | Pagination frozen; commit re-paginates |
-| `Return` | Edit selected block | |
-| `⌘Return` | Add child | |
+| Click a ghost parent | Jump to the real parent | Scrolls to its page; selects it |
+| Click block | Select for inspection | Ring |
+| Click a reference chip / anchor | Follow the link or branch | Jumps to the target; selection updates |
+| Double-click block | Open in Reader and edit | Switches to Reader; selection preserved |
+| `Return` | Open selected block in Reader | Switches to Reader; selection preserved |
 | `F` / `⌘⇧F` | Zoom to subtree | Breadcrumb; `Esc` returns |
-| `Esc` | Leave editing → exit focus → clear selection | |
+| `Esc` | Exit focus → clear selection | |
 
 Page rules:
 
-- **Pagination is frozen during an edit.** The page does not reflow under the caret. On commit, the paginator re-runs; if the edited block moves to another page, the view follows it and shows "Moved to page N". If the page count changes, the footer updates.
-- A block is always whole on a page. If it does not fit, it moves to the next page; if it cannot fit even alone, it is an overflow state (F9).
-- Page view is the WYSIWYG check: what is on the page is what the PDF renders. It is not a separate layout.
+- **Page is read-only for content.** It accepts selection, page navigation, zoom, focus, link following, Page Setup and Export; it does not accept text editing, structural edits, drag, or delete. New Chapter and manual-break commands are disabled in Page.
+- Double-click or `Return` is a bridge to Reader: it switches to Reader and focuses the same block. It never opens an editor on the page.
+- A long text block may continue at a safe boundary; a line, image, code block, or formula is always whole. If an atomic element cannot fit, it is an unbreakable overflow (F9).
+- A continuation page starts with a ghost parent above the resumed content; it is dimmed and not editable.
+- Page view is the WYSIWYG check and the PDF target: what is on the page is what the PDF renders. It is not a separate layout.
+- After an edit in Reader or Outline, Page shows the new pagination when you switch to it. Page numbers and the footer update.
 - Focus zooms to the selected subtree within the page; it does not dim the rest (the page is the context).
 - Page navigation is page by page; `⌥↑/↓` and the page indicator.
 
-### 7.4 Drag and reflow in both spatial views
+### 7.4 Drag and reflow in Reader
 
 - Dragging a block vertically reorders it among siblings; the block lifts, a drop line shows the insertion, and the layout reflows on drop.
 - Dragging onto a block with `⇧` reparents; a cycle is refused with "Would create a loop. Hold ⌥ to link instead."
 - Dragging from a branch handle onto a block makes the target a child; if the target already has a parent, the role popover appears.
 - Dragging to empty space does nothing; the block snaps back. No free positioning, no pins, no nudges.
-- After a drop, the Reader reflows continuously and Page re-paginates. If a block overflows, the banner appears.
+- After a drop, the Reader reflows continuously. Page is read-only and shows the result when you switch to it; if an element overflows, the banner appears.
 - `Esc` during a drag cancels and restores the original order.
 - Group drag is not supported; multi-selection is for actions, not positioning.
+- Page accepts no drag. Use Reader or Outline for structural changes.
 
 ### 7.5 Context menus
 
 | Target | Items |
 |---|---|
-| Block | Edit, Add Child, Add Sibling, Branch from Selection (while editing), Insert Page Break Before, Remove Manual Break (if manual), Link to Block…, Move Under…, Move to Chapter…, Framed, Copy as Markdown, Delete |
-| Top-level block | Add Top-Level Block Below, Move to Chapter…, Detach (if child), Insert Page Break Before, Delete |
-| Anchor | Follow Branch, Select Branch, Reattach… (if lost), Copy Anchor Text, Remove Anchor (with confirmation) |
-| Branch | Select, Edit Label, Change to Reference / Change to Structural, Delete Branch |
+| Block (Reader/Outline) | Edit, Add Child, Add Sibling, Branch from Selection (while editing), Insert Page Break Before, Remove Manual Break (if manual), Link to Block…, Move Under…, Move to Chapter…, Framed, Copy as Markdown, Delete |
+| Block (Page, read-only) | Open in Reader, Copy as Markdown |
+| Top-level block (Reader/Outline) | Add Top-Level Block Below, Move to Chapter…, Detach (if child), Insert Page Break Before, Delete |
+| Anchor (Reader/Outline) | Follow Branch, Select Branch, Reattach… (if lost), Copy Anchor Text, Remove Anchor (with confirmation) |
+| Anchor (Page, read-only) | Follow Branch, Copy Anchor Text |
+| Branch (Reader/Outline) | Select, Edit Label, Change to Reference / Change to Structural, Delete Branch |
+| Branch (Page, read-only) | Select, Follow to Target |
 | Empty space (Reader) | Add Top-Level Block, Paste, Select All, Fit Width, Focus, Page Setup… |
 | Empty space (Page) | Page Setup…, Fit Page, Fit Width, Export…, Select All on Page |
-| Page-break marker | Remove Manual Break (if manual), Keep This Break, Why This Break? |
-| Chapter heading | Rename, New Chapter After, Move Up/Down, Start on New Page, Delete Chapter |
+| Page-break marker (Reader/Outline) | Remove Manual Break (if manual), Keep This Break, Why This Break? |
+| Page-break marker (Page, read-only) | Why This Break?, Open in Reader |
+| Chapter heading (Reader/Outline) | Rename, New Chapter After, Move Up/Down, Start on New Page, Delete Chapter |
+| Chapter heading (Page, read-only) | Open in Reader |
+
+In Page, editing items are disabled; its menus show navigation, copy, Page Setup and Export only.
 
 Menu items are the accessible version of every gesture. Anything in a context menu must also be in the menu bar.
 
@@ -1040,10 +1099,12 @@ Menu items are the accessible version of every gesture. Anything in a context me
 | Empty | No blocks | Empty message with **Add a Top-Level Block** |
 | Continuous | Reader | Full layout, page-break markers |
 | Paginated | Page | Current page, footer, no marker rows |
+| Preview | Page | Read-only; selection, navigation, zoom and link following only; PDF target |
 | Focused | `F` | Reader dims/zooms; Page zooms |
-| Block overflow | Block cannot fit a page | Warning outline + banner; export blocked |
+| Layout frozen | `⌘⌥L` | Page breaks/positions held; edits marked pending; **Reflow Now** |
+| Unbreakable overflow | Element cannot fit a page | Warning outline + banner; export blocked |
 | Manual break invalid | Hint cannot be honored | Marker warning; export warning |
-| Read-only | Newer schema / locked file | Banner; editing disabled; export enabled |
+| Read-only file | Newer schema / locked file | Banner; editing disabled; export enabled |
 | Exporting | Export in progress | View stays interactive; export sheet owns progress |
 
 ---
@@ -1139,7 +1200,7 @@ Rules:
 - The marker of the current page is highlighted.
 - Anchored children appear after unanchored children, in anchor order, then branch order. Same indentation as children, prefixed by `↳ “quote”`. A thin left rule groups siblings sharing an anchor.
 - Reference links are not child rows; target shows `Shared · N`; inspector lists sources with chapter/page.
-- Lost anchor child row shows `Lost anchor` + **Reattach**.
+- Lost anchor child row shows `Lost anchor` + **Reattach**; the branch stays attached to the whole block until repaired.
 - The outline always shows the full tree.
 
 ### 8.6 Focus in the outline
@@ -1174,6 +1235,8 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 | `⌥↑` / `⌥↓` | Previous / next page |
 | `⌘⌥C` | New chapter |
 | `⌘⌥B` | Insert/remove manual page break before block |
+| `⌘⌥L` | Freeze / unfreeze layout |
+| `⌘⌥R` | Reflow now |
 | `⌘⌥P` | Page Setup… |
 | `⌘⇧E` | Export… |
 | `⌘P` | Quick export (all pages, last settings) |
@@ -1223,36 +1286,47 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 
 ### 9.4 Reader and Page
 
-Active only when the spatial view has focus and no editor is open.
+**Shared navigation (Reader and Page; Page is read-only)**
 
 | Shortcut | Action |
 |---|---|
 | `Space`+drag / middle-drag | Pan the viewport |
 | `⌘+` / `⌘−` | Zoom in / out |
 | `⌘0` | Reset zoom to 100% |
-| `⇧1` | Fit width |
-| `⇧2` | Fit page (Page view only; no-op in Reader) |
+| `⇧1` | Fit view: fit width in Reader, fit page in Page |
+| `⇧2` | Fit width (Page only; no-op in Reader) |
 | `⌥↑` / `⌥↓` | Previous / next page (Reader: marker; Page: page) |
-| `↵` | Edit selected block |
-| `⌘↵` | Add child |
-| `⌘⇧↑` / `⌘⇧↓` | Move block/subtree among siblings |
-| `Tab` / `⇧Tab` | Indent/outdent selected block (not while editing) |
-| `⌫` | Delete selection |
 | `F` / `⌘⇧F` | Focus: Reader dims/zooms; Page zooms |
 | `↑↓←→` | Move selection to nearest block |
 | `⇧`+arrow | Add nearest block to selection |
-| `⎋` | Leave editing → exit focus → clear selection |
+| `⎋` | Leave editing (Reader) → exit focus → clear selection |
+
+**Reader authoring (active when no editor is open)**
+
+| Shortcut | Action |
+|---|---|
+| `↵` | Edit selected block |
+| `⌘↵` | Add child |
+| `⌘⇧↑` / `⌘⇧↓` | Move block/subtree among siblings |
+| `Tab` / `⇧Tab` | Indent/outdent selected block |
+| `⌫` | Delete selection |
 | `⇧`-drop | Reparent onto a block |
 | `⌥`-drop | Reference link to a block |
 
+**Page (read-only)**
+
+Page has no editing shortcuts. `Return` or double-click opens the selected block in Reader; add, edit, delete, indent, and drag commands are disabled.
+
 ### 9.5 Shortcut rules
 
-- **Single-key shortcuts** (`F`, `⇧1`, `⇧2`, arrows) work only in Reader/Page with no editor open. They can be disabled in Settings.
+- **Single-key shortcuts** (`F`, `⇧1`, `⇧2`, arrows) work in Reader with no editor open and in Page (always read-only). They can be disabled in Settings.
+- **Page is read-only.** Content and structure commands are disabled in Page, including New Chapter, New Block, Insert/Remove Manual Break, Delete, indent/outdent, and drag/drop. `Return` or double-click opens the block in Reader. Undo/redo remain global; the preview updates.
 - **`Tab` is the only structural key that changes meaning inside code blocks.**
 - **`Esc` never cancels editing.** It commits and leaves. `⌘Z` is the way back.
 - **`⌘P`** is quick export, not system print. Native printing is out of scope; the user prints the exported PDF.
 - **`⌥↑` / `⌥↓`** are page navigation in all views; disabled while editing in a text field.
-- **No page-management shortcuts.** There is no New Page, Duplicate Page, Delete Page, Split Page, or Move to Page.
+- **Freeze/Reflow are view-state commands.** `⌘⌥L` freezes layout and pagination; `⌘⌥R` reflows now. They are not undoable and do not change the document.
+- **No page-management commands or shortcuts.** There is no New Page, Duplicate Page, Delete Page, Split Page, or Move to Page. Pages are derived.
 - **No pin/nudge shortcuts.** There is no free positioning.
 - **`⌃`** is used only for the system full-screen toggle and `⌃Tab` to leave the main view.
 - **Menu bar parity:** every shortcut is a menu item, and every menu item has a shortcut or a documented reason not to.
@@ -1262,6 +1336,8 @@ Active only when the spatial view has focus and no editor is open.
 ## 10. Visual language and states
 
 This section defines behavior and hierarchy, not final visual design.
+
+**Visual direction.** Clean, Obsidian-like, minimal: content-first, low chrome, one accent color, generous whitespace, no decorative panels or gradients. **Dark mode is the default**; light mode is available. The PDF is light in v1 (Q16).
 
 ### 10.1 Block, chapter, and page anatomy
 
@@ -1273,32 +1349,35 @@ This section defines behavior and hierarchy, not final visual design.
 | **Page** | A rendered sheet with an edge, margins, footer, and page number; not a container |
 | **Page-break marker** | A line in Reader/Outline with a page label; dashed auto, solid manual |
 | **Continuation marker** | A label at a break and at the resume point |
+| **Ghost parent** | A dimmed, non-editable ancestor at the top of a continuation page; click jumps to the real parent |
 | **Surface** | A block is a readable card in Reader/Page; a row in the outline; the same renderer in the PDF |
 | **Anchor dots** | 8 pt visual, 24 × 24 pt hit area |
-| **Branch handle** | Right-edge handle; click adds a child; drag to a block reparents |
+| **Branch handle** | Right-edge handle in Outline/Reader; click adds a child, drag to a block reparents. Hidden in Page (read-only) |
 | **Chips** | Child count, shared, framed, top-level, lost anchor, overflow |
 
 ### 10.2 Block states
 
 | State | Trigger | Behavioral treatment | Interaction |
 |---|---|---|---|
-| **Default** | Not hovered/selected | Quiet surface; no handles | Text editable on click/double-click |
-| **Hover** | Pointer over | Handles/chips fade in; no layout shift | Click selects/edits |
-| **Selected** | Click gutter/block | Accent ring; handles; inspector updates | Drag reorder, delete, edit |
+| **Default** | Not hovered/selected | Quiet surface; no handles | Editable on click/double-click in Outline/Reader; Page selects only |
+| **Hover** | Pointer over | Handles/chips fade in in Outline/Reader; Page shows chips only; no layout shift | Click selects/edits in Outline/Reader; Page selects |
+| **Selected** | Click gutter/block | Accent ring; handles in Outline/Reader; inspector updates | Drag reorder/delete/edit in Reader/Outline; Page inspects |
 | **Focused** | Last interacted | Ring + breadcrumb | Keyboard actions target it |
-| **Editing** | Click text / `Return` / double-click | Caret; editing ring; Reader reflows; Page freezes pagination | Text keys; `Esc` commits |
+| **Editing** | Click text / `Return` / double-click in Outline/Reader | Caret; editing ring; Reader reflows; Page is read-only | Text keys; `Esc` commits |
+| **Continued** | Block continues on the next page | Ghost parent at the top of the next page; continuation marker | Click ghost parent to jump; read-only marker |
 | **Multi-selected** | Shift/Cmd click, marquee | Rings; "N selected" | Delete, copy; no group move |
 | **Collapsed** | Outline only | Descendants hidden; "N hidden" | Expand |
 | **Top-level** | No primary parent | "Top-level" chip | Chapter actions |
 | **Shared** | Reference links | "Shared · N"; same-page dashed branches; cross-page "See page N" | Click → links |
 | **Framed** | Inspector/menu | Heavier border; algorithms/definitions | Toggle |
-| **Lost anchor** | Anchor text edited away | Amber dashed segment; chip; child stays | Reattach |
+| **Lost anchor** | Anchor text edited away | Amber dashed segment; "Lost anchor" chip; branch falls back to the whole block; child stays | Reattach, select branch, delete branch |
 | **Invalid formula** | LaTeX error | Source visible; warning chip | Fix; export warning |
 | **Missing asset** | Asset absent | Placeholder with filename | Relink |
 | **Search hit** | Find result | Highlight; current hit stronger | `Return` cycles |
 | **Drop target** | During drag | Line/rounded outline/dashed/forbidden | Release |
-| **Block overflow** | Block too tall/wide | Warning outline; banner; export blocked | Fix/split content, landscape |
-| **Read-only** | Newer schema/locked | No caret; banner | Export only |
+| **Unbreakable overflow** | Line/image/code/formula too tall/wide | Warning outline; banner; export blocked | Resize/shorten element, landscape |
+| **Preview (Page)** | Page view | No caret, no handles; selection ring only | Inspect, follow links; **Open in Reader** to edit |
+| **Read-only file** | Newer schema/locked | No caret; banner | Export only |
 
 ### 10.3 Branches and arrows
 
@@ -1327,7 +1406,7 @@ Rules:
 - Click: selects the first branch; click again cycles.
 - Formula anchors are best-effort markers; the branch dot at the formula edge keeps the branch reachable.
 - Image anchors are numbered circles at the region corner.
-- Lost anchor: amber segment; inspector shows the stored quote and reattach candidates.
+- Lost anchor: amber segment and a "Lost anchor" chip. The branch falls back to the whole block so it stays usable; the inspector shows the stored quote and reattach candidates.
 
 ### 10.5 Adaptive layout, page breaks, continuation — examples
 
@@ -1360,36 +1439,59 @@ Page width (A4, inside margins)
 ```text
 Reader (continuous)
   Chapter 1 · Eigenvalues
-    B1 Definition
-      B2 Stretch factor
-    B5 Worked example
-      B6 Spectral radius
+    Definition
+      Stretch factor
+      Examples
 ──────────────── Page 2 ────────────────
-  ↳ "Eigenvalues" continues on page 2
-      B7 Power iteration
-        B8 Convergence
+  GHOST: Definition (dimmed)   ← click jumps to the real parent
+  “Continued from page 1”
+      Counterexample
+    Characteristic polynomial
+      Expansion
 ```
 
-- The break is between B6 and B7, inside the chapter's flow.
-- B6 is whole on page 1; B7 is whole on page 2.
-- The marker says the chapter continues; the top of page 2 repeats "Continued from page 1".
-- If the break were inside B1's subtree, the marker would name B1.
+- The break is between “Examples” and “Counterexample”, both children of “Definition”. No block is cut.
+- “Definition” continues on page 2; the marker names the top-level block that owns the subtree.
+- The ghost parent at the top of page 2 restores the context; it is dimmed and not editable.
+- “Characteristic polynomial” is the next top-level block; it follows the continued subtree.
 
-**Block overflow.**
+**Long block continues at a safe boundary.**
+
+```text
+Page 1
+┌────────────────────────────────┐
+│ Definition of the determinant  │
+│ Paragraph 1 ...................│
+│ Paragraph 2 ...................│
+│ Paragraph 3 (starts on page 1, │
+│   continues below) ............│
+└────────────────────────────────┘
+──────────────── Page 2 ────────────────
+  GHOST: Definition of the determinant
+  “Continued from page 1”
+│ Paragraph 3 (continued) .......│
+│ Paragraph 4 ...................│
+└────────────────────────────────┘
+```
+
+- The break is between paragraphs, a safe internal boundary. No line is cut.
+- The block keeps its identity; the second page starts with a ghost parent and a continuation marker.
+- Images, code blocks, formulas, and single lines are atomic: if one cannot fit, it moves whole to the next page.
+
+**Unbreakable element overflow.**
 
 ```text
 Page 2
 ┌──────────────────────────────┐
-│ [tall code block             │
-│  ...                         │
-│  ...                         │
+│ [tall image / code block     │
+│  or single formula           │
 │  ...  does not fit]          │  ← warning outline; export blocked
 └──────────────────────────────┘
 ```
 
-- The paginator cannot split the block; the block is shown whole in a warning state.
-- The user shortens it or splits the content into multiple blocks.
-- The app never clips or auto-splits.
+- The paginator cannot cut a line, image, code block, or formula.
+- The element is shown whole in a warning state; the user resizes the image, shortens the code/formula, or switches to landscape.
+- The app never clips or cuts an atomic element.
 
 ### 10.6 Page-break markers and continuation markers
 
@@ -1399,7 +1501,8 @@ Page 2
 | Manual break | Reader, Outline | Solid line/row; `Page 2 · Manual` | Remove Manual Break, Why? |
 | Chapter start | Reader, Outline | Solid line/row; `Page 2 · Chapter 2 starts here` | Remove via chapter setting |
 | Continuation | Reader, Outline, Page | `↳ Chapter 1 continues on page 2`; `Continued from page 1` | None (informational) |
-| Block overflow | Reader, Page | Warning outline; banner | Fix block |
+| Ghost parent | Reader, Page | Dimmed ancestor at the top of the continuation page | Click to jump to the real parent |
+| Unbreakable overflow | Reader, Page | Warning outline; banner | Fix element (resize/shorten/landscape) |
 
 - Markers do not interrupt the tree; they are annotations on the layout.
 - Manual markers are the only way to stabilize a break; automatic markers can move.
@@ -1409,7 +1512,7 @@ Page 2
 
 | Zoom | Name | Rendering | Chrome |
 |---|---|---|---|
-| 25–39% | Overview (Page view) | First line/type label; images as thumbnails | No handles; page number |
+| 25–39% | Overview | First line/type label; images as thumbnails | No handles; page number |
 | 40–124% | Comfort | Full content | Handles on hover |
 | 125–200% | Detail | Full content, larger type; anchor dots/handles prominent | All handles |
 
@@ -1425,6 +1528,7 @@ Rules:
 | Event | Motion | Reduced motion |
 |---|---|---|
 | Reflow after structural change | 120–180 ms ease-out | Instant |
+| Freeze / Reflow Now | No reflow while frozen; Reflow Now 150 ms | Instant |
 | Reader scroll / Page scroll / pan / zoom | Direct | Direct |
 | Fit width / fit page | 200 ms ease | Instant |
 | Focus zoom | 200 ms ease | Instant |
@@ -1440,9 +1544,9 @@ Motion is never the only signal.
 
 - One accent for selection/focus; structural vs reference never color-coded.
 - Warnings use icon + label + pattern; amber/red are reinforcement.
-- Block overflow uses a warning edge + banner + label.
+- Unbreakable overflow uses a warning edge + banner + label.
 - Text contrast ≥ 4.5:1; UI boundaries/focus ≥ 3:1.
-- Light/dark app; PDF light in v1 (Q16).
+- Dark mode default; light mode available. PDF light in v1 (Q16).
 - Highlights are light tints, legible in grayscale.
 - Print stylesheet uses the same hierarchy: headings, code, formulas, images, alt text.
 
@@ -1467,24 +1571,26 @@ Motion is never the only signal.
 | Save failed | Status bar + banner | Red dot; **Retry** / **Save As…** |
 | Read-only | Banner | "Read-only: newer version." |
 | Lost anchors | Status bar chip | "2 lost anchors" |
-| Block overflow | Block warning + status chip | "1 block doesn't fit a page" |
+| Unbreakable overflow | Element warning + status chip | "1 element doesn't fit a page" |
+| Layout frozen | Status chip | "Layout frozen · 3 changes pending"; **Reflow Now** |
+| External API | Status bar | "API off" / "API on · read-only" / "API on · read-write" |
 | Pagination updated | Status chip | "Pages updated"; transient |
 | Exporting | Export sheet | Progress + Cancel |
 | Large document | Status chip / banner | "Performance mode" |
-| Network | Not used in v1 | No account/sync/telemetry |
+| Network | No sync or telemetry | No account; the External Agent API is loopback only. External clients may use their own network. |
 
 ### 11.3 Error and edge-case table
 
 | Situation | Message | Recovery | Data safety |
 |---|---|---|---|
-| **Lost anchor** | "Anchor lost — the text “λ, the eigenvalue” was edited or removed." | **Reattach…**, **Select Branch**, **Delete Branch** | Branch/child kept |
+| **Lost anchor** | "Anchor lost — the text “λ, the eigenvalue” was edited or removed. The branch is attached to the whole block." | **Reattach…**, **Select Branch**, **Delete Branch** | Branch/child kept; fallback to block |
 | **Ambiguous anchor** | "This anchor matches 3 places in the block." | Choose a candidate with context; cancel keeps lost | No guessing |
 | **Structural cycle** | "That would put “Power iteration” inside its own subtree." | **Link as Reference**, **Cancel** | Nothing changes |
 | **Second structural parent** | "“Spectral radius” already has a parent in the outline." | **Link as Reference** (default), **Move Here**, **Cancel** | Non-destructive default |
 | **Duplicate link** | "This link already exists." | **Show Branch** | None |
 | **Missing asset** | "Image not found: eigenvector-diagram.png." | **Relink…**, **Remove Image**, **Export Anyway** | Block/branch kept |
-| **Block too tall** | "This block is taller than a page. A page holds 600 pt; this block is 820 pt." | Shorten, split content into blocks, resize image, landscape | Nothing clipped; export blocked |
-| **Block too wide** | "This block is wider than the page." | Wrap code/table, resize image, landscape | Nothing clipped; export blocked |
+| **Unbreakable element too tall** | "This image is taller than a page. A page holds 600 pt; the image is 820 pt." | Resize the image, shorten the code/formula, split the surrounding text, landscape | Nothing clipped; export blocked |
+| **Element too wide** | "This code line is wider than the page." | Wrap code/table, resize image, shorten the line, landscape | Nothing clipped; export blocked |
 | **Manual break invalid** | "The manual break before B7 cannot be honored because B7 is taller than a page." | Remove break, fix block, move break | Break not silently ignored |
 | **Pagination changed** | "Pages updated: 4 pages instead of 5." | Insert manual breaks to stabilize | Content unchanged |
 | **Chapter delete with content** | "Delete Chapter 2 and its 7 blocks?" | **Delete Chapter**, **Cancel** | Undoable |
@@ -1519,7 +1625,7 @@ Motion is never the only signal.
 | Insert/remove manual break | No; undoable |
 | Overwrite on save conflict | Yes; default **Save As…** |
 | Export with warnings | No; issues listed; **Export Anyway** |
-| Export with block overflow | Blocked; no override |
+| Export with unbreakable overflow | Blocked; no override |
 
 ### 11.6 Empty and loading states
 
@@ -1552,7 +1658,8 @@ Motion is never the only signal.
 - One focus ring at a time; always visible for keyboard users.
 - Tab order: toolbar → main view → inspector → status bar.
 - Outline: single Tab stop; arrows move; `Tab`/`⇧Tab` change structure; `⌃Tab` leaves.
-- Reader/Page: single Tab stop; `Tab` enters at the focused block; arrows move spatially; `Return` edits; `Esc` steps out; `⌃Tab` leaves.
+- Reader: single Tab stop; `Tab` enters at the focused block; arrows move spatially; `Return` edits; `Esc` steps out; `⌃Tab` leaves.
+- Page: single Tab stop; `Tab` enters at the focused block; arrows move; `Return` or double-click opens the block in Reader; `Esc` steps out; `⌃Tab` leaves.
 - Page navigation `⌥↑/↓`; announced as "Page 2 of 5".
 - Focus restored after view switches, undo, dialogs, export.
 - Dialogs trap focus and return it.
@@ -1561,11 +1668,11 @@ Motion is never the only signal.
 
 - **Outline:** nested list with explicit levels; chapter headings and page-break markers announced as separators ("Page 2, automatic; Chapter 2 starts here"). Blocks announce type, first line, level, children, collapsed, shared, anchors, lost anchor, overflow.
 - **Reader:** a continuous document in outline order; page-break markers announced as "Page 2 starts here; Chapter 1 continues." Not read as a spatial canvas.
-- **Page:** a sequence of page sections; each announces page number, chapter, top-level count, overflow. Blocks read in order; visual positions not read.
+- **Page:** a sequence of page sections; each announces page number, chapter, top-level count, overflow. Blocks read in order; visual positions not read. Page is read-only; activating a block opens it in Reader.
 - **Branches:** "Branch from “λ, the eigenvalue” to “λ is the stretch factor”."
-- **Anchors:** "Anchor: λ, 1 branch"; lost as "needs reattachment".
-- **Continuation:** "Chapter 1 continues on page 2."
-- **Live regions:** save failure, export done, lost-anchor count, block overflow, pagination updated, "Moved 3 blocks." Not typing/incidental selection.
+- **Anchors:** "Anchor: λ, 1 branch"; lost as "Lost anchor: λ, attached to the whole block, needs reattachment".
+- **Continuation and ghost parent:** "Chapter 1 continues on page 2; ghost parent: Definition, continued from page 1."
+- **Live regions:** save failure, export done, lost-anchor count, unbreakable overflow, layout frozen, pagination updated, "Moved 3 blocks." Not typing/incidental selection.
 - **Formulas/code** expose text; formulas expose LaTeX on demand.
 - **Images** require alt text; a branch source cannot be decorative.
 
@@ -1574,14 +1681,14 @@ Motion is never the only signal.
 | Task | Path |
 |---|---|
 | Create a document and three blocks | `⌘N`, type, `↵`, type, `↵`, type |
-| Branch from a word | Select block, `↵`, move caret, `⇧⌥→`, `⌘⇧↵` |
-| Reparent a block | Select, `Tab` / `⇧Tab`, or Block → Move Under… |
-| Create a reference link | Select source, `⌘⇧L`, filter, `↵` |
-| Create a chapter | `⌘⌥C`, type title, `↵` |
-| Insert a manual break | Select block, `⌘⌥B` |
+| Branch from a word | From Outline or Reader: select block, `↵`, move caret, `⇧⌥→`, `⌘⇧↵` |
+| Reparent a block | From Outline or Reader: select, `Tab` / `⇧Tab`, or Block → Move Under… |
+| Create a reference link | From Outline or Reader: select source, `⌘⇧L`, filter, `↵` |
+| Create a chapter | From Outline or Reader: `⌘⌥C`, type the title, `↵` to move to the first block |
+| Insert a manual break | From Outline or Reader: select block, `⌘⌥B` |
 | Go to next page | `⌥↓` |
-| Reattach a lost anchor | `⌘⌥I` / status chip, choose anchor, **Reattach…**, pick, `↵` |
-| Export | `⌘P`, or `⌘⇧E`, preview, `↵` |
+| Reattach a lost anchor | From Reader or Outline: `⌘⌥I` / status chip, choose anchor, **Reattach…**, pick, `↵` |
+| Export | `⌘P` (quick export), or `⌘⇧E`, review the preview, **Export** |
 
 ### 12.5 Motion, contrast, display
 
@@ -1596,6 +1703,7 @@ Motion is never the only signal.
 - All shortcuts remappable; conflicts explained.
 - Single-key Reader/Page shortcuts can be disabled.
 - Voice Control labels for icon-only controls (branch handle, anchor dot, page arrows, collapse).
+- External API status is announced with its scope; settings are keyboard reachable.
 - Shortcuts sheet searchable.
 
 ---
@@ -1615,9 +1723,9 @@ The practical limit is block size and pagination, not canvas node count.
 Rules:
 
 - Reader renders the visible continuous region plus a buffer; Page renders the current page plus neighbors.
-- Pagination runs on committed changes; a reflow never blocks typing. If it takes > 100 ms, the status bar shows activity and the layout catches up.
+- Incremental reflow runs on committed changes; freeze mode defers layout and pagination; full reflow runs on request or after 1.5 s idle. A reflow never blocks typing. If it takes > 100 ms, the status bar shows activity and the layout catches up.
 - Export renders every page; progress per page.
-- Page-break markers and continuation labels update after pagination.
+- Page-break markers, continuation labels, and ghost parents update after pagination.
 - The status bar shows page and block counts.
 
 ---
@@ -1639,26 +1747,57 @@ Rules:
 
 | # | Question | Why it matters | Current proposal / next step |
 |---|---|---|---|
-| Q1 | Is Reader or Page the primary spatial authoring surface? | Reader preserves flow; Page shows fit. The product owner asked to evaluate the tradeoff. | Reader default + primary spatial authoring; Page WYSIWYG check; prototype A/B |
+| Q1 | **Resolved:** Is Reader or Page the primary spatial authoring surface? | Reader preserves flow; Page shows fit. | **Reader is the primary authoring surface for v1. Page is a read-only preview and the PDF target.** |
 | Q2 | Is "chapter" or "document" the right user-facing noun? | The product owner says chapter; the file is a document | Use document in v1; revisit naming |
 | Q3 | How should adaptive widths be chosen? | Content-driven widths can make rows unbalanced; a large subtree may dominate | Measure content, cap extreme widths, balance rows; test with real notes |
 | Q4 | When should a child wrap below the parent instead of going right? | The wrap rule defines the visual rhythm and page count | Wrap when the child + margin does not fit; keep a slight indent; test |
 | Q5 | Where should the paginator break to avoid orphan headings? | A chapter/top-level heading alone at the bottom is bad | Keep heading with first child; avoid single-line orphans; test |
-| Q6 | What exactly does a continuation marker say? | It must be clear without being noisy | Name the chapter/top-level block; bottom + top; test |
+| Q6 | What exactly does a continuation marker and ghost parent say? | They must be clear without being noisy | Bottom: “continues on page N”; top: ghost parent + “continued from page N”; test |
 | Q7 | How stable should manual breaks be? | Users may want the PDF page count stable; content edits move automatic breaks | Manual hints persist; show when invalid; no auto-stabilization |
-| Q8 | What if one block is taller/wider than a page? | Cannot split a block; needs a clear recovery | Warning + export block; guide to split content/landscape; no auto-split |
+| Q8 | **Resolved policy:** What if a long block or an atomic element is too tall/wide? | Long text should flow; lines, images, code and formulas must stay readable. | **Long text continues at safe boundaries; an unbreakable element overflows with a fix path (resize/shorten/landscape).** Boundary rules to validate with real notes. |
 | Q9 | Does `Tab` moving the block (instead of indenting a list item) feel right? | Lists are common; the wrong behavior is hit constantly | Rule + hint; measure |
 | Q10 | Should Reader/Page support collapse/fold? | Hiding content would change pagination and exports | No in v1; test demand |
 | Q11 | Should cross-page reference links be lines or chips? | Lines across pages may be noisy; chips hide context | Chips + inspector; test |
 | Q12 | Is formula-term anchoring by LaTeX source acceptable? | Users think in rendered formulas | Source + best-effort marker; test |
-| Q13 | Is page size/orientation document-level or per page? | Mixed orientation may help deep content | Document-level v1; evaluate per page |
+| Q13 | **Resolved:** Is page orientation document-level or per page? | Mixed orientation would complicate the paginator and the PDF. | **One document-wide orientation at a time; changing it reflows all pages. No per-page orientation.** |
 | Q14 | Should a chapter always start on a new page? | It aids structure but can waste space | Default on; toggle per chapter; test |
 | Q15 | Should page numbers be stable identifiers? | They change with content; users may cite them | Treat as derived; manual breaks stabilize; use block links |
 | Q16 | Should dark mode produce a dark PDF? | Some study at night; Notability assumes white | Light only v1; evaluate |
 | Q17 | Is the sample the right onboarding, or templates? | Sample teaches the differentiator | Sample first; templates later |
-| Q18 | Should Page view allow free text/shape annotations? | Top scope-creep request; different product | No; annotations in PDF/Notability |
+| Q18 | Should the Reader allow free text/shape annotations? | Top scope-creep request; different product | No; annotations in PDF/Notability |
 | Q19 | Do we need page thumbnails? | Many pages need quick navigation; Reader markers may be enough | Page indicator v1; thumbnails if asked |
 | Q20 | Should the Reader show page gaps? | A continuous Reader with markers vs a slight gap at page breaks | Markers only in v1; test readability |
+| Q21 | Do we need a split view (Outline + Reader, or Reader + Page)? | The three-view model is already a lot; split view doubles space and focus | No split in v1; revisit after real use |
+
+---
+
+## 16. External Agent API (UX surface)
+
+V1 has **no in-app agent chat, sidebar, conversation, proposals, or autonomous agent**. External tools integrate through an opt-in local API. The only in-app UI is Settings and a status indicator.
+
+### 16.1 Settings
+
+Settings → Integrations → **External Agent API** (screen X7):
+
+| Control | Behavior |
+|---|---|
+| **Enable local API** | Off by default. The API listens on loopback only; the sheet shows the endpoint and a **Copy** action. |
+| **Token** | **Generate**, copy, **Rotate**, **Revoke**. The token is shown once, stored in the Keychain, and never written to the document, export, or logs. |
+| **Scope** | **Read-only** (default) or **Read-write**. Read-only can read document structure and content; read-write can create, edit, move, and delete blocks, branches, anchors, chapters, and page-break hints. Read-write requires an explicit confirmation that an external tool will be able to change the document. |
+| **Revoke token** | Turns the API off immediately and rejects new requests. |
+
+- The external client owns its own chat/proposal UI. The app does not show prompts, messages, or diffs.
+- If the document is read-only (newer schema or locked), the API is read-only regardless of token scope.
+- API writes use the normal document command path and are undoable in the app.
+- No background autonomy, web access, URL fetching, or external tool execution.
+
+### 16.2 Status indicator
+
+- The status bar shows one of: `API off`, `API on · read-only`, `API on · read-write`.
+- The read-write state uses a warning accent; it is visible but never modal.
+- Clicking the indicator opens External Agent API settings.
+- The tooltip shows the loopback endpoint and the last request time; it never shows the token.
+- No shortcut is assigned. Settings is `⌘,`; there is no agent-panel shortcut.
 
 ---
 
@@ -1671,7 +1810,7 @@ Rules:
 - **Lost anchor** in copy; "broken anchor" is internal jargon.
 - **Manual break** and **continuation** are the page-model terms. No "split page".
 - Inline actions use verbs: **Add child**, **Link to block…**, **Export anyway**, **Keep mine**, **Reload from disk**. Menu items use title case: **Add Child**, **Move Under…**.
-- Errors name the object and the next action: "This block is taller than a page. Split its content or switch to landscape."
+- Errors name the object and the next action: "This image is taller than a page. Resize it or switch to landscape."
 - Avoid "Oops", "Something went wrong", "Are you sure?" without a consequence.
 - The title bar says "Untitled" until renamed; the export filename falls back to "Untitled".
 - Page numbers are 1-based: "Page 1 of 3".
