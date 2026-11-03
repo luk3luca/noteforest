@@ -1,0 +1,35 @@
+{
+  "name": "noteforest",
+  "version": "0.0.0-spike.1",
+  "private": true,
+  "type": "module",
+  "description": "NoteForest Spike 1 — adaptive layout, paginator, and real-text PDF",
+  "workspaces": [
+    "apps/desktop",
+    "packages/layout",
+    "packages/pdf"
+  ],
+  "scripts": {
+    "build": "npm run build -w @noteforest/desktop",
+    "start": "npm run start -w @noteforest/desktop",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "npm run build && node --test tests/e2e/app.test.mjs",
+    "fixtures": "node scripts/generate-fixtures.mjs",
+    "pdf:verify": "node scripts/verify-pdf.mjs",
+    "pdf:raster": "node scripts/raster-pdf.mjs",
+    "gates": "npm run build && node scripts/run-gates.mjs"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "1.1.0",
+    "@types/node": "24.10.1",
+    "electron": "45.2.1",
+    "electron-vite": "6.0.0",
+    "pdfjs-dist": "6.5.438",
+    "playwright": "1.64.1",
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "vitest": "5.1.0"
+  }
+}
