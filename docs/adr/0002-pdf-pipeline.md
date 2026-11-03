@@ -116,6 +116,18 @@ Pass criteria:
 
 If any criterion fails, PDF commitment pauses and the Orchestrator writes a fallback ADR (CDP print or native compositor). The app does not silently switch pipelines.
 
+## Addendum — Spike 1 findings (3 November 2026)
+
+Spike 1 confirmed the pipeline and produced one non-obvious rule:
+
+- **Print page containers must be direct children of the print root.** Wrapping each page in a `<div>` — even with `display: contents` — introduced a cumulative vertical offset of **0.14 mm per page** (7.12 mm by page 53 on the F2 fixture). Removing the wrapper in print mode reduced the maximum page-view/PDF label delta to **0.48 mm**.
+- The wrapper is allowed only in screen mode (for the overflow badge). The print DOM and the screen DOM must not share a wrapper structure that changes page flow.
+- A multi-page geometry regression test is required: at least 50 pages, with page-view/PDF label positions compared page by page. The spike's tolerance was 1.0 mm; observed maximum 0.48 mm.
+- Chromium prints A4 as 595 × 842 pt = **209.89 × 297.01 mm**. This 0.11 mm rounding is expected; page-size checks should allow at least 0.2 mm.
+- Continuation markers were rendered in the top/bottom margin bands so they do not displace content; this kept page-view and PDF geometry aligned. The spec/UX should confirm this interpretation or reserve marker height in the paginator.
+
+These findings tighten the implementation, not the decision: `printToPDF` remains the pipeline.
+
 ## Revisit triggers
 
 - The gate fails for a structural reason (text lost, pages cannot be fixed at A4, formula rendering breaks).
