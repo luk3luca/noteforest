@@ -610,6 +610,7 @@ function removeBlocks(
 function detachBlock(
   document: Document,
   blockId: string,
+  changes: ChangeSet,
 ): { placement: Placement; incomingBranch: Branch | null } {
   const topLevel = findTopLevelPlacement(document, blockId);
   if (topLevel !== null) {
@@ -632,6 +633,7 @@ function detachBlock(
   const siblings = primaryDirectChildren(document, incoming.source.blockId);
   const index = siblings.findIndex((branch) => branch.id === incoming.id);
   delete document.branches[incoming.id];
+  changes.branch(incoming.id);
   return {
     placement: { kind: 'child', parentBlockId: incoming.source.blockId, index },
     incomingBranch: incoming,
@@ -662,6 +664,13 @@ export function executeCommand(
   const changes = new ChangeSet();
 
   if (command.type === 'document.create') {
+    if (document !== null) {
+      return {
+        ok: false,
+        code: 'invalid-command',
+        message: 'document.create requires an empty target (pass null)',
+      };
+    }
     return createDocumentCommand(command, context, changes);
   }
   if (document === null) {
@@ -1028,6 +1037,7 @@ function applyToClone(
       const { placement: previousPlacement, incomingBranch } = detachBlock(
         document,
         command.blockId,
+        changes,
       );
       if (previousPlacement.kind === 'top-level') {
         changes.chapter(previousPlacement.chapterId);
@@ -1203,6 +1213,9 @@ function applyToClone(
     case 'branch.relabel': {
       assertId(command.branchId, 'branchId');
       const branch = branchOrFail(document, command.branchId);
+      if (branch.role !== 'primary') {
+        reject('invalid-command', 'only primary branches are editable in M2');
+      }
       if (command.label !== null && typeof command.label !== 'string') {
         reject('invalid-command', 'label must be a string or null');
       }

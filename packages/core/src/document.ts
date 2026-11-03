@@ -83,7 +83,7 @@ export function createDocument(
     anchors: {},
     branches: {},
     assets: {},
-    annotations: input.annotations ?? [],
+    annotations: structuredClone(input.annotations ?? []),
   };
   if (input.extensions !== undefined) document.extensions = structuredClone(input.extensions);
   return document;

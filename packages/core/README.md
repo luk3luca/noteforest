@@ -118,7 +118,9 @@ destructive commands (including branch IDs) and is not persisted.
 the canonical file with validity, revision, block count, and title.
 `findNewestValidRecovery` returns the newest valid temp/backup;
 `restoreCandidateToPackage` writes a new copy and refuses to overwrite an
-existing `document.json` unless `{ overwrite: true }`.
+existing `document.json` unless `{ overwrite: true }`. Pass
+`assetsSourcePackagePath` to copy content-addressed assets into the restored
+copy.
 
 ## Usage
 
@@ -146,7 +148,7 @@ console.log(reopened.document?.title);
 ## Tests and harness
 
 ```bash
-npm test -w @noteforest/core          # 74 tests (vitest)
+npm test -w @noteforest/core          # 75 tests (vitest)
 npm run typecheck -w @noteforest/core
 npm run harness -w @noteforest/core   # builds dist/ and runs the demo
 

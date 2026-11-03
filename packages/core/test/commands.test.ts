@@ -344,7 +344,7 @@ describe('reparent and reorder', () => {
   });
 
   it('moves a child to top level and a root under a parent', () => {
-    const { document, a, a1 } = buildTree();
+    const { document, a, a1, branchA1 } = buildTree();
     const toTop = run(document, {
       type: 'block.move',
       blockId: a1,
@@ -352,6 +352,7 @@ describe('reparent and reorder', () => {
     });
     expect(primaryParentId(toTop.document, a1)).toBeNull();
     expect(toTop.document.chapters[0]?.topLevelBlockIds[1]).toBe(a1);
+    expect(toTop.affected.branchIds).toContain(branchA1);
 
     const back = run(toTop.document, {
       type: 'block.move',
@@ -549,6 +550,10 @@ describe('transactions, history, and serialization', () => {
     const unknown = executeCommand(document, { type: 'future.command' } as unknown as DocumentCommand);
     expect(unknown.ok).toBe(false);
     if (!unknown.ok) expect(unknown.code).toBe('invalid-command');
+
+    const secondCreate = executeCommand(document, { type: 'document.create', title: 'Another' });
+    expect(secondCreate.ok).toBe(false);
+    if (!secondCreate.ok) expect(secondCreate.code).toBe('invalid-command');
 
     const placement = tryRun(document, {
       type: 'block.create',

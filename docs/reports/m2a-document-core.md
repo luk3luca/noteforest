@@ -63,7 +63,7 @@ Implemented: `document.create/rename`, `chapter.create/rename/reorder/delete`,
 - Recent-documents manifest in app support, atomic and deduplicated.
 - Recovery inspection lists orphan temp files, backups, and the canonical file with validity,
   revision, block count, title, and timestamp. Restore writes a new copy unless overwrite is
-  explicitly requested.
+  explicitly requested, and can copy content-addressed assets from the original package.
 
 ### Harness
 
@@ -102,12 +102,12 @@ Commands: `npm test` (root), `npx vitest run packages/core`, `npm run typecheck`
 ```
 $ npx vitest run packages/core
 Test Files  4 passed (4)
-Tests       74 passed (74)
+Tests       75 passed (75)
 Duration    1.27 s
 
 $ npm test                     # root, includes layout + core
 Test Files  6 passed (6)
-Tests       88 passed (88)
+Tests       89 passed (89)
 Duration    1.26 s
 
 $ npm run typecheck            # all workspaces

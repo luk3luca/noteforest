@@ -280,11 +280,6 @@ export class DocumentStore {
     return result;
   }
 
-  /** Convenience for a `document.create` command, normally unused after open. */
-  createNewDocument(command: DocumentCommand): CommandResult {
-    return executeCommand(null, command, { context: this.context });
-  }
-
   save(options: SaveOptions = {}): Promise<SaveResult> {
     const run = this.saveQueue.then(() => this.saveInternal(options));
     this.saveQueue = run.then(

@@ -154,6 +154,36 @@ describe('document package creation and round-trip', () => {
     expect(onDisk.revision).toBe(2);
     expect(Object.keys(onDisk.blocks)).toHaveLength(2);
   });
+
+  it('edits primary branches after reopen and persists them', async () => {
+    const created = await createPackage('Branch edit');
+    const parentA = addTopLevel(created.store, 'A');
+    const parentB = addTopLevel(created.store, 'B');
+    const child = addChild(created.store, parentA, 'A1');
+    expect((await created.store.save()).ok).toBe(true);
+    await created.store.close();
+
+    const reopened = await openDocumentPackage(created.packagePath, options());
+    stores.push(reopened.store);
+    expect(reopened.status).toBe('editable');
+    const moved = reopened.store.apply({
+      type: 'block.move',
+      blockId: child,
+      to: { kind: 'child', parentBlockId: parentB },
+    });
+    expect(moved.ok).toBe(true);
+    expect((await reopened.store.save()).ok).toBe(true);
+    await reopened.store.close();
+
+    const verified = await openDocumentPackage(created.packagePath, options({ mode: 'read' }));
+    stores.push(verified.store);
+    const branch = Object.values(verified.document?.branches ?? {}).find(
+      (candidate) => candidate.targetBlockId === child,
+    );
+    expect(branch?.source.blockId).toBe(parentB);
+    expect(branch?.role).toBe('primary');
+    expect(verified.document?.blocks[child]?.label).toBe('A1');
+  });
 });
 
 describe('atomic save failure', () => {
@@ -270,6 +300,7 @@ describe('backup rotation and recovery', () => {
 
   it('recovers a corrupt canonical file from the newest valid backup without overwriting it', async () => {
     const created = await createPackage('Recoverable');
+    await fs.writeFile(path.join(created.packagePath, 'assets', 'asset-1.bin'), 'asset bytes');
     const first = addTopLevel(created.store, 'Alpha');
     addChild(created.store, first, 'Alpha child');
     expect((await created.store.save()).ok).toBe(true);
@@ -310,9 +341,13 @@ describe('backup rotation and recovery', () => {
     const restored = await restoreCandidateToPackage(
       recovery.candidate.path,
       path.join(library, 'recovered'),
+      { assetsSourcePackagePath: created.packagePath },
     );
     expect(restored.ok).toBe(true);
     if (!restored.ok) return;
+    await expect(fs.readFile(path.join(restored.targetPackagePath, 'assets', 'asset-1.bin'), 'utf8')).resolves.toBe(
+      'asset bytes',
+    );
     const restoredOpening = await openDocumentPackage(restored.targetPackagePath, options({ mode: 'read' }));
     stores.push(restoredOpening.store);
     expect(restoredOpening.status).toBe('read-only');

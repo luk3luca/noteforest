@@ -76,11 +76,6 @@ export function defaultBackupsRoot(appSupportDir: string): string {
   return path.join(appSupportDir, 'backups');
 }
 
-export function backupsDirForDocument(appSupportDir: string, documentId: string): string {
-  const safeId = documentId.replace(/[^A-Za-z0-9._-]/g, '_');
-  return path.join(defaultBackupsRoot(appSupportDir), safeId);
-}
-
 /**
  * Backup directory keyed by the package path. This stays resolvable when
  * `document.json` is corrupt (the document ID cannot be read in that case).

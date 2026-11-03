@@ -214,6 +214,8 @@ export interface RestoreOptions {
   overwrite?: boolean;
   /** Atomic-write hooks (fault injection in tests). */
   hooks?: AtomicWriteHooks;
+  /** Copy content-addressed assets from this package into the target copy. */
+  assetsSourcePackagePath?: string;
 }
 
 export interface RestoreSuccess {
@@ -253,6 +255,28 @@ export async function restoreCandidateToPackage(
     await fs.mkdir(assetsDirPath(target), { recursive: true });
   } catch (error) {
     return { ok: false, error: coreError('io-error', `could not create recovery package: ${errorMessage(error)}`) };
+  }
+
+  if (
+    options.assetsSourcePackagePath !== undefined &&
+    path.resolve(options.assetsSourcePackagePath) !== target
+  ) {
+    const sourceAssets = assetsDirPath(options.assetsSourcePackagePath);
+    try {
+      await fs.access(sourceAssets);
+      await fs.cp(sourceAssets, assetsDirPath(target), {
+        recursive: true,
+        force: false,
+        errorOnExist: false,
+      });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        return {
+          ok: false,
+          error: coreError('io-error', `could not copy assets into the recovery package: ${errorMessage(error)}`),
+        };
+      }
+    }
   }
   if (options.overwrite !== true) {
     try {

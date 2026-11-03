@@ -379,12 +379,21 @@ export function validateDocument(value: unknown): ValidationReport {
       }
       const existing = blockChapter.get(blockId);
       if (existing !== undefined) {
-        collector.error(
-          'block-in-two-chapters',
-          `block "${blockId}" is a top-level block in more than one chapter`,
-          entryPath,
-          [blockId, existing, chapterId],
-        );
+        if (existing === chapterId) {
+          collector.error(
+            'duplicate-top-level-entry',
+            `block "${blockId}" appears more than once in chapter "${chapterId}"`,
+            entryPath,
+            [blockId, chapterId],
+          );
+        } else {
+          collector.error(
+            'block-in-two-chapters',
+            `block "${blockId}" is a top-level block in more than one chapter`,
+            entryPath,
+            [blockId, existing, chapterId],
+          );
+        }
         continue;
       }
       blockChapter.set(blockId, chapterId);

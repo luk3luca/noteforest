@@ -175,7 +175,9 @@ log(
 );
 
 const recoveredDir = path.join(library, 'recovered-copy');
-const restored = await restoreCandidateToPackage(recovery.candidate.path, recoveredDir);
+const restored = await restoreCandidateToPackage(recovery.candidate.path, recoveredDir, {
+  assetsSourcePackagePath: created.packagePath,
+});
 if (!restored.ok) throw new Error(`restore failed: ${restored.error.message}`);
 log(`restored a new copy at ${restored.targetPackagePath}`);
 
