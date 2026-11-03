@@ -1,64 +1,123 @@
 # NoteForest — Plan
 
-**Version:** v1 (3 November 2026)  
+**Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** Ratified through Spike 1. Later milestones are planned, not approved.
+**Status:** Spike 1 complete; editor-first milestone approved by the product owner.
 
 ## Rules
 
 - One milestone at a time; a milestone starts only after the previous gate is reviewed.
 - Builder works in a worktree, one task at a time, and does not change the spec.
-- Every code change has tests. UI work has a screenshot or recording.
+- Every code change has tests. UI work has an app screenshot; screen recordings belong to the product owner.
 - A stack, PDF-pipeline, or layout/pagination change requires an ADR.
 - The spec (`docs/spec.md`) is the source of truth for behavior; the ADRs are the source of truth for architecture.
+
+## Editor-first correction (3 November 2026)
+
+The product owner reviewed the Spike 1 PDFs and rejected them as a product demo:
+
+- the 53-page fixture has no arrows because it has no branches; it does not represent the real use case;
+- some edge routes loop backwards and look wrong;
+- without an editor there is no way to touch the product and judge the PDF.
+
+Decision: **build the editable shell first, then fix the page/PDF pass from the real editor.** The spike's layout/paginator/print pipeline is kept as a technical foundation, but no more PDF polish until the editor is usable.
+
+The first touchable slice is an Obsidian-like desktop shell: left sidebar with the document library and the active document's topic tree, top tabs for multiple open documents, and a continuous block editor. PDF/page view is deferred to M4.
 
 ## Milestones
 
 | ID | Milestone | Goal | Gate | Status |
 |---|---|---|---|---|
 | **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.1; DoD/checklist aligned | **Done** |
-| **M1** | Spike 1 — adaptive layout + paginator + PDF | Prove the riskiest core in Electron before building the product around it | `docs/spike-01-layout-paginator-pdf.md` gates G1–G9 | **In progress** |
-| **M2** | Document core | Canonical document model, schema validation, commands, atomic persistence, backups, revisions, single-writer lock | Model round-trip and command/inverse tests; crash-recovery fixture; no UI required | Planned |
-| **M3** | Outline authoring | Outline view, block editor (TipTap), Enter/Tab/Backspace, collapse, reorder, page-break markers | AC-01–AC-11; keyboard-complete; 300-block outline performance | Planned |
-| **M4** | Branches and anchors | Primary/reference edges, block and span anchors, anchored callouts, repair, shared-child lifecycle | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
-| **M5** | Reader + page view | Reader as primary editor, page view preview, freeze/full reflow, view sync, zoom/fit | AC-23–AC-33, AC-51–AC-53, AC-63–AC-66 | Planned |
-| **M6** | PDF export | Page PDF from the shared paginator, print theme, continuation/ghost markers, text layer, standard-viewer check | AC-39–AC-45, AC-60–AC-61; ADR-0002 gate in the real app | Planned |
-| **M7** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
-| **M8** | Library, search, polish | Multiple documents, search, dark/light theme, accessibility, onboarding, packaging | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
+| **M1** | Spike 1 — technical foundation | Prove adaptive layout + paginator + real-text PDF in Electron | Spike 1 gates G1–G9 passed and independently re-run; visuals deferred | **Done** |
+| **M2** | Editor shell + document core | Touchable Obsidian-like shell: sidebar, document tabs, block editor, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; keyboard; screenshots; 300-block editor | **In progress** |
+| **M3** | Branches and anchors | Primary/reference edges, span anchors, anchored callouts, shared-child lifecycle, outline order | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
+| **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
+| **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
+| **M6** | Library, search, polish | Search, light theme, accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
 
-## M1 — Spike 1 brief
+## M1 — Spike 1 (done)
 
-The full brief is `docs/spike-01-layout-paginator-pdf.md`. Summary:
+The full report is `docs/spikes/spike-01-report.md`; the brief is `docs/spike-01-layout-paginator-pdf.md`.
 
-- **Timebox:** 5 working days. If the PDF gate fails structurally, stop and report; do not start a second pipeline silently.
-- **In scope:** minimal Electron + React + TypeScript demo, `packages/layout` (measurement adapter, adaptive layout, break candidates, paginator), a static fixture renderer, a page view, a print compositor, `printToPDF`, Playwright/Vitest tests, a report.
-- **Out of scope:** the real editor, persistence beyond fixtures, the external API, MCP, outline UI, anchors editing, themes, packaging, Windows/Linux.
-- **Exit:** all gates G1–G9 pass, or a written report explains exactly which gate failed and what the fallback decision should be.
+What passed:
 
-## M2 — Document core (planned)
+- pure TypeScript adaptive layout, safe break candidates, paginator;
+- F2: 225 blocks → 53 derived pages → 53 PDF pages, 225/225 block texts, 0 missing glyphs, geometry Δ ≤ 0.48 mm;
+- F7: 300 blocks → 39 pages, cold layout 17.9 ms, warm 0.6 ms, PDF 262 ms;
+- table rows atomic, too-tall row blocked, atomic export, deterministic reopen.
 
-- `packages/core`: schema types, validation, canonical document, commands + inverses, revision, atomic save, backup rotation, migration harness.
-- Minimal fixture-based CLI or test harness; no Electron UI required.
-- Gate: round-trip, unknown-field preservation, duplicate-ID rejection, crash-recovery, `baseRevision` conflict, lock behavior.
+What is deferred:
 
-## M3–M5 — Authoring and views (planned)
+- edge routing quality and the “backwards” arrow appearance;
+- the 53-page fixture has no branches, so no arrows; the next PDF pass must use a real branched document;
+- visual/product judgement of PDFs (needs the editor first);
+- fonts, metadata, CJK, 1,000-block/virtualization, incremental layout.
 
-- M3 is the first vertical slice the product owner can type in: create a document, chapters, top-level blocks, children, edit rich content, outline order, collapse, reorder.
-- M4 adds the differentiator: branches and anchors, including the broken-anchor repair path.
-- M5 wires the real reader/page views to the spike's layout package and closes the stability gates.
+## M2 — Editor shell + document core (current)
 
-## M6–M8 — Export, API, polish (planned)
+**Goal:** the product owner can open the app, create/open documents, edit blocks, switch documents in tabs, save, and reopen — and judge the feel.
 
-- M6 is the PDF commitment: the real app exports the real document, and the gate is re-run on a packaged build.
-- M7 is the external surface; the API is built on the same command layer as the UI.
-- M8 is breadth and release polish; no new architecture unless an ADR says so.
+**In scope:**
+
+- Electron shell with a calm Obsidian-like layout:
+  - left sidebar: library/documents + active document topic tree (chapters → blocks);
+  - top tab bar: multiple open documents, dirty state, close, overflow;
+  - central continuous block editor (reader-like, not the page view);
+  - status bar: save state, word count, document path.
+- Local document persistence: one JSON document + assets folder in a user-chosen location; autosave; backup; reopen.
+- Multiple documents: create, open, recent, tabs; per-tab scroll/focus state.
+- Block model: chapters, top-level blocks, direct children, stable IDs, labels, collapse, reorder.
+- TipTap block editor: paragraphs, headings, lists, blockquotes, code, inline/display math, images, tables; Enter/Tab/Backspace structural commands; one active editor.
+- Keyboard: `⌘B` sidebar, `⌘T` new document, `⌘W` close tab, `⌘1…9` tab switch, `⌘S` save, `⌘K` command palette (basic).
+- Dark mode default; light mode may be deferred.
+- Documentation: `docs/ux-shell.md` and `docs/tasks/m2-editor-shell.md`.
+
+**Out of scope for M2:**
+
+- branches and anchors (M3);
+- adaptive spatial layout, page view, PDF (M4);
+- external API/MCP (M5);
+- collaboration, plugins, annotations, iPad;
+- pixel-perfect final visual design.
+
+**Gate:**
+
+- app launches and the shell renders with no console errors;
+- create a document, add chapters/blocks, edit rich content, autosave, reopen; content preserved;
+- two documents open in tabs; switching preserves scroll/focus; dirty state visible;
+- keyboard structural commands work and undo is predictable;
+- 300 blocks remain usable (collapse/virtualization may be minimal in M2, but no freeze);
+- product-owner visual check: calm, Obsidian-like, no AI-slop patterns;
+- tests: model/persistence unit tests, editor keyboard tests, one e2e create/edit/reopen flow; screenshots.
+
+## M3 — Branches and anchors (planned)
+
+- Primary/reference edges, branch creation from a block and from a span, anchored callouts, shared-child lifecycle, make-home/move-here.
+- Outline order anchored-first, direct children after; reference edges as chips.
+- Broken/ambiguous anchor repair; no silent data loss.
+- Gate: AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58; real branched fixture; screenshots.
+
+## M4 — Reader/page + PDF (planned)
+
+- Wire the spike's layout/paginator into the real editor; reader remains the primary authoring surface.
+- Page view preview; freeze/full reflow; page-break markers; zoom/fit.
+- Fix edge routing: no backwards loops; branch edges start at the parent/source and end at the target, with a clear route; cross-page edges use page-edge indicators.
+- PDF from real documents with branches; verify arrows, continuation/ghost markers, table rows, text layer, page count, geometry.
+- Gate: AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66; ADR-0002 gate on packaged build.
+
+## M5–M6 — API and polish (planned)
+
+- M5: local HTTP JSON API + MCP adapter on the same command layer; tokens/scopes, dry-run/apply/undo, audit, single-writer lock.
+- M6: search, light theme, accessibility, onboarding, packaging, release checks.
 
 ## Risks and decision points
 
 | Risk | Where it bites | Mitigation |
 |---|---|---|
-| Spike layout does not generalize to anchors/continuations | M4–M5 | Fixtures include anchored callouts and continuations from day one; the paginator API exposes break candidates, not ad-hoc slicing. |
-| `printToPDF` cannot fix A4 pages deterministically | M1/M6 | ADR-0002 gate; print compositor consumes derived pages; fallback ADR if it fails. |
-| Command layer and API drift | M2/M7 | One typed command layer; the API is a transport adapter, not a second mutation path. |
-| Electron performance at 300–1,000 blocks | M3/M5 | Measure in the spike; virtualization/collapse/LOD; native canvas is a later option, not a stack switch. |
-| Scope creep before a usable vertical slice | All | Milestone gates; v1 scope list in `AGENTS.md`; no plugins/collaboration/annotations. |
+| Editor shell becomes a generic AI-looking dashboard | M2 | `research/ui-components.md`, `docs/ux-shell.md`, anti-slop checklist; product-owner screenshot review. |
+| Shell scope creep (too many panels/features) | M2 | Only sidebar + tabs + editor + status bar; no inspector/backlinks panel in M2. |
+| Document core and editor drift | M2 | One command layer; TipTap behind an adapter; typed document model. |
+| PDF visuals still wrong when reconnected | M4 | Use real branched documents; edge-routing fixtures; page-view geometry tests; product-owner review. |
+| 1,000-block performance regresses | M3–M4 | Measure at 300 in M2; virtualization/collapse/LOD in M4. |
+| Library/tabs state gets complex | M2 | One store for open tabs/view state; persistence of recent docs only in M2. |

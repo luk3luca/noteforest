@@ -16,9 +16,11 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**Planning is ratified; Spike 1 is starting.** The stack is decided: Electron + React + TypeScript (ADR-0001), and PDF export uses the shared paginator plus Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided (ADR-0003). The spec is at v0.4.1 and the UX, review, and DoD docs are aligned.
+**Spike 1 is complete; the editor-first milestone is next.** Spike 1 proved the pure layout engine, the paginator, and real-text `printToPDF`; its automated gates passed and were re-run independently. The product owner reviewed the output and rejected the fixture PDFs as a product demo (no real branches, wrong arrows, no editor to judge). **PDF visual polish is deferred until the editor is usable.**
 
-**Spike 1 — adaptive layout + paginator + real-text PDF — is the only approved application code.** Its brief is `docs/spike-01-layout-paginator-pdf.md`; it is timeboxed and gated. Do not scaffold anything outside that scope until the spike report is reviewed and the next milestone is approved.
+The current slice is **M2 — Editor shell + document core**: an Obsidian-like left sidebar (library + topic tree), top tabs for multiple documents, a continuous block editor, local documents, and autosave. The shell spec is `docs/ux-shell.md`; the plan is `docs/plan.md`. Do not add branches, anchors, page view, or PDF work in M2.
+
+The spec is at v0.4.1 and the UX, review, and DoD docs are aligned.
 
 ## Language
 
@@ -107,6 +109,8 @@ These override any conflicting research input.
 ### Views and scope
 
 - **Views (D14 closed)**: one continuous layout engine; reader view (continuous scroll + page-break markers) and page view (paginated WYSIWYG) as two renderers; **reader is the primary editor in v1**, page view is a preview. The other remains available.
+- **Editor shell (M2 direction, 3 November 2026)**: an Obsidian-like desktop shell — left sidebar with the document library and the active document's topic tree, top tabs for multiple open documents, and a continuous block editor. Dark mode default; calm, minimal, keyboard-first; no dashboard/AI-slop patterns. Full spec: `docs/ux-shell.md`.
+- **PDF priority (3 November 2026)**: editor first. The Spike 1 layout/paginator/print pipeline is a technical foundation; page view and PDF polish are deferred to M4, after real documents and branches exist. Do not spend M2 time on PDF visuals or Notability.
 - **Broken anchors**: visible marker + fallback to the whole block + repair dialog; never silent data loss.
 - **V1 scope**: all core features discussed — reader, page preview, PDF, chapters, blocks, branches, text/formula/code/image anchors, images, code, tables, shared children, outline, multiple documents, search, dark mode, external agent API (no in-app agent panel) — delivered in vertical slices; polish later. Non-goals: iPad/Pencil, annotations, collaboration, plugins, spaced repetition, in-app agent chat/autonomy.
 - **Testing**: T3 Code internal browser for manual/visual checks; Playwright for automated e2e, visual regression, and PDF text extraction.
@@ -142,9 +146,10 @@ Research remains useful as input for components, not as an open stack decision. 
 - `docs/review-checklist.md` — review checklist (Sentinel).
 - `docs/definition-of-done.md` — DoD and test strategy (Sentinel).
 - `docs/plan.md` — milestones and tasks (Orchestrator).
+- `docs/ux-shell.md` — desktop shell + editor spec for M2.
 - `docs/adr/` — architecture decision records: stack, PDF, External API.
 - `docs/spike-01-layout-paginator-pdf.md` — Spike 1 brief and gates.
-- `docs/spikes/` — spike reports and measurements (created by Builder).
+- `docs/spikes/` — Spike 1 report, gate evidence, and artifacts.
 
 ## Repo layout
 
