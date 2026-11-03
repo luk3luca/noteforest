@@ -86,6 +86,7 @@ The raw measurement JSON is `artifacts/m2b/performance.json`.
 - **Image asset import/paste** is deferred. Image nodes render if present; local asset copy and a `noteforest-asset` protocol are not implemented.
 - **Light theme** tokens are reserved but there is no theme toggle; dark Graphite is the default and only shipped look.
 - **Recent documents** are not a separate sidebar section; the library list is sorted by last update and recent titles are used for missing tabs.
+- **Tab close affordance.** The visible close button is `aria-hidden` to keep the `tablist` ARIA contract valid. Keyboard users close with `Delete` on the focused tab, `⌘W`, middle-click, or the tab context menu.
 - **VoiceOver pass** and the product owner’s subjective visual check remain human gates.
 - **Cross-chapter moves, chapter delete/reorder UI, reference edges, anchors, page view, PDF** are out of M2b by definition.
 - **Native `⌘⇧W` / quit prompt** are implemented in the main process but not automated in Playwright (a native dialog cannot be driven reliably); manual smoke is left to the product owner.
