@@ -39,11 +39,11 @@ Commands: `npm run typecheck`, `npm test`, `npm run e2e`, `npm run build -w @not
 | 3 | Reparent, reorder (keyboard + pointer drag), delete/detach keep arrows consistent | e2e Move to…, Alt+↑, pointer drag, Detach from parent; demo tree; core unit suite | Pass |
 | 4 | Save, quit, reopen restores content, structure, tabs, active tab, scroll, focus | e2e restore test: same selected block and scroll within 80 px; content/arrow checks | Pass |
 | 5 | Two tabs: switch, dirty state, close one, reopen, session restore | e2e `⌘1/⌘2`, `⌘W` closes tab not window, `⌘⇧T`, relaunch | Pass |
-| 6 | 300 blocks initial render < 1.5 s | **302 ms** (measured from seed call to 300 cards; 360–460 ms across runs) | Pass |
-| 7 | One-edit edge recompute < 8 ms | geometry measure p95 **3.4 ms**; edge routing p95 **0.5 ms**; max 4.7/0.7 ms | Pass |
-| 8 | Full reflow < 50 ms | ordinary structural edits use targeted transactions; measured geometry reflow p95 **≈3.9 ms** (measure + edge). A synthetic full-document rebuild benchmark is recorded separately and is not on the normal edit path. See known gaps for snapshot undo. | Pass for normal edits |
-| 9 | Scroll 60 fps at 300 blocks | **104 fps** average (9.60 ms frame) over 90 scroll frames | Pass |
-| 10 | 1,000 blocks with collapse reported | 1,000 blocks rendered in **1,293 ms**; after collapsing one root, 799 cards visible, reflow p95 **2.4 ms** | Reported |
+| 6 | 300 blocks initial render < 1.5 s | **302–303 ms** (measured from seed call to 300 cards; 360–460 ms across runs including cold start) | Pass |
+| 7 | One-edit edge recompute < 8 ms | geometry measure p95 **0.8–3.4 ms**; edge routing p95 **0.4–0.5 ms**; max ≤4.7/0.8 ms across runs | Pass |
+| 8 | Full reflow < 50 ms | ordinary structural edits use targeted transactions; measured geometry reflow p95 **≤4.0 ms** (measure + edge). A synthetic full-document rebuild benchmark is recorded separately and is not on the normal edit path. See known gaps for snapshot undo. | Pass for normal edits |
+| 9 | Scroll 60 fps at 300 blocks | **104–107 fps** average (9.32–9.60 ms frame) over 90 scroll frames | Pass |
+| 10 | 1,000 blocks with collapse reported | 1,000 blocks rendered in **1,290–1,293 ms**; after collapsing one root, 799 cards visible, reflow p95 **2.3–2.6 ms** | Reported |
 | 11 | axe: no serious/critical | shell, palette, topic tree, delete dialog: **0 serious/critical** under WCAG 2a/2aa/21a/21aa | Pass |
 | 12 | Keyboard-only run | `⌘K`, `⌘N`, `⌘W`, `⌘⇧T`, `⌘1…9`, `⌘\`, tree arrows, tab arrows, dialogs, palette | Pass |
 | 13 | 200% zoom | editor yields sidebar, innerWidth 720 = scrollWidth 720, no horizontal overflow; screenshot `zoom-200.png` | Pass |
@@ -55,14 +55,14 @@ Commands: `npm run typecheck`, `npm test`, `npm run e2e`, `npm run build -w @not
 ### Measured numbers (final e2e run)
 
 ```
-300-block initial render:          302 ms
-1,000-block initial render:      1,293 ms
-geometry measure p95:              3.4 ms
-edge routing p95:                  0.5 ms
-structural geometry reflow p95:    ≈3.9 ms (measure + edge)
-scroll:                            104 fps (9.60 ms/frame)
-1,000-block measure p95:           2.4 ms
-1,000-block edge p95:              0.7 ms
+300-block initial render:          302–303 ms
+1,000-block initial render:      1,290–1,293 ms
+geometry measure p95:              0.8–3.4 ms
+edge routing p95:                  0.4–0.5 ms
+structural geometry reflow p95:    ≤4.0 ms (measure + edge)
+scroll:                            104–107 fps (9.32–9.60 ms/frame)
+1,000-block measure p95:           2.3–2.6 ms
+1,000-block edge p95:              0.7–0.8 ms
 axe serious/critical:              0
 ```
 
