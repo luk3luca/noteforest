@@ -123,21 +123,21 @@ Measured with `performance.now()` in `storage.test.ts` on the local Mac (APFS te
 
 | Operation | Time |
 |---|---|
-| `save()` (JSON serialize + backup + atomic write + rotate) | **26.1 ms** |
-| Cold `openDocumentPackage(read)` (read + parse + validate) | **0.9 ms** |
+| `save()` (JSON serialize + backup + atomic write + rotate) | **25.6 ms** |
+| Cold `openDocumentPackage(read)` (read + parse + validate) | **0.8 ms** |
 | Warm open | **0.7 ms** |
 
-The harness (small 4-block document) reported 35.0 ms for the first save (includes creating the
-first autosave + daily snapshot), 8.6 ms for reopen. These are single-run numbers, not a benchmark;
+The harness (small 4-block document) reported 32.0 ms for the first save (includes creating the
+first autosave + daily snapshot), 8.8 ms for reopen. These are single-run numbers, not a benchmark;
 no budget was set for M2.
 
 ### Harness output (abridged)
 
 ```
 [harness] created …/library/eigenvalues (revision 0)
-[harness] saved revision 5 in 35.0 ms (2736 bytes, backup …)
+[harness] saved revision 5 in 32.0 ms (2736 bytes, backup …)
 [harness] saved revision 6 (backup …)
-[harness] reopened read-only: 4 blocks, 1 primary branch(es), revision 6 in 8.6 ms
+[harness] reopened read-only: 4 blocks, 1 primary branch(es), revision 6 in 8.8 ms
 [harness] arrow …: Eigenvalues → Eigenvector (primary, "has eigenvector")
 [harness] opening corrupt file: read-only (corrupt), error malformed-json
 [harness] recovery candidates: autosave:valid, daily:valid, autosave:valid, canonical:invalid
