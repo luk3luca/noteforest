@@ -18,7 +18,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 **Spike 1 is complete; the editor-first milestone is next.** Spike 1 proved the pure layout engine, the paginator, and real-text `printToPDF`; its automated gates passed and were re-run independently. The product owner reviewed the output and rejected the fixture PDFs as a product demo (no real branches, wrong arrows, no editor to judge). **PDF visual polish is deferred until the editor is usable.**
 
-The current slice is **M2 — Editor shell + document core**: an Obsidian-like left sidebar (library + topic tree), top tabs for multiple documents, a continuous block editor, local documents, and autosave. The shell spec is `docs/ux-shell.md`; the plan is `docs/plan.md`. Do not add branches, anchors, page view, or PDF work in M2.
+**M2b is built, merged, and ready for the product owner's hands-on review.** The shell, block editor, primary branches, arrows, tabs, local persistence, and session restore are working. Known gaps are in `docs/reports/m2b-editor-shell.md`: inactive cards are still reachable, destructive deletes are not on the structural undo stack, and snapshot undo/full rebuild can exceed the full-reflow budget. The product-owner visual/VoiceOver check is the next gate; M3 span anchors/reference edges start after it.
 
 The spec is at v0.4.1 and the UX, review, and DoD docs are aligned.
 
