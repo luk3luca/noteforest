@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "id": "f8-defects",
+  "title": "Defects and warnings",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [
+    "does-not-exist",
+    "f8-orphan"
+  ],
+  "blocks": {
+    "f8-long": {
+      "id": "f8-long",
+      "label": "No safe break",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Sentence 1: eigenvector matrix subspace tensor jacobian determinant eigenvalue decomposition. Sentence 2: decomposition characteristic trace linear gradient eigenvector projection polynomial. Sentence 3: decomposition vector orthogonal basis factorization projection projection image. Sentence 4: hessian characteristic nullity basis nullity subspace basis tensor. Sentence 5: singular factorization nullity eigenvalue basis transformation decomposition orthogonal. Sentence 6: subspace matrix spectrum rank linear basis matrix hessian. Sentence 7: matrix vector tensor singular subspace diagonal orthogonal nullity. Sentence 8: image eigenvector trace singular transformation orthogonal convergence nullity. Sentence 9: rank iteration kernel convergence decomposition singular determinant hessian. Sentence 10: subspace hessian singular norm orthogonal orthogonal rank basis. Sentence 11: subspace subspace eigenvalue transformation iteration linear basis subspace. Sentence 12: trace basis transformation jacobian kernel matrix singular eigenvector. Sentence 13: transformation polynomial basis vector vector matrix basis polynomial. Sentence 14: orthogonal symmetric subspace polynomial rank symmetric spectrum matrix. Sentence 15: nullity diagonal diagonal orthogonal nullity spectrum jacobian trace. Sentence 16: eigenvector kernel factorization diagonal characteristic matrix jacobian subspace. Sentence 17: spectrum rank linear image basis factorization trace linear. Sentence 18: diagonal eigenvalue subspace rank norm linear singular rank. Sentence 19: vector characteristic orthogonal factorization tensor characteristic eigenvector linear. Sentence 20: factorization diagonal eigenvalue trace symmetric rank decomposition iteration. Sentence 21: symmetric orthogonal trace diagonal projection gradient iteration polynomial. Sentence 22: eigenvalue nullity nullity rank polynomial gradient orthogonal spectrum. Sentence 23: basis basis eigenvector trace characteristic rank subspace jacobian. Sentence 24: characteristic jacobian trace basis subspace span determinant orthogonal. Sentence 25: eigenvalue convergence transformation decomposition determinant span symmetric orthogonal. Sentence 26: subspace decomposition subspace matrix convergence linear tensor decomposition. Sentence 27: diagonal matrix matrix image convergence nullity determinant basis. Sentence 28: symmetric singular decomposition decomposition determinant trace symmetric basis. Sentence 29: rank kernel characteristic nullity diagonal polynomial polynomial characteristic. Sentence 30: iteration iteration symmetric image image symmetric iteration orthogonal. Sentence 31: spectrum convergence decomposition vector symmetric polynomial basis hessian. Sentence 32: diagonal norm determinant iteration linear orthogonal matrix linear. Sentence 33: linear decomposition eigenvalue matrix orthogonal convergence determinant transformation. Sentence 34: eigenvalue convergence span polynomial kernel factorization orthogonal factorization. Sentence 35: matrix subspace decomposition gradient diagonal trace diagonal decomposition. Sentence 36: jacobian jacobian determinant image convergence iteration transformation jacobian. Sentence 37: subspace tensor matrix decomposition rank transformation image jacobian. Sentence 38: decomposition iteration basis norm convergence characteristic orthogonal image. Sentence 39: basis factorization linear vector iteration eigenvalue matrix trace. Sentence 40: eigenvector convergence matrix singular polynomial factorization eigenvector image. Sentence 41: iteration subspace eigenvector linear iteration projection hessian orthogonal. Sentence 42: eigenvalue orthogonal iteration spectrum image subspace determinant eigenvalue. Sentence 43: tensor determinant subspace vector basis decomposition vector vector. Sentence 44: convergence image basis norm eigenvector projection subspace diagonal. Sentence 45: vector hessian norm polynomial orthogonal projection matrix decomposition. Sentence 46: vector hessian orthogonal norm nullity determinant eigenvalue matrix. Sentence 47: eigenvector span projection linear subspace eigenvector spectrum eigenvalue. Sentence 48: iteration linear determinant basis orthogonal norm kernel symmetric. Sentence 49: polynomial eigenvalue factorization span subspace rank symmetric iteration. Sentence 50: linear span characteristic basis basis tensor image determinant. Sentence 51: kernel basis symmetric basis determinant determinant orthogonal characteristic. Sentence 52: rank matrix symmetric convergence linear subspace basis trace. Sentence 53: basis convergence vector jacobian basis linear basis factorization. Sentence 54: determinant spectrum characteristic projection trace singular linear decomposition. Sentence 55: orthogonal iteration singular decomposition vector nullity subspace characteristic. Sentence 56: kernel orthogonal decomposition trace orthogonal transformation gradient symmetric. Sentence 57: decomposition rank kernel eigenvector orthogonal eigenvalue nullity subspace. Sentence 58: projection eigenvector singular matrix iteration projection orthogonal gradient. Sentence 59: diagonal eigenvalue determinant image kernel eigenvector determinant characteristic. Sentence 60: characteristic rank nullity eigenvalue eigenvalue factorization iteration hessian. Sentence 61: linear singular gradient decomposition vector rank transformation symmetric. Sentence 62: decomposition rank image symmetric vector determinant norm tensor. Sentence 63: nullity basis trace vector diagonal convergence trace spectrum. Sentence 64: iteration symmetric spectrum trace gradient tensor norm orthogonal. Sentence 65: span diagonal eigenvalue decomposition characteristic rank tensor iteration. Sentence 66: kernel matrix nullity decomposition transformation iteration vector matrix. Sentence 67: tensor symmetric transformation orthogonal characteristic factorization subspace diagonal. Sentence 68: polynomial trace kernel tensor kernel subspace symmetric tensor. Sentence 69: norm trace norm convergence gradient projection eigenvector image. Sentence 70: factorization determinant characteristic projection tensor iteration vector singular. Sentence 71: factorization image eigenvalue spectrum projection image rank spectrum. Sentence 72: rank kernel determinant span basis characteristic convergence hessian. Sentence 73: decomposition gradient tensor rank gradient basis nullity span. Sentence 74: kernel decomposition tensor subspace eigenvalue characteristic gradient basis. Sentence 75: nullity vector iteration matrix diagonal eigenvalue tensor hessian. Sentence 76: orthogonal singular norm rank tensor subspace transformation jacobian. Sentence 77: symmetric vector singular projection span convergence gradient norm. Sentence 78: linear trace diagonal eigenvalue tensor tensor determinant projection. Sentence 79: vector tensor decomposition diagonal hessian nullity vector rank. Sentence 80: norm singular decomposition span factorization gradient eigenvector spectrum. Sentence 81: convergence characteristic polynomial linear matrix rank jacobian iteration. Sentence 82: factorization convergence subspace eigenvector subspace polynomial hessian diagonal. Sentence 83: singular determinant transformation transformation spectrum polynomial rank polynomial. Sentence 84: orthogonal transformation iteration transformation norm vector subspace trace. Sentence 85: orthogonal diagonal singular rank eigenvector diagonal polynomial basis. Sentence 86: vector jacobian factorization convergence orthogonal matrix symmetric norm. Sentence 87: vector diagonal symmetric spectrum vector transformation symmetric orthogonal. Sentence 88: convergence spectrum diagonal polynomial polynomial image subspace polynomial. Sentence 89: hessian image iteration factorization rank span hessian factorization. Sentence 90: vector rank determinant polynomial factorization spectrum subspace matrix."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f8-wide": {
+      "id": "f8-wide",
+      "label": "Content too wide",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A wide image has no safe horizontal break."
+              }
+            ]
+          },
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "imgWide",
+              "width": 1200,
+              "height": 200,
+              "alt": "A 1200 px image on a 642 px page"
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f8-long-code": {
+      "id": "f8-long-code",
+      "label": "Code line too wide",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "codeBlock",
+            "attrs": {
+              "text": "result = transform_matrix_with_a_very_long_name(matrix, vector, tolerance=1e-9, mode=\"stable\", fallback=\"strict\")  # no wrap",
+              "language": "python"
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f8-missing": {
+      "id": "f8-missing",
+      "label": "Missing asset",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The asset is absent; the placeholder must be labeled."
+              }
+            ]
+          },
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "does-not-exist",
+              "width": 640,
+              "height": 360,
+              "alt": "Missing research image"
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f8-normal": {
+      "id": "f8-normal",
+      "label": "Still renders",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A normal block after the defects."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {},
+  "branches": {},
+  "chapters": [
+    {
+      "id": "f8-ch1",
+      "title": "Defects",
+      "topLevelBlockIds": [
+        "f8-long",
+        "f8-wide",
+        "f8-long-code",
+        "f8-missing",
+        "f8-normal"
+      ]
+    }
+  ],
+  "assets": {
+    "imgForest": {
+      "id": "imgForest",
+      "path": "assets/forest.png",
+      "alt": "A forest plot of residuals",
+      "width": 640,
+      "height": 360
+    },
+    "imgWide": {
+      "id": "imgWide",
+      "path": "assets/wide.png",
+      "alt": "A very wide spectrum plot",
+      "width": 1200,
+      "height": 200
+    },
+    "imgChart": {
+      "id": "imgChart",
+      "path": "assets/chart.png",
+      "alt": "A small chart of eigenvalues",
+      "width": 420,
+      "height": 240
+    }
+  },
+  "annotations": []
+}

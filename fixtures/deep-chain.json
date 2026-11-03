@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "id": "f4-deep-chain",
+  "title": "Deep chain and nested callouts",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [],
+  "blocks": {
+    "f4-b1": {
+      "id": "f4-b1",
+      "label": "Depth 0",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The root of a five-level chain."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f4-b2": {
+      "id": "f4-b2",
+      "label": "Depth 1",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Level one contains the "
+              },
+              {
+                "type": "text",
+                "text": "anchor",
+                "marks": [
+                  {
+                    "type": "anchor",
+                    "attrs": {
+                      "anchorId": "f4-a1"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " for a nested callout."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A second paragraph makes the block tall enough to matter."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f4-b3": {
+      "id": "f4-b3",
+      "label": "Depth 2",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Level two is a direct child."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f4-b4": {
+      "id": "f4-b4",
+      "label": "Depth 3",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Level three continues the chain."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f4-b5": {
+      "id": "f4-b5",
+      "label": "Depth 4",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Level four is the fifth level overall."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f4-c1": {
+      "id": "f4-c1",
+      "label": "Nested callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout anchored on "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "\\lambda",
+                  "anchorId": "f4-a2"
+                }
+              },
+              {
+                "type": "text",
+                "text": " in the level-one block."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f4-c2": {
+      "id": "f4-c2",
+      "label": "Deep continuation",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A long callout that begins on page one and continues on page two."
+              }
+            ]
+          },
+          {
+            "type": "codeBlock",
+            "attrs": {
+              "text": "# block 1\nrow_2 = compute(matrix, 2)\nrow_3 = compute(matrix, 3)\nrow_4 = compute(matrix, 4)\nrow_5 = compute(matrix, 5)\nrow_6 = compute(matrix, 6)\n# block 2\nrow_8 = compute(matrix, 8)\nrow_9 = compute(matrix, 9)\nrow_10 = compute(matrix, 10)\nrow_11 = compute(matrix, 11)\nrow_12 = compute(matrix, 12)\n# block 3\nrow_14 = compute(matrix, 14)\nrow_15 = compute(matrix, 15)\nrow_16 = compute(matrix, 16)\nrow_17 = compute(matrix, 17)\nrow_18 = compute(matrix, 18)\n# block 4\nrow_20 = compute(matrix, 20)\nrow_21 = compute(matrix, 21)\nrow_22 = compute(matrix, 22)\nrow_23 = compute(matrix, 23)\nrow_24 = compute(matrix, 24)\n# block 5\nrow_26 = compute(matrix, 26)\nrow_27 = compute(matrix, 27)\nrow_28 = compute(matrix, 28)\nrow_29 = compute(matrix, 29)\nrow_30 = compute(matrix, 30)\n# block 6\nrow_32 = compute(matrix, 32)\nrow_33 = compute(matrix, 33)\nrow_34 = compute(matrix, 34)\nrow_35 = compute(matrix, 35)\nrow_36 = compute(matrix, 36)\n# block 7\nrow_38 = compute(matrix, 38)\nrow_39 = compute(matrix, 39)\nrow_40 = compute(matrix, 40)\nrow_41 = compute(matrix, 41)\nrow_42 = compute(matrix, 42)\n# block 8\nrow_44 = compute(matrix, 44)\nrow_45 = compute(matrix, 45)\nrow_46 = compute(matrix, 46)\nrow_47 = compute(matrix, 47)\nrow_48 = compute(matrix, 48)\n# block 9\nrow_50 = compute(matrix, 50)\nrow_51 = compute(matrix, 51)\nrow_52 = compute(matrix, 52)",
+              "language": "python"
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {
+    "f4-a1": {
+      "id": "f4-a1",
+      "blockId": "f4-b2",
+      "kind": "text",
+      "quote": "anchor"
+    },
+    "f4-a2": {
+      "id": "f4-a2",
+      "blockId": "f4-c1",
+      "kind": "formula",
+      "quote": "\\lambda"
+    }
+  },
+  "branches": {
+    "f4-e1": {
+      "id": "f4-e1",
+      "source": {
+        "blockId": "f4-b1"
+      },
+      "targetBlockId": "f4-b2",
+      "role": "primary",
+      "order": "a1"
+    },
+    "f4-e2": {
+      "id": "f4-e2",
+      "source": {
+        "blockId": "f4-b2"
+      },
+      "targetBlockId": "f4-b3",
+      "role": "primary",
+      "order": "a1"
+    },
+    "f4-e3": {
+      "id": "f4-e3",
+      "source": {
+        "blockId": "f4-b3"
+      },
+      "targetBlockId": "f4-b4",
+      "role": "primary",
+      "order": "a1"
+    },
+    "f4-e4": {
+      "id": "f4-e4",
+      "source": {
+        "blockId": "f4-b4"
+      },
+      "targetBlockId": "f4-b5",
+      "role": "primary",
+      "order": "a1"
+    },
+    "f4-e5": {
+      "id": "f4-e5",
+      "source": {
+        "blockId": "f4-b2",
+        "anchorId": "f4-a1"
+      },
+      "targetBlockId": "f4-c1",
+      "role": "primary",
+      "order": "a1"
+    },
+    "f4-e6": {
+      "id": "f4-e6",
+      "source": {
+        "blockId": "f4-c1",
+        "anchorId": "f4-a2"
+      },
+      "targetBlockId": "f4-c2",
+      "role": "primary",
+      "order": "a1"
+    }
+  },
+  "chapters": [
+    {
+      "id": "f4-ch1",
+      "title": "Deep chain",
+      "topLevelBlockIds": [
+        "f4-b1"
+      ]
+    }
+  ],
+  "assets": {
+    "imgForest": {
+      "id": "imgForest",
+      "path": "assets/forest.png",
+      "alt": "A forest plot of residuals",
+      "width": 640,
+      "height": 360
+    },
+    "imgWide": {
+      "id": "imgWide",
+      "path": "assets/wide.png",
+      "alt": "A very wide spectrum plot",
+      "width": 1200,
+      "height": 200
+    },
+    "imgChart": {
+      "id": "imgChart",
+      "path": "assets/chart.png",
+      "alt": "A small chart of eigenvalues",
+      "width": 420,
+      "height": 240
+    }
+  },
+  "annotations": []
+}

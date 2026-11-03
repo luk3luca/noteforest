@@ -1,0 +1,664 @@
+{
+  "schemaVersion": 1,
+  "id": "f3-wide-fan",
+  "title": "Adaptive fan",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [],
+  "blocks": {
+    "f3-parent": {
+      "id": "f3-parent",
+      "label": "Fan",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A short parent with ten children of very different widths."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c1": {
+      "id": "f3-c1",
+      "label": "A",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Short."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c2": {
+      "id": "f3-c2",
+      "label": "B",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A medium child with a single sentence."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c3": {
+      "id": "f3-c3",
+      "label": "C",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A long child that needs most of the remaining width and therefore wraps below the parent with a visible indent. It keeps a readable measure and does not overlap any sibling subtree."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c4": {
+      "id": "f3-c4",
+      "label": "D",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Code line:"
+              }
+            ]
+          },
+          {
+            "type": "codeBlock",
+            "attrs": {
+              "text": "scores = transform(matrix, vector, tolerance=1e-9)",
+              "language": "python"
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c5": {
+      "id": "f3-c5",
+      "label": "E",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "table",
+            "attrs": {
+              "headerRow": true
+            },
+            "children": [
+              {
+                "type": "tableRow",
+                "children": [
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "a"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "b"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "c"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "d"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "children": [
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "1"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "2"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "3"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "4"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "children": [
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "5"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "6"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "7"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "8"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "children": [
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "9"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "10"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "11"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "12"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "children": [
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "13"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "14"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "15"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "children": [
+                      {
+                        "type": "paragraph",
+                        "children": [
+                          {
+                            "type": "text",
+                            "text": "16"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c6": {
+      "id": "f3-c6",
+      "label": "F",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "mathBlock",
+            "attrs": {
+              "latex": "\\sum_{i=1}^{n} \\lambda_i v_i"
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c7": {
+      "id": "f3-c7",
+      "label": "G",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "imgWide",
+              "width": 520,
+              "height": 110,
+              "alt": "A wide spectrum plot"
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c8": {
+      "id": "f3-c8",
+      "label": "H",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Another short leaf."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c9": {
+      "id": "f3-c9",
+      "label": "I",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A second long leaf that wraps below the parent. Its subtree has one short child, so the adaptive rule has to reserve room for the whole footprint."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "f3-c10": {
+      "id": "f3-c10",
+      "label": "I.1",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Nested leaf."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {},
+  "branches": {
+    "f3-e1": {
+      "id": "f3-e1",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c1",
+      "role": "primary",
+      "order": "o01"
+    },
+    "f3-e2": {
+      "id": "f3-e2",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c2",
+      "role": "primary",
+      "order": "o02"
+    },
+    "f3-e3": {
+      "id": "f3-e3",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c3",
+      "role": "primary",
+      "order": "o03"
+    },
+    "f3-e4": {
+      "id": "f3-e4",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c4",
+      "role": "primary",
+      "order": "o04"
+    },
+    "f3-e5": {
+      "id": "f3-e5",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c5",
+      "role": "primary",
+      "order": "o05"
+    },
+    "f3-e6": {
+      "id": "f3-e6",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c6",
+      "role": "primary",
+      "order": "o06"
+    },
+    "f3-e7": {
+      "id": "f3-e7",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c7",
+      "role": "primary",
+      "order": "o07"
+    },
+    "f3-e8": {
+      "id": "f3-e8",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c8",
+      "role": "primary",
+      "order": "o08"
+    },
+    "f3-e9": {
+      "id": "f3-e9",
+      "source": {
+        "blockId": "f3-parent"
+      },
+      "targetBlockId": "f3-c9",
+      "role": "primary",
+      "order": "o09"
+    },
+    "f3-e10": {
+      "id": "f3-e10",
+      "source": {
+        "blockId": "f3-c9"
+      },
+      "targetBlockId": "f3-c10",
+      "role": "primary",
+      "order": "a1"
+    }
+  },
+  "chapters": [
+    {
+      "id": "f3-ch1",
+      "title": "Fan",
+      "topLevelBlockIds": [
+        "f3-parent"
+      ]
+    }
+  ],
+  "assets": {
+    "imgForest": {
+      "id": "imgForest",
+      "path": "assets/forest.png",
+      "alt": "A forest plot of residuals",
+      "width": 640,
+      "height": 360
+    },
+    "imgWide": {
+      "id": "imgWide",
+      "path": "assets/wide.png",
+      "alt": "A very wide spectrum plot",
+      "width": 1200,
+      "height": 200
+    },
+    "imgChart": {
+      "id": "imgChart",
+      "path": "assets/chart.png",
+      "alt": "A small chart of eigenvalues",
+      "width": 420,
+      "height": 240
+    }
+  },
+  "annotations": []
+}

@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 1,
+  "id": "f1-landscape-golden",
+  "title": "Linear algebra — eigenvalues (landscape)",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "landscape",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [
+    "b4"
+  ],
+  "blocks": {
+    "b1": {
+      "id": "b1",
+      "label": "Eigenvalues",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "An "
+              },
+              {
+                "type": "text",
+                "text": "eigenvalue",
+                "marks": [
+                  {
+                    "type": "anchor",
+                    "attrs": {
+                      "anchorId": "a1"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " is a scalar "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "\\lambda"
+                }
+              },
+              {
+                "type": "text",
+                "text": " such that "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "Av = \\lambda v"
+                }
+              },
+              {
+                "type": "text",
+                "text": " for some nonzero vector "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "v"
+                }
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "b2": {
+      "id": "b2",
+      "label": "Eigenvector",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "An eigenvector is a nonzero vector "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "v"
+                }
+              },
+              {
+                "type": "text",
+                "text": " satisfying "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "Av = \\lambda v"
+                }
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "b3": {
+      "id": "b3",
+      "label": "Eigenvalue equation",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The eigenvalue equation is "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "Av = \\lambda v",
+                  "anchorId": "a2"
+                }
+              },
+              {
+                "type": "text",
+                "text": ", with "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "v \\neq 0"
+                }
+              },
+              {
+                "type": "text",
+                "text": ". It is the bridge between a matrix and its spectrum."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "b4": {
+      "id": "b4",
+      "label": "Cayley–Hamilton",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Every square matrix satisfies its characteristic polynomial: "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "p(\\lambda) = \\det(A - \\lambda I)"
+                }
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "b5": {
+      "id": "b5",
+      "label": "Computing eigenvalues",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A numerical example uses the "
+              },
+              {
+                "type": "text",
+                "text": "eigvals",
+                "marks": [
+                  {
+                    "type": "code"
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " helper and a short power iteration."
+              }
+            ]
+          },
+          {
+            "type": "codeBlock",
+            "attrs": {
+              "text": "import numpy as np\nfrom numpy.linalg import eig\n\ndef spectrum(matrix, tolerance=1e-9):\n    \"\"\"Return a stable eigenvalue estimate.\"\"\"\n    values, vectors = eig(matrix)\n    order = np.argsort(np.abs(values))[::-1]\n    return values[order], vectors[:, order]\n\nA = np.array([[2.0, 1.0], [1.0, 2.0]])\nvals = eigvals(A)\nvecs = vectors(A)\nprint(vals)\nprint(vecs)\n\nfor value in vals:\n    print(f\"lambda = {value:.6f}\")\n\ndef residual(matrix, value, vector):\n    return np.linalg.norm(A @ v - value * v)\n\ndef power_iteration(matrix, steps=100):\n    vector = np.ones(matrix.shape[0])\n    for _ in range(steps):\n        vector = matrix @ vector\n        vector = vector / np.linalg.norm(vector)\n    value = float(vector @ matrix @ vector)\n    return value, vector\n\nvalue, vector = power_iteration(A)\nprint(value)\nprint(vector)\n\nassert residual(A, value, vector) < 1e-6\nassert np.isclose(value, vals[0])\nprint(\"ok\")\n\n# Check the trace identity.\nsame_trace = np.isclose(A.trace(), vals.sum())\nprint(trace_identity)\nprint(\"done\")",
+              "language": "python",
+              "anchorId": "a3",
+              "anchorToken": "eigvals",
+              "anchorLine": 11
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {
+    "a1": {
+      "id": "a1",
+      "blockId": "b1",
+      "kind": "text",
+      "quote": "eigenvalue",
+      "prefix": "An ",
+      "suffix": " is"
+    },
+    "a2": {
+      "id": "a2",
+      "blockId": "b3",
+      "kind": "formula",
+      "quote": "Av = \\lambda v"
+    },
+    "a3": {
+      "id": "a3",
+      "blockId": "b5",
+      "kind": "code",
+      "quote": "eigvals",
+      "codeToken": "eigvals",
+      "codeLine": 11
+    }
+  },
+  "branches": {
+    "e1": {
+      "id": "e1",
+      "source": {
+        "blockId": "b1"
+      },
+      "targetBlockId": "b2",
+      "role": "primary",
+      "order": "a1"
+    },
+    "e2": {
+      "id": "e2",
+      "source": {
+        "blockId": "b1",
+        "anchorId": "a1"
+      },
+      "targetBlockId": "b3",
+      "role": "primary",
+      "order": "a1"
+    },
+    "e3": {
+      "id": "e3",
+      "source": {
+        "blockId": "b3",
+        "anchorId": "a2"
+      },
+      "targetBlockId": "b5",
+      "role": "primary",
+      "order": "a1"
+    },
+    "e4": {
+      "id": "e4",
+      "source": {
+        "blockId": "b4"
+      },
+      "targetBlockId": "b3",
+      "role": "reference",
+      "order": "a1",
+      "label": "also uses"
+    }
+  },
+  "chapters": [
+    {
+      "id": "ch1",
+      "title": "Eigenvalues",
+      "topLevelBlockIds": [
+        "b1",
+        "b4"
+      ]
+    }
+  ],
+  "assets": {
+    "imgForest": {
+      "id": "imgForest",
+      "path": "assets/forest.png",
+      "alt": "A forest plot of residuals",
+      "width": 640,
+      "height": 360
+    },
+    "imgWide": {
+      "id": "imgWide",
+      "path": "assets/wide.png",
+      "alt": "A very wide spectrum plot",
+      "width": 1200,
+      "height": 200
+    },
+    "imgChart": {
+      "id": "imgChart",
+      "path": "assets/chart.png",
+      "alt": "A small chart of eigenvalues",
+      "width": 420,
+      "height": 240
+    }
+  },
+  "annotations": []
+}

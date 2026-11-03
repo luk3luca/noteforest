@@ -1,0 +1,25 @@
+{
+  "name": "@noteforest/desktop",
+  "version": "0.0.0-spike.1",
+  "private": true,
+  "description": "NoteForest Spike 1 desktop shell",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
+    "build": "electron-vite build",
+    "start": "env -u ELECTRON_RUN_AS_NODE electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "@noteforest/layout": "0.0.0-spike.1",
+    "@noteforest/pdf": "0.0.0-spike.1",
+    "katex": "0.19.1",
+    "pdfjs-dist": "6.5.438",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0"
+  }
+}
