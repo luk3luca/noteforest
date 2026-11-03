@@ -1,0 +1,1838 @@
+{
+  "generatedAt": "2026-11-03T19:31:08.246Z",
+  "versions": {
+    "electron": "45.2.1",
+    "chrome": "156.0.8078.75",
+    "node": "24.22.1",
+    "v8": "15.6.75.25-electron.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "appVersion": "0.0.0-spike.1",
+    "devicePixelRatio": 2
+  },
+  "gates": {
+    "G1": {
+      "id": "G1",
+      "name": "Build and run",
+      "pass": true,
+      "details": {
+        "fixture": "golden-eigenvalues.json",
+        "blocks": 5,
+        "pages": 3,
+        "exportFromApp": true,
+        "rendererErrors": 0
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader.png",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-01.png"
+      ]
+    },
+    "G2": {
+      "id": "G2",
+      "name": "Adaptive layout",
+      "pass": true,
+      "details": {
+        "f1": {
+          "gaps": {
+            "pass": true,
+            "overlaps": [],
+            "minGap": 20,
+            "minPair": [
+              "b1",
+              "b3"
+            ],
+            "chapters": [
+              {
+                "chapterId": "ch1",
+                "blocks": 5,
+                "minGap": 20,
+                "minPair": [
+                  "b1",
+                  "b3"
+                ],
+                "overlaps": []
+              }
+            ]
+          },
+          "anchors": {
+            "pass": true,
+            "failures": [],
+            "checked": 2
+          },
+          "order": "b1,b3,b5,b2,b4",
+          "continuationMarkers": 2
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader-chapter.png"
+      ]
+    },
+    "G3": {
+      "id": "G3",
+      "name": "Pagination",
+      "pass": true,
+      "details": {
+        "f1": {
+          "continuations": 2,
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "manualHintPage": 3
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-02-continuation.png"
+      ]
+    },
+    "G4-F1": {
+      "id": "G4-F1",
+      "name": "PDF fidelity — F1",
+      "pass": true,
+      "details": {
+        "f1": {
+          "pageCount": {
+            "pass": true,
+            "expected": 3,
+            "actual": 3
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 5
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 240
+          },
+          "geometry": {
+            "pass": true,
+            "failures": [],
+            "checked": 5,
+            "maxDeltaMm": 0.36
+          },
+          "bytes": 144455
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png"
+      ]
+    },
+    "G4-landscape": {
+      "id": "G4-landscape",
+      "name": "PDF landscape orientation",
+      "pass": true,
+      "details": {
+        "expected": "297 × 210 mm",
+        "actual": [
+          297.0106596111111,
+          209.88865255555555
+        ],
+        "pageCount": 3,
+        "pageSize": {
+          "pass": true,
+          "failures": [],
+          "expected": "297 × 210 mm",
+          "actual": "297.01 × 209.89 mm"
+        },
+        "geometry": {
+          "pass": true,
+          "failures": [],
+          "checked": 5,
+          "maxDeltaMm": 0.36
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-landscape-golden.pdf"
+      ]
+    },
+    "G3-F2": {
+      "id": "G3-F2",
+      "name": "F2 50+ page gate",
+      "pass": true,
+      "details": {
+        "pages": 53,
+        "codeBlockPages": 2,
+        "tablePages": 3,
+        "pageCount": {
+          "pass": true,
+          "expected": 53,
+          "actual": 53
+        },
+        "pageSize": {
+          "pass": true,
+          "failures": [],
+          "expected": "210 × 297 mm",
+          "actual": "209.89 × 297.01 mm"
+        },
+        "texts": {
+          "pass": true,
+          "failures": [],
+          "missingGlyphCount": 0,
+          "checkedBlocks": 225
+        },
+        "continuations": {
+          "pass": true,
+          "failures": [],
+          "checked": 20
+        },
+        "segmentAtomicity": {
+          "pass": true,
+          "failures": []
+        },
+        "chapterStarts": {
+          "pass": true,
+          "failures": []
+        },
+        "images": {
+          "pass": true,
+          "failures": []
+        },
+        "vectors": {
+          "pass": true,
+          "totalPaths": 1917
+        },
+        "tables": {
+          "pass": true,
+          "failures": [],
+          "info": [
+            {
+              "blockId": "f2-b019",
+              "rows": 35,
+              "pages": [
+                5,
+                6,
+                7
+              ]
+            }
+          ]
+        },
+        "geometry": {
+          "pass": true,
+          "failures": [],
+          "checked": 225,
+          "maxDeltaMm": 0.48
+        },
+        "exportMs": 406,
+        "bytes": 686572
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F2-page-01.png"
+      ]
+    },
+    "G4": {
+      "id": "G4",
+      "name": "PDF fidelity — F1 and F2",
+      "pass": true,
+      "details": {
+        "f1": {
+          "pageCount": {
+            "pass": true,
+            "expected": 3,
+            "actual": 3
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 5
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 240
+          },
+          "geometry": {
+            "pass": true,
+            "failures": [],
+            "checked": 5,
+            "maxDeltaMm": 0.36
+          },
+          "bytes": 144455
+        },
+        "f2": {
+          "pageCount": {
+            "pass": true,
+            "expected": 53,
+            "actual": 53
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 225
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 20
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 1917
+          },
+          "geometry": {
+            "pass": true,
+            "failures": [],
+            "checked": 225,
+            "maxDeltaMm": 0.48
+          },
+          "bytes": 686572
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F2-003.png"
+      ]
+    },
+    "G2-F3": {
+      "id": "G2-F3",
+      "name": "Wide fan: right and wrap-below placement",
+      "pass": true,
+      "details": {
+        "gaps": {
+          "pass": true,
+          "overlaps": [],
+          "minGap": 24,
+          "minPair": [
+            "f3-parent",
+            "f3-c1"
+          ],
+          "chapters": [
+            {
+              "chapterId": "f3-ch1",
+              "blocks": 11,
+              "minGap": 24,
+              "minPair": [
+                "f3-parent",
+                "f3-c1"
+              ],
+              "overlaps": []
+            }
+          ]
+        },
+        "rightPlaced": 4,
+        "wrapped": 5,
+        "uniqueWidths": 6,
+        "widths": [
+          387,
+          186,
+          277,
+          446,
+          413,
+          186,
+          186,
+          546,
+          186,
+          446,
+          186
+        ]
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F3-reader-fan.png"
+      ]
+    },
+    "G2-F4": {
+      "id": "G2-F4",
+      "name": "Deep chain and nested callouts",
+      "pass": true,
+      "details": {
+        "gaps": {
+          "pass": true,
+          "overlaps": [],
+          "minGap": 20,
+          "minPair": [
+            "f4-b2",
+            "f4-c1"
+          ],
+          "chapters": [
+            {
+              "chapterId": "f4-ch1",
+              "blocks": 7,
+              "minGap": 20,
+              "minPair": [
+                "f4-b2",
+                "f4-c1"
+              ],
+              "overlaps": []
+            }
+          ]
+        },
+        "anchors": {
+          "pass": true,
+          "failures": [],
+          "checked": 2
+        },
+        "maxDepth": 4,
+        "pages": 2,
+        "continuations": 2,
+        "exportPageCount": {
+          "pass": true,
+          "expected": 2,
+          "actual": 2
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F4-reader-deep-chain.png"
+      ]
+    },
+    "G2-F5": {
+      "id": "G2-F5",
+      "name": "Shared child and reference edges",
+      "pass": true,
+      "details": {
+        "uniqueBlockIds": true,
+        "referenceProbe": {
+          "fixtureFile": "shared-child.json",
+          "positionsIdentical": true,
+          "pageBreaksIdentical": true,
+          "pageCountBefore": 1,
+          "pageCountAfter": 1,
+          "addedBranchId": "spike-reference-probe"
+        },
+        "blockCount": 4
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-shared-child.pdf"
+      ]
+    },
+    "G3-F6": {
+      "id": "G3-F6",
+      "name": "Table row atomicity and too-tall row defect",
+      "pass": true,
+      "details": {
+        "tooTall": [
+          {
+            "code": "too-tall-row",
+            "severity": "blocking",
+            "message": "Table row 2 in block f6-giant is 5305 px tall; the page content area is 971 px. The row is atomic and is not cut.",
+            "blockId": "f6-giant",
+            "chapterId": "f6-ch1",
+            "blocksExport": true
+          }
+        ],
+        "tables": {
+          "pass": true,
+          "failures": [],
+          "info": [
+            {
+              "blockId": "f6-table",
+              "rows": 35,
+              "pages": [
+                1,
+                2
+              ]
+            },
+            {
+              "blockId": "f6-giant",
+              "rows": 2,
+              "pages": [
+                2,
+                3
+              ]
+            }
+          ]
+        },
+        "export": {
+          "ok": false,
+          "error": "Export blocked by 1 blocking defect(s): Table row 2 in block f6-giant is 5305 px tall; the page content area is 971 px. The row is atomic and is not cut.",
+          "expectedPageCount": 4
+        },
+        "pageCount": 4
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F6-page-03-too-tall-row.png"
+      ]
+    },
+    "G2-F7": {
+      "id": "G2-F7",
+      "name": "300-block layout",
+      "pass": true,
+      "details": {
+        "blocks": 300,
+        "pages": 39,
+        "gaps": {
+          "pass": true,
+          "overlaps": [],
+          "minGap": 20,
+          "minPair": [
+            "f7-b001",
+            "f7-b002"
+          ],
+          "chapters": [
+            {
+              "chapterId": "f7-ch1",
+              "blocks": 100,
+              "minGap": 20,
+              "minPair": [
+                "f7-b001",
+                "f7-b002"
+              ],
+              "overlaps": []
+            },
+            {
+              "chapterId": "f7-ch2",
+              "blocks": 100,
+              "minGap": 20,
+              "minPair": [
+                "f7-b101",
+                "f7-b102"
+              ],
+              "overlaps": []
+            },
+            {
+              "chapterId": "f7-ch3",
+              "blocks": 100,
+              "minGap": 20,
+              "minPair": [
+                "f7-b201",
+                "f7-b202"
+              ],
+              "overlaps": []
+            }
+          ]
+        },
+        "defects": [],
+        "geometry": {
+          "pass": true,
+          "failures": [],
+          "checked": 300,
+          "maxDeltaMm": 0.47
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F7-page-01.png"
+      ]
+    },
+    "G5": {
+      "id": "G5",
+      "name": "Performance",
+      "pass": true,
+      "details": {
+        "f7": {
+          "fixtureFile": "scale-300.json",
+          "blockCount": 300,
+          "chapterCount": 3,
+          "pageCount": 39,
+          "measurementCalls": 600,
+          "measurementCacheEntries": 300,
+          "coldLayoutMs": 17.899999976158142,
+          "warmMedianMs": 0.6000000238418579,
+          "warmP95Ms": 1,
+          "paginateMs": 0.40000009536743164,
+          "renderDataMs": 0.3999999761581421,
+          "totalMs": 22,
+          "heapMB": 9.5
+        },
+        "f7ExportMs": 262,
+        "f2ExportMs": 406,
+        "f7Scroll": {
+          "frames": 90,
+          "averageMs": 8.283333333068429,
+          "p95Ms": 8.600000000000364
+        },
+        "f2Layout": {
+          "fixtureFile": "long-50-pages.json",
+          "blockCount": 225,
+          "chapterCount": 3,
+          "pageCount": 53,
+          "measurementCalls": 450,
+          "measurementCacheEntries": 225,
+          "coldLayoutMs": 36.799999952316284,
+          "warmMedianMs": 0.2999999523162842,
+          "warmP95Ms": 0.6000000238418579,
+          "paginateMs": 1.2999999523162842,
+          "renderDataMs": 1.4000000953674316,
+          "totalMs": 41.200000047683716,
+          "heapMB": 9.5
+        },
+        "f7Pdf": {
+          "pages": 39,
+          "bytes": 383453,
+          "pageCount": {
+            "pass": true,
+            "expected": 39,
+            "actual": 39
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 300
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "geometry": {
+            "pass": true,
+            "failures": [],
+            "checked": 300,
+            "maxDeltaMm": 0.47
+          }
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-scale-300.pdf"
+      ]
+    },
+    "G6": {
+      "id": "G6",
+      "name": "Stability",
+      "pass": true,
+      "details": {
+        "add": {
+          "newBlockId": "f7-scale-300-stability-added",
+          "keptRatio": 1,
+          "movedBlocks": [],
+          "unrelatedChaptersMoved": 0
+        },
+        "delete": {
+          "deletedBlockId": "f7-b296",
+          "outsideAffectedMoved": 0,
+          "survivingBlocks": 299
+        },
+        "reference": {
+          "positionsIdentical": true,
+          "pageBreaksIdentical": true,
+          "pageCountBefore": 39,
+          "pageCountAfter": 39
+        },
+        "referenceProbe": {
+          "fixtureFile": "scale-300.json",
+          "positionsIdentical": true,
+          "pageBreaksIdentical": true,
+          "pageCountBefore": 39,
+          "pageCountAfter": 39,
+          "addedBranchId": "spike-reference-probe"
+        }
+      },
+      "evidence": []
+    },
+    "G7": {
+      "id": "G7",
+      "name": "Defects and errors",
+      "pass": true,
+      "details": {
+        "codes": [
+          "content-too-wide",
+          "missing-asset",
+          "impossible-hint",
+          "no-safe-break"
+        ],
+        "defects": [
+          {
+            "code": "content-too-wide",
+            "severity": "blocking",
+            "message": "Block f8-wide has content that needs 1200 px but only 617 px is available. The content is not scaled or clipped.",
+            "blockId": "f8-wide",
+            "chapterId": "f8-ch1",
+            "blocksExport": true
+          },
+          {
+            "code": "content-too-wide",
+            "severity": "blocking",
+            "message": "Block f8-long-code has content that needs 922 px but only 617 px is available. The content is not scaled or clipped.",
+            "blockId": "f8-long-code",
+            "chapterId": "f8-ch1",
+            "blocksExport": true
+          },
+          {
+            "code": "missing-asset",
+            "severity": "warning",
+            "message": "Block f8-missing references missing asset does-not-exist; a labeled placeholder is rendered.",
+            "blockId": "f8-missing",
+            "chapterId": "f8-ch1",
+            "blocksExport": false
+          },
+          {
+            "code": "impossible-hint",
+            "severity": "warning",
+            "message": "Manual break hint names unknown block does-not-exist; it is ignored.",
+            "blockId": "does-not-exist",
+            "blocksExport": false
+          },
+          {
+            "code": "impossible-hint",
+            "severity": "warning",
+            "message": "Manual break hint names unknown block f8-orphan; it is ignored.",
+            "blockId": "f8-orphan",
+            "blocksExport": false
+          },
+          {
+            "code": "no-safe-break",
+            "severity": "blocking",
+            "message": "Block f8-long has no safe break inside page 1's content height (971 px). It overflows by 1803 px rather than being cut. Export is blocked.",
+            "blockId": "f8-long",
+            "chapterId": "f8-ch1",
+            "pageNumber": 1,
+            "blocksExport": true
+          }
+        ],
+        "export": {
+          "ok": false,
+          "error": "Export blocked by 3 blocking defect(s): Block f8-wide has content that needs 1200 px but only 617 px is available. The content is not scaled or clipped. Block f8-long-code has content that needs 922 px but only 617 px is available. The content is not scaled or clipped. Block f8-long has no safe break inside page 1's content height (971 px). It overflows by 1803 px rather than being cut. Export is blocked.",
+          "expectedPageCount": 2
+        },
+        "partialFileExists": false
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F8-page-01-defects.png"
+      ]
+    },
+    "G3-F9": {
+      "id": "G3-F9",
+      "name": "Broken and ambiguous anchors",
+      "pass": true,
+      "details": {
+        "codes": [
+          "broken-anchor",
+          "ambiguous-anchor"
+        ],
+        "pageCount": 1,
+        "markers": {
+          "broken": true,
+          "ambiguous": true
+        }
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F9-page-01-anchor-warnings.png",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-broken-anchor.pdf"
+      ]
+    },
+    "G6-determinism": {
+      "id": "G6-determinism",
+      "name": "Deterministic reopening",
+      "pass": true,
+      "details": {
+        "pageCountSame": true,
+        "geometryHashSame": true,
+        "firstHash": "e38e396535971245be21637dd569e8278c90f59d94bc70022bd9466467764c12",
+        "secondHash": "e38e396535971245be21637dd569e8278c90f59d94bc70022bd9466467764c12"
+      },
+      "evidence": []
+    },
+    "G4-atomic": {
+      "id": "G4-atomic",
+      "name": "Atomic export failure",
+      "pass": true,
+      "details": {
+        "export": {
+          "ok": false,
+          "error": "Forced export failure for the atomic-write gate.",
+          "expectedPageCount": 3
+        },
+        "targetBeforeHash": "bfcb3e14821b0a908106827d5ec9e90600171e1923d33b7a5e6bdbcff654ecdd",
+        "targetAfterHash": "bfcb3e14821b0a908106827d5ec9e90600171e1923d33b7a5e6bdbcff654ecdd",
+        "targetBeforeMtime": 1793734270073.5354,
+        "targetAfterMtime": 1793734270073.5354,
+        "tempFiles": []
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf"
+      ]
+    },
+    "G8": {
+      "id": "G8",
+      "name": "Visual evidence",
+      "pass": true,
+      "details": {
+        "screenshots": 15,
+        "rasters": 6
+      },
+      "evidence": [
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader.png",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-02-continuation.png",
+        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png"
+      ]
+    }
+  },
+  "summary": {
+    "G1": true,
+    "G2": true,
+    "G3": true,
+    "G4-F1": true,
+    "G4-landscape": true,
+    "G3-F2": true,
+    "G4": true,
+    "G2-F3": true,
+    "G2-F4": true,
+    "G2-F5": true,
+    "G3-F6": true,
+    "G2-F7": true,
+    "G5": true,
+    "G6": true,
+    "G7": true,
+    "G3-F9": true,
+    "G6-determinism": true,
+    "G4-atomic": true,
+    "G8": true
+  },
+  "memory": {
+    "mainRssMB": 304.2,
+    "mainHeapUsedMB": 24.8,
+    "rendererHeapMB": 9.5
+  },
+  "forcedFailure": {
+    "export": {
+      "ok": false,
+      "error": "Forced export failure for the atomic-write gate.",
+      "expectedPageCount": 3
+    },
+    "targetBeforeHash": "bfcb3e14821b0a908106827d5ec9e90600171e1923d33b7a5e6bdbcff654ecdd",
+    "targetAfterHash": "bfcb3e14821b0a908106827d5ec9e90600171e1923d33b7a5e6bdbcff654ecdd",
+    "targetBeforeMtime": 1793734270073.5354,
+    "targetAfterMtime": 1793734270073.5354,
+    "tempFiles": []
+  },
+  "fixtures": {
+    "golden-eigenvalues.json": {
+      "state": {
+        "fixtureFile": "golden-eigenvalues.json",
+        "documentId": "f1-golden-eigenvalues",
+        "title": "Linear algebra — eigenvalues",
+        "blockCount": 5,
+        "pageCount": 3,
+        "chapterCount": 1,
+        "metrics": {
+          "fixtureFile": "golden-eigenvalues.json",
+          "blockCount": 5,
+          "chapterCount": 1,
+          "pageCount": 3,
+          "measurementCalls": 10,
+          "measurementCacheEntries": 5,
+          "coldLayoutMs": 2.299999952316284,
+          "warmMedianMs": 0,
+          "warmP95Ms": 0.10000002384185791,
+          "paginateMs": 0.10000002384185791,
+          "renderDataMs": 0.5,
+          "totalMs": 3.100000023841858,
+          "heapMB": 9.5
+        },
+        "defects": []
+      },
+      "export": {
+        "ok": true,
+        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
+        "expectedPageCount": 3,
+        "pdfPageCount": 3,
+        "bytes": 144455,
+        "durationMs": 358
+      },
+      "pdf": {
+        "pdfPageCount": 3,
+        "pdfBytes": 144455,
+        "pageSizeMm": [
+          209.88865255555555,
+          297.0106596111111
+        ],
+        "imagePages": [],
+        "totalVectorPaths": 240,
+        "checks": {
+          "pageCount": {
+            "pass": true,
+            "expected": 3,
+            "actual": 3
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 5
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 2
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "blankPages": {
+            "pass": true,
+            "blankPages": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 240
+          },
+          "tables": {
+            "pass": true,
+            "failures": [],
+            "info": []
+          }
+        },
+        "geometry": {
+          "pass": true,
+          "failures": [],
+          "checked": 5,
+          "maxDeltaMm": 0.36
+        }
+      },
+      "geometryHash": "52df20c37aa22a3ae4aa750ddd9909474f11fd744b82ff6f8a245ab54a296c3e"
+    },
+    "landscape-golden.json": {
+      "state": {
+        "fixtureFile": "landscape-golden.json",
+        "documentId": "f1-landscape-golden",
+        "title": "Linear algebra — eigenvalues (landscape)",
+        "blockCount": 5,
+        "pageCount": 3,
+        "chapterCount": 1,
+        "metrics": {
+          "fixtureFile": "landscape-golden.json",
+          "blockCount": 5,
+          "chapterCount": 1,
+          "pageCount": 3,
+          "measurementCalls": 10,
+          "measurementCacheEntries": 5,
+          "coldLayoutMs": 2.0999999046325684,
+          "warmMedianMs": 0,
+          "warmP95Ms": 0,
+          "paginateMs": 0,
+          "renderDataMs": 0.40000009536743164,
+          "totalMs": 2.5,
+          "heapMB": 9.5
+        },
+        "defects": []
+      },
+      "export": {
+        "ok": true,
+        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-landscape-golden.pdf",
+        "expectedPageCount": 3,
+        "pdfPageCount": 3,
+        "bytes": 148050,
+        "durationMs": 224
+      },
+      "pdf": {
+        "pdfPageCount": 3,
+        "pdfBytes": 148050,
+        "pageSizeMm": [
+          297.0106596111111,
+          209.88865255555555
+        ],
+        "imagePages": [],
+        "totalVectorPaths": 240,
+        "checks": {
+          "pageCount": {
+            "pass": true,
+            "expected": 3,
+            "actual": 3
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "297 × 210 mm",
+            "actual": "297.01 × 209.89 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 5
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 2
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "blankPages": {
+            "pass": true,
+            "blankPages": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 240
+          },
+          "tables": {
+            "pass": true,
+            "failures": [],
+            "info": []
+          }
+        },
+        "geometry": {
+          "pass": true,
+          "failures": [],
+          "checked": 5,
+          "maxDeltaMm": 0.36
+        }
+      }
+    },
+    "long-50-pages.json": {
+      "state": {
+        "fixtureFile": "long-50-pages.json",
+        "documentId": "f2-long-50-pages",
+        "title": "Linear algebra — a long reader",
+        "blockCount": 225,
+        "pageCount": 53,
+        "chapterCount": 3,
+        "metrics": {
+          "fixtureFile": "long-50-pages.json",
+          "blockCount": 225,
+          "chapterCount": 3,
+          "pageCount": 53,
+          "measurementCalls": 450,
+          "measurementCacheEntries": 225,
+          "coldLayoutMs": 36.799999952316284,
+          "warmMedianMs": 0.2999999523162842,
+          "warmP95Ms": 0.6000000238418579,
+          "paginateMs": 1.2999999523162842,
+          "renderDataMs": 1.4000000953674316,
+          "totalMs": 41.200000047683716,
+          "heapMB": 9.5
+        },
+        "defects": [
+          {
+            "code": "broken-anchor",
+            "severity": "warning",
+            "blockId": "f2-b196",
+            "blocksExport": false,
+            "message": "Anchor f2-broken on block f2-b196 could not be resolved; its branch still exports once, marked at a fallback point."
+          },
+          {
+            "code": "missing-asset",
+            "severity": "warning",
+            "blockId": "f2-b204",
+            "blocksExport": false,
+            "message": "Block f2-b204 references missing asset missingForest; a labeled placeholder is rendered."
+          }
+        ]
+      },
+      "export": {
+        "ok": true,
+        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
+        "expectedPageCount": 53,
+        "pdfPageCount": 53,
+        "bytes": 686572,
+        "durationMs": 406
+      },
+      "pdf": {
+        "pdfPageCount": 53,
+        "pdfBytes": 686572,
+        "pageSizeMm": [
+          209.88865255555555,
+          297.0106596111111
+        ],
+        "imagePages": [
+          29
+        ],
+        "totalVectorPaths": 1917,
+        "checks": {
+          "pageCount": {
+            "pass": true,
+            "expected": 53,
+            "actual": 53
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 225
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 20
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "blankPages": {
+            "pass": true,
+            "blankPages": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 1917
+          },
+          "tables": {
+            "pass": true,
+            "failures": [],
+            "info": [
+              {
+                "blockId": "f2-b019",
+                "rows": 35,
+                "pages": [
+                  5,
+                  6,
+                  7
+                ]
+              }
+            ]
+          }
+        },
+        "geometry": {
+          "pass": true,
+          "failures": [],
+          "checked": 225,
+          "maxDeltaMm": 0.48
+        }
+      },
+      "determinism": {
+        "pageCountSame": true,
+        "geometryHashSame": true,
+        "firstHash": "e38e396535971245be21637dd569e8278c90f59d94bc70022bd9466467764c12",
+        "secondHash": "e38e396535971245be21637dd569e8278c90f59d94bc70022bd9466467764c12"
+      },
+      "geometryHash": "e38e396535971245be21637dd569e8278c90f59d94bc70022bd9466467764c12"
+    },
+    "wide-fan.json": {
+      "state": {
+        "fixtureFile": "wide-fan.json",
+        "documentId": "f3-wide-fan",
+        "title": "Adaptive fan",
+        "blockCount": 11,
+        "pageCount": 2,
+        "chapterCount": 1,
+        "metrics": {
+          "fixtureFile": "wide-fan.json",
+          "blockCount": 11,
+          "chapterCount": 1,
+          "pageCount": 2,
+          "measurementCalls": 22,
+          "measurementCacheEntries": 11,
+          "coldLayoutMs": 2.3000000715255737,
+          "warmMedianMs": 0,
+          "warmP95Ms": 0.10000002384185791,
+          "paginateMs": 0,
+          "renderDataMs": 0.09999990463256836,
+          "totalMs": 2.6999999284744263,
+          "heapMB": 9.5
+        },
+        "defects": []
+      },
+      "export": {
+        "ok": true,
+        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-wide-fan.pdf",
+        "expectedPageCount": 2,
+        "pdfPageCount": 2,
+        "bytes": 117238,
+        "durationMs": 179
+      },
+      "pdf": {
+        "pdfPageCount": 2,
+        "pdfBytes": 117238,
+        "pageSizeMm": [
+          209.88865255555555,
+          297.0106596111111
+        ],
+        "imagePages": [
+          2
+        ],
+        "totalVectorPaths": 139,
+        "checks": {
+          "pageCount": {
+            "pass": true,
+            "expected": 2,
+            "actual": 2
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 11
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 0
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "blankPages": {
+            "pass": true,
+            "blankPages": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 139
+          },
+          "tables": {
+            "pass": true,
+            "failures": [],
+            "info": [
+              {
+                "blockId": "f3-c5",
+                "rows": 5,
+                "pages": [
+                  1
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "deep-chain.json": {
+      "state": {
+        "fixtureFile": "deep-chain.json",
+        "documentId": "f4-deep-chain",
+        "title": "Deep chain and nested callouts",
+        "blockCount": 7,
+        "pageCount": 2,
+        "chapterCount": 1,
+        "metrics": {
+          "fixtureFile": "deep-chain.json",
+          "blockCount": 7,
+          "chapterCount": 1,
+          "pageCount": 2,
+          "measurementCalls": 14,
+          "measurementCacheEntries": 7,
+          "coldLayoutMs": 1.5,
+          "warmMedianMs": 0,
+          "warmP95Ms": 0.10000002384185791,
+          "paginateMs": 0,
+          "renderDataMs": 0.10000002384185791,
+          "totalMs": 1.7999999523162842,
+          "heapMB": 9.5
+        },
+        "defects": []
+      },
+      "export": {
+        "ok": true,
+        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-deep-chain.pdf",
+        "expectedPageCount": 2,
+        "pdfPageCount": 2,
+        "bytes": 125037,
+        "durationMs": 180
+      },
+      "pdf": {
+        "pdfPageCount": 2,
+        "pdfBytes": 125037,
+        "pageSizeMm": [
+          209.88865255555555,
+          297.0106596111111
+        ],
+        "imagePages": [],
+        "totalVectorPaths": 277,
+        "checks": {
+          "pageCount": {
+            "pass": true,
+            "expected": 2,
+            "actual": 2
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 7
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 2
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "blankPages": {
+            "pass": true,
+            "blankPages": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 277
+          },
+          "tables": {
+            "pass": true,
+            "failures": [],
+            "info": []
+          }
+        }
+      }
+    },
+    "shared-child.json": {
+      "state": {
+        "fixtureFile": "shared-child.json",
+        "documentId": "f5-shared-child",
+        "title": "Shared child and reference cycle",
+        "blockCount": 4,
+        "pageCount": 1,
+        "chapterCount": 1,
+        "metrics": {
+          "fixtureFile": "shared-child.json",
+          "blockCount": 4,
+          "chapterCount": 1,
+          "pageCount": 1,
+          "measurementCalls": 8,
+          "measurementCacheEntries": 4,
+          "coldLayoutMs": 0.7000000476837158,
+          "warmMedianMs": 0,
+          "warmP95Ms": 0,
+          "paginateMs": 0,
+          "renderDataMs": 0,
+          "totalMs": 0.7000000476837158,
+          "heapMB": 9.5
+        },
+        "defects": []
+      },
+      "export": {
+        "ok": true,
+        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-shared-child.pdf",
+        "expectedPageCount": 1,
+        "pdfPageCount": 1,
+        "bytes": 81719,
+        "durationMs": 154
+      },
+      "pdf": {
+        "pdfPageCount": 1,
+        "pdfBytes": 81719,
+        "pageSizeMm": [
+          209.88865255555555,
+          297.0106596111111
+        ],
+        "imagePages": [],
+        "totalVectorPaths": 28,
+        "checks": {
+          "pageCount": {
+            "pass": true,
+            "expected": 1,
+            "actual": 1
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 4
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 0
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "blankPages": {
+            "pass": true,
+            "blankPages": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 28
+          },
+          "tables": {
+            "pass": true,
+            "failures": [],
+            "info": []
+          }
+        }
+      },
+      "referenceProbe": {
+        "fixtureFile": "shared-child.json",
+        "positionsIdentical": true,
+        "pageBreaksIdentical": true,
+        "pageCountBefore": 1,
+        "pageCountAfter": 1,
+        "addedBranchId": "spike-reference-probe"
+      }
+    },
+    "tables.json": {
+      "state": {
+        "fixtureFile": "tables.json",
+        "documentId": "f6-tables",
+        "title": "Table pagination",
+        "blockCount": 4,
+        "pageCount": 4,
+        "chapterCount": 1,
+        "metrics": {
+          "fixtureFile": "tables.json",
+          "blockCount": 4,
+          "chapterCount": 1,
+          "pageCount": 4,
+          "measurementCalls": 8,
+          "measurementCacheEntries": 4,
+          "coldLayoutMs": 6.200000047683716,
+          "warmMedianMs": 0,
+          "warmP95Ms": 0,
+          "paginateMs": 0.19999992847442627,
+          "renderDataMs": 0,
+          "totalMs": 6.5,
+          "heapMB": 9.5
+        },
+        "defects": [
+          {
+            "code": "too-tall-row",
+            "severity": "blocking",
+            "blockId": "f6-giant",
+            "blocksExport": true,
+            "message": "Table row 2 in block f6-giant is 5305 px tall; the page content area is 971 px. The row is atomic and is not cut."
+          }
+        ]
+      },
+      "export": {
+        "ok": false,
+        "error": "Export blocked by 1 blocking defect(s): Table row 2 in block f6-giant is 5305 px tall; the page content area is 971 px. The row is atomic and is not cut.",
+        "expectedPageCount": 4
+      },
+      "tables": {
+        "pass": true,
+        "failures": [],
+        "info": [
+          {
+            "blockId": "f6-table",
+            "rows": 35,
+            "pages": [
+              1,
+              2
+            ]
+          },
+          {
+            "blockId": "f6-giant",
+            "rows": 2,
+            "pages": [
+              2,
+              3
+            ]
+          }
+        ]
+      }
+    },
+    "scale-300.json": {
+      "state": {
+        "fixtureFile": "scale-300.json",
+        "documentId": "f7-scale-300",
+        "title": "Scale — 300 blocks",
+        "blockCount": 300,
+        "pageCount": 39,
+        "chapterCount": 3,
+        "metrics": {
+          "fixtureFile": "scale-300.json",
+          "blockCount": 300,
+          "chapterCount": 3,
+          "pageCount": 39,
+          "measurementCalls": 600,
+          "measurementCacheEntries": 300,
+          "coldLayoutMs": 17.899999976158142,
+          "warmMedianMs": 0.6000000238418579,
+          "warmP95Ms": 1,
+          "paginateMs": 0.40000009536743164,
+          "renderDataMs": 0.3999999761581421,
+          "totalMs": 22,
+          "heapMB": 9.5
+        },
+        "defects": []
+      },
+      "export": {
+        "ok": true,
+        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-scale-300.pdf",
+        "expectedPageCount": 39,
+        "pdfPageCount": 39,
+        "bytes": 383453,
+        "durationMs": 262
+      },
+      "pdf": {
+        "pdfPageCount": 39,
+        "pdfBytes": 383453,
+        "pageSizeMm": [
+          209.88865255555555,
+          297.0106596111111
+        ],
+        "imagePages": [],
+        "totalVectorPaths": 1666,
+        "checks": {
+          "pageCount": {
+            "pass": true,
+            "expected": 39,
+            "actual": 39
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 300
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 0
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "blankPages": {
+            "pass": true,
+            "blankPages": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 1666
+          },
+          "tables": {
+            "pass": true,
+            "failures": [],
+            "info": []
+          }
+        },
+        "geometry": {
+          "pass": true,
+          "failures": [],
+          "checked": 300,
+          "maxDeltaMm": 0.47
+        }
+      },
+      "stability": {
+        "fixtureFile": "scale-300.json",
+        "add": {
+          "newBlockId": "f7-scale-300-stability-added",
+          "keptRatio": 1,
+          "movedBlocks": [],
+          "unrelatedChaptersMoved": 0
+        },
+        "delete": {
+          "deletedBlockId": "f7-b296",
+          "outsideAffectedMoved": 0,
+          "survivingBlocks": 299
+        },
+        "reference": {
+          "positionsIdentical": true,
+          "pageBreaksIdentical": true,
+          "pageCountBefore": 39,
+          "pageCountAfter": 39
+        }
+      },
+      "referenceProbe": {
+        "fixtureFile": "scale-300.json",
+        "positionsIdentical": true,
+        "pageBreaksIdentical": true,
+        "pageCountBefore": 39,
+        "pageCountAfter": 39,
+        "addedBranchId": "spike-reference-probe"
+      },
+      "scroll": {
+        "frames": 90,
+        "averageMs": 8.283333333068429,
+        "p95Ms": 8.600000000000364
+      },
+      "geometryHash": "9252456cf06536222d2b3cdf0903732220a777005383949ef9314d2fe6187097"
+    },
+    "defects.json": {
+      "state": {
+        "fixtureFile": "defects.json",
+        "documentId": "f8-defects",
+        "title": "Defects and warnings",
+        "blockCount": 5,
+        "pageCount": 2,
+        "chapterCount": 1,
+        "metrics": {
+          "fixtureFile": "defects.json",
+          "blockCount": 5,
+          "chapterCount": 1,
+          "pageCount": 2,
+          "measurementCalls": 10,
+          "measurementCacheEntries": 5,
+          "coldLayoutMs": 2.100000023841858,
+          "warmMedianMs": 0,
+          "warmP95Ms": 0,
+          "paginateMs": 0,
+          "renderDataMs": 0.09999990463256836,
+          "totalMs": 2.1999999284744263,
+          "heapMB": 9.5
+        },
+        "defects": [
+          {
+            "code": "content-too-wide",
+            "severity": "blocking",
+            "blockId": "f8-wide",
+            "blocksExport": true,
+            "message": "Block f8-wide has content that needs 1200 px but only 617 px is available. The content is not scaled or clipped."
+          },
+          {
+            "code": "content-too-wide",
+            "severity": "blocking",
+            "blockId": "f8-long-code",
+            "blocksExport": true,
+            "message": "Block f8-long-code has content that needs 922 px but only 617 px is available. The content is not scaled or clipped."
+          },
+          {
+            "code": "missing-asset",
+            "severity": "warning",
+            "blockId": "f8-missing",
+            "blocksExport": false,
+            "message": "Block f8-missing references missing asset does-not-exist; a labeled placeholder is rendered."
+          },
+          {
+            "code": "impossible-hint",
+            "severity": "warning",
+            "blockId": "does-not-exist",
+            "blocksExport": false,
+            "message": "Manual break hint names unknown block does-not-exist; it is ignored."
+          },
+          {
+            "code": "impossible-hint",
+            "severity": "warning",
+            "blockId": "f8-orphan",
+            "blocksExport": false,
+            "message": "Manual break hint names unknown block f8-orphan; it is ignored."
+          },
+          {
+            "code": "no-safe-break",
+            "severity": "blocking",
+            "blockId": "f8-long",
+            "pageNumber": 1,
+            "blocksExport": true,
+            "message": "Block f8-long has no safe break inside page 1's content height (971 px). It overflows by 1803 px rather than being cut. Export is blocked."
+          }
+        ]
+      },
+      "export": {
+        "ok": false,
+        "error": "Export blocked by 3 blocking defect(s): Block f8-wide has content that needs 1200 px but only 617 px is available. The content is not scaled or clipped. Block f8-long-code has content that needs 922 px but only 617 px is available. The content is not scaled or clipped. Block f8-long has no safe break inside page 1's content height (971 px). It overflows by 1803 px rather than being cut. Export is blocked.",
+        "expectedPageCount": 2
+      }
+    },
+    "broken-anchor.json": {
+      "state": {
+        "fixtureFile": "broken-anchor.json",
+        "documentId": "f9-broken-anchor",
+        "title": "Broken and ambiguous anchors",
+        "blockCount": 4,
+        "pageCount": 1,
+        "chapterCount": 1,
+        "metrics": {
+          "fixtureFile": "broken-anchor.json",
+          "blockCount": 4,
+          "chapterCount": 1,
+          "pageCount": 1,
+          "measurementCalls": 8,
+          "measurementCacheEntries": 4,
+          "coldLayoutMs": 0.7000000476837158,
+          "warmMedianMs": 0,
+          "warmP95Ms": 0,
+          "paginateMs": 0,
+          "renderDataMs": 0,
+          "totalMs": 0.7000000476837158,
+          "heapMB": 9.5
+        },
+        "defects": [
+          {
+            "code": "broken-anchor",
+            "severity": "warning",
+            "blockId": "f9-b1",
+            "blocksExport": false,
+            "message": "Anchor f9-a1 on block f9-b1 could not be resolved; its branch still exports once, marked at a fallback point."
+          },
+          {
+            "code": "ambiguous-anchor",
+            "severity": "warning",
+            "blockId": "f9-b1",
+            "blocksExport": false,
+            "message": "Anchor f9-a2 on block f9-b1 matches multiple spans and needs explicit repair; the branch still exports once from a warning point."
+          }
+        ]
+      },
+      "export": {
+        "ok": true,
+        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-broken-anchor.pdf",
+        "expectedPageCount": 1,
+        "pdfPageCount": 1,
+        "bytes": 82596,
+        "durationMs": 166
+      },
+      "pdf": {
+        "pdfPageCount": 1,
+        "pdfBytes": 82596,
+        "pageSizeMm": [
+          209.88865255555555,
+          297.0106596111111
+        ],
+        "imagePages": [],
+        "totalVectorPaths": 26,
+        "checks": {
+          "pageCount": {
+            "pass": true,
+            "expected": 1,
+            "actual": 1
+          },
+          "pageSize": {
+            "pass": true,
+            "failures": [],
+            "expected": "210 × 297 mm",
+            "actual": "209.89 × 297.01 mm"
+          },
+          "texts": {
+            "pass": true,
+            "failures": [],
+            "missingGlyphCount": 0,
+            "checkedBlocks": 4
+          },
+          "continuations": {
+            "pass": true,
+            "failures": [],
+            "checked": 0
+          },
+          "segmentAtomicity": {
+            "pass": true,
+            "failures": []
+          },
+          "blankPages": {
+            "pass": true,
+            "blankPages": []
+          },
+          "chapterStarts": {
+            "pass": true,
+            "failures": []
+          },
+          "images": {
+            "pass": true,
+            "failures": []
+          },
+          "vectors": {
+            "pass": true,
+            "totalPaths": 26
+          },
+          "tables": {
+            "pass": true,
+            "failures": [],
+            "info": []
+          }
+        },
+        "anchorMarkers": {
+          "broken": true,
+          "ambiguous": true
+        }
+      }
+    }
+  }
+}
