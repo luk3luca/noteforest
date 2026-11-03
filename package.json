@@ -6,6 +6,7 @@
   "description": "NoteForest Spike 1 — adaptive layout, paginator, and real-text PDF",
   "workspaces": [
     "apps/desktop",
+    "packages/core",
     "packages/layout",
     "packages/pdf"
   ],

@@ -17,6 +17,8 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
+      "@noteforest/core": ["packages/core/src/index.ts"],
+      "@noteforest/core/node": ["packages/core/src/node/index.ts"],
       "@noteforest/layout": ["packages/layout/src/index.ts"],
       "@noteforest/pdf": ["packages/pdf/src/index.ts"],
       "@noteforest/pdf/node": ["packages/pdf/src/node.ts"]
