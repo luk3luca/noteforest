@@ -1,33 +1,71 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
-  ExportRequest,
-  ExportResult,
-  FixtureSummary,
-  LoadedFixture,
+  ApplyResult,
+  BootstrapResult,
+  CreateDocumentResult,
+  LibraryView,
+  MenuCommand,
   NoteForestApi,
-  PrintPayload,
-  SystemInfo,
+  OpenDocumentResult,
+  SaveResult,
+  SeedResult,
+  SessionState,
+  WindowState,
 } from '../shared/api.js';
 
 const api: NoteForestApi = {
-  listFixtures: (): Promise<FixtureSummary[]> => ipcRenderer.invoke('fixtures:list'),
-  loadFixture: (file: string): Promise<LoadedFixture> => ipcRenderer.invoke('fixtures:load', file),
-  exportPdf: (request: ExportRequest): Promise<ExportResult> =>
-    ipcRenderer.invoke('export:pdf', request),
-  printHello: async (): Promise<void> => {
-    ipcRenderer.send('print:hello');
-  },
-  onPrintPayload: (handler: (payload: PrintPayload) => void): (() => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, payload: PrintPayload): void => {
-      handler(payload);
+  bootstrap: (): Promise<BootstrapResult> => ipcRenderer.invoke('app:bootstrap'),
+  scanLibrary: (): Promise<LibraryView> => ipcRenderer.invoke('library:scan'),
+  createDocument: (input): Promise<CreateDocumentResult> =>
+    ipcRenderer.invoke('library:create', input),
+  openDocument: (packagePath: string): Promise<OpenDocumentResult> =>
+    ipcRenderer.invoke('document:open', packagePath),
+  apply: (packagePath: string, command): Promise<ApplyResult> =>
+    ipcRenderer.invoke('document:apply', packagePath, command),
+  save: (packagePath: string): Promise<SaveResult> =>
+    ipcRenderer.invoke('document:save', packagePath),
+  closeDocument: (packagePath: string, options): Promise<void> =>
+    ipcRenderer.invoke('document:close', packagePath, options),
+  revealDocument: (packagePath: string): Promise<void> =>
+    ipcRenderer.invoke('document:reveal', packagePath),
+  revealLibrary: (): Promise<void> => ipcRenderer.invoke('library:reveal'),
+  saveSession: (state: SessionState): Promise<void> =>
+    ipcRenderer.invoke('session:save', state),
+  setWindowState: (state: WindowState): Promise<void> =>
+    ipcRenderer.invoke('window:set-state', state),
+  onMenu: (handler: (command: MenuCommand) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, command: MenuCommand): void => {
+      handler(command);
     };
-    ipcRenderer.on('print:payload', listener);
-    return () => ipcRenderer.removeListener('print:payload', listener);
+    ipcRenderer.on('menu:command', listener);
+    return () => ipcRenderer.removeListener('menu:command', listener);
   },
-  printReady: async (exportId: string): Promise<void> => {
-    ipcRenderer.send('print:ready', { exportId });
+  onRequestFlush: (handler: () => Promise<void>): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, requestId: string): void => {
+      void Promise.resolve()
+        .then(handler)
+        .catch(() => undefined)
+        .finally(() => {
+          ipcRenderer.send('app:flush-done', requestId);
+        });
+    };
+    ipcRenderer.on('app:request-flush', listener);
+    return () => ipcRenderer.removeListener('app:request-flush', listener);
   },
-  getSystemInfo: (): Promise<SystemInfo> => ipcRenderer.invoke('system:info'),
+  onRequestFocusBlock: (handler: (blockId: string) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, blockId: string): void => {
+      handler(blockId);
+    };
+    ipcRenderer.on('app:focus-block', listener);
+    return () => ipcRenderer.removeListener('app:focus-block', listener);
+  },
+  debugSeed: (kind): Promise<SeedResult> => ipcRenderer.invoke('debug:seed', kind),
+  getSystemInfo: (): Promise<{
+    electron: string;
+    chrome: string;
+    appVersion: string;
+    platform: string;
+  }> => ipcRenderer.invoke('system:info'),
 };
 
 contextBridge.exposeInMainWorld('noteforest', api);

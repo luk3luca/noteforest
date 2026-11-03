@@ -1,41 +1,54 @@
 import {
-  app,
   BrowserWindow,
+  app,
+  dialog,
   ipcMain,
+  nativeTheme,
   session,
-  type IpcMainEvent,
-  type WebContents,
+  shell,
 } from 'electron';
 import { join } from 'node:path';
-import { basename } from 'node:path';
-import { inspectPdf, writeFileAtomic } from '@noteforest/pdf/node';
-import { pageGeometry, type PageSetup } from '@noteforest/layout';
 import type {
-  ExportRequest,
-  ExportResult,
-  PrintPayload,
-  SystemInfo,
+  BootstrapResult,
+  MenuCommand,
+  SessionState,
+  WindowState,
 } from '../shared/api.js';
-import { findWorkspaceRoot, listFixtures, loadFixture } from './fixtures.js';
+import {
+  applyCommand,
+  bootstrap,
+  closeAllStores,
+  closeDocument,
+  createDocument,
+  dirtyDocuments,
+  libraryDir,
+  openDocument,
+  saveAllDirty,
+  saveDocument,
+  scanLibrary,
+  seedDocument,
+  writeSession,
+} from './library.js';
+import { attachTextContextMenu, installApplicationMenu } from './menu.js';
 
 const isDev = Boolean(process.env['ELECTRON_RENDERER_URL']);
+const isE2E = process.env['NOTEFOREST_E2E'] === '1';
 let mainWindow: BrowserWindow | null = null;
+let allowClose = false;
+let closeInProgress = false;
+let quitting = false;
 
-app.commandLine.appendSwitch('force-device-scale-factor', '1');
-app.setName('NoteForest Spike 1');
+if (isE2E) app.commandLine.appendSwitch('force-device-scale-factor', '1');
+app.setName('NoteForest');
 
 function preloadPath(): string {
   return join(__dirname, '../preload/index.js');
 }
 
-function rendererEntry(win: BrowserWindow, query: Record<string, string>): Promise<void> {
+function rendererEntry(win: BrowserWindow): Promise<void> {
   const devUrl = process.env['ELECTRON_RENDERER_URL'];
-  if (devUrl) {
-    const url = new URL(devUrl);
-    for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
-    return win.loadURL(url.toString());
-  }
-  return win.loadFile(join(__dirname, '../renderer/index.html'), { query });
+  if (devUrl) return win.loadURL(devUrl);
+  return win.loadFile(join(__dirname, '../renderer/index.html'));
 }
 
 function webPreferences(): Electron.WebPreferences {
@@ -46,12 +59,12 @@ function webPreferences(): Electron.WebPreferences {
     sandbox: true,
     webSecurity: true,
     allowRunningInsecureContent: false,
-    spellcheck: false,
+    spellcheck: true,
     backgroundThrottling: false,
   };
 }
 
-function harden(contents: WebContents): void {
+function harden(contents: Electron.WebContents): void {
   contents.setWindowOpenHandler(() => ({ action: 'deny' }));
   contents.on('will-navigate', (event, url) => {
     if (url !== contents.getURL()) event.preventDefault();
@@ -61,226 +74,237 @@ function harden(contents: WebContents): void {
   });
 }
 
+function sendMenuCommand(command: MenuCommand): void {
+  if (mainWindow === null || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('menu:command', command);
+}
+
+const flushWaiters = new Map<string, () => void>();
+
+function requestRendererFlush(win: BrowserWindow): Promise<void> {
+  return new Promise((resolve) => {
+    const requestId = `flush-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const timer = setTimeout(() => {
+      flushWaiters.delete(requestId);
+      resolve();
+    }, 2500);
+    flushWaiters.set(requestId, () => {
+      clearTimeout(timer);
+      flushWaiters.delete(requestId);
+      resolve();
+    });
+    if (win.isDestroyed()) {
+      clearTimeout(timer);
+      resolve();
+      return;
+    }
+    win.webContents.send('app:request-flush', requestId);
+  });
+}
+
+async function attemptClose(win: BrowserWindow): Promise<void> {
+  if (allowClose || closeInProgress) return;
+  closeInProgress = true;
+  try {
+    await requestRendererFlush(win);
+    const dirty = dirtyDocuments();
+    if (dirty.length > 0) {
+      if (isE2E) {
+        const failures = await saveAllDirty();
+        if (failures.length > 0) {
+          await dialog.showMessageBox(win, {
+            type: 'error',
+            message: 'Could not save your changes.',
+            detail: failures.map((item) => item.error).join('\n'),
+            buttons: ['Cancel'],
+          });
+          quitting = false;
+          return;
+        }
+      } else {
+        const response = await dialog.showMessageBox(win, {
+          type: 'warning',
+          message:
+            dirty.length === 1
+              ? `Save changes to “${dirty[0]?.title ?? 'this document'}” before closing?`
+              : `Save changes to ${dirty.length} documents before closing?`,
+          detail: dirty.map((item) => item.title).join('\n'),
+          buttons: ['Save', 'Don’t Save', 'Cancel'],
+          defaultId: 0,
+          cancelId: 2,
+        });
+        if (response.response === 2) {
+          quitting = false;
+          return;
+        }
+        if (response.response === 0) {
+          const failures = await saveAllDirty();
+          if (failures.length > 0) {
+            await dialog.showMessageBox(win, {
+              type: 'error',
+              message: 'Could not save your changes.',
+              detail: failures.map((item) => item.error).join('\n'),
+              buttons: ['Cancel'],
+            });
+            quitting = false;
+            return;
+          }
+        }
+      }
+    }
+    await closeAllStores();
+    allowClose = true;
+    if (quitting) {
+      app.quit();
+    } else {
+      win.close();
+    }
+  } finally {
+    closeInProgress = false;
+  }
+}
+
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1500,
-    height: 1000,
-    minWidth: 1100,
-    minHeight: 700,
+    width: 1440,
+    height: 900,
+    minWidth: 960,
+    minHeight: 640,
     show: false,
-    backgroundColor: '#101315',
-    title: 'NoteForest Spike 1',
+    backgroundColor: '#17181a',
+    title: 'NoteForest',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 14 },
     webPreferences: webPreferences(),
   });
   harden(mainWindow.webContents);
+  attachTextContextMenu(mainWindow);
   mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.on('close', (event) => {
+    if (allowClose) return;
+    event.preventDefault();
+    if (mainWindow !== null) void attemptClose(mainWindow);
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
+    allowClose = false;
   });
-  void rendererEntry(mainWindow, {}).catch((error) => {
-    console.error('Failed to load the main renderer', error);
-  });
-}
-
-function sanitizeFileName(name: string): string {
-  const clean = basename(name)
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return clean.length > 0 ? clean : 'noteforest-export.pdf';
-}
-
-function outputPathFor(request: ExportRequest): string {
-  const root = findWorkspaceRoot();
-  const dir = process.env['NOTEFOREST_OUTPUT_DIR'] ?? join(root, 'artifacts', 'spike-01');
-  const requested = request.outputName ?? `${sanitizeFileName(request.document.title)}.pdf`;
-  const withExtension = requested.toLowerCase().endsWith('.pdf') ? requested : `${requested}.pdf`;
-  return join(dir, sanitizeFileName(withExtension));
-}
-
-function waitForIpc(
-  channel: string,
-  sender: WebContents,
-  predicate: (payload: unknown) => boolean,
-  timeoutMs: number,
-  label: string,
-): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      ipcMain.off(channel, listener);
-      reject(new Error(`Timed out waiting for ${label} (${channel}).`));
-    }, timeoutMs);
-    const listener = (event: IpcMainEvent, payload: unknown): void => {
-      if (event.sender.id !== sender.id) return;
-      if (!predicate(payload)) return;
-      clearTimeout(timer);
-      ipcMain.off(channel, listener);
-      resolve(payload);
-    };
-    ipcMain.on(channel, listener);
+  void rendererEntry(mainWindow).catch((error) => {
+    console.error('Failed to load the NoteForest renderer', error);
   });
 }
-
-async function printRequest(
-  request: ExportRequest,
-  exportId: string,
-): Promise<{ buffer: Buffer; pageCount: number }> {
-  const win = new BrowserWindow({
-    width: 1100,
-    height: 1500,
-    show: false,
-    backgroundColor: '#ffffff',
-    title: 'NoteForest print compositor',
-    webPreferences: webPreferences(),
-  });
-  harden(win.webContents);
-  win.webContents.setBackgroundThrottling(false);
-  try {
-    const hello = waitForIpc('print:hello', win.webContents, () => true, 30_000, 'print hello');
-    await rendererEntry(win, { print: '1' });
-    await hello;
-
-    const ready = waitForIpc(
-      'print:ready',
-      win.webContents,
-      (payload) =>
-        typeof payload === 'object' &&
-        payload !== null &&
-        (payload as { exportId?: string }).exportId === exportId,
-      90_000,
-      'print ready',
-    );
-    const payload: PrintPayload = {
-      exportId,
-      document: request.document,
-      layout: request.layout,
-      pages: request.pages,
-      assets: request.assets,
-    };
-    win.webContents.send('print:payload', payload);
-    await ready;
-
-    const buffer = await win.webContents.printToPDF({
-      pageSize: 'A4',
-      landscape: request.pageSetup.orientation === 'landscape',
-      printBackground: true,
-      preferCSSPageSize: true,
-      scale: 1,
-      margins: { top: 0, right: 0, bottom: 0, left: 0 },
-      displayHeaderFooter: false,
-      generateTaggedPDF: false,
-    });
-    return { buffer, pageCount: request.pages.pageCount };
-  } finally {
-    if (!win.isDestroyed()) win.destroy();
-  }
-}
-
-async function validatePdf(
-  buffer: Buffer,
-  expectedPageCount: number,
-  pageSetup: PageSetup,
-): Promise<number> {
-  const inspection = await inspectPdf(new Uint8Array(buffer));
-  if (inspection.pageCount !== expectedPageCount) {
-    throw new Error(
-      `PDF page count ${inspection.pageCount} does not match the paginator's ${expectedPageCount}.`,
-    );
-  }
-  const geometry = pageGeometry(pageSetup);
-  for (const page of inspection.pages) {
-    if (Math.abs(page.widthMm - geometry.pageWidthMm) > 1.5) {
-      throw new Error(
-        `PDF page ${page.pageNumber} width ${page.widthMm.toFixed(1)} mm does not match ${geometry.pageWidthMm} mm.`,
-      );
-    }
-    if (Math.abs(page.heightMm - geometry.pageHeightMm) > 1.5) {
-      throw new Error(
-        `PDF page ${page.pageNumber} height ${page.heightMm.toFixed(1)} mm does not match ${geometry.pageHeightMm} mm.`,
-      );
-    }
-  }
-  if (inspection.missingGlyphCount > 0) {
-    throw new Error(`PDF text layer contains ${inspection.missingGlyphCount} missing-glyph markers.`);
-  }
-  return inspection.pageCount;
-}
-
-async function runExport(request: ExportRequest): Promise<ExportResult> {
-  const started = performance.now();
-  const exportId = `export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const blocking = request.pages.defects.filter((defect) => defect.blocksExport);
-  if (blocking.length > 0) {
-    return {
-      ok: false,
-      error: `Export blocked by ${blocking.length} pagination defect(s): ${blocking
-        .map((defect) => defect.message)
-        .join(' ')}`,
-      expectedPageCount: request.pages.pageCount,
-    };
-  }
-  try {
-    const { buffer } = await printRequest(request, exportId);
-    const pdfPageCount = await validatePdf(buffer, request.pages.pageCount, request.pageSetup);
-    const target = outputPathFor(request);
-    const forceFailure = process.env['NOTEFOREST_FORCE_EXPORT_FAILURE'] === '1';
-    await writeFileAtomic(target, new Uint8Array(buffer), {
-      validate: async () => {
-        if (forceFailure) throw new Error('Forced export failure for the atomic-write gate.');
-      },
-    });
-    return {
-      ok: true,
-      path: target,
-      expectedPageCount: request.pages.pageCount,
-      pdfPageCount,
-      bytes: buffer.byteLength,
-      durationMs: Math.round(performance.now() - started),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-      expectedPageCount: request.pages.pageCount,
-    };
-  }
-}
-
-let exportChain: Promise<ExportResult> = Promise.resolve({ ok: false, error: 'not started' });
 
 function registerIpc(): void {
-  ipcMain.handle('fixtures:list', () => listFixtures());
-  ipcMain.handle('fixtures:load', (_event, file: string) => loadFixture(file));
-  ipcMain.handle('system:info', (): SystemInfo => ({
+  ipcMain.handle('app:bootstrap', async (): Promise<BootstrapResult> => {
+    const library = await scanLibrary();
+    const restored = await bootstrap();
+    return {
+      library,
+      session: restored.session,
+      openDocuments: restored.openDocuments,
+      appVersion: app.getVersion(),
+      platform: process.platform,
+    };
+  });
+
+  ipcMain.handle('library:scan', () => scanLibrary());
+
+  ipcMain.handle('library:create', (_event, input: { title?: string }) =>
+    createDocument(input ?? {}),
+  );
+
+  ipcMain.handle('document:open', (_event, packagePath: string) => openDocument(packagePath));
+
+  ipcMain.handle('document:apply', (_event, packagePath: string, command) =>
+    applyCommand(packagePath, command),
+  );
+
+  ipcMain.handle('document:save', (_event, packagePath: string) => saveDocument(packagePath));
+
+  ipcMain.handle(
+    'document:close',
+    async (_event, packagePath: string, options: { save: boolean }) => {
+      await closeDocument(packagePath, options);
+    },
+  );
+
+  ipcMain.handle('document:reveal', (_event, packagePath: string) => {
+    shell.showItemInFolder(join(packagePath, 'document.json'));
+  });
+
+  ipcMain.handle('library:reveal', async () => {
+    await shell.openPath(libraryDir());
+  });
+
+  ipcMain.handle('session:save', async (_event, state: SessionState) => {
+    await writeSession(state);
+  });
+
+  ipcMain.handle('window:set-state', (_event, state: WindowState) => {
+    if (mainWindow === null || mainWindow.isDestroyed()) return;
+    mainWindow.setDocumentEdited(Boolean(state.dirty));
+    const safeTitle = state.title.trim().length > 0 ? state.title : 'NoteForest';
+    mainWindow.setTitle(`${safeTitle} — NoteForest`);
+    if (state.representedPath !== null) {
+      mainWindow.setRepresentedFilename(state.representedPath);
+    }
+  });
+
+  ipcMain.handle('debug:seed', async (_event, kind: 'demo' | 'performance' | 'performance-1000') =>
+    seedDocument(kind),
+  );
+
+  ipcMain.handle('system:info', () => ({
     electron: process.versions.electron ?? 'unknown',
     chrome: process.versions.chrome ?? 'unknown',
-    node: process.versions.node,
-    v8: process.versions.v8,
-    platform: process.platform,
-    arch: process.arch,
     appVersion: app.getVersion(),
+    platform: process.platform,
   }));
-  ipcMain.handle('export:pdf', (_event, request: ExportRequest) => {
-    const run = (): Promise<ExportResult> => runExport(request);
-    const result = exportChain.then(run, run);
-    exportChain = result;
-    return result;
+
+  ipcMain.on('app:flush-done', (_event, requestId: string) => {
+    flushWaiters.get(requestId)?.();
   });
 }
 
-app.whenReady().then(() => {
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
-  });
-  registerIpc();
-  createMainWindow();
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
-  });
+app.on('before-quit', (event) => {
+  if (allowClose) return;
+  event.preventDefault();
+  quitting = true;
+  if (mainWindow !== null && !mainWindow.isDestroyed()) void attemptClose(mainWindow);
 });
 
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow !== null) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(() => {
+    nativeTheme.themeSource = 'dark';
+    if (process.platform === 'darwin') app.setAccessibilitySupportEnabled(true);
+    session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+      callback(false);
+    });
+    registerIpc();
+    installApplicationMenu(() => mainWindow, sendMenuCommand);
+    createMainWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        allowClose = false;
+        createMainWindow();
+      }
+    });
+  });
+}
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin' || process.env['NOTEFOREST_E2E'] === '1') app.quit();
+  if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('web-contents-created', (_event, contents) => {
@@ -292,5 +316,5 @@ process.on('uncaughtException', (error) => {
 });
 
 if (isDev) {
-  console.log('NoteForest Spike 1 running in development mode.');
+  console.log(`NoteForest ${app.getVersion()} in development mode.`);
 }

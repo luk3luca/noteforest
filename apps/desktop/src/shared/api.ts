@@ -1,69 +1,154 @@
-import type {
-  ContinuousLayout,
-  NoteDocument,
-  PaginatedDocument,
-  PageSetup,
-} from '@noteforest/layout';
+/**
+ * IPC contract between the Electron main process and the renderer.
+ *
+ * The renderer is a normal browser context. It never touches the filesystem
+ * directly: documents are opened and mutated through `@noteforest/core/node`
+ * in the main process, and only typed snapshots/cross the bridge.
+ */
 
-export interface FixtureSummary {
-  file: string;
-  id: string;
+import type { Document, DocumentCommand } from '@noteforest/core';
+
+export type OpenStatus = 'editable' | 'read-only';
+
+export interface DocumentSummary {
+  packagePath: string;
+  documentId: string;
   title: string;
+  revision: number;
+  updatedAt: string;
   blockCount: number;
   chapterCount: number;
-  bytes: number;
 }
 
-export interface LoadedFixture {
-  file: string;
-  document: NoteDocument;
-  /** asset id -> data URL, loaded from fixtures/assets. */
-  assets: Record<string, string>;
+export interface RecentDocumentView {
+  documentId: string;
+  title: string;
+  packagePath: string;
+  lastOpenedAt: string;
+  missing?: boolean;
 }
 
-export interface ExportRequest {
-  document: NoteDocument;
-  layout: ContinuousLayout;
-  pages: PaginatedDocument;
-  pageSetup: PageSetup;
-  assets: Record<string, string>;
-  outputName?: string;
+export interface OpenDocumentSnapshot {
+  packagePath: string;
+  document: Document;
+  status: OpenStatus;
+  readOnlyReason?: string;
+  errors: string[];
+  warnings: string[];
 }
 
-export interface ExportResult {
-  ok: boolean;
-  path?: string;
-  error?: string;
-  expectedPageCount?: number;
-  pdfPageCount?: number;
-  bytes?: number;
-  durationMs?: number;
+export interface LibraryView {
+  libraryPath: string;
+  appSupportPath: string;
+  documents: DocumentSummary[];
+  recent: RecentDocumentView[];
+  warnings: string[];
 }
 
-export interface PrintPayload {
-  exportId: string;
-  document: NoteDocument;
-  layout: ContinuousLayout;
-  pages: PaginatedDocument;
-  assets: Record<string, string>;
+export interface SessionTabState {
+  packagePath: string;
+  scrollTop: number;
+  selectedBlockId: string | null;
+  collapsed?: string[];
 }
 
-export interface SystemInfo {
-  electron: string;
-  chrome: string;
-  node: string;
-  v8: string;
-  platform: string;
-  arch: string;
+export interface SessionState {
+  tabs: SessionTabState[];
+  activeTab: string | null;
+  sidebarCollapsed: boolean;
+  sidebarWidth: number;
+  collapsedTopics: Record<string, string[]>;
+}
+
+export interface BootstrapResult {
+  library: LibraryView;
+  session: SessionState;
+  openDocuments: OpenDocumentSnapshot[];
   appVersion: string;
+  platform: string;
+}
+
+export interface CreateDocumentSuccess {
+  ok: true;
+  snapshot: OpenDocumentSnapshot;
+  library: LibraryView;
+}
+
+export interface CreateDocumentFailure {
+  ok: false;
+  message: string;
+}
+
+export type CreateDocumentResult = CreateDocumentSuccess | CreateDocumentFailure;
+
+export interface OpenDocumentFailure {
+  ok: false;
+  message: string;
+  packagePath: string;
+}
+
+export type OpenDocumentResult = OpenDocumentSnapshot | OpenDocumentFailure;
+
+export interface ApplyResult {
+  ok: boolean;
+  document?: Document;
+  revision?: number;
+  inverse?: DocumentCommand | null;
+  message?: string;
+  code?: string;
+}
+
+export interface SaveResult {
+  ok: boolean;
+  changed: boolean;
+  revision: number;
+  error?: string;
+}
+
+export interface WindowState {
+  dirty: boolean;
+  title: string;
+  representedPath: string | null;
+}
+
+export type MenuCommand =
+  | 'new-document'
+  | 'open-document'
+  | 'save'
+  | 'close-tab'
+  | 'close-window'
+  | 'reopen-tab'
+  | 'toggle-sidebar'
+  | 'command-palette'
+  | 'settings'
+  | 'new-chapter'
+  | 'add-block'
+  | 'flush'
+  | 'undo'
+  | 'redo';
+
+export type ConfirmChoice = 'save' | 'discard' | 'cancel';
+
+export interface SeedResult {
+  snapshot: OpenDocumentSnapshot;
+  library: LibraryView;
 }
 
 export interface NoteForestApi {
-  listFixtures(): Promise<FixtureSummary[]>;
-  loadFixture(file: string): Promise<LoadedFixture>;
-  exportPdf(request: ExportRequest): Promise<ExportResult>;
-  printHello(): Promise<void>;
-  onPrintPayload(handler: (payload: PrintPayload) => void): () => void;
-  printReady(exportId: string): Promise<void>;
-  getSystemInfo(): Promise<SystemInfo>;
+  bootstrap(): Promise<BootstrapResult>;
+  scanLibrary(): Promise<LibraryView>;
+  createDocument(input: { title?: string }): Promise<CreateDocumentResult>;
+  openDocument(packagePath: string): Promise<OpenDocumentResult>;
+  apply(packagePath: string, command: DocumentCommand): Promise<ApplyResult>;
+  save(packagePath: string): Promise<SaveResult>;
+  closeDocument(packagePath: string, options: { save: boolean }): Promise<void>;
+  revealDocument(packagePath: string): Promise<void>;
+  revealLibrary(): Promise<void>;
+  saveSession(state: SessionState): Promise<void>;
+  setWindowState(state: WindowState): Promise<void>;
+  onMenu(handler: (command: MenuCommand) => void): () => void;
+  onRequestFlush(handler: () => Promise<void>): () => void;
+  onRequestFocusBlock(handler: (blockId: string) => void): () => void;
+  debugSeed(kind: 'demo' | 'performance' | 'performance-1000'): Promise<SeedResult>;
+  getSystemInfo(): Promise<{ electron: string; chrome: string; appVersion: string; platform: string }>;
 }
