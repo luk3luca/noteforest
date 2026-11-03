@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**Spike 1 is complete; the editor-first milestone is next.** Spike 1 proved the pure layout engine, the paginator, and real-text `printToPDF`; its automated gates passed and were re-run independently. The product owner reviewed the output and rejected the fixture PDFs as a product demo (no real branches, wrong arrows, no editor to judge). **PDF visual polish is deferred until the editor is usable.**
+**M2b is built and merged; M2 is in product-owner review.** Spike 1 proved the pure layout engine, the paginator, and real-text `printToPDF`; its automated gates passed and were re-run independently. The product owner reviewed the output and rejected the fixture PDFs as a product demo (no real branches, wrong arrows, no editor to judge). **PDF visual polish remains deferred until the editor is accepted.**
 
 **M2b is built, merged, and ready for the product owner's hands-on review.** The shell, block editor, primary branches, arrows, tabs, local persistence, and session restore are working. Known gaps are in `docs/reports/m2b-editor-shell.md`: inactive cards are still reachable, destructive deletes are not on the structural undo stack, and snapshot undo/full rebuild can exceed the full-reflow budget. The product-owner visual/VoiceOver check is the next gate; M3 span anchors/reference edges start after it.
 
