@@ -203,7 +203,9 @@ Spike-only:
 
 - `electron`, `react`, `react-dom`, `typescript`, `vite`, `electron-vite`, `vitest`, `playwright`.
 - `katex` for formulas.
-- `pdfjs-dist` and/or system `pdftotext`/`pdftoppm` for extraction/raster comparison. Prefer the system Poppler tools if available; otherwise `pdfjs-dist`.
+- `pdfjs-dist` for text extraction and page rasterization; `@napi-rs/canvas` only if `pdfjs-dist` needs a
+  canvas backend for the raster comparison. Prefer system Poppler tools if they are available; this
+  machine currently has neither `pdftotext` nor `pdftoppm`, so plan for `pdfjs-dist`.
 - Type packages as needed.
 
 Do **not** install TipTap/ProseMirror, CodeMirror, or React Flow for this spike; arrows can be SVG. They are approved for later milestones, not needed here.
