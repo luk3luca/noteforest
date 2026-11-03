@@ -19,7 +19,8 @@
     "fixtures": "node scripts/generate-fixtures.mjs",
     "pdf:verify": "node scripts/verify-pdf.mjs",
     "pdf:raster": "node scripts/raster-pdf.mjs",
-    "gates": "npm run build && node scripts/run-gates.mjs"
+    "gates": "npm run build && node scripts/run-gates.mjs",
+    "gates:summary": "node scripts/summarize-gates.mjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "1.1.0",
