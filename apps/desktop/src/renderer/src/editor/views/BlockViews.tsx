@@ -1,0 +1,169 @@
+import { ChevronRight, GripVertical, Plus } from 'lucide-react';
+import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
+import { useCallback, type MouseEvent, type PointerEvent } from 'react';
+import { getEditorBindings, setDragBlockId } from '../bindings';
+import { useEditorUi } from '../editor-ui';
+
+function stringAttr(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function numberAttr(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
+  const title = stringAttr(node.attrs['title'], 'Untitled chapter');
+  const chapterId = stringAttr(node.attrs['chapterId']);
+  const bindings = getEditorBindings(editor);
+  const onContextMenu = (event: MouseEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    bindings?.openChapterMenu(chapterId, { x: event.clientX, y: event.clientY });
+  };
+  return (
+    <NodeViewWrapper className="nf-chapter" data-chapter-id={chapterId}>
+      <div className="nf-chapter-head" contentEditable={false} onContextMenu={onContextMenu}>
+        <span className="nf-chapter-label">Chapter</span>
+        <h2 className="nf-chapter-title">{title}</h2>
+      </div>
+      <NodeViewContent className="nf-chapter-blocks" />
+    </NodeViewWrapper>
+  );
+}
+
+export function BlockView({ node }: NodeViewProps): JSX.Element {
+  const blockId = stringAttr(node.attrs['blockId']);
+  return (
+    <NodeViewWrapper className="nf-block-node" data-block-id={blockId}>
+      <NodeViewContent
+        className="nf-block-inner"
+        data-collapsed={node.attrs['collapsed'] === true ? 'true' : 'false'}
+      />
+    </NodeViewWrapper>
+  );
+}
+
+export function BranchChildrenView({ node }: NodeViewProps): JSX.Element {
+  const parentId = stringAttr(node.attrs['parentId']);
+  return (
+    <NodeViewWrapper className="nf-branch-children" data-parent-id={parentId}>
+      <NodeViewContent className="nf-branch-children-inner" />
+    </NodeViewWrapper>
+  );
+}
+
+export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
+  const blockId = stringAttr(node.attrs['blockId']);
+  const topLevel = node.attrs['topLevel'] === true;
+  const depth = numberAttr(node.attrs['depth']);
+  const collapsed = node.attrs['collapsed'] === true;
+  const childCount = numberAttr(node.attrs['childCount']);
+  const ui = useEditorUi(editor);
+  const bindings = getEditorBindings(editor);
+  const active = ui.selectedBlockId === blockId;
+
+  const onHandlePointerDown = (event: PointerEvent<HTMLButtonElement>): void => {
+    if (event.button !== 0 || bindings === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const source = blockId;
+    bindings.setDragSource(source);
+    setDragBlockId(source);
+    bindings.runtime.selectBlock(source);
+    document.body.classList.add('nf-dragging-block');
+    const clearHint = (): void => {
+      for (const element of document.querySelectorAll<HTMLElement>('[data-drop]')) {
+        element.removeAttribute('data-drop');
+      }
+    };
+    const onPointerMove = (moveEvent: globalThis.PointerEvent): void => {
+      clearHint();
+      const element = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
+      const card = element instanceof HTMLElement ? element.closest<HTMLElement>('[data-block-card]') : null;
+      if (card === null) return;
+      const target = card.dataset['blockCard'];
+      if (target === undefined || target === source || !bindings.canReorder(source, target)) return;
+      const rect = card.getBoundingClientRect();
+      card.setAttribute('data-drop', moveEvent.clientY >= rect.top + rect.height / 2 ? 'after' : 'before');
+    };
+    const onPointerUp = (upEvent: globalThis.PointerEvent): void => {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.body.classList.remove('nf-dragging-block');
+      const element = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
+      const card = element instanceof HTMLElement ? element.closest<HTMLElement>('[data-block-card]') : null;
+      clearHint();
+      setDragBlockId(null);
+      bindings.setDragSource(null);
+      if (card === null) return;
+      const target = card.dataset['blockCard'];
+      if (target === undefined || target === source || !bindings.canReorder(source, target)) return;
+      const rect = card.getBoundingClientRect();
+      bindings.dropOnBlock(source, target, upEvent.clientY >= rect.top + rect.height / 2);
+    };
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+  };
+
+  const onContextMenu = (event: MouseEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    bindings?.openBlockMenu(blockId, { x: event.clientX, y: event.clientY });
+  };
+
+  const toggleCollapse = useCallback(() => {
+    bindings?.report(bindings.runtime.toggleCollapse(blockId));
+  }, [bindings, blockId]);
+
+  return (
+    <NodeViewWrapper
+      className="nf-block-body"
+      data-block-card={blockId}
+      data-active={active}
+      data-top-level={topLevel}
+      data-depth={depth}
+      data-collapsed={collapsed}
+      onContextMenu={onContextMenu}
+    >
+      <div className="nf-gutter" contentEditable={false}>
+        <button
+          type="button"
+          className="nf-gutter-button nf-gutter-handle"
+          title="Drag to reorder siblings"
+          aria-label="Reorder block"
+          onPointerDown={onHandlePointerDown}
+        >
+          <GripVertical size={14} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="nf-gutter-button"
+          title="Add child block (⌘⏎)"
+          aria-label="Add child block"
+          onClick={() => bindings?.report(bindings.runtime.addChild(blockId))}
+        >
+          <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+      </div>
+      <NodeViewContent className="nf-block-prose" />
+      {childCount > 0 ? (
+        <div className="nf-block-meta" contentEditable={false}>
+          <button
+            type="button"
+            className="nf-collapse"
+            aria-expanded={!collapsed}
+            title={collapsed ? 'Expand branch (⌘.)' : 'Collapse branch (⌘.)'}
+            onClick={toggleCollapse}
+          >
+            <ChevronRight
+              size={12}
+              strokeWidth={1.5}
+              className={collapsed ? 'nf-chevron' : 'nf-chevron nf-chevron-open'}
+              aria-hidden="true"
+            />
+            <span>{childCount}</span>
+          </button>
+        </div>
+      ) : null}
+    </NodeViewWrapper>
+  );
+}

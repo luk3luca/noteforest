@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2 — editor shell + branch editor** is in progress. PDF/page work is deferred until the editor is usable. Planning is ratified; code outside M2 is not approved.
+Spike 1 is complete (technical foundation merged); **M2 — editor shell + branch editor** is implemented in the M2b worktree and awaits product-owner visual review. PDF/page work is deferred until the editor is usable. Planning is ratified; code outside M2 is not approved.
 
 ## Running the current code
 
@@ -18,9 +18,9 @@ npm run e2e         # Playwright-driven Electron smoke tests
 ```
 
 - `npm run dev` and `npm start` launch the Electron shell. The scripts unset `ELECTRON_RUN_AS_NODE` (the host environment sets it).
-- The current renderer is still the Spike 1 fixture demo; M2 replaces it with the editor shell and branch editor.
-- Spike 1 evidence: `docs/spikes/spike-01-report.md` and `docs/spikes/artifacts/`.
-- The PDF gate harness remains available: `npm run gates`.
+- The current renderer is the M2 editor shell, not the Spike 1 fixture demo.
+- M2b report: `docs/reports/m2b-editor-shell.md`; screenshots and performance data are under `artifacts/m2b/`.
+- Spike 1 evidence remains in `docs/spikes/spike-01-report.md` and `docs/spikes/artifacts/`; the old Spike 1 gate harness targets the removed demo renderer and is not part of the M2 gate.
 
 ## M2 status
 

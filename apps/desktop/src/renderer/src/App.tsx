@@ -1,300 +1,299 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { ExportResult, FixtureSummary, LoadedFixture } from '../../shared/api';
-import { PrintPages } from './views/PrintPages';
-import { ReaderView } from './views/ReaderView';
+import { useCallback, useEffect, useRef } from 'react';
+import { Toaster, toast } from 'sonner';
+import type { MenuCommand } from '../../shared/api';
+import { TitleBar } from './shell/TitleBar';
+import { TabBar } from './shell/TabBar';
+import { Workspace } from './shell/Workspace';
+import { StatusBar } from './shell/StatusBar';
+import { CommandPalette } from './shell/CommandPalette';
+import { ContextMenu } from './shell/ContextMenu';
+import { Dialogs } from './shell/Dialogs';
+import { useShell, type TabInfo } from './state/shell';
 import {
-  prepareAssets,
-  prepareFonts,
-  runLayoutPipeline,
-  type LayoutRun,
-} from './state/layoutPipeline';
-import {
-  pageViewGeometryFromDom,
-  runReferenceProbe,
-  runStabilityProbe,
-  stateFromRun,
-  type ViewMode,
-} from './testApi';
+  allRuntimes,
+  registerRuntime,
+  useAllDirty,
+  useRuntime,
+} from './state/registry';
+import { openPath, runMenuCommand } from './actions';
+import { buildSession } from './state/session';
+import { perfSnapshot, summarize } from './lib/perf';
 
-interface ExportState {
-  status: 'exporting' | 'success' | 'error';
-  message: string;
-  path?: string;
-  durationMs?: number;
-}
-
-function queryView(): ViewMode {
-  return new URLSearchParams(window.location.search).get('view') === 'page' ? 'page' : 'reader';
-}
-
-function fixtureFileName(summaries: FixtureSummary[]): string | null {
-  const requested = new URLSearchParams(window.location.search).get('fixture');
-  if (requested) {
-    const byFile = summaries.find((summary) => summary.file === requested);
-    if (byFile) return byFile.file;
-    const byId = summaries.find((summary) => summary.id === requested);
-    if (byId) return byId.file;
-  }
-  return summaries.find((summary) => summary.file === 'golden-eigenvalues.json')?.file ?? summaries[0]?.file ?? null;
-}
-
-export function App() {
-  const [fixtures, setFixtures] = useState<FixtureSummary[]>([]);
-  const [fixture, setFixture] = useState<LoadedFixture | null>(null);
-  const [run, setRun] = useState<LayoutRun | null>(null);
-  const [view, setView] = useState<ViewMode>(queryView);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [exportState, setExportState] = useState<ExportState | null>(null);
-
-  const loadFile = useCallback(async (file: string): Promise<void> => {
-    setLoading(true);
-    setLoadError(null);
-    setExportState(null);
-    try {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      await prepareFonts();
-      const loaded = await window.noteforest.loadFixture(file);
-      await prepareAssets(loaded.assets);
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      const pipeline = runLayoutPipeline(file, loaded.document, loaded.assets);
-      setFixture(loaded);
-      setRun(pipeline);
-      setLoading(false);
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : String(error));
-      setLoading(false);
-    }
-  }, []);
+export function App(): JSX.Element {
+  const ready = useShell((state) => state.ready);
+  const activeTab = useShell((state) => state.activeTab);
+  const { runtime } = useRuntime(activeTab);
+  const dirty = useAllDirty();
+  const lastDispatch = useRef(new Map<string, number>());
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const summaries = await window.noteforest.listFixtures();
+        const data = await window.noteforest.bootstrap();
         if (cancelled) return;
-        setFixtures(summaries);
-        const file = fixtureFileName(summaries);
-        if (!file) throw new Error('No fixture JSON files were found.');
-        await loadFile(file);
+        const byPath = new Map(data.openDocuments.map((snapshot) => [snapshot.packagePath, snapshot]));
+        const sessionByPath = new Map(data.session.tabs.map((tab) => [tab.packagePath, tab]));
+        const tabs: TabInfo[] = [];
+        for (const sessionTab of data.session.tabs) {
+          const snapshot = byPath.get(sessionTab.packagePath);
+          if (snapshot !== undefined) {
+            registerRuntime(snapshot, sessionByPath.get(sessionTab.packagePath), undefined);
+            tabs.push({
+              packagePath: snapshot.packagePath,
+              title: snapshot.document.title,
+              ...(snapshot.status === 'read-only' ? { readOnlyReason: snapshot.readOnlyReason } : {}),
+            });
+          } else {
+            const recent = data.library.recent.find((item) => item.packagePath === sessionTab.packagePath);
+            const parts = sessionTab.packagePath.split('/');
+            tabs.push({
+              packagePath: sessionTab.packagePath,
+              title: recent?.title ?? parts.at(-1) ?? 'Missing document',
+              missing: true,
+            });
+          }
+        }
+        const state = useShell.getState();
+        state.setLibrary(data.library);
+        state.setSidebarCollapsed(data.session.sidebarCollapsed);
+        state.setSidebarWidth(data.session.sidebarWidth);
+        for (const [packagePath, ids] of Object.entries(data.session.collapsedTopics)) {
+          state.setCollapsedTopics(packagePath, ids);
+        }
+        const active =
+          tabs.find((tab) => tab.packagePath === data.session.activeTab)?.packagePath ??
+          tabs[0]?.packagePath ??
+          null;
+        state.setTabs(tabs, active);
+        state.setReady(true);
+        if (data.library.warnings.length > 0) {
+          toast.info(data.library.warnings[0] ?? 'Library warnings');
+        }
       } catch (error) {
         if (cancelled) return;
-        setLoadError(error instanceof Error ? error.message : String(error));
-        setLoading(false);
+        toast.error(error instanceof Error ? error.message : String(error));
+        useShell.getState().setReady(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [loadFile]);
+  }, []);
 
-  const exportPdf = useCallback(async (): Promise<ExportResult> => {
-    if (!fixture || !run) return { ok: false, error: 'No fixture is loaded.' };
-    const blocking = run.pages.defects.filter((defect) => defect.blocksExport);
-    if (blocking.length > 0) {
-      const message = `Export blocked by ${blocking.length} blocking defect(s): ${blocking
-        .map((defect) => defect.message)
-        .join(' ')}`;
-      setExportState({ status: 'error', message });
-      return { ok: false, error: message, expectedPageCount: run.pages.pageCount };
-    }
-    setExportState({ status: 'exporting', message: 'Rendering fixed A4 pages and printing…' });
-    const result = await window.noteforest.exportPdf({
-      document: fixture.document,
-      layout: run.layout,
-      pages: run.pages,
-      pageSetup: fixture.document.pageSetup,
-      assets: fixture.assets,
-      outputName: `spike-01-${fixture.file.replace(/\.json$/, '')}.pdf`,
-    });
-    if (result.ok) {
-      setExportState({
-        status: 'success',
-        message: `Exported ${result.pdfPageCount ?? run.pages.pageCount} pages in ${result.durationMs ?? 0} ms.`,
-        path: result.path,
-        durationMs: result.durationMs,
-      });
-    } else {
-      setExportState({ status: 'error', message: result.error ?? 'Unknown export failure.' });
-    }
-    return result;
-  }, [fixture, run]);
+  const dispatch = useCallback((command: MenuCommand) => {
+    const now = performance.now();
+    const previous = lastDispatch.current.get(command) ?? 0;
+    if (now - previous < 120) return;
+    lastDispatch.current.set(command, now);
+    runMenuCommand(command);
+  }, []);
 
   useEffect(() => {
-    if (!fixture || !run) return;
-    window.__noteforest = {
-      ready: true,
-      getState: () =>
-        stateFromRun(fixture.file, view, fixture.document, run.layout, run.pages, run.metrics),
-      setView: async (next) => {
-        setView(next);
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const offMenu = window.noteforest.onMenu((command) => dispatch(command));
+    const offFlush = window.noteforest.onRequestFlush(async () => {
+      await Promise.allSettled(allRuntimes().map((item) => item.commitPending()));
+      await window.noteforest.saveSession(buildSession());
+    });
+    return () => {
+      offMenu();
+      offFlush();
+    };
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!ready) return undefined;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod) {
+        if (event.ctrlKey && event.key === 'Tab') {
+          event.preventDefault();
+          const state = useShell.getState();
+          const index = state.tabs.findIndex((tab) => tab.packagePath === state.activeTab);
+          if (index >= 0 && state.tabs.length > 1) {
+            const next = state.tabs[(index + (event.shiftKey ? -1 : 1) + state.tabs.length) % state.tabs.length];
+            if (next !== undefined) state.setActiveTab(next.packagePath);
+          }
+        }
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key >= '1' && key <= '9') {
+        event.preventDefault();
+        const state = useShell.getState();
+        const tab = state.tabs[Number(key) - 1];
+        if (tab !== undefined) state.setActiveTab(tab.packagePath);
+        return;
+      }
+      switch (key) {
+        case 'k':
+          event.preventDefault();
+          dispatch('command-palette');
+          break;
+        case 'w':
+          event.preventDefault();
+          if (event.shiftKey) window.close();
+          else dispatch('close-tab');
+          break;
+        case 's':
+          event.preventDefault();
+          dispatch('save');
+          break;
+        case 'n':
+          event.preventDefault();
+          dispatch(event.shiftKey ? 'new-chapter' : 'new-document');
+          break;
+        case '\\':
+          event.preventDefault();
+          dispatch('toggle-sidebar');
+          break;
+        case 't':
+          if (event.shiftKey) {
+            event.preventDefault();
+            dispatch('reopen-tab');
+          }
+          break;
+        case '[':
+        case ']': {
+          if (!event.shiftKey) break;
+          event.preventDefault();
+          const state = useShell.getState();
+          const index = state.tabs.findIndex((tab) => tab.packagePath === state.activeTab);
+          if (index < 0 || state.tabs.length < 2) break;
+          const next = state.tabs[(index + (key === ']' ? 1 : -1) + state.tabs.length) % state.tabs.length];
+          if (next !== undefined) state.setActiveTab(next.packagePath);
+          break;
+        }
+        case 'z': {
+          const element = document.activeElement;
+          const isPlainTextInput =
+            element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
+          if (isPlainTextInput) return;
+          event.preventDefault();
+          dispatch(event.shiftKey ? 'redo' : 'undo');
+          break;
+        }
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [dispatch, ready]);
+
+  useEffect(() => {
+    void window.noteforest.setWindowState({
+      dirty,
+      title: runtime?.title ?? 'NoteForest',
+      representedPath: runtime === null ? null : `${runtime.packagePath}/document.json`,
+    });
+  }, [dirty, runtime?.title, runtime?.packagePath]);
+
+  useEffect(() => {
+    if (!ready) return undefined;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = (): void => {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        void window.noteforest.saveSession(buildSession());
+      }, 600);
+    };
+    const unsubscribe = useShell.subscribe(schedule);
+    const interval = setInterval(() => {
+      void window.noteforest.saveSession(buildSession());
+    }, 5000);
+    schedule();
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, [ready]);
+
+  useEffect(() => {
+    window.__noteforestTest = {
+      state: () => {
+        const state = useShell.getState();
+        return {
+          ready: state.ready,
+          tabs: state.tabs.map((tab) => ({ packagePath: tab.packagePath, title: tab.title, missing: tab.missing === true })),
+          activeTab: state.activeTab,
+          paletteOpen: state.paletteOpen,
+          dialog: state.dialog,
+          sidebarCollapsed: state.sidebarCollapsed,
+          runtimes: allRuntimes().map((item) => ({
+            packagePath: item.packagePath,
+            title: item.document.title,
+            blocks: Object.keys(item.document.blocks).length,
+            branches: Object.keys(item.document.branches).length,
+            saveState: item.saveState,
+            dirty: item.dirty,
+            selectedBlockId: item.selectedBlockId,
+            collapsed: [...item.collapsed],
+            revision: item.document.revision,
+          })),
+        };
       },
-      loadFixture: loadFile,
-      exportPdf,
-      stabilityProbe: async () =>
-        runStabilityProbe(fixture.file, fixture.document, fixture.assets),
-      referenceProbe: async () =>
-        runReferenceProbe(fixture.file, fixture.document, fixture.assets),
-      getPageViewGeometry: () => pageViewGeometryFromDom(),
+      openPath: async (packagePath: string) => openPath(packagePath),
+      editorCheck: () => {
+        return allRuntimes().map((item) => {
+          try {
+            item.editor?.state.doc.check();
+            return { packagePath: item.packagePath, ok: true };
+          } catch (error) {
+            return {
+              packagePath: item.packagePath,
+              ok: false,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        });
+      },
+      editorJson: () => allRuntimes().map((item) => ({ packagePath: item.packagePath, json: item.editor?.getJSON() ?? null })),
+      benchmarkReflow: (count = 8) => {
+        const runtime = allRuntimes()[0];
+        if (runtime === undefined) return [];
+        runtime.benchmarkFullReflow(count);
+        return perfSnapshot().reflow;
+      },
+      perf: () => {
+        const snapshot = perfSnapshot();
+        return {
+          measure: summarize(snapshot.measure),
+          edge: summarize(snapshot.edge),
+          reflow: summarize(snapshot.reflow),
+          mount: summarize(snapshot.mount),
+          raw: snapshot,
+        };
+      },
+      seed: async (kind) => {
+        const result = await window.noteforest.debugSeed(kind);
+        registerRuntime(result.snapshot, undefined, undefined);
+        const state = useShell.getState();
+        state.setLibrary(result.library);
+        state.openTab({
+          packagePath: result.snapshot.packagePath,
+          title: result.snapshot.document.title,
+        });
+        return result.snapshot.packagePath;
+      },
     };
     return () => {
-      delete window.__noteforest;
+      delete window.__noteforestTest;
     };
-  }, [fixture, run, view, loadFile, exportPdf]);
-
-  if (loadError && !run) {
-    return (
-      <div className="error-screen">
-        <div>
-          <h1>NoteForest Spike 1</h1>
-          <p>The fixture could not be loaded.</p>
-          <pre>{loadError}</pre>
-          <button type="button" onClick={() => window.location.reload()}>
-            Reload
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!fixture || !run) {
-    return (
-      <div className="loading-screen">
-        <div style={{ display: 'grid', gap: 16, justifyItems: 'center' }}>
-          <div className="spinner" aria-hidden="true" />
-          <div>Loading fixture and measuring blocks…</div>
-        </div>
-      </div>
-    );
-  }
-
-  const defects = run.pages.defects;
-  const blocking = defects.filter((defect) => defect.blocksExport);
-  const exporting = exportState?.status === 'exporting';
+  }, []);
 
   return (
-    <div className="app-shell">
-      <header className="toolbar">
-        <div className="brand">
-          <strong>NoteForest</strong>
-          <span>Spike 1 · adaptive layout + paginator + PDF</span>
-        </div>
-        <select
-          aria-label="Fixture"
-          value={fixture.file}
-          disabled={loading || exporting}
-          onChange={(event) => {
-            void loadFile(event.target.value);
-          }}
-        >
-          {fixtures.map((summary) => (
-            <option key={summary.file} value={summary.file}>
-              {summary.file.replace(/\.json$/, '')} · {summary.blockCount} blocks
-            </option>
-          ))}
-        </select>
-        <div className="segmented" role="tablist" aria-label="View">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'reader'}
-            className={view === 'reader' ? 'active' : ''}
-            onClick={() => setView('reader')}
-          >
-            Reader
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'page'}
-            className={view === 'page' ? 'active' : ''}
-            onClick={() => setView('page')}
-          >
-            Page view
-          </button>
-        </div>
-        <div className="toolbar-spacer" />
-        <div className="status">
-          <span>
-            <strong>{run.metrics.blockCount}</strong> blocks
-          </span>
-          <span>
-            <strong>{run.metrics.pageCount}</strong> pages
-          </span>
-          <span>
-            layout <strong>{run.metrics.warmMedianMs.toFixed(1)}</strong> ms warm
-          </span>
-          <span>
-            paginate <strong>{run.metrics.paginateMs.toFixed(1)}</strong> ms
-          </span>
-          <span className={blocking.length > 0 ? 'bad' : ''}>
-            <strong>{defects.length}</strong> defects
-          </span>
-        </div>
-        <button
-          type="button"
-          className="export-button"
-          disabled={exporting || loading || blocking.length > 0}
-          onClick={() => {
-            void exportPdf();
-          }}
-          title={blocking.length > 0 ? 'Blocking defects must be resolved first' : 'Export a real-text Page PDF'}
-        >
-          {exporting ? 'Exporting…' : 'Export PDF'}
-        </button>
-      </header>
-
-      {loading ? <div className="banner">Loading fixture and re-measuring blocks…</div> : null}
-      {loadError ? <div className="banner error">{loadError}</div> : null}
-      {exportState ? (
-        <div
-          className={
-            exportState.status === 'error'
-              ? 'banner error'
-              : exportState.status === 'success'
-                ? 'banner success'
-                : 'banner'
-          }
-        >
-          {exportState.message}
-          {exportState.path ? <span title={exportState.path}> · {exportState.path}</span> : null}
-        </div>
-      ) : null}
-      {defects.length > 0 ? (
-        <div className="defect-list">
-          {defects.slice(0, 12).map((defect, index) => (
-            <span
-              key={`${defect.code}-${defect.blockId ?? index}`}
-              className={defect.blocksExport ? 'defect blocking' : 'defect'}
-              title={defect.message}
-            >
-              {defect.code}
-              {defect.blockId ? ` · ${defect.blockId}` : ''}
-            </span>
-          ))}
-          {defects.length > 12 ? <span className="defect">+{defects.length - 12} more</span> : null}
-        </div>
-      ) : null}
-
-      {view === 'reader' ? (
-        <ReaderView
-          layout={run.layout}
-          document={fixture.document}
-          pages={run.pages.pages}
-          segmentsByBlock={run.segmentsByBlock}
-        />
-      ) : (
-        <div className="page-scroll">
-          <PrintPages
-            model={run.printModel}
-            document={fixture.document}
-            layout={run.layout}
-            segmentsByBlock={run.segmentsByBlock}
-            mode="screen"
-          />
-        </div>
-      )}
+    <div className="nf-app">
+      <TitleBar />
+      <TabBar />
+      <Workspace />
+      <StatusBar />
+      <CommandPalette />
+      <Dialogs />
+      <ContextMenu />
+      <Toaster theme="dark" position="bottom-right" closeButton={false} />
     </div>
   );
 }
