@@ -3,13 +3,13 @@
 **Status:** Approved direction for the editor-first slice  
 **Owner:** Orchestrator + UX  
 **Date:** 3 November 2026  
-**Scope:** the touchable desktop shell and continuous block editor. No page view, no PDF, no branches/anchors yet.
+**Scope:** the touchable desktop shell and continuous branch editor, including basic block-level primary branches with visible arrows. No span anchors, reference edges, page view, or PDF.
 
 ## Why this comes first
 
 The Spike 1 PDFs proved the paginator and `printToPDF`, but they were fixture documents. They had no real branches, so they could not show the product's arrows; some edge routes looped backwards; and without an editor the product owner could not touch the product and judge it.
 
-The next slice is therefore the **editable shell**: open documents, edit blocks, switch tabs, save, reopen. The page/PDF pass comes after this and is driven by real documents.
+The next slice is therefore the **editable shell with the distinguishing feature**: open documents, edit blocks, create block-level branches and see the arrows, switch tabs, save, reopen. Span anchors and reference edges come next; the page/PDF pass comes after that and is driven by real documents.
 
 ## Product principles
 
@@ -28,15 +28,15 @@ The next slice is therefore the **editable shell**: open documents, edit blocks,
 ├───────────────┬────────────────────────────────────────────────────┤
 │  NoteForest   │  Chapter 1 · Eigenvalues                           │
 │  ⌘K Search    │                                                    │
-│  + New note   │  ┌──────────────────────────────────────────────┐  │
-│               │  │ Eigenvalues                                  │  │
-│  LIBRARY      │  │ An eigenvalue is a scalar λ such that ...    │  │
-│  ▾ Documents  │  └──────────────────────────────────────────────┘  │
-│    Linear alg.│                                                    │
-│    Algorithms │  ┌──────────────────────────────────────────────┐  │
-│               │  │ Eigenvector                                  │  │
-│  OUTLINE      │  │ A nonzero vector v satisfying Av = λv.       │  │
-│  ▾ Chapter 1  │  └──────────────────────────────────────────────┘  │
+│  + New note   │  ┌──────────────────────────┐   ┌───────────────┐  │
+│               │  │ Eigenvalues              │──▶│ Eigenvector   │  │
+│  LIBRARY      │  │ An eigenvalue is a ...   │   │ A nonzero ... │  │
+│  ▾ Documents  │  └──────────────────────────┘   └───────────────┘  │
+│    Linear alg.│                 │                                  │
+│    Algorithms │                 ▼                                  │
+│               │  ┌──────────────────────────┐                      │
+│  OUTLINE      │  │ Spectrum                 │                      │
+│  ▾ Chapter 1  │  └──────────────────────────┘                      │
 │    Eigenvalues│                                                    │
 │    Eigenvector│                                                    │
 │               │                                                    │
@@ -67,16 +67,31 @@ The next slice is therefore the **editable shell**: open documents, edit blocks,
 
 ### Editor (center)
 
-- A continuous vertical scroll, not paginated. The page view is M4.
-- Content column max-width 720 px, centered; generous side gutters.
-- Chapter heading at the top of each chapter, then top-level block cards.
-- Block cards: 1 px border, 6 px radius, 12–16 px padding, 8 px vertical gap. The focused block gets a quiet accent border; selection is text selection, not a card highlight.
-- Only one block editor is active at a time. Clicking a block opens it; `Esc` commits and returns to navigation.
+- A continuous **spatial branch editor**, not a paginated page and not a plain linear list. The page view is M4.
+- Top-level blocks stack vertically in chapter order. A child is placed to the right of its parent when there is room; otherwise it wraps below the parent with a slight indent.
+- Card widths are content-driven, clamped to a readable max (~420 px) or the available editor width for wide content (code, tables, images).
+- Block cards: 1 px border, 6 px radius, 12–16 px padding. The focused block gets a quiet accent border; selection is text selection, not a card highlight.
+- Primary arrows are SVG, drawn in an overlay above the cards: from the source block's right/bottom port to the target's left/top port. Solid, 1.25 px, muted; the selected arrow uses the accent color.
+- Arrow routing must read forward: a child to the right uses a short horizontal curve; a child wrapped below uses a vertical/diagonal curve from the source bottom, never a loop back across the source card. If a route would cross the source, choose the nearest clear port.
+- Only primary edges exist in M2: one parent per child, no reference edges, no shared children. The tree is acyclic; a cycle is rejected before mutation.
+- No free positioning, no pins, no manual x/y. Only sibling order changes; layout is automatic and deterministic.
+- Only one block editor is active at a time. Clicking a block opens it; `Esc` commits and returns to navigation; inactive cards render read-only.
 - Inline formatting toolbar appears on text selection (bold, italic, code, link, math). No permanent toolbar.
 - Slash menu `/` for block types is a SHOULD in M2; command palette is the fallback.
 - Empty block shows a quiet placeholder ("Type something, or press /").
-- Collapse control on a block with children; hidden-count badge.
+- Collapse control on a block with children; hidden-count badge hides its subtree and arrows.
+- A branch handle on each card starts a new child or a drag-to-reparent. The drop target highlights; an illegal drop is rejected.
 - No page-break markers, no page guides, no PDF controls in M2.
+
+### Branch arrows (M2)
+
+- Every primary child gets exactly one arrow from its parent. The arrow starts at the parent card's right edge (or bottom edge when the child wraps) and ends at the child's left edge (or top edge).
+- Arrows are behind the active editor overlay but above the background; they never capture text selection.
+- Clicking an arrow selects the edge and shows a small inline action: delete branch (target becomes top-level) or add label (SHOULD).
+- Deleting a block with children uses the delete dialog: promote children or delete subtree; both keep arrows consistent.
+- Reparenting moves the child and its subtree; the arrow re-routes and the layout reflows. Reordering siblings changes vertical order only.
+- If the layout cannot place a child to the right or below without overlap, it is a layout defect shown quietly on the card; do not overlap or clip.
+- Reference edges, anchored callouts, and cross-page arrows are M3/M4.
 
 ### Status bar (bottom, 24 px)
 
@@ -95,14 +110,16 @@ The next slice is therefore the **editable shell**: open documents, edit blocks,
 | Save | `⌘S`; autosave after 800 ms idle |
 | Close tab | `⌘W`; prompt if dirty |
 | Switch tab | `⌘1…9`, `⌘⇧[` / `⌘⇧]` |
-| New block below | `Enter` at end of block |
-| New child | `Tab` on a block (reparent under previous sibling) |
-| Outdent | `Shift-Tab` |
+| New block below | `Enter` at end of block (sibling) |
+| New child branch | `Tab` on a block, or drag from its branch handle to empty space |
+| Reparent | Drag a block onto a legal parent, or `Tab` on the block under the previous sibling |
+| Outdent | `Shift-Tab` (target becomes a sibling of its parent) |
 | Merge with previous | `Backspace` at start of an empty/first block |
-| Focus previous/next block | `↑`/`↓` at block boundary or `⌘↑`/`⌘↓` |
+| Focus previous/next block | `⌘↑` / `⌘↓` |
 | Collapse/expand block | `⌘.` or chevron |
+| Select/delete branch | Click the arrow; `Delete` or the inline action; target becomes top-level |
 | Rename document | double-click title in tab/sidebar |
-| Delete block | `⌘⌫` with confirmation if it has children |
+| Delete block | `⌘⌫` with promote/subtree choice if it has children |
 
 Structural commands are application commands, not raw editor behavior. Undo is one visible stack; text edits and structural commands must not fight.
 
@@ -158,8 +175,9 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 
 ## Out of scope for M2
 
-- Branches, arrows, anchors, shared children (M3).
-- Page view, adaptive spatial layout, page-break markers, PDF export (M4).
+- Span anchors on words, formulas, code, or image regions (M3).
+- Reference edges, shared children, "see also" (M3).
+- Page view, adaptive page layout, page-break markers, PDF export (M4).
 - Right inspector, backlinks panel, graph view, tags, plugins.
 - Split view, multiple windows, pinned tabs.
 - Light theme (can be a follow-up), custom themes, mobile/iPad.
@@ -171,10 +189,12 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 - Create a document, add chapters/blocks, edit rich text, autosave, reopen; content is preserved.
 - Open two documents in tabs; switch, close, dirty state, per-tab scroll/focus.
 - Sidebar library and outline are readable and navigable; `⌘B` collapses.
+- Create a child branch from a block; the arrow is visible, starts at the source and ends at the target, and never loops backwards across the source.
+- Reparent/reorder updates the arrow and layout; deleting the edge makes the target top-level; a primary cycle is rejected.
 - Keyboard structural commands work; undo is predictable.
 - 300 blocks remain usable.
 - Product-owner visual check: calm, Obsidian-like, no AI-slop patterns.
-- Screenshots: shell with two tabs, sidebar tree, editor with mixed content, empty state.
+- Screenshots: shell with two tabs, sidebar tree, branch editor with arrows, mixed content, empty state.
 
 ## Component source
 

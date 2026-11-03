@@ -30,8 +30,8 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 |---|---|---|---|---|
 | **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.1; DoD/checklist aligned | **Done** |
 | **M1** | Spike 1 — technical foundation | Prove adaptive layout + paginator + real-text PDF in Electron | Spike 1 gates G1–G9 passed and independently re-run; visuals deferred | **Done** |
-| **M2** | Editor shell + document core | Touchable Obsidian-like shell: sidebar, document tabs, block editor, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; keyboard; screenshots; 300-block editor | **In progress** |
-| **M3** | Branches and anchors | Primary/reference edges, span anchors, anchored callouts, shared-child lifecycle, outline order | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
+| **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **In progress** |
+| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
 | **M6** | Library, search, polish | Search, light theme, accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
@@ -63,11 +63,12 @@ What is deferred:
 - Electron shell with a calm Obsidian-like layout:
   - left sidebar: library/documents + active document topic tree (chapters → blocks);
   - top tab bar: multiple open documents, dirty state, close, overflow;
-  - central continuous block editor (reader-like, not the page view);
+  - central **continuous branch editor**: top-level blocks stack, children go right or wrap below, SVG arrows parent → child; editable block cards;
   - status bar: save state, word count, document path.
 - Local document persistence: one JSON document + assets folder in a user-chosen location; autosave; backup; reopen.
 - Multiple documents: create, open, recent, tabs; per-tab scroll/focus state.
-- Block model: chapters, top-level blocks, direct children, stable IDs, labels, collapse, reorder.
+- Block model: chapters, top-level blocks, primary children, stable IDs, labels, collapse, reorder.
+- **Basic primary branches (the distinguishing feature)**: create a child from a block, reparent/reorder, delete the primary edge (target becomes top-level); one primary parent per block; acyclic; visible arrows. No span anchors, reference edges, or shared children yet.
 - TipTap block editor: paragraphs, headings, lists, blockquotes, code, inline/display math, images, tables; Enter/Tab/Backspace structural commands; one active editor.
 - Keyboard: `⌘B` sidebar, `⌘T` new document, `⌘W` close tab, `⌘1…9` tab switch, `⌘S` save, `⌘K` command palette (basic).
 - Dark mode default; light mode may be deferred.
@@ -75,8 +76,9 @@ What is deferred:
 
 **Out of scope for M2:**
 
-- branches and anchors (M3);
-- adaptive spatial layout, page view, PDF (M4);
+- span anchors on words/formulas/code/image regions (M3);
+- reference edges, shared children, "see also" (M3);
+- page view, adaptive page layout, PDF (M4);
 - external API/MCP (M5);
 - collaboration, plugins, annotations, iPad;
 - pixel-perfect final visual design.
@@ -86,15 +88,16 @@ What is deferred:
 - app launches and the shell renders with no console errors;
 - create a document, add chapters/blocks, edit rich content, autosave, reopen; content preserved;
 - two documents open in tabs; switching preserves scroll/focus; dirty state visible;
+- **create a child branch from a block; the arrow is visible, starts at the source and ends at the target, and never loops backwards across the source; reparent/reorder updates the arrow; delete the edge and the target becomes top-level; a primary cycle is rejected;**
 - keyboard structural commands work and undo is predictable;
 - 300 blocks remain usable (collapse/virtualization may be minimal in M2, but no freeze);
 - product-owner visual check: calm, Obsidian-like, no AI-slop patterns;
-- tests: model/persistence unit tests, editor keyboard tests, one e2e create/edit/reopen flow; screenshots.
+- tests: model/persistence unit tests, editor keyboard tests, branch/arrow geometry tests, one e2e create/edit/branch/reopen flow; screenshots.
 
-## M3 — Branches and anchors (planned)
+## M3 — Span anchors and reference edges (planned)
 
-- Primary/reference edges, branch creation from a block and from a span, anchored callouts, shared-child lifecycle, make-home/move-here.
-- Outline order anchored-first, direct children after; reference edges as chips.
+- Anchors inside content: word/phrase, formula term, code token, image region; anchored callouts.
+- Reference/shared children, "see also", make-home/move-here; reference edges never affect layout or pagination.
 - Broken/ambiguous anchor repair; no silent data loss.
 - Gate: AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58; real branched fixture; screenshots.
 

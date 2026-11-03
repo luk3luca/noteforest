@@ -1,9 +1,9 @@
-# M2a — Document core + local persistence
+# M2a — Document core + primary branches
 
 **Status:** Approved to start (3 November 2026)  
 **Owner:** Builder (worktree)  
 **Depends on:** spec v0.4.1 §4, §5, §10; ADR-0001  
-**Out of scope:** UI, TipTap, shell, branches/anchors, layout, page view, PDF, external API
+**Out of scope:** UI, TipTap, shell, span anchors, reference edges/shared children, layout, page view, PDF, external API
 
 ## Goal
 
@@ -14,22 +14,25 @@ Build the canonical document model and local persistence layer the editor shell 
 ### Package `packages/core`
 
 - Canonical types for the M2 subset:
-  - `Document`: `schemaVersion`, `id`, `title`, `createdAt`, `updatedAt`, `revision`, `pageSetup`, `chapters`, `blocks`, `assets`, `anchors` (empty map), `branches` (empty map), `manualBreakBeforeBlockIds` (empty list in M2), `viewState` (optional), `extensions`.
+  - `Document`: `schemaVersion`, `id`, `title`, `createdAt`, `updatedAt`, `revision`, `pageSetup`, `chapters`, `blocks`, `assets`, `anchors` (empty map), `branches` (primary edges), `manualBreakBeforeBlockIds` (empty list in M2), `viewState` (optional), `extensions`.
   - `Chapter`: `id`, `title?`, ordered `topLevelBlockIds`.
   - `ContentBlock`: `id`, `label?`, `content` (TipTap/ProseMirror JSON subset), `border?`, timestamps, `extensions`.
+  - `Branch`: `id`, `sourceBlockId`, `targetBlockId`, `role: 'primary'`, `order`, optional `label`, `extensions`. Reference edges are not implemented.
   - `PageSetup`, `Asset`, `ViewState` as in the spec.
 - IDs: opaque, stable, never reused; generated with `crypto.randomUUID()` or a monotonic ULID-like helper (choose one, document it).
 - Validation:
-  - unique document/block/chapter IDs;
-  - every top-level block appears exactly once in exactly one chapter;
-  - every non-top-level block has exactly one parent in the same chapter;
-  - no cycles in the block tree;
-  - no dangling parent/child IDs;
+  - unique document/block/chapter/branch IDs;
+  - every top-level block appears exactly once in exactly one chapter and has no primary incoming branch;
+  - every non-top-level block has exactly one primary incoming branch in the same chapter;
+  - no cycles in the primary tree;
+  - no dangling parent/child or branch source/target IDs;
+  - branch order is a deterministic fractional order per source;
   - unknown fields and unknown content nodes are preserved.
 - Commands (pure, reversible where practical):
   - `document.create`, `document.rename`;
   - `chapter.create`, `chapter.rename`, `chapter.reorder`, `chapter.delete` (with explicit block handling);
   - `block.create` (top-level, child, sibling), `block.editContent`, `block.rename`, `block.delete` (promote children or delete subtree), `block.move` (reparent/reorder within legal positions);
+  - `branch.createPrimary` (source block → new child, or existing block as primary child), `branch.reorder`, `branch.delete` (target becomes top-level);
   - one command result shape with affected IDs and the new revision.
 - Persistence (`packages/core/node` or a separate `storage` module; Node-only):
   - document package: `<library>/<slug>/document.json` + `assets/`;
@@ -48,6 +51,8 @@ Build the canonical document model and local persistence layer the editor shell 
 - Duplicate IDs, dangling parents, cycles, and a block in two chapters are rejected with typed errors.
 - Deleting a block with children: promote vs subtree; no dangling references.
 - Reorder/reparent changes order only, not IDs or content.
+- Branch round-trip: create primary edge → save/reopen → same source/target/order.
+- Branch invariants: second primary parent rejected; cycle rejected; deleting a primary edge makes the target top-level; branch order stable.
 - Atomic save: simulated failure leaves the previous file byte-identical; no temp files.
 - Backup rotation; recovery from a corrupt newest file; newer schema is read-only.
 - Lock: second writer is rejected/read-only; lock release on close; stale lock recovery is explicit.
@@ -56,7 +61,7 @@ Build the canonical document model and local persistence layer the editor shell 
 ## Non-negotiable
 
 - No UI or React in `packages/core`.
-- No branches/anchors logic in M2; keep the maps and types forward-compatible, but do not implement branch commands.
+- Implement primary block-level branches only. Do not implement span anchors, reference edges, or shared children; keep the types forward-compatible.
 - No second source of truth; the package is the only mutation path.
 - Do not edit `docs/spec.md`, UX, ADRs, or plan. Record findings in the report.
 - Do not add runtime dependencies without Orchestrator approval; prefer Node built-ins. Test-only dependencies are fine.
