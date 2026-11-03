@@ -102,12 +102,12 @@ Commands: `npm test` (root), `npx vitest run packages/core`, `npm run typecheck`
 ```
 $ npx vitest run packages/core
 Test Files  4 passed (4)
-Tests       75 passed (75)
+Tests       78 passed (78)
 Duration    1.27 s
 
 $ npm test                     # root, includes layout + core
 Test Files  6 passed (6)
-Tests       89 passed (89)
+Tests       92 passed (92)
 Duration    1.26 s
 
 $ npm run typecheck            # all workspaces
@@ -123,21 +123,21 @@ Measured with `performance.now()` in `storage.test.ts` on the local Mac (APFS te
 
 | Operation | Time |
 |---|---|
-| `save()` (JSON serialize + backup + atomic write + rotate) | **25.6 ms** |
-| Cold `openDocumentPackage(read)` (read + parse + validate) | **0.8 ms** |
-| Warm open | **0.7 ms** |
+| `save()` (JSON serialize + backup + atomic write + rotate) | **≈25–26 ms** |
+| Cold `openDocumentPackage(read)` (read + parse + validate) | **≈0.8–0.9 ms** |
+| Warm open | **≈0.7 ms** |
 
-The harness (small 4-block document) reported 32.0 ms for the first save (includes creating the
-first autosave + daily snapshot), 8.8 ms for reopen. These are single-run numbers, not a benchmark;
+The harness (small 4-block document) reported about 31–32 ms for the first save (includes creating the
+first autosave + daily snapshot), about 8.6–8.8 ms for reopen. These are single-run numbers, not a benchmark;
 no budget was set for M2.
 
 ### Harness output (abridged)
 
 ```
 [harness] created …/library/eigenvalues (revision 0)
-[harness] saved revision 5 in 32.0 ms (2736 bytes, backup …)
+[harness] saved revision 5 in 31.1 ms (2736 bytes, backup …)
 [harness] saved revision 6 (backup …)
-[harness] reopened read-only: 4 blocks, 1 primary branch(es), revision 6 in 8.8 ms
+[harness] reopened read-only: 4 blocks, 1 primary branch(es), revision 6 in 8.6 ms
 [harness] arrow …: Eigenvalues → Eigenvector (primary, "has eigenvector")
 [harness] opening corrupt file: read-only (corrupt), error malformed-json
 [harness] recovery candidates: autosave:valid, daily:valid, autosave:valid, canonical:invalid
@@ -174,7 +174,9 @@ no budget was set for M2.
    the shell UI.
 6. **Strict validation, no auto-repair.** The spec allows warning-level repair for missing
    top-level assignment or stale view state. The brief requires rejection, so load is strict
-   (fatal → read-only). View state is preserved but not validated or repaired in M2.
+   (fatal → read-only), with one safe normalization: a missing optional
+   `manualBreakBeforeBlockIds` list becomes `[]`. View state is preserved but not validated or
+   repaired in M2.
 7. **Anchors are forward-compatible but not fully M3-safe.** Anchors and anchored primary
    branches validate and round-trip. Deleting a block with anchored children retargets those
    branches to the parent and drops the anchor binding (a sensible fallback, but M3 must own the
@@ -195,6 +197,9 @@ no budget was set for M2.
     off-by-one errors; it is exercised by the reorder tests.
 13. **External edits are detected by content hash**, not mtime. This is stricter and avoids
     filesystem timestamp granularity issues.
+14. **The lock is an exclusive-create lock file, not a kernel advisory lock.** This matches the
+    M2 brief (“simple lock file”) and prevents two app instances from writing, but ADR-0003’s
+    OS advisory lock should be added when the external API lands in M5.
 
 ## Open questions for the Orchestrator / product owner
 

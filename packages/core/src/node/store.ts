@@ -126,6 +126,7 @@ export interface StoreStatus {
   dirty: boolean;
   lockPath: string | null;
   lockLost: boolean;
+  closed: boolean;
 }
 
 interface LastSaved {
@@ -166,6 +167,8 @@ export class DocumentStore {
   private lockLostFlag = false;
 
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+  private closedFlag = false;
 
   private saveQueue: Promise<void> = Promise.resolve();
 
@@ -241,6 +244,10 @@ export class DocumentStore {
     return this.lockLostFlag;
   }
 
+  get closed(): boolean {
+    return this.closedFlag;
+  }
+
   status(): StoreStatus {
     const status: StoreStatus = {
       packagePath: this.packagePath,
@@ -250,6 +257,7 @@ export class DocumentStore {
       dirty: this.hasUnsavedChanges,
       lockPath: this.lockPath,
       lockLost: this.lockLostFlag,
+      closed: this.closedFlag,
     };
     if (this.readOnlyReason !== undefined) status.readOnlyReason = this.readOnlyReason;
     return status;
@@ -260,6 +268,13 @@ export class DocumentStore {
    * Lock loss does not block editing; it blocks saving.
    */
   apply(command: DocumentCommand, options: ExecuteCommandOptions = {}): CommandResult {
+    if (this.closedFlag) {
+      return {
+        ok: false,
+        code: 'read-only',
+        message: 'store is closed; mutations are rejected',
+      };
+    }
     if (this.readOnly || this.documentValue === null) {
       return {
         ok: false,
@@ -304,6 +319,9 @@ export class DocumentStore {
           reason: this.readOnlyReason ?? 'requested',
         }),
       );
+    }
+    if (this.closedFlag) {
+      return failure(coreError('read-only', 'store is closed; save is blocked', { reason: 'closed' }));
     }
     if (this.documentValue === null) {
       return failure(coreError('not-found', 'no document loaded'));
@@ -479,6 +497,9 @@ export class DocumentStore {
 
   /** Refresh the lock heartbeat; sets lockLost on failure. */
   async refreshLock(): Promise<{ ok: true } | { ok: false; error: CoreError }> {
+    if (this.closedFlag) {
+      return { ok: false, error: coreError('lock-lost', 'store is closed') };
+    }
     if (this.lockHandle === null) {
       return { ok: false, error: coreError('lock-lost', 'no lock handle for this store') };
     }
@@ -501,6 +522,7 @@ export class DocumentStore {
   /** Release the single-writer lock. Does not autosave. */
   async close(): Promise<{ released: boolean }> {
     this.stopHeartbeat();
+    this.closedFlag = true;
     await this.saveQueue.catch(() => undefined);
     if (this.lockHandle === null) return { released: false };
     const handle = this.lockHandle;

@@ -259,7 +259,13 @@ export function validateDocument(value: unknown): ValidationReport {
   }
   validatePageSetup(value['pageSetup'], collector);
 
-  if (!isStringArray(value['manualBreakBeforeBlockIds'])) {
+  if (value['manualBreakBeforeBlockIds'] === undefined) {
+    collector.warning(
+      'missing-field',
+      'manualBreakBeforeBlockIds is missing; treated as an empty list',
+      'manualBreakBeforeBlockIds',
+    );
+  } else if (!isStringArray(value['manualBreakBeforeBlockIds'])) {
     collector.error(
       'invalid-shape',
       'manualBreakBeforeBlockIds must be an array of block IDs',

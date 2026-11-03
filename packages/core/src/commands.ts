@@ -269,6 +269,11 @@ function assertContent(value: unknown): asserts value is ContentNode {
   if (typeof (value as { type?: unknown }).type !== 'string') {
     reject('invalid-content', 'content.type must be a string');
   }
+  try {
+    JSON.stringify(value);
+  } catch {
+    reject('invalid-content', 'content must be JSON-serializable');
+  }
 }
 
 function chapterOrFail(document: Document, chapterId: string): Chapter {
@@ -966,6 +971,8 @@ function applyToClone(
           placement.index,
         );
         changes.block(placement.parentBlockId);
+        const parentChapter = chapterIdForBlock(document, placement.parentBlockId);
+        if (parentChapter !== null) changes.chapter(parentChapter);
       }
       return { type: 'block.delete', blockId, children: 'delete-subtree' };
     }
@@ -1034,6 +1041,7 @@ function applyToClone(
         }
       }
 
+      const previousChapter = chapterIdForBlock(document, command.blockId);
       const { placement: previousPlacement, incomingBranch } = detachBlock(
         document,
         command.blockId,
@@ -1044,6 +1052,7 @@ function applyToClone(
       } else {
         changes.block(previousPlacement.parentBlockId);
       }
+      if (previousChapter !== null) changes.chapter(previousChapter);
 
       if (destination.kind === 'top-level') {
         const chapter = chapterOrFail(document, destination.chapterId);
@@ -1090,6 +1099,8 @@ function applyToClone(
           incomingBranch ?? undefined,
         );
         changes.block(destination.parentBlockId);
+        const destinationChapter = chapterIdForBlock(document, destination.parentBlockId);
+        if (destinationChapter !== null) changes.chapter(destinationChapter);
       }
       changes.block(command.blockId);
       return {
@@ -1141,6 +1152,8 @@ function applyToClone(
       );
       changes.block(command.targetBlockId);
       changes.block(command.sourceBlockId);
+      const sourceChapter = chapterIdForBlock(document, command.sourceBlockId);
+      if (sourceChapter !== null) changes.chapter(sourceChapter);
       return {
         type: 'branch.delete',
         branchId: branch.id,

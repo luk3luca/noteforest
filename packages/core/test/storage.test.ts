@@ -632,7 +632,7 @@ describe('300-block performance', () => {
 });
 
 describe('typed failures', () => {
-  it('reports a missing package without creating files', async () => {
+  it('rejects a missing package without creating files', async () => {
     const missing = path.join(root, 'nope');
     const opened = await openDocumentPackage(missing, options());
     stores.push(opened.store);
@@ -641,6 +641,18 @@ describe('typed failures', () => {
     expect(opened.document).toBeNull();
     expect(opened.errors[0]?.code).toBe('not-found');
     await expect(fs.access(missing)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('rejects mutations and saves after close', async () => {
+    const created = await createPackage('Closed');
+    await created.store.close();
+    expect(created.store.closed).toBe(true);
+    const mutation = created.store.apply({ type: 'document.rename', title: 'Nope' });
+    expect(mutation.ok).toBe(false);
+    if (!mutation.ok) expect(mutation.code).toBe('read-only');
+    const saved = await created.store.save();
+    expect(saved.ok).toBe(false);
+    if (!saved.ok) expect(saved.error.code).toBe('read-only');
   });
 
   it('rejects an invalid document without overwriting it', async () => {

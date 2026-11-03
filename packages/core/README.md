@@ -148,7 +148,7 @@ console.log(reopened.document?.title);
 ## Tests and harness
 
 ```bash
-npm test -w @noteforest/core          # 75 tests (vitest)
+npm test -w @noteforest/core          # 78 tests (vitest)
 npm run typecheck -w @noteforest/core
 npm run harness -w @noteforest/core   # builds dist/ and runs the demo
 

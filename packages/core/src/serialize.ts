@@ -38,7 +38,14 @@ function validateParsedValue(value: unknown): ParseResult {
     };
   }
 
-  const schemaVersion = value['schemaVersion'];
+  // `manualBreakBeforeBlockIds` is optional in spec §4.2. Normalize a missing
+  // list to the canonical empty list; every other unknown field is untouched.
+  const normalized: Record<string, unknown> =
+    value['manualBreakBeforeBlockIds'] === undefined
+      ? { ...value, manualBreakBeforeBlockIds: [] }
+      : value;
+
+  const schemaVersion = normalized['schemaVersion'];
   if (typeof schemaVersion !== 'number' || !Number.isInteger(schemaVersion) || schemaVersion < 1) {
     return {
       ok: false,
@@ -60,7 +67,7 @@ function validateParsedValue(value: unknown): ParseResult {
     };
   }
 
-  const report = validateDocument(value);
+  const report = validateDocument(normalized);
   if (!report.ok) {
     const error = coreError(
       'invalid-document',
@@ -70,7 +77,7 @@ function validateParsedValue(value: unknown): ParseResult {
     error.issues = report.errors;
     return { ok: false, error, report };
   }
-  return { ok: true, document: value as unknown as Document, report };
+  return { ok: true, document: normalized as unknown as Document, report };
 }
 
 /** Parse and validate a canonical `document.json` payload. */

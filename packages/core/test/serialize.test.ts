@@ -56,6 +56,15 @@ describe('canonical JSON parsing', () => {
     if (!parsed.ok) expect(parsed.error.code).toBe('invalid-schema-version');
   });
 
+  it('normalizes a missing optional manual-break list', () => {
+    const { document } = sampleDocument();
+    const withoutBreaks = structuredClone(document) as unknown as Record<string, unknown>;
+    delete withoutBreaks['manualBreakBeforeBlockIds'];
+    const parsed = parseDocumentValue(withoutBreaks);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.document.manualBreakBeforeBlockIds).toEqual([]);
+  });
+
   it('attaches validation issues to invalid-document errors', () => {
     const { document, a } = sampleDocument();
     const invalid = structuredClone(document);

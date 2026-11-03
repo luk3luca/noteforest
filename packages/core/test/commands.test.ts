@@ -343,6 +343,19 @@ describe('reparent and reorder', () => {
     expect(reordered.document.blocks[target]?.content).toEqual(three.blocks[target]?.content);
   });
 
+  it('reorders top-level blocks without changing IDs or content', () => {
+    const { document, a, b } = buildTree();
+    const moved = run(document, {
+      type: 'block.move',
+      blockId: b,
+      to: { kind: 'top-level', chapterId: document.chapters[0]?.id ?? '', atIndex: 0 },
+    });
+    expect(moved.document.chapters[0]?.topLevelBlockIds.slice(0, 2)).toEqual([b, a]);
+    expect(moved.document.blocks[a]?.content).toEqual(document.blocks[a]?.content);
+    expect(moved.document.blocks[b]?.content).toEqual(document.blocks[b]?.content);
+    expect(primaryParentId(moved.document, b)).toBeNull();
+  });
+
   it('moves a child to top level and a root under a parent', () => {
     const { document, a, a1, branchA1 } = buildTree();
     const toTop = run(document, {
