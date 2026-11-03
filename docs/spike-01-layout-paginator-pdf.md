@@ -4,7 +4,7 @@
 **Owner:** Builder (worktree), reviewed by Orchestrator + Sentinel  
 **Timebox:** 5 working days  
 **Stack:** Electron + React + TypeScript (ADR-0001), `printToPDF` (ADR-0002)  
-**Depends on:** `docs/spec.md` v0.4 §7, §11, §15.4, §15.13; ADR-0001; ADR-0002
+**Depends on:** `docs/spec.md` v0.4.1 §7, §11, §15.4, §15.13; ADR-0001; ADR-0002
 
 ## Why this spike
 
@@ -130,7 +130,7 @@ The spike passes only if every hard gate passes. Record exact commands and evide
 - Page-view geometry and PDF page geometry agree: block bounds within 1 mm, same breaks, same continuation positions, same page count. Text antialiasing is excluded.
 - Export writes a temporary file and renames on success; a forced failure leaves no partial PDF.
 
-**Human check (not a Builder gate):** Notability import, text selection/highlight, and readability on the iPad are performed by the product owner personally. The Builder supplies the PDF and a one-line checklist; it must not open, automate, or screen-record Notability.
+**Visual acceptance:** the product owner reviews the generated PDF on the Mac (Preview/Chrome and the page view). No app-specific import (Notability or otherwise) is part of the gate; a correct standard PDF is sufficient. Do not open, automate, screenshot, or screen-record another app.
 
 ### G5 — Performance
 
@@ -163,7 +163,7 @@ The spike passes only if every hard gate passes. Record exact commands and evide
 `docs/spikes/spike-01-report.md` contains:
 
 - commit, Electron/Chromium/Node versions, hardware;
-- gate table with pass/fail and evidence links; mark human checks as "human check pending — product owner", not as passed/failed by the Builder;
+- gate table with pass/fail and evidence links; mark the product-owner visual review as "visual review — product owner" if not performed by the Builder;
 - measurements: layout ms (cold/warm, median/p95), PDF seconds, page count, file size, memory;
 - what matched, what drift was observed, and the tolerance used;
 - spec/ADR findings and proposed amendments (do not edit the spec yourself);
@@ -215,13 +215,12 @@ Any other dependency requires Orchestrator approval before install.
 
 ## Human checks (product owner only)
 
-The product owner performs these personally. The Builder must not automate them, open the apps, or record the screen:
+The product owner performs these personally. The Builder must not automate them, open other apps, or record the screen:
 
-- Notability import on the iPad: open the PDF, select/highlight/search text, verify formulas and code are readable.
-- Subjective visual judgement of the print result.
-- Any screen recording or demo capture for the product owner.
+- Visual judgement of the PDF and page view on the Mac.
+- Any screen recording or demo capture, if requested.
 
-The Builder may take Playwright/app screenshots and generate a PDF raster for evidence. That is not screen recording and is allowed.
+Notability and other annotation apps are **out of scope**: they accept any PDF, so importing there proves nothing about the pipeline. The Builder supplies the PDF and app screenshots; that is enough.
 
 ## Handoff
 

@@ -9,14 +9,14 @@ A Mac-first spatial note-taking app for studying. Notes are made of **content bl
 - Views over the same document: an **outline** for fast authoring, a **reader** view with continuous scroll + page-break markers, and a **page** view that renders the paginated A4 result. The reader is the primary authoring surface in v1; the page view is the preview.
 - Content is structured (ProseMirror JSON canonical) with Markdown import/export, LaTeX, code blocks, images, lists, and tables.
 - Pages are derived by a paginator constrained by A4 margins; they are not structural containers.
-- PDF export with real text is a first-class feature (the user imports it into Notability to annotate).
+- PDF export with real text is a first-class feature (the user annotates exported PDFs by hand on an iPad).
 - iPad + Apple Pencil is a possible later phase; do not block it, but do not build it in v1.
 
 The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**Planning is ratified; Spike 1 is starting.** The stack is decided: Electron + React + TypeScript (ADR-0001), and PDF export uses the shared paginator plus Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided (ADR-0003). The spec is at v0.4 and the UX, review, and DoD docs are aligned.
+**Planning is ratified; Spike 1 is starting.** The stack is decided: Electron + React + TypeScript (ADR-0001), and PDF export uses the shared paginator plus Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided (ADR-0003). The spec is at v0.4.1 and the UX, review, and DoD docs are aligned.
 
 **Spike 1 — adaptive layout + paginator + real-text PDF — is the only approved application code.** Its brief is `docs/spike-01-layout-paginator-pdf.md`; it is timeboxed and gated. Do not scaffold anything outside that scope until the spike report is reviewed and the next milestone is approved.
 
@@ -50,7 +50,7 @@ All agents use **DeepSeek V4.1 Flash Max** (`opencode-go/deepseek-v4.1-flash#max
 9. Keep context small: use the task brief and the linked docs, not the whole repo.
 10. If something is ambiguous, stop and ask; do not invent requirements.
 11. Builder works in a worktree and reports the worktree path. Orchestrator integrates; Builder does not merge.
-12. Manual checks that need a human app (Notability on iPad, subjective visual judgement, screen recording) belong to the product owner. Agents do not automate them or record the screen; they provide the PDF/screenshot evidence and a checklist.
+12. Manual checks that need a human (subjective visual judgement, screen recording) belong to the product owner. Agents do not record the screen; they provide PDF/screenshot evidence.
 
 ## Product owner clarifications
 

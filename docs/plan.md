@@ -16,13 +16,13 @@
 
 | ID | Milestone | Goal | Gate | Status |
 |---|---|---|---|---|
-| **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4; DoD/checklist aligned | **Done** |
+| **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.1; DoD/checklist aligned | **Done** |
 | **M1** | Spike 1 — adaptive layout + paginator + PDF | Prove the riskiest core in Electron before building the product around it | `docs/spike-01-layout-paginator-pdf.md` gates G1–G9 | **In progress** |
 | **M2** | Document core | Canonical document model, schema validation, commands, atomic persistence, backups, revisions, single-writer lock | Model round-trip and command/inverse tests; crash-recovery fixture; no UI required | Planned |
 | **M3** | Outline authoring | Outline view, block editor (TipTap), Enter/Tab/Backspace, collapse, reorder, page-break markers | AC-01–AC-11; keyboard-complete; 300-block outline performance | Planned |
 | **M4** | Branches and anchors | Primary/reference edges, block and span anchors, anchored callouts, repair, shared-child lifecycle | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M5** | Reader + page view | Reader as primary editor, page view preview, freeze/full reflow, view sync, zoom/fit | AC-23–AC-33, AC-51–AC-53, AC-63–AC-66 | Planned |
-| **M6** | PDF + Notability | Page PDF from the shared paginator, print theme, continuation/ghost markers, text layer, Notability import | AC-39–AC-45, AC-60–AC-61; ADR-0002 gate in the real app | Planned |
+| **M6** | PDF export | Page PDF from the shared paginator, print theme, continuation/ghost markers, text layer, standard-viewer check | AC-39–AC-45, AC-60–AC-61; ADR-0002 gate in the real app | Planned |
 | **M7** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
 | **M8** | Library, search, polish | Multiple documents, search, dark/light theme, accessibility, onboarding, packaging | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
 

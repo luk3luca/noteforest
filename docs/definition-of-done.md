@@ -10,7 +10,7 @@
 ## Phase note
 
 The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002); the External Agent API defaults are
-decided (ADR-0003). The spec v0.4 is approved for Spike 1. Until a milestone is approved, this
+decided (ADR-0003). The spec v0.4.1 is approved for Spike 1. Until a milestone is approved, this
 document still governs **documents and the approved spike**, not general application code. A docs
 task is done when:
 
@@ -395,9 +395,9 @@ Log the seed. Save any shrunk failure as a named regression fixture.
 - Visually check formulas, code, arrow vector quality, and that content stays inside the margins.
 - Page count, page breaks, size, orientation, and margins must be deterministic across repeated
   exports.
-- Human check (product owner, not Builder): manual Notability import every release; record the iPad
-  model and iPadOS version. The Builder supplies the PDF and a one-line checklist; it does not open,
-  automate, or record Notability.
+- Human check (product owner, optional): visual review of the PDF on the Mac. No Notability import or
+  screen recording is required; a correct standard PDF is the acceptance. The Builder supplies the
+  PDF and screenshots; it does not open, automate, or record another app.
 
 ### 3.8 Performance tests
 
@@ -572,8 +572,8 @@ Notes:
 - [ ] Crash recovery: kill mid-save, reopen, restore from backup.
 - [ ] Fresh install, upgrade, uninstall/reinstall; the document package opens in Finder.
 - [ ] File association, recent documents, and permissions work.
-- [ ] PDF: three representative documents exported by the Builder and imported into Notability by the
-      product owner; one document-wide
+- [ ] PDF: three representative documents exported by the Builder and visually checked on the Mac by
+      the reviewer; Notability or other annotation-app import is not a gate. One document-wide
       A4 orientation (portrait or landscape); page count and breaks match the page view; no line,
       image, or code line cut; long-block safe continuation; ghost-parent and continuation markers;
       text searchable and highlightable; fonts embedded; PDF light.

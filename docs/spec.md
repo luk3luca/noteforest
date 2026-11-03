@@ -1,9 +1,9 @@
 # NoteForest — Product, Data Model, and Behavior Specification
 
-**Version:** v0.4 (approved for Spike 1)  
+**Version:** v0.4.1 (approved for Spike 1)  
 **Date:** 3 November 2026  
 **Owner:** Planner / Architect  
-**Status:** Approved for Spike 1. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
+**Status:** Approved for Spike 1. v0.4.1 clarifies PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
 **Working title:** NoteForest (an existing NoteForest study app exists; public-release clearance or a rename is required before packaging)
 
 This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, CodeMirror 6, KaTeX, and React Flow (ADR-0001). PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided in ADR-0003. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, external API, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
@@ -53,7 +53,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 - rewrites lecture notes by hand into a structure that starts with a topic on the left and expands right/down with arrows;
 - uses formulas, code, lists, and images as normal note content;
 - studies from the structure, not only from linear text;
-- annotates exported PDFs by hand in Notability on an iPad;
+- annotates exported PDFs by hand on an iPad;
 - works on a Mac and expects keyboard-first authoring;
 - wants local files, no cloud lock-in, and no telemetry.
 
@@ -69,7 +69,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 - **Read spatially.** See the structure on A4 pages: top-level blocks stacked, adaptive children to the right or wrapped below, anchored branches under their anchors.
 - **Read linearly.** Follow the same document as an outline when reviewing or writing, with page breaks visible.
 - **Review page breaks.** See where the paginator will break pages and add a manual break hint when a break lands badly.
-- **Study offline.** Export the pages as a real-text PDF, import into Notability, and annotate by hand.
+- **Study offline.** Export the pages as a real-text PDF, open them on an iPad, and annotate by hand.
 - **Trust the document.** Edits, crashes, and migrations must not silently destroy content, branches, or anchors.
 
 ### 1.4 Product principles
@@ -120,7 +120,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 
 - **S1.** A user can build a 100-block study document across pages in one session without a structural bug, a lost branch, or an ambiguous undo.
 - **S2.** Text anchors survive ordinary edits before, inside, and after the anchored span; destructive edits produce a visible broken-anchor state, never a silent deletion.
-- **S3.** A paginated PDF exported from a 300-block document imports into Notability, has selectable body text, matches the paginator's page order and orientation, and never cuts a line, image, formula, or code line; long blocks continue at safe boundaries with markers.
+- **S3.** A paginated PDF exported from a 300-block document opens correctly in a standard PDF viewer, has selectable body text, matches the paginator's page order and orientation, and never cuts a line, image, formula, or code line; long blocks continue at safe boundaries with markers.
 - **S4.** The reader and page views render and navigate 300 blocks smoothly on the reference Mac; 1,000 blocks is usable with layout virtualization, focus/collapse, and LOD. No 60 fps claim is made for 1,000 blocks.
 - **S5.** Crash, malformed-file, missing-asset, page-break, and continuation tests do not destroy the last good document and never silently clip content.
 
@@ -297,9 +297,9 @@ As a student, I delete text that contained an anchor. The branch remains, marked
 
 **Done when:** the branch and its target content are still present, the broken state is visible in the block and in the anchor health panel, and repair keeps the anchor and branch IDs.
 
-### US-11 — Export for Notability
+### US-11 — Export a page PDF
 
-As a student, I export the paginator's pages as an A4 PDF with real text, import it into Notability, and highlight it by hand.
+As a student, I export the paginator's pages as an A4 PDF with real text, then annotate it by hand on my iPad.
 
 **Done when:** each derived page maps to one PDF page in the same portrait/landscape orientation, every block appears exactly once, no line/image/formula/code line is cut, long blocks continue at safe boundaries with markers, anchored branches are below their anchors or marked as continuations, formulas and code are readable, and body text can be selected and searched.
 
@@ -1770,7 +1770,7 @@ Automated checks (where the toolchain allows):
 
 Manual checks:
 
-- import into Notability, select and highlight body text, search for a term;
+- open in Preview and Chrome, select and highlight body text, search for a term; app-specific annotation apps are out of scope for the export gate;
 - verify formulas and code are readable;
 - verify pages match the page view, including breaks and continuations;
 - verify a broken anchor produces a marker without losing the branch;
@@ -2136,7 +2136,7 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 - **AC-42 (Must).** PDF page count equals the paginator's derived page count; manual break hints are honored consistently with the page view; no blank pages; page numbers present.
 - **AC-43 (Must).** Images are embedded; a missing image renders a labeled placeholder; arrows and borders are vector, not a screenshot.
 - **AC-44 (Must).** PDF page geometry (page size, orientation, margins, block positions, page breaks) matches the page view within print-theme tolerance.
-- **AC-45 (Must).** The PDF imports into Notability; body text can be selected/highlighted/searched; no block is clipped.
+- **AC-45 (Must).** The PDF opens in a standard PDF viewer; body text can be selected/highlighted/searched; no block is clipped. It is a standard PDF suitable for downstream annotation (for example in Notability), but no app-specific import is part of the gate.
 
 ### 15.8 Undo and performance
 
@@ -2191,7 +2191,7 @@ A reviewer should be able to run this script without developer help:
 8. Delete the anchored `λ`; confirm the branch remains, is marked broken, and can be relinked.
 9. Undo the deletion and the relink; redo; confirm all views agree.
 10. Save, quit, reopen; confirm content, chapter order, page setup, break hints, collapse, and view state.
-11. Export a Page PDF; confirm page count/orientation match the page view, no line/image/formula/code line is cut, continuation markers are correct, and text is selectable; import into Notability.
+11. Export a Page PDF; confirm page count/orientation match the page view, no line/image/formula/code line is cut, continuation markers are correct, and text is selectable in Preview/Chrome.
 12. Simulate a crash during save; confirm the recovery prompt and the last good document.
 
 ### 15.16 Page, stability, and cross-page gates
@@ -2282,7 +2282,7 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | 95%/2 px stability gate fails on wide fans or adaptive wrapping. | Medium | Medium | Stability fixture suite; affected-group definition; ADR if the gate proves impossible. | Adding or deleting one block moves unrelated cards beyond the tolerance. |
 | Pagination cuts a line/image/formula/code line or a table row, creates bad breaks, or diverges between reader, page view, and PDF. | High | High | One paginator; safe-boundary rule (including row-only table breaks); continuation/ghost markers; page-count tests; page-view/PDF geometry comparison. | A line/image/formula/code line or table row is cut, page counts differ, or breaks move without content changes. |
 | Reader and page views diverge or duplicate layout logic. | Medium | High | One layout engine and one paginator; two renderers only; shared geometry tests. | A break or position differs between views. |
-| PDF pagination, fonts, or text layer fail, making export unusable in Notability. | Medium | High | Print theme with same geometry; text extraction tests; Notability import per release; overflow/too-tall errors. | Text is missing, clipped, or unselectable; a line/image/formula/code line is cut. |
+| PDF pagination, fonts, or text layer fail, making export unusable in standard PDF viewers. | Medium | High | Print theme with same geometry; text extraction tests; PDF-viewer checks per release; overflow/too-tall errors. | Text is missing, clipped, or unselectable; a line/image/formula/code line is cut. |
 | Electron performance or memory degrades at 300–1,000 blocks. | Medium | Medium | Measure in Spike 1 and the 300-block gate; virtualization, collapse, LOD; native canvas is a later option, not a stack switch. | Scroll/render stutter or layout over 50 ms at 300 blocks. |
 | The Electron `printToPDF` pipeline cannot reproduce the paginator's pages or real text. | Medium | High | ADR-0002 hard gate: 50+ page A4 spike before PDF commitment; print compositor consumes derived pages; fallback ADR (CDP print or native compositor). | Single long page, scaling bug, missing text, or a cut line/image/formula/code line/table row. |
 | Scope creep into a general whiteboard or PKM. | High | Medium | Non-goals; wedge statement; gate features against the anchored-branch promise. | Requests for shapes, freehand, databases, plugins. |
@@ -2378,3 +2378,4 @@ This example is the recommended golden fixture for model, layout, pagination, an
 | v0.2 | 3 November 2026 | Applied the product owner's adaptive-layout correction: Document → Chapters → top-level blocks; content-driven widths and wrap-below layout; pages derived by the paginator; continuation markers; reader/page views share one engine; Page PDF only; NoteForest working title; D1/D6/D8/D12 closed. |
 | v0.3 | 3 November 2026 | Parked the in-app agent panel; replaced it with the External Agent API (HTTP JSON + MCP, token auth/scopes, audit, dry-run, undo/redo). Marked stack and PDF pipeline TBD (Electron provisional). Added long-block safe continuations, ghost-parent markers, freeze/full-reflow modes, document-wide orientation, multiple documents, dark default, T3/Playwright testing gates. |
 | v0.4 | 3 November 2026 | Ratified Electron + React + TypeScript (ADR-0001) and the `printToPDF` pipeline driven by the shared paginator (ADR-0002); closed D2–D6, D12–D14, D16–D20; added D21 table pagination (break only between rows, row atomic); closed the External API defaults (ADR-0003: off by default, loopback, document-scoped bearer tokens shown once/hashed/revocable, single-writer lock + `baseRevision`, dry-run/apply/undo, local audit); fixed the reader as primary editor; replaced the TBD pipeline note with the decided pipeline and its 50+ page gate. |
+| v0.4.1 | 3 November 2026 | Clarified PDF acceptance (S3, AC-45, §11.10, demo script, risk): the gate is a correct standard PDF reviewed on the Mac; no app-specific import (Notability) is required. The annotated-iPad workflow remains the downstream use case, not a test dependency. |

@@ -660,7 +660,7 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] No `�`, no missing glyphs, no text rendered only as outlines or images.
 - [ ] Math text is present or the formula is visually correct; no clipped exponents or fractions.
 - [ ] Code keeps monospace and indentation; no ligature corruption.
-- [ ] Search a phrase in a PDF viewer; the product owner checks Notability separately.
+- [ ] Search a phrase in a PDF viewer; the product owner reviews the PDF visually on the Mac. No app-specific import is required.
 
 ### 6.2 Page fidelity
 
@@ -701,7 +701,7 @@ and landscape in reader and page views at fit-page and 150% zoom.
       placeholder.
 - [ ] Links work if emitted; otherwise no dead links are emitted.
 - [ ] The PDF is light regardless of the app's dark/light appearance; no dark background is printed.
-- [ ] The PDF opens in Preview and Chrome without warnings; the product owner checks Notability.
+- [ ] The PDF opens in Preview and Chrome without warnings; no app-specific import is required.
 
 ### 6.5 Scale and failure
 
@@ -717,7 +717,7 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] Exporting a landscape document preserves orientation, A4 page size, and margins.
 - [ ] Page count, page size, orientation, and margins are validated against the page view and
       paginator before the file is written; a mismatch is an export failure, not a warning.
-- [ ] Product owner check (not Builder): Notability text is selectable, highlightable, and searchable; page size is comfortable
+- [ ] Product owner visual check (optional): the PDF looks correct on the Mac; page size is comfortable. Notability or another annotation app is out of scope.
       (manual check each release).
 - [ ] Annotations: v1 scope excludes the study layer. If a toggle exists, test both modes; a
       visible toggle is a scope violation unless an ADR approved it.
@@ -738,7 +738,7 @@ The stack is Electron (ADR-0001) and the PDF pipeline is the shared paginator + 
       export with a clear error.
 - [ ] The print DOM mirrors the page view's geometry and is not screenshotted.
 - [ ] The chosen pipeline exports from the packaged app, not only the dev server.
-- [ ] The automated 50+ page A4 gate is re-run on Electron upgrades by the Builder; the human Notability check is re-run by the product owner.
+- [ ] The automated 50+ page A4 gate is re-run on Electron upgrades by the Builder; no app-specific import check is required.
 - [ ] A pipeline change requires an ADR and reopens this section.
 
 ---
