@@ -4,10 +4,10 @@
 **Owner:** UX / Product
 **Date:** 3 November 2026
 **Working title:** NoteForest (clearance or rename required before packaging)
-**Stack (under review):** Electron is provisional. This document defines UX behavior and must not depend on Electron-specific behavior or APIs.
+**Stack:** Electron + React + TypeScript (ADR-0001). This document defines UX behavior and avoids Electron-specific behavior where platform neutrality is cheap, but Electron APIs are allowed where they are the decided implementation (for example PDF export).
 **Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` (pending), `docs/plan.md` (pending)
 
-This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is under review; this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md` and the spec.
+This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is decided (Electron, ADR-0001); this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md`, the spec, and the ADRs.
 
 **Revision note.** This version implements the corrected model: pages are a pagination result, not a structural level. Fixed depth columns, pins, nudges, free positioning, page create/duplicate/delete/split/move commands, and a separate reader/outline PDF export are not part of the model. The structure is Document → Chapters → top-level content blocks; one continuous layout engine feeds two spatial renderers, Reader and Page.
 
@@ -25,7 +25,7 @@ This document defines how NoteForest behaves for a person at a Mac: interaction 
 | D4 | `Tab` / `Shift+Tab` change block structure; list-item indentation uses `⌘]` / `⌘[` | One predictable meaning for Tab in an outliner. The conflict with lists is real; see Q9. |
 | D5 | Fixed logical order, adaptive geometry: only sibling order changes. No free positioning, no pins, no nudges | The product owner's model. Structure is stable; the layout adapts to content and page width. |
 | D6 | Pages are derived by a paginator, not stored as containers. No New Page, Duplicate Page, Delete Page, Split Page, or Move to Page command | A page is a rendering of the continuous layout at a given page size. Treating pages as containers would make the document and the PDF diverge. |
-| D7 | A page break can fall between blocks, and a long block may continue at safe internal boundaries (paragraph, list-item, or line boundaries). A line, image, code block, or formula is never cut. Continuations get a ghost parent and continuation markers | The tree stays intact; long text flows, while atomic elements remain whole and readable. |
+| D7 | A page break can fall between blocks, and a long block may continue at safe internal boundaries (paragraph, list-item, between code lines, or between table rows). A line, image, code block, formula, or table row is never cut. Continuations get a ghost parent and continuation markers | The tree stays intact; long text flows, while atomic elements remain whole and readable. |
 | D8 | Chapters group top-level blocks; a chapter can start on a new page (default on) | The document is organized by topics, not by pages. Chapter starts are a stable, user-meaningful break hint. |
 | D9 | An anchor is created together with a branch. Standalone highlights are a separate, non-structural mark | Anchor-only marks add UI and model weight without a user job. Highlight covers "mark this phrase". |
 | D10 | v1 exports one PDF from the same paginator, all pages, real text. No separate reader export | The PDF is the paginated rendering of the same layout the Page view shows. |
@@ -281,7 +281,7 @@ DOCUMENT
 | **Chapter heading** | A heading, not a content block. It has no branches, anchors, or child blocks. It is editable in the outline and Reader; Page shows the heading read-only. |
 | **Top-level order** | Chapters are ordered; top-level blocks are ordered inside a chapter. The document order is chapter order, then top-level order, then depth-first child order. |
 | **Pages** | Derived by the paginator. They are not stored, not named, and not editable as objects. |
-| **Page break** | Computed between blocks, or at a safe internal boundary inside a long block. It never falls inside a line, image, code block, or formula. |
+| **Page break** | Computed between blocks, or at a safe internal boundary inside a long block. It never falls inside a line, image, code block, formula, or table row. |
 | **Safe boundary** | An internal break point in a long block: between paragraphs, list items, or lines. Never inside a line, image, code block, or formula. |
 | **Manual break hint** | A stored request to start a page before a block. It is a hint, not a page object. |
 | **Continuation** | When a page break falls inside a subtree or a long block, the content continues on the next page with a continuation marker and a ghost parent. |
@@ -314,7 +314,7 @@ The layout is a tree, not a grid:
 | **Only sibling order** | The user can reorder siblings. There is no arbitrary x/y, no pin, no nudge. |
 | **Anchored branches** | The child is placed below its anchor. It wraps and paginates like any other branch. |
 | **Reference links** | Cross-links do not affect layout or pagination. |
-| **Pagination** | The paginator scans the continuous layout in reading order and breaks between blocks, or at a safe internal boundary inside a long block. It never cuts a line, image, code block, or formula. |
+| **Pagination** | The paginator scans the continuous layout in reading order and breaks between blocks, or at a safe internal boundary inside a long block. It never cuts a line, image, code block, formula, or table row. A table breaks only between rows; a row taller than the page is a defect. |
 | **Continuation** | If the break is inside a subtree or a long block, a continuation marker is shown at the break and at the resume point, with a ghost parent at the top of the next page. |
 
 A page is a **result** of this process. It has no identity, no content list, and no edit operations. If content changes, the paginator may produce a different number of pages, and page numbers may shift.

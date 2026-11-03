@@ -1,6 +1,6 @@
 # Review checklist
 
-**Status:** v4 — adaptive layout, derived pagination, External Agent API, stack under review.
+**Status:** v5 — adaptive layout, derived pagination, External Agent API, stack and PDF pipeline decided.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).
@@ -130,9 +130,9 @@ anchor, or content at a page break, it is S1 regardless of how rare it looks.
 ### 1.9 Reviewing docs and specs (current phase)
 
 Until the spec and UX docs are approved, most reviews are of documents. The stack and PDF pipeline
-are under review; Electron is provisional. A doc review checks that no candidate-specific
-assumption is baked into a product doc and that the chosen stack is recorded in an ADR. A doc
-review checks:
+are decided (ADR-0001, ADR-0002), as are the External Agent API defaults (ADR-0003). A doc review
+checks that the document matches the ADRs, that deviations are explicit, and that the chosen stack
+is not silently re-opened. A doc review checks:
 
 - every MUST is testable and every acceptance criterion has a pass/fail condition;
 - states are covered: empty, loading, error, partial, large, offline;
@@ -146,7 +146,7 @@ review checks:
 - page size, orientation, and margins are document settings; pages are derived by the paginator,
   not stored;
 - pagination rules are defined: normal blocks atomic, long blocks only at safe internal boundaries,
-  continuation markers, optional manual break hints;
+  continuation markers, optional manual break hints, tables break only between rows;
 - the in-app agent panel/chat is a non-goal; external agent access is an API with local binding,
   token scopes, audit, and explicit confirmation;
 - adaptive geometry is stated: content-driven widths, wrap below the parent with a slight indent,
@@ -278,7 +278,7 @@ Verify these at the command layer **and** on load (a hostile file must not hang 
 - [ ] LaTeX is limited to KaTeX-safe commands; no `javascript:` links.
 - [ ] Images are validated; SVG is treated as untrusted or rasterized.
 - [ ] File access is confined to the document folder; asset paths cannot traverse.
-- [ ] For the chosen shell, the renderer runs with least privilege; if Electron, context isolation
+- [ ] For Electron, the renderer runs with least privilege; context isolation
       is on and Node integration is off, with privileged work behind a narrow preload API.
 - [ ] CSP where applicable; no remote code; no remote fonts by default.
 - [ ] No telemetry, analytics, or background network calls; no secrets in the repo or logs.
@@ -722,26 +722,23 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] Annotations: v1 scope excludes the study layer. If a toggle exists, test both modes; a
       visible toggle is a scope violation unless an ADR approved it.
 
-### 6.6 PDF pipeline checks (TBD)
+### 6.6 PDF pipeline checks (decided)
 
-The stack and PDF pipeline are under review; Electron is provisional. The paginator remains the
-single source of page breaks. Select the matching candidate checks and record the choice in an ADR.
+The stack is Electron (ADR-0001) and the PDF pipeline is the shared paginator + `printToPDF`
+(ADR-0002). The paginator remains the single source of page breaks.
 
-- [ ] The chosen pipeline consumes the shared paginator's page breaks; it does not compute a second
-      pagination.
+- [ ] The print compositor consumes the shared paginator's derived pages; it does not compute a
+      second pagination or let CSS paged media decide breaks.
+- [ ] Each print page is a fixed A4 container; `@page` supplies size/margins; the renderer waits for
+      layout, pagination, fonts, images, and KaTeX.
 - [ ] Text remains real text (not outlines or screenshots) and fonts are embedded.
 - [ ] Page size, orientation, margins, breaks, and ghost/continuation markers match the page view.
 - [ ] Vector arrows and images print correctly.
-- [ ] **If Electron `printToPDF`:** `preferCSSPageSize`/CSS `@page` supplies size and margins; the
-      renderer waits for layout, pagination, fonts, images, and KaTeX; the print DOM mirrors the page
-      view and is not screenshotted.
-- [ ] **If native PDFKit:** page boxes and margins come from the paginator; font embedding and the
-      text layer are verified.
-- [ ] **If Rust/Typst:** the export consumes the shared paginator output or shared layout data; it
-      does not duplicate pagination; text layer and fonts are verified.
-- [ ] **If WKWebView:** the pagination spike passed; there is no single-long-page output and no
-      16,384 px truncation; the text layer is verified.
+- [ ] Tables break only between rows; a row and its cells are never split; a too-tall row blocks
+      export with a clear error.
+- [ ] The print DOM mirrors the page view's geometry and is not screenshotted.
 - [ ] The chosen pipeline exports from the packaged app, not only the dev server.
+- [ ] The 50+ page A4 gate and the Notability import are re-run on Electron upgrades.
 - [ ] A pipeline change requires an ADR and reopens this section.
 
 ---
@@ -900,7 +897,7 @@ Rules:
 - Date:
 - Commit / branch:
 - Environment: macOS version, build type, display scale
-- Stack/PDF candidate (if under review): Electron printToPDF | native PDFKit | Rust/Typst | WKWebView
+- Stack/PDF: Electron + shared paginator + printToPDF (ADR-0001, ADR-0002)
 - Theme: dark (default) or light
 - Page settings / views: size, orientation, margins, page count and breaks, reader/page parity
 - External API: token scope, command ID, audit ID (when relevant)

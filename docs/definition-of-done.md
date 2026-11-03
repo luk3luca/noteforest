@@ -1,6 +1,6 @@
 # Definition of Done
 
-**Status:** v4 — adaptive layout, derived pagination, External Agent API, stack under review.
+**Status:** v5 — adaptive layout, derived pagination, External Agent API, stack and PDF pipeline decided.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/review-checklist.md` (review procedure, severity, report template).
@@ -9,9 +9,10 @@
 
 ## Phase note
 
-The stack and PDF pipeline are under review; Electron is provisional. Until `docs/spec.md` and
-`docs/ux.md` are approved, this document still governs **documents, not code**. A docs task is done
-when:
+The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002); the External Agent API defaults are
+decided (ADR-0003). The spec v0.4 is approved for Spike 1. Until a milestone is approved, this
+document still governs **documents and the approved spike**, not general application code. A docs
+task is done when:
 
 - factual claims are sourced or labelled opinion;
 - decisions are recorded with alternatives and consequences;
@@ -19,8 +20,7 @@ when:
 - terminology matches `AGENTS.md`;
 - nothing contradicts the locked layout model (no freeform canvas, pins, fixed columns, stored page
   containers, or separate reader PDF);
-- no candidate-specific stack or PDF assumption is presented as final; the choice is recorded in an
-  ADR;
+- stack, PDF, and API behavior match the ADRs; a deviation is an ADR, not a doc edit;
 - the in-app chat/agent panel is treated as a v1 non-goal; the agent surface is the External Agent
   API;
 - the Reviewer has approved the document.
@@ -51,8 +51,7 @@ implementer claim.
 - [ ] Typecheck is clean; suppressions are justified in the diff.
 - [ ] Lint and format are clean; no new warnings.
 - [ ] No secrets, credentials, or machine-specific paths.
-- [ ] The packaged desktop build launches on the chosen shell, not only the dev server; Electron is
-      provisional.
+- [ ] The packaged desktop build launches on Electron, not only the dev server.
 
 ### 1.3 Tests
 
@@ -143,21 +142,23 @@ implementer claim.
 - [ ] The review report is attached (template in `docs/review-checklist.md`).
 - [ ] The reviewer did not review their own work.
 
-### 1.12 Stack and PDF pipeline checks (TBD)
+### 1.12 Stack and PDF pipeline checks (decided)
 
-The stack and PDF pipeline are under review; Electron is provisional. Fill the matching checks once
-an ADR records the choice.
+The stack is Electron + React + TypeScript (ADR-0001); the PDF pipeline is the shared paginator plus
+`printToPDF` (ADR-0002). These checks apply from Spike 1 onward.
 
-- [ ] The chosen stack is recorded in an ADR; no candidate is presented as final in the meantime.
+- [ ] The code matches the stack ADR; a deviation is flagged, not hidden behind a local helper.
 - [ ] **Desktop shell:** the packaged app launches; open/save uses shell APIs; file association and
       recent documents work; no dev-only path.
-- [ ] **Renderer:** behavior verified on the chosen engine (Chromium, WKWebView, or native) for
-      fonts, zoom, IME, text measurement, and page rendering.
-- [ ] **Security model:** renderer least privilege; for Electron, context isolation on and Node
-      integration off; privileged work behind a narrow preload API; no remote code.
-- [ ] **PDF pipeline:** the chosen path consumes the shared paginator; it verifies page geometry,
-      ghost/continuation markers, a real text layer, embedded fonts, and no second pagination. The
-      candidates are Electron `printToPDF`, native PDFKit, Rust/Typst, and WKWebView.
+- [ ] **Renderer:** behavior verified on Chromium for fonts, zoom, IME, text measurement, and page
+      rendering.
+- [ ] **Security model:** renderer least privilege; `contextIsolation` on, `nodeIntegration` off,
+      `sandbox` on, narrow preload API, restrictive CSP, no remote code.
+- [ ] **PDF pipeline:** the print compositor consumes the paginator's derived pages and never
+      re-paginates; page geometry, ghost/continuation markers, real text layer, embedded fonts, and
+      table-row atomicity are verified.
+- [ ] **PDF gate:** the 50+ page A4 spike (or the real-app equivalent after M6) passes with real
+      text, no cut line/image/formula/code line/table row, and page count equal to the paginator.
 - [ ] **File system:** atomic rename works on APFS; sandbox permissions or security-scoped bookmarks
       are handled if sandboxed.
 - [ ] **Packaging:** the build is reproducible even before signing and notarization exist.
@@ -177,14 +178,16 @@ The in-app chat/agent panel is a v1 non-goal. The agent surface is a local API.
       are `read`, `write`, `export`, `destructive`, and `audit`, and a token cannot self-escalate.
 - [ ] Token secrets never appear in the document package, git, PDF metadata, logs, errors, or the
       audit log.
-- [ ] Tokens can be document- or library-scoped; path traversal and arbitrary filesystem access are
-      rejected.
+- [ ] Tokens are document-scoped in v1; a token cannot read another document by path or ID. Library
+      scope is not available without a new ADR.
 - [ ] Dry-run returns a structured diff; commands validate `baseRevision`; apply is atomic;
-      destructive actions require explicit confirmation; a stale revision is refused.
-- [ ] Responses return created/updated IDs, diff, new revision, undo token, and audit ID; apply then
-      undo reverts one entry on the shared stack.
-- [ ] One writer lock per document; concurrent writers conflict instead of corrupting; lock TTL is
-      recoverable.
+      destructive actions require explicit confirmation naming the affected IDs; a stale revision is
+      refused.
+- [ ] Responses return created/updated IDs, diff, new revision, undo token, and audit ID; API undo
+      names a transaction ID, succeeds only while it is the top undoable entry, and reverts one entry
+      on the shared stack.
+- [ ] One writer lock per document (OS advisory lock + lock file); concurrent readers are allowed;
+      a second writer conflicts instead of corrupting; lock recovery is explicit.
 - [ ] Every request (read, write, dry-run, export, failure) is audit-logged with token/client,
       command, document, base revision, result, affected IDs, and duration; no note body by default.
 - [ ] No write is silent: every mutation returns a command ID and audit entry, and the UI reflects it.
@@ -359,8 +362,8 @@ Log the seed. Save any shrunk failure as a named regression fixture.
   PDF, keyboard-only path.
 - No arbitrary sleeps; wait for explicit app signals.
 - One smoke path on every PR; full matrix nightly.
-- Test the packaged app on the chosen shell; Electron is provisional. If WKWebView or native is
-  selected, verify its specific rendering and PDF behavior.
+- Test the packaged app on Electron. Do not assume a browser-only path is enough; verify the
+  Electron renderer and the PDF export from the packaged build.
 
 ### 3.6 Visual regression
 
@@ -380,7 +383,7 @@ Log the seed. Save any shrunk failure as a named regression fixture.
 - Use `pdfinfo` for page count, page size, and orientation; `pdffonts` for embedded fonts.
 - Assert the PDF page count and page breaks equal the page view and the shared paginator.
 - Assert no text line, image, formula, table row, or code line is cut across PDF pages; long blocks continue only at safe
-  internal boundaries; ghost-parent and continuation markers match the page view.
+  internal boundaries; tables break only between rows; ghost-parent and continuation markers match the page view.
 - Assert the PDF is light in both app themes.
 - Assert A4 portrait and landscape pages are exactly 210 × 297 mm or 297 × 210 mm with the
   configured margins.
@@ -426,7 +429,8 @@ Log the seed. Save any shrunk failure as a named regression fixture.
 ### 3.11 External Agent API tests
 
 - Command/schema unit tests: valid arguments, unknown fields, missing fields, oversized payloads.
-- Auth tests: missing, invalid, revoked, and expired tokens; constant-time comparison; token rotation.
+- Auth tests: missing, invalid, and revoked tokens; constant-time comparison; token rotation. Expiry
+  tests are added only if token expiry is implemented (not in v1).
 - Scope tests: read-only token cannot write; document/folder scope cannot reach another file; scope
   is checked per command.
 - Dry-run tests: structured diff, no mutation, no audit write beyond the read/dry-run event.
@@ -547,7 +551,9 @@ Notes:
 
 ### Scope and quality
 
-- [ ] Stack and PDF pipeline ADR approved; no candidate is still provisional.
+- [ ] Stack and PDF pipeline ADRs approved (ADR-0001, ADR-0002); no placeholder engine remains.
+- [ ] External Agent API ADR approved (ADR-0003); tokens are document-scoped, shown once, hashed,
+      revocable; single-writer lock and audit are in place.
 - [ ] Milestone tasks are approved; no S1 or S2 is open.
 - [ ] Known limitations are documented.
 - [ ] No half-built feature is visible: annotation layer, collaboration, iPad, in-app chat/agent

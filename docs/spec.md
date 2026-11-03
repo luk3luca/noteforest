@@ -1,12 +1,12 @@
 # NoteForest — Product, Data Model, and Behavior Specification
 
-**Version:** v0.3 (draft for review)  
+**Version:** v0.4 (approved for Spike 1)  
 **Date:** 3 November 2026  
 **Owner:** Planner / Architect  
-**Status:** Not approved. This document is the basis for review by the Orchestrator, the product owner, UX, and the Sentinel.  
+**Status:** Approved for Spike 1. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
 **Working title:** NoteForest (an existing NoteForest study app exists; public-release clearance or a rename is required before packaging)
 
-This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The stack is under review:** Electron is provisional, and Scout is evaluating GPUI-like native/Rust frameworks and Markdown/math/PDF components. This spec does not assume Electron or any specific PDF pipeline; it defines fixed requirements (A4, real text, paginated, no cut line/image/formula/code line, external API, local files). The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
+This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, CodeMirror 6, KaTeX, and React Flow (ADR-0001). PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided in ADR-0003. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, external API, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
 
 **Normative language.** **MUST** means required for the v1 prototype to be accepted. **SHOULD** means expected unless explicitly deferred with a recorded decision. **MAY** means optional. Assumptions are labelled **A1**, **A2**, and so on. Decisions that still need approval are labelled **D1**, **D2**, and so on. Open questions are labelled **Q1**, **Q2**, and so on.
 
@@ -31,7 +31,7 @@ This document defines the product behavior, conceptual data model, invariants, a
 13. [Edge cases](#13-edge-cases)
 14. [Performance and scale](#14-performance-and-scale)
 15. [Acceptance criteria for the v1 prototype](#15-acceptance-criteria-for-the-v1-prototype)
-16. [Open questions and decisions needed](#16-open-questions-and-decisions-needed)
+16. [Decisions and remaining questions](#16-decisions-and-remaining-questions)
 17. [Risks](#17-risks)
 - [Appendix A. Worked example](#appendix-a-worked-example)
 - [Appendix B. Change log](#appendix-b-change-log)
@@ -136,18 +136,18 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 | **A6** | PDF pages are A4 portrait or landscape, produced by the paginator; no separate reader PDF in v1. | PDF layout and page-navigation design change. |
 | **A7** | Annotations are a separate study layer, out of scope for v1. | The schema and export need a full annotation design. |
 | **A8** | Canonical content is structured JSON/ProseMirror JSON with Markdown import/export (decided in AGENTS.md). | Anchor binding and Markdown export behavior change. |
-| **A9** | The v1 stack is **TBD**; Electron is provisional and GPUI-like native/Rust options are under review. This spec does not assume a shell or PDF pipeline. | Implementation planning and PDF work need a stack ADR. |
+| **A9** | The v1 stack is **decided**: Electron + React + TypeScript with TipTap/ProseMirror, CodeMirror 6, KaTeX, React Flow, and Electron `printToPDF` (ADR-0001, ADR-0002). | A stack change requires a benchmark-backed ADR; the spec remains platform-neutral where possible. |
 | **A10** | UI copy is English; content is Unicode. | Localization and font coverage need explicit work. |
 | **A11** | Block widths are content-driven and adaptive within a page width; there is no manual resize, pin, fixed pixel column, or free position. | A resize/free-layout model would be needed. |
 | **A12** | The local document is the source of truth; exports are derived. | A sync or cloud-first model changes persistence and conflict rules. |
 | **A13** | Pages are derived by the paginator; optional manual page-break hints are document settings. There is no stored page container in v1. | A page-container/auto-layout model needs a different schema. |
 | **A14** | A document may contain multiple chapters; the v1 UI MAY expose one chapter at a time. | Chapter navigation and multi-chapter editing need a UI design. |
 | **A15** | Reader view and page view share one layout engine and differ only in rendering/pagination chrome. | Two layout engines would risk divergence and duplicate bugs. |
-| **A16** | The reader/page view tradeoff is evaluated in the prototype; either may become the primary authoring surface. | UX and keyboard design depend on the chosen primary surface. |
+| **A16** | The reader is the primary authoring surface in v1; the page view is a preview of the same layout and paginator. The choice is closed (D14). | UX and keyboard design would need a revision if page view becomes primary. |
 | **A17** | Note documents are standard files in a user-chosen folder; git is used only for code and project docs. | Note versioning/sync needs a different design. |
 | **A18** | Visual direction is clean, Obsidian-like, minimal, with dark mode as the default and a light theme available. | Visual design and theme tokens need revision. |
 | **A19** | The app exposes a local-only External Agent API; there is no in-app agent panel or background autonomy in v1. | API, auth, and UI scope change. |
-| **A20** | Long blocks may continue at safe internal boundaries; page breaks never cut a line, image, or code line. | Pagination and block-continuation markers need a different model. |
+| **A20** | Long blocks may continue at safe internal boundaries; page breaks never cut a line, image, formula, code line, or table row. A table row is atomic. | Pagination and block-continuation markers need a different model. |
 
 ### 1.9 Adaptive layout and derived pages at a glance
 
@@ -166,9 +166,9 @@ The product is not a general whiteboard and not a general knowledge base. It is 
   top2 -> lower2.1
   ```
 
-- **Anchored branches** remain: the child is placed below its anchor and may wrap or continue on the next page at safe boundaries. It is never cut through a line, image, formula, or code line.
+- **Anchored branches** remain: the child is placed below its anchor and may wrap or continue on the next page at safe boundaries. It is never cut through a line, image, formula, code line, or table row.
 - **Pages** are continuous in reading order but still pages. The paginator prefers breaks between blocks; a long block may continue at a safe internal boundary with a continuation marker.
-- **Views:** a **reader view** (continuous vertical scroll with page-break markers) may be the primary authoring surface; a **page view** (paginated WYSIWYG) renders the same layout. The outline is the same tree in list form. "Canvas" means the page/paginated view, not a freeform canvas.
+- **Views:** a **reader view** (continuous vertical scroll with page-break markers) is the primary authoring surface in v1; a **page view** (paginated WYSIWYG) renders the same layout as a preview. The outline is the same tree in list form. "Canvas" means the page/paginated view, not a freeform canvas.
 - **PDF export** uses the same paginator, with real text, A4 portrait/landscape, and no separate reader PDF in v1.
 
 ### 1.10 V1 scope and vertical slices
@@ -365,6 +365,7 @@ The model has two layers:
 | `title` | string | yes | User-visible title. May be empty; display as "Untitled". |
 | `createdAt` | timestamp | yes | ISO 8601 UTC. |
 | `updatedAt` | timestamp | yes | ISO 8601 UTC; updated on save. |
+| `revision` | integer | yes | Monotonic document revision, starts at 0 and increments once per committed transaction. Used by `baseRevision` for optimistic concurrency; not content. |
 | `pageSetup` | object | yes | A4 page size, orientation, and margins. |
 | `manualBreakBeforeBlockIds` | ordered list of block IDs | no | Optional page-break hints. The paginator starts a new page before these blocks when possible. |
 | `chapters` | ordered list of Chapter | yes | Every chapter, in reading order. |
@@ -396,7 +397,7 @@ The document MUST NOT contain a second canonical copy of block content, branch s
 | `updatedAt` | timestamp | no | Optional; useful for diagnostics and future sync. |
 | `extensions` | object | no | Unknown fields preserved. |
 
-A block is the unit of identity, branching, and layout. Its body MAY contain multiple paragraphs, headings, lists, code blocks, display math, images, and tables. The content tree determines how it renders; there is no exclusive block "type" enum. A code-only, formula-only, or image-only block is simply a block whose body contains that node kind. This is the recommended granularity (D2); if single-node blocks are chosen, the rest of the model is unchanged, but outline density and anchor behavior change.
+A block is the unit of identity, branching, and layout. Its body MAY contain multiple paragraphs, headings, lists, code blocks, display math, images, and tables. The content tree determines how it renders; there is no exclusive block "type" enum. A code-only, formula-only, or image-only block is simply a block whose body contains that node kind. This is the decided granularity (D2, closed): a rich body, not a single content node. Single-node blocks are not the v1 model.
 
 Content MUST be able to carry inline anchor marks (or the equivalent binding under the chosen content representation). An anchor mark is part of the block's content, not a decoration stored only in the UI.
 
@@ -481,11 +482,13 @@ The primary branches form a forest:
 6. Do not recurse through reference branches.
 7. Insert a page-break marker wherever the paginator places one; the marker is derived, not a structural node.
 
-The anchored-first rule is provisional (D3). It keeps a branch caused by a word close to the block that contains the word. UX may reverse the order after testing, but the rule must remain deterministic and shared by outline, reader view, page view, and PDF.
+Anchored-first is **closed (D3)**. It keeps a branch caused by a word close to the block that contains the word. The rule is deterministic and shared by outline, reader view, page view, and PDF; it is not re-evaluated per view.
 
 **Page and block labels.** Derived pages are numbered in reading order (`1`, `2`, …). Blocks receive an optional hierarchical label derived from top-level order and depth (`1`, `1.1`, `1.1.1`) for navigation and diagnostics. Labels are generated, not stored. They are not a substitute for derived page numbers in the PDF.
 
 **Shared children.** A shared child appears once in the outline and once in the continuous layout. Reference contexts show a "See also" link with the derived page when available; they do not repeat the content and do not add a second outline entry.
+
+**Default (closed, D4).** Creating a branch to a block that already has a primary home creates a **reference edge** by default. A top-level block has no primary parent, so branching to it adds it as a **primary child** (it loses its top-level slot) unless the user explicitly chooses "reference only." "Make home" and "move here" are explicit commands; they change the primary parent without duplicating the block. The confirmation shows the affected reference parents.
 
 ### 4.7 Page setup, derived pages, and view state
 
@@ -500,8 +503,9 @@ The anchored-first rule is provisional (D3). It keeps a branch caused by a word 
 **Derived pages and continuation.**
 
 - A derived page is a slice of the continuous layout. It is numbered in reading order.
-- The paginator prefers page breaks between blocks. If a block is too tall for the remaining space, it may continue at a safe internal boundary: paragraph, list item, or between code lines. It MUST NOT cut a text line, image, formula, or code line.
-- A block that continues across pages is a **block continuation**: the previous page shows "continues on page N", the next page shows "continued from page M" plus a compact ghost parent, and the block exists once. Safe boundaries are paragraph, list item, blockquote paragraph, or between code lines; a line, image, formula, or code line is never cut.
+- The paginator prefers page breaks between blocks. If a block is too tall for the remaining space, it may continue at a safe internal boundary: paragraph, list item, blockquote paragraph, between code lines, or **between table rows**. It MUST NOT cut a text line, image, formula, code line, or table row.
+- A block that continues across pages is a **block continuation**: the previous page shows "continues on page N", the next page shows "continued from page M" plus a compact ghost parent, and the block exists once. Safe boundaries are paragraph, list item, blockquote paragraph, between code lines, or between table rows; a line, image, formula, code line, or table row is never cut.
+- A table row is atomic. A table may continue across pages only **between rows**, never inside a row or cell. A single row taller than the page content height is a pagination defect; the user splits the row content or changes page setup. Repeating a header row on continuation pages is a UX detail, not required in v1.
 - A lower-level block that continues on the next page also shows a ghost parent at the top of the next page so its context is not lost.
 - A block with no children may still be followed by a page break; the paginator prefers breaks between top-level blocks or between sibling subtrees.
 - Manual break hints are best-effort requests to start a new page before a block. They are not page containers and do not move blocks to a fixed page.
@@ -570,7 +574,7 @@ Annotations MUST NOT alter block content, branches, or layout. They are a separa
 | **I15** | View state may be stale; stale references are harmless. | Drop stale entries silently. |
 | **I16** | Unknown fields and unknown content nodes are preserved on save. | Warning; preserve. |
 | **I17** | `schemaVersion` is an integer and never decreases. | Newer file opens read-only; no downgrade. |
-| **I18** | Pagination breaks between blocks first and may continue a block only at a safe internal boundary; it never cuts a line, image, formula, or code line. A continuation/ghost parent is derived, not stored as a second block. | Fatal pagination defect; fix before export. |
+| **I18** | Pagination breaks between blocks first and may continue a block only at a safe internal boundary; it never cuts a line, image, formula, code line, or table row. A table row is atomic. A continuation/ghost parent is derived, not stored as a second block. | Fatal pagination defect; fix before export. |
 
 ### 4.11 Illustrative schema
 
@@ -583,6 +587,7 @@ This example is illustrative, not a wire-format freeze. It uses the approved str
   "title": "Linear algebra — eigenvalues",
   "createdAt": "2026-11-03T10:00:00Z",
   "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 42,
   "pageSetup": {
     "size": "A4",
     "orientation": "portrait",
@@ -881,7 +886,7 @@ The outline is the fast authoring surface and the canonical reading order.
 
 - Blocks are rows in a vertical, indented list. Each row shows a collapse control, the block content (rendered), an optional label, anchor markers, and reference links. Page breaks and continuation markers appear as separators.
 - Direct primary children are indented one level under their parent.
-- Anchored primary children appear as indented callouts immediately after the parent block, before direct children (provisional, D3). The callout shows the anchor quote and the branch label, and is visually distinct from a direct child.
+- Anchored primary children appear as indented callouts immediately after the parent block, before direct children (closed, D3). The callout shows the anchor quote and the branch label, and is visually distinct from a direct child.
 - Reference edges appear as "See also" / "Referenced by" chips with page numbers; they do not create indented rows and do not repeat content.
 - A collapsed row shows a count of hidden descendants.
 - Broken anchors show a warning marker on the block and in the callout; the branch target remains visible.
@@ -917,7 +922,7 @@ The reader and page views render the same continuous layout. "Canvas" means the 
 
 - A continuous vertical scroll of the chapter layout. Page-break markers show where the paginator will break and which page number follows.
 - Page width and margins are shown as guides; content outside the guide is not clipped, but it will be paginated.
-- This view is a candidate for the primary authoring surface because it avoids page-boundary friction while keeping page breaks visible.
+- This is the **primary authoring surface in v1 (D14 closed)** because it avoids page-boundary friction while keeping page breaks visible.
 - Adding or editing a block updates the continuous layout and the page-break markers immediately (after the layout debounce).
 
 **Page view**
@@ -935,13 +940,13 @@ The reader and page views render the same continuous layout. "Canvas" means the 
 - Nothing moves, even if a background measurement completes. The freeze badge is visible.
 - Exiting freeze returns to normal editing and offers "Keep current layout" (incremental) or "Full reflow."
 
-**Tradeoff to evaluate**
+**Primary surface (closed)**
 
-The prototype MUST evaluate which surface is primary for authoring:
+The reader is the primary authoring surface in v1; the page view is the preview/verification surface (D14 closed).
 
 - **Reader-primary:** fast continuous authoring; page view is a preview/verification surface.
-- **Page-primary:** WYSIWYG page composition; reader is a continuous overview.
-- **Either way:** one layout engine and one paginator. Do not build two independent layout implementations. The chosen primary surface is recorded as Q12 after the prototype; the other remains available.
+- **Page view:** still a first-class renderer and the visual proof for PDF export; it is not a second layout engine.
+- **Either way:** one layout engine and one paginator. Do not build two independent layout implementations. If the product later moves to page-primary authoring, that is a UX change, not a layout-engine change, and requires an ADR only if it changes the pagination model.
 
 **Interaction**
 
@@ -958,7 +963,8 @@ The prototype MUST evaluate which surface is primary for authoring:
 
 - The paginator is authoritative. It breaks between blocks, never through a block.
 - A continuation is a rendering state, not a second block. The source page shows "continues on page N"; the target page shows "continued from page M".
-- A block taller than the page content area may continue at a safe internal boundary; if no safe boundary exists (for example a single line, image, formula, or code line), it is a pagination defect: the user must split the block or change page setup. The app does not cut or clip it.
+- A block taller than the page content area may continue at a safe internal boundary; if no safe boundary exists (for example a single line, image, formula, code line, or table row that is taller than the page), it is a pagination defect: the user must split the block or change page setup. The app does not cut or clip it.
+- A table may continue across pages only between rows. A row and its cells are never split; a table header is not repeated automatically in v1.
 
 ### 6.4 Synchronization between views
 
@@ -1067,7 +1073,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
   - A parent is vertically centered on its children's span where possible; leaves follow sibling packing.
   - A subtree occupies a bounding box. Sibling subtrees MUST NOT overlap.
   - A child MUST be placed after its parent in reading order: to the right, or below with an indent when wrapping.
-- Anchored children are placed below their anchor in the same adaptive flow. They may wrap horizontally and may continue at a safe boundary on the next page; they are never cut through a line, image, formula, or code line.
+- Anchored children are placed below their anchor in the same adaptive flow. They may wrap horizontally and may continue at a safe boundary on the next page; they are never cut through a line, image, formula, code line, or table row.
 - The page width is a hard boundary. If a layout cannot fit within the page content width after wrapping, it is a layout defect: the user must shorten content, split the block, or change page setup. The app MUST NOT clip or auto-scale.
 - Only sibling order and top-level order change. There is no arbitrary x/y, no fixed depth column, and no pin.
 
@@ -1089,8 +1095,10 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
   - paragraph boundary;
   - list-item boundary;
   - blockquote paragraph boundary;
-  - between code lines (never inside a code line).
+  - between code lines (never inside a code line);
+  - between table rows (never inside a row or cell).
 - The paginator MUST NOT cut a text line, an image, a formula, a table row, or a code line.
+- **Table rows are atomic.** A table may continue across pages only between rows. If one row is taller than the page content height, the table cannot be split safely: it is a pagination defect, not permission to cut. Header-row repetition on continuation pages is not required in v1.
 - A block that continues across pages is a **block continuation**:
   - the previous page shows "continues on page N" at the bottom of the block;
   - the next page shows "continued from page M" at the top and a compact ghost parent (the parent block's label and relevant anchor quote) for context;
@@ -1127,7 +1135,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 - Every top-level block is a content block; it may be a standalone sentence or a short phrase with children.
 - A top-level block with no children is still a card on the page and can be followed by a page break.
 - There is no synthetic super-root and no "page container" in the document.
-- Page setup is document-level in v1. Mixed portrait/landscape pages are not required (Q11).
+- Page setup is document-level in v1. Mixed portrait/landscape pages are not required (D15).
 
 ### 7.9 Stability and incremental layout
 
@@ -1306,9 +1314,9 @@ A selection spanning multiple blocks is rejected in v1. The message explains tha
 - No automatic anchor deletion, no automatic branch deletion, and no silent omission from export.
 - An optional anchor appendix MAY list broken or ambiguous anchors, their quotes/terms, their targets, their derived pages, and the reason. It is a diagnostic aid, not a replacement for the branch content.
 
-### 8.10 Anchor policy for formula, code, and image anchors (D5)
+### 8.10 Anchor policy for formula, code, and image anchors (D5, closed)
 
-This is the highest-risk open policy in the spec. The data model preserves anchors and branches, but the v1 behavior for non-text anchors needs approval before anchor implementation and PDF export are locked.
+This is the highest-risk policy in the spec. The data model preserves anchors and branches, and the v1 behavior below is **ratified (D5 closed)**. It must be implemented and tested before anchor implementation and PDF export are locked.
 
 | Concern | Formula | Code | Image |
 |---|---|---|---|
@@ -1329,7 +1337,7 @@ Policy:
 - **Image:** the normalized region is relative to the intrinsic image. Resizing the display is safe. Replacing the asset, changing the crop, or losing the asset marks the anchor broken or requires confirmation, because the old region may no longer mean the same thing.
 - A broken or ambiguous anchor falls back to the whole block for its visual origin, shows a visible marker, and offers a repair dialog. The fallback is not a source change: repairing the anchor restores the span; the branch and target stay intact.
 - An anchored child that does not fit below its anchor in the paginated layout gets a continuation marker on the next page. No auto-move or arbitrary placement.
-- This policy remains open as **D5**. The proposed default is: all four anchor kinds in v1, exact bindings auto-resolve, ambiguous reattachment requires confirmation, and no silent data loss.
+- **D5 is closed.** All four anchor kinds are in v1; exact unique bindings may auto-resolve; ambiguous reattachment requires confirmation; broken anchors never delete branches; export includes every branch exactly once. Formula-term geometry is best-effort; whole-formula anchors are precise.
 
 Acceptance criteria for this policy are AC-54 through AC-57.
 
@@ -1368,7 +1376,7 @@ The authoring experience SHOULD feel Markdown-like: typing `#`, `-`, `**`, backt
 | Inline math | LaTeX rendered inline. |
 | Display math | LaTeX rendered as a block. |
 | Image | Asset reference, alt text, optional caption. |
-| Table | Rows and cells; SHOULD for v1. |
+| Table | Rows and cells; SHOULD for v1. A row is atomic for pagination. |
 | Horizontal rule | Visual separator. |
 | Hard break | Explicit line break. |
 | Anchor mark | Inline binding carrying `anchorId`. |
@@ -1380,7 +1388,7 @@ The authoring experience SHOULD feel Markdown-like: typing `#`, `-`, `**`, backt
 - Pasting an image copies it into the package and inserts an image node. Pasting a URL creates a link; it does not fetch a remote image.
 - Invalid LaTeX is stored as source and rendered with a visible error. The user can edit the source; the app never drops the formula.
 - Code blocks do not execute. Language hints affect highlighting only.
-- Tables are editable; anchors inside tables are text ranges, but an anchor spanning cells is rejected in v1.
+- Tables are editable; anchors inside tables are text ranges, but an anchor spanning cells is rejected in v1. A table may break across pages only between rows; a row and its cells are never split.
 - Empty blocks are allowed. They are valid authoring state and are not silently deleted.
 
 ### 9.4 Option A — Markdown-canonical
@@ -1449,9 +1457,9 @@ Rationale: the product's differentiator is anchored branches. Anchors need stabl
 
 Markdown remains import/export only. Do not store Markdown as the live document and do not keep a live Markdown mirror. If the team later revisits the content model, it must be a versioned migration, not a silent format change.
 
-### 9.8 Block granularity
+### 9.8 Block granularity (D2, closed)
 
-**Recommendation: a block is a rich body, not a single content node.** A block may contain several paragraphs, a list, a code block, a formula, and an image. It is the unit of branching, identity, and layout.
+**Decided: a block is a rich body, not a single content node.** A block may contain several paragraphs, a list, a code block, a formula, an image, and a table. It is the unit of branching, identity, and layout.
 
 Why: the product describes blocks that hold Markdown, LaTeX, code, images, and lists together. A single-node block would force a definition and its formula into separate blocks, fragmenting the page and the outline. A rich body keeps a study idea together.
 
@@ -1460,9 +1468,10 @@ Implications:
 - block height can be large and may exceed an A4 page; it may continue at a safe internal boundary, or report a pagination defect if no safe boundary exists;
 - the UI should encourage focused blocks, but no hard character limit is imposed in v1;
 - anchors can target any node inside the body;
-- a code block or formula can be a node inside a block, not necessarily a separate block.
+- a code block or formula can be a node inside a block, not necessarily a separate block;
+- a table is a node inside a block; its rows are the only safe break points inside it.
 
-This is **D2**. If single-node blocks are chosen, the model is unchanged, but the default authoring flow, outline density, and layout measurements change.
+D2 is closed. Single-node blocks are not the v1 model; switching later would be a versioned content migration and a layout change, not a silent default.
 
 ### 9.9 Export and import expectations
 
@@ -1478,7 +1487,7 @@ This is **D2**. If single-node blocks are chosen, the model is unchanged, but th
 - Images: PNG, JPEG, WebP, and GIF (first frame for PDF) are supported. SVG is not required in v1; if added, it must be sanitized.
 - Math: a KaTeX-compatible LaTeX subset is the target. Unsupported commands render an error, not a crash.
 - Code: plain text only; no execution, no embedded outputs, no Jupyter-style state.
-- Tables: SHOULD; anchors may target text inside a cell but not span cells.
+- Tables: SHOULD; anchors may target text inside a cell but not span cells. Page breaks occur only between rows; a row taller than the page is a pagination defect.
 - Raw HTML: never executed. HTML-like input is escaped or treated as text.
 - Links: sanitized; external links open outside the document; `javascript:` and similar schemes are rejected.
 - Remote content: not loaded into the document; images are local assets.
@@ -1507,7 +1516,7 @@ A note document is a folder the user chooses, containing one canonical JSON file
 
 ### 10.2 Canonical and derived data
 
-**Canonical:** page setup, manual break hints, chapters, top-level block order, blocks, anchors, branches, assets, schema version, title, timestamps.
+**Canonical:** page setup, manual break hints, chapters, top-level block order, blocks, anchors, branches, assets, schema version, title, timestamps, monotonic revision.
 
 **Derived:** search index, thumbnails, continuous layout geometry, derived pages and continuations, PDF and Markdown exports, page/block labels for PDF.
 
@@ -1620,7 +1629,7 @@ No migration ships without a golden fixture for every prior version and a failur
 
 - v1 is single-user. Do not implement CRDTs, merge, or multi-device sync.
 - Enforce a single instance per document package; opening it again focuses the existing window or opens read-only.
-- The external API uses `baseRevision` plus a single-writer/lock policy; two writers must not corrupt the file. Exact lock mechanism is D18.
+- The external API uses `baseRevision` plus a single-writer/lock policy; two writers must not corrupt the file (D18 closed: OS advisory lock + lock file, one writer, concurrent readers).
 - Detect external modification by comparing the file's modification time and/or content hash before saving. If it changed, prompt: reload, overwrite, or save a copy. Never silently overwrite.
 - If two windows somehow open the same package, the second is read-only and says so.
 - A future sync or collaboration feature requires a separate ADR and a CRDT or equivalent design; it is not retrofitted into this model by assumption.
@@ -1688,8 +1697,9 @@ The print theme is separate from the screen theme. The page view and the PDF MUS
 ### 11.4 Pagination and page count
 
 - The PDF uses the paginator described in §7.5. Page count equals the derived page count.
-- The PDF prefers breaks between blocks. A long block may continue at a safe internal boundary (paragraph, list item, blockquote paragraph, or between code lines), with "continues on page N" on the source page and "continued from page M" plus a ghost parent on the target page.
+- The PDF prefers breaks between blocks. A long block may continue at a safe internal boundary (paragraph, list item, blockquote paragraph, between code lines, or between table rows), with "continues on page N" on the source page and "continued from page M" plus a ghost parent on the target page.
 - The PDF MUST NOT cut a text line, image, formula, table row, or code line. If no safe boundary exists, export is blocked with a clear "no safe page break" error; the user splits the block or changes page setup.
+- A table row is atomic. The PDF breaks a table only between rows, never inside a row or cell. A row taller than the page content height blocks export with a "no safe page break" error rather than cutting it. Header-row repetition is not required in v1.
 - A lower-level block that continues on the next page gets the same continuation and ghost-parent markers as the page view.
 - Manual page-break hints are honored where the paginator honors them in the page view; the PDF must not diverge.
 - Each chapter starts on a new derived page.
@@ -1775,9 +1785,15 @@ Manual checks:
 - Interactive forms, embedded media, encryption, or digital signatures.
 - Pixel-identical screen colors or browser chrome.
 
-### 11.12 PDF pipeline note
+### 11.12 PDF pipeline (decided)
 
-The PDF pipeline is **TBD** with the stack. The chosen pipeline must produce the same pages as the page view and satisfy all of §11: A4 portrait/landscape, real selectable text, paginated, no cut line/image/formula/code line, continuation/ghost markers, and deterministic page count. If a candidate uses WKWebView, a 50+ page pagination spike is a hard gate; if it uses another pipeline, the same PDF acceptance checks still apply. This section does not choose a shell or PDF engine.
+The PDF pipeline is **decided (ADR-0002): Electron `webContents.printToPDF`, driven by the shared paginator.**
+
+- `packages/layout` computes the continuous layout and the derived pages. The paginator is the only component that decides page breaks.
+- A print-only renderer composes the *already-derived* pages at exact A4 dimensions, in print theme, with one fixed-size page container per derived page. It never lets CSS paged media re-paginate and it never decides breaks.
+- `printToPDF` runs with `preferCSSPageSize`, explicit `@page` size/margins, `printBackground`, no scale, embedded fonts, and a settled document (fonts, images, KaTeX, layout measurement) before capture.
+- Hard gate before PDF is considered done: a 50+ page A4 spike with real selectable text, page numbers, repeated headers, no cut line/image/formula/code line/table row, page count equal to the paginator, and geometry matching the page view within print-theme tolerance.
+- If `printToPDF` fails the gate, the fallback is a new ADR, not a silent switch. Candidates: Chromium CDP `Page.printToPDF` from the same engine; a native PDF compositor (PDFKit) drawing the same page slices. Typst is not a drop-in for WYSIWYG page export because it would be a second layout engine.
 
 ---
 
@@ -1836,30 +1852,31 @@ The catalog is intentionally complete for v1 mutations. A new mutation requires 
 
 ### 12.4 Transport
 
-- **Local HTTP JSON API** on loopback, plus an **MCP adapter** that maps MCP tools to the same commands and queries.
+- **Local HTTP JSON API** on loopback, plus an **MCP adapter** that maps MCP tools to the same commands and queries. This is the decided shape (D16 closed): HTTP is the primitive, MCP is an adapter.
 - HTTP and MCP share one command implementation; neither has a privileged path.
-- The server is off by default. The user enables it, chooses a port (or accepts localhost), and issues/revokes tokens.
-- No remote bind, no TLS termination requirement for loopback, no cloud relay, no webhook egress.
-- The exact API shape is open: HTTP-first with an MCP wrapper, or MCP-first with HTTP as the primitive (D16). Both must expose the same command catalog.
+- The server is off by default. The user enables it, chooses a port (or accepts an ephemeral localhost port), and issues/revokes tokens.
+- No remote bind, no TLS termination requirement for loopback, no cloud relay, no webhook egress. Reject non-loopback `Host` headers and browser cross-origin requests; mutating requests require the bearer token and a JSON content type.
 - Long-running operations (PDF export, large search) return a job ID with status; the API must not block indefinitely.
 
-### 12.5 Authentication, scopes, and confirmation
+### 12.5 Authentication, scopes, and confirmation (decided)
 
-- Bearer-token authentication; tokens are generated by the app, shown once, stored hashed, and revocable.
-- Scopes: `read`, `write`, `export`, `destructive`, `audit`. A token may be document-scoped or library-scoped; exact granularity is open (D17).
-- `read` permits queries; `write` permits non-destructive mutations; `export` permits PDF; `destructive` permits delete/merge/chapter deletion and requires an explicit `confirm` field naming the affected IDs.
-- A write token cannot grant itself `destructive`; escalation requires a new token issued by the user.
+- Bearer-token authentication; tokens are generated by the app, **shown once**, stored **hashed** (with a short display prefix for identification), and **revocable**. Revocation is immediate.
+- **Document-scoped tokens (D17 closed).** Each token names exactly one document in v1; there is no library-wide token and no implicit "all documents" access. To work on another document, the user issues another token. The token's document ID is enforced server-side on every request.
+- Scopes: `read`, `write`, `export`, `destructive`, `audit`. `read` permits queries; `write` permits non-destructive mutations; `export` permits PDF; `destructive` permits delete/merge/chapter deletion and requires an explicit `confirm` field naming the affected IDs; `audit` permits reading the audit log.
+- A write token cannot grant itself `destructive`; escalation requires a new token issued by the user. A token cannot widen its document scope.
 - Every destructive request without an explicit confirmation fails with a typed error and no mutation.
 - Tokens and API access are local-only; no token is stored in the document package or git.
+- Token lifetime: long-lived by default with explicit revocation; optional expiry is a future addition, not required in v1.
 
 ### 12.6 Audit logging, undo/redo, and concurrency
 
 - Every API request (read, write, dry-run, export, failure) gets an audit entry: timestamp, token/client ID, command, document, base revision, result, affected IDs, and duration.
 - Audit logs are append-only and app-managed; they are not part of the document package. Retention is configurable.
-- Undo/redo is available through the API with `write` scope and uses the same session stack as the UI. Undo restores the prior document state and writes an audit entry.
-- `baseRevision` prevents lost updates. A stale command fails; the client must re-read and retry.
-- Concurrent access and file locking are open (D18): one writer per document, optimistic revision checks, or a lock file. V1 must not allow two writers to corrupt the file.
-- External file edits are detected as in §10.10; an open API writer must not overwrite silently.
+- Undo/redo is available through the API with `write` scope and uses the same session stack as the UI. API undo names a `transactionId`; it succeeds only if that transaction is still the top undoable entry, otherwise it fails with `undo_unavailable`. The API never undoes across a document reload. Undo restores the prior document state and writes an audit entry.
+- `baseRevision` prevents lost updates. A stale command fails with `409 revision_conflict`; the client must re-read and retry.
+- **Single-writer lock (D18 closed).** Each open document has one writer: the app instance that opened it holds a lock (an OS advisory lock plus a lock file with PID/host/session metadata). Concurrent readers are allowed. A second process that opens the document is read-only and says so; it cannot acquire the write lock. The lock is released on close, crash recovery, or explicit "take over" by the user in the app.
+- The external API never acquires the lock independently: it routes writes to the open app instance. If no instance has the document open, write commands fail with `document_not_open`; the app does not spawn a headless writer in v1.
+- External file edits are detected as in §10.10; an open API writer must not overwrite silently. On conflict, writes are blocked until the user resolves reload/overwrite/save-copy.
 
 ### 12.7 Dry-run, proposal, and apply
 
@@ -1877,13 +1894,17 @@ The catalog is intentionally complete for v1 mutations. A new mutation requires 
 - Audit logs and tokens must not leak into the document package, git, or PDF metadata.
 - A compromised token is revocable without changing the document; audit entries identify its use.
 
-### 12.9 Open questions
+### 12.9 Decisions (closed)
 
-- **D16:** exact API shape: HTTP-first with an MCP adapter, or MCP-first with HTTP as the primitive.
-- **D17:** authentication/token model and scope granularity (document vs library; token lifetime).
-- **D18:** concurrency and file locking (single writer, optimistic revision, lock file).
-- **D19:** command surface: high-level semantic commands versus low-level block/branch primitives, and how much batching to expose.
-- **D20:** PDF export as synchronous or job-based API; output path and overwrite policy.
+| ID | Decision | Resolution |
+|---|---|---|
+| **D16** | API shape. | **Closed:** HTTP JSON is the primitive; the MCP adapter maps to the same commands. Neither is privileged. |
+| **D17** | Auth and scope granularity. | **Closed:** bearer token, shown once, stored hashed, revocable; document-scoped in v1; scopes `read`/`write`/`export`/`destructive`/`audit`. |
+| **D18** | Concurrency and file locking. | **Closed:** single writer per document (OS advisory lock + lock file), concurrent readers, monotonic `baseRevision`, stale writes fail; API routes through the open app instance. |
+| **D19** | Command surface. | **Closed:** v1 exposes the semantic command catalog in §12.3, not raw JSON patches. Low-level primitives stay internal and are composed into semantic commands. |
+| **D20** | PDF export API behavior. | **Closed:** `export.pdf` is job-based (job ID + status), output path is explicit, overwrite requires a flag; small exports usually finish before the first poll. |
+
+The full rationale and consequences are in `docs/adr/0003-external-agent-api.md`.
 
 ### 12.10 API acceptance
 
@@ -2089,7 +2110,7 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 - **AC-25 (Must).** Chapters and top-level blocks stack in order without overlap; there are no fixed depth columns and no pins.
 - **AC-26 (Must).** Reference edges are visually distinct and routed; reference cycles render; they do not affect layout or pagination.
 - **AC-27 (Must).** Collapsing a block hides its descendants and callouts, shows a count, and restores them on expand; pagination is recomputed.
-- **AC-28 (Must).** The paginator prefers breaks between blocks; a long block may continue only at a safe internal boundary, never through a text line, image, formula, table row, or code line. Continuation/ghost markers appear on both pages; page count is deterministic.
+- **AC-28 (Must).** The paginator prefers breaks between blocks; a long block may continue only at a safe internal boundary, never through a text line, image, formula, table row, or code line. A table may continue only between rows; a row and its cells are never split. Continuation/ghost markers appear on both pages; page count is deterministic.
 - **AC-29 (Must).** The reader shows a continuous layout with page-break markers; the page view renders the same breaks as paginated WYSIWYG; fit page/fit width and zoom are navigation only.
 - **AC-30 (Must).** There is no pin or free-position command. Dragging a block only reorders it among legal sibling/top-level slots with a drop indicator.
 
@@ -2149,7 +2170,7 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 
 ### 15.13 PDF pipeline gate and export mode
 
-- **AC-60 (Must).** Whichever PDF pipeline is chosen must pass a 50+ page A4 pagination spike with real text, page numbers, repeated headers, and no cut line/image/formula/code line. If the pipeline uses WKWebView, it must also avoid a single long page and the compositing-cap failure. No stack is assumed.
+- **AC-60 (Must).** The Electron `printToPDF` pipeline must pass a 50+ page A4 pagination spike with real selectable text, page numbers, repeated headers, and no cut line/image/formula/code line/table row. It must not produce a single long page or fail at compositing. If it fails the gate, PDF commitment pauses for a fallback ADR (see ADR-0002).
 - **AC-61 (Must).** v1 exposes exactly one PDF export mode, Page PDF. It uses the same paginator as the page view and has no reader/map mode. Page size, orientation, margins, breaks, and continuation markers match the page view.
 
 ### 15.14 Scale promise
@@ -2175,7 +2196,7 @@ A reviewer should be able to run this script without developer help:
 
 ### 15.16 Page, stability, and cross-page gates
 
-- **AC-63 (Must).** A long block may continue across pages only at a safe internal boundary: paragraph, list item, blockquote paragraph, or between code lines. No text line, image, formula, table row, or code line is cut. The block appears once.
+- **AC-63 (Must).** A long block may continue across pages only at a safe internal boundary: paragraph, list item, blockquote paragraph, between code lines, or between table rows. No text line, image, formula, table row, or code line is cut. A table row and its cells are atomic; a row taller than the page blocks export. The block appears once.
 - **AC-64 (Must).** Incremental reflow is the default and keeps unaffected positions stable. Freeze study mode is read-only and freezes layout/pagination. Full reflow runs on request and after the configured idle period; it preserves the logical tree and may change page breaks with a visible notice.
 - **AC-65 (Must).** Page orientation is document-wide: portrait or landscape. Changing it reflows all pages and updates the PDF page orientation; mixed orientation is not supported in v1.
 - **AC-66 (Must).** When a block or lower-level branch continues across a page, the source page shows "continues on page N" and the target page shows "continued from page M" plus a ghost parent. The ghost is not editable and is not a second block.
@@ -2189,19 +2210,19 @@ A reviewer should be able to run this script without developer help:
 ### 15.18 External Agent API
 
 - **AC-70 (Must).** Every document mutation used by the UI is available as a typed command with validation, an inverse, and undo/redo. An external client cannot mutate the document by writing JSON directly; a direct-write attempt is rejected.
-- **AC-71 (Must).** The API is local-only over loopback, exposed as HTTP JSON plus an MCP adapter that maps to the same commands. It is off by default, requires a bearer token with `read`/`write`/`export`/`destructive`/`audit` scopes, and has no background autonomy or outbound web access.
+- **AC-71 (Must).** The API is local-only over loopback, exposed as HTTP JSON plus an MCP adapter that maps to the same commands. It is off by default, requires a bearer token shown once, stored hashed, and revocable, with document-scoped `read`/`write`/`export`/`destructive`/`audit` scopes, and has no background autonomy or outbound web access.
 - **AC-72 (Must).** Mutating commands support `dryRun` where practical, return a diff/affected IDs, and apply all-or-nothing against `baseRevision`. Destructive commands require explicit confirmation naming the affected IDs; stale commands fail safely.
-- **AC-73 (Must).** Every request is audit-logged with token/client, command, result, and revision. Undo/redo is available through the API with `write` scope and shares the UI undo stack. Tokens are revocable.
-- **AC-74 (Must).** The v1 command catalog includes open/read document, search, create/edit/delete block, create branch from block or anchor, reorder/reparent, create chapter, export PDF, and undo/redo. Concurrent writes cannot corrupt the file; the document uses `baseRevision` and a single-writer/lock policy.
+- **AC-73 (Must).** Every request is audit-logged with token/client, command, result, and revision. Undo/redo is available through the API with `write` scope, names a `transactionId`, and shares the UI undo stack; it only succeeds when that transaction is still the top undoable entry. Tokens are revocable.
+- **AC-74 (Must).** The v1 command catalog includes open/read document, search, create/edit/delete block, create branch from block or anchor, reorder/reparent, create chapter, export PDF, and undo/redo. Concurrent writes cannot corrupt the file; the document uses a monotonic `baseRevision` and a single-writer lock with concurrent readers.
 
 ### 15.19 Testing tools
 
 - **AC-75 (Must).** T3 Code's internal browser is used for manual and visual checks of the reader, page view, dark mode, page-break/continuation states, and API-triggered changes.
-- **AC-76 (Must).** Playwright covers automated end-to-end flows, visual regression, and PDF text extraction (including block continuation and continuation/ghost markers). The PDF text test asserts that no line/image/formula/code line is cut. API integration tests cover auth/scopes, dry-run/apply, audit, undo/redo, and concurrency.
+- **AC-76 (Must).** Playwright covers automated end-to-end flows, visual regression, and PDF text extraction (including block continuation and continuation/ghost markers). The PDF text test asserts that no line/image/formula/code line/table row is cut and that tables break only between rows. API integration tests cover auth/scopes, dry-run/apply, audit, undo/redo, and concurrency.
 
 ---
 
-## 16. Open questions and decisions needed
+## 16. Decisions and remaining questions
 
 ### 16.1 Decisions
 
@@ -2210,25 +2231,26 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | ID | Decision | Recommendation | Owner | Needed before |
 |---|---|---|---|---|
 | **D1** | Canonical content: Markdown or structured JSON? | **Closed:** structured JSON/ProseMirror JSON canonical, Markdown import/export. Recorded in AGENTS.md. | Orchestrator + product owner | Done |
-| **D2** | Block granularity: rich body or single content node? | Rich body; a block can contain paragraphs, lists, code, math, images. | Architect + product owner | Editor implementation |
-| **D3** | Outline order: anchored children before or after direct children? | Anchored first, visually distinct; UX validates. | UX + product owner | Outline implementation |
-| **D4** | Shared-child default and role changes. | Reference by default when the target has a home; add-as-child when it is a top-level block; explicit "make home" and "move here." | Product owner | Branch UX |
-| **D5** | Anchor policy for formula, code, and image anchors (highest-risk open decision). | Proposed: all four anchor kinds; exact bindings auto-resolve; ambiguous reattachment requires confirmation; broken anchors never delete branches; export includes the branch exactly once. Formula-term geometry is best-effort; whole-formula is precise. | Product owner + Architect | Anchor implementation and PDF export |
-| **D6** | PDF export mode. | **Closed:** one Page PDF mode; no separate reader PDF or map page in v1. PDF pipeline is TBD with the stack. | Product owner | Done; pipeline pending |
+| **D2** | Block granularity: rich body or single content node? | **Closed:** rich body; a block can contain paragraphs, lists, code, math, images, tables. | Architect + product owner | Done |
+| **D3** | Outline order: anchored children before or after direct children? | **Closed:** anchored first, ordered by anchor position, then direct children in branch order. | UX + product owner | Done |
+| **D4** | Shared-child default and role changes. | **Closed:** reference by default when the target has a home; add-as-child when it is a top-level block; explicit "make home" and "move here." | Product owner | Done |
+| **D5** | Anchor policy for formula, code, and image anchors. | **Closed:** all four anchor kinds; exact unique bindings auto-resolve; ambiguous reattachment requires confirmation; broken anchors never delete branches; export includes the branch exactly once. Formula-term geometry is best-effort; whole-formula is precise. | Product owner + Architect | Done |
+| **D6** | PDF export mode. | **Closed:** one Page PDF mode; no separate reader PDF or map page in v1. Pipeline decided in D13/ADR-0002. | Product owner | Done |
 | **D7** | Document/window model. | Multiple documents in a user-chosen folder, one package per window, library/recent list. | Orchestrator | Persistence/window implementation |
 | **D8** | Width and positioning model. | **Closed:** adaptive content-driven widths; children right or wrapped below; no manual resize, pins, fixed columns, or free positions. | UX + architect | Done |
 | **D9** | Markdown export/import timing. | Export post-v1; import later; label both as lossy. | Product owner | Portability work |
 | **D10** | Accessibility target. | Keyboard-complete + VoiceOver outline; reader/page views have an accessible equivalent; tagged PDF later. | Product owner | Beta |
 | **D11** | Version history UI. | Autosave + rotating backups; no user-facing version history in v1. | Orchestrator | Persistence |
-| **D12** | Stack and product name. | **Stack TBD:** Electron is provisional; GPUI-like native/Rust options are under review. Name: NoteForest (working title; existing app conflict; clearance/rename required). | Orchestrator | Before scaffolding/PDF commitment |
-| **D13** | PDF pipeline gate. | Hard gate for whichever pipeline is chosen: 50+ page A4 pagination spike with real text and no cut lines/images/formula/code lines. WKWebView-specific risk applies if that path is chosen. No stack assumed. | Orchestrator | Stack/PDF commitment |
-| **D14** | Primary authoring surface: reader or page view? | Evaluate both in the prototype; keep one layout engine and one paginator either way. | UX + product owner | Prototype evaluation |
+| **D12** | Stack and product name. | **Closed:** Electron + React + TypeScript (ADR-0001); GPUI no-go; SwiftUI only if iPad becomes co-primary; Qt fallback. Name: NoteForest (working title; existing app conflict; clearance/rename required). | Orchestrator | Done |
+| **D13** | PDF pipeline gate. | **Closed:** Electron `printToPDF` driven by the shared paginator (ADR-0002); hard gate is a 50+ page A4 spike with real text, no cut line/image/formula/code line/table row, and page count equal to the paginator. Fallback requires a new ADR. | Orchestrator | Done; gate runs in Spike 1 |
+| **D14** | Primary authoring surface: reader or page view? | **Closed:** reader is the primary editor in v1; page view is the preview. One layout engine and one paginator. | UX + product owner | Done |
 | **D15** | Page orientation. | **Closed:** one document-wide orientation, portrait or landscape; changing it reflows all pages. | Product owner | Done |
-| **D16** | External API shape. | HTTP-first with an MCP adapter, or MCP-first with HTTP as the primitive. | Architect + Orchestrator | API implementation |
-| **D17** | External API authentication/scopes. | Bearer token, `read`/`write`/`export`/`destructive`/`audit`; document vs library granularity open. | Architect + security review | API implementation |
-| **D18** | External API concurrency/file locking. | One writer per document with `baseRevision`; lock file or optimistic check; no silent overwrite. | Architect + Orchestrator | API implementation |
-| **D19** | External API command surface. | High-level semantic commands plus low-level block/branch primitives; expose a small stable subset first. | Architect | API implementation |
-| **D20** | PDF export API behavior. | Synchronous small exports, job-based large exports; output path/overwrite policy explicit. | Architect | API/PDF implementation |
+| **D16** | External API shape. | **Closed:** HTTP JSON is the primitive; the MCP adapter maps to the same commands. | Architect + Orchestrator | Done |
+| **D17** | External API authentication/scopes. | **Closed:** bearer token shown once/stored hashed/revocable; document-scoped; scopes `read`/`write`/`export`/`destructive`/`audit`. | Architect + security review | Done |
+| **D18** | External API concurrency/file locking. | **Closed:** one writer per document via OS advisory lock + lock file, concurrent readers, monotonic `baseRevision`, no silent overwrite. | Architect + Orchestrator | Done |
+| **D19** | External API command surface. | **Closed:** semantic command catalog in §12.3; low-level primitives stay internal. | Architect | Done |
+| **D20** | PDF export API behavior. | **Closed:** `export.pdf` is job-based with explicit output path and overwrite flag. | Architect | Done |
+| **D21** | Table pagination. | **Closed:** page breaks only between rows; a row and its cells are atomic; a row taller than the page is a pagination defect. Header repetition is not required in v1. | Product owner | Done |
 
 ### 16.2 Questions
 
@@ -2244,7 +2266,7 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **Q8** | Are empty blocks allowed? | Yes; they are valid authoring state and are not auto-deleted. |
 | **Q9** | Should PDF export include collapsed subtrees? | Yes; export all document content, not the current collapse state. No "export visible only" option in v1. |
 | **Q10** | What happens when a manual page-break hint cannot be honored? | The paginator ignores impossible hints and shows a warning; it never creates an empty page or cuts a line/image/formula/code line. |
-| **Q12** | Which view is primary for authoring: reader or page? | Evaluate in the prototype; reader is the current hypothesis for speed, page view for WYSIWYG confidence. |
+| **Q12** | Which view is primary for authoring: reader or page? | **Resolved (D14):** reader is the primary editor in v1; page view is the preview. |
 | **Q13** | Should there be an "export visible only" option? | Not in v1; default export includes all content. |
 | **Q14** | Should page setup (margins) be per chapter or per document? | Document-level in v1; per-chapter margins later if needed. Orientation remains document-wide (D15). |
 
@@ -2258,11 +2280,11 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | Non-text anchor policy (formula, code, image) is under-specified or under-tested. | High | High | D5 policy; fixture matrix; confirmation before reattach; export tests; no silent data loss. | A formula/code/image edit loses a branch or reattaches to the wrong span without confirmation. |
 | Adaptive layout is unstable or collides when widths vary, children wrap, and anchored callouts interact. | High | Medium | Content-driven measure tests; wrap rules; deterministic geometry; stability fixtures; no free positions. | Cards overlap, jump, or wrap inconsistently. |
 | 95%/2 px stability gate fails on wide fans or adaptive wrapping. | Medium | Medium | Stability fixture suite; affected-group definition; ADR if the gate proves impossible. | Adding or deleting one block moves unrelated cards beyond the tolerance. |
-| Pagination cuts a line/image/formula/code line, creates bad breaks, or diverges between reader, page view, and PDF. | High | High | One paginator; safe-boundary rule; continuation/ghost markers; page-count tests; page-view/PDF geometry comparison. | A line/image/formula/code line is cut, page counts differ, or breaks move without content changes. |
+| Pagination cuts a line/image/formula/code line or a table row, creates bad breaks, or diverges between reader, page view, and PDF. | High | High | One paginator; safe-boundary rule (including row-only table breaks); continuation/ghost markers; page-count tests; page-view/PDF geometry comparison. | A line/image/formula/code line or table row is cut, page counts differ, or breaks move without content changes. |
 | Reader and page views diverge or duplicate layout logic. | Medium | High | One layout engine and one paginator; two renderers only; shared geometry tests. | A break or position differs between views. |
 | PDF pagination, fonts, or text layer fail, making export unusable in Notability. | Medium | High | Print theme with same geometry; text extraction tests; Notability import per release; overflow/too-tall errors. | Text is missing, clipped, or unselectable; a line/image/formula/code line is cut. |
-| Stack under review delays scaffolding or PDF work. | Medium | Medium | Timebox the research; keep the spec stack-neutral; decide with benchmarks and an ADR. | No stack/PDF decision before implementation starts. |
-| Chosen PDF pipeline cannot paginate reliably or produce real text. | Medium | High | D13 hard gate: 50+ page A4 spike before PDF commitment; same paginator as page view; fallback pipeline via ADR. | Single long page, scaling bug, missing text, or cut line/image/formula/code line. |
+| Electron performance or memory degrades at 300–1,000 blocks. | Medium | Medium | Measure in Spike 1 and the 300-block gate; virtualization, collapse, LOD; native canvas is a later option, not a stack switch. | Scroll/render stutter or layout over 50 ms at 300 blocks. |
+| The Electron `printToPDF` pipeline cannot reproduce the paginator's pages or real text. | Medium | High | ADR-0002 hard gate: 50+ page A4 spike before PDF commitment; print compositor consumes derived pages; fallback ADR (CDP print or native compositor). | Single long page, scaling bug, missing text, or a cut line/image/formula/code line/table row. |
 | Scope creep into a general whiteboard or PKM. | High | Medium | Non-goals; wedge statement; gate features against the anchored-branch promise. | Requests for shapes, freehand, databases, plugins. |
 | Content-model decision is delayed or wrong, causing rework. | Medium | High | D1 closed; keep the adapter narrow; schema versioning; fixtures. | Editor work bypasses the adapter or adds a second source of truth. |
 | Reader/page performance degrades at 1,000 blocks. | Medium | Medium | Benchmark early; collapse/LOD; page virtualization; soft cap; measure before changing architecture. | Scroll/render stutter at 300 visible blocks. |
@@ -2355,3 +2377,4 @@ This example is the recommended golden fixture for model, layout, pagination, an
 | v0.1 | 3 November 2026 | Incorporated Sentinel review gates: layout tolerances, scale promise, anchor policy, shared-child lifecycle, persistence/migration matrix, PDF shell gate; added AC-51–AC-62. |
 | v0.2 | 3 November 2026 | Applied the product owner's adaptive-layout correction: Document → Chapters → top-level blocks; content-driven widths and wrap-below layout; pages derived by the paginator; continuation markers; reader/page views share one engine; Page PDF only; NoteForest working title; D1/D6/D8/D12 closed. |
 | v0.3 | 3 November 2026 | Parked the in-app agent panel; replaced it with the External Agent API (HTTP JSON + MCP, token auth/scopes, audit, dry-run, undo/redo). Marked stack and PDF pipeline TBD (Electron provisional). Added long-block safe continuations, ghost-parent markers, freeze/full-reflow modes, document-wide orientation, multiple documents, dark default, T3/Playwright testing gates. |
+| v0.4 | 3 November 2026 | Ratified Electron + React + TypeScript (ADR-0001) and the `printToPDF` pipeline driven by the shared paginator (ADR-0002); closed D2–D6, D12–D14, D16–D20; added D21 table pagination (break only between rows, row atomic); closed the External API defaults (ADR-0003: off by default, loopback, document-scoped bearer tokens shown once/hashed/revocable, single-writer lock + `baseRevision`, dry-run/apply/undo, local audit); fixed the reader as primary editor; replaced the TBD pipeline note with the decided pipeline and its 50+ page gate. |
