@@ -129,7 +129,8 @@ The spike passes only if every hard gate passes. Record exact commands and evide
 - Page size, orientation, and margins match `pageSetup`; no unexpected blank page.
 - Page-view geometry and PDF page geometry agree: block bounds within 1 mm, same breaks, same continuation positions, same page count. Text antialiasing is excluded.
 - Export writes a temporary file and renames on success; a forced failure leaves no partial PDF.
-- Notability import: body text can be selected/highlighted/searched; code and formulas are readable. Attach a screenshot.
+
+**Human check (not a Builder gate):** Notability import, text selection/highlight, and readability on the iPad are performed by the product owner personally. The Builder supplies the PDF and a one-line checklist; it must not open, automate, or screen-record Notability.
 
 ### G5 — Performance
 
@@ -153,8 +154,8 @@ The spike passes only if every hard gate passes. Record exact commands and evide
 
 ### G8 — Visual evidence
 
-- Screenshots: reader with page-break markers; page view with a continuation; PDF raster of the same page; Notability import.
-- A short screen recording (≤ 30 s) of loading F2, switching to page view, and exporting.
+- Screenshots (Playwright/app): reader with page-break markers; page view with a continuation; PDF raster of the same page.
+- No screen recording. Screen recording is a product-owner activity, not a Builder deliverable.
 - The PDF artifact is attached to the report (or linked from the repo, not committed if large).
 
 ### G9 — Report
@@ -162,7 +163,7 @@ The spike passes only if every hard gate passes. Record exact commands and evide
 `docs/spikes/spike-01-report.md` contains:
 
 - commit, Electron/Chromium/Node versions, hardware;
-- gate table with pass/fail and evidence links;
+- gate table with pass/fail and evidence links; mark human checks as "human check pending — product owner", not as passed/failed by the Builder;
 - measurements: layout ms (cold/warm, median/p95), PDF seconds, page count, file size, memory;
 - what matched, what drift was observed, and the tolerance used;
 - spec/ADR findings and proposed amendments (do not edit the spec yourself);
@@ -174,7 +175,7 @@ The spike passes only if every hard gate passes. Record exact commands and evide
 2. **Day 2:** adaptive layout + F1/F3/F4; overlap/gap/anchor assertions; reader markers.
 3. **Day 3:** break candidates + paginator + F2/F6; page view; continuation/ghost markers.
 4. **Day 4:** print compositor + `printToPDF`; text extraction; geometry comparison; F2/F7.
-5. **Day 5:** performance, stability, defects, Notability, report, cleanup. If the gate is at risk, stop at the checkpoint and report.
+5. **Day 5:** performance, stability, defects, report, cleanup. If the gate is at risk, stop at the checkpoint and report.
 
 This sequence is a suggestion, not a contract. Do not skip the PDF gate to polish UI.
 
@@ -211,6 +212,16 @@ Spike-only:
 Do **not** install TipTap/ProseMirror, CodeMirror, or React Flow for this spike; arrows can be SVG. They are approved for later milestones, not needed here.
 
 Any other dependency requires Orchestrator approval before install.
+
+## Human checks (product owner only)
+
+The product owner performs these personally. The Builder must not automate them, open the apps, or record the screen:
+
+- Notability import on the iPad: open the PDF, select/highlight/search text, verify formulas and code are readable.
+- Subjective visual judgement of the print result.
+- Any screen recording or demo capture for the product owner.
+
+The Builder may take Playwright/app screenshots and generate a PDF raster for evidence. That is not screen recording and is allowed.
 
 ## Handoff
 

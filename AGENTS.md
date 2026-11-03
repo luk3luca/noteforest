@@ -43,13 +43,14 @@ All agents use **DeepSeek V4.1 Flash Max** (`opencode-go/deepseek-v4.1-flash#max
 2. Work one task at a time. Keep changes small and scoped.
 3. Do not change product decisions or the spec without an ADR and the orchestrator's approval.
 4. Ask before adding a dependency. Prefer maintained, permissively licensed libraries.
-5. Every code change needs tests. UI changes need a screenshot or recording.
+5. Every code change needs tests. UI changes need an app screenshot; screen recordings belong to the product owner.
 6. Run the checks in `docs/definition-of-done.md` before reporting done.
 7. Report: what changed, files touched, tests run, open questions, risks.
 8. No secrets, no telemetry, no destructive git commands.
 9. Keep context small: use the task brief and the linked docs, not the whole repo.
 10. If something is ambiguous, stop and ask; do not invent requirements.
 11. Builder works in a worktree and reports the worktree path. Orchestrator integrates; Builder does not merge.
+12. Manual checks that need a human app (Notability on iPad, subjective visual judgement, screen recording) belong to the product owner. Agents do not automate them or record the screen; they provide the PDF/screenshot evidence and a checklist.
 
 ## Product owner clarifications
 

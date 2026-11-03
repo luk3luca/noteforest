@@ -74,7 +74,7 @@ to the orchestrator.
 - Launch the packaged or production-mode app, not only the dev server.
 - Reproduce every acceptance criterion from a cold start using the named fixture.
 - Save, quit, reopen. Persistence is part of "works".
-- For UI work, capture a screenshot or a short recording at the claimed state; include fit-page,
+- For UI work, capture an app screenshot at the claimed state; include fit-page,
   100%, and 150% zoom when layout is involved.
 - For page work, check both A4 orientations, the reader and page views, and record the page count.
 - For visual and PDF work, run the manual check in the T3 Code internal browser and capture the
@@ -660,7 +660,7 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] No `�`, no missing glyphs, no text rendered only as outlines or images.
 - [ ] Math text is present or the formula is visually correct; no clipped exponents or fractions.
 - [ ] Code keeps monospace and indentation; no ligature corruption.
-- [ ] Search a phrase in a PDF viewer and in Notability; it is found.
+- [ ] Search a phrase in a PDF viewer; the product owner checks Notability separately.
 
 ### 6.2 Page fidelity
 
@@ -701,7 +701,7 @@ and landscape in reader and page views at fit-page and 150% zoom.
       placeholder.
 - [ ] Links work if emitted; otherwise no dead links are emitted.
 - [ ] The PDF is light regardless of the app's dark/light appearance; no dark background is printed.
-- [ ] The PDF opens in Preview, Chrome, and Notability without warnings.
+- [ ] The PDF opens in Preview and Chrome without warnings; the product owner checks Notability.
 
 ### 6.5 Scale and failure
 
@@ -717,7 +717,7 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] Exporting a landscape document preserves orientation, A4 page size, and margins.
 - [ ] Page count, page size, orientation, and margins are validated against the page view and
       paginator before the file is written; a mismatch is an export failure, not a warning.
-- [ ] Notability: text is selectable, highlightable, and searchable; page size is comfortable
+- [ ] Product owner check (not Builder): Notability text is selectable, highlightable, and searchable; page size is comfortable
       (manual check each release).
 - [ ] Annotations: v1 scope excludes the study layer. If a toggle exists, test both modes; a
       visible toggle is a scope violation unless an ADR approved it.
@@ -738,7 +738,7 @@ The stack is Electron (ADR-0001) and the PDF pipeline is the shared paginator + 
       export with a clear error.
 - [ ] The print DOM mirrors the page view's geometry and is not screenshotted.
 - [ ] The chosen pipeline exports from the packaged app, not only the dev server.
-- [ ] The 50+ page A4 gate and the Notability import are re-run on Electron upgrades.
+- [ ] The automated 50+ page A4 gate is re-run on Electron upgrades by the Builder; the human Notability check is re-run by the product owner.
 - [ ] A pipeline change requires an ADR and reopens this section.
 
 ---

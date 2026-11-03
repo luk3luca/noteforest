@@ -78,7 +78,8 @@ implementer claim.
 - [ ] Freeze mode is read-only; exit offers incremental or full reflow; selection and page survive.
 - [ ] External Agent API work verified token scopes, the dry-run diff, apply, undo, audit entry, and
       document lock.
-- [ ] A UI change includes a screenshot or short recording, with before/after when visual.
+- [ ] A UI change includes an app screenshot, with before/after when visual. A screen recording is
+      optional and only when the product owner asks for it; agents do not record the screen.
 - [ ] Evidence is attached to the task as paths or links, not "see above".
 - [ ] Performance-sensitive work includes measured numbers with machine and method.
 
@@ -394,7 +395,9 @@ Log the seed. Save any shrunk failure as a named regression fixture.
 - Visually check formulas, code, arrow vector quality, and that content stays inside the margins.
 - Page count, page breaks, size, orientation, and margins must be deterministic across repeated
   exports.
-- Manual Notability import every release; record the iPad model and iPadOS version.
+- Human check (product owner, not Builder): manual Notability import every release; record the iPad
+  model and iPadOS version. The Builder supplies the PDF and a one-line checklist; it does not open,
+  automate, or record Notability.
 
 ### 3.8 Performance tests
 
@@ -569,7 +572,8 @@ Notes:
 - [ ] Crash recovery: kill mid-save, reopen, restore from backup.
 - [ ] Fresh install, upgrade, uninstall/reinstall; the document package opens in Finder.
 - [ ] File association, recent documents, and permissions work.
-- [ ] PDF: three representative documents exported and imported into Notability; one document-wide
+- [ ] PDF: three representative documents exported by the Builder and imported into Notability by the
+      product owner; one document-wide
       A4 orientation (portrait or landscape); page count and breaks match the page view; no line,
       image, or code line cut; long-block safe continuation; ghost-parent and continuation markers;
       text searchable and highlightable; fonts embedded; PDF light.
