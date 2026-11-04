@@ -59,6 +59,73 @@ async function waitFocusRestored() {
   );
 }
 
+async function waitWindowCount(count) {
+  await waitUntil(
+    async () =>
+      (await h.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)) === count,
+    `${count} window(s)`,
+  );
+}
+
+async function closeMainWindow() {
+  await h.app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.close();
+  });
+}
+
+async function waitProcessExit() {
+  const child = h.app.process();
+  await waitUntil(
+    () => child.exitCode !== null || child.signalCode !== null,
+    'app process exit',
+    10000,
+  );
+}
+
+async function createDocumentWithText(value) {
+  await page.waitForSelector('.nf-empty-state');
+  await page.locator('.nf-empty-actions .nf-button-primary').click();
+  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+  await h.waitBlockCount(1);
+  await page.keyboard.type(value);
+  await h.waitEditorText(value);
+  await h.waitNativeEdited(true);
+}
+
+/**
+ * Replace the native close/quit dialog with a controllable one so the timeout
+ * and error paths can be exercised without a human. Every call is recorded, and
+ * the test resolves it explicitly (0 = Retry, 1 = Cancel).
+ */
+async function mockCloseDialogs() {
+  await h.app.evaluate(({ dialog }) => {
+    globalThis.__nfCloseDialogs = [];
+    globalThis.__nfCloseDialogResolvers = [];
+    dialog.showMessageBox = (_window, options) => {
+      globalThis.__nfCloseDialogs.push(options);
+      return new Promise((resolve) => {
+        globalThis.__nfCloseDialogResolvers.push(resolve);
+      });
+    };
+  });
+}
+
+async function waitCloseDialog() {
+  await waitUntil(
+    async () => (await h.app.evaluate(() => globalThis.__nfCloseDialogs?.length ?? 0)) > 0,
+    'native close dialog',
+  );
+  return h.app.evaluate(() => globalThis.__nfCloseDialogs.at(-1));
+}
+
+async function answerCloseDialog(response) {
+  await h.app.evaluate((_electron, choice) => {
+    const resolve = globalThis.__nfCloseDialogResolvers.shift();
+    if (resolve === undefined) throw new Error('no pending close dialog');
+    resolve({ response: choice, checkboxChecked: false });
+  }, response);
+}
+
 describe('NoteForest M2 editor shell', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -1344,6 +1411,68 @@ describe('NoteForest M2 editor shell', () => {
     assert.equal(focusedChapter, three[1].id, 'the new chapter title is focused');
     await page.keyboard.press('Escape');
     await h.quit();
+  });
+
+  it('saves pending edits on close and restores them after relaunch', async () => {
+    const env = isolated('close-normal');
+    await launch(env);
+    await createDocumentWithText('Closing the window keeps this paragraph');
+    await closeMainWindow();
+    await waitWindowCount(0);
+    await h.quit();
+    await launch(env);
+    await page.waitForSelector('.nf-editor[data-active="true"]');
+    await h.waitEditorText('Closing the window keeps this paragraph');
+  });
+
+  it('saves pending edits on quit and restores them after relaunch', async () => {
+    const env = isolated('quit-normal');
+    await launch(env);
+    await createDocumentWithText('Quitting keeps this paragraph');
+    await h.app.evaluate(({ app: electronApp }) => {
+      electronApp.quit();
+    });
+    await waitProcessExit();
+    await h.quit();
+    await launch(env);
+    await page.waitForSelector('.nf-editor[data-active="true"]');
+    await h.waitEditorText('Quitting keeps this paragraph');
+  });
+
+  it('keeps the window open on a flush timeout and closes after Retry', async () => {
+    await launch({ ...isolated('flush-timeout'), NOTEFOREST_FLUSH_TIMEOUT_MS: '400' });
+    await mockCloseDialogs();
+    await page.evaluate(() => window.__noteforestTest.setFlushMode('hang'));
+    await closeMainWindow();
+    const dialog = await waitCloseDialog();
+    assert.deepEqual(dialog.buttons, ['Retry', 'Cancel']);
+    assert.match(dialog.message, /could not save your changes before closing/i);
+    assert.match(dialog.detail, /did not confirm the save within 400 ms/);
+    await waitWindowCount(1);
+    await page.evaluate(() => window.__noteforestTest.setFlushMode('normal'));
+    await answerCloseDialog(0);
+    await waitWindowCount(0);
+  });
+
+  it('surfaces a flush error on quit and keeps the app open until Cancel', async () => {
+    await launch(isolated('flush-error'));
+    await mockCloseDialogs();
+    await page.evaluate(() => window.__noteforestTest.setFlushMode('error'));
+    await h.app.evaluate(({ app: electronApp }) => {
+      electronApp.quit();
+    });
+    const dialog = await waitCloseDialog();
+    assert.deepEqual(dialog.buttons, ['Retry', 'Cancel']);
+    assert.match(dialog.message, /could not save your changes before quitting/i);
+    assert.match(dialog.detail, /Forced flush failure \(test\)/);
+    await waitWindowCount(1);
+    await answerCloseDialog(1);
+    assert.equal(await page.evaluate(() => window.__noteforestTest.state().ready), true);
+    await page.evaluate(() => window.__noteforestTest.setFlushMode('normal'));
+    await h.app.evaluate(({ app: electronApp }) => {
+      electronApp.quit();
+    });
+    await waitProcessExit();
   });
 
   it('quits after the last window is closed', async () => {
