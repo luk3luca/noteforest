@@ -214,6 +214,78 @@ async function waitRestoreRows(dialog) {
   await dialog.locator('[data-backup-row]').first().waitFor({ timeout: 10000 });
 }
 
+/** Click a native application-menu item by ID through its real IPC path. */
+async function invokeAppMenu(id) {
+  await h.app.evaluate(
+    ({ Menu, BrowserWindow }, menuId) => {
+      const item = Menu.getApplicationMenu()?.getMenuItemById(menuId);
+      if (item === null || item === undefined) throw new Error(`missing menu item ${menuId}`);
+      item.click(item, BrowserWindow.getAllWindows()[0], undefined);
+    },
+    id,
+  );
+}
+
+/** Wait for the active runtime's undo/redo routing state. */
+async function waitHistoryState(expected) {
+  await page.waitForFunction(
+    (want) => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      if (runtime === undefined) return false;
+      return Object.entries(want).every(([key, value]) => runtime[key] === value);
+    },
+    expected,
+    { timeout: 10000 },
+  );
+}
+
+/** Block ID whose own body (not descendants) contains the given text. */
+async function blockIdWithText(text) {
+  return page.evaluate((needle) => {
+    const current = window.__noteforestTest.state();
+    const entry = window.__noteforestTest
+      .editorJson()
+      .find((item) => item.packagePath === current.activeTab);
+    const textOf = (node) => {
+      if (node.type === 'text') return node.text ?? '';
+      return (node.content ?? []).map(textOf).join('');
+    };
+    const walk = (node) => {
+      if (node.type === 'branchBlock') {
+        const body = node.content?.[0];
+        if (body !== undefined && textOf(body).includes(needle)) {
+          return node.attrs.blockId;
+        }
+        for (const child of node.content?.[1]?.content ?? []) {
+          const found = walk(child);
+          if (found !== null) return found;
+        }
+        return null;
+      }
+      for (const child of node.content ?? []) {
+        const found = walk(child);
+        if (found !== null) return found;
+      }
+      return null;
+    };
+    return walk(entry.json);
+  }, text);
+}
+
+function blockCard(blockId) {
+  return h.activeEditor().locator(`[data-block-card="${blockId}"]`);
+}
+
+async function focusBlockEnd(text) {
+  const id = await blockIdWithText(text);
+  assert.ok(id !== null, `no block contains ${text}`);
+  await blockCard(id).locator('.nf-block-prose').first().click();
+  await page.keyboard.press('End');
+  await h.waitSelected(id);
+  return id;
+}
+
 async function waitRestoreError(dialog, pattern) {
   await dialog
     .locator('[data-restore-error="true"]')
@@ -910,9 +982,8 @@ describe('NoteForest M2 editor shell', () => {
     await h.waitEditorText('Undo me', false);
     await page.keyboard.press('Meta+Shift+z');
     await h.waitEditorText('Undo me', true);
-    // F2's 120 ms menu-command dedupe drops a repeated undo pressed inside the
-    // window; keep the sequence distinct until phase 3 removes the dedupe.
-    await delay(150);
+    // Undo/redo are exempt from the menu-command dedupe: the sequence repeats
+    // immediately, as a user pressing ⌘Z twice would.
     let afterUndo = await h.parity();
     assert.equal(afterUndo.canvas, afterUndo.canonical, 'undo/redo keeps the canonical count');
     await page.keyboard.press('Meta+z');
@@ -962,6 +1033,191 @@ describe('NoteForest M2 editor shell', () => {
     assert.equal(returned.canvas, 3);
     assert.equal(returned.sidebar, 3);
     assert.equal(returned.canonical, 3);
+    assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
+    await h.quit();
+  });
+
+  it('routes undo and redo across text and structural history without dropping presses', async () => {
+    await launch(isolated('undo-routing'));
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await waitHistoryState({
+      lastHistoryOperation: null,
+      canUndoStructural: false,
+      canRedoStructural: false,
+    });
+
+    const textE = 'Take the symmetric matrix below. Its eigenvalues are 1 and 3.';
+    const textA = 'A scalar λ is an eigenvalue of A if there is a nonzero vector v with Av = λv.';
+    const textB = 'A nonzero vector v that satisfies Av = λv for some λ.';
+
+    // Structural-empty fallback: deleting a leaf has no inverse yet (phase 3b),
+    // so the structural stack stays empty while text history is available.
+    await focusBlockEnd(textE);
+    await page.keyboard.type(' FALLBACK-TEXT');
+    await h.waitEditorText('FALLBACK-TEXT');
+    await blockCard(await blockIdWithText('Trace and determinant')).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: /Delete block/ }).click();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await h.waitCanonicalBlockCount(6);
+    await waitHistoryState({
+      lastHistoryOperation: 'structural',
+      canUndoStructural: false,
+      canUndoText: true,
+    });
+    await page.keyboard.press('Meta+z');
+    await h.waitEditorText('FALLBACK-TEXT', false);
+    assert.equal(
+      (await h.parity()).canonical,
+      6,
+      'the delete itself is still a phase 3b gap; the fallback only undid text',
+    );
+    await waitHistoryState({ lastHistoryOperation: 'text', canUndoText: false });
+
+    // One keypress must undo one history event. Two rapid presses must undo
+    // exactly two events (the old 120 ms dedupe dropped the second one).
+    await focusBlockEnd(textE);
+    await page.keyboard.type(' T-ONE');
+    await h.waitEditorText('T-ONE');
+    await focusBlockEnd(textA);
+    await page.keyboard.type(' T-TWO');
+    await h.waitEditorText('T-TWO');
+    await focusBlockEnd(textB);
+    await page.keyboard.type(' T-THREE');
+    await h.waitEditorText('T-THREE');
+    await page.keyboard.press('Meta+z');
+    await page.keyboard.press('Meta+z');
+    await h.waitEditorText('T-THREE', false);
+    await h.waitEditorText('T-TWO', false);
+    assert.ok(
+      (await h.activeEditor().innerText()).includes('T-ONE'),
+      'one press undoes one event and a repeated press is not dropped',
+    );
+    await page.keyboard.press('Meta+Shift+z');
+    await page.keyboard.press('Meta+Shift+z');
+    await h.waitEditorText('T-ONE', true);
+    await h.waitEditorText('T-TWO', true);
+    await h.waitEditorText('T-THREE', true);
+
+    // Empty the text stack so the required text → structural fallback sequence
+    // starts with no older text event to consume.
+    await page.keyboard.press('Meta+z');
+    await page.keyboard.press('Meta+z');
+    await page.keyboard.press('Meta+z');
+    await h.waitEditorText('T-ONE', false);
+    await waitHistoryState({ canUndoText: false });
+
+    // Add child → type → palette undo (text) → menu undo (structural fallback).
+    const parentId = await focusBlockEnd(textB);
+    assert.ok(parentId !== null, 'the parent block has an ID');
+    await page.keyboard.press('Control+Enter');
+    await h.waitBlockCount(7);
+    await h.waitCanonicalBlockCount(7);
+    await page.keyboard.type(' CHILD-TEXT');
+    await h.waitEditorText('CHILD-TEXT');
+    await waitHistoryState({
+      lastHistoryOperation: 'text',
+      canUndoText: true,
+      canUndoStructural: true,
+    });
+
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    await page.getByRole('option', { name: /Undo/ }).click();
+    await page.waitForSelector('.nf-palette', { state: 'detached' });
+    await h.waitEditorText('CHILD-TEXT', false);
+    await h.waitBlockCount(7);
+    await waitHistoryState({ lastHistoryOperation: 'text', canUndoText: false });
+
+    await invokeAppMenu('menu-undo');
+    await h.waitBlockCount(6);
+    await h.waitCanonicalBlockCount(6);
+    await waitHistoryState({
+      lastHistoryOperation: 'structural',
+      canUndoText: false,
+      canRedoText: false,
+      canUndoStructural: false,
+      // Undoing a creation applies block.delete, whose inverse is still phase
+      // 3b work, so this particular structural undo is not redoable yet.
+      canRedoStructural: false,
+    });
+    await h.waitSelected(parentId);
+    await waitFocusRestored();
+
+    // Structural redo with an available inverse: reorder a top-level block via
+    // the keyboard, then undo/redo the move from the native Edit menu.
+    const topLevelIds = () =>
+      h
+        .activeEditor()
+        .locator('[data-block-card][data-top-level="true"]')
+        .evaluateAll((cards) => cards.map((card) => card.getAttribute('data-block-card')));
+    await focusBlockEnd(textE);
+    const beforeMove = await topLevelIds();
+    assert.equal(beforeMove.length, 3, 'three top-level blocks remain');
+    await page.keyboard.press('Alt+ArrowDown');
+    await page.waitForFunction(
+      (expected) => {
+        const ids = [
+          ...document.querySelectorAll(
+            '.nf-editor[data-active="true"] [data-block-card][data-top-level="true"]',
+          ),
+        ].map((card) => card.getAttribute('data-block-card'));
+        return ids.join('|') === expected;
+      },
+      [beforeMove[0], beforeMove[2], beforeMove[1]].join('|'),
+      { timeout: 10000 },
+    );
+    await invokeAppMenu('menu-undo');
+    await page.waitForFunction(
+      (expected) => {
+        const ids = [
+          ...document.querySelectorAll(
+            '.nf-editor[data-active="true"] [data-block-card][data-top-level="true"]',
+          ),
+        ].map((card) => card.getAttribute('data-block-card'));
+        return ids.join('|') === expected;
+      },
+      beforeMove.join('|'),
+      { timeout: 10000 },
+    );
+    await waitHistoryState({
+      lastHistoryOperation: 'structural',
+      canRedoStructural: true,
+    });
+    await invokeAppMenu('menu-redo');
+    await page.waitForFunction(
+      (expected) => {
+        const ids = [
+          ...document.querySelectorAll(
+            '.nf-editor[data-active="true"] [data-block-card][data-top-level="true"]',
+          ),
+        ].map((card) => card.getAttribute('data-block-card'));
+        return ids.join('|') === expected;
+      },
+      [beforeMove[0], beforeMove[2], beforeMove[1]].join('|'),
+      { timeout: 10000 },
+    );
+    await waitHistoryState({
+      lastHistoryOperation: 'structural',
+      canUndoStructural: true,
+    });
+
+    // The settings surface uses the same router: a text edit is undone, not
+    // presented as a structural-only command.
+    await focusBlockEnd(textE);
+    await page.keyboard.type(' TOOLBAR-TEXT');
+    await h.waitEditorText('TOOLBAR-TEXT');
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    await page.getByRole('option', { name: /Settings/ }).click();
+    await page.waitForSelector('.nf-dialog');
+    await page.getByRole('button', { name: 'Undo last change' }).click();
+    await h.waitEditorText('TOOLBAR-TEXT', false);
+    await page.getByRole('button', { name: 'Done' }).click();
+    await h.waitSaved();
+
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
     await h.quit();
   });
