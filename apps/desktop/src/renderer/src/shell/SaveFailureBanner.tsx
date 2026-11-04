@@ -4,6 +4,7 @@ import type { DocumentRuntime } from '../state/runtime';
 import { registerRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
 import {
+  canOverwriteExternal,
   saveFailureHeadline,
   saveFailureHint,
 } from '../lib/save-failure';
@@ -14,8 +15,9 @@ type BusyAction = 'retry' | 'copy' | 'reveal' | null;
  * Persistent, document-level save-failure surface.
  *
  * It is intentionally not a toast: it stays until the save succeeds, the user
- * reloads from disk, or the user copies the document elsewhere. Overwrite is
- * not offered in this phase (external-modification overwrite is phase 2b2).
+ * reloads from disk, overwrites an external modification, or copies the
+ * document elsewhere. Overwrite is rendered only for `external-modification`
+ * and always opens an explicit, Cancel-default confirmation.
  */
 export function SaveFailureBanner({ runtime }: { runtime: DocumentRuntime }): JSX.Element | null {
   const [busy, setBusy] = useState<BusyAction>(null);
@@ -62,6 +64,10 @@ export function SaveFailureBanner({ runtime }: { runtime: DocumentRuntime }): JS
     useShell.getState().openDialog({ kind: 'reload-from-disk', packagePath: runtime.packagePath });
   };
 
+  const overwrite = (): void => {
+    useShell.getState().openDialog({ kind: 'overwrite-external', packagePath: runtime.packagePath });
+  };
+
   const reveal = async (): Promise<void> => {
     setBusy('reveal');
     try {
@@ -99,6 +105,17 @@ export function SaveFailureBanner({ runtime }: { runtime: DocumentRuntime }): JS
         >
           {busy === 'retry' ? 'Retrying…' : 'Retry'}
         </button>
+        {canOverwriteExternal(failure.code) ? (
+          <button
+            type="button"
+            className="nf-button nf-button-danger"
+            data-save-action="overwrite"
+            disabled={disabled}
+            onClick={overwrite}
+          >
+            Overwrite…
+          </button>
+        ) : null}
         <button
           type="button"
           className="nf-button"

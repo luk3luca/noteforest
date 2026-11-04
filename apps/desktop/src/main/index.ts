@@ -270,7 +270,9 @@ function registerIpc(): void {
     applyCommand(packagePath, command),
   );
 
-  ipcMain.handle('document:save', (_event, packagePath: string) => saveDocument(packagePath));
+  ipcMain.handle('document:save', (_event, packagePath: string, options) =>
+    saveDocument(packagePath, options),
+  );
 
   ipcMain.handle('document:save-copy', async (_event, packagePath: string) => {
     const win = mainWindow;

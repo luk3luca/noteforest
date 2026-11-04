@@ -66,7 +66,7 @@ export function saveFailureHeadline(code: SaveFailureCode): string {
     case 'disk-full':
       return 'The disk is full.';
     case 'external-modification':
-      return 'This file changed on disk.';
+      return 'This file changed on disk outside NoteForest.';
     case 'lock-lost':
       return 'Another copy of NoteForest took over this document.';
     case 'backup-failed':
@@ -90,7 +90,7 @@ export function saveFailureHint(code: SaveFailureCode): string {
     case 'disk-full':
       return 'Free some space and Retry, or save a copy to another disk.';
     case 'external-modification':
-      return 'Reload the file from disk, or save your version as a copy.';
+      return 'Your changes were not written. Reload from disk, overwrite it with this version, or save a copy.';
     case 'lock-lost':
       return 'Reopen the document to take a fresh lock, or save a copy.';
     case 'backup-failed':
@@ -102,4 +102,42 @@ export function saveFailureHint(code: SaveFailureCode): string {
     default:
       return 'Retry, save a copy somewhere else, or reload the file from disk.';
   }
+}
+
+export type SaveFailureAction = 'retry' | 'overwrite' | 'save-copy' | 'reload' | 'reveal';
+
+/**
+ * Actions available for one failure. Overwrite is the only code-specific
+ * action: it is offered for an external modification and never for a
+ * permission, disk-full, read-only, or lock failure.
+ */
+export function canOverwriteExternal(code: SaveFailureCode): boolean {
+  return code === 'external-modification';
+}
+
+export function saveFailureActions(code: SaveFailureCode): readonly SaveFailureAction[] {
+  if (canOverwriteExternal(code)) {
+    return ['retry', 'overwrite', 'save-copy', 'reload', 'reveal'];
+  }
+  return ['retry', 'save-copy', 'reload', 'reveal'];
+}
+
+export interface OverwriteConfirmation {
+  title: string;
+  /** Names the path and states that the external changes will be lost. */
+  description: string;
+  path: string;
+  confirmLabel: string;
+  /** The safe default. Overwrite is never preselected or auto-confirmed. */
+  defaultAction: 'cancel';
+}
+
+export function overwriteConfirmation(packagePath: string): OverwriteConfirmation {
+  return {
+    title: 'Overwrite file on disk?',
+    description: `The file at ${packagePath} changed on disk outside NoteForest. Overwriting replaces those external changes with this window’s content; they will be lost. This cannot be undone.`,
+    path: packagePath,
+    confirmLabel: 'Overwrite',
+    defaultAction: 'cancel',
+  };
 }

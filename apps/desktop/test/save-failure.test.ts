@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDocument } from '@noteforest/core';
-import type { OpenDocumentSnapshot, SaveResult } from '../src/shared/api';
+import type { OpenDocumentSnapshot, SaveRequestOptions, SaveResult } from '../src/shared/api';
 import {
   SAVE_BACKOFF_MS,
+  canOverwriteExternal,
   nextSaveFailure,
+  overwriteConfirmation,
   prepareRetry,
+  saveFailureActions,
   saveFailureHeadline,
   saveFailureHint,
   saveStatusAfterWrite,
@@ -40,6 +43,47 @@ function stubSave(): { resolve: (result: SaveResult) => void; promise: Promise<S
     },
   });
   return { resolve: release, promise };
+}
+
+/** Queue one save response at a time and record the IPC arguments. */
+function stubSaveSequence(): {
+  calls: Array<{ packagePath: string; options: unknown }>;
+  respond: (result: SaveResult) => void;
+  pending: () => number;
+} {
+  const calls: Array<{ packagePath: string; options: unknown }> = [];
+  const resolvers: Array<(result: SaveResult) => void> = [];
+  vi.stubGlobal('window', {
+    noteforest: {
+      save: (packagePath: string, options?: unknown) => {
+        calls.push({ packagePath, options });
+        return new Promise<SaveResult>((resolve) => {
+          resolvers.push(resolve);
+        });
+      },
+      apply: async () => ({ ok: true, document: snapshot().document }),
+    },
+  });
+  return {
+    calls,
+    respond: (result) => {
+      const resolve = resolvers.shift();
+      if (resolve === undefined) throw new Error('no pending save');
+      resolve(result);
+    },
+    pending: () => resolvers.length,
+  };
+}
+
+function externalFailure(): SaveResult {
+  return {
+    ok: false,
+    changed: false,
+    revision: 1,
+    code: 'external-modification',
+    coreCode: 'external-modification',
+    error: 'document changed on disk since it was opened',
+  };
 }
 
 afterEach(() => {
@@ -132,9 +176,120 @@ describe('save failure state machine', () => {
     expect(runtime.dirty).toBe(false);
     runtime.dispose();
   });
+
+  it('overwrites through the save IPC after external modification and clears the failure', async () => {
+    const runtime = new DocumentRuntime(snapshot(), [], null);
+    const stub = stubSaveSequence();
+    const first = runtime.saveNow();
+    await vi.waitFor(() => expect(stub.pending()).toBe(1));
+    stub.respond(externalFailure());
+    await first;
+    expect(runtime.saveFailure?.code).toBe('external-modification');
+    expect(runtime.saveState).toBe('error');
+
+    const overwrite = runtime.overwriteExternal();
+    await vi.waitFor(() => expect(stub.pending()).toBe(1));
+    stub.respond({ ok: true, changed: true, revision: 2 });
+    const outcome = await overwrite;
+
+    expect(outcome).toEqual({ ok: true });
+    expect(stub.calls).toEqual([
+      { packagePath: runtime.packagePath, options: undefined },
+      { packagePath: runtime.packagePath, options: { overwriteExternal: true } },
+    ]);
+    expect(runtime.saveFailure).toBeNull();
+    expect(runtime.saveState).toBe('saved');
+    expect(runtime.dirty).toBe(false);
+    runtime.dispose();
+  });
+
+  it('keeps the failure visible with the new typed error when overwrite fails', async () => {
+    const runtime = new DocumentRuntime(snapshot(), [], null);
+    const stub = stubSaveSequence();
+    const first = runtime.saveNow();
+    await vi.waitFor(() => expect(stub.pending()).toBe(1));
+    stub.respond(externalFailure());
+    await first;
+
+    const overwrite = runtime.overwriteExternal();
+    await vi.waitFor(() => expect(stub.pending()).toBe(1));
+    stub.respond({
+      ok: false,
+      changed: false,
+      revision: 1,
+      code: 'permission',
+      coreCode: 'io-error',
+      error: 'EACCES: permission denied',
+    });
+    const outcome = await overwrite;
+
+    expect(outcome.ok).toBe(false);
+    expect(runtime.saveFailure).toEqual({
+      code: 'permission',
+      message: 'EACCES: permission denied',
+      attempt: 2,
+    });
+    expect(runtime.saveState).toBe('error');
+    runtime.dispose();
+  });
+
+  it('refuses to overwrite when the failure is not external modification', async () => {
+    const runtime = new DocumentRuntime(snapshot(), [], null);
+    const stub = stubSaveSequence();
+    const first = runtime.saveNow();
+    await vi.waitFor(() => expect(stub.pending()).toBe(1));
+    stub.respond({
+      ok: false,
+      changed: false,
+      revision: 1,
+      code: 'permission',
+      coreCode: 'io-error',
+      error: 'EACCES: permission denied',
+    });
+    await first;
+
+    const outcome = await runtime.overwriteExternal();
+    expect(outcome.ok).toBe(false);
+    expect(stub.calls).toHaveLength(1);
+    expect(runtime.saveFailure?.code).toBe('permission');
+    runtime.dispose();
+  });
 });
 
 describe('save failure copy', () => {
+  it('offers overwrite only for external modification', () => {
+    const codes = [
+      'read-only',
+      'permission',
+      'disk-full',
+      'external-modification',
+      'lock-lost',
+      'backup-failed',
+      'invalid-document',
+      'not-found',
+      'unknown',
+    ] as const;
+    for (const code of codes) {
+      const expected = code === 'external-modification';
+      expect(canOverwriteExternal(code)).toBe(expected);
+      expect(saveFailureActions(code).includes('overwrite')).toBe(expected);
+      for (const action of ['retry', 'save-copy', 'reload', 'reveal'] as const) {
+        expect(saveFailureActions(code)).toContain(action);
+      }
+    }
+  });
+
+  it('names the path and defaults the overwrite confirmation to Cancel', () => {
+    const confirm = overwriteConfirmation('/Users/luca/NoteForest/linear-algebra');
+    expect(confirm.defaultAction).toBe('cancel');
+    expect(confirm.confirmLabel).toBe('Overwrite');
+    expect(confirm.confirmLabel).not.toBe(confirm.defaultAction);
+    expect(confirm.title).toMatch(/overwrite/i);
+    expect(confirm.description).toContain('/Users/luca/NoteForest/linear-algebra');
+    expect(confirm.description).toMatch(/lost/i);
+    expect(confirm.path).toBe('/Users/luca/NoteForest/linear-algebra');
+  });
+
   it('gives every code a distinct headline and hint', () => {
     const codes = [
       'read-only',
@@ -201,5 +356,24 @@ describe('library path scope', () => {
     expect(copy).toEqual({ ok: false, message: 'No document path was provided.' });
     const save = await saveDocument(undefined as unknown as string);
     expect(save.ok).toBe(false);
+  });
+
+  it('rejects a non-boolean overwrite flag before opening the document', async () => {
+    for (const options of [
+      { overwriteExternal: 'yes' },
+      'overwrite',
+      ['overwrite'],
+      null,
+    ] as unknown[]) {
+      const result = await saveDocument(
+        '/tmp/noteforest-invalid/library/note',
+        options as SaveRequestOptions,
+      );
+      expect(result).toMatchObject({
+        ok: false,
+        code: 'unknown',
+        error: 'Invalid overwrite flag.',
+      });
+    }
   });
 });

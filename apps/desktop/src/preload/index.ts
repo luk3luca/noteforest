@@ -27,8 +27,8 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('document:open', packagePath),
   apply: (packagePath: string, command): Promise<ApplyResult> =>
     ipcRenderer.invoke('document:apply', packagePath, command),
-  save: (packagePath: string): Promise<SaveResult> =>
-    ipcRenderer.invoke('document:save', packagePath),
+  save: (packagePath: string, options): Promise<SaveResult> =>
+    ipcRenderer.invoke('document:save', packagePath, options),
   saveCopy: (packagePath: string): Promise<SaveCopyResult> =>
     ipcRenderer.invoke('document:save-copy', packagePath),
   reloadDocument: (packagePath: string): Promise<ReloadDocumentResult> =>

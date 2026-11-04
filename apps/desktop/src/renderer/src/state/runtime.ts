@@ -345,8 +345,49 @@ export class DocumentRuntime {
       this.registerSaveFailure(result.code, result.error);
       return;
     }
-    if (result.revision !== undefined) {
-      this.document = { ...this.document, revision: result.revision };
+    this.applySaveSuccess(result.revision, epochAtStart);
+  }
+
+  /**
+   * Deliberate recovery for `external-modification`: write this window's
+   * content over the file that changed on disk. The caller must have shown the
+   * non-default overwrite confirmation first. Serialized with every other save
+   * and command for this document.
+   */
+  async overwriteExternal(): Promise<{ ok: boolean; message?: string }> {
+    return this.queue.run(async () => {
+      if (!this.editable) {
+        return { ok: false, message: 'This document is open read-only.' };
+      }
+      if (this.saveFailure?.code !== 'external-modification') {
+        return { ok: false, message: 'There is no external modification to overwrite.' };
+      }
+      this.clearSaveTimer();
+      this.clearContentTimer();
+      this.clearRetryTimer();
+      const epochAtStart = this.editEpoch;
+      this.setSaveState('saving');
+      const committed = await this.commitContentInternal();
+      if (!committed) {
+        return { ok: false, message: this.saveError ?? 'Could not prepare the overwrite.' };
+      }
+      if (this.disposed) return { ok: false, message: 'The document was closed.' };
+      const result = await window.noteforest.save(this.packagePath, {
+        overwriteExternal: true,
+      });
+      if (this.disposed) return { ok: false, message: 'The document was closed.' };
+      if (!result.ok) {
+        this.registerSaveFailure(result.code, result.error);
+        return { ok: false, message: result.error };
+      }
+      this.applySaveSuccess(result.revision, epochAtStart);
+      return { ok: true };
+    });
+  }
+
+  private applySaveSuccess(revision: number | undefined, epochAtStart: number): void {
+    if (revision !== undefined) {
+      this.document = { ...this.document, revision };
     }
     this.saveFailure = null;
     this.saveError = null;

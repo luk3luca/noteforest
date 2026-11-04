@@ -133,6 +133,14 @@ export interface SaveFailure {
 
 export type SaveResult = SaveSuccess | SaveFailure;
 
+/**
+ * Optional save request flags. `overwriteExternal` is only sent by the
+ * explicit external-modification confirmation; a normal save must omit it.
+ */
+export interface SaveRequestOptions {
+  overwriteExternal?: boolean;
+}
+
 export interface SaveCopySuccess {
   ok: true;
   /** New package directory chosen in the native dialog. */
@@ -221,7 +229,7 @@ export interface NoteForestApi {
   createDocument(input: { title?: string }): Promise<CreateDocumentResult>;
   openDocument(packagePath: string): Promise<OpenDocumentResult>;
   apply(packagePath: string, command: DocumentCommand): Promise<ApplyResult>;
-  save(packagePath: string): Promise<SaveResult>;
+  save(packagePath: string, options?: SaveRequestOptions): Promise<SaveResult>;
   saveCopy(packagePath: string): Promise<SaveCopyResult>;
   reloadDocument(packagePath: string): Promise<ReloadDocumentResult>;
   closeDocument(packagePath: string, options: { save: boolean }): Promise<void>;
