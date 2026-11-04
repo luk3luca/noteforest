@@ -27,6 +27,14 @@ import { perfSnapshot, summarize } from './lib/perf';
 
 type FlushTestMode = 'normal' | 'error' | 'hang';
 
+/**
+ * Undo/redo are deliberately exempt from the menu-command dedupe: repeated
+ * presses are intentional. Their native menu accelerators are not registered
+ * (`registerAccelerator: false` in the main menu), so the renderer keydown is
+ * the single delivery path and there is no native/renderer duplicate to drop.
+ */
+const HISTORY_COMMANDS = new Set<MenuCommand>(['undo', 'redo']);
+
 /** Test-only override, reachable through `window.__noteforestTest`. */
 let flushTestMode: FlushTestMode = 'normal';
 
@@ -132,10 +140,12 @@ export function App(): JSX.Element {
   }, []);
 
   const dispatch = useCallback((command: MenuCommand) => {
-    const now = performance.now();
-    const previous = lastDispatch.current.get(command) ?? 0;
-    if (now - previous < 120) return;
-    lastDispatch.current.set(command, now);
+    if (!HISTORY_COMMANDS.has(command)) {
+      const now = performance.now();
+      const previous = lastDispatch.current.get(command) ?? 0;
+      if (now - previous < 120) return;
+      lastDispatch.current.set(command, now);
+    }
     runMenuCommand(command);
   }, []);
 
@@ -309,6 +319,11 @@ export function App(): JSX.Element {
             saveFailure: item.saveFailure,
             dirty: item.dirty,
             selectedBlockId: item.selectedBlockId,
+            lastHistoryOperation: item.lastHistoryOperation,
+            canUndoText: item.canUndoText,
+            canRedoText: item.canRedoText,
+            canUndoStructural: item.canUndoStructural,
+            canRedoStructural: item.canRedoStructural,
             collapsed: [...item.collapsed],
             revision: item.document.revision,
             orientation: item.document.pageSetup.orientation,

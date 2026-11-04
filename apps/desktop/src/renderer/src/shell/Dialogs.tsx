@@ -798,7 +798,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Element {
           Reveal library in Finder
         </Button>
         <Button className="nf-button" onPress={undoActive}>
-          Undo last structural change
+          Undo last change
         </Button>
       </div>
       <p className="nf-dialog-note">

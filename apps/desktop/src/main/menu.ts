@@ -77,13 +77,20 @@ export function installApplicationMenu(getWindow: () => BrowserWindow | null, se
     label: 'Edit',
     submenu: [
       {
+        id: 'menu-undo',
         label: 'Undo',
         accelerator: 'CmdOrCtrl+Z',
+        // The renderer owns the shortcut so one keypress has exactly one
+        // delivery path. The menu item still shows the accelerator and clicks
+        // still send the same routed command.
+        registerAccelerator: false,
         click: () => send('undo'),
       },
       {
+        id: 'menu-redo',
         label: 'Redo',
         accelerator: 'CmdOrCtrl+Shift+Z',
+        registerAccelerator: false,
         click: () => send('redo'),
       },
       { type: 'separator' },

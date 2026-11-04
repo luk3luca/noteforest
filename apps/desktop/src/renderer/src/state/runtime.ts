@@ -11,7 +11,8 @@
 import type { Editor } from '@tiptap/core';
 import type { ContentNode, Document, DocumentCommand } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
-import { TextSelection } from '@tiptap/pm/state';
+import { redoDepth, undoDepth } from '@tiptap/pm/history';
+import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state';
 import type {
   ApplyResult,
   OpenDocumentSnapshot,
@@ -35,6 +36,7 @@ import {
   incomingBranch,
   parentIdOf,
   siblingIds,
+  visibleBlockIds,
 } from '../lib/tree';
 
 export type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
@@ -68,6 +70,69 @@ function withBlockLevel(node: ProseNode, topLevel: boolean, depth: number): Pros
   );
 }
 
+interface BlockLocation {
+  position: number;
+  node: ProseNode;
+}
+
+function locateBlock(editor: Editor, blockId: string): BlockLocation | null {
+  let found: BlockLocation | null = null;
+  editor.state.doc.descendants((node, position) => {
+    if (found !== null) return false;
+    if (node.type.name === 'branchBlock' && node.attrs['blockId'] === blockId) {
+      found = { position, node };
+      return false;
+    }
+    return true;
+  });
+  return found;
+}
+
+function blockIdAtSelection(editor: Editor): string | null {
+  const selection = editor.state.selection;
+  if (selection instanceof NodeSelection && selection.node.type.name === 'branchBlock') {
+    const id = selection.node.attrs['blockId'];
+    return typeof id === 'string' ? id : null;
+  }
+  const { $from } = selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const node = $from.node(depth);
+    if (node.type.name === 'branchBlock') {
+      const id = node.attrs['blockId'];
+      return typeof id === 'string' ? id : null;
+    }
+  }
+  return null;
+}
+
+function isHistoryState(value: unknown): value is {
+  done: unknown;
+  undone: unknown;
+  prevRanges: unknown;
+} {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'done' in value &&
+    'undone' in value &&
+    'prevRanges' in value
+  );
+}
+
+/**
+ * Where the caret/selection was before a command changed the canonical
+ * document. Block IDs survive the rebuild; positions do not, so the offset is
+ * relative to the block body and is restored only when the same block survives.
+ */
+interface FocusContext {
+  blockId: string | null;
+  /** Block → parent → … → root, used to walk up when the block was removed. */
+  ancestors: string[];
+  chapterId: string | null;
+  offset: number;
+  nodeSelected: boolean;
+}
+
 export class DocumentRuntime {
   readonly packagePath: string;
 
@@ -98,9 +163,8 @@ export class DocumentRuntime {
 
   readonly collapsed = new Set<string>();
 
-  lastStructuralAt = 0;
-
-  lastTextAt = 0;
+  /** What the last user-visible operation touched; drives undo/redo routing. */
+  lastHistoryOperation: 'text' | 'structural' | null = null;
 
   /** Visible recovery message when the editor had to be rebuilt from canonical. */
   repairNotice: string | null = null;
@@ -165,6 +229,19 @@ export class DocumentRuntime {
     return this.redoStack.length > 0;
   }
 
+  get canUndoText(): boolean {
+    return this.editor?.can().undo() ?? false;
+  }
+
+  get canRedoText(): boolean {
+    return this.editor?.can().redo() ?? false;
+  }
+
+  /** Record that a text undo/redo was applied through this runtime. */
+  markTextHistory(): void {
+    this.lastHistoryOperation = 'text';
+  }
+
   get restore(): RestorePoint | null {
     const point = this.restorePoint;
     this.restorePoint = null;
@@ -218,7 +295,7 @@ export class DocumentRuntime {
     if (!this.editable) return;
     this.editEpoch += 1;
     this.dirty = true;
-    this.lastTextAt = Date.now();
+    this.lastHistoryOperation = 'text';
     // A failed save stays visible and authoritative; typing does not downgrade
     // the status back to a plain "Unsaved changes".
     if (this.saveFailure === null) this.setSaveState('unsaved');
@@ -466,7 +543,12 @@ export class DocumentRuntime {
       this.recomputeHashes();
       this.version += 1;
       this.setSaveState('saved');
-      this.rebuildEditor(this.selectedBlockId);
+      // Reload replaces the canonical document: old structural inverses and
+      // text history no longer describe it.
+      this.undoStack.length = 0;
+      this.redoStack.length = 0;
+      this.lastHistoryOperation = null;
+      this.rebuildEditor(this.selectedBlockId, { resetHistory: true });
       this.reconcileEditor(this.selectedBlockId);
       this.notify();
       return { ok: true };
@@ -509,18 +591,27 @@ export class DocumentRuntime {
     focusBlockId: string | null,
     options: { rebuild?: boolean } = {},
   ): Promise<void> {
+    const focus = this.captureFocusContext();
     this.document = document;
     if (inverse !== undefined && inverse !== null) {
       this.undoStack.push(inverse);
-      this.redoStack.length = 0;
     }
+    // Any new structural command invalidates structural redo, including the
+    // destructive commands whose inverse is still phase 3b work.
+    this.redoStack.length = 0;
     this.editEpoch += 1;
     this.dirty = true;
-    this.lastStructuralAt = Date.now();
+    this.lastHistoryOperation = 'structural';
     this.version += 1;
     if (this.saveFailure === null) this.setSaveState('unsaved');
     this.recomputeHashes();
-    if (options.rebuild !== false) this.rebuildEditor(focusBlockId);
+    if (options.rebuild !== false) {
+      const target =
+        focusBlockId !== null && document.blocks[focusBlockId] !== undefined
+          ? focusBlockId
+          : this.resolveFocusContext(focus);
+      this.rebuildEditor(target, { restore: focus });
+    }
     this.notify();
     this.scheduleSave();
   }
@@ -764,7 +855,107 @@ export class DocumentRuntime {
     return true;
   }
 
-  rebuildEditor(focusBlockId: string | null = null): void {
+  /** Snapshot the block and caret before a structural change replaces the doc. */
+  private captureFocusContext(): FocusContext {
+    const editor = this.editor;
+    // The ProseMirror selection is authoritative while the editor is alive; a
+    // runtime selection can lag one selection-sync tick behind a click.
+    const blockId =
+      (editor === null ? null : blockIdAtSelection(editor)) ?? this.selectedBlockId;
+    if (blockId === null) {
+      return { blockId: null, ancestors: [], chapterId: null, offset: 0, nodeSelected: false };
+    }
+    const ancestors = ancestorPath(this.document, blockId).reverse();
+    const chapterId = chapterIdOf(this.document, blockId);
+    let offset = 0;
+    let nodeSelected = false;
+    if (editor !== null) {
+      const located = locateBlock(editor, blockId);
+      if (located !== null) {
+        const selection = editor.state.selection;
+        if (
+          selection instanceof NodeSelection &&
+          selection.node.type.name === 'branchBlock' &&
+          selection.node.attrs['blockId'] === blockId
+        ) {
+          nodeSelected = true;
+        } else {
+          const bodyStart = located.position + 2;
+          const maximum = Math.max(0, located.node.nodeSize - 4);
+          offset = Math.min(Math.max(selection.from - bodyStart, 0), maximum);
+        }
+      }
+    }
+    return { blockId, ancestors, chapterId, offset, nodeSelected };
+  }
+
+  /**
+   * Prefer the same block after a rebuild, then its nearest surviving ancestor,
+   * then the chapter's first block, then the first visible block. A removed
+   * block never leaves the editor without a valid selection.
+   */
+  private resolveFocusContext(context: FocusContext): string | null {
+    const exists = (id: string): boolean => this.document.blocks[id] !== undefined;
+    if (context.blockId !== null && exists(context.blockId)) return context.blockId;
+    for (const ancestor of context.ancestors) {
+      if (ancestor !== context.blockId && exists(ancestor)) return ancestor;
+    }
+    if (context.chapterId !== null) {
+      const chapter = this.document.chapters.find((item) => item.id === context.chapterId);
+      const topLevel = chapter?.topLevelBlockIds.find((id) => exists(id));
+      if (topLevel !== undefined) return topLevel;
+    }
+    const visible = visibleBlockIds(this.document, this.collapsed);
+    return visible[0] ?? Object.keys(this.document.blocks)[0] ?? null;
+  }
+
+  private restoreFocus(blockId: string, context: FocusContext): void {
+    const editor = this.editor;
+    if (editor === null) return;
+    const located = locateBlock(editor, blockId);
+    if (located === null) return;
+    if (context.nodeSelected) {
+      editor.chain().focus().setNodeSelection(located.position).scrollIntoView().run();
+      return;
+    }
+    const bodyStart = located.position + 2;
+    const bodyEnd = Math.max(bodyStart, located.position + located.node.nodeSize - 2);
+    const position = Math.min(Math.max(bodyStart + context.offset, bodyStart), bodyEnd);
+    try {
+      const selection = TextSelection.near(editor.state.doc.resolve(position), 1);
+      editor.chain().focus().setTextSelection(selection.from).scrollIntoView().run();
+    } catch {
+      this.focusBlock(blockId);
+    }
+  }
+
+  /**
+   * Structural undo/redo can replace arbitrary content. Old ProseMirror
+   * history steps no longer map to a meaningful document, so reset the text
+   * stacks instead of letting the editor undo a stale step.
+   */
+  private clearTextHistory(): void {
+    const editor = this.editor;
+    if (editor === null) return;
+    if (undoDepth(editor.state) === 0 && redoDepth(editor.state) === 0) return;
+    const plugin = editor.state.plugins.find((candidate) =>
+      isHistoryState(candidate.getState(editor.state)),
+    );
+    const historyKey = plugin?.spec.key;
+    if (plugin === undefined || historyKey === undefined) return;
+    const fresh = EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins });
+    const empty = plugin.getState(fresh);
+    if (!isHistoryState(empty)) return;
+    const transaction = editor.state.tr.setMeta(historyKey, { historyState: empty });
+    transaction.setMeta('addToHistory', false);
+    transaction.setMeta('preventUpdate', true);
+    editor.view.dispatch(transaction);
+  }
+
+  rebuildEditor(
+    focusBlockId: string | null = null,
+    options: { restore?: FocusContext; resetHistory?: boolean } = {},
+  ): void {
     const editor = this.editor;
     if (editor === null) return;
     const started = performance.now();
@@ -779,8 +970,15 @@ export class DocumentRuntime {
     transaction.setMeta('addToHistory', false);
     transaction.setMeta('preventUpdate', true);
     editor.view.dispatch(transaction);
+    if (options.resetHistory === true) this.clearTextHistory();
     recordPerf('reflow', performance.now() - started);
-    if (focusBlockId !== null) this.focusBlock(focusBlockId);
+    if (focusBlockId !== null) {
+      if (options.restore !== undefined && options.restore.blockId === focusBlockId) {
+        this.restoreFocus(focusBlockId, options.restore);
+      } else {
+        this.focusBlock(focusBlockId);
+      }
+    }
   }
 
   /**
@@ -1303,6 +1501,7 @@ export class DocumentRuntime {
 
   async undoStructural(): Promise<ApplyOutcome> {
     return this.queue.run(async () => {
+      const focus = this.captureFocusContext();
       const inverse = this.undoStack.pop();
       if (inverse === undefined) return { ok: false, message: 'Nothing to undo.' };
       await this.commitContentInternal();
@@ -1317,12 +1516,13 @@ export class DocumentRuntime {
       }
       this.editEpoch += 1;
       this.dirty = true;
-      this.lastStructuralAt = Date.now();
+      this.lastHistoryOperation = 'structural';
       this.version += 1;
       if (this.saveFailure === null) this.setSaveState('unsaved');
       this.recomputeHashes();
-      this.rebuildEditor(this.selectedBlockId);
-      this.reconcileEditor(this.selectedBlockId);
+      const target = this.resolveFocusContext(focus);
+      this.rebuildEditor(target, { restore: focus, resetHistory: true });
+      this.reconcileEditor(target);
       this.notify();
       this.scheduleSave();
       return { ok: true };
@@ -1331,6 +1531,7 @@ export class DocumentRuntime {
 
   async redoStructural(): Promise<ApplyOutcome> {
     return this.queue.run(async () => {
+      const focus = this.captureFocusContext();
       const command = this.redoStack.pop();
       if (command === undefined) return { ok: false, message: 'Nothing to redo.' };
       await this.commitContentInternal();
@@ -1345,12 +1546,13 @@ export class DocumentRuntime {
       }
       this.editEpoch += 1;
       this.dirty = true;
-      this.lastStructuralAt = Date.now();
+      this.lastHistoryOperation = 'structural';
       this.version += 1;
       if (this.saveFailure === null) this.setSaveState('unsaved');
       this.recomputeHashes();
-      this.rebuildEditor(this.selectedBlockId);
-      this.reconcileEditor(this.selectedBlockId);
+      const target = this.resolveFocusContext(focus);
+      this.rebuildEditor(target, { restore: focus, resetHistory: true });
+      this.reconcileEditor(target);
       this.notify();
       this.scheduleSave();
       return { ok: true };
