@@ -63,11 +63,17 @@ export function StatusBar(): JSX.Element {
       <span
         className={`nf-status-item nf-status-${state}`}
         title={title}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
         data-save-state={state}
         data-save-failure-code={runtime.saveFailure?.code ?? undefined}
       >
         <span className="nf-status-dot" aria-hidden="true" />
         {label}
+        {state === 'error' && runtime.saveError !== null ? (
+          <span className="nf-sr-only">: {runtime.saveError}</span>
+        ) : null}
       </span>
       <span className="nf-status-item nf-status-secondary">
         {counts.words} {counts.words === 1 ? 'word' : 'words'}

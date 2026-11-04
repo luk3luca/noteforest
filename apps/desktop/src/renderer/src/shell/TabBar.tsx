@@ -5,6 +5,7 @@ import { ChevronDown, Lock, Plus, X } from 'lucide-react';
 import { useShell, type TabInfo } from '../state/shell';
 import { useRuntime } from '../state/registry';
 import { closeTab, createNewDocument, openPath, openTabMenu } from '../actions';
+import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 
 function tabButtonTitle(tab: TabInfo): string {
   return tab.title;
@@ -45,8 +46,9 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
       <button
         type="button"
         role="tab"
-        id={`tab-${tab.packagePath}`}
+        id={tabElementId(tab.packagePath)}
         aria-selected={active}
+        aria-controls={tabPanelElementId(tab.packagePath)}
         tabIndex={active ? 0 : -1}
         className="nf-tab-label"
         title={tabButtonTitle(tab)}
@@ -71,7 +73,7 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
         className="nf-tab-close"
         aria-hidden="true"
         tabIndex={-1}
-        title="Close tab (⌘W)"
+        title={`Close ${tab.title} (⌘W)`}
         onClick={(event) => {
           event.stopPropagation();
           void closeTab(tab.packagePath);
@@ -85,6 +87,10 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
 
 export function TabBar(): JSX.Element {
   const tabs = useShell((state) => state.tabs);
+  const activeTab = useShell((state) => state.activeTab);
+  const activeTabInfo = useShell((state) =>
+    state.tabs.find((tab) => tab.packagePath === state.activeTab),
+  );
   const reorderTabs = useShell((state) => state.reorderTabs);
   const openContextMenu = useShell((state) => state.openContextMenu);
   const library = useShell((state) => state.library);
@@ -128,7 +134,7 @@ export function TabBar(): JSX.Element {
       if (tab === undefined) return;
       state.setActiveTab(tab.packagePath);
       requestAnimationFrame(() => {
-        document.getElementById(`tab-${tab.packagePath}`)?.focus();
+        document.getElementById(tabElementId(tab.packagePath))?.focus();
       });
     };
     if (event.key === 'ArrowRight') {
@@ -167,6 +173,19 @@ export function TabBar(): JSX.Element {
         </SortableContext>
       </DndContext>
       <div className="nf-tabbar-actions">
+        <button
+          type="button"
+          className="nf-tabbar-button nf-tabbar-close"
+          aria-label={`Close ${activeTabInfo?.title ?? 'tab'}`}
+          title="Close current tab (⌘W)"
+          data-close-active-tab="true"
+          disabled={activeTab === null}
+          onClick={() => {
+            if (activeTab !== null) void closeTab(activeTab);
+          }}
+        >
+          <X size={14} strokeWidth={1.5} aria-hidden="true" />
+        </button>
         <button
           type="button"
           className="nf-tabbar-button"

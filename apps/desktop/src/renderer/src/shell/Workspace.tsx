@@ -1,5 +1,5 @@
 import { Panel, Group, Separator } from 'react-resizable-panels';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { FilePlus2, Search } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { getRuntime, useRegistry } from '../state/registry';
@@ -55,7 +55,6 @@ export function Workspace(): JSX.Element {
 
   const editor = (
     <div className="nf-editor-column">
-      <TabBar />
       <div className="nf-editor-area">
         {tabs.length === 0 ? <EmptyState /> : null}
         {tabs.map((tab) => {
@@ -89,33 +88,47 @@ export function Workspace(): JSX.Element {
       </div>
     </div>
   );
+  const tabsStrip = <TabBar />;
 
   if (sidebarCollapsed || narrow) {
-    return <div className="nf-workspace nf-workspace-collapsed">{editor}</div>;
+    return (
+      <div className="nf-workspace nf-workspace-collapsed">
+        {tabsStrip}
+        {editor}
+      </div>
+    );
   }
 
   return (
-    <Group
-      orientation="horizontal"
-      className="nf-workspace"
-      onLayoutChange={() => undefined}
+    <div
+      className="nf-workspace-shell"
+      style={{ '--nf-sidebar-width': `${sidebarWidth}px` } as CSSProperties}
     >
-      <Panel
-        id="sidebar"
-        className="nf-sidebar-panel"
-        defaultSize={sidebarWidth}
-        minSize={208}
-        maxSize={360}
-        onResize={(size) => {
-          if (size.inPixels > 0) setSidebarWidth(size.inPixels);
-        }}
+      {/* DOM order is the keyboard focus order: the tab strip comes before the
+          sidebar and the editor, while CSS keeps it over the editor column. */}
+      {tabsStrip}
+      <Group
+        orientation="horizontal"
+        className="nf-workspace"
+        onLayoutChange={() => undefined}
       >
-        <Sidebar />
-      </Panel>
-      <Separator className="nf-separator" aria-label="Resize sidebar" />
-      <Panel id="editor" className="nf-editor-panel" minSize={480}>
-        {editor}
-      </Panel>
-    </Group>
+        <Panel
+          id="sidebar"
+          className="nf-sidebar-panel"
+          defaultSize={sidebarWidth}
+          minSize={208}
+          maxSize={360}
+          onResize={(size) => {
+            if (size.inPixels > 0) setSidebarWidth(size.inPixels);
+          }}
+        >
+          <Sidebar />
+        </Panel>
+        <Separator className="nf-separator" aria-label="Resize sidebar" />
+        <Panel id="editor" className="nf-editor-panel" minSize={480}>
+          {editor}
+        </Panel>
+      </Group>
+    </div>
   );
 }
