@@ -10,9 +10,14 @@
 ## Phase note
 
 The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002); the External Agent API defaults are
-decided (ADR-0003). The spec v0.4.4 is approved. **Current gate:** M2f phase 5b is under Sentinel
-re-review; `npm run verify` (typecheck, unit, critical e2e, recovery, view UI) is the task gate. M2 is
-not accepted and M3/PDF remain blocked until M2f is accepted. Until a milestone is approved, this
+decided (ADR-0003). The spec v0.4.4 is approved. **Current gate:** M2f phase 5b re-review is complete
+with **request changes**; `npm run verify` (typecheck, unit, critical e2e, recovery, view UI) is the
+task gate. M2 is not accepted and M3/PDF remain blocked until M2f is accepted. The open S2 findings
+are N1 (undo of a new chapter's first block is blocked by the empty-chapter invariant and the
+structural stack gets stuck) and N2 (close/quit is blocked by a session-state write failure or a
+read-only document); evidence and direction are in `docs/reviews/m2f-review.md`. Measured on
+4 November 2026: unit 241/1.84 s, critical e2e 23/54.3–56.4 s, recovery 13/19.2 s, view UI 1/1.2 s,
+`npm run verify` 91.2 s. Until a milestone is approved, this
 document governs **documents and the approved implementation**, not general application code. A docs
 task is done when:
 
