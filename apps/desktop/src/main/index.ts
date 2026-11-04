@@ -7,7 +7,7 @@ import {
   session,
   shell,
 } from 'electron';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type {
   BootstrapResult,
   FlushResult,
@@ -277,7 +277,7 @@ function registerIpc(): void {
     if (win === null || win.isDestroyed()) {
       return { ok: false as const, message: 'The window is not available.' };
     }
-    const base = join(libraryDir(), `${packagePath.split('/').at(-1) ?? 'document'} copy`);
+    const base = join(libraryDir(), `${basename(packagePath) || 'document'} copy`);
     const choice = await dialog.showSaveDialog(win, {
       title: 'Save a copy',
       buttonLabel: 'Save copy',
