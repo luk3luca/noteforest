@@ -272,6 +272,7 @@ export function App(): JSX.Element {
         };
       },
       openPath: async (packagePath: string) => openPath(packagePath),
+      flushSession: () => window.noteforest.saveSession(buildSession()),
       editorCheck: () => {
         return allRuntimes().map((item) => {
           try {

@@ -1,0 +1,317 @@
+import { after, afterEach, before, describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdir, rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { artifactsPath, createHarness } from '../support/harness.mjs';
+
+const tempRoot = artifactsPath('visual-tmp');
+const screenshotDir = artifactsPath('m2e');
+const h = createHarness({ tempRoot });
+let page;
+
+function isolated(name) {
+  return {
+    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
+    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
+  };
+}
+
+async function launch(overrides = {}) {
+  await h.launch(overrides);
+  page = h.page;
+}
+
+async function shot(name, width, height) {
+  await h.screenshot(resolve(screenshotDir, name), { width, height });
+}
+
+describe('NoteForest M2 visual evidence', () => {
+  before(async () => {
+    await rm(tempRoot, { recursive: true, force: true });
+    await rm(screenshotDir, { recursive: true, force: true });
+    await mkdir(tempRoot, { recursive: true });
+    await mkdir(screenshotDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await h.quit();
+  });
+
+  after(async () => {
+    assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
+  });
+
+  it('captures the shell and tree screenshots', async () => {
+    await launch(isolated('shots'));
+    await h.setWindowSize(1440, 900);
+    await page.waitForSelector('.nf-empty-state');
+    await shot('empty-1440x900.png', 1440, 900);
+
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+    const firstPath = (await h.state()).activeTab;
+
+    // Give the first top-level block a third child so the shared trunk is visible.
+    const rootCard = h.activeEditor().locator('[data-block-card][data-top-level="true"]').first();
+    await rootCard.hover();
+    await rootCard.locator('[data-add-child]').click();
+    await h.waitBlockCount(8);
+    await page.keyboard.type('Third child');
+    await h.waitSaved();
+    await h.waitEdges(4);
+    await h.waitLayout({ blocks: 8, arrows: 4 });
+    const rootId = await rootCard.getAttribute('data-block-card');
+    assert.equal(
+      await h.activeEditor().locator(`.nf-edge-trunk[data-parent-id="${rootId}"]`).count(),
+      1,
+      'one shared trunk for three children',
+    );
+    await shot('trunk-3-children-1440x900.png', 1440, 900);
+    await shot('density-1440x900.png', 1440, 900);
+    await shot('chosen-arrows-1440x900.png', 1440, 900);
+
+    // Collapse costs no height and leaves a dot with the child count.
+    await rootCard.hover();
+    await rootCard.locator('[data-branch-port]').click();
+    await h.waitEdges(0);
+    await h.waitLayout({ blocks: 8, arrows: 0 });
+    await shot('collapse-dot-1440x900.png', 1440, 900);
+    await rootCard.locator('[data-branch-port]').click();
+    await h.waitEdges(4);
+
+    // A second document so the shell reads as a real session.
+    await page.locator('.nf-new-note').click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().tabs.length === 2,
+      undefined,
+      { timeout: 10000 },
+    );
+    await page.locator('.nf-document-title').click();
+    await page.locator('.nf-dialog').getByRole('textbox', { name: 'Name' }).fill('Reading notes');
+    await page.locator('.nf-dialog').getByRole('button', { name: 'Save', exact: true }).click();
+    await h.waitSaved();
+    await page.keyboard.type('A second note with its own blocks.');
+    await h.waitSaved();
+    await page.keyboard.press('Meta+1');
+    await page.waitForFunction(
+      (expected) => window.__noteforestTest.state().activeTab === expected,
+      firstPath,
+      { timeout: 10000 },
+    );
+    await h.waitLayout({ blocks: 8 });
+    await shot('shell-1440x900.png', 1440, 900);
+
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    await shot('palette-1440x900.png', 1440, 900);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.nf-palette', { state: 'detached' });
+
+    // Select a deep block to light the active path.
+    await h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Characteristic polynomial' })
+      .first()
+      .click();
+    await h.waitLayout({ blocks: 8 });
+    await shot('selected-path-1440x900.png', 1440, 900);
+
+    // Inline chapter title editing.
+    await page.locator('.nf-chapter-title').first().click();
+    await page.waitForSelector('.nf-chapter-title-input');
+    await shot('chapter-inline-1440x900.png', 1440, 900);
+    await page.locator('.nf-chapter-title-input').press('Escape');
+
+    await page.keyboard.press('Meta+2');
+    await page.waitForFunction(
+      (expected) => window.__noteforestTest.state().activeTab !== expected,
+      firstPath,
+      { timeout: 10000 },
+    );
+    await shot('two-tabs-1440x900.png', 1440, 900);
+
+    // Return to the document and align the horizontal scroll for the 1024 shot.
+    await page.keyboard.press('Meta+1');
+    await page.waitForFunction(
+      (expected) => window.__noteforestTest.state().activeTab === expected,
+      firstPath,
+      { timeout: 10000 },
+    );
+    await h.waitLayout({ blocks: 8 });
+    await h
+      .activeEditor()
+      .locator('.nf-editor-scroll')
+      .evaluate((element) => {
+        element.scrollLeft = 0;
+      });
+    await h.setWindowSize(1024, 768);
+    await shot('shell-1024x768.png', 1024, 768);
+    await h
+      .activeEditor()
+      .locator('.nf-editor-scroll')
+      .evaluate((element) => {
+        element.scrollLeft = 0;
+      });
+    await h.waitLayout({ blocks: 8 });
+    await shot('trunk-3-children-1024x768.png', 1024, 768);
+    await shot('chosen-arrows-1024x768.png', 1024, 768);
+    await h.quit();
+  });
+
+  it('captures zoom, layout and focus screenshots', async () => {
+    await launch(isolated('shots-layout'));
+    await h.setWindowSize(1440, 900);
+    await page.locator('.nf-empty-actions .nf-button-primary').click();
+    await h.waitBlockCount(1);
+    for (let index = 0; index < 3; index += 1) {
+      await page.keyboard.press('Control+Enter');
+      await h.waitBlockCount(index + 2);
+    }
+    await h.waitLayout({ blocks: 4, arrows: 3 });
+    await shot('four-level-1440x900.png', 1440, 900);
+
+    await page.locator('[data-chapter-add]').first().click();
+    await h.waitBlockCount(5);
+    await page.keyboard.type(
+      'A wide top-level block whose content deliberately makes this card much wider than the empty chain minimum width.',
+    );
+    await h.waitEditorText('A wide top-level block');
+    await page.keyboard.press('Control+Enter');
+    await h.waitBlockCount(6);
+    await page.keyboard.type('Parent-relative child');
+    await h.waitLayout({ blocks: 6, arrows: 4 });
+    const deepCard = h.activeEditor().locator('[data-depth="3"]').first();
+    const deepId = await deepCard.getAttribute('data-block-card');
+    await deepCard.click();
+    await h.waitSelected(deepId);
+    for (let index = 0; index < 4; index += 1) {
+      await page.keyboard.press('Control+Enter');
+      await h.waitBlockCount(7 + index);
+    }
+    await h.waitLayout({ blocks: 10 });
+    await h
+      .activeEditor()
+      .locator('.nf-editor-scroll')
+      .evaluate((element) => {
+        element.scrollLeft = 320;
+      });
+    await page.waitForFunction(
+      () =>
+        (document.querySelector('.nf-editor[data-active="true"] .nf-editor-scroll')?.scrollLeft ?? 0) >
+        0,
+      undefined,
+      { timeout: 10000 },
+    );
+    await shot('deep-branch-scroll-1440x900.png', 1440, 900);
+    await h.quit();
+
+    await launch(isolated('shots-tree'));
+    await h.setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+
+    // Controls + collapse dot.
+    const rootCard = h.activeEditor().locator('[data-block-card][data-top-level="true"]').first();
+    await rootCard.hover();
+    await rootCard.locator('[data-branch-port]').click();
+    await h.waitEdges(0);
+    await h.waitLayout({ blocks: 7, arrows: 0 });
+    await shot('controls-1440x900.png', 1440, 900);
+    await rootCard.locator('[data-branch-port]').click();
+    await h.waitEdges(3);
+
+    // 200% zoom: the sidebar yields, nothing overflows.
+    await h.app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(2);
+    });
+    await page.waitForFunction(
+      () => document.querySelector('.nf-sidebar-panel') === null,
+      undefined,
+      { timeout: 10000 },
+    );
+    await page.screenshot({ path: resolve(screenshotDir, 'zoom-200.png') });
+    await h.app.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1);
+    });
+    await page.waitForFunction(
+      () => document.querySelector('.nf-sidebar-panel') !== null,
+      undefined,
+      { timeout: 10000 },
+    );
+    await h.waitLayout({ blocks: 7 });
+
+    // Focus the root branch.
+    const rootId = await rootCard.getAttribute('data-block-card');
+    await rootCard.locator('.nf-block-prose').first().click();
+    await h.waitSelected(rootId);
+    const focusButton = page.locator('.nf-status-focus');
+    await focusButton.click();
+    await page.waitForFunction(
+      () => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const visible = (element) => element.getClientRects().length > 0;
+        if (scope === null) return false;
+        return [...scope.querySelectorAll('[data-block-card]')].filter(visible).length === 4;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    await h.waitLayout({ blocks: 7 });
+    await shot('focus-branch-1440x900.png', 1440, 900);
+    await focusButton.click();
+    await page.waitForFunction(
+      () => document.querySelector('.nf-status-focus')?.getAttribute('aria-pressed') === 'false',
+      undefined,
+      { timeout: 10000 },
+    );
+
+    // Ancestor chain of a deep block.
+    const characteristic = h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Characteristic polynomial' })
+      .first();
+    const characteristicId = await characteristic.getAttribute('data-block-card');
+    await characteristic.click();
+    await h.waitSelected(characteristicId);
+    await focusButton.click();
+    await page.waitForFunction(
+      () => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const visible = (element) => element.getClientRects().length > 0;
+        if (scope === null) return false;
+        return [...scope.querySelectorAll('[data-block-card]')].filter(visible).length === 3;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    await h.waitLayout({ blocks: 7 });
+    await shot('focus-ancestors-1440x900.png', 1440, 900);
+    await focusButton.click();
+    await page.waitForFunction(
+      () => document.querySelector('.nf-status-focus')?.getAttribute('aria-pressed') === 'false',
+      undefined,
+      { timeout: 10000 },
+    );
+
+    // Fit width at 1024.
+    await h.setWindowSize(1024, 768);
+    await h.waitLayout({ blocks: 7 });
+    await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
+    await page.waitForFunction(
+      () =>
+        Number(
+          document.querySelector('.nf-editor[data-active="true"] .nf-canvas')?.getAttribute('data-zoom') ??
+            100,
+        ) < 100,
+      undefined,
+      { timeout: 10000 },
+    );
+    await h.waitLayout({ blocks: 7 });
+    await shot('fit-width-1024x768.png', 1024, 768);
+    await h.quit();
+  });
+});
