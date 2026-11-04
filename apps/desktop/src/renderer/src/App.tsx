@@ -339,6 +339,29 @@ export function App(): JSX.Element {
         };
       },
       openPath: async (packagePath: string) => openPath(packagePath),
+      applyStructural: async (command) => {
+        const state = useShell.getState();
+        const runtime = allRuntimes().find(
+          (item) => item.packagePath === state.activeTab,
+        );
+        if (runtime === undefined) return { ok: false, message: 'No active document.' };
+        return runtime.applyStructural(command);
+      },
+      structure: () => {
+        const state = useShell.getState();
+        const runtime = allRuntimes().find(
+          (item) => item.packagePath === state.activeTab,
+        );
+        if (runtime === undefined) return null;
+        const document = runtime.document;
+        return structuredClone({
+          blocks: document.blocks,
+          branches: document.branches,
+          chapters: document.chapters,
+          anchors: document.anchors,
+          manualBreakBeforeBlockIds: document.manualBreakBeforeBlockIds,
+        });
+      },
       flushSession: () => window.noteforest.saveSession(buildSession()),
       setFlushMode: (mode: FlushTestMode) => {
         flushTestMode = mode;

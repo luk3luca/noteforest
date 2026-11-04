@@ -318,6 +318,66 @@ async function detachBlockThroughMenu(text) {
   return id;
 }
 
+/** Move a child one level up through the real block context menu. */
+async function outdentBlockThroughMenu(text) {
+  const id = await blockIdWithText(text);
+  assert.ok(id !== null, `no block contains ${text}`);
+  await blockCard(id).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Outdent' }).click();
+  return id;
+}
+
+/** Move a block under an existing parent through the real "Move to…" dialog. */
+async function moveBlockThroughDialog(text, parentTitle) {
+  const id = await blockIdWithText(text);
+  assert.ok(id !== null, `no block contains ${text}`);
+  await blockCard(id).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Move to…' }).click();
+  await page.waitForSelector('.nf-dialog');
+  await page.getByRole('option', { name: parentTitle }).click();
+  await page.getByRole('button', { name: 'Move', exact: true }).click();
+  await page.waitForSelector('.nf-dialog', { state: 'detached' });
+  return id;
+}
+
+/** Add a chapter with its first block and type into that block. */
+async function addChapterWithBlock(text) {
+  await page.locator('[data-canvas-action="add-chapter"]').click();
+  await page.waitForFunction(
+    () => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      return (
+        (runtime?.chapters ?? 0) === 2 &&
+        (runtime?.chapterList.at(-1)?.blockIds.length ?? 0) === 1
+      );
+    },
+    undefined,
+    { timeout: 10000 },
+  );
+  await page.waitForFunction(
+    () => document.activeElement?.className === 'nf-chapter-title-input',
+    undefined,
+    { timeout: 10000 },
+  );
+  await page.keyboard.press('Escape');
+  const blockId = await page.evaluate(() => {
+    const current = window.__noteforestTest.state();
+    const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+    return runtime?.chapterList.at(-1)?.blockIds[0] ?? null;
+  });
+  assert.ok(blockId !== null, 'the new chapter has a first block');
+  await blockCard(blockId).locator('.nf-block-prose').first().click();
+  await page.keyboard.type(text);
+  await h.waitEditorText(text);
+  return blockId;
+}
+
+/** Exact canonical structural records of the active document (no disk wait). */
+async function canonicalStructure() {
+  return page.evaluate(() => window.__noteforestTest.structure());
+}
+
 async function waitRestoreError(dialog, pattern) {
   await dialog
     .locator('[data-restore-error="true"]')
@@ -1365,6 +1425,196 @@ describe('NoteForest M2 editor shell', () => {
       lastHistoryOperation: 'structural',
       canUndoStructural: true,
     });
+
+    // Phase 3b2: move and branch-create inverses preserve the branch ID, the
+    // exact order key and the original chapter/top-level slot. Compare the
+    // canonical records directly; the save path is covered above.
+    const aId = seedStructure.chapters[0]?.topLevelBlockIds[0];
+    assert.ok(aId !== undefined, 'the demo chapter has a first top-level block');
+    const beforeMoves = await canonicalStructure();
+    const eigenvectorBranch = Object.values(beforeMoves.branches).find(
+      (branch) => branch.targetBlockId === eigenvectorId,
+    );
+    assert.ok(eigenvectorBranch !== undefined, 'the demo seed has an incoming branch');
+
+    // Child -> top level: undo restores the same branch ID/chapter, redo removes it.
+    const outdentedId = await outdentBlockThroughMenu('Eigenvector');
+    assert.equal(outdentedId, eigenvectorId);
+    await h.waitEdges(2);
+    await h.waitCanonicalBlockCount(7);
+    const afterOutdent = await canonicalStructure();
+    assert.equal(
+      afterOutdent.branches[eigenvectorBranch.id],
+      undefined,
+      'outdent removes the incoming branch',
+    );
+    const chapterAfterOutdent = afterOutdent.chapters[0]?.topLevelBlockIds ?? [];
+    assert.equal(
+      chapterAfterOutdent[chapterAfterOutdent.indexOf(aId) + 1],
+      eigenvectorId,
+      'outdent places the block after its former parent in the same chapter',
+    );
+    const outdentParity = await h.parity();
+    assert.equal(outdentParity.canvas, outdentParity.sidebar, 'outdent keeps sidebar/canvas parity');
+    assert.equal(outdentParity.canonical, 7);
+
+    await page.keyboard.press('Meta+z');
+    await h.waitEdges(3);
+    await waitHistoryState({ lastHistoryOperation: 'structural', canRedoStructural: true });
+    const outdentUndone = await canonicalStructure();
+    assert.deepEqual(
+      outdentUndone,
+      beforeMoves,
+      'outdent undo restores branch ID, source/target/role/order/label and chapter slot exactly',
+    );
+    assert.deepEqual(
+      outdentUndone.branches[eigenvectorBranch.id],
+      eigenvectorBranch,
+      'the same branch record returns',
+    );
+    assert.equal(
+      outdentUndone.chapters[0]?.topLevelBlockIds.includes(eigenvectorId),
+      false,
+      'the block is a child again, not top-level',
+    );
+    assert.equal((await h.parity()).sidebar, 7, 'sidebar matches after the outdent undo');
+
+    await page.keyboard.press('Meta+Shift+z');
+    await h.waitEdges(2);
+    assert.deepEqual(
+      await canonicalStructure(),
+      afterOutdent,
+      'outdent redo removes the exact branch again',
+    );
+
+    await page.keyboard.press('Meta+z');
+    await h.waitEdges(3);
+    assert.deepEqual(await canonicalStructure(), beforeMoves, 'second outdent undo is exact');
+
+    // Cross-chapter top-level -> child: undo returns the block to its original
+    // chapter and slot; redo reattaches with the same branch ID.
+    const chapterTwoText = 'Chapter two note';
+    const chapterTwoBlockId = await addChapterWithBlock(chapterTwoText);
+    await h.waitSaved();
+    const beforeCrossChapter = await canonicalStructure();
+    assert.equal(beforeCrossChapter.chapters.length, 2);
+    assert.equal(beforeCrossChapter.chapters[1]?.topLevelBlockIds[0], chapterTwoBlockId);
+
+    await moveBlockThroughDialog(chapterTwoText, 'Eigenvalues');
+    await h.waitEdges(4);
+    await h.waitCanonicalBlockCount(8);
+    const afterCrossMove = await canonicalStructure();
+    const crossMoveBranchId = Object.keys(afterCrossMove.branches).find(
+      (branchId) => beforeCrossChapter.branches[branchId] === undefined,
+    );
+    assert.ok(crossMoveBranchId !== undefined, 'the cross-chapter move creates a branch');
+    assert.deepEqual(afterCrossMove.branches[crossMoveBranchId].source, { blockId: aId });
+    assert.equal(afterCrossMove.branches[crossMoveBranchId].targetBlockId, chapterTwoBlockId);
+    assert.equal(afterCrossMove.branches[crossMoveBranchId].role, 'primary');
+    assert.equal(typeof afterCrossMove.branches[crossMoveBranchId].order, 'string');
+    assert.equal(afterCrossMove.chapters[1]?.topLevelBlockIds.length, 0);
+    const crossMoveParity = await h.parity();
+    assert.equal(crossMoveParity.canvas, crossMoveParity.sidebar);
+    assert.equal(crossMoveParity.canonical, 8);
+
+    await page.keyboard.press('Meta+z');
+    await h.waitEdges(3);
+    const crossMoveUndone = await canonicalStructure();
+    assert.deepEqual(
+      crossMoveUndone,
+      beforeCrossChapter,
+      'cross-chapter move undo returns the block to its original chapter and slot',
+    );
+    assert.equal(crossMoveUndone.chapters[1]?.topLevelBlockIds[0], chapterTwoBlockId);
+    assert.equal(crossMoveUndone.chapters[0]?.topLevelBlockIds.includes(chapterTwoBlockId), false);
+    assert.equal(crossMoveUndone.branches[crossMoveBranchId], undefined);
+
+    await page.keyboard.press('Meta+Shift+z');
+    await h.waitEdges(4);
+    assert.deepEqual(
+      await canonicalStructure(),
+      afterCrossMove,
+      'cross-chapter move redo recreates the same branch ID and order',
+    );
+
+    await page.keyboard.press('Meta+z');
+    await h.waitEdges(3);
+    assert.deepEqual(await canonicalStructure(), beforeCrossChapter);
+
+    // Cross-chapter branch.create (no UI yet in M2): undo must return the
+    // target to chapter B, not the source chapter, and redo must reuse the ID.
+    const attachResult = await page.evaluate(
+      ({ sourceBlockId, targetBlockId }) =>
+        window.__noteforestTest.applyStructural({
+          type: 'branch.create',
+          sourceBlockId,
+          targetBlockId,
+        }),
+      { sourceBlockId: aId, targetBlockId: chapterTwoBlockId },
+    );
+    assert.equal(attachResult.ok, true, attachResult.message);
+    await h.waitEdges(4);
+    const afterAttach = await canonicalStructure();
+    const attachBranchId = Object.keys(afterAttach.branches).find(
+      (branchId) => beforeCrossChapter.branches[branchId] === undefined,
+    );
+    assert.ok(attachBranchId !== undefined, 'branch.create adds a branch');
+    assert.deepEqual(afterAttach.branches[attachBranchId].source, { blockId: aId });
+    assert.equal(afterAttach.branches[attachBranchId].targetBlockId, chapterTwoBlockId);
+    assert.equal(afterAttach.chapters[1]?.topLevelBlockIds.length, 0);
+    assert.ok(
+      (await h.activeRuntimeInfo()).branchIds.includes(attachBranchId),
+      'the runtime exposes the created branch ID',
+    );
+
+    await page.keyboard.press('Meta+z');
+    await h.waitEdges(3);
+    const attachUndone = await canonicalStructure();
+    assert.deepEqual(
+      attachUndone,
+      beforeCrossChapter,
+      'cross-chapter attach undo returns the target to its original chapter and slot',
+    );
+    assert.equal(attachUndone.chapters[1]?.topLevelBlockIds[0], chapterTwoBlockId);
+    assert.equal(attachUndone.chapters[0]?.topLevelBlockIds.includes(chapterTwoBlockId), false);
+    assert.equal(attachUndone.branches[attachBranchId], undefined);
+    assert.equal((await h.parity()).sidebar, 8, 'sidebar matches after the attach undo');
+
+    await page.keyboard.press('Meta+Shift+z');
+    await h.waitEdges(4);
+    const attachRedone = await canonicalStructure();
+    assert.deepEqual(
+      attachRedone,
+      afterAttach,
+      'cross-chapter attach redo reuses the same branch ID and placement',
+    );
+    assert.deepEqual(attachRedone.branches[attachBranchId], afterAttach.branches[attachBranchId]);
+
+    await page.keyboard.press('Meta+z');
+    await h.waitEdges(3);
+    assert.deepEqual(await canonicalStructure(), beforeCrossChapter);
+
+    // Two rapid outdents, two rapid undos and two rapid redos: one step per press.
+    const beforeRapid = await canonicalStructure();
+    await outdentBlockThroughMenu('Eigenvector');
+    await h.waitEdges(2);
+    await outdentBlockThroughMenu('Spectrum');
+    await h.waitEdges(1);
+    const rapidOutdents = await canonicalStructure();
+    await h.rapidKeydowns('z', 2, { metaKey: true });
+    await h.waitEdges(3);
+    assert.deepEqual(await canonicalStructure(), beforeRapid, 'two rapid undos undo two moves');
+    await h.rapidKeydowns('z', 2, { metaKey: true, shiftKey: true });
+    await h.waitEdges(1);
+    assert.deepEqual(
+      await canonicalStructure(),
+      rapidOutdents,
+      'two rapid redos redo two moves without duplicates',
+    );
+    await h.rapidKeydowns('z', 2, { metaKey: true });
+    await h.waitEdges(3);
+    assert.deepEqual(await canonicalStructure(), beforeRapid);
+    await h.waitSaved();
 
     // The settings surface uses the same router: a text edit is undone, not
     // presented as a structural-only command.
