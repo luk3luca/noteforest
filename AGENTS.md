@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 2b2a is in progress.** Phases 1, 2a, and 2b1 are merged. Phase 2b2a adds the external-modification state: explicit Reload/Overwrite/Save copy/Reveal, with Overwrite only for external modification and a non-default confirm. Backup restore is 2b2b. Later: F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 2b2b is in progress.** Phases 1, 2a, 2b1, and 2b2a are merged. Phase 2b2b adds Restore backup on the save-failure surface: valid backups newest first, restore as a new copy through the core recovery API, original untouched, empty state when none. Corrupt/missing/newer package recovery remains phase 4. Later: F2 undo, F3/F6/F7, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 
