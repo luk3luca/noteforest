@@ -286,6 +286,38 @@ async function focusBlockEnd(text) {
   return id;
 }
 
+/** Canonical structure that destructive undo must restore exactly. */
+function storedStructure(document) {
+  return {
+    blocks: document.blocks,
+    branches: document.branches,
+    chapters: document.chapters,
+    anchors: document.anchors,
+    manualBreakBeforeBlockIds: document.manualBreakBeforeBlockIds,
+  };
+}
+
+/** Delete one block through the real context menu and confirmation dialog. */
+async function deleteBlockThroughDialog(text, mode = 'promote') {
+  const id = await blockIdWithText(text);
+  assert.ok(id !== null, `no block contains ${text}`);
+  await blockCard(id).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: /Delete block/ }).click();
+  if (mode === 'delete-subtree') {
+    await page.getByRole('radio', { name: /Delete the whole subtree/ }).check();
+  }
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  return id;
+}
+
+async function detachBlockThroughMenu(text) {
+  const id = await blockIdWithText(text);
+  assert.ok(id !== null, `no block contains ${text}`);
+  await blockCard(id).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Detach from parent' }).click();
+  return id;
+}
+
 async function waitRestoreError(dialog, pattern) {
   await dialog
     .locator('[data-restore-error="true"]')
@@ -1053,28 +1085,142 @@ describe('NoteForest M2 editor shell', () => {
     const textA = 'A scalar λ is an eigenvalue of A if there is a nonzero vector v with Av = λv.';
     const textB = 'A nonzero vector v that satisfies Av = λv for some λ.';
 
-    // Structural-empty fallback: deleting a leaf has no inverse yet (phase 3b),
-    // so the structural stack stays empty while text history is available.
-    await focusBlockEnd(textE);
-    await page.keyboard.type(' FALLBACK-TEXT');
-    await h.waitEditorText('FALLBACK-TEXT');
-    await blockCard(await blockIdWithText('Trace and determinant')).click({ button: 'right' });
-    await page.getByRole('menuitem', { name: /Delete block/ }).click();
-    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    const packagePath = (await h.state()).activeTab;
+    // The seeded table gains ProseMirror's canonical cell attrs on first load;
+    // commit and save before snapshotting so the comparison is not seed drift.
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+    const seedStructure = storedStructure(await readDiskDocument(packagePath));
+    const seedBlockIds = Object.keys(seedStructure.blocks).sort();
+    const seedBranchIds = Object.keys(seedStructure.branches).sort();
+
+    // Delete promote: undo must restore the exact block, branch and chapter
+    // state (IDs, order, label, unknown fields); redo must delete it again.
+    const promotedId = await deleteBlockThroughDialog('Eigenvalues');
     await h.waitCanonicalBlockCount(6);
+    await h.waitBlockCount(6);
+    await h.waitEdges(1);
     await waitHistoryState({
       lastHistoryOperation: 'structural',
-      canUndoStructural: false,
-      canUndoText: true,
+      canUndoStructural: true,
+      canRedoStructural: false,
     });
+    const promoted = await h.parity();
+    assert.equal(promoted.canvas, promoted.sidebar, 'sidebar matches the canvas after promote');
+    assert.equal(promoted.canvas, promoted.canonical, 'canvas matches canonical after promote');
+    assert.ok(!promoted.canonicalIds.includes(promotedId), 'promote removes the root block');
+
     await page.keyboard.press('Meta+z');
-    await h.waitEditorText('FALLBACK-TEXT', false);
-    assert.equal(
-      (await h.parity()).canonical,
-      6,
-      'the delete itself is still a phase 3b gap; the fallback only undid text',
+    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(7);
+    await h.waitEdges(3);
+    await h.waitSaved();
+    assert.deepEqual(
+      storedStructure(await readDiskDocument(packagePath)),
+      seedStructure,
+      'promote undo restores blocks, branch IDs, order and chapter exactly',
     );
-    await waitHistoryState({ lastHistoryOperation: 'text', canUndoText: false });
+    const promoteUndone = await h.parity();
+    assert.deepEqual([...promoteUndone.canonicalIds].sort(), seedBlockIds);
+    assert.deepEqual([...(await h.activeRuntimeInfo()).branchIds].sort(), seedBranchIds);
+    await waitHistoryState({ canUndoStructural: false, canRedoStructural: true });
+
+    await page.keyboard.press('Meta+Shift+z');
+    await h.waitCanonicalBlockCount(6);
+    await h.waitBlockCount(6);
+    await h.waitEdges(1);
+    await waitHistoryState({ canUndoStructural: true, canRedoStructural: false });
+    assert.ok(!(await h.parity()).canonicalIds.includes(promotedId), 'redo deletes the block again');
+
+    await page.keyboard.press('Meta+z');
+    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(7);
+    await h.waitEdges(3);
+
+    // Delete subtree: undo restores every block and branch with the same IDs.
+    await deleteBlockThroughDialog('Eigenvalues', 'delete-subtree');
+    await h.waitCanonicalBlockCount(3);
+    await h.waitBlockCount(3);
+    await h.waitEdges(0);
+    assert.ok(!(await h.parity()).canonicalIds.includes(promotedId));
+    await page.keyboard.press('Meta+z');
+    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(7);
+    await h.waitEdges(3);
+    const subtreeUndone = await h.parity();
+    assert.deepEqual([...subtreeUndone.canonicalIds].sort(), seedBlockIds);
+    assert.deepEqual([...(await h.activeRuntimeInfo()).branchIds].sort(), seedBranchIds);
+    await page.keyboard.press('Meta+Shift+z');
+    await h.waitCanonicalBlockCount(3);
+    await h.waitBlockCount(3);
+    await waitHistoryState({ canUndoStructural: true, canRedoStructural: false });
+    await page.keyboard.press('Meta+z');
+    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(7);
+    await h.waitEdges(3);
+
+    // Detach: undo restores the exact branch record (same ID, endpoints,
+    // order and label); redo detaches again.
+    const eigenvectorId = await blockIdWithText('Eigenvector');
+    assert.ok(eigenvectorId !== null);
+    const incomingBranch = Object.values(seedStructure.branches).find(
+      (branch) => branch.targetBlockId === eigenvectorId,
+    );
+    assert.ok(incomingBranch !== undefined, 'the demo seed has an incoming branch');
+    await detachBlockThroughMenu('Eigenvector');
+    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(7);
+    await h.waitEdges(2);
+    assert.equal((await h.parity()).sidebar, 7, 'detach keeps sidebar/canvas parity');
+    assert.ok(
+      !(await h.activeRuntimeInfo()).branchIds.includes(incomingBranch.id),
+      'detach removes the branch',
+    );
+    await page.keyboard.press('Meta+z');
+    await h.waitEdges(3);
+    await h.waitSaved();
+    const detachUndone = storedStructure(await readDiskDocument(packagePath));
+    assert.deepEqual(
+      detachUndone.branches,
+      seedStructure.branches,
+      'detach undo restores the exact branch record',
+    );
+    assert.deepEqual(
+      detachUndone.chapters,
+      seedStructure.chapters,
+      'detach undo makes the target a child again',
+    );
+    assert.ok(
+      (await h.activeRuntimeInfo()).branchIds.includes(incomingBranch.id),
+      'the same branch ID returns',
+    );
+    await page.keyboard.press('Meta+Shift+z');
+    await h.waitEdges(2);
+    await waitHistoryState({ canUndoStructural: true, canRedoStructural: false });
+    await page.keyboard.press('Meta+z');
+    await h.waitEdges(3);
+
+    // Two rapid deletes, two rapid undos and two rapid redos: one press per
+    // step, no dropped press, no duplicate records.
+    await deleteBlockThroughDialog('Trace and determinant');
+    await h.waitCanonicalBlockCount(6);
+    await deleteBlockThroughDialog('A = [[2, 1],');
+    await h.waitCanonicalBlockCount(5);
+    await h.waitBlockCount(5);
+    await h.rapidKeydowns('z', 2, { metaKey: true });
+    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(7);
+    await h.waitEdges(3);
+    await waitHistoryState({ canUndoStructural: false, canRedoStructural: true });
+    assert.deepEqual([...(await h.parity()).canonicalIds].sort(), seedBlockIds);
+    await h.rapidKeydowns('z', 2, { metaKey: true, shiftKey: true });
+    await h.waitCanonicalBlockCount(5);
+    await h.waitBlockCount(5);
+    await waitHistoryState({ canUndoStructural: true, canRedoStructural: false });
+    await h.rapidKeydowns('z', 2, { metaKey: true });
+    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(7);
+    await h.waitEdges(3);
 
     // One keypress must undo one history event. Two rapid presses must undo
     // exactly two events (the old 120 ms dedupe dropped the second one).
@@ -1112,9 +1258,12 @@ describe('NoteForest M2 editor shell', () => {
     // Add child → type → palette undo (text) → menu undo (structural fallback).
     const parentId = await focusBlockEnd(textB);
     assert.ok(parentId !== null, 'the parent block has an ID');
+    const idsBeforeChild = new Set((await h.parity()).canonicalIds);
     await page.keyboard.press('Control+Enter');
-    await h.waitBlockCount(7);
-    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(8);
+    await h.waitCanonicalBlockCount(8);
+    const childId = (await h.parity()).canonicalIds.find((id) => !idsBeforeChild.has(id));
+    assert.ok(childId !== undefined, 'the created child has an ID');
     await page.keyboard.type(' CHILD-TEXT');
     await h.waitEditorText('CHILD-TEXT');
     await waitHistoryState({
@@ -1128,26 +1277,38 @@ describe('NoteForest M2 editor shell', () => {
     await page.getByRole('option', { name: /Undo/ }).click();
     await page.waitForSelector('.nf-palette', { state: 'detached' });
     await h.waitEditorText('CHILD-TEXT', false);
-    await h.waitBlockCount(7);
+    await h.waitBlockCount(8);
     await waitHistoryState({ lastHistoryOperation: 'text', canUndoText: false });
 
     await invokeAppMenu('menu-undo');
-    await h.waitBlockCount(6);
-    await h.waitCanonicalBlockCount(6);
+    await h.waitBlockCount(7);
+    await h.waitCanonicalBlockCount(7);
     await waitHistoryState({
       lastHistoryOperation: 'structural',
       canUndoText: false,
       canRedoText: false,
       canUndoStructural: false,
-      // Undoing a creation applies block.delete, whose inverse is still phase
-      // 3b work, so this particular structural undo is not redoable yet.
-      canRedoStructural: false,
+      // Undoing the creation applies block.delete delete-subtree; its exact
+      // record restore makes this structural undo redoable with the same ID.
+      canRedoStructural: true,
     });
     await h.waitSelected(parentId);
     await waitFocusRestored();
+    assert.ok(!(await h.parity()).canonicalIds.includes(childId), 'the child is undone');
+    await invokeAppMenu('menu-redo');
+    await h.waitBlockCount(8);
+    await h.waitCanonicalBlockCount(8);
+    assert.ok(
+      (await h.parity()).canonicalIds.includes(childId),
+      'redo restores the exact created block ID',
+    );
+    await waitHistoryState({ canUndoStructural: true, canRedoStructural: false });
+    await invokeAppMenu('menu-undo');
+    await h.waitBlockCount(7);
+    await h.waitCanonicalBlockCount(7);
 
-    // Structural redo with an available inverse: reorder a top-level block via
-    // the keyboard, then undo/redo the move from the native Edit menu.
+    // Structural redo with a move inverse: reorder a top-level block via the
+    // keyboard, then undo/redo the move from the native Edit menu.
     const topLevelIds = () =>
       h
         .activeEditor()
@@ -1155,7 +1316,8 @@ describe('NoteForest M2 editor shell', () => {
         .evaluateAll((cards) => cards.map((card) => card.getAttribute('data-block-card')));
     await focusBlockEnd(textE);
     const beforeMove = await topLevelIds();
-    assert.equal(beforeMove.length, 3, 'three top-level blocks remain');
+    assert.equal(beforeMove.length, 4, 'four top-level blocks remain');
+    const afterMove = [beforeMove[0], beforeMove[2], beforeMove[1], beforeMove[3]];
     await page.keyboard.press('Alt+ArrowDown');
     await page.waitForFunction(
       (expected) => {
@@ -1166,7 +1328,7 @@ describe('NoteForest M2 editor shell', () => {
         ].map((card) => card.getAttribute('data-block-card'));
         return ids.join('|') === expected;
       },
-      [beforeMove[0], beforeMove[2], beforeMove[1]].join('|'),
+      afterMove.join('|'),
       { timeout: 10000 },
     );
     await invokeAppMenu('menu-undo');
@@ -1196,7 +1358,7 @@ describe('NoteForest M2 editor shell', () => {
         ].map((card) => card.getAttribute('data-block-card'));
         return ids.join('|') === expected;
       },
-      [beforeMove[0], beforeMove[2], beforeMove[1]].join('|'),
+      afterMove.join('|'),
       { timeout: 10000 },
     );
     await waitHistoryState({
