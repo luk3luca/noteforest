@@ -18,8 +18,8 @@ stopping or hammering. **Retry**, **Save a copy…**, **Reload from disk…** (e
 “Saved” while a commit or save is pending or after a failure. Close/quit still block through the
 phase 2a flush contract, and the normal save path is unchanged.
 
-The critical suite is **18/18 in 31.6 s** (39.8 s node run including build); unit is **171/171 in
-1.40 s**; `verify:fast` passes.
+The critical suite is **18/18 in 31.4 s** (39.5 s node run including build); unit is **171/171 in
+1.39 s**; `verify:fast` passes in about 45 s.
 
 ## What changed
 
@@ -155,16 +155,16 @@ flush/close, and normal save tests are untouched.
 | Gate | Command | Result |
 |---|---|---|
 | TypeScript | `npm run typecheck` | pass |
-| Unit | `npm test` | 171/171, 17 files, 1.40 s |
-| Critical e2e | `npm run e2e` | 18/18, 31.6 s test, 39.8 s node run incl. build |
-| Fast gate | `npm run verify:fast` | pass, 39.8 s |
+| Unit | `npm test` | 171/171, 17 files, 1.39 s |
+| Critical e2e | `npm run e2e` | 18/18, 31.4 s test, 39.5 s node run incl. build |
+| Fast gate | `npm run verify:fast` | pass, ~45 s |
 | Build | `npm run build` | pass (existing `use client` dependency warnings unchanged) |
 | No fixed waits | `grep -rn waitForTimeout tests/e2e tests/support` | 0 |
 | Visual evidence | `node --test --test-name-pattern="save-failure recovery surface" tests/visual/m2-screenshots.test.mjs` | pass, 2.0 s |
 | Screenshots | `artifacts/m2e/save-failure-1440x900.png`, `save-failure-1024x768.png` | generated (gitignored) |
 
-New e2e durations: permission failure + Retry **3.52 s**, save copy **2.37 s**, reload **1.64 s**,
-failed close **2.30 s**. The existing 14 tests are unchanged and pass.
+New e2e durations: permission failure + Retry **3.50 s**, save copy **2.35 s**, reload **1.61 s**,
+failed close **2.33 s**. The existing 14 tests are unchanged and pass.
 
 ## Known gaps / risks
 
