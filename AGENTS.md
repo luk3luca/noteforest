@@ -111,7 +111,7 @@ These override any conflicting research input.
 - **PDF priority (3 November 2026)**: editor first. The Spike 1 layout/paginator/print pipeline is a technical foundation; page view and PDF polish are deferred to M4, after real documents and branches exist. Do not spend M2 time on PDF visuals or Notability.
 - **Broken anchors**: visible marker + fallback to the whole block + repair dialog; never silent data loss.
 - **V1 scope**: all core features discussed — reader, page preview, PDF, chapters, blocks, branches, text/formula/code/image anchors, images, code, tables, shared children, outline, multiple documents, search, dark mode, external agent API (no in-app agent panel) — delivered in vertical slices; polish later. Non-goals: iPad/Pencil, annotations, collaboration, plugins, spaced repetition, in-app agent chat/autonomy.
-- **Testing**: T3 Code internal browser for manual/visual checks; Playwright for automated e2e, visual regression, and PDF text extraction.
+- **Testing**: T3 Code internal browser for manual/visual checks; Playwright for automated e2e, visual regression, and PDF text extraction. E2E must never open native OS dialogs: the main process installs a test dialog guard under `NOTEFOREST_E2E=1` that records calls and returns safe non-blocking defaults; a test that needs a dialog overrides the recorder explicitly. An unmocked dialog must fail fast, never wait for a human click.
 - **Performance**: 300 blocks guaranteed, 1,000 usable with virtualization/collapse/focus. This is a rendering/layout limit, not a hard Electron limit; GPUI is a later option only if benchmarks justify a rewrite.
 
 ## External agent API (v1, D16–D20 closed)

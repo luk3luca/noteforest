@@ -41,9 +41,11 @@ import {
 } from './library.js';
 import { attachTextContextMenu, installApplicationMenu } from './menu.js';
 import { flushDecision, quitCanProceed } from './lifecycle.js';
+import { installE2EDialogGuard } from './dialog-guard.js';
 
 const isDev = Boolean(process.env['ELECTRON_RENDERER_URL']);
 const isE2E = process.env['NOTEFOREST_E2E'] === '1';
+if (isE2E) installE2EDialogGuard(dialog);
 let mainWindow: BrowserWindow | null = null;
 let allowClose = false;
 let closeInProgress = false;
