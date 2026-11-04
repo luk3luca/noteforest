@@ -142,6 +142,12 @@ export function restoreDestinationProblem(input: {
       message: 'Choose a new folder; a restored copy cannot replace the current document.',
     };
   }
+  if (path.dirname(destination) !== library) {
+    return {
+      code: 'invalid-destination',
+      message: 'Choose a folder directly inside the NoteForest library.',
+    };
+  }
   if (input.documentExists) {
     return {
       code: 'exists',

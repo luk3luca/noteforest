@@ -260,6 +260,24 @@ async function recoverSaveFailure() {
   await h.waitSaved();
 }
 
+/**
+ * Best-effort teardown for backup-restore tests: close any restore modal,
+ * retry a pending save failure, and wait until every runtime is saved. The E2E
+ * dialog guard prevents a blocked quit, but a failed assertion must still not
+ * leave the document dirty for the next test.
+ */
+async function recoverBackupFailure() {
+  const dialog = page.getByRole('dialog', { name: 'Restore backup' });
+  if ((await dialog.count()) > 0) {
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await dialog.waitFor({ state: 'detached' }).catch(() => undefined);
+  }
+  if ((await page.locator('[data-save-failure="true"]').count()) > 0) {
+    await page.locator('[data-save-action="retry"]').click().catch(() => undefined);
+  }
+  await h.waitSaved().catch(() => undefined);
+}
+
 describe('NoteForest M2 editor shell', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -2112,6 +2130,10 @@ describe('NoteForest M2 editor shell', () => {
       await h.waitSaved();
     } finally {
       await setPackageWritable(packagePath, true);
+      await page
+        .evaluate((path) => window.__noteforestTest.openPath(path), packagePath)
+        .catch(() => undefined);
+      await recoverBackupFailure();
     }
   });
 
@@ -2122,12 +2144,17 @@ describe('NoteForest M2 editor shell', () => {
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
     await h.waitSaved();
     const packagePath = (await h.state()).activeTab;
+    const backupsDir = backupsDirFor(packagePath, env.NOTEFOREST_APP_SUPPORT);
     await setPackageWritable(packagePath, false);
     try {
       await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
       await page.keyboard.press('End');
       await page.keyboard.type(' Cannot save without backups');
       await waitSaveFailure('permission');
+
+      // A failed save writes its safety backup before the atomic write fails;
+      // remove it so this test starts from a document with no backups at all.
+      await rm(backupsDir, { recursive: true, force: true });
 
       await activeSaveBanner().locator('[data-save-action="restore-backup"]').click();
       let dialog = await waitRestoreDialog();
@@ -2143,7 +2170,6 @@ describe('NoteForest M2 editor shell', () => {
       await dialog.waitFor({ state: 'detached' });
       assert.equal((await h.state()).tabs.length, 1, 'cancel does not open a copy');
 
-      const backupsDir = backupsDirFor(packagePath, env.NOTEFOREST_APP_SUPPORT);
       await mkdir(backupsDir, { recursive: true });
       await writeFile(
         resolve(backupsDir, 'autosave-20990101T000000000Z-r0000000001.json'),
@@ -2161,12 +2187,48 @@ describe('NoteForest M2 editor shell', () => {
       );
       await dialog.getByRole('button', { name: 'Cancel' }).click();
       await dialog.waitFor({ state: 'detached' });
-
-      await setPackageWritable(packagePath, true);
-      await activeSaveBanner().locator('[data-save-action="retry"]').click();
-      await h.waitSaved();
     } finally {
       await setPackageWritable(packagePath, true);
+      await recoverBackupFailure();
+    }
+  });
+
+  it('dismisses a failed-save quit through the E2E dialog guard', async () => {
+    const env = isolated('quit-guard');
+    await launch(env);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    await setPackageWritable(packagePath, false);
+    try {
+      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' Quit must not block on a native dialog');
+      await waitSaveFailure('permission');
+
+      // No dialog mock here: the E2E guard must answer Cancel immediately.
+      await h.app.evaluate(({ app: electronApp }) => {
+        electronApp.quit();
+      });
+      await waitUntil(
+        async () => {
+          const calls = await h.app.evaluate(() => globalThis.__nfDialogCalls ?? []);
+          return calls.some((call) => call.method === 'showMessageBox');
+        },
+        'guarded quit dialog',
+      );
+      const calls = await h.app.evaluate(() => globalThis.__nfDialogCalls ?? []);
+      const quitCall = calls.find((call) => call.method === 'showMessageBox');
+      assert.deepEqual(quitCall.options.buttons, ['Retry', 'Cancel']);
+      assert.equal(quitCall.options.cancelId, 1, 'the guard answers Cancel');
+
+      await waitWindowCount(1);
+      assert.equal(await page.evaluate(() => window.__noteforestTest.state().ready), true);
+      assert.equal(await page.locator('[data-save-failure="true"]').count(), 1);
+    } finally {
+      await setPackageWritable(packagePath, true);
+      await recoverBackupFailure();
     }
   });
 
@@ -2264,6 +2326,7 @@ describe('NoteForest M2 editor shell', () => {
       await h.waitSaved();
     } finally {
       await setPackageWritable(packagePath, true);
+      await recoverBackupFailure();
     }
   });
 

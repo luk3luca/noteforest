@@ -154,6 +154,9 @@ describe('restore destination rules', () => {
       code: 'same-package',
     });
     expect(rules(library)).toMatchObject({ code: 'invalid-destination' });
+    expect(rules(path.join(library, 'other', 'nested'))).toMatchObject({
+      code: 'invalid-destination',
+    });
     expect(rules(path.join(library, 'occupied'), true)).toMatchObject({ code: 'exists' });
     expect(rules(path.join(library, 'free'))).toBeNull();
   });
