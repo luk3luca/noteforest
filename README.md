@@ -30,6 +30,17 @@ npm run test:visual # screenshots for product-owner review (on demand, not the g
 - M2e report: `docs/reports/m2e-routing-and-layout.md`; M2f phase-1 report: `docs/reports/m2f-phase1.md`.
 - Spike 1 evidence remains in `docs/spikes/spike-01-report.md` and `docs/spikes/artifacts/`; the old Spike 1 gate harness targets the removed demo renderer and is not part of the M2 gate.
 
+## Undo and redo
+
+Undo/redo is one user command with two internal stacks. The last operation chooses the
+preferred stack: text after typing or a text undo/redo, structural after a structural
+command. If the preferred stack has nothing to undo/redo, the command falls back once to
+the other stack; it never loops and never performs two steps for one keypress. `⌘Z`,
+`⇧⌘Z`, the Edit menu, the command palette, and the settings action all call the same
+router (`lib/history-routing.ts`). A structural undo/redo rebuild clears the stale
+ProseMirror text stacks. Destructive delete/detach inverses remain phase 3b gaps and are
+not presented as undoable.
+
 ## M2 status
 
 - Shell spec: `docs/ux-shell.md`.
