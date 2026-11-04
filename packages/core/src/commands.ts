@@ -1647,6 +1647,7 @@ function restoreRecords(
   const removeBlockSet = new Set(removeBlocks);
   const removeBranchSet = new Set(removeBranches);
   const removeAnchorSet = new Set(removeAnchors);
+  const restoreBranchSet = new Set<string>();
 
   for (const block of command.blocks) {
     assertRestoreObject(block, 'restored block');
@@ -1659,6 +1660,7 @@ function restoreRecords(
     if (removeBranchSet.has(branch.id)) {
       reject('invalid-command', `branch "${branch.id}" cannot be restored and removed at once`);
     }
+    restoreBranchSet.add(branch.id);
   }
   for (const anchor of command.anchors) {
     assertRestoreObject(anchor, 'restored anchor');
@@ -1672,7 +1674,12 @@ function restoreRecords(
     for (const branch of Object.values(document.branches)) {
       const touchesBlock =
         branch.source.blockId === blockId || branch.targetBlockId === blockId;
-      if (touchesBlock && !removeBranchSet.has(branch.id)) {
+      // A restored branch record may repoint away from the removed block.
+      if (
+        touchesBlock &&
+        !removeBranchSet.has(branch.id) &&
+        !restoreBranchSet.has(branch.id)
+      ) {
         reject(
           'invalid-command',
           `cannot remove block "${blockId}": branch "${branch.id}" also references it`,
