@@ -12,7 +12,8 @@
 - `e5a7ee8` feat(core): reject operations that would empty a chapter
 - `d88a656` feat(core): expose stale lock metadata on read-only stores
 - `b8ed6cf` feat(desktop): render empty chapters and require explicit stale-lock takeover
-- this docs commit
+- `69bb47c` fix(desktop): show read-only consent above the empty-document state
+- docs report (this change set)
 
 ## Verdict
 
@@ -28,8 +29,8 @@ its reason, lock PID/host/session/heartbeat, and an explicit **Take over lock** 
 Cancel keeps the document read-only and leaves the lock file untouched. Only the explicit
 action calls the core stale-lock recovery and reopens the document writable.
 
-`npm run verify` passes: typecheck, 241/241 unit tests in 1.78 s, 26/26 critical e2e tests in
-56.81 s suite time (under the 60 s budget), 9/9 recovery integration tests in 17.34 s, and a
+`npm run verify` passes: typecheck, 241/241 unit tests in 1.77 s, 26/26 critical e2e tests in
+56.79 s suite time (under the 60 s budget), 10/10 recovery integration tests in 18.87 s, and a
 production build. No native OS dialog is opened by any new flow.
 
 ## What changed
@@ -153,9 +154,9 @@ before the takeover completed; reopen the document to inspect it.`
 - `packages/core/test/storage.test.ts`: read-only store exposes stale lock metadata.
 - `apps/desktop/test/recovery-library.test.ts`: normal open still editable, stale lock stays
   read-only with metadata, explicit takeover writes, live lock takeover refused.
-- `tests/recovery/m2f-recovery.test.mjs`: three app-level phase 4b flows — stale lock /
-  Cancel / takeover, legacy empty chapter after reload / Add top-level block, and move /
-  branch / delete last-root rejections.
+- `tests/recovery/m2f-recovery.test.mjs`: four app-level phase 4b flows — stale lock / Cancel / takeover, legacy empty
+  chapter after reload / Add top-level block, stale-lock consent on a zero-block document, and
+  move / branch / delete last-root rejections.
 - `tests/e2e/m2-editor.test.mjs`: the cross-chapter undo flow now gives chapter two a second
   root before moving the first out, so it tests undo identity without violating the new
   invariant. No data-safety test was removed; the suite is still 26 tests.
@@ -165,9 +166,9 @@ before the takeover completed; reopen the document to inspect it.`
 | Gate | Command | Result |
 | --- | --- | --- |
 | Typecheck | `npm run typecheck` | Pass — desktop node/web, core, layout, pdf |
-| Unit | `npm test` | Pass — 241 tests / 26 files, 1.78 s |
-| Critical e2e | `npm run e2e` | Pass — 26/26, 56.81 s suite (< 60 s), 64.86 s wall incl. build |
-| Recovery integration | `npm run test:recovery` | Pass — 9/9 (6 phase 4a + 3 phase 4b), 17.34 s; phase 4b suite 4.45 s |
+| Unit | `npm test` | Pass — 241 tests / 26 files, 1.77 s |
+| Critical e2e | `npm run e2e` | Pass — 26/26, 56.79 s suite (< 60 s), ~64.8 s wall incl. build |
+| Recovery integration | `npm run test:recovery` | Pass — 10/10 (6 phase 4a + 4 phase 4b), 18.87 s; phase 4b suite 5.97 s |
 | Full verification | `npm run verify` | Pass — exit 0 |
 | Native dialogs | — | No native dialog added; recovery suite asserts zero dialog calls |
 | Manual/screen recording | — | None; no screen recording or Notability |
@@ -200,7 +201,8 @@ before the takeover completed; reopen the document to inspect it.`
 
 - A document with a single untitled empty chapter still shows the existing “This document has
   no blocks yet” call to action rather than a chapter card; named or multiple legacy chapters
-  render as cards. The Add first block action is the recovery path for the former.
+  render as cards, and read-only banners (including stale-lock consent) render above the empty
+  state. The Add first block action is the recovery path.
 - `ensureChaptersHaveBlocks` intentionally auto-seeds every empty chapter on an editable
   legacy load, per the phase brief. Read-only legacy packages keep their empty chapters and
   render them.
