@@ -108,25 +108,42 @@ async function parity() {
   });
 }
 
+async function waitCanonicalBlockCount(count) {
+  await page.waitForFunction(
+    (expected) => {
+      const active = window.__noteforestTest.state();
+      const runtime = active.runtimes.find((item) => item.packagePath === active.activeTab);
+      return (runtime?.blocks ?? -1) === expected;
+    },
+    count,
+    { timeout: 10000 },
+  );
+}
+
 /** Fire several structural keydowns before any IPC round-trip can finish. */
 async function rapidKeydowns(key, count, options = {}) {
+  const sequence = Array.from({ length: count }, () => ({ key, options }));
+  await rapidKeySequence(sequence);
+}
+
+async function rapidKeySequence(sequence) {
   await page.evaluate(
-    ({ key: pressedKey, count: total, options: eventOptions }) => {
+    (events) => {
       const target = document.querySelector('.nf-editor[data-active="true"] .nf-prosemirror');
       if (target === null) throw new Error('no active editor');
-      for (let index = 0; index < total; index += 1) {
+      for (const event of events) {
         target.dispatchEvent(
           new KeyboardEvent('keydown', {
-            key: pressedKey,
-            code: pressedKey === 'Enter' ? 'Enter' : pressedKey,
+            key: event.key,
+            code: event.key === 'Enter' ? 'Enter' : event.key,
             bubbles: true,
             cancelable: true,
-            ...eventOptions,
+            ...event.options,
           }),
         );
       }
     },
-    { key, count, options },
+    sequence.map((entry) => ({ key: entry.key, options: entry.options ?? {} })),
   );
 }
 
@@ -564,7 +581,9 @@ describe('NoteForest M2 editor shell', () => {
       await children.last().click({ button: 'right' });
       await page.getByRole('menuitem', { name: /Delete block/ }).click();
       await page.getByRole('button', { name: 'Delete', exact: true }).click();
-      await page.waitForTimeout(500);
+      await waitCanonicalBlockCount(remaining);
+      await waitBlockCount(remaining);
+      await page.waitForTimeout(200);
       const current = await parity();
       assert.equal(current.canvas, remaining, `canvas loses one block (${remaining} left)`);
       assert.equal(current.sidebar, remaining, 'sidebar stays in parity');
@@ -600,6 +619,23 @@ describe('NoteForest M2 editor shell', () => {
     assert.equal(final.canonical, 1);
     assert.equal(final.arrows, 0);
 
+    // Child + sibling in quick succession, then a tab round-trip.
+    await activeEditor().locator('[data-block-card]').first().click();
+    await rapidKeySequence([
+      { key: 'Enter', options: { ctrlKey: true } },
+      { key: 'Enter', options: { altKey: true } },
+    ]);
+    await waitBlockCount(3);
+    await waitCanonicalBlockCount(3);
+    await page.waitForTimeout(700);
+    const quick = await parity();
+    assert.deepEqual(
+      { canvas: quick.canvas, sidebar: quick.sidebar, canonical: quick.canonical },
+      { canvas: 3, sidebar: 3, canonical: 3 },
+      'quick child + sibling stays in parity',
+    );
+    assert.ok(quick.arrows >= 1 && quick.arrows <= 2, 'the quick blocks keep their arrows');
+
     // A second document and a tab round-trip do not resurrect a phantom block.
     await page.keyboard.press('Meta+n');
     await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 2);
@@ -607,9 +643,9 @@ describe('NoteForest M2 editor shell', () => {
     await page.keyboard.press('Meta+1');
     await page.waitForTimeout(500);
     const returned = await parity();
-    assert.equal(returned.canvas, 1);
-    assert.equal(returned.sidebar, 1);
-    assert.equal(returned.canonical, 1);
+    assert.equal(returned.canvas, 3);
+    assert.equal(returned.sidebar, 3);
+    assert.equal(returned.canonical, 3);
     assert.deepEqual(pageErrors, [], `renderer errors: ${pageErrors.join('; ')}`);
     await quit();
   });
