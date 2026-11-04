@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 4b is in progress.** Phase 4a (corrupt/missing/newer recovery) is merged. Phase 4b enforces the empty-chapter invariant (reject moves that would empty a chapter; render legacy empties) and explicit stale-lock consent (read-only banner + Take over; no auto-break). Later: F5/F16 keyboard/focus and cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 5a is in progress.** Phase 4b (empty-chapter invariant + stale-lock consent) is merged. Phase 5a fixes the editor keyboard focus trap, makes card/shell controls reachable, announces save state, traps/restores context-menu focus, exposes an accessible tab close, and reports axe best practice. If keyboard coverage pushes critical e2e over 60 s, zoom/fit/focus moves to `test:ui`. Cleanup/dead code/deps/docs is 5b. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

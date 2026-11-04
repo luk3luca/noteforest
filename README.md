@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2f phase 4b — empty-chapter invariant + stale-lock consent** is in progress. Phase 4a is merged; M3 and PDF/page work remain deferred until M2f is accepted.
+Spike 1 is complete (technical foundation merged); **M2f phase 5a — keyboard/focus and accessibility** is in progress. Phase 4b is merged; M3 and PDF/page work remain deferred until M2f is accepted.
 
 ## Running the current code
 
@@ -61,6 +61,7 @@ not presented as undoable.
 - M2f phase 3b2 brief: `docs/tasks/m2f-phase3b2-move-identity.md`.
 - M2f phase 4a brief: `docs/tasks/m2f-phase4a-corrupt-recovery.md`.
 - M2f phase 4b brief: `docs/tasks/m2f-phase4b-empty-chapters-locks.md`.
+- M2f phase 5a brief: `docs/tasks/m2f-phase5a-keyboard-a11y.md`.
 - UI decisions: `docs/adr/0004-ui-shell-and-branch-editor.md`.
 - UI research: `research/ui-components.md`.
 
