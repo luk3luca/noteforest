@@ -94,26 +94,29 @@ export async function createNewDocument(): Promise<void> {
   });
 }
 
-export async function createChapter(): Promise<void> {
+export async function createChapter(): Promise<ApplyOutcome | null> {
   const runtime = activeRuntime();
-  if (runtime === null) return;
-  const chapterId = crypto.randomUUID();
+  if (runtime === null) return null;
   const created = await runtime.applyStructural({
     type: 'chapter.create',
-    chapterId,
     title: 'New chapter',
   });
   if (!created.ok) {
     toast.error(created.message ?? 'Could not create a chapter.');
-    return;
+    return created;
   }
-  report(
-    await runtime.applyStructural({
-      type: 'block.create',
-      placement: { kind: 'top-level', chapterId },
-    }),
-  );
+  const chapterId = created.chapterId;
+  if (chapterId === undefined) {
+    toast.error('The chapter was created without an ID.');
+    return { ok: false, message: 'The chapter was created without an ID.' };
+  }
+  const block = await runtime.applyStructural({
+    type: 'block.create',
+    placement: { kind: 'top-level', chapterId },
+  });
+  if (!block.ok) toast.error(block.message ?? 'Could not add the first block.');
   await runtime.saveNow();
+  return block;
 }
 
 export async function renameDocument(title: string): Promise<void> {
@@ -275,13 +278,13 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
     {
       id: 'add-child',
       label: 'Add child block',
-      shortcut: '⌘⏎',
+      shortcut: '⌃⏎',
       onSelect: () => report(runtime.addChild(blockId)),
     },
     {
       id: 'add-sibling',
       label: 'Add sibling block',
-      shortcut: '⇧⌘⏎',
+      shortcut: '⌥⏎',
       onSelect: () => report(runtime.addSibling(blockId)),
     },
     { id: 'sep-1', label: '', separator: true },
@@ -426,8 +429,17 @@ export function openLibraryMenu(
 
 /* --------------------------------------------------------------- palette */
 
+function applyBlockType(level: 1 | 2 | 3 | null): void {
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  const blockId = runtime.selectedBlockId;
+  if (blockId === null) return;
+  runtime.setBlockType(blockId, level);
+}
+
 export function paletteCommands(): MenuEntry[] {
   const runtime = activeRuntime();
+  const selected = runtime?.selectedBlockId ?? null;
   return [
     { id: 'new-document', label: 'New document', shortcut: '⌘N', onSelect: () => void createNewDocument() },
     { id: 'new-chapter', label: 'New chapter', shortcut: '⇧⌘N', onSelect: () => void createChapter() },
@@ -449,10 +461,32 @@ export function paletteCommands(): MenuEntry[] {
       label: 'Add top-level block',
       onSelect: () => {
         if (runtime === null) return;
-        const chapterId = runtime.document.chapters[0]?.id;
+        const chapterId = runtime.document.chapters.at(-1)?.id;
         if (chapterId !== undefined) report(runtime.addTopLevel(chapterId));
       },
     },
+    {
+      id: 'add-child',
+      label: 'Add child block',
+      shortcut: '⌃⏎',
+      onSelect: () => {
+        if (runtime === null || selected === null) return;
+        report(runtime.addChild(selected));
+      },
+    },
+    {
+      id: 'add-sibling',
+      label: 'Add sibling block',
+      shortcut: '⌥⏎',
+      onSelect: () => {
+        if (runtime === null || selected === null) return;
+        report(runtime.addSibling(selected));
+      },
+    },
+    { id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) },
+    { id: 'block-h1', label: 'Block type: Heading 1', onSelect: () => applyBlockType(1) },
+    { id: 'block-h2', label: 'Block type: Heading 2', onSelect: () => applyBlockType(2) },
+    { id: 'block-h3', label: 'Block type: Heading 3', onSelect: () => applyBlockType(3) },
     {
       id: 'undo',
       label: 'Undo',
@@ -517,7 +551,7 @@ export function runMenuCommand(command: MenuCommand): void {
       break;
     case 'add-block': {
       const runtime = activeRuntime();
-      const chapterId = runtime?.document.chapters[0]?.id;
+      const chapterId = runtime?.document.chapters.at(-1)?.id;
       if (runtime !== null && chapterId !== undefined) report(runtime.addTopLevel(chapterId));
       break;
     }

@@ -150,7 +150,7 @@ export interface Document extends JsonObject {
   extensions?: JsonObject;
 }
 
-/** Default A4 page setup: portrait, 20 mm margins (spec §4.7). */
+/** Default A4 page setup: landscape, 20 mm margins (spec §4.7). */
 export const DEFAULT_MARGINS_MM: Readonly<MarginsMm> = Object.freeze({
   top: 20,
   right: 20,
@@ -158,10 +158,13 @@ export const DEFAULT_MARGINS_MM: Readonly<MarginsMm> = Object.freeze({
   left: 20,
 });
 
+/** New documents default to A4 landscape; existing documents keep their orientation. */
+export const DEFAULT_PAGE_ORIENTATION: PageOrientation = 'landscape';
+
 export function defaultPageSetup(): PageSetup {
   return {
     size: 'A4',
-    orientation: 'portrait',
+    orientation: DEFAULT_PAGE_ORIENTATION,
     margins: { ...DEFAULT_MARGINS_MM },
   };
 }

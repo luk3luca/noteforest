@@ -9,8 +9,8 @@ import { _electron as electron } from 'playwright';
 const require = createRequire(import.meta.url);
 const root = resolve(import.meta.dirname, '../..');
 const appDir = resolve(root, 'apps/desktop');
-const tempRoot = resolve(root, 'artifacts/m2b-tmp');
-const screenshotDir = resolve(root, 'artifacts/m2b');
+const tempRoot = resolve(root, 'artifacts/m2c-tmp');
+const screenshotDir = resolve(root, 'artifacts/m2c');
 const axePath = require.resolve('axe-core/axe.min.js');
 
 let app;
@@ -33,7 +33,9 @@ function baseEnv(overrides = {}) {
 async function launch(overrides = {}) {
   app = await electron.launch({ args: ['.'], cwd: appDir, env: baseEnv(overrides) });
   page = await app.firstWindow();
-  page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('pageerror', (error) => {
+    pageErrors.push(error.message);
+  });
   page.on('console', (message) => {
     if (message.type() === 'error') pageErrors.push(message.text());
   });
@@ -90,6 +92,61 @@ async function waitBlockCount(count) {
   );
 }
 
+async function parity() {
+  return page.evaluate(() => {
+    const scope = document.querySelector('.nf-editor[data-active="true"]');
+    const active = window.__noteforestTest.state();
+    return {
+      canvas: scope === null ? 0 : scope.querySelectorAll('[data-block-card]').length,
+      sidebar: document.querySelectorAll('.nf-tree-row[data-block-id]').length,
+      arrows: scope === null ? 0 : scope.querySelectorAll('.nf-edge-path').length,
+      trunks: scope === null ? 0 : scope.querySelectorAll('.nf-edge-trunk').length,
+      canonical: active.runtimes.find((runtime) => runtime.packagePath === active.activeTab)?.blocks ?? 0,
+      canvasIds: scope === null ? [] : [...scope.querySelectorAll('[data-block-card]')].map((card) => card.getAttribute('data-block-card')),
+      canonicalIds: active.runtimes.find((runtime) => runtime.packagePath === active.activeTab)?.blockIds ?? [],
+    };
+  });
+}
+
+async function waitCanonicalBlockCount(count) {
+  await page.waitForFunction(
+    (expected) => {
+      const active = window.__noteforestTest.state();
+      const runtime = active.runtimes.find((item) => item.packagePath === active.activeTab);
+      return (runtime?.blocks ?? -1) === expected;
+    },
+    count,
+    { timeout: 10000 },
+  );
+}
+
+/** Fire several structural keydowns before any IPC round-trip can finish. */
+async function rapidKeydowns(key, count, options = {}) {
+  const sequence = Array.from({ length: count }, () => ({ key, options }));
+  await rapidKeySequence(sequence);
+}
+
+async function rapidKeySequence(sequence) {
+  await page.evaluate(
+    (events) => {
+      const target = document.querySelector('.nf-editor[data-active="true"] .nf-prosemirror');
+      if (target === null) throw new Error('no active editor');
+      for (const event of events) {
+        target.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: event.key,
+            code: event.key === 'Enter' ? 'Enter' : event.key,
+            bubbles: true,
+            cancelable: true,
+            ...event.options,
+          }),
+        );
+      }
+    },
+    sequence.map((entry) => ({ key: entry.key, options: entry.options ?? {} })),
+  );
+}
+
 describe('NoteForest M2 editor shell', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -124,7 +181,7 @@ describe('NoteForest M2 editor shell', () => {
     await waitSaved();
     assert.equal(await page.locator('.nf-tab-dot').count(), 0, 'dirty dot clears after autosave');
 
-    await page.keyboard.press('Tab');
+    await page.keyboard.press('Control+Enter');
     await waitBlockCount(2);
     await page.keyboard.type('Child block');
     await waitSaved();
@@ -166,7 +223,7 @@ describe('NoteForest M2 editor shell', () => {
     assert.match(edgeCheck.marker ?? '', /arrow/);
 
     // Add a sibling to the child; it gets its own arrow.
-    await page.keyboard.press('Meta+Shift+Enter');
+    await page.keyboard.press('Alt+Enter');
     await waitBlockCount(3);
     await page.keyboard.type('Sibling block');
     await waitSaved();
@@ -428,7 +485,7 @@ describe('NoteForest M2 editor shell', () => {
       await page.waitForTimeout(250);
     }
     for (let index = 0; index < 4; index += 1) {
-      await page.keyboard.press('Meta+Enter');
+      await page.keyboard.press('Control+Enter');
       await page.waitForTimeout(500);
     }
     const perf = await page.evaluate(() => window.__noteforestTest.perf());
@@ -491,6 +548,212 @@ describe('NoteForest M2 editor shell', () => {
     await quit();
   });
 
+  it('serializes rapid structural creation and keeps canvas, sidebar and arrows in parity', async () => {
+    await launch({
+      NOTEFOREST_LIBRARY: resolve(tempRoot, 'rapid-library'),
+      NOTEFOREST_APP_SUPPORT: resolve(tempRoot, 'rapid-support'),
+    });
+    await page.waitForSelector('.nf-empty-state');
+    await page.locator('.nf-empty-actions .nf-button-primary').click();
+    await waitBlockCount(1);
+    await page.keyboard.type('Root block');
+    await waitSaved();
+
+    // Three Control+Enter presses before the first IPC round-trip can finish.
+    await rapidKeydowns('Enter', 3, { ctrlKey: true });
+    await waitBlockCount(4);
+    await page.waitForTimeout(900);
+    const created = await parity();
+    assert.equal(created.canvas, 4, 'four blocks in the canvas');
+    assert.equal(created.sidebar, 4, 'four blocks in the sidebar');
+    assert.equal(created.canonical, 4, 'four blocks in the canonical document');
+    assert.equal(created.arrows, 3, 'three arrows for three children');
+    assert.equal(created.trunks, 1, 'one shared trunk for three children');
+
+    // Every created child is deletable; deleting each one keeps parity.
+    for (let remaining = 3; remaining > 0; remaining -= 1) {
+      const children = activeEditor().locator('[data-block-card][data-top-level="false"]');
+      await page.waitForFunction(
+        (expected) => document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card][data-top-level="false"]').length === expected,
+        remaining,
+        { timeout: 10000 },
+      );
+      await children.last().click({ button: 'right' });
+      await page.getByRole('menuitem', { name: /Delete block/ }).click();
+      await page.getByRole('button', { name: 'Delete', exact: true }).click();
+      await waitCanonicalBlockCount(remaining);
+      await waitBlockCount(remaining);
+      await page.waitForTimeout(200);
+      const current = await parity();
+      assert.equal(current.canvas, remaining, `canvas loses one block (${remaining} left)`);
+      assert.equal(current.sidebar, remaining, 'sidebar stays in parity');
+      assert.equal(current.canonical, remaining, 'canonical document stays in parity');
+      assert.equal(current.arrows, remaining - 1, 'arrows stay in parity');
+    }
+
+    // Create, type, undo/redo text, and delete without an orphan.
+    await activeEditor().locator('[data-block-card]').first().click();
+    await page.keyboard.press('Control+Enter');
+    await waitBlockCount(2);
+    await page.keyboard.type('Undo me');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Meta+Shift+z');
+    await page.waitForTimeout(300);
+    let afterUndo = await parity();
+    assert.equal(afterUndo.canvas, afterUndo.canonical, 'undo/redo keeps the canonical count');
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Meta+Shift+z');
+    await page.waitForTimeout(300);
+    afterUndo = await parity();
+    assert.equal(afterUndo.sidebar, afterUndo.canvas, 'sidebar matches after undo/redo');
+    await activeEditor().locator('[data-block-card][data-top-level="false"]').last().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: /Delete block/ }).click();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.waitForTimeout(600);
+    const final = await parity();
+    assert.equal(final.canvas, 1);
+    assert.equal(final.sidebar, 1);
+    assert.equal(final.canonical, 1);
+    assert.equal(final.arrows, 0);
+
+    // Child + sibling in quick succession, then a tab round-trip.
+    await activeEditor().locator('[data-block-card]').first().click();
+    await rapidKeySequence([
+      { key: 'Enter', options: { ctrlKey: true } },
+      { key: 'Enter', options: { altKey: true } },
+    ]);
+    await waitBlockCount(3);
+    await waitCanonicalBlockCount(3);
+    await page.waitForTimeout(700);
+    const quick = await parity();
+    assert.deepEqual(
+      { canvas: quick.canvas, sidebar: quick.sidebar, canonical: quick.canonical },
+      { canvas: 3, sidebar: 3, canonical: 3 },
+      'quick child + sibling stays in parity',
+    );
+    assert.ok(quick.arrows >= 1 && quick.arrows <= 2, 'the quick blocks keep their arrows');
+
+    // A second document and a tab round-trip do not resurrect a phantom block.
+    await page.keyboard.press('Meta+n');
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 2);
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Meta+1');
+    await page.waitForTimeout(500);
+    const returned = await parity();
+    assert.equal(returned.canvas, 3);
+    assert.equal(returned.sidebar, 3);
+    assert.equal(returned.canonical, 3);
+    assert.deepEqual(pageErrors, [], `renderer errors: ${pageErrors.join('; ')}`);
+    await quit();
+  });
+
+  it('applies the M2c keyboard, heading, chapter and landscape model', async () => {
+    await launch({
+      NOTEFOREST_LIBRARY: resolve(tempRoot, 'keyboard-library'),
+      NOTEFOREST_APP_SUPPORT: resolve(tempRoot, 'keyboard-support'),
+    });
+    await page.locator('.nf-empty-actions .nf-button-primary').click();
+    await waitBlockCount(1);
+    const orientation = (await state()).runtimes[0]?.orientation;
+    assert.equal(orientation, 'landscape', 'new documents default to A4 landscape');
+
+    // Markdown heading, Enter escapes it inside the same block.
+    await page.keyboard.type('# Quantum notes');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-block-prose h1');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Body text');
+    await page.waitForTimeout(200);
+    assert.equal((await parity()).canvas, 1, 'Enter at the end of a heading stays in the block');
+    assert.equal(await activeEditor().locator('.nf-block-prose h1').count(), 1);
+    assert.equal(await activeEditor().locator('.nf-block-prose p').count(), 1);
+
+    // Shift+Enter is a hard break.
+    await page.keyboard.press('Shift+Enter');
+    await page.keyboard.type('second line');
+    assert.equal(await activeEditor().locator('.nf-block-prose br').count(), 1, 'Shift+Enter inserts a hard break');
+
+    // Option+Enter sibling, Control+Enter child.
+    await page.keyboard.press('Alt+Enter');
+    await waitBlockCount(2);
+    await page.keyboard.press('Control+Enter');
+    await waitBlockCount(3);
+    assert.equal(await activeEditor().locator('.nf-edge-path').count(), 1, 'the child key creates an arrow');
+
+    // Tab in a normal paragraph never creates a child.
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(300);
+    assert.equal((await parity()).canvas, 3, 'Tab in a paragraph does not create a block');
+    const focusInEditor = await page.evaluate(() => {
+      const active = document.activeElement;
+      return active !== null && active.closest('.nf-prosemirror') !== null;
+    });
+    assert.equal(focusInEditor, true, 'Tab keeps focus in the editor');
+
+    // Tab in a list is native indent, not a block.
+    await page.keyboard.type('- first item');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-block-prose ul');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('second item');
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(300);
+    assert.equal((await parity()).canvas, 3, 'Tab in a list does not create a block');
+    assert.equal(await activeEditor().locator('.nf-block-prose ul ul').count(), 1, 'Tab nests the list item');
+
+    // Palette block-type control can always escape a heading without changing
+    // the block identity.
+    const rootCard = activeEditor().locator('[data-block-card]').first();
+    const rootId = await rootCard.getAttribute('data-block-card');
+    await rootCard.locator('.nf-block-prose').first().click();
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    await page.getByRole('option', { name: /Block type: Heading 2/ }).click();
+    await page.waitForTimeout(400);
+    assert.equal(await activeEditor().locator('.nf-block-prose h2').count(), 1);
+    assert.equal(
+      await activeEditor().locator(`[data-block-card="${rootId}"]`).count(),
+      1,
+      'heading change keeps the block ID',
+    );
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    await page.getByRole('option', { name: /Block type: Text/ }).click();
+    await page.waitForTimeout(400);
+    assert.equal(await activeEditor().locator('.nf-block-prose h1, .nf-block-prose h2, .nf-block-prose h3').count(), 0);
+
+    // Inline chapter title edit and sidebar sync.
+    await page.locator('.nf-chapter-title').click();
+    const chapterInput = page.locator('.nf-chapter-title-input');
+    await chapterInput.fill('Linear systems');
+    await chapterInput.press('Enter');
+    await page.waitForTimeout(500);
+    assert.equal(
+      (await page.locator('.nf-tree-chapter-row .nf-tree-label').first().innerText()).trim(),
+      'Linear systems',
+      'sidebar chapter title follows the canvas edit',
+    );
+
+    // Add top-level block and chapter from the canvas.
+    const beforeTopLevel = (await parity()).canvas;
+    await page.locator('[data-canvas-action="add-top-level"]').click();
+    await page.waitForTimeout(600);
+    assert.equal((await parity()).canvas, beforeTopLevel + 1, 'canvas adds a top-level block');
+    await page.locator('[data-canvas-action="add-chapter"]').click();
+    await page.waitForFunction(
+      () => document.querySelectorAll('.nf-tree-chapter-row').length === 2,
+      undefined,
+      { timeout: 10000 },
+    );
+    await page.waitForTimeout(400);
+    const afterChapter = await parity();
+    assert.equal(afterChapter.canvas, beforeTopLevel + 2, 'canvas adds a chapter with its first block');
+    assert.equal(afterChapter.sidebar, afterChapter.canvas, 'sidebar follows canvas chapter creation');
+    assert.deepEqual(pageErrors, [], `renderer errors: ${pageErrors.join('; ')}`);
+    await quit();
+  });
+
   it('captures the required screenshots', async () => {
     const shotsRoot = resolve(tempRoot, 'screenshots');
     await rm(shotsRoot, { recursive: true, force: true });
@@ -510,6 +773,22 @@ describe('NoteForest M2 editor shell', () => {
     await page.evaluate(() => window.__noteforestTest.seed('demo'));
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
     await waitSaved();
+
+    // Give the first top-level block a third child so the shared trunk is visible.
+    const rootCard = activeEditor().locator('[data-block-card][data-top-level="true"]').first();
+    await rootCard.hover();
+    await rootCard.locator('[data-add-child]').click();
+    await page.waitForTimeout(600);
+    await page.keyboard.type('Third child');
+    await waitSaved();
+    const rootId = await rootCard.getAttribute('data-block-card');
+    assert.equal(
+      await activeEditor().locator(`.nf-edge-trunk[data-parent-id="${rootId}"]`).count(),
+      1,
+      'one shared trunk for three children',
+    );
+    await page.screenshot({ path: resolve(screenshotDir, 'trunk-3-children-1440x900.png') });
+    await page.screenshot({ path: resolve(screenshotDir, 'density-1440x900.png') });
 
     // A second document so the shell reads as a real session.
     await page.locator('.nf-new-note').click();
@@ -538,6 +817,12 @@ describe('NoteForest M2 editor shell', () => {
     await page.waitForTimeout(500);
     await page.screenshot({ path: resolve(screenshotDir, 'selected-path-1440x900.png') });
 
+    // Inline chapter title editing.
+    await page.locator('.nf-chapter-title').first().click();
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: resolve(screenshotDir, 'chapter-inline-1440x900.png') });
+    await page.locator('.nf-chapter-title-input').press('Escape');
+
     await page.keyboard.press('Meta+2');
     await page.waitForTimeout(400);
     await page.screenshot({ path: resolve(screenshotDir, 'two-tabs-1440x900.png') });
@@ -549,16 +834,24 @@ describe('NoteForest M2 editor shell', () => {
     });
     await page.waitForTimeout(700);
     await page.screenshot({ path: resolve(screenshotDir, 'shell-1024x768.png') });
+    await page.keyboard.press('Meta+1');
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: resolve(screenshotDir, 'trunk-3-children-1024x768.png') });
     for (const file of [
       'empty-1440x900.png',
       'shell-1440x900.png',
       'palette-1440x900.png',
       'selected-path-1440x900.png',
       'two-tabs-1440x900.png',
+      'trunk-3-children-1440x900.png',
+      'density-1440x900.png',
+      'chapter-inline-1440x900.png',
     ]) {
       resizeScreenshot(resolve(screenshotDir, file), 1440, 900);
     }
-    resizeScreenshot(resolve(screenshotDir, 'shell-1024x768.png'), 1024, 768);
+    for (const file of ['shell-1024x768.png', 'trunk-3-children-1024x768.png']) {
+      resizeScreenshot(resolve(screenshotDir, file), 1024, 768);
+    }
     await quit();
   });
 });

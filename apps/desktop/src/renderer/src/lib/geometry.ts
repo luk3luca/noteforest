@@ -35,7 +35,7 @@ export const GEOMETRY = Object.freeze({
   edgeWidth: 1.25,
   edgeWidthActive: 1.75,
   edgeArrowSize: 6,
-  edgeGap: 2,
+  edgeGap: 8,
   edgeRadius: 6,
   edgeBusOffset: 12,
   edgePortSpacing: 8,

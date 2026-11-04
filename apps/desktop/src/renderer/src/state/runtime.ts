@@ -11,9 +11,11 @@
 import type { Editor } from '@tiptap/core';
 import type { ContentNode, Document, DocumentCommand } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
+import { TextSelection } from '@tiptap/pm/state';
 import type { ApplyResult, OpenDocumentSnapshot } from '../../../shared/api';
 import { buildBlockNode, buildEditorDocument, extractBlockContents, withBody, type PMNode } from '../lib/adapter';
 import { recordPerf } from '../lib/perf';
+import { createSerialQueue } from '../lib/serial-queue';
 import {
   ancestorPath,
   chapterIdOf,
@@ -34,6 +36,7 @@ export interface ApplyOutcome {
   ok: boolean;
   message?: string;
   blockId?: string;
+  chapterId?: string;
 }
 
 function withBlockLevel(node: ProseNode, topLevel: boolean, depth: number): ProseNode {
@@ -84,6 +87,9 @@ export class DocumentRuntime {
 
   lastTextAt = 0;
 
+  /** Visible recovery message when the editor had to be rebuilt from canonical. */
+  repairNotice: string | null = null;
+
   private readonly listeners = new Set<() => void>();
 
   private readonly hashes = new Map<string, string>();
@@ -92,11 +98,12 @@ export class DocumentRuntime {
 
   private readonly redoStack: DocumentCommand[] = [];
 
+  /** Serializes content commits and every structural command. */
+  private readonly queue = createSerialQueue();
+
   private contentTimer: ReturnType<typeof setTimeout> | null = null;
 
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
-
-  private commitChain: Promise<void> = Promise.resolve();
 
   private disposed = false;
 
@@ -206,9 +213,7 @@ export class DocumentRuntime {
   }
 
   commitContent(): Promise<void> {
-    const run = this.commitChain.then(() => this.commitContentInternal());
-    this.commitChain = run.catch(() => undefined);
-    return run;
+    return this.queue.run(() => this.commitContentInternal());
   }
 
   private async commitContentInternal(): Promise<void> {
@@ -243,6 +248,10 @@ export class DocumentRuntime {
   }
 
   async saveNow(): Promise<void> {
+    return this.queue.run(() => this.saveNowInternal());
+  }
+
+  private async saveNowInternal(): Promise<void> {
     if (!this.editable || this.disposed) return;
     if (this.saveTimer !== null) {
       clearTimeout(this.saveTimer);
@@ -252,7 +261,7 @@ export class DocumentRuntime {
       clearTimeout(this.contentTimer);
       this.contentTimer = null;
     }
-    await this.commitContent();
+    await this.commitContentInternal();
     this.setSaveState('saving');
     const result = await window.noteforest.save(this.packagePath);
     if (!result.ok) {
@@ -281,11 +290,15 @@ export class DocumentRuntime {
     await this.saveNow();
   }
 
-  private async runCommand(command: DocumentCommand): Promise<ApplyResult> {
+  /**
+   * Apply one command while the queue holds. Callers must already be inside
+   * `queue.run`; committing text first keeps the command's base revision exact.
+   */
+  private async runCommandInternal(command: DocumentCommand): Promise<ApplyResult> {
     if (!this.editable) {
       return { ok: false, message: 'This document is open read-only.', code: 'read-only' };
     }
-    await this.commitContent();
+    await this.commitContentInternal();
     return window.noteforest.apply(this.packagePath, command);
   }
 
@@ -312,60 +325,149 @@ export class DocumentRuntime {
 
   async applyStructural(
     command: DocumentCommand,
-    options: { focusBlockId?: string | null } = {},
+    options: { focusBlockId?: string | null; rebuild?: boolean } = {},
   ): Promise<ApplyOutcome> {
-    const result = await this.runCommand(command);
-    if (!result.ok || result.document === undefined) {
-      return { ok: false, message: result.message ?? 'The command was rejected.' };
-    }
-    await this.acceptStructural(
-      result.document,
-      result.inverse,
-      options.focusBlockId ?? this.selectedBlockId,
-    );
-    return { ok: true };
+    return this.queue.run(async () => {
+      const result = await this.runCommandInternal(command);
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'The command was rejected.' };
+      }
+      await this.acceptStructural(
+        result.document,
+        result.inverse,
+        options.focusBlockId ?? this.selectedBlockId,
+        options.rebuild === false ? { rebuild: false } : {},
+      );
+      this.reconcileEditor(options.focusBlockId ?? this.selectedBlockId);
+      const blockId = result.created?.blockIds[0];
+      const chapterId = result.created?.chapterIds[0];
+      return {
+        ok: true,
+        ...(blockId === undefined ? {} : { blockId }),
+        ...(chapterId === undefined ? {} : { chapterId }),
+      };
+    });
   }
 
-  private async createBlock(
-    command: DocumentCommand,
-    resolveFocus: (before: Document, after: Document) => string | null,
-  ): Promise<ApplyOutcome> {
-    const before = this.document;
-    const result = await this.runCommand(command);
+  /** Create one block and return the ID the core command actually created. */
+  private async createBlockNow(command: DocumentCommand): Promise<ApplyOutcome> {
+    const result = await this.runCommandInternal(command);
     if (!result.ok || result.document === undefined) {
       return { ok: false, message: result.message ?? 'Could not create the block.' };
     }
-    const createdId = resolveFocus(before, result.document);
-    await this.acceptStructural(result.document, result.inverse, createdId, { rebuild: false });
-    if (createdId !== null) {
-      const inserted = this.insertCreatedBlock(createdId);
-      if (!inserted) this.rebuildEditor(createdId);
+    const createdId = result.created?.blockIds[0] ?? null;
+    if (createdId === null) {
+      console.warn('[noteforest] block.create returned no created block ID; rebuilding the editor');
+      await this.acceptStructural(result.document, result.inverse, null);
+      this.reconcileEditor(null);
+      return { ok: true };
     }
-    return { ok: true, ...(createdId === null ? {} : { blockId: createdId }) };
+    await this.acceptStructural(result.document, result.inverse, createdId, { rebuild: false });
+    let inserted = false;
+    try {
+      inserted = this.insertCreatedBlock(createdId);
+    } catch (error) {
+      console.warn('[noteforest] targeted block insertion failed', error);
+      inserted = false;
+    }
+    if (!inserted) this.rebuildEditor(createdId);
+    this.reconcileEditor(createdId);
+    return { ok: true, blockId: createdId };
+  }
+
+  private createBlock(command: DocumentCommand): Promise<ApplyOutcome> {
+    return this.queue.run(() => this.createBlockNow(command));
   }
 
   async addChild(parentId: string): Promise<ApplyOutcome> {
-    return this.createBlock(
-      { type: 'block.create', placement: { kind: 'child', parentBlockId: parentId } },
-      (before, after) => newestBlockId(before, after),
-    );
+    return this.createBlock({
+      type: 'block.create',
+      placement: { kind: 'child', parentBlockId: parentId },
+    });
   }
 
   async addSibling(blockId: string): Promise<ApplyOutcome> {
-    return this.createBlock(
-      {
-        type: 'block.create',
-        placement: { kind: 'sibling', siblingBlockId: blockId, after: true },
-      },
-      (before, after) => newestBlockId(before, after),
-    );
+    return this.createBlock({
+      type: 'block.create',
+      placement: { kind: 'sibling', siblingBlockId: blockId, after: true },
+    });
   }
 
   async addTopLevel(chapterId: string): Promise<ApplyOutcome> {
-    return this.createBlock(
-      { type: 'block.create', placement: { kind: 'top-level', chapterId } },
-      (before, after) => newestBlockId(before, after),
-    );
+    return this.createBlock({
+      type: 'block.create',
+      placement: { kind: 'top-level', chapterId },
+    });
+  }
+
+  /**
+   * Verify the ProseMirror buffer and the canonical document agree on the set
+   * of block IDs. A mismatch is never kept: rebuild from canonical, drop the
+   * canvas-only nodes, and surface a quiet recovery notice.
+   */
+  reconcileEditor(focusBlockId: string | null = null): boolean {
+    const editor = this.editor;
+    if (editor === null) return false;
+    const canonical = new Set(Object.keys(this.document.blocks));
+    const inEditor = new Set<string>();
+    let placeholderMismatch = false;
+    let otherMismatch = false;
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'branchBlock') {
+        const id = node.attrs['blockId'];
+        if (typeof id !== 'string' || id.length === 0) {
+          // ProseMirror auto-fill can leave a placeholder branchBlock after a
+          // targeted delete. It must never survive as a canvas-only block.
+          placeholderMismatch = true;
+        } else if (id !== '__empty__') {
+          inEditor.add(id);
+        }
+      }
+      return true;
+    });
+    if (canonical.size !== inEditor.size) otherMismatch = true;
+    if (!otherMismatch) {
+      for (const id of canonical) {
+        if (!inEditor.has(id)) {
+          otherMismatch = true;
+          break;
+        }
+      }
+    }
+    if (!otherMismatch) {
+      for (const id of inEditor) {
+        if (!canonical.has(id)) {
+          otherMismatch = true;
+          break;
+        }
+      }
+    }
+    // Also inspect the rendered canvas: a stale node view must not survive.
+    if (!otherMismatch && editor.view !== undefined) {
+      for (const element of editor.view.dom.querySelectorAll('[data-block-card]')) {
+        const id = element.getAttribute('data-block-card');
+        if (id === null || id.length === 0 || !canonical.has(id)) {
+          otherMismatch = true;
+          break;
+        }
+      }
+    }
+    if (!placeholderMismatch && !otherMismatch) return false;
+    const extra = [...inEditor].filter((id) => !canonical.has(id));
+    const missing = [...canonical].filter((id) => !inEditor.has(id));
+    console.warn('[noteforest] editor/canonical block mismatch; rebuilding', { extra, missing });
+    if (otherMismatch) {
+      this.repairNotice = 'The editor was rebuilt from the saved document to remove an untracked block.';
+    }
+    this.rebuildEditor(focusBlockId);
+    this.notify();
+    return true;
+  }
+
+  clearRepairNotice(): void {
+    if (this.repairNotice === null) return;
+    this.repairNotice = null;
+    this.notify();
   }
 
   /** Insert one new branch block without rebuilding the whole editor. */
@@ -470,8 +572,33 @@ export class DocumentRuntime {
     if (focusBlockId !== null) this.focusBlock(focusBlockId);
   }
 
-  focusBlock(blockId: string, options: { select?: boolean; scroll?: boolean } = {}): void {
+  /**
+   * Change the first text block's type inside one block (Text/H1/H2/H3) without
+   * touching block identity. Used by the command palette so a heading can
+   * always be escaped even when focus is in the palette.
+   */
+  setBlockType(blockId: string, level: 1 | 2 | 3 | null): boolean {
     const editor = this.editor;
+    if (editor === null) return false;
+    let blockPosition: number | null = null;
+    editor.state.doc.descendants((node, position) => {
+      if (blockPosition !== null) return false;
+      if (node.type.name === 'branchBlock' && node.attrs['blockId'] === blockId) {
+        blockPosition = position;
+        return false;
+      }
+      return true;
+    });
+    if (blockPosition === null) return false;
+    const $body = editor.state.doc.resolve((blockPosition as number) + 2);
+    const selection = TextSelection.near($body, 1);
+    const chain = editor.chain().focus().setTextSelection(selection.from);
+    if (level === null) chain.setParagraph().run();
+    else chain.setHeading({ level }).run();
+    return true;
+  }
+
+  focusBlock(blockId: string, options: { select?: boolean; scroll?: boolean } = {}): void {    const editor = this.editor;
     if (editor === null) return;
     let position: number | null = null;
     editor.state.doc.descendants((node, pos) => {
@@ -544,43 +671,49 @@ export class DocumentRuntime {
     blockId: string,
     target: { kind: 'top-level'; chapterId: string } | { kind: 'child'; parentBlockId: string },
   ): Promise<ApplyOutcome> {
-    const oldParent = parentIdOf(this.document, blockId);
-    const result = await this.runCommand({
-      type: 'block.move',
-      blockId,
-      to:
-        target.kind === 'child'
-          ? { kind: 'child', parentBlockId: target.parentBlockId }
-          : { kind: 'top-level', chapterId: target.chapterId },
+    return this.queue.run(async () => {
+      const oldParent = parentIdOf(this.document, blockId);
+      const result = await this.runCommandInternal({
+        type: 'block.move',
+        blockId,
+        to:
+          target.kind === 'child'
+            ? { kind: 'child', parentBlockId: target.parentBlockId }
+            : { kind: 'top-level', chapterId: target.chapterId },
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not move the block.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
+      if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
+        this.rebuildEditor(blockId);
+      }
+      this.reconcileEditor(blockId);
+      return { ok: true };
     });
-    if (!result.ok || result.document === undefined) {
-      return { ok: false, message: result.message ?? 'Could not move the block.' };
-    }
-    await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
-    if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
-      this.rebuildEditor(blockId);
-    }
-    return { ok: true };
   }
 
   async outdent(blockId: string): Promise<ApplyOutcome> {
-    const parent = parentIdOf(this.document, blockId);
-    if (parent === null) return { ok: false, message: 'This block is already top-level.' };
-    const chapterId = chapterIdOf(this.document, parent);
-    if (chapterId === null) return { ok: false, message: 'Block has no chapter.' };
-    const result = await this.runCommand({
-      type: 'block.move',
-      blockId,
-      to: { kind: 'sibling', siblingBlockId: parent, after: true },
+    return this.queue.run(async () => {
+      const parent = parentIdOf(this.document, blockId);
+      if (parent === null) return { ok: false, message: 'This block is already top-level.' };
+      const chapterId = chapterIdOf(this.document, parent);
+      if (chapterId === null) return { ok: false, message: 'Block has no chapter.' };
+      const result = await this.runCommandInternal({
+        type: 'block.move',
+        blockId,
+        to: { kind: 'sibling', siblingBlockId: parent, after: true },
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not outdent the block.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
+      if (!this.moveBlockNodeToNewParent(blockId, parent)) {
+        this.rebuildEditor(blockId);
+      }
+      this.reconcileEditor(blockId);
+      return { ok: true };
     });
-    if (!result.ok || result.document === undefined) {
-      return { ok: false, message: result.message ?? 'Could not outdent the block.' };
-    }
-    await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
-    if (!this.moveBlockNodeToNewParent(blockId, parent)) {
-      this.rebuildEditor(blockId);
-    }
-    return { ok: true };
   }
 
   /** Move one existing branchBlock node to its new parent without rebuilding. */
@@ -721,19 +854,22 @@ export class DocumentRuntime {
     targetId: string,
     after: boolean,
   ): Promise<ApplyOutcome> {
-    const result = await this.runCommand({
-      type: 'block.move',
-      blockId,
-      to: { kind: 'sibling', siblingBlockId: targetId, after },
+    return this.queue.run(async () => {
+      const result = await this.runCommandInternal({
+        type: 'block.move',
+        blockId,
+        to: { kind: 'sibling', siblingBlockId: targetId, after },
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not reorder the block.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
+      if (!this.moveBlockNodeInEditor(blockId, targetId, after)) {
+        this.rebuildEditor(blockId);
+      }
+      this.reconcileEditor(blockId);
+      return { ok: true };
     });
-    if (!result.ok || result.document === undefined) {
-      return { ok: false, message: result.message ?? 'Could not reorder the block.' };
-    }
-    await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
-    if (!this.moveBlockNodeInEditor(blockId, targetId, after)) {
-      this.rebuildEditor(blockId);
-    }
-    return { ok: true };
   }
 
   private moveBlockNodeInEditor(blockId: string, targetId: string, after: boolean): boolean {
@@ -770,45 +906,55 @@ export class DocumentRuntime {
     blockId: string,
     children: 'promote' | 'delete-subtree',
   ): Promise<ApplyOutcome> {
-    const oldParent = parentIdOf(this.document, blockId);
-    const siblings = siblingIds(this.document, blockId);
-    const index = siblings.indexOf(blockId);
-    const fallback = siblings[index - 1] ?? siblings[index + 1] ?? oldParent;
-    const result = await this.runCommand({ type: 'block.delete', blockId, children });
-    if (!result.ok || result.document === undefined) {
-      return { ok: false, message: result.message ?? 'Could not delete the block.' };
-    }
-    await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
-    if (!this.removeBlockNodeInEditor(blockId, oldParent, children)) {
-      this.rebuildEditor(fallback);
-    } else if (fallback !== null) {
-      this.focusBlock(fallback);
-    }
-    const chapterId = chapterIdOf(this.document, blockId);
-    const chapter = chapterId === null ? undefined : this.document.chapters.find((item) => item.id === chapterId);
-    if (chapter !== undefined && chapter.topLevelBlockIds.length === 0) {
-      await this.addTopLevel(chapter.id);
-    }
-    return { ok: true };
+    return this.queue.run(async () => {
+      const oldParent = parentIdOf(this.document, blockId);
+      const siblings = siblingIds(this.document, blockId);
+      const index = siblings.indexOf(blockId);
+      const fallback = siblings[index - 1] ?? siblings[index + 1] ?? oldParent;
+      const result = await this.runCommandInternal({ type: 'block.delete', blockId, children });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not delete the block.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
+      if (!this.removeBlockNodeInEditor(blockId, oldParent, children)) {
+        this.rebuildEditor(fallback);
+      } else if (fallback !== null) {
+        this.focusBlock(fallback);
+      }
+      this.reconcileEditor(fallback);
+      const chapterId = chapterIdOf(this.document, blockId);
+      const chapter = chapterId === null ? undefined : this.document.chapters.find((item) => item.id === chapterId);
+      if (chapter !== undefined && chapter.topLevelBlockIds.length === 0) {
+        const chapterIdForBlock = chapter.id;
+        await this.createBlockNow({
+          type: 'block.create',
+          placement: { kind: 'top-level', chapterId: chapterIdForBlock },
+        });
+      }
+      return { ok: true };
+    });
   }
 
   async deleteBranch(blockId: string): Promise<ApplyOutcome> {
-    const branch = incomingBranch(this.document, blockId);
-    if (branch === undefined) return { ok: false, message: 'This block has no incoming branch.' };
-    const oldParent = branch.source.blockId;
-    const result = await this.runCommand({
-      type: 'branch.delete',
-      branchId: branch.id,
-      targetHandling: { kind: 'promote' },
+    return this.queue.run(async () => {
+      const branch = incomingBranch(this.document, blockId);
+      if (branch === undefined) return { ok: false, message: 'This block has no incoming branch.' };
+      const oldParent = branch.source.blockId;
+      const result = await this.runCommandInternal({
+        type: 'branch.delete',
+        branchId: branch.id,
+        targetHandling: { kind: 'promote' },
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not detach the branch.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
+      if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
+        this.rebuildEditor(blockId);
+      }
+      this.reconcileEditor(blockId);
+      return { ok: true };
     });
-    if (!result.ok || result.document === undefined) {
-      return { ok: false, message: result.message ?? 'Could not detach the branch.' };
-    }
-    await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
-    if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
-      this.rebuildEditor(blockId);
-    }
-    return { ok: true };
   }
 
   private removeBlockNodeInEditor(
@@ -935,49 +1081,57 @@ export class DocumentRuntime {
   }
 
   async undoStructural(): Promise<ApplyOutcome> {
-    const inverse = this.undoStack.pop();
-    if (inverse === undefined) return { ok: false, message: 'Nothing to undo.' };
-    const result = await window.noteforest.apply(this.packagePath, inverse);
-    if (!result.ok || result.document === undefined) {
-      this.undoStack.push(inverse);
-      return { ok: false, message: result.message ?? 'Could not undo.' };
-    }
-    this.document = result.document;
-    if (result.inverse !== undefined && result.inverse !== null) {
-      this.redoStack.push(result.inverse);
-    }
-    this.dirty = true;
-    this.lastStructuralAt = Date.now();
-    this.version += 1;
-    this.setSaveState('unsaved');
-    this.recomputeHashes();
-    this.rebuildEditor(this.selectedBlockId);
-    this.notify();
-    this.scheduleSave();
-    return { ok: true };
+    return this.queue.run(async () => {
+      const inverse = this.undoStack.pop();
+      if (inverse === undefined) return { ok: false, message: 'Nothing to undo.' };
+      await this.commitContentInternal();
+      const result = await window.noteforest.apply(this.packagePath, inverse);
+      if (!result.ok || result.document === undefined) {
+        this.undoStack.push(inverse);
+        return { ok: false, message: result.message ?? 'Could not undo.' };
+      }
+      this.document = result.document;
+      if (result.inverse !== undefined && result.inverse !== null) {
+        this.redoStack.push(result.inverse);
+      }
+      this.dirty = true;
+      this.lastStructuralAt = Date.now();
+      this.version += 1;
+      this.setSaveState('unsaved');
+      this.recomputeHashes();
+      this.rebuildEditor(this.selectedBlockId);
+      this.reconcileEditor(this.selectedBlockId);
+      this.notify();
+      this.scheduleSave();
+      return { ok: true };
+    });
   }
 
   async redoStructural(): Promise<ApplyOutcome> {
-    const command = this.redoStack.pop();
-    if (command === undefined) return { ok: false, message: 'Nothing to redo.' };
-    const result = await window.noteforest.apply(this.packagePath, command);
-    if (!result.ok || result.document === undefined) {
-      this.redoStack.push(command);
-      return { ok: false, message: result.message ?? 'Could not redo.' };
-    }
-    this.document = result.document;
-    if (result.inverse !== undefined && result.inverse !== null) {
-      this.undoStack.push(result.inverse);
-    }
-    this.dirty = true;
-    this.lastStructuralAt = Date.now();
-    this.version += 1;
-    this.setSaveState('unsaved');
-    this.recomputeHashes();
-    this.rebuildEditor(this.selectedBlockId);
-    this.notify();
-    this.scheduleSave();
-    return { ok: true };
+    return this.queue.run(async () => {
+      const command = this.redoStack.pop();
+      if (command === undefined) return { ok: false, message: 'Nothing to redo.' };
+      await this.commitContentInternal();
+      const result = await window.noteforest.apply(this.packagePath, command);
+      if (!result.ok || result.document === undefined) {
+        this.redoStack.push(command);
+        return { ok: false, message: result.message ?? 'Could not redo.' };
+      }
+      this.document = result.document;
+      if (result.inverse !== undefined && result.inverse !== null) {
+        this.undoStack.push(result.inverse);
+      }
+      this.dirty = true;
+      this.lastStructuralAt = Date.now();
+      this.version += 1;
+      this.setSaveState('unsaved');
+      this.recomputeHashes();
+      this.rebuildEditor(this.selectedBlockId);
+      this.reconcileEditor(this.selectedBlockId);
+      this.notify();
+      this.scheduleSave();
+      return { ok: true };
+    });
   }
 
   /** Test/diagnostic hook: rebuild the editor after a real structural change. */
@@ -1010,11 +1164,4 @@ export class DocumentRuntime {
     this.listeners.clear();
     this.editor = null;
   }
-}
-
-function newestBlockId(before: Document, after: Document): string | null {
-  for (const id of Object.keys(after.blocks)) {
-    if (before.blocks[id] === undefined) return id;
-  }
-  return null;
 }

@@ -6,7 +6,7 @@
  * in the main process, and only typed snapshots/cross the bridge.
  */
 
-import type { Document, DocumentCommand } from '@noteforest/core';
+import type { CreatedIds, Document, DocumentCommand } from '@noteforest/core';
 
 export type OpenStatus = 'editable' | 'read-only';
 
@@ -93,6 +93,7 @@ export interface ApplyResult {
   ok: boolean;
   document?: Document;
   revision?: number;
+  created?: CreatedIds;
   inverse?: DocumentCommand | null;
   message?: string;
   code?: string;

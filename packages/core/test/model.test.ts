@@ -51,7 +51,7 @@ function documentWithTree() {
 }
 
 describe('document factory', () => {
-  it('creates a valid A4 portrait document with one chapter and revision 0', () => {
+  it('creates a valid A4 landscape document with one chapter and revision 0', () => {
     const context = deterministicContext();
     const document = createDocument({ title: 'Linear algebra' }, context);
     expect(document.schemaVersion).toBe(1);
@@ -60,7 +60,7 @@ describe('document factory', () => {
     expect(document.createdAt).toBe(document.updatedAt);
     expect(document.pageSetup).toEqual({
       size: 'A4',
-      orientation: 'portrait',
+      orientation: 'landscape',
       margins: { top: 20, right: 20, bottom: 20, left: 20 },
     });
     expect(document.chapters).toHaveLength(1);
@@ -71,6 +71,15 @@ describe('document factory', () => {
     expect(document.assets).toEqual({});
     expect(document.annotations).toEqual([]);
     expect(validateDocument(document).ok).toBe(true);
+  });
+
+  it('keeps an explicitly requested portrait orientation', () => {
+    const portrait = createDocument(
+      { pageSetup: { orientation: 'portrait' } },
+      deterministicContext(),
+    );
+    expect(portrait.pageSetup.orientation).toBe('portrait');
+    expect(validateDocument(portrait).ok).toBe(true);
   });
 
   it('generates distinct UUIDs and honours page setup overrides', () => {
@@ -91,7 +100,12 @@ describe('document factory', () => {
   it('rejects invalid page margins at creation', () => {
     expect(() => createDocument({ pageSetup: { margins: { top: -1 } } })).toThrow(RangeError);
     expect(() =>
-      createDocument({ pageSetup: { margins: { left: 120, right: 120 } } }),
+      createDocument({
+        pageSetup: { orientation: 'portrait', margins: { left: 120, right: 120 } },
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      createDocument({ pageSetup: { margins: { left: 150, right: 150 } } }),
     ).toThrow(RangeError);
   });
 

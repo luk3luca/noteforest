@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import type { MenuCommand } from '../../shared/api';
 import { TitleBar } from './shell/TitleBar';
-import { TabBar } from './shell/TabBar';
 import { Workspace } from './shell/Workspace';
 import { StatusBar } from './shell/StatusBar';
 import { CommandPalette } from './shell/CommandPalette';
@@ -226,12 +225,15 @@ export function App(): JSX.Element {
             packagePath: item.packagePath,
             title: item.document.title,
             blocks: Object.keys(item.document.blocks).length,
+            blockIds: Object.keys(item.document.blocks),
             branches: Object.keys(item.document.branches).length,
             saveState: item.saveState,
             dirty: item.dirty,
             selectedBlockId: item.selectedBlockId,
             collapsed: [...item.collapsed],
             revision: item.document.revision,
+            orientation: item.document.pageSetup.orientation,
+            chapters: item.document.chapters.length,
           })),
         };
       },
@@ -287,7 +289,6 @@ export function App(): JSX.Element {
   return (
     <div className="nf-app">
       <TitleBar />
-      <TabBar />
       <Workspace />
       <StatusBar />
       <CommandPalette />

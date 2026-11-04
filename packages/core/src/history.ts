@@ -115,6 +115,12 @@ export class DocumentHistory {
         anchorIds: [],
         assetIds: [],
       },
+      created: {
+        documentIds: [],
+        chapterIds: [],
+        blockIds: [],
+        branchIds: [],
+      },
       inverse: null,
       warnings: [],
     };

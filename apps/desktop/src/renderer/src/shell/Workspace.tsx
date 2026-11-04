@@ -6,6 +6,7 @@ import { getRuntime, useRegistry } from '../state/registry';
 import { closeTab, createNewDocument, openPath } from '../actions';
 import { DocumentEditor } from '../editor/DocumentEditor';
 import { Sidebar } from './Sidebar';
+import { TabBar } from './TabBar';
 
 function EmptyState(): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);
@@ -72,21 +73,24 @@ export function Workspace(): JSX.Element {
   useRegistry();
 
   const editor = (
-    <div className="nf-editor-area">
-      {tabs.length === 0 ? <EmptyState /> : null}
-      {tabs.map((tab) => {
-        const active = tab.packagePath === activeTab;
-        const runtime = getRuntime(tab.packagePath);
-        const missing = tab.missing === true || runtime === null;
-        if (missing) {
-          return active ? (
-            <MissingDocument key={tab.packagePath} title={tab.title} packagePath={tab.packagePath} />
-          ) : null;
-        }
-        return (
-          <DocumentEditor key={tab.packagePath} runtime={runtime} active={active} />
-        );
-      })}
+    <div className="nf-editor-column">
+      <TabBar />
+      <div className="nf-editor-area">
+        {tabs.length === 0 ? <EmptyState /> : null}
+        {tabs.map((tab) => {
+          const active = tab.packagePath === activeTab;
+          const runtime = getRuntime(tab.packagePath);
+          const missing = tab.missing === true || runtime === null;
+          if (missing) {
+            return active ? (
+              <MissingDocument key={tab.packagePath} title={tab.title} packagePath={tab.packagePath} />
+            ) : null;
+          }
+          return (
+            <DocumentEditor key={tab.packagePath} runtime={runtime} active={active} />
+          );
+        })}
+      </div>
     </div>
   );
 

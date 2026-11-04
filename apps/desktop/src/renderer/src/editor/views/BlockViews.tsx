@@ -1,6 +1,14 @@
 import { ChevronRight, GripVertical, Plus } from 'lucide-react';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
-import { useCallback, type MouseEvent, type PointerEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from 'react';
 import { getEditorBindings, setDragBlockId } from '../bindings';
 import { useEditorUi } from '../editor-ui';
 
@@ -16,15 +24,90 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
   const title = stringAttr(node.attrs['title'], 'Untitled chapter');
   const chapterId = stringAttr(node.attrs['chapterId']);
   const bindings = getEditorBindings(editor);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(title);
+  const committing = useRef(false);
+
+  useEffect(() => {
+    if (!editing) setValue(title);
+  }, [title, editing]);
+
+  const commit = useCallback(() => {
+    if (committing.current) return;
+    committing.current = true;
+    const clean = value.trim();
+    setEditing(false);
+    if (bindings === null || clean === title.trim()) {
+      setValue(title);
+      committing.current = false;
+      return;
+    }
+    bindings.report(
+      bindings.runtime
+        .applyStructural({
+          type: 'chapter.rename',
+          chapterId,
+          title: clean.length === 0 ? null : clean,
+        })
+        .finally(() => {
+          committing.current = false;
+        }),
+    );
+  }, [bindings, chapterId, title, value]);
+
+  const cancel = useCallback(() => {
+    setValue(title);
+    setEditing(false);
+  }, [title]);
+
   const onContextMenu = (event: MouseEvent<HTMLDivElement>): void => {
     event.preventDefault();
     bindings?.openChapterMenu(chapterId, { x: event.clientX, y: event.clientY });
   };
+
+  const onTitleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancel();
+    }
+  };
+
   return (
     <NodeViewWrapper className="nf-chapter" data-chapter-id={chapterId}>
       <div className="nf-chapter-head" contentEditable={false} onContextMenu={onContextMenu}>
         <span className="nf-chapter-label">Chapter</span>
-        <h2 className="nf-chapter-title">{title}</h2>
+        {editing ? (
+          <input
+            className="nf-chapter-title-input"
+            value={value}
+            autoFocus
+            aria-label="Chapter title"
+            onChange={(event) => setValue(event.target.value)}
+            onBlur={commit}
+            onKeyDown={onTitleKeyDown}
+            onFocus={(event) => event.currentTarget.select()}
+          />
+        ) : (
+          <button
+            type="button"
+            className="nf-chapter-title"
+            title="Edit chapter title"
+            onClick={() => {
+              setValue(title);
+              setEditing(true);
+            }}
+            onDoubleClick={() => {
+              setValue(title);
+              setEditing(true);
+            }}
+          >
+            {title}
+          </button>
+        )}
       </div>
       <NodeViewContent className="nf-chapter-blocks" />
     </NodeViewWrapper>
@@ -134,17 +217,36 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         >
           <GripVertical size={14} strokeWidth={1.5} aria-hidden="true" />
         </button>
-        <button
-          type="button"
-          className="nf-gutter-button"
-          title="Add child block (⌘⏎)"
-          aria-label="Add child block"
-          onClick={() => bindings?.report(bindings.runtime.addChild(blockId))}
-        >
-          <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
       </div>
       <NodeViewContent className="nf-block-prose" />
+      <button
+        type="button"
+        className="nf-add-edge nf-add-child"
+        contentEditable={false}
+        title="Add child"
+        aria-label="Add child block"
+        data-add-child={blockId}
+        onClick={(event) => {
+          event.stopPropagation();
+          bindings?.report(bindings.runtime.addChild(blockId));
+        }}
+      >
+        <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="nf-add-edge nf-add-sibling"
+        contentEditable={false}
+        title="Add sibling"
+        aria-label="Add sibling block"
+        data-add-sibling={blockId}
+        onClick={(event) => {
+          event.stopPropagation();
+          bindings?.report(bindings.runtime.addSibling(blockId));
+        }}
+      >
+        <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
+      </button>
       {childCount > 0 ? (
         <div className="nf-block-meta" contentEditable={false}>
           <button
