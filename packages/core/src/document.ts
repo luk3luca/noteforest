@@ -11,7 +11,7 @@ import type {
   PageOrientation,
   PageSetup,
 } from './types.js';
-import { DEFAULT_MARGINS_MM, CURRENT_SCHEMA_VERSION, emptyContent } from './types.js';
+import { DEFAULT_MARGINS_MM, DEFAULT_PAGE_ORIENTATION, CURRENT_SCHEMA_VERSION, emptyContent } from './types.js';
 
 export interface CreateDocumentInput {
   title?: string;
@@ -34,7 +34,7 @@ function pageSetupFromInput(input: CreateDocumentInput): PageSetup {
       throw new RangeError(`Invalid page margin "${side}": ${String(value)}`);
     }
   }
-  const orientation = input.pageSetup?.orientation ?? 'portrait';
+  const orientation = input.pageSetup?.orientation ?? DEFAULT_PAGE_ORIENTATION;
   if (orientation !== 'portrait' && orientation !== 'landscape') {
     throw new RangeError(`Invalid orientation: ${String(orientation)}`);
   }

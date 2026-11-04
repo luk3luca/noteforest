@@ -240,6 +240,7 @@ export async function applyCommand(
     ok: true,
     document: result.document,
     revision: result.revision,
+    created: result.created,
     inverse: result.inverse,
     ...(current === null ? {} : {}),
   };

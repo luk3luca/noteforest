@@ -61,6 +61,9 @@ describe('document and chapter commands', () => {
     expect(created.revision).toBe(0);
     expect(created.affected.documentIds).toEqual([created.document.id]);
     expect(created.affected.chapterIds).toEqual([created.document.chapters[0]?.id]);
+    expect(created.created.documentIds).toEqual([created.document.id]);
+    expect(created.created.chapterIds).toEqual([created.document.chapters[0]?.id]);
+    expect(created.created.blockIds).toEqual([]);
     expect(created.inverse).toBeNull();
   });
 
@@ -163,6 +166,32 @@ describe('block commands create explicit primary arrow data', () => {
     expect(validateDocument(document).ok).toBe(true);
   });
 
+  it('reports created block and branch IDs from the command result', () => {
+    const { context, document, chapterId } = buildTree();
+    const created = run(
+      document,
+      { type: 'block.create', placement: { kind: 'top-level', chapterId } },
+      context,
+    );
+    const blockId = created.created.blockIds[0];
+    expect(blockId).toBeDefined();
+    expect(created.document.blocks[blockId ?? '']).toBeDefined();
+    expect(created.document.chapters[0]?.topLevelBlockIds).toContain(blockId);
+    expect(created.created.branchIds).toEqual([]);
+
+    const child = run(
+      created.document,
+      {
+        type: 'block.create',
+        placement: { kind: 'child', parentBlockId: blockId ?? '' },
+      },
+      context,
+    );
+    expect(child.created.blockIds).toHaveLength(1);
+    expect(child.created.branchIds).toHaveLength(1);
+    expect(primaryParentId(child.document, child.created.blockIds[0] ?? '')).toBe(blockId);
+  });
+
   it('creates siblings before and after the reference block', () => {
     const { context, document, a, a1 } = buildTree();
     const before = run(
@@ -174,7 +203,9 @@ describe('block commands create explicit primary arrow data', () => {
       },
       context,
     );
-    const newBefore = before.affected.blockIds.find((id) => !(id in document.blocks));
+    const newBefore = before.created.blockIds[0];
+    expect(newBefore).toBeDefined();
+    expect(before.created.branchIds).toHaveLength(1);
     expect(directChildren(before.document, a)[0]).toBe(newBefore);
 
     const after = run(
@@ -186,7 +217,8 @@ describe('block commands create explicit primary arrow data', () => {
       },
       context,
     );
-    const newAfter = after.affected.blockIds.find((id) => !(id in before.document.blocks));
+    const newAfter = after.created.blockIds[0];
+    expect(newAfter).toBeDefined();
     expect(directChildren(after.document, a)).toEqual([newBefore, a1, newAfter]);
   });
 

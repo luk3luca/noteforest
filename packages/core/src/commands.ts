@@ -61,11 +61,23 @@ export interface AffectedIds {
   assetIds: string[];
 }
 
+/**
+ * IDs created by a command. Structural callers must use these instead of
+ * inferring the new block from a before/after document diff.
+ */
+export interface CreatedIds {
+  documentIds: string[];
+  chapterIds: string[];
+  blockIds: string[];
+  branchIds: string[];
+}
+
 export interface CommandSuccess {
   ok: true;
   document: Document;
   revision: number;
   affected: AffectedIds;
+  created: CreatedIds;
   inverse: DocumentCommand | null;
   warnings: string[];
 }
@@ -321,6 +333,10 @@ class ChangeSet {
   private readonly branchIds = new Set<string>();
   private readonly anchorIds = new Set<string>();
   private readonly assetIds = new Set<string>();
+  private readonly createdDocumentIds = new Set<string>();
+  private readonly createdChapterIds = new Set<string>();
+  private readonly createdBlockIds = new Set<string>();
+  private readonly createdBranchIds = new Set<string>();
 
   document(id: string): void {
     this.documentIds.add(id);
@@ -337,6 +353,21 @@ class ChangeSet {
   anchor(id: string): void {
     this.anchorIds.add(id);
   }
+  asset(id: string): void {
+    this.assetIds.add(id);
+  }
+  createdDocument(id: string): void {
+    this.createdDocumentIds.add(id);
+  }
+  createdChapter(id: string): void {
+    this.createdChapterIds.add(id);
+  }
+  createdBlock(id: string): void {
+    this.createdBlockIds.add(id);
+  }
+  createdBranch(id: string): void {
+    this.createdBranchIds.add(id);
+  }
 
   toJSON(): AffectedIds {
     return {
@@ -346,6 +377,15 @@ class ChangeSet {
       branchIds: [...this.branchIds].sort(),
       anchorIds: [...this.anchorIds].sort(),
       assetIds: [...this.assetIds].sort(),
+    };
+  }
+
+  createdJSON(): CreatedIds {
+    return {
+      documentIds: [...this.createdDocumentIds].sort(),
+      chapterIds: [...this.createdChapterIds].sort(),
+      blockIds: [...this.createdBlockIds].sort(),
+      branchIds: [...this.createdBranchIds].sort(),
     };
   }
 }
@@ -454,6 +494,7 @@ function createBranchRecord(
   };
   document.branches[id] = branch;
   changes.branch(id);
+  changes.createdBranch(id);
   return branch;
 }
 
@@ -737,6 +778,7 @@ export function executeCommand(
     document: working,
     revision: working.revision,
     affected: changes.toJSON(),
+    created: changes.createdJSON(),
     inverse,
     warnings: report.warnings.map((issue) => issue.message),
   };
@@ -800,13 +842,18 @@ function createDocumentCommand(
     };
   }
   changes.document(created.id);
+  changes.createdDocument(created.id);
   const chapter = created.chapters[0];
-  if (chapter !== undefined) changes.chapter(chapter.id);
+  if (chapter !== undefined) {
+    changes.chapter(chapter.id);
+    changes.createdChapter(chapter.id);
+  }
   return {
     ok: true,
     document: created,
     revision: created.revision,
     affected: changes.toJSON(),
+    created: changes.createdJSON(),
     inverse: null,
     warnings: report.warnings.map((issue) => issue.message),
   };
@@ -858,6 +905,7 @@ function applyToClone(
       if (command.title !== undefined) chapter.title = command.title;
       document.chapters.splice(index, 0, chapter);
       changes.chapter(chapterId);
+      changes.createdChapter(chapterId);
       return {
         type: 'chapter.delete',
         chapterId,
@@ -956,6 +1004,7 @@ function applyToClone(
       if (command.border !== undefined) block.border = command.border;
       document.blocks[blockId] = block;
       changes.block(blockId);
+      changes.createdBlock(blockId);
 
       if (placement.kind === 'top-level') {
         const chapter = chapterOrFail(document, placement.chapterId);
