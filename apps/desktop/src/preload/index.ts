@@ -3,6 +3,7 @@ import type {
   ApplyResult,
   BootstrapResult,
   CreateDocumentResult,
+  FlushResult,
   LibraryView,
   MenuCommand,
   NoteForestApi,
@@ -12,6 +13,7 @@ import type {
   SessionState,
   WindowState,
 } from '../shared/api.js';
+import { normalizeFlushResult } from '../shared/flush.js';
 
 const api: NoteForestApi = {
   bootstrap: (): Promise<BootstrapResult> => ipcRenderer.invoke('app:bootstrap'),
@@ -40,13 +42,21 @@ const api: NoteForestApi = {
     ipcRenderer.on('menu:command', listener);
     return () => ipcRenderer.removeListener('menu:command', listener);
   },
-  onRequestFlush: (handler: () => Promise<void>): (() => void) => {
+  onRequestFlush: (handler: () => Promise<FlushResult>): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, requestId: string): void => {
       void Promise.resolve()
         .then(handler)
-        .catch(() => undefined)
-        .finally(() => {
-          ipcRenderer.send('app:flush-done', requestId);
+        .then((result) => {
+          ipcRenderer.send('app:flush-done', requestId, normalizeFlushResult(result));
+        })
+        .catch((error: unknown) => {
+          // A rejected handler is a failed flush, never an acknowledged one.
+          const message =
+            error instanceof Error && error.message.length > 0 ? error.message : String(error);
+          ipcRenderer.send('app:flush-done', requestId, {
+            status: 'error',
+            error: message,
+          } satisfies FlushResult);
         });
     };
     ipcRenderer.on('app:request-flush', listener);

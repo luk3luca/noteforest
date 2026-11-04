@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
-import type { MenuCommand } from '../../shared/api';
+import type { FlushResult, MenuCommand } from '../../shared/api';
 import { TitleBar } from './shell/TitleBar';
 import { Workspace } from './shell/Workspace';
 import { StatusBar } from './shell/StatusBar';
@@ -24,6 +24,50 @@ import {
 } from './actions';
 import { buildSession } from './state/session';
 import { perfSnapshot, summarize } from './lib/perf';
+
+type FlushTestMode = 'normal' | 'error' | 'hang';
+
+/** Test-only override, reachable through `window.__noteforestTest`. */
+let flushTestMode: FlushTestMode = 'normal';
+
+function flushErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.length > 0) return error.message;
+  return String(error);
+}
+
+/**
+ * Commit every open document before close/quit.
+ *
+ * `ok` is returned only when every document committed and no document is
+ * read-only or in a failed-save state. Reasons are aggregated with the
+ * document title so the native dialog can name what blocked the close.
+ */
+async function flushOpenDocuments(): Promise<FlushResult> {
+  const problems: string[] = [];
+  for (const runtime of allRuntimes()) {
+    if (runtime.status === 'read-only') {
+      const reason =
+        runtime.readOnlyReason === undefined ? '' : ` (${runtime.readOnlyReason})`;
+      problems.push(`${runtime.title}: open read-only${reason}`);
+      continue;
+    }
+    try {
+      await runtime.commitPending();
+      if (runtime.saveState === 'error') {
+        problems.push(`${runtime.title}: ${runtime.saveError ?? 'the last save failed'}`);
+      }
+    } catch (error) {
+      problems.push(`${runtime.title}: ${flushErrorMessage(error)}`);
+    }
+  }
+  if (problems.length > 0) return { status: 'error', error: problems.join('\n') };
+  try {
+    await window.noteforest.saveSession(buildSession());
+  } catch (error) {
+    return { status: 'error', error: `Session state: ${flushErrorMessage(error)}` };
+  }
+  return { status: 'ok' };
+}
 
 export function App(): JSX.Element {
   const ready = useShell((state) => state.ready);
@@ -98,8 +142,13 @@ export function App(): JSX.Element {
   useEffect(() => {
     const offMenu = window.noteforest.onMenu((command) => dispatch(command));
     const offFlush = window.noteforest.onRequestFlush(async () => {
-      await Promise.allSettled(allRuntimes().map((item) => item.commitPending()));
-      await window.noteforest.saveSession(buildSession());
+      if (flushTestMode === 'hang') {
+        return new Promise<FlushResult>(() => undefined);
+      }
+      if (flushTestMode === 'error') {
+        throw new Error('Forced flush failure (test).');
+      }
+      return flushOpenDocuments();
     });
     return () => {
       offMenu();
@@ -273,6 +322,9 @@ export function App(): JSX.Element {
       },
       openPath: async (packagePath: string) => openPath(packagePath),
       flushSession: () => window.noteforest.saveSession(buildSession()),
+      setFlushMode: (mode: FlushTestMode) => {
+        flushTestMode = mode;
+      },
       editorCheck: () => {
         return allRuntimes().map((item) => {
           try {

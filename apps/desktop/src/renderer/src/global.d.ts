@@ -9,6 +9,7 @@ declare global {
       state: () => unknown;
       openPath: (packagePath: string) => Promise<boolean>;
       flushSession: () => Promise<void>;
+      setFlushMode: (mode: 'normal' | 'error' | 'hang') => void;
       seed: (kind: 'demo' | 'performance' | 'performance-1000') => Promise<string>;
       editorCheck?: () => unknown;
       editorJson?: () => unknown;

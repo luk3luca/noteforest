@@ -80,7 +80,15 @@ export function createHarness({ tempRoot }) {
     const current = app;
     app = undefined;
     page = undefined;
-    const child = current.process();
+    let child;
+    try {
+      child = current.process();
+    } catch {
+      // The app already quit (for example the quit-path test); the Playwright
+      // connection is closed and there is no process handle left to inspect.
+      await current.close().catch(() => undefined);
+      return;
+    }
     if (child.exitCode !== null || child.signalCode !== null) {
       await current.close().catch(() => undefined);
       return;
