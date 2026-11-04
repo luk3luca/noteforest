@@ -58,6 +58,34 @@ function backupsDirFor(packagePath, supportDir) {
   return resolve(supportDir, 'backups', digest);
 }
 
+async function writeStaleLock(env, packagePath, token = 'dead-token') {
+  const digest = createHash('sha256').update(resolve(packagePath)).digest('hex');
+  const lockPath = resolve(env.NOTEFOREST_APP_SUPPORT, 'locks', `${digest}.lock`);
+  await mkdir(resolve(env.NOTEFOREST_APP_SUPPORT, 'locks'), { recursive: true });
+  await writeFile(
+    lockPath,
+    `${JSON.stringify(
+      {
+        version: 1,
+        documentPath: resolve(packagePath),
+        pid: 2_147_483_647,
+        host: 'stale-lock-test',
+        sessionId: 'dead-session',
+        token,
+        acquiredAt: '2020-01-01T00:00:00.000Z',
+        heartbeatAt: '2020-01-01T00:00:00.000Z',
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  return lockPath;
+}
+
+function readLock(lockPath) {
+  return readFile(lockPath, 'utf8').then((text) => JSON.parse(text));
+}
+
 async function writeBackup(env, packagePath, bytes, options = {}) {
   const kind = options.kind ?? 'autosave';
   const revision = options.revision ?? 1;
@@ -389,6 +417,269 @@ describe('M2f phase 4a corrupt package recovery', () => {
     const saved = JSON.parse(await readFile(resolve(validPath, 'document.json'), 'utf8'));
     assert.match(JSON.stringify(saved), /unaffected/, 'the valid document saved normally');
     assert.equal((await readFile(documentPath)).equals(brokenBytes), true);
+    await noDialogs();
+  });
+});
+
+describe('M2f phase 4b empty chapters and stale locks', () => {
+  before(async () => {
+    await rm(tempRoot, { recursive: true, force: true });
+    await mkdir(tempRoot, { recursive: true });
+    await h.launch({
+      NOTEFOREST_LIBRARY: resolve(tempRoot, 'phase4b-source-library'),
+      NOTEFOREST_APP_SUPPORT: resolve(tempRoot, 'phase4b-source-support'),
+    });
+    page = h.page;
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    sourcePackage = (await h.state()).activeTab;
+    assert.ok(sourcePackage.length > 0, 'seed document path');
+    await h.quit();
+  });
+
+  afterEach(async () => {
+    await h.quit();
+  });
+
+  after(async () => {
+    assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
+  });
+
+  it('opens a stale lock read-only, keeps it on Cancel, and takes over only on the action', async () => {
+    const env = isolated('stale-lock');
+    const packagePath = await installValidPackage(env, 'stale-note');
+    const lockPath = await writeStaleLock(env, packagePath, 'dead-token');
+    await launchEnv(env);
+
+    await page.locator('[data-library-document][data-doc-status="ok"]').first().click();
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    const banner = page.locator('[data-stale-lock-banner="true"]');
+    await banner.waitFor({ timeout: 10000 });
+    assert.match(await banner.innerText(), /Read-only · stale lock/);
+    assert.equal(await banner.locator('[data-lock-pid="true"]').innerText(), '2147483647');
+    assert.equal(await banner.locator('[data-lock-host="true"]').innerText(), 'stale-lock-test');
+    assert.equal(await banner.locator('[data-lock-session="true"]').innerText(), 'dead-session');
+    assert.match(await banner.locator('[data-lock-heartbeat="true"]').innerText(), /2020/);
+
+    let state = await h.state();
+    let runtime = state.runtimes.find((item) => item.packagePath === packagePath);
+    assert.equal(runtime?.status, 'read-only');
+    assert.equal(runtime?.readOnlyReason, 'stale-lock');
+    assert.equal(runtime?.lock?.sessionId, 'dead-session');
+    assert.equal((await readLock(lockPath)).token, 'dead-token', 'no silent lock break');
+
+    await banner.locator('[data-stale-lock-action="cancel"]').click();
+    await banner.locator('[data-stale-lock-canceled="true"]').waitFor({ timeout: 5000 });
+    state = await h.state();
+    runtime = state.runtimes.find((item) => item.packagePath === packagePath);
+    assert.equal(runtime?.status, 'read-only');
+    assert.equal((await readLock(lockPath)).token, 'dead-token', 'Cancel leaves the lock untouched');
+
+    await banner.locator('[data-stale-lock-action="review"]').click();
+    await banner.locator('[data-stale-lock-action="take-over"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const current = window.__noteforestTest.state();
+        const item = current.runtimes.find((runtimeItem) => runtimeItem.packagePath === path);
+        return item?.status === 'editable';
+      },
+      packagePath,
+      { timeout: 10000 },
+    );
+    await page.waitForFunction(
+      () => document.querySelector('[data-stale-lock-banner="true"]') === null,
+      undefined,
+      { timeout: 10000 },
+    );
+
+    await page
+      .locator('.nf-editor[data-active="true"] [data-block-card] .nf-block-prose')
+      .first()
+      .click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' taken over');
+    await h.waitEditorText('taken over');
+    await h.waitSaved();
+
+    const saved = JSON.parse(await readFile(resolve(packagePath, 'document.json'), 'utf8'));
+    assert.match(JSON.stringify(saved), /taken over/, 'the taken-over document saves');
+    const lockAfterTakeover = await readLock(lockPath);
+    assert.notEqual(lockAfterTakeover.token, 'dead-token');
+    await noDialogs();
+  });
+
+  it('renders a legacy empty chapter after reload and recovers it with Add top-level block', async () => {
+    const env = isolated('legacy-empty');
+    const packagePath = await installValidPackage(env, 'legacy-empty-note');
+    const documentPath = resolve(packagePath, 'document.json');
+    const document = JSON.parse(await readFile(documentPath, 'utf8'));
+    document.chapters.push({
+      id: 'chapter-legacy-empty',
+      title: 'Legacy empty',
+      topLevelBlockIds: [],
+    });
+    await writeFile(documentPath, `${JSON.stringify(document, null, 2)}\n`);
+    await writeStaleLock(env, packagePath);
+
+    await launchEnv(env);
+    await page.locator('[data-library-document][data-doc-status="ok"]').first().click();
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+
+    const chapter = page.locator('.nf-chapter[data-chapter-id="chapter-legacy-empty"]');
+    await chapter.waitFor({ timeout: 10000 });
+    assert.match(await chapter.innerText(), /Legacy empty/);
+    assert.equal(await chapter.locator('[data-chapter-empty="chapter-legacy-empty"]').count(), 1);
+    assert.equal(await chapter.locator('[data-chapter-add="chapter-legacy-empty"]').count(), 1);
+    assert.equal(await page.locator('.nf-chapter[data-chapter-id]').count(), 2);
+
+    let state = await h.state();
+    let runtime = state.runtimes.find((item) => item.packagePath === packagePath);
+    assert.equal(
+      runtime?.chapterList.find((item) => item.id === 'chapter-legacy-empty')?.blocks,
+      0,
+      'the canonical legacy chapter has no blocks',
+    );
+
+    await page.locator('[data-stale-lock-action="take-over"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const current = window.__noteforestTest.state();
+        return current.runtimes.find((item) => item.packagePath === path)?.status === 'editable';
+      },
+      packagePath,
+      { timeout: 10000 },
+    );
+    await page.locator('[data-chapter-add="chapter-legacy-empty"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const current = window.__noteforestTest.state();
+        const item = current.runtimes.find((runtimeItem) => runtimeItem.packagePath === path);
+        return (
+          item?.chapterList.find((chapterItem) => chapterItem.id === 'chapter-legacy-empty')
+            ?.blocks === 1
+        );
+      },
+      packagePath,
+      { timeout: 10000 },
+    );
+    await h.waitSaved();
+
+    const saved = JSON.parse(await readFile(documentPath, 'utf8'));
+    const recovered = saved.chapters.find((item) => item.id === 'chapter-legacy-empty');
+    assert.equal(recovered?.topLevelBlockIds.length, 1);
+    assert.equal(
+      await page.locator('.nf-chapter[data-chapter-id="chapter-legacy-empty"] [data-block-card]').count(),
+      1,
+    );
+    await noDialogs();
+  });
+
+  it('rejects move, branch, and delete operations that would leave a chapter empty', async () => {
+    const env = isolated('empty-invariant');
+    const packagePath = await installValidPackage(env, 'invariant-note');
+    await launchEnv(env);
+    await page.locator('[data-library-document][data-doc-status="ok"]').first().click();
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+
+    const state = await h.state();
+    const firstChapterId = state.runtimes[0]?.chapterList[0]?.id;
+    assert.ok(firstChapterId);
+
+    const createdChapter = await page.evaluate(() =>
+      window.__noteforestTest.applyStructural({ type: 'chapter.create', title: 'Second' }),
+    );
+    assert.equal(createdChapter.ok, true);
+    const secondChapterId = createdChapter.chapterId;
+    assert.ok(secondChapterId);
+
+    const createdBlock = await page.evaluate(
+      (chapterId) =>
+        window.__noteforestTest.applyStructural({
+          type: 'block.create',
+          placement: { kind: 'top-level', chapterId },
+        }),
+      secondChapterId,
+    );
+    assert.equal(createdBlock.ok, true);
+    const secondBlockId = createdBlock.blockId;
+    assert.ok(secondBlockId);
+
+    const structure = await page.evaluate(() => window.__noteforestTest.structure());
+    const firstBlockId = structure.chapters.find((chapter) => chapter.id === firstChapterId)
+      ?.topLevelBlockIds[0];
+    assert.ok(firstBlockId);
+
+    const moveOut = await page.evaluate(
+      ({ blockId, chapterId }) =>
+        window.__noteforestTest.applyStructural({
+          type: 'block.move',
+          blockId,
+          to: { kind: 'top-level', chapterId },
+        }),
+      { blockId: secondBlockId, chapterId: firstChapterId },
+    );
+    assert.equal(moveOut.ok, false);
+    assert.match(moveOut.message, /Cannot move the last top-level block/);
+    assert.match(moveOut.message, /"Second"/);
+
+    const branchOut = await page.evaluate(
+      ({ sourceBlockId, targetBlockId }) =>
+        window.__noteforestTest.applyStructural({
+          type: 'branch.create',
+          sourceBlockId,
+          targetBlockId,
+        }),
+      { sourceBlockId: firstBlockId, targetBlockId: secondBlockId },
+    );
+    assert.equal(branchOut.ok, false);
+    assert.match(branchOut.message, /Cannot branch the last top-level block/);
+
+    const deleteLast = await page.evaluate(
+      (blockId) =>
+        window.__noteforestTest.applyStructural({
+          type: 'block.delete',
+          blockId,
+          children: 'delete-subtree',
+        }),
+      secondBlockId,
+    );
+    assert.equal(deleteLast.ok, false);
+    assert.match(deleteLast.message, /Cannot delete the last top-level block of chapter "Second"/);
+
+    const stillThere = await h.state();
+    assert.equal(
+      stillThere.runtimes[0]?.chapterList.find((chapter) => chapter.id === secondChapterId)?.blocks,
+      1,
+      'rejected operations leave the chapter intact',
+    );
+
+    const anotherRoot = await page.evaluate(
+      (chapterId) =>
+        window.__noteforestTest.applyStructural({
+          type: 'block.create',
+          placement: { kind: 'top-level', chapterId },
+        }),
+      secondChapterId,
+    );
+    assert.equal(anotherRoot.ok, true);
+
+    const allowed = await page.evaluate(
+      ({ blockId, chapterId }) =>
+        window.__noteforestTest.applyStructural({
+          type: 'block.move',
+          blockId,
+          to: { kind: 'top-level', chapterId },
+        }),
+      { blockId: secondBlockId, chapterId: firstChapterId },
+    );
+    assert.equal(allowed.ok, true, 'a move is allowed once the chapter still has a root');
+
+    const afterMove = await h.state();
+    assert.equal(
+      afterMove.runtimes[0]?.chapterList.find((chapter) => chapter.id === secondChapterId)?.blocks,
+      1,
+    );
     await noDialogs();
   });
 });

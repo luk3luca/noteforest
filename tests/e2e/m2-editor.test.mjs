@@ -1492,17 +1492,43 @@ describe('NoteForest M2 editor shell', () => {
     assert.deepEqual(await canonicalStructure(), beforeMoves, 'second outdent undo is exact');
 
     // Cross-chapter top-level -> child: undo returns the block to its original
-    // chapter and slot; redo reattaches with the same branch ID.
+    // chapter and slot; redo reattaches with the same branch ID. Chapter B
+    // keeps a second top-level block so the move cannot strand an empty
+    // chapter (phase 4b invariant).
     const chapterTwoText = 'Chapter two note';
     const chapterTwoBlockId = await addChapterWithBlock(chapterTwoText);
     await h.waitSaved();
+    const chapterTwo = (await canonicalStructure()).chapters[1];
+    assert.ok(chapterTwo !== undefined);
+    const secondChapterTwoBlock = await page.evaluate(
+      (chapterId) =>
+        window.__noteforestTest.applyStructural({
+          type: 'block.create',
+          content: {
+            type: 'doc',
+            children: [
+              {
+                type: 'paragraph',
+                children: [{ type: 'text', text: 'Chapter two second root' }],
+              },
+            ],
+          },
+          placement: { kind: 'top-level', chapterId },
+        }),
+      chapterTwo.id,
+    );
+    assert.equal(secondChapterTwoBlock.ok, true, secondChapterTwoBlock.message);
+    const secondChapterTwoBlockId = secondChapterTwoBlock.blockId;
+    assert.ok(secondChapterTwoBlockId);
+    await h.waitCanonicalBlockCount(9);
     const beforeCrossChapter = await canonicalStructure();
     assert.equal(beforeCrossChapter.chapters.length, 2);
     assert.equal(beforeCrossChapter.chapters[1]?.topLevelBlockIds[0], chapterTwoBlockId);
+    assert.equal(beforeCrossChapter.chapters[1]?.topLevelBlockIds[1], secondChapterTwoBlockId);
 
     await moveBlockThroughDialog(chapterTwoText, 'Eigenvalues');
     await h.waitEdges(4);
-    await h.waitCanonicalBlockCount(8);
+    await h.waitCanonicalBlockCount(9);
     const afterCrossMove = await canonicalStructure();
     const crossMoveBranchId = Object.keys(afterCrossMove.branches).find(
       (branchId) => beforeCrossChapter.branches[branchId] === undefined,
@@ -1512,10 +1538,10 @@ describe('NoteForest M2 editor shell', () => {
     assert.equal(afterCrossMove.branches[crossMoveBranchId].targetBlockId, chapterTwoBlockId);
     assert.equal(afterCrossMove.branches[crossMoveBranchId].role, 'primary');
     assert.equal(typeof afterCrossMove.branches[crossMoveBranchId].order, 'string');
-    assert.equal(afterCrossMove.chapters[1]?.topLevelBlockIds.length, 0);
+    assert.deepEqual(afterCrossMove.chapters[1]?.topLevelBlockIds, [secondChapterTwoBlockId]);
     const crossMoveParity = await h.parity();
     assert.equal(crossMoveParity.canvas, crossMoveParity.sidebar);
-    assert.equal(crossMoveParity.canonical, 8);
+    assert.equal(crossMoveParity.canonical, 9);
 
     await page.keyboard.press('Meta+z');
     await h.waitEdges(3);
@@ -1543,6 +1569,7 @@ describe('NoteForest M2 editor shell', () => {
 
     // Cross-chapter branch.create (no UI yet in M2): undo must return the
     // target to chapter B, not the source chapter, and redo must reuse the ID.
+    // Chapter B still has its second root, so the operation is legal.
     const attachResult = await page.evaluate(
       ({ sourceBlockId, targetBlockId }) =>
         window.__noteforestTest.applyStructural({
@@ -1561,7 +1588,7 @@ describe('NoteForest M2 editor shell', () => {
     assert.ok(attachBranchId !== undefined, 'branch.create adds a branch');
     assert.deepEqual(afterAttach.branches[attachBranchId].source, { blockId: aId });
     assert.equal(afterAttach.branches[attachBranchId].targetBlockId, chapterTwoBlockId);
-    assert.equal(afterAttach.chapters[1]?.topLevelBlockIds.length, 0);
+    assert.deepEqual(afterAttach.chapters[1]?.topLevelBlockIds, [secondChapterTwoBlockId]);
     assert.ok(
       (await h.activeRuntimeInfo()).branchIds.includes(attachBranchId),
       'the runtime exposes the created branch ID',
@@ -1578,7 +1605,7 @@ describe('NoteForest M2 editor shell', () => {
     assert.equal(attachUndone.chapters[1]?.topLevelBlockIds[0], chapterTwoBlockId);
     assert.equal(attachUndone.chapters[0]?.topLevelBlockIds.includes(chapterTwoBlockId), false);
     assert.equal(attachUndone.branches[attachBranchId], undefined);
-    assert.equal((await h.parity()).sidebar, 8, 'sidebar matches after the attach undo');
+    assert.equal((await h.parity()).sidebar, 9, 'sidebar matches after the attach undo');
 
     await page.keyboard.press('Meta+Shift+z');
     await h.waitEdges(4);

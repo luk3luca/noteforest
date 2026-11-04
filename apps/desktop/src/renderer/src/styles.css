@@ -909,6 +909,81 @@ button:disabled {
   font-size: 12px;
 }
 
+/* Stale-lock consent: metadata + explicit takeover, no automatic break. */
+.nf-stale-lock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 20px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--warning);
+  background: var(--surface-1);
+}
+
+.nf-stale-lock-copy {
+  flex: 1 1 460px;
+  min-width: 0;
+}
+
+.nf-stale-lock-title {
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.nf-stale-lock-text {
+  margin: 4px 0 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.nf-stale-lock-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  font-size: 11.5px;
+}
+
+.nf-stale-lock-meta div {
+  display: flex;
+  gap: 5px;
+}
+
+.nf-stale-lock-meta dt {
+  color: var(--text-tertiary);
+}
+
+.nf-stale-lock-meta dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-stale-lock-meta-wide {
+  flex-basis: 100%;
+}
+
+.nf-stale-lock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.nf-stale-lock-note {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-stale-lock-error {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 12px;
+}
+
 /* Persistent save-failure recovery surface. Calm, document-level, never a toast. */
 .nf-save-failure {
   display: flex;
@@ -1242,6 +1317,23 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* A legacy chapter can be empty; the editor keeps its title and this row. */
+.nf-chapter-empty {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  margin-top: 6px;
+  padding: 0 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.nf-chapter-empty-copy {
+  font-style: italic;
 }
 
 /* Per-chapter add row: it belongs to this chapter, not to "the last one". */

@@ -120,20 +120,27 @@ export function buildEditorDocument(
   const buildBlock = (id: string, depth: number): PMNode | null =>
     buildBlockNode(document, id, depth, collapsed, seen);
 
-  const chapters: PMNode[] = [];
-  for (const chapter of document.chapters) {
-    const blocks = chapter.topLevelBlockIds
+  // Every chapter is rendered, including a legacy empty one. The `chapter`
+  // node accepts `branch*`; an empty chapter is valid ProseMirror content and
+  // keeps its title plus the "Add top-level block" row alive after reload.
+  const chapters: PMNode[] = document.chapters.map((chapter) => ({
+    type: 'chapter',
+    attrs: { chapterId: chapter.id, title: chapter.title ?? 'Untitled chapter' },
+    content: chapter.topLevelBlockIds
       .map((id) => buildBlock(id, 0))
-      .filter((node): node is PMNode => node !== null);
-    if (blocks.length === 0) continue;
-    chapters.push({
-      type: 'chapter',
-      attrs: { chapterId: chapter.id, title: chapter.title ?? 'Untitled chapter' },
-      content: blocks,
-    });
-  }
+      .filter((node): node is PMNode => node !== null),
+  }));
 
-  return { type: 'doc', content: chapters.length > 0 ? chapters : [{ type: 'chapter', attrs: { chapterId: document.chapters[0]?.id ?? '', title: 'Untitled chapter' }, content: [{ type: 'branchBlock', attrs: { blockId: '__empty__', depth: 0, topLevel: true }, content: [{ type: 'blockBody', attrs: { blockId: '__empty__', depth: 0, topLevel: true }, content: [{ type: 'paragraph' }] }] }] }] };
+  // A document always has at least one chapter. The fallback only protects the
+  // editor from an invalid, chapter-less in-memory document; it never adds a
+  // synthetic block.
+  return {
+    type: 'doc',
+    content:
+      chapters.length > 0
+        ? chapters
+        : [{ type: 'chapter', attrs: { chapterId: '', title: 'Untitled chapter' }, content: [] }],
+  };
 }
 
 /**
@@ -146,7 +153,7 @@ export function extractBlockContents(editorDocument: PMNode): Map<string, { cont
   const walk = (node: PMNode): void => {
     if (node.type === 'blockBody') {
       const blockId = typeof node.attrs?.['blockId'] === 'string' ? node.attrs['blockId'] : null;
-      if (blockId !== null && blockId !== '__empty__') {
+      if (blockId !== null) {
         const children = (node.content ?? []).map(pmToContent);
         result.set(blockId, {
           content: { type: 'doc', children },

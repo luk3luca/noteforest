@@ -46,8 +46,21 @@ export interface OpenDocumentSnapshot {
   document: Document;
   status: OpenStatus;
   readOnlyReason?: string;
+  /** Existing lock metadata for a `stale-lock` or `locked` read-only open. */
+  lock?: LockInfoView;
   errors: string[];
   warnings: string[];
+}
+
+/** Lock metadata shown before the user explicitly takes over a stale lock. */
+export interface LockInfoView {
+  pid: number | null;
+  host: string | null;
+  sessionId: string | null;
+  acquiredAt: string | null;
+  heartbeatAt: string | null;
+  /** The lock file exists but is unreadable/corrupt. */
+  corrupt: boolean;
 }
 
 /**
@@ -120,6 +133,15 @@ export interface OpenDocumentFailure {
 }
 
 export type OpenDocumentResult = OpenDocumentSnapshot | RecoveryDocumentView | OpenDocumentFailure;
+
+/** Explicit stale-lock takeover: the only path that removes a stale lock. */
+export type TakeOverLockResult =
+  | { ok: true; snapshot: OpenDocumentSnapshot }
+  | {
+      ok: false;
+      message: string;
+      code?: 'not-stale' | 'locked' | 'read-only' | 'not-found' | 'unknown';
+    };
 
 export interface ApplyResult {
   ok: boolean;
@@ -322,6 +344,8 @@ export interface NoteForestApi {
   scanLibrary(): Promise<LibraryView>;
   createDocument(input: { title?: string }): Promise<CreateDocumentResult>;
   openDocument(packagePath: string): Promise<OpenDocumentResult>;
+  /** Explicitly remove a stale lock and reopen writable; never automatic. */
+  takeOverLock(packagePath: string): Promise<TakeOverLockResult>;
   apply(packagePath: string, command: DocumentCommand): Promise<ApplyResult>;
   save(packagePath: string, options?: SaveRequestOptions): Promise<SaveResult>;
   saveCopy(packagePath: string): Promise<SaveCopyResult>;

@@ -24,9 +24,11 @@ import { setEditorSelectedBlock } from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
 import { createChapter, openBlockMenu, openChapterMenu, requestBlockDelete } from '../actions';
+import { showsChapterCanvas } from '../lib/chapters';
 import { recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
 import { SaveFailureBanner } from '../shell/SaveFailureBanner';
+import { StaleLockBanner } from '../shell/StaleLockBanner';
 import { recordPerf } from '../lib/perf';
 
 interface DocumentEditorProps {
@@ -52,7 +54,11 @@ function blockIdAtSelection(editor: Editor): string | null {
 }
 
 export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.Element {
-  if (Object.keys(runtime.document.blocks).length === 0) {
+  // The new-document call to action stays for a pristine, single untitled
+  // chapter. A legacy document with named or multiple chapters must keep those
+  // chapter cards visible even when every chapter is empty.
+  const blockCount = Object.keys(runtime.document.blocks).length;
+  if (!showsChapterCanvas(runtime.document.chapters, blockCount)) {
     return (
       <div className="nf-empty-state nf-editor-empty" style={active ? undefined : { display: 'none' }}>
         <div className="nf-empty-inner">
@@ -313,7 +319,9 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
       data-active={active}
       data-focus-active={focusSet !== null}
     >
-      {runtime.status !== 'editable' ? (
+      {runtime.readOnlyReason === 'stale-lock' ? (
+        <StaleLockBanner runtime={runtime} />
+      ) : runtime.status !== 'editable' ? (
         <div className="nf-readonly-banner" role="status">
           Read-only document{runtime.readOnlyReason === undefined ? '' : ` · ${runtime.readOnlyReason}`}. Your file
           is not being modified.

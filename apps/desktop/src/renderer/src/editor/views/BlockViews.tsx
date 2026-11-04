@@ -136,6 +136,11 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
         )}
       </div>
       <NodeViewContent className="nf-chapter-blocks" />
+      {node.childCount === 0 ? (
+        <div className="nf-chapter-empty" data-chapter-empty={chapterId} contentEditable={false}>
+          <span className="nf-chapter-empty-copy">No top-level blocks yet.</span>
+        </div>
+      ) : null}
       <div className="nf-chapter-footer" contentEditable={false}>
         <button
           type="button"

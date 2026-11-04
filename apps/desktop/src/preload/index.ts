@@ -16,6 +16,7 @@ import type {
   SaveResult,
   SeedResult,
   SessionState,
+  TakeOverLockResult,
   WindowState,
 } from '../shared/api.js';
 import { normalizeFlushResult } from '../shared/flush.js';
@@ -27,6 +28,8 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('library:create', input),
   openDocument: (packagePath: string): Promise<OpenDocumentResult> =>
     ipcRenderer.invoke('document:open', packagePath),
+  takeOverLock: (packagePath: string): Promise<TakeOverLockResult> =>
+    ipcRenderer.invoke('document:take-over-lock', packagePath),
   apply: (packagePath: string, command): Promise<ApplyResult> =>
     ipcRenderer.invoke('document:apply', packagePath, command),
   save: (packagePath: string, options): Promise<SaveResult> =>

@@ -105,6 +105,33 @@ describe('core <-> ProseMirror adapter', () => {
     expect(JSON.stringify(extracted.get('A')?.content)).not.toContain('"content"');
   });
 
+  it('keeps a legacy empty chapter instead of dropping it', () => {
+    const document = fixture();
+    document.chapters.push({ id: 'c2', title: 'Legacy empty', topLevelBlockIds: [] });
+
+    const pm = buildEditorDocument(document, new Set());
+    expect(pm.content).toHaveLength(2);
+    expect(pm.content?.[1]).toEqual({
+      type: 'chapter',
+      attrs: { chapterId: 'c2', title: 'Legacy empty' },
+      content: [],
+    });
+    expect(JSON.stringify(pm)).not.toContain('__empty__');
+    expect([...extractBlockContents(pm).keys()].sort()).toEqual(['A', 'B', 'C']);
+  });
+
+  it('builds a chapter-less document without a synthetic block', () => {
+    const document = fixture();
+    document.chapters = [];
+
+    const pm = buildEditorDocument(document, new Set());
+    expect(pm.type).toBe('doc');
+    expect(pm.content).toHaveLength(1);
+    expect(pm.content?.[0]?.type).toBe('chapter');
+    expect(pm.content?.[0]?.content).toEqual([]);
+    expect(JSON.stringify(pm)).not.toContain('branchBlock');
+  });
+
   it('preserves unknown root data when merging an edited body', () => {
     const base: ContentNode = {
       type: 'doc',
