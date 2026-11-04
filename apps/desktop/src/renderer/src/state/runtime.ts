@@ -410,52 +410,55 @@ export class DocumentRuntime {
     if (editor === null) return false;
     const canonical = new Set(Object.keys(this.document.blocks));
     const inEditor = new Set<string>();
-    let mismatch = false;
+    let placeholderMismatch = false;
+    let otherMismatch = false;
     editor.state.doc.descendants((node) => {
       if (node.type.name === 'branchBlock') {
         const id = node.attrs['blockId'];
         if (typeof id !== 'string' || id.length === 0) {
           // ProseMirror auto-fill can leave a placeholder branchBlock after a
           // targeted delete. It must never survive as a canvas-only block.
-          mismatch = true;
+          placeholderMismatch = true;
         } else if (id !== '__empty__') {
           inEditor.add(id);
         }
       }
       return true;
     });
-    if (!mismatch && canonical.size !== inEditor.size) mismatch = true;
-    if (!mismatch) {
+    if (canonical.size !== inEditor.size) otherMismatch = true;
+    if (!otherMismatch) {
       for (const id of canonical) {
         if (!inEditor.has(id)) {
-          mismatch = true;
+          otherMismatch = true;
           break;
         }
       }
     }
-    if (!mismatch) {
+    if (!otherMismatch) {
       for (const id of inEditor) {
         if (!canonical.has(id)) {
-          mismatch = true;
+          otherMismatch = true;
           break;
         }
       }
     }
     // Also inspect the rendered canvas: a stale node view must not survive.
-    if (!mismatch && editor.view !== undefined) {
+    if (!otherMismatch && editor.view !== undefined) {
       for (const element of editor.view.dom.querySelectorAll('[data-block-card]')) {
         const id = element.getAttribute('data-block-card');
         if (id === null || id.length === 0 || !canonical.has(id)) {
-          mismatch = true;
+          otherMismatch = true;
           break;
         }
       }
     }
-    if (!mismatch) return false;
+    if (!placeholderMismatch && !otherMismatch) return false;
     const extra = [...inEditor].filter((id) => !canonical.has(id));
     const missing = [...canonical].filter((id) => !inEditor.has(id));
     console.warn('[noteforest] editor/canonical block mismatch; rebuilding', { extra, missing });
-    this.repairNotice = 'The editor was rebuilt from the saved document to remove an untracked block.';
+    if (otherMismatch) {
+      this.repairNotice = 'The editor was rebuilt from the saved document to remove an untracked block.';
+    }
     this.rebuildEditor(focusBlockId);
     this.notify();
     return true;
