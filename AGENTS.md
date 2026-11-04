@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2c is in progress.** The product owner reviewed M2b and found interaction defects: a phantom block after child creation, missing arrows, counterintuitive `+` placement, a stuck heading after `#`, too much editor padding, serif font, tabs over the sidebar, chapter titles only editable in the sidebar, and Enter-creates-sibling. The fix set is `docs/tasks/m2c-interaction-polish.md`: serialized structural commands and reconciliation, a shared arrow trunk, inline chapter editing, full-height sidebar/tab-strip layout, UI sans at 15.5 px, right/bottom `+`, canvas add top-level/chapter, landscape default for new documents, and the new keyboard model. Font/size settings are deferred to M6.
+**M2c is merged; product-owner visual review is pending.** The product owner reviewed M2b and found interaction defects: a phantom block after child creation, missing arrows, counterintuitive `+` placement, a stuck heading after `#`, too much editor padding, serif font, tabs over the sidebar, chapter titles only editable in the sidebar, and Enter-creates-sibling. M2c fixes them in `docs/reports/m2c-interaction-polish.md`: serialized structural commands and reconciliation, a shared arrow trunk, inline chapter editing, full-height sidebar/tab-strip layout, UI sans at 15.5 px, right/bottom `+`, canvas add top-level/chapter, landscape default for new documents, and the new keyboard model. Font/size settings are deferred to M6.
 
 The spec is at v0.4.2 and the UX, review, and DoD docs are aligned.
 
