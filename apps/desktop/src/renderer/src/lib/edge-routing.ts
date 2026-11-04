@@ -6,11 +6,14 @@
  *   child; the arrowhead is only at the child;
  * - a right-hand edge never moves left (no backwards U-turn);
  * - one child uses a simple elbow;
- * - two or more right-placed children share one vertical trunk from the
- *   parent's right edge, with a short horizontal arrow at each child's level;
- * - wrapped children share one bottom trunk at `parent.left + 18`, a horizontal
- *   bus 12 px above the first child row, and a short vertical arrow into each
- *   child top.
+ * - two or more right-placed children share one vertical trunk;
+ * - the first child's branch is a continuous path from the parent's right edge
+ *   to the child's left edge, and the trunk starts at that branch's T-junction
+ *   without a rounded corner, so there is no gap;
+ * - wrapped children share one bottom trunk at `parent.left + wrapIndent`, a
+ *   horizontal bus 12 px above the first child row, and a short vertical arrow
+ *   into each child top (reserved for the M4 page renderer; the editor uses
+ *   depth columns and does not wrap).
  */
 
 import {
@@ -143,6 +146,38 @@ function edgePath(points: Point[], radius: number): string {
   return roundedPath(simplify(points), radius);
 }
 
+/**
+ * Path used for the first child of a shared trunk: the parent corner may be
+ * rounded, but the junction with the trunk is sharp. A rounded corner there
+ * would leave a visible wedge between the curve and the trunk, which is the M2c
+ * gap defect.
+ */
+export function branchConnectorPath(
+  parentPort: Point,
+  trunkX: number,
+  childY: number,
+  childEnd: Point,
+  radius: number,
+): string {
+  const corner: Point = { x: trunkX, y: parentPort.y };
+  const junction: Point = { x: trunkX, y: childY };
+  const start = `M ${round(parentPort.x)} ${round(parentPort.y)}`;
+  if (sameY(parentPort, junction)) {
+    // Keep the junction as an explicit vertex even when the line is straight:
+    // the trunk starts exactly there, so the path documents its T-junction.
+    return `${start} L ${round(junction.x)} ${round(junction.y)} L ${round(childEnd.x)} ${round(childEnd.y)}`;
+  }
+  const before = pointTowards(corner, parentPort, Math.min(radius, Math.abs(corner.x - parentPort.x)));
+  const after = pointTowards(corner, junction, Math.min(radius, Math.abs(junction.y - corner.y) / 2));
+  return [
+    start,
+    `L ${round(before.x)} ${round(before.y)}`,
+    `Q ${round(corner.x)} ${round(corner.y)} ${round(after.x)} ${round(after.y)}`,
+    `L ${round(junction.x)} ${round(junction.y)}`,
+    `L ${round(childEnd.x)} ${round(childEnd.y)}`,
+  ].join(' ');
+}
+
 export interface GroupChild {
   id: string;
   rect: Rect;
@@ -161,11 +196,25 @@ export interface RoutedGroup {
   trunks: RoutedTrunk[];
 }
 
-function rightTrunkX(parent: Rect, children: readonly GroupChild[], offset: number): number {
+/**
+ * Vertical trunk x. It hugs the parent when the gap is wide enough, and moves
+ * towards the middle when the depth-column gap is tight (16 px by default), so
+ * both the parent stub and every child stub stay visible.
+ */
+function rightTrunkX(
+  parent: Rect,
+  children: readonly GroupChild[],
+  options: RouteOptions,
+): number {
   const parentRight = rectRight(parent);
+  const gap = options.gap ?? GEOMETRY.edgeGap;
+  const offset = options.trunkOffset ?? 14;
   const firstChildLeft = Math.min(...children.map((child) => child.rect.x));
-  const preferred = parentRight + offset;
-  return clamp(preferred, parentRight + 4, Math.max(parentRight + 4, firstChildLeft - 4));
+  const endX = firstChildLeft - gap;
+  const minimum = parentRight + 4;
+  const maximum = endX - GEOMETRY.edgeMinGap;
+  if (maximum < minimum) return Math.max(parentRight + 1, maximum);
+  return clamp(parentRight + offset, minimum, maximum);
 }
 
 function routeSingleRight(
@@ -175,33 +224,24 @@ function routeSingleRight(
 ): RoutedEdge {
   const gap = options.gap ?? GEOMETRY.edgeGap;
   const radius = options.radius ?? GEOMETRY.edgeRadius;
-  const offset = options.trunkOffset ?? 14;
   const childCenter = rectCenter(child.rect);
   const start: Point = { x: rectRight(parent), y: rectCenter(parent).y };
   const end: Point = { x: child.rect.x - gap, y: childCenter.y };
-  const trunkX = clamp(
-    rectRight(parent) + offset,
-    start.x + 2,
-    Math.max(start.x + 2, end.x - radius),
-  );
-  if (end.x - start.x < Math.max(GEOMETRY.edgeMinGap, radius * 2)) {
-    return {
-      id: child.id,
-      placement: 'right',
-      path: edgePath([start, end], radius),
-      start,
-      end,
-      defect: true,
-    };
-  }
-  const points = [start, { x: trunkX, y: start.y }, { x: trunkX, y: end.y }, end];
+  const trunkX = rightTrunkX(parent, [child], options);
+  const defect = end.x - trunkX < GEOMETRY.edgeMinGap;
+  const points = [
+    start,
+    { x: trunkX, y: start.y },
+    { x: trunkX, y: end.y },
+    end,
+  ];
   return {
     id: child.id,
     placement: 'right',
     path: edgePath(points, radius),
     start,
     end,
-    defect: false,
+    defect,
   };
 }
 
@@ -220,50 +260,62 @@ function routeRightGroup(
 
   const gap = options.gap ?? GEOMETRY.edgeGap;
   const radius = options.radius ?? GEOMETRY.edgeRadius;
-  const offset = options.trunkOffset ?? 14;
   const parentRight = rectRight(parent);
   const parentCenter = rectCenter(parent);
-  const trunkX = rightTrunkX(parent, children, offset);
+  const trunkX = rightTrunkX(parent, children, options);
   const centers = children.map((child) => rectCenter(child.rect).y);
-  const high = Math.min(parentCenter.y, ...centers);
-  const low = Math.max(parentCenter.y, ...centers);
-  const trunkPoints = [
-    { x: parentRight, y: parentCenter.y },
-    { x: trunkX, y: parentCenter.y },
-    { x: trunkX, y: high },
-    { x: trunkX, y: low },
-  ];
+  const top = Math.min(...centers);
+  const bottom = Math.max(...centers);
+  const first = children[0] as GroupChild;
+  const firstY = rectCenter(first.rect).y;
+  const firstEndX = first.rect.x - gap;
+
   const edges: RoutedEdge[] = [];
-  let defect = false;
-  for (const child of children) {
+
+  // The first child owns the continuous parent → trunk → child path.
+  const firstStart: Point = { x: parentRight, y: parentCenter.y };
+  const firstEnd: Point = { x: firstEndX, y: firstY };
+  const firstDefect = firstEndX - trunkX < GEOMETRY.edgeMinGap;
+  edges.push({
+    id: first.id,
+    placement: 'right',
+    path: branchConnectorPath(firstStart, trunkX, firstY, firstEnd, radius),
+    start: firstStart,
+    end: firstEnd,
+    defect: firstDefect,
+  });
+
+  for (const child of children.slice(1)) {
     const end: Point = { x: child.rect.x - gap, y: rectCenter(child.rect).y };
     const start: Point = { x: trunkX, y: end.y };
-    const childDefect = end.x - start.x < Math.max(GEOMETRY.edgeMinGap, radius * 2);
-    defect = defect || childDefect;
-    const points = [start, end];
+    const childDefect = end.x - start.x < GEOMETRY.edgeMinGap;
     edges.push({
       id: child.id,
       placement: 'right',
-      path: edgePath(points, radius),
+      path: edgePath([start, end], radius),
       start,
       end,
       defect: childDefect,
     });
   }
-  return {
-    edges,
-    trunks: [
-      {
-        id: `${parentId}:right`,
-        parentId,
-        placement: 'right',
-        kind: 'trunk',
-        path: edgePath(trunkPoints, radius),
-        start: trunkPoints[0] as Point,
-        end: trunkPoints[trunkPoints.length - 1] as Point,
-      },
-    ],
-  };
+
+  const trunkStart: Point = { x: trunkX, y: top };
+  const trunkEnd: Point = { x: trunkX, y: bottom };
+  const trunks: RoutedTrunk[] = [];
+  if (bottom - top > 0.5) {
+    trunks.push({
+      id: `${parentId}:right`,
+      parentId,
+      placement: 'right',
+      kind: 'trunk',
+      // A straight line: rounded ends would pull the stroke away from the
+      // first/last child's T-junction and re-introduce the gap.
+      path: edgePath([trunkStart, trunkEnd], 0),
+      start: trunkStart,
+      end: trunkEnd,
+    });
+  }
+  return { edges, trunks };
 }
 
 function routeBelowGroup(
@@ -300,7 +352,7 @@ function routeBelowGroup(
       path: edgePath([start, end], radius),
       start,
       end,
-      defect: defect,
+      defect,
     });
   }
   return {

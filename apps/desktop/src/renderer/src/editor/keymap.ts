@@ -2,6 +2,8 @@ import { Extension } from '@tiptap/core';
 import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 import { getEditorBindings } from './bindings';
+import { backspaceAction } from '../lib/backspace';
+import { visibleBlockIds } from '../lib/tree';
 
 function currentBlockId(editor: Editor): string | null {
   const selection = editor.state.selection;
@@ -26,7 +28,7 @@ function blockBodyDepth(editor: Editor): number | null {
   return null;
 }
 
-/** Contexts where the native editor keymap owns Tab (indent/outdent). */
+/** Contexts where the native editor keymap owns Tab/Backspace. */
 function inAtomicContext(editor: Editor): boolean {
   return (
     editor.isActive('codeBlock') ||
@@ -55,6 +57,14 @@ export const BranchKeymap = Extension.create({
 
   addKeyboardShortcuts() {
     const bindings = (): ReturnType<typeof getEditorBindings> => getEditorBindings(this.editor);
+
+    const requestDelete = (blockId: string | null): boolean => {
+      if (blockId === null) return false;
+      const current = bindings();
+      if (current === null) return false;
+      current.requestDelete(blockId);
+      return true;
+    };
 
     return {
       // Enter stays a paragraph split inside the block; at the end of a
@@ -134,21 +144,44 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
+      // Plain Backspace is never destructive for a block: an empty block stays
+      // and the caret moves to the previous block. Tables and code keep the
+      // native behavior (Backspace edits inside the cell / code line).
       Backspace: () => {
         const editor = this.editor;
-        if (!editor.state.selection.empty) return false;
-        if (editor.isActive('codeBlock') || editor.isActive('table')) return false;
-        const { $from } = editor.state.selection;
-        if ($from.parentOffset !== 0) return false;
-        const depth = blockBodyDepth(editor);
-        if (depth === null || $from.index(depth) !== 0) return false;
-        if (!blockBodyIsEmpty(editor)) return false;
         const id = currentBlockId(editor);
         const current = bindings();
-        if (id === null || current === null) return false;
-        if (Object.keys(current.runtime.document.blocks).length <= 1) return false;
-        current.report(current.runtime.deleteBlock(id, 'promote'));
+        const depth = blockBodyDepth(editor);
+        const { $from } = editor.state.selection;
+        const ids =
+          current === null ? [] : visibleBlockIds(current.runtime.document, current.runtime.collapsed);
+        const index = id === null ? -1 : ids.indexOf(id);
+        const action = backspaceAction({
+          selectionEmpty: editor.state.selection.empty,
+          atomic: inAtomicContext(editor),
+          atBlockStart: depth !== null && $from.parentOffset === 0 && $from.index(depth) === 0,
+          empty: blockBodyIsEmpty(editor),
+          hasPrevious: index > 0,
+        });
+        if (action === 'native') return false;
+        if (action === 'previous' && id !== null && current !== null) {
+          const previous = ids[index - 1];
+          if (previous !== undefined) current.runtime.focusBlock(previous, { at: 'end' });
+        }
         return true;
+      },
+
+      // ⌘Backspace deletes the active block (confirmation when it has
+      // children). It is the only keyboard path to block deletion.
+      'Mod-Backspace': () => requestDelete(currentBlockId(this.editor)),
+
+      // Delete only acts on a selected block node, never while editing text.
+      Delete: () => {
+        const selection = selectedBlock(this.editor);
+        if (selection === null) return false;
+        const id =
+          typeof selection.node.attrs['blockId'] === 'string' ? selection.node.attrs['blockId'] : null;
+        return requestDelete(id);
       },
 
       'Mod-.': () => {

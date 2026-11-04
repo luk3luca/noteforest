@@ -2,12 +2,13 @@
 
 interface PerfSamples {
   measure: number[];
+  columns: number[];
   edge: number[];
   reflow: number[];
   mount: number[];
 }
 
-const samples: PerfSamples = { measure: [], edge: [], reflow: [], mount: [] };
+const samples: PerfSamples = { measure: [], columns: [], edge: [], reflow: [], mount: [] };
 
 if (typeof window !== 'undefined') {
   (window as unknown as { __nfPerf: PerfSamples }).__nfPerf = samples;
@@ -22,6 +23,7 @@ export function recordPerf(kind: keyof PerfSamples, durationMs: number): void {
 export function perfSnapshot(): PerfSamples {
   return {
     measure: [...samples.measure],
+    columns: [...samples.columns],
     edge: [...samples.edge],
     reflow: [...samples.reflow],
     mount: [...samples.mount],

@@ -234,6 +234,12 @@ export function App(): JSX.Element {
             revision: item.document.revision,
             orientation: item.document.pageSetup.orientation,
             chapters: item.document.chapters.length,
+            chapterList: item.document.chapters.map((chapter) => ({
+              id: chapter.id,
+              title: chapter.title ?? null,
+              blocks: chapter.topLevelBlockIds.length,
+              blockIds: [...chapter.topLevelBlockIds],
+            })),
           })),
         };
       },
@@ -263,6 +269,7 @@ export function App(): JSX.Element {
         const snapshot = perfSnapshot();
         return {
           measure: summarize(snapshot.measure),
+          columns: summarize(snapshot.columns),
           edge: summarize(snapshot.edge),
           reflow: summarize(snapshot.reflow),
           mount: summarize(snapshot.mount),
