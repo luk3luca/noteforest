@@ -1,6 +1,6 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyFile, mkdir, rm } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   appDir,
@@ -124,6 +124,67 @@ async function answerCloseDialog(response) {
     if (resolve === undefined) throw new Error('no pending close dialog');
     resolve({ response: choice, checkboxChecked: false });
   }, response);
+}
+
+/** Make the package folder read-only so the atomic save fails with EACCES. */
+async function setPackageWritable(packagePath, writable) {
+  await chmod(packagePath, writable ? 0o755 : 0o555);
+}
+
+async function activeSaveInfo() {
+  return page.evaluate(() => {
+    const current = window.__noteforestTest.state();
+    return current.runtimes.find((item) => item.packagePath === current.activeTab) ?? null;
+  });
+}
+
+async function waitSaveFailure(code) {
+  await page.waitForFunction(
+    (expected) => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      return (
+        runtime?.saveState === 'error' &&
+        (expected === undefined || runtime.saveFailure?.code === expected)
+      );
+    },
+    code,
+    { timeout: 10000 },
+  );
+}
+
+async function waitSaveAttempts(count) {
+  await page.waitForFunction(
+    (expected) => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      return (runtime?.saveFailure?.attempt ?? 0) >= expected;
+    },
+    count,
+    { timeout: 12000 },
+  );
+}
+
+async function mockSaveCopyDialog(filePath) {
+  await h.app.evaluate(({ dialog }, target) => {
+    globalThis.__nfSaveDialogs = [];
+    dialog.showSaveDialog = async (_window, options) => {
+      globalThis.__nfSaveDialogs.push(options);
+      return { canceled: false, filePath: target };
+    };
+  }, filePath);
+}
+
+async function readDiskDocument(packagePath) {
+  return JSON.parse(await readFile(resolve(packagePath, 'document.json'), 'utf8'));
+}
+
+/** Leave the app in a save-clean state so teardown never hits the close dialog. */
+async function recoverSaveFailure() {
+  if ((await page.locator('[data-save-failure="true"]').count()) > 0) {
+    await page.locator('[data-save-action="retry"]').click();
+  }
+  await h.waitSaved();
 }
 
 describe('NoteForest M2 editor shell', () => {
@@ -1499,5 +1560,200 @@ describe('NoteForest M2 editor shell', () => {
       'timeout',
       'process exits within 5 s after closing the last window and quitting',
     );
+  });
+
+  it('surfaces a permission save failure and recovers with Retry', async () => {
+    await launch(isolated('save-failure'));
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    await setPackageWritable(packagePath, false);
+    try {
+      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' Blocked by permissions');
+      await waitSaveFailure('permission');
+
+      const status = page.locator('[data-save-state]');
+      assert.equal((await status.innerText()).trim(), 'Save failed');
+      assert.equal(await status.getAttribute('data-save-failure-code'), 'permission');
+
+      const banner = page.locator('[data-save-failure="true"]');
+      await banner.waitFor();
+      assert.match(await banner.locator('.nf-save-failure-title').innerText(), /cannot write/i);
+      assert.match(await banner.locator('.nf-save-failure-message').innerText(), /permission|EACCES/i);
+      for (const action of ['retry', 'save-copy', 'reload', 'reveal']) {
+        assert.equal(
+          await banner.locator(`[data-save-action="${action}"]`).count(),
+          1,
+          `${action} action is present`,
+        );
+      }
+      assert.equal(
+        await banner.getByRole('button', { name: /overwrite/i }).count(),
+        0,
+        'overwrite is not offered in phase 2b1',
+      );
+
+      // Autosave retries on the 2 s backoff instead of hammering or stopping
+      // silently. The attempt counter is the condition; no fixed sleep.
+      await waitSaveAttempts(2);
+
+      await setPackageWritable(packagePath, true);
+      await banner.locator('[data-save-action="retry"]').click();
+      await h.waitSaved();
+      await page.waitForSelector('[data-save-failure="true"]', { state: 'detached' });
+      await h.waitEditorText('Blocked by permissions');
+
+      const disk = await readDiskDocument(packagePath);
+      assert.match(JSON.stringify(disk), /Blocked by permissions/);
+    } finally {
+      await setPackageWritable(packagePath, true);
+    }
+  });
+
+  it('saves a copy of the unsaved content and leaves the original untouched', async () => {
+    const env = isolated('save-copy');
+    await launch(env);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    const originalPath = resolve(packagePath, 'document.json');
+    const originalBytes = await readFile(originalPath);
+    const destination = resolve(env.NOTEFOREST_LIBRARY, 'rescued copy');
+    await setPackageWritable(packagePath, false);
+    try {
+      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' Rescued from a failed save');
+      await waitSaveFailure('permission');
+
+      await mockSaveCopyDialog(destination);
+      await page.locator('[data-save-action="save-copy"]').click();
+
+      await page.waitForFunction(
+        (expected) => window.__noteforestTest.state().tabs.length === 2 &&
+          window.__noteforestTest.state().activeTab === expected,
+        destination,
+        { timeout: 10000 },
+      );
+      const copy = await readDiskDocument(destination);
+      assert.match(JSON.stringify(copy), /Rescued from a failed save/);
+      assert.equal(copy.id, (await readDiskDocument(packagePath)).id, 'copy keeps the document identity');
+      assert.deepEqual(
+        Object.keys(copy.blocks).sort(),
+        Object.keys((await readDiskDocument(packagePath)).blocks).sort(),
+        'copy contains every block',
+      );
+      assert.equal(
+        (await readFile(originalPath)).equals(originalBytes),
+        true,
+        'the original document.json was not rewritten by the copy',
+      );
+
+      const dialogs = await h.app.evaluate(() => globalThis.__nfSaveDialogs ?? []);
+      assert.equal(dialogs.length, 1);
+      assert.equal(dialogs[0].buttonLabel, 'Save copy');
+
+      // Restore write access only after the "original untouched" checks, then
+      // let the original's re-enabled autosave finish.
+      await setPackageWritable(packagePath, true);
+      await h.waitSaved();
+    } finally {
+      await setPackageWritable(packagePath, true);
+    }
+  });
+
+  it('reloads from disk only after confirmation and discards local changes', async () => {
+    await launch(isolated('reload'));
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    const originalBytes = await readFile(resolve(packagePath, 'document.json'));
+    await setPackageWritable(packagePath, false);
+    try {
+      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' Local change that reload must discard');
+      await waitSaveFailure('permission');
+
+      await page.locator('[data-save-action="reload"]').click();
+      const dialog = page.getByRole('dialog', { name: 'Reload from disk?' });
+      await dialog.waitFor();
+      await dialog.getByRole('button', { name: 'Cancel' }).click();
+      await page.getByRole('dialog', { name: 'Reload from disk?' }).waitFor({ state: 'detached' });
+      assert.match(await page.locator('.nf-editor[data-active="true"]').innerText(), /Local change that reload must discard/);
+      assert.equal(await page.locator('[data-save-failure="true"]').count(), 1, 'cancel keeps the failure visible');
+
+      await setPackageWritable(packagePath, true);
+      await page.locator('[data-save-action="reload"]').click();
+      const confirm = page.getByRole('dialog', { name: 'Reload from disk?' });
+      await confirm.waitFor();
+      await confirm.getByRole('button', { name: 'Reload from disk', exact: true }).click();
+
+      await page.waitForSelector('[data-save-failure="true"]', { state: 'detached' });
+      await page.waitForFunction(
+        () => {
+          const current = window.__noteforestTest.state();
+          const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+          return runtime?.saveState === 'saved';
+        },
+        undefined,
+        { timeout: 10000 },
+      );
+      assert.equal(
+        (await readFile(resolve(packagePath, 'document.json'))).equals(originalBytes),
+        true,
+        'reload never writes to disk',
+      );
+      assert.doesNotMatch(
+        await page.locator('.nf-editor[data-active="true"]').innerText(),
+        /Local change that reload must discard/,
+        'local changes are gone after the confirmed reload',
+      );
+    } finally {
+      await setPackageWritable(packagePath, true);
+    }
+  });
+
+  it('blocks closing on a failed save and keeps the content until Retry succeeds', async () => {
+    const env = isolated('close-failed');
+    await launch(env);
+    await mockCloseDialogs();
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    await setPackageWritable(packagePath, false);
+    try {
+      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' Saved only after Retry');
+      await waitSaveFailure('permission');
+
+      await closeMainWindow();
+      const dialog = await waitCloseDialog();
+      assert.deepEqual(dialog.buttons, ['Retry', 'Cancel']);
+      assert.match(dialog.detail, /permission|EACCES|could not save/i);
+      await waitWindowCount(1);
+      await answerCloseDialog(1);
+      assert.equal(await page.evaluate(() => window.__noteforestTest.state().ready), true);
+      assert.equal(await page.locator('[data-save-failure="true"]').count(), 1);
+
+      await setPackageWritable(packagePath, true);
+      await recoverSaveFailure();
+      await closeMainWindow();
+      await waitWindowCount(0);
+    } finally {
+      await setPackageWritable(packagePath, true);
+    }
+
+    await h.quit();
+    await launch(env);
+    await page.waitForSelector('.nf-editor[data-active="true"]');
+    await h.waitEditorText('Saved only after Retry');
   });
 });

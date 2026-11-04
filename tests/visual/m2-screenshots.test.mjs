@@ -1,6 +1,6 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, rm } from 'node:fs/promises';
+import { chmod, mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { artifactsPath, createHarness } from '../support/harness.mjs';
 
@@ -312,6 +312,39 @@ describe('NoteForest M2 visual evidence', () => {
     );
     await h.waitLayout({ blocks: 7 });
     await shot('fit-width-1024x768.png', 1024, 768);
+    await h.quit();
+  });
+
+  it('captures the save-failure recovery surface', async () => {
+    await launch(isolated('shots-save-failure'));
+    await h.setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    await chmod(packagePath, 0o555);
+    try {
+      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' This edit cannot be saved while the folder is read-only.');
+      await page.waitForFunction(
+        () => {
+          const current = window.__noteforestTest.state();
+          const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+          return runtime?.saveState === 'error';
+        },
+        undefined,
+        { timeout: 10000 },
+      );
+      await shot('save-failure-1440x900.png', 1440, 900);
+      await h.setWindowSize(1024, 768);
+      await shot('save-failure-1024x768.png', 1024, 768);
+      await chmod(packagePath, 0o755);
+      await page.locator('[data-save-action="retry"]').click();
+      await h.waitSaved();
+    } finally {
+      await chmod(packagePath, 0o755);
+    }
     await h.quit();
   });
 });
