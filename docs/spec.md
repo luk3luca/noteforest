@@ -1,9 +1,9 @@
 # NoteForest — Product, Data Model, and Behavior Specification
 
-**Version:** v0.4.3 (approved for Spike 1)  
+**Version:** v0.4.4 (approved for Spike 1)  
 **Date:** 3 November 2026  
 **Owner:** Planner / Architect  
-**Status:** Approved for Spike 1. v0.4.3 adds depth-column alignment; v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
+**Status:** Approved for Spike 1. v0.4.4 reverts depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
 **Working title:** NoteForest (an existing NoteForest study app exists; public-release clearance or a rename is required before packaging)
 
 This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, CodeMirror 6, KaTeX, and React Flow (ADR-0001). PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided in ADR-0003. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, external API, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
@@ -1066,17 +1066,16 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 
 - Chapters are ordered. Each chapter starts at the top of a new derived page.
 - Top-level blocks in a chapter stack vertically in `topLevelBlockIds` order, separated by the chapter gap.
-- **Depth columns.** Within a chapter, all visible blocks at the same depth share one x origin (a depth column). Column widths are content-driven: each column is as wide as its widest measured card, clamped; columns are not fixed pixel widths. The child group is aligned to the next depth column; siblings at that depth stack vertically inside the column. Top-level blocks occupy the first column. Columns reset at each chapter.
+- **Parent-relative child placement.** A child group starts after its parent card plus the sibling gap; it does not use a global x per depth. Two blocks at the same depth under different parents may therefore sit at different x positions. This keeps a wide block local to its branch instead of widening every later column. Content-driven widths and the readable clamps still apply; there is no fixed pixel column.
 - For each top-level block, lay out its primary subtree:
   - The block's card width is derived from its measured content, clamped to the readable min/max. Height is measured. Empty blocks use the readable minimum, not the maximum.
-  - A child is placed in the next depth column when the available width can fit that column; siblings at the same depth stack vertically. Widths vary within a column; short cards align left in their column.
-  - When the depth columns exceed the editor viewport, the editor scrolls horizontally; columns stay aligned. The page/PDF renderer later applies the A4 page width and reports a defect or wraps below where the page constraint requires it.
-  - Siblings stack vertically in branch order. Siblings may have different widths. There is no fixed **width** per column and no global column pitch; the x origin of each depth is shared.
+  - A child is placed to the right of its parent when the space is available; siblings at the same depth stack vertically. Widths vary; short cards align left in their local group.
+  - When a deep chain exceeds the editor viewport, the editor scrolls horizontally. The page/PDF renderer later applies the A4 page width and reports a defect or wraps below where the page constraint requires it.
   - A parent is vertically centered on its children's span where possible; leaves follow sibling packing.
   - A subtree occupies a bounding box. Sibling subtrees MUST NOT overlap.
   - A child MUST be placed after its parent in reading order.
 - Anchored children are placed below their anchor in the same adaptive flow. They may continue at a safe boundary on the next page; they are never cut through a line, image, formula, code line, or table row.
-- The page width is a hard boundary for the page/PDF renderer. In the editor, depth columns may exceed the viewport and scroll horizontally. If a page layout cannot fit within the page content width after the page renderer's wrap, it is a layout defect: the user must shorten content, split the block, or change page setup. The app MUST NOT clip or auto-scale.
+- The page width is a hard boundary for the page/PDF renderer. In the editor, deep branches may exceed the viewport and scroll horizontally; zoom/fit-width and branch focus are navigation aids, not layout changes. If a page layout cannot fit within the page content width after the page renderer's wrap, it is a layout defect: the user must shorten content, split the block, or change page setup. The app MUST NOT clip or auto-scale.
 - Only sibling order and top-level order change. There is no arbitrary x/y, no fixed-width depth column, and no pin.
 
 ### 7.4 Anchored branches
@@ -2253,7 +2252,8 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **D19** | External API command surface. | **Closed:** semantic command catalog in §12.3; low-level primitives stay internal. | Architect | Done |
 | **D20** | PDF export API behavior. | **Closed:** `export.pdf` is job-based with explicit output path and overwrite flag. | Architect | Done |
 | **D21** | Table pagination. | **Closed:** page breaks only between rows; a row and its cells are atomic; a row taller than the page is a pagination defect. Header repetition is not required in v1. | Product owner | Done |
-| **D22** | Depth columns. | **Closed:** blocks at the same depth share one x origin within a chapter; column widths are content-driven, not fixed pixels; top-level blocks stack vertically; the editor scrolls horizontally when depth columns exceed the viewport; page/PDF applies the A4 constraint in M4. | Product owner | Done |
+| **D22** | Depth columns. | **Superseded by D23.** Same-depth global x alignment caused one wide block to push every later column right and made the canvas effectively unbounded. | Product owner | Superseded |
+| **D23** | Parent-relative child placement. | **Closed:** a child group starts after its parent card plus the sibling gap; same-depth blocks under different parents may differ in x; content-driven widths; editor scrolls horizontally for deep branches; zoom/fit-width and branch focus are navigation aids. Page/PDF applies A4 in M4. | Product owner | Done |
 
 ### 16.2 Questions
 
@@ -2384,3 +2384,4 @@ This example is the recommended golden fixture for model, layout, pagination, an
 | v0.4.1 | 3 November 2026 | Clarified PDF acceptance (S3, AC-45, §11.10, demo script, risk): the gate is a correct standard PDF reviewed on the Mac; no app-specific import (Notability) is required. The annotated-iPad workflow remains the downstream use case, not a test dependency. |
 | v0.4.2 | 4 November 2026 | New documents default to A4 landscape; existing documents keep their orientation. Editor canvas widens to use the landscape width; page view/PDF consume the orientation in M4. |
 | v0.4.3 | 4 November 2026 | Depth columns (D22): blocks at the same depth share one x origin within a chapter; widths remain content-driven; top-level blocks stack vertically; editor scrolls horizontally when columns exceed the viewport; page/PDF applies the A4 constraint in M4. |
+| v0.4.4 | 4 November 2026 | Reverted D22 to parent-relative child placement (D23): a child group starts after its parent plus the gap; same-depth blocks under different parents may differ in x. Content-driven widths and horizontal editor scroll remain; zoom/fit-width and branch focus are navigation aids. |

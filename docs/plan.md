@@ -32,7 +32,8 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M1** | Spike 1 — technical foundation | Prove adaptive layout + paginator + real-text PDF in Electron | Spike 1 gates G1–G9 passed and independently re-run; visuals deferred | **Done** |
 | **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **M2b merged; review found fixes** |
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
-| **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **In review** (merged; product-owner visual review pending) |
+| **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
+| **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **In progress** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -132,6 +133,16 @@ Approved after the second product-owner pass. Full brief: `docs/tasks/m2d-depth-
 - **Trunk continuity:** the first child's branch is continuous with the parent port; the trunk starts at a T-junction with no gap.
 - **Wrapped arrows:** if the page renderer later wraps a child below, its arrow enters the left side from the indent gutter, not the top.
 - **Deferred:** M3 anchors/reference edges; page/PDF; font/size settings.
+
+## M2e — Parent-relative layout + arrow routing (current)
+
+Approved after the M2d review. Full brief: `docs/tasks/m2e-routing-and-layout.md`.
+
+- **Revert depth columns (D23):** child groups are parent-relative; same-depth blocks under different parents may differ in x. Content-driven widths; top-level vertical; horizontal scroll for deep branches.
+- **Swap controls:** `+` add-child at the right-edge center; collapse at the top-right; no footer height.
+- **Routing lab:** design and compare arrow variants before the fix; fixed-size arrowhead, minimum horizontal stem, fan/stagger for close children, continuous first-child path. Choose with screenshots.
+- **Navigation:** zoom out/in/reset (`⌘-`, `⌘0`, `⌘+`) and Focus branch for deep indentation. Page-width wrap preview is M4.
+- **Keep:** 1,600 px canvas / 480 px top-level / 144 px child min, non-destructive Backspace, contextual add, M2c/M2d fixes.
 
 ## M3 — Span anchors and reference edges (planned)
 

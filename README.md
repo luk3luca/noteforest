@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2d — depth columns + M2 polish** is merged and awaits the product owner's visual review. PDF/page work is deferred until the editor is accepted.
+Spike 1 is complete (technical foundation merged); **M2e — parent-relative layout + arrow routing** is in progress. PDF/page work is deferred until the editor is accepted.
 
 ## Running the current code
 
@@ -29,6 +29,7 @@ npm run e2e         # Playwright-driven Electron smoke tests
 - Shell/editor brief: `docs/tasks/m2-editor-shell.md`.
 - M2c polish brief: `docs/tasks/m2c-interaction-polish.md`.
 - M2d depth-columns brief: `docs/tasks/m2d-depth-columns.md`.
+- M2e layout/routing brief: `docs/tasks/m2e-routing-and-layout.md`.
 - UI decisions: `docs/adr/0004-ui-shell-and-branch-editor.md`.
 - UI research: `research/ui-components.md`.
 

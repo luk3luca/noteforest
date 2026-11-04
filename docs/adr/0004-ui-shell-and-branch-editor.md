@@ -137,6 +137,16 @@ The product owner clarified the depth layout and approved these rules (spec D22)
 6. **Contextual add.** Each chapter ends with “+ Add top-level block”; “+ Add chapter” inserts immediately after the active chapter.
 7. **Trunk continuity.** The first child's branch is continuous with the parent port; the trunk starts at a T-junction with no gap. If a page-level wrap enters from the left, it uses the indent gutter, never the top.
 
+## Addendum — M2e parent-relative placement and routing (4 November 2026)
+
+The product owner reversed the global depth-column decision and asked for a designed arrow fix.
+
+1. **Parent-relative placement (D23) supersedes D22.** A child group starts after its parent card plus the sibling gap; same-depth blocks under different parents may sit at different x. This keeps a wide block local instead of widening every later depth column. Content-driven widths, top-level vertical stacking, and horizontal editor scroll remain.
+2. **`+` and collapse swap.** The `+` add-child control sits at the center of the right edge; collapse moves to the top-right of the card. The collapse button is a real `aria-expanded` control; the branch trunk may remain a secondary toggle. No footer height.
+3. **Arrow routing lab before the fix.** Build `docs/design/edge-routing.md` and a static lab that renders the same geometry in variants: orthogonal + fixed arrowhead + minimum 12 px stem; fan ports for close children; soft S-curve only for near-aligned cards; shared trunk + fixed arrowhead. Choose with screenshots, then implement one variant. Never use an SVG marker that scales with a short segment; the arrowhead is a fixed-size polygon and the final segment is horizontal.
+4. **Navigation for deep branches.** Add zoom out/in/reset (`⌘-`, `⌘0`, `⌘+`) and a Focus branch mode. They are navigation aids, not layout changes. A page-width wrap preview belongs to M4.
+5. **Tests.** Unit: parent-relative offsets; close/offset arrow cases; no squashed arrowhead; trunk continuity. E2E: 4-level chain fits at 1440; deep chain scrolls; zoom/fit; focus branch; swap controls; Backspace/add unaffected.
+
 ## Revisit triggers
 
 - RAC Tree fails at 300–1,000 nodes after collapse/virtualization.

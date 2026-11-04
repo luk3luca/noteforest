@@ -16,9 +16,9 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2d is merged; product-owner visual review is pending.** It adds depth columns (same-depth blocks share one x; content-driven column widths; horizontal scroll), branch-port collapse with a dot/count and no footer height, non-destructive Backspace, contextual add top-level/chapter, trunk continuity, and the 1,600 px canvas. M3 span anchors/reference edges start only after M2d is accepted. Font/size settings are deferred to M6. The spec is at v0.4.3.
+**M2e is in progress.** The product owner reverted the global depth columns: child placement is parent-relative again, so a wide block stays local instead of widening every later depth. The fix set is `docs/tasks/m2e-routing-and-layout.md`: parent-relative layout (D23), swap `+`/collapse, a routing lab with fixed arrowheads/minimum stems/fan ports, and zoom/fit + Focus branch for deep indentation. M3 span anchors/reference edges start only after M2e. Font/size settings remain M6. The spec is at v0.4.4.
 
-The spec is at v0.4.3 and the UX, review, and DoD docs are aligned.
+The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 
 ## Language
 

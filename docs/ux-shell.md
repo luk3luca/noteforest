@@ -70,22 +70,25 @@ The next slice is therefore the **editable shell with the distinguishing feature
 ### Editor (center)
 
 - A continuous **spatial branch editor**, not a paginated page and not a plain linear list. The page view is M4.
-- **Depth columns:** all visible blocks at the same depth share one x origin within a chapter. Column widths are content-driven (widest measured card at that depth), not fixed pixel widths. Top-level blocks stack vertically in the first column; siblings at the same depth stack vertically in their column; columns reset at each chapter.
-- The editor scrolls horizontally when the depth columns exceed the viewport; columns stay aligned. Page view/PDF applies the A4 width later.
+- **Parent-relative placement:** a child group starts after its parent card plus the gap; it does not use a global x per depth. Same-depth blocks under different parents may sit at different x positions; this keeps a wide block local instead of widening the whole canvas.
+- Top-level blocks stack vertically; siblings at the same depth stack vertically in their local group. Depth is shown by the branch structure, not by a global column grid.
+- The editor scrolls horizontally when a deep branch exceeds the viewport. Page view/PDF applies the A4 width later (M4).
 - Geometry: editor canvas max ~1,600 px with 28–40 px padding; top-level block max 30 rem (480 px); child cards 9–26.25 rem (144–420 px); gap 16 px; empty blocks use the minimum width, not the maximum.
 - Block cards: child cards use `--surface-1` with no default border; top-level blocks are transparent. Focused block gets a quiet inset accent ring; selection is text selection, not a card highlight. Block padding 10 px; radius 4 px.
 - Primary arrows are SVG, drawn in an overlay above the cards: from the parent's right branch port to the child's left edge. 1.25 px neutral; the selected root→block path is 1.75 px accent.
-- One child: a simple orthogonal elbow. Two or more children in one column: one shared vertical trunk from the parent's right edge, with a short arrow at each child's level. The first child's branch is continuous with the parent port; the trunk starts at the T-junction (no gap).
+- **Arrow routing is designed and tested before being changed:** a routing lab compares orthogonal + fixed arrowhead, fan ports for close children, and a soft S-curve only for near-aligned cards; the chosen variant keeps a fixed-size arrowhead and a minimum horizontal stem so short branches do not squash the arrow.
+- One child: a simple orthogonal elbow. Two or more children in one local group: one shared vertical trunk from the parent's branch port, with a short arrow at each child's level. The first child's branch is continuous with the parent port; the trunk starts at the T-junction (no gap). Close children get separated ports or a minimum stem so the arrowhead remains legible.
 - Only primary edges exist in M2: one parent per child, no reference edges, no shared children. The tree is acyclic; a cycle is rejected before mutation.
-- No free positioning, no pins, no manual x/y. Only sibling order changes; depth columns are computed and deterministic.
+- No free positioning, no pins, no manual x/y. Only sibling order changes; layout is computed and deterministic.
 - Only one block editor is active at a time. Clicking a block opens it; `Esc` commits and returns to navigation; inactive cards render read-only.
 - Inline formatting toolbar appears on text selection (bold, italic, code, link, math). No permanent toolbar.
 - Slash menu `/` for block types is a SHOULD in M2; command palette is the fallback.
 - Empty block shows a quiet placeholder ("Type something, or press /").
-- **Collapse lives on the branch port**, not in a footer: clicking the port/trunk collapses the child column; when collapsed, a compact dot with the child count remains at the port to expand. A one-line block stays one line; no in-flow margin is added.
-- A 20 px block gutter holds only the six-dot drag handle. A `+` on the **right edge** adds a child; a `+` at the **bottom edge** adds a sibling. Reorder among siblings only; reparent via `Move to…`.
+- **Collapse lives at the top-right of the card**, not in a footer: a subtle chevron on hover/selection; when collapsed, a compact dot with the child count remains. A one-line block stays one line; no in-flow margin is added.
+- A 20 px block gutter holds only the six-dot drag handle. A `+` at the **right edge center** adds a child; a `+` at the **bottom edge** adds a sibling. The collapse button is top-right so it does not compete with `+`. Reorder among siblings only; reparent via `Move to…`.
 - Chapter titles are inline-editable in the canvas (click, edit, `Enter`/`Esc` commits; sidebar stays in sync).
 - Each chapter ends with “+ Add top-level block”; “+ Add chapter” inserts immediately after the active chapter. The sidebar is not the only path.
+- **Zoom/fit-width** (`⌘-`, `⌘0`, `⌘+`) and **Focus branch** are navigation aids for deep indentation; they do not change layout or document data. A page-width wrap preview belongs to M4.
 - No page-break markers, no page guides, no PDF controls in M2.
 
 ### Branch arrows (M2)
