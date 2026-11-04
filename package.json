@@ -11,6 +11,7 @@
     "packages/pdf"
   ],
   "scripts": {
+    "dev": "npm run dev -w @noteforest/desktop",
     "build": "npm run build -w @noteforest/desktop",
     "start": "npm run start -w @noteforest/desktop",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -25,10 +26,13 @@
     "verify:fast": "npm run typecheck && npm test && npm run e2e",
     "verify": "npm run verify:fast && node --test tests/recovery/m2f-recovery.test.mjs && node --test tests/ui/m2-view.test.mjs",
     "fixtures": "node scripts/generate-fixtures.mjs",
-    "pdf:verify": "node scripts/verify-pdf.mjs",
-    "pdf:raster": "node scripts/raster-pdf.mjs",
-    "gates": "npm run build && node scripts/run-gates.mjs",
-    "gates:summary": "node scripts/summarize-gates.mjs"
+    "spike:gates": "npm run build && node scripts/run-gates.mjs",
+    "spike:gates:summary": "node scripts/summarize-gates.mjs",
+    "spike:pdf:verify": "node scripts/verify-pdf.mjs",
+    "spike:pdf:raster": "node scripts/raster-pdf.mjs"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   },
   "devDependencies": {
     "@napi-rs/canvas": "1.1.0",
