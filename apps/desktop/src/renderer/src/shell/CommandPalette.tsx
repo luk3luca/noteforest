@@ -67,7 +67,6 @@ export function CommandPalette(): JSX.Element | null {
             useShell.getState().setActiveTab(runtime.packagePath);
             runtime.focusBlock(blockId);
             runtime.selectBlock(blockId);
-            useShell.getState().setSelectedBlock(runtime.packagePath, blockId);
           },
         });
       }

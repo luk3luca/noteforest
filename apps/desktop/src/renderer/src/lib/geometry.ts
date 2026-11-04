@@ -62,14 +62,6 @@ export const GEOMETRY = Object.freeze({
 
 export type EdgePlacement = 'right' | 'below' | 'overlap';
 
-export function cardMaxWidth(topLevel: boolean): number {
-  return topLevel ? GEOMETRY.topLevelMaxWidth : GEOMETRY.childMaxWidth;
-}
-
-export function cardMinWidth(topLevel: boolean): number {
-  return topLevel ? GEOMETRY.topLevelMinWidth : GEOMETRY.childMinWidth;
-}
-
 export function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
@@ -129,16 +121,4 @@ export function distributePorts(count: number, top: number, height: number): num
     if (count === 1) return top + height / 2;
     return top + inset + (usable * index) / (count - 1);
   });
-}
-
-/**
- * Deterministic sibling order: branch order first, then branch ID. Mirrors the
- * core comparator; duplicated here so geometry tests stay dependency-free.
- */
-export function compareOrder(
-  left: { order: string; id: string },
-  right: { order: string; id: string },
-): number {
-  if (left.order !== right.order) return left.order < right.order ? -1 : 1;
-  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }

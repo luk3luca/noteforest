@@ -14,4 +14,3 @@ export * from './serialize.js';
 export * from './fractional-order.js';
 export * from './structure.js';
 export * from './commands.js';
-export * from './history.js';

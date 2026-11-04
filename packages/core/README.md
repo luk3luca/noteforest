@@ -81,8 +81,9 @@ re-validates the resulting document. A failed command changes nothing.
 transaction (spec §4.2); a save persists the current revision and never lets it
 decrease. An unchanged save is a no-op and does not advance revision.
 
-`DocumentHistory` provides session-only snapshot undo/redo. It is exact for
-destructive commands (including branch IDs) and is not persisted.
+Session undo/redo is implemented in the desktop renderer (`lib/history-routing.ts`
+plus the runtime's text and structural stacks), not in core. The old test-only
+`DocumentHistory` snapshot helper was removed in M2f phase 5b.
 
 ## Persistence (Node)
 

@@ -1,9 +1,22 @@
 /**
- * Pure helpers over the canonical block tree (primary branches).
- * Used by the sidebar, the editor adapter, and keyboard navigation.
+ * Renderer selectors over the canonical block tree (primary branches).
+ *
+ * Structural traversal delegates to `@noteforest/core` (`structure.ts`) so the
+ * sidebar, editor adapter, and keyboard navigation cannot drift from the
+ * command layer. This module keeps only the renderer-facing projections
+ * (chapter trees, titles, collapse-aware order, edge descriptors).
  */
 
-import type { Branch, ContentBlock, ContentNode, Document } from '@noteforest/core';
+import type { ContentBlock, ContentNode, Document } from '@noteforest/core';
+import {
+  chapterIdForBlock,
+  directChildBranches,
+  directChildIds,
+  primaryParentBranch,
+  subtreeBlockIds,
+} from '@noteforest/core';
+
+export { directChildBranches, directChildIds };
 
 export interface BlockNode {
   id: string;
@@ -18,35 +31,15 @@ export interface ChapterNode {
   blocks: BlockNode[];
 }
 
-function compareBranches(left: Branch, right: Branch): number {
-  if (left.order !== right.order) return left.order < right.order ? -1 : 1;
-  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
-}
-
-export function directChildBranches(document: Document, parentId: string): Branch[] {
-  return Object.values(document.branches)
-    .filter(
-      (branch) =>
-        branch.role === 'primary' &&
-        branch.source.blockId === parentId &&
-        branch.source.anchorId === undefined,
-    )
-    .sort(compareBranches);
-}
-
-export function directChildIds(document: Document, parentId: string): string[] {
-  return directChildBranches(document, parentId).map((branch) => branch.targetBlockId);
-}
-
-export function incomingBranch(document: Document, blockId: string): Branch | undefined {
-  return Object.values(document.branches).find(
-    (branch) => branch.role === 'primary' && branch.targetBlockId === blockId,
-  );
-}
+/** Primary incoming branch (anchored sources included for M3 compatibility). */
+export const incomingBranch = primaryParentBranch;
 
 export function parentIdOf(document: Document, blockId: string): string | null {
-  return incomingBranch(document, blockId)?.source.blockId ?? null;
+  return primaryParentBranch(document, blockId)?.source.blockId ?? null;
 }
+
+export const subtreeIds = subtreeBlockIds;
+export const chapterIdOf = chapterIdForBlock;
 
 function buildBlocks(
   document: Document,
@@ -105,21 +98,6 @@ export function ancestorPath(document: Document, blockId: string): string[] {
   return path;
 }
 
-export function subtreeIds(document: Document, blockId: string): string[] {
-  const result: string[] = [];
-  const walk = (id: string): void => {
-    if (result.includes(id)) return;
-    result.push(id);
-    for (const child of directChildIds(document, id)) walk(child);
-  };
-  walk(blockId);
-  return result;
-}
-
-export function isDescendantOf(document: Document, candidate: string, ancestor: string): boolean {
-  return ancestorPath(document, candidate).includes(ancestor);
-}
-
 export function siblingIds(document: Document, blockId: string): string[] {
   const parent = parentIdOf(document, blockId);
   if (parent !== null) return directChildIds(document, parent);
@@ -127,17 +105,6 @@ export function siblingIds(document: Document, blockId: string): string[] {
     if (chapter.topLevelBlockIds.includes(blockId)) return [...chapter.topLevelBlockIds];
   }
   return [];
-}
-
-export function positionInSiblings(document: Document, blockId: string): number {
-  return siblingIds(document, blockId).indexOf(blockId);
-}
-
-export function chapterIdOf(document: Document, blockId: string): string | null {
-  const path = ancestorPath(document, blockId);
-  const root = path[0];
-  if (root === undefined) return null;
-  return document.chapters.find((chapter) => chapter.topLevelBlockIds.includes(root))?.id ?? null;
 }
 
 export function collectText(node: ContentNode, parts: string[] = []): string[] {

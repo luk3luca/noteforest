@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { GEOMETRY, type Rect } from '../../lib/geometry';
+import { type Rect } from '../../lib/geometry';
 import {
   routeChildGroup,
   type RoutedEdge,
@@ -193,5 +193,3 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
     </svg>
   );
 }
-
-export const EDGE_CONSTANTS = GEOMETRY;

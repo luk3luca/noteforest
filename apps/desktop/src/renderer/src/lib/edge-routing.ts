@@ -484,7 +484,3 @@ export function pathMovesForward(points: readonly Point[]): boolean {
   }
   return true;
 }
-
-export function placementOf(parent: Rect, child: Rect): EdgePlacement {
-  return classifyPlacement(parent, child);
-}

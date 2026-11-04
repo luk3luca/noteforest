@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { CommandSuccess, DocumentCommand } from '../src/commands.js';
 import { applyInverse, executeCommand } from '../src/commands.js';
-import { DocumentHistory } from '../src/history.js';
 import { validateDocument } from '../src/validation.js';
 import { parseDocumentJson, stringifyDocument } from '../src/serialize.js';
-import type { Document } from '../src/types.js';
 import {
   addChild,
   addTopLevel,
@@ -40,11 +38,6 @@ function buildTree() {
     branchA1: childA1.branchId,
     branchA1a: childA1a.branchId,
   };
-}
-
-function withoutVolatileRevision(document: Document): unknown {
-  const { revision: _revision, updatedAt: _updatedAt, ...rest } = structuredClone(document);
-  return rest;
 }
 
 function success(result: ReturnType<typeof executeCommand>): CommandSuccess {
@@ -536,48 +529,6 @@ describe('transactions, history, and serialization', () => {
       }),
     );
     expect(document).toEqual(before);
-  });
-
-  it('undoes and redoes a structural command exactly', () => {
-    const { context, document, a } = buildTree();
-    const history = new DocumentHistory(document);
-    const added = history.execute(
-      {
-        type: 'block.create',
-        label: 'A2',
-        placement: { kind: 'child', parentBlockId: a },
-      },
-      { context },
-    );
-    expect(added.ok).toBe(true);
-    const afterAdd = history.document;
-    const newBlock = added.ok
-      ? added.affected.blockIds.find((id) => !(id in document.blocks))
-      : undefined;
-    expect(newBlock).toBeDefined();
-
-    const undone = history.undo({ context });
-    expect(undone.ok).toBe(true);
-    expect(history.document.blocks[newBlock ?? '']).toBeUndefined();
-    expect(withoutVolatileRevision(history.document)).toEqual(withoutVolatileRevision(document));
-    expect(history.document.revision).toBeGreaterThan(afterAdd.revision);
-
-    const redone = history.redo({ context });
-    expect(redone.ok).toBe(true);
-    expect(history.document.blocks[newBlock ?? '']).toBeDefined();
-    expect(withoutVolatileRevision(history.document)).toEqual(withoutVolatileRevision(afterAdd));
-  });
-
-  it('undo restores a deleted subtree including branch identities', () => {
-    const { context, document, a1 } = buildTree();
-    const history = new DocumentHistory(document);
-    const deleted = history.execute(
-      { type: 'block.delete', blockId: a1, children: 'delete-subtree' },
-      { context },
-    );
-    expect(deleted.ok).toBe(true);
-    history.undo({ context });
-    expect(withoutVolatileRevision(history.document)).toEqual(withoutVolatileRevision(document));
   });
 
   it('round-trips the command-built tree through canonical JSON', () => {

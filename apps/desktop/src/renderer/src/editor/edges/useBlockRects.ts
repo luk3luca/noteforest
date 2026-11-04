@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import type { Rect } from '../../lib/geometry';
 import { recordPerf } from '../../lib/perf';
 
@@ -135,15 +135,4 @@ export function useBlockRects(
   }, [containerRef, version, ready, scale]);
 
   return rects;
-}
-
-export function useContentReady(ref: RefObject<HTMLDivElement | null>, editorReady: boolean): boolean {
-  const [hasContent, setHasContent] = useState(false);
-  useEffect(() => {
-    if (!editorReady) return;
-    const node = ref.current;
-    if (node === null) return;
-    setHasContent(node.querySelector('[data-block-card]') !== null);
-  }, [ref, editorReady]);
-  return hasContent;
 }
