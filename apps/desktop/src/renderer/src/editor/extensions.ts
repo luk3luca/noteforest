@@ -25,7 +25,9 @@ const lowlight = createLowlight(common);
 export const ChapterNode = Node.create({
   name: 'chapter',
   group: 'block',
-  content: 'branch+',
+  // Empty chapters are valid: a legacy chapter keeps its title and an
+  // "Add top-level block" row instead of being dropped by the adapter.
+  content: 'branch*',
   defining: true,
   isolating: true,
   selectable: false,

@@ -23,6 +23,7 @@ import {
 } from '@noteforest/core';
 import {
   backupsDirForPackage,
+  breakStaleLock,
   createDocumentPackage,
   createUniquePackageDir,
   defaultAppSupportDir,
@@ -43,6 +44,7 @@ import type {
   LibraryDocumentStatus,
   LibraryView,
   ListBackupsResult,
+  LockInfoView,
   OpenDocumentResult,
   OpenDocumentSnapshot,
   RecoveryDocumentView,
@@ -53,6 +55,7 @@ import type {
   SaveResult,
   SessionState,
   SessionTabState,
+  TakeOverLockResult,
 } from '../shared/api.js';
 import { saveFailureCode } from './save-error.js';
 import {
@@ -91,13 +94,28 @@ export function isInsideLibrary(candidate: string): boolean {
 
 const stores = new Map<string, DocumentStore>();
 
+function lockInfoView(store: DocumentStore): LockInfoView | undefined {
+  const info = store.lockInfo;
+  if (info === undefined) return undefined;
+  return {
+    pid: info.record?.pid ?? null,
+    host: info.record?.host ?? null,
+    sessionId: info.record?.sessionId ?? null,
+    acquiredAt: info.record?.acquiredAt ?? null,
+    heartbeatAt: info.record?.heartbeatAt ?? null,
+    corrupt: info.corrupt,
+  };
+}
+
 function snapshot(store: DocumentStore): OpenDocumentSnapshot | null {
   if (store.document === null) return null;
+  const lock = lockInfoView(store);
   return {
     packagePath: store.packagePath,
     document: store.document,
     status: store.readOnly ? 'read-only' : 'editable',
     ...(store.readOnlyReason === undefined ? {} : { readOnlyReason: store.readOnlyReason }),
+    ...(lock === undefined ? {} : { lock }),
     errors: store.errors.map((error) => error.message),
     warnings: store.warnings.map((warning) => warning.message),
   };
@@ -282,10 +300,7 @@ export async function openStore(packagePath: string): Promise<OpenStoreResult> {
   }
 
   await ensureLibrary();
-  let result = await openDocumentPackage(resolved, { registerRecent: true });
-  if (result.status !== 'editable' && result.readOnlyReason === 'stale-lock') {
-    result = await openDocumentPackage(resolved, { registerRecent: true, breakStaleLock: true });
-  }
+  const result = await openDocumentPackage(resolved, { registerRecent: true });
   if (result.document === null) {
     // Recovery-only stores must not stay in the open-store map: they have no
     // document, no lock, and no writable path.
@@ -307,6 +322,78 @@ export async function openDocument(packagePath: string): Promise<OpenDocumentRes
   }
   if ('recovery' in opened) return opened.recovery;
   return opened.snapshot;
+}
+
+/**
+ * Explicit stale-lock takeover, reachable only from the read-only banner's
+ * "Take over lock" action. It never runs as part of a normal open:
+ * `breakStaleLock` refuses a live lock, so a current writable session can
+ * never be stolen by a delayed heartbeat.
+ */
+export async function takeOverStaleLock(
+  packagePath: string,
+): Promise<TakeOverLockResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, code: 'unknown', message: 'No document path was provided.' };
+  }
+  const resolved = path.resolve(packagePath);
+  if (!isInsideLibrary(resolved)) {
+    return { ok: false, code: 'unknown', message: 'Document is outside the NoteForest library.' };
+  }
+
+  const existing = stores.get(resolved);
+  if (existing !== undefined) {
+    const current = snapshot(existing);
+    if (current !== null && !existing.readOnly) return { ok: true, snapshot: current };
+    await existing.close().catch(() => undefined);
+    stores.delete(resolved);
+  }
+
+  const broken = await breakStaleLock(resolved, { appSupportDir: appSupportDir() });
+  if (!broken.ok && broken.reason !== 'missing') {
+    if (broken.reason === 'locked') {
+      return {
+        ok: false,
+        code: 'locked',
+        message:
+          'The lock is live: another NoteForest session is writing this document. Taking over is not allowed while its heartbeat is current.',
+      };
+    }
+    if (broken.reason === 'io-error') {
+      return {
+        ok: false,
+        code: 'unknown',
+        message: `Could not remove the stale lock: ${broken.message ?? 'filesystem error'}`,
+      };
+    }
+  }
+
+  const opened = await openDocumentPackage(resolved, { registerRecent: true });
+  if (opened.document === null) {
+    await opened.store.close().catch(() => undefined);
+    return {
+      ok: false,
+      code: 'read-only',
+      message: opened.errors[0]?.message ?? 'The document could not be opened after taking over the lock.',
+    };
+  }
+  if (opened.status !== 'editable') {
+    await opened.store.close().catch(() => undefined);
+    return {
+      ok: false,
+      code: 'read-only',
+      message:
+        'The document is still read-only. Another session may have acquired the lock before the takeover completed; reopen the document to inspect it.',
+    };
+  }
+  stores.set(resolved, opened.store);
+  const current = snapshot(opened.store);
+  if (current === null) {
+    await opened.store.close().catch(() => undefined);
+    stores.delete(resolved);
+    return { ok: false, code: 'unknown', message: 'The reopened document has no snapshot.' };
+  }
+  return { ok: true, snapshot: current };
 }
 
 export async function createDocument(input: { title?: string }): Promise<{

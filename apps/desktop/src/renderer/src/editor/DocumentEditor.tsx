@@ -24,9 +24,11 @@ import { setEditorSelectedBlock } from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
 import { createChapter, openBlockMenu, openChapterMenu, requestBlockDelete } from '../actions';
+import { showsChapterCanvas } from '../lib/chapters';
 import { recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
 import { SaveFailureBanner } from '../shell/SaveFailureBanner';
+import { StaleLockBanner } from '../shell/StaleLockBanner';
 import { recordPerf } from '../lib/perf';
 
 interface DocumentEditorProps {
@@ -51,23 +53,60 @@ function blockIdAtSelection(editor: Editor): string | null {
   return null;
 }
 
+function DocumentBanners({ runtime }: { runtime: DocumentRuntime }): JSX.Element {
+  return (
+    <>
+      {runtime.readOnlyReason === 'stale-lock' ? (
+        <StaleLockBanner runtime={runtime} />
+      ) : runtime.status !== 'editable' ? (
+        <div className="nf-readonly-banner" role="status">
+          Read-only document{runtime.readOnlyReason === undefined ? '' : ` · ${runtime.readOnlyReason}`}. Your file
+          is not being modified.
+        </div>
+      ) : null}
+      <SaveFailureBanner runtime={runtime} />
+      {runtime.repairNotice === null ? null : (
+        <div className="nf-repair-banner" role="status">
+          <span>{runtime.repairNotice}</span>
+          <button type="button" className="nf-repair-dismiss" onClick={() => runtime.clearRepairNotice()}>
+            Dismiss
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.Element {
-  if (Object.keys(runtime.document.blocks).length === 0) {
+  // The new-document call to action stays for a pristine, single untitled
+  // chapter. A legacy document with named or multiple chapters must keep those
+  // chapter cards visible even when every chapter is empty.
+  const blockCount = Object.keys(runtime.document.blocks).length;
+  if (!showsChapterCanvas(runtime.document.chapters, blockCount)) {
     return (
-      <div className="nf-empty-state nf-editor-empty" style={active ? undefined : { display: 'none' }}>
-        <div className="nf-empty-inner">
-          <p className="nf-empty-copy">This document has no blocks yet.</p>
-          <div className="nf-empty-actions">
-            <button
-              type="button"
-              className="nf-button nf-button-primary"
-              onClick={() => {
-                const chapterId = runtime.document.chapters[0]?.id;
-                if (chapterId !== undefined) void runtime.addTopLevel(chapterId);
-              }}
-            >
-              Add first block
-            </button>
+      <div
+        className="nf-editor"
+        style={active ? undefined : { display: 'none' }}
+        data-active={active}
+        data-focus-active="false"
+      >
+        <DocumentBanners runtime={runtime} />
+        <div className="nf-empty-state nf-editor-empty">
+          <div className="nf-empty-inner">
+            <p className="nf-empty-copy">This document has no blocks yet.</p>
+            <div className="nf-empty-actions">
+              <button
+                type="button"
+                className="nf-button nf-button-primary"
+                disabled={!runtime.editable}
+                onClick={() => {
+                  const chapterId = runtime.document.chapters[0]?.id;
+                  if (chapterId !== undefined) void runtime.addTopLevel(chapterId);
+                }}
+              >
+                Add first block
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -313,21 +352,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
       data-active={active}
       data-focus-active={focusSet !== null}
     >
-      {runtime.status !== 'editable' ? (
-        <div className="nf-readonly-banner" role="status">
-          Read-only document{runtime.readOnlyReason === undefined ? '' : ` · ${runtime.readOnlyReason}`}. Your file
-          is not being modified.
-        </div>
-      ) : null}
-      <SaveFailureBanner runtime={runtime} />
-      {runtime.repairNotice === null ? null : (
-        <div className="nf-repair-banner" role="status">
-          <span>{runtime.repairNotice}</span>
-          <button type="button" className="nf-repair-dismiss" onClick={() => runtime.clearRepairNotice()}>
-            Dismiss
-          </button>
-        </div>
-      )}
+      <DocumentBanners runtime={runtime} />
       <div
         className="nf-editor-scroll"
         ref={scrollRef}

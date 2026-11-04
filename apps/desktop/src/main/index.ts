@@ -38,6 +38,7 @@ import {
   saveDocumentCopy,
   scanLibrary,
   seedDocument,
+  takeOverStaleLock,
   writeSession,
 } from './library.js';
 import { attachTextContextMenu, installApplicationMenu } from './menu.js';
@@ -272,6 +273,10 @@ function registerIpc(): void {
   );
 
   ipcMain.handle('document:open', (_event, packagePath: string) => openDocument(packagePath));
+
+  ipcMain.handle('document:take-over-lock', (_event, packagePath: string) =>
+    takeOverStaleLock(packagePath),
+  );
 
   ipcMain.handle('document:apply', (_event, packagePath: string, command) =>
     applyCommand(packagePath, command),

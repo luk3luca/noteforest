@@ -6,12 +6,16 @@ import {
   BackupManager,
   backupsDirForPackage,
   createDocumentPackage,
+  lockPathForPackage,
 } from '@noteforest/core/node';
 import {
+  applyCommand,
   closeAllStores,
   openDocument,
   restoreNewestBackup,
+  saveDocument,
   scanLibrary,
+  takeOverStaleLock,
 } from '../src/main/library';
 
 let root = '';
@@ -150,6 +154,131 @@ describe('library recovery statuses', () => {
     expect((await fs.readFile(path.join(brokenPath, 'document.json'))).equals(brokenBytes)).toBe(
       true,
     );
+  });
+});
+
+async function writeStaleLock(packagePath: string, token = 'dead-token'): Promise<string> {
+  const lockPath = lockPathForPackage(packagePath, support);
+  await fs.mkdir(path.dirname(lockPath), { recursive: true });
+  await fs.writeFile(
+    lockPath,
+    `${JSON.stringify(
+      {
+        version: 1,
+        documentPath: packagePath,
+        pid: 2_147_483_647,
+        host: os.hostname(),
+        sessionId: 'dead-session',
+        token,
+        acquiredAt: '2020-01-01T00:00:00.000Z',
+        heartbeatAt: '2020-01-01T00:00:00.000Z',
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  return lockPath;
+}
+
+describe('stale lock consent', () => {
+  it('leaves a normal unlocked document editable and lock-free', async () => {
+    const valid = await createValidPackage('Normal note');
+    const opened = await openDocument(valid.packagePath);
+    expect('status' in opened && opened.status).toBe('editable');
+    if ('status' in opened) {
+      expect(opened.readOnlyReason).toBeUndefined();
+      expect(opened.lock).toBeUndefined();
+    }
+    const renamed = await applyCommand(valid.packagePath, {
+      type: 'document.rename',
+      title: 'Normal note renamed',
+    });
+    expect(renamed.ok).toBe(true);
+  });
+
+  it('opens stale-lock packages read-only with metadata and never breaks them automatically', async () => {
+    const valid = await createValidPackage('Stale note');
+    const lockPath = await writeStaleLock(valid.packagePath);
+
+    const opened = await openDocument(valid.packagePath);
+    expect('status' in opened && opened.status).toBe('read-only');
+    if ('status' in opened) {
+      expect(opened.readOnlyReason).toBe('stale-lock');
+      expect(opened.lock).toMatchObject({
+        pid: 2_147_483_647,
+        host: os.hostname(),
+        sessionId: 'dead-session',
+        heartbeatAt: '2020-01-01T00:00:00.000Z',
+        corrupt: false,
+      });
+    }
+
+    const lockAfterOpen = JSON.parse(await fs.readFile(lockPath, 'utf8')) as {
+      token?: string;
+    };
+    expect(lockAfterOpen.token).toBe('dead-token');
+
+    const rejected = await applyCommand(valid.packagePath, {
+      type: 'document.rename',
+      title: 'Hijack',
+    });
+    expect(rejected.ok).toBe(false);
+  });
+
+  it('takes over only on the explicit action, then saves writable changes', async () => {
+    const valid = await createValidPackage('Stale note');
+    const lockPath = await writeStaleLock(valid.packagePath);
+
+    await openDocument(valid.packagePath);
+    const taken = await takeOverStaleLock(valid.packagePath);
+    expect(taken.ok).toBe(true);
+    if (!taken.ok) return;
+    expect(taken.snapshot.status).toBe('editable');
+    expect(taken.snapshot.lock).toBeUndefined();
+
+    const renamed = await applyCommand(valid.packagePath, {
+      type: 'document.rename',
+      title: 'Taken over',
+    });
+    expect(renamed.ok).toBe(true);
+    const saved = await saveDocument(valid.packagePath);
+    expect(saved.ok).toBe(true);
+
+    const onDisk = JSON.parse(
+      await fs.readFile(path.join(valid.packagePath, 'document.json'), 'utf8'),
+    ) as { title?: string };
+    expect(onDisk.title).toBe('Taken over');
+
+    const lockAfterTakeover = JSON.parse(await fs.readFile(lockPath, 'utf8')) as {
+      token?: string;
+      pid?: number;
+    };
+    expect(lockAfterTakeover.token).not.toBe('dead-token');
+    expect(lockAfterTakeover.pid).toBe(process.pid);
+  });
+
+  it('refuses to take over a live lock and leaves the writer untouched', async () => {
+    const created = await createDocumentPackage(
+      library,
+      { title: 'Live note', chapterTitle: 'Chapter One' },
+      { appSupportDir: support, registerRecent: false, heartbeatIntervalMs: 0 },
+    );
+    if (!created.ok) throw new Error(created.error.message);
+
+    const opened = await openDocument(created.packagePath);
+    expect('status' in opened && opened.status).toBe('read-only');
+    if ('status' in opened) expect(opened.readOnlyReason).toBe('locked');
+
+    const taken = await takeOverStaleLock(created.packagePath);
+    expect(taken.ok).toBe(false);
+    if (!taken.ok) {
+      expect(taken.code).toBe('locked');
+      expect(taken.message).toMatch(/lock is live/i);
+    }
+
+    const applied = created.store.apply({ type: 'document.rename', title: 'Still mine' });
+    expect(applied.ok).toBe(true);
+    await created.store.close();
   });
 });
 

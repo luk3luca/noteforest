@@ -15,6 +15,7 @@ import { redoDepth, undoDepth } from '@tiptap/pm/history';
 import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state';
 import type {
   ApplyResult,
+  LockInfoView,
   OpenDocumentSnapshot,
   RestoreBackupResult,
   SaveCopyResult,
@@ -140,6 +141,9 @@ export class DocumentRuntime {
 
   readOnlyReason: string | undefined;
 
+  /** Lock metadata for a read-only stale/live lock open. */
+  lock: LockInfoView | undefined;
+
   document: Document;
 
   editor: Editor | null = null;
@@ -207,6 +211,7 @@ export class DocumentRuntime {
     this.packagePath = snapshot.packagePath;
     this.status = snapshot.status;
     this.readOnlyReason = snapshot.readOnlyReason;
+    this.lock = snapshot.lock;
     this.document = snapshot.document;
     this.restorePoint = restore;
     for (const id of collapsed) this.collapsed.add(id);
@@ -272,19 +277,70 @@ export class DocumentRuntime {
     }
   }
 
-  /** Create a first block when a chapter is empty so the schema stays valid. */
+  /**
+   * Legacy repair: give every empty chapter one top-level block. Empty
+   * chapters are now valid and render with an "Add top-level block" row; this
+   * loop remains for documents written by older builds and must never stop at
+   * the first empty chapter.
+   */
   async ensureChaptersHaveBlocks(): Promise<void> {
     if (this.ensuredBlocks || !this.editable) return;
     this.ensuredBlocks = true;
-    const empty = this.document.chapters.find(
-      (chapter) => chapter.topLevelBlockIds.length === 0,
-    );
-    if (empty === undefined) return;
-    const outcome = await this.applyStructural({
-      type: 'block.create',
-      placement: { kind: 'top-level', chapterId: empty.id },
-    });
-    if (outcome.ok) await this.saveNow();
+    const emptyChapterIds = this.document.chapters
+      .filter((chapter) => chapter.topLevelBlockIds.length === 0)
+      .map((chapter) => chapter.id);
+    if (emptyChapterIds.length === 0) return;
+    let created = false;
+    for (const chapterId of emptyChapterIds) {
+      const outcome = await this.applyStructural({
+        type: 'block.create',
+        placement: { kind: 'top-level', chapterId },
+      });
+      if (outcome.ok) created = true;
+    }
+    if (created) await this.saveNow();
+  }
+
+  /**
+   * Explicit stale-lock takeover. The main process refuses a live lock, so
+   * this only succeeds after the user pressed "Take over lock" in the banner.
+   * The runtime keeps its package path, selection, and mounted editor; only
+   * the writable state, canonical document, and lock metadata are replaced.
+   */
+  async takeOverLock(): Promise<{ ok: boolean; message?: string }> {
+    if (this.readOnlyReason !== 'stale-lock') {
+      return { ok: false, message: 'This document is not waiting on a stale lock.' };
+    }
+    const result = await window.noteforest.takeOverLock(this.packagePath);
+    if (!result.ok) return { ok: false, message: result.message };
+    if (result.snapshot.status !== 'editable') {
+      return { ok: false, message: 'The document reopened read-only; the lock was not taken over.' };
+    }
+    this.applyReopenedSnapshot(result.snapshot);
+    return { ok: true };
+  }
+
+  private applyReopenedSnapshot(snapshot: OpenDocumentSnapshot): void {
+    this.clearContentTimer();
+    this.clearSaveTimer();
+    this.clearRetryTimer();
+    this.status = snapshot.status;
+    this.readOnlyReason = snapshot.readOnlyReason;
+    this.lock = snapshot.lock;
+    this.document = snapshot.document;
+    this.recomputeHashes();
+    this.version += 1;
+    this.dirty = false;
+    this.saveState = 'saved';
+    this.saveError = null;
+    this.saveFailure = null;
+    this.repairNotice = null;
+    this.lastHistoryOperation = null;
+    this.undoStack.length = 0;
+    this.redoStack.length = 0;
+    this.editor?.setEditable(this.editable);
+    this.rebuildEditor(this.selectedBlockId, { resetHistory: true });
+    this.notify();
   }
 
   attachEditor(editor: Editor | null): void {
@@ -712,7 +768,7 @@ export class DocumentRuntime {
           // ProseMirror auto-fill can leave a placeholder branchBlock after a
           // targeted delete. It must never survive as a canvas-only block.
           placeholderMismatch = true;
-        } else if (id !== '__empty__') {
+        } else {
           inEditor.add(id);
         }
       }
