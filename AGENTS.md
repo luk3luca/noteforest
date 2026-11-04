@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 5a is in progress.** Phase 4b (empty-chapter invariant + stale-lock consent) is merged. Phase 5a fixes the editor keyboard focus trap, makes card/shell controls reachable, announces save state, traps/restores context-menu focus, exposes an accessible tab close, and reports axe best practice. If keyboard coverage pushes critical e2e over 60 s, zoom/fit/focus moves to `test:ui`. Cleanup/dead code/deps/docs is 5b. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 5b is in progress.** Phase 5a (keyboard/focus/a11y) is merged. Phase 5b is the no-behavior-change cleanup: dead code/exports, dependency dedupe/prune, fixture selector/validity, Spike tooling separation, and docs consistency with M2e/M2f. Later: Sentinel re-review and product-owner VoiceOver/visual pass, then M3. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 
