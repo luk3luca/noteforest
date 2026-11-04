@@ -31,7 +31,8 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.1; DoD/checklist aligned | **Done** |
 | **M1** | Spike 1 — technical foundation | Prove adaptive layout + paginator + real-text PDF in Electron | Spike 1 gates G1–G9 passed and independently re-run; visuals deferred | **Done** |
 | **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **M2b merged; review found fixes** |
-| **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **In review** (merged; product-owner visual review pending) |
+| **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
+| **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **In progress** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -118,6 +119,19 @@ Approved after the product owner's hands-on review of M2b. Full brief: `docs/tas
 - **Default:** new documents A4 landscape; existing documents keep orientation.
 - **Keyboard:** `Enter`/`Shift+Enter` line breaks; `Option+Enter` sibling; `Control+Enter` child; Tab list indent / selected-block child.
 - **Deferred:** font family/size Settings UI (M6).
+
+## M2d — Depth columns + M2 polish (current)
+
+Approved after the second product-owner pass. Full brief: `docs/tasks/m2d-depth-columns.md`.
+
+- **Depth columns (D22):** all visible blocks at the same depth share one x origin within a chapter; column widths are content-driven, not fixed pixels; top-level blocks stack vertically; columns reset per chapter. The editor scrolls horizontally when columns exceed the viewport.
+- **Width:** canvas max ~1,600 px; top-level max 480 px; child min 144 px; gap 16 px. The 4-level chain (`top → f → ff → fff`) fits at 1440 without wrapping.
+- **Collapse on the branch port:** clicking the port/trunk collapses the child column; a compact dot with the child count re-expands it. No footer, no extra block height.
+- **Backspace:** plain Backspace on an empty block does not delete; it moves the caret. `⌘Backspace`/`Delete` on a selected block deletes (confirm with children). Table cells are never deleted by Backspace.
+- **Contextual add:** each chapter ends with “+ Add top-level block”; “+ Add chapter” inserts after the active chapter.
+- **Trunk continuity:** the first child's branch is continuous with the parent port; the trunk starts at a T-junction with no gap.
+- **Wrapped arrows:** if the page renderer later wraps a child below, its arrow enters the left side from the indent gutter, not the top.
+- **Deferred:** M3 anchors/reference edges; page/PDF; font/size settings.
 
 ## M3 — Span anchors and reference edges (planned)
 

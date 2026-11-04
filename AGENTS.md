@@ -16,9 +16,9 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2c is merged; product-owner visual review is pending.** The product owner reviewed M2b and found interaction defects: a phantom block after child creation, missing arrows, counterintuitive `+` placement, a stuck heading after `#`, too much editor padding, serif font, tabs over the sidebar, chapter titles only editable in the sidebar, and Enter-creates-sibling. M2c fixes them in `docs/reports/m2c-interaction-polish.md`: serialized structural commands and reconciliation, a shared arrow trunk, inline chapter editing, full-height sidebar/tab-strip layout, UI sans at 15.5 px, right/bottom `+`, canvas add top-level/chapter, landscape default for new documents, and the new keyboard model. Font/size settings are deferred to M6.
+**M2d is in progress.** The product owner clarified that the depth chain (`top → f → ff → fff`) must keep **blocks at the same depth in the same column**, with content-driven widths and horizontal scroll when the columns exceed the viewport. The fix set is `docs/tasks/m2d-depth-columns.md`: depth-column alignment, 1,600 px canvas / 480 px top-level / 144 px child minimum, branch-port collapse with a dot/count, non-destructive Backspace, contextual add top-level/chapter, trunk continuity, and left-entry arrows for any page-level wrap. M3 span anchors/reference edges start only after M2d is accepted. Font/size settings are deferred to M6. The spec is at v0.4.3.
 
-The spec is at v0.4.2 and the UX, review, and DoD docs are aligned.
+The spec is at v0.4.3 and the UX, review, and DoD docs are aligned.
 
 ## Language
 

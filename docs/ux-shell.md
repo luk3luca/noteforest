@@ -45,7 +45,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar across the window; **sidebar full content height on the left**; **36 px tab strip only in the editor column**, to the right of the sidebar; sidebar 264 px default (208–360, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,400 px with 28–40 px padding. The sidebar and editor scroll independently.
+**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar across the window; **sidebar full content height on the left**; **36 px tab strip only in the editor column**, to the right of the sidebar; sidebar 264 px default (208–360, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,600 px with 28–40 px padding and horizontal scroll when depth columns exceed the viewport. The sidebar and editor scroll independently.
 
 ### Tab strip (36 px)
 
@@ -70,29 +70,30 @@ The next slice is therefore the **editable shell with the distinguishing feature
 ### Editor (center)
 
 - A continuous **spatial branch editor**, not a paginated page and not a plain linear list. The page view is M4.
-- Top-level blocks stack vertically in chapter order. A child is placed to the right of its parent when there is room; otherwise it wraps below the parent with an 18 px indent.
-- Geometry: editor canvas max ~1,400 px with 28–40 px padding; top-level block measure max 34 rem (544 px); child cards 10–26.25 rem (160–420 px); long code/tables may use the available width. New documents default to A4 landscape; existing documents keep their orientation.
-- Block cards: child cards use `--surface-1` with no default border; top-level blocks are transparent. Focused block gets a quiet inset accent ring; selection is text selection, not a card highlight. Block padding 10 px; vertical gap 16 px; radius 4 px.
-- Primary arrows are SVG, drawn in an overlay above the cards: from the source block's right/bottom port to the target's left/top port. 1.25 px neutral; the selected root→block path is 1.75 px accent.
-- Arrow routing must read forward. **One child:** a simple orthogonal elbow. **Two or more children in one sibling group:** one shared vertical trunk from the parent's right edge, with a short arrow at each child's level. **Wrapped children:** a bottom trunk and a horizontal bus, then short arrows into the child tops. Never a loop back across the source card.
+- **Depth columns:** all visible blocks at the same depth share one x origin within a chapter. Column widths are content-driven (widest measured card at that depth), not fixed pixel widths. Top-level blocks stack vertically in the first column; siblings at the same depth stack vertically in their column; columns reset at each chapter.
+- The editor scrolls horizontally when the depth columns exceed the viewport; columns stay aligned. Page view/PDF applies the A4 width later.
+- Geometry: editor canvas max ~1,600 px with 28–40 px padding; top-level block max 30 rem (480 px); child cards 9–26.25 rem (144–420 px); gap 16 px; empty blocks use the minimum width, not the maximum.
+- Block cards: child cards use `--surface-1` with no default border; top-level blocks are transparent. Focused block gets a quiet inset accent ring; selection is text selection, not a card highlight. Block padding 10 px; radius 4 px.
+- Primary arrows are SVG, drawn in an overlay above the cards: from the parent's right branch port to the child's left edge. 1.25 px neutral; the selected root→block path is 1.75 px accent.
+- One child: a simple orthogonal elbow. Two or more children in one column: one shared vertical trunk from the parent's right edge, with a short arrow at each child's level. The first child's branch is continuous with the parent port; the trunk starts at the T-junction (no gap).
 - Only primary edges exist in M2: one parent per child, no reference edges, no shared children. The tree is acyclic; a cycle is rejected before mutation.
-- No free positioning, no pins, no manual x/y. Only sibling order changes; layout is automatic and deterministic.
+- No free positioning, no pins, no manual x/y. Only sibling order changes; depth columns are computed and deterministic.
 - Only one block editor is active at a time. Clicking a block opens it; `Esc` commits and returns to navigation; inactive cards render read-only.
 - Inline formatting toolbar appears on text selection (bold, italic, code, link, math). No permanent toolbar.
 - Slash menu `/` for block types is a SHOULD in M2; command palette is the fallback.
 - Empty block shows a quiet placeholder ("Type something, or press /").
-- Collapse control on a block with children; child count is plain tertiary text; hidden subtree and its arrows disappear.
+- **Collapse lives on the branch port**, not in a footer: clicking the port/trunk collapses the child column; when collapsed, a compact dot with the child count remains at the port to expand. A one-line block stays one line; no in-flow margin is added.
 - A 20 px block gutter holds only the six-dot drag handle. A `+` on the **right edge** adds a child; a `+` at the **bottom edge** adds a sibling. Reorder among siblings only; reparent via `Move to…`.
 - Chapter titles are inline-editable in the canvas (click, edit, `Enter`/`Esc` commits; sidebar stays in sync).
-- At the end of the canvas: “+ Add top-level block” and “+ Add chapter”. The sidebar is not the only path.
+- Each chapter ends with “+ Add top-level block”; “+ Add chapter” inserts immediately after the active chapter. The sidebar is not the only path.
 - No page-break markers, no page guides, no PDF controls in M2.
 
 ### Branch arrows (M2)
 
-- Every primary child gets exactly one arrow from its parent. The arrow starts at the parent card's right edge (or bottom edge when the child wraps) and ends at the child's left edge (or top edge).
-- For two or more right-placed children, draw **one** vertical trunk from the parent's right edge and a short arrow from the trunk to each child; do not start a separate line at a different parent port for each child.
-- For wrapped children, draw one bottom trunk and a horizontal bus, then a short vertical arrow into each child's top.
-- Arrows are behind the active editor overlay but above the background; they never capture text selection. They are `aria-hidden` and not tabbable.
+- Every primary child gets exactly one arrow from its parent. The arrow starts at the parent's branch port and ends at the child's left edge.
+- For two or more children in one depth column, draw **one** vertical trunk from the parent's branch port and a short arrow from the trunk to each child; do not start a separate line at a different parent port for each child. The first child's branch is continuous with the parent port; the trunk joins at a T-junction with no gap.
+- If a page layout later wraps a child below (M4), the wrapped child's arrow enters its **left** side from the indent gutter, not its top. The editor itself uses depth columns and horizontal scroll, so it does not wrap.
+- Arrows are behind the active editor overlay but above the background; they never capture text selection. They are `aria-hidden` and not tabbable. The branch port that toggles collapse is a real button (`aria-expanded`), not part of the decorative SVG.
 - Clicking an arrow selects the edge and shows a small inline action: delete branch (target becomes top-level) or add label (SHOULD).
 - Deleting a block with children uses the delete dialog: promote children or delete subtree; both keep arrows consistent.
 - Reparenting moves the child and its subtree; the arrow re-routes and the layout reflows. Reordering siblings changes vertical order only.
@@ -124,7 +125,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 | New child block | `⌃Enter` |
 | Make child (selected block only) | `Tab`; in lists/code `Tab` is indent |
 | Outdent | `⇧Tab` on a selected block; `⌘[`/`⌘]` alternative |
-| Merge with previous | `Backspace` at start of an empty/first block |
+| Merge with previous | `Backspace` at start of a non-empty block; on an empty block, `Backspace` moves the caret without deleting. Delete only with `⌘Backspace`/`Delete` on a selected block (confirm if it has children). |
 | Focus previous/next block | `⌘↑` / `⌘↓` |
 | Collapse/expand block | `⌘.` or chevron |
 | Select/delete branch | Click the arrow; `Delete` or the inline action; target becomes top-level |

@@ -125,6 +125,18 @@ The product owner reviewed M2b and approved these corrections. They refine the M
 7. **Default page setup.** New documents default to A4 landscape (existing documents keep their orientation); the editor canvas uses the extra width. Page view/PDF consume this default in M4.
 8. **Desync fix.** Structural commands are serialized; the created block ID comes from the command result, not a before/after diff; structural editor transactions are excluded from text history; after each structural command the editor is reconciled with the canonical document. A failure must never leave a canvas-only block. Regression: rapid child/sibling creation, sidebar/canvas parity, arrow count, delete works.
 
+## Addendum — M2d depth columns (4 November 2026)
+
+The product owner clarified the depth layout and approved these rules (spec D22):
+
+1. **Depth columns.** All visible blocks at the same depth share one x origin within a chapter. Column widths are content-driven (widest measured card at that depth), not fixed pixel widths. Top-level blocks stack vertically in the first column; siblings at the same depth stack vertically in their column; columns reset per chapter.
+2. **Horizontal scroll.** The editor scrolls horizontally when the depth columns exceed the viewport; columns stay aligned. The page/PDF renderer applies the A4 width and reports a defect or wraps below where the page constraint requires it (M4).
+3. **Metrics.** Canvas max ~1,600 px; top-level max 480 px; child min 144 px; gap 16 px. Empty blocks use the minimum width, not the maximum. The 4-level chain `top → f → ff → fff` fits at 1440 without wrapping.
+4. **Collapse on the branch port.** The footer collapse control is removed. Clicking the branch port/trunk collapses the child column; a compact dot with the child count re-expands it. A one-line block stays one line. The control is a real button with `aria-expanded`; the SVG edges remain decorative.
+5. **Non-destructive Backspace.** Plain Backspace on an empty block moves the caret without deleting. Deletion is `⌘Backspace`/`Delete` on a selected block, with confirmation if it has children. Table cells are never deleted by Backspace.
+6. **Contextual add.** Each chapter ends with “+ Add top-level block”; “+ Add chapter” inserts immediately after the active chapter.
+7. **Trunk continuity.** The first child's branch is continuous with the parent port; the trunk starts at a T-junction with no gap. If a page-level wrap enters from the left, it uses the indent gutter, never the top.
+
 ## Revisit triggers
 
 - RAC Tree fails at 300–1,000 nodes after collapse/virtualization.
