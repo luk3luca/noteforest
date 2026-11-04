@@ -259,9 +259,20 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         <button
           type="button"
           className="nf-gutter-button nf-gutter-handle"
-          title="Drag to reorder siblings"
-          aria-label="Reorder block"
+          title="Block actions and reorder"
+          aria-label="Block actions and reorder"
+          aria-haspopup="menu"
+          data-block-actions={blockId}
           onPointerDown={onHandlePointerDown}
+          onClick={(event) => {
+            // Native keyboard activation (Enter/Space) has detail 0. Pointer
+            // activation belongs to the drag path above, so it must not open
+            // the menu when the drag ends.
+            if (event.detail !== 0) return;
+            event.stopPropagation();
+            const rect = event.currentTarget.getBoundingClientRect();
+            bindings?.openBlockMenu(blockId, { x: rect.right + 4, y: rect.top });
+          }}
         >
           <GripVertical size={14} strokeWidth={1.5} aria-hidden="true" />
         </button>

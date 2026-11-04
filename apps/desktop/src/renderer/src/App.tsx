@@ -35,6 +35,16 @@ type FlushTestMode = 'normal' | 'error' | 'hang';
  */
 const HISTORY_COMMANDS = new Set<MenuCommand>(['undo', 'redo']);
 
+/** Move to the previous/next open tab; a no-op with fewer than two tabs. */
+function cycleActiveTab(direction: -1 | 1): void {
+  const state = useShell.getState();
+  const index = state.tabs.findIndex((tab) => tab.packagePath === state.activeTab);
+  if (index < 0 || state.tabs.length < 2) return;
+  const next =
+    state.tabs[(index + direction + state.tabs.length) % state.tabs.length];
+  if (next !== undefined) state.setActiveTab(next.packagePath);
+}
+
 /** Test-only override, reachable through `window.__noteforestTest`. */
 let flushTestMode: FlushTestMode = 'normal';
 
@@ -187,19 +197,16 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (!ready) return undefined;
     const onKeyDown = (event: KeyboardEvent): void => {
-      const mod = event.metaKey || event.ctrlKey;
-      if (!mod) {
-        if (event.ctrlKey && event.key === 'Tab') {
-          event.preventDefault();
-          const state = useShell.getState();
-          const index = state.tabs.findIndex((tab) => tab.packagePath === state.activeTab);
-          if (index >= 0 && state.tabs.length > 1) {
-            const next = state.tabs[(index + (event.shiftKey ? -1 : 1) + state.tabs.length) % state.tabs.length];
-            if (next !== undefined) state.setActiveTab(next.packagePath);
-          }
-        }
+      // Control+Tab is not a focus-traversal key (plain Tab is), so it can
+      // safely cycle documents. This branch must run before the mod check:
+      // `ctrlKey` makes `mod` true and used to make it unreachable.
+      if (event.ctrlKey && !event.metaKey && event.key === 'Tab') {
+        event.preventDefault();
+        cycleActiveTab(event.shiftKey ? -1 : 1);
         return;
       }
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod) return;
       const key = event.key.toLowerCase();
       if (key === '=' || key === '+') {
         event.preventDefault();
@@ -261,11 +268,7 @@ export function App(): JSX.Element {
         case ']': {
           if (!event.shiftKey) break;
           event.preventDefault();
-          const state = useShell.getState();
-          const index = state.tabs.findIndex((tab) => tab.packagePath === state.activeTab);
-          if (index < 0 || state.tabs.length < 2) break;
-          const next = state.tabs[(index + (key === ']' ? 1 : -1) + state.tabs.length) % state.tabs.length];
-          if (next !== undefined) state.setActiveTab(next.packagePath);
+          cycleActiveTab(key === ']' ? 1 : -1);
           break;
         }
         case 'z': {
