@@ -12,3 +12,4 @@ export * from './backups.js';
 export * from './recent.js';
 export * from './store.js';
 export * from './recovery.js';
+export * from './copy.js';

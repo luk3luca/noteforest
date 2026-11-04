@@ -137,6 +137,25 @@ interface LastSaved {
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 10_000;
 
+/**
+ * Classify a filesystem failure without hiding it: the app's recovery surface
+ * needs "permission" and "disk-full" as distinct reasons, while any other
+ * errno stays a generic I/O failure. The raw errno is kept for diagnostics.
+ */
+export function ioFailureDetails(error: unknown): {
+  reason: 'permission' | 'disk-full' | 'io-error';
+  errno?: string;
+} {
+  const errno = (error as NodeJS.ErrnoException | null)?.code;
+  if (errno === 'EACCES' || errno === 'EPERM' || errno === 'EROFS') {
+    return { reason: 'permission', errno };
+  }
+  if (errno === 'ENOSPC' || errno === 'EDQUOT') {
+    return { reason: 'disk-full', errno };
+  }
+  return errno === undefined ? { reason: 'io-error' } : { reason: 'io-error', errno };
+}
+
 export class DocumentStore {
   readonly packagePath: string;
 
@@ -338,7 +357,12 @@ export class DocumentStore {
       currentBytes = await fs.readFile(this.documentPath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        return failure(coreError('io-error', `could not read document before save: ${errorMessage(error)}`));
+        return failure(
+          coreError('io-error', `could not read document before save: ${errorMessage(error)}`, {
+            phase: 'pre-save-read',
+            ...ioFailureDetails(error),
+          }),
+        );
       }
       if (this.lastSaved.exists && options.overwriteExternal !== true) {
         return failure(
@@ -411,7 +435,9 @@ export class DocumentStore {
         }
       } catch (error) {
         return failure(
-          coreError('backup-failed', `could not write a safety backup; save aborted: ${errorMessage(error)}`),
+          coreError('backup-failed', `could not write a safety backup; save aborted: ${errorMessage(error)}`, {
+            ...ioFailureDetails(error),
+          }),
         );
       }
     }
@@ -425,6 +451,7 @@ export class DocumentStore {
         coreError('io-error', `atomic save failed; previous file kept: ${errorMessage(error)}`, {
           path: this.documentPath,
           phase: 'atomic-write',
+          ...ioFailureDetails(error),
         }),
       );
     }
