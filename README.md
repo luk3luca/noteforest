@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2f phase 5b — cleanup** is implemented and awaiting Sentinel re-review. M2 is not accepted yet; M3 and PDF/page work remain deferred until M2f is accepted.
+Spike 1 is complete (technical foundation merged); **M2f is complete and awaits Sentinel re-review + product-owner visual/VoiceOver acceptance**. M3 and PDF/page work remain blocked until M2 is accepted.
 
 ## Running the current code
 
