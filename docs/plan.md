@@ -34,7 +34,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
-| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **In progress — phase 2a done; phase 2b1 (save recovery)** |
+| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **In progress — phase 2b1 done; phase 2b2a (external modification)** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -159,9 +159,13 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
 - Typed flush result; timeout/error never close/quit silently; preload forwards real errors; Retry/Cancel dialog.
 - Critical e2e 14/22.2 s; unit 155/1.35 s.
 
-**Phase 2b1 (current): save-failure recovery UI.**
-- Persistent recovery surface with Retry / Save a copy / Reload from disk / Reveal; typed save errors; autosave backoff; no “Saved” while pending/failed.
-- External-modification overwrite/backup flow is phase 2b2.
+**Phase 2b1 (done): save-failure recovery UI.**
+- Typed save errors; persistent Retry/Save copy/Reload/Reveal; autosave backoff; no false Saved.
+- Unit 171/1.4 s; critical e2e 18/31.4 s.
+
+**Phase 2b2a (current): external modification reload/overwrite.**
+- Dedicated banner state; explicit confirm for Overwrite; Reload/Save copy preserved; overwrite only for external modification.
+- Backup restore is phase 2b2b.
 
 **Later:** F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup.
 

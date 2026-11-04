@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 2b1 is in progress.** Phase 1 (quit + test infra) and phase 2a (typed flush/close) are merged. Phase 2b1 adds a persistent save-failure recovery surface: typed error, Retry, Save a copy, Reload from disk, Reveal, autosave backoff, and no “Saved” while pending/failed. External-modification overwrite/backup is phase 2b2. Later: F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 2b2a is in progress.** Phases 1, 2a, and 2b1 are merged. Phase 2b2a adds the external-modification state: explicit Reload/Overwrite/Save copy/Reveal, with Overwrite only for external modification and a non-default confirm. Backup restore is 2b2b. Later: F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2f phase 2b1 — save-failure recovery UI** is in progress. Phases 1 and 2a are merged; M3 and PDF/page work remain deferred until M2f is accepted.
+Spike 1 is complete (technical foundation merged); **M2f phase 2b2a — external modification reload/overwrite** is in progress. Phases 1, 2a, 2b1 are merged; M3 and PDF/page work remain deferred until M2f is accepted.
 
 ## Running the current code
 
@@ -42,6 +42,7 @@ npm run test:visual # screenshots for product-owner review (on demand, not the g
 - M2f stability brief: `docs/tasks/m2f-stability-fixes.md`.
 - M2f phase 2a brief: `docs/tasks/m2f-phase2a-flush-close.md`.
 - M2f phase 2b1 brief: `docs/tasks/m2f-phase2b1-save-recovery.md`.
+- M2f phase 2b2a brief: `docs/tasks/m2f-phase2b2a-external-modification.md`.
 - UI decisions: `docs/adr/0004-ui-shell-and-branch-editor.md`.
 - UI research: `research/ui-components.md`.
 
