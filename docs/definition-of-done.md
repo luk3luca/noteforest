@@ -382,7 +382,10 @@ Performance (`tests/perf/`) and screenshot evidence (`tests/visual/`) are separa
 and are not part of the critical gate. Artifact roots honour `NOTEFOREST_ARTIFACTS` (default
 `artifacts/`).
 
-- `npm run e2e` builds and runs the critical suite; target **< 60 s**, currently ~18 s of test time.
+- `npm run e2e` builds and runs the critical suite. Budget: **critical-suite `node --test` time
+  < 60 s, excluding the build**. Measured on 4 November 2026: 23 tests, 54.3–56.4 s suite time
+  standalone and in `verify`; `npm run e2e` wall time is ~64 s including the build. The budget is
+  suite time, not command wall time.
 - `npm test` is the unit suite; target **< 3 s**.
 - `npm run test:recovery` builds and runs the corrupt/missing/newer recovery suite.
 - `npm run test:ui` builds and runs the zoom/fit/focus view suite.

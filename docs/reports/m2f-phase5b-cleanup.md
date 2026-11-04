@@ -167,7 +167,10 @@ is left unchanged (7.24 s in the final run).
 - No lint/format script or CI config; explicitly out of scope for this cleanup.
 - `routeBranchEdge`/`pathMovesForward` are exported test helpers in the routing module; they are not
   imported by the app.
-- KaTeX 0.19.0 should be revisited when `@tiptap/extension-mathematics` widens its peer range.
+- KaTeX 0.18.11 is the installed version, and npm marks it deprecated: “accidentally published with
+  breaking changes; use 0.19.0”. 0.19.0 is outside `@tiptap/extension-mathematics`'s current peer
+  range (^0.16/^0.17/^0.18), so the pin stays until that peer range widens; math tests pass.
+  Revisit with the TipTap upgrade.
 - pdfjs is declared by both root scripts and `packages/pdf` at the same pinned version; this is one
   installed copy, not a duplicate install.
 

@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2f is complete and awaits Sentinel re-review + product-owner visual/VoiceOver acceptance**. M3 and PDF/page work remain blocked until M2 is accepted.
+Spike 1 is complete (technical foundation merged); **M2f returned request changes from the Sentinel re-review; the phase 5c fixes are implemented and a re-review is pending**. M3 and PDF/page work remain blocked until M2 is accepted.
 
 ## Running the current code
 
@@ -30,7 +30,7 @@ npm run test:visual # screenshots for product-owner review (on demand, not the g
   suite after every small fix; `test:perf` and `test:visual` are on-demand, not part of either gate.
 - `npm run dev` and `npm start` launch the Electron shell. The scripts unset `ELECTRON_RUN_AS_NODE` (the host environment sets it).
 - The current renderer is the M2 editor shell, not the Spike 1 fixture demo.
-- M2e report: `docs/reports/m2e-routing-and-layout.md`; M2f phase 5a report: `docs/reports/m2f-phase5a.md`; phase 5b cleanup report: `docs/reports/m2f-phase5b-cleanup.md`.
+- M2e report: `docs/reports/m2e-routing-and-layout.md`; M2f phase 5a report: `docs/reports/m2f-phase5a.md`; phase 5b cleanup report: `docs/reports/m2f-phase5b-cleanup.md`; phase 5c re-review fixes: `docs/reports/m2f-phase5c-review-fixes.md`.
 - Spike 1 evidence remains in `docs/spikes/spike-01-report.md` and `docs/spikes/artifacts/`; the old Spike 1 harness targets the removed demo renderer and is not part of the M2 gate. Its commands are `npm run spike:gates`, `npm run spike:gates:summary`, `npm run spike:pdf:verify`, and `npm run spike:pdf:raster`.
 
 ## Undo and redo
@@ -41,8 +41,9 @@ command. If the preferred stack has nothing to undo/redo, the command falls back
 the other stack; it never loops and never performs two steps for one keypress. `⌘Z`,
 `⇧⌘Z`, the Edit menu, the command palette, and the settings action all call the same
 router (`lib/history-routing.ts`). A structural undo/redo rebuild clears the stale
-ProseMirror text stacks. Destructive delete/detach inverses remain phase 3b gaps and are
-not presented as undoable.
+ProseMirror text stacks. Destructive delete, subtree-delete, and detach inverses restore the
+exact records (IDs, branch order, chapter placement) and are undoable; a failed structural
+undo/redo is reported and dropped so older history stays reachable.
 
 ## M2 status
 
@@ -65,6 +66,8 @@ not presented as undoable.
 - M2f phase 4b brief: `docs/tasks/m2f-phase4b-empty-chapters-locks.md`.
 - M2f phase 5a brief: `docs/tasks/m2f-phase5a-keyboard-a11y.md`.
 - M2f phase 5b brief: `docs/tasks/m2f-phase5b-cleanup.md`.
+- M2f phase 5c brief: `docs/tasks/m2f-phase5c-review-fixes.md`.
+- M2f re-review: `docs/reviews/m2f-review.md`; phase 5c report: `docs/reports/m2f-phase5c-review-fixes.md`.
 - UI decisions: `docs/adr/0004-ui-shell-and-branch-editor.md`.
 - UI research: `research/ui-components.md`.
 
@@ -75,7 +78,7 @@ not presented as undoable.
 - `docs/review-checklist.md` — review checklist.
 - `docs/definition-of-done.md` — quality gates and test strategy.
 - `docs/plan.md` — milestones and tasks.
-- `docs/spike-01-layout-paginator-pdf.md` — the current spike brief.
+- `docs/spike-01-layout-paginator-pdf.md` — the completed Spike 1 brief (historical).
 - `docs/adr/` — stack, PDF, and External API decisions.
 - `research/landscape.md` — technical landscape and prior art.
 - `research/native-stacks.md` — stack review and go/no-go.
