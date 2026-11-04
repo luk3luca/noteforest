@@ -273,7 +273,7 @@ describe('save failure copy', () => {
       const expected = code === 'external-modification';
       expect(canOverwriteExternal(code)).toBe(expected);
       expect(saveFailureActions(code).includes('overwrite')).toBe(expected);
-      for (const action of ['retry', 'save-copy', 'reload', 'reveal'] as const) {
+      for (const action of ['retry', 'restore-backup', 'save-copy', 'reload', 'reveal'] as const) {
         expect(saveFailureActions(code)).toContain(action);
       }
     }

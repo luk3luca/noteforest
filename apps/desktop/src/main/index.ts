@@ -7,7 +7,7 @@ import {
   session,
   shell,
 } from 'electron';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import type {
   BootstrapResult,
   FlushResult,
@@ -24,11 +24,14 @@ import {
   closeAllStores,
   closeDocument,
   createDocument,
+  defaultRestoreDestination,
   dirtyDocuments,
   isInsideLibrary,
   libraryDir,
+  listBackups,
   openDocument,
   reloadDocument,
+  restoreBackup,
   saveAllDirty,
   saveDocument,
   saveDocumentCopy,
@@ -301,6 +304,58 @@ function registerIpc(): void {
 
   ipcMain.handle('document:reload', (_event, packagePath: string) =>
     reloadDocument(packagePath),
+  );
+
+  ipcMain.handle('document:list-backups', (_event, packagePath: string) =>
+    listBackups(packagePath),
+  );
+
+  ipcMain.handle(
+    'document:restore-backup',
+    async (_event, packagePath: string, sourcePath: string) => {
+      const win = mainWindow;
+      if (win === null || win.isDestroyed()) {
+        return {
+          ok: false as const,
+          code: 'unknown' as const,
+          message: 'The window is not available.',
+        };
+      }
+      // Validate the source before opening a destination picker: the renderer
+      // may only restore one of the backups currently listed for this package.
+      const listing = await listBackups(packagePath);
+      if (!listing.ok) {
+        return { ok: false as const, code: 'unknown' as const, message: listing.message };
+      }
+      const requested = typeof sourcePath === 'string' ? resolve(sourcePath) : '';
+      const source = listing.backups.find(
+        (backup) => backup.valid && resolve(backup.sourcePath) === requested,
+      );
+      if (source === undefined) {
+        return {
+          ok: false as const,
+          code: 'invalid-source' as const,
+          message: 'That backup is not one of the valid backups for this document.',
+        };
+      }
+      const defaultPath = await defaultRestoreDestination(packagePath);
+      const choice = await dialog.showSaveDialog(win, {
+        title: 'Restore backup as a copy',
+        buttonLabel: 'Restore copy',
+        defaultPath,
+        properties: ['createDirectory'],
+      });
+      if (choice.canceled || choice.filePath === undefined || choice.filePath.length === 0) {
+        return { ok: false as const, canceled: true };
+      }
+      const result = await restoreBackup(packagePath, source.sourcePath, choice.filePath);
+      if (result.ok && result.snapshot === undefined) {
+        // The restored package is always inside the library; this is only a
+        // fallback for an unexpected open failure.
+        shell.showItemInFolder(join(result.packagePath, 'document.json'));
+      }
+      return result;
+    },
   );
 
   ipcMain.handle(

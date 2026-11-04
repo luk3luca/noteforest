@@ -15,6 +15,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import type {
   ApplyResult,
   OpenDocumentSnapshot,
+  RestoreBackupResult,
   SaveCopyResult,
   SaveFailureCode,
 } from '../../../shared/api';
@@ -433,6 +434,15 @@ export class DocumentRuntime {
       }
       return result;
     });
+  }
+
+  /**
+   * Restore one listed backup as a new copy through the main process. The
+   * native destination dialog and the package write happen there; this window's
+   * canonical document and save failure are deliberately left unchanged.
+   */
+  async restoreBackup(sourcePath: string): Promise<RestoreBackupResult> {
+    return this.queue.run(() => window.noteforest.restoreBackup(this.packagePath, sourcePath));
   }
 
   /**

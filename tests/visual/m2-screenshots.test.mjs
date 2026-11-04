@@ -321,6 +321,14 @@ describe('NoteForest M2 visual evidence', () => {
     await page.evaluate(() => window.__noteforestTest.seed('demo'));
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
     await h.waitSaved();
+    // Create a few autosave snapshots before the folder becomes read-only so
+    // the restore dialog has real rows to show.
+    for (const value of [' First saved edit', ' Second saved edit']) {
+      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(value);
+      await h.waitSaved();
+    }
     const packagePath = (await h.state()).activeTab;
     await chmod(packagePath, 0o555);
     try {
@@ -339,6 +347,14 @@ describe('NoteForest M2 visual evidence', () => {
       await shot('save-failure-1440x900.png', 1440, 900);
       await h.setWindowSize(1024, 768);
       await shot('save-failure-1024x768.png', 1024, 768);
+      await h.setWindowSize(1440, 900);
+      await page.locator('[data-save-action="restore-backup"]').click();
+      const restore = page.getByRole('dialog', { name: 'Restore backup' });
+      await restore.waitFor();
+      await restore.locator('[data-backup-row]').first().waitFor();
+      await shot('restore-backup-1440x900.png', 1440, 900);
+      await restore.getByRole('button', { name: 'Cancel' }).click();
+      await restore.waitFor({ state: 'detached' });
       await chmod(packagePath, 0o755);
       await page.locator('[data-save-action="retry"]').click();
       await h.waitSaved();
