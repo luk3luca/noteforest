@@ -315,7 +315,11 @@ function registerIpc(): void {
     async (_event, packagePath: string, sourcePath: string) => {
       const win = mainWindow;
       if (win === null || win.isDestroyed()) {
-        return { ok: false as const, code: 'unknown' as const, message: 'The window is not available.' };
+        return {
+          ok: false as const,
+          code: 'unknown' as const,
+          message: 'The window is not available.',
+        };
       }
       // Validate the source before opening a destination picker: the renderer
       // may only restore one of the backups currently listed for this package.
