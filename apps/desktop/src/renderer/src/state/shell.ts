@@ -33,6 +33,7 @@ export type DialogState =
   | { kind: 'close-tab'; packagePath: string }
   | { kind: 'reload-from-disk'; packagePath: string }
   | { kind: 'overwrite-external'; packagePath: string }
+  | { kind: 'restore-backup'; packagePath: string }
   | { kind: 'settings' };
 
 export interface ContextMenuState {

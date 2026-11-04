@@ -5,10 +5,12 @@ import type {
   CreateDocumentResult,
   FlushResult,
   LibraryView,
+  ListBackupsResult,
   MenuCommand,
   NoteForestApi,
   OpenDocumentResult,
   ReloadDocumentResult,
+  RestoreBackupResult,
   RevealResult,
   SaveCopyResult,
   SaveResult,
@@ -31,6 +33,10 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('document:save', packagePath, options),
   saveCopy: (packagePath: string): Promise<SaveCopyResult> =>
     ipcRenderer.invoke('document:save-copy', packagePath),
+  listBackups: (packagePath: string): Promise<ListBackupsResult> =>
+    ipcRenderer.invoke('document:list-backups', packagePath),
+  restoreBackup: (packagePath: string, sourcePath: string): Promise<RestoreBackupResult> =>
+    ipcRenderer.invoke('document:restore-backup', packagePath, sourcePath),
   reloadDocument: (packagePath: string): Promise<ReloadDocumentResult> =>
     ipcRenderer.invoke('document:reload', packagePath),
   closeDocument: (packagePath: string, options): Promise<void> =>

@@ -104,12 +104,19 @@ export function saveFailureHint(code: SaveFailureCode): string {
   }
 }
 
-export type SaveFailureAction = 'retry' | 'overwrite' | 'save-copy' | 'reload' | 'reveal';
+export type SaveFailureAction =
+  | 'retry'
+  | 'overwrite'
+  | 'restore-backup'
+  | 'save-copy'
+  | 'reload'
+  | 'reveal';
 
 /**
  * Actions available for one failure. Overwrite is the only code-specific
  * action: it is offered for an external modification and never for a
- * permission, disk-full, read-only, or lock failure.
+ * permission, disk-full, read-only, or lock failure. Backup restore is offered
+ * for every failure because it always writes a new copy.
  */
 export function canOverwriteExternal(code: SaveFailureCode): boolean {
   return code === 'external-modification';
@@ -117,9 +124,9 @@ export function canOverwriteExternal(code: SaveFailureCode): boolean {
 
 export function saveFailureActions(code: SaveFailureCode): readonly SaveFailureAction[] {
   if (canOverwriteExternal(code)) {
-    return ['retry', 'overwrite', 'save-copy', 'reload', 'reveal'];
+    return ['retry', 'overwrite', 'restore-backup', 'save-copy', 'reload', 'reveal'];
   }
-  return ['retry', 'save-copy', 'reload', 'reveal'];
+  return ['retry', 'restore-backup', 'save-copy', 'reload', 'reveal'];
 }
 
 export interface OverwriteConfirmation {

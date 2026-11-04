@@ -68,6 +68,10 @@ export function SaveFailureBanner({ runtime }: { runtime: DocumentRuntime }): JS
     useShell.getState().openDialog({ kind: 'overwrite-external', packagePath: runtime.packagePath });
   };
 
+  const restoreBackup = (): void => {
+    useShell.getState().openDialog({ kind: 'restore-backup', packagePath: runtime.packagePath });
+  };
+
   const reveal = async (): Promise<void> => {
     setBusy('reveal');
     try {
@@ -104,6 +108,15 @@ export function SaveFailureBanner({ runtime }: { runtime: DocumentRuntime }): JS
           onClick={() => void retry()}
         >
           {busy === 'retry' ? 'Retrying…' : 'Retry'}
+        </button>
+        <button
+          type="button"
+          className="nf-button"
+          data-save-action="restore-backup"
+          disabled={disabled}
+          onClick={restoreBackup}
+        >
+          Restore backup…
         </button>
         {canOverwriteExternal(failure.code) ? (
           <button

@@ -11,7 +11,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useShell } from '../state/shell';
-import { useRuntime } from '../state/registry';
+import { registerRuntime, useRuntime } from '../state/registry';
 import {
   activeRuntime,
   closeTab,
@@ -22,6 +22,8 @@ import {
 } from '../actions';
 import { blockTitle, chapterIdOf, subtreeIds } from '../lib/tree';
 import { overwriteConfirmation } from '../lib/save-failure';
+import { backupMetadataLine } from '../lib/backup-restore';
+import type { BackupCandidateView } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
 
 interface FrameProps {
@@ -229,6 +231,19 @@ export function Dialogs(): JSX.Element | null {
     return <OverwriteDialog runtime={runtime} onClose={close} />;
   }
 
+  if (dialog.kind === 'restore-backup') {
+    if (runtime.packagePath !== dialog.packagePath) {
+      return null;
+    }
+    return (
+      <RestoreBackupDialog
+        runtime={runtime}
+        packagePath={dialog.packagePath}
+        onClose={close}
+      />
+    );
+  }
+
   if (dialog.kind === 'settings') {
     return <SettingsDialog onClose={close} />;
   }
@@ -281,6 +296,184 @@ function OverwriteDialog({
       </p>
       <p className="nf-dialog-note">
         The external changes will be lost. Reload from disk instead if you want to keep them.
+      </p>
+    </Frame>
+  );
+}
+
+function RestoreBackupDialog({
+  runtime,
+  packagePath,
+  onClose,
+}: {
+  runtime: DocumentRuntime;
+  packagePath: string;
+  onClose: () => void;
+}): JSX.Element {
+  type ListState =
+    | { status: 'loading' }
+    | { status: 'ready'; backups: BackupCandidateView[] }
+    | { status: 'error'; message: string };
+
+  const [state, setState] = useState<ListState>({ status: 'loading' });
+  const [selected, setSelected] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ status: 'loading' });
+    setSelected(null);
+    void window.noteforest
+      .listBackups(packagePath)
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.ok) {
+          setState({ status: 'error', message: result.message });
+          return;
+        }
+        setState({ status: 'ready', backups: result.backups });
+        setSelected(result.backups.find((backup) => backup.valid)?.sourcePath ?? null);
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) return;
+        setState({
+          status: 'error',
+          message: cause instanceof Error ? cause.message : String(cause),
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [packagePath]);
+
+  const usable =
+    state.status === 'ready' ? state.backups.filter((backup) => backup.valid) : [];
+
+  const restore = async (): Promise<void> => {
+    if (selected === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await runtime.restoreBackup(selected);
+      if (!result.ok) {
+        if (result.canceled !== true) {
+          setError(result.message ?? 'Could not restore the backup.');
+        }
+        return;
+      }
+      onClose();
+      const shell = useShell.getState();
+      shell.setLibrary(result.library);
+      if (result.snapshot !== undefined) {
+        registerRuntime(result.snapshot, undefined, undefined);
+        shell.openTab({
+          packagePath: result.snapshot.packagePath,
+          title: result.snapshot.document.title,
+        });
+        toast.success('Restored a backup and opened it.');
+      } else {
+        toast.success(`Restored a backup to ${result.packagePath}`);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Frame
+      title="Restore backup"
+      description="Choose a backup to restore as a new copy. The current document and its file are not changed."
+      actions={
+        <>
+          <Button className="nf-button" onPress={onClose} isDisabled={busy}>
+            Cancel
+          </Button>
+          {usable.length > 0 ? (
+            <Button
+              className="nf-button nf-button-primary"
+              isDisabled={busy || selected === null}
+              onPress={() => void restore()}
+            >
+              {busy ? 'Restoring…' : 'Restore copy…'}
+            </Button>
+          ) : null}
+        </>
+      }
+    >
+      {state.status === 'loading' ? (
+        <p className="nf-dialog-text">Reading backups…</p>
+      ) : null}
+
+      {state.status === 'error' ? (
+        <p className="nf-dialog-text" role="alert" data-restore-error="true">
+          {state.message}
+        </p>
+      ) : null}
+
+      {state.status === 'ready' && usable.length === 0 ? (
+        <div className="nf-backup-empty" data-backup-empty="true">
+          <p className="nf-backup-empty-title">No usable backups</p>
+          <p className="nf-dialog-note">
+            NoteForest has no valid backup for this document yet. Save a copy or fix the
+            original folder instead.
+          </p>
+        </div>
+      ) : null}
+
+      {state.status === 'ready' && usable.length > 0 ? (
+        <fieldset className="nf-fieldset" data-restore-backup="true">
+          <legend className="nf-legend">Backups, newest first</legend>
+          <div className="nf-backup-list">
+            {state.backups.map((backup) => (
+              <label
+                key={backup.sourcePath}
+                className={`nf-backup-row${backup.valid ? '' : ' nf-backup-row-invalid'}`}
+                data-backup-row="true"
+                data-backup-valid={backup.valid ? 'true' : 'false'}
+                data-backup-kind={backup.kind}
+                data-backup-created={backup.createdAt}
+                data-backup-revision={String(backup.revision)}
+                data-backup-blocks={String(backup.blockCount)}
+                data-backup-title={backup.title}
+                data-backup-source={backup.sourcePath}
+              >
+                <input
+                  type="radio"
+                  name="restore-backup"
+                  data-backup-select="true"
+                  checked={selected === backup.sourcePath}
+                  disabled={!backup.valid || busy}
+                  onChange={() => setSelected(backup.sourcePath)}
+                />
+                <span className="nf-backup-copy">
+                  <span className="nf-backup-title">
+                    {backup.title.length > 0 ? backup.title : 'Untitled'}
+                  </span>
+                  <span className="nf-backup-meta">{backupMetadataLine(backup)}</span>
+                  {backup.valid ? null : (
+                    <span className="nf-backup-invalid">
+                      Unusable: {backup.error ?? 'invalid backup'}
+                    </span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {error !== null ? (
+        <p className="nf-dialog-text nf-dialog-error" role="alert" data-restore-error="true">
+          {error}
+        </p>
+      ) : null}
+
+      <p className="nf-dialog-note">
+        The restored copy opens in a new tab. This window’s unsaved changes and the original
+        file are left untouched.
       </p>
     </Frame>
   );

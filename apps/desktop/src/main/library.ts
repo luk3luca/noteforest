@@ -6,7 +6,7 @@
  * mutated only through typed commands.
  */
 
-import { promises as fs, type Dirent } from 'node:fs';
+import { constants as fsConstants, promises as fs, type Dirent } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -22,23 +22,30 @@ import {
   type DocumentCommand,
 } from '@noteforest/core';
 import {
+  backupsDirForPackage,
   createDocumentPackage,
   createUniquePackageDir,
   defaultAppSupportDir,
   documentJsonPath,
   assetsDirPath,
+  inspectRecoveryCandidates,
   openDocumentPackage,
+  pathExists,
   readRecentDocuments,
+  restoreCandidateToPackage,
   writeDocumentPackageCopy,
   writeFileAtomic,
   type DocumentStore,
 } from '@noteforest/core/node';
 import type {
   ApplyResult,
+  BackupCandidateView,
   LibraryView,
+  ListBackupsResult,
   OpenDocumentResult,
   OpenDocumentSnapshot,
   ReloadDocumentResult,
+  RestoreBackupResult,
   SaveCopyResult,
   SaveRequestOptions,
   SaveResult,
@@ -46,6 +53,12 @@ import type {
   SessionTabState,
 } from '../shared/api.js';
 import { saveFailureCode } from './save-error.js';
+import {
+  backupCandidates,
+  isPathInside,
+  restoreDestinationProblem,
+  uniqueRestoreDestination,
+} from './backup-restore.js';
 
 const DEFAULT_SESSION: SessionState = {
   tabs: [],
@@ -70,9 +83,7 @@ function sessionPath(): string {
 }
 
 export function isInsideLibrary(candidate: string): boolean {
-  const library = path.resolve(libraryDir());
-  const resolved = path.resolve(candidate);
-  return resolved === library || resolved.startsWith(`${library}${path.sep}`);
+  return isPathInside(libraryDir(), candidate);
 }
 
 const stores = new Map<string, DocumentStore>();
@@ -374,6 +385,170 @@ export async function saveDocumentCopy(
     ok: true,
     packagePath: copied.packagePath,
     library: await scanLibrary(),
+  };
+}
+
+/**
+ * List the rotating backups for one document, newest first. Read-only: the
+ * package and the backup files are never modified. Invalid backups stay in the
+ * list so the renderer can disable them with a reason.
+ */
+export async function listBackups(packagePath: string): Promise<ListBackupsResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, message: 'No document path was provided.' };
+  }
+  const resolved = path.resolve(packagePath);
+  if (!isInsideLibrary(resolved)) {
+    return { ok: false, message: 'Document is outside the NoteForest library.' };
+  }
+  try {
+    const candidates = await inspectRecoveryCandidates(resolved, {
+      appSupportDir: appSupportDir(),
+      includeCanonical: false,
+    });
+    return { ok: true, backups: backupCandidates(candidates) };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Could not list backups: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+async function findValidBackup(
+  packagePath: string,
+  sourcePath: string,
+): Promise<BackupCandidateView | null> {
+  const listing = await listBackups(packagePath);
+  if (!listing.ok) return null;
+  const resolvedSource = path.resolve(sourcePath);
+  return (
+    listing.backups.find(
+      (backup) => backup.valid && path.resolve(backup.sourcePath) === resolvedSource,
+    ) ?? null
+  );
+}
+
+/** Unique default copy name: `<library>/<folder> restored <timestamp>`. */
+export async function defaultRestoreDestination(packagePath: string): Promise<string> {
+  return uniqueRestoreDestination(libraryDir(), packagePath, new Date(), pathExists);
+}
+
+/**
+ * Restore one listed backup into a new package chosen by the native dialog.
+ * The source is re-validated against the current backup listing (no arbitrary
+ * path read), the destination must be a new folder inside the library, and the
+ * original package is never written.
+ */
+export async function restoreBackup(
+  packagePath: string,
+  sourcePath: string,
+  destination: string,
+): Promise<RestoreBackupResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, code: 'unknown', message: 'No document path was provided.' };
+  }
+  if (typeof sourcePath !== 'string' || sourcePath.length === 0) {
+    return { ok: false, code: 'invalid-source', message: 'No backup was selected.' };
+  }
+  if (typeof destination !== 'string' || destination.length === 0) {
+    return { ok: false, code: 'invalid-destination', message: 'No restore location was provided.' };
+  }
+
+  const sourcePackage = path.resolve(packagePath);
+  if (!isInsideLibrary(sourcePackage)) {
+    return {
+      ok: false,
+      code: 'outside-library',
+      message: 'Document is outside the NoteForest library.',
+    };
+  }
+
+  const backup = await findValidBackup(sourcePackage, sourcePath);
+  if (backup === null) {
+    return {
+      ok: false,
+      code: 'invalid-source',
+      message: 'That backup is not one of the valid backups for this document.',
+    };
+  }
+  const backupsRoot = backupsDirForPackage(appSupportDir(), sourcePackage);
+  if (!isPathInside(backupsRoot, backup.sourcePath)) {
+    return {
+      ok: false,
+      code: 'invalid-source',
+      message: 'That backup does not belong to this document.',
+    };
+  }
+
+  const target = path.resolve(destination);
+  const scope = restoreDestinationProblem({
+    destination: target,
+    libraryDir: libraryDir(),
+    sourcePackagePath: sourcePackage,
+    documentExists: false,
+  });
+  if (scope !== null) {
+    return { ok: false, code: scope.code, message: scope.message };
+  }
+
+  const targetDocument = documentJsonPath(target);
+  let documentExists = false;
+  try {
+    await fs.access(targetDocument);
+    documentExists = true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      return {
+        ok: false,
+        code: 'restore-failed',
+        message: `Could not inspect the restore location: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+  if (documentExists) {
+    return {
+      ok: false,
+      code: 'exists',
+      message: 'A document already exists at that location. Choose a new folder.',
+    };
+  }
+
+  try {
+    await fs.mkdir(target, { recursive: true });
+    await fs.access(target, fsConstants.W_OK);
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'not-writable',
+      message: `The chosen folder is not writable: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+
+  const restored = await restoreCandidateToPackage(backup.sourcePath, target, {
+    assetsSourcePackagePath: sourcePackage,
+  });
+  if (!restored.ok) {
+    const reason = restored.error.details?.['reason'];
+    const code =
+      restored.error.code === 'recovery-failed'
+        ? 'exists'
+        : reason === 'permission' || reason === 'read-only'
+          ? 'not-writable'
+          : 'restore-failed';
+    return { ok: false, code, message: restored.error.message };
+  }
+
+  const library = await scanLibrary();
+  const opened = await openStore(restored.targetPackagePath);
+  if ('error' in opened) {
+    return { ok: true, packagePath: restored.targetPackagePath, library };
+  }
+  return {
+    ok: true,
+    packagePath: restored.targetPackagePath,
+    snapshot: opened.snapshot,
+    library,
   };
 }
 

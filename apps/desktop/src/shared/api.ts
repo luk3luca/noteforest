@@ -175,6 +175,68 @@ export interface RevealResult {
   message?: string;
 }
 
+export type BackupKind = 'autosave' | 'daily' | 'pre-migration' | 'manual';
+
+/**
+ * One rotating backup shown on the save-failure surface. `sourcePath` is an
+ * opaque backup file path; the renderer never reads it, and the main process
+ * re-validates it against the document's current backup listing before use.
+ */
+export interface BackupCandidateView {
+  sourcePath: string;
+  kind: BackupKind;
+  createdAt: string;
+  revision: number;
+  blockCount: number;
+  title: string;
+  bytes: number;
+  valid: boolean;
+  /** Why the backup cannot be restored; present only when `valid` is false. */
+  error?: string;
+}
+
+export interface ListBackupsSuccess {
+  ok: true;
+  /** Newest first, valid and invalid candidates included. */
+  backups: BackupCandidateView[];
+}
+
+export interface ListBackupsFailure {
+  ok: false;
+  message: string;
+}
+
+export type ListBackupsResult = ListBackupsSuccess | ListBackupsFailure;
+
+export type RestoreBackupFailureCode =
+  | 'no-backup'
+  | 'invalid-source'
+  | 'outside-library'
+  | 'invalid-destination'
+  | 'same-package'
+  | 'exists'
+  | 'not-writable'
+  | 'restore-failed'
+  | 'unknown';
+
+export interface RestoreBackupSuccess {
+  ok: true;
+  /** New package directory chosen in the native dialog. */
+  packagePath: string;
+  /** Present when the restored copy was opened (it always lives in the library). */
+  snapshot?: OpenDocumentSnapshot;
+  library: LibraryView;
+}
+
+export interface RestoreBackupFailure {
+  ok: false;
+  canceled?: boolean;
+  code?: RestoreBackupFailureCode;
+  message?: string;
+}
+
+export type RestoreBackupResult = RestoreBackupSuccess | RestoreBackupFailure;
+
 export interface WindowState {
   dirty: boolean;
   title: string;
@@ -231,6 +293,8 @@ export interface NoteForestApi {
   apply(packagePath: string, command: DocumentCommand): Promise<ApplyResult>;
   save(packagePath: string, options?: SaveRequestOptions): Promise<SaveResult>;
   saveCopy(packagePath: string): Promise<SaveCopyResult>;
+  listBackups(packagePath: string): Promise<ListBackupsResult>;
+  restoreBackup(packagePath: string, sourcePath: string): Promise<RestoreBackupResult>;
   reloadDocument(packagePath: string): Promise<ReloadDocumentResult>;
   closeDocument(packagePath: string, options: { save: boolean }): Promise<void>;
   revealDocument(packagePath: string): Promise<RevealResult>;
