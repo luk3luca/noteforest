@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2 review returned Request changes.** Sentinel confirmed an S1 quit-lifecycle bug and S2 gaps in undo, flush/close, corrupt-document recovery, keyboard focus, empty chapters, and stale locks. The review is `docs/reviews/m2-review.md`; the proposed fix milestone is **M2f** in `docs/plan.md`. M3 span anchors/reference edges do not start until these are fixed or explicitly waived. The product-owner visual/VoiceOver pass is still separate. Spec v0.4.4.
+**M2f phase 1 is in progress.** The product owner approved fixing the Sentinel review before M3. Phase 1 is the S1 quit lifecycle (F1) plus test infrastructure (F8): split perf/visual out of the critical e2e suite, replace fixed sleeps, merge duplicate flows, target unit <3 s / critical e2e <60 s, and add `verify:fast`/`verify`/`test:perf`/`test:visual` with a run policy that avoids duplicate full runs. Later phases: F4 flush/close, F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

@@ -34,7 +34,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
-| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Proposed; awaiting go** |
+| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **In progress — phase 1 (F1 + F8)** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -145,23 +145,17 @@ Approved after the M2d review. Full brief: `docs/tasks/m2e-routing-and-layout.md
 - **Navigation:** zoom out/in/reset (`⌘-`, `⌘0`, `⌘+`) and Focus branch for deep indentation. Page-width wrap preview is M4.
 - **Keep:** 1,600 px canvas / 480 px top-level / 144 px child min, non-destructive Backspace, contextual add, M2c/M2d fixes.
 
-## M2f — Stability fixes from Sentinel review (proposed)
+## M2f — Stability fixes from Sentinel review (in progress)
 
-Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.md`.
+Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.md`; phased brief: `docs/tasks/m2f-stability-fixes.md`.
 
-Order:
+**Phase 1 (current): F1 quit lifecycle + F8 test infrastructure.**
+- Fix the S1 quit-after-last-window bug; add close-window-then-quit e2e.
+- Split perf/visual e2e out of the critical suite; replace fixed sleeps with condition waits; merge duplicate flows; target unit <3 s and critical e2e <60 s.
+- Add `verify:fast`, `verify`, `test:perf`, `test:visual`; document the run policy (targeted tests during a fix, one full run at handoff/integration).
+- Keep all data-safety/desync/arrow/layout/keyboard/persistence tests.
 
-1. **F1 — S1 quit lifecycle:** closing the last window leaves `allowClose=false`; `before-quit` cannot quit. Fix and add close-window-then-quit e2e.
-2. **F4 — flush/close contract:** typed flush result; no close on timeout; send real errors; save-failure recovery (reload/overwrite/backup).
-3. **F2 — undo model:** one sequence/fallback; inverses or snapshots for destructive delete/detach; preserve branch IDs and original chapter placement; remove time-based dedupe for undo/redo.
-4. **F3 — corrupt/read-only/recovery:** list unreadable packages with reason; open a read-only surface; expose backup restore; never overwrite.
-5. **F5/F16 — keyboard focus:** Tab exits the editor; card controls reachable; fix `Ctrl+Tab`; axe scope + keyboard e2e.
-6. **F6 — empty chapters:** reject moving the last block out or auto-fix atomically; render valid placeholder; reload test.
-7. **F7 — stale locks:** no silent takeover; read-only banner + explicit action.
-8. **F8 — e2e budget:** move perf/screenshots to separate suites, replace fixed sleeps, target critical suite <60s.
-9. Dead code/deps/docs cleanup from the review backlog (F12–F15, F19) as a separate small task.
-
-M3 span anchors/reference edges start only after the S1/S2 fixes or an explicit product-owner waiver.
+**Later phases:** F4 flush/close, F2 undo model, F3/F6/F7 data safety, F5/F16 keyboard, then dead-code/deps/docs cleanup.
 
 ## M3 — Span anchors and reference edges (planned)
 
