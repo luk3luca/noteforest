@@ -14,7 +14,6 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --font-ui: var(--ui-font);
-  --font-serif: var(--serif-font);
   --font-mono: var(--mono-font);
 }
 
@@ -40,7 +39,6 @@
   --warning: #d6b17a;
   --focus-ring: #9bb7d4;
   --ui-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  --serif-font: "Source Serif 4", Georgia, serif;
   --mono-font: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --radius-control: 3px;
   --radius-block: 4px;
@@ -101,7 +99,7 @@ button:disabled {
 
 .nf-app {
   display: grid;
-  grid-template-rows: 38px 36px minmax(0, 1fr) 24px;
+  grid-template-rows: 38px minmax(0, 1fr) 24px;
   height: 100vh;
   background: var(--canvas);
   overflow: hidden;
@@ -350,6 +348,16 @@ button:disabled {
   display: flex;
 }
 
+.nf-editor-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--canvas);
+}
+
 .nf-sidebar-panel {
   min-width: 208px;
   height: 100%;
@@ -358,6 +366,8 @@ button:disabled {
 .nf-editor-panel {
   min-width: 0;
   height: 100%;
+  min-height: 0;
+  display: flex;
 }
 
 .nf-separator {
@@ -761,9 +771,9 @@ button:disabled {
   position: relative;
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
   min-height: 0;
-  height: 100%;
   background: var(--canvas);
 }
 
@@ -781,14 +791,57 @@ button:disabled {
 }
 
 .nf-canvas {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 40px 56px 96px;
+  padding: 40px 40px 88px;
 }
 
 .nf-canvas-content {
   position: relative;
   min-height: 200px;
+}
+
+.nf-canvas-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.nf-canvas-action {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.nf-canvas-action:hover {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.nf-repair-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.nf-repair-dismiss {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .nf-readonly-banner {
@@ -814,14 +867,14 @@ button:disabled {
 .nf-chapter {
   display: flex;
   flex-direction: column;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .nf-chapter-head {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
@@ -836,11 +889,36 @@ button:disabled {
 
 .nf-chapter-title {
   margin: 0;
-  font-family: var(--serif-font);
-  font-size: 19px;
+  padding: 1px 2px;
+  margin-left: -2px;
+  border-radius: var(--radius-control);
+  font-family: var(--ui-font);
+  font-size: 20px;
   line-height: 1.3;
   font-weight: 600;
   color: var(--text);
+  text-align: left;
+  align-self: flex-start;
+}
+
+.nf-chapter-title:hover {
+  background: var(--surface-1);
+}
+
+.nf-chapter-title-input {
+  width: 100%;
+  margin-left: -2px;
+  padding: 1px 2px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  font-family: var(--ui-font);
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
 }
 
 .nf-chapter-blocks {
@@ -850,7 +928,7 @@ button:disabled {
 .nf-chapter-blocks > div {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .nf-block-node {
@@ -872,7 +950,7 @@ button:disabled {
   flex-wrap: wrap;
   align-items: flex-start;
   column-gap: 16px;
-  row-gap: 24px;
+  row-gap: 16px;
   width: 100%;
 }
 
@@ -886,7 +964,7 @@ button:disabled {
   flex: 0 1 auto;
   min-width: 160px;
   max-width: 420px;
-  padding: 12px;
+  padding: 10px;
   border-radius: var(--radius-block);
   background: var(--surface-1);
   transition: background 120ms var(--motion), box-shadow 120ms var(--motion);
@@ -930,9 +1008,9 @@ button:disabled {
 
 .nf-block-prose {
   outline: none;
-  font-family: var(--serif-font);
-  font-size: 17px;
-  line-height: 1.65;
+  font-family: var(--ui-font);
+  font-size: 15.5px;
+  line-height: 1.55;
   color: var(--text);
   overflow-wrap: break-word;
 }
@@ -952,24 +1030,24 @@ button:disabled {
 .nf-block-prose h1,
 .nf-block-prose h2,
 .nf-block-prose h3 {
-  font-family: var(--serif-font);
+  font-family: var(--ui-font);
   font-weight: 600;
   color: var(--text);
-  margin: 14px 0 6px;
+  margin: 12px 0 6px;
 }
 
 .nf-block-prose h1 {
-  font-size: 22px;
-  line-height: 1.25;
-}
-
-.nf-block-prose h2 {
-  font-size: 19px;
+  font-size: 20px;
   line-height: 1.3;
 }
 
+.nf-block-prose h2 {
+  font-size: 18px;
+  line-height: 1.35;
+}
+
 .nf-block-prose h3 {
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.4;
 }
 
@@ -1119,8 +1197,8 @@ button:disabled {
 
 .nf-gutter {
   position: absolute;
-  left: -26px;
-  top: 10px;
+  left: -24px;
+  top: 8px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -1168,6 +1246,47 @@ body.nf-dragging-block .nf-gutter-handle {
   cursor: grabbing;
 }
 
+/* Right edge adds a child; bottom edge adds a sibling. Both are overlays so
+   hovering never changes card geometry. */
+.nf-add-edge {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 120ms var(--motion), background 120ms var(--motion);
+  z-index: 2;
+}
+
+.nf-add-child {
+  right: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.nf-add-sibling {
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nf-block-body:hover .nf-add-edge,
+.nf-block-body[data-active="true"] .nf-add-edge,
+.nf-add-edge:focus-visible {
+  opacity: 1;
+}
+
+.nf-add-edge:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
 .nf-branch-children {
   flex: 1 1 240px;
   min-width: 160px;
@@ -1183,7 +1302,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-branch-children-inner > div {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 /* ------------------------------------------------------------------- edges */
@@ -1199,6 +1318,14 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-edge-path {
+  stroke: var(--edge);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 120ms var(--motion), stroke-width 120ms var(--motion);
+}
+
+.nf-edge-trunk {
   stroke: var(--edge);
   stroke-width: 1.25;
   stroke-linecap: round;
@@ -1388,7 +1515,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-empty-title {
   margin: 0 0 8px;
-  font-family: var(--serif-font);
+  font-family: var(--ui-font);
   font-size: 24px;
   font-weight: 600;
   color: var(--text);
@@ -1909,7 +2036,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 @media (max-width: 900px) {
   .nf-canvas {
-    padding: 24px 24px 64px;
+    padding: 28px 28px 64px;
   }
 }
 

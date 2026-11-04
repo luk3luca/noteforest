@@ -14,7 +14,7 @@ import { clearEditorBindings, getDragBlockId, setDragBlockId, setEditorBindings,
 import { setEditorSelectedBlock } from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
-import { openBlockMenu, openChapterMenu } from '../actions';
+import { createChapter, openBlockMenu, openChapterMenu } from '../actions';
 import { recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
 import { recordPerf } from '../lib/perf';
@@ -203,10 +203,8 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     if (only === undefined) return;
     const empty = !JSON.stringify(only.content).includes('"text"');
     if (!empty) return;
-    requestAnimationFrame(() => {
-      runtime.focusBlock(only.id);
-      editor.commands.focus();
-    });
+    runtime.focusBlock(only.id);
+    editor.commands.focus();
   }, [editor, runtime, active]);
 
   const selectedId = runtime.selectedBlockId;
@@ -229,6 +227,14 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
           is not being modified.
         </div>
       ) : null}
+      {runtime.repairNotice === null ? null : (
+        <div className="nf-repair-banner" role="status">
+          <span>{runtime.repairNotice}</span>
+          <button type="button" className="nf-repair-dismiss" onClick={() => runtime.clearRepairNotice()}>
+            Dismiss
+          </button>
+        </div>
+      )}
       <div
         className="nf-editor-scroll"
         ref={scrollRef}
@@ -246,6 +252,36 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
               activePath={activePath}
               onEdgeClick={(childId, anchor) => openBlockMenu(childId, anchor)}
             />
+          </div>
+          <div className="nf-canvas-footer" contentEditable={false}>
+            <button
+              type="button"
+              className="nf-canvas-action"
+              data-canvas-action="add-top-level"
+              onClick={() => {
+                const chapterId = runtime.document.chapters.at(-1)?.id;
+                if (chapterId === undefined) return;
+                void runtime.addTopLevel(chapterId).then((outcome) => {
+                  if (outcome.ok && outcome.blockId !== undefined) runtime.focusBlock(outcome.blockId);
+                });
+              }}
+            >
+              + Add top-level block
+            </button>
+            <button
+              type="button"
+              className="nf-canvas-action"
+              data-canvas-action="add-chapter"
+              onClick={() => {
+                void createChapter().then((outcome) => {
+                  if (outcome?.ok === true && outcome.blockId !== undefined) {
+                    runtime.focusBlock(outcome.blockId);
+                  }
+                });
+              }}
+            >
+              + Add chapter
+            </button>
           </div>
         </div>
       </div>

@@ -2,17 +2,22 @@
  * Pure orthogonal router for primary branch edges.
  *
  * Invariants, all covered by unit tests:
- * - the path always starts at the parent and ends at the child;
- * - the last segment points into the child (arrowhead at the child only);
+ * - the path always starts at the parent (or its shared trunk) and ends at the
+ *   child; the arrowhead is only at the child;
  * - a right-hand edge never moves left (no backwards U-turn);
- * - a below edge goes down, across, then down into the child's top edge.
+ * - one child uses a simple elbow;
+ * - two or more right-placed children share one vertical trunk from the
+ *   parent's right edge, with a short horizontal arrow at each child's level;
+ * - wrapped children share one bottom trunk at `parent.left + 18`, a horizontal
+ *   bus 12 px above the first child row, and a short vertical arrow into each
+ *   child top.
  */
 
 import {
   classifyPlacement,
   clamp,
-  distributePorts,
   GEOMETRY,
+  rectBottom,
   rectCenter,
   rectRight,
   type EdgePlacement,
@@ -25,23 +30,31 @@ export interface Point {
 }
 
 export interface RouteOptions {
-  /** Position among the parent's visible children (0-based). */
-  index?: number;
-  /** Number of visible children of this parent. */
-  count?: number;
   gap?: number;
   radius?: number;
   indent?: number;
   busOffset?: number;
+  trunkOffset?: number;
 }
 
 export interface RoutedEdge {
   id: string;
-  placement: EdgePlacement;
+  placement: 'right' | 'below';
   path: string;
   start: Point;
   end: Point;
   defect: boolean;
+}
+
+export interface RoutedTrunk {
+  /** Stable id: `<parentId>:right` or `<parentId>:below:trunk|bus`. */
+  id: string;
+  parentId: string;
+  placement: 'right' | 'below';
+  kind: 'trunk' | 'bus';
+  path: string;
+  start: Point;
+  end: Point;
 }
 
 interface Polyline {
@@ -126,84 +139,244 @@ function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function routeRight(parent: Rect, child: Rect, options: RouteOptions): Polyline {
-  const gap = options.gap ?? GEOMETRY.edgeGap;
-  const radius = options.radius ?? GEOMETRY.edgeRadius;
-  const count = Math.max(1, options.count ?? 1);
-  const index = clamp(options.index ?? 0, 0, count - 1);
-  const ports = distributePorts(count, parent.y, parent.height);
-  const startY = ports[index] ?? rectCenter(parent).y;
-  const start: Point = { x: rectRight(parent) + gap, y: startY };
-  const end: Point = { x: child.x - gap, y: rectCenter(child).y };
-  const minimumGap = Math.max(GEOMETRY.edgeMinGap, radius * 2);
-  if (end.x - start.x < minimumGap) {
-    return { points: [start, end], defect: true };
-  }
-  const trunkX = clamp(
-    rectRight(parent) + Math.max(8, Math.min(18, (end.x - start.x) / 2)),
-    start.x,
-    end.x - radius,
-  );
-  return {
-    points: [start, { x: trunkX, y: start.y }, { x: trunkX, y: end.y }, end],
-    defect: false,
-  };
+function edgePath(points: Point[], radius: number): string {
+  return roundedPath(simplify(points), radius);
 }
 
-function routeBelow(parent: Rect, child: Rect, options: RouteOptions): Polyline {
-  const gap = options.gap ?? GEOMETRY.edgeGap;
-  const indent = options.indent ?? GEOMETRY.wrapIndent;
-  const busOffset = options.busOffset ?? GEOMETRY.edgeBusOffset;
-  const rawTrunkX = parent.x + indent;
-  const start: Point = {
-    x: clamp(rawTrunkX, parent.x + 4, rectRight(parent) - 4),
-    y: parent.y + parent.height + gap,
-  };
-  const busY = child.y - busOffset;
-  const end: Point = { x: child.x + child.width / 2, y: child.y - gap };
-  if (busY - start.y < 4 || end.x <= start.x) {
-    return { points: [start, end], defect: true };
-  }
-  return {
-    points: [start, { x: start.x, y: busY }, { x: end.x, y: busY }, end],
-    defect: false,
-  };
-}
-
-export interface RouteBranchEdgeInput {
+export interface GroupChild {
   id: string;
+  rect: Rect;
+}
+
+export interface RouteGroupInput {
+  /** Parent block id, used for stable trunk ids. */
+  parentId: string;
   parent: Rect;
-  child: Rect;
-  index?: number;
-  count?: number;
+  children: readonly GroupChild[];
   options?: RouteOptions;
 }
 
-export function routeBranchEdge(input: RouteBranchEdgeInput): RoutedEdge {
-  const { parent, child } = input;
-  const placement = classifyPlacement(parent, child);
-  const options: RouteOptions = { ...input.options, index: input.index, count: input.count };
-  if (placement === 'right') {
-    const routed = routeRight(parent, child, options);
-    const points = simplify(routed.points);
+export interface RoutedGroup {
+  edges: RoutedEdge[];
+  trunks: RoutedTrunk[];
+}
+
+function rightTrunkX(parent: Rect, children: readonly GroupChild[], offset: number): number {
+  const parentRight = rectRight(parent);
+  const firstChildLeft = Math.min(...children.map((child) => child.rect.x));
+  const preferred = parentRight + offset;
+  return clamp(preferred, parentRight + 4, Math.max(parentRight + 4, firstChildLeft - 4));
+}
+
+function routeSingleRight(
+  parent: Rect,
+  child: GroupChild,
+  options: RouteOptions,
+): RoutedEdge {
+  const gap = options.gap ?? GEOMETRY.edgeGap;
+  const radius = options.radius ?? GEOMETRY.edgeRadius;
+  const offset = options.trunkOffset ?? 14;
+  const childCenter = rectCenter(child.rect);
+  const start: Point = { x: rectRight(parent), y: rectCenter(parent).y };
+  const end: Point = { x: child.rect.x - gap, y: childCenter.y };
+  const trunkX = clamp(
+    rectRight(parent) + offset,
+    start.x + 2,
+    Math.max(start.x + 2, end.x - radius),
+  );
+  if (end.x - start.x < Math.max(GEOMETRY.edgeMinGap, radius * 2)) {
     return {
-      id: input.id,
-      placement,
-      path: roundedPath(points, options.radius ?? GEOMETRY.edgeRadius),
-      start: points[0] ?? { x: 0, y: 0 },
-      end: points.at(-1) ?? { x: 0, y: 0 },
-      defect: routed.defect,
+      id: child.id,
+      placement: 'right',
+      path: edgePath([start, end], radius),
+      start,
+      end,
+      defect: true,
     };
   }
-  const routed = routeBelow(parent, child, options);
-  const points = simplify(routed.points);
+  const points = [start, { x: trunkX, y: start.y }, { x: trunkX, y: end.y }, end];
+  return {
+    id: child.id,
+    placement: 'right',
+    path: edgePath(points, radius),
+    start,
+    end,
+    defect: false,
+  };
+}
+
+function routeRightGroup(
+  parent: Rect,
+  children: readonly GroupChild[],
+  parentId: string,
+  options: RouteOptions,
+): RoutedGroup {
+  if (children.length === 1) {
+    const only = children[0];
+    return only === undefined
+      ? { edges: [], trunks: [] }
+      : { edges: [routeSingleRight(parent, only, options)], trunks: [] };
+  }
+
+  const gap = options.gap ?? GEOMETRY.edgeGap;
+  const radius = options.radius ?? GEOMETRY.edgeRadius;
+  const offset = options.trunkOffset ?? 14;
+  const parentRight = rectRight(parent);
+  const parentCenter = rectCenter(parent);
+  const trunkX = rightTrunkX(parent, children, offset);
+  const centers = children.map((child) => rectCenter(child.rect).y);
+  const high = Math.min(parentCenter.y, ...centers);
+  const low = Math.max(parentCenter.y, ...centers);
+  const trunkPoints = [
+    { x: parentRight, y: parentCenter.y },
+    { x: trunkX, y: parentCenter.y },
+    { x: trunkX, y: high },
+    { x: trunkX, y: low },
+  ];
+  const edges: RoutedEdge[] = [];
+  let defect = false;
+  for (const child of children) {
+    const end: Point = { x: child.rect.x - gap, y: rectCenter(child.rect).y };
+    const start: Point = { x: trunkX, y: end.y };
+    const childDefect = end.x - start.x < Math.max(GEOMETRY.edgeMinGap, radius * 2);
+    defect = defect || childDefect;
+    const points = [start, end];
+    edges.push({
+      id: child.id,
+      placement: 'right',
+      path: edgePath(points, radius),
+      start,
+      end,
+      defect: childDefect,
+    });
+  }
+  return {
+    edges,
+    trunks: [
+      {
+        id: `${parentId}:right`,
+        parentId,
+        placement: 'right',
+        kind: 'trunk',
+        path: edgePath(trunkPoints, radius),
+        start: trunkPoints[0] as Point,
+        end: trunkPoints[trunkPoints.length - 1] as Point,
+      },
+    ],
+  };
+}
+
+function routeBelowGroup(
+  parent: Rect,
+  children: readonly GroupChild[],
+  parentId: string,
+  options: RouteOptions,
+): RoutedGroup {
+  const gap = options.gap ?? GEOMETRY.edgeGap;
+  const radius = options.radius ?? GEOMETRY.edgeRadius;
+  const indent = options.indent ?? GEOMETRY.wrapIndent;
+  const busOffset = options.busOffset ?? GEOMETRY.edgeBusOffset;
+  const trunkX = clamp(parent.x + indent, parent.x + 4, rectRight(parent) - 4);
+  const busY = Math.min(...children.map((child) => child.rect.y)) - busOffset;
+  const centers = children.map((child) => child.rect.x + child.rect.width / 2);
+  const busStart = Math.min(trunkX, ...centers);
+  const busEnd = Math.max(trunkX, ...centers);
+  const trunkStart: Point = { x: trunkX, y: rectBottom(parent) };
+  const trunkEnd: Point = { x: trunkX, y: busY };
+  const trunkDefect = busY - rectBottom(parent) < 4;
+  const edges: RoutedEdge[] = [];
+  let defect = trunkDefect;
+  for (const child of children) {
+    const end: Point = {
+      x: child.rect.x + child.rect.width / 2,
+      y: child.rect.y - gap,
+    };
+    const start: Point = { x: end.x, y: busY };
+    const childDefect = end.y - start.y < 4;
+    defect = defect || childDefect;
+    edges.push({
+      id: child.id,
+      placement: 'below',
+      path: edgePath([start, end], radius),
+      start,
+      end,
+      defect: defect,
+    });
+  }
+  return {
+    edges,
+    trunks: [
+      {
+        id: `${parentId}:below:trunk`,
+        parentId,
+        placement: 'below',
+        kind: 'trunk',
+        path: edgePath([trunkStart, trunkEnd], radius),
+        start: trunkStart,
+        end: trunkEnd,
+      },
+      {
+        id: `${parentId}:below:bus`,
+        parentId,
+        placement: 'below',
+        kind: 'bus',
+        path: edgePath([{ x: busStart, y: busY }, { x: busEnd, y: busY }], radius),
+        start: { x: busStart, y: busY },
+        end: { x: busEnd, y: busY },
+      },
+    ],
+  };
+}
+
+/**
+ * Route every visible child of one parent. Two or more right-placed children
+ * share one trunk; wrapped children share a bottom trunk and bus. Separate
+ * parents get separate trunks, so parallel parents keep parallel gutters.
+ */
+export function routeChildGroup(input: RouteGroupInput): RoutedGroup {
+  const options = input.options ?? {};
+  const right: GroupChild[] = [];
+  const below: GroupChild[] = [];
+  for (const child of input.children) {
+    const placement = classifyPlacement(input.parent, child.rect);
+    if (placement === 'right') right.push(child);
+    else below.push(child);
+  }
+  const parts: RoutedGroup[] = [];
+  if (right.length > 0) {
+    parts.push(routeRightGroup(input.parent, right, input.parentId, options));
+  }
+  if (below.length > 0) {
+    parts.push(routeBelowGroup(input.parent, below, input.parentId, options));
+  }
+  return {
+    edges: parts.flatMap((part) => part.edges),
+    trunks: parts.flatMap((part) => part.trunks),
+  };
+}
+
+/** Route a single edge. Kept for callers that only need one child. */
+export function routeBranchEdge(input: {
+  id: string;
+  parent: Rect;
+  child: Rect;
+  options?: RouteOptions;
+}): RoutedEdge {
+  const group = routeChildGroup({
+    parentId: 'single',
+    parent: input.parent,
+    children: [{ id: input.id, rect: input.child }],
+    options: input.options,
+  });
+  const edge = group.edges[0];
+  if (edge !== undefined) return edge;
   return {
     id: input.id,
-    placement: placement === 'overlap' ? 'below' : placement,
-    path: roundedPath(points, options.radius ?? GEOMETRY.edgeRadius),
-    start: points[0] ?? { x: 0, y: 0 },
-    end: points.at(-1) ?? { x: 0, y: 0 },
-    defect: routed.defect || placement === 'overlap',
+    placement: 'below',
+    path: '',
+    start: { x: 0, y: 0 },
+    end: { x: 0, y: 0 },
+    defect: true,
   };
 }
 
@@ -216,4 +389,8 @@ export function pathMovesForward(points: readonly Point[]): boolean {
     if (current.x < previous.x - 0.5) return false;
   }
   return true;
+}
+
+export function placementOf(parent: Rect, child: Rect): EdgePlacement {
+  return classifyPlacement(parent, child);
 }

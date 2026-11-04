@@ -9,7 +9,7 @@ import {
 import { useMemo, useState } from 'react';
 import { useShell, type TabInfo } from '../state/shell';
 import { useRegistry, useRuntime } from '../state/registry';
-import { createNewDocument, focusBlock, openLibraryMenu, openBlockMenu, openChapterMenu, openPath, renameChapter } from '../actions';
+import { createChapter, createNewDocument, focusBlock, openLibraryMenu, openBlockMenu, openChapterMenu, openPath, renameChapter } from '../actions';
 import { buildChapterTrees, blockTitle, type BlockNode } from '../lib/tree';
 import type { DocumentRuntime } from '../state/runtime';
 
@@ -128,6 +128,7 @@ function BlockTreeItem({
         {({ level, hasChildItems, isExpanded }) => (
           <div
             className="nf-tree-row"
+            data-block-id={node.id}
             data-selected={selected}
             style={{ paddingInlineStart: 6 + (level - 1) * 14 }}
             onDoubleClick={(event) => {
@@ -268,19 +269,7 @@ function TopicSection(): JSX.Element {
           aria-label="Add chapter"
           title="Add chapter"
           onClick={() => {
-            const chapterId = crypto.randomUUID();
-            void runtime.applyStructural({
-              type: 'chapter.create',
-              chapterId,
-              title: 'New chapter',
-            }).then(async (outcome) => {
-              if (!outcome.ok) return;
-              await runtime.applyStructural({
-                type: 'block.create',
-                placement: { kind: 'top-level', chapterId },
-              });
-              await runtime.saveNow();
-            });
+            void createChapter();
           }}
         >
           <Plus size={14} strokeWidth={1.5} aria-hidden="true" />

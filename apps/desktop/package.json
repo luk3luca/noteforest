@@ -15,7 +15,6 @@
     "@dnd-kit/sortable": "10.0.0",
     "@dnd-kit/utilities": "3.2.2",
     "@fontsource/jetbrains-mono": "5.3.0",
-    "@fontsource/source-serif-4": "5.3.1",
     "@noteforest/core": "0.0.0-m2.1",
     "@tiptap/core": "3.32.2",
     "@tiptap/extension-bubble-menu": "3.32.2",

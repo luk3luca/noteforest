@@ -26,6 +26,7 @@ function blockBodyDepth(editor: Editor): number | null {
   return null;
 }
 
+/** Contexts where the native editor keymap owns Tab (indent/outdent). */
 function inAtomicContext(editor: Editor): boolean {
   return (
     editor.isActive('codeBlock') ||
@@ -35,17 +36,11 @@ function inAtomicContext(editor: Editor): boolean {
   );
 }
 
-function atEndOfBlockBody(editor: Editor): boolean {
-  if (!editor.state.selection.empty) return false;
-  if (inAtomicContext(editor)) return false;
-  const depth = blockBodyDepth(editor);
-  if (depth === null) return false;
-  const { $from } = editor.state.selection;
-  const body = $from.node(depth);
-  if ($from.index(depth) !== body.childCount - 1) return false;
-  const parent = $from.parent;
-  if (parent.type.name !== 'paragraph' && parent.type.name !== 'heading') return false;
-  return $from.parentOffset === parent.content.size;
+function selectedBlock(editor: Editor): NodeSelection | null {
+  const selection = editor.state.selection;
+  return selection instanceof NodeSelection && selection.node.type.name === 'branchBlock'
+    ? selection
+    : null;
 }
 
 function blockBodyIsEmpty(editor: Editor): boolean {
@@ -62,33 +57,80 @@ export const BranchKeymap = Extension.create({
     const bindings = (): ReturnType<typeof getEditorBindings> => getEditorBindings(this.editor);
 
     return {
+      // Enter stays a paragraph split inside the block; at the end of a
+      // heading it creates a normal paragraph so a heading is never sticky.
       Enter: () => {
         const editor = this.editor;
-        if (!atEndOfBlockBody(editor)) return false;
-        const id = currentBlockId(editor);
+        if (!editor.state.selection.empty) return false;
+        if (inAtomicContext(editor)) return false;
+        const { $from } = editor.state.selection;
+        const parent = $from.parent;
+        if (parent.type.name !== 'heading') return false;
+        if ($from.parentOffset !== parent.content.size) return false;
+        const paragraph = editor.state.schema.nodes['paragraph'];
+        if (paragraph === undefined) return false;
+        const transaction = editor.state.tr;
+        if (parent.content.size === 0) {
+          transaction.setNodeMarkup($from.before(), paragraph, {});
+          editor.view.dispatch(transaction.scrollIntoView());
+          return true;
+        }
+        editor.chain().splitBlock().run();
+        const after = editor.state.selection.$from;
+        if (after.parent.type.name === 'heading') {
+          const conversion = editor.state.tr;
+          conversion.setNodeMarkup(after.before(), paragraph, {});
+          editor.view.dispatch(conversion.scrollIntoView());
+        }
+        return true;
+      },
+
+      // Shift+Enter is the hard line break, not a new block.
+      'Shift-Enter': () => {
+        this.editor.commands.setHardBreak();
+        return true;
+      },
+
+      // Option+Enter creates a sibling block.
+      'Alt-Enter': () => {
+        const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;
         current.report(current.runtime.addSibling(id));
         return true;
       },
 
-      Tab: () => {
-        const editor = this.editor;
-        if (editor.isActive('codeBlock') || editor.isActive('table')) return false;
-        const id = currentBlockId(editor);
+      // Control+Enter creates a child block.
+      'Ctrl-Enter': () => {
+        const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;
         current.report(current.runtime.addChild(id));
         return true;
       },
 
+      // Tab is native indent in lists/code/tables/blockquotes; "make child"
+      // only on a selected block, never while typing a normal paragraph.
+      Tab: () => {
+        const editor = this.editor;
+        if (inAtomicContext(editor)) return false;
+        const selection = selectedBlock(editor);
+        const current = bindings();
+        if (selection === null || current === null) return true;
+        const id = typeof selection.node.attrs['blockId'] === 'string' ? selection.node.attrs['blockId'] : null;
+        if (id === null) return true;
+        current.report(current.runtime.addChild(id));
+        return true;
+      },
+
       'Shift-Tab': () => {
         const editor = this.editor;
-        if (editor.isActive('codeBlock') || editor.isActive('table')) return false;
-        const id = currentBlockId(editor);
+        if (inAtomicContext(editor)) return false;
+        const selection = selectedBlock(editor);
         const current = bindings();
-        if (id === null || current === null) return false;
-        current.report(current.runtime.outdent(id));
+        if (selection === null || current === null) return true;
+        const id = typeof selection.node.attrs['blockId'] === 'string' ? selection.node.attrs['blockId'] : null;
+        if (id !== null) current.report(current.runtime.outdent(id));
         return true;
       },
 
@@ -106,22 +148,6 @@ export const BranchKeymap = Extension.create({
         if (id === null || current === null) return false;
         if (Object.keys(current.runtime.document.blocks).length <= 1) return false;
         current.report(current.runtime.deleteBlock(id, 'promote'));
-        return true;
-      },
-
-      'Mod-Enter': () => {
-        const id = currentBlockId(this.editor);
-        const current = bindings();
-        if (id === null || current === null) return false;
-        current.report(current.runtime.addChild(id));
-        return true;
-      },
-
-      'Mod-Shift-Enter': () => {
-        const id = currentBlockId(this.editor);
-        const current = bindings();
-        if (id === null || current === null) return false;
-        current.report(current.runtime.addSibling(id));
         return true;
       },
 
