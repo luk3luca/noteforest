@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2f phase 3b2 — move/branch-create undo identity** is in progress. Phase 3b1 is merged; M3 and PDF/page work remain deferred until M2f is accepted.
+Spike 1 is complete (technical foundation merged); **M2f phase 4a — corrupt/missing/newer package recovery** is in progress. Phase 3b2 is merged; M3 and PDF/page work remain deferred until M2f is accepted.
 
 ## Running the current code
 
@@ -58,6 +58,7 @@ not presented as undoable.
 - M2f phase 3a brief: `docs/tasks/m2f-phase3a-undo-routing.md`.
 - M2f phase 3b1 brief: `docs/tasks/m2f-phase3b1-destructive-undo.md`.
 - M2f phase 3b2 brief: `docs/tasks/m2f-phase3b2-move-identity.md`.
+- M2f phase 4a brief: `docs/tasks/m2f-phase4a-corrupt-recovery.md`.
 - UI decisions: `docs/adr/0004-ui-shell-and-branch-editor.md`.
 - UI research: `research/ui-components.md`.
 
