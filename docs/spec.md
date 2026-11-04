@@ -1,9 +1,9 @@
 # NoteForest — Product, Data Model, and Behavior Specification
 
-**Version:** v0.4.1 (approved for Spike 1)  
+**Version:** v0.4.2 (approved for Spike 1)  
 **Date:** 3 November 2026  
 **Owner:** Planner / Architect  
-**Status:** Approved for Spike 1. v0.4.1 clarifies PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
+**Status:** Approved for Spike 1. v0.4.2 adds the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
 **Working title:** NoteForest (an existing NoteForest study app exists; public-release clearance or a rename is required before packaging)
 
 This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, CodeMirror 6, KaTeX, and React Flow (ADR-0001). PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided in ADR-0003. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, external API, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
@@ -377,7 +377,7 @@ The model has two layers:
 | `annotations` | collection | yes | Reserved for the future study layer; empty in v1. |
 | `extensions` | object | no | Unknown fields preserved for forward compatibility. |
 
-**Page setup.** `pageSetup` has `size` fixed to `"A4"` in v1, `orientation` (`"portrait"` or `"landscape"`), and `margins` in millimetres (`top`, `right`, `bottom`, `left`). The default is A4 portrait with 20 mm margins on all sides. Page size, orientation, and margins are document settings; pages themselves are derived.
+**Page setup.** `pageSetup` has `size` fixed to `"A4"` in v1, `orientation` (`"portrait"` or `"landscape"`), and `margins` in millimetres (`top`, `right`, `bottom`, `left`). **New documents default to A4 landscape with 20 mm margins on all sides**; existing documents keep their stored orientation. Page size, orientation, and margins are document settings; pages themselves are derived.
 
 **Chapter.** A chapter has `id`, optional `title`, and an ordered `topLevelBlockIds` list. Each listed block is a root content block and starts a top-level tree. A chapter MAY have multiple top-level blocks. Every block belongs to the chapter of its top-level ancestor; a block cannot appear in two chapters. The model supports multiple chapters; the v1 UI MAY expose one chapter at a time (A14).
 
@@ -2379,3 +2379,4 @@ This example is the recommended golden fixture for model, layout, pagination, an
 | v0.3 | 3 November 2026 | Parked the in-app agent panel; replaced it with the External Agent API (HTTP JSON + MCP, token auth/scopes, audit, dry-run, undo/redo). Marked stack and PDF pipeline TBD (Electron provisional). Added long-block safe continuations, ghost-parent markers, freeze/full-reflow modes, document-wide orientation, multiple documents, dark default, T3/Playwright testing gates. |
 | v0.4 | 3 November 2026 | Ratified Electron + React + TypeScript (ADR-0001) and the `printToPDF` pipeline driven by the shared paginator (ADR-0002); closed D2–D6, D12–D14, D16–D20; added D21 table pagination (break only between rows, row atomic); closed the External API defaults (ADR-0003: off by default, loopback, document-scoped bearer tokens shown once/hashed/revocable, single-writer lock + `baseRevision`, dry-run/apply/undo, local audit); fixed the reader as primary editor; replaced the TBD pipeline note with the decided pipeline and its 50+ page gate. |
 | v0.4.1 | 3 November 2026 | Clarified PDF acceptance (S3, AC-45, §11.10, demo script, risk): the gate is a correct standard PDF reviewed on the Mac; no app-specific import (Notability) is required. The annotated-iPad workflow remains the downstream use case, not a test dependency. |
+| v0.4.2 | 4 November 2026 | New documents default to A4 landscape; existing documents keep their orientation. Editor canvas widens to use the landscape width; page view/PDF consume the orientation in M4. |

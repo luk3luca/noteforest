@@ -16,11 +16,11 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2b is built and merged; M2 is in product-owner review.** Spike 1 proved the pure layout engine, the paginator, and real-text `printToPDF`; its automated gates passed and were re-run independently. The product owner reviewed the output and rejected the fixture PDFs as a product demo (no real branches, wrong arrows, no editor to judge). **PDF visual polish remains deferred until the editor is accepted.**
+**M2c is in progress.** The product owner reviewed M2b and found interaction defects: a phantom block after child creation, missing arrows, counterintuitive `+` placement, a stuck heading after `#`, too much editor padding, serif font, tabs over the sidebar, chapter titles only editable in the sidebar, and Enter-creates-sibling. The fix set is `docs/tasks/m2c-interaction-polish.md`: serialized structural commands and reconciliation, a shared arrow trunk, inline chapter editing, full-height sidebar/tab-strip layout, UI sans at 15.5 px, right/bottom `+`, canvas add top-level/chapter, landscape default for new documents, and the new keyboard model. Font/size settings are deferred to M6.
 
-**M2b is built, merged, and ready for the product owner's hands-on review.** The shell, block editor, primary branches, arrows, tabs, local persistence, and session restore are working. Known gaps are in `docs/reports/m2b-editor-shell.md`: inactive cards are still reachable, destructive deletes are not on the structural undo stack, and snapshot undo/full rebuild can exceed the full-reflow budget. The product-owner visual/VoiceOver check is the next gate; M3 span anchors/reference edges start after it.
+**M2c is in progress.** The product owner reviewed M2b and found interaction defects: a phantom block after child creation, missing arrows, counterintuitive `+` placement, a stuck heading after `#`, too much editor padding, serif font, tabs over the sidebar, chapter titles only editable in the sidebar, and Enter-creates-sibling. The fix set is `docs/tasks/m2c-interaction-polish.md`: serialized structural commands and reconciliation, a shared arrow trunk, inline chapter editing, full-height sidebar/tab-strip layout, UI sans at 15.5 px, right/bottom `+`, canvas add top-level/chapter, landscape default for new documents, and the new keyboard model. Font/size settings are deferred to M6.
 
-The spec is at v0.4.1 and the UX, review, and DoD docs are aligned.
+The spec is at v0.4.2 and the UX, review, and DoD docs are aligned.
 
 ## Language
 

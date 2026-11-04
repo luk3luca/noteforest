@@ -45,7 +45,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar (traffic lights, app/document title, `⌘K`, settings) + 36 px tab strip below; sidebar 264 px default (208–360, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,100 px with 40–56 px padding. The sidebar and editor scroll independently.
+**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar across the window; **sidebar full content height on the left**; **36 px tab strip only in the editor column**, to the right of the sidebar; sidebar 264 px default (208–360, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,400 px with 28–40 px padding. The sidebar and editor scroll independently.
 
 ### Tab strip (36 px)
 
@@ -71,10 +71,10 @@ The next slice is therefore the **editable shell with the distinguishing feature
 
 - A continuous **spatial branch editor**, not a paginated page and not a plain linear list. The page view is M4.
 - Top-level blocks stack vertically in chapter order. A child is placed to the right of its parent when there is room; otherwise it wraps below the parent with an 18 px indent.
-- Geometry: editor canvas max ~1,100 px with 40–56 px padding; top-level block measure max 34 rem (544 px); child cards 10–26.25 rem (160–420 px); long code/tables may use the available width.
-- Block cards: child cards use `--surface-1` with no default border; top-level blocks are transparent. Focused block gets a quiet inset accent ring; selection is text selection, not a card highlight.
+- Geometry: editor canvas max ~1,400 px with 28–40 px padding; top-level block measure max 34 rem (544 px); child cards 10–26.25 rem (160–420 px); long code/tables may use the available width. New documents default to A4 landscape; existing documents keep their orientation.
+- Block cards: child cards use `--surface-1` with no default border; top-level blocks are transparent. Focused block gets a quiet inset accent ring; selection is text selection, not a card highlight. Block padding 10 px; vertical gap 16 px; radius 4 px.
 - Primary arrows are SVG, drawn in an overlay above the cards: from the source block's right/bottom port to the target's left/top port. 1.25 px neutral; the selected root→block path is 1.75 px accent.
-- Arrow routing must read forward: a child to the right uses a short orthogonal elbow; children wrapped below use a bottom trunk-and-bus with the arrow entering the top; never a loop back across the source card. If a route would cross the source, choose the nearest clear port.
+- Arrow routing must read forward. **One child:** a simple orthogonal elbow. **Two or more children in one sibling group:** one shared vertical trunk from the parent's right edge, with a short arrow at each child's level. **Wrapped children:** a bottom trunk and a horizontal bus, then short arrows into the child tops. Never a loop back across the source card.
 - Only primary edges exist in M2: one parent per child, no reference edges, no shared children. The tree is acyclic; a cycle is rejected before mutation.
 - No free positioning, no pins, no manual x/y. Only sibling order changes; layout is automatic and deterministic.
 - Only one block editor is active at a time. Clicking a block opens it; `Esc` commits and returns to navigation; inactive cards render read-only.
@@ -82,12 +82,16 @@ The next slice is therefore the **editable shell with the distinguishing feature
 - Slash menu `/` for block types is a SHOULD in M2; command palette is the fallback.
 - Empty block shows a quiet placeholder ("Type something, or press /").
 - Collapse control on a block with children; child count is plain tertiary text; hidden subtree and its arrows disappear.
-- A 20 px block gutter holds a six-dot drag handle and a `+` add-child action; reorder among siblings only, reparent via `Move to…`.
+- A 20 px block gutter holds only the six-dot drag handle. A `+` on the **right edge** adds a child; a `+` at the **bottom edge** adds a sibling. Reorder among siblings only; reparent via `Move to…`.
+- Chapter titles are inline-editable in the canvas (click, edit, `Enter`/`Esc` commits; sidebar stays in sync).
+- At the end of the canvas: “+ Add top-level block” and “+ Add chapter”. The sidebar is not the only path.
 - No page-break markers, no page guides, no PDF controls in M2.
 
 ### Branch arrows (M2)
 
 - Every primary child gets exactly one arrow from its parent. The arrow starts at the parent card's right edge (or bottom edge when the child wraps) and ends at the child's left edge (or top edge).
+- For two or more right-placed children, draw **one** vertical trunk from the parent's right edge and a short arrow from the trunk to each child; do not start a separate line at a different parent port for each child.
+- For wrapped children, draw one bottom trunk and a horizontal bus, then a short vertical arrow into each child's top.
 - Arrows are behind the active editor overlay but above the background; they never capture text selection. They are `aria-hidden` and not tabbable.
 - Clicking an arrow selects the edge and shows a small inline action: delete branch (target becomes top-level) or add label (SHOULD).
 - Deleting a block with children uses the delete dialog: promote children or delete subtree; both keep arrows consistent.
@@ -114,10 +118,12 @@ The next slice is therefore the **editable shell with the distinguishing feature
 | Close window | `⌘⇧W` |
 | Reopen closed tab | `⌘⇧T` |
 | Switch tab | `⌘1…9`, `⌘⇧[` / `⌘⇧]` |
-| New block below | `Enter` at end of block (sibling) |
-| New child branch | `Tab` on a block, `⌘Enter`, or the block gutter `+` |
-| Reparent | `Move to…` in the block menu (M2); drag reparent is deferred |
-| Outdent | `Shift-Tab` (target becomes a sibling of its parent) |
+| New line in block | `Enter` |
+| Hard line break | `⇧Enter` |
+| New sibling block | `⌥Enter` |
+| New child block | `⌃Enter` |
+| Make child (selected block only) | `Tab`; in lists/code `Tab` is indent |
+| Outdent | `⇧Tab` on a selected block; `⌘[`/`⌘]` alternative |
 | Merge with previous | `Backspace` at start of an empty/first block |
 | Focus previous/next block | `⌘↑` / `⌘↓` |
 | Collapse/expand block | `⌘.` or chevron |
@@ -162,7 +168,7 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 | `--warning` | `#D6B17A` |
 
 - **UI type:** `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif`; 13 px/1.45; tab labels 12.5 px; sidebar rows 12.5 px/26 px.
-- **Editor type:** `"Source Serif 4", Georgia, serif`; 17 px/1.65; 66–72 characters per line; headings 22/19/17 px semibold.
+- **Editor type:** system UI sans, same as chrome (`-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif`); 15.5 px/1.55; 66–72 characters per line; headings 20/18/16 px semibold. A future Settings feature (M6) may expose font family/size and a serif option; M2c does not build it.
 - **Code:** `"JetBrains Mono", ui-monospace, SF Mono, monospace`; 13.5 px/1.55.
 - **Math:** KaTeX; inherit body color; display math centered with 12 px vertical margin.
 - **Radius:** 3 px controls, 4 px blocks, 6 px overlays; never > 6 px.
@@ -192,6 +198,7 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 - Right inspector, backlinks panel, graph view, tags, plugins.
 - Split view, multiple windows, pinned tabs.
 - Light theme (can be a follow-up), custom themes, mobile/iPad.
+- Settings UI for font family/size (M6); tokens and defaults are prepared now.
 - Collaboration, sync, accounts.
 
 ## Acceptance for the shell
@@ -201,6 +208,10 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 - Open two documents in tabs; switch, close, dirty state, per-tab scroll/focus.
 - Sidebar library and outline are readable and navigable; `⌘\` collapses.
 - Create a child branch from a block; the arrow is visible, starts at the source and ends at the target, and never loops backwards across the source.
+- With 2+ children, one shared trunk and a short arrow per child; wrapped children use the bottom bus.
+- Rapidly create three children: sidebar, canvas, and arrow count stay in sync; no phantom block; each block is deletable.
+- Chapter title is editable inline; “Add top-level block” and “Add chapter” work from the canvas.
+- `Enter`/`Shift+Enter` are line breaks; `Option+Enter` sibling; `Control+Enter` child; `Tab` in a list is indent.
 - Reparent/reorder updates the arrow and layout; deleting the edge makes the target top-level; a primary cycle is rejected.
 - Keyboard structural commands work; undo is predictable.
 - 300 blocks remain usable.

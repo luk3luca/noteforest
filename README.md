@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2 — editor shell + branch editor** is implemented in the M2b worktree and awaits product-owner visual review. PDF/page work is deferred until the editor is usable. Planning is ratified; code outside M2 is not approved.
+Spike 1 is complete (technical foundation merged); **M2c — interaction polish + desync fix** is in progress after the product owner's M2b review. PDF/page work is deferred until the editor is accepted.
 
 ## Running the current code
 
@@ -27,6 +27,7 @@ npm run e2e         # Playwright-driven Electron smoke tests
 - Shell spec: `docs/ux-shell.md`.
 - Core brief: `docs/tasks/m2a-document-core.md`.
 - Shell/editor brief: `docs/tasks/m2-editor-shell.md`.
+- M2c polish brief: `docs/tasks/m2c-interaction-polish.md`.
 - UI decisions: `docs/adr/0004-ui-shell-and-branch-editor.md`.
 - UI research: `research/ui-components.md`.
 

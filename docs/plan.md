@@ -30,7 +30,8 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 |---|---|---|---|---|
 | **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.1; DoD/checklist aligned | **Done** |
 | **M1** | Spike 1 — technical foundation | Prove adaptive layout + paginator + real-text PDF in Electron | Spike 1 gates G1–G9 passed and independently re-run; visuals deferred | **Done** |
-| **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **In review** (M2a merged; M2b merged, visual/VoiceOver review pending) |
+| **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **M2b merged; review found fixes** |
+| **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **In progress** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -104,6 +105,19 @@ What is deferred:
 - 300 blocks remain usable (collapse/virtualization may be minimal in M2, but no freeze);
 - product-owner visual check: calm, Obsidian-like, no AI-slop patterns;
 - tests: model/persistence unit tests, editor keyboard tests, branch/arrow geometry tests, one e2e create/edit/branch/reopen flow; screenshots.
+
+## M2c — Interaction polish + desync fix (current)
+
+Approved after the product owner's hands-on review of M2b. Full brief: `docs/tasks/m2c-interaction-polish.md`.
+
+- **Blocker:** phantom block/desync between ProseMirror and the canonical document; missing arrows after child/sibling creation. Fix with a serialized structural command queue, created ID from the command result, structural transactions out of text history, and reconciliation.
+- **Arrows:** one shared vertical trunk for 2+ children; single elbow for one; bottom trunk-and-bus for wrapped children.
+- **Shell:** full-height sidebar; tab strip only in the editor column; title bar full width.
+- **Editor:** inline chapter title; heading escape; UI sans 15.5 px/1.55; 10 px block padding, 16 px gap, 1,400 px canvas; right `+` child, bottom `+` sibling.
+- **Authoring:** add top-level block and chapter from the canvas.
+- **Default:** new documents A4 landscape; existing documents keep orientation.
+- **Keyboard:** `Enter`/`Shift+Enter` line breaks; `Option+Enter` sibling; `Control+Enter` child; Tab list indent / selected-block child.
+- **Deferred:** font family/size Settings UI (M6).
 
 ## M3 — Span anchors and reference edges (planned)
 

@@ -112,6 +112,19 @@ Negative:
 - Performance: 300 blocks initial render < 1.5 s, one-edit edge recompute < 8 ms, scroll 60 fps; 1,000 blocks with collapse reported.
 - Electron smoke: dirty dot in traffic lights, native text context menu, quit-with-unsaved prompt, reopen session.
 
+## Addendum — M2c interaction polish (4 November 2026)
+
+The product owner reviewed M2b and approved these corrections. They refine the M2 shell; they do not change the stack.
+
+1. **Arrow grouping.** A single child keeps a simple elbow. Two or more primary children in the same sibling group use one shared vertical trunk from the parent's right edge, with a short arrow at each child's level. Wrapped children use a bottom trunk and a horizontal bus, then short arrows into the child tops. Arrowhead only at the child; no U-turns.
+2. **Shell layout.** The title bar spans the window; the sidebar reaches the full content height on the left; the tab strip lives only in the editor column, to the right of the sidebar.
+3. **Editor typography and density.** The editor uses the system UI sans, not Source Serif 4: 15.5 px/1.55 body, 20/18/16 px headings, 10 px block padding, 16 px block gap, 28–40 px editor padding, canvas max ~1,400 px. A future Settings feature (M6) may expose font family/size and a serif option; do not build the picker in M2c.
+4. **Keyboard model.** `Enter` and `Shift+Enter` are line breaks inside the block; `Option+Enter` creates a sibling block; `Control+Enter` creates a child block. `Tab` is list/code indent while editing, and “make child” only on a selected block (not while typing). Remove the old Enter-creates-sibling and Meta+Enter shortcuts.
+5. **Chapter and top-level authoring.** Chapter titles are inline-editable in the canvas. The canvas end offers “Add top-level block” and “Add chapter”; the sidebar is no longer the only path.
+6. **Child/sibling affordances.** The right edge `+` adds a child; a bottom `+` adds a sibling; the left gutter keeps only the drag handle. Every successful creation must show its arrow.
+7. **Default page setup.** New documents default to A4 landscape (existing documents keep their orientation); the editor canvas uses the extra width. Page view/PDF consume this default in M4.
+8. **Desync fix.** Structural commands are serialized; the created block ID comes from the command result, not a before/after diff; structural editor transactions are excluded from text history; after each structural command the editor is reconciled with the canonical document. A failure must never leave a canvas-only block. Regression: rapid child/sibling creation, sidebar/canvas parity, arrow count, delete works.
+
 ## Revisit triggers
 
 - RAC Tree fails at 300–1,000 nodes after collapse/virtualization.
