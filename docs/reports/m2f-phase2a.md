@@ -16,8 +16,9 @@ and show a native **Retry / Cancel** dialog with the real reason. The preload fo
 handler as `{ status: 'error', error }` instead of acknowledging it. The normal close/quit path is
 still one action and preserves unsaved content, and the S1 quit-after-last-window fix still holds.
 
-The critical suite is **14/14 in 21.8 s** (28.8 s node run including build), unit **155/155 in
-1.37 s**, and `verify:fast` passes. All new waits are conditions; no fixed sleeps were added.
+The critical suite is **14/14 in 22.2 s** (29.2 s node run including build), unit **155/155 in
+1.35 s**, and `verify:fast` passes in 34.9 s. All new waits are conditions; no fixed sleeps were
+added.
 
 ## What changed
 
@@ -105,9 +106,9 @@ pixels, and the dialog is a native OS surface.
 | Gate | Command | Result |
 |---|---|---|
 | TypeScript | `npm run typecheck` | pass |
-| Unit | `npm test` | 155/155, 15 files, 1.37 s |
-| Critical e2e | `npm run e2e` | 14/14, 21.8 s test, 28.8 s node run incl. build |
-| Fast gate | `npm run verify:fast` | pass |
+| Unit | `npm test` | 155/155, 15 files, 1.35 s |
+| Critical e2e | `npm run e2e` | 14/14, 22.2 s test, 29.2 s node run incl. build |
+| Fast gate | `npm run verify:fast` | pass, 34.9 s |
 | No fixed waits | `grep waitForTimeout tests/e2e` | 0 |
 | S1 regression | critical “quits after the last window is closed” | 0.6 s to process exit |
 
