@@ -14,7 +14,7 @@ N1 and N2 are closed at the command, runtime, app, and test levels. A failed str
 longer pins the stack; New chapter undoes as one user action; a clean read-only document and a
 session-state write failure no longer block close/quit, while real document save failures still do.
 All gates pass: typecheck, 252/252 unit tests, 23/23 critical e2e, 14/14 recovery, 1/1 view UI,
-`npm run verify` exit 0. Critical e2e suite time is **50.65 s standalone / 50.77 s in `verify`**
+`npm run verify` exit 0. Critical e2e suite time is **50.66 s standalone / 50.95 s in `verify`**
 (budget < 60 s, excluding build).
 
 ## 1. N1 — undo of a new chapter's first block
@@ -110,13 +110,13 @@ Measured in this worktree on 4 November 2026, Node 22.23.1 / npm 10.9.8 / Electr
 |---|---|---:|---:|
 | `npm run typecheck` | clean (desktop node/web, core, layout, pdf) | — | **3.65 s** |
 | `npm test` | **252/252**, 29 files | **1.84 s** (Vitest) | 2.07 s |
-| `npm run e2e` (standalone) | **23/23** | **50.65 s** suite; 58.67 s node incl. hooks | **59.44 s** incl. build |
-| `npm run e2e` (inside `verify`) | **23/23** | **50.77 s** suite; 58.77 s node | — |
+| `npm run e2e` (standalone) | **23/23** | **50.66 s** suite; 58.70 s node incl. hooks | **59.67 s** incl. build |
+| `npm run e2e` (inside `verify`) | **23/23** | **50.95 s** suite; 58.97 s node | — |
 | `npm run test:recovery` | **14/14** | 19.54 s node (files 9.87 / 5.29 / 6.52 s) | 20.37 s incl. build |
 | `npm run test:ui` | **1/1** | 1.35 s suite | 10.10 s incl. build |
-| `npm run verify` | **exit 0** | e2e 50.77 s, recovery 19.60 s, UI 1.22 s | **94.18 s** |
+| `npm run verify` | **exit 0** | e2e 50.95 s, recovery 19.65 s, UI 1.28 s | **94.52 s** |
 
-The undo-routing e2e is 8.82 s in `verify` (7.14 s at re-review); the new recovery quit test is
+The undo-routing e2e is 9.06 s in `verify` (7.14 s at re-review); the new recovery quit test is
 0.61 s. The critical suite remains under the 60 s suite-time budget in both standalone and `verify`
 runs.
 
@@ -133,7 +133,7 @@ runs.
   is wanted, it belongs in a later UX pass.
 - **`allowEmptyChapter` is an internal command flag.** It is type-validated, but a future External
   Agent API must reject or strip it from client commands; only `block.create`'s inverse may set it.
-- **E2E budget margin.** The suite measured 50.65–50.77 s here, but the same harness previously
+- **E2E budget margin.** The suite measured 50.66–50.95 s here, but the same harness previously
   measured 54.3–56.4 s and one 66.6 s standalone. Keep the critical suite from growing further.
 - **Session-failure repro uses directory permissions (`EACCES`)**, not a full disk; the failure path
   is the same, but a real disk-full condition was not exercised.
