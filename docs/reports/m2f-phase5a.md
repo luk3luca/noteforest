@@ -118,20 +118,20 @@ focused). These files are gitignored build evidence.
 | --- | --- | --- |
 | Typecheck | `npm run typecheck` | Pass — desktop node/web, core, layout, pdf |
 | Unit | `npm test` | Pass — 241/241 tests, 26 files, 1.80 s |
-| Critical e2e | `npm run e2e` | Pass — 26/26; 58.67 s suite in the `verify` run (< 60 s), 58.5 s test-body sum |
+| Critical e2e | `npm run e2e` | Pass — 26/26; 58.67–59.14 s suite across two `verify` runs (< 60 s) |
 | View UI | `npm run test:ui` | Pass — 1/1, 1.28 s; moved out of the critical suite |
 | Recovery integration | recovery suite in `verify` | Pass — 10/10, 19.01 s (phase 4a 5.10 s + phase 4b 5.94 s plus harness) |
-| Full verification | `npm run verify` | Pass — exit 0, 1:41.61 wall |
+| Full verification | `npm run verify` | Pass — exit 0, 1:42.30 wall on the final run |
 | Axe serious/critical | axe in critical e2e | 0 across shell, command palette, topic tree, delete dialog |
 | Axe best-practice | same run | Recorded, non-blocking: shell/tree have `landmark-one-main`, `page-has-heading-one`, `region` (moderate); palette and dialog clean |
 | Native dialogs | — | No native dialog added; E2E dialog guard untouched |
 | Manual/screen recording | — | No screen recording or Notability; screenshots only |
 
 Critical-suite timing note: the brief quoted ~56.8 s on its reference run. This machine's
-pre-change baseline was 63.6 s, and repeated post-change runs measured 58.7 s (verify) and
-66.6 s (standalone), so there is roughly ±8 s of run-to-run variance. The keyboard test adds
-~2.7 s; moving the view test removes ~1.3 s plus one app quit. The suite is at 58.7 s on the
-reported run and remains under the 60 s target.
+pre-change baseline was 63.6 s, and repeated post-change verify runs measured 58.7 s and
+59.1 s, with one standalone run at 66.6 s, so there is roughly ±8 s of run-to-run variance.
+The keyboard test adds ~2.7 s; moving the view test removes ~1.3 s plus one app quit. Both
+final verify runs are under the 60 s target.
 
 ## Before / after
 
