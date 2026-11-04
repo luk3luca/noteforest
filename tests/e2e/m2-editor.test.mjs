@@ -1891,10 +1891,16 @@ describe('NoteForest M2 editor shell', () => {
       0,
       'undo does not repeat the empty-chapter rejection toast',
     );
+    const afterChapterUndo = await h.activeRuntimeInfo();
     assert.equal(
-      (await h.activeRuntimeInfo()).canUndoStructural,
+      afterChapterUndo.canUndoStructural,
       true,
       'older structural history remains reachable after the chapter undo',
+    );
+    assert.equal(
+      afterChapterUndo.canRedoStructural,
+      false,
+      'chapter.delete has no structural redo (recorded follow-up)',
     );
 
     await page.keyboard.press('Meta+z');
