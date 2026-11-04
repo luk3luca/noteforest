@@ -49,6 +49,7 @@ export type CommandErrorCode =
   | 'cycle'
   | 'last-chapter'
   | 'chapter-in-use'
+  | 'chapter-would-be-empty'
   | 'invalid-content'
   | 'read-only'
   | 'internal-invariant';
@@ -334,6 +335,40 @@ function chapterOrFail(document: Document, chapterId: string): Chapter {
   const chapter = document.chapters.find((candidate) => candidate.id === chapterId);
   if (chapter === undefined) reject('not-found', `chapter "${chapterId}" does not exist`);
   return chapter;
+}
+
+/**
+ * Human name for a chapter in a typed rejection. The title is preferred; a
+ * legacy untitled chapter is named by ID so the message always identifies the
+ * chapter the user must repair.
+ */
+function chapterDisplayName(chapter: Chapter): string {
+  const title = chapter.title?.trim();
+  return title !== undefined && title.length > 0 ? `"${title}"` : `"${chapter.id}"`;
+}
+
+/**
+ * F6 invariant: a chapter always keeps at least one top-level block. Moving,
+ * branching, or deleting the last one is rejected unless the same command also
+ * handles the chapter (for example `chapter.delete`). Legacy empty chapters
+ * remain valid on disk and render; this guard only stops new ones being
+ * stranded by an operation.
+ */
+function rejectEmptyChapter(
+  chapter: Chapter,
+  action: 'move' | 'branch' | 'delete',
+): never {
+  const name = chapterDisplayName(chapter);
+  const verb =
+    action === 'move'
+      ? 'move the last top-level block out of'
+      : action === 'branch'
+        ? 'branch the last top-level block out of'
+        : 'delete the last top-level block of';
+  reject(
+    'chapter-would-be-empty',
+    `Cannot ${verb} chapter ${name}. Add another top-level block or delete the chapter instead.`,
+  );
 }
 
 function blockOrFail(document: Document, blockId: string): ContentBlock {
@@ -1091,13 +1126,28 @@ function applyToClone(
     case 'block.delete': {
       assertId(command.blockId, 'blockId');
       blockOrFail(document, command.blockId);
+      if (command.children !== 'delete-subtree' && command.children !== 'promote') {
+        reject('invalid-command', 'children must be "promote" or "delete-subtree"');
+      }
+      // A top-level delete must not strand an empty chapter. Promoting children
+      // keeps the chapter non-empty, so only a childless promote or a subtree
+      // delete of the last root is rejected. Deleting the chapter itself
+      // (`chapter.delete`) remains the explicit way to remove the last block.
+      const topLevel = findTopLevelPlacement(document, command.blockId);
+      if (topLevel !== null) {
+        const chapter = chapterOrFail(document, topLevel.chapterId);
+        const promotedCount =
+          command.children === 'promote'
+            ? allPrimaryChildren(document, command.blockId).length
+            : 0;
+        if (chapter.topLevelBlockIds.length === 1 && promotedCount === 0) {
+          rejectEmptyChapter(chapter, 'delete');
+        }
+      }
       if (command.children === 'delete-subtree') {
         const subtree = collectSubtree(document, command.blockId);
         removeBlocks(document, subtree, changes);
         return null;
-      }
-      if (command.children !== 'promote') {
-        reject('invalid-command', 'children must be "promote" or "delete-subtree"');
       }
       promoteChildren(document, command.blockId, changes);
       removeSingleBlock(document, command.blockId, changes);
@@ -1124,6 +1174,19 @@ function applyToClone(
         }
         if (movedSubtree.includes(command.to.siblingBlockId)) {
           reject('cycle', 'a block cannot move relative to its own descendant');
+        }
+      }
+
+      // F6: a top-level block leaving its chapter must not leave that chapter
+      // with zero top-level blocks. Reordering inside the same chapter is still
+      // allowed because it cannot empty the chapter.
+      const sourceTopLevel = findTopLevelPlacement(document, command.blockId);
+      if (sourceTopLevel !== null) {
+        const sourceChapter = chapterOrFail(document, sourceTopLevel.chapterId);
+        const emptiesSource =
+          destination.kind === 'child' || destination.chapterId !== sourceChapter.id;
+        if (sourceChapter.topLevelBlockIds.length === 1 && emptiesSource) {
+          rejectEmptyChapter(sourceChapter, 'move');
         }
       }
 
@@ -1222,6 +1285,13 @@ function applyToClone(
         reject('internal-invariant', 'target root is not assigned to a chapter');
       }
       const chapter = chapterOrFail(document, targetPlacement.chapterId);
+      // F6: creating a primary branch reparents the target under the source.
+      // If the target is the only top-level block of its chapter, that would
+      // strand an empty chapter; the user must add another root or delete the
+      // chapter explicitly first.
+      if (chapter.topLevelBlockIds.length === 1) {
+        rejectEmptyChapter(chapter, 'branch');
+      }
       chapter.topLevelBlockIds.splice(targetPlacement.index, 1);
       changes.chapter(chapter.id);
       const children = primaryDirectChildren(document, command.sourceBlockId);
