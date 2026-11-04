@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Verifies a Page PDF against a fixture document using pdfjs-dist.
+ * Spike-only: verifies a Page PDF against a fixture document using pdfjs-dist.
+ * Not part of the M2/M3 gate.
  * Usage: node scripts/verify-pdf.mjs fixtures/<fixture>.json <pdf-path>
  */
 import { readFile } from 'node:fs/promises';

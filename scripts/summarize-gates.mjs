@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Produces a compact, reviewable gate summary from the full artifacts gate run.
+ * Spike-only: produces a compact, reviewable gate summary from the full
+ * artifacts gate run. Not part of the M2/M3 gate.
  * Usage: node scripts/summarize-gates.mjs
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';

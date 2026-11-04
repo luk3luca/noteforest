@@ -78,14 +78,12 @@ interface ShellState {
   dialog: DialogState | null;
   contextMenu: ContextMenuState | null;
   collapsedTopics: Record<string, string[]>;
-  selectedBlockByDoc: Record<string, string | null>;
   viewByDoc: Record<string, DocumentViewState>;
   setReady: (ready: boolean) => void;
   setLibrary: (library: LibraryView) => void;
   setTabs: (tabs: TabInfo[], activeTab: string | null) => void;
   openTab: (tab: TabInfo, options?: { activate?: boolean }) => void;
   closeTab: (packagePath: string) => void;
-  removeTab: (packagePath: string) => void;
   setActiveTab: (packagePath: string) => void;
   reorderTabs: (from: string, to: string) => void;
   pushClosed: (tab: TabInfo) => void;
@@ -100,7 +98,6 @@ interface ShellState {
   openContextMenu: (x: number, y: number, items: MenuEntry[]) => void;
   closeContextMenu: () => void;
   setCollapsedTopics: (packagePath: string, ids: string[]) => void;
-  setSelectedBlock: (packagePath: string, blockId: string | null) => void;
   setDocumentZoom: (packagePath: string, zoom: number) => void;
   setDocumentFocus: (packagePath: string, blockId: string | null) => void;
 }
@@ -121,7 +118,6 @@ export const useShell = create<ShellState>((set, get) => ({
   dialog: null,
   contextMenu: null,
   collapsedTopics: {},
-  selectedBlockByDoc: {},
   viewByDoc: {},
 
   setReady: (ready) => set({ ready }),
@@ -159,15 +155,6 @@ export const useShell = create<ShellState>((set, get) => ({
       }
       return { tabs, activeTab };
     }),
-
-  removeTab: (packagePath) =>
-    set((state) => ({
-      tabs: state.tabs.filter((tab) => tab.packagePath !== packagePath),
-      activeTab:
-        state.activeTab === packagePath
-          ? state.tabs.find((tab) => tab.packagePath !== packagePath)?.packagePath ?? null
-          : state.activeTab,
-    })),
 
   setActiveTab: (packagePath) => set({ activeTab: packagePath }),
 
@@ -225,11 +212,6 @@ export const useShell = create<ShellState>((set, get) => ({
   setCollapsedTopics: (packagePath, ids) =>
     set((state) => ({
       collapsedTopics: { ...state.collapsedTopics, [packagePath]: ids },
-    })),
-
-  setSelectedBlock: (packagePath, blockId) =>
-    set((state) => ({
-      selectedBlockByDoc: { ...state.selectedBlockByDoc, [packagePath]: blockId },
     })),
 
   setDocumentZoom: (packagePath, zoom) =>

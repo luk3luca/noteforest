@@ -1,7 +1,6 @@
 /** Application actions shared by the shell, menus, palette, and editor. */
 
 import { toast } from 'sonner';
-import type { DocumentCommand } from '@noteforest/core';
 import type { MenuCommand, OpenDocumentResult, RecoveryDocumentView } from '../../shared/api';
 import type { ApplyOutcome, DocumentRuntime } from './state/runtime';
 import {
@@ -16,13 +15,14 @@ import {
   type TabInfo,
 } from './state/shell';
 import {
+  blockCount,
   chapterIdOf,
+  countWords,
   directChildIds,
   flattenBlocks,
   incomingBranch,
   parentIdOf,
 } from './lib/tree';
-import { recordScroll } from './state/session';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
@@ -332,14 +332,12 @@ export function focusBlock(packagePath: string, blockId: string): void {
   shell().setActiveTab(packagePath);
   runtime.focusBlock(blockId);
   runtime.selectBlock(blockId);
-  shell().setSelectedBlock(packagePath, blockId);
 }
 
 export function selectBlock(packagePath: string, blockId: string | null): void {
   const runtime = getRuntime(packagePath);
   if (runtime === null) return;
   runtime.selectBlock(blockId);
-  shell().setSelectedBlock(packagePath, blockId);
 }
 
 /** Apply one text-history step and record that the user operation was text. */
@@ -735,31 +733,5 @@ export function runMenuCommand(command: MenuCommand): void {
 export function currentWordCount(): { words: number; blocks: number } {
   const runtime = activeRuntime();
   if (runtime === null) return { words: 0, blocks: 0 };
-  let words = 0;
-  for (const block of Object.values(runtime.document.blocks)) {
-    const text = collect(block.content);
-    if (text.length === 0) continue;
-    words += text.split(/\s+/).filter((part) => part.length > 0).length;
-  }
-  return { words, blocks: Object.keys(runtime.document.blocks).length };
-}
-
-function collect(node: { children?: unknown[]; text?: unknown }): string {
-  const parts: string[] = [];
-  if (typeof node.text === 'string') parts.push(node.text);
-  for (const child of node.children ?? []) {
-    if (typeof child === 'object' && child !== null) parts.push(collect(child as { children?: unknown[]; text?: unknown }));
-  }
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
-}
-
-export function recordActiveScroll(top: number): void {
-  const current = shell().activeTab;
-  if (current !== null) recordScroll(current, top);
-}
-
-export function applyDocumentCommand(command: DocumentCommand): void {
-  const runtime = activeRuntime();
-  if (runtime === null) return;
-  report(runtime.applyStructural(command));
+  return { words: countWords(runtime.document), blocks: blockCount(runtime.document) };
 }

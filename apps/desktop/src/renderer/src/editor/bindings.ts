@@ -10,7 +10,6 @@ export interface EditorBindings {
   runtime: DocumentRuntime;
   openBlockMenu: (blockId: string, anchor: MenuAnchor) => void;
   openChapterMenu: (chapterId: string, anchor: MenuAnchor) => void;
-  openBlockActions: (blockId: string, anchor: MenuAnchor) => void;
   openLinkDialog: () => void;
   focusRelative: (blockId: string, direction: -1 | 1) => void;
   reorder: (blockId: string, direction: -1 | 1) => void;

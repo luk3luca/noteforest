@@ -45,7 +45,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar across the window; **sidebar full content height on the left**; **36 px tab strip only in the editor column**, to the right of the sidebar; sidebar 264 px default (208–360, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,600 px with 28–40 px padding and horizontal scroll when depth columns exceed the viewport. The sidebar and editor scroll independently.
+**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar across the window; **sidebar full content height on the left**; **36 px tab strip only in the editor column**, to the right of the sidebar; sidebar 264 px default (208–360, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,600 px with 28–40 px padding and horizontal scroll when a deep branch exceeds the viewport. The sidebar and editor scroll independently.
 
 ### Tab strip (36 px)
 
@@ -94,8 +94,8 @@ The next slice is therefore the **editable shell with the distinguishing feature
 ### Branch arrows (M2)
 
 - Every primary child gets exactly one arrow from its parent. The arrow starts at the parent's branch port and ends at the child's left edge.
-- For two or more children in one depth column, draw **one** vertical trunk from the parent's branch port and a short arrow from the trunk to each child; do not start a separate line at a different parent port for each child. The first child's branch is continuous with the parent port; the trunk joins at a T-junction with no gap.
-- If a page layout later wraps a child below (M4), the wrapped child's arrow enters its **left** side from the indent gutter, not its top. The editor itself uses depth columns and horizontal scroll, so it does not wrap.
+- For two or more children in one sibling group, draw **one** vertical trunk from the parent's branch port and a short arrow from the trunk to each child; do not start a separate line at a different parent port for each child. The first child's branch is continuous with the parent port; the trunk joins at a T-junction with no gap.
+- If a page layout later wraps a child below (M4), the wrapped child's arrow enters its **left** side from the indent gutter, not its top. The editor itself places child groups parent-relative and scrolls horizontally, so it does not wrap.
 - Arrows are behind the active editor overlay but above the background; they never capture text selection. They are `aria-hidden` and not tabbable. The branch port that toggles collapse is a real button (`aria-expanded`), not part of the decorative SVG.
 - Clicking an arrow selects the edge and shows a small inline action: delete branch (target becomes top-level) or add label (SHOULD).
 - Deleting a block with children uses the delete dialog: promote children or delete subtree; both keep arrows consistent.

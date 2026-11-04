@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Rasterizes PDF pages with pdfjs-dist and @napi-rs/canvas.
+ * Spike-only: rasterizes PDF pages with pdfjs-dist and @napi-rs/canvas.
+ * Not part of the M2/M3 gate.
  * Usage: node scripts/raster-pdf.mjs <input.pdf> <output-prefix> [dpi] [pages]
  */
 import { createCanvas } from '@napi-rs/canvas';

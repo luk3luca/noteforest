@@ -332,8 +332,6 @@ export type MenuCommand =
   | 'fit-width'
   | 'focus-branch';
 
-export type ConfirmChoice = 'save' | 'discard' | 'cancel';
-
 export interface SeedResult {
   snapshot: OpenDocumentSnapshot;
   library: LibraryView;
@@ -361,7 +359,6 @@ export interface NoteForestApi {
   setWindowState(state: WindowState): Promise<void>;
   onMenu(handler: (command: MenuCommand) => void): () => void;
   onRequestFlush(handler: () => Promise<FlushResult>): () => void;
-  onRequestFocusBlock(handler: (blockId: string) => void): () => void;
   debugSeed(kind: 'demo' | 'performance' | 'performance-1000'): Promise<SeedResult>;
   getSystemInfo(): Promise<{ electron: string; chrome: string; appVersion: string; platform: string }>;
 }

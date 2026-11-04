@@ -4,20 +4,22 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2f phase 5b — cleanup** is in progress. Phase 5a is merged; M3 and PDF/page work remain deferred until M2f is accepted.
+Spike 1 is complete (technical foundation merged); **M2f phase 5b — cleanup** is implemented and awaiting Sentinel re-review. M2 is not accepted yet; M3 and PDF/page work remain deferred until M2f is accepted.
 
 ## Running the current code
 
-This worktree uses **npm workspaces** (`apps/desktop`, `packages/core`, `packages/layout`, `packages/pdf`). Node 22+ is required.
+This worktree uses **npm workspaces** (`apps/desktop`, `packages/core`, `packages/layout`, `packages/pdf`). Node 22+ is required (`engines.node`).
 
 ```bash
 npm install
+npm run dev         # electron-vite dev shell
 npm run typecheck   # strict TypeScript across the workspaces
-npm test            # unit/geometry tests (target < 3 s)
+npm test            # unit/geometry/fixture tests
 npm run e2e         # build + critical Playwright-driven Electron suite (target < 60 s)
-npm run test:recovery # corrupt/missing/newer package recovery integration
+npm run test:ui     # build + view/accessibility UI suite
+npm run test:recovery # corrupt/missing/newer recovery + backup restore integration
 npm run verify:fast # typecheck + unit + critical e2e
-npm run verify      # verify:fast + recovery integration
+npm run verify      # verify:fast + recovery/backup integration + view UI
 npm run test:perf   # 300/1,000-block performance report (on demand, not the gate)
 npm run test:visual # screenshots for product-owner review (on demand, not the gate)
 ```
@@ -28,8 +30,8 @@ npm run test:visual # screenshots for product-owner review (on demand, not the g
   suite after every small fix; `test:perf` and `test:visual` are on-demand, not part of either gate.
 - `npm run dev` and `npm start` launch the Electron shell. The scripts unset `ELECTRON_RUN_AS_NODE` (the host environment sets it).
 - The current renderer is the M2 editor shell, not the Spike 1 fixture demo.
-- M2e report: `docs/reports/m2e-routing-and-layout.md`; M2f phase-1 report: `docs/reports/m2f-phase1.md`.
-- Spike 1 evidence remains in `docs/spikes/spike-01-report.md` and `docs/spikes/artifacts/`; the old Spike 1 gate harness targets the removed demo renderer and is not part of the M2 gate.
+- M2e report: `docs/reports/m2e-routing-and-layout.md`; M2f phase 5a report: `docs/reports/m2f-phase5a.md`; phase 5b cleanup report: `docs/reports/m2f-phase5b-cleanup.md`.
+- Spike 1 evidence remains in `docs/spikes/spike-01-report.md` and `docs/spikes/artifacts/`; the old Spike 1 harness targets the removed demo renderer and is not part of the M2 gate. Its commands are `npm run spike:gates`, `npm run spike:gates:summary`, `npm run spike:pdf:verify`, and `npm run spike:pdf:raster`.
 
 ## Undo and redo
 
@@ -80,7 +82,7 @@ not presented as undoable.
 
 ## Stack (v1)
 
-Electron + React + TypeScript, TipTap/ProseMirror, CodeMirror 6, KaTeX, React Flow, and Electron `printToPDF`. See `docs/adr/0001-stack-electron.md` and `docs/adr/0002-pdf-pipeline.md`.
+Electron + React + TypeScript, TipTap/ProseMirror, React Aria Components, Tailwind CSS v4, dnd-kit, Zustand, KaTeX, lowlight, electron-vite, Vitest, and Playwright. Electron `printToPDF` is the PDF path. CodeMirror 6 is a later addition, not a current dependency; React Flow is not used (custom SVG edge overlay). See `docs/adr/0001-stack-electron.md`, `docs/adr/0002-pdf-pipeline.md`, and `docs/adr/0004-ui-shell-and-branch-editor.md`.
 
 ## Name
 

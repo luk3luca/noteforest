@@ -80,13 +80,6 @@ const api: NoteForestApi = {
     ipcRenderer.on('app:request-flush', listener);
     return () => ipcRenderer.removeListener('app:request-flush', listener);
   },
-  onRequestFocusBlock: (handler: (blockId: string) => void): (() => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, blockId: string): void => {
-      handler(blockId);
-    };
-    ipcRenderer.on('app:focus-block', listener);
-    return () => ipcRenderer.removeListener('app:focus-block', listener);
-  },
   debugSeed: (kind): Promise<SeedResult> => ipcRenderer.invoke('debug:seed', kind),
   getSystemInfo: (): Promise<{
     electron: string;

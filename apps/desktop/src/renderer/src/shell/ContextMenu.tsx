@@ -97,8 +97,6 @@ export function ContextMenu(): JSX.Element | null {
   const height = menu.items.length * 28 + 12;
   const left = Math.max(8, Math.min(menu.x, window.innerWidth - width - 8));
   const top = Math.max(8, Math.min(menu.y, window.innerHeight - height - 8));
-  const item = (entry: (typeof menu.items)[number]) => entry;
-  void item;
 
   return createPortal(
     <div

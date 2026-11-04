@@ -1,6 +1,6 @@
 # Definition of Done
 
-**Status:** v5 — adaptive layout, derived pagination, External Agent API, stack and PDF pipeline decided.
+**Status:** v6 — M2f phase 5b cleanup; spec v0.4.4.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/review-checklist.md` (review procedure, severity, report template).
@@ -10,8 +10,10 @@
 ## Phase note
 
 The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002); the External Agent API defaults are
-decided (ADR-0003). The spec v0.4.1 is approved for Spike 1. Until a milestone is approved, this
-document still governs **documents and the approved spike**, not general application code. A docs
+decided (ADR-0003). The spec v0.4.4 is approved. **Current gate:** M2f phase 5b is under Sentinel
+re-review; `npm run verify` (typecheck, unit, critical e2e, recovery, view UI) is the task gate. M2 is
+not accepted and M3/PDF remain blocked until M2f is accepted. Until a milestone is approved, this
+document governs **documents and the approved implementation**, not general application code. A docs
 task is done when:
 
 - factual claims are sourced or labelled opinion;

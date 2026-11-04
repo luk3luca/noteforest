@@ -1,5 +1,9 @@
 # M2d — Depth columns + M2 polish (report)
 
+> **Superseded by M2e/D23 (4 November 2026).** The global depth-column layout described below was
+> reverted; the editor now uses parent-relative placement with horizontal scroll. Keep this report as
+> the record of the M2d iteration and its tests, not as current behavior.
+
 **Date:** 4 November 2026  
 **Builder worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-d1ad0c14`  
 **Branch:** `t3/d1ad0c14`  

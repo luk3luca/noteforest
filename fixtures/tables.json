@@ -2311,6 +2311,7 @@
     "imgForest": {
       "id": "imgForest",
       "path": "assets/forest.png",
+      "mime": "image/png",
       "alt": "A forest plot of residuals",
       "width": 640,
       "height": 360
@@ -2318,6 +2319,7 @@
     "imgWide": {
       "id": "imgWide",
       "path": "assets/wide.png",
+      "mime": "image/png",
       "alt": "A very wide spectrum plot",
       "width": 1200,
       "height": 200
@@ -2325,6 +2327,7 @@
     "imgChart": {
       "id": "imgChart",
       "path": "assets/chart.png",
+      "mime": "image/png",
       "alt": "A small chart of eigenvalues",
       "width": 420,
       "height": 240

@@ -154,15 +154,11 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
       const blockId = blockIdAtSelection(editor);
       setEditorSelectedBlock(editor, blockId);
       runtime.selectBlock(blockId);
-      if (blockId !== null) {
-        useShell.getState().setSelectedBlock(runtime.packagePath, blockId);
-      }
     };
     const bindings: EditorBindings = {
       runtime,
       openBlockMenu,
       openChapterMenu,
-      openBlockActions: openBlockMenu,
       openLinkDialog: () => {
         const href = String(editor.getAttributes('link')['href'] ?? '');
         useShell.getState().openDialog({ kind: 'link', href });

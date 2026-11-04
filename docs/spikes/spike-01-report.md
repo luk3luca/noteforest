@@ -42,15 +42,15 @@ npm install
 npm run typecheck
 npm test
 npm run e2e
-npm run gates
-npm run gates:summary
+npm run spike:gates
+npm run spike:gates:summary
 node scripts/verify-pdf.mjs fixtures/long-50-pages.json artifacts/spike-01/spike-01-long-50-pages.pdf
 node scripts/raster-pdf.mjs artifacts/spike-01/spike-01-long-50-pages.pdf artifacts/spike-01/rasters/F2 150 3,5
 ```
 
 The host shell sets `ELECTRON_RUN_AS_NODE=1`, which makes Electron start as plain Node. The app's `dev`/`start` scripts unset it; the e2e and gate launchers remove it from the child environment explicitly. This is an environment quirk, not an app requirement.
 
-`npm run gates` builds first, launches the real Electron app, drives every fixture, exports through the app, verifies the PDFs with pdfjs-dist, checks geometry, stability, and the atomic failure path, and writes `artifacts/spike-01/gates.json`.
+`npm run spike:gates` builds first, launches the real Electron app, drives every fixture, exports through the app, verifies the PDFs with pdfjs-dist, checks geometry, stability, and the atomic failure path, and writes `artifacts/spike-01/gates.json`. These `spike:*` commands document the historical Spike 1 harness; they are not part of the M2 gate and target the removed demo renderer.
 
 ## 3. What was delivered
 
@@ -137,7 +137,7 @@ All automated gates pass. Human checks are marked separately.
 
 | Gate | Result | Evidence |
 |---|---|---|
-| **G1 — Build and run** | **PASS** | `npm run typecheck`, `npm test` (14), `npm run e2e` (9), `npm run gates`; F1 loads in reader/page view with no renderer page errors; export runs from the app. `artifacts/f1-reader.jpg`, `artifacts/f1-page-01.jpg` |
+| **G1 — Build and run** | **PASS** | `npm run typecheck`, `npm test` (14), `npm run e2e` (9), `npm run spike:gates`; F1 loads in reader/page view with no renderer page errors; export runs from the app. `artifacts/f1-reader.jpg`, `artifacts/f1-page-01.jpg` |
 | **G2 — Adaptive layout** | **PASS** | F1/F3/F4/F7: no overlaps; min clear gap 20/24/20/20 px; F3 has 4 right-placed and 5 wrapped children, 6 distinct widths; F1 anchors aligned at 0 px (gate ≤2 px); reference probes move nothing; F7 300 blocks. `artifacts/f3-wide-fan.jpg`, `artifacts/f4-deep-chain.jpg` |
 | **G3 — Pagination** | **PASS** | F2 = 53 pages ≥50; every measured segment belongs to exactly one fragment; 20 continuation records with matching “continues/continued from” markers; F1 manual hint starts B4 on page 3; every chapter starts at `y=0` on a new page; no blank pages; F6 too-tall row is a blocking defect and is not split. `artifacts/f2-page-03-continuation.jpg`, `artifacts/f2-page-05-table.jpg`, `artifacts/f6-too-tall-row.jpg` |
 | **G4 — PDF fidelity (automated)** | **PASS** | F2 53 PDF pages = 53 derived; text for all 225 blocks; 0 missing glyphs; images embedded; 1,917 vector paths; 20 continuation markers; max label geometry delta 0.48 mm (tolerance 1 mm); F1 3/3 pages, 0.36 mm; F7 39/39 pages, 0.47 mm; landscape 3/3 pages, 297.01 × 209.89 mm, 0.36 mm. The PDF artifact is provided for the product owner's visual review on macOS (Preview/Chrome/page view). `artifacts/spike-01-f2-53-pages.pdf`, `artifacts/f2-pdf-page-03-continuation.jpg`, `artifacts/spike-01-gates.json` |

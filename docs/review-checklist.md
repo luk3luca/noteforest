@@ -1,9 +1,12 @@
 # Review checklist
 
-**Status:** v5 — adaptive layout, derived pagination, External Agent API, stack and PDF pipeline decided.
+**Status:** v6 — M2f phase 5b cleanup; spec v0.4.4.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).
+
+**Current gate:** M2f phase 5b is under Sentinel re-review; M2 acceptance pending, M3/PDF blocked
+until M2f is accepted. Spec v0.4.4 is the source of truth.
 
 ---
 
@@ -127,12 +130,12 @@ anchor, or content at a page break, it is S1 regardless of how rare it looks.
 - Review the diff since the last review, not the whole task from scratch.
 - A rebase that touches risky files invalidates prior approval for those files.
 
-### 1.9 Reviewing docs and specs (current phase)
+### 1.9 Reviewing docs and specs
 
-Until the spec and UX docs are approved, most reviews are of documents. The stack and PDF pipeline
-are decided (ADR-0001, ADR-0002), as are the External Agent API defaults (ADR-0003). A doc review
-checks that the document matches the ADRs, that deviations are explicit, and that the chosen stack
-is not silently re-opened. A doc review checks:
+Spec v0.4.4 is approved; this section applies to doc changes during M2f and later. The stack and PDF
+pipeline are decided (ADR-0001, ADR-0002), as are the External Agent API defaults (ADR-0003). A doc
+review checks that the document matches the ADRs, that deviations are explicit, and that the chosen
+stack is not silently re-opened. A doc review checks:
 
 - every MUST is testable and every acceptance criterion has a pass/fail condition;
 - states are covered: empty, loading, error, partial, large, offline;

@@ -12198,12 +12198,20 @@
       "id": "f2-a0-parent",
       "blockId": "f2-b007",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "spectrum"
+      },
       "quote": "spectrum"
     },
     "f2-broken": {
       "id": "f2-broken",
       "blockId": "f2-b196",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "missing token"
+      },
       "quote": "missing token"
     }
   },
@@ -12484,6 +12492,7 @@
     "imgForest": {
       "id": "imgForest",
       "path": "assets/forest.png",
+      "mime": "image/png",
       "alt": "A forest plot of residuals",
       "width": 640,
       "height": 360
@@ -12491,6 +12500,7 @@
     "imgWide": {
       "id": "imgWide",
       "path": "assets/wide.png",
+      "mime": "image/png",
       "alt": "A very wide spectrum plot",
       "width": 1200,
       "height": 200
@@ -12498,6 +12508,7 @@
     "imgChart": {
       "id": "imgChart",
       "path": "assets/chart.png",
+      "mime": "image/png",
       "alt": "A small chart of eigenvalues",
       "width": 420,
       "height": 240

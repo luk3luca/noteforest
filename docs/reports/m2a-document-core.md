@@ -43,7 +43,8 @@ Implemented: `document.create/rename`, `chapter.create/rename/reorder/delete`,
 - `branch.delete`: target becomes top-level, or its subtree is deleted (explicit choice).
 - `branch.reorder`: sibling arrow order; IDs/content unchanged.
 - `DocumentHistory`: session-only snapshot undo/redo; exact for destructive deletes including
-  branch identities. Undo/redo advance revision monotonically.
+  branch identities. Undo/redo advance revision monotonically. *(Removed in M2f phase 5b: the
+  adopted undo model is the renderer's routed text/structural stack; this helper was test-only.)*
 
 ### Persistence (Node)
 
