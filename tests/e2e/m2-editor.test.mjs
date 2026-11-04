@@ -955,16 +955,34 @@ describe('NoteForest M2 editor shell', () => {
     await h.waitSaved();
     await page.addScriptTag({ url: './axe.min.js' });
 
+    const axeReport = [];
     const axeRun = async (label) => {
       const violations = await page.evaluate(async () => {
         const results = await window.axe.run(document, {
-          runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+          runOnly: {
+            type: 'tag',
+            values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'],
+          },
         });
-        return results.violations
-          .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
-          .map((violation) => ({ id: violation.id, nodes: violation.nodes.length }));
+        return results.violations.map((violation) => ({
+          id: violation.id,
+          impact: violation.impact,
+          tags: violation.tags,
+          help: violation.help,
+          nodes: violation.nodes.length,
+          targets: violation.nodes.slice(0, 3).map((node) => node.target),
+        }));
       });
-      assert.deepEqual(violations, [], `${label} has serious axe violations`);
+      const serious = violations
+        .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
+        .map((violation) => ({ id: violation.id, nodes: violation.nodes }));
+      assert.deepEqual(serious, [], `${label} has serious axe violations`);
+      axeReport.push({
+        label,
+        bestPractice: violations.filter((violation) =>
+          violation.tags.includes('best-practice'),
+        ),
+      });
     };
 
     await axeRun('shell');
@@ -1016,7 +1034,221 @@ describe('NoteForest M2 editor shell', () => {
     await page.waitForSelector('.nf-dialog');
     await axeRun('delete dialog');
     await page.getByRole('button', { name: 'Cancel' }).click();
+
+    // Best-practice findings are recorded, not gated. The hard gate stays on
+    // serious/critical WCAG violations above.
+    const reportDir = artifactsPath('m2f-phase5a');
+    await mkdir(reportDir, { recursive: true });
+    await writeFile(
+      resolve(reportDir, 'axe-best-practice.json'),
+      `${JSON.stringify(axeReport, null, 2)}\n`,
+    );
     await h.quit();
+  });
+
+  it('keeps the editor, card controls, context menu, and tabs keyboard reachable', async () => {
+    await launch(isolated('keyboard-a11y'));
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+
+    // Save-state changes are announced through a polite live region.
+    const saveStatus = page.locator('.nf-statusbar [role="status"]');
+    assert.equal(await saveStatus.getAttribute('aria-live'), 'polite');
+    assert.equal((await saveStatus.innerText()).trim(), 'Saved');
+    const rootCard = h.activeEditor().locator('[data-block-card][data-top-level="true"]').first();
+    const rootId = await rootCard.getAttribute('data-block-card');
+    assert.ok(rootId !== null);
+    await rootCard.locator('.nf-block-prose').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.nf-statusbar [data-save-state]')?.getAttribute('data-save-state') ===
+        'unsaved',
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal((await saveStatus.innerText()).trim(), 'Unsaved changes');
+    await h.waitSaved();
+    assert.equal((await saveStatus.innerText()).trim(), 'Saved');
+
+    // Tab leaves the contenteditable body, Shift+Tab returns, and every card
+    // control between the body and the branch port is a visible tab stop.
+    await rootCard.locator('.nf-block-prose').first().click();
+    await page.keyboard.press('Tab');
+    await page.waitForFunction(
+      () => document.activeElement?.isContentEditable !== true,
+      undefined,
+      { timeout: 10000 },
+    );
+    const firstStop = await page.evaluate(() => {
+      const element = document.activeElement;
+      return {
+        inEditor: element?.closest('.nf-editor[data-active="true"]') !== null,
+        outline: element === null ? '' : getComputedStyle(element).outline,
+      };
+    });
+    assert.equal(firstStop.inEditor, true, 'the first stop is a card control in the editor');
+    assert.match(firstStop.outline, /solid 2px/, 'the focused card control has a visible focus ring');
+
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForFunction(
+      () => document.activeElement?.isContentEditable === true,
+      undefined,
+      { timeout: 10000 },
+    );
+
+    const controlPath = [];
+    for (let index = 0; index < 8; index += 1) {
+      await page.keyboard.press('Tab');
+      const current = await page.evaluate(() => {
+        const element = document.activeElement;
+        return {
+          chapter: element?.classList.contains('nf-chapter-title') === true,
+          handle: element?.hasAttribute('data-block-actions') === true,
+          addChild: element?.hasAttribute('data-add-child') === true,
+          addSibling: element?.hasAttribute('data-add-sibling') === true,
+          port: element?.hasAttribute('data-branch-port') === true,
+        };
+      });
+      if (current.chapter) controlPath.push('chapter');
+      else if (current.handle) controlPath.push('handle');
+      else if (current.addChild) controlPath.push('add-child');
+      else if (current.addSibling) controlPath.push('add-sibling');
+      else if (current.port) controlPath.push('port');
+      else controlPath.push('other');
+      if (current.port) break;
+    }
+    assert.deepEqual(
+      controlPath,
+      ['chapter', 'handle', 'add-child', 'add-sibling', 'port'],
+      'the card controls are reachable in focus order',
+    );
+
+    // Activate the branch port with Space: collapse, then expand.
+    assert.equal(
+      await page.locator(`[data-branch-port="${rootId}"]`).getAttribute('aria-expanded'),
+      'true',
+    );
+    await page.keyboard.press('Space');
+    await page.waitForFunction(
+      (id) =>
+        document.querySelector(`[data-branch-port="${id}"]`)?.getAttribute('aria-expanded') ===
+        'false',
+      rootId,
+      { timeout: 10000 },
+    );
+    assert.equal(
+      await page.locator(`[data-branch-port="${rootId}"]`).getAttribute('data-collapsed'),
+      'true',
+    );
+    await page.keyboard.press('Space');
+    await page.waitForFunction(
+      (id) =>
+        document.querySelector(`[data-branch-port="${id}"]`)?.getAttribute('aria-expanded') ===
+        'true',
+      rootId,
+      { timeout: 10000 },
+    );
+
+    // Activate add-child with Enter (the button was reached by Tab above).
+    const beforeAdd = (await h.activeRuntimeInfo()).blocks;
+    await page.locator(`[data-add-child="${rootId}"]`).focus();
+    await page.keyboard.press('Enter');
+    await h.waitCanonicalBlockCount(beforeAdd + 1);
+    await page.waitForFunction(
+      (expected) =>
+        document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card]').length ===
+        expected,
+      beforeAdd + 1,
+      { timeout: 10000 },
+    );
+
+    // The drag handle is a keyboard button: Enter opens the block actions
+    // menu (with Move up/down) and Escape restores focus to the handle.
+    await page.locator(`[data-block-actions="${rootId}"]`).focus();
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.nf-menu');
+    await page.waitForFunction(
+      () => document.activeElement?.closest('.nf-menu') !== null,
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal(await page.getByRole('menuitem', { name: /Move up/ }).count(), 1);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.nf-menu', { state: 'detached' });
+    await page.waitForFunction(
+      (id) => document.activeElement?.getAttribute('data-block-actions') === id,
+      rootId,
+      { timeout: 10000 },
+    );
+
+    // Context menu: first item focused, arrows move, Tab wraps, Escape closes
+    // and returns focus to the editor.
+    await rootCard.locator('.nf-block-prose').first().click();
+    await rootCard.click({ button: 'right' });
+    await page.waitForSelector('.nf-menu');
+    await page.waitForFunction(
+      () => document.querySelector('.nf-menu [role="menuitem"]') === document.activeElement,
+      undefined,
+      { timeout: 10000 },
+    );
+    const firstItem = await page.evaluate(() => document.activeElement?.textContent ?? '');
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction(
+      (previous) =>
+        document.activeElement?.closest('.nf-menu') !== null &&
+        (document.activeElement?.textContent ?? '') !== previous,
+      firstItem,
+      { timeout: 10000 },
+    );
+    const itemCount = await page.locator('.nf-menu [role="menuitem"]').count();
+    for (let index = 0; index < itemCount + 1; index += 1) {
+      await page.keyboard.press('Tab');
+      const insideMenu = await page.evaluate(
+        () => document.activeElement?.closest('.nf-menu') !== null,
+      );
+      assert.equal(insideMenu, true, 'Tab stays inside the context menu');
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.nf-menu', { state: 'detached' });
+    await page.waitForFunction(
+      () => document.activeElement?.closest('.nf-prosemirror') !== null,
+      undefined,
+      { timeout: 10000 },
+    );
+
+    // Ctrl+Tab is a real tab cycle, and the active tab exposes a focusable,
+    // announced close button.
+    const firstPath = (await h.state()).activeTab;
+    await page.locator('.nf-tabbar-button[aria-label="New document"]').click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().tabs.length === 2,
+      undefined,
+      { timeout: 10000 },
+    );
+    await h.waitSaved();
+    const secondPath = (await h.state()).activeTab;
+    assert.ok(secondPath !== null && secondPath !== firstPath);
+    await page.keyboard.press('Control+Tab');
+    await waitActiveTab(firstPath);
+    await page.keyboard.press('Control+Shift+Tab');
+    await waitActiveTab(secondPath);
+
+    const closeButton = page.locator('[data-close-active-tab="true"]');
+    assert.match((await closeButton.getAttribute('aria-label')) ?? '', /^Close /);
+    assert.equal(await closeButton.isDisabled(), false);
+    await page.locator('.nf-tab[data-active="true"] .nf-tab-label').focus();
+    await page.keyboard.press('Tab');
+    await page.waitForFunction(
+      () => document.activeElement?.hasAttribute('data-close-active-tab') === true,
+      undefined,
+      { timeout: 10000 },
+    );
+    await page.keyboard.press('Enter');
+    await waitTabCount(1);
   });
 
   it('serializes rapid structural creation and keeps canvas, sidebar and arrows in parity', async () => {
@@ -1714,19 +1946,26 @@ describe('NoteForest M2 editor shell', () => {
       'the child key creates an arrow',
     );
 
-    // Tab in a normal paragraph never creates a child.
+    // Tab in a normal paragraph never creates a child and leaves the
+    // contenteditable body so keyboard users can reach the card controls and
+    // the rest of the shell.
+    await h.activeEditor().locator('[data-block-card] .nf-block-prose').last().click();
+    await page.keyboard.press('End');
     await page.keyboard.press('Tab');
     await page.waitForFunction(
-      () => document.activeElement?.closest('.nf-prosemirror') !== null,
+      () => document.activeElement?.isContentEditable !== true,
       undefined,
       { timeout: 10000 },
     );
     assert.equal((await h.parity()).canvas, 3, 'Tab in a paragraph does not create a block');
-    const focusInEditor = await page.evaluate(() => {
+    const focusOutside = await page.evaluate(() => {
       const active = document.activeElement;
-      return active !== null && active.closest('.nf-prosemirror') !== null;
+      return active !== null && active.isContentEditable !== true;
     });
-    assert.equal(focusInEditor, true, 'Tab keeps focus in the editor');
+    assert.equal(focusOutside, true, 'Tab exits the contenteditable body');
+    // Return the caret to the last block for the list-indent check.
+    await h.activeEditor().locator('[data-block-card] .nf-block-prose').last().click();
+    await page.keyboard.press('End');
 
     // Tab in a list is native indent, not a block.
     await page.keyboard.type('- first item');
@@ -1964,209 +2203,6 @@ describe('NoteForest M2 editor shell', () => {
     await h.quit();
   });
 
-  it('zooms, fits width, and focuses a branch without touching the document', async () => {
-    await launch(isolated('view'));
-    await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
-
-    const zoomLabel = page.locator('.nf-status-zoom');
-    assert.equal((await zoomLabel.innerText()).trim(), '100%');
-    await page.keyboard.press('Meta+-');
-    await waitZoomLabel('90%');
-    await page.keyboard.press('Meta+=');
-    await waitZoomLabel('100%');
-    await page.keyboard.press('Meta+=');
-    await waitZoomLabel('110%');
-    await page.keyboard.press('Meta+0');
-    await waitZoomLabel('100%');
-
-    // Focus the root: its ancestor chain (just itself) and all descendants stay;
-    // the other top-level branches hide. The canonical document is unchanged.
-    const before = await page.evaluate(() => {
-      const current = window.__noteforestTest.state();
-      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
-      const visible = (element) => element.getClientRects().length > 0;
-      return {
-        blockIds: runtime.blockIds,
-        visible: [...document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card]')].filter(
-          visible,
-        ).length,
-      };
-    });
-    const rootCard = h.activeEditor().locator('[data-block-card][data-top-level="true"]').first();
-    const rootId = await rootCard.getAttribute('data-block-card');
-    await rootCard.locator('.nf-block-prose').first().click();
-    await h.waitSelected(rootId);
-    const focusButton = page.locator('.nf-status-focus');
-    assert.equal(await focusButton.getAttribute('aria-pressed'), 'false');
-    await focusButton.click();
-    await page.waitForFunction(
-      () => {
-        const scope = document.querySelector('.nf-editor[data-active="true"]');
-        const visible = (element) => element.getClientRects().length > 0;
-        if (scope === null) return false;
-        const cards = [...scope.querySelectorAll('[data-block-card]')].filter(visible).length;
-        const topLevel = [...scope.querySelectorAll('[data-block-card][data-top-level="true"]')].filter(
-          visible,
-        ).length;
-        return cards === 4 && topLevel === 1 && scope.querySelectorAll('.nf-edge-path').length === 3;
-      },
-      undefined,
-      { timeout: 10000 },
-    );
-    await h.waitLayout({ blocks: 7 });
-    assert.equal(await focusButton.getAttribute('aria-pressed'), 'true');
-    const focused = await page.evaluate(() => {
-      const current = window.__noteforestTest.state();
-      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
-      const visible = (element) => element.getClientRects().length > 0;
-      return {
-        blockIds: runtime.blockIds,
-        visible: [...document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card]')].filter(
-          visible,
-        ).length,
-        topLevelVisible: [
-          ...document.querySelectorAll(
-            '.nf-editor[data-active="true"] [data-block-card][data-top-level="true"]',
-          ),
-        ].filter(visible).length,
-        arrows: document.querySelectorAll('.nf-editor[data-active="true"] .nf-edge-path').length,
-      };
-    });
-    assert.equal(focused.visible, 4, 'root + two children + one grandchild stay visible');
-    assert.equal(focused.topLevelVisible, 1, 'other top-level branches hide');
-    assert.equal(focused.arrows, 3, 'focus keeps the branch arrows');
-    assert.deepEqual(focused.blockIds, before.blockIds, 'Focus branch does not delete blocks');
-
-    // Fit width works on the focused branch, not just the whole document.
-    await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
-    await page.waitForFunction(
-      () =>
-        Number(
-          document.querySelector('.nf-editor[data-active="true"] .nf-canvas')?.getAttribute('data-zoom') ??
-            100,
-        ) < 100,
-      undefined,
-      { timeout: 10000 },
-    );
-    await h.waitLayout({ blocks: 7 });
-    const branchFit = await h.layoutSnapshot();
-    assert.ok(branchFit.zoom < 100, `Fit width fits the focused branch (${branchFit.zoom}%)`);
-    assert.ok(branchFit.overflow <= 1, `focused branch fits without horizontal scroll (${branchFit.overflow})`);
-    assert.equal(
-      await h.activeEditor().locator('.nf-edge-defect').count(),
-      0,
-      'zoom does not flag edge defects',
-    );
-
-    await focusButton.click();
-    await page.waitForFunction(
-      (expected) => {
-        const scope = document.querySelector('.nf-editor[data-active="true"]');
-        const visible = (element) => element.getClientRects().length > 0;
-        if (scope === null) return false;
-        const cards = [...scope.querySelectorAll('[data-block-card]')].filter(visible).length;
-        return (
-          document.querySelector('.nf-status-focus')?.getAttribute('aria-pressed') === 'false' &&
-          cards === expected
-        );
-      },
-      before.visible,
-      { timeout: 10000 },
-    );
-    await h.waitLayout({ blocks: 7 });
-    assert.equal(await focusButton.getAttribute('aria-pressed'), 'false');
-    assert.equal(
-      await h.activeEditor().locator('[data-block-card]:visible').count(),
-      before.visible,
-      'exiting focus restores the whole document',
-    );
-
-    // A deep block keeps its ancestor chain (root → parent → selected) and its
-    // own descendants; sibling branches at any ancestor are hidden.
-    const characteristic = h
-      .activeEditor()
-      .locator('[data-block-card]', { hasText: 'Characteristic polynomial' })
-      .first();
-    const characteristicId = await characteristic.getAttribute('data-block-card');
-    await characteristic.click();
-    await h.waitSelected(characteristicId);
-    await focusButton.click();
-    await page.waitForFunction(
-      () => {
-        const scope = document.querySelector('.nf-editor[data-active="true"]');
-        const visible = (element) => element.getClientRects().length > 0;
-        if (scope === null) return false;
-        return (
-          [...scope.querySelectorAll('[data-block-card]')].filter(visible).length === 3 &&
-          scope.querySelectorAll('.nf-edge-path').length === 2
-        );
-      },
-      undefined,
-      { timeout: 10000 },
-    );
-    await h.waitLayout({ blocks: 7 });
-    const ancestors = await page.evaluate(() => {
-      const scope = document.querySelector('.nf-editor[data-active="true"]');
-      const visible = (element) => element.getClientRects().length > 0;
-      return {
-        visible: [...scope.querySelectorAll('[data-block-card]')].filter(visible).length,
-        topLevelVisible: [...scope.querySelectorAll('[data-block-card][data-top-level="true"]')].filter(
-          visible,
-        ).length,
-        arrows: scope.querySelectorAll('.nf-edge-path').length,
-        texts: [...scope.querySelectorAll('[data-block-card]')]
-          .filter(visible)
-          .map((card) => card.querySelector('.nf-block-prose')?.textContent?.slice(0, 24) ?? ''),
-      };
-    });
-    assert.equal(ancestors.visible, 3, 'selected block + ancestor chain stay visible');
-    assert.equal(ancestors.topLevelVisible, 1, 'only the ancestor top-level branch stays');
-    assert.equal(ancestors.arrows, 2, 'the ancestor path keeps its two arrows');
-    assert.ok(ancestors.texts.some((text) => text.includes('Characteristic')));
-    assert.ok(!ancestors.texts.some((text) => text.includes('Spectrum')), 'sibling branch hides');
-    await focusButton.click();
-    await page.waitForFunction(
-      () =>
-        document.querySelector('.nf-status-focus')?.getAttribute('aria-pressed') === 'false',
-      undefined,
-      { timeout: 10000 },
-    );
-    await h.waitLayout({ blocks: 7 });
-
-    // Fit width at 1024 with the full document: zoom drops below 100% and the
-    // editor no longer needs horizontal scroll.
-    await h.setWindowSize(1024, 768);
-    await h.waitLayout({ blocks: 7 });
-    const beforeFit = await h.layoutSnapshot();
-    assert.ok(beforeFit.overflow > 0, 'the full demo overflows at 1024 before Fit');
-    await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
-    await page.waitForFunction(
-      () =>
-        Number(
-          document.querySelector('.nf-editor[data-active="true"] .nf-canvas')?.getAttribute('data-zoom') ??
-            100,
-        ) < 100,
-      undefined,
-      { timeout: 10000 },
-    );
-    await h.waitLayout({ blocks: 7 });
-    const afterFit = await h.layoutSnapshot();
-    assert.ok(afterFit.zoom < 100, `Fit width zooms out (${afterFit.zoom}%)`);
-    assert.ok(afterFit.overflow <= 1, `Fit width removes horizontal overflow (${afterFit.overflow})`);
-    assert.equal(
-      await h.activeEditor().locator('.nf-edge-defect').count(),
-      0,
-      'fit zoom keeps valid arrows',
-    );
-    await page.keyboard.press('Meta+0');
-    await waitZoomLabel('100%');
-    await h.quit();
-  });
-
   it('adds top-level blocks to the selected chapter and chapters after the active one', async () => {
     await launch(isolated('chapters'));
     await h.setWindowSize(1440, 900);
@@ -2362,8 +2398,10 @@ describe('NoteForest M2 editor shell', () => {
       await waitSaveFailure('permission');
 
       const status = page.locator('[data-save-state]');
-      assert.equal((await status.innerText()).trim(), 'Save failed');
+      assert.equal((await status.innerText()).trim().startsWith('Save failed'), true);
       assert.equal(await status.getAttribute('data-save-failure-code'), 'permission');
+      assert.equal(await status.getAttribute('role'), 'status');
+      assert.equal(await status.getAttribute('aria-live'), 'polite');
 
       const banner = page.locator('[data-save-failure="true"]');
       await banner.waitFor();

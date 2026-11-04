@@ -367,17 +367,20 @@ Log the seed. Save any shrunk failure as a named regression fixture.
   Electron renderer and the PDF export from the packaged build.
 
 **M2 suite split and run policy.** The critical suite is `tests/e2e/`; it covers lifecycle,
-tabs/session restore, desync parity, arrows/collapse/trunk, keyboard/heading/chapter, layout/scroll,
-zoom/focus, and axe. Damaged/missing/newer package recovery lives in `tests/recovery/` and is part of
-`verify`, but not `verify:fast`, so the critical suite stays under its budget. Performance
-(`tests/perf/`) and screenshot evidence (`tests/visual/`) are separate on-demand suites and are not
-part of the critical gate. Artifact roots honour `NOTEFOREST_ARTIFACTS` (default `artifacts/`).
+tabs/session restore, desync parity, arrows/collapse/trunk, keyboard/heading/chapter, keyboard
+focus/axe, and layout/scroll. Zoom/fit/focus-rich view flows live in `tests/ui/` and are part of
+`verify`, but not `verify:fast`, so the critical suite stays under its budget. Damaged/missing/newer
+package recovery lives in `tests/recovery/` and is part of `verify`, but not `verify:fast`.
+Performance (`tests/perf/`) and screenshot evidence (`tests/visual/`) are separate on-demand suites
+and are not part of the critical gate. Artifact roots honour `NOTEFOREST_ARTIFACTS` (default
+`artifacts/`).
 
 - `npm run e2e` builds and runs the critical suite; target **< 60 s**, currently ~18 s of test time.
 - `npm test` is the unit suite; target **< 3 s**.
 - `npm run test:recovery` builds and runs the corrupt/missing/newer recovery suite.
+- `npm run test:ui` builds and runs the zoom/fit/focus view suite.
 - `npm run verify:fast` = typecheck + unit + critical e2e.
-- `npm run verify` = `verify:fast` + recovery integration; run once on integration.
+- `npm run verify` = `verify:fast` + recovery integration + view-ui suite; run once on integration.
 - `npm run test:perf` and `npm run test:visual` run on demand or nightly.
 - Builder: targeted tests while fixing, then `verify:fast` once at handoff. Orchestrator: `verify`
   once on integration. Do not re-run the full suite after every small fix.
