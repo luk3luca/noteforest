@@ -1,6 +1,6 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, mkdir, rm } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { artifactsPath, createHarness } from '../support/harness.mjs';
 
@@ -345,6 +345,53 @@ describe('NoteForest M2 visual evidence', () => {
     } finally {
       await chmod(packagePath, 0o755);
     }
+    await h.quit();
+  });
+
+  it('captures the external-modification banner and overwrite confirmation', async () => {
+    await launch(isolated('shots-external'));
+    await h.setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    const documentPath = resolve(packagePath, 'document.json');
+    const document = JSON.parse(await readFile(documentPath, 'utf8'));
+    document.title = 'Externally renamed';
+    await writeFile(documentPath, JSON.stringify(document, null, 2));
+
+    await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' This edit conflicts with an external change.');
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return (
+          runtime?.saveState === 'error' &&
+          runtime.saveFailure?.code === 'external-modification'
+        );
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    await shot('external-modification-1440x900.png', 1440, 900);
+
+    await page.locator('[data-save-action="overwrite"]').click();
+    const confirm = page.getByRole('dialog', { name: 'Overwrite file on disk?' });
+    await confirm.waitFor();
+    await shot('external-overwrite-confirm-1440x900.png', 1440, 900);
+
+    // Cancel keeps the external file, then reload discards the local edit and
+    // leaves the app save-clean for teardown.
+    await confirm.getByRole('button', { name: 'Cancel' }).click();
+    await confirm.waitFor({ state: 'detached' });
+    await page.locator('[data-save-action="reload"]').click();
+    const reload = page.getByRole('dialog', { name: 'Reload from disk?' });
+    await reload.waitFor();
+    await reload.getByRole('button', { name: 'Reload from disk', exact: true }).click();
+    await page.waitForSelector('[data-save-failure="true"]', { state: 'detached' });
+    await h.waitSaved();
     await h.quit();
   });
 });
