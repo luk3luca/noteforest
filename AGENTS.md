@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 5b is implemented and awaiting Sentinel re-review.** Phase 5a (keyboard/focus/a11y) is merged. Phase 5b is the no-behavior-change cleanup: dead code/exports, dependency dedupe/prune, fixture selector/validity, Spike tooling separation, and docs consistency with M2e/M2f. M2 is not accepted yet; product-owner VoiceOver/visual pass, then M3. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f is complete; Sentinel re-review and product-owner visual/VoiceOver pass are pending.** Phases 1–5b are merged: S1 quit, typed flush/close, undo routing/identity, save-failure recovery, backup restore, corrupt/missing/newer recovery, empty chapters, stale-lock consent, keyboard/focus/a11y, cleanup. Critical e2e 23/48.7 s; unit 241/1.8 s; recovery 13; UI 1. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

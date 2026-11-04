@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** Spike 1 complete; editor-first milestone approved. M2f phase 5b implemented; Sentinel re-review and M2 acceptance pending.
+**Status:** M2f complete; Sentinel re-review and product-owner visual/VoiceOver acceptance pending. M3 not started.
 
 ## Rules
 
@@ -30,11 +30,11 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 |---|---|---|---|---|
 | **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.4; DoD/checklist aligned | **Done** |
 | **M1** | Spike 1 — technical foundation | Prove adaptive layout + paginator + real-text PDF in Electron | Spike 1 gates G1–G9 passed and independently re-run; visuals deferred | **Done** |
-| **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **M2f phase 5b implemented; M2 acceptance pending** |
+| **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **M2f complete; M2 acceptance pending** |
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
-| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Phase 5b implemented; Sentinel re-review pending** |
+| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Complete — Sentinel re-review + product-owner visual/VoiceOver pending** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -81,13 +81,16 @@ What is deferred:
 
 **M2 design decisions (approved):**
 
-- Top-level block measure 34 rem (544 px), child 160–420 px; editor canvas max ~1,100 px.
-- Wrap indent 18 px; sibling gap 24 px; block padding 12 px; radius 4 px.
-- Edges are orthogonal elbows; wrapped children use a bottom trunk-and-bus; arrowhead only at the child.
+- Parent-relative placement (D23): a child group starts after its parent + gap; same-depth blocks under different parents may differ in x.
+- Editor canvas max ~1,600 px; top-level 160–480 px; child 144–420 px; gap 16 px; empty blocks at minimum.
+- No wrap in the editor: horizontal scroll for deep branches; page/PDF applies A4 in M4.
+- Edges: one shared trunk for 2+ children; fixed arrowhead; 12 px minimum stem; continuous first child; no U-turn.
 - Selected block highlights the root→block path; other edges dim.
 - Child cards use a subtle surface, no default border; top-level blocks are transparent.
-- Reparent is `Move to…` menu/keyboard only; drag reorders siblings. No free drag-to-reparent in M2.
-- Scroll only; no zoom/pan/minimap. Reference edges reserve a dashed token but no UI.
+- Collapse at top-right; `+` child at the right-edge center; `+` sibling at the bottom; drag handle left.
+- Reparent is `Move to…`/keyboard; drag reorders siblings. No free drag-to-reparent.
+- Zoom/fit and Focus branch are navigation aids; no minimap. Reference edges reserve a dashed token but no UI.
+- New documents default A4 landscape; existing documents keep their orientation.
 
 **Out of scope for M2:**
 
@@ -196,7 +199,7 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
 - Tab exits editor; card/shell controls reachable; Ctrl+Tab cycles; save-state live region; context-menu focus trap; accessible tab close.
 - Unit 241/1.8 s; critical e2e 26/58.7–59.1 s; UI 1/1; recovery 10/10.
 
-**Phase 5b (implemented; awaiting re-review): cleanup.**
+**Phase 5b (done; awaiting re-review): cleanup.**
 - Dead code/exports removed; duplicate PDF atomic writer removed; core snapshot `history.ts` removed
   because the adopted undo model is the renderer's routed text/structural stacks.
 - Renderer tree selectors now delegate to `@noteforest/core` structural helpers.
@@ -206,7 +209,7 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
   default workflow; docs aligned with M2e/M2f.
 - No behavior change; backup-restore e2e moved to the recovery suite, critical e2e 23/23 in 48.7 s.
 
-**Later:** Sentinel re-review of phase 5b, product-owner VoiceOver/visual pass, and M2 acceptance; then M3.
+**Status:** M2f complete. Sentinel re-review and product-owner VoiceOver/visual acceptance pending; then M3.
 
 ## M3 — Span anchors and reference edges (planned)
 
