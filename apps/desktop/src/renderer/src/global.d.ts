@@ -1,5 +1,6 @@
 /** Ambient bridge exposed by the preload script. */
 import type * as React from 'react';
+import type { DocumentCommand } from '@noteforest/core';
 import type { NoteForestApi } from '../../shared/api';
 
 declare global {
@@ -11,6 +12,10 @@ declare global {
       flushSession: () => Promise<void>;
       setFlushMode: (mode: 'normal' | 'error' | 'hang') => void;
       seed: (kind: 'demo' | 'performance' | 'performance-1000') => Promise<string>;
+      /** Test-only: apply a typed command through the active runtime stack. */
+      applyStructural?: (command: DocumentCommand) => Promise<unknown>;
+      /** Test-only: exact canonical structural records of the active document. */
+      structure?: () => unknown;
       editorCheck?: () => unknown;
       editorJson?: () => unknown;
       perf?: () => unknown;
