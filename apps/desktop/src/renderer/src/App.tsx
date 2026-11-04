@@ -314,6 +314,7 @@ export function App(): JSX.Element {
             blocks: Object.keys(item.document.blocks).length,
             blockIds: Object.keys(item.document.blocks),
             branches: Object.keys(item.document.branches).length,
+            branchIds: Object.keys(item.document.branches),
             saveState: item.saveState,
             saveError: item.saveError,
             saveFailure: item.saveFailure,
