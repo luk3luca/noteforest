@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import type { BackupCandidateView } from '../../../shared/api';
 import { closeTab, openPath } from '../actions';
 import { backupMetadataLine } from '../lib/backup-restore';
+import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 import {
   recoveryDescription,
   recoveryHeadline,
@@ -143,7 +144,9 @@ export function RecoverySurface({
   return (
     <section
       className="nf-recovery"
-      aria-label="Document recovery"
+      id={tabPanelElementId(packagePath)}
+      role="tabpanel"
+      aria-labelledby={tabElementId(packagePath)}
       data-recovery-surface="true"
       data-recovery-status={recovery.status}
     >

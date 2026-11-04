@@ -120,15 +120,17 @@ export const BranchKeymap = Extension.create({
       },
 
       // Tab is native indent in lists/code/tables/blockquotes; "make child"
-      // only on a selected block, never while typing a normal paragraph.
+      // only on a selected block, never while typing a normal paragraph. Every
+      // other case returns false so the browser moves focus out of the editor
+      // instead of trapping keyboard users inside the contenteditable body.
       Tab: () => {
         const editor = this.editor;
         if (inAtomicContext(editor)) return false;
         const selection = selectedBlock(editor);
         const current = bindings();
-        if (selection === null || current === null) return true;
+        if (selection === null || current === null) return false;
         const id = typeof selection.node.attrs['blockId'] === 'string' ? selection.node.attrs['blockId'] : null;
-        if (id === null) return true;
+        if (id === null) return false;
         current.report(current.runtime.addChild(id));
         return true;
       },
@@ -138,9 +140,10 @@ export const BranchKeymap = Extension.create({
         if (inAtomicContext(editor)) return false;
         const selection = selectedBlock(editor);
         const current = bindings();
-        if (selection === null || current === null) return true;
+        if (selection === null || current === null) return false;
         const id = typeof selection.node.attrs['blockId'] === 'string' ? selection.node.attrs['blockId'] : null;
-        if (id !== null) current.report(current.runtime.outdent(id));
+        if (id === null) return false;
+        current.report(current.runtime.outdent(id));
         return true;
       },
 

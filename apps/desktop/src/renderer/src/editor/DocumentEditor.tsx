@@ -30,6 +30,7 @@ import { useRuntime } from '../state/registry';
 import { SaveFailureBanner } from '../shell/SaveFailureBanner';
 import { StaleLockBanner } from '../shell/StaleLockBanner';
 import { recordPerf } from '../lib/perf';
+import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 
 interface DocumentEditorProps {
   runtime: DocumentRuntime;
@@ -86,6 +87,9 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
     return (
       <div
         className="nf-editor"
+        id={tabPanelElementId(runtime.packagePath)}
+        role="tabpanel"
+        aria-labelledby={tabElementId(runtime.packagePath)}
         style={active ? undefined : { display: 'none' }}
         data-active={active}
         data-focus-active="false"
@@ -348,6 +352,9 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
   return (
     <div
       className="nf-editor"
+      id={tabPanelElementId(runtime.packagePath)}
+      role="tabpanel"
+      aria-labelledby={tabElementId(runtime.packagePath)}
       style={active ? undefined : { display: 'none' }}
       data-active={active}
       data-focus-active={focusSet !== null}
