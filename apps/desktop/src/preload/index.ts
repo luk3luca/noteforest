@@ -8,6 +8,9 @@ import type {
   MenuCommand,
   NoteForestApi,
   OpenDocumentResult,
+  ReloadDocumentResult,
+  RevealResult,
+  SaveCopyResult,
   SaveResult,
   SeedResult,
   SessionState,
@@ -26,9 +29,13 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('document:apply', packagePath, command),
   save: (packagePath: string): Promise<SaveResult> =>
     ipcRenderer.invoke('document:save', packagePath),
+  saveCopy: (packagePath: string): Promise<SaveCopyResult> =>
+    ipcRenderer.invoke('document:save-copy', packagePath),
+  reloadDocument: (packagePath: string): Promise<ReloadDocumentResult> =>
+    ipcRenderer.invoke('document:reload', packagePath),
   closeDocument: (packagePath: string, options): Promise<void> =>
     ipcRenderer.invoke('document:close', packagePath, options),
-  revealDocument: (packagePath: string): Promise<void> =>
+  revealDocument: (packagePath: string): Promise<RevealResult> =>
     ipcRenderer.invoke('document:reveal', packagePath),
   revealLibrary: (): Promise<void> => ipcRenderer.invoke('library:reveal'),
   saveSession: (state: SessionState): Promise<void> =>

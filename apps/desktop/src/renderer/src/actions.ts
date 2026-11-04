@@ -300,7 +300,12 @@ export function toggleFocusBranch(): void {
 export function revealActive(): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
-  void window.noteforest.revealDocument(runtime.packagePath);
+  void revealDocumentPath(runtime.packagePath);
+}
+
+export async function revealDocumentPath(packagePath: string): Promise<void> {
+  const result = await window.noteforest.revealDocument(packagePath);
+  if (!result.ok) toast.error(result.message ?? 'Could not reveal the document.');
 }
 
 export function focusBlock(packagePath: string, blockId: string): void {
@@ -477,7 +482,7 @@ export function openTabMenu(
     {
       id: 'reveal',
       label: 'Reveal in Finder',
-      onSelect: () => void window.noteforest.revealDocument(packagePath),
+      onSelect: () => void revealDocumentPath(packagePath),
     },
     { id: 'sep', label: '', separator: true },
     {
@@ -502,7 +507,7 @@ export function openLibraryMenu(
     {
       id: 'reveal',
       label: 'Reveal in Finder',
-      onSelect: () => void window.noteforest.revealDocument(packagePath),
+      onSelect: () => void revealDocumentPath(packagePath),
     },
     {
       id: 'rename',

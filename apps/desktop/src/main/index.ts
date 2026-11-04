@@ -7,11 +7,12 @@ import {
   session,
   shell,
 } from 'electron';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type {
   BootstrapResult,
   FlushResult,
   MenuCommand,
+  RevealResult,
   SessionState,
   WindowState,
 } from '../shared/api.js';
@@ -24,10 +25,13 @@ import {
   closeDocument,
   createDocument,
   dirtyDocuments,
+  isInsideLibrary,
   libraryDir,
   openDocument,
+  reloadDocument,
   saveAllDirty,
   saveDocument,
+  saveDocumentCopy,
   scanLibrary,
   seedDocument,
   writeSession,
@@ -268,6 +272,33 @@ function registerIpc(): void {
 
   ipcMain.handle('document:save', (_event, packagePath: string) => saveDocument(packagePath));
 
+  ipcMain.handle('document:save-copy', async (_event, packagePath: string) => {
+    const win = mainWindow;
+    if (win === null || win.isDestroyed()) {
+      return { ok: false as const, message: 'The window is not available.' };
+    }
+    const base = join(libraryDir(), `${basename(packagePath) || 'document'} copy`);
+    const choice = await dialog.showSaveDialog(win, {
+      title: 'Save a copy',
+      buttonLabel: 'Save copy',
+      defaultPath: base,
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    });
+    if (choice.canceled || choice.filePath === undefined || choice.filePath.length === 0) {
+      return { ok: false as const, canceled: true };
+    }
+    const result = await saveDocumentCopy(packagePath, choice.filePath);
+    if (result.ok && result.snapshot === undefined) {
+      // A copy outside the library cannot be opened in-app; show it instead.
+      shell.showItemInFolder(join(result.packagePath, 'document.json'));
+    }
+    return result;
+  });
+
+  ipcMain.handle('document:reload', (_event, packagePath: string) =>
+    reloadDocument(packagePath),
+  );
+
   ipcMain.handle(
     'document:close',
     async (_event, packagePath: string, options: { save: boolean }) => {
@@ -275,8 +306,15 @@ function registerIpc(): void {
     },
   );
 
-  ipcMain.handle('document:reveal', (_event, packagePath: string) => {
+  ipcMain.handle('document:reveal', (_event, packagePath: unknown): RevealResult => {
+    if (typeof packagePath !== 'string' || packagePath.length === 0) {
+      return { ok: false, message: 'No document path was provided.' };
+    }
+    if (!isInsideLibrary(packagePath)) {
+      return { ok: false, message: 'Document is outside the NoteForest library.' };
+    }
     shell.showItemInFolder(join(packagePath, 'document.json'));
+    return { ok: true };
   });
 
   ipcMain.handle('library:reveal', async () => {

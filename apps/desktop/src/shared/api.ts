@@ -99,11 +99,72 @@ export interface ApplyResult {
   code?: string;
 }
 
-export interface SaveResult {
-  ok: boolean;
+/**
+ * Why a save failed. The main process maps the core store's typed
+ * `CoreError` onto this closed set; it is never collapsed into one
+ * generic "save failed" code.
+ */
+export type SaveFailureCode =
+  | 'read-only'
+  | 'permission'
+  | 'disk-full'
+  | 'external-modification'
+  | 'lock-lost'
+  | 'backup-failed'
+  | 'invalid-document'
+  | 'not-found'
+  | 'unknown';
+
+export interface SaveSuccess {
+  ok: true;
   changed: boolean;
   revision: number;
-  error?: string;
+}
+
+export interface SaveFailure {
+  ok: false;
+  changed: false;
+  revision: number;
+  code: SaveFailureCode;
+  /** Original `CoreErrorCode`, kept for diagnostics and support. */
+  coreCode?: string;
+  error: string;
+}
+
+export type SaveResult = SaveSuccess | SaveFailure;
+
+export interface SaveCopySuccess {
+  ok: true;
+  /** New package directory chosen in the native dialog. */
+  packagePath: string;
+  /** Present when the copy lives inside the library and was opened. */
+  snapshot?: OpenDocumentSnapshot;
+  library: LibraryView;
+}
+
+export interface SaveCopyFailure {
+  ok: false;
+  canceled?: boolean;
+  message?: string;
+}
+
+export type SaveCopyResult = SaveCopySuccess | SaveCopyFailure;
+
+export interface ReloadDocumentSuccess {
+  ok: true;
+  snapshot: OpenDocumentSnapshot;
+}
+
+export interface ReloadDocumentFailure {
+  ok: false;
+  message: string;
+}
+
+export type ReloadDocumentResult = ReloadDocumentSuccess | ReloadDocumentFailure;
+
+export interface RevealResult {
+  ok: boolean;
+  message?: string;
 }
 
 export interface WindowState {
@@ -161,8 +222,10 @@ export interface NoteForestApi {
   openDocument(packagePath: string): Promise<OpenDocumentResult>;
   apply(packagePath: string, command: DocumentCommand): Promise<ApplyResult>;
   save(packagePath: string): Promise<SaveResult>;
+  saveCopy(packagePath: string): Promise<SaveCopyResult>;
+  reloadDocument(packagePath: string): Promise<ReloadDocumentResult>;
   closeDocument(packagePath: string, options: { save: boolean }): Promise<void>;
-  revealDocument(packagePath: string): Promise<void>;
+  revealDocument(packagePath: string): Promise<RevealResult>;
   revealLibrary(): Promise<void>;
   saveSession(state: SessionState): Promise<void>;
   setWindowState(state: WindowState): Promise<void>;

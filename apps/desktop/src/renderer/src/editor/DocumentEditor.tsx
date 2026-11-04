@@ -26,6 +26,7 @@ import { useShell } from '../state/shell';
 import { createChapter, openBlockMenu, openChapterMenu, requestBlockDelete } from '../actions';
 import { recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
+import { SaveFailureBanner } from '../shell/SaveFailureBanner';
 import { recordPerf } from '../lib/perf';
 
 interface DocumentEditorProps {
@@ -318,6 +319,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
           is not being modified.
         </div>
       ) : null}
+      <SaveFailureBanner runtime={runtime} />
       {runtime.repairNotice === null ? null : (
         <div className="nf-repair-banner" role="status">
           <span>{runtime.repairNotice}</span>

@@ -6,6 +6,7 @@ import {
   currentWordCount,
   fitActiveWidth,
   resetActiveZoom,
+  revealDocumentPath,
   toggleFocusBranch,
 } from '../actions';
 
@@ -49,7 +50,12 @@ export function StatusBar(): JSX.Element {
 
   return (
     <footer className="nf-statusbar">
-      <span className={`nf-status-item nf-status-${state}`} title={title}>
+      <span
+        className={`nf-status-item nf-status-${state}`}
+        title={title}
+        data-save-state={state}
+        data-save-failure-code={runtime.saveFailure?.code ?? undefined}
+      >
         <span className="nf-status-dot" aria-hidden="true" />
         {label}
       </span>
@@ -110,7 +116,7 @@ export function StatusBar(): JSX.Element {
         type="button"
         className="nf-status-item nf-status-path"
         title={runtime.packagePath}
-        onClick={() => void window.noteforest.revealDocument(runtime.packagePath)}
+        onClick={() => void revealDocumentPath(runtime.packagePath)}
       >
         {shortPath}
       </button>

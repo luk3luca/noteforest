@@ -12,10 +12,21 @@ import type { Editor } from '@tiptap/core';
 import type { ContentNode, Document, DocumentCommand } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
-import type { ApplyResult, OpenDocumentSnapshot } from '../../../shared/api';
+import type {
+  ApplyResult,
+  OpenDocumentSnapshot,
+  SaveCopyResult,
+  SaveFailureCode,
+} from '../../../shared/api';
 import { buildBlockNode, buildEditorDocument, extractBlockContents, withBody, type PMNode } from '../lib/adapter';
 import { recordPerf } from '../lib/perf';
 import { createSerialQueue } from '../lib/serial-queue';
+import {
+  nextSaveFailure,
+  prepareRetry,
+  saveStatusAfterWrite,
+  type SaveFailure,
+} from '../lib/save-failure';
 import {
   ancestorPath,
   chapterIdOf,
@@ -59,9 +70,9 @@ function withBlockLevel(node: ProseNode, topLevel: boolean, depth: number): Pros
 export class DocumentRuntime {
   readonly packagePath: string;
 
-  readonly status: OpenDocumentSnapshot['status'];
+  status: OpenDocumentSnapshot['status'];
 
-  readonly readOnlyReason: string | undefined;
+  readOnlyReason: string | undefined;
 
   document: Document;
 
@@ -72,6 +83,9 @@ export class DocumentRuntime {
   saveState: SaveState = 'saved';
 
   saveError: string | null = null;
+
+  /** Typed, persistent failure that owns the recovery surface. */
+  saveFailure: SaveFailure | null = null;
 
   /** Bumped for UI consumers after structural/selection/save-state changes. */
   seq = 0;
@@ -104,6 +118,15 @@ export class DocumentRuntime {
   private contentTimer: ReturnType<typeof setTimeout> | null = null;
 
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Monotonic count of every local change (text or structure). Used to detect
+   * edits that land while a save is in flight so the status never claims
+   * "Saved" for content that has not been written yet.
+   */
+  private editEpoch = 0;
 
   private disposed = false;
 
@@ -192,9 +215,12 @@ export class DocumentRuntime {
 
   noteEditorUpdate(): void {
     if (!this.editable) return;
+    this.editEpoch += 1;
     this.dirty = true;
     this.lastTextAt = Date.now();
-    this.setSaveState('unsaved');
+    // A failed save stays visible and authoritative; typing does not downgrade
+    // the status back to a plain "Unsaved changes".
+    if (this.saveFailure === null) this.setSaveState('unsaved');
     if (this.contentTimer !== null) clearTimeout(this.contentTimer);
     this.contentTimer = setTimeout(() => {
       this.contentTimer = null;
@@ -203,8 +229,12 @@ export class DocumentRuntime {
     this.scheduleSave(800);
   }
 
+  /**
+   * Schedule an autosave. While a save failure is active, the failure owns the
+   * retry schedule (backoff); ordinary edits must not hammer the disk.
+   */
   scheduleSave(delay = 800): void {
-    if (!this.editable) return;
+    if (!this.editable || this.saveFailure !== null) return;
     if (this.saveTimer !== null) clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
@@ -212,16 +242,56 @@ export class DocumentRuntime {
     }, delay);
   }
 
-  commitContent(): Promise<void> {
-    return this.queue.run(() => this.commitContentInternal());
+  private scheduleRetry(delay: number): void {
+    if (this.retryTimer !== null) clearTimeout(this.retryTimer);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      void this.saveNow();
+    }, delay);
   }
 
-  private async commitContentInternal(): Promise<void> {
-    if (!this.editable || this.disposed || this.editor === null) return;
+  private clearRetryTimer(): void {
+    if (this.retryTimer !== null) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+  }
+
+  private clearContentTimer(): void {
+    if (this.contentTimer !== null) {
+      clearTimeout(this.contentTimer);
+      this.contentTimer = null;
+    }
+  }
+
+  private clearSaveTimer(): void {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+  }
+
+  private registerSaveFailure(code: SaveFailureCode, message: string): void {
+    const transition = nextSaveFailure(this.saveFailure, code, message);
+    this.saveFailure = transition.failure;
+    this.dirty = true;
+    this.setSaveState('error', message);
+    this.notify();
+    if (transition.retryInMs !== null) this.scheduleRetry(transition.retryInMs);
+  }
+
+  commitContent(): Promise<void> {
+    return this.queue.run(async () => {
+      await this.commitContentInternal();
+    });
+  }
+
+  private async commitContentInternal(): Promise<boolean> {
+    if (!this.editable || this.disposed || this.editor === null) return true;
     // A text selection can span block boundaries; deleting it can remove whole
     // branchBlocks from the ProseMirror buffer. The canonical document is the
     // source of truth, so restore it instead of committing an emptied canvas.
-    if (this.reconcileEditor(this.selectedBlockId)) return;
+    if (this.reconcileEditor(this.selectedBlockId)) return true;
     const extracted = extractBlockContents(this.editor.getJSON() as PMNode);
     const changes: Array<{ blockId: string; content: ContentNode }> = [];
     for (const [blockId, value] of extracted) {
@@ -233,7 +303,7 @@ export class DocumentRuntime {
         changes.push({ blockId, content: merged });
       }
     }
-    if (changes.length === 0) return;
+    if (changes.length === 0) return true;
     for (const change of changes) {
       const result = await window.noteforest.apply(this.packagePath, {
         type: 'block.editContent',
@@ -241,14 +311,19 @@ export class DocumentRuntime {
         content: change.content,
       });
       if (!result.ok) {
-        this.setSaveState('error', result.message ?? 'Could not save the edit.');
-        return;
+        this.registerSaveFailure(
+          result.code === 'read-only' ? 'read-only' : 'unknown',
+          result.message ?? 'Could not save the edit.',
+        );
+        return false;
       }
       if (result.document !== undefined) this.document = result.document;
       this.hashes.set(change.blockId, JSON.stringify(change.content));
     }
     this.dirty = true;
-    if (this.saveState !== 'error') this.setSaveState('unsaved');
+    if (this.saveFailure !== null) this.setSaveState('error', this.saveFailure.message);
+    else this.setSaveState('unsaved');
+    return true;
   }
 
   async saveNow(): Promise<void> {
@@ -257,35 +332,99 @@ export class DocumentRuntime {
 
   private async saveNowInternal(): Promise<void> {
     if (!this.editable || this.disposed) return;
-    if (this.saveTimer !== null) {
-      clearTimeout(this.saveTimer);
-      this.saveTimer = null;
-    }
-    if (this.contentTimer !== null) {
-      clearTimeout(this.contentTimer);
-      this.contentTimer = null;
-    }
-    await this.commitContentInternal();
+    this.clearSaveTimer();
+    this.clearContentTimer();
+    this.clearRetryTimer();
+    const epochAtStart = this.editEpoch;
     this.setSaveState('saving');
+    const committed = await this.commitContentInternal();
+    if (!committed || this.disposed) return;
     const result = await window.noteforest.save(this.packagePath);
+    if (this.disposed) return;
     if (!result.ok) {
-      this.setSaveState('error', result.error ?? 'Save failed.');
+      this.registerSaveFailure(result.code, result.error);
       return;
     }
     if (result.revision !== undefined) {
       this.document = { ...this.document, revision: result.revision };
     }
-    this.dirty = false;
-    this.setSaveState('saved');
+    this.saveFailure = null;
+    this.saveError = null;
+    const editArrivedWhileSaving = this.editEpoch !== epochAtStart;
+    const pending = saveStatusAfterWrite({
+      editedDuringSave: editArrivedWhileSaving,
+      pendingWork: this.contentTimer !== null,
+    });
+    this.dirty = pending === 'unsaved';
+    this.setSaveState(pending);
+    if (this.dirty) this.scheduleSave();
     this.notify();
+  }
+
+  /** Explicit Retry from the recovery surface: restart the backoff sequence. */
+  async retrySave(): Promise<void> {
+    if (!this.editable) return;
+    this.clearRetryTimer();
+    this.saveFailure = prepareRetry(this.saveFailure);
+    this.saveError = this.saveFailure?.message ?? null;
+    await this.saveNow();
+  }
+
+  /**
+   * Write the current canonical content into a new package via the native
+   * dialog. The original file is untouched. A successful copy clears the
+   * failure and re-enables autosave, per the recovery contract.
+   */
+  async saveCopy(): Promise<SaveCopyResult> {
+    return this.queue.run(async () => {
+      this.clearContentTimer();
+      const committed = await this.commitContentInternal();
+      if (!committed) {
+        return { ok: false, message: this.saveError ?? 'Could not prepare the copy.' };
+      }
+      const result = await window.noteforest.saveCopy(this.packagePath);
+      if (result.ok) {
+        this.clearRetryTimer();
+        this.saveFailure = null;
+        this.saveError = null;
+        this.setSaveState(this.dirty ? 'unsaved' : 'saved');
+        if (this.dirty) this.scheduleSave();
+      }
+      return result;
+    });
+  }
+
+  /**
+   * Reopen the canonical package from disk. Discards unsaved renderer edits;
+   * callers must confirm first. The store lock is released and reacquired in
+   * the main process.
+   */
+  async reloadFromDisk(): Promise<{ ok: boolean; message?: string }> {
+    return this.queue.run(async () => {
+      this.clearContentTimer();
+      this.clearSaveTimer();
+      this.clearRetryTimer();
+      const result = await window.noteforest.reloadDocument(this.packagePath);
+      if (!result.ok) return { ok: false, message: result.message };
+      this.document = result.snapshot.document;
+      this.status = result.snapshot.status;
+      this.readOnlyReason = result.snapshot.readOnlyReason;
+      this.saveFailure = null;
+      this.saveError = null;
+      this.dirty = false;
+      this.recomputeHashes();
+      this.version += 1;
+      this.setSaveState('saved');
+      this.rebuildEditor(this.selectedBlockId);
+      this.reconcileEditor(this.selectedBlockId);
+      this.notify();
+      return { ok: true };
+    });
   }
 
   /** Commit the editor buffer to the core store without writing to disk. */
   async commitPending(): Promise<void> {
-    if (this.contentTimer !== null) {
-      clearTimeout(this.contentTimer);
-      this.contentTimer = null;
-    }
+    this.clearContentTimer();
     await this.commitContent();
   }
 
@@ -302,7 +441,14 @@ export class DocumentRuntime {
     if (!this.editable) {
       return { ok: false, message: 'This document is open read-only.', code: 'read-only' };
     }
-    await this.commitContentInternal();
+    const committed = await this.commitContentInternal();
+    if (!committed) {
+      return {
+        ok: false,
+        message: this.saveError ?? 'Could not commit the pending edit.',
+        code: 'unknown',
+      };
+    }
     return window.noteforest.apply(this.packagePath, command);
   }
 
@@ -317,10 +463,11 @@ export class DocumentRuntime {
       this.undoStack.push(inverse);
       this.redoStack.length = 0;
     }
+    this.editEpoch += 1;
     this.dirty = true;
     this.lastStructuralAt = Date.now();
     this.version += 1;
-    this.setSaveState('unsaved');
+    if (this.saveFailure === null) this.setSaveState('unsaved');
     this.recomputeHashes();
     if (options.rebuild !== false) this.rebuildEditor(focusBlockId);
     this.notify();
@@ -1117,10 +1264,11 @@ export class DocumentRuntime {
       if (result.inverse !== undefined && result.inverse !== null) {
         this.redoStack.push(result.inverse);
       }
+      this.editEpoch += 1;
       this.dirty = true;
       this.lastStructuralAt = Date.now();
       this.version += 1;
-      this.setSaveState('unsaved');
+      if (this.saveFailure === null) this.setSaveState('unsaved');
       this.recomputeHashes();
       this.rebuildEditor(this.selectedBlockId);
       this.reconcileEditor(this.selectedBlockId);
@@ -1144,10 +1292,11 @@ export class DocumentRuntime {
       if (result.inverse !== undefined && result.inverse !== null) {
         this.undoStack.push(result.inverse);
       }
+      this.editEpoch += 1;
       this.dirty = true;
       this.lastStructuralAt = Date.now();
       this.version += 1;
-      this.setSaveState('unsaved');
+      if (this.saveFailure === null) this.setSaveState('unsaved');
       this.recomputeHashes();
       this.rebuildEditor(this.selectedBlockId);
       this.reconcileEditor(this.selectedBlockId);
@@ -1182,8 +1331,9 @@ export class DocumentRuntime {
 
   dispose(): void {
     this.disposed = true;
-    if (this.contentTimer !== null) clearTimeout(this.contentTimer);
-    if (this.saveTimer !== null) clearTimeout(this.saveTimer);
+    this.clearContentTimer();
+    this.clearSaveTimer();
+    this.clearRetryTimer();
     this.listeners.clear();
     this.editor = null;
   }
