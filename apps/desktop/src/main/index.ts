@@ -16,6 +16,7 @@ import type {
 } from '../shared/api.js';
 import {
   applyCommand,
+  appSupportDir,
   bootstrap,
   closeAllStores,
   closeDocument,
@@ -40,6 +41,9 @@ let quitting = false;
 
 if (isE2E) app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.setName('NoteForest');
+// Keep Electron's Chromium profile with the app-support override so test
+// instances (and parallel worktrees) never share a profile lock.
+app.setPath('userData', appSupportDir());
 
 function preloadPath(): string {
   return join(__dirname, '../preload/index.js');
