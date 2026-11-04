@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * Spike 1 gate harness. It launches the real Electron app, drives the fixture
- * suite through the renderer, exports PDFs through webContents.printToPDF,
- * and verifies the PDFs with pdfjs-dist. It writes artifacts and a JSON report.
+ * Spike 1 gate harness (Spike-only; not part of the M2/M3 gate). It launches
+ * the real Electron app, drives the fixture suite through the renderer,
+ * exports PDFs through webContents.printToPDF, and verifies the PDFs with
+ * pdfjs-dist. It writes artifacts and a JSON report.
  */
 import { _electron as electron } from 'playwright';
 import { execFileSync } from 'node:child_process';

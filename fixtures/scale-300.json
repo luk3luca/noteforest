@@ -7076,90 +7076,150 @@
       "id": "f7-a0-0",
       "blockId": "f7-b001",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a0-8": {
       "id": "f7-a0-8",
       "blockId": "f7-b025",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a0-16": {
       "id": "f7-a0-16",
       "blockId": "f7-b049",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a0-24": {
       "id": "f7-a0-24",
       "blockId": "f7-b073",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a0-32": {
       "id": "f7-a0-32",
       "blockId": "f7-b093",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a1-0": {
       "id": "f7-a1-0",
       "blockId": "f7-b101",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a1-8": {
       "id": "f7-a1-8",
       "blockId": "f7-b125",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a1-16": {
       "id": "f7-a1-16",
       "blockId": "f7-b149",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a1-24": {
       "id": "f7-a1-24",
       "blockId": "f7-b173",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a1-32": {
       "id": "f7-a1-32",
       "blockId": "f7-b193",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a2-0": {
       "id": "f7-a2-0",
       "blockId": "f7-b201",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a2-8": {
       "id": "f7-a2-8",
       "blockId": "f7-b225",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a2-16": {
       "id": "f7-a2-16",
       "blockId": "f7-b249",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a2-24": {
       "id": "f7-a2-24",
       "blockId": "f7-b273",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     },
     "f7-a2-32": {
       "id": "f7-a2-32",
       "blockId": "f7-b293",
       "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "anchor"
+      },
       "quote": "anchor"
     }
   },
@@ -8941,6 +9001,7 @@
     "imgForest": {
       "id": "imgForest",
       "path": "assets/forest.png",
+      "mime": "image/png",
       "alt": "A forest plot of residuals",
       "width": 640,
       "height": 360
@@ -8948,6 +9009,7 @@
     "imgWide": {
       "id": "imgWide",
       "path": "assets/wide.png",
+      "mime": "image/png",
       "alt": "A very wide spectrum plot",
       "width": 1200,
       "height": 200
@@ -8955,6 +9017,7 @@
     "imgChart": {
       "id": "imgChart",
       "path": "assets/chart.png",
+      "mime": "image/png",
       "alt": "A small chart of eigenvalues",
       "width": 420,
       "height": 240

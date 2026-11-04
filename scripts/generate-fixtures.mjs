@@ -132,7 +132,13 @@ function branch(id, source, targetBlockId, role, order = 'a1', label) {
 }
 
 function anchor(id, blockId, kind, extra = {}) {
-  return { id, blockId, kind, ...extra };
+  const selector = { kind };
+  if (extra.quote !== undefined) selector.quote = extra.quote;
+  if (extra.prefix !== undefined) selector.prefix = extra.prefix;
+  if (extra.suffix !== undefined) selector.suffix = extra.suffix;
+  if (extra.codeToken !== undefined) selector.token = extra.codeToken;
+  if (extra.codeLine !== undefined) selector.line = extra.codeLine;
+  return { id, blockId, kind, selector, ...extra };
 }
 
 function makeDocument({ id, title, blocks, anchors, branches, chapters, manualBreakBeforeBlockIds = [], assets = {} }) {
@@ -185,6 +191,7 @@ const ASSETS = {
   imgForest: {
     id: 'imgForest',
     path: 'assets/forest.png',
+    mime: 'image/png',
     alt: 'A forest plot of residuals',
     width: 640,
     height: 360,
@@ -192,6 +199,7 @@ const ASSETS = {
   imgWide: {
     id: 'imgWide',
     path: 'assets/wide.png',
+    mime: 'image/png',
     alt: 'A very wide spectrum plot',
     width: 1200,
     height: 200,
@@ -199,6 +207,7 @@ const ASSETS = {
   imgChart: {
     id: 'imgChart',
     path: 'assets/chart.png',
+    mime: 'image/png',
     alt: 'A small chart of eigenvalues',
     width: 420,
     height: 240,
