@@ -110,23 +110,23 @@ Commands: `npm run typecheck`, `npm test`, `npm run build`, `node --test tests/e
 | 16 | New documents default A4 landscape; existing portrait kept | core tests `model.test.ts`; e2e runtime orientation = `landscape` | Pass |
 | 17 | Typecheck, unit, e2e | `npm run typecheck`; `npm test` 121 passed; full e2e 8/8 passed | Pass |
 | 18 | axe: no serious/critical regressions | existing WCAG 2a/2aa/21a/21aa run in e2e test 4 | Pass |
-| 19 | 300-block performance | initial render **584 ms** final run (991–1018 ms in two earlier loaded runs); same-machine M2b baseline **859–925 ms**; historical M2b report number 302 ms is from a faster/less loaded run. Absolute gate <1500 ms. Measure p95 1.4 ms; edge p95 0.7 ms; scroll 93 fps | Pass |
-| 20 | 1,000-block report | rendered **2,660 ms**; 799 visible cards after collapsing one root; measure p95 6.2 ms, edge p95 1.3 ms | Reported |
+| 19 | 300-block performance | initial render **584–609 ms** in the final runs (991–1018 ms in two earlier loaded runs); same-machine M2b baseline **859–925 ms**; historical M2b report number 302 ms is from a faster/less loaded run. Absolute gate <1500 ms. Measure p95 1.4 ms; edge p95 0.7–0.8 ms; scroll 93–94 fps | Pass |
+| 20 | 1,000-block report | rendered **2,660–2,688 ms**; 799 visible cards after collapsing one root; measure p95 5.7–6.2 ms, edge p95 1.3–1.5 ms | Reported |
 | 21 | Screenshots 1440×900 and 1024×768, before/after | `artifacts/m2c/`: `before-3-children-1440x900.png`, `trunk-3-children-1440x900.png`, `before-density-1440x900.png`, `density-1440x900.png`, `before-shell-1024x768.png`, `shell-1024x768.png`, `trunk-3-children-1024x768.png`, `chapter-inline-1440x900.png`, plus shell/palette/selected-path/two-tabs | Pass |
 | 22 | No screen recording, no Notability, no app automation outside Playwright | none used | Pass |
 
 ### Measured numbers (final e2e run)
 
 ```text
-300-block initial render:           584 ms (final run; 991–1018 ms in two earlier loaded runs)
+300-block initial render:           584–609 ms (final runs; 991–1018 ms in two earlier loaded runs)
 same-machine M2b baseline:          859–925 ms
 300-block geometry p95:             1.4 ms
-300-block edge routing p95:         0.7 ms
-scroll:                             93 fps (10.75 ms/frame)
-1,000-block initial render:         2,660 ms
+300-block edge routing p95:         0.7–0.8 ms
+scroll:                             93–94 fps (10.68–10.75 ms/frame)
+1,000-block initial render:         2,660–2,688 ms
 1,000-block visible after collapse: 799
-1,000-block geometry p95:           6.2 ms
-1,000-block edge p95:               1.3 ms
+1,000-block geometry p95:           5.7–6.2 ms
+1,000-block edge p95:               1.3–1.5 ms
 axe serious/critical:               0
 ```
 
