@@ -1,4 +1,4 @@
-import { BookOpen, ChevronRight, FileText, MoreHorizontal, Plus, Search, Settings } from 'lucide-react';
+import { BookOpen, ChevronRight, FileText, FileWarning, MoreHorizontal, Plus, Search, Settings } from 'lucide-react';
 import {
   Button,
   Tree,
@@ -11,6 +11,7 @@ import { useShell, type TabInfo } from '../state/shell';
 import { useRegistry, useRuntime } from '../state/registry';
 import { createChapter, createNewDocument, focusBlock, openLibraryMenu, openBlockMenu, openChapterMenu, openPath, renameChapter } from '../actions';
 import { buildChapterTrees, blockTitle, type BlockNode } from '../lib/tree';
+import { recoveryStatusLabel } from '../lib/recovery';
 import type { DocumentRuntime } from '../state/runtime';
 
 function LibrarySection(): JSX.Element {
@@ -69,15 +70,42 @@ function LibrarySection(): JSX.Element {
                   type="button"
                   className="nf-library-open"
                   data-active={isActive}
-                  title={document.packagePath}
+                  data-library-document="true"
+                  data-doc-status={document.status}
+                  title={
+                    document.status === 'ok'
+                      ? document.packagePath
+                      : `${document.packagePath}\n${document.reason ?? ''}`
+                  }
                   onClick={() => void openPath(document.packagePath)}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     openLibraryMenu(document.packagePath, { x: event.clientX, y: event.clientY });
                   }}
                 >
-                  <FileText size={13} strokeWidth={1.5} aria-hidden="true" />
-                  <span className="nf-library-title">{document.title}</span>
+                  {document.status === 'ok' ? (
+                    <FileText size={13} strokeWidth={1.5} aria-hidden="true" />
+                  ) : (
+                    <FileWarning
+                      size={13}
+                      strokeWidth={1.5}
+                      className="nf-library-warning-icon"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="nf-library-copy">
+                    <span className="nf-library-title">{document.title}</span>
+                    {document.status === 'ok' ? null : (
+                      <span className="nf-library-reason" data-doc-reason="true">
+                        {document.reason ?? 'The package could not be read.'}
+                      </span>
+                    )}
+                  </span>
+                  {document.status === 'ok' ? null : (
+                    <span className="nf-library-status" data-doc-status-label="true">
+                      {recoveryStatusLabel(document.status)}
+                    </span>
+                  )}
                   {isOpen ? <span className="nf-open-dot" aria-label="Open" /> : null}
                 </button>
                 <button

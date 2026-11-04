@@ -80,6 +80,9 @@ async function flushOpenDocuments(): Promise<FlushResult> {
 export function App(): JSX.Element {
   const ready = useShell((state) => state.ready);
   const activeTab = useShell((state) => state.activeTab);
+  const activeTabInfo = useShell((state) =>
+    state.tabs.find((tab) => tab.packagePath === state.activeTab),
+  );
   const { runtime } = useRuntime(activeTab);
   const dirty = useAllDirty();
   const lastDispatch = useRef(new Map<string, number>());
@@ -91,16 +94,31 @@ export function App(): JSX.Element {
         const data = await window.noteforest.bootstrap();
         if (cancelled) return;
         const byPath = new Map(data.openDocuments.map((snapshot) => [snapshot.packagePath, snapshot]));
+        const recoveryByPath = new Map(
+          data.recoveries.map((recovery) => [recovery.packagePath, recovery]),
+        );
         const sessionByPath = new Map(data.session.tabs.map((tab) => [tab.packagePath, tab]));
         const tabs: TabInfo[] = [];
         for (const sessionTab of data.session.tabs) {
           const snapshot = byPath.get(sessionTab.packagePath);
+          const recovery = recoveryByPath.get(sessionTab.packagePath);
           if (snapshot !== undefined) {
             registerRuntime(snapshot, sessionByPath.get(sessionTab.packagePath), undefined);
             tabs.push({
               packagePath: snapshot.packagePath,
               title: snapshot.document.title,
               ...(snapshot.status === 'read-only' ? { readOnlyReason: snapshot.readOnlyReason } : {}),
+            });
+          } else if (recovery !== undefined) {
+            tabs.push({
+              packagePath: recovery.packagePath,
+              title: recovery.title,
+              recovery: {
+                status: recovery.status,
+                reason: recovery.reason,
+                details: recovery.details,
+                warnings: recovery.warnings,
+              },
             });
           } else {
             const recent = data.library.recent.find((item) => item.packagePath === sessionTab.packagePath);
@@ -270,10 +288,11 @@ export function App(): JSX.Element {
   useEffect(() => {
     void window.noteforest.setWindowState({
       dirty,
-      title: runtime?.title ?? 'NoteForest',
-      representedPath: runtime === null ? null : `${runtime.packagePath}/document.json`,
+      title: runtime?.title ?? activeTabInfo?.title ?? 'NoteForest',
+      representedPath:
+        runtime === null ? null : `${runtime.packagePath}/document.json`,
     });
-  }, [dirty, runtime?.title, runtime?.packagePath]);
+  }, [dirty, runtime?.title, runtime?.packagePath, activeTabInfo?.title]);
 
   useEffect(() => {
     if (!ready) return undefined;
@@ -303,7 +322,13 @@ export function App(): JSX.Element {
         const state = useShell.getState();
         return {
           ready: state.ready,
-          tabs: state.tabs.map((tab) => ({ packagePath: tab.packagePath, title: tab.title, missing: tab.missing === true })),
+          tabs: state.tabs.map((tab) => ({
+            packagePath: tab.packagePath,
+            title: tab.title,
+            missing: tab.missing === true,
+            recovery: tab.recovery === undefined ? null : tab.recovery.status,
+            recoveryReason: tab.recovery?.reason ?? null,
+          })),
           activeTab: state.activeTab,
           paletteOpen: state.paletteOpen,
           dialog: state.dialog,

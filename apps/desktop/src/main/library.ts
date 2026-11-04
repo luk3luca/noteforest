@@ -40,10 +40,12 @@ import {
 import type {
   ApplyResult,
   BackupCandidateView,
+  LibraryDocumentStatus,
   LibraryView,
   ListBackupsResult,
   OpenDocumentResult,
   OpenDocumentSnapshot,
+  RecoveryDocumentView,
   ReloadDocumentResult,
   RestoreBackupResult,
   SaveCopyResult,
@@ -59,6 +61,7 @@ import {
   restoreDestinationProblem,
   uniqueRestoreDestination,
 } from './backup-restore.js';
+import { recoveryDetails, recoveryStatus, recoveryTitle } from './recovery-view.js';
 
 const DEFAULT_SESSION: SessionState = {
   tabs: [],
@@ -123,26 +126,63 @@ export async function scanLibrary(): Promise<LibraryView> {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
     const packagePath = path.join(directory, entry.name);
     const jsonPath = documentJsonPath(packagePath);
+    let updatedAt = new Date().toISOString();
     try {
-      const text = await fs.readFile(jsonPath, 'utf8');
-      const parsed = parseDocumentJson(text);
-      if (!parsed.ok) {
-        warnings.push(`${entry.name}: ${parsed.error.message}`);
-        continue;
-      }
-      const stats = documentStats(parsed.document);
+      updatedAt = (await fs.stat(packagePath)).mtime.toISOString();
+    } catch {
+      // The folder vanished between readdir and stat; still report it.
+    }
+
+    let text: string;
+    try {
+      text = await fs.readFile(jsonPath, 'utf8');
+    } catch (error) {
+      const missing = (error as NodeJS.ErrnoException).code === 'ENOENT';
+      const status: LibraryDocumentStatus = missing ? 'missing' : 'unreadable';
       documents.push({
         packagePath,
-        documentId: parsed.document.id,
-        title: parsed.document.title,
-        revision: parsed.document.revision,
-        updatedAt: parsed.document.updatedAt,
-        blockCount: stats.blocks,
-        chapterCount: stats.chapters,
+        title: recoveryTitle(packagePath, null),
+        status,
+        reason: missing
+          ? 'document.json is missing from this folder'
+          : `could not read document.json: ${error instanceof Error ? error.message : String(error)}`,
+        documentId: null,
+        revision: null,
+        updatedAt,
+        blockCount: 0,
+        chapterCount: 0,
       });
-    } catch {
-      // Folders without a document.json are not documents.
+      continue;
     }
+
+    const parsed = parseDocumentJson(text);
+    if (!parsed.ok) {
+      const newer = parsed.error.code === 'newer-schema';
+      documents.push({
+        packagePath,
+        title: recoveryTitle(packagePath, text),
+        status: newer ? 'newer-schema' : 'unreadable',
+        reason: parsed.error.message,
+        documentId: null,
+        revision: null,
+        updatedAt,
+        blockCount: 0,
+        chapterCount: 0,
+      });
+      continue;
+    }
+
+    const stats = documentStats(parsed.document);
+    documents.push({
+      packagePath,
+      title: parsed.document.title,
+      status: 'ok',
+      documentId: parsed.document.id,
+      revision: parsed.document.revision,
+      updatedAt: parsed.document.updatedAt,
+      blockCount: stats.blocks,
+      chapterCount: stats.chapters,
+    });
   }
 
   documents.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -181,7 +221,56 @@ export interface OpenedStore {
   snapshot: OpenDocumentSnapshot;
 }
 
-export async function openStore(packagePath: string): Promise<OpenedStore | { error: string }> {
+export interface OpenedRecovery {
+  recovery: RecoveryDocumentView;
+}
+
+export type OpenStoreResult = OpenedStore | OpenedRecovery | { error: string };
+
+/**
+ * Build the renderer-safe recovery view for a package whose `document.json`
+ * did not parse. The package store is already read-only and holds no document;
+ * nothing here writes to the package.
+ */
+async function recoveryViewFromOpen(
+  result: Awaited<ReturnType<typeof openDocumentPackage>>,
+): Promise<RecoveryDocumentView> {
+  const status = recoveryStatus(result.readOnlyReason);
+  let rawText: string | null = null;
+  try {
+    rawText = await fs.readFile(documentJsonPath(result.packagePath), 'utf8');
+  } catch {
+    // Missing/unreadable file: the folder-name fallback is the title.
+  }
+  const reason =
+    result.errors[0]?.message ??
+    (status === 'missing'
+      ? 'This folder has no document.json.'
+      : 'The document could not be opened.');
+  return {
+    recovery: true,
+    packagePath: result.packagePath,
+    title: recoveryTitle(result.packagePath, rawText),
+    status,
+    reason,
+    details: recoveryDetails(result.errors),
+    warnings: result.warnings.map((warning) => warning.message),
+  };
+}
+
+function recoveryViewForError(packagePath: string, message: string): RecoveryDocumentView {
+  return {
+    recovery: true,
+    packagePath,
+    title: recoveryTitle(packagePath, null),
+    status: 'unreadable',
+    reason: message,
+    details: [message],
+    warnings: [],
+  };
+}
+
+export async function openStore(packagePath: string): Promise<OpenStoreResult> {
   const resolved = path.resolve(packagePath);
   if (!isInsideLibrary(resolved)) {
     return { error: 'Document is outside the NoteForest library.' };
@@ -197,10 +286,16 @@ export async function openStore(packagePath: string): Promise<OpenedStore | { er
   if (result.status !== 'editable' && result.readOnlyReason === 'stale-lock') {
     result = await openDocumentPackage(resolved, { registerRecent: true, breakStaleLock: true });
   }
+  if (result.document === null) {
+    // Recovery-only stores must not stay in the open-store map: they have no
+    // document, no lock, and no writable path.
+    await result.store.close().catch(() => undefined);
+    return { recovery: await recoveryViewFromOpen(result) };
+  }
   stores.set(resolved, result.store);
   const current = snapshot(result.store);
   if (current === null) {
-    return { error: result.errors[0]?.message ?? 'The document could not be opened.' };
+    return { recovery: await recoveryViewFromOpen(result) };
   }
   return { store: result.store, snapshot: current };
 }
@@ -210,6 +305,7 @@ export async function openDocument(packagePath: string): Promise<OpenDocumentRes
   if ('error' in opened) {
     return { ok: false, message: opened.error, packagePath };
   }
+  if ('recovery' in opened) return opened.recovery;
   return opened.snapshot;
 }
 
@@ -247,6 +343,9 @@ export async function applyCommand(
 ): Promise<ApplyResult> {
   const opened = await openStore(packagePath);
   if ('error' in opened) return { ok: false, message: opened.error, code: 'not-found' };
+  if ('recovery' in opened) {
+    return { ok: false, message: opened.recovery.reason, code: 'read-only' };
+  }
   const result = opened.store.apply(command);
   if (!result.ok) {
     return { ok: false, message: result.message, code: result.code };
@@ -294,6 +393,15 @@ export async function saveDocument(
   }
   const overwriteExternal = parsed.value;
   const opened = await openStore(packagePath);
+  if ('recovery' in opened) {
+    return {
+      ok: false,
+      changed: false,
+      revision: 0,
+      code: opened.recovery.status === 'newer-schema' ? 'read-only' : 'not-found',
+      error: opened.recovery.reason,
+    };
+  }
   if ('error' in opened) {
     return {
       ok: false,
@@ -350,6 +458,7 @@ export async function saveDocumentCopy(
   }
   const opened = await openStore(packagePath);
   if ('error' in opened) return { ok: false, message: opened.error };
+  if ('recovery' in opened) return { ok: false, message: opened.recovery.reason };
   const document = opened.store.document;
   if (document === null) {
     return { ok: false, message: 'There is no document to copy.' };
@@ -372,7 +481,7 @@ export async function saveDocumentCopy(
   // revealed in Finder by the caller instead.
   if (isInsideLibrary(copied.packagePath)) {
     const copy = await openStore(copied.packagePath);
-    if (!('error' in copy)) {
+    if (!('error' in copy) && !('recovery' in copy)) {
       return {
         ok: true,
         packagePath: copied.packagePath,
@@ -541,7 +650,7 @@ export async function restoreBackup(
 
   const library = await scanLibrary();
   const opened = await openStore(restored.targetPackagePath);
-  if ('error' in opened) {
+  if ('error' in opened || 'recovery' in opened) {
     return { ok: true, packagePath: restored.targetPackagePath, library };
   }
   return {
@@ -550,6 +659,42 @@ export async function restoreBackup(
     snapshot: opened.snapshot,
     library,
   };
+}
+
+/**
+ * Restore the newest valid backup into a unique new package without a native
+ * destination picker. This is the recovery-tab action: it reuses the same
+ * listing, source validation, destination rules, and core restore writer as the
+ * 2b2b surface, and never writes the original package.
+ */
+export async function restoreNewestBackup(
+  packagePath: string,
+): Promise<RestoreBackupResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, code: 'unknown', message: 'No document path was provided.' };
+  }
+  const resolved = path.resolve(packagePath);
+  if (!isInsideLibrary(resolved)) {
+    return {
+      ok: false,
+      code: 'outside-library',
+      message: 'Document is outside the NoteForest library.',
+    };
+  }
+  const listing = await listBackups(resolved);
+  if (!listing.ok) {
+    return { ok: false, code: 'unknown', message: listing.message };
+  }
+  const newest = listing.backups.find((backup) => backup.valid);
+  if (newest === undefined) {
+    return {
+      ok: false,
+      code: 'no-backup',
+      message: 'NoteForest has no valid backup for this document.',
+    };
+  }
+  const destination = await defaultRestoreDestination(resolved);
+  return restoreBackup(resolved, newest.sourcePath, destination);
 }
 
 /**
@@ -572,6 +717,7 @@ export async function reloadDocument(packagePath: string): Promise<ReloadDocumen
   }
   const opened = await openStore(resolved);
   if ('error' in opened) return { ok: false, message: opened.error };
+  if ('recovery' in opened) return { ok: false, message: opened.recovery.reason };
   return { ok: true, snapshot: opened.snapshot };
 }
 
@@ -678,27 +824,31 @@ export async function writeSession(state: SessionState): Promise<void> {
 export async function bootstrap(): Promise<{
   session: SessionState;
   openDocuments: OpenDocumentSnapshot[];
-  missing: Array<{ packagePath: string; message: string }>;
+  recoveries: RecoveryDocumentView[];
 }> {
   const session = await readSession();
   const openDocuments: OpenDocumentSnapshot[] = [];
-  const missing: Array<{ packagePath: string; message: string }> = [];
+  const recoveries: RecoveryDocumentView[] = [];
   for (const tab of session.tabs) {
     try {
       const opened = await openStore(tab.packagePath);
-      if ('error' in opened) {
-        missing.push({ packagePath: tab.packagePath, message: opened.error });
+      if ('recovery' in opened) {
+        recoveries.push(opened.recovery);
+      } else if ('error' in opened) {
+        recoveries.push(recoveryViewForError(tab.packagePath, opened.error));
       } else {
         openDocuments.push(opened.snapshot);
       }
     } catch (error) {
-      missing.push({
-        packagePath: tab.packagePath,
-        message: error instanceof Error ? error.message : String(error),
-      });
+      recoveries.push(
+        recoveryViewForError(
+          tab.packagePath,
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
     }
   }
-  return { session, openDocuments, missing };
+  return { session, openDocuments, recoveries };
 }
 
 // ---------------------------------------------------------------------------
@@ -868,5 +1018,6 @@ export async function seedDocument(kind: 'demo' | 'performance' | 'performance-1
   const packagePath = await writeSeedDocument(document.title, document);
   const opened = await openStore(packagePath);
   if ('error' in opened) throw new Error(opened.error);
+  if ('recovery' in opened) throw new Error(opened.recovery.reason);
   return { snapshot: opened.snapshot, library: await scanLibrary() };
 }

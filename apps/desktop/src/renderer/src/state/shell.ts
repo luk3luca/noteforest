@@ -1,7 +1,15 @@
 /** Zustand: shell and session state only. Document content lives in runtimes. */
 
 import { create } from 'zustand';
-import type { LibraryView } from '../../../shared/api';
+import type { LibraryView, RecoveryStatus } from '../../../shared/api';
+
+/** Read-only package state shown by the recovery tab. */
+export interface RecoveryTabInfo {
+  status: RecoveryStatus;
+  reason: string;
+  details: string[];
+  warnings: string[];
+}
 
 export interface TabInfo {
   packagePath: string;
@@ -9,6 +17,7 @@ export interface TabInfo {
   missing?: boolean;
   error?: string;
   readOnlyReason?: string;
+  recovery?: RecoveryTabInfo;
 }
 
 export interface MenuEntry {
@@ -124,7 +133,16 @@ export const useShell = create<ShellState>((set, get) => ({
     set((state) => {
       const exists = state.tabs.some((item) => item.packagePath === tab.packagePath);
       const tabs = exists
-        ? state.tabs.map((item) => (item.packagePath === tab.packagePath ? { ...item, ...tab } : item))
+        ? state.tabs.map((item) => {
+            if (item.packagePath !== tab.packagePath) return item;
+            const merged = { ...item, ...tab };
+            // A recovery/missing tab that reopens as a normal document must not
+            // keep stale markers from the previous attempt.
+            if (tab.recovery === undefined) delete merged.recovery;
+            if (tab.missing !== true) delete merged.missing;
+            if (tab.readOnlyReason === undefined) delete merged.readOnlyReason;
+            return merged;
+          })
         : [...state.tabs, tab];
       const activeTab =
         options.activate === false ? state.activeTab : tab.packagePath;

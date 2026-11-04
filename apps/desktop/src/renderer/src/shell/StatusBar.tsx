@@ -12,6 +12,9 @@ import {
 
 export function StatusBar(): JSX.Element {
   const activeTab = useShell((state) => state.activeTab);
+  const activeTabInfo = useShell((state) =>
+    state.tabs.find((tab) => tab.packagePath === state.activeTab),
+  );
   const { runtime } = useRuntime(activeTab);
   const counts = useMemo(() => currentWordCount(), [runtime?.seq]);
   const zoom = useShell((state) => {
@@ -26,7 +29,14 @@ export function StatusBar(): JSX.Element {
   if (runtime === null) {
     return (
       <footer className="nf-statusbar">
-        <span className="nf-status-item nf-status-muted">No document open</span>
+        <span
+          className="nf-status-item nf-status-muted"
+          data-recovery-status={activeTabInfo?.recovery?.status}
+        >
+          {activeTabInfo?.recovery === undefined
+            ? 'No document open'
+            : `Recovery · ${activeTabInfo.recovery.status}`}
+        </span>
         <span className="nf-status-spacer" />
         <span className="nf-status-item nf-status-muted">Dark</span>
       </footer>

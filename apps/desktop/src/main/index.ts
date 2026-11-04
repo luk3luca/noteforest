@@ -32,6 +32,7 @@ import {
   openDocument,
   reloadDocument,
   restoreBackup,
+  restoreNewestBackup,
   saveAllDirty,
   saveDocument,
   saveDocumentCopy,
@@ -258,6 +259,7 @@ function registerIpc(): void {
       library,
       session: restored.session,
       openDocuments: restored.openDocuments,
+      recoveries: restored.recoveries,
       appVersion: app.getVersion(),
       platform: process.platform,
     };
@@ -355,6 +357,20 @@ function registerIpc(): void {
         shell.showItemInFolder(join(result.packagePath, 'document.json'));
       }
       return result;
+    },
+  );
+
+  ipcMain.handle(
+    'document:restore-newest-backup',
+    (_event, packagePath: unknown) => {
+      if (typeof packagePath !== 'string' || packagePath.length === 0) {
+        return {
+          ok: false as const,
+          code: 'unknown' as const,
+          message: 'No document path was provided.',
+        };
+      }
+      return restoreNewestBackup(packagePath);
     },
   );
 

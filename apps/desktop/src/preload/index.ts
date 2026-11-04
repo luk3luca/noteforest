@@ -37,6 +37,8 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('document:list-backups', packagePath),
   restoreBackup: (packagePath: string, sourcePath: string): Promise<RestoreBackupResult> =>
     ipcRenderer.invoke('document:restore-backup', packagePath, sourcePath),
+  restoreNewestBackup: (packagePath: string): Promise<RestoreBackupResult> =>
+    ipcRenderer.invoke('document:restore-newest-backup', packagePath),
   reloadDocument: (packagePath: string): Promise<ReloadDocumentResult> =>
     ipcRenderer.invoke('document:reload', packagePath),
   closeDocument: (packagePath: string, options): Promise<void> =>

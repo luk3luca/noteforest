@@ -1,5 +1,6 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { artifactsPath, createHarness } from '../support/harness.mjs';
@@ -408,6 +409,36 @@ describe('NoteForest M2 visual evidence', () => {
     await reload.getByRole('button', { name: 'Reload from disk', exact: true }).click();
     await page.waitForSelector('[data-save-failure="true"]', { state: 'detached' });
     await h.waitSaved();
+    await h.quit();
+  });
+
+  it('captures the corrupt-package recovery surface', async () => {
+    const env = isolated('shots-recovery');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    const documentPath = resolve(packagePath, 'document.json');
+    const validBytes = await readFile(documentPath);
+    const digest = createHash('sha256').update(resolve(packagePath)).digest('hex').slice(0, 32);
+    const backupsDir = resolve(env.NOTEFOREST_APP_SUPPORT, 'backups', digest);
+    await mkdir(backupsDir, { recursive: true });
+    await writeFile(
+      resolve(backupsDir, 'autosave-20261104T120000000Z-r0000000002.json'),
+      validBytes,
+    );
+    await h.quit();
+
+    await writeFile(documentPath, validBytes.subarray(0, Math.floor(validBytes.byteLength / 2)));
+    await launch(env);
+    await page
+      .locator('[data-library-document][data-doc-status="unreadable"]')
+      .click();
+    await page.locator('[data-recovery-surface="true"]').waitFor();
+    await page.locator('[data-recovery-backup="true"]').first().waitFor();
+    await shot('recovery-damaged-1440x900.png', 1440, 900);
     await h.quit();
   });
 });
