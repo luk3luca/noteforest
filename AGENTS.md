@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2e is merged; product-owner visual review is pending.** It reverts global depth columns to parent-relative placement (D23), swaps `+` to the right-edge center and collapse to the top-right, adds the V4 routing design (fixed arrowhead, 12 px stem, continuous first child), and adds zoom/fit + Focus branch. M3 span anchors/reference edges start only after M2e is accepted. Sentinel is waiting for the product owner's go. Font/size settings remain M6. The spec is at v0.4.4.
+**M2 review returned Request changes.** Sentinel confirmed an S1 quit-lifecycle bug and S2 gaps in undo, flush/close, corrupt-document recovery, keyboard focus, empty chapters, and stale locks. The review is `docs/reviews/m2-review.md`; the proposed fix milestone is **M2f** in `docs/plan.md`. M3 span anchors/reference edges do not start until these are fixed or explicitly waived. The product-owner visual/VoiceOver pass is still separate. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

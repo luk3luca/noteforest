@@ -4,7 +4,7 @@ A Mac-first spatial note-taking app for studying. Notes are built from content b
 
 ## Status
 
-Spike 1 is complete (technical foundation merged); **M2e — parent-relative layout + arrow routing** is merged and awaits the product owner's visual review. PDF/page work is deferred until the editor is accepted.
+Spike 1 is complete (technical foundation merged); **M2 review returned Request changes**. Sentinel found an S1 quit-lifecycle bug and S2 gaps in undo, flush/close, corrupt-document recovery, keyboard focus, empty chapters, and stale locks. The proposed fix milestone is M2f; M3 and PDF/page work are deferred until it is resolved.
 
 ## Running the current code
 
@@ -30,6 +30,7 @@ npm run e2e         # Playwright-driven Electron smoke tests
 - M2c polish brief: `docs/tasks/m2c-interaction-polish.md`.
 - M2d depth-columns brief: `docs/tasks/m2d-depth-columns.md`.
 - M2e layout/routing brief: `docs/tasks/m2e-routing-and-layout.md`.
+- M2 review + test inventory: `docs/reviews/m2-review.md`.
 - UI decisions: `docs/adr/0004-ui-shell-and-branch-editor.md`.
 - UI research: `research/ui-components.md`.
 
