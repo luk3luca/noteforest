@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 2a is in progress.** Phase 1 is merged: S1 quit fixed, critical e2e 18.2 s, unit 147/1.3 s, zero fixed waits, perf/visual split. Phase 2a is the flush/close contract: typed flush result, no close/quit on timeout, preload forwards real errors, close/quit timeout tests; save-failure recovery UI is phase 2b. Later: F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 2b1 is in progress.** Phase 1 (quit + test infra) and phase 2a (typed flush/close) are merged. Phase 2b1 adds a persistent save-failure recovery surface: typed error, Retry, Save a copy, Reload from disk, Reveal, autosave backoff, and no “Saved” while pending/failed. External-modification overwrite/backup is phase 2b2. Later: F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 
