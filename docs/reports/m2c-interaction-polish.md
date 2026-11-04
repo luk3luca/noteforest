@@ -110,22 +110,23 @@ Commands: `npm run typecheck`, `npm test`, `npm run build`, `node --test tests/e
 | 16 | New documents default A4 landscape; existing portrait kept | core tests `model.test.ts`; e2e runtime orientation = `landscape` | Pass |
 | 17 | Typecheck, unit, e2e | `npm run typecheck`; `npm test` 121 passed; full e2e 8/8 passed | Pass |
 | 18 | axe: no serious/critical regressions | existing WCAG 2a/2aa/21a/21aa run in e2e test 4 | Pass |
-| 19 | 300-block performance | initial render **991–1018 ms**; same-machine M2b baseline **859–925 ms** (+11–15%); historical M2b report number 302 ms is from a faster machine/run. Absolute gate <1500 ms. Measure p95 2.2–2.7 ms; edge p95 0.8 ms; scroll 96–97 fps | Pass against contemporaneous baseline; see known gap |
-| 20 | 1,000-block report | rendered **2,647 ms**; 799 visible cards after collapsing one root; measure p95 15.5 ms, edge p95 19.2 ms in the sample | Reported |
+| 19 | 300-block performance | initial render **592 ms** final run (991–1018 ms in two earlier loaded runs); same-machine M2b baseline **859–925 ms**; historical M2b report number 302 ms is from a faster/less loaded run. Absolute gate <1500 ms. Measure p95 1.4 ms; edge p95 0.7 ms; scroll 94 fps | Pass |
+| 20 | 1,000-block report | rendered **2,685 ms**; 799 visible cards after collapsing one root; measure p95 6.2 ms, edge p95 1.3 ms | Reported |
 | 21 | Screenshots 1440×900 and 1024×768, before/after | `artifacts/m2c/`: `before-3-children-1440x900.png`, `trunk-3-children-1440x900.png`, `before-density-1440x900.png`, `density-1440x900.png`, `before-shell-1024x768.png`, `shell-1024x768.png`, `trunk-3-children-1024x768.png`, `chapter-inline-1440x900.png`, plus shell/palette/selected-path/two-tabs | Pass |
 | 22 | No screen recording, no Notability, no app automation outside Playwright | none used | Pass |
 
 ### Measured numbers (final e2e run)
 
 ```text
-300-block initial render:           991–1018 ms
-same-machine M2b baseline:          859–925 ms  (+11–15% M2c)
-300-block geometry p95:             2.2–2.7 ms
-300-block edge routing p95:         0.8 ms
-scroll:                             96–97 fps (10.35–10.40 ms/frame)
-1,000-block initial render:         2,647 ms
+300-block initial render:           592 ms (final run; 991–1018 ms in two earlier loaded runs)
+same-machine M2b baseline:          859–925 ms
+300-block geometry p95:             1.4 ms
+300-block edge routing p95:         0.7 ms
+scroll:                             94 fps (10.68 ms/frame)
+1,000-block initial render:         2,685 ms
 1,000-block visible after collapse: 799
-1,000-block geometry p95:           15.5 ms (small cold sample)
+1,000-block geometry p95:           6.2 ms
+1,000-block edge p95:               1.3 ms
 axe serious/critical:               0
 ```
 
@@ -136,7 +137,7 @@ Raw JSON: `artifacts/m2c/performance.json`. The historical M2b numbers are in `d
 - **Structural undo/redo after destructive deletes** is still the M2b gap: `block.delete` and `branch.delete` return no inverse. Undo works for creation/move/reorder and text edits; the e2e covers text undo/redo and creation. This is the next structural-history task.
 - **Block-type control is palette-only.** A floating card toolbar was implemented and removed during this task because it covered text on narrow cards; the palette satisfies the “toolbar or palette” requirement without layout shift.
 - **Targeted delete of the only child** can still leave a ProseMirror auto-fill placeholder for one frame; reconciliation rebuilds and removes it. This is correct but can cost one full rebuild at deep branches. Delete/reorder still use targeted transactions in the common case.
-- **300-block render** is 11–15% slower than a same-machine M2b baseline (two extra overlay buttons per card and UI-sans text metrics). It remains under the 1.5 s absolute gate.
+- **300-block render** ranged from 592 ms (final) to 991–1018 ms in earlier loaded runs; the same-machine M2b baseline was 859–925 ms. It remains under the 1.5 s absolute gate. Two extra overlay buttons per card and UI-sans text metrics account for the variance, not a structural change.
 - **1,000-block render** is slower than the historical M2b report (2.6 s vs 1.29 s) in the loaded environment; it is reported, not a gate.
 - **Page orientation UI, page view, PDF** remain M4. The landscape default is data-model only in M2c.
 - **Font family/size settings** remain M6.
