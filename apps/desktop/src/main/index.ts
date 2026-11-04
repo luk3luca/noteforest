@@ -10,10 +10,12 @@ import {
 import { join } from 'node:path';
 import type {
   BootstrapResult,
+  FlushResult,
   MenuCommand,
   SessionState,
   WindowState,
 } from '../shared/api.js';
+import { normalizeFlushResult } from '../shared/flush.js';
 import {
   applyCommand,
   appSupportDir,
@@ -31,7 +33,7 @@ import {
   writeSession,
 } from './library.js';
 import { attachTextContextMenu, installApplicationMenu } from './menu.js';
-import { quitCanProceed } from './lifecycle.js';
+import { flushDecision, quitCanProceed } from './lifecycle.js';
 
 const isDev = Boolean(process.env['ELECTRON_RENDERER_URL']);
 const isE2E = process.env['NOTEFOREST_E2E'] === '1';
@@ -84,34 +86,68 @@ function sendMenuCommand(command: MenuCommand): void {
   mainWindow.webContents.send('menu:command', command);
 }
 
-const flushWaiters = new Map<string, () => void>();
+const DEFAULT_FLUSH_TIMEOUT_MS = 2500;
+const flushWaiters = new Map<string, (result: FlushResult) => void>();
 
-function requestRendererFlush(win: BrowserWindow): Promise<void> {
+function flushTimeoutMs(): number {
+  const override = Number(process.env['NOTEFOREST_FLUSH_TIMEOUT_MS']);
+  if (Number.isFinite(override) && override >= 1) return Math.floor(override);
+  return DEFAULT_FLUSH_TIMEOUT_MS;
+}
+
+function requestRendererFlush(win: BrowserWindow): Promise<FlushResult> {
   return new Promise((resolve) => {
+    if (win.isDestroyed()) {
+      resolve({ status: 'error', error: 'The window was closed before it could save.' });
+      return;
+    }
+    const timeout = flushTimeoutMs();
     const requestId = `flush-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const timer = setTimeout(() => {
       flushWaiters.delete(requestId);
-      resolve();
-    }, 2500);
-    flushWaiters.set(requestId, () => {
+      resolve({
+        status: 'timeout',
+        error: `The editor did not confirm the save within ${timeout} ms.`,
+      });
+    }, timeout);
+    flushWaiters.set(requestId, (result) => {
       clearTimeout(timer);
       flushWaiters.delete(requestId);
-      resolve();
+      resolve(result);
     });
-    if (win.isDestroyed()) {
-      clearTimeout(timer);
-      resolve();
-      return;
-    }
     win.webContents.send('app:request-flush', requestId);
   });
 }
 
+async function showFlushFailure(win: BrowserWindow, result: FlushResult): Promise<boolean> {
+  const reason = result.error ?? 'The editor did not report a reason.';
+  const response = await dialog.showMessageBox(win, {
+    type: 'error',
+    title: 'Changes not saved',
+    message: `NoteForest could not save your changes before ${quitting ? 'quitting' : 'closing'}.`,
+    detail: `${reason}\n\nThe window is still open. Retry the save, or cancel and keep working.`,
+    buttons: ['Retry', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  return response.response === 0;
+}
+
 async function attemptClose(win: BrowserWindow): Promise<void> {
-  if (allowClose || closeInProgress) return;
+  if (allowClose || closeInProgress || win.isDestroyed()) return;
   closeInProgress = true;
   try {
-    await requestRendererFlush(win);
+    let result = await requestRendererFlush(win);
+    while (flushDecision(result, !win.isDestroyed()) === 'block') {
+      if (win.isDestroyed()) return;
+      if (!(await showFlushFailure(win, result))) {
+        quitting = false;
+        return;
+      }
+      result = await requestRendererFlush(win);
+    }
+    if (win.isDestroyed()) return;
     const dirty = dirtyDocuments();
     if (dirty.length > 0) {
       if (isE2E) {
@@ -272,8 +308,9 @@ function registerIpc(): void {
     platform: process.platform,
   }));
 
-  ipcMain.on('app:flush-done', (_event, requestId: string) => {
-    flushWaiters.get(requestId)?.();
+  ipcMain.on('app:flush-done', (_event, requestId: unknown, result: unknown) => {
+    if (typeof requestId !== 'string') return;
+    flushWaiters.get(requestId)?.(normalizeFlushResult(result));
   });
 }
 
