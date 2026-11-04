@@ -13,13 +13,21 @@ This worktree uses **npm workspaces** (`apps/desktop`, `packages/core`, `package
 ```bash
 npm install
 npm run typecheck   # strict TypeScript across the workspaces
-npm test            # unit/geometry tests
-npm run e2e         # Playwright-driven Electron smoke tests
+npm test            # unit/geometry tests (target < 3 s)
+npm run e2e         # build + critical Playwright-driven Electron suite (target < 60 s)
+npm run verify:fast # typecheck + unit + critical e2e
+npm run verify      # verify:fast + production build
+npm run test:perf   # 300/1,000-block performance report (on demand, not the gate)
+npm run test:visual # screenshots for product-owner review (on demand, not the gate)
 ```
 
+- Test artifacts default to `artifacts/`; set `NOTEFOREST_ARTIFACTS` to redirect them.
+- Run policy: while fixing, the Builder runs only the targeted unit/e2e tests, then `verify:fast`
+  once at handoff. The Orchestrator runs `verify` once on integration. Do not re-run the full
+  suite after every small fix; `test:perf` and `test:visual` are on-demand, not part of either gate.
 - `npm run dev` and `npm start` launch the Electron shell. The scripts unset `ELECTRON_RUN_AS_NODE` (the host environment sets it).
 - The current renderer is the M2 editor shell, not the Spike 1 fixture demo.
-- M2b report: `docs/reports/m2b-editor-shell.md`; screenshots and performance data are under `artifacts/m2b/`.
+- M2e report: `docs/reports/m2e-routing-and-layout.md`; M2f phase-1 report: `docs/reports/m2f-phase1.md`.
 - Spike 1 evidence remains in `docs/spikes/spike-01-report.md` and `docs/spikes/artifacts/`; the old Spike 1 gate harness targets the removed demo renderer and is not part of the M2 gate.
 
 ## M2 status

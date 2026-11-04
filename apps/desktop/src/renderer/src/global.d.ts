@@ -8,6 +8,7 @@ declare global {
     __noteforestTest?: {
       state: () => unknown;
       openPath: (packagePath: string) => Promise<boolean>;
+      flushSession: () => Promise<void>;
       seed: (kind: 'demo' | 'performance' | 'performance-1000') => Promise<string>;
       editorCheck?: () => unknown;
       editorJson?: () => unknown;

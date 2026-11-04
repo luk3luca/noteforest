@@ -31,6 +31,7 @@ import {
   writeSession,
 } from './library.js';
 import { attachTextContextMenu, installApplicationMenu } from './menu.js';
+import { quitCanProceed } from './lifecycle.js';
 
 const isDev = Boolean(process.env['ELECTRON_RENDERER_URL']);
 const isE2E = process.env['NOTEFOREST_E2E'] === '1';
@@ -169,6 +170,10 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
 }
 
 function createMainWindow(): void {
+  // A new window always starts with the close guard armed. Resetting it in
+  // `closed` instead would re-arm the M2 quit bug: after the last window is
+  // gone, `before-quit` would cancel every quit with no window left to ask.
+  allowClose = false;
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -190,8 +195,10 @@ function createMainWindow(): void {
     if (mainWindow !== null) void attemptClose(mainWindow);
   });
   mainWindow.on('closed', () => {
+    // Keep `allowClose` as-is: it reflects the completed close handshake, and
+    // resetting it here would leave a later quit with no window to prompt and
+    // no way to allow the quit. `createMainWindow` resets it for a new window.
     mainWindow = null;
-    allowClose = false;
   });
   void rendererEntry(mainWindow).catch((error) => {
     console.error('Failed to load the NoteForest renderer', error);
@@ -271,10 +278,15 @@ function registerIpc(): void {
 }
 
 app.on('before-quit', (event) => {
-  if (allowClose) return;
+  const win = mainWindow;
+  const liveWindow = win !== null && !win.isDestroyed();
+  if (quitCanProceed(allowClose, liveWindow)) {
+    allowClose = true;
+    return;
+  }
   event.preventDefault();
   quitting = true;
-  if (mainWindow !== null && !mainWindow.isDestroyed()) void attemptClose(mainWindow);
+  if (win !== null && !win.isDestroyed()) void attemptClose(win);
 });
 
 const gotLock = app.requestSingleInstanceLock();
@@ -300,7 +312,6 @@ if (!gotLock) {
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        allowClose = false;
         createMainWindow();
       }
     });
