@@ -4,9 +4,9 @@
 **Owner:** Builder  
 **Source:** `docs/tasks/m2f-phase3b2-move-identity.md`; `docs/reviews/m2-review.md` F2; `docs/tasks/m2f-stability-fixes.md` phase 3  
 **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-5ade1bbb`  
-**Branch:** `t3/5ade1bbb`  
+**Branch:** `t3/m2f-3b2-move-undo-identity`  
 **Base:** `8aa9904` (`main`: docs: start M2f phase 3b2 move identity)  
-**Commits:** `8872133` (core + unit tests), `21b4c21` (desktop hooks + E2E), report commit
+**Commits:** `8872133` (core + unit tests), `21b4c21` (desktop hooks + E2E), `de20c90` (snapshot hardening), plus this report
 
 ## What changed
 
@@ -165,9 +165,9 @@ condition waits (`waitEdges`, `waitCanonicalBlockCount`, `waitEditorText`,
 | Typecheck | `npm run typecheck` | Pass — desktop node/web, core, layout, pdf |
 | Unit | `npm test` | Pass — 213 tests / 22 files, 1.63 s |
 | Core unit only | `npx vitest run packages/core` | Pass — 105 tests / 7 files |
-| Critical e2e | `npm run e2e` | Pass — 26 tests, 55.29 s suite (< 60 s), 63.3 s wall incl. build; final confirmation 55.61 s |
-| Undo-routing E2E | node test filtered | Pass — 6.90–7.13 s (was 4.83 s before 3b2; +~2.1–2.3 s for the new flows) |
-| Fast verification | `npm run verify:fast` | Pass — exit 0, 63.7 s wall |
+| Critical e2e | `npm run e2e` | Pass — 26 tests, 55.29 s suite (< 60 s), 63.3 s wall incl. build; final confirmation 55.59 s |
+| Undo-routing E2E | node test filtered | Pass — 6.86–7.13 s (was 4.83 s before 3b2; +~2.0–2.3 s for the new flows) |
+| Fast verification | `npm run verify:fast` | Pass — exit 0, ~64 s wall |
 | Data safety | — | No storage/command/serial-queue/desync/arrow/layout/keyboard test removed |
 | Native dialogs | — | No native dialog added; E2E uses the existing guard and renderer dialogs only |
 | Manual/screen recording | — | None; no screen recording or Notability |
@@ -226,11 +226,11 @@ installed from the lockfile with `npm ci`.
 | `npm ci` | clean install from lockfile | not timed |
 | `npm run typecheck` | clean | ~5 s |
 | `npm test` | 213/213 | 1.63 s tests |
-| `npm run e2e` | 26/26 | 55.29 s suite / 63.3 s wall (final confirmation 55.61 s) |
+| `npm run e2e` | 26/26 | 55.29 s suite / 63.3 s wall (final confirmation 55.59 s) |
 | `npm run verify:fast` | pass, exit 0 | 1:03.7 wall |
 
 Baseline before this change on the same machine: critical suite 53.30 s and
-undo-routing test 4.83 s. Final: 55.29–55.61 s and 6.90–7.13 s.
+undo-routing test 4.83 s. Final: 55.29–55.59 s and 6.86–7.13 s.
 
 Not run: `npm run test:perf`, `npm run test:visual`, packaged/release build,
 Windows/Linux, real 1,000-block typing benchmark, VoiceOver. No screen
