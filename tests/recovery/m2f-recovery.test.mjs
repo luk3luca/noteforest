@@ -575,6 +575,56 @@ describe('M2f phase 4b empty chapters and stale locks', () => {
     await noDialogs();
   });
 
+  it('shows stale-lock consent on an empty document and recovers the first block', async () => {
+    const env = isolated('empty-stale');
+    const packagePath = await installValidPackage(env, 'empty-stale-note');
+    const documentPath = resolve(packagePath, 'document.json');
+    const document = JSON.parse(await readFile(documentPath, 'utf8'));
+    document.blocks = {};
+    document.branches = {};
+    document.anchors = {};
+    document.manualBreakBeforeBlockIds = [];
+    for (const chapter of document.chapters) {
+      chapter.topLevelBlockIds = [];
+      delete chapter.title;
+    }
+    await writeFile(documentPath, `${JSON.stringify(document, null, 2)}\n`);
+    await writeStaleLock(env, packagePath);
+
+    await launchEnv(env);
+    await page.locator('[data-library-document][data-doc-status="ok"]').first().click();
+    await page.locator('.nf-empty-state').waitFor({ timeout: 10000 });
+    const banner = page.locator('[data-stale-lock-banner="true"]');
+    await banner.waitFor({ timeout: 10000 });
+    const addFirst = page.locator('.nf-empty-actions .nf-button-primary');
+    assert.equal(await addFirst.isDisabled(), true, 'read-only empty document cannot add');
+
+    await banner.locator('[data-stale-lock-action="take-over"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const current = window.__noteforestTest.state();
+        return current.runtimes.find((item) => item.packagePath === path)?.status === 'editable';
+      },
+      packagePath,
+      { timeout: 10000 },
+    );
+    await page.waitForFunction(
+      () => document.querySelector('[data-stale-lock-banner="true"]') === null,
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal(await addFirst.isDisabled(), false);
+
+    await addFirst.click();
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitCanonicalBlockCount(1);
+    await h.waitSaved();
+
+    const saved = JSON.parse(await readFile(documentPath, 'utf8'));
+    assert.equal(saved.chapters[0]?.topLevelBlockIds.length, 1);
+    await noDialogs();
+  });
+
   it('rejects move, branch, and delete operations that would leave a chapter empty', async () => {
     const env = isolated('empty-invariant');
     const packagePath = await installValidPackage(env, 'invariant-note');
