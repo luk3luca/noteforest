@@ -855,6 +855,7 @@ describe('NoteForest M2 editor shell', () => {
     await waitBlockCount(2);
     await page.keyboard.press('Control+Enter');
     await waitBlockCount(3);
+    await waitLayout();
     assert.equal(await activeEditor().locator('.nf-edge-path').count(), 1, 'the child key creates an arrow');
 
     // Tab in a normal paragraph never creates a child.
