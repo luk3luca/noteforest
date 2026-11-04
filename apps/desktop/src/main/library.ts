@@ -40,6 +40,7 @@ import type {
   OpenDocumentSnapshot,
   ReloadDocumentResult,
   SaveCopyResult,
+  SaveRequestOptions,
   SaveResult,
   SessionState,
   SessionTabState,
@@ -250,10 +251,37 @@ export async function applyCommand(
   };
 }
 
-export async function saveDocument(packagePath: string): Promise<SaveResult> {
+function parseOverwriteFlag(options: unknown):
+  | { ok: true; value: boolean | undefined }
+  | { ok: false } {
+  if (typeof options !== 'object' || options === null || Array.isArray(options)) {
+    return { ok: false };
+  }
+  const value = (options as { overwriteExternal?: unknown }).overwriteExternal;
+  if (value !== undefined && typeof value !== 'boolean') return { ok: false };
+  return { ok: true, value };
+}
+
+export async function saveDocument(
+  packagePath: string,
+  options: SaveRequestOptions = {},
+): Promise<SaveResult> {
   if (typeof packagePath !== 'string' || packagePath.length === 0) {
     return { ok: false, changed: false, revision: 0, code: 'unknown', error: 'No document path was provided.' };
   }
+  // The renderer may only force a write after the explicit overwrite dialog.
+  // Anything other than a boolean flag is rejected before the store is touched.
+  const parsed = parseOverwriteFlag(options);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      changed: false,
+      revision: 0,
+      code: 'unknown',
+      error: 'Invalid overwrite flag.',
+    };
+  }
+  const overwriteExternal = parsed.value;
   const opened = await openStore(packagePath);
   if ('error' in opened) {
     return {
@@ -264,7 +292,19 @@ export async function saveDocument(packagePath: string): Promise<SaveResult> {
       error: opened.error,
     };
   }
-  const result = await opened.store.save({});
+  if (overwriteExternal === true && opened.store.readOnly) {
+    return {
+      ok: false,
+      changed: false,
+      revision: opened.store.revision ?? 0,
+      code: 'read-only',
+      coreCode: 'read-only',
+      error: 'document is open read-only; save is blocked',
+    };
+  }
+  const result = await opened.store.save(
+    overwriteExternal === true ? { overwriteExternal: true } : {},
+  );
   if (!result.ok) {
     const failure: SaveResult = {
       ok: false,

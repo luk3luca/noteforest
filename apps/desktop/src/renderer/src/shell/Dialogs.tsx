@@ -8,7 +8,7 @@ import {
   ModalOverlay,
   TextArea,
 } from 'react-aria-components';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useShell } from '../state/shell';
 import { useRuntime } from '../state/registry';
@@ -21,6 +21,7 @@ import {
   undoActive,
 } from '../actions';
 import { blockTitle, chapterIdOf, subtreeIds } from '../lib/tree';
+import { overwriteConfirmation } from '../lib/save-failure';
 import type { DocumentRuntime } from '../state/runtime';
 
 interface FrameProps {
@@ -221,11 +222,68 @@ export function Dialogs(): JSX.Element | null {
     );
   }
 
+  if (dialog.kind === 'overwrite-external') {
+    if (runtime.packagePath !== dialog.packagePath) {
+      return null;
+    }
+    return <OverwriteDialog runtime={runtime} onClose={close} />;
+  }
+
   if (dialog.kind === 'settings') {
     return <SettingsDialog onClose={close} />;
   }
 
   return null;
+}
+
+function OverwriteDialog({
+  runtime,
+  onClose,
+}: {
+  runtime: DocumentRuntime;
+  onClose: () => void;
+}): JSX.Element {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const confirm = overwriteConfirmation(runtime.packagePath);
+  // Overwrite is destructive and must never be the default. Focus Cancel
+  // explicitly instead of relying on dialog focus order.
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
+  return (
+    <Frame
+      title={confirm.title}
+      description={confirm.description}
+      actions={
+        <>
+          <Button ref={cancelRef} className="nf-button" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="nf-button nf-button-danger"
+            onPress={() => {
+              onClose();
+              void runtime.overwriteExternal().then((outcome) => {
+                if (!outcome.ok) {
+                  toast.error(outcome.message ?? 'Could not overwrite the file on disk.');
+                }
+              });
+            }}
+          >
+            {confirm.confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <p className="nf-dialog-text">
+        “{runtime.document.title}” will replace <code>{runtime.packagePath}</code>.
+      </p>
+      <p className="nf-dialog-note">
+        The external changes will be lost. Reload from disk instead if you want to keep them.
+      </p>
+    </Frame>
+  );
 }
 
 function MoveDialog({

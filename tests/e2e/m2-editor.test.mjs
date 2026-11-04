@@ -1,6 +1,6 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, copyFile, mkdir, readFile, rm } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   appDir,
@@ -177,6 +177,33 @@ async function mockSaveCopyDialog(filePath) {
 
 async function readDiskDocument(packagePath) {
   return JSON.parse(await readFile(resolve(packagePath, 'document.json'), 'utf8'));
+}
+
+/** Rewrite document.json behind the app's back; returns the exact bytes. */
+async function modifyDocumentOnDisk(packagePath, mutate) {
+  const document = await readDiskDocument(packagePath);
+  mutate(document);
+  const bytes = Buffer.from(JSON.stringify(document, null, 2), 'utf8');
+  await writeFile(resolve(packagePath, 'document.json'), bytes);
+  return bytes;
+}
+
+function setFirstBlockText(document, value) {
+  const blockId = Object.keys(document.blocks)[0];
+  if (blockId === undefined) throw new Error('document has no blocks');
+  document.blocks[blockId].content = {
+    type: 'doc',
+    children: [
+      {
+        type: 'paragraph',
+        children: [{ type: 'text', text: value }],
+      },
+    ],
+  };
+}
+
+function activeSaveBanner() {
+  return page.locator('.nf-editor[data-active="true"] [data-save-failure="true"]');
 }
 
 /** Leave the app in a save-clean state so teardown never hits the close dialog. */
@@ -1593,7 +1620,12 @@ describe('NoteForest M2 editor shell', () => {
       assert.equal(
         await banner.getByRole('button', { name: /overwrite/i }).count(),
         0,
-        'overwrite is not offered in phase 2b1',
+        'permission failures never offer overwrite',
+      );
+      assert.equal(
+        await banner.locator('[data-save-action="overwrite"]').count(),
+        0,
+        'overwrite is external-modification only',
       );
 
       // Autosave retries on the 2 s backoff instead of hammering or stopping
@@ -1717,6 +1749,172 @@ describe('NoteForest M2 editor shell', () => {
     } finally {
       await setPackageWritable(packagePath, true);
     }
+  });
+
+  it('reloads externally changed content only after confirmation', async () => {
+    await launch(isolated('external-reload'));
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    const documentPath = resolve(packagePath, 'document.json');
+    const externalBytes = await modifyDocumentOnDisk(packagePath, (document) => {
+      setFirstBlockText(document, 'Externally edited text');
+    });
+
+    await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' Local change discarded by reload');
+    await waitSaveFailure('external-modification');
+
+    await activeSaveBanner().locator('[data-save-action="reload"]').click();
+    const dialog = page.getByRole('dialog', { name: 'Reload from disk?' });
+    await dialog.waitFor();
+    await dialog.getByRole('button', { name: 'Reload from disk', exact: true }).click();
+
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-save-failure="true"]', {
+      state: 'detached',
+    });
+    await h.waitSaved();
+    await h.waitEditorText('Externally edited text');
+    await h.waitEditorText('Local change discarded by reload', false);
+    assert.equal(
+      (await readFile(documentPath)).equals(externalBytes),
+      true,
+      'reload reads the external file and never writes it',
+    );
+  });
+
+  it('overwrites an external modification only after a Cancel-default confirmation', async () => {
+    await launch(isolated('external-overwrite'));
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    const documentPath = resolve(packagePath, 'document.json');
+    const externalBytes = await modifyDocumentOnDisk(packagePath, (document) => {
+      document.title = 'Externally renamed';
+    });
+
+    await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' Local content that overwrite keeps');
+    await waitSaveFailure('external-modification');
+
+    const banner = activeSaveBanner();
+    await banner.waitFor();
+    assert.match(await banner.locator('.nf-save-failure-title').innerText(), /changed on disk/i);
+    assert.equal(await banner.getAttribute('data-save-failure-code'), 'external-modification');
+    for (const action of ['retry', 'overwrite', 'save-copy', 'reload', 'reveal']) {
+      assert.equal(
+        await banner.locator(`[data-save-action="${action}"]`).count(),
+        1,
+        `${action} action is present`,
+      );
+    }
+    assert.equal(
+      (await readFile(documentPath)).equals(externalBytes),
+      true,
+      'a failed save never touches the external file',
+    );
+
+    await banner.locator('[data-save-action="overwrite"]').click();
+    const dialog = page.getByRole('dialog', { name: 'Overwrite file on disk?' });
+    await dialog.waitFor();
+    const dialogText = await dialog.innerText();
+    assert.match(dialogText, new RegExp(packagePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(dialogText, /lost/i);
+    await page.waitForFunction(
+      () => document.activeElement?.textContent?.trim() === 'Cancel',
+      undefined,
+      { timeout: 5000 },
+    );
+
+    // Cancel is the default: the external file stays untouched and the banner
+    // remains the authoritative state.
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await dialog.waitFor({ state: 'detached' });
+    assert.equal((await readFile(documentPath)).equals(externalBytes), true);
+    assert.equal(await banner.count(), 1, 'cancel keeps the external-modification banner');
+
+    await banner.locator('[data-save-action="overwrite"]').click();
+    const confirm = page.getByRole('dialog', { name: 'Overwrite file on disk?' });
+    await confirm.waitFor();
+    await confirm.getByRole('button', { name: 'Overwrite', exact: true }).click();
+
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-save-failure="true"]', {
+      state: 'detached',
+    });
+    await h.waitSaved();
+    const disk = await readDiskDocument(packagePath);
+    assert.match(JSON.stringify(disk), /Local content that overwrite keeps/);
+    assert.equal(disk.title, 'Linear algebra', 'the local title replaced the external one');
+
+    // The overwrite establishes the new hash: the next normal save must not
+    // report a repeated false conflict.
+    await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' and a later save');
+    await h.waitSaved();
+    assert.match(
+      JSON.stringify(await readDiskDocument(packagePath)),
+      /and a later save/,
+      'the next save succeeds without another conflict',
+    );
+    assert.equal(
+      await page.locator('[data-save-failure="true"]').count(),
+      0,
+      'no false external-modification banner after overwrite',
+    );
+  });
+
+  it('saves a copy after external modification without touching the external file', async () => {
+    const env = isolated('external-copy');
+    await launch(env);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    const documentPath = resolve(packagePath, 'document.json');
+    const originalBytes = await readFile(documentPath);
+    const externalBytes = await modifyDocumentOnDisk(packagePath, (document) => {
+      setFirstBlockText(document, 'External content before copy');
+    });
+
+    await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' Local content rescued from the conflict');
+    await waitSaveFailure('external-modification');
+
+    const destination = resolve(env.NOTEFOREST_LIBRARY, 'external rescue copy');
+    await mockSaveCopyDialog(destination);
+    await activeSaveBanner().locator('[data-save-action="save-copy"]').click();
+
+    await page.waitForFunction(
+      (expected) =>
+        window.__noteforestTest.state().tabs.length === 2 &&
+        window.__noteforestTest.state().activeTab === expected,
+      destination,
+      { timeout: 10000 },
+    );
+    const copy = await readDiskDocument(destination);
+    assert.match(JSON.stringify(copy), /Local content rescued from the conflict/);
+    assert.equal(
+      (await readFile(documentPath)).equals(externalBytes),
+      true,
+      'the original external file is untouched by the copy',
+    );
+
+    // Restore the pre-conflict bytes so the original runtime can save cleanly
+    // before teardown. The copy assertions above already ran.
+    await page.evaluate((path) => window.__noteforestTest.openPath(path), packagePath);
+    await waitActiveTab(packagePath);
+    await writeFile(documentPath, originalBytes);
+    const banner = activeSaveBanner();
+    if ((await banner.count()) > 0) {
+      await banner.locator('[data-save-action="retry"]').click();
+    }
+    await h.waitSaved();
   });
 
   it('blocks closing on a failed save and keeps the content until Retry succeeds', async () => {

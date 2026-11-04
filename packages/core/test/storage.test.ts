@@ -528,6 +528,14 @@ describe('external modification detection', () => {
     expect(forced.ok).toBe(true);
     const disk = JSON.parse(await fs.readFile(documentPath, 'utf8')) as Document;
     expect(disk.title).toBe('Local title');
+
+    // The forced write becomes the new baseline: the next normal save must not
+    // report the same external modification again.
+    created.store.apply({ type: 'document.rename', title: 'After overwrite' });
+    const next = await created.store.save();
+    expect(next.ok).toBe(true);
+    const nextDisk = JSON.parse(await fs.readFile(documentPath, 'utf8')) as Document;
+    expect(nextDisk.title).toBe('After overwrite');
   });
 });
 
