@@ -493,6 +493,12 @@ describe('single-writer lock', () => {
     expect(blocked.status).toBe('read-only');
     expect(blocked.readOnlyReason).toBe('stale-lock');
     expect(blocked.errors[0]?.code).toBe('stale-lock');
+    expect(blocked.store.lockInfo?.corrupt).toBe(false);
+    expect(blocked.store.lockInfo?.record).toMatchObject({
+      pid: 2_147_483_647,
+      host: os.hostname(),
+      sessionId: 'dead-session',
+    });
 
     const recovered = await openDocumentPackage(
       created.packagePath,

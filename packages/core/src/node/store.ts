@@ -25,6 +25,7 @@ import {
 import {
   type AcquireLockOptions,
   type LockHandle,
+  type LockRecord,
   acquireDocumentLock,
   readDocumentLock,
 } from './lock.js';
@@ -129,6 +130,12 @@ export interface StoreStatus {
   closed: boolean;
 }
 
+/** Existing lock metadata for a read-only store; shown before takeover. */
+export interface LockInfo {
+  record: LockRecord | null;
+  corrupt: boolean;
+}
+
 interface LastSaved {
   exists: boolean;
   hash: string | null;
@@ -171,6 +178,9 @@ export class DocumentStore {
 
   readonly readOnlyReason?: ReadOnlyReason;
 
+  /** Existing lock that blocked a writable open, if any. */
+  readonly lockInfo?: LockInfo;
+
   readonly errors: CoreError[];
 
   readonly warnings: ValidationIssue[];
@@ -209,6 +219,7 @@ export class DocumentStore {
     backupsDir: string;
     readOnly: boolean;
     readOnlyReason?: ReadOnlyReason;
+    lockInfo?: LockInfo;
     document: Document | null;
     errors: CoreError[];
     warnings: ValidationIssue[];
@@ -223,6 +234,7 @@ export class DocumentStore {
     this.backups = new BackupManager(config.backupsDir, config.options.backupRetention);
     this.readOnly = config.readOnly;
     if (config.readOnlyReason !== undefined) this.readOnlyReason = config.readOnlyReason;
+    if (config.lockInfo !== undefined) this.lockInfo = config.lockInfo;
     this.errors = config.errors;
     this.warnings = config.warnings;
     this.documentValue = config.document;
@@ -625,7 +637,13 @@ export async function openDocumentPackage(
     options.backupsDir ?? backupsDirForPackage(appSupportDir, resolved);
 
   let lockHandle: LockHandle | null = null;
-  let lockFailure: { reason: 'locked' | 'stale-lock'; message: string; lockPath: string; existing: unknown } | null = null;
+  let lockFailure: {
+    reason: 'locked' | 'stale-lock';
+    message: string;
+    lockPath: string;
+    existing: LockRecord | null;
+    corrupt: boolean;
+  } | null = null;
   if (wantWrite) {
     const lockOptions: AcquireLockOptions = {
       appSupportDir,
@@ -643,6 +661,7 @@ export async function openDocumentPackage(
           message: acquired.message,
           lockPath: acquired.lockPath,
           existing: acquired.existing,
+          corrupt: acquired.corrupt,
         };
       }
     } catch (error) {
@@ -651,6 +670,7 @@ export async function openDocumentPackage(
         message: `could not acquire document lock: ${errorMessage(error)}`,
         lockPath: '',
         existing: null,
+        corrupt: false,
       };
     }
   }
@@ -749,6 +769,9 @@ export async function openDocumentPackage(
     backupsDir,
     readOnly: status === 'read-only',
     ...(readOnlyReason === undefined ? {} : { readOnlyReason }),
+    ...(lockFailure === null
+      ? {}
+      : { lockInfo: { record: lockFailure.existing, corrupt: lockFailure.corrupt } }),
     document: parsed.document,
     errors,
     warnings,
