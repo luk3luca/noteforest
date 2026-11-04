@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2d is in progress.** The product owner clarified that the depth chain (`top → f → ff → fff`) must keep **blocks at the same depth in the same column**, with content-driven widths and horizontal scroll when the columns exceed the viewport. The fix set is `docs/tasks/m2d-depth-columns.md`: depth-column alignment, 1,600 px canvas / 480 px top-level / 144 px child minimum, branch-port collapse with a dot/count, non-destructive Backspace, contextual add top-level/chapter, trunk continuity, and left-entry arrows for any page-level wrap. M3 span anchors/reference edges start only after M2d is accepted. Font/size settings are deferred to M6. The spec is at v0.4.3.
+**M2d is merged; product-owner visual review is pending.** It adds depth columns (same-depth blocks share one x; content-driven column widths; horizontal scroll), branch-port collapse with a dot/count and no footer height, non-destructive Backspace, contextual add top-level/chapter, trunk continuity, and the 1,600 px canvas. M3 span anchors/reference edges start only after M2d is accepted. Font/size settings are deferred to M6. The spec is at v0.4.3.
 
 The spec is at v0.4.3 and the UX, review, and DoD docs are aligned.
 
