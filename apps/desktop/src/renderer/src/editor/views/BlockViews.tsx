@@ -10,7 +10,7 @@ import {
   type PointerEvent,
 } from 'react';
 import { getEditorBindings, setDragBlockId } from '../bindings';
-import { useEditorUi } from '../editor-ui';
+import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
 
 function stringAttr(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -24,13 +24,27 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
   const title = stringAttr(node.attrs['title'], 'Untitled chapter');
   const chapterId = stringAttr(node.attrs['chapterId']);
   const bindings = getEditorBindings(editor);
+  const ui = useEditorUi(editor);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(title);
   const committing = useRef(false);
+  const headRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!editing) setValue(title);
   }, [title, editing]);
+
+  // One-shot request from "+ Add chapter": start editing the new title.
+  const focusRequested = ui.focusChapterId === chapterId;
+  useEffect(() => {
+    if (!focusRequested) return;
+    clearEditorChapterFocus(editor, chapterId);
+    setValue(title);
+    setEditing(true);
+    requestAnimationFrame(() => {
+      headRef.current?.scrollIntoView({ block: 'nearest' });
+    });
+  }, [focusRequested, editor, chapterId, title]);
 
   const commit = useCallback(() => {
     if (committing.current) return;
@@ -76,9 +90,21 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
     }
   };
 
+  const addTopLevel = (): void => {
+    if (bindings === null) return;
+    bindings.report(
+      bindings.runtime.addTopLevel(chapterId).then((outcome) => {
+        if (outcome.ok && outcome.blockId !== undefined) {
+          bindings.runtime.focusBlock(outcome.blockId);
+        }
+        return outcome;
+      }),
+    );
+  };
+
   return (
     <NodeViewWrapper className="nf-chapter" data-chapter-id={chapterId}>
-      <div className="nf-chapter-head" contentEditable={false} onContextMenu={onContextMenu}>
+      <div className="nf-chapter-head" contentEditable={false} ref={headRef} onContextMenu={onContextMenu}>
         <span className="nf-chapter-label">Chapter</span>
         {editing ? (
           <input
@@ -110,6 +136,18 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
         )}
       </div>
       <NodeViewContent className="nf-chapter-blocks" />
+      <div className="nf-chapter-footer" contentEditable={false}>
+        <button
+          type="button"
+          className="nf-chapter-add"
+          data-chapter-add={chapterId}
+          title="Add a top-level block to this chapter"
+          onClick={addTopLevel}
+        >
+          <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
+          Add top-level block
+        </button>
+      </div>
     </NodeViewWrapper>
   );
 }
@@ -197,6 +235,11 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     bindings?.report(bindings.runtime.toggleCollapse(blockId));
   }, [bindings, blockId]);
 
+  const childLabel = childCount === 1 ? '1 child block' : `${childCount} child blocks`;
+  const portLabel = collapsed
+    ? `Expand branch, ${childLabel} hidden`
+    : `Collapse branch, ${childLabel}`;
+
   return (
     <NodeViewWrapper
       className="nf-block-body"
@@ -248,23 +291,25 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
       </button>
       {childCount > 0 ? (
-        <div className="nf-block-meta" contentEditable={false}>
-          <button
-            type="button"
-            className="nf-collapse"
-            aria-expanded={!collapsed}
-            title={collapsed ? 'Expand branch (⌘.)' : 'Collapse branch (⌘.)'}
-            onClick={toggleCollapse}
-          >
-            <ChevronRight
-              size={12}
-              strokeWidth={1.5}
-              className={collapsed ? 'nf-chevron' : 'nf-chevron nf-chevron-open'}
-              aria-hidden="true"
-            />
-            <span>{childCount}</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          className="nf-branch-port"
+          contentEditable={false}
+          aria-expanded={!collapsed}
+          aria-label={portLabel}
+          title={`${portLabel} (⌘.)`}
+          data-branch-port={blockId}
+          data-collapsed={collapsed}
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleCollapse();
+          }}
+        >
+          <ChevronRight size={12} strokeWidth={1.5} className="nf-port-chevron" aria-hidden="true" />
+          <span className="nf-port-dot" aria-hidden="true">
+            {childCount}
+          </span>
+        </button>
       ) : null}
     </NodeViewWrapper>
   );

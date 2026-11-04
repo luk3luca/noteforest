@@ -16,11 +16,14 @@ import {
   type TabInfo,
 } from './state/shell';
 import {
+  chapterIdOf,
   directChildIds,
   incomingBranch,
   parentIdOf,
 } from './lib/tree';
 import { recordScroll } from './state/session';
+import { setEditorChapterFocus } from './editor/editor-ui';
+import { chapterInsertIndex } from './lib/chapters';
 
 function shell() {
   return useShell.getState();
@@ -97,9 +100,14 @@ export async function createNewDocument(): Promise<void> {
 export async function createChapter(): Promise<ApplyOutcome | null> {
   const runtime = activeRuntime();
   if (runtime === null) return null;
+  const selected = runtime.selectedBlockId;
+  const selectedChapterId = selected === null ? null : chapterIdOf(runtime.document, selected);
+  // Insert immediately after the active chapter; without a selection, append.
+  const atIndex = chapterInsertIndex(runtime.document.chapters, selectedChapterId);
   const created = await runtime.applyStructural({
     type: 'chapter.create',
     title: 'New chapter',
+    atIndex,
   });
   if (!created.ok) {
     toast.error(created.message ?? 'Could not create a chapter.');
@@ -114,9 +122,45 @@ export async function createChapter(): Promise<ApplyOutcome | null> {
     type: 'block.create',
     placement: { kind: 'top-level', chapterId },
   });
-  if (!block.ok) toast.error(block.message ?? 'Could not add the first block.');
+  if (!block.ok) {
+    toast.error(block.message ?? 'Could not add the first block.');
+  }
   await runtime.saveNow();
-  return block;
+  if (block.ok && runtime.editor !== null) {
+    setEditorChapterFocus(runtime.editor, chapterId);
+  }
+  return { ...block, chapterId };
+}
+
+/**
+ * Delete confirmation is a document command, not a text edit: plain Backspace
+ * never deletes a block, ⌘Backspace/Delete does. A block with descendants
+ * always asks promote vs subtree.
+ */
+export function requestBlockDelete(runtime: DocumentRuntime, blockId: string): void {
+  const children = directChildIds(runtime.document, blockId);
+  if (children.length > 0) {
+    shell().openDialog({ kind: 'delete-block', blockId });
+    return;
+  }
+  report(runtime.deleteBlock(blockId, 'promote'));
+}
+
+/** Add a top-level block to the chapter of the selected block, else the last. */
+export function addTopLevelContextual(runtime: DocumentRuntime): void {
+  const selected = runtime.selectedBlockId;
+  const selectedChapterId = selected === null ? null : chapterIdOf(runtime.document, selected);
+  const chapterId =
+    selectedChapterId ?? runtime.document.chapters.at(-1)?.id ?? null;
+  if (chapterId === null) return;
+  report(
+    runtime.addTopLevel(chapterId).then((outcome) => {
+      if (outcome.ok && outcome.blockId !== undefined) {
+        runtime.focusBlock(outcome.blockId);
+      }
+      return outcome;
+    }),
+  );
 }
 
 export async function renameDocument(title: string): Promise<void> {
@@ -461,8 +505,7 @@ export function paletteCommands(): MenuEntry[] {
       label: 'Add top-level block',
       onSelect: () => {
         if (runtime === null) return;
-        const chapterId = runtime.document.chapters.at(-1)?.id;
-        if (chapterId !== undefined) report(runtime.addTopLevel(chapterId));
+        addTopLevelContextual(runtime);
       },
     },
     {
@@ -551,8 +594,7 @@ export function runMenuCommand(command: MenuCommand): void {
       break;
     case 'add-block': {
       const runtime = activeRuntime();
-      const chapterId = runtime?.document.chapters.at(-1)?.id;
-      if (runtime !== null && chapterId !== undefined) report(runtime.addTopLevel(chapterId));
+      if (runtime !== null) addTopLevelContextual(runtime);
       break;
     }
     case 'undo':

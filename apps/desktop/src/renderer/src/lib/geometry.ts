@@ -3,6 +3,11 @@
  *
  * Pure: no React, DOM, or measurement types. The same numbers feed the CSS
  * layout and the edge router so the arrows agree with the cards.
+ *
+ * Depth columns (M2d): every visible block at depth d inside one chapter starts
+ * at the same x. Column widths are measured per chapter/depth and clamped to
+ * the min/max below; the gap between columns is a token, not a per-parent
+ * value. The editor never wraps to a second row: it scrolls horizontally.
  */
 
 export interface Rect {
@@ -13,33 +18,40 @@ export interface Rect {
 }
 
 export const GEOMETRY = Object.freeze({
-  /** Top-level cards keep a readable measure. */
-  topLevelMaxWidth: 544,
-  /** Child cards live between 160 and 420 px. */
-  childMinWidth: 160,
+  /** Top-level depth-0 cards are 160–480 px wide. */
+  topLevelMinWidth: 160,
+  topLevelMaxWidth: 480,
+  /** Child cards live between 144 and 420 px. */
+  childMinWidth: 144,
   childMaxWidth: 420,
+  /** Gap between two depth columns (also the parent card → child column gap). */
+  columnGap: 16,
   /** Editor canvas. */
-  canvasMaxWidth: 1100,
-  editorPaddingX: 56,
+  canvasMaxWidth: 1600,
+  editorPaddingX: 40,
   editorPaddingTop: 40,
   editorPaddingBottom: 96,
   /** Gaps. */
   siblingGap: 24,
   childRowGap: 16,
-  wrapIndent: 18,
   chapterGap: 32,
+  /** Reserved for the M4 page renderer, which may wrap a child below. */
+  wrapIndent: 18,
   /** Card chrome. */
-  cardPadding: 12,
+  cardPadding: 10,
   cardRadius: 4,
   /** Edges. */
   edgeWidth: 1.25,
   edgeWidthActive: 1.75,
   edgeArrowSize: 6,
-  edgeGap: 8,
+  /** Space kept between the arrow tip and the child's left edge. */
+  edgeGap: 6,
   edgeRadius: 6,
   edgeBusOffset: 12,
   edgePortSpacing: 8,
-  edgeMinGap: 12,
+  edgeMinGap: 4,
+  /** Horizontal space used by the collapse port / add-child control. */
+  portSize: 18,
 });
 
 export type EdgePlacement = 'right' | 'below' | 'overlap';
@@ -49,7 +61,7 @@ export function cardMaxWidth(topLevel: boolean): number {
 }
 
 export function cardMinWidth(topLevel: boolean): number {
-  return topLevel ? GEOMETRY.childMinWidth : GEOMETRY.childMinWidth;
+  return topLevel ? GEOMETRY.topLevelMinWidth : GEOMETRY.childMinWidth;
 }
 
 export function clamp(value: number, minimum: number, maximum: number): number {

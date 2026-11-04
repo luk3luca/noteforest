@@ -14,7 +14,7 @@ import { clearEditorBindings, getDragBlockId, setDragBlockId, setEditorBindings,
 import { setEditorSelectedBlock } from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
-import { createChapter, openBlockMenu, openChapterMenu } from '../actions';
+import { createChapter, openBlockMenu, openChapterMenu, requestBlockDelete } from '../actions';
 import { recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
 import { recordPerf } from '../lib/perf';
@@ -145,6 +145,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
       },
       setDragSource: (blockId: string | null) => setDragBlockId(blockId),
       dragSource: () => getDragBlockId(),
+      requestDelete: (blockId: string) => requestBlockDelete(runtime, blockId),
       report: (outcome) => {
         void outcome.then((value) => {
           if (value !== undefined && value !== null && !value.ok) {
@@ -251,33 +252,18 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
               rects={rects}
               activePath={activePath}
               onEdgeClick={(childId, anchor) => openBlockMenu(childId, anchor)}
+              onTrunkClick={(parentId) => {
+                void runtime.toggleCollapse(parentId);
+              }}
             />
           </div>
           <div className="nf-canvas-footer" contentEditable={false}>
             <button
               type="button"
               className="nf-canvas-action"
-              data-canvas-action="add-top-level"
-              onClick={() => {
-                const chapterId = runtime.document.chapters.at(-1)?.id;
-                if (chapterId === undefined) return;
-                void runtime.addTopLevel(chapterId).then((outcome) => {
-                  if (outcome.ok && outcome.blockId !== undefined) runtime.focusBlock(outcome.blockId);
-                });
-              }}
-            >
-              + Add top-level block
-            </button>
-            <button
-              type="button"
-              className="nf-canvas-action"
               data-canvas-action="add-chapter"
               onClick={() => {
-                void createChapter().then((outcome) => {
-                  if (outcome?.ok === true && outcome.blockId !== undefined) {
-                    runtime.focusBlock(outcome.blockId);
-                  }
-                });
+                void createChapter();
               }}
             >
               + Add chapter

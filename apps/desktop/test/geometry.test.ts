@@ -38,11 +38,13 @@ describe('geometry', () => {
     expect(ports[2]).toBeLessThan(220);
   });
 
-  it('keeps geometry constants stable and inside the A4 reader budget', () => {
-    expect(GEOMETRY.topLevelMaxWidth).toBe(544);
-    expect(GEOMETRY.childMinWidth).toBe(160);
+  it('keeps the M2d depth-column tokens stable', () => {
+    expect(GEOMETRY.topLevelMaxWidth).toBe(480);
+    expect(GEOMETRY.topLevelMinWidth).toBe(160);
+    expect(GEOMETRY.childMinWidth).toBe(144);
     expect(GEOMETRY.childMaxWidth).toBe(420);
+    expect(GEOMETRY.columnGap).toBe(16);
+    expect(GEOMETRY.canvasMaxWidth).toBe(1600);
     expect(GEOMETRY.wrapIndent).toBe(18);
-    expect(GEOMETRY.siblingGap).toBe(24);
   });
 });

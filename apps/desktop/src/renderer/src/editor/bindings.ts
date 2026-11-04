@@ -18,6 +18,7 @@ export interface EditorBindings {
   dropOnBlock: (sourceId: string, targetId: string, after: boolean) => void;
   setDragSource: (blockId: string | null) => void;
   dragSource: () => string | null;
+  requestDelete: (blockId: string) => void;
   report: (outcome: Promise<ApplyOutcome | void>) => void;
   notify: (message: string, kind?: 'error' | 'info') => void;
 }

@@ -20,6 +20,7 @@ interface EdgeLayerProps {
   rects: ReadonlyMap<string, Rect>;
   activePath: ReadonlySet<string>;
   onEdgeClick?: (childId: string, anchor: { x: number; y: number }) => void;
+  onTrunkClick?: (parentId: string) => void;
 }
 
 interface RoutedGroupResult {
@@ -27,7 +28,7 @@ interface RoutedGroupResult {
   trunks: RoutedTrunk[];
 }
 
-export function EdgeLayer({ edges, rects, activePath, onEdgeClick }: EdgeLayerProps): JSX.Element {
+export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick }: EdgeLayerProps): JSX.Element {
   const rawId = useId();
   const uid = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
   const hasSelection = activePath.size > 1;
@@ -132,15 +133,31 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick }: EdgeLayerPr
               .filter((part) => part.length > 0)
               .join(' ');
             return (
-              <path
-                key={`${parentId}:${trunk.id}`}
-                d={trunk.path}
-                className={className}
-                data-trunk-id={trunk.id}
-                data-trunk-kind={trunk.kind}
-                data-parent-id={parentId}
-                fill="none"
-              />
+              <g key={`${parentId}:${trunk.id}`}>
+                <path
+                  d={trunk.path}
+                  className={className}
+                  data-trunk-id={trunk.id}
+                  data-trunk-kind={trunk.kind}
+                  data-parent-id={parentId}
+                  fill="none"
+                />
+                {onTrunkClick === undefined ? null : (
+                  <path
+                    d={trunk.path}
+                    className="nf-edge-trunk-hit"
+                    data-trunk-hit={parentId}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={12}
+                    vectorEffect="non-scaling-stroke"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onTrunkClick(parentId);
+                    }}
+                  />
+                )}
+              </g>
             );
           }),
         )}

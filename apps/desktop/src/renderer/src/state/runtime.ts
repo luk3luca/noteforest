@@ -218,6 +218,10 @@ export class DocumentRuntime {
 
   private async commitContentInternal(): Promise<void> {
     if (!this.editable || this.disposed || this.editor === null) return;
+    // A text selection can span block boundaries; deleting it can remove whole
+    // branchBlocks from the ProseMirror buffer. The canonical document is the
+    // source of truth, so restore it instead of committing an emptied canvas.
+    if (this.reconcileEditor(this.selectedBlockId)) return;
     const extracted = extractBlockContents(this.editor.getJSON() as PMNode);
     const changes: Array<{ blockId: string; content: ContentNode }> = [];
     for (const [blockId, value] of extracted) {
@@ -442,14 +446,20 @@ export class DocumentRuntime {
         }
       }
     }
-    // Also inspect the rendered canvas: a stale node view must not survive.
+    // Also inspect the rendered canvas for diagnostics. A node view can lag one
+    // frame behind the ProseMirror dispatch, so a DOM-only card is not enough to
+    // rebuild: rebuilding from canonical would also discard a just-typed,
+    // not-yet-committed text edit. The ProseMirror ID set is authoritative.
     if (!otherMismatch && editor.view !== undefined) {
+      const domOnly: string[] = [];
       for (const element of editor.view.dom.querySelectorAll('[data-block-card]')) {
         const id = element.getAttribute('data-block-card');
-        if (id === null || id.length === 0 || !canonical.has(id)) {
-          otherMismatch = true;
-          break;
-        }
+        if (id === null || id.length === 0 || !canonical.has(id)) domOnly.push(id ?? '(empty)');
+      }
+      if (domOnly.length > 0) {
+        console.warn('[noteforest] canvas-only block card observed; waiting for React to remove it', {
+          domOnly,
+        });
       }
     }
     if (!placeholderMismatch && !otherMismatch) return false;
@@ -457,7 +467,10 @@ export class DocumentRuntime {
     const missing = [...canonical].filter((id) => !inEditor.has(id));
     console.warn('[noteforest] editor/canonical block mismatch; rebuilding', { extra, missing });
     if (otherMismatch) {
-      this.repairNotice = 'The editor was rebuilt from the saved document to remove an untracked block.';
+      this.repairNotice =
+        missing.length > 0
+          ? 'The editor was rebuilt from the saved document to restore blocks removed from the canvas.'
+          : 'The editor was rebuilt from the saved document to remove an untracked block.';
     }
     this.rebuildEditor(focusBlockId);
     this.notify();
@@ -598,13 +611,17 @@ export class DocumentRuntime {
     return true;
   }
 
-  focusBlock(blockId: string, options: { select?: boolean; scroll?: boolean } = {}): void {    const editor = this.editor;
+  focusBlock(blockId: string, options: { select?: boolean; scroll?: boolean; at?: 'start' | 'end' } = {}): void {
+    const editor = this.editor;
     if (editor === null) return;
     let position: number | null = null;
+    let bodySize: number | null = null;
     editor.state.doc.descendants((node, pos) => {
       if (position !== null) return false;
       if (node.type.name === 'branchBlock' && node.attrs['blockId'] === blockId) {
         position = pos;
+        const body = node.firstChild;
+        bodySize = body !== null && body.type.name === 'blockBody' ? body.nodeSize : node.nodeSize - 2;
         return false;
       }
       return true;
@@ -618,11 +635,17 @@ export class DocumentRuntime {
       chain.run();
       return;
     }
+    const atEnd = options.at === 'end';
+    // End of the block's own body, never the end of its last descendant.
+    const blockEnd = pos + (bodySize ?? 4) - 1;
     try {
-      const chain = editor
-        .chain()
-        .focus()
-        .setTextSelection(Math.min(pos + 3, editor.state.doc.content.size));
+      const chain = editor.chain().focus();
+      if (atEnd) {
+        const selection = TextSelection.near(editor.state.doc.resolve(blockEnd), -1);
+        chain.setTextSelection(selection);
+      } else {
+        chain.setTextSelection(Math.min(pos + 3, editor.state.doc.content.size));
+      }
       if (scroll) chain.scrollIntoView();
       chain.run();
     } catch {

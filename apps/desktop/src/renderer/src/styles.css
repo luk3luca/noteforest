@@ -43,6 +43,7 @@
   --radius-control: 3px;
   --radius-block: 4px;
   --radius-overlay: 6px;
+  --nf-column-gap: 16px;
   --motion: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: dark;
 }
@@ -791,7 +792,7 @@ button:disabled {
 }
 
 .nf-canvas {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 40px 40px 88px;
 }
@@ -931,6 +932,36 @@ button:disabled {
   gap: 16px;
 }
 
+/* Per-chapter add row: it belongs to this chapter, not to "the last one". */
+.nf-chapter-footer {
+  display: flex;
+  margin-top: 10px;
+  padding-left: 2px;
+}
+
+.nf-chapter-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 6px;
+  margin-left: -6px;
+  border-radius: var(--radius-control);
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.nf-chapter-add:hover {
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.nf-chapter-add:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  color: var(--text);
+}
+
 .nf-block-node {
   display: contents;
 }
@@ -945,13 +976,13 @@ button:disabled {
   display: none;
 }
 
+/* One row = [card][child group]. The group offsets itself to the shared depth
+   column; the editor never wraps, it scrolls horizontally. */
 .nf-block-inner > div {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-start;
-  column-gap: 16px;
-  row-gap: 16px;
-  width: 100%;
+  gap: 0;
 }
 
 .nf-block-inner > div > .react-renderer.node-blockBody,
@@ -961,8 +992,8 @@ button:disabled {
 
 .nf-block-body {
   position: relative;
-  flex: 0 1 auto;
-  min-width: 160px;
+  flex: 0 0 auto;
+  min-width: 144px;
   max-width: 420px;
   padding: 10px;
   border-radius: var(--radius-block);
@@ -971,7 +1002,8 @@ button:disabled {
 }
 
 .nf-block-body[data-top-level="true"] {
-  max-width: min(544px, 100%);
+  min-width: 160px;
+  max-width: 480px;
   background: transparent;
 }
 
@@ -1147,62 +1179,102 @@ button:disabled {
   overflow-x: auto;
 }
 
+.nf-block-prose p.is-empty {
+  position: relative;
+}
+
 .nf-block-prose p.is-empty::before {
   content: attr(data-placeholder);
-  float: left;
-  height: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--text-tertiary);
   pointer-events: none;
   opacity: 0;
   font-family: var(--ui-font);
   font-size: 13px;
   line-height: 1.6;
+  white-space: nowrap;
 }
 
 .nf-block-body[data-active="true"] .nf-block-prose p.is-empty::before {
   opacity: 1;
 }
 
-.nf-block-meta {
-  display: flex;
-  justify-content: flex-end;
-  height: 16px;
-  margin-top: 2px;
-}
-
-.nf-collapse {
+/* Collapse lives on the branch port, not in an in-flow footer: a one-line
+   block with children stays one line tall. */
+.nf-branch-port {
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  min-width: 16px;
   height: 16px;
   padding: 0 2px;
-  border-radius: var(--radius-control);
+  border-radius: 999px;
   color: var(--text-tertiary);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
   opacity: 0;
-  transition: opacity 120ms var(--motion);
+  transition: opacity 120ms var(--motion), background 120ms var(--motion);
+  z-index: 3;
 }
 
-.nf-block-body:hover .nf-collapse,
-.nf-block-body[data-active="true"] .nf-collapse,
-.nf-block-body[data-collapsed="true"] .nf-collapse {
+.nf-block-body:hover .nf-branch-port,
+.nf-block-body[data-active="true"] .nf-branch-port,
+.nf-branch-port:focus-visible {
   opacity: 1;
 }
 
-.nf-collapse:hover {
+.nf-port-chevron {
+  transform: rotate(90deg);
+}
+
+.nf-branch-port[data-collapsed="true"] {
+  opacity: 1;
+}
+
+.nf-branch-port[data-collapsed="true"] .nf-port-chevron {
+  display: none;
+}
+
+.nf-port-dot {
+  display: none;
+}
+
+.nf-branch-port[data-collapsed="true"] .nf-port-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-branch-port:hover {
   background: var(--surface-3);
   color: var(--text);
 }
 
 .nf-gutter {
   position: absolute;
-  left: -24px;
+  left: -16px;
   top: 8px;
   display: flex;
   flex-direction: column;
   gap: 1px;
-  width: 20px;
+  width: 14px;
   opacity: 0;
   transition: opacity 120ms var(--motion);
 }
@@ -1217,7 +1289,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
+  width: 14px;
   height: 20px;
   border-radius: var(--radius-control);
   color: var(--text-tertiary);
@@ -1266,8 +1338,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-add-child {
   right: -9px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: -9px;
 }
 
 .nf-add-sibling {
@@ -1287,12 +1358,14 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--text);
 }
 
+/* The child group is a flow sibling of the card. Its margin lands the group's
+   left edge exactly on the next depth column, so every block at one depth
+   shares one x without absolute positioning. */
 .nf-branch-children {
-  flex: 1 1 240px;
-  min-width: 160px;
-  max-width: 720px;
-  padding-left: 18px;
-  padding-top: 1px;
+  flex: 0 0 auto;
+  margin-left: calc(
+    max(0px, var(--nf-card-col, 0px) - var(--nf-card-w, 0px)) + var(--nf-column-gap, 16px)
+  );
 }
 
 .nf-branch-children-inner {
@@ -1358,6 +1431,11 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-edge-hit {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.nf-edge-trunk-hit {
   pointer-events: stroke;
   cursor: pointer;
 }
