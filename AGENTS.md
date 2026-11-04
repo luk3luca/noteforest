@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 3a is in progress.** Phases 1, 2a, 2b1, 2b2a, and 2b2b are merged. Phase 3a unifies undo/redo routing and fallback, and removes the time-based dedupe that drops repeated undo/redo presses. Destructive-delete/detach inverses and branch-ID/chapter-preserving moves are phase 3b. Later: F3/F6/F7 data safety, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 3b1 is in progress.** Phase 3a unified undo/redo routing is merged. Phase 3b1 adds exact inverses for destructive block delete (promote/subtree) and branch detach, preserving block/branch IDs, order, chapter, anchors/unknown fields; redo re-applies. Move/branch-create identity and cross-chapter placement are 3b2. Later: F3/F6/F7 data safety, F5/F16 keyboard, cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 
