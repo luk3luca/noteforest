@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { useMemo } from 'react';
 import { GEOMETRY, type Rect } from '../../lib/geometry';
 import {
   routeChildGroup,
@@ -29,8 +29,6 @@ interface RoutedGroupResult {
 }
 
 export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick }: EdgeLayerProps): JSX.Element {
-  const rawId = useId();
-  const uid = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
   const hasSelection = activePath.size > 1;
 
   const routed = useMemo(() => {
@@ -85,34 +83,21 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
       .join(' ');
   };
 
+  const arrowClass = (descriptor: EdgeDescriptor, routedEdge: RoutedEdge): string => {
+    const active = activePath.has(descriptor.parentId) && activePath.has(descriptor.childId);
+    const muted = hasSelection && !active;
+    return [
+      'nf-edge-arrow',
+      active ? 'nf-edge-active' : '',
+      muted ? 'nf-edge-muted' : '',
+      routedEdge.defect ? 'nf-edge-defect' : '',
+    ]
+      .filter((part) => part.length > 0)
+      .join(' ');
+  };
+
   return (
     <svg className="nf-edge-layer" aria-hidden="true" focusable="false">
-      <defs>
-        <marker
-          id={`${uid}-arrow`}
-          viewBox="0 0 6 6"
-          refX="5.4"
-          refY="3"
-          markerWidth="6"
-          markerHeight="6"
-          markerUnits="userSpaceOnUse"
-          orient="auto"
-        >
-          <path d="M 0 0 L 6 3 L 0 6 z" className="nf-arrow-head" />
-        </marker>
-        <marker
-          id={`${uid}-arrow-active`}
-          viewBox="0 0 6 6"
-          refX="5.4"
-          refY="3"
-          markerWidth="6"
-          markerHeight="6"
-          markerUnits="userSpaceOnUse"
-          orient="auto"
-        >
-          <path d="M 0 0 L 6 3 L 0 6 z" className="nf-arrow-head-active" />
-        </marker>
-      </defs>
       <g>
         {[...groupedEdges.entries()].flatMap(([parentId, group]) =>
           group.trunks.map((trunk) => {
@@ -167,8 +152,6 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
           const group = routed.get(descriptor.parentId);
           const edge = group?.edges.find((candidate) => candidate.id === descriptor.id);
           if (edge === undefined) return null;
-          const active = activePath.has(descriptor.parentId) && activePath.has(descriptor.childId);
-          const marker = active ? `${uid}-arrow-active` : `${uid}-arrow`;
           return (
             <g
               key={descriptor.id}
@@ -180,9 +163,15 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
               <path
                 d={edge.path}
                 className={edgeClass(descriptor, edge)}
-                markerEnd={`url(#${marker})`}
                 vectorEffect="non-scaling-stroke"
                 fill="none"
+              />
+              <path
+                d={edge.arrow.path}
+                className={arrowClass(descriptor, edge)}
+                data-arrow="true"
+                data-arrow-direction={edge.arrow.direction}
+                fillRule="nonzero"
               />
               {onEdgeClick === undefined ? null : (
                 <path

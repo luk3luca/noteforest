@@ -126,7 +126,12 @@ export type MenuCommand =
   | 'add-block'
   | 'flush'
   | 'undo'
-  | 'redo';
+  | 'redo'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'zoom-reset'
+  | 'fit-width'
+  | 'focus-branch';
 
 export type ConfirmChoice = 'save' | 'discard' | 'cancel';
 

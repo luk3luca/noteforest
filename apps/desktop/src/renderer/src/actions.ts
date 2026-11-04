@@ -18,6 +18,7 @@ import {
 import {
   chapterIdOf,
   directChildIds,
+  flattenBlocks,
   incomingBranch,
   parentIdOf,
 } from './lib/tree';
@@ -250,6 +251,50 @@ export async function reopenClosedTab(): Promise<void> {
 
 export function toggleSidebar(): void {
   shell().setSidebarCollapsed(!shell().sidebarCollapsed);
+}
+
+/* ------------------------------------------------------------------- view */
+
+export function setActiveZoom(zoom: number): void {
+  const current = shell().activeTab;
+  if (current === null) return;
+  shell().setDocumentZoom(current, zoom);
+}
+
+export function adjustActiveZoom(delta: number): void {
+  const current = shell().activeTab;
+  if (current === null) return;
+  const view = shell().viewByDoc[current];
+  setActiveZoom((view?.zoom ?? 1) + delta);
+}
+
+export function resetActiveZoom(): void {
+  setActiveZoom(1);
+}
+
+/** Ask the active editor to compute a Fit-width zoom from its visible cards. */
+export function fitActiveWidth(): void {
+  if (shell().activeTab === null) return;
+  window.dispatchEvent(new CustomEvent('nf:fit-width'));
+}
+
+/**
+ * Toggle Focus branch around the selected block. This is navigation state
+ * only: the document, the editor buffer, and the saved file are untouched.
+ */
+export function toggleFocusBranch(): void {
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  const path = runtime.packagePath;
+  const current = shell().viewByDoc[path]?.focusBlockId ?? null;
+  if (current !== null) {
+    shell().setDocumentFocus(path, null);
+    return;
+  }
+  const target = runtime.selectedBlockId ?? flattenBlocks(runtime.document)[0] ?? null;
+  if (target === null) return;
+  shell().setDocumentFocus(path, target);
+  runtime.focusBlock(target);
 }
 
 export function revealActive(): void {
@@ -490,6 +535,11 @@ export function paletteCommands(): MenuEntry[] {
     { id: 'save', label: 'Save now', shortcut: '⌘S', onSelect: () => void saveActive() },
     { id: 'close-tab', label: 'Close tab', shortcut: '⌘W', onSelect: () => void closeActiveTab() },
     { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘\\', onSelect: toggleSidebar },
+    { id: 'zoom-in', label: 'Zoom in', shortcut: '⌘+', onSelect: () => adjustActiveZoom(0.1) },
+    { id: 'zoom-out', label: 'Zoom out', shortcut: '⌘−', onSelect: () => adjustActiveZoom(-0.1) },
+    { id: 'zoom-reset', label: 'Actual size', shortcut: '⌘0', onSelect: resetActiveZoom },
+    { id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: fitActiveWidth },
+    { id: 'focus-branch', label: 'Focus branch', shortcut: '⇧⌘F', onSelect: toggleFocusBranch },
     {
       id: 'rename-document',
       label: 'Rename document…',
@@ -602,6 +652,21 @@ export function runMenuCommand(command: MenuCommand): void {
       break;
     case 'redo':
       redoActive();
+      break;
+    case 'zoom-in':
+      adjustActiveZoom(0.1);
+      break;
+    case 'zoom-out':
+      adjustActiveZoom(-0.1);
+      break;
+    case 'zoom-reset':
+      resetActiveZoom();
+      break;
+    case 'fit-width':
+      fitActiveWidth();
+      break;
+    case 'focus-branch':
+      toggleFocusBranch();
       break;
     case 'flush':
       for (const runtime of allRuntimes()) void runtime.flush();

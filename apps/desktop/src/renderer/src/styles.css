@@ -43,7 +43,7 @@
   --radius-control: 3px;
   --radius-block: 4px;
   --radius-overlay: 6px;
-  --nf-column-gap: 16px;
+  --nf-child-gap: 16px;
   --motion: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: dark;
 }
@@ -1204,13 +1204,13 @@ button:disabled {
   opacity: 1;
 }
 
-/* Collapse lives on the branch port, not in an in-flow footer: a one-line
-   block with children stays one line tall. */
+/* Collapse lives at the top-right of the card, not in an in-flow footer: a
+   one-line block with children stays one line tall. The add-child `+` owns the
+   right-edge center (the branch port), so the two never compete. */
 .nf-branch-port {
   position: absolute;
   right: -8px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: -8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1221,7 +1221,7 @@ button:disabled {
   color: var(--text-tertiary);
   opacity: 0;
   transition: opacity 120ms var(--motion), background 120ms var(--motion);
-  z-index: 3;
+  z-index: 4;
 }
 
 .nf-block-body:hover .nf-branch-port,
@@ -1318,8 +1318,8 @@ body.nf-dragging-block .nf-gutter-handle {
   cursor: grabbing;
 }
 
-/* Right edge adds a child; bottom edge adds a sibling. Both are overlays so
-   hovering never changes card geometry. */
+/* Right edge center adds a child (the branch port); bottom edge adds a
+   sibling. Both are overlays so hovering never changes card geometry. */
 .nf-add-edge {
   position: absolute;
   display: inline-flex;
@@ -1337,8 +1337,11 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-add-child {
-  right: -9px;
-  top: -9px;
+  right: -8px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
 }
 
 .nf-add-sibling {
@@ -1358,14 +1361,13 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--text);
 }
 
-/* The child group is a flow sibling of the card. Its margin lands the group's
-   left edge exactly on the next depth column, so every block at one depth
-   shares one x without absolute positioning. */
+/* The child group is a flow sibling of its own parent card. Parent-relative
+   placement (D23): its left edge is the card's right edge plus the gap; there
+   is no global x per depth. Deep branches overflow into the editor's
+   horizontal scroll instead of wrapping. */
 .nf-branch-children {
   flex: 0 0 auto;
-  margin-left: calc(
-    max(0px, var(--nf-card-col, 0px) - var(--nf-card-w, 0px)) + var(--nf-column-gap, 16px)
-  );
+  margin-left: var(--nf-child-gap, 16px);
 }
 
 .nf-branch-children-inner {
@@ -1422,12 +1424,28 @@ body.nf-dragging-block .nf-gutter-handle {
   stroke-dasharray: 3 3;
 }
 
-.nf-arrow-head {
+/* The arrowhead is an explicit fixed-size polygon, not a marker: a short final
+   segment can never scale or squash it. */
+.nf-edge-arrow {
   fill: var(--edge);
+  stroke: none;
+  pointer-events: none;
 }
 
-.nf-arrow-head-active {
+.nf-edge-arrow.nf-edge-active {
   fill: var(--edge-active);
+  stroke: none;
+}
+
+.nf-edge-arrow.nf-edge-muted {
+  fill: var(--edge-muted);
+  stroke: none;
+  opacity: 0.35;
+}
+
+.nf-edge-arrow.nf-edge-defect {
+  fill: var(--warning);
+  stroke: none;
 }
 
 .nf-edge-hit {
@@ -1532,6 +1550,51 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-status-spacer {
   flex: 1;
+}
+
+/* Compact navigation controls: zoom percentage, Fit width, Focus branch. */
+.nf-status-view {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 18px;
+}
+
+.nf-status-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 20px;
+  padding: 0 5px;
+  border-radius: var(--radius-control);
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-status-button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nf-status-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.nf-status-button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.nf-status-glyph {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.nf-status-zoom {
+  min-width: 36px;
 }
 
 .nf-status-dot {

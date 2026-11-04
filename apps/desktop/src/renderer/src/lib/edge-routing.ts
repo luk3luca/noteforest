@@ -1,19 +1,20 @@
 /**
- * Pure orthogonal router for primary branch edges.
+ * Pure router for primary branch edges (M2e, V4).
  *
  * Invariants, all covered by unit tests:
  * - the path always starts at the parent (or its shared trunk) and ends at the
  *   child; the arrowhead is only at the child;
  * - a right-hand edge never moves left (no backwards U-turn);
- * - one child uses a simple elbow;
- * - two or more right-placed children share one vertical trunk;
- * - the first child's branch is a continuous path from the parent's right edge
- *   to the child's left edge, and the trunk starts at that branch's T-junction
- *   without a rounded corner, so there is no gap;
- * - wrapped children share one bottom trunk at `parent.left + wrapIndent`, a
- *   horizontal bus 12 px above the first child row, and a short vertical arrow
- *   into each child top (reserved for the M4 page renderer; the editor uses
- *   depth columns and does not wrap).
+ * - one child uses a simple elbow from the parent port through a branch lane;
+ * - two or more right-placed children share one vertical trunk; the first
+ *   (topmost) child owns a continuous path from the parent port and the trunk
+ *   starts exactly at that child's T-junction, without a gap;
+ * - the arrowhead is a fixed-size polygon independent of the path length, and
+ *   the final horizontal/vertical segment is at least `edgeStemMin` long;
+ * - wrapped children (M4 reference) share one bottom trunk at
+ *   `parent.left + wrapIndent`, a horizontal bus above the first child row, and
+ *   a short down arrow into each child top. The editor uses parent-relative
+ *   placement and does not wrap in M2e.
  */
 
 import {
@@ -32,12 +33,25 @@ export interface Point {
   y: number;
 }
 
+export type EdgeDirection = 'right' | 'down';
+
 export interface RouteOptions {
+  /** Gap between the arrow tip and the card edge. */
   gap?: number;
   radius?: number;
   indent?: number;
   busOffset?: number;
-  trunkOffset?: number;
+  laneMinOffset?: number;
+  laneMaxOffset?: number;
+  stemMin?: number;
+}
+
+export interface RoutedArrow {
+  direction: EdgeDirection;
+  tip: Point;
+  /** Exactly three points: tip, base corner, base corner. */
+  points: [Point, Point, Point];
+  path: string;
 }
 
 export interface RoutedEdge {
@@ -46,6 +60,7 @@ export interface RoutedEdge {
   path: string;
   start: Point;
   end: Point;
+  arrow: RoutedArrow;
   defect: boolean;
 }
 
@@ -58,11 +73,6 @@ export interface RoutedTrunk {
   path: string;
   start: Point;
   end: Point;
-}
-
-interface Polyline {
-  points: Point[];
-  defect: boolean;
 }
 
 function sameY(left: Point, right: Point): boolean {
@@ -110,6 +120,10 @@ function pointTowards(from: Point, towards: Point, distance: number): Point {
   };
 }
 
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 /** SVG path with rounded right-angle corners. */
 export function roundedPath(points: Point[], radius: number): string {
   const simplified = simplify(points);
@@ -138,10 +152,6 @@ export function roundedPath(points: Point[], radius: number): string {
   return path;
 }
 
-function round(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 function edgePath(points: Point[], radius: number): string {
   return roundedPath(simplify(points), radius);
 }
@@ -149,8 +159,7 @@ function edgePath(points: Point[], radius: number): string {
 /**
  * Path used for the first child of a shared trunk: the parent corner may be
  * rounded, but the junction with the trunk is sharp. A rounded corner there
- * would leave a visible wedge between the curve and the trunk, which is the M2c
- * gap defect.
+ * would leave a visible wedge between the curve and the trunk.
  */
 export function branchConnectorPath(
   parentPort: Point,
@@ -178,6 +187,41 @@ export function branchConnectorPath(
   ].join(' ');
 }
 
+/** Fixed-size arrowhead polygon at `tip`, pointing right or down. */
+export function arrowPoints(
+  tip: Point,
+  direction: EdgeDirection = 'right',
+): [Point, Point, Point] {
+  const length = GEOMETRY.edgeArrowLength;
+  const half = GEOMETRY.edgeArrowHalfWidth;
+  if (direction === 'down') {
+    return [
+      tip,
+      { x: tip.x - half, y: tip.y - length },
+      { x: tip.x + half, y: tip.y - length },
+    ];
+  }
+  return [
+    tip,
+    { x: tip.x - length, y: tip.y - half },
+    { x: tip.x - length, y: tip.y + half },
+  ];
+}
+
+export function arrowPath(tip: Point, direction: EdgeDirection = 'right'): string {
+  const [a, b, c] = arrowPoints(tip, direction);
+  return `M ${round(a.x)} ${round(a.y)} L ${round(b.x)} ${round(b.y)} L ${round(c.x)} ${round(c.y)} Z`;
+}
+
+function makeArrow(tip: Point, direction: EdgeDirection): RoutedArrow {
+  return {
+    direction,
+    tip,
+    points: arrowPoints(tip, direction),
+    path: arrowPath(tip, direction),
+  };
+}
+
 export interface GroupChild {
   id: string;
   rect: Rect;
@@ -197,24 +241,24 @@ export interface RoutedGroup {
 }
 
 /**
- * Vertical trunk x. It hugs the parent when the gap is wide enough, and moves
- * towards the middle when the depth-column gap is tight (16 px by default), so
- * both the parent stub and every child stub stay visible.
+ * Branch lane x for a right-hand group. It stays as close to the parent as
+ * needed so that each edge keeps a 12 px final stem before the arrow tip. With
+ * the editor's 16 px gap the lane lands 2 px outside the card; with a wider
+ * gap it moves right, up to 14 px.
  */
-function rightTrunkX(
+export function rightLaneX(
   parent: Rect,
   children: readonly GroupChild[],
-  options: RouteOptions,
+  options: RouteOptions = {},
 ): number {
-  const parentRight = rectRight(parent);
   const gap = options.gap ?? GEOMETRY.edgeGap;
-  const offset = options.trunkOffset ?? 14;
-  const firstChildLeft = Math.min(...children.map((child) => child.rect.x));
-  const endX = firstChildLeft - gap;
-  const minimum = parentRight + 4;
-  const maximum = endX - GEOMETRY.edgeMinGap;
-  if (maximum < minimum) return Math.max(parentRight + 1, maximum);
-  return clamp(parentRight + offset, minimum, maximum);
+  const stemMin = options.stemMin ?? GEOMETRY.edgeStemMin;
+  const parentRight = rectRight(parent);
+  const childLeft = Math.min(...children.map((child) => child.rect.x));
+  const tipX = childLeft - gap;
+  const laneMin = parentRight + (options.laneMinOffset ?? GEOMETRY.edgeLaneMin);
+  const laneMax = parentRight + (options.laneMaxOffset ?? GEOMETRY.edgeLaneMax);
+  return clamp(tipX - stemMin, laneMin, Math.max(laneMin, laneMax));
 }
 
 function routeSingleRight(
@@ -224,23 +268,21 @@ function routeSingleRight(
 ): RoutedEdge {
   const gap = options.gap ?? GEOMETRY.edgeGap;
   const radius = options.radius ?? GEOMETRY.edgeRadius;
+  const stemMin = options.stemMin ?? GEOMETRY.edgeStemMin;
   const childCenter = rectCenter(child.rect);
   const start: Point = { x: rectRight(parent), y: rectCenter(parent).y };
   const end: Point = { x: child.rect.x - gap, y: childCenter.y };
-  const trunkX = rightTrunkX(parent, [child], options);
-  const defect = end.x - trunkX < GEOMETRY.edgeMinGap;
-  const points = [
-    start,
-    { x: trunkX, y: start.y },
-    { x: trunkX, y: end.y },
-    end,
-  ];
+  const laneX = rightLaneX(parent, [child], options);
+  const defect = end.x - laneX < stemMin - 0.5;
   return {
     id: child.id,
     placement: 'right',
-    path: edgePath(points, radius),
+    // The final bend into the child stays sharp so the full 12 px stem is
+    // horizontal; only the parent-side corner is rounded.
+    path: branchConnectorPath(start, laneX, end.y, end, radius),
     start,
     end,
+    arrow: makeArrow(end, 'right'),
     defect,
   };
 }
@@ -260,59 +302,57 @@ function routeRightGroup(
 
   const gap = options.gap ?? GEOMETRY.edgeGap;
   const radius = options.radius ?? GEOMETRY.edgeRadius;
-  const parentRight = rectRight(parent);
+  const stemMin = options.stemMin ?? GEOMETRY.edgeStemMin;
   const parentCenter = rectCenter(parent);
-  const trunkX = rightTrunkX(parent, children, options);
-  const centers = children.map((child) => rectCenter(child.rect).y);
-  const top = Math.min(...centers);
-  const bottom = Math.max(...centers);
-  const first = children[0] as GroupChild;
+  // Trunk topology follows the measured vertical order, not branch order: a
+  // branch reordered by drag must still connect to its own child.
+  const ordered = [...children].sort(
+    (left, right) => rectCenter(left.rect).y - rectCenter(right.rect).y,
+  );
+  const laneX = rightLaneX(parent, ordered, options);
+  const first = ordered[0] as GroupChild;
+  const last = ordered[ordered.length - 1] as GroupChild;
   const firstY = rectCenter(first.rect).y;
-  const firstEndX = first.rect.x - gap;
+  const lastY = rectCenter(last.rect).y;
+  const firstEnd: Point = { x: first.rect.x - gap, y: firstY };
+  const firstStart: Point = { x: rectRight(parent), y: parentCenter.y };
 
   const edges: RoutedEdge[] = [];
-
-  // The first child owns the continuous parent → trunk → child path.
-  const firstStart: Point = { x: parentRight, y: parentCenter.y };
-  const firstEnd: Point = { x: firstEndX, y: firstY };
-  const firstDefect = firstEndX - trunkX < GEOMETRY.edgeMinGap;
   edges.push({
     id: first.id,
     placement: 'right',
-    path: branchConnectorPath(firstStart, trunkX, firstY, firstEnd, radius),
+    path: branchConnectorPath(firstStart, laneX, firstY, firstEnd, radius),
     start: firstStart,
     end: firstEnd,
-    defect: firstDefect,
+    arrow: makeArrow(firstEnd, 'right'),
+    defect: firstEnd.x - laneX < stemMin - 0.5,
   });
 
-  for (const child of children.slice(1)) {
+  for (const child of ordered.slice(1)) {
     const end: Point = { x: child.rect.x - gap, y: rectCenter(child.rect).y };
-    const start: Point = { x: trunkX, y: end.y };
-    const childDefect = end.x - start.x < GEOMETRY.edgeMinGap;
+    const start: Point = { x: laneX, y: end.y };
     edges.push({
       id: child.id,
       placement: 'right',
       path: edgePath([start, end], radius),
       start,
       end,
-      defect: childDefect,
+      arrow: makeArrow(end, 'right'),
+      defect: end.x - start.x < stemMin - 0.5,
     });
   }
 
-  const trunkStart: Point = { x: trunkX, y: top };
-  const trunkEnd: Point = { x: trunkX, y: bottom };
   const trunks: RoutedTrunk[] = [];
-  if (bottom - top > 0.5) {
+  if (lastY - firstY > 0.5) {
     trunks.push({
       id: `${parentId}:right`,
       parentId,
       placement: 'right',
       kind: 'trunk',
-      // A straight line: rounded ends would pull the stroke away from the
-      // first/last child's T-junction and re-introduce the gap.
-      path: edgePath([trunkStart, trunkEnd], 0),
-      start: trunkStart,
-      end: trunkEnd,
+      // Straight: rounded ends would pull the stroke away from the T-junction.
+      path: edgePath([{ x: laneX, y: firstY }, { x: laneX, y: lastY }], 0),
+      start: { x: laneX, y: firstY },
+      end: { x: laneX, y: lastY },
     });
   }
   return { edges, trunks };
@@ -328,6 +368,7 @@ function routeBelowGroup(
   const radius = options.radius ?? GEOMETRY.edgeRadius;
   const indent = options.indent ?? GEOMETRY.wrapIndent;
   const busOffset = options.busOffset ?? GEOMETRY.edgeBusOffset;
+  const stemMin = options.stemMin ?? GEOMETRY.edgeStemMin;
   const trunkX = clamp(parent.x + indent, parent.x + 4, rectRight(parent) - 4);
   const busY = Math.min(...children.map((child) => child.rect.y)) - busOffset;
   const centers = children.map((child) => child.rect.x + child.rect.width / 2);
@@ -335,24 +376,22 @@ function routeBelowGroup(
   const busEnd = Math.max(trunkX, ...centers);
   const trunkStart: Point = { x: trunkX, y: rectBottom(parent) };
   const trunkEnd: Point = { x: trunkX, y: busY };
-  const trunkDefect = busY - rectBottom(parent) < 4;
+  const trunkDefect = busY - rectBottom(parent) < GEOMETRY.edgeMinGap;
   const edges: RoutedEdge[] = [];
-  let defect = trunkDefect;
   for (const child of children) {
     const end: Point = {
       x: child.rect.x + child.rect.width / 2,
       y: child.rect.y - gap,
     };
     const start: Point = { x: end.x, y: busY };
-    const childDefect = end.y - start.y < 4;
-    defect = defect || childDefect;
     edges.push({
       id: child.id,
       placement: 'below',
       path: edgePath([start, end], radius),
       start,
       end,
-      defect,
+      arrow: makeArrow(end, 'down'),
+      defect: trunkDefect || end.y - start.y < stemMin - 0.5,
     });
   }
   return {
@@ -383,7 +422,8 @@ function routeBelowGroup(
 /**
  * Route every visible child of one parent. Two or more right-placed children
  * share one trunk; wrapped children share a bottom trunk and bus. Separate
- * parents get separate trunks, so parallel parents keep parallel gutters.
+ * parents get separate lanes and trunks, so parallel parents keep parallel
+ * local gutters.
  */
 export function routeChildGroup(input: RouteGroupInput): RoutedGroup {
   const options = input.options ?? {};
@@ -422,12 +462,14 @@ export function routeBranchEdge(input: {
   });
   const edge = group.edges[0];
   if (edge !== undefined) return edge;
+  const tip = { x: 0, y: 0 };
   return {
     id: input.id,
     placement: 'below',
     path: '',
-    start: { x: 0, y: 0 },
-    end: { x: 0, y: 0 },
+    start: tip,
+    end: tip,
+    arrow: makeArrow(tip, 'down'),
     defect: true,
   };
 }

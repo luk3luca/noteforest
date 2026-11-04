@@ -38,13 +38,17 @@ describe('geometry', () => {
     expect(ports[2]).toBeLessThan(220);
   });
 
-  it('keeps the M2d depth-column tokens stable', () => {
+  it('keeps the parent-relative layout tokens stable', () => {
     expect(GEOMETRY.topLevelMaxWidth).toBe(480);
     expect(GEOMETRY.topLevelMinWidth).toBe(160);
     expect(GEOMETRY.childMinWidth).toBe(144);
     expect(GEOMETRY.childMaxWidth).toBe(420);
-    expect(GEOMETRY.columnGap).toBe(16);
+    expect(GEOMETRY.childGap).toBe(16);
     expect(GEOMETRY.canvasMaxWidth).toBe(1600);
     expect(GEOMETRY.wrapIndent).toBe(18);
+    expect(GEOMETRY.edgeStemMin).toBe(12);
+    expect(GEOMETRY.edgeArrowLength).toBe(6);
+    expect(GEOMETRY.edgeArrowHalfWidth).toBe(3);
+    expect(GEOMETRY.edgeGap).toBe(2);
   });
 });

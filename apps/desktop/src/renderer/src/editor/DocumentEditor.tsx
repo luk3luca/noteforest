@@ -1,10 +1,19 @@
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { buildEditorDocument } from '../lib/adapter';
-import { ancestorPath, chapterIdOf, edgePairs, parentIdOf, visibleBlockIds } from '../lib/tree';
+import {
+  ancestorPath,
+  chapterIdOf,
+  edgePairs,
+  parentIdOf,
+  subtreeIds,
+  visibleBlockIds,
+} from '../lib/tree';
+import { contentBounds, fitZoom } from '../lib/placement';
+import { GEOMETRY } from '../lib/geometry';
 import { createEditorExtensions } from './extensions';
 import { BranchKeymap } from './keymap';
 import { EdgeLayer } from './edges/EdgeLayer';
@@ -209,6 +218,9 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
   }, [editor, runtime, active]);
 
   const selectedId = runtime.selectedBlockId;
+  const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
+  const zoom = view?.zoom ?? 1;
+  const focusBlockId = view?.focusBlockId ?? null;
   const activePath = useMemo(
     () =>
       new Set(selectedId === null ? [] : ancestorPath(runtime.document, selectedId)),
@@ -218,10 +230,88 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     () => edgePairs(runtime.document, runtime.collapsed),
     [runtime.document, runtime.collapsed, runtime.version],
   );
-  const rects = useBlockRects(contentRef, runtime.version, editor !== null);
+  const rects = useBlockRects(contentRef, runtime.version, editor !== null, zoom);
+
+  /** Ancestor chain + descendants of the focus anchor; null = whole document. */
+  const focusSet = useMemo(() => {
+    if (focusBlockId === null || runtime.document.blocks[focusBlockId] === undefined) return null;
+    const ids = new Set<string>();
+    for (const id of ancestorPath(runtime.document, focusBlockId)) ids.add(id);
+    for (const id of subtreeIds(runtime.document, focusBlockId)) ids.add(id);
+    return ids;
+  }, [focusBlockId, runtime.document, runtime.version]);
+
+  // Focus branch is a DOM view filter, never a document edit. A hidden block
+  // cannot have a visible descendant in the focus set (the set is the ancestor
+  // chain plus an entire subtree), so hiding its row is safe.
+  useEffect(() => {
+    const root = contentRef.current;
+    if (root === null) return;
+    for (const card of root.querySelectorAll<HTMLElement>('[data-block-card]')) {
+      const id = card.dataset['blockCard'];
+      const node = card.closest<HTMLElement>('.nf-block-node');
+      if (node === null) continue;
+      node.style.display = focusSet === null || (id !== undefined && focusSet.has(id)) ? '' : 'none';
+    }
+    for (const chapter of root.querySelectorAll<HTMLElement>('.nf-chapter')) {
+      const cards = chapter.querySelectorAll<HTMLElement>('[data-block-card]');
+      const visible =
+        focusSet === null ||
+        [...cards].some((card) => {
+          const id = card.dataset['blockCard'];
+          return id !== undefined && focusSet.has(id);
+        });
+      chapter.style.display = visible ? '' : 'none';
+    }
+  }, [focusSet, runtime.version, editor]);
+
+  useEffect(() => {
+    if (focusBlockId !== null && runtime.document.blocks[focusBlockId] === undefined) {
+      useShell.getState().setDocumentFocus(runtime.packagePath, null);
+    }
+  }, [focusBlockId, runtime.document, runtime.packagePath]);
+
+  const fitWidth = useCallback(() => {
+    const root = contentRef.current;
+    const scroller = scrollRef.current;
+    if (root === null || scroller === null) return;
+    const rootRect = root.getBoundingClientRect();
+    const factor = zoom > 0 ? zoom : 1;
+    const cards = [...root.querySelectorAll<HTMLElement>('[data-block-card]')].map((card) => {
+      const rect = card.getBoundingClientRect();
+      return {
+        x: (rect.left - rootRect.left) / factor,
+        y: (rect.top - rootRect.top) / factor,
+        width: rect.width / factor,
+        height: rect.height / factor,
+      };
+    });
+    const bounds = contentBounds(cards);
+    if (bounds === null) return;
+    // Keep the branch port and the collapse control inside the fitted width.
+    const next = fitZoom(scroller.clientWidth, bounds.width + 24, {
+      paddingX: GEOMETRY.editorPaddingX,
+    });
+    useShell.getState().setDocumentZoom(runtime.packagePath, next);
+    requestAnimationFrame(() => {
+      if (scrollRef.current !== null) scrollRef.current.scrollLeft = 0;
+    });
+  }, [runtime.packagePath, zoom]);
+
+  useEffect(() => {
+    if (!active) return undefined;
+    const handler = (): void => fitWidth();
+    window.addEventListener('nf:fit-width', handler);
+    return () => window.removeEventListener('nf:fit-width', handler);
+  }, [active, fitWidth]);
 
   return (
-    <div className="nf-editor" style={active ? undefined : { display: 'none' }} data-active={active}>
+    <div
+      className="nf-editor"
+      style={active ? undefined : { display: 'none' }}
+      data-active={active}
+      data-focus-active={focusSet !== null}
+    >
       {runtime.status !== 'editable' ? (
         <div className="nf-readonly-banner" role="status">
           Read-only document{runtime.readOnlyReason === undefined ? '' : ` · ${runtime.readOnlyReason}`}. Your file
@@ -244,7 +334,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
           recordScroll(runtime.packagePath, event.currentTarget.scrollTop);
         }}
       >
-        <div className="nf-canvas">
+        <div className="nf-canvas" style={{ zoom }} data-zoom={Math.round(zoom * 100)}>
           <div className="nf-canvas-content" ref={contentRef}>
             <EditorContent editor={editor} />
             <EdgeLayer

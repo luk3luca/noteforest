@@ -1,12 +1,26 @@
 import { useMemo } from 'react';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
-import { currentWordCount } from '../actions';
+import {
+  adjustActiveZoom,
+  currentWordCount,
+  fitActiveWidth,
+  resetActiveZoom,
+  toggleFocusBranch,
+} from '../actions';
 
 export function StatusBar(): JSX.Element {
   const activeTab = useShell((state) => state.activeTab);
   const { runtime } = useRuntime(activeTab);
   const counts = useMemo(() => currentWordCount(), [runtime?.seq]);
+  const zoom = useShell((state) => {
+    const path = state.activeTab;
+    return path === null ? 1 : state.viewByDoc[path]?.zoom ?? 1;
+  });
+  const focusActive = useShell((state) => {
+    const path = state.activeTab;
+    return path !== null && (state.viewByDoc[path]?.focusBlockId ?? null) !== null;
+  });
 
   if (runtime === null) {
     return (
@@ -46,6 +60,52 @@ export function StatusBar(): JSX.Element {
         {counts.blocks} {counts.blocks === 1 ? 'block' : 'blocks'}
       </span>
       <span className="nf-status-spacer" />
+      <div className="nf-status-view" role="group" aria-label="View controls">
+        <button
+          type="button"
+          className="nf-status-button nf-status-glyph"
+          aria-label="Zoom out"
+          title="Zoom out (⌘−)"
+          onClick={() => adjustActiveZoom(-0.1)}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          className="nf-status-button nf-status-zoom"
+          aria-label={`Current zoom ${Math.round(zoom * 100)} percent. Reset zoom`}
+          title="Reset zoom (⌘0)"
+          onClick={resetActiveZoom}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          className="nf-status-button nf-status-glyph"
+          aria-label="Zoom in"
+          title="Zoom in (⌘+)"
+          onClick={() => adjustActiveZoom(0.1)}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className="nf-status-button"
+          title="Fit width (⇧⌘0)"
+          onClick={fitActiveWidth}
+        >
+          Fit
+        </button>
+        <button
+          type="button"
+          className="nf-status-button nf-status-focus"
+          aria-pressed={focusActive}
+          title="Focus branch (⇧⌘F)"
+          onClick={toggleFocusBranch}
+        >
+          Focus
+        </button>
+      </div>
       <button
         type="button"
         className="nf-status-item nf-status-path"

@@ -39,6 +39,19 @@ export interface ContextMenuState {
   items: MenuEntry[];
 }
 
+/** Navigation-only view state. Never written to the document. */
+export interface DocumentViewState {
+  /** 1 = 100%. */
+  zoom: number;
+  /** Ancestor-chain/descendant focus anchor; null means show the document. */
+  focusBlockId: string | null;
+}
+
+export const DEFAULT_DOCUMENT_VIEW: DocumentViewState = Object.freeze({
+  zoom: 1,
+  focusBlockId: null,
+});
+
 interface ShellState {
   ready: boolean;
   library: LibraryView | null;
@@ -54,6 +67,7 @@ interface ShellState {
   contextMenu: ContextMenuState | null;
   collapsedTopics: Record<string, string[]>;
   selectedBlockByDoc: Record<string, string | null>;
+  viewByDoc: Record<string, DocumentViewState>;
   setReady: (ready: boolean) => void;
   setLibrary: (library: LibraryView) => void;
   setTabs: (tabs: TabInfo[], activeTab: string | null) => void;
@@ -75,6 +89,8 @@ interface ShellState {
   closeContextMenu: () => void;
   setCollapsedTopics: (packagePath: string, ids: string[]) => void;
   setSelectedBlock: (packagePath: string, blockId: string | null) => void;
+  setDocumentZoom: (packagePath: string, zoom: number) => void;
+  setDocumentFocus: (packagePath: string, blockId: string | null) => void;
 }
 
 const MAX_CLOSED = 20;
@@ -94,6 +110,7 @@ export const useShell = create<ShellState>((set, get) => ({
   contextMenu: null,
   collapsedTopics: {},
   selectedBlockByDoc: {},
+  viewByDoc: {},
 
   setReady: (ready) => set({ ready }),
   setLibrary: (library) => set({ library }),
@@ -193,4 +210,23 @@ export const useShell = create<ShellState>((set, get) => ({
     set((state) => ({
       selectedBlockByDoc: { ...state.selectedBlockByDoc, [packagePath]: blockId },
     })),
+
+  setDocumentZoom: (packagePath, zoom) =>
+    set((state) => {
+      const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
+      const next = Math.round(Math.min(2, Math.max(0.5, zoom)) * 100) / 100;
+      if (current.zoom === next) return state;
+      return {
+        viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, zoom: next } },
+      };
+    }),
+
+  setDocumentFocus: (packagePath, blockId) =>
+    set((state) => {
+      const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
+      if (current.focusBlockId === blockId) return state;
+      return {
+        viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, focusBlockId: blockId } },
+      };
+    }),
 }));
