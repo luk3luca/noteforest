@@ -54,8 +54,11 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
         onDoubleClick={() => setActive(tab.packagePath)}
         {...listeners}
       >
-        {tab.missing === true ? (
-          <span className="nf-tab-missing" aria-hidden="true">
+        {tab.missing === true || tab.recovery !== undefined ? (
+          <span
+            className="nf-tab-missing"
+            aria-label={tab.recovery === undefined ? 'Missing document' : 'Recovery required'}
+          >
             !
           </span>
         ) : null}

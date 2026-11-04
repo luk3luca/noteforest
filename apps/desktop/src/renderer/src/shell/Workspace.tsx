@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 import { FilePlus2, Search } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { getRuntime, useRegistry } from '../state/registry';
-import { closeTab, createNewDocument, openPath } from '../actions';
+import { createNewDocument } from '../actions';
 import { DocumentEditor } from '../editor/DocumentEditor';
 import { Sidebar } from './Sidebar';
 import { TabBar } from './TabBar';
+import { RecoverySurface } from './RecoverySurface';
 
 function EmptyState(): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);
@@ -26,26 +27,6 @@ function EmptyState(): JSX.Element {
           </button>
         </div>
         <p className="nf-empty-hint">⌘N new · ⌘K search · ⌘\ sidebar</p>
-      </div>
-    </div>
-  );
-}
-
-function MissingDocument({ title, packagePath }: { title: string; packagePath: string }): JSX.Element {
-  return (
-    <div className="nf-empty-state">
-      <div className="nf-empty-inner">
-        <h1 className="nf-empty-title nf-empty-title-small">{title}</h1>
-        <p className="nf-empty-copy">This document could not be opened. It may have moved or been deleted.</p>
-        <code className="nf-empty-path">{packagePath}</code>
-        <div className="nf-empty-actions">
-          <button type="button" className="nf-button nf-button-primary" onClick={() => void openPath(packagePath)}>
-            Retry
-          </button>
-          <button type="button" className="nf-button" onClick={() => void closeTab(packagePath)}>
-            Remove tab
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -80,12 +61,27 @@ export function Workspace(): JSX.Element {
         {tabs.map((tab) => {
           const active = tab.packagePath === activeTab;
           const runtime = getRuntime(tab.packagePath);
-          const missing = tab.missing === true || runtime === null;
-          if (missing) {
+          const recovery =
+            tab.recovery ??
+            (tab.missing === true || runtime === null
+              ? {
+                  status: 'missing' as const,
+                  reason: 'This document could not be opened. It may have moved or been deleted.',
+                  details: [],
+                  warnings: [],
+                }
+              : null);
+          if (recovery !== null) {
             return active ? (
-              <MissingDocument key={tab.packagePath} title={tab.title} packagePath={tab.packagePath} />
+              <RecoverySurface
+                key={tab.packagePath}
+                packagePath={tab.packagePath}
+                title={tab.title}
+                recovery={recovery}
+              />
             ) : null;
           }
+          if (runtime === null) return null;
           return (
             <DocumentEditor key={tab.packagePath} runtime={runtime} active={active} />
           );

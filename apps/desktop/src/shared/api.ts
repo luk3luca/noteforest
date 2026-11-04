@@ -10,11 +10,24 @@ import type { CreatedIds, Document, DocumentCommand } from '@noteforest/core';
 
 export type OpenStatus = 'editable' | 'read-only';
 
+/**
+ * Library-visible state of one package. `ok` is a normal document;
+ * `unreadable` covers corrupt JSON and validation failures; `newer-schema`
+ * means a newer app version wrote it; `missing` means the package folder has
+ * no `document.json`. Damaged packages stay in the library with a reason.
+ */
+export type LibraryDocumentStatus = 'ok' | 'unreadable' | 'missing' | 'newer-schema';
+
+export type RecoveryStatus = Exclude<LibraryDocumentStatus, 'ok'>;
+
 export interface DocumentSummary {
   packagePath: string;
-  documentId: string;
   title: string;
-  revision: number;
+  status: LibraryDocumentStatus;
+  /** Human reason for a non-ok status; absent for ok rows. */
+  reason?: string;
+  documentId: string | null;
+  revision: number | null;
   updatedAt: string;
   blockCount: number;
   chapterCount: number;
@@ -34,6 +47,23 @@ export interface OpenDocumentSnapshot {
   status: OpenStatus;
   readOnlyReason?: string;
   errors: string[];
+  warnings: string[];
+}
+
+/**
+ * Read-only package inspection result. It is returned instead of a document
+ * snapshot for corrupt, missing, and newer-schema packages so the renderer can
+ * open a recovery tab without ever constructing an editable runtime.
+ */
+export interface RecoveryDocumentView {
+  recovery: true;
+  packagePath: string;
+  title: string;
+  status: RecoveryStatus;
+  /** Primary parse/validation/missing reason. */
+  reason: string;
+  /** Validation issues, when the parser produced them. */
+  details: string[];
   warnings: string[];
 }
 
@@ -64,6 +94,8 @@ export interface BootstrapResult {
   library: LibraryView;
   session: SessionState;
   openDocuments: OpenDocumentSnapshot[];
+  /** Session tabs whose package is damaged, missing, or newer than this app. */
+  recoveries: RecoveryDocumentView[];
   appVersion: string;
   platform: string;
 }
@@ -87,7 +119,7 @@ export interface OpenDocumentFailure {
   packagePath: string;
 }
 
-export type OpenDocumentResult = OpenDocumentSnapshot | OpenDocumentFailure;
+export type OpenDocumentResult = OpenDocumentSnapshot | RecoveryDocumentView | OpenDocumentFailure;
 
 export interface ApplyResult {
   ok: boolean;
@@ -295,6 +327,8 @@ export interface NoteForestApi {
   saveCopy(packagePath: string): Promise<SaveCopyResult>;
   listBackups(packagePath: string): Promise<ListBackupsResult>;
   restoreBackup(packagePath: string, sourcePath: string): Promise<RestoreBackupResult>;
+  /** Restore the newest valid backup to a unique new package; never overwrites. */
+  restoreNewestBackup(packagePath: string): Promise<RestoreBackupResult>;
   reloadDocument(packagePath: string): Promise<ReloadDocumentResult>;
   closeDocument(packagePath: string, options: { save: boolean }): Promise<void>;
   revealDocument(packagePath: string): Promise<RevealResult>;

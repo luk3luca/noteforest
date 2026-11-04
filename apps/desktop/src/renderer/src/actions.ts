@@ -2,7 +2,7 @@
 
 import { toast } from 'sonner';
 import type { DocumentCommand } from '@noteforest/core';
-import type { MenuCommand, OpenDocumentResult } from '../../shared/api';
+import type { MenuCommand, OpenDocumentResult, RecoveryDocumentView } from '../../shared/api';
 import type { ApplyOutcome, DocumentRuntime } from './state/runtime';
 import {
   allRuntimes,
@@ -66,6 +66,19 @@ export async function openPath(packagePath: string): Promise<boolean> {
     toast.error(result.message);
     return false;
   }
+  if (isRecoveryResult(result)) {
+    shell().openTab({
+      packagePath: result.packagePath,
+      title: result.title,
+      recovery: {
+        status: result.status,
+        reason: result.reason,
+        details: result.details,
+        warnings: result.warnings,
+      },
+    });
+    return true;
+  }
   const runtime = registerRuntime(result, undefined, undefined);
   shell().openTab({
     packagePath,
@@ -83,6 +96,10 @@ function isOpenFailure(
   result: OpenDocumentResult,
 ): result is { ok: false; message: string; packagePath: string } {
   return 'ok' in result && result.ok === false;
+}
+
+function isRecoveryResult(result: OpenDocumentResult): result is RecoveryDocumentView {
+  return 'recovery' in result && result.recovery === true;
 }
 
 export async function createNewDocument(): Promise<void> {
@@ -521,10 +538,14 @@ export function openLibraryMenu(
   packagePath: string,
   anchor: { x: number; y: number },
 ): void {
+  const entry = shell().library?.documents.find(
+    (document) => document.packagePath === packagePath,
+  );
+  const editable = entry === undefined || entry.status === 'ok';
   shell().openContextMenu(anchor.x, anchor.y, [
     {
       id: 'open',
-      label: 'Open',
+      label: entry !== undefined && entry.status !== 'ok' ? 'Open recovery' : 'Open',
       onSelect: () => void openPath(packagePath),
     },
     {
@@ -532,15 +553,19 @@ export function openLibraryMenu(
       label: 'Reveal in Finder',
       onSelect: () => void revealDocumentPath(packagePath),
     },
-    {
-      id: 'rename',
-      label: 'Rename document…',
-      onSelect: () => {
-        void openPath(packagePath).then((opened) => {
-          if (opened) shell().openDialog({ kind: 'rename-document' });
-        });
-      },
-    },
+    ...(editable
+      ? [
+          {
+            id: 'rename',
+            label: 'Rename document…',
+            onSelect: () => {
+              void openPath(packagePath).then((opened) => {
+                if (opened) shell().openDialog({ kind: 'rename-document' });
+              });
+            },
+          },
+        ]
+      : []),
   ]);
 }
 

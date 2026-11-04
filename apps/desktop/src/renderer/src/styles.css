@@ -575,6 +575,62 @@ button:disabled {
   white-space: nowrap;
 }
 
+.nf-library-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.nf-library-reason {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-library-open[data-doc-status="unreadable"],
+.nf-library-open[data-doc-status="missing"],
+.nf-library-open[data-doc-status="newer-schema"] {
+  align-items: flex-start;
+  height: auto;
+  min-height: 34px;
+  padding-block: 5px;
+}
+
+.nf-library-open[data-doc-status="unreadable"] .nf-library-status,
+.nf-library-open[data-doc-status="missing"] .nf-library-status,
+.nf-library-open[data-doc-status="newer-schema"] .nf-library-status {
+  margin-top: 1px;
+}
+
+.nf-library-warning-icon {
+  flex: 0 0 13px;
+  margin-top: 1px;
+  color: var(--warning);
+}
+
+.nf-library-status {
+  flex: none;
+  margin-left: auto;
+  color: var(--warning);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nf-library-open[data-doc-status="unreadable"] .nf-library-title,
+.nf-library-open[data-doc-status="missing"] .nf-library-title {
+  color: var(--text-secondary);
+}
+
+.nf-library-open[data-doc-status="newer-schema"] .nf-library-status {
+  color: var(--accent);
+}
+
 .nf-open-dot {
   width: 5px;
   height: 5px;
@@ -908,6 +964,205 @@ button:disabled {
   gap: 6px;
   align-items: center;
   padding-top: 1px;
+}
+
+/* Read-only package recovery tab. Never a modal: it must stay inspectable. */
+.nf-recovery {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 36px 40px 56px;
+  background: var(--canvas);
+}
+
+.nf-recovery-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+  max-width: 860px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.nf-recovery-heading {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
+.nf-recovery-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--warning);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.nf-recovery-title {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--ui-font);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.nf-recovery-subtitle {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.nf-recovery-copy {
+  max-width: 660px;
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.nf-recovery-pill {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--warning);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.nf-recovery-meta {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.3fr) minmax(0, 1fr);
+  gap: 12px 24px;
+  max-width: 860px;
+  margin: 20px 0 0;
+}
+
+.nf-recovery-meta div {
+  min-width: 0;
+}
+
+.nf-recovery-meta-wide {
+  grid-column: 1 / -1;
+}
+
+.nf-recovery-meta dt {
+  margin-bottom: 3px;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.nf-recovery-meta dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.nf-recovery-meta code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.nf-recovery-details {
+  max-width: 860px;
+  margin-top: 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-recovery-details summary {
+  cursor: pointer;
+  color: var(--text-tertiary);
+}
+
+.nf-recovery-details ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  line-height: 1.55;
+}
+
+.nf-recovery-details li {
+  overflow-wrap: anywhere;
+}
+
+.nf-recovery-backups {
+  max-width: 860px;
+  margin-top: 26px;
+}
+
+.nf-recovery-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-bottom: 10px;
+}
+
+.nf-recovery-section-head h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.nf-recovery-section-head span {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.nf-recovery-backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.nf-recovery-backup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: var(--radius-control);
+}
+
+.nf-recovery-backup:hover {
+  background: var(--accent-soft);
+}
+
+.nf-recovery-backup-invalid {
+  opacity: 0.62;
+}
+
+.nf-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.nf-recovery-actions .nf-button {
+  gap: 6px;
+}
+
+.nf-recovery-actions .nf-button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .nf-prosemirror {
