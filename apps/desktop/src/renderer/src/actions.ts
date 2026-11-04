@@ -25,6 +25,7 @@ import {
 import { recordScroll } from './state/session';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
+import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
 
 function shell() {
   return useShell.getState();
@@ -324,32 +325,54 @@ export function selectBlock(packagePath: string, blockId: string | null): void {
   shell().setSelectedBlock(packagePath, blockId);
 }
 
+/** Apply one text-history step and record that the user operation was text. */
+function applyTextHistory(
+  runtime: DocumentRuntime,
+  action: HistoryAction,
+): boolean {
+  const editor = runtime.editor;
+  if (editor === null) return false;
+  const applied = action === 'undo' ? editor.commands.undo() : editor.commands.redo();
+  if (applied) runtime.markTextHistory();
+  return applied;
+}
+
+/**
+ * One user-visible undo/redo command. The preferred stack is chosen from the
+ * last operation; an empty preferred stack falls back once to the other stack.
+ * The command never retries after a stack was chosen, so a single keypress can
+ * never perform two undos.
+ */
+function runHistory(runtime: DocumentRuntime, action: HistoryAction): void {
+  const route = chooseHistoryRoute({
+    action,
+    lastOperation: runtime.lastHistoryOperation,
+    textAvailable: action === 'undo' ? runtime.canUndoText : runtime.canRedoText,
+    structuralAvailable:
+      action === 'undo' ? runtime.canUndoStructural : runtime.canRedoStructural,
+    editorFocused: runtime.editor?.isFocused === true,
+  });
+  if (route.kind === 'text') {
+    applyTextHistory(runtime, action);
+    return;
+  }
+  if (route.kind === 'structural') {
+    const outcome =
+      action === 'undo' ? runtime.undoStructural() : runtime.redoStructural();
+    void outcome.then(report);
+  }
+}
+
 export function undoActive(): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
-  if (runtime.lastStructuralAt > runtime.lastTextAt && runtime.canUndoStructural) {
-    void runtime.undoStructural().then(report);
-    return;
-  }
-  if (runtime.editor !== null) {
-    runtime.editor.commands.undo();
-    return;
-  }
-  document.execCommand('undo');
+  runHistory(runtime, 'undo');
 }
 
 export function redoActive(): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
-  if (runtime.lastStructuralAt > runtime.lastTextAt && runtime.canRedoStructural) {
-    void runtime.redoStructural().then(report);
-    return;
-  }
-  if (runtime.editor !== null) {
-    runtime.editor.commands.redo();
-    return;
-  }
-  document.execCommand('redo');
+  runHistory(runtime, 'redo');
 }
 
 /* ------------------------------------------------------------------ menus */
