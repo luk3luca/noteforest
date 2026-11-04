@@ -5,8 +5,9 @@
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).
 
-**Current gate:** M2f phase 5b is under Sentinel re-review; M2 acceptance pending, M3/PDF blocked
-until M2f is accepted. Spec v0.4.4 is the source of truth.
+**Current gate:** M2f phase 5b re-review is complete with **request changes** (open S2 N1/N2 in
+`docs/reviews/m2f-review.md`); M2 acceptance pending, M3/PDF blocked until M2f is accepted. Spec
+v0.4.4 is the source of truth.
 
 ---
 
