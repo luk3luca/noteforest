@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 4a is in progress.** Phases 1, 2a, 2b1, 2b2a, 2b2b, 3a, 3b1, 3b2 are merged. Phase 4a makes corrupt/missing/newer packages visible with status/reason and opens a read-only recovery surface with backup restore as a copy; never overwrites. Recovery tests live in a separate suite included in `verify`, not `verify:fast`. Empty chapters/stale locks are 4b; keyboard is phase 5. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 4b is in progress.** Phase 4a (corrupt/missing/newer recovery) is merged. Phase 4b enforces the empty-chapter invariant (reject moves that would empty a chapter; render legacy empties) and explicit stale-lock consent (read-only banner + Take over; no auto-break). Later: F5/F16 keyboard/focus and cleanup. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

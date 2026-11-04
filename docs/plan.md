@@ -34,7 +34,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
-| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **In progress — phase 3b2 done; phase 4a (corrupt recovery)** |
+| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **In progress — phase 4a done; phase 4b (empty chapters/stale locks)** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -183,10 +183,14 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
 - Branch IDs and original chapter/top-level placement preserved; redo exact.
 - Unit 213/1.62 s; critical e2e 26/55.8 s.
 
-**Phase 4a (current): corrupt/missing/newer package recovery.**
-- Library lists unreadable packages with status/reason; open read-only recovery surface; backup restore as copy; never overwrite.
-- Recovery tests in a separate `tests/recovery` suite included in `verify`, not `verify:fast`, to keep the fast suite <60 s.
-- Empty chapters/stale locks are 4b; keyboard is phase 5.
+**Phase 4a (done): corrupt/missing/newer recovery.**
+- Library status/reason; read-only recovery surface; backup restore as copy; missing session tab Retry/Remove.
+- Unit 221/1.7 s; critical e2e 26/55.7 s; recovery 6/12.7 s wall.
+
+**Phase 4b (current): empty-chapter invariant + stale-lock consent.**
+- Reject moves that would empty a chapter; render legacy empty chapters; fill all empty chapters on load.
+- Stale lock: no auto-break; read-only banner + explicit Take over lock.
+- Recovery suite; critical e2e unchanged.
 
 **Later:** F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup.
 
