@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  arrowPoints,
+  branchConnectorPath,
   pathMovesForward,
   roundedPath,
   routeBranchEdge,
@@ -9,11 +11,23 @@ import {
 import { GEOMETRY, type Rect } from '../src/renderer/src/lib/geometry';
 
 const parent: Rect = { x: 0, y: 0, width: 400, height: 120 };
-const rightChild: Rect = { x: 440, y: 20, width: 240, height: 100 };
-const belowChild: Rect = { x: 18, y: 160, width: 280, height: 80 };
+const rightChild: Rect = { x: 416, y: 10, width: 240, height: 100 };
+const belowChild: Rect = { x: 18, y: 180, width: 280, height: 80 };
 
-function child(id: string, y: number, x = 440, height = 80): { id: string; rect: Rect } {
+function child(id: string, y: number, x = 416, height = 100): { id: string; rect: Rect } {
   return { id, rect: { x, y, width: 240, height } };
+}
+
+function parsePoints(path: string): Point[] {
+  const numbers = path
+    .split(/[^0-9.-]+/)
+    .filter((part) => part.length > 0)
+    .map(Number);
+  const points: Point[] = [];
+  for (let index = 0; index + 1 < numbers.length; index += 2) {
+    points.push({ x: numbers[index] ?? 0, y: numbers[index + 1] ?? 0 });
+  }
+  return points;
 }
 
 function containsPoint(points: readonly Point[], point: Point): boolean {
@@ -22,8 +36,18 @@ function containsPoint(points: readonly Point[], point: Point): boolean {
   );
 }
 
-describe('edge routing', () => {
-  it('routes a single right child as a simple elbow from the parent edge', () => {
+function lastSegment(points: readonly Point[]): { length: number; horizontal: boolean } {
+  const end = points.at(-1);
+  const before = points.at(-2);
+  if (end === undefined || before === undefined) return { length: 0, horizontal: false };
+  return {
+    length: Math.hypot(end.x - before.x, end.y - before.y),
+    horizontal: Math.abs(end.y - before.y) < 0.5,
+  };
+}
+
+describe('edge routing — fixed arrowhead and minimum stem', () => {
+  it('routes a centered single child with a 12 px horizontal stem', () => {
     const edge = routeBranchEdge({ id: 'edge', parent, child: rightChild });
     expect(edge.placement).toBe('right');
     expect(edge.defect).toBe(false);
@@ -31,22 +55,83 @@ describe('edge routing', () => {
     expect(edge.start.y).toBeCloseTo(parent.y + parent.height / 2, 5);
     expect(edge.end.x).toBeCloseTo(rightChild.x - GEOMETRY.edgeGap, 5);
     expect(edge.end.y).toBeCloseTo(rightChild.y + rightChild.height / 2, 5);
-    expect(edge.path).toContain('Q');
+    const points = parsePoints(edge.path);
+    const segment = lastSegment(points);
+    expect(segment.horizontal).toBe(true);
+    expect(segment.length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
     expect(edge.path.startsWith('M ')).toBe(true);
   });
 
-  it('routes a wrapped child through a bottom trunk and a bus above the child', () => {
-    const edge = routeBranchEdge({ id: 'edge', parent, child: belowChild });
-    expect(edge.placement).toBe('below');
-    expect(edge.defect).toBe(false);
-    expect(edge.start.y).toBeCloseTo(belowChild.y - 12, 5);
-    expect(edge.end.y).toBeLessThan(belowChild.y);
-    expect(edge.end.x).toBeCloseTo(belowChild.x + belowChild.width / 2, 5);
+  it('uses a fixed 6 × 6 arrow polygon independent of path length', () => {
+    const centered = routeBranchEdge({ id: 'a', parent, child: rightChild });
+    const far = routeBranchEdge({
+      id: 'b',
+      parent,
+      child: { x: 416, y: 420, width: 240, height: 100 },
+    });
+    for (const edge of [centered, far]) {
+      const [tip, top, bottom] = edge.arrow.points;
+      if (tip === undefined || top === undefined || bottom === undefined) {
+        throw new Error('missing arrow points');
+      }
+      expect(edge.arrow.path.endsWith('Z')).toBe(true);
+      expect(Math.abs(tip.x - top.x)).toBe(GEOMETRY.edgeArrowLength);
+      expect(Math.abs(tip.x - bottom.x)).toBe(GEOMETRY.edgeArrowLength);
+      expect(Math.abs(top.y - bottom.y)).toBe(GEOMETRY.edgeArrowHalfWidth * 2);
+      expect(tip.x).toBeGreaterThan(top.x);
+      expect(edge.arrow.direction).toBe('right');
+    }
+    expect(arrowPoints({ x: 20, y: 10 })).toHaveLength(3);
+    expect(arrowPoints({ x: 20, y: 10 }, 'down')[1]?.y).toBe(10 - GEOMETRY.edgeArrowLength);
   });
 
+  it('keeps a legible stem for close parent → child distances', () => {
+    const close = routeBranchEdge({
+      id: 'close',
+      parent,
+      child: { x: 416, y: 20, width: 200, height: 80 },
+    });
+    expect(close.defect).toBe(false);
+    const points = parsePoints(close.path);
+    expect(lastSegment(points).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+    // The arrowhead is shorter than the stem, so it cannot collide with the
+    // elbow even at the 16 px parent → child gap.
+    expect(GEOMETRY.edgeArrowLength).toBeLessThan(GEOMETRY.edgeStemMin);
+  });
+
+  it('flags a stem shorter than the minimum instead of squashing the arrow', () => {
+    const tight: Rect = { x: 410, y: 10, width: 160, height: 100 };
+    const edge = routeBranchEdge({ id: 'tight', parent, child: tight });
+    expect(edge.defect).toBe(true);
+    const points = parsePoints(edge.path);
+    expect(lastSegment(points).length).toBeLessThan(GEOMETRY.edgeStemMin);
+    expect(edge.end.x).toBeLessThan(tight.x);
+    // Even the defect keeps the fixed arrowhead.
+    const [tip, top] = edge.arrow.points;
+    expect(tip !== undefined && top !== undefined ? tip.x - top.x : 0).toBe(GEOMETRY.edgeArrowLength);
+  });
+
+  it('keeps the final stem horizontal for small and large vertical offsets', () => {
+    for (const y of [-60, 20, 160, 420]) {
+      const edge = routeBranchEdge({
+        id: `offset-${y}`,
+        parent,
+        child: { x: 416, y, width: 240, height: 80 },
+      });
+      if (edge.placement !== 'right') continue;
+      const points = parsePoints(edge.path);
+      const segment = lastSegment(points);
+      expect(segment.horizontal).toBe(true);
+      expect(segment.length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+      expect(pathMovesForward(points)).toBe(true);
+    }
+  });
+});
+
+describe('edge routing — shared trunk', () => {
   it('keeps the first branch continuous from the parent port into the trunk (2 children)', () => {
-    const one = child('one', 20);
-    const two = child('two', 220);
+    const one = child('one', 0, 416, 60);
+    const two = child('two', 200, 416, 60);
     const group = routeChildGroup({ parentId: 'p', parent, children: [one, two] });
     expect(group.edges).toHaveLength(2);
     expect(group.trunks).toHaveLength(1);
@@ -55,72 +140,123 @@ describe('edge routing', () => {
     if (trunk === undefined || first === undefined) throw new Error('missing route');
     expect(trunk.placement).toBe('right');
     expect(trunk.kind).toBe('trunk');
-    // The trunk starts at the first child's T-junction, not at the parent port.
     expect(trunk.start.y).toBeCloseTo(one.rect.y + one.rect.height / 2, 5);
     expect(trunk.end.y).toBeCloseTo(two.rect.y + two.rect.height / 2, 5);
     expect(trunk.start.x).toBeGreaterThan(parent.x + parent.width);
     expect(trunk.start.x).toBeLessThan(one.rect.x);
-    // The first edge starts at the parent's port and its path passes through
-    // the trunk junction; no rounded corner can create a gap.
     expect(first.start.x).toBe(parent.x + parent.width);
     expect(first.start.y).toBeCloseTo(parent.y + parent.height / 2, 5);
     expect(first.end.x).toBeCloseTo(one.rect.x - GEOMETRY.edgeGap, 5);
     expect(containsPoint(parsePoints(first.path), trunk.start)).toBe(true);
     expect(containsPoint(parsePoints(first.path), first.start)).toBe(true);
-    // The other child starts on the trunk.
     const second = group.edges[1];
     if (second === undefined) throw new Error('missing second route');
     expect(second.start.x).toBeCloseTo(trunk.start.x, 5);
     expect(second.start.y).toBeCloseTo(two.rect.y + two.rect.height / 2, 5);
     expect(second.end.x).toBeCloseTo(two.rect.x - GEOMETRY.edgeGap, 5);
     expect(second.end.x).toBeGreaterThan(second.start.x);
+    for (const edge of group.edges) {
+      expect(lastSegment(parsePoints(edge.path)).horizontal).toBe(true);
+      expect(lastSegment(parsePoints(edge.path)).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+    }
+  });
+
+  it('keeps one trunk and three short arrows for three children at a 16 px gap', () => {
+    const children = Array.from({ length: 3 }, (_value, index) => child(`t${index}`, index * 76, 416, 60));
+    const group = routeChildGroup({ parentId: 'p', parent, children });
+    expect(group.edges).toHaveLength(3);
+    expect(group.trunks).toHaveLength(1);
+    const trunk = group.trunks[0];
+    if (trunk === undefined) throw new Error('missing trunk');
+    expect(trunk.start.y).toBeCloseTo(30, 5);
+    expect(trunk.end.y).toBeCloseTo(182, 5);
+    for (const [index, edge] of group.edges.entries()) {
+      const target = children[index];
+      if (target === undefined) throw new Error('missing child');
+      expect(edge.end.x).toBeCloseTo(target.rect.x - GEOMETRY.edgeGap, 5);
+      expect(lastSegment(parsePoints(edge.path)).horizontal).toBe(true);
+      expect(lastSegment(parsePoints(edge.path)).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+    }
   });
 
   it('keeps one trunk and five connected short arrows for five children', () => {
-    const children = Array.from({ length: 5 }, (_value, index) => child(`c${index}`, index * 90));
+    const children = Array.from({ length: 5 }, (_value, index) => child(`c${index}`, index * 80, 416, 56));
     const group = routeChildGroup({ parentId: 'p', parent, children });
     expect(group.edges).toHaveLength(5);
     expect(group.trunks).toHaveLength(1);
     const trunk = group.trunks[0];
-    if (trunk === undefined) throw new Error('missing trunk');
     const first = children[0];
-    if (first === undefined) throw new Error('missing first child');
-    // A straight vertical span across all child junctions.
+    const last = children[4];
+    if (trunk === undefined || first === undefined || last === undefined) {
+      throw new Error('missing route');
+    }
     expect(trunk.path.startsWith('M ')).toBe(true);
     expect(trunk.path).not.toContain('Q');
     expect(trunk.start.y).toBeCloseTo(first.rect.y + first.rect.height / 2, 5);
-    expect(trunk.end.y).toBeCloseTo((children[4]?.rect.y ?? 0) + (children[4]?.rect.height ?? 0) / 2, 5);
+    expect(trunk.end.y).toBeCloseTo(last.rect.y + last.rect.height / 2, 5);
     const firstEdge = group.edges[0];
     if (firstEdge === undefined) throw new Error('missing first edge');
     expect(containsPoint(parsePoints(firstEdge.path), trunk.start)).toBe(true);
     for (const [index, edge] of group.edges.entries()) {
-      const target = index === 0 ? first.rect : (children[index]?.rect ?? first.rect);
-      expect(edge.end.x).toBeCloseTo(target.x - GEOMETRY.edgeGap, 5);
+      const target = children[index];
+      if (target === undefined) throw new Error('missing child');
+      expect(edge.end.x).toBeCloseTo(target.rect.x - GEOMETRY.edgeGap, 5);
       expect(pathMovesForward(parsePoints(edge.path))).toBe(true);
+      expect(lastSegment(parsePoints(edge.path)).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
     }
   });
 
-  it('aligns the trunk inside a 16 px depth-column gap without a negative stub', () => {
-    const tightParent: Rect = { x: 0, y: 0, width: 300, height: 90 };
-    const tightChildren = [child('a', 0, 316, 60), child('b', 120, 316, 60)];
-    const group = routeChildGroup({ parentId: 'p', parent: tightParent, children: tightChildren });
+  it('starts the trunk at the first child when the first child is above the parent center', () => {
+    const above = child('above', -80, 416, 60);
+    const below = child('below', 160, 416, 60);
+    const group = routeChildGroup({ parentId: 'p', parent, children: [above, below] });
     const trunk = group.trunks[0];
-    const first = group.edges[0];
+    const first = group.edges.find((edge) => edge.id === 'above');
     if (trunk === undefined || first === undefined) throw new Error('missing route');
-    expect(trunk.start.x).toBeGreaterThan(300);
-    expect(trunk.start.x).toBeLessThan(316 - GEOMETRY.edgeGap);
-    expect((first.end.x ?? 0) - (group.edges[1]?.start.x ?? 0)).toBeGreaterThanOrEqual(4);
-    expect(first.defect).toBe(false);
+    expect(first.end.y).toBeLessThan(parent.y + parent.height / 2);
+    expect(trunk.start.y).toBeCloseTo(above.rect.y + above.rect.height / 2, 5);
+    expect(containsPoint(parsePoints(first.path), trunk.start)).toBe(true);
+    expect(pathMovesForward(parsePoints(first.path))).toBe(true);
   });
 
-  it('uses one bottom trunk and one bus for wrapped children', () => {
-    const first = { id: 'w1', rect: { x: 18, y: 180, width: 280, height: 80 } };
-    const second = { id: 'w2', rect: { x: 330, y: 200, width: 280, height: 80 } };
-    const group = routeChildGroup({
-      parentId: 'p',
-      parent,
-      children: [first, second],
-    });
+  it('spans the trunk to a far child without bending', () => {
+    const near = child('near', 0, 416, 56);
+    const far = child('far', 420, 416, 56);
+    const group = routeChildGroup({ parentId: 'p', parent, children: [near, far] });
+    const trunk = group.trunks[0];
+    const farEdge = group.edges.find((edge) => edge.id === 'far');
+    if (trunk === undefined || farEdge === undefined) throw new Error('missing route');
+    expect(trunk.end.y).toBeCloseTo(448, 5);
+    expect(farEdge.start.x).toBeCloseTo(trunk.start.x, 5);
+    expect(farEdge.start.y).toBeCloseTo(448, 5);
+    expect(farEdge.path).not.toContain('Q');
+  });
+
+  it('flags a defect when the gap is narrower than the stem minimum', () => {
+    const tightParent: Rect = { x: 0, y: 0, width: 300, height: 90 };
+    const tightChildren = [child('a', 0, 310, 60), child('b', 100, 310, 60)];
+    const group = routeChildGroup({ parentId: 'p', parent: tightParent, children: tightChildren });
+    expect(group.edges.every((edge) => edge.defect)).toBe(true);
+    expect(group.edges.every((edge) => edge.arrow.points.length === 3)).toBe(true);
+  });
+
+  it('builds a continuous first-child path with a sharp T-junction', () => {
+    const start = { x: 400, y: 60 };
+    const end = { x: 414, y: 30 };
+    const path = branchConnectorPath(start, 402, 30, end, GEOMETRY.edgeRadius);
+    const points = parsePoints(path);
+    expect(points[0]).toEqual(start);
+    expect(containsPoint(points, { x: 402, y: 30 })).toBe(true);
+    expect(points.at(-1)).toEqual(end);
+    expect(pathMovesForward(points)).toBe(true);
+  });
+});
+
+describe('edge routing — page-width wrap reference and defects', () => {
+  it('routes wrapped children through a bottom trunk, bus, and fixed down arrows', () => {
+    const first = { id: 'w1', rect: { x: 18, y: 200, width: 280, height: 80 } };
+    const second = { id: 'w2', rect: { x: 330, y: 220, width: 280, height: 80 } };
+    const group = routeChildGroup({ parentId: 'p', parent, children: [first, second] });
     expect(group.edges).toHaveLength(2);
     expect(group.trunks).toHaveLength(2);
     const trunk = group.trunks.find((item) => item.kind === 'trunk');
@@ -128,20 +264,22 @@ describe('edge routing', () => {
     expect(trunk?.placement).toBe('below');
     expect(trunk?.start.x).toBeCloseTo(parent.x + 18, 5);
     expect(trunk?.start.y).toBeCloseTo(parent.y + parent.height, 5);
-    expect(bus?.start.y).toBeCloseTo(180 - 12, 5);
-    expect(bus?.end.y).toBeCloseTo(180 - 12, 5);
+    expect(bus?.start.y).toBeCloseTo(200 - GEOMETRY.edgeBusOffset, 5);
+    expect(bus?.end.y).toBeCloseTo(200 - GEOMETRY.edgeBusOffset, 5);
     for (const [index, edge] of group.edges.entries()) {
       const target = index === 0 ? first.rect : second.rect;
       expect(edge.placement).toBe('below');
-      expect(edge.start.y).toBeCloseTo(180 - 12, 5);
+      expect(edge.arrow.direction).toBe('down');
+      expect(edge.start.y).toBeCloseTo(200 - GEOMETRY.edgeBusOffset, 5);
       expect(edge.end.y).toBeLessThan(target.y);
+      expect(lastSegment(parsePoints(edge.path)).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
     }
   });
 
   it('routes mixed right and wrapped groups with separate trunks', () => {
     const mixed = [
       { id: 'right-1', rect: rightChild },
-      { id: 'right-2', rect: { x: 440, y: 150, width: 240, height: 80 } },
+      { id: 'right-2', rect: { x: 416, y: 150, width: 240, height: 80 } },
       { id: 'below', rect: belowChild },
     ];
     const group = routeChildGroup({ parentId: 'p', parent, children: mixed });
@@ -160,13 +298,6 @@ describe('edge routing', () => {
     expect(edge.placement).toBe('below');
   });
 
-  it('routes forward when the child is very close to the parent', () => {
-    const tight: Rect = { x: 408, y: 10, width: 160, height: 100 };
-    const edge = routeBranchEdge({ id: 'tight', parent, child: tight });
-    expect(edge.defect).toBe(true);
-    expect(edge.end.x).toBeLessThan(tight.x);
-  });
-
   it('renders rounded orthogonal paths only', () => {
     const points: Point[] = [
       { x: 0, y: 0 },
@@ -179,15 +310,3 @@ describe('edge routing', () => {
     expect(path.match(/[A-Za-z]/g)?.every((letter) => ['M', 'L', 'Q'].includes(letter))).toBe(true);
   });
 });
-
-function parsePoints(path: string): Point[] {
-  const numbers = path
-    .split(/[^0-9.-]+/)
-    .filter((part) => part.length > 0)
-    .map(Number);
-  const points: Point[] = [];
-  for (let index = 0; index + 1 < numbers.length; index += 2) {
-    points.push({ x: numbers[index] ?? 0, y: numbers[index + 1] ?? 0 });
-  }
-  return points;
-}

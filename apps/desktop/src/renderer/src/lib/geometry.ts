@@ -4,10 +4,11 @@
  * Pure: no React, DOM, or measurement types. The same numbers feed the CSS
  * layout and the edge router so the arrows agree with the cards.
  *
- * Depth columns (M2d): every visible block at depth d inside one chapter starts
- * at the same x. Column widths are measured per chapter/depth and clamped to
- * the min/max below; the gap between columns is a token, not a per-parent
- * value. The editor never wraps to a second row: it scrolls horizontally.
+ * Placement is parent-relative (D23): a child group starts after its own
+ * parent card plus `childGap`; there is no global x per depth. Same-depth
+ * blocks under different parents may sit at different x. The editor never
+ * wraps to a second row: it scrolls horizontally when a deep branch exceeds
+ * the viewport.
  */
 
 export interface Rect {
@@ -24,8 +25,8 @@ export const GEOMETRY = Object.freeze({
   /** Child cards live between 144 and 420 px. */
   childMinWidth: 144,
   childMaxWidth: 420,
-  /** Gap between two depth columns (also the parent card → child column gap). */
-  columnGap: 16,
+  /** Gap between a parent card and its child group (also sibling gap token). */
+  childGap: 16,
   /** Editor canvas. */
   canvasMaxWidth: 1600,
   editorPaddingX: 40,
@@ -43,15 +44,20 @@ export const GEOMETRY = Object.freeze({
   /** Edges. */
   edgeWidth: 1.25,
   edgeWidthActive: 1.75,
-  edgeArrowSize: 6,
+  /** Fixed arrowhead polygon, independent of path length. */
+  edgeArrowLength: 6,
+  edgeArrowHalfWidth: 3,
+  /** Minimum final horizontal segment before the arrowhead. */
+  edgeStemMin: 12,
   /** Space kept between the arrow tip and the child's left edge. */
-  edgeGap: 6,
+  edgeGap: 2,
   edgeRadius: 6,
-  edgeBusOffset: 12,
+  /** Shared trunk lane, clamped between these offsets from the parent edge. */
+  edgeLaneMin: 2,
+  edgeLaneMax: 14,
+  edgeBusOffset: 16,
   edgePortSpacing: 8,
   edgeMinGap: 4,
-  /** Horizontal space used by the collapse port / add-child control. */
-  portSize: 18,
 });
 
 export type EdgePlacement = 'right' | 'below' | 'overlap';
@@ -68,11 +74,11 @@ export function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-export function rectRight(rect: Rect): number {
+export function rectRight(rect: Pick<Rect, 'x' | 'width'>): number {
   return rect.x + rect.width;
 }
 
-export function rectBottom(rect: Rect): number {
+export function rectBottom(rect: Pick<Rect, 'y' | 'height'>): number {
   return rect.y + rect.height;
 }
 

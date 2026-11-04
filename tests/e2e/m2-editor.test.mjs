@@ -9,8 +9,8 @@ import { _electron as electron } from 'playwright';
 const require = createRequire(import.meta.url);
 const root = resolve(import.meta.dirname, '../..');
 const appDir = resolve(root, 'apps/desktop');
-const tempRoot = resolve(root, 'artifacts/m2d-tmp');
-const screenshotDir = resolve(root, 'artifacts/m2d');
+const tempRoot = resolve(root, 'artifacts/m2e-tmp');
+const screenshotDir = resolve(root, 'artifacts/m2e');
 const axePath = require.resolve('axe-core/axe.min.js');
 
 let app;
@@ -156,10 +156,11 @@ async function setWindowSize(width, height) {
 }
 
 /**
- * Depth-column snapshot: each card's x relative to the canvas content, its
- * width, and the measured column widths. Also reports horizontal overflow.
+ * Parent-relative layout snapshot: each card's x/y/width/height relative to
+ * the canvas content, plus horizontal overflow. The `column` custom property is
+ * intentionally gone: placement must come from the measured rects alone.
  */
-async function columnSnapshot() {
+async function layoutSnapshot() {
   return page.evaluate(() => {
     const scope = document.querySelector('.nf-editor[data-active="true"]');
     const root = scope?.querySelector('.nf-canvas-content');
@@ -202,6 +203,7 @@ async function columnSnapshot() {
       clientWidth: scroller.clientWidth,
       scrollLeft: scroller.scrollLeft,
       overflow: scroller.scrollWidth - scroller.clientWidth,
+      zoom: Number(scope.querySelector('.nf-canvas')?.getAttribute('data-zoom') ?? 100),
     };
   });
 }
@@ -328,34 +330,60 @@ describe('NoteForest M2 editor shell', () => {
       if (root === null) return null;
       const rootRect = root.getBoundingClientRect();
       const group = root.querySelector('g[data-edge-id]');
-      const path = group?.querySelector('path');
+      const path = group?.querySelector('.nf-edge-path');
+      const arrow = group?.querySelector('.nf-edge-arrow');
       const childId = group?.getAttribute('data-child-id');
       const child = childId === null || childId === undefined ? null : root.querySelector(`[data-block-card="${childId}"]`);
       const parentId = group?.getAttribute('data-parent-id');
       const parent = parentId === null || parentId === undefined ? null : root.querySelector(`[data-block-card="${parentId}"]`);
-      if (path === null || child === null || parent === null) return null;
-      const numbers = (path.getAttribute('d') ?? '')
-        .split(/[^0-9.-]+/)
-        .filter((part) => part.length > 0)
-        .map(Number);
-      const endX = numbers.at(-2) ?? 0;
-      const endY = numbers.at(-1) ?? 0;
+      if (path === null || path === undefined || child === null || parent === null) return null;
+      const numbers = (value) =>
+        (value ?? '')
+          .split(/[^0-9.-]+/)
+          .filter((part) => part.length > 0)
+          .map(Number);
+      const pairs = (list) => {
+        const points = [];
+        for (let index = 0; index + 1 < list.length; index += 2) {
+          points.push({ x: list[index], y: list[index + 1] });
+        }
+        return points;
+      };
+      const edgeNumbers = numbers(path.getAttribute('d'));
+      const arrowNumbers = numbers(arrow?.getAttribute('d'));
       const childRect = child.getBoundingClientRect();
       const parentRect = parent.getBoundingClientRect();
+      const edgePoints = pairs(edgeNumbers);
+      const arrowPoints = pairs(arrowNumbers);
+      const last = edgePoints.at(-1);
+      const before = edgePoints.at(-2);
       return {
-        endX,
-        endY,
+        endX: last?.x ?? 0,
+        endY: last?.y ?? 0,
+        finalStem: last !== undefined && before !== undefined ? last.x - before.x : 0,
+        finalHorizontal: last !== undefined && before !== undefined ? Math.abs(last.y - before.y) < 0.5 : false,
         childLeft: childRect.left - rootRect.left,
         childCenterY: childRect.top - rootRect.top + childRect.height / 2,
         parentRight: parentRect.right - rootRect.left,
         marker: path.getAttribute('marker-end'),
+        arrowPoints,
+        arrowDirection: arrow?.getAttribute('data-arrow-direction') ?? '',
       };
     });
     assert.ok(edgeCheck !== null, 'edge measurements available');
     assert.ok(edgeCheck.parentRight < edgeCheck.endX, 'arrow travels forward to the child');
     assert.ok(edgeCheck.endX < edgeCheck.childLeft, 'arrowhead stops before the child card');
     assert.ok(Math.abs(edgeCheck.endY - edgeCheck.childCenterY) < 2, 'arrow enters the child side');
-    assert.match(edgeCheck.marker ?? '', /arrow/);
+    assert.equal(edgeCheck.marker, null, 'no scaling SVG marker');
+    assert.equal(edgeCheck.arrowDirection, 'right');
+    assert.equal(edgeCheck.arrowPoints.length, 3, 'fixed polygon arrowhead');
+    assert.ok(edgeCheck.finalHorizontal, 'final segment into the child is horizontal');
+    assert.ok(edgeCheck.finalStem >= 12, `final stem is at least 12 px (${edgeCheck.finalStem})`);
+    const [arrowTip, arrowTop, arrowBottom] = edgeCheck.arrowPoints;
+    assert.ok(arrowTip !== undefined && arrowTop !== undefined && arrowBottom !== undefined);
+    assert.equal(Math.abs(arrowTip.x - arrowTop.x), 6, 'arrowhead length is fixed');
+    assert.equal(Math.abs(arrowTop.y - arrowBottom.y), 6, 'arrowhead width is fixed');
+    assert.ok(arrowTip.x > arrowTop.x, 'arrowhead points right');
 
     // Add a sibling to the child; it gets its own arrow.
     await page.keyboard.press('Alt+Enter');
@@ -827,6 +855,7 @@ describe('NoteForest M2 editor shell', () => {
     await waitBlockCount(2);
     await page.keyboard.press('Control+Enter');
     await waitBlockCount(3);
+    await waitLayout();
     assert.equal(await activeEditor().locator('.nf-edge-path').count(), 1, 'the child key creates an arrow');
 
     // Tab in a normal paragraph never creates a child.
@@ -927,10 +956,10 @@ describe('NoteForest M2 editor shell', () => {
     await quit();
   });
 
-  it('aligns depth columns and scrolls horizontally instead of wrapping', async () => {
+  it('places children parent-relative and scrolls horizontally for deep branches', async () => {
     await launch({
-      NOTEFOREST_LIBRARY: resolve(tempRoot, 'columns-library'),
-      NOTEFOREST_APP_SUPPORT: resolve(tempRoot, 'columns-support'),
+      NOTEFOREST_LIBRARY: resolve(tempRoot, 'parent-relative-library'),
+      NOTEFOREST_APP_SUPPORT: resolve(tempRoot, 'parent-relative-support'),
     });
     await setWindowSize(1440, 900);
     await page.locator('.nf-empty-actions .nf-button-primary').click();
@@ -942,17 +971,18 @@ describe('NoteForest M2 editor shell', () => {
       await page.waitForTimeout(500);
     }
     await waitLayout();
-    const four = await columnSnapshot();
+    const four = await layoutSnapshot();
     assert.equal(four.cards.length, 4, 'four empty blocks');
     assert.equal(four.overflow, 0, `4 levels fit at 1440 (overflow ${four.overflow})`);
     assert.deepEqual(four.depths.map((depth) => depth.depth), [0, 1, 2, 3]);
-    for (const depth of four.depths) {
-      assert.equal(depth.xs.length, 1, `depth ${depth.depth} has one shared x`);
-    }
     assert.deepEqual(
       four.depths.map((depth) => depth.xs[0]),
       [0, 176, 336, 496],
-      'column origins follow width + 16 px',
+      'each child starts at its own parent right edge + 16 px',
+    );
+    assert.ok(
+      four.cards.every((card) => card.column === ''),
+      'no depth-column custom property remains on the cards',
     );
     assert.ok(Math.abs((four.depths[0]?.width ?? 0) - 160) <= 1, 'empty top-level uses the 160 px minimum');
     for (const depth of four.depths.slice(1)) {
@@ -961,61 +991,267 @@ describe('NoteForest M2 editor shell', () => {
     await page.screenshot({ path: resolve(screenshotDir, 'four-level-1440x900.png') });
     resizeScreenshot(resolve(screenshotDir, 'four-level-1440x900.png'), 1440, 900);
 
-    // A second parent's child lands on the same depth-1 column.
+    // A second, wider parent places its child at its own right edge, not on a
+    // shared depth-1 column.
     await page.locator('[data-chapter-add]').first().click();
+    await waitLayout();
+    await page.keyboard.type(
+      'A wide top-level block whose content deliberately makes this card much wider than the empty chain minimum width.',
+    );
     await waitLayout();
     await page.keyboard.press('Control+Enter');
     await waitLayout();
-    const withSecondParent = await columnSnapshot();
-    const depthOne = withSecondParent.cards.filter((card) => card.depth === 1);
-    assert.equal(depthOne.length, 2, 'two parents each have a child');
-    assert.equal(new Set(depthOne.map((card) => card.x)).size, 1, 'children of different parents share one x');
+    await page.keyboard.type('Parent-relative child');
+    await waitLayout();
+    const withSecondParent = await layoutSnapshot();
+    const secondParent = withSecondParent.cards.find((card) => card.depth === 0 && card.text.includes('wide top-level'));
+    const secondChild = withSecondParent.cards.find((card) => card.depth === 1 && card.text.includes('Parent-relative child'));
+    const firstChild = withSecondParent.cards.find((card) => card.depth === 1 && card.id !== secondChild?.id);
+    assert.ok(secondParent !== undefined, 'the second top-level parent is measured');
+    assert.ok(secondChild !== undefined, 'the second parent has its child');
+    assert.ok(firstChild !== undefined, 'the first chain has a child');
+    assert.ok(
+      Math.abs(secondChild.x - (secondParent.x + secondParent.width + 16)) <= 1.5,
+      `child group starts at parent right + 16 (${secondChild.x} vs ${secondParent.x + secondParent.width + 16})`,
+    );
+    assert.ok(
+      Math.abs(firstChild.x - 176) <= 1.5,
+      'the first empty parent still places its child at 176 px',
+    );
+    assert.notEqual(
+      Math.round(secondChild.x),
+      Math.round(firstChild.x),
+      'different parents may place same-depth children at different x',
+    );
 
-    // Extend the first chain to six levels.
+    // Extend the first chain to eight levels: parent-relative placement now
+    // needs horizontal scroll at 1440.
     const deepCard = activeEditor().locator('[data-depth="3"]').first();
     const deepId = await deepCard.getAttribute('data-block-card');
     await deepCard.click();
     assert.ok(deepId !== null);
     await waitSelected(deepId);
-    await page.keyboard.press('Control+Enter');
-    await page.waitForTimeout(500);
-    await page.keyboard.press('Control+Enter');
+    for (let index = 0; index < 4; index += 1) {
+      await page.keyboard.press('Control+Enter');
+      await page.waitForTimeout(500);
+    }
     await waitLayout();
-    const sixAt1440 = await columnSnapshot();
-    assert.equal(sixAt1440.depths.at(-1)?.depth, 5);
+    const deep = await layoutSnapshot();
+    assert.equal(deep.depths.at(-1)?.depth, 7);
     assert.deepEqual(
-      sixAt1440.depths.map((depth) => depth.xs[0]),
-      [0, 176, 336, 496, 656, 816],
-      'six columns stay aligned',
+      deep.depths.map((depth) => depth.xs[0]),
+      [0, 176, 336, 496, 656, 816, 976, 1136],
+      'each level follows the previous card right edge + 16 px',
     );
-    assert.equal(sixAt1440.overflow, 0, 'six empty levels still fit a 1440 window');
-
-    // A 1024 window must scroll horizontally; columns keep their origins.
-    await setWindowSize(1024, 768);
-    await waitLayout();
-    const six = await columnSnapshot();
-    assert.ok(six.overflow > 0, `6 levels overflow at 1024 (overflow ${six.overflow})`);
-    assert.deepEqual(six.depths.map((depth) => depth.xs[0]), [0, 176, 336, 496, 656, 816]);
-    assert.equal(six.depths.length, 6, 'no wrapping to a second row');
+    assert.ok(deep.overflow > 0, `deep parent-relative chain overflows at 1440 (overflow ${deep.overflow})`);
     await activeEditor()
       .locator('.nf-editor-scroll')
       .evaluate((element) => {
-        element.scrollLeft = 300;
+        element.scrollLeft = 320;
       });
     await page.waitForTimeout(400);
-    const scrolled = await columnSnapshot();
+    const scrolled = await layoutSnapshot();
     assert.ok(scrolled.scrollLeft > 0, 'the editor scrolls horizontally');
-    assert.deepEqual(scrolled.depths.map((depth) => depth.xs[0]), [0, 176, 336, 496, 656, 816]);
-    await page.screenshot({ path: resolve(screenshotDir, 'six-level-scroll-1024x768.png') });
-    resizeScreenshot(resolve(screenshotDir, 'six-level-scroll-1024x768.png'), 1024, 768);
-    await activeEditor()
-      .locator('.nf-editor-scroll')
-      .evaluate((element) => {
-        element.scrollLeft = 0;
-      });
+    await page.screenshot({ path: resolve(screenshotDir, 'deep-branch-scroll-1440x900.png') });
+    resizeScreenshot(resolve(screenshotDir, 'deep-branch-scroll-1440x900.png'), 1440, 900);
+    await quit();
+  });
+
+  it('swaps the add-child and collapse controls without changing card height', async () => {
+    await launch({
+      NOTEFOREST_LIBRARY: resolve(tempRoot, 'controls-library'),
+      NOTEFOREST_APP_SUPPORT: resolve(tempRoot, 'controls-support'),
+    });
+    await setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await waitSaved();
+
+    const rootCard = activeEditor().locator('[data-block-card][data-top-level="true"]').first();
+    await rootCard.hover();
+    await waitLayout();
+    const cardBox = await rootCard.boundingBox();
+    const addBox = await rootCard.locator('[data-add-child]').boundingBox();
+    const portBox = await rootCard.locator('[data-branch-port]').boundingBox();
+    const siblingBox = await rootCard.locator('[data-add-sibling]').boundingBox();
+    const handleBox = await rootCard.locator('.nf-gutter-handle').boundingBox();
+    assert.ok(cardBox !== null && addBox !== null && portBox !== null && siblingBox !== null && handleBox !== null);
+
+    assert.ok(
+      Math.abs(addBox.x + addBox.width / 2 - (cardBox.x + cardBox.width)) < 1.5,
+      'add-child sits at the right edge',
+    );
+    assert.ok(
+      Math.abs(addBox.y + addBox.height / 2 - (cardBox.y + cardBox.height / 2)) < 1.5,
+      'add-child sits at the vertical center',
+    );
+    assert.ok(
+      Math.abs(portBox.x + portBox.width / 2 - (cardBox.x + cardBox.width)) < 1.5,
+      'collapse sits at the right edge too',
+    );
+    assert.ok(portBox.y < addBox.y, 'collapse is top-right, above the add-child button');
+    assert.ok(
+      portBox.y + portBox.height <= addBox.y ||
+        addBox.y + addBox.height <= portBox.y ||
+        portBox.x + portBox.width <= addBox.x ||
+        addBox.x + addBox.width <= portBox.x,
+      'collapse and add-child do not overlap',
+    );
+    assert.ok(
+      Math.abs(siblingBox.x + siblingBox.width / 2 - (cardBox.x + cardBox.width / 2)) < 1.5,
+      'add-sibling stays at the bottom edge center',
+    );
+    assert.ok(
+      Math.abs(siblingBox.y + siblingBox.height / 2 - (cardBox.y + cardBox.height)) < 1.5,
+      'add-sibling straddles the bottom edge',
+    );
+    assert.ok(handleBox.x < cardBox.x, 'drag handle stays in the left gutter');
+
+    // Collapse: no footer, no height change, dot + count, aria-expanded.
+    const heightBefore = cardBox.height;
+    await rootCard.locator('[data-branch-port]').click();
+    await waitLayout();
+    const heightCollapsed = (await rootCard.boundingBox())?.height ?? 0;
+    assert.ok(Math.abs(heightCollapsed - heightBefore) < 0.5, 'collapse adds no card height');
+    assert.equal(await activeEditor().locator('.nf-block-meta').count(), 0, 'no in-flow collapse footer');
+    assert.equal(await rootCard.locator('[data-branch-port]').getAttribute('aria-expanded'), 'false');
+    assert.equal((await rootCard.locator('.nf-port-dot').innerText()).trim(), '2');
+    assert.equal(await activeEditor().locator('.nf-edge-path').count(), 0, 'children and edges hidden');
+    await page.screenshot({ path: resolve(screenshotDir, 'controls-1440x900.png') });
+    resizeScreenshot(resolve(screenshotDir, 'controls-1440x900.png'), 1440, 900);
+    await rootCard.locator('[data-branch-port]').click();
+    await waitLayout();
+    assert.equal(await rootCard.locator('[data-branch-port]').getAttribute('aria-expanded'), 'true');
+    await quit();
+  });
+
+  it('zooms, fits width, and focuses a branch without touching the document', async () => {
+    await launch({
+      NOTEFOREST_LIBRARY: resolve(tempRoot, 'view-library'),
+      NOTEFOREST_APP_SUPPORT: resolve(tempRoot, 'view-support'),
+    });
+    await setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await waitSaved();
+
+    const zoomLabel = page.locator('.nf-status-zoom');
+    assert.equal((await zoomLabel.innerText()).trim(), '100%');
+    await page.keyboard.press('Meta+-');
+    await page.waitForTimeout(250);
+    assert.equal((await zoomLabel.innerText()).trim(), '90%');
+    await page.keyboard.press('Meta+=');
+    await page.waitForTimeout(250);
+    assert.equal((await zoomLabel.innerText()).trim(), '100%');
+    await page.keyboard.press('Meta+=');
+    await page.waitForTimeout(250);
+    assert.equal((await zoomLabel.innerText()).trim(), '110%');
+    await page.keyboard.press('Meta+0');
+    await page.waitForTimeout(250);
+    assert.equal((await zoomLabel.innerText()).trim(), '100%');
+
+    // Focus the root: its ancestor chain (just itself) and all descendants stay;
+    // the other top-level branches hide. The canonical document is unchanged.
+    const before = await page.evaluate(() => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      const visible = (element) => element.getClientRects().length > 0;
+      return {
+        blockIds: runtime.blockIds,
+        visible: [...document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card]')].filter(visible).length,
+      };
+    });
+    const rootCard = activeEditor().locator('[data-block-card][data-top-level="true"]').first();
+    await rootCard.locator('.nf-block-prose').first().click();
     await page.waitForTimeout(300);
-    await page.screenshot({ path: resolve(screenshotDir, 'six-level-columns-1024x768.png') });
-    resizeScreenshot(resolve(screenshotDir, 'six-level-columns-1024x768.png'), 1024, 768);
+    const focusButton = page.locator('.nf-status-focus');
+    assert.equal(await focusButton.getAttribute('aria-pressed'), 'false');
+    await focusButton.click();
+    await waitLayout();
+    assert.equal(await focusButton.getAttribute('aria-pressed'), 'true');
+    const focused = await page.evaluate(() => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      const visible = (element) => element.getClientRects().length > 0;
+      return {
+        blockIds: runtime.blockIds,
+        visible: [...document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card]')].filter(visible).length,
+        topLevelVisible: [...document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card][data-top-level="true"]')].filter(visible).length,
+        arrows: document.querySelectorAll('.nf-editor[data-active="true"] .nf-edge-path').length,
+      };
+    });
+    assert.equal(focused.visible, 4, 'root + two children + one grandchild stay visible');
+    assert.equal(focused.topLevelVisible, 1, 'other top-level branches hide');
+    assert.equal(focused.arrows, 3, 'focus keeps the branch arrows');
+    assert.deepEqual(focused.blockIds, before.blockIds, 'Focus branch does not delete blocks');
+    await page.screenshot({ path: resolve(screenshotDir, 'focus-branch-1440x900.png') });
+    resizeScreenshot(resolve(screenshotDir, 'focus-branch-1440x900.png'), 1440, 900);
+
+    // Fit width works on the focused branch, not just the whole document.
+    await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
+    await waitLayout();
+    const branchFit = await layoutSnapshot();
+    assert.ok(branchFit.zoom < 100, `Fit width fits the focused branch (${branchFit.zoom}%)`);
+    assert.ok(branchFit.overflow <= 1, `focused branch fits without horizontal scroll (${branchFit.overflow})`);
+    assert.equal(await activeEditor().locator('.nf-edge-defect').count(), 0, 'zoom does not flag edge defects');
+
+    await focusButton.click();
+    await waitLayout();
+    assert.equal(await focusButton.getAttribute('aria-pressed'), 'false');
+    assert.equal(
+      await activeEditor().locator('[data-block-card]:visible').count(),
+      before.visible,
+      'exiting focus restores the whole document',
+    );
+
+    // A deep block keeps its ancestor chain (root → parent → selected) and its
+    // own descendants; sibling branches at any ancestor are hidden.
+    await activeEditor()
+      .locator('[data-block-card]', { hasText: 'Characteristic polynomial' })
+      .first()
+      .click();
+    await page.waitForTimeout(300);
+    await focusButton.click();
+    await waitLayout();
+    const ancestors = await page.evaluate(() => {
+      const scope = document.querySelector('.nf-editor[data-active="true"]');
+      const visible = (element) => element.getClientRects().length > 0;
+      return {
+        visible: [...scope.querySelectorAll('[data-block-card]')].filter(visible).length,
+        topLevelVisible: [...scope.querySelectorAll('[data-block-card][data-top-level="true"]')].filter(visible).length,
+        arrows: scope.querySelectorAll('.nf-edge-path').length,
+        texts: [...scope.querySelectorAll('[data-block-card]')]
+          .filter(visible)
+          .map((card) => card.querySelector('.nf-block-prose')?.textContent?.slice(0, 24) ?? ''),
+      };
+    });
+    assert.equal(ancestors.visible, 3, 'selected block + ancestor chain stay visible');
+    assert.equal(ancestors.topLevelVisible, 1, 'only the ancestor top-level branch stays');
+    assert.equal(ancestors.arrows, 2, 'the ancestor path keeps its two arrows');
+    assert.ok(ancestors.texts.some((text) => text.includes('Characteristic')));
+    assert.ok(!ancestors.texts.some((text) => text.includes('Spectrum')), 'sibling branch hides');
+    await page.screenshot({ path: resolve(screenshotDir, 'focus-ancestors-1440x900.png') });
+    resizeScreenshot(resolve(screenshotDir, 'focus-ancestors-1440x900.png'), 1440, 900);
+    await focusButton.click();
+    await waitLayout();
+
+    // Fit width at 1024 with the full document: zoom drops below 100% and the
+    // editor no longer needs horizontal scroll.
+    await setWindowSize(1024, 768);
+    await waitLayout();
+    const beforeFit = await layoutSnapshot();
+    assert.ok(beforeFit.overflow > 0, 'the full demo overflows at 1024 before Fit');
+    await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
+    await waitLayout();
+    const afterFit = await layoutSnapshot();
+    assert.ok(afterFit.zoom < 100, `Fit width zooms out (${afterFit.zoom}%)`);
+    assert.ok(afterFit.overflow <= 1, `Fit width removes horizontal overflow (${afterFit.overflow})`);
+    assert.equal(await activeEditor().locator('.nf-edge-defect').count(), 0, 'fit zoom keeps valid arrows');
+    await page.screenshot({ path: resolve(screenshotDir, 'fit-width-1024x768.png') });
+    resizeScreenshot(resolve(screenshotDir, 'fit-width-1024x768.png'), 1024, 768);
+    await page.keyboard.press('Meta+0');
+    await page.waitForTimeout(300);
+    assert.equal((await zoomLabel.innerText()).trim(), '100%');
     await quit();
   });
 
@@ -1207,7 +1443,7 @@ describe('NoteForest M2 editor shell', () => {
     );
     await page.screenshot({ path: resolve(screenshotDir, 'trunk-3-children-1440x900.png') });
     await page.screenshot({ path: resolve(screenshotDir, 'density-1440x900.png') });
-    await page.screenshot({ path: resolve(screenshotDir, 'depth-columns-1440x900.png') });
+    await page.screenshot({ path: resolve(screenshotDir, 'chosen-arrows-1440x900.png') });
 
     // Collapse costs no height and leaves a dot with the child count.
     await rootCard.hover();
@@ -1277,7 +1513,7 @@ describe('NoteForest M2 editor shell', () => {
       });
     await page.waitForTimeout(300);
     await page.screenshot({ path: resolve(screenshotDir, 'trunk-3-children-1024x768.png') });
-    await page.screenshot({ path: resolve(screenshotDir, 'depth-columns-1024x768.png') });
+    await page.screenshot({ path: resolve(screenshotDir, 'chosen-arrows-1024x768.png') });
     for (const file of [
       'empty-1440x900.png',
       'shell-1440x900.png',
@@ -1286,7 +1522,7 @@ describe('NoteForest M2 editor shell', () => {
       'two-tabs-1440x900.png',
       'trunk-3-children-1440x900.png',
       'density-1440x900.png',
-      'depth-columns-1440x900.png',
+      'chosen-arrows-1440x900.png',
       'collapse-dot-1440x900.png',
       'chapter-inline-1440x900.png',
     ]) {
@@ -1295,7 +1531,7 @@ describe('NoteForest M2 editor shell', () => {
     for (const file of [
       'shell-1024x768.png',
       'trunk-3-children-1024x768.png',
-      'depth-columns-1024x768.png',
+      'chosen-arrows-1024x768.png',
     ]) {
       resizeScreenshot(resolve(screenshotDir, file), 1024, 768);
     }

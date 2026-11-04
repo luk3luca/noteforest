@@ -14,7 +14,14 @@ import {
   useAllDirty,
   useRuntime,
 } from './state/registry';
-import { openPath, runMenuCommand } from './actions';
+import {
+  adjustActiveZoom,
+  fitActiveWidth,
+  openPath,
+  resetActiveZoom,
+  runMenuCommand,
+  toggleFocusBranch,
+} from './actions';
 import { buildSession } from './state/session';
 import { perfSnapshot, summarize } from './lib/perf';
 
@@ -117,6 +124,27 @@ export function App(): JSX.Element {
         return;
       }
       const key = event.key.toLowerCase();
+      if (key === '=' || key === '+') {
+        event.preventDefault();
+        adjustActiveZoom(0.1);
+        return;
+      }
+      if (key === '-') {
+        event.preventDefault();
+        adjustActiveZoom(-0.1);
+        return;
+      }
+      if (event.code === 'Digit0') {
+        event.preventDefault();
+        if (event.shiftKey) fitActiveWidth();
+        else resetActiveZoom();
+        return;
+      }
+      if (key === 'f' && event.shiftKey) {
+        event.preventDefault();
+        toggleFocusBranch();
+        return;
+      }
       if (key >= '1' && key <= '9') {
         event.preventDefault();
         const state = useShell.getState();
@@ -269,7 +297,6 @@ export function App(): JSX.Element {
         const snapshot = perfSnapshot();
         return {
           measure: summarize(snapshot.measure),
-          columns: summarize(snapshot.columns),
           edge: summarize(snapshot.edge),
           reflow: summarize(snapshot.reflow),
           mount: summarize(snapshot.mount),

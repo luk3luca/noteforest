@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NoteForest — edge routing lab</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --canvas: #17181a;
+        --surface-1: #1b1d20;
+        --surface-2: #202329;
+        --border: #2e3238;
+        --text: #e7e8ea;
+        --text-secondary: #a6abb2;
+        --text-tertiary: #7e848c;
+        --accent: #9bb7d4;
+        --edge: #5e6670;
+        --danger: #d98b8b;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      header.lab-head {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+      header .variant {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      header p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+      header .spacer { flex: 1; }
+      header nav {
+        display: flex;
+        gap: 4px;
+      }
+      header nav a {
+        color: var(--text-tertiary);
+        text-decoration: none;
+        padding: 3px 8px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        font-size: 11px;
+      }
+      header nav a[aria-current="page"] {
+        color: var(--text);
+        border-color: var(--text-tertiary);
+        background: var(--surface-2);
+      }
+      main.grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        gap: 10px;
+        padding: 12px;
+      }
+      figure.case {
+        margin: 0;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--surface-1);
+        overflow: hidden;
+      }
+      figure.case figcaption {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 5px 9px;
+        border-bottom: 1px solid var(--border);
+        font-size: 11px;
+      }
+      figure.case figcaption strong {
+        font-weight: 500;
+        color: var(--text);
+      }
+      figure.case figcaption span {
+        color: var(--text-tertiary);
+        font-variant-numeric: tabular-nums;
+      }
+      figure.case svg {
+        display: block;
+        width: 100%;
+        height: 200px;
+      }
+      .card {
+        fill: var(--surface-2);
+        stroke: var(--border);
+        stroke-width: 1;
+        rx: 4;
+      }
+      .card.parent { fill: #22262c; }
+      .card-label {
+        fill: var(--text-tertiary);
+        font-size: 8px;
+        font-family: inherit;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .route {
+        fill: none;
+        stroke: var(--edge);
+        stroke-width: 1.25;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .route.hot { stroke: var(--accent); }
+      .route.defect { stroke: var(--danger); stroke-dasharray: 3 2; }
+      .trunk {
+        fill: none;
+        stroke: var(--edge);
+        stroke-width: 1.25;
+        stroke-linecap: butt;
+      }
+      .arrow { fill: var(--edge); }
+      .arrow.hot { fill: var(--accent); }
+      .arrow.defect { fill: var(--danger); }
+      .port { fill: var(--accent); }
+      footer.lab-foot {
+        padding: 4px 22px 16px;
+        color: var(--text-tertiary);
+        font-size: 11px;
+      }
+      footer.lab-foot strong { color: var(--text-secondary); font-weight: 500; }
+      @media (max-width: 1100px) {
+        figure.case svg { height: 118px; }
+        main.grid { gap: 8px; padding: 8px; }
+        header.lab-head { padding: 12px 14px 10px; gap: 10px; }
+        header h1 { font-size: 16px; }
+        figure.case figcaption { padding: 3px 7px; }
+      }
+      @media (max-width: 700px) {
+        figure.case svg { height: 120px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="lab-head">
+      <span class="variant" id="variant-label">V4</span>
+      <h1>Edge routing lab</h1>
+      <p id="variant-note"></p>
+      <span class="spacer"></span>
+      <nav id="variant-nav" aria-label="Variants"></nav>
+    </header>
+    <main class="grid" id="grid"></main>
+    <footer class="lab-foot">
+      <strong>Static, dev-only lab.</strong> Card rects mirror the editor metrics
+      (top-level 160–480 px, child 144–420 px, 16 px parent → child gap). The
+      arrowhead is a fixed 6 × 6 px polygon at every endpoint; it never scales
+      with the path. Stems shorter than 12 px are drawn as defects.
+    </footer>
+    <script>
+      (function () {
+        'use strict';
+
+        var GAP = 16;
+        var TIP_GAP = 2;
+        var STEM_MIN = 12;
+        var ARROW_LENGTH = 6;
+        var ARROW_HALF = 3;
+        var LANE_MAX = 14;
+
+        var VARIANTS = {
+          v1: {
+            label: 'V1',
+            title: 'Orthogonal elbow',
+            note: 'Every child gets its own elbow from the same parent port, with a fixed arrowhead and a 12 px minimum stem.'
+          },
+          v2: {
+            label: 'V2',
+            title: 'Fan ports',
+            note: 'Close children leave from staggered ports on the parent edge instead of sharing one port.'
+          },
+          v3: {
+            label: 'V3',
+            title: 'Soft S for near-aligned',
+            note: 'Cards within 24 px of the parent center join with a short S-curve; the last 12 px are straight and horizontal.'
+          },
+          v4: {
+            label: 'V4',
+            title: 'Shared trunk + short branches',
+            note: 'One trunk from the first child’s T-junction; every branch is a short horizontal stem with a fixed arrowhead.'
+          }
+        };
+
+        function rect(x, y, w, h) { return { x: x, y: y, w: w, h: h }; }
+        function cx(r) { return r.x + r.w / 2; }
+        function cy(r) { return r.y + r.h / 2; }
+        function right(r) { return r.x + r.w; }
+
+        function cases() {
+          var p = rect(40, 74, 280, 84);
+          return [
+            {
+              id: 'center',
+              title: 'One child centered',
+              detail: 'dy 0',
+              parent: p,
+              children: [rect(336, 86, 200, 60)]
+            },
+            {
+              id: 'above-small',
+              title: 'One child above',
+              detail: 'dy −12',
+              parent: p,
+              children: [rect(336, 68, 200, 60)]
+            },
+            {
+              id: 'below-small',
+              title: 'One child below',
+              detail: 'dy +12',
+              parent: p,
+              children: [rect(336, 104, 200, 60)]
+            },
+            {
+              id: 'above-large',
+              title: 'One child far above',
+              detail: 'dy −58',
+              parent: p,
+              children: [rect(336, 22, 200, 60)]
+            },
+            {
+              id: 'below-large',
+              title: 'One child far below',
+              detail: 'dy +70',
+              parent: p,
+              children: [rect(336, 170, 200, 60)]
+            },
+            {
+              id: 'two-gap',
+              title: 'Two children · 16 px gap',
+              detail: 'gap 16',
+              parent: p,
+              children: [rect(336, 44, 200, 56), rect(336, 116, 200, 56)]
+            },
+            {
+              id: 'three-gap',
+              title: 'Three children · 16 px gap',
+              detail: 'gap 16',
+              parent: p,
+              children: [rect(336, 24, 200, 56), rect(336, 96, 200, 56), rect(336, 168, 200, 56)]
+            },
+            {
+              id: 'five-gap',
+              title: 'Five children · 16 px gap',
+              detail: 'gap 16',
+              parent: p,
+              children: [
+                rect(336, 12, 200, 52),
+                rect(336, 80, 200, 52),
+                rect(336, 148, 200, 52),
+                rect(336, 216, 200, 52),
+                rect(336, 284, 200, 52)
+              ]
+            },
+            {
+              id: 'first-above',
+              title: 'First child above center',
+              detail: 'first dy −34',
+              parent: p,
+              children: [rect(336, 56, 200, 56), rect(336, 152, 200, 56)]
+            },
+            {
+              id: 'close-stem',
+              title: 'Close parent → child',
+              detail: 'gap 16 · stem 12',
+              parent: rect(40, 74, 296, 84),
+              children: [rect(352, 86, 200, 60)]
+            },
+            {
+              id: 'far-trunk',
+              title: 'Trunk with a far child',
+              detail: 'last dy +210',
+              parent: p,
+              children: [rect(336, 42, 200, 56), rect(336, 128, 200, 56), rect(336, 344, 200, 56)]
+            },
+            {
+              id: 'wrapped',
+              title: 'Page-width wrap reference',
+              detail: 'M4 · below bus',
+              parent: rect(40, 44, 600, 82),
+              children: [rect(58, 190, 220, 58), rect(378, 210, 220, 58)],
+              wrapped: true
+            }
+          ];
+        }
+
+        function stemStart(parent, child) {
+          var parentRight = right(parent);
+          var tipX = child.x - TIP_GAP;
+          var laneMax = tipX - STEM_MIN;
+          return Math.max(parentRight + 2, Math.min(parentRight + LANE_MAX, laneMax));
+        }
+
+        function arrowPath(tip, direction) {
+          if (direction === 'down') {
+            return (
+              'M ' + n(tip.x) + ' ' + n(tip.y) +
+              ' L ' + n(tip.x - ARROW_HALF) + ' ' + n(tip.y - ARROW_LENGTH) +
+              ' L ' + n(tip.x + ARROW_HALF) + ' ' + n(tip.y - ARROW_LENGTH) + ' Z'
+            );
+          }
+          return (
+            'M ' + n(tip.x) + ' ' + n(tip.y) +
+            ' L ' + n(tip.x - ARROW_LENGTH) + ' ' + n(tip.y - ARROW_HALF) +
+            ' L ' + n(tip.x - ARROW_LENGTH) + ' ' + n(tip.y + ARROW_HALF) + ' Z'
+          );
+        }
+
+        function n(value) { return Math.round(value * 100) / 100; }
+
+        function simplify(points) {
+          var compact = [];
+          points.forEach(function (point) {
+            var last = compact[compact.length - 1];
+            if (last && Math.abs(last.x - point.x) < 0.25 && Math.abs(last.y - point.y) < 0.25) return;
+            compact.push(point);
+          });
+          return compact.filter(function (point, index) {
+            var before = compact[index - 1];
+            var after = compact[index + 1];
+            if (!before || !after) return true;
+            var sameX = Math.abs(before.x - point.x) < 0.25 && Math.abs(point.x - after.x) < 0.25;
+            var sameY = Math.abs(before.y - point.y) < 0.25 && Math.abs(point.y - after.y) < 0.25;
+            return !(sameX || sameY);
+          });
+        }
+
+        function towards(from, to, distance) {
+          var dx = to.x - from.x;
+          var dy = to.y - from.y;
+          var length = Math.hypot(dx, dy);
+          if (length === 0) return from;
+          var ratio = Math.min(distance, length) / length;
+          return { x: from.x + dx * ratio, y: from.y + dy * ratio };
+        }
+
+        function roundedPath(points, radius) {
+          var list = simplify(points);
+          if (list.length === 0) return '';
+          var d = 'M ' + n(list[0].x) + ' ' + n(list[0].y);
+          for (var index = 1; index < list.length - 1; index += 1) {
+            var before = list[index - 1];
+            var point = list[index];
+            var after = list[index + 1];
+            var r = Math.min(radius, Math.hypot(point.x - before.x, point.y - before.y) / 2, Math.hypot(after.x - point.x, after.y - point.y) / 2);
+            var a = towards(point, before, r);
+            var b = towards(point, after, r);
+            d += ' L ' + n(a.x) + ' ' + n(a.y) + ' Q ' + n(point.x) + ' ' + n(point.y) + ' ' + n(b.x) + ' ' + n(b.y);
+          }
+          var last = list[list.length - 1];
+          d += ' L ' + n(last.x) + ' ' + n(last.y);
+          return d;
+        }
+
+        function sPath(start, child) {
+          var tip = { x: child.x - TIP_GAP, y: cy(child) };
+          var straight = { x: tip.x - STEM_MIN, y: tip.y };
+          var dx = straight.x - start.x;
+          return (
+            'M ' + n(start.x) + ' ' + n(start.y) +
+            ' C ' + n(start.x + dx * 0.55) + ' ' + n(start.y) +
+            ' ' + n(straight.x - dx * 0.45) + ' ' + n(straight.y) +
+            ' ' + n(straight.x) + ' ' + n(straight.y) +
+            ' L ' + n(tip.x) + ' ' + n(tip.y)
+          );
+        }
+
+        function belowRoute(parent, children) {
+          var busY = Math.min.apply(null, children.map(function (child) { return child.y; })) - 16;
+          var trunkX = parent.x + 18;
+          var centers = children.map(function (child) { return cx(child); });
+          var busStart = Math.min.apply(null, [trunkX].concat(centers));
+          var busEnd = Math.max.apply(null, [trunkX].concat(centers));
+          var paths = [];
+          var arrows = [];
+          paths.push(roundedPath([{ x: trunkX, y: parent.y + parent.h }, { x: trunkX, y: busY }], 6));
+          paths.push(roundedPath([{ x: busStart, y: busY }, { x: busEnd, y: busY }], 6));
+          children.forEach(function (child) {
+            var tip = { x: cx(child), y: child.y - TIP_GAP };
+            paths.push(roundedPath([{ x: tip.x, y: busY }, tip], 6));
+            arrows.push(arrowPath(tip, 'down'));
+          });
+          return { paths: paths, arrows: arrows, trunks: [roundedPath([{ x: trunkX, y: parent.y + parent.h }, { x: trunkX, y: busY }], 0), roundedPath([{ x: busStart, y: busY }, { x: busEnd, y: busY }], 0)], defect: busY - (parent.y + parent.h) < 4 };
+        }
+
+        function route(variant, parent, children) {
+          var port = { x: right(parent), y: cy(parent) };
+          var paths = [];
+          var arrows = [];
+          var trunks = [];
+          var defects = [];
+
+          if (children.length > 0 && children[0].wrapped === true) {
+            return belowRoute(parent, children);
+          }
+
+          if (variant === 'v4') {
+            var sorted = children.slice().sort(function (a, b) { return cy(a) - cy(b); });
+            var first = sorted[0];
+            var lane = stemStart(parent, { x: Math.min.apply(null, children.map(function (child) { return child.x; })) });
+            var firstTip = { x: first.x - TIP_GAP, y: cy(first) };
+            var firstPath = roundedPath([port, { x: lane, y: port.y }, { x: lane, y: firstTip.y }, firstTip], 6);
+            paths.push(firstPath);
+            arrows.push(arrowPath(firstTip, 'right'));
+            defects.push(firstTip.x - lane < STEM_MIN - 0.5);
+            for (var index = 1; index < sorted.length; index += 1) {
+              var child = sorted[index];
+              var tip = { x: child.x - TIP_GAP, y: cy(child) };
+              paths.push(roundedPath([{ x: lane, y: tip.y }, tip], 6));
+              arrows.push(arrowPath(tip, 'right'));
+              defects.push(tip.x - lane < STEM_MIN - 0.5);
+            }
+            if (sorted.length > 1) {
+              var last = sorted[sorted.length - 1];
+              trunks.push(roundedPath([{ x: lane, y: cy(first) }, { x: lane, y: cy(last) }], 0));
+            }
+            return { paths: paths, arrows: arrows, trunks: trunks, defect: defects.some(Boolean) };
+          }
+
+          if (variant === 'v2') {
+            var inset = Math.min(12, Math.max(5, parent.h * 0.16));
+            var usable = Math.max(0, parent.h - inset * 2);
+            children.forEach(function (child, index) {
+              var portY = children.length === 1
+                ? port.y
+                : parent.y + inset + (usable * index) / (children.length - 1);
+              var start = { x: port.x, y: portY };
+              var tip = { x: child.x - TIP_GAP, y: cy(child) };
+              var lane = stemStart(parent, child);
+              paths.push(roundedPath([start, { x: lane, y: start.y }, { x: lane, y: tip.y }, tip], 6));
+              arrows.push(arrowPath(tip, 'right'));
+              defects.push(tip.x - lane < STEM_MIN - 0.5);
+            });
+            return { paths: paths, arrows: arrows, trunks: trunks, defect: defects.some(Boolean) };
+          }
+
+          if (variant === 'v3') {
+            children.forEach(function (child) {
+              var tip = { x: child.x - TIP_GAP, y: cy(child) };
+              if (Math.abs(tip.y - port.y) < 24) {
+                paths.push(sPath(port, child));
+              } else {
+                var lane = stemStart(parent, child);
+                paths.push(roundedPath([port, { x: lane, y: port.y }, { x: lane, y: tip.y }, tip], 6));
+              }
+              arrows.push(arrowPath(tip, 'right'));
+              defects.push(tip.x - stemStart(parent, child) < STEM_MIN - 0.5);
+            });
+            return { paths: paths, arrows: arrows, trunks: trunks, defect: defects.some(Boolean) };
+          }
+
+          children.forEach(function (child) {
+            var tip = { x: child.x - TIP_GAP, y: cy(child) };
+            var lane = stemStart(parent, child);
+            paths.push(roundedPath([port, { x: lane, y: port.y }, { x: lane, y: tip.y }, tip], 6));
+            arrows.push(arrowPath(tip, 'right'));
+            defects.push(tip.x - lane < STEM_MIN - 0.5);
+          });
+          return { paths: paths, arrows: arrows, trunks: trunks, defect: defects.some(Boolean) };
+        }
+
+        function bounds(parent, children) {
+          var all = [parent].concat(children);
+          var minX = Math.min.apply(null, all.map(function (r) { return r.x; }));
+          var minY = Math.min.apply(null, all.map(function (r) { return r.y; }));
+          var maxX = Math.max.apply(null, all.map(function (r) { return r.x + r.w; }));
+          var maxY = Math.max.apply(null, all.map(function (r) { return r.y + r.h; }));
+          return {
+            x: minX - 18,
+            y: minY - 20,
+            w: maxX - minX + 36,
+            h: maxY - minY + 40
+          };
+        }
+
+        function caseNode(variant, item) {
+          var figure = document.createElement('figure');
+          figure.className = 'case';
+          figure.dataset.case = item.id;
+          var caption = document.createElement('figcaption');
+          var strong = document.createElement('strong');
+          strong.textContent = item.title;
+          var detail = document.createElement('span');
+          detail.textContent = item.detail;
+          caption.appendChild(strong);
+          caption.appendChild(detail);
+          figure.appendChild(caption);
+
+          var children = item.children.map(function (child) {
+            var copy = rect(child.x, child.y, child.w, child.h);
+            if (item.wrapped === true) copy.wrapped = true;
+            return copy;
+          });
+          var routed = route(variant, item.parent, children);
+          var box = bounds(item.parent, children);
+          var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('viewBox', [box.x, box.y, box.w, box.h].join(' '));
+          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+          svg.setAttribute('role', 'img');
+          svg.setAttribute('aria-label', item.title + ' — ' + VARIANTS[variant].label);
+
+          function add(tag, attrs) {
+            var element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+            Object.keys(attrs).forEach(function (key) { element.setAttribute(key, attrs[key]); });
+            svg.appendChild(element);
+            return element;
+          }
+
+          add('rect', { x: item.parent.x, y: item.parent.y, width: item.parent.w, height: item.parent.h, class: 'card parent', rx: 4 });
+          children.forEach(function (child) {
+            add('rect', { x: child.x, y: child.y, width: child.w, height: child.h, class: 'card', rx: 4 });
+          });
+
+          routed.trunks.forEach(function (path) {
+            add('path', { d: path, class: routed.defect ? 'trunk defect' : 'trunk' });
+          });
+          routed.paths.forEach(function (path, index) {
+            add('path', {
+              d: path,
+              class: 'route' + (index === 0 && variant === 'v4' ? ' hot' : '') + (routed.defect ? ' defect' : '')
+            });
+          });
+          routed.arrows.forEach(function (path, index) {
+            add('path', {
+              d: path,
+              class: 'arrow' + (index === 0 && variant === 'v4' ? ' hot' : '') + (routed.defect ? ' defect' : '')
+            });
+          });
+
+          var parentLabel = add('text', {
+            x: item.parent.x + 8,
+            y: item.parent.y + 13,
+            class: 'card-label'
+          });
+          parentLabel.textContent = 'parent';
+          children.forEach(function (child, index) {
+            var label = add('text', {
+              x: child.x + 8,
+              y: child.y + 13,
+              class: 'card-label'
+            });
+            label.textContent = item.wrapped === true ? 'wrapped ' + (index + 1) : 'child ' + (index + 1);
+          });
+
+          figure.appendChild(svg);
+          return figure;
+        }
+
+        function readVariant() {
+          var query = new URLSearchParams(window.location.search);
+          var key = (query.get('variant') || 'v4').toLowerCase();
+          return VARIANTS[key] ? key : 'v4';
+        }
+
+        var variant = readVariant();
+        var info = VARIANTS[variant];
+        document.getElementById('variant-label').textContent = info.label;
+        document.getElementById('variant-note').textContent = info.title + ' — ' + info.note;
+        document.title = 'NoteForest — edge routing lab — ' + info.label;
+
+        var nav = document.getElementById('variant-nav');
+        Object.keys(VARIANTS).forEach(function (key) {
+          var link = document.createElement('a');
+          link.href = '?variant=' + key;
+          link.textContent = VARIANTS[key].label;
+          if (key === variant) link.setAttribute('aria-current', 'page');
+          nav.appendChild(link);
+        });
+
+        var grid = document.getElementById('grid');
+        cases().forEach(function (item) {
+          grid.appendChild(caseNode(variant, item));
+        });
+      })();
+    </script>
+  </body>
+</html>
