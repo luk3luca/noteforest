@@ -29,6 +29,7 @@ import {
   assetsDirPath,
   openDocumentPackage,
   readRecentDocuments,
+  writeDocumentPackageCopy,
   writeFileAtomic,
   type DocumentStore,
 } from '@noteforest/core/node';
@@ -37,10 +38,13 @@ import type {
   LibraryView,
   OpenDocumentResult,
   OpenDocumentSnapshot,
+  ReloadDocumentResult,
+  SaveCopyResult,
   SaveResult,
   SessionState,
   SessionTabState,
 } from '../shared/api.js';
+import { saveFailureCode } from './save-error.js';
 
 const DEFAULT_SESSION: SessionState = {
   tabs: [],
@@ -64,7 +68,7 @@ function sessionPath(): string {
   return path.join(appSupportDir(), 'shell-session.json');
 }
 
-function isInsideLibrary(candidate: string): boolean {
+export function isInsideLibrary(candidate: string): boolean {
   const library = path.resolve(libraryDir());
   const resolved = path.resolve(candidate);
   return resolved === library || resolved.startsWith(`${library}${path.sep}`);
@@ -247,22 +251,113 @@ export async function applyCommand(
 }
 
 export async function saveDocument(packagePath: string): Promise<SaveResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, changed: false, revision: 0, code: 'unknown', error: 'No document path was provided.' };
+  }
   const opened = await openStore(packagePath);
-  if ('error' in opened) return { ok: false, changed: false, revision: 0, error: opened.error };
-  const result = await opened.store.save({});
-  if (!result.ok) {
+  if ('error' in opened) {
     return {
       ok: false,
       changed: false,
+      revision: 0,
+      code: 'unknown',
+      error: opened.error,
+    };
+  }
+  const result = await opened.store.save({});
+  if (!result.ok) {
+    const failure: SaveResult = {
+      ok: false,
+      changed: false,
       revision: opened.store.revision ?? 0,
+      code: saveFailureCode(result.error),
+      coreCode: result.error.code,
       error: result.error.message,
     };
+    return failure;
   }
   return {
     ok: true,
     changed: result.changed,
     revision: result.revision,
   };
+}
+
+/**
+ * Write the current canonical document (including edits not yet on disk) plus
+ * its assets into a new package. The original package is never written.
+ */
+export async function saveDocumentCopy(
+  packagePath: string,
+  destination: string,
+): Promise<SaveCopyResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, message: 'No document path was provided.' };
+  }
+  if (typeof destination !== 'string' || destination.length === 0) {
+    return { ok: false, message: 'No copy location was provided.' };
+  }
+  const opened = await openStore(packagePath);
+  if ('error' in opened) return { ok: false, message: opened.error };
+  const document = opened.store.document;
+  if (document === null) {
+    return { ok: false, message: 'There is no document to copy.' };
+  }
+
+  const target = path.resolve(destination);
+  const source = path.resolve(opened.store.packagePath);
+  if (target === source || target.startsWith(`${source}${path.sep}`)) {
+    return { ok: false, message: 'Choose a location outside the current document folder.' };
+  }
+
+  const copied = await writeDocumentPackageCopy({
+    sourcePackagePath: source,
+    targetPackagePath: target,
+    document,
+  });
+  if (!copied.ok) return { ok: false, message: copied.error.message };
+
+  // Opening is only possible inside the library; a copy saved elsewhere is
+  // revealed in Finder by the caller instead.
+  if (isInsideLibrary(copied.packagePath)) {
+    const copy = await openStore(copied.packagePath);
+    if (!('error' in copy)) {
+      return {
+        ok: true,
+        packagePath: copied.packagePath,
+        snapshot: copy.snapshot,
+        library: await scanLibrary(),
+      };
+    }
+  }
+  return {
+    ok: true,
+    packagePath: copied.packagePath,
+    library: await scanLibrary(),
+  };
+}
+
+/**
+ * Close the in-memory store and reopen the canonical package from disk.
+ * Unsaved renderer changes are discarded by the caller after explicit
+ * confirmation; nothing is written here.
+ */
+export async function reloadDocument(packagePath: string): Promise<ReloadDocumentResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, message: 'No document path was provided.' };
+  }
+  const resolved = path.resolve(packagePath);
+  if (!isInsideLibrary(resolved)) {
+    return { ok: false, message: 'Document is outside the NoteForest library.' };
+  }
+  const existing = stores.get(resolved);
+  if (existing !== undefined) {
+    await existing.close().catch(() => undefined);
+    stores.delete(resolved);
+  }
+  const opened = await openStore(resolved);
+  if ('error' in opened) return { ok: false, message: opened.error };
+  return { ok: true, snapshot: opened.snapshot };
 }
 
 export async function closeDocument(packagePath: string, options: { save: boolean }): Promise<void> {

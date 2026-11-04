@@ -31,6 +31,7 @@ export type DialogState =
   | { kind: 'link'; href: string }
   | { kind: 'math'; mathKind: 'inline' | 'block'; latex: string; pos: number | null }
   | { kind: 'close-tab'; packagePath: string }
+  | { kind: 'reload-from-disk'; packagePath: string }
   | { kind: 'settings' };
 
 export interface ContextMenuState {

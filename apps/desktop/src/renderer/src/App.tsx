@@ -305,6 +305,8 @@ export function App(): JSX.Element {
             blockIds: Object.keys(item.document.blocks),
             branches: Object.keys(item.document.branches).length,
             saveState: item.saveState,
+            saveError: item.saveError,
+            saveFailure: item.saveFailure,
             dirty: item.dirty,
             selectedBlockId: item.selectedBlockId,
             collapsed: [...item.collapsed],

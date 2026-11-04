@@ -9,6 +9,7 @@ import {
   TextArea,
 } from 'react-aria-components';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { useShell } from '../state/shell';
 import { useRuntime } from '../state/registry';
 import {
@@ -183,6 +184,39 @@ export function Dialogs(): JSX.Element | null {
         }
       >
         <p className="nf-dialog-text">{target?.title ?? 'This document'}</p>
+      </Frame>
+    );
+  }
+
+  if (dialog.kind === 'reload-from-disk') {
+    if (runtime.packagePath !== dialog.packagePath) {
+      return null;
+    }
+    return (
+      <Frame
+        title="Reload from disk?"
+        description="Unsaved changes in this window will be discarded. The file on disk is not modified."
+        actions={
+          <>
+            <Button className="nf-button" onPress={close}>Cancel</Button>
+            <Button
+              className="nf-button nf-button-danger"
+              onPress={() => {
+                close();
+                void runtime.reloadFromDisk().then((outcome) => {
+                  if (!outcome.ok) toast.error(outcome.message ?? 'Could not reload the document.');
+                });
+              }}
+            >
+              Reload from disk
+            </Button>
+          </>
+        }
+      >
+        <p className="nf-dialog-text">
+          “{document.title}” will be reopened from <code>{runtime.packagePath}</code>. This cannot be
+          undone.
+        </p>
       </Frame>
     );
   }
