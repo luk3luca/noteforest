@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 5b is in progress.** Phase 5a (keyboard/focus/a11y) is merged. Phase 5b is the no-behavior-change cleanup: dead code/exports, dependency dedupe/prune, fixture selector/validity, Spike tooling separation, and docs consistency with M2e/M2f. Later: Sentinel re-review and product-owner VoiceOver/visual pass, then M3. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 5b is implemented and awaiting Sentinel re-review.** Phase 5a (keyboard/focus/a11y) is merged. Phase 5b is the no-behavior-change cleanup: dead code/exports, dependency dedupe/prune, fixture selector/validity, Spike tooling separation, and docs consistency with M2e/M2f. M2 is not accepted yet; product-owner VoiceOver/visual pass, then M3. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 
@@ -97,7 +97,7 @@ These override any conflicting research input.
 
 ### Stack and PDF (closed)
 
-- **Stack (D12 closed)**: **Electron + React + TypeScript** for v1, with TipTap/ProseMirror, CodeMirror 6, KaTeX, React Flow, Playwright, and Vitest. See `docs/adr/0001-stack-electron.md`.
+- **Stack (D12 closed)**: **Electron + React + TypeScript** for v1, with TipTap/ProseMirror, React Aria Components, Tailwind CSS v4, KaTeX, lowlight, Playwright, and Vitest. CodeMirror 6 is a later addition; React Flow is replaced by the custom SVG edge overlay (ADR-0004). See `docs/adr/0001-stack-electron.md`.
   - **GPUI**: no-go for v1. Pre-1.0, no PDF/pagination engine, young editor ecosystem, no credible iPad path.
   - **SwiftUI/AppKit**: conditional; reconsider only if iPad + Pencil becomes co-primary.
   - **Qt 6**: mature fallback; rejected for v1 because of C++/QML, licensing, and agent-team fit.
@@ -145,28 +145,34 @@ Research remains useful as input for components, not as an open stack decision. 
 - `docs/definition-of-done.md` — DoD and test strategy (Sentinel).
 - `docs/plan.md` — milestones and tasks (Orchestrator).
 - `docs/ux-shell.md` — desktop shell + branch editor spec for M2.
-- `docs/tasks/` — M2a core and M2b shell/editor briefs.
+- `docs/tasks/` — milestone and phase task briefs.
+- `docs/reviews/` — Sentinel review reports.
+- `docs/reports/` — Builder implementation reports.
 - `docs/adr/` — architecture decision records: stack, PDF, External API, UI shell/editor.
-- `docs/spike-01-layout-paginator-pdf.md` — Spike 1 brief and gates.
+- `docs/spike-01-layout-paginator-pdf.md` — Spike 1 brief and gates (historical).
 - `docs/spikes/` — Spike 1 report, gate evidence, and artifacts.
 - `research/ui-components.md` — M2 shell/editor component and visual research.
 
 ## Repo layout
 
 ```text
-apps/desktop/       # Electron main + preload + React renderer (Spike 1: demo shell only)
+apps/desktop/       # Electron main + preload + React editor shell (M2)
 packages/core/      # document model, schema, commands, serialization, persistence
-packages/layout/    # pure adaptive layout + paginator + fixtures + geometry tests
-packages/pdf/       # print compositor + printToPDF orchestration
-packages/api/       # local HTTP JSON API + MCP adapter (later)
+packages/layout/    # pure adaptive layout + paginator + fixtures + geometry tests (Spike 1 foundation)
+packages/pdf/       # print compositor + printToPDF/verify orchestration (Spike 1 foundation)
+packages/api/       # local HTTP JSON API + MCP adapter (not scaffolded yet)
 docs/
   adr/
+  reports/
+  reviews/
   spikes/
+  tasks/
 research/
 AGENTS.md
 ```
 
-Only `apps/desktop` (demo shell), `packages/layout`, and the minimum `packages/pdf` needed for Spike 1 may be created now. `packages/core` and `packages/api` are scaffolded in later milestones, not during the spike.
+`apps/desktop`, `packages/core`, `packages/layout`, and `packages/pdf` exist.
+`packages/api` is scaffolded in M5, not in M2.
 
 ## Reporting format
 

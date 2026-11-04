@@ -6,6 +6,12 @@
 - **Depends on:** ADR-0001 (Electron), `research/ui-components.md`, `docs/ux-shell.md`
 - **Changes:** ADR-0001 listed React Flow for graph interaction; M2 uses a custom SVG edge overlay instead
 
+> **Body note (M2f phase 5b):** the original Decision body below is kept as the 3 November record.
+> Later addenda refine it and take precedence: **M2c** replaces Source Serif 4 with the system UI sans
+> and replaces `Cmd+Enter`/`Tab`-create with `Option+Enter`/`Control+Enter`; **M2d** introduced depth
+> columns; **M2e/D23** reverts them to parent-relative placement and horizontal scroll instead of
+> flex-wrap columns. Read the addenda before applying the body.
+
 ## Context
 
 M2 is the first touchable slice: an Obsidian-like shell (library sidebar, document tabs, command palette) and a continuous branch editor with primary block-to-block arrows. The product owner explicitly rejected AI-slop UI and asked for real component libraries adapted to the product.

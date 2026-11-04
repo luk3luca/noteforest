@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** Spike 1 complete; editor-first milestone approved by the product owner.
+**Status:** Spike 1 complete; editor-first milestone approved. M2f phase 5b implemented; Sentinel re-review and M2 acceptance pending.
 
 ## Rules
 
@@ -28,13 +28,13 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 
 | ID | Milestone | Goal | Gate | Status |
 |---|---|---|---|---|
-| **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.1; DoD/checklist aligned | **Done** |
+| **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.4; DoD/checklist aligned | **Done** |
 | **M1** | Spike 1 — technical foundation | Prove adaptive layout + paginator + real-text PDF in Electron | Spike 1 gates G1–G9 passed and independently re-run; visuals deferred | **Done** |
-| **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **M2b merged; review found fixes** |
+| **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **M2f phase 5b implemented; M2 acceptance pending** |
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
-| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **In progress — phase 5a done; phase 5b (cleanup)** |
+| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Phase 5b implemented; Sentinel re-review pending** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -58,7 +58,7 @@ What is deferred:
 - visual/product judgement of PDFs (needs the editor first);
 - fonts, metadata, CJK, 1,000-block/virtualization, incremental layout.
 
-## M2 — Editor shell + document core (current)
+## M2 — Editor shell + document core
 
 **Goal:** the product owner can open the app, create/open documents, edit blocks, switch documents in tabs, save, and reopen — and judge the feel.
 
@@ -109,7 +109,7 @@ What is deferred:
 - product-owner visual check: calm, Obsidian-like, no AI-slop patterns;
 - tests: model/persistence unit tests, editor keyboard tests, branch/arrow geometry tests, one e2e create/edit/branch/reopen flow; screenshots.
 
-## M2c — Interaction polish + desync fix (current)
+## M2c — Interaction polish + desync fix
 
 Approved after the product owner's hands-on review of M2b. Full brief: `docs/tasks/m2c-interaction-polish.md`.
 
@@ -122,7 +122,7 @@ Approved after the product owner's hands-on review of M2b. Full brief: `docs/tas
 - **Keyboard:** `Enter`/`Shift+Enter` line breaks; `Option+Enter` sibling; `Control+Enter` child; Tab list indent / selected-block child.
 - **Deferred:** font family/size Settings UI (M6).
 
-## M2d — Depth columns + M2 polish (current)
+## M2d — Depth columns + M2 polish
 
 Approved after the second product-owner pass. Full brief: `docs/tasks/m2d-depth-columns.md`.
 
@@ -135,7 +135,7 @@ Approved after the second product-owner pass. Full brief: `docs/tasks/m2d-depth-
 - **Wrapped arrows:** if the page renderer later wraps a child below, its arrow enters the left side from the indent gutter, not the top.
 - **Deferred:** M3 anchors/reference edges; page/PDF; font/size settings.
 
-## M2e — Parent-relative layout + arrow routing (current)
+## M2e — Parent-relative layout + arrow routing
 
 Approved after the M2d review. Full brief: `docs/tasks/m2e-routing-and-layout.md`.
 
@@ -145,7 +145,7 @@ Approved after the M2d review. Full brief: `docs/tasks/m2e-routing-and-layout.md
 - **Navigation:** zoom out/in/reset (`⌘-`, `⌘0`, `⌘+`) and Focus branch for deep indentation. Page-width wrap preview is M4.
 - **Keep:** 1,600 px canvas / 480 px top-level / 144 px child min, non-destructive Backspace, contextual add, M2c/M2d fixes.
 
-## M2f — Stability fixes from Sentinel review (in progress)
+## M2f — Stability fixes from Sentinel review
 
 Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.md`; phased brief: `docs/tasks/m2f-stability-fixes.md`.
 
@@ -196,13 +196,17 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
 - Tab exits editor; card/shell controls reachable; Ctrl+Tab cycles; save-state live region; context-menu focus trap; accessible tab close.
 - Unit 241/1.8 s; critical e2e 26/58.7–59.1 s; UI 1/1; recovery 10/10.
 
-**Phase 5b (current): cleanup.**
-- Dead code/exports, duplicate atomic writer/history decision, renderer/core structural helpers.
-- Unused deps, KaTeX/pdfjs dedupe, lowlight prune/bundle record, engines.
-- Fixture selector/validity test, Spike tooling separation, docs consistency (README/AGENTS/plan/ux/ADR/DoD/M2d banner).
+**Phase 5b (implemented; awaiting re-review): cleanup.**
+- Dead code/exports removed; duplicate PDF atomic writer removed; core snapshot `history.ts` removed
+  because the adopted undo model is the renderer's routed text/structural stacks.
+- Renderer tree selectors now delegate to `@noteforest/core` structural helpers.
+- Unused deps removed; KaTeX pinned to one in-range version; pdfjs pinned to one version; lowlight
+  bundle accepted and recorded; `engines.node` added.
+- Fixtures validate (`selector` + asset `mime` restored); `spike:*` scripts separated from the
+  default workflow; docs aligned with M2e/M2f.
 - No behavior change; critical e2e unchanged.
 
-**Later:** F2 undo, F3/F6/F7 data safety, F5/F16 keyboard, cleanup.
+**Later:** Sentinel re-review of phase 5b, product-owner VoiceOver/visual pass, and M2 acceptance; then M3.
 
 ## M3 — Span anchors and reference edges (planned)
 
