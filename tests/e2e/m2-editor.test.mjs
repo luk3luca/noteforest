@@ -1833,6 +1833,80 @@ describe('NoteForest M2 editor shell', () => {
     await page.getByRole('button', { name: 'Done' }).click();
     await h.waitSaved();
 
+    // N1: New chapter is one user action and one structural undo entry. A
+    // top-level block is created first so older history exists behind it: the
+    // chapter undo must restore the counts and still leave that entry
+    // reachable. The old failing inverse stayed on top of the stack, repeated
+    // the empty-chapter toast, and hid all older history until reload.
+    const beforeExtra = await canonicalStructure();
+    await page.locator('[data-chapter-add]').first().click();
+    await h.waitCanonicalBlockCount(Object.keys(beforeExtra.blocks).length + 1);
+    await h.waitBlockCount(Object.keys(beforeExtra.blocks).length + 1);
+    // Let the editor normalize the new empty block's body and commit it before
+    // snapshotting; the chapter undo must not change it.
+    await h.waitSaved();
+    const beforeNewChapter = await canonicalStructure();
+    const chaptersBefore = beforeNewChapter.chapters.length;
+    const blocksBefore = Object.keys(beforeNewChapter.blocks).length;
+
+    await page.locator('[data-canvas-action="add-chapter"]').click();
+    await page.waitForFunction(
+      ({ chapterCount, blockCount }) => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return (runtime?.chapters ?? 0) === chapterCount && (runtime?.blocks ?? 0) === blockCount;
+      },
+      { chapterCount: chaptersBefore + 1, blockCount: blocksBefore + 1 },
+      { timeout: 10000 },
+    );
+    await page.waitForFunction(
+      () => document.activeElement?.className === 'nf-chapter-title-input',
+      undefined,
+      { timeout: 10000 },
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(
+      () => document.activeElement?.className !== 'nf-chapter-title-input',
+      undefined,
+      { timeout: 10000 },
+    );
+
+    await page.keyboard.press('Meta+z');
+    await page.waitForFunction(
+      ({ chapterCount, blockCount }) => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return (runtime?.chapters ?? 0) === chapterCount && (runtime?.blocks ?? 0) === blockCount;
+      },
+      { chapterCount: chaptersBefore, blockCount: blocksBefore },
+      { timeout: 10000 },
+    );
+    assert.deepEqual(
+      await canonicalStructure(),
+      beforeNewChapter,
+      'one undo removes the new chapter and its first block exactly',
+    );
+    assert.equal(
+      await page.getByText(/Cannot delete the last top-level block/).count(),
+      0,
+      'undo does not repeat the empty-chapter rejection toast',
+    );
+    assert.equal(
+      (await h.activeRuntimeInfo()).canUndoStructural,
+      true,
+      'older structural history remains reachable after the chapter undo',
+    );
+
+    await page.keyboard.press('Meta+z');
+    await h.waitCanonicalBlockCount(blocksBefore - 1);
+    await h.waitBlockCount(blocksBefore - 1);
+    assert.deepEqual(
+      await canonicalStructure(),
+      beforeExtra,
+      'the next undo reaches the older top-level block creation',
+    );
+    await h.waitSaved();
+
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
     await h.quit();
   });
