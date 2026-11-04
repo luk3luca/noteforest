@@ -17,9 +17,9 @@ npm run typecheck   # strict TypeScript across the workspaces
 npm test            # unit/geometry/fixture tests
 npm run e2e         # build + critical Playwright-driven Electron suite (target < 60 s)
 npm run test:ui     # build + view/accessibility UI suite
-npm run test:recovery # corrupt/missing/newer package recovery integration
+npm run test:recovery # corrupt/missing/newer recovery + backup restore integration
 npm run verify:fast # typecheck + unit + critical e2e
-npm run verify      # verify:fast + recovery integration + view UI
+npm run verify      # verify:fast + recovery/backup integration + view UI
 npm run test:perf   # 300/1,000-block performance report (on demand, not the gate)
 npm run test:visual # screenshots for product-owner review (on demand, not the gate)
 ```

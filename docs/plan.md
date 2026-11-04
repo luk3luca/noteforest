@@ -204,7 +204,7 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
   bundle accepted and recorded; `engines.node` added.
 - Fixtures validate (`selector` + asset `mime` restored); `spike:*` scripts separated from the
   default workflow; docs aligned with M2e/M2f.
-- No behavior change; critical e2e unchanged.
+- No behavior change; backup-restore e2e moved to the recovery suite, critical e2e 23/23 in 48.7 s.
 
 **Later:** Sentinel re-review of phase 5b, product-owner VoiceOver/visual pass, and M2 acceptance; then M3.
 

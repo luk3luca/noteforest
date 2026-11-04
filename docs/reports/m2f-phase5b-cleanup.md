@@ -12,13 +12,17 @@
 - `368598b` refactor: remove dead exports and share core structural helpers
 - `97dd9bc` chore: prune unused dependencies and pin one katex
 - `9e4ffe0` fix(fixtures): restore anchor selectors and validate every fixture
-- docs commit (this report): README/AGENTS/plan/UX/ADR/DoD/checklist/M2d banner
+- `c7d08d2` test: move backup restore flows out of the critical editor suite
+- `88c6cab` docs: align M2f cleanup status, stack, fixtures and gates
+- docs commit (this follow-up): README/plan/report timings
 
 ## Verdict
 
 The reviewed dead code, unused dependencies, fixture validity, Spike tooling separation, and doc
-drift are cleaned up. `npm run verify` passes: typecheck, 241/241 unit tests (27 files), 26/26
-critical e2e, 10/10 recovery, 1/1 view UI. No product behavior or test coverage was removed.
+drift are cleaned up. The backup-restore e2e flows moved to the recovery suite so the critical
+editor suite is back under its 60 s budget. `npm run verify` passes: typecheck, 241/241 unit tests
+(27 files), 23/23 critical e2e, 13/13 recovery/backup, 1/1 view UI. No product behavior or test
+coverage was removed.
 
 ## 1. Dead code and duplication
 
@@ -119,21 +123,42 @@ remain and are accepted as dependency noise, not app code.
 
 ## 5. Gates
 
+The critical suite keeps one test per lifecycle/data-safety flow. The three backup-restore flows
+moved to `tests/recovery/m2f-backup-restore.test.mjs`; `npm run test:recovery` runs both recovery
+files and `verify` includes them, while `verify:fast` keeps only the critical e2e suite.
+
 | Command | Result |
 |---|---|
 | `npm run typecheck` | Pass — desktop node/web, core, layout, pdf |
 | `npm test` | Pass — 241/241, 27 files, 1.85 s |
-| `npm run e2e` | Pass — 26/26 critical; suite 64.72 s; no fixed sleeps |
-| `npm run e2e:critical` (warm) | Pass — 26/26; suite 66.29 s |
-| `npm run test:ui` | Pass — 1/1, 9.41 s |
-| `npm run test:recovery` | Pass — 10/10, 19.05 s |
-| `npm run verify` | Pass — exit 0, 100.57 s wall |
+| `npm run e2e` | Pass — 23/23 critical; suite 48.66 s (wall 56.80 s incl. build); no fixed sleeps |
+| `npm run test:ui` | Pass — 1/1, 9.13–9.41 s |
+| `npm run test:recovery` | Pass — 13/13 (10 recovery + 3 backup); backup suite 9.97 s; total 19.08 s |
+| `npm run verify` | Pass — exit 0, 91.55 s wall |
 | Fixture validity | Pass — 10/10 fixtures |
 | Native dialogs / screen recording | None added, none used |
 
-Timing note: the phase 5a baseline (58.7–59.1 s) was recorded under lighter machine load. On this
-run the same critical suite measured 64.7–66.3 s; a detached `main` worktree measured 73.2 s (and
-hit one pre-existing flake in test 1). The cleanup therefore adds no test time or coverage.
+### Follow-up: critical e2e budget
+
+| Phase | Critical tests | Critical suite | Recovery/backup |
+|---|---:|---:|---:|
+| Before this follow-up | 26 | 64.72 s (`e2e`), 66.29 s (warm), 57.98 s (`verify`) | 10 tests, 19.05 s |
+| After the split | 23 | **48.66 s** (`e2e`), **48.68 s** (`verify`) | 13 tests, 19.08 s |
+
+Moved with every assertion intact:
+
+- valid backup list, newest-first ordering, and restore as a new copy;
+- no-valid-backup empty state (including invalid-only backups);
+- existing, outside-library, read-only, and native-Cancel restore destinations.
+
+The failed-save quit guard and the core save/undo tests stay in the critical suite. The new file
+uses the same Electron harness and the existing native-dialog mocks; no product behavior or fixed
+sleep changed.
+
+The lifecycle test was reviewed for a redundant relaunch. It performs one relaunch because the
+restore-after-relaunch assertion *is* its coverage; the scroll/focus test uses a different document
+and environment. Merging them would entangle two flows without removing an app launch, so the test
+is left unchanged (7.24 s in the final run).
 
 ## 6. Known gaps
 
