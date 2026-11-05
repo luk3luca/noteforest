@@ -15,6 +15,9 @@ import type { ValidationIssue } from './errors.js';
 import {
   buildBlockAnchorIndex,
   checkAnchorBindingKind,
+  findQuoteOccurrences,
+  formulaLatex,
+  getNodeAtPath,
   inspectAnchorBinding,
   isKnownAnchorKind,
   mergeAnchorBinding,
@@ -1151,6 +1154,55 @@ function anchorMirrorFields(
   return mirrors;
 }
 
+/**
+ * A formula term selector and its binding must describe the same occurrence in
+ * the same formula source. The atomic node binding only adds the anchor ID to
+ * the node, so validate the substring before any content mutates.
+ *
+ * Multiple occurrences are valid and deliberately left ambiguous by
+ * resolution; the selected occurrence never auto-resolves on its own.
+ */
+function assertFormulaTermSelection(
+  content: ContentNode,
+  binding: AnchorBinding,
+  selector: JsonObject,
+): void {
+  if (selector['kind'] !== 'formula' || selector['form'] !== 'term') return;
+  if (binding.kind !== 'formula' || binding.form !== 'term') {
+    reject('invalid-content', 'a formula term selector requires a formula term binding');
+  }
+  const term = selector['latex'];
+  if (typeof term !== 'string' || term.length === 0) return;
+  if (term !== binding.latex) {
+    reject('invalid-content', 'formula term selector.latex must match the binding term');
+  }
+  const hint = selector['occurrenceHint'];
+  if (hint !== undefined && hint !== binding.occurrence) {
+    reject('invalid-content', 'formula term occurrenceHint must match the binding occurrence');
+  }
+  if (!Number.isInteger(binding.occurrence) || binding.occurrence < 1) {
+    reject('invalid-content', 'formula term occurrence must be a positive integer');
+  }
+  const node = getNodeAtPath(content, binding.nodePath);
+  if (node === null) return;
+  if (node.type !== 'mathBlock' && node.type !== 'inlineMath') {
+    reject('invalid-content', `a formula term anchor cannot bind a "${node.type}" node`);
+  }
+  const latex = formulaLatex(node);
+  const occurrences = findQuoteOccurrences(latex, term);
+  if (occurrences.length === 0) {
+    reject('invalid-content', 'formula term is not present in the formula source');
+  }
+  if (binding.occurrence > occurrences.length) {
+    reject('invalid-content', 'formula term occurrence does not exist in the formula source');
+  }
+  const occurrence = occurrences[binding.occurrence - 1];
+  const start = selector['latexStart'];
+  if (start !== undefined && start !== occurrence?.start) {
+    reject('invalid-content', 'formula term latexStart does not match the selected occurrence');
+  }
+}
+
 function buildAnchorRecord(
   id: string,
   blockId: string,
@@ -1314,6 +1366,7 @@ function ensureSelectionAnchor(
     );
   }
   const mirrors = anchorMirrorFields(kind, selector, {});
+  assertFormulaTermSelection(block.content, binding, selector);
   const anchorId = requestedAnchorId ?? freshId(document, context);
   assertId(anchorId, 'anchorId');
   if (allIds(document).has(anchorId)) {
@@ -1903,6 +1956,7 @@ function applyToClone(
           ? {}
           : { occurrenceHint: command.occurrenceHint }),
       });
+      assertFormulaTermSelection(block.content, command.binding, selector);
       const anchorId = command.anchorId ?? freshId(document, context);
       assertId(anchorId, 'anchorId');
       if (allIds(document).has(anchorId)) {
