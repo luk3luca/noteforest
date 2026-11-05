@@ -92,8 +92,8 @@ export interface BranchSource extends JsonObject {
 
 /**
  * A structural edge. M2 persists **primary** branches to represent the block
- * tree (spec §4.5–4.6). Reference and anchor branches are validated when
- * present but have no commands in M2.
+ * tree (spec §4.5–4.6). M3 adds reference branches and branches sourced from
+ * anchors; all share this record shape.
  */
 export interface Branch extends JsonObject {
   id: string;
