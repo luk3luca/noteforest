@@ -1,4 +1,4 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Mark, Node, mergeAttributes } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Image } from '@tiptap/extension-image';
 import { Link } from '@tiptap/extension-link';
@@ -8,6 +8,7 @@ import { TableKit } from '@tiptap/extension-table';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { common, createLowlight } from 'lowlight';
+import { normalizeAnchorIds } from '@noteforest/core';
 import {
   BlockBodyView,
   BlockView,
@@ -16,6 +17,62 @@ import {
 } from './views/BlockViews';
 
 const lowlight = createLowlight(common);
+
+function anchorIdsFromElement(element: HTMLElement): string[] {
+  const raw = element.getAttribute('data-anchor-ids') ?? element.getAttribute('data-anchor-id') ?? '';
+  return normalizeAnchorIds(raw.split(',').map((value) => value.trim()));
+}
+
+/**
+ * Text-anchor binding mark (ADR-0005 §1).
+ *
+ * One mark per text node carries the sorted `anchorIds` array; overlapping
+ * anchors share it. The end is non-inclusive so typing at the right boundary
+ * does not silently grow the range. This is a semantic mark: it is not a
+ * formatting toggle and must survive `unsetAllMarks`.
+ */
+export const AnchorMark = Mark.create({
+  name: 'anchor',
+  inclusive: false,
+  keepOnSplit: true,
+  clearable: false,
+  addAttributes() {
+    return {
+      anchorIds: {
+        default: [],
+        parseHTML: (element) => anchorIdsFromElement(element),
+        renderHTML: (attributes) => ({
+          'data-anchor-ids': normalizeAnchorIds(
+            Array.isArray(attributes['anchorIds'])
+              ? (attributes['anchorIds'] as string[])
+              : [],
+          ).join(','),
+        }),
+      },
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-anchor-mark]',
+        getAttrs: (element) => {
+          const ids = anchorIdsFromElement(element as HTMLElement);
+          return ids.length === 0 ? false : { anchorIds: ids };
+        },
+      },
+    ];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, {
+        class: 'nf-anchor-mark',
+        'data-anchor-mark': 'true',
+      }),
+      0,
+    ];
+  },
+});
 
 /**
  * Wrapper nodes. `chapter` and `blockBody` are in the ProseMirror `block`
@@ -170,6 +227,7 @@ export function createEditorExtensions() {
       showOnlyWhenEditable: true,
       includeChildren: true,
     }),
+    AnchorMark,
     ChapterNode,
     BlockNode,
     BlockBodyNode,

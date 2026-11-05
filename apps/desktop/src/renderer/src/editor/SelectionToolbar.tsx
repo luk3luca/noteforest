@@ -1,7 +1,8 @@
-import { Bold, Code, Italic, Link2, Sigma } from 'lucide-react';
+import { Bold, Code, GitBranch, Italic, Link2, Sigma } from 'lucide-react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/core';
 import { useState } from 'react';
+import { getEditorBindings } from './bindings';
 import { useShell } from '../state/shell';
 
 interface ToolbarProps {
@@ -57,6 +58,17 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
         </form>
       ) : (
         <div className="nf-bubble-row">
+          <button
+            type="button"
+            className="nf-bubble-button nf-bubble-branch"
+            aria-label="Branch from selection"
+            title="Branch from selection (⌘⇧Return)"
+            data-action="branch-from-selection"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => getEditorBindings(editor)?.branchFromSelection()}
+          >
+            <GitBranch size={15} strokeWidth={1.5} aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="nf-bubble-button"

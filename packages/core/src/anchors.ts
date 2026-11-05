@@ -1749,6 +1749,62 @@ export function mergeAnchorBinding(
   return withNodeAtPath(content, binding.nodePath, (target) => addAnchorId(target, anchorId));
 }
 
+/**
+ * Derive a durable text-anchor selector from a text binding.
+ *
+ * The binding is truth; the selector is the repair descriptor. The helper
+ * applies the binding to a copy with a probe ID, inspects the resulting
+ * contiguous run, and reads quote/context/occurrence from the plain-text
+ * projection. Returns null when the binding is not one contiguous text run
+ * (crosses a barrier, empty, disjoint, or wrong kind) so the caller can reject
+ * before mutating the document.
+ */
+export function textAnchorSelectorForBinding(
+  content: ContentNode,
+  binding: AnchorBinding,
+  contextLength = 32,
+): TextAnchorSelector | null {
+  if (binding.kind !== 'text') return null;
+  let probeId = '__noteforest_text_anchor_probe__';
+  let suffix = 0;
+  while (readContentAnchorBinding(content, probeId) !== null) {
+    suffix += 1;
+    probeId = `__noteforest_text_anchor_probe_${suffix}__`;
+  }
+
+  let merged: ContentNode;
+  try {
+    merged = mergeAnchorBinding(content, probeId, binding);
+  } catch {
+    return null;
+  }
+  const index = buildBlockAnchorIndex('probe', merged);
+  const inspection = inspectAnchorBinding(index, probeId);
+  if (inspection.reason !== 'none' || inspection.textRange === null) return null;
+
+  const { start, end } = inspection.textRange;
+  const quote = codePointSlice(index.projection.text, start, end);
+  if (quote.length === 0) return null;
+  const { prefix, suffix: after } = projectionContext(
+    index.projection,
+    start,
+    end,
+    contextLength,
+  );
+  const occurrences = findQuoteOccurrences(index.projection.text, quote);
+  const occurrence = occurrences.findIndex(
+    (candidate) => candidate.start === start && candidate.end === end,
+  );
+
+  return {
+    kind: 'text',
+    quote,
+    ...(prefix.length === 0 ? {} : { prefix }),
+    ...(after.length === 0 ? {} : { suffix: after }),
+    occurrenceHint: occurrence >= 0 ? occurrence + 1 : 1,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Content-order keys
 // ---------------------------------------------------------------------------

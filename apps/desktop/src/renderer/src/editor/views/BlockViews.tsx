@@ -1,4 +1,5 @@
-import { ChevronRight, GripVertical, Plus } from 'lucide-react';
+import { ChevronRight, GripVertical, Plus, TriangleAlert } from 'lucide-react';
+import { resolveAnchor } from '@noteforest/core';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import {
   useCallback,
@@ -245,6 +246,28 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     ? `Expand branch, ${childLabel} hidden`
     : `Collapse branch, ${childLabel}`;
 
+  // M3b1 minimal broken state: an anchored child whose binding no longer
+  // resolves shows a warning on the parent card. Repair/health UX is M3e.
+  const anchorWarnings: Array<{ anchorId: string; state: string }> = [];
+  if (bindings !== null) {
+    const document = bindings.runtime.document;
+    const seen = new Set<string>();
+    for (const branch of Object.values(document.branches)) {
+      if (branch.source.blockId !== blockId) continue;
+      const anchorId = branch.source.anchorId;
+      if (anchorId === undefined || seen.has(anchorId)) continue;
+      seen.add(anchorId);
+      const resolution = resolveAnchor(document, anchorId);
+      if (
+        resolution.state === 'broken' ||
+        resolution.state === 'ambiguous' ||
+        resolution.state === 'block-missing'
+      ) {
+        anchorWarnings.push({ anchorId, state: resolution.state });
+      }
+    }
+  }
+
   return (
     <NodeViewWrapper
       className="nf-block-body"
@@ -278,6 +301,19 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         </button>
       </div>
       <NodeViewContent className="nf-block-prose" />
+      {anchorWarnings.length > 0 ? (
+        <span
+          className="nf-anchor-warning"
+          contentEditable={false}
+          role="status"
+          data-anchor-warning={anchorWarnings[0]?.anchorId ?? ''}
+          data-anchor-state={anchorWarnings[0]?.state ?? ''}
+          title="The anchored text could not be resolved. The branch is kept; repair arrives in a later step."
+        >
+          <TriangleAlert size={12} strokeWidth={1.5} aria-hidden="true" />
+          Lost anchor
+        </span>
+      ) : null}
       <button
         type="button"
         className="nf-add-edge nf-add-child"

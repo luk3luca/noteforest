@@ -8,6 +8,7 @@
  */
 
 import type { ContentNode, Document } from '@noteforest/core';
+import { normalizeAnchorIds } from '@noteforest/core';
 import { directChildIds } from './tree';
 
 export interface PMMark {
@@ -27,16 +28,73 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** Read anchor IDs from an `anchorIds` array or the M2 legacy single string. */
+function anchorIdsFromAttrs(attrs: unknown): string[] {
+  if (!isRecord(attrs)) return [];
+  const value = attrs['anchorIds'];
+  if (Array.isArray(value)) {
+    return normalizeAnchorIds(
+      value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0),
+    );
+  }
+  const legacy = attrs['anchorId'];
+  return typeof legacy === 'string' && legacy.length > 0 ? normalizeAnchorIds([legacy]) : [];
+}
+
+/**
+ * Keep exactly one sorted `anchor` mark per node. Duplicate anchor marks and a
+ * legacy `anchorId` are folded into the `anchorIds` array; empty marks vanish.
+ */
+function normalizeMarks<T extends { type: string; attrs?: Record<string, unknown> }>(
+  marks: readonly T[],
+): T[] {
+  const others: T[] = [];
+  const ids: string[] = [];
+  for (const mark of marks) {
+    if (mark.type === 'anchor') ids.push(...anchorIdsFromAttrs(mark.attrs));
+    else others.push(mark);
+  }
+  const normalized = normalizeAnchorIds(ids);
+  if (normalized.length > 0) {
+    others.push({ type: 'anchor', attrs: { anchorIds: normalized } } as unknown as T);
+  }
+  return others;
+}
+
+/**
+ * Copy/paste rule from ADR-0005 §7: pasted inline/atomic content must never
+ * duplicate an anchor ID. The source keeps its anchors; the pasted copy loses
+ * the binding. Block-level duplicate-subtree remapping is not part of M3b1.
+ */
+export function stripAnchorBindings(node: PMNode): PMNode {
+  const result: PMNode = { type: node.type };
+  const attrs = isRecord(node.attrs) ? { ...node.attrs } : undefined;
+  if (attrs !== undefined) {
+    delete attrs['anchorIds'];
+    delete attrs['anchorId'];
+    if (Object.keys(attrs).length > 0) result.attrs = attrs;
+  }
+  if (typeof node.text === 'string') result.text = node.text;
+  if (Array.isArray(node.marks)) {
+    const marks = normalizeMarks(node.marks).filter((mark) => mark.type !== 'anchor');
+    if (marks.length > 0) result.marks = marks;
+  }
+  if (Array.isArray(node.content)) result.content = node.content.map(stripAnchorBindings);
+  return result;
+}
+
 export function contentToPM(node: ContentNode): PMNode {
   const result: PMNode = { type: node.type };
   if (isRecord(node.attrs)) result.attrs = { ...node.attrs };
   if (typeof node.text === 'string') result.text = node.text;
   if (Array.isArray(node.marks)) {
-    result.marks = node.marks.filter(isRecord).map((mark) => {
+    const marks = node.marks.filter(isRecord).map((mark) => {
       const converted: PMMark = { type: String(mark['type']) };
       if (isRecord(mark['attrs'])) converted.attrs = { ...mark['attrs'] };
       return converted;
     });
+    const normalized = normalizeMarks(marks);
+    if (normalized.length > 0) result.marks = normalized;
   }
   if (Array.isArray(node.children)) result.content = node.children.map(contentToPM);
   return result;
@@ -47,10 +105,13 @@ export function pmToContent(node: PMNode): ContentNode {
   if (node.attrs !== undefined) result.attrs = { ...node.attrs };
   if (typeof node.text === 'string') result.text = node.text;
   if (Array.isArray(node.marks)) {
-    result.marks = node.marks.map((mark) => ({
-      type: mark.type,
-      ...(mark.attrs === undefined ? {} : { attrs: { ...mark.attrs } }),
-    }));
+    const marks = normalizeMarks(
+      node.marks.map((mark) => ({
+        type: mark.type,
+        ...(mark.attrs === undefined ? {} : { attrs: { ...mark.attrs } }),
+      })),
+    );
+    if (marks.length > 0) result.marks = marks;
   }
   if (Array.isArray(node.content)) result.children = node.content.map(pmToContent);
   return result;
