@@ -6,7 +6,8 @@
 **Branch:** `t3/m3-spec-delta-docs`  
 **Base:** `main` at `c34f928` (docs: approve M3 design and start spec/UX/ADR delta)  
 **Commits:** `b988668` (docs delta), `235f8b2` (report), `ca45b89` (OD-4 citation), `0498675`
-(approved OD cross-reference note); this report update is the final follow-up commit.  
+(approved OD cross-reference note), `9f9b0e8` (report commit series), `ec9901d` (C1 UX conflict
+status). The final HEAD is reported in the handoff.  
 **Spec version:** `docs/spec.md` **v0.4.5**  
 **UX version:** `docs/ux.md` **v1.3**  
 **ADR:** `docs/adr/0005-anchor-binding-and-identity.md` (Accepted). `docs/adr/0006-reference-edges.md`
