@@ -2558,7 +2558,7 @@ describe('NoteForest M2 editor shell', () => {
 
   it('creates a text-anchored child, undoes once, and reloads with the anchor intact', async () => {
     const env = isolated('text-anchor');
-    await launch({ ...env, NOTEFOREST_E2E_HIDDEN: '0' });
+    await launch(env);
     await h.setWindowSize(1440, 900);
     await createDocumentWithText('Alpha eigenvalue beta');
     await page.keyboard.press('Meta+s');
@@ -2568,47 +2568,30 @@ describe('NoteForest M2 editor shell', () => {
     const parentId = before.chapters[0].topLevelBlockIds[0];
     assert.equal(typeof parentId, 'string');
 
-    // Select "eigenvalue" with a real mouse drag, then branch from it.
-    const selectWord = async (value) => {
-      const word = await page.evaluate((expected) => {
-        const prose = document.querySelector(
-          '.nf-editor[data-active="true"] [data-block-card] .nf-block-prose',
-        );
-        if (prose === null) return null;
-        const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-          const text = node.textContent ?? '';
-          const index = text.indexOf(expected);
-          if (index < 0) continue;
-          const start = document.createRange();
-          start.setStart(node, index);
-          start.setEnd(node, index + 1);
-          const end = document.createRange();
-          end.setStart(node, index + expected.length - 1);
-          end.setEnd(node, index + expected.length);
-          const startRect = start.getBoundingClientRect();
-          const endRect = end.getBoundingClientRect();
-          return {
-            x1: startRect.left,
-            y1: startRect.top + startRect.height / 2,
-            x2: endRect.right,
-            y2: endRect.top + endRect.height / 2,
-          };
-        }
-        return null;
-      }, value);
-      assert.ok(word !== null, `the source word "${value}" is in the editor`);
-      await page.mouse.move(word.x1, word.y1);
-      await page.mouse.down();
-      await page.mouse.move(word.x2, word.y2, { steps: 5 });
-      await page.mouse.up();
+    // Select "eigenvalue" deterministically with the keyboard: click the
+    // source paragraph, go to line start, advance to the word, extend the
+    // selection. A raw mouse drag was flaky under full-suite load and the
+    // visible window stole OS focus for the screenshot.
+    const selectWord = async (value, prefixLength) => {
+      const prose = h
+        .activeEditor()
+        .locator('[data-block-card] .nf-block-prose')
+        .first();
+      await prose.click();
+      await page.keyboard.press('Meta+ArrowLeft');
+      for (let index = 0; index < prefixLength; index += 1) {
+        await page.keyboard.press('ArrowRight');
+      }
+      for (let index = 0; index < value.length; index += 1) {
+        await page.keyboard.press('Shift+ArrowRight');
+      }
       await page.waitForFunction(
         (expected) => window.getSelection()?.toString() === expected,
         value,
         { timeout: 10000 },
       );
     };
-    await selectWord('eigenvalue');
+    await selectWord('eigenvalue', 'Alpha '.length);
     await page.waitForSelector(
       '[data-testid="selection-toolbar"] [data-action="branch-from-selection"]',
     );
@@ -2654,9 +2637,6 @@ describe('NoteForest M2 editor shell', () => {
       childId,
       { timeout: 10000 },
     );
-    await mkdir(artifactsPath('m3b1'), { recursive: true });
-    const shot = artifactsPath('m3b1', 'anchored-child-1440x900.png');
-    await h.screenshot(shot, { width: 1440, height: 900 });
 
     // One ⌘Z removes the branch, block and newly created anchor exactly.
     await page.keyboard.press('Meta+z');
@@ -2688,7 +2668,7 @@ describe('NoteForest M2 editor shell', () => {
 
     // The floating toolbar uses the same command: the same span reuses its
     // anchor, adds a second branch, and undo keeps the anchor plus first child.
-    await selectWord('eigenvalue');
+    await selectWord('eigenvalue', 'Alpha '.length);
     await page.locator('[data-action="branch-from-selection"]').click();
     await h.waitCanonicalBlockCount(3);
     await h.waitBlockCount(3);
@@ -2710,7 +2690,7 @@ describe('NoteForest M2 editor shell', () => {
 
     // Relaunch: the marker and branch survive the persisted binding.
     await h.quit();
-    await launch({ ...env, NOTEFOREST_E2E_HIDDEN: '0' });
+    await launch(env);
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
     await h.waitEditorText('Durable child note');
     await page.waitForSelector('.nf-anchor-mark[data-anchor-mark="true"]');
@@ -2732,6 +2712,5 @@ describe('NoteForest M2 editor shell', () => {
     );
     assert.equal(Object.keys(reloaded.anchors).length, 1, 'the reused anchor was not duplicated');
     await h.waitSaved();
-    await h.screenshot(shot, { width: 1440, height: 900 });
   });
 });
