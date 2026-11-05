@@ -1152,6 +1152,27 @@ anchors are different because the mark binding is exact even when the quote repe
 (`packages/layout/src/layout.ts` anchored-first placement). M4 must consume the M3 resolver and
 callout order; it must not add a second anchor model. AC-52's 2 px alignment is an M4 gate.
 
+#### 6.2.1 Product-owner revision (5 November 2026)
+
+The diagram above and the “direct-children group below the lane” wording are **superseded**. The
+approved model is responsive and left-entry:
+
+- Direct children render to the **right** while they fit the available width. When they wrap, they
+  join the below stack instead of being forced below by the callout lane.
+- Anchored callouts always render **below** the parent, in anchor order, before any wrapped direct
+  children. Multiple callouts from one anchor stack in branch order; multiple anchors follow the
+  shared anchor order key.
+- The below stack (callouts, then wrapped direct children) uses **one shared left trunk** with a
+  horizontal arm per row and an arrowhead entering the row's **left edge**. There are no top-entry
+  arrows and no vertical line through a card.
+- Callout rows keep the quote chip and decorative anchor leader; wrapped direct rows are plain
+  cards. The right group keeps the V4 trunk/bus and left-entry arrows.
+- The right/below decision is driven by measured width, not by the child kind. This is the same model
+  M4 needs when the canvas is constrained to A4.
+
+`docs/tasks/m3b2c-left-entry-below-stack.md` implements this revision. The canonical document,
+outline order, and D3 anchored-first order do not change.
+
 ### 6.3 Geometry contract
 
 | Anchor kind | Editor marker | Callout origin | Fallback |

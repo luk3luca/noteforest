@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.3, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1 merged; M3c2/M3c3 on hold pending product-owner go.
+**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.4, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1 merged; M3b2c left-entry routing specified, not started; M3c2/M3c3 on hold pending product-owner go.
 
 ## Rules
 
@@ -262,9 +262,15 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   spec v0.4.5, UX v1.3, ADR-0005 are merged. C1/C8/C9 and OD-1–OD-12 are approved.
 - Slices: M3a1 anchor model/binding/resolution (merged) → M3a2 anchor commands + branch extension
   (merged) → M3b1 text anchor authoring (merged) → M3b2a callout lane (merged) → M3b2b outline
-  rows/marker navigation (merged) → M3c1 whole-formula anchors (merged) → **M3c2 formula terms and
-  M3c3 code/image on hold until the product owner gives the go** → M3d reference edges → M3e repair →
-  M3f identity/undo/split-merge/fixtures.
+  rows/marker navigation (merged) → M3c1 whole-formula anchors (merged) → **M3b2c left-entry
+  below-stack routing (specified, not started)** → **M3c2 formula terms and M3c3 code/image on hold
+  until the product owner gives the go** → M3d reference edges → M3e repair → M3f identity/undo/
+  split-merge/fixtures.
+- **M3b2c approved layout rule (5 November 2026):** direct children stay right while they fit and
+  join the below stack when they wrap; callouts always below, before wrapped direct children; one
+  shared left trunk with horizontal arms; every arrow enters from the left, never the top. This
+  supersedes the M3b2a "direct children after the lane / top-entry" route. Brief:
+  `docs/tasks/m3b2c-left-entry-below-stack.md`.
 
 ## M4 — Reader/page + PDF (planned)
 

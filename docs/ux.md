@@ -1,6 +1,6 @@
-# NoteForest — UX specification v1.3
+# NoteForest — UX specification v1.4
 
-**Status:** Draft v1.3 — M3 design delta applied (5 November 2026)  
+**Status:** Draft v1.4 — M3 below-stack routing revision (5 November 2026)  
 **Owner:** UX / Product  
 **Date:** 5 November 2026  
 **Working title:** NoteForest (clearance or rename required before packaging)  
@@ -8,6 +8,12 @@
 **Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` v0.4.5, `docs/plan.md`, `docs/ux-shell.md`, `docs/adr/0005-anchor-binding-and-identity.md`
 
 This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is decided (Electron, ADR-0001); this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md`, the spec, and the ADRs.
+
+**Revision note (v1.4).** The product owner revised the below-stack rendering: direct children stay
+to the right while they fit and join the below stack only when they wrap; anchored callouts always
+sit below the parent; the below stack uses one shared left trunk with horizontal arms and all arrows
+enter from the left, never from the top. This supersedes the "direct-children group below the lane"
+wording in the v1.3 callout lane.
 
 **Revision note (v1.3).** Applies the product owner's approved M3 decisions (C1, C8, C9, OD-1–OD-12): anchored children come first (C1/D3), idle anchors and explicit removal (OD-2), role-independent dedupe (OD-3), make-home root rule (OD-7), callout lane (OD-8), dashed reference edges plus chips (OD-9), status-chip health sheet (OD-10), and text-selection projection (OD-12). M3 is editor-first: there is no page view or PDF yet, so M3 chips show the chapter/label and M4 adds page numbers. The paginated Reader/Page collapse wording remains a v1.2/M4 topic; the M3 continuous editor follows spec §7.6.
 
@@ -692,7 +698,7 @@ Page is a read-only preview: add, edit, and delete commands are disabled there. 
 - Anchors are unique per span. Branching the same span again creates another branch from the same anchor, not a second anchor. Overlapping anchors are allowed; each has its own ID.
 - Removing the last branch from an anchor leaves the anchor record **idle**: the marker is hidden, no callout remains, and it is not listed as broken. An explicit **Remove anchor** command deletes the idle record and its binding (undoable) (OD-2).
 - If an anchor span is lost (text edited away, formula replaced, image replaced, crop changed), the branch falls back to the whole block, shows a broken/ambiguous marker, and stays repairable through the anchor health sheet. The child is never deleted.
-- Anchored children are placed in a **callout lane** below the parent card and before the direct-children group, left-aligned to the anchor where possible (OD-8). "Below the anchor" means below the anchor's block card, not inside the card under the span. Pixel alignment is best-effort in M3; M4 gates it at 2 px (AC-52).
+- Anchored children are placed in a **callout lane** below the parent card. Direct children stay to the right while they fit; when they wrap, they join the same below stack after the callouts. Below-stack rows share one left trunk; every arrow enters its target from the left, never from the top. "Below the anchor" means below the anchor's block card, not inside the card under the span. Pixel alignment is best-effort in M3; M4 gates it at 2 px (AC-52).
 - Anchored children are emitted **before** direct children in the outline and callout lane (D3). They wrap and paginate like any branch. If a callout crosses a page boundary, atomic children move whole and long text children continue at a safe boundary, with a ghost parent and continuation marker.
 - The anchor marker is reachable from the block menu and the anchor health sheet; no core anchor action is mouse-only (D13).
 - Highlight (`⌘⇧H`) is a text mark with no structural meaning.
@@ -1391,7 +1397,7 @@ This section defines behavior and hierarchy, not final visual design.
 | Branch | Visual | Layout effect | Interaction |
 |---|---|---|---|
 | **Structural** | Solid 1.5 pt, filled arrowhead | Parent/child; adaptive layout | Click; `⌫` removes with rules |
-| **Anchored structural** | Solid, starts at anchor dot, enters the callout lane below the parent card | Child below anchor, before direct children; wraps/paginates | Click; highlights span |
+| **Anchored structural** | Solid, starts at anchor dot, enters the below stack from the left | Child below anchor, before wrapped direct children; wraps/paginates | Click; highlights span |
 | **Reference, both endpoints visible** | Dashed 1.25 pt, open arrowhead | None | Click; label |
 | **Reference, not both visible** | "See also" chip + list row | None | Click jumps |
 | **Anchored reference** | Dashed from anchor dot; no callout | None | Same |
