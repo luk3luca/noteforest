@@ -13,4 +13,5 @@ export * from './validation.js';
 export * from './serialize.js';
 export * from './fractional-order.js';
 export * from './structure.js';
+export * from './anchors.js';
 export * from './commands.js';
