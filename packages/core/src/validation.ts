@@ -618,7 +618,6 @@ export function validateDocument(value: unknown): ValidationReport {
   // ---------------------------------------------------------------------
   // Branches: existence, roles, one primary parent, uniqueness (I2–I8).
   // ---------------------------------------------------------------------
-  const branchIds = new Set<string>();
   const parentOf = new Map<string, Branch>();
   const branchByTarget = new Map<string, string>();
   const duplicatePorts = new Map<string, string>();
@@ -631,7 +630,6 @@ export function validateDocument(value: unknown): ValidationReport {
       continue;
     }
     registerId(branchId, 'branch', path);
-    branchIds.add(branchId);
     if (branchValue['id'] !== branchId) {
       collector.error(
         'map-key-mismatch',
@@ -763,19 +761,6 @@ export function validateDocument(value: unknown): ValidationReport {
           parentOf.set(targetBlockId, { ...branchValue, id: branchId } as Branch);
         }
       }
-    }
-  }
-
-  if (branchIds.size > 0) {
-    const referenceCount = Object.values(branchesRaw).filter(
-      (branch) => isRecord(branch) && branch['role'] === 'reference',
-    ).length;
-    if (referenceCount > 0) {
-      collector.warning(
-        'unsupported-m2-feature',
-        `${referenceCount} reference branch(es) are preserved but not edited in M2`,
-        'branches',
-      );
     }
   }
 

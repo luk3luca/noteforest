@@ -19,11 +19,14 @@ import {
   anchorQuote,
   anchorState,
   blockCount,
+  blockTitle,
   chapterIdOf,
   countWords,
   directChildIds,
   flattenBlocks,
   incomingBranch,
+  incomingReferenceBranches,
+  outgoingReferenceBranches,
   parentIdOf,
 } from './lib/tree';
 import { anchoredChildBranches } from '@noteforest/core';
@@ -425,7 +428,46 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
         onSelect: () => runtime.cycleAnchor(blockId, anchorId),
       });
     }
+    anchorEntries.push({
+      id: `anchor-link-reference-${anchorId}`,
+      label: `Link “${group.quote}” as reference…`,
+      onSelect: () => shell().openDialog({ kind: 'link-reference', blockId, anchorId }),
+    });
   }
+
+  const referenceEntries: MenuEntry[] = [];
+  for (const reference of outgoingReferenceBranches(runtime.document, blockId)) {
+    const targetTitle = blockTitle(runtime.document.blocks[reference.targetBlockId]);
+    referenceEntries.push({
+      id: `reference-open-${reference.id}`,
+      label: `See also: ${targetTitle}`,
+      onSelect: () => runtime.focusBlock(reference.targetBlockId, { select: true }),
+    });
+    referenceEntries.push({
+      id: `reference-remove-${reference.id}`,
+      label: `Remove reference to ${targetTitle}`,
+      onSelect: () => report(runtime.deleteReference(reference.id)),
+    });
+  }
+  for (const reference of incomingReferenceBranches(runtime.document, blockId)) {
+    const sourceTitle = blockTitle(runtime.document.blocks[reference.source.blockId]);
+    const sourceAnchorId = reference.source.anchorId;
+    const context =
+      sourceAnchorId === undefined
+        ? sourceTitle
+        : `${sourceTitle} “${anchorQuote(runtime.document, sourceAnchorId)}”`;
+    referenceEntries.push({
+      id: `reference-back-${reference.id}`,
+      label: `Referenced by: ${context}`,
+      onSelect: () => runtime.focusBlock(reference.source.blockId, { select: true }),
+    });
+    referenceEntries.push({
+      id: `reference-unlink-${reference.id}`,
+      label: `Remove reference from ${sourceTitle}`,
+      onSelect: () => report(runtime.deleteReference(reference.id)),
+    });
+  }
+
   const entries: MenuEntry[] = [
     {
       id: 'focus',
@@ -444,9 +486,18 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       shortcut: '⌥⏎',
       onSelect: () => report(runtime.addSibling(blockId)),
     },
+    {
+      id: 'link-reference',
+      label: 'Link as reference…',
+      shortcut: '⌘⇧L',
+      onSelect: () => shell().openDialog({ kind: 'link-reference', blockId }),
+    },
     ...(anchorEntries.length === 0
       ? []
       : [{ id: 'sep-anchors', label: '', separator: true }, ...anchorEntries]),
+    ...(referenceEntries.length === 0
+      ? []
+      : [{ id: 'sep-references', label: '', separator: true }, ...referenceEntries]),
     { id: 'sep-1', label: '', separator: true },
     {
       id: 'move',
@@ -653,6 +704,15 @@ export function paletteCommands(): MenuEntry[] {
       onSelect: () => {
         if (runtime === null || selected === null) return;
         report(runtime.addSibling(selected));
+      },
+    },
+    {
+      id: 'link-reference',
+      label: 'Link as reference…',
+      shortcut: '⌘⇧L',
+      onSelect: () => {
+        if (selected === null) return;
+        shell().openDialog({ kind: 'link-reference', blockId: selected });
       },
     },
     { id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) },

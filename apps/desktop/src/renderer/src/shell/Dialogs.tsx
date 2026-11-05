@@ -20,7 +20,7 @@ import {
   report,
   undoActive,
 } from '../actions';
-import { blockTitle, chapterIdOf, subtreeIds } from '../lib/tree';
+import { anchorQuote, blockTitle, chapterIdOf, subtreeIds } from '../lib/tree';
 import {
   formulaNodeAt,
   formulaTermBinding,
@@ -89,6 +89,17 @@ export function Dialogs(): JSX.Element | null {
 
   if (dialog.kind === 'delete-block') {
     return <DeleteBlockDialog runtime={runtime} blockId={dialog.blockId} onClose={close} />;
+  }
+
+  if (dialog.kind === 'link-reference') {
+    return (
+      <LinkReferenceDialog
+        runtime={runtime}
+        sourceBlockId={dialog.blockId}
+        sourceAnchorId={dialog.anchorId}
+        onClose={close}
+      />
+    );
   }
 
   if (dialog.kind === 'delete-branch') {
@@ -481,6 +492,144 @@ function RestoreBackupDialog({
       <p className="nf-dialog-note">
         The restored copy opens in a new tab. This window’s unsaved changes and the original
         file are left untouched.
+      </p>
+    </Frame>
+  );
+}
+
+function LinkReferenceDialog({
+  runtime,
+  sourceBlockId,
+  sourceAnchorId,
+  onClose,
+}: {
+  runtime: DocumentRuntime;
+  sourceBlockId: string;
+  sourceAnchorId?: string;
+  onClose: () => void;
+}): JSX.Element {
+  const [query, setQuery] = useState('');
+  const [target, setTarget] = useState<string | null>(null);
+  const document = runtime.document;
+  const sourceTitle = blockTitle(document.blocks[sourceBlockId]);
+  const anchorText = sourceAnchorId === undefined ? '' : anchorQuote(document, sourceAnchorId);
+
+  const candidates = useMemo(
+    () =>
+      Object.keys(document.blocks)
+        .filter((id) => id !== sourceBlockId)
+        .map((id) => {
+          const chapterId = chapterIdOf(document, id);
+          const chapter = document.chapters.find((candidate) => candidate.id === chapterId);
+          return {
+            id,
+            title: blockTitle(document.blocks[id]),
+            chapter: chapter?.title ?? 'Untitled chapter',
+          };
+        }),
+    [document, sourceBlockId],
+  );
+
+  const filtered = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    if (value.length === 0) return candidates;
+    return candidates.filter(
+      (candidate) =>
+        candidate.title.toLowerCase().includes(value) ||
+        candidate.chapter.toLowerCase().includes(value),
+    );
+  }, [candidates, query]);
+
+  const link = (): void => {
+    if (target === null) return;
+    onClose();
+    void runtime
+      .linkReference({
+        sourceBlockId,
+        ...(sourceAnchorId === undefined ? {} : { sourceAnchorId }),
+        targetBlockId: target,
+      })
+      .then((outcome) => {
+        if (!outcome.ok) {
+          toast.error(outcome.message ?? 'Could not link the block.');
+          return;
+        }
+        if (outcome.duplicate === true) {
+          toast.info('That link already exists; focused the linked block.');
+        }
+      });
+  };
+
+  return (
+    <Frame
+      title="Link as reference"
+      description="Link an existing block without changing its primary home, outline position, or layout. Reference links may form cycles."
+      actions={
+        <>
+          <Button className="nf-button" onPress={onClose}>Cancel</Button>
+          <Button
+            className="nf-button nf-button-primary"
+            isDisabled={target === null}
+            onPress={link}
+          >
+            Link
+          </Button>
+        </>
+      }
+    >
+      <div className="nf-link-reference-source" data-link-reference-source={sourceBlockId}>
+        <span className="nf-dialog-note">From</span>
+        <span className="nf-link-reference-title">“{sourceTitle}”</span>
+        {anchorText.length === 0 ? null : (
+          <span className="nf-link-reference-anchor" data-link-reference-anchor="true">
+            ↳ “{anchorText}”
+          </span>
+        )}
+      </div>
+      <label className="nf-field">
+        <span className="nf-field-label">Find a block</span>
+        <Input
+          className="nf-input"
+          autoFocus
+          value={query}
+          placeholder="Filter by title or chapter"
+          aria-label="Filter blocks"
+          data-link-reference-search="true"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
+      {filtered.length === 0 ? (
+        <p className="nf-dialog-text" data-link-reference-empty="true">
+          No other block matches that filter.
+        </p>
+      ) : (
+        <ListBox
+          aria-label="Reference target"
+          selectionMode="single"
+          selectedKeys={target === null ? new Set() : new Set([target])}
+          onSelectionChange={(keys) => {
+            const next = [...keys][0];
+            if (next !== undefined) setTarget(String(next));
+          }}
+          className="nf-listbox"
+        >
+          {filtered.map((candidate) => (
+            <ListBoxItem
+              key={candidate.id}
+              id={candidate.id}
+              className="nf-listbox-item"
+              textValue={`${candidate.title} — ${candidate.chapter}`}
+              data-link-target={candidate.id}
+            >
+              <span className="nf-link-target-title">{candidate.title}</span>
+              <span className="nf-link-target-chapter">{candidate.chapter}</span>
+            </ListBoxItem>
+          ))}
+        </ListBox>
+      )}
+      <p className="nf-dialog-note">
+        The target stays once at its primary home. This only adds a “See also” link
+        here and a “Referenced by” chip there.
       </p>
     </Frame>
   );

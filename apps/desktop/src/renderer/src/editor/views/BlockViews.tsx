@@ -27,7 +27,14 @@ import {
   formulaTermRect,
   relativeRect,
 } from '../../lib/formula-term-geometry';
-import { anchorQuote, anchorState } from '../../lib/tree';
+import {
+  anchorQuote,
+  anchorState,
+  blockTitle,
+  chapterIdOf,
+  incomingReferenceBranches,
+  outgoingReferenceBranches,
+} from '../../lib/tree';
 import {
   codeLineMarkerRect,
   codeRangeRects,
@@ -380,6 +387,19 @@ interface AnchorMarkerInfo {
   quote: string;
   state: ReturnType<typeof anchorState>;
   count: number;
+}
+
+interface ReferenceChipInfo {
+  branchId: string;
+  blockId: string;
+  title: string;
+  chapter: string;
+  quote: string;
+}
+
+interface ReferenceChipGroups {
+  seeAlso: ReferenceChipInfo[];
+  referencedBy: ReferenceChipInfo[];
 }
 
 /** A resolved formula-term anchor with its exact source substring. */
@@ -907,6 +927,49 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     }
   }
 
+  // Reference chips are a DOM overlay, never an in-flow card footer. The card
+  // box is therefore identical with and without references, which keeps the
+  // layout-neutral invariant testable in the editor as well as in packages/layout.
+  const referenceChips = useMemo<ReferenceChipGroups>(() => {
+    if (bindings === null) return { seeAlso: [], referencedBy: [] };
+    const runtimeDocument = bindings.runtime.document;
+    const chapterTitle = (targetId: string): string => {
+      const chapterId = chapterIdOf(runtimeDocument, targetId);
+      const chapter = runtimeDocument.chapters.find((candidate) => candidate.id === chapterId);
+      return chapter?.title ?? 'Untitled chapter';
+    };
+    const seeAlso = outgoingReferenceBranches(runtimeDocument, blockId).map((branch) => {
+      const anchorId = branch.source.anchorId;
+      return {
+        branchId: branch.id,
+        blockId: branch.targetBlockId,
+        title: blockTitle(runtimeDocument.blocks[branch.targetBlockId]),
+        chapter: chapterTitle(branch.targetBlockId),
+        quote: anchorId === undefined ? '' : anchorQuote(runtimeDocument, anchorId),
+      };
+    });
+    const referencedBy = incomingReferenceBranches(runtimeDocument, blockId).map((branch) => {
+      const anchorId = branch.source.anchorId;
+      return {
+        branchId: branch.id,
+        blockId: branch.source.blockId,
+        title: blockTitle(runtimeDocument.blocks[branch.source.blockId]),
+        chapter: chapterTitle(branch.source.blockId),
+        quote: anchorId === undefined ? '' : anchorQuote(runtimeDocument, anchorId),
+      };
+    });
+    return { seeAlso, referencedBy };
+  }, [bindings, blockId, bindings?.runtime.version]);
+
+  const referenceChipCount =
+    referenceChips.seeAlso.length + referenceChips.referencedBy.length;
+
+  const focusReferenceChip = (chip: ReferenceChipInfo): void => {
+    if (bindings === null) return;
+    bindings.runtime.focusBlock(chip.blockId, { select: true });
+    bindings.runtime.selectBlock(chip.blockId);
+  };
+
   return (
     <NodeViewWrapper
       className="nf-block-body"
@@ -919,6 +982,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       data-below-row={belowRow ? 'true' : undefined}
       data-anchor-branch-selected={branchSelected ? 'true' : undefined}
       data-anchor-markers={showMarkers ? 'true' : undefined}
+      data-has-references={referenceChipCount > 0 ? 'true' : undefined}
       onContextMenu={onContextMenu}
     >
       <div className="nf-gutter" contentEditable={false}>
@@ -1039,6 +1103,56 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         </div>
       ) : null}
       <NodeViewContent className="nf-block-prose" />
+      {referenceChipCount > 0 ? (
+        <div className="nf-ref-chips" contentEditable={false} data-ref-chips={blockId}>
+          {referenceChips.seeAlso.map((chip) => (
+            <button
+              key={`see-${chip.branchId}`}
+              type="button"
+              className="nf-ref-chip nf-ref-chip-see-also"
+              data-see-also-branch={chip.branchId}
+              data-see-also-target={chip.blockId}
+              title={`See also: ${chip.title} — ${chip.chapter}${
+                chip.quote.length === 0 ? '' : ` (from “${chip.quote}”)`
+              }`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                focusReferenceChip(chip);
+              }}
+            >
+              <span className="nf-ref-chip-kind">See also</span>
+              {chip.quote.length === 0 ? null : (
+                <span className="nf-ref-chip-quote">“{chip.quote}”</span>
+              )}
+              <span className="nf-ref-chip-label">{chip.title}</span>
+            </button>
+          ))}
+          {referenceChips.referencedBy.map((chip) => (
+            <button
+              key={`back-${chip.branchId}`}
+              type="button"
+              className="nf-ref-chip nf-ref-chip-referenced-by"
+              data-referenced-by-branch={chip.branchId}
+              data-referenced-by-source={chip.blockId}
+              title={`Referenced by: ${chip.title} — ${chip.chapter}${
+                chip.quote.length === 0 ? '' : ` (from “${chip.quote}”)`
+              }`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                focusReferenceChip(chip);
+              }}
+            >
+              <span className="nf-ref-chip-kind">Referenced by</span>
+              {chip.quote.length === 0 ? null : (
+                <span className="nf-ref-chip-quote">“{chip.quote}”</span>
+              )}
+              <span className="nf-ref-chip-label">{chip.title}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {anchorWarnings.length > 0 ? (
         <span
           className="nf-anchor-warning"

@@ -17,6 +17,7 @@ import {
   blockTitle,
   buildChapterTrees,
   incomingBranch,
+  incomingReferenceBranches,
   type BlockNode,
 } from '../lib/tree';
 import { recoveryStatusLabel } from '../lib/recovery';
@@ -211,6 +212,7 @@ function BlockTreeItem({
   const directChildren = children.filter((child) => child.anchorId === null);
   const anchorIds = [...new Set(anchorGroups.map((group) => group.anchorId))];
   const warningCount = anchorGroups.filter((group) => group.warning).length;
+  const incomingReferences = incomingReferenceBranches(runtime.document, node.id);
 
   return (
     <TreeItem
@@ -299,6 +301,29 @@ function BlockTreeItem({
                 <Anchor size={10} strokeWidth={1.5} aria-hidden="true" />
                 <span>{anchorIds.length}</span>
               </span>
+            ) : null}
+            {incomingReferences.length > 0 ? (
+              <button
+                type="button"
+                className="nf-tree-shared"
+                data-shared-count={incomingReferences.length}
+                aria-label={`Shared: referenced by ${incomingReferences.length} ${
+                  incomingReferences.length === 1 ? 'block' : 'blocks'
+                }`}
+                title={incomingReferences
+                  .map((branch) => blockTitle(runtime.document.blocks[branch.source.blockId]))
+                  .join(' · ')}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const first = incomingReferences[0];
+                  if (first !== undefined) {
+                    focusBlock(runtime.packagePath, first.source.blockId);
+                  }
+                }}
+              >
+                Shared · {incomingReferences.length}
+              </button>
             ) : null}
             {warningCount > 0 ? (
               <span

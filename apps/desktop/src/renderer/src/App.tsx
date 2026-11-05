@@ -15,6 +15,7 @@ import {
   useRuntime,
 } from './state/registry';
 import {
+  activeRuntime,
   adjustActiveZoom,
   fitActiveWidth,
   openPath,
@@ -238,6 +239,15 @@ export function App(): JSX.Element {
             dispatch('reopen-tab');
           }
           break;
+        case 'l': {
+          if (!event.shiftKey) break;
+          const current = activeRuntime();
+          const blockId = current?.selectedBlockId ?? null;
+          if (blockId === null) break;
+          event.preventDefault();
+          useShell.getState().openDialog({ kind: 'link-reference', blockId });
+          break;
+        }
         case '[':
         case ']': {
           if (!event.shiftKey) break;
