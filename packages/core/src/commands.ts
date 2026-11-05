@@ -7,14 +7,26 @@
  * the new revision, affected IDs, and (where practical) an inverse command.
  *
  * Structural edits use canonical primary branches (role "primary"), not a
- * second parent pointer. Reference and anchor branches are preserved but have
- * no commands in M2.
+ * second parent pointer. A primary branch may start at a block or at an anchor
+ * inside it. Reference and anchored branches have typed commands in M3.
  */
 
 import type { ValidationIssue } from './errors.js';
+import {
+  buildBlockAnchorIndex,
+  checkAnchorBindingKind,
+  inspectAnchorBinding,
+  isKnownAnchorKind,
+  mergeAnchorBinding,
+  nodePathKey,
+  readContentAnchorBinding,
+  removeAnchorBinding,
+  validateAnchorSelector,
+} from './anchors.js';
+import type { AnchorBinding } from './anchors.js';
 import { createDocument } from './document.js';
 import type { CreateDocumentInput } from './document.js';
-import { orderBetween, orderKeysBetween, isValidOrderKey } from './fractional-order.js';
+import { orderBetween, orderKeysBetween, orderKeysAfter, isValidOrderKey } from './fractional-order.js';
 import { createContext } from './ids.js';
 import type { CoreContext } from './ids.js';
 import {
@@ -22,14 +34,17 @@ import {
   compareBranches,
   directChildBranches,
   findTopLevelPlacement,
-  isDescendantOf,
+  primaryChildBranches,
   subtreeBlockIds,
   topLevelAncestorId,
 } from './structure.js';
 import type {
   Anchor,
+  AnchorKind,
   BlockBorder,
   Branch,
+  BranchRole,
+  BranchSource,
   Chapter,
   ContentBlock,
   ContentNode,
@@ -51,6 +66,7 @@ export type CommandErrorCode =
   | 'chapter-in-use'
   | 'chapter-would-be-empty'
   | 'invalid-content'
+  | 'anchor-exists'
   | 'read-only'
   | 'internal-invariant';
 
@@ -72,6 +88,7 @@ export interface CreatedIds {
   chapterIds: string[];
   blockIds: string[];
   branchIds: string[];
+  anchorIds: string[];
 }
 
 export interface CommandSuccess {
@@ -191,12 +208,64 @@ export interface BlockMoveCommand {
   to: BlockPlacement;
 }
 
+export interface AnchorCreateCommand {
+  type: 'anchor.create';
+  anchorId?: string;
+  blockId: string;
+  kind: AnchorKind;
+  selector: JsonObject;
+  binding: AnchorBinding;
+  quote?: string;
+  prefix?: string;
+  suffix?: string;
+  occurrenceHint?: number;
+  /**
+   * When the same selection is already bound to an existing anchor, return
+   * that anchor (`affected.anchorIds`) instead of failing with
+   * `anchor-exists`. False by default: callers must opt in.
+   */
+  reuseExisting?: boolean;
+}
+
+export interface AnchorRepairCommand {
+  type: 'anchor.repair';
+  anchorId: string;
+  selector: JsonObject;
+  binding: AnchorBinding;
+  quote?: string;
+  prefix?: string;
+  suffix?: string;
+  occurrenceHint?: number;
+}
+
+export interface AnchorAttachToBlockCommand {
+  type: 'anchor.attachToBlock';
+  anchorId: string;
+}
+
+export type AnchorBranchHandling = 'attach' | 'delete';
+
+export interface AnchorDeleteCommand {
+  type: 'anchor.delete';
+  anchorId: string;
+  /**
+   * Required when the anchor has outgoing branches. `attach` keeps them as
+   * block-sourced branches; `delete` retires them and promotes primary targets.
+   */
+  branches?: AnchorBranchHandling;
+}
+
 export interface BranchCreateCommand {
   type: 'branch.create';
   branchId?: string;
   sourceBlockId: string;
+  /** Anchor port inside `sourceBlockId`; omitted for a block port. */
+  sourceAnchorId?: string;
   targetBlockId: string;
+  /** Explicit role. Defaults to primary for the M2 command shape. */
+  role?: BranchRole;
   atIndex?: number;
+  label?: string;
 }
 
 export type BranchTargetHandling = { kind: 'promote' } | { kind: 'delete-subtree' };
@@ -204,7 +273,8 @@ export type BranchTargetHandling = { kind: 'promote' } | { kind: 'delete-subtree
 export interface BranchDeleteCommand {
   type: 'branch.delete';
   branchId: string;
-  targetHandling: BranchTargetHandling;
+  /** Required for primary branches; must be absent for reference branches. */
+  targetHandling?: BranchTargetHandling;
 }
 
 export interface BranchReorderCommand {
@@ -241,6 +311,18 @@ export interface StructureRestoreCommand {
   type: 'structure.restore';
   /** Full block records to restore; their IDs must be free. */
   blocks: ContentBlock[];
+  /**
+   * Full block records to overwrite in place, used when an anchor command
+   * changed the content of a surviving block. Restored verbatim (including
+   * `updatedAt`) so repair/attach/delete undo is exact.
+   */
+  replaceBlocks?: ContentBlock[];
+  /**
+   * Post-command records for `replaceBlocks`. A mismatch means the block was
+   * edited after the command: undo must surface that instead of silently
+   * discarding later text.
+   */
+  expectedReplaceBlocks?: ContentBlock[];
   /** Full branch records to restore or overwrite by ID. */
   branches: Branch[];
   /** Full anchor records to restore. */
@@ -271,6 +353,10 @@ export type DocumentCommand =
   | BlockRenameCommand
   | BlockDeleteCommand
   | BlockMoveCommand
+  | AnchorCreateCommand
+  | AnchorRepairCommand
+  | AnchorAttachToBlockCommand
+  | AnchorDeleteCommand
   | BranchCreateCommand
   | BranchDeleteCommand
   | BranchReorderCommand
@@ -421,6 +507,8 @@ class ChangeSet {
   private readonly createdChapterIds = new Set<string>();
   private readonly createdBlockIds = new Set<string>();
   private readonly createdBranchIds = new Set<string>();
+  private readonly createdAnchorIds = new Set<string>();
+  private readonly warningMessages: string[] = [];
 
   document(id: string): void {
     this.documentIds.add(id);
@@ -452,6 +540,15 @@ class ChangeSet {
   createdBranch(id: string): void {
     this.createdBranchIds.add(id);
   }
+  createdAnchor(id: string): void {
+    this.createdAnchorIds.add(id);
+  }
+  warn(message: string): void {
+    if (!this.warningMessages.includes(message)) this.warningMessages.push(message);
+  }
+  warnings(): string[] {
+    return [...this.warningMessages];
+  }
 
   toJSON(): AffectedIds {
     return {
@@ -470,6 +567,7 @@ class ChangeSet {
       chapterIds: [...this.createdChapterIds].sort(),
       blockIds: [...this.createdBlockIds].sort(),
       branchIds: [...this.createdBranchIds].sort(),
+      anchorIds: [...this.createdAnchorIds].sort(),
     };
   }
 }
@@ -510,36 +608,6 @@ function orderKeyForIndex(
   }
 }
 
-function orderKeysForIndex(
-  document: Document,
-  parentBlockId: string,
-  index: number,
-  count: number,
-  changes: ChangeSet,
-): string[] {
-  if (count === 0) return [];
-  const children = primaryDirectChildren(document, parentBlockId);
-  assertIndex(index, children.length, 'child index');
-  const low = index > 0 ? children[index - 1]?.order ?? null : null;
-  const high = index < children.length ? children[index]?.order ?? null : null;
-  try {
-    if (
-      (low === null || isValidOrderKey(low)) &&
-      (high === null || isValidOrderKey(high)) &&
-      (low === null || high === null || low < high)
-    ) {
-      return orderKeysBetween(low, high, count);
-    }
-  } catch {
-    // fall through to renormalization
-  }
-  renormalizeChildOrders(document, parentBlockId, changes);
-  const refreshed = primaryDirectChildren(document, parentBlockId);
-  const refreshedLow = index > 0 ? refreshed[index - 1]?.order ?? null : null;
-  const refreshedHigh = index < refreshed.length ? refreshed[index]?.order ?? null : null;
-  return orderKeysBetween(refreshedLow, refreshedHigh, count);
-}
-
 function renormalizeChildOrders(
   document: Document,
   parentBlockId: string,
@@ -555,6 +623,150 @@ function renormalizeChildOrders(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Branch ports (block or anchor) and role-specific order lists
+// ---------------------------------------------------------------------------
+
+interface BranchPort {
+  blockId: string;
+  anchorId?: string;
+}
+
+function portOf(source: BranchSource): BranchPort {
+  return source.anchorId === undefined
+    ? { blockId: source.blockId }
+    : { blockId: source.blockId, anchorId: source.anchorId };
+}
+
+function samePort(left: BranchSource, right: BranchPort): boolean {
+  return left.blockId === right.blockId && left.anchorId === right.anchorId;
+}
+
+function portBranches(document: Document, port: BranchPort, role: BranchRole): Branch[] {
+  return Object.values(document.branches)
+    .filter((branch) => branch.role === role && samePort(branch.source, port))
+    .sort(compareBranches);
+}
+
+function portOrdersAreSane(branches: readonly Branch[]): boolean {
+  let previous: string | null = null;
+  for (const branch of branches) {
+    if (!isValidOrderKey(branch.order)) return false;
+    if (previous !== null && !(previous < branch.order)) return false;
+    previous = branch.order;
+  }
+  return true;
+}
+
+function renormalizePortOrders(
+  document: Document,
+  port: BranchPort,
+  role: BranchRole,
+  changes: ChangeSet,
+): void {
+  const branches = portBranches(document, port, role);
+  let previous: string | null = null;
+  for (const branch of branches) {
+    const key = orderBetween(previous, null);
+    branch.order = key;
+    previous = key;
+    changes.branch(branch.id);
+  }
+}
+
+function orderKeyForPortIndex(
+  document: Document,
+  port: BranchPort,
+  role: BranchRole,
+  index: number,
+  changes: ChangeSet,
+): string {
+  let branches = portBranches(document, port, role);
+  assertIndex(index, branches.length, 'branch index');
+  if (!portOrdersAreSane(branches)) {
+    renormalizePortOrders(document, port, role, changes);
+    branches = portBranches(document, port, role);
+  }
+  const low = index > 0 ? branches[index - 1]?.order ?? null : null;
+  const high = index < branches.length ? branches[index]?.order ?? null : null;
+  return orderBetween(low, high);
+}
+
+function orderKeysForPortIndex(
+  document: Document,
+  port: BranchPort,
+  role: BranchRole,
+  index: number,
+  count: number,
+  changes: ChangeSet,
+): string[] {
+  if (count === 0) return [];
+  let branches = portBranches(document, port, role);
+  assertIndex(index, branches.length, 'branch index');
+  if (!portOrdersAreSane(branches)) {
+    renormalizePortOrders(document, port, role, changes);
+    branches = portBranches(document, port, role);
+  }
+  const low = index > 0 ? branches[index - 1]?.order ?? null : null;
+  const high = index < branches.length ? branches[index]?.order ?? null : null;
+  return orderKeysBetween(low, high, count);
+}
+
+function orderKeyForPortIndexInList(
+  document: Document,
+  port: BranchPort,
+  role: BranchRole,
+  siblings: readonly Branch[],
+  index: number,
+  changes: ChangeSet,
+): string {
+  assertIndex(index, siblings.length, 'branch index');
+  const low = index > 0 ? siblings[index - 1]?.order ?? null : null;
+  const high = index < siblings.length ? siblings[index]?.order ?? null : null;
+  if (
+    (low === null || isValidOrderKey(low)) &&
+    (high === null || isValidOrderKey(high)) &&
+    (low === null || high === null || low < high)
+  ) {
+    return orderBetween(low, high);
+  }
+  renormalizePortOrders(document, port, role, changes);
+  const refreshed = portBranches(document, port, role).filter((branch) =>
+    siblings.some((sibling) => sibling.id === branch.id),
+  );
+  const refreshedLow = index > 0 ? refreshed[index - 1]?.order ?? null : null;
+  const refreshedHigh = index < refreshed.length ? refreshed[index]?.order ?? null : null;
+  return orderBetween(refreshedLow, refreshedHigh);
+}
+
+/** Append branches at the end of a (port, role) list, preserving their order. */
+function appendBranchesToPort(
+  document: Document,
+  port: BranchPort,
+  role: BranchRole,
+  branches: readonly Branch[],
+  changes: ChangeSet,
+): void {
+  if (branches.length === 0) return;
+  let existing = portBranches(document, port, role);
+  if (!portOrdersAreSane(existing)) {
+    renormalizePortOrders(document, port, role, changes);
+    existing = portBranches(document, port, role);
+  }
+  const last = existing.length > 0 ? existing[existing.length - 1]?.order ?? null : null;
+  const keys = orderKeysAfter(last, branches.length);
+  for (const [index, branch] of branches.entries()) {
+    const order = keys[index];
+    if (order === undefined) reject('internal-invariant', 'could not generate branch order');
+    branch.source = port.anchorId === undefined
+      ? { blockId: port.blockId }
+      : { blockId: port.blockId, anchorId: port.anchorId };
+    branch.order = order;
+    document.branches[branch.id] = branch;
+    changes.branch(branch.id);
+  }
+}
+
 function createBranchRecord(
   document: Document,
   context: CoreContext,
@@ -564,6 +776,29 @@ function createBranchRecord(
   order: string,
   branchId?: string,
 ): Branch {
+  return createPortBranchRecord(
+    document,
+    context,
+    changes,
+    { blockId: sourceBlockId },
+    targetBlockId,
+    'primary',
+    order,
+    branchId,
+  );
+}
+
+function createPortBranchRecord(
+  document: Document,
+  context: CoreContext,
+  changes: ChangeSet,
+  port: BranchPort,
+  targetBlockId: string,
+  role: BranchRole,
+  order: string,
+  branchId?: string,
+  markCreated = true,
+): Branch {
   const id = branchId ?? freshId(document, context);
   assertId(id, 'branch ID');
   if (own(document.branches, id) !== undefined) {
@@ -571,14 +806,16 @@ function createBranchRecord(
   }
   const branch: Branch = {
     id,
-    source: { blockId: sourceBlockId },
+    source: port.anchorId === undefined
+      ? { blockId: port.blockId }
+      : { blockId: port.blockId, anchorId: port.anchorId },
     targetBlockId,
-    role: 'primary',
+    role,
     order,
   };
   document.branches[id] = branch;
   changes.branch(id);
-  changes.createdBranch(id);
+  if (markCreated) changes.createdBranch(id);
   return branch;
 }
 
@@ -651,7 +888,14 @@ function resolvePlacement(document: Document, placement: BlockPlacement): Placem
     reject('not-found', `block "${placement.siblingBlockId}" has no primary parent`);
   }
   if (parentBranch.source.anchorId !== undefined) {
-    reject('invalid-placement', 'cannot create a sibling under an anchored branch in M2');
+    // A sibling placement next to an anchored child cannot address the anchor
+    // port (BlockPlacement has no anchor field). Place the block at the end of
+    // the parent block's direct child list instead of rejecting the move.
+    return {
+      kind: 'child',
+      parentBlockId: parentBranch.source.blockId,
+      index: primaryDirectChildren(document, parentBranch.source.blockId).length,
+    };
   }
   const siblings = primaryDirectChildren(document, parentBranch.source.blockId);
   const siblingIndex = siblings.findIndex(
@@ -668,26 +912,381 @@ function resolvePlacement(document: Document, placement: BlockPlacement): Placem
 }
 
 function allPrimaryChildren(document: Document, parentBlockId: string): Branch[] {
-  return Object.values(document.branches)
-    .filter(
-      (branch) => branch.role === 'primary' && branch.source.blockId === parentBlockId,
-    )
-    .sort(compareBranches);
+  return primaryChildBranches(document, parentBlockId);
 }
 
 function collectSubtree(document: Document, rootBlockId: string): Set<string> {
-  const result = new Set<string>();
-  const stack = [rootBlockId];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (current === undefined || result.has(current)) continue;
-    result.add(current);
-    for (const branch of allPrimaryChildren(document, current)) {
-      stack.push(branch.targetBlockId);
+  return new Set(subtreeBlockIds(document, rootBlockId));
+}
+
+// ---------------------------------------------------------------------------
+// Anchor command helpers
+// ---------------------------------------------------------------------------
+
+function anchorOrFail(document: Document, anchorId: string): Anchor {
+  const anchor = own(document.anchors, anchorId);
+  if (anchor === undefined) reject('not-found', `anchor "${anchorId}" does not exist`);
+  return anchor;
+}
+
+interface AnchorMirrorFields {
+  quote?: string;
+  prefix?: string;
+  suffix?: string;
+  occurrenceHint?: number;
+}
+
+/** Top-level compatibility mirrors derived from the canonical selector. */
+function selectorMirrorFields(kind: AnchorKind, selector: JsonObject): AnchorMirrorFields {
+  const fields: AnchorMirrorFields = {};
+  if (kind === 'text' || kind === 'code') {
+    const quote = selector['quote'];
+    if (typeof quote === 'string') fields.quote = quote;
+    const prefix = selector['prefix'];
+    if (typeof prefix === 'string') fields.prefix = prefix;
+    const suffix = selector['suffix'];
+    if (typeof suffix === 'string') fields.suffix = suffix;
+  } else if (kind === 'formula') {
+    const latex = selector['latex'];
+    if (typeof latex === 'string') fields.quote = latex;
+    const prefix = selector['latexPrefix'];
+    if (typeof prefix === 'string') fields.prefix = prefix;
+    const suffix = selector['latexSuffix'];
+    if (typeof suffix === 'string') fields.suffix = suffix;
+  } else {
+    const label = selector['label'];
+    if (typeof label === 'string') fields.quote = label;
+  }
+  const hint = selector['occurrenceHint'];
+  if (typeof hint === 'number') fields.occurrenceHint = hint;
+  return fields;
+}
+
+/**
+ * Validate the selector, then fold optional command mirrors into the record
+ * fields. Selector remains canonical: a provided mirror that disagrees is a
+ * command error, not a silent rewrite.
+ */
+function anchorMirrorFields(
+  kind: AnchorKind,
+  selector: JsonObject,
+  provided: AnchorMirrorFields,
+): AnchorMirrorFields {
+  if (!isKnownAnchorKind(kind)) {
+    reject('invalid-command', `unknown anchor kind "${String(kind)}"`);
+  }
+  const validation = validateAnchorSelector(selector, kind);
+  if (validation.issues.length > 0) {
+    reject(
+      'invalid-content',
+      `invalid ${kind} anchor selector: ${validation.issues
+        .map((issue) => issue.message)
+        .join('; ')}`,
+    );
+  }
+  const mirrors = selectorMirrorFields(kind, selector);
+  for (const key of ['quote', 'prefix', 'suffix'] as const) {
+    const value = provided[key];
+    if (value === undefined) continue;
+    if (typeof value !== 'string') reject('invalid-command', `${key} must be a string`);
+    if (mirrors[key] !== undefined && mirrors[key] !== value) {
+      reject(
+        'invalid-command',
+        `${key} does not match selector.${kind === 'formula' ? 'latex' : key}`,
+      );
+    }
+    mirrors[key] = value;
+  }
+  const hint = provided.occurrenceHint;
+  if (hint !== undefined) {
+    if (typeof hint !== 'number' || !Number.isInteger(hint) || hint < 1) {
+      reject('invalid-command', 'occurrenceHint must be a positive integer');
+    }
+    if (mirrors.occurrenceHint !== undefined && mirrors.occurrenceHint !== hint) {
+      reject('invalid-command', 'occurrenceHint does not match selector.occurrenceHint');
+    }
+    mirrors.occurrenceHint = hint;
+  }
+  return mirrors;
+}
+
+function buildAnchorRecord(
+  id: string,
+  blockId: string,
+  kind: AnchorKind,
+  selector: JsonObject,
+  mirrors: AnchorMirrorFields,
+  createdAt: string,
+): Anchor {
+  const anchor: Anchor = {
+    id,
+    blockId,
+    kind,
+    selector: structuredClone(selector),
+    createdAt,
+  };
+  if (mirrors.quote !== undefined) anchor.quote = mirrors.quote;
+  if (mirrors.prefix !== undefined) anchor.prefix = mirrors.prefix;
+  if (mirrors.suffix !== undefined) anchor.suffix = mirrors.suffix;
+  if (mirrors.occurrenceHint !== undefined) anchor.occurrenceHint = mirrors.occurrenceHint;
+  return anchor;
+}
+
+/**
+ * Apply a binding to content and prove it is one valid contiguous binding of
+ * the expected kind before any record is created.
+ */
+function applyAnchorBinding(
+  blockId: string,
+  content: ContentNode,
+  anchorId: string,
+  kind: AnchorKind,
+  binding: AnchorBinding,
+): ContentNode {
+  let merged: ContentNode;
+  try {
+    merged = mergeAnchorBinding(content, anchorId, binding);
+  } catch (error) {
+    reject(
+      'invalid-content',
+      `anchor binding is invalid: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  const index = buildBlockAnchorIndex(blockId, merged);
+  const inspection = inspectAnchorBinding(index, anchorId);
+  if (inspection.presence === 'none') {
+    reject('invalid-content', 'anchor binding does not create a visible content binding');
+  }
+  if (inspection.reason !== 'none') {
+    reject(
+      'invalid-content',
+      `anchor binding is not one valid contiguous selection (${inspection.reason})`,
+    );
+  }
+  const kindCheck = checkAnchorBindingKind(inspection, kind);
+  if (!kindCheck.ok) {
+    reject('invalid-content', `anchor binding does not match kind "${kind}"`);
+  }
+  return merged;
+}
+
+function bindingLocationKey(content: ContentNode, anchorId: string): string | null {
+  const binding = readContentAnchorBinding(content, anchorId);
+  if (binding === null) return null;
+  const text = binding.textRanges
+    .map((range) => `${nodePathKey(range.nodePath)}:${range.start}:${range.end}`)
+    .sort()
+    .join('|');
+  const atomic = binding.atomicNodes
+    .map((node) => `${nodePathKey(node.nodePath)}:${node.nodeType}`)
+    .sort()
+    .join('|');
+  return `text=${text};atomic=${atomic}`;
+}
+
+/**
+ * Exact selection identity. Text uses the bound range; atomic anchors also
+ * include the kind-specific selection fields, because one atomic node may host
+ * several regions/terms/ranges. Non-selection context (prefix/suffix/label) is
+ * ignored so a relabelled duplicate still counts as the same selection.
+ */
+function atomicSelectionKey(kind: AnchorKind, selector: JsonObject): string {
+  const fields: readonly string[] =
+    kind === 'formula'
+      ? ['form', 'latex', 'latexStart', 'occurrenceHint']
+      : kind === 'code'
+        ? ['form', 'quote', 'startOffset', 'endOffset', 'occurrenceHint']
+        : ['assetId', 'rect', 'crop', 'point'];
+  const picked: JsonObject = {};
+  for (const field of fields) {
+    if (selector[field] !== undefined) picked[field] = selector[field];
+  }
+  return canonicalJson(picked);
+}
+
+function anchorSelectionKey(
+  content: ContentNode,
+  anchorId: string,
+  kind: AnchorKind,
+  selector: JsonObject,
+): string | null {
+  const location = bindingLocationKey(content, anchorId);
+  if (location === null) return null;
+  if (kind === 'text') return `text:${location}`;
+  if (kind === 'formula' && selector['form'] === 'whole') {
+    return `formula:${location}:whole`;
+  }
+  return `${kind}:${location}:${atomicSelectionKey(kind, selector)}`;
+}
+
+function findAnchorWithSameSelection(
+  document: Document,
+  content: ContentNode,
+  blockId: string,
+  anchorId: string,
+  kind: AnchorKind,
+  selector: JsonObject,
+  excludeAnchorId?: string,
+): Anchor | undefined {
+  const key = anchorSelectionKey(content, anchorId, kind, selector);
+  if (key === null) return undefined;
+  for (const anchor of Object.values(document.anchors)) {
+    if (anchor.id === excludeAnchorId) continue;
+    if (anchor.blockId !== blockId || anchor.kind !== kind) continue;
+    if (anchorSelectionKey(content, anchor.id, anchor.kind, anchor.selector) === key) {
+      return anchor;
     }
   }
-  return result;
+  return undefined;
 }
+
+function outgoingAnchorBranches(document: Document, anchorId: string): Branch[] {
+  const roleRank = (role: BranchRole): number => (role === 'primary' ? 0 : 1);
+  return Object.values(document.branches)
+    .filter((branch) => branch.source.anchorId === anchorId)
+    .sort((left, right) => {
+      const rank = roleRank(left.role) - roleRank(right.role);
+      return rank !== 0 ? rank : compareBranches(left, right);
+    });
+}
+
+function removeAnchorContent(
+  document: Document,
+  anchor: Anchor,
+  context: CoreContext,
+  changes: ChangeSet,
+): ContentBlock {
+  const block = blockOrFail(document, anchor.blockId);
+  block.content = removeAnchorBinding(block.content, anchor.id);
+  block.updatedAt = context.now();
+  changes.block(block.id);
+  delete document.anchors[anchor.id];
+  changes.anchor(anchor.id);
+  return block;
+}
+
+/**
+ * Remove an anchor/binding and keep every outgoing branch as a block-sourced
+ * branch. Branches are appended after existing direct branches of their role
+ * in their previous anchor order. Role-independent duplicate exact
+ * source-target edges collapse: the primary edge wins, otherwise the existing
+ * block edge wins.
+ */
+function attachAnchorBranchesToBlock(
+  document: Document,
+  anchor: Anchor,
+  context: CoreContext,
+  changes: ChangeSet,
+): void {
+  const block = blockOrFail(document, anchor.blockId);
+  const outgoing = outgoingAnchorBranches(document, anchor.id);
+  removeAnchorContent(document, anchor, context, changes);
+
+  const port: BranchPort = { blockId: block.id };
+  const claimed = new Map<string, Branch>();
+  for (const branch of Object.values(document.branches)) {
+    if (!samePort(branch.source, port)) continue;
+    const current = claimed.get(branch.targetBlockId);
+    if (current === undefined || (current.role !== 'primary' && branch.role === 'primary')) {
+      claimed.set(branch.targetBlockId, branch);
+    }
+  }
+
+  const retained: Record<BranchRole, Branch[]> = { primary: [], reference: [] };
+  const deleteBranch = (branch: Branch): void => {
+    if (own(document.branches, branch.id) === undefined) return;
+    delete document.branches[branch.id];
+    changes.branch(branch.id);
+    changes.warn(
+      `duplicate branch "${branch.id}" from the attached anchor was merged into the block port`,
+    );
+  };
+
+  for (const branch of outgoing) {
+    const existing = claimed.get(branch.targetBlockId);
+    if (existing === undefined) {
+      claimed.set(branch.targetBlockId, branch);
+      retained[branch.role].push(branch);
+      continue;
+    }
+    const candidates = Object.values(document.branches).filter(
+      (candidate) =>
+        candidate.id !== branch.id &&
+        candidate.id !== existing.id &&
+        samePort(candidate.source, port) &&
+        candidate.targetBlockId === branch.targetBlockId,
+    );
+    const primary = [existing, ...candidates].find(
+      (candidate) => candidate.role === 'primary',
+    );
+    if (primary !== undefined) {
+      // Keep the primary edge; retire every reference duplicate and the
+      // incoming reference. A primary incoming cannot coexist with a second
+      // primary edge (validation rejects that input).
+      for (const candidate of [existing, ...candidates]) {
+        if (candidate.role === 'reference') deleteBranch(candidate);
+      }
+      deleteBranch(branch);
+      claimed.set(branch.targetBlockId, primary);
+      continue;
+    }
+    if (branch.role === 'primary') {
+      // No primary yet: the incoming primary wins over existing references.
+      for (const candidate of [existing, ...candidates]) deleteBranch(candidate);
+      claimed.set(branch.targetBlockId, branch);
+      retained.primary.push(branch);
+      continue;
+    }
+    // Both reference: keep the existing block branch (or the first retained
+    // one), retire the others and the incoming duplicate.
+    for (const candidate of candidates) deleteBranch(candidate);
+    deleteBranch(branch);
+    claimed.set(branch.targetBlockId, existing);
+  }
+
+  for (const role of ['primary', 'reference'] as const) {
+    const branches = retained[role].filter(
+      (branch) => own(document.branches, branch.id) !== undefined,
+    );
+    if (branches.length === 0) continue;
+    appendBranchesToPort(document, port, role, branches, changes);
+    for (const branch of branches) changes.block(branch.targetBlockId);
+  }
+  changes.block(block.id);
+}
+
+/**
+ * Remove an anchor with all outgoing branches. Primary targets are promoted to
+ * top-level blocks after the source block's top-level ancestor, in their old
+ * branch order; their subtrees are never deleted.
+ */
+function deleteAnchorBranches(
+  document: Document,
+  anchor: Anchor,
+  context: CoreContext,
+  changes: ChangeSet,
+): void {
+  const outgoing = outgoingAnchorBranches(document, anchor.id);
+  const sourceRoot = topLevelAncestorId(document, anchor.blockId);
+  const placement = findTopLevelPlacement(document, sourceRoot);
+  if (outgoing.some((branch) => branch.role === 'primary') && placement === null) {
+    reject('internal-invariant', 'anchor source block has no chapter assignment');
+  }
+  let inserted = 0;
+  for (const branch of outgoing) {
+    delete document.branches[branch.id];
+    changes.branch(branch.id);
+    changes.block(branch.targetBlockId);
+    if (branch.role !== 'primary') continue;
+    if (placement === null) continue;
+    const chapter = chapterOrFail(document, placement.chapterId);
+    chapter.topLevelBlockIds.splice(placement.index + 1 + inserted, 0, branch.targetBlockId);
+    inserted += 1;
+    changes.chapter(chapter.id);
+  }
+  removeAnchorContent(document, anchor, context, changes);
+}
+
 
 function removeBlocks(
   document: Document,
@@ -758,7 +1357,20 @@ function detachBlock(
     reject('internal-invariant', `block "${blockId}" is neither top-level nor a primary child`);
   }
   if (incoming.source.anchorId !== undefined) {
-    reject('invalid-placement', 'moving an anchored child is not supported in M2');
+    // Moving an anchored child removes the old anchored edge; a fresh direct
+    // edge is created at the destination (the snapshot restores the old ID).
+    const siblings = directChildBranches(document, incoming.source.blockId);
+    const index = siblings.findIndex((branch) => branch.id === incoming.id);
+    delete document.branches[incoming.id];
+    changes.branch(incoming.id);
+    return {
+      placement: {
+        kind: 'child',
+        parentBlockId: incoming.source.blockId,
+        index: Math.max(0, index),
+      },
+      incomingBranch: null,
+    };
   }
   const siblings = primaryDirectChildren(document, incoming.source.blockId);
   const index = siblings.findIndex((branch) => branch.id === incoming.id);
@@ -859,7 +1471,7 @@ export function executeCommand(
     affected: changes.toJSON(),
     created: changes.createdJSON(),
     inverse,
-    warnings: report.warnings.map((issue) => issue.message),
+    warnings: [...changes.warnings(), ...report.warnings.map((issue) => issue.message)],
   };
 }
 
@@ -1061,6 +1673,160 @@ function applyToClone(
       return null;
     }
 
+    case 'anchor.create': {
+      assertId(command.blockId, 'blockId');
+      const block = blockOrFail(document, command.blockId);
+      if (!isKnownAnchorKind(command.kind)) {
+        reject('invalid-command', `unknown anchor kind "${String(command.kind)}"`);
+      }
+      if (command.reuseExisting !== undefined && typeof command.reuseExisting !== 'boolean') {
+        reject('invalid-command', 'reuseExisting must be a boolean');
+      }
+      const selector = command.selector;
+      const mirrors = anchorMirrorFields(command.kind, selector, {
+        ...(command.quote === undefined ? {} : { quote: command.quote }),
+        ...(command.prefix === undefined ? {} : { prefix: command.prefix }),
+        ...(command.suffix === undefined ? {} : { suffix: command.suffix }),
+        ...(command.occurrenceHint === undefined
+          ? {}
+          : { occurrenceHint: command.occurrenceHint }),
+      });
+      const anchorId = command.anchorId ?? freshId(document, context);
+      assertId(anchorId, 'anchorId');
+      if (allIds(document).has(anchorId)) {
+        reject('duplicate-id', `ID "${anchorId}" already exists`);
+      }
+      const content = applyAnchorBinding(
+        block.id,
+        block.content,
+        anchorId,
+        command.kind,
+        command.binding,
+      );
+      const duplicate = findAnchorWithSameSelection(
+        document,
+        content,
+        block.id,
+        anchorId,
+        command.kind,
+        selector,
+      );
+      if (duplicate !== undefined) {
+        if (command.reuseExisting === true) {
+          changes.anchor(duplicate.id);
+          changes.warn(`reused existing anchor "${duplicate.id}" for the same selection`);
+          return null;
+        }
+        reject(
+          'anchor-exists',
+          `the selection is already bound to anchor "${duplicate.id}"; reuse it explicitly`,
+        );
+      }
+      const timestamp = context.now();
+      block.content = content;
+      block.updatedAt = timestamp;
+      const anchor = buildAnchorRecord(
+        anchorId,
+        block.id,
+        command.kind,
+        selector,
+        mirrors,
+        timestamp,
+      );
+      document.anchors[anchorId] = anchor;
+      changes.block(block.id);
+      changes.anchor(anchorId);
+      changes.createdAnchor(anchorId);
+      // The binding splits text nodes; only the pre-command block record can
+      // restore the exact text-node shape, so the inverse is a snapshot.
+      return null;
+    }
+
+    case 'anchor.repair': {
+      assertId(command.anchorId, 'anchorId');
+      const anchor = anchorOrFail(document, command.anchorId);
+      const block = blockOrFail(document, anchor.blockId);
+      if (!isKnownAnchorKind(anchor.kind)) {
+        reject('invalid-content', `anchor "${anchor.id}" has an unknown kind`);
+      }
+      const selector = command.selector;
+      const mirrors = anchorMirrorFields(anchor.kind, selector, {
+        ...(command.quote === undefined ? {} : { quote: command.quote }),
+        ...(command.prefix === undefined ? {} : { prefix: command.prefix }),
+        ...(command.suffix === undefined ? {} : { suffix: command.suffix }),
+        ...(command.occurrenceHint === undefined
+          ? {}
+          : { occurrenceHint: command.occurrenceHint }),
+      });
+      const cleared = removeAnchorBinding(block.content, anchor.id);
+      const content = applyAnchorBinding(
+        block.id,
+        cleared,
+        anchor.id,
+        anchor.kind,
+        command.binding,
+      );
+      const duplicate = findAnchorWithSameSelection(
+        document,
+        content,
+        block.id,
+        anchor.id,
+        anchor.kind,
+        selector,
+        anchor.id,
+      );
+      if (duplicate !== undefined) {
+        reject('anchor-exists', `the selection is already bound to anchor "${duplicate.id}"`);
+      }
+      anchor.selector = structuredClone(selector);
+      for (const key of ['quote', 'prefix', 'suffix', 'occurrenceHint'] as const) {
+        delete anchor[key];
+      }
+      if (mirrors.quote !== undefined) anchor.quote = mirrors.quote;
+      if (mirrors.prefix !== undefined) anchor.prefix = mirrors.prefix;
+      if (mirrors.suffix !== undefined) anchor.suffix = mirrors.suffix;
+      if (mirrors.occurrenceHint !== undefined) anchor.occurrenceHint = mirrors.occurrenceHint;
+      block.content = content;
+      block.updatedAt = context.now();
+      changes.block(block.id);
+      changes.anchor(anchor.id);
+      return null;
+    }
+
+    case 'anchor.attachToBlock': {
+      assertId(command.anchorId, 'anchorId');
+      const anchor = anchorOrFail(document, command.anchorId);
+      attachAnchorBranchesToBlock(document, anchor, context, changes);
+      return null;
+    }
+
+    case 'anchor.delete': {
+      assertId(command.anchorId, 'anchorId');
+      const anchor = anchorOrFail(document, command.anchorId);
+      if (
+        command.branches !== undefined &&
+        command.branches !== 'attach' &&
+        command.branches !== 'delete'
+      ) {
+        reject('invalid-command', 'branches must be "attach" or "delete"');
+      }
+      const hasOutgoing = Object.values(document.branches).some(
+        (branch) => branch.source.anchorId === anchor.id,
+      );
+      if (hasOutgoing && command.branches === undefined) {
+        reject(
+          'invalid-command',
+          'anchor.delete requires branches: "attach" or "delete" when the anchor has outgoing branches',
+        );
+      }
+      if (command.branches === 'attach') {
+        attachAnchorBranchesToBlock(document, anchor, context, changes);
+      } else {
+        deleteAnchorBranches(document, anchor, context, changes);
+      }
+      return null;
+    }
+
     case 'block.create': {
       const blockId = command.blockId ?? freshId(document, context);
       assertId(blockId, 'blockId');
@@ -1170,7 +1936,7 @@ function applyToClone(
         removeBlocks(document, subtree, changes);
         return null;
       }
-      promoteChildren(document, command.blockId, changes);
+      promoteChildren(document, command.blockId, context, changes);
       removeSingleBlock(document, command.blockId, changes);
       return null;
     }
@@ -1285,69 +2051,124 @@ function applyToClone(
       assertId(command.targetBlockId, 'targetBlockId');
       blockOrFail(document, command.sourceBlockId);
       blockOrFail(document, command.targetBlockId);
+      const role = command.role ?? 'primary';
+      if (role !== 'primary' && role !== 'reference') {
+        reject('invalid-command', 'role must be "primary" or "reference"');
+      }
+      const port: BranchPort = { blockId: command.sourceBlockId };
+      if (command.sourceAnchorId !== undefined) {
+        assertId(command.sourceAnchorId, 'sourceAnchorId');
+        const anchor = anchorOrFail(document, command.sourceAnchorId);
+        if (anchor.blockId !== command.sourceBlockId) {
+          reject('invalid-command', 'source anchor belongs to a different block');
+        }
+        port.anchorId = anchor.id;
+      }
       if (command.sourceBlockId === command.targetBlockId) {
         reject('cycle', 'a branch cannot target its source block');
       }
-      if (subtreeBlockIds(document, command.targetBlockId).includes(command.sourceBlockId)) {
-        reject('cycle', 'branch would create a primary cycle');
-      }
-      const existingParent = Object.values(document.branches).find(
+      const duplicate = Object.values(document.branches).find(
         (branch) =>
-          branch.role === 'primary' && branch.targetBlockId === command.targetBlockId,
+          branch.targetBlockId === command.targetBlockId && samePort(branch.source, port),
       );
-      if (existingParent !== undefined) {
-        reject(
-          'invalid-placement',
-          'target already has a primary parent; use block.move to reparent it',
+      if (duplicate !== undefined) {
+        changes.branch(duplicate.id);
+        changes.warn(
+          `an edge from this source to the target already exists (branch "${duplicate.id}"); reused it`,
         );
+        return null;
       }
-      const targetPlacement = findTopLevelPlacement(document, command.targetBlockId);
-      if (targetPlacement === null) {
-        reject('internal-invariant', 'target root is not assigned to a chapter');
+      if (role === 'primary') {
+        if (subtreeBlockIds(document, command.targetBlockId).includes(command.sourceBlockId)) {
+          reject('cycle', 'branch would create a primary cycle');
+        }
+        const existingParent = Object.values(document.branches).find(
+          (branch) =>
+            branch.role === 'primary' && branch.targetBlockId === command.targetBlockId,
+        );
+        if (existingParent !== undefined) {
+          reject(
+            'invalid-placement',
+            'target already has a primary parent; use block.move to reparent it',
+          );
+        }
       }
-      const chapter = chapterOrFail(document, targetPlacement.chapterId);
-      // F6: creating a primary branch reparents the target under the source.
-      // If the target is the only top-level block of its chapter, that would
-      // strand an empty chapter; the user must add another root or delete the
-      // chapter explicitly first.
-      if (chapter.topLevelBlockIds.length === 1) {
-        rejectEmptyChapter(chapter, 'branch');
+      if (command.label !== undefined && typeof command.label !== 'string') {
+        reject('invalid-command', 'label must be a string');
       }
-      chapter.topLevelBlockIds.splice(targetPlacement.index, 1);
-      changes.chapter(chapter.id);
-      const children = primaryDirectChildren(document, command.sourceBlockId);
-      const index = command.atIndex ?? children.length;
-      assertIndex(index, children.length, 'child index');
-      const branch = createBranchRecord(
+      let targetPlacement: ReturnType<typeof findTopLevelPlacement> = null;
+      if (role === 'primary') {
+        targetPlacement = findTopLevelPlacement(document, command.targetBlockId);
+        if (targetPlacement === null) {
+          reject('internal-invariant', 'target root is not assigned to a chapter');
+        }
+        const chapter = chapterOrFail(document, targetPlacement.chapterId);
+        // F6: creating a primary branch reparents the target under the source.
+        // If the target is the only top-level block of its chapter, that would
+        // strand an empty chapter; the user must add another root or delete the
+        // chapter explicitly first.
+        if (chapter.topLevelBlockIds.length === 1) {
+          rejectEmptyChapter(chapter, 'branch');
+        }
+        chapter.topLevelBlockIds.splice(targetPlacement.index, 1);
+        changes.chapter(chapter.id);
+      }
+      const siblings = portBranches(document, port, role);
+      const index = command.atIndex ?? siblings.length;
+      const branch = createPortBranchRecord(
         document,
         context,
         changes,
-        command.sourceBlockId,
+        port,
         command.targetBlockId,
-        orderKeyForIndex(document, command.sourceBlockId, index, changes),
+        role,
+        orderKeyForPortIndex(document, port, role, index, changes),
         command.branchId,
       );
+      if (command.label !== undefined) branch.label = command.label;
       changes.block(command.targetBlockId);
       changes.block(command.sourceBlockId);
-      const sourceChapter = chapterIdForBlock(document, command.sourceBlockId);
-      if (sourceChapter !== null) changes.chapter(sourceChapter);
-      // `branch.delete promote` would put the target in the *source* chapter.
-      // The exact snapshot restores the target's original chapter and slot.
-      return null;
+      if (role === 'primary') {
+        const sourceChapter = chapterIdForBlock(document, command.sourceBlockId);
+        if (sourceChapter !== null) changes.chapter(sourceChapter);
+        // `branch.delete promote` would put the target in the *source* chapter.
+        // The exact snapshot restores the target's original chapter and slot.
+        return null;
+      }
+      return { type: 'branch.delete', branchId: branch.id };
     }
 
     case 'branch.delete': {
       assertId(command.branchId, 'branchId');
       const branch = branchOrFail(document, command.branchId);
-      if (branch.role !== 'primary') {
-        reject('invalid-command', 'only primary branches can be deleted in M2');
-      }
-      if (branch.source.anchorId !== undefined) {
-        reject('invalid-command', 'anchored branches are not supported in M2');
-      }
       const targetId = branch.targetBlockId;
       blockOrFail(document, targetId);
-      if (command.targetHandling.kind === 'promote') {
+      if (branch.role === 'reference') {
+        if (command.targetHandling !== undefined) {
+          reject('invalid-command', 'reference branches do not accept targetHandling');
+        }
+        delete document.branches[branch.id];
+        changes.branch(branch.id);
+        return null;
+      }
+      if (command.targetHandling === undefined) {
+        reject(
+          'invalid-command',
+          'deleting a primary branch requires targetHandling "promote" or "delete-subtree"',
+        );
+      }
+      if (
+        typeof command.targetHandling !== 'object' ||
+        command.targetHandling === null ||
+        Array.isArray(command.targetHandling)
+      ) {
+        reject('invalid-command', 'targetHandling must be an object');
+      }
+      const handling = command.targetHandling as { kind?: unknown };
+      if (handling.kind !== 'promote' && handling.kind !== 'delete-subtree') {
+        reject('invalid-command', 'targetHandling must be "promote" or "delete-subtree"');
+      }
+      if (handling.kind === 'promote') {
         const sourceRoot = topLevelAncestorId(document, branch.source.blockId);
         const placement = findTopLevelPlacement(document, sourceRoot);
         if (placement === null) {
@@ -1361,9 +2182,6 @@ function applyToClone(
         changes.block(targetId);
         return null;
       }
-      if (command.targetHandling.kind !== 'delete-subtree') {
-        reject('invalid-command', 'targetHandling must be "promote" or "delete-subtree"');
-      }
       const subtree = collectSubtree(document, targetId);
       delete document.branches[branch.id];
       changes.branch(branch.id);
@@ -1374,10 +2192,9 @@ function applyToClone(
     case 'branch.reorder': {
       assertId(command.branchId, 'branchId');
       const branch = branchOrFail(document, command.branchId);
-      if (branch.role !== 'primary' || branch.source.anchorId !== undefined) {
-        reject('invalid-command', 'only direct primary branches can be reordered in M2');
-      }
-      const siblings = primaryDirectChildren(document, branch.source.blockId);
+      const port = portOf(branch.source);
+      const siblings = portBranches(document, port, branch.role);
+      const portWasUnusable = !portOrdersAreSane(siblings);
       const fromIndex = siblings.findIndex((candidate) => candidate.id === branch.id);
       if (fromIndex < 0) reject('internal-invariant', 'branch is not in its source port');
       assertIndex(command.toIndex, siblings.length - 1, 'sibling index');
@@ -1385,25 +2202,35 @@ function applyToClone(
         changes.branch(branch.id);
         return { type: 'branch.reorder', branchId: branch.id, toIndex: fromIndex };
       }
+      const beforeOrders = new Map(
+        portBranches(document, port, branch.role).map((candidate) => [candidate.id, candidate.order]),
+      );
       const withoutBranch = siblings.filter((candidate) => candidate.id !== branch.id);
-      const order = orderKeyForIndexInList(
+      const order = orderKeyForPortIndexInList(
         document,
-        branch.source.blockId,
+        port,
+        branch.role,
         withoutBranch,
         command.toIndex,
         changes,
       );
       branch.order = order;
       changes.branch(branch.id);
+      const normalizedSibling = portBranches(document, port, branch.role).some(
+        (candidate) =>
+          candidate.id !== branch.id && beforeOrders.get(candidate.id) !== candidate.order,
+      );
+      if (normalizedSibling || portWasUnusable) {
+        // Repairing an unusable order list re-keyed unrelated siblings; the
+        // typed inverse would not restore them. Use the exact snapshot.
+        return null;
+      }
       return { type: 'branch.reorder', branchId: branch.id, toIndex: fromIndex };
     }
 
     case 'branch.relabel': {
       assertId(command.branchId, 'branchId');
       const branch = branchOrFail(document, command.branchId);
-      if (branch.role !== 'primary') {
-        reject('invalid-command', 'only primary branches are editable in M2');
-      }
       if (command.label !== null && typeof command.label !== 'string') {
         reject('invalid-command', 'label must be a string or null');
       }
@@ -1425,44 +2252,10 @@ function applyToClone(
   }
 }
 
-/**
- * Order key for an insertion at `index` computed against an explicit sibling
- * list (used when the moved item was already removed from consideration).
- */
-function orderKeyForIndexInList(
-  document: Document,
-  parentBlockId: string,
-  siblings: readonly Branch[],
-  index: number,
-  changes: ChangeSet,
-): string {
-  assertIndex(index, siblings.length, 'sibling index');
-  const low = index > 0 ? siblings[index - 1]?.order ?? null : null;
-  const high = index < siblings.length ? siblings[index]?.order ?? null : null;
-  try {
-    if (
-      (low === null || isValidOrderKey(low)) &&
-      (high === null || isValidOrderKey(high)) &&
-      (low === null || high === null || low < high)
-    ) {
-      return orderBetween(low, high);
-    }
-  } catch {
-    // fall through
-  }
-  renormalizeChildOrders(document, parentBlockId, changes);
-  const siblingIds = new Set(siblings.map((sibling) => sibling.id));
-  const refreshed = primaryDirectChildren(document, parentBlockId).filter((branch) =>
-    siblingIds.has(branch.id),
-  );
-  const lowAfter = index > 0 ? refreshed[index - 1]?.order ?? null : null;
-  const highAfter = index < refreshed.length ? refreshed[index]?.order ?? null : null;
-  return orderBetween(lowAfter, highAfter);
-}
-
 function promoteChildren(
   document: Document,
   blockId: string,
+  context: CoreContext,
   changes: ChangeSet,
 ): void {
   const childBranches = allPrimaryChildren(document, blockId);
@@ -1488,25 +2281,53 @@ function promoteChildren(
   if (incoming === undefined) {
     reject('internal-invariant', 'block to delete has no primary parent');
   }
-  const parentId = incoming.source.blockId;
-  if (incoming.source.anchorId !== undefined) {
-    reject('invalid-command', 'deleting an anchored child is not supported in M2');
-  }
-  const parentSiblings = primaryDirectChildren(document, parentId);
+  // The promoted children attach to the deleted block's primary parent,
+  // whether that parent edge starts at a block or at an anchor. A formerly
+  // anchored child gets a fresh branch record (C9); direct children keep their
+  // branch IDs. No target is left unreachable, and the undo snapshot restores
+  // the old anchored branches with their original IDs.
+  const parentPort = portOf(incoming.source);
+  const parentSiblings = portBranches(document, parentPort, 'primary');
   const deletedIndex = parentSiblings.findIndex((branch) => branch.id === incoming.id);
   delete document.branches[incoming.id];
   changes.branch(incoming.id);
   for (const branch of childBranches) delete document.branches[branch.id];
   const insertionIndex = Math.max(0, deletedIndex);
-  const orders = orderKeysForIndex(document, parentId, insertionIndex, childBranches.length, changes);
+  const orders = orderKeysForPortIndex(
+    document,
+    parentPort,
+    'primary',
+    insertionIndex,
+    childBranches.length,
+    changes,
+  );
   for (const [index, branch] of childBranches.entries()) {
-    branch.source = { blockId: parentId };
-    branch.order = orders[index] ?? orderBetween(null, null);
-    document.branches[branch.id] = branch;
-    changes.branch(branch.id);
+    const order = orders[index] ?? orderBetween(null, null);
+    if (branch.source.anchorId !== undefined) {
+      const promoted = createPortBranchRecord(
+        document,
+        context,
+        changes,
+        parentPort,
+        branch.targetBlockId,
+        'primary',
+        order,
+        undefined,
+        false,
+      );
+      if (branch.label !== undefined) promoted.label = branch.label;
+    } else {
+      branch.source =
+        parentPort.anchorId === undefined
+          ? { blockId: parentPort.blockId }
+          : { blockId: parentPort.blockId, anchorId: parentPort.anchorId };
+      branch.order = order;
+      document.branches[branch.id] = branch;
+      changes.branch(branch.id);
+    }
     changes.block(branch.targetBlockId);
   }
-  changes.block(parentId);
+  changes.block(parentPort.blockId);
 }
 
 function removeSingleBlock(document: Document, blockId: string, changes: ChangeSet): void {
@@ -1559,6 +2380,12 @@ function sameStringList(left: readonly string[], right: readonly string[]): bool
   );
 }
 
+function canonicalBlockState(block: ContentBlock): string {
+  const copy = structuredClone(block);
+  delete copy.updatedAt;
+  return canonicalJson(copy);
+}
+
 /**
  * Snapshot that transforms `current` into `target` structurally.
  *
@@ -1575,8 +2402,15 @@ function captureStructuralDelta(
   target: Document,
 ): StructureRestoreCommand | null {
   const blocks: ContentBlock[] = [];
+  const replaceBlocks: ContentBlock[] = [];
+  const expectedReplaceBlocks: ContentBlock[] = [];
   for (const [blockId, block] of Object.entries(target.blocks)) {
-    if (own(current.blocks, blockId) === undefined) blocks.push(structuredClone(block));
+    const existing = own(current.blocks, blockId);
+    if (existing === undefined) blocks.push(structuredClone(block));
+    else if (canonicalJson(existing) !== canonicalJson(block)) {
+      replaceBlocks.push(structuredClone(block));
+      expectedReplaceBlocks.push(structuredClone(existing));
+    }
   }
   const removeBlocks = Object.keys(current.blocks).filter(
     (blockId) => own(target.blocks, blockId) === undefined,
@@ -1623,6 +2457,7 @@ function captureStructuralDelta(
   );
   if (
     blocks.length === 0 &&
+    replaceBlocks.length === 0 &&
     removeBlocks.length === 0 &&
     branches.length === 0 &&
     removeBranches.length === 0 &&
@@ -1641,6 +2476,8 @@ function captureStructuralDelta(
     anchors,
     chapters,
   };
+  if (replaceBlocks.length > 0) restore.replaceBlocks = replaceBlocks;
+  if (expectedReplaceBlocks.length > 0) restore.expectedReplaceBlocks = expectedReplaceBlocks;
   if (removeBlocks.length > 0) restore.removeBlocks = removeBlocks;
   if (removeBranches.length > 0) restore.removeBranches = removeBranches;
   if (removeAnchors.length > 0) restore.removeAnchors = removeAnchors;
@@ -1666,6 +2503,11 @@ function captureRestoreCommand(
     destructive ||
     command.type === 'block.move' ||
     command.type === 'branch.create' ||
+    command.type === 'anchor.create' ||
+    command.type === 'anchor.repair' ||
+    command.type === 'anchor.attachToBlock' ||
+    command.type === 'anchor.delete' ||
+    command.type === 'branch.reorder' ||
     command.type === 'structure.restore';
   if (!snapshot) return null;
   const restore = captureStructuralDelta(after, before);
@@ -1719,11 +2561,34 @@ function restoreRecords(
   if (command.redoCommand !== undefined) assertRestoreRedo(command.redoCommand);
   if (
     !Array.isArray(command.blocks) ||
+    (command.replaceBlocks !== undefined && !Array.isArray(command.replaceBlocks)) ||
+    (command.expectedReplaceBlocks !== undefined &&
+      !Array.isArray(command.expectedReplaceBlocks)) ||
     !Array.isArray(command.branches) ||
     !Array.isArray(command.anchors) ||
     !Array.isArray(command.chapters)
   ) {
     reject('invalid-command', 'structure.restore records must be arrays');
+  }
+
+  const replaceBlocks = command.replaceBlocks ?? [];
+  const expectedReplaceBlocks = command.expectedReplaceBlocks ?? [];
+  const expectedById = new Map<string, ContentBlock>();
+  for (const block of expectedReplaceBlocks) {
+    assertRestoreObject(block, 'expected replaced block');
+    assertId(block.id, 'expected replaced block ID');
+    if (expectedById.has(block.id)) {
+      reject('duplicate-id', `block "${block.id}" appears twice in the expectation list`);
+    }
+    expectedById.set(block.id, block);
+  }
+  for (const block of replaceBlocks) {
+    if (expectedById.size > 0 && !expectedById.has(block.id)) {
+      reject(
+        'invalid-command',
+        `replaced block "${block.id}" is missing its post-command expectation`,
+      );
+    }
   }
 
   const removeBlocks = assertRestoreIdList(command.removeBlocks, 'structure.restore.removeBlocks');
@@ -1739,6 +2604,24 @@ function restoreRecords(
   const removeBranchSet = new Set(removeBranches);
   const removeAnchorSet = new Set(removeAnchors);
   const restoreBranchSet = new Set<string>();
+
+  if (replaceBlocks.length > 0) {
+    const seenReplace = new Set<string>();
+    for (const block of replaceBlocks) {
+      assertRestoreObject(block, 'replaced block');
+      assertId(block.id, 'replaced block ID');
+      if (seenReplace.has(block.id)) {
+        reject('duplicate-id', `block "${block.id}" appears twice in the replacement list`);
+      }
+      seenReplace.add(block.id);
+      if (removeBlockSet.has(block.id)) {
+        reject('invalid-command', `block "${block.id}" cannot be replaced and removed at once`);
+      }
+      if (command.blocks.some((restored) => restored.id === block.id)) {
+        reject('invalid-command', `block "${block.id}" cannot be restored and replaced at once`);
+      }
+    }
+  }
 
   for (const block of command.blocks) {
     assertRestoreObject(block, 'restored block');
@@ -1810,6 +2693,25 @@ function restoreRecords(
 
   const usedIds = allIds(document);
 
+  for (const block of replaceBlocks) {
+    assertRestoreObject(block, 'replaced block');
+    assertId(block.id, 'replaced block ID');
+    const currentBlock = own(document.blocks, block.id);
+    if (currentBlock === undefined) {
+      reject('not-found', `cannot replace block "${block.id}": it does not exist`);
+    }
+    const expected = expectedById.get(block.id);
+    if (expected !== undefined && canonicalBlockState(currentBlock) !== canonicalBlockState(expected)) {
+      reject(
+        'invalid-command',
+        `block "${block.id}" changed after this command; undo the later edit first`,
+      );
+    }
+    assertContent(block.content);
+    document.blocks[block.id] = structuredClone(block);
+    changes.block(block.id);
+  }
+
   for (const block of command.blocks) {
     assertRestoreObject(block, 'restored block');
     assertId(block.id, 'restored block ID');
@@ -1869,10 +2771,22 @@ function restoreRecords(
     if (own(document.blocks, anchor.blockId) === undefined) {
       reject('not-found', `cannot restore anchor "${anchor.id}": its block is missing`);
     }
-    if (usedIds.has(anchor.id)) {
-      reject('duplicate-id', `cannot restore anchor "${anchor.id}": the ID is already used`);
+    const existingAnchor = own(document.anchors, anchor.id);
+    if (existingAnchor !== undefined) {
+      // Repair restores the same anchor record in place; a different kind or
+      // block would be a different identity and is rejected.
+      if (existingAnchor.kind !== anchor.kind || existingAnchor.blockId !== anchor.blockId) {
+        reject(
+          'duplicate-id',
+          `cannot restore anchor "${anchor.id}": a different anchor already uses the ID`,
+        );
+      }
+    } else {
+      if (usedIds.has(anchor.id)) {
+        reject('duplicate-id', `cannot restore anchor "${anchor.id}": the ID is already used`);
+      }
+      usedIds.add(anchor.id);
     }
-    usedIds.add(anchor.id);
     document.anchors[anchor.id] = structuredClone(anchor);
     changes.anchor(anchor.id);
   }

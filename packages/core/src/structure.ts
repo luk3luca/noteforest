@@ -3,13 +3,15 @@
  *
  * The block tree is represented by **primary branch** records (docs/spec.md
  * §4.5–4.6). Chapters own the roots; every non-root block has exactly one
- * incoming primary branch. Reference branches are ignored by these helpers.
+ * incoming primary branch. A primary branch may start at a block or at an
+ * anchor inside it. Reference branches are ignored by these helpers.
  */
 
+import { compareAnchorResolutions, resolveAnchor } from './anchors.js';
 import type { Branch, BranchSource, Document } from './types.js';
 
 export function isPrimaryBranch(branch: Branch): boolean {
-  return branch.role === 'primary' && branch.source.anchorId === undefined;
+  return branch.role === 'primary';
 }
 
 export function compareBranches(left: Branch, right: Branch): number {
@@ -32,8 +34,9 @@ export function primaryParentBranch(document: Document, blockId: string): Branch
 }
 
 /**
- * Sorted direct primary children of a block: anchored sources are excluded
- * from M2 sibling ordering and kept for forward compatibility.
+ * Sorted direct primary children of a block: only branches whose source is the
+ * block itself. Anchored primary children belong to an anchor port and are
+ * listed by {@link primaryChildBranches}.
  */
 export function directChildBranches(document: Document, parentBlockId: string): Branch[] {
   return sortedBranches(
@@ -43,8 +46,51 @@ export function directChildBranches(document: Document, parentBlockId: string): 
   );
 }
 
+/**
+ * Anchored primary branches of a block grouped by anchor, in deterministic
+ * order: anchor content order (resolved position, then anchor ID), then branch
+ * order inside each anchor (D3).
+ */
+export function anchoredChildBranches(document: Document, parentBlockId: string): Branch[] {
+  const byAnchor = new Map<string, Branch[]>();
+  for (const branch of primaryBranches(document)) {
+    if (branch.source.blockId !== parentBlockId) continue;
+    const anchorId = branch.source.anchorId;
+    if (anchorId === undefined) continue;
+    const list = byAnchor.get(anchorId) ?? [];
+    list.push(branch);
+    byAnchor.set(anchorId, list);
+  }
+  const anchorIds = [...byAnchor.keys()].sort((left, right) => {
+    const order = compareAnchorResolutions(
+      resolveAnchor(document, left),
+      resolveAnchor(document, right),
+    );
+    if (order !== 0) return order;
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
+  const result: Branch[] = [];
+  for (const anchorId of anchorIds) {
+    result.push(...sortedBranches(byAnchor.get(anchorId) ?? []));
+  }
+  return result;
+}
+
+/**
+ * Every primary child of a block in outline order: anchored primary children
+ * first, then direct primary children (D3). Used by traversal, cycle checks,
+ * subtree deletion, and outline consumers.
+ */
+export function primaryChildBranches(document: Document, parentBlockId: string): Branch[] {
+  return [
+    ...anchoredChildBranches(document, parentBlockId),
+    ...directChildBranches(document, parentBlockId),
+  ];
+}
+
+/** Primary child block IDs in outline order (anchored first, then direct). */
 export function directChildIds(document: Document, parentBlockId: string): string[] {
-  return directChildBranches(document, parentBlockId).map((branch) => branch.targetBlockId);
+  return primaryChildBranches(document, parentBlockId).map((branch) => branch.targetBlockId);
 }
 
 export interface TopLevelPlacement {
@@ -82,7 +128,11 @@ export function chapterIdForBlock(document: Document, blockId: string): string |
   return findTopLevelPlacement(document, root)?.chapterId ?? null;
 }
 
-/** Every block ID in the primary subtree rooted at `blockId`, including it. */
+/**
+ * Every block ID in the primary subtree rooted at `blockId`, including it.
+ * Follows direct **and anchored** primary branches: an anchored child is never
+ * unreachable to delete, move, or cycle detection.
+ */
 export function subtreeBlockIds(document: Document, blockId: string): string[] {
   const result: string[] = [];
   const stack = [blockId];
