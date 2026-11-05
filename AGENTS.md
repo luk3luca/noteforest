@@ -27,15 +27,26 @@ The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 
 ## Team and roles
 
-- **Orchestrator / Conductor**: owns the plan, decisions, task briefs, and integration. The main thread.
-- **Research / Scout**: explores apps, frameworks, data structures, algorithms, and names. Writes `research/landscape.md` and `research/native-stacks.md`.
-- **Planner / Architect**: writes `docs/spec.md`, ADRs, task breakdown, and acceptance criteria. Does not write application code.
-- **UX / Product**: writes `docs/ux.md` (flows, keyboard model, states). Does not write application code.
-- **Implementer / Builder**: writes code and tests in a worktree, one task at a time. Does not change the spec.
-- **Reviewer / Sentinel**: independent review, runs tests and the app, checks acceptance criteria. Writes `docs/review-checklist.md` and `docs/definition-of-done.md`. Does not rewrite code.
+Full contracts, outputs, and forbidden actions: `docs/agents/roles.md`. Every delegation uses
+`docs/agents/brief-template.md`.
+
+- **Orchestrator / Conductor**: plan, decisions, specific task briefs, integration, one full verify, final report. The main thread. Does not implement product code or self-review as Sentinel.
+- **Research / Scout**: answers one specific research question with evidence and a recommendation. Writes `research/`. No application code.
+- **Planner / Architect**: spec, ADRs, acceptance criteria, task breakdown. No application code and no unilateral product decisions.
+- **UX / Product**: flows, keyboard model, states, empty/error states in `docs/ux*.md`. No application code.
+- **Implementer / Builder**: implements exactly one brief in a worktree, with tests and a report. Does not change spec/UX/ADR/plan and does not merge.
+- **Reviewer / Sentinel**: independently judges one task; writes `docs/reviews/<task>.md` with a verdict, evidence, and new findings; may update the review checklist/DoD. Does not rewrite code, tests, spec, UX, ADR, or plan outside the checklist/DoD.
 - **Docs / Release** (later): README, user guide, changelog, packaging.
 
-All agents use **DeepSeek V4.1 Flash Max** (`opencode-go/deepseek-v4.1-flash#max`). No model switching.
+**Delegation rule.** One agent, one specific job, one deliverable. A brief names the exact user path,
+files, non-goals, acceptance criteria, tests, stop conditions, and report format. If a task needs
+two roles, split it; do not send a broad "fix/review the app" brief.
+
+**Testing rule.** Builder runs targeted tests while working and one `npm run verify:fast` at the
+end; the Orchestrator runs one full `npm run verify` at integration. Perf and visual suites are
+on demand, not part of the critical gate. Do not duplicate full runs.
+
+All agents use **DeepSeek V4.1 Flash Max** (`opencode-go/deepseek-v4.1-flash#max`). No model switching unless the product owner ratifies it.
 
 ## Working agreement
 
@@ -144,6 +155,8 @@ Research remains useful as input for components, not as an open stack decision. 
 - `docs/review-checklist.md` — review checklist (Sentinel).
 - `docs/definition-of-done.md` — DoD and test strategy (Sentinel).
 - `docs/plan.md` — milestones and tasks (Orchestrator).
+- `docs/agents/roles.md` — role contracts, boundaries, handoff.
+- `docs/agents/brief-template.md` — the specific task-brief template used for every delegation.
 - `docs/ux-shell.md` — desktop shell + branch editor spec for M2.
 - `docs/tasks/` — milestone and phase task briefs.
 - `docs/reviews/` — Sentinel review reports.
@@ -163,6 +176,7 @@ packages/pdf/       # print compositor + printToPDF/verify orchestration (Spike 
 packages/api/       # local HTTP JSON API + MCP adapter (not scaffolded yet)
 docs/
   adr/
+  agents/
   reports/
   reviews/
   spikes/
