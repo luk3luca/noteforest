@@ -23,7 +23,7 @@ import type {
   SaveFailureCode,
 } from '../../../shared/api';
 import { buildBlockNode, buildEditorDocument, extractBlockContents, withBody, type PMNode } from '../lib/adapter';
-import type { TextSelectionAnchor } from '../lib/anchor-selection';
+import type { BranchSelectionAnchor } from '../lib/anchor-selection';
 import { recordPerf } from '../lib/perf';
 import { createSerialQueue } from '../lib/serial-queue';
 import {
@@ -752,24 +752,37 @@ export class DocumentRuntime {
   }
 
   /**
-   * Branch from the current text selection as one user action.
+   * Branch from the current editor selection as one user action.
    *
    * The binding was derived from the editor buffer; `runCommandInternal`
    * commits that buffer first, so the canonical content and the adapter's
    * node paths are the same revision before the composite command runs. One
    * structural inverse removes/restores the anchor, block and branch without
-   * an optimistic local mark.
+   * an optimistic local mark. Formula NodeSelections use the atomic
+   * whole-formula binding; text carets/ranges keep the text path.
    */
-  async branchFromSelection(selection: TextSelectionAnchor): Promise<ApplyOutcome> {
+  async branchFromSelection(selection: BranchSelectionAnchor): Promise<ApplyOutcome> {
+    const command: DocumentCommand =
+      selection.kind === 'formula'
+        ? {
+            type: 'branch.createFromSelection',
+            blockId: selection.blockId,
+            kind: 'formula',
+            binding: selection.binding,
+            selector: selection.selector,
+            target: { kind: 'new' },
+            role: 'primary',
+          }
+        : {
+            type: 'branch.createFromSelection',
+            blockId: selection.blockId,
+            kind: 'text',
+            binding: selection.binding,
+            target: { kind: 'new' },
+            role: 'primary',
+          };
     return this.queue.run(async () => {
-      const result = await this.runCommandInternal({
-        type: 'branch.createFromSelection',
-        blockId: selection.blockId,
-        kind: 'text',
-        binding: selection.binding,
-        target: { kind: 'new' },
-        role: 'primary',
-      });
+      const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {
         return { ok: false, message: result.message ?? 'Could not branch from the selection.' };
       }

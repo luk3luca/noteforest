@@ -8,7 +8,7 @@ import {
   stripAnchorBindings,
   type PMNode,
 } from '../src/renderer/src/lib/adapter';
-import { textBindingInBody } from '../src/renderer/src/lib/anchor-selection';
+import { formulaBindingInBody, textBindingInBody } from '../src/renderer/src/lib/anchor-selection';
 
 function body(...content: PMNode[]): PMNode {
   return { type: 'blockBody', content };
@@ -113,6 +113,98 @@ describe('editor selection -> core text binding', () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('no-text');
+  });
+});
+
+describe('editor selection -> core whole-formula binding', () => {
+  it('maps a selected block formula to its atomic node path', () => {
+    const result = formulaBindingInBody(
+      body(
+        { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+        { type: 'blockMath', attrs: { latex: 'Av = \\lambda v' } },
+      ),
+      8,
+    );
+    expect(result).toEqual({
+      ok: true,
+      binding: { kind: 'formula', form: 'whole', nodePath: [1] },
+      latex: 'Av = \\lambda v',
+    });
+  });
+
+  it('maps a selected inline formula to the nested node path', () => {
+    const result = formulaBindingInBody(
+      body({
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Let ' },
+          { type: 'inlineMath', attrs: { latex: 'x^2' } },
+          { type: 'text', text: ' be' },
+        ],
+      }),
+      5,
+    );
+    expect(result).toEqual({
+      ok: true,
+      binding: { kind: 'formula', form: 'whole', nodePath: [0, 1] },
+      latex: 'x^2',
+    });
+  });
+
+  it('rejects a position that is not a formula node start', () => {
+    const result = formulaBindingInBody(
+      body({ type: 'paragraph', content: [{ type: 'text', text: 'plain' }] }),
+      1,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no-formula');
+  });
+});
+
+describe('formula anchor attributes in the core <-> ProseMirror adapter', () => {
+  it('maps mathBlock/blockMath and keeps the atomic anchorIds array', () => {
+    const core: ContentNode = {
+      type: 'doc',
+      children: [
+        {
+          type: 'mathBlock',
+          attrs: { latex: 'E = mc^2', anchorIds: ['b', 'a'] },
+        },
+        { type: 'inlineMath', attrs: { latex: 'x', anchorIds: ['c'] } },
+      ],
+    };
+    const pm = contentToPM(core);
+    expect(pm.content?.[0]).toMatchObject({
+      type: 'blockMath',
+      attrs: { latex: 'E = mc^2', anchorIds: ['a', 'b'] },
+    });
+    expect(pm.content?.[1]).toMatchObject({
+      type: 'inlineMath',
+      attrs: { latex: 'x', anchorIds: ['c'] },
+    });
+    expect(pmToContent(pm)).toMatchObject({
+      children: [
+        { type: 'mathBlock', attrs: { latex: 'E = mc^2', anchorIds: ['a', 'b'] } },
+        { type: 'inlineMath', attrs: { latex: 'x', anchorIds: ['c'] } },
+      ],
+    });
+  });
+
+  it('omits an empty atomic anchorIds array and folds the legacy single ID', () => {
+    const core: ContentNode = {
+      type: 'doc',
+      children: [
+        { type: 'inlineMath', attrs: { latex: 'x', anchorId: 'legacy' } },
+        { type: 'mathBlock', attrs: { latex: 'y' } },
+      ],
+    };
+    const pm = contentToPM(core);
+    expect(pm.content?.[0]?.attrs).toEqual({ latex: 'x', anchorIds: ['legacy'] });
+    expect(pm.content?.[1]?.attrs).toEqual({ latex: 'y' });
+
+    const roundTrip = pmToContent(pm);
+    expect(roundTrip.children?.[0]?.attrs).toEqual({ latex: 'x', anchorIds: ['legacy'] });
+    expect(roundTrip.children?.[1]?.attrs).toEqual({ latex: 'y' });
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AnchorBinding } from '../src/anchors.js';
-import { readContentAnchorBinding } from '../src/anchors.js';
+import { readContentAnchorBinding, resolveAnchor } from '../src/anchors.js';
 import type { CommandSuccess } from '../src/commands.js';
 import { applyInverse, executeCommand } from '../src/commands.js';
 import { directChildIds } from '../src/structure.js';
@@ -99,6 +99,62 @@ function buildFixture() {
     b: topB.blockId,
     a1: childA1.blockId,
   };
+}
+
+function formulaBinding(nodePath: number[]): AnchorBinding {
+  return { kind: 'formula', form: 'whole', nodePath };
+}
+
+function createFormulaChild(
+  document: Document,
+  context: ReturnType<typeof deterministicContext>,
+  blockId: string,
+  nodePath: number[],
+  latex: string,
+): CommandSuccess {
+  return run(
+    document,
+    {
+      type: 'branch.createFromSelection',
+      blockId,
+      kind: 'formula',
+      binding: formulaBinding(nodePath),
+      selector: { kind: 'formula', form: 'whole', latex },
+      target: { kind: 'new' },
+    },
+    context,
+  );
+}
+
+function buildFormulaFixture() {
+  const context = deterministicContext();
+  let document = newDocument(context);
+  const content = {
+    type: 'doc',
+    children: [
+      { type: 'paragraph', children: [{ type: 'text', text: 'Before' }] },
+      { type: 'mathBlock', attrs: { latex: 'Av = \\lambda v' } },
+      {
+        type: 'paragraph',
+        children: [
+          { type: 'text', text: 'After ' },
+          { type: 'inlineMath', attrs: { latex: 'x^2' } },
+        ],
+      },
+    ],
+  } satisfies ContentNode;
+  const created = run(
+    document,
+    {
+      type: 'block.create',
+      blockId: 'formula-source',
+      content,
+      placement: { kind: 'top-level', chapterId: document.chapters[0]?.id ?? '' },
+    },
+    context,
+  );
+  document = created.document;
+  return { context, document, blockId: 'formula-source' };
 }
 
 describe('branch.createFromSelection', () => {
@@ -234,6 +290,98 @@ describe('branch.createFromSelection', () => {
     const redone = success(applyInverse(undone));
     expect(stable(redone.document)).toEqual(stable(created.document));
     expect(Object.keys(redone.document.anchors)).toEqual(['anchor-existing']);
+  });
+
+  it('anchors a whole block formula with the atomic node binding and one exact inverse', () => {
+    const { context, document, blockId } = buildFormulaFixture();
+    const before = structuredClone(document);
+    const latex = 'Av = \\lambda v';
+    const created = createFormulaChild(document, context, blockId, [1], latex);
+    const anchorId = created.created.anchorIds[0] as string;
+    const blockIdCreated = created.created.blockIds[0] as string;
+    const branchId = created.created.branchIds[0] as string;
+
+    expect(created.created.anchorIds).toHaveLength(1);
+    expect(created.document.anchors[anchorId]).toMatchObject({
+      id: anchorId,
+      blockId,
+      kind: 'formula',
+      quote: latex,
+      selector: { kind: 'formula', form: 'whole', latex },
+    });
+    expect(
+      readContentAnchorBinding(created.document.blocks[blockId]?.content ?? { type: 'doc' }, anchorId),
+    ).toMatchObject({
+      textRanges: [],
+      atomicNodes: [{ nodePath: [1], nodeType: 'mathBlock' }],
+    });
+    expect(created.document.branches[branchId]).toMatchObject({
+      source: { blockId, anchorId },
+      targetBlockId: blockIdCreated,
+      role: 'primary',
+    });
+    expect(resolveAnchor(created.document, anchorId).state).toBe('resolved');
+    expectValid(created.document);
+
+    const undone = success(applyInverse(created));
+    expect(stable(undone.document)).toEqual(stable(before));
+    expect(undone.document.anchors[anchorId]).toBeUndefined();
+    expect(undone.document.blocks[blockIdCreated]).toBeUndefined();
+    expect(undone.document.branches[branchId]).toBeUndefined();
+
+    const redone = success(applyInverse(undone));
+    expect(stable(redone.document)).toEqual(stable(created.document));
+    expect(redone.document.anchors[anchorId]).toEqual(created.document.anchors[anchorId]);
+    expect(redone.document.branches[branchId]?.source.anchorId).toBe(anchorId);
+  });
+
+  it('anchors a whole inline formula with the same atomic binding path', () => {
+    const { context, document, blockId } = buildFormulaFixture();
+    const created = createFormulaChild(document, context, blockId, [2, 1], 'x^2');
+    const anchorId = created.created.anchorIds[0] as string;
+    expect(created.document.anchors[anchorId]).toMatchObject({
+      kind: 'formula',
+      quote: 'x^2',
+      selector: { kind: 'formula', form: 'whole', latex: 'x^2' },
+    });
+    expect(
+      readContentAnchorBinding(created.document.blocks[blockId]?.content ?? { type: 'doc' }, anchorId),
+    ).toMatchObject({
+      textRanges: [],
+      atomicNodes: [{ nodePath: [2, 1], nodeType: 'inlineMath' }],
+    });
+    expect(resolveAnchor(created.document, anchorId).state).toBe('resolved');
+    expectValid(created.document);
+  });
+
+  it('reuses an exact whole-formula anchor and keeps it on undo', () => {
+    const { context, document, blockId } = buildFormulaFixture();
+    const latex = 'Av = \\lambda v';
+    const first = createFormulaChild(document, context, blockId, [1], latex);
+    const anchorId = first.created.anchorIds[0] as string;
+    const anchored = first.document;
+    const second = createFormulaChild(anchored, context, blockId, [1], latex);
+
+    expect(second.created.anchorIds).toEqual([]);
+    expect(second.affected.anchorIds).toContain(anchorId);
+    expect(Object.keys(second.document.anchors)).toEqual([anchorId]);
+    expect(
+      Object.values(second.document.branches).filter(
+        (branch) => branch.source.anchorId === anchorId,
+      ),
+    ).toHaveLength(2);
+    expect(second.document.blocks[blockId]?.updatedAt).toBe(
+      anchored.blocks[blockId]?.updatedAt,
+    );
+
+    const undone = success(applyInverse(second));
+    expect(stable(undone.document)).toEqual(stable(anchored));
+    expect(undone.document.anchors[anchorId]).toBeDefined();
+    expect(
+      Object.values(undone.document.branches).filter(
+        (branch) => branch.source.anchorId === anchorId,
+      ),
+    ).toHaveLength(1);
   });
 
   it('uses the plain-text projection for a selection containing inline math', () => {
