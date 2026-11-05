@@ -56,6 +56,15 @@ export interface ApplyOutcome {
   anchorId?: string;
 }
 
+/**
+ * A branch block's optional children are `[blockBody, calloutLane?, branchChildren?]`.
+ * The fast DOM paths below predate the callout lane and assume `child(1)` is
+ * the direct-child group; report a lane so callers rebuild from canonical.
+ */
+function hasCalloutLane(node: ProseNode): boolean {
+  return node.childCount > 1 && node.child(1)?.type.name === 'calloutLane';
+}
+
 function withBlockLevel(node: ProseNode, topLevel: boolean, depth: number): ProseNode {
   const body = node.firstChild;
   if (body === null) {
@@ -969,6 +978,10 @@ export class DocumentRuntime {
       const blockNode = parentNode as ProseNode;
       const body = blockNode.firstChild;
       if (body === null) return false;
+      // A callout lane sits between the body and branchChildren; the targeted
+      // insertion below assumes `child(1)` is the direct-child group. Rebuild
+      // from canonical instead of inserting at the wrong child index.
+      if (hasCalloutLane(blockNode)) return false;
       const children = directChildIds(this.document, parent);
       const index = children.indexOf(blockId);
       const branchChildren = blockNode.childCount > 1 ? blockNode.child(1) : null;
@@ -1298,6 +1311,15 @@ export class DocumentRuntime {
     };
     const source = locate(editor.state.doc, blockId);
     if (source === null) return false;
+    const newParentId = parentIdOf(this.document, blockId);
+    if (oldParentId !== null) {
+      const oldParent = locate(editor.state.doc, oldParentId);
+      if (oldParent !== null && hasCalloutLane(oldParent.node)) return false;
+    }
+    if (newParentId !== null) {
+      const newParent = locate(editor.state.doc, newParentId);
+      if (newParent !== null && hasCalloutLane(newParent.node)) return false;
+    }
     const transaction = editor.state.tr;
     transaction.delete(source.position, source.position + source.node.nodeSize);
 
@@ -1453,10 +1475,14 @@ export class DocumentRuntime {
     };
     const source = locate(editor.state.doc, blockId);
     if (source === null) return false;
+    // Callout rows live in their own lane, not in `branchChildren`; a sibling
+    // reorder across the lane boundary must rebuild from canonical.
+    if (source.node.attrs['callout'] === true) return false;
     const transaction = editor.state.tr;
     transaction.delete(source.position, source.position + source.node.nodeSize);
     const target = locate(transaction.doc, targetId);
     if (target === null) return false;
+    if (target.node.attrs['callout'] === true) return false;
     const insertAt = after ? target.position + target.node.nodeSize : target.position;
     transaction.insert(insertAt, source.node);
     transaction.setMeta('addToHistory', false);
@@ -1543,6 +1569,11 @@ export class DocumentRuntime {
     const source = locate(editor.state.doc, blockId);
     if (source === null) return false;
     const sourceNode = source.node;
+    if (mode === 'promote' && hasCalloutLane(sourceNode)) return false;
+    if (oldParentId !== null) {
+      const oldParent = locate(editor.state.doc, oldParentId);
+      if (oldParent !== null && hasCalloutLane(oldParent.node)) return false;
+    }
     const childWrapper = sourceNode.childCount > 1 ? sourceNode.child(1) : null;
     const promoted: ProseNode[] = [];
     if (mode === 'promote' && childWrapper !== null) {

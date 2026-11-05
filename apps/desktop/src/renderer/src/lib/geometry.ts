@@ -58,6 +58,10 @@ export const GEOMETRY = Object.freeze({
   edgeBusOffset: 16,
   edgePortSpacing: 8,
   edgeMinGap: 4,
+  /** Anchored callout lane. */
+  calloutGap: 16,
+  calloutEdgeGutter: 4,
+  calloutBusOffset: 14,
 });
 
 export type EdgePlacement = 'right' | 'below' | 'overlap';

@@ -9,10 +9,10 @@
 
 import type { ContentBlock, ContentNode, Document } from '@noteforest/core';
 import {
+  anchoredChildBranches,
   chapterIdForBlock,
   directChildBranches,
   directChildIds,
-  primaryChildBranches,
   primaryParentBranch,
   subtreeBlockIds,
 } from '@noteforest/core';
@@ -162,23 +162,40 @@ export function visibleBlockIds(
   return result;
 }
 
+export type EdgeKind = 'callout' | 'direct';
+
+export interface EdgePair {
+  id: string;
+  parentId: string;
+  childId: string;
+  index: number;
+  count: number;
+  kind: EdgeKind;
+  anchorId?: string;
+}
+
 export function edgePairs(
   document: Document,
   collapsed: ReadonlySet<string>,
-): Array<{ id: string; parentId: string; childId: string; index: number; count: number }> {
-  const edges: Array<{ id: string; parentId: string; childId: string; index: number; count: number }> = [];
+): EdgePair[] {
+  const edges: EdgePair[] = [];
   const walk = (parentId: string): void => {
     if (collapsed.has(parentId)) return;
-    // Anchored primary children are emitted before direct children (D3) and
-    // render inside the same parent card in M3b1, so they need the same edge.
-    const branches = primaryChildBranches(document, parentId);
+    // Outline order (D3): anchored primary children first, then direct ones.
+    // The editor projects the anchored group into the callout lane.
+    const anchored = anchoredChildBranches(document, parentId);
+    const direct = directChildBranches(document, parentId);
+    const branches = [...anchored, ...direct];
     for (const [index, branch] of branches.entries()) {
+      const anchorId = branch.source.anchorId;
       edges.push({
         id: branch.id,
         parentId,
         childId: branch.targetBlockId,
         index,
         count: branches.length,
+        kind: anchorId === undefined ? 'direct' : 'callout',
+        ...(anchorId === undefined ? {} : { anchorId }),
       });
       walk(branch.targetBlockId);
     }

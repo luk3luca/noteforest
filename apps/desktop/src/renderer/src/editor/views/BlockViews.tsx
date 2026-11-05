@@ -4,6 +4,7 @@ import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/re
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -12,6 +13,7 @@ import {
 } from 'react';
 import { getEditorBindings, setDragBlockId } from '../bindings';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
+import { GEOMETRY } from '../../lib/geometry';
 
 function stringAttr(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -160,12 +162,142 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
 
 export function BlockView({ node }: NodeViewProps): JSX.Element {
   const blockId = stringAttr(node.attrs['blockId']);
+  const callout = node.attrs['callout'] === true;
+  const hasCallouts = node.attrs['hasCallouts'] === true;
+  const anchorId = stringAttr(node.attrs['anchorId']);
   return (
-    <NodeViewWrapper className="nf-block-node" data-block-id={blockId}>
+    <NodeViewWrapper
+      className={callout ? 'nf-block-node nf-callout-row' : 'nf-block-node'}
+      data-block-id={blockId}
+      {...(callout ? { 'data-callout-row': 'true', 'data-anchor-id': anchorId } : {})}
+    >
+      {callout ? (
+        <>
+          <span className="nf-callout-dot" aria-hidden="true" />
+          <span className="nf-callout-leader" aria-hidden="true" />
+        </>
+      ) : null}
       <NodeViewContent
         className="nf-block-inner"
         data-collapsed={node.attrs['collapsed'] === true ? 'true' : 'false'}
+        data-callouts={hasCallouts ? 'true' : 'false'}
       />
+    </NodeViewWrapper>
+  );
+}
+
+/**
+ * Anchored callout lane (M3b2a). The lane is an editor projection below the
+ * parent card; it aligns each callout to its anchor at render time. Nothing
+ * here is stored in the document.
+ */
+export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
+  const parentId = stringAttr(node.attrs['parentId']);
+  const laneRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const lane = laneRef.current;
+    if (lane === null) return undefined;
+    const host = lane.closest<HTMLElement>('.nf-block-node');
+    if (host === null) return undefined;
+    const card = host.querySelector<HTMLElement>(`[data-block-card="${parentId}"]`);
+    if (card === null) return undefined;
+
+    const laneRoot = lane.closest('.nf-callout-lane');
+    const align = (): void => {
+      frame = 0;
+      const laneRect = lane.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      if (laneRect.width <= 0 || cardRect.width <= 0) return;
+      // The canvas may be zoomed (CSS `zoom`); measure in layout pixels so the
+      // offsets stay correct at Fit width and at any manual zoom.
+      const scale = lane.offsetWidth > 0 ? laneRect.width / lane.offsetWidth : 1;
+      const factor = scale > 0 ? scale : 1;
+      const cardWidth = cardRect.width / factor;
+      const contentLeft = Math.max(
+        0,
+        (cardRect.left - laneRect.left) / factor + GEOMETRY.cardPadding,
+      );
+      // Clamp against the parent card, not the chapter column: a callout may
+      // never overflow the card's right edge.
+      const maxOffset = Math.max(contentLeft, cardWidth - GEOMETRY.childMinWidth);
+      const marks = [...card.querySelectorAll<HTMLElement>('.nf-anchor-mark[data-anchor-ids]')];
+      for (const row of lane.querySelectorAll<HTMLElement>('[data-callout-row="true"]')) {
+        // A nested callout has its own lane; only align rows that belong here.
+        if (row.closest('.nf-callout-lane') !== laneRoot) continue;
+        const anchorId = row.dataset['anchorId'] ?? '';
+        let anchorX: number | null = null;
+        for (const candidate of marks) {
+          const ids = (candidate.dataset['anchorIds'] ?? '').split(',');
+          if (!ids.includes(anchorId)) continue;
+          const left = (candidate.getBoundingClientRect().left - laneRect.left) / factor;
+          anchorX = anchorX === null ? left : Math.min(anchorX, left);
+        }
+        if (anchorX === null) {
+          // Broken/ambiguous bindings have no visible mark: fall back to the
+          // card content left and keep the callout reachable.
+          row.style.setProperty('--nf-callout-offset', `${Math.round(contentLeft)}px`);
+          row.style.setProperty('--nf-callout-dot-left', '0px');
+          row.style.setProperty('--nf-callout-leader-left', '0px');
+          row.style.setProperty('--nf-callout-leader-width', '0px');
+          row.dataset['calloutClamped'] = 'true';
+          continue;
+        }
+        const desired = anchorX + GEOMETRY.calloutGap;
+        // Align to the anchor when the minimum callout width fits; otherwise
+        // fall back to the card content left and keep the connector.
+        const offset = Math.round(
+          desired > maxOffset + 0.5 ? contentLeft : Math.max(desired, contentLeft),
+        );
+        const delta = Math.round(anchorX - offset);
+        row.style.setProperty('--nf-callout-offset', `${offset}px`);
+        row.style.setProperty('--nf-callout-dot-left', `${delta - 2}px`);
+        row.style.setProperty('--nf-callout-leader-left', `${Math.min(0, delta)}px`);
+        row.style.setProperty('--nf-callout-leader-width', `${Math.abs(delta)}px`);
+        row.dataset['calloutClamped'] = desired > maxOffset + 0.5 ? 'true' : 'false';
+      }
+    };
+
+    let disposed = false;
+    const schedule = (): void => {
+      if (disposed || frame !== 0) return;
+      frame = requestAnimationFrame(align);
+    };
+    let frame = requestAnimationFrame(align);
+    const observer = new ResizeObserver(schedule);
+    observer.observe(lane);
+    observer.observe(card);
+    // Text edits can move the anchor without changing the card's size.
+    const cardMutation = new MutationObserver(schedule);
+    cardMutation.observe(card, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class', 'data-collapsed'],
+    });
+    // A second anchor/child may be inserted into an existing lane without a
+    // card resize; observe the lane's child list too.
+    const laneMutation = new MutationObserver(schedule);
+    laneMutation.observe(lane, { childList: true, subtree: true, characterData: true });
+    window.addEventListener('resize', schedule);
+    void document.fonts.ready.then(schedule);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      frame = 0;
+      observer.disconnect();
+      cardMutation.disconnect();
+      laneMutation.disconnect();
+      window.removeEventListener('resize', schedule);
+    };
+  }, [parentId]);
+
+  return (
+    <NodeViewWrapper className="nf-callout-lane" data-parent-id={parentId} data-callout-lane={parentId}>
+      <div className="nf-callout-measure" ref={laneRef}>
+        <NodeViewContent className="nf-callout-lane-inner" />
+      </div>
     </NodeViewWrapper>
   );
 }
@@ -185,6 +317,9 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const depth = numberAttr(node.attrs['depth']);
   const collapsed = node.attrs['collapsed'] === true;
   const childCount = numberAttr(node.attrs['childCount']);
+  const callout = node.attrs['callout'] === true;
+  const anchorQuote = stringAttr(node.attrs['anchorQuote']);
+  const anchorState = stringAttr(node.attrs['anchorState']);
   const ui = useEditorUi(editor);
   const bindings = getEditorBindings(editor);
   const active = ui.selectedBlockId === blockId;
@@ -276,6 +411,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       data-top-level={topLevel}
       data-depth={depth}
       data-collapsed={collapsed}
+      data-callout={callout ? 'true' : 'false'}
       onContextMenu={onContextMenu}
     >
       <div className="nf-gutter" contentEditable={false}>
@@ -300,6 +436,29 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
           <GripVertical size={14} strokeWidth={1.5} aria-hidden="true" />
         </button>
       </div>
+      {callout ? (
+        <div className="nf-callout-head" contentEditable={false}>
+          <span
+            className="nf-callout-quote"
+            data-anchor-quote={anchorQuote}
+            data-anchor-state={anchorState}
+            title={anchorQuote.length > 0 ? `Anchor: “${anchorQuote}”` : 'Anchored branch'}
+          >
+            <span className="nf-callout-quote-glyph" aria-hidden="true">
+              “
+            </span>
+            <span className="nf-callout-quote-text">{anchorQuote || 'anchor'}</span>
+          </span>
+          {anchorState === 'broken' ||
+          anchorState === 'ambiguous' ||
+          anchorState === 'block-missing' ? (
+            <span className="nf-callout-state" data-anchor-state={anchorState}>
+              <TriangleAlert size={10} strokeWidth={1.5} aria-hidden="true" />
+              {anchorState === 'ambiguous' ? 'Ambiguous' : 'Lost anchor'}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <NodeViewContent className="nf-block-prose" />
       {anchorWarnings.length > 0 ? (
         <span

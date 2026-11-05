@@ -358,6 +358,48 @@ function routeRightGroup(
   return { edges, trunks };
 }
 
+/**
+ * Route one parent → callout edge through the callout lane.
+ *
+ * The lane is below the parent card and may stack several callouts. A shared
+ * left gutter (just inside the parent's left edge) runs above every callout
+ * card, so the route can never cross a callout that sits higher in the stack.
+ * Each edge then enters its own callout from the top with a fixed down arrow.
+ * The path only moves right and down: no U-turn and no loop across the parent.
+ */
+export function routeCalloutEdge(input: {
+  id: string;
+  parent: Rect;
+  child: Rect;
+  options?: RouteOptions;
+}): RoutedEdge {
+  const gap = input.options?.gap ?? GEOMETRY.edgeGap;
+  const radius = input.options?.radius ?? GEOMETRY.edgeRadius;
+  const stemMin = input.options?.stemMin ?? GEOMETRY.edgeStemMin;
+  const trunkX = input.parent.x + GEOMETRY.calloutEdgeGutter;
+  const busY = input.child.y - GEOMETRY.calloutBusOffset;
+  const endX = clamp(
+    input.child.x + stemMin,
+    input.child.x + GEOMETRY.calloutEdgeGutter,
+    input.child.x + Math.max(GEOMETRY.calloutEdgeGutter, input.child.width - GEOMETRY.calloutEdgeGutter),
+  );
+  const start: Point = { x: trunkX, y: rectBottom(input.parent) };
+  const end: Point = { x: endX, y: input.child.y - gap };
+  const defect =
+    busY - rectBottom(input.parent) < GEOMETRY.edgeMinGap ||
+    end.y - busY < stemMin - 0.5 ||
+    endX < trunkX - 0.5;
+  return {
+    id: input.id,
+    placement: 'below',
+    path: edgePath([start, { x: trunkX, y: busY }, { x: endX, y: busY }, end], radius),
+    start,
+    end,
+    arrow: makeArrow(end, 'down'),
+    defect,
+  };
+}
+
 function routeBelowGroup(
   parent: Rect,
   children: readonly GroupChild[],

@@ -7,9 +7,14 @@
  * nodes. The wrapper nodes never leak into the stored content.
  */
 
-import type { ContentNode, Document } from '@noteforest/core';
-import { normalizeAnchorIds } from '@noteforest/core';
-import { directChildIds } from './tree';
+import type { AnchorState, Branch, ContentNode, Document } from '@noteforest/core';
+import {
+  anchoredChildBranches,
+  directChildBranches,
+  directChildIds,
+  normalizeAnchorIds,
+  resolveAnchor,
+} from '@noteforest/core';
 
 export interface PMMark {
   type: string;
@@ -123,19 +128,103 @@ export function blockBodyContent(block: ContentNode): PMNode[] {
   return children.length > 0 ? children : [{ type: 'paragraph' }];
 }
 
+export interface CalloutDescriptor {
+  branchId: string;
+  blockId: string;
+  anchorId: string;
+  quote: string;
+  state: AnchorState;
+}
+
+export interface PrimaryChildProjection {
+  /** Anchored primary children in outline order (D3). */
+  callouts: CalloutDescriptor[];
+  /** Direct primary children in branch order. */
+  direct: Array<{ branchId: string; blockId: string }>;
+}
+
+const MAX_CALLOUT_QUOTE = 64;
+
+function truncated(value: string): string {
+  const clean = value.replace(/\s+/g, ' ').trim();
+  return clean.length > MAX_CALLOUT_QUOTE ? `${clean.slice(0, MAX_CALLOUT_QUOTE - 1)}…` : clean;
+}
+
+function selectorString(selector: unknown, key: string): string {
+  if (typeof selector !== 'object' || selector === null || Array.isArray(selector)) return '';
+  const value = (selector as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function anchorQuote(document: Document, anchorId: string): string {
+  const anchor = document.anchors[anchorId];
+  if (anchor === undefined) return '';
+  const stored = typeof anchor.quote === 'string' ? anchor.quote : '';
+  if (stored.length > 0) return truncated(stored);
+  for (const key of ['quote', 'latex', 'label']) {
+    const value = selectorString(anchor.selector, key);
+    if (value.length > 0) return truncated(value);
+  }
+  return '';
+}
+
+function toCallout(document: Document, branch: Branch): CalloutDescriptor {
+  const anchorId = branch.source.anchorId ?? '';
+  return {
+    branchId: branch.id,
+    blockId: branch.targetBlockId,
+    anchorId,
+    quote: anchorQuote(document, anchorId),
+    state: resolveAnchor(document, anchorId).state,
+  };
+}
+
+/**
+ * Rendering projection only: the canonical document keeps one ordered primary
+ * child list. The callout lane shows anchored primary children first (D3); the
+ * normal branch group shows direct primary children.
+ */
+export function projectPrimaryChildren(
+  document: Document,
+  parentBlockId: string,
+): PrimaryChildProjection {
+  return {
+    callouts: anchoredChildBranches(document, parentBlockId)
+      .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
+      .map((branch) => toCallout(document, branch)),
+    direct: directChildBranches(document, parentBlockId)
+      .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
+      .map((branch) => ({ branchId: branch.id, blockId: branch.targetBlockId })),
+  };
+}
+
 export function buildBlockNode(
   document: Document,
   id: string,
   depth: number,
   collapsed: ReadonlySet<string>,
   seen: Set<string> = new Set(),
+  callout?: CalloutDescriptor,
 ): PMNode | null {
   if (seen.has(id)) return null;
   const block = document.blocks[id];
   if (block === undefined) return null;
   seen.add(id);
   const isCollapsed = collapsed.has(id);
-  const childIds = directChildIds(document, id).filter((childId) => document.blocks[childId] !== undefined);
+  const projection = projectPrimaryChildren(document, id);
+  const childCount = directChildIds(document, id).filter(
+    (childId) => document.blocks[childId] !== undefined,
+  ).length;
+  const calloutAttrs =
+    callout === undefined
+      ? {}
+      : {
+          callout: true,
+          anchorId: callout.anchorId,
+          anchorQuote: callout.quote,
+          anchorState: callout.state,
+          calloutBranchId: callout.branchId,
+        };
   const content: PMNode[] = [
     {
       type: 'blockBody',
@@ -144,13 +233,28 @@ export function buildBlockNode(
         depth,
         topLevel: depth === 0,
         collapsed: isCollapsed,
-        childCount: childIds.length,
+        childCount,
+        ...calloutAttrs,
       },
       content: blockBodyContent(block.content),
     },
   ];
-  const children = childIds
-    .map((childId) => buildBlockNode(document, childId, depth + 1, collapsed, seen))
+  let laneBuilt = false;
+  if (projection.callouts.length > 0) {
+    const callouts = projection.callouts
+      .map((item) => buildBlockNode(document, item.blockId, depth + 1, collapsed, seen, item))
+      .filter((node): node is PMNode => node !== null);
+    if (callouts.length > 0) {
+      laneBuilt = true;
+      content.push({
+        type: 'calloutLane',
+        attrs: { parentId: id, depth },
+        content: callouts,
+      });
+    }
+  }
+  const children = projection.direct
+    .map((item) => buildBlockNode(document, item.blockId, depth + 1, collapsed, seen))
     .filter((node): node is PMNode => node !== null);
   if (children.length > 0) {
     content.push({
@@ -168,6 +272,12 @@ export function buildBlockNode(
       collapsed: isCollapsed,
       label: block.label ?? null,
       border: block.border ?? null,
+      callout: callout !== undefined,
+      hasCallouts: laneBuilt,
+      anchorId: callout?.anchorId ?? null,
+      anchorQuote: callout?.quote ?? null,
+      anchorState: callout?.state ?? null,
+      calloutBranchId: callout?.branchId ?? null,
     },
     content,
   };
