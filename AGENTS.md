@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted by the product owner (5 November 2026); M3 design is starting.** One minor visual fix is in progress: the collapsed branch-port count bubble is offset 2 px from the add-child control below it (port padding 2 px vs a 16 px control). The fix is CSS plus a UI alignment assertion, in a Builder worktree. M2f closed N1/N2/N3/N5/N6; Sentinel verdict accept with minor; gates unit 252, critical e2e 20 (warm 52.2–53.4 s), recovery 14, UI 5, `verify` exit 0. E2E windows run hidden. M3 implementation is blocked until the M3 design package is reviewed; PDF remains M4. Spec v0.4.4.
+**M2f is accepted by the product owner (5 November 2026); the minor collapsed-port fix is merged and verified; M3 design is in progress.** The collapsed branch-port count bubble was offset 2 px from the add-child control (port padding); the fix aligns both centers at 792 px, keeps the right edge fixed, and adds a UI assertion. M2f closed N1/N2/N3/N5/N6; Sentinel verdict accept with minor; gates unit 252, critical e2e 20 (54.1 s suite in the final verify), recovery 14, UI 5, `verify` exit 0. E2E windows run hidden. M3 implementation is blocked until the M3 design package is reviewed; PDF remains M4. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

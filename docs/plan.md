@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted by the product owner (5 November 2026); minor collapsed-port alignment fix in progress; M3 design package in progress. M3 implementation not started.
+**Status:** M2f accepted by the product owner (5 November 2026); the collapsed-port fix is merged and verified; M3 design package in progress. M3 implementation not started.
 
 ## Rules
 
@@ -34,7 +34,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
-| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Accepted — minor collapsed-port fix in progress** |
+| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Accepted; collapsed-port fix merged** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -223,14 +223,16 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
   measured 1,017 vs 1,019 ms, so the baseline is comparable.
 - Unit 252/1.9 s; recovery 14; UI 5; `verify` exit 0.
 
-**M2f follow-up (in progress): collapsed branch-port alignment.**
-- The collapsed count bubble is centered 2 px left of the add-child control: the port is
+**M2f follow-up (done): collapsed branch-port alignment.**
+- The collapsed count bubble was centered 2 px left of the add-child control: the port was
   20 px wide (`padding: 0 2px`) while the add-child control is 16 px.
-- Fix removes the horizontal port padding so its 16 px box aligns with the control below; a UI
-  assertion compares both centers in expanded and collapsed states. CSS/test only.
+- Fix removes the horizontal port padding so its 16 px box aligns with the control below
+  (centers 792/792); a two-digit count grows left from the fixed right edge.
+- UI assertion added to the existing layout test; full `verify` passes (e2e 20/54.1 s, recovery 14,
+  UI 5).
 
-**Status:** M2f accepted by the product owner (5 November 2026). Minor alignment fix in progress;
-M3 design package in progress. M3 implementation waits for the reviewed design.
+**Status:** M2f accepted by the product owner (5 November 2026) and the collapsed-port fix is merged.
+M3 design package in progress; M3 implementation waits for the reviewed design.
 
 ## M3 — Span anchors and reference edges (design in progress)
 

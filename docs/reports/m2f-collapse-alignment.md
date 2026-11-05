@@ -112,3 +112,10 @@ visual suite was run.
 
 Orchestrator: integrate `t3/m2f-collapse-port-alignment`, run the single full `npm run verify` at
 integration, and record the follow-up as closed for M2f.
+
+## Orchestrator integration
+
+- Merged on `main` as `21501f1` (`merge: align collapsed branch-port with add-child control`).
+- `npm run verify` exit 0: unit 252, critical e2e 20/20 at **54.1 s** suite time, recovery 14/14,
+  UI 5/5 (view 1 + shell 4). E2E windows hidden; no native dialogs.
+- Follow-up closed for M2f. M3 design package is in progress.
