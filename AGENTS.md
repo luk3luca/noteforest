@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.3, ADR-0005 merged. **M3a1/M3a2** are merged and verified (binding/resolution/validation; anchor and anchored/reference branch commands), and **M3b1** adds text-anchor authoring: `⌘⇧Return`/toolbar Branch creates one anchored primary child with a composite command, basic marker, one exact undo, and reload. Unit 365/2.0 s; critical e2e 21/58.6 s; recovery 14; UI 5. **M3b2a** is in progress: the anchored callout lane below the parent, quote chip, connector, and forward edge routing. M3b2b adds the outline row/marker navigation; then M3c formula/code/image, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. Critical e2e must not grow. PDF remains M4. Spec v0.4.5.
+**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.3, ADR-0005 merged. **M3a1/M3a2** are merged (binding/resolution/validation; anchor and anchored/reference branch commands), **M3b1** adds text-anchor authoring, and **M3b2a** adds the anchored callout lane: callouts below the parent, quote chip, connector, forward-only routing, direct children after the lane. The M3b1 e2e is now deterministic (keyboard word selection, hidden window, no critical screenshots): unit 371/2.0 s; critical e2e 21/44.5 s; recovery 14; UI 7; `verify` exit 0. **M3b2b** is in progress: outline anchored rows, anchor-count/warning chips, marker click/cycling, collapse hidden count. Then M3c formula/code/image, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. PDF remains M4. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 
