@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.3, and ADR-0005 are merged. **M3a1** (anchor binding, resolution, A1–A12 validation) is merged and verified: unit 310/2.0 s, full `verify` exit 0 with critical e2e 20/54.0 s, recovery 14, UI 5. **M3a2** is in progress: `anchor.create/repair/attachToBlock/delete`, extended `branch.create/delete/reorder/relabel`, anchored-primary traversal, exact inverses. Then M3b text authoring, M3c formula/code/image, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. PDF remains M4. Spec v0.4.5.
+**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.3, ADR-0005 merged. **M3a1** (binding/resolution/validation) and **M3a2** (anchor commands, anchored/reference branch commands, direct+anchored traversal) are merged and verified: unit 348/1.9 s, full `verify` exit 0 with critical e2e 20/52.7 s, recovery 14, UI 5. **M3b1** is in progress: text anchor mark, selection action/`⌘⇧Return`, composite branch-from-selection command, basic marker, one undo entry. M3b2 adds the callout lane/outline; then M3c formula/code/image, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. PDF remains M4. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 
