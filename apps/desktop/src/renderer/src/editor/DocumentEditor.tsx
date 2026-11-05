@@ -1,9 +1,11 @@
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
+import { Fragment, Slice } from '@tiptap/pm/model';
 import { NodeSelection } from '@tiptap/pm/state';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { buildEditorDocument } from '../lib/adapter';
+import { buildEditorDocument, stripAnchorBindings, type PMNode } from '../lib/adapter';
+import { textSelectionAnchor } from '../lib/anchor-selection';
 import {
   ancestorPath,
   chapterIdOf,
@@ -138,6 +140,19 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
           role: 'textbox',
           'aria-multiline': 'true',
         },
+        // ADR-0005 copy/paste rule: the source keeps its anchors, the pasted
+        // inline/atomic copy loses the binding instead of duplicating an ID.
+        transformPasted: (slice, view) => {
+          const stripped = stripAnchorBindings({
+            type: 'doc',
+            content: slice.content.toJSON() as PMNode[],
+          });
+          const fragment = Fragment.fromJSON(
+            view.state.schema,
+            stripped.content ?? [],
+          );
+          return new Slice(fragment, slice.openStart, slice.openEnd);
+        },
       },
       onUpdate: () => {
         runtime.noteEditorUpdate();
@@ -195,6 +210,18 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
       setDragSource: (blockId: string | null) => setDragBlockId(blockId),
       dragSource: () => getDragBlockId(),
       requestDelete: (blockId: string) => requestBlockDelete(runtime, blockId),
+      branchFromSelection: () => {
+        const selection = textSelectionAnchor(editor);
+        if (!selection.ok) {
+          if (selection.reason !== 'empty') toast.error(selection.message);
+          return;
+        }
+        void runtime.branchFromSelection(selection.selection).then((outcome) => {
+          if (!outcome.ok) {
+            toast.error(outcome.message ?? 'Could not branch from the selection.');
+          }
+        });
+      },
       report: (outcome) => {
         void outcome.then((value) => {
           if (value !== undefined && value !== null && !value.ok) {

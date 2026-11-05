@@ -18,6 +18,8 @@ export interface EditorBindings {
   setDragSource: (blockId: string | null) => void;
   dragSource: () => string | null;
   requestDelete: (blockId: string) => void;
+  /** Create an anchored primary child from the editor's current text selection. */
+  branchFromSelection: () => void;
   report: (outcome: Promise<ApplyOutcome | void>) => void;
   notify: (message: string, kind?: 'error' | 'info') => void;
 }

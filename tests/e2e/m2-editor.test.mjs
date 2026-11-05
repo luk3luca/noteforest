@@ -2555,4 +2555,183 @@ describe('NoteForest M2 editor shell', () => {
     await page.waitForSelector('.nf-editor[data-active="true"]');
     await h.waitEditorText('Saved only after Retry');
   });
+
+  it('creates a text-anchored child, undoes once, and reloads with the anchor intact', async () => {
+    const env = isolated('text-anchor');
+    await launch({ ...env, NOTEFOREST_E2E_HIDDEN: '0' });
+    await h.setWindowSize(1440, 900);
+    await createDocumentWithText('Alpha eigenvalue beta');
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    const before = await page.evaluate(() => window.__noteforestTest.structure());
+    const parentId = before.chapters[0].topLevelBlockIds[0];
+    assert.equal(typeof parentId, 'string');
+
+    // Select "eigenvalue" with a real mouse drag, then branch from it.
+    const selectWord = async (value) => {
+      const word = await page.evaluate((expected) => {
+        const prose = document.querySelector(
+          '.nf-editor[data-active="true"] [data-block-card] .nf-block-prose',
+        );
+        if (prose === null) return null;
+        const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+          const text = node.textContent ?? '';
+          const index = text.indexOf(expected);
+          if (index < 0) continue;
+          const start = document.createRange();
+          start.setStart(node, index);
+          start.setEnd(node, index + 1);
+          const end = document.createRange();
+          end.setStart(node, index + expected.length - 1);
+          end.setEnd(node, index + expected.length);
+          const startRect = start.getBoundingClientRect();
+          const endRect = end.getBoundingClientRect();
+          return {
+            x1: startRect.left,
+            y1: startRect.top + startRect.height / 2,
+            x2: endRect.right,
+            y2: endRect.top + endRect.height / 2,
+          };
+        }
+        return null;
+      }, value);
+      assert.ok(word !== null, `the source word "${value}" is in the editor`);
+      await page.mouse.move(word.x1, word.y1);
+      await page.mouse.down();
+      await page.mouse.move(word.x2, word.y2, { steps: 5 });
+      await page.mouse.up();
+      await page.waitForFunction(
+        (expected) => window.getSelection()?.toString() === expected,
+        value,
+        { timeout: 10000 },
+      );
+    };
+    await selectWord('eigenvalue');
+    await page.waitForSelector(
+      '[data-testid="selection-toolbar"] [data-action="branch-from-selection"]',
+    );
+    await page.keyboard.press('Meta+Shift+Enter');
+
+    await h.waitCanonicalBlockCount(2);
+    await h.waitBlockCount(2);
+    await page.waitForSelector('.nf-anchor-mark[data-anchor-mark="true"]');
+    const created = await page.evaluate(() => window.__noteforestTest.structure());
+    const anchorId = Object.keys(created.anchors)[0];
+    const childId = Object.keys(created.blocks).find((id) => id !== parentId);
+    assert.equal(typeof anchorId, 'string');
+    assert.equal(typeof childId, 'string');
+    assert.equal(created.anchors[anchorId].quote, 'eigenvalue');
+    assert.equal(created.anchors[anchorId].blockId, parentId);
+    const anchoredBranch = Object.values(created.branches).find(
+      (branch) => branch.source.anchorId === anchorId,
+    );
+    assert.equal(anchoredBranch?.targetBlockId, childId);
+    assert.equal(anchoredBranch?.role, 'primary');
+    assert.equal(
+      await page.locator(`.nf-anchor-mark[data-anchor-mark="true"]`).getAttribute('data-anchor-ids'),
+      anchorId,
+    );
+    assert.equal(
+      await h
+        .activeEditor()
+        .locator(`[data-parent-id="${parentId}"] [data-block-card="${childId}"]`)
+        .count(),
+      1,
+      'the anchored child renders under its parent',
+    );
+    await page.waitForFunction(
+      (expected) => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        if (runtime?.selectedBlockId !== expected) return false;
+        const node = window.getSelection()?.anchorNode;
+        if (node === null || node === undefined) return false;
+        const element = node instanceof Element ? node : node.parentElement;
+        return element?.closest('[data-block-card]')?.getAttribute('data-block-card') === expected;
+      },
+      childId,
+      { timeout: 10000 },
+    );
+    await mkdir(artifactsPath('m3b1'), { recursive: true });
+    const shot = artifactsPath('m3b1', 'anchored-child-1440x900.png');
+    await h.screenshot(shot, { width: 1440, height: 900 });
+
+    // One ⌘Z removes the branch, block and newly created anchor exactly.
+    await page.keyboard.press('Meta+z');
+    await h.waitCanonicalBlockCount(1);
+    await h.waitBlockCount(1);
+    await page.waitForSelector('.nf-anchor-mark[data-anchor-mark="true"]', { state: 'detached' });
+    assert.deepEqual(
+      await page.evaluate(() => window.__noteforestTest.structure()),
+      before,
+      'undo restores the source content and removes every created record',
+    );
+
+    // Redo restores the same IDs; the action had one inverse.
+    await page.keyboard.press('Meta+Shift+z');
+    await h.waitCanonicalBlockCount(2);
+    const redone = await page.evaluate(() => window.__noteforestTest.structure());
+    assert.deepEqual(Object.keys(redone.blocks).sort(), Object.keys(created.blocks).sort());
+    assert.deepEqual(Object.keys(redone.anchors).sort(), Object.keys(created.anchors).sort());
+    assert.deepEqual(Object.keys(redone.branches).sort(), Object.keys(created.branches).sort());
+    assert.deepEqual(redone.anchors[anchorId], created.anchors[anchorId]);
+    assert.equal(redone.branches[anchoredBranch.id]?.source.anchorId, anchorId);
+
+    // Type in the child.
+    await page.locator(`[data-block-card="${childId}"] .nf-block-prose`).click();
+    await page.keyboard.type('Durable child note');
+    await h.waitEditorText('Durable child note');
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+
+    // The floating toolbar uses the same command: the same span reuses its
+    // anchor, adds a second branch, and undo keeps the anchor plus first child.
+    await selectWord('eigenvalue');
+    await page.locator('[data-action="branch-from-selection"]').click();
+    await h.waitCanonicalBlockCount(3);
+    await h.waitBlockCount(3);
+    const reused = await page.evaluate(() => window.__noteforestTest.structure());
+    assert.deepEqual(Object.keys(reused.anchors), [anchorId]);
+    assert.equal(
+      Object.values(reused.branches).filter((branch) => branch.source.anchorId === anchorId).length,
+      2,
+      'the toolbar reuses the existing anchor instead of duplicating it',
+    );
+    await page.keyboard.press('Meta+z');
+    await h.waitCanonicalBlockCount(2);
+    await h.waitBlockCount(2);
+    const afterReuseUndo = await page.evaluate(() => window.__noteforestTest.structure());
+    assert.deepEqual(Object.keys(afterReuseUndo.anchors), [anchorId]);
+    assert.ok(afterReuseUndo.blocks[childId] !== undefined, 'the original anchored child survives');
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+
+    // Relaunch: the marker and branch survive the persisted binding.
+    await h.quit();
+    await launch({ ...env, NOTEFOREST_E2E_HIDDEN: '0' });
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitEditorText('Durable child note');
+    await page.waitForSelector('.nf-anchor-mark[data-anchor-mark="true"]');
+    const reloaded = await page.evaluate(() => window.__noteforestTest.structure());
+    assert.deepEqual(
+      reloaded,
+      storedStructure(await readDiskDocument(packagePath)),
+      'the reloaded document matches the saved anchor binding and branch',
+    );
+    assert.equal(reloaded.anchors[anchorId]?.quote, 'eigenvalue');
+    assert.equal(reloaded.branches[anchoredBranch.id]?.source.anchorId, anchorId);
+    assert.equal(
+      await h
+        .activeEditor()
+        .locator(`[data-parent-id="${parentId}"] [data-block-card="${childId}"]`)
+        .count(),
+      1,
+      'anchored-first child placement survives reload',
+    );
+    assert.equal(Object.keys(reloaded.anchors).length, 1, 'the reused anchor was not duplicated');
+    await h.waitSaved();
+    await h.screenshot(shot, { width: 1440, height: 900 });
+  });
 });

@@ -101,6 +101,24 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
+      // ⌘⇧Return branches from the selected text (M3). With no text selection
+      // it keeps the block-child path; Control+Enter stays the explicit child
+      // shortcut and never changes.
+      'Mod-Shift-Enter': () => {
+        const editor = this.editor;
+        const current = bindings();
+        if (current === null) return false;
+        const selection = editor.state.selection;
+        if (!selection.empty && !(selection instanceof NodeSelection)) {
+          current.branchFromSelection();
+          return true;
+        }
+        const id = currentBlockId(editor);
+        if (id === null) return false;
+        current.report(current.runtime.addChild(id));
+        return true;
+      },
+
       // Option+Enter creates a sibling block.
       'Alt-Enter': () => {
         const id = currentBlockId(this.editor);

@@ -1513,6 +1513,46 @@ button:disabled {
   margin-bottom: 0;
 }
 
+/* Text-anchor marker: dotted underline + dot, visible on every resolved span.
+   The mark carries data-anchor-mark/-ids so tests can assert the binding. */
+.nf-anchor-mark {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  border-radius: 2px;
+}
+
+.nf-anchor-mark[data-anchor-ids]::after {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 0.35em;
+}
+
+.nf-anchor-warning {
+  position: absolute;
+  right: 6px;
+  bottom: -10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px;
+  border: 1px solid var(--warning);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--warning);
+  font-family: var(--ui-font);
+  font-size: 10px;
+  line-height: 1.4;
+  z-index: 2;
+}
+
 .nf-block-prose p {
   margin: 0 0 8px;
 }

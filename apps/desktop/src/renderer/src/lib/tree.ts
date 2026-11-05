@@ -12,6 +12,7 @@ import {
   chapterIdForBlock,
   directChildBranches,
   directChildIds,
+  primaryChildBranches,
   primaryParentBranch,
   subtreeBlockIds,
 } from '@noteforest/core';
@@ -168,7 +169,9 @@ export function edgePairs(
   const edges: Array<{ id: string; parentId: string; childId: string; index: number; count: number }> = [];
   const walk = (parentId: string): void => {
     if (collapsed.has(parentId)) return;
-    const branches = directChildBranches(document, parentId);
+    // Anchored primary children are emitted before direct children (D3) and
+    // render inside the same parent card in M3b1, so they need the same edge.
+    const branches = primaryChildBranches(document, parentId);
     for (const [index, branch] of branches.entries()) {
       edges.push({
         id: branch.id,

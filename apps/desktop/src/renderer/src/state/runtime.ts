@@ -22,6 +22,7 @@ import type {
   SaveFailureCode,
 } from '../../../shared/api';
 import { buildBlockNode, buildEditorDocument, extractBlockContents, withBody, type PMNode } from '../lib/adapter';
+import type { TextSelectionAnchor } from '../lib/anchor-selection';
 import { recordPerf } from '../lib/perf';
 import { createSerialQueue } from '../lib/serial-queue';
 import {
@@ -52,6 +53,7 @@ export interface ApplyOutcome {
   message?: string;
   blockId?: string;
   chapterId?: string;
+  anchorId?: string;
 }
 
 function withBlockLevel(node: ProseNode, topLevel: boolean, depth: number): ProseNode {
@@ -726,6 +728,40 @@ export class DocumentRuntime {
 
   private createBlock(command: DocumentCommand): Promise<ApplyOutcome> {
     return this.queue.run(() => this.createBlockNow(command));
+  }
+
+  /**
+   * Branch from the current text selection as one user action.
+   *
+   * The binding was derived from the editor buffer; `runCommandInternal`
+   * commits that buffer first, so the canonical content and the adapter's
+   * node paths are the same revision before the composite command runs. One
+   * structural inverse removes/restores the anchor, block and branch without
+   * an optimistic local mark.
+   */
+  async branchFromSelection(selection: TextSelectionAnchor): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      const result = await this.runCommandInternal({
+        type: 'branch.createFromSelection',
+        blockId: selection.blockId,
+        kind: 'text',
+        binding: selection.binding,
+        target: { kind: 'new' },
+        role: 'primary',
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not branch from the selection.' };
+      }
+      const blockId = result.created?.blockIds[0] ?? null;
+      const anchorId = result.created?.anchorIds[0];
+      await this.acceptStructural(result.document, result.inverse, blockId);
+      this.reconcileEditor(blockId);
+      return {
+        ok: true,
+        ...(blockId === null ? {} : { blockId }),
+        ...(anchorId === undefined ? {} : { anchorId }),
+      };
+    });
   }
 
   async addChild(parentId: string): Promise<ApplyOutcome> {
