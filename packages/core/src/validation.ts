@@ -6,9 +6,22 @@
  * (they are not errors and are never stripped).
  */
 
+import type {
+  AnchorBindingKindCheck,
+  BlockAnchorIndex,
+} from './anchors.js';
+import {
+  anchorSelectorMirrorIssues,
+  buildBlockAnchorIndex,
+  checkAnchorBindingKind,
+  contentHasAnchorBinding,
+  inspectAnchorBinding,
+  isKnownAnchorKind,
+  validateAnchorSelector,
+} from './anchors.js';
 import type { ValidationCode, ValidationIssue, ValidationReport, ValidationSeverity } from './errors.js';
 import { formatIssues } from './errors.js';
-import type { Branch, Document } from './types.js';
+import type { Anchor, AnchorKind, Branch, ContentNode, Document } from './types.js';
 import { CURRENT_SCHEMA_VERSION } from './types.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -411,9 +424,19 @@ export function validateDocument(value: unknown): ValidationReport {
   }
 
   // ---------------------------------------------------------------------
-  // Anchors and assets (forward-compatible in M2).
+  // Anchors and assets (M3 binding/selector validation, A1–A5, A12).
   // ---------------------------------------------------------------------
-  const anchorIds = new Set<string>();
+  const blockAnchorIndexes = new Map<string, BlockAnchorIndex>();
+  for (const blockId of blockIds) {
+    const block = blocksRaw[blockId];
+    if (!isRecord(block)) continue;
+    const content = block['content'];
+    if (!isRecord(content) || !isString(content['type'])) continue;
+    const contentNode = content as unknown as ContentNode;
+    if (!contentHasAnchorBinding(contentNode)) continue;
+    blockAnchorIndexes.set(blockId, buildBlockAnchorIndex(blockId, contentNode));
+  }
+
   for (const [anchorId, anchorValue] of Object.entries(anchorsRaw)) {
     const path = `anchors.${anchorId}`;
     if (!isRecord(anchorValue)) {
@@ -421,7 +444,6 @@ export function validateDocument(value: unknown): ValidationReport {
       continue;
     }
     registerId(anchorId, 'anchor', path);
-    anchorIds.add(anchorId);
     if (anchorValue['id'] !== anchorId) {
       collector.error(
         'map-key-mismatch',
@@ -439,22 +461,127 @@ export function validateDocument(value: unknown): ValidationReport {
         [anchorId],
       );
     }
-    if (typeof anchorValue['kind'] !== 'string') {
+
+    const kindValue = anchorValue['kind'];
+    let knownKind: AnchorKind | undefined;
+    if (typeof kindValue !== 'string') {
       collector.error('invalid-shape', 'anchor.kind must be a string', `${path}.kind`, [anchorId]);
+    } else if (isKnownAnchorKind(kindValue)) {
+      knownKind = kindValue;
+    } else {
+      collector.warning(
+        'unsupported-anchor-kind',
+        `anchor "${anchorId}" has unknown kind "${kindValue}"; record preserved`,
+        `${path}.kind`,
+        [anchorId],
+      );
     }
-    if (!isRecord(anchorValue['selector'])) {
+
+    const selectorValue = anchorValue['selector'];
+    if (!isRecord(selectorValue)) {
       collector.error('invalid-shape', 'anchor.selector must be an object', `${path}.selector`, [
         anchorId,
       ]);
+    } else {
+      const selectorValidation = validateAnchorSelector(selectorValue, knownKind);
+      for (const selectorIssue of selectorValidation.issues) {
+        collector.warning(selectorIssue.code, selectorIssue.message, `${path}.selector`, [anchorId]);
+      }
+      for (const mirrorIssue of anchorSelectorMirrorIssues(anchorValue as unknown as Anchor)) {
+        collector.warning(
+          'anchor-selector-mismatch',
+          mirrorIssue.message,
+          path,
+          [anchorId],
+        );
+      }
+    }
+
+    if (knownKind !== undefined && isString(anchorBlockId)) {
+      const index = blockAnchorIndexes.get(anchorBlockId);
+      if (index !== undefined) {
+        const inspection = inspectAnchorBinding(index, anchorId);
+        if (inspection.presence !== 'none') {
+          const kindCheck: AnchorBindingKindCheck = checkAnchorBindingKind(inspection, knownKind);
+          if (!kindCheck.ok) {
+            collector.warning(
+              'anchor-kind-mismatch',
+              `anchor "${anchorId}" is bound to a content node that does not match its kind`,
+              `${path}.kind`,
+              [anchorId, anchorBlockId],
+            );
+          }
+          if (inspection.reason === 'duplicate-binding' || inspection.reason === 'mixed-binding') {
+            collector.warning(
+              'duplicate-anchor-binding',
+              `anchor "${anchorId}" has more than one binding in block "${anchorBlockId}"`,
+              `${path}.id`,
+              [anchorId, anchorBlockId],
+            );
+          } else if (inspection.reason === 'not-contiguous') {
+            collector.warning(
+              'anchor-not-contiguous',
+              `text anchor "${anchorId}" has an unmarked gap between marked runs`,
+              `${path}.id`,
+              [anchorId, anchorBlockId],
+            );
+          } else if (inspection.reason === 'crosses-barrier') {
+            collector.warning(
+              'anchor-crosses-barrier',
+              `text anchor "${anchorId}" crosses a block-level atomic node or table-cell boundary`,
+              `${path}.id`,
+              [anchorId, anchorBlockId],
+            );
+          } else if (
+            inspection.reason === 'empty-binding' ||
+            inspection.reason === 'invalid-binding'
+          ) {
+            collector.warning(
+              'anchor-not-contiguous',
+              `anchor "${anchorId}" has an empty or unusable content binding`,
+              `${path}.id`,
+              [anchorId, anchorBlockId],
+            );
+          }
+        }
+      }
     }
   }
-  if (anchorIds.size > 0) {
-    collector.warning(
-      'unsupported-m2-feature',
-      `${anchorIds.size} anchor(s) are preserved but not edited in M2`,
-      'anchors',
-      [...anchorIds],
-    );
+
+  // A2: every content binding has a record in the block it claims. A record
+  // without a binding is valid and resolves by selector. A mark without a
+  // record is inert and never creates a phantom branch.
+  for (const [blockId, index] of blockAnchorIndexes) {
+    const contentPath = `blocks.${blockId}.content`;
+    for (const anchorId of index.occurrences.keys()) {
+      const record = anchorsRaw[anchorId];
+      if (!isRecord(record)) {
+        collector.warning(
+          'anchor-without-record',
+          `content binding "${anchorId}" has no anchor record; the mark is inert`,
+          contentPath,
+          [anchorId, blockId],
+        );
+        continue;
+      }
+      const declaredBlockId = record['blockId'];
+      if (isString(declaredBlockId) && declaredBlockId !== blockId) {
+        collector.warning(
+          'anchor-binding-wrong-block',
+          `anchor "${anchorId}" is bound in block "${blockId}" but belongs to "${declaredBlockId}"`,
+          contentPath,
+          [anchorId, blockId, declaredBlockId],
+        );
+      }
+      if (index.occurrences.get(anchorId)?.some((occurrence) => occurrence.legacyConflict)) {
+        collector.warning(
+          'anchor-legacy-conflict',
+          `anchor "${anchorId}" has both anchorIds and a legacy anchorId that is not listed`,
+          contentPath,
+          [anchorId, blockId],
+        );
+      }
+    }
   }
 
   for (const [assetId, assetValue] of Object.entries(assetsRaw)) {
@@ -494,7 +621,7 @@ export function validateDocument(value: unknown): ValidationReport {
   const branchIds = new Set<string>();
   const parentOf = new Map<string, Branch>();
   const branchByTarget = new Map<string, string>();
-  const duplicatePorts = new Set<string>();
+  const duplicatePorts = new Map<string, string>();
   const orderPorts = new Map<string, string>();
 
   for (const [branchId, branchValue] of Object.entries(branchesRaw)) {
@@ -593,16 +720,18 @@ export function validateDocument(value: unknown): ValidationReport {
       }
     }
 
-    const duplicateKey = `${sourceBlockId}\u0000${isString(anchorId) ? anchorId : ''}\u0000${targetBlockId}\u0000${role}`;
-    if (duplicatePorts.has(duplicateKey)) {
-      collector.error(
+    const duplicateKey = `${sourceBlockId}\u0000${isString(anchorId) ? anchorId : ''}\u0000${targetBlockId}`;
+    const previousBranchId = duplicatePorts.get(duplicateKey);
+    if (previousBranchId !== undefined) {
+      collector.warning(
         'duplicate-branch',
-        'duplicate branch with the same source and target',
+        'duplicate branch with the same source and target (role-independent); keep the primary edge',
         path,
-        [branchId],
+        [branchId, previousBranchId],
       );
+    } else {
+      duplicatePorts.set(duplicateKey, branchId);
     }
-    duplicatePorts.add(duplicateKey);
 
     if (isString(order)) {
       const portKey = `${role}\u0000${sourceBlockId}\u0000${isString(anchorId) ? anchorId : ''}`;
