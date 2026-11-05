@@ -231,8 +231,24 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
 - UI assertion added to the existing layout test; full `verify` passes (e2e 20/54.1 s, recovery 14,
   UI 5).
 
-**Status:** M2f accepted by the product owner (5 November 2026) and the collapsed-port fix is merged.
-M3 design package in progress; M3 implementation waits for the reviewed design.
+**Status:** M2f accepted; M3 design merged (spec v0.4.5, UX v1.3, ADR-0005); M3a1 merged; M3a2 anchor commands in progress.
+
+## Backlog — math & media (not scheduled)
+
+Product-owner priority recorded on 5 November 2026. None of these is in M3; revisit after M4/PDF.
+
+1. **`$...$` inline / `$$...$$` display input rules** — P1, quick win. Inline/block math nodes and
+   KaTeX already exist; the block input rule currently uses `$$$...$$$`, and inline `$...$` exists
+   only as a paste/import migration helper. Add live input rules with escape/currency guards and
+   Markdown round-trip tests.
+2. **Math symbol/template palette** — P2, high value. A popover with Greek/arrows/operators and
+   structures (fraction, root, matrix, system, cases, aligned), inserting LaTeX at the caret with
+   placeholders. Keep LaTeX as the source; no WYSIWYG equation editor.
+3. **Drawing canvas for images** — P3, lower priority. Modal pen/highlighter/shapes/text, export
+   SVG/PNG into the asset pipeline, insert as an image block. After images/assets are stable.
+4. **Draw-to-formula** — P4, curiosity only, not planned. Handwriting math OCR is a separate
+   product: on-device model packaging, accuracy, privacy, or an opt-in service. Only reconsider as
+   a separate opt-in module.
 
 ## M3 — Span anchors and reference edges (implementation starting)
 
