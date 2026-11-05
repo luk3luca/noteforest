@@ -101,6 +101,28 @@ describe('block tree', () => {
     ]);
   });
 
+  it('marks anchored primary edges as callouts before direct edges', () => {
+    const document = fixture();
+    document.anchors['an1'] = {
+      id: 'an1',
+      blockId: 'A',
+      kind: 'text',
+      selector: { quote: 'Alpha' },
+      quote: 'Alpha',
+    };
+    document.branches['ac'] = {
+      ...document.branches['ac']!,
+      source: { blockId: 'A', anchorId: 'an1' },
+    };
+    const edges = edgePairs(document, new Set());
+    const fromA = edges.filter((edge) => edge.parentId === 'A');
+    expect(fromA.map((edge) => edge.kind)).toEqual(['callout', 'direct']);
+    expect(fromA.map((edge) => edge.anchorId)).toEqual(['an1', undefined]);
+    expect(fromA.map((edge) => `${edge.parentId}->${edge.childId}`)).toEqual(['A->C', 'A->B']);
+    expect(fromA.map((edge) => edge.index)).toEqual([0, 1]);
+    expect(fromA.every((edge) => edge.count === 2)).toBe(true);
+  });
+
   it('produces deterministic sibling port indexes', () => {
     const edges = edgePairs(fixture(), new Set());
     const fromA = edges.filter((edge) => edge.parentId === 'A');

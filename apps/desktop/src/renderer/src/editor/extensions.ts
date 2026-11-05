@@ -13,6 +13,7 @@ import {
   BlockBodyView,
   BlockView,
   BranchChildrenView,
+  CalloutLaneView,
   ChapterView,
 } from './views/BlockViews';
 
@@ -108,7 +109,9 @@ export const ChapterNode = Node.create({
 export const BlockNode = Node.create({
   name: 'branchBlock',
   group: 'branch',
-  content: 'blockBody branchChildren?',
+  // The callout lane is an editor projection between the parent card and the
+  // direct-child group. It never reaches the canonical document.
+  content: 'blockBody calloutLane? branchChildren?',
   defining: true,
   isolating: true,
   selectable: true,
@@ -121,6 +124,12 @@ export const BlockNode = Node.create({
       collapsed: { default: false },
       label: { default: null },
       border: { default: null },
+      callout: { default: false },
+      anchorId: { default: null },
+      anchorQuote: { default: null },
+      anchorState: { default: null },
+      calloutBranchId: { default: null },
+      hasCallouts: { default: false },
     };
   },
   parseHTML() {
@@ -148,6 +157,11 @@ export const BlockBodyNode = Node.create({
       topLevel: { default: false },
       collapsed: { default: false },
       childCount: { default: 0 },
+      callout: { default: false },
+      anchorId: { default: null },
+      anchorQuote: { default: null },
+      anchorState: { default: null },
+      calloutBranchId: { default: null },
     };
   },
   parseHTML() {
@@ -182,6 +196,31 @@ export const BranchChildrenNode = Node.create({
   },
   addNodeView() {
     return ReactNodeViewRenderer(BranchChildrenView);
+  },
+});
+
+export const CalloutLaneNode = Node.create({
+  name: 'calloutLane',
+  // Named only by `branchBlock.content`; a chapter or branch group can never
+  // own a lane directly.
+  content: 'branch+',
+  defining: false,
+  isolating: true,
+  selectable: false,
+  addAttributes() {
+    return {
+      parentId: { default: null },
+      depth: { default: 0 },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-callout-lane]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-callout-lane': '' }), 0];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(CalloutLaneView);
   },
 });
 
@@ -232,5 +271,6 @@ export function createEditorExtensions() {
     BlockNode,
     BlockBodyNode,
     BranchChildrenNode,
+    CalloutLaneNode,
   ];
 }

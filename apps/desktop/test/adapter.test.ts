@@ -5,6 +5,7 @@ import {
   contentToPM,
   extractBlockContents,
   pmToContent,
+  projectPrimaryChildren,
   withBody,
 } from '../src/renderer/src/lib/adapter';
 
@@ -84,6 +85,117 @@ describe('core <-> ProseMirror adapter', () => {
     expect(firstBlock?.content?.[0]?.type).toBe('blockBody');
     expect(firstBlock?.content?.[1]?.type).toBe('branchChildren');
     expect(firstBlock?.content?.[1]?.content?.[0]?.attrs?.['blockId']).toBe('C');
+  });
+
+  it('projects anchored children into a lane before direct children', () => {
+    const document = fixture();
+    document.blocks['D'] = block('D', [
+      { type: 'paragraph', children: [{ type: 'text', text: 'Direct' }] },
+    ]);
+    document.anchors['an1'] = {
+      id: 'an1',
+      blockId: 'A',
+      kind: 'text',
+      selector: { quote: 'Alpha' },
+      quote: 'Alpha',
+    };
+    document.branches['ac'] = {
+      ...document.branches['ac']!,
+      source: { blockId: 'A', anchorId: 'an1' },
+      order: 'a',
+    };
+    document.branches['ad'] = branch('A', 'D', 'm');
+
+    const projection = projectPrimaryChildren(document, 'A');
+    expect(projection.callouts).toEqual([
+      {
+        branchId: 'A-C',
+        blockId: 'C',
+        anchorId: 'an1',
+        quote: 'Alpha',
+        state: 'resolved',
+      },
+    ]);
+    expect(projection.direct).toEqual([{ branchId: 'A-D', blockId: 'D' }]);
+
+    const blockA = buildEditorDocument(document, new Set()).content?.[0]?.content?.[0];
+    expect(blockA?.attrs?.['hasCallouts']).toBe(true);
+    expect(blockA?.content?.map((node) => node.type)).toEqual([
+      'blockBody',
+      'calloutLane',
+      'branchChildren',
+    ]);
+    const lane = blockA?.content?.[1];
+    expect(lane?.attrs?.['parentId']).toBe('A');
+    const callout = lane?.content?.[0];
+    expect(callout?.type).toBe('branchBlock');
+    expect(callout?.attrs?.['callout']).toBe(true);
+    expect(callout?.attrs?.['anchorId']).toBe('an1');
+    expect(callout?.attrs?.['anchorQuote']).toBe('Alpha');
+    expect(callout?.attrs?.['anchorState']).toBe('resolved');
+    expect(callout?.content?.[0]?.attrs?.['callout']).toBe(true);
+    expect(blockA?.content?.[2]?.content?.map((node) => node.attrs?.['blockId'])).toEqual(['D']);
+  });
+
+  it('orders callouts by anchor position, then branch order, and truncates the quote', () => {
+    const document = fixture();
+    document.blocks['D'] = block('D', []);
+    document.blocks['E'] = block('E', []);
+    document.blocks['F'] = block('F', []);
+    // Replace the fixture's direct A→C edge with the anchored variants below.
+    delete document.branches['ac'];
+    document.anchors['late'] = {
+      id: 'late',
+      blockId: 'A',
+      kind: 'text',
+      selector: { quote: 'item' },
+      quote: 'item',
+    };
+    document.anchors['early'] = {
+      id: 'early',
+      blockId: 'A',
+      kind: 'text',
+      selector: { quote: 'Alpha' },
+      quote: 'Alpha',
+    };
+    document.branches['early-a'] = {
+      ...branch('A', 'C', 'b'),
+      source: { blockId: 'A', anchorId: 'early' },
+    };
+    document.branches['early-b'] = {
+      ...branch('A', 'F', 'a'),
+      source: { blockId: 'A', anchorId: 'early' },
+    };
+    document.branches['late-a'] = {
+      ...branch('A', 'E', 'm'),
+      source: { blockId: 'A', anchorId: 'late' },
+    };
+    document.branches['direct'] = branch('A', 'D', 't');
+
+    const projection = projectPrimaryChildren(document, 'A');
+    expect(projection.callouts.map((callout) => callout.anchorId)).toEqual([
+      'early',
+      'early',
+      'late',
+    ]);
+    expect(projection.callouts.map((callout) => callout.blockId)).toEqual(['F', 'C', 'E']);
+    expect(projection.direct.map((item) => item.blockId)).toEqual(['D']);
+
+    document.anchors['long'] = {
+      id: 'long',
+      blockId: 'A',
+      kind: 'text',
+      selector: { quote: 'x'.repeat(80) },
+      quote: 'x'.repeat(80),
+    };
+    document.branches['long'] = {
+      ...branch('A', 'D', 'z'),
+      id: 'long-branch',
+      source: { blockId: 'A', anchorId: 'long' },
+    };
+    const longQuote = projectPrimaryChildren(document, 'A').callouts.at(-1)?.quote ?? '';
+    expect(longQuote).toHaveLength(64);
+    expect(longQuote.endsWith('…')).toBe(true);
   });
 
   it('keeps collapsed subtrees in the document but marks them collapsed', () => {

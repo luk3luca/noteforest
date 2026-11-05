@@ -5,6 +5,7 @@ import {
   pathMovesForward,
   roundedPath,
   routeBranchEdge,
+  routeCalloutEdge,
   routeChildGroup,
   type Point,
 } from '../src/renderer/src/lib/edge-routing';
@@ -249,6 +250,53 @@ describe('edge routing — shared trunk', () => {
     expect(containsPoint(points, { x: 402, y: 30 })).toBe(true);
     expect(points.at(-1)).toEqual(end);
     expect(pathMovesForward(points)).toBe(true);
+  });
+});
+
+describe('edge routing — anchored callout lane', () => {
+  const callout: Rect = { x: 36, y: 180, width: 220, height: 80 };
+
+  it('enters the callout from the parent top-down through its own lane bus', () => {
+    const edge = routeCalloutEdge({ id: 'callout-edge', parent, child: callout });
+    expect(edge.placement).toBe('below');
+    expect(edge.defect).toBe(false);
+    expect(edge.start.x).toBe(parent.x + GEOMETRY.calloutEdgeGutter);
+    expect(edge.start.y).toBe(parent.y + parent.height);
+    expect(edge.end.y).toBe(callout.y - GEOMETRY.edgeGap);
+    expect(edge.arrow.direction).toBe('down');
+    const points = parsePoints(edge.path);
+    expect(points[0]).toEqual(edge.start);
+    expect(points.at(-1)).toEqual(edge.end);
+    expect(pathMovesForward(points)).toBe(true);
+    expect(points.every((point) => point.y >= edge.start.y - 0.5)).toBe(true);
+    const busY = callout.y - GEOMETRY.calloutBusOffset;
+    expect(edge.end.y - busY).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin - 0.5);
+  });
+
+  it('stays forward for a clamped callout at the content left', () => {
+    const clamped: Rect = { x: 10, y: 220, width: 160, height: 80 };
+    const edge = routeCalloutEdge({ id: 'clamped', parent, child: clamped });
+    expect(edge.placement).toBe('below');
+    expect(edge.defect).toBe(false);
+    expect(edge.arrow.direction).toBe('down');
+    const points = parsePoints(edge.path);
+    expect(pathMovesForward(points)).toBe(true);
+    expect(points.every((point) => point.x >= parent.x)).toBe(true);
+    expect(points.every((point) => point.y >= edge.start.y - 0.5)).toBe(true);
+  });
+
+  it('keeps a shared left gutter above a stack of callouts', () => {
+    const second: Rect = { x: 36, y: 280, width: 220, height: 80 };
+    const firstEdge = routeCalloutEdge({ id: 'first', parent, child: callout });
+    const secondEdge = routeCalloutEdge({ id: 'second', parent, child: second });
+    expect(firstEdge.start.x).toBe(secondEdge.start.x);
+    const secondPoints = parsePoints(secondEdge.path);
+    // The vertical run to the second callout stays left of the first card.
+    const beforeBus = secondPoints.filter(
+      (point) => point.y < second.y - GEOMETRY.calloutBusOffset - 0.5,
+    );
+    expect(beforeBus.length).toBeGreaterThan(0);
+    expect(beforeBus.every((point) => point.x < callout.x)).toBe(true);
   });
 });
 
