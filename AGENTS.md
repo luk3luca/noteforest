@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.4, ADR-0005 merged. **M3a1/M3a2** (anchor model/commands), **M3b1** (text-anchor authoring), **M3b2a** (callout lane), **M3b2b** (outline/marker navigation), **M3c1** (whole-formula anchors), **M3b2c** (left-entry below-stack routing), **M3c2a** (formula-term creation), and **M3c2b** (term geometry/highlight) are merged and verified. Unit 407/1.8 s; critical e2e 21/46.6 s; recovery 14; UI 12; `verify` exit 0. **M3c3a** is in progress: code range anchors. Then M3c3b image anchors, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. Code block chrome is in the backlog. PDF remains M4. Spec v0.4.5.
+**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.4, ADR-0005 merged. **M3a1/M3a2** (anchor model/commands), **M3b1** (text-anchor authoring), **M3b2a** (callout lane), **M3b2b** (outline/marker navigation), **M3c1** (whole-formula anchors), **M3b2c** (left-entry below-stack routing), **M3c2a** (formula-term creation), **M3c2b** (term geometry/highlight), and **M3c3a** (code range anchors) are merged and verified. Unit 419/2.0 s; critical e2e 21/45.4 s; recovery 14; UI 13; `verify` exit 0. **M3c3b image anchors are blocked**: the app has no image insertion/asset rendering yet, so an image pipeline is needed first. **M3d1 reference edges are in progress**; M3d2 adds make-home/move-here/demote, then M3e repair, M3f identity/split-merge/fixtures. Code block chrome is in the backlog. PDF remains M4. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 

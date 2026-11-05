@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.4, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1/M3b2c/M3c2a/M3c2b merged; M3c3a code range anchors in progress; M3c3b/M3d/M3e/M3f queued.
+**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.4, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1/M3b2c/M3c2a/M3c2b/M3c3a merged; M3c3b image anchors blocked on the image pipeline; M3d1 reference edges in progress; M3d2/M3e/M3f queued.
 
 ## Rules
 
@@ -274,8 +274,9 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   (merged) → M3b1 text anchor authoring (merged) → M3b2a callout lane (merged) → M3b2b outline
   rows/marker navigation (merged) → M3c1 whole-formula anchors (merged) → M3b2c left-entry below-stack
   routing (merged) → M3c2a formula-term creation (merged) → M3c2b term geometry/highlight (merged) →
-  **M3c3a code range anchors (in progress)** → M3c3b image anchors → M3d reference edges → M3e repair
-  → M3f identity/undo/split-merge/fixtures.
+  M3c3a code range anchors (merged) → **M3c3b image anchors blocked: no image insertion/asset
+  rendering yet** → **M3d1 reference edges (in progress)** → M3d2 make-home/move-here/demote → M3e
+  repair → M3f identity/undo/split-merge/fixtures.
 - **M3b2c approved layout rule (5 November 2026):** direct children stay right while they fit and
   join the below stack when they wrap; callouts always below, before wrapped direct children; one
   shared left trunk with horizontal arms; every arrow enters from the left, never the top. This
