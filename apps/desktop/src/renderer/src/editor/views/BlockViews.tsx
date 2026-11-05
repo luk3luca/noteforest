@@ -165,13 +165,22 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
 export function BlockView({ node }: NodeViewProps): JSX.Element {
   const blockId = stringAttr(node.attrs['blockId']);
   const callout = node.attrs['callout'] === true;
+  const belowRow = node.attrs['belowRow'] === true;
   const hasCallouts = node.attrs['hasCallouts'] === true;
   const anchorId = stringAttr(node.attrs['anchorId']);
+  const className = [
+    'nf-block-node',
+    callout ? 'nf-callout-row' : '',
+    !callout && belowRow ? 'nf-below-row' : '',
+  ]
+    .filter((part) => part.length > 0)
+    .join(' ');
   return (
     <NodeViewWrapper
-      className={callout ? 'nf-block-node nf-callout-row' : 'nf-block-node'}
+      className={className}
       data-block-id={blockId}
       {...(callout ? { 'data-callout-row': 'true', 'data-anchor-id': anchorId } : {})}
+      {...(!callout && belowRow ? { 'data-below-row': 'true' } : {})}
     >
       {callout ? (
         <>
@@ -216,6 +225,9 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
       const scale = lane.offsetWidth > 0 ? laneRect.width / lane.offsetWidth : 1;
       const factor = scale > 0 ? scale : 1;
       const cardWidth = cardRect.width / factor;
+      // The below stack is bounded to the parent card so its left trunk and
+      // rows can never overlap the right group.
+      lane.style.setProperty('--nf-lane-width', `${Math.round(cardWidth)}px`);
       const contentLeft = Math.max(
         0,
         (cardRect.left - laneRect.left) / factor + GEOMETRY.cardPadding,
@@ -306,9 +318,43 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
 
 export function BranchChildrenView({ node }: NodeViewProps): JSX.Element {
   const parentId = stringAttr(node.attrs['parentId']);
+  const groupRef = useRef<HTMLDivElement | null>(null);
+
+  // With a below stack the right group is absolutely placed beside the parent
+  // card so a tall right group cannot push the lane down. Reserve its height
+  // in the flow so following top-level blocks never overlap it.
+  useLayoutEffect(() => {
+    const group = groupRef.current;
+    if (group === null) return undefined;
+    const host = group.closest<HTMLElement>('.nf-block-inner');
+    if (host === null) return undefined;
+    const update = (): void => {
+      host.style.setProperty(
+        '--nf-right-group-height',
+        `${Math.ceil(group.offsetHeight)}px`,
+      );
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(group);
+    const mutation = new MutationObserver(update);
+    mutation.observe(group, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'data-collapsed'],
+    });
+    return () => {
+      observer.disconnect();
+      mutation.disconnect();
+    };
+  }, []);
+
   return (
     <NodeViewWrapper className="nf-branch-children" data-parent-id={parentId}>
-      <NodeViewContent className="nf-branch-children-inner" />
+      <div className="nf-branch-children-measure" ref={groupRef}>
+        <NodeViewContent className="nf-branch-children-inner" />
+      </div>
     </NodeViewWrapper>
   );
 }
@@ -327,6 +373,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const collapsed = node.attrs['collapsed'] === true;
   const childCount = numberAttr(node.attrs['childCount']);
   const callout = node.attrs['callout'] === true;
+  const belowRow = node.attrs['belowRow'] === true;
   const anchorQuoteText = stringAttr(node.attrs['anchorQuote']);
   const anchorStateAttr = stringAttr(node.attrs['anchorState']);
   const anchorKind = stringAttr(node.attrs['anchorKind']);
@@ -548,6 +595,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       data-depth={depth}
       data-collapsed={collapsed}
       data-callout={callout ? 'true' : 'false'}
+      data-below-row={belowRow ? 'true' : undefined}
       data-anchor-branch-selected={branchSelected ? 'true' : undefined}
       data-anchor-markers={showMarkers ? 'true' : undefined}
       onContextMenu={onContextMenu}

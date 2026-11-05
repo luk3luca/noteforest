@@ -11,10 +11,9 @@
  *   starts exactly at that child's T-junction, without a gap;
  * - the arrowhead is a fixed-size polygon independent of the path length, and
  *   the final horizontal/vertical segment is at least `edgeStemMin` long;
- * - wrapped children (M4 reference) share one bottom trunk at
- *   `parent.left + wrapIndent`, a horizontal bus above the first child row, and
- *   a short down arrow into each child top. The editor uses parent-relative
- *   placement and does not wrap in M2e.
+ * - wrapped children and anchored callouts share one left trunk in the parent
+ *   gutter, one horizontal arm per row, and a fixed right arrowhead into the
+ *   row's left edge; the trunk never crosses a card.
  */
 
 import {
@@ -24,7 +23,6 @@ import {
   rectBottom,
   rectCenter,
   rectRight,
-  type EdgePlacement,
   type Rect,
 } from './geometry';
 
@@ -39,8 +37,6 @@ export interface RouteOptions {
   /** Gap between the arrow tip and the card edge. */
   gap?: number;
   radius?: number;
-  indent?: number;
-  busOffset?: number;
   laneMinOffset?: number;
   laneMaxOffset?: number;
   stemMin?: number;
@@ -359,111 +355,87 @@ function routeRightGroup(
 }
 
 /**
- * Route one parent → callout edge through the callout lane.
+ * Route a below stack (anchored callouts first, then wrapped direct children).
  *
- * The lane is below the parent card and may stack several callouts. A shared
- * left gutter (just inside the parent's left edge) runs above every callout
- * card, so the route can never cross a callout that sits higher in the stack.
- * Each edge then enters its own callout from the top with a fixed down arrow.
- * The path only moves right and down: no U-turn and no loop across the parent.
+ * All rows share one trunk in the parent's left gutter. The trunk starts at the
+ * parent's bottom-left, runs down past every row, and each row gets one
+ * horizontal arm at the card's center Y with a fixed right-pointing arrowhead
+ * into the card's left edge. The trunk is kept left of every row, so it can
+ * never cross a card. There are no down arrows and no U-turns.
  */
-export function routeCalloutEdge(input: {
-  id: string;
-  parent: Rect;
-  child: Rect;
-  options?: RouteOptions;
-}): RoutedEdge {
+export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
+  const { parent, children } = input;
+  if (children.length === 0) return { edges: [], trunks: [] };
   const gap = input.options?.gap ?? GEOMETRY.edgeGap;
-  const radius = input.options?.radius ?? GEOMETRY.edgeRadius;
   const stemMin = input.options?.stemMin ?? GEOMETRY.edgeStemMin;
-  const trunkX = input.parent.x + GEOMETRY.calloutEdgeGutter;
-  const busY = input.child.y - GEOMETRY.calloutBusOffset;
-  const endX = clamp(
-    input.child.x + stemMin,
-    input.child.x + GEOMETRY.calloutEdgeGutter,
-    input.child.x + Math.max(GEOMETRY.calloutEdgeGutter, input.child.width - GEOMETRY.calloutEdgeGutter),
+  const parentBottom = rectBottom(parent);
+  const minRowLeft = Math.min(...children.map((child) => child.rect.x));
+  // Keep the trunk in the left gutter and guarantee at least a 12 px final
+  // stem; if a row starts unusually far left, the trunk moves with it.
+  const trunkX = Math.min(
+    parent.x - GEOMETRY.belowTrunkGutter,
+    minRowLeft - gap - stemMin,
   );
-  const start: Point = { x: trunkX, y: rectBottom(input.parent) };
-  const end: Point = { x: endX, y: input.child.y - gap };
-  const defect =
-    busY - rectBottom(input.parent) < GEOMETRY.edgeMinGap ||
-    end.y - busY < stemMin - 0.5 ||
-    endX < trunkX - 0.5;
-  return {
-    id: input.id,
-    placement: 'below',
-    path: edgePath([start, { x: trunkX, y: busY }, { x: endX, y: busY }, end], radius),
-    start,
-    end,
-    arrow: makeArrow(end, 'down'),
-    defect,
-  };
-}
+  const ordered = [...children].sort(
+    (left, right) => rectCenter(left.rect).y - rectCenter(right.rect).y,
+  );
+  const last = ordered[ordered.length - 1] as GroupChild;
+  const lastY = rectCenter(last.rect).y;
+  const trunkDefect =
+    lastY - parentBottom < GEOMETRY.edgeMinGap || trunkX > minRowLeft - gap - stemMin + 0.5;
 
-function routeBelowGroup(
-  parent: Rect,
-  children: readonly GroupChild[],
-  parentId: string,
-  options: RouteOptions,
-): RoutedGroup {
-  const gap = options.gap ?? GEOMETRY.edgeGap;
-  const radius = options.radius ?? GEOMETRY.edgeRadius;
-  const indent = options.indent ?? GEOMETRY.wrapIndent;
-  const busOffset = options.busOffset ?? GEOMETRY.edgeBusOffset;
-  const stemMin = options.stemMin ?? GEOMETRY.edgeStemMin;
-  const trunkX = clamp(parent.x + indent, parent.x + 4, rectRight(parent) - 4);
-  const busY = Math.min(...children.map((child) => child.rect.y)) - busOffset;
-  const centers = children.map((child) => child.rect.x + child.rect.width / 2);
-  const busStart = Math.min(trunkX, ...centers);
-  const busEnd = Math.max(trunkX, ...centers);
-  const trunkStart: Point = { x: trunkX, y: rectBottom(parent) };
-  const trunkEnd: Point = { x: trunkX, y: busY };
-  const trunkDefect = busY - rectBottom(parent) < GEOMETRY.edgeMinGap;
   const edges: RoutedEdge[] = [];
-  for (const child of children) {
-    const end: Point = {
-      x: child.rect.x + child.rect.width / 2,
-      y: child.rect.y - gap,
-    };
-    const start: Point = { x: end.x, y: busY };
+  for (const child of ordered) {
+    const rowCenter = rectCenter(child.rect).y;
+    const end: Point = { x: child.rect.x - gap, y: rowCenter };
+    const start: Point = { x: trunkX, y: rowCenter };
+    // A single row keeps one continuous elbow from the parent port. With two
+    // or more rows the shared trunk owns the vertical run and each edge is a
+    // short arm from the trunk.
+    const points =
+      ordered.length === 1
+        ? [{ x: trunkX, y: parentBottom }, start, end]
+        : [start, end];
     edges.push({
       id: child.id,
       placement: 'below',
-      path: edgePath([start, end], radius),
-      start,
+      // Sharp arm junction: rounding the elbow would eat into the 12 px stem
+      // before the arrowhead. The Y-trunk look is the product language here.
+      path: edgePath(points, 0),
+      start: points[0] as Point,
       end,
-      arrow: makeArrow(end, 'down'),
-      defect: trunkDefect || end.y - start.y < stemMin - 0.5,
+      arrow: makeArrow(end, 'right'),
+      defect: trunkDefect || end.x - trunkX < stemMin - 0.5,
     });
   }
-  return {
-    edges,
-    trunks: [
-      {
-        id: `${parentId}:below:trunk`,
-        parentId,
-        placement: 'below',
-        kind: 'trunk',
-        path: edgePath([trunkStart, trunkEnd], radius),
-        start: trunkStart,
-        end: trunkEnd,
-      },
-      {
-        id: `${parentId}:below:bus`,
-        parentId,
-        placement: 'below',
-        kind: 'bus',
-        path: edgePath([{ x: busStart, y: busY }, { x: busEnd, y: busY }], radius),
-        start: { x: busStart, y: busY },
-        end: { x: busEnd, y: busY },
-      },
-    ],
-  };
+
+  const trunks: RoutedTrunk[] =
+    ordered.length === 1
+      ? []
+      : [
+          {
+            id: `${input.parentId}:below:trunk`,
+            parentId: input.parentId,
+            placement: 'below',
+            kind: 'trunk',
+            // Straight: rounded ends would pull the stroke away from the arms.
+            path: edgePath([{ x: trunkX, y: parentBottom }, { x: trunkX, y: lastY }], 0),
+            start: { x: trunkX, y: parentBottom },
+            end: { x: trunkX, y: lastY },
+          },
+        ];
+  return { edges, trunks };
+}
+
+/** Route a group of children that are all to the right of the parent. */
+export function routeRightChildren(input: RouteGroupInput): RoutedGroup {
+  return routeRightGroup(input.parent, input.children, input.parentId, input.options ?? {});
 }
 
 /**
  * Route every visible child of one parent. Two or more right-placed children
- * share one trunk; wrapped children share a bottom trunk and bus. Separate
+ * share one V4 trunk; below-placed children (callouts or wrapped direct
+ * children) share one left trunk with a horizontal arm per row. Separate
  * parents get separate lanes and trunks, so parallel parents keep parallel
  * local gutters.
  */
@@ -481,7 +453,14 @@ export function routeChildGroup(input: RouteGroupInput): RoutedGroup {
     parts.push(routeRightGroup(input.parent, right, input.parentId, options));
   }
   if (below.length > 0) {
-    parts.push(routeBelowGroup(input.parent, below, input.parentId, options));
+    parts.push(
+      routeBelowStackGroup({
+        parentId: input.parentId,
+        parent: input.parent,
+        children: below,
+        options,
+      }),
+    );
   }
   return {
     edges: parts.flatMap((part) => part.edges),

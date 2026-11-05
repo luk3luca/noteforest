@@ -215,12 +215,28 @@ describe('NoteForest M2 view controls', () => {
     );
     await h.waitLayout({ blocks: 7 });
 
-    // Fit width at 1024 with the full document: zoom drops below 100% and the
-    // editor no longer needs horizontal scroll.
-    await h.setWindowSize(1024, 768);
+    // Fit width at a narrow window with the full document: reset the focused
+    // branch zoom first, then zoom drops below 100% and the editor no longer
+    // needs horizontal scroll.
+    await page.keyboard.press('Meta+0');
+    await waitZoomLabel('100%');
+    await h.setWindowSize(960, 768);
+    // The measured right/below placement can rebuild once after the resize;
+    // wait for the wrapped row before measuring the settled layout.
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll(
+          '.nf-editor[data-active="true"] .nf-block-node[data-below-row="true"]',
+        ).length > 0,
+      undefined,
+      { timeout: 10000 },
+    );
     await h.waitLayout({ blocks: 7 });
     const beforeFit = await h.layoutSnapshot();
-    assert.ok(beforeFit.overflow > 0, 'the full demo overflows at 1024 before Fit');
+    assert.ok(
+      beforeFit.overflow > 0,
+      `the full demo overflows at the narrow window before Fit (${beforeFit.overflow})`,
+    );
     await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
     await page.waitForFunction(
       () =>

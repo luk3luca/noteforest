@@ -2038,6 +2038,10 @@ body.nf-dragging-block .nf-gutter-handle {
   margin-left: var(--nf-child-gap, 16px);
 }
 
+.nf-branch-children-measure {
+  display: block;
+}
+
 .nf-branch-children-inner {
   display: block;
 }
@@ -2048,31 +2052,54 @@ body.nf-dragging-block .nf-gutter-handle {
   gap: 16px;
 }
 
-/* ----------------------------------------------------------- callout lane */
+/* ----------------------------------------------------------- below stack */
 /*
- * Anchored children are an editor projection, not canonical structure. With a
- * lane present the parent card, the lane, and the direct-child group stack in
- * one column: lane below the card, direct children after the lane. Without a
- * lane the M2 row layout is untouched.
+ * Anchored callouts and wrapped direct children are an editor projection, not
+ * canonical structure. With a below stack the parent card and the lane occupy
+ * the left column; direct children that fit stay in the right group beside the
+ * card. The right group is absolutely placed so a tall subtree never pushes
+ * the lane away from the card; its height is reserved through
+ * `--nf-right-group-height` so following blocks cannot overlap it.
  */
 .nf-block-inner[data-callouts="true"] > div {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
+  position: relative;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  min-height: var(--nf-right-group-height, 0px);
 }
 
 .nf-block-inner[data-callouts="true"] > div > .react-renderer.node-calloutLane {
   width: 100%;
 }
 
+.nf-block-inner[data-callouts="true"] > div > .react-renderer.node-branchChildren {
+  position: absolute;
+  top: 0;
+  left: calc(100% + var(--nf-child-gap, 16px));
+  display: block;
+}
+
+/* Keep collapse authoritative over the below-stack layout rules above. */
+.nf-block-inner[data-collapsed="true"] > div > .react-renderer.node-calloutLane,
+.nf-block-inner[data-collapsed="true"] > div > .react-renderer.node-branchChildren {
+  display: none;
+}
+
+.nf-block-inner[data-callouts="true"] > div > .react-renderer.node-branchChildren,
+.nf-block-inner[data-callouts="true"] > div > .react-renderer.node-branchChildren > .nf-branch-children {
+  margin-left: 0;
+}
+
 .nf-callout-lane {
   width: 100%;
-  /* Keep the direct-child bus a few px clear of the last callout card. */
+  /* Keep the following row a few px clear of the last below-stack card. */
   padding-bottom: 8px;
 }
 
 .nf-callout-measure {
-  width: 100%;
+  width: var(--nf-lane-width, 100%);
+  max-width: 100%;
 }
 
 .nf-callout-lane-inner {
@@ -2098,6 +2125,20 @@ body.nf-dragging-block .nf-gutter-handle {
   align-self: stretch;
   margin-left: var(--nf-callout-offset, 0px);
   padding-top: 10px;
+}
+
+/* Wrapped direct children are plain rows in the same below stack: no quote
+   chip, no anchor dot/leader, aligned to the parent content left. */
+.nf-block-node.nf-below-row {
+  position: relative;
+  display: block;
+  align-self: stretch;
+  margin-left: var(--nf-below-indent, 10px);
+  max-width: calc(100% - var(--nf-below-indent, 10px));
+}
+
+.nf-block-node.nf-below-row .nf-block-body {
+  max-width: 100%;
 }
 
 .nf-callout-dot {

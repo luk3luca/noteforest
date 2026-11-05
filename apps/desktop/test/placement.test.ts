@@ -5,6 +5,7 @@ import {
   fitZoom,
 } from '../src/renderer/src/lib/placement';
 import { GEOMETRY, type Rect } from '../src/renderer/src/lib/geometry';
+import { planDirectChildPlacement } from '../src/renderer/src/lib/child-placement';
 
 /** Editor viewport at a 1440 px window with the default 264 px sidebar. */
 const viewport1440 = 1440 - 264 - 1;
@@ -99,5 +100,77 @@ describe('parent-relative placement', () => {
     expect(fitZoom(1175, 4000)).toBe(0.5);
     expect(fitZoom(0, 640)).toBe(1);
     expect(fitZoom(1175, 0)).toBe(1);
+  });
+});
+
+describe('direct-child right/below placement', () => {
+  const parent: Rect = { x: 0, y: 0, width: 400, height: 100 };
+  const columnLeft = 416;
+
+  function candidate(id: string, width: number, x = columnLeft, y = 0): { id: string; rect: Rect } {
+    return { id, rect: { x, y, width, height: 60 } };
+  }
+
+  it('keeps a lone direct child right: the editor scrolls the chain', () => {
+    const plan = planDirectChildPlacement({
+      parent,
+      children: [candidate('only', 420)],
+      availableWidth: 500,
+    });
+    expect(plan).toEqual({ right: ['only'], below: [] });
+  });
+
+  it('places every direct child right when the whole group fits', () => {
+    const plan = planDirectChildPlacement({
+      parent,
+      children: [candidate('a', 144), candidate('b', 240), candidate('c', 180)],
+      availableWidth: 1078,
+    });
+    expect(plan).toEqual({ right: ['a', 'b', 'c'], below: [] });
+  });
+
+  it('wraps only the direct children that do not fit, in branch order', () => {
+    const plan = planDirectChildPlacement({
+      parent,
+      children: [candidate('short', 144), candidate('wide', 320), candidate('medium', 300)],
+      availableWidth: 700,
+    });
+    // available = 700 - 416 = 284: 144 fits; 320 and 300 do not.
+    expect(plan).toEqual({ right: ['short'], below: ['wide', 'medium'] });
+  });
+
+  it('wraps every direct child when the right column is narrower than the minimum', () => {
+    const plan = planDirectChildPlacement({
+      parent,
+      children: [candidate('a', GEOMETRY.childMinWidth), candidate('b', GEOMETRY.childMinWidth)],
+      availableWidth: 500,
+    });
+    expect(plan).toEqual({ right: [], below: ['a', 'b'] });
+  });
+
+  it('uses the cached natural width while a child is already below', () => {
+    const plan = planDirectChildPlacement({
+      parent,
+      children: [
+        { ...candidate('cached', 80), naturalWidth: 320 },
+        candidate('small', 144),
+      ],
+      availableWidth: 700,
+    });
+    expect(plan.below).toEqual(['cached']);
+    expect(plan.right).toEqual(['small']);
+  });
+
+  it('handles the exact fit boundary and empty groups deterministically', () => {
+    const exact = planDirectChildPlacement({
+      parent,
+      children: [candidate('exact', 284), candidate('a', 144)],
+      availableWidth: 700,
+    });
+    expect(exact.right).toEqual(['exact', 'a']);
+    expect(planDirectChildPlacement({ parent, children: [], availableWidth: 0 })).toEqual({
+      right: [],
+      below: [],
+    });
   });
 });

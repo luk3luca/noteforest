@@ -58,10 +58,10 @@ export const GEOMETRY = Object.freeze({
   edgeBusOffset: 16,
   edgePortSpacing: 8,
   edgeMinGap: 4,
-  /** Anchored callout lane. */
+  /** Anchored callouts and wrapped direct children share one left trunk. */
   calloutGap: 16,
-  calloutEdgeGutter: 4,
-  calloutBusOffset: 14,
+  /** The shared trunk sits this far left of the parent's left edge. */
+  belowTrunkGutter: 8,
 });
 
 export type EdgePlacement = 'right' | 'below' | 'overlap';

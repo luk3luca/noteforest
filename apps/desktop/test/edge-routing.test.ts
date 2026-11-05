@@ -4,8 +4,8 @@ import {
   branchConnectorPath,
   pathMovesForward,
   roundedPath,
+  routeBelowStackGroup,
   routeBranchEdge,
-  routeCalloutEdge,
   routeChildGroup,
   type Point,
 } from '../src/renderer/src/lib/edge-routing';
@@ -253,90 +253,181 @@ describe('edge routing — shared trunk', () => {
   });
 });
 
-describe('edge routing — anchored callout lane', () => {
+describe('edge routing — left-entry below stack', () => {
   const callout: Rect = { x: 36, y: 180, width: 220, height: 80 };
+  const second: Rect = { x: 36, y: 280, width: 220, height: 80 };
 
-  it('enters the callout from the parent top-down through its own lane bus', () => {
-    const edge = routeCalloutEdge({ id: 'callout-edge', parent, child: callout });
+  it('routes a single below row as one left-entry elbow', () => {
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [{ id: 'callout-edge', rect: callout }],
+    });
+    expect(group.edges).toHaveLength(1);
+    expect(group.trunks).toHaveLength(0);
+    const edge = group.edges[0];
+    if (edge === undefined) throw new Error('missing route');
     expect(edge.placement).toBe('below');
     expect(edge.defect).toBe(false);
-    expect(edge.start.x).toBe(parent.x + GEOMETRY.calloutEdgeGutter);
-    expect(edge.start.y).toBe(parent.y + parent.height);
-    expect(edge.end.y).toBe(callout.y - GEOMETRY.edgeGap);
-    expect(edge.arrow.direction).toBe('down');
+    expect(edge.end.x).toBeCloseTo(callout.x - GEOMETRY.edgeGap, 5);
+    expect(edge.end.y).toBeCloseTo(callout.y + callout.height / 2, 5);
+    expect(edge.arrow.direction).toBe('right');
     const points = parsePoints(edge.path);
-    expect(points[0]).toEqual(edge.start);
+    expect(points[0]?.y).toBeCloseTo(parent.y + parent.height, 5);
+    expect(points[0]?.x).toBeLessThan(callout.x);
+    expect(points.every((point) => point.x <= edge.end.x + 0.5)).toBe(true);
     expect(points.at(-1)).toEqual(edge.end);
-    expect(pathMovesForward(points)).toBe(true);
-    expect(points.every((point) => point.y >= edge.start.y - 0.5)).toBe(true);
-    const busY = callout.y - GEOMETRY.calloutBusOffset;
-    expect(edge.end.y - busY).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin - 0.5);
+    expect(lastSegment(points).horizontal).toBe(true);
+    expect(lastSegment(points).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
   });
 
-  it('stays forward for a clamped callout at the content left', () => {
-    const clamped: Rect = { x: 10, y: 220, width: 160, height: 80 };
-    const edge = routeCalloutEdge({ id: 'clamped', parent, child: clamped });
-    expect(edge.placement).toBe('below');
-    expect(edge.defect).toBe(false);
-    expect(edge.arrow.direction).toBe('down');
-    const points = parsePoints(edge.path);
-    expect(pathMovesForward(points)).toBe(true);
-    expect(points.every((point) => point.x >= parent.x)).toBe(true);
-    expect(points.every((point) => point.y >= edge.start.y - 0.5)).toBe(true);
-  });
-
-  it('keeps a shared left gutter above a stack of callouts', () => {
-    const second: Rect = { x: 36, y: 280, width: 220, height: 80 };
-    const firstEdge = routeCalloutEdge({ id: 'first', parent, child: callout });
-    const secondEdge = routeCalloutEdge({ id: 'second', parent, child: second });
-    expect(firstEdge.start.x).toBe(secondEdge.start.x);
-    const secondPoints = parsePoints(secondEdge.path);
-    // The vertical run to the second callout stays left of the first card.
-    const beforeBus = secondPoints.filter(
-      (point) => point.y < second.y - GEOMETRY.calloutBusOffset - 0.5,
-    );
-    expect(beforeBus.length).toBeGreaterThan(0);
-    expect(beforeBus.every((point) => point.x < callout.x)).toBe(true);
-  });
-});
-
-describe('edge routing — page-width wrap reference and defects', () => {
-  it('routes wrapped children through a bottom trunk, bus, and fixed down arrows', () => {
-    const first = { id: 'w1', rect: { x: 18, y: 200, width: 280, height: 80 } };
-    const second = { id: 'w2', rect: { x: 330, y: 220, width: 280, height: 80 } };
-    const group = routeChildGroup({ parentId: 'p', parent, children: [first, second] });
+  it('shares one left trunk and enters every callout row from the left', () => {
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [
+        { id: 'first', rect: callout },
+        { id: 'second', rect: second },
+      ],
+    });
     expect(group.edges).toHaveLength(2);
-    expect(group.trunks).toHaveLength(2);
-    const trunk = group.trunks.find((item) => item.kind === 'trunk');
-    const bus = group.trunks.find((item) => item.kind === 'bus');
-    expect(trunk?.placement).toBe('below');
-    expect(trunk?.start.x).toBeCloseTo(parent.x + 18, 5);
-    expect(trunk?.start.y).toBeCloseTo(parent.y + parent.height, 5);
-    expect(bus?.start.y).toBeCloseTo(200 - GEOMETRY.edgeBusOffset, 5);
-    expect(bus?.end.y).toBeCloseTo(200 - GEOMETRY.edgeBusOffset, 5);
-    for (const [index, edge] of group.edges.entries()) {
-      const target = index === 0 ? first.rect : second.rect;
+    expect(group.trunks).toHaveLength(1);
+    const trunk = group.trunks[0];
+    if (trunk === undefined) throw new Error('missing trunk');
+    expect(trunk.kind).toBe('trunk');
+    expect(trunk.start.y).toBeCloseTo(parent.y + parent.height, 5);
+    expect(trunk.end.y).toBeCloseTo(second.y + second.height / 2, 5);
+    expect(trunk.start.x).toBeLessThan(callout.x);
+    expect(trunk.end.x).toBe(trunk.start.x);
+    for (const edge of group.edges) {
+      expect(edge.arrow.direction).toBe('right');
       expect(edge.placement).toBe('below');
-      expect(edge.arrow.direction).toBe('down');
-      expect(edge.start.y).toBeCloseTo(200 - GEOMETRY.edgeBusOffset, 5);
-      expect(edge.end.y).toBeLessThan(target.y);
-      expect(lastSegment(parsePoints(edge.path)).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+      const points = parsePoints(edge.path);
+      expect(points[0]?.x).toBeCloseTo(trunk.start.x, 5);
+      expect(points[0]?.y).toBeCloseTo(edge.end.y, 5);
+      expect(lastSegment(points).horizontal).toBe(true);
+      expect(lastSegment(points).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+      // The trunk stays left of every row card: no vertical line through a card.
+      expect(points.every((point) => point.x <= callout.x + 0.5)).toBe(true);
     }
   });
 
-  it('routes mixed right and wrapped groups with separate trunks', () => {
+  it('keeps callouts before wrapped direct children in one trunk', () => {
+    const directBelow: Rect = { x: 18, y: 380, width: 280, height: 80 };
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [
+        { id: 'callout', rect: callout },
+        { id: 'wrapped-direct', rect: directBelow },
+      ],
+    });
+    expect(group.edges.map((edge) => edge.id)).toEqual(['callout', 'wrapped-direct']);
+    expect(group.trunks).toHaveLength(1);
+    const trunk = group.trunks[0];
+    if (trunk === undefined) throw new Error('missing trunk');
+    expect(trunk.start.x).toBeLessThan(Math.min(callout.x, directBelow.x));
+    for (const edge of group.edges) {
+      expect(edge.arrow.direction).toBe('right');
+      expect(lastSegment(parsePoints(edge.path)).length).toBeGreaterThanOrEqual(
+        GEOMETRY.edgeStemMin,
+      );
+    }
+  });
+
+  it('routes a clamped below row with a full stem in the left gutter', () => {
+    const clamped: Rect = { x: 10, y: 220, width: 160, height: 80 };
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [{ id: 'clamped', rect: clamped }],
+    });
+    const edge = group.edges[0];
+    if (edge === undefined) throw new Error('missing route');
+    expect(edge.defect).toBe(false);
+    expect(edge.arrow.direction).toBe('right');
+    expect(edge.end.x - (parsePoints(edge.path)[0]?.x ?? 0)).toBeGreaterThanOrEqual(
+      GEOMETRY.edgeStemMin,
+    );
+    expect(parsePoints(edge.path).every((point) => point.x <= clamped.x - GEOMETRY.edgeGap + 0.5)).toBe(
+      true,
+    );
+  });
+
+  it('routes a below group made only of wrapped direct children', () => {
+    const first = { id: 'd1', rect: { x: 18, y: 200, width: 280, height: 80 } };
+    const second = { id: 'd2', rect: { x: 18, y: 300, width: 280, height: 80 } };
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [first, second],
+    });
+    expect(group.edges.map((edge) => edge.id)).toEqual(['d1', 'd2']);
+    expect(group.trunks).toHaveLength(1);
+    expect(group.edges.every((edge) => edge.arrow.direction === 'right')).toBe(true);
+    expect(group.edges.every((edge) => edge.placement === 'below')).toBe(true);
+  });
+
+  it('sorts rows by their measured Y but keeps every arm at its own row center', () => {
+    const high = { id: 'high', rect: { x: 36, y: 300, width: 220, height: 80 } };
+    const low = { id: 'low', rect: { x: 36, y: 200, width: 220, height: 80 } };
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [high, low],
+    });
+    expect(group.edges.map((edge) => edge.id)).toEqual(['low', 'high']);
+    for (const edge of group.edges) {
+      const target = edge.id === 'low' ? low.rect : high.rect;
+      expect(edge.end.y).toBeCloseTo(target.y + target.height / 2, 5);
+      expect(edge.arrow.direction).toBe('right');
+    }
+    expect(group.trunks).toHaveLength(1);
+  });
+
+  it('moves the trunk left of the leftmost row without crossing it', () => {
+    const narrow: Rect = { x: 4, y: 220, width: 144, height: 80 };
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [{ id: 'narrow', rect: narrow }],
+    });
+    const edge = group.edges[0];
+    if (edge === undefined) throw new Error('missing route');
+    const start = parsePoints(edge.path)[0];
+    expect(start?.x).toBeLessThan(narrow.x);
+    expect(edge.end.x - (start?.x ?? 0)).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+  });
+
+  it('flags a below row that starts above the parent bottom instead of hiding it', () => {
+    const above: Rect = { x: 36, y: 60, width: 160, height: 80 };
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [{ id: 'above', rect: above }],
+    });
+    expect(group.edges[0]?.defect).toBe(true);
+  });
+});
+
+describe('edge routing — placement groups and defects', () => {
+  it('routes mixed right and below children with a V4 right trunk and one below trunk', () => {
     const mixed = [
       { id: 'right-1', rect: rightChild },
       { id: 'right-2', rect: { x: 416, y: 150, width: 240, height: 80 } },
-      { id: 'below', rect: belowChild },
+      { id: 'below-1', rect: belowChild },
+      { id: 'below-2', rect: { x: 36, y: 300, width: 280, height: 80 } },
     ];
     const group = routeChildGroup({ parentId: 'p', parent, children: mixed });
-    expect(group.edges).toHaveLength(3);
+    expect(group.edges).toHaveLength(4);
     const placements = group.edges.map((edge) => edge.placement).sort();
-    expect(placements).toEqual(['below', 'right', 'right']);
+    expect(placements).toEqual(['below', 'below', 'right', 'right']);
     expect(group.trunks.filter((item) => item.placement === 'right')).toHaveLength(1);
-    expect(group.trunks.filter((item) => item.placement === 'below' && item.kind === 'trunk')).toHaveLength(1);
-    expect(group.trunks.filter((item) => item.placement === 'below' && item.kind === 'bus')).toHaveLength(1);
+    expect(group.trunks.filter((item) => item.placement === 'below')).toHaveLength(1);
+    const below = group.edges.find((edge) => edge.placement === 'below');
+    if (below === undefined) throw new Error('missing below route');
+    expect(below.arrow.direction).toBe('right');
+    expect(lastSegment(parsePoints(below.path)).horizontal).toBe(true);
   });
 
   it('flags overlapping cards instead of hiding a layout defect', () => {
@@ -344,6 +435,7 @@ describe('edge routing — page-width wrap reference and defects', () => {
     const edge = routeBranchEdge({ id: 'defect', parent, child: overlap });
     expect(edge.defect).toBe(true);
     expect(edge.placement).toBe('below');
+    expect(edge.arrow.direction).toBe('right');
   });
 
   it('renders rounded orthogonal paths only', () => {
