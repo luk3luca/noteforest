@@ -1,9 +1,9 @@
 # NoteForest — Product, Data Model, and Behavior Specification
 
-**Version:** v0.4.4 (approved for Spike 1)  
-**Date:** 3 November 2026  
+**Version:** v0.4.5 (M3 design delta applied)  
+**Date:** 5 November 2026  
 **Owner:** Planner / Architect  
-**Status:** Approved for Spike 1. v0.4.4 reverts depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
+**Status:** Approved for Spike 1. v0.4.5 applies the product owner's approved M3 anchor/reference decisions (C1, C8, C9, OD-1–OD-12) from `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005. v0.4.4 reverted depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
 **Working title:** NoteForest (an existing NoteForest study app exists; public-release clearance or a rename is required before packaging)
 
 This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, CodeMirror 6, KaTeX, and React Flow (ADR-0001). PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided in ADR-0003. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, external API, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
@@ -295,7 +295,7 @@ As a student, I move a block to a new parent, reorder siblings, or make a refere
 
 As a student, I delete text that contained an anchor. The branch remains, marked as broken, and I can relink it to a new selection.
 
-**Done when:** the branch and its target content are still present, the broken state is visible in the block and in the anchor health panel, and repair keeps the anchor and branch IDs.
+**Done when:** the branch and its target content are still present, the broken state is visible in the block and in the anchor health surface (status chip + sheet), and repair keeps the anchor and branch IDs.
 
 ### US-11 — Export a page PDF
 
@@ -421,14 +421,24 @@ Content MUST be able to carry inline anchor marks (or the equivalent binding und
 
 | Kind | Primary binding | Fallback selector | Geometry |
 |---|---|---|---|
-| **Text** | Inline mark with `anchorId` in the content tree. | `quote` + `prefix` + `suffix` + `occurrenceHint`. | Union rectangle of the marked range; attach at the right edge of the last line. |
-| **Formula** | Formula node ID for a whole formula; for a term, a LaTeX substring selector. | `latex` + `occurrenceHint` + optional LaTeX prefix/suffix. | The formula node's rectangle for a whole formula; best-effort term rectangle; otherwise the formula rectangle with the term shown in the marker. |
-| **Code** | Code node ID plus offsets. | `quote` + `prefix` + `suffix` + `occurrenceHint`; offsets are a hint. | Rectangle of the token or line range; otherwise the code block. |
-| **Image** | Image node ID plus asset ID and normalized rectangle. | `assetId` + `rect` normalized to the image's intrinsic size. | The normalized region scaled to the displayed image; point anchors use a zero-size region with a visible marker. |
+| **Text** | Inline anchor mark carrying `anchorIds` (array) in the content tree. The ID may repeat on every text node of one contiguous range; `anchorId` (string) is accepted on read for M2 compatibility. | `quote` + `prefix` + `suffix` + `occurrenceHint`. | Union rectangle of the marked range; attach at the right edge of the last line. |
+| **Formula** | Atomic node binding: `attrs.anchorIds` on the formula node (`mathBlock` or `inlineMath`) for a whole formula; for a term, the node binding plus a LaTeX substring selector. | `latex` + `occurrenceHint` + optional LaTeX prefix/suffix. | The formula node's rectangle for a whole formula; best-effort term rectangle; otherwise the formula rectangle with the term shown in the marker. |
+| **Code** | Atomic node binding: `attrs.anchorIds` on the `codeBlock` node, plus quote/offset selector. | `quote` + `prefix` + `suffix` + `occurrenceHint`; offsets are a hint. | Rectangle of the token or line range; otherwise the code block. |
+| **Image** | Atomic node binding: `attrs.anchorIds` on the `image` node, plus asset ID and normalized rectangle. | `assetId` + `rect` normalized to the image's intrinsic size. | The normalized region scaled to the displayed image; point anchors use a zero-size region with a visible marker. |
+
+**Binding shape (OD-4).** The content binding is canonical; the selector is the durable repair descriptor. A text anchor is **one contiguous binding**: its ID may appear on every text node of one contiguous run, but a second disjoint run is the violation (I10, C8). Atomic nodes use an additive `attrs.anchorIds` array; one atomic node may host multiple anchors (two image regions, two formula anchors, several code ranges). An atomic node with no anchors has no `anchorIds` attribute. `anchorIds` arrays are stored sorted by anchor ID so serialization, diffs, and undo snapshots are deterministic; empty arrays and anchor marks with no IDs are removed from content. Creating an overlapping anchor merges its ID into the existing text mark's array (splitting text nodes as needed); it never adds a second anchor mark of the same type.
+
+**Selector and mirrors.** `selector` is canonical. The top-level `quote`, `prefix`, `suffix`, and `occurrenceHint` fields are optional compatibility mirrors: on write both are written from the same values; on read `selector` wins, and a disagreement loads with a warning and a `selector-mismatch` repair flag. It is not silently rewritten. The anchor ID is never inside `selector`; it is the record `id` and the content binding value.
+
+**Derived state.** Anchor state (`resolved`, `ambiguous`, `broken`, `idle`, `block-missing`) is derived from content, selector, and assets; it is never stored. `lastKnown` is an advisory repair hint and is never read by resolution, layout, or export. An anchor record with no content binding is valid and resolves by selector (broken if there is no candidate). A mark with no record is inert and never creates a phantom branch.
+
+**Text selection projection (OD-12).** A text anchor may span inline math or images. The selector `quote` uses a plain-text projection: text contributes its text, inline math contributes its LaTeX source, an image contributes its alt text or `U+FFFC`, and paragraph/list-item boundaries and hard breaks contribute `\n`. The mark binding remains truth. A text anchor may span paragraphs/list items but MUST NOT cross a block-level atomic node (display math, image, code block) or a table-cell boundary; an anchor spanning cells is rejected with a clear message.
 
 Offsets in code anchors MUST be defined in a platform-neutral unit (Unicode code points), not in a platform's native string index. Offsets are a hint; the quote and context are the durable fallback. Image rectangles MUST be normalized to 0–1 relative to the image's intrinsic dimensions, never stored in display pixels.
 
 Anchor IDs are immutable identities. Repairing an anchor changes its selector and binding, not its ID. An anchor MUST NOT span more than one block in v1; a selection that crosses blocks is rejected with a clear message.
+
+**No schema bump.** M3 adds optional content marks/attrs and uses existing anchor/branch fields. Older M2 readers preserve `anchorIds` but ignore it; new readers accept both `anchorId` and `anchorIds`. No required canonical field is added and no migration is needed. If a schema bump is later required, it must be a no-op migration with a pre-migration backup and a round-trip test.
 
 ### 4.5 Branch
 
@@ -449,7 +459,7 @@ Anchor IDs are immutable identities. Repairing an anchor changes its selector an
 - A **primary** branch is structural. A non-root block MUST have exactly one incoming primary branch. The primary subgraph MUST be acyclic.
 - A **reference** branch is associative. A block MAY have zero or more incoming reference branches. Reference branches MAY form cycles.
 - A branch MUST NOT target its own source block.
-- A branch MUST NOT duplicate another branch with the same exact source and target. Different anchors in the same block are different sources and may target the same block.
+- A branch MUST NOT duplicate another branch with the same exact source and target, **regardless of role** (OD-3): one edge per source-target pair; `role` is a property of that edge. Different anchors in the same block are different sources and may target the same block. On load, if a legacy document has both a primary and a reference edge for the same source-target, keep the primary edge and drop the reference duplicate with a warning; never create two homes.
 - A branch whose source is an anchor MUST reference an anchor that belongs to the source block.
 - A source **port** is either the block itself or a specific anchor. Each port has its own ordered list of outgoing branches. `order` is unique within `(port, role)`; primary order drives layout and outline, reference order drives see-also lists. Primary and reference orders do not collide.
 - A branch target MUST exist. A branch pointing at a missing block is a load error, not a silently ignored edge.
@@ -489,6 +499,8 @@ Anchored-first is **closed (D3)**. It keeps a branch caused by a word close to t
 **Shared children.** A shared child appears once in the outline and once in the continuous layout. Reference contexts show a "See also" link with the derived page when available; they do not repeat the content and do not add a second outline entry.
 
 **Default (closed, D4).** Creating a branch to a block that already has a primary home creates a **reference edge** by default. A top-level block has no primary parent, so branching to it adds it as a **primary child** (it loses its top-level slot) unless the user explicitly chooses "reference only." "Make home" and "move here" are explicit commands; they change the primary parent without duplicating the block. The confirmation shows the affected reference parents.
+
+**Make home and roots (OD-7).** "Make home" requires the target to have an existing primary parent: it promotes the chosen reference edge to primary and demotes the old primary edge to reference, so both relationships are preserved. When the target is already a root, there is no primary parent to demote and "make home" is disabled; the UI offers **Move here** (promote the reference and delete the old primary if one exists) or **Add as child** (create a new primary branch). A root target is never a no-op "make home."
 
 ### 4.7 Page setup, derived pages, and view state
 
@@ -564,9 +576,9 @@ Annotations MUST NOT alter block content, branches, or layout. They are a separa
 | **I5** | Every block is a root or has exactly one primary parent. | Fatal recovery; unreachable blocks are listed. |
 | **I6** | Every root appears exactly once in exactly one chapter's top-level list; every block belongs to the chapter of its top-level ancestor and appears in only one chapter. | Fatal recovery; list the offending blocks/chapters. |
 | **I7** | Branch order is unique within a source port and role; top-level block order is unique within a chapter; manual break hints reference existing blocks and are unique. | Warning; tie-break by ID; normalize on save. |
-| **I8** | No self-branch; no duplicate exact source-target branch. | Reject on creation; on load, drop the duplicate with a warning. |
+| **I8** | No self-branch; no duplicate exact source-target branch, regardless of role. | Reject on creation; on load, keep the primary edge and drop the duplicate with a warning. |
 | **I9** | Every anchor belongs to an existing block and its kind matches its selector. | Broken anchor or fatal recovery; branch preserved. |
-| **I10** | A text anchor mark ID appears at most once in the document content. | Broken anchor; repair required. |
+| **I10** | A text anchor is one contiguous binding. Its ID may appear on every text node of one contiguous run; a second disjoint run, or a duplicate entry in one node's `anchorIds` array, is a violation. An atomic anchor ID appears in exactly one node's `anchorIds` array. | Broken anchor; repair required; never auto-duplicate. |
 | **I11** | Asset paths are relative and point inside the package, or the asset is marked missing. | Warning; placeholder. |
 | **I12** | Removing all reference branches leaves a valid primary forest. | Should be true by construction; validate. |
 | **I13** | Page setup has A4 size, a valid orientation, and finite non-negative margins that leave a positive content area. | Fatal recovery or safe default repair with confirmation. |
@@ -575,6 +587,8 @@ Annotations MUST NOT alter block content, branches, or layout. They are a separa
 | **I16** | Unknown fields and unknown content nodes are preserved on save. | Warning; preserve. |
 | **I17** | `schemaVersion` is an integer and never decreases. | Newer file opens read-only; no downgrade. |
 | **I18** | Pagination breaks between blocks first and may continue a block only at a safe internal boundary; it never cuts a line, image, formula, code line, or table row. A table row is atomic. A continuation/ghost parent is derived, not stored as a second block. | Fatal pagination defect; fix before export. |
+
+**M3 validation additions.** ADR-0005 records the M3 anchor/branch validation rules (A1–A12): anchor IDs are globally unique and belong to an existing block; every `anchorIds` entry has a record (and a record without a binding resolves by selector); one contiguous binding per text anchor; kind/node matching; selector validity; branch source anchor belongs to the source block; no self-branch; at most one primary parent; role-independent dedupe; order uniqueness within `(port, role)`; every root in exactly one chapter; reference edges are never read by the outline/layout/export traversal; unknown anchor kinds/selectors/attrs are preserved and flagged. These rules extend I1–I18; they do not replace them.
 
 ### 4.11 Illustrative schema
 
@@ -608,7 +622,7 @@ This example is illustrative, not a wire-format freeze. It uses the approved str
               {
                 "type": "text",
                 "text": "eigenvalue",
-                "marks": [{ "type": "anchor", "anchorId": "a1" }]
+                "marks": [{ "type": "anchor", "attrs": { "anchorIds": ["a1"] } }]
               },
               { "type": "text", "text": " is a scalar λ such that Av = λv." }
             ]
@@ -767,28 +781,29 @@ The canonical model MUST remain usable by a future iPad or native companion with
 
 **Delete block.** Default is **promote children**, because it is the least destructive:
 
-- Every primary child of the deleted block is reattached to the deleted block's primary parent, in the deleted block's sibling position and order. If the deleted block was a top-level block, its children become top-level blocks immediately after the deleted block in the chapter's top-level order.
+- Every primary child of the deleted block, **including every anchored primary child**, is promoted. Reattach it to the deleted block's primary parent in the deleted block's sibling position and order; if the deleted block was a top-level block, make it a top-level block immediately after the deleted block in the chapter's top-level order. For an anchored primary child, create a new primary branch from the deleted block's primary parent (or make the child top-level), remove the old anchored branch, and keep the target block ID and its subtree. Never leave an unreachable target (C9).
+- The deleted block's anchors and their content bindings are removed. Reference branches sourced from those anchors are removed with the block; their targets are unchanged. Primary branches sourced from those anchors are replaced by the promoted primary branches above, not dropped (C9).
 - The deleted block's outgoing branches and incoming branches are removed. Reference edges pointing at the deleted block are removed.
-- The deleted block's anchors are removed. Branches sourced from those anchors are removed, because the containing block no longer exists.
+- Undo restores the deleted block, its anchors and bindings, and the old anchored primary branches with their original IDs and order (C9).
 - If the block has external reference parents, the confirmation names them and their derived pages.
-- **Delete subtree** is explicit and destructive: it deletes the block and all primary descendants, removes all branches touching them, and lists any external reference edges that will be removed. Undo restores everything.
+- **Delete subtree** is explicit and destructive: it deletes the block and all primary descendants, **including anchored primary descendants** (follow both direct and anchored primary branches), removes all branches touching them, and lists any external reference edges that will be removed. Undo restores everything.
 
-**Split block.** Splitting preserves the author's structure:
+**Split block.** Splitting preserves the author's structure. M3f implements the minimal split: inside a text leaf; atomic nodes (formula/code/image) move whole; a split that would separate an atomic node from its surrounding text is rejected except at a node boundary (OD-6).
 
-- Content before the caret stays in the original block; content after the caret moves to the new block.
-- If the original block is top-level, the new block becomes a top-level block immediately after it in the chapter. Otherwise, the new block gets a primary branch from the same primary parent, ordered immediately after the original. Pagination is recomputed.
-- Anchors entirely before the split stay with the original. Anchors entirely after the split move to the new block and update `blockId`. An anchor spanning the split point is clipped to the original side and marked for repair; it is never silently discarded.
-- Branches sourced from moved anchors move with them. Branches sourced from the original block stay with the original. Direct children of the original stay with the original.
-- Undo restores the original content, IDs, anchors, and branches.
+- Content before the caret stays in the original block; content after the caret moves to the new block with a new block ID.
+- If the original block is top-level, the new block becomes a top-level block immediately after it in the chapter. Otherwise, the new block gets a primary branch from the same primary parent port (block or anchor), ordered immediately after the original. Pagination is recomputed.
+- Anchors entirely before the split stay with the original. Anchors entirely after the split move to the new block and update `blockId`; anchor IDs and branch IDs stay. An anchor spanning the split point keeps its ID, keeps the mark on the original side only, and is flagged for repair (`split-inside-anchor`); the quote is not silently rewritten, the new side gets no second anchor record, and the branch target stays.
+- Branches sourced from moved anchors move with them and update `source.blockId` with the anchor's new `blockId`; branches sourced from the original block stay with the original. Direct children of the original stay with the original.
+- Undo restores the original content, IDs, anchors, branches, order, and chapter placement.
 
-**Merge block.** Merging is a command, not raw text concatenation:
+**Merge block.** Merging is a command, not raw text concatenation. M3f implements the minimal merge: same primary parent port (same block or same anchor), or both blocks top-level in the same chapter. Cross-anchor merge and **cross-chapter merge are rejected in M3** (OD-11).
 
-- Append the merged block's content to the previous sibling.
-- The merged block's primary children become children of the surviving block, ordered after its existing children.
-- Anchors move to the surviving block and update `blockId`.
-- Branches targeting the merged block are retargeted to the surviving block; duplicate exact source-target branches are removed with a warning.
-- Branches sourced from the merged block are retargeted to the surviving block; duplicates are removed with a warning.
-- The merged block is deleted. Undo restores all records and mappings.
+- Append the merged block's content to the previous sibling (or the explicit `intoBlockId`).
+- The merged block's primary children become children of the surviving block, ordered after its existing children; branch IDs are preserved where possible.
+- Anchors move to the surviving block and update `blockId`; anchor IDs stay and text marks are preserved by the content move.
+- Branches targeting the merged block are retargeted to the surviving block; duplicate exact source-target branches are removed with a warning, keeping the earlier branch by order then ID.
+- Branches sourced from the merged block are retargeted to the surviving block; duplicates are removed the same way. If retargeting produces both a primary and a reference edge for the same source-target, keep the primary and drop the reference with a warning. A branch whose source and target become the same block is dropped with a warning (self-branch), never created as S→S.
+- The merged block is deleted and its top-level slot is removed. Undo restores both blocks, all anchors, branches, orders, and top-level slots.
 
 ### 5.3 Branch operations
 
@@ -797,11 +812,11 @@ The canonical model MUST remain usable by a future iPad or native companion with
 | **Branch to new block** | A source block or anchor exists. | Create a block and a primary branch from the source. This is the default for "expand here." |
 | **Branch to existing block** | A source exists and the target exists. | Apply the default rule below, or show the explicit choice. |
 | **Delete branch** | Branch exists. | Primary: target becomes a root and a top-level block after the source block's top-level ancestor; subtree intact. Reference: remove only the edge. |
-| **Make home** | A reference branch exists. | Promote the reference to primary; demote the old primary edge to reference. The target moves under the new parent; pagination is recomputed. Preserves both relationships. |
-| **Move here** | A reference branch or target exists. | Make the chosen edge primary and delete the old primary edge. The target moves under the new parent; pagination is recomputed; the old parent loses the link. |
-| **Promote to primary** | Target is a root or its primary can be demoted. | Same as "make home" when a primary exists; when the target is a root, promote it and make it a top-level block in the current chapter. |
+| **Make home** | A reference branch exists and the target has a primary parent. | Promote the reference to primary; demote the old primary edge to reference. The target moves under the new parent; pagination is recomputed. Preserves both relationships. If the target is already a root, "make home" is disabled; use Move here or Add as child (OD-7). |
+| **Move here** | A reference branch exists; the target may have a primary parent or be a root. | Make the chosen edge primary and delete the old primary edge if one exists. The target moves under the new parent; pagination is recomputed; the old parent loses the link. |
+| **Promote to primary (root target)** | Target is a root. | Not a separate command: a root has no primary parent to demote. Use **Move here** (attach the reference source as primary) or **Add as child** (create a new primary branch); Make home is disabled (OD-7). |
 | **Demote primary to reference** | A primary branch exists. | Convert the edge to reference; target becomes a root and a top-level block. Keeps the link. |
-| **Reorder sibling** | Two siblings share a source port. | Update fractional order; no other structural change. |
+| **Reorder sibling** | Two siblings share a source port and role (including anchored primary and reference lists). | Update fractional order; no other structural change. |
 | **Reorder top-level block** | Two top-level blocks share a chapter. | Update top-level order; no other structural change. |
 | **Relabel branch** | Branch exists. | Set or clear the optional label. |
 
@@ -810,17 +825,18 @@ The canonical model MUST remain usable by a future iPad or native companion with
 - If the target is a **top-level root** and the user chooses "add as child," the new branch becomes primary and the target is removed from the chapter's top-level list. The default for a root is "add as child," with "link as reference" available.
 - If the target already has a **primary home**, the new branch is a **reference** by default. The target stays where it is. The user can explicitly choose "move here" or, later, "make home." Pagination is recomputed; a branch that crosses a page boundary gets a continuation marker.
 - If the target is the source block or an ancestor of the source, a primary branch would create a cycle and is rejected. A reference branch is allowed unless it is a self-branch.
-- If an exact source-target branch already exists, focus the existing branch instead of creating a duplicate.
+- If an exact source-target branch already exists, focus the existing branch instead of creating a duplicate, **regardless of role** (OD-3). A branch command takes an explicit `role`; the UI applies the default rule above.
 
 ### 5.4 Anchor operations
 
-- **Create anchor.** The selection must be inside one block. The kind is inferred from the content: text range, formula term or whole formula, code token/line range, image point/region. The anchor gets a new ID and an inline binding. Creating a branch from a selection creates the anchor and the branch as one undoable command.
-- **Create branch from anchor.** Same rules as branching to a new or existing block, with the anchor as the source port. A new block becomes the anchor's primary child, ordered after existing children of that anchor and placed below the anchor in the continuous layout. The paginator may continue it on the next page at a safe boundary; it never cuts a line, image, formula, or code line.
-- **Re-anchor / repair.** Choose a new selection in the same block, or choose a candidate found by quote search. Update the selector and binding; keep the anchor ID and all branch IDs. Repair is undoable.
-- **Attach branches to block.** Remove the anchor but keep its branches by changing their source to the block. This is the safe fallback when the user wants to keep the relationship but not the span.
-- **Delete anchor.** Requires a choice: attach branches to the block, or delete the branches. The second is destructive and confirmed. Deleting an anchor never deletes the target block.
-- **Broken anchor.** Never delete automatically. The branch remains; the anchor appears in the anchor health panel; the reader/page/PDF falls back to the whole block as the visual origin, shows a warning marker, and offers a repair dialog. The user can relink, attach to block, or delete.
-- **Multi-block selection.** Rejected in v1 with a message. A future version may create multiple anchors or a block-range anchor.
+- **Create anchor.** The selection must be inside one block. The kind is inferred from the content: text range, formula term or whole formula, code token/line range, image point/region. The anchor gets a new ID and a content binding: an `anchorIds` entry on the text mark or atomic node attr, plus the kind-specific selector (OD-4). A text anchor is one contiguous binding; overlapping anchors share the mark's array, and a second disjoint range is a separate anchor. Creating a branch from a selection creates the anchor, target block (if new), and branch as one undoable command.
+- **Create branch from anchor.** Same rules as branching to a new or existing block, with the anchor as the source port. A new block becomes the anchor's primary child, ordered before the source block's direct primary children (D3), and placed in the callout lane below the parent card in the continuous layout (OD-8). The paginator may continue it on the next page at a safe boundary; it never cuts a line, image, formula, or code line.
+- **Re-anchor / repair.** Choose a new selection in the same block (repair is same-block in v1), or choose a candidate found by quote search. Update the selector and binding; keep the anchor ID and all branch IDs. Repair is one undoable command; a resolved edit does not auto-refresh the stored quote/context (repair is explicit).
+- **Attach branches to block.** Remove the anchor and its binding but keep its branches by changing their source to the block. Append them after the block's existing direct branches of that role, preserving their relative order; keep branch IDs, labels, and targets. This is the safe fallback when the user wants to keep the relationship but not the span. One undo entry restores the anchor, binding, sources, and order keys.
+- **Delete anchor.** Requires a choice: attach branches to the block, or delete the branches. The second is destructive and confirmed. Deleting an anchor never deletes the target block; a primary target is promoted, never deleted with the anchor. One undo entry.
+- **Idle anchor (OD-2).** When the last outgoing branch is removed, the anchor record stays **idle**: the marker is hidden, no callout is shown, and the anchor is not listed as broken or in the health panel until a branch exists. An explicit **Remove anchor** command deletes the idle record and its binding; it is undoable. An idle anchor is a valid record, not an error.
+- **Broken anchor.** Never delete automatically. The branch remains; the anchor appears in the anchor health surface (a status chip plus sheet/dialog in M3, not a full inspector; OD-10); the reader/page/PDF falls back to the whole block as the visual origin, shows a warning marker, and offers a repair dialog. The user can relink, attach to block, or delete. Broken anchors never open a modal on load and do not block saving or export.
+- **Multi-block selection.** Rejected in v1 with a message. A text selection containing inline math or images is allowed and uses the plain-text projection for the quote (OD-12); a selection that crosses a block boundary, a block-level atomic node (display math, image, code block), or a table-cell boundary is rejected. A future version may create multiple anchors or a block-range anchor.
 
 ### 5.5 Structure and ordering operations
 
@@ -913,7 +929,7 @@ The reader and page views render the same continuous layout. "Canvas" means the 
 
 - The layout engine computes one continuous tree geometry per chapter: content-driven widths, children to the right when there is room, otherwise wrapped below the parent with a slight indent, anchored branches below their anchors.
 - Blocks are cards whose width follows the measured content within page-width constraints; heights are measured from content.
-- Primary edges are solid arrows; reference edges are dashed or otherwise distinct and labeled when they have a label.
+- Primary edges are solid arrows; reference edges are dashed or otherwise distinct and labeled when they have a label. In M3, a dashed reference edge is drawn when both endpoints are visible; otherwise a "See also"/"Referenced by" chip is shown (OD-9).
 - Cross-page edges use continuation markers at the page boundary. A block is never cut through a line, image, formula, or code line; it may continue at a safe boundary.
 - Collapsed cards show a hidden-descendant badge. Broken anchors show a warning marker.
 - At low zoom, cards use a simplified level of detail (label and first line) and editing is disabled; at normal zoom, full content renders.
@@ -982,7 +998,7 @@ The reader is the primary authoring surface in v1; the page view is the preview/
 - A separate "Referenced by" list shows reference parents and reference children with derived page numbers, without conflating them with the primary path.
 - Back/forward navigation history covers branch following, backlink jumps, anchor jumps, and search results.
 - Following a branch selects the target and highlights the source edge/anchor; back returns to the source.
-- Following a broken anchor opens the anchor health panel with repair actions.
+- Following a broken anchor opens the anchor health sheet with repair actions.
 - Search results show the block label, a snippet, the document, and the chapter/page path; selecting a result reveals the block in all views.
 
 ### 6.6 Editing model
@@ -1081,11 +1097,12 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 ### 7.4 Anchored branches
 
 - An anchored child is not part of its parent's sibling packing. It is a callout attached to a span.
-- Resolve the anchor to a rectangle in continuous coordinates. The callout is placed below the anchor, left-aligned to the anchor's left edge where the page width allows, with the callout gap.
-- Multiple callouts from the same anchor stack vertically in branch order. Callouts from different anchors are placed in anchor order and MUST NOT overlap another card or callout.
+- **Callout lane (OD-8).** The callout lane is below the parent card and before the direct-children group. "Below the anchor" means below the anchor's block card, not inside the card immediately under the span. Resolve the anchor to a rectangle in continuous coordinates; the callout's left edge is aligned to the anchor where the page width allows, with the callout gap. If the anchor is too far right to fit the minimum callout width, clamp to the card content left and keep the connector. Pixel alignment is best-effort in M3 and gated by AC-52 in M4.
+- Multiple callouts from the same anchor stack vertically in branch order. Callouts from different anchors are placed by the anchor order key: resolved start position, else `lastKnown` start, else end-of-block, then anchor ID. They MUST NOT overlap another card or callout.
 - After placing the callout, lay out its primary subtree with the same adaptive rules. The whole subtree may be wider or taller than one page; the paginator handles height, the adaptive layout handles width.
 - If the callout cannot fit within the page width, the layout wraps it below the anchor with a slight indent. If it still cannot fit, it is a layout defect; the user shortens/splits content or changes page setup.
-- A broken anchor attaches to a visible warning point on the block and shows "anchor lost"; its branch target still appears as a callout or continuation.
+- A broken or ambiguous anchor attaches to a visible warning point on the block and shows "anchor lost" or "N matches"; its branch target still appears as a callout or continuation.
+- An anchored **reference** edge never creates a callout; it is a dashed edge or chip only.
 - Collapsed ancestors hide their anchored callouts and subtrees with the rest of the hidden content.
 - Nested anchored branches are allowed and laid out recursively. They may continue at safe boundaries; they are never cut or moved to an arbitrary position.
 
@@ -1122,6 +1139,8 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 ### 7.7 Shared children and reference edges
 
 - A shared child is placed once, at its primary home in the continuous layout. Reference edges do not move it.
+- In M3, a reference edge is dashed when both endpoints are visible; otherwise a "See also"/"Referenced by" chip is shown. M3 chips show the chapter/label; page numbers are added in M4 (OD-9).
+- Layout neutrality is a tested invariant, not a comment: `layout(D)` deep-equals `layout(D + reference edges)` for blocks, pages, continuations, and primary edges; only the reference-edge list differs. Adding, removing, or reordering reference edges leaves chapters, top-level lists, and primary branch orders unchanged.
 - Reference edges are routed after node placement. The router SHOULD avoid crossing block rectangles where possible and MAY fall back to a curved route.
 - Reference cycles are allowed. The renderer must terminate and must not recurse through reference edges when building the outline or PDF.
 - Primary edges are visually stronger than reference edges. A reference edge label is shown on hover/selection or when it fits.
@@ -1220,10 +1239,12 @@ Anchors are resolved on load and after edits that can affect them. Resolution is
 
 1. **Exact binding.** The inline mark or node attribute with the anchor ID exists in the block content. This is the strongest match.
 2. **Exact quote with unique context.** The quote appears exactly once, or once with the stored prefix/suffix. Resolve automatically.
-3. **Quote with multiple candidates.** Use the occurrence hint, context score, and last-known position to rank. If one candidate is clearly best, resolve; otherwise mark **ambiguous** and show candidates for confirmation.
+3. **Quote with multiple candidates.** Use the occurrence hint, context score, and last-known position only to rank candidates for display. Do not auto-resolve when more than one candidate remains: mark **ambiguous** and show candidates for confirmation. Only an exact binding or a unique fallback (exactly one quote/context match) may resolve silently (AC-55).
 4. **No match.** Mark **broken**.
 
 Resolution MUST NOT mutate content automatically. An ambiguous or broken anchor is a visible state, not a reason to delete the branch. `lastKnown` is a repair hint only; it never overrides the content binding.
+
+**Exact-unique rule.** A formula term with two occurrences is ambiguous even if `occurrenceHint` points at one. A code quote with two occurrences is ambiguous even if `startOffset` points at one. A text quote with two occurrences is ambiguous unless the exact prefix and suffix select exactly one. An image asset change is broken, never auto-resolved to the new asset. Candidate ranking is UI order only; it is not an auto-resolution heuristic.
 
 ### 8.3 Anchor states
 
@@ -1232,9 +1253,9 @@ Resolution MUST NOT mutate content automatically. An ambiguous or broken anchor 
 | **Resolved** | The binding or a unique fallback resolves to a span/region. | Normal anchor highlight; callout attached to the span. |
 | **Ambiguous** | Multiple plausible candidates; automatic resolution is unsafe. | Warning marker; callout attached to `lastKnown` or the block; "Choose location" repair. |
 | **Broken** | No candidate resolves. | Warning marker on the block; callout attached to the block's warning point; "Relink" repair. |
-| **Idle** | The anchor exists but has no branch. | Optional subtle mark; no callout. |
+| **Idle** | The anchor record exists but has no outgoing branch. | Marker hidden; no callout; not listed as broken or in the health panel until a branch exists. An explicit **Remove anchor** command deletes the idle record (OD-2). |
 
-An anchor mark with no anchor record is inert. It must not create a phantom branch. The app SHOULD clean up such marks on an explicit repair or save, but must not delete content.
+Anchor state is derived from content, selector, and assets; it is never stored. An anchor mark with no anchor record is inert. It must not create a phantom branch. The app SHOULD clean up such marks on an explicit repair or save, but must not delete content. An idle anchor is a valid record, not an error.
 
 ### 8.4 Detection triggers
 
@@ -1252,13 +1273,15 @@ Incremental resolution is scoped to the edited block. A full-document anchor sca
 
 ### 8.5 Repair UX
 
-The anchor health panel lists every ambiguous or broken anchor with:
+The anchor health surface is a **status chip plus sheet/dialog** in M3, not a full right inspector (OD-10). The status chip shows the count of broken and ambiguous anchors and is hidden when the count is zero. Clicking it opens the sheet. The sheet lists every ambiguous or broken anchor with:
 
-- block label, derived page, and path;
+- block label and chapter/path (derived page when M4 adds page view);
 - stored quote and context;
-- branch target(s);
-- reason (text deleted, code changed, image replaced, multiple matches, missing target);
-- last-known continuous layout position.
+- branch target(s) and roles;
+- reason (text deleted, code changed, image replaced, multiple matches, missing target, `split-inside-anchor`, `selector-mismatch`, `block-missing`);
+- last-known continuous layout position, as a repair hint only.
+
+An **All anchors** filter includes idle anchors and offers **Remove anchor**. The sheet is keyboard reachable, is not a modal on load, and does not block saving or export.
 
 Actions:
 
@@ -1267,6 +1290,7 @@ Actions:
 - **Attach branches to block.** Remove the anchor and make the branches block-sourced; target content is untouched.
 - **Delete branch.** Remove one or all branches from the anchor; confirm if destructive.
 - **Delete anchor.** Remove the anchor; branches must be reattached or deleted.
+- **Remove anchor (idle).** Delete an idle anchor record and its binding; no target is deleted; undoable (OD-2).
 - **Keep broken.** Dismiss the warning for now; the branch remains visible with a warning marker.
 
 Repair is undoable. Relinking must preserve the anchor's identity, branch labels, and target blocks. The repair UI must never require the user to retype content.
@@ -1289,7 +1313,9 @@ Repair is undoable. Relinking must preserve the anchor's identity, branch labels
 | Change code language | Resolved; offsets/quote unchanged. |
 | Edit code inside the anchored range | Re-resolve by quote/context; ambiguous or broken if the quote changes. |
 | Replace the image | Broken; asset hash mismatch; branch preserved. |
-| Resize/crop the image | Resolved if the asset is unchanged; normalized rect maps to the new display. |
+| Resize the image display | Resolved if the asset is unchanged; the normalized rect maps to the new display. |
+| Change the image crop | Broken or explicit confirmation; the old region may no longer mean the same thing. The normalized selector is not silently reinterpreted. |
+| Text selection contains inline math/image | Supported; the selector quote uses the plain-text projection, and the mark binding remains truth (OD-12). |
 | Undo/redo | Re-resolve; the previous state is restored with the transaction. |
 | Reload | Resolve from the binding first, then fallback; never silently drop. |
 
@@ -1307,11 +1333,14 @@ All geometry is continuous and recomputed on layout/pagination; none of it is st
 
 A selection spanning multiple blocks is rejected in v1. The message explains that anchors are single-block and offers to create a branch from the first or last block instead. Multi-block anchors are a future extension; they must not be half-supported.
 
+A text selection containing inline math or images is **not** a multi-block selection; it is supported through the plain-text projection (OD-12). A selection is rejected when it crosses a block boundary, a block-level atomic node (display math, image, code block), or a table-cell boundary. An anchor entirely inside one table cell is allowed; an anchor spanning cells is rejected with "Anchors work within one table cell."
+
 ### 8.9 Anchor health and export
 
-- The status area shows the count of broken and ambiguous anchors for the document.
-- The anchor health panel is available from the status area and from a warning marker.
+- The status area shows the count of broken and ambiguous anchors for the document (status chip + sheet/dialog in M3; OD-10).
+- The anchor health sheet is available from the status area and from a warning marker.
 - Broken anchors do not block saving or export. In the paginated PDF, a broken anchor produces a marker and an "anchor lost" note, and the branch content still appears exactly once in the continuous layout or its continuation.
+- **M3 evidence (OD-5):** a pure `buildExportPlan` manifest proves that every primary block/branch appears exactly once, every shared child appears only at its primary home, reference edges add no entries, and broken/ambiguous anchors add a marker/annotation record but no duplicate target. **M4 evidence:** the PDF marker, page count, and rendering. M3 does not need a PDF to pass AC-56.
 - No automatic anchor deletion, no automatic branch deletion, and no silent omission from export.
 - An optional anchor appendix MAY list broken or ambiguous anchors, their quotes/terms, their targets, their derived pages, and the reason. It is a diagnostic aid, not a replacement for the branch content.
 
@@ -1322,7 +1351,7 @@ This is the highest-risk policy in the spec. The data model preserves anchors an
 | Concern | Formula | Code | Image |
 |---|---|---|---|
 | **Orphan detection** | Formula node missing; recorded LaTeX term no longer present; invalid LaTeX; multiple term occurrences. | Code node missing; exact quote absent; offsets invalid; multiple quote matches. | Asset hash changed or asset missing; image node missing; rect outside 0–1; crop or replacement. |
-| **Automatic resolution** | Whole formula by node ID; term only when the exact LaTeX term and context are unique. Multiple occurrences are ambiguous. | Exact quote plus context unique; offsets are a hint, never the sole match. Multiple matches are ambiguous. | Node ID plus unchanged asset hash plus valid normalized rect; display resize is safe; asset change is broken. |
+| **Automatic resolution** | Whole formula by atomic node binding (`attrs.anchorIds`); term only when the exact LaTeX term and context are unique. Multiple occurrences are ambiguous. | Exact quote plus context unique; offsets are a hint, never the sole match. Multiple matches are ambiguous. | Atomic node binding plus unchanged asset hash plus valid normalized rect; display resize is safe; asset change is broken. |
 | **Reattach confirmation** | Required for ambiguous anchors; show old and new LaTeX term and occurrence. | Required for ambiguous anchors; show the old and new line/quote and surrounding lines. | Required when the asset or crop changed; show old and new image and the old region. |
 | **Export behavior** | Branch content appears exactly once in the paginated layout, with a continuation marker if needed; marker says "formula anchor lost" or "ambiguous"; the term is shown in the marker if available. | Branch content appears exactly once in the paginated layout, with a continuation marker if needed; marker says "code anchor lost" or "ambiguous"; a short code excerpt is shown. | Branch content appears exactly once in the paginated layout, with a continuation marker if needed; missing asset shows a labeled placeholder; marker says "image anchor lost." |
 | **No silent data loss** | Preserve anchor ID, selector, branch, and target; invalid LaTeX source is retained. | Preserve anchor ID, selector, branch, and target; offsets and quote are retained. | Preserve anchor ID, asset hash, normalized region, branch, and target; original asset is not deleted. |
@@ -1336,6 +1365,8 @@ Policy:
 - **Formula:** whole-formula anchors are precise. Term anchors store the exact LaTeX substring and occurrence; rendering geometry is best-effort, with the formula rectangle and a term label as the fallback. Invalid LaTeX is preserved as source.
 - **Code:** the quote and context are the durable selector; offsets are a hint. Changing the code language does not break the anchor. Replacing the code content or removing the quote marks it broken or ambiguous.
 - **Image:** the normalized region is relative to the intrinsic image. Resizing the display is safe. Replacing the asset, changing the crop, or losing the asset marks the anchor broken or requires confirmation, because the old region may no longer mean the same thing.
+- **Text projection:** a text anchor may include inline math or images; the selector quote uses the plain-text projection, while the mark binding remains truth (OD-12).
+- **Idle:** an anchor with no outgoing branch is idle, not broken; its marker is hidden and it is not listed in health until a branch exists (OD-2).
 - A broken or ambiguous anchor falls back to the whole block for its visual origin, shows a visible marker, and offers a repair dialog. The fallback is not a source change: repairing the anchor restores the span; the branch and target stay intact.
 - An anchored child that does not fit below its anchor in the paginated layout gets a continuation marker on the next page. No auto-move or arbitrary placement.
 - **D5 is closed.** All four anchor kinds are in v1; exact unique bindings may auto-resolve; ambiguous reattachment requires confirmation; broken anchors never delete branches; export includes every branch exactly once. Formula-term geometry is best-effort; whole-formula anchors are precise.
@@ -1380,7 +1411,7 @@ The authoring experience SHOULD feel Markdown-like: typing `#`, `-`, `**`, backt
 | Table | Rows and cells; SHOULD for v1. A row is atomic for pagination. |
 | Horizontal rule | Visual separator. |
 | Hard break | Explicit line break. |
-| Anchor mark | Inline binding carrying `anchorId`. |
+| Anchor mark | Inline binding carrying `anchorIds` (array; `anchorId` string accepted on read for M2 compatibility). Atomic nodes carry `attrs.anchorIds`. |
 
 ### 9.3 Authoring behavior
 
@@ -1923,7 +1954,10 @@ API acceptance criteria are AC-70 through AC-74 in §15.18. They cover the typed
 | Reparent a block into its own descendant | Reject before mutation; explain that it would create a primary cycle. |
 | Reference cycle | Allow; render arrows; outline and PDF do not recurse; no infinite loop. |
 | Self-branch | Reject for both roles. |
-| Duplicate exact source-target branch | Focus the existing branch; do not create a second. |
+| Duplicate exact source-target branch | Focus the existing branch; do not create a second, regardless of role (OD-3). |
+| Make home on a root target | Disabled; use Move here or Add as child (OD-7). |
+| Delete a block with anchored primary children (promote) | Promote every primary child, including anchored ones; create a new primary branch from the deleted block's parent or make the child top-level; remove the old anchored branch; keep target/block IDs; undo restores (C9). |
+| Cross-chapter merge | Rejected in M3 (OD-11); both blocks must share a primary parent port or be top-level in the same chapter. |
 | Block with no primary parent missing from the chapter top-level list | Append it as a top-level block with a warning; make it visible. |
 | Non-root block present in the chapter top-level list | Remove it from the top-level list with a warning; keep its primary parent. |
 | Block unreachable because of a cycle or corruption | Recovery mode; list it; do not silently drop it. |
@@ -1940,17 +1974,22 @@ API acceptance criteria are AC-70 through AC-74 in §15.18. They cover the typed
 | Case | Required behavior |
 |---|---|
 | Anchored text deleted | Anchor becomes broken; branch and target remain; repair UI. |
-| Block split inside an anchor | Clip to the original side; mark for repair; never discard. |
+| Last branch removed from an anchor | Anchor stays idle; marker hidden; no callout; explicit Remove anchor deletes it (OD-2). |
+| Text anchor spans inline math/image | Allowed; selector quote uses the plain-text projection; mark binding remains truth (OD-12). |
+| Text anchor crosses a block-level atomic node or table-cell boundary | Reject with a clear message; no partial anchor. |
+| Duplicate text binding (second disjoint run) | Broken/repair; one contiguous binding per anchor ID (I10, C8). |
+| Block split inside an anchor | Clip to the original side; mark for repair; never discard; the new side gets no second anchor record. |
 | Anchor block merged | Move the anchor to the surviving block; update `blockId`; keep the branch. |
 | Anchor at a block boundary or multiple anchors overlapping | Allow; order by start position then ID; keep deterministic. |
 | Code edit shifts offsets | Re-resolve by quote/context; ambiguous if multiple candidates; broken if none. |
 | Formula invalid after edit | Preserve source; show error; anchor the whole formula if the term cannot resolve. |
 | Image replaced or missing | Anchor broken; branch remains; placeholder; asset hash mismatch recorded. |
+| Image crop changed | Broken or explicit confirmation; the old region may no longer mean the same thing. |
 | Broken anchor | Branch remains; visual origin falls back to the whole block; marker + repair dialog; export uses the fallback; no silent loss. |
 | Anchor mark duplicated or missing | Validation/broken state; repair; no phantom branch. |
-| Branch source anchor deleted with block | Delete the branch with the block; no dangling source. |
+| Branch source anchor deleted with block | Primary: promote the target with a new primary branch from the deleted block's parent, remove the old anchored branch (C9). Reference: remove the edge; target unchanged. No dangling source. |
 | Branch target missing | Quarantine the branch; show a load warning; repair or delete. |
-| Multi-block selection | Reject in v1 with a clear message. |
+| Multi-block selection, block-level atomic node, or table-cell boundary | Reject in v1 with a clear message; inline math/images inside one block are allowed via projection (OD-12). |
 
 ### 13.3 Layout
 
@@ -2087,7 +2126,7 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 ### 15.2 Authoring, outline, and views
 
 - **AC-09 (Must).** Enter creates a sibling, Tab reparents under the previous sibling, Shift-Tab outdents, and Backspace at the start merges with the previous block; undo restores each operation.
-- **AC-10 (Must).** An anchored child appears as a marked callout below its anchor, with the anchor quote visible; the adaptive layout may wrap it below the parent with an indent; the order is deterministic.
+- **AC-10 (Must).** An anchored child appears as a marked callout below its anchor, with the anchor quote visible; the adaptive layout may wrap it below the parent with an indent; the order is deterministic. In M3 the callout lane is below the parent card and before direct children, left-aligned to the anchor where possible; pixel alignment is best-effort in M3 and gated by AC-52 in M4 (OD-8).
 - **AC-11 (Must).** Collapse/expand hides and restores descendants in outline, reader, and page views; the hidden count is shown; navigating to a hidden block reveals it.
 - **AC-12 (Must).** "See also" and "Referenced by" links are visible and navigable; they do not duplicate content or create outline rows.
 - **AC-13 (Must).** Search finds text, code, LaTeX source, and labels; selecting a result reveals the block in all views and shows its chapter/page path.
@@ -2098,18 +2137,18 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 
 - **AC-16 (Must).** A text anchor survives edits before, inside, and after the span; the highlight tracks the text.
 - **AC-17 (Must).** Deleting the anchored text leaves the branch and target intact, marks the anchor broken, and offers repair; no silent deletion.
-- **AC-18 (Must).** Splitting a block moves anchors after the split and updates their block; an anchor spanning the split is flagged for repair. Merging moves anchors to the surviving block.
+- **AC-18 (Must).** Splitting a block moves anchors after the split and updates their block; an anchor spanning the split is flagged for repair. Merging moves anchors to the surviving block. M3f implements the minimal `block.split`/`block.merge` commands (text-leaf split; same-chapter merge); cross-chapter merge is rejected in M3 (OD-6, OD-11).
 - **AC-19 (Must).** A code anchor survives edits outside the range; removing the quoted code marks it broken/ambiguous; repair works.
 - **AC-20 (Must).** A formula anchor stores the term/quote; invalid LaTeX shows an error without data loss; the branch is visually associated with the formula.
 - **AC-21 (Must).** An image region anchor uses normalized coordinates, survives display resizing, and becomes broken when the image asset is replaced; a missing image shows a placeholder.
-- **AC-22 (Must).** The anchor health panel lists broken/ambiguous anchors; relinking keeps the anchor and branch IDs; the branch target is never deleted by repair.
+- **AC-22 (Must).** The anchor health sheet lists broken/ambiguous anchors; relinking keeps the anchor and branch IDs; the branch target is never deleted by repair.
 
 ### 15.4 Adaptive layout and pagination
 
 - **AC-23 (Must).** A 300-block document lays out with no overlapping blocks; children are to the right when they fit and wrap below the parent with a slight indent when they do not; widths vary with content; anchored children are below their anchors.
 - **AC-24 (Must).** Adding/removing a reference edge moves no block and changes no page break; adding a block meets the stability gate; sibling reorder changes order only.
 - **AC-25 (Must).** Chapters and top-level blocks stack in order without overlap; there are no fixed depth columns and no pins.
-- **AC-26 (Must).** Reference edges are visually distinct and routed; reference cycles render; they do not affect layout or pagination.
+- **AC-26 (Must).** Reference edges are visually distinct and routed; reference cycles render; they do not affect layout or pagination. M3 draws a dashed edge when both endpoints are visible and a chip otherwise; full routing is M4 (OD-9).
 - **AC-27 (Must).** Collapsing a block hides its descendants and callouts, shows a count, and restores them on expand; pagination is recomputed.
 - **AC-28 (Must).** The paginator prefers breaks between blocks; a long block may continue only at a safe internal boundary, never through a text line, image, formula, table row, or code line. A table may continue only between rows; a row and its cells are never split. Continuation/ghost markers appear on both pages; page count is deterministic.
 - **AC-29 (Must).** The reader shows a continuous layout with page-break markers; the page view renders the same breaks as paginated WYSIWYG; fit page/fit width and zoom are navigation only.
@@ -2157,7 +2196,7 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 
 - **AC-54 (Must).** Formula, code, and image anchors are detected as resolved, ambiguous, or broken after edits and on load. A broken anchor never deletes its branch or target block.
 - **AC-55 (Must).** Ambiguous reattachment requires explicit confirmation with a before/after preview; only an exact unique binding may resolve silently. Relinking keeps the anchor ID and branch IDs and is undoable.
-- **AC-56 (Must).** A broken or ambiguous formula/code/image anchor still exports its branch content exactly once in the paginated layout, with a visible marker and no silent omission; an optional anchor appendix can list the reason.
+- **AC-56 (Must).** A broken or ambiguous formula/code/image anchor still exports its branch content exactly once in the paginated layout, with a visible marker and no silent omission; an optional anchor appendix can list the reason. M3 evidence is a pure exactly-once export manifest (`buildExportPlan`); M4 evidence is the PDF marker, page count, and rendering (OD-5).
 - **AC-57 (Must).** The anchor fixture matrix covers formula-term edits, code edits inside and outside the range, image display resize, image replacement, and missing assets. Every case preserves the branch, target, and anchor identity, or surfaces a repair path.
 - **AC-77 (Must).** A broken anchor shows a visible marker, falls back to the whole block for the branch's visual origin, and opens/offers a repair dialog. It never silently drops the branch, target, or anchor identity; export uses the same fallback and marks the anchor.
 
@@ -2254,6 +2293,7 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **D21** | Table pagination. | **Closed:** page breaks only between rows; a row and its cells are atomic; a row taller than the page is a pagination defect. Header repetition is not required in v1. | Product owner | Done |
 | **D22** | Depth columns. | **Superseded by D23.** Same-depth global x alignment caused one wide block to push every later column right and made the canvas effectively unbounded. | Product owner | Superseded |
 | **D23** | Parent-relative child placement. | **Closed:** a child group starts after its parent card plus the sibling gap; same-depth blocks under different parents may differ in x; content-driven widths; editor scrolls horizontally for deep branches; zoom/fit-width and branch focus are navigation aids. Page/PDF applies A4 in M4. | Product owner | Done |
+| **D24** | M3 anchor/reference design decisions. | **Closed (5 November 2026):** C1, C8, C9 and OD-1–OD-12 approved as recommended in `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005; spec v0.4.5 and UX v1.3 apply the delta. | Product owner + Orchestrator | Done |
 
 ### 16.2 Questions
 
@@ -2385,3 +2425,4 @@ This example is the recommended golden fixture for model, layout, pagination, an
 | v0.4.2 | 4 November 2026 | New documents default to A4 landscape; existing documents keep their orientation. Editor canvas widens to use the landscape width; page view/PDF consume the orientation in M4. |
 | v0.4.3 | 4 November 2026 | Depth columns (D22): blocks at the same depth share one x origin within a chapter; widths remain content-driven; top-level blocks stack vertically; editor scrolls horizontally when columns exceed the viewport; page/PDF applies the A4 constraint in M4. |
 | v0.4.4 | 4 November 2026 | Reverted D22 to parent-relative child placement (D23): a child group starts after its parent plus the gap; same-depth blocks under different parents may differ in x. Content-driven widths and horizontal editor scroll remain; zoom/fit-width and branch focus are navigation aids. |
+| v0.4.5 | 5 November 2026 | Applied the approved M3 design delta (C1, C8, C9, OD-1–OD-12): `anchorIds` content binding and one-contiguous-binding I10; anchored-primary promotion on block delete; idle anchor + explicit removal; role-independent branch dedupe; make-home root rule; callout lane; dashed reference edges + chips; status-chip health sheet; AC-56 M3 manifest / M4 PDF; AC-18 split/merge in M3f; cross-chapter merge rejected; text-selection projection. Binding/identity contract in ADR-0005. |
