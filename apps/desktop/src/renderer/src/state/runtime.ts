@@ -60,6 +60,9 @@ export interface ApplyOutcome {
   blockId?: string;
   chapterId?: string;
   anchorId?: string;
+  branchId?: string;
+  /** True when an existing edge was reused instead of creating a new one. */
+  duplicate?: boolean;
 }
 
 /**
@@ -827,6 +830,80 @@ export class DocumentRuntime {
     return this.createBlock({
       type: 'block.create',
       placement: { kind: 'sibling', siblingBlockId: blockId, after: true },
+    });
+  }
+
+  /**
+   * Link an existing block as a **reference** from a block or one of its
+   * anchors. Reference edges are associative: the target keeps its primary
+   * home, no chapter/top-level/primary branch record changes, and the core
+   * command dedupes an exact source-target pair regardless of role. A duplicate
+   * focuses the existing edge's target instead of creating a second edge.
+   */
+  async linkReference(input: {
+    sourceBlockId: string;
+    sourceAnchorId?: string;
+    targetBlockId: string;
+  }): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      if (input.sourceBlockId === input.targetBlockId) {
+        return { ok: false, message: 'A block cannot link to itself.' };
+      }
+      const result = await this.runCommandInternal({
+        type: 'branch.create',
+        sourceBlockId: input.sourceBlockId,
+        ...(input.sourceAnchorId === undefined
+          ? {}
+          : { sourceAnchorId: input.sourceAnchorId }),
+        targetBlockId: input.targetBlockId,
+        role: 'reference',
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not link the block.' };
+      }
+      const branch = Object.values(result.document.branches).find(
+        (candidate) =>
+          candidate.targetBlockId === input.targetBlockId &&
+          candidate.source.blockId === input.sourceBlockId &&
+          candidate.source.anchorId === input.sourceAnchorId,
+      );
+      const created =
+        branch !== undefined && (result.created?.branchIds ?? []).includes(branch.id);
+      await this.acceptStructural(result.document, result.inverse, input.targetBlockId);
+      this.reconcileEditor(input.targetBlockId);
+      this.selectBlock(input.targetBlockId);
+      this.focusBlock(input.targetBlockId, { select: true });
+      return {
+        ok: true,
+        ...(branch === undefined ? {} : { branchId: branch.id }),
+        duplicate: !created,
+      };
+    });
+  }
+
+  /**
+   * Remove one reference edge. The target block, its primary home, anchors and
+   * subtree are untouched; a primary branch is never deleted through this path.
+   */
+  async deleteReference(branchId: string): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      const branch = this.document.branches[branchId];
+      if (branch === undefined) {
+        return { ok: false, message: 'This reference no longer exists.' };
+      }
+      if (branch.role !== 'reference') {
+        return { ok: false, message: 'Only reference links can be removed here.' };
+      }
+      const result = await this.runCommandInternal({
+        type: 'branch.delete',
+        branchId,
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not remove the reference.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, null);
+      this.reconcileEditor(this.selectedBlockId);
+      return { ok: true, branchId };
     });
   }
 

@@ -6,6 +6,7 @@ import {
   layoutDocument,
   overlaps,
   pageGeometry,
+  paginate,
   type LayoutBlock,
   type NoteDocument,
 } from '../src/index.js';
@@ -84,9 +85,10 @@ describe('adaptive layout', () => {
     }
   });
 
-  it('does not move geometry or page breaks when a reference edge is added', () => {
+  it('does not move geometry, pages, continuations, or primary edges when reference edges are added', () => {
     const document = loadFixture('shared-child.json');
     const baseline = layoutOf(document);
+    const baselinePages = paginate(baseline, document);
     const modified = structuredClone(document);
     modified.branches['test-reference'] = {
       id: 'test-reference',
@@ -95,15 +97,65 @@ describe('adaptive layout', () => {
       role: 'reference',
       order: 'z1',
     };
+    // Add the reverse direction too: a reference cycle must not recurse or move
+    // any block, page, or continuation.
+    modified.branches['test-reference-back'] = {
+      id: 'test-reference-back',
+      source: { blockId: 'f5-b1' },
+      targetBlockId: 'f5-b4',
+      role: 'reference',
+      order: 'z2',
+    };
     const after = layoutOf(modified);
-    for (const block of baseline.blocks) {
-      const other = after.blockById[block.blockId]!;
-      expect(other.x).toBeCloseTo(block.x, 6);
-      expect(other.y).toBeCloseTo(block.y, 6);
-    }
-    const geometry = (layout: ReturnType<typeof layoutOf>) =>
-      layout.chapters.map((chapter) => [chapter.id, chapter.height]);
-    expect(geometry(after)).toEqual(geometry(baseline));
+    const afterPages = paginate(after, modified);
+
+    expect(after.chapters).toEqual(baseline.chapters);
+    expect(after.blocks).toEqual(baseline.blocks);
+    expect(after.blockById).toEqual(baseline.blockById);
+    expect(after.anchors).toEqual(baseline.anchors);
+    expect(after.defects).toEqual(baseline.defects);
+    expect(afterPages).toEqual(baselinePages);
+
+    const primaryEdges = (layout: typeof baseline) =>
+      layout.edges
+        .filter((edge) => edge.role === 'primary')
+        .map((edge) => ({ ...edge }));
+    expect(primaryEdges(after)).toEqual(primaryEdges(baseline));
+
+    // Only the reference-edge list differs, and reference edges are derived
+    // positions, not layout input.
+    const referenceEdges = (layout: typeof baseline) =>
+      layout.edges.filter((edge) => edge.role === 'reference').map((edge) => edge.branchId);
+    expect(referenceEdges(after)).toEqual([
+      ...referenceEdges(baseline),
+      'test-reference',
+      'test-reference-back',
+    ].sort((left, right) => (left < right ? -1 : 1)));
+  });
+
+  it('keeps an anchored reference out of the callout lane and out of geometry', () => {
+    const document = loadFixture('golden-eigenvalues.json');
+    const baseline = layoutOf(document);
+    const baselinePages = paginate(baseline, document);
+    const modified = structuredClone(document);
+    modified.branches['test-anchored-reference'] = {
+      id: 'test-anchored-reference',
+      source: { blockId: 'b5', anchorId: 'a3' },
+      targetBlockId: 'b1',
+      role: 'reference',
+      order: 'z1',
+    };
+    const after = layoutOf(modified);
+    const afterPages = paginate(after, modified);
+
+    expect(after.blocks).toEqual(baseline.blocks);
+    expect(after.chapters).toEqual(baseline.chapters);
+    expect(after.anchors).toEqual(baseline.anchors);
+    expect(afterPages).toEqual(baselinePages);
+    const callouts = (layout: typeof baseline) =>
+      layout.blocks.filter((block) => block.role === 'callout').map((block) => block.blockId);
+    expect(callouts(after)).toEqual(callouts(baseline));
+    expect(after.edges.some((edge) => edge.branchId === 'test-anchored-reference')).toBe(true);
   });
 
   it('lays out 300 blocks without overlaps and deterministically', () => {

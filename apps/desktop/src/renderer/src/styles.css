@@ -917,6 +917,29 @@ button:disabled {
   color: var(--accent);
 }
 
+.nf-tree-shared {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: var(--ui-font);
+  font-size: 9.5px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.nf-tree-shared:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.nf-tree-shared:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
 .nf-tree-rename {
   flex: 1;
   min-width: 0;
@@ -1807,6 +1830,82 @@ button:disabled {
   z-index: 2;
 }
 
+/* Reference chips (M3d1). Absolutely positioned so adding or removing a
+   reference never changes a card rectangle: the layout-neutral invariant is
+   observable in the editor, not only in packages/layout. */
+.nf-ref-chips {
+  position: absolute;
+  right: 6px;
+  top: calc(100% + 2px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 3px;
+  max-width: calc(100% - 12px);
+  z-index: 3;
+  pointer-events: auto;
+}
+
+.nf-ref-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  max-width: 174px;
+  padding: 1px 5px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: var(--ui-font);
+  font-size: 9.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.nf-ref-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.nf-ref-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.nf-ref-chip-kind {
+  flex: 0 0 auto;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 8.5px;
+}
+
+.nf-ref-chip-quote {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent);
+}
+
+.nf-ref-chip-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nf-ref-chip-referenced-by {
+  border-style: solid;
+}
+
+.nf-ref-chip-referenced-by .nf-ref-chip-kind {
+  color: var(--text-tertiary);
+}
+
 .nf-block-prose p {
   margin: 0 0 8px;
 }
@@ -2105,6 +2204,15 @@ body.nf-dragging-block .nf-gutter-handle {
   transform: translateX(-50%);
 }
 
+/* Reference chips own the bottom-right overlay. Move the add-sibling control
+   to the left corner on those cards so the two never cover each other; both
+   remain overlays, so card geometry is unchanged. */
+.nf-block-body[data-has-references="true"] .nf-add-sibling {
+  left: 12px;
+  right: auto;
+  transform: none;
+}
+
 .nf-block-body:hover .nf-add-edge,
 .nf-block-body[data-active="true"] .nf-add-edge,
 .nf-add-edge:focus-visible {
@@ -2399,6 +2507,41 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-edge-arrow.nf-edge-defect {
   fill: var(--warning);
   stroke: none;
+}
+
+/* Reference edges (M3d1): dashed, thin, open chevron. They never share the
+   primary trunk and are routed only after cards are placed. */
+.nf-edge-reference {
+  stroke: var(--edge);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 5 4;
+  opacity: 0.78;
+  transition: stroke 120ms var(--motion), opacity 120ms var(--motion);
+}
+
+.nf-edge-reference.nf-edge-reference-active {
+  stroke: var(--edge-active);
+  opacity: 1;
+}
+
+.nf-edge-reference-arrow {
+  stroke: var(--edge);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.78;
+}
+
+.nf-edge-reference-arrow.nf-edge-reference-active {
+  stroke: var(--edge-active);
+  opacity: 1;
+}
+
+.nf-edge-reference-hit {
+  pointer-events: stroke;
+  cursor: pointer;
 }
 
 .nf-edge-hit {

@@ -11,6 +11,7 @@ import {
   chapterIdOf,
   edgePairs,
   parentIdOf,
+  referenceEdgePairs,
   subtreeIds,
   visibleBlockIds,
 } from '../lib/tree';
@@ -339,6 +340,10 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     () => edgePairs(runtime.document, runtime.collapsed, belowChildIds),
     [runtime.document, runtime.collapsed, runtime.version, belowChildIds],
   );
+  const referenceEdges = useMemo(
+    () => referenceEdgePairs(runtime.document),
+    [runtime.document, runtime.version],
+  );
 
   /** Ancestor chain + descendants of the focus anchor; null = whole document. */
   const focusSet = useMemo(() => {
@@ -437,11 +442,16 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
             <EditorContent editor={editor} />
             <EdgeLayer
               edges={edges}
+              referenceEdges={referenceEdges}
               rects={rects}
               activePath={activePath}
+              selectedBlockId={selectedId}
               onEdgeClick={(childId, anchor) => openBlockMenu(childId, anchor)}
               onTrunkClick={(parentId) => {
                 void runtime.toggleCollapse(parentId);
+              }}
+              onReferenceEdgeClick={(targetId) => {
+                runtime.focusBlock(targetId, { select: true });
               }}
             />
           </div>

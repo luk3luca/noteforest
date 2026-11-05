@@ -7,7 +7,13 @@
  * (chapter trees, titles, collapse-aware order, edge descriptors).
  */
 
-import type { AnchorState, ContentBlock, ContentNode, Document } from '@noteforest/core';
+import type {
+  AnchorState,
+  Branch,
+  ContentBlock,
+  ContentNode,
+  Document,
+} from '@noteforest/core';
 import {
   anchoredChildBranches,
   chapterIdForBlock,
@@ -15,6 +21,7 @@ import {
   directChildIds,
   primaryParentBranch,
   resolveAnchor,
+  sortedBranches,
   subtreeBlockIds,
 } from '@noteforest/core';
 
@@ -39,6 +46,64 @@ export interface ChapterNode {
 
 /** Primary incoming branch (anchored sources included for M3 compatibility). */
 export const incomingBranch = primaryParentBranch;
+
+/**
+ * Outgoing reference branches from a block or any of its anchors. References
+ * are associative: they never contribute outline rows, child groups, or
+ * layout input (spec §7.7). Sorted by reference order, then branch ID.
+ */
+export function outgoingReferenceBranches(document: Document, blockId: string): Branch[] {
+  return sortedBranches(
+    Object.values(document.branches).filter(
+      (branch) =>
+        branch.role === 'reference' &&
+        branch.source.blockId === blockId &&
+        document.blocks[branch.targetBlockId] !== undefined,
+    ),
+  );
+}
+
+/** Incoming reference branches targeting a block; sorted by reference order. */
+export function incomingReferenceBranches(document: Document, blockId: string): Branch[] {
+  return sortedBranches(
+    Object.values(document.branches).filter(
+      (branch) =>
+        branch.role === 'reference' &&
+        branch.targetBlockId === blockId &&
+        document.blocks[branch.source.blockId] !== undefined,
+    ),
+  );
+}
+
+export interface ReferenceEdgePair {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  anchorId?: string;
+  label?: string;
+}
+
+/**
+ * Reference edges for the SVG overlay. The renderer draws one dashed edge per
+ * reference branch when both endpoint cards are visible; layout/pagination,
+ * the primary edge list, and the outline never read this projection.
+ */
+export function referenceEdgePairs(document: Document): ReferenceEdgePair[] {
+  return sortedBranches(
+    Object.values(document.branches).filter(
+      (branch) =>
+        branch.role === 'reference' &&
+        document.blocks[branch.source.blockId] !== undefined &&
+        document.blocks[branch.targetBlockId] !== undefined,
+    ),
+  ).map((branch) => ({
+    id: branch.id,
+    sourceId: branch.source.blockId,
+    targetId: branch.targetBlockId,
+    ...(branch.source.anchorId === undefined ? {} : { anchorId: branch.source.anchorId }),
+    ...(branch.label === undefined ? {} : { label: branch.label }),
+  }));
+}
 
 export function parentIdOf(document: Document, blockId: string): string | null {
   return primaryParentBranch(document, blockId)?.source.blockId ?? null;

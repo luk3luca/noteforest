@@ -6,7 +6,8 @@ import {
   type RoutedEdge,
   type RoutedTrunk,
 } from '../../lib/edge-routing';
-import type { EdgeKind, EdgePlacement } from '../../lib/tree';
+import { routeReferenceEdge } from '../../lib/reference-routing';
+import type { EdgeKind, EdgePlacement, ReferenceEdgePair } from '../../lib/tree';
 import { recordPerf } from '../../lib/perf';
 
 export interface EdgeDescriptor {
@@ -20,12 +21,17 @@ export interface EdgeDescriptor {
   anchorId?: string;
 }
 
+export type ReferenceEdgeDescriptor = ReferenceEdgePair;
+
 interface EdgeLayerProps {
   edges: readonly EdgeDescriptor[];
+  referenceEdges?: readonly ReferenceEdgeDescriptor[];
   rects: ReadonlyMap<string, Rect>;
   activePath: ReadonlySet<string>;
+  selectedBlockId?: string | null;
   onEdgeClick?: (childId: string, anchor: { x: number; y: number }) => void;
   onTrunkClick?: (parentId: string) => void;
+  onReferenceEdgeClick?: (targetId: string) => void;
 }
 
 interface RoutedGroupResult {
@@ -33,7 +39,7 @@ interface RoutedGroupResult {
   trunks: RoutedTrunk[];
 }
 
-export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick }: EdgeLayerProps): JSX.Element {
+export function EdgeLayer({ edges, referenceEdges = [], rects, activePath, selectedBlockId = null, onEdgeClick, onTrunkClick, onReferenceEdgeClick }: EdgeLayerProps): JSX.Element {
   const hasSelection = activePath.size > 1;
 
   const routed = useMemo(() => {
@@ -97,6 +103,47 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
     }
     return byParent;
   }, [edges, routed]);
+
+  // Reference edges are routed after node placement and never share the
+  // primary trunk. A two-way pair gets symmetric lane offsets so both dashed
+  // curves stay visible instead of painting on top of each other.
+  const referenceRoutes = useMemo(() => {
+    const started = performance.now();
+    const totals = new Map<string, number>();
+    for (const edge of referenceEdges) {
+      if (!rects.has(edge.sourceId) || !rects.has(edge.targetId)) continue;
+      const key = [edge.sourceId, edge.targetId].sort().join('\u0000');
+      totals.set(key, (totals.get(key) ?? 0) + 1);
+    }
+    const seen = new Map<string, number>();
+    const routes: Array<{
+      edge: ReferenceEdgeDescriptor;
+      path: string;
+      arrowPath: string;
+      active: boolean;
+    }> = [];
+    for (const edge of referenceEdges) {
+      const source = rects.get(edge.sourceId);
+      const target = rects.get(edge.targetId);
+      if (source === undefined || target === undefined) continue;
+      const key = [edge.sourceId, edge.targetId].sort().join('\u0000');
+      const index = seen.get(key) ?? 0;
+      seen.set(key, index + 1);
+      const total = totals.get(key) ?? 1;
+      const lane = total > 1 ? (index - (total - 1) / 2) * 14 : 0;
+      const route = routeReferenceEdge(source, target, { lane });
+      routes.push({
+        edge,
+        path: route.path,
+        arrowPath: route.arrowPath,
+        active:
+          selectedBlockId !== null &&
+          (selectedBlockId === edge.sourceId || selectedBlockId === edge.targetId),
+      });
+    }
+    recordPerf('edge', performance.now() - started);
+    return routes;
+  }, [referenceEdges, rects, selectedBlockId]);
 
   const edgeClass = (descriptor: EdgeDescriptor, routedEdge: RoutedEdge): string => {
     const parentActive = activePath.has(descriptor.parentId);
@@ -222,6 +269,46 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
             </g>
           );
         })}
+      </g>
+      <g className="nf-reference-edge-layer">
+        {referenceRoutes.map(({ edge, path, arrowPath, active }) => (
+          <g
+            key={edge.id}
+            data-reference-edge-id={edge.id}
+            data-reference-source={edge.sourceId}
+            data-reference-target={edge.targetId}
+            data-reference-anchor-id={edge.anchorId ?? undefined}
+            data-reference-active={active ? 'true' : undefined}
+          >
+            <path
+              d={path}
+              className={`nf-edge-reference${active ? ' nf-edge-reference-active' : ''}`}
+              vectorEffect="non-scaling-stroke"
+              fill="none"
+            />
+            <path
+              d={arrowPath}
+              className={`nf-edge-reference-arrow${active ? ' nf-edge-reference-active' : ''}`}
+              data-reference-arrow="open"
+              vectorEffect="non-scaling-stroke"
+              fill="none"
+            />
+            {onReferenceEdgeClick === undefined ? null : (
+              <path
+                d={path}
+                className="nf-edge-reference-hit"
+                fill="none"
+                stroke="transparent"
+                strokeWidth={12}
+                vectorEffect="non-scaling-stroke"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onReferenceEdgeClick(edge.targetId);
+                }}
+              />
+            )}
+          </g>
+        ))}
       </g>
     </svg>
   );

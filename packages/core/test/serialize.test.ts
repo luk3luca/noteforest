@@ -99,7 +99,7 @@ describe('canonical JSON parsing', () => {
     };
     const report = validateDocument(withExtras);
     expect(report.ok).toBe(true);
-    expect(report.warnings.some((issue) => issue.code === 'unsupported-m2-feature')).toBe(true);
+    expect(report.warnings.some((issue) => issue.code === 'unsupported-m2-feature')).toBe(false);
 
     const parsed = parseDocumentJson(stringifyDocument(withExtras));
     expect(parsed.ok).toBe(true);
