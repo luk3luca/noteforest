@@ -16,9 +16,9 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 design is approved and the spec/UX/ADR delta is in progress.** The product owner approved all M3 design recommendations (C1, C8, C9, OD-1–OD-12): anchored children first, contiguous text binding, promote anchored primary children on delete, idle anchor lifetime, role-independent dedupe, `attrs.anchorIds`, M3 manifest vs M4 PDF evidence, split/merge in M3f, no make-home on roots, callout lane, dashed reference edges, chip+sheet health, no cross-chapter merge, text selection projection. The Planner is applying the deltas to spec v0.4.5, UX, and ADR-0005/0006. M3a starts only after that docs pass. PDF remains M4. Spec v0.4.4 until the delta lands.
+**M2f is accepted; the M3 design delta is merged and M3 implementation is starting.** Spec v0.4.5 and UX v1.3 apply the approved M3 decisions (C1, C8, C9, OD-1–OD-12); ADR-0005 is accepted. M3 slices: M3a anchor model/commands → M3b text authoring → M3c formula/code/image → M3d reference edges → M3e repair → M3f identity/undo/split-merge/fixtures. M3a starts with the core model and pure commands; no page/PDF work. PDF remains M4. Spec v0.4.5.
 
-The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
+The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 
 ## Language
 

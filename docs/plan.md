@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted by the product owner (5 November 2026); collapsed-port fix merged. M3 design package approved; spec/UX/ADR delta in progress. M3 implementation not started.
+**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.3, ADR-0005); M3a1 anchor model/binding/resolution in progress.
 
 ## Rules
 
@@ -28,14 +28,14 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 
 | ID | Milestone | Goal | Gate | Status |
 |---|---|---|---|---|
-| **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.4; DoD/checklist aligned | **Done** |
+| **M0** | Ratification | Close stack, PDF, API defaults, tables, reader-primary; align docs | ADR-0001/0002/0003 accepted; spec v0.4.5; DoD/checklist aligned | **Done** |
 | **M1** | Spike 1 — technical foundation | Prove adaptive layout + paginator + real-text PDF in Electron | Spike 1 gates G1–G9 passed and independently re-run; visuals deferred | **Done** |
 | **M2** | Editor shell + document core | Touchable Obsidian-like shell with a continuous branch editor: sidebar, document tabs, block editing, basic primary branches with visible arrows, local documents, autosave | Create/open/edit/save/reopen two documents; tabs; create a child branch and see the arrow; keyboard; screenshots; 300-block editor | **M2f complete; M2 acceptance pending** |
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
 | **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Accepted; collapsed-port fix merged** |
-| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
+| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | **In progress — M3a** |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
 | **M6** | Library, search, polish | Search, light theme, accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
@@ -234,16 +234,19 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
 **Status:** M2f accepted by the product owner (5 November 2026) and the collapsed-port fix is merged.
 M3 design package in progress; M3 implementation waits for the reviewed design.
 
-## M3 — Span anchors and reference edges (design approved; docs delta in progress)
+## M3 — Span anchors and reference edges (implementation starting)
 
 - Anchors inside content: word/phrase, formula term, code token, image region; anchored callouts.
 - Reference/shared children, "see also", make-home/move-here; reference edges never affect layout or pagination.
 - Broken/ambiguous anchor repair; no silent data loss.
 - Gate: AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58; real branched fixture; screenshots.
-- Design package approved by the product owner on 5 November 2026: `docs/design/m3-anchors-references.md`.
-  C1/C8/C9 and OD-1–OD-12 are approved; the Planner is applying spec v0.4.5, UX, and ADR-0005/0006.
-- Slices: M3a anchor model/commands → M3b text authoring → M3c formula/code/image → M3d reference
-  edges → M3e repair → M3f identity/undo/split-merge/fixtures. No code until the docs delta lands.
+  AC-56 M3 evidence is the exactly-once export manifest; PDF marker/page evidence is M4. AC-18 is
+  satisfied by the minimal `block.split`/`block.merge` in M3f (cross-chapter merge rejected).
+- Design package approved by the product owner on 5 November 2026: `docs/design/m3-anchors-references.md`;
+  spec v0.4.5, UX v1.3, ADR-0005 are merged. C1/C8/C9 and OD-1–OD-12 are approved.
+- Slices: M3a1 anchor model/binding/resolution → M3a2 anchor commands + branch extension → M3b text
+  authoring → M3c formula/code/image → M3d reference edges → M3e repair → M3f identity/undo/
+  split-merge/fixtures. M3a1 is the current slice (pure core, no UI).
 
 ## M4 — Reader/page + PDF (planned)
 

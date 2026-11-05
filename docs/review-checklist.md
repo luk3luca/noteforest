@@ -1,13 +1,13 @@
 # Review checklist
 
-**Status:** v7 — M2f phase 5c re-review; spec v0.4.4.
+**Status:** v8 — M3 design delta; spec v0.4.5.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).
 
-**Current gate:** M2f phase 5c re-review is complete with **accept with minor** (N1/N2 closed in
-`docs/reviews/m2f-phase5c-review.md`); product-owner visual/VoiceOver acceptance and M2 acceptance
-pending, M3/PDF blocked until M2f is accepted. Spec v0.4.4 is the source of truth.
+**Current gate:** M2f is accepted; the M3 design delta is merged (spec v0.4.5, UX v1.3, ADR-0005)
+and M3a implementation is in progress. M4/PDF remain blocked until M3 is accepted. Spec v0.4.5 is
+the source of truth.
 
 ---
 
@@ -133,7 +133,7 @@ anchor, or content at a page break, it is S1 regardless of how rare it looks.
 
 ### 1.9 Reviewing docs and specs
 
-Spec v0.4.4 is approved; this section applies to doc changes during M2f and later. The stack and PDF
+Spec v0.4.5 is approved; this section applies to doc changes during M2f and later. The stack and PDF
 pipeline are decided (ADR-0001, ADR-0002), as are the External Agent API defaults (ADR-0003). A doc
 review checks that the document matches the ADRs, that deviations are explicit, and that the chosen
 stack is not silently re-opened. A doc review checks:

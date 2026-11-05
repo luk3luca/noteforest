@@ -1,6 +1,6 @@
 # Definition of Done
 
-**Status:** v7 — M2f phase 5c re-review; spec v0.4.4.
+**Status:** v8 — M3 design delta; spec v0.4.5.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/review-checklist.md` (review procedure, severity, report template).
@@ -10,15 +10,14 @@
 ## Phase note
 
 The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002); the External Agent API defaults are
-decided (ADR-0003). The spec v0.4.4 is approved. **Current gate:** M2f phase 5c re-review is complete
-with **accept with minor**; `npm run verify` (typecheck, unit, critical e2e, recovery, view UI) is the
-task gate. N1 (undo of a new chapter's first block) and N2 (close/quit on non-document failures) are
-closed; N3/N5/N6 are closed. The remaining risks are recorded in
-`docs/reviews/m2f-phase5c-review.md`: the DoD/checklist phase headers were stale (fixed), and the
-first cold-cache critical e2e run measured 62.8 s against the 60 s suite-time budget while three warm
-runs measured 52.2–53.4 s. Measured on 5 November 2026: unit 252/2.3 s, critical e2e 20/52.2–53.4 s
-(one cold run 62.8 s), recovery 14/21.7 s, UI 5/22.6 s, `npm run verify` 115.3 s. M2 is not accepted
-and M3/PDF remain blocked until the product owner accepts. Until a milestone is approved, this
+decided (ADR-0003). The spec v0.4.5 is approved and the M3 design delta is merged (UX v1.3,
+ADR-0005). **Current gate:** M3a (anchor model and pure commands) is in progress; `npm run verify`
+(typecheck, unit, critical e2e, recovery, UI) is the task gate. M2f is accepted; its closure evidence
+is in `docs/reviews/m2f-phase5c-review.md`. The remaining risks are recorded there: the first
+cold-cache critical e2e run measured 62.8 s against the 60 s suite-time budget while warm runs
+measured 52.2–53.4 s. Measured on 5 November 2026: unit 252/2.3 s, critical e2e 20/52.2–53.4 s
+(one cold run 62.8 s), recovery 14/21.7 s, UI 5/22.6 s, `npm run verify` 115.3 s. M3 implementation
+is in progress; M4/PDF remain blocked until M3 is accepted. Until a milestone is approved, this
 document governs **documents and the approved implementation**, not general application code. A docs
 task is done when:
 
