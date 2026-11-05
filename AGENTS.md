@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted by the product owner (5 November 2026); the minor collapsed-port fix is merged and verified; M3 design is in progress.** The collapsed branch-port count bubble was offset 2 px from the add-child control (port padding); the fix aligns both centers at 792 px, keeps the right edge fixed, and adds a UI assertion. M2f closed N1/N2/N3/N5/N6; Sentinel verdict accept with minor; gates unit 252, critical e2e 20 (54.1 s suite in the final verify), recovery 14, UI 5, `verify` exit 0. E2E windows run hidden. M3 implementation is blocked until the M3 design package is reviewed; PDF remains M4. Spec v0.4.4.
+**M2f is accepted; M3 design is approved and the spec/UX/ADR delta is in progress.** The product owner approved all M3 design recommendations (C1, C8, C9, OD-1–OD-12): anchored children first, contiguous text binding, promote anchored primary children on delete, idle anchor lifetime, role-independent dedupe, `attrs.anchorIds`, M3 manifest vs M4 PDF evidence, split/merge in M3f, no make-home on roots, callout lane, dashed reference edges, chip+sheet health, no cross-chapter merge, text selection projection. The Planner is applying the deltas to spec v0.4.5, UX, and ADR-0005/0006. M3a starts only after that docs pass. PDF remains M4. Spec v0.4.4 until the delta lands.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted by the product owner (5 November 2026); the collapsed-port fix is merged and verified; M3 design package in progress. M3 implementation not started.
+**Status:** M2f accepted by the product owner (5 November 2026); collapsed-port fix merged. M3 design package approved; spec/UX/ADR delta in progress. M3 implementation not started.
 
 ## Rules
 
@@ -234,14 +234,16 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
 **Status:** M2f accepted by the product owner (5 November 2026) and the collapsed-port fix is merged.
 M3 design package in progress; M3 implementation waits for the reviewed design.
 
-## M3 — Span anchors and reference edges (design in progress)
+## M3 — Span anchors and reference edges (design approved; docs delta in progress)
 
 - Anchors inside content: word/phrase, formula term, code token, image region; anchored callouts.
 - Reference/shared children, "see also", make-home/move-here; reference edges never affect layout or pagination.
 - Broken/ambiguous anchor repair; no silent data loss.
 - Gate: AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58; real branched fixture; screenshots.
-- Design package: data model + commands + identity + repair states + acceptance/edge-case matrix +
-  small Builder task breakdown. No code until the package is reviewed.
+- Design package approved by the product owner on 5 November 2026: `docs/design/m3-anchors-references.md`.
+  C1/C8/C9 and OD-1–OD-12 are approved; the Planner is applying spec v0.4.5, UX, and ADR-0005/0006.
+- Slices: M3a anchor model/commands → M3b text authoring → M3c formula/code/image → M3d reference
+  edges → M3e repair → M3f identity/undo/split-merge/fixtures. No code until the docs delta lands.
 
 ## M4 — Reader/page + PDF (planned)
 
