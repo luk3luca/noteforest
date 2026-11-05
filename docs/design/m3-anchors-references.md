@@ -1203,8 +1203,9 @@ pixel position, so it is stable across views and platforms.
 after resolved ones but before direct children, deterministically. It is not a visual guess; it is
 the only stable order when there is no span.
 
-**UX conflict C1:** `docs/ux.md` §8.5 currently says the opposite ("after unanchored children").
-The spec/D3 order is authoritative; the UX line must be fixed.
+**UX conflict C1 (fixed in UX v1.3):** `docs/ux.md` §8.5 said the opposite ("after unanchored
+children") at design time. The spec/D3 order is authoritative; the UX line is corrected to anchored
+children first.
 
 **Outline row anatomy.** Anchored rows use the same indentation as direct children, prefixed with
 `↳ “quote”`; a thin left rule groups siblings that share an anchor. The row shows the callout's
