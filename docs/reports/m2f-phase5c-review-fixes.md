@@ -13,9 +13,11 @@ product behavior.
 N1 and N2 are closed at the command, runtime, app, and test levels. A failed structural undo/redo no
 longer pins the stack; New chapter undoes as one user action; a clean read-only document and a
 session-state write failure no longer block close/quit, while real document save failures still do.
-All gates pass: typecheck, 252/252 unit tests, 23/23 critical e2e, 14/14 recovery, 1/1 view UI,
-`npm run verify` exit 0. Critical e2e suite time is **50.66 s standalone / 50.95 s in `verify`**
-(budget < 60 s, excluding build).
+All gates pass: typecheck, 252/252 unit tests, 20/20 critical e2e, 14/14 recovery, 5/5 UI
+(view shell 1 + shell/session/a11y/layout 4), `npm run verify` exit 0. Critical e2e suite time is
+**52.31 s standalone / 53.76 s in `verify`** (budget < 60 s, excluding build). Three shell/layout/
+a11y tests moved from the critical suite to `tests/ui/m2-shell.test.mjs` with every assertion kept,
+and E2E windows now run hidden so a test run never steals OS focus.
 
 ## 1. N1 — undo of a new chapter's first block
 
@@ -97,28 +99,45 @@ build stayed alive with the Retry/Cancel dialog.
 | `packages/core/test/empty-chapters.test.ts` | Create a top-level block in an empty chapter, apply the inverse, assert empty-but-valid and exact redo ID; assert the user delete still rejects and a non-boolean `allowEmptyChapter` is rejected. |
 | `apps/desktop/test/undo-stack.test.ts` (new) | Chapter + first block is one undo entry and one `chapter.delete`; a failed undo is dropped while the older entry applies; a failed redo is dropped while the older independent redo applies. |
 | `apps/desktop/test/flush.test.ts` (new) | Clean read-only → ok; dirty read-only → problem; commit throw → problem; failed-save state → problem; session reject → ok + warning; multiple problems aggregate. |
-| `tests/e2e/m2-editor.test.mjs` (undo-routing extended) | New chapter → one `⌘Z` restores chapter/block counts exactly, no empty-chapter toast, `canUndoStructural` still true, and the next `⌘Z` reaches the older block creation. No new app launch; still 23 critical tests. |
+| `tests/e2e/m2-editor.test.mjs` (undo-routing extended) | New chapter → one `⌘Z` restores chapter/block counts exactly, no empty-chapter toast, `canUndoStructural` still true, and the next `⌘Z` reaches the older block creation. No new app launch. The suite is 20 tests after the UI split. |
 | `tests/recovery/m2f-recovery.test.mjs` | Stale-lock read-only document → `app.quit()` exits within 5 s, package bytes unchanged, stale lock token unchanged. Recovery is now 14 tests. |
 
 No fixed sleeps, no skipped/weakened tests, no native dialogs, no new dependencies.
 
 ## 5. Gates and real timings
 
-Measured in this worktree on 4 November 2026, Node 22.23.1 / npm 10.9.8 / Electron 45.2.1.
+Measured in this worktree on 5 November 2026, Node 22.23.1 / npm 10.9.8 / Electron 45.2.1.
+E2E windows were hidden (`NOTEFOREST_E2E_HIDDEN=1`); the visual suite opted into a visible window.
 
 | Command | Result | Suite/test time | Wall |
 |---|---|---:|---:|
-| `npm run typecheck` | clean (desktop node/web, core, layout, pdf) | — | **3.65 s** |
-| `npm test` | **252/252**, 29 files | **1.84 s** (Vitest) | 2.07 s |
-| `npm run e2e` (standalone) | **23/23** | **50.66 s** suite; 58.70 s node incl. hooks | **59.67 s** incl. build |
-| `npm run e2e` (inside `verify`) | **23/23** | **50.95 s** suite; 58.97 s node | — |
-| `npm run test:recovery` | **14/14** | 19.54 s node (files 9.87 / 5.29 / 6.52 s) | 20.37 s incl. build |
-| `npm run test:ui` | **1/1** | 1.35 s suite | 10.10 s incl. build |
-| `npm run verify` | **exit 0** | e2e 50.95 s, recovery 19.65 s, UI 1.28 s | **94.52 s** |
+| `npm run typecheck` | clean (desktop node/web, core, layout, pdf) | — | 3.65 s |
+| `npm test` | **252/252**, 29 files | **1.91 s** (Vitest) | 2.4 s |
+| `npm run e2e` (standalone) | **20/20** | **52.31 s** suite; 60.60 s node incl. hooks | **61 s** incl. build |
+| `npm run e2e` (inside `verify`) | **20/20** | **53.76 s** suite | — |
+| `npm run test:recovery` | **14/14** | 22.22 s node | 23.6 s incl. build |
+| `npm run test:ui` (view) | **1/1** | 9.58 s node | 9.7 s |
+| `npm run test:ui` (shell/session/a11y/layout) | **4/4** | 13.27 s node | 13.3 s |
+| `npm run verify` | **exit 0** | e2e 53.76 s, recovery 22.22 s, UI 9.58 + 13.27 s | ~99 s |
+| `npm run test:perf` (on demand) | **1/1** | 18.36 s node | 26.54 s incl. build |
+| `npm run test:visual` (on demand) | **5/5** | 24.20 s node | 24.2 s |
 
-The undo-routing e2e is 9.06 s in `verify` (7.14 s at re-review); the new recovery quit test is
-0.61 s. The critical suite remains under the 60 s suite-time budget in both standalone and `verify`
-runs.
+The undo-routing e2e is ~9.9 s; the new recovery quit test is ~0.6 s. The critical suite remains
+under the 60 s suite-time budget in both standalone and `verify` runs.
+
+### Orchestrator addendum — test split and hidden E2E windows
+
+- Moved `restores per-tab scroll and focus after relaunch`, `opens the command palette, tree, and
+  dialogs accessibly`, and `places children parent-relative and scrolls horizontally for deep
+  branches` to `tests/ui/m2-shell.test.mjs` unchanged. Critical e2e went from 23 to 20 tests and
+  from 60.2 s back to 52.3 s suite time; coverage stays in `verify`, not `verify:fast`.
+- Added hidden E2E mode. `NOTEFOREST_E2E_HIDDEN=1` (default for Playwright) creates the window with
+  `show: false`, skips `ready-to-show → show`, hides the macOS dock icon, and the harness skips
+  `page.bringToFront()`. The visual suite passes `NOTEFOREST_E2E_HIDDEN=0`; screenshots still need a
+  visible surface. A UI test asserts `BrowserWindow.isVisible() === false`.
+- Why: a manual run had keyboard focus stolen by the visible test window and text typed into the
+  first block, which blocked the lifecycle e2e and inflated it to 21.8 s (suite 70.1 s inside
+  `verify`). Hidden mode removes that class of interference; the same suite then measured 52.3 s.
 
 ## 6. Residual risks and follow-ups
 
@@ -133,8 +152,10 @@ runs.
   is wanted, it belongs in a later UX pass.
 - **`allowEmptyChapter` is an internal command flag.** It is type-validated, but a future External
   Agent API must reject or strip it from client commands; only `block.create`'s inverse may set it.
-- **E2E budget margin.** The suite measured 50.66–50.95 s here, but the same harness previously
-  measured 54.3–56.4 s and one 66.6 s standalone. Keep the critical suite from growing further.
+- **E2E budget margin.** The final hidden-window suite measured 52.3–53.8 s, with 6–7 s of margin.
+  The harness previously measured 54.3–56.4 s and one contaminated 70 s run caused by typing into
+  the visible test window; hidden mode prevents that interference. Keep the critical suite from
+  growing further.
 - **Session-failure repro uses directory permissions (`EACCES`)**, not a full disk; the failure path
   is the same, but a real disk-full condition was not exercised.
 - **Native unsaved prompt in production** remains bypassed in E2E by `isE2E → saveAllDirty`; the
@@ -149,10 +170,15 @@ runs.
 - `apps/desktop/src/renderer/src/App.tsx`
 - `apps/desktop/src/renderer/src/lib/flush.ts` (new)
 - `apps/desktop/src/main/library.ts`
+- `apps/desktop/src/main/index.ts` (hidden E2E window)
 - `apps/desktop/test/undo-stack.test.ts` (new)
 - `apps/desktop/test/flush.test.ts` (new)
 - `tests/e2e/m2-editor.test.mjs`
 - `tests/recovery/m2f-recovery.test.mjs`
+- `tests/ui/m2-shell.test.mjs` (new; session/a11y/layout split)
+- `tests/support/harness.mjs` (hidden launch, no `bringToFront`)
+- `tests/visual/m2-screenshots.test.mjs` (visible-window opt-in)
+- `package.json` (`test:ui`/`verify` run both UI files)
 - `README.md`
 - `docs/definition-of-done.md`
 - `docs/reports/m2f-phase5b-cleanup.md`

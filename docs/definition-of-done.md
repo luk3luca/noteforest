@@ -374,21 +374,27 @@ Log the seed. Save any shrunk failure as a named regression fixture.
   Electron renderer and the PDF export from the packaged build.
 
 **M2 suite split and run policy.** The critical suite is `tests/e2e/`; it covers lifecycle,
-tabs/session restore, desync parity, arrows/collapse/trunk, keyboard/heading/chapter, keyboard
-focus/axe, and layout/scroll. Zoom/fit/focus-rich view flows live in `tests/ui/` and are part of
-`verify`, but not `verify:fast`, so the critical suite stays under its budget. Damaged/missing/newer
-package recovery lives in `tests/recovery/` and is part of `verify`, but not `verify:fast`.
+tabs/desync parity, arrows/collapse/trunk, keyboard/heading/chapter, and undo/save/quit recovery.
+Session-restore evidence, the command palette/tree/dialog axe pass,
+parent-relative layout/scroll, and zoom/fit/focus-rich view flows live in `tests/ui/` and are part
+of `verify`, but not `verify:fast`, so the critical suite stays under its budget. Damaged/missing/
+newer package recovery lives in `tests/recovery/` and is part of `verify`, but not `verify:fast`.
 Performance (`tests/perf/`) and screenshot evidence (`tests/visual/`) are separate on-demand suites
 and are not part of the critical gate. Artifact roots honour `NOTEFOREST_ARTIFACTS` (default
 `artifacts/`).
 
+E2E windows run **hidden** by default (`NOTEFOREST_E2E_HIDDEN=1`): no visible window, no
+`bringToFront`, no dock icon, so a test run never steals keyboard focus or interferes with the
+machine. The visual screenshot suite opts into a visible window (`NOTEFOREST_E2E_HIDDEN=0`);
+Playwright still drives hidden windows through CDP, and `backgroundThrottling` stays disabled.
+
 - `npm run e2e` builds and runs the critical suite. Budget: **critical-suite `node --test` time
-  < 60 s, excluding the build**. Measured on 4 November 2026: 23 tests, 54.3–56.4 s suite time
-  standalone and in `verify`; `npm run e2e` wall time is ~64 s including the build. The budget is
-  suite time, not command wall time.
+  < 60 s, excluding the build**. Measured on 5 November 2026: 20 tests, 52.3 s suite time
+  standalone and 53.8 s in `verify`; `npm run e2e` wall time is ~61 s including the build. The
+  budget is suite time, not command wall time.
 - `npm test` is the unit suite; target **< 3 s**.
 - `npm run test:recovery` builds and runs the corrupt/missing/newer recovery suite.
-- `npm run test:ui` builds and runs the zoom/fit/focus view suite.
+- `npm run test:ui` builds and runs the view suite plus the shell/session/a11y/layout suite.
 - `npm run verify:fast` = typecheck + unit + critical e2e.
 - `npm run verify` = `verify:fast` + recovery integration + view-ui suite; run once on integration.
 - `npm run test:perf` and `npm run test:visual` run on demand or nightly.
