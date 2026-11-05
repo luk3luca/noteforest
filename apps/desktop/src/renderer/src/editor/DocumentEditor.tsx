@@ -5,7 +5,7 @@ import { NodeSelection } from '@tiptap/pm/state';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { buildEditorDocument, stripAnchorBindings, type PMNode } from '../lib/adapter';
-import { textSelectionAnchor } from '../lib/anchor-selection';
+import { branchSelectionAnchor } from '../lib/anchor-selection';
 import {
   ancestorPath,
   chapterIdOf,
@@ -168,11 +168,13 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     const syncSelection = (): void => {
       const blockId = blockIdAtSelection(editor);
       const selection = editor.state.selection;
-      const nodeSelected =
-        selection instanceof NodeSelection && selection.node.type.name === 'branchBlock';
-      // A block is "editing" while its prose owns the caret. A block selection
-      // (NodeSelection) or a blurred editor is the selected-but-not-editing
-      // state that reveals the anchor marker buttons.
+      // Any node selection (a block, a formula) is the selected-but-not-editing
+      // state that reveals the anchor marker buttons. The prose owns the caret
+      // only for a text selection.
+      const nodeSelected = selection instanceof NodeSelection;
+      // A block is "editing" while its prose owns the caret. A block/node
+      // selection or a blurred editor is the selected-but-not-editing state
+      // that reveals the anchor marker buttons.
       setEditorSelectedBlock(editor, blockId, editor.isFocused && !nodeSelected);
       runtime.selectBlock(blockId);
     };
@@ -217,7 +219,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
       dragSource: () => getDragBlockId(),
       requestDelete: (blockId: string) => requestBlockDelete(runtime, blockId),
       branchFromSelection: () => {
-        const selection = textSelectionAnchor(editor);
+        const selection = branchSelectionAnchor(editor);
         if (!selection.ok) {
           if (selection.reason !== 'empty') toast.error(selection.message);
           return;

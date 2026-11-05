@@ -109,6 +109,13 @@ export const BranchKeymap = Extension.create({
         const current = bindings();
         if (current === null) return false;
         const selection = editor.state.selection;
+        if (
+          selection instanceof NodeSelection &&
+          (selection.node.type.name === 'inlineMath' || selection.node.type.name === 'blockMath')
+        ) {
+          current.branchFromSelection();
+          return true;
+        }
         if (!selection.empty && !(selection instanceof NodeSelection)) {
           current.branchFromSelection();
           return true;

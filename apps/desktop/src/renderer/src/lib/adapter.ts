@@ -7,7 +7,7 @@
  * nodes. The wrapper nodes never leak into the stored content.
  */
 
-import type { AnchorState, Branch, ContentNode, Document } from '@noteforest/core';
+import type { AnchorKind, AnchorState, Branch, ContentNode, Document } from '@noteforest/core';
 import {
   anchoredChildBranches,
   directChildBranches,
@@ -44,6 +44,47 @@ function anchorIdsFromAttrs(attrs: unknown): string[] {
   }
   const legacy = attrs['anchorId'];
   return typeof legacy === 'string' && legacy.length > 0 ? normalizeAnchorIds([legacy]) : [];
+}
+
+/**
+ * Formula nodes use `mathBlock` in the canonical document (spec §4.4) but
+ * TipTap's Mathematics extension names the editor node `blockMath`. The
+ * adapter is the single bridge; both spellings are accepted on read.
+ */
+const EDITOR_NODE_TYPES: Readonly<Record<string, string>> = { mathBlock: 'blockMath' };
+const CORE_NODE_TYPES: Readonly<Record<string, string>> = { blockMath: 'mathBlock' };
+const ATOMIC_ANCHOR_NODE_TYPES = new Set([
+  'mathBlock',
+  'blockMath',
+  'inlineMath',
+  'codeBlock',
+  'image',
+]);
+
+function editorNodeType(type: string): string {
+  return EDITOR_NODE_TYPES[type] ?? type;
+}
+
+function coreNodeType(type: string): string {
+  return CORE_NODE_TYPES[type] ?? type;
+}
+
+/**
+ * Atomic anchor bindings are an additive `attrs.anchorIds` array (ADR-0005 §1).
+ * Normalize the M2 legacy single string on read and omit an empty array so a
+ * node without anchors has no `anchorIds` attribute.
+ */
+function atomicAnchorAttrs(
+  nodeType: string,
+  attrs: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!ATOMIC_ANCHOR_NODE_TYPES.has(nodeType)) return attrs;
+  const ids = anchorIdsFromAttrs(attrs);
+  const next = { ...attrs };
+  delete next['anchorId'];
+  delete next['anchorIds'];
+  if (ids.length > 0) next['anchorIds'] = ids;
+  return next;
 }
 
 /**
@@ -89,8 +130,8 @@ export function stripAnchorBindings(node: PMNode): PMNode {
 }
 
 export function contentToPM(node: ContentNode): PMNode {
-  const result: PMNode = { type: node.type };
-  if (isRecord(node.attrs)) result.attrs = { ...node.attrs };
+  const result: PMNode = { type: editorNodeType(node.type) };
+  if (isRecord(node.attrs)) result.attrs = atomicAnchorAttrs(node.type, node.attrs);
   if (typeof node.text === 'string') result.text = node.text;
   if (Array.isArray(node.marks)) {
     const marks = node.marks.filter(isRecord).map((mark) => {
@@ -106,8 +147,8 @@ export function contentToPM(node: ContentNode): PMNode {
 }
 
 export function pmToContent(node: PMNode): ContentNode {
-  const result: ContentNode = { type: node.type };
-  if (node.attrs !== undefined) result.attrs = { ...node.attrs };
+  const result: ContentNode = { type: coreNodeType(node.type) };
+  if (node.attrs !== undefined) result.attrs = atomicAnchorAttrs(node.type, node.attrs);
   if (typeof node.text === 'string') result.text = node.text;
   if (Array.isArray(node.marks)) {
     const marks = normalizeMarks(
@@ -133,6 +174,7 @@ export interface CalloutDescriptor {
   blockId: string;
   parentId: string;
   anchorId: string;
+  kind: AnchorKind;
   quote: string;
   state: AnchorState;
 }
@@ -151,6 +193,7 @@ function toCallout(document: Document, parentId: string, branch: Branch): Callou
     blockId: branch.targetBlockId,
     parentId,
     anchorId,
+    kind: document.anchors[anchorId]?.kind ?? 'text',
     quote: anchorQuote(document, anchorId),
     state: anchorState(document, anchorId),
   };
@@ -200,6 +243,7 @@ export function buildBlockNode(
       : {
           callout: true,
           anchorId: callout.anchorId,
+          anchorKind: callout.kind,
           anchorQuote: callout.quote,
           anchorState: callout.state,
           calloutBranchId: callout.branchId,
@@ -255,6 +299,7 @@ export function buildBlockNode(
       callout: callout !== undefined,
       hasCallouts: laneBuilt,
       anchorId: callout?.anchorId ?? null,
+      anchorKind: callout?.kind ?? null,
       anchorQuote: callout?.quote ?? null,
       anchorState: callout?.state ?? null,
       calloutBranchId: callout?.branchId ?? null,

@@ -8,16 +8,29 @@
  * mark: the structural command applies the canonical binding.
  */
 
-import type { AnchorBinding } from '@noteforest/core';
+import type { AnchorBinding, FormulaAnchorSelector } from '@noteforest/core';
 import type { Editor } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
 import type { PMNode } from './adapter';
 
 export type TextAnchorBinding = Extract<AnchorBinding, { kind: 'text' }>;
+export type FormulaWholeBinding = Extract<AnchorBinding, { kind: 'formula'; form: 'whole' }>;
 
 export interface TextSelectionAnchor {
+  kind: 'text';
   blockId: string;
   binding: TextAnchorBinding;
 }
+
+export interface FormulaSelectionAnchor {
+  kind: 'formula';
+  blockId: string;
+  binding: FormulaWholeBinding;
+  selector: Extract<FormulaAnchorSelector, { form: 'whole' }>;
+}
+
+/** One branch source derived from the editor's current selection. */
+export type BranchSelectionAnchor = TextSelectionAnchor | FormulaSelectionAnchor;
 
 export type TextSelectionFailure =
   | 'empty'
@@ -25,22 +38,38 @@ export type TextSelectionFailure =
   | 'crosses-barrier'
   | 'crosses-cell'
   | 'no-text'
+  | 'no-formula'
   | 'no-block';
 
 export type TextSelectionResult =
-  | { ok: true; selection: TextSelectionAnchor }
+  | { ok: true; selection: BranchSelectionAnchor }
   | { ok: false; reason: TextSelectionFailure; message: string };
 
-const LEAF_TYPES = new Set(['image', 'hardBreak', 'inlineMath', 'horizontalRule']);
-const BLOCK_ATOMIC_TYPES = new Set(['mathBlock', 'codeBlock', 'image', 'horizontalRule']);
+const LEAF_TYPES = new Set([
+  'image',
+  'hardBreak',
+  'inlineMath',
+  'mathBlock',
+  'blockMath',
+  'horizontalRule',
+]);
+const BLOCK_ATOMIC_TYPES = new Set([
+  'mathBlock',
+  'blockMath',
+  'codeBlock',
+  'image',
+  'horizontalRule',
+]);
+const FORMULA_NODE_TYPES = new Set(['inlineMath', 'mathBlock', 'blockMath']);
 const TABLE_CELL_TYPES = new Set(['tableCell', 'tableHeader']);
 
 const FAILURE_MESSAGES: Record<TextSelectionFailure, string> = {
-  empty: 'Select text to branch from.',
+  empty: 'Select text or a formula to branch from.',
   'crosses-block': 'Anchors work within one block.',
   'crosses-barrier': 'Anchors cannot cross a display math, image, or code block.',
   'crosses-cell': 'Anchors work within one table cell.',
-  'no-text': 'Select text (not only a formula or image) to branch from.',
+  'no-text': 'Select text, or select a whole formula with a click.',
+  'no-formula': 'Select a whole formula with a click before branching.',
   'no-block': 'Place the caret inside a block before branching.',
 };
 
@@ -173,5 +202,109 @@ export function textSelectionAnchor(editor: Editor): TextSelectionResult {
     selection.to - bodyStart,
   );
   if (!mapped.ok) return mapped;
-  return { ok: true, selection: { blockId, binding: mapped.binding } };
+  return { ok: true, selection: { kind: 'text', blockId, binding: mapped.binding } };
+}
+
+function isFormulaNodeType(type: string): boolean {
+  return FORMULA_NODE_TYPES.has(type);
+}
+
+function findFormulaAt(
+  node: PMNode,
+  offset: number,
+  path: number[],
+): { node: PMNode; path: number[] } | null {
+  let childOffset = 0;
+  for (const [index, child] of (node.content ?? []).entries()) {
+    const size = nodeSize(child);
+    if (offset === childOffset && isFormulaNodeType(child.type)) {
+      return { node: child, path: [...path, index] };
+    }
+    if (offset > childOffset && offset < childOffset + size) {
+      return findFormulaAt(child, offset - childOffset - 1, [...path, index]);
+    }
+    childOffset += size;
+  }
+  return null;
+}
+
+/**
+ * Map an atomic formula node at `from` (relative to the block body's content)
+ * to its canonical whole-formula binding. A NodeSelection's `from` is the
+ * position immediately before the selected node, so an exact offset match is
+ * the node start. Works for a block formula and a formula nested inline.
+ */
+export function formulaBindingInBody(
+  body: PMNode,
+  from: number,
+): { ok: true; binding: FormulaWholeBinding; latex: string } | {
+  ok: false;
+  reason: TextSelectionFailure;
+  message: string;
+} {
+  const found = findFormulaAt(body, from, []);
+  if (found === null) return failure('no-formula');
+  const latex = typeof found.node.attrs?.['latex'] === 'string' ? found.node.attrs['latex'] : '';
+  return {
+    ok: true,
+    binding: { kind: 'formula', form: 'whole', nodePath: found.path },
+    latex,
+  };
+}
+
+function blockAndBodyAt(
+  editor: Editor,
+  position: number,
+): { blockId: string; body: PMNode; bodyStart: number } | null {
+  const $from = editor.state.doc.resolve(position);
+  let bodyDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'blockBody') {
+      bodyDepth = depth;
+      break;
+    }
+  }
+  if (bodyDepth < 0) return null;
+  const blockNode = $from.node(bodyDepth - 1);
+  const blockId = blockNode.attrs['blockId'];
+  if (blockNode.type.name !== 'branchBlock' || typeof blockId !== 'string') return null;
+  return {
+    blockId,
+    body: $from.node(bodyDepth).toJSON() as PMNode,
+    bodyStart: $from.before(bodyDepth) + 1,
+  };
+}
+
+/** Derive the canonical whole-formula binding for an atomic formula NodeSelection. */
+export function formulaSelectionAnchor(editor: Editor): TextSelectionResult {
+  const selection = editor.state.selection;
+  if (!(selection instanceof NodeSelection) || !isFormulaNodeType(selection.node.type.name)) {
+    return failure('no-formula');
+  }
+  const located = blockAndBodyAt(editor, selection.from);
+  if (located === null) return failure('no-block');
+  const mapped = formulaBindingInBody(located.body, selection.from - located.bodyStart);
+  if (!mapped.ok) return mapped;
+  return {
+    ok: true,
+    selection: {
+      kind: 'formula',
+      blockId: located.blockId,
+      binding: mapped.binding,
+      selector: { kind: 'formula', form: 'whole', latex: mapped.latex },
+    },
+  };
+}
+
+/**
+ * The branch source for the current editor selection. A formula NodeSelection
+ * takes the atomic whole-formula path; every text caret/range keeps the
+ * existing text path unchanged.
+ */
+export function branchSelectionAnchor(editor: Editor): TextSelectionResult {
+  const selection = editor.state.selection;
+  if (selection instanceof NodeSelection && isFormulaNodeType(selection.node.type.name)) {
+    return formulaSelectionAnchor(editor);
+  }
+  return textSelectionAnchor(editor);
 }

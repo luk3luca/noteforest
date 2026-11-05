@@ -223,7 +223,7 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
       // Clamp against the parent card, not the chapter column: a callout may
       // never overflow the card's right edge.
       const maxOffset = Math.max(contentLeft, cardWidth - GEOMETRY.childMinWidth);
-      const marks = [...card.querySelectorAll<HTMLElement>('.nf-anchor-mark[data-anchor-ids]')];
+      const marks = [...card.querySelectorAll<HTMLElement>('[data-anchor-ids]')];
       for (const row of lane.querySelectorAll<HTMLElement>('[data-callout-row="true"]')) {
         // A nested callout has its own lane; only align rows that belong here.
         if (row.closest('.nf-callout-lane') !== laneRoot) continue;
@@ -329,6 +329,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const callout = node.attrs['callout'] === true;
   const anchorQuoteText = stringAttr(node.attrs['anchorQuote']);
   const anchorStateAttr = stringAttr(node.attrs['anchorState']);
+  const anchorKind = stringAttr(node.attrs['anchorKind']);
   const anchorId = stringAttr(node.attrs['anchorId']);
   const calloutParentId = stringAttr(node.attrs['calloutParentId']);
   const calloutBranchId = stringAttr(node.attrs['calloutBranchId']);
@@ -396,7 +397,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       const cardRect = card.getBoundingClientRect();
       const scale = card.offsetWidth > 0 ? cardRect.width / card.offsetWidth : 1;
       const factor = scale > 0 ? scale : 1;
-      const marks = [...card.querySelectorAll<HTMLElement>('.nf-anchor-mark[data-anchor-ids]')];
+      const marks = [...card.querySelectorAll<HTMLElement>('[data-anchor-ids]')];
       let missing = 0;
       for (const button of layer.querySelectorAll<HTMLElement>('[data-anchor-marker-id]')) {
         const id = button.dataset['anchorMarkerId'] ?? '';
@@ -449,7 +450,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       ui.selectedAnchor !== null && ui.selectedAnchor.blockId === blockId
         ? ui.selectedAnchor.anchorId
         : null;
-    for (const mark of card.querySelectorAll<HTMLElement>('.nf-anchor-mark[data-anchor-ids]')) {
+    for (const mark of card.querySelectorAll<HTMLElement>('[data-anchor-ids]')) {
       const ids = (mark.dataset['anchorIds'] ?? '').split(',');
       if (selected !== null && ids.includes(selected)) {
         mark.setAttribute('data-anchor-selected', 'true');
@@ -611,11 +612,18 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             className="nf-callout-quote"
             data-anchor-quote={anchorQuoteText}
             data-anchor-state={anchorStateAttr}
+            data-anchor-kind={anchorKind || undefined}
             data-anchor-selected={branchSelected ? 'true' : 'false'}
-            aria-label={`Select anchor “${anchorQuoteText || 'anchor'}”, ${calloutAnchorCount} ${
-              calloutAnchorCount === 1 ? 'branch' : 'branches'
-            }`}
-            title={anchorQuoteText.length > 0 ? `Anchor: “${anchorQuoteText}”` : 'Anchored branch'}
+            aria-label={`Select ${anchorKind === 'formula' ? 'formula ' : ''}anchor “${
+              anchorQuoteText || 'anchor'
+            }”, ${calloutAnchorCount} ${calloutAnchorCount === 1 ? 'branch' : 'branches'}`}
+            title={
+              anchorKind === 'formula'
+                ? `Formula anchor: “${anchorQuoteText}”`
+                : anchorQuoteText.length > 0
+                  ? `Anchor: “${anchorQuoteText}”`
+                  : 'Anchored branch'
+            }
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -625,7 +633,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             }}
           >
             <span className="nf-callout-quote-glyph" aria-hidden="true">
-              “
+              {anchorKind === 'formula' ? 'Σ' : '“'}
             </span>
             <span className="nf-callout-quote-text">{anchorQuoteText || 'anchor'}</span>
           </button>

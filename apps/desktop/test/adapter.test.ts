@@ -113,6 +113,7 @@ describe('core <-> ProseMirror adapter', () => {
         blockId: 'C',
         parentId: 'A',
         anchorId: 'an1',
+        kind: 'text',
         quote: 'Alpha',
         state: 'resolved',
       },
@@ -132,6 +133,7 @@ describe('core <-> ProseMirror adapter', () => {
     expect(callout?.type).toBe('branchBlock');
     expect(callout?.attrs?.['callout']).toBe(true);
     expect(callout?.attrs?.['anchorId']).toBe('an1');
+    expect(callout?.attrs?.['anchorKind']).toBe('text');
     expect(callout?.attrs?.['anchorQuote']).toBe('Alpha');
     expect(callout?.attrs?.['anchorState']).toBe('resolved');
     expect(callout?.attrs?.['calloutParentId']).toBe('A');

@@ -1616,6 +1616,44 @@ button:disabled {
   text-decoration-color: var(--accent);
 }
 
+/* Whole-formula anchor (M3c1): the math node view carries data-anchor-ids.
+   The dot is durable while the formula has at least one anchored branch. */
+.nf-formula-anchor {
+  position: relative;
+}
+
+.nf-formula-anchor[data-anchor-ids]::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.nf-formula-anchor[data-type="block-math"][data-anchor-ids]::after {
+  right: 6px;
+  top: 6px;
+}
+
+.nf-formula-anchor[data-type="inline-math"][data-anchor-ids]::after {
+  right: -5px;
+  top: -2px;
+}
+
+.nf-formula-anchor[data-anchor-selected="true"] {
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  border-radius: 3px;
+}
+
+.nf-formula-anchor.ProseMirror-selectednode {
+  outline: 1px dashed var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 /* Marker buttons replace the decorative dot on the selected block only. */
 .nf-anchor-markers {
   position: absolute;
@@ -1659,7 +1697,8 @@ button:disabled {
   outline-offset: 1px;
 }
 
-.nf-block-body[data-anchor-markers="true"] .nf-anchor-mark[data-anchor-ids]::after {
+.nf-block-body[data-anchor-markers="true"] .nf-anchor-mark[data-anchor-ids]::after,
+.nf-block-body[data-anchor-markers="true"] .nf-formula-anchor[data-anchor-ids]::after {
   visibility: hidden;
 }
 
