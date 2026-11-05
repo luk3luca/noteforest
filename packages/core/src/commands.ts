@@ -44,6 +44,7 @@ import {
   directChildBranches,
   findTopLevelPlacement,
   primaryChildBranches,
+  primaryParentBranch,
   subtreeBlockIds,
   topLevelAncestorId,
 } from './structure.js';
@@ -330,6 +331,34 @@ export interface BranchRelabelCommand {
 }
 
 /**
+ * Promote a reference to the target's primary home and demote the old primary
+ * edge to a reference (spec §5.3, design §7.4). Both branch IDs survive; the
+ * target's subtree moves under the new parent.
+ */
+export interface BranchMakeHomeCommand {
+  type: 'branch.makeHome';
+  branchId: string;
+}
+
+/**
+ * Promote a reference to primary and retire the target's old primary edge.
+ * The target may be a root or already have a primary parent.
+ */
+export interface BranchMoveHereCommand {
+  type: 'branch.moveHere';
+  branchId: string;
+}
+
+/**
+ * Convert a primary edge to a reference. The target becomes a top-level block
+ * after the former top-level block of the source block's chapter.
+ */
+export interface BranchDemoteCommand {
+  type: 'branch.demote';
+  branchId: string;
+}
+
+/**
  * Exact record-level snapshot for structural commands that no ordinary command
  * can reverse with the same identity.
  *
@@ -402,6 +431,9 @@ export type DocumentCommand =
   | BranchDeleteCommand
   | BranchReorderCommand
   | BranchRelabelCommand
+  | BranchMakeHomeCommand
+  | BranchMoveHereCommand
+  | BranchDemoteCommand
   | StructureRestoreCommand;
 
 export interface ExecuteCommandOptions {
@@ -806,6 +838,100 @@ function appendBranchesToPort(
     document.branches[branch.id] = branch;
     changes.branch(branch.id);
   }
+}
+
+/**
+ * Order key that appends one branch to the end of a `(port, role)` list. The
+ * branch being re-roled is not yet in that list, so callers must compute the
+ * key before changing its role.
+ */
+function appendOrderKeyAtPort(
+  document: Document,
+  port: BranchPort,
+  role: BranchRole,
+  changes: ChangeSet,
+): string {
+  let existing = portBranches(document, port, role);
+  if (!portOrdersAreSane(existing)) {
+    renormalizePortOrders(document, port, role, changes);
+    existing = portBranches(document, port, role);
+  }
+  const last = existing.length > 0 ? existing[existing.length - 1]?.order ?? null : null;
+  const key = orderKeysAfter(last, 1)[0];
+  if (key === undefined) reject('internal-invariant', 'could not generate branch order');
+  return key;
+}
+
+/**
+ * Role-independent exact edge duplicate (OD-3/A8). The transitions must not
+ * create a second record for the same source port and target; a legacy
+ * document may still carry such a pair because A8 is a load warning.
+ */
+function duplicatePairBranch(
+  document: Document,
+  branch: Branch,
+  ignore: ReadonlySet<string>,
+): Branch | undefined {
+  return Object.values(document.branches).find(
+    (candidate) =>
+      candidate.id !== branch.id &&
+      !ignore.has(candidate.id) &&
+      candidate.targetBlockId === branch.targetBlockId &&
+      samePort(candidate.source, portOf(branch.source)),
+  );
+}
+
+function sameExactPair(left: Branch, right: Branch): boolean {
+  return (
+    left.targetBlockId === right.targetBlockId &&
+    samePort(left.source, portOf(right.source))
+  );
+}
+
+function assertPairIsUnique(
+  document: Document,
+  branch: Branch,
+  ignore: ReadonlySet<string>,
+): void {
+  const duplicate = duplicatePairBranch(document, branch, ignore);
+  if (duplicate !== undefined) {
+    reject(
+      'invalid-placement',
+      `an edge from this source to the target already exists (branch "${duplicate.id}"); changing roles would keep a duplicate edge`,
+    );
+  }
+}
+
+/**
+ * Guard shared by both promotions: the new primary source must not sit inside
+ * the target's primary subtree, or the primary graph would contain a cycle.
+ */
+function assertPromotionAcyclic(document: Document, branch: Branch): void {
+  if (subtreeBlockIds(document, branch.targetBlockId).includes(branch.source.blockId)) {
+    reject(
+      'cycle',
+      'promoting this reference would create a primary cycle: the source is inside the target’s primary subtree',
+    );
+  }
+}
+
+/**
+ * Preconditions for makeHome/moveHere. The caller must already know the
+ * target's old primary edge, if any. Nothing is mutated here.
+ */
+function assertPromotableReference(
+  document: Document,
+  branch: Branch,
+  oldPrimary: Branch | undefined,
+): void {
+  if (branch.role !== 'reference') {
+    reject('invalid-command', 'only a reference branch can be promoted to primary');
+  }
+  blockOrFail(document, branch.targetBlockId);
+  assertPromotionAcyclic(document, branch);
+  const ignore = new Set<string>([branch.id]);
+  if (oldPrimary !== undefined) ignore.add(oldPrimary.id);
+  assertPairIsUnique(document, branch, ignore);
 }
 
 function createBranchRecord(
@@ -2630,6 +2756,172 @@ function applyToClone(
       return { type: 'branch.relabel', branchId: branch.id, label: previous };
     }
 
+    case 'branch.makeHome': {
+      assertId(command.branchId, 'branchId');
+      const branch = branchOrFail(document, command.branchId);
+      blockOrFail(document, branch.targetBlockId);
+      const oldPrimary = primaryParentBranch(document, branch.targetBlockId);
+      if (oldPrimary === undefined) {
+        // OD-7: a root has no primary parent to demote. Make home would be
+        // ambiguous; Move here is the explicit command for this case.
+        reject(
+          'invalid-placement',
+          'make home requires the target to have a primary parent; the target is already a root, use Move here',
+        );
+      }
+      if (sameExactPair(branch, oldPrimary)) {
+        // Legacy drift: the same source-target pair exists in both roles.
+        // Swapping them would preserve the duplicate, so reject before mutation.
+        reject(
+          'invalid-placement',
+          'the same source and target already has a primary and a reference edge; resolve the duplicate first',
+        );
+      }
+      assertPromotableReference(document, branch, oldPrimary);
+      assertPairIsUnique(document, oldPrimary, new Set([branch.id, oldPrimary.id]));
+
+      const targetChapterBefore = chapterIdForBlock(document, branch.targetBlockId);
+      const sourceChapterBefore = chapterIdForBlock(document, branch.source.blockId);
+
+      // Promote first: compute the order key while the branch is still a
+      // reference, so it is appended at the end of the source's primary list.
+      const promotedOrder = appendOrderKeyAtPort(
+        document,
+        portOf(branch.source),
+        'primary',
+        changes,
+      );
+      branch.role = 'primary';
+      branch.order = promotedOrder;
+      document.branches[branch.id] = branch;
+      changes.branch(branch.id);
+
+      const demotedOrder = appendOrderKeyAtPort(
+        document,
+        portOf(oldPrimary.source),
+        'reference',
+        changes,
+      );
+      oldPrimary.role = 'reference';
+      oldPrimary.order = demotedOrder;
+      document.branches[oldPrimary.id] = oldPrimary;
+      changes.branch(oldPrimary.id);
+
+      changes.block(branch.targetBlockId);
+      changes.block(branch.source.blockId);
+      changes.block(oldPrimary.source.blockId);
+      for (const chapterId of [
+        targetChapterBefore,
+        sourceChapterBefore,
+        chapterIdForBlock(document, branch.targetBlockId),
+      ]) {
+        if (chapterId !== null) changes.chapter(chapterId);
+      }
+      // Exact snapshot inverse: both branch records, roles, order keys and any
+      // chapter-slot change are restored verbatim by `structure.restore`.
+      return null;
+    }
+
+    case 'branch.moveHere': {
+      assertId(command.branchId, 'branchId');
+      const branch = branchOrFail(document, command.branchId);
+      blockOrFail(document, branch.targetBlockId);
+      const oldPrimary = primaryParentBranch(document, branch.targetBlockId);
+      assertPromotableReference(document, branch, oldPrimary);
+
+      let rootChapter: Chapter | null = null;
+      let rootIndex = -1;
+      if (oldPrimary === undefined) {
+        // The target is a root: attaching it to the new source removes its
+        // chapter slot. Never strand the chapter with zero top-level blocks.
+        const placement = findTopLevelPlacement(document, branch.targetBlockId);
+        if (placement === null) {
+          reject('internal-invariant', 'target root is not assigned to a chapter');
+        }
+        rootChapter = chapterOrFail(document, placement.chapterId);
+        if (rootChapter.topLevelBlockIds.length === 1) {
+          rejectEmptyChapter(rootChapter, 'move');
+        }
+        rootIndex = placement.index;
+      }
+
+      const targetChapterBefore = chapterIdForBlock(document, branch.targetBlockId);
+      const sourceChapterBefore = chapterIdForBlock(document, branch.source.blockId);
+
+      if (oldPrimary !== undefined) {
+        delete document.branches[oldPrimary.id];
+        changes.branch(oldPrimary.id);
+        changes.block(oldPrimary.source.blockId);
+      }
+      if (rootChapter !== null) {
+        rootChapter.topLevelBlockIds.splice(rootIndex, 1);
+        changes.chapter(rootChapter.id);
+      }
+      // Append after removing the old primary so the promoted branch lands at
+      // the end of the source port's primary list, never reusing a stale key.
+      branch.role = 'primary';
+      branch.order = appendOrderKeyAtPort(document, portOf(branch.source), 'primary', changes);
+      document.branches[branch.id] = branch;
+      changes.branch(branch.id);
+      changes.block(branch.targetBlockId);
+      changes.block(branch.source.blockId);
+      for (const chapterId of [
+        targetChapterBefore,
+        sourceChapterBefore,
+        chapterIdForBlock(document, branch.targetBlockId),
+      ]) {
+        if (chapterId !== null) changes.chapter(chapterId);
+      }
+      // Exact snapshot restores the retired old primary branch with its ID,
+      // source, order and the target's original chapter slot.
+      return null;
+    }
+
+    case 'branch.demote': {
+      assertId(command.branchId, 'branchId');
+      const branch = branchOrFail(document, command.branchId);
+      if (branch.role !== 'primary') {
+        reject('invalid-command', 'only a primary branch can be demoted to reference');
+      }
+      blockOrFail(document, branch.targetBlockId);
+      if (findTopLevelPlacement(document, branch.targetBlockId) !== null) {
+        reject(
+          'internal-invariant',
+          'a top-level block already has no primary parent; it cannot be demoted',
+        );
+      }
+      assertPairIsUnique(document, branch, new Set([branch.id]));
+
+      const sourceRoot = topLevelAncestorId(document, branch.source.blockId);
+      const placement = findTopLevelPlacement(document, sourceRoot);
+      if (placement === null) {
+        reject('internal-invariant', 'source block has no chapter assignment');
+      }
+      const chapter = chapterOrFail(document, placement.chapterId);
+      const targetChapterBefore = chapterIdForBlock(document, branch.targetBlockId);
+
+      branch.role = 'reference';
+      branch.order = appendOrderKeyAtPort(
+        document,
+        portOf(branch.source),
+        'reference',
+        changes,
+      );
+      document.branches[branch.id] = branch;
+      changes.branch(branch.id);
+
+      // The target becomes a root directly after its former top-level
+      // ancestor, keeping its subtree intact.
+      chapter.topLevelBlockIds.splice(placement.index + 1, 0, branch.targetBlockId);
+      changes.chapter(chapter.id);
+      changes.block(branch.targetBlockId);
+      changes.block(branch.source.blockId);
+      changes.block(sourceRoot);
+      if (targetChapterBefore !== null) changes.chapter(targetChapterBefore);
+      // Exact snapshot restores the primary role, order key and chapter slot.
+      return null;
+    }
+
     case 'structure.restore': {
       return restoreRecords(document, command, changes);
     }
@@ -2893,6 +3185,9 @@ function captureRestoreCommand(
     command.type === 'block.move' ||
     command.type === 'branch.create' ||
     command.type === 'branch.createFromSelection' ||
+    command.type === 'branch.makeHome' ||
+    command.type === 'branch.moveHere' ||
+    command.type === 'branch.demote' ||
     command.type === 'anchor.create' ||
     command.type === 'anchor.repair' ||
     command.type === 'anchor.attachToBlock' ||
@@ -3134,15 +3429,19 @@ function restoreRecords(
     }
     const existing = own(document.branches, branch.id);
     if (existing !== undefined) {
-      if (existing.targetBlockId !== branch.targetBlockId || existing.role !== branch.role) {
+      // The record identity is the branch ID plus its target. Role transitions
+      // (`branch.makeHome`, `moveHere`, `demote`) and in-place repoints
+      // (`block.move`, `block.delete promote`) overwrite the same record, so
+      // the role and source may differ from the restored snapshot.
+      if (existing.targetBlockId !== branch.targetBlockId) {
         reject(
           'duplicate-id',
           `cannot restore branch "${branch.id}": a different branch already uses the ID`,
         );
       }
       // `block.delete promote` and `block.move` repoint the same branch record
-      // in place; the inverse repoints it back. A matching target and role
-      // identify that record, so a different source is the repoint itself.
+      // in place; the inverse repoints it back. A matching target identifies
+      // that record, so a different source is the repoint itself.
     } else {
       if (usedIds.has(branch.id)) {
         reject('duplicate-id', `cannot restore branch "${branch.id}": the ID is already used`);

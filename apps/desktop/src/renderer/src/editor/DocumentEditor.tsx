@@ -27,7 +27,7 @@ import { clearEditorBindings, getDragBlockId, setDragBlockId, setEditorBindings,
 import { setEditorSelectedBlock } from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
-import { createChapter, openBlockMenu, openChapterMenu, requestBlockDelete } from '../actions';
+import { createChapter, openBlockMenu, openChapterMenu, openReferenceMenu, requestBlockDelete } from '../actions';
 import { showsChapterCanvas } from '../lib/chapters';
 import { recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
@@ -206,6 +206,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     const bindings: EditorBindings = {
       runtime,
       openBlockMenu,
+      openReferenceMenu,
       openChapterMenu,
       openLinkDialog: () => {
         const href = String(editor.getAttributes('link')['href'] ?? '');

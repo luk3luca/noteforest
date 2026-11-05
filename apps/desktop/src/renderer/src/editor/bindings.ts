@@ -9,6 +9,7 @@ export interface MenuAnchor {
 export interface EditorBindings {
   runtime: DocumentRuntime;
   openBlockMenu: (blockId: string, anchor: MenuAnchor) => void;
+  openReferenceMenu: (branchId: string, anchor: MenuAnchor) => void;
   openChapterMenu: (chapterId: string, anchor: MenuAnchor) => void;
   openLinkDialog: () => void;
   focusRelative: (blockId: string, direction: -1 | 1) => void;
