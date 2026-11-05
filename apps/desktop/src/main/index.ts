@@ -47,6 +47,8 @@ import { installE2EDialogGuard } from './dialog-guard.js';
 
 const isDev = Boolean(process.env['ELECTRON_RENDERER_URL']);
 const isE2E = process.env['NOTEFOREST_E2E'] === '1';
+/** E2E windows stay hidden by default so a test run never steals OS focus. */
+const isE2EHidden = isE2E && process.env['NOTEFOREST_E2E_HIDDEN'] !== '0';
 if (isE2E) installE2EDialogGuard(dialog);
 let mainWindow: BrowserWindow | null = null;
 let allowClose = false;
@@ -217,6 +219,9 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
 }
 
 function createMainWindow(): void {
+  // Hidden E2E mode: no window, no dock icon, no focus stealing. Playwright
+  // still drives the renderer through CDP.
+  if (isE2EHidden && process.platform === 'darwin') app.dock?.hide();
   // A new window always starts with the close guard armed. Resetting it in
   // `closed` instead would re-arm the M2 quit bug: after the last window is
   // gone, `before-quit` would cancel every quit with no window left to ask.
@@ -235,7 +240,9 @@ function createMainWindow(): void {
   });
   harden(mainWindow.webContents);
   attachTextContextMenu(mainWindow);
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.once('ready-to-show', () => {
+    if (!isE2EHidden) mainWindow?.show();
+  });
   mainWindow.on('close', (event) => {
     if (allowClose) return;
     event.preventDefault();
