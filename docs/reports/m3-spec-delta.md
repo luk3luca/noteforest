@@ -5,8 +5,8 @@
 **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-8c581762`  
 **Branch:** `t3/m3-spec-delta-docs`  
 **Base:** `main` at `c34f928` (docs: approve M3 design and start spec/UX/ADR delta)  
-**Docs commit:** `b988668` (docs: apply approved M3 spec/UX delta and ADR-0005); this report is a
-separate follow-up commit.  
+**Commits:** `b988668` (docs delta), `235f8b2` (report), `ca45b89` (OD-4 citation), `0498675`
+(approved OD cross-reference note); this report update is the final follow-up commit.  
 **Spec version:** `docs/spec.md` **v0.4.5**  
 **UX version:** `docs/ux.md` **v1.3**  
 **ADR:** `docs/adr/0005-anchor-binding-and-identity.md` (Accepted). `docs/adr/0006-reference-edges.md`
