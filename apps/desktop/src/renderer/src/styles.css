@@ -1674,7 +1674,10 @@ button:disabled {
   justify-content: center;
   min-width: 16px;
   height: 16px;
-  padding: 0 2px;
+  /* No horizontal padding: the port box stays the same 16 px width as the
+     add-child control below it, so both share one center line. A multi-digit
+     count still grows the box to the left from the fixed right edge. */
+  padding: 0;
   border-radius: 999px;
   color: var(--text-tertiary);
   opacity: 0;

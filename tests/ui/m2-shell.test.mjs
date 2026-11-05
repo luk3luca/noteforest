@@ -20,6 +20,50 @@ async function launch(overrides = {}) {
   page = h.page;
 }
 
+/** Branch-port and add-child geometry for every visible block that has children. */
+async function portGeometry() {
+  return page.evaluate(() => {
+    const scope = document.querySelector('.nf-editor[data-active="true"]');
+    const rows = [];
+    for (const card of scope?.querySelectorAll('[data-block-card]') ?? []) {
+      if (card.getClientRects().length === 0) continue;
+      const port = card.querySelector('[data-branch-port]');
+      const add = card.querySelector('[data-add-child]');
+      if (port === null || add === null) continue;
+      const cardRect = card.getBoundingClientRect();
+      const portRect = port.getBoundingClientRect();
+      const addRect = add.getBoundingClientRect();
+      const dot = port.querySelector('.nf-port-dot');
+      const dotRect =
+        dot === null || dot.getClientRects().length === 0 ? null : dot.getBoundingClientRect();
+      rows.push({
+        id: card.getAttribute('data-block-card'),
+        collapsed: port.getAttribute('data-collapsed') === 'true',
+        portCenter: (portRect.left + portRect.right) / 2,
+        addCenter: (addRect.left + addRect.right) / 2,
+        portRight: portRect.right,
+        portWidth: portRect.width,
+        dotLeft: dotRect?.left ?? null,
+        dotRight: dotRect?.right ?? null,
+        dotWidth: dotRect?.width ?? null,
+        cardRight: cardRect.right,
+      });
+    }
+    return rows;
+  });
+}
+
+/** The port box and the add-child control share one vertical center line. */
+function assertPortCentered(rows, label) {
+  assert.ok(rows.length > 0, `${label}: at least one block has a branch port`);
+  for (const row of rows) {
+    assert.ok(
+      Math.abs(row.portCenter - row.addCenter) <= 0.5,
+      `${label}: branch-port center ${row.portCenter} vs add-child center ${row.addCenter} (${row.id})`,
+    );
+  }
+}
+
 describe('NoteForest M2 shell, layout, and accessibility', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -213,6 +257,8 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     }
     await h.waitLayout({ blocks: 4, arrows: 3 });
     const four = await h.layoutSnapshot();
+    const chainRootId = four.cards.find((card) => card.depth === 0)?.id;
+    assert.ok(chainRootId !== undefined, 'the chain has one top-level root');
     assert.equal(four.cards.length, 4, 'four empty blocks');
     assert.equal(four.overflow, 0, `4 levels fit at 1440 (overflow ${four.overflow})`);
     assert.deepEqual(four.depths.map((depth) => depth.depth), [0, 1, 2, 3]);
@@ -229,6 +275,61 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     for (const depth of four.depths.slice(1)) {
       assert.ok(Math.abs(depth.width - 144) <= 1, 'empty child uses the 144 px minimum');
     }
+
+    // The branch port (collapse chevron / child-count bubble) and the add-child
+    // control share one center line: the port has no horizontal padding, so its
+    // 16 px box matches the 16 px control below it.
+    const expandedPorts = await portGeometry();
+    assert.equal(expandedPorts.length, 3, 'three parents expose a branch port');
+    assert.ok(
+      expandedPorts.every((row) => row.collapsed === false),
+      'the chain starts expanded',
+    );
+    assert.ok(
+      expandedPorts.every((row) => Math.abs(row.portWidth - 16) <= 0.5),
+      `expanded ports are 16 px (${expandedPorts.map((row) => row.portWidth).join(', ')})`,
+    );
+    assertPortCentered(expandedPorts, 'expanded');
+
+    // Collapse the deepest parent: the count bubble replaces the chevron in the
+    // same 16 px box.
+    const deepestParent = page.locator(`[data-block-card="${expandedPorts.at(-1).id}"]`);
+    await deepestParent.locator('[data-branch-port]').click();
+    await page.waitForFunction(
+      (id) =>
+        document
+          .querySelector(`[data-branch-port="${id}"]`)
+          ?.getAttribute('data-collapsed') === 'true',
+      expandedPorts.at(-1).id,
+      { timeout: 10000 },
+    );
+    await h.waitLayout({ blocks: 4, arrows: 2 });
+    const collapsedPorts = await portGeometry();
+    assertPortCentered(collapsedPorts, 'collapsed');
+    const collapsedPort = collapsedPorts.find((row) => row.collapsed);
+    assert.ok(collapsedPort !== undefined, 'one port is collapsed');
+    assert.ok(
+      Math.abs(collapsedPort.dotWidth - 16) <= 0.5,
+      `a single-digit bubble is 16 px wide (${collapsedPort.dotWidth})`,
+    );
+    assert.ok(
+      Math.abs(collapsedPort.dotRight - collapsedPort.addCenter - 8) <= 0.5,
+      `the bubble right edge stays on the add-child right edge (${collapsedPort.dotRight} vs ${collapsedPort.addCenter + 8})`,
+    );
+    assert.ok(
+      collapsedPort.dotLeft >= collapsedPort.cardRight - 10 - 0.5,
+      `the bubble does not overlap the card content edge (${collapsedPort.dotLeft} vs ${collapsedPort.cardRight - 10})`,
+    );
+    await deepestParent.locator('[data-branch-port]').click();
+    await page.waitForFunction(
+      (id) =>
+        document
+          .querySelector(`[data-branch-port="${id}"]`)
+          ?.getAttribute('data-collapsed') === 'false',
+      expandedPorts.at(-1).id,
+      { timeout: 10000 },
+    );
+    await h.waitLayout({ blocks: 4, arrows: 3 });
 
     // A second, wider parent places its child at its own right edge, not on a
     // shared depth-1 column.
@@ -303,6 +404,45 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     );
     const scrolled = await h.layoutSnapshot();
     assert.ok(scrolled.scrollLeft > 0, 'the editor scrolls horizontally');
+
+    // A two-digit count keeps the fixed right edge and grows left.
+    const chainRoot = page.locator(`[data-block-card="${chainRootId}"]`);
+    for (let index = 0; index < 9; index += 1) {
+      await chainRoot.locator('[data-add-child]').click();
+      await h.waitBlockCount(11 + index);
+    }
+    await chainRoot.locator('[data-branch-port]').click();
+    await page.waitForFunction(
+      (id) =>
+        document
+          .querySelector(`[data-branch-port="${id}"]`)
+          ?.getAttribute('data-collapsed') === 'true',
+      chainRootId,
+      { timeout: 10000 },
+    );
+    const twoDigit = (await portGeometry()).find((row) => row.id === chainRootId);
+    assert.ok(twoDigit !== undefined && twoDigit.collapsed, 'the root is collapsed with ten children');
+    assert.ok(
+      twoDigit.dotWidth > 16.5,
+      `a two-digit bubble is wider than the 16 px minimum (${twoDigit.dotWidth})`,
+    );
+    assert.ok(
+      Math.abs(twoDigit.dotRight - (twoDigit.addCenter + 8)) <= 0.5,
+      `the two-digit bubble keeps the fixed right edge (${twoDigit.dotRight} vs ${twoDigit.addCenter + 8})`,
+    );
+    assert.ok(
+      twoDigit.dotLeft < twoDigit.portRight - 16.5,
+      `the two-digit bubble grows to the left (${twoDigit.dotLeft} vs ${twoDigit.portRight - 16})`,
+    );
+    await chainRoot.locator('[data-branch-port]').click();
+    await page.waitForFunction(
+      (id) =>
+        document
+          .querySelector(`[data-branch-port="${id}"]`)
+          ?.getAttribute('data-collapsed') === 'false',
+      chainRootId,
+      { timeout: 10000 },
+    );
     await h.quit();
   });
 });
