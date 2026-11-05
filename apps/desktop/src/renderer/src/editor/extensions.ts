@@ -125,6 +125,23 @@ function extendFormulaNode<T extends Node>(extension: T): T {
 }
 
 /**
+ * M3c3a: code anchors bind through `attrs.anchorIds` on the codeBlock node
+ * (ADR-0005 §1). The codeBlock keeps its native editable `<pre><code>` render;
+ * only the atomic attribute and the code DOM marker source are added.
+ */
+function extendCodeBlock<T extends Node>(extension: T): T {
+  return extension.extend({
+    addAttributes() {
+      const parent = (this.parent?.() ?? {}) as Record<string, unknown>;
+      return {
+        ...parent,
+        anchorIds: formulaAnchorIdsAttr(),
+      };
+    },
+  }) as T;
+}
+
+/**
  * Text-anchor binding mark (ADR-0005 §1).
  *
  * One mark per text node carries the sorted `anchorIds` array; overlapping
@@ -345,7 +362,11 @@ export function createEditorExtensions() {
       linkOnPaste: true,
       HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
     }),
-    CodeBlockLowlight.configure({ lowlight, defaultLanguage: 'plaintext' }),
+    extendCodeBlock(CodeBlockLowlight).configure({
+      lowlight,
+      defaultLanguage: 'plaintext',
+      HTMLAttributes: { 'data-anchor-kind': 'code' },
+    }),
     Image.configure({ allowBase64: true, inline: false }),
     TableKit.configure({ table: { resizable: false } }),
     extendFormulaNode(BlockMath).configure({

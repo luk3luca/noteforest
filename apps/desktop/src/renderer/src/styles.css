@@ -1693,6 +1693,54 @@ button:disabled {
   visibility: hidden;
 }
 
+/* Code range anchor (M3c3a): subtle per-line highlight and a gutter dot at the
+   first selected line. The layer never receives pointer events, so text
+   selection inside the code block stays native. */
+.nf-code-anchor-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.nf-code-anchor-range {
+  position: absolute;
+  border-radius: 2px;
+  background: rgba(155, 183, 212, 0.14);
+  box-shadow: inset 0 -1px 0 rgba(155, 183, 212, 0.8);
+  pointer-events: none;
+}
+
+.nf-code-anchor-range[data-anchor-selected="true"] {
+  background: rgba(155, 183, 212, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(155, 183, 212, 0.9);
+}
+
+.nf-code-anchor-marker {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--surface-1);
+  pointer-events: none;
+}
+
+.nf-code-anchor-marker[data-anchor-selected="true"] {
+  box-shadow:
+    0 0 0 1px var(--surface-1),
+    0 0 0 3px var(--accent-soft);
+}
+
+.nf-block-prose pre[data-anchor-kind="code"] {
+  position: relative;
+}
+
+.nf-block-prose pre[data-anchor-kind="code"][data-anchor-selected="true"] {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+}
+
 /* Marker buttons replace the decorative dot on the selected block only. */
 .nf-anchor-markers {
   position: absolute;

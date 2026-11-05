@@ -10,17 +10,20 @@
 
 import type {
   AnchorBinding,
+  CodeAnchorSelector,
   FormulaAnchorSelector,
   FormulaTermAnchorSelector,
 } from '@noteforest/core';
+import { codeAnchorSelectorForBinding } from '@noteforest/core';
 import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
-import type { PMNode } from './adapter';
+import { pmToContent, type PMNode } from './adapter';
 
 export type TextAnchorBinding = Extract<AnchorBinding, { kind: 'text' }>;
 export type FormulaWholeBinding = Extract<AnchorBinding, { kind: 'formula'; form: 'whole' }>;
 export type FormulaTermBinding = Extract<AnchorBinding, { kind: 'formula'; form: 'term' }>;
 export type FormulaSelectionBinding = FormulaWholeBinding | FormulaTermBinding;
+export type CodeSelectionBinding = Extract<AnchorBinding, { kind: 'code' }>;
 
 export interface TextSelectionAnchor {
   kind: 'text';
@@ -35,8 +38,18 @@ export interface FormulaSelectionAnchor {
   selector: FormulaAnchorSelector;
 }
 
+export interface CodeSelectionAnchor {
+  kind: 'code';
+  blockId: string;
+  binding: CodeSelectionBinding;
+  selector: CodeAnchorSelector;
+}
+
 /** One branch source derived from the editor's current selection. */
-export type BranchSelectionAnchor = TextSelectionAnchor | FormulaSelectionAnchor;
+export type BranchSelectionAnchor =
+  | TextSelectionAnchor
+  | FormulaSelectionAnchor
+  | CodeSelectionAnchor;
 
 export type TextSelectionFailure =
   | 'empty'
@@ -45,6 +58,7 @@ export type TextSelectionFailure =
   | 'crosses-cell'
   | 'no-text'
   | 'no-formula'
+  | 'no-code'
   | 'no-block';
 
 export type TextSelectionResult =
@@ -76,6 +90,7 @@ const FAILURE_MESSAGES: Record<TextSelectionFailure, string> = {
   'crosses-cell': 'Anchors work within one table cell.',
   'no-text': 'Select text, or select a whole formula with a click.',
   'no-formula': 'Select a whole formula with a click before branching.',
+  'no-code': 'Place the caret inside a code block before branching from code.',
   'no-block': 'Place the caret inside a block before branching.',
 };
 
@@ -360,7 +375,7 @@ export function formulaTermBinding(
 function blockAndBodyAt(
   editor: Editor,
   position: number,
-): { blockId: string; body: PMNode; bodyStart: number } | null {
+): { blockId: string; body: PMNode; bodyStart: number; bodyDepth: number } | null {
   const $from = editor.state.doc.resolve(position);
   let bodyDepth = -1;
   for (let depth = $from.depth; depth > 0; depth -= 1) {
@@ -377,6 +392,7 @@ function blockAndBodyAt(
     blockId,
     body: $from.node(bodyDepth).toJSON() as PMNode,
     bodyStart: $from.before(bodyDepth) + 1,
+    bodyDepth,
   };
 }
 
@@ -425,14 +441,126 @@ export function formulaSelectionAnchor(editor: Editor): TextSelectionResult {
 }
 
 /**
+ * Map a selection range inside a code block to a canonical code binding and
+ * selector. `nodePath` is relative to the block body's content root; offsets
+ * are Unicode code points in the code text. The helper is pure so the editor
+ * bridge and unit tests share one mapping.
+ */
+export function codeSelectionInBody(
+  body: PMNode,
+  nodePath: readonly number[],
+  startUtf16: number,
+  endUtf16: number,
+):
+  | { ok: true; binding: CodeSelectionBinding; selector: CodeAnchorSelector }
+  | { ok: false; reason: TextSelectionFailure; message: string } {
+  if (endUtf16 <= startUtf16) return failure('empty');
+  const node = nodeAtPath(body, nodePath);
+  if (node === null || node.type !== 'codeBlock') return failure('no-code');
+  const text = pmText(node);
+  const startOffset = codePointOffset(text, Math.max(0, startUtf16));
+  const endOffset = codePointOffset(text, Math.min(text.length, endUtf16));
+  if (endOffset <= startOffset) return failure('empty');
+  const binding: CodeSelectionBinding = {
+    kind: 'code',
+    nodePath: [...nodePath],
+    startOffset,
+    endOffset,
+  };
+  const selector = codeAnchorSelectorForBinding(pmToContent(body), binding);
+  if (selector === null) return failure('no-code');
+  return { ok: true, binding, selector };
+}
+
+function nodeAtPath(node: PMNode, path: readonly number[]): PMNode | null {
+  let current: PMNode | undefined = node;
+  for (const index of path) {
+    current = current.content?.[index];
+    if (current === undefined) return null;
+  }
+  return current ?? null;
+}
+
+function pmText(node: PMNode): string {
+  if (typeof node.text === 'string') return node.text;
+  return (node.content ?? []).map(pmText).join('');
+}
+
+/**
+ * Derive the canonical code binding for a selection inside one code block.
+ *
+ * Returns null when the selection is not inside a code block so the caller can
+ * keep the existing text path unchanged. A selection that crosses the code
+ * block boundary is rejected rather than treated as text.
+ */
+export function codeSelectionAnchor(editor: Editor): TextSelectionResult | null {
+  const selection = editor.state.selection;
+  const nodeSelection =
+    selection instanceof NodeSelection && selection.node.type.name === 'codeBlock';
+  if (!nodeSelection && selection.empty) return null;
+
+  const anchorPosition = nodeSelection ? selection.from + 1 : selection.from;
+  const $from = editor.state.doc.resolve(anchorPosition);
+  let codeDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'codeBlock') {
+      codeDepth = depth;
+      break;
+    }
+  }
+  if (codeDepth < 0) return null;
+
+  const located = blockAndBodyAt(editor, anchorPosition);
+  if (located === null) return failure('no-block');
+  const codeStart = $from.start(codeDepth);
+  const codeEnd = $from.end(codeDepth);
+  let startUtf16: number;
+  let endUtf16: number;
+  if (nodeSelection) {
+    startUtf16 = 0;
+    endUtf16 = $from.node(codeDepth).textContent.length;
+  } else {
+    if (selection.from < codeStart || selection.to > codeEnd) {
+      return failure('crosses-block');
+    }
+    startUtf16 = selection.from - codeStart;
+    endUtf16 = selection.to - codeStart;
+  }
+
+  const nodePath: number[] = [];
+  for (let depth = located.bodyDepth; depth < codeDepth; depth += 1) {
+    nodePath.push($from.index(depth));
+  }
+
+  const mapped = codeSelectionInBody(located.body, nodePath, startUtf16, endUtf16);
+  if (!mapped.ok) return mapped;
+  return {
+    ok: true,
+    selection: {
+      kind: 'code',
+      blockId: located.blockId,
+      binding: mapped.binding,
+      selector: mapped.selector,
+    },
+  };
+}
+
+/**
  * The branch source for the current editor selection. A formula NodeSelection
- * takes the atomic whole-formula path; every text caret/range keeps the
- * existing text path unchanged.
+ * takes the atomic whole-formula path; a range inside a code block takes the
+ * code path; every other text caret/range keeps the text path unchanged.
  */
 export function branchSelectionAnchor(editor: Editor): TextSelectionResult {
   const selection = editor.state.selection;
   if (selection instanceof NodeSelection && isFormulaNodeType(selection.node.type.name)) {
     return formulaSelectionAnchor(editor);
+  }
+  if (selection instanceof NodeSelection && selection.node.type.name === 'codeBlock') {
+    return codeSelectionAnchor(editor) ?? textSelectionAnchor(editor);
+  }
+  if (!selection.empty && !(selection instanceof NodeSelection)) {
+    const code = codeSelectionAnchor(editor);
+    if (code !== null) return code;
   }
   return textSelectionAnchor(editor);
 }

@@ -28,6 +28,10 @@ import {
   relativeRect,
 } from '../../lib/formula-term-geometry';
 import { anchorQuote, anchorState } from '../../lib/tree';
+import {
+  codeLineMarkerRect,
+  codeRangeRects,
+} from '../../lib/code-anchor-geometry';
 
 function stringAttr(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -384,6 +388,25 @@ interface FormulaTermTarget {
   term: string;
 }
 
+/** A resolved code-range anchor with its code-point offsets. */
+interface CodeAnchorTarget {
+  anchorId: string;
+  startOffset: number;
+  endOffset: number;
+  lineStart: number;
+  lineEnd: number;
+}
+
+const CODE_QUOTE_CHIP_LIMIT = 48;
+
+/** Callout chips show a short code excerpt; the anchor record keeps the full quote. */
+function quoteChipText(kind: string, quote: string): string {
+  if (kind !== 'code') return quote;
+  const points = Array.from(quote);
+  if (points.length <= CODE_QUOTE_CHIP_LIMIT) return quote;
+  return `${points.slice(0, CODE_QUOTE_CHIP_LIMIT - 1).join('')}…`;
+}
+
 export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const blockId = stringAttr(node.attrs['blockId']);
   const topLevel = node.attrs['topLevel'] === true;
@@ -403,6 +426,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const active = ui.selectedBlockId === blockId;
   const markerLayerRef = useRef<HTMLDivElement | null>(null);
   const termLayerRef = useRef<HTMLDivElement | null>(null);
+  const codeLayerRef = useRef<HTMLDivElement | null>(null);
 
   const anchorMarkers = useMemo<AnchorMarkerInfo[]>(() => {
     if (bindings === null) return [];
@@ -465,6 +489,40 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const termTargetsKey = JSON.stringify(
     formulaTermTargets.map((target) => [target.anchorId, target.term]),
   );
+
+  const codeAnchorTargets = useMemo<CodeAnchorTarget[]>(() => {
+    if (bindings === null) return [];
+    const runtimeDocument = bindings.runtime.document;
+    const targets = new Map<string, CodeAnchorTarget>();
+    for (const branch of anchoredChildBranches(runtimeDocument, blockId)) {
+      const id = branch.source.anchorId;
+      if (id === undefined || targets.has(id)) continue;
+      const anchor = runtimeDocument.anchors[id];
+      if (anchor === undefined || anchor.kind !== 'code') continue;
+      const resolution = resolveAnchor(runtimeDocument, id);
+      if (resolution.state !== 'resolved' || resolution.resolved === null) continue;
+      const range = resolution.resolved.range;
+      if (range.kind !== 'code') continue;
+      targets.set(id, {
+        anchorId: id,
+        startOffset: range.start,
+        endOffset: range.end,
+        lineStart: range.lineStart ?? 1,
+        lineEnd: range.lineEnd ?? range.lineStart ?? 1,
+      });
+    }
+    return [...targets.values()];
+  }, [bindings, blockId, bindings?.runtime.version]);
+
+  const codeTargetsKey = JSON.stringify(
+    codeAnchorTargets.map((target) => [
+      target.anchorId,
+      target.startOffset,
+      target.endOffset,
+      target.lineStart,
+      target.lineEnd,
+    ]),
+  );
   const selectedAnchorId =
     ui.selectedAnchor !== null && ui.selectedAnchor.blockId === blockId
       ? ui.selectedAnchor.anchorId
@@ -485,6 +543,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     ui.selectedAnchor.blockId === calloutParentId &&
     ui.selectedAnchor.anchorId === anchorId &&
     ui.selectedAnchor.branchId === calloutBranchId;
+  const chipQuote = quoteChipText(anchorKind, anchorQuoteText);
 
   // Best-effort term geometry (M3c2b): overlay each uniquely resolved formula
   // term over its live KaTeX text rect. Absence is the formula-rectangle
@@ -573,6 +632,108 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       window.removeEventListener('resize', schedule);
     };
   }, [blockId, editor, termTargetsKey, selectedAnchorId, bindings?.runtime.version]);
+
+  // Code range geometry (M3c3a): a subtle per-line highlight plus a gutter dot
+  // on the first selected line. The layer is a sibling of the prose and never
+  // participates in selection; the code block keeps its native editing surface.
+  useLayoutEffect(() => {
+    const layer = codeLayerRef.current;
+    if (layer === null) return undefined;
+    if (codeAnchorTargets.length === 0) {
+      layer.replaceChildren();
+      return undefined;
+    }
+    const card = editor.view.dom.querySelector<HTMLElement>(`[data-block-card="${blockId}"]`);
+    if (card === null) {
+      layer.replaceChildren();
+      return undefined;
+    }
+    let frame = 0;
+    let disposed = false;
+    const position = (): void => {
+      frame = 0;
+      if (disposed) return;
+      const cardRect = card.getBoundingClientRect();
+      if (cardRect.width <= 0 || cardRect.height <= 0) {
+        layer.replaceChildren();
+        return;
+      }
+      const scale = elementScale(card);
+      const overlay: HTMLElement[] = [];
+      for (const target of codeAnchorTargets) {
+        const blocks = [
+          ...card.querySelectorAll<HTMLElement>(
+            'pre[data-anchor-kind="code"][data-anchor-ids]',
+          ),
+        ].filter((block) =>
+          (block.dataset['anchorIds'] ?? '')
+            .split(',')
+            .map((value) => value.trim())
+            .includes(target.anchorId),
+        );
+        const block = blocks.length === 1 ? blocks[0] : undefined;
+        if (block === undefined) continue;
+        const measured = codeRangeRects(block, target.startOffset, target.endOffset);
+        for (const rect of measured.highlights) {
+          const local = relativeRect(rect, cardRect, scale);
+          if (local.width <= 0 || local.height <= 0) continue;
+          const highlight = document.createElement('span');
+          highlight.className = 'nf-code-anchor-range';
+          highlight.dataset['codeAnchorRange'] = target.anchorId;
+          highlight.setAttribute('aria-hidden', 'true');
+          if (selectedAnchorId === target.anchorId) {
+            highlight.dataset['anchorSelected'] = 'true';
+          }
+          highlight.style.left = `${local.left.toFixed(2)}px`;
+          highlight.style.top = `${local.top.toFixed(2)}px`;
+          highlight.style.width = `${local.width.toFixed(2)}px`;
+          highlight.style.height = `${local.height.toFixed(2)}px`;
+          overlay.push(highlight);
+        }
+        if (measured.firstLine === null) continue;
+        const marker = codeLineMarkerRect(measured.firstLine);
+        const local = relativeRect(marker, cardRect, scale);
+        const dot = document.createElement('span');
+        dot.className = 'nf-code-anchor-marker';
+        dot.dataset['codeAnchorId'] = target.anchorId;
+        dot.dataset['codeAnchorLine'] = String(target.lineStart);
+        dot.dataset['anchorState'] = 'resolved';
+        dot.setAttribute('aria-hidden', 'true');
+        if (selectedAnchorId === target.anchorId) {
+          dot.dataset['anchorSelected'] = 'true';
+        }
+        dot.style.left = `${local.left.toFixed(2)}px`;
+        dot.style.top = `${local.top.toFixed(2)}px`;
+        overlay.push(dot);
+      }
+      layer.replaceChildren(...overlay);
+    };
+    const schedule = (): void => {
+      if (disposed || frame !== 0) return;
+      frame = requestAnimationFrame(position);
+    };
+    schedule();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(card);
+    const canvas = card.closest<HTMLElement>('.nf-canvas');
+    const canvasObserver = new MutationObserver(schedule);
+    if (canvas !== null) {
+      canvasObserver.observe(canvas, {
+        attributes: true,
+        attributeFilter: ['data-zoom', 'style'],
+      });
+    }
+    window.addEventListener('resize', schedule);
+    void document.fonts.ready.then(schedule);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      frame = 0;
+      observer.disconnect();
+      canvasObserver.disconnect();
+      window.removeEventListener('resize', schedule);
+    };
+  }, [blockId, editor, codeTargetsKey, selectedAnchorId, bindings?.runtime.version]);
 
   // Position the real marker buttons over their resolved marks. The dot stays
   // decorative in the prose; the button appears only for the selected block,
@@ -822,6 +983,15 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
           data-formula-term-layer={blockId}
         />
       ) : null}
+      {codeAnchorTargets.length > 0 ? (
+        <div
+          className="nf-code-anchor-layer"
+          contentEditable={false}
+          aria-hidden="true"
+          ref={codeLayerRef}
+          data-code-anchor-layer={blockId}
+        />
+      ) : null}
       {callout ? (
         <div className="nf-callout-head" contentEditable={false}>
           <button
@@ -831,15 +1001,19 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             data-anchor-state={anchorStateAttr}
             data-anchor-kind={anchorKind || undefined}
             data-anchor-selected={branchSelected ? 'true' : 'false'}
-            aria-label={`Select ${anchorKind === 'formula' ? 'formula ' : ''}anchor “${
-              anchorQuoteText || 'anchor'
-            }”, ${calloutAnchorCount} ${calloutAnchorCount === 1 ? 'branch' : 'branches'}`}
+            aria-label={`Select ${
+              anchorKind === 'formula' ? 'formula ' : anchorKind === 'code' ? 'code ' : ''
+            }anchor “${chipQuote || 'anchor'}”, ${calloutAnchorCount} ${
+              calloutAnchorCount === 1 ? 'branch' : 'branches'
+            }`}
             title={
               anchorKind === 'formula'
-                ? `Formula anchor: “${anchorQuoteText}”`
-                : anchorQuoteText.length > 0
-                  ? `Anchor: “${anchorQuoteText}”`
-                  : 'Anchored branch'
+                ? `Formula anchor: “${chipQuote}”`
+                : anchorKind === 'code'
+                  ? `Code anchor: “${chipQuote}”`
+                  : anchorQuoteText.length > 0
+                    ? `Anchor: “${chipQuote}”`
+                    : 'Anchored branch'
             }
             onClick={(event) => {
               event.preventDefault();
@@ -850,9 +1024,9 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             }}
           >
             <span className="nf-callout-quote-glyph" aria-hidden="true">
-              {anchorKind === 'formula' ? 'Σ' : '“'}
+              {anchorKind === 'formula' ? 'Σ' : anchorKind === 'code' ? '{}' : '“'}
             </span>
-            <span className="nf-callout-quote-text">{anchorQuoteText || 'anchor'}</span>
+            <span className="nf-callout-quote-text">{chipQuote || 'anchor'}</span>
           </button>
           {anchorStateAttr === 'broken' ||
           anchorStateAttr === 'ambiguous' ||
@@ -872,10 +1046,14 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
           role="status"
           data-anchor-warning={anchorWarnings[0]?.anchorId ?? ''}
           data-anchor-state={anchorWarnings[0]?.state ?? ''}
-          title="The anchored text could not be resolved. The branch is kept; repair arrives in a later step."
+          title={
+            anchorWarnings[0]?.state === 'ambiguous'
+              ? 'The anchored selection matches more than one candidate. The branch is kept; choose a candidate in a later step.'
+              : 'The anchored text could not be resolved. The branch is kept; repair arrives in a later step.'
+          }
         >
           <TriangleAlert size={12} strokeWidth={1.5} aria-hidden="true" />
-          Lost anchor
+          {anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}
         </span>
       ) : null}
       <button

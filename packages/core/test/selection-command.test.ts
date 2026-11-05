@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { AnchorBinding } from '../src/anchors.js';
-import { readContentAnchorBinding, resolveAnchor } from '../src/anchors.js';
+import {
+  codeAnchorSelectorForBinding,
+  readContentAnchorBinding,
+  resolveAnchor,
+} from '../src/anchors.js';
 import type { CommandSuccess } from '../src/commands.js';
 import { applyInverse, executeCommand } from '../src/commands.js';
 import { directChildIds } from '../src/structure.js';
@@ -207,6 +211,80 @@ function buildFormulaFixture() {
   );
   document = created.document;
   return { context, document, blockId: 'formula-source' };
+}
+
+const CODE_TEXT = 'values = eigvals(A)\nprint(eigvals(A))';
+
+interface CodeSelectionInput {
+  nodePath: number[];
+  startOffset: number;
+  endOffset: number;
+}
+
+function codeBinding(input: CodeSelectionInput): AnchorBinding {
+  return {
+    kind: 'code',
+    nodePath: input.nodePath,
+    startOffset: input.startOffset,
+    endOffset: input.endOffset,
+  };
+}
+
+function codeSelectorFor(document: Document, blockId: string, input: CodeSelectionInput): JsonObject {
+  const block = document.blocks[blockId];
+  if (block === undefined) throw new Error(`missing code fixture block ${blockId}`);
+  const selector = codeAnchorSelectorForBinding(block.content, codeBinding(input));
+  if (selector === null) throw new Error('code selection did not produce a selector');
+  return selector;
+}
+
+function createCodeChild(
+  document: Document,
+  context: ReturnType<typeof deterministicContext>,
+  blockId: string,
+  input: CodeSelectionInput,
+  selector: JsonObject = codeSelectorFor(document, blockId, input),
+): CommandSuccess {
+  return run(
+    document,
+    {
+      type: 'branch.createFromSelection',
+      blockId,
+      kind: 'code',
+      binding: codeBinding(input),
+      selector,
+      target: { kind: 'new' },
+    },
+    context,
+  );
+}
+
+function buildCodeFixture(text = CODE_TEXT) {
+  const context = deterministicContext();
+  let document = newDocument(context);
+  const content = {
+    type: 'doc',
+    children: [
+      { type: 'paragraph', children: [{ type: 'text', text: 'Code source' }] },
+      {
+        type: 'codeBlock',
+        attrs: { language: 'python' },
+        children: [{ type: 'text', text }],
+      },
+    ],
+  } satisfies ContentNode;
+  const created = run(
+    document,
+    {
+      type: 'block.create',
+      blockId: 'code-source',
+      content,
+      placement: { kind: 'top-level', chapterId: document.chapters[0]?.id ?? '' },
+    },
+    context,
+  );
+  document = created.document;
+  return { context, document, blockId: 'code-source', text };
 }
 
 describe('branch.createFromSelection', () => {
@@ -678,6 +756,279 @@ describe('branch.createFromSelection', () => {
     if (!wrongHint.ok) expect(wrongHint.code).toBe('invalid-content');
 
     expectNoMutation(before, document);
+  });
+
+  it('anchors a unique code range with a code selector and one exact inverse', () => {
+    const { context, document, blockId, text } = buildCodeFixture(
+      'values = eigvals(A)\nprint(values)',
+    );
+    const before = structuredClone(document);
+    const start = text.indexOf('eigvals');
+    const end = start + 'eigvals'.length;
+    const created = createCodeChild(document, context, blockId, {
+      nodePath: [1],
+      startOffset: start,
+      endOffset: end,
+    });
+    const anchorId = created.created.anchorIds[0] as string;
+    const childId = created.created.blockIds[0] as string;
+    const branchId = created.created.branchIds[0] as string;
+
+    expect(created.document.anchors[anchorId]).toMatchObject({
+      id: anchorId,
+      blockId,
+      kind: 'code',
+      quote: 'eigvals',
+      prefix: 'values = ',
+      suffix: '(A)\nprint(values)',
+      occurrenceHint: 1,
+    });
+    expect(created.document.anchors[anchorId]?.selector).toEqual({
+      kind: 'code',
+      quote: 'eigvals',
+      form: 'range',
+      prefix: 'values = ',
+      suffix: '(A)\nprint(values)',
+      occurrenceHint: 1,
+      startOffset: start,
+      endOffset: end,
+      lineStart: 1,
+      lineEnd: 1,
+    });
+    expect(
+      readContentAnchorBinding(created.document.blocks[blockId]?.content ?? { type: 'doc' }, anchorId),
+    ).toMatchObject({
+      textRanges: [],
+      atomicNodes: [{ nodePath: [1], nodeType: 'codeBlock' }],
+    });
+    expect(
+      created.document.blocks[blockId]?.content.children?.[1]?.attrs?.['anchorIds'],
+    ).toEqual([anchorId]);
+    const resolution = resolveAnchor(created.document, anchorId);
+    expect(resolution.state).toBe('resolved');
+    expect(resolution.reason).toBe('exact-binding');
+    expect(resolution.resolved?.range).toMatchObject({
+      kind: 'code',
+      nodePath: [1],
+      start,
+      end,
+      lineStart: 1,
+      lineEnd: 1,
+    });
+    expect(created.document.branches[branchId]).toMatchObject({
+      source: { blockId, anchorId },
+      targetBlockId: childId,
+      role: 'primary',
+    });
+    expectValid(created.document);
+
+    const undone = success(applyInverse(created));
+    expect(stable(undone.document)).toEqual(stable(before));
+    expect(undone.document.anchors[anchorId]).toBeUndefined();
+    expect(undone.document.blocks[childId]).toBeUndefined();
+    expect(undone.document.branches[branchId]).toBeUndefined();
+
+    const redone = success(applyInverse(undone));
+    expect(stable(redone.document)).toEqual(stable(created.document));
+    expect(redone.document.anchors[anchorId]).toEqual(created.document.anchors[anchorId]);
+    expect(redone.document.branches[branchId]?.source.anchorId).toBe(anchorId);
+  });
+
+  it('uses form whole and code-point offsets for a whole-code selection', () => {
+    const { context, document, blockId, text } = buildCodeFixture('A😀eigvals(A)\nprint(A)');
+    const created = createCodeChild(document, context, blockId, {
+      nodePath: [1],
+      startOffset: 0,
+      endOffset: Array.from(text).length,
+    });
+    const anchorId = created.created.anchorIds[0] as string;
+    expect(created.document.anchors[anchorId]?.selector).toMatchObject({
+      kind: 'code',
+      form: 'whole',
+      quote: text,
+      startOffset: 0,
+      endOffset: Array.from(text).length,
+      lineStart: 1,
+      lineEnd: 2,
+    });
+    expect(resolveAnchor(created.document, anchorId).state).toBe('resolved');
+
+    const astralStart = Array.from(text.slice(0, text.indexOf('eigvals'))).length;
+    expect(astralStart).toBe(2);
+    const range = createCodeChild(created.document, context, blockId, {
+      nodePath: [1],
+      startOffset: astralStart,
+      endOffset: astralStart + 'eigvals'.length,
+    });
+    const rangeAnchorId = range.created.anchorIds[0] as string;
+    expect(range.document.anchors[rangeAnchorId]?.selector).toMatchObject({
+      form: 'range',
+      quote: 'eigvals',
+      startOffset: 2,
+      endOffset: 9,
+      lineStart: 1,
+      lineEnd: 1,
+    });
+  });
+
+  it('reuses only the exact code selection and keeps repeated quotes ambiguous', () => {
+    const { context, document, blockId, text } = buildCodeFixture();
+    const firstStart = text.indexOf('eigvals');
+    const secondStart = text.indexOf('eigvals', firstStart + 1);
+    expect(firstStart).toBe(9);
+    expect(secondStart).toBe(26);
+    const first = createCodeChild(document, context, blockId, {
+      nodePath: [1],
+      startOffset: firstStart,
+      endOffset: firstStart + 7,
+    });
+    const anchorId = first.created.anchorIds[0] as string;
+    const firstResolution = resolveAnchor(first.document, anchorId);
+    expect(firstResolution.state).toBe('ambiguous');
+    expect(firstResolution.reason).toBe('multiple-candidates');
+    expect(firstResolution.candidates).toHaveLength(2);
+    expect(firstResolution.resolved).toBeNull();
+
+    const exact = createCodeChild(first.document, context, blockId, {
+      nodePath: [1],
+      startOffset: firstStart,
+      endOffset: firstStart + 7,
+    });
+    expect(exact.created.anchorIds).toEqual([]);
+    expect(exact.affected.anchorIds).toContain(anchorId);
+    expect(exact.warnings.some((message) => message.includes('reused existing anchor'))).toBe(true);
+    expect(Object.keys(exact.document.anchors)).toEqual([anchorId]);
+    expect(
+      Object.values(exact.document.branches).filter(
+        (branch) => branch.source.anchorId === anchorId,
+      ),
+    ).toHaveLength(2);
+    expect(resolveAnchor(exact.document, anchorId).state).toBe('ambiguous');
+
+    const second = createCodeChild(exact.document, context, blockId, {
+      nodePath: [1],
+      startOffset: secondStart,
+      endOffset: secondStart + 7,
+    });
+    const secondAnchorId = second.created.anchorIds[0] as string;
+    expect(secondAnchorId).not.toBe(anchorId);
+    expect(second.document.anchors[secondAnchorId]?.selector).toMatchObject({
+      kind: 'code',
+      quote: 'eigvals',
+      form: 'range',
+      occurrenceHint: 2,
+      startOffset: 26,
+      endOffset: 33,
+      lineStart: 2,
+      lineEnd: 2,
+    });
+    expect(resolveAnchor(second.document, secondAnchorId).state).toBe('ambiguous');
+
+    const undone = success(applyInverse(second));
+    expect(Object.keys(undone.document.anchors)).toEqual([anchorId]);
+    expect(
+      Object.values(undone.document.branches).filter(
+        (branch) => branch.source.anchorId === secondAnchorId,
+      ),
+    ).toHaveLength(0);
+
+    const redone = success(applyInverse(undone));
+    expect(redone.document.anchors[secondAnchorId]?.selector).toEqual(
+      second.document.anchors[secondAnchorId]?.selector,
+    );
+  });
+
+  it('rejects a code selector that does not match its binding without mutation', () => {
+    const { context, document, blockId } = buildCodeFixture();
+    const before = structuredClone(document);
+    const start = CODE_TEXT.indexOf('eigvals');
+    const base: CodeSelectionInput = {
+      nodePath: [1],
+      startOffset: start,
+      endOffset: start + 7,
+    };
+    const selector = codeSelectorFor(document, blockId, base);
+
+    const mismatches: JsonObject[] = [
+      { ...selector, quote: 'eigval' },
+      { ...selector, startOffset: start + 1 },
+      { ...selector, endOffset: start + 8 },
+      { ...selector, occurrenceHint: 2 },
+      { ...selector, lineStart: 2 },
+      { ...selector, form: 'whole' },
+    ];
+    for (const candidate of mismatches) {
+      const result = tryRun(
+        document,
+        {
+          type: 'branch.createFromSelection',
+          blockId,
+          kind: 'code',
+          binding: codeBinding(base),
+          selector: candidate,
+          target: { kind: 'new' },
+        },
+        context,
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.code).toBe('invalid-content');
+    }
+
+    const wrongNode = tryRun(
+      document,
+      {
+        type: 'branch.createFromSelection',
+        blockId,
+        kind: 'code',
+        binding: codeBinding({ nodePath: [0], startOffset: 1, endOffset: 4 }),
+        selector,
+        target: { kind: 'new' },
+      },
+      context,
+    );
+    expect(wrongNode.ok).toBe(false);
+    if (!wrongNode.ok) expect(wrongNode.code).toBe('invalid-content');
+
+    const outOfRange = tryRun(
+      document,
+      {
+        type: 'branch.createFromSelection',
+        blockId,
+        kind: 'code',
+        binding: codeBinding({ nodePath: [1], startOffset: 0, endOffset: 1000 }),
+        selector,
+        target: { kind: 'new' },
+      },
+      context,
+    );
+    expect(outOfRange.ok).toBe(false);
+    if (!outOfRange.ok) expect(outOfRange.code).toBe('invalid-content');
+
+    expectNoMutation(before, document);
+  });
+
+  it('derives a code selector when the selection command omits it', () => {
+    const { context, document, blockId } = buildCodeFixture();
+    const created = run(
+      document,
+      {
+        type: 'branch.createFromSelection',
+        blockId,
+        kind: 'code',
+        binding: codeBinding({ nodePath: [1], startOffset: 9, endOffset: 16 }),
+        target: { kind: 'new' },
+      },
+      context,
+    );
+    const anchorId = created.created.anchorIds[0] as string;
+    expect(created.document.anchors[anchorId]?.selector).toMatchObject({
+      kind: 'code',
+      quote: 'eigvals',
+      form: 'range',
+      startOffset: 9,
+      endOffset: 16,
+      occurrenceHint: 1,
+    });
   });
 
   it('uses the plain-text projection for a selection containing inline math', () => {
