@@ -792,7 +792,7 @@ describe('code anchor resolution', () => {
     expect(resolution.candidates).toHaveLength(2);
   });
 
-  it('resolves repeated quotes when the exact context selects one', () => {
+  it('keeps repeated quotes ambiguous even when context and offsets point at one', () => {
     const content = doc(codeBlock('eigvals = eigvals(A)', ['a1']));
     const resolution = resolveWithBranch(
       content,
@@ -800,13 +800,15 @@ describe('code anchor resolution', () => {
         quote: 'eigvals',
         prefix: '',
         suffix: ' = eigvals(A)',
+        startOffset: 0,
+        endOffset: 7,
+        occurrenceHint: 1,
       }),
     );
-    expect(resolution.state).toBe('resolved');
-    expect(resolution.reason).toBe('unique-context');
-    if (resolution.resolved?.range.kind === 'code') {
-      expect(resolution.resolved.range.start).toBe(0);
-    }
+    expect(resolution.state).toBe('ambiguous');
+    expect(resolution.reason).toBe('multiple-candidates');
+    expect(resolution.candidates).toHaveLength(2);
+    expect(resolution.resolved).toBeNull();
   });
 
   it('breaks a missing quote and survives a language change', () => {

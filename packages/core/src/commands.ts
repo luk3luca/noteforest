@@ -15,6 +15,11 @@ import type { ValidationIssue } from './errors.js';
 import {
   buildBlockAnchorIndex,
   checkAnchorBindingKind,
+  codeAnchorSelectorForBinding,
+  codeBlockText,
+  codeLineRange,
+  codePointLength,
+  codePointSlice,
   findQuoteOccurrences,
   formulaLatex,
   getNodeAtPath,
@@ -1203,6 +1208,78 @@ function assertFormulaTermSelection(
   }
 }
 
+/**
+ * A code selector and its atomic binding must describe the same range inside
+ * the same code block. The binding only adds the anchor ID to the code node, so
+ * validate quote/offsets/line hints before any content mutates.
+ *
+ * Repeated quotes are valid and deliberately left ambiguous by resolution; the
+ * selected occurrence never auto-resolves on its own (spec §8.2).
+ */
+function assertCodeSelection(
+  content: ContentNode,
+  binding: AnchorBinding,
+  selector: JsonObject,
+): void {
+  if (selector['kind'] !== 'code') return;
+  if (binding.kind !== 'code') {
+    reject('invalid-content', 'a code selector requires a code binding');
+  }
+  const node = getNodeAtPath(content, binding.nodePath);
+  if (node === null) return;
+  if (node.type !== 'codeBlock') {
+    reject('invalid-content', `a code anchor cannot bind a "${node.type}" node`);
+  }
+  const text = codeBlockText(node);
+  const length = codePointLength(text);
+  const { startOffset, endOffset } = binding;
+  if (
+    !Number.isInteger(startOffset) ||
+    !Number.isInteger(endOffset) ||
+    startOffset < 0 ||
+    endOffset > length ||
+    startOffset >= endOffset
+  ) {
+    reject('invalid-content', 'code binding offsets are invalid for the code block');
+  }
+  const quote = selector['quote'];
+  if (typeof quote !== 'string' || quote.length === 0) return;
+  if (quote !== codePointSlice(text, startOffset, endOffset)) {
+    reject('invalid-content', 'code selector.quote must match the bound code range');
+  }
+  const selectorStart = selector['startOffset'];
+  const selectorEnd = selector['endOffset'];
+  if (selectorStart !== undefined && selectorStart !== startOffset) {
+    reject('invalid-content', 'code selector.startOffset must match the binding');
+  }
+  if (selectorEnd !== undefined && selectorEnd !== endOffset) {
+    reject('invalid-content', 'code selector.endOffset must match the binding');
+  }
+  if (selector['form'] === 'whole' && (startOffset !== 0 || endOffset !== length)) {
+    reject('invalid-content', 'a whole code selector must cover the whole code block');
+  }
+  const occurrences = findQuoteOccurrences(text, quote);
+  const occurrence = occurrences.findIndex(
+    (candidate) => candidate.start === startOffset && candidate.end === endOffset,
+  );
+  if (occurrence < 0) {
+    reject('invalid-content', 'code selector quote is not present at the bound offsets');
+  }
+  const hint = selector['occurrenceHint'];
+  if (hint !== undefined && hint !== occurrence + 1) {
+    reject('invalid-content', 'code selector.occurrenceHint must match the bound occurrence');
+  }
+  const lines = codeLineRange(text, startOffset, endOffset);
+  const lineStart = selector['lineStart'];
+  const lineEnd = selector['lineEnd'];
+  if (lineStart !== undefined && lineStart !== lines.lineStart) {
+    reject('invalid-content', 'code selector.lineStart must match the bound range');
+  }
+  if (lineEnd !== undefined && lineEnd !== lines.lineEnd) {
+    reject('invalid-content', 'code selector.lineEnd must match the bound range');
+  }
+}
+
 function buildAnchorRecord(
   id: string,
   blockId: string,
@@ -1357,16 +1434,21 @@ function ensureSelectionAnchor(
   }
   const selector =
     selectorInput === undefined
-      ? textAnchorSelectorForBinding(block.content, binding)
+      ? binding.kind === 'code'
+        ? codeAnchorSelectorForBinding(block.content, binding)
+        : textAnchorSelectorForBinding(block.content, binding)
       : selectorInput;
   if (selector === null) {
     reject(
       'invalid-content',
-      'the text selection is not one contiguous range inside the block',
+      binding.kind === 'code'
+        ? 'the code selection is not one non-empty range inside one code block'
+        : 'the text selection is not one contiguous range inside the block',
     );
   }
   const mirrors = anchorMirrorFields(kind, selector, {});
   assertFormulaTermSelection(block.content, binding, selector);
+  assertCodeSelection(block.content, binding, selector);
   const anchorId = requestedAnchorId ?? freshId(document, context);
   assertId(anchorId, 'anchorId');
   if (allIds(document).has(anchorId)) {
@@ -1957,6 +2039,7 @@ function applyToClone(
           : { occurrenceHint: command.occurrenceHint }),
       });
       assertFormulaTermSelection(block.content, command.binding, selector);
+      assertCodeSelection(block.content, command.binding, selector);
       const anchorId = command.anchorId ?? freshId(document, context);
       assertId(anchorId, 'anchorId');
       if (allIds(document).has(anchorId)) {
@@ -2024,6 +2107,7 @@ function applyToClone(
           ? {}
           : { occurrenceHint: command.occurrenceHint }),
       });
+      assertCodeSelection(block.content, command.binding, selector);
       const cleared = removeAnchorBinding(block.content, anchor.id);
       const content = applyAnchorBinding(
         block.id,

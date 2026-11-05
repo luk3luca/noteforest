@@ -8,7 +8,14 @@ import {
   stripAnchorBindings,
   type PMNode,
 } from '../src/renderer/src/lib/adapter';
-import { formulaBindingInBody, formulaTermBinding, formulaTermSelection, formulaTermSelector, textBindingInBody } from '../src/renderer/src/lib/anchor-selection';
+import {
+  codeSelectionInBody,
+  formulaBindingInBody,
+  formulaTermBinding,
+  formulaTermSelection,
+  formulaTermSelector,
+  textBindingInBody,
+} from '../src/renderer/src/lib/anchor-selection';
 
 function body(...content: PMNode[]): PMNode {
   return { type: 'blockBody', content };
@@ -158,6 +165,83 @@ describe('editor selection -> core whole-formula binding', () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('no-formula');
+  });
+});
+
+describe('editor selection -> core code binding', () => {
+  const codeBody = body(
+    { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+    {
+      type: 'codeBlock',
+      attrs: { language: 'python' },
+      content: [{ type: 'text', text: 'values = eigvals(A)\nprint(eigvals(A))' }],
+    },
+  );
+
+  it('maps a range inside one code block to a code binding and selector', () => {
+    const result = codeSelectionInBody(codeBody, [1], 9, 16);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.binding).toEqual({
+      kind: 'code',
+      nodePath: [1],
+      startOffset: 9,
+      endOffset: 16,
+    });
+    expect(result.selector).toMatchObject({
+      kind: 'code',
+      quote: 'eigvals',
+      form: 'range',
+      prefix: 'values = ',
+      suffix: '(A)\nprint(eigvals(A))',
+      occurrenceHint: 1,
+      startOffset: 9,
+      endOffset: 16,
+      lineStart: 1,
+      lineEnd: 1,
+    });
+  });
+
+  it('uses code-point offsets for UTF-16 selections after an astral character', () => {
+    const astral = body({
+      type: 'codeBlock',
+      content: [{ type: 'text', text: 'A😀eigvals(A)' }],
+    });
+    const result = codeSelectionInBody(astral, [0], 3, 10);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.binding).toEqual({
+      kind: 'code',
+      nodePath: [0],
+      startOffset: 2,
+      endOffset: 9,
+    });
+    expect(result.selector).toMatchObject({ quote: 'eigvals', lineStart: 1, lineEnd: 1 });
+  });
+
+  it('marks a full code-block selection as form whole', () => {
+    const result = codeSelectionInBody(codeBody, [1], 0, 'values = eigvals(A)\nprint(eigvals(A))'.length);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.selector).toMatchObject({
+      form: 'whole',
+      quote: 'values = eigvals(A)\nprint(eigvals(A))',
+      startOffset: 0,
+      endOffset: 37,
+      lineStart: 1,
+      lineEnd: 2,
+    });
+  });
+
+  it('rejects a path that is not a code block or an empty range', () => {
+    expect(codeSelectionInBody(codeBody, [0], 1, 4)).toMatchObject({
+      ok: false,
+      reason: 'no-code',
+    });
+    expect(codeSelectionInBody(codeBody, [1], 9, 9)).toMatchObject({
+      ok: false,
+      reason: 'empty',
+    });
   });
 });
 

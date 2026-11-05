@@ -765,7 +765,9 @@ export class DocumentRuntime {
    * node paths are the same revision before the composite command runs. One
    * structural inverse removes/restores the anchor, block and branch without
    * an optimistic local mark. Formula NodeSelections use the atomic
-   * whole-formula binding; text carets/ranges keep the text path.
+   * whole-formula binding, a range inside a code block uses the atomic code
+   * binding plus its explicit selector, and text carets/ranges keep the text
+   * path.
    */
   async branchFromSelection(selection: BranchSelectionAnchor): Promise<ApplyOutcome> {
     const command: DocumentCommand =
@@ -779,14 +781,24 @@ export class DocumentRuntime {
             target: { kind: 'new' },
             role: 'primary',
           }
-        : {
-            type: 'branch.createFromSelection',
-            blockId: selection.blockId,
-            kind: 'text',
-            binding: selection.binding,
-            target: { kind: 'new' },
-            role: 'primary',
-          };
+        : selection.kind === 'code'
+          ? {
+              type: 'branch.createFromSelection',
+              blockId: selection.blockId,
+              kind: 'code',
+              binding: selection.binding,
+              selector: selection.selector,
+              target: { kind: 'new' },
+              role: 'primary',
+            }
+          : {
+              type: 'branch.createFromSelection',
+              blockId: selection.blockId,
+              kind: 'text',
+              binding: selection.binding,
+              target: { kind: 'new' },
+              role: 'primary',
+            };
     return this.queue.run(async () => {
       const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {

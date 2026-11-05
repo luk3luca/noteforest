@@ -1805,6 +1805,58 @@ export function textAnchorSelectorForBinding(
   };
 }
 
+/**
+ * Derive a durable code-anchor selector from a code binding.
+ *
+ * The binding is truth for the content change; the selector stores the exact
+ * code quote, bounded context, and code-point offsets/line hints. Offset and
+ * line values are hints: resolution uses the quote and treats repeated quotes
+ * as ambiguous. Returns null when the binding is not one non-empty range
+ * inside one code block.
+ */
+export function codeAnchorSelectorForBinding(
+  content: ContentNode,
+  binding: AnchorBinding,
+  contextLength = 32,
+): CodeAnchorSelector | null {
+  if (binding.kind !== 'code') return null;
+  const node = getNodeAtPath(content, binding.nodePath);
+  if (node === null || node.type !== 'codeBlock') return null;
+  const text = codeBlockText(node);
+  const length = codePointLength(text);
+  const { startOffset, endOffset } = binding;
+  if (
+    !Number.isInteger(startOffset) ||
+    !Number.isInteger(endOffset) ||
+    startOffset < 0 ||
+    endOffset > length ||
+    startOffset >= endOffset
+  ) {
+    return null;
+  }
+  const quote = codePointSlice(text, startOffset, endOffset);
+  if (quote.length === 0) return null;
+  const occurrences = findQuoteOccurrences(text, quote);
+  const occurrence = occurrences.findIndex(
+    (candidate) => candidate.start === startOffset && candidate.end === endOffset,
+  );
+  if (occurrence < 0) return null;
+  const { prefix, suffix } = textContext(text, startOffset, endOffset, contextLength);
+  const lines = codeLineRange(text, startOffset, endOffset);
+  return {
+    kind: 'code',
+    quote,
+    form: startOffset === 0 && endOffset === length ? 'whole' : 'range',
+    ...(prefix.length === 0 ? {} : { prefix }),
+    ...(suffix.length === 0 ? {} : { suffix }),
+    occurrenceHint: occurrence + 1,
+    startOffset,
+    endOffset,
+    lineStart: lines.lineStart,
+    lineEnd: lines.lineEnd,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Content-order keys
 // ---------------------------------------------------------------------------
@@ -2152,7 +2204,8 @@ function lineNumberAt(text: string, offset: number): number {
   return line;
 }
 
-function codeLineRange(
+/** 1-based line range covered by a code range. Offsets are code points. */
+export function codeLineRange(
   text: string,
   start: number,
   end: number,
@@ -2515,31 +2568,21 @@ function resolveCodeBinding(
   if (candidates.length === 0) {
     return { state: 'broken', reason: 'quote-missing', candidates: [], resolved: null };
   }
-  if (candidates.length === 1) {
+  const sorted = [...candidates].sort(compareCandidates);
+  if (sorted.length === 1) {
     return {
       state: 'resolved',
       reason: 'exact-binding',
-      candidates,
-      resolved: candidates[0] ?? null,
+      candidates: sorted,
+      resolved: sorted[0] ?? null,
     };
   }
-  const prefix = selectorText(selector, 'prefix', anchor.prefix);
-  const suffix = selectorText(selector, 'suffix', anchor.suffix);
-  const contextual = candidates.filter((candidate) =>
-    contextMatches(candidate.context ?? {}, { prefix, suffix }),
-  );
-  if (contextual.length === 1) {
-    return {
-      state: 'resolved',
-      reason: 'unique-context',
-      candidates: [...candidates].sort(compareCandidates),
-      resolved: contextual[0] ?? null,
-    };
-  }
+  // Multiple quote occurrences stay ambiguous even when the offset/context hint
+  // points at one of them; hints rank candidates only (spec §8.2).
   return {
     state: 'ambiguous',
     reason: 'multiple-candidates',
-    candidates: [...candidates].sort(compareCandidates),
+    candidates: sorted,
     resolved: null,
   };
 }
@@ -2559,29 +2602,22 @@ function resolveCodeFallback(
   for (const candidate of candidates) {
     candidate.score = scoreCandidate(candidate, selector, candidate.occurrence);
   }
-  if (candidates.length === 0) {
+  const sorted = [...candidates].sort(compareCandidates);
+  if (sorted.length === 0) {
     return { state: 'broken', reason: 'quote-missing', candidates: [], resolved: null };
   }
-  if (candidates.length === 1) {
-    return { state: 'resolved', reason: 'unique-quote', candidates, resolved: candidates[0] ?? null };
-  }
-  const prefix = selectorText(selector, 'prefix', anchor.prefix);
-  const suffix = selectorText(selector, 'suffix', anchor.suffix);
-  const contextual = candidates.filter((candidate) =>
-    contextMatches(candidate.context ?? {}, { prefix, suffix }),
-  );
-  if (contextual.length === 1) {
+  if (sorted.length === 1) {
     return {
       state: 'resolved',
-      reason: 'unique-context',
-      candidates: [...candidates].sort(compareCandidates),
-      resolved: contextual[0] ?? null,
+      reason: 'unique-quote',
+      candidates: sorted,
+      resolved: sorted[0] ?? null,
     };
   }
   return {
     state: 'ambiguous',
     reason: 'multiple-candidates',
-    candidates: [...candidates].sort(compareCandidates),
+    candidates: sorted,
     resolved: null,
   };
 }
