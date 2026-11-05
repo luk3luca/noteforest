@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.4, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1 merged; M3b2c left-entry routing specified, not started; M3c2/M3c3 on hold pending product-owner go.
+**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.4, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1 merged; M3b2c left-entry routing in progress; M3c2/M3c3/M3d/M3e/M3f queued.
 
 ## Rules
 
@@ -233,6 +233,16 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
 
 **Status:** M2f accepted; M3 design merged (spec v0.4.5, UX v1.3, ADR-0005); M3a1 merged; M3a2 anchor commands in progress.
 
+## Backlog — editor UX (not scheduled)
+
+Product-owner priority recorded on 5 November 2026.
+
+1. **Code block chrome** — P1 after M3. Give a code block Obsidian-like affordances without making
+   the fence canonical: header with language picker, Copy, **Turn into text**, Delete; fence rails
+   ` ``` ` visible when the block is focused/selected; the same actions in the block menu and command
+   palette. Keep the JSON `codeBlock` node as the source; fences remain import/export only. Brief:
+   `docs/tasks/code-block-chrome.md`. Markdown fence import/export is a separate task.
+
 ## Backlog — math & media (not scheduled)
 
 Product-owner priority recorded on 5 November 2026. None of these is in M3; revisit after M4/PDF.
@@ -263,9 +273,8 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
 - Slices: M3a1 anchor model/binding/resolution (merged) → M3a2 anchor commands + branch extension
   (merged) → M3b1 text anchor authoring (merged) → M3b2a callout lane (merged) → M3b2b outline
   rows/marker navigation (merged) → M3c1 whole-formula anchors (merged) → **M3b2c left-entry
-  below-stack routing (specified, not started)** → **M3c2 formula terms and M3c3 code/image on hold
-  until the product owner gives the go** → M3d reference edges → M3e repair → M3f identity/undo/
-  split-merge/fixtures.
+  below-stack routing (in progress)** → M3c2 formula terms → M3c3 code/image → M3d reference edges →
+  M3e repair → M3f identity/undo/split-merge/fixtures.
 - **M3b2c approved layout rule (5 November 2026):** direct children stay right while they fit and
   join the below stack when they wrap; callouts always below, before wrapped direct children; one
   shared left trunk with horizontal arms; every arrow enters from the left, never the top. This
