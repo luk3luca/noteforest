@@ -1115,6 +1115,14 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
               title={`See also: ${chip.title} — ${chip.chapter}${
                 chip.quote.length === 0 ? '' : ` (from “${chip.quote}”)`
               }`}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                bindings?.openReferenceMenu(chip.branchId, {
+                  x: event.clientX,
+                  y: event.clientY,
+                });
+              }}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();

@@ -907,6 +907,64 @@ export class DocumentRuntime {
     });
   }
 
+  /**
+   * Make a reference the target's primary home and demote the old primary edge
+   * to a reference. Both branch IDs survive; one structural inverse restores
+   * the exact roles, order keys, and chapter slots.
+   */
+  makeHome(branchId: string): Promise<ApplyOutcome> {
+    return this.applyRoleTransition(
+      branchId,
+      { type: 'branch.makeHome', branchId },
+      'Could not make this reference the home.',
+    );
+  }
+
+  /** Promote a reference and retire the target's old primary edge. */
+  moveHere(branchId: string): Promise<ApplyOutcome> {
+    return this.applyRoleTransition(
+      branchId,
+      { type: 'branch.moveHere', branchId },
+      'Could not move the target here.',
+    );
+  }
+
+  /** Convert a primary edge to a reference; the target becomes a root. */
+  demoteBranch(branchId: string): Promise<ApplyOutcome> {
+    return this.applyRoleTransition(
+      branchId,
+      { type: 'branch.demote', branchId },
+      'Could not demote this branch to a reference.',
+    );
+  }
+
+  /**
+   * Shared role-transition flow: one command, one structural inverse, focus on
+   * the target block (the block whose primary home changed).
+   */
+  private applyRoleTransition(
+    branchId: string,
+    command: DocumentCommand,
+    failureMessage: string,
+  ): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      const branch = this.document.branches[branchId];
+      if (branch === undefined) {
+        return { ok: false, message: 'This branch no longer exists.' };
+      }
+      const targetId = branch.targetBlockId;
+      const result = await this.runCommandInternal(command);
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? failureMessage };
+      }
+      await this.acceptStructural(result.document, result.inverse, targetId);
+      this.reconcileEditor(targetId);
+      this.selectBlock(targetId);
+      this.focusBlock(targetId, { select: true });
+      return { ok: true, branchId };
+    });
+  }
+
   async addTopLevel(chapterId: string): Promise<ApplyOutcome> {
     return this.createBlock({
       type: 'block.create',

@@ -29,7 +29,8 @@ import {
   outgoingReferenceBranches,
   parentIdOf,
 } from './lib/tree';
-import { anchoredChildBranches } from '@noteforest/core';
+import { anchoredChildBranches, primaryParentBranch, subtreeBlockIds } from '@noteforest/core';
+import type { Branch } from '@noteforest/core';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
@@ -390,6 +391,70 @@ export function redoActive(): void {
 
 /* ------------------------------------------------------------------ menus */
 
+/**
+ * Make home / Move here entries for one outgoing reference. The core command
+ * enforces the same preconditions; the menu disables the action and explains
+ * why when the promotion is illegal (OD-7 root target, primary cycle).
+ */
+function referenceActionEntries(runtime: DocumentRuntime, branch: Branch): MenuEntry[] {
+  if (branch.role !== 'reference') return [];
+  const document = runtime.document;
+  const targetTitle = blockTitle(document.blocks[branch.targetBlockId]);
+  const targetIsRoot = primaryParentBranch(document, branch.targetBlockId) === undefined;
+  const createsCycle = subtreeBlockIds(document, branch.targetBlockId).includes(
+    branch.source.blockId,
+  );
+  const homeDisabled = targetIsRoot || createsCycle;
+  const homeLabel = targetIsRoot
+    ? 'Make home — target is already a root (use Move here)'
+    : createsCycle
+      ? 'Make home — would create a cycle'
+      : `Make home: ${targetTitle}`;
+  const moveLabel = createsCycle
+    ? 'Move here — would create a cycle'
+    : `Move here: ${targetTitle}`;
+  return [
+    {
+      id: `reference-home-${branch.id}`,
+      label: homeLabel,
+      disabled: homeDisabled,
+      ...(homeDisabled ? {} : { onSelect: () => report(runtime.makeHome(branch.id)) }),
+    },
+    {
+      id: `reference-move-${branch.id}`,
+      label: moveLabel,
+      disabled: createsCycle,
+      ...(createsCycle ? {} : { onSelect: () => report(runtime.moveHere(branch.id)) }),
+    },
+    {
+      id: `reference-remove-${branch.id}`,
+      label: `Remove reference to ${targetTitle}`,
+      onSelect: () => report(runtime.deleteReference(branch.id)),
+    },
+  ];
+}
+
+/** Context menu for one reference chip (the source side of the edge). */
+export function openReferenceMenu(
+  branchId: string,
+  anchor: { x: number; y: number },
+): void {
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  const branch = runtime.document.branches[branchId];
+  if (branch === undefined) return;
+  const entries: MenuEntry[] = [
+    {
+      id: `reference-open-${branch.id}`,
+      label: `See also: ${blockTitle(runtime.document.blocks[branch.targetBlockId])}`,
+      onSelect: () => runtime.focusBlock(branch.targetBlockId, { select: true }),
+    },
+    ...(branch.role === 'reference' ? referenceActionEntries(runtime, branch) : []),
+  ];
+  if (entries.length === 0) return;
+  shell().openContextMenu(anchor.x, anchor.y, entries);
+}
+
 export function openBlockMenu(blockId: string, anchor: { x: number; y: number }): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
@@ -443,11 +508,7 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       label: `See also: ${targetTitle}`,
       onSelect: () => runtime.focusBlock(reference.targetBlockId, { select: true }),
     });
-    referenceEntries.push({
-      id: `reference-remove-${reference.id}`,
-      label: `Remove reference to ${targetTitle}`,
-      onSelect: () => report(runtime.deleteReference(reference.id)),
-    });
+    referenceEntries.push(...referenceActionEntries(runtime, reference));
   }
   for (const reference of incomingReferenceBranches(runtime.document, blockId)) {
     const sourceTitle = blockTitle(runtime.document.blocks[reference.source.blockId]);
@@ -540,6 +601,11 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
     ...(branch === undefined
       ? []
       : [
+          {
+            id: 'demote',
+            label: 'Demote to reference',
+            onSelect: () => report(runtime.demoteBranch(branch.id)),
+          },
           {
             id: 'detach',
             label: 'Detach from parent',
