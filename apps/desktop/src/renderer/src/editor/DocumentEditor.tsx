@@ -2,7 +2,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
 import { Fragment, Slice } from '@tiptap/pm/model';
 import { NodeSelection } from '@tiptap/pm/state';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
 import { buildEditorDocument, stripAnchorBindings, type PMNode } from '../lib/adapter';
 import { branchSelectionAnchor } from '../lib/anchor-selection';
@@ -20,6 +20,7 @@ import { createEditorExtensions } from './extensions';
 import { BranchKeymap } from './keymap';
 import { EdgeLayer } from './edges/EdgeLayer';
 import { useBlockRects } from './edges/useBlockRects';
+import { useBelowStackPlacement } from './useBelowStackPlacement';
 import { SelectionToolbar } from './SelectionToolbar';
 import { clearEditorBindings, getDragBlockId, setDragBlockId, setEditorBindings, type EditorBindings } from './bindings';
 import { setEditorSelectedBlock } from './editor-ui';
@@ -37,6 +38,29 @@ import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 interface DocumentEditorProps {
   runtime: DocumentRuntime;
   active: boolean;
+}
+
+/** Canvas content width in layout pixels, independent of CSS zoom. */
+function useCanvasWidth(
+  ref: RefObject<HTMLDivElement | null>,
+  active: boolean,
+): number {
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    if (!active) return undefined;
+    const element = ref.current;
+    if (element === null) return undefined;
+    const update = (): void => setWidth(element.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    window.addEventListener('resize', update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [ref, active]);
+  return width;
 }
 
 function blockIdAtSelection(editor: Editor): string | null {
@@ -303,11 +327,18 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
       new Set(selectedId === null ? [] : ancestorPath(runtime.document, selectedId)),
     [runtime.document, selectedId, runtime.version],
   );
-  const edges = useMemo(
-    () => edgePairs(runtime.document, runtime.collapsed),
-    [runtime.document, runtime.collapsed, runtime.version],
-  );
   const rects = useBlockRects(contentRef, runtime.version, editor !== null, zoom);
+  const canvasWidth = useCanvasWidth(contentRef, active);
+  const belowChildIds = useBelowStackPlacement({
+    runtime,
+    rects,
+    availableWidth: canvasWidth,
+    active,
+  });
+  const edges = useMemo(
+    () => edgePairs(runtime.document, runtime.collapsed, belowChildIds),
+    [runtime.document, runtime.collapsed, runtime.version, belowChildIds],
+  );
 
   /** Ancestor chain + descendants of the focus anchor; null = whole document. */
   const focusSet = useMemo(() => {

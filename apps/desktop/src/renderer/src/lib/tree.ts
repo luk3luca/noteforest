@@ -205,6 +205,7 @@ export function visibleBlockIds(
 }
 
 export type EdgeKind = 'callout' | 'direct';
+export type EdgePlacement = 'right' | 'below';
 
 export interface EdgePair {
   id: string;
@@ -213,30 +214,36 @@ export interface EdgePair {
   index: number;
   count: number;
   kind: EdgeKind;
+  placement: EdgePlacement;
   anchorId?: string;
 }
 
 export function edgePairs(
   document: Document,
   collapsed: ReadonlySet<string>,
+  belowChildIds: ReadonlySet<string> = new Set(),
 ): EdgePair[] {
   const edges: EdgePair[] = [];
   const walk = (parentId: string): void => {
     if (collapsed.has(parentId)) return;
     // Outline order (D3): anchored primary children first, then direct ones.
-    // The editor projects the anchored group into the callout lane.
+    // The editor projects the anchored group and any wrapped direct children
+    // into the below stack; unanchored children that fit stay right.
     const anchored = anchoredChildBranches(document, parentId);
     const direct = directChildBranches(document, parentId);
     const branches = [...anchored, ...direct];
     for (const [index, branch] of branches.entries()) {
       const anchorId = branch.source.anchorId;
+      const kind: EdgeKind = anchorId === undefined ? 'direct' : 'callout';
       edges.push({
         id: branch.id,
         parentId,
         childId: branch.targetBlockId,
         index,
         count: branches.length,
-        kind: anchorId === undefined ? 'direct' : 'callout',
+        kind,
+        placement:
+          kind === 'callout' || belowChildIds.has(branch.targetBlockId) ? 'below' : 'right',
         ...(anchorId === undefined ? {} : { anchorId }),
       });
       walk(branch.targetBlockId);

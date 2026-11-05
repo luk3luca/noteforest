@@ -119,6 +119,10 @@ describe('core <-> ProseMirror adapter', () => {
       },
     ]);
     expect(projection.direct).toEqual([{ branchId: 'A-D', blockId: 'D' }]);
+    expect(projection.children.map((entry) => `${entry.kind}:${entry.blockId}`)).toEqual([
+      'callout:C',
+      'direct:D',
+    ]);
 
     const blockA = buildEditorDocument(document, new Set()).content?.[0]?.content?.[0];
     expect(blockA?.attrs?.['hasCallouts']).toBe(true);
@@ -141,6 +145,80 @@ describe('core <-> ProseMirror adapter', () => {
     expect(callout?.content?.[0]?.attrs?.['calloutParentId']).toBe('A');
     expect(blockA?.content?.[2]?.content?.map((node) => node.attrs?.['blockId'])).toEqual(['D']);
   });
+
+  it('orders callouts before wrapped direct children in one below stack', () => {
+    const document = fixture();
+    document.blocks['D'] = block('D', [
+      { type: 'paragraph', children: [{ type: 'text', text: 'Direct D' }] },
+    ]);
+    document.blocks['E'] = block('E', [
+      { type: 'paragraph', children: [{ type: 'text', text: 'Direct E' }] },
+    ]);
+    document.anchors['an1'] = {
+      id: 'an1',
+      blockId: 'A',
+      kind: 'text',
+      selector: { quote: 'Alpha' },
+      quote: 'Alpha',
+    };
+    document.branches['ac'] = {
+      ...document.branches['ac']!,
+      source: { blockId: 'A', anchorId: 'an1' },
+      order: 'a',
+    };
+    document.branches['ad'] = branch('A', 'D', 'm');
+    document.branches['ae'] = branch('A', 'E', 't');
+
+    const pm = buildEditorDocument(document, new Set(), new Set(['D']));
+    const blockA = pm.content?.[0]?.content?.[0];
+    expect(blockA?.content?.map((node) => node.type)).toEqual([
+      'blockBody',
+      'calloutLane',
+      'branchChildren',
+    ]);
+    const lane = blockA?.content?.[1];
+    expect(lane?.content?.map((node) => node.attrs?.['blockId'])).toEqual(['C', 'D']);
+    const calloutRow = lane?.content?.[0];
+    const directRow = lane?.content?.[1];
+    expect(calloutRow?.attrs?.['callout']).toBe(true);
+    expect(calloutRow?.attrs?.['belowRow']).toBe(true);
+    expect(calloutRow?.attrs?.['rowKind']).toBe('callout');
+    expect(directRow?.attrs?.['callout']).toBe(false);
+    expect(directRow?.attrs?.['belowRow']).toBe(true);
+    expect(directRow?.attrs?.['rowKind']).toBe('direct');
+    expect(directRow?.attrs?.['anchorId']).toBeNull();
+    expect(directRow?.content?.[0]?.attrs?.['callout']).toBeUndefined();
+    expect(directRow?.content?.[0]?.attrs?.['belowRow']).toBe(true);
+    expect(blockA?.content?.[2]?.content?.map((node) => node.attrs?.['blockId'])).toEqual(['E']);
+
+    // Without callouts a wrapped direct child still creates the below stack,
+    // and the remaining direct child stays in the right group.
+    const directOnly = fixture();
+    delete directOnly.branches['ac'];
+    directOnly.blocks['D'] = block('D', []);
+    directOnly.blocks['E'] = block('E', []);
+    directOnly.branches['ad'] = branch('A', 'D', 'm');
+    directOnly.branches['ae'] = branch('A', 'E', 't');
+    const onlyDirect = buildEditorDocument(directOnly, new Set(), new Set(['D']));
+    const blockA2 = onlyDirect.content?.[0]?.content?.[0];
+    expect(blockA2?.attrs?.['hasCallouts']).toBe(true);
+    expect(blockA2?.content?.[1]?.type).toBe('calloutLane');
+    expect(blockA2?.content?.[1]?.content?.map((node) => node.attrs?.['blockId'])).toEqual(['D']);
+    expect(blockA2?.content?.[1]?.content?.[0]?.attrs?.['rowKind']).toBe('direct');
+    expect(blockA2?.content?.[2]?.content?.map((node) => node.attrs?.['blockId'])).toEqual(['E']);
+  });
+
+  it('keeps a lone direct child in the right group when no placement is given', () => {
+    const document = fixture();
+    document.blocks['D'] = block('D', []);
+    document.branches['ad'] = branch('A', 'D', 't');
+    const pm = buildEditorDocument(document, new Set());
+    const blockA = pm.content?.[0]?.content?.[0];
+    expect(blockA?.attrs?.['hasCallouts']).toBe(false);
+    expect(blockA?.content?.map((node) => node.type)).toEqual(['blockBody', 'branchChildren']);
+    expect(blockA?.content?.[1]?.content?.map((node) => node.attrs?.['blockId'])).toEqual(['C', 'D']);
+  });
+
 
   it('orders callouts by anchor position, then branch order, and truncates the quote', () => {
     const document = fixture();

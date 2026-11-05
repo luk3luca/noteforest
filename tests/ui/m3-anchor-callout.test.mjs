@@ -4,7 +4,7 @@ import { mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { artifactsPath, createHarness } from '../support/harness.mjs';
 
-const tempRoot = artifactsPath('m3b2a-ui');
+const tempRoot = artifactsPath('m3b2c-ui');
 const h = createHarness({ tempRoot });
 let page;
 
@@ -75,6 +75,20 @@ async function createAnchoredChild(blockId, word) {
   return result.blockId;
 }
 
+async function createDirectChild(parentId, blockId, text) {
+  await applyCommand({
+    type: 'block.create',
+    blockId,
+    content: {
+      type: 'doc',
+      children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
+    },
+    placement: { kind: 'child', parentBlockId: parentId },
+  });
+  await page.waitForSelector(`[data-block-card="${blockId}"]`);
+  return blockId;
+}
+
 async function waitForCallouts(parentId, count) {
   await page.waitForFunction(
     ({ parentId: id, count: expected }) => {
@@ -94,6 +108,20 @@ async function waitForCallouts(parentId, count) {
   );
 }
 
+async function waitForWrappedRow(parentId) {
+  await page.waitForFunction(
+    (id) => {
+      const lane = document.querySelector(`[data-callout-lane="${id}"]`);
+      if (lane === null) return false;
+      return [...lane.querySelectorAll('.nf-block-node[data-below-row="true"]')].some(
+        (row) => row.closest('.nf-callout-lane') === lane,
+      );
+    },
+    parentId,
+    { timeout: 10000 },
+  );
+}
+
 function parsePoints(path) {
   const numbers = (path ?? '')
     .split(/[^0-9.-]+/)
@@ -106,17 +134,19 @@ function parsePoints(path) {
   return points;
 }
 
-function movesForward(points) {
-  for (let index = 1; index < points.length; index += 1) {
-    if (points[index].x < points[index - 1].x - 0.5) return false;
-    if (points[index].y < points[index - 1].y - 0.5) return false;
-  }
-  return true;
+function lastSegment(points) {
+  const end = points.at(-1);
+  const before = points.at(-2);
+  if (end === undefined || before === undefined) return { length: 0, horizontal: false };
+  return {
+    length: Math.hypot(end.x - before.x, end.y - before.y),
+    horizontal: Math.abs(end.y - before.y) < 0.5,
+  };
 }
 
-async function calloutSnapshot(parentId, childIds, directId) {
+async function belowStackSnapshot(parentId, childIds) {
   return page.evaluate(
-    ({ parentId: id, childIds: expectedChildren, directId: direct }) => {
+    ({ parentId: id, childIds: expectedChildren }) => {
       const scope = document.querySelector('.nf-editor[data-active="true"]');
       const content = scope?.querySelector('.nf-canvas-content');
       if (content === null || content === undefined) return null;
@@ -135,35 +165,28 @@ async function calloutSnapshot(parentId, childIds, directId) {
       const parent = rel(content.querySelector(`[data-block-card="${id}"]`));
       const lane = content.querySelector(`[data-callout-lane="${id}"]`);
       if (lane === null) return null;
-      const rows = [...lane.querySelectorAll('[data-callout-row="true"]')]
-        .filter((row) => row.closest('.nf-callout-lane') === lane)
-        .map((row) => {
-          const card = row.querySelector('[data-block-card]');
-          const anchorId = row.dataset.anchorId;
-          const mark = [...content.querySelectorAll('.nf-anchor-mark[data-anchor-ids]')].find(
-            (candidate) =>
-              (candidate.dataset.anchorIds ?? '').split(',').includes(anchorId ?? ''),
-          );
-          const dot = row.querySelector('.nf-callout-dot');
-          const leader = row.querySelector('.nf-callout-leader');
-          const quote = row.querySelector('.nf-callout-quote-text');
-          const prose = card.querySelector('.nf-block-prose');
-          return {
-            anchorId,
-            childId: card.getAttribute('data-block-card'),
-            quote: quote?.textContent?.trim() ?? '',
-            editable: prose?.isContentEditable ?? false,
-            canBranch: card.querySelector('[data-add-child]') !== null,
-            clamped: row.dataset.calloutClamped,
-            offset: Number.parseFloat(row.style.getPropertyValue('--nf-callout-offset')),
-            card: rel(card),
-            anchorLeft: mark === undefined ? null : rel(mark).left,
-            dotAria: dot?.getAttribute('aria-hidden') ?? null,
-            leaderAria: leader?.getAttribute('aria-hidden') ?? null,
-            leaderWidth: leader === null ? 0 : Number.parseFloat(getComputedStyle(leader).width),
-          };
-        });
-      const directElement = content.querySelector(`[data-block-card="${direct}"]`);
+      const laneRows = [
+        ...lane.querySelectorAll('[data-callout-row="true"], .nf-block-node[data-below-row="true"]'),
+      ].filter((row) => row.closest('.nf-callout-lane') === lane);
+      const rows = laneRows.map((row) => {
+        const card = row.querySelector('[data-block-card]');
+        const anchorId = row.dataset.anchorId;
+        const quote = row.querySelector('.nf-callout-quote-text');
+        return {
+          kind: row.dataset.calloutRow === 'true' ? 'callout' : 'direct',
+          anchorId: anchorId ?? null,
+          childId: card?.getAttribute('data-block-card') ?? null,
+          quote: quote?.textContent?.trim() ?? '',
+          card: card === null ? null : rel(card),
+        };
+      });
+      const right = expectedChildren
+        .filter((childId) => rows.every((row) => row.childId !== childId))
+        .map((childId) => {
+          const card = content.querySelector(`[data-block-card="${childId}"]`);
+          return card === null ? null : { childId, card: rel(card) };
+        })
+        .filter((entry) => entry !== null);
       const edges = expectedChildren
         .map((childId) => {
           const group = content.querySelector(
@@ -176,23 +199,105 @@ async function calloutSnapshot(parentId, childIds, directId) {
             kind: group.getAttribute('data-edge-kind'),
             placement: group.getAttribute('data-placement'),
             arrow: group.querySelector('[data-arrow]')?.getAttribute('data-arrow-direction'),
-            points: path === null ? [] : path.getAttribute('d'),
+            points: parsePath(path?.getAttribute('d')),
           };
         })
         .filter((edge) => edge !== null);
+      const trunks = [...content.querySelectorAll('.nf-edge-trunk')]
+        .filter((trunk) => trunk.getAttribute('data-parent-id') === id)
+        .map((trunk) => ({
+          kind: trunk.getAttribute('data-trunk-kind'),
+          placement: trunk.getAttribute('data-trunk-placement'),
+          points: parsePath(trunk.getAttribute('d')),
+        }));
       return {
         parent,
         lane: rel(lane),
         rows,
-        direct: directElement === null ? null : rel(directElement),
+        right,
         edges,
+        trunks,
       };
+
+      function parsePath(value) {
+        const numbers = (value ?? '')
+          .split(/[^0-9.-]+/)
+          .filter((part) => part.length > 0)
+          .map(Number);
+        const points = [];
+        for (let index = 0; index + 1 < numbers.length; index += 2) {
+          points.push({ x: numbers[index], y: numbers[index + 1] });
+        }
+        return points;
+      }
     },
-    { parentId, childIds, directId },
+    { parentId, childIds },
   );
 }
 
-describe('NoteForest M3 callout lane', () => {
+function assertNoOverlap(rects, label) {
+  for (let leftIndex = 0; leftIndex < rects.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < rects.length; rightIndex += 1) {
+      const left = rects[leftIndex];
+      const right = rects[rightIndex];
+      assert.ok(
+        left.right <= right.left + 0.5 ||
+          right.right <= left.left + 0.5 ||
+          left.bottom <= right.top + 0.5 ||
+          right.bottom <= left.top + 0.5,
+        `${label}: cards ${leftIndex} and ${rightIndex} do not overlap`,
+      );
+    }
+  }
+}
+
+async function buildFixture() {
+  await page.evaluate(() => window.__noteforestTest.seed('demo'));
+  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+  await h.waitSaved();
+  await h.waitLayout({ blocks: 7, arrows: 3 });
+
+  const parentCard = h
+    .activeEditor()
+    .locator('[data-block-card]', { hasText: 'Take the symmetric matrix below' })
+    .first();
+  const parentId = await parentCard.getAttribute('data-block-card');
+  assert.equal(typeof parentId, 'string');
+
+  const firstCallout = await createAnchoredChild(parentId, 'symmetric');
+  await waitForCallouts(parentId, 1);
+  const secondCallout = await createAnchoredChild(parentId, 'eigenvalues');
+  await waitForCallouts(parentId, 2);
+
+  const shortDirect = 'm3b2c-short-direct';
+  const longDirect = 'm3b2c-long-direct';
+  await createDirectChild(parentId, shortDirect, 'R');
+  await createDirectChild(
+    parentId,
+    longDirect,
+    'A deliberately long wrapped direct child whose card needs the full right column width.',
+  );
+  await h.waitLayout({ blocks: 11, arrows: 7 });
+
+  const canonical = await structure();
+  assert.equal(
+    Object.values(canonical.branches).filter(
+      (branch) => branch.source.blockId === parentId && branch.source.anchorId !== undefined,
+    ).length,
+    2,
+    'the canonical document keeps two anchored primary branches',
+  );
+  assert.equal(
+    Object.values(canonical.branches).filter(
+      (branch) => branch.source.blockId === parentId && branch.source.anchorId === undefined,
+    ).length,
+    2,
+    'the direct children stay normal primary branches',
+  );
+  return { parentId, parentCard, firstCallout, secondCallout, shortDirect, longDirect };
+}
+
+describe('NoteForest M3b2c below-stack routing', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(tempRoot, { recursive: true });
@@ -206,161 +311,222 @@ describe('NoteForest M3 callout lane', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('stacks anchored callouts below the parent before a direct child, with forward edges', async () => {
-    await launch(isolated('callout'));
+  it('keeps direct children right while every below-stack arrow enters from the left at 1440', async () => {
+    await launch(isolated('wide'));
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    const { parentId, parentCard, firstCallout, secondCallout, shortDirect, longDirect } =
+      await buildFixture();
 
-    const parentCard = h
-      .activeEditor()
-      .locator('[data-block-card]', { hasText: 'Take the symmetric matrix below' })
-      .first();
-    const parentId = await parentCard.getAttribute('data-block-card');
-    assert.equal(typeof parentId, 'string');
-
-    const firstCallout = await createAnchoredChild(parentId, 'symmetric');
-    await waitForCallouts(parentId, 1);
-    const secondCallout = await createAnchoredChild(parentId, 'eigenvalues');
-    await waitForCallouts(parentId, 2);
-
-    const directId = 'm3b2a-direct-child';
-    await applyCommand({
-      type: 'block.create',
-      blockId: directId,
-      content: {
-        type: 'doc',
-        children: [
-          { type: 'paragraph', children: [{ type: 'text', text: 'Direct child after the lane' }] },
-        ],
-      },
-      placement: { kind: 'child', parentBlockId: parentId },
-    });
-    await page.waitForSelector(`[data-block-card="${directId}"]`);
-    await page.waitForSelector(`[data-callout-row="true"][data-anchor-id]`);
-
-    const canonical = await structure();
-    assert.equal(
-      Object.values(canonical.branches).filter(
-        (branch) => branch.source.blockId === parentId && branch.source.anchorId !== undefined,
-      ).length,
-      2,
-      'the canonical document keeps two anchored primary branches',
-    );
-    assert.ok(
-      Object.values(canonical.branches).some(
-        (branch) =>
-          branch.source.blockId === parentId &&
-          branch.source.anchorId === undefined &&
-          branch.targetBlockId === directId,
-      ),
-      'the direct child is still a normal primary branch',
-    );
-
-    await h.waitLayout({ blocks: 10, arrows: 6 });
-    const snapshot = await calloutSnapshot(
-      parentId,
-      [firstCallout, secondCallout, directId],
-      directId,
-    );
+    await parentCard.scrollIntoViewIfNeeded();
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    const snapshot = await belowStackSnapshot(parentId, [
+      firstCallout,
+      secondCallout,
+      shortDirect,
+      longDirect,
+    ]);
     assert.ok(snapshot !== null);
-    assert.equal(snapshot.rows.length, 2);
-    assert.equal(snapshot.rows[0].childId, firstCallout);
-    assert.equal(snapshot.rows[1].childId, secondCallout);
+
+    // Two callouts remain below the parent, in anchor order.
+    assert.deepEqual(
+      snapshot.rows.map((row) => `${row.kind}:${row.childId}`),
+      [`callout:${firstCallout}`, `callout:${secondCallout}`],
+    );
     assert.deepEqual(
       snapshot.rows.map((row) => row.quote),
       ['symmetric', 'eigenvalues'],
-      'callouts follow anchor position order',
-    );
-    assert.equal(snapshot.rows[0].clamped, 'false');
-    assert.equal(snapshot.rows[1].clamped, 'false');
-
-    // Callout card 0 is below the parent card and aligned near its anchor.
-    assert.ok(
-      snapshot.rows[0].card.top >= snapshot.parent.bottom - 0.5,
-      `callout top ${snapshot.rows[0].card.top} is below the parent ${snapshot.parent.bottom}`,
-    );
-    for (const row of snapshot.rows) {
-      assert.equal(row.dotAria, 'true', 'the connector dot is decorative');
-      assert.equal(row.leaderAria, 'true', 'the dotted leader is decorative');
-      assert.equal(row.editable, true, 'the callout body stays editable');
-      assert.equal(row.canBranch, true, 'the callout stays branchable');
-      assert.ok(row.leaderWidth > 0, 'the dotted leader is visible');
-      assert.ok(row.anchorLeft !== null);
-      const delta = row.card.left - row.anchorLeft;
-      assert.ok(
-        delta >= 12 && delta <= 20,
-        `callout left is near its anchor (${delta}px gap)`,
-      );
-      assert.ok(
-        row.card.right <= snapshot.parent.right + 0.5,
-        'the callout does not overflow the parent card',
-      );
-    }
-    // Multiple callouts stack deterministically without overlap.
-    assert.ok(
-      snapshot.rows[1].card.top >= snapshot.rows[0].card.bottom + 8,
-      'the second callout stacks below the first',
-    );
-    for (const row of snapshot.rows) {
-      assert.ok(
-        row.card.bottom <= snapshot.direct.top + 0.5,
-        'the direct child sits after the callout lane',
-      );
-    }
-    assert.ok(
-      snapshot.direct.top >= snapshot.rows[1].card.bottom + 8,
-      'the direct child is below the last callout',
     );
     assert.ok(
-      snapshot.direct.top >= snapshot.lane.bottom - 0.5,
-      'the direct group starts after the lane',
+      snapshot.lane.top >= snapshot.parent.bottom - 0.5,
+      'the below stack starts below the parent card',
     );
     assert.ok(
-      !(
-        snapshot.parent.left < snapshot.rows[0].card.right &&
-        snapshot.rows[0].card.left < snapshot.parent.right &&
-        snapshot.parent.top < snapshot.rows[0].card.bottom &&
-        snapshot.rows[0].card.top < snapshot.parent.bottom
-      ),
-      'the callout never overlaps the parent card',
+      snapshot.lane.right <= snapshot.parent.right + 0.5,
+      'the lane stays within the parent card width',
     );
 
-    // Edges: one parent → callout and one parent → direct child, all forward.
+    // Both direct children fit to the right at 1440.
+    assert.deepEqual(
+      snapshot.right.map((entry) => entry.childId).sort(),
+      [shortDirect, longDirect].sort(),
+    );
+    for (const entry of snapshot.right) {
+      assert.ok(
+        entry.card.left >= snapshot.parent.right + 15 &&
+          entry.card.left <= snapshot.parent.right + 18,
+        `direct child ${entry.childId} sits one gap right of the parent`,
+      );
+      assert.ok(
+        entry.card.top < snapshot.rows[0].card.bottom,
+        'the right group is beside the parent, not after the lane',
+      );
+    }
     const byChild = new Map(snapshot.edges.map((edge) => [edge.childId, edge]));
     for (const [childId, kind] of [
       [firstCallout, 'callout'],
       [secondCallout, 'callout'],
-      [directId, 'direct'],
     ]) {
       const edge = byChild.get(childId);
       assert.ok(edge !== undefined, `edge for ${childId}`);
       assert.equal(edge.kind, kind);
       assert.equal(edge.placement, 'below');
-      assert.equal(edge.arrow, 'down', 'the arrow enters the below-placement card');
-      const points = parsePoints(edge.points);
-      assert.ok(points.length >= 2);
-      const start = points[0];
-      const end = points.at(-1);
-      assert.ok(end.y > start.y, `edge ${childId} runs forward (downward)`);
-      assert.ok(
-        start.y >= snapshot.parent.bottom - 0.5,
-        `edge ${childId} starts at the parent side, not across the card`,
-      );
-      assert.ok(
-        points.every((point) => point.x >= snapshot.parent.left - 0.5),
-        `edge ${childId} never loops left across the parent`,
-      );
-      assert.ok(movesForward(points), `edge ${childId} never U-turns`);
+      assert.equal(edge.arrow, 'right');
+    }
+    for (const childId of [shortDirect, longDirect]) {
+      const edge = byChild.get(childId);
+      assert.ok(edge !== undefined, `edge for ${childId}`);
+      assert.equal(edge.kind, 'direct');
+      assert.equal(edge.placement, 'right');
+      assert.equal(edge.arrow, 'right');
     }
 
+    // One shared trunk for the two callout rows, with a left-entry arm each.
+    const belowTrunks = snapshot.trunks.filter(
+      (trunk) => trunk.kind === 'trunk' && trunk.placement === 'below',
+    );
+    assert.equal(belowTrunks.length, 1, 'one shared below trunk');
+    assert.equal(snapshot.trunks.filter((trunk) => trunk.kind === 'bus').length, 0);
+    const trunk = belowTrunks[0];
+    assert.ok(trunk !== undefined);
+    const trunkStart = trunk.points[0];
+    const trunkEnd = trunk.points.at(-1);
+    if (trunkStart === undefined || trunkEnd === undefined) throw new Error('missing trunk');
+    assert.ok(Math.abs(trunkStart.y - snapshot.parent.bottom) < 1, 'trunk starts at parent bottom');
+    assert.ok(
+      Math.abs(trunkEnd.y - (snapshot.rows.at(-1).card.top + snapshot.rows.at(-1).card.height / 2)) <
+        1.5,
+      'trunk ends at the last row center',
+    );
+    assert.ok(
+      trunkStart.x < Math.min(...snapshot.rows.map((row) => row.card.left)) - 11,
+      'trunk stays in the left gutter, clear of every row',
+    );
+    for (const [index, row] of snapshot.rows.entries()) {
+      const edge = byChild.get(row.childId);
+      assert.ok(edge !== undefined);
+      const points = edge.points;
+      const end = points.at(-1);
+      if (end === undefined) throw new Error('missing edge end');
+      assert.ok(
+        row.card.left >= snapshot.parent.left - 0.5 &&
+          row.card.right <= snapshot.parent.right + 0.5,
+        `row ${index} stays inside the lane bounds`,
+      );
+      assert.ok(Math.abs(end.x - (row.card.left - 2)) < 1, `row ${index} arrow tip at the left edge`);
+      assert.ok(
+        Math.abs(end.y - (row.card.top + row.card.height / 2)) < 1,
+        `row ${index} arm at its center Y`,
+      );
+      expectStem(points, GEOMETRY_STEM_MIN);
+      assert.ok(
+        points.every((point) => point.x <= end.x + 0.5),
+        `row ${index} never routes backwards`,
+      );
+    }
+    assert.equal(byChild.get(longDirect)?.placement, 'right');
+
+    assertNoOverlap(
+      [
+        snapshot.parent,
+        ...snapshot.rows.map((row) => row.card),
+        ...snapshot.right.map((entry) => entry.card),
+      ],
+      '1440 layout',
+    );
     await parentCard.scrollIntoViewIfNeeded();
-    await h.waitLayout({ blocks: 10, arrows: 6 });
-    await mkdir(artifactsPath('m3b2a'), { recursive: true });
-    await h.screenshot(artifactsPath('m3b2a', 'callout-lane-1440x900.png'), {
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    await mkdir(artifactsPath('m3b2c'), { recursive: true });
+    await h.screenshot(artifactsPath('m3b2c', 'below-stack-1440x900.png'), {
       width: 1440,
+      height: 900,
+    });
+  });
+
+  it('wraps a direct child after the callouts at a narrow width, with one shared trunk', async () => {
+    await launch(isolated('narrow'));
+    await h.setWindowSize(1440, 900);
+    const { parentId, parentCard, firstCallout, secondCallout, shortDirect, longDirect } =
+      await buildFixture();
+
+    await h.setWindowSize(960, 900);
+    await waitForWrappedRow(parentId);
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    await parentCard.scrollIntoViewIfNeeded();
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    const snapshot = await belowStackSnapshot(parentId, [
+      firstCallout,
+      secondCallout,
+      shortDirect,
+      longDirect,
+    ]);
+    assert.ok(snapshot !== null);
+
+    // Callouts first, then the wrapped long direct child; the short child fits.
+    assert.deepEqual(
+      snapshot.rows.map((row) => `${row.kind}:${row.childId}`),
+      [`callout:${firstCallout}`, `callout:${secondCallout}`, `direct:${longDirect}`],
+    );
+    assert.deepEqual(
+      snapshot.right.map((entry) => entry.childId),
+      [shortDirect],
+    );
+    assert.ok(snapshot.lane.right <= snapshot.parent.right + 0.5);
+
+    const byChild = new Map(snapshot.edges.map((edge) => [edge.childId, edge]));
+    assert.equal(byChild.get(shortDirect)?.placement, 'right');
+    assert.equal(byChild.get(shortDirect)?.arrow, 'right');
+    assert.equal(byChild.get(longDirect)?.placement, 'below');
+    assert.equal(byChild.get(longDirect)?.arrow, 'right');
+
+    // One trunk across three rows: two callouts and the wrapped direct child.
+    const trunks = snapshot.trunks.filter(
+      (trunk) => trunk.kind === 'trunk' && trunk.placement === 'below',
+    );
+    assert.equal(trunks.length, 1, 'one shared below trunk for all rows');
+    const trunk = trunks[0];
+    assert.ok(trunk !== undefined);
+    const trunkStart = trunk.points[0];
+    if (trunkStart === undefined) throw new Error('missing trunk start');
+    assert.ok(Math.abs(trunkStart.y - snapshot.parent.bottom) < 1);
+    assert.ok(
+      trunkStart.x < Math.min(...snapshot.rows.map((row) => row.card.left)) - 11,
+      'the trunk never crosses a row card',
+    );
+    for (const [index, row] of snapshot.rows.entries()) {
+      const edge = byChild.get(row.childId);
+      assert.ok(edge !== undefined);
+      const end = edge.points.at(-1);
+      if (end === undefined) throw new Error('missing edge end');
+      assert.ok(
+        row.card.left >= snapshot.parent.left - 0.5 &&
+          row.card.right <= snapshot.parent.right + 0.5,
+        `row ${index} stays inside the lane bounds`,
+      );
+      assert.ok(Math.abs(end.x - (row.card.left - 2)) < 1, `row ${index} enters from the left`);
+      assert.ok(
+        Math.abs(end.y - (row.card.top + row.card.height / 2)) < 1,
+        `row ${index} arm at its center Y`,
+      );
+      assert.equal(edge.arrow, 'right');
+      expectStem(edge.points, GEOMETRY_STEM_MIN);
+    }
+    assertNoOverlap(
+      [
+        snapshot.parent,
+        ...snapshot.rows.map((row) => row.card),
+        ...snapshot.right.map((entry) => entry.card),
+      ],
+      'narrow layout',
+    );
+    assert.equal(
+      snapshot.trunks.filter((trunkItem) => trunkItem.kind === 'bus').length,
+      0,
+      'no bottom bus',
+    );
+
+    await mkdir(artifactsPath('m3b2c'), { recursive: true });
+    await h.screenshot(artifactsPath('m3b2c', 'below-stack-960x900.png'), {
+      width: 960,
       height: 900,
     });
   });
@@ -375,7 +541,7 @@ describe('NoteForest M3 callout lane', () => {
 
     const canonical = await structure();
     const chapterId = canonical.chapters[0].id;
-    const parentId = 'm3b2a-clamp-parent';
+    const parentId = 'm3b2c-clamp-parent';
     await applyCommand({
       type: 'block.create',
       blockId: parentId,
@@ -394,39 +560,48 @@ describe('NoteForest M3 callout lane', () => {
     await waitForCallouts(parentId, 1);
     await h.waitLayout({ blocks: 9, arrows: 4 });
 
-    const snapshot = await calloutSnapshot(parentId, [calloutId], calloutId);
+    const snapshot = await belowStackSnapshot(parentId, [calloutId]);
     assert.ok(snapshot !== null);
     assert.equal(snapshot.rows.length, 1);
     const row = snapshot.rows[0];
-    assert.equal(row.clamped, 'true', 'the far-right anchor uses the clamped lane offset');
-    assert.ok(row.anchorLeft !== null);
+    if (row === undefined || row.card === null) throw new Error('missing callout row');
+    const anchorLeft = await page.evaluate((id) => {
+      const content = document.querySelector('.nf-editor[data-active="true"] .nf-canvas-content');
+      const contentRect = content.getBoundingClientRect();
+      const mark = [...content.querySelectorAll('.nf-anchor-mark[data-anchor-ids], [data-anchor-ids]')].find(
+        (candidate) =>
+          (candidate.dataset.anchorIds ?? '').split(',').includes(id),
+      );
+      return mark === undefined ? null : mark.getBoundingClientRect().left - contentRect.left;
+    }, row.anchorId);
+    const clamped = await page.evaluate((id) => {
+      const rowElement = document.querySelector(
+        `[data-callout-lane="${id}"] .nf-block-node[data-callout-row="true"]`,
+      );
+      return rowElement?.dataset.calloutClamped ?? null;
+    }, parentId);
+    assert.equal(clamped, 'true', 'the far-right anchor uses the clamped lane offset');
+    assert.ok(anchorLeft !== null);
+    assert.ok(anchorLeft > snapshot.parent.left + 120, 'the anchor really is far right');
     assert.ok(
-      row.anchorLeft > snapshot.parent.left + 120,
-      'the anchor really is far to the right of the card',
-    );
-    assert.ok(
-      row.card.left >= snapshot.parent.left + 9.5 &&
-        row.card.left <= snapshot.parent.left + 12,
+      row.card.left >= snapshot.parent.left + 9.5 && row.card.left <= snapshot.parent.left + 12,
       'the clamped callout falls back to the card content left',
     );
     assert.ok(
       row.card.right <= snapshot.parent.right + 0.5,
       'the clamped callout never overflows the card',
     );
-    assert.ok(
-      row.offset <= 12,
-      'the clamped offset is the content left, not the anchor offset',
-    );
-    assert.ok(row.leaderWidth > 0, 'the connector dot still has a leader');
-    assert.equal(row.dotAria, 'true');
-    assert.equal(row.leaderAria, 'true');
-
-    await page.locator(`[data-callout-row="true"][data-anchor-id="${row.anchorId}"]`).scrollIntoViewIfNeeded();
-    await h.waitLayout({ blocks: 9, arrows: 4 });
-    await mkdir(artifactsPath('m3b2a'), { recursive: true });
-    await h.screenshot(artifactsPath('m3b2a', 'callout-clamp-1440x900.png'), {
-      width: 1440,
-      height: 900,
-    });
+    const edge = snapshot.edges[0];
+    assert.ok(edge !== undefined);
+    expectStem(edge.points, GEOMETRY_STEM_MIN);
+    assert.equal(edge.arrow, 'right');
   });
 });
+
+const GEOMETRY_STEM_MIN = 12;
+
+function expectStem(points, minimum) {
+  const segment = lastSegment(points);
+  assert.equal(segment.horizontal, true, 'final stem is horizontal');
+  assert.ok(segment.length >= minimum - 0.5, `final stem is at least ${minimum} px`);
+}

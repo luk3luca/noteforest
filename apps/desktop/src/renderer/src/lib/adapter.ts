@@ -184,6 +184,22 @@ export interface PrimaryChildProjection {
   callouts: CalloutDescriptor[];
   /** Direct primary children in branch order. */
   direct: Array<{ branchId: string; blockId: string }>;
+  /**
+   * One ordered list for the renderer: anchored callouts first (anchor order),
+   * then direct children (branch order). `kind` is the only renderer-level
+   * distinction; right/below placement is measured separately.
+   */
+  children: PrimaryChildEntry[];
+}
+
+export type PrimaryChildKind = 'callout' | 'direct';
+
+export interface PrimaryChildEntry {
+  kind: PrimaryChildKind;
+  branchId: string;
+  blockId: string;
+  anchorId?: string;
+  callout?: CalloutDescriptor;
 }
 
 function toCallout(document: Document, parentId: string, branch: Branch): CalloutDescriptor {
@@ -208,14 +224,33 @@ export function projectPrimaryChildren(
   document: Document,
   parentBlockId: string,
 ): PrimaryChildProjection {
+  const callouts = anchoredChildBranches(document, parentBlockId)
+    .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
+    .map((branch) => toCallout(document, parentBlockId, branch));
+  const direct = directChildBranches(document, parentBlockId)
+    .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
+    .map((branch) => ({ branchId: branch.id, blockId: branch.targetBlockId }));
   return {
-    callouts: anchoredChildBranches(document, parentBlockId)
-      .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
-      .map((branch) => toCallout(document, parentBlockId, branch)),
-    direct: directChildBranches(document, parentBlockId)
-      .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
-      .map((branch) => ({ branchId: branch.id, blockId: branch.targetBlockId })),
+    callouts,
+    direct,
+    children: [
+      ...callouts.map((callout): PrimaryChildEntry => ({
+        kind: 'callout',
+        branchId: callout.branchId,
+        blockId: callout.blockId,
+        anchorId: callout.anchorId,
+        callout,
+      })),
+      ...direct.map((item): PrimaryChildEntry => ({ kind: 'direct', ...item })),
+    ],
   };
+}
+
+const EMPTY_PLACEMENT: ReadonlySet<string> = new Set();
+
+export interface BelowRow {
+  kind: 'callout' | 'direct';
+  callout?: CalloutDescriptor;
 }
 
 export function buildBlockNode(
@@ -224,7 +259,8 @@ export function buildBlockNode(
   depth: number,
   collapsed: ReadonlySet<string>,
   seen: Set<string> = new Set(),
-  callout?: CalloutDescriptor,
+  belowRow?: BelowRow,
+  belowChildIds: ReadonlySet<string> = EMPTY_PLACEMENT,
 ): PMNode | null {
   if (seen.has(id)) return null;
   const block = document.blocks[id];
@@ -237,6 +273,7 @@ export function buildBlockNode(
   const childCount = directChildIds(document, id).filter(
     (childId) => document.blocks[childId] !== undefined,
   ).length;
+  const callout = belowRow?.kind === 'callout' ? belowRow.callout : undefined;
   const calloutAttrs =
     callout === undefined
       ? {}
@@ -249,6 +286,7 @@ export function buildBlockNode(
           calloutBranchId: callout.branchId,
           calloutParentId: callout.parentId,
         };
+  const rowAttrs = belowRow === undefined ? {} : { belowRow: true, rowKind: belowRow.kind };
   const content: PMNode[] = [
     {
       type: 'blockBody',
@@ -259,26 +297,58 @@ export function buildBlockNode(
         collapsed: isCollapsed,
         childCount,
         ...calloutAttrs,
+        ...rowAttrs,
       },
       content: blockBodyContent(block.content),
     },
   ];
+
+  // Below stack order is deterministic: every callout first (anchor start,
+  // anchor ID, branch order, already applied by the core selector), then the
+  // wrapped direct children in branch order. Both live in one lane so the
+  // router can draw one shared left trunk and one arm per row.
+  const belowEntries = projection.children.filter(
+    (entry) => entry.kind === 'callout' || belowChildIds.has(entry.blockId),
+  );
   let laneBuilt = false;
-  if (projection.callouts.length > 0) {
-    const callouts = projection.callouts
-      .map((item) => buildBlockNode(document, item.blockId, depth + 1, collapsed, seen, item))
+  if (belowEntries.length > 0) {
+    const rows = belowEntries
+      .map((entry) =>
+        buildBlockNode(
+          document,
+          entry.blockId,
+          depth + 1,
+          collapsed,
+          seen,
+          entry.kind === 'callout' && entry.callout !== undefined
+            ? { kind: 'callout', callout: entry.callout }
+            : { kind: 'direct' },
+          belowChildIds,
+        ),
+      )
       .filter((node): node is PMNode => node !== null);
-    if (callouts.length > 0) {
+    if (rows.length > 0) {
       laneBuilt = true;
       content.push({
         type: 'calloutLane',
         attrs: { parentId: id, depth },
-        content: callouts,
+        content: rows,
       });
     }
   }
-  const children = projection.direct
-    .map((item) => buildBlockNode(document, item.blockId, depth + 1, collapsed, seen))
+  const children = projection.children
+    .filter((entry) => entry.kind === 'direct' && !belowChildIds.has(entry.blockId))
+    .map((entry) =>
+      buildBlockNode(
+        document,
+        entry.blockId,
+        depth + 1,
+        collapsed,
+        seen,
+        undefined,
+        belowChildIds,
+      ),
+    )
     .filter((node): node is PMNode => node !== null);
   if (children.length > 0) {
     content.push({
@@ -298,6 +368,8 @@ export function buildBlockNode(
       border: block.border ?? null,
       callout: callout !== undefined,
       hasCallouts: laneBuilt,
+      belowRow: belowRow !== undefined,
+      rowKind: belowRow?.kind ?? null,
       anchorId: callout?.anchorId ?? null,
       anchorKind: callout?.kind ?? null,
       anchorQuote: callout?.quote ?? null,
@@ -312,10 +384,11 @@ export function buildBlockNode(
 export function buildEditorDocument(
   document: Document,
   collapsed: ReadonlySet<string>,
+  belowChildIds: ReadonlySet<string> = EMPTY_PLACEMENT,
 ): PMNode {
   const seen = new Set<string>();
   const buildBlock = (id: string, depth: number): PMNode | null =>
-    buildBlockNode(document, id, depth, collapsed, seen);
+    buildBlockNode(document, id, depth, collapsed, seen, undefined, belowChildIds);
 
   // Every chapter is rendered, including a legacy empty one. The `chapter`
   // node accepts `branch*`; an empty chapter is valid ProseMirror content and

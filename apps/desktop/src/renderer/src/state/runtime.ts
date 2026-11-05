@@ -187,6 +187,12 @@ export class DocumentRuntime {
 
   readonly collapsed = new Set<string>();
 
+  /**
+   * Direct children the renderer wraps into the below stack. Non-canonical:
+   * measured from the canvas, rebuilt into the editor projection only.
+   */
+  private belowStackChildIds: ReadonlySet<string> = new Set();
+
   /** What the last user-visible operation touched; drives undo/redo routing. */
   lastHistoryOperation: 'text' | 'structural' | null = null;
 
@@ -1135,6 +1141,31 @@ export class DocumentRuntime {
     editor.view.dispatch(transaction);
   }
 
+  /**
+   * Apply a measured right/below placement. The projection changes DOM order
+   * only (right group vs below stack); canonical structure, undo history and
+   * revision stay untouched. Focus/caret are restored like a structural
+   * rebuild.
+   */
+  applyChildPlacement(belowChildIds: ReadonlySet<string>): void {
+    const same =
+      belowChildIds.size === this.belowStackChildIds.size &&
+      [...belowChildIds].every((id) => this.belowStackChildIds.has(id));
+    if (same) return;
+    this.belowStackChildIds = new Set(belowChildIds);
+    if (this.editor === null) return;
+    const wasFocused = this.editor.isFocused;
+    const focus = this.captureFocusContext();
+    // The projection changes editor-wrapper structure, so old text history
+    // positions no longer map to the new document. Structural commands do the
+    // same reset; placement never touches canonical content or its undo stack.
+    // A resize/measure pass must not steal focus when the editor was idle.
+    this.rebuildEditor(wasFocused ? focus.blockId : null, {
+      ...(wasFocused ? { restore: focus } : {}),
+      resetHistory: true,
+    });
+  }
+
   rebuildEditor(
     focusBlockId: string | null = null,
     options: { restore?: FocusContext; resetHistory?: boolean } = {},
@@ -1143,7 +1174,7 @@ export class DocumentRuntime {
     if (editor === null) return;
     const started = performance.now();
     const pmDocument = editor.schema.nodeFromJSON(
-      buildEditorDocument(this.document, this.collapsed),
+      buildEditorDocument(this.document, this.collapsed, this.belowStackChildIds),
     );
     const transaction = editor.state.tr.replaceWith(
       0,

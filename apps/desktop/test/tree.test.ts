@@ -119,6 +119,7 @@ describe('block tree', () => {
     const edges = edgePairs(document, new Set());
     const fromA = edges.filter((edge) => edge.parentId === 'A');
     expect(fromA.map((edge) => edge.kind)).toEqual(['callout', 'direct']);
+    expect(fromA.map((edge) => edge.placement)).toEqual(['below', 'right']);
     expect(fromA.map((edge) => edge.anchorId)).toEqual(['an1', undefined]);
     expect(fromA.map((edge) => `${edge.parentId}->${edge.childId}`)).toEqual(['A->C', 'A->B']);
     expect(fromA.map((edge) => edge.index)).toEqual([0, 1]);
@@ -132,6 +133,22 @@ describe('block tree', () => {
     expect(children[1]?.anchorId).toBeNull();
     expect(anchorQuote(document, 'an1')).toBe('Alpha body');
     expect(anchorState(document, 'an1')).toBe('resolved');
+  });
+
+  it('marks wrapped direct edges as below and keeps outline order', () => {
+    const document = fixture();
+    document.blocks['D'] = block('D', 'Delta body');
+    document.branches['ad'] = branch('A', 'D', 'z');
+    const edges = edgePairs(document, new Set(), new Set(['D']));
+    const fromA = edges.filter((edge) => edge.parentId === 'A');
+    expect(fromA.map((edge) => `${edge.childId}:${edge.placement}`)).toEqual([
+      'B:right',
+      'C:right',
+      'D:below',
+    ]);
+    expect(fromA.map((edge) => edge.kind)).toEqual(['direct', 'direct', 'direct']);
+    expect(fromA.map((edge) => edge.index)).toEqual([0, 1, 2]);
+    expect(fromA.every((edge) => edge.count === 3)).toBe(true);
   });
 
   it('produces deterministic sibling port indexes', () => {

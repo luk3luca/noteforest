@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import { GEOMETRY, type Rect } from '../../lib/geometry';
+import type { Rect } from '../../lib/geometry';
 import {
-  routeCalloutEdge,
-  routeChildGroup,
+  routeBelowStackGroup,
+  routeRightChildren,
   type RoutedEdge,
   type RoutedTrunk,
 } from '../../lib/edge-routing';
-import type { EdgeKind } from '../../lib/tree';
+import type { EdgeKind, EdgePlacement } from '../../lib/tree';
 import { recordPerf } from '../../lib/perf';
 
 export interface EdgeDescriptor {
@@ -16,6 +16,7 @@ export interface EdgeDescriptor {
   index: number;
   count: number;
   kind: EdgeKind;
+  placement: EdgePlacement;
   anchorId?: string;
 }
 
@@ -41,8 +42,8 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
       string,
       {
         parent: Rect;
-        callouts: Array<{ id: string; rect: Rect }>;
-        direct: Array<{ id: string; rect: Rect }>;
+        below: Array<{ id: string; rect: Rect }>;
+        right: Array<{ id: string; rect: Rect }>;
       }
     >();
     for (const edge of edges) {
@@ -51,34 +52,36 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
       if (parent === undefined || child === undefined) continue;
       let group = grouped.get(edge.parentId);
       if (group === undefined) {
-        group = { parent, callouts: [], direct: [] };
+        group = { parent, below: [], right: [] };
         grouped.set(edge.parentId, group);
       }
-      if (edge.kind === 'callout') group.callouts.push({ id: edge.id, rect: child });
-      else group.direct.push({ id: edge.id, rect: child });
+      // Placement comes from the same projection that builds the editor, not
+      // from the measured kind: a callout and a wrapped direct child share the
+      // one below-stack trunk.
+      if (edge.placement === 'below') group.below.push({ id: edge.id, rect: child });
+      else group.right.push({ id: edge.id, rect: child });
     }
     const result = new Map<string, RoutedGroupResult>();
     for (const [parentId, group] of grouped) {
       const edgesOut: RoutedEdge[] = [];
       const trunks: RoutedTrunk[] = [];
-      for (const callout of group.callouts) {
-        edgesOut.push(
-          routeCalloutEdge({ id: callout.id, parent: group.parent, child: callout.rect }),
-        );
-      }
-      if (group.direct.length > 0) {
-        // The direct group sits below the callout lane. Keep its trunk in the
-        // same left gutter so it cannot cross a callout card.
-        const direct = routeChildGroup({
+      if (group.below.length > 0) {
+        const below = routeBelowStackGroup({
           parentId,
           parent: group.parent,
-          children: group.direct,
-          ...(group.callouts.length === 0
-            ? {}
-            : { options: { indent: GEOMETRY.calloutEdgeGutter } }),
+          children: group.below,
         });
-        edgesOut.push(...direct.edges);
-        trunks.push(...direct.trunks);
+        edgesOut.push(...below.edges);
+        trunks.push(...below.trunks);
+      }
+      if (group.right.length > 0) {
+        const right = routeRightChildren({
+          parentId,
+          parent: group.parent,
+          children: group.right,
+        });
+        edgesOut.push(...right.edges);
+        trunks.push(...right.trunks);
       }
       result.set(parentId, { edges: edgesOut, trunks });
     }
@@ -151,6 +154,7 @@ export function EdgeLayer({ edges, rects, activePath, onEdgeClick, onTrunkClick 
                   className={className}
                   data-trunk-id={trunk.id}
                   data-trunk-kind={trunk.kind}
+                  data-trunk-placement={trunk.placement}
                   data-parent-id={parentId}
                   fill="none"
                 />
