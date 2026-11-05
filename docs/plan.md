@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.3, ADR-0005); M3a1 anchor model/binding/resolution in progress.
+**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.3, ADR-0005); M3a1 merged; M3a2 anchor commands in progress.
 
 ## Rules
 
@@ -244,9 +244,9 @@ M3 design package in progress; M3 implementation waits for the reviewed design.
   satisfied by the minimal `block.split`/`block.merge` in M3f (cross-chapter merge rejected).
 - Design package approved by the product owner on 5 November 2026: `docs/design/m3-anchors-references.md`;
   spec v0.4.5, UX v1.3, ADR-0005 are merged. C1/C8/C9 and OD-1–OD-12 are approved.
-- Slices: M3a1 anchor model/binding/resolution → M3a2 anchor commands + branch extension → M3b text
-  authoring → M3c formula/code/image → M3d reference edges → M3e repair → M3f identity/undo/
-  split-merge/fixtures. M3a1 is the current slice (pure core, no UI).
+- Slices: M3a1 anchor model/binding/resolution (merged) → M3a2 anchor commands + branch extension
+  (in progress) → M3b text authoring → M3c formula/code/image → M3d reference edges → M3e repair →
+  M3f identity/undo/split-merge/fixtures.
 
 ## M4 — Reader/page + PDF (planned)
 
