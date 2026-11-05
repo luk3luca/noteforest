@@ -81,7 +81,7 @@ ratified behavior testable. Each is marked where it appears.
 
 ### 1.4 Conflicts found across the current docs (blocking or near-blocking)
 
-**Approval (5 November 2026).** The product owner approved **C1–C9 as recommended**. The resolution column is binding; the delta is applied in `docs/spec.md` v0.4.5, `docs/ux.md` v1.3, and ADR-0005. The conflict descriptions below are retained as the design record.
+**Approval (5 November 2026).** The product owner approved **C1–C9 as recommended**. The resolution column is binding; the delta is applied in `docs/spec.md` v0.4.5, `docs/ux.md` v1.3, and ADR-0005. The conflict descriptions below are retained as the design record. Where a resolution cell says "Open decision OD-x", the referenced OD is approved as recommended in §14; the phrase is a historical cross-reference.
 
 These are not design choices; they are inconsistencies the Orchestrator must resolve before the
 relevant Builder brief. The design follows the spec/D3 in each case and flags the UX delta.
