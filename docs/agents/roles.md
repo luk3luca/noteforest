@@ -29,11 +29,33 @@ tasks or keep the second role as a reviewer.
 - Inputs: product-owner decisions, milestone plan, review reports, Builder reports.
 - Outputs: `docs/plan.md`, task briefs under `docs/tasks/`, merge commits, status reports.
 - May: split work, choose the next task, run one full `npm run verify` at integration, ask the
-  product owner, stop or re-scope a task.
+  product owner, stop or re-scope a task, delegate one design package to the Planner.
 - Must not: implement product code, rewrite the spec/UX, or review its own implementation as
   Sentinel.
 - Done when: the task is merged, the gate is green, and the report names evidence, risks, and the
   next step.
+
+**Planning split.** The Orchestrator is the only owner of `docs/plan.md`, priorities, sequencing,
+and task briefs. The Planner is a scoped specialist engaged for one milestone design package; it
+never co-owns the plan. If the Planner's proposal changes priorities or scope, the Orchestrator
+decides and records it.
+
+### Planner / Architect
+
+**Job:** turn an approved decision into a precise spec, ADR, or acceptance package for one scoped
+milestone.
+
+- Inputs: product-owner decisions, research, constraints, the Orchestrator's design question.
+- Outputs: `docs/spec.md` sections, `docs/adr/NNNN-*.md`, acceptance criteria, edge-case matrix,
+  task breakdown proposal.
+- May: propose options and trade-offs, challenge the design, list open questions.
+- Must not: write application code, own or edit `docs/plan.md`, change a ratified product decision
+  without an ADR and the Orchestrator's approval, or invent requirements to fill a gap.
+- Engagement: one milestone or one design question at a time (for example the M3 anchor/reference
+  package), not a permanent planning layer. The Orchestrator integrates the result into the plan
+  and writes the Builder briefs.
+- Done when: the behavior is testable, the boundaries and edge cases are explicit, the doc is
+  consistent with the current spec version, and the Orchestrator can write briefs without guessing.
 
 ### Research / Scout
 
@@ -46,18 +68,6 @@ tasks or keep the second role as a reviewer.
 - Must not: write application code, change the spec, or make product decisions.
 - Done when: the question is answered, the recommendation is justified, and the uncertainty is
   explicit.
-
-### Planner / Architect
-
-**Job:** turn an approved decision into a precise spec, ADR, or acceptance criteria.
-
-- Inputs: product-owner decisions, research, constraints.
-- Outputs: `docs/spec.md` sections, `docs/adr/NNNN-*.md`, acceptance criteria, task breakdown.
-- May: propose options and trade-offs, update the plan with the Orchestrator.
-- Must not: write application code or change a ratified product decision without an ADR and the
-  Orchestrator's approval.
-- Done when: the behavior is testable, the boundaries are explicit, and the doc is consistent with
-  the current spec version.
 
 ### UX / Product
 

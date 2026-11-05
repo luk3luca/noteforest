@@ -32,7 +32,7 @@ Full contracts, outputs, and forbidden actions: `docs/agents/roles.md`. Every de
 
 - **Orchestrator / Conductor**: plan, decisions, specific task briefs, integration, one full verify, final report. The main thread. Does not implement product code or self-review as Sentinel.
 - **Research / Scout**: answers one specific research question with evidence and a recommendation. Writes `research/`. No application code.
-- **Planner / Architect**: spec, ADRs, acceptance criteria, task breakdown. No application code and no unilateral product decisions.
+- **Planner / Architect**: scoped specialist for one milestone design package: spec sections, ADRs, acceptance criteria, edge-case matrix, task-breakdown proposal. The Orchestrator owns `docs/plan.md` and priorities. No application code and no unilateral product decisions.
 - **UX / Product**: flows, keyboard model, states, empty/error states in `docs/ux*.md`. No application code.
 - **Implementer / Builder**: implements exactly one brief in a worktree, with tests and a report. Does not change spec/UX/ADR/plan and does not merge.
 - **Reviewer / Sentinel**: independently judges one task; writes `docs/reviews/<task>.md` with a verdict, evidence, and new findings; may update the review checklist/DoD. Does not rewrite code, tests, spec, UX, ADR, or plan outside the checklist/DoD.
