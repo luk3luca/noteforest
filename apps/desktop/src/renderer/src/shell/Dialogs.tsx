@@ -21,6 +21,13 @@ import {
   undoActive,
 } from '../actions';
 import { blockTitle, chapterIdOf, subtreeIds } from '../lib/tree';
+import {
+  formulaNodeAt,
+  formulaTermBinding,
+  formulaTermSelection,
+  formulaTermSelector,
+  type FormulaTermSelection,
+} from '../lib/anchor-selection';
 import { overwriteConfirmation } from '../lib/save-failure';
 import { backupMetadataLine } from '../lib/backup-restore';
 import type { BackupCandidateView } from '../../../shared/api';
@@ -715,21 +722,87 @@ function MathDialog({
 }): JSX.Element {
   const [kind, setKind] = useState(mathKind);
   const [value, setValue] = useState(latex);
-  const apply = (): void => {
+  const [termSelection, setTermSelection] = useState<FormulaTermSelection | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const readTermSelection = (source: string): FormulaTermSelection | null => {
+    const element = textareaRef.current;
+    if (element === null) return null;
+    return formulaTermSelection(source, element.selectionStart, element.selectionEnd);
+  };
+
+  const syncTermSelection = (source: string): void => {
+    setTermSelection(readTermSelection(source));
+  };
+
+  /** Write the current formula into the editor; false when it cannot apply. */
+  const writeFormula = (next: string): boolean => {
     const editor = activeRuntime()?.editor;
+    if (editor === null || editor === undefined || pos === null) return false;
+    if (next.trim().length === 0) return false;
+    return kind === 'inline'
+      ? editor.chain().focus().updateInlineMath({ latex: next, pos }).run()
+      : editor.chain().focus().updateBlockMath({ latex: next, pos }).run();
+  };
+
+  const apply = (): void => {
     const clean = value.trim();
-    if (editor !== null && editor !== undefined && clean.length > 0) {
+    if (clean.length > 0) {
       if (pos !== null) {
-        if (kind === 'inline') editor.chain().focus().updateInlineMath({ latex: clean, pos }).run();
-        else editor.chain().focus().updateBlockMath({ latex: clean, pos }).run();
-      } else if (kind === 'inline') {
-        editor.chain().focus().insertInlineMath({ latex: clean }).run();
+        writeFormula(clean);
       } else {
-        editor.chain().focus().insertBlockMath({ latex: clean }).run();
+        const editor = activeRuntime()?.editor;
+        if (editor !== null && editor !== undefined) {
+          if (kind === 'inline') editor.chain().focus().insertInlineMath({ latex: clean }).run();
+          else editor.chain().focus().insertBlockMath({ latex: clean }).run();
+        }
       }
     }
     onClose();
   };
+
+  const branchFromTerm = (): void => {
+    const element = textareaRef.current;
+    const selected =
+      element === null
+        ? termSelection
+        : formulaTermSelection(value, element.selectionStart, element.selectionEnd);
+    if (pos === null || selected === null || selected.term.trim().length === 0) return;
+    const runtime = activeRuntime();
+    const editor = runtime?.editor ?? null;
+    if (runtime === null || editor === null) {
+      toast.error('Open a document before branching from a term.');
+      onClose();
+      return;
+    }
+    const location = formulaNodeAt(editor, pos);
+    if (location === null) {
+      toast.error('The formula could not be found; close the dialog and try again.');
+      onClose();
+      return;
+    }
+    // Branch from exactly what the user sees. If the dialog source changed,
+    // apply it first so the selected term exists in the canonical formula.
+    if (value !== location.latex) {
+      if (!writeFormula(value)) {
+        toast.error('The formula could not be updated; check the LaTeX and try again.');
+        return;
+      }
+    }
+    const updated = formulaNodeAt(editor, pos) ?? location;
+    const selection = {
+      kind: 'formula' as const,
+      blockId: updated.blockId,
+      binding: formulaTermBinding(updated.nodePath, selected),
+      selector: formulaTermSelector(selected),
+    };
+    onClose();
+    report(runtime.branchFromSelection(selection));
+  };
+
+  const showTermAction =
+    pos !== null && termSelection !== null && termSelection.term.trim().length > 0;
+
   return (
     <Frame
       title={pos === null ? 'Insert math' : 'Edit math'}
@@ -737,6 +810,15 @@ function MathDialog({
       actions={
         <>
           <Button className="nf-button" onPress={onClose}>Cancel</Button>
+          {showTermAction ? (
+            <Button
+              className="nf-button"
+              data-testid="branch-from-term"
+              onPress={branchFromTerm}
+            >
+              Branch from term
+            </Button>
+          ) : null}
           <Button className="nf-button nf-button-primary" onPress={apply}>Apply</Button>
         </>
       }
@@ -744,11 +826,18 @@ function MathDialog({
       <label className="nf-field">
         <span className="nf-field-label">LaTeX</span>
         <TextArea
+          ref={textareaRef}
           className="nf-input nf-textarea"
           autoFocus
           value={value}
           placeholder="\\lambda^2 + \\mu^2"
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => {
+            setValue(event.target.value);
+            syncTermSelection(event.target.value);
+          }}
+          onSelect={() => syncTermSelection(value)}
+          onKeyUp={() => syncTermSelection(value)}
+          onMouseUp={() => syncTermSelection(value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
@@ -765,6 +854,11 @@ function MathDialog({
           <input type="radio" checked={kind === 'block'} onChange={() => setKind('block')} /> Display
         </label>
       </div>
+      {pos !== null ? (
+        <p className="nf-dialog-note">
+          Select part of the LaTeX to branch from that term.
+        </p>
+      ) : null}
     </Frame>
   );
 }

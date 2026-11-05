@@ -126,6 +126,58 @@ function createFormulaChild(
   );
 }
 
+interface FormulaTermInput {
+  nodePath: number[];
+  latex: string;
+  latexStart?: number;
+  latexPrefix?: string;
+  latexSuffix?: string;
+  occurrence?: number;
+  occurrenceHint?: number;
+}
+
+function formulaTermBinding(input: FormulaTermInput): AnchorBinding {
+  return {
+    kind: 'formula',
+    form: 'term',
+    nodePath: input.nodePath,
+    latex: input.latex,
+    occurrence: input.occurrence ?? 1,
+  };
+}
+
+function formulaTermSelector(input: FormulaTermInput): JsonObject {
+  return {
+    kind: 'formula',
+    form: 'term',
+    latex: input.latex,
+    ...(input.latexStart === undefined ? {} : { latexStart: input.latexStart }),
+    ...(input.latexPrefix === undefined ? {} : { latexPrefix: input.latexPrefix }),
+    ...(input.latexSuffix === undefined ? {} : { latexSuffix: input.latexSuffix }),
+    occurrenceHint: input.occurrenceHint ?? input.occurrence ?? 1,
+  };
+}
+
+function createFormulaTermChild(
+  document: Document,
+  context: ReturnType<typeof deterministicContext>,
+  blockId: string,
+  input: FormulaTermInput,
+): CommandSuccess {
+  return run(
+    document,
+    {
+      type: 'branch.createFromSelection',
+      blockId,
+      kind: 'formula',
+      binding: formulaTermBinding(input),
+      selector: formulaTermSelector(input),
+      target: { kind: 'new' },
+    },
+    context,
+  );
+}
+
 function buildFormulaFixture() {
   const context = deterministicContext();
   let document = newDocument(context);
@@ -382,6 +434,250 @@ describe('branch.createFromSelection', () => {
         (branch) => branch.source.anchorId === anchorId,
       ),
     ).toHaveLength(1);
+  });
+
+  it('anchors a unique formula term with the atomic binding and one exact inverse', () => {
+    const { context, document, blockId } = buildFormulaFixture();
+    const before = structuredClone(document);
+    const term = '\\lambda';
+    const created = createFormulaTermChild(document, context, blockId, {
+      nodePath: [1],
+      latex: term,
+      latexStart: 5,
+      latexPrefix: 'Av = ',
+      latexSuffix: ' v',
+      occurrence: 1,
+    });
+    const anchorId = created.created.anchorIds[0] as string;
+    const childId = created.created.blockIds[0] as string;
+    const branchId = created.created.branchIds[0] as string;
+
+    expect(created.document.anchors[anchorId]).toMatchObject({
+      id: anchorId,
+      blockId,
+      kind: 'formula',
+      quote: term,
+      prefix: 'Av = ',
+      suffix: ' v',
+      occurrenceHint: 1,
+    });
+    expect(created.document.anchors[anchorId]?.selector).toEqual({
+      kind: 'formula',
+      form: 'term',
+      latex: term,
+      latexStart: 5,
+      latexPrefix: 'Av = ',
+      latexSuffix: ' v',
+      occurrenceHint: 1,
+    });
+    expect(
+      readContentAnchorBinding(created.document.blocks[blockId]?.content ?? { type: 'doc' }, anchorId),
+    ).toMatchObject({
+      textRanges: [],
+      atomicNodes: [{ nodePath: [1], nodeType: 'mathBlock' }],
+    });
+    const resolution = resolveAnchor(created.document, anchorId);
+    expect(resolution.state).toBe('resolved');
+    expect(resolution.resolved?.range).toMatchObject({
+      kind: 'formula',
+      form: 'term',
+      nodePath: [1],
+      latexStart: 5,
+      latexEnd: 12,
+      occurrence: 1,
+    });
+    expect(created.document.branches[branchId]).toMatchObject({
+      source: { blockId, anchorId },
+      targetBlockId: childId,
+      role: 'primary',
+    });
+    expectValid(created.document);
+
+    const undone = success(applyInverse(created));
+    expect(stable(undone.document)).toEqual(stable(before));
+    expect(undone.document.anchors[anchorId]).toBeUndefined();
+    expect(undone.document.blocks[childId]).toBeUndefined();
+    expect(undone.document.branches[branchId]).toBeUndefined();
+
+    const redone = success(applyInverse(undone));
+    expect(stable(redone.document)).toEqual(stable(created.document));
+    expect(redone.document.anchors[anchorId]).toEqual(created.document.anchors[anchorId]);
+    expect(redone.document.branches[branchId]?.source.anchorId).toBe(anchorId);
+  });
+
+  it('reuses only an exact term and keeps repeated terms ambiguous', () => {
+    const context = deterministicContext();
+    let document = newDocument(context);
+    const chapterId = document.chapters[0]?.id ?? '';
+    const term = '\\lambda';
+    const created = run(
+      document,
+      {
+        type: 'block.create',
+        blockId: 'formula-repeated',
+        content: {
+          type: 'doc',
+          children: [{ type: 'mathBlock', attrs: { latex: '\\lambda + \\lambda' } }],
+        },
+        placement: { kind: 'top-level', chapterId },
+      },
+      context,
+    );
+    document = created.document;
+    const blockId = 'formula-repeated';
+
+    const first = createFormulaTermChild(document, context, blockId, {
+      nodePath: [0],
+      latex: term,
+      latexStart: 0,
+      latexSuffix: ' + \\lambda',
+      occurrence: 1,
+    });
+    const anchorId = first.created.anchorIds[0] as string;
+    const firstResolution = resolveAnchor(first.document, anchorId);
+    expect(firstResolution.state).toBe('ambiguous');
+    expect(firstResolution.reason).toBe('multiple-candidates');
+    expect(firstResolution.candidates).toHaveLength(2);
+    expect(firstResolution.resolved).toBeNull();
+
+    // The same selected occurrence reuses the exact anchor; the selector's
+    // start/hint are part of the identity.
+    const exact = createFormulaTermChild(first.document, context, blockId, {
+      nodePath: [0],
+      latex: term,
+      latexStart: 0,
+      latexSuffix: ' + \\lambda',
+      occurrence: 1,
+    });
+    expect(exact.created.anchorIds).toEqual([]);
+    expect(exact.affected.anchorIds).toContain(anchorId);
+    expect(exact.warnings.some((message) => message.includes('reused existing anchor'))).toBe(true);
+    expect(Object.keys(exact.document.anchors)).toEqual([anchorId]);
+    expect(
+      Object.values(exact.document.branches).filter(
+        (branch) => branch.source.anchorId === anchorId,
+      ),
+    ).toHaveLength(2);
+    expect(resolveAnchor(exact.document, anchorId).state).toBe('ambiguous');
+
+    // Selecting the other occurrence is a different term selection and creates
+    // its own anchor. It stays ambiguous too: the hint ranks candidates only.
+    const second = createFormulaTermChild(exact.document, context, blockId, {
+      nodePath: [0],
+      latex: term,
+      latexStart: 10,
+      latexPrefix: '\\lambda + ',
+      occurrence: 2,
+    });
+    const secondAnchorId = second.created.anchorIds[0] as string;
+    expect(second.created.anchorIds).toHaveLength(1);
+    expect(secondAnchorId).not.toBe(anchorId);
+    expect(second.document.anchors[secondAnchorId]?.selector).toMatchObject({
+      form: 'term',
+      latex: term,
+      latexStart: 10,
+      occurrenceHint: 2,
+    });
+    const secondResolution = resolveAnchor(second.document, secondAnchorId);
+    expect(secondResolution.state).toBe('ambiguous');
+    expect(secondResolution.candidates).toHaveLength(2);
+    expect(secondResolution.resolved).toBeNull();
+
+    const undone = success(applyInverse(second));
+    expect(Object.keys(undone.document.anchors)).toEqual([anchorId]);
+    expect(
+      Object.values(undone.document.branches).filter(
+        (branch) => branch.source.anchorId === secondAnchorId,
+      ),
+    ).toHaveLength(0);
+    expect(
+      Object.values(undone.document.branches).filter(
+        (branch) => branch.source.anchorId === anchorId,
+      ),
+    ).toHaveLength(2);
+
+    const redone = success(applyInverse(undone));
+    expect(Object.keys(redone.document.anchors).sort()).toEqual(
+      [anchorId, secondAnchorId].sort(),
+    );
+    expect(redone.document.anchors[secondAnchorId]?.selector).toEqual(
+      second.document.anchors[secondAnchorId]?.selector,
+    );
+  });
+
+  it('rejects a term that does not match its binding or formula source without mutation', () => {
+    const { context, document, blockId } = buildFormulaFixture();
+    const before = structuredClone(document);
+    const base: FormulaTermInput = {
+      nodePath: [1],
+      latex: '\\lambda',
+      latexStart: 5,
+      latexPrefix: 'Av = ',
+      latexSuffix: ' v',
+      occurrence: 1,
+    };
+
+    const missing = tryRun(
+      document,
+      {
+        type: 'branch.createFromSelection',
+        blockId,
+        kind: 'formula',
+        binding: formulaTermBinding({ ...base, latex: '\\mu' }),
+        selector: formulaTermSelector({ ...base, latex: '\\mu', latexStart: 5 }),
+        target: { kind: 'new' },
+      },
+      context,
+    );
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) expect(missing.code).toBe('invalid-content');
+
+    const mismatch = tryRun(
+      document,
+      {
+        type: 'branch.createFromSelection',
+        blockId,
+        kind: 'formula',
+        binding: formulaTermBinding(base),
+        selector: formulaTermSelector({ ...base, latex: '\\mu' }),
+        target: { kind: 'new' },
+      },
+      context,
+    );
+    expect(mismatch.ok).toBe(false);
+    if (!mismatch.ok) expect(mismatch.code).toBe('invalid-content');
+
+    const wrongStart = tryRun(
+      document,
+      {
+        type: 'branch.createFromSelection',
+        blockId,
+        kind: 'formula',
+        binding: formulaTermBinding(base),
+        selector: formulaTermSelector({ ...base, latexStart: 4 }),
+        target: { kind: 'new' },
+      },
+      context,
+    );
+    expect(wrongStart.ok).toBe(false);
+    if (!wrongStart.ok) expect(wrongStart.code).toBe('invalid-content');
+
+    const wrongHint = tryRun(
+      document,
+      {
+        type: 'branch.createFromSelection',
+        blockId,
+        kind: 'formula',
+        binding: formulaTermBinding({ ...base, occurrence: 2 }),
+        selector: formulaTermSelector({ ...base, occurrenceHint: 1 }),
+        target: { kind: 'new' },
+      },
+      context,
+    );
+    expect(wrongHint.ok).toBe(false);
+    if (!wrongHint.ok) expect(wrongHint.code).toBe('invalid-content');
+
+    expectNoMutation(before, document);
   });
 
   it('uses the plain-text projection for a selection containing inline math', () => {

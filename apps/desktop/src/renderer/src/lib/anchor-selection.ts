@@ -8,13 +8,19 @@
  * mark: the structural command applies the canonical binding.
  */
 
-import type { AnchorBinding, FormulaAnchorSelector } from '@noteforest/core';
+import type {
+  AnchorBinding,
+  FormulaAnchorSelector,
+  FormulaTermAnchorSelector,
+} from '@noteforest/core';
 import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 import type { PMNode } from './adapter';
 
 export type TextAnchorBinding = Extract<AnchorBinding, { kind: 'text' }>;
 export type FormulaWholeBinding = Extract<AnchorBinding, { kind: 'formula'; form: 'whole' }>;
+export type FormulaTermBinding = Extract<AnchorBinding, { kind: 'formula'; form: 'term' }>;
+export type FormulaSelectionBinding = FormulaWholeBinding | FormulaTermBinding;
 
 export interface TextSelectionAnchor {
   kind: 'text';
@@ -25,8 +31,8 @@ export interface TextSelectionAnchor {
 export interface FormulaSelectionAnchor {
   kind: 'formula';
   blockId: string;
-  binding: FormulaWholeBinding;
-  selector: Extract<FormulaAnchorSelector, { form: 'whole' }>;
+  binding: FormulaSelectionBinding;
+  selector: FormulaAnchorSelector;
 }
 
 /** One branch source derived from the editor's current selection. */
@@ -252,6 +258,105 @@ export function formulaBindingInBody(
   };
 }
 
+export const FORMULA_TERM_CONTEXT_LENGTH = 32;
+
+export interface FormulaTermSelection {
+  term: string;
+  /** Unicode code point offset in the formula source, inclusive. */
+  latexStart: number;
+  /** Unicode code point offset in the formula source, exclusive. */
+  latexEnd: number;
+  /** Up to 32 code points of LaTeX context on each side. */
+  latexPrefix: string;
+  latexSuffix: string;
+  /** 1-based occurrence of the term in the formula source. */
+  occurrence: number;
+}
+
+/**
+ * Map the math dialog's textarea selection to canonical formula-term fields.
+ *
+ * Textarea offsets are UTF-16; formula selectors use Unicode code points. The
+ * occurrence is counted in the full source (not just the selection), and the
+ * context is bounded so the durable selector stays small. An empty or
+ * collapsed selection returns null; the caller decides whether a
+ * whitespace-only term is actionable.
+ */
+export function formulaTermSelection(
+  value: string,
+  selectionStart: number,
+  selectionEnd: number,
+  contextLength = FORMULA_TERM_CONTEXT_LENGTH,
+): FormulaTermSelection | null {
+  if (!Number.isFinite(selectionStart) || !Number.isFinite(selectionEnd)) return null;
+  const points = Array.from(value);
+  const start = Math.max(0, Math.min(Math.trunc(selectionStart), value.length));
+  const end = Math.max(start, Math.min(Math.trunc(selectionEnd), value.length));
+  const latexStart = Array.from(value.slice(0, start)).length;
+  const latexEnd = Array.from(value.slice(0, end)).length;
+  if (latexEnd <= latexStart) return null;
+
+  const termPoints = points.slice(latexStart, latexEnd);
+  const term = termPoints.join('');
+  if (term.length === 0) return null;
+
+  const context = Number.isFinite(contextLength) ? Math.max(0, Math.trunc(contextLength)) : 0;
+  const latexPrefix = points
+    .slice(Math.max(0, latexStart - context), latexStart)
+    .join('');
+  const latexSuffix = points.slice(latexEnd, Math.min(points.length, latexEnd + context)).join('');
+
+  let occurrence = 0;
+  for (let index = 0; index <= latexStart; index += 1) {
+    if (index + termPoints.length > points.length) break;
+    let matches = true;
+    for (let offset = 0; offset < termPoints.length; offset += 1) {
+      if (points[index + offset] !== termPoints[offset]) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) occurrence += 1;
+  }
+  if (occurrence < 1) return null;
+
+  return {
+    term,
+    latexStart,
+    latexEnd,
+    latexPrefix,
+    latexSuffix,
+    occurrence,
+  };
+}
+
+/** Build the explicit term selector stored in the anchor record. */
+export function formulaTermSelector(selection: FormulaTermSelection): FormulaTermAnchorSelector {
+  return {
+    kind: 'formula',
+    form: 'term',
+    latex: selection.term,
+    latexStart: selection.latexStart,
+    ...(selection.latexPrefix.length === 0 ? {} : { latexPrefix: selection.latexPrefix }),
+    ...(selection.latexSuffix.length === 0 ? {} : { latexSuffix: selection.latexSuffix }),
+    occurrenceHint: selection.occurrence,
+  };
+}
+
+/** Build the atomic-node binding for a formula term anchor. */
+export function formulaTermBinding(
+  nodePath: readonly number[],
+  selection: FormulaTermSelection,
+): FormulaTermBinding {
+  return {
+    kind: 'formula',
+    form: 'term',
+    nodePath: [...nodePath],
+    latex: selection.term,
+    occurrence: selection.occurrence,
+  };
+}
+
 function blockAndBodyAt(
   editor: Editor,
   position: number,
@@ -272,6 +377,29 @@ function blockAndBodyAt(
     blockId,
     body: $from.node(bodyDepth).toJSON() as PMNode,
     bodyStart: $from.before(bodyDepth) + 1,
+  };
+}
+
+export interface FormulaNodeLocation {
+  blockId: string;
+  nodePath: number[];
+  latex: string;
+}
+
+/**
+ * Locate the formula node starting at a ProseMirror position without relying on
+ * the current selection. The math dialog receives this exact `pos` from the
+ * formula node view, so it can branch from a term while the dialog owns focus.
+ */
+export function formulaNodeAt(editor: Editor, pos: number): FormulaNodeLocation | null {
+  const located = blockAndBodyAt(editor, pos);
+  if (located === null) return null;
+  const mapped = formulaBindingInBody(located.body, pos - located.bodyStart);
+  if (!mapped.ok) return null;
+  return {
+    blockId: located.blockId,
+    nodePath: mapped.binding.nodePath,
+    latex: mapped.latex,
   };
 }
 

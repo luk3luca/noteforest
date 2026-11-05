@@ -8,7 +8,7 @@ import {
   stripAnchorBindings,
   type PMNode,
 } from '../src/renderer/src/lib/adapter';
-import { formulaBindingInBody, textBindingInBody } from '../src/renderer/src/lib/anchor-selection';
+import { formulaBindingInBody, formulaTermBinding, formulaTermSelection, formulaTermSelector, textBindingInBody } from '../src/renderer/src/lib/anchor-selection';
 
 function body(...content: PMNode[]): PMNode {
   return { type: 'blockBody', content };
@@ -158,6 +158,79 @@ describe('editor selection -> core whole-formula binding', () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('no-formula');
+  });
+});
+
+describe('math dialog selection -> formula term selector', () => {
+  it('captures the term, code-point start, bounded context and occurrence', () => {
+    const selection = formulaTermSelection('Av = \\lambda v', 5, 12);
+    expect(selection).toEqual({
+      term: '\\lambda',
+      latexStart: 5,
+      latexEnd: 12,
+      latexPrefix: 'Av = ',
+      latexSuffix: ' v',
+      occurrence: 1,
+    });
+    expect(formulaTermSelector(selection!)).toEqual({
+      kind: 'formula',
+      form: 'term',
+      latex: '\\lambda',
+      latexStart: 5,
+      latexPrefix: 'Av = ',
+      latexSuffix: ' v',
+      occurrenceHint: 1,
+    });
+    expect(formulaTermBinding([1], selection!)).toEqual({
+      kind: 'formula',
+      form: 'term',
+      nodePath: [1],
+      latex: '\\lambda',
+      occurrence: 1,
+    });
+  });
+
+  it('counts the selected occurrence and omits empty context', () => {
+    const selection = formulaTermSelection('\\lambda + \\lambda', 10, 17);
+    expect(selection).toMatchObject({
+      term: '\\lambda',
+      latexStart: 10,
+      latexEnd: 17,
+      latexPrefix: '\\lambda + ',
+      latexSuffix: '',
+      occurrence: 2,
+    });
+    expect(formulaTermSelector(selection!)).toEqual({
+      kind: 'formula',
+      form: 'term',
+      latex: '\\lambda',
+      latexStart: 10,
+      latexPrefix: '\\lambda + ',
+      occurrenceHint: 2,
+    });
+  });
+
+  it('converts UTF-16 textarea offsets to code points', () => {
+    const selection = formulaTermSelection('x😀\\mu', 3, 6);
+    expect(selection).toMatchObject({
+      term: '\\mu',
+      latexStart: 2,
+      latexEnd: 5,
+      latexPrefix: 'x😀',
+    });
+  });
+
+  it('bounds the context to 32 code points on each side', () => {
+    const value = `${'a'.repeat(40)}T${'b'.repeat(40)}`;
+    const selection = formulaTermSelection(value, 40, 41);
+    expect(selection?.latexPrefix).toHaveLength(32);
+    expect(selection?.latexSuffix).toHaveLength(32);
+    expect(selection?.occurrence).toBe(1);
+  });
+
+  it('returns null for a collapsed or empty selection', () => {
+    expect(formulaTermSelection('x^2', 1, 1)).toBeNull();
+    expect(formulaTermSelection('', 0, 0)).toBeNull();
   });
 });
 
