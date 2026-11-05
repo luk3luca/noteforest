@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.4, ADR-0005 merged. **M3a1/M3a2** (anchor model/commands), **M3b1** (text-anchor authoring), **M3b2a** (callout lane), **M3b2b** (outline/marker navigation), **M3c1** (whole-formula anchors), and **M3b2c** (left-entry below-stack routing) are merged and verified. Unit 392/1.8 s; critical e2e 21/45.3 s; recovery 14; UI 10; `verify` exit 0. **M3c2a** is in progress: formula-term anchors from a LaTeX substring; M3c2b adds term geometry/ambiguity, then M3c3 code/image, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. Code block chrome is in the backlog. PDF remains M4. Spec v0.4.5.
+**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.4, ADR-0005 merged. **M3a1/M3a2** (anchor model/commands), **M3b1** (text-anchor authoring), **M3b2a** (callout lane), **M3b2b** (outline/marker navigation), **M3c1** (whole-formula anchors), **M3b2c** (left-entry below-stack routing), and **M3c2a** (formula-term creation) are merged and verified. Unit 400/1.8 s; critical e2e 21/46.7 s; recovery 14; UI 11; `verify` exit 0. **M3c2b** is in progress: best-effort term geometry/highlight with formula-rectangle fallback. Then M3c3 code/image, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. Code block chrome is in the backlog. PDF remains M4. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 
