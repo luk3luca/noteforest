@@ -1,4 +1,4 @@
-import { BookOpen, ChevronRight, FileText, FileWarning, MoreHorizontal, Plus, Search, Settings } from 'lucide-react';
+import { Anchor, BookOpen, ChevronRight, FileText, FileWarning, MoreHorizontal, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
 import {
   Button,
   Tree,
@@ -10,7 +10,15 @@ import { useMemo, useState } from 'react';
 import { useShell, type TabInfo } from '../state/shell';
 import { useRegistry, useRuntime } from '../state/registry';
 import { createChapter, createNewDocument, focusBlock, openLibraryMenu, openBlockMenu, openChapterMenu, openPath, renameChapter } from '../actions';
-import { buildChapterTrees, blockTitle, type BlockNode } from '../lib/tree';
+import {
+  anchorIsWarning,
+  anchorQuote,
+  anchorState,
+  blockTitle,
+  buildChapterTrees,
+  incomingBranch,
+  type BlockNode,
+} from '../lib/tree';
 import { recoveryStatusLabel } from '../lib/recovery';
 import type { DocumentRuntime } from '../state/runtime';
 
@@ -135,29 +143,98 @@ interface RenameTarget {
   value: string;
 }
 
+interface AnchorRowInfo {
+  anchorId: string;
+  quote: string;
+  state: ReturnType<typeof anchorState>;
+  warning: boolean;
+  count: number;
+  first: boolean;
+  last: boolean;
+}
+
+interface AnchorGroup {
+  anchorId: string;
+  quote: string;
+  state: ReturnType<typeof anchorState>;
+  warning: boolean;
+  nodes: BlockNode[];
+}
+
+/**
+ * Group anchored siblings by anchor in outline order. `directChildIds` already
+ * returns anchored primary children before direct ones, so first-seen order is
+ * the D3 order shared with the callout lane.
+ */
+function groupAnchoredChildren(
+  runtime: DocumentRuntime,
+  children: readonly BlockNode[],
+): AnchorGroup[] {
+  const groups: AnchorGroup[] = [];
+  for (const child of children) {
+    if (child.anchorId === null) continue;
+    let group = groups.find((candidate) => candidate.anchorId === child.anchorId);
+    if (group === undefined) {
+      const state = anchorState(runtime.document, child.anchorId);
+      group = {
+        anchorId: child.anchorId,
+        quote: anchorQuote(runtime.document, child.anchorId),
+        state,
+        warning: anchorIsWarning(state),
+        nodes: [],
+      };
+      groups.push(group);
+    }
+    group.nodes.push(child);
+  }
+  return groups;
+}
+
 function BlockTreeItem({
   runtime,
   node,
   onRename,
+  anchor,
 }: {
   runtime: DocumentRuntime;
   node: BlockNode;
   onRename: (target: RenameTarget) => void;
+  anchor?: AnchorRowInfo;
 }): JSX.Element {
   const block = runtime.document.blocks[node.id];
   const title = blockTitle(block);
   const children = node.children;
   const selected = runtime.selectedBlockId === node.id;
+  const anchorSelected = anchor !== undefined && runtime.selectedAnchor?.branchId === node.branchId;
   const hasChildren = children.length > 0;
+  const anchorGroups = groupAnchoredChildren(runtime, children);
+  const directChildren = children.filter((child) => child.anchorId === null);
+  const anchorIds = [...new Set(anchorGroups.map((group) => group.anchorId))];
+  const warningCount = anchorGroups.filter((group) => group.warning).length;
 
   return (
-    <TreeItem id={node.id} textValue={title} className="nf-tree-item">
+    <TreeItem
+      id={node.id}
+      textValue={anchor === undefined ? title : `↳ “${anchor.quote || 'anchor'}” ${title}`}
+      className="nf-tree-item"
+    >
       <TreeItemContent>
         {({ level, hasChildItems, isExpanded }) => (
           <div
-            className="nf-tree-row"
+            className={anchor === undefined ? 'nf-tree-row' : 'nf-tree-row nf-tree-anchor-row'}
             data-block-id={node.id}
             data-selected={selected}
+            {...(anchor === undefined
+              ? {}
+              : {
+                  'data-anchor-id': anchor.anchorId,
+                  'data-anchor-group': anchor.anchorId,
+                  'data-anchor-first': anchor.first ? 'true' : 'false',
+                  'data-anchor-last': anchor.last ? 'true' : 'false',
+                  'data-anchor-selected': anchorSelected ? 'true' : 'false',
+                  'data-anchor-state': anchor.state,
+                  'data-branch-id': node.branchId ?? '',
+                })}
             style={{ paddingInlineStart: 6 + (level - 1) * 14 }}
             onDoubleClick={(event) => {
               event.preventDefault();
@@ -181,11 +258,64 @@ function BlockTreeItem({
             ) : (
               <span className="nf-tree-chevron-spacer" aria-hidden="true" />
             )}
-            <span className="nf-tree-bullet" data-child={!node.topLevel} aria-hidden="true" />
+            {anchor === undefined ? (
+              <span className="nf-tree-bullet" data-child={!node.topLevel} aria-hidden="true" />
+            ) : (
+              <span className="nf-tree-anchor-prefix" title={`Anchor: “${anchor.quote || 'anchor'}”`}>
+                <span className="nf-tree-anchor-arrow" aria-hidden="true">
+                  ↳
+                </span>{' '}
+                <span className="nf-tree-anchor-quote">“{anchor.quote || 'anchor'}”</span>
+              </span>
+            )}
             <span className="nf-tree-label" title={title}>
               {title}
             </span>
-            {hasChildren ? (
+            {anchor !== undefined && anchor.count > 1 ? (
+              <span
+                className="nf-tree-count nf-tree-anchor-branches"
+                data-anchor-branch-count={anchor.count}
+                title={`${anchor.count} branches from “${anchor.quote || 'anchor'}”`}
+              >
+                {anchor.count}
+              </span>
+            ) : null}
+            {anchor !== undefined && anchor.warning ? (
+              <span
+                className="nf-tree-anchor-warning"
+                data-anchor-warning={anchor.state}
+                title={anchor.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}
+              >
+                <TriangleAlert size={10} strokeWidth={1.5} aria-hidden="true" />
+              </span>
+            ) : null}
+            {anchorIds.length > 0 ? (
+              <span
+                className="nf-tree-anchor-count"
+                data-anchor-count={anchorIds.length}
+                title={`${anchorIds.length} anchors`}
+                aria-label={`${anchorIds.length} anchors`}
+              >
+                <Anchor size={10} strokeWidth={1.5} aria-hidden="true" />
+                <span>{anchorIds.length}</span>
+              </span>
+            ) : null}
+            {warningCount > 0 ? (
+              <span
+                className="nf-tree-anchor-warning"
+                data-anchor-warning-count={warningCount}
+                title={
+                  warningCount === 1
+                    ? 'One anchor cannot be resolved'
+                    : `${warningCount} anchors cannot be resolved`
+                }
+                aria-label={`${warningCount} anchors cannot be resolved`}
+              >
+                <TriangleAlert size={10} strokeWidth={1.5} aria-hidden="true" />
+                <span>{warningCount}</span>
+              </span>
+            ) : null}
+            {anchor === undefined && hasChildren ? (
               <span className="nf-tree-count" aria-hidden="true">
                 {children.length}
               </span>
@@ -193,7 +323,26 @@ function BlockTreeItem({
           </div>
         )}
       </TreeItemContent>
-      {children.map((child) => (
+      {anchorGroups.flatMap((group) =>
+        group.nodes.map((child, index) => (
+          <BlockTreeItem
+            key={child.id}
+            runtime={runtime}
+            node={child}
+            onRename={onRename}
+            anchor={{
+              anchorId: group.anchorId,
+              quote: group.quote,
+              state: group.state,
+              warning: group.warning,
+              count: group.nodes.length,
+              first: index === 0,
+              last: index === group.nodes.length - 1,
+            }}
+          />
+        )),
+      )}
+      {directChildren.map((child) => (
         <BlockTreeItem key={child.id} runtime={runtime} node={child} onRename={onRename} />
       ))}
     </TreeItem>
@@ -266,8 +415,16 @@ function TopicSection(): JSX.Element {
     if (keys === 'all') return;
     for (const key of keys) {
       const id = String(key);
-      if (runtime.document.blocks[id] !== undefined) {
-        focusBlock(activePath, id);
+      const block = runtime.document.blocks[id];
+      if (block === undefined) continue;
+      const incoming = incomingBranch(runtime.document, id);
+      focusBlock(activePath, id);
+      const anchorId = incoming?.source.anchorId;
+      if (incoming !== undefined && anchorId !== undefined) {
+        // The row targets an anchored callout: keep the branch selected and
+        // highlight its quote/anchor on the source block.
+        runtime.selectBlock(id);
+        runtime.selectAnchor(incoming.source.blockId, anchorId, incoming.id);
       }
     }
   };

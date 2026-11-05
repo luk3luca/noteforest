@@ -15,6 +15,9 @@ import {
   type TabInfo,
 } from './state/shell';
 import {
+  anchorIsWarning,
+  anchorQuote,
+  anchorState,
   blockCount,
   chapterIdOf,
   countWords,
@@ -23,6 +26,7 @@ import {
   incomingBranch,
   parentIdOf,
 } from './lib/tree';
+import { anchoredChildBranches } from '@noteforest/core';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
@@ -392,6 +396,36 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
   const branch = incomingBranch(runtime.document, blockId);
   const hasParent = parentIdOf(runtime.document, blockId) !== null;
   const collapsed = runtime.collapsed.has(blockId);
+  const anchorGroups = new Map<string, { count: number; quote: string; warning: boolean }>();
+  for (const anchored of anchoredChildBranches(runtime.document, blockId)) {
+    const anchorId = anchored.source.anchorId;
+    if (anchorId === undefined || runtime.document.blocks[anchored.targetBlockId] === undefined) {
+      continue;
+    }
+    const group = anchorGroups.get(anchorId) ?? {
+      count: 0,
+      quote: anchorQuote(runtime.document, anchorId) || 'anchor',
+      warning: anchorIsWarning(anchorState(runtime.document, anchorId)),
+    };
+    group.count += 1;
+    anchorGroups.set(anchorId, group);
+  }
+  const anchorEntries: MenuEntry[] = [];
+  for (const [anchorId, group] of anchorGroups) {
+    const label = group.warning ? 'Select unresolved anchor' : 'Select anchor';
+    anchorEntries.push({
+      id: `anchor-select-${anchorId}`,
+      label: `${label} “${group.quote}”`,
+      onSelect: () => runtime.selectAnchor(blockId, anchorId),
+    });
+    if (group.count > 1) {
+      anchorEntries.push({
+        id: `anchor-cycle-${anchorId}`,
+        label: `Next branch from “${group.quote}”`,
+        onSelect: () => runtime.cycleAnchor(blockId, anchorId),
+      });
+    }
+  }
   const entries: MenuEntry[] = [
     {
       id: 'focus',
@@ -410,6 +444,9 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       shortcut: '⌥⏎',
       onSelect: () => report(runtime.addSibling(blockId)),
     },
+    ...(anchorEntries.length === 0
+      ? []
+      : [{ id: 'sep-anchors', label: '', separator: true }, ...anchorEntries]),
     { id: 'sep-1', label: '', separator: true },
     {
       id: 'move',

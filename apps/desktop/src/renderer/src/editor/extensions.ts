@@ -129,6 +129,7 @@ export const BlockNode = Node.create({
       anchorQuote: { default: null },
       anchorState: { default: null },
       calloutBranchId: { default: null },
+      calloutParentId: { default: null },
       hasCallouts: { default: false },
     };
   },
@@ -162,6 +163,7 @@ export const BlockBodyNode = Node.create({
       anchorQuote: { default: null },
       anchorState: { default: null },
       calloutBranchId: { default: null },
+      calloutParentId: { default: null },
     };
   },
   parseHTML() {

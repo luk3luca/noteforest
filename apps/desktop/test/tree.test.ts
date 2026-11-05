@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Branch, ContentBlock, Document } from '@noteforest/core';
 import {
   ancestorPath,
+  anchorQuote,
+  anchorState,
   blockTitle,
   buildChapterTrees,
   chapterIdOf,
@@ -107,8 +109,8 @@ describe('block tree', () => {
       id: 'an1',
       blockId: 'A',
       kind: 'text',
-      selector: { quote: 'Alpha' },
-      quote: 'Alpha',
+      selector: { quote: 'Alpha body' },
+      quote: 'Alpha body',
     };
     document.branches['ac'] = {
       ...document.branches['ac']!,
@@ -121,6 +123,15 @@ describe('block tree', () => {
     expect(fromA.map((edge) => `${edge.parentId}->${edge.childId}`)).toEqual(['A->C', 'A->B']);
     expect(fromA.map((edge) => edge.index)).toEqual([0, 1]);
     expect(fromA.every((edge) => edge.count === 2)).toBe(true);
+
+    const tree = buildChapterTrees(document);
+    const children = tree[0]?.blocks[0]?.children ?? [];
+    expect(children.map((node) => node.id)).toEqual(['C', 'B']);
+    expect(children[0]?.anchorId).toBe('an1');
+    expect(children[0]?.branchId).toBe('A-C');
+    expect(children[1]?.anchorId).toBeNull();
+    expect(anchorQuote(document, 'an1')).toBe('Alpha body');
+    expect(anchorState(document, 'an1')).toBe('resolved');
   });
 
   it('produces deterministic sibling port indexes', () => {

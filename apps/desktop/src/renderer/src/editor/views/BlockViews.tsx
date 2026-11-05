@@ -1,10 +1,11 @@
 import { ChevronRight, GripVertical, Plus, TriangleAlert } from 'lucide-react';
-import { resolveAnchor } from '@noteforest/core';
+import { anchoredChildBranches, resolveAnchor } from '@noteforest/core';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -14,6 +15,7 @@ import {
 import { getEditorBindings, setDragBlockId } from '../bindings';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
 import { GEOMETRY } from '../../lib/geometry';
+import { anchorQuote, anchorState } from '../../lib/tree';
 
 function stringAttr(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -311,6 +313,13 @@ export function BranchChildrenView({ node }: NodeViewProps): JSX.Element {
   );
 }
 
+interface AnchorMarkerInfo {
+  anchorId: string;
+  quote: string;
+  state: ReturnType<typeof anchorState>;
+  count: number;
+}
+
 export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const blockId = stringAttr(node.attrs['blockId']);
   const topLevel = node.attrs['topLevel'] === true;
@@ -318,11 +327,137 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const collapsed = node.attrs['collapsed'] === true;
   const childCount = numberAttr(node.attrs['childCount']);
   const callout = node.attrs['callout'] === true;
-  const anchorQuote = stringAttr(node.attrs['anchorQuote']);
-  const anchorState = stringAttr(node.attrs['anchorState']);
+  const anchorQuoteText = stringAttr(node.attrs['anchorQuote']);
+  const anchorStateAttr = stringAttr(node.attrs['anchorState']);
+  const anchorId = stringAttr(node.attrs['anchorId']);
+  const calloutParentId = stringAttr(node.attrs['calloutParentId']);
+  const calloutBranchId = stringAttr(node.attrs['calloutBranchId']);
   const ui = useEditorUi(editor);
   const bindings = getEditorBindings(editor);
   const active = ui.selectedBlockId === blockId;
+  const markerLayerRef = useRef<HTMLDivElement | null>(null);
+
+  const anchorMarkers = useMemo<AnchorMarkerInfo[]>(() => {
+    if (bindings === null) return [];
+    const document = bindings.runtime.document;
+    const groups = new Map<string, AnchorMarkerInfo>();
+    for (const branch of anchoredChildBranches(document, blockId)) {
+      const id = branch.source.anchorId;
+      if (id === undefined || document.blocks[branch.targetBlockId] === undefined) continue;
+      const group = groups.get(id);
+      if (group === undefined) {
+        const state = anchorState(document, id);
+        groups.set(id, {
+          anchorId: id,
+          quote: anchorQuote(document, id),
+          state,
+          count: 1,
+        });
+      } else {
+        group.count += 1;
+      }
+    }
+    return [...groups.values()];
+  }, [bindings, blockId, bindings?.runtime.version]);
+
+  const markerKey = anchorMarkers
+    .map((marker) => `${marker.anchorId}:${marker.count}:${marker.state}`)
+    .join('|');
+  const showMarkers = active && !ui.editing && anchorMarkers.length > 0;
+
+  const calloutAnchorCount = useMemo(() => {
+    if (bindings === null || calloutParentId.length === 0 || anchorId.length === 0) return 0;
+    return anchoredChildBranches(bindings.runtime.document, calloutParentId).filter(
+      (branch) =>
+        branch.source.anchorId === anchorId &&
+        bindings.runtime.document.blocks[branch.targetBlockId] !== undefined,
+    ).length;
+  }, [bindings, calloutParentId, anchorId, bindings?.runtime.version]);
+
+  const branchSelected =
+    callout &&
+    ui.selectedAnchor !== null &&
+    ui.selectedAnchor.blockId === calloutParentId &&
+    ui.selectedAnchor.anchorId === anchorId &&
+    ui.selectedAnchor.branchId === calloutBranchId;
+
+  // Position the real marker buttons over their resolved marks. The dot stays
+  // decorative in the prose; the button appears only for the selected block,
+  // never while the prose owns the caret.
+  useLayoutEffect(() => {
+    if (!showMarkers) return undefined;
+    const layer = markerLayerRef.current;
+    if (layer === null) return undefined;
+    let frame = 0;
+    const position = (): void => {
+      frame = 0;
+      const card = editor.view.dom.querySelector<HTMLElement>(`[data-block-card="${blockId}"]`);
+      if (card === null) return;
+      const cardRect = card.getBoundingClientRect();
+      const scale = card.offsetWidth > 0 ? cardRect.width / card.offsetWidth : 1;
+      const factor = scale > 0 ? scale : 1;
+      const marks = [...card.querySelectorAll<HTMLElement>('.nf-anchor-mark[data-anchor-ids]')];
+      let missing = 0;
+      for (const button of layer.querySelectorAll<HTMLElement>('[data-anchor-marker-id]')) {
+        const id = button.dataset['anchorMarkerId'] ?? '';
+        let target: HTMLElement | null = null;
+        for (const mark of marks) {
+          const ids = (mark.dataset['anchorIds'] ?? '').split(',');
+          if (ids.includes(id)) {
+            target = mark;
+            break;
+          }
+        }
+        if (target === null) {
+          // Broken bindings have no visible mark; keep the button reachable at
+          // the block warning point instead of guessing a span.
+          button.style.left = 'auto';
+          button.style.top = `${8 + missing * 18}px`;
+          button.style.right = '8px';
+          missing += 1;
+          continue;
+        }
+        const rect = target.getBoundingClientRect();
+        button.style.right = 'auto';
+        button.style.left = `${Math.round((rect.right - cardRect.left) / factor - 2)}px`;
+        button.style.top = `${Math.round((rect.top + rect.height / 2 - cardRect.top) / factor - 8)}px`;
+      }
+    };
+    const schedule = (): void => {
+      if (frame !== 0) return;
+      frame = requestAnimationFrame(position);
+    };
+    frame = requestAnimationFrame(position);
+    const observer = new ResizeObserver(schedule);
+    const card = editor.view.dom.querySelector<HTMLElement>(`[data-block-card="${blockId}"]`);
+    if (card !== null) observer.observe(card);
+    window.addEventListener('resize', schedule);
+    void document.fonts.ready.then(schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener('resize', schedule);
+    };
+  }, [showMarkers, markerKey, blockId, editor]);
+
+  // Highlight every text node of the selected anchor, including multi-node
+  // ranges. Marks are not React children, so this is a DOM-only view state.
+  useEffect(() => {
+    const card = editor.view.dom.querySelector<HTMLElement>(`[data-block-card="${blockId}"]`);
+    if (card === null) return;
+    const selected =
+      ui.selectedAnchor !== null && ui.selectedAnchor.blockId === blockId
+        ? ui.selectedAnchor.anchorId
+        : null;
+    for (const mark of card.querySelectorAll<HTMLElement>('.nf-anchor-mark[data-anchor-ids]')) {
+      const ids = (mark.dataset['anchorIds'] ?? '').split(',');
+      if (selected !== null && ids.includes(selected)) {
+        mark.setAttribute('data-anchor-selected', 'true');
+      } else {
+        mark.removeAttribute('data-anchor-selected');
+      }
+    }
+  }, [ui.selectedAnchor, blockId, editor, bindings?.runtime.version]);
 
   const onHandlePointerDown = (event: PointerEvent<HTMLButtonElement>): void => {
     if (event.button !== 0 || bindings === null) return;
@@ -412,6 +547,8 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       data-depth={depth}
       data-collapsed={collapsed}
       data-callout={callout ? 'true' : 'false'}
+      data-anchor-branch-selected={branchSelected ? 'true' : undefined}
+      data-anchor-markers={showMarkers ? 'true' : undefined}
       onContextMenu={onContextMenu}
     >
       <div className="nf-gutter" contentEditable={false}>
@@ -436,25 +573,68 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
           <GripVertical size={14} strokeWidth={1.5} aria-hidden="true" />
         </button>
       </div>
+      {showMarkers ? (
+        <div
+          className="nf-anchor-markers"
+          contentEditable={false}
+          ref={markerLayerRef}
+          data-anchor-markers-layer={blockId}
+        >
+          {anchorMarkers.map((marker) => (
+            <button
+              key={marker.anchorId}
+              type="button"
+              className="nf-anchor-marker"
+              data-anchor-marker-id={marker.anchorId}
+              data-anchor-state={marker.state}
+              aria-label={`Anchor: “${marker.quote || 'anchor'}”, ${marker.count} ${
+                marker.count === 1 ? 'branch' : 'branches'
+              }`}
+              title={`Anchor: “${marker.quote || 'anchor'}” · ${marker.count} ${
+                marker.count === 1 ? 'branch' : 'branches'
+              }`}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                bindings?.runtime.activateAnchor(blockId, marker.anchorId);
+              }}
+            >
+              <span className="nf-anchor-marker-dot" aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      ) : null}
       {callout ? (
         <div className="nf-callout-head" contentEditable={false}>
-          <span
+          <button
+            type="button"
             className="nf-callout-quote"
-            data-anchor-quote={anchorQuote}
-            data-anchor-state={anchorState}
-            title={anchorQuote.length > 0 ? `Anchor: “${anchorQuote}”` : 'Anchored branch'}
+            data-anchor-quote={anchorQuoteText}
+            data-anchor-state={anchorStateAttr}
+            data-anchor-selected={branchSelected ? 'true' : 'false'}
+            aria-label={`Select anchor “${anchorQuoteText || 'anchor'}”, ${calloutAnchorCount} ${
+              calloutAnchorCount === 1 ? 'branch' : 'branches'
+            }`}
+            title={anchorQuoteText.length > 0 ? `Anchor: “${anchorQuoteText}”` : 'Anchored branch'}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (calloutParentId.length === 0) return;
+              bindings?.runtime.focusBlock(calloutParentId, { select: true });
+              bindings?.runtime.selectAnchor(calloutParentId, anchorId, calloutBranchId);
+            }}
           >
             <span className="nf-callout-quote-glyph" aria-hidden="true">
               “
             </span>
-            <span className="nf-callout-quote-text">{anchorQuote || 'anchor'}</span>
-          </span>
-          {anchorState === 'broken' ||
-          anchorState === 'ambiguous' ||
-          anchorState === 'block-missing' ? (
-            <span className="nf-callout-state" data-anchor-state={anchorState}>
+            <span className="nf-callout-quote-text">{anchorQuoteText || 'anchor'}</span>
+          </button>
+          {anchorStateAttr === 'broken' ||
+          anchorStateAttr === 'ambiguous' ||
+          anchorStateAttr === 'block-missing' ? (
+            <span className="nf-callout-state" data-anchor-state={anchorStateAttr}>
               <TriangleAlert size={10} strokeWidth={1.5} aria-hidden="true" />
-              {anchorState === 'ambiguous' ? 'Ambiguous' : 'Lost anchor'}
+              {anchorStateAttr === 'ambiguous' ? 'Ambiguous' : 'Lost anchor'}
             </span>
           ) : null}
         </div>

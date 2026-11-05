@@ -1,8 +1,19 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { Editor } from '@tiptap/core';
 
+/** Anchor-focused view state; never part of the canonical document. */
+export interface EditorAnchorSelection {
+  blockId: string;
+  anchorId: string;
+  branchId: string;
+  targetBlockId: string;
+}
+
 interface UiState {
   selectedBlockId: string | null;
+  /** True while the block's prose owns a text caret, not a block selection. */
+  editing: boolean;
+  selectedAnchor: EditorAnchorSelection | null;
   /** One-shot request to start inline chapter-title editing. */
   focusChapterId: string | null;
   version: number;
@@ -13,7 +24,16 @@ const states = new WeakMap<Editor, { state: UiState; listeners: Set<() => void> 
 function stateFor(editor: Editor): { state: UiState; listeners: Set<() => void> } {
   let entry = states.get(editor);
   if (entry === undefined) {
-    entry = { state: { selectedBlockId: null, focusChapterId: null, version: 0 }, listeners: new Set() };
+    entry = {
+      state: {
+        selectedBlockId: null,
+        editing: false,
+        selectedAnchor: null,
+        focusChapterId: null,
+        version: 0,
+      },
+      listeners: new Set(),
+    };
     states.set(editor, entry);
   }
   return entry;
@@ -30,8 +50,19 @@ function update(editor: Editor, patch: Partial<Omit<UiState, 'version'>>): void 
   for (const listener of entry.listeners) listener();
 }
 
-export function setEditorSelectedBlock(editor: Editor, blockId: string | null): void {
-  update(editor, { selectedBlockId: blockId });
+export function setEditorSelectedBlock(
+  editor: Editor,
+  blockId: string | null,
+  editing = false,
+): void {
+  update(editor, { selectedBlockId: blockId, editing: blockId === null ? false : editing });
+}
+
+export function setEditorSelectedAnchor(
+  editor: Editor,
+  selectedAnchor: EditorAnchorSelection | null,
+): void {
+  update(editor, { selectedAnchor });
 }
 
 export function setEditorChapterFocus(editor: Editor, chapterId: string | null): void {
