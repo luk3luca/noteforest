@@ -28,7 +28,7 @@ identity are recorded in the spec/UX, and the reason no separate ADR-0006 is nee
 
 ## Decision
 
-### 1. Binding lives in canonical content
+### 1. Binding lives in canonical content (OD-4)
 
 The exact content location of an anchor is stored in the block content, not in a sidecar.
 
