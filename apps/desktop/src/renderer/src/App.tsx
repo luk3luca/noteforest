@@ -325,6 +325,7 @@ export function App(): JSX.Element {
             saveFailure: item.saveFailure,
             dirty: item.dirty,
             selectedBlockId: item.selectedBlockId,
+            selectedAnchor: item.selectedAnchor,
             lastHistoryOperation: item.lastHistoryOperation,
             canUndoText: item.canUndoText,
             canRedoText: item.canRedoText,

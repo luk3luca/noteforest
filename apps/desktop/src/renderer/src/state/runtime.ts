@@ -10,6 +10,7 @@
 
 import type { Editor } from '@tiptap/core';
 import type { ContentNode, Document, DocumentCommand } from '@noteforest/core';
+import { anchoredChildBranches } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
 import { redoDepth, undoDepth } from '@tiptap/pm/history';
 import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state';
@@ -25,6 +26,11 @@ import { buildBlockNode, buildEditorDocument, extractBlockContents, withBody, ty
 import type { TextSelectionAnchor } from '../lib/anchor-selection';
 import { recordPerf } from '../lib/perf';
 import { createSerialQueue } from '../lib/serial-queue';
+import {
+  setEditorSelectedAnchor,
+  setEditorSelectedBlock,
+  type EditorAnchorSelection,
+} from '../editor/editor-ui';
 import {
   nextSaveFailure,
   prepareRetry,
@@ -175,6 +181,9 @@ export class DocumentRuntime {
   version = 0;
 
   selectedBlockId: string | null = null;
+
+  /** Anchor selected from a marker, quote chip, outline row, or block menu. */
+  selectedAnchor: EditorAnchorSelection | null = null;
 
   readonly collapsed = new Set<string>();
 
@@ -339,6 +348,7 @@ export class DocumentRuntime {
     this.readOnlyReason = snapshot.readOnlyReason;
     this.lock = snapshot.lock;
     this.document = snapshot.document;
+    this.validateSelectedAnchor();
     this.recomputeHashes();
     this.version += 1;
     this.dirty = false;
@@ -604,6 +614,7 @@ export class DocumentRuntime {
       this.document = result.snapshot.document;
       this.status = result.snapshot.status;
       this.readOnlyReason = result.snapshot.readOnlyReason;
+      this.validateSelectedAnchor();
       this.saveFailure = null;
       this.saveError = null;
       this.dirty = false;
@@ -660,6 +671,7 @@ export class DocumentRuntime {
   ): Promise<void> {
     const focus = this.captureFocusContext();
     this.document = document;
+    this.validateSelectedAnchor();
     if (inverse !== undefined && inverse !== null) {
       this.undoStack.push(inverse);
     }
@@ -1166,6 +1178,9 @@ export class DocumentRuntime {
   }
 
   focusBlock(blockId: string, options: { select?: boolean; scroll?: boolean; at?: 'start' | 'end' } = {}): void {
+    // Navigation always reveals the target: a collapsed ancestor is view
+    // state, never a reason to focus an invisible block.
+    this.expandAncestors(blockId);
     const editor = this.editor;
     if (editor === null) return;
     let position: number | null = null;
@@ -1209,10 +1224,154 @@ export class DocumentRuntime {
     }
   }
 
-  selectBlock(blockId: string | null): void {
-    if (this.selectedBlockId === blockId) return;
-    this.selectedBlockId = blockId;
+  /** Expand collapsed ancestors so a navigation target is visible. */
+  expandAncestors(blockId: string): boolean {
+    const ancestors = ancestorPath(this.document, blockId)
+      .slice(0, -1)
+      .filter((id) => this.collapsed.has(id));
+    if (ancestors.length === 0) return false;
+    const expanded = new Set(ancestors);
+    for (const id of expanded) this.collapsed.delete(id);
+    const editor = this.editor;
+    if (editor !== null) {
+      const transaction = editor.state.tr;
+      let changed = false;
+      editor.state.doc.descendants((node, position) => {
+        if (node.type.name !== 'branchBlock') return true;
+        const id = node.attrs['blockId'];
+        if (typeof id !== 'string' || !expanded.has(id)) return true;
+        transaction.setNodeMarkup(position, undefined, { ...node.attrs, collapsed: false });
+        const body = node.firstChild;
+        if (body?.type.name === 'blockBody') {
+          transaction.setNodeMarkup(position + 1, undefined, { ...body.attrs, collapsed: false });
+        }
+        changed = true;
+        return true;
+      });
+      if (changed) {
+        transaction.setMeta('addToHistory', false);
+        transaction.setMeta('preventUpdate', true);
+        editor.view.dispatch(transaction);
+      }
+    }
+    this.version += 1;
     this.notify();
+    return true;
+  }
+
+  private anchorBranchesFor(blockId: string, anchorId: string) {
+    return anchoredChildBranches(this.document, blockId).filter(
+      (branch) =>
+        branch.source.anchorId === anchorId &&
+        this.document.blocks[branch.targetBlockId] !== undefined,
+    );
+  }
+
+  private applyAnchorSelection(selection: EditorAnchorSelection): void {
+    this.selectedAnchor = selection;
+    if (this.editor !== null) setEditorSelectedAnchor(this.editor, selection);
+    this.notify();
+  }
+
+  /** Drop a view-only anchor selection whose branch no longer exists. */
+  private validateSelectedAnchor(): void {
+    const selection = this.selectedAnchor;
+    if (selection === null) return;
+    const branch = this.document.branches[selection.branchId];
+    const valid =
+      this.document.blocks[selection.blockId] !== undefined &&
+      this.document.blocks[selection.targetBlockId] !== undefined &&
+      branch !== undefined &&
+      branch.targetBlockId === selection.targetBlockId &&
+      branch.source.blockId === selection.blockId &&
+      branch.source.anchorId === selection.anchorId;
+    if (valid) return;
+    this.selectedAnchor = null;
+    if (this.editor !== null) setEditorSelectedAnchor(this.editor, null);
+  }
+
+  clearAnchorSelection(): void {
+    if (this.selectedAnchor === null) return;
+    this.selectedAnchor = null;
+    if (this.editor !== null) setEditorSelectedAnchor(this.editor, null);
+    this.notify();
+  }
+
+  /** Select one anchored branch; defaults to the anchor's first branch. */
+  selectAnchor(
+    blockId: string,
+    anchorId: string,
+    branchId?: string,
+  ): EditorAnchorSelection | null {
+    const branches = this.anchorBranchesFor(blockId, anchorId);
+    if (branches.length === 0) {
+      this.clearAnchorSelection();
+      return null;
+    }
+    const branch =
+      (branchId === undefined ? undefined : branches.find((item) => item.id === branchId)) ??
+      branches[0];
+    if (branch === undefined) return null;
+    const selection: EditorAnchorSelection = {
+      blockId,
+      anchorId,
+      branchId: branch.id,
+      targetBlockId: branch.targetBlockId,
+    };
+    this.applyAnchorSelection(selection);
+    return selection;
+  }
+
+  /** Select the anchor's first branch or advance to the next one. */
+  cycleAnchor(blockId: string, anchorId: string): EditorAnchorSelection | null {
+    const branches = this.anchorBranchesFor(blockId, anchorId);
+    if (branches.length === 0) {
+      this.clearAnchorSelection();
+      return null;
+    }
+    const current =
+      this.selectedAnchor?.blockId === blockId && this.selectedAnchor.anchorId === anchorId
+        ? branches.findIndex((branch) => branch.id === this.selectedAnchor?.branchId)
+        : -1;
+    const branch = branches[(current + 1) % branches.length] ?? branches[0];
+    if (branch === undefined) return null;
+    const selection: EditorAnchorSelection = {
+      blockId,
+      anchorId,
+      branchId: branch.id,
+      targetBlockId: branch.targetBlockId,
+    };
+    this.applyAnchorSelection(selection);
+    return selection;
+  }
+
+  /** Marker click: keep the source block selected and cycle its branches. */
+  activateAnchor(blockId: string, anchorId: string): EditorAnchorSelection | null {
+    if (this.selectedBlockId !== blockId) {
+      this.selectedBlockId = blockId;
+      if (this.editor !== null) setEditorSelectedBlock(this.editor, blockId, false);
+    }
+    return this.cycleAnchor(blockId, anchorId);
+  }
+
+  selectBlock(blockId: string | null): void {
+    let changed = false;
+    if (this.selectedBlockId !== blockId) {
+      this.selectedBlockId = blockId;
+      changed = true;
+    }
+    // Moving to an unrelated block clears the anchor highlight. Selecting the
+    // anchor's source or its branch target keeps it.
+    if (
+      this.selectedAnchor !== null &&
+      blockId !== this.selectedAnchor.blockId &&
+      blockId !== this.selectedAnchor.targetBlockId
+    ) {
+      this.selectedAnchor = null;
+      if (this.editor !== null) setEditorSelectedAnchor(this.editor, null);
+      changed = true;
+    }
+    if (changed) this.notify();
   }
 
   async toggleCollapse(blockId: string): Promise<void> {

@@ -167,7 +167,13 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     runtime.attachEditor(editor);
     const syncSelection = (): void => {
       const blockId = blockIdAtSelection(editor);
-      setEditorSelectedBlock(editor, blockId);
+      const selection = editor.state.selection;
+      const nodeSelected =
+        selection instanceof NodeSelection && selection.node.type.name === 'branchBlock';
+      // A block is "editing" while its prose owns the caret. A block selection
+      // (NodeSelection) or a blurred editor is the selected-but-not-editing
+      // state that reveals the anchor marker buttons.
+      setEditorSelectedBlock(editor, blockId, editor.isFocused && !nodeSelected);
       runtime.selectBlock(blockId);
     };
     const bindings: EditorBindings = {
@@ -237,11 +243,13 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     setEditorBindings(editor, bindings);
     editor.on('selectionUpdate', syncSelection);
     editor.on('focus', syncSelection);
+    editor.on('blur', syncSelection);
     syncSelection();
     recordPerf('mount', performance.now() - mountedAt);
     return () => {
       editor.off('selectionUpdate', syncSelection);
       editor.off('focus', syncSelection);
+      editor.off('blur', syncSelection);
       clearEditorBindings(editor);
       runtime.attachEditor(null);
     };

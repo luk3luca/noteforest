@@ -13,8 +13,8 @@ import {
   directChildBranches,
   directChildIds,
   normalizeAnchorIds,
-  resolveAnchor,
 } from '@noteforest/core';
+import { anchorQuote, anchorState } from './tree';
 
 export interface PMMark {
   type: string;
@@ -131,6 +131,7 @@ export function blockBodyContent(block: ContentNode): PMNode[] {
 export interface CalloutDescriptor {
   branchId: string;
   blockId: string;
+  parentId: string;
   anchorId: string;
   quote: string;
   state: AnchorState;
@@ -143,39 +144,15 @@ export interface PrimaryChildProjection {
   direct: Array<{ branchId: string; blockId: string }>;
 }
 
-const MAX_CALLOUT_QUOTE = 64;
-
-function truncated(value: string): string {
-  const clean = value.replace(/\s+/g, ' ').trim();
-  return clean.length > MAX_CALLOUT_QUOTE ? `${clean.slice(0, MAX_CALLOUT_QUOTE - 1)}…` : clean;
-}
-
-function selectorString(selector: unknown, key: string): string {
-  if (typeof selector !== 'object' || selector === null || Array.isArray(selector)) return '';
-  const value = (selector as Record<string, unknown>)[key];
-  return typeof value === 'string' ? value : '';
-}
-
-function anchorQuote(document: Document, anchorId: string): string {
-  const anchor = document.anchors[anchorId];
-  if (anchor === undefined) return '';
-  const stored = typeof anchor.quote === 'string' ? anchor.quote : '';
-  if (stored.length > 0) return truncated(stored);
-  for (const key of ['quote', 'latex', 'label']) {
-    const value = selectorString(anchor.selector, key);
-    if (value.length > 0) return truncated(value);
-  }
-  return '';
-}
-
-function toCallout(document: Document, branch: Branch): CalloutDescriptor {
+function toCallout(document: Document, parentId: string, branch: Branch): CalloutDescriptor {
   const anchorId = branch.source.anchorId ?? '';
   return {
     branchId: branch.id,
     blockId: branch.targetBlockId,
+    parentId,
     anchorId,
     quote: anchorQuote(document, anchorId),
-    state: resolveAnchor(document, anchorId).state,
+    state: anchorState(document, anchorId),
   };
 }
 
@@ -191,7 +168,7 @@ export function projectPrimaryChildren(
   return {
     callouts: anchoredChildBranches(document, parentBlockId)
       .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
-      .map((branch) => toCallout(document, branch)),
+      .map((branch) => toCallout(document, parentBlockId, branch)),
     direct: directChildBranches(document, parentBlockId)
       .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
       .map((branch) => ({ branchId: branch.id, blockId: branch.targetBlockId })),
@@ -212,6 +189,8 @@ export function buildBlockNode(
   seen.add(id);
   const isCollapsed = collapsed.has(id);
   const projection = projectPrimaryChildren(document, id);
+  // The branch port's hidden count is every primary child, anchored callouts
+  // included, because collapsing hides both groups.
   const childCount = directChildIds(document, id).filter(
     (childId) => document.blocks[childId] !== undefined,
   ).length;
@@ -224,6 +203,7 @@ export function buildBlockNode(
           anchorQuote: callout.quote,
           anchorState: callout.state,
           calloutBranchId: callout.branchId,
+          calloutParentId: callout.parentId,
         };
   const content: PMNode[] = [
     {
@@ -278,6 +258,7 @@ export function buildBlockNode(
       anchorQuote: callout?.quote ?? null,
       anchorState: callout?.state ?? null,
       calloutBranchId: callout?.branchId ?? null,
+      calloutParentId: callout?.parentId ?? null,
     },
     content,
   };

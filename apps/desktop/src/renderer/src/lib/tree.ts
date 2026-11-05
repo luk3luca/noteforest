@@ -7,13 +7,14 @@
  * (chapter trees, titles, collapse-aware order, edge descriptors).
  */
 
-import type { ContentBlock, ContentNode, Document } from '@noteforest/core';
+import type { AnchorState, ContentBlock, ContentNode, Document } from '@noteforest/core';
 import {
   anchoredChildBranches,
   chapterIdForBlock,
   directChildBranches,
   directChildIds,
   primaryParentBranch,
+  resolveAnchor,
   subtreeBlockIds,
 } from '@noteforest/core';
 
@@ -23,6 +24,10 @@ export interface BlockNode {
   id: string;
   depth: number;
   topLevel: boolean;
+  /** Incoming primary branch; null for a chapter root. */
+  branchId: string | null;
+  /** Anchor ID when the incoming primary branch starts at an anchor. */
+  anchorId: string | null;
   children: BlockNode[];
 }
 
@@ -53,10 +58,13 @@ function buildBlocks(
     if (seen.has(id)) continue;
     if (document.blocks[id] === undefined) continue;
     seen.add(id);
+    const incoming = primaryParentBranch(document, id);
     nodes.push({
       id,
       depth,
       topLevel: depth === 0,
+      branchId: incoming?.id ?? null,
+      anchorId: incoming?.source.anchorId ?? null,
       children: buildBlocks(document, directChildIds(document, id), depth + 1, seen),
     });
   }
@@ -117,6 +125,40 @@ export function collectText(node: ContentNode, parts: string[] = []): string[] {
 export function blockPlainText(block: ContentBlock | undefined): string {
   if (block === undefined) return '';
   return collectText(block.content).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+const MAX_ANCHOR_QUOTE = 64;
+
+function truncated(value: string): string {
+  const clean = value.replace(/\s+/g, ' ').trim();
+  return clean.length > MAX_ANCHOR_QUOTE ? `${clean.slice(0, MAX_ANCHOR_QUOTE - 1)}…` : clean;
+}
+
+function selectorString(selector: unknown, key: string): string {
+  if (typeof selector !== 'object' || selector === null || Array.isArray(selector)) return '';
+  const value = (selector as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : '';
+}
+
+/** Display quote for an anchor: stored quote first, then the selector fields. */
+export function anchorQuote(document: Document, anchorId: string): string {
+  const anchor = document.anchors[anchorId];
+  if (anchor === undefined) return '';
+  const stored = typeof anchor.quote === 'string' ? anchor.quote : '';
+  if (stored.length > 0) return truncated(stored);
+  for (const key of ['quote', 'latex', 'label']) {
+    const value = selectorString(anchor.selector, key);
+    if (value.length > 0) return truncated(value);
+  }
+  return '';
+}
+
+export function anchorState(document: Document, anchorId: string): AnchorState {
+  return resolveAnchor(document, anchorId).state;
+}
+
+export function anchorIsWarning(state: AnchorState): boolean {
+  return state === 'broken' || state === 'ambiguous' || state === 'block-missing';
 }
 
 export function blockTitle(block: ContentBlock | undefined): string {
