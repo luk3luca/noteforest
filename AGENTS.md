@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.4, ADR-0005 merged. **M3a1/M3a2** (anchor model/commands), **M3b1** (text-anchor authoring), **M3b2a** (callout lane), **M3b2b** (outline/marker navigation), and **M3c1** (whole-formula anchors) are merged and verified. Unit 379/1.8 s; critical e2e 21/45.2 s; recovery 14; UI 9; `verify` exit 0. The product owner revised the below-stack rendering: direct children stay right while they fit and join the below stack when they wrap; anchored callouts always sit below; one shared left trunk with horizontal arms and all arrows entering from the left. **M3b2c** is in progress; **M3c2/M3c3/M3d/M3e/M3f are queued**. Code block chrome (language/copy/turn into text/fence rails) is in the backlog, not scheduled. PDF remains M4. Spec v0.4.5.
+**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.4, ADR-0005 merged. **M3a1/M3a2** (anchor model/commands), **M3b1** (text-anchor authoring), **M3b2a** (callout lane), **M3b2b** (outline/marker navigation), **M3c1** (whole-formula anchors), and **M3b2c** (left-entry below-stack routing) are merged and verified. Unit 392/1.8 s; critical e2e 21/45.3 s; recovery 14; UI 10; `verify` exit 0. **M3c2a** is in progress: formula-term anchors from a LaTeX substring; M3c2b adds term geometry/ambiguity, then M3c3 code/image, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. Code block chrome is in the backlog. PDF remains M4. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 
