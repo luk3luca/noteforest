@@ -1,5 +1,11 @@
 import { ChevronRight, GripVertical, Plus, TriangleAlert } from 'lucide-react';
-import { anchoredChildBranches, resolveAnchor } from '@noteforest/core';
+import {
+  anchoredChildBranches,
+  codePointSlice,
+  formulaLatex,
+  getNodeAtPath,
+  resolveAnchor,
+} from '@noteforest/core';
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import {
   useCallback,
@@ -15,6 +21,12 @@ import {
 import { getEditorBindings, setDragBlockId } from '../bindings';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
 import { GEOMETRY } from '../../lib/geometry';
+import {
+  anchorVisualTargets,
+  elementScale,
+  formulaTermRect,
+  relativeRect,
+} from '../../lib/formula-term-geometry';
 import { anchorQuote, anchorState } from '../../lib/tree';
 
 function stringAttr(value: unknown, fallback = ''): string {
@@ -235,15 +247,15 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
       // Clamp against the parent card, not the chapter column: a callout may
       // never overflow the card's right edge.
       const maxOffset = Math.max(contentLeft, cardWidth - GEOMETRY.childMinWidth);
-      const marks = [...card.querySelectorAll<HTMLElement>('[data-anchor-ids]')];
       for (const row of lane.querySelectorAll<HTMLElement>('[data-callout-row="true"]')) {
         // A nested callout has its own lane; only align rows that belong here.
         if (row.closest('.nf-callout-lane') !== laneRoot) continue;
         const anchorId = row.dataset['anchorId'] ?? '';
+        // Prefer best-effort term geometry; fall back to the formula/atomic
+        // node rectangle when the term has no unique rendered match.
+        const targets = anchorVisualTargets(card, anchorId);
         let anchorX: number | null = null;
-        for (const candidate of marks) {
-          const ids = (candidate.dataset['anchorIds'] ?? '').split(',');
-          if (!ids.includes(anchorId)) continue;
+        for (const candidate of targets) {
           const left = (candidate.getBoundingClientRect().left - laneRect.left) / factor;
           anchorX = anchorX === null ? left : Math.min(anchorX, left);
         }
@@ -288,7 +300,7 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ['class', 'data-collapsed'],
+      attributeFilter: ['class', 'data-collapsed', 'style', 'data-anchor-ids', 'data-anchor-term-ids'],
     });
     // A second anchor/child may be inserted into an existing lane without a
     // card resize; observe the lane's child list too.
@@ -366,6 +378,12 @@ interface AnchorMarkerInfo {
   count: number;
 }
 
+/** A resolved formula-term anchor with its exact source substring. */
+interface FormulaTermTarget {
+  anchorId: string;
+  term: string;
+}
+
 export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const blockId = stringAttr(node.attrs['blockId']);
   const topLevel = node.attrs['topLevel'] === true;
@@ -384,6 +402,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const bindings = getEditorBindings(editor);
   const active = ui.selectedBlockId === blockId;
   const markerLayerRef = useRef<HTMLDivElement | null>(null);
+  const termLayerRef = useRef<HTMLDivElement | null>(null);
 
   const anchorMarkers = useMemo<AnchorMarkerInfo[]>(() => {
     if (bindings === null) return [];
@@ -413,6 +432,44 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     .join('|');
   const showMarkers = active && !ui.editing && anchorMarkers.length > 0;
 
+  const formulaTermTargets = useMemo<FormulaTermTarget[]>(() => {
+    if (bindings === null) return [];
+    const runtimeDocument = bindings.runtime.document;
+    const block = runtimeDocument.blocks[blockId];
+    if (block === undefined) return [];
+    const targets = new Map<string, FormulaTermTarget>();
+    for (const branch of anchoredChildBranches(runtimeDocument, blockId)) {
+      const id = branch.source.anchorId;
+      if (id === undefined || targets.has(id)) continue;
+      const anchor = runtimeDocument.anchors[id];
+      if (anchor === undefined || anchor.kind !== 'formula') continue;
+      const selector = anchor.selector as unknown as Record<string, unknown>;
+      if (selector['kind'] !== 'formula' || selector['form'] !== 'term') continue;
+      const resolution = resolveAnchor(runtimeDocument, id);
+      if (resolution.state !== 'resolved' || resolution.resolved === null) continue;
+      const range = resolution.resolved.range;
+      if (range.kind !== 'formula' || range.form !== 'term') continue;
+      const node = getNodeAtPath(block.content, range.nodePath);
+      const latex = node === null ? '' : formulaLatex(node);
+      const selectorLatex = typeof selector['latex'] === 'string' ? selector['latex'] : '';
+      const term =
+        latex.length > 0 && range.latexStart !== undefined && range.latexEnd !== undefined
+          ? codePointSlice(latex, range.latexStart, range.latexEnd)
+          : selectorLatex;
+      if (term.length === 0) continue;
+      targets.set(id, { anchorId: id, term });
+    }
+    return [...targets.values()];
+  }, [bindings, blockId, bindings?.runtime.version]);
+
+  const termTargetsKey = JSON.stringify(
+    formulaTermTargets.map((target) => [target.anchorId, target.term]),
+  );
+  const selectedAnchorId =
+    ui.selectedAnchor !== null && ui.selectedAnchor.blockId === blockId
+      ? ui.selectedAnchor.anchorId
+      : null;
+
   const calloutAnchorCount = useMemo(() => {
     if (bindings === null || calloutParentId.length === 0 || anchorId.length === 0) return 0;
     return anchoredChildBranches(bindings.runtime.document, calloutParentId).filter(
@@ -429,6 +486,94 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     ui.selectedAnchor.anchorId === anchorId &&
     ui.selectedAnchor.branchId === calloutBranchId;
 
+  // Best-effort term geometry (M3c2b): overlay each uniquely resolved formula
+  // term over its live KaTeX text rect. Absence is the formula-rectangle
+  // fallback; no coordinate ever reaches the document.
+  useLayoutEffect(() => {
+    const layer = termLayerRef.current;
+    if (layer === null) return undefined;
+    if (formulaTermTargets.length === 0) {
+      layer.replaceChildren();
+      return undefined;
+    }
+    const card = editor.view.dom.querySelector<HTMLElement>(`[data-block-card="${blockId}"]`);
+    if (card === null) {
+      layer.replaceChildren();
+      return undefined;
+    }
+    let frame = 0;
+    let disposed = false;
+    const position = (): void => {
+      frame = 0;
+      if (disposed) return;
+      const cardRect = card.getBoundingClientRect();
+      if (cardRect.width <= 0 || cardRect.height <= 0) {
+        layer.replaceChildren();
+        return;
+      }
+      const scale = elementScale(card);
+      const highlights: HTMLElement[] = [];
+      for (const target of formulaTermTargets) {
+        const formulas = [
+          ...card.querySelectorAll<HTMLElement>(
+            '[data-anchor-kind="formula"][data-anchor-ids]',
+          ),
+        ].filter((formula) =>
+          (formula.dataset['anchorIds'] ?? '')
+            .split(',')
+            .map((value) => value.trim())
+            .includes(target.anchorId),
+        );
+        const formula = formulas.length === 1 ? formulas[0] : undefined;
+        if (formula === undefined) continue;
+        const termRect = formulaTermRect(formula, target.term);
+        if (termRect === null) continue;
+        const local = relativeRect(termRect, cardRect, scale);
+        if (local.width <= 0 || local.height <= 0) continue;
+        const highlight = document.createElement('span');
+        highlight.className = 'nf-formula-term-highlight';
+        highlight.dataset['anchorTermIds'] = target.anchorId;
+        highlight.dataset['anchorTermText'] = target.term;
+        highlight.setAttribute('aria-hidden', 'true');
+        if (selectedAnchorId === target.anchorId) {
+          highlight.dataset['anchorSelected'] = 'true';
+        }
+        highlight.style.left = `${local.left.toFixed(2)}px`;
+        highlight.style.top = `${local.top.toFixed(2)}px`;
+        highlight.style.width = `${local.width.toFixed(2)}px`;
+        highlight.style.height = `${local.height.toFixed(2)}px`;
+        highlights.push(highlight);
+      }
+      layer.replaceChildren(...highlights);
+    };
+    const schedule = (): void => {
+      if (disposed || frame !== 0) return;
+      frame = requestAnimationFrame(position);
+    };
+    schedule();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(card);
+    // CSS zoom changes the viewport scale without resizing the layout box.
+    const canvas = card.closest<HTMLElement>('.nf-canvas');
+    const canvasObserver = new MutationObserver(schedule);
+    if (canvas !== null) {
+      canvasObserver.observe(canvas, {
+        attributes: true,
+        attributeFilter: ['data-zoom', 'style'],
+      });
+    }
+    window.addEventListener('resize', schedule);
+    void document.fonts.ready.then(schedule);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      frame = 0;
+      observer.disconnect();
+      canvasObserver.disconnect();
+      window.removeEventListener('resize', schedule);
+    };
+  }, [blockId, editor, termTargetsKey, selectedAnchorId, bindings?.runtime.version]);
+
   // Position the real marker buttons over their resolved marks. The dot stays
   // decorative in the prose; the button appears only for the selected block,
   // never while the prose owns the caret.
@@ -442,20 +587,11 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       const card = editor.view.dom.querySelector<HTMLElement>(`[data-block-card="${blockId}"]`);
       if (card === null) return;
       const cardRect = card.getBoundingClientRect();
-      const scale = card.offsetWidth > 0 ? cardRect.width / card.offsetWidth : 1;
-      const factor = scale > 0 ? scale : 1;
-      const marks = [...card.querySelectorAll<HTMLElement>('[data-anchor-ids]')];
+      const factor = elementScale(card);
       let missing = 0;
       for (const button of layer.querySelectorAll<HTMLElement>('[data-anchor-marker-id]')) {
         const id = button.dataset['anchorMarkerId'] ?? '';
-        let target: HTMLElement | null = null;
-        for (const mark of marks) {
-          const ids = (mark.dataset['anchorIds'] ?? '').split(',');
-          if (ids.includes(id)) {
-            target = mark;
-            break;
-          }
-        }
+        const target = anchorVisualTargets(card, id)[0] ?? null;
         if (target === null) {
           // Broken bindings have no visible mark; keep the button reachable at
           // the block warning point instead of guessing a span.
@@ -479,17 +615,27 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     const observer = new ResizeObserver(schedule);
     const card = editor.view.dom.querySelector<HTMLElement>(`[data-block-card="${blockId}"]`);
     if (card !== null) observer.observe(card);
+    const canvas = card?.closest<HTMLElement>('.nf-canvas') ?? null;
+    const canvasObserver = new MutationObserver(schedule);
+    if (canvas !== null) {
+      canvasObserver.observe(canvas, {
+        attributes: true,
+        attributeFilter: ['data-zoom', 'style'],
+      });
+    }
     window.addEventListener('resize', schedule);
     void document.fonts.ready.then(schedule);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      canvasObserver.disconnect();
       window.removeEventListener('resize', schedule);
     };
   }, [showMarkers, markerKey, blockId, editor]);
 
   // Highlight every text node of the selected anchor, including multi-node
   // ranges. Marks are not React children, so this is a DOM-only view state.
+  // A term highlight replaces the atomic formula highlight for that anchor.
   useEffect(() => {
     const card = editor.view.dom.querySelector<HTMLElement>(`[data-block-card="${blockId}"]`);
     if (card === null) return;
@@ -497,15 +643,29 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       ui.selectedAnchor !== null && ui.selectedAnchor.blockId === blockId
         ? ui.selectedAnchor.anchorId
         : null;
+    const termIds = new Set<string>();
+    for (const term of card.querySelectorAll<HTMLElement>('[data-anchor-term-ids]')) {
+      const ids = (term.dataset['anchorTermIds'] ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+      for (const id of ids) termIds.add(id);
+      if (selected !== null && ids.includes(selected)) {
+        term.setAttribute('data-anchor-selected', 'true');
+      } else {
+        term.removeAttribute('data-anchor-selected');
+      }
+    }
     for (const mark of card.querySelectorAll<HTMLElement>('[data-anchor-ids]')) {
       const ids = (mark.dataset['anchorIds'] ?? '').split(',');
-      if (selected !== null && ids.includes(selected)) {
+      const coveredByTerm = [...termIds].some((id) => ids.includes(id));
+      if (selected !== null && ids.includes(selected) && !coveredByTerm) {
         mark.setAttribute('data-anchor-selected', 'true');
       } else {
         mark.removeAttribute('data-anchor-selected');
       }
     }
-  }, [ui.selectedAnchor, blockId, editor, bindings?.runtime.version]);
+  }, [ui.selectedAnchor, blockId, editor, bindings?.runtime.version, termTargetsKey]);
 
   const onHandlePointerDown = (event: PointerEvent<HTMLButtonElement>): void => {
     if (event.button !== 0 || bindings === null) return;
@@ -652,6 +812,15 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             </button>
           ))}
         </div>
+      ) : null}
+      {formulaTermTargets.length > 0 ? (
+        <div
+          className="nf-formula-term-layer"
+          contentEditable={false}
+          aria-hidden="true"
+          ref={termLayerRef}
+          data-formula-term-layer={blockId}
+        />
       ) : null}
       {callout ? (
         <div className="nf-callout-head" contentEditable={false}>

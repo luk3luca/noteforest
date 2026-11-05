@@ -1654,6 +1654,45 @@ button:disabled {
   border-radius: 3px;
 }
 
+/* Best-effort formula-term geometry (M3c2b): a live KaTeX text rect, rendered
+   as a DOM overlay. No coordinates are stored; a missing unique match keeps
+   the formula rectangle and quote chip. */
+.nf-formula-term-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.nf-formula-term-highlight {
+  position: absolute;
+  border-radius: 3px;
+  background: rgba(155, 183, 212, 0.14);
+  box-shadow: inset 0 -1px 0 rgba(155, 183, 212, 0.8);
+  pointer-events: none;
+}
+
+.nf-formula-term-highlight[data-anchor-term-ids]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -3px;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.nf-formula-term-highlight[data-anchor-selected="true"] {
+  background: rgba(155, 183, 212, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(155, 183, 212, 0.9);
+}
+
+.nf-block-body[data-anchor-markers="true"] .nf-formula-term-highlight::after {
+  visibility: hidden;
+}
+
 /* Marker buttons replace the decorative dot on the selected block only. */
 .nf-anchor-markers {
   position: absolute;
