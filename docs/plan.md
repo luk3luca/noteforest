@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.3, ADR-0005); M3a1/M3a2/M3b1/M3b2a merged; M3b2b anchor outline in progress.
+**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.3, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b merged; M3c1 whole-formula anchors in progress.
 
 ## Rules
 
@@ -262,8 +262,8 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   spec v0.4.5, UX v1.3, ADR-0005 are merged. C1/C8/C9 and OD-1–OD-12 are approved.
 - Slices: M3a1 anchor model/binding/resolution (merged) → M3a2 anchor commands + branch extension
   (merged) → M3b1 text anchor authoring (merged) → M3b2a callout lane (merged) → M3b2b outline
-  rows/marker navigation (in progress) → M3c formula/code/image → M3d reference edges → M3e repair →
-  M3f identity/undo/split-merge/fixtures.
+  rows/marker navigation (merged) → M3c1 whole-formula anchors (in progress) → M3c2 formula terms →
+  M3c3 code/image → M3d reference edges → M3e repair → M3f identity/undo/split-merge/fixtures.
 
 ## M4 — Reader/page + PDF (planned)
 

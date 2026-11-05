@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.3, ADR-0005 merged. **M3a1/M3a2** are merged (binding/resolution/validation; anchor and anchored/reference branch commands), **M3b1** adds text-anchor authoring, and **M3b2a** adds the anchored callout lane: callouts below the parent, quote chip, connector, forward-only routing, direct children after the lane. The M3b1 e2e is now deterministic (keyboard word selection, hidden window, no critical screenshots): unit 371/2.0 s; critical e2e 21/44.5 s; recovery 14; UI 7; `verify` exit 0. **M3b2b** is in progress: outline anchored rows, anchor-count/warning chips, marker click/cycling, collapse hidden count. Then M3c formula/code/image, M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. PDF remains M4. Spec v0.4.5.
+**M2f is accepted; M3 is in implementation.** Spec v0.4.5, UX v1.3, ADR-0005 merged. **M3a1/M3a2** (anchor model/commands), **M3b1** (text-anchor authoring), **M3b2a** (callout lane), and **M3b2b** (anchored outline rows, marker click/cycling, collapse counts) are merged and verified. Unit 371/1.7 s; critical e2e 21/46.2 s; recovery 14; UI 8; `verify` exit 0. **M3c1** is in progress: whole-formula anchors (select inline/block formula, branch, marker, callout, undo/reload). M3c2 adds formula term anchors, M3c3 code/image; then M3d reference edges, M3e repair, M3f identity/split-merge/fixtures. PDF remains M4. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 
