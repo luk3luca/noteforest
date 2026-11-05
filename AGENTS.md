@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 5c (N1/N2) is implemented and verified; Sentinel re-review is pending.** The re-review closed F1/F3/F5/F6/F7 and found two S2 regressions: **N1** undo of a new chapter's first block was rejected and poisoned the structural stack; **N2** read-only documents and session-write failures blocked close/quit forever. Phase 5c fixes both, plus N3/N5/N6 docs and cleanup: New chapter is one undo entry, failed undo/redo entries are dropped instead of retried forever, clean read-only documents and session-state failures no longer block close/quit. Final gates: unit 252, critical e2e 20 at 52.3–53.8 s suite time (budget <60 s excluding build), recovery 14, UI 5, `verify` exit 0. E2E windows run hidden so tests never steal focus. M3 and PDF remain blocked until M2f is accepted. Spec v0.4.4.
+**M2f phase 5c (N1/N2) passed Sentinel re-review with accept with minor; product-owner M2 acceptance is pending.** N1 (undo of a new chapter's first block) and N2 (close/quit on non-document failures) are closed; N3/N5/N6 are closed. Final gates: unit 252, critical e2e 20 at 52.2–53.4 s warm suite time (one cold-cache run 62.8 s; budget <60 s excluding build), recovery 14, UI 5, `verify` exit 0. E2E windows run hidden so tests never steal focus; the visual suite is the only visible exception. Residual follow-ups: chapter redo, cold-cache budget policy, `allowEmptyChapter` stripping in the future External API. M3 and PDF remain blocked until the product owner accepts M2f. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 

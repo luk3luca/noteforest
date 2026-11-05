@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f phase 5c (N1/N2) implemented and verified; Sentinel re-review pending. Product-owner visual/VoiceOver acceptance pending. M3 not started.
+**Status:** M2f phase 5c passed Sentinel re-review with accept with minor; product-owner visual/VoiceOver and M2 acceptance pending. M3 not started.
 
 ## Rules
 
@@ -34,7 +34,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2c** | Interaction polish + desync fix | Fix phantom blocks/missing arrows; shared arrow trunk; inline chapter editing; full-height sidebar/tabs in editor column; heading escape; UI sans + denser editor; right/bottom `+`; canvas add top-level/chapter; landscape default; new keymap | No phantom under rapid creation; sidebar/canvas/arrow parity; 3-child trunk; new doc landscape; new keys; screenshots | **Merged; review found layout/UX corrections** |
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
-| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Phase 5c verified — Sentinel re-review pending** |
+| **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **5c accepted with minor — product-owner acceptance pending** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | Planned |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
@@ -209,19 +209,22 @@ Sentinel's verdict is **Request changes**. Full review: `docs/reviews/m2-review.
   default workflow; docs aligned with M2e/M2f.
 - No behavior change; backup-restore e2e moved to the recovery suite, critical e2e 23/23 in 48.7 s.
 
-**Phase 5c (done; re-review pending): Sentinel N1/N2.**
+**Phase 5c (done; Sentinel accept with minor): Sentinel N1/N2.**
 - N1: `block.create` inverse may empty a chapter; failed undo/redo entries are dropped and reported;
   New chapter is one queue task and one `⌘Z` entry that removes chapter + first block.
 - N2: clean read-only documents and session-state write failures no longer block close/quit; real
   document save failures keep Retry/Cancel.
 - N3/N5/N6: README/DoD drift, `library.ts` no-op, KaTeX deprecation note.
 - Test split: session/a11y/layout flows moved to `tests/ui/m2-shell.test.mjs`; critical e2e is
-  20 tests at 52.3–53.8 s suite time. E2E windows run hidden so tests never steal focus; visual
-  opts into a visible window.
+  20 tests at 52.2–53.4 s warm suite time. E2E windows run hidden so tests never steal focus;
+  visual opts into a visible window.
+- Re-review: no open S1/S2; S3-1 DoD/checklist headers fixed; S3-2 cold-cache e2e 62.8 s vs 60 s
+  (warm and `verify` pass); S4 nits recorded. Perf stays hidden: hidden vs visible initial render
+  measured 1,017 vs 1,019 ms, so the baseline is comparable.
 - Unit 252/1.9 s; recovery 14; UI 5; `verify` exit 0.
 
-**Status:** M2f phase 5c implemented and verified; Sentinel re-review and product-owner
-VoiceOver/visual acceptance pending; then M3.
+**Status:** M2f phase 5c accepted with minor by Sentinel; product-owner VoiceOver/visual and M2
+acceptance pending; then M3.
 
 ## M3 — Span anchors and reference edges (planned)
 

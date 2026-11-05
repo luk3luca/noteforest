@@ -139,6 +139,24 @@ under the 60 s suite-time budget in both standalone and `verify` runs.
   first block, which blocked the lifecycle e2e and inflated it to 21.8 s (suite 70.1 s inside
   `verify`). Hidden mode removes that class of interference; the same suite then measured 52.3 s.
 
+### Sentinel re-review (5 November 2026)
+
+Verdict: **accept with minor**, no open S1/S2. Report: `docs/reviews/m2f-phase5c-review.md`.
+
+- N1, N2, N3, N5, N6 closed with app-level repros.
+- S3-1 stale DoD/review-checklist phase headers fixed in the review commit.
+- S3-2 first cold-cache e2e run measured 62.8 s suite time; three warm runs 52.18–53.44 s and
+  `verify` 52.49 s. Warm budget is met; the cold outlier is recorded for the CI policy decision.
+- S4 nits: perf baseline comparability, parent `NOTEFOREST_E2E_HIDDEN=0`, `isVisible` scope, and
+  future `allowEmptyChapter` API stripping.
+- Perf baseline: after the review, the perf suite ran hidden at 1,017 ms initial / 2,465 ms
+  1,000-block, and once visible at 1,019 ms / 2,465 ms. Hidden and visible are comparable, so perf
+  stays hidden and the visible exception remains visual-only.
+- The harness now honours `NOTEFOREST_E2E_HIDDEN=0` from the parent environment. `isVisible` remains
+  the hidden-mode assertion; OS focus and dock visibility are covered by the implementation, not a
+  brittle focus assertion.
+- Chapter redo and `allowEmptyChapter` API stripping remain recorded follow-ups, not M2 blockers.
+
 ## 6. Residual risks and follow-ups
 
 - **Chapter redo is lost.** `chapter.delete` has no structural inverse and `captureStructuralDelta`
@@ -186,5 +204,5 @@ under the 60 s suite-time budget in both standalone and `verify` runs.
 
 ## Next step
 
-Sentinel re-review of phase 5c against `docs/reviews/m2f-review.md` N1–N6, then the product-owner
-visual/VoiceOver pass and M2 acceptance. M3 and PDF/page remain blocked until M2 is accepted.
+Sentinel re-review is complete (accept with minor). Next: the product-owner visual/VoiceOver pass
+and M2 acceptance; then M3. M3 and PDF/page remain blocked until M2 is accepted.

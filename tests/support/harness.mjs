@@ -61,7 +61,8 @@ export function createHarness({ tempRoot }) {
   async function launch(overrides = {}) {
     // Hidden by default: the E2E app must not appear on screen or steal focus.
     // Visual/screenshot suites pass NOTEFOREST_E2E_HIDDEN: '0'.
-    const hidden = (overrides.NOTEFOREST_E2E_HIDDEN ?? '1') !== '0';
+    const hidden =
+      (overrides.NOTEFOREST_E2E_HIDDEN ?? process.env.NOTEFOREST_E2E_HIDDEN ?? '1') !== '0';
     app = await electron.launch({
       args: ['.'],
       cwd: appDir,

@@ -386,8 +386,11 @@ and are not part of the critical gate. Artifact roots honour `NOTEFOREST_ARTIFAC
 
 E2E windows run **hidden** by default (`NOTEFOREST_E2E_HIDDEN=1`): no visible window, no
 `bringToFront`, no dock icon, so a test run never steals keyboard focus or interferes with the
-machine. The visual screenshot suite opts into a visible window (`NOTEFOREST_E2E_HIDDEN=0`);
-Playwright still drives hidden windows through CDP, and `backgroundThrottling` stays disabled.
+machine. The visual screenshot suite opts into a visible window (`NOTEFOREST_E2E_HIDDEN=0`, also
+honoured from the parent environment); Playwright still drives hidden windows through CDP, and
+`backgroundThrottling` stays disabled. The on-demand perf suite also runs hidden: the hidden and
+visible 300-block initial render measured 1,017 vs 1,019 ms, so the perf baseline is comparable.
+The visual suite is the only visible-window exception.
 
 - `npm run e2e` builds and runs the critical suite. Budget: **critical-suite `node --test` time
   < 60 s, excluding the build**. Measured on 5 November 2026: 20 tests, 52.3 s suite time
