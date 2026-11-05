@@ -2,12 +2,12 @@
 
 **Role:** Planner / Architect (scoped specialist)  
 **Milestone:** M3  
-**Status:** Design proposal for Orchestrator review. Not applied to the spec, UX, ADRs, or plan.  
+**Status:** **Approved 5 November 2026.** C1–C9 and OD-1–OD-12 approved as recommended; applied to `docs/spec.md` v0.4.5, `docs/ux.md` v1.3, and ADR-0005. This document is retained as the design record; the body is not rewritten.  
 **Base:** `main` after M2f acceptance (`76e0bd1`, 5 November 2026)  
 **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-a2e5cb6f`  
 **Branch:** `t3/m3-anchors-references-design`  
-**Spec basis:** `docs/spec.md` v0.4.4  
-**Scope:** one design package for M3. No code, tests, schema changes, or plan/spec/UX/ADR edits.
+**Spec basis:** `docs/spec.md` v0.4.4 at design time; applied at v0.4.5  
+**Scope:** one design package for M3. No code, tests, schema changes, or plan edits.
 
 ---
 
@@ -81,6 +81,8 @@ ratified behavior testable. Each is marked where it appears.
 
 ### 1.4 Conflicts found across the current docs (blocking or near-blocking)
 
+**Approval (5 November 2026).** The product owner approved **C1–C9 as recommended**. The resolution column is binding; the delta is applied in `docs/spec.md` v0.4.5, `docs/ux.md` v1.3, and ADR-0005. The conflict descriptions below are retained as the design record.
+
 These are not design choices; they are inconsistencies the Orchestrator must resolve before the
 relevant Builder brief. The design follows the spec/D3 in each case and flags the UX delta.
 
@@ -99,9 +101,9 @@ relevant Builder brief. The design follows the spec/D3 in each case and flags th
 The most important is **C1**: it directly changes the visible outline. Do not let a Builder
 implement from UX §8.5 before it is corrected.
 
-### 1.5 Open decisions (summary)
+### 1.5 Decisions resolved (summary)
 
-Full options and recommendations are in §14. The short list:
+**All twelve were approved on 5 November 2026 as recommended; see §14.** The short list:
 
 1. Fix the C1 outline-order conflict (docs; no product change).
 2. Anchor lifetime after the last branch is removed (idle record vs delete).
@@ -175,7 +177,7 @@ top-level `quote`/`prefix`/`suffix`/`occurrenceHint`. To avoid two truths:
   the anchor is flagged `selector-mismatch` for repair. It is not silently rewritten.
 - The anchor ID is never inside `selector`; it is the record `id` and the content binding value.
 
-### 2.3 Binding shapes (proposal P1, not applied)
+### 2.3 Binding shapes (P1; approved as OD-4, applied)
 
 A binding is the exact content location of an anchor. It is stored in content, not in a sidecar.
 
@@ -1789,7 +1791,7 @@ fixture drift is a warning: do not add M3 fixtures that fail the current validat
 | 35 | Merge with anchors on both | Two blocks | Anchors move to survivor; IDs kept; marks preserved | Core |
 | 36 | Merge with duplicate refs | Duplicate source-target | Dedupe; earlier ID kept; warning; undo restores | Core |
 | 37 | Attach branches to block | Anchor with 2 branches | Branch IDs kept; sources block; order appended; anchor removed; undo | Core + e2e |
-| 38 | Delete last branch | One branch | Anchor idle (recommended) or removed; no callout; no warning; open decision | Core + UI |
+| 38 | Delete last branch | One branch | Anchor idle (OD-2 approved); no callout; no warning; explicit Remove anchor | Core + UI |
 | 39 | Paste duplicated anchor content | Copy/paste with anchorIds | Strip/remap; no duplicate ID; no phantom branch | Core + UI |
 | 40 | Duplicate subtree | Explicit duplicate | New anchor/branch IDs for copy; external refs not copied | Core |
 | 41 | Create anchored child with typing pending | Type then branch | Commit first; one undo; no lost text | Runtime/e2e |
@@ -2007,10 +2009,9 @@ targeted tests and one `verify:fast` per slice (per `AGENTS.md`).
 
 ---
 
-## 13. Proposed spec, UX, and ADR deltas (not applied)
+## 13. Spec, UX, and ADR deltas (applied 5 November 2026)
 
-Everything in this section is a **proposal**. Do not edit the referenced files until the
-Orchestrator approves.
+**Status.** The proposals below were applied to `docs/spec.md` v0.4.5, `docs/ux.md` v1.3, and ADR-0005. The section is retained as the proposal record. §13.3 was written as ADR-0005; §13.4 was not written separately (see ADR-0005, "Why no ADR-0006").
 
 ### 13.1 Spec proposals
 
@@ -2038,7 +2039,7 @@ Orchestrator approves.
 | **U6** | §11.3/§11.5 | Add repair copy for ambiguous/broken anchors, attach-to-block, and the health sheet; keep "no modal on load." | AC-22/55 need exact user-visible states. |
 | **U7** | F7 | Reconcile collapse: M3 editor hides callouts per spec §7.6; Reader/Page wording can be resolved for M4. | Conflict C4. |
 
-### 13.3 ADR-0005 outline (proposed, not written)
+### 13.3 ADR-0005 outline (written as ADR-0005)
 
 **Title:** Anchor binding, resolution, and identity
 
@@ -2070,7 +2071,7 @@ renderer resolver (divergence).
 **Gates:** resolution matrix, identity/undo sequences, layout-neutral differential, fixture
 validity, 1,000-anchor resolution < 100 ms.
 
-### 13.4 Optional ADR-0006 outline
+### 13.4 Optional ADR-0006 outline (not written; see ADR-0005 §9)
 
 **Title:** Reference edge role transitions and layout neutrality
 
@@ -2084,9 +2085,11 @@ one.
 
 ---
 
-## 14. Open product decisions
+## 14. Product decisions (approved 5 November 2026)
 
-Each decision lists options and a recommendation. None is silently decided.
+**All OD-1–OD-12 were approved as recommended on 5 November 2026.** The recommendation column is the binding resolution; no M3 product decision remains open. The options are retained as the decision record.
+
+Each decision lists the options and the approved recommendation. No decision was silently made.
 
 | ID | Decision | Options | Recommendation | Owner | Needed before |
 |---|---|---|---|---|---|
@@ -2142,12 +2145,13 @@ blocking the model.
 - [x] Broken/ambiguous states enumerate user-visible behavior and repair paths (§8).
 - [x] The edge-case matrix names fixtures and expected outcomes (§11).
 - [x] The task breakdown is ordered, small, and independently testable (§12).
-- [x] Proposed spec/UX/ADR deltas are clearly marked as proposals, not applied (§13).
-- [x] Open product decisions are listed with options and a recommendation; none silently decided
-  (§14).
-- [x] No code, plan, spec, UX, or ADR file is modified (this is a new design doc only).
+- [x] Proposed spec/UX/ADR deltas are clearly marked as proposals in §13; the approved delta is applied in spec v0.4.5/UX v1.3/ADR-0005.
+- [x] Product decisions OD-1–OD-12 are approved on 5 November 2026 with a recommendation; none silently decided (§14).
+- [x] At design time, no code, plan, spec, UX, or ADR file was modified; the approved delta is now applied in spec v0.4.5/UX v1.3/ADR-0005.
 
 ### 16.2 Recommended Orchestrator next steps
+
+**Status (5 November 2026):** steps 1–3 are complete. C1–C9 and OD-1–OD-12 are approved, ADR-0005 is written, and the spec/UX delta is applied at spec v0.4.5 / UX v1.3. See `docs/reports/m3-spec-delta.md`. Steps 4–6 remain with the Orchestrator.
 
 1. Review C1–C9 and OD-1–OD-12. Resolve the blockers: C1 (outline order), C8 (I10 reading), C9
    (anchored children on block delete), OD-3 (dedupe), OD-4 (binding shape), and then

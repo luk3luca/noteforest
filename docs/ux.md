@@ -1,19 +1,19 @@
-# NoteForest — UX specification v1.2
+# NoteForest — UX specification v1.3
 
-**Status:** Draft v1.2 for review (aligned with the product owner correction of 3 November 2026)
-**Owner:** UX / Product
-**Date:** 3 November 2026
-**Working title:** NoteForest (clearance or rename required before packaging)
-**Stack:** Electron + React + TypeScript (ADR-0001). This document defines UX behavior and avoids Electron-specific behavior where platform neutrality is cheap, but Electron APIs are allowed where they are the decided implementation (for example PDF export).
-**Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` (pending), `docs/plan.md` (pending)
+**Status:** Draft v1.3 — M3 design delta applied (5 November 2026)  
+**Owner:** UX / Product  
+**Date:** 5 November 2026  
+**Working title:** NoteForest (clearance or rename required before packaging)  
+**Stack:** Electron + React + TypeScript (ADR-0001). This document defines UX behavior and avoids Electron-specific behavior where platform neutrality is cheap, but Electron APIs are allowed where they are the decided implementation (for example PDF export).  
+**Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` v0.4.5, `docs/plan.md`, `docs/ux-shell.md`, `docs/adr/0005-anchor-binding-and-identity.md`
 
 This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is decided (Electron, ADR-0001); this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md`, the spec, and the ADRs.
 
-**Revision note.** This version implements the corrected model: pages are a pagination result, not a structural level. Fixed depth columns, pins, nudges, free positioning, page create/duplicate/delete/split/move commands, and a separate reader/outline PDF export are not part of the model. The structure is Document → Chapters → top-level content blocks; one continuous layout engine feeds two spatial renderers, Reader and Page.
+**Revision note (v1.3).** Applies the product owner's approved M3 decisions (C1, C8, C9, OD-1–OD-12): anchored children come first (C1/D3), idle anchors and explicit removal (OD-2), role-independent dedupe (OD-3), make-home root rule (OD-7), callout lane (OD-8), dashed reference edges plus chips (OD-9), status-chip health sheet (OD-10), and text-selection projection (OD-12). M3 is editor-first: there is no page view or PDF yet, so M3 chips show the chapter/label and M4 adds page numbers. The paginated Reader/Page collapse wording remains a v1.2/M4 topic; the M3 continuous editor follows spec §7.6.
 
 ---
 
-## 0. UX decisions for v1.2
+## 0. UX decisions for v1.3
 
 **Locked by the product owner (v1):** Reader is the primary authoring surface; Page is a read-only preview and the PDF target; page orientation is document-wide; visual direction is clean, Obsidian-like and minimal with dark mode default; long blocks continue at safe boundaries; layout uses incremental reflow plus a freeze mode; broken anchors fall back to the whole block; external agent integration is API-only. The relevant open questions are marked resolved below.
 
@@ -27,9 +27,9 @@ This document defines how NoteForest behaves for a person at a Mac: interaction 
 | D6 | Pages are derived by a paginator, not stored as containers. No New Page, Duplicate Page, Delete Page, Split Page, or Move to Page command | A page is a rendering of the continuous layout at a given page size. Treating pages as containers would make the document and the PDF diverge. |
 | D7 | A page break can fall between blocks, and a long block may continue at safe internal boundaries (paragraph, list-item, between code lines, or between table rows). A line, image, code block, formula, or table row is never cut. Continuations get a ghost parent and continuation markers | The tree stays intact; long text flows, while atomic elements remain whole and readable. |
 | D8 | Chapters group top-level blocks; a chapter can start on a new page (default on) | The document is organized by topics, not by pages. Chapter starts are a stable, user-meaningful break hint. |
-| D9 | An anchor is created together with a branch. Standalone highlights are a separate, non-structural mark | Anchor-only marks add UI and model weight without a user job. Highlight covers "mark this phrase". |
+| D9 | An anchor is created together with a branch. Standalone highlights are a separate, non-structural mark. An anchor can outlive its last branch as an **idle** record: the marker is hidden and an explicit **Remove anchor** deletes it (OD-2) | Anchor-only marks add UI and model weight without a user job. Highlight covers "mark this phrase". Idle records preserve identity and re-branching without an orphan warning |
 | D10 | v1 exports one PDF from the same paginator, all pages, real text. No separate reader export | The PDF is the paginated rendering of the same layout the Page view shows. |
-| D11 | Collapse/expand is an outline-only navigation aid in v1; Reader and Page always show the full layout | Hiding content in a spatial view would change pagination and what exports. Spatial folding is Q10. |
+| D11 | Collapse/expand is an outline navigation aid in v1; the M3 continuous editor hides the block's primary descendants and anchored callouts with a hidden count (spec §7.6). The paginated Reader/Page views always show the full layout in v1.2; their collapse behavior is re-decided in M4 | Hiding content in a spatial view would change pagination and what exports. Spatial folding is Q10 |
 | D12 | One visible undo stack, with a documented routing rule between text editing and structure | Users should not have to know which stack they are in. |
 | D13 | No hover-only action. Every pointer action has a menu item and a keyboard path | Required for accessibility, and it makes the product usable without a mouse. |
 | D14 | Page orientation is one document-wide setting; changing it reflows all pages | Mixed orientation would complicate the paginator and the PDF; one orientation keeps the document coherent. |
@@ -363,12 +363,14 @@ Navigation rules:
 
 A right-hand panel, collapsed by default, toggled with `⌘⌥I`. On windows narrower than 1,200 pt it overlays the main view.
 
+**M3 note.** M3 does not build this inspector. The M3 anchor health surface is a status chip plus sheet/dialog (OD-10), and reference links use block-menu **See also** / **Referenced by** lists and chips. The sections below are the v1 target, not an M3 deliverable; a later inspector can reuse the same data.
+
 | Section | Shown when | Contents |
 |---|---|---|
 | **Block** | One block selected | Type, first line, child count, word count, framed toggle, top-level indicator, "starts page" if applicable |
 | **Anchors** | Block has anchors | Each anchor: quote, branch count, status (healthy/lost), actions |
 | **Branches** | Block has children, or a branch is selected | Outgoing branches with role, label, target, page if cross-page; "Add Child", "Link to Block…" |
-| **Linked from** | Block has reference links | Source blocks with quote and chapter; click to navigate |
+| **Referenced by** | Block has reference links | Source blocks with quote and chapter; click to navigate |
 | **Chapter** | A block or chapter heading is selected | Chapter title, top-level count, "Start on new page" toggle, **Move to Chapter…** |
 | **Pagination** | All views; per-block manual-break edits only in Reader/Outline | Page count, current page, manual break count, **Page Setup…**, **Insert Page Break Before**, **Remove Manual Break** |
 | **Selection** | Multiple blocks selected | Count, bulk delete (Reader/Outline), copy as Markdown; Page inspect/copy only; no bulk move |
@@ -480,11 +482,11 @@ Dismissing a coach mark hides it permanently; they never block clicks.
 ### 5.5 Sample walkthrough (acceptance scenario)
 
 1. Open the sample. It opens in **Reader**, scrolled to Chapter 1.
-2. Click the anchor dot on the `det(A − λI)` formula in B3. B4 highlights; the inspector shows "Branch from det(A − λI)".
+2. Click the anchor dot on the `det(A − λI)` formula in B3. B4 highlights; the anchor health sheet / block menu shows "Branch from det(A − λI)".
 3. Press `⌘1`. The outline opens with Chapter 1, B3 and B4 visible; B4 carries the chip `↳ “det(A − λI)”`. Selection is unchanged.
 4. Press `⌘2`, then scroll or `⌥↓` to the page-break marker. The marker reads "Page 2 · Chapter 2 starts here".
 5. Press `⌘3`. The Page view opens on page 2; the chapter heading is at the top, and the footer reads "Page 2 of 2".
-6. Click B8. Its inspector shows the reference link "bound → Spectral radius (Chapter 1, page 1)". Clicking it jumps to B6 in Reader or page 1 in Page view.
+6. Click B8. Its **See also** list shows the reference link "bound → Spectral radius (Chapter 1, page 1)". Clicking it jumps to B6 in Reader or page 1 in Page view.
 7. Press `⌘2` to return to Reader, double-click B7, select `A @ v`, press `⌘⇧Return`, type "why normalization matters". A new block appears below the anchor. The Reader reflows continuously. Press `⌘3` to see the paginated result; if the new block moves to another page, the page indicator updates and the preview shows the new pagination.
 8. Press `⌘⇧E`. The preview shows 2 A4 pages. Export all pages.
 9. Open the PDF. Text is selectable; page 2 matches the Page view; the anchored branch appears in place below the code block.
@@ -647,7 +649,7 @@ Page is a read-only preview: add, edit, and delete commands are disabled there. 
 
 **Rules**
 
-- The new child is placed last among the parent's unanchored children.
+- The new direct child is placed last among the parent's direct (unanchored) children. Anchored primary children are emitted before direct children (D3).
 - The branch handle is a click target. Dragging it onto another block reparents that block; dragging it to empty space does nothing (no free positioning).
 - Branch creation always creates a new block. To connect to an existing block, use F8.
 - Undo removes the branch and the new block in one step if the block is still empty; if content was typed, typing is undone first.
@@ -684,13 +686,15 @@ Page is a read-only preview: add, edit, and delete commands are disabled there. 
 
 **Rules**
 
-- Anchors are created in Outline or Reader. Page is read-only: clicking an anchor dot follows its branch, but does not create one.
-- An anchor must be inside one block. A multi-block selection disables **Branch** with "Anchors work within one block."
+- Anchors are created in Outline or Reader (the M3 continuous editor). Page is read-only: clicking an anchor dot follows its branch, but does not create one.
+- An anchor must be inside one block. A multi-block selection disables **Branch** with "Anchors work within one block." A text selection containing inline math or images is allowed: the quote uses a plain-text projection (text + LaTeX source + image alt/placeholder), and the mark binding remains truth (OD-12). A selection that crosses a block-level atomic node (display math, image, code block) or a table-cell boundary is rejected.
 - If nothing is selected, `⌘⇧Return` branches from the whole block.
-- Anchors are unique per span. Branching the same span again creates another branch from the same anchor, not a second anchor.
-- Removing the last branch from an anchor removes the anchor marker (undoable).
-- If an anchor span is lost (text edited away, formula replaced, image replaced), the branch falls back to the whole block, shows a broken-anchor marker, and stays repairable. The child is never deleted.
-- Anchored children are placed below the anchor. They wrap and paginate like any branch. If a callout crosses a page boundary, atomic children move whole and long text children continue at a safe boundary, with a ghost parent and continuation marker.
+- Anchors are unique per span. Branching the same span again creates another branch from the same anchor, not a second anchor. Overlapping anchors are allowed; each has its own ID.
+- Removing the last branch from an anchor leaves the anchor record **idle**: the marker is hidden, no callout remains, and it is not listed as broken. An explicit **Remove anchor** command deletes the idle record and its binding (undoable) (OD-2).
+- If an anchor span is lost (text edited away, formula replaced, image replaced, crop changed), the branch falls back to the whole block, shows a broken/ambiguous marker, and stays repairable through the anchor health sheet. The child is never deleted.
+- Anchored children are placed in a **callout lane** below the parent card and before the direct-children group, left-aligned to the anchor where possible (OD-8). "Below the anchor" means below the anchor's block card, not inside the card under the span. Pixel alignment is best-effort in M3; M4 gates it at 2 px (AC-52).
+- Anchored children are emitted **before** direct children in the outline and callout lane (D3). They wrap and paginate like any branch. If a callout crosses a page boundary, atomic children move whole and long text children continue at a safe boundary, with a ghost parent and continuation marker.
+- The anchor marker is reachable from the block menu and the anchor health sheet; no core anchor action is mouse-only (D13).
 - Highlight (`⌘⇧H`) is a text mark with no structural meaning.
 
 ### F6 — Reorder, reparent, detach, move between chapters
@@ -731,15 +735,16 @@ Page is read-only: it accepts selection, page navigation, zoom and focus, but no
 - Every structural move is one undo step, including the subtree and the chapter change.
 - Reordering is vertical only. There is no horizontal drag; horizontal position is adaptive layout, not user-positioned.
 
-### F7 — Collapse and expand (outline)
+### F7 — Collapse and expand (outline and M3 editor)
 
-- Collapse is an outline navigation aid in v1. Reader and Page always show the full layout.
+- In the M3 continuous editor, collapsing a block hides its primary descendants **and its anchored callouts** with the rest of the subtree; the hidden count includes them (spec §7.6). Expanding restores them.
+- The paginated Reader/Page views always show the full layout in v1.2; their collapse behavior is re-decided in M4.
 - Outline: disclosure triangle, `⌘⇧[`, or context menu. A collapsed block shows "4 hidden".
 - `⌘⇧]` expands one level; `⌥`-click expands the subtree; `⌘⌥[` / `⌘⌥]` collapse/expand all.
 - Collapsing a block whose descendant is selected moves the selection to the collapsed block.
 - Collapse is presentation state, persisted by view, **not undoable**.
-- In Reader/Page, `⌘⇧[` / `⌘⇧]` show "Collapse is available in the outline." They do not change the layout.
-- Why: hiding a subtree in Reader/Page would change pagination and what exports. Spatial folding is Q10.
+- In the paginated Reader/Page views, `⌘⇧[` / `⌘⇧]` show "Collapse is available in the outline." They do not change the layout.
+- Why: hiding a subtree in the paginated Reader/Page would change pagination and what exports. Spatial folding is Q10.
 
 ### F8 — Shared child and reference links
 
@@ -749,27 +754,28 @@ A block has exactly one primary parent. It may have any number of reference link
 
 1. Select a source block (or an anchor).
 2. `⌘⇧L`, or context menu → **Link to Block…**.
-3. A searchable picker lists blocks with chapter and page context. Type to filter; `↑↓`; `Return`.
-4. A dashed branch appears if the target is in the same visible region; if the target is on another page, the source gets a "See page N" chip and the inspector lists the link.
-5. The link is listed in the source inspector and the target's **Linked from**.
+3. A searchable picker lists blocks with chapter context (page context when M4 adds the page view). Type to filter; `↑↓`; `Return`.
+4. A dashed edge is drawn when both endpoints are visible; otherwise the source shows a **See also** chip with the chapter and label. M3 has no page view, so no page number yet; M4 adds the derived page (OD-9).
+5. The link is listed in the source's **See also** list and the target's **Referenced by** list (block menu / chips in M3; the inspector is a later surface).
 
 **Alternative gestures**
 
 - Outline: `⌥`-drag a block onto another.
 - Reader: `⌥`-drag a block body, or `⌥`-drag from a branch handle.
 - Reader: `⌥`-drop from an anchor drag creates a reference link from the anchor.
-- Page: read-only; click a "See page N" chip or a reference branch to follow it. Link creation happens in Reader or Outline.
+- Page: read-only; click a "See also" chip or a reference edge to follow it. Link creation happens in the editor or Outline.
 
 **Rules**
 
 - Reference links never change outline order, chapter, layout, or pagination. This is an invariant.
 - Reference links may create cycles. No error.
-- A duplicate link (same source, target, role) is not created; the existing branch is selected and pulsed.
+- A duplicate link (same source and target, **regardless of role**) is not created; the existing edge is selected and pulsed. If a primary edge already exists, **Link as Reference** focuses it instead of creating a second edge (OD-3).
 - A second primary parent is impossible. The role popover offers **Link as Reference** (default) or **Move Here**.
+- **Make home** is available on an existing reference edge and requires the target to have a primary parent. If the target is already a root, **Make home** is disabled; use **Move here** or **Add as child** (OD-7).
 - Deleting a reference link never deletes a block.
-- In the outline, reference links are not child rows; the target shows "Shared · N", the inspector lists sources.
-- Cross-page references are chips ("See page 2") plus inspector rows, not long lines across pages.
-- Anchored reference links are allowed; they are dashed from the anchor dot.
+- In the outline, reference links are not child rows; the target shows "Shared · N", and the block menu / **See also** list shows sources.
+- Cross-page references are chips ("See also") plus list rows, not long lines across pages. In M3 the chip shows the chapter/label; M4 adds the page number.
+- Anchored reference links are allowed; they are dashed from the anchor dot and never create a callout.
 
 ### F9 — Pagination, page breaks, continuation, overflow
 
@@ -1198,9 +1204,10 @@ Rules:
 - Chapter heading shows title and top-level count; menu: Rename, New Chapter After, Move Up/Down, Start on New Page, Delete Chapter.
 - Page-break marker shows `Page N` and "automatic" or "Manual"; continuation label if inside a subtree. Menu: Remove Manual Break, Keep This Break, Why This Break?
 - The marker of the current page is highlighted.
-- Anchored children appear after unanchored children, in anchor order, then branch order. Same indentation as children, prefixed by `↳ “quote”`. A thin left rule groups siblings sharing an anchor.
-- Reference links are not child rows; target shows `Shared · N`; inspector lists sources with chapter/page.
+- Anchored children appear **before** direct (unanchored) children, in anchor order (start position, then anchor ID), then branch order within one anchor (D3). Same indentation as children, prefixed by `↳ “quote”`. A thin left rule groups siblings sharing an anchor.
+- Reference links are not child rows; the target shows `Shared · N`; the block menu / **See also** list shows sources with chapter/label (page number in M4).
 - Lost anchor child row shows `Lost anchor` + **Reattach**; the branch stays attached to the whole block until repaired.
+- An idle anchor (no branches) has no row and no callout; the source block shows no anchor chip. The anchor health sheet's **All anchors** filter offers **Remove anchor** (OD-2).
 - The outline always shows the full tree.
 
 ### 8.6 Focus in the outline
@@ -1368,9 +1375,9 @@ This section defines behavior and hierarchy, not final visual design.
 | **Multi-selected** | Shift/Cmd click, marquee | Rings; "N selected" | Delete, copy; no group move |
 | **Collapsed** | Outline only | Descendants hidden; "N hidden" | Expand |
 | **Top-level** | No primary parent | "Top-level" chip | Chapter actions |
-| **Shared** | Reference links | "Shared · N"; same-page dashed branches; cross-page "See page N" | Click → links |
+| **Shared** | Reference links | "Shared · N"; dashed edge when both endpoints are visible; otherwise a "See also" chip (page number in M4) | Click → links |
 | **Framed** | Inspector/menu | Heavier border; algorithms/definitions | Toggle |
-| **Lost anchor** | Anchor text edited away | Amber dashed segment; "Lost anchor" chip; branch falls back to the whole block; child stays | Reattach, select branch, delete branch |
+| **Lost anchor** | Anchor text edited away | Amber dashed segment; "Lost anchor" chip; branch falls back to the whole block; child stays | Relink, attach to block, delete branch, keep broken |
 | **Invalid formula** | LaTeX error | Source visible; warning chip | Fix; export warning |
 | **Missing asset** | Asset absent | Placeholder with filename | Relink |
 | **Search hit** | Find result | Highlight; current hit stronger | `Return` cycles |
@@ -1384,11 +1391,11 @@ This section defines behavior and hierarchy, not final visual design.
 | Branch | Visual | Layout effect | Interaction |
 |---|---|---|---|
 | **Structural** | Solid 1.5 pt, filled arrowhead | Parent/child; adaptive layout | Click; `⌫` removes with rules |
-| **Anchored structural** | Solid, starts at anchor dot, curves below the anchor | Child below anchor; wraps/paginates | Click; highlights span |
-| **Reference, same region** | Dashed 1.25 pt, open arrowhead | None | Click; label |
-| **Reference, cross-page** | "See page N" chip + inspector row | None | Click jumps |
-| **Anchored reference** | Dashed from anchor dot | None | Same |
-| **Lost-anchor** | Dashed amber segment + `?` | Child stays below the edge | Reattach |
+| **Anchored structural** | Solid, starts at anchor dot, enters the callout lane below the parent card | Child below anchor, before direct children; wraps/paginates | Click; highlights span |
+| **Reference, both endpoints visible** | Dashed 1.25 pt, open arrowhead | None | Click; label |
+| **Reference, not both visible** | "See also" chip + list row | None | Click jumps |
+| **Anchored reference** | Dashed from anchor dot; no callout | None | Same |
+| **Lost-anchor** | Dashed amber segment + `?` | Child stays below the edge | Relink, attach to block, delete branch, keep broken |
 | **Drag preview** | Low-opacity arrow | None until drop | Drop |
 | **Hover highlight** | Source/target/span strengthen | None | Hover never reflows |
 
@@ -1397,7 +1404,7 @@ Rules:
 - Structural vs reference is encoded by dash pattern and arrowhead, not color.
 - Anchored vs block-origin is encoded by where the line starts.
 - Branch routing updates after a reflow/pagination, not on every pointer move.
-- Cross-page references are never long lines across pages; they are chips.
+- Cross-page references are never long lines across pages; they are chips. In M3, a dashed edge is drawn only when both endpoints are visible; M3 chips show the chapter/label, and M4 adds the page number (OD-9).
 
 ### 10.4 Anchors
 
@@ -1406,7 +1413,9 @@ Rules:
 - Click: selects the first branch; click again cycles.
 - Formula anchors are best-effort markers; the branch dot at the formula edge keeps the branch reachable.
 - Image anchors are numbered circles at the region corner.
-- Lost anchor: amber segment and a "Lost anchor" chip. The branch falls back to the whole block so it stays usable; the inspector shows the stored quote and reattach candidates.
+- Lost anchor: amber segment and a "Lost anchor" chip. The branch falls back to the whole block so it stays usable; the anchor health sheet shows the stored quote and reattach candidates (OD-10).
+- Idle anchor: marker hidden; no callout; no warning. The anchor health sheet's **All anchors** filter offers **Remove anchor** (OD-2).
+- Anchor health is a status chip plus sheet/dialog in M3, not a permanent right inspector (OD-10). The sheet lists broken/ambiguous anchors by default; no modal on load.
 
 ### 10.5 Adaptive layout, page breaks, continuation — examples
 
@@ -1583,8 +1592,9 @@ Motion is never the only signal.
 
 | Situation | Message | Recovery | Data safety |
 |---|---|---|---|
-| **Lost anchor** | "Anchor lost — the text “λ, the eigenvalue” was edited or removed. The branch is attached to the whole block." | **Reattach…**, **Select Branch**, **Delete Branch** | Branch/child kept; fallback to block |
-| **Ambiguous anchor** | "This anchor matches 3 places in the block." | Choose a candidate with context; cancel keeps lost | No guessing |
+| **Lost anchor** | "Anchor lost — the text “λ, the eigenvalue” was edited or removed. The branch is attached to the whole block." | **Relink to selection…**, **Attach to Block**, **Delete Branch**, **Keep Broken** | Branch/child kept; fallback to block |
+| **Ambiguous anchor** | "This anchor matches 3 places in the block." | Choose a candidate with context; **Keep Broken**; cancel keeps ambiguous | No guessing |
+| **Idle anchor (no branches)** | No error. "This anchor has no branches." (shown only under **All anchors**) | **Remove anchor** | Undoable; no target deleted (OD-2) |
 | **Structural cycle** | "That would put “Power iteration” inside its own subtree." | **Link as Reference**, **Cancel** | Nothing changes |
 | **Second structural parent** | "“Spectral radius” already has a parent in the outline." | **Link as Reference** (default), **Move Here**, **Cancel** | Non-destructive default |
 | **Duplicate link** | "This link already exists." | **Show Branch** | None |
@@ -1619,7 +1629,9 @@ Motion is never the only signal.
 | Delete one block without children | No; undo toast |
 | Delete a subtree with > 10 descendants | Yes, counts |
 | Delete a multi-selection | Yes if > 3 blocks or > 10 descendants |
-| Remove an anchor with branches | Yes; offers "Keep blocks" |
+| Remove an anchor with branches | Yes; choose attach branches to block or delete them; target blocks are never deleted |
+| Remove an idle anchor | No; undo toast (OD-2) |
+| Delete a reference link | No; undo toast; target unchanged |
 | Delete a chapter with content | Yes, chapter and block count |
 | Page setup that re-paginates | Yes if page count or manual breaks may change |
 | Insert/remove manual break | No; undoable |
@@ -1756,8 +1768,8 @@ Rules:
 | Q7 | How stable should manual breaks be? | Users may want the PDF page count stable; content edits move automatic breaks | Manual hints persist; show when invalid; no auto-stabilization |
 | Q8 | **Resolved policy:** What if a long block or an atomic element is too tall/wide? | Long text should flow; lines, images, code and formulas must stay readable. | **Long text continues at safe boundaries; an unbreakable element overflows with a fix path (resize/shorten/landscape).** Boundary rules to validate with real notes. |
 | Q9 | Does `Tab` moving the block (instead of indenting a list item) feel right? | Lists are common; the wrong behavior is hit constantly | Rule + hint; measure |
-| Q10 | Should Reader/Page support collapse/fold? | Hiding content would change pagination and exports | No in v1; test demand |
-| Q11 | Should cross-page reference links be lines or chips? | Lines across pages may be noisy; chips hide context | Chips + inspector; test |
+| Q10 | Should Reader/Page support collapse/fold? | Hiding content would change pagination and exports | **M3 continuous editor:** collapse hides primary descendants and anchored callouts with a hidden count (spec §7.6). **Paginated Reader/Page:** no in v1.2; re-decide in M4 |
+| Q11 | Should cross-page reference links be lines or chips? | Lines across pages may be noisy; chips hide context | Chips + **See also** list; M3 shows chapter/label, M4 adds the page number (OD-9); test |
 | Q12 | Is formula-term anchoring by LaTeX source acceptable? | Users think in rendered formulas | Source + best-effort marker; test |
 | Q13 | **Resolved:** Is page orientation document-level or per page? | Mixed orientation would complicate the paginator and the PDF. | **One document-wide orientation at a time; changing it reflows all pages. No per-page orientation.** |
 | Q14 | Should a chapter always start on a new page? | It aids structure but can waste space | Default on; toggle per chapter; test |
@@ -1831,4 +1843,4 @@ Observe: do participants try to drag blocks to arbitrary positions? Do they expe
 
 ---
 
-*End of v1.2. This document follows the Document → Chapters → top-level blocks model, the adaptive layout, derived pagination, and the Reader/Page renderers in `AGENTS.md`.*
+*End of v1.3. This document follows the Document → Chapters → top-level blocks model, the adaptive layout, derived pagination, and the Reader/Page renderers in `AGENTS.md`.*
