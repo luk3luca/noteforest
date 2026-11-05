@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f phase 5c (N1/N2) passed Sentinel re-review with accept with minor; product-owner M2 acceptance is pending.** N1 (undo of a new chapter's first block) and N2 (close/quit on non-document failures) are closed; N3/N5/N6 are closed. Final gates: unit 252, critical e2e 20 at 52.2–53.4 s warm suite time (one cold-cache run 62.8 s; budget <60 s excluding build), recovery 14, UI 5, `verify` exit 0. E2E windows run hidden so tests never steal focus; the visual suite is the only visible exception. Residual follow-ups: chapter redo, cold-cache budget policy, `allowEmptyChapter` stripping in the future External API. M3 and PDF remain blocked until the product owner accepts M2f. Spec v0.4.4.
+**M2f is accepted by the product owner (5 November 2026); M3 design is starting.** One minor visual fix is in progress: the collapsed branch-port count bubble is offset 2 px from the add-child control below it (port padding 2 px vs a 16 px control). The fix is CSS plus a UI alignment assertion, in a Builder worktree. M2f closed N1/N2/N3/N5/N6; Sentinel verdict accept with minor; gates unit 252, critical e2e 20 (warm 52.2–53.4 s), recovery 14, UI 5, `verify` exit 0. E2E windows run hidden. M3 implementation is blocked until the M3 design package is reviewed; PDF remains M4. Spec v0.4.4.
 
 The spec is at v0.4.4 and the UX, review, and DoD docs are aligned.
 
