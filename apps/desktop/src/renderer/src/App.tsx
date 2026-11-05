@@ -23,6 +23,7 @@ import {
   toggleFocusBranch,
 } from './actions';
 import { buildSession } from './state/session';
+import { flushDocuments } from './lib/flush';
 import { perfSnapshot, summarize } from './lib/perf';
 
 type FlushTestMode = 'normal' | 'error' | 'hang';
@@ -48,43 +49,16 @@ function cycleActiveTab(direction: -1 | 1): void {
 /** Test-only override, reachable through `window.__noteforestTest`. */
 let flushTestMode: FlushTestMode = 'normal';
 
-function flushErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.length > 0) return error.message;
-  return String(error);
-}
-
 /**
- * Commit every open document before close/quit.
- *
- * `ok` is returned only when every document committed and no document is
- * read-only or in a failed-save state. Reasons are aggregated with the
- * document title so the native dialog can name what blocked the close.
+ * Commit every open document before close/quit. Document problems block and
+ * carry a reason for the native Retry/Cancel dialog; session-state failures are
+ * logged and never block (see `lib/flush.ts`).
  */
 async function flushOpenDocuments(): Promise<FlushResult> {
-  const problems: string[] = [];
-  for (const runtime of allRuntimes()) {
-    if (runtime.status === 'read-only') {
-      const reason =
-        runtime.readOnlyReason === undefined ? '' : ` (${runtime.readOnlyReason})`;
-      problems.push(`${runtime.title}: open read-only${reason}`);
-      continue;
-    }
-    try {
-      await runtime.commitPending();
-      if (runtime.saveState === 'error') {
-        problems.push(`${runtime.title}: ${runtime.saveError ?? 'the last save failed'}`);
-      }
-    } catch (error) {
-      problems.push(`${runtime.title}: ${flushErrorMessage(error)}`);
-    }
-  }
-  if (problems.length > 0) return { status: 'error', error: problems.join('\n') };
-  try {
-    await window.noteforest.saveSession(buildSession());
-  } catch (error) {
-    return { status: 'error', error: `Session state: ${flushErrorMessage(error)}` };
-  }
-  return { status: 'ok' };
+  return flushDocuments({
+    documents: allRuntimes(),
+    saveSession: () => window.noteforest.saveSession(buildSession()),
+  });
 }
 
 export function App(): JSX.Element {

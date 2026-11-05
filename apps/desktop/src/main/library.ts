@@ -437,14 +437,12 @@ export async function applyCommand(
   if (!result.ok) {
     return { ok: false, message: result.message, code: result.code };
   }
-  const current = snapshot(opened.store);
   return {
     ok: true,
     document: result.document,
     revision: result.revision,
     created: result.created,
     inverse: result.inverse,
-    ...(current === null ? {} : {}),
   };
 }
 

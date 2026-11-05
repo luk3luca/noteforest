@@ -750,6 +750,59 @@ export class DocumentRuntime {
   }
 
   /**
+   * Create a chapter and its first top-level block as one user action.
+   *
+   * Both commands run inside one queue task and the structural stack receives a
+   * single inverse, `chapter.delete` with `delete-blocks`, so one ⌘Z removes
+   * the new chapter and its block. `chapter.delete` has no structural inverse
+   * yet, so this action is not redoable (recorded as a follow-up in the phase
+   * 5c report); the alternative, two stack entries, would undo the block first
+   * and leave an empty chapter behind.
+   */
+  async createChapterWithFirstBlock(
+    title: string,
+    atIndex: number | undefined,
+  ): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      const chapterCommand: DocumentCommand = {
+        type: 'chapter.create',
+        title,
+        ...(atIndex === undefined ? {} : { atIndex }),
+      };
+      const chapterResult = await this.runCommandInternal(chapterCommand);
+      if (!chapterResult.ok || chapterResult.document === undefined) {
+        return { ok: false, message: chapterResult.message ?? 'Could not create a chapter.' };
+      }
+      const chapterId = chapterResult.created?.chapterIds[0];
+      if (chapterId === undefined) {
+        await this.acceptStructural(chapterResult.document, chapterResult.inverse, null);
+        return { ok: false, message: 'The chapter was created without an ID.' };
+      }
+      const blockResult = await this.runCommandInternal({
+        type: 'block.create',
+        placement: { kind: 'top-level', chapterId },
+      });
+      if (!blockResult.ok || blockResult.document === undefined) {
+        // Keep the created chapter undoable even though its first block failed.
+        await this.acceptStructural(chapterResult.document, chapterResult.inverse, null);
+        return { ok: false, message: blockResult.message ?? 'Could not add the first block.' };
+      }
+      const blockId = blockResult.created?.blockIds[0] ?? null;
+      await this.acceptStructural(
+        blockResult.document,
+        { type: 'chapter.delete', chapterId, blockHandling: { kind: 'delete-blocks' } },
+        blockId,
+      );
+      this.reconcileEditor(blockId);
+      return {
+        ok: true,
+        ...(blockId === null ? {} : { blockId }),
+        chapterId,
+      };
+    });
+  }
+
+  /**
    * Verify the ProseMirror buffer and the canonical document agree on the set
    * of block IDs. A mismatch is never kept: rebuild from canonical, drop the
    * canvas-only nodes, and surface a quiet recovery notice.
@@ -1563,7 +1616,11 @@ export class DocumentRuntime {
       await this.commitContentInternal();
       const result = await window.noteforest.apply(this.packagePath, inverse);
       if (!result.ok || result.document === undefined) {
-        this.undoStack.push(inverse);
+        // A rejected inverse is not retryable at the top of the stack: leaving
+        // it there would repeat the same error forever and hide older history.
+        // The error is reported by the caller; the next undo reaches the entry
+        // below this one.
+        this.notify();
         return { ok: false, message: result.message ?? 'Could not undo.' };
       }
       this.document = result.document;
@@ -1593,7 +1650,9 @@ export class DocumentRuntime {
       await this.commitContentInternal();
       const result = await window.noteforest.apply(this.packagePath, command);
       if (!result.ok || result.document === undefined) {
-        this.redoStack.push(command);
+        // Same rule as undo: a failed redo is dropped, reported, and never
+        // retried forever at the top of the stack.
+        this.notify();
         return { ok: false, message: result.message ?? 'Could not redo.' };
       }
       this.document = result.document;

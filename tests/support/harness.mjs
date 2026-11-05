@@ -59,9 +59,16 @@ export function createHarness({ tempRoot }) {
   }
 
   async function launch(overrides = {}) {
-    app = await electron.launch({ args: ['.'], cwd: appDir, env: baseEnv(overrides) });
+    // Hidden by default: the E2E app must not appear on screen or steal focus.
+    // Visual/screenshot suites pass NOTEFOREST_E2E_HIDDEN: '0'.
+    const hidden = (overrides.NOTEFOREST_E2E_HIDDEN ?? '1') !== '0';
+    app = await electron.launch({
+      args: ['.'],
+      cwd: appDir,
+      env: baseEnv({ NOTEFOREST_E2E_HIDDEN: hidden ? '1' : '0', ...overrides }),
+    });
     page = await app.firstWindow();
-    await page.bringToFront();
+    if (!hidden) await page.bringToFront();
     page.on('pageerror', (error) => {
       pageErrors.push(error.message);
     });

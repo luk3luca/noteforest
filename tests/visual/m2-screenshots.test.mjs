@@ -18,7 +18,8 @@ function isolated(name) {
 }
 
 async function launch(overrides = {}) {
-  await h.launch(overrides);
+  // Screenshots need a real visible surface; every other suite stays hidden.
+  await h.launch({ NOTEFOREST_E2E_HIDDEN: '0', ...overrides });
   page = h.page;
 }
 

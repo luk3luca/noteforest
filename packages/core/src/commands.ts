@@ -176,6 +176,13 @@ export interface BlockDeleteCommand {
   type: 'block.delete';
   blockId: string;
   children: 'promote' | 'delete-subtree';
+  /**
+   * Undo exemption for the inverse of `block.create`: removing a freshly
+   * created block may leave its chapter with no top-level block, which is a
+   * valid (legacy) state. The command layer sets this only on the inverse it
+   * generates for `block.create`; every user-facing delete keeps the F6 guard.
+   */
+  allowEmptyChapter?: boolean;
 }
 
 export interface BlockMoveCommand {
@@ -1095,7 +1102,12 @@ function applyToClone(
         const parentChapter = chapterIdForBlock(document, placement.parentBlockId);
         if (parentChapter !== null) changes.chapter(parentChapter);
       }
-      return { type: 'block.delete', blockId, children: 'delete-subtree' };
+      return {
+        type: 'block.delete',
+        blockId,
+        children: 'delete-subtree',
+        allowEmptyChapter: true,
+      };
     }
 
     case 'block.editContent': {
@@ -1129,12 +1141,21 @@ function applyToClone(
       if (command.children !== 'delete-subtree' && command.children !== 'promote') {
         reject('invalid-command', 'children must be "promote" or "delete-subtree"');
       }
+      if (
+        command.allowEmptyChapter !== undefined &&
+        typeof command.allowEmptyChapter !== 'boolean'
+      ) {
+        reject('invalid-command', 'allowEmptyChapter must be a boolean');
+      }
       // A top-level delete must not strand an empty chapter. Promoting children
       // keeps the chapter non-empty, so only a childless promote or a subtree
       // delete of the last root is rejected. Deleting the chapter itself
       // (`chapter.delete`) remains the explicit way to remove the last block.
+      // The inverse of `block.create` sets `allowEmptyChapter`, because undoing
+      // a creation must restore the pre-create state even when that state was
+      // an empty chapter.
       const topLevel = findTopLevelPlacement(document, command.blockId);
-      if (topLevel !== null) {
+      if (topLevel !== null && command.allowEmptyChapter !== true) {
         const chapter = chapterOrFail(document, topLevel.chapterId);
         const promotedCount =
           command.children === 'promote'

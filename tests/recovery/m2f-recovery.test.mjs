@@ -6,6 +6,7 @@ import { basename, resolve } from 'node:path';
 import {
   artifactsPath,
   createHarness,
+  waitUntil,
 } from '../support/harness.mjs';
 
 const tempRoot = artifactsPath('m2f-recovery-tmp');
@@ -507,6 +508,40 @@ describe('M2f phase 4b empty chapters and stale locks', () => {
     const lockAfterTakeover = await readLock(lockPath);
     assert.notEqual(lockAfterTakeover.token, 'dead-token');
     await noDialogs();
+  });
+
+  it('quits a read-only stale-lock document without a dialog or a package write', async () => {
+    const env = isolated('readonly-quit');
+    const packagePath = await installValidPackage(env, 'readonly-quit-note');
+    const documentPath = resolve(packagePath, 'document.json');
+    const lockPath = await writeStaleLock(env, packagePath, 'readonly-token');
+    const before = await readFile(documentPath);
+    await launchEnv(env);
+
+    await page.locator('[data-library-document][data-doc-status="ok"]').first().click();
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    const state = await h.state();
+    const runtime = state.runtimes.find((item) => item.packagePath === packagePath);
+    assert.equal(runtime?.status, 'read-only');
+    assert.equal(runtime?.readOnlyReason, 'stale-lock');
+    assert.equal(runtime?.dirty, false, 'the read-only runtime has no unsaved changes');
+    await noDialogs();
+
+    const child = h.app.process();
+    await h.app.evaluate(({ app: electronApp }) => {
+      electronApp.quit();
+    });
+    await waitUntil(
+      () => child.exitCode !== null || child.signalCode !== null,
+      'the process exits: a clean read-only document never blocks quit',
+      5000,
+    );
+    assert.deepEqual(await readFile(documentPath), before, 'the read-only package is never written');
+    assert.equal(
+      (await readLock(lockPath)).token,
+      'readonly-token',
+      'quitting does not break the stale lock',
+    );
   });
 
   it('renders a legacy empty chapter after reload and recovers it with Add top-level block', async () => {

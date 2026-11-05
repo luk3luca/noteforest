@@ -123,11 +123,9 @@ export async function createChapter(): Promise<ApplyOutcome | null> {
   const selectedChapterId = selected === null ? null : chapterIdOf(runtime.document, selected);
   // Insert immediately after the active chapter; without a selection, append.
   const atIndex = chapterInsertIndex(runtime.document.chapters, selectedChapterId);
-  const created = await runtime.applyStructural({
-    type: 'chapter.create',
-    title: 'New chapter',
-    atIndex,
-  });
+  // One queue task and one structural inverse: a single ⌘Z removes the new
+  // chapter and its first block (see DocumentRuntime.createChapterWithFirstBlock).
+  const created = await runtime.createChapterWithFirstBlock('New chapter', atIndex);
   if (!created.ok) {
     toast.error(created.message ?? 'Could not create a chapter.');
     return created;
@@ -137,18 +135,11 @@ export async function createChapter(): Promise<ApplyOutcome | null> {
     toast.error('The chapter was created without an ID.');
     return { ok: false, message: 'The chapter was created without an ID.' };
   }
-  const block = await runtime.applyStructural({
-    type: 'block.create',
-    placement: { kind: 'top-level', chapterId },
-  });
-  if (!block.ok) {
-    toast.error(block.message ?? 'Could not add the first block.');
-  }
   await runtime.saveNow();
-  if (block.ok && runtime.editor !== null) {
+  if (runtime.editor !== null) {
     setEditorChapterFocus(runtime.editor, chapterId);
   }
-  return { ...block, chapterId };
+  return created;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DocumentCommand } from '../src/commands.js';
+import { applyInverse } from '../src/commands.js';
 import { validateDocument } from '../src/validation.js';
 import {
   deterministicContext,
@@ -48,12 +49,13 @@ function twoChapterDocument() {
 function expectEmptyChapterRejection(
   result: ReturnType<typeof tryRun>,
   verb: RegExp,
+  chapterName = 'Second',
 ): void {
   expect(result.ok).toBe(false);
   if (result.ok) return;
   expect(result.code).toBe('chapter-would-be-empty');
   expect(result.message).toMatch(verb);
-  expect(result.message).toContain('"Second"');
+  expect(result.message).toContain(`"${chapterName}"`);
   expect(result.message).toMatch(/Add another top-level block or delete the chapter instead/);
 }
 
@@ -210,5 +212,86 @@ describe('empty-chapter invariant (F6)', () => {
     });
     expect(rejected.ok).toBe(false);
     if (!rejected.ok) expect(rejected.message).toContain('"c2"');
+  });
+
+  it('lets the inverse of block.create empty a chapter and redo restores the exact block ID', () => {
+    const { context, document } = twoChapterDocument();
+    const withEmptyChapter = run(
+      document,
+      { type: 'chapter.create', chapterId: 'c3', title: 'Fresh' },
+      context,
+    ).document;
+
+    const created = run(
+      withEmptyChapter,
+      {
+        type: 'block.create',
+        blockId: 'C',
+        content: textContent('C'),
+        placement: { kind: 'top-level', chapterId: 'c3' },
+      },
+      context,
+    );
+    expect(created.inverse).toMatchObject({
+      type: 'block.delete',
+      blockId: 'C',
+      children: 'delete-subtree',
+      allowEmptyChapter: true,
+    });
+
+    const undone = applyInverse(created, { context });
+    expect(undone.ok).toBe(true);
+    if (!undone.ok) return;
+    expect(undone.document.chapters.find((chapter) => chapter.id === 'c3')?.topLevelBlockIds).toEqual(
+      [],
+    );
+    expect(undone.document.blocks['C']).toBeUndefined();
+    expect(validateDocument(undone.document).ok).toBe(true);
+
+    // The delete's exact-record inverse is the redo of the creation: the same
+    // block ID, chapter placement and content come back.
+    const redone = applyInverse(undone, { context });
+    expect(redone.ok).toBe(true);
+    if (!redone.ok) return;
+    expect(redone.document.blocks['C']?.id).toBe('C');
+    expect(redone.document.chapters.find((chapter) => chapter.id === 'c3')?.topLevelBlockIds).toEqual(
+      ['C'],
+    );
+    expect(validateDocument(redone.document).ok).toBe(true);
+  });
+
+  it('keeps the user-facing delete guard and validates allowEmptyChapter as a boolean', () => {
+    const { context, document } = twoChapterDocument();
+    const withEmptyChapter = run(
+      document,
+      { type: 'chapter.create', chapterId: 'c3', title: 'Fresh' },
+      context,
+    ).document;
+    const created = run(
+      withEmptyChapter,
+      {
+        type: 'block.create',
+        blockId: 'C',
+        content: textContent('C'),
+        placement: { kind: 'top-level', chapterId: 'c3' },
+      },
+      context,
+    );
+
+    const userDelete = tryRun(created.document, {
+      type: 'block.delete',
+      blockId: 'C',
+      children: 'delete-subtree',
+    });
+    expectEmptyChapterRejection(userDelete, /Cannot delete the last top-level block/, 'Fresh');
+
+    const invalidFlag = tryRun(created.document, {
+      type: 'block.delete',
+      blockId: 'C',
+      children: 'delete-subtree',
+      allowEmptyChapter: 'yes',
+    } as unknown as DocumentCommand);
+    expect(invalidFlag.ok).toBe(false);
+    if (!invalidFlag.ok) expect(invalidFlag.message).toMatch(/allowEmptyChapter must be a boolean/);
   });
 });
