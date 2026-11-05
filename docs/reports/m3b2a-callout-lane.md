@@ -106,7 +106,7 @@ No spec, UX, ADR, plan, fixture, canonical schema, or dependency changed.
 |---|---|
 | `npm run typecheck` | pass (desktop, core, layout, pdf) |
 | `npm test` | 371/371 pass, 33 files, 2.0 s |
-| `node --test tests/ui/m3-anchor-callout.test.mjs` | 2/2 pass, ~2.6 s suite (incl. Electron launches) |
+| `node --test tests/ui/m3-anchor-callout.test.mjs` | 2/2 pass; suite 1.3 s, 9.4 s process including Electron launches |
 | `npm run test:ui` | pass: M2 view 1/1, M2 shell 4/4, M3 callout 2/2 |
 | `npm run verify:fast` | pass; typecheck + 371 unit + critical e2e 21/21 |
 | Critical e2e suite | 21 tests, 44.8 s (unchanged test count; under 60 s) |
