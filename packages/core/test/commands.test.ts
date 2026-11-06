@@ -545,6 +545,13 @@ describe('transactions, history, and serialization', () => {
     expect(unknown.ok).toBe(false);
     if (!unknown.ok) expect(unknown.code).toBe('invalid-command');
 
+    // The registry is a plain object; a prototype key must not resolve a handler.
+    const prototypeKey = executeCommand(document, {
+      type: 'constructor',
+    } as unknown as DocumentCommand);
+    expect(prototypeKey.ok).toBe(false);
+    if (!prototypeKey.ok) expect(prototypeKey.code).toBe('invalid-command');
+
     const secondCreate = executeCommand(document, { type: 'document.create', title: 'Another' });
     expect(secondCreate.ok).toBe(false);
     if (!secondCreate.ok) expect(secondCreate.code).toBe('invalid-command');

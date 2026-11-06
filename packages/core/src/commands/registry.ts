@@ -45,7 +45,7 @@ import {
 } from './chapter.js';
 import { applyDocumentCreate, applyDocumentRename, createDocumentCommand } from './document.js';
 import { applyStructureRestore, captureRestoreCommand } from './restore.js';
-import { ChangeSet, Rejection, reject } from './shared.js';
+import { ChangeSet, own, Rejection, reject } from './shared.js';
 import type {
   CommandFailure,
   CommandResult,
@@ -109,10 +109,13 @@ function applyToClone(
 ): DocumentCommand | null {
   // TypeScript cannot correlate a union discriminator with its mapped handler
   // signature. The registry above is exhaustive, so this single widening cast
-  // at the dispatch boundary is safe.
-  const handler = (
-    COMMAND_HANDLERS as unknown as Record<string, AnyCommandHandler | undefined>
-  )[command.type];
+  // at the dispatch boundary is safe. The own-property lookup keeps a crafted
+  // type such as "constructor" on the old unknown-command failure path.
+  const handlers = COMMAND_HANDLERS as unknown as Record<
+    string,
+    AnyCommandHandler | undefined
+  >;
+  const handler = own(handlers, command.type);
   if (handler === undefined) {
     const unreachable = command as { type?: unknown };
     return reject('invalid-command', `unknown command type: ${String(unreachable.type)}`);
