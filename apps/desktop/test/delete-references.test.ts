@@ -5,7 +5,7 @@ import type {
   ContentNode,
   Document,
 } from '@noteforest/core';
-import { externalReferenceParents } from '../src/renderer/src/lib/tree';
+import { deleteNeedsConfirmation, externalReferenceParents } from '../src/renderer/src/lib/tree';
 
 function paragraph(text: string): ContentNode {
   return { type: 'doc', children: [{ type: 'paragraph', children: [{ type: 'text', text }] }] };
@@ -97,5 +97,31 @@ describe('delete reference disclosure', () => {
       'ref-C-B',
       'ref-S1-B',
     ]);
+  });
+});
+
+describe('delete confirmation predicate', () => {
+  it('keeps the fast path for a leaf with no external references', () => {
+    expect(deleteNeedsConfirmation(fixture(), 'S1')).toBe(false);
+    expect(deleteNeedsConfirmation(fixture(), 'S2')).toBe(false);
+    expect(deleteNeedsConfirmation(fixture(), 'C')).toBe(false);
+  });
+
+  it('requires confirmation for a leaf with an external reference', () => {
+    const document = fixture();
+    document.branches['ref-S1-C'] = reference('ref-S1-C', 'S1', 'C', 'c');
+    expect(deleteNeedsConfirmation(document, 'C')).toBe(true);
+  });
+
+  it('requires confirmation for a block with descendants regardless of references', () => {
+    expect(deleteNeedsConfirmation(fixture(), 'A')).toBe(true);
+    expect(deleteNeedsConfirmation(fixture(), 'B')).toBe(true);
+  });
+
+  it('does not count outgoing references', () => {
+    const document = fixture();
+    // C is a leaf and only sources a reference; nothing external points at it.
+    document.branches['ref-C-A'] = reference('ref-C-A', 'C', 'A', 'c');
+    expect(deleteNeedsConfirmation(document, 'C')).toBe(false);
   });
 });
