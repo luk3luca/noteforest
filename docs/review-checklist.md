@@ -1,13 +1,13 @@
 # Review checklist
 
-**Status:** v8 — M3 design delta; spec v0.4.5.
+**Status:** v9 — M3 review (request changes); spec v0.4.5.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).
 
-**Current gate:** M2f is accepted; the M3 design delta is merged (spec v0.4.5, UX v1.3, ADR-0005)
-and M3a implementation is in progress. M4/PDF remain blocked until M3 is accepted. Spec v0.4.5 is
-the source of truth.
+**Current gate:** M2f is accepted; M3 implementation is complete (spec v0.4.5, UX v1.4, ADR-0005)
+and the Sentinel M3 review is **request changes** (`docs/reviews/m3-review.md`). M4/PDF remain
+blocked until M3 is accepted. Spec v0.4.5 is the source of truth.
 
 ---
 

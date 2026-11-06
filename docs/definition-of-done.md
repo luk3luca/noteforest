@@ -10,14 +10,13 @@
 ## Phase note
 
 The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002); the External Agent API defaults are
-decided (ADR-0003). The spec v0.4.5 is approved and the M3 design delta is merged (UX v1.3,
-ADR-0005). **Current gate:** M3a (anchor model and pure commands) is in progress; `npm run verify`
-(typecheck, unit, critical e2e, recovery, UI) is the task gate. M2f is accepted; its closure evidence
-is in `docs/reviews/m2f-phase5c-review.md`. The remaining risks are recorded there: the first
-cold-cache critical e2e run measured 62.8 s against the 60 s suite-time budget while warm runs
-measured 52.2–53.4 s. Measured on 5 November 2026: unit 252/2.3 s, critical e2e 20/52.2–53.4 s
-(one cold run 62.8 s), recovery 14/21.7 s, UI 5/22.6 s, `npm run verify` 115.3 s. M3 implementation
-is in progress; M4/PDF remain blocked until M3 is accepted. Until a milestone is approved, this
+decided (ADR-0003). The spec v0.4.5 is approved and the M3 design delta is merged (UX v1.4,
+ADR-0005). **Current gate:** the M3 fix pass after the Sentinel request-changes review
+(`docs/reviews/m3-review.md`). `npm run verify` (typecheck, unit, critical e2e, recovery, UI) is the
+task gate. M2f is accepted; its closure evidence is in `docs/reviews/m2f-phase5c-review.md`.
+Measured on 6 November 2026: unit 492/2.1 s, critical e2e 21/45.4 s suite, recovery 14/18.6 s, UI
+28/40.6 s of test bodies. The M2f cold-cache e2e note (62.8 s vs the 60 s budget, warm 52.2–53.4 s)
+remains historical. M4/PDF remain blocked until M3 is accepted. Until a milestone is approved, this
 document governs **documents and the approved implementation**, not general application code. A docs
 task is done when:
 
