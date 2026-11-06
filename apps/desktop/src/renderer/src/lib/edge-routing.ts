@@ -10,7 +10,7 @@
  *   (topmost) child owns a continuous path from the parent port and the trunk
  *   starts exactly at that child's T-junction, without a gap;
  * - the arrowhead is a fixed-size polygon independent of the path length, and
- *   the final horizontal/vertical segment is at least `edgeStemMin` long;
+ *   the final horizontal/vertical segment is at least `stemMin` long;
  * - wrapped children and anchored callouts share one trunk that emerges from
  *   the parent's bottom edge, one horizontal arm per row, and a fixed right
  *   arrowhead into the row's left edge; the trunk starts inside the parent
@@ -42,7 +42,7 @@ export interface RouteOptions {
   laneMaxOffset?: number;
   stemMin?: number;
   /** Below trunk origin from the parent card's left edge. */
-  belowTrunkInset?: number;
+  trunkInset?: number;
 }
 
 export interface RoutedArrow {
@@ -144,6 +144,11 @@ export function roundedPath(points: Point[], radius: number): string {
     );
     const before = pointTowards(current, previous, cornerRadius);
     const after = pointTowards(current, next, cornerRadius);
+    if (cornerRadius <= 0.001) {
+      // Radius zero is a true right angle: no degenerate Q segment.
+      path += ` L ${round(current.x)} ${round(current.y)}`;
+      continue;
+    }
     path += ` L ${round(before.x)} ${round(before.y)} Q ${round(current.x)} ${round(current.y)} ${round(after.x)} ${round(after.y)}`;
   }
   const last = simplified[simplified.length - 1] as Point;
@@ -251,7 +256,7 @@ export function rightLaneX(
   options: RouteOptions = {},
 ): number {
   const gap = options.gap ?? GEOMETRY.edgeGap;
-  const stemMin = options.stemMin ?? GEOMETRY.edgeStemMin;
+  const stemMin = options.stemMin ?? GEOMETRY.stemMin;
   const parentRight = rectRight(parent);
   const childLeft = Math.min(...children.map((child) => child.rect.x));
   const tipX = childLeft - gap;
@@ -267,7 +272,7 @@ function routeSingleRight(
 ): RoutedEdge {
   const gap = options.gap ?? GEOMETRY.edgeGap;
   const radius = options.radius ?? GEOMETRY.edgeRadius;
-  const stemMin = options.stemMin ?? GEOMETRY.edgeStemMin;
+  const stemMin = options.stemMin ?? GEOMETRY.stemMin;
   const childCenter = rectCenter(child.rect);
   const start: Point = { x: rectRight(parent), y: rectCenter(parent).y };
   const end: Point = { x: child.rect.x - gap, y: childCenter.y };
@@ -301,7 +306,7 @@ function routeRightGroup(
 
   const gap = options.gap ?? GEOMETRY.edgeGap;
   const radius = options.radius ?? GEOMETRY.edgeRadius;
-  const stemMin = options.stemMin ?? GEOMETRY.edgeStemMin;
+  const stemMin = options.stemMin ?? GEOMETRY.stemMin;
   const parentCenter = rectCenter(parent);
   // Trunk topology follows the measured vertical order, not branch order: a
   // branch reordered by drag must still connect to its own child.
@@ -371,14 +376,15 @@ export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
   const { parent, children } = input;
   if (children.length === 0) return { edges: [], trunks: [] };
   const gap = input.options?.gap ?? GEOMETRY.edgeGap;
-  const stemMin = input.options?.stemMin ?? GEOMETRY.edgeStemMin;
+  const stemMin = input.options?.stemMin ?? GEOMETRY.stemMin;
+  const radius = input.options?.radius ?? GEOMETRY.edgeRadius;
   const parentBottom = rectBottom(parent);
   const minRowLeft = Math.min(...children.map((child) => child.rect.x));
   // The trunk is anchored inside the parent card. Rows are expected to be
-  // indented by belowRowInset, which leaves a full stem; a row that comes back
+  // indented by rowIndent, which leaves a full stem; a row that comes back
   // too close (or left of the trunk) is a layout defect, never a reason to move
   // the trunk outside the card it belongs to.
-  const trunkX = parent.x + (input.options?.belowTrunkInset ?? GEOMETRY.belowTrunkInset);
+  const trunkX = parent.x + (input.options?.trunkInset ?? GEOMETRY.trunkInset);
   const ordered = [...children].sort(
     (left, right) => rectCenter(left.rect).y - rectCenter(right.rect).y,
   );
@@ -399,12 +405,19 @@ export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
       ordered.length === 1
         ? [{ x: trunkX, y: parentBottom }, start, end]
         : [start, end];
+    // Round the single elbow only with what is left after the required 12 px
+    // stem. At the minimum row indent nothing is left, so the arm stays sharp
+    // instead of eating into the arrowhead clearance.
+    const horizontal = end.x - trunkX;
+    const elbowRadius =
+      ordered.length === 1 ? Math.min(radius, Math.max(0, horizontal - stemMin)) : 0;
     edges.push({
       id: child.id,
       placement: 'below',
-      // Sharp arm junction: rounding the elbow would eat into the 12 px stem
-      // before the arrowhead. The Y-trunk look is the product language here.
-      path: edgePath(points, 0),
+      // Sharp T-junction for shared arms: a rounded corner would leave a visible
+      // wedge at the trunk. A lone row may use the same tiny radius as the
+      // right-hand elbows when the stem allows it.
+      path: edgePath(points, elbowRadius),
       start: points[0] as Point,
       end,
       arrow: makeArrow(end, 'right'),

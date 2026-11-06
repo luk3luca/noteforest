@@ -21,7 +21,7 @@ import {
 import { getEditorBindings, setDragBlockId } from '../bindings';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
 import { useShell } from '../../state/shell';
-import { GEOMETRY } from '../../lib/geometry';
+import { calloutLaneWidth, GEOMETRY } from '../../lib/geometry';
 import { anchorHealthReason } from '../../lib/anchor-health';
 import {
   anchorVisualTargets,
@@ -250,19 +250,19 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
       const scale = lane.offsetWidth > 0 ? laneRect.width / lane.offsetWidth : 1;
       const factor = scale > 0 ? scale : 1;
       const cardWidth = cardRect.width / factor;
-      const laneWidth = laneRect.width / factor;
-      // The below stack is bounded to the parent card so its left trunk and
-      // rows can never overlap the right group.
-      lane.style.setProperty('--nf-lane-width', `${Math.round(cardWidth)}px`);
-      lane.style.setProperty('--nf-below-indent', `${GEOMETRY.belowRowInset}px`);
-      const cardLeft = (cardRect.left - laneRect.left) / factor;
-      // Rows are genuinely indented from the parent card, not aligned to its
-      // left edge. The inset also reserves the trunk + stem inside the lane.
-      const contentLeft = Math.max(0, cardLeft + GEOMETRY.belowRowInset);
-      // Clamp against the parent card, not the chapter column: a callout may
-      // never overflow the card's right edge. A narrow card may leave less than
-      // the child minimum; the lane rows are allowed to shrink instead.
-      const laneRight = Math.min(laneWidth, cardLeft + cardWidth);
+      // Independent lane width (M3g2): the callout column never collapses to a
+      // narrow parent. The stable fallback is clamp(parent.width, 240, 480);
+      // see `calloutLaneWidth` for the natural-width note. The variable lives
+      // on the lane host so the sibling right group can inherit it too.
+      const laneWidth = Math.round(calloutLaneWidth(cardWidth));
+      host.style.setProperty('--nf-lane-width', `${laneWidth}px`);
+      host.style.setProperty('--nf-below-indent', `${GEOMETRY.rowIndent}px`);
+      lane.dataset['laneWidth'] = String(laneWidth);
+      // Rows start at the lane's left edge plus the shared row indent, so the
+      // callout card and the below trunk are indented together. An anchor that
+      // sits farther right may push its own row further right below.
+      const contentLeft = GEOMETRY.rowIndent;
+      const laneRight = laneWidth;
       const maxOffset = Math.max(contentLeft, laneRight - GEOMETRY.childMinWidth);
       for (const row of lane.querySelectorAll<HTMLElement>('[data-callout-row="true"]')) {
         // A nested callout has its own lane; only align rows that belong here.

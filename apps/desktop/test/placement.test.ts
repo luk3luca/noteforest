@@ -4,7 +4,7 @@ import {
   contentBounds,
   fitZoom,
 } from '../src/renderer/src/lib/placement';
-import { GEOMETRY, type Rect } from '../src/renderer/src/lib/geometry';
+import { GEOMETRY, calloutLaneWidth, rightGroupStart, type Rect } from '../src/renderer/src/lib/geometry';
 import { planDirectChildPlacement } from '../src/renderer/src/lib/child-placement';
 
 /** Editor viewport at a 1440 px window with the default 264 px sidebar. */
@@ -172,5 +172,61 @@ describe('direct-child right/below placement', () => {
       right: [],
       below: [],
     });
+  });
+
+  it('reserves the independent callout lane before placing the right group', () => {
+    const narrow: Rect = { x: 0, y: 0, width: 160, height: 100 };
+    const laneWidth = calloutLaneWidth(narrow.width);
+    expect(laneWidth).toBe(240);
+    expect(rightGroupStart(narrow, laneWidth)).toBe(160 + 80 + GEOMETRY.siblingGap);
+
+    // available = 700 - (240 + 16) = 444: a 420 child fits, a 445 child wraps.
+    const withLane = planDirectChildPlacement({
+      parent: narrow,
+      children: [
+        { id: 'fits', rect: { x: 256, y: 0, width: 420, height: 60 } },
+        { id: 'wraps', rect: { x: 256, y: 80, width: 445, height: 60 } },
+      ],
+      availableWidth: 700,
+      laneWidth,
+    });
+    expect(withLane.right).toEqual(['fits']);
+    expect(withLane.below).toEqual(['wraps']);
+
+    // Without the lane the same 500 px child would have fitted: the lane only
+    // pushes the group by its excess past the parent.
+    const noLane = planDirectChildPlacement({
+      parent: narrow,
+      children: [
+        { id: 'wide', rect: { x: 176, y: 0, width: 500, height: 60 } },
+        { id: 'small', rect: { x: 176, y: 80, width: 144, height: 60 } },
+      ],
+      availableWidth: 700,
+    });
+    expect(noLane.right).toEqual(['wide', 'small']);
+    const lane = planDirectChildPlacement({
+      parent: narrow,
+      children: [
+        { id: 'wide', rect: { x: 256, y: 0, width: 500, height: 60 } },
+        { id: 'small', rect: { x: 256, y: 80, width: 144, height: 60 } },
+      ],
+      availableWidth: 700,
+      laneWidth,
+    });
+    expect(lane.below).toEqual(['wide']);
+    expect(lane.right).toEqual(['small']);
+  });
+
+  it('does not reserve a lane for parents without callouts', () => {
+    const narrow: Rect = { x: 0, y: 0, width: 160, height: 100 };
+    const plan = planDirectChildPlacement({
+      parent: narrow,
+      children: [
+        { id: 'a', rect: { x: 176, y: 0, width: 300, height: 60 } },
+        { id: 'b', rect: { x: 176, y: 80, width: 300, height: 60 } },
+      ],
+      availableWidth: 700,
+    });
+    expect(plan.right).toEqual(['a', 'b']);
   });
 });

@@ -2304,10 +2304,22 @@ body.nf-dragging-block .nf-gutter-handle {
   width: 100%;
 }
 
+/* A narrow parent keeps its own measured card width even when the callout lane
+   grows past it; without this the card would stretch to the lane column. */
+.nf-block-inner[data-callouts="true"]
+  > div
+  > .react-renderer.node-blockBody
+  > .nf-block-body {
+  width: max-content;
+}
+
 .nf-block-inner[data-callouts="true"] > div > .react-renderer.node-branchChildren {
   position: absolute;
   top: 0;
-  left: calc(100% + var(--nf-child-gap, 16px));
+  /* Only the lane's excess past the parent pushes the right group. The lane
+     starts at the parent's left edge, so this equals
+     max(parent.right, lane.right) + siblingGap. */
+  left: calc(var(--nf-lane-width, 100%) + var(--nf-child-gap, 16px));
   display: block;
 }
 
@@ -2330,7 +2342,6 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-callout-measure {
   width: var(--nf-lane-width, 100%);
-  max-width: 100%;
 }
 
 .nf-callout-lane-inner {

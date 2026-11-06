@@ -9,7 +9,12 @@
  * blocks under different parents may sit at different x. The editor never
  * wraps to a second row: it scrolls horizontally when a deep branch exceeds
  * the viewport.
+ *
+ * All numeric values live in `design-tokens.ts`; `GEOMETRY` is the legacy
+ * name used by the renderer and tests.
  */
+
+import { DESIGN_TOKENS } from './design-tokens';
 
 export interface Rect {
   x: number;
@@ -19,58 +24,46 @@ export interface Rect {
 }
 
 export const GEOMETRY = Object.freeze({
-  /** Top-level depth-0 cards are 160–480 px wide. */
-  topLevelMinWidth: 160,
-  topLevelMaxWidth: 480,
-  /** Child cards live between 144 and 420 px. */
-  childMinWidth: 144,
-  childMaxWidth: 420,
+  topLevelMinWidth: DESIGN_TOKENS.topLevelMinWidth,
+  topLevelMaxWidth: DESIGN_TOKENS.topLevelMaxWidth,
+  childMinWidth: DESIGN_TOKENS.childMinWidth,
+  childMaxWidth: DESIGN_TOKENS.childMaxWidth,
   /** Gap between a parent card and its child group (also sibling gap token). */
-  childGap: 16,
-  /** Editor canvas. */
-  canvasMaxWidth: 1600,
-  editorPaddingX: 40,
-  editorPaddingTop: 40,
-  editorPaddingBottom: 96,
+  childGap: DESIGN_TOKENS.siblingGap,
+  canvasMaxWidth: DESIGN_TOKENS.canvasMaxWidth,
+  editorPaddingX: DESIGN_TOKENS.editorPaddingX,
+  editorPaddingTop: DESIGN_TOKENS.editorPaddingTop,
+  editorPaddingBottom: DESIGN_TOKENS.editorPaddingBottom,
   /** Gaps. */
-  siblingGap: 24,
-  childRowGap: 16,
-  chapterGap: 32,
-  /** Reserved for the M4 page renderer, which may wrap a child below. */
-  wrapIndent: 18,
+  siblingGap: DESIGN_TOKENS.siblingGap,
+  childRowGap: DESIGN_TOKENS.childRowGap,
+  chapterGap: DESIGN_TOKENS.chapterGap,
+  wrapIndent: DESIGN_TOKENS.wrapIndent,
   /** Card chrome. */
-  cardRadius: 4,
+  cardRadius: DESIGN_TOKENS.cardRadius,
   /** Edges. */
-  edgeWidth: 1.25,
-  edgeWidthActive: 1.75,
-  /** Fixed arrowhead polygon, independent of path length. */
-  edgeArrowLength: 6,
-  edgeArrowHalfWidth: 3,
+  edgeWidth: DESIGN_TOKENS.edgeWidth,
+  edgeWidthActive: DESIGN_TOKENS.edgeWidthActive,
+  edgeArrowLength: DESIGN_TOKENS.edgeArrowLength,
+  edgeArrowHalfWidth: DESIGN_TOKENS.edgeArrowHalfWidth,
   /** Minimum final horizontal segment before the arrowhead. */
-  edgeStemMin: 12,
-  /** Space kept between the arrow tip and the child's left edge. */
-  edgeGap: 2,
-  edgeRadius: 6,
-  /** Shared trunk lane, clamped between these offsets from the parent edge. */
-  edgeLaneMin: 2,
-  edgeLaneMax: 14,
-  edgeBusOffset: 16,
-  edgePortSpacing: 8,
-  edgeMinGap: 4,
-  /** Anchored callouts and wrapped direct children share one left trunk. */
-  calloutGap: 16,
-  /**
-   * The shared below trunk starts on the parent's bottom edge, this far right
-   * of its left corner. It must never move left of the card.
-   */
-  belowTrunkInset: 12,
-  /**
-   * Minimum left offset of a below-stack row from the parent card's left edge.
-   * It reserves belowTrunkInset + edgeGap + edgeStemMin, so every row keeps a
-   * full horizontal stem from the trunk, and is never less than the 24 px
-   * product minimum.
-   */
-  belowRowInset: 26,
+  stemMin: DESIGN_TOKENS.stemMin,
+  edgeGap: DESIGN_TOKENS.edgeGap,
+  edgeRadius: DESIGN_TOKENS.edgeRadius,
+  edgeLaneMin: DESIGN_TOKENS.edgeLaneMin,
+  edgeLaneMax: DESIGN_TOKENS.edgeLaneMax,
+  edgeBusOffset: DESIGN_TOKENS.edgeBusOffset,
+  edgePortSpacing: DESIGN_TOKENS.edgePortSpacing,
+  edgeMinGap: DESIGN_TOKENS.edgeMinGap,
+  /** Horizontal gap from an anchor mark to its callout row. */
+  calloutGap: DESIGN_TOKENS.calloutGap,
+  /** Bounded independent callout lane width. */
+  calloutMinWidth: DESIGN_TOKENS.calloutMinWidth,
+  calloutMaxWidth: DESIGN_TOKENS.calloutMaxWidth,
+  /** Shared below-stack row left offset from the lane/parent left edge. */
+  rowIndent: DESIGN_TOKENS.rowIndent,
+  /** Shared below-stack trunk left offset from the parent card left edge. */
+  trunkInset: DESIGN_TOKENS.trunkInset,
 });
 
 export type EdgePlacement = 'right' | 'below' | 'overlap';
@@ -117,12 +110,60 @@ export function classifyPlacement(parent: Rect, child: Rect): EdgePlacement {
 export function fitsToRight(
   parent: Rect,
   child: Rect,
-  minimumChildWidth = GEOMETRY.childMinWidth,
+  minimumChildWidth = DESIGN_TOKENS.childMinWidth,
 ): boolean {
   return (
     classifyPlacement(parent, child) === 'right' &&
     child.width >= minimumChildWidth - 1
   );
+}
+
+/**
+ * Independent callout lane width (M3g2):
+ * `clamp(max(parent.width, natural callout width), 240, 480)`.
+ *
+ * `naturalCalloutWidth` is optional. The renderer currently uses the stable
+ * parent-width fallback allowed by the brief: a rich callout's max-content
+ * width cannot be measured without a temporary clone/measure pass that would
+ * feed back through the lane's own ResizeObserver. Passing `undefined` records
+ * that fallback; passing a measured width simply raises the lane to it.
+ */
+export function calloutLaneWidth(
+  parentWidth: number,
+  naturalCalloutWidth?: number | null,
+): number {
+  const parent = Number.isFinite(parentWidth) && parentWidth > 0 ? parentWidth : 0;
+  const measured =
+    typeof naturalCalloutWidth === 'number' &&
+    Number.isFinite(naturalCalloutWidth) &&
+    naturalCalloutWidth > 0
+      ? naturalCalloutWidth
+      : parent;
+  return clamp(
+    Math.max(parent, measured),
+    DESIGN_TOKENS.calloutMinWidth,
+    DESIGN_TOKENS.calloutMaxWidth,
+  );
+}
+
+/** How far a lane extends past its parent card's right edge. */
+export function lanePush(parent: Pick<Rect, 'x' | 'width'>, laneWidth: number): number {
+  return Math.max(0, parent.x + laneWidth - rectRight(parent));
+}
+
+/**
+ * Left edge of the direct-child group: only the lane's excess past the parent
+ * pushes it. With no callout lane the group starts one sibling gap after the
+ * parent card, preserving the M2/M3 chain rule.
+ */
+export function rightGroupStart(
+  parent: Pick<Rect, 'x' | 'width'>,
+  laneWidth: number | undefined,
+  gap: number = DESIGN_TOKENS.siblingGap,
+): number {
+  const laneRight =
+    laneWidth === undefined ? rectRight(parent) : Math.max(rectRight(parent), parent.x + laneWidth);
+  return laneRight + gap;
 }
 
 /** Evenly distributed ports along a vertical edge, excluding the corners. */
