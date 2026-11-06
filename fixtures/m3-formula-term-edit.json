@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "id": "m3-formula-term-edit",
+  "title": "M3 formula term edit — re-resolve around the term",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [],
+  "blocks": {
+    "m3fe-formula": {
+      "id": "m3fe-formula",
+      "label": "Formula term source",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The identity below owns the term anchor."
+              }
+            ]
+          },
+          {
+            "type": "mathBlock",
+            "attrs": {
+              "latex": "a^2 + b^2 = c^2",
+              "anchorIds": [
+                "m3fe-a-term"
+              ]
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3fe-term-child": {
+      "id": "m3fe-term-child",
+      "label": "Formula term callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The term callout survives every edit around its term."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {
+    "m3fe-a-term": {
+      "id": "m3fe-a-term",
+      "blockId": "m3fe-formula",
+      "kind": "formula",
+      "selector": {
+        "kind": "formula",
+        "form": "term",
+        "latex": "a^2 + b^2",
+        "occurrenceHint": 1
+      },
+      "quote": "a^2 + b^2",
+      "occurrenceHint": 1
+    }
+  },
+  "branches": {
+    "m3fe-e-term": {
+      "id": "m3fe-e-term",
+      "source": {
+        "blockId": "m3fe-formula",
+        "anchorId": "m3fe-a-term"
+      },
+      "targetBlockId": "m3fe-term-child",
+      "role": "primary",
+      "order": "a1"
+    }
+  },
+  "chapters": [
+    {
+      "id": "m3fe-ch1",
+      "title": "Formula term edits",
+      "topLevelBlockIds": [
+        "m3fe-formula"
+      ]
+    }
+  ],
+  "assets": {},
+  "annotations": []
+}

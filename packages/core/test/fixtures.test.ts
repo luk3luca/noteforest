@@ -13,6 +13,7 @@ import { resolveAnchor } from '../src/anchors.js';
 import { planBlockMerge, planBlockSplit } from '../src/block-ops.js';
 import { parseDocumentJson } from '../src/serialize.js';
 import type { ContentNode, Document } from '../src/types.js';
+import { deterministicContext, run } from './helpers.js';
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -113,6 +114,15 @@ const M3_FIXTURE_MATRIX: Array<{
       'm3s-a-merge': { state: 'resolved', reason: 'exact-binding' },
     },
   },
+  {
+    // AC-57 formula-term edit source: the table case below edits the formula
+    // around the term and re-resolves it as unique, ambiguous, and broken.
+    file: 'm3-formula-term-edit.json',
+    covers: ['formula term edit'],
+    anchors: {
+      'm3fe-a-term': { state: 'resolved', reason: 'exact-binding' },
+    },
+  },
 ];
 
 describe('M3 fixture matrix', () => {
@@ -148,6 +158,7 @@ describe('M3 fixture matrix', () => {
       'code range',
       'empty chapter',
       'formula term',
+      'formula term edit',
       'merge',
       'reference',
       'reference cycle',
@@ -183,5 +194,116 @@ describe('M3 fixture matrix', () => {
         chapterId: 'm3s-ch1',
       },
     });
+  });
+});
+
+/** Find the node carrying an anchor binding; the fixture binds at the math node. */
+function nodeWithAnchor(content: ContentNode, anchorId: string): ContentNode {
+  let found: ContentNode | null = null;
+  const walk = (node: ContentNode): void => {
+    if (found !== null) return;
+    const ids = node.attrs?.['anchorIds'];
+    if (Array.isArray(ids) && ids.includes(anchorId)) {
+      found = node;
+      return;
+    }
+    for (const child of node.children ?? []) walk(child);
+  };
+  walk(content);
+  if (found === null) throw new Error(`no content node carries anchor "${anchorId}"`);
+  return found;
+}
+
+describe('M3 formula-term edit fixture', () => {
+  it('re-resolves a term after edits around it and keeps the anchor, branch, and target', async () => {
+    const initial = await loadFixture('m3-formula-term-edit.json');
+    const blockId = 'm3fe-formula';
+    const anchorId = 'm3fe-a-term';
+    const branchId = 'm3fe-e-term';
+    const targetBlockId = 'm3fe-term-child';
+    const anchorBefore = structuredClone(initial.anchors[anchorId]);
+    const branchBefore = structuredClone(initial.branches[branchId]);
+    const targetBefore = structuredClone(initial.blocks[targetBlockId]);
+
+    // AC-57: edit the formula around the term; resolution follows the content
+    // while the anchor record, its branch, and the target block stay identical.
+    const edits = [
+      {
+        label: 'initial',
+        latex: 'a^2 + b^2 = c^2',
+        state: 'resolved',
+        reason: 'exact-binding',
+        binding: 'atomic',
+        candidates: 1,
+      },
+      {
+        label: 'edited around the term',
+        latex: 'x = 4(a^2 + b^2) - 1',
+        state: 'resolved',
+        reason: 'exact-binding',
+        binding: 'atomic',
+        candidates: 1,
+      },
+      {
+        label: 'term repeated',
+        latex: 'a^2 + b^2 + a^2 + b^2',
+        state: 'ambiguous',
+        reason: 'multiple-candidates',
+        binding: 'atomic',
+        candidates: 2,
+      },
+      {
+        label: 'term removed',
+        latex: 'x^2 + y^2 = z^2',
+        state: 'broken',
+        reason: 'quote-missing',
+        binding: 'atomic',
+        candidates: 0,
+      },
+      {
+        label: 'term restored',
+        latex: 'a^2 + b^2 = c^2',
+        state: 'resolved',
+        reason: 'exact-binding',
+        binding: 'atomic',
+        candidates: 1,
+      },
+    ];
+
+    let document = initial;
+    for (const edit of edits) {
+      if (edit.label !== 'initial') {
+        const content = structuredClone(document.blocks[blockId]?.content);
+        if (content === undefined) throw new Error('formula-term fixture block is missing');
+        const formula = nodeWithAnchor(content, anchorId);
+        formula.attrs = { ...formula.attrs, latex: edit.latex };
+        document = run(
+          document,
+          { type: 'block.editContent', blockId, content },
+          deterministicContext(),
+        ).document;
+      }
+
+      const resolution = resolveAnchor(document, anchorId);
+      expect(
+        {
+          state: resolution.state,
+          reason: resolution.reason,
+          binding: resolution.binding,
+          candidates: resolution.candidates.length,
+        },
+        edit.label,
+      ).toEqual({
+        state: edit.state,
+        reason: edit.reason,
+        binding: edit.binding,
+        candidates: edit.candidates,
+      });
+      expect(document.anchors[anchorId], `${edit.label}: anchor identity`).toEqual(anchorBefore);
+      expect(document.branches[branchId], `${edit.label}: branch identity`).toEqual(branchBefore);
+      expect(document.blocks[targetBlockId], `${edit.label}: target identity`).toEqual(
+        targetBefore,
+      );
+    }
   });
 });
