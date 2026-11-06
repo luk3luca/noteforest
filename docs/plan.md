@@ -300,6 +300,7 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
     Report: `docs/reports/m3h5-leaf-delete.md`.
   - **Tracked follow-ups (not M3 gate):** S3-5 relink selection UX, S3-6 replay fallback,
     S3-7 formula-term edit fixture; they go to M3i slice 5 / M4 fixture follow-up.
+- **M3c3b Sentinel review (6 November 2026):** launched; brief `docs/tasks/m3c3b-sentinel-review.md`; M4 waits.
 - **M3c3b2 (6 November 2026):** delivered: image region/point anchors, normalized geometry, markers/callouts, asset replacement/missing broken state; full verify 669 unit/UI 41/e2e 16/36.3 s/recovery 14. Follow-ups: crop editor and region re-pick repair; asset GC; native-picker image dimensions for M4.
 - **M3c3b1 (6 November 2026):** content-addressed image asset store, `noteforest-asset://` protocol, canonical `assetId`/alt/width/height, block-menu/palette/paste/drop insertion, missing placeholder. Full verify 658 unit/38 UI/16 e2e/14 recovery. Risks: custom scheme, native-picker dimensions for M4, asset GC deferred, missing screenshot framing. M3c3b2 image anchors are next only after product-owner approval.
 - **M3h re-review (6 November 2026):** all S2-1–S2-4 and S3-1/S3-2 closed; no new S1/S2.
