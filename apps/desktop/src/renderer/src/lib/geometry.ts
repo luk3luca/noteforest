@@ -167,16 +167,17 @@ export function calloutRightGroupX(
 
 /**
  * Right edge a callout may reach without sliding under the direct-child group:
- * one `callout.safeGap` before the group trunk. Because `siblingGap` and
- * `callout.safeGap` are both 16 px, this is the group origin minus its gap;
- * a parent wider than its bounded lane keeps the wider parent right edge.
+ * one `callout.safeGap` before the group trunk, capped by the lane itself. The
+ * group gap is larger than the safe gap, so without the lane cap the callout
+ * could grow past its own 240–480 px column.
  */
 export function calloutSafeRight(
   parent: Pick<Rect, 'x' | 'width'>,
   laneWidth: number,
 ): number {
-  return (
-    calloutRightGroupX(parent, laneWidth) - DESIGN_TOKENS.callout.safeGap
+  return Math.min(
+    parent.x + laneWidth,
+    calloutRightGroupX(parent, laneWidth) - DESIGN_TOKENS.callout.safeGap,
   );
 }
 
@@ -190,6 +191,8 @@ export function calloutSafeZoneWidth(
   parent: Pick<Rect, 'x' | 'width'>,
   laneWidth: number,
 ): number {
+  // The safe right can sit past the lane when the right-group gap is larger
+  // than the callout safe gap. The row itself is still capped by the lane.
   return calloutSafeRight(parent, laneWidth) - (parent.x + DESIGN_TOKENS.rowIndent);
 }
 

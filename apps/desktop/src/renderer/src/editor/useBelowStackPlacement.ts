@@ -55,6 +55,19 @@ export function useBelowStackPlacement({
     if (!active || runtime.editor === null || availableWidth <= 0) return;
     const document = runtime.document;
     const next = new Set<string>();
+    // Parents that already live in a below stack: anchored callout rows plus
+    // direct children already moved below. Their own direct children must also
+    // stack below, otherwise the nested right group lands on the enclosing
+    // parent's direct-child column (the two red rectangles in the M3g5
+    // product-owner report).
+    const belowStackParents = new Set<string>(appliedRef.current);
+    for (const outerParentId of Object.keys(document.blocks)) {
+      for (const branch of anchoredChildBranches(document, outerParentId)) {
+        if (document.blocks[branch.targetBlockId] !== undefined) {
+          belowStackParents.add(branch.targetBlockId);
+        }
+      }
+    }
     for (const parentId of Object.keys(document.blocks)) {
       const direct = directChildBranches(document, parentId);
       if (direct.length === 0) continue;
@@ -99,6 +112,7 @@ export function useBelowStackPlacement({
           laneWidth === undefined
             ? undefined
             : calloutSafeZoneWidth(parent, laneWidth),
+        forceBelow: belowStackParents.has(parentId),
       });
       for (const id of plan.below) next.add(id);
     }

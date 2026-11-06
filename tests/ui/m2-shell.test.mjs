@@ -264,8 +264,8 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     assert.deepEqual(four.depths.map((depth) => depth.depth), [0, 1, 2, 3]);
     assert.deepEqual(
       four.depths.map((depth) => depth.xs[0]),
-      [0, 176, 336, 496],
-      'each child starts at its own parent right edge + 16 px',
+      [0, 184, 352, 520],
+      'each child starts at its own parent right edge + 24 px',
     );
     assert.ok(
       four.cards.every((card) => card.column === ''),
@@ -358,12 +358,12 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     assert.ok(secondChild !== undefined, 'the second parent has its child');
     assert.ok(firstChild !== undefined, 'the first chain has a child');
     assert.ok(
-      Math.abs(secondChild.x - (secondParent.x + secondParent.width + 16)) <= 1.5,
-      `child group starts at parent right + 16 (${secondChild.x} vs ${secondParent.x + secondParent.width + 16})`,
+      Math.abs(secondChild.x - (secondParent.x + secondParent.width + 24)) <= 1.5,
+      `child group starts at parent right + 24 (${secondChild.x} vs ${secondParent.x + secondParent.width + 24})`,
     );
     assert.ok(
-      Math.abs(firstChild.x - 176) <= 1.5,
-      'the first empty parent still places its child at 176 px',
+      Math.abs(firstChild.x - 184) <= 1.5,
+      'the first empty parent still places its child at 184 px',
     );
     assert.notEqual(
       Math.round(secondChild.x),
@@ -387,8 +387,8 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     assert.equal(deep.depths.at(-1)?.depth, 7);
     assert.deepEqual(
       deep.depths.map((depth) => depth.xs[0]),
-      [0, 176, 336, 496, 656, 816, 976, 1136],
-      'each level follows the previous card right edge + 16 px',
+      [0, 184, 352, 520, 688, 856, 1024, 1192],
+      'each level follows the previous card right edge + 24 px',
     );
     assert.ok(deep.overflow > 0, `deep parent-relative chain overflows at 1440 (overflow ${deep.overflow})`);
     await h

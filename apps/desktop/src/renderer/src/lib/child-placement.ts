@@ -52,11 +52,22 @@ export interface DirectPlacementInput {
   minChildWidth?: number;
   /** Keep a lone chain child right; the editor scrolls horizontally (D23). */
   keepSingleChildRight?: boolean;
+  /**
+   * A parent that already lives in a below stack (an anchored callout or a
+   * wrapped direct child) keeps its own children below too. Its right side is
+   * the enclosing right-group column, so a nested right group would overlap
+   * the parent's siblings. Below-stack descendants stack under the row with
+   * the shared row indent instead.
+   */
+  forceBelow?: boolean;
 }
 
 export function planDirectChildPlacement(input: DirectPlacementInput): ChildPlacementPlan {
   const children = input.children;
   if (children.length === 0) return { right: [], below: [] };
+  if (input.forceBelow === true) {
+    return { right: [], below: children.map((child) => child.id) };
+  }
   if (
     input.calloutSafeWidth !== undefined &&
     input.calloutSafeWidth < DESIGN_TOKENS.calloutMinWidth - 0.5

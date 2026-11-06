@@ -12,10 +12,10 @@ import {
 import { GEOMETRY, type Rect } from '../src/renderer/src/lib/geometry';
 
 const parent: Rect = { x: 0, y: 0, width: 400, height: 120 };
-const rightChild: Rect = { x: 416, y: 10, width: 240, height: 100 };
+const rightChild: Rect = { x: 424, y: 10, width: 240, height: 100 };
 const belowChild: Rect = { x: 28, y: 180, width: 280, height: 80 };
 
-function child(id: string, y: number, x = 416, height = 100): { id: string; rect: Rect } {
+function child(id: string, y: number, x = 424, height = 100): { id: string; rect: Rect } {
   return { id, rect: { x, y, width: 240, height } };
 }
 
@@ -184,8 +184,8 @@ describe('edge routing — fixed arrowhead and minimum stem', () => {
 
 describe('edge routing — shared trunk', () => {
   it('keeps the first branch continuous from the parent port into the trunk (2 children)', () => {
-    const one = child('one', 0, 416, 60);
-    const two = child('two', 200, 416, 60);
+    const one = child('one', 0, 424, 60);
+    const two = child('two', 200, 424, 60);
     const group = routeChildGroup({ parentId: 'p', parent, children: [one, two] });
     expect(group.edges).toHaveLength(2);
     expect(group.trunks).toHaveLength(1);
@@ -198,6 +198,12 @@ describe('edge routing — shared trunk', () => {
     expect(trunk.end.y).toBeCloseTo(two.rect.y + two.rect.height / 2, 5);
     expect(trunk.start.x).toBeGreaterThan(parent.x + parent.width);
     expect(trunk.start.x).toBeLessThan(one.rect.x);
+    // The shared trunk leaves the parent with a visible horizontal lead
+    // (siblingGap - edgeGap - stemMin) instead of hugging the card edge.
+    expect(trunk.start.x - (parent.x + parent.width)).toBe(
+      GEOMETRY.siblingGap - GEOMETRY.edgeGap - GEOMETRY.stemMin,
+    );
+    expect(trunk.start.x - (parent.x + parent.width)).toBeGreaterThanOrEqual(8);
     expect(first.start.x).toBe(parent.x + parent.width);
     expect(first.start.y).toBeCloseTo(parent.y + parent.height / 2, 5);
     expect(first.end.x).toBeCloseTo(one.rect.x - GEOMETRY.edgeGap, 5);

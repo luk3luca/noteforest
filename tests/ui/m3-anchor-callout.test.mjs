@@ -670,7 +670,7 @@ describe('NoteForest M3b2c below-stack routing', () => {
       [shortDirect, longDirect].sort(),
     );
     const expectedRightGroup =
-      Math.max(snapshot.parent.right, snapshot.lane.right) + 16;
+      Math.max(snapshot.parent.right, snapshot.lane.right) + 24;
     for (const entry of snapshot.right) {
       assert.ok(
         entry.card.left >= expectedRightGroup - 1 &&
@@ -700,6 +700,30 @@ describe('NoteForest M3b2c below-stack routing', () => {
       assert.equal(edge.placement, 'right');
       assert.equal(edge.arrow, 'right');
     }
+
+    // The shared right trunk leaves the parent with a visible horizontal lead
+    // instead of hugging the card edge.
+    const rightTrunk = snapshot.trunks.find(
+      (entry) => entry.kind === 'trunk' && entry.placement === 'right',
+    );
+    assert.ok(rightTrunk !== undefined, 'one shared right trunk');
+    const rightTrunkStart = rightTrunk.points[0];
+    if (rightTrunkStart === undefined) throw new Error('missing right trunk start');
+    const rightLead = rightTrunkStart.x - snapshot.parent.right;
+    assert.ok(
+      rightLead >= 8 && rightLead <= 14,
+      `the right trunk leaves a horizontal lead (${rightLead} px)`,
+    );
+    const firstRightEdge = snapshot.edges.find(
+      (edge) =>
+        edge.kind === 'direct' &&
+        Math.abs((edge.points[0]?.x ?? 0) - snapshot.parent.right) < 1,
+    );
+    assert.ok(firstRightEdge !== undefined, 'the first right child starts at the parent port');
+    assert.ok(
+      firstRightEdge.points.some((point) => Math.abs(point.x - rightTrunkStart.x) < 1),
+      'the first right path passes through the shared trunk',
+    );
 
     // One shared trunk for the two callout rows, with a left-entry arm each.
     const belowTrunks = snapshot.trunks.filter(
@@ -922,6 +946,94 @@ describe('NoteForest M3b2c below-stack routing', () => {
     );
   });
 
+  it('stacks a callout child below its callout instead of over the outer direct column', async () => {
+    await launch(isolated('nested-callout'));
+    await h.setWindowSize(1440, 900);
+    const { parentId, firstCallout, secondCallout, shortDirect, longDirect } =
+      await buildFixture();
+
+    const nestedId = 'm3g5-nested-child';
+    await createDirectChild(firstCallout, nestedId, 'ciao');
+    await h.waitLayout({ blocks: 12, arrows: 8 });
+    await waitForBelowRowCount(firstCallout, 1);
+    await h.waitLayout({ blocks: 12, arrows: 8 });
+
+    const geometry = await page.evaluate(
+      ({ calloutId, nested, outerDirect }) => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const card = (id) => scope?.querySelector(`[data-block-card="${id}"]`) ?? null;
+        const rect = (element) => {
+          if (element === null) return null;
+          const bounds = element.getBoundingClientRect();
+          return {
+            left: bounds.left,
+            right: bounds.right,
+            top: bounds.top,
+            bottom: bounds.bottom,
+            width: bounds.width,
+            height: bounds.height,
+          };
+        };
+        const calloutCard = card(calloutId);
+        const nestedCard = card(nested);
+        const nestedLane = nestedCard?.closest('.nf-callout-lane');
+        const directCards = outerDirect.map((id) => ({ id, rect: rect(card(id)) }));
+        const outside = directCards.filter((entry) => entry.rect !== null);
+        const overlaps = outside.filter((entry) => {
+          const other = entry.rect;
+          return (
+            other !== null &&
+            nestedCard !== null &&
+            (() => {
+              const nestedRect = rect(nestedCard);
+              return (
+                nestedRect !== null &&
+                nestedRect.left < other.right &&
+                nestedRect.right > other.left &&
+                nestedRect.top < other.bottom &&
+                nestedRect.bottom > other.top
+              );
+            })()
+          );
+        });
+        return {
+          callout: rect(calloutCard),
+          nested: rect(nestedCard),
+          nestedLane: nestedLane?.getAttribute('data-callout-lane') ?? null,
+          direct: outside,
+          overlaps: overlaps.map((entry) => entry.id),
+        };
+      },
+      { calloutId: firstCallout, nested: nestedId, outerDirect: [shortDirect, longDirect] },
+    );
+
+    assert.ok(geometry.callout !== null && geometry.nested !== null);
+    assert.equal(
+      geometry.nestedLane,
+      firstCallout,
+      'the nested child is inside its callout lane, not the outer right group',
+    );
+    assert.ok(
+      geometry.nested.top >= geometry.callout.bottom - 0.5,
+      `the nested child starts below the callout (${geometry.nested.top} >= ${geometry.callout.bottom})`,
+    );
+    assert.ok(
+      geometry.nested.left >= geometry.callout.left + 26 - 1,
+      'the nested child keeps the shared row indent',
+    );
+    assert.deepEqual(
+      geometry.overlaps,
+      [],
+      `the nested child does not overlap the outer direct children (${geometry.overlaps.join(', ')})`,
+    );
+
+    await mkdir(artifactsPath('m3g5'), { recursive: true });
+    await h.screenshot(artifactsPath('m3g5', 'nested-anchor-child-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+  });
+
   it('wraps a direct child after the callouts at a narrow width, with one shared trunk', async () => {
     await launch(isolated('narrow'));
     await h.setWindowSize(1440, 900);
@@ -959,7 +1071,7 @@ describe('NoteForest M3b2c below-stack routing', () => {
       'the lane keeps its independent bounds at 960',
     );
     const expectedRightGroup =
-      Math.max(snapshot.parent.right, snapshot.lane.right) + 16;
+      Math.max(snapshot.parent.right, snapshot.lane.right) + 24;
     const shortCard = snapshot.right[0]?.card;
     assert.ok(shortCard !== undefined);
     assert.ok(

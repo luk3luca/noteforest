@@ -2053,6 +2053,14 @@ describe('NoteForest M2 editor shell', () => {
     assert.equal(three[0].id, firstChapterId);
     assert.equal(three[2].id, lastChapterId, 'the existing last chapter stays last');
     assert.notEqual(three[1].id, lastChapterId, 'the new chapter sits after the active chapter');
+    await page.waitForFunction(
+      (id) =>
+        document.activeElement
+          ?.closest('[data-chapter-id]')
+          ?.getAttribute('data-chapter-id') === id,
+      three[1].id,
+      { timeout: 10000 },
+    );
     const focusedChapter = await page.evaluate(
       () => document.activeElement?.closest('[data-chapter-id]')?.getAttribute('data-chapter-id') ?? null,
     );
