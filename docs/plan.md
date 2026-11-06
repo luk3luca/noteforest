@@ -322,9 +322,9 @@ runtime dependency, all existing tests green, no behavior change.
 
 - **Slice 1 — token single-source:** delivered as M3h4; CSS variables from TS, canonical 88/28, guard test.
 - **Slice 2a — merged:** DocumentGateway + SaveCoordinator. Report: `docs/reports/m3i2a-gateway-save-coordinator.md`.
-- **Slice 2b — launched:** EditorProjection extraction. Brief: `docs/tasks/m3i2b-editor-projection.md`.
-- **Slice 2c — after 2b:** DocumentSession extraction. Brief pending.
-- **Slice 3 — launched:** repository + schema migrations. Brief: `docs/tasks/m3i3-repository-migrations.md`.
+- **Slice 2b — merged:** EditorProjection extraction. Report: `docs/reports/m3i2b-editor-projection.md`.
+- **Slice 2c — launched:** DocumentSession extraction. Brief: `docs/tasks/m3i2c-document-session.md`.
+- **Slice 3 — merged:** repository + schema migrations + AssetStore contract. Report: `docs/reports/m3i3-repository-migrations.md`.
 - **Slice 4 — runtime boundaries:** `DocumentSession`, `DocumentGateway`, `SaveCoordinator`,
   `EditorProjection`; dependency inversion instead of `window.noteforest` inside the runtime.
 - **Slice 3 — repository + migrations:** document/backup/asset contracts, ordered schema migrations
