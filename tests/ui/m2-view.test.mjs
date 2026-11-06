@@ -274,4 +274,182 @@ describe('NoteForest M2 view controls', () => {
     await waitZoomLabel('100%');
     await h.quit();
   });
+
+  it('keeps the editor geometry on the design-token variables', async () => {
+    await launch(isolated('tokens'));
+    await h.setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+
+    const geometry = await page.evaluate(() => {
+      const scope = document.querySelector('.nf-editor[data-active="true"]');
+      if (scope === null) return null;
+      const rootStyle = getComputedStyle(document.documentElement);
+      const readVar = (name) => rootStyle.getPropertyValue(name).trim();
+      const styleOf = (selector) => getComputedStyle(scope.querySelector(selector));
+      const canvas = styleOf('.nf-canvas');
+      const chapter = styleOf('.nf-chapter');
+      const group = styleOf('.nf-branch-children');
+      const child = styleOf('[data-block-card]:not([data-top-level="true"])');
+      const topLevel = styleOf('[data-block-card][data-top-level="true"]');
+      const edge = styleOf('.nf-edge-path');
+      const edgeLayer = styleOf('.nf-edge-layer');
+      return {
+        vars: {
+          canvasMax: readVar('--nf-canvas-max'),
+          canvasPadX: readVar('--nf-canvas-pad-x'),
+          canvasPadTop: readVar('--nf-canvas-pad-top'),
+          canvasPadBottom: readVar('--nf-canvas-pad-bottom'),
+          chapterGap: readVar('--nf-chapter-gap'),
+          childGap: readVar('--nf-child-gap'),
+          childRowGap: readVar('--nf-child-row-gap'),
+          cardPadding: readVar('--nf-card-padding'),
+          cardRadius: readVar('--nf-card-radius'),
+          childMinWidth: readVar('--nf-child-min-width'),
+          childMaxWidth: readVar('--nf-child-max-width'),
+          topLevelMinWidth: readVar('--nf-top-level-min-width'),
+          topLevelMaxWidth: readVar('--nf-top-level-max-width'),
+          edgeWidth: readVar('--nf-edge-width'),
+          edgeWidthActive: readVar('--nf-edge-width-active'),
+          edgeWidthMuted: readVar('--nf-edge-width-muted'),
+          zEdge: readVar('--nf-z-edge'),
+        },
+        canvas: {
+          maxWidth: canvas.maxWidth,
+          paddingTop: canvas.paddingTop,
+          paddingRight: canvas.paddingRight,
+          paddingBottom: canvas.paddingBottom,
+          paddingLeft: canvas.paddingLeft,
+        },
+        chapterGap: chapter.marginBottom,
+        groupGap: group.marginLeft,
+        child: {
+          minWidth: child.minWidth,
+          maxWidth: child.maxWidth,
+          paddingTop: child.paddingTop,
+          radius: child.borderTopLeftRadius,
+        },
+        topLevel: { minWidth: topLevel.minWidth, maxWidth: topLevel.maxWidth },
+        edge: {
+          width: Number.parseFloat(edge.strokeWidth),
+          layerZ: Number.parseInt(edgeLayer.zIndex, 10),
+        },
+      };
+    });
+    assert.ok(geometry !== null);
+    assert.deepEqual(geometry.vars, {
+      canvasMax: '1600px',
+      canvasPadX: '40px',
+      canvasPadTop: '40px',
+      canvasPadBottom: '88px',
+      chapterGap: '28px',
+      childGap: '24px',
+      childRowGap: '16px',
+      cardPadding: '10px',
+      cardRadius: '4px',
+      childMinWidth: '144px',
+      childMaxWidth: '420px',
+      topLevelMinWidth: '160px',
+      topLevelMaxWidth: '480px',
+      edgeWidth: '1.25',
+      edgeWidthActive: '1.75',
+      edgeWidthMuted: '1',
+      zEdge: '0',
+    });
+    assert.deepEqual(geometry.canvas, {
+      maxWidth: '1600px',
+      paddingTop: '40px',
+      paddingRight: '40px',
+      paddingBottom: '88px',
+      paddingLeft: '40px',
+    });
+    assert.equal(geometry.chapterGap, '28px', 'chapter gap comes from --nf-chapter-gap');
+    assert.equal(geometry.groupGap, '24px', 'right group gap comes from --nf-child-gap');
+    assert.deepEqual(geometry.child, {
+      minWidth: '144px',
+      maxWidth: '420px',
+      paddingTop: '10px',
+      radius: '4px',
+    });
+    assert.deepEqual(geometry.topLevel, { minWidth: '160px', maxWidth: '480px' });
+    assert.equal(geometry.edge.width, 1.25);
+    assert.equal(geometry.edge.layerZ, 0);
+
+    const spectrum = h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Spectrum' })
+      .first();
+    const spectrumId = await spectrum.getAttribute('data-block-card');
+    await spectrum.locator('.nf-block-prose').click();
+    await h.waitSelected(spectrumId);
+    // Stroke width transitions for 120 ms; measure the settled values.
+    await page.waitForFunction(
+      () => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const active = scope?.querySelector('.nf-edge-path.nf-edge-active');
+        const muted = scope?.querySelector('.nf-edge-path.nf-edge-muted');
+        if (active === null || active === undefined || muted === null || muted === undefined) {
+          return false;
+        }
+        return (
+          Number.parseFloat(getComputedStyle(active).strokeWidth) >= 1.7499 &&
+          Number.parseFloat(getComputedStyle(muted).strokeWidth) <= 1.0001
+        );
+      },
+      undefined,
+      { timeout: 5000 },
+    );
+    const selectionEdges = await page.evaluate(() => {
+      const strokeWidth = (selector) => {
+        const element = document.querySelector(
+          `.nf-editor[data-active="true"] ${selector}`,
+        );
+        return element === null ? null : Number.parseFloat(getComputedStyle(element).strokeWidth);
+      };
+      return {
+        active: strokeWidth('.nf-edge-path.nf-edge-active'),
+        muted: strokeWidth('.nf-edge-path.nf-edge-muted'),
+      };
+    });
+    assert.ok(
+      selectionEdges.active !== null && Math.abs(selectionEdges.active - 1.75) < 0.001,
+      `selected edge uses --nf-edge-width-active (${selectionEdges.active})`,
+    );
+    assert.ok(
+      selectionEdges.muted !== null && Math.abs(selectionEdges.muted - 1) < 0.001,
+      `unselected edge uses --nf-edge-width-muted (${selectionEdges.muted})`,
+    );
+
+    await h.setWindowSize(960, 768);
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+    const narrow = await page.evaluate(() => {
+      const canvas = getComputedStyle(
+        document.querySelector('.nf-editor[data-active="true"] .nf-canvas'),
+      );
+      const rootStyle = getComputedStyle(document.documentElement);
+      return {
+        paddingTop: canvas.paddingTop,
+        paddingRight: canvas.paddingRight,
+        paddingBottom: canvas.paddingBottom,
+        paddingLeft: canvas.paddingLeft,
+        mediumBottom: rootStyle.getPropertyValue('--nf-canvas-pad-bottom-medium').trim(),
+        compactBottom: rootStyle.getPropertyValue('--nf-canvas-pad-bottom-compact').trim(),
+        chapterGap: getComputedStyle(
+          document.querySelector('.nf-editor[data-active="true"] .nf-chapter'),
+        ).marginBottom,
+      };
+    });
+    assert.deepEqual(narrow, {
+      paddingTop: '32px',
+      paddingRight: '32px',
+      paddingBottom: '72px',
+      paddingLeft: '32px',
+      mediumBottom: '72px',
+      compactBottom: '64px',
+      chapterGap: '28px',
+    });
+    await h.quit();
+  });
 });
