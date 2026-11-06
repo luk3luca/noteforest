@@ -1,7 +1,7 @@
 # Test-suite audit — duplication and cleanup
 
-**Status:** Audit only; no test changes yet. Proposed as M3i slice 5, after M3 acceptance and before
-M4.  
+**Status:** M3i5a merged on 6 November 2026 (shared UI harness, callout split, −857 UI lines;
+net tests footprint −347). M3i5b (e2e duplicate trim) remains.  
 **Date:** 6 November 2026.
 
 ## Snapshot

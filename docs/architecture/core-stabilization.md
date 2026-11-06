@@ -1,6 +1,6 @@
 # Core stabilization — proposed M3i
 
-**Status:** Proposed; M3 is accepted. Slice 1 (tokens) was delivered as M3h4 on 6 November 2026; slices 2–5 remain before M4.  
+**Status:** In progress. Slice 1 (tokens) delivered as M3h4; slice 2a (DocumentGateway/SaveCoordinator) and slice 5a (test harness) merged on 6 November 2026. Slices 2b/2c, 3, 4, 5b remain before M4.  
 **Owner:** Orchestrator.  
 **Rule:** no new features, no visual changes, no new runtime dependencies.
 
