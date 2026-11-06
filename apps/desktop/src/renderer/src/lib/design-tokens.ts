@@ -20,8 +20,12 @@ export const DESIGN_TOKENS = Object.freeze({
   trunkGap: 8,
   /** Minimum straight stem before a fixed arrowhead. */
   stemMin: 12,
-  /** Gap between a parent card/lane and the direct-child group. */
-  siblingGap: 16,
+  /**
+   * Gap between a parent card/lane and the direct-child group. The 24 px budget
+   * is `edgeLaneMin` (10) + `stemMin` (12) + `edgeGap` (2), so a shared right
+   * trunk leaves the parent with a visible horizontal lead before descending.
+   */
+  siblingGap: 24,
   /** Gap between an anchor mark and its callout row. */
   calloutGap: 16,
   /** Independent callout lane width bounds. */

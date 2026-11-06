@@ -40,8 +40,8 @@ function emptyChain(depths: number): { rects: Rect[]; xs: number[] } {
 describe('parent-relative placement', () => {
   it('starts a child group after its parent card plus the gap', () => {
     expect(childGroupStart({ x: 40, width: 300 })).toBe(40 + 300 + GEOMETRY.childGap);
-    expect(childGroupStart({ x: 0, width: GEOMETRY.topLevelMinWidth })).toBe(176);
-    expect(childGroupStart({ x: 336, width: GEOMETRY.childMinWidth })).toBe(496);
+    expect(childGroupStart({ x: 0, width: GEOMETRY.topLevelMinWidth })).toBe(184);
+    expect(childGroupStart({ x: 336, width: GEOMETRY.childMinWidth })).toBe(504);
   });
 
   it('lets different parents place their children at different x', () => {
@@ -49,8 +49,8 @@ describe('parent-relative placement', () => {
     const parentB = { x: 0, width: 420 };
     const childAX = childGroupStart(parentA);
     const childBX = childGroupStart(parentB);
-    expect(childAX).toBe(316);
-    expect(childBX).toBe(436);
+    expect(childAX).toBe(324);
+    expect(childBX).toBe(444);
     expect(childAX).not.toBe(childBX);
     // Each child is still exactly one gap after its own parent, not a shared
     // depth column.
@@ -60,9 +60,9 @@ describe('parent-relative placement', () => {
 
   it('fits the 4-level empty chain at 1440 without horizontal overflow', () => {
     const chain = emptyChain(4);
-    expect(chain.xs).toEqual([0, 176, 336, 496]);
+    expect(chain.xs).toEqual([0, 184, 352, 520]);
     const bounds = contentBounds(chain.rects);
-    expect(bounds?.width).toBe(640);
+    expect(bounds?.width).toBe(664);
     expect((bounds?.width ?? 0) + GEOMETRY.editorPaddingX * 2).toBeLessThanOrEqual(viewport1440);
     expect(fitZoom(viewport1440, bounds?.width ?? 0)).toBe(1.5);
     // The chain still fits at the 1024 screenshot width.
@@ -72,7 +72,7 @@ describe('parent-relative placement', () => {
   it('overflows and needs horizontal scroll when the chain is deeper', () => {
     const chain = emptyChain(8);
     const bounds = contentBounds(chain.rects);
-    expect(bounds?.width).toBe(1280);
+    expect(bounds?.width).toBe(1336);
     expect((bounds?.width ?? 0) + GEOMETRY.editorPaddingX * 2).toBeGreaterThan(viewport1440);
     const zoom = fitZoom(viewport1440, bounds?.width ?? 0);
     expect(zoom).toBeLessThan(1);
@@ -105,7 +105,7 @@ describe('parent-relative placement', () => {
 
 describe('direct-child right/below placement', () => {
   const parent: Rect = { x: 0, y: 0, width: 400, height: 100 };
-  const columnLeft = 416;
+  const columnLeft = 424;
 
   function candidate(id: string, width: number, x = columnLeft, y = 0): { id: string; rect: Rect } {
     return { id, rect: { x, y, width, height: 60 } };
@@ -165,13 +165,32 @@ describe('direct-child right/below placement', () => {
     const exact = planDirectChildPlacement({
       parent,
       children: [candidate('exact', 284), candidate('a', 144)],
-      availableWidth: 700,
+      availableWidth: 708,
     });
     expect(exact.right).toEqual(['exact', 'a']);
     expect(planDirectChildPlacement({ parent, children: [], availableWidth: 0 })).toEqual({
       right: [],
       below: [],
     });
+  });
+
+  it('forces descendants of a below-stack row below, never into the outer group', () => {
+    const plan = planDirectChildPlacement({
+      parent,
+      children: [candidate('nested-lone', 144)],
+      availableWidth: 1078,
+      forceBelow: true,
+    });
+    expect(plan).toEqual({ right: [], below: ['nested-lone'] });
+    // The flag is authoritative for a multi-child group too.
+    expect(
+      planDirectChildPlacement({
+        parent,
+        children: [candidate('nested-a', 144), candidate('nested-b', 240)],
+        availableWidth: 1078,
+        forceBelow: true,
+      }),
+    ).toEqual({ right: [], below: ['nested-a', 'nested-b'] });
   });
 
   it('reserves the independent callout lane before placing the right group', () => {

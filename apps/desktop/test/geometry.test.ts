@@ -51,8 +51,8 @@ describe('geometry', () => {
     expect(GEOMETRY.topLevelMinWidth).toBe(160);
     expect(GEOMETRY.childMinWidth).toBe(144);
     expect(GEOMETRY.childMaxWidth).toBe(420);
-    expect(GEOMETRY.childGap).toBe(16);
-    expect(GEOMETRY.siblingGap).toBe(16);
+    expect(GEOMETRY.childGap).toBe(24);
+    expect(GEOMETRY.siblingGap).toBe(24);
     expect(GEOMETRY.canvasMaxWidth).toBe(1600);
     expect(GEOMETRY.wrapIndent).toBe(18);
     expect(GEOMETRY.stemMin).toBe(12);
@@ -129,9 +129,10 @@ describe('callout safe zone (M3g3)', () => {
     expect(placement.left).toBe(260);
     expect(placement.safeRight).toBe(500);
     expect(placement.left + placement.width).toBe(placement.safeRight);
+    expect(placement.left + placement.width).toBe(calloutSafeRight(wide, 400));
     expect(
       placement.left + placement.width,
-    ).toBe(calloutRightGroupX(wide, 400) - GEOMETRY.callout.safeGap);
+    ).toBeLessThanOrEqual(calloutRightGroupX(wide, 400) - GEOMETRY.callout.safeGap);
     expect(placement.width).toBe(GEOMETRY.calloutMinWidth);
   });
 

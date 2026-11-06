@@ -2,22 +2,22 @@
 
 **Role:** Reviewer / Sentinel (independent)  
 **Milestone:** M3 — span anchors and reference edges  
-**Base:** current `main` after M3g4 (stacking + trunk-gap fix) is merged  
+**Base:** current `main` after M3g5 (branch lead + nested below placement) is merged  
 **Worktree:** fresh review worktree from `main`  
 **Scope:** M3 acceptance, product-owner fixes, design-token extraction, regressions. No code changes.
 
 ## Context
 
-M3a1–M3f2 plus four product-owner review fixes (M3g1 below-stack/idle anchors, M3g2 lane
-width/right-group push/edge radius, M3g3 callout safe zone, M3g4 callout stacking/trunk gap) are
-merged. The product owner did a manual pass and found real layout issues; this review must be
-stricter than a normal code review about **visual and layout consistency**, and must extract design
-rules/tokens rather than only listing bugs.
+M3a1–M3f2 plus five product-owner review fixes (M3g1 below-stack/idle anchors, M3g2 lane
+width/right-group push/edge radius, M3g3 callout safe zone, M3g4 callout stacking/trunk gap, M3g5
+right-trunk lead and nested below-stack placement) are merged. The product owner did a manual pass
+and found real layout issues; this review must be stricter than a normal code review about **visual
+and layout consistency**, and must extract design rules/tokens rather than only listing bugs.
 
 Read first:
 - `AGENTS.md`, `docs/plan.md`, `docs/spec.md` v0.4.5, `docs/ux.md` v1.4, ADR-0005.
 - `docs/design/m3-anchors-references.md`, `docs/design-tokens.md`, `docs/reviews/m2f-phase5c-review.md`.
-- M3 reports: `docs/reports/m3*.md`, especially M3g1/M3g2/M3g3/M3g4.
+- M3 reports: `docs/reports/m3*.md`, especially M3g1/M3g2/M3g3/M3g4/M3g5.
 - `docs/definition-of-done.md`, `docs/review-checklist.md`.
 
 ## Mandatory checks
@@ -31,9 +31,13 @@ Read first:
   240–480 and every row has a measured `--nf-callout-offset` (no full-canvas lane).
 - Idle anchors: no underline/dot/marker/callout when no outgoing branch; undo restores; canonical
   binding untouched or exactly restored.
-- Lane width: 240–480; right group at `max(parent.right, lane.right)+16`; only the excess pushes;
+- Lane width: 240–480; right group at `max(parent.right, lane.right)+24`; only the excess pushes;
   callout right stops 16 px before the right-group trunk; direct children wrap below after callouts
   when the safe zone is too narrow.
+- Right trunk: the shared trunk leaves the parent with a visible horizontal lead (24 px group gap =
+  10 px lead + 12 px stem + 2 px gap), then descends.
+- Nested below stack: a child of a callout (or of a wrapped direct child) stacks under that row, never
+  on the enclosing parent's direct-child column; the two cards must not overlap.
 - Edge radius 2 px: near-right angles, no wide arcs, clean gapped trunk start.
 - Test at 1440, 960, and a 160 px parent with a far-right anchor; multiple callouts and direct
   children; nested callouts; max-width parent.

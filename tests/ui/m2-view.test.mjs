@@ -216,10 +216,24 @@ describe('NoteForest M2 view controls', () => {
     await h.waitLayout({ blocks: 7 });
 
     // Fit width at a narrow window with the full document: reset the focused
-    // branch zoom first, then zoom drops below 100% and the editor no longer
-    // needs horizontal scroll.
+    // branch zoom first. The adaptive below placement keeps the 7-block demo
+    // within 960, so extend the deepest chain to give Fit real horizontal
+    // overflow to resolve.
     await page.keyboard.press('Meta+0');
     await waitZoomLabel('100%');
+    const deepest = h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Take the symmetric matrix below' })
+      .first();
+    const deepestId = await deepest.getAttribute('data-block-card');
+    assert.equal(typeof deepestId, 'string');
+    await deepest.locator('.nf-block-prose').click();
+    await h.waitSelected(deepestId);
+    for (let index = 0; index < 5; index += 1) {
+      await page.keyboard.press('Control+Enter');
+      await h.waitBlockCount(8 + index);
+    }
+    await h.waitLayout({ blocks: 12 });
     await h.setWindowSize(960, 768);
     // The measured right/below placement can rebuild once after the resize;
     // wait for the wrapped row before measuring the settled layout.
@@ -231,7 +245,7 @@ describe('NoteForest M2 view controls', () => {
       undefined,
       { timeout: 10000 },
     );
-    await h.waitLayout({ blocks: 7 });
+    await h.waitLayout({ blocks: 12 });
     const beforeFit = await h.layoutSnapshot();
     assert.ok(
       beforeFit.overflow > 0,
@@ -247,7 +261,7 @@ describe('NoteForest M2 view controls', () => {
       undefined,
       { timeout: 10000 },
     );
-    await h.waitLayout({ blocks: 7 });
+    await h.waitLayout({ blocks: 12 });
     const afterFit = await h.layoutSnapshot();
     assert.ok(afterFit.zoom < 100, `Fit width zooms out (${afterFit.zoom}%)`);
     assert.ok(afterFit.overflow <= 1, `Fit width removes horizontal overflow (${afterFit.overflow})`);

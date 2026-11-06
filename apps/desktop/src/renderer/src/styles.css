@@ -43,7 +43,7 @@
   --radius-control: 3px;
   --radius-block: 4px;
   --radius-overlay: 6px;
-  --nf-child-gap: 16px;
+  --nf-child-gap: 24px;
   --motion: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: dark;
 }
@@ -2266,7 +2266,7 @@ body.nf-dragging-block .nf-gutter-handle {
    horizontal scroll instead of wrapping. */
 .nf-branch-children {
   flex: 0 0 auto;
-  margin-left: var(--nf-child-gap, 16px);
+  margin-left: var(--nf-child-gap, 24px);
 }
 
 .nf-branch-children-measure {
@@ -2341,7 +2341,7 @@ body.nf-dragging-block .nf-gutter-handle {
   /* Only the lane's excess past the parent pushes the right group. The lane
      starts at the parent's left edge, so this equals
      max(parent.right, lane.right) + siblingGap. */
-  left: calc(var(--nf-lane-width, 100%) + var(--nf-child-gap, 16px));
+  left: calc(var(--nf-lane-width, 100%) + var(--nf-child-gap, 24px));
   display: block;
 }
 

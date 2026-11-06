@@ -15,7 +15,7 @@ Components and the router must read these tokens; do not add new hard-coded 12/1
 | `trunkInset` | 12 px | Below trunk start from the parent card left, inside the card |
 | `trunkGap` | 8 px | Visible gap between the parent card bottom and the below trunk start |
 | `stemMin` | 12 px | Final horizontal segment before every arrowhead |
-| `siblingGap` / `childGap` | 16 px | Gap between sibling cards and between parent and child groups |
+| `siblingGap` / `childGap` | 24 px | Gap between parent card/lane and the direct-child group; the 24 px budget is 10 px horizontal lead + 12 px stem + 2 px arrow gap |
 | `calloutGap` | 16 px | Anchor → callout offset when the anchor is farther right |
 | `edgeGap` | 2 px | Arrow tip gap before the card |
 | `edgeRadius` | 2 px | Maximum corner rounding; corners are near-right angles, never wide arcs |
@@ -53,9 +53,16 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 - If the right group does not fit the viewport, it wraps below after the callouts, sharing the left
   trunk.
 - Callout block and trunk are indented together; no arrow-only offset and no card overflow.
+- **Below-stack descendants stack below too.** A callout row (or a wrapped direct child) that has its
+  own direct children places them under the row with the shared `rowIndent`, not in a nested right
+  group. A nested right group would occupy the same column as the enclosing parent's direct child,
+  producing the overlapping-card defect fixed in M3g5.
 
 ## Edges
 
+- The right-group gap is 24 px: 10 px horizontal lead from the parent, 12 px final stem, 2 px arrow
+  gap. A shared right trunk therefore leaves the parent horizontally before descending instead of
+  running along the card edge.
 - The below trunk starts `trunkGap` (8 px) below the parent card bottom; it is deliberately detached
   from the card border instead of touching it.
 - Primary/right, below/callout, and reference edges all use the same fixed 6×6 arrowhead.
