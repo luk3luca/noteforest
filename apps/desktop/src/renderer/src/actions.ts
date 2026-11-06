@@ -22,6 +22,7 @@ import {
   blockTitle,
   chapterIdOf,
   countWords,
+  deleteNeedsConfirmation,
   directChildIds,
   flattenBlocks,
   incomingBranch,
@@ -159,11 +160,12 @@ export async function createChapter(): Promise<ApplyOutcome | null> {
 /**
  * Delete confirmation is a document command, not a text edit: plain Backspace
  * never deletes a block, ⌘Backspace/Delete does. A block with descendants
- * always asks promote vs subtree.
+ * always asks promote vs subtree. A leaf block asks only when incoming
+ * reference edges from outside the deletion would be removed with it (S3-8);
+ * a bare leaf keeps the fast path.
  */
 export function requestBlockDelete(runtime: DocumentRuntime, blockId: string): void {
-  const children = directChildIds(runtime.document, blockId);
-  if (children.length > 0) {
+  if (deleteNeedsConfirmation(runtime.document, blockId)) {
     shell().openDialog({ kind: 'delete-block', blockId });
     return;
   }

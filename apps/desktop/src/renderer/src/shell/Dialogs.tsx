@@ -1461,27 +1461,29 @@ function DeleteBlockDialog({
       }
     >
       <p className="nf-dialog-text">“{title}”</p>
-      <fieldset className="nf-fieldset">
-        <legend className="nf-legend">What about its descendants?</legend>
-        <label className="nf-radio">
-          <input
-            type="radio"
-            name="delete-mode"
-            checked={mode === 'promote'}
-            onChange={() => setMode('promote')}
-          />
-          <span>Keep descendants as top-level blocks</span>
-        </label>
-        <label className="nf-radio">
-          <input
-            type="radio"
-            name="delete-mode"
-            checked={mode === 'delete-subtree'}
-            onChange={() => setMode('delete-subtree')}
-          />
-          <span>Delete the whole subtree</span>
-        </label>
-      </fieldset>
+      {children > 0 ? (
+        <fieldset className="nf-fieldset">
+          <legend className="nf-legend">What about its descendants?</legend>
+          <label className="nf-radio">
+            <input
+              type="radio"
+              name="delete-mode"
+              checked={mode === 'promote'}
+              onChange={() => setMode('promote')}
+            />
+            <span>Keep descendants as top-level blocks</span>
+          </label>
+          <label className="nf-radio">
+            <input
+              type="radio"
+              name="delete-mode"
+              checked={mode === 'delete-subtree'}
+              onChange={() => setMode('delete-subtree')}
+            />
+            <span>Delete the whole subtree</span>
+          </label>
+        </fieldset>
+      ) : null}
       {references.length > 0 ? (
         <section
           className="nf-delete-references"

@@ -156,6 +156,17 @@ export function externalReferenceParents(
     });
 }
 
+/**
+ * A block delete needs the confirmation dialog when it has descendants or
+ * incoming reference edges from outside the deletion. A leaf block with no
+ * external references keeps the fast path (delete with one undo step and no
+ * confirmation); a leaf with references must disclose them first (S3-8).
+ */
+export function deleteNeedsConfirmation(document: Document, blockId: string): boolean {
+  if (directChildIds(document, blockId).length > 0) return true;
+  return externalReferenceParents(document, blockId, 'promote').length > 0;
+}
+
 export interface ReferenceEdgePair {
   id: string;
   sourceId: string;
