@@ -1,0 +1,590 @@
+{
+  "schemaVersion": 1,
+  "id": "m3-anchor-kinds",
+  "title": "M3 anchor kinds — text, formula, code, references",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [],
+  "blocks": {
+    "m3k-text": {
+      "id": "m3k-text",
+      "label": "Text anchor",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A text anchor binds the word "
+              },
+              {
+                "type": "text",
+                "text": "target",
+                "marks": [
+                  {
+                    "type": "anchor",
+                    "attrs": {
+                      "anchorIds": [
+                        "m3k-a-text"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " exactly once, even with surrounding prose."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-formula": {
+      "id": "m3k-formula",
+      "label": "Formula anchors",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The identity "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "a^2 + b^2 = c^2",
+                  "anchorIds": [
+                    "m3k-a-formula-whole"
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "text": " contains the term "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "a^2 + b^2 = c^2",
+                  "anchorIds": [
+                    "m3k-a-formula-term"
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A repeated term "
+              },
+              {
+                "type": "inlineMath",
+                "attrs": {
+                  "latex": "x + x + x",
+                  "anchorIds": [
+                    "m3k-a-formula-ambiguous"
+                  ]
+                }
+              },
+              {
+                "type": "text",
+                "text": " cannot resolve to one occurrence."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-code": {
+      "id": "m3k-code",
+      "label": "Code range",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The code anchor covers a range inside one code block."
+              }
+            ]
+          },
+          {
+            "type": "codeBlock",
+            "attrs": {
+              "text": "const total = sum(matrix, vector);\nconst scaled = total * 2;\nreturn scaled;",
+              "language": "typescript",
+              "anchorIds": [
+                "m3k-a-code"
+              ]
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-broken": {
+      "id": "m3k-broken",
+      "label": "Broken anchor",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "This block declares a quote that is not present in its content."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-ambiguous": {
+      "id": "m3k-ambiguous",
+      "label": "Ambiguous anchor",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "repeated repeated repeated"
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-shared-home": {
+      "id": "m3k-shared-home",
+      "label": "Shared child home",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The shared child has its primary home here."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-shared": {
+      "id": "m3k-shared",
+      "label": "Shared child",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "This child is referenced from another block without moving."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-ref-parent": {
+      "id": "m3k-ref-parent",
+      "label": "Reference parent",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A reference edge to the shared child, and a reference cycle back."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-text-child": {
+      "id": "m3k-text-child",
+      "label": "Text callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout from a text anchor."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-formula-whole-child": {
+      "id": "m3k-formula-whole-child",
+      "label": "Whole formula callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout from a whole-formula anchor."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-formula-term-child": {
+      "id": "m3k-formula-term-child",
+      "label": "Formula term callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout from a formula-term anchor."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-formula-ambiguous-child": {
+      "id": "m3k-formula-ambiguous-child",
+      "label": "Ambiguous formula callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout from an ambiguous formula-term anchor."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-code-child": {
+      "id": "m3k-code-child",
+      "label": "Code callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout from a code range anchor."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-broken-child": {
+      "id": "m3k-broken-child",
+      "label": "Broken anchor callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout from a broken anchor still exports once."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3k-ambiguous-child": {
+      "id": "m3k-ambiguous-child",
+      "label": "Ambiguous anchor callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout from an ambiguous anchor still exports once."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {
+    "m3k-a-text": {
+      "id": "m3k-a-text",
+      "blockId": "m3k-text",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "target",
+        "occurrenceHint": 1
+      },
+      "quote": "target",
+      "occurrenceHint": 1
+    },
+    "m3k-a-formula-whole": {
+      "id": "m3k-a-formula-whole",
+      "blockId": "m3k-formula",
+      "kind": "formula",
+      "selector": {
+        "kind": "formula",
+        "form": "whole",
+        "latex": "a^2 + b^2 = c^2"
+      },
+      "quote": "a^2 + b^2 = c^2"
+    },
+    "m3k-a-formula-term": {
+      "id": "m3k-a-formula-term",
+      "blockId": "m3k-formula",
+      "kind": "formula",
+      "selector": {
+        "kind": "formula",
+        "form": "term",
+        "latex": "a^2 + b^2",
+        "occurrenceHint": 1
+      },
+      "quote": "a^2 + b^2",
+      "occurrenceHint": 1
+    },
+    "m3k-a-formula-ambiguous": {
+      "id": "m3k-a-formula-ambiguous",
+      "blockId": "m3k-formula",
+      "kind": "formula",
+      "selector": {
+        "kind": "formula",
+        "form": "term",
+        "latex": "x",
+        "occurrenceHint": 1
+      },
+      "quote": "x",
+      "occurrenceHint": 1
+    },
+    "m3k-a-code": {
+      "id": "m3k-a-code",
+      "blockId": "m3k-code",
+      "kind": "code",
+      "selector": {
+        "kind": "code",
+        "form": "range",
+        "quote": "sum(matrix, vector)",
+        "prefix": "const total = ",
+        "suffix": ";\nconst scaled = total * 2;\nretu",
+        "occurrenceHint": 1,
+        "startOffset": 14,
+        "endOffset": 33,
+        "lineStart": 1,
+        "lineEnd": 1
+      },
+      "quote": "sum(matrix, vector)",
+      "occurrenceHint": 1
+    },
+    "m3k-a-broken": {
+      "id": "m3k-a-broken",
+      "blockId": "m3k-broken",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "missing phrase"
+      },
+      "quote": "missing phrase"
+    },
+    "m3k-a-ambiguous": {
+      "id": "m3k-a-ambiguous",
+      "blockId": "m3k-ambiguous",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "repeated"
+      },
+      "quote": "repeated"
+    }
+  },
+  "branches": {
+    "m3k-e-text": {
+      "id": "m3k-e-text",
+      "source": {
+        "blockId": "m3k-text",
+        "anchorId": "m3k-a-text"
+      },
+      "targetBlockId": "m3k-text-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3k-e-formula-whole": {
+      "id": "m3k-e-formula-whole",
+      "source": {
+        "blockId": "m3k-formula",
+        "anchorId": "m3k-a-formula-whole"
+      },
+      "targetBlockId": "m3k-formula-whole-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3k-e-formula-term": {
+      "id": "m3k-e-formula-term",
+      "source": {
+        "blockId": "m3k-formula",
+        "anchorId": "m3k-a-formula-term"
+      },
+      "targetBlockId": "m3k-formula-term-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3k-e-formula-ambiguous": {
+      "id": "m3k-e-formula-ambiguous",
+      "source": {
+        "blockId": "m3k-formula",
+        "anchorId": "m3k-a-formula-ambiguous"
+      },
+      "targetBlockId": "m3k-formula-ambiguous-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3k-e-code": {
+      "id": "m3k-e-code",
+      "source": {
+        "blockId": "m3k-code",
+        "anchorId": "m3k-a-code"
+      },
+      "targetBlockId": "m3k-code-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3k-e-broken": {
+      "id": "m3k-e-broken",
+      "source": {
+        "blockId": "m3k-broken",
+        "anchorId": "m3k-a-broken"
+      },
+      "targetBlockId": "m3k-broken-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3k-e-ambiguous": {
+      "id": "m3k-e-ambiguous",
+      "source": {
+        "blockId": "m3k-ambiguous",
+        "anchorId": "m3k-a-ambiguous"
+      },
+      "targetBlockId": "m3k-ambiguous-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3k-e-shared": {
+      "id": "m3k-e-shared",
+      "source": {
+        "blockId": "m3k-shared-home"
+      },
+      "targetBlockId": "m3k-shared",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3k-ref-to-shared": {
+      "id": "m3k-ref-to-shared",
+      "source": {
+        "blockId": "m3k-ref-parent"
+      },
+      "targetBlockId": "m3k-shared",
+      "role": "reference",
+      "order": "a1",
+      "label": "see also"
+    },
+    "m3k-ref-back": {
+      "id": "m3k-ref-back",
+      "source": {
+        "blockId": "m3k-shared"
+      },
+      "targetBlockId": "m3k-ref-parent",
+      "role": "reference",
+      "order": "a1",
+      "label": "referenced by"
+    }
+  },
+  "chapters": [
+    {
+      "id": "m3k-ch1",
+      "title": "Anchor kinds",
+      "topLevelBlockIds": [
+        "m3k-text",
+        "m3k-formula",
+        "m3k-code",
+        "m3k-broken",
+        "m3k-ambiguous",
+        "m3k-shared-home",
+        "m3k-ref-parent"
+      ]
+    }
+  ],
+  "assets": {},
+  "annotations": []
+}

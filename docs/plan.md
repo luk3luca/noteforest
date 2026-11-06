@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.4, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1/M3b2c/M3c2a/M3c2b/M3c3a/M3d1/M3d2/M3e/M3f1 merged; M3c3b image anchors blocked on the image pipeline; M3f2 final gate in progress.
+**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.4, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1/M3b2c/M3c2a/M3c2b/M3c3a/M3d1/M3d2/M3e/M3f1 merged; M3c3b image anchors blocked on the image pipeline; M3f2 final gate implemented and awaiting the Orchestrator's post-merge full verify.
 
 ## Rules
 
@@ -277,7 +277,7 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   M3c3a code range anchors (merged) → **M3c3b image anchors blocked: no image insertion/asset
   rendering yet** → M3d1 reference edges (merged) → M3d2 make-home/move-here/demote (merged) →
   M3e repair/health (merged) → M3f1 split/merge with anchor migration (merged) → **M3f2 export
-  manifest/fixtures/performance/final gate (in progress)**.
+  manifest/fixtures/performance/final gate (implemented; awaiting full verify)**.
 - **M3b2c approved layout rule (5 November 2026):** direct children stay right while they fit and
   join the below stack when they wrap; callouts always below, before wrapped direct children; one
   shared left trunk with horizontal arms; every arrow enters from the left, never the top. This
