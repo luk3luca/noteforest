@@ -22,7 +22,7 @@ import {
   textAnchorSelectorForBinding,
 } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
-import { redoDepth, undoDepth } from '@tiptap/pm/history';
+import { closeHistory, redoDepth, undoDepth } from '@tiptap/pm/history';
 import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state';
 import type {
   ApplyResult,
@@ -57,6 +57,11 @@ import {
   siblingIds,
   visibleBlockIds,
 } from '../lib/tree';
+import {
+  captureTextHistory,
+  createBlockPositionMapper,
+  mapHistorySteps,
+} from './text-history';
 
 export type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
 
@@ -1550,9 +1555,11 @@ export class DocumentRuntime {
 
   /**
    * Apply a measured right/below placement. The projection changes DOM order
-   * only (right group vs below stack); canonical structure, undo history and
-   * revision stay untouched. Focus/caret are restored like a structural
-   * rebuild.
+   * only (right group vs below stack); canonical structure and revision stay
+   * untouched. Text history is position-based, so the rebuild captures the
+   * current text events and replays them through a block-relative map instead
+   * of clearing them. A resize/measure pass must not steal focus when the
+   * editor was idle.
    */
   applyChildPlacement(belowChildIds: ReadonlySet<string>): void {
     const same =
@@ -1563,14 +1570,124 @@ export class DocumentRuntime {
     if (this.editor === null) return;
     const wasFocused = this.editor.isFocused;
     const focus = this.captureFocusContext();
-    // The projection changes editor-wrapper structure, so old text history
-    // positions no longer map to the new document. Structural commands do the
-    // same reset; placement never touches canonical content or its undo stack.
-    // A resize/measure pass must not steal focus when the editor was idle.
-    this.rebuildEditor(wasFocused ? focus.blockId : null, {
+    this.rebuildEditorPreservingTextHistory(wasFocused ? focus.blockId : null, {
       ...(wasFocused ? { restore: focus } : {}),
-      resetHistory: true,
     });
+  }
+
+  /** Project the current editor bodies through the canonical document and the new placement. */
+  private projectionFromEditor(doc: ProseNode): PMNode {
+    const extracted = extractBlockContents(doc.toJSON() as PMNode);
+    const blocks = { ...this.document.blocks };
+    for (const [id, block] of Object.entries(blocks)) {
+      const body = extracted.get(id);
+      if (body === undefined) continue;
+      blocks[id] = { ...block, content: withBody(block.content, body.content) };
+    }
+    return buildEditorDocument(
+      { ...this.document, blocks },
+      this.collapsed,
+      this.belowStackChildIds,
+    );
+  }
+
+  /** Replace the whole editor buffer without touching canonical content or history. */
+  private replaceEditorDocument(pmDocument: PMNode): void {
+    const editor = this.editor;
+    if (editor === null) return;
+    const documentNode = editor.schema.nodeFromJSON(pmDocument);
+    const transaction = editor.state.tr.replaceWith(
+      0,
+      editor.state.doc.content.size,
+      documentNode.content,
+    );
+    transaction.setMeta('addToHistory', false);
+    transaction.setMeta('preventUpdate', true);
+    editor.view.dispatch(transaction);
+  }
+
+  /**
+   * Rebuild the projection after a placement change while preserving the
+   * user-visible text undo stack. A full replace invalidates ProseMirror's
+   * positional history steps, so the rebuild starts at the oldest text doc and
+   * replays every text event through `blockBody` offsets. Each event is closed
+   * into its own history entry, preserving one-undo-per-event semantics. If a
+   * step cannot be mapped (only possible for a wrapper-level edit), fall back
+   * to the rebuilt projection with an empty text stack instead of corrupting
+   * the document.
+   */
+  private rebuildEditorPreservingTextHistory(
+    focusBlockId: string | null,
+    options: { restore?: FocusContext } = {},
+  ): void {
+    const editor = this.editor;
+    if (editor === null) return;
+    const started = performance.now();
+    const expected = this.projectionFromEditor(editor.state.doc);
+    let replay: ReturnType<typeof captureTextHistory> | null = null;
+    try {
+      replay = captureTextHistory(editor.state);
+    } catch (error) {
+      console.warn(
+        '[noteforest] could not capture the text history for a placement rebuild',
+        error,
+      );
+    }
+    if (replay !== null && replay.events.length > 0) {
+      try {
+        this.replaceEditorDocument(this.projectionFromEditor(replay.baseline));
+        this.clearTextHistory();
+        for (const event of replay.events) {
+          const mapping = createBlockPositionMapper(event.before, editor.state.doc);
+          const steps = mapHistorySteps(event.steps, mapping);
+          const transaction = editor.state.tr;
+          for (const step of steps) {
+            if (transaction.maybeStep(step).failed !== null) {
+              throw new Error('Text history replay step did not apply.');
+            }
+          }
+          transaction.setMeta('addToHistory', true);
+          transaction.setMeta('preventUpdate', true);
+          closeHistory(transaction);
+          editor.view.dispatch(transaction);
+        }
+        // StarterKit's TrailingNode appends a top-level paragraph after every
+        // dispatch; it is not part of the projection. Compare the chapter
+        // content only so that filler never causes a false mismatch.
+        const expectedNode = editor.schema.nodeFromJSON(expected);
+        const expectedChapters = expectedNode.content.content;
+        const actualChapters = editor.state.doc.content.content.filter(
+          (node) => node.type.name === 'chapter',
+        );
+        const reachedExpected =
+          actualChapters.length === expectedChapters.length &&
+          actualChapters.every((node, index) => {
+            const expectedChapter = expectedChapters[index];
+            return expectedChapter !== undefined && node.eq(expectedChapter);
+          });
+        if (!reachedExpected) {
+          throw new Error('Text history replay did not reach the expected projection.');
+        }
+      } catch (error) {
+        console.warn(
+          '[noteforest] text history replay failed; the placement rebuild cleared it',
+          error,
+        );
+        this.replaceEditorDocument(expected);
+        this.clearTextHistory();
+      }
+    } else {
+      this.replaceEditorDocument(expected);
+      this.clearTextHistory();
+    }
+    recordPerf('reflow', performance.now() - started);
+    if (focusBlockId !== null) {
+      if (options.restore !== undefined && options.restore.blockId === focusBlockId) {
+        this.restoreFocus(focusBlockId, options.restore);
+      } else {
+        this.focusBlock(focusBlockId);
+      }
+    }
   }
 
   rebuildEditor(
@@ -1580,17 +1697,9 @@ export class DocumentRuntime {
     const editor = this.editor;
     if (editor === null) return;
     const started = performance.now();
-    const pmDocument = editor.schema.nodeFromJSON(
+    this.replaceEditorDocument(
       buildEditorDocument(this.document, this.collapsed, this.belowStackChildIds),
     );
-    const transaction = editor.state.tr.replaceWith(
-      0,
-      editor.state.doc.content.size,
-      pmDocument.content,
-    );
-    transaction.setMeta('addToHistory', false);
-    transaction.setMeta('preventUpdate', true);
-    editor.view.dispatch(transaction);
     if (options.resetHistory === true) this.clearTextHistory();
     recordPerf('reflow', performance.now() - started);
     if (focusBlockId !== null) {

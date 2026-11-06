@@ -178,11 +178,15 @@ export function EdgeLayer({ edges, referenceEdges = [], rects, activePath, selec
       <g>
         {[...groupedEdges.entries()].flatMap(([parentId, group]) =>
           group.trunks.map((trunk) => {
+            // Each trunk only owns its own placement group: a selected
+            // callout must not light the right trunk, and a selected direct
+            // child must not light the below trunk.
             const trunkActive =
               activePath.has(parentId) &&
               edges.some(
                 (edge) =>
                   edge.parentId === parentId &&
+                  edge.placement === trunk.placement &&
                   activePath.has(edge.childId) &&
                   group.edges.some((item) => item.id === edge.id),
               );
