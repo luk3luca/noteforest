@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { AnchorBinding } from '../src/anchors.js';
 import { readContentAnchorBinding, resolveAnchor } from '../src/anchors.js';
 import type { CommandSuccess } from '../src/commands.js';
-import { applyInverse, executeCommand } from '../src/commands.js';
 import { directChildBranches, primaryParentBranch } from '../src/structure.js';
 import type { ContentNode, Document, JsonObject } from '../src/types.js';
-import { validateDocument } from '../src/validation.js';
 import { parseDocumentJson, stringifyDocument } from '../src/serialize.js';
 import {
   addChild,
@@ -15,33 +13,12 @@ import {
   run,
   tryRun,
 } from './helpers.js';
-
-function success(result: ReturnType<typeof executeCommand>): CommandSuccess {
-  if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-  return result;
-}
-
-function stable(document: Document): Document {
-  const clone = structuredClone(document);
-  clone.revision = 0;
-  clone.updatedAt = '1970-01-01T00:00:00.000Z';
-  return clone;
-}
-
-function undoOf(result: CommandSuccess): CommandSuccess {
-  expect(result.inverse).not.toBeNull();
-  return success(applyInverse(result));
-}
-
-function redoOf(undone: CommandSuccess): CommandSuccess {
-  expect(undone.inverse).not.toBeNull();
-  return success(applyInverse(undone));
-}
-
-function expectValid(document: Document): void {
-  const report = validateDocument(document);
-  if (!report.ok) throw new Error(report.errors.map((issue) => issue.message).join('; '));
-}
+import {
+  expectDocumentValid as expectValid,
+  normalizedDocument as stable,
+  undoOf,
+  redoOf,
+} from './command-invariants.js';
 
 function textSelector(quote: string): JsonObject {
   return { kind: 'text', quote, occurrenceHint: 1 };

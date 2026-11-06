@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CommandSuccess, DocumentCommand } from '../src/commands.js';
+import type { DocumentCommand } from '../src/commands.js';
 import { applyInverse, executeCommand } from '../src/commands.js';
 import { validateDocument } from '../src/validation.js';
 import { parseDocumentJson, stringifyDocument } from '../src/serialize.js';
@@ -15,6 +15,9 @@ import {
   textContent,
   tryRun,
 } from './helpers.js';
+import {
+  expectCommandSuccess as success,
+} from './command-invariants.js';
 
 function buildTree() {
   const context = deterministicContext();
@@ -38,11 +41,6 @@ function buildTree() {
     branchA1: childA1.branchId,
     branchA1a: childA1a.branchId,
   };
-}
-
-function success(result: ReturnType<typeof executeCommand>): CommandSuccess {
-  if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-  return result;
 }
 
 describe('document and chapter commands', () => {

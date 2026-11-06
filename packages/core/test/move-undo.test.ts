@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CommandSuccess } from '../src/commands.js';
-import { applyInverse, executeCommand } from '../src/commands.js';
-import { validateDocument } from '../src/validation.js';
+import { executeCommand } from '../src/commands.js';
 import type { Document } from '../src/types.js';
 import {
   addChild,
@@ -12,6 +11,14 @@ import {
   textContent,
 } from './helpers.js';
 import type { CoreContext } from '../src/ids.js';
+import {
+  expectCommandSuccess as success,
+  expectDocumentValid as expectValid,
+  expectRecordCounts,
+  normalizedDocument as stable,
+  redoOf,
+  undoOf,
+} from './command-invariants.js';
 
 /**
  * Whole-document comparison. Revision and document.updatedAt move forward on
@@ -19,40 +26,6 @@ import type { CoreContext } from '../src/ids.js';
  * fields, branch IDs/source/target/role/order/label/unknown fields, anchors and
  * chapter top-level order — must match exactly.
  */
-function stable(document: Document): Document {
-  const clone = structuredClone(document);
-  clone.revision = 0;
-  clone.updatedAt = '1970-01-01T00:00:00.000Z';
-  return clone;
-}
-
-function success(result: ReturnType<typeof executeCommand>): CommandSuccess {
-  if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-  return result;
-}
-
-function undoOf(result: CommandSuccess): CommandSuccess {
-  expect(result.inverse).not.toBeNull();
-  return success(applyInverse(result));
-}
-
-function redoOf(undone: CommandSuccess): CommandSuccess {
-  expect(undone.inverse).not.toBeNull();
-  return success(applyInverse(undone));
-}
-
-function expectValid(document: Document): void {
-  const report = validateDocument(document);
-  if (!report.ok) {
-    throw new Error(report.errors.map((issue) => issue.message).join('; '));
-  }
-}
-
-function expectRecordCounts(document: Document, reference: Document): void {
-  expect(Object.keys(document.blocks)).toHaveLength(Object.keys(reference.blocks).length);
-  expect(Object.keys(document.branches)).toHaveLength(Object.keys(reference.branches).length);
-  expect(Object.keys(document.anchors)).toHaveLength(Object.keys(reference.anchors).length);
-}
 
 function chapterBlocks(document: Document, chapterId: string): string[] {
   return document.chapters.find((chapter) => chapter.id === chapterId)?.topLevelBlockIds ?? [];
