@@ -1,43 +1,26 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import { addAnchor, addBranch, addTopLevelBlock, textDoc } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3h3-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const {
+  isolated,
+  applyCommand,
+  structure,
+  seedDemo,
+  waitForHealthChip,
+  openAnchorHealthFromChip,
+  openAnchorHealthFromWarning,
+} = ui;
 let page;
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
-}
-
-function textDoc(text) {
-  return {
-    type: 'doc',
-    children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
-  };
+  page = await ui.launch(overrides);
 }
 
 const ids = {
@@ -60,62 +43,6 @@ const ids = {
     branch: 'm3h3-broken-branch',
   },
 };
-
-async function addTopLevelBlock(id, content) {
-  const chapterId = (await structure()).chapters[0].id;
-  await applyCommand({
-    type: 'block.create',
-    blockId: id,
-    content,
-    placement: { kind: 'top-level', chapterId },
-  });
-  await page.waitForSelector(`.nf-editor[data-active="true"] [data-block-card="${id}"]`);
-}
-
-async function addAnchor(anchorId, blockId, selector, binding) {
-  await applyCommand({
-    type: 'anchor.create',
-    anchorId,
-    blockId,
-    kind: 'text',
-    selector,
-    binding,
-  });
-}
-
-async function addBranch(branchId, sourceBlockId, anchorId, targetBlockId) {
-  await applyCommand({
-    type: 'branch.create',
-    branchId,
-    sourceBlockId,
-    sourceAnchorId: anchorId,
-    targetBlockId,
-    role: 'primary',
-  });
-}
-
-async function seedDemo() {
-  await page.evaluate(() => window.__noteforestTest.seed('demo'));
-  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-  await h.waitSaved();
-  await h.waitLayout({ blocks: 7, arrows: 3 });
-}
-
-async function waitForChip(broken, ambiguous, timeout = 10000) {
-  await page.waitForFunction(
-    ({ expectedBroken, expectedAmbiguous }) => {
-      const chip = document.querySelector('[data-anchor-health-chip]');
-      if (expectedBroken + expectedAmbiguous === 0) return chip === null;
-      return (
-        chip !== null &&
-        chip.getAttribute('data-health-broken') === String(expectedBroken) &&
-        chip.getAttribute('data-health-ambiguous') === String(expectedAmbiguous)
-      );
-    },
-    { expectedBroken: broken, expectedAmbiguous: ambiguous },
-    { timeout },
-  );
-}
 
 async function pressTabUntilDataAttribute(attribute, value, max = 12) {
   for (let index = 0; index < max; index += 1) {
@@ -148,15 +75,21 @@ describe('M3h3 live anchor health and idle removal', () => {
     await h.setWindowSize(1440, 900);
     await seedDemo();
 
-    await addTopLevelBlock(ids.live.source, textDoc('Alpha symmetric beta'));
-    await addTopLevelBlock(ids.live.target, textDoc('Live target'));
-    await addAnchor(
-      ids.live.anchor,
-      ids.live.source,
-      { kind: 'text', quote: 'symmetric' },
-      { kind: 'text', ranges: [{ nodePath: [0, 0], start: 6, end: 15 }] },
-    );
-    await addBranch(ids.live.branch, ids.live.source, ids.live.anchor, ids.live.target);
+    await addTopLevelBlock(ui, ids.live.source, textDoc('Alpha symmetric beta'));
+    await addTopLevelBlock(ui, ids.live.target, textDoc('Live target'));
+    await addAnchor(ui, {
+      anchorId: ids.live.anchor,
+      blockId: ids.live.source,
+      kind: 'text',
+      selector: { kind: 'text', quote: 'symmetric' },
+      binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 6, end: 15 }] },
+    });
+    await addBranch(ui, {
+      branchId: ids.live.branch,
+      sourceBlockId: ids.live.source,
+      sourceAnchorId: ids.live.anchor,
+      targetBlockId: ids.live.target,
+    });
     await h.waitLayout({ blocks: 9, arrows: 4 });
 
     const sourceCard = page.locator(`[data-block-card="${ids.live.source}"]`);
@@ -189,7 +122,7 @@ describe('M3h3 live anchor health and idle removal', () => {
         `[data-callout-row="true"][data-anchor-id="${ids.live.anchor}"] .nf-callout-state[data-anchor-state="broken"]`,
       )
       .waitFor({ timeout: 10000 });
-    await waitForChip(1, 0);
+    await waitForHealthChip(1, 0);
     assert.equal((await warning.textContent())?.trim(), 'Lost anchor');
     assert.equal(await warning.getAttribute('data-anchor-state'), 'broken');
 
@@ -214,8 +147,7 @@ describe('M3h3 live anchor health and idle removal', () => {
       height: 900,
     });
 
-    await warning.click();
-    await page.waitForSelector(`[data-health-detail="${ids.live.anchor}"]`);
+    await openAnchorHealthFromWarning(ids.live.anchor);
     const detail = (await page.locator(`[data-health-detail="${ids.live.anchor}"]`).textContent()) ?? '';
     assert.match(detail, /Lost anchor/);
     assert.match(detail, /symmetric/);
@@ -226,7 +158,7 @@ describe('M3h3 live anchor health and idle removal', () => {
     });
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
-    await waitForChip(1, 0);
+    await waitForHealthChip(1, 0);
 
     await page.keyboard.press('Meta+z');
     await page.waitForFunction(
@@ -243,7 +175,7 @@ describe('M3h3 live anchor health and idle removal', () => {
       ids.live.anchor,
       { timeout: 10000 },
     );
-    await waitForChip(0, 0);
+    await waitForHealthChip(0, 0);
     assert.equal(
       await page
         .locator(
@@ -263,7 +195,7 @@ describe('M3h3 live anchor health and idle removal', () => {
 
     await page.keyboard.press('Meta+Shift+z');
     await warning.waitFor({ state: 'visible', timeout: 10000 });
-    await waitForChip(1, 0);
+    await waitForHealthChip(1, 0);
     await page
       .locator(
         `[data-callout-row="true"][data-anchor-id="${ids.live.anchor}"] .nf-callout-state[data-anchor-state="broken"]`,
@@ -279,15 +211,21 @@ describe('M3h3 live anchor health and idle removal', () => {
     await h.setWindowSize(1440, 900);
     await seedDemo();
 
-    await addTopLevelBlock(ids.idle.source, textDoc('Alpha symmetric beta'));
-    await addTopLevelBlock(ids.idle.target, textDoc('Idle target'));
-    await addAnchor(
-      ids.idle.anchor,
-      ids.idle.source,
-      { kind: 'text', quote: 'Alpha' },
-      { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 5 }] },
-    );
-    await addBranch(ids.idle.branch, ids.idle.source, ids.idle.anchor, ids.idle.target);
+    await addTopLevelBlock(ui, ids.idle.source, textDoc('Alpha symmetric beta'));
+    await addTopLevelBlock(ui, ids.idle.target, textDoc('Idle target'));
+    await addAnchor(ui, {
+      anchorId: ids.idle.anchor,
+      blockId: ids.idle.source,
+      kind: 'text',
+      selector: { kind: 'text', quote: 'Alpha' },
+      binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 5 }] },
+    });
+    await addBranch(ui, {
+      branchId: ids.idle.branch,
+      sourceBlockId: ids.idle.source,
+      sourceAnchorId: ids.idle.anchor,
+      targetBlockId: ids.idle.target,
+    });
     await h.waitLayout({ blocks: 9, arrows: 4 });
     await applyCommand({
       type: 'branch.delete',
@@ -383,15 +321,21 @@ describe('M3h3 live anchor health and idle removal', () => {
     assert.ok(restored.blocks[ids.idle.target] !== undefined);
 
     // A live (broken) anchor is offered Repair, never the idle Remove path.
-    await addTopLevelBlock(ids.broken.source, textDoc('Delta omega'));
-    await addTopLevelBlock(ids.broken.target, textDoc('Broken target'));
-    await addAnchor(
-      ids.broken.anchor,
-      ids.broken.source,
-      { kind: 'text', quote: 'missingword' },
-      { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 5 }] },
-    );
-    await addBranch(ids.broken.branch, ids.broken.source, ids.broken.anchor, ids.broken.target);
+    await addTopLevelBlock(ui, ids.broken.source, textDoc('Delta omega'));
+    await addTopLevelBlock(ui, ids.broken.target, textDoc('Broken target'));
+    await addAnchor(ui, {
+      anchorId: ids.broken.anchor,
+      blockId: ids.broken.source,
+      kind: 'text',
+      selector: { kind: 'text', quote: 'missingword' },
+      binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 5 }] },
+    });
+    await addBranch(ui, {
+      branchId: ids.broken.branch,
+      sourceBlockId: ids.broken.source,
+      sourceAnchorId: ids.broken.anchor,
+      targetBlockId: ids.broken.target,
+    });
     // Remove the content binding while keeping the anchor record and branch:
     // the stored quote is gone, so the live anchor is broken and must offer
     // Repair rather than the idle Remove path.
@@ -400,9 +344,8 @@ describe('M3h3 live anchor health and idle removal', () => {
       blockId: ids.broken.source,
       content: textDoc('Delta omega'),
     });
-    await waitForChip(1, 0);
-    await page.locator('[data-anchor-health-chip]').click();
-    await page.waitForSelector('[data-anchor-health="true"]');
+    await waitForHealthChip(1, 0);
+    await openAnchorHealthFromChip();
     assert.equal(await page.locator(`[data-health-remove="${ids.broken.anchor}"]`).count(), 0);
     assert.equal(await page.locator(`[data-health-repair="${ids.broken.anchor}"]`).count(), 1);
     assert.equal(await page.locator(`[data-health-remove="${ids.idle.anchor}"]`).count(), 1);

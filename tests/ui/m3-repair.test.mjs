@@ -1,65 +1,32 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import {
+  addAnchor,
+  addBranch,
+  addTopLevelBlock,
+  codeDoc,
+  formulaDoc,
+  textDoc,
+} from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3e-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const {
+  isolated,
+  applyCommand,
+  structure,
+  waitForHealthChip,
+  openAnchorHealthFromChip,
+  openAnchorHealthFromWarning,
+} = ui;
 let page;
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
-}
-
-function textDoc(text) {
-  return {
-    type: 'doc',
-    children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
-  };
-}
-
-function formulaDoc(latex) {
-  return {
-    type: 'doc',
-    children: [
-      { type: 'paragraph', children: [{ type: 'inlineMath', attrs: { latex } }] },
-    ],
-  };
-}
-
-function codeDoc(text) {
-  return {
-    type: 'doc',
-    children: [
-      {
-        type: 'codeBlock',
-        attrs: { language: 'ts' },
-        children: [{ type: 'text', text }],
-      },
-    ],
-  };
+  page = await ui.launch(overrides);
 }
 
 const ids = {
@@ -90,38 +57,6 @@ const ids = {
   },
 };
 
-async function addTopLevelBlock(id, content) {
-  const chapterId = (await structure()).chapters[0].id;
-  await applyCommand({
-    type: 'block.create',
-    blockId: id,
-    content,
-    placement: { kind: 'top-level', chapterId },
-  });
-  await page.waitForSelector(`.nf-editor[data-active="true"] [data-block-card="${id}"]`);
-}
-
-async function addAnchor(anchorId, blockId, kind, selector, binding) {
-  await applyCommand({
-    type: 'anchor.create',
-    anchorId,
-    blockId,
-    kind,
-    selector,
-    binding,
-  });
-}
-
-async function addBranch(sourceBlockId, anchorId, targetBlockId) {
-  await applyCommand({
-    type: 'branch.create',
-    sourceBlockId,
-    sourceAnchorId: anchorId,
-    targetBlockId,
-    role: 'primary',
-  });
-}
-
 async function branchIdFor(anchorId) {
   const current = await structure();
   const branch = Object.values(current.branches).find(
@@ -129,21 +64,6 @@ async function branchIdFor(anchorId) {
   );
   assert.ok(branch !== undefined, `anchor ${anchorId} has a branch`);
   return branch.id;
-}
-
-async function waitForHealthCounts(broken, ambiguous) {
-  await page.waitForFunction(
-    ({ brokenCount, ambiguousCount }) => {
-      const chip = document.querySelector('[data-anchor-health-chip]');
-      return (
-        chip !== null &&
-        chip.getAttribute('data-health-broken') === String(brokenCount) &&
-        chip.getAttribute('data-health-ambiguous') === String(ambiguousCount)
-      );
-    },
-    { brokenCount: broken, ambiguousCount: ambiguous },
-    { timeout: 10000 },
-  );
 }
 
 /**
@@ -157,11 +77,11 @@ async function buildFixture() {
   await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
   await h.waitSaved();
 
-  await addTopLevelBlock(ids.text.source, textDoc('Alpha eigenvalue beta eigenvalue gamma'));
-  await addTopLevelBlock(ids.brokenText.source, textDoc('Delta missingword omega'));
-  await addTopLevelBlock(ids.formula.source, formulaDoc('\\lambda + \\lambda'));
-  await addTopLevelBlock(ids.code.source, codeDoc('eigvals = eigvals(A)'));
-  await addTopLevelBlock(ids.brokenCode.source, codeDoc('const x = 1;'));
+  await addTopLevelBlock(ui, ids.text.source, textDoc('Alpha eigenvalue beta eigenvalue gamma'));
+  await addTopLevelBlock(ui, ids.brokenText.source, textDoc('Delta missingword omega'));
+  await addTopLevelBlock(ui, ids.formula.source, formulaDoc('\\lambda + \\lambda'));
+  await addTopLevelBlock(ui, ids.code.source, codeDoc('eigvals = eigvals(A)'));
+  await addTopLevelBlock(ui, ids.brokenCode.source, codeDoc('const x = 1;'));
   for (const target of [
     ids.text.target,
     ids.brokenText.target,
@@ -169,53 +89,65 @@ async function buildFixture() {
     ids.code.target,
     ids.brokenCode.target,
   ]) {
-    await addTopLevelBlock(target, textDoc(`Target for ${target}`));
+    await addTopLevelBlock(ui, target, textDoc(`Target for ${target}`));
   }
 
-  await addAnchor(
-    ids.text.anchor,
-    ids.text.source,
-    'text',
-    { kind: 'text', quote: 'eigenvalue', occurrenceHint: 1 },
-    { kind: 'text', ranges: [{ nodePath: [0, 0], start: 6, end: 16 }] },
-  );
-  await addBranch(ids.text.source, ids.text.anchor, ids.text.target);
+  await addAnchor(ui, {
+    anchorId: ids.text.anchor,
+    blockId: ids.text.source,
+    kind: 'text',
+    selector: { kind: 'text', quote: 'eigenvalue', occurrenceHint: 1 },
+    binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 6, end: 16 }] },
+  });
+  await addBranch(ui, {
+    sourceBlockId: ids.text.source,
+    sourceAnchorId: ids.text.anchor,
+    targetBlockId: ids.text.target,
+  });
 
-  await addAnchor(
-    ids.brokenText.anchor,
-    ids.brokenText.source,
-    'text',
-    { kind: 'text', quote: 'missingword', occurrenceHint: 1 },
-    { kind: 'text', ranges: [{ nodePath: [0, 0], start: 6, end: 17 }] },
-  );
-  await addBranch(ids.brokenText.source, ids.brokenText.anchor, ids.brokenText.target);
+  await addAnchor(ui, {
+    anchorId: ids.brokenText.anchor,
+    blockId: ids.brokenText.source,
+    kind: 'text',
+    selector: { kind: 'text', quote: 'missingword', occurrenceHint: 1 },
+    binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 6, end: 17 }] },
+  });
+  await addBranch(ui, {
+    sourceBlockId: ids.brokenText.source,
+    sourceAnchorId: ids.brokenText.anchor,
+    targetBlockId: ids.brokenText.target,
+  });
 
-  await addAnchor(
-    ids.formula.anchor,
-    ids.formula.source,
-    'formula',
-    {
+  await addAnchor(ui, {
+    anchorId: ids.formula.anchor,
+    blockId: ids.formula.source,
+    kind: 'formula',
+    selector: {
       kind: 'formula',
       form: 'term',
       latex: '\\lambda',
       latexStart: 0,
       occurrenceHint: 1,
     },
-    {
+    binding: {
       kind: 'formula',
       form: 'term',
       nodePath: [0, 0],
       latex: '\\lambda',
       occurrence: 1,
     },
-  );
-  await addBranch(ids.formula.source, ids.formula.anchor, ids.formula.target);
+  });
+  await addBranch(ui, {
+    sourceBlockId: ids.formula.source,
+    sourceAnchorId: ids.formula.anchor,
+    targetBlockId: ids.formula.target,
+  });
 
-  await addAnchor(
-    ids.code.anchor,
-    ids.code.source,
-    'code',
-    {
+  await addAnchor(ui, {
+    anchorId: ids.code.anchor,
+    blockId: ids.code.source,
+    kind: 'code',
+    selector: {
       kind: 'code',
       quote: 'eigvals',
       form: 'range',
@@ -225,15 +157,19 @@ async function buildFixture() {
       lineEnd: 1,
       occurrenceHint: 1,
     },
-    { kind: 'code', nodePath: [0], startOffset: 0, endOffset: 7 },
-  );
-  await addBranch(ids.code.source, ids.code.anchor, ids.code.target);
+    binding: { kind: 'code', nodePath: [0], startOffset: 0, endOffset: 7 },
+  });
+  await addBranch(ui, {
+    sourceBlockId: ids.code.source,
+    sourceAnchorId: ids.code.anchor,
+    targetBlockId: ids.code.target,
+  });
 
-  await addAnchor(
-    ids.brokenCode.anchor,
-    ids.brokenCode.source,
-    'code',
-    {
+  await addAnchor(ui, {
+    anchorId: ids.brokenCode.anchor,
+    blockId: ids.brokenCode.source,
+    kind: 'code',
+    selector: {
       kind: 'code',
       quote: 'x = 1',
       form: 'range',
@@ -243,9 +179,13 @@ async function buildFixture() {
       lineEnd: 1,
       occurrenceHint: 1,
     },
-    { kind: 'code', nodePath: [0], startOffset: 6, endOffset: 11 },
-  );
-  await addBranch(ids.brokenCode.source, ids.brokenCode.anchor, ids.brokenCode.target);
+    binding: { kind: 'code', nodePath: [0], startOffset: 6, endOffset: 11 },
+  });
+  await addBranch(ui, {
+    sourceBlockId: ids.brokenCode.source,
+    sourceAnchorId: ids.brokenCode.anchor,
+    targetBlockId: ids.brokenCode.target,
+  });
 
   // Remove the content bindings but keep the same source text/quote: the
   // resolver now has to choose between repeated matches or report a loss.
@@ -275,18 +215,8 @@ async function buildFixture() {
     content: codeDoc('const y = 2;'),
   });
 
-  await waitForHealthCounts(2, 3);
+  await waitForHealthChip(2, 3);
   await h.waitLayout({ blocks: 17, arrows: 8 });
-}
-
-async function openHealthFromChip() {
-  await page.locator('[data-anchor-health-chip]').click();
-  await page.waitForSelector('[data-anchor-health="true"]');
-}
-
-async function openHealthFromWarning(anchorId) {
-  await page.locator(`[data-anchor-warning="${anchorId}"]`).click();
-  await page.waitForSelector(`[data-health-detail="${anchorId}"]`);
 }
 
 function waitAnchorSelector(anchorId, check) {
@@ -336,7 +266,7 @@ describe('M3e anchor repair and health', () => {
     assert.equal(await chip.getAttribute('data-health-ambiguous'), '3');
     assert.match((await chip.textContent()) ?? '', /5 anchors need repair/);
 
-    await openHealthFromChip();
+    await openAnchorHealthFromChip();
     assert.equal(await page.locator('[data-health-anchor]').count(), 5);
 
     const textRow = page.locator(`[data-health-anchor="${ids.text.anchor}"]`);
@@ -406,7 +336,7 @@ describe('M3e anchor repair and health', () => {
     assert.deepEqual(before.anchors[ids.formula.anchor].selector.latexStart, 0);
     assert.deepEqual(before.anchors[ids.code.anchor].selector.startOffset, 0);
 
-    await openHealthFromChip();
+    await openAnchorHealthFromChip();
     await page.locator(`[data-health-repair="${ids.formula.anchor}"]`).click();
     await page.waitForSelector(`[data-health-detail="${ids.formula.anchor}"]`);
     assert.equal(await page.locator('[data-health-candidate]').count(), 2);
@@ -463,7 +393,7 @@ describe('M3e anchor repair and health', () => {
     assert.deepEqual(formulaUndone.anchors[ids.formula.anchor].selector, before.anchors[ids.formula.anchor].selector);
     assert.deepEqual(formulaUndone.branches[formulaBranch], formulaBranchBefore);
 
-    await openHealthFromChip();
+    await openAnchorHealthFromChip();
     await page.locator(`[data-health-repair="${ids.code.anchor}"]`).click();
     await page.waitForSelector(`[data-health-detail="${ids.code.anchor}"]`);
     assert.equal(await page.locator('[data-health-candidate]').count(), 2);
@@ -533,7 +463,7 @@ describe('M3e anchor repair and health', () => {
     }
 
     const beforeKeep = await structure();
-    await openHealthFromWarning(ids.brokenText.anchor);
+    await openAnchorHealthFromWarning(ids.brokenText.anchor);
     await page.locator('[data-health-action="keep-broken"]').click();
     await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
     assert.deepEqual(await structure(), beforeKeep, 'keep broken never mutates the document');
@@ -546,7 +476,7 @@ describe('M3e anchor repair and health', () => {
       'keep broken does not hide the warning or health count',
     );
 
-    await openHealthFromWarning(ids.brokenCode.anchor);
+    await openAnchorHealthFromWarning(ids.brokenCode.anchor);
     await page.locator('[data-health-action="attach"]').click();
     await page.waitForSelector('[data-health-confirm="attach"]');
     await page.locator('[data-health-confirm-action="attach"]').click();
@@ -567,7 +497,7 @@ describe('M3e anchor repair and health', () => {
       { anchorId: ids.brokenCode.anchor, targetId: ids.brokenCode.target },
       { timeout: 10000 },
     );
-    await waitForHealthCounts(1, 3);
+    await waitForHealthChip(1, 3);
 
     await page.keyboard.press('Meta+z');
     await page.waitForFunction(
@@ -578,7 +508,7 @@ describe('M3e anchor repair and health', () => {
       ids.brokenCode.anchor,
       { timeout: 10000 },
     );
-    await waitForHealthCounts(2, 3);
+    await waitForHealthChip(2, 3);
     const afterAttachUndo = await structure();
     const restoredBranch = Object.values(afterAttachUndo.branches).find(
       (candidate) => candidate.source.anchorId === ids.brokenCode.anchor,
@@ -587,7 +517,7 @@ describe('M3e anchor repair and health', () => {
     assert.ok(afterAttachUndo.blocks[ids.brokenCode.target] !== undefined);
 
     const branchBeforeDelete = await branchIdFor(ids.brokenText.anchor);
-    await openHealthFromWarning(ids.brokenText.anchor);
+    await openAnchorHealthFromWarning(ids.brokenText.anchor);
     await page.locator('[data-health-action="delete-branch"]').click();
     await page.waitForSelector('[data-health-confirm="delete-branch"]');
     await page.locator('[data-health-confirm-action="delete-branch"]').click();
@@ -606,7 +536,7 @@ describe('M3e anchor repair and health', () => {
     const afterDelete = await structure();
     assert.ok(afterDelete.anchors[ids.brokenText.anchor] !== undefined, 'anchor stays idle');
     assert.ok(afterDelete.blocks[ids.brokenText.target] !== undefined, 'target is never deleted');
-    await waitForHealthCounts(1, 3);
+    await waitForHealthChip(1, 3);
 
     await page.keyboard.press('Meta+z');
     await page.waitForFunction(
@@ -617,7 +547,7 @@ describe('M3e anchor repair and health', () => {
       branchBeforeDelete,
       { timeout: 10000 },
     );
-    await waitForHealthCounts(2, 3);
+    await waitForHealthChip(2, 3);
   });
 
   it('relinks a broken text anchor from the editor selection', async () => {
@@ -648,7 +578,7 @@ describe('M3e anchor repair and health', () => {
       'omega',
     );
 
-    await openHealthFromWarning(ids.brokenText.anchor);
+    await openAnchorHealthFromWarning(ids.brokenText.anchor);
     const beforeRelink = await structure();
     await page.locator('[data-health-action="relink"]').click();
     await page.waitForSelector('[data-health-preview="true"]');

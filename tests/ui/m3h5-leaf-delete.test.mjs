@@ -1,11 +1,14 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import { addTopLevelBlock, textDoc } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3h5-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const { isolated, applyCommand, structure, seedDemo, openBlockMenu, chooseMenuItem } = ui;
 let page;
 
 const LEAF_ID = 'm3h5-leaf';
@@ -14,47 +17,8 @@ const REFERENCE_ID = 'm3h5-reference';
 const LEAF_TEXT = 'Leaf with external reference';
 const SOURCE_TEXT = 'External reference source';
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
-}
-
-function textDoc(text) {
-  return {
-    type: 'doc',
-    children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
-  };
-}
-
-async function addTopLevelBlock(id, text) {
-  const chapterId = (await structure()).chapters[0].id;
-  await applyCommand({
-    type: 'block.create',
-    blockId: id,
-    content: textDoc(text),
-    placement: { kind: 'top-level', chapterId },
-  });
-  await page.waitForSelector(`.nf-editor[data-active="true"] [data-block-card="${id}"]`);
+  page = await ui.launch(overrides);
 }
 
 async function linkReference(sourceId, targetId) {
@@ -88,13 +52,6 @@ async function waitForDeleteDialog() {
   const dialog = page.getByRole('dialog', { name: 'Delete block' });
   await dialog.waitFor();
   return dialog;
-}
-
-async function seedDemo() {
-  await page.evaluate(() => window.__noteforestTest.seed('demo'));
-  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-  await h.waitSaved();
-  await h.waitLayout({ blocks: 7, arrows: 3 });
 }
 
 /** Record any dialog mount so a fast-path delete can prove none appeared. */
@@ -142,8 +99,8 @@ describe('NoteForest M3h5 leaf delete disclosure', () => {
     const seeded = await structure();
     const chapterId = seeded.chapters[0].id;
     const chapterTitle = seeded.chapters[0].title ?? 'Untitled chapter';
-    await addTopLevelBlock(SOURCE_ID, SOURCE_TEXT);
-    await addTopLevelBlock(LEAF_ID, LEAF_TEXT);
+    await addTopLevelBlock(ui, SOURCE_ID, textDoc(SOURCE_TEXT));
+    await addTopLevelBlock(ui, LEAF_ID, textDoc(LEAF_TEXT));
     await h.waitLayout({ blocks: 9, arrows: 3 });
     await linkReference(SOURCE_ID, LEAF_ID);
     await page.locator(`[data-referenced-by-branch="${REFERENCE_ID}"]`).waitFor();
@@ -234,12 +191,8 @@ describe('NoteForest M3h5 leaf delete disclosure', () => {
     await page.locator(`[data-referenced-by-branch="${REFERENCE_ID}"]`).waitFor();
 
     // The leaf block menu path reuses the same disclosure component and rows.
-    await page
-      .locator(`.nf-editor[data-active="true"] [data-block-card="${LEAF_ID}"]`)
-      .click({ button: 'right' });
-    await page.locator('.nf-menu').waitFor();
-    await page.getByRole('menuitem', { name: /Delete block/ }).click();
-    await page.locator('.nf-menu').waitFor({ state: 'detached' });
+    await openBlockMenu(LEAF_ID);
+    await chooseMenuItem(/Delete block/);
     await waitForDeleteDialog();
     await page.locator('[data-delete-references="true"]').waitFor();
     assert.equal(await page.locator('[data-delete-reference]').count(), 1);
@@ -257,7 +210,7 @@ describe('NoteForest M3h5 leaf delete disclosure', () => {
     await h.setWindowSize(1440, 900);
     await seedDemo();
 
-    await addTopLevelBlock(LEAF_ID, 'Plain leaf');
+    await addTopLevelBlock(ui, LEAF_ID, textDoc('Plain leaf'));
     await h.waitLayout({ blocks: 8, arrows: 3 });
     const beforeDelete = await structure();
     await recordDialogs();

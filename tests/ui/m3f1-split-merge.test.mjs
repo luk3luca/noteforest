@@ -1,45 +1,18 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import { addTopLevelBlock } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3f1-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const { isolated, applyCommand, structure, openBlockMenuFromGutter } = ui;
 let page;
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
-}
-
-async function openBlockMenu(blockId) {
-  // Native keyboard activation of the gutter button (detail 0) opens the same
-  // menu path without moving the ProseMirror selection.
-  await page.locator(`[data-block-actions="${blockId}"]`).evaluate((button) => {
-    button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
-  });
-  await page.getByRole('menu').waitFor({ state: 'visible' });
+  page = await ui.launch(overrides);
 }
 
 async function closeMenu() {
@@ -48,7 +21,7 @@ async function closeMenu() {
 }
 
 async function focusBlock(blockId) {
-  await openBlockMenu(blockId);
+  await openBlockMenuFromGutter(blockId);
   await page.getByRole('menuitem', { name: 'Focus block', exact: true }).click();
   await page.getByRole('menu').waitFor({ state: 'hidden' });
   await page.waitForFunction(
@@ -105,31 +78,19 @@ describe('NoteForest M3f1 split/merge menu', () => {
 
     const sourceId = 'm3f1-split-source';
     const targetId = 'm3f1-anchor-target';
-    await applyCommand({
-      type: 'block.create',
-      blockId: sourceId,
-      content: {
-        type: 'doc',
-        children: [
-          {
-            type: 'paragraph',
-            children: [{ type: 'text', text: 'Alpha anchor omega' }],
-          },
-        ],
-      },
-      placement: { kind: 'top-level', chapterId },
+    await addTopLevelBlock(ui, sourceId, {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', text: 'Alpha anchor omega' }],
+        },
+      ],
     });
-    await page.waitForSelector(`[data-block-card="${sourceId}"]`);
-    await applyCommand({
-      type: 'block.create',
-      blockId: targetId,
-      content: {
-        type: 'doc',
-        children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Anchored target' }] }],
-      },
-      placement: { kind: 'top-level', chapterId },
+    await addTopLevelBlock(ui, targetId, {
+      type: 'doc',
+      children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Anchored target' }] }],
     });
-    await page.waitForSelector(`[data-block-card="${targetId}"]`);
 
     const anchored = await applyCommand({
       type: 'anchor.create',
@@ -156,7 +117,7 @@ describe('NoteForest M3f1 split/merge menu', () => {
     // With the caret in a different block, the menu explains why split is
     // unavailable instead of silently doing nothing.
     await focusBlock(firstDemoId);
-    await openBlockMenu(sourceId);
+    await openBlockMenuFromGutter(sourceId);
     const disabledSplit = page.getByRole('menuitem', { name: /^Split at caret/ });
     assert.equal(
       await disabledSplit.getAttribute('aria-disabled'),
@@ -174,7 +135,7 @@ describe('NoteForest M3f1 split/merge menu', () => {
     await focusBlock(sourceId);
     await moveCaretRight(6);
     const split = page.getByRole('menuitem', { name: 'Split at caret', exact: true });
-    await openBlockMenu(sourceId);
+    await openBlockMenuFromGutter(sourceId);
     assert.equal(await split.getAttribute('aria-disabled'), null, 'split is enabled at the caret');
     await split.click();
     await h.waitCanonicalBlockCount(10);
@@ -210,7 +171,7 @@ describe('NoteForest M3f1 split/merge menu', () => {
     });
 
     // Merge the new block back into its previous top-level sibling.
-    await openBlockMenu(newBlockId);
+    await openBlockMenuFromGutter(newBlockId);
     const merge = page.getByRole('menuitem', { name: 'Merge with previous', exact: true });
     assert.equal(await merge.getAttribute('aria-disabled'), null, 'merge is legal');
     await merge.click();

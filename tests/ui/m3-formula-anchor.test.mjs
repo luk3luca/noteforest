@@ -1,70 +1,24 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import { addTopLevelBlock } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3c1-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const {
+  isolated,
+  structure,
+  seedDemo,
+  waitForCallouts,
+  waitForFormulaBinding,
+} = ui;
 let page;
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
-}
-
-async function waitForCalloutOffset(parentId, count) {
-  await page.waitForFunction(
-    ({ parentId: id, count: expected }) => {
-      const card = document.querySelector(
-        `.nf-editor[data-active="true"] [data-block-card="${id}"]`,
-      );
-      const lane = card?.closest('.nf-block-inner')?.querySelector('.nf-callout-lane');
-      if (lane === null || lane === undefined) return false;
-      const rows = [...lane.querySelectorAll('[data-callout-row="true"]')].filter(
-        (row) => row.closest('.nf-callout-lane') === lane,
-      );
-      if (rows.length !== expected) return false;
-      return rows.every((row) => row.style.getPropertyValue('--nf-callout-offset') !== '');
-    },
-    { parentId, count },
-    { timeout: 10000, polling: 100 },
-  );
-}
-
-async function waitForFormulaBinding(blockId, anchorId) {
-  await page.waitForFunction(
-    ({ blockId: id, anchorId: expected }) => {
-      const card = document.querySelector(
-        `.nf-editor[data-active="true"] [data-block-card="${id}"]`,
-      );
-      const formula = card?.querySelector('[data-anchor-kind="formula"][data-anchor-ids]');
-      if (formula === null || formula === undefined) return false;
-      return (formula.getAttribute('data-anchor-ids') ?? '').split(',').includes(expected);
-    },
-    { blockId, anchorId },
-    { timeout: 10000 },
-  );
+  page = await ui.launch(overrides);
 }
 
 describe('NoteForest M3c1 whole-formula anchors', () => {
@@ -85,28 +39,17 @@ describe('NoteForest M3c1 whole-formula anchors', () => {
     const env = isolated('formula-anchor');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
-    const seeded = await structure();
-    const chapterId = seeded.chapters[0].id;
     const parentId = 'm3c1-formula-parent';
     const latex = 'E = mc^2';
-    await applyCommand({
-      type: 'block.create',
-      blockId: parentId,
-      content: {
-        type: 'doc',
-        children: [
-          { type: 'paragraph', children: [{ type: 'text', text: 'Formula source' }] },
-          { type: 'mathBlock', attrs: { latex } },
-        ],
-      },
-      placement: { kind: 'top-level', chapterId },
+    await addTopLevelBlock(ui, parentId, {
+      type: 'doc',
+      children: [
+        { type: 'paragraph', children: [{ type: 'text', text: 'Formula source' }] },
+        { type: 'mathBlock', attrs: { latex } },
+      ],
     });
-    await page.waitForSelector(`[data-block-card="${parentId}"]`);
     await h.waitLayout({ blocks: 8, arrows: 3 });
     const before = await structure();
 
@@ -167,7 +110,7 @@ describe('NoteForest M3c1 whole-formula anchors', () => {
       latex,
     );
     assert.equal(await quoteChip.getAttribute('data-anchor-state'), 'resolved');
-    await waitForCalloutOffset(parentId, 1);
+    await waitForCallouts(parentId, 1, { polling: 100 });
 
     // The child is focused and editable immediately after the branch.
     await page.waitForFunction(

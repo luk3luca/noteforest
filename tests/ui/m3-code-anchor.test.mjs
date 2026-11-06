@@ -1,40 +1,22 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import { addTopLevelBlock } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3c3a-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const { isolated, structure, seedDemo } = ui;
 let page;
 
 const CODE_TEXT =
   "values = eigvals(A) + eigvals(B)  # stable eigenvalues of the symmetric matrix\nprint('done')";
 const FIRST_LINE = CODE_TEXT.split('\n')[0];
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
+  page = await ui.launch(overrides);
 }
 
 function codePre(parentId) {
@@ -128,31 +110,20 @@ describe('NoteForest M3c3a code range anchors', () => {
     const env = isolated('code-anchor');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
-    const seeded = await structure();
-    const chapterId = seeded.chapters[0].id;
     const parentId = 'm3c3a-code-parent';
-    await applyCommand({
-      type: 'block.create',
-      blockId: parentId,
-      content: {
-        type: 'doc',
-        children: [
-          { type: 'paragraph', children: [{ type: 'text', text: 'Code range source' }] },
-          {
-            type: 'codeBlock',
-            attrs: { language: 'python' },
-            children: [{ type: 'text', text: CODE_TEXT }],
-          },
-        ],
-      },
-      placement: { kind: 'top-level', chapterId },
+    await addTopLevelBlock(ui, parentId, {
+      type: 'doc',
+      children: [
+        { type: 'paragraph', children: [{ type: 'text', text: 'Code range source' }] },
+        {
+          type: 'codeBlock',
+          attrs: { language: 'python' },
+          children: [{ type: 'text', text: CODE_TEXT }],
+        },
+      ],
     });
-    await page.waitForSelector(`[data-block-card="${parentId}"]`);
     await h.waitLayout({ blocks: 8, arrows: 3 });
     const before = await structure();
 
