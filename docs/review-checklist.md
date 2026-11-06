@@ -7,9 +7,9 @@
 
 **Current gate:** M2f is accepted; the M3 Sentinel re-review is **accept with minor**
 (`docs/reviews/m3h-review.md`). All four M3 request-changes S2 findings are closed for their
-specified paths; the keyboard leaf-delete disclosure (S3-8) is an open product decision. S3-3 token
-single-source is explicitly planned as **M3h4**; AC-21/image AC-57 are deferred to M3c3b. The
-product-owner VoiceOver/visual gate remains. M4/PDF remain blocked until M3 is accepted. Spec
+specified paths; S3-8 leaf-delete disclosure and S3-3 token single-source are closed by M3h4/M3h5.
+AC-21/image AC-57 are deferred to M3c3b; S3-5/S3-6/S3-7 are tracked follow-ups. The product-owner
+VoiceOver/visual gate remains. M4/PDF remain blocked until M3 is accepted. Spec
 v0.4.5 is the source of truth.
 
 ---

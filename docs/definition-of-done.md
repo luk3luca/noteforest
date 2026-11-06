@@ -12,12 +12,12 @@
 The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002); the External Agent API defaults are
 decided (ADR-0003). The spec v0.4.5 is approved and the M3 design delta is merged (UX v1.4,
 ADR-0005). **Current gate:** the M3h Sentinel re-review is **accept with minor**
-(`docs/reviews/m3h-review.md`); the product-owner VoiceOver/visual gate remains before M3
-acceptance. `npm run verify` (typecheck, unit, critical e2e, recovery, UI) is the task gate. M2f is
+(`docs/reviews/m3h-review.md`); M3h4/M3h5 are merged (S3-3/S3-8 closed) and the product-owner
+VoiceOver/visual gate remains before M3 acceptance. `npm run verify` (typecheck, unit, critical e2e, recovery, UI) is the task gate. M2f is
 accepted; its closure evidence is in `docs/reviews/m2f-phase5c-review.md`.
 Measured on 6 November 2026 during the M3h re-review, with the components run separately (the
-Orchestrator owns the combined run): typecheck pass, unit 505/2.2 s, critical e2e 21/45.6 s suite,
-recovery 14/18.3 s, UI 33/33 across 12 files (~50 s of test bodies). The M2f cold-cache e2e note
+Orchestrator owns the combined run): typecheck pass, unit 519/2.0 s, critical e2e 21/45.6 s suite,
+recovery 14, UI 36 across 13 files. The M2f cold-cache e2e note
 (62.8 s vs the 60 s budget, warm 52.2–53.4 s) remains historical. M4/PDF remain blocked until M3 is
 accepted. Until a milestone is approved, this document governs **documents and the approved
 implementation**, not general application code. A docs task is done when:

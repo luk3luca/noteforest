@@ -35,7 +35,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
 | **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Accepted; collapsed-port fix merged** |
-| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | **Sentinel accept with minor — M3h4/M3h5 in progress, VoiceOver pending** |
+| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | **Sentinel accept with minor — M3h4/M3h5 merged; VoiceOver pending** |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
 | **M6** | Library, search, polish | Search, light theme, accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
@@ -292,14 +292,16 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
     Report: `docs/reports/m3h3-live-health-idle-removal.md`.
   - **Re-review** — **accept with minor**; review: `docs/reviews/m3h-review.md`. Open S3-8
     leaf-keyboard-delete disclosure; S3-5/S3-6/S3-7 carried to M3h4/M3i or resolved by decision.
-  - **M3h4** (launched) — token single-source, canonical 88/28, CSS guard.
-    Brief: `docs/tasks/m3h4-token-single-source.md`.
-  - **M3h5** (launched) — leaf delete disclosure when external references exist.
-    Brief: `docs/tasks/m3h5-leaf-delete-disclosure.md`.
+  - **M3h4** — merged: token single-source, canonical 88/28, CSS guard; S3-3 closed.
+    Report: `docs/reports/m3h4-token-single-source.md`.
+  - **M3h5** — merged: leaf delete disclosure when external references exist; S3-8 closed.
+    Report: `docs/reports/m3h5-leaf-delete.md`.
+  - **Tracked follow-ups (not M3 gate):** S3-5 relink selection UX, S3-6 replay fallback,
+    S3-7 formula-term edit fixture; they go to M3i slice 5 / M4 fixture follow-up.
 - **M3h re-review (6 November 2026):** all S2-1–S2-4 and S3-1/S3-2 closed; no new S1/S2.
-  S3-8 approved: leaf keyboard delete with external references opens the disclosure; leaf without
-  references keeps the fast path. M3h4 token single-source and M3h5 leaf disclosure are launched.
-  M3 may proceed to the product-owner VoiceOver/visual gate after they land.
+  S3-8 closed: leaf keyboard delete with external references opens the disclosure; leaf without
+  references keeps the fast path. S3-3 closed by M3h4. S3-5/S3-6/S3-7 are tracked follow-ups, not
+  M3 gates. The product-owner VoiceOver/visual gate is next.
 - **Ratified M3 decisions (6 November 2026):** AC-21 and image rows of AC-57 deferred to M3c3b;
   image pipeline is a prerequisite for M4/PDF image acceptance. `editorPaddingBottom` 88 and
   `chapterGap` 28 are canonical. `callout.safeGap` 16 is a minimum (effective gap ≥24). Idle-anchor
