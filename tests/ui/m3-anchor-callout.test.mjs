@@ -171,6 +171,52 @@ async function waitForLaneWidth(parentId, minimum = 240) {
   );
 }
 
+async function runtimeHistory() {
+  return page.evaluate(() => {
+    const current = window.__noteforestTest.state();
+    const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+    if (runtime === undefined) return null;
+    return {
+      lastHistoryOperation: runtime.lastHistoryOperation,
+      canUndoText: runtime.canUndoText,
+      canRedoText: runtime.canRedoText,
+      canUndoStructural: runtime.canUndoStructural,
+      canRedoStructural: runtime.canRedoStructural,
+      blocks: runtime.blocks,
+    };
+  });
+}
+
+async function waitHistoryState(expected) {
+  await page.waitForFunction(
+    (conditions) => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      if (runtime === undefined) return false;
+      return Object.entries(conditions).every(([key, value]) => runtime[key] === value);
+    },
+    expected,
+    { timeout: 10000 },
+  );
+}
+
+async function trunkState(parentId) {
+  return page.evaluate((id) => {
+    const scope = document.querySelector('.nf-editor[data-active="true"]');
+    const read = (placement) => {
+      const trunk = scope?.querySelector(
+        `.nf-edge-trunk[data-parent-id="${id}"][data-trunk-placement="${placement}"]`,
+      );
+      return {
+        className: trunk?.getAttribute('class') ?? null,
+        active: trunk?.classList.contains('nf-edge-active') ?? false,
+        muted: trunk?.classList.contains('nf-edge-muted') ?? false,
+      };
+    };
+    return { right: read('right'), below: read('below') };
+  }, parentId);
+}
+
 /** Center a card in the scroll viewport so screenshots show its below stack. */
 async function centerOn(blockId, blocks = 11, arrows = 7) {
   await page.evaluate((id) => {
@@ -1009,6 +1055,160 @@ describe('NoteForest M3b2c below-stack routing', () => {
     assert.ok(
       active.firstClass.includes('nf-edge-muted'),
       'the first child edge is muted while the second is selected',
+    );
+  });
+
+  it('lights only the trunk for the selected child group', async () => {
+    await launch(isolated('active-groups'));
+    await h.setWindowSize(1440, 900);
+    const { parentId, firstCallout, shortDirect } = await buildFixture();
+
+    // Select an anchored callout: only the below trunk and the callout arm are
+    // on the active path; the unrelated right group stays muted.
+    await h.activeEditor().locator(`[data-block-card="${firstCallout}"] .nf-block-prose`).click();
+    await h.waitSelected(firstCallout);
+    await page.waitForFunction(
+      (id) => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const right = scope?.querySelector(
+          `.nf-edge-trunk[data-parent-id="${id}"][data-trunk-placement="right"]`,
+        );
+        const below = scope?.querySelector(
+          `.nf-edge-trunk[data-parent-id="${id}"][data-trunk-placement="below"]`,
+        );
+        return (
+          right !== null &&
+          below !== null &&
+          right.classList.contains('nf-edge-muted') &&
+          below.classList.contains('nf-edge-active')
+        );
+      },
+      parentId,
+      { timeout: 10000 },
+    );
+    const calloutTrunks = await trunkState(parentId);
+    assert.ok(calloutTrunks.below.active, 'the below trunk is active for a callout selection');
+    assert.equal(calloutTrunks.below.muted, false);
+    assert.ok(calloutTrunks.right.muted, 'the right trunk is muted for a callout selection');
+    assert.equal(calloutTrunks.right.active, false);
+
+    await mkdir(artifactsPath('m3h1'), { recursive: true });
+    await h.screenshot(artifactsPath('m3h1', 'selected-callout-trunks-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Select a direct child: only the right trunk and its arm are active; the
+    // below group and the callout arms stay muted.
+    await h.activeEditor().locator(`[data-block-card="${shortDirect}"] .nf-block-prose`).click();
+    await h.waitSelected(shortDirect);
+    await page.waitForFunction(
+      (id) => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const right = scope?.querySelector(
+          `.nf-edge-trunk[data-parent-id="${id}"][data-trunk-placement="right"]`,
+        );
+        const below = scope?.querySelector(
+          `.nf-edge-trunk[data-parent-id="${id}"][data-trunk-placement="below"]`,
+        );
+        return (
+          right !== null &&
+          below !== null &&
+          right.classList.contains('nf-edge-active') &&
+          below.classList.contains('nf-edge-muted')
+        );
+      },
+      parentId,
+      { timeout: 10000 },
+    );
+    const directTrunks = await trunkState(parentId);
+    assert.ok(directTrunks.right.active, 'the right trunk is active for a direct-child selection');
+    assert.equal(directTrunks.right.muted, false);
+    assert.ok(directTrunks.below.muted, 'the below trunk is muted for a direct-child selection');
+    assert.equal(directTrunks.below.active, false);
+  });
+
+  it('preserves the text undo stack when a resize flips a child below', async () => {
+    await launch(isolated('placement-undo'));
+    await h.setWindowSize(1440, 900);
+    const { parentId, shortDirect, longDirect } = await buildFixture();
+
+    // Type in the short child that stays right and in the long child that the
+    // resize moves below. Both text events must survive the projection rebuild.
+    await h.activeEditor().locator(`[data-block-card="${shortDirect}"] .nf-block-prose`).click();
+    await h.waitSelected(shortDirect);
+    await page.keyboard.press('End');
+    await page.keyboard.type('Z');
+    await h.waitEditorText('RZ');
+    await h.activeEditor().locator(`[data-block-card="${longDirect}"] .nf-block-prose`).click();
+    await h.waitSelected(longDirect);
+    await page.keyboard.press('Control+e');
+    await page.keyboard.type('Y');
+    await h.waitEditorText('full right column width.Y');
+    await h.waitSaved();
+    await waitHistoryState({
+      lastHistoryOperation: 'text',
+      canUndoText: true,
+      canUndoStructural: true,
+      blocks: 11,
+    });
+
+    // The long sibling no longer fits: it moves from the right group into the
+    // below stack. The placement change is view-only, so the text event must
+    // survive the rebuild.
+    await h.setWindowSize(960, 900);
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    await page.waitForFunction(
+      ({ id, child }) => {
+        const lane = document.querySelector(`[data-callout-lane="${id}"]`);
+        if (lane === null) return false;
+        const card = lane.querySelector(`[data-block-card="${child}"]`);
+        return card !== null && card.closest('.nf-callout-lane') === lane;
+      },
+      { id: parentId, child: longDirect },
+      { timeout: 10000 },
+    );
+    await waitHistoryState({
+      lastHistoryOperation: 'text',
+      canUndoText: true,
+      canUndoStructural: true,
+      blocks: 11,
+    });
+    assert.equal((await runtimeHistory()).blocks, 11, 'the placement flip keeps every block');
+
+    // First undo is the last text edit in the moved child, not the unrelated
+    // child creation.
+    await page.keyboard.press('Meta+z');
+    await h.waitEditorText('full right column width.Y', false);
+    await h.waitBlockCount(11);
+    await h.waitCanonicalBlockCount(11);
+    await waitHistoryState({
+      lastHistoryOperation: 'text',
+      canUndoText: true,
+      canUndoStructural: true,
+      blocks: 11,
+    });
+
+    // The second undo is the earlier text edit in the child that stayed right.
+    await page.keyboard.press('Meta+z');
+    await h.waitEditorText('RZ', false);
+    await h.waitBlockCount(11);
+    await h.waitCanonicalBlockCount(11);
+    await waitHistoryState({
+      lastHistoryOperation: 'text',
+      canUndoText: false,
+      canUndoStructural: true,
+      blocks: 11,
+    });
+
+    // The next undo still reaches the previous structural command and removes
+    // the long direct child that the placement projection moved below.
+    await page.keyboard.press('Meta+z');
+    await h.waitBlockCount(10);
+    await h.waitCanonicalBlockCount(10);
+    assert.ok(
+      !(await h.parity()).canonicalIds.includes(longDirect),
+      'the structural undo removes the previously created long child',
     );
   });
 
