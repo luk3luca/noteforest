@@ -11,6 +11,7 @@
 import type { Editor } from '@tiptap/core';
 import type {
   AnchorBinding,
+  AnchorRepairCommand,
   ContentNode,
   Document,
   DocumentCommand,
@@ -1014,12 +1015,17 @@ export class DocumentRuntime {
   }
 
   /**
-   * Relink a broken text/formula/code anchor from the editor's current
-   * selection. The anchor and branch stay; only the selector and binding move.
-   * Text selectors are derived from canonical content after the pending edit is
-   * committed, so the quoted text and the binding describe the same revision.
+   * Resolve the editor's current selection into the exact `anchor.repair`
+   * command without applying it. The sheet previews this command; Confirm
+   * applies it through `repairAnchor`, so the core remains the validation
+   * authority and the action stays one undo entry.
    */
-  async repairAnchorFromSelection(anchorId: string): Promise<ApplyOutcome> {
+  async prepareRepairFromSelection(
+    anchorId: string,
+  ): Promise<
+    | { ok: true; command: AnchorRepairCommand }
+    | { ok: false; message: string }
+  > {
     return this.queue.run(async () => {
       if (!this.editable) {
         return { ok: false, message: 'This document is open read-only.' };
@@ -1074,20 +1080,13 @@ export class DocumentRuntime {
       } else {
         selector = selection.selector;
       }
-      const command: DocumentCommand = {
+      const command: AnchorRepairCommand = {
         type: 'anchor.repair',
         anchorId,
         selector,
         binding: selection.binding,
       };
-      const result = await window.noteforest.apply(this.packagePath, command);
-      if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not relink the anchor.' };
-      }
-      await this.acceptStructural(result.document, result.inverse, anchor.blockId);
-      this.reconcileEditor(anchor.blockId);
-      this.keptBroken.delete(anchorId);
-      return { ok: true, anchorId };
+      return { ok: true, command };
     });
   }
 

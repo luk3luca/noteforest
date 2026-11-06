@@ -7,6 +7,7 @@
  */
 
 import type {
+  AnchorBinding,
   AnchorCandidate,
   AnchorKind,
   AnchorResolution,
@@ -65,6 +66,33 @@ export interface AnchorCandidateView {
   candidate: AnchorCandidate;
   label: string;
   context: string;
+}
+
+/**
+ * One side of an `anchor.repair` before/after preview. `quote` is the stored or
+ * proposed source, `context` is the stored prefix/suffix window, and
+ * `descriptors` names the occurrence/offsets and binding shape.
+ */
+export interface AnchorRepairPreviewSide {
+  quote: string;
+  context: string;
+  descriptors: string[];
+}
+
+/**
+ * Read-only preview of one `anchor.repair`. The command is the exact payload
+ * that will be applied; the sheet never resolves or rewrites it locally.
+ */
+export interface AnchorRepairPreview {
+  anchorId: string;
+  blockId: string;
+  blockTitle: string;
+  chapterTitle: string;
+  kind: AnchorKind;
+  before: AnchorRepairPreviewSide;
+  after: AnchorRepairPreviewSide;
+  branches: AnchorHealthBranch[];
+  command: AnchorRepairCommand;
 }
 
 const REASON_LABELS: Partial<Record<AnchorResolutionReason, string>> = {
@@ -387,4 +415,115 @@ export function repairCommandForCandidate(
   }
 
   return null;
+}
+
+function numericSelectorField(selector: JsonObject, key: string): number | undefined {
+  const value = selector[key];
+  return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
+}
+
+function selectorDescriptors(kind: AnchorKind, selector: JsonObject): string[] {
+  const occurrence = numericSelectorField(selector, 'occurrenceHint');
+  if (kind === 'formula') {
+    if (selector['form'] === 'term') {
+      const descriptors = [
+        occurrence === undefined ? 'Formula term' : `Formula term · occurrence ${occurrence}`,
+      ];
+      const latexStart = numericSelectorField(selector, 'latexStart');
+      if (latexStart !== undefined) descriptors.push(`LaTeX offset ${latexStart}`);
+      return descriptors;
+    }
+    return ['Whole formula'];
+  }
+  if (kind === 'code') {
+    const descriptors: string[] = [];
+    const lineStart = numericSelectorField(selector, 'lineStart');
+    const lineEnd = numericSelectorField(selector, 'lineEnd');
+    if (lineStart !== undefined && lineEnd !== undefined) {
+      descriptors.push(
+        lineStart === lineEnd ? `Code line ${lineStart}` : `Code lines ${lineStart}–${lineEnd}`,
+      );
+    } else {
+      descriptors.push('Code range');
+    }
+    const start = numericSelectorField(selector, 'startOffset');
+    const end = numericSelectorField(selector, 'endOffset');
+    if (start !== undefined && end !== undefined) descriptors.push(`Offsets ${start}–${end}`);
+    if (occurrence !== undefined) descriptors.push(`Occurrence ${occurrence}`);
+    return descriptors;
+  }
+  return [occurrence === undefined ? 'Text quote' : `Text quote · occurrence ${occurrence}`];
+}
+
+function bindingDescriptor(binding: AnchorBinding): string {
+  switch (binding.kind) {
+    case 'text': {
+      const ranges = binding.ranges
+        .map((range) => `${range.start}–${range.end}`)
+        .join(', ');
+      return `Text binding · ${ranges.length === 0 ? 'no range' : ranges}`;
+    }
+    case 'formula':
+      return binding.form === 'whole'
+        ? 'Whole-formula binding'
+        : `Term binding · occurrence ${binding.occurrence}`;
+    case 'code':
+      return `Code binding · offsets ${binding.startOffset}–${binding.endOffset}`;
+    case 'image':
+      return 'Image region binding';
+  }
+}
+
+function repairSide(
+  anchor: Document['anchors'][string],
+  selector: JsonObject,
+  binding?: AnchorBinding,
+): AnchorRepairPreviewSide {
+  const storedQuote =
+    typeof anchor.quote === 'string' && anchor.quote.length > 0 ? anchor.quote : '';
+  const quote =
+    anchor.kind === 'formula'
+      ? nonEmptyString(selectorString(selector, 'latex')) ?? storedQuote
+      : nonEmptyString(selectorString(selector, 'quote')) ?? storedQuote;
+  const prefix =
+    anchor.kind === 'formula'
+      ? selectorString(selector, 'latexPrefix')
+      : selectorString(selector, 'prefix');
+  const suffix =
+    anchor.kind === 'formula'
+      ? selectorString(selector, 'latexSuffix')
+      : selectorString(selector, 'suffix');
+  const descriptors = selectorDescriptors(anchor.kind, selector);
+  if (binding !== undefined) descriptors.push(bindingDescriptor(binding));
+  return {
+    quote: quote.length === 0 ? 'anchor' : quote,
+    context: anchorContextLine(prefix, quote, suffix),
+    descriptors,
+  };
+}
+
+/**
+ * Project one validated `anchor.repair` command into a before/after preview.
+ * The anchor and branch IDs are read from the canonical document; the command
+ * itself is returned unchanged so Confirm applies exactly what was previewed.
+ */
+export function anchorRepairPreview(
+  document: Document,
+  anchorId: string,
+  command: AnchorRepairCommand,
+): AnchorRepairPreview | null {
+  if (command.anchorId !== anchorId) return null;
+  const anchor = document.anchors[anchorId];
+  if (anchor === undefined || !isKnownAnchorKind(anchor.kind)) return null;
+  return {
+    anchorId,
+    blockId: anchor.blockId,
+    blockTitle: healthBlockTitle(document, anchor.blockId, anchor.kind),
+    chapterTitle: chapterTitleOf(document, anchor.blockId),
+    kind: anchor.kind,
+    before: repairSide(anchor, anchor.selector),
+    after: repairSide(anchor, command.selector, command.binding),
+    branches: branchList(document, anchorId),
+    command,
+  };
 }

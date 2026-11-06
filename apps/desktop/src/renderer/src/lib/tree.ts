@@ -10,6 +10,7 @@
 import type {
   AnchorState,
   Branch,
+  BranchRole,
   ContentBlock,
   ContentNode,
   Document,
@@ -73,6 +74,86 @@ export function incomingReferenceBranches(document: Document, blockId: string): 
         document.blocks[branch.source.blockId] !== undefined,
     ),
   );
+}
+
+export interface ExternalReferenceParent {
+  branchId: string;
+  sourceBlockId: string;
+  sourceTitle: string;
+  chapterId: string | null;
+  chapterTitle: string;
+  role: BranchRole;
+  targetBlockId: string;
+  targetTitle: string;
+  anchorId?: string;
+  label?: string;
+}
+
+function chapterTitleOfBlock(document: Document, blockId: string): {
+  chapterId: string | null;
+  chapterTitle: string;
+} {
+  const chapterId = chapterIdForBlock(document, blockId);
+  if (chapterId === null) return { chapterId: null, chapterTitle: 'No chapter' };
+  const chapter = document.chapters.find((candidate) => candidate.id === chapterId);
+  return {
+    chapterId,
+    chapterTitle: chapter?.title?.trim() || 'Untitled chapter',
+  };
+}
+
+/**
+ * Reference edges whose source stays outside the deletion but whose target is
+ * the deleted block (promote) or any block in its primary subtree
+ * (delete-subtree). Primary edges and references sourced inside the deletion
+ * are intentionally excluded: the confirmation lists external parents only.
+ */
+export function externalReferenceParents(
+  document: Document,
+  blockId: string,
+  mode: 'promote' | 'delete-subtree',
+): ExternalReferenceParent[] {
+  const deleted = new Set(mode === 'delete-subtree' ? subtreeIds(document, blockId) : [blockId]);
+  return Object.values(document.branches)
+    .filter(
+      (branch) =>
+        branch.role === 'reference' &&
+        deleted.has(branch.targetBlockId) &&
+        !deleted.has(branch.source.blockId) &&
+        document.blocks[branch.source.blockId] !== undefined,
+    )
+    .sort((left, right) => {
+      const leftChapter = chapterTitleOfBlock(document, left.source.blockId).chapterTitle;
+      const rightChapter = chapterTitleOfBlock(document, right.source.blockId).chapterTitle;
+      const chapter = leftChapter < rightChapter ? -1 : leftChapter > rightChapter ? 1 : 0;
+      if (chapter !== 0) return chapter;
+      const leftSource = blockTitle(document.blocks[left.source.blockId]);
+      const rightSource = blockTitle(document.blocks[right.source.blockId]);
+      const source = leftSource < rightSource ? -1 : leftSource > rightSource ? 1 : 0;
+      if (source !== 0) return source;
+      const leftTarget = blockTitle(document.blocks[left.targetBlockId]);
+      const rightTarget = blockTitle(document.blocks[right.targetBlockId]);
+      const target = leftTarget < rightTarget ? -1 : leftTarget > rightTarget ? 1 : 0;
+      if (target !== 0) return target;
+      const order = left.order < right.order ? -1 : left.order > right.order ? 1 : 0;
+      if (order !== 0) return order;
+      return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+    })
+    .map((branch) => {
+      const chapter = chapterTitleOfBlock(document, branch.source.blockId);
+      return {
+        branchId: branch.id,
+        sourceBlockId: branch.source.blockId,
+        sourceTitle: blockTitle(document.blocks[branch.source.blockId]),
+        chapterId: chapter.chapterId,
+        chapterTitle: chapter.chapterTitle,
+        role: branch.role,
+        targetBlockId: branch.targetBlockId,
+        targetTitle: blockTitle(document.blocks[branch.targetBlockId]),
+        ...(branch.source.anchorId === undefined ? {} : { anchorId: branch.source.anchorId }),
+        ...(branch.label === undefined ? {} : { label: branch.label }),
+      };
+    });
 }
 
 export interface ReferenceEdgePair {

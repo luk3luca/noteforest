@@ -826,4 +826,149 @@ describe('NoteForest M3d1 reference edges', () => {
     await page.keyboard.press('Meta+s');
     await h.waitSaved();
   });
+
+  it('lists external references in the delete confirmation and mutates only on confirm', async () => {
+    const env = isolated('delete-references');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+
+    const seeded = await structure();
+    const chapterId = seeded.chapters[0].id;
+    const chapterTitle = seeded.chapters[0].title ?? 'Untitled chapter';
+    const parentId = 'm3h2-delete-parent';
+    const childId = 'm3h2-delete-child';
+    const sourceOneId = 'm3h2-delete-source-one';
+    const sourceTwoId = 'm3h2-delete-source-two';
+    const text = (value) => ({
+      type: 'doc',
+      children: [{ type: 'paragraph', children: [{ type: 'text', text: value }] }],
+    });
+
+    await applyCommand({
+      type: 'block.create',
+      blockId: parentId,
+      content: text('Delete parent'),
+      placement: { kind: 'top-level', chapterId },
+    });
+    await applyCommand({
+      type: 'block.create',
+      blockId: childId,
+      content: text('Delete child'),
+      placement: { kind: 'child', parentBlockId: parentId },
+    });
+    await applyCommand({
+      type: 'block.create',
+      blockId: sourceOneId,
+      content: text('External source one'),
+      placement: { kind: 'top-level', chapterId },
+    });
+    await applyCommand({
+      type: 'block.create',
+      blockId: sourceTwoId,
+      content: text('External source two'),
+      placement: { kind: 'top-level', chapterId },
+    });
+    for (const id of [parentId, childId, sourceOneId, sourceTwoId]) {
+      await page.waitForSelector(`[data-block-card="${id}"]`);
+    }
+    await h.waitLayout({ blocks: 11, arrows: 4 });
+
+    await linkReference(sourceOneId, childId);
+    await waitForReferenceFrom(sourceOneId, childId);
+    await linkReference(sourceTwoId, parentId);
+    await waitForReferenceFrom(sourceTwoId, parentId);
+
+    const beforeDelete = await structure();
+    const childReference = referenceBranchFrom(beforeDelete, sourceOneId, childId);
+    const parentReference = referenceBranchFrom(beforeDelete, sourceTwoId, parentId);
+    assert.ok(childReference !== undefined && parentReference !== undefined);
+    const childReferenceId = childReference.id;
+    const parentReferenceId = parentReference.id;
+
+    const openDeleteDialog = async () => {
+      await openBlockMenu(parentId);
+      await chooseMenuItem(/Delete block/);
+      await page.getByRole('dialog', { name: 'Delete block' }).waitFor();
+      await page.locator('[data-delete-references="true"]').waitFor();
+    };
+
+    await openDeleteDialog();
+    assert.equal(
+      await page.locator('[data-delete-reference]').count(),
+      1,
+      'promote mode lists only references to the block being deleted',
+    );
+    const parentRow = page.locator(`[data-delete-reference="${parentReferenceId}"]`);
+    await parentRow.waitFor();
+    assert.equal(await parentRow.getAttribute('data-delete-reference-source'), sourceTwoId);
+    assert.equal(await parentRow.getAttribute('data-delete-reference-target'), parentId);
+    assert.equal(await parentRow.getAttribute('data-delete-reference-role'), 'reference');
+    assert.equal(
+      await page.locator(`[data-delete-reference="${childReferenceId}"]`).count(),
+      0,
+      'a reference to a promoted descendant survives and is not listed',
+    );
+    const parentRowText = (await parentRow.textContent()) ?? '';
+    assert.ok(parentRowText.includes('External source two'));
+    assert.ok(parentRowText.includes(chapterTitle));
+    assert.match(parentRowText, /Reference/);
+    assert.ok(parentRowText.includes('Delete parent'));
+    assert.deepEqual(await structure(), beforeDelete, 'opening the dialog mutates nothing');
+
+    await mkdir(artifactsPath('m3h2'), { recursive: true });
+    await h.screenshot(artifactsPath('m3h2', 'delete-reference-disclosure-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Delete block' }).waitFor({ state: 'detached' });
+    assert.deepEqual(await structure(), beforeDelete, 'delete cancel mutates nothing');
+
+    // Subtree mode also lists incoming references to descendants that will be
+    // deleted, but never references sourced inside the subtree.
+    await openDeleteDialog();
+    await page.getByRole('radio', { name: /Delete the whole subtree/ }).check();
+    assert.equal(await page.locator('[data-delete-reference]').count(), 2);
+    await page.locator(`[data-delete-reference="${childReferenceId}"]`).waitFor();
+    assert.equal(
+      await page.locator(`[data-delete-reference="${parentReferenceId}"]`).count(),
+      1,
+    );
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Delete block' }).waitFor({ state: 'detached' });
+    assert.deepEqual(await structure(), beforeDelete, 'subtree cancel mutates nothing');
+
+    // Confirm still uses the existing core delete: the external edge to the
+    // deleted block disappears with it, while the promoted child and the edge
+    // to that child stay. One undo restores the exact graph.
+    await openDeleteDialog();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Delete block' }).waitFor({ state: 'detached' });
+    await h.waitCanonicalBlockCount(10);
+    const afterDelete = await structure();
+    assert.equal(afterDelete.blocks[parentId], undefined);
+    assert.ok(afterDelete.blocks[childId] !== undefined, 'the promoted child stays');
+    assert.ok(afterDelete.blocks[sourceOneId] !== undefined, 'reference source one stays');
+    assert.ok(afterDelete.blocks[sourceTwoId] !== undefined, 'reference source two stays');
+    assert.equal(afterDelete.branches[parentReferenceId], undefined);
+    assert.deepEqual(afterDelete.branches[childReferenceId], beforeDelete.branches[childReferenceId]);
+
+    await page.keyboard.press('Meta+z');
+    await page.waitForFunction(
+      (branchId) => {
+        const current = window.__noteforestTest.structure();
+        return current?.branches?.[branchId] !== undefined;
+      },
+      parentReferenceId,
+      { timeout: 10000 },
+    );
+    assert.deepEqual(await structure(), beforeDelete, 'undo restores the exact graph');
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+  });
 });

@@ -20,7 +20,7 @@ import {
   report,
   undoActive,
 } from '../actions';
-import { anchorQuote, blockTitle, chapterIdOf, subtreeIds } from '../lib/tree';
+import { anchorQuote, blockTitle, chapterIdOf, externalReferenceParents, subtreeIds } from '../lib/tree';
 import {
   formulaNodeAt,
   formulaTermBinding,
@@ -34,12 +34,14 @@ import {
   anchorCandidateViews,
   anchorContextLine,
   anchorHealthReason,
+  anchorRepairPreview,
   buildAnchorHealthRows,
   filterAnchorHealthRows,
   repairCommandForCandidate,
   summarizeAnchorHealth,
   type AnchorHealthFilter,
   type AnchorHealthRow,
+  type AnchorRepairPreview,
 } from '../lib/anchor-health';
 import type { BackupCandidateView } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
@@ -524,6 +526,11 @@ type HealthConfirm =
   | { kind: 'delete-branch'; branchId: string; targetTitle: string }
   | { kind: 'delete-anchor'; mode: 'attach' | 'delete' };
 
+interface HealthRepairPreviewState {
+  preview: AnchorRepairPreview;
+  origin: 'candidate' | 'selection';
+}
+
 const HEALTH_KIND_LABEL: Record<string, string> = {
   text: 'Text',
   formula: 'Formula',
@@ -555,6 +562,7 @@ function AnchorHealthDialog({
     initialAnchorId ?? null,
   );
   const [confirm, setConfirm] = useState<HealthConfirm | null>(null);
+  const [preview, setPreview] = useState<HealthRepairPreviewState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -606,9 +614,47 @@ function AnchorHealthDialog({
       setError('That candidate cannot be applied with the current selector.');
       return;
     }
+    const next = anchorRepairPreview(runtime.document, selected.anchorId, command);
+    if (next === null) {
+      setError('That candidate cannot be previewed.');
+      return;
+    }
+    setConfirm(null);
+    setError(null);
+    setPreview({ preview: next, origin: 'candidate' });
+  };
+
+  const previewRelink = async (): Promise<void> => {
+    if (selected === null) return;
+    setBusy(true);
+    setError(null);
+    const prepared = await runtime.prepareRepairFromSelection(selected.anchorId);
+    setBusy(false);
+    if (!prepared.ok) {
+      setError(prepared.message);
+      return;
+    }
+    const next = anchorRepairPreview(
+      runtime.document,
+      selected.anchorId,
+      prepared.command,
+    );
+    if (next === null) {
+      setError('The current selection cannot be previewed.');
+      return;
+    }
+    setConfirm(null);
+    setPreview({ preview: next, origin: 'selection' });
+  };
+
+  const confirmRepair = (): void => {
+    if (preview === null) return;
+    const { command } = preview.preview;
     void perform(
       runtime.repairAnchor(command.anchorId, command.selector, command.binding),
-      'Anchor candidate applied.',
+      preview.origin === 'candidate'
+        ? 'Anchor candidate applied.'
+        : 'Anchor relinked from the selection.',
     );
   };
 
@@ -699,6 +745,7 @@ function AnchorHealthDialog({
                       onClick={() => {
                         setSelectedAnchorId(row.anchorId);
                         setConfirm(null);
+                        setPreview(null);
                         setError(null);
                       }}
                     >
@@ -717,6 +764,7 @@ function AnchorHealthDialog({
               onClick={() => {
                 setSelectedAnchorId(null);
                 setConfirm(null);
+                setPreview(null);
                 setError(null);
               }}
             >
@@ -744,6 +792,125 @@ function AnchorHealthDialog({
               {anchorHealthReason(selected.reason)}
             </p>
 
+            {preview === null ? null : (
+              <section
+                className="nf-health-preview"
+                data-health-preview="true"
+                data-health-preview-origin={preview.origin}
+                data-health-preview-anchor={preview.preview.anchorId}
+                aria-label="Repair preview"
+              >
+                <h3 className="nf-health-section-title">Confirm repair</h3>
+                <p className="nf-dialog-note">
+                  Confirm applies one undoable repair. Cancel or closing this sheet changes
+                  nothing; the anchor and branch IDs stay the same.
+                </p>
+                <div className="nf-health-preview-grid">
+                  <div className="nf-health-preview-side" data-health-preview-side="before">
+                    <span className="nf-health-preview-label">Before</span>
+                    <span className="nf-health-preview-quote">
+                      “{preview.preview.before.quote}”
+                    </span>
+                    <span className="nf-health-preview-context">
+                      {preview.preview.before.context}
+                    </span>
+                    {preview.preview.before.descriptors.map((descriptor) => (
+                      <span key={descriptor} className="nf-health-preview-descriptor">
+                        {descriptor}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="nf-health-preview-arrow" aria-hidden="true">
+                    →
+                  </span>
+                  <div className="nf-health-preview-side" data-health-preview-side="after">
+                    <span className="nf-health-preview-label">After</span>
+                    <span className="nf-health-preview-quote">
+                      “{preview.preview.after.quote}”
+                    </span>
+                    <span className="nf-health-preview-context">
+                      {preview.preview.after.context}
+                    </span>
+                    {preview.preview.after.descriptors.map((descriptor) => (
+                      <span key={descriptor} className="nf-health-preview-descriptor">
+                        {descriptor}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <dl className="nf-health-preview-meta">
+                  <div>
+                    <dt>Anchor</dt>
+                    <dd>{preview.preview.anchorId}</dd>
+                  </div>
+                  <div>
+                    <dt>Block</dt>
+                    <dd>
+                      {preview.preview.blockTitle} · {preview.preview.chapterTitle}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Branches</dt>
+                    <dd>
+                      {preview.preview.branches.length === 0
+                        ? 'No outgoing branches'
+                        : preview.preview.branches.map((branch) => (
+                            <span
+                              key={branch.id}
+                              className="nf-health-preview-branch"
+                              data-health-preview-branch={branch.id}
+                              data-health-preview-branch-role={branch.role}
+                            >
+                              {branch.role} → {branch.targetTitle} · {branch.id}
+                            </span>
+                          ))}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Targets</dt>
+                    <dd>
+                      {preview.preview.branches.length === 0
+                        ? 'No target blocks'
+                        : [
+                            ...new Map(
+                              preview.preview.branches.map((branch) => [
+                                branch.targetBlockId,
+                                branch,
+                              ]),
+                            ).values(),
+                          ].map((branch) => (
+                            <span
+                              key={branch.targetBlockId}
+                              className="nf-health-preview-target"
+                              data-health-preview-target={branch.targetBlockId}
+                            >
+                              {branch.targetTitle}
+                            </span>
+                          ))}
+                    </dd>
+                  </div>
+                </dl>
+                <div className="nf-dialog-inline-actions">
+                  <Button
+                    className="nf-button"
+                    data-health-preview-cancel="true"
+                    isDisabled={busy}
+                    onPress={() => setPreview(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="nf-button nf-button-primary"
+                    data-health-preview-confirm="true"
+                    isDisabled={busy}
+                    onPress={confirmRepair}
+                  >
+                    Confirm repair
+                  </Button>
+                </div>
+              </section>
+            )}
+
             <section className="nf-health-section">
               <h3 className="nf-health-section-title">Branches</h3>
               {selected.branchCount === 0 ? (
@@ -769,13 +936,14 @@ function AnchorHealthDialog({
                         className="nf-button nf-button-quiet nf-health-branch-delete"
                         data-health-action="delete-branch"
                         isDisabled={busy}
-                        onPress={() =>
+                        onPress={() => {
+                          setPreview(null);
                           setConfirm({
                             kind: 'delete-branch',
                             branchId: branch.id,
                             targetTitle: branch.targetTitle,
-                          })
-                        }
+                          });
+                        }}
                       >
                         Delete branch…
                       </Button>
@@ -806,9 +974,10 @@ function AnchorHealthDialog({
                   ))}
                 </div>
                 <p className="nf-dialog-note">
-                  Choosing a candidate keeps the anchor and branch IDs and is one undo entry.
-                  Repeated identical terms or code quotes remain ambiguous until the source
-                  itself is unique.
+                  Selecting a candidate shows a before/after preview. Nothing changes until
+                  Confirm; then the repair keeps the anchor and branch IDs and is one undo
+                  entry. Repeated identical terms or code quotes remain ambiguous until the
+                  source itself is unique.
                 </p>
               </section>
             ) : null}
@@ -818,12 +987,7 @@ function AnchorHealthDialog({
                 className="nf-button"
                 data-health-action="relink"
                 isDisabled={busy}
-                onPress={() =>
-                  void perform(
-                    runtime.repairAnchorFromSelection(selected.anchorId),
-                    'Anchor relinked from the selection.',
-                  )
-                }
+                onPress={() => void previewRelink()}
               >
                 Relink to current selection
               </Button>
@@ -831,7 +995,10 @@ function AnchorHealthDialog({
                 className="nf-button"
                 data-health-action="attach"
                 isDisabled={busy}
-                onPress={() => setConfirm({ kind: 'attach' })}
+                onPress={() => {
+                  setPreview(null);
+                  setConfirm({ kind: 'attach' });
+                }}
               >
                 Attach branches to block…
               </Button>
@@ -851,7 +1018,10 @@ function AnchorHealthDialog({
                 className="nf-button nf-button-danger"
                 data-health-action="delete-anchor"
                 isDisabled={busy}
-                onPress={() => setConfirm({ kind: 'delete-anchor', mode: 'attach' })}
+                onPress={() => {
+                  setPreview(null);
+                  setConfirm({ kind: 'delete-anchor', mode: 'attach' });
+                }}
               >
                 Delete anchor…
               </Button>
@@ -1213,6 +1383,10 @@ function DeleteBlockDialog({
   const [mode, setMode] = useState<'promote' | 'delete-subtree'>('promote');
   const title = blockTitle(runtime.document.blocks[blockId]);
   const children = subtreeIds(runtime.document, blockId).length - 1;
+  const references = useMemo(
+    () => externalReferenceParents(runtime.document, blockId, mode),
+    [runtime.document, runtime.version, blockId, mode],
+  );
 
   return (
     <Frame
@@ -1255,6 +1429,42 @@ function DeleteBlockDialog({
           <span>Delete the whole subtree</span>
         </label>
       </fieldset>
+      {references.length > 0 ? (
+        <section
+          className="nf-delete-references"
+          data-delete-references="true"
+          data-delete-reference-count={references.length}
+          aria-label="External references"
+        >
+          <h3 className="nf-delete-references-title">External references</h3>
+          <p className="nf-dialog-text">
+            {references.length === 1 ? 'This reference link points at' : 'These reference links point at'}{' '}
+            {mode === 'delete-subtree' ? 'this subtree' : 'this block'} and will be removed.
+            The source blocks and their content stay.
+          </p>
+          <ul className="nf-delete-reference-list">
+            {references.map((reference) => (
+              <li
+                key={reference.branchId}
+                className="nf-delete-reference"
+                data-delete-reference={reference.branchId}
+                data-delete-reference-source={reference.sourceBlockId}
+                data-delete-reference-chapter={reference.chapterId ?? ''}
+                data-delete-reference-role={reference.role}
+                data-delete-reference-target={reference.targetBlockId}
+              >
+                <span className="nf-delete-reference-source">{reference.sourceTitle}</span>
+                <span className="nf-delete-reference-meta">
+                  {reference.chapterTitle} ·{' '}
+                  {reference.role === 'reference' ? 'Reference' : 'Primary'}
+                  {reference.label === undefined ? '' : ` · ${reference.label}`}
+                </span>
+                <span className="nf-delete-reference-target">→ {reference.targetTitle}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </Frame>
   );
 }
