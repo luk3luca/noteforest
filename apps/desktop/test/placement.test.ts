@@ -4,7 +4,7 @@ import {
   contentBounds,
   fitZoom,
 } from '../src/renderer/src/lib/placement';
-import { GEOMETRY, calloutLaneWidth, rightGroupStart, type Rect } from '../src/renderer/src/lib/geometry';
+import { GEOMETRY, calloutLaneWidth, calloutSafeZoneWidth, rightGroupStart, type Rect } from '../src/renderer/src/lib/geometry';
 import { planDirectChildPlacement } from '../src/renderer/src/lib/child-placement';
 
 /** Editor viewport at a 1440 px window with the default 264 px sidebar. */
@@ -228,5 +228,56 @@ describe('direct-child right/below placement', () => {
       availableWidth: 700,
     });
     expect(plan.right).toEqual(['a', 'b']);
+  });
+
+  it('wraps every direct child when the callout safe zone is under 240 px', () => {
+    const narrow: Rect = { x: 0, y: 0, width: 160, height: 100 };
+    const laneWidth = calloutLaneWidth(narrow.width);
+    expect(laneWidth).toBe(240);
+    // Even on an infinitely wide row, the callout keeps the lane: no child
+    // column may sit beside it when only 214 px remain after the row indent.
+    const plan = planDirectChildPlacement({
+      parent: narrow,
+      children: [
+        { id: 'short', rect: { x: 256, y: 0, width: 144, height: 60 } },
+        { id: 'wide', rect: { x: 256, y: 80, width: 320, height: 60 } },
+      ],
+      availableWidth: 4000,
+      laneWidth,
+      calloutSafeWidth: calloutSafeZoneWidth(narrow, laneWidth),
+    });
+    expect(plan).toEqual({ right: [], below: ['short', 'wide'] });
+  });
+
+  it('wraps a lone direct child too when the safe zone wins over D23', () => {
+    const narrow: Rect = { x: 0, y: 0, width: 200, height: 100 };
+    const laneWidth = calloutLaneWidth(narrow.width);
+    const plan = planDirectChildPlacement({
+      parent: narrow,
+      children: [{ id: 'only', rect: { x: 216, y: 0, width: 144, height: 60 } }],
+      availableWidth: 4000,
+      laneWidth,
+      calloutSafeWidth: calloutSafeZoneWidth(narrow, laneWidth),
+    });
+    expect(plan).toEqual({ right: [], below: ['only'] });
+  });
+
+  it('keeps the normal right/below budget once the safe zone fits 240 px', () => {
+    const parent: Rect = { x: 0, y: 0, width: 300, height: 100 };
+    const laneWidth = calloutLaneWidth(parent.width);
+    expect(calloutSafeZoneWidth(parent, laneWidth)).toBe(274);
+    const plan = planDirectChildPlacement({
+      parent,
+      children: [
+        { id: 'fits', rect: { x: 316, y: 0, width: 200, height: 60 } },
+        { id: 'wraps', rect: { x: 316, y: 80, width: 400, height: 60 } },
+      ],
+      availableWidth: 700,
+      laneWidth,
+      calloutSafeWidth: calloutSafeZoneWidth(parent, laneWidth),
+    });
+    // available = 700 - 316 = 384; 200 fits, 400 does not.
+    expect(plan.right).toEqual(['fits']);
+    expect(plan.below).toEqual(['wraps']);
   });
 });

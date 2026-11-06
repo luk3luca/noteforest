@@ -1,11 +1,14 @@
 /**
- * Pure right/below placement for direct primary children (M3b2c).
+ * Pure right/below placement for direct primary children (M3b2c, M3g3).
  *
  * The editor allows horizontal scroll for a deep chain (D23/spec §7.10), so a
  * lone direct child keeps the M2 chain behaviour and stays right. When a parent
  * has two or more direct children, each child is placed right while its card
  * fits the available row; otherwise it joins the below stack. Callouts are
- * never placed by this helper: the adapter always puts them below.
+ * never placed by this helper: the adapter always puts them below. A callout
+ * safe zone narrower than the 240 px minimum overrides both rules (M3g3): every
+ * direct child wraps below after the callouts so no child column sits beside
+ * the callout.
  */
 
 import { DESIGN_TOKENS } from './design-tokens';
@@ -38,6 +41,13 @@ export interface DirectPlacementInput {
    * starts after the parent card.
    */
   laneWidth?: number;
+  /**
+   * Usable safe-zone width for the callout lane (M3g3). When it cannot fit the
+   * 240 px minimum, every direct child wraps below after the callouts: a right
+   * group would take the space the callout needs, so the safe zone wins over
+   * branch side-by-side placement (including the lone-chain rule).
+   */
+  calloutSafeWidth?: number;
   gap?: number;
   minChildWidth?: number;
   /** Keep a lone chain child right; the editor scrolls horizontally (D23). */
@@ -47,6 +57,12 @@ export interface DirectPlacementInput {
 export function planDirectChildPlacement(input: DirectPlacementInput): ChildPlacementPlan {
   const children = input.children;
   if (children.length === 0) return { right: [], below: [] };
+  if (
+    input.calloutSafeWidth !== undefined &&
+    input.calloutSafeWidth < DESIGN_TOKENS.calloutMinWidth - 0.5
+  ) {
+    return { right: [], below: children.map((child) => child.id) };
+  }
   if ((input.keepSingleChildRight ?? true) && children.length === 1) {
     return { right: [children[0]?.id ?? ''], below: [] };
   }

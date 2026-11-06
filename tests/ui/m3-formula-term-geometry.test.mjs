@@ -355,9 +355,21 @@ describe('NoteForest M3c2b formula term geometry', () => {
     assert.ok(zGeometry.rowLeft !== null && xAfterZ.rowLeft !== null);
     const rowShift = zGeometry.rowLeft - xAfterZ.rowLeft;
     const termShift = zGeometry.overlay.left - xAfterZ.overlay.left;
+    // Block math is centered and both terms sit beyond the 160 px anchor cap,
+    // so the two callouts now share the capped lane offset. The term rectangle
+    // still owns the highlight; only the row position is bounded (M3g3).
+    assert.ok(termShift > 30, 'the two term rectangles are still distinct');
     assert.ok(
-      Math.abs(rowShift - termShift) <= 2,
-      `callout rows follow the term rect (rows ${rowShift}, terms ${termShift})`,
+      Math.abs(rowShift) <= 2,
+      `far-right term callouts share the 160 px cap (rows ${rowShift}, terms ${termShift})`,
+    );
+    assert.ok(
+      zGeometry.rowLeft - zGeometry.card.left <= 160 + 2,
+      'the far-right term callout never starts farther than 160 px from the card left',
+    );
+    assert.ok(
+      xAfterZ.rowLeft - xAfterZ.card.left <= 160 + 2,
+      'the first far-right term callout is capped as well',
     );
 
     // Repeated term: no unique rendered match, so no term overlay. The formula

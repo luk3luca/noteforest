@@ -1,6 +1,6 @@
 # Design tokens — layout, spacing, edges, surfaces
 
-**Status:** Active (M3 review, 6 November 2026)  
+**Status:** Active (M3 review, M3g3 callout safe zone, 6 November 2026)  
 **Source of truth:** `apps/desktop/src/renderer/src/lib/design-tokens.ts`  
 **Related:** `docs/ux-shell.md`, `docs/design/m3-anchors-references.md` §6.2.1
 
@@ -20,22 +20,38 @@ Components and the router must read these tokens; do not add new hard-coded 12/1
 | `edgeRadius` | 2 px | Maximum corner rounding; corners are near-right angles, never wide arcs |
 | `calloutMinWidth` | 240 px | Minimum independent callout lane width |
 | `calloutMaxWidth` | 480 px | Maximum callout lane width; prevents unbounded push |
+| `callout.maxAnchorOffset` | 160 px | Maximum callout left offset from the parent card left |
+| `callout.safeGap` | 16 px | Minimum gap between the callout right edge and the direct-child group |
 | top-level block | 160–480 px | Content-driven min/max |
 | child block | 144–420 px | Content-driven min/max |
 
-## Callout lane and right group
+## Callout lane and safe zone
 
 ```text
 laneWidth = clamp(max(parent.width, callout natural width), 240, 480)
 rightGroupX = max(parent.right, lane.right) + siblingGap
-calloutLeft = clamp(anchorX + calloutGap, lane.left + rowIndent, lane.right - minCalloutWidth)
+calloutSafeRight = rightGroupX - callout.safeGap
+calloutLeft = clamp(anchorX + calloutGap, lane.left + rowIndent,
+                    min(parent.left + callout.maxAnchorOffset,
+                        calloutSafeRight - calloutMinWidth))
+calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 ```
 
 - The lane is a callout projection, not the parent width: a narrow parent can have a wider callout
   lane, up to 480 px.
 - The right group moves only by the lane's excess past the parent, never by the whole anchor length.
-- If the right group does not fit, it wraps below after the callouts, sharing the left trunk.
-- Callout block and trunk are indented together; no arrow-only offset.
+- The callout never starts farther than `callout.maxAnchorOffset` (160 px) from the parent left and
+  never ends closer than `callout.safeGap` (16 px) to the right-group trunk.
+- If `calloutSafeRight - (lane.left + rowIndent) < calloutMinWidth`, the safe zone cannot fit the
+  240 px minimum: direct children wrap below **after** the callouts, sharing the left trunk, instead
+  of sitting beside them. This applies even to a lone direct child; the wrap decision is derived from
+  lane width and parent width only, so it cannot oscillate between measure passes.
+- At the 240 px lane floor the usable width after the row indent is 214 px. The clamp falls back to
+  the row origin rather than returning a left edge before the shared indent; the wrap rule keeps the
+  child column out of that lane.
+- If the right group does not fit the viewport, it wraps below after the callouts, sharing the left
+  trunk.
+- Callout block and trunk are indented together; no arrow-only offset and no card overflow.
 
 ## Edges
 

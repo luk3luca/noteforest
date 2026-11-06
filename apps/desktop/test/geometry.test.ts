@@ -2,11 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   GEOMETRY,
   calloutLaneWidth,
+  calloutNeedsWrap,
+  calloutRightGroupX,
+  calloutSafeRight,
+  calloutSafeZoneWidth,
   classifyPlacement,
   distributePorts,
   fitsToRight,
   intersects,
   lanePush,
+  placeCallout,
   rightGroupStart,
   type Rect,
 } from '../src/renderer/src/lib/geometry';
@@ -59,6 +64,8 @@ describe('geometry', () => {
     expect(GEOMETRY.calloutGap).toBe(16);
     expect(GEOMETRY.calloutMinWidth).toBe(240);
     expect(GEOMETRY.calloutMaxWidth).toBe(480);
+    expect(GEOMETRY.callout.maxAnchorOffset).toBe(160);
+    expect(GEOMETRY.callout.safeGap).toBe(16);
     expect(GEOMETRY.edgeRadius).toBe(2);
   });
 
@@ -86,5 +93,68 @@ describe('geometry', () => {
     expect(rightGroupStart(narrow, 160)).toBe(260 + GEOMETRY.siblingGap);
     // No callout lane keeps the plain parent-relative rule.
     expect(rightGroupStart(narrow, undefined)).toBe(260 + GEOMETRY.siblingGap);
+  });
+});
+
+describe('callout safe zone (M3g3)', () => {
+  const wide: Rect = { x: 100, y: 100, width: 400, height: 120 };
+  const narrow: Rect = { x: 0, y: 0, width: 160, height: 100 };
+  const threshold: Rect = { x: 0, y: 0, width: 266, height: 100 };
+  const justUnder: Rect = { x: 0, y: 0, width: 265, height: 100 };
+
+  it('derives the right-group trunk and the callout safe right from the lane', () => {
+    expect(calloutRightGroupX(wide, 400)).toBe(500 + GEOMETRY.siblingGap);
+    expect(calloutSafeRight(wide, 400)).toBe(500);
+    expect(calloutSafeZoneWidth(wide, 400)).toBe(500 - (100 + GEOMETRY.rowIndent));
+    // A narrow parent's lane floor still derives the group from the lane right.
+    expect(calloutSafeRight(narrow, 240)).toBe(240);
+    expect(calloutSafeZoneWidth(narrow, 240)).toBe(214);
+  });
+
+  it('wraps direct children only when the safe zone cannot fit 240 px', () => {
+    // 266 px lane minus the 26 px row indent is exactly the callout minimum.
+    expect(calloutSafeZoneWidth(threshold, 266)).toBe(GEOMETRY.calloutMinWidth);
+    expect(calloutNeedsWrap(threshold, 266)).toBe(false);
+    expect(calloutSafeZoneWidth(justUnder, 265)).toBe(239);
+    expect(calloutNeedsWrap(justUnder, 265)).toBe(true);
+    expect(calloutNeedsWrap(narrow, 240)).toBe(true);
+    expect(calloutNeedsWrap(wide, 400)).toBe(false);
+  });
+
+  it('caps a far-right anchor at 160 px and stops 16 px before the group', () => {
+    const placement = placeCallout(wide, 400, 390);
+    expect(placement.clamped).toBe(true);
+    expect(placement.left - wide.x).toBe(GEOMETRY.callout.maxAnchorOffset);
+    expect(placement.left).toBe(260);
+    expect(placement.safeRight).toBe(500);
+    expect(placement.left + placement.width).toBe(placement.safeRight);
+    expect(
+      placement.left + placement.width,
+    ).toBe(calloutRightGroupX(wide, 400) - GEOMETRY.callout.safeGap);
+    expect(placement.width).toBe(GEOMETRY.calloutMinWidth);
+  });
+
+  it('keeps a mid-block anchor aligned while it fits inside the safe zone', () => {
+    const placement = placeCallout(wide, 400, 100);
+    expect(placement.clamped).toBe(false);
+    expect(placement.left).toBe(100 + 100 + GEOMETRY.calloutGap);
+    expect(placement.left + placement.width).toBeLessThanOrEqual(placement.safeRight);
+    expect(placement.width).toBeGreaterThanOrEqual(GEOMETRY.calloutMinWidth);
+  });
+
+  it('falls back to the shared row origin at the 240 px lane floor', () => {
+    const placement = placeCallout(narrow, 240, 140);
+    expect(placement.clamped).toBe(true);
+    expect(placement.left).toBe(GEOMETRY.rowIndent);
+    expect(placement.left + placement.width).toBe(240);
+    expect(placement.width).toBe(240 - GEOMETRY.rowIndent);
+  });
+
+  it('keeps a 240 px callout when the lane has exactly enough safe width', () => {
+    const placement = placeCallout(threshold, 266, 250);
+    expect(placement.clamped).toBe(true);
+    expect(placement.left).toBe(GEOMETRY.rowIndent);
+    expect(placement.left + placement.width).toBe(266);
+    expect(placement.width).toBe(GEOMETRY.calloutMinWidth);
   });
 });

@@ -122,6 +122,38 @@ async function waitForWrappedRow(parentId) {
   );
 }
 
+async function waitForBelowRowCount(parentId, count) {
+  await page.waitForFunction(
+    ({ id, expected }) => {
+      const lane = document.querySelector(`[data-callout-lane="${id}"]`);
+      if (lane === null) return false;
+      const rows = [...lane.querySelectorAll('.nf-block-node[data-below-row="true"]')].filter(
+        (row) => row.closest('.nf-callout-lane') === lane,
+      );
+      return rows.length === expected;
+    },
+    { id: parentId, expected: count },
+    { timeout: 10000 },
+  );
+}
+
+async function waitForRightGroupCount(parentId, count) {
+  await page.waitForFunction(
+    ({ id, expected }) => {
+      const group = [...document.querySelectorAll('.nf-branch-children')].find(
+        (candidate) => candidate.getAttribute('data-parent-id') === id,
+      );
+      if (group === null || group === undefined) return expected === 0;
+      const cards = [...group.querySelectorAll('[data-block-card]')].filter(
+        (card) => card.closest('.nf-branch-children') === group,
+      );
+      return cards.length === expected;
+    },
+    { id: parentId, expected: count },
+    { timeout: 10000 },
+  );
+}
+
 async function waitForLaneWidth(parentId, minimum = 240) {
   await page.waitForFunction(
     ({ id, min }) => {
@@ -425,6 +457,59 @@ async function narrowLaneFixture(name) {
   );
   await h.waitLayout({ blocks: 11, arrows: 7 });
   return { parentId, calloutId, shortDirect, longDirect };
+}
+
+/**
+ * M3g3 safe-zone fixture: a near-max-width top-level card whose last word is
+ * the anchor. The anchor is far right, so the callout must be capped at
+ * parent.left + 160 and stop 16 px before the direct group. The two long direct
+ * children fit right at 1440 and wrap below at 960.
+ */
+async function wideSafeZoneFixture(name) {
+  await launch(isolated(name));
+  await h.setWindowSize(1440, 900);
+  await page.evaluate(() => window.__noteforestTest.seed('demo'));
+  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+  await h.waitSaved();
+  await h.waitLayout({ blocks: 7, arrows: 3 });
+
+  const canonical = await structure();
+  const chapterId = canonical.chapters[0].id;
+  const parentId = 'm3g3-safe-parent';
+  await applyCommand({
+    type: 'block.create',
+    blockId: parentId,
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            {
+              type: 'text',
+              text: 'Safe zone probe reaches card maximum width omega',
+            },
+          ],
+        },
+      ],
+    },
+    placement: { kind: 'top-level', chapterId },
+  });
+  await page.waitForSelector(`[data-block-card="${parentId}"]`);
+  await h.waitLayout({ blocks: 8, arrows: 3 });
+
+  const calloutId = await createAnchoredChild(parentId, 'omega');
+  await waitForCallouts(parentId, 1);
+  await waitForLaneWidth(parentId, 300);
+
+  const firstDirect = 'm3g3-safe-direct-a';
+  const secondDirect = 'm3g3-safe-direct-b';
+  const longText =
+    'A deliberately long direct child whose card needs the full right column width.';
+  await createDirectChild(parentId, firstDirect, longText);
+  await createDirectChild(parentId, secondDirect, longText);
+  await h.waitLayout({ blocks: 11, arrows: 7 });
+  return { parentId, calloutId, firstDirect, secondDirect };
 }
 
 async function textAnchorFixture(name) {
@@ -800,7 +885,7 @@ describe('NoteForest M3b2c below-stack routing', () => {
     });
   });
 
-  it('clamps a far-right anchor to the card content left without overflow', async () => {
+  it('caps a far-right anchor at the safe zone without overflow', async () => {
     await launch(isolated('clamp'));
     await h.setWindowSize(1440, 900);
     await page.evaluate(() => window.__noteforestTest.seed('demo'));
@@ -873,14 +958,16 @@ describe('NoteForest M3b2c below-stack routing', () => {
     expectStem(edge.points, GEOMETRY_STEM_MIN);
   });
 
-  it('gives a narrow parent a bounded lane and indents rows with the trunk', async () => {
+  it('wraps direct children after the callout when the safe zone is under 240 px', async () => {
     const { parentId, calloutId, shortDirect, longDirect } = await narrowLaneFixture('lane');
     const parentCard = h.activeEditor().locator(`[data-block-card="${parentId}"]`);
     await parentCard.scrollIntoViewIfNeeded();
+    await waitForBelowRowCount(parentId, 2);
     await h.waitLayout({ blocks: 11, arrows: 7 });
     await waitForLaneWidth(parentId);
 
-    // --- 1440: 160 px parent, 240 px lane, both direct children right.
+    // --- 1440: 160 px parent, 240 px lane. The 214 px usable width cannot
+    // hold the 240 px callout minimum, so both direct children wrap below.
     const wide = await belowStackSnapshot(parentId, [calloutId, shortDirect, longDirect]);
     assert.ok(wide !== null);
     assert.ok(
@@ -901,68 +988,83 @@ describe('NoteForest M3b2c below-stack routing', () => {
     );
     assert.deepEqual(
       wide.rows.map((row) => `${row.kind}:${row.childId}`),
-      [`callout:${calloutId}`],
-      'only the callout is below at 1440',
+      [`callout:${calloutId}`, `direct:${shortDirect}`, `direct:${longDirect}`],
+      'the callout comes first, then both direct children in branch order',
     );
-    const wideRow = wide.rows[0];
-    if (wideRow === undefined || wideRow.card === null) throw new Error('missing callout row');
+    assert.deepEqual(wide.right, [], 'no direct child sits beside the callout at 1440');
+    const wideCallout = wide.rows[0];
+    if (wideCallout === undefined || wideCallout.card === null) {
+      throw new Error('missing callout row');
+    }
     assert.ok(
-      wideRow.card.left - wide.lane.left >= 26 - 0.5,
+      wideCallout.card.left - wide.parent.left <= 160 + 0.5,
+      'the callout never starts farther than 160 px from the parent left',
+    );
+    assert.ok(
+      wideCallout.card.left - wide.lane.left >= 26 - 0.5,
       'the callout card is indented with the trunk, not flush with the 160 px parent',
     );
-    assert.ok(
-      wideRow.card.right <= wide.lane.right + 0.5,
-      'the callout card never overflows the lane',
-    );
-    const wideRightGroup = Math.max(wide.parent.right, wide.lane.right) + 16;
-    assert.deepEqual(
-      wide.right.map((entry) => entry.childId).sort(),
-      [shortDirect, longDirect].sort(),
-      'both direct children fit right at 1440',
-    );
-    for (const entry of wide.right) {
+    for (const [index, row] of wide.rows.entries()) {
+      if (row.card === null) throw new Error(`missing row card ${index}`);
       assert.ok(
-        entry.card.left >= wideRightGroup - 1 && entry.card.left <= wideRightGroup + 1,
-        `direct child ${entry.childId} starts at max(parent.right, lane.right) + gap; ` +
-          `only the ${wide.lane.right - wide.parent.right} px lane excess pushes it`,
+        row.card.left - wide.lane.left >= 26 - 0.5,
+        `row ${index} is indented with the shared below trunk`,
       );
       assert.ok(
-        entry.card.right <= wide.contentWidth + 1,
-        `direct child ${entry.childId} stays inside the available canvas width`,
+        row.card.right <= wide.lane.right + 0.5,
+        `row ${index} stays inside the 240 px lane`,
       );
     }
     // The callout edge starts at the trunk inset inside the parent card and
     // reaches the indented row's left edge with a full stem.
     const wideCalloutEdge = wide.edges.find((edge) => edge.childId === calloutId);
     assert.ok(wideCalloutEdge !== undefined);
-    const wideEdgeStart = wideCalloutEdge.points[0];
-    if (wideEdgeStart === undefined) throw new Error('missing callout edge start');
     assert.ok(
-      Math.abs(wideEdgeStart.x - (wide.parent.left + 12)) <= 1,
+      Math.abs(wideCalloutEdge.points[0]?.x - (wide.parent.left + 12)) <= 1,
+      'the callout arm starts at the parent left + 12 px trunk inset',
+    );
+    const wideTrunk = wide.trunks.find(
+      (trunk) => trunk.kind === 'trunk' && trunk.placement === 'below',
+    );
+    assert.ok(wideTrunk !== undefined, 'one shared below trunk for all rows');
+    const wideTrunkStart = wideTrunk.points[0];
+    if (wideTrunkStart === undefined) throw new Error('missing trunk start');
+    assert.ok(
+      Math.abs(wideTrunkStart.x - (wide.parent.left + 12)) <= 1,
       'the below trunk starts at the parent left + 12 px inset',
     );
     assert.ok(
-      Math.abs(wideEdgeStart.y - wide.parent.bottom) <= 1,
+      Math.abs(wideTrunkStart.y - wide.parent.bottom) <= 1,
       'the below trunk starts on the parent bottom edge',
     );
-    expectStem(wideCalloutEdge.points, GEOMETRY_STEM_MIN);
-    assertNearRightAngles(wide.edges, 'narrow lane 1440');
+    assert.equal(
+      wide.trunks.filter((trunk) => trunk.kind === 'trunk' && trunk.placement === 'below')
+        .length,
+      1,
+      'one shared below trunk for the callout and both wrapped children',
+    );
+    for (const edge of wide.edges) {
+      assert.equal(edge.placement, 'below');
+      assert.equal(edge.arrow, 'right');
+      expectStem(edge.points, GEOMETRY_STEM_MIN);
+    }
+    assertNearRightAngles(wide.edges, 'narrow safe zone 1440');
     assertNoOverlap(
-      [wide.parent, ...wide.rows.map((row) => row.card), ...wide.right.map((entry) => entry.card)],
-      'narrow lane 1440 layout',
+      [wide.parent, ...wide.rows.map((row) => row.card)],
+      'narrow safe zone 1440 layout',
     );
 
     await parentCard.scrollIntoViewIfNeeded();
     await centerOn(parentId);
-    await mkdir(artifactsPath('m3g2'), { recursive: true });
-    await h.screenshot(artifactsPath('m3g2', 'narrow-lane-1440x900.png'), {
+    await mkdir(artifactsPath('m3g3'), { recursive: true });
+    await h.screenshot(artifactsPath('m3g3', 'narrow-safe-zone-1440x900.png'), {
       width: 1440,
       height: 900,
     });
 
-    // --- 960: the long direct child wraps after the callout, same lane/trunk.
+    // --- 960: the same wrap holds; no child column appears beside the lane.
     await h.setWindowSize(960, 900);
-    await waitForWrappedRow(parentId);
+    await waitForBelowRowCount(parentId, 2);
     await h.waitLayout({ blocks: 11, arrows: 7 });
     await parentCard.scrollIntoViewIfNeeded();
     await h.waitLayout({ blocks: 11, arrows: 7 });
@@ -974,24 +1076,20 @@ describe('NoteForest M3b2c below-stack routing', () => {
     );
     assert.deepEqual(
       narrow.rows.map((row) => `${row.kind}:${row.childId}`),
-      [`callout:${calloutId}`, `direct:${longDirect}`],
-      'the long direct child wraps after the callout at 960',
+      [`callout:${calloutId}`, `direct:${shortDirect}`, `direct:${longDirect}`],
+      'the same callout-first below stack holds at 960',
     );
-    assert.deepEqual(
-      narrow.right.map((entry) => entry.childId),
-      [shortDirect],
-      'the short direct child stays right at 960',
-    );
-    const narrowRightGroup = Math.max(narrow.parent.right, narrow.lane.right) + 16;
-    const narrowShort = narrow.right[0];
-    assert.ok(narrowShort !== undefined);
+    assert.deepEqual(narrow.right, [], 'no direct child sits beside the callout at 960');
+    const narrowCallout = narrow.rows[0];
+    if (narrowCallout === undefined || narrowCallout.card === null) {
+      throw new Error('missing callout row at 960');
+    }
     assert.ok(
-      narrowShort.card.left >= narrowRightGroup - 1 &&
-        narrowShort.card.left <= narrowRightGroup + 1,
-      'the short direct child sits at max(parent.right, lane.right) + gap at 960',
+      narrowCallout.card.left - narrow.parent.left <= 160 + 0.5,
+      'the callout offset cap holds at 960',
     );
     for (const [index, row] of narrow.rows.entries()) {
-      if (row.card === null) throw new Error('missing row card');
+      if (row.card === null) throw new Error(`missing row card at 960: ${index}`);
       assert.ok(
         row.card.left - narrow.lane.left >= 26 - 0.5,
         `row ${index} is indented with the shared below trunk at 960`,
@@ -1008,7 +1106,7 @@ describe('NoteForest M3b2c below-stack routing', () => {
     const belowTrunks = narrow.trunks.filter(
       (trunk) => trunk.kind === 'trunk' && trunk.placement === 'below',
     );
-    assert.equal(belowTrunks.length, 1, 'one shared below trunk for the callout and wrapped row');
+    assert.equal(belowTrunks.length, 1, 'one shared below trunk at 960');
     const trunk = belowTrunks[0];
     assert.ok(trunk !== undefined);
     const trunkStart = trunk.points[0];
@@ -1019,28 +1117,172 @@ describe('NoteForest M3b2c below-stack routing', () => {
       trunkStart.x < Math.min(...narrow.rows.map((row) => row.card.left)) - 11,
       'the trunk stays left of every indented row',
     );
-    assert.ok(
-      narrow.rows.every((row) => row.card.left - narrow.lane.left >= 26 - 0.5),
-      'callout and wrapped direct rows share the row indent',
-    );
     assert.equal(
       narrow.trunks.filter((trunkItem) => trunkItem.kind === 'bus').length,
       0,
       'no bottom bus',
     );
-    assertNearRightAngles(narrow.edges, 'narrow lane 960');
+    assertNearRightAngles(narrow.edges, 'narrow safe zone 960');
     assertNoOverlap(
-      [
-        narrow.parent,
-        ...narrow.rows.map((row) => row.card),
-        ...narrow.right.map((entry) => entry.card),
-      ],
-      'narrow lane 960 layout',
+      [narrow.parent, ...narrow.rows.map((row) => row.card)],
+      'narrow safe zone 960 layout',
     );
 
     await parentCard.scrollIntoViewIfNeeded();
     await centerOn(parentId);
-    await h.screenshot(artifactsPath('m3g2', 'narrow-lane-960x900.png'), {
+    await h.screenshot(artifactsPath('m3g3', 'narrow-safe-zone-960x900.png'), {
+      width: 960,
+      height: 900,
+    });
+  });
+
+  it('caps a far-right anchor at 160 px and keeps 16 px before the right group', async () => {
+    const { parentId, calloutId, firstDirect, secondDirect } =
+      await wideSafeZoneFixture('safe-zone');
+    const parentCard = h.activeEditor().locator(`[data-block-card="${parentId}"]`);
+    await parentCard.scrollIntoViewIfNeeded();
+    await waitForRightGroupCount(parentId, 2);
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+
+    // --- 1440: near-max-width parent, both long direct children right.
+    const wide = await belowStackSnapshot(parentId, [calloutId, firstDirect, secondDirect]);
+    assert.ok(wide !== null);
+    assert.ok(
+      wide.parent.width >= 300,
+      `the parent is wide enough for the right group (${wide.parent.width})`,
+    );
+    assert.deepEqual(
+      wide.rows.map((row) => `${row.kind}:${row.childId}`),
+      [`callout:${calloutId}`],
+      'only the callout is below at 1440',
+    );
+    assert.deepEqual(
+      wide.right.map((entry) => entry.childId).sort(),
+      [firstDirect, secondDirect].sort(),
+      'both direct children stay right at 1440',
+    );
+    const calloutRow = wide.rows[0];
+    if (calloutRow === undefined || calloutRow.card === null) {
+      throw new Error('missing callout row');
+    }
+    const anchorLeft = await page.evaluate((id) => {
+      const content = document.querySelector('.nf-editor[data-active="true"] .nf-canvas-content');
+      const contentRect = content.getBoundingClientRect();
+      const mark = [...content.querySelectorAll('[data-anchor-ids]')].find((candidate) =>
+        (candidate.dataset.anchorIds ?? '').split(',').includes(id),
+      );
+      return mark === undefined ? null : mark.getBoundingClientRect().left - contentRect.left;
+    }, calloutRow.anchorId);
+    assert.ok(anchorLeft !== null);
+    assert.ok(
+      anchorLeft > wide.parent.left + 160,
+      `the measured anchor is farther right than the 160 px cap (${anchorLeft})`,
+    );
+    assert.ok(
+      calloutRow.card.left - wide.parent.left <= 160 + 0.5,
+      `the callout left is capped at 160 px (${calloutRow.card.left - wide.parent.left})`,
+    );
+    const rightGroupLeft = Math.min(...wide.right.map((entry) => entry.card.left));
+    assert.ok(
+      calloutRow.card.right <= rightGroupLeft - 16 + 0.5,
+      `the callout right stops 16 px before the right group (${calloutRow.card.right} <= ${rightGroupLeft - 16})`,
+    );
+    assert.ok(
+      calloutRow.card.right <= wide.lane.right + 0.5,
+      'the callout never overflows the lane',
+    );
+    const clamped = await page.evaluate((id) => {
+      const rowElement = document.querySelector(
+        `[data-callout-lane="${id}"] .nf-block-node[data-callout-row="true"]`,
+      );
+      return rowElement?.dataset.calloutClamped ?? null;
+    }, parentId);
+    assert.equal(clamped, 'true', 'the far-right anchor uses the safe-zone clamp');
+    // The callout lane precedes the right group in DOM order.
+    const laneBeforeGroup = await page.evaluate((id) => {
+      const lane = document.querySelector(`[data-callout-lane="${id}"]`);
+      const group = [...document.querySelectorAll('.nf-branch-children')].find(
+        (candidate) => candidate.getAttribute('data-parent-id') === id,
+      );
+      if (lane === null || group === null || group === undefined) return false;
+      return (lane.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    }, parentId);
+    assert.equal(laneBeforeGroup, true, 'the callout lane comes before the right group');
+    const calloutEdge = wide.edges.find((edge) => edge.childId === calloutId);
+    assert.ok(calloutEdge !== undefined);
+    assert.equal(calloutEdge.placement, 'below');
+    assert.equal(calloutEdge.arrow, 'right');
+    expectStem(calloutEdge.points, GEOMETRY_STEM_MIN);
+    assertNoOverlap(
+      [
+        wide.parent,
+        calloutRow.card,
+        ...wide.right.map((entry) => entry.card),
+      ],
+      'safe zone 1440 layout',
+    );
+    assertNearRightAngles(wide.edges, 'safe zone 1440');
+
+    await parentCard.scrollIntoViewIfNeeded();
+    await centerOn(parentId);
+    await mkdir(artifactsPath('m3g3'), { recursive: true });
+    await h.screenshot(artifactsPath('m3g3', 'wide-safe-zone-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // --- 960: the long direct children no longer fit right; they wrap below
+    // after the callout and share its trunk.
+    await h.setWindowSize(960, 900);
+    await waitForBelowRowCount(parentId, 2);
+    await waitForRightGroupCount(parentId, 0);
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    await parentCard.scrollIntoViewIfNeeded();
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    const narrow = await belowStackSnapshot(parentId, [calloutId, firstDirect, secondDirect]);
+    assert.ok(narrow !== null);
+    assert.deepEqual(
+      narrow.rows.map((row) => `${row.kind}:${row.childId}`),
+      [`callout:${calloutId}`, `direct:${firstDirect}`, `direct:${secondDirect}`],
+      'the callout comes before both wrapped direct children at 960',
+    );
+    assert.deepEqual(narrow.right, [], 'the right group is empty at 960');
+    const narrowCallout = narrow.rows[0];
+    if (narrowCallout === undefined || narrowCallout.card === null) {
+      throw new Error('missing callout row at 960');
+    }
+    assert.ok(
+      narrowCallout.card.left - narrow.parent.left <= 160 + 0.5,
+      'the callout offset cap holds at 960',
+    );
+    assert.ok(
+      narrowCallout.card.top >= narrow.parent.bottom - 0.5,
+      'the callout is below the parent card',
+    );
+    for (const [index, row] of narrow.rows.entries()) {
+      if (row.card === null) throw new Error(`missing row card at 960: ${index}`);
+      assert.ok(
+        row.card.left - narrow.lane.left >= 26 - 0.5,
+        `row ${index} is indented with the shared below trunk at 960`,
+      );
+      assert.ok(
+        row.card.right <= narrow.lane.right + 0.5,
+        `row ${index} stays inside the lane at 960`,
+      );
+    }
+    const belowTrunks = narrow.trunks.filter(
+      (trunk) => trunk.kind === 'trunk' && trunk.placement === 'below',
+    );
+    assert.equal(belowTrunks.length, 1, 'one shared below trunk at 960');
+    assertNearRightAngles(narrow.edges, 'safe zone 960');
+    assertNoOverlap(
+      [narrow.parent, ...narrow.rows.map((row) => row.card)],
+      'safe zone 960 layout',
+    );
+
+    await parentCard.scrollIntoViewIfNeeded();
+    await centerOn(parentId);
+    await h.screenshot(artifactsPath('m3g3', 'wide-safe-zone-960x900.png'), {
       width: 960,
       height: 900,
     });
