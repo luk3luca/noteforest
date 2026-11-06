@@ -6,7 +6,7 @@
  * in the main process, and only typed snapshots/cross the bridge.
  */
 
-import type { CreatedIds, Document, DocumentCommand } from '@noteforest/core';
+import type { Asset, CreatedIds, Document, DocumentCommand } from '@noteforest/core';
 
 export type OpenStatus = 'editable' | 'read-only';
 
@@ -337,6 +337,30 @@ export interface SeedResult {
   library: LibraryView;
 }
 
+/** Input for a paste/drop import. Bytes are copied into the package assets. */
+export interface ImportImageBytesInput {
+  bytes: Uint8Array;
+  mime: string;
+  originalName?: string;
+  width?: number;
+  height?: number;
+  alt?: string;
+}
+
+export interface ImportImageSuccess {
+  ok: true;
+  /** Canonical `document.assets[id]` record to add with `asset.add`. */
+  asset: Asset;
+}
+
+export interface ImportImageFailure {
+  ok: false;
+  canceled?: boolean;
+  message: string;
+}
+
+export type ImportImageResult = ImportImageSuccess | ImportImageFailure;
+
 export interface NoteForestApi {
   bootstrap(): Promise<BootstrapResult>;
   scanLibrary(): Promise<LibraryView>;
@@ -360,5 +384,12 @@ export interface NoteForestApi {
   onMenu(handler: (command: MenuCommand) => void): () => void;
   onRequestFlush(handler: () => Promise<FlushResult>): () => void;
   debugSeed(kind: 'demo' | 'performance' | 'performance-1000'): Promise<SeedResult>;
+  /** Native image picker; the chosen file is copied into the package assets. */
+  importImage(packagePath: string): Promise<ImportImageResult>;
+  /** Paste/drop import; bytes are copied into the package assets. */
+  importImageBytes(
+    packagePath: string,
+    input: ImportImageBytesInput,
+  ): Promise<ImportImageResult>;
   getSystemInfo(): Promise<{ electron: string; chrome: string; appVersion: string; platform: string }>;
 }

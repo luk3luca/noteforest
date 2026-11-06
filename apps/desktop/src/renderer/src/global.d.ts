@@ -16,6 +16,8 @@ declare global {
       applyStructural?: (command: DocumentCommand) => Promise<unknown>;
       /** Test-only: exact canonical structural records of the active document. */
       structure?: () => unknown;
+      /** Test-only: canonical asset records of the active document. */
+      assets?: () => unknown;
       /** Test-only: canonical split caret of the active editor. */
       caretLocation?: () => unknown;
       editorCheck?: () => unknown;

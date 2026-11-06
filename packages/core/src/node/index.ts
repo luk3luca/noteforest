@@ -6,6 +6,7 @@
  */
 
 export * from './paths.js';
+export * from './assets.js';
 export * from './atomic.js';
 export * from './lock.js';
 export * from './backups.js';

@@ -24,8 +24,58 @@ import {
   CalloutLaneView,
   ChapterView,
 } from './views/BlockViews';
+import { ImageNodeView } from './views/ImageNodeView';
 
 const lowlight = createLowlight(common);
+
+/**
+ * M3c3b1: canonical image nodes carry `assetId`, not a display path. The
+ * editor projection injects `src` (a renderer-safe `noteforest-asset://` URL)
+ * and a view-only `missing` flag; both are stripped before the content is
+ * written back to the canonical document.
+ */
+const CanonicalImage = Image.extend({
+  addAttributes() {
+    const parent = (this.parent?.() ?? {}) as Record<string, unknown>;
+    return {
+      ...parent,
+      assetId: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-asset-id'),
+        renderHTML: (attributes: Record<string, unknown>) =>
+          typeof attributes['assetId'] === 'string' && attributes['assetId'].length > 0
+            ? { 'data-asset-id': attributes['assetId'] }
+            : {},
+      },
+      width: {
+        default: null,
+        parseHTML: (element: HTMLElement) => {
+          const value = Number(element.getAttribute('width'));
+          return Number.isInteger(value) && value > 0 ? value : null;
+        },
+        renderHTML: (attributes: Record<string, unknown>) =>
+          typeof attributes['width'] === 'number' ? { width: attributes['width'] } : {},
+      },
+      height: {
+        default: null,
+        parseHTML: (element: HTMLElement) => {
+          const value = Number(element.getAttribute('height'));
+          return Number.isInteger(value) && value > 0 ? value : null;
+        },
+        renderHTML: (attributes: Record<string, unknown>) =>
+          typeof attributes['height'] === 'number' ? { height: attributes['height'] } : {},
+      },
+      missing: {
+        default: false,
+        rendered: false,
+        parseHTML: () => false,
+      },
+    };
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ImageNodeView);
+  },
+}).configure({ allowBase64: false, inline: false });
 
 function anchorIdsFromElement(element: HTMLElement): string[] {
   const raw = element.getAttribute('data-anchor-ids') ?? element.getAttribute('data-anchor-id') ?? '';
@@ -367,7 +417,7 @@ export function createEditorExtensions() {
       defaultLanguage: 'plaintext',
       HTMLAttributes: { 'data-anchor-kind': 'code' },
     }),
-    Image.configure({ allowBase64: true, inline: false }),
+    CanonicalImage,
     TableKit.configure({ table: { resizable: false } }),
     extendFormulaNode(BlockMath).configure({
       katexOptions: { throwOnError: false },

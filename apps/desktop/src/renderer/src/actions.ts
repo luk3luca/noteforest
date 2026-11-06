@@ -41,6 +41,8 @@ import type { Branch } from '@noteforest/core';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
+import { firstImage } from './lib/image';
+import { insertImageFromDialog } from './lib/image-insert';
 
 function shell() {
   return useShell.getState();
@@ -471,6 +473,7 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
   const children = directChildIds(runtime.document, blockId);
   const branch = incomingBranch(runtime.document, blockId);
   const hasParent = parentIdOf(runtime.document, blockId) !== null;
+  const image = firstImage(block.content);
   const collapsed = runtime.collapsed.has(blockId);
   const caret = runtime.caretLocation();
   const splitCheck =
@@ -558,6 +561,30 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       label: 'Focus block',
       onSelect: () => runtime.focusBlock(blockId),
     },
+    {
+      id: 'insert-image',
+      label: 'Insert image…',
+      disabled: !runtime.editable,
+      ...(runtime.editable
+        ? { onSelect: () => void insertImageFromDialog(runtime, blockId) }
+        : {}),
+    },
+    ...(image === null
+      ? []
+      : [
+          {
+            id: 'image-alt',
+            label: 'Edit image alt text…',
+            onSelect: () =>
+              shell().openDialog({
+                kind: 'image-alt' as const,
+                blockId,
+                path: image.path,
+                assetId: image.assetId,
+                alt: image.alt,
+              }),
+          },
+        ]),
     {
       id: 'add-child',
       label: 'Add child block',
@@ -849,6 +876,18 @@ export function paletteCommands(): MenuEntry[] {
       label: 'Insert table',
       onSelect: () => {
         runtime?.editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+      },
+    },
+    {
+      id: 'insert-image',
+      label: 'Insert image…',
+      onSelect: () => {
+        if (runtime === null) return;
+        if (selected === null) {
+          toast.error('Select a block before inserting an image.');
+          return;
+        }
+        void insertImageFromDialog(runtime, selected);
       },
     },
     {

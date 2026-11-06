@@ -18,6 +18,7 @@ import type { CoreContext } from '../ids.js';
 import type {
   Anchor,
   AnchorKind,
+  Asset,
   BlockBorder,
   Branch,
   BranchRole,
@@ -203,6 +204,25 @@ export interface BlockMergeCommand {
   type: 'block.merge';
   blockId: string;
   intoBlockId?: string;
+}
+
+/**
+ * Add one content-addressed asset record to `document.assets`.
+ *
+ * The bytes are copied into the package by the Node asset store first; this
+ * command only records the canonical metadata. Adding the same id again keeps
+ * the existing record (identical bytes share one asset) and is a harmless
+ * no-op. The inverse removes the record that this command added.
+ */
+export interface AssetAddCommand {
+  type: 'asset.add';
+  asset: Asset;
+}
+
+/** Remove one asset record; used as the inverse of `asset.add`. */
+export interface AssetRemoveCommand {
+  type: 'asset.remove';
+  assetId: string;
 }
 
 export interface AnchorCreateCommand {
@@ -411,6 +431,8 @@ export type DocumentCommand =
   | BlockMoveCommand
   | BlockSplitCommand
   | BlockMergeCommand
+  | AssetAddCommand
+  | AssetRemoveCommand
   | AnchorCreateCommand
   | AnchorRepairCommand
   | AnchorAttachToBlockCommand

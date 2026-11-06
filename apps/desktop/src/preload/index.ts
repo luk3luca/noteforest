@@ -4,6 +4,8 @@ import type {
   BootstrapResult,
   CreateDocumentResult,
   FlushResult,
+  ImportImageBytesInput,
+  ImportImageResult,
   LibraryView,
   ListBackupsResult,
   MenuCommand,
@@ -81,6 +83,13 @@ const api: NoteForestApi = {
     return () => ipcRenderer.removeListener('app:request-flush', listener);
   },
   debugSeed: (kind): Promise<SeedResult> => ipcRenderer.invoke('debug:seed', kind),
+  importImage: (packagePath: string): Promise<ImportImageResult> =>
+    ipcRenderer.invoke('document:import-image', packagePath),
+  importImageBytes: (
+    packagePath: string,
+    input: ImportImageBytesInput,
+  ): Promise<ImportImageResult> =>
+    ipcRenderer.invoke('document:import-image-bytes', packagePath, input),
   getSystemInfo: (): Promise<{
     electron: string;
     chrome: string;

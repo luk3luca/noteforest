@@ -26,6 +26,8 @@ import {
   createDocument,
   defaultRestoreDestination,
   dirtyDocuments,
+  importImageBytes,
+  importImageFile,
   isInsideLibrary,
   libraryDir,
   listBackups,
@@ -44,12 +46,16 @@ import {
 import { attachTextContextMenu, installApplicationMenu } from './menu.js';
 import { flushDecision, quitCanProceed } from './lifecycle.js';
 import { installE2EDialogGuard } from './dialog-guard.js';
+import { installAssetProtocol, registerAssetScheme } from './asset-protocol.js';
+import { IMAGE_EXTENSIONS } from '../shared/images.js';
 
 const isDev = Boolean(process.env['ELECTRON_RENDERER_URL']);
 const isE2E = process.env['NOTEFOREST_E2E'] === '1';
 /** E2E windows stay hidden by default so a test run never steals OS focus. */
 const isE2EHidden = isE2E && process.env['NOTEFOREST_E2E_HIDDEN'] !== '0';
 if (isE2E) installE2EDialogGuard(dialog);
+// Custom schemes must be registered before the app is ready.
+registerAssetScheme();
 let mainWindow: BrowserWindow | null = null;
 let allowClose = false;
 let closeInProgress = false;
@@ -426,6 +432,40 @@ function registerIpc(): void {
     seedDocument(kind),
   );
 
+  ipcMain.handle('document:import-image', async (_event, packagePath: unknown) => {
+    if (typeof packagePath !== 'string' || packagePath.length === 0) {
+      return { ok: false as const, message: 'No document path was provided.' };
+    }
+    const win = mainWindow;
+    if (win === null || win.isDestroyed()) {
+      return { ok: false as const, message: 'The window is not available.' };
+    }
+    const choice = await dialog.showOpenDialog(win, {
+      title: 'Insert image',
+      buttonLabel: 'Insert',
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: [...IMAGE_EXTENSIONS] }],
+    });
+    const filePath = choice.filePaths[0];
+    if (choice.canceled || filePath === undefined) {
+      return { ok: false as const, canceled: true, message: 'No image selected.' };
+    }
+    return importImageFile(packagePath, filePath);
+  });
+
+  ipcMain.handle(
+    'document:import-image-bytes',
+    (_event, packagePath: unknown, input: unknown) => {
+      if (typeof packagePath !== 'string' || packagePath.length === 0) {
+        return { ok: false as const, message: 'No document path was provided.' };
+      }
+      if (typeof input !== 'object' || input === null) {
+        return { ok: false as const, message: 'No image data was provided.' };
+      }
+      return importImageBytes(packagePath, input as Parameters<typeof importImageBytes>[1]);
+    },
+  );
+
   ipcMain.handle('system:info', () => ({
     electron: process.versions.electron ?? 'unknown',
     chrome: process.versions.chrome ?? 'unknown',
@@ -468,6 +508,7 @@ if (!gotLock) {
     session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
       callback(false);
     });
+    installAssetProtocol();
     registerIpc();
     installApplicationMenu(() => mainWindow, sendMenuCommand);
     createMainWindow();

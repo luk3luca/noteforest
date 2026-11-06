@@ -16,6 +16,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { AtomicWriteHooks } from './atomic.js';
 import { writeFileAtomic } from './atomic.js';
+import { NodeAssetStore } from './assets.js';
 import {
   BackupManager,
   type BackupKind,
@@ -170,6 +171,9 @@ export class DocumentStore {
 
   readonly assetsPath: string;
 
+  /** Content-addressed asset store for this package. */
+  readonly assets: NodeAssetStore;
+
   readonly appSupportDir: string;
 
   readonly backups: BackupManager;
@@ -230,6 +234,10 @@ export class DocumentStore {
     this.packagePath = path.resolve(config.packagePath);
     this.documentPath = documentJsonPath(this.packagePath);
     this.assetsPath = assetsDirPath(this.packagePath);
+    this.assets = new NodeAssetStore({
+      packagePath: this.packagePath,
+      assetRecord: (id) => this.documentValue?.assets[id],
+    });
     this.appSupportDir = config.appSupportDir;
     this.backups = new BackupManager(config.backupsDir, config.options.backupRetention);
     this.readOnly = config.readOnly;

@@ -43,6 +43,7 @@ import {
   applyChapterRename,
   applyChapterReorder,
 } from './chapter.js';
+import { applyAssetAdd, applyAssetRemove } from './asset.js';
 import { applyDocumentCreate, applyDocumentRename, createDocumentCommand } from './document.js';
 import { applyStructureRestore, captureRestoreCommand } from './restore.js';
 import { ChangeSet, own, Rejection, reject } from './shared.js';
@@ -77,6 +78,8 @@ const COMMAND_HANDLERS: CommandHandlerRegistry = {
   'chapter.rename': applyChapterRename,
   'chapter.reorder': applyChapterReorder,
   'chapter.delete': applyChapterDelete,
+  'asset.add': applyAssetAdd,
+  'asset.remove': applyAssetRemove,
   'anchor.create': applyAnchorCreate,
   'anchor.repair': applyAnchorRepair,
   'anchor.attachToBlock': applyAnchorAttachToBlock,

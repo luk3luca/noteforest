@@ -38,6 +38,8 @@ import {
 import type {
   ApplyResult,
   BackupCandidateView,
+  ImportImageBytesInput,
+  ImportImageResult,
   LibraryView,
   ListBackupsResult,
   LockInfoView,
@@ -61,6 +63,12 @@ import {
   uniqueRestoreDestination,
 } from './backup-restore.js';
 import { recoveryDetails, recoveryStatus, recoveryTitle } from './recovery-view.js';
+import {
+  IMAGE_EXTENSIONS,
+  MAX_IMAGE_BYTES,
+  SUPPORTED_IMAGE_MIMES,
+  imageMimeFromName,
+} from '../shared/images.js';
 
 const DEFAULT_SESSION: SessionState = {
   tabs: [],
@@ -365,6 +373,164 @@ export async function applyCommand(
     created: result.created,
     inverse: result.inverse,
   };
+}
+
+export async function importImageFile(
+  packagePath: string,
+  filePath: string,
+): Promise<ImportImageResult> {
+  const opened = await openStore(packagePath);
+  if ('error' in opened) return { ok: false, message: opened.error };
+  if ('recovery' in opened) return { ok: false, message: opened.recovery.reason };
+  const store = opened.store;
+  if (store.document === null) return { ok: false, message: 'The document is not open.' };
+  if (store.readOnly) {
+    return { ok: false, message: 'This document is open read-only; the image was not copied.' };
+  }
+
+  const mime = imageMimeFromName(filePath);
+  if (mime === undefined) {
+    return { ok: false, message: 'That file type is not a supported image.' };
+  }
+  let stat;
+  try {
+    stat = await fs.stat(filePath);
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Could not read the image: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  if (!stat.isFile()) return { ok: false, message: 'The selected path is not a file.' };
+  if (stat.size === 0) return { ok: false, message: 'The selected image is empty.' };
+  if (stat.size > MAX_IMAGE_BYTES) {
+    return {
+      ok: false,
+      message: `That image is larger than ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB.`,
+    };
+  }
+
+  let bytes: Uint8Array;
+  try {
+    bytes = await fs.readFile(filePath);
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Could not read the image: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  const inserted = await store.assets.insert({
+    bytes,
+    mime,
+    originalName: path.basename(filePath),
+  });
+  if (!inserted.ok) return { ok: false, message: inserted.error.message };
+  return { ok: true, asset: inserted.asset };
+}
+
+function parseOptionalDimension(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
+export async function importImageBytes(
+  packagePath: string,
+  input: ImportImageBytesInput,
+): Promise<ImportImageResult> {
+  const opened = await openStore(packagePath);
+  if ('error' in opened) return { ok: false, message: opened.error };
+  if ('recovery' in opened) return { ok: false, message: opened.recovery.reason };
+  const store = opened.store;
+  if (store.document === null) return { ok: false, message: 'The document is not open.' };
+  if (store.readOnly) {
+    return { ok: false, message: 'This document is open read-only; the image was not copied.' };
+  }
+
+  const rawBytes: unknown = input?.bytes;
+  const bytes =
+    rawBytes instanceof Uint8Array
+      ? rawBytes
+      : rawBytes instanceof ArrayBuffer
+        ? new Uint8Array(rawBytes)
+        : null;
+  if (bytes === null) return { ok: false, message: 'No image bytes were provided.' };
+  if (bytes.byteLength === 0) return { ok: false, message: 'The image is empty.' };
+  if (bytes.byteLength > MAX_IMAGE_BYTES) {
+    return {
+      ok: false,
+      message: `That image is larger than ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB.`,
+    };
+  }
+  const mime = typeof input.mime === 'string' ? input.mime : '';
+  if (!SUPPORTED_IMAGE_MIMES.has(mime)) {
+    return { ok: false, message: 'That file type is not a supported image.' };
+  }
+  const originalName =
+    typeof input.originalName === 'string' && input.originalName.length > 0
+      ? path.basename(input.originalName)
+      : undefined;
+  const width = parseOptionalDimension(input.width);
+  const height = parseOptionalDimension(input.height);
+  const alt = typeof input.alt === 'string' ? input.alt : undefined;
+  const inserted = await store.assets.insert({
+    bytes,
+    mime,
+    ...(originalName === undefined ? {} : { originalName }),
+    ...(width === undefined ? {} : { width }),
+    ...(height === undefined ? {} : { height }),
+    ...(alt === undefined ? {} : { alt }),
+  });
+  if (!inserted.ok) return { ok: false, message: inserted.error.message };
+  return { ok: true, asset: inserted.asset };
+}
+
+/**
+ * Resolve one content-addressed id against the open document packages. The
+ * renderer's custom-protocol requests can only read an asset that a live
+ * document actually records, and only from that package's `assets/` tree.
+ */
+export async function resolveOpenAsset(
+  id: string,
+): Promise<{ filePath: string; mime: string } | null> {
+  if (!/^[0-9a-f]{64}$/.test(id)) return null;
+  for (const store of repository.openStores()) {
+    const asset = store.document?.assets[id];
+    if (asset === undefined || asset.id !== id) continue;
+    if (typeof asset.mime !== 'string') continue;
+    const filePath = resolvePackageAssetPath(store.packagePath, store.assetsPath, asset.path);
+    if (filePath === null) continue;
+    // Content-addressed ids name exactly one file. A crafted record cannot map
+    // a hash id to a different file inside the same assets directory.
+    if (filePath !== path.join(path.resolve(store.assetsPath), id)) continue;
+    try {
+      const stat = await fs.lstat(filePath);
+      if (!stat.isFile()) continue;
+    } catch {
+      continue;
+    }
+    return { filePath, mime: asset.mime };
+  }
+  return null;
+}
+
+/**
+ * Lexical containment check for one recorded asset path. `path.resolve` makes
+ * absolute paths, `..` segments, and drive-letter paths impossible to smuggle
+ * past the `assets/` root; the caller still checks the file type and rejects
+ * symlinks with `lstat`.
+ */
+export function resolvePackageAssetPath(
+  packagePath: string,
+  assetsPath: string,
+  assetPath: unknown,
+): string | null {
+  if (typeof assetPath !== 'string' || assetPath.length === 0) return null;
+  const assetsRoot = path.resolve(assetsPath);
+  const filePath = path.resolve(packagePath, assetPath);
+  const relative = path.relative(assetsRoot, filePath);
+  if (relative.length === 0 || relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null;
+  }
+  return filePath;
 }
 
 function parseOverwriteFlag(options: unknown):

@@ -14,12 +14,12 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
 } from 'react';
 import { getEditorBindings, setDragBlockId } from '../bindings';
+import { useRuntimeVersion } from '../useRuntimeVersion';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
 import { useShell } from '../../state/shell';
 import { calloutLaneWidth, placeCallout, GEOMETRY } from '../../lib/geometry';
@@ -53,21 +53,6 @@ function stringAttr(value: unknown, fallback = ''): string {
  * content commit that changes anchor resolution would otherwise leave the
  * inline warning and callout one revision behind until an unrelated click.
  */
-function useRuntimeVersion(runtime: {
-  subscribe: (listener: () => void) => () => void;
-  version: number;
-} | null): number {
-  const subscribe = useCallback(
-    (listener: () => void) => runtime?.subscribe(listener) ?? (() => undefined),
-    [runtime],
-  );
-  return useSyncExternalStore(
-    subscribe,
-    () => runtime?.version ?? 0,
-    () => 0,
-  );
-}
-
 function numberAttr(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }

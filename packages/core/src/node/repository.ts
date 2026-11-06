@@ -201,6 +201,23 @@ export class NodeDocumentRepository implements DocumentRepository {
     return store;
   }
 
+  /**
+   * Every live store with a loaded document. Used by the main-process asset
+   * protocol to resolve a content-addressed id without exposing package paths
+   * to the renderer. Read-only; never opens or locks a package.
+   */
+  openStores(): DocumentStore[] {
+    const open: DocumentStore[] = [];
+    for (const [packagePath, store] of this.stores) {
+      if (store.closed) {
+        this.stores.delete(packagePath);
+        continue;
+      }
+      if (store.document !== null) open.push(store);
+    }
+    return open;
+  }
+
   async open(
     packagePath: string,
     options: RepositoryOpenOptions = {},
