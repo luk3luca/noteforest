@@ -320,7 +320,6 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
         // on the lane host so the sibling right group can inherit it too.
         const laneWidth = Math.round(calloutLaneWidth(cardWidth));
         host.style.setProperty('--nf-lane-width', `${laneWidth}px`);
-        host.style.setProperty('--nf-below-indent', `${GEOMETRY.rowIndent}px`);
         lane.dataset['laneWidth'] = String(laneWidth);
         // Rows start at the lane's left edge plus the shared row indent, so the
         // callout card and the below trunk are indented together. The safe-zone

@@ -928,6 +928,10 @@ describe('NoteForest M3b2c below-stack routing', () => {
           laneZ: Number.parseInt(getComputedStyle(laneWrapper).zIndex, 10),
           groupZ: Number.parseInt(getComputedStyle(groupWrapper).zIndex, 10),
           parentZ: Number.parseInt(getComputedStyle(card).zIndex, 10),
+          edgeZ: Number.parseInt(
+            getComputedStyle(scope.querySelector('.nf-edge-layer')).zIndex,
+            10,
+          ),
           laneRight: laneRect.right,
           groupLeft: groupRect.left,
           calloutRight: calloutRect.right,
@@ -937,6 +941,10 @@ describe('NoteForest M3b2c below-stack routing', () => {
     );
     assert.ok(stacking !== null);
     assert.equal(stacking.hit, calloutId, 'the callout card is hit-testable, not covered');
+    assert.equal(stacking.parentZ, 2, 'the parent card uses --nf-z-card');
+    assert.equal(stacking.laneZ, 1, 'the callout lane uses --nf-z-lane');
+    assert.equal(stacking.groupZ, 0, 'the right group uses --nf-z-right-group');
+    assert.equal(stacking.edgeZ, 0, 'the edge layer uses --nf-z-edge');
     assert.ok(
       stacking.laneZ > stacking.groupZ,
       `the callout lane (${stacking.laneZ}) paints above the right group (${stacking.groupZ})`,

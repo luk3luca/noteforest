@@ -34,16 +34,26 @@ export const GEOMETRY = Object.freeze({
   editorPaddingX: DESIGN_TOKENS.editorPaddingX,
   editorPaddingTop: DESIGN_TOKENS.editorPaddingTop,
   editorPaddingBottom: DESIGN_TOKENS.editorPaddingBottom,
+  editorPaddingXMedium: DESIGN_TOKENS.editorPaddingXMedium,
+  editorPaddingTopMedium: DESIGN_TOKENS.editorPaddingTopMedium,
+  editorPaddingBottomMedium: DESIGN_TOKENS.editorPaddingBottomMedium,
+  editorPaddingXCompact: DESIGN_TOKENS.editorPaddingXCompact,
+  editorPaddingTopCompact: DESIGN_TOKENS.editorPaddingTopCompact,
+  editorPaddingBottomCompact: DESIGN_TOKENS.editorPaddingBottomCompact,
   /** Gaps. */
   siblingGap: DESIGN_TOKENS.siblingGap,
   childRowGap: DESIGN_TOKENS.childRowGap,
   chapterGap: DESIGN_TOKENS.chapterGap,
   wrapIndent: DESIGN_TOKENS.wrapIndent,
   /** Card chrome. */
+  cardPadding: DESIGN_TOKENS.cardPadding,
   cardRadius: DESIGN_TOKENS.cardRadius,
+  /** Documented below-stack stacking. */
+  zIndex: DESIGN_TOKENS.zIndex,
   /** Edges. */
   edgeWidth: DESIGN_TOKENS.edgeWidth,
   edgeWidthActive: DESIGN_TOKENS.edgeWidthActive,
+  edgeWidthMuted: DESIGN_TOKENS.edgeWidthMuted,
   edgeArrowLength: DESIGN_TOKENS.edgeArrowLength,
   edgeArrowHalfWidth: DESIGN_TOKENS.edgeArrowHalfWidth,
   /** Minimum final horizontal segment before the arrowhead. */
@@ -52,8 +62,6 @@ export const GEOMETRY = Object.freeze({
   edgeRadius: DESIGN_TOKENS.edgeRadius,
   edgeLaneMin: DESIGN_TOKENS.edgeLaneMin,
   edgeLaneMax: DESIGN_TOKENS.edgeLaneMax,
-  edgeBusOffset: DESIGN_TOKENS.edgeBusOffset,
-  edgePortSpacing: DESIGN_TOKENS.edgePortSpacing,
   edgeMinGap: DESIGN_TOKENS.edgeMinGap,
   /** Horizontal gap from an anchor mark to its callout row. */
   calloutGap: DESIGN_TOKENS.calloutGap,

@@ -1,30 +1,103 @@
 # Design tokens — layout, spacing, edges, surfaces
 
-**Status:** Active (M3 review, M3g4 callout stacking and trunk gap, 6 November 2026)  
+**Status:** Active (M3h4 single source + CSS guard, 6 November 2026)  
 **Source of truth:** `apps/desktop/src/renderer/src/lib/design-tokens.ts`  
 **Related:** `docs/ux-shell.md`, `docs/design/m3-anchors-references.md` §6.2.1
 
 This is the single reference for layout/spacing values that used to be scattered across components.
 Components and the router must read these tokens; do not add new hard-coded 12/16/26 values.
 
-## Layout and spacing
+## How the single source works
+
+`DESIGN_TOKENS` is the only numeric source. Every value that CSS needs is also exported as a root
+custom property from `DESIGN_TOKEN_CSS_VARIABLES`; `applyDesignTokens()` writes that map to
+`document.documentElement` from `main.tsx` before the React root mounts. `styles.css` consumes
+`var(--nf-*)` for those values and never repeats the literal.
+
+- Runtime path: `DESIGN_TOKENS` → `DESIGN_TOKEN_CSS_VARIABLES` → `applyDesignTokens()` → `styles.css`.
+- Guard: `apps/desktop/test/design-tokens-css.test.ts` imports the TS module, reads `styles.css`, and
+  fails on a literal duplicate, a missing `var()`, a token that is not consumed, or a changed
+  canonical value. It also checks that `main.tsx` applies the variables before `createRoot`.
+- A token change is therefore a visual change with no CSS edit. Do not add a second hand-maintained
+  copy “just for now”.
+
+## CSS-bound tokens
+
+These are applied as root variables at boot.
+
+| Token | CSS variable | Value | Used for |
+|---|---|---:|---|
+| `canvasMaxWidth` | `--nf-canvas-max` | 1600 px | Canvas max width |
+| `editorPaddingX` | `--nf-canvas-pad-x` | 40 px | Canvas horizontal padding |
+| `editorPaddingTop` | `--nf-canvas-pad-top` | 40 px | Canvas top padding |
+| `editorPaddingBottom` | `--nf-canvas-pad-bottom` | **88 px** | Canvas bottom padding |
+| `editorPaddingXMedium` | `--nf-canvas-pad-x-medium` | 32 px | Canvas padding at ≤1100 px |
+| `editorPaddingTopMedium` | `--nf-canvas-pad-top-medium` | 32 px | Canvas padding at ≤1100 px |
+| `editorPaddingBottomMedium` | `--nf-canvas-pad-bottom-medium` | 72 px | Canvas padding at ≤1100 px |
+| `editorPaddingXCompact` | `--nf-canvas-pad-x-compact` | 28 px | Canvas padding at ≤900 px |
+| `editorPaddingTopCompact` | `--nf-canvas-pad-top-compact` | 28 px | Canvas padding at ≤900 px |
+| `editorPaddingBottomCompact` | `--nf-canvas-pad-bottom-compact` | 64 px | Canvas padding at ≤900 px |
+| `chapterGap` | `--nf-chapter-gap` | **28 px** | Gap between chapters |
+| `siblingGap` / `childGap` | `--nf-child-gap` | 24 px | Parent card/lane → direct-child group |
+| `childRowGap` | `--nf-child-row-gap` | 16 px | Vertical gap between sibling blocks |
+| `cardPadding` | `--nf-card-padding` | 10 px | Card padding |
+| `cardRadius` | `--nf-card-radius` | 4 px | Card and block-image radius |
+| `childMinWidth` | `--nf-child-min-width` | 144 px | Child card minimum |
+| `childMaxWidth` | `--nf-child-max-width` | 420 px | Child card maximum |
+| `topLevelMinWidth` | `--nf-top-level-min-width` | 160 px | Top-level card minimum |
+| `topLevelMaxWidth` | `--nf-top-level-max-width` | 480 px | Top-level card maximum |
+| `rowIndent` | `--nf-row-indent` | 26 px | Below-stack rows from the lane left |
+| `edgeWidth` | `--nf-edge-width` | 1.25 | Primary/reference edge stroke |
+| `edgeWidthActive` | `--nf-edge-width-active` | 1.75 | Selected path stroke |
+| `edgeWidthMuted` | `--nf-edge-width-muted` | 1 | Unselected path stroke |
+| `zIndex.edge` | `--nf-z-edge` | 0 | Edge layer |
+| `zIndex.rightGroup` | `--nf-z-right-group` | 0 | Direct-child group |
+| `zIndex.calloutLane` | `--nf-z-lane` | 1 | Callout lane |
+| `zIndex.parentCard` | `--nf-z-card` | 2 | Parent card |
+
+Canonical shell values are ratified and guarded: **88 px** bottom canvas padding, **28 px** chapter
+gap, **24 px** child gap, and `callout.safeGap` **16 px as a minimum** (the effective gap after the
+24 px group gap is larger). The responsive canvas steps are token-bound too, so no canvas padding
+literal remains in CSS.
+
+## Router-only tokens
+
+These values never appear in CSS; they feed `geometry.ts` / `edge-routing.ts` (SVG coordinates or
+placement math). Keep them in the TS module so the renderer and the router cannot disagree.
 
 | Token | Value | Used for |
 |---|---:|---|
-| `rowIndent` | 26 px | Below-stack rows (callouts and wrapped direct children) from the lane left |
-| `trunkInset` | 12 px | Below trunk start from the parent card left, inside the card |
+| `trunkInset` | 12 px | Below trunk start from the parent card left |
 | `trunkGap` | 8 px | Visible gap between the parent card bottom and the below trunk start |
 | `stemMin` | 12 px | Final horizontal segment before every arrowhead |
-| `siblingGap` / `childGap` | 24 px | Gap between parent card/lane and the direct-child group; the 24 px budget is 10 px horizontal lead + 12 px stem + 2 px arrow gap |
 | `calloutGap` | 16 px | Anchor → callout offset when the anchor is farther right |
-| `edgeGap` | 2 px | Arrow tip gap before the card |
-| `edgeRadius` | 2 px | Maximum corner rounding; corners are near-right angles, never wide arcs |
 | `calloutMinWidth` | 240 px | Minimum independent callout lane width |
-| `calloutMaxWidth` | 480 px | Maximum callout lane width; prevents unbounded push |
+| `calloutMaxWidth` | 480 px | Maximum callout lane width |
 | `callout.maxAnchorOffset` | 160 px | Maximum callout left offset from the parent card left |
-| `callout.safeGap` | 16 px minimum | Minimum gap between the callout right edge and the direct-child group; with the 24 px group gap and lane cap the effective gap is ≥24 px, so this is a floor, not an exact target |
-| top-level block | 160–480 px | Content-driven min/max |
-| child block | 144–420 px | Content-driven min/max |
+| `callout.safeGap` | 16 px minimum | Minimum gap between the callout right edge and the direct-child group |
+| `edgeRadius` | 2 px | Maximum corner rounding; corners are near-right angles |
+| `edgeGap` | 2 px | Arrow tip gap before the card |
+| `edgeArrowLength` | 6 px | Fixed arrowhead length |
+| `edgeArrowHalfWidth` | 3 px | Fixed arrowhead half-width |
+| `edgeLaneMin` | 2 px | Shared trunk lane minimum offset |
+| `edgeLaneMax` | 14 px | Shared trunk lane maximum offset |
+| `edgeMinGap` | 4 px | Minimum routed segment gap |
+| `wrapIndent` | 18 px | Reserved for the M4 page renderer, which may wrap a child below |
+
+`edgeBusOffset` and `edgePortSpacing` were removed in M3h4: the below-stack router no longer uses
+them and nothing else read them. Port distribution remains a router-only helper (`distributePorts`
+in `geometry.ts`), not a CSS token.
+
+## Runtime-measured variables
+
+These are not design tokens. Components write them per block/lane from live measurements; CSS only
+supplies the fallback shape.
+
+- `--nf-lane-width`: bounded callout lane width.
+- `--nf-right-group-height`: reserved height of the absolute right group.
+- `--nf-callout-offset`, `--nf-callout-dot-left`, `--nf-callout-leader-left`,
+  `--nf-callout-leader-width`: live anchor alignment.
+- `--nf-sidebar-width`: user-adjusted shell sidebar width.
 
 ## Callout lane and safe zone
 
@@ -72,16 +145,23 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 - Primary and below elbows use `edgeRadius` 2 px; the first-child trunk junction stays sharp.
 - Reference edges are dashed with an open chevron and never join the primary V4 trunk.
 - No top-entry arrows: every target edge enters from the left.
+- Stroke widths come from `--nf-edge-width` (1.25), `--nf-edge-width-active` (1.75), and
+  `--nf-edge-width-muted` (1); primary and reference edges share the normal width.
 
 ## Stacking
 
-- The parent card stays above its below stack (`z-index: 2`) so its bottom add-sibling control and
-  chrome remain clickable.
-- The anchored callout lane paints above the direct-child group (`1` vs `0`). The safe zone and wrap
-  rule are still the primary layout guarantee; the order is a safety net so an anchor child can
-  never be hidden behind a direct child during a transient measure or reflow state.
-- `CalloutLaneView` resolves the parent card on every alignment pass and observes the host, so a lane
-  that mounts before its card still receives `--nf-lane-width` and `--nf-callout-offset`.
+The documented below-stack order is token-bound:
+
+- `--nf-z-card` = 2: the parent card stays above its below stack so its bottom add-sibling control
+  and chrome remain clickable.
+- `--nf-z-lane` = 1: the anchored callout lane paints above the direct-child group. The safe zone
+  and wrap rule are still the primary layout guarantee; the order is a safety net so an anchor child
+  can never be hidden behind a direct child during a transient measure or reflow state.
+- `--nf-z-right-group` = 0: the direct-child group stays behind the lane.
+- `--nf-z-edge` = 0: the SVG edge layer sits below the cards.
+
+`CalloutLaneView` resolves the parent card on every alignment pass and observes the host, so a lane
+that mounts before its card still receives `--nf-lane-width` and `--nf-callout-offset`.
 
 ## Colors, borders, typography
 
@@ -90,14 +170,16 @@ fonts). They are part of the same design system but are not duplicated in the TS
 
 ## Shell spacing decisions
 
-Ratified by the product owner on 6 November 2026:
+Ratified by the product owner on 6 November 2026 and wired in M3h4:
 
-- **`editorPaddingBottom` = 88 px**, matching the rendered CSS (the unused token said 96).
-- **`chapterGap` = 28 px**, matching the rendered CSS (the unused token said 32).
-- The TS token module must become the single source for these shell values in **M3h4**, before M4/M6
-  settings work. Do not silently pick a different value in a component.
+- **`editorPaddingBottom` = 88 px**, matching the rendered CSS (the old unused token said 96).
+- **`chapterGap` = 28 px**, matching the rendered CSS (the old unused token said 32).
+- `siblingGap` = 24 px and `callout.safeGap` = 16 px minimum are unchanged.
+- Do not silently pick a different value in a component; change the token and its guard.
 
 ## Future settings
 
 The planned M6 settings UI maps user choices (Compact/Comfortable, colors, borders, indents, gaps) to
 token overrides. Settings must not introduce component-local styling; they change the token values.
+Because CSS-bound tokens are root variables, an override can be applied at the root without editing
+component styles.

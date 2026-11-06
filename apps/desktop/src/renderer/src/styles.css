@@ -17,6 +17,9 @@
   --font-mono: var(--mono-font);
 }
 
+/* Colors, fonts, and non-geometry radii stay here. Geometry/shell values are
+   applied from DESIGN_TOKENS at boot (`lib/apply-design-tokens.ts`) as root
+   custom properties; never re-declare them in this file. */
 :root {
   --canvas: #17181a;
   --sidebar: #131416;
@@ -41,9 +44,7 @@
   --ui-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   --mono-font: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --radius-control: 3px;
-  --radius-block: 4px;
   --radius-overlay: 6px;
-  --nf-child-gap: 24px;
   --motion: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: dark;
 }
@@ -999,9 +1000,10 @@ button:disabled {
 }
 
 .nf-canvas {
-  max-width: 1600px;
+  max-width: var(--nf-canvas-max);
   margin: 0 auto;
-  padding: 40px 40px 88px;
+  padding: var(--nf-canvas-pad-top) var(--nf-canvas-pad-x)
+    var(--nf-canvas-pad-bottom);
 }
 
 .nf-canvas-content {
@@ -1406,7 +1408,7 @@ button:disabled {
 .nf-chapter {
   display: flex;
   flex-direction: column;
-  margin-bottom: 28px;
+  margin-bottom: var(--nf-chapter-gap);
 }
 
 .nf-chapter-head {
@@ -1467,7 +1469,7 @@ button:disabled {
 .nf-chapter-blocks > div {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--nf-child-row-gap);
 }
 
 /* A legacy chapter can be empty; the editor keeps its title and this row. */
@@ -1549,17 +1551,17 @@ button:disabled {
 .nf-block-body {
   position: relative;
   flex: 0 0 auto;
-  min-width: 144px;
-  max-width: 420px;
-  padding: 10px;
-  border-radius: var(--radius-block);
+  min-width: var(--nf-child-min-width);
+  max-width: var(--nf-child-max-width);
+  padding: var(--nf-card-padding);
+  border-radius: var(--nf-card-radius);
   background: var(--surface-1);
   transition: background 120ms var(--motion), box-shadow 120ms var(--motion);
 }
 
 .nf-block-body[data-top-level="true"] {
-  min-width: 160px;
-  max-width: 480px;
+  min-width: var(--nf-top-level-min-width);
+  max-width: var(--nf-top-level-max-width);
   background: transparent;
 }
 
@@ -2025,7 +2027,7 @@ button:disabled {
 .nf-block-prose img {
   max-width: 100%;
   height: auto;
-  border-radius: var(--radius-block);
+  border-radius: var(--nf-card-radius);
   display: block;
 }
 
@@ -2266,7 +2268,7 @@ body.nf-dragging-block .nf-gutter-handle {
    horizontal scroll instead of wrapping. */
 .nf-branch-children {
   flex: 0 0 auto;
-  margin-left: var(--nf-child-gap, 24px);
+  margin-left: var(--nf-child-gap);
 }
 
 .nf-branch-children-measure {
@@ -2280,7 +2282,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-branch-children-inner > div {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--nf-child-row-gap);
 }
 
 /* ----------------------------------------------------------- below stack */
@@ -2310,16 +2312,16 @@ body.nf-dragging-block .nf-gutter-handle {
   > div
   > .react-renderer.node-blockBody
   > .nf-block-body {
-  z-index: 2;
+  z-index: var(--nf-z-card);
 }
 
 .nf-block-inner[data-callouts="true"] > div > .react-renderer.node-calloutLane {
   position: relative;
-  z-index: 1;
+  z-index: var(--nf-z-lane);
 }
 
 .nf-block-inner[data-callouts="true"] > div > .react-renderer.node-branchChildren {
-  z-index: 0;
+  z-index: var(--nf-z-right-group);
 }
 
 .nf-block-inner[data-callouts="true"] > div > .react-renderer.node-calloutLane {
@@ -2341,7 +2343,7 @@ body.nf-dragging-block .nf-gutter-handle {
   /* Only the lane's excess past the parent pushes the right group. The lane
      starts at the parent's left edge, so this equals
      max(parent.right, lane.right) + siblingGap. */
-  left: calc(var(--nf-lane-width, 100%) + var(--nf-child-gap, 24px));
+  left: calc(var(--nf-lane-width, 100%) + var(--nf-child-gap));
   display: block;
 }
 
@@ -2408,8 +2410,8 @@ body.nf-dragging-block .nf-gutter-handle {
   position: relative;
   display: block;
   align-self: stretch;
-  margin-left: var(--nf-below-indent, 26px);
-  max-width: calc(100% - var(--nf-below-indent, 26px));
+  margin-left: var(--nf-row-indent);
+  max-width: calc(100% - var(--nf-row-indent));
 }
 
 .nf-block-node.nf-below-row .nf-block-body {
@@ -2530,12 +2532,12 @@ body.nf-dragging-block .nf-gutter-handle {
   height: 100%;
   overflow: visible;
   pointer-events: none;
-  z-index: 0;
+  z-index: var(--nf-z-edge);
 }
 
 .nf-edge-path {
   stroke: var(--edge);
-  stroke-width: 1.25;
+  stroke-width: var(--nf-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: stroke 120ms var(--motion), stroke-width 120ms var(--motion);
@@ -2543,7 +2545,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-edge-trunk {
   stroke: var(--edge);
-  stroke-width: 1.25;
+  stroke-width: var(--nf-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: stroke 120ms var(--motion), stroke-width 120ms var(--motion);
@@ -2551,12 +2553,12 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-edge-active {
   stroke: var(--edge-active);
-  stroke-width: 1.75;
+  stroke-width: var(--nf-edge-width-active);
 }
 
 .nf-edge-muted {
   stroke: var(--edge-muted);
-  stroke-width: 1;
+  stroke-width: var(--nf-edge-width-muted);
   opacity: 0.35;
 }
 
@@ -2593,7 +2595,7 @@ body.nf-dragging-block .nf-gutter-handle {
    primary trunk and are routed only after cards are placed. */
 .nf-edge-reference {
   stroke: var(--edge);
-  stroke-width: 1.25;
+  stroke-width: var(--nf-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 5 4;
@@ -2608,7 +2610,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-edge-reference-arrow {
   stroke: var(--edge);
-  stroke-width: 1.25;
+  stroke-width: var(--nf-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.78;
@@ -3944,13 +3946,15 @@ body.nf-dragging-block .nf-gutter-handle {
 
 @media (max-width: 1100px) {
   .nf-canvas {
-    padding: 32px 32px 72px;
+    padding: var(--nf-canvas-pad-top-medium) var(--nf-canvas-pad-x-medium)
+      var(--nf-canvas-pad-bottom-medium);
   }
 }
 
 @media (max-width: 900px) {
   .nf-canvas {
-    padding: 28px 28px 64px;
+    padding: var(--nf-canvas-pad-top-compact) var(--nf-canvas-pad-x-compact)
+      var(--nf-canvas-pad-bottom-compact);
   }
 }
 
