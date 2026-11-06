@@ -11,9 +11,10 @@
  *   starts exactly at that child's T-junction, without a gap;
  * - the arrowhead is a fixed-size polygon independent of the path length, and
  *   the final horizontal/vertical segment is at least `edgeStemMin` long;
- * - wrapped children and anchored callouts share one left trunk in the parent
- *   gutter, one horizontal arm per row, and a fixed right arrowhead into the
- *   row's left edge; the trunk never crosses a card.
+ * - wrapped children and anchored callouts share one trunk that emerges from
+ *   the parent's bottom edge, one horizontal arm per row, and a fixed right
+ *   arrowhead into the row's left edge; the trunk starts inside the parent
+ *   card and never crosses a row card.
  */
 
 import {
@@ -40,6 +41,8 @@ export interface RouteOptions {
   laneMinOffset?: number;
   laneMaxOffset?: number;
   stemMin?: number;
+  /** Below trunk origin from the parent card's left edge. */
+  belowTrunkInset?: number;
 }
 
 export interface RoutedArrow {
@@ -357,11 +360,12 @@ function routeRightGroup(
 /**
  * Route a below stack (anchored callouts first, then wrapped direct children).
  *
- * All rows share one trunk in the parent's left gutter. The trunk starts at the
- * parent's bottom-left, runs down past every row, and each row gets one
- * horizontal arm at the card's center Y with a fixed right-pointing arrowhead
- * into the card's left edge. The trunk is kept left of every row, so it can
- * never cross a card. There are no down arrows and no U-turns.
+ * All rows share one trunk that starts on the parent's bottom edge, inset from
+ * its left corner, and runs down past every row. Each row gets one horizontal
+ * arm at the card's center Y with a fixed right-pointing arrowhead into the
+ * card's left edge. The trunk never moves left of the parent card and stays
+ * left of every row, so it can never cross a card. There are no down arrows and
+ * no U-turns.
  */
 export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
   const { parent, children } = input;
@@ -370,19 +374,18 @@ export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
   const stemMin = input.options?.stemMin ?? GEOMETRY.edgeStemMin;
   const parentBottom = rectBottom(parent);
   const minRowLeft = Math.min(...children.map((child) => child.rect.x));
-  // Keep the trunk in the left gutter and guarantee at least a 12 px final
-  // stem; if a row starts unusually far left, the trunk moves with it.
-  const trunkX = Math.min(
-    parent.x - GEOMETRY.belowTrunkGutter,
-    minRowLeft - gap - stemMin,
-  );
+  // The trunk is anchored inside the parent card. Rows are expected to be
+  // indented by belowRowInset, which leaves a full stem; a row that comes back
+  // too close (or left of the trunk) is a layout defect, never a reason to move
+  // the trunk outside the card it belongs to.
+  const trunkX = parent.x + (input.options?.belowTrunkInset ?? GEOMETRY.belowTrunkInset);
   const ordered = [...children].sort(
     (left, right) => rectCenter(left.rect).y - rectCenter(right.rect).y,
   );
   const last = ordered[ordered.length - 1] as GroupChild;
   const lastY = rectCenter(last.rect).y;
   const trunkDefect =
-    lastY - parentBottom < GEOMETRY.edgeMinGap || trunkX > minRowLeft - gap - stemMin + 0.5;
+    lastY - parentBottom < GEOMETRY.edgeMinGap || minRowLeft < trunkX + gap + stemMin - 0.5;
 
   const edges: RoutedEdge[] = [];
   for (const child of ordered) {

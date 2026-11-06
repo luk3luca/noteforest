@@ -250,16 +250,20 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
       const scale = lane.offsetWidth > 0 ? laneRect.width / lane.offsetWidth : 1;
       const factor = scale > 0 ? scale : 1;
       const cardWidth = cardRect.width / factor;
+      const laneWidth = laneRect.width / factor;
       // The below stack is bounded to the parent card so its left trunk and
       // rows can never overlap the right group.
       lane.style.setProperty('--nf-lane-width', `${Math.round(cardWidth)}px`);
-      const contentLeft = Math.max(
-        0,
-        (cardRect.left - laneRect.left) / factor + GEOMETRY.cardPadding,
-      );
+      lane.style.setProperty('--nf-below-indent', `${GEOMETRY.belowRowInset}px`);
+      const cardLeft = (cardRect.left - laneRect.left) / factor;
+      // Rows are genuinely indented from the parent card, not aligned to its
+      // left edge. The inset also reserves the trunk + stem inside the lane.
+      const contentLeft = Math.max(0, cardLeft + GEOMETRY.belowRowInset);
       // Clamp against the parent card, not the chapter column: a callout may
-      // never overflow the card's right edge.
-      const maxOffset = Math.max(contentLeft, cardWidth - GEOMETRY.childMinWidth);
+      // never overflow the card's right edge. A narrow card may leave less than
+      // the child minimum; the lane rows are allowed to shrink instead.
+      const laneRight = Math.min(laneWidth, cardLeft + cardWidth);
+      const maxOffset = Math.max(contentLeft, laneRight - GEOMETRY.childMinWidth);
       for (const row of lane.querySelectorAll<HTMLElement>('[data-callout-row="true"]')) {
         // A nested callout has its own lane; only align rows that belong here.
         if (row.closest('.nf-callout-lane') !== laneRoot) continue;

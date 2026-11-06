@@ -39,7 +39,6 @@ export const GEOMETRY = Object.freeze({
   /** Reserved for the M4 page renderer, which may wrap a child below. */
   wrapIndent: 18,
   /** Card chrome. */
-  cardPadding: 10,
   cardRadius: 4,
   /** Edges. */
   edgeWidth: 1.25,
@@ -60,8 +59,18 @@ export const GEOMETRY = Object.freeze({
   edgeMinGap: 4,
   /** Anchored callouts and wrapped direct children share one left trunk. */
   calloutGap: 16,
-  /** The shared trunk sits this far left of the parent's left edge. */
-  belowTrunkGutter: 8,
+  /**
+   * The shared below trunk starts on the parent's bottom edge, this far right
+   * of its left corner. It must never move left of the card.
+   */
+  belowTrunkInset: 12,
+  /**
+   * Minimum left offset of a below-stack row from the parent card's left edge.
+   * It reserves belowTrunkInset + edgeGap + edgeStemMin, so every row keeps a
+   * full horizontal stem from the trunk, and is never less than the 24 px
+   * product minimum.
+   */
+  belowRowInset: 26,
 });
 
 export type EdgePlacement = 'right' | 'below' | 'overlap';
