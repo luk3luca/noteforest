@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 implementation is complete and the product-owner pass continues with M3g2 (lane width/push and tighter edges).** Sentinel M3 review follows. Spec v0.4.5, UX v1.4, ADR-0005; M3a1–M3f2 and M3g1 are merged: anchor model/commands, text/formula-term/code anchors, callout lane, outline/marker navigation, reference edges, make-home/move-here/demote, repair/health, split/merge, export manifest/fixtures, below-stack/idle-anchor fixes. Unit 474/1.8 s; critical e2e 21/45.4 s; recovery 14; UI 23; `verify` exit 0. **M3c3b image anchors are blocked**: the app has no image insertion/asset rendering yet, so an image pipeline is needed first. UI paste/duplicate and chip-overlay polish are follow-ups. M4/PDF remain blocked until M3 is accepted. Spec v0.4.5.
+**M2f is accepted; M3 implementation is complete and the product-owner visual/VoiceOver pass continues after M3g1/M3g2.** Sentinel M3 review follows. Spec v0.4.5, UX v1.4, ADR-0005; M3a1–M3f2 are merged plus the below-stack/idle-anchor and lane/edge fixes. Unit 480/2.0 s; critical e2e 21/45.9 s; recovery 14; UI 24; `verify` exit 0. **M3c3b image anchors are blocked**: the app has no image insertion/asset rendering yet, so an image pipeline is needed first. UI paste/duplicate and chip-overlay polish are follow-ups. Design tokens: `docs/design-tokens.md`. M4/PDF remain blocked until M3 is accepted. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 
@@ -155,6 +155,7 @@ Research remains useful as input for components, not as an open stack decision. 
 - `docs/review-checklist.md` — review checklist (Sentinel).
 - `docs/definition-of-done.md` — DoD and test strategy (Sentinel).
 - `docs/plan.md` — milestones and tasks (Orchestrator).
+- `docs/design-tokens.md` — single reference for layout, spacing, lane, edge, and surface tokens.
 - `docs/agents/roles.md` — role contracts, boundaries, handoff.
 - `docs/agents/brief-template.md` — the specific task-brief template used for every delegation.
 - `docs/ux-shell.md` — desktop shell + branch editor spec for M2.
