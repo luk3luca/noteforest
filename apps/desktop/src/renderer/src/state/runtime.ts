@@ -23,8 +23,7 @@ import {
   textAnchorSelectorForBinding,
 } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
-import { closeHistory, redoDepth, undoDepth } from '@tiptap/pm/history';
-import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state';
+import { TextSelection } from '@tiptap/pm/state';
 import type {
   ApplyResult,
   LockInfoView,
@@ -32,10 +31,9 @@ import type {
   RestoreBackupResult,
   SaveCopyResult,
 } from '../../../shared/api';
-import { buildBlockNode, buildEditorDocument, extractBlockContents, withBody, type PMNode } from '../lib/adapter';
+import { buildBlockNode, withBody } from '../lib/adapter';
 import type { BlockCaretLocation, BranchSelectionAnchor } from '../lib/anchor-selection';
 import { blockCaretLocation, branchSelectionAnchor } from '../lib/anchor-selection';
-import { recordPerf } from '../lib/perf';
 import { createSerialQueue } from '../lib/serial-queue';
 import {
   setEditorSelectedAnchor,
@@ -49,15 +47,10 @@ import {
   incomingBranch,
   parentIdOf,
   siblingIds,
-  visibleBlockIds,
 } from '../lib/tree';
-import {
-  captureTextHistory,
-  createBlockPositionMapper,
-  mapHistorySteps,
-} from './text-history';
 import type { DocumentGateway } from './document-gateway';
 import { createElectronDocumentGateway } from './electron-document-gateway';
+import { EditorProjection, type RebuildOptions } from './editor-projection';
 import { SaveCoordinator, type SaveFailure, type SaveState } from './save-coordinator';
 
 export type { SaveState } from './save-coordinator';
@@ -104,69 +97,6 @@ function withBlockLevel(node: ProseNode, topLevel: boolean, depth: number): Pros
   );
 }
 
-interface BlockLocation {
-  position: number;
-  node: ProseNode;
-}
-
-function locateBlock(editor: Editor, blockId: string): BlockLocation | null {
-  let found: BlockLocation | null = null;
-  editor.state.doc.descendants((node, position) => {
-    if (found !== null) return false;
-    if (node.type.name === 'branchBlock' && node.attrs['blockId'] === blockId) {
-      found = { position, node };
-      return false;
-    }
-    return true;
-  });
-  return found;
-}
-
-function blockIdAtSelection(editor: Editor): string | null {
-  const selection = editor.state.selection;
-  if (selection instanceof NodeSelection && selection.node.type.name === 'branchBlock') {
-    const id = selection.node.attrs['blockId'];
-    return typeof id === 'string' ? id : null;
-  }
-  const { $from } = selection;
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    const node = $from.node(depth);
-    if (node.type.name === 'branchBlock') {
-      const id = node.attrs['blockId'];
-      return typeof id === 'string' ? id : null;
-    }
-  }
-  return null;
-}
-
-function isHistoryState(value: unknown): value is {
-  done: unknown;
-  undone: unknown;
-  prevRanges: unknown;
-} {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'done' in value &&
-    'undone' in value &&
-    'prevRanges' in value
-  );
-}
-
-/**
- * Where the caret/selection was before a command changed the canonical
- * document. Block IDs survive the rebuild; positions do not, so the offset is
- * relative to the block body and is restored only when the same block survives.
- */
-interface FocusContext {
-  blockId: string | null;
-  /** Block → parent → … → root, used to walk up when the block was removed. */
-  ancestors: string[];
-  chapterId: string | null;
-  offset: number;
-  nodeSelected: boolean;
-}
-
 export class DocumentRuntime {
   readonly packagePath: string;
 
@@ -178,8 +108,6 @@ export class DocumentRuntime {
   lock: LockInfoView | undefined;
 
   document: Document;
-
-  editor: Editor | null = null;
 
   /** Bumped for UI consumers after structural/selection/save-state changes. */
   seq = 0;
@@ -200,17 +128,14 @@ export class DocumentRuntime {
    */
   readonly keptBroken = new Set<string>();
 
-  /**
-   * Direct children the renderer wraps into the below stack. Non-canonical:
-   * measured from the canvas, rebuilt into the editor projection only.
-   */
-  private belowStackChildIds: ReadonlySet<string> = new Set();
-
   /** What the last user-visible operation touched; drives undo/redo routing. */
   lastHistoryOperation: 'text' | 'structural' | null = null;
 
   /** Visible recovery message when the editor had to be rebuilt from canonical. */
   repairNotice: string | null = null;
+
+  /** TipTap projection: build/extract/replace/reconcile and text-history replay. */
+  private readonly projection: EditorProjection;
 
   private readonly listeners = new Set<() => void>();
 
@@ -246,6 +171,15 @@ export class DocumentRuntime {
     this.document = snapshot.document;
     this.restorePoint = restore;
     this.gateway = gateway;
+    this.projection = new EditorProjection({
+      document: () => this.document,
+      collapsed: () => this.collapsed,
+      selectedBlockId: () => this.selectedBlockId,
+      reveal: (blockId) => this.expandAncestors(blockId),
+      setRepairNotice: (message) => {
+        this.repairNotice = message;
+      },
+    });
     this.saves = new SaveCoordinator({
       queue: this.queue,
       isEditable: () => this.editable,
@@ -301,6 +235,11 @@ export class DocumentRuntime {
 
   get canRedoText(): boolean {
     return this.editor?.can().redo() ?? false;
+  }
+
+  /** The mounted TipTap editor, or null before attach/dispose. */
+  get editor(): Editor | null {
+    return this.projection.attached;
   }
 
   /** Record that a text undo/redo was applied through this runtime. */
@@ -394,7 +333,7 @@ export class DocumentRuntime {
   }
 
   attachEditor(editor: Editor | null): void {
-    this.editor = editor;
+    this.projection.attach(editor);
   }
 
   noteEditorUpdate(): void {
@@ -425,7 +364,7 @@ export class DocumentRuntime {
     // branchBlocks from the ProseMirror buffer. The canonical document is the
     // source of truth, so restore it instead of committing an emptied canvas.
     if (this.reconcileEditor(this.selectedBlockId)) return true;
-    const extracted = extractBlockContents(this.editor.getJSON() as PMNode);
+    const extracted = this.projection.extractBodies();
     const changes: Array<{ blockId: string; content: ContentNode }> = [];
     for (const [blockId, value] of extracted) {
       const block = this.document.blocks[blockId];
@@ -569,7 +508,7 @@ export class DocumentRuntime {
     focusBlockId: string | null,
     options: { rebuild?: boolean } = {},
   ): Promise<void> {
-    const focus = this.captureFocusContext();
+    const focus = this.projection.captureFocusContext();
     this.document = document;
     this.validateSelectedAnchor();
     if (inverse !== undefined && inverse !== null) {
@@ -586,7 +525,7 @@ export class DocumentRuntime {
       const target =
         focusBlockId !== null && document.blocks[focusBlockId] !== undefined
           ? focusBlockId
-          : this.resolveFocusContext(focus);
+          : this.projection.resolveFocusContext(focus);
       this.rebuildEditor(target, { restore: focus });
     }
     this.notify();
@@ -1189,69 +1128,7 @@ export class DocumentRuntime {
    * canvas-only nodes, and surface a quiet recovery notice.
    */
   reconcileEditor(focusBlockId: string | null = null): boolean {
-    const editor = this.editor;
-    if (editor === null) return false;
-    const canonical = new Set(Object.keys(this.document.blocks));
-    const inEditor = new Set<string>();
-    let placeholderMismatch = false;
-    let otherMismatch = false;
-    editor.state.doc.descendants((node) => {
-      if (node.type.name === 'branchBlock') {
-        const id = node.attrs['blockId'];
-        if (typeof id !== 'string' || id.length === 0) {
-          // ProseMirror auto-fill can leave a placeholder branchBlock after a
-          // targeted delete. It must never survive as a canvas-only block.
-          placeholderMismatch = true;
-        } else {
-          inEditor.add(id);
-        }
-      }
-      return true;
-    });
-    if (canonical.size !== inEditor.size) otherMismatch = true;
-    if (!otherMismatch) {
-      for (const id of canonical) {
-        if (!inEditor.has(id)) {
-          otherMismatch = true;
-          break;
-        }
-      }
-    }
-    if (!otherMismatch) {
-      for (const id of inEditor) {
-        if (!canonical.has(id)) {
-          otherMismatch = true;
-          break;
-        }
-      }
-    }
-    // Also inspect the rendered canvas for diagnostics. A node view can lag one
-    // frame behind the ProseMirror dispatch, so a DOM-only card is not enough to
-    // rebuild: rebuilding from canonical would also discard a just-typed,
-    // not-yet-committed text edit. The ProseMirror ID set is authoritative.
-    if (!otherMismatch && editor.view !== undefined) {
-      const domOnly: string[] = [];
-      for (const element of editor.view.dom.querySelectorAll('[data-block-card]')) {
-        const id = element.getAttribute('data-block-card');
-        if (id === null || id.length === 0 || !canonical.has(id)) domOnly.push(id ?? '(empty)');
-      }
-      if (domOnly.length > 0) {
-        console.warn('[noteforest] canvas-only block card observed; waiting for React to remove it', {
-          domOnly,
-        });
-      }
-    }
-    if (!placeholderMismatch && !otherMismatch) return false;
-    const extra = [...inEditor].filter((id) => !canonical.has(id));
-    const missing = [...canonical].filter((id) => !inEditor.has(id));
-    console.warn('[noteforest] editor/canonical block mismatch; rebuilding', { extra, missing });
-    if (otherMismatch) {
-      this.repairNotice =
-        missing.length > 0
-          ? 'The editor was rebuilt from the saved document to restore blocks removed from the canvas.'
-          : 'The editor was rebuilt from the saved document to remove an untracked block.';
-    }
-    this.rebuildEditor(focusBlockId);
+    if (!this.projection.reconcile(focusBlockId)) return false;
     this.notify();
     return true;
   }
@@ -1349,103 +1226,6 @@ export class DocumentRuntime {
     return true;
   }
 
-  /** Snapshot the block and caret before a structural change replaces the doc. */
-  private captureFocusContext(): FocusContext {
-    const editor = this.editor;
-    // The ProseMirror selection is authoritative while the editor is alive; a
-    // runtime selection can lag one selection-sync tick behind a click.
-    const blockId =
-      (editor === null ? null : blockIdAtSelection(editor)) ?? this.selectedBlockId;
-    if (blockId === null) {
-      return { blockId: null, ancestors: [], chapterId: null, offset: 0, nodeSelected: false };
-    }
-    const ancestors = ancestorPath(this.document, blockId).reverse();
-    const chapterId = chapterIdOf(this.document, blockId);
-    let offset = 0;
-    let nodeSelected = false;
-    if (editor !== null) {
-      const located = locateBlock(editor, blockId);
-      if (located !== null) {
-        const selection = editor.state.selection;
-        if (
-          selection instanceof NodeSelection &&
-          selection.node.type.name === 'branchBlock' &&
-          selection.node.attrs['blockId'] === blockId
-        ) {
-          nodeSelected = true;
-        } else {
-          const bodyStart = located.position + 2;
-          const maximum = Math.max(0, located.node.nodeSize - 4);
-          offset = Math.min(Math.max(selection.from - bodyStart, 0), maximum);
-        }
-      }
-    }
-    return { blockId, ancestors, chapterId, offset, nodeSelected };
-  }
-
-  /**
-   * Prefer the same block after a rebuild, then its nearest surviving ancestor,
-   * then the chapter's first block, then the first visible block. A removed
-   * block never leaves the editor without a valid selection.
-   */
-  private resolveFocusContext(context: FocusContext): string | null {
-    const exists = (id: string): boolean => this.document.blocks[id] !== undefined;
-    if (context.blockId !== null && exists(context.blockId)) return context.blockId;
-    for (const ancestor of context.ancestors) {
-      if (ancestor !== context.blockId && exists(ancestor)) return ancestor;
-    }
-    if (context.chapterId !== null) {
-      const chapter = this.document.chapters.find((item) => item.id === context.chapterId);
-      const topLevel = chapter?.topLevelBlockIds.find((id) => exists(id));
-      if (topLevel !== undefined) return topLevel;
-    }
-    const visible = visibleBlockIds(this.document, this.collapsed);
-    return visible[0] ?? Object.keys(this.document.blocks)[0] ?? null;
-  }
-
-  private restoreFocus(blockId: string, context: FocusContext): void {
-    const editor = this.editor;
-    if (editor === null) return;
-    const located = locateBlock(editor, blockId);
-    if (located === null) return;
-    if (context.nodeSelected) {
-      editor.chain().focus().setNodeSelection(located.position).scrollIntoView().run();
-      return;
-    }
-    const bodyStart = located.position + 2;
-    const bodyEnd = Math.max(bodyStart, located.position + located.node.nodeSize - 2);
-    const position = Math.min(Math.max(bodyStart + context.offset, bodyStart), bodyEnd);
-    try {
-      const selection = TextSelection.near(editor.state.doc.resolve(position), 1);
-      editor.chain().focus().setTextSelection(selection.from).scrollIntoView().run();
-    } catch {
-      this.focusBlock(blockId);
-    }
-  }
-
-  /**
-   * Structural undo/redo can replace arbitrary content. Old ProseMirror
-   * history steps no longer map to a meaningful document, so reset the text
-   * stacks instead of letting the editor undo a stale step.
-   */
-  private clearTextHistory(): void {
-    const editor = this.editor;
-    if (editor === null) return;
-    if (undoDepth(editor.state) === 0 && redoDepth(editor.state) === 0) return;
-    const plugin = editor.state.plugins.find((candidate) =>
-      isHistoryState(candidate.getState(editor.state)),
-    );
-    const historyKey = plugin?.spec.key;
-    if (plugin === undefined || historyKey === undefined) return;
-    const fresh = EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins });
-    const empty = plugin.getState(fresh);
-    if (!isHistoryState(empty)) return;
-    const transaction = editor.state.tr.setMeta(historyKey, { historyState: empty });
-    transaction.setMeta('addToHistory', false);
-    transaction.setMeta('preventUpdate', true);
-    editor.view.dispatch(transaction);
-  }
-
   /**
    * Apply a measured right/below placement. The projection changes DOM order
    * only (right group vs below stack); canonical structure and revision stay
@@ -1455,153 +1235,18 @@ export class DocumentRuntime {
    * editor was idle.
    */
   applyChildPlacement(belowChildIds: ReadonlySet<string>): void {
-    const same =
-      belowChildIds.size === this.belowStackChildIds.size &&
-      [...belowChildIds].every((id) => this.belowStackChildIds.has(id));
-    if (same) return;
-    this.belowStackChildIds = new Set(belowChildIds);
-    if (this.editor === null) return;
-    const wasFocused = this.editor.isFocused;
-    const focus = this.captureFocusContext();
-    this.rebuildEditorPreservingTextHistory(wasFocused ? focus.blockId : null, {
-      ...(wasFocused ? { restore: focus } : {}),
-    });
-  }
-
-  /** Project the current editor bodies through the canonical document and the new placement. */
-  private projectionFromEditor(doc: ProseNode): PMNode {
-    const extracted = extractBlockContents(doc.toJSON() as PMNode);
-    const blocks = { ...this.document.blocks };
-    for (const [id, block] of Object.entries(blocks)) {
-      const body = extracted.get(id);
-      if (body === undefined) continue;
-      blocks[id] = { ...block, content: withBody(block.content, body.content) };
-    }
-    return buildEditorDocument(
-      { ...this.document, blocks },
-      this.collapsed,
-      this.belowStackChildIds,
-    );
-  }
-
-  /** Replace the whole editor buffer without touching canonical content or history. */
-  private replaceEditorDocument(pmDocument: PMNode): void {
-    const editor = this.editor;
-    if (editor === null) return;
-    const documentNode = editor.schema.nodeFromJSON(pmDocument);
-    const transaction = editor.state.tr.replaceWith(
-      0,
-      editor.state.doc.content.size,
-      documentNode.content,
-    );
-    transaction.setMeta('addToHistory', false);
-    transaction.setMeta('preventUpdate', true);
-    editor.view.dispatch(transaction);
+    this.projection.applyChildPlacement(belowChildIds);
   }
 
   /**
-   * Rebuild the projection after a placement change while preserving the
-   * user-visible text undo stack. A full replace invalidates ProseMirror's
-   * positional history steps, so the rebuild starts at the oldest text doc and
-   * replays every text event through `blockBody` offsets. Each event is closed
-   * into its own history entry, preserving one-undo-per-event semantics. If a
-   * step cannot be mapped (only possible for a wrapper-level edit), fall back
-   * to the rebuilt projection with an empty text stack instead of corrupting
-   * the document.
+   * Rebuild the editor buffer from canonical. `restore` keeps the caret in the
+   * same block body; `resetHistory` clears a text stack that no longer maps.
    */
-  private rebuildEditorPreservingTextHistory(
-    focusBlockId: string | null,
-    options: { restore?: FocusContext } = {},
-  ): void {
-    const editor = this.editor;
-    if (editor === null) return;
-    const started = performance.now();
-    const expected = this.projectionFromEditor(editor.state.doc);
-    let replay: ReturnType<typeof captureTextHistory> | null = null;
-    try {
-      replay = captureTextHistory(editor.state);
-    } catch (error) {
-      console.warn(
-        '[noteforest] could not capture the text history for a placement rebuild',
-        error,
-      );
-    }
-    if (replay !== null && replay.events.length > 0) {
-      try {
-        this.replaceEditorDocument(this.projectionFromEditor(replay.baseline));
-        this.clearTextHistory();
-        for (const event of replay.events) {
-          const mapping = createBlockPositionMapper(event.before, editor.state.doc);
-          const steps = mapHistorySteps(event.steps, mapping);
-          const transaction = editor.state.tr;
-          for (const step of steps) {
-            if (transaction.maybeStep(step).failed !== null) {
-              throw new Error('Text history replay step did not apply.');
-            }
-          }
-          transaction.setMeta('addToHistory', true);
-          transaction.setMeta('preventUpdate', true);
-          closeHistory(transaction);
-          editor.view.dispatch(transaction);
-        }
-        // StarterKit's TrailingNode appends a top-level paragraph after every
-        // dispatch; it is not part of the projection. Compare the chapter
-        // content only so that filler never causes a false mismatch.
-        const expectedNode = editor.schema.nodeFromJSON(expected);
-        const expectedChapters = expectedNode.content.content;
-        const actualChapters = editor.state.doc.content.content.filter(
-          (node) => node.type.name === 'chapter',
-        );
-        const reachedExpected =
-          actualChapters.length === expectedChapters.length &&
-          actualChapters.every((node, index) => {
-            const expectedChapter = expectedChapters[index];
-            return expectedChapter !== undefined && node.eq(expectedChapter);
-          });
-        if (!reachedExpected) {
-          throw new Error('Text history replay did not reach the expected projection.');
-        }
-      } catch (error) {
-        console.warn(
-          '[noteforest] text history replay failed; the placement rebuild cleared it',
-          error,
-        );
-        this.replaceEditorDocument(expected);
-        this.clearTextHistory();
-      }
-    } else {
-      this.replaceEditorDocument(expected);
-      this.clearTextHistory();
-    }
-    recordPerf('reflow', performance.now() - started);
-    if (focusBlockId !== null) {
-      if (options.restore !== undefined && options.restore.blockId === focusBlockId) {
-        this.restoreFocus(focusBlockId, options.restore);
-      } else {
-        this.focusBlock(focusBlockId);
-      }
-    }
-  }
-
   rebuildEditor(
     focusBlockId: string | null = null,
-    options: { restore?: FocusContext; resetHistory?: boolean } = {},
+    options: RebuildOptions = {},
   ): void {
-    const editor = this.editor;
-    if (editor === null) return;
-    const started = performance.now();
-    this.replaceEditorDocument(
-      buildEditorDocument(this.document, this.collapsed, this.belowStackChildIds),
-    );
-    if (options.resetHistory === true) this.clearTextHistory();
-    recordPerf('reflow', performance.now() - started);
-    if (focusBlockId !== null) {
-      if (options.restore !== undefined && options.restore.blockId === focusBlockId) {
-        this.restoreFocus(focusBlockId, options.restore);
-      } else {
-        this.focusBlock(focusBlockId);
-      }
-    }
+    this.projection.rebuild(focusBlockId, options);
   }
 
   /**
@@ -1631,50 +1276,7 @@ export class DocumentRuntime {
   }
 
   focusBlock(blockId: string, options: { select?: boolean; scroll?: boolean; at?: 'start' | 'end' } = {}): void {
-    // Navigation always reveals the target: a collapsed ancestor is view
-    // state, never a reason to focus an invisible block.
-    this.expandAncestors(blockId);
-    const editor = this.editor;
-    if (editor === null) return;
-    let position: number | null = null;
-    let bodySize: number | null = null;
-    editor.state.doc.descendants((node, pos) => {
-      if (position !== null) return false;
-      if (node.type.name === 'branchBlock' && node.attrs['blockId'] === blockId) {
-        position = pos;
-        const body = node.firstChild;
-        bodySize = body !== null && body.type.name === 'blockBody' ? body.nodeSize : node.nodeSize - 2;
-        return false;
-      }
-      return true;
-    });
-    if (position === null) return;
-    const pos = position as number;
-    const scroll = options.scroll !== false;
-    if (options.select === true) {
-      const chain = editor.chain().focus().setNodeSelection(pos);
-      if (scroll) chain.scrollIntoView();
-      chain.run();
-      return;
-    }
-    const atEnd = options.at === 'end';
-    // End of the block's own body, never the end of its last descendant.
-    const blockEnd = pos + (bodySize ?? 4) - 1;
-    try {
-      const chain = editor.chain().focus();
-      if (atEnd) {
-        const selection = TextSelection.near(editor.state.doc.resolve(blockEnd), -1);
-        chain.setTextSelection(selection);
-      } else {
-        chain.setTextSelection(Math.min(pos + 3, editor.state.doc.content.size));
-      }
-      if (scroll) chain.scrollIntoView();
-      chain.run();
-    } catch {
-      const chain = editor.chain().focus().setNodeSelection(pos);
-      if (scroll) chain.scrollIntoView();
-      chain.run();
-    }
+    this.projection.focusBlock(blockId, options);
   }
 
   /** Expand collapsed ancestors so a navigation target is visible. */
@@ -2289,7 +1891,7 @@ export class DocumentRuntime {
 
   async undoStructural(): Promise<ApplyOutcome> {
     return this.queue.run(async () => {
-      const focus = this.captureFocusContext();
+      const focus = this.projection.captureFocusContext();
       const inverse = this.undoStack.pop();
       if (inverse === undefined) return { ok: false, message: 'Nothing to undo.' };
       await this.commitContentInternal();
@@ -2310,7 +1912,7 @@ export class DocumentRuntime {
       this.version += 1;
       this.saves.noteStructuralChange();
       this.recomputeHashes();
-      const target = this.resolveFocusContext(focus);
+      const target = this.projection.resolveFocusContext(focus);
       this.rebuildEditor(target, { restore: focus, resetHistory: true });
       this.reconcileEditor(target);
       this.notify();
@@ -2321,7 +1923,7 @@ export class DocumentRuntime {
 
   async redoStructural(): Promise<ApplyOutcome> {
     return this.queue.run(async () => {
-      const focus = this.captureFocusContext();
+      const focus = this.projection.captureFocusContext();
       const command = this.redoStack.pop();
       if (command === undefined) return { ok: false, message: 'Nothing to redo.' };
       await this.commitContentInternal();
@@ -2340,7 +1942,7 @@ export class DocumentRuntime {
       this.version += 1;
       this.saves.noteStructuralChange();
       this.recomputeHashes();
-      const target = this.resolveFocusContext(focus);
+      const target = this.projection.resolveFocusContext(focus);
       this.rebuildEditor(target, { restore: focus, resetHistory: true });
       this.reconcileEditor(target);
       this.notify();
@@ -2375,6 +1977,6 @@ export class DocumentRuntime {
   dispose(): void {
     this.saves.dispose();
     this.listeners.clear();
-    this.editor = null;
+    this.projection.attach(null);
   }
 }
