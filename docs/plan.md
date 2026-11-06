@@ -333,8 +333,8 @@ runtime dependency, all existing tests green, no behavior change.
   apply→inverse→deep-equal harness, branded IDs where mechanical.
 - **Slice 5a — merged:** shared UI session/fixtures and callout split; no test deletion.
   Report: `docs/reports/m3i5a-ui-test-harness.md`.
-- **Slice 5b — test harness cleanup:** e2e coverage matrix and removal of exact recovery duplicates;
-  core factories. Remove setup duplication, not behavior coverage.
+- **Slice 5b — launched:** e2e duplicate trim, coverage matrix, formula-term edit fixture.
+  Brief: `docs/tasks/m3i5b-e2e-trim-coverage.md`.
 
 Only interfaces now: `AssetStore`, `ApplicationService`/queries, token registry. Implementations
 for images, API/MCP, auth/audit, settings, page/PDF belong to M3c3b/M4/M5/M6.
