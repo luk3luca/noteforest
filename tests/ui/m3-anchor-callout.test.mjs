@@ -122,6 +122,33 @@ async function waitForWrappedRow(parentId) {
   );
 }
 
+async function waitForLaneWidth(parentId, minimum = 240) {
+  await page.waitForFunction(
+    ({ id, min }) => {
+      const lane = document.querySelector(`[data-callout-lane="${id}"]`);
+      if (lane === null) return false;
+      const width = lane.getBoundingClientRect().width;
+      const hostValue = Number.parseFloat(
+        lane.closest('.nf-block-node')?.style.getPropertyValue('--nf-lane-width') ?? '',
+      );
+      return width >= min - 0.5 && Number.isFinite(hostValue) && hostValue >= min - 0.5;
+    },
+    { id: parentId, min: minimum },
+    { timeout: 10000 },
+  );
+}
+
+/** Center a card in the scroll viewport so screenshots show its below stack. */
+async function centerOn(blockId, blocks = 11, arrows = 7) {
+  await page.evaluate((id) => {
+    const card = document.querySelector(
+      `.nf-editor[data-active="true"] [data-block-card="${id}"]`,
+    );
+    card?.scrollIntoView({ block: 'center', behavior: 'instant' });
+  }, blockId);
+  await h.waitLayout({ blocks, arrows });
+}
+
 function parsePoints(path) {
   const numbers = (path ?? '')
     .split(/[^0-9.-]+/)
@@ -142,6 +169,61 @@ function lastSegment(points) {
     length: Math.hypot(end.x - before.x, end.y - before.y),
     horizontal: Math.abs(end.y - before.y) < 0.5,
   };
+}
+
+/** Distance from each Q control point to its adjacent line endpoints. */
+function cornerOffsets(path) {
+  const tokens = (path ?? '').match(/[MLQ]|-?\d+(?:\.\d+)?/g) ?? [];
+  const segments = [];
+  let command = 'M';
+  let numbers = [];
+  const flush = () => {
+    if (numbers.length === 0) return;
+    const points = [];
+    for (let index = 0; index + 1 < numbers.length; index += 2) {
+      points.push({ x: numbers[index], y: numbers[index + 1] });
+    }
+    segments.push({ command, points });
+    numbers = [];
+  };
+  for (const token of tokens) {
+    if (token === 'M' || token === 'L' || token === 'Q') {
+      flush();
+      command = token;
+    } else {
+      numbers.push(Number(token));
+    }
+  }
+  flush();
+  const offsets = [];
+  let previous = null;
+  for (const segment of segments) {
+    if (segment.command === 'Q') {
+      const control = segment.points[0];
+      const after = segment.points[1];
+      if (previous !== null && control !== undefined) {
+        offsets.push(Math.hypot(previous.x - control.x, previous.y - control.y));
+      }
+      if (control !== undefined && after !== undefined) {
+        offsets.push(Math.hypot(after.x - control.x, after.y - control.y));
+      }
+    }
+    previous = segment.points.at(-1) ?? previous;
+  }
+  return offsets;
+}
+
+function assertNearRightAngles(edges, label) {
+  for (const edge of edges) {
+    expectNoArc(edge.path, `${label} ${edge.childId}`);
+    for (const offset of cornerOffsets(edge.path)) {
+      assert.ok(offset <= 4, `${label} ${edge.childId} corner rounding ${offset} <= 4`);
+    }
+  }
+}
+
+function expectNoArc(path, label) {
+  assert.equal(/[Aa]/.test(path ?? ''), false, `${label} has no arc command`);
 }
 
 async function belowStackSnapshot(parentId, childIds) {
@@ -165,6 +247,8 @@ async function belowStackSnapshot(parentId, childIds) {
       const parent = rel(content.querySelector(`[data-block-card="${id}"]`));
       const lane = content.querySelector(`[data-callout-lane="${id}"]`);
       if (lane === null) return null;
+      const laneWidthVar =
+        lane.closest('.nf-block-node')?.style.getPropertyValue('--nf-lane-width') ?? '';
       const laneRows = [
         ...lane.querySelectorAll('[data-callout-row="true"], .nf-block-node[data-below-row="true"]'),
       ].filter((row) => row.closest('.nf-callout-lane') === lane);
@@ -213,6 +297,8 @@ async function belowStackSnapshot(parentId, childIds) {
       return {
         parent,
         lane: rel(lane),
+        laneWidthVar,
+        contentWidth: contentRect.width,
         rows,
         right,
         edges,
@@ -295,6 +381,50 @@ async function buildFixture() {
     'the direct children stay normal primary branches',
   );
   return { parentId, parentCard, firstCallout, secondCallout, shortDirect, longDirect };
+}
+
+/**
+ * M3g2 narrow-parent fixture: a 160 px top-level card plus one callout and two
+ * direct children. The callout lane must be 240 px (its own floor), not the
+ * parent width, and only the 80 px excess may push the direct-child group.
+ */
+async function narrowLaneFixture(name) {
+  await launch(isolated(name));
+  await h.setWindowSize(1440, 900);
+  await page.evaluate(() => window.__noteforestTest.seed('demo'));
+  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+  await h.waitSaved();
+  await h.waitLayout({ blocks: 7, arrows: 3 });
+
+  const canonical = await structure();
+  const chapterId = canonical.chapters[0].id;
+  const parentId = 'm3g2-narrow-parent';
+  await applyCommand({
+    type: 'block.create',
+    blockId: parentId,
+    content: {
+      type: 'doc',
+      children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Narrow' }] }],
+    },
+    placement: { kind: 'top-level', chapterId },
+  });
+  await page.waitForSelector(`[data-block-card="${parentId}"]`);
+  await h.waitLayout({ blocks: 8, arrows: 3 });
+
+  const calloutId = await createAnchoredChild(parentId, 'Narrow');
+  await waitForCallouts(parentId, 1);
+  await waitForLaneWidth(parentId);
+
+  const shortDirect = 'm3g2-lane-short-direct';
+  const longDirect = 'm3g2-lane-long-direct';
+  await createDirectChild(parentId, shortDirect, 'R');
+  await createDirectChild(
+    parentId,
+    longDirect,
+    'A deliberately long direct child whose card needs the full right column width.',
+  );
+  await h.waitLayout({ blocks: 11, arrows: 7 });
+  return { parentId, calloutId, shortDirect, longDirect };
 }
 
 async function textAnchorFixture(name) {
@@ -435,8 +565,17 @@ describe('NoteForest M3b2c below-stack routing', () => {
       'the below stack starts below the parent card',
     );
     assert.ok(
-      snapshot.lane.right <= snapshot.parent.right + 0.5,
-      'the lane stays within the parent card width',
+      Math.abs(snapshot.lane.left - snapshot.parent.left) <= 0.5,
+      'the lane starts at the parent card left',
+    );
+    assert.ok(
+      snapshot.lane.width >= 240 - 0.5 && snapshot.lane.width <= 480 + 0.5,
+      'the lane keeps its independent 240–480 px bounds',
+    );
+    assert.ok(
+      Number.parseFloat(snapshot.laneWidthVar) >= 240 &&
+        Number.parseFloat(snapshot.laneWidthVar) <= 480,
+      'the lane width variable is bounded',
     );
 
     // Both direct children fit to the right at 1440.
@@ -444,11 +583,13 @@ describe('NoteForest M3b2c below-stack routing', () => {
       snapshot.right.map((entry) => entry.childId).sort(),
       [shortDirect, longDirect].sort(),
     );
+    const expectedRightGroup =
+      Math.max(snapshot.parent.right, snapshot.lane.right) + 16;
     for (const entry of snapshot.right) {
       assert.ok(
-        entry.card.left >= snapshot.parent.right + 15 &&
-          entry.card.left <= snapshot.parent.right + 18,
-        `direct child ${entry.childId} sits one gap right of the parent`,
+        entry.card.left >= expectedRightGroup - 1 &&
+          entry.card.left <= expectedRightGroup + 1,
+        `direct child ${entry.childId} starts at max(parent.right, lane.right) + gap`,
       );
       assert.ok(
         entry.card.top < snapshot.rows[0].card.bottom,
@@ -507,13 +648,12 @@ describe('NoteForest M3b2c below-stack routing', () => {
       const end = points.at(-1);
       if (end === undefined) throw new Error('missing edge end');
       assert.ok(
-        row.card.left >= snapshot.parent.left + 24 - 0.5,
-        `row ${index} is indented at least 24 px from the parent card`,
+        row.card.left >= snapshot.lane.left + 26 - 0.5,
+        `row ${index} is indented with the trunk from the lane left`,
       );
       assert.ok(
-        row.card.right <= snapshot.lane.right + 0.5 &&
-          row.card.right <= snapshot.parent.right + 0.5,
-        `row ${index} stays inside the lane and parent bounds`,
+        row.card.right <= snapshot.lane.right + 0.5,
+        `row ${index} stays inside the lane bounds`,
       );
       assert.ok(Math.abs(points[0]?.x - trunkStart.x) < 1, `row ${index} arm starts at the trunk`);
       assert.ok(Math.abs(end.x - (row.card.left - 2)) < 1, `row ${index} arrow tip at the left edge`);
@@ -528,6 +668,7 @@ describe('NoteForest M3b2c below-stack routing', () => {
       );
     }
     assert.equal(byChild.get(longDirect)?.placement, 'right');
+    assertNearRightAngles(snapshot.edges, '1440');
 
     assertNoOverlap(
       [
@@ -574,7 +715,22 @@ describe('NoteForest M3b2c below-stack routing', () => {
       snapshot.right.map((entry) => entry.childId),
       [shortDirect],
     );
-    assert.ok(snapshot.lane.right <= snapshot.parent.right + 0.5);
+    assert.ok(
+      Math.abs(snapshot.lane.left - snapshot.parent.left) <= 0.5,
+      'the lane starts at the parent card left at 960',
+    );
+    assert.ok(
+      snapshot.lane.width >= 240 - 0.5 && snapshot.lane.width <= 480 + 0.5,
+      'the lane keeps its independent bounds at 960',
+    );
+    const expectedRightGroup =
+      Math.max(snapshot.parent.right, snapshot.lane.right) + 16;
+    const shortCard = snapshot.right[0]?.card;
+    assert.ok(shortCard !== undefined);
+    assert.ok(
+      shortCard.left >= expectedRightGroup - 1 && shortCard.left <= expectedRightGroup + 1,
+      'the remaining direct child starts at max(parent.right, lane.right) + gap',
+    );
 
     const byChild = new Map(snapshot.edges.map((edge) => [edge.childId, edge]));
     assert.equal(byChild.get(shortDirect)?.placement, 'right');
@@ -606,13 +762,12 @@ describe('NoteForest M3b2c below-stack routing', () => {
       const end = edge.points.at(-1);
       if (end === undefined) throw new Error('missing edge end');
       assert.ok(
-        row.card.left >= snapshot.parent.left + 24 - 0.5,
-        `row ${index} is indented at least 24 px from the parent card`,
+        row.card.left >= snapshot.lane.left + 26 - 0.5,
+        `row ${index} is indented with the trunk from the lane left`,
       );
       assert.ok(
-        row.card.right <= snapshot.lane.right + 0.5 &&
-          row.card.right <= snapshot.parent.right + 0.5,
-        `row ${index} stays inside the lane and parent bounds`,
+        row.card.right <= snapshot.lane.right + 0.5,
+        `row ${index} stays inside the lane bounds`,
       );
       assert.ok(Math.abs(edge.points[0]?.x - trunkStart.x) < 1, `row ${index} arm starts at the trunk`);
       assert.ok(Math.abs(end.x - (row.card.left - 2)) < 1, `row ${index} enters from the left`);
@@ -636,6 +791,7 @@ describe('NoteForest M3b2c below-stack routing', () => {
       0,
       'no bottom bus',
     );
+    assertNearRightAngles(snapshot.edges, '960');
 
     await mkdir(artifactsPath('m3g1'), { recursive: true });
     await h.screenshot(artifactsPath('m3g1', 'below-stack-960x900.png'), {
@@ -671,6 +827,7 @@ describe('NoteForest M3b2c below-stack routing', () => {
 
     const calloutId = await createAnchoredChild(parentId, 'omega');
     await waitForCallouts(parentId, 1);
+    await waitForLaneWidth(parentId);
     await h.waitLayout({ blocks: 9, arrows: 4 });
 
     const snapshot = await belowStackSnapshot(parentId, [calloutId]);
@@ -697,13 +854,12 @@ describe('NoteForest M3b2c below-stack routing', () => {
     assert.ok(anchorLeft !== null);
     assert.ok(anchorLeft > snapshot.parent.left + 120, 'the anchor really is far right');
     assert.ok(
-      row.card.left >= snapshot.parent.left + 24 - 0.5,
+      row.card.left >= snapshot.lane.left + 26 - 0.5,
       'the clamped callout falls back to the indented row origin',
     );
     assert.ok(
-      row.card.right <= snapshot.lane.right + 0.5 &&
-        row.card.right <= snapshot.parent.right + 0.5,
-      'the clamped callout never overflows the lane or card',
+      row.card.right <= snapshot.lane.right + 0.5,
+      'the clamped callout never overflows the lane',
     );
     const edge = snapshot.edges[0];
     assert.ok(edge !== undefined);
@@ -715,6 +871,179 @@ describe('NoteForest M3b2c below-stack routing', () => {
     assert.ok(start.x >= snapshot.parent.left + 8 && start.x <= snapshot.parent.left + 16);
     assert.equal(edge.arrow, 'right');
     expectStem(edge.points, GEOMETRY_STEM_MIN);
+  });
+
+  it('gives a narrow parent a bounded lane and indents rows with the trunk', async () => {
+    const { parentId, calloutId, shortDirect, longDirect } = await narrowLaneFixture('lane');
+    const parentCard = h.activeEditor().locator(`[data-block-card="${parentId}"]`);
+    await parentCard.scrollIntoViewIfNeeded();
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    await waitForLaneWidth(parentId);
+
+    // --- 1440: 160 px parent, 240 px lane, both direct children right.
+    const wide = await belowStackSnapshot(parentId, [calloutId, shortDirect, longDirect]);
+    assert.ok(wide !== null);
+    assert.ok(
+      Math.abs(wide.parent.width - 160) <= 1,
+      `the parent keeps its 160 px card width (${wide.parent.width})`,
+    );
+    assert.ok(
+      Math.abs(wide.lane.width - 240) <= 1,
+      `the lane floor is 240 px, not the parent width (${wide.lane.width})`,
+    );
+    assert.ok(
+      Math.abs(wide.lane.left - wide.parent.left) <= 0.5,
+      'the lane is aligned with the parent card left',
+    );
+    assert.ok(
+      Math.abs(Number.parseFloat(wide.laneWidthVar) - wide.lane.width) <= 0.5,
+      'the host lane-width variable matches the measured lane',
+    );
+    assert.deepEqual(
+      wide.rows.map((row) => `${row.kind}:${row.childId}`),
+      [`callout:${calloutId}`],
+      'only the callout is below at 1440',
+    );
+    const wideRow = wide.rows[0];
+    if (wideRow === undefined || wideRow.card === null) throw new Error('missing callout row');
+    assert.ok(
+      wideRow.card.left - wide.lane.left >= 26 - 0.5,
+      'the callout card is indented with the trunk, not flush with the 160 px parent',
+    );
+    assert.ok(
+      wideRow.card.right <= wide.lane.right + 0.5,
+      'the callout card never overflows the lane',
+    );
+    const wideRightGroup = Math.max(wide.parent.right, wide.lane.right) + 16;
+    assert.deepEqual(
+      wide.right.map((entry) => entry.childId).sort(),
+      [shortDirect, longDirect].sort(),
+      'both direct children fit right at 1440',
+    );
+    for (const entry of wide.right) {
+      assert.ok(
+        entry.card.left >= wideRightGroup - 1 && entry.card.left <= wideRightGroup + 1,
+        `direct child ${entry.childId} starts at max(parent.right, lane.right) + gap; ` +
+          `only the ${wide.lane.right - wide.parent.right} px lane excess pushes it`,
+      );
+      assert.ok(
+        entry.card.right <= wide.contentWidth + 1,
+        `direct child ${entry.childId} stays inside the available canvas width`,
+      );
+    }
+    // The callout edge starts at the trunk inset inside the parent card and
+    // reaches the indented row's left edge with a full stem.
+    const wideCalloutEdge = wide.edges.find((edge) => edge.childId === calloutId);
+    assert.ok(wideCalloutEdge !== undefined);
+    const wideEdgeStart = wideCalloutEdge.points[0];
+    if (wideEdgeStart === undefined) throw new Error('missing callout edge start');
+    assert.ok(
+      Math.abs(wideEdgeStart.x - (wide.parent.left + 12)) <= 1,
+      'the below trunk starts at the parent left + 12 px inset',
+    );
+    assert.ok(
+      Math.abs(wideEdgeStart.y - wide.parent.bottom) <= 1,
+      'the below trunk starts on the parent bottom edge',
+    );
+    expectStem(wideCalloutEdge.points, GEOMETRY_STEM_MIN);
+    assertNearRightAngles(wide.edges, 'narrow lane 1440');
+    assertNoOverlap(
+      [wide.parent, ...wide.rows.map((row) => row.card), ...wide.right.map((entry) => entry.card)],
+      'narrow lane 1440 layout',
+    );
+
+    await parentCard.scrollIntoViewIfNeeded();
+    await centerOn(parentId);
+    await mkdir(artifactsPath('m3g2'), { recursive: true });
+    await h.screenshot(artifactsPath('m3g2', 'narrow-lane-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // --- 960: the long direct child wraps after the callout, same lane/trunk.
+    await h.setWindowSize(960, 900);
+    await waitForWrappedRow(parentId);
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    await parentCard.scrollIntoViewIfNeeded();
+    await h.waitLayout({ blocks: 11, arrows: 7 });
+    const narrow = await belowStackSnapshot(parentId, [calloutId, shortDirect, longDirect]);
+    assert.ok(narrow !== null);
+    assert.ok(
+      Math.abs(narrow.lane.width - 240) <= 1,
+      `the lane floor stays 240 px at 960 (${narrow.lane.width})`,
+    );
+    assert.deepEqual(
+      narrow.rows.map((row) => `${row.kind}:${row.childId}`),
+      [`callout:${calloutId}`, `direct:${longDirect}`],
+      'the long direct child wraps after the callout at 960',
+    );
+    assert.deepEqual(
+      narrow.right.map((entry) => entry.childId),
+      [shortDirect],
+      'the short direct child stays right at 960',
+    );
+    const narrowRightGroup = Math.max(narrow.parent.right, narrow.lane.right) + 16;
+    const narrowShort = narrow.right[0];
+    assert.ok(narrowShort !== undefined);
+    assert.ok(
+      narrowShort.card.left >= narrowRightGroup - 1 &&
+        narrowShort.card.left <= narrowRightGroup + 1,
+      'the short direct child sits at max(parent.right, lane.right) + gap at 960',
+    );
+    for (const [index, row] of narrow.rows.entries()) {
+      if (row.card === null) throw new Error('missing row card');
+      assert.ok(
+        row.card.left - narrow.lane.left >= 26 - 0.5,
+        `row ${index} is indented with the shared below trunk at 960`,
+      );
+      assert.ok(
+        row.card.right <= narrow.lane.right + 0.5,
+        `row ${index} stays inside the lane at 960`,
+      );
+      assert.ok(
+        row.card.right <= narrow.contentWidth + 1,
+        `row ${index} stays inside the available canvas width at 960`,
+      );
+    }
+    const belowTrunks = narrow.trunks.filter(
+      (trunk) => trunk.kind === 'trunk' && trunk.placement === 'below',
+    );
+    assert.equal(belowTrunks.length, 1, 'one shared below trunk for the callout and wrapped row');
+    const trunk = belowTrunks[0];
+    assert.ok(trunk !== undefined);
+    const trunkStart = trunk.points[0];
+    if (trunkStart === undefined) throw new Error('missing trunk start');
+    assert.ok(Math.abs(trunkStart.x - (narrow.parent.left + 12)) <= 1);
+    assert.ok(Math.abs(trunkStart.y - narrow.parent.bottom) <= 1);
+    assert.ok(
+      trunkStart.x < Math.min(...narrow.rows.map((row) => row.card.left)) - 11,
+      'the trunk stays left of every indented row',
+    );
+    assert.ok(
+      narrow.rows.every((row) => row.card.left - narrow.lane.left >= 26 - 0.5),
+      'callout and wrapped direct rows share the row indent',
+    );
+    assert.equal(
+      narrow.trunks.filter((trunkItem) => trunkItem.kind === 'bus').length,
+      0,
+      'no bottom bus',
+    );
+    assertNearRightAngles(narrow.edges, 'narrow lane 960');
+    assertNoOverlap(
+      [
+        narrow.parent,
+        ...narrow.rows.map((row) => row.card),
+        ...narrow.right.map((entry) => entry.card),
+      ],
+      'narrow lane 960 layout',
+    );
+
+    await parentCard.scrollIntoViewIfNeeded();
+    await centerOn(parentId);
+    await h.screenshot(artifactsPath('m3g2', 'narrow-lane-960x900.png'), {
+      width: 960,
+      height: 900,
+    });
   });
 
   it('removes every marker when an anchored target is deleted, and undo restores it exactly', async () => {

@@ -7,10 +7,11 @@
  * the canonical document, revision, or undo stack.
  */
 
+import { anchoredChildBranches } from '@noteforest/core';
 import { useEffect, useRef, useState } from 'react';
 import { directChildBranches } from '../lib/tree';
 import { planDirectChildPlacement, type DirectPlacementCandidate } from '../lib/child-placement';
-import { rectRight, type Rect } from '../lib/geometry';
+import { calloutLaneWidth, rectRight, type Rect } from '../lib/geometry';
 import type { DocumentRuntime } from '../state/runtime';
 
 interface BelowStackPlacementInput {
@@ -80,6 +81,16 @@ export function useBelowStackPlacement({
         parent,
         children: candidates,
         availableWidth,
+        // Anchored callouts give their parent a bounded lane. The right group
+        // starts after max(parent.right, lane.right), so a narrow parent's
+        // 240 px lane is part of the width budget instead of being ignored.
+        // Broken targets are skipped by the adapter and do not get a lane.
+        laneWidth:
+          anchoredChildBranches(document, parentId).some(
+            (branch) => document.blocks[branch.targetBlockId] !== undefined,
+          )
+            ? calloutLaneWidth(parent.width)
+            : undefined,
       });
       for (const id of plan.below) next.add(id);
     }

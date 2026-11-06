@@ -8,7 +8,8 @@
  * never placed by this helper: the adapter always puts them below.
  */
 
-import { GEOMETRY, rectRight, type Rect } from './geometry';
+import { DESIGN_TOKENS } from './design-tokens';
+import { rightGroupStart, type Rect } from './geometry';
 
 export interface DirectPlacementCandidate {
   id: string;
@@ -31,6 +32,12 @@ export interface DirectPlacementInput {
   children: readonly DirectPlacementCandidate[];
   /** Right edge of the available row in the same layout coordinates. */
   availableWidth: number;
+  /**
+   * Independent callout lane width when the parent has anchored callouts. The
+   * right group starts after `max(parent.right, lane.right)`; with no lane it
+   * starts after the parent card.
+   */
+  laneWidth?: number;
   gap?: number;
   minChildWidth?: number;
   /** Keep a lone chain child right; the editor scrolls horizontally (D23). */
@@ -44,9 +51,12 @@ export function planDirectChildPlacement(input: DirectPlacementInput): ChildPlac
     return { right: [children[0]?.id ?? ''], below: [] };
   }
 
-  const gap = input.gap ?? GEOMETRY.childGap;
-  const minChildWidth = input.minChildWidth ?? GEOMETRY.childMinWidth;
-  const available = input.availableWidth - (rectRight(input.parent) + gap);
+  const gap = input.gap ?? DESIGN_TOKENS.siblingGap;
+  const minChildWidth = input.minChildWidth ?? DESIGN_TOKENS.childMinWidth;
+  // Only the callout lane's excess past the parent pushes the group; a lane
+  // that is no wider than the parent changes nothing.
+  const groupStart = rightGroupStart(input.parent, input.laneWidth, gap);
+  const available = input.availableWidth - groupStart;
   const usable = available >= minChildWidth - 0.5;
   const right: string[] = [];
   const below: string[] = [];

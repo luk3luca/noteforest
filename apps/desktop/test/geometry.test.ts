@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   GEOMETRY,
+  calloutLaneWidth,
   classifyPlacement,
   distributePorts,
   fitsToRight,
   intersects,
+  lanePush,
+  rightGroupStart,
   type Rect,
 } from '../src/renderer/src/lib/geometry';
 
@@ -44,11 +47,44 @@ describe('geometry', () => {
     expect(GEOMETRY.childMinWidth).toBe(144);
     expect(GEOMETRY.childMaxWidth).toBe(420);
     expect(GEOMETRY.childGap).toBe(16);
+    expect(GEOMETRY.siblingGap).toBe(16);
     expect(GEOMETRY.canvasMaxWidth).toBe(1600);
     expect(GEOMETRY.wrapIndent).toBe(18);
-    expect(GEOMETRY.edgeStemMin).toBe(12);
+    expect(GEOMETRY.stemMin).toBe(12);
     expect(GEOMETRY.edgeArrowLength).toBe(6);
     expect(GEOMETRY.edgeArrowHalfWidth).toBe(3);
     expect(GEOMETRY.edgeGap).toBe(2);
+    expect(GEOMETRY.rowIndent).toBe(26);
+    expect(GEOMETRY.trunkInset).toBe(12);
+    expect(GEOMETRY.calloutGap).toBe(16);
+    expect(GEOMETRY.calloutMinWidth).toBe(240);
+    expect(GEOMETRY.calloutMaxWidth).toBe(480);
+    expect(GEOMETRY.edgeRadius).toBe(2);
+  });
+
+  it('gives a narrow parent a bounded independent callout lane', () => {
+    // A 160 px parent yields the 240 px lane floor, not a 160 px lane.
+    expect(calloutLaneWidth(160)).toBe(240);
+    expect(calloutLaneWidth(320)).toBe(320);
+    // A wide parent/long callout is capped at the lane maximum.
+    expect(calloutLaneWidth(640)).toBe(480);
+    // A measured natural width only raises the lane.
+    expect(calloutLaneWidth(160, 300)).toBe(300);
+    expect(calloutLaneWidth(400, 200)).toBe(400);
+    expect(calloutLaneWidth(160, 900)).toBe(480);
+    expect(calloutLaneWidth(0)).toBe(240);
+    expect(calloutLaneWidth(Number.NaN)).toBe(240);
+  });
+
+  it('pushes the right group only by the lane excess past the parent', () => {
+    const narrow = { x: 100, width: 160 };
+    // Lane floor: 240 right edge vs 260 parent right edge -> 80 px excess.
+    expect(lanePush(narrow, 240)).toBe(80);
+    expect(rightGroupStart(narrow, 240)).toBe(100 + 240 + GEOMETRY.siblingGap);
+    // A lane no wider than the parent changes nothing.
+    expect(lanePush(narrow, 160)).toBe(0);
+    expect(rightGroupStart(narrow, 160)).toBe(260 + GEOMETRY.siblingGap);
+    // No callout lane keeps the plain parent-relative rule.
+    expect(rightGroupStart(narrow, undefined)).toBe(260 + GEOMETRY.siblingGap);
   });
 });
