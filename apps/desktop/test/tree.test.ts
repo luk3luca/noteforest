@@ -11,6 +11,7 @@ import {
   directChildIds,
   edgePairs,
   flattenBlocks,
+  linkedAnchorIds,
   parentIdOf,
   siblingIds,
   visibleBlockIds,
@@ -133,6 +134,45 @@ describe('block tree', () => {
     expect(children[1]?.anchorId).toBeNull();
     expect(anchorQuote(document, 'an1')).toBe('Alpha body');
     expect(anchorState(document, 'an1')).toBe('resolved');
+  });
+
+  it('treats an anchor as idle only when it has no live outgoing branch', () => {
+    const document = fixture();
+    document.anchors['an1'] = {
+      id: 'an1',
+      blockId: 'A',
+      kind: 'text',
+      selector: { quote: 'Alpha body' },
+      quote: 'Alpha body',
+    };
+    document.anchors['reference-only'] = {
+      id: 'reference-only',
+      blockId: 'A',
+      kind: 'text',
+      selector: { quote: 'Alpha' },
+      quote: 'Alpha',
+    };
+    document.branches['ac'] = {
+      ...document.branches['ac']!,
+      source: { blockId: 'A', anchorId: 'an1' },
+    };
+    document.branches['ref'] = {
+      ...branch('A', 'E', 'm'),
+      id: 'ref',
+      source: { blockId: 'A', anchorId: 'reference-only' },
+      role: 'reference',
+    };
+    expect([...linkedAnchorIds(document)].sort()).toEqual(['an1', 'reference-only']);
+
+    // A branch whose target is gone cannot keep a stale marker alive.
+    delete document.branches['ac'];
+    document.branches['orphan'] = {
+      ...branch('A', 'D', 'm'),
+      id: 'orphan',
+      source: { blockId: 'A', anchorId: 'an1' },
+      targetBlockId: 'missing',
+    };
+    expect([...linkedAnchorIds(document)].sort()).toEqual(['reference-only']);
   });
 
   it('marks wrapped direct edges as below and keeps outline order', () => {

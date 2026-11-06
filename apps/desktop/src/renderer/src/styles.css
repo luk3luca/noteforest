@@ -1639,6 +1639,22 @@ button:disabled {
   text-decoration-color: var(--accent);
 }
 
+/* An anchor with no live outgoing branch is idle: the binding and anchor
+   record survive (so undo restores them exactly), but the marker is gone. */
+.nf-anchor-mark[data-anchor-idle="true"] {
+  text-decoration-line: none;
+}
+
+.nf-anchor-mark[data-anchor-idle="true"]::after,
+.nf-formula-anchor[data-anchor-idle="true"]::after {
+  display: none;
+}
+
+.nf-anchor-mark[data-anchor-idle="true"][data-anchor-selected="true"] {
+  background: transparent;
+  box-shadow: none;
+}
+
 /* Whole-formula anchor (M3c1): the math node view carries data-anchor-ids.
    The dot is durable while the formula has at least one anchored branch. */
 .nf-formula-anchor {
@@ -1805,6 +1821,16 @@ button:disabled {
 .nf-anchor-marker:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
+}
+
+/* Idle anchors keep their binding but lose every visual marker, including
+   overlays that may still be mounted between a branch deletion and the next
+   editor rebuild. */
+.nf-anchor-marker[data-anchor-idle="true"],
+.nf-formula-term-highlight[data-anchor-idle="true"],
+.nf-code-anchor-range[data-anchor-idle="true"],
+.nf-code-anchor-marker[data-anchor-idle="true"] {
+  display: none;
 }
 
 .nf-block-body[data-anchor-markers="true"] .nf-anchor-mark[data-anchor-ids]::after,
@@ -2322,6 +2348,12 @@ body.nf-dragging-block .nf-gutter-handle {
   display: contents;
 }
 
+/* A narrow parent can leave less than childMinWidth after the row indent.
+   Below-stack cards may shrink instead of overflowing the parent. */
+.nf-block-body[data-below-row="true"] {
+  min-width: 0;
+}
+
 /* The row offset is measured against the live anchor mark in the parent card.
    The dot and dotted leader are decorative; the quote chip carries the text. */
 .nf-block-node.nf-callout-row {
@@ -2329,17 +2361,22 @@ body.nf-dragging-block .nf-gutter-handle {
   display: block;
   align-self: stretch;
   margin-left: var(--nf-callout-offset, 0px);
+  max-width: calc(100% - var(--nf-callout-offset, 0px));
   padding-top: 10px;
 }
 
+.nf-block-node.nf-callout-row .nf-block-body {
+  max-width: 100%;
+}
+
 /* Wrapped direct children are plain rows in the same below stack: no quote
-   chip, no anchor dot/leader, aligned to the parent content left. */
+   chip, no anchor dot/leader, indented from the parent card left. */
 .nf-block-node.nf-below-row {
   position: relative;
   display: block;
   align-self: stretch;
-  margin-left: var(--nf-below-indent, 10px);
-  max-width: calc(100% - var(--nf-below-indent, 10px));
+  margin-left: var(--nf-below-indent, 26px);
+  max-width: calc(100% - var(--nf-below-indent, 26px));
 }
 
 .nf-block-node.nf-below-row .nf-block-body {

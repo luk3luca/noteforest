@@ -297,6 +297,100 @@ async function buildFixture() {
   return { parentId, parentCard, firstCallout, secondCallout, shortDirect, longDirect };
 }
 
+async function textAnchorFixture(name) {
+  await launch(isolated(name));
+  await h.setWindowSize(1440, 900);
+  await page.evaluate(() => window.__noteforestTest.seed('demo'));
+  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+  await h.waitSaved();
+  await h.waitLayout({ blocks: 7, arrows: 3 });
+
+  const parentCard = h
+    .activeEditor()
+    .locator('[data-block-card]', { hasText: 'Take the symmetric matrix below' })
+    .first();
+  const parentId = await parentCard.getAttribute('data-block-card');
+  assert.equal(typeof parentId, 'string');
+  const childId = await createAnchoredChild(parentId, 'symmetric');
+  await waitForCallouts(parentId, 1);
+  await h.waitLayout({ blocks: 8, arrows: 4 });
+
+  const canonical = await structure();
+  const anchor = Object.values(canonical.anchors).find(
+    (candidate) =>
+      candidate.blockId === parentId &&
+      (candidate.quote ?? '').includes('symmetric'),
+  );
+  assert.ok(anchor !== undefined, 'the text anchor exists');
+  const branch = Object.values(canonical.branches).find(
+    (candidate) => candidate.source.anchorId === anchor.id,
+  );
+  assert.ok(branch !== undefined, 'the anchor has one outgoing branch');
+  return { parentId, parentCard, childId, anchorId: anchor.id, branchId: branch.id };
+}
+
+async function anchorVisualState(anchorId) {
+  return page.evaluate((id) => {
+    const scope = document.querySelector('.nf-editor[data-active="true"]');
+    if (scope === null) return null;
+    const idsOf = (element, attribute) =>
+      (element.getAttribute(attribute) ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+    const textMark = [...scope.querySelectorAll('.nf-anchor-mark[data-anchor-ids]')].find((mark) =>
+      idsOf(mark, 'data-anchor-ids').includes(id),
+    );
+    const formula = [...scope.querySelectorAll('.nf-formula-anchor[data-anchor-ids]')].find(
+      (node) => idsOf(node, 'data-anchor-ids').includes(id),
+    );
+    const term = [...scope.querySelectorAll('[data-anchor-term-ids]')].find((node) =>
+      idsOf(node, 'data-anchor-term-ids').includes(id),
+    );
+    const codeMarker = [...scope.querySelectorAll('[data-code-anchor-id]')].find(
+      (node) => node.getAttribute('data-code-anchor-id') === id,
+    );
+    const marker = [...scope.querySelectorAll('[data-anchor-marker-id]')].find(
+      (node) => node.getAttribute('data-anchor-marker-id') === id,
+    );
+    const callout = [...scope.querySelectorAll('[data-callout-row="true"][data-anchor-id]')].find(
+      (row) => row.getAttribute('data-anchor-id') === id,
+    );
+    return {
+      textMark: textMark !== undefined,
+      idle: textMark?.getAttribute('data-anchor-idle') === 'true',
+      decoration: textMark === undefined ? null : getComputedStyle(textMark).textDecorationLine,
+      dotDisplay:
+        textMark === undefined ? null : getComputedStyle(textMark, '::after').display,
+      formulaIdle: formula?.getAttribute('data-anchor-idle') === 'true',
+      formulaDotDisplay:
+        formula === undefined ? null : getComputedStyle(formula, '::after').display,
+      term: term !== undefined,
+      codeMarker: codeMarker !== undefined,
+      marker: marker !== undefined,
+      callout: callout !== undefined,
+    };
+  }, anchorId);
+}
+
+async function waitForAnchorIdle(anchorId, idle) {
+  await page.waitForFunction(
+    ({ id, expected }) => {
+      const scope = document.querySelector('.nf-editor[data-active="true"]');
+      if (scope === null) return false;
+      const mark = [...scope.querySelectorAll('.nf-anchor-mark[data-anchor-ids]')].find((node) =>
+        (node.getAttribute('data-anchor-ids') ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .includes(id),
+      );
+      return mark !== undefined && (mark.getAttribute('data-anchor-idle') === 'true') === expected;
+    },
+    { id: anchorId, expected: idle },
+    { timeout: 10000 },
+  );
+}
+
 describe('NoteForest M3b2c below-stack routing', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -398,8 +492,13 @@ describe('NoteForest M3b2c below-stack routing', () => {
       'trunk ends at the last row center',
     );
     assert.ok(
+      trunkStart.x >= snapshot.parent.left + 8 &&
+        trunkStart.x <= snapshot.parent.left + 16,
+      'trunk starts a few px inside the parent card, not left of it',
+    );
+    assert.ok(
       trunkStart.x < Math.min(...snapshot.rows.map((row) => row.card.left)) - 11,
-      'trunk stays in the left gutter, clear of every row',
+      'trunk stays left of every indented row, clear of the cards',
     );
     for (const [index, row] of snapshot.rows.entries()) {
       const edge = byChild.get(row.childId);
@@ -408,10 +507,15 @@ describe('NoteForest M3b2c below-stack routing', () => {
       const end = points.at(-1);
       if (end === undefined) throw new Error('missing edge end');
       assert.ok(
-        row.card.left >= snapshot.parent.left - 0.5 &&
-          row.card.right <= snapshot.parent.right + 0.5,
-        `row ${index} stays inside the lane bounds`,
+        row.card.left >= snapshot.parent.left + 24 - 0.5,
+        `row ${index} is indented at least 24 px from the parent card`,
       );
+      assert.ok(
+        row.card.right <= snapshot.lane.right + 0.5 &&
+          row.card.right <= snapshot.parent.right + 0.5,
+        `row ${index} stays inside the lane and parent bounds`,
+      );
+      assert.ok(Math.abs(points[0]?.x - trunkStart.x) < 1, `row ${index} arm starts at the trunk`);
       assert.ok(Math.abs(end.x - (row.card.left - 2)) < 1, `row ${index} arrow tip at the left edge`);
       assert.ok(
         Math.abs(end.y - (row.card.top + row.card.height / 2)) < 1,
@@ -435,8 +539,8 @@ describe('NoteForest M3b2c below-stack routing', () => {
     );
     await parentCard.scrollIntoViewIfNeeded();
     await h.waitLayout({ blocks: 11, arrows: 7 });
-    await mkdir(artifactsPath('m3b2c'), { recursive: true });
-    await h.screenshot(artifactsPath('m3b2c', 'below-stack-1440x900.png'), {
+    await mkdir(artifactsPath('m3g1'), { recursive: true });
+    await h.screenshot(artifactsPath('m3g1', 'below-stack-1440x900.png'), {
       width: 1440,
       height: 900,
     });
@@ -489,6 +593,10 @@ describe('NoteForest M3b2c below-stack routing', () => {
     if (trunkStart === undefined) throw new Error('missing trunk start');
     assert.ok(Math.abs(trunkStart.y - snapshot.parent.bottom) < 1);
     assert.ok(
+      trunkStart.x >= snapshot.parent.left + 8 && trunkStart.x <= snapshot.parent.left + 16,
+      'the trunk starts inside the parent card at 960 as well',
+    );
+    assert.ok(
       trunkStart.x < Math.min(...snapshot.rows.map((row) => row.card.left)) - 11,
       'the trunk never crosses a row card',
     );
@@ -498,10 +606,15 @@ describe('NoteForest M3b2c below-stack routing', () => {
       const end = edge.points.at(-1);
       if (end === undefined) throw new Error('missing edge end');
       assert.ok(
-        row.card.left >= snapshot.parent.left - 0.5 &&
-          row.card.right <= snapshot.parent.right + 0.5,
-        `row ${index} stays inside the lane bounds`,
+        row.card.left >= snapshot.parent.left + 24 - 0.5,
+        `row ${index} is indented at least 24 px from the parent card`,
       );
+      assert.ok(
+        row.card.right <= snapshot.lane.right + 0.5 &&
+          row.card.right <= snapshot.parent.right + 0.5,
+        `row ${index} stays inside the lane and parent bounds`,
+      );
+      assert.ok(Math.abs(edge.points[0]?.x - trunkStart.x) < 1, `row ${index} arm starts at the trunk`);
       assert.ok(Math.abs(end.x - (row.card.left - 2)) < 1, `row ${index} enters from the left`);
       assert.ok(
         Math.abs(end.y - (row.card.top + row.card.height / 2)) < 1,
@@ -524,8 +637,8 @@ describe('NoteForest M3b2c below-stack routing', () => {
       'no bottom bus',
     );
 
-    await mkdir(artifactsPath('m3b2c'), { recursive: true });
-    await h.screenshot(artifactsPath('m3b2c', 'below-stack-960x900.png'), {
+    await mkdir(artifactsPath('m3g1'), { recursive: true });
+    await h.screenshot(artifactsPath('m3g1', 'below-stack-960x900.png'), {
       width: 960,
       height: 900,
     });
@@ -584,17 +697,149 @@ describe('NoteForest M3b2c below-stack routing', () => {
     assert.ok(anchorLeft !== null);
     assert.ok(anchorLeft > snapshot.parent.left + 120, 'the anchor really is far right');
     assert.ok(
-      row.card.left >= snapshot.parent.left + 9.5 && row.card.left <= snapshot.parent.left + 12,
-      'the clamped callout falls back to the card content left',
+      row.card.left >= snapshot.parent.left + 24 - 0.5,
+      'the clamped callout falls back to the indented row origin',
     );
     assert.ok(
-      row.card.right <= snapshot.parent.right + 0.5,
-      'the clamped callout never overflows the card',
+      row.card.right <= snapshot.lane.right + 0.5 &&
+        row.card.right <= snapshot.parent.right + 0.5,
+      'the clamped callout never overflows the lane or card',
     );
     const edge = snapshot.edges[0];
     assert.ok(edge !== undefined);
-    expectStem(edge.points, GEOMETRY_STEM_MIN);
+    // A single row still starts from the in-card trunk on the parent's bottom
+    // edge; its vertical segment is the trunk, then one right-pointing arm.
+    const start = edge.points[0];
+    assert.ok(start !== undefined);
+    assert.ok(Math.abs(start.y - snapshot.parent.bottom) < 1);
+    assert.ok(start.x >= snapshot.parent.left + 8 && start.x <= snapshot.parent.left + 16);
     assert.equal(edge.arrow, 'right');
+    expectStem(edge.points, GEOMETRY_STEM_MIN);
+  });
+
+  it('removes every marker when an anchored target is deleted, and undo restores it exactly', async () => {
+    const { parentId, parentCard, childId, anchorId } = await textAnchorFixture('idle-target');
+    const before = await structure();
+
+    const active = await anchorVisualState(anchorId);
+    assert.ok(active !== null);
+    assert.equal(active.textMark, true);
+    assert.equal(active.idle, false, 'the anchor with a branch is not idle');
+    assert.match(active.decoration ?? '', /underline/);
+    assert.notEqual(active.dotDisplay, 'none');
+    assert.equal(active.marker, false, 'no marker button while the block is not selected');
+    assert.equal(active.callout, true);
+    assert.equal(active.term, false);
+
+    await applyCommand({
+      type: 'block.delete',
+      blockId: childId,
+      children: 'delete-subtree',
+    });
+    await h.waitCanonicalBlockCount(7);
+    await h.waitBlockCount(7);
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await waitForAnchorIdle(anchorId, true);
+
+    const idle = await anchorVisualState(anchorId);
+    assert.ok(idle !== null);
+    assert.equal(idle.textMark, true, 'the binding survives as an idle anchor');
+    assert.equal(idle.idle, true);
+    assert.equal(idle.decoration, 'none', 'the idle anchor has no underline');
+    assert.equal(idle.dotDisplay, 'none', 'the idle anchor has no dot');
+    assert.equal(idle.marker, false);
+    assert.equal(idle.callout, false, 'no stale callout row');
+    assert.equal(idle.term, false);
+    assert.equal(idle.codeMarker, false);
+
+    const deleted = await structure();
+    assert.ok(deleted.anchors[anchorId] !== undefined, 'the anchor record stays idle');
+    assert.equal(
+      Object.values(deleted.branches).some((branch) => branch.source.anchorId === anchorId),
+      false,
+      'the deleted target takes its branch with it',
+    );
+
+    await parentCard.scrollIntoViewIfNeeded();
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await mkdir(artifactsPath('m3g1'), { recursive: true });
+    await h.screenshot(artifactsPath('m3g1', 'idle-anchor-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    await page.keyboard.press('Meta+z');
+    await h.waitCanonicalBlockCount(8);
+    await h.waitBlockCount(8);
+    await h.waitLayout({ blocks: 8, arrows: 4 });
+    await waitForAnchorIdle(anchorId, false);
+
+    const restored = await anchorVisualState(anchorId);
+    assert.ok(restored !== null);
+    assert.equal(restored.idle, false);
+    assert.match(restored.decoration ?? '', /underline/);
+    assert.notEqual(restored.dotDisplay, 'none');
+    assert.equal(restored.callout, true);
+    const undone = await structure();
+    assert.deepEqual(undone.anchors, before.anchors, 'undo restores the anchor record exactly');
+    assert.deepEqual(undone.branches, before.branches, 'undo restores the branch exactly');
+    assert.deepEqual(
+      undone.blocks[parentId].content,
+      before.blocks[parentId].content,
+      'undo restores the source binding exactly',
+    );
+  });
+
+  it('removes the marker when the last branch is deleted, and undo restores it exactly', async () => {
+    const { parentId, anchorId, branchId, childId } = await textAnchorFixture('idle-branch');
+    const before = await structure();
+
+    await applyCommand({
+      type: 'branch.delete',
+      branchId,
+      targetHandling: { kind: 'promote' },
+    });
+    await h.waitCanonicalBlockCount(8);
+    await h.waitBlockCount(8);
+    await h.waitLayout({ blocks: 8, arrows: 3 });
+    await waitForAnchorIdle(anchorId, true);
+
+    const idle = await anchorVisualState(anchorId);
+    assert.ok(idle !== null);
+    assert.equal(idle.textMark, true);
+    assert.equal(idle.idle, true);
+    assert.equal(idle.decoration, 'none');
+    assert.equal(idle.dotDisplay, 'none');
+    assert.equal(idle.callout, false);
+    assert.equal(idle.marker, false);
+
+    const deleted = await structure();
+    assert.ok(deleted.anchors[anchorId] !== undefined);
+    assert.ok(deleted.blocks[childId] !== undefined, 'the promoted target block survives');
+    assert.equal(
+      Object.values(deleted.branches).some((branch) => branch.source.anchorId === anchorId),
+      false,
+      'the last outgoing branch is gone',
+    );
+
+    await page.keyboard.press('Meta+z');
+    await h.waitCanonicalBlockCount(8);
+    await h.waitBlockCount(8);
+    await h.waitLayout({ blocks: 8, arrows: 4 });
+    await waitForAnchorIdle(anchorId, false);
+
+    const restored = await anchorVisualState(anchorId);
+    assert.ok(restored !== null);
+    assert.equal(restored.idle, false);
+    assert.equal(restored.callout, true);
+    const undone = await structure();
+    assert.deepEqual(undone.anchors, before.anchors, 'undo restores the anchor record exactly');
+    assert.deepEqual(undone.branches, before.branches, 'undo restores the last branch exactly');
+    assert.deepEqual(
+      undone.blocks[parentId].content,
+      before.blocks[parentId].content,
+      'undo restores the source binding exactly',
+    );
   });
 });
 

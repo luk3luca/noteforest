@@ -226,6 +226,22 @@ export function anchorIsWarning(state: AnchorState): boolean {
   return state === 'broken' || state === 'ambiguous' || state === 'block-missing';
 }
 
+/**
+ * Anchors with at least one live outgoing branch, of any role. The anchor
+ * record and its text binding survive when every branch is deleted; this set
+ * is the renderer's idle test so a stale marker never outlives its branch.
+ */
+export function linkedAnchorIds(document: Document): Set<string> {
+  const ids = new Set<string>();
+  for (const branch of Object.values(document.branches)) {
+    const anchorId = branch.source.anchorId;
+    if (anchorId !== undefined && document.blocks[branch.targetBlockId] !== undefined) {
+      ids.add(anchorId);
+    }
+  }
+  return ids;
+}
+
 export function blockTitle(block: ContentBlock | undefined): string {
   if (block === undefined) return 'Untitled block';
   if (typeof block.label === 'string' && block.label.trim().length > 0) return block.label.trim();

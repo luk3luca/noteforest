@@ -10,6 +10,7 @@ import {
   ancestorPath,
   chapterIdOf,
   edgePairs,
+  linkedAnchorIds,
   parentIdOf,
   referenceEdgePairs,
   subtreeIds,
@@ -378,6 +379,41 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
       chapter.style.display = visible ? '' : 'none';
     }
   }, [focusSet, runtime.version, editor]);
+
+  // Idle anchors (OD-2) keep their canonical binding and record so undo can
+  // restore the exact branch, but a branchless anchor must not leave a stale
+  // underline, dot, marker button or overlay. This is DOM view state only.
+  useLayoutEffect(() => {
+    const root = editor?.view.dom;
+    if (root === undefined || root === null) return;
+    const linked = linkedAnchorIds(runtime.document);
+    const update = (element: Element, attribute: string): void => {
+      const ids = (element.getAttribute(attribute) ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+      if (ids.length > 0 && ids.every((id) => !linked.has(id))) {
+        element.setAttribute('data-anchor-idle', 'true');
+      } else {
+        element.removeAttribute('data-anchor-idle');
+      }
+    };
+    for (const element of root.querySelectorAll('[data-anchor-ids]')) {
+      update(element, 'data-anchor-ids');
+    }
+    for (const element of root.querySelectorAll('[data-anchor-term-ids]')) {
+      update(element, 'data-anchor-term-ids');
+    }
+    for (const element of root.querySelectorAll('[data-code-anchor-range]')) {
+      update(element, 'data-code-anchor-range');
+    }
+    for (const element of root.querySelectorAll('[data-code-anchor-id]')) {
+      update(element, 'data-code-anchor-id');
+    }
+    for (const element of root.querySelectorAll('[data-anchor-marker-id]')) {
+      update(element, 'data-anchor-marker-id');
+    }
+  }, [editor, runtime.document, runtime.version]);
 
   useEffect(() => {
     if (focusBlockId !== null && runtime.document.blocks[focusBlockId] === undefined) {

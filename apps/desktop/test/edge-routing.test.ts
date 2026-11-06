@@ -13,7 +13,7 @@ import { GEOMETRY, type Rect } from '../src/renderer/src/lib/geometry';
 
 const parent: Rect = { x: 0, y: 0, width: 400, height: 120 };
 const rightChild: Rect = { x: 416, y: 10, width: 240, height: 100 };
-const belowChild: Rect = { x: 18, y: 180, width: 280, height: 80 };
+const belowChild: Rect = { x: 28, y: 180, width: 280, height: 80 };
 
 function child(id: string, y: number, x = 416, height = 100): { id: string; rect: Rect } {
   return { id, rect: { x, y, width: 240, height } };
@@ -274,6 +274,10 @@ describe('edge routing — left-entry below stack', () => {
     expect(edge.arrow.direction).toBe('right');
     const points = parsePoints(edge.path);
     expect(points[0]?.y).toBeCloseTo(parent.y + parent.height, 5);
+    // The trunk starts inside the parent card, a few px right of its corner.
+    expect(points[0]?.x).toBeCloseTo(parent.x + GEOMETRY.belowTrunkInset, 5);
+    expect(points[0]?.x).toBeGreaterThan(parent.x);
+    expect(points[0]?.x).toBeLessThan(parent.x + parent.width);
     expect(points[0]?.x).toBeLessThan(callout.x);
     expect(points.every((point) => point.x <= edge.end.x + 0.5)).toBe(true);
     expect(points.at(-1)).toEqual(edge.end);
@@ -297,6 +301,8 @@ describe('edge routing — left-entry below stack', () => {
     expect(trunk.kind).toBe('trunk');
     expect(trunk.start.y).toBeCloseTo(parent.y + parent.height, 5);
     expect(trunk.end.y).toBeCloseTo(second.y + second.height / 2, 5);
+    expect(trunk.start.x).toBeCloseTo(parent.x + GEOMETRY.belowTrunkInset, 5);
+    expect(trunk.start.x).toBeGreaterThan(parent.x);
     expect(trunk.start.x).toBeLessThan(callout.x);
     expect(trunk.end.x).toBe(trunk.start.x);
     for (const edge of group.edges) {
@@ -307,13 +313,14 @@ describe('edge routing — left-entry below stack', () => {
       expect(points[0]?.y).toBeCloseTo(edge.end.y, 5);
       expect(lastSegment(points).horizontal).toBe(true);
       expect(lastSegment(points).length).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
-      // The trunk stays left of every row card: no vertical line through a card.
+      // The trunk stays inside the parent and left of every row card: no
+      // vertical line through a card.
       expect(points.every((point) => point.x <= callout.x + 0.5)).toBe(true);
     }
   });
 
   it('keeps callouts before wrapped direct children in one trunk', () => {
-    const directBelow: Rect = { x: 18, y: 380, width: 280, height: 80 };
+    const directBelow: Rect = { x: 28, y: 380, width: 280, height: 80 };
     const group = routeBelowStackGroup({
       parentId: 'p',
       parent,
@@ -326,6 +333,8 @@ describe('edge routing — left-entry below stack', () => {
     expect(group.trunks).toHaveLength(1);
     const trunk = group.trunks[0];
     if (trunk === undefined) throw new Error('missing trunk');
+    expect(trunk.start.x).toBeCloseTo(parent.x + GEOMETRY.belowTrunkInset, 5);
+    expect(trunk.start.x).toBeGreaterThan(parent.x);
     expect(trunk.start.x).toBeLessThan(Math.min(callout.x, directBelow.x));
     for (const edge of group.edges) {
       expect(edge.arrow.direction).toBe('right');
@@ -335,28 +344,44 @@ describe('edge routing — left-entry below stack', () => {
     }
   });
 
-  it('routes a clamped below row with a full stem in the left gutter', () => {
-    const clamped: Rect = { x: 10, y: 220, width: 160, height: 80 };
+  it('gives a minimum-indented below row a full stem from the in-card trunk', () => {
+    const indented: Rect = { x: GEOMETRY.belowRowInset, y: 220, width: 160, height: 80 };
     const group = routeBelowStackGroup({
       parentId: 'p',
       parent,
-      children: [{ id: 'clamped', rect: clamped }],
+      children: [{ id: 'indented', rect: indented }],
     });
     const edge = group.edges[0];
     if (edge === undefined) throw new Error('missing route');
     expect(edge.defect).toBe(false);
     expect(edge.arrow.direction).toBe('right');
-    expect(edge.end.x - (parsePoints(edge.path)[0]?.x ?? 0)).toBeGreaterThanOrEqual(
-      GEOMETRY.edgeStemMin,
-    );
-    expect(parsePoints(edge.path).every((point) => point.x <= clamped.x - GEOMETRY.edgeGap + 0.5)).toBe(
+    const start = parsePoints(edge.path)[0];
+    expect(start?.x).toBeCloseTo(parent.x + GEOMETRY.belowTrunkInset, 5);
+    expect(edge.end.x - (start?.x ?? 0)).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+    expect(parsePoints(edge.path).every((point) => point.x <= indented.x - GEOMETRY.edgeGap + 0.5)).toBe(
       true,
     );
   });
 
+  it('flags a row closer than the stem minimum without moving the trunk outside the parent', () => {
+    const tooClose: Rect = { x: 10, y: 220, width: 160, height: 80 };
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [{ id: 'too-close', rect: tooClose }],
+    });
+    const edge = group.edges[0];
+    if (edge === undefined) throw new Error('missing route');
+    expect(edge.defect).toBe(true);
+    expect(edge.arrow.direction).toBe('right');
+    const start = parsePoints(edge.path)[0];
+    expect(start?.x).toBeCloseTo(parent.x + GEOMETRY.belowTrunkInset, 5);
+    expect(start?.x).toBeGreaterThan(parent.x);
+  });
+
   it('routes a below group made only of wrapped direct children', () => {
-    const first = { id: 'd1', rect: { x: 18, y: 200, width: 280, height: 80 } };
-    const second = { id: 'd2', rect: { x: 18, y: 300, width: 280, height: 80 } };
+    const first = { id: 'd1', rect: { x: GEOMETRY.belowRowInset, y: 200, width: 280, height: 80 } };
+    const second = { id: 'd2', rect: { x: GEOMETRY.belowRowInset, y: 300, width: 280, height: 80 } };
     const group = routeBelowStackGroup({
       parentId: 'p',
       parent,
@@ -364,6 +389,10 @@ describe('edge routing — left-entry below stack', () => {
     });
     expect(group.edges.map((edge) => edge.id)).toEqual(['d1', 'd2']);
     expect(group.trunks).toHaveLength(1);
+    const trunk = group.trunks[0];
+    if (trunk === undefined) throw new Error('missing trunk');
+    expect(trunk.start.x).toBeCloseTo(parent.x + GEOMETRY.belowTrunkInset, 5);
+    expect(trunk.start.x).toBeGreaterThan(parent.x);
     expect(group.edges.every((edge) => edge.arrow.direction === 'right')).toBe(true);
     expect(group.edges.every((edge) => edge.placement === 'below')).toBe(true);
   });
@@ -385,7 +414,7 @@ describe('edge routing — left-entry below stack', () => {
     expect(group.trunks).toHaveLength(1);
   });
 
-  it('moves the trunk left of the leftmost row without crossing it', () => {
+  it('keeps the trunk inside the parent even when a row starts unusually far left', () => {
     const narrow: Rect = { x: 4, y: 220, width: 144, height: 80 };
     const group = routeBelowStackGroup({
       parentId: 'p',
@@ -395,8 +424,9 @@ describe('edge routing — left-entry below stack', () => {
     const edge = group.edges[0];
     if (edge === undefined) throw new Error('missing route');
     const start = parsePoints(edge.path)[0];
-    expect(start?.x).toBeLessThan(narrow.x);
-    expect(edge.end.x - (start?.x ?? 0)).toBeGreaterThanOrEqual(GEOMETRY.edgeStemMin);
+    expect(start?.x).toBeCloseTo(parent.x + GEOMETRY.belowTrunkInset, 5);
+    expect(start?.x).toBeGreaterThan(parent.x);
+    expect(edge.defect).toBe(true);
   });
 
   it('flags a below row that starts above the parent bottom instead of hiding it', () => {
