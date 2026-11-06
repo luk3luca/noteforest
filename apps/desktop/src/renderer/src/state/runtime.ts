@@ -1,18 +1,30 @@
 /**
- * Per-document session runtime.
+ * Per-document composition root.
  *
- * The canonical document lives here (received from, and sent to, the core
- * store in the main process). The TipTap document is the editing buffer; it is
- * not stored in Zustand and not mirrored per keystroke. Content is committed to
- * the core store on a short idle debounce; structural commands go through the
- * typed command API immediately and rebuild the editor document.
+ * `DocumentRuntime` wires the collaborators for one open document and keeps
+ * the UI-facing API:
+ *
+ * - `DocumentSession` owns the canonical document/revision, the serial queue,
+ *   structural undo/redo, typed command application, and content-commit
+ *   bookkeeping;
+ * - `EditorProjection` owns the TipTap projection (build/extract/replace,
+ *   reconcile, placement rebuild, M3h1 text-history replay);
+ * - `SaveCoordinator` owns dirty state, autosave, retry/backoff, and flush;
+ * - `DocumentGateway` is the only platform access (no `window.noteforest`
+ *   here);
+ * - this class owns the view/anchor/selection/health state and the fast DOM
+ *   mutation paths.
+ *
+ * The TipTap document is the editing buffer; it is not stored in Zustand and
+ * not mirrored per keystroke. Content is committed to the core store on a short
+ * idle debounce; structural commands go through the typed command API
+ * immediately and rebuild the editor document.
  */
 
 import type { Editor } from '@tiptap/core';
 import type {
   AnchorBinding,
   AnchorRepairCommand,
-  ContentNode,
   Document,
   DocumentCommand,
   JsonObject,
@@ -34,7 +46,6 @@ import type {
 import { buildBlockNode, withBody } from '../lib/adapter';
 import type { BlockCaretLocation, BranchSelectionAnchor } from '../lib/anchor-selection';
 import { blockCaretLocation, branchSelectionAnchor } from '../lib/anchor-selection';
-import { createSerialQueue } from '../lib/serial-queue';
 import {
   setEditorSelectedAnchor,
   setEditorSelectedBlock,
@@ -49,6 +60,7 @@ import {
   siblingIds,
 } from '../lib/tree';
 import type { DocumentGateway } from './document-gateway';
+import { DocumentSession, type ContentChange } from './document-session';
 import { createElectronDocumentGateway } from './electron-document-gateway';
 import { EditorProjection, type RebuildOptions } from './editor-projection';
 import { SaveCoordinator, type SaveFailure, type SaveState } from './save-coordinator';
@@ -107,8 +119,6 @@ export class DocumentRuntime {
   /** Lock metadata for a read-only stale/live lock open. */
   lock: LockInfoView | undefined;
 
-  document: Document;
-
   /** Bumped for UI consumers after structural/selection/save-state changes. */
   seq = 0;
 
@@ -128,27 +138,18 @@ export class DocumentRuntime {
    */
   readonly keptBroken = new Set<string>();
 
-  /** What the last user-visible operation touched; drives undo/redo routing. */
-  lastHistoryOperation: 'text' | 'structural' | null = null;
-
   /** Visible recovery message when the editor had to be rebuilt from canonical. */
   repairNotice: string | null = null;
+
+  /** Canonical document/revision, command queue, and structural history. */
+  private readonly session: DocumentSession;
 
   /** TipTap projection: build/extract/replace/reconcile and text-history replay. */
   private readonly projection: EditorProjection;
 
   private readonly listeners = new Set<() => void>();
 
-  private readonly hashes = new Map<string, string>();
-
-  private readonly undoStack: DocumentCommand[] = [];
-
-  private readonly redoStack: DocumentCommand[] = [];
-
-  /** Serializes content commits and every structural command. */
-  private readonly queue = createSerialQueue();
-
-  /** Save/autosave/flush lifecycle; the runtime wires it to the queue. */
+  /** Save/autosave/flush lifecycle; the runtime wires it to the session queue. */
   private readonly saves: SaveCoordinator;
 
   /** Platform port. The default is the Electron composition-layer adapter. */
@@ -168,9 +169,22 @@ export class DocumentRuntime {
     this.status = snapshot.status;
     this.readOnlyReason = snapshot.readOnlyReason;
     this.lock = snapshot.lock;
-    this.document = snapshot.document;
     this.restorePoint = restore;
     this.gateway = gateway;
+    this.session = new DocumentSession(snapshot.document, {
+      packagePath: this.packagePath,
+      gateway: this.gateway,
+      isEditable: () => this.editable,
+      commitEditor: () => this.commitContentInternal(),
+      bumpVersion: () => {
+        this.version += 1;
+      },
+      notify: () => this.notify(),
+      markContentCommitted: () => this.saves.markContentCommitted(),
+      noteStructuralChange: () => this.saves.noteStructuralChange(),
+      recordFailure: (code, message) => this.saves.recordFailure(code, message),
+      saveError: () => this.saves.saveError,
+    });
     this.projection = new EditorProjection({
       document: () => this.document,
       collapsed: () => this.collapsed,
@@ -181,18 +195,25 @@ export class DocumentRuntime {
       },
     });
     this.saves = new SaveCoordinator({
-      queue: this.queue,
+      queue: this.session.queue,
       isEditable: () => this.editable,
       commit: () => this.commitContentInternal(),
       write: (options) => this.gateway.save(this.packagePath, options),
       saveCopy: () => this.gateway.saveCopy(this.packagePath),
-      applyRevision: (revision) => {
-        if (revision !== undefined) this.document = { ...this.document, revision };
-      },
+      applyRevision: (revision) => this.session.applyRevision(revision),
       changed: () => this.notify(),
     });
     for (const id of collapsed) this.collapsed.add(id);
-    this.recomputeHashes();
+  }
+
+  /** Canonical document at the current revision. */
+  get document(): Document {
+    return this.session.canonical;
+  }
+
+  /** What the last user-visible operation touched; drives undo/redo routing. */
+  get lastHistoryOperation(): 'text' | 'structural' | null {
+    return this.session.lastHistoryOperation;
   }
 
   get title(): string {
@@ -222,11 +243,11 @@ export class DocumentRuntime {
   }
 
   get canUndoStructural(): boolean {
-    return this.undoStack.length > 0;
+    return this.session.canUndoStructural;
   }
 
   get canRedoStructural(): boolean {
-    return this.redoStack.length > 0;
+    return this.session.canRedoStructural;
   }
 
   get canUndoText(): boolean {
@@ -244,7 +265,7 @@ export class DocumentRuntime {
 
   /** Record that a text undo/redo was applied through this runtime. */
   markTextHistory(): void {
-    this.lastHistoryOperation = 'text';
+    this.session.markTextHistory();
   }
 
   get restore(): RestorePoint | null {
@@ -261,13 +282,6 @@ export class DocumentRuntime {
   notify(): void {
     this.seq += 1;
     for (const listener of this.listeners) listener();
-  }
-
-  private recomputeHashes(): void {
-    this.hashes.clear();
-    for (const [id, block] of Object.entries(this.document.blocks)) {
-      this.hashes.set(id, JSON.stringify(block.content));
-    }
   }
 
   /**
@@ -318,15 +332,11 @@ export class DocumentRuntime {
     this.status = snapshot.status;
     this.readOnlyReason = snapshot.readOnlyReason;
     this.lock = snapshot.lock;
-    this.document = snapshot.document;
+    this.session.reset(snapshot.document);
     this.validateSelectedAnchor();
-    this.recomputeHashes();
     this.version += 1;
     this.saves.reset();
     this.repairNotice = null;
-    this.lastHistoryOperation = null;
-    this.undoStack.length = 0;
-    this.redoStack.length = 0;
     this.editor?.setEditable(this.editable);
     this.rebuildEditor(this.selectedBlockId, { resetHistory: true });
     this.notify();
@@ -338,7 +348,7 @@ export class DocumentRuntime {
 
   noteEditorUpdate(): void {
     if (!this.editable) return;
-    this.lastHistoryOperation = 'text';
+    this.session.markTextHistory();
     // A failed save stays visible and authoritative; typing does not downgrade
     // the status back to a plain "Unsaved changes".
     this.saves.noteTextEdit();
@@ -353,7 +363,7 @@ export class DocumentRuntime {
   }
 
   commitContent(): Promise<void> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       await this.commitContentInternal();
     });
   }
@@ -365,45 +375,21 @@ export class DocumentRuntime {
     // source of truth, so restore it instead of committing an emptied canvas.
     if (this.reconcileEditor(this.selectedBlockId)) return true;
     const extracted = this.projection.extractBodies();
-    const changes: Array<{ blockId: string; content: ContentNode }> = [];
+    const changes: ContentChange[] = [];
     for (const [blockId, value] of extracted) {
       const block = this.document.blocks[blockId];
       if (block === undefined) continue;
       const merged = withBody(block.content, value.content);
-      const hash = JSON.stringify(merged);
-      if (this.hashes.get(blockId) !== hash) {
+      if (this.session.contentChanged(blockId, merged)) {
         changes.push({ blockId, content: merged });
       }
     }
     if (changes.length === 0) return true;
-    let documentChanged = false;
-    for (const change of changes) {
-      const result = await this.gateway.apply(this.packagePath, {
-        type: 'block.editContent',
-        blockId: change.blockId,
-        content: change.content,
-      });
-      if (!result.ok) {
-        this.saves.recordFailure(
-          result.code === 'read-only' ? 'read-only' : 'unknown',
-          result.message ?? 'Could not save the edit.',
-        );
-        return false;
-      }
-      if (result.document !== undefined) {
-        this.document = result.document;
-        documentChanged = true;
-      }
-      this.hashes.set(change.blockId, JSON.stringify(change.content));
-    }
-    // A content commit can change derived anchor state (resolved → broken →
-    // resolved). Bump the canonical revision and notify before the disk save
-    // so inline warnings, callouts, and the health chip all update from the
-    // same content revision.
-    if (documentChanged) this.version += 1;
-    this.saves.markContentCommitted();
-    if (documentChanged) this.notify();
-    return true;
+    // The session owns the canonical apply loop: a content commit can change
+    // derived anchor state (resolved → broken → resolved), and the session
+    // bumps the revision and notifies before the disk save so inline warnings,
+    // callouts, and the health chip all update from the same content revision.
+    return this.session.commitContent(changes);
   }
 
   /** Commit and write immediately (⌘S); the SaveCoordinator owns the state. */
@@ -440,7 +426,7 @@ export class DocumentRuntime {
    * canonical document and save failure are deliberately left unchanged.
    */
   async restoreBackup(sourcePath: string): Promise<RestoreBackupResult> {
-    return this.queue.run(() => this.gateway.restoreBackup(this.packagePath, sourcePath));
+    return this.session.queue.run(() => this.gateway.restoreBackup(this.packagePath, sourcePath));
   }
 
   /**
@@ -449,22 +435,18 @@ export class DocumentRuntime {
    * the main process.
    */
   async reloadFromDisk(): Promise<{ ok: boolean; message?: string }> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       this.saves.clearTimers();
       const result = await this.gateway.reloadDocument(this.packagePath);
       if (!result.ok) return { ok: false, message: result.message };
-      this.document = result.snapshot.document;
       this.status = result.snapshot.status;
       this.readOnlyReason = result.snapshot.readOnlyReason;
-      this.validateSelectedAnchor();
-      this.recomputeHashes();
-      this.version += 1;
-      this.saves.reset();
       // Reload replaces the canonical document: old structural inverses and
       // text history no longer describe it.
-      this.undoStack.length = 0;
-      this.redoStack.length = 0;
-      this.lastHistoryOperation = null;
+      this.session.reset(result.snapshot.document);
+      this.validateSelectedAnchor();
+      this.version += 1;
+      this.saves.reset();
       this.rebuildEditor(this.selectedBlockId, { resetHistory: true });
       this.reconcileEditor(this.selectedBlockId);
       this.notify();
@@ -487,19 +469,8 @@ export class DocumentRuntime {
    * Apply one command while the queue holds. Callers must already be inside
    * `queue.run`; committing text first keeps the command's base revision exact.
    */
-  private async runCommandInternal(command: DocumentCommand): Promise<ApplyResult> {
-    if (!this.editable) {
-      return { ok: false, message: 'This document is open read-only.', code: 'read-only' };
-    }
-    const committed = await this.commitContentInternal();
-    if (!committed) {
-      return {
-        ok: false,
-        message: this.saveError ?? 'Could not commit the pending edit.',
-        code: 'unknown',
-      };
-    }
-    return this.gateway.apply(this.packagePath, command);
+  private runCommandInternal(command: DocumentCommand): Promise<ApplyResult> {
+    return this.session.execute(command);
   }
 
   private async acceptStructural(
@@ -509,18 +480,11 @@ export class DocumentRuntime {
     options: { rebuild?: boolean } = {},
   ): Promise<void> {
     const focus = this.projection.captureFocusContext();
-    this.document = document;
+    // One inverse per user action; any new structural command invalidates
+    // structural redo, including the destructive commands whose inverse is
+    // still phase 3b work.
+    this.session.acceptStructural(document, inverse);
     this.validateSelectedAnchor();
-    if (inverse !== undefined && inverse !== null) {
-      this.undoStack.push(inverse);
-    }
-    // Any new structural command invalidates structural redo, including the
-    // destructive commands whose inverse is still phase 3b work.
-    this.redoStack.length = 0;
-    this.lastHistoryOperation = 'structural';
-    this.version += 1;
-    this.saves.noteStructuralChange();
-    this.recomputeHashes();
     if (options.rebuild !== false) {
       const target =
         focusBlockId !== null && document.blocks[focusBlockId] !== undefined
@@ -536,7 +500,7 @@ export class DocumentRuntime {
     command: DocumentCommand,
     options: { focusBlockId?: string | null; rebuild?: boolean } = {},
   ): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {
         return { ok: false, message: result.message ?? 'The command was rejected.' };
@@ -585,7 +549,7 @@ export class DocumentRuntime {
   }
 
   private createBlock(command: DocumentCommand): Promise<ApplyOutcome> {
-    return this.queue.run(() => this.createBlockNow(command));
+    return this.session.queue.run(() => this.createBlockNow(command));
   }
 
   /**
@@ -630,7 +594,7 @@ export class DocumentRuntime {
               target: { kind: 'new' },
               role: 'primary',
             };
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {
         return { ok: false, message: result.message ?? 'Could not branch from the selection.' };
@@ -672,7 +636,7 @@ export class DocumentRuntime {
    * restores the pre-split identity. Focus moves to the new block.
    */
   async splitAtCaret(blockId: string): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const caret = this.caretLocation();
       if (caret === null) {
         return {
@@ -711,7 +675,7 @@ export class DocumentRuntime {
    * source; focus lands at the end of the surviving block.
    */
   async mergeBlock(blockId: string): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const check = planBlockMerge(this.document, blockId);
       if (!check.ok) return { ok: false, message: check.reason };
       const survivorId = check.plan.intoBlockId;
@@ -743,7 +707,7 @@ export class DocumentRuntime {
     sourceAnchorId?: string;
     targetBlockId: string;
   }): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       if (input.sourceBlockId === input.targetBlockId) {
         return { ok: false, message: 'A block cannot link to itself.' };
       }
@@ -784,7 +748,7 @@ export class DocumentRuntime {
    * subtree are untouched; a primary branch is never deleted through this path.
    */
   async deleteReference(branchId: string): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const branch = this.document.branches[branchId];
       if (branch === undefined) {
         return { ok: false, message: 'This reference no longer exists.' };
@@ -836,7 +800,7 @@ export class DocumentRuntime {
     | { ok: true; command: AnchorRepairCommand }
     | { ok: false; message: string }
   > {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       if (!this.editable) {
         return { ok: false, message: 'This document is open read-only.' };
       }
@@ -973,7 +937,7 @@ export class DocumentRuntime {
    * leaves the target's home untouched. No target is deleted.
    */
   async deleteAnchorBranch(branchId: string): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const branch = this.document.branches[branchId];
       if (branch === undefined) {
         return { ok: false, message: 'This branch no longer exists.' };
@@ -1044,7 +1008,7 @@ export class DocumentRuntime {
     command: DocumentCommand,
     failureMessage: string,
   ): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const branch = this.document.branches[branchId];
       if (branch === undefined) {
         return { ok: false, message: 'This branch no longer exists.' };
@@ -1083,7 +1047,7 @@ export class DocumentRuntime {
     title: string,
     atIndex: number | undefined,
   ): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const chapterCommand: DocumentCommand = {
         type: 'chapter.create',
         title,
@@ -1462,7 +1426,7 @@ export class DocumentRuntime {
     blockId: string,
     target: { kind: 'top-level'; chapterId: string } | { kind: 'child'; parentBlockId: string },
   ): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const oldParent = parentIdOf(this.document, blockId);
       const result = await this.runCommandInternal({
         type: 'block.move',
@@ -1485,7 +1449,7 @@ export class DocumentRuntime {
   }
 
   async outdent(blockId: string): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const parent = parentIdOf(this.document, blockId);
       if (parent === null) return { ok: false, message: 'This block is already top-level.' };
       const chapterId = chapterIdOf(this.document, parent);
@@ -1654,7 +1618,7 @@ export class DocumentRuntime {
     targetId: string,
     after: boolean,
   ): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const result = await this.runCommandInternal({
         type: 'block.move',
         blockId,
@@ -1710,7 +1674,7 @@ export class DocumentRuntime {
     blockId: string,
     children: 'promote' | 'delete-subtree',
   ): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const oldParent = parentIdOf(this.document, blockId);
       const siblings = siblingIds(this.document, blockId);
       const index = siblings.indexOf(blockId);
@@ -1740,7 +1704,7 @@ export class DocumentRuntime {
   }
 
   async deleteBranch(blockId: string): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const branch = incomingBranch(this.document, blockId);
       if (branch === undefined) return { ok: false, message: 'This block has no incoming branch.' };
       const oldParent = branch.source.blockId;
@@ -1890,12 +1854,12 @@ export class DocumentRuntime {
   }
 
   async undoStructural(): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const focus = this.projection.captureFocusContext();
-      const inverse = this.undoStack.pop();
+      const inverse = this.session.popUndo();
       if (inverse === undefined) return { ok: false, message: 'Nothing to undo.' };
       await this.commitContentInternal();
-      const result = await this.gateway.apply(this.packagePath, inverse);
+      const result = await this.session.apply(inverse);
       if (!result.ok || result.document === undefined) {
         // A rejected inverse is not retryable at the top of the stack: leaving
         // it there would repeat the same error forever and hide older history.
@@ -1904,14 +1868,7 @@ export class DocumentRuntime {
         this.notify();
         return { ok: false, message: result.message ?? 'Could not undo.' };
       }
-      this.document = result.document;
-      if (result.inverse !== undefined && result.inverse !== null) {
-        this.redoStack.push(result.inverse);
-      }
-      this.lastHistoryOperation = 'structural';
-      this.version += 1;
-      this.saves.noteStructuralChange();
-      this.recomputeHashes();
+      this.session.acceptUndo(result.document, result.inverse);
       const target = this.projection.resolveFocusContext(focus);
       this.rebuildEditor(target, { restore: focus, resetHistory: true });
       this.reconcileEditor(target);
@@ -1922,26 +1879,19 @@ export class DocumentRuntime {
   }
 
   async redoStructural(): Promise<ApplyOutcome> {
-    return this.queue.run(async () => {
+    return this.session.queue.run(async () => {
       const focus = this.projection.captureFocusContext();
-      const command = this.redoStack.pop();
+      const command = this.session.popRedo();
       if (command === undefined) return { ok: false, message: 'Nothing to redo.' };
       await this.commitContentInternal();
-      const result = await this.gateway.apply(this.packagePath, command);
+      const result = await this.session.apply(command);
       if (!result.ok || result.document === undefined) {
         // Same rule as undo: a failed redo is dropped, reported, and never
         // retried forever at the top of the stack.
         this.notify();
         return { ok: false, message: result.message ?? 'Could not redo.' };
       }
-      this.document = result.document;
-      if (result.inverse !== undefined && result.inverse !== null) {
-        this.undoStack.push(result.inverse);
-      }
-      this.lastHistoryOperation = 'structural';
-      this.version += 1;
-      this.saves.noteStructuralChange();
-      this.recomputeHashes();
+      this.session.acceptRedo(result.document, result.inverse);
       const target = this.projection.resolveFocusContext(focus);
       this.rebuildEditor(target, { restore: focus, resetHistory: true });
       this.reconcileEditor(target);
@@ -1967,10 +1917,10 @@ export class DocumentRuntime {
             }
           : chapter,
       );
-      this.document = { ...original, chapters };
+      this.session.replaceDocument({ ...original, chapters });
       this.rebuildEditor(null);
     }
-    this.document = original;
+    this.session.replaceDocument(original);
     this.rebuildEditor(null);
   }
 
