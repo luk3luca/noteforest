@@ -8,14 +8,18 @@
 
 import type { CoreError, ValidationReport } from './errors.js';
 import { coreError } from './errors.js';
+import { migrateDocument } from './migrations.js';
 import type { Document } from './types.js';
-import { CURRENT_SCHEMA_VERSION } from './types.js';
 import { validateDocument } from './validation.js';
 
 export interface ParseSuccess {
   ok: true;
   document: Document;
   report: ValidationReport;
+  /** Set when an older on-disk document was upgraded on load. */
+  migratedFrom?: number;
+  /** Ordered descriptions of the migrations applied, if any. */
+  migrationsApplied?: string[];
 }
 
 export interface ParseFailure {
@@ -38,34 +42,24 @@ function validateParsedValue(value: unknown): ParseResult {
     };
   }
 
+  // Version check and ordered upgrade happen before validation. For the
+  // current schema this is a pure no-op; an unknown newer document is rejected
+  // here and never downgraded.
+  const migration = migrateDocument(value);
+  if (
+    migration.status === 'newer' ||
+    migration.status === 'invalid' ||
+    migration.status === 'invalid-registry'
+  ) {
+    return { ok: false, error: migration.error };
+  }
+
   // `manualBreakBeforeBlockIds` is optional in spec §4.2. Normalize a missing
   // list to the canonical empty list; every other unknown field is untouched.
   const normalized: Record<string, unknown> =
-    value['manualBreakBeforeBlockIds'] === undefined
-      ? { ...value, manualBreakBeforeBlockIds: [] }
-      : value;
-
-  const schemaVersion = normalized['schemaVersion'];
-  if (typeof schemaVersion !== 'number' || !Number.isInteger(schemaVersion) || schemaVersion < 1) {
-    return {
-      ok: false,
-      error: coreError(
-        'invalid-schema-version',
-        'document.schemaVersion must be a positive integer',
-        { schemaVersion: schemaVersion === undefined ? null : schemaVersion },
-      ),
-    };
-  }
-  if (schemaVersion > CURRENT_SCHEMA_VERSION) {
-    return {
-      ok: false,
-      error: coreError(
-        'newer-schema',
-        `document schemaVersion ${schemaVersion} is newer than this app supports (${CURRENT_SCHEMA_VERSION}); open read-only`,
-        { schemaVersion, supportedSchemaVersion: CURRENT_SCHEMA_VERSION },
-      ),
-    };
-  }
+    migration.document['manualBreakBeforeBlockIds'] === undefined
+      ? { ...migration.document, manualBreakBeforeBlockIds: [] }
+      : migration.document;
 
   const report = validateDocument(normalized);
   if (!report.ok) {
@@ -77,7 +71,19 @@ function validateParsedValue(value: unknown): ParseResult {
     error.issues = report.errors;
     return { ok: false, error, report };
   }
-  return { ok: true, document: normalized as unknown as Document, report };
+  return {
+    ok: true,
+    document: normalized as unknown as Document,
+    report,
+    ...(migration.status === 'migrated'
+      ? {
+          migratedFrom: migration.fromVersion,
+          migrationsApplied: migration.applied.map(
+            (step) => `${step.from}->${step.to}: ${step.description}`,
+          ),
+        }
+      : {}),
+  };
 }
 
 /** Parse and validate a canonical `document.json` payload. */
