@@ -35,6 +35,7 @@ export type DialogState =
   | { kind: 'delete-block'; blockId: string }
   | { kind: 'delete-branch'; blockId: string }
   | { kind: 'link-reference'; blockId: string; anchorId?: string }
+  | { kind: 'anchor-health'; anchorId?: string }
   | { kind: 'rename-document' }
   | { kind: 'rename-chapter'; chapterId: string }
   | { kind: 'rename-block'; blockId: string }

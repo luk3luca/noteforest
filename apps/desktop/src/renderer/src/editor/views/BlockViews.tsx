@@ -20,7 +20,9 @@ import {
 } from 'react';
 import { getEditorBindings, setDragBlockId } from '../bindings';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
+import { useShell } from '../../state/shell';
 import { GEOMETRY } from '../../lib/geometry';
+import { anchorHealthReason } from '../../lib/anchor-health';
 import {
   anchorVisualTargets,
   elementScale,
@@ -905,9 +907,14 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     ? `Expand branch, ${childLabel} hidden`
     : `Collapse branch, ${childLabel}`;
 
-  // M3b1 minimal broken state: an anchored child whose binding no longer
-  // resolves shows a warning on the parent card. Repair/health UX is M3e.
-  const anchorWarnings: Array<{ anchorId: string; state: string }> = [];
+  // M3e warning: an anchored child whose binding no longer resolves shows the
+  // same Lost anchor / Ambiguous copy as the health sheet and opens it focused
+  // on this anchor. The M3b1 fallback remains: the branch and target stay.
+  const anchorWarnings: Array<{
+    anchorId: string;
+    state: string;
+    reason: ReturnType<typeof resolveAnchor>['reason'];
+  }> = [];
   if (bindings !== null) {
     const document = bindings.runtime.document;
     const seen = new Set<string>();
@@ -922,7 +929,11 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         resolution.state === 'ambiguous' ||
         resolution.state === 'block-missing'
       ) {
-        anchorWarnings.push({ anchorId, state: resolution.state });
+        anchorWarnings.push({
+          anchorId,
+          state: resolution.state,
+          reason: resolution.reason,
+        });
       }
     }
   }
@@ -1162,21 +1173,32 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         </div>
       ) : null}
       {anchorWarnings.length > 0 ? (
-        <span
+        <button
+          type="button"
           className="nf-anchor-warning"
           contentEditable={false}
-          role="status"
           data-anchor-warning={anchorWarnings[0]?.anchorId ?? ''}
           data-anchor-state={anchorWarnings[0]?.state ?? ''}
+          aria-label={`${anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}. Open anchor health to repair.`}
           title={
-            anchorWarnings[0]?.state === 'ambiguous'
-              ? 'The anchored selection matches more than one candidate. The branch is kept; choose a candidate in a later step.'
-              : 'The anchored text could not be resolved. The branch is kept; repair arrives in a later step.'
+            anchorWarnings[0] === undefined
+              ? 'Open anchor health'
+              : `${anchorHealthReason(anchorWarnings[0].reason)} Open Anchor health to repair; the branch and target stay.`
           }
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const first = anchorWarnings[0];
+            if (first === undefined) return;
+            useShell.getState().openDialog({
+              kind: 'anchor-health',
+              anchorId: first.anchorId,
+            });
+          }}
         >
           <TriangleAlert size={12} strokeWidth={1.5} aria-hidden="true" />
           {anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}
-        </span>
+        </button>
       ) : null}
       <button
         type="button"

@@ -1827,7 +1827,17 @@ button:disabled {
   font-family: var(--ui-font);
   font-size: 10px;
   line-height: 1.4;
+  cursor: pointer;
   z-index: 2;
+}
+
+.nf-anchor-warning:hover {
+  background: var(--surface-3);
+}
+
+.nf-anchor-warning:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 /* Reference chips (M3d1). Absolutely positioned so adding or removing a
@@ -2684,6 +2694,24 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--accent);
 }
 
+.nf-status-health {
+  padding: 0 6px;
+  border: 1px solid var(--warning);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--warning);
+  font-size: 10.5px;
+}
+
+.nf-status-health:hover {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.nf-status-health:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
 .nf-status-glyph {
   font-size: 12px;
   line-height: 1;
@@ -3132,6 +3160,334 @@ body.nf-dragging-block .nf-gutter-handle {
   background: var(--accent-soft);
   color: var(--text);
   box-shadow: inset 2px 0 var(--accent);
+}
+
+.nf-dialog-modal-wide {
+  width: 640px;
+}
+
+/* M3e anchor health sheet. Rows are buttons with a separate repair action so
+   keyboard activation and pointer navigation stay independent. */
+.nf-health {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nf-health-filters {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 2px;
+}
+
+.nf-health-filter {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.nf-health-filter:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.nf-health-filter[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.nf-health-filter:focus-visible,
+.nf-health-back:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.nf-health-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nf-health-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nf-health-row-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.nf-health-row-main:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.nf-health-row-main:focus-visible,
+.nf-health-repair:focus-visible,
+.nf-health-candidate:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.nf-health-row-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.nf-health-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border: 1px solid var(--warning);
+  border-radius: 999px;
+  color: var(--warning);
+  font-size: 10px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.nf-health-kind,
+.nf-health-branch-count {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.nf-health-quote {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-health-context,
+.nf-health-block,
+.nf-health-reason {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-health-context {
+  font-family: var(--mono-font);
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+}
+
+.nf-health-block {
+  color: var(--text-tertiary);
+}
+
+.nf-health-repair {
+  align-self: center;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.nf-health-repair:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.nf-health-empty {
+  margin: 4px 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.nf-health-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nf-health-back {
+  align-self: flex-start;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.nf-health-back:hover {
+  color: var(--text);
+}
+
+.nf-health-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.nf-health-detail-head .nf-health-quote {
+  font-size: 13.5px;
+}
+
+.nf-health-detail-meta,
+.nf-health-detail-context {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-health-detail-context {
+  font-family: var(--mono-font);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.nf-health-section {
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.nf-health-section-title {
+  margin: 4px 0 6px;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nf-health-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nf-health-branch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+}
+
+.nf-health-branch-role {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.nf-health-branch-target {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-health-branch-delete {
+  flex: 0 0 auto;
+}
+
+.nf-health-candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nf-health-candidate {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.nf-health-candidate:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.nf-health-candidate-label {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.nf-health-candidate-context {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: var(--mono-font);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-health-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.nf-health-confirm {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+.nf-health-confirm .nf-dialog-text {
+  margin-top: 0;
+}
+
+.nf-button-quiet {
+  height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
 }
 
 .nf-backup-list {

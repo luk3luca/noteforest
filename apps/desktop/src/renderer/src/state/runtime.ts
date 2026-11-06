@@ -9,8 +9,14 @@
  */
 
 import type { Editor } from '@tiptap/core';
-import type { ContentNode, Document, DocumentCommand } from '@noteforest/core';
-import { anchoredChildBranches } from '@noteforest/core';
+import type {
+  AnchorBinding,
+  ContentNode,
+  Document,
+  DocumentCommand,
+  JsonObject,
+} from '@noteforest/core';
+import { anchoredChildBranches, textAnchorSelectorForBinding } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
 import { redoDepth, undoDepth } from '@tiptap/pm/history';
 import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state';
@@ -24,6 +30,7 @@ import type {
 } from '../../../shared/api';
 import { buildBlockNode, buildEditorDocument, extractBlockContents, withBody, type PMNode } from '../lib/adapter';
 import type { BranchSelectionAnchor } from '../lib/anchor-selection';
+import { branchSelectionAnchor } from '../lib/anchor-selection';
 import { recordPerf } from '../lib/perf';
 import { createSerialQueue } from '../lib/serial-queue';
 import {
@@ -189,6 +196,12 @@ export class DocumentRuntime {
   selectedAnchor: EditorAnchorSelection | null = null;
 
   readonly collapsed = new Set<string>();
+
+  /**
+   * Anchors whose repair prompt was dismissed with "Keep broken" in this
+   * session. View-only: no document mutation, no export effect, marker stays.
+   */
+  readonly keptBroken = new Set<string>();
 
   /**
    * Direct children the renderer wraps into the below stack. Non-canonical:
@@ -905,6 +918,179 @@ export class DocumentRuntime {
       this.reconcileEditor(this.selectedBlockId);
       return { ok: true, branchId };
     });
+  }
+
+  /**
+   * Apply one candidate choice. The command keys on the anchor ID only, so the
+   * anchor, its outgoing branch IDs, labels, and targets all survive.
+   */
+  async repairAnchor(
+    anchorId: string,
+    selector: JsonObject,
+    binding: AnchorBinding,
+  ): Promise<ApplyOutcome> {
+    const outcome = await this.applyStructural({
+      type: 'anchor.repair',
+      anchorId,
+      selector,
+      binding,
+    });
+    if (outcome.ok) this.keptBroken.delete(anchorId);
+    return outcome;
+  }
+
+  /**
+   * Relink a broken text/formula/code anchor from the editor's current
+   * selection. The anchor and branch stay; only the selector and binding move.
+   * Text selectors are derived from canonical content after the pending edit is
+   * committed, so the quoted text and the binding describe the same revision.
+   */
+  async repairAnchorFromSelection(anchorId: string): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      if (!this.editable) {
+        return { ok: false, message: 'This document is open read-only.' };
+      }
+      const committed = await this.commitContentInternal();
+      if (!committed) {
+        return {
+          ok: false,
+          message: this.saveError ?? 'Could not commit the pending edit.',
+        };
+      }
+      const anchor = this.document.anchors[anchorId];
+      if (anchor === undefined) {
+        return { ok: false, message: 'This anchor no longer exists.' };
+      }
+      const editor = this.editor;
+      if (editor === null) {
+        return { ok: false, message: 'Open the editor before relinking an anchor.' };
+      }
+      const picked = branchSelectionAnchor(editor);
+      if (!picked.ok) return { ok: false, message: picked.message };
+      const selection = picked.selection;
+      if (selection.blockId !== anchor.blockId) {
+        return {
+          ok: false,
+          message: 'Select the replacement range in the anchor’s own block.',
+        };
+      }
+      if (selection.kind !== anchor.kind) {
+        return {
+          ok: false,
+          message: `Select ${
+            anchor.kind === 'text'
+              ? 'text'
+              : anchor.kind === 'formula'
+                ? 'a formula'
+                : 'a code range'
+          } in the anchor’s block.`,
+        };
+      }
+      let selector: JsonObject;
+      if (selection.kind === 'text') {
+        const block = this.document.blocks[anchor.blockId];
+        const derived =
+          block === undefined
+            ? null
+            : textAnchorSelectorForBinding(block.content, selection.binding);
+        if (derived === null) {
+          return { ok: false, message: 'Select one continuous text range.' };
+        }
+        selector = derived;
+      } else {
+        selector = selection.selector;
+      }
+      const command: DocumentCommand = {
+        type: 'anchor.repair',
+        anchorId,
+        selector,
+        binding: selection.binding,
+      };
+      const result = await window.noteforest.apply(this.packagePath, command);
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not relink the anchor.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, anchor.blockId);
+      this.reconcileEditor(anchor.blockId);
+      this.keptBroken.delete(anchorId);
+      return { ok: true, anchorId };
+    });
+  }
+
+  /**
+   * Turn every outgoing branch into a block-sourced branch and remove the
+   * anchor + binding. Branch IDs, labels, and targets survive; undo restores the
+   * exact anchored sources and order.
+   */
+  async attachAnchorToBlock(anchorId: string): Promise<ApplyOutcome> {
+    const anchor = this.document.anchors[anchorId];
+    if (anchor === undefined) {
+      return { ok: false, message: 'This anchor no longer exists.' };
+    }
+    const outcome = await this.applyStructural(
+      { type: 'anchor.attachToBlock', anchorId },
+      { focusBlockId: anchor.blockId },
+    );
+    if (outcome.ok) this.keptBroken.delete(anchorId);
+    return outcome;
+  }
+
+  /**
+   * Remove the anchor explicitly. `attach` keeps branches on the block port;
+   * `delete` retires the branches and promotes primary targets. The command
+   * never deletes a target block or its subtree.
+   */
+  async deleteAnchor(
+    anchorId: string,
+    branches: 'attach' | 'delete',
+  ): Promise<ApplyOutcome> {
+    const anchor = this.document.anchors[anchorId];
+    if (anchor === undefined) {
+      return { ok: false, message: 'This anchor no longer exists.' };
+    }
+    const outcome = await this.applyStructural(
+      { type: 'anchor.delete', anchorId, branches },
+      { focusBlockId: anchor.blockId },
+    );
+    if (outcome.ok) this.keptBroken.delete(anchorId);
+    return outcome;
+  }
+
+  /**
+   * Remove exactly one branch under an anchor. A primary target becomes a
+   * top-level block after its former top-level ancestor; a reference removal
+   * leaves the target's home untouched. No target is deleted.
+   */
+  async deleteAnchorBranch(branchId: string): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      const branch = this.document.branches[branchId];
+      if (branch === undefined) {
+        return { ok: false, message: 'This branch no longer exists.' };
+      }
+      if (branch.source.anchorId === undefined) {
+        return { ok: false, message: 'This branch is not anchored.' };
+      }
+      const result = await this.runCommandInternal({
+        type: 'branch.delete',
+        branchId,
+        ...(branch.role === 'primary'
+          ? { targetHandling: { kind: 'promote' as const } }
+          : {}),
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not delete the branch.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, branch.source.blockId);
+      this.reconcileEditor(branch.source.blockId);
+      return { ok: true, branchId };
+    });
+  }
+
+  /** Session-only dismissal. No command, no mutation, no export effect. */
+  keepAnchorBroken(anchorId: string): void {
+    if (this.keptBroken.has(anchorId)) return;
+    this.keptBroken.add(anchorId);
+    this.notify();
   }
 
   /**

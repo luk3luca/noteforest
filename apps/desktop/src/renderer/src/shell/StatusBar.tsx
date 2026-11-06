@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { resolveDocumentAnchors } from '@noteforest/core';
+import { TriangleAlert } from 'lucide-react';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
 import {
@@ -17,6 +19,15 @@ export function StatusBar(): JSX.Element {
   );
   const { runtime } = useRuntime(activeTab);
   const counts = useMemo(() => currentWordCount(), [runtime?.seq]);
+  const anchorHealth = useMemo(() => {
+    if (runtime === null) return { broken: 0, ambiguous: 0, total: 0 };
+    const resolved = resolveDocumentAnchors(runtime.document).counts;
+    return {
+      broken: resolved.broken,
+      ambiguous: resolved.ambiguous,
+      total: resolved.broken + resolved.ambiguous,
+    };
+  }, [runtime, runtime?.document]);
   const zoom = useShell((state) => {
     const path = state.activeTab;
     return path === null ? 1 : state.viewByDoc[path]?.zoom ?? 1;
@@ -81,6 +92,23 @@ export function StatusBar(): JSX.Element {
       <span className="nf-status-item nf-status-secondary">
         {counts.blocks} {counts.blocks === 1 ? 'block' : 'blocks'}
       </span>
+      {anchorHealth.total > 0 ? (
+        <button
+          type="button"
+          className="nf-status-item nf-status-health"
+          data-anchor-health-chip="true"
+          data-health-broken={anchorHealth.broken}
+          data-health-ambiguous={anchorHealth.ambiguous}
+          aria-label={`${anchorHealth.total} ${
+            anchorHealth.total === 1 ? 'anchor needs' : 'anchors need'
+          } repair: ${anchorHealth.broken} broken, ${anchorHealth.ambiguous} ambiguous`}
+          title={`${anchorHealth.broken} broken · ${anchorHealth.ambiguous} ambiguous`}
+          onClick={() => useShell.getState().openDialog({ kind: 'anchor-health' })}
+        >
+          <TriangleAlert size={11} strokeWidth={1.5} aria-hidden="true" />
+          {anchorHealth.total} {anchorHealth.total === 1 ? 'anchor needs' : 'anchors need'} repair
+        </button>
+      ) : null}
       <span className="nf-status-spacer" />
       <div className="nf-status-view" role="group" aria-label="View controls">
         <button

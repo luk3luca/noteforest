@@ -30,6 +30,17 @@ import {
 } from '../lib/anchor-selection';
 import { overwriteConfirmation } from '../lib/save-failure';
 import { backupMetadataLine } from '../lib/backup-restore';
+import {
+  anchorCandidateViews,
+  anchorContextLine,
+  anchorHealthReason,
+  buildAnchorHealthRows,
+  filterAnchorHealthRows,
+  repairCommandForCandidate,
+  summarizeAnchorHealth,
+  type AnchorHealthFilter,
+  type AnchorHealthRow,
+} from '../lib/anchor-health';
 import type { BackupCandidateView } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
 
@@ -38,14 +49,15 @@ interface FrameProps {
   description?: string;
   children: React.ReactNode;
   actions: React.ReactNode;
+  wide?: boolean;
 }
 
-function Frame({ title, description, children, actions }: FrameProps): JSX.Element {
+function Frame({ title, description, children, actions, wide = false }: FrameProps): JSX.Element {
   return (
     <ModalOverlay className="nf-overlay" isOpen onOpenChange={(open) => {
       if (!open) useShell.getState().closeDialog();
     }} isDismissable>
-      <Modal className="nf-dialog-modal">
+      <Modal className={wide ? 'nf-dialog-modal nf-dialog-modal-wide' : 'nf-dialog-modal'}>
         <Dialog className="nf-dialog" aria-label={title}>
           <h2 className="nf-dialog-title">{title}</h2>
           {description === undefined ? null : <p className="nf-dialog-description">{description}</p>}
@@ -97,6 +109,16 @@ export function Dialogs(): JSX.Element | null {
         runtime={runtime}
         sourceBlockId={dialog.blockId}
         sourceAnchorId={dialog.anchorId}
+        onClose={close}
+      />
+    );
+  }
+
+  if (dialog.kind === 'anchor-health') {
+    return (
+      <AnchorHealthDialog
+        runtime={runtime}
+        initialAnchorId={dialog.anchorId}
         onClose={close}
       />
     );
@@ -493,6 +515,480 @@ function RestoreBackupDialog({
         The restored copy opens in a new tab. This window’s unsaved changes and the original
         file are left untouched.
       </p>
+    </Frame>
+  );
+}
+
+type HealthConfirm =
+  | { kind: 'attach' }
+  | { kind: 'delete-branch'; branchId: string; targetTitle: string }
+  | { kind: 'delete-anchor'; mode: 'attach' | 'delete' };
+
+const HEALTH_KIND_LABEL: Record<string, string> = {
+  text: 'Text',
+  formula: 'Formula',
+  code: 'Code',
+  image: 'Image',
+};
+
+function healthStateLabel(state: 'broken' | 'ambiguous'): string {
+  return state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor';
+}
+
+/**
+ * M3e health sheet: list broken/ambiguous anchors, filter by state, navigate
+ * to the source block, choose an ambiguous candidate, relink from the editor
+ * selection, attach branches to the block, delete one branch, delete the
+ * anchor with an explicit branch policy, or keep it broken for this session.
+ */
+function AnchorHealthDialog({
+  runtime,
+  initialAnchorId,
+  onClose,
+}: {
+  runtime: DocumentRuntime;
+  initialAnchorId?: string;
+  onClose: () => void;
+}): JSX.Element {
+  const [filter, setFilter] = useState<AnchorHealthFilter>('all');
+  const [selectedAnchorId, setSelectedAnchorId] = useState<string | null>(
+    initialAnchorId ?? null,
+  );
+  const [confirm, setConfirm] = useState<HealthConfirm | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const rows = useMemo(
+    () => buildAnchorHealthRows(runtime.document),
+    [runtime.document, runtime.version],
+  );
+  const summary = summarizeAnchorHealth(rows);
+  const visible = filterAnchorHealthRows(rows, filter);
+  const selected =
+    selectedAnchorId === null
+      ? null
+      : rows.find((row) => row.anchorId === selectedAnchorId) ?? null;
+  const candidates =
+    selected === null
+      ? []
+      : anchorCandidateViews(runtime.document, selected.anchorId, selected.resolution);
+
+  const navigate = (row: AnchorHealthRow): void => {
+    onClose();
+    runtime.focusBlock(row.blockId, { select: true });
+    runtime.selectAnchor(row.blockId, row.anchorId);
+  };
+
+  const perform = async (
+    action: Promise<{ ok: boolean; message?: string }>,
+    success: string,
+  ): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    const outcome = await action;
+    setBusy(false);
+    if (!outcome.ok) {
+      setError(outcome.message ?? 'The repair action was rejected.');
+      return;
+    }
+    toast.success(success);
+    onClose();
+  };
+
+  const repairCandidate = (index: number): void => {
+    if (selected === null) return;
+    const view = candidates.find((candidate) => candidate.index === index);
+    const command =
+      view === undefined
+        ? null
+        : repairCommandForCandidate(runtime.document, selected.anchorId, view.candidate);
+    if (command === null) {
+      setError('That candidate cannot be applied with the current selector.');
+      return;
+    }
+    void perform(
+      runtime.repairAnchor(command.anchorId, command.selector, command.binding),
+      'Anchor candidate applied.',
+    );
+  };
+
+  return (
+    <Frame
+      title="Anchor health"
+      description={
+        summary.total === 0
+          ? 'No broken or ambiguous anchors.'
+          : `${summary.total} ${summary.total === 1 ? 'anchor needs' : 'anchors need'} repair · ${summary.broken} broken · ${summary.ambiguous} ambiguous`
+      }
+      wide
+      actions={<Button className="nf-button" onPress={onClose}>Close</Button>}
+    >
+      <div className="nf-health" data-anchor-health="true">
+        {selected === null ? (
+          <>
+            <div className="nf-health-filters" role="group" aria-label="Filter anchors">
+              {(['all', 'broken', 'ambiguous'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="nf-health-filter"
+                  data-health-filter={value}
+                  aria-pressed={filter === value}
+                  autoFocus={value === 'all'}
+                  onClick={() => setFilter(value)}
+                >
+                  {value === 'all'
+                    ? `All · ${rows.length}`
+                    : value === 'broken'
+                      ? `Broken · ${summary.broken}`
+                      : `Ambiguous · ${summary.ambiguous}`}
+                </button>
+              ))}
+            </div>
+            {visible.length === 0 ? (
+              <p className="nf-health-empty" data-health-empty="true">
+                {rows.length === 0
+                  ? 'No broken or ambiguous anchors.'
+                  : 'No anchors match this filter.'}
+              </p>
+            ) : (
+              <ul className="nf-health-list" aria-label="Anchors needing repair">
+                {visible.map((row) => (
+                  <li
+                    key={row.anchorId}
+                    className="nf-health-row"
+                    data-health-anchor={row.anchorId}
+                    data-health-state={row.state}
+                    data-health-kind={row.kind}
+                  >
+                    <button
+                      type="button"
+                      className="nf-health-row-main"
+                      data-health-navigate={row.anchorId}
+                      onClick={() => navigate(row)}
+                    >
+                      <span className="nf-health-row-top">
+                        <span
+                          className={`nf-health-state nf-health-state-${row.state}`}
+                          data-health-state-label={row.state}
+                        >
+                          {healthStateLabel(row.state)}
+                        </span>
+                        <span className="nf-health-kind">{HEALTH_KIND_LABEL[row.kind] ?? row.kind}</span>
+                        <span
+                          className="nf-health-branch-count"
+                          data-health-branch-count={row.branchCount}
+                        >
+                          {row.branchCount} {row.branchCount === 1 ? 'branch' : 'branches'}
+                        </span>
+                      </span>
+                      <span className="nf-health-quote">“{row.quote || 'anchor'}”</span>
+                      <span className="nf-health-context">
+                        {anchorContextLine(row.prefix, row.quote, row.suffix)}
+                      </span>
+                      <span className="nf-health-block">
+                        {row.blockTitle} · {row.chapterTitle}
+                      </span>
+                      <span className="nf-health-reason">{row.reasonLabel}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="nf-health-repair"
+                      data-health-repair={row.anchorId}
+                      aria-label={`Repair anchor “${row.quote || 'anchor'}”`}
+                      onClick={() => {
+                        setSelectedAnchorId(row.anchorId);
+                        setConfirm(null);
+                        setError(null);
+                      }}
+                    >
+                      Repair
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <div className="nf-health-detail" data-health-detail={selected.anchorId}>
+            <button
+              type="button"
+              className="nf-health-back"
+              onClick={() => {
+                setSelectedAnchorId(null);
+                setConfirm(null);
+                setError(null);
+              }}
+            >
+              ← All anchors
+            </button>
+            <div className="nf-health-detail-head">
+              <span
+                className={`nf-health-state nf-health-state-${selected.state}`}
+                data-health-state-label={selected.state}
+              >
+                {healthStateLabel(selected.state)}
+              </span>
+              <span className="nf-health-kind">
+                {HEALTH_KIND_LABEL[selected.kind] ?? selected.kind}
+              </span>
+              <span className="nf-health-quote">“{selected.quote || 'anchor'}”</span>
+            </div>
+            <p className="nf-health-detail-meta">
+              {selected.blockTitle} · {selected.chapterTitle}
+            </p>
+            <p className="nf-health-detail-context">
+              {anchorContextLine(selected.prefix, selected.quote, selected.suffix)}
+            </p>
+            <p className="nf-health-reason" data-health-reason={selected.reason}>
+              {anchorHealthReason(selected.reason)}
+            </p>
+
+            <section className="nf-health-section">
+              <h3 className="nf-health-section-title">Branches</h3>
+              {selected.branchCount === 0 ? (
+                <p className="nf-dialog-note">
+                  No outgoing branches. This anchor is idle and leaves the health list.
+                </p>
+              ) : (
+                <ul className="nf-health-branches">
+                  {selected.branches.map((branch) => (
+                    <li
+                      key={branch.id}
+                      className="nf-health-branch"
+                      data-health-branch={branch.id}
+                      data-health-branch-role={branch.role}
+                    >
+                      <span className="nf-health-branch-role">{branch.role}</span>
+                      <span className="nf-health-branch-target">
+                        {branch.label === undefined
+                          ? branch.targetTitle
+                          : `${branch.targetTitle} · ${branch.label}`}
+                      </span>
+                      <Button
+                        className="nf-button nf-button-quiet nf-health-branch-delete"
+                        data-health-action="delete-branch"
+                        isDisabled={busy}
+                        onPress={() =>
+                          setConfirm({
+                            kind: 'delete-branch',
+                            branchId: branch.id,
+                            targetTitle: branch.targetTitle,
+                          })
+                        }
+                      >
+                        Delete branch…
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {candidates.length > 0 ? (
+              <section className="nf-health-section" data-health-candidates="true">
+                <h3 className="nf-health-section-title">
+                  {selected.state === 'ambiguous' ? 'Choose a matching location' : 'Matching locations'}
+                </h3>
+                <div className="nf-health-candidate-list">
+                  {candidates.map((view) => (
+                    <button
+                      key={`${view.index}-${view.label}`}
+                      type="button"
+                      className="nf-health-candidate"
+                      data-health-candidate={view.index}
+                      disabled={busy}
+                      onClick={() => repairCandidate(view.index)}
+                    >
+                      <span className="nf-health-candidate-label">{view.label}</span>
+                      <span className="nf-health-candidate-context">{view.context}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="nf-dialog-note">
+                  Choosing a candidate keeps the anchor and branch IDs and is one undo entry.
+                  Repeated identical terms or code quotes remain ambiguous until the source
+                  itself is unique.
+                </p>
+              </section>
+            ) : null}
+
+            <div className="nf-health-actions">
+              <Button
+                className="nf-button"
+                data-health-action="relink"
+                isDisabled={busy}
+                onPress={() =>
+                  void perform(
+                    runtime.repairAnchorFromSelection(selected.anchorId),
+                    'Anchor relinked from the selection.',
+                  )
+                }
+              >
+                Relink to current selection
+              </Button>
+              <Button
+                className="nf-button"
+                data-health-action="attach"
+                isDisabled={busy}
+                onPress={() => setConfirm({ kind: 'attach' })}
+              >
+                Attach branches to block…
+              </Button>
+              <Button
+                className="nf-button"
+                data-health-action="keep-broken"
+                isDisabled={busy}
+                onPress={() => {
+                  runtime.keepAnchorBroken(selected.anchorId);
+                  toast.info('Kept broken for this session. Nothing was changed.');
+                  onClose();
+                }}
+              >
+                Keep broken
+              </Button>
+              <Button
+                className="nf-button nf-button-danger"
+                data-health-action="delete-anchor"
+                isDisabled={busy}
+                onPress={() => setConfirm({ kind: 'delete-anchor', mode: 'attach' })}
+              >
+                Delete anchor…
+              </Button>
+            </div>
+
+            {confirm === null ? null : (
+              <div
+                className="nf-health-confirm"
+                data-health-confirm={confirm.kind}
+                role="group"
+                aria-label="Confirm anchor action"
+              >
+                {confirm.kind === 'attach' ? (
+                  <>
+                    <p className="nf-dialog-text">
+                      Move {selected.branchCount}{' '}
+                      {selected.branchCount === 1 ? 'branch' : 'branches'} from this anchor to
+                      the block itself. Branch IDs, labels, and target blocks stay; one undo
+                      restores the anchored sources.
+                    </p>
+                    <div className="nf-dialog-inline-actions">
+                      <Button
+                        className="nf-button"
+                        onPress={() => setConfirm(null)}
+                        isDisabled={busy}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="nf-button nf-button-primary"
+                        data-health-confirm-action="attach"
+                        isDisabled={busy}
+                        onPress={() =>
+                          void perform(
+                            runtime.attachAnchorToBlock(selected.anchorId),
+                            'Branches attached to the block.',
+                          )
+                        }
+                      >
+                        Attach
+                      </Button>
+                    </div>
+                  </>
+                ) : null}
+                {confirm.kind === 'delete-branch' ? (
+                  <>
+                    <p className="nf-dialog-text">
+                      Delete this branch to “{confirm.targetTitle}”? The target block and its
+                      subtree stay; a primary target becomes a top-level block. Undo restores
+                      the branch.
+                    </p>
+                    <div className="nf-dialog-inline-actions">
+                      <Button
+                        className="nf-button"
+                        onPress={() => setConfirm(null)}
+                        isDisabled={busy}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="nf-button nf-button-danger"
+                        data-health-confirm-action="delete-branch"
+                        isDisabled={busy}
+                        onPress={() =>
+                          void perform(
+                            runtime.deleteAnchorBranch(confirm.branchId),
+                            'Branch deleted. The target block was kept.',
+                          )
+                        }
+                      >
+                        Delete branch
+                      </Button>
+                    </div>
+                  </>
+                ) : null}
+                {confirm.kind === 'delete-anchor' ? (
+                  <>
+                    <p className="nf-dialog-text">
+                      Delete the anchor itself? Target blocks are never deleted. Choose what
+                      happens to the outgoing branches.
+                    </p>
+                    <fieldset className="nf-fieldset">
+                      <legend className="nf-legend">Branches</legend>
+                      <label className="nf-radio">
+                        <input
+                          type="radio"
+                          name="health-delete-mode"
+                          checked={confirm.mode === 'attach'}
+                          onChange={() => setConfirm({ kind: 'delete-anchor', mode: 'attach' })}
+                        />
+                        <span>Attach them to the block (branch IDs stay)</span>
+                      </label>
+                      <label className="nf-radio">
+                        <input
+                          type="radio"
+                          name="health-delete-mode"
+                          checked={confirm.mode === 'delete'}
+                          onChange={() => setConfirm({ kind: 'delete-anchor', mode: 'delete' })}
+                        />
+                        <span>Delete them; primary targets become top-level</span>
+                      </label>
+                    </fieldset>
+                    <div className="nf-dialog-inline-actions">
+                      <Button
+                        className="nf-button"
+                        onPress={() => setConfirm(null)}
+                        isDisabled={busy}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="nf-button nf-button-danger"
+                        data-health-confirm-action="delete-anchor"
+                        isDisabled={busy}
+                        onPress={() =>
+                          void perform(
+                            runtime.deleteAnchor(selected.anchorId, confirm.mode),
+                            'Anchor deleted. Target blocks were kept.',
+                          )
+                        }
+                      >
+                        Delete anchor
+                      </Button>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )}
+
+            {error !== null ? (
+              <p className="nf-dialog-text nf-dialog-error" role="alert" data-health-error="true">
+                {error}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </div>
     </Frame>
   );
 }
