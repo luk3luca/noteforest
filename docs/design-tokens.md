@@ -22,7 +22,7 @@ Components and the router must read these tokens; do not add new hard-coded 12/1
 | `calloutMinWidth` | 240 px | Minimum independent callout lane width |
 | `calloutMaxWidth` | 480 px | Maximum callout lane width; prevents unbounded push |
 | `callout.maxAnchorOffset` | 160 px | Maximum callout left offset from the parent card left |
-| `callout.safeGap` | 16 px | Minimum gap between the callout right edge and the direct-child group |
+| `callout.safeGap` | 16 px minimum | Minimum gap between the callout right edge and the direct-child group; with the 24 px group gap and lane cap the effective gap is ≥24 px, so this is a floor, not an exact target |
 | top-level block | 160–480 px | Content-driven min/max |
 | child block | 144–420 px | Content-driven min/max |
 
@@ -87,6 +87,15 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 
 These remain CSS variables in `styles.css` (`--surface-*`, `--border-*`, `--text-*`, `--accent*`,
 fonts). They are part of the same design system but are not duplicated in the TS token module yet.
+
+## Shell spacing decisions
+
+Ratified by the product owner on 6 November 2026:
+
+- **`editorPaddingBottom` = 88 px**, matching the rendered CSS (the unused token said 96).
+- **`chapterGap` = 28 px**, matching the rendered CSS (the unused token said 32).
+- The TS token module must become the single source for these shell values in **M3h4**, before M4/M6
+  settings work. Do not silently pick a different value in a component.
 
 ## Future settings
 

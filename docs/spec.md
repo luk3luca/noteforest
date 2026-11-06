@@ -2141,6 +2141,10 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 - **AC-19 (Must).** A code anchor survives edits outside the range; removing the quoted code marks it broken/ambiguous; repair works.
 - **AC-20 (Must).** A formula anchor stores the term/quote; invalid LaTeX shows an error without data loss; the branch is visually associated with the formula.
 - **AC-21 (Must).** An image region anchor uses normalized coordinates, survives display resizing, and becomes broken when the image asset is replaced; a missing image shows a placeholder.
+  **M3 gate decision (6 November 2026, product owner):** AC-21 and the image rows of AC-57 are
+  **deferred to M3c3b**. M3 may be accepted on text/formula/code anchors, reference edges, repair, and
+  split/merge. The image insertion/asset pipeline is a prerequisite for the image part of M4/PDF
+  acceptance; no image-anchor behavior is considered delivered until M3c3b lands.
 - **AC-22 (Must).** The anchor health sheet lists broken/ambiguous anchors; relinking keeps the anchor and branch IDs; the branch target is never deleted by repair.
 
 ### 15.4 Adaptive layout and pagination

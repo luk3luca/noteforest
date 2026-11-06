@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 implementation complete (spec v0.4.5, UX v1.4, ADR-0005); M3f2 and M3g1–M3g6 merged. Sentinel M3 review returned **request changes**; the M3h fix pass and the AC-21 image-anchor decision are pending. Product-owner VoiceOver remains a separate gate. M3c3b image anchors blocked on the image pipeline; UI paste/duplicate is a follow-up. M4/PDF blocked until M3 is accepted.
+**Status:** M2f accepted; M3 implementation complete (spec v0.4.5, UX v1.4, ADR-0005); M3f2 and M3g1–M3g6 merged. Sentinel M3 review returned **request changes**. Product-owner decisions are recorded: AC-21 + image rows of AC-57 deferred to M3c3b; token values 88/28; callout `safeGap` is a 16 px minimum; idle-anchor removal is in M3h3; VoiceOver remains the product-owner gate. M3h1/M3h2 are launched via orchestrator v2. M3c3b image anchors remain blocked on the image pipeline; UI paste/duplicate is a follow-up. M4/PDF remain blocked until M3 is accepted.
 
 ## Rules
 
@@ -35,7 +35,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
 | **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Accepted; collapsed-port fix merged** |
-| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | **Sentinel request changes — M3h fix pass pending (4 S2 + AC-21 decision)** |
+| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | **Sentinel request changes — M3h fix pass in progress (M3h1/M3h2)** |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
 | **M6** | Library, search, polish | Search, light theme, accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
@@ -282,9 +282,18 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   (`docs/reviews/m3-review.md`): four S2 findings (placement undo history, AC-55 preview/confirm,
   AC-06 delete reference disclosure, AC-17 live broken state), S3 active-cross-group/idle removal,
   and the AC-21 image-anchor gate. 492 unit, critical e2e 21/45.3 s, recovery 14, UI 28, `verify`
-  exit 0. M3h fix pass and product-owner decisions are pending. Image anchors remain blocked on the
-  image pipeline; UI paste/duplicate placement/undo/clipboard and chip-overlay polish are follow-ups.
-  M4/PDF remain blocked until M3 is accepted.
+  exit 0.
+- **M3h fix pass (orchestrator v2):**
+  - **M3h1** — S2-1 placement reflow must preserve text undo history; S3-1 active trunk filtered by
+    placement. Brief: `docs/tasks/m3h1-placement-undo-active-trunks.md`.
+  - **M3h2** — S2-2 AC-55 repair before/after preview + Confirm; S2-3 AC-06 delete disclosure for
+    external reference parents. Brief: `docs/tasks/m3h2-anchor-safety-flows.md`.
+  - **M3h3** (after h2) — S2-4 live broken anchor state + S3-2 idle anchor removal.
+  - **M3h4** (before M4/M6 settings) — token single-source, canonical 88/28, CSS guard.
+- **Ratified M3 decisions (6 November 2026):** AC-21 and image rows of AC-57 deferred to M3c3b;
+  image pipeline is a prerequisite for M4/PDF image acceptance. `editorPaddingBottom` 88 and
+  `chapterGap` 28 are canonical. `callout.safeGap` 16 is a minimum (effective gap ≥24). Idle-anchor
+  removal is in M3h3. VoiceOver/visual pass remains the product-owner gate after M3h.
 - **M3b2c approved layout rule (5 November 2026):** direct children stay right while they fit and
   join the below stack when they wrap; callouts always below, before wrapped direct children; one
   shared left trunk with horizontal arms; every arrow enters from the left, never the top. This
