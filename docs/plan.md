@@ -321,13 +321,16 @@ This is a scoped architecture milestone, not a big-bang rewrite. Gate: no visual
 runtime dependency, all existing tests green, no behavior change.
 
 - **Slice 1 — token single-source:** delivered as M3h4; CSS variables from TS, canonical 88/28, guard test.
-- **Slice 2 — runtime boundaries:** `DocumentSession`, `DocumentGateway`, `SaveCoordinator`,
+- **Slice 2a — launched:** DocumentGateway + SaveCoordinator. Brief: `docs/tasks/m3i2a-gateway-save-coordinator.md`.
+- **Slice 2b — runtime boundaries:** `DocumentSession`, `DocumentGateway`, `SaveCoordinator`,
   `EditorProjection`; dependency inversion instead of `window.noteforest` inside the runtime.
 - **Slice 3 — repository + migrations:** document/backup/asset contracts, ordered schema migrations
   with fixtures, newer-document read-only.
 - **Slice 4 — commands + invariants:** split `commands.ts` by aggregate, command registry,
   apply→inverse→deep-equal harness, branded IDs where mechanical.
-- **Slice 5 — test harness cleanup:** shared UI session/fixtures, callout split, e2e coverage matrix,
+- **Slice 5a — launched:** shared UI session/fixtures and callout split; no test deletion.
+  Brief: `docs/tasks/m3i5a-ui-test-harness.md`.
+- **Slice 5b — test harness cleanup:** e2e coverage matrix and removal of exact recovery duplicates;
   core factories. Remove setup duplication, not behavior coverage.
 
 Only interfaces now: `AssetStore`, `ApplicationService`/queries, token registry. Implementations
