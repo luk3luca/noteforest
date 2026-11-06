@@ -707,9 +707,8 @@ describe('NoteForest M3b2c below-stack routing', () => {
       (entry) => entry.kind === 'trunk' && entry.placement === 'right',
     );
     assert.ok(rightTrunk !== undefined, 'one shared right trunk');
-    const rightTrunkStart = rightTrunk.points[0];
-    if (rightTrunkStart === undefined) throw new Error('missing right trunk start');
-    const rightLead = rightTrunkStart.x - snapshot.parent.right;
+    const rightLaneX = Math.max(...rightTrunk.points.map((point) => point.x));
+    const rightLead = rightLaneX - snapshot.parent.right;
     assert.ok(
       rightLead >= 8 && rightLead <= 14,
       `the right trunk leaves a horizontal lead (${rightLead} px)`,
@@ -717,12 +716,12 @@ describe('NoteForest M3b2c below-stack routing', () => {
     const firstRightEdge = snapshot.edges.find(
       (edge) =>
         edge.kind === 'direct' &&
-        Math.abs((edge.points[0]?.x ?? 0) - snapshot.parent.right) < 1,
+        Math.abs((edge.points[0]?.x ?? 0) - rightLaneX) < 1,
     );
-    assert.ok(firstRightEdge !== undefined, 'the first right child starts at the parent port');
+    assert.ok(firstRightEdge !== undefined, 'the first right child arm starts at the trunk');
     assert.ok(
-      firstRightEdge.points.some((point) => Math.abs(point.x - rightTrunkStart.x) < 1),
-      'the first right path passes through the shared trunk',
+      firstRightEdge.points.every((point) => point.x >= rightLaneX - 0.5),
+      'the first right arm starts at the shared trunk, not the parent port',
     );
 
     // One shared trunk for the two callout rows, with a left-entry arm each.
@@ -943,6 +942,73 @@ describe('NoteForest M3b2c below-stack routing', () => {
       },
       parentId,
       { timeout: 10000 },
+    );
+  });
+
+  it('highlights the shared right lead when a later child is selected', async () => {
+    await launch(isolated('active-trunk'));
+    await h.setWindowSize(1440, 900);
+    const { parentId, shortDirect, longDirect } = await buildFixture();
+
+    await h.activeEditor().locator(`[data-block-card="${shortDirect}"] .nf-block-prose`).click();
+    await h.waitSelected(shortDirect);
+    await h.activeEditor().locator(`[data-block-card="${longDirect}"] .nf-block-prose`).click();
+    await h.waitSelected(longDirect);
+
+    const active = await page.evaluate(
+      ({ id, first, second }) => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const parent = scope?.querySelector(`[data-block-card="${id}"]`);
+        const trunk = scope?.querySelector(
+          `.nf-edge-trunk[data-parent-id="${id}"][data-trunk-placement="right"]`,
+        );
+        const edge = (childId) =>
+          scope?.querySelector(`g[data-edge-id][data-child-id="${childId}"] path.nf-edge-path`);
+        const points = (value) => {
+          const numbers = (value ?? '')
+            .split(/[^0-9.-]+/)
+            .filter((part) => part.length > 0)
+            .map(Number);
+          const parsed = [];
+          for (let index = 0; index + 1 < numbers.length; index += 2) {
+            parsed.push({ x: numbers[index], y: numbers[index + 1] });
+          }
+          return parsed;
+        };
+        const contentRect = scope?.querySelector('.nf-canvas-content')?.getBoundingClientRect();
+        const parentRect = parent?.getBoundingClientRect();
+        const trunkPath = trunk?.getAttribute('d') ?? '';
+        return {
+          parentRight:
+            parentRect === undefined || contentRect === undefined
+              ? null
+              : parentRect.right - contentRect.left,
+          trunkClass: trunk?.getAttribute('class') ?? '',
+          trunkPoints: points(trunkPath),
+          firstClass: edge(first)?.getAttribute('class') ?? '',
+          secondClass: edge(second)?.getAttribute('class') ?? '',
+        };
+      },
+      { id: parentId, first: shortDirect, second: longDirect },
+    );
+
+    assert.equal(active.parentRight !== null, true);
+    assert.equal(
+      Math.abs((active.trunkPoints[0]?.x ?? 0) - active.parentRight) < 1,
+      true,
+      'the trunk owns the horizontal lead from the parent port',
+    );
+    assert.ok(
+      active.trunkClass.includes('nf-edge-active'),
+      'the shared trunk is active when the second child is selected',
+    );
+    assert.ok(
+      active.secondClass.includes('nf-edge-active'),
+      'the selected second child edge is active',
+    );
+    assert.ok(
+      active.firstClass.includes('nf-edge-muted'),
+      'the first child edge is muted while the second is selected',
     );
   });
 

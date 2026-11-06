@@ -183,7 +183,7 @@ describe('edge routing — fixed arrowhead and minimum stem', () => {
 });
 
 describe('edge routing — shared trunk', () => {
-  it('keeps the first branch continuous from the parent port into the trunk (2 children)', () => {
+  it('keeps the shared trunk continuous from the parent port (2 children)', () => {
     const one = child('one', 0, 424, 60);
     const two = child('two', 200, 424, 60);
     const group = routeChildGroup({ parentId: 'p', parent, children: [one, two] });
@@ -194,24 +194,25 @@ describe('edge routing — shared trunk', () => {
     if (trunk === undefined || first === undefined) throw new Error('missing route');
     expect(trunk.placement).toBe('right');
     expect(trunk.kind).toBe('trunk');
-    expect(trunk.start.y).toBeCloseTo(one.rect.y + one.rect.height / 2, 5);
+    expect(trunk.start.x).toBe(parent.x + parent.width);
+    expect(trunk.start.y).toBeCloseTo(parent.y + parent.height / 2, 5);
     expect(trunk.end.y).toBeCloseTo(two.rect.y + two.rect.height / 2, 5);
-    expect(trunk.start.x).toBeGreaterThan(parent.x + parent.width);
-    expect(trunk.start.x).toBeLessThan(one.rect.x);
     // The shared trunk leaves the parent with a visible horizontal lead
     // (siblingGap - edgeGap - stemMin) instead of hugging the card edge.
-    expect(trunk.start.x - (parent.x + parent.width)).toBe(
+    const laneX = first.start.x;
+    expect(laneX - (parent.x + parent.width)).toBe(
       GEOMETRY.siblingGap - GEOMETRY.edgeGap - GEOMETRY.stemMin,
     );
-    expect(trunk.start.x - (parent.x + parent.width)).toBeGreaterThanOrEqual(8);
-    expect(first.start.x).toBe(parent.x + parent.width);
-    expect(first.start.y).toBeCloseTo(parent.y + parent.height / 2, 5);
+    expect(laneX - (parent.x + parent.width)).toBeGreaterThanOrEqual(8);
+    expect(trunk.end.x).toBe(laneX);
+    expect(first.start.y).toBeCloseTo(one.rect.y + one.rect.height / 2, 5);
     expect(first.end.x).toBeCloseTo(one.rect.x - GEOMETRY.edgeGap, 5);
-    expect(containsPoint(parsePoints(first.path), trunk.start)).toBe(true);
+    // The trunk owns the parent port and the lead; the first arm joins it.
+    expect(containsPoint(parsePoints(trunk.path), first.start)).toBe(true);
     expect(containsPoint(parsePoints(first.path), first.start)).toBe(true);
     const second = group.edges[1];
     if (second === undefined) throw new Error('missing second route');
-    expect(second.start.x).toBeCloseTo(trunk.start.x, 5);
+    expect(second.start.x).toBeCloseTo(laneX, 5);
     expect(second.start.y).toBeCloseTo(two.rect.y + two.rect.height / 2, 5);
     expect(second.end.x).toBeCloseTo(two.rect.x - GEOMETRY.edgeGap, 5);
     expect(second.end.x).toBeGreaterThan(second.start.x);
@@ -222,14 +223,15 @@ describe('edge routing — shared trunk', () => {
   });
 
   it('keeps one trunk and three short arrows for three children at a 16 px gap', () => {
-    const children = Array.from({ length: 3 }, (_value, index) => child(`t${index}`, index * 76, 416, 60));
+    const children = Array.from({ length: 3 }, (_value, index) => child(`t${index}`, index * 76, 424, 60));
     const group = routeChildGroup({ parentId: 'p', parent, children });
     expect(group.edges).toHaveLength(3);
     expect(group.trunks).toHaveLength(1);
     const trunk = group.trunks[0];
     if (trunk === undefined) throw new Error('missing trunk');
-    expect(trunk.start.y).toBeCloseTo(30, 5);
+    expect(trunk.start.y).toBeCloseTo(60, 5);
     expect(trunk.end.y).toBeCloseTo(182, 5);
+    expect(containsPoint(parsePoints(trunk.path), group.edges[0].start)).toBe(true);
     for (const [index, edge] of group.edges.entries()) {
       const target = children[index];
       if (target === undefined) throw new Error('missing child');
@@ -240,7 +242,7 @@ describe('edge routing — shared trunk', () => {
   });
 
   it('keeps one trunk and five connected short arrows for five children', () => {
-    const children = Array.from({ length: 5 }, (_value, index) => child(`c${index}`, index * 80, 416, 56));
+    const children = Array.from({ length: 5 }, (_value, index) => child(`c${index}`, index * 80, 424, 56));
     const group = routeChildGroup({ parentId: 'p', parent, children });
     expect(group.edges).toHaveLength(5);
     expect(group.trunks).toHaveLength(1);
@@ -252,11 +254,11 @@ describe('edge routing — shared trunk', () => {
     }
     expect(trunk.path.startsWith('M ')).toBe(true);
     expect(trunk.path).not.toContain('Q');
-    expect(trunk.start.y).toBeCloseTo(first.rect.y + first.rect.height / 2, 5);
+    expect(trunk.start.y).toBeCloseTo(parent.y + parent.height / 2, 5);
     expect(trunk.end.y).toBeCloseTo(last.rect.y + last.rect.height / 2, 5);
     const firstEdge = group.edges[0];
     if (firstEdge === undefined) throw new Error('missing first edge');
-    expect(containsPoint(parsePoints(firstEdge.path), trunk.start)).toBe(true);
+    expect(containsPoint(parsePoints(trunk.path), firstEdge.start)).toBe(true);
     for (const [index, edge] of group.edges.entries()) {
       const target = children[index];
       if (target === undefined) throw new Error('missing child');
@@ -266,7 +268,7 @@ describe('edge routing — shared trunk', () => {
     }
   });
 
-  it('starts the trunk at the first child when the first child is above the parent center', () => {
+  it('keeps the trunk connected when the first child is above the parent center', () => {
     const above = child('above', -80, 416, 60);
     const below = child('below', 160, 416, 60);
     const group = routeChildGroup({ parentId: 'p', parent, children: [above, below] });
@@ -274,21 +276,22 @@ describe('edge routing — shared trunk', () => {
     const first = group.edges.find((edge) => edge.id === 'above');
     if (trunk === undefined || first === undefined) throw new Error('missing route');
     expect(first.end.y).toBeLessThan(parent.y + parent.height / 2);
-    expect(trunk.start.y).toBeCloseTo(above.rect.y + above.rect.height / 2, 5);
-    expect(containsPoint(parsePoints(first.path), trunk.start)).toBe(true);
+    expect(trunk.start.y).toBeCloseTo(parent.y + parent.height / 2, 5);
+    expect(containsPoint(parsePoints(trunk.path), first.start)).toBe(true);
     expect(pathMovesForward(parsePoints(first.path))).toBe(true);
   });
 
   it('spans the trunk to a far child without bending', () => {
-    const near = child('near', 0, 416, 56);
-    const far = child('far', 420, 416, 56);
+    const near = child('near', 0, 424, 56);
+    const far = child('far', 420, 424, 56);
     const group = routeChildGroup({ parentId: 'p', parent, children: [near, far] });
     const trunk = group.trunks[0];
     const farEdge = group.edges.find((edge) => edge.id === 'far');
     if (trunk === undefined || farEdge === undefined) throw new Error('missing route');
     expect(trunk.end.y).toBeCloseTo(448, 5);
-    expect(farEdge.start.x).toBeCloseTo(trunk.start.x, 5);
+    expect(farEdge.start.x).toBeCloseTo(trunk.end.x, 5);
     expect(farEdge.start.y).toBeCloseTo(448, 5);
+    expect(containsPoint(parsePoints(trunk.path), farEdge.start)).toBe(true);
     expect(farEdge.path).not.toContain('Q');
   });
 

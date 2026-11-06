@@ -63,6 +63,9 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 - The right-group gap is 24 px: 10 px horizontal lead from the parent, 12 px final stem, 2 px arrow
   gap. A shared right trunk therefore leaves the parent horizontally before descending instead of
   running along the card edge.
+- The shared right trunk owns the parent port and the horizontal lead; child edges are only the
+  short arms. Selecting any child in the group activates the whole lead/trunk, not just the first
+  child's arm.
 - The below trunk starts `trunkGap` (8 px) below the parent card bottom; it is deliberately detached
   from the card border instead of touching it.
 - Primary/right, below/callout, and reference edges all use the same fixed 6×6 arrowhead.

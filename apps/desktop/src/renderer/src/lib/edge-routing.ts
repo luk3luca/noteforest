@@ -310,6 +310,7 @@ function routeRightGroup(
   const radius = options.radius ?? GEOMETRY.edgeRadius;
   const stemMin = options.stemMin ?? GEOMETRY.stemMin;
   const parentCenter = rectCenter(parent);
+  const parentPort: Point = { x: rectRight(parent), y: parentCenter.y };
   // Trunk topology follows the measured vertical order, not branch order: a
   // branch reordered by drag must still connect to its own child.
   const ordered = [...children].sort(
@@ -320,21 +321,9 @@ function routeRightGroup(
   const last = ordered[ordered.length - 1] as GroupChild;
   const firstY = rectCenter(first.rect).y;
   const lastY = rectCenter(last.rect).y;
-  const firstEnd: Point = { x: first.rect.x - gap, y: firstY };
-  const firstStart: Point = { x: rectRight(parent), y: parentCenter.y };
 
   const edges: RoutedEdge[] = [];
-  edges.push({
-    id: first.id,
-    placement: 'right',
-    path: branchConnectorPath(firstStart, laneX, firstY, firstEnd, radius),
-    start: firstStart,
-    end: firstEnd,
-    arrow: makeArrow(firstEnd, 'right'),
-    defect: firstEnd.x - laneX < stemMin - 0.5,
-  });
-
-  for (const child of ordered.slice(1)) {
+  for (const child of ordered) {
     const end: Point = { x: child.rect.x - gap, y: rectCenter(child.rect).y };
     const start: Point = { x: laneX, y: end.y };
     edges.push({
@@ -348,19 +337,34 @@ function routeRightGroup(
     });
   }
 
-  const trunks: RoutedTrunk[] = [];
-  if (lastY - firstY > 0.5) {
-    trunks.push({
+  // The shared trunk owns the parent port and the horizontal lead, not just
+  // the vertical run. Selecting any child in the group can then highlight the
+  // whole lead/trunk path; the child edges are only the short arms.
+  const corner: Point = { x: laneX, y: parentCenter.y };
+  const verticalTop = Math.min(firstY, parentCenter.y);
+  const verticalBottom = Math.max(lastY, parentCenter.y);
+  const leadPath = edgePath([parentPort, corner], 0);
+  const verticalPath = edgePath(
+    [
+      { x: laneX, y: verticalTop },
+      { x: laneX, y: verticalBottom },
+    ],
+    0,
+  );
+  const trunks: RoutedTrunk[] = [
+    {
       id: `${parentId}:right`,
       parentId,
       placement: 'right',
       kind: 'trunk',
-      // Straight: rounded ends would pull the stroke away from the T-junction.
-      path: edgePath([{ x: laneX, y: firstY }, { x: laneX, y: lastY }], 0),
-      start: { x: laneX, y: firstY },
-      end: { x: laneX, y: lastY },
-    });
-  }
+      // Two subpaths: the horizontal lead from the parent port and the
+      // vertical run spanning every child arm. Straight corners keep the
+      // stroke continuous at the junctions.
+      path: `${leadPath} ${verticalPath}`,
+      start: parentPort,
+      end: { x: laneX, y: verticalBottom },
+    },
+  ];
   return { edges, trunks };
 }
 

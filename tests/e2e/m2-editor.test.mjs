@@ -761,18 +761,27 @@ describe('NoteForest M2 editor shell', () => {
     const trunk = await h.trunkSnapshot();
     assert.ok(trunk !== null, 'trunk geometry available');
     assert.equal(trunk.trunkCount, 1, 'one shared trunk for three children');
-    assert.equal(trunk.edgeStart.x, trunk.parentRight, 'the first branch starts at the parent port');
-    assert.ok(Math.abs(trunk.edgeStart.y - trunk.parentCenterY) < 1, 'at the parent branch port');
-    const junction = trunk.trunkPairs[0];
-    assert.ok(junction !== undefined, 'the trunk has a start point');
+    const trunkStart = trunk.trunkPairs[0];
+    assert.ok(trunkStart !== undefined, 'the trunk has a start point');
+    assert.equal(trunkStart.x, trunk.parentRight, 'the trunk starts at the parent port');
+    assert.ok(Math.abs(trunkStart.y - trunk.parentCenterY) < 1, 'at the parent branch port');
     assert.ok(
-      trunk.edgePairs.some(
-        (point) => Math.abs(point.x - junction.x) < 0.2 && Math.abs(point.y - junction.y) < 0.2,
-      ),
-      'the first branch path passes through the trunk junction',
+      trunk.edgeStart.x > trunk.parentRight && trunk.edgeStart.x < trunk.childLeft,
+      'the child arm starts from the shared trunk, not the card port',
     );
-    assert.ok(Math.abs(junction.y - trunk.childCenterY) < 1.5, 'the trunk starts at the T-junction');
-    assert.ok(junction.x > trunk.parentRight && junction.x < trunk.childLeft);
+    assert.ok(
+      Math.abs(trunk.edgeStart.y - trunk.childCenterY) < 1.5,
+      'the child arm starts at its own row center',
+    );
+    assert.ok(
+      trunk.trunkPairs.some(
+        (point) =>
+          Math.abs(point.x - trunk.edgeStart.x) < 0.2 &&
+          point.y >= Math.min(trunk.edgeStart.y, trunk.parentCenterY) - 0.2 &&
+          point.y <= Math.max(trunk.edgeStart.y, trunk.parentCenterY) + 0.2,
+      ),
+      'the trunk covers the child arm junction',
+    );
     const edgeEnd = trunk.edgePairs.at(-1);
     assert.ok(edgeEnd !== undefined);
     assert.ok(edgeEnd.x < trunk.childLeft, 'the arrowhead stops before the child');

@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 implementation is complete and the product-owner visual/VoiceOver pass continues after M3g1–M3g5.** Sentinel M3 review follows; brief ready at `docs/tasks/m3-sentinel-review.md`. Spec v0.4.5, UX v1.4, ADR-0005; M3a1–M3f2 are merged plus below-stack/lane/safe-zone/stacking/lead fixes. Unit 492/1.8 s; critical e2e 21/45.2 s; recovery 14; UI 27; `verify` exit 0. **M3c3b image anchors are blocked**: no image insertion/asset rendering yet. UI paste/duplicate and chip-overlay polish are follow-ups. Design tokens: `docs/design-tokens.md`. M4/PDF remain blocked until M3 is accepted. Spec v0.4.5.
+**M2f is accepted; M3 implementation is complete and the product-owner visual/VoiceOver pass continues after M3g1–M3g6.** Sentinel M3 review follows; brief ready at `docs/tasks/m3-sentinel-review.md`. Spec v0.4.5, UX v1.4, ADR-0005; M3a1–M3f2 are merged plus below-stack/lane/safe-zone/stacking/lead/active-state fixes. Unit 492/1.9 s; critical e2e 21/45.3 s; recovery 14; UI 28; `verify` exit 0. **M3c3b image anchors are blocked**: no image insertion/asset rendering yet. UI paste/duplicate and chip-overlay polish are follow-ups. Design tokens: `docs/design-tokens.md`. M4/PDF remain blocked until M3 is accepted. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 
