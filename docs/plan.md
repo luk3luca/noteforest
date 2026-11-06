@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 design delta merged (spec v0.4.5, UX v1.4, ADR-0005); M3a1/M3a2/M3b1/M3b2a/M3b2b/M3c1/M3b2c/M3c2a/M3c2b/M3c3a/M3d1/M3d2/M3e/M3f1 merged; M3c3b image anchors blocked on the image pipeline; M3f2 final gate implemented and awaiting the Orchestrator's post-merge full verify.
+**Status:** M2f accepted; M3 implementation complete (spec v0.4.5, UX v1.4, ADR-0005); M3f2 merged and verified. M3c3b image anchors blocked on the image pipeline; UI paste/duplicate is a follow-up. Sentinel review and product-owner acceptance pending; M4/PDF blocked until M3 is accepted.
 
 ## Rules
 
@@ -35,7 +35,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2d** | Depth columns + M2 polish | Depth-column alignment, horizontal scroll, branch-port collapse, non-destructive Backspace, contextual add, trunk continuity, 1,600 px canvas | Same depth = same x column; 4-level empty chain fits at 1440; collapse adds no height; Backspace does not delete; add top-level in the active chapter; trunk continuous; tests/screenshots | **Merged; depth columns reverted by M2e** |
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
 | **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Accepted; collapsed-port fix merged** |
-| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | **In progress — M3a** |
+| **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | **Implementation complete — review/acceptance pending (image anchors blocked)** |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | Planned |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
 | **M6** | Library, search, polish | Search, light theme, accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
@@ -260,7 +260,7 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
    product: on-device model packaging, accuracy, privacy, or an opt-in service. Only reconsider as
    a separate opt-in module.
 
-## M3 — Span anchors and reference edges (implementation starting)
+## M3 — Span anchors and reference edges (implementation complete; review/acceptance pending)
 
 - Anchors inside content: word/phrase, formula term, code token, image region; anchored callouts.
 - Reference/shared children, "see also", make-home/move-here; reference edges never affect layout or pagination.
@@ -269,15 +269,19 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   AC-56 M3 evidence is the exactly-once export manifest; PDF marker/page evidence is M4. AC-18 is
   satisfied by the minimal `block.split`/`block.merge` in M3f (cross-chapter merge rejected).
 - Design package approved by the product owner on 5 November 2026: `docs/design/m3-anchors-references.md`;
-  spec v0.4.5, UX v1.3, ADR-0005 are merged. C1/C8/C9 and OD-1–OD-12 are approved.
+  spec v0.4.5, UX v1.4, ADR-0005 are merged. C1/C8/C9 and OD-1–OD-12 are approved.
 - Slices: M3a1 anchor model/binding/resolution (merged) → M3a2 anchor commands + branch extension
   (merged) → M3b1 text anchor authoring (merged) → M3b2a callout lane (merged) → M3b2b outline
   rows/marker navigation (merged) → M3c1 whole-formula anchors (merged) → M3b2c left-entry below-stack
   routing (merged) → M3c2a formula-term creation (merged) → M3c2b term geometry/highlight (merged) →
   M3c3a code range anchors (merged) → **M3c3b image anchors blocked: no image insertion/asset
   rendering yet** → M3d1 reference edges (merged) → M3d2 make-home/move-here/demote (merged) →
-  M3e repair/health (merged) → M3f1 split/merge with anchor migration (merged) → **M3f2 export
-  manifest/fixtures/performance/final gate (implemented; awaiting full verify)**.
+  M3e repair/health (merged) → M3f1 split/merge with anchor migration (merged) → M3f2 export
+  manifest/fixtures/performance (merged).
+- **M3 status:** implementation complete; 472 unit, critical e2e 21/45.6 s, recovery 14, UI 21,
+  `verify` exit 0. Sentinel review and product-owner acceptance pending. Image anchors remain
+  blocked on the image pipeline; UI paste/duplicate placement/undo/clipboard and chip-overlay polish
+  are follow-ups. M4/PDF remain blocked until M3 is accepted.
 - **M3b2c approved layout rule (5 November 2026):** direct children stay right while they fit and
   join the below stack when they wrap; callouts always below, before wrapped direct children; one
   shared left trunk with horizontal arms; every arrow enters from the left, never the top. This
