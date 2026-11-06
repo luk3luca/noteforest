@@ -36,6 +36,8 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M2e** | Parent-relative layout + arrow routing | Revert global depth columns; swap `+`/collapse; routing lab + fixed arrowheads; fit-width/focus for deep branches | No global x; close arrows legible; first child not skewed; 4-level fit; zoom/focus works; tests/screenshots | **Merged; review found blockers** |
 | **M2f** | Stability fixes from Sentinel review | Quit lifecycle, flush/close contract, undo model, corrupt-document recovery, keyboard focus, empty chapters, stale locks, test cleanup/e2e budget | S1 quit fixed; flush failures typed; undo sequence; read-only/recovery; Tab exit; empty-chapter invariant; e2e <60s; tests | **Accepted; collapsed-port fix merged** |
 | **M3** | Span anchors and reference edges | Anchors inside content (word/formula/code/image), reference/shared children, anchored callouts, repair | AC-03–AC-07, AC-10, AC-12, AC-15–AC-22, AC-54–AC-58 | **Accepted 6 Nov 2026; AC-21/image AC-57 deferred to M3c3b** |
+| **M3i** | Core stabilization | Runtime/session/projection/save/gateway boundaries, repository/migrations/asset contract, command aggregates/invariants, boundary check, test harness cleanup | No visual change, no new runtime dep, all gates green | **Done 6 Nov 2026; see `docs/reports/m3i-closure.md`** |
+| **M3c3b** | Image pipeline + image anchors | Deferred AC-21: asset store, image insertion/rendering, region/point anchors, missing-asset behavior | AC-21 + image rows of AC-57 | **In progress; M3c3b1 launched** |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | **Unblocked; planned** |
 | **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
 | **M6** | Library, search, polish | Search, light theme, accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
@@ -333,8 +335,8 @@ runtime dependency, all existing tests green, no behavior change.
   apply→inverse→deep-equal harness, branded IDs where mechanical.
 - **Slice 5a — merged:** shared UI session/fixtures and callout split; no test deletion.
   Report: `docs/reports/m3i5a-ui-test-harness.md`.
-- **Slice 5b — launched:** e2e duplicate trim, coverage matrix, formula-term edit fixture.
-  Brief: `docs/tasks/m3i5b-e2e-trim-coverage.md`.
+- **Slice 5b — merged:** e2e duplicate trim 21→16, coverage matrix, formula-term edit fixture.
+  Report: `docs/reports/m3i5b-e2e-trim-coverage.md`. M3i closed at `docs/reports/m3i-closure.md`.
 
 Only interfaces now: `AssetStore`, `ApplicationService`/queries, token registry. Implementations
 for images, API/MCP, auth/audit, settings, page/PDF belong to M3c3b/M4/M5/M6.
