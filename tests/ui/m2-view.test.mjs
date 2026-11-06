@@ -1,23 +1,17 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
 
 const tempRoot = artifactsPath('m2f-phase5a-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const { isolated, seedDemo } = ui;
 let page;
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
+  page = await ui.launch(overrides);
 }
 
 async function waitZoomLabel(label) {
@@ -45,10 +39,7 @@ describe('NoteForest M2 view controls', () => {
   it('zooms, fits width, and focuses a branch without touching the document', async () => {
     await launch(isolated('view'));
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
     const zoomLabel = page.locator('.nf-status-zoom');
     assert.equal((await zoomLabel.innerText()).trim(), '100%');
@@ -278,10 +269,7 @@ describe('NoteForest M2 view controls', () => {
   it('keeps the editor geometry on the design-token variables', async () => {
     await launch(isolated('tokens'));
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
     const geometry = await page.evaluate(() => {
       const scope = document.querySelector('.nf-editor[data-active="true"]');

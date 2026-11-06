@@ -1,73 +1,25 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import { addTopLevelBlock } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3c2a-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const {
+  isolated,
+  structure,
+  seedDemo,
+  openTermDialog,
+  selectRange,
+  waitForFormulaBinding,
+} = ui;
 let page;
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
-}
-
-async function openTermDialog(blockId, formulaIndex) {
-  const formula = page
-    .locator(
-      `[data-block-card="${blockId}"] [data-type="block-math"].tiptap-mathematics-render`,
-    )
-    .nth(formulaIndex);
-  await formula.waitFor();
-  await formula.dblclick();
-  const textarea = page.locator('.nf-textarea');
-  await textarea.waitFor({ state: 'visible' });
-  return textarea;
-}
-
-/** Select `length` UTF-16 units at `start` with real keyboard events. */
-async function selectRange(textarea, start, length) {
-  await textarea.press('Home');
-  for (let index = 0; index < start; index += 1) await textarea.press('ArrowRight');
-  for (let index = 0; index < length; index += 1) await textarea.press('Shift+ArrowRight');
-}
-
-async function waitForFormulaBinding(blockId, anchorId) {
-  await page.waitForFunction(
-    ({ blockId: id, anchorId: expected }) => {
-      const card = document.querySelector(
-        `.nf-editor[data-active="true"] [data-block-card="${id}"]`,
-      );
-      const formulas = card?.querySelectorAll('[data-anchor-kind="formula"][data-anchor-ids]');
-      if (formulas === null || formulas === undefined) return false;
-      return [...formulas].some((formula) =>
-        (formula.getAttribute('data-anchor-ids') ?? '').split(',').includes(expected),
-      );
-    },
-    { blockId, anchorId },
-    { timeout: 10000 },
-  );
+  page = await ui.launch(overrides);
 }
 
 describe('NoteForest M3c2a formula term anchors', () => {
@@ -88,30 +40,19 @@ describe('NoteForest M3c2a formula term anchors', () => {
     const env = isolated('formula-term');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
-    const seeded = await structure();
-    const chapterId = seeded.chapters[0].id;
     const parentId = 'm3c2a-term-parent';
     const uniqueLatex = 'Av = \\lambda v';
     const repeatedLatex = '\\lambda + \\lambda';
-    await applyCommand({
-      type: 'block.create',
-      blockId: parentId,
-      content: {
-        type: 'doc',
-        children: [
-          { type: 'paragraph', children: [{ type: 'text', text: 'Formula term source' }] },
-          { type: 'mathBlock', attrs: { latex: uniqueLatex } },
-          { type: 'mathBlock', attrs: { latex: repeatedLatex } },
-        ],
-      },
-      placement: { kind: 'top-level', chapterId },
+    await addTopLevelBlock(ui, parentId, {
+      type: 'doc',
+      children: [
+        { type: 'paragraph', children: [{ type: 'text', text: 'Formula term source' }] },
+        { type: 'mathBlock', attrs: { latex: uniqueLatex } },
+        { type: 'mathBlock', attrs: { latex: repeatedLatex } },
+      ],
     });
-    await page.waitForSelector(`[data-block-card="${parentId}"]`);
     await h.waitLayout({ blocks: 8, arrows: 3 });
     const before = await structure();
 

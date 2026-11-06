@@ -2,22 +2,17 @@ import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { appDir, artifactsPath, axePath, createHarness } from '../support/harness.mjs';
+import { appDir, artifactsPath, axePath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
 
 const tempRoot = artifactsPath('m2f-phase5c-shell-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const { isolated } = ui;
 let page;
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
+  page = await ui.launch(overrides);
 }
 
 /** Branch-port and add-child geometry for every visible block that has children. */

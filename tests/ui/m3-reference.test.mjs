@@ -1,11 +1,22 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import { addTopLevelBlock, textDoc } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3d1-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const {
+  isolated,
+  applyCommand,
+  structure,
+  seedDemo,
+  openBlockMenu,
+  chooseMenuItem,
+  createDirectChild,
+} = ui;
 let page;
 
 const SOURCE_ID = 'm3d1-reference-source';
@@ -13,29 +24,8 @@ const TARGET_ID = 'm3d1-reference-target';
 const SOURCE_TEXT = 'Reference source';
 const TARGET_TEXT = 'Reference target';
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
+  page = await ui.launch(overrides);
 }
 
 function primarySnapshot(state) {
@@ -50,16 +40,6 @@ function primarySnapshot(state) {
 
 function cardsByWidth(snapshot) {
   return new Map(snapshot.cards.map((card) => [card.id, card]));
-}
-
-async function openBlockMenu(blockId) {
-  await page.locator(`[data-block-card="${blockId}"]`).click({ button: 'right' });
-  await page.locator('.nf-menu').waitFor();
-}
-
-async function chooseMenuItem(name) {
-  await page.getByRole('menuitem', { name }).click();
-  await page.locator('.nf-menu').waitFor({ state: 'detached' });
 }
 
 async function linkReference(sourceId, targetId) {
@@ -196,33 +176,11 @@ describe('NoteForest M3d1 reference edges', () => {
     const env = isolated('reference-edges');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
     const seeded = await structure();
-    const chapterId = seeded.chapters[0].id;
-    await applyCommand({
-      type: 'block.create',
-      blockId: SOURCE_ID,
-      content: {
-        type: 'doc',
-        children: [{ type: 'paragraph', children: [{ type: 'text', text: SOURCE_TEXT }] }],
-      },
-      placement: { kind: 'top-level', chapterId },
-    });
-    await applyCommand({
-      type: 'block.create',
-      blockId: TARGET_ID,
-      content: {
-        type: 'doc',
-        children: [{ type: 'paragraph', children: [{ type: 'text', text: TARGET_TEXT }] }],
-      },
-      placement: { kind: 'top-level', chapterId },
-    });
-    await page.waitForSelector(`[data-block-card="${SOURCE_ID}"]`);
-    await page.waitForSelector(`[data-block-card="${TARGET_ID}"]`);
+    await addTopLevelBlock(ui, SOURCE_ID, textDoc(SOURCE_TEXT));
+    await addTopLevelBlock(ui, TARGET_ID, textDoc(TARGET_TEXT));
     await h.waitLayout({ blocks: 9, arrows: 3 });
 
     const beforeState = await structure();
@@ -437,38 +395,16 @@ describe('NoteForest M3d1 reference edges', () => {
     const env = isolated('anchor-reference');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
     const seeded = await structure();
-    const chapterId = seeded.chapters[0].id;
     const sourceId = 'm3d1-anchor-source';
     const calloutId = 'm3d1-anchor-callout';
     const referenceTargetId = seeded.chapters[0].topLevelBlockIds[0];
     assert.equal(typeof referenceTargetId, 'string');
 
-    await applyCommand({
-      type: 'block.create',
-      blockId: sourceId,
-      content: {
-        type: 'doc',
-        children: [
-          { type: 'paragraph', children: [{ type: 'text', text: 'Alpha eigenvalue beta' }] },
-        ],
-      },
-      placement: { kind: 'top-level', chapterId },
-    });
-    await applyCommand({
-      type: 'block.create',
-      blockId: calloutId,
-      content: {
-        type: 'doc',
-        children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Callout child' }] }],
-      },
-      placement: { kind: 'top-level', chapterId },
-    });
+    await addTopLevelBlock(ui, sourceId, textDoc('Alpha eigenvalue beta'));
+    await addTopLevelBlock(ui, calloutId, textDoc('Callout child'));
     await applyCommand({
       type: 'anchor.create',
       anchorId: 'm3d1-anchor',
@@ -563,13 +499,8 @@ describe('NoteForest M3d1 reference edges', () => {
     const env = isolated('role-transitions');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
-    const seeded = await structure();
-    const chapterId = seeded.chapters[0].id;
     const homeParentId = 'm3d2-home-parent';
     const targetId = 'm3d2-target';
     const targetChildId = 'm3d2-target-child';
@@ -581,33 +512,10 @@ describe('NoteForest M3d1 reference edges', () => {
       children: [{ type: 'paragraph', children: [{ type: 'text', text: value }] }],
     });
 
-    await applyCommand({
-      type: 'block.create',
-      blockId: homeParentId,
-      content: text('Home parent'),
-      placement: { kind: 'top-level', chapterId },
-    });
-    await applyCommand({
-      type: 'block.create',
-      blockId: targetId,
-      content: text('Shared target'),
-      placement: { kind: 'child', parentBlockId: homeParentId },
-    });
-    await applyCommand({
-      type: 'block.create',
-      blockId: targetChildId,
-      content: text('Target child'),
-      placement: { kind: 'child', parentBlockId: targetId },
-    });
-    await applyCommand({
-      type: 'block.create',
-      blockId: sourceId,
-      content: text('Reference source'),
-      placement: { kind: 'top-level', chapterId },
-    });
-    for (const id of [homeParentId, targetId, targetChildId, sourceId]) {
-      await page.waitForSelector(`[data-block-card="${id}"]`);
-    }
+    await addTopLevelBlock(ui, homeParentId, text('Home parent'));
+    await createDirectChild(homeParentId, targetId, 'Shared target');
+    await createDirectChild(targetId, targetChildId, 'Target child');
+    await addTopLevelBlock(ui, sourceId, text('Reference source'));
     await h.waitLayout({ blocks: 11, arrows: 5 });
 
     await linkReference(sourceId, targetId);
@@ -715,13 +623,7 @@ describe('NoteForest M3d1 reference edges', () => {
 
     // Move here: promote the reference from a newly created source and retire
     // the old primary edge; undo restores that exact edge ID and order.
-    await applyCommand({
-      type: 'block.create',
-      blockId: movedId,
-      content: text('Moved source'),
-      placement: { kind: 'top-level', chapterId },
-    });
-    await page.waitForSelector(`[data-block-card="${movedId}"]`);
+    await addTopLevelBlock(ui, movedId, text('Moved source'));
     await h.waitLayout({ blocks: 12, arrows });
     await linkReference(movedId, targetId);
     await waitForReferenceFrom(movedId, targetId);
@@ -831,13 +733,9 @@ describe('NoteForest M3d1 reference edges', () => {
     const env = isolated('delete-references');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
     const seeded = await structure();
-    const chapterId = seeded.chapters[0].id;
     const chapterTitle = seeded.chapters[0].title ?? 'Untitled chapter';
     const parentId = 'm3h2-delete-parent';
     const childId = 'm3h2-delete-child';
@@ -848,33 +746,10 @@ describe('NoteForest M3d1 reference edges', () => {
       children: [{ type: 'paragraph', children: [{ type: 'text', text: value }] }],
     });
 
-    await applyCommand({
-      type: 'block.create',
-      blockId: parentId,
-      content: text('Delete parent'),
-      placement: { kind: 'top-level', chapterId },
-    });
-    await applyCommand({
-      type: 'block.create',
-      blockId: childId,
-      content: text('Delete child'),
-      placement: { kind: 'child', parentBlockId: parentId },
-    });
-    await applyCommand({
-      type: 'block.create',
-      blockId: sourceOneId,
-      content: text('External source one'),
-      placement: { kind: 'top-level', chapterId },
-    });
-    await applyCommand({
-      type: 'block.create',
-      blockId: sourceTwoId,
-      content: text('External source two'),
-      placement: { kind: 'top-level', chapterId },
-    });
-    for (const id of [parentId, childId, sourceOneId, sourceTwoId]) {
-      await page.waitForSelector(`[data-block-card="${id}"]`);
-    }
+    await addTopLevelBlock(ui, parentId, text('Delete parent'));
+    await createDirectChild(parentId, childId, 'Delete child');
+    await addTopLevelBlock(ui, sourceOneId, text('External source one'));
+    await addTopLevelBlock(ui, sourceTwoId, text('External source two'));
     await h.waitLayout({ blocks: 11, arrows: 4 });
 
     await linkReference(sourceOneId, childId);

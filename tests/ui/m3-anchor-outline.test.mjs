@@ -1,92 +1,35 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { artifactsPath, createHarness } from '../support/harness.mjs';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import { textDoc } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3b2b-ui');
-const h = createHarness({ tempRoot });
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+const {
+  isolated,
+  applyCommand,
+  structure,
+  seedDemo,
+  createAnchoredChild: createAnchoredChildBranch,
+  createDirectChild,
+} = ui;
 let page;
 
-function isolated(name) {
-  return {
-    NOTEFOREST_LIBRARY: resolve(tempRoot, `${name}-library`),
-    NOTEFOREST_APP_SUPPORT: resolve(tempRoot, `${name}-support`),
-  };
-}
-
 async function launch(overrides = {}) {
-  await h.launch(overrides);
-  page = h.page;
-}
-
-async function applyCommand(command) {
-  const result = await page.evaluate(
-    (value) => window.__noteforestTest.applyStructural(value),
-    command,
-  );
-  assert.equal(result.ok, true, result.message ?? 'structural command was rejected');
-  return result;
-}
-
-async function structure() {
-  return page.evaluate(() => window.__noteforestTest.structure());
-}
-
-async function textMatch(blockId, word) {
-  const match = await page.evaluate(
-    ({ blockId: id, word: expected }) => {
-      const current = window.__noteforestTest.structure();
-      const content = current.blocks[id]?.content;
-      if (content === undefined) return null;
-      const walk = (node, path) => {
-        if (node.type === 'text' && typeof node.text === 'string') {
-          const index = node.text.indexOf(expected);
-          if (index >= 0) return { path, index, text: node.text };
-        }
-        for (const [childIndex, child] of (node.children ?? []).entries()) {
-          const found = walk(child, [...path, childIndex]);
-          if (found !== null) return found;
-        }
-        return null;
-      };
-      return walk(content, []);
-    },
-    { blockId, word },
-  );
-  assert.ok(match !== null, `"${word}" is in block ${blockId}`);
-  return match;
+  page = await ui.launch(overrides);
 }
 
 async function createAnchoredChild(parentId, word, label) {
-  const match = await textMatch(parentId, word);
-  const result = await applyCommand({
-    type: 'branch.createFromSelection',
-    blockId: parentId,
-    kind: 'text',
-    binding: {
-      kind: 'text',
-      ranges: [{ nodePath: match.path, start: match.index, end: match.index + word.length }],
-    },
-    target: { kind: 'new' },
-    role: 'primary',
-  });
-  assert.equal(typeof result.blockId, 'string');
-  const blockId = result.blockId;
+  const { blockId, anchorId } = await createAnchoredChildBranch(parentId, word);
   await applyCommand({
     type: 'block.editContent',
     blockId,
-    content: {
-      type: 'doc',
-      children: [{ type: 'paragraph', children: [{ type: 'text', text: label }] }],
-    },
+    content: textDoc(label),
   });
   await page.waitForSelector(`[data-block-card="${blockId}"]`);
-  const after = await structure();
-  const anchorId = Object.keys(after.anchors).find(
-    (id) => after.anchors[id].blockId === parentId && after.anchors[id].quote === word,
-  );
-  assert.equal(typeof anchorId, 'string', `an anchor exists for "${word}"`);
   return { blockId, anchorId };
 }
 
@@ -135,10 +78,7 @@ describe('NoteForest M3b2b anchored outline', () => {
   it('shows anchored outline rows, cycles markers, and keeps callouts in the hidden count', async () => {
     await launch(isolated('outline'));
     await h.setWindowSize(1440, 900);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    await h.waitLayout({ blocks: 7, arrows: 3 });
+    await seedDemo();
 
     const parentCard = h
       .activeEditor()
@@ -154,18 +94,7 @@ describe('NoteForest M3b2b anchored outline', () => {
     assert.notEqual(symOne.anchorId, eigenvalue.anchorId);
 
     const directId = 'm3b2b-direct-child';
-    await applyCommand({
-      type: 'block.create',
-      blockId: directId,
-      content: {
-        type: 'doc',
-        children: [
-          { type: 'paragraph', children: [{ type: 'text', text: 'Direct child after the lane' }] },
-        ],
-      },
-      placement: { kind: 'child', parentBlockId: parentId },
-    });
-    await page.waitForSelector(`[data-block-card="${directId}"]`);
+    await createDirectChild(parentId, directId, 'Direct child after the lane');
     await h.waitLayout({ blocks: 11, arrows: 7 });
     await waitForOutlineRows(3);
 
