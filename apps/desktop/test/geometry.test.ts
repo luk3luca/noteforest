@@ -61,6 +61,7 @@ describe('geometry', () => {
     expect(GEOMETRY.edgeGap).toBe(2);
     expect(GEOMETRY.rowIndent).toBe(26);
     expect(GEOMETRY.trunkInset).toBe(12);
+    expect(GEOMETRY.trunkGap).toBe(8);
     expect(GEOMETRY.calloutGap).toBe(16);
     expect(GEOMETRY.calloutMinWidth).toBe(240);
     expect(GEOMETRY.calloutMaxWidth).toBe(480);

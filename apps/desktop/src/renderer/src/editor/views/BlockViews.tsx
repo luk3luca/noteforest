@@ -234,101 +234,161 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
   useLayoutEffect(() => {
     const lane = laneRef.current;
     if (lane === null) return undefined;
-    const host = lane.closest<HTMLElement>('.nf-block-node');
-    if (host === null) return undefined;
-    const card = host.querySelector<HTMLElement>(`[data-block-card="${parentId}"]`);
-    if (card === null) return undefined;
-
-    const laneRoot = lane.closest('.nf-callout-lane');
-    const align = (): void => {
-      frame = 0;
-      const laneRect = lane.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      if (laneRect.width <= 0 || cardRect.width <= 0) return;
-      // The canvas may be zoomed (CSS `zoom`); measure in layout pixels so the
-      // offsets stay correct at Fit width and at any manual zoom.
-      const scale = lane.offsetWidth > 0 ? laneRect.width / lane.offsetWidth : 1;
-      const factor = scale > 0 ? scale : 1;
-      const cardWidth = cardRect.width / factor;
-      // Independent lane width (M3g2): the callout column never collapses to a
-      // narrow parent. The stable fallback is clamp(parent.width, 240, 480);
-      // see `calloutLaneWidth` for the natural-width note. The variable lives
-      // on the lane host so the sibling right group can inherit it too.
-      const laneWidth = Math.round(calloutLaneWidth(cardWidth));
-      host.style.setProperty('--nf-lane-width', `${laneWidth}px`);
-      host.style.setProperty('--nf-below-indent', `${GEOMETRY.rowIndent}px`);
-      lane.dataset['laneWidth'] = String(laneWidth);
-      // Rows start at the lane's left edge plus the shared row indent, so the
-      // callout card and the below trunk are indented together. The safe-zone
-      // clamp (M3g3) then caps the anchor offset at 160 px from the parent left
-      // and keeps the callout right edge 16 px clear of the direct-child group.
-      for (const row of lane.querySelectorAll<HTMLElement>('[data-callout-row="true"]')) {
-        // A nested callout has its own lane; only align rows that belong here.
-        if (row.closest('.nf-callout-lane') !== laneRoot) continue;
-        const anchorId = row.dataset['anchorId'] ?? '';
-        // Prefer best-effort term geometry; fall back to the formula/atomic
-        // node rectangle when the term has no unique rendered match.
-        const targets = anchorVisualTargets(card, anchorId);
-        let anchorX: number | null = null;
-        for (const candidate of targets) {
-          const left = (candidate.getBoundingClientRect().left - laneRect.left) / factor;
-          anchorX = anchorX === null ? left : Math.min(anchorX, left);
-        }
-        if (anchorX === null) {
-          // Broken/ambiguous bindings have no visible mark: fall back to the
-          // card content left and keep the callout reachable.
-          row.style.setProperty('--nf-callout-offset', `${Math.round(GEOMETRY.rowIndent)}px`);
-          row.style.setProperty('--nf-callout-dot-left', '0px');
-          row.style.setProperty('--nf-callout-leader-left', '0px');
-          row.style.setProperty('--nf-callout-leader-width', '0px');
-          row.dataset['calloutClamped'] = 'true';
-          continue;
-        }
-        // Local coordinates: the lane and the parent card share a left edge,
-        // so the parent is `{ x: 0, width: cardWidth }` here.
-        const placement = placeCallout({ x: 0, width: cardWidth }, laneWidth, anchorX);
-        const offset = Math.round(placement.left);
-        const delta = Math.round(anchorX - offset);
-        row.style.setProperty('--nf-callout-offset', `${offset}px`);
-        row.style.setProperty('--nf-callout-dot-left', `${delta - 2}px`);
-        row.style.setProperty('--nf-callout-leader-left', `${Math.min(0, delta)}px`);
-        row.style.setProperty('--nf-callout-leader-width', `${Math.abs(delta)}px`);
-        row.dataset['calloutClamped'] = placement.clamped ? 'true' : 'false';
-      }
-    };
 
     let disposed = false;
-    const schedule = (): void => {
-      if (disposed || frame !== 0) return;
+    let attachmentObserver: MutationObserver | null = null;
+    let cleanupSetup: (() => void) | null = null;
+
+    const setup = (host: HTMLElement): void => {
+      const laneRoot = lane.closest('.nf-callout-lane');
+      let frame = 0;
+      let observedCard: HTMLElement | null = null;
+
+      const schedule = (): void => {
+        if (disposed || frame !== 0) return;
+        frame = requestAnimationFrame(align);
+      };
+
+      const observer = new ResizeObserver(schedule);
+      // The card can mount a frame after the lane (ProseMirror renders the
+      // parent body and the lane through separate React node views). Resolve it
+      // on every pass instead of returning once at mount: otherwise the lane
+      // never receives `--nf-lane-width`/`--nf-callout-offset` and can expand
+      // past the direct-child group.
+      const cardForHost = (): HTMLElement | null => {
+        const card = host.querySelector<HTMLElement>(`[data-block-card="${parentId}"]`);
+        return card !== null && card.isConnected ? card : null;
+      };
+
+      const align = (): void => {
+        frame = 0;
+        if (disposed) return;
+        const card = cardForHost();
+        if (card === null) return;
+        if (observedCard !== card) {
+          if (observedCard !== null) observer.unobserve(observedCard);
+          observer.observe(card);
+          observedCard = card;
+          cardMutation.disconnect();
+          cardMutation.observe(card, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: [
+              'class',
+              'data-collapsed',
+              'style',
+              'data-anchor-ids',
+              'data-anchor-term-ids',
+            ],
+          });
+        }
+        const laneRect = lane.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        if (laneRect.width <= 0 || cardRect.width <= 0) return;
+        // The canvas may be zoomed (CSS `zoom`); measure in layout pixels so
+        // the offsets stay correct at Fit width and at any manual zoom.
+        const scale = lane.offsetWidth > 0 ? laneRect.width / lane.offsetWidth : 1;
+        const factor = scale > 0 ? scale : 1;
+        const cardWidth = cardRect.width / factor;
+        // Independent lane width (M3g2): the callout column never collapses to
+        // a narrow parent. The stable fallback is clamp(parent.width, 240, 480);
+        // see `calloutLaneWidth` for the natural-width note. The variable lives
+        // on the lane host so the sibling right group can inherit it too.
+        const laneWidth = Math.round(calloutLaneWidth(cardWidth));
+        host.style.setProperty('--nf-lane-width', `${laneWidth}px`);
+        host.style.setProperty('--nf-below-indent', `${GEOMETRY.rowIndent}px`);
+        lane.dataset['laneWidth'] = String(laneWidth);
+        // Rows start at the lane's left edge plus the shared row indent, so the
+        // callout card and the below trunk are indented together. The safe-zone
+        // clamp (M3g3) then caps the anchor offset at 160 px from the parent
+        // left and keeps the callout right edge 16 px clear of the group.
+        for (const row of lane.querySelectorAll<HTMLElement>('[data-callout-row="true"]')) {
+          // A nested callout has its own lane; only align rows that belong here.
+          if (row.closest('.nf-callout-lane') !== laneRoot) continue;
+          const anchorId = row.dataset['anchorId'] ?? '';
+          // Prefer best-effort term geometry; fall back to the formula/atomic
+          // node rectangle when the term has no unique rendered match.
+          const targets = anchorVisualTargets(card, anchorId);
+          let anchorX: number | null = null;
+          for (const candidate of targets) {
+            const left = (candidate.getBoundingClientRect().left - laneRect.left) / factor;
+            anchorX = anchorX === null ? left : Math.min(anchorX, left);
+          }
+          if (anchorX === null) {
+            // Broken/ambiguous bindings have no visible mark: fall back to the
+            // card content left and keep the callout reachable.
+            row.style.setProperty('--nf-callout-offset', `${Math.round(GEOMETRY.rowIndent)}px`);
+            row.style.setProperty('--nf-callout-dot-left', '0px');
+            row.style.setProperty('--nf-callout-leader-left', '0px');
+            row.style.setProperty('--nf-callout-leader-width', '0px');
+            row.dataset['calloutClamped'] = 'true';
+            continue;
+          }
+          // Local coordinates: the lane and the parent card share a left edge,
+          // so the parent is `{ x: 0, width: cardWidth }` here.
+          const placement = placeCallout({ x: 0, width: cardWidth }, laneWidth, anchorX);
+          const offset = Math.round(placement.left);
+          const delta = Math.round(anchorX - offset);
+          row.style.setProperty('--nf-callout-offset', `${offset}px`);
+          row.style.setProperty('--nf-callout-dot-left', `${delta - 2}px`);
+          row.style.setProperty('--nf-callout-leader-left', `${Math.min(0, delta)}px`);
+          row.style.setProperty('--nf-callout-leader-width', `${Math.abs(delta)}px`);
+          row.dataset['calloutClamped'] = placement.clamped ? 'true' : 'false';
+        }
+      };
+
+      observer.observe(lane);
+      observer.observe(host);
+      // Text edits can move the anchor without changing the card's size.
+      const cardMutation = new MutationObserver(schedule);
+      // A second anchor/child may be inserted into an existing lane without a
+      // card resize; observe the lane's child list too.
+      const laneMutation = new MutationObserver(schedule);
+      laneMutation.observe(lane, { childList: true, subtree: true, characterData: true });
+      // The parent body may mount after this lane; observe the host so the first
+      // alignment pass runs as soon as the card appears.
+      const hostMutation = new MutationObserver(schedule);
+      hostMutation.observe(host, { childList: true, subtree: true, characterData: true });
+      window.addEventListener('resize', schedule);
+      void document.fonts.ready.then(schedule);
       frame = requestAnimationFrame(align);
+      cleanupSetup = () => {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        observer.disconnect();
+        cardMutation.disconnect();
+        laneMutation.disconnect();
+        hostMutation.disconnect();
+        window.removeEventListener('resize', schedule);
+      };
     };
-    let frame = requestAnimationFrame(align);
-    const observer = new ResizeObserver(schedule);
-    observer.observe(lane);
-    observer.observe(card);
-    // Text edits can move the anchor without changing the card's size.
-    const cardMutation = new MutationObserver(schedule);
-    cardMutation.observe(card, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ['class', 'data-collapsed', 'style', 'data-anchor-ids', 'data-anchor-term-ids'],
-    });
-    // A second anchor/child may be inserted into an existing lane without a
-    // card resize; observe the lane's child list too.
-    const laneMutation = new MutationObserver(schedule);
-    laneMutation.observe(lane, { childList: true, subtree: true, characterData: true });
-    window.addEventListener('resize', schedule);
-    void document.fonts.ready.then(schedule);
+
+    // A ReactRenderer may mount the lane in a temporary container before
+    // ProseMirror inserts it under its branchBlock. Retry on attachment instead
+    // of returning without observers, which used to leave the lane at the full
+    // canvas width forever.
+    const attach = (): void => {
+      if (disposed || cleanupSetup !== null) return;
+      const host = lane.closest<HTMLElement>('.nf-block-node');
+      if (host === null) {
+        if (attachmentObserver === null) {
+          attachmentObserver = new MutationObserver(attach);
+          attachmentObserver.observe(document.body, { childList: true, subtree: true });
+        }
+        return;
+      }
+      attachmentObserver?.disconnect();
+      attachmentObserver = null;
+      setup(host);
+    };
+
+    attach();
     return () => {
       disposed = true;
-      cancelAnimationFrame(frame);
-      frame = 0;
-      observer.disconnect();
-      cardMutation.disconnect();
-      laneMutation.disconnect();
-      window.removeEventListener('resize', schedule);
+      attachmentObserver?.disconnect();
+      cleanupSetup?.();
     };
   }, [parentId]);
 

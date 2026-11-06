@@ -16,6 +16,8 @@ export const DESIGN_TOKENS = Object.freeze({
   rowIndent: 26,
   /** Shared below-stack trunk left offset from the parent card left edge. */
   trunkInset: 12,
+  /** Visible gap between the parent card bottom and the below trunk start. */
+  trunkGap: 8,
   /** Minimum straight stem before a fixed arrowhead. */
   stemMin: 12,
   /** Gap between a parent card/lane and the direct-child group. */
