@@ -3338,6 +3338,13 @@ body.nf-dragging-block .nf-gutter-handle {
   white-space: nowrap;
 }
 
+/* An idle record is valid, not an error: keep the same chip shape without
+   borrowing the warning color. */
+.nf-health-state-idle {
+  border-color: var(--border-strong);
+  color: var(--text-tertiary);
+}
+
 .nf-health-kind,
 .nf-health-branch-count {
   color: var(--text-tertiary);

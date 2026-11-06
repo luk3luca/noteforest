@@ -491,6 +491,7 @@ export class DocumentRuntime {
       }
     }
     if (changes.length === 0) return true;
+    let documentChanged = false;
     for (const change of changes) {
       const result = await window.noteforest.apply(this.packagePath, {
         type: 'block.editContent',
@@ -504,12 +505,21 @@ export class DocumentRuntime {
         );
         return false;
       }
-      if (result.document !== undefined) this.document = result.document;
+      if (result.document !== undefined) {
+        this.document = result.document;
+        documentChanged = true;
+      }
       this.hashes.set(change.blockId, JSON.stringify(change.content));
     }
     this.dirty = true;
+    // A content commit can change derived anchor state (resolved → broken →
+    // resolved). Bump the canonical revision and notify before the disk save
+    // so inline warnings, callouts, and the health chip all update from the
+    // same content revision.
+    if (documentChanged) this.version += 1;
     if (this.saveFailure !== null) this.setSaveState('error', this.saveFailure.message);
     else this.setSaveState('unsaved');
+    if (documentChanged) this.notify();
     return true;
   }
 
@@ -1128,6 +1138,34 @@ export class DocumentRuntime {
     }
     const outcome = await this.applyStructural(
       { type: 'anchor.delete', anchorId, branches },
+      { focusBlockId: anchor.blockId },
+    );
+    if (outcome.ok) this.keptBroken.delete(anchorId);
+    return outcome;
+  }
+
+  /**
+   * Remove an idle anchor (OD-2): no outgoing branch, so `anchor.delete` needs
+   * no branch policy. The record and its content binding are removed in one
+   * undoable structural command; the target blocks are untouched. A live anchor
+   * is rejected here so the idle path can never delete a branch or its target.
+   */
+  async removeIdleAnchor(anchorId: string): Promise<ApplyOutcome> {
+    const anchor = this.document.anchors[anchorId];
+    if (anchor === undefined) {
+      return { ok: false, message: 'This anchor no longer exists.' };
+    }
+    const hasOutgoing = Object.values(this.document.branches).some(
+      (branch) => branch.source.anchorId === anchorId,
+    );
+    if (hasOutgoing) {
+      return {
+        ok: false,
+        message: 'Only an idle anchor can be removed here. Repair or delete its branches first.',
+      };
+    }
+    const outcome = await this.applyStructural(
+      { type: 'anchor.delete', anchorId },
       { focusBlockId: anchor.blockId },
     );
     if (outcome.ok) this.keptBroken.delete(anchorId);

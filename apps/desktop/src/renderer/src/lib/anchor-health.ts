@@ -27,7 +27,7 @@ import { anchorQuote, blockTitle, chapterIdOf } from './tree';
 
 export type AnchorHealthFilter = 'all' | 'broken' | 'ambiguous';
 
-export type AnchorHealthState = 'broken' | 'ambiguous';
+export type AnchorHealthState = 'broken' | 'ambiguous' | 'idle';
 
 export interface AnchorHealthBranch {
   id: string;
@@ -58,6 +58,9 @@ export interface AnchorHealthRow {
 export interface AnchorHealthSummary {
   broken: number;
   ambiguous: number;
+  /** Valid branchless records, listed under All anchors without an error. */
+  idle: number;
+  /** Anchors that need repair; idle records are deliberately excluded. */
   total: number;
 }
 
@@ -115,7 +118,7 @@ const REASON_LABELS: Partial<Record<AnchorResolutionReason, string>> = {
   'unsupported-kind': 'The anchor kind is not supported.',
   'block-missing': 'The anchor block no longer exists.',
   'anchor-missing': 'The anchor record is missing.',
-  'no-outgoing-branch': 'The anchor has no outgoing branch.',
+  'no-outgoing-branch': 'This anchor has no branches.',
 };
 
 export function anchorHealthReason(reason: AnchorResolutionReason): string {
@@ -195,9 +198,10 @@ function healthBlockTitle(
 }
 
 /**
- * List every broken or ambiguous anchor with its block, chapter, quote,
- * context, reason, and outgoing branches. Idle and resolved anchors are not
- * health warnings and stay out of this list.
+ * List every broken, ambiguous, or idle anchor with its block, chapter, quote,
+ * context, reason, and outgoing branches. Resolved anchors stay out of this
+ * list. An idle row is a valid branchless record, not an error; it is shown
+ * only under the All anchors filter so Remove anchor stays reachable.
  */
 export function buildAnchorHealthRows(document: Document): AnchorHealthRow[] {
   const resolutions = resolveDocumentAnchors(document);
@@ -206,7 +210,13 @@ export function buildAnchorHealthRows(document: Document): AnchorHealthRow[] {
     const resolution = resolutions.byId[anchorId];
     const anchor = document.anchors[anchorId];
     if (resolution === undefined || anchor === undefined) continue;
-    if (resolution.state !== 'broken' && resolution.state !== 'ambiguous') continue;
+    if (
+      resolution.state !== 'broken' &&
+      resolution.state !== 'ambiguous' &&
+      resolution.state !== 'idle'
+    ) {
+      continue;
+    }
     if (!isKnownAnchorKind(anchor.kind)) continue;
     const context = contextFields(anchor);
     const branches = branchList(document, anchorId);
@@ -249,11 +259,13 @@ export function summarizeAnchorHealth(
 ): AnchorHealthSummary {
   let broken = 0;
   let ambiguous = 0;
+  let idle = 0;
   for (const row of rows) {
     if (row.state === 'broken') broken += 1;
     else if (row.state === 'ambiguous') ambiguous += 1;
+    else if (row.state === 'idle') idle += 1;
   }
-  return { broken, ambiguous, total: broken + ambiguous };
+  return { broken, ambiguous, idle, total: broken + ambiguous };
 }
 
 /** Display a quote with its stored context; empty context stays compact. */

@@ -820,6 +820,11 @@ export function paletteCommands(): MenuEntry[] {
         shell().openDialog({ kind: 'link-reference', blockId: selected });
       },
     },
+    {
+      id: 'anchor-health',
+      label: 'Anchor health…',
+      onSelect: () => shell().openDialog({ kind: 'anchor-health' }),
+    },
     { id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) },
     { id: 'block-h1', label: 'Block type: Heading 1', onSelect: () => applyBlockType(1) },
     { id: 'block-h2', label: 'Block type: Heading 2', onSelect: () => applyBlockType(2) },
