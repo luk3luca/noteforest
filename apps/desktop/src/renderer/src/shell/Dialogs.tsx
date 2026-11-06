@@ -538,7 +538,8 @@ const HEALTH_KIND_LABEL: Record<string, string> = {
   image: 'Image',
 };
 
-function healthStateLabel(state: 'broken' | 'ambiguous'): string {
+function healthStateLabel(state: 'broken' | 'ambiguous' | 'idle'): string {
+  if (state === 'idle') return 'Idle anchor';
   return state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor';
 }
 
@@ -658,13 +659,39 @@ function AnchorHealthDialog({
     );
   };
 
+  // OD-2: an idle record has no branches, so removal needs no branch policy or
+  // confirmation. One structural command removes the record and binding; undo
+  // restores both exactly. The target blocks are never part of the command.
+  const removeIdle = (anchorId: string): void => {
+    void (async () => {
+      setBusy(true);
+      setError(null);
+      const outcome = await runtime.removeIdleAnchor(anchorId);
+      setBusy(false);
+      if (!outcome.ok) {
+        setError(outcome.message ?? 'The idle anchor could not be removed.');
+        return;
+      }
+      toast.success('Anchor removed. The target block was kept.', {
+        action: { label: 'Undo', onClick: () => undoActive() },
+      });
+      onClose();
+    })();
+  };
+
   return (
     <Frame
       title="Anchor health"
       description={
         summary.total === 0
-          ? 'No broken or ambiguous anchors.'
-          : `${summary.total} ${summary.total === 1 ? 'anchor needs' : 'anchors need'} repair · ${summary.broken} broken · ${summary.ambiguous} ambiguous`
+          ? summary.idle === 0
+            ? 'No broken or ambiguous anchors.'
+            : `${summary.idle} idle ${summary.idle === 1 ? 'anchor' : 'anchors'} · no anchors need repair`
+          : `${summary.total} ${summary.total === 1 ? 'anchor needs' : 'anchors need'} repair · ${summary.broken} broken · ${summary.ambiguous} ambiguous${
+              summary.idle === 0
+                ? ''
+                : ` · ${summary.idle} idle ${summary.idle === 1 ? 'anchor' : 'anchors'}`
+            }`
       }
       wide
       actions={<Button className="nf-button" onPress={onClose}>Close</Button>}
@@ -684,7 +711,7 @@ function AnchorHealthDialog({
                   onClick={() => setFilter(value)}
                 >
                   {value === 'all'
-                    ? `All · ${rows.length}`
+                    ? `All anchors · ${rows.length}`
                     : value === 'broken'
                       ? `Broken · ${summary.broken}`
                       : `Ambiguous · ${summary.ambiguous}`}
@@ -694,11 +721,11 @@ function AnchorHealthDialog({
             {visible.length === 0 ? (
               <p className="nf-health-empty" data-health-empty="true">
                 {rows.length === 0
-                  ? 'No broken or ambiguous anchors.'
+                  ? 'All anchors are healthy.'
                   : 'No anchors match this filter.'}
               </p>
             ) : (
-              <ul className="nf-health-list" aria-label="Anchors needing repair">
+              <ul className="nf-health-list" aria-label="Anchors">
                 {visible.map((row) => (
                   <li
                     key={row.anchorId}
@@ -737,20 +764,33 @@ function AnchorHealthDialog({
                       </span>
                       <span className="nf-health-reason">{row.reasonLabel}</span>
                     </button>
-                    <button
-                      type="button"
-                      className="nf-health-repair"
-                      data-health-repair={row.anchorId}
-                      aria-label={`Repair anchor “${row.quote || 'anchor'}”`}
-                      onClick={() => {
-                        setSelectedAnchorId(row.anchorId);
-                        setConfirm(null);
-                        setPreview(null);
-                        setError(null);
-                      }}
-                    >
-                      Repair
-                    </button>
+                    {row.state === 'idle' ? (
+                      <button
+                        type="button"
+                        className="nf-health-repair nf-health-remove"
+                        data-health-remove={row.anchorId}
+                        aria-label={`Remove idle anchor “${row.quote || 'anchor'}”`}
+                        disabled={busy}
+                        onClick={() => removeIdle(row.anchorId)}
+                      >
+                        Remove anchor
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="nf-health-repair"
+                        data-health-repair={row.anchorId}
+                        aria-label={`Repair anchor “${row.quote || 'anchor'}”`}
+                        onClick={() => {
+                          setSelectedAnchorId(row.anchorId);
+                          setConfirm(null);
+                          setPreview(null);
+                          setError(null);
+                        }}
+                      >
+                        Repair
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -914,8 +954,8 @@ function AnchorHealthDialog({
             <section className="nf-health-section">
               <h3 className="nf-health-section-title">Branches</h3>
               {selected.branchCount === 0 ? (
-                <p className="nf-dialog-note">
-                  No outgoing branches. This anchor is idle and leaves the health list.
+                <p className="nf-dialog-note" data-health-idle-note="true">
+                  This anchor has no branches.
                 </p>
               ) : (
                 <ul className="nf-health-branches">
@@ -982,50 +1022,63 @@ function AnchorHealthDialog({
               </section>
             ) : null}
 
-            <div className="nf-health-actions">
-              <Button
-                className="nf-button"
-                data-health-action="relink"
-                isDisabled={busy}
-                onPress={() => void previewRelink()}
-              >
-                Relink to current selection
-              </Button>
-              <Button
-                className="nf-button"
-                data-health-action="attach"
-                isDisabled={busy}
-                onPress={() => {
-                  setPreview(null);
-                  setConfirm({ kind: 'attach' });
-                }}
-              >
-                Attach branches to block…
-              </Button>
-              <Button
-                className="nf-button"
-                data-health-action="keep-broken"
-                isDisabled={busy}
-                onPress={() => {
-                  runtime.keepAnchorBroken(selected.anchorId);
-                  toast.info('Kept broken for this session. Nothing was changed.');
-                  onClose();
-                }}
-              >
-                Keep broken
-              </Button>
-              <Button
-                className="nf-button nf-button-danger"
-                data-health-action="delete-anchor"
-                isDisabled={busy}
-                onPress={() => {
-                  setPreview(null);
-                  setConfirm({ kind: 'delete-anchor', mode: 'attach' });
-                }}
-              >
-                Delete anchor…
-              </Button>
-            </div>
+            {selected.state === 'idle' ? (
+              <div className="nf-health-actions">
+                <Button
+                  className="nf-button nf-button-quiet"
+                  data-health-action="remove-idle"
+                  isDisabled={busy}
+                  onPress={() => removeIdle(selected.anchorId)}
+                >
+                  Remove anchor
+                </Button>
+              </div>
+            ) : (
+              <div className="nf-health-actions">
+                <Button
+                  className="nf-button"
+                  data-health-action="relink"
+                  isDisabled={busy}
+                  onPress={() => void previewRelink()}
+                >
+                  Relink to current selection
+                </Button>
+                <Button
+                  className="nf-button"
+                  data-health-action="attach"
+                  isDisabled={busy}
+                  onPress={() => {
+                    setPreview(null);
+                    setConfirm({ kind: 'attach' });
+                  }}
+                >
+                  Attach branches to block…
+                </Button>
+                <Button
+                  className="nf-button"
+                  data-health-action="keep-broken"
+                  isDisabled={busy}
+                  onPress={() => {
+                    runtime.keepAnchorBroken(selected.anchorId);
+                    toast.info('Kept broken for this session. Nothing was changed.');
+                    onClose();
+                  }}
+                >
+                  Keep broken
+                </Button>
+                <Button
+                  className="nf-button nf-button-danger"
+                  data-health-action="delete-anchor"
+                  isDisabled={busy}
+                  onPress={() => {
+                    setPreview(null);
+                    setConfirm({ kind: 'delete-anchor', mode: 'attach' });
+                  }}
+                >
+                  Delete anchor…
+                </Button>
+              </div>
+            )}
 
             {confirm === null ? null : (
               <div

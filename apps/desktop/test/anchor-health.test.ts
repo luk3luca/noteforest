@@ -7,8 +7,12 @@ import type {
   Document,
 } from '@noteforest/core';
 import {
+  anchorHealthReason,
   anchorRepairPreview,
+  buildAnchorHealthRows,
+  filterAnchorHealthRows,
   repairCommandForCandidate,
+  summarizeAnchorHealth,
 } from '../src/renderer/src/lib/anchor-health';
 
 function paragraph(text: string): ContentNode {
@@ -94,8 +98,7 @@ function textCandidate(): AnchorCandidate {
   };
 }
 
-describe('anchor repair preview', () => {
-  it('shows the old and new text context, occurrence, IDs, and target without mutating', () => {
+describe('anchor repair preview', () => {  it('shows the old and new text context, occurrence, IDs, and target without mutating', () => {
     const document = fixture(paragraph('Alpha eigenvalue beta eigenvalue gamma'));
     document.anchors['an-text'] = {
       id: 'an-text',
@@ -250,5 +253,81 @@ describe('anchor repair preview', () => {
         binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 5 }] },
       }),
     ).toBeNull();
+  });
+});
+
+describe('anchor health idle projection', () => {
+  it('lists idle anchors only under All, with a non-error status and zero branches', () => {
+    const document = fixture(paragraph('Alpha eigenvalue beta'));
+    document.anchors['an-idle'] = {
+      id: 'an-idle',
+      blockId: 'A',
+      kind: 'text',
+      selector: { kind: 'text', quote: 'Alpha' },
+      quote: 'Alpha',
+    };
+    document.anchors['an-live'] = {
+      id: 'an-live',
+      blockId: 'A',
+      kind: 'text',
+      selector: { kind: 'text', quote: 'eigenvalue' },
+      quote: 'eigenvalue',
+    };
+    document.branches['branch-live'] = branch('branch-live', 'A', 'an-live', 'B');
+
+    const rows = buildAnchorHealthRows(document);
+    expect(rows.map((row) => row.anchorId)).toEqual(['an-idle']);
+    expect(rows[0]?.state).toBe('idle');
+    expect(rows[0]?.branchCount).toBe(0);
+    expect(rows[0]?.branches).toEqual([]);
+    expect(rows[0]?.reason).toBe('no-outgoing-branch');
+    expect(anchorHealthReason('no-outgoing-branch')).toBe('This anchor has no branches.');
+
+    expect(summarizeAnchorHealth(rows)).toEqual({
+      broken: 0,
+      ambiguous: 0,
+      idle: 1,
+      total: 0,
+    });
+    expect(filterAnchorHealthRows(rows, 'all').map((row) => row.anchorId)).toEqual([
+      'an-idle',
+    ]);
+    expect(filterAnchorHealthRows(rows, 'broken')).toEqual([]);
+    expect(filterAnchorHealthRows(rows, 'ambiguous')).toEqual([]);
+  });
+
+  it('keeps broken rows in the repair filters and idle rows out of them', () => {
+    const document = fixture(paragraph('Alpha eigenvalue beta'));
+    document.anchors['an-idle'] = {
+      id: 'an-idle',
+      blockId: 'A',
+      kind: 'text',
+      selector: { kind: 'text', quote: 'Alpha' },
+      quote: 'Alpha',
+    };
+    document.anchors['an-broken'] = {
+      id: 'an-broken',
+      blockId: 'A',
+      kind: 'text',
+      selector: { kind: 'text', quote: 'missingword' },
+      quote: 'missingword',
+    };
+    document.branches['branch-broken'] = branch('branch-broken', 'A', 'an-broken', 'B');
+
+    const rows = buildAnchorHealthRows(document);
+    expect(rows.map((row) => `${row.anchorId}:${row.state}`).sort()).toEqual([
+      'an-broken:broken',
+      'an-idle:idle',
+    ]);
+    expect(summarizeAnchorHealth(rows)).toMatchObject({
+      broken: 1,
+      ambiguous: 0,
+      idle: 1,
+      total: 1,
+    });
+    expect(filterAnchorHealthRows(rows, 'all')).toHaveLength(2);
+    expect(filterAnchorHealthRows(rows, 'broken').map((row) => row.anchorId)).toEqual([
+      'an-broken',
+    ]);
   });
 });

@@ -14,6 +14,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
@@ -44,6 +45,27 @@ import {
 
 function stringAttr(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
+}
+
+/**
+ * Subscribe a node view to the canonical runtime revision. ProseMirror only
+ * re-renders a React node view when its node or decorations change, so a
+ * content commit that changes anchor resolution would otherwise leave the
+ * inline warning and callout one revision behind until an unrelated click.
+ */
+function useRuntimeVersion(runtime: {
+  subscribe: (listener: () => void) => () => void;
+  version: number;
+} | null): number {
+  const subscribe = useCallback(
+    (listener: () => void) => runtime?.subscribe(listener) ?? (() => undefined),
+    [runtime],
+  );
+  return useSyncExternalStore(
+    subscribe,
+    () => runtime?.version ?? 0,
+    () => 0,
+  );
 }
 
 function numberAttr(value: unknown, fallback = 0): number {
@@ -505,6 +527,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const calloutBranchId = stringAttr(node.attrs['calloutBranchId']);
   const ui = useEditorUi(editor);
   const bindings = getEditorBindings(editor);
+  const runtimeVersion = useRuntimeVersion(bindings?.runtime ?? null);
   const active = ui.selectedBlockId === blockId;
   const markerLayerRef = useRef<HTMLDivElement | null>(null);
   const termLayerRef = useRef<HTMLDivElement | null>(null);
@@ -626,6 +649,18 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     ui.selectedAnchor.anchorId === anchorId &&
     ui.selectedAnchor.branchId === calloutBranchId;
   const chipQuote = quoteChipText(anchorKind, anchorQuoteText);
+
+  // Callout state is derived from the same canonical revision as the block
+  // warning. The node attribute is only the projection snapshot; after a
+  // content commit or text undo it can be one revision stale.
+  const liveCalloutState = useMemo(() => {
+    if (bindings === null || !callout || anchorId.length === 0) return null;
+    const document = bindings.runtime.document;
+    return document.anchors[anchorId] === undefined
+      ? null
+      : anchorState(document, anchorId);
+  }, [bindings, callout, anchorId, runtimeVersion]);
+  const effectiveAnchorState = liveCalloutState ?? anchorStateAttr;
 
   // Best-effort term geometry (M3c2b): overlay each uniquely resolved formula
   // term over its live KaTeX text rect. Absence is the formula-rectangle
@@ -969,14 +1004,21 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
 
   // M3e warning: an anchored child whose binding no longer resolves shows the
   // same Lost anchor / Ambiguous copy as the health sheet and opens it focused
-  // on this anchor. The M3b1 fallback remains: the branch and target stay.
-  const anchorWarnings: Array<{
+  // on this anchor. M3h3 subscribes to the canonical revision, so a text/code/
+  // formula edit or its undo updates this warning without another click. The
+  // M3b1 fallback remains: the branch and target stay.
+  const anchorWarnings = useMemo<Array<{
     anchorId: string;
     state: string;
     reason: ReturnType<typeof resolveAnchor>['reason'];
-  }> = [];
-  if (bindings !== null) {
+  }>>(() => {
+    if (bindings === null) return [];
     const document = bindings.runtime.document;
+    const warnings: Array<{
+      anchorId: string;
+      state: string;
+      reason: ReturnType<typeof resolveAnchor>['reason'];
+    }> = [];
     const seen = new Set<string>();
     for (const branch of Object.values(document.branches)) {
       if (branch.source.blockId !== blockId) continue;
@@ -989,14 +1031,15 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         resolution.state === 'ambiguous' ||
         resolution.state === 'block-missing'
       ) {
-        anchorWarnings.push({
+        warnings.push({
           anchorId,
           state: resolution.state,
           reason: resolution.reason,
         });
       }
     }
-  }
+    return warnings;
+  }, [bindings, blockId, runtimeVersion]);
 
   // Reference chips are a DOM overlay, never an in-flow card footer. The card
   // box is therefore identical with and without references, which keeps the
@@ -1163,12 +1206,12 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             </span>
             <span className="nf-callout-quote-text">{chipQuote || 'anchor'}</span>
           </button>
-          {anchorStateAttr === 'broken' ||
-          anchorStateAttr === 'ambiguous' ||
-          anchorStateAttr === 'block-missing' ? (
-            <span className="nf-callout-state" data-anchor-state={anchorStateAttr}>
+          {effectiveAnchorState === 'broken' ||
+          effectiveAnchorState === 'ambiguous' ||
+          effectiveAnchorState === 'block-missing' ? (
+            <span className="nf-callout-state" data-anchor-state={effectiveAnchorState}>
               <TriangleAlert size={10} strokeWidth={1.5} aria-hidden="true" />
-              {anchorStateAttr === 'ambiguous' ? 'Ambiguous' : 'Lost anchor'}
+              {effectiveAnchorState === 'ambiguous' ? 'Ambiguous' : 'Lost anchor'}
             </span>
           ) : null}
         </div>

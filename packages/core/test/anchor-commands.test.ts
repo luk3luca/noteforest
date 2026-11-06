@@ -1172,6 +1172,9 @@ describe('anchor.attachToBlock and anchor.delete', () => {
         .map((entry) => entry.text)
         .join(''),
     ).toBe('Alpha eigenvalue beta');
+    // Removing the mark leaves no artificial text-node boundary for a later
+    // editor commit to coalesce and invalidate the undo snapshot.
+    expect(textNodes(deleted.document.blocks[a]?.content ?? { type: 'doc' })).toHaveLength(1);
     expect(
       textNodes(deleted.document.blocks[a]?.content ?? { type: 'doc' }).every(
         (entry) => entry.ids.length === 0,

@@ -1712,6 +1712,36 @@ function outgoingAnchorBranches(document: Document, anchorId: string): Branch[] 
     });
 }
 
+/**
+ * Merge adjacent text nodes that carry the same marks. Removing an anchor mark
+ * from between two text nodes leaves a boundary ProseMirror would immediately
+ * coalesce; normalize it here so the canonical document matches the editor
+ * revision and a later content commit cannot invalidate the anchor's undo
+ * snapshot.
+ */
+function mergeAdjacentTextChildren(node: ContentNode): void {
+  const children = node.children;
+  if (!Array.isArray(children)) return;
+  const merged: ContentNode[] = [];
+  for (const child of children) {
+    const previous = merged.at(-1);
+    if (
+      previous !== undefined &&
+      previous.type === 'text' &&
+      child.type === 'text' &&
+      previous.attrs === undefined &&
+      child.attrs === undefined &&
+      canonicalJson(previous.marks ?? []) === canonicalJson(child.marks ?? [])
+    ) {
+      previous.text = `${previous.text ?? ''}${child.text ?? ''}`;
+      continue;
+    }
+    merged.push(child);
+    mergeAdjacentTextChildren(child);
+  }
+  node.children = merged;
+}
+
 function removeAnchorContent(
   document: Document,
   anchor: Anchor,
@@ -1720,6 +1750,7 @@ function removeAnchorContent(
 ): ContentBlock {
   const block = blockOrFail(document, anchor.blockId);
   block.content = removeAnchorBinding(block.content, anchor.id);
+  mergeAdjacentTextChildren(block.content);
   block.updatedAt = context.now();
   changes.block(block.id);
   delete document.anchors[anchor.id];
