@@ -111,7 +111,7 @@ const REASON_LABELS: Partial<Record<AnchorResolutionReason, string>> = {
   'kind-mismatch': 'The anchor is bound to a different content kind.',
   'invalid-selector': 'The stored selector is invalid.',
   'quote-missing': 'The stored quote is no longer in the block.',
-  'node-missing': 'The formula or code block is no longer in the block.',
+  'node-missing': 'The anchored element is no longer in the block.',
   'asset-changed': 'The image asset changed.',
   'crop-changed': 'The image crop changed.',
   'asset-missing': 'The image asset is missing.',

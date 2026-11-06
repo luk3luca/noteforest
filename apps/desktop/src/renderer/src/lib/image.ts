@@ -6,7 +6,7 @@
  * touch the DOM or the filesystem.
  */
 
-import type { ContentNode } from '@noteforest/core';
+import type { Asset, ContentNode } from '@noteforest/core';
 import { withNodeAtPath } from '@noteforest/core';
 import { imageMimeFromName } from '../../../shared/images';
 
@@ -107,6 +107,27 @@ export function contentWithImageAlt(
     const attrs = { ...(node.attrs ?? {}) };
     if (alt.length === 0) delete attrs['alt'];
     else attrs['alt'] = alt;
+    return { ...node, attrs };
+  });
+}
+
+/**
+ * Point an existing image node at a new asset. The old alt text is deliberately
+ * preserved: replacing the bytes must never delete user-authored text, and the
+ * old image anchors become broken because their selector keeps the old assetId.
+ */
+export function contentWithImageAsset(
+  content: ContentNode,
+  path: readonly number[],
+  asset: Asset,
+): ContentNode {
+  return withNodeAtPath(content, path, (node) => {
+    if (node.type !== 'image') return node;
+    const attrs: Record<string, unknown> = { ...(node.attrs ?? {}), assetId: asset.id };
+    if (asset.width === undefined) delete attrs['width'];
+    else attrs['width'] = asset.width;
+    if (asset.height === undefined) delete attrs['height'];
+    else attrs['height'] = asset.height;
     return { ...node, attrs };
   });
 }

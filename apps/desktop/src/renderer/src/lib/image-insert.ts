@@ -64,6 +64,42 @@ export async function insertImageFromDialog(
   }
 }
 
+/**
+ * Replace the asset behind an existing image node. The old asset record and the
+ * old image anchors are never deleted; the anchors become broken because their
+ * selector still names the old asset.
+ */
+export async function replaceImageFromDialog(
+  runtime: DocumentRuntime,
+  blockId: string,
+  path: readonly number[],
+): Promise<void> {
+  if (!runtime.editable) {
+    toast.error('This document is open read-only.');
+    return;
+  }
+  const toastId = beginCopy(1);
+  try {
+    const result = await window.noteforest.importImage(runtime.packagePath);
+    if (!result.ok) {
+      if (result.canceled) toast.dismiss(toastId);
+      else toast.error(result.message, { id: toastId });
+      return;
+    }
+    const outcome = await runtime.replaceImage(blockId, path, result.asset);
+    if (!outcome.ok) {
+      toast.error(outcome.message ?? 'Could not replace the image.', { id: toastId });
+      return;
+    }
+    toast.success('Image replaced', { id: toastId });
+  } catch (error) {
+    toast.error(
+      error instanceof Error ? error.message : 'Could not copy the image.',
+      { id: toastId },
+    );
+  }
+}
+
 async function imageDimensions(
   file: File,
 ): Promise<{ width: number; height: number } | null> {

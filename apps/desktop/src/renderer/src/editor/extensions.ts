@@ -70,6 +70,7 @@ const CanonicalImage = Image.extend({
         rendered: false,
         parseHTML: () => false,
       },
+      anchorIds: formulaAnchorIdsAttr(),
     };
   },
   addNodeView() {

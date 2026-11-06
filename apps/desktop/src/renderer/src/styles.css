@@ -2084,6 +2084,178 @@ button:disabled {
   color: var(--text-tertiary);
 }
 
+/* Image anchor geometry (M3c3b2). The frame owns the rendered image; overlay
+   regions are positioned in percentages from the canonical normalized rect, so
+   a display resize never changes the anchor. */
+.nf-image-frame {
+  position: relative;
+  display: block;
+  line-height: 0;
+}
+
+.nf-image-regions {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.nf-image-region {
+  position: absolute;
+  pointer-events: none;
+}
+
+.nf-image-region-outline {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 120ms var(--motion), background-color 120ms var(--motion);
+}
+
+.nf-image-region:hover .nf-image-region-outline,
+.nf-image-region[data-anchor-selected="true"] .nf-image-region-outline {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.nf-image-region-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-35%, -35%);
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--accent);
+  font-family: var(--ui-font);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: auto;
+}
+
+.nf-image-region-marker:hover,
+.nf-image-region[data-anchor-selected="true"] .nf-image-region-marker {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.nf-image-region-marker:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.nf-image-region-point .nf-image-region-marker {
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.nf-image-draw-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.nf-image-draw-hint {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.nf-image-draft {
+  position: absolute;
+  z-index: 4;
+  border: 1.5px solid var(--accent);
+  border-radius: 3px;
+  background: var(--accent-soft);
+  pointer-events: none;
+}
+
+.nf-image-draft-pending {
+  border-style: dashed;
+}
+
+.nf-image-draft-point {
+  width: 0 !important;
+  height: 0 !important;
+  border: 0;
+  background: transparent;
+}
+
+.nf-image-draft-point::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--surface-1);
+}
+
+.nf-image-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-family: var(--ui-font);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.nf-image-action {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.nf-image-action:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.nf-image-action-primary {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.nf-image-action-note {
+  color: var(--text-tertiary);
+}
+
+.nf-image-action-error {
+  color: var(--danger);
+}
+
 
 .nf-block-prose table {
   border-collapse: collapse;

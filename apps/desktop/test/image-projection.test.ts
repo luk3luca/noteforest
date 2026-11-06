@@ -5,6 +5,7 @@ import { buildEditorDocument, contentToPM, pmToContent, stripUnbackedImages } fr
 import {
   contentWithImage,
   contentWithImageAlt,
+  contentWithImageAsset,
   defaultImageAlt,
   firstImage,
   imageFilesFromDataTransfer,
@@ -159,6 +160,26 @@ describe('image content helpers', () => {
       height: 360,
     });
     expect(edited.children?.[0]).toEqual(content.children?.[0]);
+  });
+
+  it('replaces the asset while preserving alt text and anchor-relevant metadata', () => {
+    const content: ContentNode = { type: 'doc', children: [image] };
+    const replacement: Asset = {
+      id: 'b'.repeat(64),
+      path: `assets/${'b'.repeat(64)}`,
+      mime: 'image/png',
+      bytes: 24,
+      width: 1200,
+      height: 200,
+    };
+    const replaced = contentWithImageAsset(content, [0], replacement);
+    expect(replaced.children?.[0]?.attrs).toEqual({
+      assetId: replacement.id,
+      alt: 'Forest',
+      width: 1200,
+      height: 200,
+    });
+    expect(content.children?.[0]?.attrs?.['assetId']).toBe(ASSET_ID);
   });
 
   it('derives a readable default alt and file MIME', () => {

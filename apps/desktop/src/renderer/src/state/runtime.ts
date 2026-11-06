@@ -48,6 +48,7 @@ import { buildBlockNode, withBody } from '../lib/adapter';
 import {
   contentWithImage,
   contentWithImageAlt,
+  contentWithImageAsset,
   defaultImageAlt,
   imageNodeFor,
 } from '../lib/image';
@@ -592,6 +593,45 @@ export class DocumentRuntime {
     );
   }
 
+  /**
+   * Replace the asset behind one existing image node.
+   *
+   * The asset record is added first so the new image renders immediately; the
+   * image content edit is the single structural inverse. Alt text survives, and
+   * every image anchor keeps its old assetId, so resolution reports
+   * `asset-changed` instead of silently reattaching the region to the new bytes.
+   */
+  async replaceImage(
+    blockId: string,
+    path: readonly number[],
+    asset: Asset,
+  ): Promise<ApplyOutcome> {
+    if (!this.editable) {
+      return { ok: false, message: 'This document is open read-only.' };
+    }
+    return this.session.queue.run(async () => {
+      const added = await this.runCommandInternal({ type: 'asset.add', asset });
+      if (!added.ok || added.document === undefined) {
+        return { ok: false, message: added.message ?? 'Could not record the image asset.' };
+      }
+      await this.acceptStructural(added.document, null, blockId, { rebuild: false });
+
+      const block = this.document.blocks[blockId];
+      if (block === undefined) return { ok: false, message: 'The block no longer exists.' };
+      const edited = await this.runCommandInternal({
+        type: 'block.editContent',
+        blockId,
+        content: contentWithImageAsset(block.content, path, asset),
+      });
+      if (!edited.ok || edited.document === undefined) {
+        return { ok: false, message: edited.message ?? 'Could not replace the image.' };
+      }
+      await this.acceptStructural(edited.document, edited.inverse, blockId);
+      this.focusBlock(blockId);
+      return { ok: true, blockId, assetId: asset.id };
+    });
+  }
+
   /** Create one block and return the ID the core command actually created. */
   private async createBlockNow(command: DocumentCommand): Promise<ApplyOutcome> {
     const result = await this.runCommandInternal(command);
@@ -656,14 +696,24 @@ export class DocumentRuntime {
               target: { kind: 'new' },
               role: 'primary',
             }
-          : {
-              type: 'branch.createFromSelection',
-              blockId: selection.blockId,
-              kind: 'text',
-              binding: selection.binding,
-              target: { kind: 'new' },
-              role: 'primary',
-            };
+          : selection.kind === 'image'
+            ? {
+                type: 'branch.createFromSelection',
+                blockId: selection.blockId,
+                kind: 'image',
+                binding: selection.binding,
+                selector: selection.selector,
+                target: { kind: 'new' },
+                role: 'primary',
+              }
+            : {
+                type: 'branch.createFromSelection',
+                blockId: selection.blockId,
+                kind: 'text',
+                binding: selection.binding,
+                target: { kind: 'new' },
+                role: 'primary',
+              };
     return this.session.queue.run(async () => {
       const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {
