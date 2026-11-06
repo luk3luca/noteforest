@@ -42,7 +42,8 @@ import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
 import { firstImage } from './lib/image';
-import { insertImageFromDialog } from './lib/image-insert';
+import { beginImageAnchorAuthoring } from './lib/image-authoring';
+import { insertImageFromDialog, replaceImageFromDialog } from './lib/image-insert';
 
 function shell() {
   return useShell.getState();
@@ -474,6 +475,11 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
   const branch = incomingBranch(runtime.document, blockId);
   const hasParent = parentIdOf(runtime.document, blockId) !== null;
   const image = firstImage(block.content);
+  const imageAsset =
+    image === null || image.assetId.length === 0
+      ? undefined
+      : runtime.document.assets[image.assetId];
+  const canAuthorImage = runtime.editable && image !== null && imageAsset !== undefined;
   const collapsed = runtime.collapsed.has(blockId);
   const caret = runtime.caretLocation();
   const splitCheck =
@@ -572,6 +578,43 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
     ...(image === null
       ? []
       : [
+          {
+            id: 'image-add-region',
+            label: canAuthorImage
+              ? 'Add image region…'
+              : 'Add image region… — image asset missing',
+            disabled: !canAuthorImage,
+            ...(canAuthorImage
+              ? {
+                  onSelect: () =>
+                    beginImageAnchorAuthoring(runtime, blockId, image.path, 'region'),
+                }
+              : {}),
+          },
+          {
+            id: 'image-add-point',
+            label: canAuthorImage
+              ? 'Add image point…'
+              : 'Add image point… — image asset missing',
+            disabled: !canAuthorImage,
+            ...(canAuthorImage
+              ? {
+                  onSelect: () =>
+                    beginImageAnchorAuthoring(runtime, blockId, image.path, 'point'),
+                }
+              : {}),
+          },
+          {
+            id: 'image-replace',
+            label: 'Replace image…',
+            disabled: !runtime.editable,
+            ...(runtime.editable
+              ? {
+                  onSelect: () =>
+                    void replaceImageFromDialog(runtime, blockId, image.path),
+                }
+              : {}),
+          },
           {
             id: 'image-alt',
             label: 'Edit image alt text…',

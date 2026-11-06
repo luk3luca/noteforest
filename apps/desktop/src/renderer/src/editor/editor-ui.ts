@@ -1,5 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { Editor } from '@tiptap/core';
+import type { ImageAuthoringMode } from '../lib/image-anchor';
 
 /** Anchor-focused view state; never part of the canonical document. */
 export interface EditorAnchorSelection {
@@ -9,11 +10,22 @@ export interface EditorAnchorSelection {
   targetBlockId: string;
 }
 
+/**
+ * One image node waiting for a region/point drag. This is view state only:
+ * opening or cancelling the authoring surface never touches the document.
+ */
+export interface EditorImageAuthoring {
+  blockId: string;
+  path: number[];
+  mode: ImageAuthoringMode;
+}
+
 interface UiState {
   selectedBlockId: string | null;
   /** True while the block's prose owns a text caret, not a block selection. */
   editing: boolean;
   selectedAnchor: EditorAnchorSelection | null;
+  imageAuthoring: EditorImageAuthoring | null;
   /** One-shot request to start inline chapter-title editing. */
   focusChapterId: string | null;
   version: number;
@@ -29,6 +41,7 @@ function stateFor(editor: Editor): { state: UiState; listeners: Set<() => void> 
         selectedBlockId: null,
         editing: false,
         selectedAnchor: null,
+        imageAuthoring: null,
         focusChapterId: null,
         version: 0,
       },
@@ -63,6 +76,19 @@ export function setEditorSelectedAnchor(
   selectedAnchor: EditorAnchorSelection | null,
 ): void {
   update(editor, { selectedAnchor });
+}
+
+export function setEditorImageAuthoring(
+  editor: Editor,
+  imageAuthoring: EditorImageAuthoring | null,
+): void {
+  update(editor, { imageAuthoring });
+}
+
+export function clearEditorImageAuthoring(editor: Editor): void {
+  const entry = stateFor(editor);
+  if (entry.state.imageAuthoring === null) return;
+  update(editor, { imageAuthoring: null });
 }
 
 export function setEditorChapterFocus(editor: Editor, chapterId: string | null): void {

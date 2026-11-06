@@ -1005,7 +1005,7 @@ function AnchorHealthDialog({
               )}
             </section>
 
-            {candidates.length > 0 ? (
+            {candidates.length > 0 && selected.kind !== 'image' ? (
               <section className="nf-health-section" data-health-candidates="true">
                 <h3 className="nf-health-section-title">
                   {selected.state === 'ambiguous' ? 'Choose a matching location' : 'Matching locations'}
@@ -1047,14 +1047,22 @@ function AnchorHealthDialog({
               </div>
             ) : (
               <div className="nf-health-actions">
-                <Button
-                  className="nf-button"
-                  data-health-action="relink"
-                  isDisabled={busy}
-                  onPress={() => void previewRelink()}
-                >
-                  Relink to current selection
-                </Button>
+                {selected.kind === 'image' ? (
+                  <p className="nf-dialog-note" data-health-image-repair-note="true">
+                    Re-picking an image region is a follow-up. The branch, target, and alt
+                    text are kept: attach the branches to the block, delete the anchor, or
+                    keep it broken.
+                  </p>
+                ) : (
+                  <Button
+                    className="nf-button"
+                    data-health-action="relink"
+                    isDisabled={busy}
+                    onPress={() => void previewRelink()}
+                  >
+                    Relink to current selection
+                  </Button>
+                )}
                 <Button
                   className="nf-button"
                   data-health-action="attach"

@@ -13,6 +13,7 @@ import type {
   CodeAnchorSelector,
   FormulaAnchorSelector,
   FormulaTermAnchorSelector,
+  ImageAnchorSelector,
 } from '@noteforest/core';
 import { codeAnchorSelectorForBinding } from '@noteforest/core';
 import type { Editor } from '@tiptap/core';
@@ -24,6 +25,7 @@ export type FormulaWholeBinding = Extract<AnchorBinding, { kind: 'formula'; form
 export type FormulaTermBinding = Extract<AnchorBinding, { kind: 'formula'; form: 'term' }>;
 export type FormulaSelectionBinding = FormulaWholeBinding | FormulaTermBinding;
 export type CodeSelectionBinding = Extract<AnchorBinding, { kind: 'code' }>;
+export type ImageSelectionBinding = Extract<AnchorBinding, { kind: 'image' }>;
 
 export interface TextSelectionAnchor {
   kind: 'text';
@@ -45,11 +47,24 @@ export interface CodeSelectionAnchor {
   selector: CodeAnchorSelector;
 }
 
+/**
+ * An image region/point already mapped to canonical geometry by the image node
+ * view. Image authoring is pointer-driven, so this selection is built directly
+ * from the normalized draft rather than from a ProseMirror text selection.
+ */
+export interface ImageSelectionAnchor {
+  kind: 'image';
+  blockId: string;
+  binding: ImageSelectionBinding;
+  selector: ImageAnchorSelector;
+}
+
 /** One branch source derived from the editor's current selection. */
 export type BranchSelectionAnchor =
   | TextSelectionAnchor
   | FormulaSelectionAnchor
-  | CodeSelectionAnchor;
+  | CodeSelectionAnchor
+  | ImageSelectionAnchor;
 
 export type TextSelectionFailure =
   | 'empty'

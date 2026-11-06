@@ -524,6 +524,9 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     for (const branch of anchoredChildBranches(document, blockId)) {
       const id = branch.source.anchorId;
       if (id === undefined || document.blocks[branch.targetBlockId] === undefined) continue;
+      // Image anchors draw numbered markers on the image itself; the generic
+      // block marker would duplicate them at the image edge.
+      if (document.anchors[id]?.kind === 'image') continue;
       const group = groups.get(id);
       if (group === undefined) {
         const state = anchorState(document, id);
@@ -632,7 +635,24 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     ui.selectedAnchor.blockId === calloutParentId &&
     ui.selectedAnchor.anchorId === anchorId &&
     ui.selectedAnchor.branchId === calloutBranchId;
-  const chipQuote = quoteChipText(anchorKind, anchorQuoteText);
+  // Image anchors keep the durable label in the selector; the callout adds the
+  // region/point kind so two branches on one image are distinguishable.
+  const calloutImagePoint = useMemo(() => {
+    if (anchorKind !== 'image' || anchorId.length === 0 || bindings === null) return false;
+    const selector = bindings.runtime.document.anchors[anchorId]?.selector;
+    return (
+      typeof selector === 'object' &&
+      selector !== null &&
+      (selector as Record<string, unknown>)['kind'] === 'image' &&
+      (selector as Record<string, unknown>)['point'] === true
+    );
+  }, [anchorKind, anchorId, bindings, runtimeVersion]);
+  const chipQuote =
+    anchorKind === 'image'
+      ? `${quoteChipText('text', anchorQuoteText || 'Image')} · ${
+          calloutImagePoint ? 'point' : 'region'
+        }`
+      : quoteChipText(anchorKind, anchorQuoteText);
 
   // Callout state is derived from the same canonical revision as the block
   // warning. The node attribute is only the projection snapshot; after a
@@ -1164,7 +1184,13 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             data-anchor-kind={anchorKind || undefined}
             data-anchor-selected={branchSelected ? 'true' : 'false'}
             aria-label={`Select ${
-              anchorKind === 'formula' ? 'formula ' : anchorKind === 'code' ? 'code ' : ''
+              anchorKind === 'formula'
+                ? 'formula '
+                : anchorKind === 'code'
+                  ? 'code '
+                  : anchorKind === 'image'
+                    ? `image ${calloutImagePoint ? 'point ' : 'region '}`
+                    : ''
             }anchor “${chipQuote || 'anchor'}”, ${calloutAnchorCount} ${
               calloutAnchorCount === 1 ? 'branch' : 'branches'
             }`}
@@ -1173,9 +1199,11 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
                 ? `Formula anchor: “${chipQuote}”`
                 : anchorKind === 'code'
                   ? `Code anchor: “${chipQuote}”`
-                  : anchorQuoteText.length > 0
-                    ? `Anchor: “${chipQuote}”`
-                    : 'Anchored branch'
+                  : anchorKind === 'image'
+                    ? `Image ${calloutImagePoint ? 'point' : 'region'} anchor: “${chipQuote}”`
+                    : anchorQuoteText.length > 0
+                      ? `Anchor: “${chipQuote}”`
+                      : 'Anchored branch'
             }
             onClick={(event) => {
               event.preventDefault();
@@ -1186,7 +1214,13 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             }}
           >
             <span className="nf-callout-quote-glyph" aria-hidden="true">
-              {anchorKind === 'formula' ? 'Σ' : anchorKind === 'code' ? '{}' : '“'}
+              {anchorKind === 'formula'
+                ? 'Σ'
+                : anchorKind === 'code'
+                  ? '{}'
+                  : anchorKind === 'image'
+                    ? '▧'
+                    : '“'}
             </span>
             <span className="nf-callout-quote-text">{chipQuote || 'anchor'}</span>
           </button>

@@ -58,7 +58,7 @@ function branch(
   };
 }
 
-function fixture(content: ContentNode): Document {
+function fixture(content: ContentNode, assets: Document['assets'] = {}): Document {
   return {
     schemaVersion: 1,
     id: 'doc',
@@ -79,9 +79,41 @@ function fixture(content: ContentNode): Document {
     },
     anchors: {},
     branches: {},
-    assets: {},
+    assets,
     annotations: [],
   };
+}
+
+function imageContent(assetId: string): ContentNode {
+  return {
+    type: 'doc',
+    children: [
+      {
+        type: 'image',
+        attrs: { assetId, alt: 'Eigenvector diagram', anchorIds: ['an-image'] },
+      },
+    ],
+  };
+}
+
+function imageAnchorDocument(assetRecords: Document['assets']): Document {
+  const document = fixture(imageContent('asset-1'), assetRecords);
+  document.anchors['an-image'] = {
+    id: 'an-image',
+    blockId: 'A',
+    kind: 'image',
+    selector: {
+      kind: 'image',
+      assetId: 'asset-1',
+      rect: { x: 0.1, y: 0.2, width: 0.3, height: 0.2 },
+      crop: { x: 0, y: 0, width: 1, height: 1 },
+      point: false,
+      label: 'Eigenvector diagram',
+    },
+    quote: 'Eigenvector diagram',
+  };
+  document.branches['branch-image'] = branch('branch-image', 'A', 'an-image', 'B');
+  return document;
 }
 
 function textCandidate(): AnchorCandidate {
@@ -329,5 +361,41 @@ describe('anchor health idle projection', () => {
     expect(filterAnchorHealthRows(rows, 'broken').map((row) => row.anchorId)).toEqual([
       'an-broken',
     ]);
+  });
+
+  it('reports image asset change and missing asset while keeping the branch and target', () => {
+    const asset = {
+      id: 'asset-1',
+      path: 'assets/asset-1',
+      mime: 'image/png',
+      originalName: 'forest.png',
+    };
+    const changed = imageAnchorDocument({});
+    const changedRows = buildAnchorHealthRows(changed);
+    expect(changedRows).toHaveLength(1);
+    expect(changedRows[0]).toMatchObject({
+      anchorId: 'an-image',
+      kind: 'image',
+      state: 'broken',
+      reason: 'asset-missing',
+      branchCount: 1,
+    });
+    expect(changedRows[0]?.branches[0]?.targetBlockId).toBe('B');
+    expect(anchorHealthReason('asset-missing')).toBe('The image asset is missing.');
+    expect(anchorHealthReason('asset-changed')).toBe('The image asset changed.');
+
+    const healthy = imageAnchorDocument({ 'asset-1': asset });
+    expect(buildAnchorHealthRows(healthy)).toEqual([]);
+    healthy.assets['asset-2'] = { ...asset, id: 'asset-2', path: 'assets/asset-2' };
+    healthy.blocks['A'] = block('A', imageContent('asset-2'));
+    const replacedRows = buildAnchorHealthRows(healthy);
+    expect(replacedRows[0]).toMatchObject({
+      anchorId: 'an-image',
+      state: 'broken',
+      reason: 'asset-changed',
+      branchCount: 1,
+    });
+    expect(Object.values(healthy.branches)).toHaveLength(1);
+    expect(healthy.blocks['B']).toBeDefined();
   });
 });
