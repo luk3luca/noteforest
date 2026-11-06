@@ -16,7 +16,7 @@ The product owner is **Luca**. The orchestrator is the main thread.
 
 ## Current phase
 
-**M2f is accepted; M3 implementation is complete and the product-owner visual/VoiceOver pass is in progress.** Sentinel M3 review follows the pass. Spec v0.4.5, UX v1.4, ADR-0005; M3a1–M3f2 are merged: anchor model/commands, text/formula-term/code anchors, callout lane, outline/marker navigation, reference edges, make-home/move-here/demote, repair/health, split/merge, export manifest/fixtures. Unit 472/1.8 s; critical e2e 21/45.6 s; recovery 14; UI 21; `verify` exit 0. **M3c3b image anchors are blocked**: the app has no image insertion/asset rendering yet, so an image pipeline is needed first. UI paste/duplicate placement/undo and chip-overlay polish are follow-ups. Code block chrome is in the backlog. M4/PDF remain blocked until M3 is accepted. Spec v0.4.5.
+**M2f is accepted; M3 implementation is complete; the product-owner pass found two visual fixes, now in M3g1.** Sentinel M3 review follows. Spec v0.4.5, UX v1.4, ADR-0005; M3a1–M3f2 are merged: anchor model/commands, text/formula-term/code anchors, callout lane, outline/marker navigation, reference edges, make-home/move-here/demote, repair/health, split/merge, export manifest/fixtures. Unit 472/1.8 s; critical e2e 21/45.6 s; recovery 14; UI 21; `verify` exit 0. **M3c3b image anchors are blocked**: the app has no image insertion/asset rendering yet, so an image pipeline is needed first. UI paste/duplicate placement/undo and chip-overlay polish are follow-ups. Code block chrome is in the backlog. M4/PDF remain blocked until M3 is accepted. Spec v0.4.5.
 
 The spec is at v0.4.5 and the UX, review, and DoD docs are aligned.
 

@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 implementation complete (spec v0.4.5, UX v1.4, ADR-0005); M3f2 merged and verified. Product-owner visual/VoiceOver pass is in progress; Sentinel M3 review follows. M3c3b image anchors are blocked on the image pipeline; UI paste/duplicate is a follow-up. M4/PDF blocked until M3 is accepted.
+**Status:** M2f accepted; M3 implementation complete (spec v0.4.5, UX v1.4, ADR-0005); M3f2 merged and verified. Product-owner pass found two visual fixes (below-stack indentation/trunk origin, idle-anchor marker); M3g1 is in progress. Sentinel M3 review follows. M3c3b image anchors blocked on the image pipeline; UI paste/duplicate is a follow-up. M4/PDF blocked until M3 is accepted.
 
 ## Rules
 
