@@ -7,8 +7,8 @@ M2. No UI, React, TipTap, layout, page view, or PDF.
 
 | Import | Contents | Environment |
 |---|---|---|
-| `@noteforest/core` | types, factories, validation, serialization, commands, undo history, fractional order keys | pure TypeScript (no Node, DOM, or filesystem) |
-| `@noteforest/core/node` | document package store, atomic writes, backups, single-writer lock, recent manifest, recovery | Node only |
+| `@noteforest/core` | types, factories, validation, serialization, migrations, asset contract, commands, undo history, fractional order keys | pure TypeScript (no Node, DOM, or filesystem) |
+| `@noteforest/core/node` | document repository, package store, atomic writes, backups, single-writer lock, recent manifest, recovery | Node only |
 
 `src/index.ts` never imports Node built-ins. The Node layer imports the pure
 model, not the other way around.
@@ -29,6 +29,24 @@ Canonical types follow `docs/spec.md` §4:
 Unknown fields at every level and unknown content nodes/marks are preserved;
 the parsed JSON object is used directly instead of being projected onto a
 closed shape. `parseDocumentJson` validates but never strips unknown data.
+
+### Schema migrations
+
+`migrateDocument(value)` upgrades a parsed document from every supported
+`schemaVersion` to `CURRENT_SCHEMA_VERSION` using the ordered
+`SCHEMA_MIGRATIONS` registry. The registry is empty for v1 and must be a
+gap-free chain from 1 to the current version. `parseDocumentJson` runs the
+migration before validation and reports `migratedFrom` and
+`migrationsApplied`. A newer document is rejected as `newer-schema` and stays
+read-only; corrupt or invalid input is never rewritten. Fixtures for the
+version matrix live in `test/fixtures/schema/`.
+
+### Asset contract
+
+`AssetStore` (in `src/assets.ts`) is the port for the M3c3b image pipeline:
+content-addressed ids (lowercase SHA-256 hex), typed read/insert results, a
+package-relative path, and a renderer-safe URL. It is a contract only; there is
+no filesystem, decoding, rendering, or UI implementation here.
 
 ### Block tree = primary branches
 
@@ -86,6 +104,12 @@ plus the runtime's text and structural stacks), not in core. The old test-only
 `DocumentHistory` snapshot helper was removed in M2f phase 5b.
 
 ## Persistence (Node)
+
+The Electron main process uses `NodeDocumentRepository` from
+`@noteforest/core/node` as its persistence boundary. It owns the process's
+open-store registry and exposes open/validate/create/save/backup/list/
+listBackups/close; every write still goes through `DocumentStore`, so the
+semantics below are unchanged. The renderer never imports the Node entrypoint.
 
 ```text
 <library>/<slug>/

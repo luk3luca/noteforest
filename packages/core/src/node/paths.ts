@@ -105,3 +105,23 @@ export function pathExists(targetPath: string): Promise<boolean> {
     .then(() => true)
     .catch(() => false);
 }
+
+/**
+ * Best-effort title for a package that did not parse into a document. A
+ * readable JSON object with a string title is used (newer-schema and some
+ * invalid documents); otherwise the folder name is the honest fallback.
+ */
+export function packageTitle(packagePath: string, rawText: string | null): string {
+  if (rawText !== null) {
+    try {
+      const value = JSON.parse(rawText) as { title?: unknown };
+      if (typeof value.title === 'string' && value.title.trim().length > 0) {
+        return value.title.trim();
+      }
+    } catch {
+      // Truncated or malformed JSON: the folder name is still useful.
+    }
+  }
+  const folder = path.basename(path.resolve(packagePath));
+  return folder.length > 0 ? folder : 'Untitled document';
+}

@@ -10,6 +10,8 @@ export * from './ids.js';
 export * from './errors.js';
 export * from './document.js';
 export * from './validation.js';
+export * from './migrations.js';
+export * from './assets.js';
 export * from './serialize.js';
 export * from './fractional-order.js';
 export * from './structure.js';

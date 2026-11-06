@@ -7,29 +7,17 @@
  * unit-testable without starting Electron.
  */
 
-import path from 'node:path';
 import type { CoreError } from '@noteforest/core';
-import type { ReadOnlyReason } from '@noteforest/core/node';
+import { packageTitle, type ReadOnlyReason } from '@noteforest/core/node';
 import type { RecoveryStatus } from '../shared/api.js';
 
 /**
- * Best-effort title for a package that did not parse into a document. A
- * readable JSON object with a string title is used (newer-schema and some
- * invalid documents); otherwise the folder name is the honest fallback.
+ * Best-effort title for a package that did not parse into a document. The
+ * package/title logic is shared with the repository listing so the library and
+ * the recovery surface never disagree.
  */
 export function recoveryTitle(packagePath: string, rawText: string | null): string {
-  if (rawText !== null) {
-    try {
-      const value = JSON.parse(rawText) as { title?: unknown };
-      if (typeof value.title === 'string' && value.title.trim().length > 0) {
-        return value.title.trim();
-      }
-    } catch {
-      // Truncated or malformed JSON: the folder name is still useful.
-    }
-  }
-  const folder = path.basename(path.resolve(packagePath));
-  return folder.length > 0 ? folder : 'Untitled document';
+  return packageTitle(packagePath, rawText);
 }
 
 /** Map the core open reason onto the library/recovery vocabulary. */

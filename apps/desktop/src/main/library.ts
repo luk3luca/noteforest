@@ -6,14 +6,12 @@
  * mutated only through typed commands.
  */
 
-import { constants as fsConstants, promises as fs, type Dirent } from 'node:fs';
+import { constants as fsConstants, promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
   createDocument as createCoreDocument,
-  documentStats,
   orderKeysAfter,
-  parseDocumentJson,
   validateDocument,
   type Branch,
   type ContentBlock,
@@ -24,24 +22,22 @@ import {
 import {
   backupsDirForPackage,
   breakStaleLock,
-  createDocumentPackage,
   createUniquePackageDir,
   defaultAppSupportDir,
   documentJsonPath,
   assetsDirPath,
-  inspectRecoveryCandidates,
-  openDocumentPackage,
+  NodeDocumentRepository,
   pathExists,
   readRecentDocuments,
   restoreCandidateToPackage,
   writeDocumentPackageCopy,
   writeFileAtomic,
   type DocumentStore,
+  type OpenDocumentResult as CoreOpenDocumentResult,
 } from '@noteforest/core/node';
 import type {
   ApplyResult,
   BackupCandidateView,
-  LibraryDocumentStatus,
   LibraryView,
   ListBackupsResult,
   LockInfoView,
@@ -92,7 +88,11 @@ export function isInsideLibrary(candidate: string): boolean {
   return isPathInside(libraryDir(), candidate);
 }
 
-const stores = new Map<string, DocumentStore>();
+/**
+ * Process-wide persistence boundary. It owns the open-store registry; the
+ * renderer still talks only to the main process.
+ */
+const repository = new NodeDocumentRepository({ appSupportDir });
 
 function lockInfoView(store: DocumentStore): LockInfoView | undefined {
   const info = store.lockInfo;
@@ -130,80 +130,9 @@ export async function ensureLibrary(): Promise<string> {
 export async function scanLibrary(): Promise<LibraryView> {
   const directory = await ensureLibrary();
   const support = appSupportDir();
-  const documents: LibraryView['documents'] = [];
-  const warnings: string[] = [];
-
-  let entries: Dirent[] = [];
-  try {
-    entries = await fs.readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    warnings.push(`Could not read the library: ${error instanceof Error ? error.message : String(error)}`);
-  }
-
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
-    const packagePath = path.join(directory, entry.name);
-    const jsonPath = documentJsonPath(packagePath);
-    let updatedAt = new Date().toISOString();
-    try {
-      updatedAt = (await fs.stat(packagePath)).mtime.toISOString();
-    } catch {
-      // The folder vanished between readdir and stat; still report it.
-    }
-
-    let text: string;
-    try {
-      text = await fs.readFile(jsonPath, 'utf8');
-    } catch (error) {
-      const missing = (error as NodeJS.ErrnoException).code === 'ENOENT';
-      const status: LibraryDocumentStatus = missing ? 'missing' : 'unreadable';
-      documents.push({
-        packagePath,
-        title: recoveryTitle(packagePath, null),
-        status,
-        reason: missing
-          ? 'document.json is missing from this folder'
-          : `could not read document.json: ${error instanceof Error ? error.message : String(error)}`,
-        documentId: null,
-        revision: null,
-        updatedAt,
-        blockCount: 0,
-        chapterCount: 0,
-      });
-      continue;
-    }
-
-    const parsed = parseDocumentJson(text);
-    if (!parsed.ok) {
-      const newer = parsed.error.code === 'newer-schema';
-      documents.push({
-        packagePath,
-        title: recoveryTitle(packagePath, text),
-        status: newer ? 'newer-schema' : 'unreadable',
-        reason: parsed.error.message,
-        documentId: null,
-        revision: null,
-        updatedAt,
-        blockCount: 0,
-        chapterCount: 0,
-      });
-      continue;
-    }
-
-    const stats = documentStats(parsed.document);
-    documents.push({
-      packagePath,
-      title: parsed.document.title,
-      status: 'ok',
-      documentId: parsed.document.id,
-      revision: parsed.document.revision,
-      updatedAt: parsed.document.updatedAt,
-      blockCount: stats.blocks,
-      chapterCount: stats.chapters,
-    });
-  }
-
-  documents.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  const listing = await repository.list(directory);
+  const documents: LibraryView['documents'] = listing.documents;
+  const warnings: string[] = [...listing.warnings];
 
   let recent: LibraryView['recent'] = [];
   try {
@@ -251,7 +180,7 @@ export type OpenStoreResult = OpenedStore | OpenedRecovery | { error: string };
  * nothing here writes to the package.
  */
 async function recoveryViewFromOpen(
-  result: Awaited<ReturnType<typeof openDocumentPackage>>,
+  result: CoreOpenDocumentResult,
 ): Promise<RecoveryDocumentView> {
   const status = recoveryStatus(result.readOnlyReason);
   let rawText: string | null = null;
@@ -293,21 +222,19 @@ export async function openStore(packagePath: string): Promise<OpenStoreResult> {
   if (!isInsideLibrary(resolved)) {
     return { error: 'Document is outside the NoteForest library.' };
   }
-  const existing = stores.get(resolved);
-  if (existing !== undefined && !existing.closed) {
+  const existing = repository.get(resolved);
+  if (existing !== null) {
     const current = snapshot(existing);
     if (current !== null) return { store: existing, snapshot: current };
   }
 
   await ensureLibrary();
-  const result = await openDocumentPackage(resolved, { registerRecent: true });
+  const result = await repository.open(resolved, { registerRecent: true });
   if (result.document === null) {
-    // Recovery-only stores must not stay in the open-store map: they have no
+    // Recovery-only stores are closed by the repository: they have no
     // document, no lock, and no writable path.
-    await result.store.close().catch(() => undefined);
     return { recovery: await recoveryViewFromOpen(result) };
   }
-  stores.set(resolved, result.store);
   const current = snapshot(result.store);
   if (current === null) {
     return { recovery: await recoveryViewFromOpen(result) };
@@ -341,12 +268,11 @@ export async function takeOverStaleLock(
     return { ok: false, code: 'unknown', message: 'Document is outside the NoteForest library.' };
   }
 
-  const existing = stores.get(resolved);
-  if (existing !== undefined) {
+  const existing = repository.get(resolved);
+  if (existing !== null) {
     const current = snapshot(existing);
     if (current !== null && !existing.readOnly) return { ok: true, snapshot: current };
-    await existing.close().catch(() => undefined);
-    stores.delete(resolved);
+    await repository.close(resolved);
   }
 
   const broken = await breakStaleLock(resolved, { appSupportDir: appSupportDir() });
@@ -368,9 +294,8 @@ export async function takeOverStaleLock(
     }
   }
 
-  const opened = await openDocumentPackage(resolved, { registerRecent: true });
+  const opened = await repository.open(resolved, { registerRecent: true });
   if (opened.document === null) {
-    await opened.store.close().catch(() => undefined);
     return {
       ok: false,
       code: 'read-only',
@@ -378,7 +303,7 @@ export async function takeOverStaleLock(
     };
   }
   if (opened.status !== 'editable') {
-    await opened.store.close().catch(() => undefined);
+    await repository.close(resolved);
     return {
       ok: false,
       code: 'read-only',
@@ -386,11 +311,9 @@ export async function takeOverStaleLock(
         'The document is still read-only. Another session may have acquired the lock before the takeover completed; reopen the document to inspect it.',
     };
   }
-  stores.set(resolved, opened.store);
   const current = snapshot(opened.store);
   if (current === null) {
-    await opened.store.close().catch(() => undefined);
-    stores.delete(resolved);
+    await repository.close(resolved);
     return { ok: false, code: 'unknown', message: 'The reopened document has no snapshot.' };
   }
   return { ok: true, snapshot: current };
@@ -403,9 +326,8 @@ export async function createDocument(input: { title?: string }): Promise<{
 } | { ok: false; message: string }> {
   const directory = await ensureLibrary();
   const title = input.title?.trim() || 'Untitled';
-  const created = await createDocumentPackage(directory, { title });
+  const created = await repository.create(directory, { title });
   if (!created.ok) return { ok: false, message: created.error.message };
-  stores.set(created.packagePath, created.store);
   const chapterId = created.document.chapters[0]?.id;
   if (chapterId !== undefined) {
     const block = created.store.apply({
@@ -413,11 +335,10 @@ export async function createDocument(input: { title?: string }): Promise<{
       placement: { kind: 'top-level', chapterId },
     });
     if (!block.ok) {
-      created.store.close().catch(() => undefined);
-      stores.delete(created.packagePath);
+      await repository.close(created.packagePath);
       return { ok: false, message: `Could not create the first block: ${block.message}` };
     }
-    await created.store.save({});
+    await repository.save(created.packagePath);
   }
   const current = snapshot(created.store);
   if (current === null) return { ok: false, message: 'The new document could not be opened.' };
@@ -506,7 +427,8 @@ export async function saveDocument(
       error: 'document is open read-only; save is blocked',
     };
   }
-  const result = await opened.store.save(
+  const result = await repository.save(
+    opened.store.packagePath,
     overwriteExternal === true ? { overwriteExternal: true } : {},
   );
   if (!result.ok) {
@@ -596,10 +518,7 @@ export async function listBackups(packagePath: string): Promise<ListBackupsResul
     return { ok: false, message: 'Document is outside the NoteForest library.' };
   }
   try {
-    const candidates = await inspectRecoveryCandidates(resolved, {
-      appSupportDir: appSupportDir(),
-      includeCanonical: false,
-    });
+    const candidates = await repository.listBackups(resolved);
     return { ok: true, backups: backupCandidates(candidates) };
   } catch (error) {
     return {
@@ -795,10 +714,9 @@ export async function reloadDocument(packagePath: string): Promise<ReloadDocumen
   if (!isInsideLibrary(resolved)) {
     return { ok: false, message: 'Document is outside the NoteForest library.' };
   }
-  const existing = stores.get(resolved);
-  if (existing !== undefined) {
-    await existing.close().catch(() => undefined);
-    stores.delete(resolved);
+  const existing = repository.get(resolved);
+  if (existing !== null) {
+    await repository.close(resolved);
   }
   const opened = await openStore(resolved);
   if ('error' in opened) return { ok: false, message: opened.error };
@@ -808,42 +726,19 @@ export async function reloadDocument(packagePath: string): Promise<ReloadDocumen
 
 export async function closeDocument(packagePath: string, options: { save: boolean }): Promise<void> {
   const resolved = path.resolve(packagePath);
-  const store = stores.get(resolved);
-  if (store === undefined) return;
-  try {
-    if (options.save && store.hasUnsavedChanges) await store.save({});
-  } catch {
-    // Closing still releases the lock; the failure is surfaced by the save path.
-  }
-  await store.close().catch(() => undefined);
-  stores.delete(resolved);
+  await repository.close(resolved, { save: options.save });
 }
 
 export function dirtyDocuments(): Array<{ packagePath: string; title: string }> {
-  const dirty: Array<{ packagePath: string; title: string }> = [];
-  for (const store of stores.values()) {
-    if (store.document !== null && store.hasUnsavedChanges) {
-      dirty.push({ packagePath: store.packagePath, title: store.document.title });
-    }
-  }
-  return dirty;
+  return repository.dirty();
 }
 
 export async function saveAllDirty(): Promise<Array<{ packagePath: string; error: string }>> {
-  const failures: Array<{ packagePath: string; error: string }> = [];
-  for (const store of stores.values()) {
-    if (!store.hasUnsavedChanges) continue;
-    const result = await store.save({});
-    if (!result.ok) failures.push({ packagePath: store.packagePath, error: result.error.message });
-  }
-  return failures;
+  return repository.saveAllDirty();
 }
 
 export async function closeAllStores(): Promise<void> {
-  for (const store of stores.values()) {
-    await store.close().catch(() => undefined);
-  }
-  stores.clear();
+  await repository.closeAll();
 }
 
 // ---------------------------------------------------------------------------

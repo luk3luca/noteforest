@@ -10,6 +10,7 @@ export * from './atomic.js';
 export * from './lock.js';
 export * from './backups.js';
 export * from './recent.js';
+export * from './repository.js';
 export * from './store.js';
 export * from './recovery.js';
 export * from './copy.js';

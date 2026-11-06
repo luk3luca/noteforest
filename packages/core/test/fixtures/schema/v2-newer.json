@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "id": "fixture-schema-v2-newer",
+  "title": "Schema v2 (unknown newer)",
+  "createdAt": "2026-11-06T09:00:00.000Z",
+  "updatedAt": "2026-11-06T09:00:00.000Z",
+  "revision": 4,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "landscape",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [],
+  "chapters": [
+    {
+      "id": "fixture-chapter-1",
+      "title": "Chapter One",
+      "topLevelBlockIds": ["fixture-block-1"]
+    }
+  ],
+  "blocks": {
+    "fixture-block-1": {
+      "id": "fixture-block-1",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [{ "type": "text", "text": "From a newer app version." }]
+          }
+        ]
+      }
+    }
+  },
+  "anchors": {},
+  "branches": {},
+  "assets": {}
+}
