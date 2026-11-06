@@ -326,7 +326,7 @@ describe('edge routing — left-entry below stack', () => {
     expect(edge.end.y).toBeCloseTo(callout.y + callout.height / 2, 5);
     expect(edge.arrow.direction).toBe('right');
     const points = parsePoints(edge.path);
-    expect(points[0]?.y).toBeCloseTo(parent.y + parent.height, 5);
+    expect(points[0]?.y).toBeCloseTo(parent.y + parent.height + GEOMETRY.trunkGap, 5);
     // The trunk starts inside the parent card, a few px right of its corner.
     expect(points[0]?.x).toBeCloseTo(parent.x + GEOMETRY.trunkInset, 5);
     expect(points[0]?.x).toBeGreaterThan(parent.x);
@@ -336,6 +336,23 @@ describe('edge routing — left-entry below stack', () => {
     expect(points.at(-1)).toEqual(edge.end);
     expect(lastSegment(points).horizontal).toBe(true);
     expect(lastSegment(points).length).toBeGreaterThanOrEqual(GEOMETRY.stemMin);
+  });
+
+  it('keeps a visible token gap between the parent bottom and a single-row trunk', () => {
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [{ id: 'callout-edge', rect: callout }],
+    });
+    const edge = group.edges[0];
+    if (edge === undefined) throw new Error('missing route');
+    const points = parsePoints(edge.path);
+    expect(points[0]?.y).toBeCloseTo(
+      parent.y + parent.height + GEOMETRY.trunkGap,
+      5,
+    );
+    expect((points[0]?.y ?? 0) - (parent.y + parent.height)).toBe(GEOMETRY.trunkGap);
+    expect(GEOMETRY.trunkGap).toBeGreaterThan(0);
   });
 
   it('shares one left trunk and enters every callout row from the left', () => {
@@ -352,7 +369,7 @@ describe('edge routing — left-entry below stack', () => {
     const trunk = group.trunks[0];
     if (trunk === undefined) throw new Error('missing trunk');
     expect(trunk.kind).toBe('trunk');
-    expect(trunk.start.y).toBeCloseTo(parent.y + parent.height, 5);
+    expect(trunk.start.y).toBeCloseTo(parent.y + parent.height + GEOMETRY.trunkGap, 5);
     expect(trunk.end.y).toBeCloseTo(second.y + second.height / 2, 5);
     expect(trunk.start.x).toBeCloseTo(parent.x + GEOMETRY.trunkInset, 5);
     expect(trunk.start.x).toBeGreaterThan(parent.x);
@@ -445,6 +462,10 @@ describe('edge routing — left-entry below stack', () => {
     const trunk = group.trunks[0];
     if (trunk === undefined) throw new Error('missing trunk');
     expect(trunk.start.x).toBeCloseTo(parent.x + GEOMETRY.trunkInset, 5);
+    expect(trunk.start.y).toBeCloseTo(
+      parent.y + parent.height + GEOMETRY.trunkGap,
+      5,
+    );
     expect(trunk.start.x).toBeGreaterThan(parent.x);
     expect(group.edges.every((edge) => edge.arrow.direction === 'right')).toBe(true);
     expect(group.edges.every((edge) => edge.placement === 'below')).toBe(true);

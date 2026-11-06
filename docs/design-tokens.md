@@ -1,6 +1,6 @@
 # Design tokens — layout, spacing, edges, surfaces
 
-**Status:** Active (M3 review, M3g3 callout safe zone, 6 November 2026)  
+**Status:** Active (M3 review, M3g4 callout stacking and trunk gap, 6 November 2026)  
 **Source of truth:** `apps/desktop/src/renderer/src/lib/design-tokens.ts`  
 **Related:** `docs/ux-shell.md`, `docs/design/m3-anchors-references.md` §6.2.1
 
@@ -13,6 +13,7 @@ Components and the router must read these tokens; do not add new hard-coded 12/1
 |---|---:|---|
 | `rowIndent` | 26 px | Below-stack rows (callouts and wrapped direct children) from the lane left |
 | `trunkInset` | 12 px | Below trunk start from the parent card left, inside the card |
+| `trunkGap` | 8 px | Visible gap between the parent card bottom and the below trunk start |
 | `stemMin` | 12 px | Final horizontal segment before every arrowhead |
 | `siblingGap` / `childGap` | 16 px | Gap between sibling cards and between parent and child groups |
 | `calloutGap` | 16 px | Anchor → callout offset when the anchor is farther right |
@@ -55,10 +56,22 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 
 ## Edges
 
+- The below trunk starts `trunkGap` (8 px) below the parent card bottom; it is deliberately detached
+  from the card border instead of touching it.
 - Primary/right, below/callout, and reference edges all use the same fixed 6×6 arrowhead.
 - Primary and below elbows use `edgeRadius` 2 px; the first-child trunk junction stays sharp.
 - Reference edges are dashed with an open chevron and never join the primary V4 trunk.
 - No top-entry arrows: every target edge enters from the left.
+
+## Stacking
+
+- The parent card stays above its below stack (`z-index: 2`) so its bottom add-sibling control and
+  chrome remain clickable.
+- The anchored callout lane paints above the direct-child group (`1` vs `0`). The safe zone and wrap
+  rule are still the primary layout guarantee; the order is a safety net so an anchor child can
+  never be hidden behind a direct child during a transient measure or reflow state.
+- `CalloutLaneView` resolves the parent card on every alignment pass and observes the host, so a lane
+  that mounts before its card still receives `--nf-lane-width` and `--nf-callout-offset`.
 
 ## Colors, borders, typography
 

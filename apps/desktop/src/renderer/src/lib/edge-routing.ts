@@ -11,10 +11,10 @@
  *   starts exactly at that child's T-junction, without a gap;
  * - the arrowhead is a fixed-size polygon independent of the path length, and
  *   the final horizontal/vertical segment is at least `stemMin` long;
- * - wrapped children and anchored callouts share one trunk that emerges from
- *   the parent's bottom edge, one horizontal arm per row, and a fixed right
- *   arrowhead into the row's left edge; the trunk starts inside the parent
- *   card and never crosses a row card.
+ * - wrapped children and anchored callouts share one trunk that emerges just
+ *   below the parent's bottom edge, one horizontal arm per row, and a fixed
+ *   right arrowhead into the row's left edge; the trunk starts inside the
+ *   parent card and never crosses a row card.
  */
 
 import {
@@ -43,6 +43,8 @@ export interface RouteOptions {
   stemMin?: number;
   /** Below trunk origin from the parent card's left edge. */
   trunkInset?: number;
+  /** Visible gap between the parent card bottom and the below trunk start. */
+  trunkGap?: number;
 }
 
 export interface RoutedArrow {
@@ -379,6 +381,10 @@ export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
   const stemMin = input.options?.stemMin ?? GEOMETRY.stemMin;
   const radius = input.options?.radius ?? GEOMETRY.edgeRadius;
   const parentBottom = rectBottom(parent);
+  // The trunk begins a small gap below the card instead of touching its border;
+  // the gap is shared by single-row elbows and the multi-row shared trunk.
+  const trunkStartY =
+    parentBottom + (input.options?.trunkGap ?? GEOMETRY.trunkGap);
   const minRowLeft = Math.min(...children.map((child) => child.rect.x));
   // The trunk is anchored inside the parent card. Rows are expected to be
   // indented by rowIndent, which leaves a full stem; a row that comes back
@@ -391,19 +397,20 @@ export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
   const last = ordered[ordered.length - 1] as GroupChild;
   const lastY = rectCenter(last.rect).y;
   const trunkDefect =
-    lastY - parentBottom < GEOMETRY.edgeMinGap || minRowLeft < trunkX + gap + stemMin - 0.5;
+    lastY - trunkStartY < GEOMETRY.edgeMinGap ||
+    minRowLeft < trunkX + gap + stemMin - 0.5;
 
   const edges: RoutedEdge[] = [];
   for (const child of ordered) {
     const rowCenter = rectCenter(child.rect).y;
     const end: Point = { x: child.rect.x - gap, y: rowCenter };
     const start: Point = { x: trunkX, y: rowCenter };
-    // A single row keeps one continuous elbow from the parent port. With two
-    // or more rows the shared trunk owns the vertical run and each edge is a
-    // short arm from the trunk.
+    // A single row keeps one continuous elbow from the gapped trunk origin.
+    // With two or more rows the shared trunk owns the vertical run and each
+    // edge is a short arm from the trunk.
     const points =
       ordered.length === 1
-        ? [{ x: trunkX, y: parentBottom }, start, end]
+        ? [{ x: trunkX, y: trunkStartY }, start, end]
         : [start, end];
     // Round the single elbow only with what is left after the required 12 px
     // stem. At the minimum row indent nothing is left, so the arm stays sharp
@@ -435,8 +442,8 @@ export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
             placement: 'below',
             kind: 'trunk',
             // Straight: rounded ends would pull the stroke away from the arms.
-            path: edgePath([{ x: trunkX, y: parentBottom }, { x: trunkX, y: lastY }], 0),
-            start: { x: trunkX, y: parentBottom },
+            path: edgePath([{ x: trunkX, y: trunkStartY }, { x: trunkX, y: lastY }], 0),
+            start: { x: trunkX, y: trunkStartY },
             end: { x: trunkX, y: lastY },
           },
         ];

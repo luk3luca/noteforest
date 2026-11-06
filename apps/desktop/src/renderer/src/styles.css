@@ -2298,6 +2298,28 @@ body.nf-dragging-block .nf-gutter-handle {
   width: max-content;
   max-width: 100%;
   min-height: var(--nf-right-group-height, 0px);
+  isolation: isolate;
+}
+
+/* Below-stack stacking order: the parent card keeps its bottom controls on
+   top, the anchored callout lane paints above the direct-child column, and the
+   right group stays behind both. The safe zone still prevents overlap; this
+   order is the safety net for transient measure/reflow states so an anchor
+   child can never be hidden behind a direct child. */
+.nf-block-inner[data-callouts="true"]
+  > div
+  > .react-renderer.node-blockBody
+  > .nf-block-body {
+  z-index: 2;
+}
+
+.nf-block-inner[data-callouts="true"] > div > .react-renderer.node-calloutLane {
+  position: relative;
+  z-index: 1;
+}
+
+.nf-block-inner[data-callouts="true"] > div > .react-renderer.node-branchChildren {
+  z-index: 0;
 }
 
 .nf-block-inner[data-callouts="true"] > div > .react-renderer.node-calloutLane {

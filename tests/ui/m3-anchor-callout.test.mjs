@@ -6,6 +6,7 @@ import { artifactsPath, createHarness } from '../support/harness.mjs';
 
 const tempRoot = artifactsPath('m3b2c-ui');
 const h = createHarness({ tempRoot });
+const BELOW_TRUNK_GAP = 8;
 let page;
 
 function isolated(name) {
@@ -711,7 +712,10 @@ describe('NoteForest M3b2c below-stack routing', () => {
     const trunkStart = trunk.points[0];
     const trunkEnd = trunk.points.at(-1);
     if (trunkStart === undefined || trunkEnd === undefined) throw new Error('missing trunk');
-    assert.ok(Math.abs(trunkStart.y - snapshot.parent.bottom) < 1, 'trunk starts at parent bottom');
+    assert.ok(
+      Math.abs(trunkStart.y - (snapshot.parent.bottom + BELOW_TRUNK_GAP)) < 1,
+      'trunk starts one gap below the parent bottom',
+    );
     assert.ok(
       Math.abs(trunkEnd.y - (snapshot.rows.at(-1).card.top + snapshot.rows.at(-1).card.height / 2)) <
         1.5,
@@ -770,6 +774,152 @@ describe('NoteForest M3b2c below-stack routing', () => {
       width: 1440,
       height: 900,
     });
+  });
+
+  it('paints a new anchor child above an existing direct child and re-aligns after reopen', async () => {
+    const env = isolated('stacking');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    await h.waitLayout({ blocks: 7, arrows: 3 });
+
+    const parentCard = h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Take the symmetric matrix below' })
+      .first();
+    const parentId = await parentCard.getAttribute('data-block-card');
+    assert.equal(typeof parentId, 'string');
+
+    // Product-owner order: the direct child exists first, then the anchor
+    // child is added from the parent text.
+    const directId = 'm3g4-direct-first';
+    await createDirectChild(parentId, directId, 'Direct child already in the right group.');
+    await h.waitLayout({ blocks: 8, arrows: 4 });
+    const calloutId = await createAnchoredChild(parentId, 'symmetric');
+    await waitForCallouts(parentId, 1);
+    await waitForLaneWidth(parentId);
+    await h.waitLayout({ blocks: 9, arrows: 5 });
+
+    const alignment = await page.evaluate(
+      ({ id }) => {
+        const lane = document.querySelector(`[data-callout-lane="${id}"]`);
+        if (lane === null) return null;
+        const host = lane.closest('.nf-block-node');
+        const rows = [...lane.querySelectorAll('[data-callout-row="true"]')].filter(
+          (row) => row.closest('.nf-callout-lane') === lane,
+        );
+        return {
+          laneWidth: Number.parseFloat(
+            host?.style.getPropertyValue('--nf-lane-width') ?? '',
+          ),
+          offsets: rows.map((row) => row.style.getPropertyValue('--nf-callout-offset')),
+        };
+      },
+      { id: parentId },
+    );
+    assert.ok(alignment !== null);
+    assert.ok(
+      alignment.laneWidth >= 240 && alignment.laneWidth <= 480,
+      `the lane width is bounded (${alignment.laneWidth})`,
+    );
+    assert.ok(alignment.offsets.length > 0, 'the callout row exists');
+    assert.ok(
+      alignment.offsets.every((value) => value !== ''),
+      'every callout row has a measured offset',
+    );
+
+    const stacking = await page.evaluate(
+      ({ id, callout }) => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const lane = scope?.querySelector(`[data-callout-lane="${id}"]`);
+        const group = [...(scope?.querySelectorAll('.nf-branch-children') ?? [])].find(
+          (candidate) => candidate.getAttribute('data-parent-id') === id,
+        );
+        const calloutCard = scope?.querySelector(`[data-block-card="${callout}"]`);
+        const card = scope?.querySelector(`[data-block-card="${id}"]`);
+        if (lane === null || lane === undefined || group === null || group === undefined) {
+          return null;
+        }
+        if (calloutCard === null || calloutCard === undefined || card === null || card === undefined) {
+          return null;
+        }
+        const laneWrapper = lane.closest('.react-renderer.node-calloutLane');
+        const groupWrapper = group.closest('.react-renderer.node-branchChildren');
+        const laneRect = lane.getBoundingClientRect();
+        const calloutRect = calloutCard.getBoundingClientRect();
+        const groupRect = group.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          calloutRect.left + calloutRect.width / 2,
+          calloutRect.top + calloutRect.height / 2,
+        );
+        return {
+          hit: hit?.closest('[data-block-card]')?.getAttribute('data-block-card') ?? null,
+          laneZ: Number.parseInt(getComputedStyle(laneWrapper).zIndex, 10),
+          groupZ: Number.parseInt(getComputedStyle(groupWrapper).zIndex, 10),
+          parentZ: Number.parseInt(getComputedStyle(card).zIndex, 10),
+          laneRight: laneRect.right,
+          groupLeft: groupRect.left,
+          calloutRight: calloutRect.right,
+        };
+      },
+      { id: parentId, callout: calloutId },
+    );
+    assert.ok(stacking !== null);
+    assert.equal(stacking.hit, calloutId, 'the callout card is hit-testable, not covered');
+    assert.ok(
+      stacking.laneZ > stacking.groupZ,
+      `the callout lane (${stacking.laneZ}) paints above the right group (${stacking.groupZ})`,
+    );
+    assert.ok(
+      stacking.parentZ > stacking.laneZ,
+      'the parent card keeps its bottom controls above the lane',
+    );
+    assert.ok(
+      stacking.calloutRight <= stacking.groupLeft - 15.5,
+      'the safe zone keeps the callout clear of the direct-child group',
+    );
+
+    await mkdir(artifactsPath('m3g4'), { recursive: true });
+    await h.screenshot(artifactsPath('m3g4', 'anchor-above-direct-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Reopen the saved document. The lane must recover its width and every row
+    // offset without a resize or a new branch.
+    await h.waitSaved();
+    await h.quit();
+    await launch(env);
+    await page.waitForSelector('[data-library-document]');
+    await page.getByText('Linear algebra').first().click();
+    await page.waitForSelector(
+      `.nf-editor[data-active="true"] [data-block-card="${parentId}"]`,
+    );
+    await waitForCallouts(parentId, 1);
+    await waitForLaneWidth(parentId);
+    await page.waitForFunction(
+      (id) => {
+        const lane = document.querySelector(`[data-callout-lane="${id}"]`);
+        if (lane === null) return false;
+        const rows = [...lane.querySelectorAll('[data-callout-row="true"]')].filter(
+          (row) => row.closest('.nf-callout-lane') === lane,
+        );
+        const width = Number.parseFloat(
+          lane.closest('.nf-block-node')?.style.getPropertyValue('--nf-lane-width') ?? '',
+        );
+        return (
+          rows.length > 0 &&
+          rows.every((row) => row.style.getPropertyValue('--nf-callout-offset') !== '') &&
+          Number.isFinite(width) &&
+          width >= 240 &&
+          width <= 480
+        );
+      },
+      parentId,
+      { timeout: 10000 },
+    );
   });
 
   it('wraps a direct child after the callouts at a narrow width, with one shared trunk', async () => {
@@ -832,7 +982,9 @@ describe('NoteForest M3b2c below-stack routing', () => {
     assert.ok(trunk !== undefined);
     const trunkStart = trunk.points[0];
     if (trunkStart === undefined) throw new Error('missing trunk start');
-    assert.ok(Math.abs(trunkStart.y - snapshot.parent.bottom) < 1);
+    assert.ok(
+      Math.abs(trunkStart.y - (snapshot.parent.bottom + BELOW_TRUNK_GAP)) < 1,
+    );
     assert.ok(
       trunkStart.x >= snapshot.parent.left + 8 && trunkStart.x <= snapshot.parent.left + 16,
       'the trunk starts inside the parent card at 960 as well',
@@ -952,7 +1104,9 @@ describe('NoteForest M3b2c below-stack routing', () => {
     // edge; its vertical segment is the trunk, then one right-pointing arm.
     const start = edge.points[0];
     assert.ok(start !== undefined);
-    assert.ok(Math.abs(start.y - snapshot.parent.bottom) < 1);
+    assert.ok(
+      Math.abs(start.y - (snapshot.parent.bottom + BELOW_TRUNK_GAP)) < 1,
+    );
     assert.ok(start.x >= snapshot.parent.left + 8 && start.x <= snapshot.parent.left + 16);
     assert.equal(edge.arrow, 'right');
     expectStem(edge.points, GEOMETRY_STEM_MIN);
@@ -1034,8 +1188,8 @@ describe('NoteForest M3b2c below-stack routing', () => {
       'the below trunk starts at the parent left + 12 px inset',
     );
     assert.ok(
-      Math.abs(wideTrunkStart.y - wide.parent.bottom) <= 1,
-      'the below trunk starts on the parent bottom edge',
+      Math.abs(wideTrunkStart.y - (wide.parent.bottom + BELOW_TRUNK_GAP)) <= 1,
+      'the below trunk starts one gap below the parent bottom edge',
     );
     assert.equal(
       wide.trunks.filter((trunk) => trunk.kind === 'trunk' && trunk.placement === 'below')
@@ -1112,7 +1266,9 @@ describe('NoteForest M3b2c below-stack routing', () => {
     const trunkStart = trunk.points[0];
     if (trunkStart === undefined) throw new Error('missing trunk start');
     assert.ok(Math.abs(trunkStart.x - (narrow.parent.left + 12)) <= 1);
-    assert.ok(Math.abs(trunkStart.y - narrow.parent.bottom) <= 1);
+    assert.ok(
+      Math.abs(trunkStart.y - (narrow.parent.bottom + BELOW_TRUNK_GAP)) <= 1,
+    );
     assert.ok(
       trunkStart.x < Math.min(...narrow.rows.map((row) => row.card.left)) - 11,
       'the trunk stays left of every indented row',

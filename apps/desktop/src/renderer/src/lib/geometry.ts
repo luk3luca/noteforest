@@ -66,6 +66,8 @@ export const GEOMETRY = Object.freeze({
   rowIndent: DESIGN_TOKENS.rowIndent,
   /** Shared below-stack trunk left offset from the parent card left edge. */
   trunkInset: DESIGN_TOKENS.trunkInset,
+  /** Visible gap between the parent card bottom and the below trunk start. */
+  trunkGap: DESIGN_TOKENS.trunkGap,
 });
 
 export type EdgePlacement = 'right' | 'below' | 'overlap';
