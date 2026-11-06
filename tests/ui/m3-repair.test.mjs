@@ -413,7 +413,41 @@ describe('M3e anchor repair and health', () => {
     const candidateText = (await page.locator('[data-health-candidate="1"]').textContent()) ?? '';
     assert.match(candidateText, /occurrence 2/);
     assert.match(candidateText, /lambda/);
+
+    // Selecting a candidate only previews the repair. The document is still
+    // byte-identical until Confirm, and Cancel leaves it that way.
     await page.locator('[data-health-candidate="1"]').click();
+    await page.waitForSelector('[data-health-preview="true"]');
+    const previewText = (await page.locator('[data-health-preview="true"]').textContent()) ?? '';
+    assert.match(previewText, /Before/);
+    assert.match(previewText, /After/);
+    assert.match(previewText, /Formula term · occurrence 1/);
+    assert.match(previewText, /Formula term · occurrence 2/);
+    assert.match(previewText, /Term binding · occurrence 2/);
+    assert.match(previewText, new RegExp(ids.formula.anchor));
+    assert.match(previewText, new RegExp(ids.formula.target));
+    assert.equal(
+      await page.locator(`[data-health-preview-branch="${formulaBranch}"]`).count(),
+      1,
+    );
+    assert.equal(
+      await page.locator(`[data-health-preview-target="${ids.formula.target}"]`).count(),
+      1,
+    );
+    assert.deepEqual(await structure(), before, 'candidate selection does not mutate');
+    await mkdir(artifactsPath('m3h2'), { recursive: true });
+    await h.screenshot(artifactsPath('m3h2', 'anchor-repair-preview-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await page.locator('[data-health-preview-cancel="true"]').click();
+    await page.waitForSelector('[data-health-preview="true"]', { state: 'detached' });
+    assert.deepEqual(await structure(), before, 'cancel does not mutate');
+    assert.equal(await page.locator('[data-health-detail]').count(), 1, 'detail stays open');
+
+    await page.locator('[data-health-candidate="1"]').click();
+    await page.waitForSelector('[data-health-preview="true"]');
+    await page.locator('[data-health-preview-confirm="true"]').click();
     await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
     await waitAnchorSelector(ids.formula.anchor, { latexStart: 10 });
 
@@ -437,6 +471,9 @@ describe('M3e anchor repair and health', () => {
     assert.match(codeCandidate, /lines 1–1/);
     assert.match(codeCandidate, /eigvals/);
     await page.locator('[data-health-candidate="1"]').click();
+    await page.waitForSelector('[data-health-preview="true"]');
+    assert.equal(await page.locator('[data-health-preview-origin]').getAttribute('data-health-preview-origin'), 'candidate');
+    await page.locator('[data-health-preview-confirm="true"]').click();
     await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
     await waitAnchorSelector(ids.code.anchor, { startOffset: 10 });
 
@@ -612,7 +649,33 @@ describe('M3e anchor repair and health', () => {
     );
 
     await openHealthFromWarning(ids.brokenText.anchor);
+    const beforeRelink = await structure();
     await page.locator('[data-health-action="relink"]').click();
+    await page.waitForSelector('[data-health-preview="true"]');
+    assert.equal(
+      await page.locator('[data-health-preview="true"]').getAttribute('data-health-preview-origin'),
+      'selection',
+    );
+    const relinkPreview = (await page.locator('[data-health-preview="true"]').textContent()) ?? '';
+    assert.match(relinkPreview, /missingword/);
+    assert.match(relinkPreview, /omega/);
+    assert.match(relinkPreview, new RegExp(ids.brokenText.anchor));
+    assert.equal(
+      await page.locator(`[data-health-preview-branch="${branchId}"]`).count(),
+      1,
+    );
+    assert.deepEqual(await structure(), beforeRelink, 'relink preview does not mutate');
+    await page.locator('[data-health-preview-cancel="true"]').click();
+    await page.waitForSelector('[data-health-preview="true"]', { state: 'detached' });
+    assert.deepEqual(await structure(), beforeRelink, 'relink cancel does not mutate');
+    assert.equal(
+      (await structure()).anchors[ids.brokenText.anchor].selector.quote,
+      'missingword',
+    );
+
+    await page.locator('[data-health-action="relink"]').click();
+    await page.waitForSelector('[data-health-preview="true"]');
+    await page.locator('[data-health-preview-confirm="true"]').click();
     await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
     await page.waitForFunction(
       (anchorId) => {
