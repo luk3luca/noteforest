@@ -302,6 +302,27 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   supersedes the M3b2a "direct children after the lane / top-entry" route. Brief:
   `docs/tasks/m3b2c-left-entry-below-stack.md`.
 
+## M3i — Core stabilization (proposed, after M3 acceptance, before M4)
+
+Full proposal: `docs/architecture/core-stabilization.md`. Test audit:
+`docs/architecture/test-suite-audit.md`.
+
+This is a scoped architecture milestone, not a big-bang rewrite. Gate: no visual change, no new
+runtime dependency, all existing tests green, no behavior change.
+
+- **Slice 1 — token single-source:** M3h4; CSS variables from TS, canonical 88/28, guard test.
+- **Slice 2 — runtime boundaries:** `DocumentSession`, `DocumentGateway`, `SaveCoordinator`,
+  `EditorProjection`; dependency inversion instead of `window.noteforest` inside the runtime.
+- **Slice 3 — repository + migrations:** document/backup/asset contracts, ordered schema migrations
+  with fixtures, newer-document read-only.
+- **Slice 4 — commands + invariants:** split `commands.ts` by aggregate, command registry,
+  apply→inverse→deep-equal harness, branded IDs where mechanical.
+- **Slice 5 — test harness cleanup:** shared UI session/fixtures, callout split, e2e coverage matrix,
+  core factories. Remove setup duplication, not behavior coverage.
+
+Only interfaces now: `AssetStore`, `ApplicationService`/queries, token registry. Implementations
+for images, API/MCP, auth/audit, settings, page/PDF belong to M3c3b/M4/M5/M6.
+
 ## M4 — Reader/page + PDF (planned)
 
 - Wire the spike's layout/paginator into the real editor; reader remains the primary authoring surface.
