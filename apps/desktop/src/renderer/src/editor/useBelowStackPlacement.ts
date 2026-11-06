@@ -11,7 +11,7 @@ import { anchoredChildBranches } from '@noteforest/core';
 import { useEffect, useRef, useState } from 'react';
 import { directChildBranches } from '../lib/tree';
 import { planDirectChildPlacement, type DirectPlacementCandidate } from '../lib/child-placement';
-import { calloutLaneWidth, rectRight, type Rect } from '../lib/geometry';
+import { calloutLaneWidth, calloutSafeZoneWidth, rectRight, type Rect } from '../lib/geometry';
 import type { DocumentRuntime } from '../state/runtime';
 
 interface BelowStackPlacementInput {
@@ -57,9 +57,22 @@ export function useBelowStackPlacement({
     const next = new Set<string>();
     for (const parentId of Object.keys(document.blocks)) {
       const direct = directChildBranches(document, parentId);
-      if (direct.length < 2) continue; // a lone chain scrolls horizontally (D23)
+      if (direct.length === 0) continue;
       const parent = rects.get(parentId);
       if (parent === undefined) continue;
+      // Anchored callouts give their parent a bounded lane. The right group
+      // starts after max(parent.right, lane.right), so a narrow parent's
+      // 240 px lane is part of the width budget instead of being ignored.
+      // Broken targets are skipped by the adapter and do not get a lane.
+      const hasCallouts = anchoredChildBranches(document, parentId).some(
+        (branch) => document.blocks[branch.targetBlockId] !== undefined,
+      );
+      // The lane width is rounded when published to CSS; round it here too so
+      // the safe-zone wrap decision and the rendered lane never disagree by a
+      // sub-pixel and oscillate between measure passes.
+      const laneWidth = hasCallouts
+        ? Math.round(calloutLaneWidth(parent.width))
+        : undefined;
       const candidates: DirectPlacementCandidate[] = [];
       for (const branch of direct) {
         const child = rects.get(branch.targetBlockId);
@@ -81,16 +94,11 @@ export function useBelowStackPlacement({
         parent,
         children: candidates,
         availableWidth,
-        // Anchored callouts give their parent a bounded lane. The right group
-        // starts after max(parent.right, lane.right), so a narrow parent's
-        // 240 px lane is part of the width budget instead of being ignored.
-        // Broken targets are skipped by the adapter and do not get a lane.
-        laneWidth:
-          anchoredChildBranches(document, parentId).some(
-            (branch) => document.blocks[branch.targetBlockId] !== undefined,
-          )
-            ? calloutLaneWidth(parent.width)
-            : undefined,
+        laneWidth,
+        calloutSafeWidth:
+          laneWidth === undefined
+            ? undefined
+            : calloutSafeZoneWidth(parent, laneWidth),
       });
       for (const id of plan.below) next.add(id);
     }

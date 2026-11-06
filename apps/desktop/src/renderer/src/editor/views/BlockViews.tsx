@@ -21,7 +21,7 @@ import {
 import { getEditorBindings, setDragBlockId } from '../bindings';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
 import { useShell } from '../../state/shell';
-import { calloutLaneWidth, GEOMETRY } from '../../lib/geometry';
+import { calloutLaneWidth, placeCallout, GEOMETRY } from '../../lib/geometry';
 import { anchorHealthReason } from '../../lib/anchor-health';
 import {
   anchorVisualTargets,
@@ -259,11 +259,9 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
       host.style.setProperty('--nf-below-indent', `${GEOMETRY.rowIndent}px`);
       lane.dataset['laneWidth'] = String(laneWidth);
       // Rows start at the lane's left edge plus the shared row indent, so the
-      // callout card and the below trunk are indented together. An anchor that
-      // sits farther right may push its own row further right below.
-      const contentLeft = GEOMETRY.rowIndent;
-      const laneRight = laneWidth;
-      const maxOffset = Math.max(contentLeft, laneRight - GEOMETRY.childMinWidth);
+      // callout card and the below trunk are indented together. The safe-zone
+      // clamp (M3g3) then caps the anchor offset at 160 px from the parent left
+      // and keeps the callout right edge 16 px clear of the direct-child group.
       for (const row of lane.querySelectorAll<HTMLElement>('[data-callout-row="true"]')) {
         // A nested callout has its own lane; only align rows that belong here.
         if (row.closest('.nf-callout-lane') !== laneRoot) continue;
@@ -279,25 +277,23 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
         if (anchorX === null) {
           // Broken/ambiguous bindings have no visible mark: fall back to the
           // card content left and keep the callout reachable.
-          row.style.setProperty('--nf-callout-offset', `${Math.round(contentLeft)}px`);
+          row.style.setProperty('--nf-callout-offset', `${Math.round(GEOMETRY.rowIndent)}px`);
           row.style.setProperty('--nf-callout-dot-left', '0px');
           row.style.setProperty('--nf-callout-leader-left', '0px');
           row.style.setProperty('--nf-callout-leader-width', '0px');
           row.dataset['calloutClamped'] = 'true';
           continue;
         }
-        const desired = anchorX + GEOMETRY.calloutGap;
-        // Align to the anchor when the minimum callout width fits; otherwise
-        // fall back to the card content left and keep the connector.
-        const offset = Math.round(
-          desired > maxOffset + 0.5 ? contentLeft : Math.max(desired, contentLeft),
-        );
+        // Local coordinates: the lane and the parent card share a left edge,
+        // so the parent is `{ x: 0, width: cardWidth }` here.
+        const placement = placeCallout({ x: 0, width: cardWidth }, laneWidth, anchorX);
+        const offset = Math.round(placement.left);
         const delta = Math.round(anchorX - offset);
         row.style.setProperty('--nf-callout-offset', `${offset}px`);
         row.style.setProperty('--nf-callout-dot-left', `${delta - 2}px`);
         row.style.setProperty('--nf-callout-leader-left', `${Math.min(0, delta)}px`);
         row.style.setProperty('--nf-callout-leader-width', `${Math.abs(delta)}px`);
-        row.dataset['calloutClamped'] = desired > maxOffset + 0.5 ? 'true' : 'false';
+        row.dataset['calloutClamped'] = placement.clamped ? 'true' : 'false';
       }
     };
 

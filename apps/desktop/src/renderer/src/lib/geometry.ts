@@ -60,6 +60,8 @@ export const GEOMETRY = Object.freeze({
   /** Bounded independent callout lane width. */
   calloutMinWidth: DESIGN_TOKENS.calloutMinWidth,
   calloutMaxWidth: DESIGN_TOKENS.calloutMaxWidth,
+  /** Callout safe-zone bounds (M3g3). */
+  callout: DESIGN_TOKENS.callout,
   /** Shared below-stack row left offset from the lane/parent left edge. */
   rowIndent: DESIGN_TOKENS.rowIndent,
   /** Shared below-stack trunk left offset from the parent card left edge. */
@@ -149,6 +151,107 @@ export function calloutLaneWidth(
 /** How far a lane extends past its parent card's right edge. */
 export function lanePush(parent: Pick<Rect, 'x' | 'width'>, laneWidth: number): number {
   return Math.max(0, parent.x + laneWidth - rectRight(parent));
+}
+
+/** Left edge of the direct-child group when the parent has a callout lane. */
+export function calloutRightGroupX(
+  parent: Pick<Rect, 'x' | 'width'>,
+  laneWidth: number,
+): number {
+  return (
+    Math.max(rectRight(parent), parent.x + laneWidth) + DESIGN_TOKENS.siblingGap
+  );
+}
+
+/**
+ * Right edge a callout may reach without sliding under the direct-child group:
+ * one `callout.safeGap` before the group trunk. Because `siblingGap` and
+ * `callout.safeGap` are both 16 px, this is the group origin minus its gap;
+ * a parent wider than its bounded lane keeps the wider parent right edge.
+ */
+export function calloutSafeRight(
+  parent: Pick<Rect, 'x' | 'width'>,
+  laneWidth: number,
+): number {
+  return (
+    calloutRightGroupX(parent, laneWidth) - DESIGN_TOKENS.callout.safeGap
+  );
+}
+
+/**
+ * Usable safe-zone width for the callout lane: from the shared row indent to
+ * `calloutSafeRight`. Below the 240 px floor the lane itself is narrower than
+ * the minimum once the row indent is removed; `calloutNeedsWrap` makes the
+ * direct children join the below stack in that case.
+ */
+export function calloutSafeZoneWidth(
+  parent: Pick<Rect, 'x' | 'width'>,
+  laneWidth: number,
+): number {
+  return calloutSafeRight(parent, laneWidth) - (parent.x + DESIGN_TOKENS.rowIndent);
+}
+
+/** True when the direct group must wrap below to leave the callout safe zone. */
+export function calloutNeedsWrap(
+  parent: Pick<Rect, 'x' | 'width'>,
+  laneWidth: number,
+): boolean {
+  return calloutSafeZoneWidth(parent, laneWidth) < DESIGN_TOKENS.calloutMinWidth - 0.5;
+}
+
+export interface CalloutPlacement {
+  /** Absolute left edge of the callout row. */
+  left: number;
+  /** Width available to the callout row after the safe-zone clamp. */
+  width: number;
+  /** Absolute right limit the row may reach. */
+  safeRight: number;
+  /** True when the anchor offset was capped by the safe zone or 160 px cap. */
+  clamped: boolean;
+}
+
+/**
+ * Place one callout row inside the safe zone (M3g3):
+ *
+ *   calloutLeft = clamp(anchorX + calloutGap, lane.left + rowIndent,
+ *                       min(parent.left + maxAnchorOffset,
+ *                           calloutSafeRight - calloutMinWidth))
+ *   calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
+ *
+ * `anchorOffset` is measured from the lane/parent left, matching the live
+ * anchor mark measurement. When the lane is narrower than `calloutMinWidth`
+ * plus the row indent, the upper bound collapses to the row origin instead of
+ * returning a left edge before the shared indent; the caller then wraps the
+ * direct group below (`calloutNeedsWrap`) so nothing sits beside the callout.
+ */
+export function placeCallout(
+  parent: Pick<Rect, 'x' | 'width'>,
+  laneWidth: number,
+  anchorOffset: number,
+): CalloutPlacement {
+  const laneLeft = parent.x;
+  const safeRight = calloutSafeRight(parent, laneWidth);
+  const minimumLeft = laneLeft + DESIGN_TOKENS.rowIndent;
+  const safeMaximumLeft = Math.max(
+    minimumLeft,
+    Math.min(
+      parent.x + DESIGN_TOKENS.callout.maxAnchorOffset,
+      safeRight - DESIGN_TOKENS.calloutMinWidth,
+    ),
+  );
+  const desired = laneLeft + anchorOffset + DESIGN_TOKENS.calloutGap;
+  const left = clamp(desired, minimumLeft, safeMaximumLeft);
+  const width = Math.max(
+    0,
+    Math.min(laneWidth - DESIGN_TOKENS.rowIndent, safeRight - left),
+  );
+  return {
+    left,
+    width,
+    safeRight,
+    clamped:
+      desired > safeMaximumLeft + 0.5 || desired < minimumLeft - 0.5,
+  };
 }
 
 /**

@@ -450,6 +450,35 @@ describe('edge routing — left-entry below stack', () => {
     expect(group.edges.every((edge) => edge.placement === 'below')).toBe(true);
   });
 
+  it('routes a capped far-right callout from the shared trunk with a full stem', () => {
+    // Safe-zone cap: callout starts at parent.left + 160 and is 240 px wide,
+    // ending 16 px before the right group at 416.
+    const capped: Rect = { x: parent.x + GEOMETRY.callout.maxAnchorOffset, y: 220, width: 240, height: 80 };
+    const wrapped: Rect = { x: GEOMETRY.rowIndent, y: 320, width: 280, height: 80 };
+    const group = routeBelowStackGroup({
+      parentId: 'p',
+      parent,
+      children: [
+        { id: 'capped-callout', rect: capped },
+        { id: 'wrapped-direct', rect: wrapped },
+      ],
+    });
+    expect(group.edges.map((edge) => edge.id)).toEqual(['capped-callout', 'wrapped-direct']);
+    expect(group.trunks).toHaveLength(1);
+    const trunk = group.trunks[0];
+    if (trunk === undefined) throw new Error('missing trunk');
+    expect(trunk.start.x).toBeCloseTo(parent.x + GEOMETRY.trunkInset, 5);
+    expect(capped.x + capped.width).toBeLessThanOrEqual(416 - GEOMETRY.callout.safeGap);
+    for (const edge of group.edges) {
+      expect(edge.arrow.direction).toBe('right');
+      expect(lastSegment(parsePoints(edge.path)).horizontal).toBe(true);
+      expect(lastSegment(parsePoints(edge.path)).length).toBeGreaterThanOrEqual(GEOMETRY.stemMin);
+      expect(parsePoints(edge.path).every((point) => point.x <= edge.end.x + 0.5)).toBe(true);
+    }
+    const cappedEdge = group.edges[0];
+    expect(cappedEdge?.end.x).toBeCloseTo(capped.x - GEOMETRY.edgeGap, 5);
+  });
+
   it('sorts rows by their measured Y but keeps every arm at its own row center', () => {
     const high = { id: 'high', rect: { x: 36, y: 300, width: 220, height: 80 } };
     const low = { id: 'low', rect: { x: 36, y: 200, width: 220, height: 80 } };

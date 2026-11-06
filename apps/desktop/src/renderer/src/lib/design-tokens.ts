@@ -1,5 +1,5 @@
 /**
- * Single source of truth for branch-editor geometry (M3g2).
+ * Single source of truth for branch-editor geometry (M3g3).
  *
  * Values are semantic, not per-view: the editor CSS, the lane/right-group
  * placement hook, and the SVG edge router all read the same tokens. Do not
@@ -25,6 +25,16 @@ export const DESIGN_TOKENS = Object.freeze({
   /** Independent callout lane width bounds. */
   calloutMinWidth: 240,
   calloutMaxWidth: 480,
+  /**
+   * Callout safe zone (M3g3). The callout never starts farther than
+   * `maxAnchorOffset` from the parent card left and never ends closer than
+   * `safeGap` to the direct-child group. If the remaining zone cannot fit
+   * `calloutMinWidth`, direct children wrap below after the callouts.
+   */
+  callout: Object.freeze({
+    maxAnchorOffset: 160,
+    safeGap: 16,
+  }),
   /** Primary elbows are near-right angles, never wide arcs. */
   edgeRadius: 2,
   /** Space kept between the arrow tip and the child's left edge. */
