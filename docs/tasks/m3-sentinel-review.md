@@ -2,34 +2,39 @@
 
 **Role:** Reviewer / Sentinel (independent)  
 **Milestone:** M3 — span anchors and reference edges  
-**Base:** current `main` after M3g3 (safe-zone fix) is merged  
+**Base:** current `main` after M3g4 (stacking + trunk-gap fix) is merged  
 **Worktree:** fresh review worktree from `main`  
 **Scope:** M3 acceptance, product-owner fixes, design-token extraction, regressions. No code changes.
 
 ## Context
 
-M3a1–M3f2 plus three product-owner review fixes (M3g1 below-stack/idle anchors, M3g2 lane
-width/right-group push/edge radius, M3g3 callout safe zone) are merged. The product owner did a
-manual pass and found real layout issues; this review must be stricter than a normal code review about
-**visual and layout consistency**, and must extract design rules/tokens rather than only listing bugs.
+M3a1–M3f2 plus four product-owner review fixes (M3g1 below-stack/idle anchors, M3g2 lane
+width/right-group push/edge radius, M3g3 callout safe zone, M3g4 callout stacking/trunk gap) are
+merged. The product owner did a manual pass and found real layout issues; this review must be
+stricter than a normal code review about **visual and layout consistency**, and must extract design
+rules/tokens rather than only listing bugs.
 
 Read first:
 - `AGENTS.md`, `docs/plan.md`, `docs/spec.md` v0.4.5, `docs/ux.md` v1.4, ADR-0005.
 - `docs/design/m3-anchors-references.md`, `docs/design-tokens.md`, `docs/reviews/m2f-phase5c-review.md`.
-- M3 reports: `docs/reports/m3*.md`, especially M3g1/M3g2/M3g3.
+- M3 reports: `docs/reports/m3*.md`, especially M3g1/M3g2/M3g3/M3g4.
 - `docs/definition-of-done.md`, `docs/review-checklist.md`.
 
 ## Mandatory checks
 
 ### 1. Product-owner fixes (reproduce at app level)
-- Below stack: trunk starts inside the parent at `+12`; rows indented `+26`; block and arrow move
-  together; no card overflow.
+- Below stack: trunk starts inside the parent at `+12` and `trunkGap` (8 px) below the card bottom;
+  rows indented `+26`; block and arrow move together; no card overflow.
+- Anchor stacking: an anchor child added after a direct child is hit-testable and painted above the
+  direct-child group; parent card controls stay above the lane; safe zone still prevents overlap.
+- Lane alignment recovery: reload a saved note with callouts repeatedly; `--nf-lane-width` stays
+  240–480 and every row has a measured `--nf-callout-offset` (no full-canvas lane).
 - Idle anchors: no underline/dot/marker/callout when no outgoing branch; undo restores; canonical
   binding untouched or exactly restored.
 - Lane width: 240–480; right group at `max(parent.right, lane.right)+16`; only the excess pushes;
   callout right stops 16 px before the right-group trunk; direct children wrap below after callouts
   when the safe zone is too narrow.
-- Edge radius 2 px: near-right angles, no wide arcs, clean trunk start.
+- Edge radius 2 px: near-right angles, no wide arcs, clean gapped trunk start.
 - Test at 1440, 960, and a 160 px parent with a far-right anchor; multiple callouts and direct
   children; nested callouts; max-width parent.
 
@@ -73,7 +78,8 @@ Read first:
 - **design-token extraction table** (must-fix vs future) and any inconsistent visual rules;
 - new findings ranked S1–S4 with file:line and repro;
 - test inventory/timings;
-- residual gaps (image anchors, paste/duplicate, chip overlap, 160 px cap);
+- residual gaps (image anchors, paste/duplicate, chip overlap, 160 px cap, nested-callout coverage,
+  lane attachment race regression);
 - what was not verified.
 
 No product code, tests, spec, UX, ADR, or plan changes. You may update

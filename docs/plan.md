@@ -2,7 +2,7 @@
 
 **Version:** v2 (3 November 2026)  
 **Owner:** Orchestrator  
-**Status:** M2f accepted; M3 implementation complete (spec v0.4.5, UX v1.4, ADR-0005); M3f2 and M3g1–M3g3 merged. Product-owner visual/VoiceOver pass continues; Sentinel M3 review follows. M3c3b image anchors blocked on the image pipeline; UI paste/duplicate is a follow-up. M4/PDF blocked until M3 is accepted.
+**Status:** M2f accepted; M3 implementation complete (spec v0.4.5, UX v1.4, ADR-0005); M3f2 and M3g1–M3g4 merged. Product-owner visual/VoiceOver pass continues; Sentinel M3 review follows. M3c3b image anchors blocked on the image pipeline; UI paste/duplicate is a follow-up. M4/PDF blocked until M3 is accepted.
 
 ## Rules
 
@@ -278,10 +278,10 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   rendering yet** → M3d1 reference edges (merged) → M3d2 make-home/move-here/demote (merged) →
   M3e repair/health (merged) → M3f1 split/merge with anchor migration (merged) → M3f2 export
   manifest/fixtures/performance (merged).
-- **M3 status:** implementation complete; 472 unit, critical e2e 21/45.6 s, recovery 14, UI 21,
-  `verify` exit 0. Sentinel review and product-owner acceptance pending. Image anchors remain
-  blocked on the image pipeline; UI paste/duplicate placement/undo/clipboard and chip-overlay polish
-  are follow-ups. M4/PDF remain blocked until M3 is accepted.
+- **M3 status:** implementation complete; 491 unit, critical e2e 21/46.0 s, recovery 14, UI 26,
+  `verify` exit 0. Product-owner visual/VoiceOver retry and Sentinel review pending. Image anchors
+  remain blocked on the image pipeline; UI paste/duplicate placement/undo/clipboard and chip-overlay
+  polish are follow-ups. M4/PDF remain blocked until M3 is accepted.
 - **M3b2c approved layout rule (5 November 2026):** direct children stay right while they fit and
   join the below stack when they wrap; callouts always below, before wrapped direct children; one
   shared left trunk with horizontal arms; every arrow enters from the left, never the top. This

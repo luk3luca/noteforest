@@ -91,11 +91,9 @@ Screenshot:
 | `npm test` | 491/491 pass, 43 files, 1.84 s |
 | `node --test tests/ui/m3-anchor-callout.test.mjs` | 8/8 pass |
 | `npm run test:ui` | 26/26 pass, 11 files |
-| `npm run verify:fast` | pass; critical e2e 21/21, suite 45.9 s |
+| `npm run verify` | pass; unit 491, critical e2e 21/21 suite 45.96 s, recovery 14, UI 26 |
 
-The first `verify:fast` run hit one unrelated chapter-title focus flake in the M2 editor suite; the
-same test passed alone and the full command passed on rerun. No fixed sleeps were added to UI tests;
-the reload recovery uses `waitForFunction` conditions.
+No fixed sleeps were added to UI tests; the reload recovery uses `waitForFunction` conditions.
 
 ## Risks and follow-ups
 
