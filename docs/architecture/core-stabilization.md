@@ -1,6 +1,6 @@
 # Core stabilization — proposed M3i
 
-**Status:** Proposed; start only after M3 is accepted and before M4.  
+**Status:** Proposed; M3 is accepted. Slice 1 (tokens) was delivered as M3h4 on 6 November 2026; slices 2–5 remain before M4.  
 **Owner:** Orchestrator.  
 **Rule:** no new features, no visual changes, no new runtime dependencies.
 

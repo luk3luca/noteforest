@@ -320,7 +320,7 @@ Full proposal: `docs/architecture/core-stabilization.md`. Test audit:
 This is a scoped architecture milestone, not a big-bang rewrite. Gate: no visual change, no new
 runtime dependency, all existing tests green, no behavior change.
 
-- **Slice 1 — token single-source:** M3h4; CSS variables from TS, canonical 88/28, guard test.
+- **Slice 1 — token single-source:** delivered as M3h4; CSS variables from TS, canonical 88/28, guard test.
 - **Slice 2 — runtime boundaries:** `DocumentSession`, `DocumentGateway`, `SaveCoordinator`,
   `EditorProjection`; dependency inversion instead of `window.noteforest` inside the runtime.
 - **Slice 3 — repository + migrations:** document/backup/asset contracts, ordered schema migrations
