@@ -98,6 +98,7 @@ export function ImageNodeView({ node, editor }: NodeViewProps): JSX.Element {
         className="nf-image-el"
         src={src}
         alt={alt}
+        {...(assetId.length === 0 ? {} : { 'data-asset-id': assetId })}
         {...(width === undefined ? {} : { width })}
         {...(height === undefined ? {} : { height })}
         draggable={false}

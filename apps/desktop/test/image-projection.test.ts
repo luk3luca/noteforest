@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Asset, ContentNode, Document } from '@noteforest/core';
 import { createDocument } from '@noteforest/core';
-import { buildEditorDocument, contentToPM, pmToContent } from '../src/renderer/src/lib/adapter';
+import { buildEditorDocument, contentToPM, pmToContent, stripUnbackedImages } from '../src/renderer/src/lib/adapter';
 import {
   contentWithImage,
   contentWithImageAlt,
@@ -106,6 +106,19 @@ describe('image editor projection', () => {
   it('keeps a legacy display src only when no assetId exists', () => {
     const legacy = pmToContent({ type: 'image', attrs: { src: 'asset.png', alt: 'Legacy' } });
     expect(legacy.attrs).toEqual({ src: 'asset.png', alt: 'Legacy' });
+  });
+
+  it('drops unbacked pasted images while keeping asset-backed copies', () => {
+    const pasted = stripUnbackedImages({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'before' }] },
+        { type: 'image', attrs: { src: 'https://example.com/remote.png', alt: 'remote' } },
+        { type: 'image', attrs: { assetId: ASSET_ID, src: `noteforest-asset://asset/${ASSET_ID}` } },
+      ],
+    });
+    expect(pasted?.content?.map((node) => node.type)).toEqual(['paragraph', 'image']);
+    expect(pasted?.content?.[1]?.attrs?.['assetId']).toBe(ASSET_ID);
   });
 });
 

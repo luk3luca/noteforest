@@ -5,7 +5,7 @@ import { EditorState, NodeSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
-import { buildEditorDocument, stripAnchorBindings, type PMNode } from '../lib/adapter';
+import { buildEditorDocument, stripAnchorBindings, stripUnbackedImages, type PMNode } from '../lib/adapter';
 import { branchSelectionAnchor } from '../lib/anchor-selection';
 import { imageFilesFromDataTransfer } from '../lib/image';
 import { insertImagesFromFiles } from '../lib/image-insert';
@@ -203,9 +203,10 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
             type: 'doc',
             content: slice.content.toJSON() as PMNode[],
           });
+          const backed = stripUnbackedImages(stripped);
           const fragment = Fragment.fromJSON(
             view.state.schema,
-            stripped.content ?? [],
+            backed?.content ?? [],
           );
           return new Slice(fragment, slice.openStart, slice.openEnd);
         },

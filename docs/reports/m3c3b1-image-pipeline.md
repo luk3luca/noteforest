@@ -68,14 +68,14 @@
   metadata, `asset.add`/inverse, duplicate-record behavior, invalid paths, image/asset JSON
   round-trip. **10/10, 0.13 s.**
 - `apps/desktop/test/image-projection.test.ts` — assetId→URL projection, present/missing assets,
-  display-field stripping, legacy `src` retention, empty-block insertion, alt editing, MIME/filter
-  helpers. **8/8, 0.11 s.**
+  display-field stripping, legacy `src` retention, pasted-image filtering, empty-block insertion,
+  alt editing, MIME/filter helpers. **9/9, 0.10 s.**
 - `apps/desktop/test/asset-paths.test.ts` — protocol path containment and traversal rejection.
   **2/2, 0.14 s.**
 - `tests/ui/m3c3b1-image.test.mjs` — native-picker insertion through the dialog override, empty
   block replacement, block-width/aspect measurements, alt edit, save + relaunch reload, missing
   placeholder, and a synthetic drop import. **2/2, 6.7 s.**
-- `npm test`: **60 files / 657 tests pass, 1.98 s.**
+- `npm test`: **60 files / 658 tests pass, 1.99 s.**
 - `npm run test:ui`: **38/38 UI tests pass** across 16 files (new image file 2/2, 6.7 s).
 - `npm run e2e:critical`: **16/16, 44.7 s.**
 - `npm run test:recovery:run`: **14/14, 17.8 s.**

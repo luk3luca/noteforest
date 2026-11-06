@@ -130,6 +130,28 @@ export function stripAnchorBindings(node: PMNode): PMNode {
   return result;
 }
 
+/**
+ * Drop pasted image nodes that are not backed by a package asset. External
+ * HTML `<img src="https://…">` and data-URL images never become canonical
+ * `src`-only nodes; a copied NoteForest image keeps its `assetId` and survives.
+ */
+export function stripUnbackedImages(node: PMNode): PMNode | null {
+  if (node.type === 'image') {
+    const assetId = node.attrs?.['assetId'];
+    if (typeof assetId !== 'string' || assetId.length === 0) return null;
+  }
+  const result: PMNode = { type: node.type };
+  if (node.attrs !== undefined) result.attrs = { ...node.attrs };
+  if (typeof node.text === 'string') result.text = node.text;
+  if (Array.isArray(node.marks)) result.marks = node.marks.map((mark) => ({ ...mark }));
+  if (Array.isArray(node.content)) {
+    result.content = node.content
+      .map(stripUnbackedImages)
+      .filter((child): child is PMNode => child !== null);
+  }
+  return result;
+}
+
 export interface ContentProjectionOptions {
   /** Canonical asset ids present in the document; drives missing-image projection. */
   knownAssets?: ReadonlySet<string>;
