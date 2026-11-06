@@ -116,6 +116,18 @@ export function Dialogs(): JSX.Element | null {
     );
   }
 
+  if (dialog.kind === 'image-alt') {
+    return (
+      <ImageAltDialog
+        runtime={runtime}
+        blockId={dialog.blockId}
+        path={dialog.path}
+        alt={dialog.alt}
+        onClose={close}
+      />
+    );
+  }
+
   if (dialog.kind === 'anchor-health') {
     return (
       <AnchorHealthDialog
@@ -1769,6 +1781,76 @@ function MathDialog({
           Select part of the LaTeX to branch from that term.
         </p>
       ) : null}
+    </Frame>
+  );
+}
+
+function ImageAltDialog({
+  runtime,
+  blockId,
+  path,
+  alt,
+  onClose,
+}: {
+  runtime: DocumentRuntime;
+  blockId: string;
+  path: number[];
+  alt: string;
+  onClose: () => void;
+}): JSX.Element {
+  const [value, setValue] = useState(alt);
+  const [saving, setSaving] = useState(false);
+
+  const save = (): void => {
+    setSaving(true);
+    void runtime
+      .setImageAlt(blockId, path, value)
+      .then((outcome) => {
+        if (outcome.ok) {
+          onClose();
+          return;
+        }
+        toast.error(outcome.message ?? 'Could not save the alt text.');
+        setSaving(false);
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : 'Could not save the alt text.');
+        setSaving(false);
+      });
+  };
+
+  return (
+    <Frame
+      title="Image alt text"
+      description="Describe the image for screen readers, search, and the exported PDF. Leave it empty for a decorative image."
+      actions={
+        <>
+          <Button className="nf-button" onPress={onClose} isDisabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            className="nf-button nf-button-primary"
+            onPress={save}
+            isDisabled={saving}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <Input
+        className="nf-input"
+        aria-label="Alt text"
+        value={value}
+        autoFocus
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            save();
+          }
+        }}
+      />
     </Frame>
   );
 }

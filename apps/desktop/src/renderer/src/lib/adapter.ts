@@ -14,6 +14,7 @@ import {
   directChildIds,
   normalizeAnchorIds,
 } from '@noteforest/core';
+import { assetUrlFor } from './asset-url';
 import { anchorQuote, anchorState } from './tree';
 
 export interface PMMark {
@@ -129,9 +130,54 @@ export function stripAnchorBindings(node: PMNode): PMNode {
   return result;
 }
 
-export function contentToPM(node: ContentNode): PMNode {
+export interface ContentProjectionOptions {
+  /** Canonical asset ids present in the document; drives missing-image projection. */
+  knownAssets?: ReadonlySet<string>;
+}
+
+/**
+ * Canonical image nodes store `assetId`, not a display path. The editor
+ * projection adds `src` (a renderer-safe asset URL) and a view-only `missing`
+ * flag; `pmToContent` removes both before canonical content is written back.
+ */
+function projectedImageAttrs(
+  attrs: Record<string, unknown>,
+  knownAssets: ReadonlySet<string> | undefined,
+): Record<string, unknown> {
+  const next = { ...attrs };
+  const assetId = next['assetId'];
+  if (typeof assetId === 'string' && assetId.length > 0) {
+    next['src'] = assetUrlFor(assetId);
+    if (knownAssets !== undefined) next['missing'] = !knownAssets.has(assetId);
+  }
+  return next;
+}
+
+/** Strip editor-only image fields; a legacy `src` survives when no assetId exists. */
+function canonicalImageAttrs(attrs: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...attrs };
+  const assetId = next['assetId'];
+  const hasAssetId = typeof assetId === 'string' && assetId.length > 0;
+  delete next['missing'];
+  delete next['missingLabel'];
+  if (hasAssetId) {
+    delete next['src'];
+    delete next['title'];
+  }
+  return next;
+}
+
+export function contentToPM(
+  node: ContentNode,
+  options: ContentProjectionOptions = {},
+): PMNode {
   const result: PMNode = { type: editorNodeType(node.type) };
-  if (isRecord(node.attrs)) result.attrs = atomicAnchorAttrs(node.type, node.attrs);
+  const attrs = isRecord(node.attrs) ? { ...node.attrs } : {};
+  const projected =
+    node.type === 'image' ? projectedImageAttrs(attrs, options.knownAssets) : attrs;
+  if (Object.keys(projected).length > 0) {
+    result.attrs = atomicAnchorAttrs(node.type, projected);
+  }
   if (typeof node.text === 'string') result.text = node.text;
   if (Array.isArray(node.marks)) {
     const marks = node.marks.filter(isRecord).map((mark) => {
@@ -142,13 +188,18 @@ export function contentToPM(node: ContentNode): PMNode {
     const normalized = normalizeMarks(marks);
     if (normalized.length > 0) result.marks = normalized;
   }
-  if (Array.isArray(node.children)) result.content = node.children.map(contentToPM);
+  if (Array.isArray(node.children)) {
+    result.content = node.children.map((child) => contentToPM(child, options));
+  }
   return result;
 }
 
 export function pmToContent(node: PMNode): ContentNode {
   const result: ContentNode = { type: coreNodeType(node.type) };
-  if (node.attrs !== undefined) result.attrs = atomicAnchorAttrs(node.type, node.attrs);
+  if (node.attrs !== undefined) {
+    const attrs = node.type === 'image' ? canonicalImageAttrs(node.attrs) : node.attrs;
+    if (Object.keys(attrs).length > 0) result.attrs = atomicAnchorAttrs(node.type, attrs);
+  }
   if (typeof node.text === 'string') result.text = node.text;
   if (Array.isArray(node.marks)) {
     const marks = normalizeMarks(
@@ -164,8 +215,15 @@ export function pmToContent(node: PMNode): ContentNode {
 }
 
 /** ProseMirror body nodes for a block, always at least one paragraph. */
-export function blockBodyContent(block: ContentNode): PMNode[] {
-  const children = Array.isArray(block.children) ? block.children.map(contentToPM) : [];
+export function blockBodyContent(
+  block: ContentNode,
+  knownAssets?: ReadonlySet<string>,
+): PMNode[] {
+  const options: ContentProjectionOptions =
+    knownAssets === undefined ? {} : { knownAssets };
+  const children = Array.isArray(block.children)
+    ? block.children.map((child) => contentToPM(child, options))
+    : [];
   return children.length > 0 ? children : [{ type: 'paragraph' }];
 }
 
@@ -261,6 +319,7 @@ export function buildBlockNode(
   seen: Set<string> = new Set(),
   belowRow?: BelowRow,
   belowChildIds: ReadonlySet<string> = EMPTY_PLACEMENT,
+  knownAssets: ReadonlySet<string> = new Set(Object.keys(document.assets)),
 ): PMNode | null {
   if (seen.has(id)) return null;
   const block = document.blocks[id];
@@ -299,7 +358,7 @@ export function buildBlockNode(
         ...calloutAttrs,
         ...rowAttrs,
       },
-      content: blockBodyContent(block.content),
+      content: blockBodyContent(block.content, knownAssets),
     },
   ];
 
@@ -324,6 +383,7 @@ export function buildBlockNode(
             ? { kind: 'callout', callout: entry.callout }
             : { kind: 'direct' },
           belowChildIds,
+          knownAssets,
         ),
       )
       .filter((node): node is PMNode => node !== null);
@@ -347,6 +407,7 @@ export function buildBlockNode(
         seen,
         undefined,
         belowChildIds,
+        knownAssets,
       ),
     )
     .filter((node): node is PMNode => node !== null);
@@ -387,8 +448,9 @@ export function buildEditorDocument(
   belowChildIds: ReadonlySet<string> = EMPTY_PLACEMENT,
 ): PMNode {
   const seen = new Set<string>();
+  const knownAssets = new Set(Object.keys(document.assets));
   const buildBlock = (id: string, depth: number): PMNode | null =>
-    buildBlockNode(document, id, depth, collapsed, seen, undefined, belowChildIds);
+    buildBlockNode(document, id, depth, collapsed, seen, undefined, belowChildIds, knownAssets);
 
   // Every chapter is rendered, including a legacy empty one. The `chapter`
   // node accepts `branch*`; an empty chapter is valid ProseMirror content and

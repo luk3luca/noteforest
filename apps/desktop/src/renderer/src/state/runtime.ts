@@ -25,6 +25,7 @@ import type { Editor } from '@tiptap/core';
 import type {
   AnchorBinding,
   AnchorRepairCommand,
+  Asset,
   Document,
   DocumentCommand,
   JsonObject,
@@ -44,6 +45,12 @@ import type {
   SaveCopyResult,
 } from '../../../shared/api';
 import { buildBlockNode, withBody } from '../lib/adapter';
+import {
+  contentWithImage,
+  contentWithImageAlt,
+  defaultImageAlt,
+  imageNodeFor,
+} from '../lib/image';
 import type { BlockCaretLocation, BranchSelectionAnchor } from '../lib/anchor-selection';
 import { blockCaretLocation, branchSelectionAnchor } from '../lib/anchor-selection';
 import {
@@ -79,6 +86,8 @@ export interface ApplyOutcome {
   chapterId?: string;
   anchorId?: string;
   branchId?: string;
+  /** Content-addressed asset inserted by an image command. */
+  assetId?: string;
   /** True when an existing edge was reused instead of creating a new one. */
   duplicate?: boolean;
 }
@@ -520,6 +529,67 @@ export class DocumentRuntime {
         ...(chapterId === undefined ? {} : { chapterId }),
       };
     });
+  }
+
+  /**
+   * Insert one image asset into a block as a single user action.
+   *
+   * `asset.add` records the canonical metadata first (the bytes were already
+   * atomically copied into the package by the main-process asset store), then
+   * one `block.editContent` command inserts the image node. The asset record is
+   * deliberately not a separate undo entry: undo removes the image, and an
+   * unreferenced asset record is harmless until asset GC exists.
+   */
+  async insertImage(blockId: string, asset: Asset): Promise<ApplyOutcome> {
+    if (!this.editable) {
+      return { ok: false, message: 'This document is open read-only.' };
+    }
+    return this.session.queue.run(async () => {
+      if (this.document.blocks[blockId] === undefined) {
+        return { ok: false, message: 'The block no longer exists.' };
+      }
+      const added = await this.runCommandInternal({ type: 'asset.add', asset });
+      if (!added.ok || added.document === undefined) {
+        return { ok: false, message: added.message ?? 'Could not record the image asset.' };
+      }
+      await this.acceptStructural(added.document, null, blockId, { rebuild: false });
+
+      const block = this.document.blocks[blockId];
+      if (block === undefined) return { ok: false, message: 'The block no longer exists.' };
+      const alt = asset.alt ?? defaultImageAlt(asset.originalName);
+      const image = imageNodeFor({
+        assetId: asset.id,
+        ...(alt.length === 0 ? {} : { alt }),
+        ...(asset.width === undefined ? {} : { width: asset.width }),
+        ...(asset.height === undefined ? {} : { height: asset.height }),
+      });
+      const edited = await this.runCommandInternal({
+        type: 'block.editContent',
+        blockId,
+        content: contentWithImage(block.content, image),
+      });
+      if (!edited.ok || edited.document === undefined) {
+        return { ok: false, message: edited.message ?? 'Could not insert the image.' };
+      }
+      await this.acceptStructural(edited.document, edited.inverse, blockId);
+      this.focusBlock(blockId);
+      return { ok: true, blockId, assetId: asset.id };
+    });
+  }
+
+  /** Edit one image's alt text through the block content command. */
+  async setImageAlt(
+    blockId: string,
+    path: readonly number[],
+    alt: string,
+  ): Promise<ApplyOutcome> {
+    const block = this.document.blocks[blockId];
+    if (block === undefined) return { ok: false, message: 'The block no longer exists.' };
+    const content = contentWithImageAlt(block.content, path, alt.trim());
+    return this.applyStructural(
+      { type: 'block.editContent', blockId, content },
+      { focusBlockId: blockId },
+    );
   }
 
   /** Create one block and return the ID the core command actually created. */

@@ -2031,6 +2031,60 @@ button:disabled {
   display: block;
 }
 
+/* Canonical image nodes fill the block content width and keep their intrinsic
+   aspect ratio. The node view owns both the image and the missing placeholder. */
+.nf-image-node {
+  display: block;
+  width: 100%;
+  margin: 8px 0 0;
+}
+
+.nf-image-el {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--nf-card-radius);
+}
+
+.nf-image-missing {
+  display: flex;
+  width: 100%;
+  min-height: 104px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--nf-card-radius);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.nf-image-missing-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.nf-image-missing-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono-font);
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.nf-image-missing-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+
 .nf-block-prose table {
   border-collapse: collapse;
   margin: 8px 0;

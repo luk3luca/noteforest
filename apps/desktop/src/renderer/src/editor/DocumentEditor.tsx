@@ -1,11 +1,14 @@
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
 import { Fragment, Slice } from '@tiptap/pm/model';
-import { NodeSelection } from '@tiptap/pm/state';
+import { EditorState, NodeSelection } from '@tiptap/pm/state';
+import type { EditorView } from '@tiptap/pm/view';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
 import { buildEditorDocument, stripAnchorBindings, type PMNode } from '../lib/adapter';
 import { branchSelectionAnchor } from '../lib/anchor-selection';
+import { imageFilesFromDataTransfer } from '../lib/image';
+import { insertImagesFromFiles } from '../lib/image-insert';
 import {
   ancestorPath,
   chapterIdOf,
@@ -80,6 +83,33 @@ function blockIdAtSelection(editor: Editor): string | null {
     }
   }
   return null;
+}
+
+/** Block that owns a document position (paste/drop image targeting). */
+function blockIdAtPosition(state: EditorState, position: number): string | null {
+  let $position;
+  try {
+    $position = state.doc.resolve(position);
+  } catch {
+    return null;
+  }
+  for (let depth = $position.depth; depth > 0; depth -= 1) {
+    const node = $position.node(depth);
+    if (node.type.name === 'branchBlock') {
+      const id = node.attrs['blockId'];
+      return typeof id === 'string' ? id : null;
+    }
+  }
+  return null;
+}
+
+function blockIdAtViewSelection(view: EditorView): string | null {
+  const selection = view.state.selection;
+  if (selection instanceof NodeSelection && selection.node.type.name === 'branchBlock') {
+    const id = selection.node.attrs['blockId'];
+    return typeof id === 'string' ? id : null;
+  }
+  return blockIdAtPosition(view.state, selection.from);
 }
 
 function DocumentBanners({ runtime }: { runtime: DocumentRuntime }): JSX.Element {
@@ -178,6 +208,27 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
             stripped.content ?? [],
           );
           return new Slice(fragment, slice.openStart, slice.openEnd);
+        },
+        // Image paste/drop copies bytes into the package first; the editable
+        // buffer never receives a remote URL or a data: source. Returning true
+        // suppresses the default HTML paste before the async import completes.
+        handlePaste: (view, event) => {
+          const files = imageFilesFromDataTransfer(event.clipboardData);
+          if (files.length === 0) return false;
+          event.preventDefault();
+          void insertImagesFromFiles(runtime, blockIdAtViewSelection(view), files);
+          return true;
+        },
+        handleDrop: (view, event, _slice, moved) => {
+          if (moved) return false;
+          const files = imageFilesFromDataTransfer(event.dataTransfer);
+          if (files.length === 0) return false;
+          event.preventDefault();
+          const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          const blockId =
+            coordinates === null ? null : blockIdAtPosition(view.state, coordinates.pos);
+          void insertImagesFromFiles(runtime, blockId, files);
+          return true;
         },
       },
       onUpdate: () => {
