@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { CommandSuccess } from '../src/commands.js';
-import { applyInverse, executeCommand } from '../src/commands.js';
+import { applyInverse } from '../src/commands.js';
 import { directChildIds, primaryParentBranch, subtreeBlockIds } from '../src/structure.js';
 import type { Document } from '../src/types.js';
-import { validateDocument } from '../src/validation.js';
 import {
   addChild,
   addTopLevel,
@@ -13,18 +11,10 @@ import {
   run,
   tryRun,
 } from './helpers.js';
-
-function success(result: ReturnType<typeof executeCommand>): CommandSuccess {
-  if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-  return result;
-}
-
-function expectValid(document: Document): void {
-  const report = validateDocument(document);
-  if (!report.ok) {
-    throw new Error(report.errors.map((issue) => issue.message).join('; '));
-  }
-}
+import {
+  expectCommandSuccess as success,
+  expectDocumentValid as expectValid,
+} from './command-invariants.js';
 
 function buildTree() {
   const context = deterministicContext();

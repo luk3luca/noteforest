@@ -6,10 +6,9 @@ import {
   resolveAnchor,
 } from '../src/anchors.js';
 import type { CommandSuccess } from '../src/commands.js';
-import { applyInverse, executeCommand } from '../src/commands.js';
+import { applyInverse } from '../src/commands.js';
 import { directChildIds } from '../src/structure.js';
 import type { ContentNode, Document, JsonObject } from '../src/types.js';
-import { validateDocument } from '../src/validation.js';
 import {
   addChild,
   addTopLevel,
@@ -19,25 +18,11 @@ import {
   textContent,
   tryRun,
 } from './helpers.js';
-
-function success(result: ReturnType<typeof executeCommand>): CommandSuccess {
-  if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-  return result;
-}
-
-function stable(document: Document): Document {
-  const clone = structuredClone(document);
-  clone.revision = 0;
-  clone.updatedAt = '1970-01-01T00:00:00.000Z';
-  return clone;
-}
-
-function expectValid(document: Document): void {
-  const report = validateDocument(document);
-  if (!report.ok) {
-    throw new Error(report.errors.map((issue) => issue.message).join('; '));
-  }
-}
+import {
+  expectCommandSuccess as success,
+  expectDocumentValid as expectValid,
+  normalizedDocument as stable,
+} from './command-invariants.js';
 
 function expectNoMutation(before: Document, document: Document): void {
   expect(stable(document)).toEqual(stable(before));

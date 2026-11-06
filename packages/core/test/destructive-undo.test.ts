@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { CommandSuccess, DocumentCommand } from '../src/commands.js';
+import type { DocumentCommand } from '../src/commands.js';
 import { applyInverse, executeCommand } from '../src/commands.js';
-import { validateDocument } from '../src/validation.js';
 import type { Document } from '../src/types.js';
 import {
   addChild,
@@ -11,39 +10,31 @@ import {
   run,
   textContent,
 } from './helpers.js';
+import {
+  expectCommandSuccess as success,
+  expectDocumentValid as expectValid,
+  expectUndoRedoIdentity,
+  normalizedDocument as stable,
+  redoOf,
+  undoOf,
+} from './command-invariants.js';
 
 /**
  * Whole-document comparison. Revision and document.updatedAt are expected to
  * move forward on undo/redo; every other field, including block timestamps,
  * unknown fields, anchors, reference branches and chapter order, must match.
  */
-function stable(document: Document): Document {
-  const clone = structuredClone(document);
-  clone.revision = 0;
-  clone.updatedAt = '1970-01-01T00:00:00.000Z';
-  return clone;
-}
 
-function success(result: ReturnType<typeof executeCommand>): CommandSuccess {
-  if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-  return result;
-}
-
-function undoOf(result: CommandSuccess): CommandSuccess {
-  expect(result.inverse).not.toBeNull();
-  return success(applyInverse(result));
-}
-
-function redoOf(undone: CommandSuccess): CommandSuccess {
-  expect(undone.inverse).not.toBeNull();
-  return success(applyInverse(undone));
-}
-
-function expectValid(document: Document): void {
-  const report = validateDocument(document);
-  if (!report.ok) {
-    throw new Error(report.errors.map((issue) => issue.message).join('; '));
-  }
+function exerciseUndoRedo(
+  before: Document,
+  command: DocumentCommand,
+): { afterDelete: Document; afterUndo: Document; afterRedo: Document } {
+  const identity = expectUndoRedoIdentity(before, command, deterministicContext(2000));
+  return {
+    afterDelete: identity.applied.document,
+    afterUndo: identity.undone.document,
+    afterRedo: identity.redone.document,
+  };
 }
 
 function buildFixture() {
@@ -108,47 +99,6 @@ function buildFixture() {
     branchA1a: grandchildA1a.branchId,
     branchA2: childA2.branchId,
   };
-}
-
-function exerciseUndoRedo(
-  before: Document,
-  command: DocumentCommand,
-): { afterDelete: Document; afterUndo: Document; afterRedo: Document } {
-  const deleted = run(before, command, deterministicContext(2000));
-  const afterDelete = deleted.document;
-  expectValid(afterDelete);
-  const undone = undoOf(deleted);
-  const afterUndo = undone.document;
-  expectValid(afterUndo);
-  expect(stable(afterUndo)).toEqual(stable(before));
-
-  const redone = redoOf(undone);
-  const afterRedo = redone.document;
-  expectValid(afterRedo);
-  expect(stable(afterRedo)).toEqual(stable(afterDelete));
-
-  // Repeated cycles must neither duplicate nor lose records.
-  let current: CommandSuccess = redone;
-  for (let cycle = 0; cycle < 3; cycle += 1) {
-    const undoneAgain = undoOf(current);
-    expect(stable(undoneAgain.document)).toEqual(stable(before));
-    expect(Object.keys(undoneAgain.document.blocks)).toHaveLength(
-      Object.keys(before.blocks).length,
-    );
-    expect(Object.keys(undoneAgain.document.branches)).toHaveLength(
-      Object.keys(before.branches).length,
-    );
-    current = redoOf(undoneAgain);
-    expect(stable(current.document)).toEqual(stable(afterDelete));
-    expect(Object.keys(current.document.blocks)).toHaveLength(
-      Object.keys(afterDelete.blocks).length,
-    );
-    expect(Object.keys(current.document.branches)).toHaveLength(
-      Object.keys(afterDelete.branches).length,
-    );
-  }
-
-  return { afterDelete, afterUndo, afterRedo };
 }
 
 describe('destructive undo — block.delete', () => {

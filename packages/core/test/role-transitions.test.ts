@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { CommandSuccess, DocumentCommand } from '../src/commands.js';
-import { applyInverse, executeCommand } from '../src/commands.js';
+import type { CommandErrorCode, DocumentCommand } from '../src/commands.js';
+import { applyInverse } from '../src/commands.js';
 import {
   chapterIdForBlock,
   directChildBranches,
@@ -9,7 +9,6 @@ import {
   subtreeBlockIds,
 } from '../src/structure.js';
 import type { Branch, Document } from '../src/types.js';
-import { validateDocument } from '../src/validation.js';
 import {
   addChild,
   addTopLevel,
@@ -17,20 +16,12 @@ import {
   newDocument,
   run,
   textContent,
-  tryRun,
 } from './helpers.js';
-
-function success(result: ReturnType<typeof executeCommand>): CommandSuccess {
-  if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-  return result;
-}
-
-function expectValid(document: Document): void {
-  const report = validateDocument(document);
-  if (!report.ok) {
-    throw new Error(report.errors.map((issue) => issue.message).join('; '));
-  }
-}
+import {
+  expectCommandSuccess as success,
+  expectDocumentValid as expectValid,
+  expectRejectedWithoutMutation,
+} from './command-invariants.js';
 
 function structureSnapshot(document: Document): unknown {
   return structuredClone({
@@ -152,17 +143,11 @@ function expectRejected(
   document: Document,
   command: DocumentCommand,
   context: ReturnType<typeof deterministicContext>,
-  code: string,
+  code: CommandErrorCode,
   messagePart?: string,
 ): void {
-  const before = structuredClone(document);
-  const result = tryRun(document, command, context);
-  expect(result.ok).toBe(false);
-  if (result.ok) return;
-  expect(result.code).toBe(code);
-  if (messagePart !== undefined) expect(result.message).toContain(messagePart);
   // A rejected role transition must not mutate the caller's document.
-  expect(document).toEqual(before);
+  expectRejectedWithoutMutation(document, command, context, code, messagePart);
 }
 
 describe('branch.makeHome', () => {
