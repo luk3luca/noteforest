@@ -1,8 +1,10 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { OpenDocumentSnapshot, SessionTabState } from '../../../shared/api';
+import { createElectronDocumentGateway } from './electron-document-gateway';
 import { DocumentRuntime, type RestorePoint } from './runtime';
 
 const runtimes = new Map<string, DocumentRuntime>();
+const documentGateway = createElectronDocumentGateway();
 let registrySeq = 0;
 const listeners = new Set<() => void>();
 
@@ -28,7 +30,7 @@ export function registerRuntime(
     tab === undefined
       ? null
       : { scrollTop: tab.scrollTop, selectedBlockId: tab.selectedBlockId };
-  const runtime = new DocumentRuntime(snapshot, collapsed, restore);
+  const runtime = new DocumentRuntime(snapshot, collapsed, restore, documentGateway);
   runtimes.set(snapshot.packagePath, runtime);
   bump();
   void runtime.ensureChaptersHaveBlocks();
