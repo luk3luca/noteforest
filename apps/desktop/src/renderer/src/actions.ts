@@ -29,7 +29,13 @@ import {
   outgoingReferenceBranches,
   parentIdOf,
 } from './lib/tree';
-import { anchoredChildBranches, primaryParentBranch, subtreeBlockIds } from '@noteforest/core';
+import {
+  anchoredChildBranches,
+  planBlockMerge,
+  planBlockSplit,
+  primaryParentBranch,
+  subtreeBlockIds,
+} from '@noteforest/core';
 import type { Branch } from '@noteforest/core';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
@@ -464,6 +470,21 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
   const branch = incomingBranch(runtime.document, blockId);
   const hasParent = parentIdOf(runtime.document, blockId) !== null;
   const collapsed = runtime.collapsed.has(blockId);
+  const caret = runtime.caretLocation();
+  const splitCheck =
+    caret !== null && caret.blockId === blockId
+      ? planBlockSplit(runtime.document, blockId, {
+          nodePath: caret.nodePath,
+          offset: caret.offset,
+        })
+      : {
+          ok: false as const,
+          reason:
+            caret === null
+              ? 'place the caret inside this block'
+              : 'the caret is in a different block',
+        };
+  const mergeCheck = planBlockMerge(runtime.document, blockId);
   const anchorGroups = new Map<string, { count: number; quote: string; warning: boolean }>();
   for (const anchored of anchoredChildBranches(runtime.document, blockId)) {
     const anchorId = anchored.source.anchorId;
@@ -546,6 +567,24 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       label: 'Add sibling block',
       shortcut: '⌥⏎',
       onSelect: () => report(runtime.addSibling(blockId)),
+    },
+    {
+      id: 'split-at-caret',
+      label: splitCheck.ok ? 'Split at caret' : `Split at caret — ${splitCheck.reason}`,
+      disabled: !splitCheck.ok,
+      ...(splitCheck.ok
+        ? { onSelect: () => report(runtime.splitAtCaret(blockId)) }
+        : {}),
+    },
+    {
+      id: 'merge-previous',
+      label: mergeCheck.ok
+        ? 'Merge with previous'
+        : `Merge with previous — ${mergeCheck.reason}`,
+      disabled: !mergeCheck.ok,
+      ...(mergeCheck.ok
+        ? { onSelect: () => report(runtime.mergeBlock(blockId)) }
+        : {}),
     },
     {
       id: 'link-reference',

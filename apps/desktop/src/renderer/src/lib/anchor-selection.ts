@@ -564,3 +564,88 @@ export function branchSelectionAnchor(editor: Editor): TextSelectionResult {
   }
   return textSelectionAnchor(editor);
 }
+
+export interface BlockCaretLocation {
+  blockId: string;
+  /** Path relative to the block body's content root, matching core content. */
+  nodePath: number[];
+  /** Unicode code point offset inside the text leaf. */
+  offset: number;
+}
+
+interface CaretMatch {
+  nodePath: number[];
+  offset: number;
+}
+
+function findCaretInBody(
+  node: PMNode,
+  path: number[],
+  nodeStart: number,
+  target: number,
+  best: { inside: CaretMatch | null; left: CaretMatch | null; right: CaretMatch | null },
+): void {
+  if (node.type === 'text') {
+    const text = node.text ?? '';
+    const end = nodeStart + text.length;
+    if (text.length === 0) return;
+    if (target > nodeStart && target < end) {
+      if (best.inside === null) {
+        best.inside = { nodePath: [...path], offset: codePointOffset(text, target - nodeStart) };
+      }
+      return;
+    }
+    if (target === end && best.left === null) {
+      best.left = { nodePath: [...path], offset: codePointOffset(text, text.length) };
+      return;
+    }
+    if (target === nodeStart && best.right === null) {
+      best.right = { nodePath: [...path], offset: 0 };
+    }
+    return;
+  }
+
+  let childOffset = nodeStart + 1;
+  for (const [index, child] of (node.content ?? []).entries()) {
+    findCaretInBody(child, [...path, index], childOffset, target, best);
+    childOffset += nodeSize(child);
+  }
+}
+
+/**
+ * Map a collapsed ProseMirror selection to the canonical text leaf and code
+ * point offset used by `block.split`. Returns null for a non-empty selection,
+ * a caret outside a block, or a caret not adjacent to a text leaf (an empty
+ * block, a formula/image node, or the gap before the first paragraph).
+ */
+export function blockCaretLocation(editor: Editor): BlockCaretLocation | null {
+  const selection = editor.state.selection;
+  if (!selection.empty || selection instanceof NodeSelection) return null;
+  const $from = editor.state.doc.resolve(selection.from);
+  let bodyDepth = -1;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === 'blockBody') {
+      bodyDepth = depth;
+      break;
+    }
+  }
+  if (bodyDepth < 0) return null;
+  const blockNode = $from.node(bodyDepth - 1);
+  const blockId = blockNode.attrs['blockId'];
+  if (blockNode.type.name !== 'branchBlock' || typeof blockId !== 'string') return null;
+  const body = $from.node(bodyDepth);
+  const bodyStart = $from.before(bodyDepth) + 1;
+  const bodyOffset = selection.from - bodyStart;
+  const best = {
+    inside: null as CaretMatch | null,
+    left: null as CaretMatch | null,
+    right: null as CaretMatch | null,
+  };
+  // The body node is not part of its own content coordinate space: starting at
+  // -1 makes its first child occupy offset 0, matching ProseMirror positions
+  // relative to `bodyStart` above.
+  findCaretInBody(body.toJSON() as PMNode, [], -1, bodyOffset, best);
+  const match = best.inside ?? best.left ?? best.right;
+  if (match === null || match.nodePath.length === 0) return null;
+  return { blockId, nodePath: match.nodePath, offset: match.offset };
+}

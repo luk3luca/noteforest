@@ -16,7 +16,11 @@ import type {
   DocumentCommand,
   JsonObject,
 } from '@noteforest/core';
-import { anchoredChildBranches, textAnchorSelectorForBinding } from '@noteforest/core';
+import {
+  anchoredChildBranches,
+  planBlockMerge,
+  textAnchorSelectorForBinding,
+} from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
 import { redoDepth, undoDepth } from '@tiptap/pm/history';
 import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state';
@@ -29,8 +33,8 @@ import type {
   SaveFailureCode,
 } from '../../../shared/api';
 import { buildBlockNode, buildEditorDocument, extractBlockContents, withBody, type PMNode } from '../lib/adapter';
-import type { BranchSelectionAnchor } from '../lib/anchor-selection';
-import { branchSelectionAnchor } from '../lib/anchor-selection';
+import type { BlockCaretLocation, BranchSelectionAnchor } from '../lib/anchor-selection';
+import { blockCaretLocation, branchSelectionAnchor } from '../lib/anchor-selection';
 import { recordPerf } from '../lib/perf';
 import { createSerialQueue } from '../lib/serial-queue';
 import {
@@ -843,6 +847,76 @@ export class DocumentRuntime {
     return this.createBlock({
       type: 'block.create',
       placement: { kind: 'sibling', siblingBlockId: blockId, after: true },
+    });
+  }
+
+  /** Canonical split caret for the block menu and structural actions. */
+  caretLocation(): BlockCaretLocation | null {
+    return this.editor === null ? null : blockCaretLocation(this.editor);
+  }
+
+  /**
+   * Split the block at the current caret. One typed command covers content,
+   * anchor migration, branch sources, and placement; one structural inverse
+   * restores the pre-split identity. Focus moves to the new block.
+   */
+  async splitAtCaret(blockId: string): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      const caret = this.caretLocation();
+      if (caret === null) {
+        return {
+          ok: false,
+          message: 'Place the caret inside a text block, without a selection, first.',
+        };
+      }
+      if (caret.blockId !== blockId) {
+        return { ok: false, message: 'The caret is in a different block.' };
+      }
+      const result = await this.runCommandInternal({
+        type: 'block.split',
+        blockId,
+        at: { nodePath: caret.nodePath, offset: caret.offset },
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not split the block.' };
+      }
+      const newBlockId = result.created?.blockIds[0] ?? null;
+      await this.acceptStructural(result.document, result.inverse, newBlockId);
+      this.reconcileEditor(newBlockId);
+      if (newBlockId !== null) {
+        this.focusBlock(newBlockId);
+        this.selectBlock(newBlockId);
+      }
+      return {
+        ok: true,
+        ...(newBlockId === null ? {} : { blockId: newBlockId }),
+      };
+    });
+  }
+
+  /**
+   * Merge a block into its previous sibling (same parent port) or previous
+   * top-level block (same chapter). The core plan is the single legality
+   * source; focus lands at the end of the surviving block.
+   */
+  async mergeBlock(blockId: string): Promise<ApplyOutcome> {
+    return this.queue.run(async () => {
+      const check = planBlockMerge(this.document, blockId);
+      if (!check.ok) return { ok: false, message: check.reason };
+      const survivorId = check.plan.intoBlockId;
+      const result = await this.runCommandInternal({
+        type: 'block.merge',
+        blockId,
+        intoBlockId: survivorId,
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not merge the block.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, survivorId);
+      this.reconcileEditor(survivorId);
+      this.focusBlock(survivorId, { at: 'end' });
+      this.selectBlock(survivorId);
+      return { ok: true, blockId: survivorId };
     });
   }
 

@@ -378,6 +378,13 @@ export function App(): JSX.Element {
           manualBreakBeforeBlockIds: document.manualBreakBeforeBlockIds,
         });
       },
+      caretLocation: () => {
+        const state = useShell.getState();
+        const runtime = allRuntimes().find(
+          (item) => item.packagePath === state.activeTab,
+        );
+        return runtime?.caretLocation() ?? null;
+      },
       flushSession: () => window.noteforest.saveSession(buildSession()),
       setFlushMode: (mode: FlushTestMode) => {
         flushTestMode = mode;
