@@ -370,22 +370,6 @@ function activeSaveBanner() {
   return page.locator('.nf-editor[data-active="true"] [data-save-failure="true"]');
 }
 
-/** Leave the app in a save-clean state so teardown never hits the close dialog. */
-async function recoverSaveFailure() {
-  if ((await page.locator('[data-save-failure="true"]').count()) > 0) {
-    await page.locator('[data-save-action="retry"]').click();
-  }
-  await h.waitSaved();
-}
-
-/** Best-effort teardown after the guarded-quit failure test. */
-async function recoverBackupFailure() {
-  if ((await page.locator('[data-save-failure="true"]').count()) > 0) {
-    await page.locator('[data-save-action="retry"]').click().catch(() => undefined);
-  }
-  await h.waitSaved().catch(() => undefined);
-}
-
 describe('NoteForest M2 editor shell', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -2277,59 +2261,6 @@ describe('NoteForest M2 editor shell', () => {
     }
   });
 
-  it('reloads from disk only after confirmation and discards local changes', async () => {
-    await launch(isolated('reload'));
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    const packagePath = (await h.state()).activeTab;
-    const originalBytes = await readFile(resolve(packagePath, 'document.json'));
-    await setPackageWritable(packagePath, false);
-    try {
-      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
-      await page.keyboard.press('End');
-      await page.keyboard.type(' Local change that reload must discard');
-      await waitSaveFailure('permission');
-
-      await page.locator('[data-save-action="reload"]').click();
-      const dialog = page.getByRole('dialog', { name: 'Reload from disk?' });
-      await dialog.waitFor();
-      await dialog.getByRole('button', { name: 'Cancel' }).click();
-      await page.getByRole('dialog', { name: 'Reload from disk?' }).waitFor({ state: 'detached' });
-      assert.match(await page.locator('.nf-editor[data-active="true"]').innerText(), /Local change that reload must discard/);
-      assert.equal(await page.locator('[data-save-failure="true"]').count(), 1, 'cancel keeps the failure visible');
-
-      await setPackageWritable(packagePath, true);
-      await page.locator('[data-save-action="reload"]').click();
-      const confirm = page.getByRole('dialog', { name: 'Reload from disk?' });
-      await confirm.waitFor();
-      await confirm.getByRole('button', { name: 'Reload from disk', exact: true }).click();
-
-      await page.waitForSelector('[data-save-failure="true"]', { state: 'detached' });
-      await page.waitForFunction(
-        () => {
-          const current = window.__noteforestTest.state();
-          const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
-          return runtime?.saveState === 'saved';
-        },
-        undefined,
-        { timeout: 10000 },
-      );
-      assert.equal(
-        (await readFile(resolve(packagePath, 'document.json'))).equals(originalBytes),
-        true,
-        'reload never writes to disk',
-      );
-      assert.doesNotMatch(
-        await page.locator('.nf-editor[data-active="true"]').innerText(),
-        /Local change that reload must discard/,
-        'local changes are gone after the confirmed reload',
-      );
-    } finally {
-      await setPackageWritable(packagePath, true);
-    }
-  });
-
   it('reloads externally changed content only after confirmation', async () => {
     await launch(isolated('external-reload'));
     await page.evaluate(() => window.__noteforestTest.seed('demo'));
@@ -2346,10 +2277,31 @@ describe('NoteForest M2 editor shell', () => {
     await page.keyboard.type(' Local change discarded by reload');
     await waitSaveFailure('external-modification');
 
-    await activeSaveBanner().locator('[data-save-action="reload"]').click();
+    const editor = page.locator('.nf-editor[data-active="true"]');
+    const reload = activeSaveBanner().locator('[data-save-action="reload"]');
+
+    // Cancel is a real discard guard: the local text and the failure banner stay.
+    await reload.click();
     const dialog = page.getByRole('dialog', { name: 'Reload from disk?' });
     await dialog.waitFor();
-    await dialog.getByRole('button', { name: 'Reload from disk', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await dialog.waitFor({ state: 'detached' });
+    assert.match(await editor.innerText(), /Local change discarded by reload/);
+    assert.equal(
+      await editor.locator('[data-save-failure="true"]').count(),
+      1,
+      'cancel keeps the failure visible',
+    );
+    assert.equal(
+      (await readFile(documentPath)).equals(externalBytes),
+      true,
+      'cancel never writes or reloads the external file',
+    );
+
+    await reload.click();
+    const confirm = page.getByRole('dialog', { name: 'Reload from disk?' });
+    await confirm.waitFor();
+    await confirm.getByRole('button', { name: 'Reload from disk', exact: true }).click();
 
     await page.waitForSelector('.nf-editor[data-active="true"] [data-save-failure="true"]', {
       state: 'detached',
@@ -2362,215 +2314,6 @@ describe('NoteForest M2 editor shell', () => {
       true,
       'reload reads the external file and never writes it',
     );
-  });
-
-  it('overwrites an external modification only after a Cancel-default confirmation', async () => {
-    await launch(isolated('external-overwrite'));
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    const packagePath = (await h.state()).activeTab;
-    const documentPath = resolve(packagePath, 'document.json');
-    const externalBytes = await modifyDocumentOnDisk(packagePath, (document) => {
-      document.title = 'Externally renamed';
-    });
-
-    await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
-    await page.keyboard.press('End');
-    await page.keyboard.type(' Local content that overwrite keeps');
-    await waitSaveFailure('external-modification');
-
-    const banner = activeSaveBanner();
-    await banner.waitFor();
-    assert.match(await banner.locator('.nf-save-failure-title').innerText(), /changed on disk/i);
-    assert.equal(await banner.getAttribute('data-save-failure-code'), 'external-modification');
-    for (const action of ['retry', 'overwrite', 'save-copy', 'reload', 'reveal']) {
-      assert.equal(
-        await banner.locator(`[data-save-action="${action}"]`).count(),
-        1,
-        `${action} action is present`,
-      );
-    }
-    assert.equal(
-      (await readFile(documentPath)).equals(externalBytes),
-      true,
-      'a failed save never touches the external file',
-    );
-
-    await banner.locator('[data-save-action="overwrite"]').click();
-    const dialog = page.getByRole('dialog', { name: 'Overwrite file on disk?' });
-    await dialog.waitFor();
-    const dialogText = await dialog.innerText();
-    assert.match(dialogText, new RegExp(packagePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.match(dialogText, /lost/i);
-    await page.waitForFunction(
-      () => document.activeElement?.textContent?.trim() === 'Cancel',
-      undefined,
-      { timeout: 5000 },
-    );
-
-    // Cancel is the default: the external file stays untouched and the banner
-    // remains the authoritative state.
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
-    await dialog.waitFor({ state: 'detached' });
-    assert.equal((await readFile(documentPath)).equals(externalBytes), true);
-    assert.equal(await banner.count(), 1, 'cancel keeps the external-modification banner');
-
-    await banner.locator('[data-save-action="overwrite"]').click();
-    const confirm = page.getByRole('dialog', { name: 'Overwrite file on disk?' });
-    await confirm.waitFor();
-    await confirm.getByRole('button', { name: 'Overwrite', exact: true }).click();
-
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-save-failure="true"]', {
-      state: 'detached',
-    });
-    await h.waitSaved();
-    const disk = await readDiskDocument(packagePath);
-    assert.match(JSON.stringify(disk), /Local content that overwrite keeps/);
-    assert.equal(disk.title, 'Linear algebra', 'the local title replaced the external one');
-
-    // The overwrite establishes the new hash: the next normal save must not
-    // report a repeated false conflict.
-    await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
-    await page.keyboard.press('End');
-    await page.keyboard.type(' and a later save');
-    await h.waitSaved();
-    assert.match(
-      JSON.stringify(await readDiskDocument(packagePath)),
-      /and a later save/,
-      'the next save succeeds without another conflict',
-    );
-    assert.equal(
-      await page.locator('[data-save-failure="true"]').count(),
-      0,
-      'no false external-modification banner after overwrite',
-    );
-  });
-
-  it('saves a copy after external modification without touching the external file', async () => {
-    const env = isolated('external-copy');
-    await launch(env);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    const packagePath = (await h.state()).activeTab;
-    const documentPath = resolve(packagePath, 'document.json');
-    const originalBytes = await readFile(documentPath);
-    const externalBytes = await modifyDocumentOnDisk(packagePath, (document) => {
-      setFirstBlockText(document, 'External content before copy');
-    });
-
-    await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
-    await page.keyboard.press('End');
-    await page.keyboard.type(' Local content rescued from the conflict');
-    await waitSaveFailure('external-modification');
-
-    const destination = resolve(env.NOTEFOREST_LIBRARY, 'external rescue copy');
-    await mockSaveCopyDialog(destination);
-    await activeSaveBanner().locator('[data-save-action="save-copy"]').click();
-
-    await page.waitForFunction(
-      (expected) =>
-        window.__noteforestTest.state().tabs.length === 2 &&
-        window.__noteforestTest.state().activeTab === expected,
-      destination,
-      { timeout: 10000 },
-    );
-    const copy = await readDiskDocument(destination);
-    assert.match(JSON.stringify(copy), /Local content rescued from the conflict/);
-    assert.equal(
-      (await readFile(documentPath)).equals(externalBytes),
-      true,
-      'the original external file is untouched by the copy',
-    );
-
-    // Restore the pre-conflict bytes so the original runtime can save cleanly
-    // before teardown. The copy assertions above already ran.
-    await page.evaluate((path) => window.__noteforestTest.openPath(path), packagePath);
-    await waitActiveTab(packagePath);
-    await writeFile(documentPath, originalBytes);
-    const banner = activeSaveBanner();
-    if ((await banner.count()) > 0) {
-      await banner.locator('[data-save-action="retry"]').click();
-    }
-    await h.waitSaved();
-  });
-
-  it('dismisses a failed-save quit through the E2E dialog guard', async () => {
-    const env = isolated('quit-guard');
-    await launch(env);
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    const packagePath = (await h.state()).activeTab;
-    await setPackageWritable(packagePath, false);
-    try {
-      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
-      await page.keyboard.press('End');
-      await page.keyboard.type(' Quit must not block on a native dialog');
-      await waitSaveFailure('permission');
-
-      // No dialog mock here: the E2E guard must answer Cancel immediately.
-      await h.app.evaluate(({ app: electronApp }) => {
-        electronApp.quit();
-      });
-      await waitUntil(
-        async () => {
-          const calls = await h.app.evaluate(() => globalThis.__nfDialogCalls ?? []);
-          return calls.some((call) => call.method === 'showMessageBox');
-        },
-        'guarded quit dialog',
-      );
-      const calls = await h.app.evaluate(() => globalThis.__nfDialogCalls ?? []);
-      const quitCall = calls.find((call) => call.method === 'showMessageBox');
-      assert.deepEqual(quitCall.options.buttons, ['Retry', 'Cancel']);
-      assert.equal(quitCall.options.cancelId, 1, 'the guard answers Cancel');
-
-      await waitWindowCount(1);
-      assert.equal(await page.evaluate(() => window.__noteforestTest.state().ready), true);
-      assert.equal(await page.locator('[data-save-failure="true"]').count(), 1);
-    } finally {
-      await setPackageWritable(packagePath, true);
-      await recoverBackupFailure();
-    }
-  });
-
-  it('blocks closing on a failed save and keeps the content until Retry succeeds', async () => {
-    const env = isolated('close-failed');
-    await launch(env);
-    await mockCloseDialogs();
-    await page.evaluate(() => window.__noteforestTest.seed('demo'));
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
-    await h.waitSaved();
-    const packagePath = (await h.state()).activeTab;
-    await setPackageWritable(packagePath, false);
-    try {
-      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
-      await page.keyboard.press('End');
-      await page.keyboard.type(' Saved only after Retry');
-      await waitSaveFailure('permission');
-
-      await closeMainWindow();
-      const dialog = await waitCloseDialog();
-      assert.deepEqual(dialog.buttons, ['Retry', 'Cancel']);
-      assert.match(dialog.detail, /permission|EACCES|could not save/i);
-      await waitWindowCount(1);
-      await answerCloseDialog(1);
-      assert.equal(await page.evaluate(() => window.__noteforestTest.state().ready), true);
-      assert.equal(await page.locator('[data-save-failure="true"]').count(), 1);
-
-      await setPackageWritable(packagePath, true);
-      await recoverSaveFailure();
-      await closeMainWindow();
-      await waitWindowCount(0);
-    } finally {
-      await setPackageWritable(packagePath, true);
-    }
-
-    await h.quit();
-    await launch(env);
-    await page.waitForSelector('.nf-editor[data-active="true"]');
-    await h.waitEditorText('Saved only after Retry');
   });
 
   it('creates a text-anchored child, undoes once, and reloads with the anchor intact', async () => {

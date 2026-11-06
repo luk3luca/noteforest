@@ -1092,7 +1092,57 @@ function fixtureM3SplitMerge() {
 }
 
 // ---------------------------------------------------------------------------
-// F12 — export manifest with shared child, reference cycle, broken/ambiguous
+// F12 — formula-term edit source (AC-57: re-resolve around a term)
+// ---------------------------------------------------------------------------
+function fixtureM3FormulaTermEdit() {
+  const termLatex = 'a^2 + b^2';
+  return makeDocument({
+    id: 'm3-formula-term-edit',
+    title: 'M3 formula term edit — re-resolve around the term',
+    blocks: [
+      block('m3fe-formula', 'Formula term source', [
+        p(text('The identity below owns the term anchor.')),
+        withAnchorIds(displayMath('a^2 + b^2 = c^2'), ['m3fe-a-term']),
+      ]),
+      block('m3fe-term-child', 'Formula term callout', [
+        p(text('The term callout survives every edit around its term.')),
+      ]),
+    ],
+    anchors: [
+      anchorRecord(
+        'm3fe-a-term',
+        'm3fe-formula',
+        'formula',
+        {
+          kind: 'formula',
+          form: 'term',
+          latex: termLatex,
+          occurrenceHint: 1,
+        },
+        { quote: termLatex, occurrenceHint: 1 },
+      ),
+    ],
+    branches: [
+      branch(
+        'm3fe-e-term',
+        { blockId: 'm3fe-formula', anchorId: 'm3fe-a-term' },
+        'm3fe-term-child',
+        'primary',
+        'a1',
+      ),
+    ],
+    chapters: [
+      {
+        id: 'm3fe-ch1',
+        title: 'Formula term edits',
+        topLevelBlockIds: ['m3fe-formula'],
+      },
+    ],
+  });
+}
+
+// ---------------------------------------------------------------------------
+// F13 — export manifest with shared child, reference cycle, broken/ambiguous
 // ---------------------------------------------------------------------------
 function fixtureM3ExportManifest() {
   return makeDocument({
@@ -1272,6 +1322,7 @@ async function main() {
     'broken-anchor.json': fixtureF9(),
     'm3-anchor-kinds.json': fixtureM3AnchorKinds(),
     'm3-split-merge.json': fixtureM3SplitMerge(),
+    'm3-formula-term-edit.json': fixtureM3FormulaTermEdit(),
     'm3-export-manifest.json': fixtureM3ExportManifest(),
   };
   for (const [file, document] of Object.entries(fixtures)) {
