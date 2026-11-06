@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 1,
+  "id": "m3-split-merge",
+  "title": "M3 split and merge — anchor migration",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [],
+  "blocks": {
+    "m3s-split": {
+      "id": "m3s-split",
+      "label": "Split source",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Alpha "
+              },
+              {
+                "type": "text",
+                "text": "beta",
+                "marks": [
+                  {
+                    "type": "anchor",
+                    "attrs": {
+                      "anchorIds": [
+                        "m3s-a-before"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " "
+              },
+              {
+                "type": "text",
+                "text": "gamma ",
+                "marks": [
+                  {
+                    "type": "anchor",
+                    "attrs": {
+                      "anchorIds": [
+                        "m3s-a-span"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "delta ",
+                "marks": [
+                  {
+                    "type": "anchor",
+                    "attrs": {
+                      "anchorIds": [
+                        "m3s-a-after",
+                        "m3s-a-span"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "epsilon."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3s-merge-target": {
+      "id": "m3s-merge-target",
+      "label": "Merge target",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Merge target text."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3s-merge-source": {
+      "id": "m3s-merge-source",
+      "label": "Merge source",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Please "
+              },
+              {
+                "type": "text",
+                "text": "merge me",
+                "marks": [
+                  {
+                    "type": "anchor",
+                    "attrs": {
+                      "anchorIds": [
+                        "m3s-a-merge"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " into the target."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3s-after-child": {
+      "id": "m3s-after-child",
+      "label": "After-split callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout sourced from an anchor after the split."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3s-span-child": {
+      "id": "m3s-span-child",
+      "label": "Spanning callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout sourced from an anchor spanning the split."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3s-merge-child": {
+      "id": "m3s-merge-child",
+      "label": "Merge callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A callout sourced from an anchor that moves on merge."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {
+    "m3s-a-before": {
+      "id": "m3s-a-before",
+      "blockId": "m3s-split",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "beta"
+      },
+      "quote": "beta"
+    },
+    "m3s-a-after": {
+      "id": "m3s-a-after",
+      "blockId": "m3s-split",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "delta"
+      },
+      "quote": "delta"
+    },
+    "m3s-a-span": {
+      "id": "m3s-a-span",
+      "blockId": "m3s-split",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "gamma delta"
+      },
+      "quote": "gamma delta"
+    },
+    "m3s-a-merge": {
+      "id": "m3s-a-merge",
+      "blockId": "m3s-merge-source",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "merge me"
+      },
+      "quote": "merge me"
+    }
+  },
+  "branches": {
+    "m3s-e-after": {
+      "id": "m3s-e-after",
+      "source": {
+        "blockId": "m3s-split",
+        "anchorId": "m3s-a-after"
+      },
+      "targetBlockId": "m3s-after-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3s-e-span": {
+      "id": "m3s-e-span",
+      "source": {
+        "blockId": "m3s-split",
+        "anchorId": "m3s-a-span"
+      },
+      "targetBlockId": "m3s-span-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3s-e-merge": {
+      "id": "m3s-e-merge",
+      "source": {
+        "blockId": "m3s-merge-source",
+        "anchorId": "m3s-a-merge"
+      },
+      "targetBlockId": "m3s-merge-child",
+      "role": "primary",
+      "order": "a1"
+    }
+  },
+  "chapters": [
+    {
+      "id": "m3s-ch1",
+      "title": "Split and merge",
+      "topLevelBlockIds": [
+        "m3s-split",
+        "m3s-merge-target",
+        "m3s-merge-source"
+      ]
+    }
+  ],
+  "assets": {},
+  "annotations": []
+}

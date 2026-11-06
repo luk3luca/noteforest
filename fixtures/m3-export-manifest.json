@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "id": "m3-export-manifest",
+  "title": "M3 export manifest — exactly once",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [],
+  "blocks": {
+    "m3x-root-a": {
+      "id": "m3x-root-a",
+      "label": "Root A",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Root A introduces the "
+              },
+              {
+                "type": "text",
+                "text": "callout",
+                "marks": [
+                  {
+                    "type": "anchor",
+                    "attrs": {
+                      "anchorIds": [
+                        "m3x-a-callout"
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": " branch."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3x-callout": {
+      "id": "m3x-callout",
+      "label": "Anchored callout",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "An anchored callout exported once."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3x-root-b": {
+      "id": "m3x-root-b",
+      "label": "Root B",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "Root B is the primary home of the shared child."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3x-shared": {
+      "id": "m3x-shared",
+      "label": "Shared child",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A shared child referenced from another chapter."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3x-broken-host": {
+      "id": "m3x-broken-host",
+      "label": "Broken anchor host",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The broken anchor quote is absent from this block."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3x-broken-child": {
+      "id": "m3x-broken-child",
+      "label": "Broken anchor child",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A branch behind a broken anchor still exports once."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3x-ref-parent": {
+      "id": "m3x-ref-parent",
+      "label": "Reference-only root",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A reference-only root is included via its chapter."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3x-ambiguous-host": {
+      "id": "m3x-ambiguous-host",
+      "label": "Ambiguous anchor host",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "term term term"
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3x-ambiguous-child": {
+      "id": "m3x-ambiguous-child",
+      "label": "Ambiguous anchor child",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A branch behind an ambiguous anchor still exports once."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {
+    "m3x-a-callout": {
+      "id": "m3x-a-callout",
+      "blockId": "m3x-root-a",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "callout",
+        "prefix": "the ",
+        "suffix": " branch",
+        "occurrenceHint": 1
+      },
+      "quote": "callout",
+      "prefix": "the ",
+      "suffix": " branch",
+      "occurrenceHint": 1
+    },
+    "m3x-a-broken": {
+      "id": "m3x-a-broken",
+      "blockId": "m3x-broken-host",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "missing phrase"
+      },
+      "quote": "missing phrase"
+    },
+    "m3x-a-ambiguous": {
+      "id": "m3x-a-ambiguous",
+      "blockId": "m3x-ambiguous-host",
+      "kind": "text",
+      "selector": {
+        "kind": "text",
+        "quote": "term"
+      },
+      "quote": "term"
+    }
+  },
+  "branches": {
+    "m3x-e-callout": {
+      "id": "m3x-e-callout",
+      "source": {
+        "blockId": "m3x-root-a",
+        "anchorId": "m3x-a-callout"
+      },
+      "targetBlockId": "m3x-callout",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3x-e-shared": {
+      "id": "m3x-e-shared",
+      "source": {
+        "blockId": "m3x-root-b"
+      },
+      "targetBlockId": "m3x-shared",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3x-e-broken": {
+      "id": "m3x-e-broken",
+      "source": {
+        "blockId": "m3x-broken-host",
+        "anchorId": "m3x-a-broken"
+      },
+      "targetBlockId": "m3x-broken-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3x-e-ambiguous": {
+      "id": "m3x-e-ambiguous",
+      "source": {
+        "blockId": "m3x-ambiguous-host",
+        "anchorId": "m3x-a-ambiguous"
+      },
+      "targetBlockId": "m3x-ambiguous-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3x-ref-shared": {
+      "id": "m3x-ref-shared",
+      "source": {
+        "blockId": "m3x-ref-parent"
+      },
+      "targetBlockId": "m3x-shared",
+      "role": "reference",
+      "order": "a1",
+      "label": "see also"
+    },
+    "m3x-ref-back": {
+      "id": "m3x-ref-back",
+      "source": {
+        "blockId": "m3x-shared"
+      },
+      "targetBlockId": "m3x-ref-parent",
+      "role": "reference",
+      "order": "a1",
+      "label": "referenced by"
+    },
+    "m3x-ref-root-a": {
+      "id": "m3x-ref-root-a",
+      "source": {
+        "blockId": "m3x-ref-parent"
+      },
+      "targetBlockId": "m3x-root-a",
+      "role": "reference",
+      "order": "a2",
+      "label": "also uses"
+    }
+  },
+  "chapters": [
+    {
+      "id": "m3x-ch1",
+      "title": "Primary homes",
+      "topLevelBlockIds": [
+        "m3x-root-a",
+        "m3x-root-b",
+        "m3x-broken-host"
+      ]
+    },
+    {
+      "id": "m3x-ch2",
+      "title": "Empty chapter",
+      "topLevelBlockIds": []
+    },
+    {
+      "id": "m3x-ch3",
+      "title": "References and ambiguity",
+      "topLevelBlockIds": [
+        "m3x-ref-parent",
+        "m3x-ambiguous-host"
+      ]
+    }
+  ],
+  "assets": {},
+  "annotations": []
+}

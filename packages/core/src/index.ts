@@ -16,3 +16,5 @@ export * from './structure.js';
 export * from './anchors.js';
 export * from './block-ops.js';
 export * from './commands.js';
+export * from './duplicate.js';
+export * from './export-plan.js';

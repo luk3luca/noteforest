@@ -32,6 +32,21 @@ function anchorText(value, anchorId) {
   return text(value, [{ type: 'anchor', attrs: { anchorId } }]);
 }
 
+function anchorTextIds(value, anchorIds) {
+  return text(value, [
+    { type: 'anchor', attrs: { anchorIds: [...anchorIds].sort() } },
+  ]);
+}
+
+function withAnchorIds(node, anchorIds) {
+  node.attrs = { ...(node.attrs ?? {}), anchorIds: [...anchorIds].sort() };
+  return node;
+}
+
+function anchorRecord(id, blockId, kind, selector, mirrors = {}) {
+  return { id, blockId, kind, selector, ...mirrors };
+}
+
 function p(...children) {
   return { type: 'paragraph', children };
 }
@@ -841,6 +856,327 @@ function fixtureF9() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// F10 — canonical M3 anchor kinds (text, whole formula, term, code range)
+// ---------------------------------------------------------------------------
+function fixtureM3AnchorKinds() {
+  const codeText = [
+    'const total = sum(matrix, vector);',
+    'const scaled = total * 2;',
+    'return scaled;',
+  ].join('\n');
+  const codeQuote = 'sum(matrix, vector)';
+  const codeStart = codeText.indexOf(codeQuote);
+  const codeEnd = codeStart + codeQuote.length;
+  const codePrefix = codeText.slice(Math.max(0, codeStart - 32), codeStart);
+  const codeSuffix = codeText.slice(codeEnd, codeEnd + 32);
+
+  const textBlock = block('m3k-text', 'Text anchor', [
+    p(
+      text('A text anchor binds the word '),
+      anchorTextIds('target', ['m3k-a-text']),
+      text(' exactly once, even with surrounding prose.'),
+    ),
+  ]);
+  const formulaBlock = block('m3k-formula', 'Formula anchors', [
+    p(
+      text('The identity '),
+      withAnchorIds(inlineMath('a^2 + b^2 = c^2'), ['m3k-a-formula-whole']),
+      text(' contains the term '),
+      withAnchorIds(inlineMath('a^2 + b^2 = c^2'), ['m3k-a-formula-term']),
+      text('.'),
+    ),
+    p(
+      text('A repeated term '),
+      withAnchorIds(inlineMath('x + x + x'), ['m3k-a-formula-ambiguous']),
+      text(' cannot resolve to one occurrence.'),
+    ),
+  ]);
+  const codeBlockNode = block('m3k-code', 'Code range', [
+    p(text('The code anchor covers a range inside one code block.')),
+    withAnchorIds(codeBlock(codeText, { language: 'typescript' }), ['m3k-a-code']),
+  ]);
+  const brokenBlock = block('m3k-broken', 'Broken anchor', [
+    p(text('This block declares a quote that is not present in its content.')),
+  ]);
+  const ambiguousBlock = block('m3k-ambiguous', 'Ambiguous anchor', [
+    p(text('repeated repeated repeated')),
+  ]);
+  const sharedHome = block('m3k-shared-home', 'Shared child home', [
+    p(text('The shared child has its primary home here.')),
+  ]);
+  const shared = block('m3k-shared', 'Shared child', [
+    p(text('This child is referenced from another block without moving.')),
+  ]);
+  const referenceParent = block('m3k-ref-parent', 'Reference parent', [
+    p(text('A reference edge to the shared child, and a reference cycle back.')),
+  ]);
+
+  return makeDocument({
+    id: 'm3-anchor-kinds',
+    title: 'M3 anchor kinds — text, formula, code, references',
+    blocks: [
+      textBlock,
+      formulaBlock,
+      codeBlockNode,
+      brokenBlock,
+      ambiguousBlock,
+      sharedHome,
+      shared,
+      referenceParent,
+      block('m3k-text-child', 'Text callout', [p(text('A callout from a text anchor.'))]),
+      block('m3k-formula-whole-child', 'Whole formula callout', [
+        p(text('A callout from a whole-formula anchor.')),
+      ]),
+      block('m3k-formula-term-child', 'Formula term callout', [
+        p(text('A callout from a formula-term anchor.')),
+      ]),
+      block('m3k-formula-ambiguous-child', 'Ambiguous formula callout', [
+        p(text('A callout from an ambiguous formula-term anchor.')),
+      ]),
+      block('m3k-code-child', 'Code callout', [p(text('A callout from a code range anchor.'))]),
+      block('m3k-broken-child', 'Broken anchor callout', [
+        p(text('A callout from a broken anchor still exports once.')),
+      ]),
+      block('m3k-ambiguous-child', 'Ambiguous anchor callout', [
+        p(text('A callout from an ambiguous anchor still exports once.')),
+      ]),
+    ],
+    anchors: [
+      anchorRecord('m3k-a-text', 'm3k-text', 'text', {
+        kind: 'text',
+        quote: 'target',
+        occurrenceHint: 1,
+      }, { quote: 'target', occurrenceHint: 1 }),
+      anchorRecord('m3k-a-formula-whole', 'm3k-formula', 'formula', {
+        kind: 'formula',
+        form: 'whole',
+        latex: 'a^2 + b^2 = c^2',
+      }, { quote: 'a^2 + b^2 = c^2' }),
+      anchorRecord('m3k-a-formula-term', 'm3k-formula', 'formula', {
+        kind: 'formula',
+        form: 'term',
+        latex: 'a^2 + b^2',
+        occurrenceHint: 1,
+      }, { quote: 'a^2 + b^2', occurrenceHint: 1 }),
+      anchorRecord('m3k-a-formula-ambiguous', 'm3k-formula', 'formula', {
+        kind: 'formula',
+        form: 'term',
+        latex: 'x',
+        occurrenceHint: 1,
+      }, { quote: 'x', occurrenceHint: 1 }),
+      anchorRecord('m3k-a-code', 'm3k-code', 'code', {
+        kind: 'code',
+        form: 'range',
+        quote: codeQuote,
+        prefix: codePrefix,
+        suffix: codeSuffix,
+        occurrenceHint: 1,
+        startOffset: codeStart,
+        endOffset: codeEnd,
+        lineStart: 1,
+        lineEnd: 1,
+      }, { quote: codeQuote, occurrenceHint: 1 }),
+      anchorRecord('m3k-a-broken', 'm3k-broken', 'text', {
+        kind: 'text',
+        quote: 'missing phrase',
+      }, { quote: 'missing phrase' }),
+      anchorRecord('m3k-a-ambiguous', 'm3k-ambiguous', 'text', {
+        kind: 'text',
+        quote: 'repeated',
+      }, { quote: 'repeated' }),
+    ],
+    branches: [
+      branch('m3k-e-text', { blockId: 'm3k-text', anchorId: 'm3k-a-text' }, 'm3k-text-child', 'primary', 'a1'),
+      branch('m3k-e-formula-whole', { blockId: 'm3k-formula', anchorId: 'm3k-a-formula-whole' }, 'm3k-formula-whole-child', 'primary', 'a1'),
+      branch('m3k-e-formula-term', { blockId: 'm3k-formula', anchorId: 'm3k-a-formula-term' }, 'm3k-formula-term-child', 'primary', 'a1'),
+      branch('m3k-e-formula-ambiguous', { blockId: 'm3k-formula', anchorId: 'm3k-a-formula-ambiguous' }, 'm3k-formula-ambiguous-child', 'primary', 'a1'),
+      branch('m3k-e-code', { blockId: 'm3k-code', anchorId: 'm3k-a-code' }, 'm3k-code-child', 'primary', 'a1'),
+      branch('m3k-e-broken', { blockId: 'm3k-broken', anchorId: 'm3k-a-broken' }, 'm3k-broken-child', 'primary', 'a1'),
+      branch('m3k-e-ambiguous', { blockId: 'm3k-ambiguous', anchorId: 'm3k-a-ambiguous' }, 'm3k-ambiguous-child', 'primary', 'a1'),
+      branch('m3k-e-shared', { blockId: 'm3k-shared-home' }, 'm3k-shared', 'primary', 'a1'),
+      branch('m3k-ref-to-shared', { blockId: 'm3k-ref-parent' }, 'm3k-shared', 'reference', 'a1', 'see also'),
+      branch('m3k-ref-back', { blockId: 'm3k-shared' }, 'm3k-ref-parent', 'reference', 'a1', 'referenced by'),
+    ],
+    chapters: [
+      {
+        id: 'm3k-ch1',
+        title: 'Anchor kinds',
+        topLevelBlockIds: [
+          'm3k-text',
+          'm3k-formula',
+          'm3k-code',
+          'm3k-broken',
+          'm3k-ambiguous',
+          'm3k-shared-home',
+          'm3k-ref-parent',
+        ],
+      },
+    ],
+  });
+}
+
+// ---------------------------------------------------------------------------
+// F11 — split/merge source with anchor migration
+// ---------------------------------------------------------------------------
+function fixtureM3SplitMerge() {
+  const splitBlock = block('m3s-split', 'Split source', [
+    p(
+      text('Alpha '),
+      anchorTextIds('beta', ['m3s-a-before']),
+      text(' '),
+      anchorTextIds('gamma ', ['m3s-a-span']),
+      anchorTextIds('delta ', ['m3s-a-span', 'm3s-a-after']),
+      text('epsilon.'),
+    ),
+  ]);
+  const mergeTarget = block('m3s-merge-target', 'Merge target', [
+    p(text('Merge target text.')),
+  ]);
+  const mergeSource = block('m3s-merge-source', 'Merge source', [
+    p(
+      text('Please '),
+      anchorTextIds('merge me', ['m3s-a-merge']),
+      text(' into the target.'),
+    ),
+  ]);
+
+  return makeDocument({
+    id: 'm3-split-merge',
+    title: 'M3 split and merge — anchor migration',
+    blocks: [
+      splitBlock,
+      mergeTarget,
+      mergeSource,
+      block('m3s-after-child', 'After-split callout', [
+        p(text('A callout sourced from an anchor after the split.')),
+      ]),
+      block('m3s-span-child', 'Spanning callout', [
+        p(text('A callout sourced from an anchor spanning the split.')),
+      ]),
+      block('m3s-merge-child', 'Merge callout', [
+        p(text('A callout sourced from an anchor that moves on merge.')),
+      ]),
+    ],
+    anchors: [
+      anchorRecord('m3s-a-before', 'm3s-split', 'text', {
+        kind: 'text',
+        quote: 'beta',
+      }, { quote: 'beta' }),
+      anchorRecord('m3s-a-after', 'm3s-split', 'text', {
+        kind: 'text',
+        quote: 'delta',
+      }, { quote: 'delta' }),
+      anchorRecord('m3s-a-span', 'm3s-split', 'text', {
+        kind: 'text',
+        quote: 'gamma delta',
+      }, { quote: 'gamma delta' }),
+      anchorRecord('m3s-a-merge', 'm3s-merge-source', 'text', {
+        kind: 'text',
+        quote: 'merge me',
+      }, { quote: 'merge me' }),
+    ],
+    branches: [
+      branch('m3s-e-after', { blockId: 'm3s-split', anchorId: 'm3s-a-after' }, 'm3s-after-child', 'primary', 'a1'),
+      branch('m3s-e-span', { blockId: 'm3s-split', anchorId: 'm3s-a-span' }, 'm3s-span-child', 'primary', 'a1'),
+      branch('m3s-e-merge', { blockId: 'm3s-merge-source', anchorId: 'm3s-a-merge' }, 'm3s-merge-child', 'primary', 'a1'),
+    ],
+    chapters: [
+      {
+        id: 'm3s-ch1',
+        title: 'Split and merge',
+        topLevelBlockIds: ['m3s-split', 'm3s-merge-target', 'm3s-merge-source'],
+      },
+    ],
+  });
+}
+
+// ---------------------------------------------------------------------------
+// F12 — export manifest with shared child, reference cycle, broken/ambiguous
+// ---------------------------------------------------------------------------
+function fixtureM3ExportManifest() {
+  return makeDocument({
+    id: 'm3-export-manifest',
+    title: 'M3 export manifest — exactly once',
+    blocks: [
+      block('m3x-root-a', 'Root A', [
+        p(
+          text('Root A introduces the '),
+          anchorTextIds('callout', ['m3x-a-callout']),
+          text(' branch.'),
+        ),
+      ]),
+      block('m3x-callout', 'Anchored callout', [
+        p(text('An anchored callout exported once.')),
+      ]),
+      block('m3x-root-b', 'Root B', [
+        p(text('Root B is the primary home of the shared child.')),
+      ]),
+      block('m3x-shared', 'Shared child', [
+        p(text('A shared child referenced from another chapter.')),
+      ]),
+      block('m3x-broken-host', 'Broken anchor host', [
+        p(text('The broken anchor quote is absent from this block.')),
+      ]),
+      block('m3x-broken-child', 'Broken anchor child', [
+        p(text('A branch behind a broken anchor still exports once.')),
+      ]),
+      block('m3x-ref-parent', 'Reference-only root', [
+        p(text('A reference-only root is included via its chapter.')),
+      ]),
+      block('m3x-ambiguous-host', 'Ambiguous anchor host', [
+        p(text('term term term')),
+      ]),
+      block('m3x-ambiguous-child', 'Ambiguous anchor child', [
+        p(text('A branch behind an ambiguous anchor still exports once.')),
+      ]),
+    ],
+    anchors: [
+      anchorRecord('m3x-a-callout', 'm3x-root-a', 'text', {
+        kind: 'text',
+        quote: 'callout',
+        prefix: 'the ',
+        suffix: ' branch',
+        occurrenceHint: 1,
+      }, { quote: 'callout', prefix: 'the ', suffix: ' branch', occurrenceHint: 1 }),
+      anchorRecord('m3x-a-broken', 'm3x-broken-host', 'text', {
+        kind: 'text',
+        quote: 'missing phrase',
+      }, { quote: 'missing phrase' }),
+      anchorRecord('m3x-a-ambiguous', 'm3x-ambiguous-host', 'text', {
+        kind: 'text',
+        quote: 'term',
+      }, { quote: 'term' }),
+    ],
+    branches: [
+      branch('m3x-e-callout', { blockId: 'm3x-root-a', anchorId: 'm3x-a-callout' }, 'm3x-callout', 'primary', 'a1'),
+      branch('m3x-e-shared', { blockId: 'm3x-root-b' }, 'm3x-shared', 'primary', 'a1'),
+      branch('m3x-e-broken', { blockId: 'm3x-broken-host', anchorId: 'm3x-a-broken' }, 'm3x-broken-child', 'primary', 'a1'),
+      branch('m3x-e-ambiguous', { blockId: 'm3x-ambiguous-host', anchorId: 'm3x-a-ambiguous' }, 'm3x-ambiguous-child', 'primary', 'a1'),
+      branch('m3x-ref-shared', { blockId: 'm3x-ref-parent' }, 'm3x-shared', 'reference', 'a1', 'see also'),
+      branch('m3x-ref-back', { blockId: 'm3x-shared' }, 'm3x-ref-parent', 'reference', 'a1', 'referenced by'),
+      branch('m3x-ref-root-a', { blockId: 'm3x-ref-parent' }, 'm3x-root-a', 'reference', 'a2', 'also uses'),
+    ],
+    chapters: [
+      {
+        id: 'm3x-ch1',
+        title: 'Primary homes',
+        topLevelBlockIds: ['m3x-root-a', 'm3x-root-b', 'm3x-broken-host'],
+      },
+      {
+        id: 'm3x-ch2',
+        title: 'Empty chapter',
+        topLevelBlockIds: [],
+      },
+      {
+        id: 'm3x-ch3',
+        title: 'References and ambiguity',
+        topLevelBlockIds: ['m3x-ref-parent', 'm3x-ambiguous-host'],
+      },
+    ],
+  });
+}
+
 async function makeAssets() {
   await mkdir(assetsDir, { recursive: true });
   {
@@ -934,6 +1270,9 @@ async function main() {
     'scale-300.json': fixtureF7(),
     'defects.json': fixtureF8(),
     'broken-anchor.json': fixtureF9(),
+    'm3-anchor-kinds.json': fixtureM3AnchorKinds(),
+    'm3-split-merge.json': fixtureM3SplitMerge(),
+    'm3-export-manifest.json': fixtureM3ExportManifest(),
   };
   for (const [file, document] of Object.entries(fixtures)) {
     await writeFile(resolve(fixturesDir, file), `${JSON.stringify(document, null, 2)}\n`);
