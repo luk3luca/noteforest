@@ -2056,6 +2056,8 @@ export interface AnchorResolution extends JsonObject {
   binding: 'none' | 'text' | 'atomic' | 'mixed';
   orderKey: string | null;
   issues: AnchorResolutionIssue[];
+  /** Stored repair hints (`split-inside-anchor`, …), sorted. */
+  repairFlags?: string[];
 }
 
 function emptyResolution(
@@ -2961,13 +2963,28 @@ export function resolveAnchor(document: Document, anchorOrId: Anchor | string): 
   }
   const block = document.blocks[anchor.blockId];
   if (block === undefined) {
-    return emptyResolution(anchor.id, anchor.blockId, 'block-missing', 'block-missing');
+    return withRepairFlags(
+      anchor,
+      emptyResolution(anchor.id, anchor.blockId, 'block-missing', 'block-missing'),
+    );
   }
   if (!hasOutgoingBranch(document, anchor.id)) {
-    return emptyResolution(anchor.id, anchor.blockId, 'idle', 'no-outgoing-branch');
+    return withRepairFlags(
+      anchor,
+      emptyResolution(anchor.id, anchor.blockId, 'idle', 'no-outgoing-branch'),
+    );
   }
   const index = buildBlockAnchorIndex(anchor.blockId, block.content);
-  return resolveAnchorWithIndex(document, anchor, index);
+  return withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index));
+}
+
+/** Attach stored repair hints to a resolution without changing its state. */
+function withRepairFlags(anchor: Anchor, resolution: AnchorResolution): AnchorResolution {
+  const flags = Array.isArray(anchor.repairFlags)
+    ? anchor.repairFlags.filter((flag): flag is string => typeof flag === 'string' && flag.length > 0)
+    : [];
+  if (flags.length === 0) return resolution;
+  return { ...resolution, repairFlags: [...new Set(flags)].sort() };
 }
 
 function stateRank(state: AnchorState): number {
@@ -3008,9 +3025,12 @@ export function resolveBlockAnchors(document: Document, blockId: string): Anchor
   return anchors
     .map((anchor) => {
       if (!outgoing.has(anchor.id)) {
-        return emptyResolution(anchor.id, anchor.blockId, 'idle', 'no-outgoing-branch');
+        return withRepairFlags(
+          anchor,
+          emptyResolution(anchor.id, anchor.blockId, 'idle', 'no-outgoing-branch'),
+        );
       }
-      return resolveAnchorWithIndex(document, anchor, index);
+      return withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index));
     })
     .sort(compareAnchorResolutions);
 }
@@ -3052,11 +3072,17 @@ export function resolveDocumentAnchors(document: Document): DocumentAnchorResolu
     let resolution: AnchorResolution;
     const index = indexes.get(anchor.blockId);
     if (index === undefined) {
-      resolution = emptyResolution(anchor.id, anchor.blockId, 'block-missing', 'block-missing');
+      resolution = withRepairFlags(
+        anchor,
+        emptyResolution(anchor.id, anchor.blockId, 'block-missing', 'block-missing'),
+      );
     } else if (!outgoing.has(anchor.id)) {
-      resolution = emptyResolution(anchor.id, anchor.blockId, 'idle', 'no-outgoing-branch');
+      resolution = withRepairFlags(
+        anchor,
+        emptyResolution(anchor.id, anchor.blockId, 'idle', 'no-outgoing-branch'),
+      );
     } else {
-      resolution = resolveAnchorWithIndex(document, anchor, index);
+      resolution = withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index));
     }
     byId[anchorId] = resolution;
     const list = byBlock[anchor.blockId] ?? [];

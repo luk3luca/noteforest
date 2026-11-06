@@ -81,6 +81,12 @@ export interface Anchor extends JsonObject {
   suffix?: string;
   occurrenceHint?: number;
   lastKnown?: JsonObject;
+  /**
+   * Repair hints that survive undo/redo and save round-trips. A split through
+   * an anchor, for example, stores `split-inside-anchor` without rewriting the
+   * stored selector. Flags are advisory: the anchor record and branch stay.
+   */
+  repairFlags?: string[];
   createdAt?: string;
   extensions?: JsonObject;
 }

@@ -9,11 +9,13 @@ export function ContextMenu(): JSX.Element | null {
   const ref = useRef<HTMLDivElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const openRef = useRef(false);
+  const actionTakenRef = useRef(false);
 
   // Capture before descendants mount and move focus into the menu. A passive
   // effect runs after the menu's own auto-focus and would record the first
   // item instead of the control that opened the menu.
   if (menu !== null && !openRef.current) {
+    actionTakenRef.current = false;
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
@@ -73,6 +75,10 @@ export function ContextMenu(): JSX.Element | null {
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('keydown', onKeyDown, true);
+      // An action owns the next focus target (a new/surviving block, a dialog,
+      // or a palette). Restoring the pre-menu control after an async command
+      // would steal the caret back to the block the action just replaced.
+      if (actionTakenRef.current) return;
       if (previousFocus === null || !previousFocus.isConnected) return;
       // Restore only when the close did not hand focus to a dialog or palette;
       // those surfaces own their own initial focus.
@@ -117,6 +123,7 @@ export function ContextMenu(): JSX.Element | null {
           className="nf-menu-list"
           onAction={(key) => {
             const entry = menu.items.find((candidate) => candidate.id === String(key));
+            actionTakenRef.current = entry !== undefined;
             close();
             entry?.onSelect?.();
           }}

@@ -33,6 +33,8 @@ import {
   validateAnchorSelector,
 } from './anchors.js';
 import type { AnchorBinding } from './anchors.js';
+import { planBlockMerge, planBlockSplit } from './block-ops.js';
+import type { BlockSplitPoint } from './block-ops.js';
 import { createDocument } from './document.js';
 import type { CreateDocumentInput } from './document.js';
 import { orderBetween, orderKeysBetween, orderKeysAfter, isValidOrderKey } from './fractional-order.js';
@@ -216,6 +218,29 @@ export interface BlockMoveCommand {
   type: 'block.move';
   blockId: string;
   to: BlockPlacement;
+}
+
+/**
+ * Split one block at a text caret. Content after the caret moves to a new block
+ * with a fresh ID; anchors after the cut move with it and a spanning anchor
+ * keeps its ID, clips to the original side, and is flagged for repair.
+ */
+export interface BlockSplitCommand {
+  type: 'block.split';
+  blockId: string;
+  at: BlockSplitPoint;
+  /** Optional explicit new-block ID (tests/recovery); a fresh one by default. */
+  newBlockId?: string;
+}
+
+/**
+ * Merge `blockId` into `intoBlockId` (or its previous sibling by default).
+ * Same primary parent port or both top-level in the same chapter only.
+ */
+export interface BlockMergeCommand {
+  type: 'block.merge';
+  blockId: string;
+  intoBlockId?: string;
 }
 
 export interface AnchorCreateCommand {
@@ -422,6 +447,8 @@ export type DocumentCommand =
   | BlockRenameCommand
   | BlockDeleteCommand
   | BlockMoveCommand
+  | BlockSplitCommand
+  | BlockMergeCommand
   | AnchorCreateCommand
   | AnchorRepairCommand
   | AnchorAttachToBlockCommand
@@ -1192,6 +1219,68 @@ function allPrimaryChildren(document: Document, parentBlockId: string): Branch[]
 
 function collectSubtree(document: Document, rootBlockId: string): Set<string> {
   return new Set(subtreeBlockIds(document, rootBlockId));
+}
+
+/**
+ * Role-independent exact source-target duplicate (OD-3/A8), used after merge
+ * retargeting. One edge survives: the primary edge if any, otherwise the
+ * earliest by order then branch ID. Deleted records are reported as warnings.
+ */
+function dedupeExactBranches(
+  document: Document,
+  candidates: ReadonlySet<string>,
+  changes: ChangeSet,
+): void {
+  if (candidates.size === 0) return;
+  const groups = new Map<string, Branch[]>();
+  for (const branch of Object.values(document.branches)) {
+    const key = `${branch.source.blockId}\u0000${branch.source.anchorId ?? ''}\u0000${branch.targetBlockId}`;
+    const group = groups.get(key) ?? [];
+    group.push(branch);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    if (!group.some((branch) => candidates.has(branch.id))) continue;
+    const ordered = [...group].sort(compareBranches);
+    const primary = ordered.find((branch) => branch.role === 'primary');
+    const keeper = primary ?? ordered[0];
+    if (keeper === undefined) continue;
+    for (const branch of ordered) {
+      if (branch.id === keeper.id) continue;
+      delete document.branches[branch.id];
+      changes.branch(branch.id);
+      changes.warn(
+        `duplicate branch "${branch.id}" was removed by the merge; kept "${keeper.id}"`,
+      );
+    }
+  }
+}
+
+/**
+ * Re-key branches whose source moved to the surviving block. They append after
+ * the destination port's existing branches, preserving their previous relative
+ * order. Applies to primary children and reference edges alike.
+ */
+function appendMovedSourceBranches(
+  document: Document,
+  movedBranchIds: ReadonlySet<string>,
+  changes: ChangeSet,
+): void {
+  const groups = new Map<string, { port: BranchPort; role: BranchRole; branches: Branch[] }>();
+  for (const branchId of movedBranchIds) {
+    const branch = own(document.branches, branchId);
+    if (branch === undefined) continue;
+    const port = portOf(branch.source);
+    const key = `${branch.role}\u0000${port.blockId}\u0000${port.anchorId ?? ''}`;
+    const group = groups.get(key) ?? { port, role: branch.role, branches: [] };
+    group.branches.push(branch);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    group.branches.sort(compareBranches);
+    appendBranchesToPort(document, group.port, group.role, group.branches, changes);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2522,6 +2611,195 @@ function applyToClone(
       return null;
     }
 
+    case 'block.split': {
+      assertId(command.blockId, 'blockId');
+      const splitBlock = blockOrFail(document, command.blockId);
+      const check = planBlockSplit(document, splitBlock.id, command.at);
+      if (!check.ok) reject('invalid-content', check.reason);
+      const plan = check.plan;
+      if (command.newBlockId !== undefined) assertId(command.newBlockId, 'newBlockId');
+      const newBlockId = command.newBlockId ?? freshId(document, context);
+      if (allIds(document).has(newBlockId)) {
+        reject('duplicate-id', `ID "${newBlockId}" already exists`);
+      }
+
+      const topLevel = findTopLevelPlacement(document, splitBlock.id);
+      const incoming =
+        topLevel === null ? primaryParentBranch(document, splitBlock.id) : undefined;
+      if (topLevel === null && incoming === undefined) {
+        reject('internal-invariant', 'split block has no parent port or chapter slot');
+      }
+
+      const stay = new Set(plan.stayAnchorIds);
+      const moved = new Set(plan.moveAnchorIds);
+      const spanning = new Set(plan.spanAnchorIds);
+      let before = plan.before;
+      let after = plan.after;
+      for (const anchorId of stay) after = removeAnchorBinding(after, anchorId);
+      for (const anchorId of moved) before = removeAnchorBinding(before, anchorId);
+      for (const anchorId of spanning) after = removeAnchorBinding(after, anchorId);
+
+      const timestamp = context.now();
+      splitBlock.content = before;
+      splitBlock.updatedAt = timestamp;
+      const newBlock: ContentBlock = {
+        id: newBlockId,
+        content: after,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      document.blocks[newBlockId] = newBlock;
+      changes.block(splitBlock.id);
+      changes.block(newBlockId);
+      changes.createdBlock(newBlockId);
+
+      for (const anchorId of moved) {
+        const anchor = anchorOrFail(document, anchorId);
+        anchor.blockId = newBlockId;
+        changes.anchor(anchor.id);
+      }
+      for (const anchorId of spanning) {
+        const anchor = anchorOrFail(document, anchorId);
+        const flags = Array.isArray(anchor.repairFlags)
+          ? anchor.repairFlags.filter((flag): flag is string => typeof flag === 'string')
+          : [];
+        anchor.repairFlags = [...new Set([...flags, 'split-inside-anchor'])].sort();
+        changes.anchor(anchor.id);
+        changes.warn(
+          `anchor "${anchor.id}" spans the split; kept its ID and flagged it for repair`,
+        );
+      }
+      for (const branch of Object.values(document.branches)) {
+        const anchorId = branch.source.anchorId;
+        if (anchorId === undefined || !moved.has(anchorId)) continue;
+        branch.source = { ...branch.source, blockId: newBlockId };
+        changes.branch(branch.id);
+        changes.block(newBlockId);
+      }
+
+      if (topLevel !== null) {
+        const chapter = chapterOrFail(document, topLevel.chapterId);
+        chapter.topLevelBlockIds.splice(topLevel.index + 1, 0, newBlockId);
+        changes.chapter(chapter.id);
+      } else if (incoming !== undefined) {
+        const port = portOf(incoming.source);
+        const siblings = portBranches(document, port, 'primary');
+        const index = siblings.findIndex((branch) => branch.id === incoming.id);
+        const order = orderKeyForPortIndexInList(
+          document,
+          port,
+          'primary',
+          siblings,
+          Math.max(0, index + 1),
+          changes,
+        );
+        createPortBranchRecord(
+          document,
+          context,
+          changes,
+          port,
+          newBlockId,
+          'primary',
+          order,
+        );
+        changes.block(incoming.source.blockId);
+      }
+
+      // Content split, IDs, anchors, branches, and slots are all repointed; only
+      // an exact snapshot can restore the pre-split record identity.
+      return null;
+    }
+
+    case 'block.merge': {
+      assertId(command.blockId, 'blockId');
+      blockOrFail(document, command.blockId);
+      if (command.intoBlockId !== undefined) assertId(command.intoBlockId, 'intoBlockId');
+      const check = planBlockMerge(document, command.blockId, command.intoBlockId);
+      if (!check.ok) reject('invalid-placement', check.reason);
+      const plan = check.plan;
+      const merged = blockOrFail(document, plan.blockId);
+      const survivor = blockOrFail(document, plan.intoBlockId);
+      const timestamp = context.now();
+
+      const content = structuredClone(survivor.content);
+      content.children = [
+        ...(content.children ?? []).map((child) => structuredClone(child)),
+        ...(merged.content.children ?? []).map((child) => structuredClone(child)),
+      ];
+      survivor.content = content;
+      survivor.updatedAt = timestamp;
+      changes.block(survivor.id);
+      changes.block(merged.id);
+
+      for (const anchor of Object.values(document.anchors)) {
+        if (anchor.blockId !== merged.id) continue;
+        anchor.blockId = survivor.id;
+        changes.anchor(anchor.id);
+      }
+
+      const incoming = primaryParentBranch(document, merged.id);
+      if (incoming !== undefined) {
+        delete document.branches[incoming.id];
+        changes.branch(incoming.id);
+        changes.block(incoming.source.blockId);
+      }
+
+      const retargeted = new Set<string>();
+      const movedSource = new Set<string>();
+      for (const branch of Object.values(document.branches)) {
+        if (branch.targetBlockId === merged.id) {
+          // The merged block's own primary edge was removed above; only
+          // reference edges pointing at it can be retargeted.
+          if (branch.role === 'reference') {
+            branch.targetBlockId = survivor.id;
+            retargeted.add(branch.id);
+            changes.branch(branch.id);
+            changes.block(survivor.id);
+          }
+        }
+        if (branch.source.blockId === merged.id) {
+          branch.source = { ...branch.source, blockId: survivor.id };
+          movedSource.add(branch.id);
+          retargeted.add(branch.id);
+          changes.branch(branch.id);
+          changes.block(survivor.id);
+        }
+      }
+
+      for (const branchId of [...retargeted]) {
+        const branch = own(document.branches, branchId);
+        if (branch === undefined) continue;
+        if (branch.source.blockId === branch.targetBlockId) {
+          delete document.branches[branchId];
+          changes.branch(branchId);
+          retargeted.delete(branchId);
+          movedSource.delete(branchId);
+          changes.warn(`self-branch "${branchId}" was dropped by the merge`);
+        }
+      }
+
+      dedupeExactBranches(document, retargeted, changes);
+      appendMovedSourceBranches(document, movedSource, changes);
+
+      for (const chapter of document.chapters) {
+        const index = chapter.topLevelBlockIds.indexOf(merged.id);
+        if (index < 0) continue;
+        chapter.topLevelBlockIds.splice(index, 1);
+        changes.chapter(chapter.id);
+      }
+      if (document.manualBreakBeforeBlockIds.includes(merged.id)) {
+        document.manualBreakBeforeBlockIds = document.manualBreakBeforeBlockIds.filter(
+          (blockId) => blockId !== merged.id,
+        );
+      }
+      delete document.blocks[merged.id];
+      changes.block(merged.id);
+
+      // Delete/repoint/re-key plus content append: undo must restore both
+      // blocks and every migrated record in one exact snapshot.
+      return null;
+    }
+
     case 'branch.create': {
       assertId(command.sourceBlockId, 'sourceBlockId');
       assertId(command.targetBlockId, 'targetBlockId');
@@ -3183,6 +3461,8 @@ function captureRestoreCommand(
   const snapshot =
     destructive ||
     command.type === 'block.move' ||
+    command.type === 'block.split' ||
+    command.type === 'block.merge' ||
     command.type === 'branch.create' ||
     command.type === 'branch.createFromSelection' ||
     command.type === 'branch.makeHome' ||
@@ -3233,10 +3513,10 @@ function assertRestoreIdList(value: unknown, what: string): string[] {
 }
 
 /**
- * Apply a record-level restore. Records are restored verbatim, except a branch
- * whose ID already exists (promote repoints child branches in place, a move
- * reorders one in place): it is overwritten only when the branch identity
- * (target and role) still matches.
+ * Apply a record-level restore. Records are restored verbatim. A branch whose
+ * ID already exists is overwritten in place: the branch ID is the identity and
+ * role, source, target, and order may all change on a legitimate repoint
+ * (move, make-home, merge) that the snapshot is reversing.
  */
 function restoreRecords(
   document: Document,
@@ -3289,6 +3569,7 @@ function restoreRecords(
   const removeBranchSet = new Set(removeBranches);
   const removeAnchorSet = new Set(removeAnchors);
   const restoreBranchSet = new Set<string>();
+  const restoreAnchorSet = new Set<string>();
 
   if (replaceBlocks.length > 0) {
     const seenReplace = new Set<string>();
@@ -3326,6 +3607,7 @@ function restoreRecords(
     if (removeAnchorSet.has(anchor.id)) {
       reject('invalid-command', `anchor "${anchor.id}" cannot be restored and removed at once`);
     }
+    restoreAnchorSet.add(anchor.id);
   }
 
   for (const blockId of removeBlocks) {
@@ -3346,7 +3628,11 @@ function restoreRecords(
       }
     }
     for (const anchor of Object.values(document.anchors)) {
-      if (anchor.blockId === blockId && !removeAnchorSet.has(anchor.id)) {
+      if (
+        anchor.blockId === blockId &&
+        !removeAnchorSet.has(anchor.id) &&
+        !restoreAnchorSet.has(anchor.id)
+      ) {
         reject(
           'invalid-command',
           `cannot remove block "${blockId}": anchor "${anchor.id}" also references it`,
@@ -3429,19 +3715,9 @@ function restoreRecords(
     }
     const existing = own(document.branches, branch.id);
     if (existing !== undefined) {
-      // The record identity is the branch ID plus its target. Role transitions
-      // (`branch.makeHome`, `moveHere`, `demote`) and in-place repoints
-      // (`block.move`, `block.delete promote`) overwrite the same record, so
-      // the role and source may differ from the restored snapshot.
-      if (existing.targetBlockId !== branch.targetBlockId) {
-        reject(
-          'duplicate-id',
-          `cannot restore branch "${branch.id}": a different branch already uses the ID`,
-        );
-      }
-      // `block.delete promote` and `block.move` repoint the same branch record
-      // in place; the inverse repoints it back. A matching target identifies
-      // that record, so a different source is the repoint itself.
+      // The branch ID is the identity. Role transitions, moves, and merge
+      // retargeting repoint the same record in place; the exact snapshot may
+      // legitimately change its source, target, or role on undo/redo.
     } else {
       if (usedIds.has(branch.id)) {
         reject('duplicate-id', `cannot restore branch "${branch.id}": the ID is already used`);
@@ -3462,9 +3738,10 @@ function restoreRecords(
     }
     const existingAnchor = own(document.anchors, anchor.id);
     if (existingAnchor !== undefined) {
-      // Repair restores the same anchor record in place; a different kind or
-      // block would be a different identity and is rejected.
-      if (existingAnchor.kind !== anchor.kind || existingAnchor.blockId !== anchor.blockId) {
+      // Repair restores the same anchor record in place; split/merge undo also
+      // moves the same identity between blocks (ID-2), so `blockId` may differ.
+      // Kind is the immutable part of the identity.
+      if (existingAnchor.kind !== anchor.kind) {
         reject(
           'duplicate-id',
           `cannot restore anchor "${anchor.id}": a different anchor already uses the ID`,
