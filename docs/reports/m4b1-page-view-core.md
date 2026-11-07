@@ -5,7 +5,8 @@
 **Branch:** `t3/m4b1-page-view-core`  
 **Base:** `c71f6e9` (`docs: split M4b and launch page view core`)  
 **Implementation commit:** `686004c34360398042ece024d799bcb1e2e82fa8`  
-**Report commit:** branch head after this file (docs only)  
+**Report/evidence commit:** branch head after this file (multi-chapter test + docs only; product code is
+`686004c`)  
 **Status:** implementation, tests, screenshots, and final `verify:fast` complete; not merged, not pushed
 
 ## Summary
@@ -167,7 +168,7 @@ architecture risk for M4b2/M4c and must be decided there, not papered over with 
 | `npm run typecheck` | desktop node+web, core, layout, pdf: pass |
 | Targeted vitest (`page-adapter`, `page-segments`, `page-model`, token guard) | 22 tests / 0.13 s, pass |
 | `npm test` | 71 files / 729 tests / 2.43 s, pass |
-| `npm run test:ui` | 20 suites / 53 tests / ~92 s test time, pass |
+| `npm run test:ui` | 20 suites / 54 tests / ~91 s test time, pass |
 | `npm run test:recovery:run` | 14 tests / 17.9 s, pass |
 | `npm run e2e:critical` | 16 tests / 36.3 s, pass |
 | `npm run verify:fast` (final) | boundary + typecheck + 729 unit + 16 e2e, exit 0 |
@@ -183,9 +184,9 @@ New tests:
 - `apps/desktop/test/page-model.test.ts` — pure layout+paginate in both orientations, empty document,
   page clamp, blocking-defect filter.
 - `tests/ui/m4b1-page-view.test.mjs` — A4 geometry/margins, fragments, read-only, fit/zoom, live
-  update, missing and present images, portrait navigation, continuation/ghost markers, page-count
-  shrink clamp, empty page, measurement-error surface with a usable reader, mode switch preserving
-  selection/scroll/focus, Open in reader.
+  update, missing and present images, portrait navigation, continuation/ghost markers, chapter-start
+  page numbering in a two-chapter document, page-count shrink clamp, empty page, measurement-error
+  surface with a usable reader, mode switch preserving selection/scroll/focus, Open in reader.
 - `tests/visual/m4b1-page-view.test.mjs` — portrait/landscape screenshots at 1440×900 and 960×720.
 
 Changed expectations:

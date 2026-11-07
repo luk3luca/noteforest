@@ -10,6 +10,7 @@ import {
   emptyDocument,
   imageBlock,
   missingImageDocument,
+  multiChapterDocument,
   pageDocument,
   portraitLongDocument,
   textBlock,
@@ -326,6 +327,38 @@ describe('M4b1 page view core', () => {
       { timeout: 20000 },
     );
     assert.match(await activeSheet().innerText(), /Page 1 of 1/);
+  });
+
+  it('starts each chapter on its own page and numbers them in reading order', async () => {
+    await launch(ui.isolated('m4b1-chapters'));
+    await h.setWindowSize(1440, 900);
+    const env = ui.isolated('m4b1-chapters');
+    await openPackage(env, 'Two chapters', multiChapterDocument());
+    await showPageView();
+    assert.equal(
+      Number(await activePageView().getAttribute('data-page-count')),
+      2,
+      'each chapter starts a new page',
+    );
+    const first = activeSheet();
+    assert.equal(await first.getAttribute('data-chapter-id'), 'chapter-1');
+    assert.match(await first.innerText(), /Chapter 1/);
+    assert.match(await first.innerText(), /First chapter body/);
+    assert.doesNotMatch(await first.innerText(), /Second chapter body/);
+    assert.equal(await first.locator('[data-fragment-block="chapter-2-block"]').count(), 0);
+
+    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.waitForFunction(
+      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
+      undefined,
+      { timeout: 5000 },
+    );
+    const second = activeSheet();
+    assert.equal(await second.getAttribute('data-chapter-id'), 'chapter-2');
+    assert.match(await second.innerText(), /Chapter 2/);
+    assert.match(await second.innerText(), /Page 2 of 2/);
+    assert.match(await second.innerText(), /Second chapter body/);
+    assert.doesNotMatch(await second.innerText(), /First chapter body/);
   });
 
   it('renders a labeled missing-image placeholder and a real empty page', async () => {

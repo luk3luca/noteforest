@@ -147,6 +147,27 @@ export function portraitLongDocument() {
   });
 }
 
+export function multiChapterDocument() {
+  const document = pageDocument({
+    id: 'multi-chapter-page',
+    title: 'Two chapters',
+    orientation: 'portrait',
+    chapterTitle: 'Chapter 1',
+    blocks: [textBlock('chapter-1-block', 'Chapter one block', 'First chapter body.')],
+  });
+  document.chapters.push({
+    id: 'chapter-2',
+    title: 'Chapter 2',
+    topLevelBlockIds: ['chapter-2-block'],
+  });
+  document.blocks['chapter-2-block'] = {
+    id: 'chapter-2-block',
+    label: 'Chapter two block',
+    content: { type: 'doc', children: [paragraph('Second chapter body.')] },
+  };
+  return document;
+}
+
 export function emptyDocument() {
   return pageDocument({
     id: 'empty-page',
