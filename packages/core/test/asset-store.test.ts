@@ -26,6 +26,22 @@ function sha256(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+/**
+ * Symlink tests run on macOS and any platform that grants the privilege. Some
+ * Windows configurations reject symlink creation without developer mode; the
+ * test then returns early instead of asserting a platform capability.
+ */
+async function createSymlinkOrSkip(target: string, linkPath: string): Promise<boolean> {
+  try {
+    await fs.symlink(target, linkPath);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'EPERM' || code === 'EACCES' || code === 'ENOSYS') return false;
+    throw error;
+  }
+}
+
 async function withStore(
   name: string,
   fn: (store: NodeAssetStore, packagePath: string) => Promise<void>,
@@ -264,6 +280,176 @@ describe('NodeAssetStore', () => {
     } finally {
       await removeDir(packagePath);
     }
+  });
+
+  it('confines every operation when the assets directory is a symlink outside the package', async () => {
+    const packagePath = await makeTempDir('noteforest-asset-symlink-outside-');
+    const outsidePath = await makeTempDir('noteforest-asset-symlink-outside-target-');
+    const id = sha256(PNG_BYTES);
+    const record: Asset = {
+      id,
+      path: `assets/${id}`,
+      mime: 'image/png',
+      bytes: PNG_BYTES.byteLength,
+    };
+    try {
+      await fs.writeFile(path.join(outsidePath, id), PNG_BYTES);
+      if (!(await createSymlinkOrSkip(outsidePath, path.join(packagePath, 'assets')))) return;
+
+      const store = new NodeAssetStore({
+        packagePath,
+        assetRecord: () => record,
+      });
+      await expect(store.has(id)).resolves.toBe(false);
+
+      const read = await store.read(id);
+      expect(read.ok).toBe(false);
+      if (read.ok) return;
+      expect(read.reason).toBe('unreadable');
+
+      const verified = await store.readVerified(id);
+      expect(verified.ok).toBe(false);
+      if (verified.ok) return;
+      expect(verified.reason).toBe('unreadable');
+
+      await expect(store.availability(id)).resolves.toMatchObject({
+        id,
+        state: 'asset-missing',
+        detail: 'unreadable',
+      });
+
+      // The correct bytes are already visible through the symlink; insert must
+      // still refuse to dedupe against them or write a new file there.
+      const failed = await store.insert({ bytes: PNG_BYTES, mime: 'image/png' });
+      expect(failed.ok).toBe(false);
+      if (failed.ok) return;
+      expect(failed.error.code).toBe('io-error');
+
+      await expect(fs.readdir(outsidePath)).resolves.toEqual([id]);
+      await expect(fs.readFile(path.join(outsidePath, id))).resolves.toEqual(Buffer.from(PNG_BYTES));
+    } finally {
+      await removeDir(packagePath);
+      await removeDir(outsidePath);
+    }
+  });
+
+  it('rejects a symlinked assets directory even when its target is inside the package', async () => {
+    const packagePath = await makeTempDir('noteforest-asset-symlink-inside-');
+    const id = sha256(PNG_BYTES);
+    const record: Asset = {
+      id,
+      path: `assets/${id}`,
+      mime: 'image/png',
+      bytes: PNG_BYTES.byteLength,
+    };
+    try {
+      const realAssets = path.join(packagePath, 'real-assets');
+      await fs.mkdir(realAssets);
+      await fs.writeFile(path.join(realAssets, id), PNG_BYTES);
+      if (!(await createSymlinkOrSkip(realAssets, path.join(packagePath, 'assets')))) return;
+
+      const store = new NodeAssetStore({
+        packagePath,
+        assetRecord: () => record,
+      });
+      await expect(store.has(id)).resolves.toBe(false);
+      await expect(store.read(id)).resolves.toMatchObject({
+        ok: false,
+        reason: 'unreadable',
+      });
+      await expect(store.availability(id)).resolves.toMatchObject({
+        state: 'asset-missing',
+        detail: 'unreadable',
+      });
+
+      const failed = await store.insert({ bytes: PNG_BYTES, mime: 'image/png' });
+      expect(failed.ok).toBe(false);
+      if (failed.ok) return;
+      expect(failed.error.code).toBe('io-error');
+      await expect(fs.readdir(realAssets)).resolves.toEqual([id]);
+    } finally {
+      await removeDir(packagePath);
+    }
+  });
+
+  it('does not serve or write through a symlinked final asset file', async () => {
+    const packagePath = await makeTempDir('noteforest-asset-file-symlink-');
+    const outsidePath = await makeTempDir('noteforest-asset-file-symlink-target-');
+    const id = sha256(PNG_BYTES);
+    const record: Asset = {
+      id,
+      path: `assets/${id}`,
+      mime: 'image/png',
+      bytes: PNG_BYTES.byteLength,
+    };
+    try {
+      const assetsPath = path.join(packagePath, 'assets');
+      await fs.mkdir(assetsPath);
+      const outsideFile = path.join(outsidePath, 'bytes');
+      await fs.writeFile(outsideFile, PNG_BYTES);
+      if (!(await createSymlinkOrSkip(outsideFile, path.join(assetsPath, id)))) return;
+
+      const store = new NodeAssetStore({
+        packagePath,
+        assetRecord: () => record,
+      });
+      await expect(store.has(id)).resolves.toBe(false);
+      await expect(store.read(id)).resolves.toMatchObject({
+        ok: false,
+        reason: 'unreadable',
+      });
+      await expect(store.readVerified(id)).resolves.toMatchObject({
+        ok: false,
+        reason: 'unreadable',
+      });
+      await expect(store.availability(id)).resolves.toMatchObject({
+        state: 'asset-missing',
+        detail: 'unreadable',
+      });
+
+      const failed = await store.insert({ bytes: PNG_BYTES, mime: 'image/png' });
+      expect(failed.ok).toBe(false);
+      if (failed.ok) return;
+      expect(failed.error.code).toBe('io-error');
+      // The symlink is untouched and the outside file still holds the bytes.
+      await expect(
+        fs.lstat(path.join(assetsPath, id)).then((stat) => stat.isSymbolicLink()),
+      ).resolves.toBe(true);
+      await expect(fs.readFile(outsideFile)).resolves.toEqual(Buffer.from(PNG_BYTES));
+    } finally {
+      await removeDir(packagePath);
+      await removeDir(outsidePath);
+    }
+  });
+
+  it('repairs a corrupt content-addressed file instead of reporting a dedupe', async () => {
+    await withStore('corrupt-dedupe', async (store, packagePath) => {
+      const id = store.idForBytes(PNG_BYTES);
+      const assetsPath = path.join(packagePath, 'assets');
+      await fs.mkdir(assetsPath, { recursive: true });
+      const filePath = path.join(assetsPath, id);
+      await fs.writeFile(filePath, OTHER_BYTES);
+
+      const repaired = await store.insert({
+        bytes: PNG_BYTES,
+        mime: 'image/png',
+        originalName: 'forest.png',
+      });
+      expect(repaired.ok).toBe(true);
+      if (!repaired.ok) return;
+      expect(repaired.created).toBe(true);
+      expect(repaired.asset.id).toBe(id);
+      await expect(fs.readFile(filePath)).resolves.toEqual(Buffer.from(PNG_BYTES));
+      await expect(store.readVerified(id)).resolves.toMatchObject({ ok: true });
+      await expect(store.availability(id)).resolves.toMatchObject({ state: 'available' });
+
+      const deduped = await store.insert({ bytes: PNG_BYTES, mime: 'image/png' });
+      expect(deduped.ok).toBe(true);
+      if (!deduped.ok) return;
+      expect(deduped.created).toBe(false);
+      expect(deduped.asset.id).toBe(id);
+      await expect(fs.readFile(filePath)).resolves.toEqual(Buffer.from(PNG_BYTES));
+    });
   });
 });
 
