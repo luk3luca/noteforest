@@ -82,11 +82,29 @@ placement math). Keep them in the TS module so the renderer and the router canno
 | `edgeLaneMin` | 2 px | Shared trunk lane minimum offset |
 | `edgeLaneMax` | 14 px | Shared trunk lane maximum offset |
 | `edgeMinGap` | 4 px | Minimum routed segment gap |
-| `wrapIndent` | 18 px | Reserved for the M4 page renderer, which may wrap a child below |
+| `wrapIndent` | 18 px | Shell below-stack indent; the layout engine uses the same default independently |
 
 `edgeBusOffset` and `edgePortSpacing` were removed in M3h4: the below-stack router no longer uses
 them and nothing else read them. Port distribution remains a router-only helper (`distributePorts`
 in `geometry.ts`), not a CSS token.
+
+## Layout-engine options (packages/layout)
+
+These are `LayoutOptions` in `packages/layout/src/types.ts`, not CSS variables. They must not be
+duplicated in the shell token module; the reader, page view, and print renderer pass the same values
+so one engine produces one geometry.
+
+| Option | Value | Used for |
+|---|---:|---|
+| `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent |
+| `maxWrapIndent` | 54 px | Cap on cumulative wrap indent from the page content left (3 × 18) |
+| `wrapPolicy` | `group-left-origin` | Production default from ADR-0006; lab oracles are not user-facing |
+| `minContentWidth` | 160 px | Readable minimum before a block reports `content-too-wide` |
+| `maxContentWidth` | 420 px | Readable text cap; unbreakable content may use more |
+
+M4a lab evidence (`docs/reports/m4a-layout-lab.md`): no page-count delta on the 300-block,
+deep-chain, wide-fan, or showcase fixtures; the only measured trade-off is wide-fan's +99.1 px
+height with no page increase. Do not change these values without re-running the lab.
 
 ## Runtime-measured variables
 

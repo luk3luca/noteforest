@@ -346,13 +346,17 @@ runtime dependency, all existing tests green, no behavior change.
 Only interfaces now: `AssetStore`, `ApplicationService`/queries, token registry. Implementations
 for images, API/MCP, auth/audit, settings, page/PDF belong to M3c3b/M4/M5/M6.
 
-## M4 — Reader/page + PDF (planning complete)
+## M4 — Reader/page + PDF (M4a merged; M4b next)
 
-Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level left-origin wrap. **M4a is launched** (`docs/tasks/m4a-layout-lab-group-wrap.md`).
+Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level left-origin wrap. **M4a is merged** (`docs/tasks/m4a-layout-lab-group-wrap.md`, report `docs/reports/m4a-layout-lab.md`); **M4b is launched**.
 
-- **M4a** layout lab + group-wrap engine: whole child group right only if it fits; otherwise all
-  direct children below at parent.x + wrapIndent, recursively; cap cumulative indent; same rule in
-  reader/page/PDF. Validate variants on showcase + 300-block fixture.
+- **M4a** layout lab + group-wrap engine — **merged and verified**: whole child group right only if
+  every direct child's own card fits; otherwise all direct children below at
+  `min(parent.x + wrapIndent, pageContentLeft + maxWrapIndent)`, recursively; callouts first.
+  `wrapIndent = 18`, `maxWrapIndent = 54`, default `wrapPolicy = group-left-origin`; the lab keeps
+  `right-first-per-child` and `subtree-aware` as oracles. Lab: no page delta on scale-300,
+  deep-chain, wide-fan, showcase; wide-fan +99.1 px height, no page increase. Full verify **717
+  unit**, **48 UI**, **16/16 e2e** in 36.3 s, **14 recovery**, exit 0.
 - **M4b** page view + reader integration: derived pages, page-break markers, fit/zoom, manual hints,
   orientation, mode-switch state.
 - **M4c** print compositor + PDF: fixed derived pages, real text/vector arrows, fonts/KaTeX/images

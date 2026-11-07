@@ -39,6 +39,8 @@ table rows. One layout engine, two renderers; pages are derived, not containers.
 ## Slices
 
 ### M4a — Layout lab and group-wrap engine
+
+**Status:** merged and verified. Report: `docs/reports/m4a-layout-lab.md`.
 - Implement a layout lab with current, group-left-origin, and per-child subtree-aware variants.
 - Add subtree measurement and the group-wrap rule from ADR-0006.
 - Validate `wrapIndent`/cap tokens on showcase + 300-block fixture; record chosen values.
