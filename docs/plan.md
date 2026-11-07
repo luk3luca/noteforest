@@ -373,9 +373,13 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
   `docs/reports/m4b1a2-read-mode-gating.md`.
 - **M4b1b** Page Edit: optional A4-bounded editing with one active block editor overlay; Page Read
   remains the exact PDF proof.
-- **M4b1c** continuous page-break markers derived from the paginator, at block boundaries with
-  continuation chips; exact in-block breaks stay in Page/PDF — **launched**. It shares one page model
-  with Page Read and does not shift the editor DOM.
+- **M4b1c** continuous page-break markers — **merged and verified**: one shared page model, page-start
+  markers + continuation chips, no DOM shift. **M4b1c1** page image preload fix merged: dimensioned
+  images measure without fetching bytes; image suites 0 pageErrors. Full verify **773 unit**, **22 UI
+  suites**, 16/16 e2e, 14 recovery, exit 0. Reports: `docs/reports/m4b1c-continuous-markers.md`,
+  `docs/reports/m4b1c1-page-image-preload.md`.
+- **M4b1b** Page Edit: optional A4-bounded writing with one active block editor overlay; same geometry
+  as Page Read, no free canvas, no second paginator — **next**.
 - **M4b2/M4e are not separate parts**: all of the above is M4b; M4c is the PDF print compositor.
 - **M4c** print compositor + PDF: fixed derived pages, real text/vector arrows, fonts/KaTeX/images
   wait, atomic export, page-count parity and text extraction.
