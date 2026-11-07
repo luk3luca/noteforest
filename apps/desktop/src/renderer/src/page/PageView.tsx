@@ -51,13 +51,15 @@ import {
   type PageContentBlock,
   type PageRenderSegment,
 } from './segments';
-import { usePageModel } from './usePageModel';
+import type { PageModelState } from './usePageModel';
 
 interface PageViewProps {
   runtime: DocumentRuntime;
   active: boolean;
   /** Page Read is implemented; Page Edit is a later slice. */
   interactionMode: InteractionMode;
+  /** Shared page model owned by `DocumentEditor` (never re-measured here). */
+  model: PageModelState;
 }
 
 /** Matches `.nf-page-stage` padding (the canvas medium step). */
@@ -358,14 +360,13 @@ function PageSurface({
   );
 }
 
-export function PageView({ runtime, active, interactionMode }: PageViewProps): JSX.Element {
+export function PageView({ runtime, active, interactionMode, model }: PageViewProps): JSX.Element {
   useRuntime(runtime.packagePath);
   const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
   const currentPage = view?.currentPage ?? 1;
   const pageFit = view?.pageFit ?? 'page';
   const pageZoom = view?.pageZoom ?? 1;
   const selectedBlockId = runtime.selectedBlockId;
-  const model = usePageModel(runtime, active);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
@@ -641,6 +642,11 @@ export function PageView({ runtime, active, interactionMode }: PageViewProps): J
       data-current-page={pageNumber}
       data-defect-count={blocking.length}
       data-measurement-calls={model.measurementCalls}
+      data-model-runs={model.runs}
+      data-model-ms={model.lastRunMs === null ? undefined : Math.round(model.lastRunMs)}
+      data-model-compute-ms={
+        model.lastComputeMs === null ? undefined : Math.round(model.lastComputeMs)
+      }
       data-fragment-count={page?.fragments.length ?? 0}
       data-continuation-out={page?.continuationOut.length ?? 0}
       data-continuation-in={page?.continuationIn.length ?? 0}

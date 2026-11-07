@@ -413,11 +413,35 @@ describe('M4b1 page view core', () => {
     await launch(ui.isolated('m4b1-page-error'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
+    // The page model is shared with Continuous markers (M4b1c), so it has
+    // already run for the seeded revision. Wait for that successful pass, then
+    // force the next revision to fail and switch to Page.
+    await page.waitForFunction(
+      () => {
+        const layer = document.querySelector('.nf-editor[data-active="true"] .nf-page-markers');
+        return (
+          layer !== null &&
+          layer.getAttribute('data-page-model-ready') === 'true' &&
+          layer.getAttribute('data-page-model-updating') === 'false'
+        );
+      },
+      undefined,
+      { timeout: 20000 },
+    );
     await page.evaluate(() => {
       Object.defineProperty(document.fonts, 'ready', {
         configurable: true,
         get: () => Promise.reject(new Error('Forced page measurement failure')),
       });
+    });
+    const seeded = await h.state();
+    const seededRuntime = seeded.runtimes.find((item) => item.packagePath === seeded.activeTab);
+    const firstBlockId = seededRuntime?.blockIds[0];
+    assert.equal(typeof firstBlockId, 'string');
+    await ui.applyCommand({
+      type: 'block.editContent',
+      blockId: firstBlockId,
+      content: textDoc('This edit triggers the failing measurement pass.'),
     });
     await page.keyboard.press('Meta+3');
     await activePageView().locator('[data-page-error="true"]').waitFor();

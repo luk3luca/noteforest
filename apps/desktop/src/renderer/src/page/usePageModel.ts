@@ -1,12 +1,19 @@
 /**
  * Page model hook.
  *
- * Recomputes the derived pages from the runtime's canonical revision. Work is
+ * Recomputes the derived pages from the canonical document revision. Work is
  * debounced (typing and structural commands run in bursts), every stale run is
  * aborted, and the measurement host is disposed in the same task that created
  * it. A failed measurement never touches the continuous editor: the page
  * layout owns the error surface and the continuous editor remains mounted and
  * editable underneath.
+ *
+ * The hook is owned once per open document (`DocumentEditor`) and shared by the
+ * Page layout and the continuous marker layer. It keys completed work by
+ * `(document.revision, reloadToken)`, so a layout/mode switch, a selection, a
+ * collapse toggle (view state), or returning to a tab never re-measures an
+ * unchanged revision. Collapse in particular must not change the page model:
+ * Page/PDF always show the full document.
  */
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -31,6 +38,12 @@ export interface PageModelState {
   error: string | null;
   defects: LayoutDefect[];
   measurementCalls: number;
+  /** Successful model runs since the editor mounted (diagnostics only). */
+  runs: number;
+  /** Wall time of the last prepare + layout + paginate run (diagnostics only). */
+  lastRunMs: number | null;
+  /** Synchronous layout + paginate part of the last run (diagnostics only). */
+  lastComputeMs: number | null;
   failedAssetIds: ReadonlySet<string>;
   assetUrls: Readonly<Record<string, string>>;
   reload: () => void;
@@ -57,18 +70,29 @@ function messageOf(error: unknown): string {
 }
 
 export function usePageModel(runtime: DocumentRuntime, active: boolean): PageModelState {
-  const version = useSyncExternalStore(
+  // Subscribe to the runtime so content and save-state notifications re-render
+  // this hook. The snapshot value itself is not needed: the canonical revision
+  // below is the recomputation key.
+  useSyncExternalStore(
     runtime.subscribe,
     () => runtime.version,
     () => 0,
   );
+  // Content changes advance the canonical revision. View-only notifications
+  // (selection, focus, collapse, save-state chrome) bump `version` but not the
+  // revision: they must not trigger a full measurement pass.
+  const revision = runtime.document.revision;
   const [model, setModel] = useState<PageModelData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [failedAssetIds, setFailedAssetIds] = useState<ReadonlySet<string>>(new Set());
   const [assetUrls, setAssetUrls] = useState<Readonly<Record<string, string>>>({});
   const [reloadToken, setReloadToken] = useState(0);
+  const [runs, setRuns] = useState(0);
+  const [lastRunMs, setLastRunMs] = useState<number | null>(null);
+  const [lastComputeMs, setLastComputeMs] = useState<number | null>(null);
   const hasRun = useRef(false);
+  const completedKey = useRef<string | null>(null);
 
   const reload = useCallback(() => {
     setReloadToken((value) => value + 1);
@@ -76,10 +100,13 @@ export function usePageModel(runtime: DocumentRuntime, active: boolean): PageMod
 
   useEffect(() => {
     if (!active) return undefined;
+    const key = `${revision}:${reloadToken}`;
+    if (completedKey.current === key) return undefined;
     const controller = new AbortController();
     const delay = hasRun.current ? DEBOUNCE_MS : 0;
     const timer = setTimeout(() => {
       void (async () => {
+        const startedAt = performance.now();
         setUpdating(true);
         try {
           const source = runtime.document;
@@ -89,13 +116,19 @@ export function usePageModel(runtime: DocumentRuntime, active: boolean): PageMod
           try {
             await measurement.prepare(Object.values(noteDocument.blocks), controller.signal);
             if (controller.signal.aborted) return;
+            const computeStartedAt = performance.now();
             const computed = computePageModel(noteDocument, measurement);
+            const computeMs = performance.now() - computeStartedAt;
             if (controller.signal.aborted) return;
             setModel(computed);
             setFailedAssetIds(new Set(measurement.failedAssetIds));
             setAssetUrls(urls);
             setError(null);
+            completedKey.current = key;
             hasRun.current = true;
+            setRuns((value) => value + 1);
+            setLastComputeMs(computeMs);
+            setLastRunMs(performance.now() - startedAt);
           } finally {
             measurement.dispose();
           }
@@ -112,7 +145,11 @@ export function usePageModel(runtime: DocumentRuntime, active: boolean): PageMod
       clearTimeout(timer);
       controller.abort();
     };
-  }, [active, version, reloadToken, runtime]);
+    // `version` intentionally stays out of the dependency list: it is the
+    // store subscription that re-renders this hook, while the canonical
+    // revision decides whether the model must be recomputed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, revision, reloadToken, runtime]);
 
   return {
     pages: model?.pages ?? [],
@@ -122,6 +159,9 @@ export function usePageModel(runtime: DocumentRuntime, active: boolean): PageMod
     error,
     defects: model?.defects ?? [],
     measurementCalls: model?.measurementCalls ?? 0,
+    runs,
+    lastRunMs,
+    lastComputeMs,
     failedAssetIds,
     assetUrls,
     reload,
