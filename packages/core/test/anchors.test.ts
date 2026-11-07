@@ -937,6 +937,30 @@ describe('image anchor resolution', () => {
     });
   });
 
+  it('breaks a present record when the open session reports a missing file or changed hash', () => {
+    const content = doc(image('asset-1', ['a1']));
+    const { document, blockId, targetBlockId } = imageDocument(content);
+    const anchor = imageAnchor('a1', blockId, 'asset-1');
+    attach(document, anchor, targetBlockId);
+
+    expect(
+      resolveAnchor(document, 'a1', {
+        assetAvailability: { 'asset-1': 'asset-missing' },
+      }),
+    ).toMatchObject({ state: 'broken', reason: 'asset-missing' });
+
+    expect(
+      resolveAnchor(document, 'a1', {
+        assetAvailability: { 'asset-1': 'asset-changed' },
+      }),
+    ).toMatchObject({ state: 'broken', reason: 'asset-changed' });
+
+    // Session availability changes resolution only: the anchor, branch, and
+    // target stay exactly as authored.
+    expect(document.anchors[anchor.id]).toEqual(anchor);
+    expect(document.branches[`branch-${anchor.id}`]?.targetBlockId).toBe(targetBlockId);
+  });
+
   it('requires confirmation for an image selector without a node binding', () => {
     const content = doc(image('asset-1'), image('asset-1'));
     const { document, blockId, targetBlockId } = imageDocument(content);

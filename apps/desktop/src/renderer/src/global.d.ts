@@ -18,6 +18,8 @@ declare global {
       structure?: () => unknown;
       /** Test-only: canonical asset records of the active document. */
       assets?: () => unknown;
+      /** Test-only: session asset availability of the active document. */
+      assetAvailability?: () => unknown;
       /** Test-only: canonical split caret of the active editor. */
       caretLocation?: () => unknown;
       editorCheck?: () => unknown;

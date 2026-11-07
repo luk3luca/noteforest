@@ -7,7 +7,14 @@
  * nodes. The wrapper nodes never leak into the stored content.
  */
 
-import type { AnchorKind, AnchorState, Branch, ContentNode, Document } from '@noteforest/core';
+import type {
+  AnchorKind,
+  AnchorState,
+  AssetAvailabilityIndex,
+  Branch,
+  ContentNode,
+  Document,
+} from '@noteforest/core';
 import {
   anchoredChildBranches,
   directChildBranches,
@@ -168,24 +175,29 @@ function projectedImageAttrs(
 ): Record<string, unknown> {
   const next = { ...attrs };
   const assetId = next['assetId'];
+  // Legacy `src` is never a display source. M2 had no image insertion, so an
+  // image with `src` but no `assetId` is unsupported: drop the path, keep alt,
+  // and let the node view render the labeled placeholder. `pmToContent` removes
+  // the same field on the next commit, so canonical content converges.
+  delete next['src'];
   if (typeof assetId === 'string' && assetId.length > 0) {
     next['src'] = assetUrlFor(assetId);
     if (knownAssets !== undefined) next['missing'] = !knownAssets.has(assetId);
+  } else {
+    next['missing'] = true;
+    next['missingReason'] = 'unsupported-src';
   }
   return next;
 }
 
-/** Strip editor-only image fields; a legacy `src` survives when no assetId exists. */
+/** Strip editor-only image fields; a legacy `src` never survives a commit. */
 function canonicalImageAttrs(attrs: Record<string, unknown>): Record<string, unknown> {
   const next = { ...attrs };
-  const assetId = next['assetId'];
-  const hasAssetId = typeof assetId === 'string' && assetId.length > 0;
   delete next['missing'];
   delete next['missingLabel'];
-  if (hasAssetId) {
-    delete next['src'];
-    delete next['title'];
-  }
+  delete next['missingReason'];
+  delete next['src'];
+  delete next['title'];
   return next;
 }
 
@@ -282,7 +294,12 @@ export interface PrimaryChildEntry {
   callout?: CalloutDescriptor;
 }
 
-function toCallout(document: Document, parentId: string, branch: Branch): CalloutDescriptor {
+function toCallout(
+  document: Document,
+  parentId: string,
+  branch: Branch,
+  assetAvailability?: AssetAvailabilityIndex,
+): CalloutDescriptor {
   const anchorId = branch.source.anchorId ?? '';
   return {
     branchId: branch.id,
@@ -291,8 +308,29 @@ function toCallout(document: Document, parentId: string, branch: Branch): Callou
     anchorId,
     kind: document.anchors[anchorId]?.kind ?? 'text',
     quote: anchorQuote(document, anchorId),
-    state: anchorState(document, anchorId),
+    state: anchorState(
+      document,
+      anchorId,
+      assetAvailability === undefined ? {} : { assetAvailability },
+    ),
   };
+}
+
+/**
+ * Asset ids that the projection may render. A record with no availability
+ * entry is treated as available; missing/unreadable/changed assets are not.
+ */
+export function knownImageAssets(
+  document: Document,
+  assetAvailability?: AssetAvailabilityIndex,
+): Set<string> {
+  const known = new Set<string>();
+  for (const id of Object.keys(document.assets)) {
+    if (assetAvailability?.[id] === undefined || assetAvailability[id] === 'available') {
+      known.add(id);
+    }
+  }
+  return known;
 }
 
 /**
@@ -303,10 +341,11 @@ function toCallout(document: Document, parentId: string, branch: Branch): Callou
 export function projectPrimaryChildren(
   document: Document,
   parentBlockId: string,
+  assetAvailability?: AssetAvailabilityIndex,
 ): PrimaryChildProjection {
   const callouts = anchoredChildBranches(document, parentBlockId)
     .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
-    .map((branch) => toCallout(document, parentBlockId, branch));
+    .map((branch) => toCallout(document, parentBlockId, branch, assetAvailability));
   const direct = directChildBranches(document, parentBlockId)
     .filter((branch) => document.blocks[branch.targetBlockId] !== undefined)
     .map((branch) => ({ branchId: branch.id, blockId: branch.targetBlockId }));
@@ -341,14 +380,15 @@ export function buildBlockNode(
   seen: Set<string> = new Set(),
   belowRow?: BelowRow,
   belowChildIds: ReadonlySet<string> = EMPTY_PLACEMENT,
-  knownAssets: ReadonlySet<string> = new Set(Object.keys(document.assets)),
+  assetAvailability?: AssetAvailabilityIndex,
+  knownAssets: ReadonlySet<string> = knownImageAssets(document, assetAvailability),
 ): PMNode | null {
   if (seen.has(id)) return null;
   const block = document.blocks[id];
   if (block === undefined) return null;
   seen.add(id);
   const isCollapsed = collapsed.has(id);
-  const projection = projectPrimaryChildren(document, id);
+  const projection = projectPrimaryChildren(document, id, assetAvailability);
   // The branch port's hidden count is every primary child, anchored callouts
   // included, because collapsing hides both groups.
   const childCount = directChildIds(document, id).filter(
@@ -405,6 +445,7 @@ export function buildBlockNode(
             ? { kind: 'callout', callout: entry.callout }
             : { kind: 'direct' },
           belowChildIds,
+          assetAvailability,
           knownAssets,
         ),
       )
@@ -429,6 +470,7 @@ export function buildBlockNode(
         seen,
         undefined,
         belowChildIds,
+        assetAvailability,
         knownAssets,
       ),
     )
@@ -468,11 +510,22 @@ export function buildEditorDocument(
   document: Document,
   collapsed: ReadonlySet<string>,
   belowChildIds: ReadonlySet<string> = EMPTY_PLACEMENT,
+  assetAvailability?: AssetAvailabilityIndex,
 ): PMNode {
   const seen = new Set<string>();
-  const knownAssets = new Set(Object.keys(document.assets));
+  const knownAssets = knownImageAssets(document, assetAvailability);
   const buildBlock = (id: string, depth: number): PMNode | null =>
-    buildBlockNode(document, id, depth, collapsed, seen, undefined, belowChildIds, knownAssets);
+    buildBlockNode(
+      document,
+      id,
+      depth,
+      collapsed,
+      seen,
+      undefined,
+      belowChildIds,
+      assetAvailability,
+      knownAssets,
+    );
 
   // Every chapter is rendered, including a legacy empty one. The `chapter`
   // node accepts `branch*`; an empty chapter is valid ProseMirror content and

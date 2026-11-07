@@ -106,6 +106,10 @@ describe('NoteForest M3c3b1 image pipeline', () => {
     assert.equal(asset.path, `assets/${imageNode.attrs.assetId}`);
     assert.equal(asset.mime, 'image/png');
     assert.equal(asset.originalName, 'forest.png');
+    assert.equal(asset.width, 640, 'native-picker import stores intrinsic width');
+    assert.equal(asset.height, 360, 'native-picker import stores intrinsic height');
+    assert.equal(imageNode.attrs.width, 640);
+    assert.equal(imageNode.attrs.height, 360);
     assert.equal(Object.keys(assets).length, 1);
 
     const packagePath = (await h.state()).activeTab;

@@ -580,8 +580,8 @@ function AnchorHealthDialog({
   const [busy, setBusy] = useState(false);
 
   const rows = useMemo(
-    () => buildAnchorHealthRows(runtime.document),
-    [runtime.document, runtime.version],
+    () => buildAnchorHealthRows(runtime.document, runtime.assetAvailability),
+    [runtime.document, runtime.version, runtime.assetAvailability],
   );
   const summary = summarizeAnchorHealth(rows);
   const visible = filterAnchorHealthRows(rows, filter);

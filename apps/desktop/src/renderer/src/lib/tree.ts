@@ -310,8 +310,12 @@ export function anchorQuote(document: Document, anchorId: string): string {
   return '';
 }
 
-export function anchorState(document: Document, anchorId: string): AnchorState {
-  return resolveAnchor(document, anchorId).state;
+export function anchorState(
+  document: Document,
+  anchorId: string,
+  options: Parameters<typeof resolveAnchor>[2] = {},
+): AnchorState {
+  return resolveAnchor(document, anchorId, options).state;
 }
 
 export function anchorIsWarning(state: AnchorState): boolean {

@@ -37,6 +37,7 @@ import {
 } from '../../lib/image-anchor';
 import { beginImageAnchorAuthoring } from '../../lib/image-authoring';
 import type { ImageSelectionAnchor } from '../../lib/anchor-selection';
+import { assetUrlFor } from '../../lib/asset-url';
 
 function stringAttr(value: unknown): string {
   return typeof value === 'string' ? value : '';
@@ -127,7 +128,10 @@ function clientBox(element: HTMLElement | null): ClientBox | null {
 export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Element {
   const assetId = stringAttr(node.attrs['assetId']);
   const alt = stringAttr(node.attrs['alt']);
-  const src = stringAttr(node.attrs['src']);
+  // The canonical projection may carry a display-only `src`, but an image node
+  // only ever renders the package protocol URL derived from its asset id. A
+  // legacy `file:`/`data:`/remote `src` never reaches `<img>`.
+  const src = assetId.length > 0 ? assetUrlFor(assetId) : '';
   const width = dimensionAttr(node.attrs['width']);
   const height = dimensionAttr(node.attrs['height']);
   const bindings = getEditorBindings(editor);
@@ -154,7 +158,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
 
   useEffect(() => {
     setFailed(false);
-  }, [assetId, src]);
+  }, [assetId]);
 
   const record = useMemo(() => {
     if (assetId.length === 0 || runtime === null) return undefined;
@@ -164,11 +168,14 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
     return runtime.document.assets[assetId];
   }, [assetId, runtime, version]);
 
+  const integrity =
+    assetId.length > 0 && runtime !== null ? runtime.assetAvailability[assetId] : undefined;
   const missing =
     failed ||
     node.attrs['missing'] === true ||
-    (assetId.length === 0 && src.length === 0) ||
-    (assetId.length > 0 && runtime !== null && record === undefined);
+    assetId.length === 0 ||
+    integrity !== undefined ||
+    (runtime !== null && record === undefined);
   const label =
     alt.length > 0
       ? alt
@@ -178,8 +185,10 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
   const reason = failed
     ? 'Image file is missing'
     : assetId.length === 0
-      ? 'Image has no asset'
-      : 'Image not found';
+      ? 'Unsupported image source'
+      : integrity === 'asset-changed'
+        ? 'Image asset changed'
+        : 'Image not found';
 
   const request = ui.imageAuthoring;
   const authoring =
@@ -256,7 +265,9 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
       ).length;
       // OD-2: an anchor with no live branch is idle; its marker is hidden.
       if (branchCount === 0) continue;
-      const resolution = resolveAnchor(document, anchorId);
+      const resolution = resolveAnchor(document, anchorId, {
+        assetAvailability: runtime.assetAvailability,
+      });
       if (resolution.state !== 'resolved' || resolution.resolved === null) continue;
       const range = resolution.resolved.range;
       if (range.kind !== 'image') continue;
@@ -393,6 +404,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
         data-image-node={assetId || 'no-asset'}
         data-image-asset={assetId || undefined}
         data-image-missing="true"
+        data-image-integrity={integrity ?? (assetId.length === 0 ? 'unsupported' : undefined)}
         data-image-alt={alt}
         contentEditable={false}
       >
@@ -405,7 +417,9 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
           <span className="nf-image-missing-title">{reason}</span>
           <span className="nf-image-missing-name">{label}</span>
           <span className="nf-image-missing-hint">
-            The asset stays referenced so the branch, anchor, and alt text are kept.
+            {assetId.length === 0
+              ? 'Legacy image sources are not loaded; the alt text is kept.'
+              : 'The asset stays referenced so the branch, anchor, and alt text are kept.'}
           </span>
         </div>
       </NodeViewWrapper>
@@ -425,6 +439,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
       className="nf-image-node"
       data-image-node={assetId}
       data-image-asset={assetId}
+      data-image-integrity={integrity}
       data-image-alt={alt}
       contentEditable={false}
     >

@@ -16,7 +16,7 @@
  */
 
 import type { Editor } from '@tiptap/core';
-import type { ContentNode, Document } from '@noteforest/core';
+import type { AssetAvailabilityIndex, ContentNode, Document } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
 import { closeHistory, redoDepth, undoDepth } from '@tiptap/pm/history';
 import { EditorState, NodeSelection, TextSelection, type Transaction } from '@tiptap/pm/state';
@@ -33,6 +33,8 @@ import {
 export interface EditorProjectionHost {
   /** Canonical document for the current revision. */
   document(): Document;
+  /** Session image-asset availability; absent means treat records as usable. */
+  assetAvailability?(): AssetAvailabilityIndex;
   /** Collapsed block IDs; view-only state, never canonical. */
   collapsed(): ReadonlySet<string>;
   /** Block selection the runtime last observed, used when the editor has none. */
@@ -182,6 +184,7 @@ export function projectWithEditorBodies(
   collapsed: ReadonlySet<string>,
   belowChildIds: ReadonlySet<string>,
   editorDocument: ProseNode,
+  assetAvailability?: AssetAvailabilityIndex,
 ): PMNode {
   const extracted = extractBlockContents(editorDocument.toJSON() as PMNode);
   const blocks = { ...document.blocks };
@@ -190,7 +193,7 @@ export function projectWithEditorBodies(
     if (body === undefined) continue;
     blocks[id] = { ...block, content: withBody(block.content, body.content) };
   }
-  return buildEditorDocument({ ...document, blocks }, collapsed, belowChildIds);
+  return buildEditorDocument({ ...document, blocks }, collapsed, belowChildIds, assetAvailability);
 }
 
 /**
@@ -331,6 +334,7 @@ export class EditorProjection {
       this.host.document(),
       this.host.collapsed(),
       this.belowStackChildIds,
+      this.host.assetAvailability?.(),
     );
   }
 
@@ -351,6 +355,7 @@ export class EditorProjection {
       this.host.collapsed(),
       this.belowStackChildIds,
       editorDocument,
+      this.host.assetAvailability?.(),
     );
   }
 

@@ -2112,13 +2112,15 @@ button:disabled {
   border-radius: 3px;
   cursor: pointer;
   pointer-events: auto;
-  transition: border-color 120ms var(--motion), background-color 120ms var(--motion);
+  /* Selected/hover is border + numbered marker only. A translucent fill over
+     the image obscures the pixels a region anchor refers to. */
+  transition: border-color 120ms var(--motion);
 }
 
 .nf-image-region:hover .nf-image-region-outline,
 .nf-image-region[data-anchor-selected="true"] .nf-image-region-outline {
   border-color: var(--accent);
-  background: var(--accent-soft);
+  background: transparent;
 }
 
 .nf-image-region-marker {

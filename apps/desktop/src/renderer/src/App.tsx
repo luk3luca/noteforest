@@ -328,6 +328,7 @@ export function App(): JSX.Element {
             branches: Object.keys(item.document.branches).length,
             branchIds: Object.keys(item.document.branches),
             assets: Object.keys(item.document.assets).length,
+            assetAvailability: item.assetAvailability,
             status: item.status,
             readOnlyReason: item.readOnlyReason ?? null,
             lock: item.lock ?? null,
@@ -385,6 +386,13 @@ export function App(): JSX.Element {
           (item) => item.packagePath === state.activeTab,
         );
         return structuredClone(runtime?.document.assets ?? {});
+      },
+      assetAvailability: () => {
+        const state = useShell.getState();
+        const runtime = allRuntimes().find(
+          (item) => item.packagePath === state.activeTab,
+        );
+        return structuredClone(runtime?.assetAvailability ?? {});
       },
       caretLocation: () => {
         const state = useShell.getState();

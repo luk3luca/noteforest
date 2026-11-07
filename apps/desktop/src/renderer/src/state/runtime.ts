@@ -26,6 +26,9 @@ import type {
   AnchorBinding,
   AnchorRepairCommand,
   Asset,
+  AssetAvailability,
+  AssetAvailabilityIndex,
+  AssetAvailabilityState,
   Document,
   DocumentCommand,
   JsonObject,
@@ -148,6 +151,13 @@ export class DocumentRuntime {
    */
   readonly keptBroken = new Set<string>();
 
+  /**
+   * Session image-asset availability. View-only: a missing file or SHA-256
+   * mismatch marks the image and its anchors broken without changing canonical
+   * content. Refreshed at open, reload, and when a command touches an asset.
+   */
+  private availability: Record<string, AssetAvailabilityState> = {};
+
   /** Visible recovery message when the editor had to be rebuilt from canonical. */
   repairNotice: string | null = null;
 
@@ -179,6 +189,7 @@ export class DocumentRuntime {
     this.status = snapshot.status;
     this.readOnlyReason = snapshot.readOnlyReason;
     this.lock = snapshot.lock;
+    this.replaceAvailability(snapshot.assetAvailability);
     this.restorePoint = restore;
     this.gateway = gateway;
     this.session = new DocumentSession(snapshot.document, {
@@ -197,6 +208,7 @@ export class DocumentRuntime {
     });
     this.projection = new EditorProjection({
       document: () => this.document,
+      assetAvailability: () => this.assetAvailability,
       collapsed: () => this.collapsed,
       selectedBlockId: () => this.selectedBlockId,
       reveal: (blockId) => this.expandAncestors(blockId),
@@ -219,6 +231,48 @@ export class DocumentRuntime {
   /** Canonical document at the current revision. */
   get document(): Document {
     return this.session.canonical;
+  }
+
+  /** Image assets observed missing/changed in this open session. */
+  get assetAvailability(): AssetAvailabilityIndex {
+    return this.availability;
+  }
+
+  private replaceAvailability(entries: readonly AssetAvailability[] | undefined): void {
+    const next: Record<string, AssetAvailabilityState> = {};
+    for (const entry of entries ?? []) {
+      if (entry.state !== 'available') next[entry.id] = entry.state;
+    }
+    this.availability = next;
+  }
+
+  /** Merge availability reported by the command that just changed an asset. */
+  private mergeAvailability(
+    entries: readonly AssetAvailability[] | undefined,
+    document: Document,
+  ): void {
+    if (entries === undefined || entries.length === 0) {
+      // A record removal still has to drop its stale available/missing entry,
+      // but an ordinary command keeps the same object for memo stability.
+      const stale = Object.keys(this.availability).filter(
+        (id) => document.assets[id] === undefined,
+      );
+      if (stale.length > 0) {
+        const next = { ...this.availability };
+        for (const id of stale) delete next[id];
+        this.availability = next;
+      }
+      return;
+    }
+    const next = { ...this.availability };
+    for (const entry of entries) {
+      if (entry.state === 'available') delete next[entry.id];
+      else next[entry.id] = entry.state;
+    }
+    for (const id of Object.keys(next)) {
+      if (document.assets[id] === undefined) delete next[id];
+    }
+    this.availability = next;
   }
 
   /** What the last user-visible operation touched; drives undo/redo routing. */
@@ -342,6 +396,7 @@ export class DocumentRuntime {
     this.status = snapshot.status;
     this.readOnlyReason = snapshot.readOnlyReason;
     this.lock = snapshot.lock;
+    this.replaceAvailability(snapshot.assetAvailability);
     this.session.reset(snapshot.document);
     this.validateSelectedAnchor();
     this.version += 1;
@@ -451,6 +506,7 @@ export class DocumentRuntime {
       if (!result.ok) return { ok: false, message: result.message };
       this.status = result.snapshot.status;
       this.readOnlyReason = result.snapshot.readOnlyReason;
+      this.replaceAvailability(result.snapshot.assetAvailability);
       // Reload replaces the canonical document: old structural inverses and
       // text history no longer describe it.
       this.session.reset(result.snapshot.document);
@@ -479,8 +535,12 @@ export class DocumentRuntime {
    * Apply one command while the queue holds. Callers must already be inside
    * `queue.run`; committing text first keeps the command's base revision exact.
    */
-  private runCommandInternal(command: DocumentCommand): Promise<ApplyResult> {
-    return this.session.execute(command);
+  private async runCommandInternal(command: DocumentCommand): Promise<ApplyResult> {
+    const result = await this.session.execute(command);
+    if (result.ok && result.document !== undefined) {
+      this.mergeAvailability(result.assetAvailability, result.document);
+    }
+    return result;
   }
 
   private async acceptStructural(
@@ -1229,7 +1289,16 @@ export class DocumentRuntime {
     if (editor === null) return false;
     const parent = parentIdOf(this.document, blockId);
     const depth = parent === null ? 0 : ancestorPath(this.document, parent).length;
-    const json = buildBlockNode(this.document, blockId, depth, this.collapsed);
+    const json = buildBlockNode(
+      this.document,
+      blockId,
+      depth,
+      this.collapsed,
+      undefined,
+      undefined,
+      undefined,
+      this.assetAvailability,
+    );
     if (json === null) return false;
     let node: ProseNode;
     try {

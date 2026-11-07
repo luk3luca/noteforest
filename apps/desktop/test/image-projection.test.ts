@@ -55,6 +55,17 @@ function findImage(node: unknown): Record<string, unknown> | null {
   return null;
 }
 
+function findCallout(node: unknown): Record<string, unknown> | null {
+  if (typeof node !== 'object' || node === null) return null;
+  const record = node as { type?: unknown; attrs?: Record<string, unknown>; content?: unknown[] };
+  if (record.attrs?.['callout'] === true) return record.attrs;
+  for (const child of record.content ?? []) {
+    const found = findCallout(child);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
 describe('image editor projection', () => {
   const content: ContentNode = {
     type: 'doc',
@@ -91,6 +102,55 @@ describe('image editor projection', () => {
     expect(attrs?.['assetId']).toBe(ASSET_ID);
   });
 
+  it('projects a missing file or changed hash as missing without dropping the record', () => {
+    const document = documentWith(content, { [ASSET_ID]: ASSET });
+    for (const state of ['asset-missing', 'asset-changed'] as const) {
+      const attrs = findImage(
+        buildEditorDocument(document, new Set(), new Set(), { [ASSET_ID]: state }),
+      );
+      expect(attrs?.['missing'], state).toBe(true);
+      expect(attrs?.['assetId'], state).toBe(ASSET_ID);
+      expect(attrs?.['src'], state).toBe(`noteforest-asset://asset/${ASSET_ID}`);
+      // Canonical dimensions stay in the document; the placeholder never uses
+      // them, and the projection must not rewrite stored metadata.
+      expect(attrs?.['width'], state).toBe(640);
+      expect(attrs?.['height'], state).toBe(360);
+    }
+  });
+
+  it('keeps the callout state in sync with session image availability', () => {
+    const document = documentWith(content, { [ASSET_ID]: ASSET });
+    const blockId = 'block-image';
+    const childId = 'block-child';
+    document.blocks[childId] = {
+      id: childId,
+      content: { type: 'doc', children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Child' }] }] },
+    };
+    document.anchors['anchor-image'] = {
+      id: 'anchor-image',
+      blockId,
+      kind: 'image',
+      selector: {
+        kind: 'image',
+        assetId: ASSET_ID,
+        rect: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
+        point: false,
+      },
+    };
+    document.branches['branch-image'] = {
+      id: 'branch-image',
+      source: { blockId, anchorId: 'anchor-image' },
+      targetBlockId: childId,
+      role: 'primary',
+      order: 'a1',
+    };
+    const editorDocument = buildEditorDocument(document, new Set(), new Set(), {
+      [ASSET_ID]: 'asset-changed',
+    });
+    const callout = findCallout(editorDocument);
+    expect(callout?.['anchorState']).toBe('broken');
+  });
+
   it('strips display-only fields on the way back to canonical content', () => {
     const projected = contentToPM(content.children?.[0] ?? content, {
       knownAssets: new Set([ASSET_ID]),
@@ -104,9 +164,35 @@ describe('image editor projection', () => {
     expect(roundTripped.attrs?.['missing']).toBeUndefined();
   });
 
-  it('keeps a legacy display src only when no assetId exists', () => {
+  it('drops a legacy src with no assetId but preserves alt text', () => {
     const legacy = pmToContent({ type: 'image', attrs: { src: 'asset.png', alt: 'Legacy' } });
-    expect(legacy.attrs).toEqual({ src: 'asset.png', alt: 'Legacy' });
+    expect(legacy.attrs).toEqual({ alt: 'Legacy' });
+    expect(legacy.attrs?.['src']).toBeUndefined();
+  });
+
+  it('projects a src-only legacy image as a labeled placeholder and never exposes its path', () => {
+    const projected = contentToPM({
+      type: 'image',
+      attrs: { src: 'file:///Users/luca/secret/forest.png', alt: 'Legacy local' },
+    });
+    expect(projected.attrs?.['src']).toBeUndefined();
+    expect(projected.attrs?.['missing']).toBe(true);
+    expect(projected.attrs?.['missingReason']).toBe('unsupported-src');
+    expect(projected.attrs?.['alt']).toBe('Legacy local');
+  });
+
+  it('drops display-only image fields on the way back to canonical content', () => {
+    const legacy = pmToContent({
+      type: 'image',
+      attrs: {
+        src: 'data:image/png;base64,AAAA',
+        alt: 'Embedded',
+        missing: true,
+        missingReason: 'unsupported-src',
+        title: 'old',
+      },
+    });
+    expect(legacy.attrs).toEqual({ alt: 'Embedded' });
   });
 
   it('drops unbacked pasted images while keeping asset-backed copies', () => {

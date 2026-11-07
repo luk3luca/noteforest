@@ -36,7 +36,60 @@ export interface AssetReadUnreadable {
   message: string;
 }
 
-export type AssetReadResult = AssetReadSuccess | AssetReadMissing | AssetReadUnreadable;
+/** The file exists under the id but its bytes no longer hash to that id. */
+export interface AssetReadChanged {
+  ok: false;
+  id: AssetId;
+  reason: 'changed';
+  /** Hash the file content produced now. */
+  actual: string;
+  message: string;
+}
+
+export type AssetReadResult =
+  | AssetReadSuccess
+  | AssetReadMissing
+  | AssetReadUnreadable
+  | AssetReadChanged;
+
+/**
+ * Session availability of one image asset. This is derived runtime state, not
+ * canonical document data: it never enters `document.json` and never changes
+ * the asset record, image node, anchor, or branch.
+ */
+export type AssetAvailabilityState = 'available' | 'asset-missing' | 'asset-changed';
+
+export type AssetAvailabilityDetail =
+  | 'record-missing'
+  | 'file-missing'
+  | 'unreadable'
+  | 'hash-mismatch'
+  | 'unsupported-mime';
+
+export interface AssetAvailability {
+  id: AssetId;
+  state: AssetAvailabilityState;
+  detail?: AssetAvailabilityDetail;
+  /** Short diagnostics label; never a filesystem path. */
+  message?: string;
+}
+
+/**
+ * Lookup used by anchor resolution and export planning. An absent id means the
+ * asset has not been observed as unavailable; it is treated as available.
+ */
+export type AssetAvailabilityIndex = Readonly<Record<string, AssetAvailabilityState>>;
+
+/** Build the compact index from the main-process availability list. */
+export function assetAvailabilityIndex(
+  entries: readonly AssetAvailability[],
+): Record<string, AssetAvailabilityState> {
+  const index: Record<string, AssetAvailabilityState> = {};
+  for (const entry of entries) {
+    if (entry.state !== 'available') index[entry.id] = entry.state;
+  }
+  return index;
+}
 
 export interface AssetInsertInput {
   bytes: Uint8Array;

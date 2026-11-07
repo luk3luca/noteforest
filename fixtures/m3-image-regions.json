@@ -1,0 +1,574 @@
+{
+  "schemaVersion": 1,
+  "id": "m3-image-regions",
+  "title": "M3 image regions — resize, replacement, missing",
+  "createdAt": "2026-11-03T10:00:00Z",
+  "updatedAt": "2026-11-03T10:04:12Z",
+  "revision": 1,
+  "pageSetup": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": 20,
+      "right": 20,
+      "bottom": 20,
+      "left": 20
+    }
+  },
+  "manualBreakBeforeBlockIds": [],
+  "blocks": {
+    "m3i-image-regions": {
+      "id": "m3i-image-regions",
+      "label": "Two regions on one image",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+              "width": 640,
+              "height": 360,
+              "alt": "Forest plot",
+              "anchorIds": [
+                "m3i-a-region-a",
+                "m3i-a-region-b"
+              ]
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-image-second": {
+      "id": "m3i-image-second",
+      "label": "A second image sharing the asset",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+              "width": 640,
+              "height": 360,
+              "alt": "Forest plot again",
+              "anchorIds": [
+                "m3i-a-shared"
+              ]
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-image-replaced": {
+      "id": "m3i-image-replaced",
+      "label": "Replaced image node",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "2eef7bac17f03bba7faf2af0674bc36c72f9fd14bbe2cb15b5e790cfa8f8dd98",
+              "width": 420,
+              "height": 240,
+              "alt": "Replacement chart",
+              "anchorIds": [
+                "m3i-a-replaced"
+              ]
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-image-missing": {
+      "id": "m3i-image-missing",
+      "label": "Missing asset record",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "width": 640,
+              "height": 360,
+              "alt": "Missing asset",
+              "anchorIds": [
+                "m3i-a-missing-record"
+              ]
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-image-file-missing": {
+      "id": "m3i-image-file-missing",
+      "label": "Asset record with a missing file",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "f5985b660c895a395dd932ae1e86a249444f0b72bc91b4c98ee7fb60bfd77cc0",
+              "width": 1200,
+              "height": 200,
+              "alt": "Wide spectrum",
+              "anchorIds": [
+                "m3i-a-file-missing"
+              ]
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-image-hash-changed": {
+      "id": "m3i-image-hash-changed",
+      "label": "Asset bytes changed under the id",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "image",
+            "attrs": {
+              "assetId": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+              "width": 640,
+              "height": 360,
+              "alt": "Forest plot changed",
+              "anchorIds": [
+                "m3i-a-hash-changed"
+              ]
+            }
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-region-a-child": {
+      "id": "m3i-region-a-child",
+      "label": "Region A branch",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The first region branch target."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-region-b-child": {
+      "id": "m3i-region-b-child",
+      "label": "Region B branch",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The second region branch target."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-shared-child": {
+      "id": "m3i-shared-child",
+      "label": "Shared asset branch",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The shared-asset branch target."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-replaced-child": {
+      "id": "m3i-replaced-child",
+      "label": "Replacement branch",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The replacement branch target."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-missing-child": {
+      "id": "m3i-missing-child",
+      "label": "Missing-record branch",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The missing-record branch target."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-file-missing-child": {
+      "id": "m3i-file-missing-child",
+      "label": "Missing-file branch",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The missing-file branch target."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    },
+    "m3i-hash-child": {
+      "id": "m3i-hash-child",
+      "label": "Changed-hash branch",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "The changed-hash branch target."
+              }
+            ]
+          }
+        ]
+      },
+      "border": "subtle"
+    }
+  },
+  "anchors": {
+    "m3i-a-region-a": {
+      "id": "m3i-a-region-a",
+      "blockId": "m3i-image-regions",
+      "kind": "image",
+      "selector": {
+        "kind": "image",
+        "assetId": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+        "rect": {
+          "x": 0.08,
+          "y": 0.12,
+          "width": 0.34,
+          "height": 0.4
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "point": false,
+        "label": "Forest plot"
+      },
+      "quote": "Forest plot"
+    },
+    "m3i-a-region-b": {
+      "id": "m3i-a-region-b",
+      "blockId": "m3i-image-regions",
+      "kind": "image",
+      "selector": {
+        "kind": "image",
+        "assetId": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+        "rect": {
+          "x": 0.58,
+          "y": 0.1,
+          "width": 0.3,
+          "height": 0.34
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "point": false,
+        "label": "Forest plot"
+      },
+      "quote": "Forest plot"
+    },
+    "m3i-a-shared": {
+      "id": "m3i-a-shared",
+      "blockId": "m3i-image-second",
+      "kind": "image",
+      "selector": {
+        "kind": "image",
+        "assetId": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+        "rect": {
+          "x": 0.2,
+          "y": 0.2,
+          "width": 0.2,
+          "height": 0.2
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "point": false,
+        "label": "Forest plot"
+      },
+      "quote": "Forest plot"
+    },
+    "m3i-a-replaced": {
+      "id": "m3i-a-replaced",
+      "blockId": "m3i-image-replaced",
+      "kind": "image",
+      "selector": {
+        "kind": "image",
+        "assetId": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+        "rect": {
+          "x": 0.08,
+          "y": 0.12,
+          "width": 0.34,
+          "height": 0.4
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "point": false,
+        "label": "Forest plot"
+      },
+      "quote": "Forest plot"
+    },
+    "m3i-a-missing-record": {
+      "id": "m3i-a-missing-record",
+      "blockId": "m3i-image-missing",
+      "kind": "image",
+      "selector": {
+        "kind": "image",
+        "assetId": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "rect": {
+          "x": 0.08,
+          "y": 0.12,
+          "width": 0.34,
+          "height": 0.4
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "point": false,
+        "label": "Forest plot"
+      },
+      "quote": "Forest plot"
+    },
+    "m3i-a-file-missing": {
+      "id": "m3i-a-file-missing",
+      "blockId": "m3i-image-file-missing",
+      "kind": "image",
+      "selector": {
+        "kind": "image",
+        "assetId": "f5985b660c895a395dd932ae1e86a249444f0b72bc91b4c98ee7fb60bfd77cc0",
+        "rect": {
+          "x": 0.08,
+          "y": 0.12,
+          "width": 0.34,
+          "height": 0.4
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "point": false,
+        "label": "Forest plot"
+      },
+      "quote": "Forest plot"
+    },
+    "m3i-a-hash-changed": {
+      "id": "m3i-a-hash-changed",
+      "blockId": "m3i-image-hash-changed",
+      "kind": "image",
+      "selector": {
+        "kind": "image",
+        "assetId": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+        "rect": {
+          "x": 0.08,
+          "y": 0.12,
+          "width": 0.34,
+          "height": 0.4
+        },
+        "crop": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "point": false,
+        "label": "Forest plot"
+      },
+      "quote": "Forest plot"
+    }
+  },
+  "branches": {
+    "m3i-e-region-a": {
+      "id": "m3i-e-region-a",
+      "source": {
+        "blockId": "m3i-image-regions",
+        "anchorId": "m3i-a-region-a"
+      },
+      "targetBlockId": "m3i-region-a-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3i-e-region-b": {
+      "id": "m3i-e-region-b",
+      "source": {
+        "blockId": "m3i-image-regions",
+        "anchorId": "m3i-a-region-b"
+      },
+      "targetBlockId": "m3i-region-b-child",
+      "role": "primary",
+      "order": "a2"
+    },
+    "m3i-e-shared": {
+      "id": "m3i-e-shared",
+      "source": {
+        "blockId": "m3i-image-second",
+        "anchorId": "m3i-a-shared"
+      },
+      "targetBlockId": "m3i-shared-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3i-e-replaced": {
+      "id": "m3i-e-replaced",
+      "source": {
+        "blockId": "m3i-image-replaced",
+        "anchorId": "m3i-a-replaced"
+      },
+      "targetBlockId": "m3i-replaced-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3i-e-missing": {
+      "id": "m3i-e-missing",
+      "source": {
+        "blockId": "m3i-image-missing",
+        "anchorId": "m3i-a-missing-record"
+      },
+      "targetBlockId": "m3i-missing-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3i-e-file-missing": {
+      "id": "m3i-e-file-missing",
+      "source": {
+        "blockId": "m3i-image-file-missing",
+        "anchorId": "m3i-a-file-missing"
+      },
+      "targetBlockId": "m3i-file-missing-child",
+      "role": "primary",
+      "order": "a1"
+    },
+    "m3i-e-hash": {
+      "id": "m3i-e-hash",
+      "source": {
+        "blockId": "m3i-image-hash-changed",
+        "anchorId": "m3i-a-hash-changed"
+      },
+      "targetBlockId": "m3i-hash-child",
+      "role": "primary",
+      "order": "a1"
+    }
+  },
+  "chapters": [
+    {
+      "id": "m3i-ch1",
+      "title": "Image anchors",
+      "topLevelBlockIds": [
+        "m3i-image-regions",
+        "m3i-image-second",
+        "m3i-image-replaced",
+        "m3i-image-missing",
+        "m3i-image-file-missing",
+        "m3i-image-hash-changed"
+      ]
+    }
+  ],
+  "assets": {
+    "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04": {
+      "id": "2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+      "path": "assets/2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04",
+      "mime": "image/png",
+      "bytes": 146488,
+      "width": 640,
+      "height": 360,
+      "originalName": "forest.png",
+      "alt": "Forest plot"
+    },
+    "f5985b660c895a395dd932ae1e86a249444f0b72bc91b4c98ee7fb60bfd77cc0": {
+      "id": "f5985b660c895a395dd932ae1e86a249444f0b72bc91b4c98ee7fb60bfd77cc0",
+      "path": "assets/f5985b660c895a395dd932ae1e86a249444f0b72bc91b4c98ee7fb60bfd77cc0",
+      "mime": "image/png",
+      "bytes": 9265,
+      "width": 1200,
+      "height": 200,
+      "originalName": "wide.png"
+    },
+    "2eef7bac17f03bba7faf2af0674bc36c72f9fd14bbe2cb15b5e790cfa8f8dd98": {
+      "id": "2eef7bac17f03bba7faf2af0674bc36c72f9fd14bbe2cb15b5e790cfa8f8dd98",
+      "path": "assets/2eef7bac17f03bba7faf2af0674bc36c72f9fd14bbe2cb15b5e790cfa8f8dd98",
+      "mime": "image/png",
+      "bytes": 11848,
+      "width": 420,
+      "height": 240,
+      "originalName": "chart.png"
+    }
+  },
+  "annotations": []
+}

@@ -12,6 +12,7 @@
  * - legacy single `anchorId` strings are read for M2 compatibility only.
  */
 
+import type { AssetAvailabilityIndex } from './assets.js';
 import type {
   Anchor,
   AnchorKind,
@@ -2637,6 +2638,7 @@ function resolveImageBinding(
   inspection: AnchorBindingInspection,
   selector: ImageAnchorSelector,
   issues: AnchorResolutionIssue[],
+  assetAvailability: AssetAvailabilityIndex | undefined,
 ): ResolutionOutcome {
   const node = boundImageNode(index, inspection);
   if (node === null) {
@@ -2648,6 +2650,16 @@ function resolveImageBinding(
   }
   if (node.assetId !== selector.assetId) {
     return { state: 'broken', reason: 'asset-changed', candidates: [], resolved: null };
+  }
+  // File integrity is session state supplied by the runtime. A missing file or
+  // a hash mismatch is a broken anchor even though the canonical record exists;
+  // the branch, target, and alt text are never removed.
+  const unavailable = assetAvailability?.[selector.assetId];
+  if (unavailable === 'asset-changed') {
+    return { state: 'broken', reason: 'asset-changed', candidates: [], resolved: null };
+  }
+  if (unavailable === 'asset-missing') {
+    return { state: 'broken', reason: 'asset-missing', candidates: [], resolved: null };
   }
   if (document.assets[selector.assetId] === undefined) {
     return { state: 'broken', reason: 'asset-missing', candidates: [], resolved: null };
@@ -2680,7 +2692,15 @@ function resolveImageFallback(
   document: Document,
   index: BlockAnchorIndex,
   selector: ImageAnchorSelector,
+  assetAvailability: AssetAvailabilityIndex | undefined,
 ): ResolutionOutcome {
+  const unavailable = assetAvailability?.[selector.assetId];
+  if (unavailable === 'asset-changed') {
+    return { state: 'broken', reason: 'asset-changed', candidates: [], resolved: null };
+  }
+  if (unavailable === 'asset-missing') {
+    return { state: 'broken', reason: 'asset-missing', candidates: [], resolved: null };
+  }
   if (document.assets[selector.assetId] === undefined) {
     return { state: 'broken', reason: 'asset-missing', candidates: [], resolved: null };
   }
@@ -2752,10 +2772,19 @@ function applyOutcome(
   };
 }
 
+export interface AnchorResolutionOptions {
+  /**
+   * Session asset availability, keyed by asset id. Only image assets not
+   * confirmed available are listed. Absent ids keep canonical-record behavior.
+   */
+  assetAvailability?: AssetAvailabilityIndex;
+}
+
 function resolveAnchorWithIndex(
   document: Document,
   anchor: Anchor,
   index: BlockAnchorIndex,
+  options: AnchorResolutionOptions = {},
 ): AnchorResolution {
   const kind = anchor.kind;
   if (!isKnownAnchorKind(kind)) {
@@ -2867,7 +2896,14 @@ function resolveAnchorWithIndex(
     return applyOutcome(
       anchor,
       inspection.presence,
-      resolveImageBinding(document, index, inspection, image, issues),
+      resolveImageBinding(
+        document,
+        index,
+        inspection,
+        image,
+        issues,
+        options.assetAvailability,
+      ),
       issues,
     );
   }
@@ -2922,7 +2958,7 @@ function resolveAnchorWithIndex(
   return applyOutcome(
     anchor,
     'none',
-    resolveImageFallback(document, index, image),
+    resolveImageFallback(document, index, image, options.assetAvailability),
     issues,
   );
 }
@@ -2950,7 +2986,11 @@ function outgoingAnchorIds(document: Document): Set<string> {
  * - exact binding or a unique fallback is required to resolve; everything else
  *   is ambiguous or broken. `lastKnown` is never read.
  */
-export function resolveAnchor(document: Document, anchorOrId: Anchor | string): AnchorResolution {
+export function resolveAnchor(
+  document: Document,
+  anchorOrId: Anchor | string,
+  options: AnchorResolutionOptions = {},
+): AnchorResolution {
   const anchor =
     typeof anchorOrId === 'string' ? document.anchors[anchorOrId] : anchorOrId;
   if (anchor === undefined) {
@@ -2975,7 +3015,7 @@ export function resolveAnchor(document: Document, anchorOrId: Anchor | string): 
     );
   }
   const index = buildBlockAnchorIndex(anchor.blockId, block.content);
-  return withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index));
+  return withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index, options));
 }
 
 /** Attach stored repair hints to a resolution without changing its state. */
@@ -3013,7 +3053,11 @@ export function compareAnchorResolutions(
 }
 
 /** Resolve every anchor belonging to one block, in content order. */
-export function resolveBlockAnchors(document: Document, blockId: string): AnchorResolution[] {
+export function resolveBlockAnchors(
+  document: Document,
+  blockId: string,
+  options: AnchorResolutionOptions = {},
+): AnchorResolution[] {
   const block = document.blocks[blockId];
   if (block === undefined) return [];
   const anchors = Object.values(document.anchors).filter(
@@ -3030,7 +3074,7 @@ export function resolveBlockAnchors(document: Document, blockId: string): Anchor
           emptyResolution(anchor.id, anchor.blockId, 'idle', 'no-outgoing-branch'),
         );
       }
-      return withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index));
+      return withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index, options));
     })
     .sort(compareAnchorResolutions);
 }
@@ -3046,7 +3090,10 @@ export interface DocumentAnchorResolutions extends JsonObject {
  * Resolve every anchor in the document. Each block index is built once, so
  * document load stays linear in content size plus anchors.
  */
-export function resolveDocumentAnchors(document: Document): DocumentAnchorResolutions {
+export function resolveDocumentAnchors(
+  document: Document,
+  options: AnchorResolutionOptions = {},
+): DocumentAnchorResolutions {
   const indexes = new Map<string, BlockAnchorIndex>();
   const anchorBlockIds = new Set(
     Object.values(document.anchors).map((anchor) => anchor.blockId),
@@ -3082,7 +3129,7 @@ export function resolveDocumentAnchors(document: Document): DocumentAnchorResolu
         emptyResolution(anchor.id, anchor.blockId, 'idle', 'no-outgoing-branch'),
       );
     } else {
-      resolution = withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index));
+      resolution = withRepairFlags(anchor, resolveAnchorWithIndex(document, anchor, index, options));
     }
     byId[anchorId] = resolution;
     const list = byBlock[anchor.blockId] ?? [];

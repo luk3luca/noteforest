@@ -186,7 +186,12 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
   const editor = useEditor(
     {
       extensions: [...createEditorExtensions(), BranchKeymap],
-      content: buildEditorDocument(runtime.document, runtime.collapsed),
+      content: buildEditorDocument(
+        runtime.document,
+        runtime.collapsed,
+        new Set(),
+        runtime.assetAvailability,
+      ),
       editable: runtime.status === 'editable',
       editorProps: {
         attributes: {

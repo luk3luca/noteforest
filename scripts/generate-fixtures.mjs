@@ -1302,6 +1302,138 @@ async function makeAssets() {
   }
 }
 
+function fixtureM3ImageRegions() {
+  // The ids are the SHA-256 of the checked-in fixture assets. The fixture is
+  // static evidence; tests inject file/hash availability for cases that need a
+  // filesystem session.
+  const forest = '2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04';
+  const wide = 'f5985b660c895a395dd932ae1e86a249444f0b72bc91b4c98ee7fb60bfd77cc0';
+  const chart = '2eef7bac17f03bba7faf2af0674bc36c72f9fd14bbe2cb15b5e790cfa8f8dd98';
+  const missing = 'd'.repeat(64);
+  const fullCrop = { x: 0, y: 0, width: 1, height: 1 };
+  const regionA = { x: 0.08, y: 0.12, width: 0.34, height: 0.4 };
+  const regionB = { x: 0.58, y: 0.1, width: 0.3, height: 0.34 };
+
+  const imageNode = (assetId, width, height, alt, anchorIds) => {
+    const node = image(assetId, width, height, alt);
+    return withAnchorIds(node, anchorIds);
+  };
+  const imageAnchor = (id, blockId, assetId, rect) =>
+    anchorRecord(
+      id,
+      blockId,
+      'image',
+      {
+        kind: 'image',
+        assetId,
+        rect,
+        crop: fullCrop,
+        point: false,
+        label: 'Forest plot',
+      },
+      { quote: 'Forest plot' },
+    );
+
+  return makeDocument({
+    id: 'm3-image-regions',
+    title: 'M3 image regions — resize, replacement, missing',
+    blocks: [
+      block('m3i-image-regions', 'Two regions on one image', [
+        imageNode(forest, 640, 360, 'Forest plot', ['m3i-a-region-a', 'm3i-a-region-b']),
+      ]),
+      block('m3i-image-second', 'A second image sharing the asset', [
+        imageNode(forest, 640, 360, 'Forest plot again', ['m3i-a-shared']),
+      ]),
+      block('m3i-image-replaced', 'Replaced image node', [
+        imageNode(chart, 420, 240, 'Replacement chart', ['m3i-a-replaced']),
+      ]),
+      block('m3i-image-missing', 'Missing asset record', [
+        imageNode(missing, 640, 360, 'Missing asset', ['m3i-a-missing-record']),
+      ]),
+      block('m3i-image-file-missing', 'Asset record with a missing file', [
+        imageNode(wide, 1200, 200, 'Wide spectrum', ['m3i-a-file-missing']),
+      ]),
+      block('m3i-image-hash-changed', 'Asset bytes changed under the id', [
+        imageNode(forest, 640, 360, 'Forest plot changed', ['m3i-a-hash-changed']),
+      ]),
+      block('m3i-region-a-child', 'Region A branch', [p(text('The first region branch target.'))]),
+      block('m3i-region-b-child', 'Region B branch', [p(text('The second region branch target.'))]),
+      block('m3i-shared-child', 'Shared asset branch', [p(text('The shared-asset branch target.'))]),
+      block('m3i-replaced-child', 'Replacement branch', [p(text('The replacement branch target.'))]),
+      block('m3i-missing-child', 'Missing-record branch', [p(text('The missing-record branch target.'))]),
+      block('m3i-file-missing-child', 'Missing-file branch', [p(text('The missing-file branch target.'))]),
+      block('m3i-hash-child', 'Changed-hash branch', [p(text('The changed-hash branch target.'))]),
+    ],
+    anchors: [
+      imageAnchor('m3i-a-region-a', 'm3i-image-regions', forest, regionA),
+      imageAnchor('m3i-a-region-b', 'm3i-image-regions', forest, regionB),
+      imageAnchor('m3i-a-shared', 'm3i-image-second', forest, {
+        x: 0.2,
+        y: 0.2,
+        width: 0.2,
+        height: 0.2,
+      }),
+      imageAnchor('m3i-a-replaced', 'm3i-image-replaced', forest, regionA),
+      imageAnchor('m3i-a-missing-record', 'm3i-image-missing', missing, regionA),
+      imageAnchor('m3i-a-file-missing', 'm3i-image-file-missing', wide, regionA),
+      imageAnchor('m3i-a-hash-changed', 'm3i-image-hash-changed', forest, regionA),
+    ],
+    branches: [
+      branch('m3i-e-region-a', { blockId: 'm3i-image-regions', anchorId: 'm3i-a-region-a' }, 'm3i-region-a-child', 'primary', 'a1'),
+      branch('m3i-e-region-b', { blockId: 'm3i-image-regions', anchorId: 'm3i-a-region-b' }, 'm3i-region-b-child', 'primary', 'a2'),
+      branch('m3i-e-shared', { blockId: 'm3i-image-second', anchorId: 'm3i-a-shared' }, 'm3i-shared-child', 'primary', 'a1'),
+      branch('m3i-e-replaced', { blockId: 'm3i-image-replaced', anchorId: 'm3i-a-replaced' }, 'm3i-replaced-child', 'primary', 'a1'),
+      branch('m3i-e-missing', { blockId: 'm3i-image-missing', anchorId: 'm3i-a-missing-record' }, 'm3i-missing-child', 'primary', 'a1'),
+      branch('m3i-e-file-missing', { blockId: 'm3i-image-file-missing', anchorId: 'm3i-a-file-missing' }, 'm3i-file-missing-child', 'primary', 'a1'),
+      branch('m3i-e-hash', { blockId: 'm3i-image-hash-changed', anchorId: 'm3i-a-hash-changed' }, 'm3i-hash-child', 'primary', 'a1'),
+    ],
+    chapters: [
+      {
+        id: 'm3i-ch1',
+        title: 'Image anchors',
+        topLevelBlockIds: [
+          'm3i-image-regions',
+          'm3i-image-second',
+          'm3i-image-replaced',
+          'm3i-image-missing',
+          'm3i-image-file-missing',
+          'm3i-image-hash-changed',
+        ],
+      },
+    ],
+    assets: {
+      [forest]: {
+        id: forest,
+        path: `assets/${forest}`,
+        mime: 'image/png',
+        bytes: 146488,
+        width: 640,
+        height: 360,
+        originalName: 'forest.png',
+        alt: 'Forest plot',
+      },
+      [wide]: {
+        id: wide,
+        path: `assets/${wide}`,
+        mime: 'image/png',
+        bytes: 9265,
+        width: 1200,
+        height: 200,
+        originalName: 'wide.png',
+      },
+      [chart]: {
+        id: chart,
+        path: `assets/${chart}`,
+        mime: 'image/png',
+        bytes: 11848,
+        width: 420,
+        height: 240,
+        originalName: 'chart.png',
+      },
+    },
+  });
+}
+
 async function main() {
   await makeAssets();
   const golden = fixtureF1();
@@ -1324,6 +1456,7 @@ async function main() {
     'm3-split-merge.json': fixtureM3SplitMerge(),
     'm3-formula-term-edit.json': fixtureM3FormulaTermEdit(),
     'm3-export-manifest.json': fixtureM3ExportManifest(),
+    'm3-image-regions.json': fixtureM3ImageRegions(),
   };
   for (const [file, document] of Object.entries(fixtures)) {
     await writeFile(resolve(fixturesDir, file), `${JSON.stringify(document, null, 2)}\n`);

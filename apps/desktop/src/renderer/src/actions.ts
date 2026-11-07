@@ -505,7 +505,11 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
     const group = anchorGroups.get(anchorId) ?? {
       count: 0,
       quote: anchorQuote(runtime.document, anchorId) || 'anchor',
-      warning: anchorIsWarning(anchorState(runtime.document, anchorId)),
+      warning: anchorIsWarning(
+        anchorState(runtime.document, anchorId, {
+          assetAvailability: runtime.assetAvailability,
+        }),
+      ),
     };
     group.count += 1;
     anchorGroups.set(anchorId, group);

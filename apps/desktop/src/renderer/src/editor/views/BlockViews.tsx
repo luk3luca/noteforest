@@ -529,7 +529,9 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       if (document.anchors[id]?.kind === 'image') continue;
       const group = groups.get(id);
       if (group === undefined) {
-        const state = anchorState(document, id);
+        const state = anchorState(document, id, {
+          assetAvailability: bindings.runtime.assetAvailability,
+        });
         groups.set(id, {
           anchorId: id,
           quote: anchorQuote(document, id),
@@ -662,7 +664,9 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     const document = bindings.runtime.document;
     return document.anchors[anchorId] === undefined
       ? null
-      : anchorState(document, anchorId);
+      : anchorState(document, anchorId, {
+          assetAvailability: bindings.runtime.assetAvailability,
+        });
   }, [bindings, callout, anchorId, runtimeVersion]);
   const effectiveAnchorState = liveCalloutState ?? anchorStateAttr;
 
@@ -1029,7 +1033,9 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       const anchorId = branch.source.anchorId;
       if (anchorId === undefined || seen.has(anchorId)) continue;
       seen.add(anchorId);
-      const resolution = resolveAnchor(document, anchorId);
+      const resolution = resolveAnchor(document, anchorId, {
+        assetAvailability: bindings.runtime.assetAvailability,
+      });
       if (
         resolution.state === 'broken' ||
         resolution.state === 'ambiguous' ||
