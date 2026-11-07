@@ -203,6 +203,29 @@ describe('M4b1c continuous page-break markers', () => {
 
     await showContinuous();
     assert.equal((await markerState()).runs, 1, 'returning to Continuous does not re-measure');
+
+    // Continuous Read keeps the same derived hints; nothing about the layer is
+    // editable or a focus stop.
+    const firstMarker = markerLayer().locator('[data-page-marker="start"]').first();
+    assert.equal(await firstMarker.getAttribute('tabindex'), null);
+    assert.equal(
+      await firstMarker.locator('.nf-page-marker-chip-start').getAttribute('tabindex'),
+      null,
+    );
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      (await h.state()).activeTab,
+      { timeout: 5000 },
+    );
+    assert.equal((await markerState()).count, 4, 'markers remain in Continuous Read');
+    assert.equal(await markerLayer().locator('[data-page-marker="start"]').count(), 4);
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      (await h.state()).activeTab,
+      { timeout: 5000 },
+    );
   });
 
   it('shows a continuation chip for a block that spans pages, without duplicates', async () => {
