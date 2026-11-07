@@ -23,6 +23,7 @@ import {
   bootstrap,
   closeAllStores,
   closeDocument,
+  copyImageAsset,
   createDocument,
   defaultRestoreDestination,
   dirtyDocuments,
@@ -463,6 +464,22 @@ function registerIpc(): void {
         return { ok: false as const, message: 'No image data was provided.' };
       }
       return importImageBytes(packagePath, input as Parameters<typeof importImageBytes>[1]);
+    },
+  );
+
+  ipcMain.handle(
+    'document:copy-image-asset',
+    (_event, sourcePackagePath: unknown, targetPackagePath: unknown, assetId: unknown) => {
+      if (typeof sourcePackagePath !== 'string' || sourcePackagePath.length === 0) {
+        return { ok: false as const, message: 'No source document path was provided.' };
+      }
+      if (typeof targetPackagePath !== 'string' || targetPackagePath.length === 0) {
+        return { ok: false as const, message: 'No destination document path was provided.' };
+      }
+      if (typeof assetId !== 'string' || assetId.length === 0) {
+        return { ok: false as const, message: 'No image asset was provided.' };
+      }
+      return copyImageAsset(sourcePackagePath, targetPackagePath, assetId);
     },
   );
 

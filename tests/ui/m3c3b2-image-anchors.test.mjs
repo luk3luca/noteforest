@@ -464,7 +464,7 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
     assert.equal(await page.locator('[data-image-region-marker]').count(), 0);
   });
 
-  it('breaks image anchors on asset replacement/removal without deleting branches, targets, or alt, and shows reasons', async () => {
+  it('breaks image anchors on asset replacement without deleting branches, targets, or alt, and refuses a referenced asset removal', async () => {
     const env = ui.isolated('image-anchor-broken');
     await launch(env);
     await h.setWindowSize(1440, 900);
@@ -534,72 +534,73 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
     });
     await page.locator('.nf-dialog').getByRole('button', { name: 'Close', exact: true }).click();
 
-    // A fresh point on the replaced image becomes asset-missing when the bytes
-    // record is removed; the placeholder replaces the image, branches survive.
+    // A fresh point on the replaced image proves a second anchor shares the new
+    // asset. Deleting the asset record while any image node or image anchor still
+    // names it is refused: no silent placeholder, no broken anchor, no data loss.
     await startAuthoring(blockId, 'Add image point…');
     await clickImage(blockId, { x: 0.5, y: 0.5 });
     await commitPending(blockId, 'point');
     await waitForImageAnchorCount(blockId, 2);
     await ui.waitForCallouts(blockId, 2);
     const withPoint = await ui.structure();
-    const missingAnchor = imageAnchors(withPoint, blockId).find(
+    const pointAnchor = imageAnchors(withPoint, blockId).find(
       (anchor) => anchor.id !== oldAnchor.id,
     );
-    assert.ok(missingAnchor);
-    const missingBranch = Object.values(withPoint.branches).find(
-      (branch) => branch.source.anchorId === missingAnchor.id,
+    assert.ok(pointAnchor);
+    const pointBranch = Object.values(withPoint.branches).find(
+      (branch) => branch.source.anchorId === pointAnchor.id,
     );
-    assert.ok(missingBranch);
-    const missingTargetId = missingBranch.targetBlockId;
-    const beforeRemoval = await ui.structure();
-
-    await ui.applyCommand({ type: 'asset.remove', assetId: chartAssetId });
-    await page.waitForSelector(`[data-block-card="${blockId}"] [data-image-missing="true"]`, {
-      timeout: 10000,
-    });
+    assert.ok(pointBranch);
+    const pointTargetId = pointBranch.targetBlockId;
     await h.waitSaved();
-    const missing = await ui.structure();
-    assert.equal(imageBlock(missing, blockId).attrs.assetId, chartAssetId);
-    assert.equal(imageBlock(missing, blockId).attrs.alt, oldAlt);
-    assert.equal(missing.anchors[oldAnchor.id] !== undefined, true);
-    assert.equal(missing.anchors[missingAnchor.id] !== undefined, true);
-    assert.equal(missing.branches[oldBranch.id]?.targetBlockId, oldTargetId);
-    assert.equal(missing.branches[missingBranch.id]?.targetBlockId, missingTargetId);
-    assert.equal(Object.values(missing.branches).length, Object.values(beforeRemoval.branches).length);
-    assert.equal(Object.keys(missing.blocks).length, Object.keys(beforeRemoval.blocks).length);
-    await ui.waitForHealthChip(2, 0);
+    const beforeState = await h.state();
+    const beforeRevision = beforeState.runtimes.find(
+      (runtime) => runtime.packagePath === beforeState.activeTab,
+    )?.revision;
 
-    await ui.openAnchorHealthFromChip();
-    const missingRow = page.locator(`[data-health-anchor="${missingAnchor.id}"]`);
-    await missingRow.waitFor({ state: 'visible' });
-    assert.match(await missingRow.innerText(), /The image asset is missing\./);
-    await page.locator(`[data-health-repair="${missingAnchor.id}"]`).click();
-    assert.equal(
-      await page.locator(`[data-health-detail="${missingAnchor.id}"] [data-health-reason="asset-missing"]`).count(),
-      1,
+    const refused = await page.evaluate(
+      (assetId) => window.__noteforestTest.applyStructural({ type: 'asset.remove', assetId }),
+      chartAssetId,
     );
-    assert.equal(await page.locator('[data-health-action="attach"]').count(), 1);
-    assert.equal(await page.locator('[data-health-action="keep-broken"]').count(), 1);
-    assert.equal(await page.locator('[data-health-action="delete-anchor"]').count(), 1);
-    await h.screenshot(resolve(screenshotDir, 'image-anchor-missing-placeholder-health-1440x900.png'), {
-      width: 1440,
-      height: 900,
-    });
+    assert.equal(refused.ok, false);
+    assert.match(refused.message, /still referenced by/);
+    assert.match(refused.message, /image node/);
+    assert.match(refused.message, /image anchor/);
+    const afterRefusal = await ui.structure();
+    const afterState = await h.state();
+    const afterRevision = afterState.runtimes.find(
+      (runtime) => runtime.packagePath === afterState.activeTab,
+    )?.revision;
+    assert.equal(afterRevision, beforeRevision, 'a refused removal does not bump the revision');
+    assert.equal(imageBlock(afterRefusal, blockId).attrs.assetId, chartAssetId);
+    assert.equal(afterRefusal.anchors[oldAnchor.id]?.selector.assetId, oldAssetId);
+    assert.equal(afterRefusal.anchors[pointAnchor.id]?.selector.assetId, chartAssetId);
+    assert.equal(afterRefusal.branches[oldBranch.id]?.targetBlockId, oldTargetId);
+    assert.equal(afterRefusal.branches[pointBranch.id]?.targetBlockId, pointTargetId);
+    assert.equal(
+      await page.evaluate((assetId) => window.__noteforestTest.assets()[assetId] !== undefined, chartAssetId),
+      true,
+      'the asset record is still present',
+    );
+    assert.equal(
+      await page.locator(`[data-block-card="${blockId}"] .nf-image-el`).count(),
+      1,
+      'the image still renders',
+    );
 
-    // Save/reload keeps the placeholder, both broken anchors, and both branches.
-    await page.locator('.nf-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    // Save/reload keeps both anchors, both branches, the replaced asset, and alt.
     await h.waitSaved();
     await h.quit();
     await launch(env);
-    await page.waitForSelector(`[data-block-card="${blockId}"] [data-image-missing="true"]`, {
+    await page.waitForSelector(`[data-block-card="${blockId}"] [data-image-node]`, {
       timeout: 20000,
     });
     await h.waitSaved();
     const reloaded = await ui.structure();
     assert.equal(reloaded.anchors[oldAnchor.id]?.selector.assetId, oldAssetId);
-    assert.equal(reloaded.anchors[missingAnchor.id]?.selector.assetId, chartAssetId);
+    assert.equal(reloaded.anchors[pointAnchor.id]?.selector.assetId, chartAssetId);
     assert.equal(reloaded.branches[oldBranch.id]?.targetBlockId, oldTargetId);
-    assert.equal(reloaded.branches[missingBranch.id]?.targetBlockId, missingTargetId);
+    assert.equal(reloaded.branches[pointBranch.id]?.targetBlockId, pointTargetId);
     assert.equal(imageBlock(reloaded, blockId).attrs.alt, oldAlt);
 
     await h.setWindowSize(960, 800);
@@ -607,7 +608,7 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
       element.scrollIntoView({ block: 'center' });
     });
     await h.waitLayout();
-    await h.screenshot(resolve(screenshotDir, 'image-anchor-missing-placeholder-960x800.png'));
+    await h.screenshot(resolve(screenshotDir, 'image-anchor-refused-removal-960x800.png'));
   });
 });
 

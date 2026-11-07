@@ -14,6 +14,7 @@ import {
   orderKeysAfter,
   validateDocument,
   type AssetAvailability,
+  type Asset,
   type AssetReadResult,
   type Branch,
   type ContentBlock,
@@ -28,6 +29,7 @@ import {
   defaultAppSupportDir,
   documentJsonPath,
   assetsDirPath,
+  NodeAssetStore,
   NodeDocumentRepository,
   pathExists,
   readRecentDocuments,
@@ -547,6 +549,101 @@ export async function importImageBytes(
     ...(finalWidth === undefined ? {} : { width: finalWidth }),
     ...(finalHeight === undefined ? {} : { height: finalHeight }),
     ...(alt === undefined ? {} : { alt }),
+  });
+  if (!inserted.ok) return { ok: false, message: inserted.error.message };
+  return { ok: true, asset: inserted.asset };
+}
+
+function imageRecordOf(document: Document | null, assetId: string): Asset | null {
+  if (document === null) return null;
+  const record = Object.hasOwn(document.assets, assetId) ? document.assets[assetId] : undefined;
+  return record === undefined || record.id !== assetId ? null : record;
+}
+
+/**
+ * Copy one content-addressed image from a source package into the destination
+ * package. This is the cross-document clipboard path: the source package only
+ * has to be open (or readable) so its verified bytes can be reused; the
+ * renderer then records the returned canonical asset with `asset.add`.
+ *
+ * The id is the SHA-256 of the bytes, so deduplication is automatic when the
+ * destination already holds the same image. Missing, changed, or non-image
+ * source bytes return a typed failure; the destination is never modified.
+ */
+export async function copyImageAsset(
+  sourcePackagePath: string,
+  targetPackagePath: string,
+  assetId: string,
+): Promise<ImportImageResult> {
+  if (!/^[0-9a-f]{64}$/.test(assetId)) {
+    return { ok: false, message: 'The copied image asset id is malformed.' };
+  }
+  const source = path.resolve(sourcePackagePath);
+  if (!isInsideLibrary(source)) {
+    return { ok: false, message: 'The source document is outside the NoteForest library.' };
+  }
+  if (source === path.resolve(targetPackagePath)) {
+    return { ok: false, message: 'The source and destination documents are the same.' };
+  }
+
+  // Prefer the open canonical document; fall back to a read-only validation so
+  // a closed source tab can still paste from its package without taking a lock.
+  const openSource = repository.get(source);
+  let sourceDocument: Document | null = openSource?.document ?? null;
+  if (sourceDocument === null) {
+    const validated = await repository.validate(source);
+    if (!validated.ok || validated.document === undefined) {
+      return {
+        ok: false,
+        message: `The source document could not be read: ${
+          validated.ok ? 'no document' : validated.error.message
+        }`,
+      };
+    }
+    sourceDocument = validated.document;
+  }
+  const record = imageRecordOf(sourceDocument, assetId);
+  if (record === null) {
+    return { ok: false, message: 'The copied image is no longer in the source document.' };
+  }
+  if (!SUPPORTED_IMAGE_MIMES.has(record.mime)) {
+    return { ok: false, message: 'The copied asset is not an allowed image type.' };
+  }
+
+  const opened = await openStore(targetPackagePath);
+  if ('error' in opened) return { ok: false, message: opened.error };
+  if ('recovery' in opened) return { ok: false, message: opened.recovery.reason };
+  const target = opened.store;
+  if (target.document === null) return { ok: false, message: 'The document is not open.' };
+  if (target.readOnly) {
+    return { ok: false, message: 'This document is open read-only; the image was not copied.' };
+  }
+
+  const sourceAssets = new NodeAssetStore({
+    packagePath: source,
+    assetRecord: (id) => {
+      const value = Object.hasOwn(sourceDocument?.assets ?? {}, id)
+        ? sourceDocument?.assets[id]
+        : undefined;
+      return value;
+    },
+  });
+  const read = await sourceAssets.readVerified(assetId);
+  if (!read.ok) {
+    return {
+      ok: false,
+      message:
+        read.reason === 'changed'
+          ? 'The source image changed; it was not copied.'
+          : 'The source image bytes are missing; it was not copied.',
+    };
+  }
+  const inserted = await target.assets.insert({
+    bytes: read.bytes,
+    mime: record.mime,
+    ...(record.originalName === undefined ? {} : { originalName: record.originalName }),
+    ...(record.width === undefined ? {} : { width: record.width }),
+    ...(record.height === undefined ? {} : { height: record.height }),
   });
   if (!inserted.ok) return { ok: false, message: inserted.error.message };
   return { ok: true, asset: inserted.asset };

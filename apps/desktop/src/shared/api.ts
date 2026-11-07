@@ -398,5 +398,15 @@ export interface NoteForestApi {
     packagePath: string,
     input: ImportImageBytesInput,
   ): Promise<ImportImageResult>;
+  /**
+   * Cross-document clipboard: copy verified image bytes from one package into
+   * the destination package. Returns the canonical record to add with
+   * `asset.add`; never keeps a reference that resolves only in the source.
+   */
+  copyImageAsset(
+    sourcePackagePath: string,
+    targetPackagePath: string,
+    assetId: string,
+  ): Promise<ImportImageResult>;
   getSystemInfo(): Promise<{ electron: string; chrome: string; appVersion: string; platform: string }>;
 }

@@ -21,6 +21,7 @@ import {
 } from './paths.js';
 import type { CoreError } from '../errors.js';
 import { coreError, errorMessage } from '../errors.js';
+import { referencedAssetIds } from '../assets.js';
 import { parseDocumentJson } from '../serialize.js';
 import type { Document } from '../types.js';
 
@@ -168,6 +169,51 @@ export async function inspectRecoveryCandidates(
   }
 
   return candidates;
+}
+
+/**
+ * Asset ids named by every retained backup document for one package.
+ *
+ * Backups contain `document.json` only; assets are content-addressed and shared
+ * with the live package. An asset GC pass must treat this set like a live
+ * reference, otherwise restoring an older snapshot would resurrect an image
+ * node or asset record whose bytes were reclaimed.
+ *
+ * Unreadable or invalid backups are skipped: they cannot be restored, so they
+ * do not retain anything. The returned ids are sorted for deterministic plans.
+ */
+export async function backupAssetReferences(
+  packagePath: string,
+  options: RecoveryOptions = {},
+): Promise<{ assetIds: string[]; backupPaths: string[] }> {
+  const resolved = path.resolve(packagePath);
+  const appSupportDir = options.appSupportDir ?? defaultAppSupportDir();
+  const backupsDir =
+    options.backupsDir ?? backupsDirForPackage(appSupportDir, resolved);
+  const manager = new BackupManager(backupsDir);
+  const ids = new Set<string>();
+  const backupPaths: string[] = [];
+  let backups;
+  try {
+    backups = await manager.list();
+  } catch {
+    return { assetIds: [], backupPaths: [] };
+  }
+  const maxBackups = Math.max(0, options.maxBackups ?? 50);
+  for (const backup of backups.slice(0, maxBackups)) {
+    let text: string;
+    try {
+      text = await fs.readFile(backup.path, 'utf8');
+    } catch {
+      continue;
+    }
+    const parsed = parseDocumentJson(text);
+    if (!parsed.ok) continue;
+    backupPaths.push(backup.path);
+    for (const id of Object.keys(parsed.document.assets)) ids.add(id);
+    for (const id of referencedAssetIds(parsed.document)) ids.add(id);
+  }
+  return { assetIds: [...ids].sort(), backupPaths: backupPaths.sort() };
 }
 
 export interface RecoveryFound {
