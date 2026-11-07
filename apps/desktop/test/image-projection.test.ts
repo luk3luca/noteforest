@@ -315,6 +315,62 @@ describe('image content helpers', () => {
     expect(content.children?.[0]?.attrs?.['assetId']).toBe(ASSET_ID);
   });
 
+  it('clears a stale cross-document placeholder marker when an asset is assigned', () => {
+    const placeholder: ContentNode = {
+      type: 'doc',
+      children: [
+        {
+          type: 'image',
+          attrs: {
+            alt: 'Forest',
+            width: 640,
+            height: 360,
+            unavailable: 'cross-document-copy',
+            clipboardAssetId: 'c'.repeat(64),
+          },
+        },
+      ],
+    };
+    const replaced = contentWithImageAsset(placeholder, [0], ASSET);
+    expect(replaced.children?.[0]?.attrs).toEqual({
+      assetId: ASSET_ID,
+      alt: 'Forest',
+      width: 640,
+      height: 360,
+    });
+
+    // Canonical round-trip: no stale repair marker survives, and a reload
+    // projects the image as present instead of a placeholder.
+    const canonical = pmToContent(
+      contentToPM(replaced.children?.[0] ?? replaced, { knownAssets: new Set([ASSET_ID]) }),
+    );
+    expect(canonical.attrs).toEqual({
+      assetId: ASSET_ID,
+      alt: 'Forest',
+      width: 640,
+      height: 360,
+    });
+    const reloaded = contentToPM(canonical, { knownAssets: new Set([ASSET_ID]) });
+    expect(reloaded.attrs?.['src']).toBe(`noteforest-asset://asset/${ASSET_ID}`);
+    expect(reloaded.attrs?.['missing']).toBe(false);
+    expect(reloaded.attrs?.['unavailable']).toBeUndefined();
+    expect(reloaded.attrs?.['clipboardAssetId']).toBeUndefined();
+  });
+
+  it('drops an unavailable marker in canonical cleanup whenever an assetId is present', () => {
+    const canonical = pmToContent({
+      type: 'image',
+      attrs: {
+        assetId: ASSET_ID,
+        alt: 'Forest',
+        unavailable: 'cross-document-copy',
+        clipboardAssetId: 'c'.repeat(64),
+        clipboardUnavailable: true,
+      },
+    });
+    expect(canonical.attrs).toEqual({ assetId: ASSET_ID, alt: 'Forest' });
+  });
+
   it('finds every image with its canonical path for per-image menus', () => {
     const second = imageNodeFor({ assetId: 'b'.repeat(64), alt: 'Chart' });
     const content: ContentNode = {

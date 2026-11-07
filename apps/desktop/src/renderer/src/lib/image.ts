@@ -6,7 +6,7 @@
  * touch the DOM or the filesystem.
  */
 
-import type { Asset, ContentNode } from '@noteforest/core';
+import type { Asset, AssetAvailabilityIndex, ContentNode } from '@noteforest/core';
 import { withNodeAtPath } from '@noteforest/core';
 import { imageMimeFromName } from '../../../shared/images';
 
@@ -77,6 +77,60 @@ export function imageActionLabel(image: ContentImage, index: number): string {
   return alt.length === 0 ? `Image ${index + 1}` : `Image ${index + 1} (${alt})`;
 }
 
+/** Why image region/point authoring is unavailable for one image node. */
+export type ImageAuthoringBlockReason =
+  | 'read-only'
+  | 'asset-record-missing'
+  | 'asset-missing'
+  | 'asset-changed';
+
+export interface ImageAuthoringGate {
+  allowed: boolean;
+  reason?: ImageAuthoringBlockReason;
+}
+
+/**
+ * Authoring a region/point needs a rendered image: an editable document, an
+ * asset record, and no session availability problem. The availability index
+ * only stores non-available states, so an absent entry means "not observed as
+ * unavailable" (the same rule the projection and anchor resolver use).
+ */
+export function imageAnchorAuthoringGate(input: {
+  editable: boolean;
+  assetId: string;
+  hasAssetRecord: boolean;
+  availability: AssetAvailabilityIndex | undefined;
+}): ImageAuthoringGate {
+  if (!input.editable) return { allowed: false, reason: 'read-only' };
+  if (input.assetId.length === 0 || !input.hasAssetRecord) {
+    return { allowed: false, reason: 'asset-record-missing' };
+  }
+  const state = input.availability?.[input.assetId];
+  if (state === 'asset-changed') return { allowed: false, reason: 'asset-changed' };
+  if (state !== undefined && state !== 'available') {
+    return { allowed: false, reason: 'asset-missing' };
+  }
+  return { allowed: true };
+}
+
+/** Menu suffix naming the disabled reason; empty when authoring is allowed. */
+export function imageAuthoringDisabledSuffix(
+  reason: ImageAuthoringBlockReason | undefined,
+): string {
+  switch (reason) {
+    case 'read-only':
+      return ' — document is read-only';
+    case 'asset-record-missing':
+      return ' — image asset missing';
+    case 'asset-missing':
+      return ' — image file missing';
+    case 'asset-changed':
+      return ' — image asset changed';
+    default:
+      return '';
+  }
+}
+
 /** A paragraph with no text and no inline children is the empty-block case. */
 function isEmptyParagraph(node: ContentNode): boolean {
   if (node.type !== 'paragraph') return false;
@@ -131,6 +185,8 @@ export function contentWithImageAlt(
  * Point an existing image node at a new asset. The old alt text is deliberately
  * preserved: replacing the bytes must never delete user-authored text, and the
  * old image anchors become broken because their selector keeps the old assetId.
+ * A repair marker only describes a placeholder, so `unavailable` and the
+ * editor-only `clipboardAssetId` are dropped once an asset id exists.
  */
 export function contentWithImageAsset(
   content: ContentNode,
@@ -139,7 +195,10 @@ export function contentWithImageAsset(
 ): ContentNode {
   return withNodeAtPath(content, path, (node) => {
     if (node.type !== 'image') return node;
-    const attrs: Record<string, unknown> = { ...(node.attrs ?? {}), assetId: asset.id };
+    const attrs: Record<string, unknown> = { ...(node.attrs ?? {}) };
+    delete attrs['unavailable'];
+    delete attrs['clipboardAssetId'];
+    attrs['assetId'] = asset.id;
     if (asset.width === undefined) delete attrs['width'];
     else attrs['width'] = asset.width;
     if (asset.height === undefined) delete attrs['height'];

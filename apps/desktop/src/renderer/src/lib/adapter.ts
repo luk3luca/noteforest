@@ -238,10 +238,16 @@ function canonicalImageAttrs(attrs: Record<string, unknown>): Record<string, unk
   delete next['missingReason'];
   delete next['src'];
   delete next['title'];
+  // `clipboardAssetId` is an editor-only pending-copy pointer: never canonical.
   delete next['clipboardAssetId'];
   delete next['clipboardUnavailable'];
-  if (next['assetId'] === null || next['assetId'] === undefined) delete next['assetId'];
-  if (next['unavailable'] === null || next['unavailable'] === undefined) {
+  const assetId = next['assetId'];
+  const hasAssetId = typeof assetId === 'string' && assetId.length > 0;
+  if (assetId === null || assetId === undefined || assetId === '') delete next['assetId'];
+  // `unavailable` describes a placeholder. Once the node names a real asset it
+  // is stale by definition, so defense-in-depth cleanup drops it even if an
+  // editor path forgot to clear it.
+  if (hasAssetId || next['unavailable'] === null || next['unavailable'] === undefined) {
     delete next['unavailable'];
   }
   return next;

@@ -13,6 +13,7 @@ import {
   clearEditorImageAuthoring,
   setEditorImageAuthoring,
 } from '../editor/editor-ui';
+import { imageAnchorAuthoringGate } from './image';
 import type { ImageAuthoringMode } from './image-anchor';
 
 export function beginImageAnchorAuthoring(
@@ -36,8 +37,20 @@ export function beginImageAnchorAuthoring(
     toast.error('This block no longer contains the image.');
     return false;
   }
-  if (runtime.document.assets[assetId] === undefined) {
-    toast.error('The image asset is missing; existing branches and anchors are kept.');
+  const gate = imageAnchorAuthoringGate({
+    editable: runtime.editable,
+    assetId,
+    hasAssetRecord: runtime.document.assets[assetId] !== undefined,
+    availability: runtime.assetAvailability,
+  });
+  if (!gate.allowed) {
+    toast.error(
+      gate.reason === 'asset-changed'
+        ? 'The image asset changed; replace it or reload the document before adding an anchor.'
+        : gate.reason === 'asset-missing'
+          ? 'The image file is missing; replace it or reload the document before adding an anchor.'
+          : 'The image asset is missing; existing branches and anchors are kept.',
+    );
     return false;
   }
   const editor = runtime.editor;
