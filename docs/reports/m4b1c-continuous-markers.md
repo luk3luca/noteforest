@@ -5,6 +5,7 @@
 **Branch:** `t3/m4b1c-continuous-page-break-markers`  
 **Base:** `e481d7c` (`docs: launch M4b1c continuous markers`)  
 **Implementation commit:** `5730768ad181685b6b951f4f4c32010c4e3a014e`  
+**Tests/evidence commit:** `928a064` (Continuous Read marker assertion)  
 **Report commit:** branch head after this file (docs only)  
 **Status:** implementation, tests, screenshots, and final `verify:fast` complete; not merged, not pushed
 
@@ -137,14 +138,15 @@ New tests:
   when a page begins inside a long block, one continuation chip across many fragments, page-start +
   continuation for the same block, empty model, singular/plural/range labels.
 - `tests/ui/m4b1c-continuous-markers.test.mjs` — 4-page manual-break fixture: marker count/page
-  numbers match Page Read, marker y equals the anchor card top, separator roles/labels, Page Read
-  reuses the model (`runs` stays 1) and has no marker overlay, return to Continuous does not
-  re-measure; long fixture: one continuation chip, page range and first target agree with Page Read,
-  no duplicate for the block; collapse: hidden block loses its chip while page count and model runs
-  stay unchanged, Page Read still contains the fragment, expand restores the chip; layout neutrality
-  (hide the overlay and compare every card rect, content height and scrollHeight); live edit
-  repaginates once without a scroll jump; forced measurement failure renders no stale markers,
-  exposes the quiet status and keeps typing usable; 300-block page-model and typing measurement.
+  numbers match Page Read, marker y equals the anchor card top, separator roles/labels, chips are not
+  tab stops, Continuous Read keeps the same markers, Page Read reuses the model (`runs` stays 1) and
+  has no marker overlay, return to Continuous does not re-measure; long fixture: one continuation
+  chip, page range and first target agree with Page Read, no duplicate for the block; collapse:
+  hidden block loses its chip while page count and model runs stay unchanged, Page Read still
+  contains the fragment, expand restores the chip; layout neutrality (hide the overlay and compare
+  every card rect, content height and scrollHeight); live edit repaginates once without a scroll
+  jump; forced measurement failure renders no stale markers, exposes the quiet status and keeps
+  typing usable; 300-block page-model and typing measurement.
 - `tests/visual/m4b1c-continuous-markers.test.mjs` — 1440×900 and 960×720 screenshots in Edit and
   Read, plus continuation chips at both widths.
 
