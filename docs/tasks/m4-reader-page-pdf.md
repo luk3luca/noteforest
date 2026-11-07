@@ -49,6 +49,10 @@ table rows. One layout engine, two renderers; pages are derived, not containers.
 - Gate: page count/width snapshot report; no visual regression in reader; layout unit tests.
 
 ### M4b — Page view and reader integration
+
+Split into **M4b1 page view core** (`docs/tasks/m4b1-page-view-core.md`) and **M4b2 reader
+page-break markers + full AC-33 state polish**. M4b1 owns the adapter, measurement, page view and a
+basic mode switch; M4b2 owns markers and the full state/selection/scroll contract.
 - Page view component rendering the paginator's derived pages; page break markers in reader.
 - Fit page/fit width/zoom, page navigation, manual break hints, orientation change.
 - Mode switch preserves focus, selection, collapse, reader scroll, current page.
