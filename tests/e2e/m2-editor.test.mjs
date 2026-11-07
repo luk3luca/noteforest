@@ -619,7 +619,7 @@ describe('NoteForest M2 editor shell', () => {
     await waitActiveTab(firstPath);
     assert.equal((await h.state()).activeTab, firstPath);
     assert.match(await h.activeEditor().locator('.nf-block-prose').first().innerText(), /Root block/);
-    await page.keyboard.press('Meta+2');
+    await page.keyboard.press('Control+Tab');
     await page.waitForFunction(
       (expected) => window.__noteforestTest.state().activeTab !== expected,
       firstPath,

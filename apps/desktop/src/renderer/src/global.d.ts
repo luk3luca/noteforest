@@ -8,6 +8,7 @@ declare global {
     noteforest: NoteForestApi;
     __noteforestTest?: {
       state: () => unknown;
+      viewState?: () => unknown;
       openPath: (packagePath: string) => Promise<boolean>;
       flushSession: () => Promise<void>;
       setFlushMode: (mode: 'normal' | 'error' | 'hang') => void;

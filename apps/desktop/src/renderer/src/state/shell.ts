@@ -54,17 +54,35 @@ export interface ContextMenuState {
   items: MenuEntry[];
 }
 
+/** The two document surfaces exposed in v1 (outline is a separate later view). */
+export type DocumentMode = 'reader' | 'page';
+
+/** Page-view navigation state; never written to the document. */
+export type PageFit = 'page' | 'width' | 'none';
+
 /** Navigation-only view state. Never written to the document. */
 export interface DocumentViewState {
-  /** 1 = 100%. */
+  /** 1 = 100%. Reader surface zoom. */
   zoom: number;
   /** Ancestor-chain/descendant focus anchor; null means show the document. */
   focusBlockId: string | null;
+  /** Reader is the primary authoring surface; page is the read-only preview. */
+  mode: DocumentMode;
+  /** Current derived page, 1-based. Clamped when the page count changes. */
+  currentPage: number;
+  /** Manual page-view zoom. 1 = 100%; fit modes override it. */
+  pageZoom: number;
+  /** Page view fit mode; `none` uses `pageZoom`. */
+  pageFit: PageFit;
 }
 
 export const DEFAULT_DOCUMENT_VIEW: DocumentViewState = Object.freeze({
   zoom: 1,
   focusBlockId: null,
+  mode: 'reader',
+  currentPage: 1,
+  pageZoom: 1,
+  pageFit: 'page',
 });
 
 interface ShellState {
@@ -103,6 +121,10 @@ interface ShellState {
   setCollapsedTopics: (packagePath: string, ids: string[]) => void;
   setDocumentZoom: (packagePath: string, zoom: number) => void;
   setDocumentFocus: (packagePath: string, blockId: string | null) => void;
+  setDocumentMode: (packagePath: string, mode: DocumentMode) => void;
+  setDocumentPage: (packagePath: string, page: number) => void;
+  setDocumentPageZoom: (packagePath: string, zoom: number) => void;
+  setDocumentPageFit: (packagePath: string, fit: PageFit) => void;
 }
 
 const MAX_CLOSED = 20;
@@ -234,5 +256,39 @@ export const useShell = create<ShellState>((set, get) => ({
       return {
         viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, focusBlockId: blockId } },
       };
+    }),
+
+  setDocumentMode: (packagePath, mode) =>
+    set((state) => {
+      const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
+      if (current.mode === mode) return state;
+      return { viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, mode } } };
+    }),
+
+  setDocumentPage: (packagePath, page) =>
+    set((state) => {
+      const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
+      const next = Number.isFinite(page) ? Math.max(1, Math.round(page)) : 1;
+      if (current.currentPage === next) return state;
+      return {
+        viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, currentPage: next } },
+      };
+    }),
+
+  setDocumentPageZoom: (packagePath, zoom) =>
+    set((state) => {
+      const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
+      const next = Math.round(Math.min(2.5, Math.max(0.1, zoom)) * 100) / 100;
+      if (current.pageZoom === next) return state;
+      return {
+        viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, pageZoom: next } },
+      };
+    }),
+
+  setDocumentPageFit: (packagePath, fit) =>
+    set((state) => {
+      const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
+      if (current.pageFit === fit) return state;
+      return { viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, pageFit: fit } } };
     }),
 }));

@@ -34,12 +34,13 @@ import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
 import { createChapter, openBlockMenu, openChapterMenu, openReferenceMenu, requestBlockDelete } from '../actions';
 import { showsChapterCanvas } from '../lib/chapters';
-import { recordScroll } from '../state/session';
+import { getScroll, recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
 import { SaveFailureBanner } from '../shell/SaveFailureBanner';
 import { StaleLockBanner } from '../shell/StaleLockBanner';
 import { recordPerf } from '../lib/perf';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
+import { PageView } from '../page/PageView';
 
 interface DocumentEditorProps {
   runtime: DocumentRuntime;
@@ -137,52 +138,81 @@ function DocumentBanners({ runtime }: { runtime: DocumentRuntime }): JSX.Element
   );
 }
 
+function ReaderEmptyDocument({ runtime }: { runtime: DocumentRuntime }): JSX.Element {
+  return (
+    <div className="nf-empty-state nf-editor-empty" data-reader-empty="true">
+      <div className="nf-empty-inner">
+        <p className="nf-empty-copy">This document has no blocks yet.</p>
+        <div className="nf-empty-actions">
+          <button
+            type="button"
+            className="nf-button nf-button-primary"
+            disabled={!runtime.editable}
+            onClick={() => {
+              const chapterId = runtime.document.chapters[0]?.id;
+              if (chapterId !== undefined) void runtime.addTopLevel(chapterId);
+            }}
+          >
+            Add first block
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.Element {
+  useRuntime(runtime.packagePath);
+  const mode = useShell((state) => state.viewByDoc[runtime.packagePath]?.mode ?? 'reader');
+  const focusActive = useShell(
+    (state) => (state.viewByDoc[runtime.packagePath]?.focusBlockId ?? null) !== null,
+  );
   // The new-document call to action stays for a pristine, single untitled
   // chapter. A legacy document with named or multiple chapters must keep those
   // chapter cards visible even when every chapter is empty.
   const blockCount = Object.keys(runtime.document.blocks).length;
-  if (!showsChapterCanvas(runtime.document.chapters, blockCount)) {
-    return (
+  const readerVisible = mode === 'reader';
+  const reader = showsChapterCanvas(runtime.document.chapters, blockCount) ? (
+    <EditorSurface runtime={runtime} active={active} visible={readerVisible} />
+  ) : (
+    <ReaderEmptyDocument runtime={runtime} />
+  );
+
+  return (
+    <div
+      className="nf-editor"
+      id={tabPanelElementId(runtime.packagePath)}
+      role="tabpanel"
+      aria-labelledby={tabElementId(runtime.packagePath)}
+      style={active ? undefined : { display: 'none' }}
+      data-active={active}
+      data-mode={mode}
+      data-focus-active={focusActive}
+    >
+      <DocumentBanners runtime={runtime} />
       <div
-        className="nf-editor"
-        id={tabPanelElementId(runtime.packagePath)}
-        role="tabpanel"
-        aria-labelledby={tabElementId(runtime.packagePath)}
-        style={active ? undefined : { display: 'none' }}
-        data-active={active}
-        data-focus-active="false"
+        className="nf-reader-surface"
+        data-reader-surface="true"
+        style={readerVisible ? undefined : { display: 'none' }}
       >
-        <DocumentBanners runtime={runtime} />
-        <div className="nf-empty-state nf-editor-empty">
-          <div className="nf-empty-inner">
-            <p className="nf-empty-copy">This document has no blocks yet.</p>
-            <div className="nf-empty-actions">
-              <button
-                type="button"
-                className="nf-button nf-button-primary"
-                disabled={!runtime.editable}
-                onClick={() => {
-                  const chapterId = runtime.document.chapters[0]?.id;
-                  if (chapterId !== undefined) void runtime.addTopLevel(chapterId);
-                }}
-              >
-                Add first block
-              </button>
-            </div>
-          </div>
-        </div>
+        {reader}
       </div>
-    );
-  }
-  return <EditorSurface runtime={runtime} active={active} />;
+      {mode === 'page' ? <PageView runtime={runtime} active={active} /> : null}
+    </div>
+  );
 }
 
-function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
+function EditorSurface({
+  runtime,
+  active,
+  visible,
+}: DocumentEditorProps & { visible: boolean }): JSX.Element {
   useRuntime(runtime.packagePath);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const restoredRef = useRef(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
 
   const editor = useEditor(
     {
@@ -193,7 +223,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
         new Set(),
         runtime.assetAvailability,
       ),
-      editable: runtime.status === 'editable',
+      editable: runtime.status === 'editable' && visible,
       editorProps: {
         attributes: {
           class: 'nf-prosemirror',
@@ -257,7 +287,9 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
         },
       },
       onUpdate: () => {
-        runtime.noteEditorUpdate();
+        // A hidden reader (page mode) must not turn a programmatic rebuild or
+        // editable toggle into a text-history entry.
+        if (visibleRef.current) runtime.noteEditorUpdate();
       },
     },
     [runtime.packagePath],
@@ -268,6 +300,10 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     const mountedAt = performance.now();
     runtime.attachEditor(editor);
     const syncSelection = (): void => {
+      // The page view keeps the reader mounted for scroll/undo continuity, but
+      // a structural command may rebuild its hidden ProseMirror buffer. That
+      // must not overwrite the block the user selected on the page.
+      if (!visibleRef.current) return;
       const blockId = blockIdAtSelection(editor);
       const selection = editor.state.selection;
       // Any node selection (a block, a formula) is the selected-but-not-editing
@@ -360,6 +396,42 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     };
   }, [editor, runtime]);
 
+  // The reader is the authoring surface. While the page view is shown the
+  // ProseMirror surface stays mounted (scroll, selection and undo survive) but
+  // must not accept typing or retain the caret.
+  useEffect(() => {
+    if (editor === null) return;
+    const editable = runtime.status === 'editable' && visible;
+    // `setEditable` can emit an editor update; a no-op call on mount would mark
+    // a text-history operation before the user has typed anything.
+    if (editor.isEditable !== editable) editor.setEditable(editable);
+  }, [editor, runtime.status, visible]);
+
+  const previousVisible = useRef(visible);
+  useEffect(() => {
+    if (previousVisible.current === visible) return;
+    previousVisible.current = visible;
+    if (!visible) {
+      // The last visible scroll event already recorded the session position.
+      // Recording again here would overwrite it with 0: display:none resets
+      // the scroll box before this effect runs.
+      editor?.commands.blur();
+      return;
+    }
+    const selected = runtime.selectedBlockId;
+    const scrollTop = getScroll(runtime.packagePath);
+    requestAnimationFrame(() => {
+      if (selected !== null && runtime.document.blocks[selected] !== undefined) {
+        runtime.focusBlock(selected, { scroll: false });
+      }
+      // Focus can scroll the hidden-then-shown box; restore after it.
+      if (scrollRef.current !== null) scrollRef.current.scrollTop = scrollTop;
+    });
+    // Only a reader/page transition should restore; a selection change while
+    // the reader is visible keeps the live caret.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, editor, runtime.packagePath]);
+
   useEffect(() => {
     if (!active) return undefined;
     const handler = (event: Event): void => {
@@ -376,7 +448,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
   }, [active]);
 
   useEffect(() => {
-    if (editor === null || restoredRef.current) return;
+    if (editor === null || restoredRef.current || !visible) return;
     restoredRef.current = true;
     const point = runtime.restore;
     if (point !== null) {
@@ -395,7 +467,7 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     if (!empty) return;
     runtime.focusBlock(only.id);
     editor.commands.focus();
-  }, [editor, runtime, active]);
+  }, [editor, runtime, active, visible]);
 
   const selectedId = runtime.selectedBlockId;
   const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
@@ -407,12 +479,12 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
     [runtime.document, selectedId, runtime.version],
   );
   const rects = useBlockRects(contentRef, runtime.version, editor !== null, zoom);
-  const canvasWidth = useCanvasWidth(contentRef, active);
+  const canvasWidth = useCanvasWidth(contentRef, active && visible);
   const belowChildIds = useBelowStackPlacement({
     runtime,
     rects,
     availableWidth: canvasWidth,
-    active,
+    active: active && visible,
   });
   const edges = useMemo(
     () => edgePairs(runtime.document, runtime.collapsed, belowChildIds),
@@ -525,28 +597,19 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
   }, [runtime.packagePath, zoom]);
 
   useEffect(() => {
-    if (!active) return undefined;
+    if (!active || !visible) return undefined;
     const handler = (): void => fitWidth();
     window.addEventListener('nf:fit-width', handler);
     return () => window.removeEventListener('nf:fit-width', handler);
-  }, [active, fitWidth]);
+  }, [active, visible, fitWidth]);
 
   return (
-    <div
-      className="nf-editor"
-      id={tabPanelElementId(runtime.packagePath)}
-      role="tabpanel"
-      aria-labelledby={tabElementId(runtime.packagePath)}
-      style={active ? undefined : { display: 'none' }}
-      data-active={active}
-      data-focus-active={focusSet !== null}
-    >
-      <DocumentBanners runtime={runtime} />
+    <>
       <div
         className="nf-editor-scroll"
         ref={scrollRef}
         onScroll={(event) => {
-          if (!active) return;
+          if (!active || !visible) return;
           recordScroll(runtime.packagePath, event.currentTarget.scrollTop);
         }}
       >
@@ -583,6 +646,6 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
         </div>
       </div>
       {editor === null ? null : <SelectionToolbar editor={editor} />}
-    </div>
+    </>
   );
 }
