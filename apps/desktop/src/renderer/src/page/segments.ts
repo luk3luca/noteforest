@@ -53,6 +53,13 @@ export interface SegmentOptions {
   anchors?: readonly AnchorRecord[];
   /** Per-level list indent in px; comes from the shared layout options. */
   listIndent: number;
+  /**
+   * Whether an image that already carries both `width` and `height` renders a
+   * `src`. The measurement host sets this to `false`: those attributes fully
+   * determine the measured box, so fetching bytes cannot change it and can
+   * race a closing document package. Page rendering leaves it unset.
+   */
+  requestIntrinsicImages?: boolean;
 }
 
 interface InlineResult {
@@ -299,7 +306,11 @@ function imageHtml(node: ContentNode, options: SegmentOptions): string {
   const dimensions =
     (width === undefined ? '' : ` width=${attr(String(Math.round(width)))}`) +
     (height === undefined ? '' : ` height=${attr(String(Math.round(height)))}`);
-  return `<img class="nf-image" src=${attr(src)} alt=${attr(alt)}${dimensions} data-asset-id=${attr(
+  const source =
+    options.requestIntrinsicImages === false && width !== undefined && height !== undefined
+      ? ''
+      : ` src=${attr(src)}`;
+  return `<img class="nf-image"${source} alt=${attr(alt)}${dimensions} data-asset-id=${attr(
     assetId,
   )} draggable="false" />`;
 }
