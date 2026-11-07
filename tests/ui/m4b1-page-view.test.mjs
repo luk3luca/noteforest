@@ -106,20 +106,20 @@ describe('M4b1 page view core', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('shows the paginated A4 preview, preserves reader state, and updates live', async () => {
+  it('shows the paginated A4 preview, preserves continuous-editor state, and updates live', async () => {
     await launch(ui.isolated('m4b1-page'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
     const packagePath = (await h.state()).activeTab;
 
-    // Reader selection + scroll are the state the switch must preserve.
+    // Continuous-editor selection + scroll are the state the switch must preserve.
     const card = h
       .activeEditor()
       .locator('[data-block-card]', { hasText: 'Eigenvalues' })
       .first();
     await card.locator('.nf-block-prose').first().click();
     const selectedBefore = await selectedBlockId();
-    assert.equal(typeof selectedBefore, 'string', 'a block is selected in the reader');
+    assert.equal(typeof selectedBefore, 'string', 'a block is selected in the continuous editor');
     const scrollBefore = await page
       .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
       .evaluate((element) => {
@@ -130,12 +130,13 @@ describe('M4b1 page view core', () => {
     await page.waitForTimeout(80);
 
     await showPageView();
-    assert.equal((await viewState(packagePath)).mode, 'page');
-    assert.equal(await page.locator('.nf-reader-surface').evaluate((element) => getComputedStyle(element).display), 'none');
+    assert.equal((await viewState(packagePath)).layout, 'page');
+    assert.equal((await viewState(packagePath)).interactionMode, 'read');
+    assert.equal(await page.locator('.nf-continuous-surface').evaluate((element) => getComputedStyle(element).display), 'none');
     assert.equal(await selectedBlockId(), selectedBefore, 'selection survives the switch');
-    await page.locator('[data-view-mode="page"]').waitFor();
+    await page.locator('[data-view-layout="page"]').waitFor();
     assert.equal(
-      await page.locator('[data-view-mode="page"]').getAttribute('aria-pressed'),
+      await page.locator('[data-view-layout="page"]').getAttribute('aria-pressed'),
       'true',
     );
 
@@ -164,15 +165,15 @@ describe('M4b1 page view core', () => {
     // Read-only: no contenteditable surface in the page view.
     assert.equal(await activePageView().locator('[contenteditable="true"]').count(), 0);
 
-    // Clicking a fragment selects it and reveals the reader bridge.
+    // Clicking a fragment selects it and reveals the continuous-editor bridge.
     const firstFragment = activePageView().locator('.nf-page-fragment').first();
     const fragmentBlockId = await firstFragment.getAttribute('data-fragment-block');
     await firstFragment.click();
     assert.equal(await selectedBlockId(), fragmentBlockId);
     assert.equal(
-      await activePageView().locator('[data-page-open-reader]').isDisabled(),
+      await activePageView().locator('[data-page-open-continuous]').isDisabled(),
       false,
-      'Open in reader is enabled after selecting a block',
+      'Open in continuous editor is enabled after selecting a block',
     );
 
     // Live model update while page view is visible (no manual refresh).
@@ -217,11 +218,12 @@ describe('M4b1 page view core', () => {
       { timeout: 5000 },
     );
 
-    // Back to the reader: page view is gone, selection and scroll survive.
+    // Back to Continuous Edit: the page layout is gone, selection and scroll survive.
     await page.keyboard.press('Meta+2');
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view', { state: 'detached' });
     await page.waitForFunction(
-      (path) => window.__noteforestTest.viewState()[path]?.mode === 'reader',
+      (path) => window.__noteforestTest.viewState()[path]?.layout === 'continuous' &&
+        window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
       packagePath,
       { timeout: 5000 },
     );
@@ -230,25 +232,26 @@ describe('M4b1 page view core', () => {
     const scrollAfter = await page
       .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
       .evaluate((element) => element.scrollTop);
-    assert.ok(Math.abs(scrollAfter - scrollBefore) <= 1, 'reader scroll survives the return');
+    assert.ok(Math.abs(scrollAfter - scrollBefore) <= 1, 'continuous scroll survives the return');
     await page.waitForFunction(
       () => document.activeElement?.closest('.nf-prosemirror') !== null,
       undefined,
       { timeout: 5000 },
     );
 
-    // The explicit page -> reader bridge selects and focuses the same block.
+    // The explicit page -> continuous-editor bridge selects and focuses the same block.
     await showPageView();
     const target = activePageView().locator('.nf-page-fragment').first();
     const targetId = await target.getAttribute('data-fragment-block');
     await target.click();
-    await activePageView().locator('[data-page-open-reader]').click();
+    await activePageView().locator('[data-page-open-continuous]').click();
     await page.waitForFunction(
-      (path) => window.__noteforestTest.viewState()[path]?.mode === 'reader',
+      (path) => window.__noteforestTest.viewState()[path]?.layout === 'continuous' &&
+        window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
       packagePath,
       { timeout: 5000 },
     );
-    assert.equal(await selectedBlockId(), targetId, 'Open in reader keeps the block');
+    assert.equal(await selectedBlockId(), targetId, 'Open in continuous editor keeps the block');
   });
 
   it('navigates a multi-page portrait document and shows continuation markers', async () => {
@@ -406,7 +409,7 @@ describe('M4b1 page view core', () => {
     assert.ok(Number(await sheet.getAttribute('data-page-height-px')) > 0);
   });
 
-  it('shows a clear page error and keeps the reader usable when measurement fails', async () => {
+  it('shows a clear page error and keeps the continuous editor usable when measurement fails', async () => {
     await launch(ui.isolated('m4b1-page-error'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
@@ -421,7 +424,7 @@ describe('M4b1 page view core', () => {
     assert.match(await activePageView().innerText(), /Forced page measurement failure/);
     assert.match(
       await activePageView().locator('.nf-page-banner-error').innerText(),
-      /Page view error/,
+      /Page layout error/,
     );
 
     await page.keyboard.press('Meta+2');
@@ -430,8 +433,8 @@ describe('M4b1 page view core', () => {
     });
     await page.locator('.nf-editor[data-active="true"] .nf-prosemirror').click();
     await page.keyboard.press('End');
-    await page.keyboard.type(' Reader still works.');
-    await h.waitEditorText('Reader still works.');
+    await page.keyboard.type(' Continuous editor still works.');
+    await h.waitEditorText('Continuous editor still works.');
   });
 
   it('loads a present image through the package asset protocol', async () => {
@@ -478,4 +481,340 @@ describe('M4b1 page view core', () => {
       'a present asset never renders the placeholder',
     );
   });
+  it('defaults to Continuous Edit and toggles Continuous Read without editing', async () => {
+    await launch(ui.isolated('m4b1a-continuous-read'));
+    await h.setWindowSize(1440, 900);
+    await ui.seedDemo();
+    const packagePath = (await h.state()).activeTab;
+
+    assert.equal((await viewState(packagePath)).layout, 'continuous');
+    assert.equal((await viewState(packagePath)).interactionMode, 'edit');
+    assert.equal(
+      await page.locator('[data-view-layout="continuous"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(
+      await page.locator('[data-view-interaction="edit"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(await page.locator('[data-view-interaction="edit"]').isDisabled(), false);
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-prosemirror').getAttribute('contenteditable'),
+      'true',
+    );
+
+    const card = h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Eigenvalues' })
+      .first();
+    await card.locator('.nf-block-prose').first().click();
+    await page.keyboard.press('End');
+    // Let the native caret scroll settle before recording the scroll position
+    // the mode switch must preserve.
+    await page.waitForTimeout(250);
+    const caretBefore = await page.evaluate(() => window.__noteforestTest.caretLocation());
+    assert.equal(typeof caretBefore?.blockId, 'string', 'the caret is in a text block');
+    await page
+      .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
+      .evaluate((element) => {
+        element.scrollTop = 90;
+      });
+    await page.waitForTimeout(80);
+    const scrollBefore = await page
+      .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
+      .evaluate((element) => element.scrollTop);
+    const undoBefore = await page.evaluate(() => {
+      const state = window.__noteforestTest.state();
+      return state.runtimes.find((runtime) => runtime.packagePath === state.activeTab)?.canUndoText;
+    });
+
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      packagePath,
+      { timeout: 5000 },
+    );
+    await page.waitForTimeout(50);
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"]').getAttribute('data-interaction-mode'),
+      'read',
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-prosemirror').getAttribute('contenteditable'),
+      'false',
+      'Continuous Read is not editable',
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-prosemirror').getAttribute('aria-readonly'),
+      'true',
+    );
+    assert.equal(
+      await page.locator('[data-view-interaction="read"]').getAttribute('aria-pressed'),
+      'true',
+    );
+
+    // Selection, caret and scroll survive the mode switch.
+    assert.deepEqual(
+      await page.evaluate(() => window.__noteforestTest.caretLocation()),
+      caretBefore,
+      'caret survives entering Continuous Read',
+    );
+    const scrollRead = await page
+      .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
+      .evaluate((element) => element.scrollTop);
+    assert.ok(Math.abs(scrollRead - scrollBefore) <= 1, 'scroll survives entering Continuous Read');
+
+    // Mutating chrome is gone; the prose and navigation surfaces remain.
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-gutter-handle').count(),
+      0,
+      'drag/menu gutter is hidden',
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-add-edge').count(),
+      0,
+      'add child/sibling controls are hidden',
+    );
+    assert.equal(
+      await page
+        .locator('.nf-editor[data-active="true"] .nf-chapter-add')
+        .first()
+        .evaluate((element) => getComputedStyle(element).visibility),
+      'hidden',
+      'chapter add controls are hidden without collapsing their box',
+    );
+    assert.equal(
+      await page
+        .locator('.nf-editor[data-active="true"] .nf-canvas-action')
+        .evaluate((element) => getComputedStyle(element).visibility),
+      'hidden',
+      'canvas add-chapter control is hidden without collapsing its box',
+    );
+    assert.equal(
+      await page.locator('[data-testid="selection-toolbar"]').count(),
+      0,
+      'the selection toolbar is not rendered in Read',
+    );
+    assert.ok(
+      (await page.locator('.nf-editor[data-active="true"] [data-block-card]').count()) > 0,
+      'the continuous document stays mounted',
+    );
+
+    // Typing cannot edit and cannot add a text-history entry.
+    await page.keyboard.type(' should not appear');
+    await page.waitForTimeout(60);
+    assert.doesNotMatch(await h.activeEditor().innerText(), /should not appear/);
+    const undoRead = await page.evaluate(() => {
+      const state = window.__noteforestTest.state();
+      return state.runtimes.find((runtime) => runtime.packagePath === state.activeTab)?.canUndoText;
+    });
+    assert.equal(undoRead, undoBefore, 'mode switches create no undo entry');
+
+    // Typing may scroll the browser's caret into view even though it edits
+    // nothing; restore the scroll position that the return toggle must keep.
+    await page
+      .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
+      .evaluate((element, top) => {
+        element.scrollTop = top;
+      }, scrollBefore);
+    await page.waitForTimeout(80);
+    const scrollBeforeReturn = await page
+      .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
+      .evaluate((element) => element.scrollTop);
+
+    // ⌘E returns to Edit with the same block, caret, scroll and focus.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
+    );
+    await page.waitForTimeout(50);
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-prosemirror').getAttribute('contenteditable'),
+      'true',
+    );
+    assert.deepEqual(
+      await page.evaluate(() => window.__noteforestTest.caretLocation()),
+      caretBefore,
+      'caret survives returning to Edit',
+    );
+    const scrollAfter = await page
+      .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
+      .evaluate((element) => element.scrollTop);
+    assert.ok(
+      Math.abs(scrollAfter - scrollBeforeReturn) <= 1,
+      'scroll survives returning to Edit',
+    );
+    await page.waitForFunction(
+      () => document.activeElement?.closest('.nf-prosemirror') !== null,
+      undefined,
+      { timeout: 5000 },
+    );
+    const undoAfter = await page.evaluate(() => {
+      const state = window.__noteforestTest.state();
+      return state.runtimes.find((runtime) => runtime.packagePath === state.activeTab)?.canUndoText;
+    });
+    assert.equal(undoAfter, undoBefore, 'returning to Edit creates no undo entry');
+
+    // Click selection stays available in Continuous Read: the document is
+    // read-only, not inert.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      packagePath,
+      { timeout: 5000 },
+    );
+    const other = h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Spectrum' })
+      .first();
+    const otherId = await other.getAttribute('data-block-card');
+    await other.locator('.nf-block-prose').first().click();
+    await h.waitSelected(otherId);
+  });
+
+  it('opens Page in Read, disables Page Edit, and returns to Continuous Edit', async () => {
+    await launch(ui.isolated('m4b1a-page-seam'));
+    await h.setWindowSize(1440, 900);
+    await ui.seedDemo();
+    const packagePath = (await h.state()).activeTab;
+
+    await page.keyboard.press('Meta+3');
+    await page.waitForFunction(
+      (path) => {
+        const view = window.__noteforestTest.viewState()[path];
+        return view?.layout === 'page' && view?.interactionMode === 'read';
+      },
+      packagePath,
+      { timeout: 5000 },
+    );
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
+    assert.equal(
+      await page.locator('[data-view-layout="page"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    const edit = page.locator('[data-view-interaction="edit"]');
+    assert.equal(await edit.isDisabled(), true, 'Page Edit is visibly unavailable');
+    assert.match(
+      (await edit.getAttribute('title')) ?? '',
+      /Page editing is not available yet/,
+    );
+    assert.equal(
+      await page.locator('[data-view-interaction="read"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-page-view').getAttribute('data-interaction-mode'),
+      'read',
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-page-view [contenteditable="true"]').count(),
+      0,
+      'Page Read has no editable surface',
+    );
+
+    // ⌘E in Page is disabled and announces why; it never silently no-ops.
+    await page.keyboard.press('Meta+e');
+    await page
+      .locator('[data-sonner-toast]', { hasText: 'Page editing is not available yet' })
+      .waitFor({ timeout: 5000 });
+    assert.equal(
+      (await viewState(packagePath)).interactionMode,
+      'read',
+      'Page stays in Read after ⌘E',
+    );
+
+    // Continuous restores the default Edit mode.
+    await page.keyboard.press('Meta+2');
+    await page.waitForFunction(
+      (path) => {
+        const view = window.__noteforestTest.viewState()[path];
+        return view?.layout === 'continuous' && view?.interactionMode === 'edit';
+      },
+      packagePath,
+      { timeout: 5000 },
+    );
+    assert.equal(await page.locator('[data-view-interaction="edit"]').isDisabled(), false);
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-prosemirror').getAttribute('contenteditable'),
+      'true',
+    );
+  });
+
+  it('restores layout, mode, page, zoom and fit from the session', async () => {
+    const env = ui.isolated('m4b1a-session');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await openPackage(env, 'Session portrait', portraitLongDocument());
+    const packagePath = (await h.state()).activeTab;
+
+    await page.keyboard.press('Meta+=');
+    await page.waitForFunction(
+      (path) => (window.__noteforestTest.viewState()[path]?.zoom ?? 1) > 1,
+      packagePath,
+      { timeout: 5000 },
+    );
+    const zoomBefore = (await viewState(packagePath)).zoom;
+
+    await showPageView();
+    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.waitForFunction(
+      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
+      undefined,
+      { timeout: 5000 },
+    );
+    await activePageView().locator('[data-page-fit="actual"]').click();
+    await page.waitForFunction(
+      () => document.querySelector('.nf-editor[data-active="true"] [data-page-zoom-value]')?.textContent?.trim() === '100%',
+      undefined,
+      { timeout: 5000 },
+    );
+    await activePageView().locator('[data-page-zoom="in"]').click();
+    await page.waitForFunction(
+      (path) => (window.__noteforestTest.viewState()[path]?.pageZoom ?? 1) > 1,
+      packagePath,
+      { timeout: 5000 },
+    );
+    const before = await viewState(packagePath);
+    assert.equal(before.layout, 'page');
+    assert.equal(before.interactionMode, 'read');
+    assert.equal(before.currentPage, 2);
+    assert.equal(before.pageFit, 'none');
+
+    await h.flushSession();
+    await h.quit();
+    await launch(env);
+    await page.waitForFunction(
+      (path) => {
+        const view = window.__noteforestTest.viewState()[path];
+        return view?.layout === 'page' && view?.interactionMode === 'read';
+      },
+      packagePath,
+      { timeout: 10000 },
+    );
+    const after = await viewState(packagePath);
+    assert.equal(after.layout, 'page');
+    assert.equal(after.interactionMode, 'read');
+    assert.equal(after.currentPage, before.currentPage);
+    assert.equal(after.pageFit, 'none');
+    assert.ok(Math.abs(after.pageZoom - before.pageZoom) < 0.001, 'page zoom is restored');
+    assert.ok(Math.abs(after.zoom - zoomBefore) < 0.001, 'continuous zoom is restored');
+    await page.waitForFunction(
+      () => {
+        const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+        return view !== null && view.getAttribute('data-ready') === 'true';
+      },
+      undefined,
+      { timeout: 20000 },
+    );
+    assert.equal(await currentPageNumber(), 2);
+    assert.equal(
+      await activePageView().locator('[data-page-fit="page"]').getAttribute('aria-pressed'),
+      'false',
+      'the restored manual zoom is not replaced by fit page',
+    );
+    assert.equal(await page.locator('[data-view-interaction="edit"]').isDisabled(), true);
+  });
+
 });

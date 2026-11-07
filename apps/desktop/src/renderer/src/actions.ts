@@ -11,7 +11,8 @@ import {
 } from './state/registry';
 import {
   useShell,
-  type DocumentMode,
+  type DocumentLayout,
+  type InteractionMode,
   type MenuEntry,
   type PageFit,
   type TabInfo,
@@ -314,20 +315,46 @@ export function fitActiveWidth(): void {
   window.dispatchEvent(new CustomEvent('nf:fit-width'));
 }
 
-/* -------------------------------------------------------- document modes */
+/* ------------------------------------------------- editor layouts and modes */
 
-export function activeDocumentMode(): DocumentMode {
+export function activeDocumentLayout(): DocumentLayout {
   const state = shell();
   return state.activeTab === null
-    ? 'reader'
-    : state.viewByDoc[state.activeTab]?.mode ?? 'reader';
+    ? 'continuous'
+    : state.viewByDoc[state.activeTab]?.layout ?? 'continuous';
 }
 
-/** Switch the active document between the authoring reader and page preview. */
-export function setActiveDocumentMode(mode: DocumentMode): void {
+/** Switch the active document between the continuous editor and the page layout. */
+export function setActiveDocumentLayout(layout: DocumentLayout): void {
   const path = shell().activeTab;
   if (path === null) return;
-  shell().setDocumentMode(path, mode);
+  shell().setDocumentLayout(path, layout);
+}
+
+export function activeInteractionMode(): InteractionMode {
+  const state = shell();
+  return state.activeTab === null
+    ? 'edit'
+    : state.viewByDoc[state.activeTab]?.interactionMode ?? 'edit';
+}
+
+export function setActiveInteractionMode(mode: InteractionMode): void {
+  const path = shell().activeTab;
+  if (path === null) return;
+  shell().setDocumentInteractionMode(path, mode);
+}
+
+/** `⌘E` in Continuous; Page Edit is a disabled seam until it ships. */
+export function toggleActiveInteractionMode(): void {
+  const state = shell();
+  const path = state.activeTab;
+  if (path === null) return;
+  const view = state.viewByDoc[path];
+  if ((view?.layout ?? 'continuous') === 'page') {
+    toast.info('Page editing is not available yet. Switch to Continuous to edit.');
+    return;
+  }
+  state.setDocumentInteractionMode(path, (view?.interactionMode ?? 'edit') === 'edit' ? 'read' : 'edit');
 }
 
 export function setActivePageFit(fit: PageFit): void {
@@ -354,16 +381,17 @@ export function resetActivePageZoom(): void {
 }
 
 /**
- * Switch to the reader and reveal one block. The page view uses this for
- * double-click/Return and for the explicit "Open in reader" action; the reader
- * scroll is preserved for a plain mode toggle, but this path intentionally
- * reveals the chosen block.
+ * Switch to the continuous editor in Edit mode and reveal one block. The page
+ * layout uses this for double-click/Return and for the explicit "Open in
+ * continuous editor" action; the continuous scroll is preserved for a plain
+ * layout toggle, but this path intentionally reveals the chosen block.
  */
-export function openBlockInReader(blockId: string | null): void {
+export function openBlockInContinuous(blockId: string | null): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
   if (blockId !== null) runtime.selectBlock(blockId);
-  shell().setDocumentMode(runtime.packagePath, 'reader');
+  shell().setDocumentLayout(runtime.packagePath, 'continuous');
+  shell().setDocumentInteractionMode(runtime.packagePath, 'edit');
   if (blockId !== null) {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -985,8 +1013,18 @@ export function paletteCommands(): MenuEntry[] {
     { id: 'zoom-out', label: 'Zoom out', shortcut: '⌘−', onSelect: () => adjustActiveZoom(-0.1) },
     { id: 'zoom-reset', label: 'Actual size', shortcut: '⌘0', onSelect: resetActiveZoom },
     { id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: fitActiveWidth },
-    { id: 'reader-view', label: 'Reader view', shortcut: '⌘2', onSelect: () => setActiveDocumentMode('reader') },
-    { id: 'page-view', label: 'Page view', shortcut: '⌘3', onSelect: () => setActiveDocumentMode('page') },
+    { id: 'continuous-layout', label: 'Continuous layout', shortcut: '⌘2', onSelect: () => setActiveDocumentLayout('continuous') },
+    { id: 'page-layout', label: 'Page layout', shortcut: '⌘3', onSelect: () => setActiveDocumentLayout('page') },
+    ...(activeDocumentLayout() === 'continuous'
+      ? [
+          {
+            id: 'toggle-interaction-mode',
+            label: activeInteractionMode() === 'edit' ? 'Read mode' : 'Edit mode',
+            shortcut: '⌘E',
+            onSelect: toggleActiveInteractionMode,
+          },
+        ]
+      : []),
     { id: 'focus-branch', label: 'Focus branch', shortcut: '⇧⌘F', onSelect: toggleFocusBranch },
     {
       id: 'rename-document',

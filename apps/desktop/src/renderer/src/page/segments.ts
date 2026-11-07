@@ -2,8 +2,8 @@
  * Static page/print segment renderer.
  *
  * This module is the single content projection used by the hidden measurement
- * host and the read-only page view. It is pure string generation: no React, no
- * DOM reads, and no layout decisions. Segment boundaries are exactly the safe
+ * host and the read-only page layout. It is pure string generation: no React,
+ * no DOM reads, and no layout decisions. Segment boundaries are exactly the safe
  * page-break candidates the paginator consumes:
  *
  * - paragraph / heading / list item / blockquote paragraph;

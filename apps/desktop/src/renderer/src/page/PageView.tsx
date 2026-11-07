@@ -1,10 +1,14 @@
 /**
- * Read-only paginated A4 page view.
+ * Read-only paginated A4 page layout (ADR-0007).
  *
  * Pages come from the shared layout engine and paginator; this component only
  * positions derived fragments and renders the static segment markup. It never
  * measures content, never edits the document, and never re-paginates with CSS.
  * Fit/zoom and navigation are view state only.
+ *
+ * `interactionMode` is the Page Read/Page Edit seam: Page Read is implemented
+ * now; a future Page Edit slice will add the single-block editor overlay
+ * without changing this geometry.
  */
 
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
@@ -26,10 +30,11 @@ import type {
   PageFragment,
   PageGeometry,
 } from '@noteforest/layout';
-import { openBlockInReader } from '../actions';
+import { openBlockInContinuous } from '../actions';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
+import type { InteractionMode } from '../../../shared/view-state';
 import { blockTitle } from '../lib/tree';
 import { GEOMETRY } from '../lib/geometry';
 import {
@@ -51,6 +56,8 @@ import { usePageModel } from './usePageModel';
 interface PageViewProps {
   runtime: DocumentRuntime;
   active: boolean;
+  /** Page Read is implemented; Page Edit is a later slice. */
+  interactionMode: InteractionMode;
 }
 
 /** Matches `.nf-page-stage` padding (the canvas medium step). */
@@ -170,7 +177,7 @@ function PageFragmentView({
       data-fragment-anchor-warning={anchorWarnings.length > 0 ? 'true' : undefined}
       role="group"
       tabIndex={0}
-      aria-label={`${title}, page ${page.pageNumber}. Press Enter to open in the reader.`}
+      aria-label={`${title}, page ${page.pageNumber}. Press Enter to open in the continuous editor.`}
       aria-keyshortcuts="Enter"
       onClick={(event) => {
         // Read-only preview: never navigate a content link from the page.
@@ -351,7 +358,7 @@ function PageSurface({
   );
 }
 
-export function PageView({ runtime, active }: PageViewProps): JSX.Element {
+export function PageView({ runtime, active, interactionMode }: PageViewProps): JSX.Element {
   useRuntime(runtime.packagePath);
   const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
   const currentPage = view?.currentPage ?? 1;
@@ -369,12 +376,14 @@ export function PageView({ runtime, active }: PageViewProps): JSX.Element {
   const geometry = model.layout?.geometry ?? corePageGeometry(runtime.document);
 
   // Derived model may shrink the page count; keep the shell page in range.
+  // Wait for the first derived model: clamping against the loading state would
+  // overwrite a session-restored current page before the first layout pass.
   useEffect(() => {
-    if (!active) return;
+    if (!active || !model.ready) return;
     if (currentPage !== pageNumber) {
       useShell.getState().setDocumentPage(runtime.packagePath, pageNumber);
     }
-  }, [active, currentPage, pageNumber, runtime.packagePath]);
+  }, [active, currentPage, pageNumber, model.ready, runtime.packagePath]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -564,7 +573,7 @@ export function PageView({ runtime, active }: PageViewProps): JSX.Element {
     }
     if (event.key === 'Enter' && interactive === null && selectedBlockId !== null) {
       event.preventDefault();
-      openBlockInReader(selectedBlockId);
+      openBlockInContinuous(selectedBlockId);
     }
   };
 
@@ -576,14 +585,14 @@ export function PageView({ runtime, active }: PageViewProps): JSX.Element {
     if (model.error !== null) {
       return (
         <div className="nf-page-placeholder nf-page-error" data-page-error="true">
-          <h2 className="nf-page-placeholder-title">Page view could not be measured</h2>
+          <h2 className="nf-page-placeholder-title">Page layout could not be measured</h2>
           <p className="nf-page-placeholder-copy">{model.error}</p>
           <div className="nf-page-placeholder-actions">
             <button type="button" className="nf-button" onClick={() => model.reload()}>
               Retry
             </button>
-            <button type="button" className="nf-button" onClick={() => openBlockInReader(null)}>
-              Open in reader
+            <button type="button" className="nf-button" onClick={() => openBlockInContinuous(null)}>
+              Open in continuous editor
             </button>
           </div>
         </div>
@@ -601,11 +610,11 @@ export function PageView({ runtime, active }: PageViewProps): JSX.Element {
       <div className="nf-page-placeholder" data-page-empty="true">
         <h2 className="nf-page-placeholder-title">Nothing to paginate yet.</h2>
         <p className="nf-page-placeholder-copy">
-          Add a block in the reader; the page preview updates from the same document.
+          Add a block in the continuous editor; the page layout updates from the same document.
         </p>
         <div className="nf-page-placeholder-actions">
-          <button type="button" className="nf-button nf-button-primary" onClick={() => openBlockInReader(null)}>
-            Open in reader
+          <button type="button" className="nf-button nf-button-primary" onClick={() => openBlockInContinuous(null)}>
+            Open in continuous editor
           </button>
         </div>
       </div>
@@ -621,10 +630,11 @@ export function PageView({ runtime, active }: PageViewProps): JSX.Element {
       ref={rootRef}
       style={PAGE_CSS_VARIABLES as CSSProperties}
       role="region"
-      aria-label="Page view"
+      aria-label="Page layout"
       aria-busy={!model.ready || model.updating}
       tabIndex={0}
       onKeyDown={onRootKeyDown}
+      data-interaction-mode={interactionMode}
       data-ready={model.ready ? 'true' : 'false'}
       data-updating={model.updating ? 'true' : 'false'}
       data-page-count={pageCount}
@@ -637,7 +647,7 @@ export function PageView({ runtime, active }: PageViewProps): JSX.Element {
       data-error={model.error !== null ? 'true' : undefined}
       data-empty={placeholderSurface ? 'true' : undefined}
     >
-      <div className="nf-page-toolbar" role="toolbar" aria-label="Page view controls">
+      <div className="nf-page-toolbar" role="toolbar" aria-label="Page layout controls">
         <div className="nf-page-toolbar-group">
           <button
             type="button"
@@ -725,23 +735,23 @@ export function PageView({ runtime, active }: PageViewProps): JSX.Element {
           {model.updating ? <span className="nf-page-status">Updating…</span> : null}
           <button
             type="button"
-            className="nf-button nf-page-button nf-page-open-reader"
-            data-page-open-reader="true"
+            className="nf-button nf-page-button nf-page-open-continuous"
+            data-page-open-continuous="true"
             disabled={selectedBlockId === null}
             title={
               selectedBlockId === null
                 ? 'Select a block on the page first'
-                : `Open ${titleOf(runtime, selectedBlockId)} in the reader`
+                : `Open ${titleOf(runtime, selectedBlockId)} in the continuous editor`
             }
-            onClick={() => openBlockInReader(selectedBlockId)}
+            onClick={() => openBlockInContinuous(selectedBlockId)}
           >
-            Open in reader
+            Open in continuous editor
           </button>
         </div>
       </div>
       {model.error !== null ? (
         <div className="nf-page-banner nf-page-banner-error" role="status">
-          Page view error: {model.error}
+          Page layout error: {model.error}
         </div>
       ) : null}
       {blocking.length > 0 ? (
@@ -784,7 +794,7 @@ export function PageView({ runtime, active }: PageViewProps): JSX.Element {
                         fragment.isFirst ? anchorWarnings.get(fragment.blockId) ?? [] : []
                       }
                       onSelect={selectBlock}
-                      onOpen={openBlockInReader}
+                      onOpen={openBlockInContinuous}
                     />
                   ))}
                 </>

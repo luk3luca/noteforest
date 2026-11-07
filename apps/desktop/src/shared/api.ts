@@ -7,6 +7,7 @@
  */
 
 import type { Asset, AssetAvailability, CreatedIds, Document, DocumentCommand } from '@noteforest/core';
+import type { DocumentLayout, InteractionMode, PageFit } from './view-state';
 
 export type OpenStatus = 'editable' | 'read-only';
 
@@ -98,6 +99,14 @@ export interface SessionTabState {
   scrollTop: number;
   selectedBlockId: string | null;
   collapsed?: string[];
+  /** ADR-0007 view state; absent on legacy sessions and normalized on read. */
+  layout?: DocumentLayout;
+  interactionMode?: InteractionMode;
+  currentPage?: number;
+  pageZoom?: number;
+  pageFit?: PageFit;
+  /** Continuous surface zoom. */
+  zoom?: number;
 }
 
 export interface SessionState {

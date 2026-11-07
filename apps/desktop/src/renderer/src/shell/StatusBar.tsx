@@ -9,7 +9,8 @@ import {
   fitActiveWidth,
   resetActiveZoom,
   revealDocumentPath,
-  setActiveDocumentMode,
+  setActiveDocumentLayout,
+  setActiveInteractionMode,
   toggleFocusBranch,
 } from '../actions';
 
@@ -39,9 +40,13 @@ export function StatusBar(): JSX.Element {
     const path = state.activeTab;
     return path !== null && (state.viewByDoc[path]?.focusBlockId ?? null) !== null;
   });
-  const mode = useShell((state) => {
+  const layout = useShell((state) => {
     const path = state.activeTab;
-    return path === null ? 'reader' : state.viewByDoc[path]?.mode ?? 'reader';
+    return path === null ? 'continuous' : state.viewByDoc[path]?.layout ?? 'continuous';
+  });
+  const interactionMode = useShell((state) => {
+    const path = state.activeTab;
+    return path === null ? 'edit' : state.viewByDoc[path]?.interactionMode ?? 'edit';
   });
 
   if (runtime === null) {
@@ -117,30 +122,61 @@ export function StatusBar(): JSX.Element {
         </button>
       ) : null}
       <span className="nf-status-spacer" />
-      <div className="nf-status-view nf-status-modes" role="group" aria-label="Document view">
+      <div className="nf-status-view nf-status-layouts" role="group" aria-label="Layout">
         <button
           type="button"
           className="nf-status-button"
-          data-view-mode="reader"
-          aria-pressed={mode === 'reader'}
-          title="Reader view (⌘2)"
-          onClick={() => setActiveDocumentMode('reader')}
+          data-view-layout="continuous"
+          aria-pressed={layout === 'continuous'}
+          title="Continuous layout (⌘2)"
+          onClick={() => setActiveDocumentLayout('continuous')}
         >
-          Reader
+          Continuous
         </button>
         <button
           type="button"
           className="nf-status-button"
-          data-view-mode="page"
-          aria-pressed={mode === 'page'}
-          title="Page view (⌘3)"
-          onClick={() => setActiveDocumentMode('page')}
+          data-view-layout="page"
+          aria-pressed={layout === 'page'}
+          title="Page layout (⌘3)"
+          onClick={() => setActiveDocumentLayout('page')}
         >
           Page
         </button>
       </div>
-      {mode === 'reader' ? (
-        <div className="nf-status-view" role="group" aria-label="Reader view controls">
+      <div
+        className="nf-status-view nf-status-interaction"
+        role="group"
+        aria-label="Interaction mode"
+      >
+        <button
+          type="button"
+          className="nf-status-button"
+          data-view-interaction="edit"
+          aria-pressed={interactionMode === 'edit'}
+          disabled={layout === 'page'}
+          title={
+            layout === 'page'
+              ? 'Page editing is not available yet. Switch to Continuous to edit.'
+              : 'Edit mode (⌘E)'
+          }
+          onClick={() => setActiveInteractionMode('edit')}
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          className="nf-status-button"
+          data-view-interaction="read"
+          aria-pressed={interactionMode === 'read'}
+          title={layout === 'page' ? 'Read mode — Page is read-only' : 'Read mode (⌘E)'}
+          onClick={() => setActiveInteractionMode('read')}
+        >
+          Read
+        </button>
+      </div>
+      {layout === 'continuous' ? (
+        <div className="nf-status-view" role="group" aria-label="Continuous editor controls">
           <button
             type="button"
             className="nf-status-button nf-status-glyph"

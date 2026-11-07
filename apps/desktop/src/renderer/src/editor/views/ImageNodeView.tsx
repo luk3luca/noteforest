@@ -144,6 +144,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
   const runtime = bindings?.runtime ?? null;
   const version = useRuntimeVersion(runtime);
   const ui = useEditorUi(editor);
+  const readOnly = ui.interactionMode === 'read';
   const [failed, setFailed] = useState(false);
   const [drawing, setDrawing] = useState<{ start: ClientPoint; point: boolean } | null>(null);
   const [draft, setDraft] = useState<DisplayDraft | null>(null);
@@ -457,7 +458,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
           <span className="nf-image-missing-name">{label}</span>
           <span className="nf-image-missing-hint">{hint}</span>
         </div>
-        {runtime !== null && runtime.editable ? (
+        {runtime !== null && runtime.editable && !readOnly ? (
           // A broken image has no draw layer, but the per-image menu stays the
           // repair surface: Replace/alt are safe, and Add region/point render
           // disabled with the availability reason.
@@ -495,7 +496,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
     authoringMode === 'point'
       ? 'Click the image to place a point, or press Esc to cancel.'
       : 'Drag a rectangle over the image. Hold ⌥ to place a point instead.';
-  const showToolbar = !missing && (ui.selectedBlockId === blockId || authoring !== null);
+  const showToolbar = !missing && !readOnly && (ui.selectedBlockId === blockId || authoring !== null);
 
   return (
     <NodeViewWrapper
@@ -572,7 +573,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
             ))}
           </div>
         ) : null}
-        {authoring === null ? null : (
+        {authoring === null || readOnly ? null : (
           <div
             className="nf-image-draw-layer"
             data-image-draw-layer={assetId}

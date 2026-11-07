@@ -993,11 +993,42 @@ button:disabled {
   min-height: 0;
 }
 
-.nf-reader-surface {
+.nf-continuous-surface {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+/*
+ * Read mode keeps the continuous ProseMirror surface mounted for selection,
+ * links, anchors, copy, scroll and zoom. Only authoring chrome disappears.
+ */
+.nf-editor[data-interaction-mode="read"] .nf-gutter,
+.nf-editor[data-interaction-mode="read"] .nf-add-edge,
+.nf-editor[data-interaction-mode="read"] .nf-image-actions,
+.nf-editor[data-interaction-mode="read"] .nf-image-draw-layer,
+.nf-editor[data-interaction-mode="read"] .nf-image-draft {
+  display: none;
+}
+
+/*
+ * The chapter and canvas footers participate in normal flow. Hide them
+ * visually without collapsing their box: removing the box would shrink the
+ * scroll height and clamp a preserved scroll position on a mode switch.
+ */
+.nf-editor[data-interaction-mode="read"] .nf-chapter-footer,
+.nf-editor[data-interaction-mode="read"] .nf-canvas-footer {
+  visibility: hidden;
+}
+
+.nf-editor[data-interaction-mode="read"] .nf-chapter-title {
+  pointer-events: none;
+  cursor: default;
+}
+
+.nf-editor[data-interaction-mode="read"] .nf-prosemirror {
+  caret-color: transparent;
 }
 
 .nf-editor-scroll {
@@ -3001,6 +3032,16 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--accent);
 }
 
+.nf-status-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.nf-status-button:disabled:hover {
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
 .nf-status-health {
   padding: 0 6px;
   border: 1px solid var(--warning);
@@ -4211,7 +4252,7 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 /* ---------------------------------------------------------------------------
- * Page view and print typography
+ * Page layout and print typography
  *
  * The hidden measurement host and the page surface share this scope. Colors
  * and typography may differ from the editor shell; box metrics may not, because
@@ -4569,7 +4610,7 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--text-tertiary);
 }
 
-.nf-page-open-reader:not(:disabled) {
+.nf-page-open-continuous:not(:disabled) {
   border-color: var(--border-strong);
   color: var(--text);
 }
