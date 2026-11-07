@@ -367,12 +367,15 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
 - **M4b1a** taxonomy split (`layout` + `interactionMode`), Continuous Read, Page Edit seam, session
   persistence, rename of reader/page labels and attributes — **merged and verified**: 753 unit, 57
   UI, 16/16 e2e in 36.0 s, 14 recovery. Report: `docs/reports/m4b1a-editor-layouts-modes.md`.
-- **M4b1a2** focused Read-mode global gating: shell/sidebar/palette/undo cannot mutate in Read;
-  Page remains Read-only. Required before calling Read complete.
+- **M4b1a2** Read-mode global gating — **merged and verified**: one editability helper, sidebar/
+  palette/native menu/context menu/keymap/paste-drop/anchor-health gated; Page remains read-only.
+  Full verify 762 unit, 59 UI, 16/16 e2e in 36.0 s, 14 recovery. Report:
+  `docs/reports/m4b1a2-read-mode-gating.md`.
 - **M4b1b** Page Edit: optional A4-bounded editing with one active block editor overlay; Page Read
   remains the exact PDF proof.
 - **M4b1c** continuous page-break markers derived from the paginator, at block boundaries with
-  continuation chips; exact in-block breaks stay in Page/PDF.
+  continuation chips; exact in-block breaks stay in Page/PDF — **launched**. It shares one page model
+  with Page Read and does not shift the editor DOM.
 - **M4b2/M4e are not separate parts**: all of the above is M4b; M4c is the PDF print compositor.
 - **M4c** print compositor + PDF: fixed derived pages, real text/vector arrows, fonts/KaTeX/images
   wait, atomic export, page-count parity and text extraction.
