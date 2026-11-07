@@ -1,3 +1,7 @@
+**Status: SUPERSEDED (7 November 2026).** The product owner ratified ADR-0007: layouts
+Continuous/Page × modes Edit/Read. Do not implement this brief. See
+`docs/adr/0007-editor-layouts-and-modes.md` and `docs/tasks/m4b1a-editor-layouts-modes.md`.
+
 # M4b — unified reader/page/PDF layout: design package
 
 **Role:** Planner / Architect

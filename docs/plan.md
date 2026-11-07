@@ -351,7 +351,7 @@ for images, API/MCP, auth/audit, settings, page/PDF belong to M3c3b/M4/M5/M6.
 
 ## M4 — Reader/page + PDF (M4a merged; M4b next)
 
-Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level left-origin wrap. **M4a is merged** (`docs/reports/m4a-layout-lab.md`); **M4b1 page view core is merged** (`docs/reports/m4b1-page-view-core.md`). **M4b2 was cancelled**: the product owner rejected a DOM reader with advisory markers; **M4b is redefined around one engine** for reader/page/PDF, with a Planner design package (`docs/tasks/m4b-unified-reader-design.md`, ADR-0007 and slice breakdown pending). M4c/PDF waits for that design and implementation.
+Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level left-origin wrap. **M4a is merged** (`docs/reports/m4a-layout-lab.md`); **M4b1 page view core is merged** (`docs/reports/m4b1-page-view-core.md`). **ADR-0007 (7 November 2026) redefines the surfaces**: layout **Continuous | Page** × mode **Edit | Read**. Continuous + Edit is the default; Page Read is exact; Page Edit is planned; PDF exports Page Read. **M4b1a taxonomy + Continuous Read + view-state persistence is launched**; Page Edit and continuous markers follow. M4c/PDF uses the Page layout.
 
 - **M4a** layout lab + group-wrap engine — **merged and verified**: whole child group right only if
   every direct child's own card fits; otherwise all direct children below at
@@ -364,9 +364,13 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
   measurement at page typography, read-only A4 page view with fragments/continuation/ghost markers,
   fit page/width/zoom, images/missing placeholders, reader/page switch. Report:
   `docs/reports/m4b1-page-view-core.md`.
-- **M4b2 (superseded)** markers over the DOM reader; cancelled by the product owner to avoid two
-  layouts. The replacement design must make the reader a continuous renderer of the same
-  `ContinuousLayout` as page view/PDF, then add exact markers, AC-33 state, and mode persistence.
+- **M4b1a** taxonomy split (`layout` + `interactionMode`), Continuous Read, Page Edit seam, session
+  persistence, rename of reader/page labels and attributes.
+- **M4b1b** Page Edit: optional A4-bounded editing with one active block editor overlay; Page Read
+  remains the exact PDF proof.
+- **M4b1c** continuous page-break markers derived from the paginator, at block boundaries with
+  continuation chips; exact in-block breaks stay in Page/PDF.
+- **M4b2/M4e are not separate parts**: all of the above is M4b; M4c is the PDF print compositor.
 - **M4c** print compositor + PDF: fixed derived pages, real text/vector arrows, fonts/KaTeX/images
   wait, atomic export, page-count parity and text extraction.
 - **M4d** images/anchors/performance/visual: asset protocol in print, placeholders/lost markers,
