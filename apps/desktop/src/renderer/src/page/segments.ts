@@ -192,8 +192,11 @@ function applyMarks(text: string, marks: ContentNode['marks']): InlineResult {
 
   for (const mark of list) {
     if (mark.type === 'code') html = `<code class="nf-inline-code">${html}</code>`;
-    else if (mark.type === 'strong') html = `<strong>${html}</strong>`;
-    else if (mark.type === 'em') html = `<em>${html}</em>`;
+    // Canonical content comes from the TipTap projection, whose StarterKit mark
+    // names are `bold`/`italic`; the static page/print renderer also keeps the
+    // spec's `strong`/`em` spellings for imported or legacy Markdown content.
+    else if (mark.type === 'strong' || mark.type === 'bold') html = `<strong>${html}</strong>`;
+    else if (mark.type === 'em' || mark.type === 'italic') html = `<em>${html}</em>`;
     else if (mark.type === 'strike') html = `<s>${html}</s>`;
     else if (mark.type === 'underline') html = `<u>${html}</u>`;
     else if (mark.type === 'link' && isRecord(mark.attrs)) {

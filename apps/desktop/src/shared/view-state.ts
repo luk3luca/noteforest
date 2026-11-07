@@ -2,10 +2,12 @@
  * Per-document editor view state (ADR-0007).
  *
  * Layout (continuous vs page) and interaction mode (edit vs read) are
- * orthogonal axes. Page is read-only until Page Edit exists, so a page layout
- * always normalizes to read. This module is the single source for defaults and
- * clamping shared by the renderer store, session serialization, and the main
- * process session reader. View state never enters `document.json`.
+ * orthogonal axes. Page opens in Read on a layout switch, but an explicit
+ * stored Page Edit is a valid state and persists in the session. Unknown or
+ * missing modes fall back to the safe default for the layout. This module is
+ * the single source for defaults and clamping shared by the renderer store,
+ * session serialization, and the main process session reader. View state never
+ * enters `document.json`.
  */
 
 /** Screen-optimized continuous scroll or the paginated A4 page layout. */
@@ -25,7 +27,7 @@ export interface DocumentViewState {
   focusBlockId: string | null;
   /** Continuous or page layout. */
   layout: DocumentLayout;
-  /** Edit or read interaction within the layout. Page is read-only for now. */
+  /** Edit or read interaction within the layout. Page Edit is opt-in. */
   interactionMode: InteractionMode;
   /** Current derived page, 1-based. Clamped when the page count changes. */
   currentPage: number;
@@ -72,13 +74,18 @@ export function normalizePageFit(value: unknown): PageFit {
   return value === 'width' || value === 'none' ? value : 'page';
 }
 
-/** Page is read-only until Page Edit ships; continuous supports both modes. */
+/**
+ * An explicit `edit`/`read` is preserved for both layouts. Unknown or missing
+ * values keep the safe default: Page Read (a layout switch still opens Page
+ * Read) and Continuous Edit. A stored Page Edit is therefore restored, while a
+ * corrupt interaction mode can never turn Page into an accidental editor.
+ */
 export function normalizeInteractionMode(
   layout: DocumentLayout,
   value: unknown,
 ): InteractionMode {
-  if (layout === 'page') return 'read';
-  return value === 'read' ? 'read' : 'edit';
+  if (value === 'edit' || value === 'read') return value;
+  return layout === 'page' ? 'read' : 'edit';
 }
 
 /** Loose input accepted from legacy sessions, IPC, and partial view patches. */

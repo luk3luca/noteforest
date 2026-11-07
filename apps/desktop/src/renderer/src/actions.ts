@@ -58,6 +58,7 @@ import {
   READ_MODE_SUFFIX,
   READ_MODE_TOAST,
 } from './lib/editability';
+import { commitPageEdit } from './page/page-edit-state';
 
 function shell() {
   return useShell.getState();
@@ -258,6 +259,10 @@ export async function renameChapter(chapterId: string, title: string): Promise<v
 export async function saveActive(): Promise<void> {
   const runtime = activeRuntime();
   if (runtime === null) return;
+  if (!(await commitPageEdit(runtime.packagePath))) {
+    toast.error('Could not commit the Page Edit block.');
+    return;
+  }
   await runtime.saveNow();
   if (runtime.saveState === 'error') {
     toast.error(runtime.saveError ?? 'Save failed.');
@@ -280,6 +285,10 @@ export async function closeTab(
     return;
   }
   if (runtime !== null) {
+    if (!(await commitPageEdit(packagePath))) {
+      toast.error('Could not commit the Page Edit block before closing the tab.');
+      return;
+    }
     if (options.save !== false) {
       await runtime.flush();
       if (runtime.saveState === 'error') {
@@ -349,11 +358,18 @@ export function activeDocumentLayout(): DocumentLayout {
     : state.viewByDoc[state.activeTab]?.layout ?? 'continuous';
 }
 
-/** Switch the active document between the continuous editor and the page layout. */
+/**
+ * Switch the active document between the continuous editor and the page
+ * layout. An open Page Edit overlay commits first; a rejected commit keeps both
+ * the overlay and the view unchanged, so typed text is never lost.
+ */
 export function setActiveDocumentLayout(layout: DocumentLayout): void {
   const path = shell().activeTab;
   if (path === null) return;
-  shell().setDocumentLayout(path, layout);
+  if ((shell().viewByDoc[path]?.layout ?? 'continuous') === layout) return;
+  void commitPageEdit(path).then((committed) => {
+    if (committed) shell().setDocumentLayout(path, layout);
+  });
 }
 
 export function activeInteractionMode(): InteractionMode {
@@ -363,23 +379,28 @@ export function activeInteractionMode(): InteractionMode {
     : state.viewByDoc[state.activeTab]?.interactionMode ?? 'edit';
 }
 
+/**
+ * Switch Edit/Read inside the active layout. A Page Edit overlay commits before
+ * the mode changes; a rejected commit keeps the overlay open.
+ */
 export function setActiveInteractionMode(mode: InteractionMode): void {
   const path = shell().activeTab;
   if (path === null) return;
-  shell().setDocumentInteractionMode(path, mode);
+  const current = shell().viewByDoc[path];
+  if ((current?.interactionMode ?? 'edit') === mode) return;
+  void commitPageEdit(path).then((committed) => {
+    if (committed) shell().setDocumentInteractionMode(path, mode);
+  });
 }
 
-/** `⌘E` in Continuous; Page Edit is a disabled seam until it ships. */
+/** `⌘E`: Edit/Read inside Continuous or Page. */
 export function toggleActiveInteractionMode(): void {
   const state = shell();
   const path = state.activeTab;
   if (path === null) return;
   const view = state.viewByDoc[path];
-  if ((view?.layout ?? 'continuous') === 'page') {
-    toast.info('Page editing is not available yet. Switch to Continuous to edit.');
-    return;
-  }
-  state.setDocumentInteractionMode(path, (view?.interactionMode ?? 'edit') === 'edit' ? 'read' : 'edit');
+  const current = view?.interactionMode ?? (view?.layout === 'page' ? 'read' : 'edit');
+  setActiveInteractionMode(current === 'edit' ? 'read' : 'edit');
 }
 
 export function setActivePageFit(fit: PageFit): void {
@@ -414,16 +435,20 @@ export function resetActivePageZoom(): void {
 export function openBlockInContinuous(blockId: string | null): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
-  if (blockId !== null) runtime.selectBlock(blockId);
-  shell().setDocumentLayout(runtime.packagePath, 'continuous');
-  shell().setDocumentInteractionMode(runtime.packagePath, 'edit');
-  if (blockId !== null) {
-    requestAnimationFrame(() => {
+  const path = runtime.packagePath;
+  void commitPageEdit(path).then((committed) => {
+    if (!committed) return;
+    if (blockId !== null) runtime.selectBlock(blockId);
+    shell().setDocumentLayout(path, 'continuous');
+    shell().setDocumentInteractionMode(path, 'edit');
+    if (blockId !== null) {
       requestAnimationFrame(() => {
-        runtime.focusBlock(blockId, { scroll: true });
+        requestAnimationFrame(() => {
+          runtime.focusBlock(blockId, { scroll: true });
+        });
       });
-    });
-  }
+    }
+  });
 }
 
 /**
@@ -1110,16 +1135,12 @@ export function paletteCommands(): MenuEntry[] {
     { id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: fitActiveWidth },
     { id: 'continuous-layout', label: 'Continuous layout', shortcut: '⌘2', onSelect: () => setActiveDocumentLayout('continuous') },
     { id: 'page-layout', label: 'Page layout', shortcut: '⌘3', onSelect: () => setActiveDocumentLayout('page') },
-    ...(activeDocumentLayout() === 'continuous'
-      ? [
-          {
-            id: 'toggle-interaction-mode',
-            label: activeInteractionMode() === 'edit' ? 'Read mode' : 'Edit mode',
-            shortcut: '⌘E',
-            onSelect: toggleActiveInteractionMode,
-          },
-        ]
-      : []),
+    {
+      id: 'toggle-interaction-mode',
+      label: activeInteractionMode() === 'edit' ? 'Read mode' : 'Edit mode',
+      shortcut: '⌘E',
+      onSelect: toggleActiveInteractionMode,
+    },
     { id: 'focus-branch', label: 'Focus branch', shortcut: '⇧⌘F', onSelect: toggleFocusBranch },
     {
       id: 'rename-document',

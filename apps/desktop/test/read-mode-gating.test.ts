@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   editingEnabledFor,
+  pageBlockEditingEnabledFor,
   READ_MODE_SUFFIX,
   READ_MODE_TITLE,
   READ_MODE_TOAST,
@@ -29,11 +30,21 @@ describe('read-mode editability helper', () => {
     ['editable runtime in Continuous Edit', editable, continuousEdit, true],
     ['Continuous Read', editable, continuousRead, false],
     ['Page Read', editable, pageRead, false],
-    ['corrupt Page Edit stays read-only', editable, pageEdit, false],
+    ['Page Edit stays outside shell authoring', editable, pageEdit, false],
     ['missing view defaults to Continuous Edit', editable, undefined, true],
     ['read-only runtime with a missing view', readOnly, undefined, false],
   ] as const)('%s', (_name, runtime, view, expected) => {
     expect(editingEnabledFor(runtime, view)).toBe(expected);
+  });
+
+  it('enables only the Page block overlay predicate in Page Edit', () => {
+    expect(pageBlockEditingEnabledFor(editable, pageEdit)).toBe(true);
+    expect(pageBlockEditingEnabledFor(readOnly, pageEdit)).toBe(false);
+    expect(pageBlockEditingEnabledFor(editable, pageRead)).toBe(false);
+    expect(pageBlockEditingEnabledFor(editable, continuousEdit)).toBe(false);
+    expect(pageBlockEditingEnabledFor(editable, continuousRead)).toBe(false);
+    expect(pageBlockEditingEnabledFor(editable, undefined)).toBe(false);
+    expect(pageBlockEditingEnabledFor(null, pageEdit)).toBe(false);
   });
 
   it('exposes one shared Read-mode reason for every surface', () => {

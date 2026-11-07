@@ -154,12 +154,7 @@ export function StatusBar(): JSX.Element {
           className="nf-status-button"
           data-view-interaction="edit"
           aria-pressed={interactionMode === 'edit'}
-          disabled={layout === 'page'}
-          title={
-            layout === 'page'
-              ? 'Page editing is not available yet. Switch to Continuous to edit.'
-              : 'Edit mode (⌘E)'
-          }
+          title={layout === 'page' ? 'Page Edit mode (⌘E)' : 'Edit mode (⌘E)'}
           onClick={() => setActiveInteractionMode('edit')}
         >
           Edit
@@ -169,7 +164,7 @@ export function StatusBar(): JSX.Element {
           className="nf-status-button"
           data-view-interaction="read"
           aria-pressed={interactionMode === 'read'}
-          title={layout === 'page' ? 'Read mode — Page is read-only' : 'Read mode (⌘E)'}
+          title={layout === 'page' ? 'Page Read — exact preview (⌘E)' : 'Read mode (⌘E)'}
           onClick={() => setActiveInteractionMode('read')}
         >
           Read

@@ -29,6 +29,7 @@ import type {
   AssetAvailability,
   AssetAvailabilityIndex,
   AssetAvailabilityState,
+  ContentNode,
   Document,
   DocumentCommand,
   JsonObject,
@@ -659,6 +660,28 @@ export class DocumentRuntime {
       });
       return { ok: true, assetId: asset.id };
     });
+  }
+
+  /**
+   * Commit one block body edited in the Page Edit overlay.
+   *
+   * This is deliberately the ordinary `block.editContent` command: the
+   * continuous editor buffer is committed first by the session queue, the page
+   * content becomes one structural undo entry, and the hidden continuous
+   * editor is rebuilt from canonical. A rejected command leaves canonical
+   * content untouched; the overlay decides whether its typed buffer stays open.
+   */
+  async editBlockContent(blockId: string, content: ContentNode): Promise<ApplyOutcome> {
+    if (!this.editable) {
+      return { ok: false, message: 'This document is open read-only.' };
+    }
+    if (this.document.blocks[blockId] === undefined) {
+      return { ok: false, message: 'The block no longer exists.' };
+    }
+    return this.applyStructural(
+      { type: 'block.editContent', blockId, content },
+      { focusBlockId: blockId },
+    );
   }
 
   /** Edit one image's alt text through the block content command. */
