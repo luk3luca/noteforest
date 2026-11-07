@@ -189,3 +189,15 @@ The planned M6 settings UI maps user choices (Compact/Comfortable, colors, borde
 token overrides. Settings must not introduce component-local styling; they change the token values.
 Because CSS-bound tokens are root variables, an override can be applied at the root without editing
 component styles.
+
+## Future resize tokens (post-M4, not scheduled)
+
+Planned in `docs/tasks/future-manual-resize.md`; do not add these to `DESIGN_TOKENS` until the slice
+is scheduled.
+
+- **Image `displayWidth`**: `0.25 | 0.5 | 0.75 | 1` of the block content width, height auto,
+  anchors unchanged. Values are a snap ladder, not free pixels.
+- **Block `widthHint`**: `narrow | normal | wide | full` as a preference over the available band;
+  `normal` = absent = today's adaptive width. Layout clamps to content minimum and page width.
+- No manual height and no manual position tokens: height stays content-driven and paginated, and
+  page geometry remains derived. A future free-resize request needs a new ADR.

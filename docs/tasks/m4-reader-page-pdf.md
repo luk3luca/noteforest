@@ -89,6 +89,18 @@ table rows. One layout engine, two renderers; pages are derived, not containers.
   atomic write and failed-export job.
 - Product owner: visual/VoiceOver, PDF on macOS, Notability/import downstream manual.
 
+## Seams for future resize (documented, no UI in M4)
+
+Planned in `docs/tasks/future-manual-resize.md`. M4 should leave these seams without shipping the
+feature:
+
+- layout measurement accepts an optional per-block preferred width (always absent in M4);
+- image measurement tolerates an optional `displayWidth` (default 1) and still reads intrinsic
+  `width`/`height` for aspect ratio and anchor geometry;
+- reader and print renderer derive the image box from the same layout node, so a later display width
+  needs no print-only rule;
+- reserved optional fields are documented in the schema, not implemented.
+
 ## Risks / open decisions
 
 - Exact `wrapIndent` cap and whether to reset to page left or fixed band after the cap.

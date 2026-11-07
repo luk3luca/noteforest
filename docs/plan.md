@@ -367,6 +367,17 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
 - M5: local HTTP JSON API + MCP adapter on the same command layer; tokens/scopes, dry-run/apply/undo, audit, single-writer lock.
 - M6: search, light theme, accessibility, onboarding, packaging, release checks.
 
+## Future — manual resize (post-M4, not scheduled)
+
+Full plan: `docs/tasks/future-manual-resize.md`.
+
+- **Image `displayWidth`** inside the block: 25/50/75/100% snap, height auto, normalized anchors
+  unchanged, no layout/page-count impact. Command + undo; small slice after M4.
+- **Block `widthHint`**: preferred width token (narrow/normal/wide/full), clamped by content min
+  and page width; no manual height, no free position. Changes group wrap/page count, so it comes
+  after image resize and needs layout golden fixtures.
+- M4 reserves the seams only (optional width inputs in measurement/renderer); no UI in M4.
+
 ## Risks and decision points
 
 | Risk | Where it bites | Mitigation |
