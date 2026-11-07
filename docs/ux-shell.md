@@ -3,13 +3,15 @@
 **Status:** Approved direction for the editor-first slice  
 **Owner:** Orchestrator + UX  
 **Date:** 3 November 2026  
-**Scope:** the touchable desktop shell and continuous branch editor, including basic block-level primary branches with visible arrows. No span anchors, reference edges, page view, or PDF.
+**Scope:** the touchable desktop shell and continuous branch editor, including basic block-level primary branches with visible arrows. No span anchors, reference edges, Page layout, or PDF.
+
+**Revision note (7 November 2026).** ADR-0007 replaces the old "page view preview" assumption: the Page layout is the A4-bounded renderer (Read is exact and read-only now; Edit is planned), the Continuous layout's page-break markers are derived hints, and Page/PDF show the full document. The M2 shell description itself is unchanged; only the later-surface wording is updated.
 
 ## Why this comes first
 
 The Spike 1 PDFs proved the paginator and `printToPDF`, but they were fixture documents. They had no real branches, so they could not show the product's arrows; some edge routes looped backwards; and without an editor the product owner could not touch the product and judge it.
 
-The next slice is therefore the **editable shell with the distinguishing feature**: open documents, edit blocks, create block-level branches and see the arrows, switch tabs, save, reopen. Span anchors and reference edges come next; the page/PDF pass comes after that and is driven by real documents.
+The next slice is therefore the **editable shell with the distinguishing feature**: open documents, edit blocks, create block-level branches and see the arrows, switch tabs, save, reopen. Span anchors and reference edges come next; the Page/PDF pass comes after that and is driven by real documents.
 
 ## Product principles
 
@@ -55,7 +57,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 - Close button on hover/focus; middle-click closes; `⌘W` closes the active tab.
 - Overflow: horizontal scroll with a subtle fade, not a dropdown; a `+` button opens a recent/new menu.
 - Tab reorder by drag; the active tab is visually distinct with the editor background, not a colored pill.
-- `⌘1…9` switches to tab N; `⌘⇧[` / `⌘⇧]` previous/next.
+- `⌘1`, `⌘4…9` switch to tab N; `⌘2`/`⌘3` are reserved for Continuous/Page; `⌘⇧[` / `⌘⇧]` previous/next.
 - No nested tabs, no split view, no pinned tabs in M2.
 
 ### Sidebar (left, 264 px default, resizable 208–360 px)
@@ -69,10 +71,10 @@ The next slice is therefore the **editable shell with the distinguishing feature
 
 ### Editor (center)
 
-- A continuous **spatial branch editor**, not a paginated page and not a plain linear list. The page view is M4.
+- A continuous **spatial branch editor**, not a paginated page and not a plain linear list. The Page layout is a later M4 slice.
 - **Parent-relative placement:** a child group starts after its parent card plus the gap; it does not use a global x per depth. Same-depth blocks under different parents may sit at different x positions; this keeps a wide block local instead of widening the whole canvas.
 - Top-level blocks stack vertically; siblings at the same depth stack vertically in their local group. Depth is shown by the branch structure, not by a global column grid.
-- The editor scrolls horizontally when a deep branch exceeds the viewport. Page view/PDF applies the A4 width later (M4).
+- The editor scrolls horizontally when a deep branch exceeds the viewport. The Page layout/PDF applies the A4 width later (M4).
 - Geometry: editor canvas max ~1,600 px with 28–40 px padding; top-level block max 30 rem (480 px); child cards 9–26.25 rem (144–420 px); parent-to-child group gap 24 px (10 px branch lead + 12 px stem + 2 px arrow gap); empty blocks use the minimum width, not the maximum.
 - Block cards: child cards use `--surface-1` with no default border; top-level blocks are transparent. Focused block gets a quiet inset accent ring; selection is text selection, not a card highlight. Block padding 10 px; radius 4 px.
 - Primary arrows are SVG, drawn in an overlay above the cards: from the parent's right branch port to the child's left edge. 1.25 px neutral; the selected root→block path is 1.75 px accent.
@@ -88,14 +90,14 @@ The next slice is therefore the **editable shell with the distinguishing feature
 - A 20 px block gutter holds only the six-dot drag handle. A `+` at the **right edge center** adds a child; a `+` at the **bottom edge** adds a sibling. The collapse button is top-right so it does not compete with `+`. Reorder among siblings only; reparent via `Move to…`.
 - Chapter titles are inline-editable in the canvas (click, edit, `Enter`/`Esc` commits; sidebar stays in sync).
 - Each chapter ends with “+ Add top-level block”; “+ Add chapter” inserts immediately after the active chapter. The sidebar is not the only path.
-- **Zoom/fit-width** (`⌘-`, `⌘0`, `⌘+`) and **Focus branch** are navigation aids for deep indentation; they do not change layout or document data. A page-width wrap preview belongs to M4.
+- **Zoom/fit-width** (`⌘-`, `⌘0`, `⌘+`) and **Focus branch** are navigation aids for deep indentation; they do not change layout or document data. The Page layout's page-width wrap belongs to M4.
 - No page-break markers, no page guides, no PDF controls in M2.
 
 ### Branch arrows (M2)
 
 - Every primary child gets exactly one arrow from its parent. The arrow starts at the parent's branch port and ends at the child's left edge.
 - For two or more children in one sibling group, draw **one** vertical trunk from the parent's branch port and a short arrow from the trunk to each child; do not start a separate line at a different parent port for each child. The first child's branch is continuous with the parent port; the trunk joins at a T-junction with no gap.
-- If a page layout later wraps a child below (M4), the wrapped child's arrow enters its **left** side from the indent gutter, not its top. The editor itself places child groups parent-relative and scrolls horizontally, so it does not wrap.
+- If the Page layout later wraps a child below (M4), the wrapped child's arrow enters its **left** side from the indent gutter, not its top. The editor itself places child groups parent-relative and scrolls horizontally, so it does not wrap.
 - Arrows are behind the active editor overlay but above the background; they never capture text selection. They are `aria-hidden` and not tabbable. The branch port that toggles collapse is a real button (`aria-expanded`), not part of the decorative SVG.
 - Clicking an arrow selects the edge and shows a small inline action: delete branch (target becomes top-level) or add label (SHOULD).
 - Deleting a block with children uses the delete dialog: promote children or delete subtree; both keep arrows consistent.
@@ -121,7 +123,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 | Close tab | `⌘W`; prompt if dirty |
 | Close window | `⌘⇧W` |
 | Reopen closed tab | `⌘⇧T` |
-| Switch tab | `⌘1…9`, `⌘⇧[` / `⌘⇧]` |
+| Switch tab | `⌘1`, `⌘4…9`, `⌘⇧[` / `⌘⇧]` (`⌘2`/`⌘3` are Continuous/Page) |
 | New line in block | `Enter` |
 | Hard line break | `⇧Enter` |
 | New sibling block | `⌥Enter` |
@@ -198,7 +200,7 @@ Structural commands are application commands, not raw editor behavior. Undo is o
 
 - Span anchors on words, formulas, code, or image regions (M3).
 - Reference edges, shared children, "see also" (M3).
-- Page view, adaptive page layout, page-break markers, PDF export (M4).
+- Page layout (Read now, Edit later), adaptive page layout, page-break markers, PDF export (M4).
 - Right inspector, backlinks panel, graph view, tags, plugins.
 - Split view, multiple windows, pinned tabs.
 - Light theme (can be a follow-up), custom themes, mobile/iPad.

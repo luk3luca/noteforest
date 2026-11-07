@@ -1,9 +1,9 @@
 # NoteForest — Product, Data Model, and Behavior Specification
 
-**Version:** v0.4.5 (M3 design delta applied)  
-**Date:** 5 November 2026  
+**Version:** v0.5 (ADR-0007 editor layouts and modes)  
+**Date:** 7 November 2026  
 **Owner:** Planner / Architect  
-**Status:** Approved for Spike 1. v0.4.5 applies the product owner's approved M3 anchor/reference decisions (C1, C8, C9, OD-1–OD-12) from `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005. v0.4.4 reverted depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
+**Status:** Approved for Spike 1. v0.5 applies the product owner's ratified ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**; Continuous + Edit is the default; Page Read is exact and read-only; Page Edit is planned/optional; PDF exports the Page layout in Read mode; continuous page-break markers are derived hints from the same paginator, not WYSIWYG; one canonical document, segment/safe-break model, and paginator; Page/PDF show full content and collapse is a continuous/outline navigation aid. It supersedes D14/A15/A16 and the old "reader vs page view" pair. v0.4.5 applied the approved M3 anchor/reference decisions (C1, C8, C9, OD-1–OD-12) from `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005. v0.4.4 reverted depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
 **Working title:** NoteForest (an existing NoteForest study app exists; public-release clearance or a rename is required before packaging)
 
 This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, React Aria Components, Tailwind CSS v4, and KaTeX (ADR-0001, ADR-0004). CodeMirror 6 is a later addition; the custom SVG edge overlay replaces React Flow. PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided in ADR-0003. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, external API, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
@@ -42,7 +42,7 @@ This document defines the product behavior, conceptual data model, invariants, a
 
 ### 1.1 Vision
 
-NoteForest is a Mac-first study tool for people who think in structures. A learner writes a topic, expands it to the right and down, and attaches a branch to the exact word, formula term, code token, or image region that caused the thought. The same structure is an outline for fast authoring and a **continuous reader/page layout** for spatial review.
+NoteForest is a Mac-first study tool for people who think in structures. A learner writes a topic, expands it to the right and down, and attaches a branch to the exact word, formula term, code token, or image region that caused the thought. The same structure is an outline for fast authoring and a **Continuous or Page layout** for spatial review and print.
 
 The product is not a general whiteboard and not a general knowledge base. It is personal-first: one learner's own documents, local files, no team accounts. Its wedge is narrow and specific: **a page-based study document in which a span of content visibly grows a branch, the layout stays predictable, and the page exports as a real-text PDF.**
 
@@ -74,14 +74,14 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 
 ### 1.4 Product principles
 
-1. **One document, multiple lenses.** Outline, reader, and page views are views over the same model. None owns a private copy of the structure.
+1. **One document, multiple lenses.** Outline and the Continuous and Page layouts are views over the same model. None owns a private copy of the structure or a second paginator.
 2. **One home, many references.** Every non-root block has exactly one primary parent that determines its outline position and layout home. Extra parents are reference branches, not a second layout authority.
 3. **Anchors are first-class.** A branch can point at a span, not only at a whole block. Anchors must survive normal editing or fail visibly with a repair path.
-4. **Authoring is keyboard-first; reading is adaptive.** The outline must be fast enough to replace a hand-written outline. The reader/page views must be readable without becoming a drawing tool.
+4. **Authoring is keyboard-first; reading is adaptive.** The outline must be fast enough to replace a hand-written outline. The Continuous and Page layouts must be readable without becoming a drawing tool.
 5. **Fixed logical order, adaptive geometry.** Only sibling order changes. Widths are content-driven; a node with a large subtree can take more horizontal space, while a leaf sibling can be narrow. If there is not enough horizontal room, a child wraps below the parent level with a slight indent. There are no fixed depth columns, pins, free drag, or arbitrary coordinates.
 6. **Pages are derived.** A4 portrait or landscape with margins. A paginator computes page breaks from the continuous layout; pages are not stored containers. Break between blocks first; a long block may continue at safe internal boundaries (paragraph or list item) with a continuation marker. Never cut a line, image, formula, or code line.
 7. **Never silently lose work.** A broken anchor, a pagination defect, a missing asset, or a failed save must be surfaced, not swallowed.
-8. **Real text, page PDF.** PDF export uses the same paginator and reproduces the pages with a selectable text layer, not a screenshot and not a separate linear reader PDF in v1.
+8. **Real text, page PDF.** PDF export uses the same paginator and reproduces the pages with a selectable text layer, not a screenshot and not a separate linear reading PDF in v1.
 9. **Local-first and portable.** The canonical document is a local, documented, versioned package. Export must not be the only way to recover the content.
 
 ### 1.5 Goals for v1
@@ -89,7 +89,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 - **G1.** Create and edit content blocks with rich text, lists, code, inline and display math, and images.
 - **G2.** Create branches from a whole block or from an anchor inside it.
 - **G3.** Support text, formula, code, and image anchors with a visible broken-anchor and repair path.
-- **G4.** Provide an outline, a continuous reader view, and a paginated page view over the same document, with synchronized content, selection, page-break markers, collapse state, and undo.
+- **G4.** Provide an outline, a Continuous layout, and a Page layout over the same document, with synchronized content, selection, derived page-break markers in the Continuous layout, collapse state, and undo.
 - **G5.** Enforce one primary incoming branch per block, a primary forest that is acyclic, and reference branches that may form cycles.
 - **G6.** Lay out each chapter with an adaptive tree: top-level blocks stack vertically, children go right or wrap below the parent with a slight indent, anchored branches sit below their anchors, and no blocks overlap. Only sibling order changes.
 - **G7.** Save and load a versioned document package atomically, with backups and crash recovery.
@@ -111,7 +111,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 - **N9.** AI features that run without the user; background summarization, autonomous editing, or proactive suggestions.
 - **N10.** A plugin system, scripting, or embedded HTML/JavaScript in notes.
 - **N11.** An infinite canvas, free positioning, manual pins, fixed pixel columns, or arbitrary drag-to-place layout.
-- **N12.** A separate linear reader PDF, a spatial map export, or a page-container document format in v1. The reader view is an editor view, not an export; pages are derived.
+- **N12.** A separate linear reader PDF, a spatial map export, or a page-container document format in v1. The Continuous layout is an editor layout, not an export; pages are derived.
 - **N13.** An in-app agent panel/chat in v1. Agents interact through the local External Agent API instead.
 - **N14.** Storing user note documents in git. Git is for code and project docs only; notes are standard files in a user-chosen folder.
 - **N15.** Agent background autonomy, web access from the app, shell/filesystem access, or auto-apply of destructive changes in v1.
@@ -121,7 +121,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 - **S1.** A user can build a 100-block study document across pages in one session without a structural bug, a lost branch, or an ambiguous undo.
 - **S2.** Text anchors survive ordinary edits before, inside, and after the anchored span; destructive edits produce a visible broken-anchor state, never a silent deletion.
 - **S3.** A paginated PDF exported from a 300-block document opens correctly in a standard PDF viewer, has selectable body text, matches the paginator's page order and orientation, and never cuts a line, image, formula, or code line; long blocks continue at safe boundaries with markers.
-- **S4.** The reader and page views render and navigate 300 blocks smoothly on the reference Mac; 1,000 blocks is usable with layout virtualization, focus/collapse, and LOD. No 60 fps claim is made for 1,000 blocks.
+- **S4.** The Continuous and Page layouts render and navigate 300 blocks smoothly on the reference Mac; 1,000 blocks is usable with layout virtualization, focus/collapse, and LOD. No 60 fps claim is made for 1,000 blocks.
 - **S5.** Crash, malformed-file, missing-asset, page-break, and continuation tests do not destroy the last good document and never silently clip content.
 
 ### 1.8 Assumptions
@@ -142,8 +142,8 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 | **A12** | The local document is the source of truth; exports are derived. | A sync or cloud-first model changes persistence and conflict rules. |
 | **A13** | Pages are derived by the paginator; optional manual page-break hints are document settings. There is no stored page container in v1. | A page-container/auto-layout model needs a different schema. |
 | **A14** | A document may contain multiple chapters; the v1 UI MAY expose one chapter at a time. | Chapter navigation and multi-chapter editing need a UI design. |
-| **A15** | Reader view and page view share one layout engine and differ only in rendering/pagination chrome. | Two layout engines would risk divergence and duplicate bugs. |
-| **A16** | The reader is the primary authoring surface in v1; the page view is a preview of the same layout and paginator. The choice is closed (D14). | UX and keyboard design would need a revision if page view becomes primary. |
+| **A15** | The Page layout and PDF share one page layout engine, one measurement, and one paginator. The Continuous layout shares the canonical document, segment/safe-break model, and paginator breaks as derived markers, but is a screen-optimized renderer and is not a second pagination engine. | A second paginator or CSS re-pagination would risk divergence and duplicate bugs. |
+| **A16** | Continuous + Edit is the default authoring surface in v1. Page Read is the exact A4/PDF proof and is read-only; Page Edit is planned/optional and disabled until implemented. The choice is closed by ADR-0007 (supersedes D14). | UX and keyboard design would need a revision if Page Edit becomes primary or the default changes. |
 | **A17** | Note documents are standard files in a user-chosen folder; git is used only for code and project docs. | Note versioning/sync needs a different design. |
 | **A18** | Visual direction is clean, Obsidian-like, minimal, with dark mode as the default and a light theme available. | Visual design and theme tokens need revision. |
 | **A19** | The app exposes a local-only External Agent API; there is no in-app agent panel or background autonomy in v1. | API, auth, and UI scope change. |
@@ -168,8 +168,8 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 
 - **Anchored branches** remain: the child is placed below its anchor and may wrap or continue on the next page at safe boundaries. It is never cut through a line, image, formula, code line, or table row.
 - **Pages** are continuous in reading order but still pages. The paginator prefers breaks between blocks; a long block may continue at a safe internal boundary with a continuation marker.
-- **Views:** a **reader view** (continuous vertical scroll with page-break markers) is the primary authoring surface in v1; a **page view** (paginated WYSIWYG) renders the same layout as a preview. The outline is the same tree in list form. "Canvas" means the page/paginated view, not a freeform canvas.
-- **PDF export** uses the same paginator, with real text, A4 portrait/landscape, and no separate reader PDF in v1.
+- **Views:** an **Outline**, a **Continuous layout** (continuous vertical scroll with page-break markers derived from the paginator; Edit is the default, Read is available), and a **Page layout** (A4-bounded; Read is exact and read-only now, Edit is planned). "Canvas" means the Page layout, not a freeform canvas.
+- **PDF export** exports the Page layout in Read mode using the same paginator, with real text, A4 portrait/landscape, and no separate linear reader PDF in v1.
 
 ### 1.10 V1 scope and vertical slices
 
@@ -177,7 +177,7 @@ V1 includes all core features discussed, delivered in end-to-end vertical slices
 
 - **Slice 0 — Foundation:** document/chapter/block model, structured content, typed command API, persistence, undo/redo, tests.
 - **Slice 1 — Authoring:** outline, editor, text/formula/image anchors, branches, shared children, search.
-- **Slice 2 — Layout:** adaptive tree, paginator, reader view, page preview, page-break hints, freeze/full-reflow modes.
+- **Slice 2 — Layout:** adaptive tree, paginator, Continuous layout (Edit/Read), Page layout (Read now, Edit later), derived page-break markers, page-break hints, freeze/full-reflow modes.
 - **Slice 3 — Export:** Page PDF with real text, continuation markers, text-layer verification.
 - **Slice 4 — Library and visual:** multiple documents, document/library search, dark mode default, minimal Obsidian-like UI.
 - **Slice 5 — External Agent API:** typed command API exposure, local HTTP JSON + MCP adapter, token auth/read-write scopes, audit log, dry-run/proposals, undo/redo, tests. No in-app chat panel.
@@ -207,24 +207,28 @@ Each slice ends with automated tests and a manual/visual check. No core feature 
 | **Home** | The position of a block in the primary forest, determined by its primary parent. |
 | **Chapter** | A group of ordered top-level blocks. A document has one or more chapters. |
 | **Page** | An A4 portrait or landscape frame produced by the paginator. Pages are derived, not stored. |
-| **Page break** | A boundary between two derived pages, computed by the paginator or requested by an optional manual hint. |
+| **Page break** | A boundary between two derived pages, computed by the paginator or requested by an optional manual hint. It is shown as a derived marker in the Continuous layout/outline and as an exact page boundary in the Page layout. |
 | **Continuation** | A block or lower-level block that continues on the next page because it crossed a page boundary. It is marked on both pages and is never a second copy. |
-| **Ghost parent** | A compact, non-editable repeat of the parent context at the top of the next page when a lower-level block continues, so the reader knows where the continuation belongs. |
+| **Ghost parent** | A compact, non-editable repeat of the parent context at the top of the next page when a lower-level block continues, so the user knows where the continuation belongs. |
 | **Block continuation** | A single block whose content is split by the paginator at a safe internal boundary (paragraph or list item), with continuation markers. It is one block, not two. |
 | **Adaptive layout** | A continuous tree layout with content-driven widths. Children go right when there is room, otherwise below the parent with a slight indent. |
 | **Pagination** | The process that slices the continuous layout into A4 pages without cutting a line, image, formula, or code line. |
 | **Incremental reflow** | Default layout mode: only the dirty subtree and affected siblings are recomputed; existing positions stay stable. |
 | **Freeze mode** | A read-only study mode that freezes the layout and pagination snapshot; no automatic reflow while reading. |
 | **Full reflow** | A request or idle-triggered recomputation of the entire layout and pagination; page breaks may change. |
-| **Reader view** | A continuous vertical rendering of the layout with page-break markers. |
-| **Page view** | A paginated WYSIWYG rendering of the same layout. |
+| **Continuous layout** | A screen-optimized continuous vertical rendering of the document with page-break markers derived from the paginator. It supports Edit and Read modes; its markers are hints, not WYSIWYG page geometry. |
+| **Page layout** | An A4-bounded rendering of the derived pages used by the PDF. Page Read is exact and read-only in the current implementation; Page Edit is planned and optional. |
+| **Edit mode** | The active layout accepts authoring commands, with one active block editor at a time. |
+| **Read mode** | The active layout is read-only for content; selection, navigation, links, anchors, copy, scroll, zoom, and focus remain available. |
+| **Page Read / Page Edit** | Page Read is the exact, read-only A4 proof. Page Edit is the planned optional A4-bounded authoring surface with one active block editor; it uses the same geometry and paginator. |
+| **Reader** | Historical view name retired by ADR-0007. It remains only in historical notes and for concurrent file readers. |
 | **Shared child** | A block with one primary parent and zero or more reference parents. It appears once; it is referenced from multiple places. |
 | **Outline order** | The depth-first order produced by traversing chapters, top-level blocks, and ordered children. It is the canonical reading order. |
-| **Callout** | The reader/page rendering of an anchored branch, placed below its anchor and connected to it. |
-| **Collapse** | A view state that hides a block's descendants without deleting them. |
+| **Callout** | The Continuous or Page rendering of an anchored branch, placed below its anchor and connected to it. |
+| **Collapse** | A view state that hides a block's descendants without deleting them. In v1 it is an outline/Continuous navigation aid; the Page layout and PDF show the full document. |
 | **Document package** | The folder or bundle containing `document.json`, assets, and metadata. |
 | **Asset** | An image or other binary file referenced by content, stored by content hash inside the package. |
-| **View state** | Non-canonical UI state: last mode, current page, zoom, selection, collapsed blocks. It may be discarded without losing document content. |
+| **View state** | Non-canonical UI state: last layout and interaction mode, current page, zoom/fit, scroll, selection, focused block, collapsed blocks. It is stored outside `document.json` and may be discarded without losing document content. |
 | **Study layer** | The future annotation layer (highlights, ink, notes). It is separate from content and is not implemented in v1. |
 | **Broken anchor** | An anchor whose binding can no longer be resolved to a span in its block. The branch is preserved and surfaced for repair. |
 | **Alias / transclusion** | A second read-only rendering of a block's content in another place. Out of scope for v1. |
@@ -241,7 +245,7 @@ Each slice ends with automated tests and a manual/visual check. No core feature 
 
 As a student, I create a top-level block for a lecture topic and add children to the right as I would on paper.
 
-**Done when:** I can create a top-level block, add children, type rich content, and see the structure in outline, reader, and page views without choosing a free layout.
+**Done when:** I can create a top-level block, add children, type rich content, and see the structure in the outline, the Continuous layout, and the Page layout without choosing a free layout.
 
 ### US-02 — Branch from a word or phrase
 
@@ -277,11 +281,11 @@ As a student, I want the same definition to appear under two topics without dupl
 
 As a student, I switch to the outline to read the argument linearly, collapse subtrees, and edit quickly with the keyboard.
 
-**Done when:** the outline follows the same primary structure as the reader/page views, derived page breaks are visible, anchored branches appear as clearly marked callouts, and reference links are available without duplicating content.
+**Done when:** the outline follows the same primary structure as the Continuous and Page layouts, derived page breaks are visible, anchored branches appear as clearly marked callouts, and reference links are available without duplicating content.
 
-### US-08 — Study in the reader and page views
+### US-08 — Study in the Continuous and Page layouts
 
-As a student, I switch to the reader view for a continuous scroll with page-break markers, or to the page view for a paginated WYSIWYG page.
+As a student, I switch to Continuous Edit for continuous authoring, Continuous Read for a read-only continuous scroll with page-break markers, or Page Read for the exact paginated A4 result.
 
 **Done when:** top-level blocks stack vertically, direct children go right or wrap below with a slight indent, anchored children sit below their anchors, reference edges are visually distinct, page navigation changes only the viewed page, and no drag can move a block to an arbitrary position or pin it.
 
@@ -313,13 +317,13 @@ As a student, the app crashes while I am editing. When I reopen the document, I 
 
 As a student, I search for a term and jump to the block that contains it, even if it is on another derived page or inside a collapsed subtree.
 
-**Done when:** search finds text, code, LaTeX source, and labels; selecting a result reveals the block in all views; the chapter, page, and path are visible.
+**Done when:** search finds text, code, LaTeX source, and labels; selecting a result reveals the block in all layouts and modes; the chapter, page, and path are visible.
 
 ### US-14 — Review page breaks
 
-As a student, I read the continuous layout in the reader view and see where the paginator will break pages. I add a manual break hint when a break lands badly.
+As a student, I read in the Continuous layout (Edit or Read) and see where the paginator will break pages. I add a manual break hint when a break lands badly.
 
-**Done when:** page-break markers are visible in the reader, the page view and PDF use the same breaks, I can request a break before a block, and no line/image/formula/code line is cut; long blocks continue at safe boundaries with markers.
+**Done when:** derived page-break markers are visible in the Continuous layout, the Page layout and PDF use the same breaks, I can request a break before a block, and no line/image/formula/code line is cut; long blocks continue at safe boundaries with markers.
 
 ### US-15 — Work across multiple documents
 
@@ -354,7 +358,7 @@ The document is a set of chapters, blocks, anchors, branches, and assets. Branch
 The model has two layers:
 
 - **Document semantics:** page setup, optional page-break hints, chapters, top-level block order, blocks, anchors, branches, assets, schema version. This is canonical and must survive save/load.
-- **View state:** mode, current page, zoom, selection, collapsed blocks, outline scroll. This is non-canonical and may be discarded.
+- **View state:** layout (`continuous` or `page`), interaction mode (`edit` or `read`), current page, zoom/fit, selection, collapsed blocks, scroll. This is non-canonical and may be discarded.
 
 ### 4.2 Document
 
@@ -492,7 +496,7 @@ The primary branches form a forest:
 6. Do not recurse through reference branches.
 7. Insert a page-break marker wherever the paginator places one; the marker is derived, not a structural node.
 
-Anchored-first is **closed (D3)**. It keeps a branch caused by a word close to the block that contains the word. The rule is deterministic and shared by outline, reader view, page view, and PDF; it is not re-evaluated per view.
+Anchored-first is **closed (D3)**. It keeps a branch caused by a word close to the block that contains the word. The rule is deterministic and shared by the outline, the Continuous and Page layouts, and the PDF; it is not re-evaluated per layout or mode.
 
 **Page and block labels.** Derived pages are numbered in reading order (`1`, `2`, …). Blocks receive an optional hierarchical label derived from top-level order and depth (`1`, `1.1`, `1.1.1`) for navigation and diagnostics. Labels are generated, not stored. They are not a substitute for derived page numbers in the PDF.
 
@@ -525,15 +529,16 @@ Anchored-first is **closed (D3)**. It keeps a branch caused by a word close to t
 
 **View state** includes at least:
 
-- last mode (`outline`, `reader`, or `page`);
-- current derived page (for page view);
-- reader scroll position and page zoom;
+- last layout (`continuous` or `page`) and interaction mode (`edit` or `read`);
+- current derived page (for the Page layout);
+- Continuous scroll position and zoom/fit;
+- Page zoom and fit mode;
 - outline scroll position;
 - focused block ID;
-- collapsed block IDs;
-- optional multi-selection on the page (for reorder commands only).
+- selected block IDs and, where applicable, the page selection for reorder commands only;
+- collapsed block IDs.
 
-View state is non-canonical. Stale references to deleted blocks/pages are dropped on load. Collapse is view state, not document semantics: collapsing a block hides descendants without changing the primary forest, and the same collapse state is shared by all views.
+View state is non-canonical and is stored outside `document.json` (for example in the session or app state). Stale references to deleted blocks/pages are dropped on load. Invalid layout/mode values fall back safely: unknown layout → `continuous`; unknown mode → `edit` for Continuous and `read` for Page. An invalid page number falls back to the nearest existing derived page. Collapse is view state, not document semantics: collapsing a block hides descendants in the outline and Continuous layout without changing the primary forest; the Page layout and PDF always show the full document, and the same collapse state is shared by the outline and Continuous layout.
 
 ### 4.8 Assets
 
@@ -689,17 +694,12 @@ This example is illustrative, not a wire-format freeze. It uses the approved str
       "topLevelBlockIds": ["b1", "b4"]
     }
   ],
-  "viewState": {
-    "mode": "reader",
-    "currentChapterId": "ch1",
-    "currentPage": 1,
-    "zoom": 1,
-    "collapsed": []
-  },
   "assets": {},
   "annotations": []
 }
 ```
+
+Non-canonical view state (layout, interaction mode, current page, zoom/fit, scroll, focus, selection, collapse) is stored in the session/app state, not in `document.json`; it is omitted from this illustrative schema.
 
 ### 4.12 Shared-child validation
 
@@ -712,7 +712,7 @@ The product requires DAG semantics: a block can have more than one parent. The m
 - `b3` exists once. There is one block, one content body, one set of anchors, and one subtree.
 - `b3` appears once in the outline, under `b1`, at the position determined by the anchored branch from `b1`.
 - `b4` shows a "See also" link to `b3` with its derived page when available; it does not repeat the content and does not create a second outline entry.
-- The page/reader views show two incoming edges to `b3`: the primary edge visually stronger, the reference edge dashed or otherwise distinct.
+- The Continuous and Page layouts show two incoming edges to `b3`: the primary edge visually stronger, the reference edge dashed or otherwise distinct.
 - Deleting the reference branch from `b4` leaves `b3` under `b1` unchanged.
 - "Make home" from `b4` swaps the roles: `b4` becomes the primary parent, `b1` becomes a reference parent, and `b3` moves under `b4` in outline and layout (including a pagination change if it crosses a page boundary). "Move here" instead makes `b4` primary and deletes the old `b1` edge.
 - Deleting the primary branch from `b1` makes `b3` a root; the reference from `b4` remains, and `b3` is inserted after the former top-level block in the chapter's top-level order.
@@ -761,7 +761,7 @@ The canonical model MUST remain usable by a future iPad or native companion with
 - Undo history is session-only in v1; it is not persisted across launches.
 - Autosave does not create undo entries.
 - Multi-step user actions (for example, "create anchored child" = create anchor + create block + create branch) are one undoable command.
-- Commands are identical in outline, reader, and page views. A command available in one view must be reachable in the others through the keyboard, menu, or command palette.
+- Commands are identical in the outline, the Continuous layout, and the Page layout. A command available in one surface must be reachable in the others through the keyboard, menu, or command palette.
 
 ### 5.2 Block operations
 
@@ -835,7 +835,7 @@ The canonical model MUST remain usable by a future iPad or native companion with
 - **Attach branches to block.** Remove the anchor and its binding but keep its branches by changing their source to the block. Append them after the block's existing direct branches of that role, preserving their relative order; keep branch IDs, labels, and targets. This is the safe fallback when the user wants to keep the relationship but not the span. One undo entry restores the anchor, binding, sources, and order keys.
 - **Delete anchor.** Requires a choice: attach branches to the block, or delete the branches. The second is destructive and confirmed. Deleting an anchor never deletes the target block; a primary target is promoted, never deleted with the anchor. One undo entry.
 - **Idle anchor (OD-2).** When the last outgoing branch is removed, the anchor record stays **idle**: the marker is hidden, no callout is shown, and the anchor is not listed as broken or in the health panel until a branch exists. An explicit **Remove anchor** command deletes the idle record and its binding; it is undoable. An idle anchor is a valid record, not an error.
-- **Broken anchor.** Never delete automatically. The branch remains; the anchor appears in the anchor health surface (a status chip plus sheet/dialog in M3, not a full inspector; OD-10); the reader/page/PDF falls back to the whole block as the visual origin, shows a warning marker, and offers a repair dialog. The user can relink, attach to block, or delete. Broken anchors never open a modal on load and do not block saving or export.
+- **Broken anchor.** Never delete automatically. The branch remains; the anchor appears in the anchor health surface (a status chip plus sheet/dialog in M3, not a full inspector; OD-10); the Continuous/Page layout and PDF fall back to the whole block as the visual origin, show a warning marker, and offer a repair dialog. The user can relink, attach to block, or delete. Broken anchors never open a modal on load and do not block saving or export.
 - **Multi-block selection.** Rejected in v1 with a message. A text selection containing inline math or images is allowed and uses the plain-text projection for the quote (OD-12); a selection that crosses a block boundary, a block-level atomic node (display math, image, code block), or a table-cell boundary is rejected. A future version may create multiple anchors or a block-range anchor.
 
 ### 5.5 Structure and ordering operations
@@ -844,11 +844,11 @@ The canonical model MUST remain usable by a future iPad or native companion with
 |---|---|---|
 | **Reparent** | Tab in the outline, or "Move under…" | Selected block becomes the last child of the previous sibling. Rejects if the new parent is the block itself or a descendant. Removes the old primary edge, creates a new one, updates top-level order if needed. Subtree, anchors, and outgoing branches move. Pagination is recomputed. |
 | **Outdent** | Shift-Tab | Selected block becomes a sibling immediately after its primary parent. If the parent is a top-level block, the block becomes a top-level block after the parent; otherwise it becomes a child of the grandparent, ordered after the parent. |
-| **Move up/down** | Keyboard or drag in outline/reader | Reorder among siblings or top-level blocks; update fractional order only. |
+| **Move up/down** | Keyboard or drag in outline/Continuous Edit | Reorder among siblings or top-level blocks; update fractional order only. |
 | **Make root** | Menu/command | Remove the primary incoming edge; make the block a top-level block after the former top-level block in the chapter. Subtree intact. |
 | **Make home / move here** | Reference edge action | See §5.3. |
 | **Drag in outline** | Drag row | Reorder or reparent with a drop indicator. Dropping into a descendant is rejected. |
-| **Drag in reader/page view** | Drag card | Reorders the block among its siblings or top-level blocks with a drop indicator. It never sets an arbitrary x/y, never pins, and never free-drags. |
+| **Drag in Continuous Edit/Page Edit** | Drag card | Reorders the block among its siblings or top-level blocks with a drop indicator. It never sets an arbitrary x/y, never pins, and never free-drags. Page Read accepts no drag; Page Edit is planned. |
 | **Add page-break hint** | Command on a block or page-break marker | Request a page break before the block. The paginator honors it where possible; it is a hint, not a page container. |
 | **Remove page-break hint** | Command on the hint | Remove the request; pagination is recomputed. |
 | **Change page orientation** | Document/page setup | Switch A4 portrait ↔ landscape. Recompute layout and pagination; page count may change. |
@@ -856,18 +856,19 @@ The canonical model MUST remain usable by a future iPad or native companion with
 
 ### 5.6 View operations
 
-- **Switch mode.** Outline ↔ reader ↔ page view, preserving focused block, selection, collapse state, reader scroll, and current page.
-- **Split view (SHOULD).** Show outline and reader/page side by side over the same document. The same one-editor rule applies.
-- **Collapse / expand.** Collapse hides primary descendants and their callouts; expand restores them. Collapse subtree and expand all are commands. State is shared by all views.
+- **Switch layout.** Outline ↔ Continuous ↔ Page, preserving focused block, selection, collapse state, Continuous scroll, current page, and zoom/fit.
+- **Switch interaction mode.** Edit ↔ Read within the active layout. Switching commits the active edit and creates no undo entry. Continuous supports both; Page Read is available now, Page Edit is planned and disabled until implemented.
+- **Split view (SHOULD).** Show outline and the active layout side by side over the same document. The same one-editor rule applies.
+- **Collapse / expand.** Collapse hides primary descendants and their callouts in the outline and Continuous layout; expand restores them. Collapse subtree and expand all are commands. State is shared by the outline and Continuous layout. The Page layout and PDF show the full document; collapse does not change their content.
 - **Page navigation.** Previous/next page, page thumbnails/sidebar, go to page, go to chapter. Changing page is view state and never changes document data.
 - **Zoom / pan / fit.** Fit page, fit width, actual size, zoom in/out. Pan/zoom are navigation only and never change block positions.
-- **Page break hints.** Add or remove a break before a block; the reader shows the marker and the page view/PDF honor the hint where possible.
+- **Page break hints.** Add or remove a break before a block; the Continuous layout shows a derived marker and the Page layout/PDF honor the hint where possible.
 - **Page setup.** Change orientation and margins; recompute layout and pagination.
 - **Freeze study mode.** Freeze the current layout and pagination snapshot; reading is enabled, editing is disabled. Exiting freeze returns to incremental reflow or offers a full reflow.
 - **Full reflow.** Recompute the entire layout and pagination on request, or automatically after a short idle in editable mode. The UI shows a brief "layout updated" indicator if page breaks move.
 - **Focus subtree (SHOULD).** Dim or hide unrelated blocks for study; do not delete or restructure.
 - **Navigate.** Follow a branch to its target (and derived page), follow a backlink, go back/forward in navigation history, jump to an anchor, jump to a search result.
-- **Search.** Find text, code, LaTeX source, and labels; show the chapter/page path; reveal the block in all views.
+- **Search.** Find text, code, LaTeX source, and labels; show the chapter/page path; reveal the block in all layouts and modes.
 
 ### 5.7 Persistence, export, and future operations
 
@@ -886,13 +887,13 @@ The canonical model MUST remain usable by a future iPad or native companion with
 
 ### 6.1 Shared principles
 
-- **One document, multiple lenses.** Outline, reader, and page views read the same model and issue the same commands. None owns a private ordering, copy, or layout state that can diverge.
-- **One focused block.** There is one focused block across the app. The reader/page views may have a multi-selection for reorder commands, but one block is the focus for editing, navigation, and the outline.
+- **One document, multiple lenses.** Outline and the Continuous and Page layouts read the same model and issue the same commands. None owns a private ordering, copy, or layout state that can diverge.
+- **One focused block.** There is one focused block across the app. The Continuous and Page layouts may have a multi-selection for reorder commands, but one block is the focus for editing, navigation, and the outline.
 - **One active editor.** At most one block editor is live at a time. This avoids duplicate editors on the same content, reduces memory, and makes undo/focus predictable.
-- **Read-only by default.** Blocks render as content until the user edits. The views do not mount an editor for every block.
+- **Read-only by default.** Blocks render as content until the user edits. Read mode and read-only surfaces do not mount an editor for every block.
 - **Keyboard-first.** Every core authoring operation is reachable without a mouse. Exact keybindings belong to UX; the required commands are listed in §6.7.
 - **No color-only meaning.** Primary vs reference, resolved vs broken anchor, and selected vs focused states must also differ by shape, line style, icon, or label.
-- **Context preservation.** Switching views, changing page, collapsing, or zooming must not change content or structure.
+- **Context preservation.** Switching layouts or modes, changing page, collapsing, or zooming must not change content or structure.
 
 ### 6.2 Outline view
 
@@ -921,58 +922,69 @@ The outline is the fast authoring surface and the canonical reading order.
 - The outline virtualizes offscreen rows. The active editor is always mounted; other rows are lightweight renderings.
 - Scrolling 1,000 rows SHOULD remain smooth; the focused row and its editor must never be unmounted unexpectedly.
 
-### 6.3 Reader and page views
+### 6.3 Continuous and Page layouts
 
-The reader and page views render the same continuous layout. "Canvas" means the paginated page view; it is **not an infinite canvas**.
+There are two layouts over the same document: **Continuous** and **Page**. Each has an **Edit** and a **Read** mode. Continuous + Edit is the default. Page Read is the exact A4 proof and is read-only in the current implementation; Page Edit is planned and optional. "Canvas" means the Page layout; it is **not an infinite canvas**.
+
+**Shared model**
+
+- One canonical document, one segment/safe-break model, and one paginator. Pages are derived, never containers.
+- The Page layout and PDF share one geometry and one measurement. Page Read and Page Edit (when implemented) differ only in interactivity, not geometry.
+- The Continuous layout does not compute page breaks and does not use CSS re-pagination. It consumes the paginator's breaks as markers/hints. The Page layout/PDF are the exact geometry; continuous markers are derived hints and do not claim pixel parity.
+- Page and PDF show the full document content. Collapse is a Continuous/outline navigation aid; it never removes content from Page or PDF. If collapse in Page is added later, it is a separate product decision with explicit export semantics.
+- One active editor. Switching layout or mode commits the active edit and preserves the focused block, selection, collapse state, Continuous scroll, current page, and zoom/fit.
+- Neither layout supports free positioning, manual pins, or arbitrary x/y. The Page layout is bounded by the document page setup (A4 now; other sizes later).
 
 **Shared rendering**
 
-- The layout engine computes one continuous tree geometry per chapter: content-driven widths, children to the right when there is room, otherwise wrapped below the parent with a slight indent, anchored branches below their anchors.
+- The layout engine computes one adaptive tree geometry per chapter: content-driven widths, children to the right when there is room, otherwise wrapped below the parent with a slight indent, anchored branches below their anchors. The Continuous renderer presents it as a screen-optimized scroll; the Page layout/PDF render the paginator's exact A4 slices.
 - Blocks are cards whose width follows the measured content within page-width constraints; heights are measured from content.
 - Primary edges are solid arrows; reference edges are dashed or otherwise distinct and labeled when they have a label. In M3, a dashed reference edge is drawn when both endpoints are visible; otherwise a "See also"/"Referenced by" chip is shown (OD-9).
 - Cross-page edges use continuation markers at the page boundary. A block is never cut through a line, image, formula, or code line; it may continue at a safe boundary.
-- Collapsed cards show a hidden-descendant badge. Broken anchors show a warning marker.
+- Collapsed cards show a hidden-descendant badge in the outline/Continuous layout. The Page layout always renders the full document; it does not inherit the collapsed set.
 - At low zoom, cards use a simplified level of detail (label and first line) and editing is disabled; at normal zoom, full content renders.
 
-**Reader view**
+**Continuous layout (Edit and Read)**
 
-- A continuous vertical scroll of the chapter layout. Page-break markers show where the paginator will break and which page number follows.
+- A continuous vertical scroll of the chapter layout. Derived page-break markers show where the paginator will break and which page number follows; they are hints, not a pixel-accurate print preview.
 - Page width and margins are shown as guides; content outside the guide is not clipped, but it will be paginated.
-- This is the **primary authoring surface in v1 (D14 closed)** because it avoids page-boundary friction while keeping page breaks visible.
-- Adding or editing a block updates the continuous layout and the page-break markers immediately (after the layout debounce).
+- Continuous + Edit is the **default authoring surface in v1 (ADR-0007)** because it avoids page-boundary friction while keeping derived page breaks visible.
+- Continuous + Read is read-only for content while preserving selection, links, anchors, reference navigation, copy, scroll, zoom, focus, and outline navigation. It must not block saving or autosave.
+- Adding or editing a block updates the continuous layout and its derived markers after the layout debounce.
 
-**Page view**
+**Page layout (Read now, Edit planned)**
 
-- A paginated WYSIWYG rendering of the same layout: one A4 page at a time, with visible margins, page number, and page navigation.
-- Page content is a slice of the continuous layout produced by the paginator. Pages are not stored; changing content re-paginates.
+- A paginated A4 rendering of the derived pages: one A4 page at a time, with visible margins, page number, and page navigation.
+- Page content is a slice of the layout produced by the paginator. Pages are not stored; changing content re-paginates.
 - Continuation markers appear at the bottom of the source page and the top of the target page.
 - Page controls: previous/next, page thumbnails, page number, orientation, margins, fit page, fit width, actual size, zoom.
-- The page view is the visual proof for PDF export; it must show the same breaks and continuations as the PDF.
+- **Page Read** is exact and read-only: it is the visual proof for PDF export and must show the same breaks and continuations as the PDF. It accepts selection, navigation, zoom, focus, link/anchor following, copy, Page Setup, and Export; it accepts no content or structural edits.
+- **Page Edit** is planned and optional: one active block editor overlay, no free canvas, no second paginator, and the same geometry as Page Read. It is disabled and visibly unavailable until implemented; it must not be a broken toggle.
+- Page Read and Page Edit (when implemented) show the full document, regardless of the Continuous collapse state.
 
 **Freeze study mode**
 
-- Freeze takes a snapshot of the current continuous layout and pagination.
+- Freeze takes a snapshot of the current layout and pagination.
 - While frozen, scrolling, zooming, following references, and reading are enabled; editing and structural commands are disabled.
 - Nothing moves, even if a background measurement completes. The freeze badge is visible.
 - Exiting freeze returns to normal editing and offers "Keep current layout" (incremental) or "Full reflow."
 
-**Primary surface (closed)**
+**Default and exactness (ADR-0007)**
 
-The reader is the primary authoring surface in v1; the page view is the preview/verification surface (D14 closed).
-
-- **Reader-primary:** fast continuous authoring; page view is a preview/verification surface.
-- **Page view:** still a first-class renderer and the visual proof for PDF export; it is not a second layout engine.
-- **Either way:** one layout engine and one paginator. Do not build two independent layout implementations. If the product later moves to page-primary authoring, that is a UX change, not a layout-engine change, and requires an ADR only if it changes the pagination model.
+- **Default:** Continuous + Edit. Page opens in Read mode.
+- **Page + Edit:** opt-in when implemented; it differs from Page Read only in interactivity, not geometry.
+- **Continuous markers:** derived hints from the same paginator. They do not claim pixel parity with Page/PDF.
+- **One layout engine and one paginator:** do not build a second pagination implementation or CSS re-pagination. Page/PDF are exact; Continuous is screen-optimized.
 
 **Interaction**
 
-- Click selects and focuses a block. Double-click or Enter opens the inline editor. Only one editor is active.
+- Click selects and focuses a block. Double-click or Enter opens the inline editor in Edit mode. Only one editor is active.
 - Scroll/pan and pinch/zoom are navigation only. They never change block positions.
-- Drag a card to reorder it among its siblings or top-level blocks. A drop indicator shows the legal slot; the block snaps into the adaptive layout. There is no free x/y drag and no pin.
-- Drag from a block's branch handle to another card to open the branch-to-existing choice; drag from an anchor highlight to create an anchored child. Dropping outside a legal slot cancels.
+- Drag a card to reorder it among its siblings or top-level blocks in Edit mode. A drop indicator shows the legal slot; the block snaps into the adaptive layout. There is no free x/y drag and no pin. Read mode accepts no drag.
+- Drag from a block's branch handle to another card to open the branch-to-existing choice; drag from an anchor highlight to create an anchored child. Dropping outside a legal slot cancels. Read mode disables branch creation.
 - Select an edge to highlight it; Delete removes the branch (primary deletion makes the target a top-level block, with confirmation if it has a large subtree).
 - Clicking a reference edge navigates to the target's derived page and highlights the source; a back command returns.
-- Marquee/shift multi-select supports reorder, delete, and collapse as a group. Multi-select does not allow editing more than one block.
+- Marquee/shift multi-select supports reorder, delete, and collapse as a group in Edit mode. Multi-select does not allow editing more than one block.
 - A focus mode dims unrelated blocks for study; it is a view state, not a document change.
 
 **Page boundaries**
@@ -982,15 +994,15 @@ The reader is the primary authoring surface in v1; the page view is the preview/
 - A block taller than the page content area may continue at a safe internal boundary; if no safe boundary exists (for example a single line, image, formula, code line, or table row that is taller than the page), it is a pagination defect: the user must split the block or change page setup. The app does not cut or clip it.
 - A table may continue across pages only between rows. A row and its cells are never split; a table header is not repeated automatically in v1.
 
-### 6.4 Synchronization between views
+### 6.4 Synchronization between layouts and modes
 
-- Content edits, structure changes, anchors, pagination, collapse state, and undo are reflected in all views immediately.
-- Selecting a block in any view updates the focused block in the others and reveals its chapter/derived page. If the block is hidden by a collapsed ancestor, the other view expands ancestors; this changes only view state.
-- Switching modes preserves the focused block, the current page, reader scroll, and the page selection where possible.
+- Content edits, structure changes, anchors, pagination, and undo are reflected in all layouts and modes immediately. Collapse state is reflected in the outline and Continuous layout; Page/PDF always show the full document.
+- Selecting a block in any layout updates the focused block in the others and reveals its chapter/derived page. If the block is hidden by a collapsed ancestor, the outline/Continuous layout expands ancestors; the Page layout is unaffected because it always shows the full document. This changes only view state.
+- Switching layouts or modes preserves the focused block, the current page, Continuous scroll, and the page selection where possible.
 - The outline order and adaptive layout derive from the same primary branches, top-level order, and sibling orders. There is no independent manual position.
-- Pagination is derived, not document data. Collapse state is shared. There are no pins.
+- Pagination is derived, not document data. Collapse state is shared by the outline and Continuous layout; Page/PDF do not inherit it. There are no pins.
 - If a block is deleted or becomes unreachable while focused, focus moves to the nearest surviving sibling, then parent, then top-level block.
-- The app MUST prevent two live editors on the same block. Switching views while editing commits or cancels the edit according to the UX rule; it never leaves a stale editor.
+- The app MUST prevent two live editors on the same block. Switching layouts or modes while editing commits or cancels the edit according to the UX rule; it never leaves a stale editor.
 
 ### 6.5 Navigation and context
 
@@ -999,7 +1011,7 @@ The reader is the primary authoring surface in v1; the page view is the preview/
 - Back/forward navigation history covers branch following, backlink jumps, anchor jumps, and search results.
 - Following a branch selects the target and highlights the source edge/anchor; back returns to the source.
 - Following a broken anchor opens the anchor health sheet with repair actions.
-- Search results show the block label, a snippet, the document, and the chapter/page path; selecting a result reveals the block in all views.
+- Search results show the block label, a snippet, the document, and the chapter/page path; selecting a result reveals the block in all layouts and modes.
 
 ### 6.6 Editing model
 
@@ -1015,7 +1027,7 @@ The reader is the primary authoring surface in v1; the page view is the preview/
 
 ### 6.7 Required keyboard commands
 
-Exact keybindings are deferred to `docs/ux.md`, but the following commands MUST be keyboard-reachable in the outline and, where meaningful, in the reader/page views:
+Exact keybindings are deferred to `docs/ux.md`, but the following commands MUST be keyboard-reachable in the outline and, where meaningful, in the Continuous and Page layouts:
 
 - create sibling, create child, create anchored child;
 - indent/reparent, outdent, move sibling up/down;
@@ -1026,7 +1038,7 @@ Exact keybindings are deferred to `docs/ux.md`, but the following commands MUST 
 - make home, move here, make root;
 - previous/next page, go to page, add/remove page-break hint, change page orientation/margins;
 - toggle freeze study mode, full reflow;
-- toggle outline/reader/page view, fit page, fit width, zoom in/out;
+- switch to Outline/Continuous/Page, toggle Edit/Read, fit page, fit width, zoom in/out;
 - search/find next, follow branch, back/forward;
 - undo/redo.
 
@@ -1036,7 +1048,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 
 - Keyboard focus is always visible and follows a logical order.
 - The outline is the accessible representation of the document: VoiceOver can read the hierarchy, page-break markers, labels, branch roles, and collapsed state.
-- The reader/page views MUST have an accessible equivalent for every action through the outline, menu, or command palette; spatial-only gestures are not the sole path.
+- The Continuous and Page layouts MUST have an accessible equivalent for every action through the outline, menu, or command palette; spatial-only gestures are not the sole path. Continuous Read and Page Read must remain navigable and copyable.
 - Primary vs reference, resolved vs broken, and selected vs focused use non-color cues. Pagination continuation uses an icon and text, not color alone.
 - Reduced motion is respected; layout animations are optional and disabled during typing.
 - PDF export provides a real text layer; tagged PDF/PDF-UA is not a v1 requirement (D10).
@@ -1052,10 +1064,12 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 
 ### 6.10 View state
 
-- Last mode, current derived page, reader scroll and zoom, outline scroll, focused block, collapsed blocks, and page selection are persisted as view state.
-- View state is per document and may be reset without touching content.
-- Stale view-state references are dropped on load; an invalid page number falls back to the nearest existing derived page.
-- Opening a document SHOULD restore the last view and focus, but a corrupt view state must never prevent loading the document.
+- Layout (`continuous` or `page`), interaction mode (`edit` or `read`), current derived page, Continuous scroll and zoom/fit, Page zoom and fit, outline scroll, focused block, selected blocks, and collapsed blocks are persisted as view state.
+- View state is per document and may be reset without touching content. It is stored in the session/app state, never in `document.json`.
+- Stale view-state references are dropped on load; an invalid page number falls back to the nearest existing derived page. An unknown layout falls back to `continuous`; an unknown mode falls back to `edit` for Continuous and `read` for Page.
+- Page Read is read-only; if a persisted state asks for Page Edit while Page Edit is unavailable, the app opens Page Read with a clear disabled Edit control, not a broken state.
+- Switching layout or mode preserves focus, selection, collapse, Continuous scroll, current page, and zoom/fit; it creates no undo entry.
+- Opening a document SHOULD restore the last layout, mode, and focus, but a corrupt view state must never prevent loading the document.
 
 ---
 
@@ -1063,9 +1077,9 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 
 ### 7.1 Inputs and outputs
 
-**Inputs:** page setup (A4 size, orientation, margins), optional manual break hints, chapter order, top-level block order, the primary forest, branch order, measured block content sizes, resolved anchor rectangles, and the collapsed set.
+**Inputs:** page setup (A4 size, orientation, margins), optional manual break hints, chapter order, top-level block order, the primary forest, branch order, measured block content sizes, resolved anchor rectangles, and the collapsed set (for the outline and Continuous renderer; the Page layout/PDF always use the full document, independent of collapse).
 
-**Outputs:** a continuous layout (a rectangle for every visible block in chapter coordinates), a paginated set of derived pages with continuation records, an attachment point for every visible anchor, a route for every visible edge, and a list of layout/pagination defects. Layout and pagination are pure derivations. They MUST NOT mutate the document and MUST NOT store computed x/y or pages in the document.
+**Outputs:** a continuous layout (a rectangle for every block in the document; the Continuous renderer omits collapsed descendants at display time), a paginated set of derived pages with continuation records, an attachment point for every anchor, a route for every visible edge, and a list of layout/pagination defects. Layout and pagination are pure derivations. They MUST NOT mutate the document and MUST NOT store computed x/y or pages in the document.
 
 ### 7.2 Geometry
 
@@ -1076,7 +1090,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 - The page content width is a hard horizontal constraint. The page content height is a pagination constraint, not a layout constraint.
 - Block widths are content-driven, not fixed per depth. Widths are clamped to a minimum readable width and a maximum that fits the page content width. A block with long content wraps; it does not overflow horizontally.
 - Gaps are design tokens: sibling gap, subtree gap, wrap indent, callout gap, chapter gap. The 16 logical px minimum clear gap is fixed in §7.13; other values are UX decisions.
-- There is no document-space free position. Pan/zoom are navigation over the rendered reader/page, not positioning.
+- There is no document-space free position. Pan/zoom are navigation over the rendered Continuous or Page layout, not positioning.
 
 ### 7.3 Adaptive tree layout
 
@@ -1086,12 +1100,12 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 - For each top-level block, lay out its primary subtree:
   - The block's card width is derived from its measured content, clamped to the readable min/max. Height is measured. Empty blocks use the readable minimum, not the maximum.
   - A child is placed to the right of its parent when the space is available; siblings at the same depth stack vertically. Widths vary; short cards align left in their local group.
-  - When a deep chain exceeds the editor viewport, the editor scrolls horizontally. The page/PDF renderer later applies the A4 page width and reports a defect or wraps below where the page constraint requires it.
+  - When a deep chain exceeds the Continuous viewport, the Continuous layout scrolls horizontally. The Page/PDF renderer applies the A4 page width and reports a defect or wraps below where the page constraint requires it.
   - A parent is vertically centered on its children's span where possible; leaves follow sibling packing.
   - A subtree occupies a bounding box. Sibling subtrees MUST NOT overlap.
   - A child MUST be placed after its parent in reading order.
 - Anchored children are placed below their anchor in the same adaptive flow. They may continue at a safe boundary on the next page; they are never cut through a line, image, formula, code line, or table row.
-- The page width is a hard boundary for the page/PDF renderer. In the editor, deep branches may exceed the viewport and scroll horizontally; zoom/fit-width and branch focus are navigation aids, not layout changes. If a page layout cannot fit within the page content width after the page renderer's wrap, it is a layout defect: the user must shorten content, split the block, or change page setup. The app MUST NOT clip or auto-scale.
+- The page width is a hard boundary for the Page/PDF renderer. In the Continuous layout, deep branches may exceed the viewport and scroll horizontally; zoom/fit-width and branch focus are navigation aids, not layout changes. If a page layout cannot fit within the page content width after the page renderer's wrap, it is a layout defect: the user must shorten content, split the block, or change page setup. The app MUST NOT clip or auto-scale.
 - Only sibling order and top-level order change. There is no arbitrary x/y, no fixed-width depth column, and no pin.
 
 ### 7.4 Anchored branches
@@ -1109,6 +1123,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 ### 7.5 Paginator
 
 - The paginator converts the continuous layout into A4 pages using `pageSetup`, chapter boundaries, and optional `manualBreakBeforeBlockIds`.
+- The paginator ignores the collapsed set: Page layout and PDF always paginate the full document. Collapse affects only the outline and Continuous rendering.
 - It first prefers page breaks **between blocks**. If a block would cross the page bottom, the paginator may continue the block at a **safe internal boundary**:
   - paragraph boundary;
   - list-item boundary;
@@ -1130,10 +1145,11 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 
 ### 7.6 Collapsed subtrees
 
-- Collapsing a block hides its primary descendants and their anchored callouts. The block itself remains visible with a hidden-count badge.
-- Hidden blocks are not laid out or paginated; their order is preserved for expansion.
-- Expanding a block reflows its subtree and re-paginates. The layout SHOULD avoid moving unaffected blocks in continuous coordinates; page breaks may shift.
-- Collapse state is shared by outline, reader, and page views. Collapsing in one view is reflected in the others.
+- Collapse is a navigation aid in the outline and Continuous layout. Collapsing a block hides its primary descendants and their anchored callouts there. The block itself remains visible with a hidden-count badge.
+- The full layout is computed for the Page layout/PDF; the Continuous renderer omits hidden descendants from the rendered scroll. Their order is preserved for expansion.
+- The Page layout and PDF always show the full document. Collapse never changes their content, page count, or export. If collapse is added to Page later, it is a separate product decision with explicit export semantics (ADR-0007).
+- Expanding a block reflows its subtree in the Continuous layout; it SHOULD avoid moving unaffected blocks. Page/PDF pagination is unaffected because it always includes the full document.
+- Collapse state is shared by the outline and Continuous layout. The Page layout does not inherit it.
 - Navigating to a hidden block (search, reference follow, explicit reveal) expands the necessary ancestors and goes to its derived page; this is view state, not a document edit.
 
 ### 7.7 Shared children and reference edges
@@ -1159,7 +1175,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 
 ### 7.9 Stability and incremental layout
 
-- Layout MUST be deterministic: the same document, page setup, measurements, hints, and collapse state produce the same continuous layout and pagination.
+- Layout MUST be deterministic: the same document, page setup, measurements, and hints produce the same continuous layout and derived pages. Collapse changes only the Continuous/outline display, never Page/PDF content or pagination.
 - Reference edge changes MUST NOT move blocks or change pagination.
 - Content edits re-measure the edited block and reflow its subtree and affected siblings; they must not reflow unrelated chapters.
 - Adding or removing a top-level block may move subsequent top-level blocks in continuous coordinates; it must not move unrelated chapters.
@@ -1187,7 +1203,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 - Measure blocks once and cache width/height; invalidate on content, font, or page setup changes.
 - Lay out only dirty subtrees; keep top-level order and sibling order stable.
 - Paginate incrementally: recompute from the first affected block; avoid re-paginating the whole document on every keystroke.
-- Virtualize reader/page rendering: mount the visible region plus a small prefetch window; page thumbnails are lightweight.
+- Virtualize Continuous/Page rendering: mount the visible region plus a small prefetch window; page thumbnails are lightweight.
 - Collapse is a primary scale tool; page navigation and LOD are the others.
 - At low zoom, use simplified cards; at high zoom, render full content and enable editing.
 - Do not animate edges during text editing.
@@ -1275,7 +1291,7 @@ Incremental resolution is scoped to the edited block. A full-document anchor sca
 
 The anchor health surface is a **status chip plus sheet/dialog** in M3, not a full right inspector (OD-10). The status chip shows the count of broken and ambiguous anchors and is hidden when the count is zero. Clicking it opens the sheet. The sheet lists every ambiguous or broken anchor with:
 
-- block label and chapter/path (derived page when M4 adds page view);
+- block label and chapter/path (derived page in the Page layout/PDF when available);
 - stored quote and context;
 - branch target(s) and roles;
 - reason (text deleted, code changed, image replaced, multiple matches, missing target, `split-inside-anchor`, `selector-mismatch`, `block-missing`);
@@ -1552,7 +1568,7 @@ A note document is a folder the user chooses, containing one canonical JSON file
 
 **Derived:** search index, thumbnails, continuous layout geometry, derived pages and continuations, PDF and Markdown exports, page/block labels for PDF.
 
-**Non-canonical view state:** last mode, current derived page, zoom, scroll, focus, collapse, page selection.
+**Non-canonical view state:** layout, interaction mode, current derived page, zoom/fit, scroll, focus, selection, collapse. It is stored outside `document.json`.
 
 There MUST NOT be two canonical sources. Derived data may be rebuilt. View state may be discarded.
 
@@ -1688,7 +1704,7 @@ No migration ships without a golden fixture for every prior version and a failur
 **Goals:**
 
 - produce a page-based PDF with real, selectable text;
-- use the same paginator as the reader/page views, so the PDF matches what the user sees;
+- use the same paginator as the Page layout, so the PDF matches the Page layout (Page Read and, later, Page Edit geometry);
 - preserve every block exactly once, including shared children;
 - keep anchored branches below their anchors, with continuation/ghost-parent markers when a branch crosses a page;
 - break between blocks first; allow a long block to continue only at safe internal boundaries;
@@ -1697,16 +1713,16 @@ No migration ships without a golden fixture for every prior version and a failur
 
 **Non-goals:**
 
-- a separate linear reader PDF in v1; the reader view is an editor view, not an export;
+- a separate linear reader PDF in v1; the Continuous layout is an editor layout, not an export;
 - a spatial map page or poster export;
-- a screenshot of the page view;
+- a screenshot of the Page layout;
 - interactive forms, embedded audio/video, or encryption;
 - a tagged/PDF-UA document in v1;
 - the future annotation/study layer.
 
 ### 11.2 Export mode
 
-v1 has one export mode: **Page PDF**. It exports every derived page of the document, in reading order, using the same paginator and page setup as the page view.
+v1 has one export mode: **Page PDF**. It exports every derived page of the document, in reading order, using the same paginator and page setup as the Page layout. The export is the Page layout in **Read mode**, with editor chrome excluded (ADR-0007).
 
 There is no "reader PDF," "annotation-margin reader," or "map page" mode in v1. Those are future options and must not be implied by the export UI.
 
@@ -1724,7 +1740,7 @@ There is no "reader PDF," "annotation-margin reader," or "map page" mode in v1. 
 | Headings | 16/13/11 pt hierarchy; block labels may act as headings. |
 | Background | White; no dark mode, no shadows; block borders only if enabled, at a subtle weight. |
 
-The print theme is separate from the screen theme. The page view and the PDF MUST use the same typography metrics for measurement and pagination; the screen may change colors, borders, and non-metric decoration, but it must not change the font metrics used for page breaks. The reader may use a screen theme, but its page-break markers must use the same pagination metrics as the page view and PDF, or be labeled as advisory.
+The print theme is separate from the screen theme. The Page layout and the PDF MUST use the same typography metrics for measurement and pagination; the screen may change colors, borders, and non-metric decoration, but it must not change the font metrics used for page breaks. The Continuous layout may use a screen theme; its page-break markers are derived hints from the same paginator, not print geometry, and must not claim pixel parity with the Page layout or PDF.
 
 ### 11.4 Pagination and page count
 
@@ -1732,20 +1748,21 @@ The print theme is separate from the screen theme. The page view and the PDF MUS
 - The PDF prefers breaks between blocks. A long block may continue at a safe internal boundary (paragraph, list item, blockquote paragraph, between code lines, or between table rows), with "continues on page N" on the source page and "continued from page M" plus a ghost parent on the target page.
 - The PDF MUST NOT cut a text line, image, formula, table row, or code line. If no safe boundary exists, export is blocked with a clear "no safe page break" error; the user splits the block or changes page setup.
 - A table row is atomic. The PDF breaks a table only between rows, never inside a row or cell. A row taller than the page content height blocks export with a "no safe page break" error rather than cutting it. Header-row repetition is not required in v1.
-- A lower-level block that continues on the next page gets the same continuation and ghost-parent markers as the page view.
-- Manual page-break hints are honored where the paginator honors them in the page view; the PDF must not diverge.
+- A lower-level block that continues on the next page gets the same continuation and ghost-parent markers as the Page layout.
+- Manual page-break hints are honored where the paginator honors them in the Page layout; the PDF must not diverge.
 - Each chapter starts on a new derived page.
 - Avoid blank pages. A page with no content and only a header/footer is a defect unless it is the intentional title page.
 - Page numbers and running headers are generated after pagination. Export is deterministic for the same document, page setup, hints, and font state.
+- Page/PDF show the full document content; the Continuous collapse state is not exported (ADR-0007).
 - If the document has no blocks, export is disabled with a message; it never produces a blank PDF.
 
 ### 11.5 Content order and layout fidelity
 
-- The PDF renders the same continuous layout as the reader/page views: top-level blocks stacked, adaptive children to the right or wrapped below, anchored branches below their anchors.
+- The PDF renders the same page layout geometry as Page Read: top-level blocks stacked, adaptive children to the right or wrapped below, anchored branches below their anchors, with the paginator's derived pages.
 - Every block appears exactly once. A shared child appears at its primary home; reference edges are drawn as vector arrows, not repeated content.
 - Primary edges are solid arrows; reference edges are dashed or otherwise distinct. Cross-page primary edges use continuation markers at the page boundary.
 - Block cards, labels, formulas, code, images, and block borders use the print theme but keep their computed positions and sizes.
-- PDF export includes all document content, not the current collapse state. There is no "export visible only" option in v1 (Q13).
+- PDF export includes all document content, not the current collapse state. Collapse is an outline/Continuous navigation aid; Page/PDF always show the full document. There is no "export visible only" option in v1 (Q13, ADR-0007).
 - The PDF is not a screenshot. Text, arrows, and borders are vector/text where the PDF pipeline supports it.
 
 ### 11.6 Text layer, fonts, formulas, and links
@@ -1769,8 +1786,8 @@ The print theme is separate from the screen theme. The page view and the PDF MUS
 | Aspect | Expectation |
 |---|---|
 | Content | High: every block's content appears once, correctly rendered. |
-| Reading order | Exact: same as the paginator and page view. |
-| Spatial layout | High: same continuous layout and page breaks as the page view, within print typography. |
+| Reading order | Exact: same as the paginator and Page layout. |
+| Spatial layout | High: same page geometry and page breaks as Page Read, within print typography. |
 | Text layer | Body/code/labels: required. Formulas: best-effort. Images: alt text where supported. |
 | Formulas | Visually correct; no clipping; no missing glyphs; source preserved in the document. |
 | Images | Embedded at print resolution; missing assets render a labeled placeholder. |
@@ -1798,20 +1815,20 @@ Automated checks (where the toolchain allows):
 - assert no `�` or missing-glyph markers;
 - assert image count and that missing assets have placeholders;
 - check page size, orientation, and margins against `pageSetup`;
-- assert the PDF page-view geometry matches the page view's computed geometry within the print-theme tolerance.
+- assert the PDF/Page Read geometry matches the Page layout's computed geometry within the print-theme tolerance.
 
 Manual checks:
 
 - open in Preview and Chrome, select and highlight body text, search for a term; app-specific annotation apps are out of scope for the export gate;
 - verify formulas and code are readable;
-- verify pages match the page view, including breaks and continuations;
+- verify pages match Page Read, including breaks and continuations;
 - verify a broken anchor produces a marker without losing the branch;
 - verify no text line, image, formula, table row, or code line is cut; verify continuation/ghost markers where expected.
 
 ### 11.11 PDF out of scope
 
 - Separate reader PDF, annotation-margin reader, or map pages.
-- Screenshot/poster export of the page view.
+- Screenshot/poster export of the Page layout.
 - Freehand ink or annotation authoring in the PDF.
 - Tagged PDF/PDF-UA compliance.
 - Interactive forms, embedded media, encryption, or digital signatures.
@@ -1824,7 +1841,7 @@ The PDF pipeline is **decided (ADR-0002): Electron `webContents.printToPDF`, dri
 - `packages/layout` computes the continuous layout and the derived pages. The paginator is the only component that decides page breaks.
 - A print-only renderer composes the *already-derived* pages at exact A4 dimensions, in print theme, with one fixed-size page container per derived page. It never lets CSS paged media re-paginate and it never decides breaks.
 - `printToPDF` runs with `preferCSSPageSize`, explicit `@page` size/margins, `printBackground`, no scale, embedded fonts, and a settled document (fonts, images, KaTeX, layout measurement) before capture.
-- Hard gate before PDF is considered done: a 50+ page A4 spike with real selectable text, page numbers, repeated headers, no cut line/image/formula/code line/table row, page count equal to the paginator, and geometry matching the page view within print-theme tolerance.
+- Hard gate before PDF is considered done: a 50+ page A4 spike with real selectable text, page numbers, repeated headers, no cut line/image/formula/code line/table row, page count equal to the paginator, and geometry matching Page Read within print-theme tolerance.
 - If `printToPDF` fails the gate, the fallback is a new ADR, not a silent switch. Candidates: Chromium CDP `Page.printToPDF` from the same engine; a native PDF compositor (PDFKit) drawing the same page slices. Typst is not a drop-in for WYSIWYG page export because it would be a second layout engine.
 
 ---
@@ -1997,7 +2014,7 @@ API acceptance criteria are AC-70 through AC-74 in §15.18. They cover the typed
 |---|---|
 | Blocks overlap in the continuous layout | Layout defect; do not ship; fix the adaptive placement or report the impossible constraint. |
 | Anchored callout collides with a sibling subtree | Wrap it below the anchor with the indent; if still impossible, report a layout defect. |
-| Collapsed ancestor hides a block | Hide it and its descendants; expand restores; no pins exist. |
+| Collapsed ancestor hides a block | Hide it and its descendants in the outline/Continuous layout; expand restores; Page/PDF remain full; no pins exist. |
 | Multiple large top-level blocks | Stack vertically in top-level order; no overlap. |
 | Block taller than one derived page | Continue at a safe internal boundary with continuation + ghost parent; if no safe boundary (single line/image/formula/code line), pagination defect; user splits the block or changes page setup. |
 | Very wide content | Wrap the block's text within page width; if still too wide, layout defect; never horizontal scroll a block. |
@@ -2030,7 +2047,7 @@ API acceptance criteria are AC-70 through AC-74 in §15.18. They cover the typed
 | Missing font/glyph | Fallback font or visible error; no `�`; block export if content is unreadable. |
 | Broken anchor | Marker plus "anchor lost" note; branch content still appears once. |
 | Empty document | Disable export with a message; no blank PDF. |
-| Paginator/page-view mismatch | Export defect; block release until the PDF and page view agree. |
+| Paginator/Page Read mismatch | Export defect; block release until the PDF and Page Read agree. |
 
 ### 13.6 Scale
 
@@ -2067,8 +2084,8 @@ Measured on the reference Mac (M1/M2 class, 8 GB or more), release build, no dev
 |---|---|---|
 | Open 300-block document | < 2 s to interactive | Includes parse, validate, layout, first paint. |
 | Open 1,000-block document | < 5 s to interactive, or open with focus/collapse/LOD | Usability target with focus/collapse; no 60 fps claim. |
-| Outline scroll | 60 fps at 1,000 rows | Outline only; not a reader/page frame-rate claim. |
-| Reader/page rendering | 60 fps at 300 visible blocks; ≥ 30 fps at 500 | 1,000 usable with collapse/LOD; measured, not promised at 60 fps. |
+| Outline scroll | 60 fps at 1,000 rows | Outline only; not a Continuous/Page frame-rate claim. |
+| Continuous/Page rendering | 60 fps at 300 visible blocks; ≥ 30 fps at 500 | 1,000 usable with collapse/LOD; measured, not promised at 60 fps. |
 | Warm layout, 300 blocks | < 50 ms | Excludes initial text measurement. |
 | Warm pagination, 300 blocks | < 50 ms | Incremental from the first affected block. |
 | Warm layout + pagination, 1,000 blocks | < 500 ms | Dirty-subtree optimization required. |
@@ -2118,7 +2135,7 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 - **AC-02 (Must).** Create top-level blocks and children. Outline order is deterministic; chapter/top-level order is stable; adding a child does not reorder unrelated top-level blocks.
 - **AC-03 (Must).** A block never has two primary incoming branches. A second branch to a block with a home is created as a reference by default, or the user explicitly chooses reparent/move.
 - **AC-04 (Must).** A primary cycle is rejected with an actionable message and no mutation. A reference cycle is allowed and does not cause infinite recursion in outline or PDF.
-- **AC-05 (Must).** Shared-child scenario: one instance, one primary home, at least one reference parent. The block appears once in outline, reader/page views, and PDF; reference contexts show see-also; deleting a reference leaves the primary structure unchanged.
+- **AC-05 (Must).** Shared-child scenario: one instance, one primary home, at least one reference parent. The block appears once in the outline, the Continuous and Page layouts, and the PDF; reference contexts show see-also; deleting a reference leaves the primary structure unchanged.
 - **AC-06 (Must).** Delete a block with children: "promote children" and "delete subtree" both work; no dangling branch or anchor remains; external references are listed in the confirmation.
 - **AC-07 (Must).** Reparent, outdent, and reorder preserve the subtree, anchors, and outgoing branches; undo restores the prior structure.
 - **AC-08 (Must).** Malformed JSON and duplicate IDs fail safely: the app opens recovery/read-only, reports the problem, and does not overwrite the file.
@@ -2127,9 +2144,9 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 
 - **AC-09 (Must).** Enter creates a sibling, Tab reparents under the previous sibling, Shift-Tab outdents, and Backspace at the start merges with the previous block; undo restores each operation.
 - **AC-10 (Must).** An anchored child appears as a marked callout below its anchor, with the anchor quote visible; the adaptive layout may wrap it below the parent with an indent; the order is deterministic. In M3 the callout lane is below the parent card and before direct children, left-aligned to the anchor where possible; pixel alignment is best-effort in M3 and gated by AC-52 in M4 (OD-8).
-- **AC-11 (Must).** Collapse/expand hides and restores descendants in outline, reader, and page views; the hidden count is shown; navigating to a hidden block reveals it.
+- **AC-11 (Must).** Collapse/expand hides and restores descendants in the outline and Continuous layout; the hidden count is shown; navigating to a hidden block reveals it. Page/PDF always show the full document and are unaffected by collapse.
 - **AC-12 (Must).** "See also" and "Referenced by" links are visible and navigable; they do not duplicate content or create outline rows.
-- **AC-13 (Must).** Search finds text, code, LaTeX source, and labels; selecting a result reveals the block in all views and shows its chapter/page path.
+- **AC-13 (Must).** Search finds text, code, LaTeX source, and labels; selecting a result reveals the block in all layouts and modes and shows its chapter/page path.
 - **AC-14 (Should).** A missing block label is derived from content for the outline/card/PDF; an explicit label overrides it.
 - **AC-15 (Must).** A multi-block selection for an anchored branch is rejected with a clear message; no partial anchor is created.
 
@@ -2159,14 +2176,14 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 - **AC-26 (Must).** Reference edges are visually distinct and routed; reference cycles render; they do not affect layout or pagination. M3 draws a dashed edge when both endpoints are visible and a chip otherwise; full routing is M4 (OD-9).
 - **AC-27 (Must).** Collapsing a block hides its descendants and callouts, shows a count, and restores them on expand; pagination is recomputed.
 - **AC-28 (Must).** The paginator prefers breaks between blocks; a long block may continue only at a safe internal boundary, never through a text line, image, formula, table row, or code line. A table may continue only between rows; a row and its cells are never split. Continuation/ghost markers appear on both pages; page count is deterministic.
-- **AC-29 (Must).** The reader shows a continuous layout with page-break markers; the page view renders the same breaks as paginated WYSIWYG; fit page/fit width and zoom are navigation only.
+- **AC-29 (Must).** The Continuous layout renders a continuous document with page-break markers derived from the same paginator as the Page layout/PDF; the markers are hints and do not claim pixel parity. The Page layout renders the same derived pages as exact A4 geometry; Page Read is read-only and matches the PDF. Fit page/fit width and zoom are navigation only.
 - **AC-30 (Must).** There is no pin or free-position command. Dragging a block only reorders it among legal sibling/top-level slots with a drop indicator.
 
 ### 15.5 Synchronization
 
-- **AC-31 (Must).** An edit in the reader is visible in the outline and page view, and vice versa, without a mode switch or manual refresh.
-- **AC-32 (Must).** Only one block editor is active. Switching views or blocks commits the edit and does not lose keystrokes.
-- **AC-33 (Must).** Mode switching preserves the focused block, collapse state, reader scroll, current page, and selection; a hidden focused block is revealed.
+- **AC-31 (Must).** An edit in Continuous Edit is visible in the outline and the Page layout without a manual refresh or a second paginator. When Page Edit is implemented, an edit there is visible in the outline and Continuous layout the same way.
+- **AC-32 (Must).** Only one block editor is active. Switching layouts, modes, or blocks commits the edit and does not lose keystrokes.
+- **AC-33 (Must).** Switching layout or mode preserves the focused block, collapse state, Continuous scroll, current page, selection, and zoom/fit; a hidden focused block is revealed. A mode switch creates no undo entry, and an unavailable Page Edit falls back to Page Read without a broken state.
 
 ### 15.6 Persistence
 
@@ -2181,9 +2198,9 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 - **AC-39 (Must).** Page PDF: every derived page appears once in reading order; shared children appear once; there is no reader-PDF or map-page mode in v1.
 - **AC-40 (Must).** No text line, image, formula, table row, or code line is cut across PDF pages. A long block may continue only at a safe internal boundary, with "continues" and "continued from" plus a ghost parent; the block appears once.
 - **AC-41 (Must).** Extracted text contains all body, label, and code text; there are no missing-glyph markers; formulas render visually correctly.
-- **AC-42 (Must).** PDF page count equals the paginator's derived page count; manual break hints are honored consistently with the page view; no blank pages; page numbers present.
+- **AC-42 (Must).** PDF page count equals the paginator's derived page count; manual break hints are honored consistently with Page Read; no blank pages; page numbers present.
 - **AC-43 (Must).** Images are embedded; a missing image renders a labeled placeholder; arrows and borders are vector, not a screenshot.
-- **AC-44 (Must).** PDF page geometry (page size, orientation, margins, block positions, page breaks) matches the page view within print-theme tolerance.
+- **AC-44 (Must).** PDF page geometry (page size, orientation, margins, block positions, page breaks) matches Page Read within print-theme tolerance.
 - **AC-45 (Must).** The PDF opens in a standard PDF viewer; body text can be selected/highlighted/searched; no block is clipped. It is a standard PDF suitable for downstream annotation (for example in Notability), but no app-specific import is part of the gate.
 
 ### 15.8 Undo and performance
@@ -2191,7 +2208,7 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 - **AC-46 (Must).** Undo routes correctly between text history and structural commands; labels are human-readable; redo works.
 - **AC-47 (Must).** Undo/redo covers branch creation, anchor creation/repair, reparent, page-break hints, delete, and merge without leaving orphan records.
 - **AC-48 (Must).** Undo works after a save within the session; reopening starts a fresh history.
-- **AC-49 (Must).** On the reference Mac, 300-block warm layout is under 50 ms; reader/page rendering is 60 fps at 300 visible blocks; edit reflow is under 100 ms after debounce.
+- **AC-49 (Must).** On the reference Mac, 300-block warm layout is under 50 ms; Continuous/Page rendering is 60 fps at 300 visible blocks; edit reflow is under 100 ms after debounce.
 - **AC-50 (Must).** A 1,000-block document opens within 5 s or opens with collapse/LOD, remains stable, and a 300-block page PDF exports in under 10 s.
 
 ### 15.9 Layout tolerances and stability
@@ -2219,7 +2236,7 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 ### 15.13 PDF pipeline gate and export mode
 
 - **AC-60 (Must).** The Electron `printToPDF` pipeline must pass a 50+ page A4 pagination spike with real selectable text, page numbers, repeated headers, and no cut line/image/formula/code line/table row. It must not produce a single long page or fail at compositing. If it fails the gate, PDF commitment pauses for a fallback ADR (see ADR-0002).
-- **AC-61 (Must).** v1 exposes exactly one PDF export mode, Page PDF. It uses the same paginator as the page view and has no reader/map mode. Page size, orientation, margins, breaks, and continuation markers match the page view.
+- **AC-61 (Must).** v1 exposes exactly one PDF export mode, Page PDF. It exports the Page layout in Read mode using the same paginator and has no reader/map mode. Page size, orientation, margins, breaks, and continuation markers match Page Read.
 
 ### 15.14 Scale promise
 
@@ -2235,11 +2252,11 @@ A reviewer should be able to run this script without developer help:
 4. Add a direct child "Eigenvector."
 5. Create a second top-level block "Cayley–Hamilton" and link it to "Eigenvalue equation" as a reference; confirm the shared child appears once.
 6. Add a few long blocks and observe the adaptive layout: children go right when they fit and wrap below with an indent when they do not.
-7. Switch between reader (continuous page-break markers) and page view (paginated WYSIWYG); confirm they share the same breaks and focus.
+7. Switch between Continuous (derived page-break markers) and Page Read (exact paginated A4); confirm they share the same paginator breaks and focus, and that continuous markers are hints, not WYSIWYG.
 8. Delete the anchored `λ`; confirm the branch remains, is marked broken, and can be relinked.
-9. Undo the deletion and the relink; redo; confirm all views agree.
+9. Undo the deletion and the relink; redo; confirm all layouts and modes agree.
 10. Save, quit, reopen; confirm content, chapter order, page setup, break hints, collapse, and view state.
-11. Export a Page PDF; confirm page count/orientation match the page view, no line/image/formula/code line is cut, continuation markers are correct, and text is selectable in Preview/Chrome.
+11. Export a Page PDF; confirm page count/orientation match Page Read, no line/image/formula/code line is cut, continuation markers are correct, and text is selectable in Preview/Chrome.
 12. Simulate a crash during save; confirm the recovery prompt and the last good document.
 
 ### 15.16 Page, stability, and cross-page gates
@@ -2265,7 +2282,7 @@ A reviewer should be able to run this script without developer help:
 
 ### 15.19 Testing tools
 
-- **AC-75 (Must).** T3 Code's internal browser is used for manual and visual checks of the reader, page view, dark mode, page-break/continuation states, and API-triggered changes.
+- **AC-75 (Must).** T3 Code's internal browser is used for manual and visual checks of the Continuous layout (Edit and Read), Page Read, dark mode, page-break/continuation states, and API-triggered changes.
 - **AC-76 (Must).** Playwright covers automated end-to-end flows, visual regression, and PDF text extraction (including block continuation and continuation/ghost markers). The PDF text test asserts that no line/image/formula/code line/table row is cut and that tables break only between rows. API integration tests cover auth/scopes, dry-run/apply, audit, undo/redo, and concurrency.
 
 ---
@@ -2287,11 +2304,11 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **D7** | Document/window model. | Multiple documents in a user-chosen folder, one package per window, library/recent list. | Orchestrator | Persistence/window implementation |
 | **D8** | Width and positioning model. | **Closed:** adaptive content-driven widths; children right or wrapped below; no manual resize, pins, fixed columns, or free positions. | UX + architect | Done |
 | **D9** | Markdown export/import timing. | Export post-v1; import later; label both as lossy. | Product owner | Portability work |
-| **D10** | Accessibility target. | Keyboard-complete + VoiceOver outline; reader/page views have an accessible equivalent; tagged PDF later. | Product owner | Beta |
+| **D10** | Accessibility target. | Keyboard-complete + VoiceOver outline; Continuous and Page layouts have an accessible equivalent; tagged PDF later. | Product owner | Beta |
 | **D11** | Version history UI. | Autosave + rotating backups; no user-facing version history in v1. | Orchestrator | Persistence |
 | **D12** | Stack and product name. | **Closed:** Electron + React + TypeScript (ADR-0001); GPUI no-go; SwiftUI only if iPad becomes co-primary; Qt fallback. Name: NoteForest (working title; existing app conflict; clearance/rename required). | Orchestrator | Done |
 | **D13** | PDF pipeline gate. | **Closed:** Electron `printToPDF` driven by the shared paginator (ADR-0002); hard gate is a 50+ page A4 spike with real text, no cut line/image/formula/code line/table row, and page count equal to the paginator. Fallback requires a new ADR. | Orchestrator | Done; gate runs in Spike 1 |
-| **D14** | Primary authoring surface: reader or page view? | **Closed:** reader is the primary editor in v1; page view is the preview. One layout engine and one paginator. | UX + product owner | Done |
+| **D14** | Primary authoring surface: reader or page view? | **Superseded by ADR-0007 (v0.5):** the reader/page pair is replaced by layouts Continuous/Page × modes Edit/Read. Continuous + Edit is the default; Page Read is the exact read-only proof; Page Edit is planned/optional. | UX + product owner | Superseded |
 | **D15** | Page orientation. | **Closed:** one document-wide orientation, portrait or landscape; changing it reflows all pages. | Product owner | Done |
 | **D16** | External API shape. | **Closed:** HTTP JSON is the primitive; the MCP adapter maps to the same commands. | Architect + Orchestrator | Done |
 | **D17** | External API authentication/scopes. | **Closed:** bearer token shown once/stored hashed/revocable; document-scoped; scopes `read`/`write`/`export`/`destructive`/`audit`. | Architect + security review | Done |
@@ -2302,6 +2319,7 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **D22** | Depth columns. | **Superseded by D23.** Same-depth global x alignment caused one wide block to push every later column right and made the canvas effectively unbounded. | Product owner | Superseded |
 | **D23** | Parent-relative child placement. | **Closed:** a child group starts after its parent card plus the sibling gap; same-depth blocks under different parents may differ in x; content-driven widths; editor scrolls horizontally for deep branches; zoom/fit-width and branch focus are navigation aids. Page/PDF applies A4 in M4. | Product owner | Done |
 | **D24** | M3 anchor/reference design decisions. | **Closed (5 November 2026):** C1, C8, C9 and OD-1–OD-12 approved as recommended in `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005; spec v0.4.5 and UX v1.3 apply the delta. | Product owner + Orchestrator | Done |
+| **D25** | Editor layouts and interaction modes. | **Closed (7 November 2026, ADR-0007):** two independent axes, layouts Continuous/Page × modes Edit/Read; Continuous + Edit default; Page Read exact/read-only, Page Edit planned/optional; PDF exports Page Read; continuous page-break markers are derived hints; Page/PDF show full content; one document/segment/paginator. | Product owner | Done |
 
 ### 16.2 Questions
 
@@ -2317,7 +2335,7 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **Q8** | Are empty blocks allowed? | Yes; they are valid authoring state and are not auto-deleted. |
 | **Q9** | Should PDF export include collapsed subtrees? | Yes; export all document content, not the current collapse state. No "export visible only" option in v1. |
 | **Q10** | What happens when a manual page-break hint cannot be honored? | The paginator ignores impossible hints and shows a warning; it never creates an empty page or cuts a line/image/formula/code line. |
-| **Q12** | Which view is primary for authoring: reader or page? | **Resolved (D14):** reader is the primary editor in v1; page view is the preview. |
+| **Q12** | Which view is primary for authoring: reader or page? | **Resolved by ADR-0007 (D14 superseded):** Continuous + Edit is the default authoring surface; Page Read is the exact read-only proof; Page Edit is planned/optional. |
 | **Q13** | Should there be an "export visible only" option? | Not in v1; default export includes all content. |
 | **Q14** | Should page setup (margins) be per chapter or per document? | Document-level in v1; per-chapter margins later if needed. Orientation remains document-wide (D15). |
 
@@ -2331,14 +2349,14 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | Non-text anchor policy (formula, code, image) is under-specified or under-tested. | High | High | D5 policy; fixture matrix; confirmation before reattach; export tests; no silent data loss. | A formula/code/image edit loses a branch or reattaches to the wrong span without confirmation. |
 | Adaptive layout is unstable or collides when widths vary, children wrap, and anchored callouts interact. | High | Medium | Content-driven measure tests; wrap rules; deterministic geometry; stability fixtures; no free positions. | Cards overlap, jump, or wrap inconsistently. |
 | 95%/2 px stability gate fails on wide fans or adaptive wrapping. | Medium | Medium | Stability fixture suite; affected-group definition; ADR if the gate proves impossible. | Adding or deleting one block moves unrelated cards beyond the tolerance. |
-| Pagination cuts a line/image/formula/code line or a table row, creates bad breaks, or diverges between reader, page view, and PDF. | High | High | One paginator; safe-boundary rule (including row-only table breaks); continuation/ghost markers; page-count tests; page-view/PDF geometry comparison. | A line/image/formula/code line or table row is cut, page counts differ, or breaks move without content changes. |
-| Reader and page views diverge or duplicate layout logic. | Medium | High | One layout engine and one paginator; two renderers only; shared geometry tests. | A break or position differs between views. |
+| Pagination cuts a line/image/formula/code line or a table row, creates bad breaks, or diverges between Continuous markers, Page layout, and PDF. | High | High | One paginator; safe-boundary rule (including row-only table breaks); continuation/ghost markers; page-count tests; Page Read/PDF geometry comparison; continuous markers documented as derived hints. | A line/image/formula/code line or table row is cut, page counts differ, or Page/PDF geometry diverges. |
+| Continuous and Page layouts diverge or duplicate layout logic. | Medium | High | One layout engine and one paginator; Continuous consumes paginator breaks as hints; Page/PDF share exact geometry; shared geometry tests. | A Page/PDF break or position differs, or Continuous markers imply false parity. |
 | PDF pagination, fonts, or text layer fail, making export unusable in standard PDF viewers. | Medium | High | Print theme with same geometry; text extraction tests; PDF-viewer checks per release; overflow/too-tall errors. | Text is missing, clipped, or unselectable; a line/image/formula/code line is cut. |
 | Electron performance or memory degrades at 300–1,000 blocks. | Medium | Medium | Measure in Spike 1 and the 300-block gate; virtualization, collapse, LOD; native canvas is a later option, not a stack switch. | Scroll/render stutter or layout over 50 ms at 300 blocks. |
 | The Electron `printToPDF` pipeline cannot reproduce the paginator's pages or real text. | Medium | High | ADR-0002 hard gate: 50+ page A4 spike before PDF commitment; print compositor consumes derived pages; fallback ADR (CDP print or native compositor). | Single long page, scaling bug, missing text, or a cut line/image/formula/code line/table row. |
 | Scope creep into a general whiteboard or PKM. | High | Medium | Non-goals; wedge statement; gate features against the anchored-branch promise. | Requests for shapes, freehand, databases, plugins. |
 | Content-model decision is delayed or wrong, causing rework. | Medium | High | D1 closed; keep the adapter narrow; schema versioning; fixtures. | Editor work bypasses the adapter or adds a second source of truth. |
-| Reader/page performance degrades at 1,000 blocks. | Medium | Medium | Benchmark early; collapse/LOD; page virtualization; soft cap; measure before changing architecture. | Scroll/render stutter at 300 visible blocks. |
+| Continuous/Page performance degrades at 1,000 blocks. | Medium | Medium | Benchmark early; collapse/LOD; page virtualization; soft cap; measure before changing architecture. | Scroll/render stutter at 300 visible blocks. |
 | Data loss or corruption erodes trust. | Low | High | Atomic saves; backups; recovery; no silent overwrite; malformed-file tests. | Any test loses the last good document. |
 | External API token leak or concurrent writer corrupts a document. | Medium | High | Loopback-only, hashed/revocable tokens, scopes, `baseRevision`, single-writer lock, audit log, integration tests. | Two writers diverge or an unexpected client writes without an audit entry. |
 | Shared-child mental model confuses users. | Medium | Medium | Explicit home; see-also; default link vs move; onboarding copy; user testing. | Users expect two equal parents or duplicated content. |
@@ -2402,7 +2420,7 @@ This example is the recommended golden fixture for model, layout, pagination, an
 
 **PDF result:**
 
-- The Page PDF has the same page count, orientation, margins, breaks, and continuation markers as the page view.
+- The Page PDF has the same page count, orientation, margins, breaks, and continuation markers as Page Read.
 - B3 appears once; B4 has "See also" with B3's page.
 - B5's code text is selectable.
 - There is no separate reader PDF and no map page.
@@ -2434,3 +2452,4 @@ This example is the recommended golden fixture for model, layout, pagination, an
 | v0.4.3 | 4 November 2026 | Depth columns (D22): blocks at the same depth share one x origin within a chapter; widths remain content-driven; top-level blocks stack vertically; editor scrolls horizontally when columns exceed the viewport; page/PDF applies the A4 constraint in M4. |
 | v0.4.4 | 4 November 2026 | Reverted D22 to parent-relative child placement (D23): a child group starts after its parent plus the gap; same-depth blocks under different parents may differ in x. Content-driven widths and horizontal editor scroll remain; zoom/fit-width and branch focus are navigation aids. |
 | v0.4.5 | 5 November 2026 | Applied the approved M3 design delta (C1, C8, C9, OD-1–OD-12): `anchorIds` content binding and one-contiguous-binding I10; anchored-primary promotion on block delete; idle anchor + explicit removal; role-independent branch dedupe; make-home root rule; callout lane; dashed reference edges + chips; status-chip health sheet; AC-56 M3 manifest / M4 PDF; AC-18 split/merge in M3f; cross-chapter merge rejected; text-selection projection. Binding/identity contract in ADR-0005. |
+| v0.5 | 7 November 2026 | Applied ADR-0007 editor layouts and modes: layouts Continuous/Page × modes Edit/Read; Continuous + Edit default; Page Read exact/read-only, Page Edit planned/optional; PDF exports Page Read; continuous page-break markers are derived hints, not WYSIWYG; one canonical document/segment model/paginator; Page/PDF show full content and collapse stays continuous/outline. Revised D14/A15/A16, §6.3/§6.10, glossary, view state (stored outside `document.json`), PDF references, AC-29/AC-31/AC-33, and reader/page flows. Added D25. |
