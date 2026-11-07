@@ -378,8 +378,14 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
   images measure without fetching bytes; image suites 0 pageErrors. Full verify **773 unit**, **22 UI
   suites**, 16/16 e2e, 14 recovery, exit 0. Reports: `docs/reports/m4b1c-continuous-markers.md`,
   `docs/reports/m4b1c1-page-image-preload.md`.
-- **M4b1b** Page Edit: optional A4-bounded writing with one active block editor overlay; same geometry
-  as Page Read, no free canvas, no second paginator — **next**.
+- **M4b1b1** Page Edit content overlay — **merged and verified**: opt-in Page Edit, one single-block
+  rich-text overlay, same content schema and A4 geometry, commit via `block.editContent`, one
+  structural undo entry, spanning blocks unclipped, Page Read unchanged. Full verify **779 unit**,
+  **23 UI suites**, 16/16 e2e in 36.1 s, 14 recovery, 0 pageErrors. Report:
+  `docs/reports/m4b1b1-page-edit-overlay.md`.
+- **M4b1b2** Page Edit actions/anchors/images: deferred. Page Edit currently edits content only;
+  image actions, anchor authoring/repair, formulas and block menus stay in Continuous/Outline.
+- **M4c** PDF: next after the product-owner visual/VoiceOver pass.
 - **M4b2/M4e are not separate parts**: all of the above is M4b; M4c is the PDF print compositor.
 - **M4c** print compositor + PDF: fixed derived pages, real text/vector arrows, fonts/KaTeX/images
   wait, atomic export, page-count parity and text extraction.
