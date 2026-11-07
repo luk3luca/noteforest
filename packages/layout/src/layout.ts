@@ -45,6 +45,19 @@ interface PlacementContext {
   incomingAnchor?: AnchorAttachment | null;
 }
 
+interface ResolvedBlockBox {
+  width: number;
+  contentWidth: number;
+  chrome: number;
+  availableContent: number;
+  measurement: BlockMeasurement;
+  contentTooWide: boolean;
+  horizontalOverflow: boolean;
+}
+
+/** Layout coordinates are chapter-local; a page content box starts at x = 0. */
+const PAGE_CONTENT_LEFT = 0;
+
 class LayoutBuilder {
   readonly document: NoteDocument;
   readonly port: MeasurementPort;
@@ -169,6 +182,96 @@ class LayoutBuilder {
     };
   }
 
+  /**
+   * Resolve the card box for a block in a given available width. This is the
+   * single width policy used both by placement and by the direct-child group
+   * fit test, so a "fits right" decision cannot diverge from the layout result.
+   */
+  private resolveBlockBox(block: ContentBlock, availableWidth: number): ResolvedBlockBox {
+    const chrome = 2 * (this.options.cardPadding + this.options.cardBorder);
+    const availableContent = Math.max(0, availableWidth - chrome);
+    const maxMeasurement = this.measure(block, { kind: 'max-content' });
+    // Text is capped at a readable measure. Unbreakable content (images, long
+    // code lines, wide tables) may use the full page width before it becomes a
+    // content-too-wide defect.
+    const unbreakable = maxMeasurement.minContentWidth > this.options.maxContentWidth;
+    const wanted = unbreakable
+      ? Math.min(maxMeasurement.contentWidth, availableContent)
+      : Math.max(
+          this.options.minContentWidth,
+          Math.min(maxMeasurement.contentWidth, this.options.maxContentWidth),
+        );
+    const desiredContent = Math.min(availableContent, wanted);
+    const measurement = this.measure(block, { kind: 'fixed', contentWidth: desiredContent });
+    const width = Math.min(availableWidth, measurement.cardWidth);
+    const contentWidth = Math.max(0, width - chrome);
+    return {
+      width,
+      contentWidth,
+      chrome,
+      availableContent,
+      measurement,
+      contentTooWide: measurement.minContentWidth > contentWidth + EPSILON,
+      horizontalOverflow: width <= 0 || availableContent <= 0,
+    };
+  }
+
+  /** Capped left origin for a child group that wraps below its parent. */
+  private wrapOriginX(parentX: number): number {
+    return Math.min(
+      parentX + this.options.wrapIndent,
+      PAGE_CONTENT_LEFT + this.options.maxWrapIndent,
+    );
+  }
+
+  /**
+   * A capped wrap can move a child group left under an ancestor card that is
+   * taller than its immediate parent. The group's x stays at the ADR origin;
+   * the first child starts below any ancestor card that shares that horizontal
+   * band, so the cap can never create an overlap.
+   */
+  private wrapKeepOutBottom(context: PlacementContext, wrapX: number): number {
+    let bottom = 0;
+    const seen = new Set<string>();
+    let ancestorId = context.parentBlockId;
+    while (ancestorId && !seen.has(ancestorId)) {
+      seen.add(ancestorId);
+      const ancestor = this.blockById[ancestorId];
+      if (!ancestor) break;
+      const sharesBand =
+        ancestor.x + ancestor.width > wrapX + EPSILON &&
+        ancestor.x < this.geometry.contentWidthPx - EPSILON;
+      if (sharesBand) bottom = Math.max(bottom, ancestor.y + ancestor.height);
+      ancestorId = ancestor.parentBlockId;
+    }
+    return bottom;
+  }
+
+  /**
+   * The same max-content/min-content/minContentWidth comparison used before
+   * M4a, plus the ADR-0006 safety check: a child whose own placement would still
+   * report `layout-overflow` is treated as not fitting. The check is local to
+   * the direct child; descendants apply their own group rule.
+   */
+  private directChildFitsRight(target: ContentBlock, rightX: number): boolean {
+    const rightAvailable = Math.max(0, this.geometry.contentWidthPx - rightX);
+    const rightContent = Math.max(0, rightAvailable - 2 * (this.options.cardPadding + this.options.cardBorder));
+    if (rightContent <= 0) return false;
+    const childMax = this.measure(target, { kind: 'max-content' });
+    const wantedChild = Math.max(
+      this.options.minContentWidth,
+      Math.min(childMax.contentWidth, this.options.maxContentWidth),
+    );
+    const fitsBand =
+      rightContent >= this.options.minContentWidth - EPSILON &&
+      rightContent >= wantedChild - EPSILON &&
+      rightContent >= childMax.minContentWidth - EPSILON;
+    if (!fitsBand) return false;
+    // Requirement 2: the child itself must be placeable without a horizontal
+    // overflow defect. This does not inspect descendants.
+    return !this.resolveBlockBox(target, rightAvailable).horizontalOverflow;
+  }
+
   private layoutBlock(
     block: ContentBlock,
     chapterId: string,
@@ -191,25 +294,10 @@ class LayoutBuilder {
     }
     this.stack.add(block.id);
 
-    const chrome = 2 * (this.options.cardPadding + this.options.cardBorder);
-    const availableContent = Math.max(0, availableWidth - chrome);
-    const maxMeasurement = this.measure(block, { kind: 'max-content' });
-    // Text is capped at a readable measure. Unbreakable content (images, long
-    // code lines, wide tables) may use the full page width before it becomes a
-    // content-too-wide defect.
-    const unbreakable = maxMeasurement.minContentWidth > this.options.maxContentWidth;
-    const wanted = unbreakable
-      ? Math.min(maxMeasurement.contentWidth, availableContent)
-      : Math.max(
-          this.options.minContentWidth,
-          Math.min(maxMeasurement.contentWidth, this.options.maxContentWidth),
-        );
-    const desiredContent = Math.min(availableContent, wanted);
-    const measurement = this.measure(block, { kind: 'fixed', contentWidth: desiredContent });
-    const width = Math.min(availableWidth, measurement.cardWidth);
-    const contentWidth = Math.max(0, width - chrome);
+    const box = this.resolveBlockBox(block, availableWidth);
+    const { measurement, width, contentWidth } = box;
 
-    if (measurement.minContentWidth > contentWidth + EPSILON) {
+    if (box.contentTooWide) {
       this.addDefect({
         code: 'content-too-wide',
         severity: 'blocking',
@@ -219,7 +307,7 @@ class LayoutBuilder {
         blocksExport: true,
       });
     }
-    if (width <= 0 || availableContent <= 0) {
+    if (box.horizontalOverflow) {
       this.addDefect({
         code: 'layout-overflow',
         severity: 'blocking',
@@ -325,10 +413,50 @@ class LayoutBuilder {
     }
 
     const directStartY = anchored.length > 0 ? calloutCursor : y;
-    let childCursor = directStartY;
+    const rightX = x + width + this.options.siblingGap;
+    const candidates: Array<{ branch: BranchRecord; target: ContentBlock; fitsRight: boolean }> = [];
+    const fitsByTarget = new Map<string, boolean>();
     for (const branch of direct) {
       const target = this.document.blocks[branch.targetBlockId];
       if (!target) continue;
+      if (this.visited.has(target.id)) {
+        // A duplicate that is already placed must not influence the group's
+        // fit decision; it is skipped with the same warning as before.
+        this.addDefect({
+          code: 'duplicate-primary',
+          severity: 'warning',
+          message: `Primary branch ${branch.id} targets block ${target.id}, which already has a primary home; the duplicate placement is skipped.`,
+          blockId: target.id,
+          chapterId,
+          blocksExport: false,
+        });
+        continue;
+      }
+      let fitsRight = fitsByTarget.get(target.id);
+      if (fitsRight === undefined) {
+        fitsRight = this.directChildFitsRight(target, rightX);
+        fitsByTarget.set(target.id, fitsRight);
+      }
+      candidates.push({ branch, target, fitsRight });
+    }
+
+    // ADR-0006: the group is atomic. It stays right only when every direct
+    // child's own card fits; otherwise every direct child moves below the
+    // parent at one capped left origin. The two other policies are lab oracles.
+    const groupFitsRight = candidates.every((candidate) => candidate.fitsRight);
+    const wrapAll = this.options.wrapPolicy === 'group-left-origin' && !groupFitsRight;
+    const groupWrapX = this.wrapOriginX(x);
+
+    let childCursor = directStartY;
+    if (wrapAll) {
+      const keepOutBottom = this.wrapKeepOutBottom(context, groupWrapX);
+      childCursor = Math.max(
+        childCursor,
+        y + measurement.cardHeight + this.options.siblingGap,
+        keepOutBottom > 0 ? keepOutBottom + this.options.siblingGap : 0,
+      );
+    }
+    for (const { branch, target, fitsRight } of candidates) {
       if (this.visited.has(target.id)) {
         this.addDefect({
           code: 'duplicate-primary',
@@ -340,22 +468,24 @@ class LayoutBuilder {
         });
         continue;
       }
-      const rightX = x + width + this.options.siblingGap;
-      const rightAvailable = Math.max(0, this.geometry.contentWidthPx - rightX);
-      const rightContent = Math.max(0, rightAvailable - chrome);
-      const childMax = this.measure(target, { kind: 'max-content' });
-      const wantedChild = Math.max(
-        this.options.minContentWidth,
-        Math.min(childMax.contentWidth, this.options.maxContentWidth),
-      );
-      const fitsRight =
-        rightContent >= this.options.minContentWidth - EPSILON &&
-        rightContent >= wantedChild - EPSILON &&
-        rightContent >= childMax.minContentWidth - EPSILON;
-
-      const childX = fitsRight ? rightX : x + this.options.wrapIndent;
-      if (!fitsRight) {
+      let childX: number;
+      if (this.options.wrapPolicy === 'group-left-origin') {
+        childX = wrapAll ? groupWrapX : rightX;
+      } else if (this.options.wrapPolicy === 'subtree-aware') {
+        childX = fitsRight ? rightX : groupWrapX;
+      } else {
+        // Pre-M4a regression oracle: the old per-child wrap at parent.x + wrapIndent.
+        childX = fitsRight ? rightX : x + this.options.wrapIndent;
+      }
+      if (!fitsRight && this.options.wrapPolicy !== 'group-left-origin') {
         childCursor = Math.max(childCursor, y + measurement.cardHeight + this.options.siblingGap);
+        if (this.options.wrapPolicy === 'subtree-aware') {
+          const keepOutBottom = this.wrapKeepOutBottom(context, childX);
+          childCursor = Math.max(
+            childCursor,
+            keepOutBottom > 0 ? keepOutBottom + this.options.siblingGap : 0,
+          );
+        }
       }
       const childAvailable = Math.max(0, this.geometry.contentWidthPx - childX);
       const placed = this.layoutBlock(target, chapterId, childX, childCursor, childAvailable, {
