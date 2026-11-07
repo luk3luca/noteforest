@@ -53,6 +53,11 @@ import {
 } from './lib/image';
 import { beginImageAnchorAuthoring } from './lib/image-authoring';
 import { insertImageFromDialog, replaceImageFromDialog } from './lib/image-insert';
+import {
+  editingEnabledFor,
+  READ_MODE_SUFFIX,
+  READ_MODE_TOAST,
+} from './lib/editability';
 
 function shell() {
   return useShell.getState();
@@ -60,6 +65,22 @@ function shell() {
 
 export function activeRuntime(): DocumentRuntime | null {
   return getRuntime(shell().activeTab);
+}
+
+/**
+ * The single global editability gate. It is true only for an active editable
+ * runtime in Continuous + Edit; Page and Continuous Read are both false.
+ */
+export function activeEditingEnabled(): boolean {
+  const runtime = activeRuntime();
+  return runtime !== null && editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath]);
+}
+
+/** Report a read-mode block once; returns true when the caller must stop. */
+function blockedByReadMode(runtime: DocumentRuntime): boolean {
+  if (editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath])) return false;
+  toast.info(READ_MODE_TOAST);
+  return true;
 }
 
 export function activeTab(): TabInfo | undefined {
@@ -146,6 +167,7 @@ export async function createNewDocument(): Promise<void> {
 export async function createChapter(): Promise<ApplyOutcome | null> {
   const runtime = activeRuntime();
   if (runtime === null) return null;
+  if (blockedByReadMode(runtime)) return null;
   const selected = runtime.selectedBlockId;
   const selectedChapterId = selected === null ? null : chapterIdOf(runtime.document, selected);
   // Insert immediately after the active chapter; without a selection, append.
@@ -177,6 +199,7 @@ export async function createChapter(): Promise<ApplyOutcome | null> {
  * a bare leaf keeps the fast path.
  */
 export function requestBlockDelete(runtime: DocumentRuntime, blockId: string): void {
+  if (blockedByReadMode(runtime)) return;
   if (deleteNeedsConfirmation(runtime.document, blockId)) {
     shell().openDialog({ kind: 'delete-block', blockId });
     return;
@@ -186,6 +209,7 @@ export function requestBlockDelete(runtime: DocumentRuntime, blockId: string): v
 
 /** Add a top-level block to the chapter of the selected block, else the last. */
 export function addTopLevelContextual(runtime: DocumentRuntime): void {
+  if (blockedByReadMode(runtime)) return;
   const selected = runtime.selectedBlockId;
   const selectedChapterId = selected === null ? null : chapterIdOf(runtime.document, selected);
   const chapterId =
@@ -220,6 +244,7 @@ export async function renameDocument(title: string): Promise<void> {
 export async function renameChapter(chapterId: string, title: string): Promise<void> {
   const runtime = activeRuntime();
   if (runtime === null) return;
+  if (blockedByReadMode(runtime)) return;
   const clean = title.trim();
   report(
     await runtime.applyStructural({
@@ -486,16 +511,49 @@ function runHistory(runtime: DocumentRuntime, action: HistoryAction): void {
 export function undoActive(): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
+  if (blockedByReadMode(runtime)) return;
   runHistory(runtime, 'undo');
 }
 
 export function redoActive(): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
+  if (blockedByReadMode(runtime)) return;
   runHistory(runtime, 'redo');
 }
 
 /* ------------------------------------------------------------------ menus */
+
+/** Entries that only navigate, select, follow, or change view state. */
+function readOnlySafeMenuEntry(entry: MenuEntry): boolean {
+  if (entry.separator === true) return true;
+  return (
+    entry.id === 'focus' ||
+    entry.id === 'collapse' ||
+    entry.id.startsWith('anchor-select-') ||
+    entry.id.startsWith('anchor-cycle-') ||
+    entry.id.startsWith('reference-open-') ||
+    entry.id.startsWith('reference-back-')
+  );
+}
+
+/**
+ * Disable every mutating context-menu entry in Read mode and say why. The
+ * whitelist is intentionally narrow: an unknown/new entry is treated as
+ * mutating until it is proven navigation.
+ */
+function gateMenuEntries(entries: MenuEntry[], editingEnabled: boolean): MenuEntry[] {
+  if (editingEnabled) return entries;
+  return entries.map((entry) => {
+    if (readOnlySafeMenuEntry(entry)) return entry;
+    return {
+      ...entry,
+      label: `${entry.label}${READ_MODE_SUFFIX}`,
+      disabled: true,
+      onSelect: undefined,
+    };
+  });
+}
 
 /**
  * Make home / Move here entries for one outgoing reference. The core command
@@ -558,7 +616,14 @@ export function openReferenceMenu(
     ...(branch.role === 'reference' ? referenceActionEntries(runtime, branch) : []),
   ];
   if (entries.length === 0) return;
-  shell().openContextMenu(anchor.x, anchor.y, entries);
+  shell().openContextMenu(
+    anchor.x,
+    anchor.y,
+    gateMenuEntries(
+      entries,
+      editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath]),
+    ),
+  );
 }
 
 /**
@@ -663,7 +728,10 @@ export function openImageMenu(
   shell().openContextMenu(
     anchor.x,
     anchor.y,
-    imageActionEntries(runtime, blockId, image, index, 1),
+    gateMenuEntries(
+      imageActionEntries(runtime, blockId, image, index, 1),
+      editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath]),
+    ),
   );
 }
 
@@ -897,7 +965,14 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       onSelect: () => shell().openDialog({ kind: 'delete-block', blockId }),
     },
   ];
-  shell().openContextMenu(anchor.x, anchor.y, entries);
+  shell().openContextMenu(
+    anchor.x,
+    anchor.y,
+    gateMenuEntries(
+      entries,
+      editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath]),
+    ),
+  );
 }
 
 export function openChapterMenu(
@@ -906,18 +981,25 @@ export function openChapterMenu(
 ): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
-  shell().openContextMenu(anchor.x, anchor.y, [
-    {
-      id: 'rename-chapter',
-      label: 'Rename chapter…',
-      onSelect: () => shell().openDialog({ kind: 'rename-chapter', chapterId }),
-    },
-    {
-      id: 'add-block',
-      label: 'Add block',
-      onSelect: () => report(runtime.addTopLevel(chapterId)),
-    },
-  ]);
+  shell().openContextMenu(
+    anchor.x,
+    anchor.y,
+    gateMenuEntries(
+      [
+        {
+          id: 'rename-chapter',
+          label: 'Rename chapter…',
+          onSelect: () => shell().openDialog({ kind: 'rename-chapter', chapterId }),
+        },
+        {
+          id: 'add-block',
+          label: 'Add block',
+          onSelect: () => report(runtime.addTopLevel(chapterId)),
+        },
+      ],
+      editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath]),
+    ),
+  );
 }
 
 export function openTabMenu(
@@ -995,6 +1077,7 @@ export function openLibraryMenu(
 function applyBlockType(level: 1 | 2 | 3 | null): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
+  if (blockedByReadMode(runtime)) return;
   const blockId = runtime.selectedBlockId;
   if (blockId === null) return;
   runtime.setBlockType(blockId, level);
@@ -1003,9 +1086,21 @@ function applyBlockType(level: 1 | 2 | 3 | null): void {
 export function paletteCommands(): MenuEntry[] {
   const runtime = activeRuntime();
   const selected = runtime?.selectedBlockId ?? null;
+  const editingEnabled = activeEditingEnabled();
+  // Read mode disables the entry instead of silently ignoring the click; the
+  // visible suffix is the reason and stays searchable.
+  const gate = (entry: MenuEntry): MenuEntry =>
+    editingEnabled
+      ? entry
+      : {
+          ...entry,
+          label: `${entry.label}${READ_MODE_SUFFIX}`,
+          disabled: true,
+          onSelect: undefined,
+        };
   return [
     { id: 'new-document', label: 'New document', shortcut: '⌘N', onSelect: () => void createNewDocument() },
-    { id: 'new-chapter', label: 'New chapter', shortcut: '⇧⌘N', onSelect: () => void createChapter() },
+    gate({ id: 'new-chapter', label: 'New chapter', shortcut: '⇧⌘N', onSelect: () => void createChapter() }),
     { id: 'save', label: 'Save now', shortcut: '⌘S', onSelect: () => void saveActive() },
     { id: 'close-tab', label: 'Close tab', shortcut: '⌘W', onSelect: () => void closeActiveTab() },
     { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘\\', onSelect: toggleSidebar },
@@ -1036,15 +1131,15 @@ export function paletteCommands(): MenuEntry[] {
       label: 'Reveal document in Finder',
       onSelect: revealActive,
     },
-    {
+    gate({
       id: 'add-block',
       label: 'Add top-level block',
       onSelect: () => {
         if (runtime === null) return;
         addTopLevelContextual(runtime);
       },
-    },
-    {
+    }),
+    gate({
       id: 'add-child',
       label: 'Add child block',
       shortcut: '⌃⏎',
@@ -1052,8 +1147,8 @@ export function paletteCommands(): MenuEntry[] {
         if (runtime === null || selected === null) return;
         report(runtime.addChild(selected));
       },
-    },
-    {
+    }),
+    gate({
       id: 'add-sibling',
       label: 'Add sibling block',
       shortcut: '⌥⏎',
@@ -1061,8 +1156,8 @@ export function paletteCommands(): MenuEntry[] {
         if (runtime === null || selected === null) return;
         report(runtime.addSibling(selected));
       },
-    },
-    {
+    }),
+    gate({
       id: 'link-reference',
       label: 'Link as reference…',
       shortcut: '⌘⇧L',
@@ -1070,37 +1165,37 @@ export function paletteCommands(): MenuEntry[] {
         if (selected === null) return;
         shell().openDialog({ kind: 'link-reference', blockId: selected });
       },
-    },
+    }),
     {
       id: 'anchor-health',
       label: 'Anchor health…',
       onSelect: () => shell().openDialog({ kind: 'anchor-health' }),
     },
-    { id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) },
-    { id: 'block-h1', label: 'Block type: Heading 1', onSelect: () => applyBlockType(1) },
-    { id: 'block-h2', label: 'Block type: Heading 2', onSelect: () => applyBlockType(2) },
-    { id: 'block-h3', label: 'Block type: Heading 3', onSelect: () => applyBlockType(3) },
-    {
+    gate({ id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) }),
+    gate({ id: 'block-h1', label: 'Block type: Heading 1', onSelect: () => applyBlockType(1) }),
+    gate({ id: 'block-h2', label: 'Block type: Heading 2', onSelect: () => applyBlockType(2) }),
+    gate({ id: 'block-h3', label: 'Block type: Heading 3', onSelect: () => applyBlockType(3) }),
+    gate({
       id: 'undo',
       label: 'Undo',
       shortcut: '⌘Z',
       onSelect: undoActive,
-    },
-    {
+    }),
+    gate({
       id: 'redo',
       label: 'Redo',
       shortcut: '⇧⌘Z',
       onSelect: redoActive,
-    },
+    }),
     { id: 'settings', label: 'Settings…', shortcut: '⌘,', onSelect: () => shell().openDialog({ kind: 'settings' }) },
-    {
+    gate({
       id: 'insert-table',
       label: 'Insert table',
       onSelect: () => {
         runtime?.editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
       },
-    },
-    {
+    }),
+    gate({
       id: 'insert-image',
       label: 'Insert image…',
       onSelect: () => {
@@ -1111,17 +1206,17 @@ export function paletteCommands(): MenuEntry[] {
         }
         void insertImageFromDialog(runtime, selected);
       },
-    },
-    {
+    }),
+    gate({
       id: 'insert-math',
       label: 'Insert math…',
       onSelect: () => shell().openDialog({ kind: 'math', mathKind: 'inline', latex: '', pos: null }),
-    },
-    {
+    }),
+    gate({
       id: 'insert-code',
       label: 'Toggle code block',
       onSelect: () => runtime?.editor?.chain().focus().toggleCodeBlock().run(),
-    },
+    }),
   ];
 }
 

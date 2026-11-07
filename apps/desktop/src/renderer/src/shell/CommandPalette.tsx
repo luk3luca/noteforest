@@ -21,6 +21,7 @@ interface PaletteItem {
   label: string;
   group: 'Commands' | 'Documents' | 'Blocks';
   hint?: string;
+  disabled?: boolean;
   action: () => void;
 }
 
@@ -32,6 +33,12 @@ export function CommandPalette(): JSX.Element | null {
   const setPaletteQuery = useShell((state) => state.setPaletteQuery);
   const library = useShell((state) => state.library);
   const activeTab = useShell((state) => state.activeTab);
+  // Rebuild command labels/disabled state when the layout or mode changes.
+  const editabilityKey = useShell((state) => {
+    if (state.activeTab === null) return 'none';
+    const view = state.viewByDoc[state.activeTab];
+    return `${view?.layout ?? 'continuous'}:${view?.interactionMode ?? 'edit'}`;
+  });
   const { runtime, seq } = useRuntime(activeTab);
 
   const items = useMemo<PaletteItem[]>(() => {
@@ -44,6 +51,7 @@ export function CommandPalette(): JSX.Element | null {
           label: command.label,
           hint: command.shortcut,
           group: 'Commands',
+          disabled: command.disabled === true,
           action: () => command.onSelect?.(),
         });
       }
@@ -72,7 +80,7 @@ export function CommandPalette(): JSX.Element | null {
       }
     }
     return result;
-  }, [documentsOnly, library, runtime, activeTab, seq]);
+  }, [documentsOnly, library, runtime, activeTab, seq, editabilityKey, runtime?.status]);
 
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase();
@@ -121,7 +129,7 @@ export function CommandPalette(): JSX.Element | null {
               aria-label="Results"
               onAction={(key) => {
                 const item = filtered.find((candidate) => candidate.id === String(key));
-                if (item === undefined) return;
+                if (item === undefined || item.disabled === true) return;
                 setPaletteOpen(false);
                 item.action();
               }}
@@ -131,6 +139,7 @@ export function CommandPalette(): JSX.Element | null {
                   id={item.id}
                   textValue={`${item.group} ${item.label}`}
                   className="nf-palette-item"
+                  isDisabled={item.disabled === true}
                 >
                   <span className="nf-palette-group">{item.showGroup ? item.group : ''}</span>
                   <span className="nf-palette-label">{item.label}</span>

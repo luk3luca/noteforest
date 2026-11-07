@@ -37,7 +37,15 @@ import {
 import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
 import type { InteractionMode } from '../../../shared/view-state';
-import { createChapter, openBlockMenu, openChapterMenu, openReferenceMenu, requestBlockDelete } from '../actions';
+import {
+  activeEditingEnabled,
+  createChapter,
+  openBlockMenu,
+  openChapterMenu,
+  openReferenceMenu,
+  requestBlockDelete,
+} from '../actions';
+import { editingEnabledFor, READ_MODE_TITLE, READ_MODE_TOAST } from '../lib/editability';
 import { showsChapterCanvas } from '../lib/chapters';
 import { getScroll, recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
@@ -183,6 +191,9 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
   const focusActive = useShell(
     (state) => (state.viewByDoc[runtime.packagePath]?.focusBlockId ?? null) !== null,
   );
+  const editingEnabled = useShell((state) =>
+    editingEnabledFor(runtime, state.viewByDoc[runtime.packagePath]),
+  );
   // The new-document call to action stays for a pristine, single untitled
   // chapter. A legacy document with named or multiple chapters must keep those
   // chapter cards visible even when every chapter is empty.
@@ -196,7 +207,7 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
       interactionMode={interactionMode}
     />
   ) : (
-    <ContinuousEmptyDocument runtime={runtime} editingEnabled={interactionMode === 'edit'} />
+    <ContinuousEmptyDocument runtime={runtime} editingEnabled={editingEnabled} />
   );
 
   return (
@@ -233,6 +244,9 @@ function EditorSurface({
   interactionMode,
 }: DocumentEditorProps & { visible: boolean; interactionMode: InteractionMode }): JSX.Element {
   useRuntime(runtime.packagePath);
+  const editingEnabled = useShell((state) =>
+    editingEnabledFor(runtime, state.viewByDoc[runtime.packagePath]),
+  );
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const restoredRef = useRef(false);
@@ -287,6 +301,9 @@ function EditorSurface({
         // buffer never receives a remote URL or a data: source. Returning true
         // suppresses the default HTML paste before the async import completes.
         handlePaste: (view, event) => {
+          // Read mode keeps the surface mounted but must never import or
+          // insert content through paste.
+          if (!view.editable) return false;
           const files = imageFilesFromDataTransfer(event.clipboardData);
           if (files.length > 0) {
             event.preventDefault();
@@ -306,6 +323,7 @@ function EditorSurface({
           },
         },
         handleDrop: (view, event, _slice, moved) => {
+          if (!view.editable) return false;
           if (moved) return false;
           const files = imageFilesFromDataTransfer(event.dataTransfer);
           if (files.length === 0) return false;
@@ -528,6 +546,12 @@ function EditorSurface({
   useEffect(() => {
     if (!active) return undefined;
     const handler = (event: Event): void => {
+      // Double-clicking a formula in Read must not open the mutating math
+      // dialog. Navigation/selection through the formula stays available.
+      if (!activeEditingEnabled()) {
+        toast.info(READ_MODE_TOAST);
+        return;
+      }
       const detail = (event as CustomEvent<{ kind: 'inline' | 'block'; latex: string; pos: number }>).detail;
       useShell.getState().openDialog({
         kind: 'math',
@@ -729,6 +753,8 @@ function EditorSurface({
               type="button"
               className="nf-canvas-action"
               data-canvas-action="add-chapter"
+              disabled={!editingEnabled}
+              title={editingEnabled ? 'Add chapter' : READ_MODE_TITLE}
               onClick={() => {
                 void createChapter();
               }}
