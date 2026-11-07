@@ -301,7 +301,8 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
   - **Tracked follow-ups (not M3 gate):** S3-5 relink selection UX, S3-6 replay fallback,
     S3-7 formula-term edit fixture; they go to M3i slice 5 / M4 fixture follow-up.
 - **M3c3b Sentinel review (6 November 2026):** request changes; review `docs/reviews/m3c3b-review.md`. Decisions needed: legacy `src` policy, hash-verification policy, missing-file semantics, asset GC/backup interaction. M4 image/PDF remains blocked; scroll/page/PDF work must wait for the image guards.
-- **M3c3b3 (7 November 2026):** merged; c3b4 queued; policies: missing file/hash mismatch are broken, legacy src is dropped to placeholder, picker dimensions persist, region selection is outline-only, callout alignment stays left-edge/160-cap. Briefs: `docs/tasks/m3c3b3-image-integrity.md`, `docs/tasks/m3c3b4-image-ux-lifecycle.md`.
+- **M3c3b3 (7 November 2026):** merged; policies: missing file/hash mismatch are broken, legacy src is dropped to placeholder, picker dimensions persist, region selection is outline-only, callout alignment stays left-edge/160-cap. Briefs: `docs/tasks/m3c3b3-image-integrity.md`, `docs/tasks/m3c3b4-image-ux-lifecycle.md`.
+- **M3c3b4 (7 November 2026):** merged and verified: per-image block/inline actions target the clicked image; cross-document paste copies verified bytes or keeps a labeled placeholder with no dangling `assetId`; visible markers 1..N; `asset.remove` refuses live node/anchor references; deterministic `planAssetGc` + backup scan, automatic GC deferred. Full verify **704 unit**, **48 UI**, **16/16 e2e** in 36.4 s, **14 recovery**, exit 0. Report: `docs/reports/m3c3b4-image-ux-lifecycle.md`.
 - **M3c3b2 (6 November 2026):** delivered: image region/point anchors, normalized geometry, markers/callouts, asset replacement/missing broken state; full verify 669 unit/UI 41/e2e 16/36.3 s/recovery 14. Follow-ups: crop editor and region re-pick repair; asset GC; native-picker image dimensions for M4.
 - **M3c3b1 (6 November 2026):** content-addressed image asset store, `noteforest-asset://` protocol, canonical `assetId`/alt/width/height, block-menu/palette/paste/drop insertion, missing placeholder. Full verify 658 unit/38 UI/16 e2e/14 recovery. Risks: custom scheme, native-picker dimensions for M4, asset GC deferred, missing screenshot framing. M3c3b2 image anchors are next only after product-owner approval.
 - **M3h re-review (6 November 2026):** all S2-1–S2-4 and S3-1/S3-2 closed; no new S1/S2.
@@ -347,7 +348,7 @@ for images, API/MCP, auth/audit, settings, page/PDF belong to M3c3b/M4/M5/M6.
 
 ## M4 — Reader/page + PDF (planning complete)
 
-Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level left-origin wrap.
+Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level left-origin wrap. **M4a is launched** (`docs/tasks/m4a-layout-lab-group-wrap.md`).
 
 - **M4a** layout lab + group-wrap engine: whole child group right only if it fits; otherwise all
   direct children below at parent.x + wrapIndent, recursively; cap cumulative indent; same rule in
@@ -359,8 +360,8 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
 - **M4d** images/anchors/performance/visual: asset protocol in print, placeholders/lost markers,
   image anchors, 300/1,000-block gates, product-owner visual/PDF acceptance.
 - Gate: AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66; ADR-0002 gate on packaged build.
-- M3c3b4 image UX/lifecycle must land before M4d image acceptance; M4a/b can start in parallel if
-  file ownership is clean.
+- M3c3b4 image UX/lifecycle is merged; it no longer blocks M4d image acceptance. M4a owns the
+  layout engine only; M4b owns the page view/reader wiring.
 
 ## M5–M6 — API and polish (planned)
 
