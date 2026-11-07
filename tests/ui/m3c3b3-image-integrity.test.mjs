@@ -430,6 +430,22 @@ describe('NoteForest M3c3b3 image integrity and legacy sources', () => {
       anchor.id,
       { timeout: 10000 },
     );
+    // The outline uses a 120 ms border-color transition. Under the full suite
+    // the selected attribute can land before the transition finishes, so wait
+    // for the computed accent border instead of racing the animation frame.
+    await page.waitForFunction(
+      (anchorId) => {
+        const element = document.querySelector(
+          `[data-image-region-outline="${anchorId}"]`,
+        );
+        return (
+          element !== null &&
+          getComputedStyle(element).borderTopColor !== 'rgba(0, 0, 0, 0)'
+        );
+      },
+      anchor.id,
+      { timeout: 10000 },
+    );
 
     const style = await page
       .locator(`[data-image-region-outline="${anchor.id}"]`)
