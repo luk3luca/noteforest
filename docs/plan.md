@@ -302,7 +302,8 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
     S3-7 formula-term edit fixture; they go to M3i slice 5 / M4 fixture follow-up.
 - **M3c3b Sentinel review (6 November 2026):** request changes; review `docs/reviews/m3c3b-review.md`. Decisions needed: legacy `src` policy, hash-verification policy, missing-file semantics, asset GC/backup interaction. M4 image/PDF remains blocked; scroll/page/PDF work must wait for the image guards.
 - **M3c3b3 (7 November 2026):** merged; policies: missing file/hash mismatch are broken, legacy src is dropped to placeholder, picker dimensions persist, region selection is outline-only, callout alignment stays left-edge/160-cap. Briefs: `docs/tasks/m3c3b3-image-integrity.md`, `docs/tasks/m3c3b4-image-ux-lifecycle.md`.
-- **M3c3b re-review (7 November 2026):** request changes; review `docs/reviews/m3c3b-re-review.md`. All seven original findings closed. New **S2-1**: `NodeAssetStore`/`copyImageAsset` follow a symlinked `assets/` directory outside the package (read and write escape); fix in **M3c3b5** with realpath confinement and symlink regression tests. Also **S3-2** corrupt dedupe (same slice); **S3-1** AVIF dimensions, **S4-1** stale `unavailable`, **S4-2** missing-asset action gating (M3c3b6). M4c/PDF waits for M3c3b5.
+- **M3c3b re-review (7 November 2026):** request changes; review `docs/reviews/m3c3b-re-review.md`. All seven original findings closed. New **S2-1** symlink escape fixed in **M3c3b5** (realpath confinement, symlinked `assets/` rejected, final symlinks rejected); **S3-2** corrupt dedupe fixed in the same slice. **M3c3b6** handles **S3-1** AVIF dimensions, **S4-1** stale `unavailable`, **S4-2** missing-asset action gating.
+- **M3c3b5 (7 November 2026):** merged and verified: `NodeAssetStore` confines every read/write to the real package `assets/` directory, rejects symlinked assets dirs/final files, `copyImageAsset`/imports inherit the guard, and corrupt content-addressed files are hashed/repaired instead of deduped. Full verify **738 unit**, **54 UI**, **16/16 e2e** in 36.3 s, **14 recovery**, exit 0 (includes M4b1). Report: `docs/reports/m3c3b5-asset-confinement.md`.
 - **M3c3b4 (7 November 2026):** merged and verified: per-image block/inline actions target the clicked image; cross-document paste copies verified bytes or keeps a labeled placeholder with no dangling `assetId`; visible markers 1..N; `asset.remove` refuses live node/anchor references; deterministic `planAssetGc` + backup scan, automatic GC deferred. Full verify **704 unit**, **48 UI**, **16/16 e2e** in 36.4 s, **14 recovery**, exit 0. Report: `docs/reports/m3c3b4-image-ux-lifecycle.md`.
 - **M3c3b2 (6 November 2026):** delivered: image region/point anchors, normalized geometry, markers/callouts, asset replacement/missing broken state; full verify 669 unit/UI 41/e2e 16/36.3 s/recovery 14. Follow-ups: crop editor and region re-pick repair; asset GC; native-picker image dimensions for M4.
 - **M3c3b1 (6 November 2026):** content-addressed image asset store, `noteforest-asset://` protocol, canonical `assetId`/alt/width/height, block-menu/palette/paste/drop insertion, missing placeholder. Full verify 658 unit/38 UI/16 e2e/14 recovery. Risks: custom scheme, native-picker dimensions for M4, asset GC deferred, missing screenshot framing. M3c3b2 image anchors are next only after product-owner approval.
@@ -349,7 +350,7 @@ for images, API/MCP, auth/audit, settings, page/PDF belong to M3c3b/M4/M5/M6.
 
 ## M4 — Reader/page + PDF (M4a merged; M4b next)
 
-Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level left-origin wrap. **M4a is merged** (`docs/tasks/m4a-layout-lab-group-wrap.md`, report `docs/reports/m4a-layout-lab.md`); **M4b1 page view core is launched** (`docs/tasks/m4b1-page-view-core.md`). **M4c/PDF is blocked by M3c3b5 asset-store confinement.**
+Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level left-origin wrap. **M4a is merged** (`docs/reports/m4a-layout-lab.md`); **M4b1 page view core is merged** (`docs/tasks/m4b1-page-view-core.md`, report `docs/reports/m4b1-page-view-core.md`); **M4b2 reader markers + full view state is launched**. **M3c3b5 asset-store confinement is merged**; M4c/PDF can start after M4b2 and M3c3b6.
 
 - **M4a** layout lab + group-wrap engine — **merged and verified**: whole child group right only if
   every direct child's own card fits; otherwise all direct children below at
@@ -358,8 +359,12 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
   `right-first-per-child` and `subtree-aware` as oracles. Lab: no page delta on scale-300,
   deep-chain, wide-fan, showcase; wide-fan +99.1 px height, no page increase. Full verify **717
   unit**, **48 UI**, **16/16 e2e** in 36.3 s, **14 recovery**, exit 0.
-- **M4b** page view + reader integration: derived pages, page-break markers, fit/zoom, manual hints,
-  orientation, mode-switch state.
+- **M4b1** page view core — **merged and verified**: core→layout adapter, static segments, DOM
+  measurement at page typography, read-only A4 page view with fragments/continuation/ghost markers,
+  fit page/width/zoom, images/missing placeholders, reader/page switch. Report:
+  `docs/reports/m4b1-page-view-core.md`.
+- **M4b2** reader page-break markers + full AC-33 state (focus, selection, collapse, scroll, current
+  page), mode persistence; same page model, no pixel-parity claim until M4c.
 - **M4c** print compositor + PDF: fixed derived pages, real text/vector arrows, fonts/KaTeX/images
   wait, atomic export, page-count parity and text extraction.
 - **M4d** images/anchors/performance/visual: asset protocol in print, placeholders/lost markers,
