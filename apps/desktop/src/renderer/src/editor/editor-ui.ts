@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { Editor } from '@tiptap/core';
 import type { ImageAuthoringMode } from '../lib/image-anchor';
+import type { InteractionMode } from '../../../shared/view-state';
 
 /** Anchor-focused view state; never part of the canonical document. */
 export interface EditorAnchorSelection {
@@ -24,6 +25,8 @@ interface UiState {
   selectedBlockId: string | null;
   /** True while the block's prose owns a text caret, not a block selection. */
   editing: boolean;
+  /** Edit/read interaction mode for the continuous editor (ADR-0007). */
+  interactionMode: InteractionMode;
   selectedAnchor: EditorAnchorSelection | null;
   imageAuthoring: EditorImageAuthoring | null;
   /** One-shot request to start inline chapter-title editing. */
@@ -40,6 +43,7 @@ function stateFor(editor: Editor): { state: UiState; listeners: Set<() => void> 
       state: {
         selectedBlockId: null,
         editing: false,
+        interactionMode: 'edit',
         selectedAnchor: null,
         imageAuthoring: null,
         focusChapterId: null,
@@ -76,6 +80,11 @@ export function setEditorSelectedAnchor(
   selectedAnchor: EditorAnchorSelection | null,
 ): void {
   update(editor, { selectedAnchor });
+}
+
+/** Mirror the shell interaction mode into node views that own editing chrome. */
+export function setEditorInteractionMode(editor: Editor, interactionMode: InteractionMode): void {
+  update(editor, { interactionMode });
 }
 
 export function setEditorImageAuthoring(

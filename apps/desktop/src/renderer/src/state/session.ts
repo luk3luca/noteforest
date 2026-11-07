@@ -1,4 +1,5 @@
 import type { SessionState } from '../../../shared/api';
+import { DEFAULT_DOCUMENT_VIEW, normalizeDocumentViewState } from '../../../shared/view-state';
 import { allRuntimes } from './registry';
 import { useShell } from './shell';
 
@@ -20,11 +21,20 @@ export function buildSession(): SessionState {
       .filter((tab) => !tab.missing)
       .map((tab) => {
         const runtime = byPath.get(tab.packagePath);
+        const view = normalizeDocumentViewState(
+          state.viewByDoc[tab.packagePath] ?? DEFAULT_DOCUMENT_VIEW,
+        );
         return {
           packagePath: tab.packagePath,
           scrollTop: getScroll(tab.packagePath),
           selectedBlockId: runtime?.selectedBlockId ?? null,
           collapsed: runtime === undefined ? [] : [...runtime.collapsed],
+          layout: view.layout,
+          interactionMode: view.interactionMode,
+          currentPage: view.currentPage,
+          pageZoom: view.pageZoom,
+          pageFit: view.pageFit,
+          zoom: view.zoom,
         };
       }),
     activeTab: state.activeTab,

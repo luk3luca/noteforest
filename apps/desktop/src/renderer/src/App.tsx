@@ -15,7 +15,7 @@ import {
   useRuntime,
 } from './state/registry';
 import {
-  activeDocumentMode,
+  activeDocumentLayout,
   activeRuntime,
   adjustActivePageZoom,
   adjustActiveZoom,
@@ -24,11 +24,13 @@ import {
   resetActivePageZoom,
   resetActiveZoom,
   runMenuCommand,
-  setActiveDocumentMode,
+  setActiveDocumentLayout,
   setActivePageFit,
+  toggleActiveInteractionMode,
   toggleFocusBranch,
 } from './actions';
 import { buildSession } from './state/session';
+import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
 import { perfSnapshot, summarize } from './lib/perf';
 
@@ -127,6 +129,12 @@ export function App(): JSX.Element {
         for (const [packagePath, ids] of Object.entries(data.session.collapsedTopics)) {
           state.setCollapsedTopics(packagePath, ids);
         }
+        for (const sessionTab of data.session.tabs) {
+          state.setDocumentViewState(
+            sessionTab.packagePath,
+            normalizeDocumentViewState(sessionTab),
+          );
+        }
         const active =
           tabs.find((tab) => tab.packagePath === data.session.activeTab)?.packagePath ??
           tabs[0]?.packagePath ??
@@ -185,9 +193,9 @@ export function App(): JSX.Element {
         cycleActiveTab(event.shiftKey ? -1 : 1);
         return;
       }
-      const mode = activeDocumentMode();
+      const layout = activeDocumentLayout();
       if (
-        mode === 'page' &&
+        layout === 'page' &&
         event.shiftKey &&
         !event.metaKey &&
         !event.ctrlKey &&
@@ -209,29 +217,42 @@ export function App(): JSX.Element {
       const key = event.key.toLowerCase();
       if (key === '2' && !event.shiftKey && !event.altKey) {
         event.preventDefault();
-        setActiveDocumentMode('reader');
+        setActiveDocumentLayout('continuous');
         return;
       }
       if (key === '3' && !event.shiftKey && !event.altKey) {
         event.preventDefault();
-        setActiveDocumentMode('page');
+        setActiveDocumentLayout('page');
+        return;
+      }
+      if (
+        event.metaKey &&
+        !event.ctrlKey &&
+        key === 'e' &&
+        !event.shiftKey &&
+        !event.altKey
+      ) {
+        // Command+E only: Control+E is the editor's native end-of-line key and
+        // must stay with ProseMirror.
+        event.preventDefault();
+        toggleActiveInteractionMode();
         return;
       }
       if (key === '=' || key === '+') {
         event.preventDefault();
-        if (mode === 'page') adjustActivePageZoom(0.1);
+        if (layout === 'page') adjustActivePageZoom(0.1);
         else adjustActiveZoom(0.1);
         return;
       }
       if (key === '-') {
         event.preventDefault();
-        if (mode === 'page') adjustActivePageZoom(-0.1);
+        if (layout === 'page') adjustActivePageZoom(-0.1);
         else adjustActiveZoom(-0.1);
         return;
       }
       if (event.code === 'Digit0') {
         event.preventDefault();
-        if (mode === 'page') {
+        if (layout === 'page') {
           if (event.shiftKey) setActivePageFit('width');
           else resetActivePageZoom();
         } else if (event.shiftKey) {
@@ -247,8 +268,8 @@ export function App(): JSX.Element {
         return;
       }
       if (key >= '1' && key <= '9') {
-        // 2 and 3 are the reader/page view shortcuts (UX §7.3); the remaining
-        // digits keep the direct tab shortcuts.
+        // 2 and 3 are the layout shortcuts (ADR-0007); the remaining digits
+        // keep the direct tab shortcuts.
         if (key === '2' || key === '3') return;
         event.preventDefault();
         const state = useShell.getState();

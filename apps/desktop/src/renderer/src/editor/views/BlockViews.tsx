@@ -62,6 +62,7 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
   const chapterId = stringAttr(node.attrs['chapterId']);
   const bindings = getEditorBindings(editor);
   const ui = useEditorUi(editor);
+  const readOnly = ui.interactionMode === 'read';
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(title);
   const committing = useRef(false);
@@ -71,17 +72,24 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
     if (!editing) setValue(title);
   }, [title, editing]);
 
+  // Read mode never leaves an inline chapter-title input active.
+  useEffect(() => {
+    if (!readOnly || !editing) return;
+    setEditing(false);
+    setValue(title);
+  }, [readOnly, editing, title]);
+
   // One-shot request from "+ Add chapter": start editing the new title.
   const focusRequested = ui.focusChapterId === chapterId;
   useEffect(() => {
-    if (!focusRequested) return;
+    if (!focusRequested || readOnly) return;
     clearEditorChapterFocus(editor, chapterId);
     setValue(title);
     setEditing(true);
     requestAnimationFrame(() => {
       headRef.current?.scrollIntoView({ block: 'nearest' });
     });
-  }, [focusRequested, editor, chapterId, title]);
+  }, [focusRequested, readOnly, editor, chapterId, title]);
 
   const commit = useCallback(() => {
     if (committing.current) return;
@@ -113,6 +121,7 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
 
   const onContextMenu = (event: MouseEvent<HTMLDivElement>): void => {
     event.preventDefault();
+    if (readOnly) return;
     bindings?.openChapterMenu(chapterId, { x: event.clientX, y: event.clientY });
   };
 
@@ -158,12 +167,15 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
           <button
             type="button"
             className="nf-chapter-title"
-            title="Edit chapter title"
+            title={readOnly ? undefined : 'Edit chapter title'}
+            tabIndex={readOnly ? -1 : undefined}
             onClick={() => {
+              if (readOnly) return;
               setValue(title);
               setEditing(true);
             }}
             onDoubleClick={() => {
+              if (readOnly) return;
               setValue(title);
               setEditing(true);
             }}
@@ -511,6 +523,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
   const calloutBranchId = stringAttr(node.attrs['calloutBranchId']);
   const ui = useEditorUi(editor);
   const bindings = getEditorBindings(editor);
+  const readOnly = ui.interactionMode === 'read';
   const runtimeVersion = useRuntimeVersion(bindings?.runtime ?? null);
   const active = ui.selectedBlockId === blockId;
   const markerLayerRef = useRef<HTMLDivElement | null>(null);
@@ -998,6 +1011,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
 
   const onContextMenu = (event: MouseEvent<HTMLDivElement>): void => {
     event.preventDefault();
+    if (readOnly) return;
     bindings?.openBlockMenu(blockId, { x: event.clientX, y: event.clientY });
   };
 
@@ -1110,26 +1124,28 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
       onContextMenu={onContextMenu}
     >
       <div className="nf-gutter" contentEditable={false}>
-        <button
-          type="button"
-          className="nf-gutter-button nf-gutter-handle"
-          title="Block actions and reorder"
-          aria-label="Block actions and reorder"
-          aria-haspopup="menu"
-          data-block-actions={blockId}
-          onPointerDown={onHandlePointerDown}
-          onClick={(event) => {
-            // Native keyboard activation (Enter/Space) has detail 0. Pointer
-            // activation belongs to the drag path above, so it must not open
-            // the menu when the drag ends.
-            if (event.detail !== 0) return;
-            event.stopPropagation();
-            const rect = event.currentTarget.getBoundingClientRect();
-            bindings?.openBlockMenu(blockId, { x: rect.right + 4, y: rect.top });
-          }}
-        >
-          <GripVertical size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
+        {readOnly ? null : (
+          <button
+            type="button"
+            className="nf-gutter-button nf-gutter-handle"
+            title="Block actions and reorder"
+            aria-label="Block actions and reorder"
+            aria-haspopup="menu"
+            data-block-actions={blockId}
+            onPointerDown={onHandlePointerDown}
+            onClick={(event) => {
+              // Native keyboard activation (Enter/Space) has detail 0. Pointer
+              // activation belongs to the drag path above, so it must not open
+              // the menu when the drag ends.
+              if (event.detail !== 0) return;
+              event.stopPropagation();
+              const rect = event.currentTarget.getBoundingClientRect();
+              bindings?.openBlockMenu(blockId, { x: rect.right + 4, y: rect.top });
+            }}
+          >
+            <GripVertical size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        )}
       </div>
       {showMarkers ? (
         <div
@@ -1256,6 +1272,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
               onContextMenu={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                if (readOnly) return;
                 bindings?.openReferenceMenu(chip.branchId, {
                   x: event.clientX,
                   y: event.clientY,
@@ -1327,34 +1344,38 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
           {anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}
         </button>
       ) : null}
-      <button
-        type="button"
-        className="nf-add-edge nf-add-child"
-        contentEditable={false}
-        title="Add child"
-        aria-label="Add child block"
-        data-add-child={blockId}
-        onClick={(event) => {
-          event.stopPropagation();
-          bindings?.report(bindings.runtime.addChild(blockId));
-        }}
-      >
-        <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="nf-add-edge nf-add-sibling"
-        contentEditable={false}
-        title="Add sibling"
-        aria-label="Add sibling block"
-        data-add-sibling={blockId}
-        onClick={(event) => {
-          event.stopPropagation();
-          bindings?.report(bindings.runtime.addSibling(blockId));
-        }}
-      >
-        <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
-      </button>
+      {readOnly ? null : (
+        <>
+          <button
+            type="button"
+            className="nf-add-edge nf-add-child"
+            contentEditable={false}
+            title="Add child"
+            aria-label="Add child block"
+            data-add-child={blockId}
+            onClick={(event) => {
+              event.stopPropagation();
+              bindings?.report(bindings.runtime.addChild(blockId));
+            }}
+          >
+            <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-add-edge nf-add-sibling"
+            contentEditable={false}
+            title="Add sibling"
+            aria-label="Add sibling block"
+            data-add-sibling={blockId}
+            onClick={(event) => {
+              event.stopPropagation();
+              bindings?.report(bindings.runtime.addSibling(blockId));
+            }}
+          >
+            <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        </>
+      )}
       {childCount > 0 ? (
         <button
           type="button"

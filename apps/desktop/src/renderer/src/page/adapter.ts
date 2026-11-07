@@ -4,7 +4,7 @@
  *
  * The adapter is deliberately a pure copy: it never mutates the canonical
  * document, never resolves asset URLs, and never reads view state. The same
- * `NoteDocument` shape feeds the page view now and the print compositor in
+ * `NoteDocument` shape feeds the page layout now and the print compositor in
  * M4c, so the page renderer and the future PDF cannot drift onto a second
  * document model.
  */
@@ -26,7 +26,7 @@ import type {
 import { DEFAULT_LAYOUT_OPTIONS, pageGeometry } from '@noteforest/layout';
 
 /**
- * Page/print layout options. The page view, the measurement host CSS, and the
+ * Page/print layout options. The page layout, the measurement host CSS, and the
  * future print compositor all read these values, so card chrome and segment
  * spacing cannot diverge between the screen and the PDF.
  */

@@ -54,13 +54,13 @@ async function showPageView() {
   await page.waitForTimeout(150);
 }
 
-describe('M4b1 page view visual evidence', () => {
+describe('M4b1a editor layouts and modes visual evidence', () => {
   after(async () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
     await h.quit();
   });
 
-  it('captures landscape and portrait pages at 1440×900 and 960×720', async () => {
+  it('captures Continuous Edit/Read and Page Read at 1440×900 and 960×720', async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await rm(screenshotDir, { recursive: true, force: true });
     await mkdir(tempRoot, { recursive: true });
@@ -72,7 +72,18 @@ describe('M4b1 page view visual evidence', () => {
     await page.evaluate(() => window.__noteforestTest.seed('demo'));
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
     await h.waitSaved();
+    await page.waitForTimeout(150);
+    await shot('continuous-edit-1440x900.png', 1440, 900);
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      () => document.querySelector('.nf-editor[data-active="true"]')?.getAttribute('data-interaction-mode') === 'read',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.waitForTimeout(150);
+    await shot('continuous-read-1440x900.png', 1440, 900);
     await showPageView();
+    await shot('page-read-landscape-1440x900.png', 1440, 900);
     await shot('page-landscape-1440x900.png', 1440, 900);
     await h.setWindowSize(960, 720);
     await shot('page-landscape-960x720.png', 960, 720);

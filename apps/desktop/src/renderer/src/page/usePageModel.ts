@@ -4,8 +4,9 @@
  * Recomputes the derived pages from the runtime's canonical revision. Work is
  * debounced (typing and structural commands run in bursts), every stale run is
  * aborted, and the measurement host is disposed in the same task that created
- * it. A failed measurement never touches the reader: the page view owns the
- * error surface and the reader remains mounted and editable underneath.
+ * it. A failed measurement never touches the continuous editor: the page
+ * layout owns the error surface and the continuous editor remains mounted and
+ * editable underneath.
  */
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';

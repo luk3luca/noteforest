@@ -29,9 +29,14 @@ import { useBlockRects } from './edges/useBlockRects';
 import { useBelowStackPlacement } from './useBelowStackPlacement';
 import { SelectionToolbar } from './SelectionToolbar';
 import { clearEditorBindings, getDragBlockId, setDragBlockId, setEditorBindings, type EditorBindings } from './bindings';
-import { setEditorSelectedBlock } from './editor-ui';
+import {
+  clearEditorImageAuthoring,
+  setEditorInteractionMode,
+  setEditorSelectedBlock,
+} from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
+import type { InteractionMode } from '../../../shared/view-state';
 import { createChapter, openBlockMenu, openChapterMenu, openReferenceMenu, requestBlockDelete } from '../actions';
 import { showsChapterCanvas } from '../lib/chapters';
 import { getScroll, recordScroll } from '../state/session';
@@ -138,16 +143,22 @@ function DocumentBanners({ runtime }: { runtime: DocumentRuntime }): JSX.Element
   );
 }
 
-function ReaderEmptyDocument({ runtime }: { runtime: DocumentRuntime }): JSX.Element {
+function ContinuousEmptyDocument({
+  runtime,
+  editingEnabled,
+}: {
+  runtime: DocumentRuntime;
+  editingEnabled: boolean;
+}): JSX.Element {
   return (
-    <div className="nf-empty-state nf-editor-empty" data-reader-empty="true">
+    <div className="nf-empty-state nf-editor-empty" data-continuous-empty="true">
       <div className="nf-empty-inner">
         <p className="nf-empty-copy">This document has no blocks yet.</p>
         <div className="nf-empty-actions">
           <button
             type="button"
             className="nf-button nf-button-primary"
-            disabled={!runtime.editable}
+            disabled={!runtime.editable || !editingEnabled}
             onClick={() => {
               const chapterId = runtime.document.chapters[0]?.id;
               if (chapterId !== undefined) void runtime.addTopLevel(chapterId);
@@ -163,7 +174,12 @@ function ReaderEmptyDocument({ runtime }: { runtime: DocumentRuntime }): JSX.Ele
 
 export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.Element {
   useRuntime(runtime.packagePath);
-  const mode = useShell((state) => state.viewByDoc[runtime.packagePath]?.mode ?? 'reader');
+  const layout = useShell(
+    (state) => state.viewByDoc[runtime.packagePath]?.layout ?? 'continuous',
+  );
+  const interactionMode = useShell(
+    (state) => state.viewByDoc[runtime.packagePath]?.interactionMode ?? 'edit',
+  );
   const focusActive = useShell(
     (state) => (state.viewByDoc[runtime.packagePath]?.focusBlockId ?? null) !== null,
   );
@@ -171,11 +187,16 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
   // chapter. A legacy document with named or multiple chapters must keep those
   // chapter cards visible even when every chapter is empty.
   const blockCount = Object.keys(runtime.document.blocks).length;
-  const readerVisible = mode === 'reader';
-  const reader = showsChapterCanvas(runtime.document.chapters, blockCount) ? (
-    <EditorSurface runtime={runtime} active={active} visible={readerVisible} />
+  const continuousVisible = layout === 'continuous';
+  const continuous = showsChapterCanvas(runtime.document.chapters, blockCount) ? (
+    <EditorSurface
+      runtime={runtime}
+      active={active}
+      visible={continuousVisible}
+      interactionMode={interactionMode}
+    />
   ) : (
-    <ReaderEmptyDocument runtime={runtime} />
+    <ContinuousEmptyDocument runtime={runtime} editingEnabled={interactionMode === 'edit'} />
   );
 
   return (
@@ -186,18 +207,21 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
       aria-labelledby={tabElementId(runtime.packagePath)}
       style={active ? undefined : { display: 'none' }}
       data-active={active}
-      data-mode={mode}
+      data-layout={layout}
+      data-interaction-mode={interactionMode}
       data-focus-active={focusActive}
     >
       <DocumentBanners runtime={runtime} />
       <div
-        className="nf-reader-surface"
-        data-reader-surface="true"
-        style={readerVisible ? undefined : { display: 'none' }}
+        className="nf-continuous-surface"
+        data-continuous-surface="true"
+        style={continuousVisible ? undefined : { display: 'none' }}
       >
-        {reader}
+        {continuous}
       </div>
-      {mode === 'page' ? <PageView runtime={runtime} active={active} /> : null}
+      {layout === 'page' ? (
+        <PageView runtime={runtime} active={active} interactionMode={interactionMode} />
+      ) : null}
     </div>
   );
 }
@@ -206,13 +230,20 @@ function EditorSurface({
   runtime,
   active,
   visible,
-}: DocumentEditorProps & { visible: boolean }): JSX.Element {
+  interactionMode,
+}: DocumentEditorProps & { visible: boolean; interactionMode: InteractionMode }): JSX.Element {
   useRuntime(runtime.packagePath);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const restoredRef = useRef(false);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  const interactionModeRef = useRef(interactionMode);
+  interactionModeRef.current = interactionMode;
+  /** Whether the editor owned focus when Read mode started. */
+  const focusedBeforeRead = useRef(false);
+  const previousInteractionMode = useRef(interactionMode);
+  const visibleBeforeInteraction = useRef(visible);
 
   const editor = useEditor(
     {
@@ -223,7 +254,7 @@ function EditorSurface({
         new Set(),
         runtime.assetAvailability,
       ),
-      editable: runtime.status === 'editable' && visible,
+      editable: runtime.status === 'editable' && visible && interactionMode === 'edit',
       editorProps: {
         attributes: {
           class: 'nf-prosemirror',
@@ -287,9 +318,11 @@ function EditorSurface({
         },
       },
       onUpdate: () => {
-        // A hidden reader (page mode) must not turn a programmatic rebuild or
-        // editable toggle into a text-history entry.
-        if (visibleRef.current) runtime.noteEditorUpdate();
+        // A hidden surface (page layout) or Read mode must not turn a
+        // programmatic rebuild or an editable toggle into a text-history entry.
+        if (visibleRef.current && interactionModeRef.current === 'edit') {
+          runtime.noteEditorUpdate();
+        }
       },
     },
     [runtime.packagePath],
@@ -300,9 +333,10 @@ function EditorSurface({
     const mountedAt = performance.now();
     runtime.attachEditor(editor);
     const syncSelection = (): void => {
-      // The page view keeps the reader mounted for scroll/undo continuity, but
-      // a structural command may rebuild its hidden ProseMirror buffer. That
-      // must not overwrite the block the user selected on the page.
+      // The page layout keeps the continuous editor mounted for scroll/undo
+      // continuity, but a structural command may rebuild its hidden
+      // ProseMirror buffer. That must not overwrite the block the user
+      // selected on the page.
       if (!visibleRef.current) return;
       const blockId = blockIdAtSelection(editor);
       const selection = editor.state.selection;
@@ -396,16 +430,75 @@ function EditorSurface({
     };
   }, [editor, runtime]);
 
-  // The reader is the authoring surface. While the page view is shown the
-  // ProseMirror surface stays mounted (scroll, selection and undo survive) but
-  // must not accept typing or retain the caret.
+  // The continuous editor is the authoring surface. Read mode keeps the same
+  // ProseMirror state mounted and only flips editability: selection, scroll,
+  // links, anchors, copy, focus and outline navigation stay available and no
+  // document transaction is created. The page layout hides the whole surface.
   useEffect(() => {
     if (editor === null) return;
-    const editable = runtime.status === 'editable' && visible;
-    // `setEditable` can emit an editor update; a no-op call on mount would mark
-    // a text-history operation before the user has typed anything.
-    if (editor.isEditable !== editable) editor.setEditable(editable);
-  }, [editor, runtime.status, visible]);
+    const changed = previousInteractionMode.current !== interactionMode;
+    previousInteractionMode.current = interactionMode;
+    const wasVisible = visibleBeforeInteraction.current;
+    visibleBeforeInteraction.current = visible;
+    // A contenteditable toggle can make Chromium scroll the caret back into
+    // view. Continuous Read/Edit is the same continuous scroll position, so
+    // capture and restore it around the toggle (never for a layout switch;
+    // the hidden/show transition owns its own restore).
+    const restoreContinuousScroll =
+      changed && visible && wasVisible ? scrollRef.current?.scrollTop ?? null : null;
+    if (changed && interactionMode === 'read' && visible) {
+      // Only a Continuous Edit -> Continuous Read toggle owns focus
+      // restoration. A layout switch also changes the mode, but the page
+      // layout owns selection there and the return path restores it.
+      focusedBeforeRead.current =
+        editor.isFocused || editor.view.dom.contains(document.activeElement);
+    }
+    const editable =
+      runtime.status === 'editable' && visible && interactionMode === 'edit';
+    // `setEditable` only updates view props; suppress its synthetic update
+    // event so a mode switch can never become a text-history operation.
+    if (editor.isEditable !== editable) editor.setEditable(editable, false);
+    setEditorInteractionMode(editor, interactionMode);
+    if (interactionMode === 'read') clearEditorImageAuthoring(editor);
+    // A non-editable textbox is exposed as read-only, not as a broken editor.
+    editor.view.dom.setAttribute(
+      'aria-label',
+      interactionMode === 'read' ? 'Document body, read mode' : 'Document body',
+    );
+    if (interactionMode === 'read') editor.view.dom.setAttribute('aria-readonly', 'true');
+    else editor.view.dom.removeAttribute('aria-readonly');
+    if (changed && interactionMode === 'edit') {
+      // Focus restoration belongs to a Continuous Read/Edit toggle only. A
+      // layout return has its own selected-block and scroll restore path.
+      const shouldRestoreFocus = focusedBeforeRead.current && wasVisible;
+      focusedBeforeRead.current = false;
+      const active = document.activeElement;
+      // Do not steal focus from a sidebar tree, dialog, or menu the user moved
+      // to while reading. The body (or the editor itself) means focus was lost
+      // only because the surface stopped being editable.
+      if (
+        shouldRestoreFocus &&
+        (active === null || active === document.body || editor.view.dom.contains(active))
+      ) {
+        editor.view.focus();
+      }
+    }
+    if (restoreContinuousScroll !== null) {
+      const scrollTop = restoreContinuousScroll;
+      const restore = (): void => {
+        if (scrollRef.current !== null && scrollRef.current.scrollTop !== scrollTop) {
+          scrollRef.current.scrollTop = scrollTop;
+        }
+      };
+      restore();
+      // Chromium may apply its caret scroll after the editable toggle; repeat
+      // once after the next paint so the same continuous position is stable.
+      requestAnimationFrame(() => {
+        restore();
+        requestAnimationFrame(restore);
+      });
+    }
+  }, [editor, runtime.status, visible, interactionMode]);
 
   const previousVisible = useRef(visible);
   useEffect(() => {
@@ -427,8 +520,8 @@ function EditorSurface({
       // Focus can scroll the hidden-then-shown box; restore after it.
       if (scrollRef.current !== null) scrollRef.current.scrollTop = scrollTop;
     });
-    // Only a reader/page transition should restore; a selection change while
-    // the reader is visible keeps the live caret.
+    // Only a layout transition should restore; a selection change while the
+    // continuous editor is visible keeps the live caret.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, editor, runtime.packagePath]);
 
@@ -645,7 +738,9 @@ function EditorSurface({
           </div>
         </div>
       </div>
-      {editor === null ? null : <SelectionToolbar editor={editor} />}
+      {editor === null || interactionMode === 'read' ? null : (
+        <SelectionToolbar editor={editor} />
+      )}
     </>
   );
 }

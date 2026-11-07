@@ -60,6 +60,7 @@ import type {
   TakeOverLockResult,
 } from '../shared/api.js';
 import { saveFailureCode } from './save-error.js';
+import { normalizeDocumentViewState } from '../shared/view-state.js';
 import {
   backupCandidates,
   isPathInside,
@@ -1165,11 +1166,25 @@ export async function readSession(): Promise<SessionState> {
         const collapsed = Array.isArray(collapsedRaw)
           ? collapsedRaw.filter((item): item is string => typeof item === 'string')
           : [];
+        const view = normalizeDocumentViewState({
+          layout: (tab as { layout?: unknown }).layout,
+          interactionMode: (tab as { interactionMode?: unknown }).interactionMode,
+          currentPage: (tab as { currentPage?: unknown }).currentPage,
+          pageZoom: (tab as { pageZoom?: unknown }).pageZoom,
+          pageFit: (tab as { pageFit?: unknown }).pageFit,
+          zoom: (tab as { zoom?: unknown }).zoom,
+        });
         tabs.push({
           packagePath,
           scrollTop: Number.isFinite(scrollTop) && scrollTop >= 0 ? scrollTop : 0,
           selectedBlockId: typeof selectedBlockId === 'string' ? selectedBlockId : null,
           collapsed,
+          layout: view.layout,
+          interactionMode: view.interactionMode,
+          currentPage: view.currentPage,
+          pageZoom: view.pageZoom,
+          pageFit: view.pageFit,
+          zoom: view.zoom,
         });
       }
     }

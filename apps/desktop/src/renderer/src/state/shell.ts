@@ -2,6 +2,20 @@
 
 import { create } from 'zustand';
 import type { LibraryView, RecoveryStatus } from '../../../shared/api';
+import {
+  DEFAULT_DOCUMENT_VIEW,
+  clampContinuousZoom,
+  clampPageNumber,
+  clampPageZoom,
+  normalizeDocumentViewState,
+  normalizePageFit,
+  type DocumentLayout,
+  type DocumentViewState,
+  type InteractionMode,
+  type PageFit,
+} from '../../../shared/view-state';
+
+export type { DocumentLayout, DocumentViewState, InteractionMode, PageFit };
 
 /** Read-only package state shown by the recovery tab. */
 export interface RecoveryTabInfo {
@@ -54,36 +68,7 @@ export interface ContextMenuState {
   items: MenuEntry[];
 }
 
-/** The two document surfaces exposed in v1 (outline is a separate later view). */
-export type DocumentMode = 'reader' | 'page';
-
-/** Page-view navigation state; never written to the document. */
-export type PageFit = 'page' | 'width' | 'none';
-
 /** Navigation-only view state. Never written to the document. */
-export interface DocumentViewState {
-  /** 1 = 100%. Reader surface zoom. */
-  zoom: number;
-  /** Ancestor-chain/descendant focus anchor; null means show the document. */
-  focusBlockId: string | null;
-  /** Reader is the primary authoring surface; page is the read-only preview. */
-  mode: DocumentMode;
-  /** Current derived page, 1-based. Clamped when the page count changes. */
-  currentPage: number;
-  /** Manual page-view zoom. 1 = 100%; fit modes override it. */
-  pageZoom: number;
-  /** Page view fit mode; `none` uses `pageZoom`. */
-  pageFit: PageFit;
-}
-
-export const DEFAULT_DOCUMENT_VIEW: DocumentViewState = Object.freeze({
-  zoom: 1,
-  focusBlockId: null,
-  mode: 'reader',
-  currentPage: 1,
-  pageZoom: 1,
-  pageFit: 'page',
-});
 
 interface ShellState {
   ready: boolean;
@@ -119,9 +104,11 @@ interface ShellState {
   openContextMenu: (x: number, y: number, items: MenuEntry[]) => void;
   closeContextMenu: () => void;
   setCollapsedTopics: (packagePath: string, ids: string[]) => void;
+  setDocumentViewState: (packagePath: string, view: Partial<DocumentViewState>) => void;
   setDocumentZoom: (packagePath: string, zoom: number) => void;
   setDocumentFocus: (packagePath: string, blockId: string | null) => void;
-  setDocumentMode: (packagePath: string, mode: DocumentMode) => void;
+  setDocumentLayout: (packagePath: string, layout: DocumentLayout) => void;
+  setDocumentInteractionMode: (packagePath: string, mode: InteractionMode) => void;
   setDocumentPage: (packagePath: string, page: number) => void;
   setDocumentPageZoom: (packagePath: string, zoom: number) => void;
   setDocumentPageFit: (packagePath: string, fit: PageFit) => void;
@@ -167,7 +154,11 @@ export const useShell = create<ShellState>((set, get) => ({
         : [...state.tabs, tab];
       const activeTab =
         options.activate === false ? state.activeTab : tab.packagePath;
-      return { tabs, activeTab, library: state.library };
+      const viewByDoc =
+        state.viewByDoc[tab.packagePath] === undefined
+          ? { ...state.viewByDoc, [tab.packagePath]: DEFAULT_DOCUMENT_VIEW }
+          : state.viewByDoc;
+      return { tabs, activeTab, library: state.library, viewByDoc };
     }),
 
   closeTab: (packagePath) =>
@@ -239,10 +230,21 @@ export const useShell = create<ShellState>((set, get) => ({
       collapsedTopics: { ...state.collapsedTopics, [packagePath]: ids },
     })),
 
+  setDocumentViewState: (packagePath, view) =>
+    set((state) => ({
+      viewByDoc: {
+        ...state.viewByDoc,
+        [packagePath]: normalizeDocumentViewState({
+          ...(state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW),
+          ...view,
+        }),
+      },
+    })),
+
   setDocumentZoom: (packagePath, zoom) =>
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
-      const next = Math.round(Math.min(2, Math.max(0.5, zoom)) * 100) / 100;
+      const next = clampContinuousZoom(zoom);
       if (current.zoom === next) return state;
       return {
         viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, zoom: next } },
@@ -258,17 +260,36 @@ export const useShell = create<ShellState>((set, get) => ({
       };
     }),
 
-  setDocumentMode: (packagePath, mode) =>
+  setDocumentLayout: (packagePath, layout) =>
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
-      if (current.mode === mode) return state;
-      return { viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, mode } } };
+      if (current.layout === layout) return state;
+      // Page opens in Read until Page Edit exists; returning to Continuous
+      // restores the default Edit mode.
+      const interactionMode: InteractionMode = layout === 'page' ? 'read' : 'edit';
+      return {
+        viewByDoc: {
+          ...state.viewByDoc,
+          [packagePath]: { ...current, layout, interactionMode },
+        },
+      };
+    }),
+
+  setDocumentInteractionMode: (packagePath, mode) =>
+    set((state) => {
+      const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
+      // Page Edit is a disabled seam: Page always stays read-only.
+      const next: InteractionMode = current.layout === 'page' ? 'read' : mode;
+      if (current.interactionMode === next) return state;
+      return {
+        viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, interactionMode: next } },
+      };
     }),
 
   setDocumentPage: (packagePath, page) =>
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
-      const next = Number.isFinite(page) ? Math.max(1, Math.round(page)) : 1;
+      const next = clampPageNumber(page);
       if (current.currentPage === next) return state;
       return {
         viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, currentPage: next } },
@@ -278,7 +299,7 @@ export const useShell = create<ShellState>((set, get) => ({
   setDocumentPageZoom: (packagePath, zoom) =>
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
-      const next = Math.round(Math.min(2.5, Math.max(0.1, zoom)) * 100) / 100;
+      const next = clampPageZoom(zoom);
       if (current.pageZoom === next) return state;
       return {
         viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, pageZoom: next } },
@@ -288,7 +309,8 @@ export const useShell = create<ShellState>((set, get) => ({
   setDocumentPageFit: (packagePath, fit) =>
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
-      if (current.pageFit === fit) return state;
-      return { viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, pageFit: fit } } };
+      const next = normalizePageFit(fit);
+      if (current.pageFit === next) return state;
+      return { viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, pageFit: next } } };
     }),
 }));
