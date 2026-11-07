@@ -16,6 +16,7 @@ import {
 } from './state/registry';
 import {
   activeDocumentLayout,
+  activeEditingEnabled,
   activeRuntime,
   adjustActivePageZoom,
   adjustActiveZoom,
@@ -30,6 +31,7 @@ import {
   toggleFocusBranch,
 } from './actions';
 import { buildSession } from './state/session';
+import { READ_MODE_TOAST } from './lib/editability';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
 import { perfSnapshot, summarize } from './lib/perf';
@@ -307,6 +309,14 @@ export function App(): JSX.Element {
           break;
         case 'l': {
           if (!event.shiftKey) break;
+          // The link-reference dialog is a mutating shell path and follows the
+          // same gate as the palette and block menu.
+          if (!activeEditingEnabled()) {
+            event.preventDefault();
+            event.stopPropagation();
+            toast.info(READ_MODE_TOAST);
+            break;
+          }
           const current = activeRuntime();
           const blockId = current?.selectedBlockId ?? null;
           if (blockId === null) break;
@@ -327,6 +337,11 @@ export function App(): JSX.Element {
             element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
           if (isPlainTextInput) return;
           event.preventDefault();
+          // The renderer is the single delivery path for document history.
+          // Do not let ProseMirror's own history keymap also handle the event:
+          // in Read (or while the Page layout hides the continuous editor) a
+          // blocked undo must not mutate the hidden buffer.
+          event.stopPropagation();
           dispatch(event.shiftKey ? 'redo' : 'undo');
           break;
         }

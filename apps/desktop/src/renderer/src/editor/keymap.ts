@@ -57,9 +57,13 @@ export const BranchKeymap = Extension.create({
 
   addKeyboardShortcuts() {
     const bindings = (): ReturnType<typeof getEditorBindings> => getEditorBindings(this.editor);
+    // Continuous Read keeps the ProseMirror surface mounted and focusable, so
+    // mutating shortcuts must opt in explicitly; navigation and collapse stay
+    // available.
+    const canEdit = (): boolean => this.editor.isEditable;
 
     const requestDelete = (blockId: string | null): boolean => {
-      if (blockId === null) return false;
+      if (!canEdit() || blockId === null) return false;
       const current = bindings();
       if (current === null) return false;
       current.requestDelete(blockId);
@@ -70,6 +74,7 @@ export const BranchKeymap = Extension.create({
       // Enter stays a paragraph split inside the block; at the end of a
       // heading it creates a normal paragraph so a heading is never sticky.
       Enter: () => {
+        if (!canEdit()) return false;
         const editor = this.editor;
         if (!editor.state.selection.empty) return false;
         if (inAtomicContext(editor)) return false;
@@ -97,6 +102,7 @@ export const BranchKeymap = Extension.create({
 
       // Shift+Enter is the hard line break, not a new block.
       'Shift-Enter': () => {
+        if (!canEdit()) return false;
         this.editor.commands.setHardBreak();
         return true;
       },
@@ -105,6 +111,7 @@ export const BranchKeymap = Extension.create({
       // it keeps the block-child path; Control+Enter stays the explicit child
       // shortcut and never changes.
       'Mod-Shift-Enter': () => {
+        if (!canEdit()) return false;
         const editor = this.editor;
         const current = bindings();
         if (current === null) return false;
@@ -130,6 +137,7 @@ export const BranchKeymap = Extension.create({
 
       // Option+Enter creates a sibling block.
       'Alt-Enter': () => {
+        if (!canEdit()) return false;
         const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;
@@ -139,6 +147,7 @@ export const BranchKeymap = Extension.create({
 
       // Control+Enter creates a child block.
       'Ctrl-Enter': () => {
+        if (!canEdit()) return false;
         const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;
@@ -151,6 +160,7 @@ export const BranchKeymap = Extension.create({
       // other case returns false so the browser moves focus out of the editor
       // instead of trapping keyboard users inside the contenteditable body.
       Tab: () => {
+        if (!canEdit()) return false;
         const editor = this.editor;
         if (inAtomicContext(editor)) return false;
         const selection = selectedBlock(editor);
@@ -163,6 +173,7 @@ export const BranchKeymap = Extension.create({
       },
 
       'Shift-Tab': () => {
+        if (!canEdit()) return false;
         const editor = this.editor;
         if (inAtomicContext(editor)) return false;
         const selection = selectedBlock(editor);
@@ -223,6 +234,7 @@ export const BranchKeymap = Extension.create({
       },
 
       'Mod-Shift-k': () => {
+        if (!canEdit()) return false;
         bindings()?.openLinkDialog();
         return true;
       },
@@ -249,6 +261,7 @@ export const BranchKeymap = Extension.create({
       },
 
       'Alt-ArrowUp': () => {
+        if (!canEdit()) return false;
         const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;
@@ -257,6 +270,7 @@ export const BranchKeymap = Extension.create({
       },
 
       'Alt-ArrowDown': () => {
+        if (!canEdit()) return false;
         const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;

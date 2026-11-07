@@ -21,6 +21,7 @@ import {
   type BlockNode,
 } from '../lib/tree';
 import { recoveryStatusLabel } from '../lib/recovery';
+import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import type { DocumentRuntime } from '../state/runtime';
 
 function LibrarySection(): JSX.Element {
@@ -382,6 +383,11 @@ function TopicSection(): JSX.Element {
   useRegistry();
   const collapsedTopics = useShell((state) => state.collapsedTopics);
   const setCollapsedTopics = useShell((state) => state.setCollapsedTopics);
+  // Reactive form of the global editability helper: mode/layout changes must
+  // re-enable or disable the shell controls without remounting the sidebar.
+  const editingEnabled = useShell((state) =>
+    activePath === null ? false : editingEnabledFor(runtime, state.viewByDoc[activePath]),
+  );
   const [renaming, setRenaming] = useState<RenameTarget | null>(null);
 
   const chapters = useMemo(
@@ -456,8 +462,19 @@ function TopicSection(): JSX.Element {
     }
   };
 
+  const beginRename = (target: RenameTarget): void => {
+    if (!editingEnabled) return;
+    setRenaming(target);
+  };
+
   const commitRename = (): void => {
     if (renaming === null) return;
+    // A rename input that was open when the mode switched must not commit into
+    // the document from Read.
+    if (!editingEnabled) {
+      setRenaming(null);
+      return;
+    }
     if (renaming.kind === 'chapter') {
       void renameChapter(renaming.id, renaming.value);
     } else {
@@ -478,8 +495,9 @@ function TopicSection(): JSX.Element {
         <button
           type="button"
           className="nf-icon-button"
-          aria-label="Add chapter"
-          title="Add chapter"
+          disabled={!editingEnabled}
+          aria-label={editingEnabled ? 'Add chapter' : `Add chapter — ${READ_MODE_TITLE}`}
+          title={editingEnabled ? 'Add chapter' : READ_MODE_TITLE}
           onClick={() => {
             void createChapter();
           }}
@@ -507,12 +525,12 @@ function TopicSection(): JSX.Element {
                     className="nf-tree-row nf-tree-chapter-row"
                     style={{ paddingInlineStart: 6 + (level - 1) * 14 }}
                     onDoubleClick={() =>
-                      setRenaming({ kind: 'chapter', id: chapter.id, value: chapter.title })
+                      beginRename({ kind: 'chapter', id: chapter.id, value: chapter.title })
                     }
                     onKeyDown={(event) => {
                       if (event.key === 'F2') {
                         event.preventDefault();
-                        setRenaming({ kind: 'chapter', id: chapter.id, value: chapter.title });
+                        beginRename({ kind: 'chapter', id: chapter.id, value: chapter.title });
                       }
                     }}
                     onContextMenu={(event) => {
@@ -560,7 +578,7 @@ function TopicSection(): JSX.Element {
                 )}
               </TreeItemContent>
               {chapter.blocks.map((block) => (
-                <BlockTreeItem key={block.id} runtime={runtime} node={block} onRename={setRenaming} />
+                <BlockTreeItem key={block.id} runtime={runtime} node={block} onRename={beginRename} />
               ))}
             </TreeItem>
           ))}
@@ -570,6 +588,9 @@ function TopicSection(): JSX.Element {
         <button
           type="button"
           className="nf-text-button"
+          disabled={!editingEnabled}
+          aria-label={editingEnabled ? 'Add block' : `Add block — ${READ_MODE_TITLE}`}
+          title={editingEnabled ? 'Add block' : READ_MODE_TITLE}
           onClick={() => {
             const chapterId = runtime.document.chapters.at(-1)?.id;
             if (chapterId !== undefined) void runtime.addTopLevel(chapterId);

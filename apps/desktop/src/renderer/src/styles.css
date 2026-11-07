@@ -558,6 +558,18 @@ button:disabled {
   color: var(--text);
 }
 
+.nf-icon-button:disabled,
+.nf-text-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nf-icon-button:disabled:hover,
+.nf-text-button:disabled:hover {
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
 .nf-library-search {
   display: flex;
   align-items: center;
@@ -3295,6 +3307,17 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-palette-item[data-selected] {
   background: var(--accent-soft);
+}
+
+.nf-palette-item[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.nf-palette-item[aria-disabled="true"][data-focused],
+.nf-palette-item[aria-disabled="true"][data-hovered] {
+  background: transparent;
+  color: var(--text-secondary);
 }
 
 .nf-palette-group {
