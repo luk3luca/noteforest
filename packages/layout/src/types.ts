@@ -209,6 +209,19 @@ export interface LayoutDefect {
 export type BlockRole = 'top-level' | 'child' | 'callout';
 export type AnchorState = 'resolved' | 'broken' | 'ambiguous' | 'none';
 
+/**
+ * Child-group placement policy.
+ *
+ * - `group-left-origin` is the production rule from ADR-0006: a direct-child
+ *   group stays to the right only when every child's own card fits; otherwise
+ *   the whole group moves below the parent at one capped left origin.
+ * - `right-first-per-child` reproduces the pre-M4a geometry exactly and is kept
+ *   as a regression oracle for the layout lab.
+ * - `subtree-aware` is the lab-only per-child comparison: children that fit stay
+ *   right while a non-fitting child wraps at the capped left origin.
+ */
+export type WrapPolicy = 'group-left-origin' | 'right-first-per-child' | 'subtree-aware';
+
 export interface LayoutBlock {
   blockId: string;
   chapterId: string;
@@ -352,11 +365,22 @@ export interface PaginatedDocument {
   manualBreakWarnings: LayoutDefect[];
 }
 
+/**
+ * Layout tuning options.
+ *
+ * The future block-resize slice may add an optional per-block preferred width
+ * here (or as a measurement input); M4a deliberately does not add `widthHint`,
+ * `displayWidth`, or any document field for resize.
+ */
 export interface LayoutOptions {
   minContentWidth: number;
   maxContentWidth: number;
   siblingGap: number;
+  /** Per-level left-origin indent used when a child group wraps below its parent. */
   wrapIndent: number;
+  /** Maximum cumulative wrap indent from the page content left edge. */
+  maxWrapIndent: number;
+  wrapPolicy: WrapPolicy;
   calloutGap: number;
   chapterGap: number;
   cardPadding: number;
@@ -369,6 +393,8 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   maxContentWidth: 420,
   siblingGap: 24,
   wrapIndent: 18,
+  maxWrapIndent: 54,
+  wrapPolicy: 'group-left-origin',
   calloutGap: 20,
   chapterGap: 32,
   cardPadding: 12,

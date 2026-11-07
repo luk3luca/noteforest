@@ -8,12 +8,13 @@ import {
   pageGeometry,
   paginate,
   type LayoutBlock,
+  type LayoutOptions,
   type NoteDocument,
 } from '../src/index.js';
 import { loadFixture, layoutFixture } from './helpers.js';
 
-function layoutOf(document: NoteDocument) {
-  return layoutDocument(document, createEstimatedMeasurement(document));
+function layoutOf(document: NoteDocument, options: Partial<LayoutOptions> = {}) {
+  return layoutDocument(document, createEstimatedMeasurement(document), options);
 }
 
 function visibleBlocks(layout: ReturnType<typeof layoutOf>): LayoutBlock[] {
@@ -54,20 +55,35 @@ describe('adaptive layout', () => {
     }
   });
 
-  it('places some wide-fan children right and others wrapped below with an indent', () => {
+  it('wraps the whole wide-fan group when one child does not fit', () => {
     const layout = layoutFixture('wide-fan.json');
     const parent = layout.blockById['f3-parent']!;
     const children = layout.blocks.filter((block) => block.parentBlockId === 'f3-parent');
-    const right = children.filter(
-      (child) => child.x >= parent.x + parent.width + 20,
-    );
-    const wrapped = children.filter((child) => Math.abs(child.x - (parent.x + 18)) <= 1.5);
-    expect(right.length).toBeGreaterThan(0);
-    expect(wrapped.length).toBeGreaterThan(0);
-    expect(new Set(layout.blocks.map((block) => Math.round(block.width))).size).toBeGreaterThanOrEqual(3);
+    const wrapOrigin = Math.min(parent.x + 18, 54);
     for (const child of children) {
-      expect(child.y).toBeGreaterThanOrEqual(parent.y);
+      expect(Math.abs(child.x - wrapOrigin), `${child.blockId}.x`).toBeLessThanOrEqual(1.5);
+      expect(child.y).toBeGreaterThanOrEqual(parent.y + parent.height);
     }
+    const ordered = [...children].sort((a, b) => a.y - b.y);
+    for (let index = 1; index < ordered.length; index += 1) {
+      expect(ordered[index]!.y).toBeGreaterThanOrEqual(ordered[index - 1]!.subtreeBottom + 24 - 0.25);
+    }
+    expect(new Set(layout.blocks.map((block) => Math.round(block.width))).size).toBeGreaterThanOrEqual(3);
+
+    // The old right-first policy remains available as the regression oracle:
+    // fitting siblings stay right, non-fitting ones wrap at parent.x + 18.
+    const oracle = layoutOf(loadFixture('wide-fan.json'), {
+      wrapPolicy: 'right-first-per-child',
+    });
+    const oracleChildren = oracle.blocks.filter((block) => block.parentBlockId === 'f3-parent');
+    expect(
+      oracleChildren.some((child) => child.x >= parent.x + parent.width + 20),
+      'oracle keeps at least one child right',
+    ).toBe(true);
+    expect(
+      oracleChildren.some((child) => Math.abs(child.x - (parent.x + 18)) <= 1.5),
+      'oracle wraps at least one child at parent.x + wrapIndent',
+    ).toBe(true);
   });
 
   it('lays out a five-level chain with nested anchored callouts', () => {
