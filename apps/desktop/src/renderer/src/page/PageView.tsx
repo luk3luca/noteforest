@@ -1,14 +1,14 @@
 /**
- * Read-only paginated A4 page layout (ADR-0007).
+ * Paginated A4 page layout (ADR-0007).
  *
  * Pages come from the shared layout engine and paginator; this component only
  * positions derived fragments and renders the static segment markup. It never
- * measures content, never edits the document, and never re-paginates with CSS.
- * Fit/zoom and navigation are view state only.
+ * measures content, never re-paginates with CSS, and never changes page geometry
+ * while an edit is open. Fit/zoom and navigation are view state only.
  *
- * `interactionMode` is the Page Read/Page Edit seam: Page Read is implemented
- * now; a future Page Edit slice will add the single-block editor overlay
- * without changing this geometry.
+ * Page Read is the exact read-only proof. Page Edit adds one active block
+ * overlay (`PageBlockEditor`) anchored to a fragment; the page behind stays the
+ * same A4 layout until the block commit re-paginates from the shared model.
  */
 
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
@@ -36,7 +36,10 @@ import { useShell } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
 import type { InteractionMode } from '../../../shared/view-state';
 import { blockTitle } from '../lib/tree';
+import { pageBlockEditingEnabledFor } from '../lib/editability';
 import { GEOMETRY } from '../lib/geometry';
+import { PageBlockEditor } from './PageBlockEditor';
+import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
 import {
   PAGE_CSS_VARIABLES,
   PAGE_LAYOUT_OPTIONS,
@@ -56,7 +59,7 @@ import type { PageModelState } from './usePageModel';
 interface PageViewProps {
   runtime: DocumentRuntime;
   active: boolean;
-  /** Page Read is implemented; Page Edit is a later slice. */
+  /** Page Read is exact; Page Edit enables one active block overlay. */
   interactionMode: InteractionMode;
   /** Shared page model owned by `DocumentEditor` (never re-measured here). */
   model: PageModelState;
@@ -112,7 +115,9 @@ interface PageFragmentViewProps {
   selected: boolean;
   blocking: readonly LayoutDefect[];
   anchorWarnings: readonly AnchorAttachment[];
+  editingEnabled: boolean;
   onSelect: (blockId: string) => void;
+  onEdit: (blockId: string) => void;
   onOpen: (blockId: string) => void;
 }
 
@@ -124,7 +129,9 @@ function PageFragmentView({
   selected,
   blocking,
   anchorWarnings,
+  editingEnabled,
   onSelect,
+  onEdit,
   onOpen,
 }: PageFragmentViewProps): JSX.Element {
   const block: PageContentBlock | undefined = runtime.document.blocks[fragment.blockId];
@@ -157,7 +164,9 @@ function PageFragmentView({
     event.preventDefault();
     event.stopPropagation();
     onSelect(fragment.blockId);
-    onOpen(fragment.blockId);
+    if (event.key !== 'Enter') return;
+    if (editingEnabled) onEdit(fragment.blockId);
+    else onOpen(fragment.blockId);
   };
   return (
     <div
@@ -179,14 +188,21 @@ function PageFragmentView({
       data-fragment-anchor-warning={anchorWarnings.length > 0 ? 'true' : undefined}
       role="group"
       tabIndex={0}
-      aria-label={`${title}, page ${page.pageNumber}. Press Enter to open in the continuous editor.`}
+      aria-label={`${title}, page ${page.pageNumber}. ${
+        editingEnabled
+          ? 'Press Enter to edit this block on the page.'
+          : 'Press Enter to open in the continuous editor.'
+      }`}
       aria-keyshortcuts="Enter"
       onClick={(event) => {
         // Read-only preview: never navigate a content link from the page.
         if ((event.target as HTMLElement).closest('a') !== null) event.preventDefault();
         onSelect(fragment.blockId);
       }}
-      onDoubleClick={() => onOpen(fragment.blockId)}
+      onDoubleClick={() => {
+        if (editingEnabled) onEdit(fragment.blockId);
+        else onOpen(fragment.blockId);
+      }}
       onKeyDown={onKeyDown}
     >
       <div
@@ -367,13 +383,28 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
   const pageFit = view?.pageFit ?? 'page';
   const pageZoom = view?.pageZoom ?? 1;
   const selectedBlockId = runtime.selectedBlockId;
+  const pageEditing = useShell((state) =>
+    pageBlockEditingEnabledFor(runtime, state.viewByDoc[runtime.packagePath]),
+  );
   const rootRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  /** One active overlay: block + the fragment/page box that anchored it. */
+  const [editSession, setEditSession] = useState<{
+    blockId: string;
+    fragment: PageFragment;
+  } | null>(null);
+  const editingBlockIdRef = useRef<string | null>(null);
+  editingBlockIdRef.current = editSession?.blockId ?? null;
+  /** Esc returns keyboard focus to the committed block when it is still here. */
+  const pendingFocusBlockId = useRef<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
 
   const pageCount = model.pages.length;
   const pageNumber = clampPageNumber(currentPage, pageCount);
   const page = pageCount > 0 ? model.pages[pageNumber - 1] ?? null : null;
+  const pageRef = useRef(page);
+  pageRef.current = page;
   const geometry = model.layout?.geometry ?? corePageGeometry(runtime.document);
 
   // Derived model may shrink the page count; keep the shell page in range.
@@ -393,6 +424,13 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
     element.focus({ preventScroll: true });
     return undefined;
   }, [active]);
+
+  // Switching to another tab commits the one active block first; a rejected
+  // commit keeps the overlay open with its text instead of dropping it.
+  useEffect(() => {
+    if (active) return;
+    void commitPageEdit(runtime.packagePath);
+  }, [active, runtime.packagePath]);
 
   useLayoutEffect(() => {
     if (!active) return undefined;
@@ -494,7 +532,12 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
   const goToPage = useCallback(
     (next: number) => {
       if (pageCount <= 0) return;
-      useShell.getState().setDocumentPage(runtime.packagePath, clampPageNumber(next, pageCount));
+      void commitPageEdit(runtime.packagePath).then((committed) => {
+        if (!committed) return;
+        useShell
+          .getState()
+          .setDocumentPage(runtime.packagePath, clampPageNumber(next, pageCount));
+      });
     },
     [pageCount, runtime.packagePath],
   );
@@ -526,11 +569,74 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
     [runtime],
   );
 
+  /** Open the one active block overlay; commit the previous block first. */
+  const editBlock = useCallback(
+    (blockId: string) => {
+      if (!pageEditing) {
+        openBlockInContinuous(blockId);
+        return;
+      }
+      if (editingBlockIdRef.current === blockId) return;
+      void (async () => {
+        if (!(await commitPageEdit(runtime.packagePath))) return;
+        if (
+          !pageBlockEditingEnabledFor(
+            runtime,
+            useShell.getState().viewByDoc[runtime.packagePath],
+          )
+        ) {
+          return;
+        }
+        // Re-read the current page after the commit: an earlier edit may have
+        // re-paginated the model between the click and this continuation.
+        const currentPage = pageRef.current;
+        const fragment = currentPage?.fragments.find((item) => item.blockId === blockId);
+        if (fragment === undefined) {
+          openBlockInContinuous(blockId);
+          return;
+        }
+        runtime.selectBlock(blockId);
+        setEditSession({ blockId, fragment });
+      })();
+    },
+    [pageEditing, runtime],
+  );
+
+  const committed = useCallback(
+    (blockId: string, reason: PageEditCommitReason) => {
+      setEditSession(null);
+      if (reason === 'escape') {
+        pendingFocusBlockId.current = blockId;
+        setFocusRequest((value) => value + 1);
+      }
+    },
+    [],
+  );
+
+  // Focus the committed block after Esc, once the re-paginated page renders.
+  // If the block moved to another page it is not present here; the next Enter
+  // or page navigation keeps working and focus stays where the browser put it.
+  useEffect(() => {
+    const blockId = pendingFocusBlockId.current;
+    if (blockId === null) return;
+    const element = rootRef.current?.querySelector<HTMLElement>(
+      `[data-fragment-block="${blockId}"]`,
+    );
+    if (element === null || element === undefined) return;
+    pendingFocusBlockId.current = null;
+    element.focus({ preventScroll: true });
+  }, [page, model.runs, pageNumber, focusRequest]);
+
   const onRootKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
     const target = event.target as HTMLElement;
     const interactive = target.closest(
       'button, a, input, textarea, select, [contenteditable="true"]',
     );
+    // The Page Edit overlay is a real text editor. Page-level single-key
+    // shortcuts (⇧1/⇧2, ⌥↑/↓, PageUp/PageDown) must not swallow punctuation or
+    // word navigation while the caret is inside it; the toolbar buttons remain
+    // the page-navigation path and they commit the overlay first.
+    if (target.closest('[contenteditable="true"]') !== null) return;
     if (event.altKey && !event.metaKey && !event.ctrlKey) {
       if (event.key === 'ArrowUp') {
         event.preventDefault();
@@ -574,7 +680,8 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
     }
     if (event.key === 'Enter' && interactive === null && selectedBlockId !== null) {
       event.preventDefault();
-      openBlockInContinuous(selectedBlockId);
+      if (pageEditing) editBlock(selectedBlockId);
+      else openBlockInContinuous(selectedBlockId);
     }
   };
 
@@ -799,13 +906,25 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
                       anchorWarnings={
                         fragment.isFirst ? anchorWarnings.get(fragment.blockId) ?? [] : []
                       }
+                      editingEnabled={pageEditing}
                       onSelect={selectBlock}
+                      onEdit={editBlock}
                       onOpen={openBlockInContinuous}
                     />
                   ))}
                 </>
               )}
             </PageSurface>
+            {editSession !== null && pageEditing ? (
+              <PageBlockEditor
+                key={`${editSession.blockId}:${editSession.fragment.page.y.toFixed(2)}`}
+                runtime={runtime}
+                blockId={editSession.blockId}
+                fragment={editSession.fragment}
+                geometry={geometry}
+                onCommitted={(reason) => committed(editSession.blockId, reason)}
+              />
+            ) : null}
           </div>
         </div>
       </div>

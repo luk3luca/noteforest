@@ -264,8 +264,8 @@ export const useShell = create<ShellState>((set, get) => ({
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
       if (current.layout === layout) return state;
-      // Page opens in Read until Page Edit exists; returning to Continuous
-      // restores the default Edit mode.
+      // A layout switch opens Page in Read (no accidental editing); returning
+      // to Continuous restores the default Edit mode. Page Edit is explicit.
       const interactionMode: InteractionMode = layout === 'page' ? 'read' : 'edit';
       return {
         viewByDoc: {
@@ -278,8 +278,9 @@ export const useShell = create<ShellState>((set, get) => ({
   setDocumentInteractionMode: (packagePath, mode) =>
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
-      // Page Edit is a disabled seam: Page always stays read-only.
-      const next: InteractionMode = current.layout === 'page' ? 'read' : mode;
+      // Page Edit is opt-in: the user can toggle Edit in the Page layout. Page
+      // still opens in Read on a layout switch.
+      const next: InteractionMode = mode === 'edit' ? 'edit' : 'read';
       if (current.interactionMode === next) return state;
       return {
         viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, interactionMode: next } },

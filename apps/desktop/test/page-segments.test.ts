@@ -44,6 +44,27 @@ function paragraph(value: string, marks?: ContentNode['marks']): ContentNode {
 }
 
 describe('static page segments', () => {
+  it('renders the editor (bold/italic) and spec (strong/em) mark spellings', () => {
+    const segments = buildSegments(
+      block([
+        {
+          type: 'paragraph',
+          children: [
+            text('editor bold', [{ type: 'bold' }]),
+            text(' editor italic', [{ type: 'italic' }]),
+            text(' spec strong', [{ type: 'strong' }]),
+            text(' spec em', [{ type: 'em' }]),
+          ],
+        },
+      ]),
+      options(),
+    );
+    expect(segments[0]!.html).toContain('<strong>editor bold</strong>');
+    expect(segments[0]!.html).toContain('<em> editor italic</em>');
+    expect(segments[0]!.html).toContain('<strong> spec strong</strong>');
+    expect(segments[0]!.html).toContain('<em> spec em</em>');
+  });
+
   it('renders the current content model with safe segment boundaries', () => {
     const content: ContentNode[] = [
       paragraph('Intro <value>'),

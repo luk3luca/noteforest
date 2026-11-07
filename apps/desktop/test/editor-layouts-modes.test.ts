@@ -44,12 +44,25 @@ describe('editor layout and interaction-mode state', () => {
     expect(normalizeDocumentViewState({})).toEqual(DEFAULT_DOCUMENT_VIEW);
     expect(normalizeDocumentViewState(undefined)).toEqual(DEFAULT_DOCUMENT_VIEW);
 
+    // An explicit Page Edit persists; Page only opens Read on a new switch.
     const pageWithEdit = normalizeDocumentViewState({
       layout: 'page',
       interactionMode: 'edit',
     });
     expect(pageWithEdit.layout).toBe('page');
-    expect(pageWithEdit.interactionMode).toBe('read');
+    expect(pageWithEdit.interactionMode).toBe('edit');
+
+    // Unknown/missing modes still fall back by layout.
+    const pageUnknownMode = normalizeDocumentViewState({
+      layout: 'page',
+      interactionMode: 'preview',
+    });
+    expect(pageUnknownMode.interactionMode).toBe('read');
+    expect(normalizeDocumentViewState({ layout: 'page' }).interactionMode).toBe('read');
+    expect(
+      normalizeDocumentViewState({ layout: 'continuous', interactionMode: 'preview' })
+        .interactionMode,
+    ).toBe('edit');
 
     const invalid = normalizeDocumentViewState({
       layout: 'map',
@@ -75,7 +88,7 @@ describe('editor layout and interaction-mode state', () => {
     expect(normalizeDocumentViewState({ currentPage: 3.6 }).currentPage).toBe(4);
   });
 
-  it('switches Page to Read, keeps Page Edit disabled, and returns to Continuous Edit', () => {
+  it('opens Page in Read, allows explicit Page Edit, and returns to Continuous Edit', () => {
     const store = useShell.getState();
     expect(store.viewByDoc['doc']).toBeUndefined();
 
@@ -84,7 +97,11 @@ describe('editor layout and interaction-mode state', () => {
     expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('read');
 
     useShell.getState().setDocumentInteractionMode('doc', 'edit');
-    expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('read');
+    expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('edit');
+
+    // Re-selecting the same layout is a no-op and never resets Page Edit.
+    useShell.getState().setDocumentLayout('doc', 'page');
+    expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('edit');
 
     useShell.getState().setDocumentLayout('doc', 'continuous');
     expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('edit');
@@ -105,7 +122,7 @@ describe('editor layout and interaction-mode state', () => {
     expect(useShell.getState().viewByDoc['doc']).toMatchObject({
       zoom: 1.2,
       layout: 'page',
-      interactionMode: 'read',
+      interactionMode: 'edit',
       currentPage: 3,
       pageZoom: 1.4,
       pageFit: 'none',
@@ -196,7 +213,8 @@ describe('editor layout and interaction-mode state', () => {
       selectedBlockId: null,
       collapsed: ['keep'],
       layout: 'page',
-      interactionMode: 'read',
+      // Explicit Page Edit is restored; corrupt values are handled above.
+      interactionMode: 'edit',
       currentPage: 1,
       pageZoom: 2.5,
       pageFit: 'page',
@@ -215,7 +233,7 @@ describe('editor layout and interaction-mode state', () => {
           zoom: 1.3,
           focusBlockId: null,
           layout: 'page',
-          interactionMode: 'read',
+          interactionMode: 'edit',
           currentPage: 4,
           pageZoom: 1.7,
           pageFit: 'width',
@@ -231,7 +249,7 @@ describe('editor layout and interaction-mode state', () => {
     expect(restored.tabs[0]).toMatchObject({
       packagePath: '/tmp/doc',
       layout: 'page',
-      interactionMode: 'read',
+      interactionMode: 'edit',
       currentPage: 4,
       pageZoom: 1.7,
       pageFit: 'width',

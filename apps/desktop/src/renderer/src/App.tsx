@@ -34,6 +34,7 @@ import { buildSession } from './state/session';
 import { READ_MODE_TOAST } from './lib/editability';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
+import { commitPageEdit } from './page/page-edit-state';
 import { perfSnapshot, summarize } from './lib/perf';
 
 type FlushTestMode = 'normal' | 'error' | 'hang';
@@ -65,8 +66,20 @@ let flushTestMode: FlushTestMode = 'normal';
  * logged and never block (see `lib/flush.ts`).
  */
 async function flushOpenDocuments(): Promise<FlushResult> {
+  const documents = allRuntimes();
+  // An open Page Edit overlay is not in the runtime until it commits. Commit it
+  // first so closing the window never drops typed text, and block the flush
+  // with a reason when the block command is rejected.
+  for (const runtime of documents) {
+    if (!(await commitPageEdit(runtime.packagePath))) {
+      return {
+        status: 'error',
+        error: 'Could not commit a Page Edit block before quitting.',
+      };
+    }
+  }
   return flushDocuments({
-    documents: allRuntimes(),
+    documents,
     saveSession: () => window.noteforest.saveSession(buildSession()),
   });
 }
@@ -217,6 +230,20 @@ export function App(): JSX.Element {
       const mod = event.metaKey || event.ctrlKey;
       if (!mod) return;
       const key = event.key.toLowerCase();
+      // The Page Edit overlay owns a real local ProseMirror history. Global
+      // undo/redo must not intercept it while that editor has focus; the
+      // overlay's history handles text undo until the commit creates the one
+      // structural entry. Save commits the overlay first so the file never
+      // reports a saved state that excludes the typed text.
+      const target = event.target;
+      const insidePageEdit =
+        target instanceof Element && target.closest('[data-page-edit-overlay]') !== null;
+      if (insidePageEdit && key === 'z') return;
+      if (insidePageEdit && key === 's') {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('nf:page-edit-commit'));
+        return;
+      }
       if (key === '2' && !event.shiftKey && !event.altKey) {
         event.preventDefault();
         setActiveDocumentLayout('continuous');

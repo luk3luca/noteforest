@@ -299,7 +299,7 @@ describe('M4b1a2 Read-mode global gating', () => {
     await h.waitCanonicalBlockCount(before.blocks + 1);
   });
 
-  it('gates Page Read, keeps Page always read-only, and re-enables undo in Continuous Edit', async () => {
+  it('gates Page Read and Page Edit shell commands, and re-enables undo in Continuous Edit', async () => {
     await launch('m4b1a2-page');
     await ui.seedDemo();
     const packagePath = (await h.state()).activeTab;
@@ -330,7 +330,7 @@ describe('M4b1a2 Read-mode global gating', () => {
 
     assert.equal(await addChapter.isDisabled(), true);
     assert.equal(await addBlock.isDisabled(), true);
-    assert.equal(await page.locator('[data-view-interaction="edit"]').isDisabled(), true);
+    assert.equal(await page.locator('[data-view-interaction="edit"]').isDisabled(), false);
 
     await openPalette();
     for (const label of ['New chapter', 'Add top-level block', 'Undo', 'Redo', 'Insert table']) {
@@ -376,6 +376,32 @@ describe('M4b1a2 Read-mode global gating', () => {
     );
     await waitForReadModeToast();
 
+    // Page Edit changes the block-overlay surface only: shell authoring,
+    // block menus, sidebar add controls, palette mutations and global undo
+    // stay Continuous-only in this slice.
+    await page.keyboard.press('Meta+e');
+    await waitViewMode(packagePath, 'page', 'edit');
+    assert.equal(await addChapter.isDisabled(), true, 'sidebar add stays gated in Page Edit');
+    assert.equal(await addBlock.isDisabled(), true, 'sidebar add stays gated in Page Edit');
+    await openPalette();
+    for (const label of ['New chapter', 'Add top-level block', 'Undo', 'Redo', 'Insert table']) {
+      await assertPaletteDisabled(label);
+    }
+    await closePalette();
+    await page.keyboard.press('Meta+z');
+    await page.waitForTimeout(120);
+    assert.equal(
+      (await activeRuntimeInfo()).blocks,
+      withChild.blocks,
+      'Page Edit does not enable global undo',
+    );
+    assert.deepEqual(
+      await ui.structure(),
+      structureBeforeUndo,
+      'Page Edit leaves canonical structure unchanged',
+    );
+    await waitForReadModeToast();
+
     await chapterRow.click({ button: 'right' });
     await page.locator('.nf-menu').waitFor();
     assert.equal(
@@ -389,6 +415,8 @@ describe('M4b1a2 Read-mode global gating', () => {
     await page.keyboard.press('Escape');
     await page.locator('.nf-menu').waitFor({ state: 'detached' });
 
+    await page.keyboard.press('Meta+e');
+    await waitViewMode(packagePath, 'page', 'read');
     await h.screenshot(
       artifactsPath('m4b1a2', 'page-read-sidebar-1440x900.png'),
       { width: 1440, height: 900 },

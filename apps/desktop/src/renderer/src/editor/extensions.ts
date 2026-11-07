@@ -423,7 +423,12 @@ export const CalloutLaneNode = Node.create({
   },
 });
 
-export function createEditorExtensions() {
+export interface EditorExtensionOptions {
+  /** Placeholder copy; the Page Edit overlay names its block instead. */
+  placeholder?: string;
+}
+
+export function createEditorExtensions(options: EditorExtensionOptions = {}) {
   return [
     StarterKit.configure({
       codeBlock: false,
@@ -450,7 +455,7 @@ export function createEditorExtensions() {
       katexOptions: { throwOnError: false },
     }),
     Placeholder.configure({
-      placeholder: 'Type something, or press /',
+      placeholder: options.placeholder ?? 'Type something, or press /',
       showOnlyWhenEditable: true,
       includeChildren: true,
     }),

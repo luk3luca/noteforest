@@ -4743,6 +4743,7 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-page-sheet-wrap {
+  position: relative;
   flex: none;
 }
 
@@ -4934,4 +4935,242 @@ body.nf-dragging-block .nf-gutter-handle {
   background: #2f5f8a;
   border-color: #2f5f8a;
   color: #ffffff;
+}
+
+/* ---------------------------------------------------------------------------
+ * Page Edit — one active block overlay
+ *
+ * Editor chrome over the exact A4 sheet, never a second page layout. The
+ * overlay is absolutely positioned in page-layout pixels inside the zoomed
+ * sheet wrapper; the page behind keeps its measured geometry. Its max height is
+ * one full page content box and the body scrolls, so a block spanning pages is
+ * fully editable without clipping or reflowing the page.
+ * ------------------------------------------------------------------------- */
+
+.nf-page-edit-overlay {
+  position: absolute;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  min-height: 96px;
+  background: #ffffff;
+  color: var(--nf-page-ink);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+  overflow: visible;
+}
+
+.nf-page-edit-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--nf-page-rule);
+  background: #f4f7f9;
+  border-radius: 6px 6px 0 0;
+  font-family: var(--ui-font);
+  font-size: 11px;
+  color: var(--nf-page-muted);
+}
+
+.nf-page-edit-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--nf-page-ink);
+}
+
+.nf-page-edit-title strong {
+  font-weight: 650;
+}
+
+.nf-page-edit-hint {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--nf-page-muted);
+}
+
+.nf-page-edit-done {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  background: #ffffff;
+  border-color: var(--nf-page-rule);
+  color: var(--nf-page-ink);
+}
+
+.nf-page-edit-done:hover {
+  background: #eef3f6;
+  border-color: #b9c4cc;
+  color: var(--nf-page-ink);
+}
+
+.nf-page-edit-done:disabled {
+  opacity: 0.5;
+}
+
+.nf-page-edit-error {
+  flex: none;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e2b766;
+  background: #fff6df;
+  color: #7a4b00;
+  font-family: var(--ui-font);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.nf-page-edit-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.nf-page-edit-prose {
+  min-height: 2.4em;
+  padding: var(--nf-page-card-padding);
+  outline: none;
+  font-family: var(--ui-font);
+  font-size: var(--nf-page-body-size);
+  line-height: var(--nf-page-body-line);
+  color: var(--nf-page-ink);
+  caret-color: var(--accent);
+  overflow-wrap: break-word;
+}
+
+.nf-page-edit-prose ::selection {
+  background: rgba(47, 95, 138, 0.2);
+}
+
+.nf-page-edit-prose > *:first-child {
+  margin-top: 0;
+}
+
+.nf-page-edit-prose > *:last-child {
+  margin-bottom: 0;
+}
+
+.nf-page-edit-prose p {
+  margin: 0 0 var(--nf-page-segment-gap);
+}
+
+.nf-page-edit-prose h1,
+.nf-page-edit-prose h2,
+.nf-page-edit-prose h3 {
+  font-family: var(--ui-font);
+  font-weight: 660;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: #162126;
+  margin: 0.4em 0 0.2em;
+}
+
+.nf-page-edit-prose h1 {
+  font-size: var(--nf-page-heading-1);
+}
+
+.nf-page-edit-prose h2 {
+  font-size: var(--nf-page-heading-2);
+}
+
+.nf-page-edit-prose h3 {
+  font-size: var(--nf-page-heading-3);
+}
+
+.nf-page-edit-prose ul,
+.nf-page-edit-prose ol {
+  margin: 0 0 var(--nf-page-segment-gap);
+  padding-left: 1.4em;
+}
+
+.nf-page-edit-prose li > p {
+  margin: 0;
+}
+
+.nf-page-edit-prose blockquote {
+  margin: 0 0 var(--nf-page-segment-gap);
+  padding-left: var(--nf-card-padding);
+  border-left: 3px solid var(--nf-page-rule);
+  color: #3c4a52;
+}
+
+.nf-page-edit-prose code {
+  font-family: var(--mono-font);
+  font-size: 0.86em;
+  padding: 0.08em 0.28em;
+  border-radius: var(--nf-card-radius);
+  background: #f1f4f6;
+  border: 1px solid #e2e7eb;
+}
+
+.nf-page-edit-prose pre {
+  margin: 0 0 var(--nf-page-segment-gap);
+  padding: var(--nf-page-card-padding);
+  background: #f5f7f9;
+  border: 1px solid #e0e5e9;
+  border-radius: var(--nf-card-radius);
+  overflow-x: auto;
+  font-family: var(--mono-font);
+  font-size: var(--nf-page-code-size);
+  line-height: var(--nf-page-code-line);
+  color: var(--nf-page-ink);
+}
+
+.nf-page-edit-prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+.nf-page-edit-prose a {
+  color: var(--nf-page-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.nf-page-edit-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 var(--nf-page-segment-gap);
+  border-radius: var(--nf-card-radius);
+}
+
+.nf-page-edit-prose table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0 0 var(--nf-page-segment-gap);
+}
+
+.nf-page-edit-prose th,
+.nf-page-edit-prose td {
+  border: 1px solid #dfe5e9;
+  padding: 6px var(--nf-page-card-padding);
+  font-size: var(--nf-page-table-size);
+  line-height: var(--nf-page-table-line);
+  vertical-align: top;
+}
+
+.nf-page-edit-prose th {
+  background: #f2f5f7;
+  font-weight: 650;
+}
+
+.nf-page-edit-prose .katex {
+  font-size: 1em;
+}
+
+.nf-page-edit-prose [data-type="block-math"],
+.nf-page-edit-prose .block-math {
+  margin: 0 0 var(--nf-page-segment-gap);
+  text-align: center;
+  overflow-x: auto;
 }

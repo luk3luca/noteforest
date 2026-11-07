@@ -698,7 +698,7 @@ describe('M4b1 page view core', () => {
     await h.waitSelected(otherId);
   });
 
-  it('opens Page in Read, disables Page Edit, and returns to Continuous Edit', async () => {
+  it('opens Page in Read, enables explicit Page Edit, and returns to Continuous Edit', async () => {
     await launch(ui.isolated('m4b1a-page-seam'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
@@ -719,11 +719,8 @@ describe('M4b1 page view core', () => {
       'true',
     );
     const edit = page.locator('[data-view-interaction="edit"]');
-    assert.equal(await edit.isDisabled(), true, 'Page Edit is visibly unavailable');
-    assert.match(
-      (await edit.getAttribute('title')) ?? '',
-      /Page editing is not available yet/,
-    );
+    assert.equal(await edit.isDisabled(), false, 'Page Edit is available');
+    assert.match((await edit.getAttribute('title')) ?? '', /Page Edit mode/);
     assert.equal(
       await page.locator('[data-view-interaction="read"]').getAttribute('aria-pressed'),
       'true',
@@ -738,15 +735,26 @@ describe('M4b1 page view core', () => {
       'Page Read has no editable surface',
     );
 
-    // ⌘E in Page is disabled and announces why; it never silently no-ops.
+    // ⌘E enters Page Edit; Page still has no contenteditable until a block
+    // overlay is opened, and the page geometry is unchanged.
     await page.keyboard.press('Meta+e');
-    await page
-      .locator('[data-sonner-toast]', { hasText: 'Page editing is not available yet' })
-      .waitFor({ timeout: 5000 });
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
+    );
     assert.equal(
-      (await viewState(packagePath)).interactionMode,
-      'read',
-      'Page stays in Read after ⌘E',
+      await page.locator('.nf-editor[data-active="true"] .nf-page-view').getAttribute('data-interaction-mode'),
+      'edit',
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-page-view [contenteditable="true"]').count(),
+      0,
+      'Page Edit has no editor until a block is opened',
+    );
+    assert.equal(
+      await page.locator('[data-view-interaction="edit"]').getAttribute('aria-pressed'),
+      'true',
     );
 
     // Continuous restores the default Edit mode.
@@ -838,7 +846,7 @@ describe('M4b1 page view core', () => {
       'false',
       'the restored manual zoom is not replaced by fit page',
     );
-    assert.equal(await page.locator('[data-view-interaction="edit"]').isDisabled(), true);
+    assert.equal(await page.locator('[data-view-interaction="edit"]').isDisabled(), false);
   });
 
 });
