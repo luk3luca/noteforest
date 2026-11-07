@@ -2144,8 +2144,11 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
   **M3 gate decision (6 November 2026, product owner):** AC-21 and the image rows of AC-57 were
   **deferred to M3c3b** and are now **delivered by M3c3b1/M3c3b2**: content-addressed assets, image
   insertion/rendering, missing placeholder, normalized region/point anchors, and broken-on-asset-change
-  behavior. Crop editing and full region re-pick repair remain follow-ups; the image pipeline is still
-  a prerequisite for M4/PDF image acceptance.
+  behavior. **Image asset policy (M3c3b3):** a missing record/file is `asset-missing`; a hash mismatch
+  under `assets/<id>` is `asset-changed` and is not served; legacy `src`-only images are unsupported
+  and render as a placeholder; picker images persist intrinsic width/height. Crop editing and full
+  region re-pick repair remain follow-ups; the image pipeline is still a prerequisite for M4/PDF image
+  acceptance.
 - **AC-22 (Must).** The anchor health sheet lists broken/ambiguous anchors; relinking keeps the anchor and branch IDs; the branch target is never deleted by repair.
 
 ### 15.4 Adaptive layout and pagination

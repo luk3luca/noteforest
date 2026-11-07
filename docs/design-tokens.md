@@ -126,6 +126,10 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 - If the right group does not fit the viewport, it wraps below after the callouts, sharing the left
   trunk.
 - Callout block and trunk are indented together; no arrow-only offset and no card overflow.
+- **Anchor alignment is intentional:** a callout starts under the anchor's left edge (for an image
+  region, the region's left edge; for a point, the point x), capped at `maxAnchorOffset` 160 px. Its
+  width is the remaining lane width, so anchors farther right produce narrower callouts. This is the
+  chosen rule; it is not a per-anchor width setting.
 - **Below-stack descendants stack below too.** A callout row (or a wrapped direct child) that has its
   own direct children places them under the row with the shared `rowIndent`, not in a nested right
   group. A nested right group would occupy the same column as the enclosing parent's direct child,
