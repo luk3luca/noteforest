@@ -365,7 +365,10 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
   fit page/width/zoom, images/missing placeholders, reader/page switch. Report:
   `docs/reports/m4b1-page-view-core.md`.
 - **M4b1a** taxonomy split (`layout` + `interactionMode`), Continuous Read, Page Edit seam, session
-  persistence, rename of reader/page labels and attributes.
+  persistence, rename of reader/page labels and attributes — **merged and verified**: 753 unit, 57
+  UI, 16/16 e2e in 36.0 s, 14 recovery. Report: `docs/reports/m4b1a-editor-layouts-modes.md`.
+- **M4b1a2** focused Read-mode global gating: shell/sidebar/palette/undo cannot mutate in Read;
+  Page remains Read-only. Required before calling Read complete.
 - **M4b1b** Page Edit: optional A4-bounded editing with one active block editor overlay; Page Read
   remains the exact PDF proof.
 - **M4b1c** continuous page-break markers derived from the paginator, at block boundaries with
