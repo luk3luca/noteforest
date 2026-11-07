@@ -25,8 +25,8 @@ indent, and the rule recurses inside each child.
 
 ```text
 layoutBlock(parent):
-  measure every direct child's subtree width
-  if every child subtree fits to the right of parent:
+  measure each direct child's own card (max-content, min-content)
+  if every direct child card fits in the right band:
       place all direct children to the right, in order
   else:
       place all anchored callouts below the parent (existing order)
@@ -34,8 +34,15 @@ layoutBlock(parent):
       recurse for each child's own group
 
   wrapIndent = 18 px (initial token)
-  cumulative wrap indent is capped; the exact cap is validated in the M4 layout lab
+  wrapOriginX = min(parent.x + wrapIndent, pageContentLeft + maxWrapIndent)
+  cumulative wrap indent is capped by maxWrapIndent
 ```
+
+**What “the group fits” means.** The fit test is over the **direct children's own cards**, not the
+full descendant extent. A descendant that does not fit wraps inside its own parent by the same
+recursive rule; it must not force every sibling of an ancestor below that ancestor. This keeps the
+wrap local to the level where the overflow happens. The fit test uses the same max-content /
+min-content / `minContentWidth` comparison as a single child today, applied to all direct children.
 
 - **Origin:** `parent.x + wrapIndent`, not `parent.right`. For a top-level block, `parent.x` is the
   page content left, so the first wrap uses the page width from the left.
@@ -45,9 +52,11 @@ layoutBlock(parent):
   children.
 - **Recursive:** a child that still overflows wraps its own group at its own left origin, with the
   next indent.
-- **Indent cap:** after a small number of cumulative wrap steps, the layout stops increasing the
-  left indent and uses a fixed band near the page content left, so a pathological deep chain cannot
-  drift right. The exact cap is a design token validated in M4; it is not a per-depth global indent.
+- **Indent cap:** `wrapOriginX = min(parent.x + wrapIndent, pageContentLeft + maxWrapIndent)`.
+  Once a branch reaches the cap, deeper wraps stay in the same band instead of drifting right. The
+  initial candidate is `maxWrapIndent = 3 × wrapIndent = 54 px` (three steps); M4a validates 2/3/4
+  steps on the showcase and the 300-block fixture and records the chosen token. This is not a
+  per-depth global indent: a branch that never overflows is never indented.
 - **Same policy in reader, page view, and PDF.** D14 requires one layout engine and two renderers; a
   PDF-only rule would break WYSIWYG.
 
