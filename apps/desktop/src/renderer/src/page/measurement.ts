@@ -64,8 +64,58 @@ function abortError(): DOMException {
   return new DOMException('Page measurement was superseded.', 'AbortError');
 }
 
+function positiveDimension(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+/**
+ * Asset ids whose bytes must be decoded before the synchronous layout pass.
+ *
+ * An image node with both `width` and `height` renders those attributes into the
+ * page markup; the replaced element's aspect ratio then comes from the
+ * attributes, so its measured box cannot change when bytes arrive. Only images
+ * missing one of the two dimensions (or all of them) need a decode. Nodes
+ * without an `assetId` render the placeholder and are never requested.
+ *
+ * The dimensions are the node attributes that `segments.ts` emits, not the
+ * asset record: an asset-only dimension never reaches the HTML, so treating it
+ * as measured would depend on an unloaded image's intrinsic size.
+ */
+export function imageAssetIdsToPreload(
+  blocks: readonly ContentBlock[],
+  assetUrls: Readonly<Record<string, string>>,
+): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  const visit = (node: ContentNode): void => {
+    if (node.type === 'image') {
+      const attrs = node.attrs;
+      const assetId = attrs?.['assetId'];
+      if (typeof assetId !== 'string' || assetId.length === 0 || seen.has(assetId)) return;
+      if (
+        positiveDimension(attrs?.['width']) !== undefined &&
+        positiveDimension(attrs?.['height']) !== undefined
+      ) {
+        return;
+      }
+      const url = assetUrls[assetId];
+      if (typeof url !== 'string' || url.length === 0) return;
+      seen.add(assetId);
+      ids.push(assetId);
+      return;
+    }
+    for (const child of node.children ?? []) visit(child);
+  };
+  for (const block of blocks) visit(block.content);
+  return ids;
+}
+
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true;
+}
+
 function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted === true) throw abortError();
+  if (isAborted(signal)) throw abortError();
 }
 
 function delay(ms: number): Promise<void> {
@@ -141,49 +191,88 @@ export function createDomPageMeasurement(
       tableColumns,
       anchors: anchorsByBlock.get(block.id) ?? [],
       listIndent: PAGE_LAYOUT_OPTIONS.wrapIndent,
+      // Images with both dimensions measure from their attributes; the host
+      // must not request (and possibly 404) bytes it does not need.
+      requestIntrinsicImages: false,
     };
   }
 
-  async function preloadImages(signal: AbortSignal | undefined): Promise<void> {
-    const entries = Object.entries(resolvedAssets);
-    if (entries.length === 0) return;
+  async function preloadImages(
+    blocks: readonly ContentBlock[],
+    signal: AbortSignal | undefined,
+  ): Promise<void> {
+    throwIfAborted(signal);
+    const assetIds = imageAssetIdsToPreload(blocks, resolvedAssets);
+    if (assetIds.length === 0) return;
+
     const wrapper = document.createElement('div');
     const images: Array<{ element: HTMLImageElement; assetId: string }> = [];
-    for (const [assetId, url] of entries) {
-      const image = document.createElement('img');
-      image.src = url;
-      image.dataset['preloadAsset'] = assetId;
-      image.alt = '';
-      wrapper.appendChild(image);
-      images.push({ element: image, assetId });
-    }
-    host.replaceChildren(wrapper);
+    let resolveAborted: (() => void) | undefined;
+    const aborted = new Promise<void>((resolve) => {
+      resolveAborted = resolve;
+    });
+    const onAbort = (): void => {
+      // Detach immediately so no measurement markup survives the cancel, and
+      // resolve the wait instead of leaving it until the image timeout.
+      host.remove();
+      resolveAborted?.();
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
 
-    const loaded = Promise.all(
-      images.map(async ({ element, assetId }) => {
-        if (!element.complete) {
-          await new Promise<void>((resolve) => {
-            element.addEventListener('load', () => resolve(), { once: true });
-            element.addEventListener('error', () => resolve(), { once: true });
-          });
-        }
-        if (element.naturalWidth === 0) {
-          failedAssetIds.add(assetId);
-          delete resolvedAssets[assetId];
+    try {
+      for (const assetId of assetIds) {
+        // Never create or point an <img> after abort: the document that owns
+        // the asset may already be closing and its protocol store gone.
+        if (isAborted(signal)) {
+          host.remove();
           return;
         }
-        try {
-          if (typeof element.decode === 'function') await element.decode();
-        } catch {
-          // The load event fired but decode failed; use the same placeholder.
-          failedAssetIds.add(assetId);
-          delete resolvedAssets[assetId];
-        }
-      }),
-    );
-    await Promise.race([loaded, delay(IMAGE_SETTLE_TIMEOUT_MS)]);
-    throwIfAborted(signal);
-    host.replaceChildren();
+        const url = resolvedAssets[assetId];
+        if (url === undefined || url.length === 0) continue;
+        const image = document.createElement('img');
+        image.dataset['preloadAsset'] = assetId;
+        image.alt = '';
+        image.src = url;
+        wrapper.appendChild(image);
+        images.push({ element: image, assetId });
+      }
+      if (isAborted(signal)) {
+        host.remove();
+        return;
+      }
+      host.replaceChildren(wrapper);
+
+      const loaded = Promise.all(
+        images.map(async ({ element, assetId }) => {
+          if (!element.complete) {
+            await new Promise<void>((resolve) => {
+              element.addEventListener('load', () => resolve(), { once: true });
+              element.addEventListener('error', () => resolve(), { once: true });
+            });
+          }
+          if (element.naturalWidth === 0) {
+            failedAssetIds.add(assetId);
+            delete resolvedAssets[assetId];
+            return;
+          }
+          try {
+            if (typeof element.decode === 'function') await element.decode();
+          } catch {
+            // The load event fired but decode failed; use the same placeholder.
+            failedAssetIds.add(assetId);
+            delete resolvedAssets[assetId];
+          }
+        }),
+      );
+      await Promise.race([loaded, delay(IMAGE_SETTLE_TIMEOUT_MS), aborted]);
+      if (isAborted(signal)) {
+        host.remove();
+        return;
+      }
+      host.replaceChildren();
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
+    }
   }
 
   function measureIntrinsic(block: ContentBlock): IntrinsicWidths {
@@ -352,7 +441,7 @@ export function createDomPageMeasurement(
 
   async function prepare(blocks: readonly ContentBlock[], signal?: AbortSignal): Promise<void> {
     throwIfAborted(signal);
-    await preloadImages(signal);
+    await preloadImages(blocks, signal);
     throwIfAborted(signal);
     // Render every block once so KaTeX and the UI fonts are requested before
     // the first real measurement. The markup is the same card the layout pass
