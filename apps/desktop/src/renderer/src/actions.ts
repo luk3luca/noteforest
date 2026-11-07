@@ -11,7 +11,9 @@ import {
 } from './state/registry';
 import {
   useShell,
+  type DocumentMode,
   type MenuEntry,
+  type PageFit,
   type TabInfo,
 } from './state/shell';
 import {
@@ -304,6 +306,65 @@ export function resetActiveZoom(): void {
 export function fitActiveWidth(): void {
   if (shell().activeTab === null) return;
   window.dispatchEvent(new CustomEvent('nf:fit-width'));
+}
+
+/* -------------------------------------------------------- document modes */
+
+export function activeDocumentMode(): DocumentMode {
+  const state = shell();
+  return state.activeTab === null
+    ? 'reader'
+    : state.viewByDoc[state.activeTab]?.mode ?? 'reader';
+}
+
+/** Switch the active document between the authoring reader and page preview. */
+export function setActiveDocumentMode(mode: DocumentMode): void {
+  const path = shell().activeTab;
+  if (path === null) return;
+  shell().setDocumentMode(path, mode);
+}
+
+export function setActivePageFit(fit: PageFit): void {
+  const path = shell().activeTab;
+  if (path === null) return;
+  shell().setDocumentPageFit(path, fit);
+}
+
+export function adjustActivePageZoom(delta: number): void {
+  const state = shell();
+  const path = state.activeTab;
+  if (path === null) return;
+  const view = state.viewByDoc[path];
+  state.setDocumentPageFit(path, 'none');
+  state.setDocumentPageZoom(path, (view?.pageZoom ?? 1) + delta);
+}
+
+export function resetActivePageZoom(): void {
+  const state = shell();
+  const path = state.activeTab;
+  if (path === null) return;
+  state.setDocumentPageFit(path, 'none');
+  state.setDocumentPageZoom(path, 1);
+}
+
+/**
+ * Switch to the reader and reveal one block. The page view uses this for
+ * double-click/Return and for the explicit "Open in reader" action; the reader
+ * scroll is preserved for a plain mode toggle, but this path intentionally
+ * reveals the chosen block.
+ */
+export function openBlockInReader(blockId: string | null): void {
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  if (blockId !== null) runtime.selectBlock(blockId);
+  shell().setDocumentMode(runtime.packagePath, 'reader');
+  if (blockId !== null) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        runtime.focusBlock(blockId, { scroll: true });
+      });
+    });
+  }
 }
 
 /**
@@ -914,6 +975,8 @@ export function paletteCommands(): MenuEntry[] {
     { id: 'zoom-out', label: 'Zoom out', shortcut: '⌘−', onSelect: () => adjustActiveZoom(-0.1) },
     { id: 'zoom-reset', label: 'Actual size', shortcut: '⌘0', onSelect: resetActiveZoom },
     { id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: fitActiveWidth },
+    { id: 'reader-view', label: 'Reader view', shortcut: '⌘2', onSelect: () => setActiveDocumentMode('reader') },
+    { id: 'page-view', label: 'Page view', shortcut: '⌘3', onSelect: () => setActiveDocumentMode('page') },
     { id: 'focus-branch', label: 'Focus branch', shortcut: '⇧⌘F', onSelect: toggleFocusBranch },
     {
       id: 'rename-document',

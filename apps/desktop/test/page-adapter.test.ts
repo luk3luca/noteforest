@@ -1,0 +1,185 @@
+import { describe, expect, it } from 'vitest';
+import { createDocument, type Document } from '@noteforest/core';
+import { mmToPx } from '@noteforest/layout';
+import {
+  PAGE_LAYOUT_OPTIONS,
+  corePageGeometry,
+  toLayoutDocument,
+} from '../src/renderer/src/page/adapter';
+
+function fixture(orientation: 'portrait' | 'landscape'): Document {
+  const document = createDocument({
+    id: 'doc-m4b1',
+    chapterId: 'ch-1',
+    title: 'Page adapter',
+    pageSetup: { orientation },
+  });
+  document.manualBreakBeforeBlockIds = ['b2'];
+  document.chapters[0]!.title = 'Chapter one';
+  document.chapters[0]!.topLevelBlockIds = ['b1'];
+  document.blocks['b1'] = {
+    id: 'b1',
+    label: 'Root',
+    border: 'strong',
+    content: {
+      type: 'doc',
+      extensions: { keep: true },
+      children: [
+        {
+          type: 'paragraph',
+          attrs: { custom: 'kept' },
+          children: [
+            {
+              type: 'text',
+              text: 'Hello forest',
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['a-text'] } }],
+            },
+          ],
+        },
+      ],
+    },
+    extensions: { blockUnknown: 1 },
+  };
+  document.blocks['b2'] = {
+    id: 'b2',
+    content: {
+      type: 'doc',
+      children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Child' }] }],
+    },
+  };
+  document.branches['br-primary'] = {
+    id: 'br-primary',
+    source: { blockId: 'b1' },
+    targetBlockId: 'b2',
+    role: 'primary',
+    order: 'm',
+  };
+  document.branches['br-reference'] = {
+    id: 'br-reference',
+    source: { blockId: 'b2' },
+    targetBlockId: 'b1',
+    role: 'reference',
+    order: 'z',
+    label: 'see also',
+  };
+  document.anchors['a-text'] = {
+    id: 'a-text',
+    blockId: 'b1',
+    kind: 'text',
+    selector: { kind: 'text', quote: 'forest', prefix: 'Hello ', occurrenceHint: 1 },
+    quote: 'forest',
+  };
+  document.assets['asset-1'] = {
+    id: 'asset-1',
+    path: 'assets/asset-1',
+    mime: 'image/png',
+    width: 120,
+    height: 80,
+    alt: 'Diagram',
+  };
+  return document;
+}
+
+describe('core -> layout page adapter', () => {
+  it('preserves identity and order without mutating the canonical document', () => {
+    const document = fixture('portrait');
+    const before = JSON.stringify(document);
+    const note = toLayoutDocument(document);
+
+    expect(JSON.stringify(document)).toBe(before);
+    expect(note.id).toBe('doc-m4b1');
+    expect(note.title).toBe('Page adapter');
+    expect(Object.keys(note.blocks)).toEqual(['b1', 'b2']);
+    expect(note.blocks['b1']!.label).toBe('Root');
+    expect(note.blocks['b1']!.border).toBe('subtle');
+    expect(note.chapters.map((chapter) => chapter.id)).toEqual(['ch-1']);
+    expect(note.chapters[0]!.title).toBe('Chapter one');
+    expect(note.chapters[0]!.topLevelBlockIds).toEqual(['b1']);
+    expect(note.manualBreakBeforeBlockIds).toEqual(['b2']);
+    expect(note.branches['br-primary']).toMatchObject({
+      id: 'br-primary',
+      source: { blockId: 'b1' },
+      targetBlockId: 'b2',
+      role: 'primary',
+      order: 'm',
+    });
+    expect(note.branches['br-reference']).toMatchObject({
+      id: 'br-reference',
+      role: 'reference',
+      label: 'see also',
+    });
+    expect(note.anchors['a-text']).toMatchObject({
+      id: 'a-text',
+      blockId: 'b1',
+      kind: 'text',
+      quote: 'forest',
+      prefix: 'Hello ',
+      occurrenceHint: 1,
+    });
+    expect(note.assets['asset-1']).toEqual({
+      id: 'asset-1',
+      path: 'assets/asset-1',
+      alt: 'Diagram',
+      width: 120,
+      height: 80,
+    });
+
+    // Unknown content fields survive the copy; the canonical object is untouched.
+    const content = note.blocks['b1']!.content as Record<string, unknown>;
+    expect(content['extensions']).toEqual({ keep: true });
+    const paragraph = (content['children'] as Array<Record<string, unknown>>)[0]!;
+    expect(paragraph['attrs']).toEqual({ custom: 'kept' });
+  });
+
+  it('keeps the A4 portrait and landscape geometry', () => {
+    const portrait = corePageGeometry(fixture('portrait'));
+    expect(portrait.pageWidthMm).toBe(210);
+    expect(portrait.pageHeightMm).toBe(297);
+    expect(portrait.contentWidthPx).toBeCloseTo(mmToPx(210 - 40), 6);
+    expect(portrait.contentHeightPx).toBeCloseTo(mmToPx(297 - 40), 6);
+
+    const landscape = corePageGeometry(fixture('landscape'));
+    expect(landscape.pageWidthMm).toBe(297);
+    expect(landscape.pageHeightMm).toBe(210);
+    expect(landscape.contentWidthPx).toBeCloseTo(mmToPx(297 - 40), 6);
+    expect(landscape.contentHeightPx).toBeCloseTo(mmToPx(210 - 40), 6);
+    expect(PAGE_LAYOUT_OPTIONS.wrapPolicy).toBe('group-left-origin');
+  });
+
+  it('maps every anchor kind to the layout record without a second resolver', () => {
+    const document = fixture('portrait');
+    document.anchors['a-formula'] = {
+      id: 'a-formula',
+      blockId: 'b1',
+      kind: 'formula',
+      selector: { kind: 'formula', form: 'whole', latex: 'x^2' },
+    };
+    document.anchors['a-code'] = {
+      id: 'a-code',
+      blockId: 'b2',
+      kind: 'code',
+      selector: { kind: 'code', quote: 'const x', lineStart: 2 },
+    };
+    document.anchors['a-image'] = {
+      id: 'a-image',
+      blockId: 'b1',
+      kind: 'image',
+      selector: {
+        kind: 'image',
+        assetId: 'asset-1',
+        rect: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
+        point: false,
+        label: 'region',
+      },
+    };
+    const note = toLayoutDocument(document);
+    expect(note.anchors['a-formula']).toMatchObject({ quote: 'x^2', kind: 'formula' });
+    expect(note.anchors['a-code']).toMatchObject({
+      quote: 'const x',
+      kind: 'code',
+      codeToken: 'const x',
+      codeLine: 2,
+    });
+    expect(note.anchors['a-image']).toMatchObject({ quote: 'region', kind: 'image' });
+  });
+});

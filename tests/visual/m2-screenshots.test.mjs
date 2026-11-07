@@ -126,7 +126,7 @@ describe('NoteForest M2 visual evidence', () => {
     await shot('chapter-inline-1440x900.png', 1440, 900);
     await page.locator('.nf-chapter-title-input').press('Escape');
 
-    await page.keyboard.press('Meta+2');
+    await page.keyboard.press('Control+Tab');
     await page.waitForFunction(
       (expected) => window.__noteforestTest.state().activeTab !== expected,
       firstPath,

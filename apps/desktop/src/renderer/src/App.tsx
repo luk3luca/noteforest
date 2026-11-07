@@ -15,12 +15,17 @@ import {
   useRuntime,
 } from './state/registry';
 import {
+  activeDocumentMode,
   activeRuntime,
+  adjustActivePageZoom,
   adjustActiveZoom,
   fitActiveWidth,
   openPath,
+  resetActivePageZoom,
   resetActiveZoom,
   runMenuCommand,
+  setActiveDocumentMode,
+  setActivePageFit,
   toggleFocusBranch,
 } from './actions';
 import { buildSession } from './state/session';
@@ -180,23 +185,60 @@ export function App(): JSX.Element {
         cycleActiveTab(event.shiftKey ? -1 : 1);
         return;
       }
+      const mode = activeDocumentMode();
+      if (
+        mode === 'page' &&
+        event.shiftKey &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        if (event.code === 'Digit1') {
+          event.preventDefault();
+          setActivePageFit('page');
+          return;
+        }
+        if (event.code === 'Digit2') {
+          event.preventDefault();
+          setActivePageFit('width');
+          return;
+        }
+      }
       const mod = event.metaKey || event.ctrlKey;
       if (!mod) return;
       const key = event.key.toLowerCase();
+      if (key === '2' && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        setActiveDocumentMode('reader');
+        return;
+      }
+      if (key === '3' && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        setActiveDocumentMode('page');
+        return;
+      }
       if (key === '=' || key === '+') {
         event.preventDefault();
-        adjustActiveZoom(0.1);
+        if (mode === 'page') adjustActivePageZoom(0.1);
+        else adjustActiveZoom(0.1);
         return;
       }
       if (key === '-') {
         event.preventDefault();
-        adjustActiveZoom(-0.1);
+        if (mode === 'page') adjustActivePageZoom(-0.1);
+        else adjustActiveZoom(-0.1);
         return;
       }
       if (event.code === 'Digit0') {
         event.preventDefault();
-        if (event.shiftKey) fitActiveWidth();
-        else resetActiveZoom();
+        if (mode === 'page') {
+          if (event.shiftKey) setActivePageFit('width');
+          else resetActivePageZoom();
+        } else if (event.shiftKey) {
+          fitActiveWidth();
+        } else {
+          resetActiveZoom();
+        }
         return;
       }
       if (key === 'f' && event.shiftKey) {
@@ -205,6 +247,9 @@ export function App(): JSX.Element {
         return;
       }
       if (key >= '1' && key <= '9') {
+        // 2 and 3 are the reader/page view shortcuts (UX §7.3); the remaining
+        // digits keep the direct tab shortcuts.
+        if (key === '2' || key === '3') return;
         event.preventDefault();
         const state = useShell.getState();
         const tab = state.tabs[Number(key) - 1];
@@ -357,6 +402,7 @@ export function App(): JSX.Element {
         };
       },
       openPath: async (packagePath: string) => openPath(packagePath),
+      viewState: () => structuredClone(useShell.getState().viewByDoc),
       applyStructural: async (command) => {
         const state = useShell.getState();
         const runtime = allRuntimes().find(

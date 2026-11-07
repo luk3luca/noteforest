@@ -9,6 +9,7 @@ import {
   fitActiveWidth,
   resetActiveZoom,
   revealDocumentPath,
+  setActiveDocumentMode,
   toggleFocusBranch,
 } from '../actions';
 
@@ -37,6 +38,10 @@ export function StatusBar(): JSX.Element {
   const focusActive = useShell((state) => {
     const path = state.activeTab;
     return path !== null && (state.viewByDoc[path]?.focusBlockId ?? null) !== null;
+  });
+  const mode = useShell((state) => {
+    const path = state.activeTab;
+    return path === null ? 'reader' : state.viewByDoc[path]?.mode ?? 'reader';
   });
 
   if (runtime === null) {
@@ -112,52 +117,76 @@ export function StatusBar(): JSX.Element {
         </button>
       ) : null}
       <span className="nf-status-spacer" />
-      <div className="nf-status-view" role="group" aria-label="View controls">
+      <div className="nf-status-view nf-status-modes" role="group" aria-label="Document view">
         <button
           type="button"
-          className="nf-status-button nf-status-glyph"
-          aria-label="Zoom out"
-          title="Zoom out (⌘−)"
-          onClick={() => adjustActiveZoom(-0.1)}
+          className="nf-status-button"
+          data-view-mode="reader"
+          aria-pressed={mode === 'reader'}
+          title="Reader view (⌘2)"
+          onClick={() => setActiveDocumentMode('reader')}
         >
-          −
-        </button>
-        <button
-          type="button"
-          className="nf-status-button nf-status-zoom"
-          aria-label={`Current zoom ${Math.round(zoom * 100)} percent. Reset zoom`}
-          title="Reset zoom (⌘0)"
-          onClick={resetActiveZoom}
-        >
-          {Math.round(zoom * 100)}%
-        </button>
-        <button
-          type="button"
-          className="nf-status-button nf-status-glyph"
-          aria-label="Zoom in"
-          title="Zoom in (⌘+)"
-          onClick={() => adjustActiveZoom(0.1)}
-        >
-          +
+          Reader
         </button>
         <button
           type="button"
           className="nf-status-button"
-          title="Fit width (⇧⌘0)"
-          onClick={fitActiveWidth}
+          data-view-mode="page"
+          aria-pressed={mode === 'page'}
+          title="Page view (⌘3)"
+          onClick={() => setActiveDocumentMode('page')}
         >
-          Fit
-        </button>
-        <button
-          type="button"
-          className="nf-status-button nf-status-focus"
-          aria-pressed={focusActive}
-          title="Focus branch (⇧⌘F)"
-          onClick={toggleFocusBranch}
-        >
-          Focus
+          Page
         </button>
       </div>
+      {mode === 'reader' ? (
+        <div className="nf-status-view" role="group" aria-label="Reader view controls">
+          <button
+            type="button"
+            className="nf-status-button nf-status-glyph"
+            aria-label="Zoom out"
+            title="Zoom out (⌘−)"
+            onClick={() => adjustActiveZoom(-0.1)}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="nf-status-button nf-status-zoom"
+            aria-label={`Current zoom ${Math.round(zoom * 100)} percent. Reset zoom`}
+            title="Reset zoom (⌘0)"
+            onClick={resetActiveZoom}
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            className="nf-status-button nf-status-glyph"
+            aria-label="Zoom in"
+            title="Zoom in (⌘+)"
+            onClick={() => adjustActiveZoom(0.1)}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="nf-status-button"
+            title="Fit width (⇧⌘0)"
+            onClick={fitActiveWidth}
+          >
+            Fit
+          </button>
+          <button
+            type="button"
+            className="nf-status-button nf-status-focus"
+            aria-pressed={focusActive}
+            title="Focus branch (⇧⌘F)"
+            onClick={toggleFocusBranch}
+          >
+            Focus
+          </button>
+        </div>
+      ) : null}
       <button
         type="button"
         className="nf-status-item nf-status-path"
