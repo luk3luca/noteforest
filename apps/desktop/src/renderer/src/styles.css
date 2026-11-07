@@ -1061,6 +1061,77 @@ button:disabled {
   min-height: 200px;
 }
 
+/*
+ * Continuous derived page-break markers (M4b1c). An absolute overlay in the
+ * same content coordinates as the block cards and edges: it never participates
+ * in flow, never changes scroll height, and never moves a block. Page starts
+ * draw a dashed hint line; both chips sit on the block's top edge, half inside
+ * the card's blank top padding, so they cannot cover prose or handles.
+ */
+.nf-page-markers {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.nf-page-marker {
+  position: absolute;
+  pointer-events: none;
+}
+
+.nf-page-marker-start {
+  left: 0;
+  right: 0;
+  height: 0;
+}
+
+.nf-page-marker-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-top: 1px dashed var(--accent);
+  opacity: 0.55;
+}
+
+.nf-page-marker-chip {
+  position: absolute;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: var(--ui-font);
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.nf-page-marker-chip-start {
+  right: 0;
+  color: var(--accent);
+  pointer-events: auto;
+  cursor: default;
+}
+
+.nf-page-marker-continues .nf-page-marker-chip {
+  left: 0;
+  color: var(--warning);
+}
+
+.nf-page-marker-glyph {
+  color: var(--text-tertiary);
+}
+
 .nf-canvas-footer {
   display: flex;
   align-items: center;

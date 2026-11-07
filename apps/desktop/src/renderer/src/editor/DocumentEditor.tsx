@@ -54,6 +54,8 @@ import { StaleLockBanner } from '../shell/StaleLockBanner';
 import { recordPerf } from '../lib/perf';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 import { PageView } from '../page/PageView';
+import { PageBreakMarkers } from '../page/PageBreakMarkers';
+import { usePageModel, type PageModelState } from '../page/usePageModel';
 
 interface DocumentEditorProps {
   runtime: DocumentRuntime;
@@ -182,6 +184,10 @@ function ContinuousEmptyDocument({
 
 export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.Element {
   useRuntime(runtime.packagePath);
+  // One page model per open document, shared by the Page layout and the
+  // continuous marker layer. Switching layouts or modes never remeasures an
+  // unchanged canonical revision.
+  const pageModel = usePageModel(runtime, active);
   const layout = useShell(
     (state) => state.viewByDoc[runtime.packagePath]?.layout ?? 'continuous',
   );
@@ -205,6 +211,7 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
       active={active}
       visible={continuousVisible}
       interactionMode={interactionMode}
+      pageModel={pageModel}
     />
   ) : (
     <ContinuousEmptyDocument runtime={runtime} editingEnabled={editingEnabled} />
@@ -231,7 +238,12 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
         {continuous}
       </div>
       {layout === 'page' ? (
-        <PageView runtime={runtime} active={active} interactionMode={interactionMode} />
+        <PageView
+          runtime={runtime}
+          active={active}
+          interactionMode={interactionMode}
+          model={pageModel}
+        />
       ) : null}
     </div>
   );
@@ -242,7 +254,12 @@ function EditorSurface({
   active,
   visible,
   interactionMode,
-}: DocumentEditorProps & { visible: boolean; interactionMode: InteractionMode }): JSX.Element {
+  pageModel,
+}: DocumentEditorProps & {
+  visible: boolean;
+  interactionMode: InteractionMode;
+  pageModel: PageModelState;
+}): JSX.Element {
   useRuntime(runtime.packagePath);
   const editingEnabled = useShell((state) =>
     editingEnabledFor(runtime, state.viewByDoc[runtime.packagePath]),
@@ -747,6 +764,19 @@ function EditorSurface({
                 runtime.focusBlock(targetId, { select: true });
               }}
             />
+            {visible ? (
+              <PageBreakMarkers
+                pages={pageModel.pages}
+                rects={rects}
+                ready={pageModel.ready}
+                error={pageModel.error}
+                updating={pageModel.updating}
+                measurementCalls={pageModel.measurementCalls}
+                runs={pageModel.runs}
+                lastRunMs={pageModel.lastRunMs}
+                lastComputeMs={pageModel.lastComputeMs}
+              />
+            ) : null}
           </div>
           <div className="nf-canvas-footer" contentEditable={false}>
             <button
