@@ -1,3 +1,7 @@
+**Status: SUPERSEDED / CANCELLED (7 November 2026).** The product owner rejected markers over a
+DOM-flow reader: reader/page/PDF must share one layout engine. Do not implement this brief. The
+replacement design is `docs/tasks/m4b-unified-reader-design.md`.
+
 # M4b2 — reader page-break markers and full view-state contract
 
 **Role:** Implementer / Builder
