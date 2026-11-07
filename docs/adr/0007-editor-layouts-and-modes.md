@@ -45,9 +45,9 @@ Two independent axes:
    and write the same document; pages are derived, never containers.
 2. **Page layout and PDF share one geometry and one measurement.** The page editor is the visual proof
    of the PDF. Page Edit and Page Read differ only in interactivity, not geometry.
-3. **Continuous has no pages.** It does not compute or display page breaks, page numbers, page
-   markers, continuation chips, or page-width guides. Pages exist only in Page Read/Edit and PDF;
-   the Page layout is the exact geometry. Continuous is a pure continuous editor.
+3. **The continuous layout does not compute page breaks.** It consumes the paginator's breaks as
+   markers/hints. It does not use CSS re-pagination. Page layout is the exact geometry; continuous
+   markers are derived hints and must not claim pixel parity.
 4. **Default:** Continuous + Edit. Page opens in Read mode. Page + Edit is opt-in and uses one active
    block editor overlay; it is not a free canvas and does not add a second paginator.
 5. **Page layout and PDF show the full document content.** Collapse is a continuous/outline
@@ -71,9 +71,8 @@ Positive:
 - The page-bounded editor gives an optional WYSIWYG writing surface without turning the continuous
   editor into a print renderer.
 - PDF always matches the page layout.
-- The continuous editor keeps fast authoring and does not inherit page-boundary friction or page
-  chrome.
-- Page-break information lives only in Page Read/Edit and PDF, where pages exist.
+- The continuous editor keeps fast authoring and does not inherit page-boundary friction.
+- Page-break markers in the continuous editor are honest hints from the same paginator.
 
 Negative / new work:
 
@@ -96,10 +95,8 @@ Negative / new work:
   `nf-reader-surface`, `data-reader-surface`, `data-page-open-reader`.
 - **Cancelled:** the M4b2 brief that added markers over the DOM reader. Markers belong to the
   continuous layout after the taxonomy/read-mode adaptation.
-- **Cancelled:** continuous page-break markers. The product owner rejected page chrome in the
-  continuous layout; pages belong to Page/PDF only.
-- **Later:** Page Edit actions, PDF print compositor. They are M4b/M4c slices, not a separate
-  milestone.
+- **Later:** Page Edit, continuous page-break markers, PDF print compositor. They are M4b/M4c slices,
+  not a separate milestone.
 
 ## Revisit triggers
 
