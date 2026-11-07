@@ -13,6 +13,7 @@ import {
   writePagePackage,
 } from '../support/page-fixtures.mjs';
 
+
 const tempRoot = artifactsPath('m4b1b1-ui');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
@@ -722,6 +723,27 @@ describe('M4b1b1 Page Edit content overlay', () => {
     assert.match(await overlay().locator('[data-page-edit-error]').textContent(), /no longer exists|not exist/i);
     assert.equal(await overlay().count(), 1, 'a rejected commit keeps the overlay');
     assert.match(await overlay().textContent(), /This text must survive\./);
+
+    // Restore a block with the same identity and retry: the same overlay buffer
+    // commits successfully, proving the failure path keeps a usable editor.
+    const chapterId = (await ui.structure()).chapters[0].id;
+    await ui.applyCommand({
+      type: 'block.create',
+      blockId: 'parent',
+      content: textBlock('parent', 'Parent topic', 'Restored parent.').content,
+      placement: { kind: 'top-level', chapterId },
+    });
+    await overlay().locator('[data-page-edit-scroll]').click();
+    await page.keyboard.press('Meta+Enter');
+    await waitOverlayClosed();
+    await page.waitForFunction(
+      () => {
+        const content = window.__noteforestTest.structure()?.blocks?.['parent']?.content;
+        return JSON.stringify(content).includes('This text must survive.');
+      },
+      undefined,
+      { timeout: 10000 },
+    );
   });
 
   it('measures the 300-block page model while opening, typing, and committing one overlay', async () => {
