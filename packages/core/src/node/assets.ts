@@ -16,6 +16,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type {
+  AssetAvailability,
   AssetId,
   AssetInsertInput,
   AssetInsertResult,
@@ -76,6 +77,17 @@ export class NodeAssetStore implements AssetStore {
   /** Metadata from inserts in this process; the package file is the truth. */
   private readonly inserted = new Map<AssetId, Asset>();
 
+  /**
+   * Assets whose bytes were hashed successfully in this open session. The
+   * session is the store lifetime: closing/reopening the document (including a
+   * reload after an external change) creates a new store and therefore
+   * re-verifies every asset once.
+   */
+  private readonly verified = new Set<AssetId>();
+
+  /** Last availability result, so opening a snapshot does not re-read files. */
+  private readonly availabilityCache = new Map<AssetId, AssetAvailability>();
+
   constructor(options: NodeAssetStoreOptions) {
     this.packagePath = path.resolve(options.packagePath);
     this.assetsDirectory = path.join(this.packagePath, ASSETS_DIRECTORY);
@@ -107,6 +119,93 @@ export class NodeAssetStore implements AssetStore {
   }
 
   async read(id: AssetId): Promise<AssetReadResult> {
+    return this.readInternal(id, false);
+  }
+
+  /**
+   * Read bytes and verify the content address once per open session. The first
+   * successful read hashes the file; later reads in the same store trust the
+   * cached verification. A reload or explicit `invalidate` forces a re-check,
+   * so external replacement is detected without hashing on every `<img>` load.
+   */
+  async readVerified(id: AssetId): Promise<AssetReadResult> {
+    return this.readInternal(id, true);
+  }
+
+  /** Drop cached verification for one asset, or for every asset. */
+  invalidate(id?: AssetId): void {
+    if (id === undefined) {
+      this.verified.clear();
+      this.availabilityCache.clear();
+      return;
+    }
+    this.verified.delete(id);
+    this.availabilityCache.delete(id);
+  }
+
+  /**
+   * Drop the cached availability decision without forcing a re-hash. Used when
+   * a command adds/removes the record: the bytes, if already verified, stay
+   * trusted for this session.
+   */
+  invalidateAvailability(id?: AssetId): void {
+    if (id === undefined) this.availabilityCache.clear();
+    else this.availabilityCache.delete(id);
+  }
+
+  /**
+   * Typed availability used by the protocol, runtime/health, and export marker
+   * path. The record must exist and the bytes must still hash to the id.
+   */
+  async availability(id: AssetId): Promise<AssetAvailability> {
+    const cached = this.availabilityCache.get(id);
+    if (cached !== undefined) return cached;
+    const result = await this.checkAvailability(id);
+    this.availabilityCache.set(id, result);
+    return result;
+  }
+
+  private async checkAvailability(id: AssetId): Promise<AssetAvailability> {
+    const record = this.assetRecord?.(id);
+    if (record === undefined) {
+      return {
+        id,
+        state: 'asset-missing',
+        detail: 'record-missing',
+        message: `asset record ${id} is missing`,
+      };
+    }
+    const read = await this.readVerified(id);
+    if (read.ok) return { id, state: 'available' };
+    if (read.reason === 'changed') {
+      return {
+        id,
+        state: 'asset-changed',
+        detail: 'hash-mismatch',
+        message: read.message,
+      };
+    }
+    if (read.reason === 'missing') {
+      return {
+        id,
+        state: 'asset-missing',
+        detail: 'file-missing',
+        message: read.message,
+      };
+    }
+    return {
+      id,
+      state: 'asset-missing',
+      detail: 'unreadable',
+      message: read.message,
+    };
+  }
+
+  async availabilityFor(ids: readonly AssetId[]): Promise<AssetAvailability[]> {
+    return Promise.all(ids.map((id) => this.availability(id)));
+  }
+
+  private async readInternal(id: AssetId, verify: boolean): Promise<AssetReadResult> {
     if (!isAssetId(id)) {
       return {
         ok: false,
@@ -143,6 +242,19 @@ export class NodeAssetStore implements AssetStore {
           error instanceof Error ? error.message : String(error)
         }`,
       };
+    }
+    if (verify && !this.verified.has(id)) {
+      const actual = this.idForBytes(bytes);
+      if (actual !== id) {
+        return {
+          ok: false,
+          id,
+          reason: 'changed',
+          actual,
+          message: `asset ${id} bytes hash to ${actual}`,
+        };
+      }
+      this.verified.add(id);
     }
     const record =
       this.assetRecord?.(id) ??
@@ -217,6 +329,10 @@ export class NodeAssetStore implements AssetStore {
 
     const asset = this.assetRecord?.(id) ?? assetForInput(id, input);
     this.inserted.set(id, asset);
+    // The bytes we just wrote are the id by construction; no second hash read
+    // is needed for this session.
+    this.verified.add(id);
+    this.availabilityCache.set(id, { id, state: 'available' });
     return { ok: true, asset, created: true };
   }
 }

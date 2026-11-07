@@ -12,6 +12,7 @@ import type {
   AnchorKind,
   AnchorResolution,
   AnchorResolutionReason,
+  AssetAvailabilityIndex,
   Branch,
   BranchRole,
   Document,
@@ -203,8 +204,14 @@ function healthBlockTitle(
  * list. An idle row is a valid branchless record, not an error; it is shown
  * only under the All anchors filter so Remove anchor stays reachable.
  */
-export function buildAnchorHealthRows(document: Document): AnchorHealthRow[] {
-  const resolutions = resolveDocumentAnchors(document);
+export function buildAnchorHealthRows(
+  document: Document,
+  assetAvailability?: AssetAvailabilityIndex,
+): AnchorHealthRow[] {
+  const resolutions = resolveDocumentAnchors(
+    document,
+    assetAvailability === undefined ? {} : { assetAvailability },
+  );
   const rows: AnchorHealthRow[] = [];
   for (const anchorId of resolutions.anchorIds) {
     const resolution = resolutions.byId[anchorId];

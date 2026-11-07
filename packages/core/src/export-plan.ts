@@ -18,6 +18,7 @@
 
 import type {
   AnchorResolution,
+  AnchorResolutionOptions,
   AnchorResolutionReason,
   AnchorState,
 } from './anchors.js';
@@ -158,8 +159,11 @@ function orderedChildren(
  * still traversed defensively, skipping blocks and branches that cannot be
  * emitted once.
  */
-export function buildExportPlan(document: Document): ExportPlan {
-  const resolutions = resolveDocumentAnchors(document).byId;
+export function buildExportPlan(
+  document: Document,
+  options: AnchorResolutionOptions = {},
+): ExportPlan {
+  const resolutions = resolveDocumentAnchors(document, options).byId;
   const childrenBySource = primaryChildrenBySource(document);
   const missing = new Map<string, AnchorResolution>();
   const entries: ExportPlanEntry[] = [];

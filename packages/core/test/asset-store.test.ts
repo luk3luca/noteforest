@@ -183,6 +183,88 @@ describe('NodeAssetStore', () => {
       await removeDir(packagePath);
     }
   });
+
+  it('verifies the content address once per session and re-checks after invalidation', async () => {
+    const packagePath = await makeTempDir('noteforest-asset-verify-');
+    const id = sha256(PNG_BYTES);
+    const record: Asset = {
+      id,
+      path: `assets/${id}`,
+      mime: 'image/png',
+      bytes: PNG_BYTES.byteLength,
+    };
+    try {
+      const store = new NodeAssetStore({ packagePath, assetRecord: () => record });
+      await fs.mkdir(path.join(packagePath, 'assets'), { recursive: true });
+      const filePath = path.join(packagePath, 'assets', id);
+      await fs.writeFile(filePath, PNG_BYTES);
+
+      await expect(store.readVerified(id)).resolves.toMatchObject({ ok: true });
+      await expect(store.availability(id)).resolves.toMatchObject({ state: 'available' });
+
+      // Replace the bytes under the same content-addressed name. The verified
+      // result is cached for this open session, so the next read does not hash.
+      const changedBytes = new Uint8Array(PNG_BYTES);
+      changedBytes[3] = (changedBytes[3] ?? 0) ^ 0xff;
+      await fs.writeFile(filePath, changedBytes);
+      await expect(store.readVerified(id)).resolves.toMatchObject({ ok: true });
+      await expect(store.availability(id)).resolves.toMatchObject({ state: 'available' });
+
+      // A reload creates a new store; `invalidate` models that re-check here.
+      store.invalidate(id);
+      const changed = await store.readVerified(id);
+      expect(changed.ok).toBe(false);
+      if (changed.ok) return;
+      expect(changed.reason).toBe('changed');
+      expect(changed.id).toBe(id);
+      await expect(store.availability(id)).resolves.toMatchObject({
+        state: 'asset-changed',
+        detail: 'hash-mismatch',
+      });
+    } finally {
+      await removeDir(packagePath);
+    }
+  });
+
+  it('reports typed availability for a missing record, missing file, and unreadable file', async () => {
+    const packagePath = await makeTempDir('noteforest-asset-availability-');
+    const id = sha256(PNG_BYTES);
+    try {
+      const recordless = new NodeAssetStore({ packagePath, assetRecord: () => undefined });
+      await expect(recordless.availability(id)).resolves.toMatchObject({
+        state: 'asset-missing',
+        detail: 'record-missing',
+      });
+
+      const missingRecord: Asset = {
+        id,
+        path: `assets/${id}`,
+        mime: 'image/png',
+        bytes: PNG_BYTES.byteLength,
+      };
+      const missingFile = new NodeAssetStore({
+        packagePath,
+        assetRecord: () => missingRecord,
+      });
+      await expect(missingFile.availability(id)).resolves.toMatchObject({
+        state: 'asset-missing',
+        detail: 'file-missing',
+      });
+      await expect(missingFile.availabilityFor([id])).resolves.toEqual([
+        expect.objectContaining({ id, state: 'asset-missing', detail: 'file-missing' }),
+      ]);
+
+      await fs.mkdir(path.join(packagePath, 'assets'), { recursive: true });
+      await fs.mkdir(path.join(packagePath, 'assets', id));
+      missingFile.invalidate(id);
+      await expect(missingFile.availability(id)).resolves.toMatchObject({
+        state: 'asset-missing',
+        detail: 'unreadable',
+      });
+    } finally {
+      await removeDir(packagePath);
+    }
+  });
 });
 
 describe('asset commands', () => {

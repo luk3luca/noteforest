@@ -6,7 +6,7 @@
  * in the main process, and only typed snapshots/cross the bridge.
  */
 
-import type { Asset, CreatedIds, Document, DocumentCommand } from '@noteforest/core';
+import type { Asset, AssetAvailability, CreatedIds, Document, DocumentCommand } from '@noteforest/core';
 
 export type OpenStatus = 'editable' | 'read-only';
 
@@ -48,6 +48,11 @@ export interface OpenDocumentSnapshot {
   readOnlyReason?: string;
   /** Existing lock metadata for a `stale-lock` or `locked` read-only open. */
   lock?: LockInfoView;
+  /**
+   * Session asset availability. Absent means no asset has been checked; a
+   * missing file or hash mismatch is listed as `asset-missing`/`asset-changed`.
+   */
+  assetAvailability?: AssetAvailability[];
   errors: string[];
   warnings: string[];
 }
@@ -149,6 +154,8 @@ export interface ApplyResult {
   revision?: number;
   created?: CreatedIds;
   inverse?: DocumentCommand | null;
+  /** Availability for affected assets; only present when a command touched one. */
+  assetAvailability?: AssetAvailability[];
   message?: string;
   code?: string;
 }

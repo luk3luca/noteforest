@@ -21,13 +21,15 @@ export function StatusBar(): JSX.Element {
   const counts = useMemo(() => currentWordCount(), [runtime?.seq]);
   const anchorHealth = useMemo(() => {
     if (runtime === null) return { broken: 0, ambiguous: 0, total: 0 };
-    const resolved = resolveDocumentAnchors(runtime.document).counts;
+    const resolved = resolveDocumentAnchors(runtime.document, {
+      assetAvailability: runtime.assetAvailability,
+    }).counts;
     return {
       broken: resolved.broken,
       ambiguous: resolved.ambiguous,
       total: resolved.broken + resolved.ambiguous,
     };
-  }, [runtime, runtime?.document]);
+  }, [runtime, runtime?.document, runtime?.version, runtime?.assetAvailability]);
   const zoom = useShell((state) => {
     const path = state.activeTab;
     return path === null ? 1 : state.viewByDoc[path]?.zoom ?? 1;

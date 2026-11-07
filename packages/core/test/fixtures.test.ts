@@ -10,7 +10,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { resolveAnchor } from '../src/anchors.js';
+import type { AssetAvailabilityIndex } from '../src/assets.js';
 import { planBlockMerge, planBlockSplit } from '../src/block-ops.js';
+import { buildExportPlan } from '../src/export-plan.js';
 import { parseDocumentJson } from '../src/serialize.js';
 import type { ContentNode, Document } from '../src/types.js';
 import { deterministicContext, run } from './helpers.js';
@@ -123,6 +125,22 @@ const M3_FIXTURE_MATRIX: Array<{
       'm3fe-a-term': { state: 'resolved', reason: 'exact-binding' },
     },
   },
+  {
+    // AC-57 image matrix: two regions on one image, two images sharing an
+    // asset, replacement, a missing record, and the default states for the
+    // file-missing/hash-changed cases the availability table injects.
+    file: 'm3-image-regions.json',
+    covers: ['image region', 'shared image asset', 'image display resize', 'image replacement', 'image missing record', 'image missing file', 'image hash changed'],
+    anchors: {
+      'm3i-a-region-a': { state: 'resolved', reason: 'exact-binding' },
+      'm3i-a-region-b': { state: 'resolved', reason: 'exact-binding' },
+      'm3i-a-shared': { state: 'resolved', reason: 'exact-binding' },
+      'm3i-a-replaced': { state: 'broken', reason: 'asset-changed' },
+      'm3i-a-missing-record': { state: 'broken', reason: 'asset-missing' },
+      'm3i-a-file-missing': { state: 'resolved', reason: 'exact-binding' },
+      'm3i-a-hash-changed': { state: 'resolved', reason: 'exact-binding' },
+    },
+  },
 ];
 
 describe('M3 fixture matrix', () => {
@@ -159,10 +177,17 @@ describe('M3 fixture matrix', () => {
       'empty chapter',
       'formula term',
       'formula term edit',
+      'image display resize',
+      'image hash changed',
+      'image missing file',
+      'image missing record',
+      'image region',
+      'image replacement',
       'merge',
       'reference',
       'reference cycle',
       'shared child',
+      'shared image asset',
       'split',
       'text',
       'whole formula',
@@ -213,6 +238,106 @@ function nodeWithAnchor(content: ContentNode, anchorId: string): ContentNode {
   if (found === null) throw new Error(`no content node carries anchor "${anchorId}"`);
   return found;
 }
+
+describe('M3 image fixture availability matrix', () => {
+  const FOREST = '2492f7a53cb3fced6fd50d12d994a18891e56945d3a508a593678b31992c6f04';
+  const WIDE = 'f5985b660c895a395dd932ae1e86a249444f0b72bc91b4c98ee7fb60bfd77cc0';
+
+  it('marks a missing file or changed hash broken while keeping branch, target, and alt', async () => {
+    const document = await loadFixture('m3-image-regions.json');
+    const cases: Array<{
+      label: string;
+      anchorId: string;
+      branchId: string;
+      targetBlockId: string;
+      availability: AssetAvailabilityIndex;
+      reason: 'asset-missing' | 'asset-changed';
+    }> = [
+      {
+        label: 'missing file',
+        anchorId: 'm3i-a-file-missing',
+        branchId: 'm3i-e-file-missing',
+        targetBlockId: 'm3i-file-missing-child',
+        availability: { [WIDE]: 'asset-missing' },
+        reason: 'asset-missing',
+      },
+      {
+        label: 'changed hash',
+        anchorId: 'm3i-a-hash-changed',
+        branchId: 'm3i-e-hash',
+        targetBlockId: 'm3i-hash-child',
+        availability: { [FOREST]: 'asset-changed' },
+        reason: 'asset-changed',
+      },
+    ];
+
+    for (const entry of cases) {
+      const anchorBefore = document.anchors[entry.anchorId];
+      if (anchorBefore === undefined) throw new Error(`${entry.label}: anchor is missing`);
+      const branchBefore = structuredClone(document.branches[entry.branchId]);
+      const targetBefore = structuredClone(document.blocks[entry.targetBlockId]);
+      const imageBlock = document.blocks[anchorBefore.blockId];
+      const image = imageBlock?.content.children?.find((node) => node.type === 'image');
+      const altBefore = image?.attrs?.['alt'];
+      const anchorSnapshot = structuredClone(anchorBefore);
+
+      const resolution = resolveAnchor(document, entry.anchorId, {
+        assetAvailability: entry.availability,
+      });
+      expect(
+        { state: resolution.state, reason: resolution.reason },
+        entry.label,
+      ).toEqual({ state: 'broken', reason: entry.reason });
+      expect(document.anchors[entry.anchorId], entry.label).toEqual(anchorSnapshot);
+      expect(document.branches[entry.branchId], entry.label).toEqual(branchBefore);
+      expect(document.blocks[entry.targetBlockId], entry.label).toEqual(targetBefore);
+      expect(image?.attrs?.['alt'], entry.label).toBe(altBefore);
+
+      const plan = buildExportPlan(document, { assetAvailability: entry.availability });
+      const marker = plan.markers.find((candidate) => candidate.anchorId === entry.anchorId);
+      expect(marker, entry.label).toMatchObject({
+        state: 'broken',
+        reason: entry.reason,
+        branchIds: [entry.branchId],
+        targetBlockIds: [entry.targetBlockId],
+      });
+      expect(
+        plan.entries.filter((candidate) => candidate.blockId === entry.targetBlockId),
+        entry.label,
+      ).toHaveLength(1);
+    }
+  });
+
+  it('keeps normalized image geometry stable across display sizes', async () => {
+    const document = await loadFixture('m3-image-regions.json');
+    const selector = document.anchors['m3i-a-region-a']?.selector;
+    if (selector === undefined || selector['kind'] !== 'image') {
+      throw new Error('image region fixture anchor is missing');
+    }
+    const rect = selector['rect'];
+    if (typeof rect !== 'object' || rect === null) throw new Error('region rect is missing');
+    const rectRecord = rect as Record<string, unknown>;
+    const x = Number(rectRecord['x']);
+    const y = Number(rectRecord['y']);
+    const width = Number(rectRecord['width']);
+    const height = Number(rectRecord['height']);
+    for (const value of [x, y, width, height]) {
+      if (!Number.isFinite(value)) throw new Error('region rect value is missing');
+    }
+    // Display resize only converts normalized coordinates to pixels; the
+    // canonical selector is untouched and the relative rectangle is identical.
+    for (const display of [
+      { width: 640, height: 360 },
+      { width: 960, height: 540 },
+      { width: 420, height: 236.25 },
+    ]) {
+      expect((display.width * x) / display.width).toBeCloseTo(x, 12);
+      expect((display.height * y) / display.height).toBeCloseTo(y, 12);
+      expect((display.width * width) / display.width).toBeCloseTo(width, 12);
+      expect((display.height * height) / display.height).toBeCloseTo(height, 12);
+    }
+  });
+});
 
 describe('M3 formula-term edit fixture', () => {
   it('re-resolves a term after edits around it and keeps the anchor, branch, and target', async () => {

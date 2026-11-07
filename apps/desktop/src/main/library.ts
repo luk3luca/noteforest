@@ -13,6 +13,8 @@ import {
   createDocument as createCoreDocument,
   orderKeysAfter,
   validateDocument,
+  type AssetAvailability,
+  type AssetReadResult,
   type Branch,
   type ContentBlock,
   type ContentNode,
@@ -69,6 +71,7 @@ import {
   SUPPORTED_IMAGE_MIMES,
   imageMimeFromName,
 } from '../shared/images.js';
+import { readImageDimensions } from './image-dimensions.js';
 
 const DEFAULT_SESSION: SessionState = {
   tabs: [],
@@ -115,7 +118,32 @@ function lockInfoView(store: DocumentStore): LockInfoView | undefined {
   };
 }
 
-function snapshot(store: DocumentStore): OpenDocumentSnapshot | null {
+/**
+ * Session availability for every asset record. A record whose MIME is not an
+ * allowed image type is reported as unavailable (`asset-missing` with an
+ * `unsupported-mime` detail) so a crafted document cannot make a non-image
+ * response part of the health/export path.
+ */
+async function assetAvailabilityFor(store: DocumentStore): Promise<AssetAvailability[]> {
+  const document = store.document;
+  if (document === null) return [];
+  const entries: AssetAvailability[] = [];
+  for (const asset of Object.values(document.assets)) {
+    if (!SUPPORTED_IMAGE_MIMES.has(asset.mime)) {
+      entries.push({
+        id: asset.id,
+        state: 'asset-missing',
+        detail: 'unsupported-mime',
+        message: `asset ${asset.id} has an unsupported MIME type`,
+      });
+      continue;
+    }
+    entries.push(await store.assets.availability(asset.id));
+  }
+  return entries;
+}
+
+async function snapshot(store: DocumentStore): Promise<OpenDocumentSnapshot | null> {
   if (store.document === null) return null;
   const lock = lockInfoView(store);
   return {
@@ -124,6 +152,7 @@ function snapshot(store: DocumentStore): OpenDocumentSnapshot | null {
     status: store.readOnly ? 'read-only' : 'editable',
     ...(store.readOnlyReason === undefined ? {} : { readOnlyReason: store.readOnlyReason }),
     ...(lock === undefined ? {} : { lock }),
+    assetAvailability: await assetAvailabilityFor(store),
     errors: store.errors.map((error) => error.message),
     warnings: store.warnings.map((warning) => warning.message),
   };
@@ -232,7 +261,7 @@ export async function openStore(packagePath: string): Promise<OpenStoreResult> {
   }
   const existing = repository.get(resolved);
   if (existing !== null) {
-    const current = snapshot(existing);
+    const current = await snapshot(existing);
     if (current !== null) return { store: existing, snapshot: current };
   }
 
@@ -243,7 +272,7 @@ export async function openStore(packagePath: string): Promise<OpenStoreResult> {
     // document, no lock, and no writable path.
     return { recovery: await recoveryViewFromOpen(result) };
   }
-  const current = snapshot(result.store);
+  const current = await snapshot(result.store);
   if (current === null) {
     return { recovery: await recoveryViewFromOpen(result) };
   }
@@ -278,7 +307,7 @@ export async function takeOverStaleLock(
 
   const existing = repository.get(resolved);
   if (existing !== null) {
-    const current = snapshot(existing);
+    const current = await snapshot(existing);
     if (current !== null && !existing.readOnly) return { ok: true, snapshot: current };
     await repository.close(resolved);
   }
@@ -319,7 +348,7 @@ export async function takeOverStaleLock(
         'The document is still read-only. Another session may have acquired the lock before the takeover completed; reopen the document to inspect it.',
     };
   }
-  const current = snapshot(opened.store);
+  const current = await snapshot(opened.store);
   if (current === null) {
     await repository.close(resolved);
     return { ok: false, code: 'unknown', message: 'The reopened document has no snapshot.' };
@@ -348,7 +377,7 @@ export async function createDocument(input: { title?: string }): Promise<{
     }
     await repository.save(created.packagePath);
   }
-  const current = snapshot(created.store);
+  const current = await snapshot(created.store);
   if (current === null) return { ok: false, message: 'The new document could not be opened.' };
   return { ok: true, snapshot: current, library: await scanLibrary() };
 }
@@ -366,12 +395,43 @@ export async function applyCommand(
   if (!result.ok) {
     return { ok: false, message: result.message, code: result.code };
   }
+  const affectedAssetIds = result.affected.assetIds;
+  // A command that adds/removes a record invalidates the cached availability
+  // decision for that id. Verified bytes stay trusted (the file is content
+  // addressed), so an import is not hashed twice in one session.
+  for (const id of affectedAssetIds) opened.store.assets.invalidateAvailability(id);
+  const assetAvailability =
+    affectedAssetIds.length === 0
+      ? undefined
+      : await Promise.all(
+          affectedAssetIds.map(async (id) => {
+            const asset = result.document.assets[id];
+            if (asset === undefined) {
+              return {
+                id,
+                state: 'asset-missing' as const,
+                detail: 'record-missing' as const,
+                message: `asset record ${id} is missing`,
+              };
+            }
+            if (!SUPPORTED_IMAGE_MIMES.has(asset.mime)) {
+              return {
+                id,
+                state: 'asset-missing' as const,
+                detail: 'unsupported-mime' as const,
+                message: `asset ${id} has an unsupported MIME type`,
+              };
+            }
+            return opened.store.assets.availability(id);
+          }),
+        );
   return {
     ok: true,
     document: result.document,
     revision: result.revision,
     created: result.created,
     inverse: result.inverse,
+    ...(assetAvailability === undefined ? {} : { assetAvailability }),
   };
 }
 
@@ -423,6 +483,9 @@ export async function importImageFile(
     bytes,
     mime,
     originalName: path.basename(filePath),
+    // Native-picker images must carry intrinsic dimensions: M4 layout/PDF
+    // never falls back to the 220×120 estimator once the header is readable.
+    ...(readImageDimensions(bytes) ?? {}),
   });
   if (!inserted.ok) return { ok: false, message: inserted.error.message };
   return { ok: true, asset: inserted.asset };
@@ -470,17 +533,105 @@ export async function importImageBytes(
       : undefined;
   const width = parseOptionalDimension(input.width);
   const height = parseOptionalDimension(input.height);
+  // Paste/drop normally supplies renderer-measured dimensions. When it cannot
+  // (for example a format `createImageBitmap` refuses), decode the header here
+  // so the canonical asset still has usable intrinsic dimensions.
+  const decoded = width === undefined || height === undefined ? readImageDimensions(bytes) : null;
+  const finalWidth = width ?? decoded?.width;
+  const finalHeight = height ?? decoded?.height;
   const alt = typeof input.alt === 'string' ? input.alt : undefined;
   const inserted = await store.assets.insert({
     bytes,
     mime,
     ...(originalName === undefined ? {} : { originalName }),
-    ...(width === undefined ? {} : { width }),
-    ...(height === undefined ? {} : { height }),
+    ...(finalWidth === undefined ? {} : { width: finalWidth }),
+    ...(finalHeight === undefined ? {} : { height: finalHeight }),
     ...(alt === undefined ? {} : { alt }),
   });
   if (!inserted.ok) return { ok: false, message: inserted.error.message };
   return { ok: true, asset: inserted.asset };
+}
+
+export type OpenAssetFailureReason = 'asset-missing' | 'asset-changed' | 'asset-unsupported';
+
+export type OpenAssetResolution =
+  | { ok: true; id: string; mime: string; bytes: Uint8Array }
+  | { ok: false; id: string; reason: OpenAssetFailureReason; message: string };
+
+/** Minimal store shape needed to resolve one image asset; testable without IPC. */
+export interface AssetResolutionStore {
+  readonly packagePath: string;
+  readonly assetsPath: string;
+  readonly document: Document | null;
+  readonly assets: { readVerified(id: string): Promise<AssetReadResult> };
+}
+
+function assetMissing(id: string, message: string): OpenAssetResolution {
+  return { ok: false, id, reason: 'asset-missing', message };
+}
+
+/**
+ * Resolve and serve one content-addressed image from a specific package.
+ *
+ * The record must exist, its MIME must be an allowed image type, and the file
+ * must stay inside a real (non-symlinked-out) `assets/` directory. Bytes come
+ * from the verified read: a missing file or SHA-256 mismatch returns a typed
+ * failure and never falls back to the changed bytes.
+ */
+export async function resolveStoreAsset(
+  store: AssetResolutionStore,
+  id: string,
+): Promise<OpenAssetResolution> {
+  if (!/^[0-9a-f]{64}$/.test(id)) return assetMissing(id, 'asset id is malformed');
+  const document = store.document;
+  if (document === null) return assetMissing(id, 'no document is open');
+  const asset = document.assets[id];
+  if (asset === undefined || asset.id !== id) {
+    return assetMissing(id, `asset record ${id} is missing`);
+  }
+  if (!SUPPORTED_IMAGE_MIMES.has(asset.mime)) {
+    return {
+      ok: false,
+      id,
+      reason: 'asset-unsupported',
+      message: `asset ${id} is not an allowed image type`,
+    };
+  }
+  const lexicalPath = resolvePackageAssetPath(store.packagePath, store.assetsPath, asset.path);
+  if (lexicalPath === null) return assetMissing(id, `asset ${id} has an invalid path`);
+  // Content-addressed ids name exactly one file. A crafted record cannot map a
+  // hash id to a different file inside the same assets directory.
+  if (lexicalPath !== path.join(path.resolve(store.assetsPath), id)) {
+    return assetMissing(id, `asset ${id} does not resolve to its content address`);
+  }
+
+  // Lexical containment is not enough: an `assets/` directory symlink can move
+  // the root outside the package. Resolve both roots and the final file before
+  // reading. This narrows (but cannot remove) the lstat/read TOCTOU window.
+  const packageRoot = await fs.realpath(store.packagePath).catch(() => null);
+  const assetsRoot = await fs.realpath(store.assetsPath).catch(() => null);
+  if (packageRoot === null || assetsRoot === null || !isPathInside(packageRoot, assetsRoot)) {
+    return assetMissing(id, `asset ${id} resolves outside the package`);
+  }
+  const fileRealPath = await fs.realpath(lexicalPath).catch(() => null);
+  if (fileRealPath === null || !isPathInside(assetsRoot, fileRealPath)) {
+    return assetMissing(id, `asset ${id} resolves outside the assets directory`);
+  }
+  try {
+    const stat = await fs.lstat(lexicalPath);
+    if (!stat.isFile()) return assetMissing(id, `asset ${id} is not a regular file`);
+  } catch {
+    return assetMissing(id, `asset ${id} is missing`);
+  }
+
+  const read = await store.assets.readVerified(id);
+  if (!read.ok) {
+    if (read.reason === 'changed') {
+      return { ok: false, id, reason: 'asset-changed', message: read.message };
+    }
+    return assetMissing(id, read.message);
+  }
+  return { ok: true, id, mime: asset.mime, bytes: read.bytes };
 }
 
 /**
@@ -488,28 +639,17 @@ export async function importImageBytes(
  * renderer's custom-protocol requests can only read an asset that a live
  * document actually records, and only from that package's `assets/` tree.
  */
-export async function resolveOpenAsset(
-  id: string,
-): Promise<{ filePath: string; mime: string } | null> {
-  if (!/^[0-9a-f]{64}$/.test(id)) return null;
+export async function resolveOpenAsset(id: string): Promise<OpenAssetResolution> {
+  if (!/^[0-9a-f]{64}$/.test(id)) return assetMissing(id, 'asset id is malformed');
+  let firstFailure: OpenAssetResolution | null = null;
   for (const store of repository.openStores()) {
     const asset = store.document?.assets[id];
     if (asset === undefined || asset.id !== id) continue;
-    if (typeof asset.mime !== 'string') continue;
-    const filePath = resolvePackageAssetPath(store.packagePath, store.assetsPath, asset.path);
-    if (filePath === null) continue;
-    // Content-addressed ids name exactly one file. A crafted record cannot map
-    // a hash id to a different file inside the same assets directory.
-    if (filePath !== path.join(path.resolve(store.assetsPath), id)) continue;
-    try {
-      const stat = await fs.lstat(filePath);
-      if (!stat.isFile()) continue;
-    } catch {
-      continue;
-    }
-    return { filePath, mime: asset.mime };
+    const resolved = await resolveStoreAsset(store, id);
+    if (resolved.ok) return resolved;
+    firstFailure ??= resolved;
   }
-  return null;
+  return firstFailure ?? assetMissing(id, `asset record ${id} is missing`);
 }
 
 /**

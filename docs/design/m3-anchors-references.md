@@ -367,6 +367,38 @@ again after the binding is lost.
 - If two image nodes share the same asset, the node binding (`anchorIds`) disambiguates; if the
   node is missing, the selector alone is ambiguous/broken, not auto-resolved to the other image.
 
+**Image asset integrity (M3c3b3, session state; never canonical)**
+
+Image bytes live at `<package>/assets/<sha256-hex>`. The canonical document stores only the
+content-addressed `assetId` and metadata; it never stores a filesystem path or display `src`.
+Availability is computed in the main process and passed to resolution, health, and export as an
+optional index. An absent index entry means "canonical record is enough"; it does not assert that
+the file exists.
+
+| Situation | Resolution | Rendering / protocol |
+|---|---|---|
+| Record and file present, hash matches | Normally resolved | Bytes served |
+| Record present, file missing/unreadable | `asset-missing` (broken) | Placeholder; protocol 404 with `x-noteforest-asset-error: asset-missing`; branch/target/alt kept |
+| File bytes no longer hash to the id | `asset-changed` (broken) | Placeholder; protocol 404 `asset-changed`; changed bytes are never served; stale width/height are not used |
+| Record missing | `asset-missing` (broken) | Placeholder; protocol 404 |
+| Record MIME outside the image allowlist | `asset-missing` at the app layer | Protocol 404 `asset-unsupported`; no non-image bytes |
+
+Verification policy: the first successful read of an asset in an open session hashes the bytes and
+caches the result in that document store. Later `<img>` requests in the same session do not re-hash.
+Reloading the document closes and reopens the store, which re-verifies in the new session; external
+replacement is therefore detected after reload, not silently served. `NodeAssetStore.invalidate`
+exists for an explicit re-check and is modeled in tests.
+
+`noteforest-asset://asset/<64-hex>` is the only display source. The handler accepts no path from
+the URL, requires a live document record and an allowed image MIME, rejects lexical and realpath
+escapes (including a symlinked `assets/` directory and a final-file symlink), and returns
+`cache-control: no-store`, `x-content-type-options: nosniff`, and a restrictive response CSP.
+
+**Legacy `src` policy.** M2 had no image insertion, so a canonical image with `src` and no
+`assetId` is unsupported. Projection drops the path, marks the node missing, keeps `alt`, and the
+editor renders a labeled placeholder; `pmToContent` removes `src` on the next commit. No
+`file:`, `data:`, or remote `src` is ever passed to `<img>`, regardless of CSP.
+
 ### 2.5 Branch record and roles
 
 The existing `Branch` shape is preserved.
@@ -462,7 +494,9 @@ For each anchor, in this order:
    - Image: exactly one matching `image` node with the ID in `anchorIds`; asset ID and normalized
      crop must equal the current node's values; rect must be valid; the asset record must exist. If
      the asset or crop differs, broken (`asset-changed` / `crop-changed`), not reattached. If the
-     asset is missing, broken (`asset-missing`) with a placeholder; the branch is kept.
+     asset is missing, the session reports the file missing/unreadable, or its bytes no longer hash
+     to the id, broken (`asset-missing` / `asset-changed`) with a placeholder; the branch is kept
+     and the changed bytes are never served.
    - Code: exactly one matching `codeBlock` node with the ID in `anchorIds`; then resolve the
      quote/range inside that code text. If the quote is absent, broken (`quote-missing`); if
      multiple, ambiguous.

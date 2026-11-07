@@ -386,6 +386,29 @@ describe('anchor health idle projection', () => {
 
     const healthy = imageAnchorDocument({ 'asset-1': asset });
     expect(buildAnchorHealthRows(healthy)).toEqual([]);
+
+    // Session availability turns a present record into a broken row without
+    // touching the canonical asset, anchor, branch, or target.
+    const missingFile = buildAnchorHealthRows(healthy, { 'asset-1': 'asset-missing' });
+    expect(missingFile[0]).toMatchObject({
+      anchorId: 'an-image',
+      state: 'broken',
+      reason: 'asset-missing',
+      branchCount: 1,
+    });
+    expect(missingFile[0]?.branches[0]?.targetBlockId).toBe('B');
+    expect(healthy.assets['asset-1']).toEqual(asset);
+
+    const changedHash = buildAnchorHealthRows(healthy, { 'asset-1': 'asset-changed' });
+    expect(changedHash[0]).toMatchObject({
+      anchorId: 'an-image',
+      state: 'broken',
+      reason: 'asset-changed',
+      branchCount: 1,
+    });
+    expect(changedHash[0]?.branches[0]?.targetBlockId).toBe('B');
+    expect(healthy.blocks['B']).toBeDefined();
+
     healthy.assets['asset-2'] = { ...asset, id: 'asset-2', path: 'assets/asset-2' };
     healthy.blocks['A'] = block('A', imageContent('asset-2'));
     const replacedRows = buildAnchorHealthRows(healthy);
