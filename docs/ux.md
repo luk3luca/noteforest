@@ -1,13 +1,15 @@
-# NoteForest — UX specification v1.4
+# NoteForest — UX specification v1.5
 
-**Status:** Draft v1.4 — M3 below-stack routing revision (5 November 2026)  
+**Status:** Draft v1.5 — editor layouts and modes (ADR-0007), 7 November 2026  
 **Owner:** UX / Product  
-**Date:** 5 November 2026  
+**Date:** 7 November 2026  
 **Working title:** NoteForest (clearance or rename required before packaging)  
 **Stack:** Electron + React + TypeScript (ADR-0001). This document defines UX behavior and avoids Electron-specific behavior where platform neutrality is cheap, but Electron APIs are allowed where they are the decided implementation (for example PDF export).  
-**Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` v0.4.5, `docs/plan.md`, `docs/ux-shell.md`, `docs/adr/0005-anchor-binding-and-identity.md`
+**Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` v0.5, `docs/plan.md`, `docs/ux-shell.md`, `docs/adr/0005-anchor-binding-and-identity.md`, `docs/adr/0007-editor-layouts-and-modes.md`
 
 This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is decided (Electron, ADR-0001); this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md`, the spec, and the ADRs.
+
+**Revision note (v1.5).** Adopts ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**. **Continuous + Edit** is the default; **Page Read** is exact and read-only for now; **Page Edit** is planned and visibly disabled; **PDF** exports Page Read. Continuous page-break markers are derived hints from the same paginator, not WYSIWYG; Page/PDF are the exact geometry and always show the full document. Collapse stays an outline/Continuous navigation aid. `⌘2` is Continuous, `⌘3` is Page, `⌘E` toggles Edit/Read; inline code moves to `⌘⇧C` to free `⌘E`. "Reader" is retired as a view name except in historical notes.
 
 **Revision note (v1.4).** The product owner revised the below-stack rendering: direct children stay
 to the right while they fit and join the below stack only when they wrap; anchored callouts always
@@ -19,14 +21,14 @@ wording in the v1.3 callout lane.
 
 ---
 
-## 0. UX decisions for v1.3
+## 0. UX decisions for v1.5
 
-**Locked by the product owner (v1):** Reader is the primary authoring surface; Page is a read-only preview and the PDF target; page orientation is document-wide; visual direction is clean, Obsidian-like and minimal with dark mode default; long blocks continue at safe boundaries; layout uses incremental reflow plus a freeze mode; broken anchors fall back to the whole block; external agent integration is API-only. The relevant open questions are marked resolved below.
+**Locked by the product owner (v1):** layouts Continuous | Page × modes Edit | Read (ADR-0007); Continuous + Edit is the default; Page Read is the exact read-only PDF proof; Page Edit is planned and disabled until implemented; page orientation is document-wide; visual direction is clean, Obsidian-like and minimal with dark mode default; long blocks continue at safe boundaries; layout uses incremental reflow plus a freeze mode; broken anchors fall back to the whole block; external agent integration is API-only. The relevant open questions are marked resolved below.
 
 | # | Decision | Why |
 |---|---|---|
 | D1 | One window per document; no tab strip and no document library in v1 | A study document is a place, not a tab. Keeps the window chrome simple. |
-| D2 | Three views: Outline, Reader, Page. One main view at a time; no split view in v1. Reader is the primary spatial authoring surface; Page is a read-only preview and the PDF target; Outline remains the structural editor | Outline is the fastest structural editor; Reader preserves flow for authoring; Page shows exactly what the PDF will render. Split view doubles focus and space. |
+| D2 | Outline plus two spatial layouts: Continuous and Page, each with Edit/Read. One main surface at a time; no split view in v1. Default Continuous + Edit; Page Read is the exact read-only PDF proof; Page Edit is planned and disabled until implemented; Outline remains the structural editor | Outline is the fastest structural editor; Continuous preserves flow for authoring; Page shows exactly what the PDF will render, without conflating layout and mode. Split view doubles focus and space. |
 | D3 | `Return` creates a new block; `Shift+Return` inserts a line break inside the block | The block is the unit of structure. This is the outliner contract that makes authoring fast. |
 | D4 | `Tab` / `Shift+Tab` change block structure; list-item indentation uses `⌘]` / `⌘[` | One predictable meaning for Tab in an outliner. The conflict with lists is real; see Q9. |
 | D5 | Fixed logical order, adaptive geometry: only sibling order changes. No free positioning, no pins, no nudges | The product owner's model. Structure is stable; the layout adapts to content and page width. |
@@ -34,8 +36,8 @@ wording in the v1.3 callout lane.
 | D7 | A page break can fall between blocks, and a long block may continue at safe internal boundaries (paragraph, list-item, between code lines, or between table rows). A line, image, code block, formula, or table row is never cut. Continuations get a ghost parent and continuation markers | The tree stays intact; long text flows, while atomic elements remain whole and readable. |
 | D8 | Chapters group top-level blocks; a chapter can start on a new page (default on) | The document is organized by topics, not by pages. Chapter starts are a stable, user-meaningful break hint. |
 | D9 | An anchor is created together with a branch. Standalone highlights are a separate, non-structural mark. An anchor can outlive its last branch as an **idle** record: the marker is hidden and an explicit **Remove anchor** deletes it (OD-2) | Anchor-only marks add UI and model weight without a user job. Highlight covers "mark this phrase". Idle records preserve identity and re-branching without an orphan warning |
-| D10 | v1 exports one PDF from the same paginator, all pages, real text. No separate reader export | The PDF is the paginated rendering of the same layout the Page view shows. |
-| D11 | Collapse/expand is an outline navigation aid in v1; the M3 continuous editor hides the block's primary descendants and anchored callouts with a hidden count (spec §7.6). The paginated Reader/Page views always show the full layout in v1.2; their collapse behavior is re-decided in M4 | Hiding content in a spatial view would change pagination and what exports. Spatial folding is Q10 |
+| D10 | v1 exports one PDF from the same paginator, all pages, real text. It is the Page layout in Read mode; no separate linear reader export | The PDF is the exact Page Read rendering; the Continuous layout is an editor layout, not an export. |
+| D11 | Collapse/expand is an outline and Continuous navigation aid in v1; it hides primary descendants and anchored callouts with a hidden count (spec §7.6). The Page layout and PDF always show the full document; collapse in Page is a later product decision | Hiding content in Page/PDF would silently change what exports. Spatial folding in Page needs its own export semantics (Q10). |
 | D12 | One visible undo stack, with a documented routing rule between text editing and structure | Users should not have to know which stack they are in. |
 | D13 | No hover-only action. Every pointer action has a menu item and a keyboard path | Required for accessibility, and it makes the product usable without a mouse. |
 | D14 | Page orientation is one document-wide setting; changing it reflows all pages | Mixed orientation would complicate the paginator and the PDF; one orientation keeps the document coherent. |
@@ -43,6 +45,7 @@ wording in the v1.3 callout lane.
 | D16 | Visual direction: clean, Obsidian-like, minimal; dark mode default | Content-first, low chrome; dark reduces glare in study sessions. |
 | D17 | A broken anchor falls back to the whole block, with a visible marker and a repair flow | A branch is never lost; the fallback keeps the relationship usable while the user repairs it. |
 | D18 | The External Agent API is opt-in, local-only, and token-scoped (read-only or read-write). In-app agent chat and autonomy are non-goals for v1 | External tools integrate through a controlled API; the app stays focused on authoring. |
+| D19 | Layout and mode are independent: Continuous or Page × Edit or Read. Default Continuous + Edit; Page opens Read; Page Edit is planned and disabled; `⌘2` Continuous, `⌘3` Page, `⌘E` Edit/Read | ADR-0007. The old Reader/Page pair conflated layout with mode; orthogonality keeps authoring and print proof separate. |
 
 ---
 
@@ -53,7 +56,7 @@ wording in the v1.3 callout lane.
 - Authoring a study document made of chapters, content blocks, branches, and anchors.
 - Document → Chapters → top-level content blocks → descendants.
 - Adaptive tree layout with content-driven widths; children go right when there is room, otherwise wrap below the parent with a slight indent.
-- One continuous layout engine, rendered as Reader (continuous vertical scroll), Page preview (paginated WYSIWYG), and Outline.
+- One canonical document and one paginator, rendered as Outline, Continuous (Edit/Read), and Page (Read now, Edit planned).
 - Derived pagination with page-break markers, manual break hints, continuation markers, ghost parents, and unbreakable-element overflow handling.
 - Primary structural branches and reference cross-links, including cross-page references.
 - Text, formula, code, and image-region anchors; images; code; shared children.
@@ -70,7 +73,7 @@ wording in the v1.3 callout lane.
 
 - Page containers: creating, duplicating, deleting, splitting, moving, or reordering pages.
 - Fixed depth columns, arbitrary block positions, manual pins, nudges, freeform canvas, minimap, free drawing.
-- A separate reader/outline PDF export. Reader is an editor view, not an export mode.
+- A separate reader/outline PDF export. The Continuous layout is an editor layout, not an export mode.
 - Freehand ink, handwritten annotations, highlights drawn on the page. Annotations happen in Notability after export.
 - Collaboration, comments, presence, accounts, sync.
 - A document library, tab strip, tags, databases, backlink queries, daily notes. Multiple documents open in separate windows with recents.
@@ -96,17 +99,21 @@ wording in the v1.3 callout lane.
 | **Anchor** | A span inside a block (text, formula source, code range, image region) that a branch starts from | Tooltip: "Anchor: λ · 1 branch" |
 | **Anchored branch** | A branch whose source is an anchor; its child sits below the anchor | "Branch from “λ”" in the inspector |
 | **Shared block** | A block with one primary parent and at least one reference link to it | Badge: "Shared"; tooltip: "Also linked from 2 places" |
-| **Reader** | The continuous spatial view: vertical scroll, one layout, page-break markers | "Reader"; the primary authoring surface in v1 |
-| **Page view** | The paginated WYSIWYG renderer of the same layout | "Page view" or "Pages"; the product owner calls it the canvas |
+| **Layout** | `Continuous` or `Page`; it controls how the document is presented, not whether it is editable | UI says "Continuous" / "Page" |
+| **Continuous layout** | A screen-optimized vertical scroll with derived page-break markers; supports Edit and Read | "Continuous"; the default authoring surface |
+| **Page layout** | The A4-bounded rendering of the same derived pages used by the PDF; Read is exact and read-only now, Edit is planned | "Page"; the product owner calls it the canvas |
+| **Mode** | `Edit` or `Read`; independent from layout | UI says "Edit" / "Read" |
+| **Page Read** | The exact, read-only Page layout; the visual PDF proof | "Page · Read"; PDF target |
+| **Page Edit** | The planned optional Page-layout authoring surface with one active block editor | "Page · Edit"; disabled until implemented |
 | **Page** | A pagination result at the current page size; not a container | "Page 2 of 5"; derived |
-| **Page break** | A computed boundary between two blocks in reading order | Shown as a marker in Reader/Outline and as a page boundary in Page view |
+| **Page break** | A computed boundary between two blocks in reading order | Shown as a derived marker in Continuous/Outline and as an exact page boundary in Page |
 | **Manual break hint** | A stored request to start a page before a block | "Manual break"; the paginator honors it when possible |
 | **Continuation marker** | A label at a page break when a subtree or a long block continues | "Chapter 1 · Eigenvalues continues on page 2" |
 | **Paginator** | The component that computes pages from the continuous layout | Internal; UI says "pagination" |
 | **Adaptive width** | Content-driven block width; siblings may differ; a child may wrap below its parent | "Wraps below" in the inspector, if needed |
 | **Overflow** | An unbreakable element (line, image, code block, or formula) that cannot fit a page; long text continues at safe boundaries instead | "This element doesn't fit a page"; export blocked |
-| **Collapse** | Hide a block's descendants in the outline | Outline only in v1 |
-| **Focus** | Outline: hoist a subtree. Reader: dim/zoom. Page: zoom | "Focus"; `Esc` exits |
+| **Collapse** | Hide a block's descendants in the outline and Continuous layout | Not applied to Page/PDF in v1 |
+| **Focus** | Outline: hoist a subtree. Continuous: dim/zoom. Page: zoom | "Focus"; `Esc` exits |
 
 ---
 
@@ -124,11 +131,11 @@ Luca is a student, at a Mac, typing fast during a lecture or while reading a tex
 
 #### P2 — The Studier
 
-Luca returns to the document days later, before an exam. He opens the Reader, follows a continuous argument, notices a page-break marker, switches to Page view to check what the PDF will look like, follows an anchored branch from a formula term, then exports all pages and annotates them on an iPad in Notability.
+Luca returns to the document days later, before an exam. He opens the document in Continuous Read, follows a continuous argument, notices a derived page-break marker, switches to Page Read to check what the PDF will look like, follows an anchored branch from a formula term, then exports all pages and annotates them on an iPad in Notability.
 
 - **Goal:** re-enter a topic quickly and follow the argument the way he originally built it.
 - **Success:** understands a region in 10–15 minutes; exports in one action; every page is legible and its text is searchable in Notability.
-- **Abandon signal:** page breaks that cut a branch without a continuation marker; a PDF that differs from the Page view; an anchor that points at the wrong word.
+- **Abandon signal:** page breaks that cut a branch without a continuation marker; a PDF that differs from Page Read; an anchor that points at the wrong word.
 
 #### P3 — The Returner
 
@@ -145,7 +152,7 @@ Luca opens a six-month-old document. He half-remembers a term but not where it l
 | T1 | Capture a topic and 5–15 branches in a chapter | P1 | Daily | < 5 min | `⌘N`, type, `Return`, `Tab` |
 | T2 | Branch from a word, formula term or code token | P1 | Daily | < 5 s from selection to typing | Select, `⌘⇧Return` |
 | T3 | Reorder and reparent structure | P1, P2 | Daily | No dialog, one gesture or key | `Tab` / `⇧Tab`, drag, `⌘⇧↑↓` |
-| T4 | Read continuously and check the paginated result | P2 | Weekly | < 10 min | `⌘2` Reader, `⌘3` Page, `⌥↑↓` |
+| T4 | Read continuously and check the paginated result | P2 | Weekly | < 10 min | `⌘2` Continuous, `⌘E` Read, `⌘3` Page, `⌥↑↓` |
 | T5 | Export all pages as a PDF for Notability | P2 | Weekly | < 30 s | `⌘⇧E` or `⌘P` |
 | T6 | Find a block and understand its chapter and page | P3 | Weekly | < 1 min | `⌘F`, breadcrumbs, `⌘[` / `⌘]` |
 | T7 | Recover from a lost anchor, an unbreakable overflow, or a save conflict | P3 | Rare | < 2 min, no data loss | Status chip, element banner, conflict sheet |
@@ -161,9 +168,10 @@ Luca opens a six-month-old document. He half-remembers a term but not where it l
 | New child by indenting | 2 keys | `Return`, `Tab` |
 | Branch from the current block | 1 key | `⌘Return` |
 | Branch from a word | selection + 1 key | Select with keyboard or mouse, `⌘⇧Return` |
-| Switch view | 1 key | `⌘1` / `⌘2` / `⌘3` |
+| Switch layout | 1 key | `⌘2` Continuous / `⌘3` Page (`⌘1` Outline) |
+| Toggle Edit/Read | 1 key | `⌘E` (Page Edit disabled until implemented) |
 | Previous / next page | 1 key | `⌥↑` / `⌥↓` |
-| Fit view (Reader: width; Page: page) | 1 key | `⇧1` |
+| Fit view (Continuous: width; Page: page) | 1 key | `⇧1` |
 | Export all pages | 1 key | `⌘P` |
 | Export with preview | 1 key | `⌘⇧E` |
 | Manual page break before a block | 1 key | `⌘⌥B` |
@@ -172,9 +180,9 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 
 ### 2.4 Two end-to-end scenarios
 
-**A. Capturing a lecture (P1).** Luca hits `⌘N`, types "Eigenvalues and eigenvectors" as the first top-level block in Chapter 1, presses `Return` for a sibling and `Tab` to make it a child, types the definition, selects "λ" and presses `⌘⇧Return`, types one sentence about the stretch factor, then `Esc`, `⌘Return` on the top-level block for the next branch. He starts Chapter 2 for the algorithm with `⌘⌥C`. He never opens the inspector. The Reader is laying out continuously in the background; page-break markers appear where the paginator breaks. He will switch to Page view later to check the print.
+**A. Capturing a lecture (P1).** Luca hits `⌘N`, types "Eigenvalues and eigenvectors" as the first top-level block in Chapter 1, presses `Return` for a sibling and `Tab` to make it a child, types the definition, selects "λ" and presses `⌘⇧Return`, types one sentence about the stretch factor, then `Esc`, `⌘Return` on the top-level block for the next branch. He starts Chapter 2 for the algorithm with `⌘⌥C`. He never opens the inspector. The Continuous layout is laying out in the background; derived page-break markers appear where the paginator breaks. He will switch to Page Read later to check the print.
 
-**B. Studying before an exam (P2).** Luca opens the same document, presses `⌘2` for Reader, follows chapter 1 to the `det(A − λI)` anchor, reads the expansion in the callout below it, presses `⌘⇧F` to focus that subtree, `Esc`, then `⌘3` to check the Page view: chapter 2 starts on page 2, and a ghost parent with a continuation marker shows where chapter 1's last branch resumes. He presses `⌘⇧E`, exports all pages, and AirDrops the PDF to the iPad for Notability.
+**B. Studying before an exam (P2).** Luca opens the same document, presses `⌘2` for Continuous and `⌘E` for Read, follows chapter 1 to the `det(A − λI)` anchor, reads the expansion in the callout below it, presses `⌘⇧F` to focus that subtree, `Esc`, then `⌘3` to check Page Read: chapter 2 starts on page 2, and a ghost parent with a continuation marker shows where chapter 1's last branch resumes. He presses `⌘⇧E`, exports all pages, and AirDrops the PDF to the iPad for Notability.
 
 ---
 
@@ -182,8 +190,8 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 
 ### 3.1 Principles
 
-1. **Authoring speed is the product.** The outline and Reader must feel like a text editor that happens to have a graph underneath. Any structural action that takes more than two keystrokes is suspect.
-2. **One layout engine, two renderers.** Reader and Page are two views of the same continuous layout. The paginator is the only source of page breaks; the PDF uses it too. There is no second layout to drift.
+1. **Authoring speed is the product.** The outline and Continuous Edit must feel like a text editor that happens to have a graph underneath. Any structural action that takes more than two keystrokes is suspect.
+2. **One document, one paginator, two layouts.** Continuous and Page are two renderers of the same canonical document; the Page layout and PDF share exact geometry. Continuous markers are derived hints from the same paginator, not a second layout. There is no second layout to drift.
 3. **Fixed logical order, adaptive geometry.** The tree order is stable; widths adapt to content, and children wrap below the parent when horizontal room runs out. Only sibling order changes. No free positioning.
 4. **Pages are a result, not a container.** The user never creates, moves, duplicates, or deletes a page. They edit content, add manual break hints, and the paginator recomputes.
 5. **Long blocks flow; atomic elements stay whole.** A long block may continue at safe internal boundaries. A line, image, code block, or formula is never cut.
@@ -191,24 +199,26 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 7. **Nothing is lost silently.** A lost anchor falls back to the whole block, with a visible marker and a repair path. An unbreakable element that cannot fit a page is an explicit overflow, not clipped content.
 8. **Structure is explicit.** A line between two blocks means something. The UI distinguishes "this is my parent" from "this is related".
 9. **The pointer is optional; the keyboard is complete.** Every flow can be completed without a mouse. Every pointer action has a menu equivalent.
-10. **Export is a product surface, not a side effect.** The PDF is what the user studies on; it is the paginated rendering of the same layout and must be previewed and tested like a screen.
+10. **Export is a product surface, not a side effect.** The PDF is what the user studies on; it is the Page Read rendering and must be previewed and tested like a screen.
 11. **Layout stability is a feature.** Incremental reflow keeps authoring fast; freeze mode keeps study stable; a full reflow runs on request or after idle.
+12. **Mode is not layout.** Reading does not switch to a different renderer, and Page Read does not become editable just because the user wants to edit there. Page Edit is its own planned surface.
 
 ### 3.2 Invariants (testable)
 
 1. Any action available with the pointer is available with the keyboard alone.
 2. Editing text never deletes a branch. A lost anchor falls back to the whole block, is visibly marked, and can be repaired; it is never silently removed.
 3. Adding, removing or editing a reference link never changes any block's position, outline order, or pagination.
-4. Switching views preserves selection, focus, chapter, and the block's position in the layout.
+4. Switching layouts, modes, or views preserves selection, focus, chapter, and the block's position in the layout; a mode switch creates no undo entry.
 5. Export never clips content. Long blocks continue at safe boundaries; an unbreakable element that cannot fit a page blocks export with a fix path.
 6. Undo restores the previous structure exactly: blocks, branches, anchors, chapters, manual break hints.
-7. Pagination is deterministic: the same document, page setup and manual break hints produce the same pages in Reader, Page, and PDF.
+7. Pagination is deterministic: the same document, page setup and manual break hints produce the same pages in Continuous markers, Page Read/Edit, and PDF.
 8. A block may continue only at safe internal boundaries; no line, image, code block, or formula is cut.
 9. The only spatial change a user can make is sibling order. There is no free positioning, pin, or nudge state.
 10. The External Agent API is off by default, local-only, and scoped by a token; it never runs autonomously.
 11. A page is never a container: inserting or deleting content changes pagination, not a page object.
-12. No destructive action is triggered by a single unmodified click.
-13. No meaning is carried by color alone.
+12. Page and PDF always show the full document; collapse never removes content from them.
+13. No destructive action is triggered by a single unmodified click.
+14. No meaning is carried by color alone.
 
 ---
 
@@ -222,13 +232,13 @@ One document per window. The window has six regions:
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Title bar        Document title · edited indicator                    │
 ├──────────────────────────────────────────────────────────────────────┤
-│ Toolbar          [Outline | Reader | Page]  chapter breadcrumb        │
+│ Toolbar          [Outline | Continuous | Page]  [Edit | Read]        │
 │                                     Page 2 of 5   − +   [Export]     │
 ├──────────────────────────────────────────────────────────────────────┤
 │ Context bar      Pagination/layout status · focus path · selection    │
 ├───────────────────────────────────────────────────────┬──────────────┤
 │                                                       │ Inspector    │
-│   Main view: Outline / Reader / Page                  │ (optional)   │
+│   Main view: Outline / Continuous / Page              │ (optional)   │
 │                                                       │              │
 ├───────────────────────────────────────────────────────┴──────────────┤
 │ Status bar       Save state · pages · blocks · lost anchors · zoom    │
@@ -238,30 +248,34 @@ One document per window. The window has six regions:
 | Region | Contents | Rules |
 |---|---|---|
 | **Title bar** | Document name, macOS edited dot, standard window controls | Name is editable in place; used as the export filename stem |
-| **Toolbar** | View switcher (Outline, Reader, Page), chapter breadcrumb, page indicator with prev/next, zoom, Inspector, Export | Never scrolls; stays visible in all views; the page indicator is shown in Reader and Page |
+| **Toolbar** | Section switcher (Outline, Continuous, Page), Edit/Read toggle, chapter breadcrumb, page indicator with prev/next, zoom, Inspector, Export | Never scrolls; stays visible in all layouts; the page indicator is shown in Continuous and Page |
 | **Context bar** | Pagination status, focus path, "3 selected" | Only appears when it has something to say |
-| **Main view** | Outline, Reader, or Page | Exactly one is active; all render the same document and layout |
+| **Main view** | Outline, Continuous, or Page | Exactly one layout/view is active; all render the same document and derived pages |
 | **Inspector** | Block, branch, anchors, links, chapter, pagination, document | Optional; never required to complete a flow |
 | **Status bar** | Save state, page count, block count, lost-anchor chip, overflow chip, layout/API status, zoom | Warnings are clickable and open the relevant surface |
 
-### 4.2 The three views
+### 4.2 Outline, Continuous, and Page
 
-| View | What it is | Best for | Page breaks | Editing |
+| Surface | What it is | Best for | Page breaks | Editing |
 |---|---|---|---|---|
 | **Outline** | A vertical list of chapters and blocks with page-break markers | Fast structural authoring, keyboard work, long documents | Marker rows between blocks | Full |
-| **Reader** | One continuous vertical layout of the tree, with page-break markers drawn across it | Reading a topic in one flow; spatial authoring; following anchored branches | Horizontal markers with page numbers and continuation labels | Full, with continuous reflow |
-| **Page** | The same layout paginated into A4 pages, WYSIWYG | Checking what fits, what the PDF will look like, page-level reading | Page boundaries and footers | Read-only preview; the PDF target |
+| **Continuous** | One continuous vertical layout of the tree, with derived page-break markers drawn across it | Reading a topic in one flow; spatial authoring; following anchored branches | Horizontal markers with page numbers and continuation labels; hints, not exact print geometry | **Edit:** full authoring with continuous reflow. **Read:** read-only, navigation/copy/links preserved |
+| **Page** | The same derived pages paginated into A4, exact print geometry | Checking fit, what the PDF will look like, page-level reading | Exact page boundaries and footers | **Read:** exact and read-only now. **Edit:** planned, disabled until implemented |
 
-**Resolved for v1.** Reader is the primary spatial authoring surface: page boundaries do not interrupt the flow, and a long branch stays visible. Page is a read-only preview and the PDF target: it is the best place to judge fit and see the exact print result, but it is not an editing surface. Outline remains the fastest way to build structure.
+**Resolved for v1 (ADR-0007).** **Continuous + Edit** is the default spatial authoring surface: page boundaries do not interrupt the flow, and a long branch stays visible. **Continuous + Read** is read-only. **Page Read** is the exact PDF proof: it is the best place to judge fit, but it is not an editing surface. **Page Edit** is planned and visibly disabled until implemented. Outline remains the fastest way to build structure.
 
 Rules:
 
-- The view switcher is a three-segment control: `⌘1` Outline, `⌘2` Reader, `⌘3` Page.
-- The view is persisted per document for the session.
+- The switcher has two independent controls: `Outline | Continuous | Page` (`⌘1` / `⌘2` / `⌘3`) and `Edit | Read` (`⌘E`). `⌘E` applies to Continuous and Page; Outline has no mode, so the Edit/Read control is disabled there.
+- Continuous + Edit is the default. Page opens in Read; Page Edit is disabled and announced as unavailable.
+- Continuous Read is read-only for content: selection, links, anchors, reference navigation, copy, scroll, zoom, focus and outline navigation remain available.
+- Page Read is read-only for content: selection, page navigation, zoom, focus, link/anchor following, copy, Page Setup and Export. Editing happens in Outline or Continuous Edit (and, later, Page Edit).
+- The layout and mode are persisted per document for the session.
+- Continuous scroll and current page are separate view states; switching preserves both.
 - There is no split view in v1 (Q21).
 - If the window is too narrow for the inspector, the inspector overlays the main view.
-- Page is read-only for content: selection, page navigation, zoom, focus, Page Setup and Export. Editing happens in Outline or Reader.
-- Reader and Page share selection, focus, scroll anchor, and zoom intent; their exact scroll positions are per view.
+- Continuous markers are derived hints from the same paginator; Page/PDF are exact. The UI must not imply pixel parity.
+- Page/PDF show the full document. Collapse is an Outline/Continuous navigation aid and does not affect Page/PDF.
 
 ### 4.3 Document, chapters, and top-level blocks
 
@@ -284,7 +298,7 @@ DOCUMENT
 | **Document** | The file. It has a title and one or more chapters. |
 | **Chapter** | A named group of top-level blocks. It has a title, an order, and a "start on a new page" setting (default on). |
 | **Top-level block** | A content block with no primary parent, inside a chapter. It can be a standalone sentence or a 1–2 word phrase with children. |
-| **Chapter heading** | A heading, not a content block. It has no branches, anchors, or child blocks. It is editable in the outline and Reader; Page shows the heading read-only. |
+| **Chapter heading** | A heading, not a content block. It has no branches, anchors, or child blocks. It is editable in the outline and Continuous Edit; Page Read shows the heading read-only (Page Edit, later, may edit it). |
 | **Top-level order** | Chapters are ordered; top-level blocks are ordered inside a chapter. The document order is chapter order, then top-level order, then depth-first child order. |
 | **Pages** | Derived by the paginator. They are not stored, not named, and not editable as objects. |
 | **Page break** | Computed between blocks, or at a safe internal boundary inside a long block. It never falls inside a line, image, code block, formula, or table row. |
@@ -345,15 +359,15 @@ The model is hybrid: incremental reflow while authoring, full reflow on request 
 - **Selection** is a set of blocks treated as objects. It can contain one or many blocks. It is what the inspector, deletion, and chapter actions operate on.
 - **Focus** is the block the user is editing or last interacted with. Exactly one block has focus. Breadcrumbs follow focus.
 - **Chapter context** is the chapter of the focused block. The toolbar breadcrumb starts with the document, then the chapter.
-- **Page context** is the current page in Reader/Page. It is a viewport concept, not a selection concept. It follows the focused block's page if the block is visible.
+- **Page context** is the current page in Continuous/Page. It is a viewport concept, not a selection concept. It follows the focused block's page if the block is visible.
 
 | Concept | How it is entered | Visual | Notes |
 |---|---|---|---|
 | No selection | Click empty view / `Esc` twice | Nothing highlighted | Status bar shows document counts |
-| Block selected | Click gutter/row in outline; click block in Reader/Page; `Esc` from editing (Outline/Reader) | Accent ring, no caret | Single-object mode |
-| Editing | `Return` on a selected block, click text, double-click in Reader (Page is read-only) | Caret, editing ring | Text selection inside is native |
-| Multi-select | `⇧`-click, `⌘`-click, marquee (Reader/Page), `⇧↑↓` when not editing | Rings on all, "N selected" | Inspector shows bulk actions; Reader/Outline can delete, Page is inspect/copy only; no group positioning |
-| Focused subtree | `⌘⇧F`, or `F` in Reader/Page | Outline: hoisted; Reader: dimmed/zoomed; Page: zoomed | `Esc` exits |
+| Block selected | Click gutter/row in outline; click block in Continuous/Page; `Esc` from editing (Outline/Continuous Edit) | Accent ring, no caret | Single-object mode |
+| Editing | `Return` on a selected block, click text, double-click in Continuous Edit (Page Read is read-only) | Caret, editing ring | Text selection inside is native |
+| Multi-select | `⇧`-click, `⌘`-click, marquee (Continuous Edit), `⇧↑↓` when not editing | Rings on all, "N selected" | Inspector shows bulk actions; Outline/Continuous Edit can delete, Page Read is inspect/copy only; no group positioning |
+| Focused subtree | `⌘⇧F`, or `F` in Continuous/Page | Outline: hoisted; Continuous: dimmed/zoomed; Page: zoomed | `Esc` exits |
 | Anchor selected | Click an anchor dot / chip | Anchor span and its branch highlighted | Inspector shows the anchor |
 | Branch selected | Click a branch or a branch row in the inspector | Branch and both endpoints highlighted | `⌫` removes per branch rules |
 | Page focused | Scroll, `⌥↑↓`, or the page indicator | Toolbar shows "Page N of M" | Page context only |
@@ -362,8 +376,8 @@ Navigation rules:
 
 - **Breadcrumbs** show `Document › Chapter › Top-level › … › Current`. Deep chains truncate in the middle, never at the end. Clicking a crumb scrolls to it and selects it.
 - **History** records focus and chapter changes (not every keystroke). `⌘[` goes back, `⌘]` forward, up to 50 entries.
-- **Page navigation** is `⌥↑` / `⌥↓`, the toolbar prev/next, the page indicator menu, or scrolling. In Reader it jumps to the previous/next page-break marker; in Page it goes to the previous/next page; in Outline it jumps to the previous/next page-break marker row.
-- Switching views preserves selection and focus. Reader scrolls to the block's position; Page scrolls to the page containing it; Outline scrolls to the row.
+- **Page navigation** is `⌥↑` / `⌥↓`, the toolbar prev/next, the page indicator menu, or scrolling. In Continuous it jumps to the previous/next derived page-break marker; in Page it goes to the previous/next exact page; in Outline it jumps to the previous/next page-break marker row.
+- Switching layouts or modes preserves selection and focus. Continuous scrolls to the block's layout position; Page scrolls to the page containing it; Outline scrolls to the row.
 
 ### 4.6 Inspector
 
@@ -378,8 +392,8 @@ A right-hand panel, collapsed by default, toggled with `⌘⌥I`. On windows nar
 | **Branches** | Block has children, or a branch is selected | Outgoing branches with role, label, target, page if cross-page; "Add Child", "Link to Block…" |
 | **Referenced by** | Block has reference links | Source blocks with quote and chapter; click to navigate |
 | **Chapter** | A block or chapter heading is selected | Chapter title, top-level count, "Start on new page" toggle, **Move to Chapter…** |
-| **Pagination** | All views; per-block manual-break edits only in Reader/Outline | Page count, current page, manual break count, **Page Setup…**, **Insert Page Break Before**, **Remove Manual Break** |
-| **Selection** | Multiple blocks selected | Count, bulk delete (Reader/Outline), copy as Markdown; Page inspect/copy only; no bulk move |
+| **Pagination** | All layouts; per-block manual-break edits only in Continuous Edit/Outline | Page count, current page, manual break count, **Page Setup…**, **Insert Page Break Before**, **Remove Manual Break** |
+| **Selection** | Multiple blocks selected | Count, bulk delete (Continuous Edit/Outline), copy as Markdown; Page Read inspect/copy only; no bulk move |
 | **Document** | Nothing selected | Title, chapter count, page count, block count, export presets, lost-anchor count |
 
 Rules:
@@ -395,8 +409,8 @@ Rules:
 |---|---|---|---|
 | W1 | Welcome | New, open, sample, recents | App launch with no restored windows |
 | W2 | Document — Outline | Structural authoring, chapter and page-break markers | `⌘N`, `⌘O`, `⌘1` |
-| W3 | Document — Reader | Continuous spatial reading/authoring | `⌘2` |
-| W4 | Document — Page | Paginated WYSIWYG check | `⌘3` |
+| W3 | Document — Continuous | Continuous spatial reading/authoring (Edit/Read) | `⌘2` |
+| W4 | Document — Page | Exact A4 reading (Read now; Edit planned) | `⌘3` |
 | I1 | Inspector | Contextual details and actions | `⌘⌥I`, toolbar |
 | A1 | Lost anchors panel | Repair broken anchors | Status chip, inspector section |
 | G1 | Page Setup | Size, orientation, margins, chapter start, header/footer | `⌘⌥P`, Page menu |
@@ -424,7 +438,7 @@ The first launch opens **W1 Welcome**:
 - A checkbox: "Show this window when NoteForest opens with no documents."
 - No modal tour, no account, no onboarding wizard.
 
-`⌘N` creates a document with one chapter, one empty top-level block, caret inside, and the placeholder "Start with a topic…". The Reader and Page views show the empty layout and the same prompt.
+`⌘N` creates a document with one chapter, one empty top-level block, caret inside, and the placeholder "Start with a topic…". The Continuous and Page layouts show the empty layout and the same prompt.
 
 ### 5.2 Empty document — outline
 
@@ -433,7 +447,7 @@ The first launch opens **W1 Welcome**:
 - A single ghost hint line: `Return` new block · `Tab` indent · `⌘⇧Return` branch from a word.
 - The hint fades after three blocks or 30 seconds. It does not reappear in that document.
 
-### 5.3 Empty document — Reader and Page
+### 5.3 Empty document — Continuous and Page
 
 | Case | Message | Actions |
 |---|---|---|
@@ -441,7 +455,7 @@ The first launch opens **W1 Welcome**:
 | Chapter has no content | "This chapter is empty." | **Add a Top-Level Block**, **Move a Block Here…** |
 | Selection is outside the viewport | "“Spectral radius” is in Chapter 1." | **Go to Chapter 1** |
 
-The Page view never shows a blank infinite grid. It shows a page with an edge, margins, a footer, and an explanation if the document is empty.
+The Page layout never shows a blank infinite grid. It shows a page with an edge, margins, a footer, and an explanation if the document is empty.
 
 ### 5.4 Sample document: "Linear algebra — eigenvalues"
 
@@ -474,12 +488,12 @@ Pagination in the sample:
 
 - Page 1: Chapter 1 heading, B1/B2, B3/B4, B5/B6.
 - Page 2: Chapter 2 heading (starts on a new page), B7/B8, B9/B10, B11.
-- The Reader shows a page-break marker before the Chapter 2 heading; the marker is labeled "Page 2 · Chapter 2 starts here".
+- The Continuous layout shows a derived page-break marker before the Chapter 2 heading; the marker is labeled "Page 2 · Chapter 2 starts here". It is a hint from the paginator, not the exact print geometry.
 - No continuation marker is needed: the break is at a chapter start, which is a clean boundary. Continuation markers are demonstrated in 10.5.
 
 Coach marks appear once, in the sample:
 
-1. After the Reader opens: "This is the same layout as the Page view. `⌘2` / `⌘3` switch."
+1. After the Continuous layout opens: "This is the same paginator as Page Read. `⌘2` / `⌘3` switch; `⌘E` reads."
 2. After the first block click: "Double-click to edit. Click an anchor dot to follow a branch."
 3. After the first selection: "Select a word and press `⌘⇧Return` to branch from it."
 
@@ -487,17 +501,17 @@ Dismissing a coach mark hides it permanently; they never block clicks.
 
 ### 5.5 Sample walkthrough (acceptance scenario)
 
-1. Open the sample. It opens in **Reader**, scrolled to Chapter 1.
+1. Open the sample. It opens in **Continuous + Edit**, scrolled to Chapter 1.
 2. Click the anchor dot on the `det(A − λI)` formula in B3. B4 highlights; the anchor health sheet / block menu shows "Branch from det(A − λI)".
 3. Press `⌘1`. The outline opens with Chapter 1, B3 and B4 visible; B4 carries the chip `↳ “det(A − λI)”`. Selection is unchanged.
-4. Press `⌘2`, then scroll or `⌥↓` to the page-break marker. The marker reads "Page 2 · Chapter 2 starts here".
-5. Press `⌘3`. The Page view opens on page 2; the chapter heading is at the top, and the footer reads "Page 2 of 2".
-6. Click B8. Its **See also** list shows the reference link "bound → Spectral radius (Chapter 1, page 1)". Clicking it jumps to B6 in Reader or page 1 in Page view.
-7. Press `⌘2` to return to Reader, double-click B7, select `A @ v`, press `⌘⇧Return`, type "why normalization matters". A new block appears below the anchor. The Reader reflows continuously. Press `⌘3` to see the paginated result; if the new block moves to another page, the page indicator updates and the preview shows the new pagination.
+4. Press `⌘2`, then scroll or `⌥↓` to the derived page-break marker. The marker reads "Page 2 · Chapter 2 starts here".
+5. Press `⌘3`. Page Read opens on page 2; the chapter heading is at the top, and the footer reads "Page 2 of 2". `⌘E` is disabled with "Page editing is not available yet."
+6. Click B8. Its **See also** list shows the reference link "bound → Spectral radius (Chapter 1, page 1)". Clicking it jumps to B6 in Continuous or page 1 in Page Read.
+7. Press `⌘2` to return to Continuous Edit, double-click B7, select `A @ v`, press `⌘⇧Return`, type "why normalization matters". A new block appears below the anchor. The Continuous layout reflows; its derived markers update. Press `⌘3` to see the exact Page Read result; if the new block moves to another page, the page indicator updates and the preview shows the new pagination.
 8. Press `⌘⇧E`. The preview shows 2 A4 pages. Export all pages.
-9. Open the PDF. Text is selectable; page 2 matches the Page view; the anchored branch appears in place below the code block.
+9. Open the PDF. Text is selectable; page 2 matches Page Read; the anchored branch appears in place below the code block.
 
-If any step requires a mouse, a dialog, or a view switch to complete, it is a defect. The only exception is the export sheet, which is a deliberate confirmation surface.
+If any step requires a mouse, a dialog, or a layout/mode switch to complete, it is a defect. The only exception is the export sheet, which is a deliberate confirmation surface.
 
 ---
 
@@ -513,10 +527,10 @@ Flow index:
 | F4 | Branch from a whole block | P1 |
 | F5 | Branch from an anchor (text, formula, code, image) | P1, P2 |
 | F6 | Reorder, reparent, detach, move between chapters | P1, P2 |
-| F7 | Collapse and expand (outline) | P2 |
+| F7 | Collapse and expand (outline and Continuous) | P2 |
 | F8 | Shared child and reference links | P1, P2 |
 | F9 | Pagination, page breaks, continuation, overflow | P1, P2 |
-| F10 | Switch views and keep selection | All |
+| F10 | Switch layouts and modes | All |
 | F11 | Undo and redo | All |
 | F12 | Export all pages as a PDF | P2 |
 | F13 | Search and navigate the document | P3 |
@@ -562,14 +576,14 @@ Flow index:
 
 ### F2 — Add a chapter, top-level, sibling or child block
 
-| Action | Keyboard | Menu | Reader |
+| Action | Keyboard | Menu | Continuous |
 |---|---|---|---|
 | New chapter | `⌘⌥C` | Chapter → New Chapter | Chapter menu |
 | New top-level block in the current chapter | `⌘⌥Return` | Block → Add Top-Level Block | Block menu |
 | New sibling below | `Return` | Block → Add Sibling | Context menu → Add Sibling |
 | New child | `⌘Return` | Block → Add Child Block | `⌘Return`, or click the branch handle |
 
-Page is a read-only preview: add, edit, and delete commands are disabled there. Use Reader or Outline.
+Page Read is read-only: add, edit, and delete commands are disabled there. Page Edit is planned and disabled until implemented. Use Continuous Edit or Outline.
 
 **Steps (outline, sibling)**
 
@@ -594,7 +608,7 @@ Page is a read-only preview: add, edit, and delete commands are disabled there. 
 
 **Text / Markdown**
 
-1. Click text, press `Return` on a selected block, or double-click in Reader (Page is read-only).
+1. Click text, press `Return` on a selected block, or double-click in Continuous Edit (Page Read and Continuous Read are read-only).
 2. Type. Markdown input rules convert as you type: `# `, `- `, `1. `, `> `, `**bold**`, `*italic*`, `` `code` ``, `$...$`, `$$` at the start of a block, triple backticks at the start of a block.
 3. `Esc` leaves editing and commits. It does not cancel; use `⌘Z` to undo.
 4. `Return` creates a block (or continues a list); `⇧Return` inserts a line break.
@@ -645,13 +659,13 @@ Page is a read-only preview: add, edit, and delete commands are disabled there. 
 3. A new empty child is created, the parent expands, the branch is drawn, the caret is in the child.
 4. Type.
 
-**Reader**
+**Continuous Edit**
 
 1. Select a block.
 2. `⌘Return`, the right-edge **branch handle**, or the context menu → **Add Child**.
-3. A new empty child is created below its siblings (or in the next adaptive position). The Reader reflows continuously.
+3. A new empty child is created below its siblings (or in the next adaptive position). The Continuous layout reflows.
 4. If the new block causes a block-level overflow, the overflow banner appears.
-5. Page is a read-only preview; switch to it to see the new pagination.
+5. Page Read is the exact preview; switch to it to see the new pagination.
 
 **Rules**
 
@@ -692,7 +706,7 @@ Page is a read-only preview: add, edit, and delete commands are disabled there. 
 
 **Rules**
 
-- Anchors are created in Outline or Reader (the M3 continuous editor). Page is read-only: clicking an anchor dot follows its branch, but does not create one.
+- Anchors are created in Outline or Continuous Edit. Page Read is read-only: clicking an anchor dot follows its branch, but does not create one. Page Edit is planned and will use the same anchor rules.
 - An anchor must be inside one block. A multi-block selection disables **Branch** with "Anchors work within one block." A text selection containing inline math or images is allowed: the quote uses a plain-text projection (text + LaTeX source + image alt/placeholder), and the mark binding remains truth (OD-12). A selection that crosses a block-level atomic node (display math, image, code block) or a table-cell boundary is rejected.
 - If nothing is selected, `⌘⇧Return` branches from the whole block.
 - Anchors are unique per span. Branching the same span again creates another branch from the same anchor, not a second anchor. Overlapping anchors are allowed; each has its own ID.
@@ -718,7 +732,7 @@ Page is a read-only preview: add, edit, and delete commands are disabled there. 
 | Drag across a chapter divider | Drag a top-level block across the divider | Moves the block and subtree to that chapter |
 | Detach | Block menu → **Detach** | Becomes a top-level block at the top of the current chapter |
 
-**Reader**
+**Continuous Edit**
 
 | Action | Result |
 |---|---|
@@ -729,7 +743,7 @@ Page is a read-only preview: add, edit, and delete commands are disabled there. 
 | `⌥`-drag from the branch handle to a block | Reference link from source to target |
 | Drag to empty space | Nothing; snaps back. No free positioning. |
 
-Page is read-only: it accepts selection, page navigation, zoom and focus, but no drag, reparent, or reorder. Use Reader or Outline to change structure.
+Page Read is read-only: it accepts selection, page navigation, zoom and focus, but no drag, reparent, or reorder. Use Continuous Edit or Outline to change structure. Page Edit is planned and disabled until implemented.
 
 **Rules**
 
@@ -741,16 +755,15 @@ Page is read-only: it accepts selection, page navigation, zoom and focus, but no
 - Every structural move is one undo step, including the subtree and the chapter change.
 - Reordering is vertical only. There is no horizontal drag; horizontal position is adaptive layout, not user-positioned.
 
-### F7 — Collapse and expand (outline and M3 editor)
+### F7 — Collapse and expand (outline and Continuous)
 
-- In the M3 continuous editor, collapsing a block hides its primary descendants **and its anchored callouts** with the rest of the subtree; the hidden count includes them (spec §7.6). Expanding restores them.
-- The paginated Reader/Page views always show the full layout in v1.2; their collapse behavior is re-decided in M4.
+- Collapse is an outline and Continuous navigation aid. Collapsing a block hides its primary descendants **and its anchored callouts** with the rest of the subtree; the hidden count includes them (spec §7.6). Expanding restores them.
+- The Page layout and PDF always show the full document. Collapse in Page is a later product decision; `⌘⇧[` / `⌘⇧]` in Page Read show "Collapse is available in the outline and Continuous layout." They do not change the Page layout or export.
 - Outline: disclosure triangle, `⌘⇧[`, or context menu. A collapsed block shows "4 hidden".
 - `⌘⇧]` expands one level; `⌥`-click expands the subtree; `⌘⌥[` / `⌘⌥]` collapse/expand all.
 - Collapsing a block whose descendant is selected moves the selection to the collapsed block.
-- Collapse is presentation state, persisted by view, **not undoable**.
-- In the paginated Reader/Page views, `⌘⇧[` / `⌘⇧]` show "Collapse is available in the outline." They do not change the layout.
-- Why: hiding a subtree in the paginated Reader/Page would change pagination and what exports. Spatial folding is Q10.
+- Collapse is presentation state, persisted as view state, **not undoable**; the outline and Continuous layout share it.
+- Why: hiding a subtree in Page/PDF would silently change what exports. Page/PDF stay complete; Continuous keeps authoring compact.
 
 ### F8 — Shared child and reference links
 
@@ -760,16 +773,16 @@ A block has exactly one primary parent. It may have any number of reference link
 
 1. Select a source block (or an anchor).
 2. `⌘⇧L`, or context menu → **Link to Block…**.
-3. A searchable picker lists blocks with chapter context (page context when M4 adds the page view). Type to filter; `↑↓`; `Return`.
-4. A dashed edge is drawn when both endpoints are visible; otherwise the source shows a **See also** chip with the chapter and label. M3 has no page view, so no page number yet; M4 adds the derived page (OD-9).
+3. A searchable picker lists blocks with chapter context and the derived Page Read page when available. Type to filter; `↑↓`; `Return`.
+4. A dashed edge is drawn when both endpoints are visible; otherwise the source shows a **See also** chip with the chapter and label. M3 has no Page layout, so no page number yet; M4 adds the derived page (OD-9).
 5. The link is listed in the source's **See also** list and the target's **Referenced by** list (block menu / chips in M3; the inspector is a later surface).
 
 **Alternative gestures**
 
 - Outline: `⌥`-drag a block onto another.
-- Reader: `⌥`-drag a block body, or `⌥`-drag from a branch handle.
-- Reader: `⌥`-drop from an anchor drag creates a reference link from the anchor.
-- Page: read-only; click a "See also" chip or a reference edge to follow it. Link creation happens in the editor or Outline.
+- Continuous Edit: `⌥`-drag a block body, or `⌥`-drag from a branch handle.
+- Continuous Edit: `⌥`-drop from an anchor drag creates a reference link from the anchor.
+- Page Read: read-only; click a "See also" chip or a reference edge to follow it. Link creation happens in the editor or Outline. Page Edit is planned.
 
 **Rules**
 
@@ -802,8 +815,8 @@ Pagination is derived. There is no page container, page split, or page managemen
 | Place | Visual | Interaction |
 |---|---|---|
 | Outline | A marker row between blocks: `Page 2 · Chapter 2 starts here`; dashed for automatic, solid + "Manual" for manual | Click for menu: **Remove Manual Break**, **Keep This Break** (convert auto to manual), **Why This Break?** |
-| Reader | A horizontal line across the layout with a page label; dashed/solid | Same menu; the line is not a block and does not interrupt the tree |
-| Page | The page boundary itself; footer "Page 2 of 5" | Page navigation; no marker row |
+| Continuous | A horizontal line across the layout with a page label; dashed/solid. It is a derived hint, not exact print geometry | Same menu; the line is not a block and does not interrupt the tree |
+| Page | The exact page boundary itself; footer "Page 2 of 5" | Page navigation; no marker row |
 
 Rules:
 
@@ -811,7 +824,8 @@ Rules:
 - Clicking an automatic marker offers **Keep This Break**, which inserts a manual hint before the next block so future edits do not move the break.
 - Clicking a manual marker offers **Remove Manual Break**; the paginator recomputes.
 - Page-break markers are not blocks and are skipped by arrow-key navigation.
-- The marker of the current page is highlighted in the outline and Reader when Page view is on that page.
+- The marker of the current page is highlighted in the outline and Continuous when Page Read is on that page.
+- Continuous markers are derived from the same paginator as Page/PDF. They are hints and must not be presented as a pixel-accurate preview.
 
 **Continuation markers**
 
@@ -822,7 +836,7 @@ A continuation marker appears when a break falls inside a subtree or a long bloc
 - The ghost parent shows the nearest top-level block or chapter heading; clicking it jumps to the real parent.
 - The marker names the nearest top-level block or chapter, whichever is clearer; if both, use the chapter and the top-level block.
 - A long text block continues at a safe boundary (paragraph/list item/line). A line, image, code block, or formula is never cut.
-- In Reader, the marker sits on the page-break line and the ghost parent at the top of the next page; in Page, both are in the page flow; in the outline, the marker row carries the continuation label.
+- In Continuous, the marker sits on the derived page-break line and the ghost parent at the top of the next page; in Page Read, both are in the exact page flow; in the outline, the marker row carries the continuation label.
 - A continuation marker is not an error and does not block export.
 
 **Overflow**
@@ -834,7 +848,7 @@ A page never overflows: the paginator adds pages. A block overflows only when it
 | **Unbreakable element too tall** | A single line, image, code block, or formula is taller than the printable height | Warning outline; banner "This element is taller than a page"; export blocked | Resize the image, shorten the code/formula, split the text around the element, or switch to landscape |
 | **Element too wide** | A code line, table, or image cannot wrap within the page width | Warning outline; banner "This element is wider than the page"; export blocked | Wrap the code/table, resize the image, shorten the line, or switch to landscape |
 | **Manual break invalid** | A manual break before a block whose unbreakable element still overflows | The break marker is shown with a warning; the element overflows | Remove the break, fix the element, or move the break |
-| **Pagination changed** | Content edits moved page breaks | Status chip "Pages updated"; page numbers in the Reader/Outline update | Insert manual breaks to stabilize, if needed |
+| **Pagination changed** | Content edits moved page breaks | Status chip "Pages updated"; page numbers in the Continuous/Outline update | Insert manual breaks to stabilize, if needed |
 
 Rules:
 
@@ -844,16 +858,17 @@ Rules:
 - A manual break is a hint, not a guarantee. If it cannot be honored, the app says so; it does not silently ignore it.
 - Page numbers may change as content changes. The document is the source of truth; page numbers are a view of the current pagination.
 
-### F10 — Switch views and keep selection
+### F10 — Switch layouts and modes
 
-1. `⌘1` Outline, `⌘2` Reader, `⌘3` Page.
-2. If an editor is open, the edit is committed first.
-3. Selection, focus, breadcrumbs, chapter, focus mode, and layout freeze carry over.
-4. Reader scrolls to the block's layout position; Page scrolls to the block's page; Outline scrolls to the row.
-5. If a block is hidden by a collapsed ancestor in the outline, expand it. If the block is in another chapter, scroll to that chapter.
-6. With no selection, each view restores its last focus or the top of the document.
+1. `⌘1` Outline, `⌘2` Continuous, `⌘3` Page.
+2. `⌘E` toggles Edit/Read inside the active layout. In Page, `⌘E` is disabled with "Page editing is not available yet." until Page Edit ships.
+3. If an editor is open, the edit is committed first. A layout/mode switch creates no undo entry.
+4. Selection, focus, breadcrumbs, chapter, focus mode, and layout freeze carry over.
+5. Continuous scrolls to the block's layout position; Page scrolls to the block's page; Outline scrolls to the row.
+6. If a block is hidden by a collapsed ancestor in the outline/Continuous layout, expand it. Page does not need expansion because it always shows the full document. If the block is in another chapter, scroll to that chapter.
+7. With no selection, each surface restores its last focus or the top of the document.
 
-The view switch is not undoable and does not create history entries.
+The layout/mode switch is not undoable and does not create history entries.
 
 ### F11 — Undo and redo
 
@@ -864,7 +879,7 @@ There is one visible undo stack. Text typing may be handled by the active editor
 - If the last action was typing, `⌘Z` undoes the typing; if the edited block is not focused, focus returns to it first.
 - Otherwise `⌘Z` undoes the last document command (create, move, delete, branch, link, chapter, manual break, page setup).
 - Typing coalesces into natural groups; structural commands never coalesce.
-- After undo, the affected blocks are revealed in the current view; selection moves to the affected block.
+- After undo, the affected blocks are revealed in the current layout; selection moves to the affected block.
 - The Edit menu shows the action name: "Undo Move Block", "Undo Create Branch", "Undo Create Chapter", "Undo Manual Break".
 
 **What is undoable**
@@ -881,8 +896,8 @@ There is one visible undo stack. Text typing may be handled by the active editor
 | Move block between chapters | Yes | Chapter assignment restored |
 | Insert / remove manual page break | Yes | Pagination recomputed |
 | Page setup change | Yes | Pagination recomputed |
-| Collapse / expand (outline) | No | Presentation state |
-| View switch, page navigation, zoom, pan, focus | No | Navigation |
+| Collapse / expand (outline and Continuous) | No | Presentation state |
+| Layout/mode switch, page navigation, zoom, pan, focus | No | Navigation |
 | Save, export | No | Not document mutations |
 | Document title | Yes | |
 
@@ -890,11 +905,11 @@ Redo is cleared by any new action. Undo history is per window session; it is not
 
 ### F12 — Export all pages as a PDF
 
-v1 has one export: all pages, generated by the same paginator as the Page view, with real text. There is no separate reader/outline export.
+v1 has one export: all pages, generated by the same paginator as the Page layout, with real text. It is the Page layout in Read mode; there is no separate reader/outline export.
 
 **Entry points:** `⌘⇧E` (sheet), `⌘P` (quick export with last settings), toolbar **Export**, File → Export.
 
-**Step 1 — Preview.** The sheet shows page thumbnails, the page count, and the page size/orientation/margins from Page Setup. The preview is the Page view, not a different layout.
+**Step 1 — Preview.** The sheet shows page thumbnails, the page count, and the page size/orientation/margins from Page Setup. The preview is Page Read, not a different layout.
 
 **Step 2 — Preflight.**
 
@@ -910,18 +925,19 @@ v1 has one export: all pages, generated by the same paginator as the Page view, 
 
 **Rules**
 
-- The PDF follows document order: chapters, top-level blocks, children, anchored callouts. It uses the same page breaks, continuation markers, ghost parents, page numbers and header as the Page view.
+- The PDF follows document order: chapters, top-level blocks, children, anchored callouts. It uses the same page breaks, continuation markers, ghost parents, page numbers and header as Page Read.
 - The PDF is light, regardless of the app's dark appearance (Q16).
 - Text is real and selectable. If the PDF has no text layer, the export has failed.
+- Page/PDF include the full document; the Continuous collapse state is not exported.
 - Export is a snapshot; later edits do not change the file.
 - The document title, chapter titles and page count are in the PDF metadata; page numbers are in the footer.
 - **Notability workflow:** choose A4, portrait, and the **Wide right** margin in Page Setup for handwriting space. Import the PDF into Notability and annotate. The app does not write ink back into the document.
 
 ### F13 — Search and navigate
 
-1. `⌘F` opens a find bar at the top of the current view.
+1. `⌘F` opens a find bar at the top of the current surface.
 2. Search covers block text, code, LaTeX source, anchor quotes, branch labels and chapter titles. Case-insensitive; no regex in v1.
-3. Results are grouped by chapter and block with a breadcrumb and a snippet. `Return` / `⇧Return` cycle; the view scrolls to the hit, switches view if needed, and selects the block.
+3. Results are grouped by chapter and block with a breadcrumb and a snippet. `Return` / `⇧Return` cycle; the surface scrolls to the hit, switches layout/mode if needed, and selects the block.
 4. Collapsed content is searchable; selecting a hit expands its ancestors in the outline.
 5. `Esc` closes the find bar and restores the previous selection.
 6. `⌘G` / `⌘⇧G` repeat next/previous.
@@ -957,7 +973,7 @@ Search is a navigation tool, not a query language. A document-wide search palett
 ### F15 — Manage chapters
 
 - **New Chapter** (`⌘⌥C`): adds a chapter after the current one, with one empty top-level block and a "start on new page" hint. Focus goes to the chapter title; `Return` commits the title and moves the caret to the first top-level block.
-- **Rename**: click the chapter heading in the outline or Reader; type; `Return`. Page shows the heading read-only.
+- **Rename**: click the chapter heading in the outline or Continuous Edit; type; `Return`. Page Read shows the heading read-only; Page Edit (later) may edit it.
 - **Reorder**: drag the chapter heading in the outline, or Chapter → Move Up/Down. Chapter order is document order.
 - **Delete**: Chapter menu → Delete Chapter. If it has content, confirm with block count; undoable. Deleting the last chapter leaves a new empty chapter.
 - **Start on new page**: a toggle in the chapter inspector or Chapter menu; it is a manual break hint at the heading. Default on.
@@ -967,31 +983,34 @@ Search is a navigation tool, not a query language. A document-wide search palett
 
 ---
 
-## 7. Reader and Page interaction models
+## 7. Continuous and Page interaction models
 
 ### 7.1 Shared model
 
-Reader and Page render the same continuous layout. They share:
+Continuous and Page render the same canonical document and derived pages. They share:
 
 - Selection and focus.
 - Chapter and block order.
-- Page-break positions from the paginator.
+- Page-break positions from the paginator. Continuous shows them as derived markers; Page shows them as exact page boundaries.
 - Layout freeze state (per window).
 - The same anchors, branches, and reference links.
+- The same full document content; collapse is not applied to Page/PDF.
 
-They differ in how the layout is presented and edited:
+They differ in presentation and mode:
 
-| | Reader | Page |
+| | Continuous | Page |
 |---|---|---|
-| Scroll | Continuous vertical | Page by page |
-| Page breaks | Horizontal markers across the layout | Page boundaries |
+| Layout | Continuous vertical | A4 page by page |
+| Page breaks | Derived markers across the layout (hints, not exact print geometry) | Exact page boundaries |
 | Page numbers | In the marker labels and footer | In the footer |
-| Editing | Full authoring; continuous reflow | Read-only preview; no editing |
-| Best for | Flow, authoring, long branches | Fit, print, WYSIWYG check |
+| Modes | **Edit** (default): full authoring with continuous reflow. **Read:** read-only; navigation, links, anchors, copy, zoom, focus preserved | **Read:** exact and read-only now. **Edit:** planned, disabled until implemented |
+| Best for | Flow, authoring, long branches | Fit, print proof, WYSIWYG check |
 
-Page is the PDF target: it shows what the PDF will render. Editing happens in Outline or Reader; Page updates when you switch to it or when pagination changes.
+Page Read is the PDF target: it shows exactly what the PDF will render. Page Edit, when implemented, will share the same geometry and differ only in interactivity. Continuous markers come from the same paginator but are not a pixel-accurate preview.
 
-### 7.2 Reader
+Page/PDF always show the full document. Collapse is an outline/Continuous navigation aid; it never hides content from Page or PDF.
+
+### 7.2 Continuous
 
 | Input | Result | Feedback |
 |---|---|---|
@@ -1001,38 +1020,40 @@ Page is the PDF target: it shows what the PDF will render. Editing happens in Ou
 | `⌘+` / `⌘−` | Zoom in/out | Step |
 | `⌘0` | 100% | |
 | `⇧1` | Fit width | 200 ms ease |
-| `⌥↑` / `⌥↓` | Jump to previous/next page-break marker | Marker highlights; page indicator updates |
+| `⌥↑` / `⌥↓` | Jump to previous/next derived page-break marker | Marker highlights; page indicator updates |
+| `⌘E` | Toggle Edit/Read | Status shows Edit or Read; no undo entry |
 | Click a ghost parent | Jump to the real parent | Scrolls; selects the parent |
 | Click a block | Select | Ring |
 | `⇧`-click | Add/remove from selection | Ring |
-| Drag empty space | Marquee | Live rectangle |
-| Drag a block vertically | Reorder among siblings | Drop line; reflow on drop |
-| Drag onto a block (`⇧`) | Reparent | Child outline |
-| Drag onto a block (`⌥`) | Reference link | Dashed outline |
-| Drag from branch handle to block | Make target a child | Target highlight |
-| Click branch handle | Add a child | New block, caret |
-| Double-click block | Edit in place | Editor overlay; continuous reflow |
+| Drag empty space (Edit) | Marquee | Live rectangle |
+| Drag a block vertically (Edit) | Reorder among siblings | Drop line; reflow on drop |
+| Drag onto a block (`⇧`, Edit) | Reparent | Child outline |
+| Drag onto a block (`⌥`, Edit) | Reference link | Dashed outline |
+| Drag from branch handle to block (Edit) | Make target a child | Target highlight |
+| Click branch handle (Edit) | Add a child | New block, caret |
+| Double-click block (Edit) | Edit in place | Editor overlay; continuous reflow |
 | Right-click | Context menu | 7.5 |
-| `Return` | Edit selected block | |
-| `⌘Return` | Add child | |
-| `⌘⇧↑` / `⌘⇧↓` | Move block/subtree among siblings | Reflow |
-| `Tab` / `⇧Tab` | Indent/outdent selected block (not editing) | Reflow |
-| `⌫` | Delete selection | Confirm large |
+| `Return` (Edit) | Edit selected block | |
+| `⌘Return` (Edit) | Add child | |
+| `⌘⇧↑` / `⌘⇧↓` (Edit) | Move block/subtree among siblings | Reflow |
+| `Tab` / `⇧Tab` (Edit) | Indent/outdent selected block (not editing) | Reflow |
+| `⌫` (Edit) | Delete selection | Confirm large |
 | `F` / `⌘⇧F` | Focus: dim outside subtree, zoom to it | Breadcrumb; `Esc` exits |
 | Arrows | Move selection to nearest block in direction | Ring |
 | `⇧`+arrow | Add nearest block in direction | Ring |
 | `Esc` | Leave editing → exit focus → clear selection | Progressive |
 
-Reader rules:
+Continuous rules:
 
-- The Reader is continuous. Page-break markers are lines, not gaps; the layout does not stop at a page.
-- A continuation page starts with a ghost parent immediately after the page-break marker; it is dimmed and not editable.
-- Editing in Reader reflows continuously. Page-break markers move live if content changes; a small "Pages updated" chip appears if the page count changes.
+- Continuous Edit is the default authoring surface in v1 (ADR-0007). Continuous Read is the same layout, read-only for content.
+- Page-break markers are lines, not gaps; the layout does not stop at a page. They are derived hints from the paginator, not exact print geometry.
+- A continuation page starts with a ghost parent immediately after the derived page-break marker; it is dimmed and not editable.
+- Editing in Continuous Edit reflows continuously. Markers move live if content changes; a small "Pages updated" chip appears if the page count changes.
+- Continuous Read disables editing chrome (caret, selection toolbar, mutating gutter controls, drag handles, image authoring) but keeps selection, links, anchors, reference navigation, copy, scroll, zoom, focus, and outline navigation.
 - Focus dims everything outside the focused subtree and its ancestor path, and zooms to fit it. Clicking a dimmed block exits focus and selects it.
-- Page navigation jumps to markers, not to a page container.
-- The Reader is the primary authoring surface for v1 (resolved; see Q1).
+- Page navigation jumps to derived markers, not to a page container.
 
-### 7.3 Page view
+### 7.3 Page
 
 | Input | Result | Feedback |
 |---|---|---|
@@ -1043,65 +1064,69 @@ Reader rules:
 | `⇧1` | Fit page | 200 ms |
 | `⇧2` | Fit width | 200 ms |
 | `⌥↑` / `⌥↓` | Previous/next page | Page indicator |
+| `⌘E` | Disabled in Page Read until Page Edit ships | Title: "Page editing is not available yet." |
 | Click a ghost parent | Jump to the real parent | Scrolls to its page; selects it |
 | Click block | Select for inspection | Ring |
 | Click a reference chip / anchor | Follow the link or branch | Jumps to the target; selection updates |
-| Double-click block | Open in Reader and edit | Switches to Reader; selection preserved |
-| `Return` | Open selected block in Reader | Switches to Reader; selection preserved |
+| Double-click block | Open in Continuous Edit | Switches to Continuous; selection preserved |
+| `Return` | Open selected block in Continuous Edit | Switches to Continuous; selection preserved |
 | `F` / `⌘⇧F` | Zoom to subtree | Breadcrumb; `Esc` returns |
 | `Esc` | Exit focus → clear selection | |
 
 Page rules:
 
-- **Page is read-only for content.** It accepts selection, page navigation, zoom, focus, link following, Page Setup and Export; it does not accept text editing, structural edits, drag, or delete. New Chapter and manual-break commands are disabled in Page.
-- Double-click or `Return` is a bridge to Reader: it switches to Reader and focuses the same block. It never opens an editor on the page.
+- **Page Read is read-only for content.** It accepts selection, page navigation, zoom, focus, link following, Page Setup and Export; it does not accept text editing, structural edits, drag, or delete. New Chapter and manual-break commands are disabled in Page Read.
+- **Page Edit is planned and disabled.** The Edit control is visibly unavailable with a clear reason, not a broken toggle. When implemented, Page Edit will use one active block editor overlay and the same geometry as Page Read.
+- Double-click or `Return` is a bridge to Continuous Edit: it switches to Continuous in Edit mode and focuses the same block. It never opens an editor on Page Read.
 - A long text block may continue at a safe boundary; a line, image, code block, or formula is always whole. If an atomic element cannot fit, it is an unbreakable overflow (F9).
 - A continuation page starts with a ghost parent above the resumed content; it is dimmed and not editable.
-- Page view is the WYSIWYG check and the PDF target: what is on the page is what the PDF renders. It is not a separate layout.
-- After an edit in Reader or Outline, Page shows the new pagination when you switch to it. Page numbers and the footer update.
+- Page Read is the exact WYSIWYG check and the PDF target: what is on the page is what the PDF renders. It is not a separate layout.
+- After an edit in Continuous Edit or Outline, Page Read shows the new pagination when you switch to it. Page numbers and the footer update.
+- Page Read shows the full document regardless of the Continuous collapse state.
 - Focus zooms to the selected subtree within the page; it does not dim the rest (the page is the context).
 - Page navigation is page by page; `⌥↑/↓` and the page indicator.
 
-### 7.4 Drag and reflow in Reader
+### 7.4 Drag and reflow in Continuous Edit
 
 - Dragging a block vertically reorders it among siblings; the block lifts, a drop line shows the insertion, and the layout reflows on drop.
 - Dragging onto a block with `⇧` reparents; a cycle is refused with "Would create a loop. Hold ⌥ to link instead."
 - Dragging from a branch handle onto a block makes the target a child; if the target already has a parent, the role popover appears.
 - Dragging to empty space does nothing; the block snaps back. No free positioning, no pins, no nudges.
-- After a drop, the Reader reflows continuously. Page is read-only and shows the result when you switch to it; if an element overflows, the banner appears.
+- After a drop, Continuous Edit reflows. Page Read is read-only and shows the result when you switch to it; if an element overflows, the banner appears. Page Edit is planned.
 - `Esc` during a drag cancels and restores the original order.
 - Group drag is not supported; multi-selection is for actions, not positioning.
-- Page accepts no drag. Use Reader or Outline for structural changes.
+- Page Read accepts no drag. Use Continuous Edit or Outline for structural changes.
 
 ### 7.5 Context menus
 
 | Target | Items |
 |---|---|
-| Block (Reader/Outline) | Edit, Add Child, Add Sibling, Branch from Selection (while editing), Insert Page Break Before, Remove Manual Break (if manual), Link to Block…, Move Under…, Move to Chapter…, Framed, Copy as Markdown, Delete |
-| Block (Page, read-only) | Open in Reader, Copy as Markdown |
-| Top-level block (Reader/Outline) | Add Top-Level Block Below, Move to Chapter…, Detach (if child), Insert Page Break Before, Delete |
-| Anchor (Reader/Outline) | Follow Branch, Select Branch, Reattach… (if lost), Copy Anchor Text, Remove Anchor (with confirmation) |
-| Anchor (Page, read-only) | Follow Branch, Copy Anchor Text |
-| Branch (Reader/Outline) | Select, Edit Label, Change to Reference / Change to Structural, Delete Branch |
-| Branch (Page, read-only) | Select, Follow to Target |
-| Empty space (Reader) | Add Top-Level Block, Paste, Select All, Fit Width, Focus, Page Setup… |
+| Block (Continuous Edit/Outline) | Edit, Add Child, Add Sibling, Branch from Selection (while editing), Insert Page Break Before, Remove Manual Break (if manual), Link to Block…, Move Under…, Move to Chapter…, Framed, Copy as Markdown, Delete |
+| Block (Continuous Read, read-only) | Follow Links, Copy as Markdown, Focus |
+| Block (Page Read, read-only) | Open in Continuous Editor, Copy as Markdown |
+| Top-level block (Continuous Edit/Outline) | Add Top-Level Block Below, Move to Chapter…, Detach (if child), Insert Page Break Before, Delete |
+| Anchor (Continuous Edit/Outline) | Follow Branch, Select Branch, Reattach… (if lost), Copy Anchor Text, Remove Anchor (with confirmation) |
+| Anchor (Continuous Read/Page Read, read-only) | Follow Branch, Copy Anchor Text |
+| Branch (Continuous Edit/Outline) | Select, Edit Label, Change to Reference / Change to Structural, Delete Branch |
+| Branch (Continuous Read/Page Read, read-only) | Select, Follow to Target |
+| Empty space (Continuous) | Add Top-Level Block (Edit), Paste (Edit), Select All, Fit Width, Focus, Page Setup… |
 | Empty space (Page) | Page Setup…, Fit Page, Fit Width, Export…, Select All on Page |
-| Page-break marker (Reader/Outline) | Remove Manual Break (if manual), Keep This Break, Why This Break? |
-| Page-break marker (Page, read-only) | Why This Break?, Open in Reader |
-| Chapter heading (Reader/Outline) | Rename, New Chapter After, Move Up/Down, Start on New Page, Delete Chapter |
-| Chapter heading (Page, read-only) | Open in Reader |
+| Page-break marker (Continuous/Outline) | Remove Manual Break (if manual), Keep This Break, Why This Break? |
+| Page-break marker (Page Read, read-only) | Why This Break?, Open in Continuous Editor |
+| Chapter heading (Continuous Edit/Outline) | Rename, New Chapter After, Move Up/Down, Start on New Page, Delete Chapter |
+| Chapter heading (Page Read, read-only) | Open in Continuous Editor |
 
-In Page, editing items are disabled; its menus show navigation, copy, Page Setup and Export only.
+In Continuous Read and Page Read, editing items are disabled; their menus show navigation, copy, Page Setup and Export only. Page Edit is planned and, when implemented, will share Page Read geometry with editing enabled.
 
 Menu items are the accessible version of every gesture. Anything in a context menu must also be in the menu bar.
 
 ### 7.6 Focus, breadcrumbs, page context
 
-- **Reader focus** (`F` / `⌘⇧F`): dims outside the focused subtree and zooms to fit it. `Esc` exits.
+- **Continuous focus** (`F` / `⌘⇧F`): dims outside the focused subtree and zooms to fit it. `Esc` exits. Available in Edit and Read.
 - **Page focus**: zooms to the selected subtree within the page; no dimming. `Esc` returns to fit page.
 - **Outline focus**: hoists the subtree. `Esc` exits.
 - Breadcrumbs: `Document › Chapter › Top-level › … › Current`. Clicking scrolls and selects.
-- Page context: the page indicator follows the focused block if visible; otherwise it follows the viewport center. In Reader, the page is derived from the scroll position/marker; in Page, it is the visible page.
+- Page context: the page indicator follows the focused block if visible; otherwise it follows the viewport center. In Continuous, the page is derived from the scroll position/marker; in Page, it is the visible exact page.
 - Page numbers are a view of the current pagination, not stable identifiers. Use block links, chapters, and breadcrumbs for navigation.
 
 ### 7.7 States
@@ -1109,10 +1134,11 @@ Menu items are the accessible version of every gesture. Anything in a context me
 | State | Trigger | Behavior |
 |---|---|---|
 | Empty | No blocks | Empty message with **Add a Top-Level Block** |
-| Continuous | Reader | Full layout, page-break markers |
-| Paginated | Page | Current page, footer, no marker rows |
-| Preview | Page | Read-only; selection, navigation, zoom and link following only; PDF target |
-| Focused | `F` | Reader dims/zooms; Page zooms |
+| Continuous Edit | Default | Full layout, derived markers, authoring |
+| Continuous Read | `⌘E` | Full layout, derived markers; editing disabled; navigation/links/copy preserved |
+| Page Read | Page layout | Exact pages, footer, no marker rows; read-only; PDF target |
+| Page Edit unavailable | `⌘E` in Page | Disabled with "Page editing is not available yet." |
+| Focused | `F` | Continuous dims/zooms; Page zooms |
 | Layout frozen | `⌘⌥L` | Page breaks/positions held; edits marked pending; **Reflow Now** |
 | Unbreakable overflow | Element cannot fit a page | Warning outline + banner; export blocked |
 | Manual break invalid | Hint cannot be honored | Marker warning; export warning |
@@ -1161,8 +1187,8 @@ Menu items are the accessible version of every gesture. Anything in a context me
 | `Esc` | Leave editing → exit focus → clear selection | |
 | `⌫` at start | Merge with previous block (only if no children) | Editing |
 | `⌘⇧⌫` | Delete selected block(s) | Not editing |
-| `⌘⇧[` / `⌘⇧]` | Collapse / expand | Outline only |
-| `⌘⌥[` / `⌘⌥]` | Collapse all / expand all | Outline only |
+| `⌘⇧[` / `⌘⇧]` | Collapse / expand | Outline and Continuous |
+| `⌘⌥[` / `⌘⌥]` | Collapse all / expand all | Outline and Continuous |
 | `⌘⇧F` | Focus selected subtree (hoist) | Any |
 | `⌘⇧L` | Link to an existing block | Any |
 | `⌘⇧Return` | Branch from selection (anchor + branch), or from the block | Any |
@@ -1241,9 +1267,10 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 | `⌘⇧Z` | Redo |
 | `⌘F` | Find in document |
 | `⌘G` / `⌘⇧G` | Next / previous match |
-| `⌘1` | Outline view |
-| `⌘2` | Reader view |
-| `⌘3` | Page view |
+| `⌘1` | Outline |
+| `⌘2` | Continuous layout |
+| `⌘3` | Page layout |
+| `⌘E` | Toggle Edit/Read in Continuous; disabled in Outline and in Page until Page Edit ships |
 | `⌘[` / `⌘]` | Back / forward in focus history |
 | `⌥↑` / `⌥↓` | Previous / next page |
 | `⌘⌥C` | New chapter |
@@ -1287,7 +1314,7 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 |---|---|
 | `⌘B` / `⌘I` | Bold / italic |
 | `⌘⇧X` | Strikethrough |
-| `⌘E` | Inline code |
+| `⌘⇧C` | Inline code |
 | `⌘K` | Add/edit web link |
 | `⌘⇧H` | Highlight (non-structural) |
 | `⌘⇧↵` | Anchor + branch from selection; if none, from the block |
@@ -1297,24 +1324,26 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 | `⌘⇧L` | Link to an existing block |
 | `Tab` | Indent block; in code, insert indentation; lists use `⌘]` / `⌘[` |
 
-### 9.4 Reader and Page
+### 9.4 Continuous and Page
 
-**Shared navigation (Reader and Page; Page is read-only)**
+**Shared navigation (Continuous and Page; Page Read is read-only; Page Edit planned)**
 
 | Shortcut | Action |
 |---|---|
+| `⌘2` / `⌘3` | Continuous / Page |
+| `⌘E` | Edit/Read in Continuous; disabled in Page until Page Edit ships |
 | `Space`+drag / middle-drag | Pan the viewport |
 | `⌘+` / `⌘−` | Zoom in / out |
 | `⌘0` | Reset zoom to 100% |
-| `⇧1` | Fit view: fit width in Reader, fit page in Page |
-| `⇧2` | Fit width (Page only; no-op in Reader) |
-| `⌥↑` / `⌥↓` | Previous / next page (Reader: marker; Page: page) |
-| `F` / `⌘⇧F` | Focus: Reader dims/zooms; Page zooms |
+| `⇧1` | Fit view: fit width in Continuous, fit page in Page |
+| `⇧2` | Fit width (Page only; no-op in Continuous) |
+| `⌥↑` / `⌥↓` | Previous / next page (Continuous: derived marker; Page: exact page) |
+| `F` / `⌘⇧F` | Focus: Continuous dims/zooms; Page zooms |
 | `↑↓←→` | Move selection to nearest block |
 | `⇧`+arrow | Add nearest block to selection |
-| `⎋` | Leave editing (Reader) → exit focus → clear selection |
+| `⎋` | Leave editing (Continuous Edit) → exit focus → clear selection |
 
-**Reader authoring (active when no editor is open)**
+**Continuous authoring (Edit mode, no editor open)**
 
 | Shortcut | Action |
 |---|---|
@@ -1322,22 +1351,25 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 | `⌘↵` | Add child |
 | `⌘⇧↑` / `⌘⇧↓` | Move block/subtree among siblings |
 | `Tab` / `⇧Tab` | Indent/outdent selected block |
+| `⌘⇧[` / `⌘⇧]` | Collapse / expand focused block |
+| `⌘⌥[` / `⌘⌥]` | Collapse all / expand all |
 | `⌫` | Delete selection |
 | `⇧`-drop | Reparent onto a block |
 | `⌥`-drop | Reference link to a block |
 
-**Page (read-only)**
+**Page Read (read-only)**
 
-Page has no editing shortcuts. `Return` or double-click opens the selected block in Reader; add, edit, delete, indent, and drag commands are disabled.
+Page Read has no editing shortcuts. `Return` or double-click opens the selected block in Continuous Edit; add, edit, delete, indent, and drag commands are disabled. Page Edit is planned and will reuse the Continuous authoring shortcuts with one active block editor.
 
 ### 9.5 Shortcut rules
 
-- **Single-key shortcuts** (`F`, `⇧1`, `⇧2`, arrows) work in Reader with no editor open and in Page (always read-only). They can be disabled in Settings.
-- **Page is read-only.** Content and structure commands are disabled in Page, including New Chapter, New Block, Insert/Remove Manual Break, Delete, indent/outdent, and drag/drop. `Return` or double-click opens the block in Reader. Undo/redo remain global; the preview updates.
+- **Single-key shortcuts** (`F`, `⇧1`, `⇧2`, arrows) work in Continuous with no editor open and in Page (Read-only now). They can be disabled in Settings.
+- **Page Read is read-only.** Content and structure commands are disabled in Page Read, including New Chapter, New Block, Insert/Remove Manual Break, Delete, indent/outdent, and drag/drop. `Return` or double-click opens the block in Continuous Edit. Undo/redo remain global; the preview updates. Page Edit is planned and disabled until implemented.
+- **`⌘E` is mode, not inline code.** Inline code is `⌘⇧C` so Edit/Read has one unambiguous global meaning.
 - **`Tab` is the only structural key that changes meaning inside code blocks.**
 - **`Esc` never cancels editing.** It commits and leaves. `⌘Z` is the way back.
 - **`⌘P`** is quick export, not system print. Native printing is out of scope; the user prints the exported PDF.
-- **`⌥↑` / `⌥↓`** are page navigation in all views; disabled while editing in a text field.
+- **`⌥↑` / `⌥↓`** are page navigation in all layouts and modes; disabled while editing in a text field.
 - **Freeze/Reflow are view-state commands.** `⌘⌥L` freezes layout and pagination; `⌘⌥R` reflows now. They are not undoable and do not change the document.
 - **No page-management commands or shortcuts.** There is no New Page, Duplicate Page, Delete Page, Split Page, or Move to Page. Pages are derived.
 - **No pin/nudge shortcuts.** There is no free positioning.
@@ -1357,29 +1389,29 @@ This section defines behavior and hierarchy, not final visual design.
 | Part | Behavior |
 |---|---|
 | **Document** | The window; one title; a sequence of chapters |
-| **Chapter** | A heading row in the outline; a large heading in Reader/Page; a page break may start before it |
+| **Chapter** | A heading row in the outline; a large heading in Continuous/Page; a page break may start before it |
 | **Top-level block** | A content block with no parent; a "Top-level" chip in the outline; the first block of a section |
 | **Page** | A rendered sheet with an edge, margins, footer, and page number; not a container |
-| **Page-break marker** | A line in Reader/Outline with a page label; dashed auto, solid manual |
+| **Page-break marker** | A line in Continuous/Outline with a page label; dashed auto, solid manual; derived hint, not exact print geometry |
 | **Continuation marker** | A label at a break and at the resume point |
 | **Ghost parent** | A dimmed, non-editable ancestor at the top of a continuation page; click jumps to the real parent |
-| **Surface** | A block is a readable card in Reader/Page; a row in the outline; the same renderer in the PDF |
+| **Surface** | A block is a readable card in Continuous/Page; a row in the outline; the print renderer in the PDF |
 | **Anchor dots** | 8 pt visual, 24 × 24 pt hit area |
-| **Branch handle** | Right-edge handle in Outline/Reader; click adds a child, drag to a block reparents. Hidden in Page (read-only) |
+| **Branch handle** | Right-edge handle in Outline/Continuous Edit; click adds a child, drag to a block reparents. Hidden in Continuous Read and Page Read. Page Edit is planned |
 | **Chips** | Child count, shared, framed, top-level, lost anchor, overflow |
 
 ### 10.2 Block states
 
 | State | Trigger | Behavioral treatment | Interaction |
 |---|---|---|---|
-| **Default** | Not hovered/selected | Quiet surface; no handles | Editable on click/double-click in Outline/Reader; Page selects only |
-| **Hover** | Pointer over | Handles/chips fade in in Outline/Reader; Page shows chips only; no layout shift | Click selects/edits in Outline/Reader; Page selects |
-| **Selected** | Click gutter/block | Accent ring; handles in Outline/Reader; inspector updates | Drag reorder/delete/edit in Reader/Outline; Page inspects |
+| **Default** | Not hovered/selected | Quiet surface; no handles | Editable on click/double-click in Outline/Continuous Edit; Continuous Read and Page Read select only |
+| **Hover** | Pointer over | Handles/chips fade in in Outline/Continuous Edit; read modes show chips only; no layout shift | Click selects/edits in Outline/Continuous Edit; read modes select |
+| **Selected** | Click gutter/block | Accent ring; handles in Outline/Continuous Edit; inspector updates | Drag reorder/delete/edit in Continuous Edit/Outline; Page Read inspects |
 | **Focused** | Last interacted | Ring + breadcrumb | Keyboard actions target it |
-| **Editing** | Click text / `Return` / double-click in Outline/Reader | Caret; editing ring; Reader reflows; Page is read-only | Text keys; `Esc` commits |
+| **Editing** | Click text / `Return` / double-click in Outline/Continuous Edit | Caret; editing ring; Continuous reflows; Read modes are read-only | Text keys; `Esc` commits |
 | **Continued** | Block continues on the next page | Ghost parent at the top of the next page; continuation marker | Click ghost parent to jump; read-only marker |
 | **Multi-selected** | Shift/Cmd click, marquee | Rings; "N selected" | Delete, copy; no group move |
-| **Collapsed** | Outline only | Descendants hidden; "N hidden" | Expand |
+| **Collapsed** | Outline or Continuous | Descendants hidden; "N hidden"; Page/PDF remain full | Expand |
 | **Top-level** | No primary parent | "Top-level" chip | Chapter actions |
 | **Shared** | Reference links | "Shared · N"; dashed edge when both endpoints are visible; otherwise a "See also" chip (page number in M4) | Click → links |
 | **Framed** | Inspector/menu | Heavier border; algorithms/definitions | Toggle |
@@ -1389,7 +1421,7 @@ This section defines behavior and hierarchy, not final visual design.
 | **Search hit** | Find result | Highlight; current hit stronger | `Return` cycles |
 | **Drop target** | During drag | Line/rounded outline/dashed/forbidden | Release |
 | **Unbreakable overflow** | Line/image/code/formula too tall/wide | Warning outline; banner; export blocked | Resize/shorten element, landscape |
-| **Preview (Page)** | Page view | No caret, no handles; selection ring only | Inspect, follow links; **Open in Reader** to edit |
+| **Preview (Page Read)** | Page Read | No caret, no handles; selection ring only | Inspect, follow links; **Open in Continuous Editor** to edit. Page Edit is planned |
 | **Read-only file** | Newer schema/locked | No caret; banner | Export only |
 
 ### 10.3 Branches and arrows
@@ -1452,7 +1484,7 @@ Page width (A4, inside margins)
 **Page break inside a subtree → continuation marker.**
 
 ```text
-Reader (continuous)
+Continuous (Edit or Read)
   Chapter 1 · Eigenvalues
     Definition
       Stretch factor
@@ -1512,15 +1544,16 @@ Page 2
 
 | Marker | Where | Visual | Action |
 |---|---|---|---|
-| Automatic break | Reader, Outline | Dashed line/row; `Page 2 · automatic` | Keep This Break, Why This Break? |
-| Manual break | Reader, Outline | Solid line/row; `Page 2 · Manual` | Remove Manual Break, Why? |
-| Chapter start | Reader, Outline | Solid line/row; `Page 2 · Chapter 2 starts here` | Remove via chapter setting |
-| Continuation | Reader, Outline, Page | `↳ Chapter 1 continues on page 2`; `Continued from page 1` | None (informational) |
-| Ghost parent | Reader, Page | Dimmed ancestor at the top of the continuation page | Click to jump to the real parent |
-| Unbreakable overflow | Reader, Page | Warning outline; banner | Fix element (resize/shorten/landscape) |
+| Automatic break | Continuous, Outline | Dashed line/row; `Page 2 · automatic`; derived hint | Keep This Break, Why This Break? |
+| Manual break | Continuous, Outline | Solid line/row; `Page 2 · Manual` | Remove Manual Break, Why? |
+| Chapter start | Continuous, Outline | Solid line/row; `Page 2 · Chapter 2 starts here` | Remove via chapter setting |
+| Continuation | Continuous, Outline, Page | `↳ Chapter 1 continues on page 2`; `Continued from page 1` | None (informational) |
+| Ghost parent | Continuous, Page | Dimmed ancestor at the top of the continuation page | Click to jump to the real parent |
+| Unbreakable overflow | Continuous, Page | Warning outline; banner | Fix element (resize/shorten/landscape) |
 
 - Markers do not interrupt the tree; they are annotations on the layout.
 - Manual markers are the only way to stabilize a break; automatic markers can move.
+- Continuous markers are derived hints from the same paginator as Page/PDF; they are not WYSIWYG. Page Read and PDF are the exact geometry.
 - Page numbers in markers are derived and update with pagination.
 
 ### 10.7 Zoom and level of detail
@@ -1534,8 +1567,8 @@ Page 2
 Rules:
 
 - ±3% hysteresis; LOD never changes data or export.
-- Reader default is fit width; Page default is fit page.
-- Text below 40% is not editable; double-click zooms to Comfort, then edits.
+- Continuous default is fit width; Page default is fit page.
+- Text below 40% is not editable; double-click zooms to Comfort, then edits (Continuous Edit only).
 - Selection rings and lost-anchor/overflow markers remain visible at any zoom.
 
 ### 10.8 Motion
@@ -1544,10 +1577,10 @@ Rules:
 |---|---|---|
 | Reflow after structural change | 120–180 ms ease-out | Instant |
 | Freeze / Reflow Now | No reflow while frozen; Reflow Now 150 ms | Instant |
-| Reader scroll / Page scroll / pan / zoom | Direct | Direct |
+| Continuous scroll / Page scroll / pan / zoom | Direct | Direct |
 | Fit width / fit page | 200 ms ease | Instant |
 | Focus zoom | 200 ms ease | Instant |
-| View switch | 120 ms crossfade | Instant |
+| Layout/mode switch | 120 ms crossfade | Instant |
 | Page-break marker update | Instant, no animation | Instant |
 | Toast | 150 ms slide/fade | Instant |
 | Typing, selection, save | No animation | No animation |
@@ -1625,7 +1658,7 @@ Motion is never the only signal.
 - One at a time, bottom center, max 6 s.
 - Reversible actions include **Undo** (same as `⌘Z`; only while it is the most recent action).
 - Never stack.
-- Never for save success, view switch, selection.
+- Never for save success, layout/mode switch, selection.
 - Errors use banners/sheets/chips, not toasts.
 
 ### 11.5 Confirmation policy
@@ -1650,7 +1683,7 @@ Motion is never the only signal.
 | Surface | Empty | Loading |
 |---|---|---|
 | Outline | One chapter + one empty top-level block | Skeleton only if > 300 ms |
-| Reader | "Nothing to read yet." + **Add a Top-Level Block** | Faint layout skeleton |
+| Continuous | "Nothing to read yet." + **Add a Top-Level Block** | Faint layout skeleton |
 | Page | "Nothing to paginate yet." | Page skeleton |
 | Empty chapter | "This chapter is empty." + **Add a Top-Level Block** | Instant |
 | Find | "No matches for “…”" | Inline spinner |
@@ -1665,7 +1698,7 @@ Motion is never the only signal.
 
 ### 12.1 Commitments
 
-1. **The outline is the accessible document.** Every object/action in Reader/Page has a keyboard-reachable equivalent in the outline, inspector, or menu.
+1. **The outline is the accessible document.** Every object/action in Continuous/Page has a keyboard-reachable equivalent in the outline, inspector, or menu.
 2. **Keyboard-only is a first-class path.** All flows in section 6 are keyboard-completable.
 3. **No hover-only actions.**
 4. **No drag-only actions.** Reparenting has Move Under…/indent/outdent; chapter moves have Move to Chapter…; breaks have Insert/Remove Manual Break.
@@ -1676,17 +1709,17 @@ Motion is never the only signal.
 - One focus ring at a time; always visible for keyboard users.
 - Tab order: toolbar → main view → inspector → status bar.
 - Outline: single Tab stop; arrows move; `Tab`/`⇧Tab` change structure; `⌃Tab` leaves.
-- Reader: single Tab stop; `Tab` enters at the focused block; arrows move spatially; `Return` edits; `Esc` steps out; `⌃Tab` leaves.
-- Page: single Tab stop; `Tab` enters at the focused block; arrows move; `Return` or double-click opens the block in Reader; `Esc` steps out; `⌃Tab` leaves.
+- Continuous: single Tab stop; `Tab` enters at the focused block; arrows move spatially; `Return` edits in Edit mode; `Esc` steps out; `⌃Tab` leaves. In Read mode `Return` opens the focused block's links/actions, not an editor.
+- Page: single Tab stop; `Tab` enters at the focused block; arrows move; `Return` or double-click opens the block in Continuous Edit; `Esc` steps out; `⌃Tab` leaves. Page Edit is planned.
 - Page navigation `⌥↑/↓`; announced as "Page 2 of 5".
-- Focus restored after view switches, undo, dialogs, export.
+- Focus restored after layout/mode switches, undo, dialogs, export.
 - Dialogs trap focus and return it.
 
 ### 12.3 Screen readers
 
 - **Outline:** nested list with explicit levels; chapter headings and page-break markers announced as separators ("Page 2, automatic; Chapter 2 starts here"). Blocks announce type, first line, level, children, collapsed, shared, anchors, lost anchor, overflow.
-- **Reader:** a continuous document in outline order; page-break markers announced as "Page 2 starts here; Chapter 1 continues." Not read as a spatial canvas.
-- **Page:** a sequence of page sections; each announces page number, chapter, top-level count, overflow. Blocks read in order; visual positions not read. Page is read-only; activating a block opens it in Reader.
+- **Continuous:** a continuous document in outline order; derived page-break markers announced as "Page 2 starts here; Chapter 1 continues." Not read as a spatial canvas. Edit and Read are announced.
+- **Page:** a sequence of page sections; each announces page number, chapter, top-level count, overflow. Blocks read in order; visual positions not read. Page Read is read-only; activating a block opens it in Continuous Edit. Page Edit is planned.
 - **Branches:** "Branch from “λ, the eigenvalue” to “λ is the stretch factor”."
 - **Anchors:** "Anchor: λ, 1 branch"; lost as "Lost anchor: λ, attached to the whole block, needs reattachment".
 - **Continuation and ghost parent:** "Chapter 1 continues on page 2; ghost parent: Definition, continued from page 1."
@@ -1699,13 +1732,13 @@ Motion is never the only signal.
 | Task | Path |
 |---|---|
 | Create a document and three blocks | `⌘N`, type, `↵`, type, `↵`, type |
-| Branch from a word | From Outline or Reader: select block, `↵`, move caret, `⇧⌥→`, `⌘⇧↵` |
-| Reparent a block | From Outline or Reader: select, `Tab` / `⇧Tab`, or Block → Move Under… |
-| Create a reference link | From Outline or Reader: select source, `⌘⇧L`, filter, `↵` |
-| Create a chapter | From Outline or Reader: `⌘⌥C`, type the title, `↵` to move to the first block |
-| Insert a manual break | From Outline or Reader: select block, `⌘⌥B` |
+| Branch from a word | From Outline or Continuous Edit: select block, `↵`, move caret, `⇧⌥→`, `⌘⇧↵` |
+| Reparent a block | From Outline or Continuous Edit: select, `Tab` / `⇧Tab`, or Block → Move Under… |
+| Create a reference link | From Outline or Continuous Edit: select source, `⌘⇧L`, filter, `↵` |
+| Create a chapter | From Outline or Continuous Edit: `⌘⌥C`, type the title, `↵` to move to the first block |
+| Insert a manual break | From Outline or Continuous Edit: select block, `⌘⌥B` |
 | Go to next page | `⌥↓` |
-| Reattach a lost anchor | From Reader or Outline: `⌘⌥I` / status chip, choose anchor, **Reattach…**, pick, `↵` |
+| Reattach a lost anchor | From Continuous Edit or Outline: `⌘⌥I` / status chip, choose anchor, **Reattach…**, pick, `↵` |
 | Export | `⌘P` (quick export), or `⌘⇧E`, review the preview, **Export** |
 
 ### 12.5 Motion, contrast, display
@@ -1719,7 +1752,7 @@ Motion is never the only signal.
 ### 12.6 Shortcuts and assistive tech
 
 - All shortcuts remappable; conflicts explained.
-- Single-key Reader/Page shortcuts can be disabled.
+- Single-key Continuous/Page shortcuts can be disabled.
 - Voice Control labels for icon-only controls (branch handle, anchor dot, page arrows, collapse).
 - External API status is announced with its scope; settings are keyboard reachable.
 - Shortcuts sheet searchable.
@@ -1740,7 +1773,7 @@ The practical limit is block size and pagination, not canvas node count.
 
 Rules:
 
-- Reader renders the visible continuous region plus a buffer; Page renders the current page plus neighbors.
+- Continuous renders the visible continuous region plus a buffer; Page renders the current page plus neighbors.
 - Incremental reflow runs on committed changes; freeze mode defers layout and pagination; full reflow runs on request or after 1.5 s idle. A reflow never blocks typing. If it takes > 100 ms, the status bar shows activity and the layout catches up.
 - Export renders every page; progress per page.
 - Page-break markers, continuation labels, and ghost parents update after pagination.
@@ -1754,7 +1787,7 @@ Rules:
 - No modifier-only actions; `⇧`/`⌥` drops become explicit choices on long-press/drag.
 - 44 × 44 pt targets; large invisible hit areas for anchors/handles.
 - Long-press = context menu.
-- Reader: continuous scroll/swipe; Page: page swipe/pinch; page navigation by swipe.
+- Continuous: continuous scroll/swipe; Page: page swipe/pinch; page navigation by swipe. Read modes are the default for touch study; Edit mode is available with the on-screen keyboard.
 - Text editing works with the on-screen keyboard.
 - Pencil is for ink annotations in a later phase; the document model must not assume ink in a block.
 - The page PDF is the iPad bridge for v1; Notability handles ink.
@@ -1765,7 +1798,7 @@ Rules:
 
 | # | Question | Why it matters | Current proposal / next step |
 |---|---|---|---|
-| Q1 | **Resolved:** Is Reader or Page the primary spatial authoring surface? | Reader preserves flow; Page shows fit. | **Reader is the primary authoring surface for v1. Page is a read-only preview and the PDF target.** |
+| Q1 | **Resolved by ADR-0007:** which spatial layout is primary? | Reader preserved flow; Page showed fit. | **Continuous + Edit is the default authoring surface. Continuous Read is read-only. Page Read is the exact read-only PDF proof. Page Edit is planned/optional.** |
 | Q2 | Is "chapter" or "document" the right user-facing noun? | The product owner says chapter; the file is a document | Use document in v1; revisit naming |
 | Q3 | How should adaptive widths be chosen? | Content-driven widths can make rows unbalanced; a large subtree may dominate | Measure content, cap extreme widths, balance rows; test with real notes |
 | Q4 | When should a child wrap below the parent instead of going right? | The wrap rule defines the visual rhythm and page count | Wrap when the child + margin does not fit; keep a slight indent; test |
@@ -1774,18 +1807,19 @@ Rules:
 | Q7 | How stable should manual breaks be? | Users may want the PDF page count stable; content edits move automatic breaks | Manual hints persist; show when invalid; no auto-stabilization |
 | Q8 | **Resolved policy:** What if a long block or an atomic element is too tall/wide? | Long text should flow; lines, images, code and formulas must stay readable. | **Long text continues at safe boundaries; an unbreakable element overflows with a fix path (resize/shorten/landscape).** Boundary rules to validate with real notes. |
 | Q9 | Does `Tab` moving the block (instead of indenting a list item) feel right? | Lists are common; the wrong behavior is hit constantly | Rule + hint; measure |
-| Q10 | Should Reader/Page support collapse/fold? | Hiding content would change pagination and exports | **M3 continuous editor:** collapse hides primary descendants and anchored callouts with a hidden count (spec §7.6). **Paginated Reader/Page:** no in v1.2; re-decide in M4 |
-| Q11 | Should cross-page reference links be lines or chips? | Lines across pages may be noisy; chips hide context | Chips + **See also** list; M3 shows chapter/label, M4 adds the page number (OD-9); test |
+| Q10 | Should Continuous/Page support collapse/fold? | Hiding content would change pagination and exports | **Continuous/outline:** collapse hides primary descendants and anchored callouts with a hidden count (spec §7.6). **Page/PDF:** always full document; collapse in Page is a later product decision with explicit export semantics. |
+| Q11 | Should cross-page reference links be lines or chips? | Lines across pages may be noisy; chips hide context | Chips + **See also** list; M3 shows chapter/label, M4 adds the derived page (OD-9); test |
 | Q12 | Is formula-term anchoring by LaTeX source acceptable? | Users think in rendered formulas | Source + best-effort marker; test |
 | Q13 | **Resolved:** Is page orientation document-level or per page? | Mixed orientation would complicate the paginator and the PDF. | **One document-wide orientation at a time; changing it reflows all pages. No per-page orientation.** |
 | Q14 | Should a chapter always start on a new page? | It aids structure but can waste space | Default on; toggle per chapter; test |
 | Q15 | Should page numbers be stable identifiers? | They change with content; users may cite them | Treat as derived; manual breaks stabilize; use block links |
 | Q16 | Should dark mode produce a dark PDF? | Some study at night; Notability assumes white | Light only v1; evaluate |
 | Q17 | Is the sample the right onboarding, or templates? | Sample teaches the differentiator | Sample first; templates later |
-| Q18 | Should the Reader allow free text/shape annotations? | Top scope-creep request; different product | No; annotations in PDF/Notability |
-| Q19 | Do we need page thumbnails? | Many pages need quick navigation; Reader markers may be enough | Page indicator v1; thumbnails if asked |
-| Q20 | Should the Reader show page gaps? | A continuous Reader with markers vs a slight gap at page breaks | Markers only in v1; test readability |
-| Q21 | Do we need a split view (Outline + Reader, or Reader + Page)? | The three-view model is already a lot; split view doubles space and focus | No split in v1; revisit after real use |
+| Q18 | Should Continuous allow free text/shape annotations? | Top scope-creep request; different product | No; annotations in PDF/Notability |
+| Q19 | Do we need page thumbnails? | Many pages need quick navigation; Continuous markers may be enough | Page indicator v1; thumbnails if asked |
+| Q20 | Should Continuous show page gaps? | A continuous layout with derived markers vs a slight gap at page breaks | Markers only in v1; test readability; markers are hints, not exact print geometry |
+| Q21 | Do we need a split view (Outline + Continuous, or Continuous + Page)? | The surface model is already a lot; split view doubles space and focus | No split in v1; revisit after real use |
+| Q22 | Should Page Edit ship, and how should it handle a block that crosses a page boundary? | Page Edit is optional in ADR-0007; long blocks already continue at safe boundaries | **Planned/optional:** one active block editor overlay, same geometry as Page Read, no second paginator. Defer until continuous markers and PDF are stable; do not make Page Edit primary. |
 
 ---
 
@@ -1842,11 +1876,11 @@ Five tasks, 30 minutes, think-aloud, one moderator. Measure completion, time, an
 | 1 | "Capture this topic and give it five branches in a chapter." | Return/Tab, chapter start, first-run hints |
 | 2 | "Branch from the λ in this definition and explain it." | Anchor discoverability, `⌘⇧Return`, selection toolbar |
 | 3 | "Move this branch under that one, then undo it." | Reparent grammar, drag vs keys, undo |
-| 4 | "Find the page break; make it stable; explain what continues on the next page." | Reader markers, manual break, continuation comprehension |
-| 5 | "Export a PDF you would annotate on your iPad." | Paginator/Page match, all pages, A4/margins, text layer |
+| 4 | "Find the page break; make it stable; explain what continues on the next page." | Continuous markers, manual break, continuation comprehension |
+| 5 | "Export a PDF you would annotate on your iPad." | Paginator/Page Read match, all pages, A4/margins, text layer |
 
-Observe: do participants try to drag blocks to arbitrary positions? Do they expect pages to be containers? Do they understand a continuation marker? Do they press `Tab` in a list and get surprised? Do they expect a separate reader PDF?
+Observe: do participants try to drag blocks to arbitrary positions? Do they expect pages to be containers? Do they understand a continuation marker? Do they press `Tab` in a list and get surprised? Do they expect a separate reader PDF? Do they look for Page Edit and understand that it is not available yet?
 
 ---
 
-*End of v1.3. This document follows the Document → Chapters → top-level blocks model, the adaptive layout, derived pagination, and the Reader/Page renderers in `AGENTS.md`.*
+*End of v1.5. This document follows the Document → Chapters → top-level blocks model, the adaptive layout, derived pagination, and the Continuous/Page layouts with Edit/Read modes in `AGENTS.md` and ADR-0007.*
