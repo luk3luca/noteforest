@@ -43,7 +43,13 @@ import type { Branch } from '@noteforest/core';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
-import { imageActionLabel, imagesInContent, type ContentImage } from './lib/image';
+import {
+  imageActionLabel,
+  imageAnchorAuthoringGate,
+  imageAuthoringDisabledSuffix,
+  imagesInContent,
+  type ContentImage,
+} from './lib/image';
 import { beginImageAnchorAuthoring } from './lib/image-authoring';
 import { insertImageFromDialog, replaceImageFromDialog } from './lib/image-insert';
 
@@ -542,19 +548,25 @@ function imageActionEntries(
   index: number,
   total: number,
 ): MenuEntry[] {
-  const imageAsset =
-    image.assetId.length === 0 ? undefined : runtime.document.assets[image.assetId];
-  const canAuthorImage = runtime.editable && imageAsset !== undefined;
+  const hasAssetRecord =
+    image.assetId.length > 0 && runtime.document.assets[image.assetId] !== undefined;
+  const authoringGate = imageAnchorAuthoringGate({
+    editable: runtime.editable,
+    assetId: image.assetId,
+    hasAssetRecord,
+    availability: runtime.assetAvailability,
+  });
+  const authoringSuffix = authoringGate.allowed
+    ? ''
+    : imageAuthoringDisabledSuffix(authoringGate.reason);
   const prefix = total > 1 ? `${imageActionLabel(image, index)}: ` : '';
   const idBase = `image-${image.path.join('.') || '0'}`;
   return [
     {
       id: `${idBase}-add-region`,
-      label: canAuthorImage
-        ? `${prefix}Add image region…`
-        : `${prefix}Add image region… — image asset missing`,
-      disabled: !canAuthorImage,
-      ...(canAuthorImage
+      label: `${prefix}Add image region…${authoringSuffix}`,
+      disabled: !authoringGate.allowed,
+      ...(authoringGate.allowed
         ? {
             onSelect: () =>
               beginImageAnchorAuthoring(runtime, blockId, image.path, 'region'),
@@ -563,11 +575,9 @@ function imageActionEntries(
     },
     {
       id: `${idBase}-add-point`,
-      label: canAuthorImage
-        ? `${prefix}Add image point…`
-        : `${prefix}Add image point… — image asset missing`,
-      disabled: !canAuthorImage,
-      ...(canAuthorImage
+      label: `${prefix}Add image point…${authoringSuffix}`,
+      disabled: !authoringGate.allowed,
+      ...(authoringGate.allowed
         ? {
             onSelect: () =>
               beginImageAnchorAuthoring(runtime, blockId, image.path, 'point'),

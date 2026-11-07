@@ -222,6 +222,14 @@ describe('NoteForest M3c3b4 image UX and asset lifecycle', () => {
     await page
       .locator(`[data-block-card="${blockId}"] [data-image-action="menu"][data-image-action-path="1"]`)
       .click();
+    // A healthy, available asset keeps region authoring enabled.
+    assert.equal(
+      await page
+        .getByRole('menuitem', { name: /^Add image region…$/ })
+        .getAttribute('aria-disabled'),
+      null,
+      'region authoring is enabled for an available asset',
+    );
     await ui.chooseMenuItem('Edit image alt text…');
     await page.locator('.nf-dialog').getByRole('textbox', { name: 'Alt text' }).fill(
       'Chart 2026',

@@ -457,6 +457,34 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
           <span className="nf-image-missing-name">{label}</span>
           <span className="nf-image-missing-hint">{hint}</span>
         </div>
+        {runtime !== null && runtime.editable ? (
+          // A broken image has no draw layer, but the per-image menu stays the
+          // repair surface: Replace/alt are safe, and Add region/point render
+          // disabled with the availability reason.
+          <div
+            className="nf-image-actions"
+            contentEditable={false}
+            role="group"
+            aria-label="Image actions"
+          >
+            <button
+              type="button"
+              className="nf-image-action"
+              data-image-action="menu"
+              data-image-action-path={nodePath.join('.') || '0'}
+              aria-label="Image actions"
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                openImageMenu(blockId, nodePath, {
+                  x: rect.left,
+                  y: rect.bottom + 4,
+                });
+              }}
+            >
+              Image actions…
+            </button>
+          </div>
+        ) : null}
       </NodeViewWrapper>
     );
   }

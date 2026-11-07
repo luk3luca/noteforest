@@ -10,6 +10,10 @@
  * Supported headers: PNG, JPEG, GIF, WebP, BMP, and AVIF (`ispe`). A malformed
  * or unsupported file is `null`; the caller stores the asset without
  * dimensions rather than inventing them.
+ *
+ * AVIF is ISO BMFF: the real `ispe` property lives inside `meta` (a full box)
+ * and `iprp`/`ipco` (plain containers), so the reader walks nested boxes with a
+ * bounded depth instead of scanning only top-level boxes.
  */
 
 export interface ImageDimensions {
@@ -122,29 +126,86 @@ function webpSize(bytes: Uint8Array): ImageDimensions | null {
   return null;
 }
 
-function avifSize(bytes: Uint8Array): ImageDimensions | null {
-  // ISO BMFF boxes are big-endian length + 4-byte type. The property box holds
-  // `ispe` with a full-box header (4 bytes) before width and height.
-  for (let offset = 0; offset + 12 <= bytes.length; ) {
-    const length = view(bytes).getUint32(offset, false);
-    const type = String.fromCharCode(
-      bytes[offset + 4] ?? 0,
-      bytes[offset + 5] ?? 0,
-      bytes[offset + 6] ?? 0,
-      bytes[offset + 7] ?? 0,
-    );
-    if (length < 8) break;
-    if (type === 'ispe' && offset + 20 <= bytes.length) {
+/** Maximum container nesting for the AVIF property walk. */
+const AVIF_MAX_BOX_DEPTH = 6;
+
+interface IsoBox {
+  type: string;
+  /** First byte after the box header. */
+  bodyOffset: number;
+  /** First byte after the box. */
+  end: number;
+}
+
+/**
+ * Read one ISO BMFF box header. `size === 1` means a 64-bit `largesize` follows
+ * the type; `size === 0` means the box extends to the end of its parent. A
+ * malformed or truncated box returns `null` instead of a partial range.
+ */
+function readIsoBox(bytes: Uint8Array, offset: number, limit: number): IsoBox | null {
+  if (offset < 0 || offset + 8 > limit) return null;
+  const data = view(bytes);
+  let size = data.getUint32(offset, false);
+  const type = String.fromCharCode(
+    bytes[offset + 4] ?? 0,
+    bytes[offset + 5] ?? 0,
+    bytes[offset + 6] ?? 0,
+    bytes[offset + 7] ?? 0,
+  );
+  let header = 8;
+  if (size === 1) {
+    if (offset + 16 > limit) return null;
+    const high = data.getUint32(offset + 8, false);
+    const low = data.getUint32(offset + 12, false);
+    // A property box that large cannot be a real image header, and the low
+    // word alone would be ambiguous. Fail closed.
+    if (high !== 0) return null;
+    size = low;
+    header = 16;
+  } else if (size === 0) {
+    size = limit - offset;
+  }
+  if (size < header || offset + size > limit) return null;
+  return { type, bodyOffset: offset + header, end: offset + size };
+}
+
+/**
+ * Find the first `ispe` property. `meta` is a full box, so its children start
+ * after version/flags; `iprp` and `ipco` are plain containers. `iref` and any
+ * other box are skipped. The depth limit bounds a crafted or corrupt file.
+ */
+function avifDimensions(
+  bytes: Uint8Array,
+  start: number,
+  end: number,
+  depth: number,
+): ImageDimensions | null {
+  if (depth > AVIF_MAX_BOX_DEPTH) return null;
+  const data = view(bytes);
+  for (let offset = start; offset + 8 <= end; ) {
+    const box = readIsoBox(bytes, offset, end);
+    if (box === null) return null;
+    if (box.type === 'ispe') {
       // ispe: version/flags (4), then width (4), height (4).
-      const width = positive(view(bytes).getUint32(offset + 12, false));
-      const height = positive(view(bytes).getUint32(offset + 16, false));
+      if (box.bodyOffset + 12 > box.end) return null;
+      const width = positive(data.getUint32(box.bodyOffset + 4, false));
+      const height = positive(data.getUint32(box.bodyOffset + 8, false));
       return width === undefined || height === undefined ? null : { width, height };
     }
-    const next = offset + length;
-    if (next <= offset) break;
-    offset = next;
+    if (box.type === 'meta' || box.type === 'iprp' || box.type === 'ipco') {
+      const childStart = box.type === 'meta' ? box.bodyOffset + 4 : box.bodyOffset;
+      if (childStart > box.end) return null;
+      const found = avifDimensions(bytes, childStart, box.end, depth + 1);
+      if (found !== null) return found;
+    }
+    if (box.end <= offset) return null;
+    offset = box.end;
   }
   return null;
+}
+
+function avifSize(bytes: Uint8Array): ImageDimensions | null {
+  return avifDimensions(bytes, 0, bytes.length, 0);
 }
 
 /** Intrinsic dimensions, or null when the header is malformed/unsupported. */

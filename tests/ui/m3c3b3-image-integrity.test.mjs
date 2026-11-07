@@ -111,6 +111,68 @@ async function waitForImageAnchorCount(blockId, count) {
   );
 }
 
+/**
+ * S4-2: a missing/changed asset has no draw layer, so both menu surfaces must
+ * disable Add region/point and name the reason. The block menu and the
+ * placeholder's own inline menu share the same gate.
+ */
+async function assertImageAuthoringDisabled(blockId, reason, screenshotName) {
+  const assertMenu = async () => {
+    const region = page.getByRole('menuitem', { name: /Add image region…/ });
+    const point = page.getByRole('menuitem', { name: /Add image point…/ });
+    assert.equal(await region.getAttribute('aria-disabled'), 'true', 'region action disabled');
+    assert.equal(await point.getAttribute('aria-disabled'), 'true', 'point action disabled');
+    assert.match((await region.textContent()) ?? '', reason);
+    assert.match((await point.textContent()) ?? '', reason);
+    // Repair actions stay available where they are safe.
+    assert.equal(
+      await page
+        .getByRole('menuitem', { name: /Replace image…/ })
+        .getAttribute('aria-disabled'),
+      null,
+      'replace stays enabled for a broken image',
+    );
+    assert.equal(
+      await page
+        .getByRole('menuitem', { name: /Edit image alt text…/ })
+        .getAttribute('aria-disabled'),
+      null,
+      'alt editing stays enabled for a broken image',
+    );
+    // A synthetic activation on a disabled entry must not start authoring and
+    // must not close the menu (React Aria ignores the disabled item).
+    await region.dispatchEvent('click');
+    assert.equal(await page.locator('.nf-menu').count(), 1, 'the disabled entry is inert');
+    await page.keyboard.press('Escape');
+    await page.locator('.nf-menu').waitFor({ state: 'detached' });
+  };
+
+  await ui.openBlockMenuFromGutter(blockId);
+  await assertMenu();
+
+  const inlineMenu = page.locator(
+    `[data-block-card="${blockId}"] [data-image-action="menu"]`,
+  );
+  assert.equal(await inlineMenu.count(), 1, 'the broken image keeps an inline actions menu');
+  await inlineMenu.click();
+  await assertMenu();
+  assert.equal(
+    await page.locator(`[data-block-card="${blockId}"] [data-image-draw-layer]`).count(),
+    0,
+    'no authoring surface started',
+  );
+
+  // Screenshot evidence for the inline menu while it is open.
+  await inlineMenu.click();
+  await page.locator('.nf-menu').waitFor();
+  await h.screenshot(resolve(screenshotDir, screenshotName), {
+    width: 1440,
+    height: 900,
+  });
+  await page.keyboard.press('Escape');
+  await page.locator('.nf-menu').waitFor({ state: 'detached' });
+}
+
 /** Insert the picker image and author one region branch. */
 async function insertImageWithRegion(blockId) {
   await mockImagePicker(forestFixture);
@@ -201,6 +263,13 @@ describe('NoteForest M3c3b3 image integrity and legacy sources', () => {
       [assetId]: 'asset-missing',
     });
 
+    // S4-2: both menu surfaces disable region/point authoring with the reason.
+    await assertImageAuthoringDisabled(
+      blockId,
+      /image file missing/,
+      'image-file-missing-actions-1440x900.png',
+    );
+
     await ui.waitForHealthChip(1, 0);
     await ui.openAnchorHealthFromChip();
     const row = page.locator(`[data-health-anchor="${anchor.id}"]`);
@@ -277,6 +346,13 @@ describe('NoteForest M3c3b3 image integrity and legacy sources', () => {
     assert.deepEqual(await page.evaluate(() => window.__noteforestTest.assetAvailability()), {
       [assetId]: 'asset-changed',
     });
+
+    // S4-2: both menu surfaces disable region/point authoring with the reason.
+    await assertImageAuthoringDisabled(
+      blockId,
+      /image asset changed/,
+      'image-hash-changed-actions-1440x900.png',
+    );
 
     // The protocol must return an error instead of the changed bytes. A bare
     // `<img>` probe is allowed by the page CSP even when projection refuses to

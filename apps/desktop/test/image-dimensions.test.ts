@@ -71,6 +71,69 @@ function webpVp8x(width: number, height: number): Uint8Array {
   return bytes;
 }
 
+function ascii(value: string): Uint8Array {
+  return Uint8Array.from(value, (character) => character.charCodeAt(0));
+}
+
+function concat(parts: readonly Uint8Array[]): Uint8Array {
+  const bytes = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    bytes.set(part, offset);
+    offset += part.length;
+  }
+  return bytes;
+}
+
+function uint32(value: number): Uint8Array {
+  const bytes = new Uint8Array(4);
+  new DataView(bytes.buffer).setUint32(0, value, false);
+  return bytes;
+}
+
+/** One ISO BMFF box: big-endian size, four-character type, then the body. */
+function isoBox(type: string, ...body: Uint8Array[]): Uint8Array {
+  const payload = concat(body);
+  const bytes = new Uint8Array(8 + payload.length);
+  new DataView(bytes.buffer).setUint32(0, bytes.length, false);
+  bytes.set(ascii(type), 4);
+  bytes.set(payload, 8);
+  return bytes;
+}
+
+/** A box that uses the 64-bit `largesize` form (size 1 + type + 64-bit size). */
+function isoBox64(type: string, ...body: Uint8Array[]): Uint8Array {
+  const payload = concat(body);
+  const bytes = new Uint8Array(16 + payload.length);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(0, 1, false);
+  bytes.set(ascii(type), 4);
+  view.setUint32(8, 0, false);
+  view.setUint32(12, bytes.length, false);
+  bytes.set(payload, 16);
+  return bytes;
+}
+
+/** A full-box `ispe`: version/flags then width and height. */
+function ispeBox(width: number, height: number): Uint8Array {
+  return isoBox('ispe', new Uint8Array(4), uint32(width), uint32(height));
+}
+
+/** AVIF-shaped header: ftyp, then meta (full box) > iprp > ipco > ispe. */
+function syntheticAvif(width: number, height: number): Uint8Array {
+  return concat([
+    isoBox('ftyp', ascii('avif'), new Uint8Array(4)),
+    isoBox(
+      'meta',
+      new Uint8Array(4),
+      isoBox('hdlr', new Uint8Array(12)),
+      isoBox('iprp', isoBox('ipco', ispeBox(width, height))),
+      isoBox('iloc', new Uint8Array(8)),
+    ),
+  ]);
+}
+
+
 describe('main-process image dimensions', () => {
   it('reads intrinsic dimensions from checked-in PNG fixtures', async () => {
     const forest = await readFile(
@@ -90,6 +153,65 @@ describe('main-process image dimensions', () => {
     // Negative BMP height is a top-down bitmap and still a positive pixel size.
     expect(readImageDimensions(bmp(64, 48))).toEqual({ width: 64, height: 48 });
     expect(readImageDimensions(webpVp8x(1600, 900))).toEqual({ width: 1600, height: 900 });
+  });
+
+  it('reads intrinsic dimensions from the checked-in AVIF fixture', async () => {
+    const forest = await readFile(
+      path.resolve(import.meta.dirname, '../../../fixtures/assets/forest.avif'),
+    );
+    expect(readImageDimensions(forest)).toEqual({ width: 640, height: 360 });
+  });
+
+  it('walks meta/iprp/ipco to find a nested AVIF ispe', () => {
+    expect(readImageDimensions(syntheticAvif(640, 360))).toEqual({ width: 640, height: 360 });
+    expect(readImageDimensions(syntheticAvif(1920, 1080))).toEqual({
+      width: 1920,
+      height: 1080,
+    });
+    // A top-level ispe still works (the pre-nesting M2 assumption).
+    expect(
+      readImageDimensions(
+        concat([isoBox('ftyp', ascii('avif'), new Uint8Array(4)), ispeBox(320, 180)]),
+      ),
+    ).toEqual({ width: 320, height: 180 });
+    // A 64-bit largesize container is readable, not a truncation.
+    expect(
+      readImageDimensions(
+        concat([
+          isoBox('ftyp', ascii('avif'), new Uint8Array(4)),
+          isoBox64('meta', new Uint8Array(4), isoBox('iprp', isoBox('ipco', ispeBox(800, 600)))),
+        ]),
+      ),
+    ).toEqual({ width: 800, height: 600 });
+  });
+
+  it('bounds AVIF nesting and fails closed on malformed nested boxes', () => {
+    let deep = ispeBox(640, 360);
+    for (let level = 0; level < 8; level += 1) {
+      deep = isoBox('meta', new Uint8Array(4), isoBox('iprp', isoBox('ipco', deep)));
+    }
+    expect(
+      readImageDimensions(concat([isoBox('ftyp', ascii('avif'), new Uint8Array(4)), deep])),
+    ).toBeNull();
+
+    const truncated = syntheticAvif(640, 360);
+    expect(readImageDimensions(truncated.subarray(0, truncated.length - 8))).toBeNull();
+    expect(
+      readImageDimensions(
+        concat([
+          isoBox('ftyp', ascii('avif'), new Uint8Array(4)),
+          isoBox('meta', new Uint8Array(4), isoBox('iprp', isoBox('ipco', ispeBox(0, 360)))),
+        ]),
+      ),
+    ).toBeNull();
+    expect(
+      readImageDimensions(
+        concat([
+          isoBox('ftyp', ascii('avif'), new Uint8Array(4)),
+          isoBox('meta', new Uint8Array(4), isoBox('iprp', isoBox('ipco', ispeBox(640, 0)))),
+        ]),
+      ),
+    ).toBeNull();
   });
 
   it('returns null for malformed, truncated, empty, and unsupported bytes', () => {
