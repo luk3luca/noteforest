@@ -7,6 +7,7 @@
  * keeps the existing record, so two inserts of identical bytes share one asset.
  */
 
+import { imageAssetReferences } from '../assets.js';
 import type { CoreContext } from '../ids.js';
 import type { Asset, Document } from '../types.js';
 import { assertId, canonicalJson, own, reject, type ChangeSet } from './shared.js';
@@ -102,6 +103,29 @@ export function applyAssetRemove(
   assertId(command.assetId, 'assetId');
   const existing = own(document.assets, command.assetId);
   if (existing === undefined) reject('not-found', `asset "${command.assetId}" does not exist`);
+  // An asset record is metadata for live content and anchors. Removing it while
+  // either still names the id would silently turn a present image into the
+  // missing placeholder and break every dependent image anchor. The caller must
+  // remove or replace those references first; there is no force flag.
+  const references = imageAssetReferences(document, command.assetId);
+  if (references.length > 0) {
+    const nodes = references.filter((reference) => reference.kind === 'image-node').length;
+    const anchors = references.length - nodes;
+    const parts: string[] = [];
+    if (nodes > 0) parts.push(`${nodes} image node${nodes === 1 ? '' : 's'}`);
+    if (anchors > 0) parts.push(`${anchors} image anchor${anchors === 1 ? '' : 's'}`);
+    const first = references[0];
+    const where =
+      first === undefined
+        ? ''
+        : first.kind === 'image-node'
+          ? ` (first: block "${first.label}")`
+          : ` (first: anchor "${first.label}")`;
+    reject(
+      'asset-in-use',
+      `asset "${command.assetId}" is still referenced by ${parts.join(' and ')}${where}; replace or remove those images first`,
+    );
+  }
   delete document.assets[command.assetId];
   changes.asset(command.assetId);
   return { type: 'asset.add', asset: structuredClone(existing) };

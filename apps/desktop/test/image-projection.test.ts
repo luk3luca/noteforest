@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Asset, ContentNode, Document } from '@noteforest/core';
 import { createDocument } from '@noteforest/core';
-import { buildEditorDocument, contentToPM, pmToContent, stripUnbackedImages } from '../src/renderer/src/lib/adapter';
+import { buildEditorDocument, contentToPM, markCrossDocumentImages, pmToContent, stripUnbackedImages } from '../src/renderer/src/lib/adapter';
 import {
   contentWithImage,
   contentWithImageAlt,
   contentWithImageAsset,
   defaultImageAlt,
   firstImage,
+  imageActionLabel,
   imageFilesFromDataTransfer,
   imageNodeFor,
+  imagesInContent,
   mimeForImageFile,
 } from '../src/renderer/src/lib/image';
 
@@ -207,6 +209,51 @@ describe('image editor projection', () => {
     expect(pasted?.content?.map((node) => node.type)).toEqual(['paragraph', 'image']);
     expect(pasted?.content?.[1]?.attrs?.['assetId']).toBe(ASSET_ID);
   });
+
+  it('marks a pasted image from another package as a pending placeholder without its assetId', () => {
+    const pasted = markCrossDocumentImages(
+      {
+        type: 'doc',
+        content: [
+          {
+            type: 'image',
+            attrs: {
+              assetId: ASSET_ID,
+              src: `noteforest-asset://asset/${ASSET_ID}`,
+              alt: 'Forest',
+              width: 640,
+              height: 360,
+            },
+          },
+          { type: 'image', attrs: { assetId: 'b'.repeat(64), alt: 'Local' } },
+        ],
+      },
+      new Set(['b'.repeat(64)]),
+    );
+    const foreign = pasted.content?.[0];
+    expect(foreign?.attrs?.['assetId']).toBeUndefined();
+    expect(foreign?.attrs?.['clipboardAssetId']).toBe(ASSET_ID);
+    expect(foreign?.attrs?.['src']).toBeUndefined();
+    expect(foreign?.attrs?.['alt']).toBe('Forest');
+    expect(foreign?.attrs?.['width']).toBe(640);
+    const local = pasted.content?.[1];
+    expect(local?.attrs?.['assetId']).toBe('b'.repeat(64));
+    expect(local?.attrs?.['clipboardAssetId']).toBeUndefined();
+    // The pending id is editor-only and never reaches canonical content.
+    expect(pmToContent(foreign ?? { type: 'image' }).attrs?.['clipboardAssetId']).toBeUndefined();
+  });
+
+  it('keeps a durable cross-document placeholder label without an assetId', () => {
+    const projected = contentToPM({
+      type: 'image',
+      attrs: { alt: 'Forest', unavailable: 'cross-document-copy' },
+    });
+    expect(projected.attrs?.['missing']).toBe(true);
+    expect(projected.attrs?.['missingReason']).toBe('cross-document-copy');
+    expect(projected.attrs?.['unavailable']).toBe('cross-document-copy');
+    const canonical = pmToContent(projected);
+    expect(canonical.attrs).toEqual({ alt: 'Forest', unavailable: 'cross-document-copy' });
+  });
 });
 
 describe('image content helpers', () => {
@@ -266,6 +313,24 @@ describe('image content helpers', () => {
       height: 200,
     });
     expect(content.children?.[0]?.attrs?.['assetId']).toBe(ASSET_ID);
+  });
+
+  it('finds every image with its canonical path for per-image menus', () => {
+    const second = imageNodeFor({ assetId: 'b'.repeat(64), alt: 'Chart' });
+    const content: ContentNode = {
+      type: 'doc',
+      children: [{ type: 'paragraph' }, image, { type: 'paragraph' }, second],
+    };
+    const images = imagesInContent(content);
+    expect(images.map((entry) => entry.path)).toEqual([[1], [3]]);
+    expect(images.map((entry) => entry.assetId)).toEqual([ASSET_ID, 'b'.repeat(64)]);
+    expect(imageActionLabel(images[0]!, 0)).toBe('Image 1 (Forest)');
+    expect(imageActionLabel(images[1]!, 1)).toBe('Image 2 (Chart)');
+
+    // The second path edits only the second image.
+    const edited = contentWithImageAlt(content, images[1]!.path, 'Chart 2026');
+    expect(edited.children?.[1]?.attrs?.['alt']).toBe('Forest');
+    expect(edited.children?.[3]?.attrs?.['alt']).toBe('Chart 2026');
   });
 
   it('derives a readable default alt and file MIME', () => {

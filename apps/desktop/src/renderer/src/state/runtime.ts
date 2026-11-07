@@ -638,6 +638,29 @@ export class DocumentRuntime {
     });
   }
 
+  /**
+   * Record an asset that was already copied into this package by the main
+   * process (cross-document clipboard). This is metadata only: the bytes exist
+   * before the record, and the caller updates the image node in the same user
+   * action. Undo leaves the record behind, exactly like image insert/replace;
+   * it is unreferenced until a future explicit GC pass.
+   */
+  async recordAsset(asset: Asset): Promise<ApplyOutcome> {
+    if (!this.editable) {
+      return { ok: false, message: 'This document is open read-only.' };
+    }
+    return this.session.queue.run(async () => {
+      const added = await this.runCommandInternal({ type: 'asset.add', asset });
+      if (!added.ok || added.document === undefined) {
+        return { ok: false, message: added.message ?? 'Could not record the image asset.' };
+      }
+      await this.acceptStructural(added.document, null, this.selectedBlockId, {
+        rebuild: false,
+      });
+      return { ok: true, assetId: asset.id };
+    });
+  }
+
   /** Edit one image's alt text through the block content command. */
   async setImageAlt(
     blockId: string,

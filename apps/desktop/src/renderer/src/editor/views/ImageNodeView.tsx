@@ -1,6 +1,7 @@
 import { ImageOff } from 'lucide-react';
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
 import {
   useEffect,
   useMemo,
@@ -36,6 +37,7 @@ import {
   type NormalizedRect,
 } from '../../lib/image-anchor';
 import { beginImageAnchorAuthoring } from '../../lib/image-authoring';
+import { openImageMenu } from '../../actions';
 import type { ImageSelectionAnchor } from '../../lib/anchor-selection';
 import { assetUrlFor } from '../../lib/asset-url';
 
@@ -127,6 +129,10 @@ function clientBox(element: HTMLElement | null): ClientBox | null {
  */
 export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Element {
   const assetId = stringAttr(node.attrs['assetId']);
+  // Editor-only while a cross-document paste is being repaired; never written
+  // to canonical content.
+  const clipboardAssetId = stringAttr(node.attrs['clipboardAssetId']);
+  const unavailable = stringAttr(node.attrs['unavailable']);
   const alt = stringAttr(node.attrs['alt']);
   // The canonical projection may carry a display-only `src`, but an image node
   // only ever renders the package protocol URL derived from its asset id. A
@@ -181,14 +187,27 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
       ? alt
       : assetId.length > 0
         ? `asset ${assetId.slice(0, 8)}…`
-        : 'no asset';
+        : clipboardAssetId.length > 0
+          ? `asset ${clipboardAssetId.slice(0, 8)}…`
+          : 'no asset';
   const reason = failed
     ? 'Image file is missing'
+    : clipboardAssetId.length > 0
+      ? 'Copying image…'
+      : assetId.length === 0
+        ? unavailable === 'cross-document-copy'
+          ? 'Image not copied'
+          : 'Unsupported image source'
+        : integrity === 'asset-changed'
+          ? 'Image asset changed'
+          : 'Image not found';
+  const hint = clipboardAssetId.length > 0
+    ? 'The image bytes are being copied into this document.'
     : assetId.length === 0
-      ? 'Unsupported image source'
-      : integrity === 'asset-changed'
-        ? 'Image asset changed'
-        : 'Image not found';
+      ? unavailable === 'cross-document-copy'
+        ? 'The source document is not open. Copy the image again from the source document; the alt text is kept.'
+        : 'Legacy image sources are not loaded; the alt text is kept.'
+      : 'The asset stays referenced so the branch, anchor, and alt text are kept.';
 
   const request = ui.imageAuthoring;
   const authoring =
@@ -257,7 +276,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
       return timeOrder !== 0 ? timeOrder : left.anchorId.localeCompare(right.anchorId);
     });
     const markers: ImageRegionMarker[] = [];
-    for (const [index, { anchorId, anchor }] of ordered.entries()) {
+    for (const { anchorId, anchor } of ordered) {
       const branchCount = Object.values(document.branches).filter(
         (branch) =>
           branch.source.anchorId === anchorId &&
@@ -278,7 +297,10 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
         selector !== null && typeof selector.label === 'string' ? selector.label : '';
       markers.push({
         anchorId,
-        number: index + 1,
+        // Visible markers are a user-facing sequence. Hidden idle or broken
+        // anchors must not punch holes in it: numbering follows the visible
+        // spatial/creation order, so it is always 1..N.
+        number: markers.length + 1,
         point: range.point,
         display,
         label: (anchor.quote ?? '').trim() || selectorLabel.trim() || 'Image',
@@ -292,6 +314,21 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
   const startAuthoring = (mode: ImageAuthoringMode): void => {
     if (runtime === null || location === null) return;
     beginImageAnchorAuthoring(runtime, blockId, nodePath, mode);
+  };
+
+  /**
+   * Clicking an image selects the image node, so ⌘C/⌘X and the per-image menu
+   * act on this node even when the block has several images. Authoring keeps
+   * its own click semantics (the draw layer owns the pointer).
+   */
+  const selectImageNode = (): void => {
+    if (authoring !== null) return;
+    const position = typeof getPos === 'function' ? getPos() : undefined;
+    if (typeof position !== 'number') return;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, position)),
+    );
+    editor.view.focus();
   };
 
   const draftFromPointer = (
@@ -401,10 +438,12 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
     return (
       <NodeViewWrapper
         className="nf-image-node nf-image-node-missing"
-        data-image-node={assetId || 'no-asset'}
+        data-image-node={assetId || clipboardAssetId || 'no-asset'}
         data-image-asset={assetId || undefined}
         data-image-missing="true"
         data-image-integrity={integrity ?? (assetId.length === 0 ? 'unsupported' : undefined)}
+        data-image-unavailable={unavailable || undefined}
+        data-image-copy={clipboardAssetId || undefined}
         data-image-alt={alt}
         contentEditable={false}
       >
@@ -416,11 +455,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
           <ImageOff size={20} strokeWidth={1.5} aria-hidden="true" />
           <span className="nf-image-missing-title">{reason}</span>
           <span className="nf-image-missing-name">{label}</span>
-          <span className="nf-image-missing-hint">
-            {assetId.length === 0
-              ? 'Legacy image sources are not loaded; the alt text is kept.'
-              : 'The asset stays referenced so the branch, anchor, and alt text are kept.'}
-          </span>
+          <span className="nf-image-missing-hint">{hint}</span>
         </div>
       </NodeViewWrapper>
     );
@@ -453,6 +488,7 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
           {...(height === undefined ? {} : { height })}
           draggable={false}
           onError={() => setFailed(true)}
+          onClick={selectImageNode}
         />
         {imageAnchors.length > 0 ? (
           <div className="nf-image-regions" data-image-region-layer={assetId}>
@@ -563,6 +599,22 @@ export function ImageNodeView({ node, editor, getPos }: NodeViewProps): JSX.Elem
         <div className="nf-image-actions" contentEditable={false} role="group" aria-label="Image anchors">
           {authoring === null ? (
             <>
+              <button
+                type="button"
+                className="nf-image-action"
+                data-image-action="menu"
+                data-image-action-path={nodePath.join('.') || '0'}
+                aria-label="Image actions"
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  openImageMenu(blockId, nodePath, {
+                    x: rect.left,
+                    y: rect.bottom + 4,
+                  });
+                }}
+              >
+                Image actions…
+              </button>
               <button
                 type="button"
                 className="nf-image-action"

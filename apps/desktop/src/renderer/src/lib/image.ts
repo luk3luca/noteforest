@@ -40,25 +40,41 @@ function dimensionAttr(value: unknown): number | undefined {
 
 /** The first image node in block content, with its path from the content root. */
 export function firstImage(content: ContentNode): ContentImage | null {
-  const walk = (node: ContentNode, path: number[]): ContentImage | null => {
+  return imagesInContent(content)[0] ?? null;
+}
+
+/**
+ * Every image node in block content in document order, each with its canonical
+ * path. Block menus that expose image actions must use the path of the image the
+ * user selected, not always `firstImage`.
+ */
+export function imagesInContent(content: ContentNode): ContentImage[] {
+  const images: ContentImage[] = [];
+  const walk = (node: ContentNode, path: number[]): void => {
     if (node.type === 'image') {
       const attrs = isRecord(node.attrs) ? node.attrs : {};
-      return {
+      images.push({
         path,
         node,
         assetId: stringAttr(attrs['assetId']),
         alt: stringAttr(attrs['alt']),
         width: dimensionAttr(attrs['width']),
         height: dimensionAttr(attrs['height']),
-      };
+      });
+      return;
     }
     for (const [index, child] of (node.children ?? []).entries()) {
-      const found = walk(child, [...path, index]);
-      if (found !== null) return found;
+      walk(child, [...path, index]);
     }
-    return null;
   };
-  return walk(content, []);
+  walk(content, []);
+  return images;
+}
+
+/** Human label for an image action: its alt text, or `Image N`. */
+export function imageActionLabel(image: ContentImage, index: number): string {
+  const alt = image.alt.trim();
+  return alt.length === 0 ? `Image ${index + 1}` : `Image ${index + 1} (${alt})`;
 }
 
 /** A paragraph with no text and no inline children is the empty-block case. */

@@ -41,7 +41,7 @@ import type { Branch } from '@noteforest/core';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
-import { firstImage } from './lib/image';
+import { imageActionLabel, imagesInContent, type ContentImage } from './lib/image';
 import { beginImageAnchorAuthoring } from './lib/image-authoring';
 import { insertImageFromDialog, replaceImageFromDialog } from './lib/image-insert';
 
@@ -466,6 +466,108 @@ export function openReferenceMenu(
   shell().openContextMenu(anchor.x, anchor.y, entries);
 }
 
+/**
+ * Image actions for one specific image node.
+ *
+ * `index`/`total` only shape the label: a block with several images prefixes
+ * every entry with `Image N (alt)`, so the menu never silently acts on the
+ * first image. The inline image menu passes `total = 1` because the surface
+ * already belongs to that image.
+ */
+function imageActionEntries(
+  runtime: DocumentRuntime,
+  blockId: string,
+  image: ContentImage,
+  index: number,
+  total: number,
+): MenuEntry[] {
+  const imageAsset =
+    image.assetId.length === 0 ? undefined : runtime.document.assets[image.assetId];
+  const canAuthorImage = runtime.editable && imageAsset !== undefined;
+  const prefix = total > 1 ? `${imageActionLabel(image, index)}: ` : '';
+  const idBase = `image-${image.path.join('.') || '0'}`;
+  return [
+    {
+      id: `${idBase}-add-region`,
+      label: canAuthorImage
+        ? `${prefix}Add image region…`
+        : `${prefix}Add image region… — image asset missing`,
+      disabled: !canAuthorImage,
+      ...(canAuthorImage
+        ? {
+            onSelect: () =>
+              beginImageAnchorAuthoring(runtime, blockId, image.path, 'region'),
+          }
+        : {}),
+    },
+    {
+      id: `${idBase}-add-point`,
+      label: canAuthorImage
+        ? `${prefix}Add image point…`
+        : `${prefix}Add image point… — image asset missing`,
+      disabled: !canAuthorImage,
+      ...(canAuthorImage
+        ? {
+            onSelect: () =>
+              beginImageAnchorAuthoring(runtime, blockId, image.path, 'point'),
+          }
+        : {}),
+    },
+    {
+      id: `${idBase}-replace`,
+      label: `${prefix}Replace image…`,
+      disabled: !runtime.editable,
+      ...(runtime.editable
+        ? {
+            onSelect: () =>
+              void replaceImageFromDialog(runtime, blockId, image.path),
+          }
+        : {}),
+    },
+    {
+      id: `${idBase}-alt`,
+      label: `${prefix}Edit image alt text…`,
+      onSelect: () =>
+        shell().openDialog({
+          kind: 'image-alt' as const,
+          blockId,
+          path: image.path,
+          assetId: image.assetId,
+          alt: image.alt,
+        }),
+    },
+  ];
+}
+
+/**
+ * Per-image context menu opened from an image node's own action button. The
+ * path comes from the clicked node view, so two images in one block each act on
+ * their own node.
+ */
+export function openImageMenu(
+  blockId: string,
+  path: readonly number[],
+  anchor: { x: number; y: number },
+): void {
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  const block = runtime.document.blocks[blockId];
+  if (block === undefined) return;
+  const images = imagesInContent(block.content);
+  const index = images.findIndex(
+    (image) =>
+      image.path.length === path.length &&
+      image.path.every((value, position) => value === path[position]),
+  );
+  const image = images[index];
+  if (image === undefined) return;
+  shell().openContextMenu(
+    anchor.x,
+    anchor.y,
+    imageActionEntries(runtime, blockId, image, index, 1),
+  );
+}
+
 export function openBlockMenu(blockId: string, anchor: { x: number; y: number }): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
@@ -474,12 +576,26 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
   const children = directChildIds(runtime.document, blockId);
   const branch = incomingBranch(runtime.document, blockId);
   const hasParent = parentIdOf(runtime.document, blockId) !== null;
-  const image = firstImage(block.content);
-  const imageAsset =
-    image === null || image.assetId.length === 0
-      ? undefined
-      : runtime.document.assets[image.assetId];
-  const canAuthorImage = runtime.editable && image !== null && imageAsset !== undefined;
+  const images = imagesInContent(block.content);
+  const imageEntries: MenuEntry[] = [];
+  for (const [index, image] of images.entries()) {
+    if (images.length > 1 && index > 0) {
+      imageEntries.push({
+        id: `sep-image-${image.path.join('.') || index}`,
+        label: '',
+        separator: true,
+      });
+    }
+    imageEntries.push(
+      ...imageActionEntries(
+        runtime,
+        blockId,
+        image,
+        index,
+        images.length,
+      ),
+    );
+  }
   const collapsed = runtime.collapsed.has(blockId);
   const caret = runtime.caretLocation();
   const splitCheck =
@@ -579,59 +695,7 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
         ? { onSelect: () => void insertImageFromDialog(runtime, blockId) }
         : {}),
     },
-    ...(image === null
-      ? []
-      : [
-          {
-            id: 'image-add-region',
-            label: canAuthorImage
-              ? 'Add image region…'
-              : 'Add image region… — image asset missing',
-            disabled: !canAuthorImage,
-            ...(canAuthorImage
-              ? {
-                  onSelect: () =>
-                    beginImageAnchorAuthoring(runtime, blockId, image.path, 'region'),
-                }
-              : {}),
-          },
-          {
-            id: 'image-add-point',
-            label: canAuthorImage
-              ? 'Add image point…'
-              : 'Add image point… — image asset missing',
-            disabled: !canAuthorImage,
-            ...(canAuthorImage
-              ? {
-                  onSelect: () =>
-                    beginImageAnchorAuthoring(runtime, blockId, image.path, 'point'),
-                }
-              : {}),
-          },
-          {
-            id: 'image-replace',
-            label: 'Replace image…',
-            disabled: !runtime.editable,
-            ...(runtime.editable
-              ? {
-                  onSelect: () =>
-                    void replaceImageFromDialog(runtime, blockId, image.path),
-                }
-              : {}),
-          },
-          {
-            id: 'image-alt',
-            label: 'Edit image alt text…',
-            onSelect: () =>
-              shell().openDialog({
-                kind: 'image-alt' as const,
-                blockId,
-                path: image.path,
-                assetId: image.assetId,
-                alt: image.alt,
-              }),
-          },
-        ]),
+    ...imageEntries,
     {
       id: 'add-child',
       label: 'Add child block',

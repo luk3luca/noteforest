@@ -42,6 +42,7 @@ export type CommandErrorCode =
   | 'chapter-would-be-empty'
   | 'invalid-content'
   | 'anchor-exists'
+  | 'asset-in-use'
   | 'read-only'
   | 'internal-invariant';
 

@@ -5,9 +5,10 @@ import { EditorState, NodeSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { toast } from 'sonner';
-import { buildEditorDocument, stripAnchorBindings, stripUnbackedImages, type PMNode } from '../lib/adapter';
+import { buildEditorDocument, markCrossDocumentImages, stripAnchorBindings, stripUnbackedImages, type PMNode } from '../lib/adapter';
 import { branchSelectionAnchor } from '../lib/anchor-selection';
 import { imageFilesFromDataTransfer } from '../lib/image';
+import { rememberCopiedImages, scheduleImageClipboardRepair } from '../lib/image-clipboard';
 import { insertImagesFromFiles } from '../lib/image-insert';
 import {
   ancestorPath,
@@ -203,15 +204,21 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
         },
         // ADR-0005 copy/paste rule: the source keeps its anchors, the pasted
         // inline/atomic copy loses the binding instead of duplicating an ID.
+        // An image from another document becomes a placeholder until its bytes
+        // are copied into this package; it never carries a foreign assetId.
         transformPasted: (slice, view) => {
           const stripped = stripAnchorBindings({
             type: 'doc',
             content: slice.content.toJSON() as PMNode[],
           });
           const backed = stripUnbackedImages(stripped);
+          const crossDocument = markCrossDocumentImages(
+            backed ?? { type: 'doc' },
+            new Set(Object.keys(runtime.document.assets)),
+          );
           const fragment = Fragment.fromJSON(
             view.state.schema,
-            backed?.content ?? [],
+            crossDocument.content ?? [],
           );
           return new Slice(fragment, slice.openStart, slice.openEnd);
         },
@@ -220,10 +227,22 @@ function EditorSurface({ runtime, active }: DocumentEditorProps): JSX.Element {
         // suppresses the default HTML paste before the async import completes.
         handlePaste: (view, event) => {
           const files = imageFilesFromDataTransfer(event.clipboardData);
-          if (files.length === 0) return false;
-          event.preventDefault();
-          void insertImagesFromFiles(runtime, blockIdAtViewSelection(view), files);
-          return true;
+          if (files.length > 0) {
+            event.preventDefault();
+            void insertImagesFromFiles(runtime, blockIdAtViewSelection(view), files);
+            return true;
+          }
+          // Let ProseMirror insert the canonical slice; the microtask runs
+          // after the default paste and imports any cross-document image bytes.
+          queueMicrotask(() => scheduleImageClipboardRepair(runtime, editor));
+          return false;
+        },
+        handleDOMEvents: {
+          copy: () => {
+            // Capture the source package before the clipboard loses context.
+            rememberCopiedImages(editor, runtime.packagePath);
+            return false;
+          },
         },
         handleDrop: (view, event, _slice, moved) => {
           if (moved) return false;

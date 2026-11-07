@@ -90,6 +90,17 @@ const api: NoteForestApi = {
     input: ImportImageBytesInput,
   ): Promise<ImportImageResult> =>
     ipcRenderer.invoke('document:import-image-bytes', packagePath, input),
+  copyImageAsset: (
+    sourcePackagePath: string,
+    targetPackagePath: string,
+    assetId: string,
+  ): Promise<ImportImageResult> =>
+    ipcRenderer.invoke(
+      'document:copy-image-asset',
+      sourcePackagePath,
+      targetPackagePath,
+      assetId,
+    ),
   getSystemInfo: (): Promise<{
     electron: string;
     chrome: string;

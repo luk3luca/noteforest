@@ -76,7 +76,13 @@ app-boundary path are covered at the authoritative level and by the remaining in
 | Formula-term marker/leader geometry and fallback | UI | `m3-formula-term-geometry.test.mjs` — `puts the term marker and leader on the KaTeX term and falls back for a repeated term` | Unit `formula-term-geometry.test.ts` |
 | Formula-term edit around the term re-resolves unique/ambiguous/broken and preserves identity (AC-57) | Unit | `fixtures.test.ts` — `re-resolves a term after edits around it and keeps the anchor, branch, and target` (fixture `m3-formula-term-edit.json`) | — |
 | Code range anchor create, ambiguity, reload | UI | `m3-code-anchor.test.mjs` — `branches from a code range, undoes once, warns on repeated quotes, and reloads` | Unit `anchors.test.ts` — `keeps offsets as hints when the code shifts`, `marks repeated quotes ambiguous even when the offset hint points at one`; `code-anchor-geometry.test.ts` |
-| Image anchors (AC-21, image rows of AC-57) | Deferred | **M3c3b** — no UI/app evidence yet; resolution unit tests exist (`anchors.test.ts` — `resolves an exact image node binding and ignores display resize`, `breaks asset changes, crop changes, and missing assets without reattaching`) | — |
+| Image anchors (AC-21, image rows of AC-57) | UI | `m3c3b2-image-anchors.test.mjs` — `creates regions and a point, keeps markers/callouts through resize and reload, undo/redo exactly`, `breaks image anchors on asset replacement without deleting branches, targets, or alt, and refuses a referenced asset removal`; `m3c3b3-image-integrity.test.mjs` | Unit `anchors.test.ts` — `resolves an exact image node binding and ignores display resize`, `breaks asset changes, crop changes, and missing assets without reattaching`; `asset-gc.test.ts` |
+| Image insert, canonical asset record, paste/drop, placeholder | UI | `m3c3b1-image.test.mjs` — `inserts, renders, persists, and reloads an image; missing assets show a placeholder`, `imports a dropped image through the paste/drop path without a native dialog` | Unit `asset-store.test.ts`, `image-projection.test.ts`; E2E image flow |
+| Image asset integrity: file missing, hash mismatch, legacy src | UI | `m3c3b3-image-integrity.test.mjs` | Unit `asset-store.test.ts` — availability; `asset-integrity.test.ts`, `asset-protocol.test.ts` |
+| Multi-image blocks: block-menu and inline actions target the selected image node | UI | `m3c3b4-image-lifecycle.test.mjs` — `targets the selected image in a two-image block from the block menu and the inline image menu` | Unit `image-projection.test.ts` — `finds every image with its canonical path for per-image menus` |
+| Image marker numbering is contiguous after idle anchors are hidden | UI | `m3c3b4-image-lifecycle.test.mjs` — `numbers visible image markers contiguously after an idle anchor is hidden` | `m3c3b2-image-anchors.test.mjs` marker flows |
+| Cross-document image paste copies bytes/records; unknown source is a labeled placeholder with no assetId | UI | `m3c3b4-image-lifecycle.test.mjs` — `pastes images in the same document and copies asset bytes across documents without a dangling id` | Unit `image-projection.test.ts` — `marks a pasted image from another package as a pending placeholder without its assetId`, `keeps a durable cross-document placeholder label without an assetId` |
+| `asset.remove` refuses live image node/anchor references; GC plan keeps backup-only references | Unit | `asset-gc.test.ts` — `refuses an asset named by an image node...`, `refuses an asset named only by an image anchor selector`, `reclaims only records with no live node or anchor and no retained backup`, `retains asset ids referenced only by a backup...` | UI `m3c3b4-image-lifecycle` and `m3c3b2` refusal paths |
 | Anchor health sheet: rows, filters, navigate to block | UI | `m3-repair.test.mjs` — `lists health rows, filters by state, and navigates to the anchor block` | Unit `anchor-health.test.ts` — `shows the old and new formula term source and occurrence`, `lists idle anchors only under All...` |
 | Repair ambiguous formula/code with before/after preview and one undo | UI | `m3-repair.test.mjs` — `repairs ambiguous formula and code candidates with stable IDs and one undo` | Unit `m3e-repair.test.ts` — `repairs a formula-term occurrence without changing anchor, branch, or target identity`, `repairs a code range...` |
 | Broken anchor: keep, attach to block, delete one branch, never delete target | UI | `m3-repair.test.mjs` — `keeps copy/fallback states, keeps broken, attaches, and deletes one branch without deleting targets` | Unit `m3e-repair.test.ts` — `attaches a broken anchor’s branches to the block and undoes exactly`, `deletes one anchored branch, keeps the target, and undoes exactly` |
@@ -133,8 +139,11 @@ changed.
 
 ## Known gaps (tracked, not hidden by this matrix)
 
-- **Image anchors and the image rows of AC-57** are deferred to M3c3b; this matrix records the
-  unit resolution coverage only.
+- **Image anchors and image rows of AC-57** are covered by `m3c3b2`/`m3c3b3`/`m3c3b4`;
+  crop editing and region re-pick repair remain follow-ups (M4+), not a test gap.
+- **Automatic asset GC scheduling** is not implemented: the reference guard, deterministic
+  `planAssetGc`, and backup-retention scan are unit-tested, but when a GC pass runs (after backup
+  and grace period) is a product decision. `asset.remove` is never called automatically.
 - **S3-5** relink selection flow is not guided by the modal sheet; the command path is covered
   but the UX-flow polish is open.
 - **S3-6** replay-failure fallback is unit-only risk; no current UI text command reaches it.

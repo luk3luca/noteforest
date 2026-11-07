@@ -70,6 +70,29 @@ const CanonicalImage = Image.extend({
         rendered: false,
         parseHTML: () => false,
       },
+      /**
+       * Editor-only source id while a cross-document paste copies the bytes into
+       * the destination package. It is never written to canonical content.
+       */
+      clipboardAssetId: {
+        default: null,
+        rendered: false,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-nf-copy-asset'),
+      },
+      /**
+       * Canonical placeholder reason for an image whose bytes could not be
+       * copied from another document. It is optional metadata on the image node
+       * (unknown attributes are preserved by the content model) and keeps the
+       * labeled placeholder after reload without a dangling `assetId`.
+       */
+      unavailable: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-nf-unavailable'),
+        renderHTML: (attributes: Record<string, unknown>) =>
+          typeof attributes['unavailable'] === 'string' && attributes['unavailable'].length > 0
+            ? { 'data-nf-unavailable': attributes['unavailable'] }
+            : {},
+      },
       anchorIds: formulaAnchorIdsAttr(),
     };
   },

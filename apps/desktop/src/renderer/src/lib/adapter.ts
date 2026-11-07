@@ -159,6 +159,38 @@ export function stripUnbackedImages(node: PMNode): PMNode | null {
   return result;
 }
 
+/**
+ * Cross-document paste guard: an image whose `assetId` is not present in the
+ * destination document becomes a placeholder that keeps the source id in an
+ * editor-only `clipboardAssetId`. The clipboard repair path copies the bytes,
+ * records the asset, and then restores `assetId`. Until then the pasted content
+ * never carries an asset id that resolves only in another package.
+ */
+export function markCrossDocumentImages(
+  node: PMNode,
+  knownAssets: ReadonlySet<string>,
+): PMNode {
+  const result: PMNode = { type: node.type };
+  if (node.attrs !== undefined) {
+    const attrs = { ...node.attrs };
+    if (node.type === 'image') {
+      const assetId = attrs['assetId'];
+      if (typeof assetId === 'string' && assetId.length > 0 && !knownAssets.has(assetId)) {
+        attrs['clipboardAssetId'] = assetId;
+        delete attrs['assetId'];
+        delete attrs['src'];
+      }
+    }
+    result.attrs = attrs;
+  }
+  if (typeof node.text === 'string') result.text = node.text;
+  if (Array.isArray(node.marks)) result.marks = node.marks.map((mark) => ({ ...mark }));
+  if (Array.isArray(node.content)) {
+    result.content = node.content.map((child) => markCrossDocumentImages(child, knownAssets));
+  }
+  return result;
+}
+
 export interface ContentProjectionOptions {
   /** Canonical asset ids present in the document; drives missing-image projection. */
   knownAssets?: ReadonlySet<string>;
@@ -185,7 +217,15 @@ function projectedImageAttrs(
     if (knownAssets !== undefined) next['missing'] = !knownAssets.has(assetId);
   } else {
     next['missing'] = true;
-    next['missingReason'] = 'unsupported-src';
+    const clipboard = next['clipboardAssetId'];
+    if (typeof clipboard === 'string' && clipboard.length > 0) {
+      next['missingReason'] = 'copy-pending';
+    } else {
+      next['missingReason'] =
+        next['unavailable'] === 'cross-document-copy'
+          ? 'cross-document-copy'
+          : 'unsupported-src';
+    }
   }
   return next;
 }
@@ -198,6 +238,12 @@ function canonicalImageAttrs(attrs: Record<string, unknown>): Record<string, unk
   delete next['missingReason'];
   delete next['src'];
   delete next['title'];
+  delete next['clipboardAssetId'];
+  delete next['clipboardUnavailable'];
+  if (next['assetId'] === null || next['assetId'] === undefined) delete next['assetId'];
+  if (next['unavailable'] === null || next['unavailable'] === undefined) {
+    delete next['unavailable'];
+  }
   return next;
 }
 
