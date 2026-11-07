@@ -30,6 +30,7 @@ import {
 } from '../lib/anchor-selection';
 import { overwriteConfirmation } from '../lib/save-failure';
 import { backupMetadataLine } from '../lib/backup-restore';
+import { editingEnabledFor } from '../lib/editability';
 import {
   anchorCandidateViews,
   anchorContextLine,
@@ -578,6 +579,12 @@ function AnchorHealthDialog({
   const [preview, setPreview] = useState<HealthRepairPreviewState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Anchor inspection stays available; every repair/removal action follows
+  // the global Read-mode gate because it mutates anchors or references.
+  const editingEnabled = useShell((state) =>
+    editingEnabledFor(runtime, state.viewByDoc[runtime.packagePath]),
+  );
+  const readOnlyReason = 'Read mode — switch to Continuous Edit to repair anchors.';
 
   const rows = useMemo(
     () => buildAnchorHealthRows(runtime.document, runtime.assetAvailability),
@@ -604,6 +611,10 @@ function AnchorHealthDialog({
     action: Promise<{ ok: boolean; message?: string }>,
     success: string,
   ): Promise<void> => {
+    if (!editingEnabled) {
+      setError(readOnlyReason);
+      return;
+    }
     setBusy(true);
     setError(null);
     const outcome = await action;
@@ -617,6 +628,10 @@ function AnchorHealthDialog({
   };
 
   const repairCandidate = (index: number): void => {
+    if (!editingEnabled) {
+      setError(readOnlyReason);
+      return;
+    }
     if (selected === null) return;
     const view = candidates.find((candidate) => candidate.index === index);
     const command =
@@ -638,6 +653,10 @@ function AnchorHealthDialog({
   };
 
   const previewRelink = async (): Promise<void> => {
+    if (!editingEnabled) {
+      setError(readOnlyReason);
+      return;
+    }
     if (selected === null) return;
     setBusy(true);
     setError(null);
@@ -676,6 +695,10 @@ function AnchorHealthDialog({
   // restores both exactly. The target blocks are never part of the command.
   const removeIdle = (anchorId: string): void => {
     void (async () => {
+      if (!editingEnabled) {
+        setError(readOnlyReason);
+        return;
+      }
       setBusy(true);
       setError(null);
       const outcome = await runtime.removeIdleAnchor(anchorId);
@@ -709,6 +732,11 @@ function AnchorHealthDialog({
       actions={<Button className="nf-button" onPress={onClose}>Close</Button>}
     >
       <div className="nf-health" data-anchor-health="true">
+        {editingEnabled ? null : (
+          <p className="nf-dialog-note" data-health-read-only="true">
+            {readOnlyReason}
+          </p>
+        )}
         {selected === null ? (
           <>
             <div className="nf-health-filters" role="group" aria-label="Filter anchors">
@@ -782,7 +810,8 @@ function AnchorHealthDialog({
                         className="nf-health-repair nf-health-remove"
                         data-health-remove={row.anchorId}
                         aria-label={`Remove idle anchor “${row.quote || 'anchor'}”`}
-                        disabled={busy}
+                        disabled={busy || !editingEnabled}
+                        title={editingEnabled ? undefined : readOnlyReason}
                         onClick={() => removeIdle(row.anchorId)}
                       >
                         Remove anchor
@@ -954,7 +983,7 @@ function AnchorHealthDialog({
                   <Button
                     className="nf-button nf-button-primary"
                     data-health-preview-confirm="true"
-                    isDisabled={busy}
+                    isDisabled={busy || !editingEnabled}
                     onPress={confirmRepair}
                   >
                     Confirm repair
@@ -987,7 +1016,7 @@ function AnchorHealthDialog({
                       <Button
                         className="nf-button nf-button-quiet nf-health-branch-delete"
                         data-health-action="delete-branch"
-                        isDisabled={busy}
+                        isDisabled={busy || !editingEnabled}
                         onPress={() => {
                           setPreview(null);
                           setConfirm({
@@ -1017,7 +1046,8 @@ function AnchorHealthDialog({
                       type="button"
                       className="nf-health-candidate"
                       data-health-candidate={view.index}
-                      disabled={busy}
+                      disabled={busy || !editingEnabled}
+                      title={editingEnabled ? undefined : readOnlyReason}
                       onClick={() => repairCandidate(view.index)}
                     >
                       <span className="nf-health-candidate-label">{view.label}</span>
@@ -1039,7 +1069,7 @@ function AnchorHealthDialog({
                 <Button
                   className="nf-button nf-button-quiet"
                   data-health-action="remove-idle"
-                  isDisabled={busy}
+                  isDisabled={busy || !editingEnabled}
                   onPress={() => removeIdle(selected.anchorId)}
                 >
                   Remove anchor
@@ -1057,7 +1087,7 @@ function AnchorHealthDialog({
                   <Button
                     className="nf-button"
                     data-health-action="relink"
-                    isDisabled={busy}
+                    isDisabled={busy || !editingEnabled}
                     onPress={() => void previewRelink()}
                   >
                     Relink to current selection
@@ -1066,7 +1096,7 @@ function AnchorHealthDialog({
                 <Button
                   className="nf-button"
                   data-health-action="attach"
-                  isDisabled={busy}
+                  isDisabled={busy || !editingEnabled}
                   onPress={() => {
                     setPreview(null);
                     setConfirm({ kind: 'attach' });
@@ -1089,7 +1119,7 @@ function AnchorHealthDialog({
                 <Button
                   className="nf-button nf-button-danger"
                   data-health-action="delete-anchor"
-                  isDisabled={busy}
+                  isDisabled={busy || !editingEnabled}
                   onPress={() => {
                     setPreview(null);
                     setConfirm({ kind: 'delete-anchor', mode: 'attach' });
@@ -1126,7 +1156,7 @@ function AnchorHealthDialog({
                       <Button
                         className="nf-button nf-button-primary"
                         data-health-confirm-action="attach"
-                        isDisabled={busy}
+                        isDisabled={busy || !editingEnabled}
                         onPress={() =>
                           void perform(
                             runtime.attachAnchorToBlock(selected.anchorId),
@@ -1157,7 +1187,7 @@ function AnchorHealthDialog({
                       <Button
                         className="nf-button nf-button-danger"
                         data-health-confirm-action="delete-branch"
-                        isDisabled={busy}
+                        isDisabled={busy || !editingEnabled}
                         onPress={() =>
                           void perform(
                             runtime.deleteAnchorBranch(confirm.branchId),
@@ -1208,7 +1238,7 @@ function AnchorHealthDialog({
                       <Button
                         className="nf-button nf-button-danger"
                         data-health-confirm-action="delete-anchor"
-                        isDisabled={busy}
+                        isDisabled={busy || !editingEnabled}
                         onPress={() =>
                           void perform(
                             runtime.deleteAnchor(selected.anchorId, confirm.mode),
