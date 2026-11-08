@@ -1,0 +1,257 @@
+# Page wrap + callout modes — design plan
+
+**Status:** planning only; no implementation started.  
+**Scope:** Page Read/Edit and PDF only. Continuous is untouched.  
+**Base:** `main` after R2f/R2g/R2h; Page checkpoint still pending.  
+**Launch:** tomorrow, after the product owner confirms the open decisions below.
+
+## 1. Design-token layout
+
+Recommendation: **two code sources and two docs**, plus one shared edge-style module.
+
+### Continuous
+
+- Code: `apps/desktop/src/renderer/src/lib/design-tokens.ts`
+- Docs: `docs/design-tokens-continuous.md`
+- Owns shell/canvas, editor padding, card bounds, chapter gap, Continuous-only
+  values.
+- Must not import or duplicate Page layout values.
+
+### Page
+
+- Code: `packages/layout/src/page-settings.ts` — `PageTheme`, presets, custom
+  parsing; this is the single point for Page layout/typography/callout/trunk
+  positions.
+- Docs: `docs/design-tokens-page.md`
+- Owns page sizes/margins (setup), PageTheme typography, card widths, gaps,
+  callout lane, child indent, callout mode thresholds, trunk offsets.
+- Page renderer and PDF read the same resolved `PageTheme`/`PageSettings`; no
+  second copy in JSX or CSS.
+
+### Shared edge primitives
+
+- `packages/layout/src/edge-style.ts` remains shared: stroke, arrowheads, radius,
+  `trunkInset`, `stemMin`, `trunkGap`, page clearance/lane step.
+- These are visual primitives used by Continuous and Page/PDF; do not fork them
+  per surface.
+- `docs/design-tokens.md` becomes a short index that links the two surface docs
+  and the shared edge primitives; it should not duplicate values.
+
+### Guard tests
+
+- Page layout values are read from `PageTheme`; no hardcoded pixel positions in
+  `layout.ts`/`page-edges.ts` for the new behavior.
+- A PageTheme test covers defaults, presets, custom overrides, and CSS variables
+  where applicable.
+- A docs test/check ensures the Continuous and Page docs point at the same
+  source modules and do not re-declare each other's values.
+
+### New Page tokens (names provisional)
+
+| Token | Purpose | Starting value |
+|---|---|---:|
+| `childIndent` | Direct-child/level indent in Page | 26 px |
+| `childTrunkInset` | Outer child trunk from parent left | 12 px |
+| `calloutTrunkInset` | Inner callout trunk from parent left | 38 px |
+| `calloutCardIndent` | Callout card left from parent left | 52 px |
+| `calloutRightGap` | Mode A callout lane gap from parent right | 24 px |
+| `calloutModeMinWidth` | Minimum right space to choose mode A | 240 px |
+| `wrapIndent` / `maxWrapIndent` | Existing PageTheme wrap bounds | keep |
+
+The exact B2 offsets are the first open decision; all of them live in one file,
+not in the layout code.
+
+## 2. Feature 1 — subtree-aware wrap
+
+### Rule
+
+For every parent:
+
+1. Compute the preferred width of the **whole primary subtree** of each direct
+   child, not only the child card:
+   - card + gap + the widest child column recursively;
+   - use max, not row packing: siblings are a level column.
+2. If every direct child subtree fits to the right of the parent, keep the group
+   at the parent's right column and the parent's y.
+3. Otherwise, move the **whole direct-child group** below the parent at
+   `parent.x + childIndent` (capped by the page right and `maxWrapIndent`).
+4. From the new position, repeat for each child: try its own children to the
+   right; if they do not fit, indent them below that child.
+5. Keep sibling order and group atomicity. Do not split one sibling right and
+   another below when the group fails.
+
+### Diagrams
+
+All fits:
+
+```text
+P ── C1 ── G1
+     C2 ── G2
+     C3
+```
+
+P + C1 + G1 does not fit, but C1 + G1 does after the group wraps:
+
+```text
+P
+  C1 ── G1
+  C2 ── G2
+  C3
+```
+
+Even C1 + G1 does not fit at the new origin:
+
+```text
+P
+  C1
+    G1
+  C2 ── G2
+  C3
+```
+
+### Implementation notes
+
+- Add a pure `preferredColumnWidth`/`subtreeFitsRight` helper in
+  `packages/layout/src/layout.ts`, cached by `(blockId, availableWidth)`.
+- It must use the same card box and callout-lane budget as the real placement.
+- Replace the direct-child own-card fit check in the non-compaction path only.
+- The compaction lab policy is not the product path; leave it alone or keep it
+  as an oracle.
+- Measure the impact on page count, whitespace, and overlap with a lab fixture
+  before accepting.
+
+## 3. Feature 2 — callout modes A + B2
+
+B1 (one shared below trunk) is only an emergency fallback, not the primary
+design.
+
+### Mode A — right-side callouts when there is room
+
+```text
+P ──→ c1
+│    c2
+└─→ C1 ── G1
+   C2
+```
+
+- Callouts stack to the right of the parent.
+- Direct children start below the callout stack, indented at the normal child
+  origin; they descend to avoid collision.
+- Callout group and child group have separate trunks; callout arrows enter left.
+- Choose A only when the required callout lane width fits to the parent's right.
+
+### Mode B2 — two below trunks when there is no right room
+
+```text
+P
+│  ╎
+│  ╎├─→ c1
+│  ╎├─→ c2
+│
+└─→ C1 ── G1
+└─→ C2
+```
+
+- Outer/left trunk: direct children, classic inset.
+- Inner/right trunk: callouts, double offset.
+- Callouts come first below the parent; direct children start lower.
+- Both trunks are independent and continue across pages per R2g.
+- Every child arm enters left; no card overlap; nested child trunks remain
+  independent.
+
+### Mode selection
+
+Per parent, deterministic:
+
+```text
+if right lane fits callouts:
+  A
+else if B2 fits without collision:
+  B2
+else:
+  B1 or current stacked fallback (open decision)
+```
+
+The decision is per parent, not global. It must not depend on viewport or zoom;
+it uses the resolved Page width/margins and the parent's placed box.
+
+### Callout placement vs Feature 1
+
+Order to evaluate:
+
+1. place/measure the parent;
+2. decide whether the direct-child group should wrap using the subtree-fit rule;
+3. choose the callout mode from the resulting free right space;
+4. place callouts/children in the chosen mode;
+5. re-run the subtree fit if the callout lane changes the child origin.
+
+The exact order is an open design point; it needs to avoid oscillation and
+double layout.
+
+## 4. Open decisions before launch
+
+1. **B2 offsets:** child trunk 12 / child card 26 / callout trunk 38 / callout
+   card 52? Or callout trunk 24 / card 38? Put the chosen values in PageTheme.
+2. **Fallback when neither A nor B2 fits:** B1 shared trunk, or current stacked
+   callouts-then-children.
+3. **Mode A children:** start below the callout stack at the child indent, with
+   the child trunk to the left; confirm.
+4. **Anchor leaders in mode A:** callout cards to the right of the parent, leader
+   from the anchor exits toward the right; acceptable?
+5. **Whole-subtree fit:** include callout lane and callout mode in the width
+   calculation, or decide callouts after the child wrap? (Recommended: decide
+   after child wrap, then re-check.)
+6. **Page break:** every mode/trunk continues with R2g semantics; callout and
+   child trunks are separate on continuation pages.
+
+## 5. Task sequence for tomorrow
+
+### P0 — Token/doc split (small, no behavior change)
+
+- Split docs into Continuous/Page/index; move new Page layout values into
+  `PageTheme`; add defaults/tests.
+- No visual change; guard that no literal positions remain in layout code.
+- Estimate: 2–3 h.
+
+### R2i — Subtree-aware Page wrap
+
+- Implement whole-subtree fit, group wrap at parent + childIndent, recursive
+  right-first behavior, atomic siblings.
+- Keep current callout placement.
+- Lab: P→C1→G1, wide fan, showcase/stress; page count/whitespace/overlap.
+- Estimate: 4–6 h plus lab.
+
+### R2j — Page callout modes A + B2
+
+- Mode A right lane; B2 two below trunks; B1/stacked fallback.
+- Edge/trunk integration with R2g; no Continuous change.
+- Lab: callouts with/without right space, multiple callouts, page breaks.
+- Estimate: 1–2 days depending final geometry.
+
+### Checkpoint
+
+- Full `verify`, screenshots, product-owner Page check.
+- Only after acceptance: M4c PDF.
+- R3/R4 remain after the checkpoint.
+
+## 6. Non-goals
+
+- No Continuous changes.
+- No M4c PDF during this plan.
+- No spec/UX/ADR change without the Architect/product owner.
+- No free positioning, pins, or arbitrary coordinates.
+- No change to the canonical document schema.
+
+## 7. Acceptance for the design lab
+
+- [ ] P→C1→G1: if the full subtree does not fit, C1 moves below P and G1 stays
+      right of C1 when it fits.
+- [ ] If C1+G1 still does not fit, G1 wraps below C1.
+- [ ] Siblings remain one atomic level column.
+- [ ] Mode A: callouts right, children below, no collision.
+- [ ] Mode B2: callouts on the inner/right trunk first, children on the
+      outer/left trunk lower, no collision.
+- [ ] Every child/callout arm enters left.
+- [ ] Trunks continue across pages; nested trunks stay independent.
+- [ ] Page count and empty lower-left area measured before/after.
+- [ ] Full verify green at integration.
