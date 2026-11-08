@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 3,
+  "id": "fixture-schema-v3-newer",
+  "title": "Schema v3 (unknown newer)",
+  "createdAt": "2026-11-06T09:00:00.000Z",
+  "updatedAt": "2026-11-06T09:00:00.000Z",
+  "revision": 3,
+  "futureRootField": {
+    "keep": true
+  },
+  "chapters": [
+    {
+      "id": "fixture-chapter-1",
+      "title": "Chapter One",
+      "topLevelBlockIds": [
+        "fixture-block-1"
+      ]
+    }
+  ],
+  "blocks": {
+    "fixture-block-1": {
+      "id": "fixture-block-1",
+      "label": "Eigenvalues",
+      "content": {
+        "type": "doc",
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "text": "A scalar lambda is an eigenvalue of A when Av = lambda v."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "anchors": {},
+  "branches": {},
+  "assets": {},
+  "extensions": {
+    "fixture": "schema-v1"
+  }
+}

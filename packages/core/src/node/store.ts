@@ -50,7 +50,7 @@ import { coreError, errorMessage } from '../errors.js';
 import type { Clock, CoreContext, IdFactory } from '../ids.js';
 import { createContext } from '../ids.js';
 import { parseDocumentJson, stringifyDocument } from '../serialize.js';
-import type { Document, PageOrientation } from '../types.js';
+import type { Document } from '../types.js';
 import { documentStats } from '../types.js';
 import { validateDocument } from '../validation.js';
 
@@ -834,10 +834,6 @@ export interface CreateDocumentPackageInput {
   id?: string;
   chapterId?: string;
   chapterTitle?: string;
-  pageSetup?: {
-    orientation?: PageOrientation;
-    margins?: Record<string, number>;
-  };
 }
 
 export interface CreateDocumentPackageResult {
@@ -870,18 +866,6 @@ export async function createDocumentPackage(
     ...(input.id === undefined ? {} : { id: input.id }),
     ...(input.chapterId === undefined ? {} : { chapterId: input.chapterId }),
     ...(input.chapterTitle === undefined ? {} : { chapterTitle: input.chapterTitle }),
-    ...(input.pageSetup === undefined
-      ? {}
-      : {
-          pageSetup: {
-            ...(input.pageSetup.orientation === undefined
-              ? {}
-              : { orientation: input.pageSetup.orientation }),
-            ...(input.pageSetup.margins === undefined
-              ? {}
-              : { margins: input.pageSetup.margins }),
-          },
-        }),
   };
 
   const created = executeCommand(null, command, { context });

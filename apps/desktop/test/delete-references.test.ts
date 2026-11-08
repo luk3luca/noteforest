@@ -25,18 +25,12 @@ function reference(id: string, source: string, target: string, order: string): B
 
 function fixture(): Document {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'doc',
     title: 'Delete references',
     createdAt: '2026-11-03T10:00:00.000Z',
     updatedAt: '2026-11-03T10:00:00.000Z',
     revision: 1,
-    pageSetup: {
-      size: 'A4',
-      orientation: 'portrait',
-      margins: { top: 20, right: 20, bottom: 20, left: 20 },
-    },
-    manualBreakBeforeBlockIds: [],
     chapters: [
       { id: 'c1', title: 'Deletion', topLevelBlockIds: ['A', 'S1'] },
       { id: 'c2', title: 'Sources', topLevelBlockIds: ['S2'] },

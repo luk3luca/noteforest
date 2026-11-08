@@ -30,18 +30,12 @@ function block(id: string, text: string): ContentBlock {
 
 function fixture(): Document {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'doc',
     title: 'Editor projection',
     createdAt: '2026-11-06T10:00:00.000Z',
     updatedAt: '2026-11-06T10:00:00.000Z',
     revision: 1,
-    pageSetup: {
-      size: 'A4',
-      orientation: 'portrait',
-      margins: { top: 20, right: 20, bottom: 20, left: 20 },
-    },
-    manualBreakBeforeBlockIds: [],
     chapters: [{ id: 'c1', title: 'One', topLevelBlockIds: ['A'] }],
     blocks: {
       A: block('A', 'Parent'),

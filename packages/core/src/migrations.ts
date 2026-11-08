@@ -3,9 +3,8 @@
  *
  * `document.schemaVersion` names the on-disk format. A migration is a pure,
  * single-step transform from one version to the next; the registry must be
- * contiguous from version 1 to the current version. The current format (v1)
- * has no migrations yet, so `SCHEMA_MIGRATIONS` is empty. This module exists so
- * the first real migration is a data change, not a new persistence path.
+ * contiguous from version 1 to the current version. The current format is v2
+ * (ADR-0008), so one product migration exists.
  *
  * This module is pure TypeScript: no Node, DOM, React, or filesystem imports.
  * Validation still happens after migration in `serialize.ts`; a migration must
@@ -33,10 +32,27 @@ export interface SchemaMigration {
 }
 
 /**
- * Product migration registry. Empty for v1: no released format is older than
- * the current one. Do not add speculative migrations here.
+ * Product migration registry.
+ *
+ * v1 → v2 (ADR-0008): the canonical document is a continuous canvas. Page
+ * setup, manual page breaks, and view state are personal settings, so the
+ * three known legacy fields are removed. No settings are seeded and every
+ * other unknown field is preserved verbatim.
  */
-export const SCHEMA_MIGRATIONS: readonly SchemaMigration[] = Object.freeze([]);
+export const SCHEMA_MIGRATIONS: readonly SchemaMigration[] = Object.freeze([
+  {
+    from: 1,
+    to: 2,
+    description: 'remove canonical page setup, manual breaks, and view state',
+    migrate(value) {
+      const next: JsonObject = { ...value, schemaVersion: 2 };
+      delete next['pageSetup'];
+      delete next['manualBreakBeforeBlockIds'];
+      delete next['viewState'];
+      return next;
+    },
+  },
+]);
 
 export interface MigrationOptions {
   /** Defaults to `SCHEMA_MIGRATIONS`. Synthetic registries are test-only. */

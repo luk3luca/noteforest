@@ -405,7 +405,7 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
   const page = pageCount > 0 ? model.pages[pageNumber - 1] ?? null : null;
   const pageRef = useRef(page);
   pageRef.current = page;
-  const geometry = model.layout?.geometry ?? corePageGeometry(runtime.document);
+  const geometry = model.layout?.geometry ?? corePageGeometry();
 
   // Derived model may shrink the page count; keep the shell page in range.
   // Wait for the first derived model: clamping against the loading state would

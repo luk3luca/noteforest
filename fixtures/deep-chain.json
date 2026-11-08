@@ -1,21 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "f4-deep-chain",
   "title": "Deep chain and nested callouts",
   "createdAt": "2026-11-03T10:00:00Z",
   "updatedAt": "2026-11-03T10:04:12Z",
   "revision": 1,
-  "pageSetup": {
-    "size": "A4",
-    "orientation": "portrait",
-    "margins": {
-      "top": 20,
-      "right": 20,
-      "bottom": 20,
-      "left": 20
-    }
-  },
-  "manualBreakBeforeBlockIds": [],
   "blocks": {
     "f4-b1": {
       "id": "f4-b1",

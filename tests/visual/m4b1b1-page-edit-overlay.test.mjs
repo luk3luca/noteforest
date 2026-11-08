@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { artifactsPath, createHarness } from '../support/harness.mjs';
-import { portraitLongDocument, writePagePackage } from '../support/page-fixtures.mjs';
+import { longDocument, writePagePackage } from '../support/page-fixtures.mjs';
 
 const tempRoot = artifactsPath('m4b1b1-visual-tmp');
 const screenshotDir = artifactsPath('m4b1b1');
@@ -114,11 +114,11 @@ describe('M4b1b1 Page Edit overlay visual evidence', () => {
     await waitPageReady();
     await shot('page-read-landscape-after-1440x900.png', 1440, 900);
 
-    // Portrait, including a block that spans pages (opened on page 2).
+    // Long fixture, including a block that spans pages (opened on page 2).
     const packagePath = await writePagePackage(
       env.NOTEFOREST_LIBRARY,
-      'Portrait Page Edit',
-      portraitLongDocument(),
+      'Long Page Edit',
+      longDocument(),
     );
     const opened = await page.evaluate(
       (path) => window.__noteforestTest.openPath(path),
@@ -132,12 +132,12 @@ describe('M4b1b1 Page Edit overlay visual evidence', () => {
     );
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageRead();
-    await shot('page-read-portrait-before-1440x900.png', 1440, 900);
+    await shot('page-read-long-before-1440x900.png', 1440, 900);
     await enterPageEdit();
     await openOverlay('parent');
-    await shot('page-edit-overlay-portrait-1440x900.png', 1440, 900);
+    await shot('page-edit-overlay-long-1440x900.png', 1440, 900);
     await h.setWindowSize(960, 720);
-    await shot('page-edit-overlay-portrait-960x720.png', 960, 720);
+    await shot('page-edit-overlay-long-960x720.png', 960, 720);
 
     await h.setWindowSize(1440, 900);
     await page.keyboard.press('Escape');
@@ -157,9 +157,9 @@ describe('M4b1b1 Page Edit overlay visual evidence', () => {
     await continuation.dblclick();
     await overlay().waitFor({ timeout: 5000 });
     await page.waitForTimeout(150);
-    await shot('page-edit-spanning-overlay-portrait-1440x900.png', 1440, 900);
+    await shot('page-edit-spanning-overlay-long-1440x900.png', 1440, 900);
     await h.setWindowSize(960, 720);
-    await shot('page-edit-spanning-overlay-portrait-960x720.png', 960, 720);
+    await shot('page-edit-spanning-overlay-long-960x720.png', 960, 720);
     await h.quit();
   });
 });

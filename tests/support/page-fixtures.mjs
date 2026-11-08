@@ -4,9 +4,9 @@ import { resolve } from 'node:path';
 /**
  * Page-view document fixtures.
  *
- * UI/visual tests write a real package into the isolated library instead of
- * mutating a seeded document: page orientation is document-level v1 data and
- * there is no orientation command yet, so a fixture file is the honest path.
+ * UI/visual tests write a real canonical package into the isolated library.
+ * Page setup and manual breaks are personal settings (ADR-0008), so fixtures
+ * never carry them; this slice renders with the product default page settings.
  */
 
 export function paragraph(text) {
@@ -62,25 +62,18 @@ export function imageBlock(id, label, assetId, alt = 'Lost diagram', dimensions)
 export function pageDocument({
   id = 'page-fixture',
   title = 'Page fixture',
-  orientation = 'landscape',
   chapterTitle = 'Chapter 1',
   blocks = [],
   branches = [],
 }) {
   const chapterId = 'chapter-1';
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     title,
     createdAt: '2026-11-07T00:00:00.000Z',
     updatedAt: '2026-11-07T00:00:00.000Z',
     revision: 0,
-    pageSetup: {
-      size: 'A4',
-      orientation,
-      margins: { top: 20, right: 20, bottom: 20, left: 20 },
-    },
-    manualBreakBeforeBlockIds: [],
     chapters: [
       {
         id: chapterId,
@@ -131,14 +124,13 @@ export async function writePagePackage(libraryPath, name, document, assetFiles =
   return packagePath;
 }
 
-/** Portrait fixture long enough for continuation/ghost markers. */
-export function portraitLongDocument() {
+/** Long fixture that spans pages, producing continuation/ghost markers. */
+export function longDocument() {
   const parent = textBlock('parent', 'Parent topic', 'A short parent that owns a long branch.');
   const child = longTextBlock('child', 'Long branch', 90);
   return pageDocument({
     id: 'portrait-long',
-    title: 'Portrait long study',
-    orientation: 'portrait',
+    title: 'Long study',
     chapterTitle: 'Long argument',
     blocks: [parent, child],
     branches: [
@@ -147,11 +139,30 @@ export function portraitLongDocument() {
   });
 }
 
+/**
+ * Many short top-level blocks: pages break between blocks because no block has
+ * an internal safe break. Every derived page starts at a block boundary, which
+ * makes page-start markers deterministic without canonical manual breaks.
+ */
+export function multiPageBlocksDocument(count = 36) {
+  return pageDocument({
+    id: 'multi-page-blocks',
+    title: 'Continuous markers',
+    chapterTitle: 'Derived pages',
+    blocks: Array.from({ length: count }, (_, index) =>
+      textBlock(
+        `b${index + 1}`,
+        `Block ${index + 1}`,
+        'A short top-level block used to derive a page boundary between cards.',
+      ),
+    ),
+  });
+}
+
 export function multiChapterDocument() {
   const document = pageDocument({
     id: 'multi-chapter-page',
     title: 'Two chapters',
-    orientation: 'portrait',
     chapterTitle: 'Chapter 1',
     blocks: [textBlock('chapter-1-block', 'Chapter one block', 'First chapter body.')],
   });
@@ -172,7 +183,6 @@ export function emptyDocument() {
   return pageDocument({
     id: 'empty-page',
     title: 'Empty page fixture',
-    orientation: 'portrait',
     chapterTitle: 'Empty chapter',
     blocks: [],
   });
@@ -182,7 +192,6 @@ export function missingImageDocument() {
   return pageDocument({
     id: 'missing-image-page',
     title: 'Missing image page',
-    orientation: 'landscape',
     chapterTitle: 'Images',
     blocks: [
       textBlock('intro', 'Intro', 'This page references an image whose asset is missing.'),

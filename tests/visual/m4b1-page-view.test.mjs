@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { artifactsPath, createHarness } from '../support/harness.mjs';
-import { portraitLongDocument, writePagePackage } from '../support/page-fixtures.mjs';
+import { longDocument, writePagePackage } from '../support/page-fixtures.mjs';
 
 const tempRoot = artifactsPath('m4b1-visual-tmp');
 const screenshotDir = artifactsPath('m4b1');
@@ -91,8 +91,8 @@ describe('M4b1a editor layouts and modes visual evidence', () => {
     await h.setWindowSize(1440, 900);
     const packagePath = await writePagePackage(
       env.NOTEFOREST_LIBRARY,
-      'Portrait long study',
-      portraitLongDocument(),
+      'Long study',
+      longDocument(),
     );
     const opened = await page.evaluate(
       (path) => window.__noteforestTest.openPath(path),
@@ -106,20 +106,20 @@ describe('M4b1a editor layouts and modes visual evidence', () => {
     );
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageView();
-    await shot('page-portrait-1440x900.png', 1440, 900);
+    await shot('page-long-1440x900.png', 1440, 900);
 
     const next = page.locator('.nf-editor[data-active="true"] [data-page-nav="next"]');
     await next.click();
     await page.waitForSelector('.nf-editor[data-active="true"] [data-page-continued-from]');
     await page.waitForTimeout(120);
-    await shot('page-portrait-continuation-1440x900.png', 1440, 900);
+    await shot('page-long-continuation-1440x900.png', 1440, 900);
 
     await h.setWindowSize(960, 720);
     await page
       .locator('.nf-editor[data-active="true"] [data-page-nav="prev"]')
       .click();
     await page.waitForTimeout(120);
-    await shot('page-portrait-960x720.png', 960, 720);
+    await shot('page-long-960x720.png', 960, 720);
     await h.quit();
   });
 });

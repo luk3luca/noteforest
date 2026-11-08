@@ -15,7 +15,7 @@ import {
   overlaps,
   paginate,
 } from '../src/index.js';
-import { FIXTURES } from './helpers.js';
+import { FIXTURES, FIXTURE_PAGE_SETUP } from './helpers.js';
 import { resolve } from 'node:path';
 
 export const SHOWCASE_PATH = '/Users/luca/Documents/NoteForest/note-forest-showcase/document.json';
@@ -134,7 +134,12 @@ export function computeLabMetrics(
     maxWrapIndent,
     wrapPolicy: policy,
   };
-  const layout = layoutDocument(document, createEstimatedMeasurement(document), layoutOptions);
+  const layout = layoutDocument(
+    document,
+    createEstimatedMeasurement(document),
+    layoutOptions,
+    FIXTURE_PAGE_SETUP,
+  );
   const pages = paginate(layout, document);
   const wrapped = wrappedChildrenByParent(layout, layoutOptions);
   const directGroupCount = new Set(

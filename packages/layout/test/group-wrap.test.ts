@@ -17,7 +17,7 @@ import {
   type NoteDocument,
   type WrapPolicy,
 } from '../src/index.js';
-import { FIXTURES } from './helpers.js';
+import { FIXTURES, FIXTURE_PAGE_SETUP } from './helpers.js';
 
 interface StubSpec {
   max: number;
@@ -118,15 +118,9 @@ function makeDocument(
   const root = Object.keys(specs)[0]!;
   return {
     document: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: 'synthetic-layout',
       title: 'Synthetic layout',
-      pageSetup: {
-        size: 'A4',
-        orientation: 'portrait',
-        margins: { top: 20, right: 20, bottom: 20, left: 20 },
-      },
-      manualBreakBeforeBlockIds: [],
       blocks,
       anchors: anchorRecords,
       branches: branchRecords,
@@ -143,7 +137,7 @@ function layout(
   wrapPolicy: WrapPolicy,
   maxWrapIndent = DEFAULT_LAYOUT_OPTIONS.maxWrapIndent,
 ) {
-  return layoutDocument(document, port, { wrapPolicy, maxWrapIndent });
+  return layoutDocument(document, port, { wrapPolicy, maxWrapIndent }, FIXTURE_PAGE_SETUP);
 }
 
 describe('group-level left-origin wrap', () => {
@@ -333,9 +327,14 @@ describe('group-level left-origin wrap', () => {
     const document = JSON.parse(
       readFileSync(resolve(FIXTURES, 'wide-fan.json'), 'utf8'),
     ) as NoteDocument;
-    const result = layoutDocument(document, createEstimatedMeasurement(document), {
-      wrapPolicy: 'right-first-per-child',
-    });
+    const result = layoutDocument(
+      document,
+      createEstimatedMeasurement(document),
+      {
+        wrapPolicy: 'right-first-per-child',
+      },
+      FIXTURE_PAGE_SETUP,
+    );
     const expected: Record<string, [number, number, number]> = {
       'f3-parent': [0, 0, 432],
       'f3-c1': [456, 0, 186],

@@ -7,14 +7,12 @@ import {
   toLayoutDocument,
 } from '../src/renderer/src/page/adapter';
 
-function fixture(orientation: 'portrait' | 'landscape'): Document {
+function fixture(): Document {
   const document = createDocument({
     id: 'doc-m4b1',
     chapterId: 'ch-1',
     title: 'Page adapter',
-    pageSetup: { orientation },
   });
-  document.manualBreakBeforeBlockIds = ['b2'];
   document.chapters[0]!.title = 'Chapter one';
   document.chapters[0]!.topLevelBlockIds = ['b1'];
   document.blocks['b1'] = {
@@ -82,7 +80,9 @@ function fixture(orientation: 'portrait' | 'landscape'): Document {
 
 describe('core -> layout page adapter', () => {
   it('preserves identity and order without mutating the canonical document', () => {
-    const document = fixture('portrait');
+    const document = fixture();
+    document['pageSetup'] = { size: 'A4', orientation: 'portrait' };
+    document['manualBreakBeforeBlockIds'] = ['b2'];
     const before = JSON.stringify(document);
     const note = toLayoutDocument(document);
 
@@ -95,7 +95,8 @@ describe('core -> layout page adapter', () => {
     expect(note.chapters.map((chapter) => chapter.id)).toEqual(['ch-1']);
     expect(note.chapters[0]!.title).toBe('Chapter one');
     expect(note.chapters[0]!.topLevelBlockIds).toEqual(['b1']);
-    expect(note.manualBreakBeforeBlockIds).toEqual(['b2']);
+    expect(note).not.toHaveProperty('manualBreakBeforeBlockIds');
+    expect(note).not.toHaveProperty('pageSetup');
     expect(note.branches['br-primary']).toMatchObject({
       id: 'br-primary',
       source: { blockId: 'b1' },
@@ -131,23 +132,17 @@ describe('core -> layout page adapter', () => {
     expect(paragraph['attrs']).toEqual({ custom: 'kept' });
   });
 
-  it('keeps the A4 portrait and landscape geometry', () => {
-    const portrait = corePageGeometry(fixture('portrait'));
-    expect(portrait.pageWidthMm).toBe(210);
-    expect(portrait.pageHeightMm).toBe(297);
-    expect(portrait.contentWidthPx).toBeCloseTo(mmToPx(210 - 40), 6);
-    expect(portrait.contentHeightPx).toBeCloseTo(mmToPx(297 - 40), 6);
-
-    const landscape = corePageGeometry(fixture('landscape'));
-    expect(landscape.pageWidthMm).toBe(297);
-    expect(landscape.pageHeightMm).toBe(210);
-    expect(landscape.contentWidthPx).toBeCloseTo(mmToPx(297 - 40), 6);
-    expect(landscape.contentHeightPx).toBeCloseTo(mmToPx(210 - 40), 6);
+  it('uses the default A4 landscape page settings and 12 mm margins', () => {
+    const geometry = corePageGeometry();
+    expect(geometry.pageWidthMm).toBe(297);
+    expect(geometry.pageHeightMm).toBe(210);
+    expect(geometry.contentWidthPx).toBeCloseTo(mmToPx(297 - 24), 6);
+    expect(geometry.contentHeightPx).toBeCloseTo(mmToPx(210 - 24), 6);
     expect(PAGE_LAYOUT_OPTIONS.wrapPolicy).toBe('group-left-origin');
   });
 
   it('maps every anchor kind to the layout record without a second resolver', () => {
-    const document = fixture('portrait');
+    const document = fixture();
     document.anchors['a-formula'] = {
       id: 'a-formula',
       blockId: 'b1',

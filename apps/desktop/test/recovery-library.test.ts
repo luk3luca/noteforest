@@ -73,7 +73,7 @@ describe('library recovery statuses', () => {
       schemaVersion: number;
       title: string;
     };
-    newerDocument.schemaVersion = 2;
+    newerDocument.schemaVersion = 3;
     newerDocument.title = 'From the future';
     await fs.writeFile(
       path.join(newerPath, 'document.json'),
@@ -125,7 +125,7 @@ describe('library recovery statuses', () => {
     const newerDocument = JSON.parse(valid.bytes.toString('utf8')) as {
       schemaVersion: number;
     };
-    newerDocument.schemaVersion = 2;
+    newerDocument.schemaVersion = 3;
     await fs.writeFile(
       path.join(newerPath, 'document.json'),
       JSON.stringify(newerDocument, null, 2),

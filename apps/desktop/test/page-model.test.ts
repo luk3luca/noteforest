@@ -8,12 +8,11 @@ import {
   computePageModel,
 } from '../src/renderer/src/page/model';
 
-function longDocument(orientation: 'portrait' | 'landscape'): Document {
+function longDocument(): Document {
   const document = createDocument({
     id: 'doc-page-model',
     chapterId: 'ch-1',
     title: 'Page model',
-    pageSetup: { orientation },
   });
   const chapter = document.chapters[0]!;
   const ids: string[] = [];
@@ -44,26 +43,24 @@ function longDocument(orientation: 'portrait' | 'landscape'): Document {
 }
 
 describe('page model pure parts', () => {
-  it('derives pages through the shared layout engine in both orientations', () => {
-    const portrait = longDocument('portrait');
-    const portraitModel = computePageModel(
-      toLayoutDocument(portrait),
-      createEstimatedMeasurement(toLayoutDocument(portrait)),
+  it('derives pages through the shared layout engine with default page settings', () => {
+    const document = longDocument();
+    const model = computePageModel(
+      toLayoutDocument(document),
+      createEstimatedMeasurement(toLayoutDocument(document)),
     );
-    expect(portraitModel.pageCount).toBeGreaterThan(0);
-    expect(portraitModel.pages[0]!.chapterId).toBe('ch-1');
-    expect(portraitModel.layout.geometry.pageWidthMm).toBe(210);
-    expect(portraitModel.measurementCalls).toBeGreaterThan(0);
-    expect(portraitModel.empty).toBe(false);
-
-    const landscape = longDocument('landscape');
-    const landscapeModel = computePageModel(
-      toLayoutDocument(landscape),
-      createEstimatedMeasurement(toLayoutDocument(landscape)),
-    );
-    expect(landscapeModel.pageCount).toBeGreaterThan(0);
-    expect(landscapeModel.layout.geometry.pageWidthMm).toBe(297);
-    expect(landscapeModel.pages.every((page) => page.fragments.length > 0)).toBe(true);
+    expect(model.pageCount).toBeGreaterThan(0);
+    expect(model.pages[0]!.chapterId).toBe('ch-1');
+    expect(model.layout.pageSetup).toEqual({
+      size: 'A4',
+      orientation: 'landscape',
+      margins: { top: 12, right: 12, bottom: 12, left: 12 },
+    });
+    expect(model.layout.geometry.pageWidthMm).toBe(297);
+    expect(model.layout.geometry.pageHeightMm).toBe(210);
+    expect(model.measurementCalls).toBeGreaterThan(0);
+    expect(model.empty).toBe(false);
+    expect(model.pages.every((page) => page.fragments.length > 0)).toBe(true);
   });
 
   it('returns no derived pages for an empty document', () => {
@@ -71,7 +68,6 @@ describe('page model pure parts', () => {
       id: 'doc-empty',
       chapterId: 'ch-empty',
       title: 'Empty',
-      pageSetup: { orientation: 'portrait' },
     });
     empty.chapters[0]!.title = 'Empty chapter';
     const model = computePageModel(

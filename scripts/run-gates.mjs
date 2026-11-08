@@ -188,7 +188,7 @@ function hashGeometry(state) {
 function verifyExport(state, document, pdfPath) {
   return inspectPdfFile(pdfPath).then((pdf) => {
     const pageCount = checkPageCount(state, pdf);
-    const pageSize = checkPageSize(document, pdf);
+    const pageSize = checkPageSize(pdf);
     const texts = checkTexts(document, pdf);
     const continuations = checkContinuations(state, pdf);
     const segmentAtomicity = checkSegmentAtomicity(state);

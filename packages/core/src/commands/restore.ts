@@ -101,10 +101,6 @@ function captureStructuralDelta(
     }
   }
 
-  const breaksChanged = !sameStringList(
-    current.manualBreakBeforeBlockIds,
-    target.manualBreakBeforeBlockIds,
-  );
   if (
     blocks.length === 0 &&
     replaceBlocks.length === 0 &&
@@ -113,8 +109,7 @@ function captureStructuralDelta(
     removeBranches.length === 0 &&
     anchors.length === 0 &&
     removeAnchors.length === 0 &&
-    chapters.length === 0 &&
-    !breaksChanged
+    chapters.length === 0
   ) {
     return null;
   }
@@ -131,9 +126,6 @@ function captureStructuralDelta(
   if (removeBlocks.length > 0) restore.removeBlocks = removeBlocks;
   if (removeBranches.length > 0) restore.removeBranches = removeBranches;
   if (removeAnchors.length > 0) restore.removeAnchors = removeAnchors;
-  if (breaksChanged) {
-    restore.manualBreakBeforeBlockIds = [...target.manualBreakBeforeBlockIds];
-  }
   return restore;
 }
 
@@ -475,21 +467,6 @@ export function restoreRecords(
     }
     chapter.topLevelBlockIds = [...entry.topLevelBlockIds];
     changes.chapter(chapter.id);
-  }
-
-  if (command.manualBreakBeforeBlockIds !== undefined) {
-    if (
-      !Array.isArray(command.manualBreakBeforeBlockIds) ||
-      !command.manualBreakBeforeBlockIds.every((id) => typeof id === 'string')
-    ) {
-      reject('invalid-command', 'restored manual break IDs must be an array of strings');
-    }
-    for (const blockId of command.manualBreakBeforeBlockIds) {
-      if (own(document.blocks, blockId) === undefined) {
-        reject('not-found', `restored manual break block "${blockId}" does not exist`);
-      }
-    }
-    document.manualBreakBeforeBlockIds = [...command.manualBreakBeforeBlockIds];
   }
 
   return command.redoCommand === undefined ? null : structuredClone(command.redoCommand);

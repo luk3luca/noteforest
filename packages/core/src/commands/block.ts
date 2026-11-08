@@ -343,9 +343,6 @@ function removeSingleBlock(document: Document, blockId: string, changes: ChangeS
       changes.chapter(chapter.id);
     }
   }
-  document.manualBreakBeforeBlockIds = document.manualBreakBeforeBlockIds.filter(
-    (id) => id !== blockId,
-  );
   delete document.blocks[blockId];
   changes.block(blockId);
 }
@@ -783,11 +780,6 @@ export function applyBlockMerge(
     if (index < 0) continue;
     chapter.topLevelBlockIds.splice(index, 1);
     changes.chapter(chapter.id);
-  }
-  if (document.manualBreakBeforeBlockIds.includes(merged.id)) {
-    document.manualBreakBeforeBlockIds = document.manualBreakBeforeBlockIds.filter(
-      (blockId) => blockId !== merged.id,
-    );
   }
   delete document.blocks[merged.id];
   changes.block(merged.id);

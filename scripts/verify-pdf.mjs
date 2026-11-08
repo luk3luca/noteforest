@@ -19,7 +19,7 @@ if (!fixturePath || !pdfPath) {
 const document = JSON.parse(await readFile(resolve(fixturePath), 'utf8'));
 const pdf = await inspectPdfFile(resolve(pdfPath));
 const texts = checkTexts(document, pdf);
-const pageSize = checkPageSize(document, pdf);
+const pageSize = checkPageSize(pdf);
 const imagePages = pdf.pages.filter((page) => page.imageCount > 0).map((page) => page.pageNumber);
 const totalPaths = pdf.pages.reduce((sum, page) => sum + (page.pathCount ?? 0), 0);
 

@@ -16,7 +16,6 @@ import type {
   ContentNode,
   Document,
 } from '../src/types.js';
-import { defaultPageSetup } from '../src/types.js';
 
 const TIMESTAMP = '2026-11-06T10:00:00.000Z';
 const BLOCK_COUNT = 100;
@@ -162,14 +161,12 @@ function buildDocument(): GeneratedDocument {
 
   return {
     document: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: 'perf-1000-anchors',
       title: '1,000 anchor performance',
       createdAt: TIMESTAMP,
       updatedAt: TIMESTAMP,
       revision: 0,
-      pageSetup: defaultPageSetup(),
-      manualBreakBeforeBlockIds: [],
       chapters: [
         {
           id: 'perf-chapter-1',

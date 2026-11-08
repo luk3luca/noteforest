@@ -83,7 +83,6 @@ function buildFixture() {
     label: 'see also',
     extensions: { crossLink: true },
   };
-  document.manualBreakBeforeBlockIds = [childA1.blockId];
   expectValid(document);
 
   return {
@@ -181,7 +180,6 @@ describe('destructive undo — block.delete', () => {
     expect(restored.document.branches['reference-anchor']).toEqual(
       fixture.document.branches['reference-anchor'],
     );
-    expect(restored.document.manualBreakBeforeBlockIds).toEqual([fixture.a1]);
   });
 });
 

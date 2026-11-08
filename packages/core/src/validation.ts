@@ -36,10 +36,6 @@ function isInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value);
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
 function isTimestamp(value: unknown): value is string {
   return typeof value === 'string' && !Number.isNaN(Date.parse(value));
 }
@@ -95,56 +91,6 @@ class Collector {
     ids?: string[],
   ): void {
     this.add('warning', code, message, path, ids);
-  }
-}
-
-function validatePageSetup(value: unknown, collector: Collector): void {
-  if (!isRecord(value)) {
-    collector.error('invalid-page-setup', 'pageSetup must be an object', 'pageSetup');
-    return;
-  }
-  if (value['size'] !== 'A4') {
-    collector.error('invalid-page-setup', 'pageSetup.size must be "A4"', 'pageSetup.size');
-  }
-  const orientation = value['orientation'];
-  if (orientation !== 'portrait' && orientation !== 'landscape') {
-    collector.error(
-      'invalid-page-setup',
-      'pageSetup.orientation must be "portrait" or "landscape"',
-      'pageSetup.orientation',
-    );
-  }
-  const margins = value['margins'];
-  if (!isRecord(margins)) {
-    collector.error('invalid-page-setup', 'pageSetup.margins must be an object', 'pageSetup.margins');
-    return;
-  }
-  let validMargins = true;
-  for (const side of ['top', 'right', 'bottom', 'left'] as const) {
-    const margin = margins[side];
-    if (!isFiniteNumber(margin) || margin < 0) {
-      validMargins = false;
-      collector.error(
-        'invalid-page-setup',
-        `pageSetup.margins.${side} must be a finite non-negative number`,
-        `pageSetup.margins.${side}`,
-      );
-    }
-  }
-  if (!validMargins || (orientation !== 'portrait' && orientation !== 'landscape')) return;
-  const portrait = orientation === 'portrait';
-  const pageWidth = portrait ? 210 : 297;
-  const pageHeight = portrait ? 297 : 210;
-  const top = margins['top'] as number;
-  const right = margins['right'] as number;
-  const bottom = margins['bottom'] as number;
-  const left = margins['left'] as number;
-  if (left + right >= pageWidth || top + bottom >= pageHeight) {
-    collector.error(
-      'invalid-page-setup',
-      'page margins leave no positive content area',
-      'pageSetup.margins',
-    );
   }
 }
 
@@ -270,21 +216,7 @@ export function validateDocument(value: unknown): ValidationReport {
   if (!isInteger(revision) || revision < 0) {
     collector.error('invalid-revision', 'document revision must be a non-negative integer', 'revision');
   }
-  validatePageSetup(value['pageSetup'], collector);
 
-  if (value['manualBreakBeforeBlockIds'] === undefined) {
-    collector.warning(
-      'missing-field',
-      'manualBreakBeforeBlockIds is missing; treated as an empty list',
-      'manualBreakBeforeBlockIds',
-    );
-  } else if (!isStringArray(value['manualBreakBeforeBlockIds'])) {
-    collector.error(
-      'invalid-shape',
-      'manualBreakBeforeBlockIds must be an array of block IDs',
-      'manualBreakBeforeBlockIds',
-    );
-  }
   if (!Array.isArray(chaptersRaw)) {
     collector.error('invalid-shape', 'chapters must be an array', 'chapters');
   }
@@ -302,9 +234,6 @@ export function validateDocument(value: unknown): ValidationReport {
   }
   if (value['annotations'] !== undefined && !Array.isArray(value['annotations'])) {
     collector.error('invalid-shape', 'annotations must be an array', 'annotations');
-  }
-  if (value['viewState'] !== undefined && !isRecord(value['viewState'])) {
-    collector.error('invalid-shape', 'viewState must be an object', 'viewState');
   }
 
   const containersOk =
@@ -888,32 +817,6 @@ export function validateDocument(value: unknown): ValidationReport {
 
   for (const blockId of blockIds) {
     if ((visitState.get(blockId) ?? 0) === 0) visit(blockId);
-  }
-
-  // ---------------------------------------------------------------------
-  // Manual page-break hints (I7).
-  // ---------------------------------------------------------------------
-  const manualBreaks = value['manualBreakBeforeBlockIds'];
-  if (isStringArray(manualBreaks)) {
-    const seenHints = new Set<string>();
-    for (const [index, blockId] of manualBreaks.entries()) {
-      if (!blockIds.has(blockId)) {
-        collector.warning(
-          'invalid-break-hint',
-          `manual break hint references missing block "${blockId}"`,
-          `manualBreakBeforeBlockIds[${index}]`,
-          [blockId],
-        );
-      } else if (seenHints.has(blockId)) {
-        collector.warning(
-          'invalid-break-hint',
-          `duplicate manual break hint for block "${blockId}"`,
-          `manualBreakBeforeBlockIds[${index}]`,
-          [blockId],
-        );
-      }
-      seenHints.add(blockId);
-    }
   }
 
   return {

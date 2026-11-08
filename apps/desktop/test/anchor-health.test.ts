@@ -60,18 +60,12 @@ function branch(
 
 function fixture(content: ContentNode, assets: Document['assets'] = {}): Document {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'doc',
     title: 'Fixture',
     createdAt: '2026-11-03T10:00:00.000Z',
     updatedAt: '2026-11-03T10:00:00.000Z',
     revision: 1,
-    pageSetup: {
-      size: 'A4',
-      orientation: 'portrait',
-      margins: { top: 20, right: 20, bottom: 20, left: 20 },
-    },
-    manualBreakBeforeBlockIds: [],
     chapters: [{ id: 'c1', title: 'Anchors', topLevelBlockIds: ['A'] }],
     blocks: {
       A: block('A', content),

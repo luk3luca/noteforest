@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseDocumentJson, parseDocumentValue, stringifyDocument } from '../src/serialize.js';
+import type { Document } from '../src/types.js';
 import { validateDocument } from '../src/validation.js';
 import { deterministicContext, newDocument, run, textContent, addTopLevel } from './helpers.js';
 
@@ -41,12 +42,12 @@ describe('canonical JSON parsing', () => {
 
   it('opens a newer schema read-only with a typed error', () => {
     const { document } = sampleDocument();
-    const newer = { ...document, schemaVersion: 2 };
+    const newer = { ...document, schemaVersion: 3 };
     const parsed = parseDocumentJson(JSON.stringify(newer));
     expect(parsed.ok).toBe(false);
     if (parsed.ok) return;
     expect(parsed.error.code).toBe('newer-schema');
-    expect(parsed.error.details?.['schemaVersion']).toBe(2);
+    expect(parsed.error.details?.['schemaVersion']).toBe(3);
   });
 
   it('rejects an invalid schema version', () => {
@@ -56,13 +57,13 @@ describe('canonical JSON parsing', () => {
     if (!parsed.ok) expect(parsed.error.code).toBe('invalid-schema-version');
   });
 
-  it('normalizes a missing optional manual-break list', () => {
+  it('does not seed a missing legacy manual-break list', () => {
     const { document } = sampleDocument();
     const withoutBreaks = structuredClone(document) as unknown as Record<string, unknown>;
     delete withoutBreaks['manualBreakBeforeBlockIds'];
     const parsed = parseDocumentValue(withoutBreaks);
     expect(parsed.ok).toBe(true);
-    if (parsed.ok) expect(parsed.document.manualBreakBeforeBlockIds).toEqual([]);
+    if (parsed.ok) expect(parsed.document).not.toHaveProperty('manualBreakBeforeBlockIds');
   });
 
   it('attaches validation issues to invalid-document errors', () => {
@@ -78,17 +79,11 @@ describe('canonical JSON parsing', () => {
     expect(parsed.error.issues?.length).toBeGreaterThan(0);
   });
 
-  it('round-trips annotations, view state, and reference branches', () => {
+  it('round-trips annotations, unknown fields, and reference branches', () => {
     const { context, document, a, b } = sampleDocument();
-    const withExtras = structuredClone(document);
+    const withExtras = structuredClone(document) as Document & Record<string, unknown>;
     withExtras.annotations = [{ id: 'ann1', type: 'highlight', target: { blockId: a } }];
-    withExtras.viewState = {
-      mode: 'reader',
-      currentPage: 2,
-      focusedBlockId: a,
-      collapsed: [b],
-      futureViewField: true,
-    };
+    withExtras['futureRootField'] = { enabled: true };
     withExtras.branches['ref1'] = {
       id: 'ref1',
       source: { blockId: a },
@@ -105,7 +100,7 @@ describe('canonical JSON parsing', () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.document.annotations).toEqual(withExtras.annotations);
-    expect(parsed.document.viewState?.['futureViewField']).toBe(true);
+    expect(parsed.document['futureRootField']).toEqual({ enabled: true });
     expect(parsed.document.branches['ref1']?.role).toBe('reference');
     expect(parsed.document.branches['ref1']?.label).toBe('see also');
     void context;

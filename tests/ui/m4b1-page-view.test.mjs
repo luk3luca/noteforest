@@ -12,7 +12,7 @@ import {
   missingImageDocument,
   multiChapterDocument,
   pageDocument,
-  portraitLongDocument,
+  longDocument,
   textBlock,
   writePagePackage,
 } from '../support/page-fixtures.mjs';
@@ -148,8 +148,8 @@ describe('M4b1 page view core', () => {
     assert.ok(Math.abs(sheetWidth - 1122.52) < 0.05, 'A4 landscape width');
     assert.ok(Math.abs(sheetHeight - 793.7) < 0.05, 'A4 landscape height');
     assert.ok(
-      Math.abs(Number(await sheet.getAttribute('data-margin-left')) - 75.59) < 0.05,
-      '20 mm left margin in layout px',
+      Math.abs(Number(await sheet.getAttribute('data-margin-left')) - 45.35) < 0.05,
+      '12 mm left margin in layout px',
     );
     const pageCount = Number(
       await activePageView().getAttribute('data-page-count'),
@@ -254,26 +254,26 @@ describe('M4b1 page view core', () => {
     assert.equal(await selectedBlockId(), targetId, 'Open in continuous editor keeps the block');
   });
 
-  it('navigates a multi-page portrait document and shows continuation markers', async () => {
-    await launch(ui.isolated('m4b1-portrait'));
+  it('navigates a multi-page landscape document and shows continuation markers', async () => {
+    await launch(ui.isolated('m4b1-long'));
     await h.setWindowSize(1440, 900);
-    const env = ui.isolated('m4b1-portrait');
-    await openPackage(env, 'Portrait long study', portraitLongDocument());
+    const env = ui.isolated('m4b1-long');
+    await openPackage(env, 'Long study', longDocument());
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageView();
 
     const pageCount = Number(
       await activePageView().getAttribute('data-page-count'),
     );
-    assert.ok(pageCount > 1, `portrait fixture has multiple pages, got ${pageCount}`);
+    assert.ok(pageCount > 1, `long fixture has multiple pages, got ${pageCount}`);
     const sheet = activeSheet();
     assert.ok(
-      Math.abs(Number(await sheet.getAttribute('data-page-width-px')) - 793.7) < 0.05,
-      'A4 portrait width',
+      Math.abs(Number(await sheet.getAttribute('data-page-width-px')) - 1122.52) < 0.05,
+      'A4 landscape width',
     );
     assert.ok(
-      Math.abs(Number(await sheet.getAttribute('data-page-height-px')) - 1122.52) < 0.05,
-      'A4 portrait height',
+      Math.abs(Number(await sheet.getAttribute('data-page-height-px')) - 793.7) < 0.05,
+      'A4 landscape height',
     );
     assert.equal(await currentPageNumber(), 1);
 
@@ -472,7 +472,6 @@ describe('M4b1 page view core', () => {
     const document = pageDocument({
       id: 'present-image-page',
       title: 'Present image page',
-      orientation: 'landscape',
       chapterTitle: 'Images',
       blocks: [
         textBlock('intro', 'Intro', 'This page embeds a verified package asset.'),
@@ -778,7 +777,7 @@ describe('M4b1 page view core', () => {
     const env = ui.isolated('m4b1a-session');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await openPackage(env, 'Session portrait', portraitLongDocument());
+    await openPackage(env, 'Session long', longDocument());
     const packagePath = (await h.state()).activeTab;
 
     await page.keyboard.press('Meta+=');

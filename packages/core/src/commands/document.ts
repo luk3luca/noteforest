@@ -52,7 +52,6 @@ export function createDocumentCommand(
   if (command.id !== undefined) input.id = command.id;
   if (command.chapterId !== undefined) input.chapterId = command.chapterId;
   if (command.chapterTitle !== undefined) input.chapterTitle = command.chapterTitle;
-  if (command.pageSetup !== undefined) input.pageSetup = command.pageSetup;
   if (command.annotations !== undefined) input.annotations = command.annotations;
   if (command.extensions !== undefined) input.extensions = command.extensions;
   if (command.id !== undefined) {

@@ -26,8 +26,6 @@ import type {
   ContentNode,
   Document,
   JsonObject,
-  MarginsMm,
-  PageOrientation,
 } from '../types.js';
 
 export type CommandErrorCode =
@@ -96,10 +94,6 @@ export interface DocumentCreateCommand {
   id?: string;
   chapterId?: string;
   chapterTitle?: string;
-  pageSetup?: {
-    orientation?: PageOrientation;
-    margins?: Partial<MarginsMm>;
-  };
   annotations?: unknown[];
   extensions?: JsonObject;
 }
@@ -412,8 +406,6 @@ export interface StructureRestoreCommand {
   removeBranches?: string[];
   /** Anchors present before the restore that the target snapshot omits. */
   removeAnchors?: string[];
-  /** Exact target manual-break list when the command changed it. */
-  manualBreakBeforeBlockIds?: string[];
   /** Deterministic redo for destructive deletes; omitted for diffed snapshots. */
   redoCommand?: DocumentCommand;
 }

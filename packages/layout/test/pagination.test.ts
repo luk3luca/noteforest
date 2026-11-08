@@ -9,6 +9,7 @@ import {
 import {
   assertSegmentsAtomic,
   blockFragments,
+  FIXTURE_PAGE_SETUP,
   loadFixture,
   paginateFixture,
 } from './helpers.js';
@@ -29,7 +30,7 @@ function tableRowFragments(pages: ReturnType<typeof paginateFixture>['pages'], l
 
 describe('paginator', () => {
   it('produces at least 50 A4 pages for F2 and keeps every segment atomic', () => {
-    const { document, layout, pages } = paginateFixture('long-50-pages.json');
+    const { document, layout, pages } = paginateFixture('long-50-pages.json', { setup: FIXTURE_PAGE_SETUP });
     expect(pages.pageCount).toBeGreaterThanOrEqual(50);
     expect(pages.pages.every((page) => page.fragments.length > 0)).toBe(true);
     expect(assertSegmentsAtomic(pages, layout)).toEqual([]);
@@ -64,7 +65,7 @@ describe('paginator', () => {
   });
 
   it('splits F1 at code lines and honors the manual break before B4', () => {
-    const { layout, pages } = paginateFixture('golden-eigenvalues.json');
+    const { layout, pages } = paginateFixture('golden-eigenvalues.json', { setup: FIXTURE_PAGE_SETUP, manualBreakBeforeBlockIds: ['b4'] });
     expect(pages.pageCount).toBe(3);
     const b5 = layout.blockById['b5']!;
     const b5Fragments = blockFragments(pages, 'b5');
@@ -88,7 +89,7 @@ describe('paginator', () => {
   });
 
   it('reports the F6 too-tall row as a blocking defect without splitting it', () => {
-    const { layout, pages } = paginateFixture('tables.json');
+    const { layout, pages } = paginateFixture('tables.json', { setup: FIXTURE_PAGE_SETUP });
     const defect = pages.defects.find((candidate) => candidate.code === 'too-tall-row')!;
     expect(defect).toBeDefined();
     expect(defect.blocksExport).toBe(true);
@@ -107,7 +108,7 @@ describe('paginator', () => {
   });
 
   it('reports F8 defects and blocks export without clipping', () => {
-    const { layout, pages } = paginateFixture('defects.json');
+    const { layout, pages } = paginateFixture('defects.json', { setup: FIXTURE_PAGE_SETUP, manualBreakBeforeBlockIds: ['does-not-exist', 'f8-orphan'] });
     const codes = new Set(pages.defects.map((defect) => defect.code));
     expect(codes.has('content-too-wide')).toBe(true);
     expect(codes.has('no-safe-break')).toBe(true);
@@ -124,7 +125,7 @@ describe('paginator', () => {
   });
 
   it('keeps broken and ambiguous anchor branches exported once', () => {
-    const { layout, pages } = paginateFixture('broken-anchor.json');
+    const { layout, pages } = paginateFixture('broken-anchor.json', { setup: FIXTURE_PAGE_SETUP });
     expect(pages.pageCount).toBe(1);
     expect(layout.blocks.filter((block) => block.blockId === 'f9-b2')).toHaveLength(1);
     expect(layout.blocks.filter((block) => block.blockId === 'f9-b3')).toHaveLength(1);
@@ -137,7 +138,7 @@ describe('paginator', () => {
 
 
   it('starts every chapter on a new page at y=0', () => {
-    const { document, pages } = paginateFixture('long-50-pages.json');
+    const { document, pages } = paginateFixture('long-50-pages.json', { setup: FIXTURE_PAGE_SETUP });
     const chapterIds = new Set(document.chapters.map((chapter) => chapter.id));
     expect([...chapterIds].every((id) => pages.pages.some((page) => page.chapterId === id))).toBe(true);
     for (const chapter of document.chapters) {
@@ -151,9 +152,14 @@ describe('paginator', () => {
 
   it('paginates A4 landscape with a wider content area', () => {
     const document = loadFixture('landscape-golden.json');
-    const layout = layoutDocument(document, createEstimatedMeasurement(document));
+    const setup = {
+      size: 'A4' as const,
+      orientation: 'landscape' as const,
+      margins: { top: 20, right: 20, bottom: 20, left: 20 },
+    };
+    const layout = layoutDocument(document, createEstimatedMeasurement(document), {}, setup);
     const pages = paginate(layout, document);
-    const geometry = pageGeometry(document.pageSetup);
+    const geometry = pageGeometry(setup);
     expect(geometry.pageWidthMm).toBe(297);
     expect(geometry.pageHeightMm).toBe(210);
     expect(geometry.contentWidthPx).toBeGreaterThan(geometry.contentHeightPx);

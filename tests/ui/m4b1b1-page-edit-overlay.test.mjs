@@ -8,7 +8,7 @@ import { createUiSession } from '../support/ui-session.mjs';
 import {
   imageBlock,
   pageDocument,
-  portraitLongDocument,
+  longDocument,
   textBlock,
   writePagePackage,
 } from '../support/page-fixtures.mjs';
@@ -470,7 +470,6 @@ describe('M4b1b1 Page Edit content overlay', () => {
     const document = pageDocument({
       id: 'page-edit-image',
       title: 'Page Edit image',
-      orientation: 'landscape',
       chapterTitle: 'Images',
       blocks: [intro, imageBlock('figure', 'Forest diagram', assetId, 'Forest', size)],
     });
@@ -528,7 +527,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
   it('commits on page navigation, mode, layout, and block selection without losing keystrokes', async () => {
     const env = ui.isolated('m4b1b1-paths');
     await launch('m4b1b1-paths');
-    await openPackage(env, 'Commit paths', portraitLongDocument());
+    await openPackage(env, 'Commit paths', longDocument());
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageRead();
     await enterPageEdit();
@@ -608,7 +607,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
   it('persists a committed Page Edit block and the Page Edit view state across reload', async () => {
     const env = ui.isolated('m4b1b1-reload');
     await launch('m4b1b1-reload');
-    await openPackage(env, 'Reload page edit', portraitLongDocument());
+    await openPackage(env, 'Reload page edit', longDocument());
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageRead();
     await enterPageEdit();
@@ -650,7 +649,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
   it('opens a spanning block in an unclipped scrollable overlay over the exact page', async () => {
     const env = ui.isolated('m4b1b1-spanning');
     await launch('m4b1b1-spanning');
-    await openPackage(env, 'Spanning block', portraitLongDocument());
+    await openPackage(env, 'Spanning block', longDocument());
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageRead();
     await enterPageEdit();
@@ -691,7 +690,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
   it('keeps a rejected commit open with the typed text and shows the error', async () => {
     const env = ui.isolated('m4b1b1-reject');
     await launch('m4b1b1-reject');
-    await openPackage(env, 'Rejected commit', portraitLongDocument());
+    await openPackage(env, 'Rejected commit', longDocument());
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageRead();
     await enterPageEdit();

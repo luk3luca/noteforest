@@ -1,24 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "f8-defects",
   "title": "Defects and warnings",
   "createdAt": "2026-11-03T10:00:00Z",
   "updatedAt": "2026-11-03T10:04:12Z",
   "revision": 1,
-  "pageSetup": {
-    "size": "A4",
-    "orientation": "portrait",
-    "margins": {
-      "top": 20,
-      "right": 20,
-      "bottom": 20,
-      "left": 20
-    }
-  },
-  "manualBreakBeforeBlockIds": [
-    "does-not-exist",
-    "f8-orphan"
-  ],
   "blocks": {
     "f8-long": {
       "id": "f8-long",

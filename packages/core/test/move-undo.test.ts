@@ -118,7 +118,6 @@ function buildFixture() {
     label: 'see also',
     extensions: { crossLink: true },
   };
-  document.manualBreakBeforeBlockIds = [c2.blockId];
   expectValid(document);
 
   return {

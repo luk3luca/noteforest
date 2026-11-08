@@ -1,4 +1,5 @@
 export * from './types.js';
+export * from './page-settings.js';
 export * from './geometry.js';
 export * from './document.js';
 export * from './layout.js';

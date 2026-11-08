@@ -16,12 +16,6 @@ const root = resolve(here, '..');
 const fixturesDir = resolve(root, 'fixtures');
 const assetsDir = resolve(fixturesDir, 'assets');
 
-const PAGE_SETUP = {
-  size: 'A4',
-  orientation: 'portrait',
-  margins: { top: 20, right: 20, bottom: 20, left: 20 },
-};
-
 function text(value, marks) {
   const node = { type: 'text', text: value };
   if (marks) node.marks = marks;
@@ -156,16 +150,14 @@ function anchor(id, blockId, kind, extra = {}) {
   return { id, blockId, kind, selector, ...extra };
 }
 
-function makeDocument({ id, title, blocks, anchors, branches, chapters, manualBreakBeforeBlockIds = [], assets = {} }) {
+function makeDocument({ id, title, blocks, anchors, branches, chapters, assets = {} }) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     title,
     createdAt: '2026-11-03T10:00:00Z',
     updatedAt: '2026-11-03T10:04:12Z',
     revision: 1,
-    pageSetup: PAGE_SETUP,
-    manualBreakBeforeBlockIds,
     blocks: Object.fromEntries(blocks.map((item) => [item.id, item])),
     anchors: Object.fromEntries(anchors.map((item) => [item.id, item])),
     branches: Object.fromEntries(branches.map((item) => [item.id, item])),
@@ -343,7 +335,6 @@ function fixtureF1() {
       branch('e4', { blockId: 'b4' }, 'b3', 'reference', 'a1', 'also uses'),
     ],
     chapters: [{ id: 'ch1', title: 'Eigenvalues', topLevelBlockIds: ['b1', 'b4'] }],
-    manualBreakBeforeBlockIds: ['b4'],
     assets: ASSETS,
   });
 }
@@ -813,7 +804,6 @@ function fixtureF8() {
         topLevelBlockIds: ['f8-long', 'f8-wide', 'f8-long-code', 'f8-missing', 'f8-normal'],
       },
     ],
-    manualBreakBeforeBlockIds: ['does-not-exist', 'f8-orphan'],
     assets: ASSETS,
   });
 }
@@ -1440,7 +1430,6 @@ async function main() {
   const landscape = structuredClone(golden);
   landscape.id = 'f1-landscape-golden';
   landscape.title = 'Linear algebra — eigenvalues (landscape)';
-  landscape.pageSetup = { ...landscape.pageSetup, orientation: 'landscape' };
   const fixtures = {
     'golden-eigenvalues.json': golden,
     'landscape-golden.json': landscape,

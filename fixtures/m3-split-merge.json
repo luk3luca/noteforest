@@ -1,21 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "m3-split-merge",
   "title": "M3 split and merge — anchor migration",
   "createdAt": "2026-11-03T10:00:00Z",
   "updatedAt": "2026-11-03T10:04:12Z",
   "revision": 1,
-  "pageSetup": {
-    "size": "A4",
-    "orientation": "portrait",
-    "margins": {
-      "top": 20,
-      "right": 20,
-      "bottom": 20,
-      "left": 20
-    }
-  },
-  "manualBreakBeforeBlockIds": [],
   "blocks": {
     "m3s-split": {
       "id": "m3s-split",

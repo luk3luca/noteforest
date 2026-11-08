@@ -31,6 +31,7 @@ import {
   toggleFocusBranch,
 } from './actions';
 import { buildSession } from './state/session';
+import { DEFAULT_PAGE_SETTINGS } from '@noteforest/layout';
 import { READ_MODE_TOAST } from './lib/editability';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
@@ -453,7 +454,7 @@ export function App(): JSX.Element {
             canRedoStructural: item.canRedoStructural,
             collapsed: [...item.collapsed],
             revision: item.document.revision,
-            orientation: item.document.pageSetup.orientation,
+            orientation: DEFAULT_PAGE_SETTINGS.setup.orientation,
             chapters: item.document.chapters.length,
             chapterList: item.document.chapters.map((chapter) => ({
               id: chapter.id,
@@ -486,7 +487,6 @@ export function App(): JSX.Element {
           branches: document.branches,
           chapters: document.chapters,
           anchors: document.anchors,
-          manualBreakBeforeBlockIds: document.manualBreakBeforeBlockIds,
         });
       },
       assets: () => {

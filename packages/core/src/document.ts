@@ -2,54 +2,24 @@
 
 import { createContext } from './ids.js';
 import type { CoreContext } from './ids.js';
-import type {
-  ContentBlock,
-  ContentNode,
-  Document,
-  JsonObject,
-  MarginsMm,
-  PageOrientation,
-  PageSetup,
-} from './types.js';
-import { DEFAULT_MARGINS_MM, DEFAULT_PAGE_ORIENTATION, CURRENT_SCHEMA_VERSION, emptyContent } from './types.js';
+import type { ContentBlock, ContentNode, Document, JsonObject } from './types.js';
+import { CURRENT_SCHEMA_VERSION, emptyContent } from './types.js';
 
 export interface CreateDocumentInput {
   title?: string;
   id?: string;
   chapterId?: string;
   chapterTitle?: string;
-  pageSetup?: {
-    orientation?: PageOrientation;
-    margins?: Partial<MarginsMm>;
-  };
   annotations?: unknown[];
   extensions?: JsonObject;
-}
-
-function pageSetupFromInput(input: CreateDocumentInput): PageSetup {
-  const margins: MarginsMm = { ...DEFAULT_MARGINS_MM, ...(input.pageSetup?.margins ?? {}) };
-  for (const side of ['top', 'right', 'bottom', 'left'] as const) {
-    const value = margins[side];
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-      throw new RangeError(`Invalid page margin "${side}": ${String(value)}`);
-    }
-  }
-  const orientation = input.pageSetup?.orientation ?? DEFAULT_PAGE_ORIENTATION;
-  if (orientation !== 'portrait' && orientation !== 'landscape') {
-    throw new RangeError(`Invalid orientation: ${String(orientation)}`);
-  }
-  const pageWidth = orientation === 'portrait' ? 210 : 297;
-  if (margins.left + margins.right >= pageWidth) {
-    throw new RangeError('Margins leave no positive content width');
-  }
-  return { size: 'A4', orientation, margins };
 }
 
 /**
  * Create a new, empty document with one empty chapter.
  *
  * IDs come from `context.newId` (UUID v4 by default), timestamps from
- * `context.now`. The document starts at revision 0 and has no view state.
+ * `context.now`. The document starts at revision 0. Page setup, manual breaks,
+ * and view state are personal settings and are never seeded here (ADR-0008).
  */
 export function createDocument(
   input: CreateDocumentInput = {},
@@ -70,8 +40,6 @@ export function createDocument(
     createdAt: timestamp,
     updatedAt: timestamp,
     revision: 0,
-    pageSetup: pageSetupFromInput(input),
-    manualBreakBeforeBlockIds: [],
     chapters: [
       {
         id: chapterId,
