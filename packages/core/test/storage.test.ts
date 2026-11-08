@@ -377,7 +377,7 @@ describe('schema and corruption safety', () => {
 
     const documentPath = path.join(created.packagePath, 'document.json');
     const raw = JSON.parse(await fs.readFile(documentPath, 'utf8')) as Record<string, unknown>;
-    raw['schemaVersion'] = 2;
+    raw['schemaVersion'] = 3;
     const futureBytes = Buffer.from(`${JSON.stringify(raw, null, 2)}\n`, 'utf8');
     await fs.writeFile(documentPath, futureBytes);
 

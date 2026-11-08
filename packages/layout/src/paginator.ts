@@ -106,7 +106,7 @@ export function paginate(
   const defects: LayoutDefect[] = [...layout.defects];
   const manualBreakWarnings: LayoutDefect[] = [];
   const contentHeight = layout.geometry.contentHeightPx;
-  const hints = new Set(options.manualBreakBeforeBlockIds ?? document.manualBreakBeforeBlockIds ?? []);
+  const hints = new Set(options.manualBreakBeforeBlockIds ?? []);
   const hintValidation = new Map<string, { chapterId: string; y: number; valid: boolean }>();
 
   const addDefect = (defect: LayoutDefect): void => {

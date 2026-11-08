@@ -17,7 +17,6 @@ import type {
   Document,
   JsonObject,
 } from '../src/types.js';
-import { defaultPageSetup } from '../src/types.js';
 import { validateDocument } from '../src/validation.js';
 
 const TIMESTAMP = '2026-11-06T10:00:00.000Z';
@@ -74,14 +73,12 @@ function branch(
  */
 function sourceDocument(): Document {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'duplicate-source',
     title: 'Duplicate source',
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
     revision: 0,
-    pageSetup: defaultPageSetup(),
-    manualBreakBeforeBlockIds: [],
     chapters: [
       {
         id: 'chapter-1',

@@ -130,13 +130,14 @@ describe('document repository', () => {
     }
   });
 
-  it('validates the v1 fixture without a migration and lists it as ok', async () => {
+  it('migrates the v1 fixture on validation and lists it as ok', async () => {
     const packagePath = await writePackage('v1-package', 'v1.json');
     const validation = await repository.validate(packagePath);
     expect(validation.ok).toBe(true);
     if (!validation.ok) return;
-    expect(validation.schemaVersion).toBe(1);
-    expect(validation.migratedFrom).toBeUndefined();
+    expect(validation.schemaVersion).toBe(2);
+    expect(validation.migratedFrom).toBe(1);
+    expect(validation.migrationsApplied).toHaveLength(1);
     expect(validation.warnings).toEqual([]);
 
     const listing = await repository.list(library);
@@ -153,14 +154,14 @@ describe('document repository', () => {
   });
 
   it('opens an unknown newer document read-only and never rewrites it', async () => {
-    const packagePath = await writePackage('newer-package', 'v2-newer.json');
+    const packagePath = await writePackage('newer-package', 'v3-newer.json');
     const before = await fixtureBytes(packagePath);
 
     const validation = await repository.validate(packagePath);
     expect(validation.ok).toBe(false);
     if (validation.ok) return;
     expect(validation.error.code).toBe('newer-schema');
-    expect(validation.schemaVersion).toBe(2);
+    expect(validation.schemaVersion).toBe(3);
 
     const opened = await repository.open(packagePath);
     expect(opened.status).toBe('read-only');
@@ -176,7 +177,7 @@ describe('document repository', () => {
     const row = listing.documents.find((entry) => entry.packagePath === packagePath);
     expect(row).toMatchObject({
       status: 'newer-schema',
-      title: 'Schema v2 (unknown newer)',
+      title: 'Schema v3 (unknown newer)',
       documentId: null,
       revision: null,
     });
@@ -212,7 +213,7 @@ describe('document repository', () => {
     expect(row?.reason).toMatch(/not valid JSON/);
   });
 
-  it('leaves structurally invalid v1 input byte-identical and read-only', async () => {
+  it('leaves structurally invalid v2 input byte-identical and read-only', async () => {
     const packagePath = await writePackage('invalid-package', 'invalid.json');
     const before = await fixtureBytes(packagePath);
 
@@ -220,7 +221,7 @@ describe('document repository', () => {
     expect(validation.ok).toBe(false);
     if (validation.ok) return;
     expect(validation.error.code).toBe('invalid-document');
-    expect(validation.schemaVersion).toBe(1);
+    expect(validation.schemaVersion).toBe(2);
     expect(validation.error.issues?.some((issue) => issue.code === 'unknown-block')).toBe(true);
 
     const opened = await repository.open(packagePath);

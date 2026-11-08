@@ -6,30 +6,9 @@
  * outside this package.
  */
 
+import type { MarginsMm, PageGeometry, PageSetup } from './page-settings.js';
+
 export type Orientation = 'portrait' | 'landscape';
-
-export interface MarginsMm {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
-
-export interface PageSetup {
-  size: 'A4';
-  orientation: Orientation;
-  margins: MarginsMm;
-}
-
-export interface PageGeometry {
-  pageWidthMm: number;
-  pageHeightMm: number;
-  pageWidthPx: number;
-  pageHeightPx: number;
-  contentWidthPx: number;
-  contentHeightPx: number;
-  marginsPx: MarginsMm;
-}
 
 /** ProseMirror-shaped content node, restricted to the spike subset. */
 export interface ContentNode {
@@ -96,15 +75,12 @@ export interface NoteDocument {
   createdAt?: string;
   updatedAt?: string;
   revision?: number;
-  pageSetup: PageSetup;
-  manualBreakBeforeBlockIds: string[];
   blocks: Record<string, ContentBlock>;
   anchors: Record<string, AnchorRecord>;
   branches: Record<string, BranchRecord>;
   chapters: ChapterRecord[];
   assets: Record<string, AssetRecord>;
   annotations?: unknown[];
-  viewState?: unknown;
 }
 
 /** Kinds that may start a new page fragment. */
@@ -402,37 +378,7 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   segmentGap: 8,
 };
 
-/** One fixed conversion from layout px (96 dpi) to millimetres. */
-export const PX_PER_MM = 96 / 25.4;
-export const MM_PER_PX = 25.4 / 96;
-
-export function pxToMm(px: number): number {
-  return px * MM_PER_PX;
-}
-
-export function mmToPx(mm: number): number {
-  return mm * PX_PER_MM;
-}
-
-export function pageGeometry(pageSetup: PageSetup): PageGeometry {
-  const portrait = pageSetup.orientation === 'portrait';
-  const pageWidthMm = portrait ? 210 : 297;
-  const pageHeightMm = portrait ? 297 : 210;
-  const pageWidthPx = mmToPx(pageWidthMm);
-  const pageHeightPx = mmToPx(pageHeightMm);
-  const marginsPx: MarginsMm = {
-    top: mmToPx(pageSetup.margins.top),
-    right: mmToPx(pageSetup.margins.right),
-    bottom: mmToPx(pageSetup.margins.bottom),
-    left: mmToPx(pageSetup.margins.left),
-  };
-  return {
-    pageWidthMm,
-    pageHeightMm,
-    pageWidthPx,
-    pageHeightPx,
-    contentWidthPx: pageWidthPx - marginsPx.left - marginsPx.right,
-    contentHeightPx: pageHeightPx - marginsPx.top - marginsPx.bottom,
-    marginsPx,
-  };
-}
+/**
+ * Layout px (96 dpi) and millimetre conversions live in `page-settings.ts`
+ * together with the page geometry they describe.
+ */

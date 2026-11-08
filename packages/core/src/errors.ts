@@ -5,7 +5,6 @@ export type ValidationSeverity = 'error' | 'warning';
 export type ValidationCode =
   | 'invalid-shape'
   | 'invalid-schema-version'
-  | 'invalid-page-setup'
   | 'missing-field'
   | 'duplicate-id'
   | 'map-key-mismatch'
@@ -37,7 +36,6 @@ export type ValidationCode =
   | 'anchor-selector-mismatch'
   | 'anchor-legacy-conflict'
   | 'unsupported-anchor-kind'
-  | 'invalid-break-hint'
   | 'invalid-asset-path'
   | 'unsupported-m2-feature';
 

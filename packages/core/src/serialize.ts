@@ -54,12 +54,9 @@ function validateParsedValue(value: unknown): ParseResult {
     return { ok: false, error: migration.error };
   }
 
-  // `manualBreakBeforeBlockIds` is optional in spec §4.2. Normalize a missing
-  // list to the canonical empty list; every other unknown field is untouched.
-  const normalized: Record<string, unknown> =
-    migration.document['manualBreakBeforeBlockIds'] === undefined
-      ? { ...migration.document, manualBreakBeforeBlockIds: [] }
-      : migration.document;
+  // Validation reads the migrated value directly; v1→v2 already removed the
+  // known legacy page fields, and every other unknown field is untouched.
+  const normalized = migration.document;
 
   const report = validateDocument(normalized);
   if (!report.ok) {

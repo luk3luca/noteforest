@@ -9,30 +9,15 @@
  */
 
 /** Current document format version. Migrations increment this. */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
-export type PageOrientation = 'portrait' | 'landscape';
 export type BlockBorder = 'none' | 'subtle' | 'strong';
 export type BranchRole = 'primary' | 'reference';
 export type AnchorKind = 'text' | 'formula' | 'code' | 'image';
-export type ViewMode = 'outline' | 'reader' | 'page';
 
 /** Any JSON object. Unknown keys are kept on purpose. */
 export interface JsonObject {
   [key: string]: unknown;
-}
-
-export interface MarginsMm extends JsonObject {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
-
-export interface PageSetup extends JsonObject {
-  size: 'A4';
-  orientation: PageOrientation;
-  margins: MarginsMm;
 }
 
 export interface Chapter extends JsonObject {
@@ -124,18 +109,6 @@ export interface Asset extends JsonObject {
   extensions?: JsonObject;
 }
 
-export interface ViewState extends JsonObject {
-  mode?: ViewMode;
-  currentChapterId?: string;
-  currentPage?: number;
-  zoom?: number;
-  outlineScroll?: number;
-  readerScroll?: number;
-  focusedBlockId?: string;
-  collapsed?: string[];
-  selectedBlockIds?: string[];
-}
-
 export interface Document extends JsonObject {
   schemaVersion: number;
   id: string;
@@ -143,8 +116,6 @@ export interface Document extends JsonObject {
   createdAt: string;
   updatedAt: string;
   revision: number;
-  pageSetup: PageSetup;
-  manualBreakBeforeBlockIds: string[];
   chapters: Chapter[];
   blocks: Record<string, ContentBlock>;
   anchors: Record<string, Anchor>;
@@ -152,27 +123,7 @@ export interface Document extends JsonObject {
   assets: Record<string, Asset>;
   /** Reserved study layer; empty in v1. Optional for M2 forward tolerance. */
   annotations?: unknown[];
-  viewState?: ViewState;
   extensions?: JsonObject;
-}
-
-/** Default A4 page setup: landscape, 20 mm margins (spec §4.7). */
-export const DEFAULT_MARGINS_MM: Readonly<MarginsMm> = Object.freeze({
-  top: 20,
-  right: 20,
-  bottom: 20,
-  left: 20,
-});
-
-/** New documents default to A4 landscape; existing documents keep their orientation. */
-export const DEFAULT_PAGE_ORIENTATION: PageOrientation = 'landscape';
-
-export function defaultPageSetup(): PageSetup {
-  return {
-    size: 'A4',
-    orientation: DEFAULT_PAGE_ORIENTATION,
-    margins: { ...DEFAULT_MARGINS_MM },
-  };
 }
 
 /** An empty content body: a ProseMirror doc node with no children. */

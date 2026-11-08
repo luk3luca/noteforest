@@ -50,9 +50,11 @@ const TEST_REGISTRY: readonly SchemaMigration[] = [
 ];
 
 describe('schema migration registry', () => {
-  it('is empty for the current v1 format', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(1);
-    expect(SCHEMA_MIGRATIONS).toEqual([]);
+  it('is a contiguous v1→v2 product migration', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+    expect(SCHEMA_MIGRATIONS.map((migration) => [migration.from, migration.to])).toEqual([
+      [1, 2],
+    ]);
     expect(validateMigrationRegistry(SCHEMA_MIGRATIONS, CURRENT_SCHEMA_VERSION)).toEqual([]);
   });
 
@@ -82,49 +84,80 @@ describe('schema migration registry', () => {
 });
 
 describe('migrateDocument', () => {
-  it('treats the checked-in v1 fixture as current and never mutates it', async () => {
+  it('migrates the v1 fixture to v2, strips legacy page fields, and preserves unknown fields', async () => {
     const value = parseObject(await fixture('v1.json'));
+    const before = structuredClone(value);
+
+    const result = migrateDocument(value);
+    expect(result.status).toBe('migrated');
+    if (result.status !== 'migrated') return;
+    expect(result.document).not.toBe(value);
+    expect(result.fromVersion).toBe(1);
+    expect(result.toVersion).toBe(2);
+    expect(result.applied).toEqual([
+      {
+        from: 1,
+        to: 2,
+        description: 'remove canonical page setup, manual breaks, and view state',
+      },
+    ]);
+    expect(result.document.schemaVersion).toBe(2);
+    expect(result.document).not.toHaveProperty('pageSetup');
+    expect(result.document).not.toHaveProperty('manualBreakBeforeBlockIds');
+    expect(result.document).not.toHaveProperty('viewState');
+    expect(result.document['futureRootField']).toEqual({ keep: true });
+    expect(result.document['extensions']).toEqual({ fixture: 'schema-v1' });
+    expect(result.document['blocks']).toEqual(before['blocks']);
+    expect(value).toEqual(before);
+  });
+
+  it('parses v1 with one reported migration and is idempotent at v2', async () => {
+    const text = await fixture('v1.json');
+    const first = parseDocumentJson(text);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.migratedFrom).toBe(1);
+    expect(first.migrationsApplied).toEqual([
+      '1->2: remove canonical page setup, manual breaks, and view state',
+    ]);
+    expect(first.document.schemaVersion).toBe(2);
+
+    const again = parseDocumentJson(stringifyDocument(first.document));
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    expect(again.document).toEqual(first.document);
+    expect(again.migratedFrom).toBeUndefined();
+    expect(again.document.schemaVersion).toBe(2);
+  });
+
+  it('treats the checked-in v2 fixture as current and never mutates it', async () => {
+    const value = parseObject(await fixture('v2.json'));
     const before = structuredClone(value);
 
     const result = migrateDocument(value);
     expect(result.status).toBe('current');
     if (result.status !== 'current') return;
     expect(result.document).toBe(value);
-    expect(result.fromVersion).toBe(1);
-    expect(result.toVersion).toBe(1);
+    expect(result.fromVersion).toBe(2);
+    expect(result.toVersion).toBe(2);
     expect(result.applied).toEqual([]);
     expect(value).toEqual(before);
   });
 
-  it('parses v1 without reporting a migration and is idempotent', async () => {
-    const text = await fixture('v1.json');
-    const first = parseDocumentJson(text);
-    expect(first.ok).toBe(true);
-    if (!first.ok) return;
-    expect(first.migratedFrom).toBeUndefined();
-    expect(first.migrationsApplied).toBeUndefined();
-
-    const again = parseDocumentJson(stringifyDocument(first.document));
-    expect(again.ok).toBe(true);
-    if (!again.ok) return;
-    expect(again.document).toEqual(first.document);
-    expect(again.document.schemaVersion).toBe(1);
-  });
-
   it('rejects an unknown newer document read-only without touching it', async () => {
-    const value = parseObject(await fixture('v2-newer.json'));
+    const value = parseObject(await fixture('v3-newer.json'));
     const before = structuredClone(value);
 
     const result = migrateDocument(value);
     expect(result.status).toBe('newer');
     if (result.status !== 'newer') return;
     expect(result.error.code).toBe('newer-schema');
-    expect(result.schemaVersion).toBe(2);
-    expect(result.supportedVersion).toBe(1);
+    expect(result.schemaVersion).toBe(3);
+    expect(result.supportedVersion).toBe(2);
     expect(result.error.message).toMatch(/newer than this app supports/);
     expect(value).toEqual(before);
 
-    const parsed = parseDocumentJson(await fixture('v2-newer.json'));
+    const parsed = parseDocumentJson(await fixture('v3-newer.json'));
     expect(parsed.ok).toBe(false);
     if (parsed.ok) return;
     expect(parsed.error.code).toBe('newer-schema');

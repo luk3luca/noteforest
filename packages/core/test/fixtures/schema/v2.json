@@ -1,37 +1,37 @@
 {
   "schemaVersion": 2,
-  "id": "fixture-schema-v2-newer",
-  "title": "Schema v2 (unknown newer)",
+  "id": "fixture-schema-v2",
+  "title": "Schema v2 fixture",
   "createdAt": "2026-11-06T09:00:00.000Z",
   "updatedAt": "2026-11-06T09:00:00.000Z",
-  "revision": 4,
-  "pageSetup": {
-    "size": "A4",
-    "orientation": "landscape",
-    "margins": {
-      "top": 20,
-      "right": 20,
-      "bottom": 20,
-      "left": 20
-    }
+  "revision": 3,
+  "futureRootField": {
+    "keep": true
   },
-  "manualBreakBeforeBlockIds": [],
   "chapters": [
     {
       "id": "fixture-chapter-1",
       "title": "Chapter One",
-      "topLevelBlockIds": ["fixture-block-1"]
+      "topLevelBlockIds": [
+        "fixture-block-1"
+      ]
     }
   ],
   "blocks": {
     "fixture-block-1": {
       "id": "fixture-block-1",
+      "label": "Eigenvalues",
       "content": {
         "type": "doc",
         "children": [
           {
             "type": "paragraph",
-            "children": [{ "type": "text", "text": "From a newer app version." }]
+            "children": [
+              {
+                "type": "text",
+                "text": "A scalar lambda is an eigenvalue of A when Av = lambda v."
+              }
+            ]
           }
         ]
       }
@@ -39,5 +39,8 @@
   },
   "anchors": {},
   "branches": {},
-  "assets": {}
+  "assets": {},
+  "extensions": {
+    "fixture": "schema-v1"
+  }
 }

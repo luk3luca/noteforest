@@ -317,12 +317,10 @@ describe('block deletion', () => {
     expect(validateDocument(deleted.document).ok).toBe(true);
   });
 
-  it('removes manual break hints that reference a deleted block', () => {
+  it('does not expose legacy manual-break state on block.delete', () => {
     const { document, a } = buildTree();
-    const withHint = structuredClone(document);
-    withHint.manualBreakBeforeBlockIds = [a];
-    const deleted = run(withHint, { type: 'block.delete', blockId: a, children: 'delete-subtree' });
-    expect(deleted.document.manualBreakBeforeBlockIds).toEqual([]);
+    const deleted = run(document, { type: 'block.delete', blockId: a, children: 'delete-subtree' });
+    expect(deleted.document).not.toHaveProperty('manualBreakBeforeBlockIds');
   });
 });
 

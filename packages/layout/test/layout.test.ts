@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clearGap,
   createEstimatedMeasurement,
+  DEFAULT_PAGE_SETTINGS,
   blockRect,
   layoutDocument,
   overlaps,
@@ -10,11 +11,16 @@ import {
   type LayoutBlock,
   type LayoutOptions,
   type NoteDocument,
+  type PageSetup,
 } from '../src/index.js';
-import { loadFixture, layoutFixture } from './helpers.js';
+import { FIXTURE_PAGE_SETUP, loadFixture, layoutFixture } from './helpers.js';
 
-function layoutOf(document: NoteDocument, options: Partial<LayoutOptions> = {}) {
-  return layoutDocument(document, createEstimatedMeasurement(document), options);
+function layoutOf(
+  document: NoteDocument,
+  options: Partial<LayoutOptions> = {},
+  setup: PageSetup = FIXTURE_PAGE_SETUP,
+) {
+  return layoutDocument(document, createEstimatedMeasurement(document), options, setup);
 }
 
 function visibleBlocks(layout: ReturnType<typeof layoutOf>): LayoutBlock[] {
@@ -23,7 +29,7 @@ function visibleBlocks(layout: ReturnType<typeof layoutOf>): LayoutBlock[] {
 
 describe('adaptive layout', () => {
   it('lays out the golden fixture with no overlaps and a 16 px clear gap', () => {
-    const layout = layoutFixture('golden-eigenvalues.json');
+    const layout = layoutFixture('golden-eigenvalues.json', { setup: FIXTURE_PAGE_SETUP });
     const blocks = visibleBlocks(layout);
     for (let i = 0; i < blocks.length; i += 1) {
       for (let j = i + 1; j < blocks.length; j += 1) {
@@ -41,7 +47,7 @@ describe('adaptive layout', () => {
   });
 
   it('aligns anchored callouts to the anchor left edge and below the anchor', () => {
-    const layout = layoutFixture('golden-eigenvalues.json');
+    const layout = layoutFixture('golden-eigenvalues.json', { setup: FIXTURE_PAGE_SETUP });
     for (const blockId of ['b3', 'b5']) {
       const block = layout.blockById[blockId]!;
       const parent = layout.blockById[block.parentBlockId!]!;
@@ -56,7 +62,7 @@ describe('adaptive layout', () => {
   });
 
   it('wraps the whole wide-fan group when one child does not fit', () => {
-    const layout = layoutFixture('wide-fan.json');
+    const layout = layoutFixture('wide-fan.json', { setup: FIXTURE_PAGE_SETUP });
     const parent = layout.blockById['f3-parent']!;
     const children = layout.blocks.filter((block) => block.parentBlockId === 'f3-parent');
     const wrapOrigin = Math.min(parent.x + 18, 54);
@@ -87,7 +93,7 @@ describe('adaptive layout', () => {
   });
 
   it('lays out a five-level chain with nested anchored callouts', () => {
-    const layout = layoutFixture('deep-chain.json');
+    const layout = layoutFixture('deep-chain.json', { setup: FIXTURE_PAGE_SETUP });
     expect(Math.max(...layout.blocks.map((block) => block.depth))).toBe(4);
     const callouts = layout.blocks.filter((block) => block.role === 'callout');
     expect(callouts.map((block) => block.blockId).sort()).toEqual(['f4-c1', 'f4-c2']);
@@ -202,15 +208,30 @@ describe('adaptive layout', () => {
   });
 
   it('uses A4 portrait and landscape content geometry', () => {
-    const portrait = loadFixture('golden-eigenvalues.json');
-    const landscape = loadFixture('landscape-golden.json');
-    const portraitGeometry = pageGeometry(portrait.pageSetup);
-    const landscapeGeometry = pageGeometry(landscape.pageSetup);
+    const portraitGeometry = pageGeometry({
+      size: 'A4',
+      orientation: 'portrait',
+      margins: { top: 20, right: 20, bottom: 20, left: 20 },
+    });
+    const landscapeGeometry = pageGeometry({
+      size: 'A4',
+      orientation: 'landscape',
+      margins: { top: 20, right: 20, bottom: 20, left: 20 },
+    });
     expect(portraitGeometry.pageWidthMm).toBe(210);
     expect(portraitGeometry.pageHeightMm).toBe(297);
     expect(portraitGeometry.contentWidthPx).toBeCloseTo((210 - 40) * (96 / 25.4), 3);
     expect(landscapeGeometry.pageWidthMm).toBe(297);
     expect(landscapeGeometry.pageHeightMm).toBe(210);
     expect(landscapeGeometry.contentWidthPx).toBeCloseTo((297 - 40) * (96 / 25.4), 3);
+  });
+
+  it('uses the default A4 landscape geometry when no setup is injected', () => {
+    const document = loadFixture('golden-eigenvalues.json');
+    const layout = layoutDocument(document, createEstimatedMeasurement(document));
+    expect(layout.pageSetup).toEqual(DEFAULT_PAGE_SETTINGS.setup);
+    expect(layout.geometry.pageWidthMm).toBe(297);
+    expect(layout.geometry.pageHeightMm).toBe(210);
+    expect(layout.geometry.contentWidthPx).toBeCloseTo((297 - 24) * (96 / 25.4), 3);
   });
 });

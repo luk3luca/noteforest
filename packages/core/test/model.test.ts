@@ -51,18 +51,16 @@ function documentWithTree() {
 }
 
 describe('document factory', () => {
-  it('creates a valid A4 landscape document with one chapter and revision 0', () => {
+  it('creates a valid schema v2 document with one chapter and revision 0', () => {
     const context = deterministicContext();
     const document = createDocument({ title: 'Linear algebra' }, context);
-    expect(document.schemaVersion).toBe(1);
+    expect(document.schemaVersion).toBe(2);
     expect(document.title).toBe('Linear algebra');
     expect(document.revision).toBe(0);
     expect(document.createdAt).toBe(document.updatedAt);
-    expect(document.pageSetup).toEqual({
-      size: 'A4',
-      orientation: 'landscape',
-      margins: { top: 20, right: 20, bottom: 20, left: 20 },
-    });
+    expect(document).not.toHaveProperty('pageSetup');
+    expect(document).not.toHaveProperty('manualBreakBeforeBlockIds');
+    expect(document).not.toHaveProperty('viewState');
     expect(document.chapters).toHaveLength(1);
     expect(document.chapters[0]?.topLevelBlockIds).toEqual([]);
     expect(document.blocks).toEqual({});
@@ -73,40 +71,13 @@ describe('document factory', () => {
     expect(validateDocument(document).ok).toBe(true);
   });
 
-  it('keeps an explicitly requested portrait orientation', () => {
-    const portrait = createDocument(
-      { pageSetup: { orientation: 'portrait' } },
-      deterministicContext(),
-    );
-    expect(portrait.pageSetup.orientation).toBe('portrait');
-    expect(validateDocument(portrait).ok).toBe(true);
-  });
-
-  it('generates distinct UUIDs and honours page setup overrides', () => {
+  it('generates distinct UUIDs for documents and chapters', () => {
     const first = createDocument({ title: 'One' });
     const second = createDocument({ title: 'Two' });
     expect(first.id).not.toBe(second.id);
     expect(first.chapters[0]?.id).not.toBe(second.chapters[0]?.id);
-
-    const landscape = createDocument(
-      { pageSetup: { orientation: 'landscape', margins: { top: 10, left: 12 } } },
-      deterministicContext(),
-    );
-    expect(landscape.pageSetup.orientation).toBe('landscape');
-    expect(landscape.pageSetup.margins).toEqual({ top: 10, right: 20, bottom: 20, left: 12 });
-    expect(validateDocument(landscape).ok).toBe(true);
-  });
-
-  it('rejects invalid page margins at creation', () => {
-    expect(() => createDocument({ pageSetup: { margins: { top: -1 } } })).toThrow(RangeError);
-    expect(() =>
-      createDocument({
-        pageSetup: { orientation: 'portrait', margins: { left: 120, right: 120 } },
-      }),
-    ).toThrow(RangeError);
-    expect(() =>
-      createDocument({ pageSetup: { margins: { left: 150, right: 150 } } }),
-    ).toThrow(RangeError);
+    expect(validateDocument(first).ok).toBe(true);
+    expect(validateDocument(second).ok).toBe(true);
   });
 
   it('creates an empty content block without sharing the default object', () => {
@@ -297,27 +268,27 @@ describe('validation invariants', () => {
     expect(report.errors.some((issue) => issue.code === 'unassigned-block')).toBe(true);
   });
 
-  it('rejects invalid page setup and content', () => {
+  it('rejects invalid content', () => {
     const { document, a } = documentWithTree();
     const invalid = structuredClone(document);
-    invalid.pageSetup.margins.top = -4;
     const block = invalid.blocks[a];
     if (block !== undefined) {
       (block as unknown as { content: unknown }).content = 'not a node';
     }
     const report = validateDocument(invalid);
     expect(report.ok).toBe(false);
-    expect(report.errors.some((issue) => issue.code === 'invalid-page-setup')).toBe(true);
     expect(report.errors.some((issue) => issue.code === 'invalid-content')).toBe(true);
   });
 
-  it('warns on bad manual break hints without failing the document', () => {
+  it('treats legacy page fields as inert unknown data in v2', () => {
     const { document } = documentWithTree();
-    const invalid = structuredClone(document);
-    invalid.manualBreakBeforeBlockIds = ['missing', 'missing'];
-    const report = validateDocument(invalid);
+    const decorated = structuredClone(document) as Document & Record<string, unknown>;
+    decorated['pageSetup'] = { size: 'A4', orientation: 'landscape' };
+    decorated['manualBreakBeforeBlockIds'] = ['missing', 'missing'];
+    decorated['viewState'] = { mode: 'reader' };
+    const report = validateDocument(decorated);
     expect(report.ok).toBe(true);
-    expect(report.warnings.filter((issue) => issue.code === 'invalid-break-hint')).toHaveLength(2);
+    expect(report.warnings).toEqual([]);
   });
 });
 
@@ -326,7 +297,6 @@ describe('unknown data preservation', () => {
     const { document, a } = documentWithTree();
     const decorated = structuredClone(document) as Document & Record<string, unknown>;
     decorated['futureTopLevel'] = { enabled: true };
-    decorated.pageSetup['futurePage'] = 'x';
     const chapter = decorated.chapters[0];
     if (chapter === undefined) throw new Error('missing chapter');
     chapter['futureChapter'] = 7;

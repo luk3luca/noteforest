@@ -70,10 +70,27 @@ export function checkPageCount(state, pdf) {
   };
 }
 
-export function checkPageSize(document, pdf, toleranceMm = 1.5) {
-  const portrait = document.pageSetup.orientation === 'portrait';
-  const expectedWidth = portrait ? 210 : 297;
-  const expectedHeight = portrait ? 297 : 210;
+const PAGE_DIMENSIONS_MM = {
+  A4: { width: 210, height: 297 },
+  A5: { width: 148, height: 210 },
+  Letter: { width: 215.9, height: 279.4 },
+};
+
+export const DEFAULT_PAGE_SETUP = Object.freeze({
+  size: 'A4',
+  orientation: 'landscape',
+  margins: { top: 12, right: 12, bottom: 12, left: 12 },
+});
+
+function pageDimensionsMm(setup) {
+  const size = PAGE_DIMENSIONS_MM[setup?.size] ?? PAGE_DIMENSIONS_MM.A4;
+  return setup?.orientation === 'portrait'
+    ? { widthMm: size.width, heightMm: size.height }
+    : { widthMm: size.height, heightMm: size.width };
+}
+
+export function checkPageSize(pdf, setup = DEFAULT_PAGE_SETUP, toleranceMm = 1.5) {
+  const { widthMm: expectedWidth, heightMm: expectedHeight } = pageDimensionsMm(setup);
   const failures = [];
   for (const page of pdf.pages) {
     if (Math.abs(page.widthMm - expectedWidth) > toleranceMm) {

@@ -16,6 +16,14 @@
     }
   },
   "manualBreakBeforeBlockIds": [],
+  "viewState": {
+    "mode": "page",
+    "currentPage": 2,
+    "zoom": 1.25
+  },
+  "futureRootField": {
+    "keep": true
+  },
   "chapters": [
     {
       "id": "fixture-chapter-1",

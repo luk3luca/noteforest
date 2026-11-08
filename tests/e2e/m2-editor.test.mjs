@@ -254,7 +254,6 @@ function storedStructure(document) {
     branches: document.branches,
     chapters: document.chapters,
     anchors: document.anchors,
-    manualBreakBeforeBlockIds: document.manualBreakBeforeBlockIds,
   };
 }
 

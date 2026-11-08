@@ -4,9 +4,8 @@ import { rm } from 'node:fs/promises';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import {
-  pageDocument,
-  portraitLongDocument,
-  textBlock,
+  longDocument,
+  multiPageBlocksDocument,
   writePagePackage,
 } from '../support/page-fixtures.mjs';
 
@@ -101,25 +100,11 @@ async function showContinuous() {
 }
 
 /**
- * Four pages forced by manual break hints, so every derived page starts at a
- * block boundary. This makes page-start markers deterministic and comparable
- * with Page Read's page count.
+ * Many short top-level blocks derive page boundaries between cards, so every
+ * page starts at a block boundary without canonical manual breaks.
  */
-function manualBreakDocument() {
-  const document = pageDocument({
-    id: 'm4b1c-breaks',
-    title: 'Continuous markers',
-    orientation: 'portrait',
-    chapterTitle: 'Derived pages',
-    blocks: [
-      textBlock('b1', 'One', 'First page body. '.repeat(18)),
-      textBlock('b2', 'Two', 'Second page body. '.repeat(18)),
-      textBlock('b3', 'Three', 'Third page body. '.repeat(18)),
-      textBlock('b4', 'Four', 'Fourth page body. '.repeat(18)),
-    ],
-  });
-  document.manualBreakBeforeBlockIds = ['b2', 'b3', 'b4'];
-  return document;
+function multiPageDocument() {
+  return multiPageBlocksDocument();
 }
 
 describe('M4b1c continuous page-break markers', () => {
@@ -138,19 +123,23 @@ describe('M4b1c continuous page-break markers', () => {
   it('shows one page-start marker per derived page and matches Page Read', async () => {
     const env = ui.isolated('m4b1c-breaks');
     await launch(env);
-    await openPackage(env, 'Continuous markers', manualBreakDocument());
+    await openPackage(env, 'Continuous markers', multiPageDocument());
     await waitMarkersReady();
 
     const continuous = await markerState();
-    assert.equal(continuous.pageCount, 4, 'four manual-break pages are derived');
-    assert.equal(continuous.starts, 4, 'one page-start marker per derived page');
-    assert.equal(continuous.continuations, 0);
-    assert.equal(continuous.pages, '1,2,3,4', 'markers are numbered in page order');
+    assert.ok(continuous.pageCount >= 2, `expected multiple derived pages, got ${continuous.pageCount}`);
+    assert.equal(continuous.starts, continuous.pageCount, 'one page-start marker per derived page');
+    assert.equal(continuous.continuations, 0, 'no block spans a page in this fixture');
+    assert.equal(
+      continuous.pages,
+      Array.from({ length: continuous.pageCount }, (_, index) => index + 1).join(','),
+      'markers are numbered in page order',
+    );
     assert.equal(continuous.runs, 1, 'the model ran once for the initial revision');
 
     const starts = markerLayer().locator('[data-page-marker="start"]');
-    assert.equal(await starts.count(), 4);
-    for (const pageNumber of [1, 2, 3, 4]) {
+    assert.equal(await starts.count(), continuous.pageCount);
+    for (let pageNumber = 1; pageNumber <= continuous.pageCount; pageNumber += 1) {
       const marker = markerLayer().locator(
         `[data-page-marker="start"][data-page-marker-page="${pageNumber}"]`,
       );
@@ -164,8 +153,12 @@ describe('M4b1c continuous page-break markers', () => {
 
     // The marker y is the anchor block's top edge in the shared content
     // coordinate system: it never shifts the block itself.
-    for (const blockId of ['b1', 'b2', 'b3', 'b4']) {
-      const pageNumber = { b1: '1', b2: '2', b3: '3', b4: '4' }[blockId];
+    const markerBlocks = await starts.evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute('data-page-marker-block')),
+    );
+    assert.equal(markerBlocks.length, continuous.pageCount);
+    for (const blockId of markerBlocks) {
+      assert.ok(blockId !== null, 'each page-start marker names its block');
       const markerTop = await markerLayer()
         .locator(`[data-page-marker="start"][data-page-marker-block="${blockId}"]`)
         .evaluate((element) => element.getBoundingClientRect().top);
@@ -174,7 +167,7 @@ describe('M4b1c continuous page-break markers', () => {
         .evaluate((element) => element.getBoundingClientRect().top);
       assert.ok(
         Math.abs(markerTop - cardTop) <= 1.5,
-        `page ${pageNumber} marker sits on block ${blockId}'s top edge`,
+        `page marker sits on block ${blockId}'s top edge`,
       );
     }
 
@@ -183,7 +176,10 @@ describe('M4b1c continuous page-break markers', () => {
     const callsBefore = continuous.calls;
     await showPageView();
     const pageView = activePageView();
-    assert.equal(Number(await pageView.getAttribute('data-page-count')), 4);
+    assert.equal(
+      Number(await pageView.getAttribute('data-page-count')),
+      continuous.pageCount,
+    );
     assert.equal(
       Number(await pageView.getAttribute('data-model-runs')),
       1,
@@ -218,8 +214,11 @@ describe('M4b1c continuous page-break markers', () => {
       (await h.state()).activeTab,
       { timeout: 5000 },
     );
-    assert.equal((await markerState()).count, 4, 'markers remain in Continuous Read');
-    assert.equal(await markerLayer().locator('[data-page-marker="start"]').count(), 4);
+    assert.equal((await markerState()).count, continuous.pageCount, 'markers remain in Continuous Read');
+    assert.equal(
+      await markerLayer().locator('[data-page-marker="start"]').count(),
+      continuous.pageCount,
+    );
     await page.keyboard.press('Meta+e');
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
@@ -231,7 +230,7 @@ describe('M4b1c continuous page-break markers', () => {
   it('shows a continuation chip for a block that spans pages, without duplicates', async () => {
     const env = ui.isolated('m4b1c-long');
     await launch(env);
-    await openPackage(env, 'Portrait long study', portraitLongDocument());
+    await openPackage(env, 'Long study', longDocument());
     await waitMarkersReady();
 
     const continuous = await markerState();
@@ -244,14 +243,12 @@ describe('M4b1c continuous page-break markers', () => {
     );
     assert.equal(await chip.count(), 1, 'never duplicate the chip for one block');
     assert.equal(await chip.getAttribute('role'), 'note');
-    assert.match(await chip.getAttribute('aria-label') ?? '', /^Continues on pages 2–7/);
-    assert.match(await chip.innerText(), /Continues on pages 2–7/);
-    assert.equal(
-      await markerLayer()
-        .locator('[data-page-marker="continuation"][data-page-marker-block="child"]')
-        .getAttribute('data-page-marker-pages'),
-      '2,3,4,5,6,7',
-    );
+    const markerPages = await chip.getAttribute('data-page-marker-pages');
+    assert.ok(markerPages !== null && markerPages.length > 0, 'the chip lists its pages');
+    const pageNumbers = markerPages.split(',').map(Number);
+    assert.deepEqual(pageNumbers, Array.from({ length: pageNumbers.length }, (_, index) => index + 2));
+    assert.match(await chip.getAttribute('aria-label') ?? '', new RegExp(`^Continues on pages 2–${continuous.pageCount}`));
+    assert.match(await chip.innerText(), new RegExp(`Continues on pages 2–${continuous.pageCount}`));
 
     // Page Read reports the same first continuation target on page 1.
     await showPageView();
@@ -271,14 +268,14 @@ describe('M4b1c continuous page-break markers', () => {
       await markerLayer()
         .locator('[data-page-marker="continuation"][data-page-marker-block="child"]')
         .getAttribute('aria-label') ?? '',
-      /Continues on pages 2–7/,
+      new RegExp(`Continues on pages 2–${continuous.pageCount}`),
     );
   });
 
   it('keeps markers out of collapsed content without changing the page model', async () => {
     const env = ui.isolated('m4b1c-collapse');
     await launch(env);
-    await openPackage(env, 'Portrait long study', portraitLongDocument());
+    await openPackage(env, 'Long study', longDocument());
     await waitMarkersReady();
 
     const before = await markerState();
@@ -340,7 +337,7 @@ describe('M4b1c continuous page-break markers', () => {
   it('does not change block rects, scroll height or scroll position', async () => {
     const env = ui.isolated('m4b1c-neutral');
     await launch(env);
-    await openPackage(env, 'Continuous markers', manualBreakDocument());
+    await openPackage(env, 'Continuous markers', multiPageDocument());
     await waitMarkersReady();
 
     const measure = () =>
@@ -386,7 +383,7 @@ describe('M4b1c continuous page-break markers', () => {
   it('updates markers after a live edit without scrolling the editor', async () => {
     const env = ui.isolated('m4b1c-live');
     await launch(env);
-    await openPackage(env, 'Portrait long study', portraitLongDocument());
+    await openPackage(env, 'Long study', longDocument());
     await waitMarkersReady();
 
     const before = await markerState();
@@ -394,7 +391,7 @@ describe('M4b1c continuous page-break markers', () => {
     const chipBefore = markerLayer()
       .locator('[data-page-marker="continuation"][data-page-marker-block="child"]');
     const pagesBefore = await chipBefore.getAttribute('data-page-marker-pages');
-    assert.equal(pagesBefore, '2,3,4,5,6,7');
+    assert.ok(pagesBefore !== null && pagesBefore.length > 0, 'continuation chip reports pages');
 
     await page
       .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
@@ -460,7 +457,7 @@ describe('M4b1c continuous page-break markers', () => {
   it('degrades to no markers and keeps typing usable when measurement fails', async () => {
     const env = ui.isolated('m4b1c-error');
     await launch(env);
-    await openPackage(env, 'Portrait long study', portraitLongDocument());
+    await openPackage(env, 'Long study', longDocument());
     await waitMarkersReady();
 
     await page.evaluate(() => {

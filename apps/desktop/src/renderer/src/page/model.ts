@@ -11,7 +11,11 @@ import type {
   MeasurementPort,
   NoteDocument,
 } from '@noteforest/layout';
-import { layoutDocument, paginate } from '@noteforest/layout';
+import {
+  DEFAULT_PAGE_SETTINGS,
+  layoutDocument,
+  paginate,
+} from '@noteforest/layout';
 import { PAGE_LAYOUT_OPTIONS } from './adapter';
 
 export interface PageModelData {
@@ -27,9 +31,14 @@ export function computePageModel(
   document: NoteDocument,
   port: MeasurementPort,
 ): PageModelData {
-  const layout = layoutDocument(document, port, PAGE_LAYOUT_OPTIONS);
+  const layout = layoutDocument(
+    document,
+    port,
+    PAGE_LAYOUT_OPTIONS,
+    DEFAULT_PAGE_SETTINGS.setup,
+  );
   const paginated = paginate(layout, document, {
-    manualBreakBeforeBlockIds: [...document.manualBreakBeforeBlockIds],
+    manualBreakBeforeBlockIds: [...DEFAULT_PAGE_SETTINGS.manualBreakBeforeBlockIds],
   });
   return {
     layout,

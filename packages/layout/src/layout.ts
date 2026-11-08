@@ -23,9 +23,10 @@ import type {
   MeasurementMode,
   MeasurementPort,
   NoteDocument,
-  PageGeometry,
 } from './types.js';
-import { DEFAULT_LAYOUT_OPTIONS, pageGeometry } from './types.js';
+import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
+import type { PageGeometry, PageSetup } from './page-settings.js';
+import { DEFAULT_PAGE_SETTINGS, pageGeometry } from './page-settings.js';
 
 const EPSILON = 0.25;
 
@@ -62,6 +63,7 @@ class LayoutBuilder {
   readonly document: NoteDocument;
   readonly port: MeasurementPort;
   readonly options: LayoutOptions;
+  readonly pageSetup: PageSetup;
   readonly geometry: PageGeometry;
   readonly chapterPositions = new Map<string, ChapterLayout>();
   readonly blocks: LayoutBlock[] = [];
@@ -76,11 +78,17 @@ class LayoutBuilder {
   readonly anchorStates = new Map<string, AnchorState>();
   measurementCalls = 0;
 
-  constructor(document: NoteDocument, port: MeasurementPort, options: LayoutOptions) {
+  constructor(
+    document: NoteDocument,
+    port: MeasurementPort,
+    options: LayoutOptions,
+    pageSetup: PageSetup,
+  ) {
     this.document = document;
     this.port = port;
     this.options = options;
-    this.geometry = pageGeometry(document.pageSetup);
+    this.pageSetup = pageSetup;
+    this.geometry = pageGeometry(pageSetup);
     this.childrenMap = primaryChildrenMap(document);
     for (const defect of validateDocument(document)) this.addDefect(defect);
   }
@@ -170,7 +178,7 @@ class LayoutBuilder {
     return {
       documentId: this.document.id,
       title: this.document.title,
-      pageSetup: this.document.pageSetup,
+      pageSetup: this.pageSetup,
       geometry: this.geometry,
       chapters: [...this.chapterPositions.values()],
       blocks: this.blocks,
@@ -703,9 +711,10 @@ export function layoutDocument(
   document: NoteDocument,
   port: MeasurementPort,
   options: Partial<LayoutOptions> = {},
+  pageSetup: PageSetup = DEFAULT_PAGE_SETTINGS.setup,
 ): ContinuousLayout {
   const resolvedOptions: LayoutOptions = { ...DEFAULT_LAYOUT_OPTIONS, ...options };
-  return new LayoutBuilder(document, port, resolvedOptions).run();
+  return new LayoutBuilder(document, port, resolvedOptions, pageSetup).run();
 }
 
 export function blockRect(block: LayoutBlock): { x: number; y: number; width: number; height: number } {

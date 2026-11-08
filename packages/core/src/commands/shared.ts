@@ -637,12 +637,6 @@ export function removeBlocks(
       }
     }
   }
-
-  if (document.manualBreakBeforeBlockIds.some((id) => blockIds.has(id))) {
-    document.manualBreakBeforeBlockIds = document.manualBreakBeforeBlockIds.filter(
-      (id) => !blockIds.has(id),
-    );
-  }
 }
 
 /** Canonical JSON with sorted keys, used for record comparison. */

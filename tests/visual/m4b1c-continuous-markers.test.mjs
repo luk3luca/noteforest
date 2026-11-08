@@ -4,9 +4,8 @@ import { mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { artifactsPath, createHarness } from '../support/harness.mjs';
 import {
-  pageDocument,
-  portraitLongDocument,
-  textBlock,
+  longDocument,
+  multiPageBlocksDocument,
   writePagePackage,
 } from '../support/page-fixtures.mjs';
 
@@ -62,22 +61,6 @@ async function openPackage(env, name, document) {
   await page.waitForTimeout(150);
 }
 
-function manualBreakDocument() {
-  const document = pageDocument({
-    id: 'm4b1c-visual-breaks',
-    title: 'Continuous markers',
-    orientation: 'portrait',
-    chapterTitle: 'Derived pages',
-    blocks: [
-      textBlock('b1', 'One', 'First page body. '.repeat(18)),
-      textBlock('b2', 'Two', 'Second page body. '.repeat(18)),
-      textBlock('b3', 'Three', 'Third page body. '.repeat(18)),
-      textBlock('b4', 'Four', 'Fourth page body. '.repeat(18)),
-    ],
-  });
-  document.manualBreakBeforeBlockIds = ['b2', 'b3', 'b4'];
-  return document;
-}
 
 describe('M4b1c continuous marker visual evidence', () => {
   after(async () => {
@@ -94,7 +77,7 @@ describe('M4b1c continuous marker visual evidence', () => {
     const env = isolated('m4b1c-shots');
     await launch(env);
     await h.setWindowSize(1440, 900);
-    await openPackage(env, 'Continuous markers', manualBreakDocument());
+    await openPackage(env, 'Continuous markers', multiPageBlocksDocument());
     await shot('continuous-markers-edit-1440x900.png', 1440, 900);
 
     await page.keyboard.press('Meta+e');
@@ -127,7 +110,7 @@ describe('M4b1c continuous marker visual evidence', () => {
 
     // A long block gets a continuation chip; capture it at both widths.
     await h.setWindowSize(1440, 900);
-    await openPackage(env, 'Portrait long study', portraitLongDocument());
+    await openPackage(env, 'Long study', longDocument());
     await shot('continuous-markers-continuation-1440x900.png', 1440, 900);
     await h.setWindowSize(960, 720);
     await page.waitForTimeout(150);

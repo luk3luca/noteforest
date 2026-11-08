@@ -212,7 +212,7 @@ describe('M2f phase 4a corrupt package recovery', () => {
     const packagePath = await installValidPackage(env, 'future-note');
     const documentPath = resolve(packagePath, 'document.json');
     const newer = JSON.parse(validBytes.toString('utf8'));
-    newer.schemaVersion = 2;
+    newer.schemaVersion = 3;
     newer.title = 'From the future';
     const newerBytes = Buffer.from(JSON.stringify(newer, null, 2), 'utf8');
     await writeFile(documentPath, newerBytes);
@@ -618,7 +618,6 @@ describe('M2f phase 4b empty chapters and stale locks', () => {
     document.blocks = {};
     document.branches = {};
     document.anchors = {};
-    document.manualBreakBeforeBlockIds = [];
     for (const chapter of document.chapters) {
       chapter.topLevelBlockIds = [];
       delete chapter.title;

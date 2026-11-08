@@ -1,21 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "f7-scale-300",
   "title": "Scale — 300 blocks",
   "createdAt": "2026-11-03T10:00:00Z",
   "updatedAt": "2026-11-03T10:04:12Z",
   "revision": 1,
-  "pageSetup": {
-    "size": "A4",
-    "orientation": "portrait",
-    "margins": {
-      "top": 20,
-      "right": 20,
-      "bottom": 20,
-      "left": 20
-    }
-  },
-  "manualBreakBeforeBlockIds": [],
   "blocks": {
     "f7-b001": {
       "id": "f7-b001",

@@ -112,7 +112,6 @@ function buildFixture() {
     },
     context,
   ).document;
-  document.manualBreakBeforeBlockIds = [a1.blockId];
 
   return {
     context,

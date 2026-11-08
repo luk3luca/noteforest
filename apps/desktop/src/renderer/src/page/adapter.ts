@@ -10,7 +10,6 @@
  */
 
 import type { Anchor, Document } from '@noteforest/core';
-import { DEFAULT_MARGINS_MM } from '@noteforest/core';
 import type {
   AnchorRecord,
   AssetRecord,
@@ -23,7 +22,7 @@ import type {
   PageGeometry,
   PageSetup,
 } from '@noteforest/layout';
-import { DEFAULT_LAYOUT_OPTIONS, pageGeometry } from '@noteforest/layout';
+import { DEFAULT_LAYOUT_OPTIONS, DEFAULT_PAGE_SETTINGS, pageGeometry } from '@noteforest/layout';
 
 /**
  * Page/print layout options. The page layout, the measurement host CSS, and the
@@ -59,31 +58,22 @@ export function applyPageCssVariables(target: PageCssTarget): void {
   }
 }
 
-function finiteMargin(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0
-    ? value
-    : DEFAULT_MARGINS_MM.top;
-}
-
-/** Page setup copy with the A4 invariant made explicit. */
-export function pageSetupOf(document: Document): PageSetup {
-  const setup = document.pageSetup;
-  const orientation = setup?.orientation === 'portrait' ? 'portrait' : 'landscape';
+/**
+ * Page setup for this slice. R1b replaces this temporary default with the
+ * resolved personal settings (global default + per-document override).
+ */
+export function pageSetupOf(): PageSetup {
+  const setup = DEFAULT_PAGE_SETTINGS.setup;
   return {
-    size: 'A4',
-    orientation,
-    margins: {
-      top: finiteMargin(setup?.margins?.top),
-      right: finiteMargin(setup?.margins?.right),
-      bottom: finiteMargin(setup?.margins?.bottom),
-      left: finiteMargin(setup?.margins?.left),
-    },
+    size: setup.size,
+    orientation: setup.orientation,
+    margins: { ...setup.margins },
   };
 }
 
 /** Geometry for the loading/empty page before a layout model exists. */
-export function corePageGeometry(document: Document): PageGeometry {
-  return pageGeometry(pageSetupOf(document));
+export function corePageGeometry(): PageGeometry {
+  return pageGeometry(pageSetupOf());
 }
 
 function cloneContent(content: Document['blocks'][string]['content']): LayoutContentNode {
@@ -230,9 +220,10 @@ function layoutAsset(asset: Document['assets'][string]): AssetRecord {
  * Pure core -> layout document mapping.
  *
  * Identity and order are preserved: chapter order, top-level block order,
- * branch IDs/source/target, anchor IDs, block keys, and manual break hints.
- * Unknown content fields survive through `structuredClone`; unknown root fields
- * are not copied because the layout package does not consume them.
+ * branch IDs/source/target, anchor IDs, and block keys. Page setup and manual
+ * breaks are personal settings and are never copied from the canonical
+ * document. Unknown content fields survive through `structuredClone`; unknown
+ * root fields are not copied because the layout package does not consume them.
  */
 export function toLayoutDocument(document: Document): NoteDocument {
   const blocks: Record<string, LayoutContentBlock> = {};
@@ -262,8 +253,6 @@ export function toLayoutDocument(document: Document): NoteDocument {
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
     revision: document.revision,
-    pageSetup: pageSetupOf(document),
-    manualBreakBeforeBlockIds: [...document.manualBreakBeforeBlockIds],
     blocks,
     anchors,
     branches,

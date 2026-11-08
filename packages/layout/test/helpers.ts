@@ -1,27 +1,73 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { ContinuousLayout, NoteDocument, PaginatedDocument } from '../src/index.js';
-import { createEstimatedMeasurement, layoutDocument, paginate } from '../src/index.js';
+import type {
+  ContinuousLayout,
+  LayoutOptions,
+  NoteDocument,
+  PageSetup,
+  PaginatedDocument,
+} from '../src/index.js';
+import {
+  createEstimatedMeasurement,
+  DEFAULT_PAGE_SETTINGS,
+  layoutDocument,
+  paginate,
+} from '../src/index.js';
 
 export const FIXTURES = resolve(import.meta.dirname, '../../../fixtures');
+
+/**
+ * The pre-R1 fixture geometry (A4 portrait, 20 mm margins). Layout fixtures are
+ * canonical documents now, so tests that depend on the old width/height inject
+ * this setup explicitly instead of reading it from the document.
+ */
+export const FIXTURE_PAGE_SETUP: PageSetup = {
+  size: 'A4',
+  orientation: 'portrait',
+  margins: { top: 20, right: 20, bottom: 20, left: 20 },
+};
+
+export interface FixtureLayoutOptions {
+  setup?: PageSetup;
+  layoutOptions?: Partial<LayoutOptions>;
+  manualBreakBeforeBlockIds?: readonly string[];
+}
 
 export function loadFixture(name: string): NoteDocument {
   return JSON.parse(readFileSync(resolve(FIXTURES, name), 'utf8')) as NoteDocument;
 }
 
-export function layoutFixture(name: string): ContinuousLayout {
+export function layoutFixture(
+  name: string,
+  options: FixtureLayoutOptions = {},
+): ContinuousLayout {
   const document = loadFixture(name);
-  return layoutDocument(document, createEstimatedMeasurement(document));
+  return layoutDocument(
+    document,
+    createEstimatedMeasurement(document),
+    options.layoutOptions ?? {},
+    options.setup ?? DEFAULT_PAGE_SETTINGS.setup,
+  );
 }
 
-export function paginateFixture(name: string): {
+export function paginateFixture(
+  name: string,
+  options: FixtureLayoutOptions = {},
+): {
   document: NoteDocument;
   layout: ContinuousLayout;
   pages: PaginatedDocument;
 } {
   const document = loadFixture(name);
-  const layout = layoutDocument(document, createEstimatedMeasurement(document));
-  const pages = paginate(layout, document);
+  const layout = layoutDocument(
+    document,
+    createEstimatedMeasurement(document),
+    options.layoutOptions ?? {},
+    options.setup ?? DEFAULT_PAGE_SETTINGS.setup,
+  );
+  const pages = paginate(layout, document, {
+    manualBreakBeforeBlockIds: [...(options.manualBreakBeforeBlockIds ?? [])],
+  });
   return { document, layout, pages };
 }
 
