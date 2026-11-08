@@ -7,7 +7,10 @@
 
 ## 1. Design-token layout
 
-Recommendation: **two code sources and two docs**, plus one shared edge-style module.
+Recommendation: **completely separate design systems** for Continuous and Page,
+with two code namespaces and two docs. Settings will expose many more Page
+choices than Continuous choices, so sharing a token namespace or a preset would
+be the wrong abstraction.
 
 ### Continuous
 
@@ -16,6 +19,7 @@ Recommendation: **two code sources and two docs**, plus one shared edge-style mo
 - Owns shell/canvas, editor padding, card bounds, chapter gap, Continuous-only
   values.
 - Must not import or duplicate Page layout values.
+- Settings footprint is small: zoom, maybe canvas width, future font/spacing.
 
 ### Page
 
@@ -24,27 +28,33 @@ Recommendation: **two code sources and two docs**, plus one shared edge-style mo
   positions.
 - Docs: `docs/design-tokens-page.md`
 - Owns page sizes/margins (setup), PageTheme typography, card widths, gaps,
-  callout lane, child indent, callout mode thresholds, trunk offsets.
+  callout lane/modes, child indent, trunk offsets, page-only edge values.
 - Page renderer and PDF read the same resolved `PageTheme`/`PageSettings`; no
   second copy in JSX or CSS.
+- Every new Page token carries settings metadata: group, label, unit, range,
+  default, preset availability, and whether it is beginner/advanced/hidden.
+  This is what makes the future settings UI possible without hardcoded forms.
 
-### Shared edge primitives
+### Shared engine primitives, not shared design
 
-- `packages/layout/src/edge-style.ts` remains shared: stroke, arrowheads, radius,
-  `trunkInset`, `stemMin`, `trunkGap`, page clearance/lane step.
-- These are visual primitives used by Continuous and Page/PDF; do not fork them
-  per surface.
-- `docs/design-tokens.md` becomes a short index that links the two surface docs
-  and the shared edge primitives; it should not duplicate values.
+- `packages/layout/src/edge-style.ts` may stay as low-level renderer primitives:
+  path helpers, arrow geometry, stroke cap/join, corner rounding code.
+- **Design values are not shared.** Page gets its own `pageEdgeStyle` values in
+  `PageTheme` (trunk insets, stem, gap, arrow size if it diverges); Continuous
+  keeps its own. They may start from the same defaults, but each surface has a
+  single source of truth.
+- `docs/design-tokens.md` becomes a short index that links the two independent
+  design docs; it must not duplicate values.
 
 ### Guard tests
 
 - Page layout values are read from `PageTheme`; no hardcoded pixel positions in
   `layout.ts`/`page-edges.ts` for the new behavior.
-- A PageTheme test covers defaults, presets, custom overrides, and CSS variables
-  where applicable.
-- A docs test/check ensures the Continuous and Page docs point at the same
-  source modules and do not re-declare each other's values.
+- A PageTheme test covers defaults, presets, custom overrides, settings metadata,
+  and CSS variables where applicable.
+- A Continuous token test covers its own values; it must not read PageTheme.
+- A docs check ensures the two design docs point at their own code modules and do
+  not re-declare each other's values.
 
 ### New Page tokens (names provisional)
 
@@ -56,10 +66,17 @@ Recommendation: **two code sources and two docs**, plus one shared edge-style mo
 | `calloutCardIndent` | Callout card left from parent left | 52 px |
 | `calloutRightGap` | Mode A callout lane gap from parent right | 24 px |
 | `calloutModeMinWidth` | Minimum right space to choose mode A | 240 px |
+| `pageStemMin` | Page-only left stem before arrowhead | 12 px |
+| `pageTrunkGap` | Page below-trunk start offset | 0 px |
 | `wrapIndent` / `maxWrapIndent` | Existing PageTheme wrap bounds | keep |
 
-The exact B2 offsets are the first open decision; all of them live in one file,
-not in the layout code.
+All Page values live in `PageTheme`; the settings UI reads the same metadata.
+The exact B2 offsets are the first open decision.
+
+### Related plans
+
+- Settings/menu: `docs/tasks/page-settings-ui-plan.md`
+- PDF consumer: `docs/tasks/m4c-pdf-plan.md`
 
 ## 2. Feature 1 — subtree-aware wrap
 
