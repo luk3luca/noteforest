@@ -87,6 +87,8 @@ Status: **complete** — report `docs/reports/r1a-canonical-schema-v2.md`
 
 ### R1b — settings store + PageTheme wiring + compact density
 
+Status: **in progress** — brief `docs/tasks/r1b-settings-theme-density.md`
+
 - [ ] `settings.json` global store + IPC/preload/shared API.
 - [ ] `SessionTabState` per-document overrides.
 - [ ] Resolve PageSettings for the active document.
