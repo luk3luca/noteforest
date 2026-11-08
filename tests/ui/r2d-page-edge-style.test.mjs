@@ -432,6 +432,14 @@ describe('R2d page edge style', () => {
       { width: 960, height: 720 },
     );
 
+    await h.setWindowSize(1440, 900);
+    await waitPageReady();
+    await assertOrthogonalPageRoutes('Page Read 1440 portrait');
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'page-read-arrows-1440x900-portrait.png'),
+      { width: 1440, height: 900 },
+    );
+
     const landscapeStart = await modelRuns();
     await setPageSettingsOverride(packagePath, { setup: { orientation: 'landscape' } });
     await waitForRunAtLeast(landscapeStart + 1);

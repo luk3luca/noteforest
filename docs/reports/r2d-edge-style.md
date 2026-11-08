@@ -156,6 +156,7 @@ New coverage:
 - `page-read-arrows-1440x900-landscape.png` — compaction fixture, Page Read, all six arrows.
 - `page-read-arrows-960x720-landscape.png`
 - `page-read-arrows-960x720-portrait.png` — the wrapped row takes the top-entry fallback.
+- `page-read-arrows-1440x900-portrait.png`
 - `page-read-arrows-1440x900-landscape-restored.png`
 - `page-edit-overlay-arrows-1440x900.png` — overlay above the arrow layer.
 - `page-read-cross-page-1440x900.png` — `← from page 1` on page 2.
