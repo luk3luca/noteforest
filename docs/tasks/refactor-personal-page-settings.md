@@ -1,6 +1,6 @@
 # Refactor — personal page settings (master checklist)
 
-**Status:** R1a/R1b/R2a/R2b complete, R2c complete, R2d in progress; **STOP after R2d for product-owner check** (8 November 2026)  
+**Status:** R1a/R1b/R2a/R2b complete, R2c complete, R2d complete; **STOP after R2d for product-owner check** (8 November 2026)  
 **Decision:** `docs/adr/0008-personal-page-settings.md`  
 **Related:** ADR-0002, ADR-0007, `docs/plan.md`  
 **Gate:** do not start M4c PDF until Page View is usable (arrows + density).
@@ -130,8 +130,10 @@ Status: **complete** — report `docs/reports/r2c-page-compaction.md`; showcase 
 
 ### PRODUCT-OWNER CHECKPOINT — after R2d
 
-- [ ] Full `npm run verify` on the integrated main.
-- [ ] Hand the build/screenshots to the product owner for a visual/density/arrow pass.
+Status: **ready for product-owner check** (8 November 2026)
+
+- [x] Full `npm run verify` on the integrated main.
+- [ ] Hand the build/screenshots to the product owner for a visual/density/arrow pass. (ready)
 - [ ] Do **not** start R3 (Settings UI/manual breaks), R4 docs, or M4c PDF until the checkpoint is accepted or fixes are requested.
 - [ ] If the checkpoint fails, fix Page placement/arrows/density before any PDF work.
 
