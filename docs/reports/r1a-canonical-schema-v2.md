@@ -4,7 +4,8 @@
 - **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-fe6849ba`
 - **Branch:** `t3/r1a-canonical-schema-v2`
 - **Base:** `e0c2968` — `docs: adopt personal page settings and schema v2`
-- **Commit:** this branch head. Implementation, tests, fixtures, and this report are one commit; the SHA is reported in the handback message.
+- **Implementation commit:** `b5c3101` — `feat: canonical schema v2 and page-settings foundation`
+- **Report commit:** the follow-up docs commit that adds this file; the branch head SHA is reported in the handback message.
 - **Status:** complete; no merge, no push.
 
 ## Summary
