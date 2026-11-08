@@ -8,7 +8,11 @@
  *
  * Page Read is the exact read-only proof. Page Edit adds one active block
  * overlay (`PageBlockEditor`) anchored to a fragment; the page behind stays the
- * same A4 layout until the block commit re-paginates from the shared model.
+ * same A4 layout until the block commit re-paginates from the page model.
+ *
+ * The page model lives here, not in `DocumentEditor`: Continuous has no pages
+ * and must not measure anything. Switching to Page mounts this component and
+ * starts the one model run; switching back disposes it.
  */
 
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
@@ -27,11 +31,15 @@ import type {
   AnchorAttachment,
   DerivedPage,
   LayoutDefect,
+  PageEdge,
   PageFragment,
   PageGeometry,
-  PageSettings,
 } from '@noteforest/layout';
-import { pageCssVariables, pageLayoutOptions } from '@noteforest/layout';
+import {
+  buildPageEdges,
+  pageCssVariables,
+  pageLayoutOptions,
+} from '@noteforest/layout';
 import { openBlockInContinuous } from '../actions';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
@@ -44,6 +52,8 @@ import { PageBlockEditor } from './PageBlockEditor';
 import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
 import { anchorHintsForDocument, corePageGeometry } from './adapter';
 import { blockingDefects, clampPageNumber } from './model';
+import { PageEdges } from './PageEdges';
+import { usePageSettings } from '../state/settings';
 import {
   buildSegments,
   contentWrapperHtml,
@@ -51,17 +61,13 @@ import {
   type PageContentBlock,
   type PageRenderSegment,
 } from './segments';
-import type { PageModelState } from './usePageModel';
+import { usePageModel } from './usePageModel';
 
 interface PageViewProps {
   runtime: DocumentRuntime;
   active: boolean;
   /** Page Read is exact; Page Edit enables one active block overlay. */
   interactionMode: InteractionMode;
-  /** Shared page model owned by `DocumentEditor` (never re-measured here). */
-  model: PageModelState;
-  /** Resolved personal page settings for this document (global + override). */
-  settings: PageSettings;
 }
 
 /** Matches `.nf-page-stage` padding (the canvas medium step). */
@@ -314,6 +320,7 @@ interface PageSurfaceProps {
   geometry: PageGeometry;
   runtime: DocumentRuntime;
   blocking: readonly LayoutDefect[];
+  edges: readonly PageEdge[];
   children: ReactNode;
 }
 
@@ -326,6 +333,7 @@ function PageSurface({
   geometry,
   runtime,
   blocking,
+  edges,
   children,
 }: PageSurfaceProps): JSX.Element {
   const margins = geometry.marginsPx;
@@ -368,6 +376,7 @@ function PageSurface({
         }}
         data-page-content={pageNumber}
       >
+        <PageEdges edges={edges} geometry={geometry} />
         {children}
       </div>
       {blocking.length > 0 ? <DefectBadge defects={blocking} /> : null}
@@ -379,10 +388,12 @@ export function PageView({
   runtime,
   active,
   interactionMode,
-  model,
-  settings,
 }: PageViewProps): JSX.Element {
   useRuntime(runtime.packagePath);
+  // One resolved personal page lens and one model per mounted Page surface.
+  // Continuous never mounts this component, so it never measures pages.
+  const settings = usePageSettings(runtime.packagePath);
+  const model = usePageModel(runtime, active, settings);
   const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
   const currentPage = view?.currentPage ?? 1;
   const pageFit = view?.pageFit ?? 'page';
@@ -414,6 +425,12 @@ export function PageView({
   // and paginator all receive this one resolved setup (A4/A5/Letter).
   const geometry = useMemo(() => corePageGeometry(settings), [settings]);
   const layoutOptions = useMemo(() => pageLayoutOptions(settings.theme), [settings.theme]);
+  // The shared page-edge mapper, not a Page-local router. Only the current
+  // page's slice is handed to the SVG.
+  const pageEdges = useMemo(() => {
+    if (model.layout === null) return [];
+    return buildPageEdges(model.layout, model.pages)[pageNumber - 1] ?? [];
+  }, [model.layout, model.pages, pageNumber]);
 
   // Derived model may shrink the page count; keep the shell page in range.
   // Wait for the first derived model: clamping against the loading state would
@@ -765,6 +782,7 @@ export function PageView({
       data-fragment-count={page?.fragments.length ?? 0}
       data-continuation-out={page?.continuationOut.length ?? 0}
       data-continuation-in={page?.continuationIn.length ?? 0}
+      data-page-edge-count={pageEdges.length}
       data-error={model.error !== null ? 'true' : undefined}
       data-empty={placeholderSurface ? 'true' : undefined}
     >
@@ -897,6 +915,7 @@ export function PageView({
               geometry={geometry}
               runtime={runtime}
               blocking={showPlaceholder ? [] : pageBlocking}
+              edges={showPlaceholder ? [] : pageEdges}
             >
               {showPlaceholder ? (
                 placeholder

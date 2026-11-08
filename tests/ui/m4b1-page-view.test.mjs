@@ -413,21 +413,8 @@ describe('M4b1 page view core', () => {
     await launch(ui.isolated('m4b1-page-error'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
-    // The page model is shared with Continuous markers (M4b1c), so it has
-    // already run for the seeded revision. Wait for that successful pass, then
-    // force the next revision to fail and switch to Page.
-    await page.waitForFunction(
-      () => {
-        const layer = document.querySelector('.nf-editor[data-active="true"] .nf-page-markers');
-        return (
-          layer !== null &&
-          layer.getAttribute('data-page-model-ready') === 'true' &&
-          layer.getAttribute('data-page-model-updating') === 'false'
-        );
-      },
-      undefined,
-      { timeout: 20000 },
-    );
+    // Continuous owns no page model (R2a): the first measurement happens when
+    // Page mounts, so force the font wait to fail before switching layouts.
     await page.evaluate(() => {
       Object.defineProperty(document.fonts, 'ready', {
         configurable: true,

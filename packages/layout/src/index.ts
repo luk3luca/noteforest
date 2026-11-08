@@ -4,4 +4,5 @@ export * from './geometry.js';
 export * from './document.js';
 export * from './layout.js';
 export * from './paginator.js';
+export * from './page-edges.js';
 export * from './estimate.js';
