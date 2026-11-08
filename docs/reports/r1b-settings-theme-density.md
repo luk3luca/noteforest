@@ -120,10 +120,10 @@ not the DOM-free estimator. All variants use A4 landscape, 12 mm margins.
 
 | Corpus | Variant | Pages | Blocks/page | Avg used content | Whitespace | Max prose line (capped card) | Max prose line (image block) | Table line | Overflow | Defects |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| showcase (82 blocks, 9 chapters) | Comfortable (pre-R1) | 27 | 3.04 | 515.2 px | 26.7% | 57.3 ch | 134.8 ch | 46.2 ch | 0 | 0 |
+| showcase (82 blocks, 9 chapters) | Comfortable (pre-R1) | 27 | 3.04 | 515.2 px | 26.7% | 58.9 ch | 134.8 ch | 46.2 ch | 0 | 0 |
 | showcase | Intermediate 9.5 pt / 400 px | 23 | 3.57 | 480.3 px | 31.7% | 61.3 ch | 153.0 ch | 51.2 ch | 0 | 0 |
 | showcase | Compact (default) | 21 | 3.90 | 458.8 px | 34.7% | 67.4 ch | 153.1 ch | 52.8 ch | 0 | 0 |
-| scale-300 (300 blocks, 3 chapters) | Comfortable (pre-R1) | 39 | 7.69 | 687.0 px | 2.3% | 58.0 ch | 59.0 ch | n/a | 0 | 0 |
+| scale-300 (300 blocks, 3 chapters) | Comfortable (pre-R1) | 39 | 7.69 | 687.0 px | 2.3% | 59.0 ch | 59.0 ch | n/a | 0 | 0 |
 | scale-300 | Intermediate 9.5 pt / 400 px | 33 | 9.09 | 647.9 px | 7.8% | 61.3 ch | 61.3 ch | n/a | 0 | 0 |
 | scale-300 | Compact (default) | 28 | 10.71 | 656.6 px | 6.6% | 67.4 ch | 67.4 ch | n/a | 0 | 0 |
 
@@ -184,7 +184,7 @@ geometry, not a full-size readability proof.
 | `npm run test:ui` | 24 suites, 78 tests; exit 0; 312 s including build |
 | `npm run test:recovery:run` | 14 tests pass in 17.9 s |
 | `npm run e2e:critical` | 16 tests pass in 44.1 s |
-| `npm run test:visual:r1b` | 1 suite / 1 lab test, 6 measurements + 4 screenshots; exit 0; 14.9 s including build |
+| `npm run test:visual:r1b` | 1 suite / 1 lab test, 6 measurements + 4 screenshots; exit 0; 15.2 s including build |
 | `npm run verify:fast` | exit 0; 52.9 s (boundaries + typecheck + 808 unit + 16 e2e) |
 
 New coverage:

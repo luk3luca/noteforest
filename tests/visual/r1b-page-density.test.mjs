@@ -257,7 +257,7 @@ async function readPageMetrics() {
     // Cards wider than the text measure are unbreakable content (an image or
     // wide table forces the block wide). Report their lines separately so the
     // readability decision is not masked by a single image-bearing block.
-    const capped = measureLines(proseSelector, 440);
+    const capped = measureLines(proseSelector, 500);
     const table = measureLines('.nf-block-content .nf-cell-paragraph');
 
     return {
