@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   arrowPoints,
   buildPageEdges,
+  buildPageEdgeModel,
   EDGE_STYLE,
   isOrthogonalRoute,
   openArrowPath,
@@ -429,23 +430,65 @@ describe('page edge mapper routes', () => {
     expect(JSON.stringify(buildPageEdges(model, pages))).toBe(JSON.stringify(buildPageEdges(model, pages)));
   });
 
-  it('keeps cross-page indicators straight and target-page aware', () => {
+  it('continues a cross-page primary edge on its group trunk', () => {
     const out = fragment('source', { x: 0, y: 0, width: 100, height: 80 });
-    const incoming = fragment('target', { x: 50, y: 0, width: 100, height: 80 });
+    const incoming = fragment('target', { x: 300, y: 0, width: 100, height: 80 });
     const pages = [page(1, [out]), page(2, [incoming])];
     const model = layout([branch('b-cross', 'source', 'target')], pages);
-    const byPage = buildPageEdges(model, pages);
-    const toEdge = byPage[0]!.find((edge) => edge.branchId === 'b-cross')!;
-    const fromEdge = byPage[1]!.find((edge) => edge.branchId === 'b-cross')!;
-    expect(toEdge.direction).toBe('to-edge');
-    expect(toEdge.targetPage).toBe(2);
-    expect(toEdge.route.points).toEqual([toEdge.from, toEdge.to]);
-    expect(toEdge.route.direction).toBe('right');
-    expect(toEdge.route.tip.x).toBe(BOUNDS.width);
-    expect(fromEdge.direction).toBe('from-edge');
-    expect(fromEdge.targetPage).toBe(1);
-    expect(fromEdge.route.points).toEqual([fromEdge.from, fromEdge.to]);
-    expect(fromEdge.route.tip.x).toBe(incoming.page.x);
+    const byPage = buildPageEdgeModel(model, pages);
+    expect(byPage.edges[0]!.some((edge) => edge.branchId === 'b-cross')).toBe(false);
+    const view = byPage.trunks[0]!.find((candidate) => candidate.trunk.id === 'source:right')!;
+    expect(view).toBeDefined();
+    const trunk = view.trunk;
+    expect(trunk.portPage).toBe(1);
+    expect(trunk.port).toEqual({ x: 100, y: 40 });
+    expect(trunk.segments.map((segment) => segment.pageNumber)).toEqual([1, 2]);
+    expect(trunk.segments[0]!.start).toEqual({ x: trunk.x, y: 40 });
+    expect(trunk.segments[0]!.lead).toEqual({
+      from: trunk.port,
+      to: { x: trunk.x, y: 40 },
+    });
+    expect(trunk.segments[0]!.end).toEqual({ x: trunk.x, y: BOUNDS.height });
+    expect(trunk.segments[1]!.start).toEqual({ x: trunk.x, y: 0 });
+    expect(trunk.segments[1]!.lead).toBeNull();
+    const arm = byPage.edges[1]!.find((edge) => edge.branchId === 'b-cross')!;
+    expect(arm.direction).toBe('trunk');
+    expect(arm.targetPage).toBeNull();
+    expect(arm.label).toBeUndefined();
+    expect(arm.from).toEqual({ x: trunk.x, y: 0 });
+    expect(arm.to).toEqual({ x: incoming.page.x, y: 40 });
+    expect(arm.route.entry).toBe('left');
+    expect(arm.route.direction).toBe('right');
+    expect(trunk.segments[1]!.end).toEqual({ x: trunk.x, y: arm.to.y });
+    expect(arm.trunk!.id).toBe(trunk.id);
+  });
+
+  it('keeps the parent lead when a right-group arm sits above the parent port', () => {
+    const source = fragment('source', { x: 0, y: 0, width: 100, height: 200 });
+    const target = fragment('target', { x: 300, y: 0, width: 100, height: 20 });
+    const pages = [page(1, [source, target])];
+    const model = layout([branch('b-above', 'source', 'target')], pages);
+    const byPage = buildPageEdgeModel(model, pages);
+    const edge = byPage.edges[0]!.find((candidate) => candidate.branchId === 'b-above')!;
+    const trunk = byPage.trunks[0]![0]!.trunk;
+    // The parent port is at y=60 (center clamped to 60); the short child arm is
+    // at y=10. The trunk spans both, and the horizontal lead still leaves the
+    // parent port at y=60.
+    expect(trunk.port).toEqual({ x: 100, y: 60 });
+    expect(byPage.trunks[0]![0]!.segment.start).toEqual({ x: trunk.x, y: 10 });
+    expect(byPage.trunks[0]![0]!.segment.end).toEqual({ x: trunk.x, y: 60 });
+    expect(byPage.trunks[0]![0]!.segment.lead).toEqual({
+      from: { x: 100, y: 60 },
+      to: { x: trunk.x, y: 60 },
+    });
+    expect(edge.from).toEqual({ x: 100, y: 60 });
+    expect(edge.to).toEqual({ x: 300, y: 10 });
+    expect(edge.route.entry).toBe('left');
+    expect(
+      edge.route.points.some(
+        (point) => Math.abs(point.x - trunk.x) < 0.01 && Math.abs(point.y - 10) < 0.01,
+      ),
+    ).toBe(true);
   });
 
   it('keeps reference cross-page edges target-only', () => {

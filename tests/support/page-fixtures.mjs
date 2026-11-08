@@ -492,8 +492,55 @@ export function pageEdgeTopologyDocument() {
   });
 }
 
+/**
+ * R2g trunk-continuity fixture.
+ *
+ * Root's right group has child 1 on page 1 and child 2 on page 3; page 2 is a
+ * pass-through page for the root trunk. Child 1's nested group wraps below and
+ * crosses to its grandchild on page 2, so two independent trunks run in
+ * parallel at different x. The UI test sets the two manual breaks.
+ */
+export function pageTrunkContinuityDocument() {
+  return pageDocument({
+    id: 'page-trunk-continuity',
+    title: 'Page trunk continuity',
+    chapterTitle: 'Trunk',
+    blocks: [
+      textBlock('r2g-root', 'Trunk root', 'A short root whose children continue across pages.'),
+      textBlock(
+        'r2g-child-1',
+        'Child one',
+        'First child, with a nested trunk that crosses a page. This sentence is long enough that the card takes the full readable maximum width, so the nested group cannot fit beside it and wraps below instead.',
+      ),
+      textBlock('r2g-grandchild', 'Grandchild', 'Nested child on a later page with enough text to keep a readable card width when the page measures it.'),
+      textBlock('r2g-child-2', 'Child two', 'Second child on the last page of the trunk.'),
+    ],
+    branches: [
+      {
+        id: 'branch-r2g-child-1',
+        sourceBlockId: 'r2g-root',
+        targetBlockId: 'r2g-child-1',
+        role: 'primary',
+      },
+      {
+        id: 'branch-r2g-grandchild',
+        sourceBlockId: 'r2g-child-1',
+        targetBlockId: 'r2g-grandchild',
+        role: 'primary',
+      },
+      {
+        id: 'branch-r2g-child-2',
+        sourceBlockId: 'r2g-root',
+        targetBlockId: 'r2g-child-2',
+        role: 'primary',
+      },
+    ],
+  });
+}
+
 /** Long fixture that spans pages, producing continuation/ghost markers. */
-export function longDocument() {  const parent = textBlock('parent', 'Parent topic', 'A short parent that owns a long branch.');
+export function longDocument() {
+  const parent = textBlock('parent', 'Parent topic', 'A short parent that owns a long branch.');
   const child = longTextBlock('child', 'Long branch', 90);
   return pageDocument({
     id: 'portrait-long',

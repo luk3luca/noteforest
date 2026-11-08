@@ -1,5 +1,5 @@
 import {
-  buildPageEdges,
+  buildPageEdgeModel,
   type ContinuationIn,
   type ContinuationOut,
   type ContinuousLayout,
@@ -7,6 +7,7 @@ import {
   type NoteDocument,
   type PageEdge,
   type PageEdgeDirection,
+  type PageEdgeTrunkView,
   type PageFragment,
   type PageGeometry,
   type PageSetup,
@@ -28,6 +29,8 @@ export interface PrintPage {
   continuationIn: ContinuationIn[];
   continuationOut: ContinuationOut[];
   edges: PrintEdge[];
+  /** Group-trunk segments for this page, including pass-through pages. */
+  trunks: PageEdgeTrunkView[];
 }
 
 export interface PrintModel {
@@ -46,9 +49,11 @@ export function buildPrintModel(
   layout: ContinuousLayout,
   paginated: PaginatedDocument,
 ): PrintModel {
-  // One edge mapper is shared with the Page renderer (`buildPageEdges`), so the
-  // print compositor cannot drift onto a second page-edge router.
-  const edgesByPage = buildPageEdges(layout, paginated.pages);
+  // One edge mapper is shared with the Page renderer (`buildPageEdgeModel`),
+  // so the print compositor cannot drift onto a second page-edge router. It
+  // consumes the same group trunks and page-local segments, including
+  // pass-through pages with no child of a parent group.
+  const edgeModel = buildPageEdgeModel(layout, paginated.pages);
   const pages: PrintPage[] = paginated.pages.map((page, index) => ({
     pageNumber: page.pageNumber,
     chapterId: page.chapterId,
@@ -60,7 +65,8 @@ export function buildPrintModel(
     fragments: page.fragments,
     continuationIn: page.continuationIn,
     continuationOut: page.continuationOut,
-    edges: edgesByPage[index] ?? [],
+    edges: edgeModel.edges[index] ?? [],
+    trunks: edgeModel.trunks[index] ?? [],
   }));
 
   const pageNumberByBlock: Record<string, number> = {};

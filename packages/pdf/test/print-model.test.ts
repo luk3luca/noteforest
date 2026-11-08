@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildPageEdges,
+  buildPageEdgeModel,
   type ContinuousLayout,
   type DerivedPage,
   type NoteDocument,
@@ -119,17 +119,18 @@ const pages = [
     fragment('middle', 156, 0, 150, 100),
     fragment('later', 322, 0, 150, 100),
   ]),
-  page(2, [fragment('next-page', 50, 0)]),
+  page(2, [fragment('next-page', 300, 0)]),
 ];
 const paginated = { pages, pageCount: 2, defects: [], manualBreakWarnings: [] } as unknown as PaginatedDocument;
 const document = { id: 'print-route-fixture' } as NoteDocument;
 
 describe('print model page routes', () => {
-  it('consumes the same shared page routes as Page Read/Edit', () => {
+  it('consumes the same shared page routes and group trunks as Page Read/Edit', () => {
     const model = buildPrintModel(document, layout, paginated);
-    const shared = buildPageEdges(layout, pages);
+    const shared = buildPageEdgeModel(layout, pages);
     for (const [index, printPage] of model.pages.entries()) {
-      expect(printPage.edges).toEqual(shared[index]);
+      expect(printPage.edges).toEqual(shared.edges[index]);
+      expect(printPage.trunks).toEqual(shared.trunks[index]);
       for (const edge of printPage.edges) {
         expect(edge.route.points.length).toBeGreaterThanOrEqual(2);
         expect(edge.route.tip).toEqual(edge.route.points.at(-1));
@@ -147,6 +148,18 @@ describe('print model page routes', () => {
     expect(later.trunk).not.toBeNull();
     expect(later.trunk!.id).toBe(directEdge.trunk!.id);
     expect(later.trunk!.x).toBe(directEdge.trunk!.x);
+    // The parent page keeps the horizontal lead from the card port to the
+    // stable trunk x, then continues to the page bottom because `b-cross` has a
+    // child on page 2.
+    const parentTrunkView = model.pages[0]!.trunks.find(
+      (view) => view.trunk.id === later.trunk!.id,
+    )!;
+    expect(parentTrunkView).toBeDefined();
+    expect(parentTrunkView.segment.lead).toEqual({
+      from: later.trunk!.port,
+      to: { x: later.trunk!.x, y: later.trunk!.port.y },
+    });
+    expect(parentTrunkView.segment.end.y).toBe(BOUNDS.height);
     // Never behind the earlier sibling card.
     const middle = pages[0]!.fragments.find((item) => item.blockId === 'middle')!.page;
     for (let index = 1; index < later.route.points.length; index += 1) {
@@ -168,13 +181,22 @@ describe('print model page routes', () => {
           top < middle.y + middle.height - 0.01;
       expect(hits).toBe(false);
     }
-    const crossOut = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-cross')!;
+    // A primary cross-page tree edge has no horizontal indicator: the source
+    // page owns the trunk segment and the target page owns the left arm.
+    const crossOut = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-cross');
+    expect(crossOut).toBeUndefined();
     const crossIn = model.pages[1]!.edges.find((edge) => edge.branchId === 'b-cross')!;
-    expect(crossOut.direction).toBe('to-edge');
-    expect(crossOut.targetPage).toBe(2);
-    expect(crossOut.route.points).toEqual([crossOut.from, crossOut.to]);
-    expect(crossIn.direction).toBe('from-edge');
-    expect(crossIn.targetPage).toBe(1);
-    expect(crossIn.route.points).toEqual([crossIn.from, crossIn.to]);
+    expect(crossIn.direction).toBe('trunk');
+    expect(crossIn.targetPage).toBeNull();
+    expect(crossIn.label).toBeUndefined();
+    expect(crossIn.from).toEqual({ x: crossIn.trunk!.x, y: 0 });
+    const targetTrunkView = model.pages[1]!.trunks.find(
+      (view) => view.trunk.id === crossIn.trunk!.id,
+    )!;
+    expect(targetTrunkView.segment.start).toEqual({ x: crossIn.trunk!.x, y: 0 });
+    expect(targetTrunkView.segment.end).toEqual({
+      x: crossIn.trunk!.x,
+      y: crossIn.to.y,
+    });
   });
 });
