@@ -1,6 +1,6 @@
 # Refactor — personal page settings (master checklist)
 
-**Status:** R1a complete, R1b next (8 November 2026)  
+**Status:** R1a/R1b complete, R2a next (8 November 2026)  
 **Decision:** `docs/adr/0008-personal-page-settings.md`  
 **Related:** ADR-0002, ADR-0007, `docs/plan.md`  
 **Gate:** do not start M4c PDF until Page View is usable (arrows + density).
@@ -87,20 +87,20 @@ Status: **complete** — report `docs/reports/r1a-canonical-schema-v2.md`
 
 ### R1b — settings store + PageTheme wiring + compact density
 
-Status: **in progress** — brief `docs/tasks/r1b-settings-theme-density.md`
+Status: **complete** — report `docs/reports/r1b-settings-theme-density.md`
 
-- [ ] `settings.json` global store + IPC/preload/shared API.
-- [ ] `SessionTabState` per-document overrides.
-- [ ] Resolve PageSettings for the active document.
-- [ ] Page measurement, Page Read, Page Edit, PageBlockEditor use resolved settings/theme.
-- [ ] `styles.css` page typography driven by theme variables; no hard-coded page metrics.
-- [ ] `page/segments.ts` list indent/gaps from theme.
-- [ ] PDF print model consumes the same resolved settings.
-- [ ] Density lab on showcase and scale-300: page count, blocks/page, line length, whitespace.
-- [ ] Choose/tune Compact values; report before/after page count.
-- [ ] No Continuous page settings; Continuous theme separate.
+- [x] `settings.json` global store + IPC/preload/shared API.
+- [x] `SessionTabState` per-document overrides.
+- [x] Resolve PageSettings for the active document.
+- [x] Page measurement, Page Read, Page Edit, PageBlockEditor use resolved settings/theme.
+- [x] `styles.css` page typography driven by theme variables; no hard-coded page metrics.
+- [x] `page/segments.ts` list indent/gaps from theme.
+- [x] PDF print model consumes the same resolved settings.
+- [x] Density lab on showcase and scale-300: page count, blocks/page, line length, whitespace.
+- [x] Choose/tune Compact values; report before/after page count.
+- [x] No Continuous page settings; Continuous theme separate.
 
-### R2 — Page arrows + remove Continuous page chrome
+### R2a — Page arrows + remove Continuous page chrome
 
 - [ ] Remove `PageBreakMarkers`, `page-markers`, marker CSS/tests/visual tests.
 - [ ] Stop running the page model in Continuous; PageView owns it.
@@ -108,6 +108,12 @@ Status: **in progress** — brief `docs/tasks/r1b-settings-theme-density.md`
 - [ ] Primary solid, reference dashed/labeled; same-page route; cross-page `→ page N` / `← from page M`.
 - [ ] Arrows in Page Read and Page Edit, not in Continuous.
 - [ ] No DOM shift, no second paginator.
+
+### R2b — Page packing/width density
+
+- [ ] After compact, test the horizontal levers: wider max card, callout-right lane, two-column top-level packing.
+- [ ] Product-owner decision if two-column changes the reading flow; report page count and whitespace.
+- [ ] Implement the chosen lever only after the Page arrows/marker cleanup is stable.
 
 ### R3 — Settings UI + personal manual breaks
 
