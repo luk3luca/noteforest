@@ -562,3 +562,112 @@ describe('NoteForest M3g4/M3h1 callout stacking and active state', () => {
     );
   });
 });
+
+describe('NoteForest continuous right-group height reservation', () => {
+  before(async () => {
+    await rm(tempRoot, { recursive: true, force: true });
+    await mkdir(tempRoot, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await h.quit();
+  });
+
+  after(async () => {
+    assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
+  });
+
+  it('does not inherit a parent reservation into a callout-only child row', async () => {
+    await launch(isolated('right-group-height'));
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+
+    const parentCard = h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Take the symmetric matrix below' })
+      .first();
+    const parentId = await parentCard.getAttribute('data-block-card');
+    assert.equal(typeof parentId, 'string');
+    const nextTopCard = h
+      .activeEditor()
+      .locator('[data-block-card][data-top-level="true"]', { hasText: 'Trace and determinant' })
+      .first();
+    const nextTopId = await nextTopCard.getAttribute('data-block-card');
+    assert.equal(typeof nextTopId, 'string');
+
+    // The parent owns a right group and a callout lane. Its direct child owns
+    // only a callout lane: it must not inherit the parent's reserved height.
+    const childId = 'm3g4-inheritance-child';
+    await createDirectChild(
+      parentId,
+      childId,
+      'Direct child with its own anchored callout and no right group.',
+    );
+    const { blockId: parentCalloutId } = await createAnchoredChild(parentId, 'symmetric');
+    assert.ok(parentCalloutId.length > 0);
+    await waitForCallouts(parentId, 1);
+    const { blockId: calloutId } = await createAnchoredChild(childId, 'anchored');
+    assert.ok(calloutId.length > 0);
+    await waitForCallouts(childId, 1);
+    await h.waitLayout({ blocks: 10, arrows: 6 });
+
+    const measured = await page.evaluate(
+      ({ parentId: parent, childId: child, nextTopId: nextTop }) => {
+        const rectOf = (element) => {
+          const rect = element.getBoundingClientRect();
+          return { top: rect.top, bottom: rect.bottom, height: rect.height };
+        };
+        const parentCard = document.querySelector(`[data-block-card="${parent}"]`);
+        const childCard = document.querySelector(`[data-block-card="${child}"]`);
+        const nextCard = document.querySelector(`[data-block-card="${nextTop}"]`);
+        if (parentCard === null || childCard === null || nextCard === null) return null;
+        const parentInner = parentCard.closest('.nf-block-inner');
+        const childInner = childCard.closest('.nf-block-inner');
+        const childContent = childInner?.firstElementChild;
+        if (parentInner === null || childInner === null || childContent === null) {
+          return null;
+        }
+        return {
+          reservation: Number.parseFloat(
+            parentInner.style.getPropertyValue('--nf-right-group-height'),
+          ),
+          childReservation: childInner.style
+            .getPropertyValue('--nf-right-group-height')
+            .trim(),
+          childMinHeight: Number.parseFloat(getComputedStyle(childContent).minHeight),
+          parentBottom: rectOf(parentInner).bottom,
+          childBottom: rectOf(childInner).bottom,
+          nextTop: rectOf(nextCard).top,
+        };
+      },
+      { parentId, childId, nextTopId },
+    );
+    assert.ok(measured !== null);
+    assert.ok(
+      Number.isFinite(measured.reservation) && measured.reservation > 0,
+      `the parent reserves its right group (${measured.reservation})`,
+    );
+    assert.ok(
+      measured.reservation < 5000,
+      `the reservation stays finite (${measured.reservation})`,
+    );
+    assert.equal(
+      measured.childReservation,
+      '',
+      'a callout-only child does not publish its own right-group reservation',
+    );
+    assert.equal(
+      measured.childMinHeight,
+      0,
+      'a callout-only child does not inherit the parent reservation as min-height',
+    );
+    assert.ok(
+      measured.parentBottom >= measured.childBottom,
+      `the parent covers its right group (${measured.parentBottom} >= ${measured.childBottom})`,
+    );
+    assert.ok(
+      measured.nextTop >= measured.parentBottom,
+      `the next top-level block starts below the reserved group (${measured.nextTop} >= ${measured.parentBottom})`,
+    );
+  });
+});

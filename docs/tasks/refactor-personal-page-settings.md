@@ -130,9 +130,17 @@ Status: **complete** — report `docs/reports/r2c-page-compaction.md`; showcase 
 
 ### PRODUCT-OWNER CHECKPOINT — after R2d
 
-Status: **ready for product-owner check** (8 November 2026)
+Status: **ready for product-owner check after the Continuous stress fix** (8 November 2026)
 
 - [x] Full `npm run verify` on the integrated main.
+- [x] Continuous stress-test overlap/height fix (8 November 2026): the right-group reservation is
+      per node (nested renderers reset `--nf-right-group-height`) and `BranchChildrenView` retries
+      host attachment instead of giving up when a node view mounts in a temporary container.
+      Evidence: stress note 150 blocks, 7 chapters; chapter 01 8,028 px, chapter 02 starts at
+      8,839 px, 0 cards cross their chapter bottom. At 1440×900 the usable canvas content is
+      1,078 px, so 480 + 24 + 420 fills the row and the next level wraps; at 70% zoom the canvas
+      reaches its 1,600 px shell width (1,520 px content) and a third level fits. This is the D23
+      finite-width rule, not an infinite canvas.
 - [ ] Hand the build/screenshots to the product owner for a visual/density/arrow pass. (ready)
 - [ ] Do **not** start R3 (Settings UI/manual breaks), R4 docs, or M4c PDF until the checkpoint is accepted or fixes are requested.
 - [ ] If the checkpoint fails, fix Page placement/arrows/density before any PDF work.

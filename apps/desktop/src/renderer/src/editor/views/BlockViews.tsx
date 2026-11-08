@@ -426,30 +426,72 @@ export function BranchChildrenView({ node }: NodeViewProps): JSX.Element {
   // With a below stack the right group is absolutely placed beside the parent
   // card so a tall right group cannot push the lane down. Reserve its height
   // in the flow so following top-level blocks never overlap it.
+  //
+  // A React node view may mount in a temporary container before ProseMirror
+  // inserts it under its branchBlock. Resolve the host on every pass (the
+  // CalloutLaneView does the same): returning once at mount used to leave a
+  // tall chain with no reservation, so the next chapter overlapped it.
   useLayoutEffect(() => {
     const group = groupRef.current;
     if (group === null) return undefined;
-    const host = group.closest<HTMLElement>('.nf-block-inner');
-    if (host === null) return undefined;
-    const update = (): void => {
-      host.style.setProperty(
-        '--nf-right-group-height',
-        `${Math.ceil(group.offsetHeight)}px`,
-      );
+
+    let disposed = false;
+    let attachmentObserver: MutationObserver | null = null;
+    let cleanupSetup: (() => void) | null = null;
+
+    const setup = (host: HTMLElement): void => {
+      let frame = 0;
+      const update = (): void => {
+        frame = 0;
+        if (disposed) return;
+        host.style.setProperty(
+          '--nf-right-group-height',
+          `${Math.ceil(group.offsetHeight)}px`,
+        );
+      };
+      const schedule = (): void => {
+        if (disposed || frame !== 0) return;
+        frame = requestAnimationFrame(update);
+      };
+      update();
+      const observer = new ResizeObserver(schedule);
+      observer.observe(group);
+      const mutation = new MutationObserver(schedule);
+      mutation.observe(group, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-collapsed'],
+      });
+      cleanupSetup = () => {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        observer.disconnect();
+        mutation.disconnect();
+        host.style.removeProperty('--nf-right-group-height');
+      };
     };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(group);
-    const mutation = new MutationObserver(update);
-    mutation.observe(group, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'style', 'data-collapsed'],
-    });
+
+    const attach = (): void => {
+      if (disposed || cleanupSetup !== null) return;
+      const host = group.closest<HTMLElement>('.nf-block-inner');
+      if (host === null) {
+        if (attachmentObserver === null) {
+          attachmentObserver = new MutationObserver(attach);
+          attachmentObserver.observe(document.body, { childList: true, subtree: true });
+        }
+        return;
+      }
+      attachmentObserver?.disconnect();
+      attachmentObserver = null;
+      setup(host);
+    };
+
+    attach();
     return () => {
-      observer.disconnect();
-      mutation.disconnect();
+      disposed = true;
+      attachmentObserver?.disconnect();
+      cleanupSetup?.();
     };
   }, []);
 

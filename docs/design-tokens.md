@@ -126,7 +126,10 @@ These are not design tokens. Components write them per block/lane from live meas
 supplies the fallback shape.
 
 - `--nf-lane-width`: bounded callout lane width.
-- `--nf-right-group-height`: reserved height of the absolute right group.
+- `--nf-right-group-height`: reserved height of the absolute right group. It is per node, not
+  inherited: every nested renderer resets it to `0px`, and a node with its own right group publishes
+  a fresh value from `BranchChildrenView`. Without the reset, a callout-only descendant inherited
+  the ancestor's reservation and the height compounded on each resize.
 - `--nf-callout-offset`, `--nf-callout-dot-left`, `--nf-callout-leader-left`,
   `--nf-callout-leader-width`: live anchor alignment.
 - `--nf-sidebar-width`: user-adjusted shell sidebar width.

@@ -2581,6 +2581,18 @@ body.nf-dragging-block .nf-gutter-handle {
   isolation: isolate;
 }
 
+/* `--nf-right-group-height` is a per-node reservation, but custom properties
+   inherit. Reset it on every nested renderer, not only on a callout node: a
+   descendant with callouts but no right group of its own must not reserve its
+   ancestor's height. Without this, a callout-only row inherited the parent's
+   reservation, the parent's group measured the inflated row, and the value
+   compounded on each resize until a chapter was millions of pixels tall. A
+   nested node that does have a right group sets its own value again from
+   BranchChildrenView. */
+.nf-block-inner > div > .react-renderer {
+  --nf-right-group-height: 0px;
+}
+
 /* Below-stack stacking order: the parent card keeps its bottom controls on
    top, the anchored callout lane paints above the direct-child column, and the
    right group stays behind both. The safe zone still prevents overlap; this
