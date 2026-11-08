@@ -113,6 +113,8 @@ Status: **complete** — report `docs/reports/r2a-page-arrows-cleanup.md`
 
 ### R2b — Page packing/width density
 
+Status: **in progress** — brief `docs/tasks/r2b-page-packing.md`; chosen approach: `beside` packing (direct children at parent y, callouts below in the left column), with a stacked fallback.
+
 - [ ] After compact, test the horizontal levers: wider max card, callout-right lane, two-column top-level packing.
 - [ ] Product-owner decision if two-column changes the reading flow; report page count and whitespace.
 - [ ] Implement the chosen lever only after the Page arrows/marker cleanup is stable.
