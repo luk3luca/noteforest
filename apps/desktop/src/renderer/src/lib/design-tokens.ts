@@ -11,15 +11,16 @@
  * must consume `var(--nf-*)` for them and never repeat the literal; guard test:
  * `apps/desktop/test/design-tokens-css.test.ts`.
  *
- * Values with no CSS consumer are router-only: `trunkInset`, `trunkGap`,
- * `stemMin`, `calloutGap`, the callout lane/safe-zone bounds, `edgeRadius`,
- * `edgeGap`, the arrowhead, and the edge lane/min-gap values. Keep them as TS
- * so the renderer and the router cannot disagree.
+ * Edge stroke, arrowhead, corner, lane, and stem values come from the shared
+ * `EDGE_STYLE` in `@noteforest/layout` (R2d), so Continuous, Page, and the print
+ * model cannot drift. Keep the non-edge shell values here.
  *
  * `rowIndent` and `trunkInset` are measured from the lane's left edge, which is
  * also the parent card's left edge: the callout/direct row and the shared trunk
  * move together when the lane is wider than a narrow parent.
  */
+
+import { EDGE_STYLE } from '@noteforest/layout';
 
 /** CSS-bound values shared by the renderer and the stylesheet. */
 export const DESIGN_TOKENS = Object.freeze({
@@ -30,7 +31,7 @@ export const DESIGN_TOKENS = Object.freeze({
   /** Visible gap between the parent card bottom and the below trunk start. */
   trunkGap: 8,
   /** Minimum straight stem before a fixed arrowhead. */
-  stemMin: 12,
+  stemMin: EDGE_STYLE.stemMin,
   /**
    * Gap between a parent card/lane and the direct-child group. The 24 px budget
    * is `edgeLaneMin` (10) + `stemMin` (12) + `edgeGap` (2), so a shared right
@@ -55,19 +56,19 @@ export const DESIGN_TOKENS = Object.freeze({
     safeGap: 16,
   }),
   /** Primary elbows are near-right angles, never wide arcs. */
-  edgeRadius: 2,
+  edgeRadius: EDGE_STYLE.radius,
   /** Space kept between the arrow tip and the child's left edge. */
-  edgeGap: 2,
+  edgeGap: EDGE_STYLE.gap,
   /** Fixed arrowhead polygon, independent of path length. */
-  edgeArrowLength: 6,
-  edgeArrowHalfWidth: 3,
-  edgeWidth: 1.25,
-  edgeWidthActive: 1.75,
-  edgeWidthMuted: 1,
+  edgeArrowLength: EDGE_STYLE.arrowLength,
+  edgeArrowHalfWidth: EDGE_STYLE.arrowHalfWidth,
+  edgeWidth: EDGE_STYLE.edgeWidth,
+  edgeWidthActive: EDGE_STYLE.edgeWidthActive,
+  edgeWidthMuted: EDGE_STYLE.edgeWidthMuted,
   /** Shared trunk lane, clamped between these offsets from the parent edge. */
-  edgeLaneMin: 2,
-  edgeLaneMax: 14,
-  edgeMinGap: 4,
+  edgeLaneMin: EDGE_STYLE.laneMin,
+  edgeLaneMax: EDGE_STYLE.laneMax,
+  edgeMinGap: EDGE_STYLE.minGap,
   /** Block width bounds (cards are content-driven inside them). */
   topLevelMinWidth: 160,
   topLevelMaxWidth: 480,

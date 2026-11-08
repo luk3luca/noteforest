@@ -1,7 +1,7 @@
 # Design tokens — layout, spacing, edges, surfaces
 
-**Status:** Active (M3h4 single source + CSS guard, 6 November 2026)  
-**Source of truth:** `apps/desktop/src/renderer/src/lib/design-tokens.ts`  
+**Status:** Active (M3h4 single source + CSS guard, 6 November 2026; R2d shared edge style, 8 November 2026)
+**Source of truth:** `apps/desktop/src/renderer/src/lib/design-tokens.ts` for shell/layout values; `packages/layout/src/edge-style.ts` for edge stroke, arrowhead, corner, lane, and stem values.
 **Related:** `docs/ux-shell.md`, `docs/design/m3-anchors-references.md` §6.2.1
 
 This is the single reference for layout/spacing values that used to be scattered across components.
@@ -62,8 +62,14 @@ literal remains in CSS.
 
 ## Router-only tokens
 
-These values never appear in CSS; they feed `geometry.ts` / `edge-routing.ts` (SVG coordinates or
-placement math). Keep them in the TS module so the renderer and the router cannot disagree.
+These values never appear in CSS; they feed `geometry.ts` / `edge-routing.ts` / `page-routing.ts`
+(SVG coordinates or placement math). Keep them in the shared TS modules so the renderer, the Page
+router, and the print model cannot disagree.
+
+Edge tokens (`EDGE_STYLE` in `packages/layout/src/edge-style.ts`) include the visual values below
+plus the R2d page-route search values: `pageClearance` 3 px (route/card clearance), `pageLaneStep`
+4 px (parallel duplicate edges), and `pageTurnPenalty` 60 px (search cost only, not a visual
+value).
 
 | Token | Value | Used for |
 |---|---:|---|
@@ -165,6 +171,30 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 
 ## Edges
 
+- **One source, two surfaces (R2d).** Continuous (`edge-routing.ts`), Page Read/Edit
+  (`PageEdges.tsx`), and the PDF print model all consume `EDGE_STYLE` and the path helpers in
+  `packages/layout/src/edge-style.ts`: `roundedPath` (orthogonal `L`/`Q`, never cubic `C`),
+  `arrowPath` (filled 6 × 3 primary polygon), and `openArrowForDirection` (7 px open reference
+  chevron). `DESIGN_TOKENS` re-exports those values as `GEOMETRY`; do not add a second copy.
+- **Page routing.** `packages/layout/src/page-routing.ts` projects each same-page edge onto an
+  obstacle-aware orthogonal polyline. Fragment card boxes are obstacles with 3 px clearance; the
+  route leaves the source through a rail just outside its right edge (3 px clearance, +4 px per
+  parallel duplicate) and enters the target's left edge with a final stem of at least 12 px.
+  Earlier sibling cards are never crossed.
+- **Target entry.** Left entry is the default. A side is used only when it can fit the full 12 px
+  stem inside the content box; a wrapped page row that starts 12 px from the content left therefore
+  takes the target top instead of shortening the stem. Top/right/bottom entry points use the same
+  arrowhead and corner primitives. A target on the content left (x = 0) has no left approach; it
+  uses the top entry (or right entry when the target is above the source).
+- **Lanes.** Distinct targets from one source deliberately share the source rail, so the shared
+  segment reads as the Continuous trunk. Duplicate edges between the same two fragments get
+  `pageLaneStep` (4 px) parallel rails so they never overdraw exactly.
+- **Cross-page indicators** stay straight horizontal `to-edge`/`from-edge` lines from/to the content
+  edge, with the same stroke and arrowhead; the SVG clips them to the page content box. Reference
+  edges keep their target-only `from-edge` rule.
+- **Shared primitives.** Continuous and Page arrows use the same stroke width
+  (`--nf-edge-width`, 1.25), fixed arrowhead size/fill rules, near-right corner radius (2 px), and
+  minimum stem (12 px).
 - The right-group gap is 24 px: 10 px horizontal lead from the parent, 12 px final stem, 2 px arrow
   gap. A shared right trunk therefore leaves the parent horizontally before descending instead of
   running along the card edge.
@@ -176,7 +206,6 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 - Primary/right, below/callout, and reference edges all use the same fixed 6×6 arrowhead.
 - Primary and below elbows use `edgeRadius` 2 px; the first-child trunk junction stays sharp.
 - Reference edges are dashed with an open chevron and never join the primary V4 trunk.
-- No top-entry arrows: every target edge enters from the left.
 - Stroke widths come from `--nf-edge-width` (1.25), `--nf-edge-width-active` (1.75), and
   `--nf-edge-width-muted` (1); primary and reference edges share the normal width.
 
