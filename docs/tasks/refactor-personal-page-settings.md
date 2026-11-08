@@ -1,6 +1,6 @@
 # Refactor — personal page settings (master checklist)
 
-**Status:** R1a/R1b complete, R2a next (8 November 2026)  
+**Status:** R1a/R1b/R2a complete, R2b next (8 November 2026)  
 **Decision:** `docs/adr/0008-personal-page-settings.md`  
 **Related:** ADR-0002, ADR-0007, `docs/plan.md`  
 **Gate:** do not start M4c PDF until Page View is usable (arrows + density).
@@ -102,14 +102,14 @@ Status: **complete** — report `docs/reports/r1b-settings-theme-density.md`
 
 ### R2a — Page arrows + remove Continuous page chrome
 
-Status: **in progress** — brief `docs/tasks/r2a-page-arrows-cleanup.md`
+Status: **complete** — report `docs/reports/r2a-page-arrows-cleanup.md`
 
-- [ ] Remove `PageBreakMarkers`, `page-markers`, marker CSS/tests/visual tests.
-- [ ] Stop running the page model in Continuous; PageView owns it.
-- [ ] Add Page edges using the same edge mapper as `packages/pdf/src/printModel.ts` (no second router).
-- [ ] Primary solid, reference dashed/labeled; same-page route; cross-page `→ page N` / `← from page M`.
-- [ ] Arrows in Page Read and Page Edit, not in Continuous.
-- [ ] No DOM shift, no second paginator.
+- [x] Remove `PageBreakMarkers`, `page-markers`, marker CSS/tests/visual tests.
+- [x] Stop running the page model in Continuous; PageView owns it.
+- [x] Add Page edges using the same edge mapper as `packages/pdf/src/printModel.ts` (no second router).
+- [x] Primary solid, reference dashed/labeled; same-page route; cross-page `→ page N` / `← from page M`.
+- [x] Arrows in Page Read and Page Edit, not in Continuous.
+- [x] No DOM shift, no second paginator.
 
 ### R2b — Page packing/width density
 
