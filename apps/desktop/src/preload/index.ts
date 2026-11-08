@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { AppSettings } from '@noteforest/layout';
 import type {
   ApplyResult,
   BootstrapResult,
@@ -53,6 +54,8 @@ const api: NoteForestApi = {
   revealLibrary: (): Promise<void> => ipcRenderer.invoke('library:reveal'),
   saveSession: (state: SessionState): Promise<void> =>
     ipcRenderer.invoke('session:save', state),
+  saveSettings: (settings: AppSettings): Promise<void> =>
+    ipcRenderer.invoke('settings:save', settings),
   setWindowState: (state: WindowState): Promise<void> =>
     ipcRenderer.invoke('window:set-state', state),
   onMenu: (handler: (command: MenuCommand) => void): (() => void) => {

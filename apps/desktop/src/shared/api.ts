@@ -7,6 +7,11 @@
  */
 
 import type { Asset, AssetAvailability, CreatedIds, Document, DocumentCommand } from '@noteforest/core';
+import type {
+  AppSettings,
+  ContinuousSettingsOverride,
+  PageSettingsOverride,
+} from '@noteforest/layout';
 import type { DocumentLayout, InteractionMode, PageFit } from './view-state';
 
 export type OpenStatus = 'editable' | 'read-only';
@@ -107,6 +112,13 @@ export interface SessionTabState {
   pageFit?: PageFit;
   /** Continuous surface zoom. */
   zoom?: number;
+  /**
+   * Personal per-document page override (ADR-0008). Absent means the global
+   * `settings.json` page settings apply unchanged. Never document content.
+   */
+  pageSettingsOverride?: PageSettingsOverride;
+  /** Personal per-document continuous override. Absent means global settings. */
+  continuousSettingsOverride?: ContinuousSettingsOverride;
 }
 
 export interface SessionState {
@@ -120,6 +132,8 @@ export interface SessionState {
 export interface BootstrapResult {
   library: LibraryView;
   session: SessionState;
+  /** Personal app settings (page/continuous) resolved from `settings.json`. */
+  settings: AppSettings;
   openDocuments: OpenDocumentSnapshot[];
   /** Session tabs whose package is damaged, missing, or newer than this app. */
   recoveries: RecoveryDocumentView[];
@@ -396,6 +410,8 @@ export interface NoteForestApi {
   revealDocument(packagePath: string): Promise<RevealResult>;
   revealLibrary(): Promise<void>;
   saveSession(state: SessionState): Promise<void>;
+  /** Persist personal app settings; the main process normalizes before write. */
+  saveSettings(settings: AppSettings): Promise<void>;
   setWindowState(state: WindowState): Promise<void>;
   onMenu(handler: (command: MenuCommand) => void): () => void;
   onRequestFlush(handler: () => Promise<FlushResult>): () => void;

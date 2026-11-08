@@ -23,6 +23,17 @@ declare global {
       assetAvailability?: () => unknown;
       /** Test-only: canonical split caret of the active editor. */
       caretLocation?: () => unknown;
+      /** Test-only: global and per-document personal settings. */
+      settings?: () => unknown;
+      /** Test-only: replace and persist the global app settings. */
+      setSettings?: (settings: unknown) => Promise<unknown>;
+      /** Test-only: set one document override and persist the session. */
+      setPageSettingsOverride?: (
+        packagePath: string,
+        override: unknown,
+      ) => Promise<unknown>;
+      /** Test-only: resolved page settings for one document. */
+      resolvedPageSettings?: (packagePath: string) => unknown;
       editorCheck?: () => unknown;
       editorJson?: () => unknown;
       perf?: () => unknown;

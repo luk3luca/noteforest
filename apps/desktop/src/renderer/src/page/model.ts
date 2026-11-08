@@ -10,13 +10,10 @@ import type {
   LayoutDefect,
   MeasurementPort,
   NoteDocument,
+  PageSettings,
 } from '@noteforest/layout';
-import {
-  DEFAULT_PAGE_SETTINGS,
-  layoutDocument,
-  paginate,
-} from '@noteforest/layout';
-import { PAGE_LAYOUT_OPTIONS } from './adapter';
+import { layoutDocument, pageLayoutOptions, paginate } from '@noteforest/layout';
+import { pageSetupOf } from './adapter';
 
 export interface PageModelData {
   layout: ContinuousLayout;
@@ -27,18 +24,33 @@ export interface PageModelData {
   empty: boolean;
 }
 
+/**
+ * Fingerprint the resolved settings so the hook can recompute exactly when a
+ * page setup/theme/manual-break change makes the old model stale.
+ */
+export function pageSettingsFingerprint(settings: PageSettings): string {
+  return JSON.stringify([
+    settings.setup.size,
+    settings.setup.orientation,
+    settings.setup.margins,
+    settings.theme,
+    settings.manualBreakBeforeBlockIds,
+  ]);
+}
+
 export function computePageModel(
   document: NoteDocument,
   port: MeasurementPort,
+  settings: PageSettings,
 ): PageModelData {
   const layout = layoutDocument(
     document,
     port,
-    PAGE_LAYOUT_OPTIONS,
-    DEFAULT_PAGE_SETTINGS.setup,
+    pageLayoutOptions(settings.theme),
+    pageSetupOf(settings),
   );
   const paginated = paginate(layout, document, {
-    manualBreakBeforeBlockIds: [...DEFAULT_PAGE_SETTINGS.manualBreakBeforeBlockIds],
+    manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],
   });
   return {
     layout,

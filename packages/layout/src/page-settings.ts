@@ -460,6 +460,111 @@ export function normalizeContinuousSettings(
   return { zoom: finiteNumber(record['zoom'], 1, 0.25, 4) };
 }
 
+/** Merge a per-document continuous override onto the global continuous settings. */
+export function mergeContinuousSettings(
+  base: ContinuousSettings,
+  override?: ContinuousSettingsOverride | null,
+): ContinuousSettings {
+  const record = isRecord(override) ? override : {};
+  return { zoom: finiteNumber(record['zoom'], base.zoom, 0.25, 4) };
+}
+
+const PAGE_THEME_NUMERIC_KEYS = [
+  'fontScale',
+  'bodyPt',
+  'bodyLine',
+  'headingScale',
+  'heading1Pt',
+  'heading2Pt',
+  'heading3Pt',
+  'codePt',
+  'codeLine',
+  'tablePt',
+  'tableLine',
+  'labelPt',
+  'chromePt',
+  'markerPt',
+  'cardPadding',
+  'cardBorder',
+  'segmentGap',
+  'siblingGap',
+  'wrapIndent',
+  'maxWrapIndent',
+  'calloutGap',
+  'maxCardWidth',
+  'minContentWidth',
+] as const satisfies readonly (keyof PageTheme)[];
+
+const MARGIN_KEYS = ['top', 'right', 'bottom', 'left'] as const;
+
+/**
+ * Normalize an untrusted per-document override without expanding it into a full
+ * settings object.
+ *
+ * Only fields that were actually present survive, so a later global preset
+ * change still affects every field the document did not override. Values are
+ * clamped through the same merge path as `normalizePageSettings`; unknown keys
+ * and invalid values are dropped.
+ */
+export function normalizePageSettingsOverride(
+  input?: unknown,
+): PageSettingsOverride | undefined {
+  if (!isRecord(input)) return undefined;
+  const resolved = mergePageSettings(
+    DEFAULT_PAGE_SETTINGS,
+    input as PageSettingsOverride,
+  );
+  const override: PageSettingsOverride = {};
+
+  const rawSetup = isRecord(input['setup']) ? input['setup'] : null;
+  if (rawSetup !== null) {
+    const setup: PageSetupOverride = {};
+    if (isPageSize(rawSetup['size'])) setup.size = rawSetup['size'];
+    if (isOrientation(rawSetup['orientation'])) setup.orientation = rawSetup['orientation'];
+    const rawMargins = isRecord(rawSetup['margins']) ? rawSetup['margins'] : null;
+    if (rawMargins !== null) {
+      const margins: Partial<MarginsMm> = {};
+      for (const key of MARGIN_KEYS) {
+        const value = rawMargins[key];
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          margins[key] = resolved.setup.margins[key];
+        }
+      }
+      if (Object.keys(margins).length > 0) setup.margins = margins;
+    }
+    if (Object.keys(setup).length > 0) override.setup = setup;
+  }
+
+  const rawTheme = isRecord(input['theme']) ? input['theme'] : null;
+  if (rawTheme !== null) {
+    const theme: Partial<PageTheme> = {};
+    if (isPreset(rawTheme['preset'])) theme.preset = rawTheme['preset'];
+    for (const key of PAGE_THEME_NUMERIC_KEYS) {
+      const value = rawTheme[key];
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        (theme as Record<string, number>)[key] = resolved.theme[key];
+      }
+    }
+    if (Object.keys(theme).length > 0) override.theme = theme;
+  }
+
+  if (Array.isArray(input['manualBreakBeforeBlockIds'])) {
+    override.manualBreakBeforeBlockIds = resolved.manualBreakBeforeBlockIds;
+  }
+
+  return Object.keys(override).length > 0 ? override : undefined;
+}
+
+/** Normalize a per-document continuous override; invalid input means no override. */
+export function normalizeContinuousSettingsOverride(
+  input?: unknown,
+): ContinuousSettingsOverride | undefined {
+  if (!isRecord(input)) return undefined;
+  const zoom = input['zoom'];
+  if (typeof zoom !== 'number' || !Number.isFinite(zoom)) return undefined;
+  return { zoom: normalizeContinuousSettings(input as ContinuousSettingsOverride).zoom };
+}
+
 /** Resolve the global app settings with safe defaults. */
 export function normalizeAppSettings(input?: {
   page?: PageSettingsOverride | null;

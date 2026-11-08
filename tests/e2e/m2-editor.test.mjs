@@ -2454,8 +2454,11 @@ describe('NoteForest M2 editor shell', () => {
     await h.waitEditorText('Durable child note');
     await page.waitForSelector('.nf-anchor-mark[data-anchor-mark="true"]');
     const reloaded = await page.evaluate(() => window.__noteforestTest.structure());
+    // `manualBreakBeforeBlockIds` is a resolved personal page setting exposed by
+    // the bridge, never canonical document data; compare the canonical part.
+    const { manualBreakBeforeBlockIds, ...reloadedCanonical } = reloaded;
     assert.deepEqual(
-      reloaded,
+      reloadedCanonical,
       storedStructure(await readDiskDocument(packagePath)),
       'the reloaded document matches the saved anchor binding and branch',
     );

@@ -43,6 +43,7 @@ import {
   seedDocument,
   takeOverStaleLock,
   writeSession,
+  writeSettings,
 } from './library.js';
 import { attachTextContextMenu, installApplicationMenu } from './menu.js';
 import { flushDecision, quitCanProceed } from './lifecycle.js';
@@ -273,6 +274,7 @@ function registerIpc(): void {
     return {
       library,
       session: restored.session,
+      settings: restored.settings,
       openDocuments: restored.openDocuments,
       recoveries: restored.recoveries,
       appVersion: app.getVersion(),
@@ -417,6 +419,10 @@ function registerIpc(): void {
 
   ipcMain.handle('session:save', async (_event, state: SessionState) => {
     await writeSession(state);
+  });
+
+  ipcMain.handle('settings:save', async (_event, settings: unknown) => {
+    await writeSettings(settings);
   });
 
   ipcMain.handle('window:set-state', (_event, state: WindowState) => {

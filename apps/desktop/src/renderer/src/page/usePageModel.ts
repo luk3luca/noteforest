@@ -21,12 +21,13 @@ import type {
   ContinuousLayout,
   DerivedPage,
   LayoutDefect,
+  PageSettings,
 } from '@noteforest/layout';
 import type { DocumentRuntime } from '../state/runtime';
 import { assetUrlFor } from '../lib/asset-url';
 import { toLayoutDocument } from './adapter';
 import { createDomPageMeasurement } from './measurement';
-import { computePageModel, type PageModelData } from './model';
+import { computePageModel, pageSettingsFingerprint, type PageModelData } from './model';
 
 const DEBOUNCE_MS = 150;
 
@@ -69,7 +70,11 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function usePageModel(runtime: DocumentRuntime, active: boolean): PageModelState {
+export function usePageModel(
+  runtime: DocumentRuntime,
+  active: boolean,
+  settings: PageSettings,
+): PageModelState {
   // Subscribe to the runtime so content and save-state notifications re-render
   // this hook. The snapshot value itself is not needed: the canonical revision
   // below is the recomputation key.
@@ -98,9 +103,11 @@ export function usePageModel(runtime: DocumentRuntime, active: boolean): PageMod
     setReloadToken((value) => value + 1);
   }, []);
 
+  const settingsFingerprint = pageSettingsFingerprint(settings);
+
   useEffect(() => {
     if (!active) return undefined;
-    const key = `${revision}:${reloadToken}`;
+    const key = `${revision}:${reloadToken}:${settingsFingerprint}`;
     if (completedKey.current === key) return undefined;
     const controller = new AbortController();
     const delay = hasRun.current ? DEBOUNCE_MS : 0;
@@ -112,12 +119,12 @@ export function usePageModel(runtime: DocumentRuntime, active: boolean): PageMod
           const source = runtime.document;
           const noteDocument = toLayoutDocument(source);
           const urls = assetUrlsFor(runtime);
-          const measurement = createDomPageMeasurement(noteDocument, urls);
+          const measurement = createDomPageMeasurement(noteDocument, urls, settings);
           try {
             await measurement.prepare(Object.values(noteDocument.blocks), controller.signal);
             if (controller.signal.aborted) return;
             const computeStartedAt = performance.now();
-            const computed = computePageModel(noteDocument, measurement);
+            const computed = computePageModel(noteDocument, measurement, settings);
             const computeMs = performance.now() - computeStartedAt;
             if (controller.signal.aborted) return;
             setModel(computed);
@@ -147,9 +154,11 @@ export function usePageModel(runtime: DocumentRuntime, active: boolean): PageMod
     };
     // `version` intentionally stays out of the dependency list: it is the
     // store subscription that re-renders this hook, while the canonical
-    // revision decides whether the model must be recomputed.
+    // revision decides whether the model must be recomputed. Settings changes
+    // are explicit: the resolved fingerprint joins the key and dependencies so
+    // the same document re-paginates under the new page lens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, revision, reloadToken, runtime]);
+  }, [active, revision, reloadToken, runtime, settings, settingsFingerprint]);
 
   return {
     pages: model?.pages ?? [],

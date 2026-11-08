@@ -20,7 +20,8 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import type { PageFragment, PageGeometry } from '@noteforest/layout';
+import type { PageFragment, PageGeometry, PageSettings } from '@noteforest/layout';
+import { pageCssVariables } from '@noteforest/layout';
 import { createEditorExtensions } from '../editor/extensions';
 import {
   blockBodyContent,
@@ -41,6 +42,8 @@ interface PageBlockEditorProps {
   /** Fragment the user opened; its page-local box anchors the overlay. */
   fragment: PageFragment;
   geometry: PageGeometry;
+  /** Resolved personal settings; the overlay uses the same page theme as Read. */
+  settings: PageSettings;
   onCommitted: (reason: PageEditCommitReason) => void;
 }
 
@@ -56,6 +59,7 @@ export function PageBlockEditor({
   blockId,
   fragment,
   geometry,
+  settings,
   onCommitted,
 }: PageBlockEditorProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -238,7 +242,10 @@ export function PageBlockEditor({
   };
 
   const spanning = !fragment.isFirst || !fragment.isLast;
+  // The overlay is positioned in the page-layout coordinate system of the
+  // resolved settings and uses the same theme variables as the sheet behind it.
   const style: CSSProperties = {
+    ...(pageCssVariables(settings.theme) as CSSProperties),
     left: geometry.marginsPx.left + fragment.page.x,
     top: geometry.marginsPx.top + fragment.page.y,
     width: fragment.page.width,

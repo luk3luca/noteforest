@@ -4353,19 +4353,34 @@ body.nf-dragging-block .nf-gutter-handle {
  * the paginator measures the card through the same classes.
  * ------------------------------------------------------------------------- */
 
+/*
+ * Page theme fallbacks only. Page Read/Edit and the measurement host write the
+ * resolved `pageCssVariables(theme)` map inline; these root values keep any
+ * detached page markup on the compact product default instead of smuggling in
+ * a second comfortable theme.
+ */
 :root {
-  --nf-page-body-size: 10.5pt;
-  --nf-page-body-line: 1.45;
-  --nf-page-label-size: 11pt;
-  --nf-page-heading-1: 16pt;
-  --nf-page-heading-2: 13.5pt;
-  --nf-page-heading-3: 12pt;
-  --nf-page-code-size: 8.75pt;
-  --nf-page-code-line: 1.45;
-  --nf-page-table-size: 9.5pt;
-  --nf-page-table-line: 1.35;
-  --nf-page-chrome-size: 8pt;
-  --nf-page-marker-size: 7.5pt;
+  --nf-page-body-size: 9pt;
+  --nf-page-body-line: 1.3;
+  --nf-page-label-size: 9pt;
+  --nf-page-heading-1: 14pt;
+  --nf-page-heading-2: 12pt;
+  --nf-page-heading-3: 10.5pt;
+  --nf-page-code-size: 8pt;
+  --nf-page-code-line: 1.3;
+  --nf-page-table-size: 8.5pt;
+  --nf-page-table-line: 1.25;
+  --nf-page-chrome-size: 7.5pt;
+  --nf-page-marker-size: 7pt;
+  --nf-page-card-padding: 8px;
+  --nf-page-card-border: 1px;
+  --nf-page-segment-gap: 4px;
+  --nf-page-sibling-gap: 16px;
+  --nf-page-wrap-indent: 12px;
+  --nf-page-max-wrap-indent: 36px;
+  --nf-page-callout-gap: 12px;
+  --nf-page-max-card-width: 420px;
+  --nf-page-min-content-width: 160px;
   --nf-page-ink: #1a1f23;
   --nf-page-muted: #65737c;
   --nf-page-rule: #d9dfe4;
@@ -4436,7 +4451,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-page-scope .nf-quote {
   margin: 0;
-  padding-left: var(--nf-card-padding);
+  padding-left: var(--nf-page-card-padding);
   border-left: 3px solid var(--nf-page-rule);
   color: #3c4a52;
 }
@@ -4444,7 +4459,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-page-scope .nf-li {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: calc(var(--nf-page-segment-gap) * 1.5);
 }
 
 .nf-page-scope .nf-li-marker {
@@ -4460,7 +4475,7 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-page-scope .nf-li-paragraph + .nf-li-paragraph {
-  margin-top: 4px;
+  margin-top: var(--nf-page-segment-gap);
 }
 
 .nf-page-scope .nf-inline-code {
@@ -4513,7 +4528,7 @@ body.nf-dragging-block .nf-gutter-handle {
   border-left: 1px solid #dfe5e9;
   border-right: 1px solid #dfe5e9;
   border-bottom: 1px solid #dfe5e9;
-  padding: 6px var(--nf-page-card-padding);
+  padding: calc(var(--nf-page-card-padding) * 0.75) var(--nf-page-card-padding);
   font-size: var(--nf-page-table-size);
   line-height: var(--nf-page-table-line);
   vertical-align: top;
@@ -4529,7 +4544,7 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-page-scope .nf-cell-paragraph + .nf-cell-paragraph {
-  margin-top: 4px;
+  margin-top: var(--nf-page-segment-gap);
 }
 
 .nf-page-scope .nf-figure {
@@ -4548,8 +4563,8 @@ body.nf-dragging-block .nf-gutter-handle {
   background: var(--nf-page-missing-bg);
   color: var(--nf-page-missing-ink);
   padding: var(--nf-page-card-padding);
-  font-size: 10pt;
-  line-height: 1.35;
+  font-size: var(--nf-page-body-size);
+  line-height: var(--nf-page-body-line);
 }
 
 .nf-page-scope .nf-math-inline {
@@ -4857,7 +4872,7 @@ body.nf-dragging-block .nf-gutter-handle {
   padding: var(--nf-page-card-padding);
   border: 1px dashed var(--danger);
   color: var(--danger);
-  font-size: 9pt;
+  font-size: var(--nf-page-body-size);
 }
 
 .nf-page-badge {
@@ -4866,7 +4881,7 @@ body.nf-dragging-block .nf-gutter-handle {
   right: 2px;
   padding: 1px 5px;
   border-radius: 999px;
-  font-size: 7pt;
+  font-size: var(--nf-page-marker-size);
   line-height: 1.3;
   pointer-events: none;
   white-space: nowrap;

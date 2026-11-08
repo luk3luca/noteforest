@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createDocument, type Document } from '@noteforest/core';
-import { createEstimatedMeasurement } from '@noteforest/layout';
+import {
+  DEFAULT_PAGE_SETTINGS,
+  createEstimatedMeasurement,
+  normalizePageSettings,
+} from '@noteforest/layout';
 import { toLayoutDocument } from '../src/renderer/src/page/adapter';
 import {
   blockingDefects,
@@ -48,6 +52,7 @@ describe('page model pure parts', () => {
     const model = computePageModel(
       toLayoutDocument(document),
       createEstimatedMeasurement(toLayoutDocument(document)),
+      DEFAULT_PAGE_SETTINGS,
     );
     expect(model.pageCount).toBeGreaterThan(0);
     expect(model.pages[0]!.chapterId).toBe('ch-1');
@@ -63,6 +68,44 @@ describe('page model pure parts', () => {
     expect(model.pages.every((page) => page.fragments.length > 0)).toBe(true);
   });
 
+  it('passes the resolved A5 setup and personal manual breaks into layout + pagination', () => {
+    const document = createDocument({
+      id: 'doc-settings-model',
+      chapterId: 'ch-settings',
+      title: 'Settings model',
+    });
+    const chapter = document.chapters[0]!;
+    for (const id of ['b1', 'b2']) {
+      document.blocks[id] = {
+        id,
+        label: id,
+        content: {
+          type: 'doc',
+          children: [{ type: 'paragraph', children: [{ type: 'text', text: `Short ${id}.` }] }],
+        },
+      };
+    }
+    chapter.topLevelBlockIds = ['b1', 'b2'];
+    const settings = normalizePageSettings({
+      setup: { size: 'A5', orientation: 'portrait' },
+      manualBreakBeforeBlockIds: ['b2'],
+    });
+    const note = toLayoutDocument(document);
+    const model = computePageModel(
+      note,
+      createEstimatedMeasurement(note),
+      settings,
+    );
+    expect(model.layout.pageSetup).toEqual({
+      size: 'A5',
+      orientation: 'portrait',
+      margins: { top: 12, right: 12, bottom: 12, left: 12 },
+    });
+    expect(model.layout.geometry.pageWidthMm).toBe(148);
+    expect(model.layout.geometry.pageHeightMm).toBe(210);
+    expect(model.pageCount).toBe(2);
+  });
+
   it('returns no derived pages for an empty document', () => {
     const empty = createDocument({
       id: 'doc-empty',
@@ -73,6 +116,7 @@ describe('page model pure parts', () => {
     const model = computePageModel(
       toLayoutDocument(empty),
       createEstimatedMeasurement(toLayoutDocument(empty)),
+      DEFAULT_PAGE_SETTINGS,
     );
     expect(model.pages).toEqual([]);
     expect(model.pageCount).toBe(0);
