@@ -397,7 +397,7 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
 
 ## Refactor — personal page settings (ADR-0008)
 
-Canonical schema v2 removes `pageSetup`, `manualBreakBeforeBlockIds`, and `viewState`. Page settings (size/orientation/margins, PageTheme, manual breaks) are personal: global defaults + per-document overrides outside the document. Continuous has no pages. Page/PDF consume the resolved settings. Sequence: R1a schema/settings foundation, R1b settings store + page theme/density, R2 Page arrows + continuous marker removal, R3 settings UI/manual breaks, R4 docs/visual sweep. Briefs under `docs/tasks/r1a-*` etc.
+Canonical schema v2 removes `pageSetup`, `manualBreakBeforeBlockIds`, and `viewState`. Page settings (size/orientation/margins, PageTheme, manual breaks) are personal: global defaults + per-document overrides outside the document. Continuous has no pages. Page/PDF consume the resolved settings. Sequence: R1a schema/settings foundation, R1b settings store + page theme/density, R2 Page arrows + continuous marker removal, R3 settings UI/manual breaks, R4 docs/visual sweep. Master checklist/linea guida: `docs/tasks/refactor-personal-page-settings.md`; briefs under `docs/tasks/r1a-*` etc.
 
 ## M5–M6 — API and polish (planned)
 
