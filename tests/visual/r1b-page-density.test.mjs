@@ -6,46 +6,62 @@ import { join, resolve } from 'node:path';
 import { artifactsPath, createHarness, root } from '../support/harness.mjs';
 
 /**
- * R1b density lab.
+ * R2b page packing lab (built on the R1b density harness).
  *
- * The product owner showcase is read-only input: it is copied into the
+ * The product-owner showcase is read-only input: it is copied into the
  * isolated test library and never modified. The committed `scale-300.json`
- * fixture is the reproducible second corpus. The lab measures the real DOM page
- * surface, not the DOM-free estimator, so typography and card chrome changes
- * affect the result exactly as they affect the product.
+ * fixture is the reproducible second corpus. Every variant is measured on the
+ * real DOM page surface at 1440x900, not the DOM-free estimator.
+ *
+ * The lab compares:
+ *   - comfortable typography (the pre-R1 reference),
+ *   - compact + stacked (the accepted R2a page geometry),
+ *   - compact + beside (the R2b candidate default),
+ *   - compact + a wider max card width (whether width alone helps).
+ *
+ * Page coverage is a union-area ratio, so side-by-side cards are not counted
+ * twice. Arrow crossings are a rough straight-line heuristic over the same
+ * page content boxes; PageEdges draws cubic curves, so treat it as a signal.
  */
 
-const tempRoot = artifactsPath('r1b-density-tmp');
-const outputDir = artifactsPath('r1b');
+const tempRoot = artifactsPath('r2b-density-tmp');
+const outputDir = artifactsPath('r2b');
 const supportRoot = resolve(root, 'fixtures');
 const showcasePath = '/Users/luca/Documents/NoteForest/note-forest-showcase';
+
+/** The packing this lab must justify for the compact page default. */
+const SELECTED_PACKING = 'beside';
 
 const VARIANTS = [
   {
     id: 'comfortable',
-    label: 'Comfortable (pre-R1)',
+    label: 'Comfortable / stacked (pre-R1)',
     theme: { preset: 'comfortable' },
   },
   {
-    id: 'intermediate',
-    label: 'Intermediate 9.5 pt / 400 px',
-    theme: {
-      preset: 'compact',
-      bodyPt: 9.5,
-      bodyLine: 1.35,
-      cardPadding: 9,
-      segmentGap: 6,
-      siblingGap: 20,
-      wrapIndent: 14,
-      maxWrapIndent: 44,
-      calloutGap: 16,
-      maxCardWidth: 400,
-    },
+    id: 'compact-stacked',
+    label: 'Compact / stacked (R2a)',
+    theme: { preset: 'compact', pagePacking: 'stacked' },
   },
   {
-    id: 'compact',
-    label: 'Compact (default)',
-    theme: { preset: 'compact' },
+    id: 'compact-beside',
+    label: `Compact / beside (R2b ${SELECTED_PACKING})`,
+    theme: { preset: 'compact', pagePacking: 'beside' },
+  },
+  {
+    id: 'compact-stacked-560',
+    label: 'Compact / stacked / 560 px card',
+    theme: { preset: 'compact', pagePacking: 'stacked', maxCardWidth: 560 },
+  },
+  {
+    id: 'compact-beside-480',
+    label: 'Compact / beside / 480 px card',
+    theme: { preset: 'compact', pagePacking: 'beside', maxCardWidth: 480 },
+  },
+  {
+    id: 'compact-beside-560',
+    label: 'Compact / beside / 560 px card',
+    theme: { preset: 'compact', pagePacking: 'beside', maxCardWidth: 560 },
   },
 ];
 
@@ -101,6 +117,7 @@ async function openPath(packagePath) {
     { timeout: 20000 },
   );
   await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]', {
+    state: 'attached',
     timeout: 20000,
   });
 }
@@ -180,7 +197,13 @@ async function navigate(direction, expected) {
   );
 }
 
-/** Read layout + rendered line metrics from the current derived page. */
+/**
+ * Read layout, coverage, overlap, and line metrics from the current page.
+ *
+ * Rectangle geometry is page-content-local: fragments are absolutely placed
+ * inside `.nf-page-content`. Union area avoids double counting a card that
+ * sits beside another card in the same vertical band.
+ */
 async function readPageMetrics() {
   return page.evaluate(() => {
     const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
@@ -188,19 +211,151 @@ async function readPageMetrics() {
     const content = sheet.querySelector('.nf-page-content');
     const wrap = view.querySelector('.nf-page-sheet-wrap');
     const zoom = Number(wrap?.getAttribute('data-page-zoom') ?? '100') / 100;
+    const contentWidth = Number.parseFloat(content.style.width);
     const contentHeight = Number.parseFloat(content.style.height);
-    const fragments = [...view.querySelectorAll('.nf-page-fragment')];
-    const usedHeight = fragments.reduce(
-      (total, element) => total + Number.parseFloat(element.style.height),
+    const fragments = [...view.querySelectorAll('.nf-page-fragment')].map((element) => ({
+      blockId: element.getAttribute('data-fragment-block') ?? '',
+      role: element.getAttribute('data-fragment-role') ?? '',
+      x: Number.parseFloat(element.style.left),
+      y: Number.parseFloat(element.style.top),
+      width: Number.parseFloat(element.style.width),
+      height: Number.parseFloat(element.style.height),
+    }));
+    const callouts = fragments.filter((fragment) => fragment.role === 'callout');
+    const minCalloutWidth =
+      callouts.length > 0 ? Math.min(...callouts.map((fragment) => fragment.width)) : 0;
+    // Compact min content is 160 px + 2 * (8 px padding + 1 px border).
+    const narrowCalloutWidth = 160 + 2 * (8 + 1);
+    const narrowCallouts = callouts.filter(
+      (fragment) => fragment.width + 0.5 < narrowCalloutWidth,
+    ).length;
+    const maxRightEdge = Math.max(
       0,
+      ...fragments.map((fragment) => fragment.x + fragment.width),
     );
+    const rightOverflow = fragments.filter(
+      (fragment) => fragment.x + fragment.width > contentWidth + 0.6,
+    ).length;
+    const usedHeight = fragments.reduce((total, fragment) => total + fragment.height, 0);
     const maxBottom = Math.max(
       0,
-      ...fragments.map(
-        (element) =>
-          Number.parseFloat(element.style.top) + Number.parseFloat(element.style.height),
-      ),
+      ...fragments.map((fragment) => fragment.y + fragment.height),
     );
+
+    const unionArea = (() => {
+      const xs = [...new Set(fragments.flatMap((fragment) => [fragment.x, fragment.x + fragment.width]))]
+        .sort((a, b) => a - b);
+      let area = 0;
+      for (let index = 0; index < xs.length - 1; index += 1) {
+        const left = xs[index];
+        const right = xs[index + 1];
+        const width = right - left;
+        if (width <= 0) continue;
+        const intervals = [];
+        for (const fragment of fragments) {
+          if (fragment.x >= right || fragment.x + fragment.width <= left) continue;
+          intervals.push([fragment.y, fragment.y + fragment.height]);
+        }
+        intervals.sort((a, b) => a[0] - b[0]);
+        let covered = 0;
+        let start = null;
+        let end = null;
+        for (const [intervalStart, intervalEnd] of intervals) {
+          if (start === null) {
+            start = intervalStart;
+            end = intervalEnd;
+          } else if (intervalStart <= end + 0.5) {
+            end = Math.max(end, intervalEnd);
+          } else {
+            covered += end - start;
+            start = intervalStart;
+            end = intervalEnd;
+          }
+        }
+        if (start !== null) covered += end - start;
+        area += width * covered;
+      }
+      return area;
+    })();
+
+    let overlapPairs = 0;
+    let columnOverlapPx = 0;
+    let sideBySidePairs = 0;
+    for (let i = 0; i < fragments.length; i += 1) {
+      for (let j = i + 1; j < fragments.length; j += 1) {
+        const a = fragments[i];
+        const b = fragments[j];
+        const horizontal =
+          Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+        const vertical =
+          Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+        if (horizontal > 0.5 && vertical > 0.5) {
+          overlapPairs += 1;
+          columnOverlapPx = Math.max(columnOverlapPx, horizontal);
+          continue;
+        }
+        if (vertical > 0.5) {
+          const gap =
+            a.x + a.width <= b.x + 0.5
+              ? b.x - (a.x + a.width)
+              : b.x + b.width <= a.x + 0.5
+                ? a.x - (b.x + b.width)
+                : null;
+          if (gap !== null && gap <= 80) sideBySidePairs += 1;
+        }
+      }
+    }
+
+    const point = (value) => {
+      const [x, y] = (value ?? '').split(',').map(Number);
+      return { x, y };
+    };
+    const nearRect = (fragment, x, y) =>
+      x >= fragment.x - 1.5 &&
+      x <= fragment.x + fragment.width + 1.5 &&
+      y >= fragment.y - 1.5 &&
+      y <= fragment.y + fragment.height + 1.5;
+    const edges = [...view.querySelectorAll('[data-page-edge-id]')].map((element) => ({
+      branchId: element.getAttribute('data-page-edge-id') ?? '',
+      role: element.getAttribute('data-page-edge-role') ?? '',
+      direction: element.getAttribute('data-page-edge-direction') ?? '',
+      from: point(element.getAttribute('data-page-edge-from')),
+      to: point(element.getAttribute('data-page-edge-to')),
+    }));
+    let crossingEdges = 0;
+    let crossingHits = 0;
+    for (const edge of edges) {
+      if (edge.direction !== 'same-page') continue;
+      const sourceIndex = fragments.findIndex((fragment) =>
+        nearRect(fragment, edge.from.x, edge.from.y),
+      );
+      const targetIndex = fragments.findIndex((fragment) =>
+        nearRect(fragment, edge.to.x, edge.to.y),
+      );
+      let hits = 0;
+      for (let step = 1; step < 24; step += 1) {
+        const t = step / 24;
+        const x = edge.from.x + (edge.to.x - edge.from.x) * t;
+        const y = edge.from.y + (edge.to.y - edge.from.y) * t;
+        for (let index = 0; index < fragments.length; index += 1) {
+          if (index === sourceIndex || index === targetIndex) continue;
+          const fragment = fragments[index];
+          if (
+            x > fragment.x + 1 &&
+            x < fragment.x + fragment.width - 1 &&
+            y > fragment.y + 1 &&
+            y < fragment.y + fragment.height - 1
+          ) {
+            hits += 1;
+            break;
+          }
+        }
+      }
+      if (hits > 0) {
+        crossingEdges += 1;
+        crossingHits += hits;
+      }
+    }
 
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -249,24 +404,33 @@ async function readPageMetrics() {
       return { maxPx, maxChars, count, widest };
     };
 
-    // Prose line length is the readability signal; table cells can legitimately
-    // span the full content width, so they are reported separately.
     const proseSelector =
       '.nf-block-content .nf-p, .nf-block-content .nf-li-paragraph';
     const prose = measureLines(proseSelector);
-    // Cards wider than the text measure are unbreakable content (an image or
-    // wide table forces the block wide). Report their lines separately so the
-    // readability decision is not masked by a single image-bearing block.
     const capped = measureLines(proseSelector, 500);
     const table = measureLines('.nf-block-content .nf-cell-paragraph');
 
     return {
       pageNumber: Number(view.getAttribute('data-current-page')),
+      contentWidth,
       contentHeight,
       usedHeight,
       maxBottom,
+      coveredArea: unionArea,
+      totalArea: contentWidth * contentHeight,
       overflow: sheet.getAttribute('data-overflow') === '1',
       fragments: fragments.length,
+      calloutFragments: callouts.length,
+      minCalloutWidth,
+      narrowCallouts,
+      maxRightEdge,
+      rightOverflow,
+      sideBySidePairs,
+      overlapPairs,
+      columnOverlapPx,
+      edgeCount: edges.length,
+      crossingEdges,
+      crossingHits,
       lines: prose.count + table.count,
       maxLinePx: prose.maxPx,
       maxLineChars: prose.maxChars,
@@ -280,38 +444,60 @@ async function readPageMetrics() {
   });
 }
 
+async function setThemeAndWait(theme) {
+  const runStart = await modelRuns();
+  await setTheme(theme);
+  await waitForRunAtLeast(runStart + 1);
+}
+
+async function readDocumentPages() {
+  // Start from page 1 for every pass.
+  while ((await currentPage()) > 1) {
+    await navigate('prev', (await currentPage()) - 1);
+  }
+  const totalPages = await pageCount();
+  const pages = [];
+  for (let index = 1; index <= totalPages; index += 1) {
+    if ((await currentPage()) !== index) await navigate('next', index);
+    pages.push(await readPageMetrics());
+  }
+  return { totalPages, pages };
+}
+
+async function measureVariant(variant) {
+  await setThemeAndWait(variant.theme);
+  return {
+    variant,
+    ...(await readDocumentPages()),
+  };
+}
+
 async function measureDocument(label) {
   const variants = [];
   for (const variant of VARIANTS) {
-    const runStart = await modelRuns();
-    await setTheme(variant.theme);
-    await waitForRunAtLeast(runStart + 1);
-    // Start from page 1 for every variant.
-    while ((await currentPage()) > 1) {
-      await navigate('prev', (await currentPage()) - 1);
-    }
-    const totalPages = await pageCount();
-    const pages = [];
-    for (let index = 1; index <= totalPages; index += 1) {
-      if ((await currentPage()) !== index) await navigate('next', index);
-      pages.push(await readPageMetrics());
-    }
+    const measured = await measureVariant(variant);
+    const pages = measured.pages;
     const blocks = await page.evaluate(() => {
       const state = window.__noteforestTest.state();
       return state.runtimes.find((item) => item.packagePath === state.activeTab)?.blocks ?? 0;
     });
     const used = pages.reduce((total, item) => total + item.usedHeight, 0);
     const available = pages.reduce((total, item) => total + item.contentHeight, 0);
+    const coveredArea = pages.reduce((total, item) => total + item.coveredArea, 0);
+    const totalArea = pages.reduce((total, item) => total + item.totalArea, 0);
     const result = {
       document: label,
       variant: variant.id,
       variantLabel: variant.label,
-      pages: totalPages,
+      pages: measured.totalPages,
       blocks,
-      blocksPerPage: totalPages > 0 ? blocks / totalPages : 0,
+      blocksPerPage: measured.totalPages > 0 ? blocks / measured.totalPages : 0,
       contentHeightPx: pages[0]?.contentHeight ?? 0,
-      averageUsedHeightPx: totalPages > 0 ? used / totalPages : 0,
-      whitespaceRatio: available > 0 ? 1 - used / available : 0,
+      contentWidthPx: pages[0]?.contentWidth ?? 0,
+      averageUsedHeightPx: measured.totalPages > 0 ? used / measured.totalPages : 0,
+      verticalCoverageRatio: available > 0 ? used / available : 0,
+      coveredAreaRatio: totalArea > 0 ? coveredArea / totalArea : 0,
+      whitespaceRatio: totalArea > 0 ? 1 - coveredArea / totalArea : 0,
       maxLinePx: Math.max(0, ...pages.map((item) => item.maxLinePx)),
       maxLineChars: Math.max(0, ...pages.map((item) => item.maxLineChars)),
       cappedLinePx: Math.max(0, ...pages.map((item) => item.cappedLinePx)),
@@ -325,29 +511,27 @@ async function measureDocument(label) {
       overflowPages: pages.filter((item) => item.overflow).length,
       defects: Math.max(0, ...pages.map((item) => item.defectCount)),
       fragments: pages.reduce((total, item) => total + item.fragments, 0),
+      calloutFragments: pages.reduce((total, item) => total + item.calloutFragments, 0),
+      minCalloutWidth: (() => {
+        const withCallouts = pages.filter((item) => item.calloutFragments > 0);
+        return withCallouts.length > 0
+          ? Math.min(...withCallouts.map((item) => item.minCalloutWidth))
+          : 0;
+      })(),
+      narrowCallouts: pages.reduce((total, item) => total + item.narrowCallouts, 0),
+      maxRightEdge: Math.max(0, ...pages.map((item) => item.maxRightEdge)),
+      rightOverflow: pages.reduce((total, item) => total + item.rightOverflow, 0),
+      sideBySidePairs: pages.reduce((total, item) => total + item.sideBySidePairs, 0),
+      overlapPairs: pages.reduce((total, item) => total + item.overlapPairs, 0),
+      columnOverlapPx: Math.max(0, ...pages.map((item) => item.columnOverlapPx)),
+      edges: pages.reduce((total, item) => total + item.edgeCount, 0),
+      crossingEdges: pages.reduce((total, item) => total + item.crossingEdges, 0),
+      crossingHits: pages.reduce((total, item) => total + item.crossingHits, 0),
       lines: pages.reduce((total, item) => total + item.lines, 0),
     };
     variants.push(result);
-    console.log(
-      `DENSITY ${JSON.stringify(result)}`,
-    );
+    console.log(`DENSITY ${JSON.stringify(result)}`);
   }
-  assert.ok(
-    variants.every((variant) => variant.pages > 0),
-    `${label} has at least one derived page in every variant`,
-  );
-  const comfortable = variants.find((variant) => variant.variant === 'comfortable');
-  const compact = variants.find((variant) => variant.variant === 'compact');
-  assert.ok(comfortable !== undefined && compact !== undefined);
-  assert.ok(
-    compact.pages <= comfortable.pages,
-    `${label}: compact (${compact.pages}) no more pages than comfortable (${comfortable.pages})`,
-  );
-  assert.equal(compact.overflowPages, 0, `${label}: compact has no overflowing page`);
-  assert.ok(
-    compact.defects <= comfortable.defects,
-    `${label}: compact introduces no page defects`,
-  );
   return variants;
 }
 
@@ -376,17 +560,28 @@ async function screenshot(name, width, height) {
   await h.screenshot(join(outputDir, name), { width, height });
 }
 
-describe('R1b page density lab and compact screenshots', () => {
+function byVariant(lab, documentLabel, variantId) {
+  return lab.find((entry) => entry.document === documentLabel && entry.variant === variantId);
+}
+
+function assertVariantInvariants(entry) {
+  assert.equal(entry.overflowPages, 0, `${entry.document}/${entry.variant}: no overflowing page`);
+  assert.equal(entry.overlapPairs, 0, `${entry.document}/${entry.variant}: no overlapping fragments`);
+  assert.equal(entry.columnOverlapPx, 0, `${entry.document}/${entry.variant}: no column intrusion`);
+  assert.equal(entry.rightOverflow, 0, `${entry.document}/${entry.variant}: no fragment beyond the content box`);
+}
+
+describe('R2b page packing lab', () => {
   after(async () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
     await h.quit();
   });
 
-  it('measures showcase and scale-300 density per variant', async () => {
+  it('compares stacked, beside, and wider cards on showcase and scale-300', async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await rm(outputDir, { recursive: true, force: true });
     await mkdir(outputDir, { recursive: true });
-    const env = isolated('r1b-density');
+    const env = isolated('r2b-density');
     await mkdir(env.NOTEFOREST_LIBRARY, { recursive: true });
     await launch(env);
     await h.setWindowSize(1440, 900);
@@ -411,9 +606,68 @@ describe('R1b page density lab and compact screenshots', () => {
       `${JSON.stringify(lab, null, 2)}\n`,
     );
 
-    // Screenshot the compact Page Read page at both window sizes and both
-    // orientations. The showcase is the product-owner corpus when present;
-    // scale-300 is the committed fallback.
+    for (const documentLabel of [...new Set(lab.map((entry) => entry.document))]) {
+      const comfortable = byVariant(lab, documentLabel, 'comfortable');
+      const stacked = byVariant(lab, documentLabel, 'compact-stacked');
+      const beside = byVariant(lab, documentLabel, 'compact-beside');
+      assert.ok(comfortable !== undefined && stacked !== undefined && beside !== undefined);
+      for (const entry of lab.filter((item) => item.document === documentLabel)) {
+        assertVariantInvariants(entry);
+      }
+      assert.ok(
+        stacked.pages <= comfortable.pages,
+        `${documentLabel}: compact stacked (${stacked.pages}) no more pages than comfortable (${comfortable.pages})`,
+      );
+      // The selected default must be no worse than the R2a geometry. The
+      // report records the readability and crossing trade-offs either way.
+      if (SELECTED_PACKING === 'beside') {
+        assert.ok(
+          beside.pages <= stacked.pages,
+          `${documentLabel}: beside (${beside.pages}) no more pages than stacked (${stacked.pages})`,
+        );
+      } else {
+        assert.ok(
+          stacked.pages <= beside.pages,
+          `${documentLabel}: stacked (${stacked.pages}) no more pages than beside (${beside.pages})`,
+        );
+      }
+    }
+
+    // Determinism on the product-owner corpus: re-running the same variant must
+    // produce the same page count, fragment count, coverage, and crossings.
+    if (showcase !== null) {
+      await openPath(showcase);
+      await showPageRead();
+      const variant = VARIANTS.find((item) => item.id === 'compact-beside');
+      const alternate = VARIANTS.find((item) => item.id === 'compact-stacked');
+      const first = await measureVariant(variant);
+      // Force a second model run by alternating the packing, then compare the
+      // same variant's page geometry.
+      await setThemeAndWait(alternate.theme);
+      await setThemeAndWait(variant.theme);
+      const second = {
+        variant,
+        ...(await readDocumentPages()),
+      };
+      const signature = (measured) =>
+        JSON.stringify(
+          measured.pages.map((entry) => [
+            entry.pageNumber,
+            entry.fragments,
+            Math.round(entry.coveredArea),
+            entry.crossingHits,
+          ]),
+        );
+      assert.equal(signature(second), signature(first), 'beside geometry is deterministic');
+      await writeFile(
+        join(outputDir, 'determinism.json'),
+        `${JSON.stringify({ first: signature(first), second: signature(second) }, null, 2)}\n`,
+      );
+    }
+
+    // Screenshot the selected packing on the product-owner corpus when
+    // present; scale-300 is the committed fallback. Page 1 is the evidence
+    // page, not the last page the lab navigated to.
     const screenshotPackage = showcase ?? scale;
     await page.evaluate(
       (path) => window.__noteforestTest.openPath(path),
@@ -425,16 +679,14 @@ describe('R1b page density lab and compact screenshots', () => {
       { timeout: 20000 },
     );
     await showPageRead();
-    const compact = VARIANTS.find((variant) => variant.id === 'compact');
-    await setTheme(compact.theme);
-    // Evidence starts at page 1, not the last page the lab navigated to.
+    const selected = VARIANTS.find((item) => item.id === 'compact-beside');
+    await setTheme(selected.theme);
     while ((await currentPage()) > 1) {
       await navigate('prev', (await currentPage()) - 1);
     }
     await h.setWindowSize(1440, 900);
-    await screenshot('page-compact-1440x900-landscape.png', 1440, 900);
+    await screenshot('page-beside-1440x900-landscape.png', 1440, 900);
 
-    await setTheme({ preset: 'compact' });
     const portraitStart = await modelRuns();
     await page.evaluate(() =>
       window.__noteforestTest.setSettings({
@@ -444,17 +696,17 @@ describe('R1b page density lab and compact screenshots', () => {
             orientation: 'portrait',
             margins: { top: 12, right: 12, bottom: 12, left: 12 },
           },
-          theme: { preset: 'compact' },
+          theme: { preset: 'compact', pagePacking: 'beside' },
           manualBreakBeforeBlockIds: [],
         },
         continuous: { zoom: 1 },
       }),
     );
     await waitForRunAtLeast(portraitStart + 1);
-    await screenshot('page-compact-1440x900-portrait.png', 1440, 900);
+    await screenshot('page-beside-1440x900-portrait.png', 1440, 900);
 
     await h.setWindowSize(960, 720);
-    await screenshot('page-compact-960x720-portrait.png', 960, 720);
+    await screenshot('page-beside-960x720-portrait.png', 960, 720);
 
     const landscapeStart = await modelRuns();
     await page.evaluate(() =>
@@ -465,13 +717,36 @@ describe('R1b page density lab and compact screenshots', () => {
             orientation: 'landscape',
             margins: { top: 12, right: 12, bottom: 12, left: 12 },
           },
-          theme: { preset: 'compact' },
+          theme: { preset: 'compact', pagePacking: 'beside' },
           manualBreakBeforeBlockIds: [],
         },
         continuous: { zoom: 1 },
       }),
     );
     await waitForRunAtLeast(landscapeStart + 1);
-    await screenshot('page-compact-960x720-landscape.png', 960, 720);
+    await screenshot('page-beside-960x720-landscape.png', 960, 720);
+
+    // One stacked comparison at the primary window size.
+    await h.setWindowSize(1440, 900);
+    const stackedStart = await modelRuns();
+    await page.evaluate(() =>
+      window.__noteforestTest.setSettings({
+        page: {
+          setup: {
+            size: 'A4',
+            orientation: 'landscape',
+            margins: { top: 12, right: 12, bottom: 12, left: 12 },
+          },
+          theme: { preset: 'compact', pagePacking: 'stacked' },
+          manualBreakBeforeBlockIds: [],
+        },
+        continuous: { zoom: 1 },
+      }),
+    );
+    await waitForRunAtLeast(stackedStart + 1);
+    while ((await currentPage()) > 1) {
+      await navigate('prev', (await currentPage()) - 1);
+    }
+    await screenshot('page-stacked-1440x900-landscape.png', 1440, 900);
   });
 });

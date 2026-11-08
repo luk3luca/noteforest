@@ -198,6 +198,19 @@ export type AnchorState = 'resolved' | 'broken' | 'ambiguous' | 'none';
  */
 export type WrapPolicy = 'group-left-origin' | 'right-first-per-child' | 'subtree-aware';
 
+/**
+ * Page/PDF packing policy (ADR-0007/0008). Continuous does not use the page
+ * layout engine and is unaffected.
+ *
+ * - `stacked` is the historical page geometry: anchored callouts sit below the
+ *   parent and the direct-child group starts after them.
+ * - `beside` keeps anchored callouts below the parent in the left column while
+ *   the direct-child group starts at the parent's y in the right column. The
+ *   callout lane ends at the parent's right edge, so it is always at least one
+ *   sibling gap left of the right group at every recursion depth.
+ */
+export type PagePacking = 'stacked' | 'beside';
+
 export interface LayoutBlock {
   blockId: string;
   chapterId: string;
@@ -357,6 +370,8 @@ export interface LayoutOptions {
   /** Maximum cumulative wrap indent from the page content left edge. */
   maxWrapIndent: number;
   wrapPolicy: WrapPolicy;
+  /** Page/PDF packing policy; ignored by the Continuous renderer. */
+  pagePacking: PagePacking;
   calloutGap: number;
   chapterGap: number;
   cardPadding: number;
@@ -371,6 +386,9 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   wrapIndent: 18,
   maxWrapIndent: 54,
   wrapPolicy: 'group-left-origin',
+  // Continuous and every DOM-free layout keep the R2a geometry by default.
+  // Page/PDF opts into `beside` through the resolved PageTheme.
+  pagePacking: 'stacked',
   calloutGap: 20,
   chapterGap: 32,
   cardPadding: 12,

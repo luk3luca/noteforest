@@ -183,6 +183,8 @@ function PageFragmentView({
         height: fragment.page.height,
       }}
       data-fragment-block={fragment.blockId}
+      data-fragment-role={fragment.role}
+      data-fragment-depth={fragment.depth}
       data-fragment-page={page.pageNumber}
       data-fragment-start={fragment.startSegment}
       data-fragment-end={fragment.endSegment}
