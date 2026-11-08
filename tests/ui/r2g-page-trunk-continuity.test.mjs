@@ -23,7 +23,7 @@ let page;
 
 const MANUAL_BREAKS = ['r2g-grandchild', 'r2g-child-2'];
 const MIN_STEM = 12;
-const TRUNK_GAP = 8;
+const TRUNK_GAP = 0;
 
 async function launch(name, width = 1440, height = 900) {
   page = await ui.launch(ui.isolated(name));
@@ -441,14 +441,18 @@ describe('R2g Page trunk continuity', () => {
     );
     assert.notEqual(nestedTrunk.trunkId, rootTrunk.trunkId);
     assert.notEqual(nestedTrunk.x, rootTrunk.x, 'nested trunk has its own x');
+    assert.ok(
+      Math.abs(nestedTrunk.x - (child1.left + 12)) <= 1.5,
+      `nested below trunk keeps the 12 px left inset (${nestedTrunk.x} vs ${child1.left})`,
+    );
     const nestedStart = parsePoint(nestedTrunk.start);
     assert.ok(
       Math.abs(
         nestedStart.y - (child1.top + child1.height + TRUNK_GAP),
       ) <= 0.75,
-      'the nested below trunk starts with the shared 8 px trunkGap',
+      'the nested below trunk starts attached to the card bottom',
     );
-    assert.equal(parseLead(nestedTrunk.lead), null, 'the below trunk is detached, no lead');
+    assert.equal(parseLead(nestedTrunk.lead), null, 'the below trunk has no horizontal lead');
     assert.ok(
       Math.abs(parsePoint(nestedTrunk.end).y - content.height) <= 0.75,
       'the nested trunk continues to the page bottom',

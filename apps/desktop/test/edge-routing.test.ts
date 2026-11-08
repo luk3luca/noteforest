@@ -347,7 +347,7 @@ describe('edge routing — left-entry below stack', () => {
     expect(lastSegment(points).length).toBeGreaterThanOrEqual(GEOMETRY.stemMin);
   });
 
-  it('keeps a visible token gap between the parent bottom and a single-row trunk', () => {
+  it('starts a single-row trunk attached to the parent bottom', () => {
     const group = routeBelowStackGroup({
       parentId: 'p',
       parent,
@@ -361,7 +361,7 @@ describe('edge routing — left-entry below stack', () => {
       5,
     );
     expect((points[0]?.y ?? 0) - (parent.y + parent.height)).toBe(GEOMETRY.trunkGap);
-    expect(GEOMETRY.trunkGap).toBeGreaterThan(0);
+    expect(GEOMETRY.trunkGap).toBe(0);
   });
 
   it('shares one left trunk and enters every callout row from the left', () => {

@@ -1,5 +1,10 @@
 # R2g — Page trunk continuity across pages
 
+> **R2h follow-up (8 November 2026).** The below trunk is now attached to the card bottom
+> (`trunkGap` 0), and wrapped Page children keep at least a 26 px left indent so nested trunks
+> retain a 12 px left inset with a 12 px left stem. The 8 px gap/12 px wrap values below describe
+> the R2g checkpoint state before R2h.
+
 **Role:** Builder / Implementer  
 **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-5b0313dc`  
 **Branch:** `t3/r2g-page-trunk-continuity`  

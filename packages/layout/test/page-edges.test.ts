@@ -329,7 +329,7 @@ describe('page edge mapper', () => {
     expect(calloutEdge.direction).toBe('same-page');
     // The callout sits below the source and shares the Continuous-style left
     // trunk, not the source card's right edge. The visible below trunk is
-    // detached from the card bottom by the shared trunkGap.
+    // attached to the card bottom (trunkGap is 0).
     expect(calloutEdge.from.x).toBeCloseTo(source.page.x + 12, 6);
     expect(calloutEdge.from.y).toBeCloseTo(
       source.page.y + source.page.height + EDGE_STYLE.trunkGap,

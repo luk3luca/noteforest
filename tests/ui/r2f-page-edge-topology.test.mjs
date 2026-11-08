@@ -359,8 +359,8 @@ describe('R2f Page edge topology', () => {
       'both callouts leave the parent at one below port',
     );
     assert.ok(
-      Math.abs(parsePoint(callout1Edge.from).y - (root.top + root.height + 8)) <= 0.75,
-      'the below trunk starts 8 px below the parent bottom edge',
+      Math.abs(parsePoint(callout1Edge.from).y - (root.top + root.height)) <= 0.75,
+      'the below trunk starts attached to the parent bottom edge',
     );
     assert.ok(
       Math.abs(parsePoint(callout1Edge.to).x - callout1.left) <= 0.75,
@@ -376,8 +376,8 @@ describe('R2f Page edge topology', () => {
     assert.match(grandchildEdge.trunkId, /^top-child-1:below$/);
     assert.notEqual(grandchildEdge.trunkId, callout1Edge.trunkId);
     assert.ok(
-      Math.abs(parsePoint(grandchildEdge.from).y - (child1.top + child1.height + 8)) <= 0.75,
-      'the nested below trunk starts 8 px below child 1 bottom',
+      Math.abs(parsePoint(grandchildEdge.from).y - (child1.top + child1.height)) <= 0.75,
+      'the nested below trunk starts attached to child 1 bottom',
     );
     assert.ok(
       Math.abs(parsePoint(grandchildEdge.to).x - grandchild.left) <= 0.75,

@@ -40,7 +40,7 @@ export const EDGE_STYLE = Object.freeze({
    */
   trunkInset: 12,
   /** Visible gap between the parent card bottom and a below-trunk start. */
-  trunkGap: 8,
+  trunkGap: 0,
   /** Fixed arrowhead polygon, independent of path length. */
   arrowLength: 6,
   arrowHalfWidth: 3,

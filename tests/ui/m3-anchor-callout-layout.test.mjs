@@ -23,7 +23,7 @@ const {
   waitForCallouts,
   waitForLaneWidth,
 } = ui;
-const BELOW_TRUNK_GAP = 8;
+const BELOW_TRUNK_GAP = 0;
 let page;
 
 async function launch(overrides = {}) {
@@ -369,7 +369,7 @@ describe('NoteForest M3b2c/M3g callout layout and geometry', () => {
     if (trunkStart === undefined || trunkEnd === undefined) throw new Error('missing trunk');
     assert.ok(
       Math.abs(trunkStart.y - (snapshot.parent.bottom + BELOW_TRUNK_GAP)) < 1,
-      'trunk starts one gap below the parent bottom',
+      'trunk starts attached to the parent bottom',
     );
     assert.ok(
       Math.abs(trunkEnd.y - (snapshot.rows.at(-1).card.top + snapshot.rows.at(-1).card.height / 2)) <
@@ -760,7 +760,7 @@ describe('NoteForest M3b2c/M3g callout layout and geometry', () => {
     );
     assert.ok(
       Math.abs(wideTrunkStart.y - (wide.parent.bottom + BELOW_TRUNK_GAP)) <= 1,
-      'the below trunk starts one gap below the parent bottom edge',
+      'the below trunk starts attached to the parent bottom edge',
     );
     assert.equal(
       wide.trunks.filter((trunk) => trunk.kind === 'trunk' && trunk.placement === 'below')

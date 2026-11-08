@@ -111,6 +111,8 @@ interface ResolvedBlockBox {
 
 /** Layout coordinates are chapter-local; a page content box starts at x = 0. */
 const PAGE_CONTENT_LEFT = 0;
+/** Minimum wrapped-child indent that leaves a full left stem inside a below trunk. */
+const TRUNK_CHILD_INDENT = EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin + 2;
 /** Continuous-style callout row indent; leaves room for the 12 px left trunk/stem. */
 const CALLOUT_ROW_INDENT = 26;
 
@@ -305,7 +307,13 @@ class LayoutBuilder {
     groupWidth: number,
     wrapFloor: number,
   ): number {
-    const indent = Math.min(this.options.wrapIndent, this.options.maxWrapIndent);
+    // A wrapped child must sit far enough right of the trunk for the 12 px
+    // left stem; the default 12 px Page wrapIndent is only half the budget.
+    // Custom themes with a smaller maxWrapIndent still get their cap.
+    const indent = Math.min(
+      this.options.maxWrapIndent,
+      Math.max(this.options.wrapIndent, TRUNK_CHILD_INDENT),
+    );
     const preferred = parentX + indent;
     const maxStart = Math.max(PAGE_CONTENT_LEFT, rightLimit - groupWidth);
     return Math.max(wrapFloor, Math.min(preferred, maxStart));

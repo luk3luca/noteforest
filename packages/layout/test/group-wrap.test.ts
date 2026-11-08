@@ -181,7 +181,7 @@ describe('group-level left-origin wrap', () => {
       ],
     );
     const root = layout(document, port, 'group-left-origin').blockById['root']!;
-    const wrapOrigin = Math.min(root.x + 18, 54);
+    const wrapOrigin = Math.min(root.x + 26, 54);
     const result = layout(document, port, 'group-left-origin');
     const a = result.blockById['a']!;
     const b = result.blockById['b']!;
@@ -220,12 +220,12 @@ describe('group-level left-origin wrap', () => {
       { from: 'c', to: 'd' },
     ]);
     const result = layout(document, port, 'group-left-origin');
-    expect(result.blockById['a']!.x).toBe(18);
-    expect(result.blockById['b']!.x).toBe(36);
-    expect(result.blockById['c']!.x).toBe(54);
+    expect(result.blockById['a']!.x).toBe(26);
+    expect(result.blockById['b']!.x).toBe(52);
+    expect(result.blockById['c']!.x).toBe(78);
     // Each wrapped group indents from its own parent; the old global page-left
     // cap no longer applies (product-owner tree rule, 8 November 2026).
-    expect(result.blockById['d']!.x).toBe(72);
+    expect(result.blockById['d']!.x).toBe(104);
 
     const indent12 = layout(document, port, 'group-left-origin', 12);
     expect(indent12.blockById['a']!.x).toBe(12);
@@ -255,7 +255,7 @@ describe('group-level left-origin wrap', () => {
     const groupWidth = Math.min(500, DEFAULT_LAYOUT_OPTIONS.maxContentWidth) + chrome;
     expect(grandChild.x).toBe(
       Math.min(
-        rightChild.x + DEFAULT_LAYOUT_OPTIONS.wrapIndent,
+        rightChild.x + 26,
         result.geometry.contentWidthPx - groupWidth,
       ),
     );
@@ -294,7 +294,7 @@ describe('group-level left-origin wrap', () => {
     const child = result.blockById['child']!;
     const root = result.blockById['root']!;
     expect(calloutTwo.y).toBeLessThan(calloutOne.y);
-    expect(child.x).toBe(18);
+    expect(child.x).toBe(26);
     expect(child.y).toBeGreaterThan(calloutOne.subtreeBottom);
     expect(calloutOne.x).toBe(result.anchors.find((a) => a.anchorId === 'a1')!.rect!.x);
     expect(calloutTwo.x).toBe(result.anchors.find((a) => a.anchorId === 'a2')!.rect!.x);

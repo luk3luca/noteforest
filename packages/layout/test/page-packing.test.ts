@@ -328,7 +328,7 @@ describe('page packing: beside', () => {
     const callout = result.blockById['callout']!;
     const child = result.blockById['wideChild']!;
     const wrapX = Math.min(
-      root.x + DEFAULT_LAYOUT_OPTIONS.wrapIndent,
+      root.x + 26,
       DEFAULT_LAYOUT_OPTIONS.maxWrapIndent,
     );
 

@@ -74,7 +74,7 @@ value).
 | Token | Value | Used for |
 |---|---:|---|
 | `trunkInset` | 12 px | Below trunk start from the parent card left |
-| `trunkGap` | 8 px | Visible gap between the parent card bottom and the below trunk start |
+| `trunkGap` | 0 px | Below trunk starts attached to the parent card bottom |
 | `stemMin` | 12 px | Final horizontal segment before every arrowhead |
 | `calloutGap` | 16 px | Anchor → callout offset when the anchor is farther right |
 | `calloutMinWidth` | 240 px | Minimum independent callout lane width |
@@ -102,7 +102,7 @@ so one engine produces one geometry.
 
 | Option | Value | Used for |
 |---|---:|---|
-| `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent |
+| `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent; Page below groups enforce at least 26 px (`trunkInset` 12 + `stemMin` 12 + 2) for a full left stem |
 | `maxWrapIndent` | 54 px | Cap on cumulative wrap indent from the page content left (3 × 18) |
 | `wrapPolicy` | `group-left-origin` | Production default from ADR-0006; lab oracles are not user-facing |
 | `pagePacking` | `stacked` (engine) / `beside` (compact page) | Page/PDF tree columns; `compaction` is a legacy lab oracle |
@@ -196,8 +196,9 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
   page runs from the parent port to the content bottom when a later child exists, intermediate
   pages pass through top-to-bottom, and the last child page ends at the last child's arm. Nested
   parents open independent trunks at their own `x`; a right group and a below group of the same
-  parent are separate trunks. Every child arm enters left. `trunkGap` (8 px) applies at every below
-  depth, including nested groups.
+  parent are separate trunks. Every child arm enters left. The below trunk starts attached at the
+  card bottom (`trunkGap` 0) at every depth; wrapped Page children keep at least a 26 px left indent
+  so the 12 px trunk inset and 12 px left stem both fit.
 - **Page-edge indicators (references only).** A reference edge that crosses a page still uses the
   straight, target-only dashed `from-edge` chip. Primary tree edges never use `to-edge`/`from-edge`
   or a `p.N` label: the vertical group trunk is the continuity. The SVG clips all page ink to the
@@ -211,8 +212,8 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 - The shared right trunk owns the parent port and the horizontal lead; child edges are only the
   short arms. Selecting any child in the group activates the whole lead/trunk, not just the first
   child's arm.
-- The below trunk starts `trunkGap` (8 px) below the parent card bottom; it is deliberately detached
-  from the card border instead of touching it.
+- The below trunk starts at the parent card bottom (`trunkGap` 0); it is attached, not detached.
+  Wrapped Page children keep at least a 26 px left indent for the 12 px trunk inset and 12 px stem.
 - Primary/right, below/callout, and reference edges all use the same fixed 6×6 arrowhead.
 - Primary and below elbows use `edgeRadius` 2 px; the first-child trunk junction stays sharp.
 - Reference edges are dashed with an open chevron and never join the primary V4 trunk.

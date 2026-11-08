@@ -152,9 +152,16 @@ last arm. Nested trunks remain independent; below trunks use the 8 px
 References keep their target-only indicator. Report:
 `docs/reports/r2g-page-trunk-continuity.md`.
 
+### R2h — Attached Page trunks
+
+Status: **complete on WIP; verified**. The below trunk starts attached to the
+card bottom (`trunkGap` 0) in Page and Continuous; wrapped Page children keep
+at least a 26 px indent so nested trunks retain a 12 px left inset with a 12 px
+left stem. Report: `docs/reports/r2h-page-trunk-attachment.md`.
+
 ### PRODUCT-OWNER CHECKPOINT — after R2d
 
-Status: **ready for product-owner Page check after R2g** (8 November 2026)
+Status: **ready for product-owner Page check after R2h** (8 November 2026)
 
 - [x] Full `npm run verify` on the integrated main.
 - [x] Continuous stress-test overlap/height fix (8 November 2026): the right-group reservation is

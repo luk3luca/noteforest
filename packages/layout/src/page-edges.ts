@@ -10,8 +10,8 @@
  * - primary tree edges are grouped by `(parentBlockId, placement)` across every
  *   page, not only within one page;
  * - a `right` group owns one vertical rail at a stable x, leaving the parent's
- *   right edge; a `below` group owns one vertical trunk starting inside the
- *   parent card with the shared `trunkGap`;
+ *   right edge; a `below` group owns one vertical trunk attached to the
+ *   parent card bottom;
  * - the group trunk keeps the same x on every page from the parent port to the
  *   last child arm: the parent page runs to the content bottom when later
  *   children exist, intermediate pages pass through top-to-bottom, and the last
@@ -53,8 +53,7 @@ export interface PageEdgeTrunkSegment {
   end: PageEdgePoint;
   /**
    * Parent-page horizontal lead from the card port to the vertical run. It is
-   * null for later pages, and for below groups whose detached trunk starts with
-   * the shared `trunkGap`.
+   * null for later pages and for attached below groups.
    */
   lead: { from: PageEdgePoint; to: PageEdgePoint } | null;
 }
@@ -418,11 +417,10 @@ function buildPrimaryGroup(input: {
     let startY: number;
     let endY: number;
     if (pageNumber === portPage) {
-      // The visible trunk starts on the parent port. A below trunk is detached
-      // from the card border by the shared trunkGap at every depth.
+      // The visible trunk starts attached to the parent port. A below trunk
+      // begins on the card's bottom edge; no vertical gap.
       const topMost = Math.min(port.y, ...arms);
-      startY =
-        group.placement === 'below' ? topMost + EDGE_STYLE.trunkGap : topMost;
+      startY = topMost;
       // A later child means the trunk must reach the page bottom and continue
       // on the next page; otherwise this page owns the last arm.
       endY = lastChildPage > portPage ? bounds.height : Math.max(port.y, ...arms);
