@@ -17,33 +17,13 @@ import type {
   ChapterRecord,
   ContentBlock as LayoutContentBlock,
   ContentNode as LayoutContentNode,
-  LayoutOptions,
   NoteDocument,
   PageGeometry,
+  PageSettings,
   PageSetup,
+  PageTheme,
 } from '@noteforest/layout';
-import { DEFAULT_LAYOUT_OPTIONS, DEFAULT_PAGE_SETTINGS, pageGeometry } from '@noteforest/layout';
-
-/**
- * Page/print layout options. The page layout, the measurement host CSS, and the
- * future print compositor all read these values, so card chrome and segment
- * spacing cannot diverge between the screen and the PDF.
- */
-export const PAGE_LAYOUT_OPTIONS: LayoutOptions = Object.freeze({
-  ...DEFAULT_LAYOUT_OPTIONS,
-});
-
-/**
- * CSS custom properties derived from `PAGE_LAYOUT_OPTIONS`. They are written to
- * the measurement host and to the page sheet; `styles.css` only consumes the
- * variables. This keeps the CSS card box identical to the measured card box.
- */
-export const PAGE_CSS_VARIABLES: Readonly<Record<string, string>> = Object.freeze({
-  '--nf-page-card-padding': `${PAGE_LAYOUT_OPTIONS.cardPadding}px`,
-  '--nf-page-card-border': `${PAGE_LAYOUT_OPTIONS.cardBorder}px`,
-
-  '--nf-page-segment-gap': `${PAGE_LAYOUT_OPTIONS.segmentGap}px`,
-});
+import { pageCssVariables, pageGeometry } from '@noteforest/layout';
 
 export interface PageCssTarget {
   style: {
@@ -51,29 +31,29 @@ export interface PageCssTarget {
   };
 }
 
-/** Apply the page/print box variables to a host or page element. */
-export function applyPageCssVariables(target: PageCssTarget): void {
-  for (const [name, value] of Object.entries(PAGE_CSS_VARIABLES)) {
+/** Apply the page/print theme variables to a host or page element. */
+export function applyPageCssVariables(target: PageCssTarget, theme: PageTheme): void {
+  for (const [name, value] of Object.entries(pageCssVariables(theme))) {
     target.style.setProperty(name, value);
   }
 }
 
-/**
- * Page setup for this slice. R1b replaces this temporary default with the
- * resolved personal settings (global default + per-document override).
- */
-export function pageSetupOf(): PageSetup {
-  const setup = DEFAULT_PAGE_SETTINGS.setup;
+/** Explicit resolved page setup; never a second static default. */
+export function pageSetupOf(settings: PageSettings): PageSetup {
   return {
-    size: setup.size,
-    orientation: setup.orientation,
-    margins: { ...setup.margins },
+    size: settings.setup.size,
+    orientation: settings.setup.orientation,
+    margins: { ...settings.setup.margins },
   };
 }
 
-/** Geometry for the loading/empty page before a layout model exists. */
-export function corePageGeometry(): PageGeometry {
-  return pageGeometry(pageSetupOf());
+/**
+ * Geometry for the loading/empty page and for the page surface. It comes from
+ * the same resolved settings the paginator receives, so A4/A5/Letter never
+ * disagree between the sheet, the content box, and the measured model.
+ */
+export function corePageGeometry(settings: PageSettings): PageGeometry {
+  return pageGeometry(pageSetupOf(settings));
 }
 
 function cloneContent(content: Document['blocks'][string]['content']): LayoutContentNode {

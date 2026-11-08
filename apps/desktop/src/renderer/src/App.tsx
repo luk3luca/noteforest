@@ -31,7 +31,7 @@ import {
   toggleFocusBranch,
 } from './actions';
 import { buildSession } from './state/session';
-import { DEFAULT_PAGE_SETTINGS } from '@noteforest/layout';
+import { useSettingsStore } from './state/settings';
 import { READ_MODE_TOAST } from './lib/editability';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
@@ -101,6 +101,9 @@ export function App(): JSX.Element {
       try {
         const data = await window.noteforest.bootstrap();
         if (cancelled) return;
+        // Load personal page/continuous settings and every stored per-document
+        // override before the shell becomes ready or any Page surface mounts.
+        useSettingsStore.getState().initialize(data.settings, data.session.tabs);
         const byPath = new Map(data.openDocuments.map((snapshot) => [snapshot.packagePath, snapshot]));
         const recoveryByPath = new Map(
           data.recoveries.map((recovery) => [recovery.packagePath, recovery]),
@@ -401,12 +404,16 @@ export function App(): JSX.Element {
       }, 600);
     };
     const unsubscribe = useShell.subscribe(schedule);
+    // Per-document page/continuous overrides live in the session, so a settings
+    // change must schedule the same session write as navigation state.
+    const unsubscribeSettings = useSettingsStore.subscribe(schedule);
     const interval = setInterval(() => {
       void window.noteforest.saveSession(buildSession());
     }, 5000);
     schedule();
     return () => {
       unsubscribe();
+      unsubscribeSettings();
       clearInterval(interval);
       if (timer !== null) clearTimeout(timer);
     };
@@ -454,7 +461,9 @@ export function App(): JSX.Element {
             canRedoStructural: item.canRedoStructural,
             collapsed: [...item.collapsed],
             revision: item.document.revision,
-            orientation: DEFAULT_PAGE_SETTINGS.setup.orientation,
+            orientation: useSettingsStore
+              .getState()
+              .resolvedPageSettings(item.packagePath).setup.orientation,
             chapters: item.document.chapters.length,
             chapterList: item.document.chapters.map((chapter) => ({
               id: chapter.id,
@@ -487,6 +496,10 @@ export function App(): JSX.Element {
           branches: document.branches,
           chapters: document.chapters,
           anchors: document.anchors,
+          // Personal page setting, never canonical document data.
+          manualBreakBeforeBlockIds: useSettingsStore
+            .getState()
+            .resolvedPageSettings(runtime.packagePath).manualBreakBeforeBlockIds,
         });
       },
       assets: () => {
@@ -511,6 +524,30 @@ export function App(): JSX.Element {
         return runtime?.caretLocation() ?? null;
       },
       flushSession: () => window.noteforest.saveSession(buildSession()),
+      settings: () => {
+        const store = useSettingsStore.getState();
+        return structuredClone({
+          app: store.app,
+          pageOverrides: store.pageOverrides,
+          continuousOverrides: store.continuousOverrides,
+        });
+      },
+      setSettings: async (input) => {
+        const settings = useSettingsStore.getState().setAppSettings(input);
+        await window.noteforest.saveSettings(settings);
+        return structuredClone(settings);
+      },
+      setPageSettingsOverride: async (packagePath, override) => {
+        useSettingsStore.getState().setPageSettingsOverride(packagePath, override);
+        await window.noteforest.saveSession(buildSession());
+        return structuredClone(
+          useSettingsStore.getState().resolvedPageSettings(packagePath),
+        );
+      },
+      resolvedPageSettings: (packagePath) =>
+        structuredClone(
+          useSettingsStore.getState().resolvedPageSettings(packagePath),
+        ),
       setFlushMode: (mode: FlushTestMode) => {
         flushTestMode = mode;
       },

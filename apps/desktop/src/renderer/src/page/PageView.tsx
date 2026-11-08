@@ -29,7 +29,9 @@ import type {
   LayoutDefect,
   PageFragment,
   PageGeometry,
+  PageSettings,
 } from '@noteforest/layout';
+import { pageCssVariables, pageLayoutOptions } from '@noteforest/layout';
 import { openBlockInContinuous } from '../actions';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
@@ -40,12 +42,7 @@ import { pageBlockEditingEnabledFor } from '../lib/editability';
 import { GEOMETRY } from '../lib/geometry';
 import { PageBlockEditor } from './PageBlockEditor';
 import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
-import {
-  PAGE_CSS_VARIABLES,
-  PAGE_LAYOUT_OPTIONS,
-  anchorHintsForDocument,
-  corePageGeometry,
-} from './adapter';
+import { anchorHintsForDocument, corePageGeometry } from './adapter';
 import { blockingDefects, clampPageNumber } from './model';
 import {
   buildSegments,
@@ -63,6 +60,8 @@ interface PageViewProps {
   interactionMode: InteractionMode;
   /** Shared page model owned by `DocumentEditor` (never re-measured here). */
   model: PageModelState;
+  /** Resolved personal page settings for this document (global + override). */
+  settings: PageSettings;
 }
 
 /** Matches `.nf-page-stage` padding (the canvas medium step). */
@@ -376,7 +375,13 @@ function PageSurface({
   );
 }
 
-export function PageView({ runtime, active, interactionMode, model }: PageViewProps): JSX.Element {
+export function PageView({
+  runtime,
+  active,
+  interactionMode,
+  model,
+  settings,
+}: PageViewProps): JSX.Element {
   useRuntime(runtime.packagePath);
   const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
   const currentPage = view?.currentPage ?? 1;
@@ -405,7 +410,10 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
   const page = pageCount > 0 ? model.pages[pageNumber - 1] ?? null : null;
   const pageRef = useRef(page);
   pageRef.current = page;
-  const geometry = model.layout?.geometry ?? corePageGeometry();
+  // Page geometry is a personal lens: the sheet, content box, chrome, overlay,
+  // and paginator all receive this one resolved setup (A4/A5/Letter).
+  const geometry = useMemo(() => corePageGeometry(settings), [settings]);
+  const layoutOptions = useMemo(() => pageLayoutOptions(settings.theme), [settings.theme]);
 
   // Derived model may shrink the page count; keep the shell page in range.
   // Wait for the first derived model: clamping against the loading state would
@@ -498,11 +506,11 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
         assets: displayAssets,
         tableColumns: layoutBlock?.measurement.tableColumns ?? {},
         anchors: anchorsByBlock.get(fragment.blockId) ?? [],
-        listIndent: PAGE_LAYOUT_OPTIONS.wrapIndent,
+        listIndent: layoutOptions.wrapIndent,
       });
     }
     return result;
-  }, [page, model.layout, displayAssets, anchorsByBlock, runtime.document]);
+  }, [page, model.layout, displayAssets, anchorsByBlock, runtime.document, layoutOptions.wrapIndent]);
 
   const blocking = useMemo(() => blockingDefects(model.defects), [model.defects]);
   const pageBlocking = useMemo(() => {
@@ -736,7 +744,7 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
     <div
       className="nf-page-view"
       ref={rootRef}
-      style={PAGE_CSS_VARIABLES as CSSProperties}
+      style={pageCssVariables(settings.theme) as CSSProperties}
       role="region"
       aria-label="Page layout"
       aria-busy={!model.ready || model.updating}
@@ -922,6 +930,7 @@ export function PageView({ runtime, active, interactionMode, model }: PageViewPr
                 blockId={editSession.blockId}
                 fragment={editSession.fragment}
                 geometry={geometry}
+                settings={settings}
                 onCommitted={(reason) => committed(editSession.blockId, reason)}
               />
             ) : null}

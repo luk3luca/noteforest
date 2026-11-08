@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { createDocument, type Document } from '@noteforest/core';
-import { mmToPx } from '@noteforest/layout';
 import {
-  PAGE_LAYOUT_OPTIONS,
+  DEFAULT_PAGE_SETTINGS,
+  PAGE_THEME_PRESETS,
+  mmToPx,
+  normalizePageSettings,
+  pageCssVariables,
+  pageLayoutOptions,
+} from '@noteforest/layout';
+import {
+  applyPageCssVariables,
   corePageGeometry,
+  pageSetupOf,
   toLayoutDocument,
 } from '../src/renderer/src/page/adapter';
 
@@ -132,13 +140,57 @@ describe('core -> layout page adapter', () => {
     expect(paragraph['attrs']).toEqual({ custom: 'kept' });
   });
 
-  it('uses the default A4 landscape page settings and 12 mm margins', () => {
-    const geometry = corePageGeometry();
-    expect(geometry.pageWidthMm).toBe(297);
-    expect(geometry.pageHeightMm).toBe(210);
-    expect(geometry.contentWidthPx).toBeCloseTo(mmToPx(297 - 24), 6);
-    expect(geometry.contentHeightPx).toBeCloseTo(mmToPx(210 - 24), 6);
-    expect(PAGE_LAYOUT_OPTIONS.wrapPolicy).toBe('group-left-origin');
+  it('resolves A4, A5, and Letter geometry from explicit settings', () => {
+    const a4 = corePageGeometry(DEFAULT_PAGE_SETTINGS);
+    expect(a4.pageWidthMm).toBe(297);
+    expect(a4.pageHeightMm).toBe(210);
+    expect(a4.contentWidthPx).toBeCloseTo(mmToPx(297 - 24), 6);
+    expect(a4.contentHeightPx).toBeCloseTo(mmToPx(210 - 24), 6);
+
+    const a5 = corePageGeometry(
+      normalizePageSettings({ setup: { size: 'A5', orientation: 'portrait' } }),
+    );
+    expect(a5.pageWidthMm).toBe(148);
+    expect(a5.pageHeightMm).toBe(210);
+    expect(a5.contentWidthPx).toBeCloseTo(mmToPx(148 - 24), 6);
+
+    const letter = corePageGeometry(
+      normalizePageSettings({ setup: { size: 'Letter', orientation: 'portrait' } }),
+    );
+    expect(letter.pageWidthMm).toBe(215.9);
+    expect(letter.pageHeightMm).toBe(279.4);
+
+    const settings = normalizePageSettings({
+      setup: {
+        size: 'A5',
+        orientation: 'landscape',
+        margins: { top: 10, right: 9, bottom: 11, left: 8 },
+      },
+    });
+    expect(pageSetupOf(settings)).toEqual({
+      size: 'A5',
+      orientation: 'landscape',
+      margins: { top: 10, right: 9, bottom: 11, left: 8 },
+    });
+    expect(pageLayoutOptions(settings.theme).wrapPolicy).toBe('group-left-origin');
+  });
+
+  it('applies the theme CSS variables to a page/measurement target', () => {
+    const theme = PAGE_THEME_PRESETS.comfortable;
+    const properties: Record<string, string> = {};
+    applyPageCssVariables(
+      {
+        style: {
+          setProperty(name, value) {
+            properties[name] = value;
+          },
+        },
+      },
+      theme,
+    );
+    expect(properties).toEqual(pageCssVariables(theme));
+    expect(properties['--nf-page-body-size']).toBe('10.5pt');
+    expect(properties['--nf-page-card-padding']).toBe('12px');
   });
 
   it('maps every anchor kind to the layout record without a second resolver', () => {

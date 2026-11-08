@@ -59,6 +59,13 @@ import type {
   SessionTabState,
   TakeOverLockResult,
 } from '../shared/api.js';
+import {
+  DEFAULT_APP_SETTINGS,
+  normalizeAppSettings,
+  normalizeContinuousSettingsOverride,
+  normalizePageSettingsOverride,
+  type AppSettings,
+} from '@noteforest/layout';
 import { saveFailureCode } from './save-error.js';
 import { normalizeDocumentViewState } from '../shared/view-state.js';
 import {
@@ -96,6 +103,10 @@ export function appSupportDir(): string {
 
 function sessionPath(): string {
   return path.join(appSupportDir(), 'shell-session.json');
+}
+
+function settingsPath(): string {
+  return path.join(appSupportDir(), 'settings.json');
 }
 
 export function isInsideLibrary(candidate: string): boolean {
@@ -1146,6 +1157,38 @@ export async function closeAllStores(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Personal app settings (ADR-0008; never document content)
+// ---------------------------------------------------------------------------
+
+/**
+ * Read the global personal settings. A missing, unreadable, or corrupt
+ * `settings.json` falls back to the product defaults; the app never fails to
+ * start because a personal preference file is damaged.
+ */
+export async function readSettings(): Promise<AppSettings> {
+  try {
+    const text = await fs.readFile(settingsPath(), 'utf8');
+    return normalizeAppSettings(
+      JSON.parse(text) as Parameters<typeof normalizeAppSettings>[0],
+    );
+  } catch {
+    return structuredClone(DEFAULT_APP_SETTINGS);
+  }
+}
+
+/**
+ * Persist the global personal settings atomically. Every value is normalized
+ * first, so a malformed IPC payload cannot write an unsafe page geometry.
+ */
+export async function writeSettings(input: unknown): Promise<void> {
+  const settings = normalizeAppSettings(
+    input as Parameters<typeof normalizeAppSettings>[0],
+  );
+  await fs.mkdir(appSupportDir(), { recursive: true });
+  await writeFileAtomic(settingsPath(), `${JSON.stringify(settings, null, 2)}\n`);
+}
+
+// ---------------------------------------------------------------------------
 // Session (UI state only; not document content)
 // ---------------------------------------------------------------------------
 
@@ -1174,6 +1217,12 @@ export async function readSession(): Promise<SessionState> {
           pageFit: (tab as { pageFit?: unknown }).pageFit,
           zoom: (tab as { zoom?: unknown }).zoom,
         });
+        const pageSettingsOverride = normalizePageSettingsOverride(
+          (tab as { pageSettingsOverride?: unknown }).pageSettingsOverride,
+        );
+        const continuousSettingsOverride = normalizeContinuousSettingsOverride(
+          (tab as { continuousSettingsOverride?: unknown }).continuousSettingsOverride,
+        );
         tabs.push({
           packagePath,
           scrollTop: Number.isFinite(scrollTop) && scrollTop >= 0 ? scrollTop : 0,
@@ -1185,6 +1234,8 @@ export async function readSession(): Promise<SessionState> {
           pageZoom: view.pageZoom,
           pageFit: view.pageFit,
           zoom: view.zoom,
+          ...(pageSettingsOverride === undefined ? {} : { pageSettingsOverride }),
+          ...(continuousSettingsOverride === undefined ? {} : { continuousSettingsOverride }),
         });
       }
     }
@@ -1220,10 +1271,12 @@ export async function writeSession(state: SessionState): Promise<void> {
 }
 
 export async function bootstrap(): Promise<{
+  settings: AppSettings;
   session: SessionState;
   openDocuments: OpenDocumentSnapshot[];
   recoveries: RecoveryDocumentView[];
 }> {
+  const settings = await readSettings();
   const session = await readSession();
   const openDocuments: OpenDocumentSnapshot[] = [];
   const recoveries: RecoveryDocumentView[] = [];
@@ -1246,7 +1299,7 @@ export async function bootstrap(): Promise<{
       );
     }
   }
-  return { session, openDocuments, recoveries };
+  return { settings, session, openDocuments, recoveries };
 }
 
 // ---------------------------------------------------------------------------

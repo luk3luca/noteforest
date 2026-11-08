@@ -16,17 +16,16 @@ import type {
   BlockMeasurement,
   ContentBlock,
   ContentNode,
+  LayoutOptions,
   MeasuredAnchor,
   MeasuredSegment,
   MeasurementMode,
   MeasurementPort,
   NoteDocument,
+  PageSettings,
 } from '@noteforest/layout';
-import {
-  PAGE_LAYOUT_OPTIONS,
-  applyPageCssVariables,
-  blockContentKey,
-} from './adapter';
+import { pageLayoutOptions } from '@noteforest/layout';
+import { applyPageCssVariables, blockContentKey } from './adapter';
 import {
   buildSegments,
   fullTableHtml,
@@ -36,8 +35,6 @@ import {
   type SegmentOptions,
 } from './segments';
 
-const CHROME =
-  2 * (PAGE_LAYOUT_OPTIONS.cardPadding + PAGE_LAYOUT_OPTIONS.cardBorder);
 const IMAGE_SETTLE_TIMEOUT_MS = 4000;
 const FRAME_SETTLE_TIMEOUT_MS = 150;
 
@@ -166,11 +163,16 @@ function firstTablePaths(content: ContentNode): Array<{ key: string; node: Conte
 export function createDomPageMeasurement(
   noteDocument: NoteDocument,
   assetUrls: Readonly<Record<string, string>>,
+  settings: PageSettings,
 ): DomPageMeasurement {
+  const layoutOptions: LayoutOptions = pageLayoutOptions(settings.theme);
+  const chrome = 2 * (layoutOptions.cardPadding + layoutOptions.cardBorder);
   const host = document.createElement('div');
   host.className = 'nf-measure-host nf-page-scope';
   host.setAttribute('aria-hidden', 'true');
-  applyPageCssVariables(host);
+  // The measurement host consumes exactly the page theme; no static box metric
+  // may leak in from styles.css or the shell.
+  applyPageCssVariables(host, settings.theme);
   document.body.appendChild(host);
 
   const resolvedAssets: Record<string, string> = { ...assetUrls };
@@ -190,7 +192,7 @@ export function createDomPageMeasurement(
       assets: resolvedAssets,
       tableColumns,
       anchors: anchorsByBlock.get(block.id) ?? [],
-      listIndent: PAGE_LAYOUT_OPTIONS.wrapIndent,
+      listIndent: layoutOptions.wrapIndent,
       // Images with both dimensions measure from their attributes; the host
       // must not request (and possibly 404) bytes it does not need.
       requestIntrinsicImages: false,
@@ -285,11 +287,11 @@ export function createDomPageMeasurement(
     const card = host.querySelector<HTMLElement>('.nf-measure-card');
     if (card === null) throw new Error(`Measurement host is missing the card for ${block.id}`);
     card.classList.add('nf-width-max');
-    const maxWidth = Math.max(1, card.getBoundingClientRect().width - CHROME);
+    const maxWidth = Math.max(1, card.getBoundingClientRect().width - chrome);
     const maxHeight = card.getBoundingClientRect().height;
     card.classList.remove('nf-width-max');
     card.classList.add('nf-width-min');
-    const minWidth = Math.max(1, card.getBoundingClientRect().width - CHROME);
+    const minWidth = Math.max(1, card.getBoundingClientRect().width - chrome);
     card.classList.remove('nf-width-min');
     const widths = { max: maxWidth, min: minWidth, maxHeight };
     intrinsicCache.set(key, widths);
@@ -334,7 +336,7 @@ export function createDomPageMeasurement(
     const intrinsic = measureIntrinsic(block);
     const tableColumns = measureTableColumns(block, contentWidth);
     const segments = buildSegments(block, optionsFor(block, tableColumns));
-    const cardWidth = contentWidth + CHROME;
+    const cardWidth = contentWidth + chrome;
     host.innerHTML = measurementCardHtml(block, segments);
     const card = host.querySelector<HTMLElement>('.nf-measure-card');
     const content = host.querySelector<HTMLElement>('.nf-block-content');
@@ -424,10 +426,10 @@ export function createDomPageMeasurement(
     return {
       blockId: block.id,
       mode,
-      cardWidth: width + CHROME,
+      cardWidth: width + chrome,
       contentWidth: width,
       contentHeight: 0,
-      contentTop: PAGE_LAYOUT_OPTIONS.cardPadding + PAGE_LAYOUT_OPTIONS.cardBorder,
+      contentTop: layoutOptions.cardPadding + layoutOptions.cardBorder,
       labelHeight: 0,
       cardHeight: intrinsic.maxHeight,
       maxContentWidth: intrinsic.max,

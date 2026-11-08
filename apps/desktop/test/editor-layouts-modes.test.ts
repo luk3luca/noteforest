@@ -7,6 +7,10 @@ import {
   normalizeDocumentViewState,
 } from '../src/shared/view-state';
 import { buildSession } from '../src/renderer/src/state/session';
+import {
+  resetSettingsForTests,
+  useSettingsStore,
+} from '../src/renderer/src/state/settings';
 import { useShell } from '../src/renderer/src/state/shell';
 import { readSession } from '../src/main/library';
 
@@ -27,6 +31,7 @@ beforeEach(() => {
     activeTab: null,
     viewByDoc: {},
   });
+  resetSettingsForTests();
 });
 
 afterEach(async () => {
@@ -37,6 +42,7 @@ afterEach(async () => {
     await rm(temporaryDirectories.pop()!, { recursive: true, force: true });
   }
   useShell.setState({ tabs: [], activeTab: null, viewByDoc: {} });
+  resetSettingsForTests();
 });
 
 describe('editor layout and interaction-mode state', () => {
@@ -255,5 +261,109 @@ describe('editor layout and interaction-mode state', () => {
       pageFit: 'width',
       zoom: 1.3,
     });
+  });
+
+  it('writes per-document personal settings overrides in buildSession', () => {
+    useShell.setState({
+      tabs: [{ packagePath: '/tmp/doc', title: 'Doc' }],
+      activeTab: '/tmp/doc',
+    });
+    useSettingsStore.getState().setPageSettingsOverride('/tmp/doc', {
+      setup: { size: 'A5', orientation: 'portrait' },
+      theme: { preset: 'comfortable' },
+      manualBreakBeforeBlockIds: ['b2'],
+    });
+    useSettingsStore.getState().setContinuousSettingsOverride('/tmp/doc', { zoom: 1.5 });
+
+    const session = buildSession();
+    expect(session.tabs[0]).toMatchObject({
+      packagePath: '/tmp/doc',
+      pageSettingsOverride: {
+        setup: { size: 'A5', orientation: 'portrait' },
+        theme: { preset: 'comfortable' },
+        manualBreakBeforeBlockIds: ['b2'],
+      },
+      continuousSettingsOverride: { zoom: 1.5 },
+    });
+  });
+
+  it('normalizes stored session overrides and defaults old tabs to none', async () => {
+    const directory = await supportDirectory();
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      path.join(directory, 'shell-session.json'),
+      JSON.stringify({
+        tabs: [
+          {
+            packagePath: '/legacy/doc',
+            scrollTop: 0,
+            selectedBlockId: null,
+            collapsed: [],
+          },
+          {
+            packagePath: '/override/doc',
+            scrollTop: 0,
+            selectedBlockId: null,
+            collapsed: [],
+            pageSettingsOverride: {
+              setup: { size: 'Letter', orientation: 'portrait', margins: { top: 18 } },
+              theme: { preset: 'comfortable', bodyPt: 11, bogus: 2 },
+              manualBreakBeforeBlockIds: ['b3', 'b3', 7],
+              extra: 'dropped',
+            },
+            continuousSettingsOverride: { zoom: 1.5, extra: true },
+          },
+          {
+            packagePath: '/corrupt/doc',
+            scrollTop: 0,
+            selectedBlockId: null,
+            collapsed: [],
+            pageSettingsOverride: 'not-an-object',
+            continuousSettingsOverride: { zoom: 'bad' },
+          },
+        ],
+        activeTab: '/legacy/doc',
+        sidebarCollapsed: false,
+        sidebarWidth: 264,
+        collapsedTopics: {},
+      }),
+    );
+
+    const session = await readSession();
+    expect(session.tabs[0]?.pageSettingsOverride).toBeUndefined();
+    expect(session.tabs[0]?.continuousSettingsOverride).toBeUndefined();
+    expect(session.tabs[1]?.pageSettingsOverride).toEqual({
+      setup: { size: 'Letter', orientation: 'portrait', margins: { top: 18 } },
+      theme: { preset: 'comfortable', bodyPt: 11 },
+      manualBreakBeforeBlockIds: ['b3'],
+    });
+    expect(session.tabs[1]?.continuousSettingsOverride).toEqual({ zoom: 1.5 });
+    expect(session.tabs[2]?.pageSettingsOverride).toBeUndefined();
+    expect(session.tabs[2]?.continuousSettingsOverride).toBeUndefined();
+  });
+
+  it('round-trips settings overrides through buildSession and readSession', async () => {
+    const directory = await supportDirectory();
+    await mkdir(directory, { recursive: true });
+    useShell.setState({
+      tabs: [{ packagePath: '/tmp/doc', title: 'Doc' }],
+      activeTab: '/tmp/doc',
+    });
+    useSettingsStore.getState().setPageSettingsOverride('/tmp/doc', {
+      setup: { size: 'A5' },
+      theme: { bodyPt: 9.5 },
+    });
+    useSettingsStore.getState().setContinuousSettingsOverride('/tmp/doc', { zoom: 0.8 });
+
+    await writeFile(
+      path.join(directory, 'shell-session.json'),
+      JSON.stringify(buildSession(), null, 2),
+    );
+    const restored = await readSession();
+    expect(restored.tabs[0]?.pageSettingsOverride).toEqual({
+      setup: { size: 'A5' },
+      theme: { bodyPt: 9.5 },
+    });
+    expect(restored.tabs[0]?.continuousSettingsOverride).toEqual({ zoom: 0.8 });
   });
 });

@@ -7,7 +7,10 @@ import {
   mmToPx,
   normalizeAppSettings,
   normalizeContinuousSettings,
+  normalizeContinuousSettingsOverride,
   normalizePageSettings,
+  normalizePageSettingsOverride,
+  mergeContinuousSettings,
   mergePageSettings,
   PAGE_THEME_PRESETS,
   pageCssVariables,
@@ -174,6 +177,52 @@ describe('settings normalization and merge', () => {
     const app = normalizeAppSettings({ page: { setup: { size: 'A5' } }, continuous: { zoom: 0 } });
     expect(app.page.setup.size).toBe('A5');
     expect(app.continuous.zoom).toBe(0.25);
+    expect(mergeContinuousSettings({ zoom: 1 }, { zoom: 1.5 })).toEqual({ zoom: 1.5 });
+    expect(mergeContinuousSettings({ zoom: 1.7 }, null)).toEqual({ zoom: 1.7 });
+  });
+
+  it('normalizes a per-document override without expanding it into a full settings object', () => {
+    const override = normalizePageSettingsOverride({
+      setup: { orientation: 'portrait', margins: { top: 18, left: 'bad' } },
+      theme: { bodyPt: 9.5, unknown: 1 },
+      manualBreakBeforeBlockIds: ['b2', 'b2', 4],
+      extra: 'dropped',
+    });
+    expect(override).toEqual({
+      setup: { orientation: 'portrait', margins: { top: 18 } },
+      theme: { bodyPt: 9.5 },
+      manualBreakBeforeBlockIds: ['b2'],
+    });
+    // The surviving fields resolve exactly like a full normalization.
+    expect(mergePageSettings(DEFAULT_PAGE_SETTINGS, override)).toEqual(
+      normalizePageSettings({
+        setup: { orientation: 'portrait', margins: { top: 18 } },
+        theme: { bodyPt: 9.5 },
+        manualBreakBeforeBlockIds: ['b2'],
+      }),
+    );
+  });
+
+  it('keeps preset changes and explicit values in an override', () => {
+    const override = normalizePageSettingsOverride({
+      theme: { preset: 'comfortable', bodyPt: 11 },
+    });
+    expect(override).toEqual({ theme: { preset: 'comfortable', bodyPt: 11 } });
+    const resolved = mergePageSettings(DEFAULT_PAGE_SETTINGS, override);
+    expect(resolved.theme.preset).toBe('comfortable');
+    expect(resolved.theme.bodyPt).toBe(11);
+    expect(resolved.theme.cardPadding).toBe(12);
+  });
+
+  it('drops empty or invalid overrides and normalizes continuous overrides', () => {
+    expect(normalizePageSettingsOverride(undefined)).toBeUndefined();
+    expect(normalizePageSettingsOverride(null)).toBeUndefined();
+    expect(normalizePageSettingsOverride({ theme: {} })).toBeUndefined();
+    expect(normalizePageSettingsOverride('nope')).toBeUndefined();
+    expect(normalizeContinuousSettingsOverride({ zoom: 2 })).toEqual({ zoom: 2 });
+    expect(normalizeContinuousSettingsOverride({ zoom: 99 })).toEqual({ zoom: 4 });
+    expect(normalizeContinuousSettingsOverride({ zoom: 'x' })).toBeUndefined();
+    expect(normalizeContinuousSettingsOverride(null)).toBeUndefined();
   });
 });
 

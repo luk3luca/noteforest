@@ -48,6 +48,7 @@ import {
 import { editingEnabledFor, READ_MODE_TITLE, READ_MODE_TOAST } from '../lib/editability';
 import { showsChapterCanvas } from '../lib/chapters';
 import { getScroll, recordScroll } from '../state/session';
+import { usePageSettings } from '../state/settings';
 import { useRuntime } from '../state/registry';
 import { SaveFailureBanner } from '../shell/SaveFailureBanner';
 import { StaleLockBanner } from '../shell/StaleLockBanner';
@@ -184,10 +185,14 @@ function ContinuousEmptyDocument({
 
 export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.Element {
   useRuntime(runtime.packagePath);
+  // One resolved personal page lens per document. Page Read, Page Edit,
+  // measurement, and the shared model read this object; a settings change
+  // re-paginates instead of leaving a second default path.
+  const pageSettings = usePageSettings(runtime.packagePath);
   // One page model per open document, shared by the Page layout and the
   // continuous marker layer. Switching layouts or modes never remeasures an
   // unchanged canonical revision.
-  const pageModel = usePageModel(runtime, active);
+  const pageModel = usePageModel(runtime, active, pageSettings);
   const layout = useShell(
     (state) => state.viewByDoc[runtime.packagePath]?.layout ?? 'continuous',
   );
@@ -243,6 +248,7 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
           active={active}
           interactionMode={interactionMode}
           model={pageModel}
+          settings={pageSettings}
         />
       ) : null}
     </div>
