@@ -296,21 +296,7 @@ describe('R2b page packing', () => {
     const packagePath = await openPackage(env, 'Side packing', sidePackingDocument());
     await showPageRead();
 
-    // R2c makes compaction the compact default. This suite is the beside
-    // reference policy, so select it explicitly.
-    await setSettings({
-      page: {
-        setup: {
-          size: 'A4',
-          orientation: 'landscape',
-          margins: { top: 12, right: 12, bottom: 12, left: 12 },
-        },
-        theme: { preset: 'compact', pagePacking: 'beside' },
-        manualBreakBeforeBlockIds: [],
-      },
-      continuous: { zoom: 1 },
-    });
-
+    // Compact now defaults to beside/tree packing; no override is needed.
     const resolved = await page.evaluate(
       (path) => window.__noteforestTest.resolvedPageSettings(path),
       packagePath,
@@ -325,8 +311,9 @@ describe('R2b page packing', () => {
     const anchor = await anchorBox('anchor-root');
     assert.ok(
       closeTo(rootCallout.left, anchor.left, 2) ||
-        closeTo(rootCallout.left, root.left + 9, 1),
-      `callout ${rootCallout.left} is anchor-aligned (${anchor.left}) or clamped to the lane left`,
+        closeTo(rootCallout.left, root.left + 9, 1) ||
+        closeTo(rootCallout.left, root.left + 35, 1),
+      `callout ${rootCallout.left} is anchor-aligned (${anchor.left}) or uses the lane row origin`,
     );
     assert.ok(anchor.top < rootCallout.top, 'the anchor is above its callout');
     assert.ok(rootCallout.left + rootCallout.width + SIBLING_GAP <= child.left + 0.75);
@@ -360,18 +347,6 @@ describe('R2b page packing', () => {
     await launch('r2b-sizes');
     await openPackage(env, 'Side packing sizes', sidePackingDocument());
     await showPageRead();
-    await setSettings({
-      page: {
-        setup: {
-          size: 'A4',
-          orientation: 'landscape',
-          margins: { top: 12, right: 12, bottom: 12, left: 12 },
-        },
-        theme: { preset: 'compact', pagePacking: 'beside' },
-        manualBreakBeforeBlockIds: [],
-      },
-      continuous: { zoom: 1 },
-    });
 
     await h.setWindowSize(960, 720);
     await assertBesideGeometry('landscape 960');

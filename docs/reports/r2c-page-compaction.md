@@ -1,5 +1,7 @@
 # R2c — Page compaction placement
 
+> **Superseded (8 November 2026).** The product owner rejected row-fill siblings: the tree model requires siblings in one level column, with the next sibling below the previous subtree and a group wrap below its own parent. `compaction` is now a density-lab oracle; the compact page default is `beside`. See `docs/tasks/refactor-personal-page-settings.md` and `tests/ui/r2e-page-tree.test.mjs`.
+
 - **Role:** Implementer / Builder
 - **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-546aeb3c`
 - **Branch:** `t3/r2c-page-compaction`
@@ -238,7 +240,7 @@ New coverage:
   safe boundaries, full-width parent wrap fallback, reference targets not
   duplicated, stacked/beside reference policies, and scale-300/wide-fan
   committed-fixture invariants.
-- `tests/ui/r2c-page-compaction.test.mjs` (4 tests):
+- `tests/ui/r2e-page-tree.test.mjs` (4 tests; supersedes the old row-fill assertions):
   - Page Read at 1440×900: compact default is compaction; root + anchored
     callout + three direct children share a row; the child column contains the
     grandchild; all six arrows, anchor start, dashed reference; no overlap or

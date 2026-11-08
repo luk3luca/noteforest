@@ -181,7 +181,7 @@ describe('group-level left-origin wrap', () => {
       ],
     );
     const root = layout(document, port, 'group-left-origin').blockById['root']!;
-    const wrapOrigin = Math.min(root.x + 18, 54);
+    const wrapOrigin = Math.min(root.x + 26, 54);
     const result = layout(document, port, 'group-left-origin');
     const a = result.blockById['a']!;
     const b = result.blockById['b']!;
@@ -205,7 +205,7 @@ describe('group-level left-origin wrap', () => {
     expect(subtreeAware.blockById['b']!.x).toBe(wrapOrigin);
   });
 
-  it('wraps recursively and caps the cumulative left origin', () => {
+  it('wraps recursively and indents from each parent', () => {
     const chain = {
       root: { max: 200, min: 100 },
       a: { max: 500, min: 100 },
@@ -220,18 +220,21 @@ describe('group-level left-origin wrap', () => {
       { from: 'c', to: 'd' },
     ]);
     const result = layout(document, port, 'group-left-origin');
-    expect(result.blockById['a']!.x).toBe(18);
-    expect(result.blockById['b']!.x).toBe(36);
-    expect(result.blockById['c']!.x).toBe(54);
-    expect(result.blockById['d']!.x).toBe(54);
+    expect(result.blockById['a']!.x).toBe(26);
+    expect(result.blockById['b']!.x).toBe(52);
+    expect(result.blockById['c']!.x).toBe(78);
+    // Each wrapped group indents from its own parent; the old global page-left
+    // cap no longer applies (product-owner tree rule, 8 November 2026).
+    expect(result.blockById['d']!.x).toBe(104);
 
-    const cap36 = layout(document, port, 'group-left-origin', 36);
-    expect(cap36.blockById['b']!.x).toBe(36);
-    expect(cap36.blockById['c']!.x).toBe(36);
-    expect(cap36.blockById['d']!.x).toBe(36);
+    const indent12 = layout(document, port, 'group-left-origin', 12);
+    expect(indent12.blockById['a']!.x).toBe(12);
+    expect(indent12.blockById['b']!.x).toBe(24);
+    expect(indent12.blockById['c']!.x).toBe(36);
+    expect(indent12.blockById['d']!.x).toBe(48);
   });
 
-  it('keeps a capped wrap below a taller ancestor card instead of overlapping it', () => {
+  it('keeps a per-parent wrap below a taller ancestor card instead of overlapping it', () => {
     const { document, port } = makeDocument(
       {
         tall: { max: 200, min: 100, height: 1000 },
@@ -248,7 +251,14 @@ describe('group-level left-origin wrap', () => {
     const rightChild = result.blockById['rightChild']!;
     const grandChild = result.blockById['grandChild']!;
     expect(rightChild.x).toBe(tall.x + tall.width + 24);
-    expect(grandChild.x).toBe(54);
+    const chrome = 2 * (DEFAULT_LAYOUT_OPTIONS.cardPadding + DEFAULT_LAYOUT_OPTIONS.cardBorder);
+    const groupWidth = Math.min(500, DEFAULT_LAYOUT_OPTIONS.maxContentWidth) + chrome;
+    expect(grandChild.x).toBe(
+      Math.min(
+        rightChild.x + 26,
+        result.geometry.contentWidthPx - groupWidth,
+      ),
+    );
     expect(grandChild.y).toBeGreaterThanOrEqual(tall.y + tall.height + 24);
     expect(overlaps(blockRect(tall), blockRect(grandChild))).toBe(false);
     expect(overlaps(blockRect(rightChild), blockRect(grandChild))).toBe(false);
@@ -284,7 +294,7 @@ describe('group-level left-origin wrap', () => {
     const child = result.blockById['child']!;
     const root = result.blockById['root']!;
     expect(calloutTwo.y).toBeLessThan(calloutOne.y);
-    expect(child.x).toBe(18);
+    expect(child.x).toBe(26);
     expect(child.y).toBeGreaterThan(calloutOne.subtreeBottom);
     expect(calloutOne.x).toBe(result.anchors.find((a) => a.anchorId === 'a1')!.rect!.x);
     expect(calloutTwo.x).toBe(result.anchors.find((a) => a.anchorId === 'a2')!.rect!.x);
@@ -322,8 +332,9 @@ describe('group-level left-origin wrap', () => {
   });
 
   it('reproduces the previous wide-fan geometry with the right-first oracle', () => {
-    // The oracle must stay compatible with the pre-M4a engine. Values are the
-    // committed geometry captured before the group rule was introduced.
+    // The oracle must stay compatible with the pre-M4a engine. The image block
+    // width changes from 546 to 446 because images are now width-scalable and
+    // cap at maxContentWidth; the rest is the committed pre-M4a geometry.
     const document = JSON.parse(
       readFileSync(resolve(FIXTURES, 'wide-fan.json'), 'utf8'),
     ) as NoteDocument;
@@ -343,7 +354,7 @@ describe('group-level left-origin wrap', () => {
       'f3-c4': [18, 358.2, 386],
       'f3-c5': [456, 481.5, 186],
       'f3-c6': [18, 753.8, 222],
-      'f3-c7': [18, 880.6, 546],
+      'f3-c7': [18, 880.6, 446],
       'f3-c8': [456, 1069.4, 186],
       'f3-c9': [18, 1168.5, 446],
       'f3-c10': [36, 1308.2, 186],

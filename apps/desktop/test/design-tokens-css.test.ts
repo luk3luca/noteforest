@@ -65,7 +65,7 @@ describe('design tokens are the single source for CSS geometry', () => {
     expect(DESIGN_TOKENS.siblingGap).toBeGreaterThanOrEqual(DESIGN_TOKENS.callout.safeGap);
     expect(DESIGN_TOKENS.rowIndent).toBe(26);
     expect(DESIGN_TOKENS.trunkInset).toBe(12);
-    expect(DESIGN_TOKENS.trunkGap).toBe(8);
+    expect(DESIGN_TOKENS.trunkGap).toBe(0);
     expect(DESIGN_TOKENS.stemMin).toBe(12);
     expect(DESIGN_TOKENS.cardPadding).toBe(10);
     expect(DESIGN_TOKENS.topLevelMinWidth).toBe(160);
@@ -76,7 +76,7 @@ describe('design tokens are the single source for CSS geometry', () => {
 
   it('publishes the documented CSS variables from the token module', () => {
     expect(DESIGN_TOKEN_CSS_VARIABLES).toMatchObject({
-      '--nf-canvas-max': '1600px',
+      '--nf-canvas-max': '3200px',
       '--nf-canvas-pad-x': '40px',
       '--nf-canvas-pad-top': '40px',
       '--nf-canvas-pad-bottom': '88px',

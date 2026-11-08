@@ -27,7 +27,7 @@ These are applied as root variables at boot.
 
 | Token | CSS variable | Value | Used for |
 |---|---|---:|---|
-| `canvasMaxWidth` | `--nf-canvas-max` | 1600 px | Canvas max width |
+| `canvasMaxWidth` | `--nf-canvas-max` | 3200 px | Finite wide canvas; placement uses its 3120 px content budget |
 | `editorPaddingX` | `--nf-canvas-pad-x` | 40 px | Canvas horizontal padding |
 | `editorPaddingTop` | `--nf-canvas-pad-top` | 40 px | Canvas top padding |
 | `editorPaddingBottom` | `--nf-canvas-pad-bottom` | **88 px** | Canvas bottom padding |
@@ -74,7 +74,7 @@ value).
 | Token | Value | Used for |
 |---|---:|---|
 | `trunkInset` | 12 px | Below trunk start from the parent card left |
-| `trunkGap` | 8 px | Visible gap between the parent card bottom and the below trunk start |
+| `trunkGap` | 0 px | Below trunk starts attached to the parent card bottom |
 | `stemMin` | 12 px | Final horizontal segment before every arrowhead |
 | `calloutGap` | 16 px | Anchor → callout offset when the anchor is farther right |
 | `calloutMinWidth` | 240 px | Minimum independent callout lane width |
@@ -102,10 +102,10 @@ so one engine produces one geometry.
 
 | Option | Value | Used for |
 |---|---:|---|
-| `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent |
+| `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent; Page below groups enforce at least 26 px (`trunkInset` 12 + `stemMin` 12 + 2) for a full left stem |
 | `maxWrapIndent` | 54 px | Cap on cumulative wrap indent from the page content left (3 × 18) |
 | `wrapPolicy` | `group-left-origin` | Production default from ADR-0006; lab oracles are not user-facing |
-| `pagePacking` | `stacked` (engine) / `compaction` (compact page) | Page/PDF row compaction; Continuous never reads it |
+| `pagePacking` | `stacked` (engine) / `beside` (compact page) | Page/PDF tree columns; `compaction` is a legacy lab oracle |
 | `minContentWidth` | 160 px | Readable minimum before a block reports `content-too-wide` |
 | `maxContentWidth` | 420 px | Readable text cap; unbreakable content may use more |
 
@@ -184,17 +184,25 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
   route leaves the source through a rail just outside its right edge (3 px clearance, +4 px per
   parallel duplicate) and enters the target's left edge with a final stem of at least 12 px.
   Earlier sibling cards are never crossed.
-- **Target entry.** Left entry is the default. A side is used only when it can fit the full 12 px
-  stem inside the content box; a wrapped page row that starts 12 px from the content left therefore
-  takes the target top instead of shortening the stem. Top/right/bottom entry points use the same
-  arrowhead and corner primitives. A target on the content left (x = 0) has no left approach; it
-  uses the top entry (or right entry when the target is above the source).
+- **Target entry.** Every primary tree edge enters the target from the left. The shortest allowed
+  final stem is used only when the page has no room for the full 12 px; the buggy top/right fallback
+  for wrapped tree rows is gone (R2f). Reference edges keep the generic router and its alternate
+  entry sides.
 - **Lanes.** Distinct targets from one source deliberately share the source rail, so the shared
   segment reads as the Continuous trunk. Duplicate edges between the same two fragments get
   `pageLaneStep` (4 px) parallel rails so they never overdraw exactly.
-- **Cross-page indicators** stay straight horizontal `to-edge`/`from-edge` lines from/to the content
-  edge, with the same stroke and arrowhead; the SVG clips them to the page content box. Reference
-  edges keep their target-only `from-edge` rule.
+- **Group trunks (R2g).** Primary edges group by `(parentBlockId, placement)` across pages, not per
+  page. Each group owns one `PageEdgeTrunk` with a stable `x` and a `segments[]` array: the parent
+  page runs from the parent port to the content bottom when a later child exists, intermediate
+  pages pass through top-to-bottom, and the last child page ends at the last child's arm. Nested
+  parents open independent trunks at their own `x`; a right group and a below group of the same
+  parent are separate trunks. Every child arm enters left. The below trunk starts attached at the
+  card bottom (`trunkGap` 0) at every depth; wrapped Page children keep at least a 26 px left indent
+  so the 12 px trunk inset and 12 px left stem both fit.
+- **Page-edge indicators (references only).** A reference edge that crosses a page still uses the
+  straight, target-only dashed `from-edge` chip. Primary tree edges never use `to-edge`/`from-edge`
+  or a `p.N` label: the vertical group trunk is the continuity. The SVG clips all page ink to the
+  content box.
 - **Shared primitives.** Continuous and Page arrows use the same stroke width
   (`--nf-edge-width`, 1.25), fixed arrowhead size/fill rules, near-right corner radius (2 px), and
   minimum stem (12 px).
@@ -204,8 +212,8 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 - The shared right trunk owns the parent port and the horizontal lead; child edges are only the
   short arms. Selecting any child in the group activates the whole lead/trunk, not just the first
   child's arm.
-- The below trunk starts `trunkGap` (8 px) below the parent card bottom; it is deliberately detached
-  from the card border instead of touching it.
+- The below trunk starts at the parent card bottom (`trunkGap` 0); it is attached, not detached.
+  Wrapped Page children keep at least a 26 px left indent for the 12 px trunk inset and 12 px stem.
 - Primary/right, below/callout, and reference edges all use the same fixed 6×6 arrowhead.
 - Primary and below elbows use `edgeRadius` 2 px; the first-child trunk junction stays sharp.
 - Reference edges are dashed with an open chevron and never join the primary V4 trunk.

@@ -34,6 +34,13 @@ export const EDGE_STYLE = Object.freeze({
   /** Shared trunk lane, clamped between these offsets from the parent edge. */
   laneMin: 2,
   laneMax: 14,
+  /**
+   * Below-trunk inset from the parent card's left edge. Page groups lower the
+   * inset when a wrapped row starts closer than `stemMin`; Continuous keeps it.
+   */
+  trunkInset: 12,
+  /** Visible gap between the parent card bottom and a below-trunk start. */
+  trunkGap: 0,
   /** Fixed arrowhead polygon, independent of path length. */
   arrowLength: 6,
   arrowHalfWidth: 3,

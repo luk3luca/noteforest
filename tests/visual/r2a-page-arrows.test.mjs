@@ -140,7 +140,9 @@ describe('R2a page arrows visual evidence', () => {
         return (
           view !== null &&
           Number(view.getAttribute('data-page-count')) >= 2 &&
-          view.querySelectorAll('[data-page-edge-label="to-edge"]').length > 0
+          view.querySelector(
+            '[data-page-trunk-id="source:below"][data-page-trunk-page="1"]',
+          ) !== null
         );
       },
       undefined,

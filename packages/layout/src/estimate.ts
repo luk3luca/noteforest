@@ -64,7 +64,10 @@ function inlineMinWidth(node: ContentNode, charWidth = BODY_CHAR): number {
     return Math.max(12, latex.length * charWidth);
   }
   if (node.type === 'image') {
-    return typeof node.attrs?.['width'] === 'number' ? node.attrs['width'] : 220;
+    // Images are atomic vertically but scalable horizontally: they never force
+    // a card wider than maxContentWidth. The page/print renderer keeps aspect
+    // ratio with max-width:100%.
+    return 0;
   }
   if (node.type === 'hardBreak') return 0;
   return (node.children ?? []).reduce((max, child) => Math.max(max, inlineMinWidth(child, charWidth)), 0);
@@ -131,7 +134,9 @@ function blockIntrinsicWidths(node: ContentNode, hasAsset: (id: string) => boole
       const assetId = node.attrs?.['assetId'];
       if (typeof assetId === 'string' && !hasAsset(assetId)) return { natural: 0, min: 0 };
       const width = typeof node.attrs?.['width'] === 'number' ? node.attrs['width'] : 220;
-      return { natural: width, min: width };
+      // The width attr is a preferred width, not a minimum: a page card caps
+      // it at maxContentWidth and the image scales down.
+      return { natural: width, min: 0 };
     }
     case 'table': {
       const rows = node.children ?? [];

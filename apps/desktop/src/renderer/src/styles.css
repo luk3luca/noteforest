@@ -1050,6 +1050,11 @@ button:disabled {
 }
 
 .nf-canvas {
+  /* Grow with the placed tree up to the finite canvas cap. min-width keeps a
+     short document centered at the viewport width; a deep branch expands the
+     surface and scrolls instead of wrapping at the window edge. */
+  width: max-content;
+  min-width: 100%;
   max-width: var(--nf-canvas-max);
   margin: 0 auto;
   padding: var(--nf-canvas-pad-top) var(--nf-canvas-pad-x)
@@ -4569,6 +4574,14 @@ body.nf-dragging-block .nf-gutter-handle {
   width: min-content;
 }
 
+/* An image is scalable horizontally; it must not contribute its intrinsic
+   width to min-content and force the whole block past maxCardWidth. */
+.nf-measure-card.nf-width-min .nf-image,
+.nf-measure-card.nf-width-min .nf-inline-image {
+  width: 0;
+  min-width: 0;
+}
+
 .nf-intrinsic-node + .nf-intrinsic-node {
   margin-top: var(--nf-page-segment-gap);
 }
@@ -4791,7 +4804,8 @@ body.nf-dragging-block .nf-gutter-handle {
   position: absolute;
   inset: 0;
   z-index: 3;
-  overflow: hidden;
+  /* Cross-page chips live in the page margin, outside the content box. */
+  overflow: visible;
   pointer-events: none;
 }
 

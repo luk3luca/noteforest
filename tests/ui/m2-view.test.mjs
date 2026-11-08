@@ -207,9 +207,9 @@ describe('NoteForest M2 view controls', () => {
     await h.waitLayout({ blocks: 7 });
 
     // Fit width at a narrow window with the full document: reset the focused
-    // branch zoom first. The adaptive below placement keeps the 7-block demo
-    // within 960, so extend the deepest chain to give Fit real horizontal
-    // overflow to resolve.
+    // branch zoom first. The wide finite canvas keeps the demo chain going
+    // right, so extend the deepest chain to give Fit real horizontal overflow
+    // to resolve.
     await page.keyboard.press('Meta+0');
     await waitZoomLabel('100%');
     const deepest = h
@@ -226,16 +226,6 @@ describe('NoteForest M2 view controls', () => {
     }
     await h.waitLayout({ blocks: 12 });
     await h.setWindowSize(960, 768);
-    // The measured right/below placement can rebuild once after the resize;
-    // wait for the wrapped row before measuring the settled layout.
-    await page.waitForFunction(
-      () =>
-        document.querySelectorAll(
-          '.nf-editor[data-active="true"] .nf-block-node[data-below-row="true"]',
-        ).length > 0,
-      undefined,
-      { timeout: 10000 },
-    );
     await h.waitLayout({ blocks: 12 });
     const beforeFit = await h.layoutSnapshot();
     assert.ok(
@@ -328,7 +318,7 @@ describe('NoteForest M2 view controls', () => {
     });
     assert.ok(geometry !== null);
     assert.deepEqual(geometry.vars, {
-      canvasMax: '1600px',
+      canvasMax: '3200px',
       canvasPadX: '40px',
       canvasPadTop: '40px',
       canvasPadBottom: '88px',
@@ -347,7 +337,7 @@ describe('NoteForest M2 view controls', () => {
       zEdge: '0',
     });
     assert.deepEqual(geometry.canvas, {
-      maxWidth: '1600px',
+      maxWidth: '3200px',
       paddingTop: '40px',
       paddingRight: '40px',
       paddingBottom: '88px',

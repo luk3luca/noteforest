@@ -121,16 +121,47 @@ Status: **complete** — `beside` implemented and merged; report `docs/reports/r
 
 ### R2c — Page compaction placement
 
-Status: **complete** — report `docs/reports/r2c-page-compaction.md`; showcase 17 pages, scale-300 21.
+Status: **superseded by the product-owner tree model (8 November 2026)**. Row
+fill put siblings and callouts in one row and lost the tree. The compact page
+now uses `beside`: siblings share one level column, the next sibling starts
+below the previous subtree, callouts stay below the parent, and a group that
+does not fit wraps below its own parent. `compaction` remains a density-lab
+oracle only. Page edges also use semantic ports (callout/below/beside), labels
+move to the page margin, and images cap at maxCardWidth.
 
 - [x] Fill rows with callouts + primary children; align/indent from parent; wrap when full.
 - [x] Reference targets stay at their primary home; edges only.
-- [x] Lab compaction vs beside vs stacked; accept only if denser, no-overlap, deterministic.
+- [x] Lab compaction vs beside vs stacked; compaction is now a lab oracle, not the product default.
 - [x] R2d: unify Page/PDF edge style with the Continuous orthogonal router.
+
+### R2f — Page edge topology
+
+Status: **complete on WIP; verified**. `LayoutBlock.placement` and one
+`PageEdgeTrunk` per `(parent, placement)`; right siblings share the right trunk,
+callouts/wrapped children share the below trunk, every primary tree edge enters
+left, and Page/PDF consume the same `PageEdge` records. Report:
+`docs/reports/r2f-page-edge-topology.md`.
+
+### R2g — Page trunk continuity
+
+Status: **complete on WIP; verified**. One group trunk per `(parent, placement)`
+across pages with a stable `x` and page segments: parent page to content bottom
+when later children exist, pass-through pages top-to-bottom, last page to the
+last arm. Nested trunks remain independent; below trunks use the 8 px
+`trunkGap`; cross-page tree arms are `direction: 'trunk'` with no `p.N` chip.
+References keep their target-only indicator. Report:
+`docs/reports/r2g-page-trunk-continuity.md`.
+
+### R2h — Attached Page trunks
+
+Status: **complete on WIP; verified**. The below trunk starts attached to the
+card bottom (`trunkGap` 0) in Page and Continuous; wrapped Page children keep
+at least a 26 px indent so nested trunks retain a 12 px left inset with a 12 px
+left stem. Report: `docs/reports/r2h-page-trunk-attachment.md`.
 
 ### PRODUCT-OWNER CHECKPOINT — after R2d
 
-Status: **ready for product-owner check after the Continuous stress fix** (8 November 2026)
+Status: **ready for product-owner Page check after R2h** (8 November 2026)
 
 - [x] Full `npm run verify` on the integrated main.
 - [x] Continuous stress-test overlap/height fix (8 November 2026): the right-group reservation is
@@ -141,7 +172,7 @@ Status: **ready for product-owner check after the Continuous stress fix** (8 Nov
       1,078 px, so 480 + 24 + 420 fills the row and the next level wraps; at 70% zoom the canvas
       reaches its 1,600 px shell width (1,520 px content) and a third level fits. This is the D23
       finite-width rule, not an infinite canvas.
-- [ ] Hand the build/screenshots to the product owner for a visual/density/arrow pass. (ready)
+- [ ] Hand the build/screenshots to the product owner for a visual/density/arrow/trunk pass. (ready; full verify 855 unit / 29 UI suites / 90 tests / 16 e2e / 14 recovery, 0 pageErrors)
 - [ ] Do **not** start R3 (Settings UI/manual breaks), R4 docs, or M4c PDF until the checkpoint is accepted or fixes are requested.
 - [ ] If the checkpoint fails, fix Page placement/arrows/density before any PDF work.
 

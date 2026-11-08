@@ -69,6 +69,18 @@ export interface PageRouteInput {
    * between the same two fragments get separate rails.
    */
   laneIndex?: number;
+  /**
+   * Semantic source port. `right` is the beside/right-group language; `bottom`
+   * is the below-stack/callout language (exit the parent card at the bottom).
+   */
+  sourceSide?: 'right' | 'bottom';
+  /**
+   * Lock the semantic entry side. Tree edges pass `left`: the obstacle router
+   * may still choose a path, but it may never turn a tree edge into a top/right
+   * entry. A shortened stem is allowed only when the page has no room for the
+   * full `stemMin`.
+   */
+  requiredEntry?: PageRouteEntry;
 }
 
 const EPSILON = 0.01;
@@ -213,6 +225,8 @@ interface SearchInput {
   approach: EdgePoint;
   obstacles: readonly PageRouteRect[];
   bounds: { width: number; height: number };
+  /** Allowed first moves from the source port. */
+  startDirections?: readonly EdgeArrowDirection[];
 }
 
 function buildEntries(
@@ -235,9 +249,11 @@ function buildEntries(
       ? -Infinity
       : rectBottom(input.sourceRect);
   const targetBelow = target.y >= sourceBottom - 0.5;
-  const order: PageRouteEntry[] = targetBelow
+  const baseOrder: PageRouteEntry[] = targetBelow
     ? ['left', 'top', 'right', 'bottom']
     : ['left', 'right', 'top', 'bottom'];
+  const order: PageRouteEntry[] =
+    input.requiredEntry === undefined ? baseOrder : [input.requiredEntry];
   const available: Record<PageRouteEntry, number> = {
     left: leftAvailable,
     right: rightAvailable,
@@ -283,10 +299,13 @@ function buildEntries(
   const valid = (candidate: EntryCandidate): boolean => {
     if (insideAny(searchObstacles, candidate.approach)) return false;
     if (!segmentFree(candidate.approach, candidate.tip, finalObstacles)) return false;
+    // A required entry is the semantic tree contract: it may sit exactly on the
+    // content edge when the target card starts at x = 0.
+    const lowerBound = input.requiredEntry === undefined ? MARGIN - 0.5 : -0.5;
     return (
-      candidate.approach.x >= MARGIN - 0.5 &&
+      candidate.approach.x >= lowerBound &&
       candidate.approach.x <= input.bounds.width - MARGIN + 0.5 &&
-      candidate.approach.y >= MARGIN - 0.5 &&
+      candidate.approach.y >= lowerBound &&
       candidate.approach.y <= input.bounds.height - MARGIN + 0.5
     );
   };
@@ -307,7 +326,12 @@ function buildEntries(
   for (const entry of order) {
     const room = available[entry];
     const full = Math.min(EDGE_STYLE.stemMin, room);
-    if (full < 1) continue;
+    if (full < 1) {
+      if (input.requiredEntry === undefined) continue;
+      const candidate = makeCandidate(entry, 0);
+      if (valid(candidate)) candidates.push(candidate);
+      continue;
+    }
     const stems = uniqueSorted([
       full,
       Math.max(1, full - 2),
@@ -495,11 +519,11 @@ function searchOrthogonal(input: SearchInput): EdgePoint[] | null {
 
   // The source port leaves through its lane horizontally. From the lane the
   // route may turn vertically; it never turns back into the source card.
-  const seeds: Array<[EdgeArrowDirection, number]> = [
-    ['right', 0],
-    ['down', 1],
-    ['up', 3],
-  ];
+  const startDirections = input.startDirections ?? ['right', 'down', 'up'];
+  const seeds: Array<[EdgeArrowDirection, number]> = startDirections.map((direction) => [
+    direction,
+    DIRECTIONS.indexOf(direction),
+  ]);
   for (const [direction, directionIndex] of seeds) {
     const step = STEPS[direction];
     const nextX = startX + step.dx;
@@ -606,7 +630,48 @@ function fallbackRoute(
         rectBottom(input.targetRect) - 0.5,
       ),
     };
-  const direction = entry?.direction ?? 'right';
+  const direction = entry?.direction ?? (input.sourceSide === 'bottom' ? 'down' : 'right');
+  if (input.requiredEntry === 'left') {
+    // Keep the semantic tree entry even when the obstacle search found no
+    // candidate: the visible fallback still points into the target's left edge.
+    const railX =
+      input.sourceSide === 'bottom'
+        ? Math.max(0, Math.min(start.x, tip.x - 0.5))
+        : Math.max(
+            MARGIN,
+            Math.min(start.x + EDGE_STYLE.laneMin, Math.max(MARGIN, tip.x - 1)),
+          );
+    const points = simplifyPath([
+      start,
+      { x: railX, y: start.y },
+      { x: railX, y: tip.y },
+      tip,
+    ]);
+    return {
+      points,
+      tip,
+      direction: 'right',
+      entry: 'left',
+      stem: Math.max(0, tip.x - railX),
+      blocked: true,
+    };
+  }
+  if (input.sourceSide === 'bottom') {
+    const points = simplifyPath([
+      start,
+      { x: start.x, y: tip.y },
+      { x: tip.x, y: tip.y },
+      tip,
+    ]);
+    return {
+      points,
+      tip,
+      direction,
+      entry: entry?.entry ?? 'top',
+      stem: entry?.stem ?? 0,
+      blocked: true,
+    };
+  }
   const railX = Math.min(
     Math.max(start.x + EDGE_STYLE.laneMin, MARGIN),
     Math.max(MARGIN, input.bounds.width - MARGIN),
@@ -639,19 +704,32 @@ function fallbackRoute(
 export function routePageEdge(input: PageRouteInput): PageRoute {
   const from = input.from;
   const target = input.targetRect;
+  const sourceSide = input.sourceSide ?? 'right';
   const sourceRight =
     input.sourceRect === null || input.sourceRect === undefined
       ? from.x
       : rectRight(input.sourceRect);
-  const exit =
-    input.sourceExit === null || input.sourceExit === undefined
-      ? from
-      : {
-          x: Math.max(from.x, sourceRight),
-          // The anchor stub is horizontal by contract; never let a caller's
-          // sourceExit y turn the first segment into a diagonal.
-          y: from.y,
-        };
+  const sourceBottom =
+    input.sourceRect === null || input.sourceRect === undefined
+      ? from.y
+      : rectBottom(input.sourceRect);
+  let exit: EdgePoint;
+  if (sourceSide === 'bottom') {
+    exit = {
+      x: Math.min(Math.max(from.x, MARGIN), Math.max(MARGIN, input.bounds.width - MARGIN)),
+      y: sourceBottom,
+    };
+  } else {
+    exit =
+      input.sourceExit === null || input.sourceExit === undefined
+        ? from
+        : {
+            x: Math.max(from.x, sourceRight),
+            // The anchor stub is horizontal by contract; never let a caller's
+            // sourceExit y turn the first segment into a diagonal.
+            y: from.y,
+          };
+  }
   const rawObstacles: PageRouteRect[] = [];
   const others: PageRouteRect[] = [];
   for (const obstacle of input.obstacles) {
@@ -675,22 +753,31 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
     ...(input.sourceRect ? [input.sourceRect] : []),
     target,
   ];
-  const searchStart = input.sourceRect
-    ? {
-        x: Math.min(
-          input.bounds.width,
-          Math.max(
-            exit.x,
-            exit.x +
-              Math.max(
-                EDGE_STYLE.pageClearance,
-                EDGE_STYLE.laneMin + (input.laneIndex ?? 0) * EDGE_STYLE.pageLaneStep,
-              ),
+  const searchStart =
+    sourceSide === 'bottom'
+      ? {
+          x: exit.x,
+          y: Math.min(
+            input.bounds.height - MARGIN,
+            Math.max(MARGIN, exit.y + EDGE_STYLE.pageClearance + 1),
           ),
-        ),
-        y: exit.y,
-      }
-    : exit;
+        }
+      : input.sourceRect
+        ? {
+            x: Math.min(
+              input.bounds.width,
+              Math.max(
+                exit.x,
+                exit.x +
+                  Math.max(
+                    EDGE_STYLE.pageClearance,
+                    EDGE_STYLE.laneMin + (input.laneIndex ?? 0) * EDGE_STYLE.pageLaneStep,
+                  ),
+              ),
+            ),
+            y: exit.y,
+          }
+        : exit;
   const entries = buildEntries(input, target, searchObstacles, finalObstacles);
   if (entries.length === 0) {
     return fallbackRoute(exit, input, null);
@@ -701,6 +788,8 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
       approach: entry.approach,
       obstacles: searchObstacles,
       bounds: input.bounds,
+      startDirections:
+        sourceSide === 'bottom' ? ['down', 'left', 'right'] : undefined,
     });
     if (points === null) continue;
     const routePoints = simplifyPath([from, exit, ...points, entry.tip]);

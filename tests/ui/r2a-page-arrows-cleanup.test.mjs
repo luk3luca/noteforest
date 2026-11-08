@@ -193,19 +193,13 @@ describe('R2a page arrows and Continuous cleanup', () => {
       .evaluate((element) => getComputedStyle(element).strokeDasharray);
     assert.notEqual(dash, 'none', 'reference arrows are dashed');
 
-    // Branch/anchor labels stay outside the aria-hidden SVG.
-    const labels = activePageView().locator('[data-page-edge-label]');
-    assert.equal(await labels.count(), 2, 'the anchored callout and labeled reference have chips');
-    const labelTexts = await labels.evaluateAll((elements) =>
-      elements.map((element) => element.textContent?.trim() ?? ''),
-    );
-    assert.deepEqual(labelTexts.sort(), ['also uses', 'eigenvalue'].sort());
-    assert.equal(
-      await activePageView()
-        .locator('[data-page-edge-label="branch"]')
-        .first()
-        .evaluate((element) => getComputedStyle(element).pointerEvents),
-      'none',
+    // Same-page branch/anchor quotes stay in the callout card and the edge's
+    // accessible title; route chips no longer sit on top of block text.
+    const labels = activePageView().locator('[data-page-edge-label="branch"]');
+    assert.equal(await labels.count(), 0, 'same-page branch chips do not cover text');
+    assert.ok(
+      (await activePageView().locator('[data-page-edge-id="branch-reference"] title').count()) > 0,
+      'the labeled reference keeps its accessible route title',
     );
 
     // Neither the paths nor the labels capture a pointer.
@@ -262,45 +256,46 @@ describe('R2a page arrows and Continuous cleanup', () => {
     assert.equal(await activePageView().locator('[contenteditable="true"]').count(), 1);
   });
 
-  it('shows cross-page indicators on both sides without drawing through the margin', async () => {
+  it('continues the below tree trunk across pages while references keep their indicators', async () => {
     const env = ui.isolated('r2a-cross-page');
     await launch('r2a-cross-page');
     const packagePath = await openPackage(env, 'Page arrows cross page', pageArrowsDocument());
-    // R2a covers the cross-page mapper; R2b covers the default beside packing.
-    // Keep this fixture on the stacked order so both direct and callout edges
-    // appear on page 2 as the accepted R2a evidence expects.
+    // Product default compact/beside packing. The manual break puts the
+    // anchored callout and the reference target on page 2; the direct child
+    // stays on page 1 in the right group.
     const resolved = await setPageSettingsOverride(packagePath, {
-      theme: { pagePacking: 'stacked' },
       manualBreakBeforeBlockIds: ['callout'],
     });
-    assert.equal(resolved.theme.pagePacking, 'stacked');
+    assert.equal(resolved.theme.pagePacking, 'beside');
     assert.deepEqual(resolved.manualBreakBeforeBlockIds, ['callout']);
     await showPageRead();
     const count = await pageCount();
     assert.ok(count >= 2, `the manual break derives at least two pages, got ${count}`);
     assert.equal(await currentPageNumber(), 1);
 
+    // Page 1 owns the parent ports and the right group's last arm. The below
+    // trunk continues to the page bottom because its callout is on page 2.
     const first = await allEdges();
-    const directOut = first.find((edge) => edge.branchId === 'branch-direct');
-    const calloutOut = first.find((edge) => edge.branchId === 'branch-callout');
-    assert.equal(directOut?.direction, 'to-edge');
-    assert.equal(calloutOut?.direction, 'to-edge');
-    assert.equal(directOut?.targetPage, '2');
-    assert.equal(calloutOut?.targetPage, '2');
-    assert.equal(first.some((edge) => edge.branchId === 'branch-reference'), false);
-
-    const contentWidth = Number(
-      await activePageView()
-        .locator('[data-page-content]')
-        .evaluate((element) => Number.parseFloat(element.style.width)),
+    assert.deepEqual(first.map((edge) => edge.branchId), ['branch-direct']);
+    assert.equal(first[0]?.direction, 'same-page');
+    assert.equal(
+      await activePageView().locator('[data-page-edge-label]').count(),
+      0,
+      'no p.N chip is drawn for a tree edge',
     );
-    assert.ok(Math.abs(parsePoint(directOut?.to).x - contentWidth) <= 0.6, 'outgoing indicator ends at the content edge');
-    assert.ok(Math.abs(parsePoint(calloutOut?.to).x - contentWidth) <= 0.6);
-
-    const outLabels = await activePageView()
-      .locator('[data-page-edge-label="to-edge"]')
-      .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
-    assert.deepEqual(outLabels.sort(), ['→ page 2', '→ page 2']);
+    const page1Trunks = await activePageView()
+      .locator('[data-page-trunk-id]')
+      .evaluateAll((elements) =>
+        elements.map((element) => ({
+          id: element.getAttribute('data-page-trunk-id'),
+          start: element.getAttribute('data-page-trunk-start'),
+          end: element.getAttribute('data-page-trunk-end'),
+        })),
+      );
+    assert.deepEqual(
+      page1Trunks.map((trunk) => trunk.id).sort(),
+      ['source:below', 'source:right'],
+    );
 
     const bounds = await activePageView().locator('[data-page-content]').evaluate((element) => {
       const content = element.getBoundingClientRect();
@@ -320,7 +315,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
     assert.equal(
       await activePageView().locator('.nf-page-edges').evaluate((element) => getComputedStyle(element).overflow),
       'hidden',
-      'cross-page ink is clipped to the page content box',
+      'trunk ink is clipped to the page content box',
     );
 
     await activePageView().locator('[data-page-nav="next"]').click();
@@ -335,25 +330,45 @@ describe('R2a page arrows and Continuous cleanup', () => {
       { timeout: 5000 },
     );
     const second = await allEdges();
-    for (const branchId of ['branch-direct', 'branch-callout', 'branch-reference']) {
-      const incoming = second.find((edge) => edge.branchId === branchId);
-      assert.equal(incoming?.direction, 'from-edge', `${branchId} arrives with a from-edge indicator`);
-      assert.equal(incoming?.targetPage, '1');
-      assert.ok(Math.abs(parsePoint(incoming?.from).x) <= 0.6, 'incoming indicator starts at the content edge');
-    }
+    const calloutIn = second.find((edge) => edge.branchId === 'branch-callout');
+    const referenceIn = second.find((edge) => edge.branchId === 'branch-reference');
+    assert.equal(calloutIn?.direction, 'trunk');
+    assert.equal(calloutIn?.targetPage, null);
+    assert.equal(referenceIn?.direction, 'from-edge');
+    assert.equal(referenceIn?.targetPage, '1');
+    assert.ok(Math.abs(parsePoint(referenceIn?.from).x) <= 0.6, 'reference indicator starts at the content edge');
     const inLabels = await activePageView()
       .locator('[data-page-edge-label="from-edge"]')
       .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
-    assert.deepEqual(inLabels.sort(), ['← from page 1', '← from page 1', '← from page 1']);
+    assert.deepEqual(inLabels, ['← p.1'], 'only the reference gets a page chip');
+    const page2Trunks = await activePageView()
+      .locator('[data-page-trunk-id]')
+      .evaluateAll((elements) =>
+        elements.map((element) => ({
+          id: element.getAttribute('data-page-trunk-id'),
+          x: Number(element.getAttribute('data-page-trunk-x')),
+          start: element.getAttribute('data-page-trunk-start'),
+          end: element.getAttribute('data-page-trunk-end'),
+          segments: Number(element.getAttribute('data-page-trunk-segment-count')),
+        })),
+      );
+    assert.deepEqual(page2Trunks.map((trunk) => trunk.id), ['source:below']);
+    const belowTrunk = page2Trunks[0];
+    assert.equal(belowTrunk?.segments, 2);
+    assert.equal(parsePoint(belowTrunk?.start).x, belowTrunk?.x);
+    assert.equal(parsePoint(belowTrunk?.end).x, belowTrunk?.x);
+    assert.equal(parsePoint(belowTrunk?.start).y, 0);
 
-    // Page Edit keeps the same cross-page indicators.
+    // Page Edit keeps the same cross-page trunk segment and the one reference
+    // indicator.
     await page.keyboard.press('Meta+e');
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
       packagePath,
       { timeout: 5000 },
     );
-    assert.equal(await activePageView().locator('[data-page-edge-label="from-edge"]').count(), 3);
+    assert.equal(await activePageView().locator('[data-page-edge-label="from-edge"]').count(), 1);
+    assert.equal(await activePageView().locator('[data-page-trunk-id]').count(), 1);
     assert.equal(await activePageView().locator('.nf-page-edges').count(), 1);
   });
 

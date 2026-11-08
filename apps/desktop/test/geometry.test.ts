@@ -53,7 +53,7 @@ describe('geometry', () => {
     expect(GEOMETRY.childMaxWidth).toBe(420);
     expect(GEOMETRY.childGap).toBe(24);
     expect(GEOMETRY.siblingGap).toBe(24);
-    expect(GEOMETRY.canvasMaxWidth).toBe(1600);
+    expect(GEOMETRY.canvasMaxWidth).toBe(3200);
     expect(GEOMETRY.editorPaddingX).toBe(40);
     expect(GEOMETRY.editorPaddingTop).toBe(40);
     expect(GEOMETRY.editorPaddingBottom).toBe(88);
@@ -78,7 +78,7 @@ describe('geometry', () => {
     expect(GEOMETRY.edgeGap).toBe(2);
     expect(GEOMETRY.rowIndent).toBe(26);
     expect(GEOMETRY.trunkInset).toBe(12);
-    expect(GEOMETRY.trunkGap).toBe(8);
+    expect(GEOMETRY.trunkGap).toBe(0);
     expect(GEOMETRY.calloutGap).toBe(16);
     expect(GEOMETRY.calloutMinWidth).toBe(240);
     expect(GEOMETRY.calloutMaxWidth).toBe(480);

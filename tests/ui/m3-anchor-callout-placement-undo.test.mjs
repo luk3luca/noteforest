@@ -58,13 +58,13 @@ describe('NoteForest M3h1 callout placement undo', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('preserves the text undo stack when a resize flips a child below', async () => {
+  it('preserves the text undo stack across a window resize', async () => {
     await launch(isolated('placement-undo'));
     await h.setWindowSize(1440, 900);
     const { parentId, shortDirect, longDirect } = await calloutStackFixture(ui);
 
-    // Type in the short child that stays right and in the long child that the
-    // resize moves below. Both text events must survive the projection rebuild.
+    // Type in both direct children. The text events must survive a view-only
+    // resize/projection rebuild.
     await h.activeEditor().locator(`[data-block-card="${shortDirect}"] .nf-block-prose`).click();
     await h.waitSelected(shortDirect);
     await page.keyboard.press('End');
@@ -83,21 +83,11 @@ describe('NoteForest M3h1 callout placement undo', () => {
       blocks: 11,
     });
 
-    // The long sibling no longer fits: it moves from the right group into the
-    // below stack. The placement change is view-only, so the text event must
-    // survive the rebuild.
+    // The wide finite canvas keeps the children in the right column; the
+    // resize is still a view-only projection rebuild. The text event must
+    // survive it.
     await h.setWindowSize(960, 900);
     await h.waitLayout({ blocks: 11, arrows: 7 });
-    await page.waitForFunction(
-      ({ id, child }) => {
-        const lane = document.querySelector(`[data-callout-lane="${id}"]`);
-        if (lane === null) return false;
-        const card = lane.querySelector(`[data-block-card="${child}"]`);
-        return card !== null && card.closest('.nf-callout-lane') === lane;
-      },
-      { id: parentId, child: longDirect },
-      { timeout: 10000 },
-    );
     await waitHistoryState({
       lastHistoryOperation: 'text',
       canUndoText: true,

@@ -65,7 +65,7 @@ describe('adaptive layout', () => {
     const layout = layoutFixture('wide-fan.json', { setup: FIXTURE_PAGE_SETUP });
     const parent = layout.blockById['f3-parent']!;
     const children = layout.blocks.filter((block) => block.parentBlockId === 'f3-parent');
-    const wrapOrigin = Math.min(parent.x + 18, 54);
+    const wrapOrigin = parent.x + 26;
     for (const child of children) {
       expect(Math.abs(child.x - wrapOrigin), `${child.blockId}.x`).toBeLessThanOrEqual(1.5);
       expect(child.y).toBeGreaterThanOrEqual(parent.y + parent.height);

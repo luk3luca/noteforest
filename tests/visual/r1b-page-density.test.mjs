@@ -396,7 +396,7 @@ async function readPageMetrics() {
     let blockedEdges = 0;
     const crossingDetails = [];
     for (const edge of edges) {
-      if (edge.direction !== 'same-page') continue;
+      if (edge.direction !== 'same-page' && edge.direction !== 'trunk') continue;
       if (edge.blocked) blockedEdges += 1;
       const sourceIndex = fragments.findIndex((fragment) =>
         nearRect(fragment, edge.from.x, edge.from.y),

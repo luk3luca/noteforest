@@ -14,16 +14,17 @@ import {
   EDGE_STYLE,
   arrowPath,
   openArrowForDirection,
-  pageRouteMidpoint,
   roundedPath,
   type PageEdge,
   type PageEdgePoint,
+  type PageEdgeTrunkView,
   type PageGeometry,
   type PageRoute,
 } from '@noteforest/layout';
 
 interface PageEdgesProps {
   edges: readonly PageEdge[];
+  trunks: readonly PageEdgeTrunkView[];
   geometry: PageGeometry;
 }
 
@@ -51,11 +52,13 @@ function routeArrow(edge: PageEdge): string {
 }
 
 function edgeLabelText(edge: PageEdge): string | null {
+  // Short print-style marker; the full sentence stays in the aria-label. The
+  // long “→ page 12” chip did not fit the margin and covered the block text.
   if (edge.direction === 'to-edge' && edge.targetPage !== null) {
-    return `→ page ${edge.targetPage}`;
+    return `→ p.${edge.targetPage}`;
   }
   if (edge.direction === 'from-edge' && edge.targetPage !== null) {
-    return `← from page ${edge.targetPage}`;
+    return `← p.${edge.targetPage}`;
   }
   return null;
 }
@@ -73,51 +76,45 @@ function accessibleLabel(edge: PageEdge): string {
   return parts.join(' · ');
 }
 
-export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | null {
-  if (edges.length === 0) return null;
+export function PageEdges({ edges, trunks, geometry }: PageEdgesProps): JSX.Element | null {
+  if (edges.length === 0 && trunks.length === 0) return null;
   const width = geometry.contentWidthPx;
   const height = geometry.contentHeightPx;
   const labels = edges
     .map((edge) => {
       if (edge.direction === 'same-page') {
-        if (edge.branchLabel === undefined) return null;
-        const midpoint = pageRouteMidpoint(edge.route.points);
-        return {
-          key: `${edge.branchId}-branch`,
-          text: edge.branchLabel,
-          aria: accessibleLabel(edge),
-          style: {
-            left: midpoint.x,
-            top: midpoint.y,
-            transform: 'translate(-50%, -50%)',
-          },
-          attribute: 'branch' as const,
-          edge,
-        };
+        // Same-page branch/anchor quotes already live inside the callout card
+        // and the arrow's accessible title. A route midpoint chip sat on top of
+        // block text, so the page layer never duplicates it.
+        return null;
       }
       const text = edgeLabelText(edge);
       if (text === null) return null;
       if (edge.direction === 'to-edge') {
+        const margin = Math.max(18, geometry.marginsPx.right - 4);
         return {
           key: `${edge.branchId}-to`,
           text,
           aria: accessibleLabel(edge),
           style: {
-            right: 4,
+            right: -geometry.marginsPx.right + 2,
             top: edge.from.y,
+            maxWidth: margin,
             transform: 'translateY(-50%)',
           },
           attribute: 'to-edge' as const,
           edge,
         };
       }
+      const margin = Math.max(18, geometry.marginsPx.left - 4);
       return {
         key: `${edge.branchId}-from`,
         text,
         aria: accessibleLabel(edge),
         style: {
-          left: 4,
+          left: -geometry.marginsPx.left + 2,
           top: edge.to.y,
+          maxWidth: margin,
           transform: 'translateY(-50%)',
         },
         attribute: 'from-edge' as const,
@@ -136,7 +133,43 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
         focusable="false"
         data-page-edges="true"
         data-page-edge-count={edges.length}
+        data-page-trunk-count={trunks.length}
       >
+        {trunks.map(({ trunk, segment }) => (
+          <g
+            key={`trunk-${trunk.id}-${segment.pageNumber}`}
+            className={`nf-page-trunk nf-page-trunk-${trunk.placement}`}
+            data-page-trunk-id={trunk.id}
+            data-page-trunk-parent={trunk.parentBlockId}
+            data-page-trunk-placement={trunk.placement}
+            data-page-trunk-x={number(trunk.x)}
+            data-page-trunk-port={pointAttribute(trunk.port)}
+            data-page-trunk-port-page={trunk.portPage}
+            data-page-trunk-page={segment.pageNumber}
+            data-page-trunk-start={pointAttribute(segment.start)}
+            data-page-trunk-end={pointAttribute(segment.end)}
+            data-page-trunk-lead={
+              segment.lead === null
+                ? undefined
+                : `${pointAttribute(segment.lead.from)} ${pointAttribute(segment.lead.to)}`
+            }
+            data-page-trunk-segment-count={trunk.segments.length}
+          >
+            <path
+              className="nf-page-trunk-path nf-page-edge-path nf-page-edge-path-primary"
+              d={[
+                segment.lead === null
+                  ? ''
+                  : roundedPath([segment.lead.from, segment.lead.to], 0),
+                roundedPath([segment.start, segment.end], 0),
+              ]
+                .filter((part) => part.length > 0)
+                .join(' ')}
+              vectorEffect="non-scaling-stroke"
+              fill="none"
+            />
+          </g>
+        ))}
         {edges.map((edge) => {
           return (
             <g
@@ -158,6 +191,18 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
               data-page-edge-arrow={edge.route.direction}
               data-page-edge-stem={number(edge.route.stem)}
               data-page-edge-blocked={edge.route.blocked ? 'true' : undefined}
+              data-page-edge-placement={edge.placement}
+              data-page-edge-trunk-id={edge.trunk?.id}
+              data-page-edge-trunk-placement={edge.trunk?.placement}
+              data-page-edge-trunk-x={edge.trunk ? number(edge.trunk.x) : undefined}
+              data-page-edge-trunk-port-page={edge.trunk?.portPage}
+              data-page-edge-trunk-segment-page={edge.trunkSegment?.pageNumber}
+              data-page-edge-trunk-segment-start={
+                edge.trunkSegment ? pointAttribute(edge.trunkSegment.start) : undefined
+              }
+              data-page-edge-trunk-segment-end={
+                edge.trunkSegment ? pointAttribute(edge.trunkSegment.end) : undefined
+              }
               data-page-edge-anchor-id={edge.anchorId}
               data-page-edge-anchor-start={
                 edge.anchorId !== undefined && edge.direction === 'same-page' ? 'true' : undefined

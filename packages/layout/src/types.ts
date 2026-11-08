@@ -186,6 +186,15 @@ export type BlockRole = 'top-level' | 'child' | 'callout';
 export type AnchorState = 'resolved' | 'broken' | 'ambiguous' | 'none';
 
 /**
+ * Semantic primary-child placement, shared by Continuous edge descriptors and
+ * Page/PDF tree edges. `right` is the beside/level-column language; `below` is
+ * the below-stack language for anchored callouts and wrapped children. Page
+ * edges group by `(parent, placement)`, so this value must come from the actual
+ * placement decision, never from a target's y coordinate.
+ */
+export type EdgePlacement = 'right' | 'below';
+
+/**
  * Child-group placement policy.
  *
  * - `group-left-origin` is the production rule from ADR-0006: a direct-child
@@ -216,12 +225,15 @@ export type WrapPolicy = 'group-left-origin' | 'right-first-per-child' | 'subtre
  *   Reference targets stay at their primary home; only primary edges are
  *   layout components.
  */
+/** `compaction` is a legacy row-fill lab oracle; presets use beside/stacked. */
 export type PagePacking = 'stacked' | 'beside' | 'compaction';
 
 export interface LayoutBlock {
   blockId: string;
   chapterId: string;
   role: BlockRole;
+  /** Semantic placement relative to `parentBlockId` (from the layout decision). */
+  placement: EdgePlacement;
   parentBlockId: string | null;
   anchorId: string | null;
   depth: number;

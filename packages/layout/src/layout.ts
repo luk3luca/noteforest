@@ -6,6 +6,7 @@ import {
   validateDocument,
 } from './document.js';
 import { clamp } from './geometry.js';
+import { EDGE_STYLE } from './edge-style.js';
 import type {
   AnchorAttachment,
   AnchorState,
@@ -17,6 +18,7 @@ import type {
   ContentBlock,
   ContinuousLayout,
   EdgeLayout,
+  EdgePlacement,
   LayoutBlock,
   LayoutDefect,
   LayoutOptions,
@@ -41,6 +43,8 @@ interface PlacementContext {
   chapterId: string;
   role: BlockRole;
   parentBlockId: string | null;
+  /** Semantic placement relative to the parent, decided by the caller. */
+  placement: EdgePlacement;
   anchorId: string | null;
   depth: number;
   /**
@@ -51,11 +55,16 @@ interface PlacementContext {
   rightLimit: number;
   /**
    * Minimum chapter-local x for a wrapped group inside this lane. The default
-   * is the page content left, matching the ADR-0006 cap. A direct-child group
-   * that sits beside anchored callouts raises it to the right column origin so
-   * a wrapped descendant can never wrap back across the safe gap.
+   * is the page content left, matching the ADR-0006 cap.
    */
   wrapFloor: number;
+  /**
+   * Minimum chapter-local y for a wrapped group inside this lane. It keeps a
+   * descendant wrap below the callout lane that belongs to its parent, even
+   * when the descendant's own card is short. This lets a beside group use the
+   * same left-origin wrap as a stacked group without crossing the callout lane.
+   */
+  wrapFloorY: number;
   /**
    * Left edge of the column that owns this subtree. Page compaction caps the
    * accumulated wrap indent at `columnOriginX + maxWrapIndent`, so a column can
@@ -102,6 +111,10 @@ interface ResolvedBlockBox {
 
 /** Layout coordinates are chapter-local; a page content box starts at x = 0. */
 const PAGE_CONTENT_LEFT = 0;
+/** Minimum wrapped-child indent that leaves a full left stem inside a below trunk. */
+const TRUNK_CHILD_INDENT = EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin + 2;
+/** Continuous-style callout row indent; leaves room for the 12 px left trunk/stem. */
+const CALLOUT_ROW_INDENT = 26;
 
 class LayoutBuilder {
   readonly document: NoteDocument;
@@ -186,11 +199,13 @@ class LayoutBuilder {
         const placed = this.layoutBlock(block, chapter.id, 0, cursorY, {
           chapterId: chapter.id,
           role: 'top-level',
+          placement: 'below',
           parentBlockId: null,
           anchorId: null,
           depth: 0,
           rightLimit: this.geometry.contentWidthPx,
           wrapFloor: PAGE_CONTENT_LEFT,
+          wrapFloorY: 0,
           columnOriginX: PAGE_CONTENT_LEFT,
         });
         cursorY = placed.subtreeBottom + this.options.chapterGap;
@@ -277,15 +292,31 @@ class LayoutBuilder {
     };
   }
 
-  /** Capped left origin for a child group that wraps below its parent. */
-  private wrapOriginX(parentX: number, wrapFloor: number): number {
-    return Math.max(
-      Math.min(
-        parentX + this.options.wrapIndent,
-        PAGE_CONTENT_LEFT + this.options.maxWrapIndent,
-      ),
-      wrapFloor,
+  /**
+   * Left origin for a child group that wraps below its parent.
+   *
+   * Product-owner tree rule (8 November 2026): the group starts one wrap
+   * indent from its own parent, not from a global page-left column. If that
+   * origin would push the widest card past the right limit, shift the group
+   * left just enough to fit. This keeps a wrapped grandchild under its own
+   * parent subtree instead of jumping back to the page left.
+   */
+  private wrapOriginX(
+    parentX: number,
+    rightLimit: number,
+    groupWidth: number,
+    wrapFloor: number,
+  ): number {
+    // A wrapped child must sit far enough right of the trunk for the 12 px
+    // left stem; the default 12 px Page wrapIndent is only half the budget.
+    // Custom themes with a smaller maxWrapIndent still get their cap.
+    const indent = Math.min(
+      this.options.maxWrapIndent,
+      Math.max(this.options.wrapIndent, TRUNK_CHILD_INDENT),
     );
+    const preferred = parentX + indent;
+    const maxStart = Math.max(PAGE_CONTENT_LEFT, rightLimit - groupWidth);
+    return Math.max(wrapFloor, Math.min(preferred, maxStart));
   }
 
   /**
@@ -411,6 +442,7 @@ class LayoutBuilder {
       blockId: block.id,
       chapterId,
       role: context.role,
+      placement: context.placement,
       parentBlockId: context.parentBlockId,
       anchorId: context.anchorId,
       depth: context.depth,
@@ -490,7 +522,20 @@ class LayoutBuilder {
     // parent at one capped left origin. The two other policies are lab oracles.
     const groupFitsRight = candidates.every((candidate) => candidate.fitsRight);
     const wrapAll = this.options.wrapPolicy === 'group-left-origin' && !groupFitsRight;
-    const groupWrapX = this.wrapOriginX(x, context.wrapFloor);
+    const chrome = 2 * (this.options.cardPadding + this.options.cardBorder);
+    const groupWidth = candidates.reduce((widest, candidate) => {
+      const max = this.measure(candidate.target, { kind: 'max-content' });
+      return Math.max(
+        widest,
+        Math.min(max.contentWidth, this.options.maxContentWidth) + chrome,
+      );
+    }, 0);
+    const groupWrapX = this.wrapOriginX(
+      x,
+      context.rightLimit,
+      groupWidth,
+      context.wrapFloor,
+    );
 
     // R2b beside packing: anchored callouts keep the below-parent order in the
     // left column, while the direct-child group starts at the parent's y in
@@ -519,11 +564,13 @@ class LayoutBuilder {
         const placed = this.layoutBlock(plan.target, chapterId, plan.x, calloutCursor, {
           chapterId,
           role: 'callout',
+          placement: 'below',
           parentBlockId: block.id,
           anchorId: plan.anchorId,
           depth: context.depth + 1,
           rightLimit: plan.rightLimit,
           wrapFloor: context.wrapFloor,
+          wrapFloorY: context.wrapFloorY,
           columnOriginX: context.columnOriginX,
           incomingAnchor: plan.attachment,
         });
@@ -552,11 +599,13 @@ class LayoutBuilder {
         const placed = this.layoutBlock(target, chapterId, calloutX, calloutCursor, {
           chapterId,
           role: 'callout',
+          placement: 'below',
           parentBlockId: block.id,
           anchorId,
           depth: context.depth + 1,
           rightLimit: context.rightLimit,
           wrapFloor: context.wrapFloor,
+          wrapFloorY: context.wrapFloorY,
           columnOriginX: context.columnOriginX,
           incomingAnchor: attachment ?? null,
         });
@@ -568,11 +617,15 @@ class LayoutBuilder {
 
     // In stacked order the direct-child group starts after the callouts, as
     // before. In beside order it starts at the parent's y; the callouts own
-    // the left column and the right group owns the right column.
+    // the left column and the right group owns the right column. A descendant
+    // that wraps uses the same group-left origin as a stacked group; the y
+    // floor below the callout lane keeps it clear of the left-column callouts.
     const directStartY = beside ? y : anchored.length > 0 ? calloutCursor : y;
-    // A wrapped descendant of the beside group must stay in the right column;
-    // wrapping back across the safe gap is what would collide with a callout.
-    const childWrapFloor = beside ? Math.max(context.wrapFloor, rightX) : context.wrapFloor;
+    const childWrapFloor = context.wrapFloor;
+    const childWrapFloorY = Math.max(
+      context.wrapFloorY,
+      anchored.length > 0 ? subtreeBottom + this.options.siblingGap : 0,
+    );
 
     let childCursor = directStartY;
     if (wrapAll) {
@@ -580,6 +633,7 @@ class LayoutBuilder {
       childCursor = Math.max(
         childCursor,
         y + measurement.cardHeight + this.options.siblingGap,
+        childWrapFloorY,
         keepOutBottom > 0 ? keepOutBottom + this.options.siblingGap : 0,
       );
     }
@@ -597,6 +651,14 @@ class LayoutBuilder {
         // Pre-M4a regression oracle: the old per-child wrap at parent.x + wrapIndent.
         childX = fitsRight ? rightX : x + this.options.wrapIndent;
       }
+      const childPlacement: EdgePlacement =
+        this.options.wrapPolicy === 'group-left-origin'
+          ? wrapAll
+            ? 'below'
+            : 'right'
+          : fitsRight
+            ? 'right'
+            : 'below';
       if (!fitsRight && this.options.wrapPolicy !== 'group-left-origin') {
         childCursor = Math.max(childCursor, y + measurement.cardHeight + this.options.siblingGap);
         if (this.options.wrapPolicy === 'subtree-aware') {
@@ -610,11 +672,13 @@ class LayoutBuilder {
       const placed = this.layoutBlock(target, chapterId, childX, childCursor, {
         chapterId,
         role: 'child',
+        placement: childPlacement,
         parentBlockId: block.id,
         anchorId: null,
         depth: context.depth + 1,
         rightLimit: context.rightLimit,
         wrapFloor: childWrapFloor,
+        wrapFloorY: childWrapFloorY,
         columnOriginX: context.columnOriginX,
       });
       layoutBlock.childIds.push(target.id);
@@ -628,7 +692,11 @@ class LayoutBuilder {
   }
 
   /**
-   * R2c finite-space compaction.
+   * Legacy R2c finite-space compaction (lab oracle only; not a preset).
+   *
+   * The product-owner tree model (8 November 2026) uses the beside/stacked
+   * column paths instead: siblings share one level column, never a row. This
+   * row-fill policy remains for the density lab and old fixtures.
    *
    * The block card starts the current row. Anchored callouts (in anchor order)
    * and primary direct children (in branch order) are one ordered component
@@ -746,11 +814,13 @@ class LayoutBuilder {
         const placed = this.layoutBlock(component.target, chapterId, itemX, rowTop, {
           chapterId,
           role: component.isCallout ? 'callout' : 'child',
+          placement: firstRow ? 'right' : 'below',
           parentBlockId: layoutBlock.blockId,
           anchorId: component.anchorId,
           depth: context.depth + 1,
           rightLimit: itemX + column.allocation,
           wrapFloor: context.wrapFloor,
+          wrapFloorY: context.wrapFloorY,
           columnOriginX: itemX,
           incomingAnchor: component.attachment,
         });
@@ -1020,9 +1090,30 @@ class LayoutBuilder {
         laneLeft,
         attachment?.rect?.x ?? attachment?.warningPoint?.x ?? x + width - 16,
       );
-      const calloutX = desiredX + preferredCardWidth <= laneRight + EPSILON
+      let calloutX = desiredX + preferredCardWidth <= laneRight + EPSILON
         ? desiredX
         : laneLeft;
+      // A callout too close to the lane left cannot sit to the right of the
+      // shared left trunk. Shift it to the row indent when the lane still
+      // offers a readable card; otherwise keep the minimum stem from the
+      // parent's left edge so a left entry never degenerates into a top entry.
+      const stemLeft = laneLeft + CALLOUT_ROW_INDENT;
+      const shiftReadable = (left: number): boolean => {
+        const available = laneRight - left;
+        if (available - chrome < 144 - EPSILON) return false;
+        const shifted = this.resolveBlockBox(target, available);
+        return !shifted.contentTooWide && !shifted.horizontalOverflow;
+      };
+      if (calloutX < stemLeft) {
+        if (shiftReadable(stemLeft)) {
+          calloutX = stemLeft;
+        } else {
+          const minimumStemLeft = Math.max(laneLeft, x + EDGE_STYLE.stemMin);
+          if (calloutX < minimumStemLeft && shiftReadable(minimumStemLeft)) {
+            calloutX = minimumStemLeft;
+          }
+        }
+      }
       const available = laneRight - calloutX;
       if (available <= chrome + EPSILON) return null;
       const box = this.resolveBlockBox(target, available);
@@ -1052,6 +1143,7 @@ class LayoutBuilder {
       blockId: block.id,
       chapterId,
       role: context.role,
+      placement: context.placement,
       parentBlockId: context.parentBlockId,
       anchorId: context.anchorId,
       depth: context.depth,
