@@ -122,6 +122,10 @@ describe('R2a page arrows visual evidence', () => {
     await page.waitForTimeout(150);
     await shot('page-read-arrows-960x720-portrait.png', 960, 720);
 
+    await h.setWindowSize(1440, 900);
+    await page.waitForTimeout(150);
+    await shot('page-read-arrows-1440x900-portrait.png', 1440, 900);
+
     // Cross-page: landscape plus one personal break before the anchored callout.
     const landscape = await setPageSettingsOverride(packagePath, {
       setup: { orientation: 'landscape' },
