@@ -1,6 +1,6 @@
 # Refactor — personal page settings (master checklist)
 
-**Status:** R1a/R1b/R2a/R2b complete, R2c in progress, R2d next; **STOP after R2d for product-owner check** (8 November 2026)  
+**Status:** R1a/R1b/R2a/R2b complete, R2c complete, R2d in progress; **STOP after R2d for product-owner check** (8 November 2026)  
 **Decision:** `docs/adr/0008-personal-page-settings.md`  
 **Related:** ADR-0002, ADR-0007, `docs/plan.md`  
 **Gate:** do not start M4c PDF until Page View is usable (arrows + density).
@@ -121,12 +121,12 @@ Status: **complete** — `beside` implemented and merged; report `docs/reports/r
 
 ### R2c — Page compaction placement
 
-Status: **in progress** — brief `docs/tasks/r2c-page-compaction.md`
+Status: **complete** — report `docs/reports/r2c-page-compaction.md`; showcase 17 pages, scale-300 21.
 
-- [ ] Fill rows with callouts + primary children; align/indent from parent; wrap when full.
-- [ ] Reference targets stay at their primary home; edges only.
-- [ ] Lab compaction vs beside vs stacked; accept only if denser, no-overlap, deterministic.
-- [ ] R2d: unify Page/PDF edge style with the Continuous orthogonal router.
+- [x] Fill rows with callouts + primary children; align/indent from parent; wrap when full.
+- [x] Reference targets stay at their primary home; edges only.
+- [x] Lab compaction vs beside vs stacked; accept only if denser, no-overlap, deterministic.
+- [x] R2d: unify Page/PDF edge style with the Continuous orthogonal router.
 
 ### PRODUCT-OWNER CHECKPOINT — after R2d
 

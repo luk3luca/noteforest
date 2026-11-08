@@ -25,8 +25,12 @@ Continuous.
      exception.
 2. **Page routing.**
    - Same-page edges: route from the source fragment right edge (or resolved anchor point) to the
-     target fragment left edge using orthogonal segments and rounded corners; avoid crossing card
-     interiors; clip to page content.
+     target fragment left edge using orthogonal segments and rounded corners; **route around fragment
+     card rects**, never behind a card and never through text; use lanes/offsets for multiple edges
+     between the same rows; clip to page content.
+   - The R2c compaction regression is the main target: parent → later-sibling edges must not hide
+     behind earlier sibling cards. Add an obstacle-aware route and a crossing/hidden-segment test;
+     report the before/after heuristic (R2c: showcase 17/255, scale-300 90/1890).
    - Cross-page indicators: keep `to-edge`/`from-edge` semantics, but use the same stroke/arrowhead
      style; no ink through the margin.
    - Reference edges: dashed/distinct with the same geometry language and labels.
@@ -34,10 +38,13 @@ Continuous.
 3. **Reuse, not a second router.**
    - Reuse `edge-routing.ts` constants/helpers where possible, or extract the shared stroke/arrow/
      corner primitives. `buildPageEdges` remains the single page mapper; no duplicate branch logic.
-   - PDF print model must consume the same route style, so Page Read/Edit and PDF cannot drift.
+   - PDF print model must consume the same route function/style, so Page Read/Edit and PDF cannot
+     drift. The route function should live in a shared pure module and take fragment rects/lanes as
+     input, not be duplicated in the PDF compositor.
 4. **Tests/evidence.**
    - Unit: page route contains orthogonal segments, target enters left, no `C` command for standard
-     same-page cases, cross-page indicators keep direction/target page.
+     same-page cases, cross-page indicators keep direction/target page, and a synthetic parent→later
+     sibling case does not intersect the intervening card rect.
    - UI: primary/reference arrows in Page Read/Edit, anchor start, cross-page in/out, no pointer
      interception; Continuous unchanged.
    - Screenshots: Page Read with arrows at 1440×900 and 960×720, landscape/portrait.
