@@ -395,6 +395,10 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
 - M3c3b4 image UX/lifecycle is merged; it no longer blocks M4d image acceptance. M4a owns the
   layout engine only; M4b owns the page view/reader wiring.
 
+## Refactor — personal page settings (ADR-0008)
+
+Canonical schema v2 removes `pageSetup`, `manualBreakBeforeBlockIds`, and `viewState`. Page settings (size/orientation/margins, PageTheme, manual breaks) are personal: global defaults + per-document overrides outside the document. Continuous has no pages. Page/PDF consume the resolved settings. Sequence: R1a schema/settings foundation, R1b settings store + page theme/density, R2 Page arrows + continuous marker removal, R3 settings UI/manual breaks, R4 docs/visual sweep. Briefs under `docs/tasks/r1a-*` etc.
+
 ## M5–M6 — API and polish (planned)
 
 - M5: local HTTP JSON API + MCP adapter on the same command layer; tokens/scopes, dry-run/apply/undo, audit, single-writer lock.
