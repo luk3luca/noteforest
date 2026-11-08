@@ -138,6 +138,15 @@ describe('print model page routes', () => {
     const later = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-later')!;
     expect(later.route.blocked).toBe(false);
     expect(later.route.entry).toBe('left');
+    // The print model consumes the Page/PDF semantic trunk records, not a
+    // second topology: both right-group siblings point at one shared trunk.
+    const directEdge = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-direct')!;
+    expect(directEdge.placement).toBe('right');
+    expect(later.placement).toBe('right');
+    expect(directEdge.trunk).not.toBeNull();
+    expect(later.trunk).not.toBeNull();
+    expect(later.trunk!.id).toBe(directEdge.trunk!.id);
+    expect(later.trunk!.x).toBe(directEdge.trunk!.x);
     // Never behind the earlier sibling card.
     const middle = pages[0]!.fragments.find((item) => item.blockId === 'middle')!.page;
     for (let index = 1; index < later.route.points.length; index += 1) {

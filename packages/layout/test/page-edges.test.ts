@@ -3,6 +3,7 @@ import {
   buildPageEdges,
   createEstimatedMeasurement,
   DEFAULT_PAGE_SETTINGS,
+  EDGE_STYLE,
   layoutDocument,
   pageLayoutOptions,
   paginate,
@@ -117,6 +118,181 @@ function layoutPages(document: NoteDocument, manualBreakBeforeBlockIds: string[]
   return { layout, pages };
 }
 
+const TOPOLOGY_ROOT_TEXT =
+  'A small forest. This block has three direct children and two anchored callouts. It shows layout, markers, and quote chips together.';
+
+function anchoredTextBlock(
+  id: string,
+  label: string,
+  text: string,
+  quote: string,
+  anchorId: string,
+) {
+  const start = text.indexOf(quote);
+  return {
+    id,
+    label,
+    content: {
+      type: 'doc' as const,
+      children: [
+        {
+          type: 'paragraph' as const,
+          children: [
+            ...(start > 0 ? [{ type: 'text' as const, text: text.slice(0, start) }] : []),
+            {
+              type: 'text' as const,
+              text: quote,
+              marks: [{ type: 'anchor' as const, attrs: { anchorId } }],
+            },
+            ...(start + quote.length < text.length
+              ? [{ type: 'text' as const, text: text.slice(start + quote.length) }]
+              : []),
+          ],
+        },
+      ],
+    },
+  };
+}
+
+/**
+ * The R2f screenshot topology: two right-column siblings (child 2 sits below
+ * the parent card), one indented grandchild under child 1, and two anchored
+ * callouts below the parent.
+ */
+function topologyDocument(): NoteDocument {
+  const firstQuote = 'three direct children';
+  const secondQuote = 'two anchored callouts';
+  return {
+    schemaVersion: 2,
+    id: 'page-edge-topology',
+    title: 'Page edge topology',
+    blocks: {
+      root: anchoredTextBlock('root', 'A small forest', TOPOLOGY_ROOT_TEXT, firstQuote, 'anchor-first'),
+      child1: textBlock(
+        'child1',
+        'Direct child 1',
+        'First direct child, with one grandchild to show the indentation rule clearly.',
+      ),
+      child2: textBlock('child2', 'Direct child 2', 'Second direct child.'),
+      grandchild: textBlock('grandchild', 'Grandchild', 'Third level of the same structure.'),
+      callout1: textBlock(
+        'callout1',
+        'Three children',
+        'Direct children stay right while there is room; when room runs out they wrap below, after the callouts.',
+      ),
+      callout2: textBlock(
+        'callout2',
+        'Two callouts',
+        'Callouts stay below the parent, in the safe zone; arrows enter from the left.',
+      ),
+    },
+    anchors: {
+      'anchor-first': {
+        id: 'anchor-first',
+        blockId: 'root',
+        kind: 'text',
+        selector: { kind: 'text', quote: firstQuote },
+        quote: firstQuote,
+      },
+      'anchor-second': {
+        id: 'anchor-second',
+        blockId: 'root',
+        kind: 'text',
+        selector: { kind: 'text', quote: secondQuote },
+        quote: secondQuote,
+      },
+    },
+    branches: {
+      'branch-child-1': {
+        id: 'branch-child-1',
+        source: { blockId: 'root' },
+        targetBlockId: 'child1',
+        role: 'primary',
+        order: 'a',
+      },
+      'branch-child-2': {
+        id: 'branch-child-2',
+        source: { blockId: 'root' },
+        targetBlockId: 'child2',
+        role: 'primary',
+        order: 'b',
+      },
+      'branch-grandchild': {
+        id: 'branch-grandchild',
+        source: { blockId: 'child1' },
+        targetBlockId: 'grandchild',
+        role: 'primary',
+        order: 'a',
+      },
+      'branch-callout-1': {
+        id: 'branch-callout-1',
+        source: { blockId: 'root', anchorId: 'anchor-first' },
+        targetBlockId: 'callout1',
+        role: 'primary',
+        order: 'c',
+      },
+      'branch-callout-2': {
+        id: 'branch-callout-2',
+        source: { blockId: 'root', anchorId: 'anchor-second' },
+        targetBlockId: 'callout2',
+        role: 'primary',
+        order: 'd',
+      },
+    },
+    chapters: [{ id: 'chapter-1', title: 'Topology', topLevelBlockIds: ['root'] }],
+    assets: {},
+  };
+}
+
+/** Root with one anchored callout and one wrapped direct child. */
+function wrappedBelowDocument(): NoteDocument {
+  const quote = 'wrapped';
+  return {
+    schemaVersion: 2,
+    id: 'page-edge-wrapped',
+    title: 'Page edge wrapped group',
+    blocks: {
+      root: anchoredTextBlock(
+        'root',
+        'Wrapped root',
+        'This root is wrapped below by a narrow page, with one callout and one direct child.',
+        quote,
+        'anchor-wrapped',
+      ),
+      callout: textBlock('callout', 'Callout', 'An anchored callout below the root.'),
+      child: textBlock('child', 'Wrapped child', 'A wrapped direct child below the root.'),
+    },
+    anchors: {
+      'anchor-wrapped': {
+        id: 'anchor-wrapped',
+        blockId: 'root',
+        kind: 'text',
+        selector: { kind: 'text', quote },
+        quote,
+      },
+    },
+    branches: {
+      'branch-callout': {
+        id: 'branch-callout',
+        source: { blockId: 'root', anchorId: 'anchor-wrapped' },
+        targetBlockId: 'callout',
+        role: 'primary',
+        order: 'a',
+      },
+      'branch-child': {
+        id: 'branch-child',
+        source: { blockId: 'root' },
+        targetBlockId: 'child',
+        role: 'primary',
+        order: 'b',
+      },
+    },
+    chapters: [{ id: 'chapter-1', title: 'Wrapped', topLevelBlockIds: ['root'] }],
+    assets: {},
+  };
+}
+
+
 describe('page edge mapper', () => {
   it('maps same-page primary, anchored, and reference edges exactly once', () => {
     const { layout, pages } = layoutPages(arrowsDocument());
@@ -201,5 +377,139 @@ describe('page edge mapper', () => {
     expect(referenceIn.direction).toBe('from-edge');
     expect(referenceIn.targetPage).toBe(1);
     expect(referenceIn.branchLabel).toBe('also uses');
+  });
+});
+
+describe('page edge topology (R2f)', () => {
+  it('groups right siblings and below callouts onto separate shared trunks', () => {
+    const { layout, pages } = layoutPages(topologyDocument());
+    expect(pages.pageCount).toBe(1);
+    const page = pages.pages[0]!;
+    const fragment = (blockId: string) =>
+      page.fragments.find((candidate) => candidate.blockId === blockId)!;
+    const root = layout.blockById['root']!;
+    const child1Block = layout.blockById['child1']!;
+    const child2Block = layout.blockById['child2']!;
+    const grandchildBlock = layout.blockById['grandchild']!;
+    const callout1Block = layout.blockById['callout1']!;
+    const callout2Block = layout.blockById['callout2']!;
+
+    // Placement is the layout decision, not a y comparison: child 2 is lower
+    // than the parent card but still belongs to the right level column.
+    expect(child1Block.placement).toBe('right');
+    expect(child2Block.placement).toBe('right');
+    expect(fragment('child2').page.y).toBeGreaterThan(root.y + root.height - 0.5);
+    expect(grandchildBlock.placement).toBe('below');
+    expect(callout1Block.placement).toBe('below');
+    expect(callout2Block.placement).toBe('below');
+
+    const edges = buildPageEdges(layout, pages.pages)[0]!;
+    const edge = (branchId: string) => edges.find((candidate) => candidate.branchId === branchId)!;
+    const child1 = edge('branch-child-1');
+    const child2 = edge('branch-child-2');
+    const grandchild = edge('branch-grandchild');
+    const callout1 = edge('branch-callout-1');
+    const callout2 = edge('branch-callout-2');
+
+    // Every same-page primary tree edge is a left entry.
+    const primarySamePage = edges.filter(
+      (candidate) => candidate.role === 'primary' && candidate.direction === 'same-page',
+    );
+    expect(primarySamePage.length).toBe(5);
+    for (const candidate of primarySamePage) {
+      expect(candidate.route.entry).toBe('left');
+      expect(candidate.route.direction).toBe('right');
+      expect(candidate.route.blocked).toBe(false);
+    }
+
+    // Right-group siblings share one trunk and enter left.
+    expect(child1.placement).toBe('right');
+    expect(child2.placement).toBe('right');
+    expect(child1.trunk).not.toBeNull();
+    expect(child2.trunk).not.toBeNull();
+    expect(child1.trunk!.id).toBe('1:root:right');
+    expect(child2.trunk!.id).toBe(child1.trunk!.id);
+    expect(child2.trunk!.x).toBe(child1.trunk!.x);
+    expect(child1.trunk!.placement).toBe('right');
+    expect(child1.from).toEqual({
+      x: fragment('root').page.x + fragment('root').page.width,
+      y: fragment('root').page.y + Math.min(fragment('root').page.height / 2, 60),
+    });
+    expect(child2.from).toEqual(child1.from);
+    expect(child2.trunk!.id).not.toBe(callout1.trunk!.id);
+    for (const candidate of [child1, child2]) {
+      const tip = candidate.route.points.at(-1)!;
+      const before = candidate.route.points.at(-2)!;
+      expect(tip).toEqual(candidate.to);
+      expect(Math.abs(before.y - tip.y)).toBeLessThan(0.01);
+      expect(tip.x - before.x).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+      expect(
+        candidate.route.points.some(
+          (point) => Math.abs(point.x - candidate.trunk!.x) < 0.01,
+        ),
+      ).toBe(true);
+    }
+
+    // Both anchored callouts are below the parent, share one below trunk, and
+    // enter from the left; child 2 never uses this trunk.
+    expect(callout1.trunk!.id).toBe('1:root:below');
+    expect(callout2.trunk!.id).toBe(callout1.trunk!.id);
+    expect(callout2.trunk!.x).toBe(callout1.trunk!.x);
+    expect(callout1.trunk!.placement).toBe('below');
+    const rootBottom = fragment('root').page.y + fragment('root').page.height;
+    expect(callout1.from).toEqual({ x: callout1.trunk!.x, y: rootBottom });
+    expect(callout2.from).toEqual(callout1.from);
+
+    // The grandchild is an indented below target of child 1, not a top entry.
+    expect(grandchild.placement).toBe('below');
+    expect(grandchild.trunk!.id).toBe('1:child1:below');
+    expect(grandchild.trunk!.id).not.toBe(callout1.trunk!.id);
+    expect(grandchild.from).toEqual({
+      x: grandchild.trunk!.x,
+      y: fragment('child1').page.y + fragment('child1').page.height,
+    });
+    expect(grandchild.route.entry).toBe('left');
+    const grandchildTip = grandchild.route.points.at(-1)!;
+    const grandchildBefore = grandchild.route.points.at(-2)!;
+    expect(Math.abs(grandchildBefore.y - grandchildTip.y)).toBeLessThan(0.01);
+    expect(grandchildTip.x - grandchildBefore.x).toBeGreaterThanOrEqual(
+      EDGE_STYLE.stemMin - 0.01,
+    );
+
+    // Determinism: the DOM and print model get the same order/data.
+    expect(JSON.stringify(buildPageEdges(layout, pages.pages))).toBe(
+      JSON.stringify(buildPageEdges(layout, pages.pages)),
+    );
+  });
+
+  it('shares one below trunk between callouts and wrapped direct children', () => {
+    const document = wrappedBelowDocument();
+    const measurement = createEstimatedMeasurement(document);
+    const layout = layoutDocument(
+      document,
+      measurement,
+      pageLayoutOptions(DEFAULT_PAGE_SETTINGS.theme),
+      {
+        size: 'A5',
+        orientation: 'portrait',
+        margins: { top: 12, right: 12, bottom: 12, left: 12 },
+      },
+    );
+    const pages = paginate(layout, document);
+    expect(pages.pageCount).toBe(1);
+
+    expect(layout.blockById['callout']!.placement).toBe('below');
+    expect(layout.blockById['child']!.placement).toBe('below');
+    const edges = buildPageEdges(layout, pages.pages)[0]!;
+    const callout = edges.find((candidate) => candidate.branchId === 'branch-callout')!;
+    const child = edges.find((candidate) => candidate.branchId === 'branch-child')!;
+    expect(callout.trunk).not.toBeNull();
+    expect(child.trunk).not.toBeNull();
+    expect(callout.trunk!.id).toBe('1:root:below');
+    expect(child.trunk!.id).toBe(callout.trunk!.id);
+    expect(child.trunk!.x).toBe(callout.trunk!.x);
+    expect(callout.route.entry).toBe('left');
+    expect(child.route.entry).toBe('left');
+    expect(child.route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
   });
 });

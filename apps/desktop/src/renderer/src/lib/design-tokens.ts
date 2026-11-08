@@ -27,7 +27,7 @@ export const DESIGN_TOKENS = Object.freeze({
   /** Shared below-stack row left offset from the lane/parent left edge. */
   rowIndent: 26,
   /** Shared below-stack trunk left offset from the parent card left edge. */
-  trunkInset: 12,
+  trunkInset: EDGE_STYLE.trunkInset,
   /** Visible gap between the parent card bottom and the below trunk start. */
   trunkGap: 8,
   /** Minimum straight stem before a fixed arrowhead. */

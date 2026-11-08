@@ -6,6 +6,7 @@ import {
   validateDocument,
 } from './document.js';
 import { clamp } from './geometry.js';
+import { EDGE_STYLE } from './edge-style.js';
 import type {
   AnchorAttachment,
   AnchorState,
@@ -17,6 +18,7 @@ import type {
   ContentBlock,
   ContinuousLayout,
   EdgeLayout,
+  EdgePlacement,
   LayoutBlock,
   LayoutDefect,
   LayoutOptions,
@@ -41,6 +43,8 @@ interface PlacementContext {
   chapterId: string;
   role: BlockRole;
   parentBlockId: string | null;
+  /** Semantic placement relative to the parent, decided by the caller. */
+  placement: EdgePlacement;
   anchorId: string | null;
   depth: number;
   /**
@@ -193,6 +197,7 @@ class LayoutBuilder {
         const placed = this.layoutBlock(block, chapter.id, 0, cursorY, {
           chapterId: chapter.id,
           role: 'top-level',
+          placement: 'below',
           parentBlockId: null,
           anchorId: null,
           depth: 0,
@@ -429,6 +434,7 @@ class LayoutBuilder {
       blockId: block.id,
       chapterId,
       role: context.role,
+      placement: context.placement,
       parentBlockId: context.parentBlockId,
       anchorId: context.anchorId,
       depth: context.depth,
@@ -550,6 +556,7 @@ class LayoutBuilder {
         const placed = this.layoutBlock(plan.target, chapterId, plan.x, calloutCursor, {
           chapterId,
           role: 'callout',
+          placement: 'below',
           parentBlockId: block.id,
           anchorId: plan.anchorId,
           depth: context.depth + 1,
@@ -584,6 +591,7 @@ class LayoutBuilder {
         const placed = this.layoutBlock(target, chapterId, calloutX, calloutCursor, {
           chapterId,
           role: 'callout',
+          placement: 'below',
           parentBlockId: block.id,
           anchorId,
           depth: context.depth + 1,
@@ -635,6 +643,14 @@ class LayoutBuilder {
         // Pre-M4a regression oracle: the old per-child wrap at parent.x + wrapIndent.
         childX = fitsRight ? rightX : x + this.options.wrapIndent;
       }
+      const childPlacement: EdgePlacement =
+        this.options.wrapPolicy === 'group-left-origin'
+          ? wrapAll
+            ? 'below'
+            : 'right'
+          : fitsRight
+            ? 'right'
+            : 'below';
       if (!fitsRight && this.options.wrapPolicy !== 'group-left-origin') {
         childCursor = Math.max(childCursor, y + measurement.cardHeight + this.options.siblingGap);
         if (this.options.wrapPolicy === 'subtree-aware') {
@@ -648,6 +664,7 @@ class LayoutBuilder {
       const placed = this.layoutBlock(target, chapterId, childX, childCursor, {
         chapterId,
         role: 'child',
+        placement: childPlacement,
         parentBlockId: block.id,
         anchorId: null,
         depth: context.depth + 1,
@@ -789,6 +806,7 @@ class LayoutBuilder {
         const placed = this.layoutBlock(component.target, chapterId, itemX, rowTop, {
           chapterId,
           role: component.isCallout ? 'callout' : 'child',
+          placement: firstRow ? 'right' : 'below',
           parentBlockId: layoutBlock.blockId,
           anchorId: component.anchorId,
           depth: context.depth + 1,
@@ -1069,15 +1087,22 @@ class LayoutBuilder {
         : laneLeft;
       // A callout too close to the lane left cannot sit to the right of the
       // shared left trunk. Shift it to the row indent when the lane still
-      // offers a readable card; otherwise keep the clamp and let the router
-      // use the right side, the only side with a full stem.
+      // offers a readable card; otherwise keep the minimum stem from the
+      // parent's left edge so a left entry never degenerates into a top entry.
       const stemLeft = laneLeft + CALLOUT_ROW_INDENT;
+      const shiftReadable = (left: number): boolean => {
+        const available = laneRight - left;
+        if (available - chrome < 144 - EPSILON) return false;
+        const shifted = this.resolveBlockBox(target, available);
+        return !shifted.contentTooWide && !shifted.horizontalOverflow;
+      };
       if (calloutX < stemLeft) {
-        const shiftedAvailable = laneRight - stemLeft;
-        if (shiftedAvailable - chrome >= 144 - EPSILON) {
-          const shifted = this.resolveBlockBox(target, shiftedAvailable);
-          if (!shifted.contentTooWide && !shifted.horizontalOverflow) {
-            calloutX = stemLeft;
+        if (shiftReadable(stemLeft)) {
+          calloutX = stemLeft;
+        } else {
+          const minimumStemLeft = Math.max(laneLeft, x + EDGE_STYLE.stemMin);
+          if (calloutX < minimumStemLeft && shiftReadable(minimumStemLeft)) {
+            calloutX = minimumStemLeft;
           }
         }
       }
@@ -1110,6 +1135,7 @@ class LayoutBuilder {
       blockId: block.id,
       chapterId,
       role: context.role,
+      placement: context.placement,
       parentBlockId: context.parentBlockId,
       anchorId: context.anchorId,
       depth: context.depth,

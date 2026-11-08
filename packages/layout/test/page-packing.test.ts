@@ -234,7 +234,10 @@ describe('page packing: beside', () => {
 
     expect(attachment.rect).not.toBeNull();
     expect(attachment.rect!.x).toBe(contentLeft + 380);
-    expect(callout.x).toBe(contentLeft);
+    // The clamped callout then takes the shared below-row indent (26 px) so the
+    // R2f below trunk has room for a full left stem; its own anchor connector
+    // still starts at the resolved anchor.
+    expect(callout.x).toBe(contentLeft + 26);
     expect(callout.x + callout.width).toBeLessThanOrEqual(root.x + root.width + 0.001);
     // The primary edge still starts at the resolved anchor, not the clamped card.
     const edge = result.edges.find((candidate) => candidate.branchId === 'e01')!;

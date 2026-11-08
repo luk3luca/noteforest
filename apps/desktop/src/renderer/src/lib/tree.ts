@@ -15,6 +15,7 @@ import type {
   ContentNode,
   Document,
 } from '@noteforest/core';
+import type { EdgePlacement as LayoutEdgePlacement } from '@noteforest/layout';
 import {
   anchoredChildBranches,
   chapterIdForBlock,
@@ -382,7 +383,11 @@ export function visibleBlockIds(
 }
 
 export type EdgeKind = 'callout' | 'direct';
-export type EdgePlacement = 'right' | 'below';
+/**
+ * One definition for Continuous and Page/PDF: the layout package's
+ * `EdgePlacement`. This alias keeps Page/PDF from growing a second topology.
+ */
+export type EdgePlacement = LayoutEdgePlacement;
 
 export interface EdgePair {
   id: string;

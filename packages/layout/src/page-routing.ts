@@ -74,8 +74,13 @@ export interface PageRouteInput {
    * is the below-stack/callout language (exit the parent card at the bottom).
    */
   sourceSide?: 'right' | 'bottom';
-  /** Prefer this target entry side; the router may still fall back. */
-  preferredEntry?: PageRouteEntry;
+  /**
+   * Lock the semantic entry side. Tree edges pass `left`: the obstacle router
+   * may still choose a path, but it may never turn a tree edge into a top/right
+   * entry. A shortened stem is allowed only when the page has no room for the
+   * full `stemMin`.
+   */
+  requiredEntry?: PageRouteEntry;
 }
 
 const EPSILON = 0.01;
@@ -248,12 +253,7 @@ function buildEntries(
     ? ['left', 'top', 'right', 'bottom']
     : ['left', 'right', 'top', 'bottom'];
   const order: PageRouteEntry[] =
-    input.preferredEntry === undefined
-      ? baseOrder
-      : [
-          input.preferredEntry,
-          ...baseOrder.filter((entry) => entry !== input.preferredEntry),
-        ];
+    input.requiredEntry === undefined ? baseOrder : [input.requiredEntry];
   const available: Record<PageRouteEntry, number> = {
     left: leftAvailable,
     right: rightAvailable,
@@ -299,10 +299,13 @@ function buildEntries(
   const valid = (candidate: EntryCandidate): boolean => {
     if (insideAny(searchObstacles, candidate.approach)) return false;
     if (!segmentFree(candidate.approach, candidate.tip, finalObstacles)) return false;
+    // A required entry is the semantic tree contract: it may sit exactly on the
+    // content edge when the target card starts at x = 0.
+    const lowerBound = input.requiredEntry === undefined ? MARGIN - 0.5 : -0.5;
     return (
-      candidate.approach.x >= MARGIN - 0.5 &&
+      candidate.approach.x >= lowerBound &&
       candidate.approach.x <= input.bounds.width - MARGIN + 0.5 &&
-      candidate.approach.y >= MARGIN - 0.5 &&
+      candidate.approach.y >= lowerBound &&
       candidate.approach.y <= input.bounds.height - MARGIN + 0.5
     );
   };
@@ -323,7 +326,12 @@ function buildEntries(
   for (const entry of order) {
     const room = available[entry];
     const full = Math.min(EDGE_STYLE.stemMin, room);
-    if (full < 1) continue;
+    if (full < 1) {
+      if (input.requiredEntry === undefined) continue;
+      const candidate = makeCandidate(entry, 0);
+      if (valid(candidate)) candidates.push(candidate);
+      continue;
+    }
     const stems = uniqueSorted([
       full,
       Math.max(1, full - 2),
@@ -623,6 +631,31 @@ function fallbackRoute(
       ),
     };
   const direction = entry?.direction ?? (input.sourceSide === 'bottom' ? 'down' : 'right');
+  if (input.requiredEntry === 'left') {
+    // Keep the semantic tree entry even when the obstacle search found no
+    // candidate: the visible fallback still points into the target's left edge.
+    const railX =
+      input.sourceSide === 'bottom'
+        ? Math.max(0, Math.min(start.x, tip.x - 0.5))
+        : Math.max(
+            MARGIN,
+            Math.min(start.x + EDGE_STYLE.laneMin, Math.max(MARGIN, tip.x - 1)),
+          );
+    const points = simplifyPath([
+      start,
+      { x: railX, y: start.y },
+      { x: railX, y: tip.y },
+      tip,
+    ]);
+    return {
+      points,
+      tip,
+      direction: 'right',
+      entry: 'left',
+      stem: Math.max(0, tip.x - railX),
+      blocked: true,
+    };
+  }
   if (input.sourceSide === 'bottom') {
     const points = simplifyPath([
       start,
@@ -770,57 +803,6 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
     };
   }
   return fallbackRoute(exit, input, entries[0] ?? null);
-}
-
-/**
- * Direct below-stack route for a callout anchored under its source.
- *
- * The obstacle search has no left/top stem when the callout's anchor port and
- * the source bottom leave only a short vertical gap; it can then fall back to
- * a right-entry loop. This helper draws the deterministic tree route instead:
- * source bottom -> down the left trunk -> horizontal at the callout's top stem
- * -> down into the callout top. It returns null when another card blocks it, so
- * the caller keeps the obstacle-aware router as the fallback.
- */
-export function directBelowPageRoute(input: {
-  from: EdgePoint;
-  targetRect: PageRouteRect;
-  obstacles: readonly PageRouteRect[];
-}): PageRoute | null {
-  const { from, targetRect: target, obstacles } = input;
-  if (target.y <= from.y + 1) return null;
-  const centerX = target.x + target.width / 2;
-  const stems = [EDGE_STYLE.stemMin, 8, 4, 1].filter(
-    (stem) => target.y - stem > from.y,
-  );
-  for (const stem of stems) {
-    const approachY = target.y - stem;
-    const points = simplifyPath([
-      from,
-      { x: from.x, y: approachY },
-      { x: centerX, y: approachY },
-      { x: centerX, y: target.y },
-    ]);
-    let free = true;
-    for (let index = 1; index < points.length; index += 1) {
-      const previous = points[index - 1] as EdgePoint;
-      const current = points[index] as EdgePoint;
-      if (!segmentFree(previous, current, obstacles)) {
-        free = false;
-        break;
-      }
-    }
-    if (!free) continue;
-    return {
-      points,
-      tip: { x: centerX, y: target.y },
-      direction: 'down',
-      entry: 'top',
-      stem,
-      blocked: false,
-    };
-  }
-  return null;
 }
 
 /** Straight horizontal page-edge indicator; still uses the shared arrow style. */
