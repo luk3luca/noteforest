@@ -321,7 +321,9 @@ describe('M4b1b1 Page Edit content overlay', () => {
 
     // Opening another block commits the first and keeps exactly one overlay.
     await openOverlay(ids[0]);
-    await page.keyboard.type(' First overlay.');
+    // Double-click can place the caret at the hit point. Append explicitly so
+    // this assertion is independent of the R2b packing geometry.
+    await typeInOverlay(' First overlay.');
     const firstText = await overlay().textContent();
     assert.match(firstText, /First overlay\./);
     await fragmentFor(ids[1]).first().dblclick();
