@@ -440,3 +440,103 @@ export function missingImageDocument() {
     ],
   });
 }
+
+/**
+ * R2c compaction fixture: a short parent, an anchored callout, three direct
+ * children (one with its own child), and a reference target. The compact page
+ * width fits the callout and all three children in the parent's row, so the
+ * UI can assert row filling, recursion, arrows, and the Page Edit overlay.
+ */
+export function compactionDocument() {
+  const rootText = 'An eigenvalue is a scalar.';
+  const rootQuote = 'eigenvalue';
+  const rootStart = rootText.indexOf(rootQuote);
+  const root = {
+    id: 'comp-root',
+    label: 'Compaction root',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            ...(rootStart > 0 ? [{ type: 'text', text: rootText.slice(0, rootStart) }] : []),
+            {
+              type: 'text',
+              text: rootQuote,
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['anchor-comp-root'] } }],
+            },
+            ...(rootStart + rootQuote.length < rootText.length
+              ? [{ type: 'text', text: rootText.slice(rootStart + rootQuote.length) }]
+              : []),
+          ],
+        },
+      ],
+    },
+  };
+  return pageDocument({
+    id: 'compaction-page',
+    title: 'Compaction page',
+    chapterTitle: 'Compaction',
+    blocks: [
+      root,
+      textBlock('comp-callout', 'Root callout', 'A scalar multiple only stretches the vector.'),
+      textBlock('comp-child', 'Direct child', 'A direct child with its own branch.'),
+      textBlock('comp-leaf-2', 'Second leaf', 'Second leaf in the same row.'),
+      textBlock('comp-leaf-3', 'Third leaf', 'Third leaf in the same row.'),
+      textBlock('comp-grandchild', 'Grandchild', 'Grandchild in the child column.'),
+      textBlock('comp-ref', 'Reference target', 'A labeled reference target.'),
+    ],
+    anchors: [
+      {
+        id: 'anchor-comp-root',
+        blockId: 'comp-root',
+        kind: 'text',
+        selector: { kind: 'text', quote: rootQuote, prefix: 'An ', suffix: ' is' },
+        quote: rootQuote,
+        prefix: 'An ',
+        suffix: ' is',
+      },
+    ],
+    branches: [
+      {
+        id: 'branch-comp-callout',
+        sourceBlockId: 'comp-root',
+        sourceAnchorId: 'anchor-comp-root',
+        targetBlockId: 'comp-callout',
+        role: 'primary',
+      },
+      {
+        id: 'branch-comp-child',
+        sourceBlockId: 'comp-root',
+        targetBlockId: 'comp-child',
+        role: 'primary',
+      },
+      {
+        id: 'branch-comp-leaf-2',
+        sourceBlockId: 'comp-root',
+        targetBlockId: 'comp-leaf-2',
+        role: 'primary',
+      },
+      {
+        id: 'branch-comp-leaf-3',
+        sourceBlockId: 'comp-root',
+        targetBlockId: 'comp-leaf-3',
+        role: 'primary',
+      },
+      {
+        id: 'branch-comp-grandchild',
+        sourceBlockId: 'comp-child',
+        targetBlockId: 'comp-grandchild',
+        role: 'primary',
+      },
+      {
+        id: 'branch-comp-reference',
+        sourceBlockId: 'comp-root',
+        targetBlockId: 'comp-ref',
+        role: 'reference',
+        label: 'also uses',
+      },
+    ],
+  });
+}

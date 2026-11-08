@@ -56,6 +56,13 @@ interface PlacementContext {
    * a wrapped descendant can never wrap back across the safe gap.
    */
   wrapFloor: number;
+  /**
+   * Left edge of the column that owns this subtree. Page compaction caps the
+   * accumulated wrap indent at `columnOriginX + maxWrapIndent`, so a column can
+   * reserve `max(subtree min card) + maxWrapIndent` and every descendant still
+   * fits at a readable width. Continuous keeps the page content left.
+   */
+  columnOriginX: number;
   incomingAnchor?: AnchorAttachment | null;
 }
 
@@ -66,6 +73,21 @@ interface BesideCallout {
   rightLimit: number;
   anchorId: string | null;
   attachment: AnchorAttachment | null;
+}
+
+/** One ordered page-compaction component: an anchored callout or a direct child. */
+interface CompactionComponent {
+  branch: BranchRecord;
+  target: ContentBlock;
+  anchorId: string | null;
+  attachment: AnchorAttachment | null;
+  isCallout: boolean;
+}
+
+/** One placed component and the column width reserved for its subtree. */
+interface CompactionColumn {
+  component: CompactionComponent;
+  allocation: number;
 }
 
 interface ResolvedBlockBox {
@@ -95,6 +117,12 @@ class LayoutBuilder {
   readonly defects: LayoutDefect[] = [];
   readonly childrenMap: Map<string, BranchRecord[]>;
   readonly measurementCache = new Map<string, BlockMeasurement>();
+  /** Page-compaction preferred subtree widths, keyed by block + available width. */
+  readonly preferredWidthCache = new Map<string, number>();
+  readonly preferredWidthStack = new Set<string>();
+  /** Page-compaction subtree min-card widths, keyed by block + available width. */
+  readonly subtreeMinCardCache = new Map<string, number>();
+  readonly subtreeMinCardStack = new Set<string>();
   readonly visited = new Set<string>();
   readonly stack = new Set<string>();
   readonly anchorStates = new Map<string, AnchorState>();
@@ -163,6 +191,7 @@ class LayoutBuilder {
           depth: 0,
           rightLimit: this.geometry.contentWidthPx,
           wrapFloor: PAGE_CONTENT_LEFT,
+          columnOriginX: PAGE_CONTENT_LEFT,
         });
         cursorY = placed.subtreeBottom + this.options.chapterGap;
       }
@@ -411,6 +440,28 @@ class LayoutBuilder {
       .sort((a, b) => this.compareAnchoredBranches(a, b, anchorAttachments));
     const direct = branches.filter((branch) => !branch.source.anchorId).sort(compareBranches);
 
+    // R2c page compaction: the block owns a row, and every callout/child is an
+    // ordered component placed left-to-right at its measured width. Each
+    // component owns a column for its own recursive row, so a subtree cannot
+    // collide with the next sibling. Reference branches are not components.
+    if (this.options.pagePacking === 'compaction') {
+      const subtreeBottom = this.layoutCompactionComponents(
+        layoutBlock,
+        chapterId,
+        x,
+        y,
+        width,
+        measurement,
+        anchored,
+        direct,
+        anchorAttachments,
+        context,
+      );
+      layoutBlock.subtreeBottom = subtreeBottom;
+      this.stack.delete(block.id);
+      return layoutBlock;
+    }
+
     // Direct candidates are resolved before callouts: the beside decision
     // depends on whether the whole direct-child group can stay in the right
     // column at the parent's y.
@@ -473,6 +524,7 @@ class LayoutBuilder {
           depth: context.depth + 1,
           rightLimit: plan.rightLimit,
           wrapFloor: context.wrapFloor,
+          columnOriginX: context.columnOriginX,
           incomingAnchor: plan.attachment,
         });
         layoutBlock.childIds.push(plan.target.id);
@@ -505,6 +557,7 @@ class LayoutBuilder {
           depth: context.depth + 1,
           rightLimit: context.rightLimit,
           wrapFloor: context.wrapFloor,
+          columnOriginX: context.columnOriginX,
           incomingAnchor: attachment ?? null,
         });
         layoutBlock.childIds.push(target.id);
@@ -562,6 +615,7 @@ class LayoutBuilder {
         depth: context.depth + 1,
         rightLimit: context.rightLimit,
         wrapFloor: childWrapFloor,
+        columnOriginX: context.columnOriginX,
       });
       layoutBlock.childIds.push(target.id);
       childCursor = placed.subtreeBottom + this.options.siblingGap;
@@ -571,6 +625,347 @@ class LayoutBuilder {
     layoutBlock.subtreeBottom = subtreeBottom;
     this.stack.delete(block.id);
     return layoutBlock;
+  }
+
+  /**
+   * R2c finite-space compaction.
+   *
+   * The block card starts the current row. Anchored callouts (in anchor order)
+   * and primary direct children (in branch order) are one ordered component
+   * list. Components fill the row left-to-right at measured widths; when the
+   * next component cannot fit, the row ends and the next row starts below the
+   * tallest component of the previous row at one capped wrap indent from the
+   * parent.
+   *
+   * Every component owns a column: its own subtree is laid out inside
+   * `[x, x + allocation]`, so a wrapped descendant can never enter the next
+   * sibling's column. Reference targets are not components; they stay at their
+   * primary home and only draw edges.
+   */
+  private layoutCompactionComponents(
+    layoutBlock: LayoutBlock,
+    chapterId: string,
+    x: number,
+    y: number,
+    width: number,
+    measurement: BlockMeasurement,
+    anchored: readonly BranchRecord[],
+    direct: readonly BranchRecord[],
+    anchorAttachments: readonly AnchorAttachment[],
+    context: PlacementContext,
+  ): number {
+    const components: CompactionComponent[] = [];
+    for (const branch of anchored) {
+      const target = this.document.blocks[branch.targetBlockId];
+      if (!target) continue;
+      const anchorId = branch.source.anchorId ?? null;
+      const attachment = anchorId
+        ? (anchorAttachments.find((candidate) => candidate.anchorId === anchorId) ?? null)
+        : null;
+      components.push({ branch, target, anchorId, attachment, isCallout: true });
+    }
+    for (const branch of direct) {
+      const target = this.document.blocks[branch.targetBlockId];
+      if (!target) continue;
+      components.push({ branch, target, anchorId: null, attachment: null, isCallout: false });
+    }
+
+    const gap = this.options.siblingGap;
+    const rightLimit = context.rightLimit;
+    const firstRowX = x + width + gap;
+    // The wrap origin must leave room for the widest component's readable card;
+    // otherwise a later wide component would be forced into a zero-width column.
+    const wrapMinCard = components.reduce(
+      (widest, component) =>
+        Math.max(widest, this.compactionRequiredCardWidth(component.target)),
+      0,
+    );
+    const wrapX = this.compactionWrapX(x, context.columnOriginX, rightLimit, wrapMinCard);
+    const cardBottom = y + measurement.cardHeight;
+    let subtreeBottom = cardBottom;
+    let rowTop = y;
+    let firstRow = true;
+    let index = 0;
+
+    while (index < components.length) {
+      const rowX = firstRow ? firstRowX : wrapX;
+      const available = Math.max(0, rightLimit - rowX);
+
+      // Collect the still-unplaced components from the pointer. Already placed
+      // duplicate primaries are skipped with the historical warning.
+      const pending: CompactionComponent[] = [];
+      for (let cursor = index; cursor < components.length; cursor += 1) {
+        const component = components[cursor]!;
+        if (this.visited.has(component.target.id)) {
+          this.noteDuplicatePrimary(
+            component.isCallout ? 'Anchored' : 'Primary',
+            component.branch,
+            component.target,
+            chapterId,
+          );
+          continue;
+        }
+        pending.push(component);
+      }
+      if (pending.length === 0) break;
+
+      // A full-width parent card leaves no usable side column. Wrap below the
+      // parent instead of forcing a zero-width component; this is the
+      // "component does not fit -> lower row" fallback, not a defect.
+      if (firstRow) {
+        const firstMin = this.compactionRequiredCardWidth(pending[0]!.target);
+        if (firstRowX > rightLimit - EPSILON || available < firstMin - EPSILON) {
+          firstRow = false;
+          rowTop = cardBottom + gap;
+          continue;
+        }
+      }
+
+      const columns = this.planCompactionRow(pending, available);
+      if (columns.length === 0) {
+        // Defensive: never loop forever or overlap. A zero-width column makes
+        // the normal layout path report a blocking defect for the component.
+        columns.push({ component: pending[0]!, allocation: available });
+      }
+
+      let itemX = rowX;
+      let rowBottom = firstRow ? cardBottom : rowTop;
+      let consumed = 0;
+      for (const column of columns) {
+        const { component } = column;
+        consumed += 1;
+        if (this.visited.has(component.target.id)) {
+          this.noteDuplicatePrimary(
+            component.isCallout ? 'Anchored' : 'Primary',
+            component.branch,
+            component.target,
+            chapterId,
+          );
+          continue;
+        }
+        const placed = this.layoutBlock(component.target, chapterId, itemX, rowTop, {
+          chapterId,
+          role: component.isCallout ? 'callout' : 'child',
+          parentBlockId: layoutBlock.blockId,
+          anchorId: component.anchorId,
+          depth: context.depth + 1,
+          rightLimit: itemX + column.allocation,
+          wrapFloor: context.wrapFloor,
+          columnOriginX: itemX,
+          incomingAnchor: component.attachment,
+        });
+        layoutBlock.childIds.push(component.target.id);
+        rowBottom = Math.max(rowBottom, placed.subtreeBottom);
+        itemX += column.allocation + gap;
+      }
+
+      subtreeBottom = Math.max(subtreeBottom, rowBottom);
+      rowTop = rowBottom + gap;
+      firstRow = false;
+      // Advance past the consumed components. Any skipped duplicate before the
+      // next pending component is re-reported (deduplicated) on the next pass.
+      if (consumed >= pending.length) {
+        index = components.length;
+      } else {
+        index = components.indexOf(pending[consumed]!);
+      }
+    }
+
+    return subtreeBottom;
+  }
+
+  /**
+   * Choose one row's component prefix and distribute the available width.
+   *
+   * - If every remaining component fits at its preferred subtree width, use it.
+   * - Otherwise take the largest prefix whose readable minimum columns fit and
+   *   grow those columns proportionally toward their preferred widths.
+   * - A first component that cannot fit is still returned with the full
+   *   available width, so the normal layout path reports the defect.
+   */
+  private planCompactionRow(
+    components: readonly CompactionComponent[],
+    available: number,
+  ): CompactionColumn[] {
+    if (components.length === 0) return [];
+    const gap = this.options.siblingGap;
+    const minWidths = components.map((component) =>
+      this.compactionMinColumnWidth(component.target, available),
+    );
+    const prefWidths = components.map((component) =>
+      this.preferredSubtreeWidth(component.target.id, available),
+    );
+    const allPref =
+      prefWidths.reduce((total, value) => total + value, 0) + gap * (components.length - 1);
+    if (allPref <= available + EPSILON) {
+      return components.map((component, index) => ({
+        component,
+        allocation: Math.max(minWidths[index]!, prefWidths[index]!),
+      }));
+    }
+
+    let count = 0;
+    let used = 0;
+    for (let cursor = 0; cursor < components.length; cursor += 1) {
+      const next = used + minWidths[cursor]! + (cursor === 0 ? 0 : gap);
+      if (next > available + EPSILON) break;
+      used = next;
+      count = cursor + 1;
+    }
+    if (count === 0) count = 1;
+
+    const prefix = components.slice(0, count);
+    const mins = minWidths.slice(0, count);
+    const prefs = prefWidths.slice(0, count);
+    const usedMin = mins.reduce((total, value) => total + value, 0) + gap * (count - 1);
+    const extra = Math.max(0, available - usedMin);
+    const diffs = prefs.map((pref, index) => Math.max(0, pref - mins[index]!));
+    const totalDiff = diffs.reduce((total, value) => total + value, 0);
+    return prefix.map((component, index) => {
+      const min = mins[index]!;
+      const pref = Math.max(min, prefs[index]!);
+      const allocation =
+        totalDiff > 0 ? Math.min(pref, min + (extra * diffs[index]!) / totalDiff) : min;
+      return { component, allocation };
+    });
+  }
+
+  /** Readable card width a component needs before it can be squeezed. */
+  private compactionRequiredCardWidth(target: ContentBlock): number {
+    const chrome = 2 * (this.options.cardPadding + this.options.cardBorder);
+    const measurement = this.measure(target, { kind: 'min-content' });
+    const minContent = Math.max(this.options.minContentWidth, measurement.minContentWidth);
+    return minContent + chrome;
+  }
+
+  /** Readable minimum card width for a component at the available width. */
+  private compactionMinCardWidth(target: ContentBlock, available: number): number {
+    const chrome = 2 * (this.options.cardPadding + this.options.cardBorder);
+    if (available <= chrome + EPSILON) return Math.max(0, available);
+    return Math.min(available, this.compactionRequiredCardWidth(target));
+  }
+
+  /**
+   * Readable minimum column for a component. The widest min-card anywhere in
+   * the subtree must fit after the deepest allowed indent, so a column can
+   * always fall back to wrapping without clipping a descendant.
+   */
+  private compactionMinColumnWidth(target: ContentBlock, available: number): number {
+    const card = this.compactionMinCardWidth(target, available);
+    if (!this.hasPrimaryComponents(target.id)) return card;
+    const widest = this.subtreeMinCardWidth(target.id, available);
+    return Math.min(
+      available,
+      Math.max(card, widest) + Math.min(this.options.wrapIndent, this.options.maxWrapIndent),
+    );
+  }
+
+  /** Widest readable min card anywhere in this primary subtree. */
+  private subtreeMinCardWidth(blockId: string, available: number): number {
+    const key = `${blockId}:${available.toFixed(2)}`;
+    const cached = this.subtreeMinCardCache.get(key);
+    if (cached !== undefined) return cached;
+    const block = this.document.blocks[blockId];
+    if (!block) return 0;
+    if (this.subtreeMinCardStack.has(blockId)) {
+      return this.compactionMinCardWidth(block, available);
+    }
+    this.subtreeMinCardStack.add(blockId);
+    let widest = this.compactionMinCardWidth(block, available);
+    for (const branch of this.childrenMap.get(blockId) ?? []) {
+      const target = this.document.blocks[branch.targetBlockId];
+      if (!target) continue;
+      widest = Math.max(widest, this.subtreeMinCardWidth(target.id, available));
+    }
+    this.subtreeMinCardStack.delete(blockId);
+    this.subtreeMinCardCache.set(key, widest);
+    return widest;
+  }
+
+  /**
+   * Left origin for a wrapped compaction row. One wrap indent from the block,
+   * capped at the owning column's max indent; if that leaves less than a
+   * readable card, move left within the column instead of clipping.
+   */
+  private compactionWrapX(
+    blockX: number,
+    columnOriginX: number,
+    rightLimit: number,
+    minCard: number,
+  ): number {
+    const indent = Math.max(
+      columnOriginX,
+      Math.min(
+        blockX + this.options.wrapIndent,
+        columnOriginX + Math.min(this.options.wrapIndent, this.options.maxWrapIndent),
+      ),
+    );
+    const maxStart = Math.max(columnOriginX, rightLimit - minCard);
+    return Math.min(indent, maxStart);
+  }
+
+  private hasPrimaryComponents(blockId: string): boolean {
+    return (this.childrenMap.get(blockId) ?? []).some(
+      (branch) => this.document.blocks[branch.targetBlockId] !== undefined,
+    );
+  }
+
+  /**
+   * Preferred subtree width: the card plus its own component row(s), bounded by
+   * the available width. This is the width a component would take if it had a
+   * row to itself; row packing shrinks it toward `compactionMinColumnWidth`.
+   */
+  private preferredSubtreeWidth(blockId: string, available: number): number {
+    if (available <= EPSILON) return 0;
+    const key = `${blockId}:${available.toFixed(2)}`;
+    const cached = this.preferredWidthCache.get(key);
+    if (cached !== undefined) return cached;
+    const block = this.document.blocks[blockId];
+    if (!block) return 0;
+    if (this.preferredWidthStack.has(blockId)) return 0;
+    this.preferredWidthStack.add(blockId);
+    const box = this.resolveBlockBox(block, available);
+    let width = box.width;
+    const branches = this.childrenMap.get(blockId) ?? [];
+    if (branches.length > 0 && available > box.width + this.options.siblingGap) {
+      const remaining = available - box.width - this.options.siblingGap;
+      const widths: number[] = [];
+      for (const branch of branches) {
+        const target = this.document.blocks[branch.targetBlockId];
+        if (!target) continue;
+        widths.push(this.preferredSubtreeWidth(target.id, remaining));
+      }
+      if (widths.length > 0) {
+        width = Math.min(
+          available,
+          box.width +
+            this.options.siblingGap +
+            this.packPreferredRows(widths, remaining, this.options.siblingGap),
+        );
+      }
+    }
+    // A component may never advertise less than a column in which its own
+    // descendants can still be wrapped at a readable width.
+    width = Math.max(width, this.compactionMinColumnWidth(block, available));
+    this.preferredWidthStack.delete(blockId);
+    this.preferredWidthCache.set(key, width);
+    return width;
+  }
+
+  /** Greedy preferred-width row packing; returns the widest row. */
+  private packPreferredRows(widths: readonly number[], available: number, gap: number): number {
+    let rowWidth = 0;
+    let maxRow = 0;
+    for (const raw of widths) {
+      const width = Math.min(raw, available);
+      if (rowWidth > 0 && rowWidth + gap + width > available + EPSILON) {
+        maxRow = Math.max(maxRow, rowWidth);
+        rowWidth = width;
+      } else {
+        rowWidth += (rowWidth > 0 ? gap : 0) + width;
+      }
+    }
+    return Math.max(maxRow, rowWidth);
   }
 
   private noteDuplicatePrimary(

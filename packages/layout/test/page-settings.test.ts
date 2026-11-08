@@ -49,7 +49,7 @@ describe('page settings defaults', () => {
       calloutGap: 12,
       maxCardWidth: 420,
       minContentWidth: 160,
-      pagePacking: 'beside',
+      pagePacking: 'compaction',
     });
     expect(DEFAULT_APP_SETTINGS.page).toBe(DEFAULT_PAGE_SETTINGS);
     expect(DEFAULT_APP_SETTINGS.continuous).toBe(DEFAULT_CONTINUOUS_SETTINGS);
@@ -223,6 +223,9 @@ describe('settings normalization and merge', () => {
     expect(
       normalizePageSettingsOverride({ theme: { pagePacking: 'beside' } }),
     ).toEqual({ theme: { pagePacking: 'beside' } });
+    expect(
+      normalizePageSettingsOverride({ theme: { pagePacking: 'compaction' } }),
+    ).toEqual({ theme: { pagePacking: 'compaction' } });
     expect(normalizePageSettingsOverride({ theme: { pagePacking: 'columns' } })).toBeUndefined();
     expect(
       mergePageSettings(DEFAULT_PAGE_SETTINGS, { theme: { pagePacking: 'stacked' } }).theme
@@ -236,6 +239,10 @@ describe('settings normalization and merge', () => {
       normalizePageSettings({ theme: { preset: 'comfortable', pagePacking: 'beside' } }).theme
         .pagePacking,
     ).toBe('beside');
+    // A compact preset switch selects compaction unless overridden.
+    expect(normalizePageSettings({ theme: { preset: 'compact' } }).theme.pagePacking).toBe(
+      'compaction',
+    );
   });
 
   it('drops empty or invalid overrides and normalizes continuous overrides', () => {

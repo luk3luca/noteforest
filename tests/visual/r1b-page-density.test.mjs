@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { artifactsPath, createHarness, root } from '../support/harness.mjs';
 
 /**
- * R2b page packing lab (built on the R1b density harness).
+ * R2c page compaction lab (built on the R1b/R2b density harness).
  *
  * The product-owner showcase is read-only input: it is copied into the
  * isolated test library and never modified. The committed `scale-300.json`
@@ -16,21 +16,24 @@ import { artifactsPath, createHarness, root } from '../support/harness.mjs';
  * The lab compares:
  *   - comfortable typography (the pre-R1 reference),
  *   - compact + stacked (the accepted R2a page geometry),
- *   - compact + beside (the R2b candidate default),
+ *   - compact + beside (the R2b candidate),
+ *   - compact + compaction (the R2c finite-space packer),
  *   - compact + a wider max card width (whether width alone helps).
  *
  * Page coverage is a union-area ratio, so side-by-side cards are not counted
- * twice. Arrow crossings are a rough straight-line heuristic over the same
- * page content boxes; PageEdges draws cubic curves, so treat it as a signal.
+ * twice. Row fill groups fragments by their page-local top; max columns is the
+ * maximum number of fragments intersecting one horizontal scanline. Arrow
+ * crossings are a rough straight-line heuristic over the same page content
+ * boxes; PageEdges draws cubic curves, so treat it as a signal.
  */
 
-const tempRoot = artifactsPath('r2b-density-tmp');
-const outputDir = artifactsPath('r2b');
+const tempRoot = artifactsPath('r2c-density-tmp');
+const outputDir = artifactsPath('r2c');
 const supportRoot = resolve(root, 'fixtures');
 const showcasePath = '/Users/luca/Documents/NoteForest/note-forest-showcase';
 
 /** The packing this lab must justify for the compact page default. */
-const SELECTED_PACKING = 'beside';
+const SELECTED_PACKING = 'compaction';
 
 const VARIANTS = [
   {
@@ -45,8 +48,13 @@ const VARIANTS = [
   },
   {
     id: 'compact-beside',
-    label: `Compact / beside (R2b ${SELECTED_PACKING})`,
+    label: 'Compact / beside (R2b)',
     theme: { preset: 'compact', pagePacking: 'beside' },
+  },
+  {
+    id: 'compact-compaction',
+    label: `Compact / compaction (R2c ${SELECTED_PACKING})`,
+    theme: { preset: 'compact', pagePacking: 'compaction' },
   },
   {
     id: 'compact-stacked-560',
@@ -306,6 +314,32 @@ async function readPageMetrics() {
       }
     }
 
+    // Row fill groups fragments by page-local top (0.5 px tolerance). Max
+    // columns is the maximum number of fragments intersecting one horizontal
+    // scanline, which is the "simultaneous columns" measure.
+    const rowBuckets = new Map();
+    for (const fragment of fragments) {
+      const key = Math.round(fragment.y * 2) / 2;
+      rowBuckets.set(key, (rowBuckets.get(key) ?? 0) + 1);
+    }
+    const rowCounts = [...rowBuckets.values()];
+    const rowFill = rowCounts.length > 0 ? fragments.length / rowCounts.length : 0;
+    const maxRowColumns = rowCounts.length > 0 ? Math.max(...rowCounts) : 0;
+    const yPoints = [
+      ...new Set(
+        fragments.flatMap((fragment) => [fragment.y, fragment.y + fragment.height]),
+      ),
+    ].sort((a, b) => a - b);
+    let maxColumnsAtScanline = 0;
+    for (let index = 0; index + 1 < yPoints.length; index += 1) {
+      const sample = (yPoints[index] + yPoints[index + 1]) / 2;
+      let columns = 0;
+      for (const fragment of fragments) {
+        if (fragment.y <= sample && fragment.y + fragment.height >= sample) columns += 1;
+      }
+      maxColumnsAtScanline = Math.max(maxColumnsAtScanline, columns);
+    }
+
     const point = (value) => {
       const [x, y] = (value ?? '').split(',').map(Number);
       return { x, y };
@@ -426,6 +460,10 @@ async function readPageMetrics() {
       maxRightEdge,
       rightOverflow,
       sideBySidePairs,
+      rowFill,
+      rowCount: rowCounts.length,
+      maxRowColumns,
+      maxColumnsAtScanline,
       overlapPairs,
       columnOverlapPx,
       edgeCount: edges.length,
@@ -522,6 +560,12 @@ async function measureDocument(label) {
       maxRightEdge: Math.max(0, ...pages.map((item) => item.maxRightEdge)),
       rightOverflow: pages.reduce((total, item) => total + item.rightOverflow, 0),
       sideBySidePairs: pages.reduce((total, item) => total + item.sideBySidePairs, 0),
+      rowCount: pages.reduce((total, item) => total + item.rowCount, 0),
+      averageRowFill:
+        pages.reduce((total, item) => total + item.fragments, 0) /
+        Math.max(1, pages.reduce((total, item) => total + item.rowCount, 0)),
+      maxRowColumns: Math.max(0, ...pages.map((item) => item.maxRowColumns)),
+      maxColumnsAtScanline: Math.max(0, ...pages.map((item) => item.maxColumnsAtScanline)),
       overlapPairs: pages.reduce((total, item) => total + item.overlapPairs, 0),
       columnOverlapPx: Math.max(0, ...pages.map((item) => item.columnOverlapPx)),
       edges: pages.reduce((total, item) => total + item.edgeCount, 0),
@@ -571,17 +615,16 @@ function assertVariantInvariants(entry) {
   assert.equal(entry.rightOverflow, 0, `${entry.document}/${entry.variant}: no fragment beyond the content box`);
 }
 
-describe('R2b page packing lab', () => {
+describe('R2c page compaction lab', () => {
   after(async () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
     await h.quit();
   });
 
-  it('compares stacked, beside, and wider cards on showcase and scale-300', async () => {
+  it('compares stacked, beside, compaction, and wider cards on showcase and scale-300', async () => {
     await rm(tempRoot, { recursive: true, force: true });
-    await rm(outputDir, { recursive: true, force: true });
     await mkdir(outputDir, { recursive: true });
-    const env = isolated('r2b-density');
+    const env = isolated('r2c-density');
     await mkdir(env.NOTEFOREST_LIBRARY, { recursive: true });
     await launch(env);
     await h.setWindowSize(1440, 900);
@@ -610,7 +653,13 @@ describe('R2b page packing lab', () => {
       const comfortable = byVariant(lab, documentLabel, 'comfortable');
       const stacked = byVariant(lab, documentLabel, 'compact-stacked');
       const beside = byVariant(lab, documentLabel, 'compact-beside');
-      assert.ok(comfortable !== undefined && stacked !== undefined && beside !== undefined);
+      const compaction = byVariant(lab, documentLabel, 'compact-compaction');
+      assert.ok(
+        comfortable !== undefined &&
+          stacked !== undefined &&
+          beside !== undefined &&
+          compaction !== undefined,
+      );
       for (const entry of lab.filter((item) => item.document === documentLabel)) {
         assertVariantInvariants(entry);
       }
@@ -618,19 +667,24 @@ describe('R2b page packing lab', () => {
         stacked.pages <= comfortable.pages,
         `${documentLabel}: compact stacked (${stacked.pages}) no more pages than comfortable (${comfortable.pages})`,
       );
-      // The selected default must be no worse than the R2a geometry. The
-      // report records the readability and crossing trade-offs either way.
-      if (SELECTED_PACKING === 'beside') {
-        assert.ok(
-          beside.pages <= stacked.pages,
-          `${documentLabel}: beside (${beside.pages}) no more pages than stacked (${stacked.pages})`,
-        );
-      } else {
-        assert.ok(
-          stacked.pages <= beside.pages,
-          `${documentLabel}: stacked (${stacked.pages}) no more pages than beside (${beside.pages})`,
-        );
-      }
+      // The selected default must be no worse than both reference geometries.
+      assert.ok(
+        beside.pages <= stacked.pages,
+        `${documentLabel}: beside (${beside.pages}) no more pages than stacked (${stacked.pages})`,
+      );
+      assert.ok(
+        compaction.pages <= beside.pages,
+        `${documentLabel}: compaction (${compaction.pages}) no more pages than beside (${beside.pages})`,
+      );
+      assert.equal(
+        compaction.narrowCallouts,
+        0,
+        `${documentLabel}: compaction keeps callouts above the readable minimum`,
+      );
+      assert.ok(
+        compaction.cappedLineChars <= 75,
+        `${documentLabel}: compaction capped prose stays within 75 ch (${compaction.cappedLineChars.toFixed(1)})`,
+      );
     }
 
     // Determinism on the product-owner corpus: re-running the same variant must
@@ -638,7 +692,7 @@ describe('R2b page packing lab', () => {
     if (showcase !== null) {
       await openPath(showcase);
       await showPageRead();
-      const variant = VARIANTS.find((item) => item.id === 'compact-beside');
+      const variant = VARIANTS.find((item) => item.id === 'compact-compaction');
       const alternate = VARIANTS.find((item) => item.id === 'compact-stacked');
       const first = await measureVariant(variant);
       // Force a second model run by alternating the packing, then compare the
@@ -658,7 +712,7 @@ describe('R2b page packing lab', () => {
             entry.crossingHits,
           ]),
         );
-      assert.equal(signature(second), signature(first), 'beside geometry is deterministic');
+      assert.equal(signature(second), signature(first), 'compaction geometry is deterministic');
       await writeFile(
         join(outputDir, 'determinism.json'),
         `${JSON.stringify({ first: signature(first), second: signature(second) }, null, 2)}\n`,
@@ -679,13 +733,13 @@ describe('R2b page packing lab', () => {
       { timeout: 20000 },
     );
     await showPageRead();
-    const selected = VARIANTS.find((item) => item.id === 'compact-beside');
+    const selected = VARIANTS.find((item) => item.id === 'compact-compaction');
     await setTheme(selected.theme);
     while ((await currentPage()) > 1) {
       await navigate('prev', (await currentPage()) - 1);
     }
     await h.setWindowSize(1440, 900);
-    await screenshot('page-beside-1440x900-landscape.png', 1440, 900);
+    await screenshot('page-compaction-1440x900-landscape.png', 1440, 900);
 
     const portraitStart = await modelRuns();
     await page.evaluate(() =>
@@ -696,19 +750,39 @@ describe('R2b page packing lab', () => {
             orientation: 'portrait',
             margins: { top: 12, right: 12, bottom: 12, left: 12 },
           },
-          theme: { preset: 'compact', pagePacking: 'beside' },
+          theme: { preset: 'compact', pagePacking: 'compaction' },
           manualBreakBeforeBlockIds: [],
         },
         continuous: { zoom: 1 },
       }),
     );
     await waitForRunAtLeast(portraitStart + 1);
-    await screenshot('page-beside-1440x900-portrait.png', 1440, 900);
+    await screenshot('page-compaction-1440x900-portrait.png', 1440, 900);
 
     await h.setWindowSize(960, 720);
-    await screenshot('page-beside-960x720-portrait.png', 960, 720);
+    await screenshot('page-compaction-960x720-portrait.png', 960, 720);
 
     const landscapeStart = await modelRuns();
+    await page.evaluate(() =>
+      window.__noteforestTest.setSettings({
+        page: {
+          setup: {
+            size: 'A4',
+            orientation: 'landscape',
+            margins: { top: 12, right: 12, bottom: 12, left: 12 },
+          },
+          theme: { preset: 'compact', pagePacking: 'compaction' },
+          manualBreakBeforeBlockIds: [],
+        },
+        continuous: { zoom: 1 },
+      }),
+    );
+    await waitForRunAtLeast(landscapeStart + 1);
+    await screenshot('page-compaction-960x720-landscape.png', 960, 720);
+
+    // One beside comparison at the primary window size.
+    await h.setWindowSize(1440, 900);
+    const besideStart = await modelRuns();
     await page.evaluate(() =>
       window.__noteforestTest.setSettings({
         page: {
@@ -723,8 +797,11 @@ describe('R2b page packing lab', () => {
         continuous: { zoom: 1 },
       }),
     );
-    await waitForRunAtLeast(landscapeStart + 1);
-    await screenshot('page-beside-960x720-landscape.png', 960, 720);
+    await waitForRunAtLeast(besideStart + 1);
+    while ((await currentPage()) > 1) {
+      await navigate('prev', (await currentPage()) - 1);
+    }
+    await screenshot('page-beside-1440x900-landscape.png', 1440, 900);
 
     // One stacked comparison at the primary window size.
     await h.setWindowSize(1440, 900);

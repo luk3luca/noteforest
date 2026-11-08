@@ -296,11 +296,26 @@ describe('R2b page packing', () => {
     const packagePath = await openPackage(env, 'Side packing', sidePackingDocument());
     await showPageRead();
 
+    // R2c makes compaction the compact default. This suite is the beside
+    // reference policy, so select it explicitly.
+    await setSettings({
+      page: {
+        setup: {
+          size: 'A4',
+          orientation: 'landscape',
+          margins: { top: 12, right: 12, bottom: 12, left: 12 },
+        },
+        theme: { preset: 'compact', pagePacking: 'beside' },
+        manualBreakBeforeBlockIds: [],
+      },
+      continuous: { zoom: 1 },
+    });
+
     const resolved = await page.evaluate(
       (path) => window.__noteforestTest.resolvedPageSettings(path),
       packagePath,
     );
-    assert.equal(resolved.theme.pagePacking, 'beside', 'the compact default is beside');
+    assert.equal(resolved.theme.pagePacking, 'beside', 'beside is selected for this suite');
     assert.equal(await pageCount(), 1, 'the short packing fixture fits one page');
 
     const { root, child, rootCallout } = await assertBesideGeometry('landscape 1440');
@@ -345,6 +360,18 @@ describe('R2b page packing', () => {
     await launch('r2b-sizes');
     await openPackage(env, 'Side packing sizes', sidePackingDocument());
     await showPageRead();
+    await setSettings({
+      page: {
+        setup: {
+          size: 'A4',
+          orientation: 'landscape',
+          margins: { top: 12, right: 12, bottom: 12, left: 12 },
+        },
+        theme: { preset: 'compact', pagePacking: 'beside' },
+        manualBreakBeforeBlockIds: [],
+      },
+      continuous: { zoom: 1 },
+    });
 
     await h.setWindowSize(960, 720);
     await assertBesideGeometry('landscape 960');
