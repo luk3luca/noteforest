@@ -1,6 +1,6 @@
 # Refactor — personal page settings (master checklist)
 
-**Status:** R1a/R1b/R2a complete, R2b next (8 November 2026)  
+**Status:** R1a/R1b/R2a/R2b complete, R2c next (8 November 2026)  
 **Decision:** `docs/adr/0008-personal-page-settings.md`  
 **Related:** ADR-0002, ADR-0007, `docs/plan.md`  
 **Gate:** do not start M4c PDF until Page View is usable (arrows + density).
@@ -113,11 +113,18 @@ Status: **complete** — report `docs/reports/r2a-page-arrows-cleanup.md`
 
 ### R2b — Page packing/width density
 
-Status: **in progress** — brief `docs/tasks/r2b-page-packing.md`; chosen approach: `beside` packing (direct children at parent y, callouts below in the left column), with a stacked fallback.
+Status: **complete** — `beside` implemented and merged; report `docs/reports/r2b-page-packing.md`. Density improved only 21→20 pages, so R2c is the real compaction engine.
 
 - [ ] After compact, test the horizontal levers: wider max card, callout-right lane, two-column top-level packing.
 - [ ] Product-owner decision if two-column changes the reading flow; report page count and whitespace.
 - [ ] Implement the chosen lever only after the Page arrows/marker cleanup is stable.
+
+### R2c — Page compaction placement
+
+- [ ] Fill rows with callouts + primary children; align/indent from parent; wrap when full.
+- [ ] Reference targets stay at their primary home; edges only.
+- [ ] Lab compaction vs beside vs stacked; accept only if denser, no-overlap, deterministic.
+- [ ] R2d: unify Page/PDF edge style with the Continuous orthogonal router.
 
 ### R3 — Settings UI + personal manual breaks
 
