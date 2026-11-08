@@ -352,11 +352,40 @@ describe('NoteForest M3c2b formula term geometry', () => {
       .locator(`[data-callout-row="true"][data-anchor-id="${xAnchorId}"] .nf-callout-quote`)
       .click();
     await waitForMarker(parentId, xAnchorId);
+    await page.waitForFunction(
+      ({ blockId, anchorId }) => {
+        const card = document.querySelector(`[data-block-card="${blockId}"]`);
+        const button = card?.querySelector(`[data-anchor-marker-id="${anchorId}"]`);
+        const term = card?.querySelector(`[data-anchor-term-ids="${anchorId}"]`);
+        if (button === null || button === undefined || term === null || term === undefined) {
+          return false;
+        }
+        const marker = button.getBoundingClientRect();
+        const target = term.getBoundingClientRect();
+        return Math.abs(marker.left + marker.width / 2 - (target.left + target.width)) <= 10;
+      },
+      { blockId: parentId, anchorId: xAnchorId },
+      { timeout: 10000 },
+    );
     const xMarker = await markerPosition(parentId, xAnchorId);
     assert.notEqual(xMarker, null);
+    // The second branch changes the lane/line width and may move the centered
+    // canvas; compare with the current term rect, not the pre-branch cache.
+    const currentTerm = await page.evaluate(
+      ({ blockId, anchorId }) => {
+        const term = document
+          .querySelector(`[data-block-card="${blockId}"]`)
+          ?.querySelector(`[data-anchor-term-ids="${anchorId}"]`);
+        if (term === null || term === undefined) return null;
+        const rect = term.getBoundingClientRect();
+        return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+      },
+      { blockId: parentId, anchorId: xAnchorId },
+    );
+    assert.ok(currentTerm !== null);
     assert.ok(
-      Math.abs(xMarker.centerX - (xGeometry.term.left + xGeometry.term.width)) <= 10,
-      `marker sits at the x term edge (${JSON.stringify(xMarker)} vs ${JSON.stringify(xGeometry.term)})`,
+      Math.abs(xMarker.centerX - (currentTerm.left + currentTerm.width)) <= 10,
+      `marker sits at the x term edge (${JSON.stringify(xMarker)} vs ${JSON.stringify(currentTerm)})`,
     );
     assert.equal(
       await page

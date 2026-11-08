@@ -490,6 +490,39 @@ describe('M4b1 page view core', () => {
       0,
       'a present asset never renders the placeholder',
     );
+
+    // Image blocks are scalable horizontally: the card caps at the compact
+    // theme max width (420 + 18 chrome) and the 640 px asset scales inside it.
+    const geometry = await activePageView().evaluate(() => {
+      const wrap = document.querySelector('.nf-page-sheet-wrap');
+      const zoom = Number(wrap?.getAttribute('data-page-zoom') ?? '100') / 100;
+      const card = document.querySelector(
+        '[data-fragment-block="image"] .nf-page-card',
+      );
+      const img = document.querySelector('img[data-asset-id]');
+      if (card === null || img === null) return null;
+      const cardRect = card.getBoundingClientRect();
+      const imgRect = img.getBoundingClientRect();
+      return {
+        zoom,
+        cardWidth: cardRect.width / zoom,
+        imageWidth: imgRect.width / zoom,
+        imageHeight: imgRect.height / zoom,
+      };
+    });
+    assert.ok(geometry !== null);
+    assert.ok(
+      geometry.cardWidth <= 420 + 18 + 1,
+      `image card caps at maxCardWidth (${geometry.cardWidth})`,
+    );
+    assert.ok(
+      geometry.imageWidth <= geometry.cardWidth - 18 + 1,
+      `image scales inside the card (${geometry.imageWidth} <= ${geometry.cardWidth})`,
+    );
+    assert.ok(
+      Math.abs(geometry.imageHeight - geometry.imageWidth * (360 / 640)) <= 2,
+      'image keeps its aspect ratio',
+    );
   });
   it('defaults to Continuous Edit and toggles Continuous Read without editing', async () => {
     await launch(ui.isolated('m4b1a-continuous-read'));

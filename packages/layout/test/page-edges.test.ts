@@ -4,12 +4,13 @@ import {
   createEstimatedMeasurement,
   DEFAULT_PAGE_SETTINGS,
   layoutDocument,
+  pageLayoutOptions,
   paginate,
   type AnchorRecord,
   type NoteDocument,
 } from '../src/index.js';
 
-const SOURCE_TEXT = 'An eigenvalue is a scalar.';
+const SOURCE_TEXT = 'An eigenvalue is a scalar. A nonzero vector v satisfies Av = λv for some λ, and the spectrum is the set of all eigenvalues.';
 const QUOTE = 'eigenvalue';
 
 function textBlock(id: string, label: string, text: string) {
@@ -106,7 +107,12 @@ function arrowsDocument(): NoteDocument {
 
 function layoutPages(document: NoteDocument, manualBreakBeforeBlockIds: string[] = []) {
   const measurement = createEstimatedMeasurement(document);
-  const layout = layoutDocument(document, measurement, {}, DEFAULT_PAGE_SETTINGS.setup);
+  const layout = layoutDocument(
+    document,
+    measurement,
+    pageLayoutOptions(DEFAULT_PAGE_SETTINGS.theme),
+    DEFAULT_PAGE_SETTINGS.setup,
+  );
   const pages = paginate(layout, document, { manualBreakBeforeBlockIds });
   return { layout, pages };
 }
@@ -144,9 +150,11 @@ describe('page edge mapper', () => {
     expect(anchor.rect).not.toBeNull();
     expect(calloutEdge.anchorId).toBe('anchor-1');
     expect(calloutEdge.direction).toBe('same-page');
-    expect(calloutEdge.from.x).toBeCloseTo(anchor.rect!.x + anchor.rect!.width, 6);
-    expect(calloutEdge.from.y).toBeCloseTo(anchor.rect!.y + anchor.rect!.height / 2, 6);
-    expect(calloutEdge.from.x).toBeLessThan(source.page.x + source.page.width - 1);
+    // The callout sits below the source and shares the Continuous-style left
+    // trunk, not the source card's right edge.
+    expect(calloutEdge.from.x).toBeCloseTo(source.page.x + 12, 6);
+    expect(calloutEdge.from.y).toBeCloseTo(source.page.y + source.page.height, 6);
+    expect(calloutEdge.route.entry).toBe('left');
 
     const reference = edges.find((edge) => edge.branchId === 'branch-reference')!;
     expect(reference.role).toBe('reference');
@@ -160,25 +168,27 @@ describe('page edge mapper', () => {
   });
 
   it('uses page-edge indicators for cross-page primary edges and target-only references', () => {
-    const { layout, pages } = layoutPages(arrowsDocument(), ['callout']);
+    const { layout, pages } = layoutPages(arrowsDocument(), ['callout', 'direct']);
     expect(pages.pageCount).toBeGreaterThanOrEqual(2);
     const byPage = buildPageEdges(layout, pages.pages);
     const first = byPage[0]!;
     const second = byPage[1]!;
 
-    for (const branchId of ['branch-callout', 'branch-direct']) {
-      const out = first.find((edge) => edge.branchId === branchId)!;
-      expect(out.direction).toBe('to-edge');
-      expect(out.targetPage).toBe(2);
-      expect(out.label).toBe('p.2');
-      expect(out.to.x).toBe(layout.geometry.contentWidthPx);
-
-      const incoming = second.find((edge) => edge.branchId === branchId)!;
-      expect(incoming.direction).toBe('from-edge');
-      expect(incoming.targetPage).toBe(1);
-      expect(incoming.label).toBe('p.1');
-      expect(incoming.from.x).toBe(0);
-    }
+    // The callout is below the parent and lands on page 2. The direct child
+    // sits beside the parent, so it stays on page 1: the new tree packing is
+    // not a per-component row break.
+    const directSamePage = first.find((edge) => edge.branchId === 'branch-direct')!;
+    expect(directSamePage.direction).toBe('same-page');
+    const calloutOut = first.find((edge) => edge.branchId === 'branch-callout')!;
+    expect(calloutOut.direction).toBe('to-edge');
+    expect(calloutOut.targetPage).toBe(2);
+    expect(calloutOut.label).toBe('p.2');
+    expect(calloutOut.to.x).toBe(layout.geometry.contentWidthPx);
+    const calloutIn = second.find((edge) => edge.branchId === 'branch-callout')!;
+    expect(calloutIn.direction).toBe('from-edge');
+    expect(calloutIn.targetPage).toBe(1);
+    expect(calloutIn.label).toBe('p.1');
+    expect(calloutIn.from.x).toBe(0);
 
     // Reference edges never draw a line out of the source page: the target page
     // gets one from-edge chip and the source page has no matching indicator.

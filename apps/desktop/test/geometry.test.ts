@@ -53,7 +53,7 @@ describe('geometry', () => {
     expect(GEOMETRY.childMaxWidth).toBe(420);
     expect(GEOMETRY.childGap).toBe(24);
     expect(GEOMETRY.siblingGap).toBe(24);
-    expect(GEOMETRY.canvasMaxWidth).toBe(1600);
+    expect(GEOMETRY.canvasMaxWidth).toBe(3200);
     expect(GEOMETRY.editorPaddingX).toBe(40);
     expect(GEOMETRY.editorPaddingTop).toBe(40);
     expect(GEOMETRY.editorPaddingBottom).toBe(88);

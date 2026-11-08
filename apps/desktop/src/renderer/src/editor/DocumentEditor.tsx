@@ -70,7 +70,17 @@ function useCanvasWidth(
     if (!active) return undefined;
     const element = ref.current;
     if (element === null) return undefined;
-    const update = (): void => setWidth(element.clientWidth);
+    // The editor has a wide finite logical canvas: placement uses its full
+    // content width, not the current viewport. A deep tree therefore keeps
+    // going right and the scroll container reveals it, instead of wrapping at
+    // the window edge. The CSS canvas grows to max-content (bounded by the
+    // same token), so a short document still fills the viewport without a
+    // permanent horizontal scrollbar.
+    const logicalWidth = Math.max(
+      0,
+      GEOMETRY.canvasMaxWidth - 2 * GEOMETRY.editorPaddingX,
+    );
+    const update = (): void => setWidth(Math.max(element.clientWidth, logicalWidth));
     update();
     const observer = new ResizeObserver(update);
     observer.observe(element);

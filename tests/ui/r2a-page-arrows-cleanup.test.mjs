@@ -193,19 +193,13 @@ describe('R2a page arrows and Continuous cleanup', () => {
       .evaluate((element) => getComputedStyle(element).strokeDasharray);
     assert.notEqual(dash, 'none', 'reference arrows are dashed');
 
-    // Branch/anchor labels stay outside the aria-hidden SVG.
-    const labels = activePageView().locator('[data-page-edge-label]');
-    assert.equal(await labels.count(), 2, 'the anchored callout and labeled reference have chips');
-    const labelTexts = await labels.evaluateAll((elements) =>
-      elements.map((element) => element.textContent?.trim() ?? ''),
-    );
-    assert.deepEqual(labelTexts.sort(), ['also uses', 'eigenvalue'].sort());
-    assert.equal(
-      await activePageView()
-        .locator('[data-page-edge-label="branch"]')
-        .first()
-        .evaluate((element) => getComputedStyle(element).pointerEvents),
-      'none',
+    // Same-page branch/anchor quotes stay in the callout card and the edge's
+    // accessible title; route chips no longer sit on top of block text.
+    const labels = activePageView().locator('[data-page-edge-label="branch"]');
+    assert.equal(await labels.count(), 0, 'same-page branch chips do not cover text');
+    assert.ok(
+      (await activePageView().locator('[data-page-edge-id="branch-reference"] title').count()) > 0,
+      'the labeled reference keeps its accessible route title',
     );
 
     // Neither the paths nor the labels capture a pointer.
@@ -300,7 +294,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
     const outLabels = await activePageView()
       .locator('[data-page-edge-label="to-edge"]')
       .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
-    assert.deepEqual(outLabels.sort(), ['→ page 2', '→ page 2']);
+    assert.deepEqual(outLabels.sort(), ['→ p.2', '→ p.2']);
 
     const bounds = await activePageView().locator('[data-page-content]').evaluate((element) => {
       const content = element.getBoundingClientRect();
@@ -344,7 +338,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
     const inLabels = await activePageView()
       .locator('[data-page-edge-label="from-edge"]')
       .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
-    assert.deepEqual(inLabels.sort(), ['← from page 1', '← from page 1', '← from page 1']);
+    assert.deepEqual(inLabels.sort(), ['← p.1', '← p.1', '← p.1']);
 
     // Page Edit keeps the same cross-page indicators.
     await page.keyboard.press('Meta+e');

@@ -27,7 +27,7 @@ These are applied as root variables at boot.
 
 | Token | CSS variable | Value | Used for |
 |---|---|---:|---|
-| `canvasMaxWidth` | `--nf-canvas-max` | 1600 px | Canvas max width |
+| `canvasMaxWidth` | `--nf-canvas-max` | 3200 px | Finite wide canvas; placement uses its 3120 px content budget |
 | `editorPaddingX` | `--nf-canvas-pad-x` | 40 px | Canvas horizontal padding |
 | `editorPaddingTop` | `--nf-canvas-pad-top` | 40 px | Canvas top padding |
 | `editorPaddingBottom` | `--nf-canvas-pad-bottom` | **88 px** | Canvas bottom padding |
@@ -105,7 +105,7 @@ so one engine produces one geometry.
 | `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent |
 | `maxWrapIndent` | 54 px | Cap on cumulative wrap indent from the page content left (3 × 18) |
 | `wrapPolicy` | `group-left-origin` | Production default from ADR-0006; lab oracles are not user-facing |
-| `pagePacking` | `stacked` (engine) / `compaction` (compact page) | Page/PDF row compaction; Continuous never reads it |
+| `pagePacking` | `stacked` (engine) / `beside` (compact page) | Page/PDF tree columns; `compaction` is a legacy lab oracle |
 | `minContentWidth` | 160 px | Readable minimum before a block reports `content-too-wide` |
 | `maxContentWidth` | 420 px | Readable text cap; unbreakable content may use more |
 

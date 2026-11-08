@@ -6,13 +6,13 @@ import { createUiSession } from '../support/ui-session.mjs';
 import { compactionDocument, writePagePackage } from '../support/page-fixtures.mjs';
 
 /**
- * R2c Page compaction UI.
+ * R2c Page tree UI (supersedes the old row-fill compaction oracle).
  *
- * The compact page default is `compaction`: the parent card starts a row, the
- * anchored callout and the primary direct children are ordered components in
- * that row, and a component with its own child reserves a column for it.
- * Continuous does not mount the page layout, so it keeps the below-parent
- * callout geometry.
+ * The compact page default is `beside`: direct siblings share one level
+ * column at the right of the parent, the next sibling starts below the
+ * previous subtree, and a child that does not fit to the right wraps below its
+ * own parent with one wrap indent. Callouts stay below the parent in their
+ * left lane. Continuous does not mount the page layout.
  */
 
 const tempRoot = artifactsPath('r2c-ui');
@@ -22,6 +22,7 @@ const h = ui.harness;
 let page;
 
 const SIBLING_GAP = 16;
+const CALLOUT_GAP = 12;
 const CARD_CHROME = 2 * (8 + 1);
 
 async function launch(name, width = 1440, height = 900) {
@@ -150,12 +151,12 @@ function assertInsideContent(boxes, content, label) {
 }
 
 /**
- * The fixture row: root, anchored callout, direct child, second leaf, third
- * leaf. Landscape fits all of them in one row; portrait may wrap the leaves
- * below. The child owns a column, so its grandchild is below it and inside its
- * horizontal band.
+ * The fixture tree: root, anchored callout, direct children child/leaf-2/leaf-3
+ * and the child's grandchild. Siblings share one x column; each next sibling
+ * starts below the previous subtree. The grandchild is either beside its child
+ * or wrapped below it at one indent.
  */
-async function assertCompactionGeometry(label, { fullRow = true } = {}) {
+async function assertTreeGeometry(label) {
   const root = await fragmentBox('comp-root');
   const callout = await fragmentBox('comp-callout');
   const child = await fragmentBox('comp-child');
@@ -168,51 +169,74 @@ async function assertCompactionGeometry(label, { fullRow = true } = {}) {
   assert.equal(root.role, 'top-level');
   assert.equal(callout.role, 'callout');
   assert.equal(child.role, 'child');
+  assert.equal(leaf2.role, 'child');
+  assert.equal(leaf3.role, 'child');
   assert.equal(grandchild.role, 'child');
   assert.equal(root.depth, 0);
   assert.equal(child.depth, 1);
+  assert.equal(leaf2.depth, 1);
+  assert.equal(leaf3.depth, 1);
   assert.equal(grandchild.depth, 2);
 
-  // The first component always starts one safe gap right of the parent at the
-  // parent's row top.
-  assert.ok(closeTo(callout.top, root.top, 1), `${label}: the callout shares the row top`);
+  // Callouts stay below the parent, never in the sibling row.
   assert.ok(
-    closeTo(callout.left, root.left + root.width + SIBLING_GAP, 1),
-    `${label}: the callout starts one sibling gap right of the parent`,
+    callout.top >= root.top + root.height + CALLOUT_GAP - 0.75,
+    `${label}: the callout starts below the parent`,
+  );
+  assert.ok(
+    callout.left <= root.left + root.width + 0.75,
+    `${label}: the callout stays in the parent lane`,
   );
 
-  if (fullRow) {
-    for (const component of [child, leaf2, leaf3]) {
-      assert.ok(closeTo(component.top, root.top, 1), `${label}: component shares the row top`);
-    }
+  // Direct children either all fit beside the parent at its y, or the whole
+  // group wraps below it. They never become a row of sibling cards.
+  const beside = closeTo(child.top, root.top, 1);
+  if (beside) {
     assert.ok(
-      child.left >= callout.left + callout.width + SIBLING_GAP - 0.75,
-      `${label}: the direct child follows the callout column`,
-    );
-    assert.ok(
-      leaf2.left >= child.left + child.width + SIBLING_GAP - 0.75,
-      `${label}: the second leaf follows the child column`,
-    );
-    assert.ok(
-      leaf3.left >= leaf2.left + leaf2.width + SIBLING_GAP - 0.75,
-      `${label}: the third leaf follows the second column`,
-    );
-    assert.ok(
-      grandchild.left + grandchild.width <= leaf2.left - SIBLING_GAP + 0.75,
-      `${label}: the grandchild does not enter the next column`,
+      closeTo(child.left, root.left + root.width + SIBLING_GAP, 0.75),
+      `${label}: the child starts one sibling gap right of the parent`,
     );
   } else {
-    assert.ok(child.top >= root.top - 0.75, `${label}: the child is not above the root`);
-    assert.ok(leaf2.top > root.top, `${label}: the overflow leaf wraps below the first row`);
+    assert.ok(
+      child.top >= root.top + root.height + CALLOUT_GAP - 0.75,
+      `${label}: the wrapped child starts below the parent/callouts`,
+    );
+    assert.ok(child.left >= root.left - 0.75, `${label}: the wrapped child keeps a left origin`);
   }
-
-  // Recursion: the grandchild is inside the child's column and below it.
-  assert.ok(grandchild.left >= child.left - 0.75, `${label}: the grandchild stays in the child column`);
+  assert.ok(closeTo(leaf2.left, child.left, 0.75), `${label}: leaf 2 shares the child column`);
+  assert.ok(closeTo(leaf3.left, child.left, 0.75), `${label}: leaf 3 shares the child column`);
   assert.ok(
-    grandchild.left + grandchild.width <= content.width + 0.75,
-    `${label}: the grandchild does not leave the content box`,
+    leaf2.left + leaf2.width <= content.width + 0.75,
+    `${label}: the level column stays inside the page`,
   );
-  assert.ok(grandchild.top > child.top, `${label}: the grandchild is placed below its parent`);
+
+  const childSubtreeBottom = Math.max(child.top + child.height, grandchild.top + grandchild.height);
+  assert.ok(
+    leaf2.top >= childSubtreeBottom + SIBLING_GAP - 0.75,
+    `${label}: leaf 2 starts below the child subtree`,
+  );
+  assert.ok(
+    leaf3.top >= leaf2.top + leaf2.height + SIBLING_GAP - 0.75,
+    `${label}: leaf 3 starts below leaf 2`,
+  );
+
+  // The grandchild is either beside the child or wrapped below it; it never
+  // appears to the right of a later sibling.
+  if (grandchild.left > child.left + child.width + 0.5) {
+    assert.ok(
+      closeTo(grandchild.top, child.top, 1),
+      `${label}: the beside grandchild shares the child y`,
+    );
+  } else {
+    assert.ok(
+      grandchild.top >= child.top + child.height - 0.75,
+      `${label}: the wrapped grandchild starts below its parent`,
+    );
+    assert.ok(
+      grandchild.left >= child.left - 0.75,
+      `${label}: the wrapped grandchild keeps the child column`,
+    );
+  }
 
   assertNoOverlap(boxes, label);
   assertInsideContent(boxes, content, label);
@@ -258,7 +282,7 @@ async function setPageSettingsOverride(packagePath, override) {
   );
 }
 
-describe('R2c page compaction', () => {
+describe('Page tree geometry', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await rm(outputDir, { recursive: true, force: true });
@@ -273,7 +297,7 @@ describe('R2c page compaction', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('Page Read fills the row with callouts and children at 1440x900', async () => {
+  it('Page Read keeps siblings in one level column at 1440x900', async () => {
     const env = ui.isolated('r2c-read');
     await launch('r2c-read');
     const packagePath = await openPackage(env, 'Compaction page', compactionDocument());
@@ -283,11 +307,11 @@ describe('R2c page compaction', () => {
       (path) => window.__noteforestTest.resolvedPageSettings(path),
       packagePath,
     );
-    assert.equal(resolved.theme.pagePacking, 'compaction', 'the compact default is compaction');
-    assert.equal(await pageCount(), 1, 'the short compaction fixture fits one page');
+    assert.equal(resolved.theme.pagePacking, 'beside', 'the compact default is the tree/column packing');
+    assert.ok((await pageCount()) >= 1, 'the tree fixture has at least one page');
 
-    const geometry = await assertCompactionGeometry('landscape 1440');
-    assert.ok(geometry.callout.width - CARD_CHROME >= 160 - 0.75, 'callout stays readable');
+    const geometry = await assertTreeGeometry('landscape 1440');
+    assert.ok(geometry.callout.width - CARD_CHROME >= 144 - 0.75, 'callout stays readable');
     assert.ok(geometry.child.width - CARD_CHROME >= 160 - 0.75, 'child stays readable');
 
     const svg = activePageView().locator('.nf-page-edges');
@@ -314,21 +338,21 @@ describe('R2c page compaction', () => {
       'reference arrows remain dashed',
     );
 
-    await h.screenshot(artifactsPath('r2c', 'ui', 'page-read-compaction-1440x900-landscape.png'), {
+    await h.screenshot(artifactsPath('r2c', 'ui', 'page-read-tree-1440x900-landscape.png'), {
       width: 1440,
       height: 900,
     });
   });
 
-  it('keeps row packing at 960x720 and in portrait, then restores landscape', async () => {
+  it('keeps the tree column at 960x720 and in portrait, then restores landscape', async () => {
     const env = ui.isolated('r2c-sizes');
     await launch('r2c-sizes');
     await openPackage(env, 'Compaction page sizes', compactionDocument());
     await showPageRead();
 
     await h.setWindowSize(960, 720);
-    await assertCompactionGeometry('landscape 960');
-    await h.screenshot(artifactsPath('r2c', 'ui', 'page-read-compaction-960x720-landscape.png'), {
+    await assertTreeGeometry('landscape 960');
+    await h.screenshot(artifactsPath('r2c', 'ui', 'page-read-tree-960x720-landscape.png'), {
       width: 960,
       height: 720,
     });
@@ -340,7 +364,7 @@ describe('R2c page compaction', () => {
           orientation: 'portrait',
           margins: { top: 12, right: 12, bottom: 12, left: 12 },
         },
-        theme: { preset: 'compact', pagePacking: 'compaction' },
+        theme: { preset: 'compact' },
         manualBreakBeforeBlockIds: [],
       },
       continuous: { zoom: 1 },
@@ -348,10 +372,10 @@ describe('R2c page compaction', () => {
     await waitPageReady();
     // Portrait is narrower: the first row still packs the callout beside the
     // root, while the overflow leaves wrap below; nothing overflows or overlaps.
-    const portrait = await assertCompactionGeometry('portrait 1440', { fullRow: false });
+    const portrait = await assertTreeGeometry('portrait 1440', { fullRow: false });
     assert.ok(portrait.leaf2.top >= portrait.child.top, 'portrait wraps the overflow leaf');
     await h.setWindowSize(960, 720);
-    await h.screenshot(artifactsPath('r2c', 'ui', 'page-read-compaction-960x720-portrait.png'), {
+    await h.screenshot(artifactsPath('r2c', 'ui', 'page-read-tree-960x720-portrait.png'), {
       width: 960,
       height: 720,
     });
@@ -363,21 +387,21 @@ describe('R2c page compaction', () => {
           orientation: 'landscape',
           margins: { top: 12, right: 12, bottom: 12, left: 12 },
         },
-        theme: { preset: 'compact', pagePacking: 'compaction' },
+        theme: { preset: 'compact' },
         manualBreakBeforeBlockIds: [],
       },
       continuous: { zoom: 1 },
     });
     await waitPageReady();
-    await assertCompactionGeometry('landscape restored');
+    await assertTreeGeometry('landscape restored');
   });
 
-  it('keeps compaction in Page Edit, commits the overlay, and leaves Continuous alone', async () => {
+  it('keeps the tree layout in Page Edit, commits the overlay, and leaves Continuous alone', async () => {
     const env = ui.isolated('r2c-edit');
     await launch('r2c-edit');
     const packagePath = await openPackage(env, 'Compaction page edit', compactionDocument());
     await showPageRead();
-    await assertCompactionGeometry('Page Read before edit');
+    await assertTreeGeometry('Page Read before edit');
 
     await page.keyboard.press('Meta+e');
     await page.waitForFunction(
@@ -386,8 +410,8 @@ describe('R2c page compaction', () => {
       { timeout: 5000 },
     );
     assert.equal(await activePageView().locator('.nf-page-edges').count(), 1);
-    const besideEdit = await assertCompactionGeometry('Page Edit');
-    await h.screenshot(artifactsPath('r2c', 'ui', 'page-edit-compaction-1440x900-landscape.png'), {
+    const besideEdit = await assertTreeGeometry('Page Edit');
+    await h.screenshot(artifactsPath('r2c', 'ui', 'page-edit-tree-1440x900-landscape.png'), {
       width: 1440,
       height: 900,
     });
@@ -395,7 +419,7 @@ describe('R2c page compaction', () => {
     await activePageView().locator('[data-fragment-block="comp-child"]').dblclick();
     const overlay = activePageView().locator('[data-page-edit-overlay="true"]');
     await overlay.waitFor({ timeout: 10000 });
-    await h.screenshot(artifactsPath('r2c', 'ui', 'page-edit-overlay-compaction-1440x900-landscape.png'), {
+    await h.screenshot(artifactsPath('r2c', 'ui', 'page-edit-overlay-tree-1440x900-landscape.png'), {
       width: 1440,
       height: 900,
     });
@@ -428,11 +452,11 @@ describe('R2c page compaction', () => {
     await page.keyboard.type(' Still compact.');
     await page.keyboard.press('Meta+Enter');
     await overlay.waitFor({ state: 'detached', timeout: 20000 });
-    await waitPageReady(1);
+    await waitPageReady();
     const structure = await ui.structure();
     const childContent = JSON.stringify(structure.blocks['comp-child']?.content ?? {});
     assert.match(childContent, /Still compact\./);
-    await assertCompactionGeometry('after Page Edit commit');
+    await assertTreeGeometry('after Page Edit commit');
 
     // Continuous does not use the page engine: no page sheet, and the
     // anchored callout keeps its below-parent continuous geometry.
@@ -459,7 +483,7 @@ describe('R2c page compaction', () => {
     await launch('r2c-override');
     const packagePath = await openPackage(env, 'Compaction page override', compactionDocument());
     await showPageRead();
-    await assertCompactionGeometry('compaction default');
+    await assertTreeGeometry('tree default');
 
     await setPageSettingsOverride(packagePath, { theme: { pagePacking: 'stacked' } });
     const stacked = await page.evaluate(
@@ -480,7 +504,7 @@ describe('R2c page compaction', () => {
     );
     assert.equal(await currentPage(), 1);
 
-    await setPageSettingsOverride(packagePath, { theme: { pagePacking: 'compaction' } });
-    await assertCompactionGeometry('compaction restored');
+    await setPageSettingsOverride(packagePath, { theme: { pagePacking: 'beside' } });
+    await assertTreeGeometry('tree restored');
   });
 });

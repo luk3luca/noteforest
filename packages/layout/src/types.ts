@@ -216,6 +216,7 @@ export type WrapPolicy = 'group-left-origin' | 'right-first-per-child' | 'subtre
  *   Reference targets stay at their primary home; only primary edges are
  *   layout components.
  */
+/** `compaction` is a legacy row-fill lab oracle; presets use beside/stacked. */
 export type PagePacking = 'stacked' | 'beside' | 'compaction';
 
 export interface LayoutBlock {

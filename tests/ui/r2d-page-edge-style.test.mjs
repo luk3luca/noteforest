@@ -540,7 +540,7 @@ describe('R2d page edge style', () => {
     const outLabels = await activePageView()
       .locator('[data-page-edge-label="to-edge"]')
       .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
-    assert.deepEqual(outLabels.sort(), ['→ page 2', '→ page 2']);
+    assert.deepEqual(outLabels.sort(), ['→ p.2', '→ p.2']);
 
     await activePageView().locator('[data-page-nav="next"]').click();
     await page.waitForFunction(
@@ -568,7 +568,7 @@ describe('R2d page edge style', () => {
     const inLabels = await activePageView()
       .locator('[data-page-edge-label="from-edge"]')
       .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
-    assert.deepEqual(inLabels.sort(), ['← from page 1', '← from page 1', '← from page 1']);
+    assert.deepEqual(inLabels.sort(), ['← p.1', '← p.1', '← p.1']);
 
     await page.keyboard.press('Meta+e');
     await page.waitForFunction(

@@ -75,7 +75,8 @@ export const DESIGN_TOKENS = Object.freeze({
   childMinWidth: 144,
   childMaxWidth: 420,
   /** Editor canvas. */
-  canvasMaxWidth: 1600,
+  /** Wide finite canvas; placement uses its full logical content width. */
+  canvasMaxWidth: 3200,
   editorPaddingX: 40,
   editorPaddingTop: 40,
   /** Ratified shell value: the rendered canvas keeps 88 px below the last block. */

@@ -121,11 +121,17 @@ Status: **complete** — `beside` implemented and merged; report `docs/reports/r
 
 ### R2c — Page compaction placement
 
-Status: **complete** — report `docs/reports/r2c-page-compaction.md`; showcase 17 pages, scale-300 21.
+Status: **superseded by the product-owner tree model (8 November 2026)**. Row
+fill put siblings and callouts in one row and lost the tree. The compact page
+now uses `beside`: siblings share one level column, the next sibling starts
+below the previous subtree, callouts stay below the parent, and a group that
+does not fit wraps below its own parent. `compaction` remains a density-lab
+oracle only. Page edges also use semantic ports (callout/below/beside), labels
+move to the page margin, and images cap at maxCardWidth.
 
 - [x] Fill rows with callouts + primary children; align/indent from parent; wrap when full.
 - [x] Reference targets stay at their primary home; edges only.
-- [x] Lab compaction vs beside vs stacked; accept only if denser, no-overlap, deterministic.
+- [x] Lab compaction vs beside vs stacked; compaction is now a lab oracle, not the product default.
 - [x] R2d: unify Page/PDF edge style with the Continuous orthogonal router.
 
 ### PRODUCT-OWNER CHECKPOINT — after R2d

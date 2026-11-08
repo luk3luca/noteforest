@@ -14,7 +14,6 @@ import {
   EDGE_STYLE,
   arrowPath,
   openArrowForDirection,
-  pageRouteMidpoint,
   roundedPath,
   type PageEdge,
   type PageEdgePoint,
@@ -51,11 +50,13 @@ function routeArrow(edge: PageEdge): string {
 }
 
 function edgeLabelText(edge: PageEdge): string | null {
+  // Short print-style marker; the full sentence stays in the aria-label. The
+  // long “→ page 12” chip did not fit the margin and covered the block text.
   if (edge.direction === 'to-edge' && edge.targetPage !== null) {
-    return `→ page ${edge.targetPage}`;
+    return `→ p.${edge.targetPage}`;
   }
   if (edge.direction === 'from-edge' && edge.targetPage !== null) {
-    return `← from page ${edge.targetPage}`;
+    return `← p.${edge.targetPage}`;
   }
   return null;
 }
@@ -80,44 +81,38 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
   const labels = edges
     .map((edge) => {
       if (edge.direction === 'same-page') {
-        if (edge.branchLabel === undefined) return null;
-        const midpoint = pageRouteMidpoint(edge.route.points);
-        return {
-          key: `${edge.branchId}-branch`,
-          text: edge.branchLabel,
-          aria: accessibleLabel(edge),
-          style: {
-            left: midpoint.x,
-            top: midpoint.y,
-            transform: 'translate(-50%, -50%)',
-          },
-          attribute: 'branch' as const,
-          edge,
-        };
+        // Same-page branch/anchor quotes already live inside the callout card
+        // and the arrow's accessible title. A route midpoint chip sat on top of
+        // block text, so the page layer never duplicates it.
+        return null;
       }
       const text = edgeLabelText(edge);
       if (text === null) return null;
       if (edge.direction === 'to-edge') {
+        const margin = Math.max(18, geometry.marginsPx.right - 4);
         return {
           key: `${edge.branchId}-to`,
           text,
           aria: accessibleLabel(edge),
           style: {
-            right: 4,
+            right: -geometry.marginsPx.right + 2,
             top: edge.from.y,
+            maxWidth: margin,
             transform: 'translateY(-50%)',
           },
           attribute: 'to-edge' as const,
           edge,
         };
       }
+      const margin = Math.max(18, geometry.marginsPx.left - 4);
       return {
         key: `${edge.branchId}-from`,
         text,
         aria: accessibleLabel(edge),
         style: {
-          left: 4,
+          left: -geometry.marginsPx.left + 2,
           top: edge.to.y,
+          maxWidth: margin,
           transform: 'translateY(-50%)',
         },
         attribute: 'from-edge' as const,

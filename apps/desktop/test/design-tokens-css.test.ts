@@ -76,7 +76,7 @@ describe('design tokens are the single source for CSS geometry', () => {
 
   it('publishes the documented CSS variables from the token module', () => {
     expect(DESIGN_TOKEN_CSS_VARIABLES).toMatchObject({
-      '--nf-canvas-max': '1600px',
+      '--nf-canvas-max': '3200px',
       '--nf-canvas-pad-x': '40px',
       '--nf-canvas-pad-top': '40px',
       '--nf-canvas-pad-bottom': '88px',

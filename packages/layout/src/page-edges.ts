@@ -20,7 +20,9 @@ import type {
   DerivedPage,
   PageFragment,
 } from './types.js';
+import { EDGE_STYLE } from './edge-style.js';
 import {
+  directBelowPageRoute,
   routePageEdge,
   straightPageRoute,
   type PageRoute,
@@ -145,7 +147,12 @@ export function buildPageEdges(
       const page = fromPage;
       const samePageTarget = locationOnPage(locations, edge.toBlockId, page.pageNumber);
       if (!samePageTarget) continue;
-      let fromPoint = fragmentCenter({ page, fragment: fromLocation.fragment }, 'right');
+      const sourceBox = fromLocation.fragment.page;
+      const targetBox = samePageTarget.fragment.page;
+      const targetBelow =
+        edge.role === 'primary' &&
+        targetBox.y >= sourceBox.y + sourceBox.height - 0.5;
+      let anchorLocal: { x: number; y: number; width: number; height: number } | null = null;
       if (edge.anchorId) {
         const anchor = layout.anchors.find(
           (candidate) =>
@@ -159,9 +166,11 @@ export function buildPageEdges(
             localY >= pageFragment.fragment.page.y - 0.5 &&
             localY <= pageFragment.fragment.page.y + pageFragment.fragment.page.height + 0.5
           ) {
-            fromPoint = {
-              x: anchor.rect.x + anchor.rect.width,
-              y: localY + anchor.rect.height / 2,
+            anchorLocal = {
+              x: anchor.rect.x,
+              y: localY,
+              width: anchor.rect.width,
+              height: anchor.rect.height,
             };
           }
         }
@@ -175,24 +184,83 @@ export function buildPageEdges(
       const laneKey = `${page.pageNumber}:${edge.fromBlockId}:${edge.toBlockId}`;
       const laneIndex = laneCounts.get(laneKey) ?? 0;
       laneCounts.set(laneKey, laneIndex + 1);
-      const to = fragmentCenter(samePageTarget, 'left');
-      const route = routePageEdge({
-        from: fromPoint,
-        to,
-        sourceExit: edge.anchorId
-          ? {
-              x:
-                fromLocation.fragment.page.x +
-                fromLocation.fragment.page.width,
-              y: fromPoint.y,
-            }
-          : null,
-        sourceRect: fromLocation.fragment.page,
-        targetRect: samePageTarget.fragment.page,
-        obstacles,
-        bounds,
-        laneIndex,
-      });
+
+      // Semantic ports (8 November 2026). A target below the source is a
+      // below-stack/callout relation: leave the source from the bottom, not
+      // from its right edge. A target beside the source keeps the right-to-left
+      // language. These are the same two topologies Continuous already draws.
+      let fromPoint: PageEdgePoint;
+      let to: PageEdgePoint;
+      let sourceSide: 'right' | 'bottom' = 'right';
+      let preferredEntry: 'left' | 'top' = 'left';
+      let calloutBelow = false;
+      if (targetBelow) {
+        sourceSide = 'bottom';
+        const targetIsCallout = layout.blockById[edge.toBlockId]?.role === 'callout';
+        calloutBelow = targetIsCallout;
+        if (targetIsCallout) {
+          // Callouts share the Continuous-style left trunk. Starting at the
+          // anchor's bottom x made the right-entry fallback loop around the
+          // card; the trunk keeps the below-stack language.
+          fromPoint = { x: sourceBox.x + EDGE_STYLE.stemMin, y: sourceBox.y + sourceBox.height };
+          preferredEntry = 'left';
+        } else {
+          fromPoint =
+            anchorLocal === null
+              ? { x: sourceBox.x + EDGE_STYLE.stemMin, y: sourceBox.y + sourceBox.height }
+              : {
+                  x: anchorLocal.x + anchorLocal.width / 2,
+                  y: anchorLocal.y + anchorLocal.height,
+                };
+          const overlapsX =
+            targetBox.x < sourceBox.x + sourceBox.width &&
+            targetBox.x + targetBox.width > sourceBox.x;
+          preferredEntry = overlapsX ? 'top' : 'left';
+        }
+        to =
+          preferredEntry === 'top'
+            ? { x: targetBox.x + targetBox.width / 2, y: targetBox.y }
+            : fragmentCenter({ page, fragment: samePageTarget.fragment }, 'left');
+      } else {
+        fromPoint = fragmentCenter({ page, fragment: fromLocation.fragment }, 'right');
+        if (anchorLocal !== null) {
+          fromPoint = {
+            x: anchorLocal.x + anchorLocal.width,
+            y: anchorLocal.y + anchorLocal.height / 2,
+          };
+        }
+        to = fragmentCenter(samePageTarget, 'left');
+      }
+      const directCallout =
+        calloutBelow && sourceSide === 'bottom'
+          ? directBelowPageRoute({
+              from: fromPoint,
+              targetRect: targetBox,
+              obstacles,
+            })
+          : null;
+      const route =
+        directCallout ??
+        routePageEdge({
+          from: fromPoint,
+          to,
+          sourceExit:
+            sourceSide === 'bottom'
+              ? null
+              : edge.anchorId
+                ? {
+                    x: sourceBox.x + sourceBox.width,
+                    y: fromPoint.y,
+                  }
+                : null,
+          sourceRect: sourceBox,
+          targetRect: targetBox,
+          obstacles,
+          bounds,
+          laneIndex,
+          sourceSide,
+          ...(sourceSide === 'bottom' ? { preferredEntry } : {}),
+        });
       edgesForPage(result, page).push({
         ...base,
         from: fromPoint,

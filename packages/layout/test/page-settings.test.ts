@@ -49,7 +49,7 @@ describe('page settings defaults', () => {
       calloutGap: 12,
       maxCardWidth: 420,
       minContentWidth: 160,
-      pagePacking: 'compaction',
+      pagePacking: 'beside',
     });
     expect(DEFAULT_APP_SETTINGS.page).toBe(DEFAULT_PAGE_SETTINGS);
     expect(DEFAULT_APP_SETTINGS.continuous).toBe(DEFAULT_CONTINUOUS_SETTINGS);
@@ -239,9 +239,9 @@ describe('settings normalization and merge', () => {
       normalizePageSettings({ theme: { preset: 'comfortable', pagePacking: 'beside' } }).theme
         .pagePacking,
     ).toBe('beside');
-    // A compact preset switch selects compaction unless overridden.
+    // A compact preset switch selects the tree/column packing unless overridden.
     expect(normalizePageSettings({ theme: { preset: 'compact' } }).theme.pagePacking).toBe(
-      'compaction',
+      'beside',
     );
   });
 

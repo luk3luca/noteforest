@@ -69,6 +69,13 @@ export interface PageRouteInput {
    * between the same two fragments get separate rails.
    */
   laneIndex?: number;
+  /**
+   * Semantic source port. `right` is the beside/right-group language; `bottom`
+   * is the below-stack/callout language (exit the parent card at the bottom).
+   */
+  sourceSide?: 'right' | 'bottom';
+  /** Prefer this target entry side; the router may still fall back. */
+  preferredEntry?: PageRouteEntry;
 }
 
 const EPSILON = 0.01;
@@ -213,6 +220,8 @@ interface SearchInput {
   approach: EdgePoint;
   obstacles: readonly PageRouteRect[];
   bounds: { width: number; height: number };
+  /** Allowed first moves from the source port. */
+  startDirections?: readonly EdgeArrowDirection[];
 }
 
 function buildEntries(
@@ -235,9 +244,16 @@ function buildEntries(
       ? -Infinity
       : rectBottom(input.sourceRect);
   const targetBelow = target.y >= sourceBottom - 0.5;
-  const order: PageRouteEntry[] = targetBelow
+  const baseOrder: PageRouteEntry[] = targetBelow
     ? ['left', 'top', 'right', 'bottom']
     : ['left', 'right', 'top', 'bottom'];
+  const order: PageRouteEntry[] =
+    input.preferredEntry === undefined
+      ? baseOrder
+      : [
+          input.preferredEntry,
+          ...baseOrder.filter((entry) => entry !== input.preferredEntry),
+        ];
   const available: Record<PageRouteEntry, number> = {
     left: leftAvailable,
     right: rightAvailable,
@@ -495,11 +511,11 @@ function searchOrthogonal(input: SearchInput): EdgePoint[] | null {
 
   // The source port leaves through its lane horizontally. From the lane the
   // route may turn vertically; it never turns back into the source card.
-  const seeds: Array<[EdgeArrowDirection, number]> = [
-    ['right', 0],
-    ['down', 1],
-    ['up', 3],
-  ];
+  const startDirections = input.startDirections ?? ['right', 'down', 'up'];
+  const seeds: Array<[EdgeArrowDirection, number]> = startDirections.map((direction) => [
+    direction,
+    DIRECTIONS.indexOf(direction),
+  ]);
   for (const [direction, directionIndex] of seeds) {
     const step = STEPS[direction];
     const nextX = startX + step.dx;
@@ -606,7 +622,23 @@ function fallbackRoute(
         rectBottom(input.targetRect) - 0.5,
       ),
     };
-  const direction = entry?.direction ?? 'right';
+  const direction = entry?.direction ?? (input.sourceSide === 'bottom' ? 'down' : 'right');
+  if (input.sourceSide === 'bottom') {
+    const points = simplifyPath([
+      start,
+      { x: start.x, y: tip.y },
+      { x: tip.x, y: tip.y },
+      tip,
+    ]);
+    return {
+      points,
+      tip,
+      direction,
+      entry: entry?.entry ?? 'top',
+      stem: entry?.stem ?? 0,
+      blocked: true,
+    };
+  }
   const railX = Math.min(
     Math.max(start.x + EDGE_STYLE.laneMin, MARGIN),
     Math.max(MARGIN, input.bounds.width - MARGIN),
@@ -639,19 +671,32 @@ function fallbackRoute(
 export function routePageEdge(input: PageRouteInput): PageRoute {
   const from = input.from;
   const target = input.targetRect;
+  const sourceSide = input.sourceSide ?? 'right';
   const sourceRight =
     input.sourceRect === null || input.sourceRect === undefined
       ? from.x
       : rectRight(input.sourceRect);
-  const exit =
-    input.sourceExit === null || input.sourceExit === undefined
-      ? from
-      : {
-          x: Math.max(from.x, sourceRight),
-          // The anchor stub is horizontal by contract; never let a caller's
-          // sourceExit y turn the first segment into a diagonal.
-          y: from.y,
-        };
+  const sourceBottom =
+    input.sourceRect === null || input.sourceRect === undefined
+      ? from.y
+      : rectBottom(input.sourceRect);
+  let exit: EdgePoint;
+  if (sourceSide === 'bottom') {
+    exit = {
+      x: Math.min(Math.max(from.x, MARGIN), Math.max(MARGIN, input.bounds.width - MARGIN)),
+      y: sourceBottom,
+    };
+  } else {
+    exit =
+      input.sourceExit === null || input.sourceExit === undefined
+        ? from
+        : {
+            x: Math.max(from.x, sourceRight),
+            // The anchor stub is horizontal by contract; never let a caller's
+            // sourceExit y turn the first segment into a diagonal.
+            y: from.y,
+          };
+  }
   const rawObstacles: PageRouteRect[] = [];
   const others: PageRouteRect[] = [];
   for (const obstacle of input.obstacles) {
@@ -675,22 +720,31 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
     ...(input.sourceRect ? [input.sourceRect] : []),
     target,
   ];
-  const searchStart = input.sourceRect
-    ? {
-        x: Math.min(
-          input.bounds.width,
-          Math.max(
-            exit.x,
-            exit.x +
-              Math.max(
-                EDGE_STYLE.pageClearance,
-                EDGE_STYLE.laneMin + (input.laneIndex ?? 0) * EDGE_STYLE.pageLaneStep,
-              ),
+  const searchStart =
+    sourceSide === 'bottom'
+      ? {
+          x: exit.x,
+          y: Math.min(
+            input.bounds.height - MARGIN,
+            Math.max(MARGIN, exit.y + EDGE_STYLE.pageClearance + 1),
           ),
-        ),
-        y: exit.y,
-      }
-    : exit;
+        }
+      : input.sourceRect
+        ? {
+            x: Math.min(
+              input.bounds.width,
+              Math.max(
+                exit.x,
+                exit.x +
+                  Math.max(
+                    EDGE_STYLE.pageClearance,
+                    EDGE_STYLE.laneMin + (input.laneIndex ?? 0) * EDGE_STYLE.pageLaneStep,
+                  ),
+              ),
+            ),
+            y: exit.y,
+          }
+        : exit;
   const entries = buildEntries(input, target, searchObstacles, finalObstacles);
   if (entries.length === 0) {
     return fallbackRoute(exit, input, null);
@@ -701,6 +755,8 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
       approach: entry.approach,
       obstacles: searchObstacles,
       bounds: input.bounds,
+      startDirections:
+        sourceSide === 'bottom' ? ['down', 'left', 'right'] : undefined,
     });
     if (points === null) continue;
     const routePoints = simplifyPath([from, exit, ...points, entry.tip]);
@@ -714,6 +770,57 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
     };
   }
   return fallbackRoute(exit, input, entries[0] ?? null);
+}
+
+/**
+ * Direct below-stack route for a callout anchored under its source.
+ *
+ * The obstacle search has no left/top stem when the callout's anchor port and
+ * the source bottom leave only a short vertical gap; it can then fall back to
+ * a right-entry loop. This helper draws the deterministic tree route instead:
+ * source bottom -> down the left trunk -> horizontal at the callout's top stem
+ * -> down into the callout top. It returns null when another card blocks it, so
+ * the caller keeps the obstacle-aware router as the fallback.
+ */
+export function directBelowPageRoute(input: {
+  from: EdgePoint;
+  targetRect: PageRouteRect;
+  obstacles: readonly PageRouteRect[];
+}): PageRoute | null {
+  const { from, targetRect: target, obstacles } = input;
+  if (target.y <= from.y + 1) return null;
+  const centerX = target.x + target.width / 2;
+  const stems = [EDGE_STYLE.stemMin, 8, 4, 1].filter(
+    (stem) => target.y - stem > from.y,
+  );
+  for (const stem of stems) {
+    const approachY = target.y - stem;
+    const points = simplifyPath([
+      from,
+      { x: from.x, y: approachY },
+      { x: centerX, y: approachY },
+      { x: centerX, y: target.y },
+    ]);
+    let free = true;
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1] as EdgePoint;
+      const current = points[index] as EdgePoint;
+      if (!segmentFree(previous, current, obstacles)) {
+        free = false;
+        break;
+      }
+    }
+    if (!free) continue;
+    return {
+      points,
+      tip: { x: centerX, y: target.y },
+      direction: 'down',
+      entry: 'top',
+      stem,
+      blocked: false,
+    };
+  }
+  return null;
 }
 
 /** Straight horizontal page-edge indicator; still uses the shared arrow style. */
