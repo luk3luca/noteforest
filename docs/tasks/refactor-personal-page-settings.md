@@ -102,6 +102,8 @@ Status: **complete** — report `docs/reports/r1b-settings-theme-density.md`
 
 ### R2a — Page arrows + remove Continuous page chrome
 
+Status: **in progress** — brief `docs/tasks/r2a-page-arrows-cleanup.md`
+
 - [ ] Remove `PageBreakMarkers`, `page-markers`, marker CSS/tests/visual tests.
 - [ ] Stop running the page model in Continuous; PageView owns it.
 - [ ] Add Page edges using the same edge mapper as `packages/pdf/src/printModel.ts` (no second router).
