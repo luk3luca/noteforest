@@ -17,12 +17,14 @@ import {
   roundedPath,
   type PageEdge,
   type PageEdgePoint,
+  type PageEdgeTrunkView,
   type PageGeometry,
   type PageRoute,
 } from '@noteforest/layout';
 
 interface PageEdgesProps {
   edges: readonly PageEdge[];
+  trunks: readonly PageEdgeTrunkView[];
   geometry: PageGeometry;
 }
 
@@ -74,8 +76,8 @@ function accessibleLabel(edge: PageEdge): string {
   return parts.join(' · ');
 }
 
-export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | null {
-  if (edges.length === 0) return null;
+export function PageEdges({ edges, trunks, geometry }: PageEdgesProps): JSX.Element | null {
+  if (edges.length === 0 && trunks.length === 0) return null;
   const width = geometry.contentWidthPx;
   const height = geometry.contentHeightPx;
   const labels = edges
@@ -131,7 +133,43 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
         focusable="false"
         data-page-edges="true"
         data-page-edge-count={edges.length}
+        data-page-trunk-count={trunks.length}
       >
+        {trunks.map(({ trunk, segment }) => (
+          <g
+            key={`trunk-${trunk.id}-${segment.pageNumber}`}
+            className={`nf-page-trunk nf-page-trunk-${trunk.placement}`}
+            data-page-trunk-id={trunk.id}
+            data-page-trunk-parent={trunk.parentBlockId}
+            data-page-trunk-placement={trunk.placement}
+            data-page-trunk-x={number(trunk.x)}
+            data-page-trunk-port={pointAttribute(trunk.port)}
+            data-page-trunk-port-page={trunk.portPage}
+            data-page-trunk-page={segment.pageNumber}
+            data-page-trunk-start={pointAttribute(segment.start)}
+            data-page-trunk-end={pointAttribute(segment.end)}
+            data-page-trunk-lead={
+              segment.lead === null
+                ? undefined
+                : `${pointAttribute(segment.lead.from)} ${pointAttribute(segment.lead.to)}`
+            }
+            data-page-trunk-segment-count={trunk.segments.length}
+          >
+            <path
+              className="nf-page-trunk-path nf-page-edge-path nf-page-edge-path-primary"
+              d={[
+                segment.lead === null
+                  ? ''
+                  : roundedPath([segment.lead.from, segment.lead.to], 0),
+                roundedPath([segment.start, segment.end], 0),
+              ]
+                .filter((part) => part.length > 0)
+                .join(' ')}
+              vectorEffect="non-scaling-stroke"
+              fill="none"
+            />
+          </g>
+        ))}
         {edges.map((edge) => {
           return (
             <g
@@ -157,6 +195,14 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
               data-page-edge-trunk-id={edge.trunk?.id}
               data-page-edge-trunk-placement={edge.trunk?.placement}
               data-page-edge-trunk-x={edge.trunk ? number(edge.trunk.x) : undefined}
+              data-page-edge-trunk-port-page={edge.trunk?.portPage}
+              data-page-edge-trunk-segment-page={edge.trunkSegment?.pageNumber}
+              data-page-edge-trunk-segment-start={
+                edge.trunkSegment ? pointAttribute(edge.trunkSegment.start) : undefined
+              }
+              data-page-edge-trunk-segment-end={
+                edge.trunkSegment ? pointAttribute(edge.trunkSegment.end) : undefined
+              }
               data-page-edge-anchor-id={edge.anchorId}
               data-page-edge-anchor-start={
                 edge.anchorId !== undefined && edge.direction === 'same-page' ? 'true' : undefined

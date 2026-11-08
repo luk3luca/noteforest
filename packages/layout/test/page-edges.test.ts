@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildPageEdgeModel,
   buildPageEdges,
   createEstimatedMeasurement,
   DEFAULT_PAGE_SETTINGS,
@@ -327,9 +328,13 @@ describe('page edge mapper', () => {
     expect(calloutEdge.anchorId).toBe('anchor-1');
     expect(calloutEdge.direction).toBe('same-page');
     // The callout sits below the source and shares the Continuous-style left
-    // trunk, not the source card's right edge.
+    // trunk, not the source card's right edge. The visible below trunk is
+    // detached from the card bottom by the shared trunkGap.
     expect(calloutEdge.from.x).toBeCloseTo(source.page.x + 12, 6);
-    expect(calloutEdge.from.y).toBeCloseTo(source.page.y + source.page.height, 6);
+    expect(calloutEdge.from.y).toBeCloseTo(
+      source.page.y + source.page.height + EDGE_STYLE.trunkGap,
+      6,
+    );
     expect(calloutEdge.route.entry).toBe('left');
 
     const reference = edges.find((edge) => edge.branchId === 'branch-reference')!;
@@ -343,10 +348,11 @@ describe('page edge mapper', () => {
     );
   });
 
-  it('uses page-edge indicators for cross-page primary edges and target-only references', () => {
+  it('continues cross-page primary edges on the group trunk and keeps reference indicators', () => {
     const { layout, pages } = layoutPages(arrowsDocument(), ['callout', 'direct']);
     expect(pages.pageCount).toBeGreaterThanOrEqual(2);
-    const byPage = buildPageEdges(layout, pages.pages);
+    const model = buildPageEdgeModel(layout, pages.pages);
+    const byPage = model.edges;
     const first = byPage[0]!;
     const second = byPage[1]!;
 
@@ -355,16 +361,30 @@ describe('page edge mapper', () => {
     // not a per-component row break.
     const directSamePage = first.find((edge) => edge.branchId === 'branch-direct')!;
     expect(directSamePage.direction).toBe('same-page');
-    const calloutOut = first.find((edge) => edge.branchId === 'branch-callout')!;
-    expect(calloutOut.direction).toBe('to-edge');
-    expect(calloutOut.targetPage).toBe(2);
-    expect(calloutOut.label).toBe('p.2');
-    expect(calloutOut.to.x).toBe(layout.geometry.contentWidthPx);
-    const calloutIn = second.find((edge) => edge.branchId === 'branch-callout')!;
-    expect(calloutIn.direction).toBe('from-edge');
-    expect(calloutIn.targetPage).toBe(1);
-    expect(calloutIn.label).toBe('p.1');
-    expect(calloutIn.from.x).toBe(0);
+
+    // Primary tree edges never emit a to-edge/from-edge indicator. Page 1 owns
+    // the trunk segment; page 2 owns the left-entering arm.
+    expect(first.find((edge) => edge.branchId === 'branch-callout')).toBeUndefined();
+    const calloutArm = second.find((edge) => edge.branchId === 'branch-callout')!;
+    expect(calloutArm.direction).toBe('trunk');
+    expect(calloutArm.targetPage).toBeNull();
+    expect(calloutArm.label).toBeUndefined();
+    expect(calloutArm.trunk!.id).toBe('source:below');
+    expect(calloutArm.from).toEqual(calloutArm.trunkSegment!.start);
+    expect(calloutArm.trunkSegment!.pageNumber).toBe(2);
+    expect(calloutArm.route.entry).toBe('left');
+    expect(calloutArm.route.direction).toBe('right');
+
+    const trunkView = model.trunks[0]!.find(
+      (view) => view.trunk.id === 'source:below',
+    )!;
+    expect(trunkView).toBeDefined();
+    expect(trunkView.segment.pageNumber).toBe(1);
+    expect(trunkView.segment.start.y).toBeCloseTo(
+      trunkView.trunk.port.y + EDGE_STYLE.trunkGap,
+      6,
+    );
+    expect(trunkView.segment.end.y).toBe(layout.geometry.contentHeightPx);
 
     // Reference edges never draw a line out of the source page: the target page
     // gets one from-edge chip and the source page has no matching indicator.
@@ -377,6 +397,15 @@ describe('page edge mapper', () => {
     expect(referenceIn.direction).toBe('from-edge');
     expect(referenceIn.targetPage).toBe(1);
     expect(referenceIn.branchLabel).toBe('also uses');
+
+    for (const pageEdges of byPage) {
+      for (const edge of pageEdges) {
+        if (edge.role !== 'primary') continue;
+        expect(edge.direction === 'same-page' || edge.direction === 'trunk').toBe(true);
+        expect(edge.targetPage).toBeNull();
+        expect(edge.label).toBeUndefined();
+      }
+    }
   });
 });
 
@@ -427,7 +456,7 @@ describe('page edge topology (R2f)', () => {
     expect(child2.placement).toBe('right');
     expect(child1.trunk).not.toBeNull();
     expect(child2.trunk).not.toBeNull();
-    expect(child1.trunk!.id).toBe('1:root:right');
+    expect(child1.trunk!.id).toBe('root:right');
     expect(child2.trunk!.id).toBe(child1.trunk!.id);
     expect(child2.trunk!.x).toBe(child1.trunk!.x);
     expect(child1.trunk!.placement).toBe('right');
@@ -452,21 +481,24 @@ describe('page edge topology (R2f)', () => {
 
     // Both anchored callouts are below the parent, share one below trunk, and
     // enter from the left; child 2 never uses this trunk.
-    expect(callout1.trunk!.id).toBe('1:root:below');
+    expect(callout1.trunk!.id).toBe('root:below');
     expect(callout2.trunk!.id).toBe(callout1.trunk!.id);
     expect(callout2.trunk!.x).toBe(callout1.trunk!.x);
     expect(callout1.trunk!.placement).toBe('below');
     const rootBottom = fragment('root').page.y + fragment('root').page.height;
-    expect(callout1.from).toEqual({ x: callout1.trunk!.x, y: rootBottom });
+    expect(callout1.from).toEqual({
+      x: callout1.trunk!.x,
+      y: rootBottom + EDGE_STYLE.trunkGap,
+    });
     expect(callout2.from).toEqual(callout1.from);
 
     // The grandchild is an indented below target of child 1, not a top entry.
     expect(grandchild.placement).toBe('below');
-    expect(grandchild.trunk!.id).toBe('1:child1:below');
+    expect(grandchild.trunk!.id).toBe('child1:below');
     expect(grandchild.trunk!.id).not.toBe(callout1.trunk!.id);
     expect(grandchild.from).toEqual({
       x: grandchild.trunk!.x,
-      y: fragment('child1').page.y + fragment('child1').page.height,
+      y: fragment('child1').page.y + fragment('child1').page.height + EDGE_STYLE.trunkGap,
     });
     expect(grandchild.route.entry).toBe('left');
     const grandchildTip = grandchild.route.points.at(-1)!;
@@ -505,11 +537,288 @@ describe('page edge topology (R2f)', () => {
     const child = edges.find((candidate) => candidate.branchId === 'branch-child')!;
     expect(callout.trunk).not.toBeNull();
     expect(child.trunk).not.toBeNull();
-    expect(callout.trunk!.id).toBe('1:root:below');
+    expect(callout.trunk!.id).toBe('root:below');
     expect(child.trunk!.id).toBe(callout.trunk!.id);
     expect(child.trunk!.x).toBe(callout.trunk!.x);
+    const rootFragment = pages.pages[0]!.fragments.find(
+      (fragment) => fragment.blockId === 'root',
+    )!;
+    expect(callout.from.y).toBeCloseTo(
+      rootFragment.page.y + rootFragment.page.height + EDGE_STYLE.trunkGap,
+      6,
+    );
+    expect(child.from.y).toBe(callout.from.y);
     expect(callout.route.entry).toBe('left');
     expect(child.route.entry).toBe('left');
     expect(child.route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+  });
+});
+
+/**
+ * R2g multi-page fixture. The root's right group has child 1 on page 1 and
+ * child 2 on page 3; page 2 is a pass-through page for the root group. Child 1
+ * owns an independent below trunk that crosses to its grandchild on page 2.
+ */
+function trunkContinuityDocument(): NoteDocument {
+  return {
+    schemaVersion: 2,
+    id: 'page-trunk-continuity',
+    title: 'Page trunk continuity',
+    blocks: {
+      'trunk-root': textBlock(
+        'trunk-root',
+        'Trunk root',
+        'A short root whose children continue across pages.',
+      ),
+      'trunk-child-1': textBlock(
+        'trunk-child-1',
+        'Child one',
+        'First child, with a nested trunk that crosses a page. This sentence is long enough that the card takes the full readable maximum width, so the nested group cannot fit beside it and wraps below instead.',
+      ),
+      'trunk-grandchild': textBlock(
+        'trunk-grandchild',
+        'Grandchild',
+        'Nested child on a later page with enough text to keep a readable card width when the page measures it.',
+      ),
+      'trunk-child-2': textBlock(
+        'trunk-child-2',
+        'Child two',
+        'Second child on the last page of the trunk.',
+      ),
+    },
+    anchors: {},
+    branches: {
+      'branch-child-1': {
+        id: 'branch-child-1',
+        source: { blockId: 'trunk-root' },
+        targetBlockId: 'trunk-child-1',
+        role: 'primary',
+        order: 'a',
+      },
+      'branch-grandchild': {
+        id: 'branch-grandchild',
+        source: { blockId: 'trunk-child-1' },
+        targetBlockId: 'trunk-grandchild',
+        role: 'primary',
+        order: 'a',
+      },
+      'branch-child-2': {
+        id: 'branch-child-2',
+        source: { blockId: 'trunk-root' },
+        targetBlockId: 'trunk-child-2',
+        role: 'primary',
+        order: 'b',
+      },
+    },
+    chapters: [{ id: 'chapter-1', title: 'Trunk', topLevelBlockIds: ['trunk-root'] }],
+    assets: {},
+  };
+}
+
+describe('page trunk continuity (R2g)', () => {
+  it('keeps one group trunk aligned across pages, pass-through, and the last arm', () => {
+    const { layout, pages } = layoutPages(trunkContinuityDocument(), [
+      'trunk-grandchild',
+      'trunk-child-2',
+    ]);
+    expect(pages.pageCount).toBe(3);
+    const model = buildPageEdgeModel(layout, pages.pages);
+    const contentHeight = layout.geometry.contentHeightPx;
+
+    // Group keys are stable across pages and scoped to one parent + placement.
+    const rootView = model.trunks[0]!.find(
+      (view) => view.trunk.id === 'trunk-root:right',
+    )!;
+    expect(rootView).toBeDefined();
+    const rootTrunk = rootView.trunk;
+    expect(rootTrunk.parentBlockId).toBe('trunk-root');
+    expect(rootTrunk.placement).toBe('right');
+    expect(rootTrunk.portPage).toBe(1);
+    expect(rootTrunk.segments.map((segment) => segment.pageNumber)).toEqual([1, 2, 3]);
+    expect(rootTrunk.segments).toHaveLength(3);
+    for (const segment of rootTrunk.segments) {
+      expect(segment.start.x).toBe(rootTrunk.x);
+      expect(segment.end.x).toBe(rootTrunk.x);
+    }
+    expect(rootTrunk.x).toBeGreaterThan(
+      layout.blockById['trunk-root']!.x + layout.blockById['trunk-root']!.width,
+    );
+    expect(rootTrunk.x).toBeLessThan(layout.blockById['trunk-child-1']!.x);
+
+    // Parent page: the horizontal lead leaves the parent port, then the
+    // vertical trunk runs to the content bottom because a child is on a later
+    // page.
+    expect(rootTrunk.segments[0]!.start).toEqual({
+      x: rootTrunk.x,
+      y: rootTrunk.port.y,
+    });
+    expect(rootTrunk.segments[0]!.lead).toEqual({
+      from: rootTrunk.port,
+      to: rootTrunk.segments[0]!.start,
+    });
+    expect(rootTrunk.segments[0]!.end.y).toBeCloseTo(contentHeight, 6);
+
+    // Pass-through page: no root-group child, still one full vertical segment.
+    expect(rootTrunk.segments[1]!.start).toEqual({ x: rootTrunk.x, y: 0 });
+    expect(rootTrunk.segments[1]!.end).toEqual({ x: rootTrunk.x, y: contentHeight });
+    expect(
+      model.edges[1]!.some(
+        (edge) =>
+          edge.branchId === 'branch-child-1' || edge.branchId === 'branch-child-2',
+      ),
+    ).toBe(false);
+
+    // Last child page: the trunk stops exactly at the last child's left arm.
+    const child2Edge = model.edges[2]!.find(
+      (edge) => edge.branchId === 'branch-child-2',
+    )!;
+    expect(child2Edge).toBeDefined();
+    expect(child2Edge.direction).toBe('trunk');
+    expect(child2Edge.targetPage).toBeNull();
+    expect(child2Edge.label).toBeUndefined();
+    expect(child2Edge.trunk!.id).toBe(rootTrunk.id);
+    expect(child2Edge.from).toEqual({ x: rootTrunk.x, y: 0 });
+    expect(child2Edge.route.entry).toBe('left');
+    expect(child2Edge.route.direction).toBe('right');
+    expect(rootTrunk.segments[2]!.end).toEqual({
+      x: rootTrunk.x,
+      y: child2Edge.to.y,
+    });
+    expect(rootTrunk.segments[2]!.end.x).toBe(rootTrunk.x);
+
+    // Every root-group child shares that one right trunk; no primary tree edge
+    // carries a to-edge/from-edge indicator or a p.N chip.
+    const child1Edge = model.edges[0]!.find(
+      (edge) => edge.branchId === 'branch-child-1',
+    )!;
+    expect(child1Edge.direction).toBe('same-page');
+    expect(child1Edge.trunk!.id).toBe(rootTrunk.id);
+    expect(child1Edge.trunk!.x).toBe(rootTrunk.x);
+    for (const pageEdges of model.edges) {
+      for (const edge of pageEdges) {
+        if (edge.role !== 'primary') continue;
+        expect(edge.targetPage).toBeNull();
+        expect(edge.label).toBeUndefined();
+        expect(edge.direction === 'same-page' || edge.direction === 'trunk').toBe(true);
+      }
+    }
+
+    // The nested parent opens its own trunk: distinct id and x, its own page
+    // segments, and the same 8 px gap below its card on the parent page.
+    const nestedView = model.trunks[0]!.find(
+      (view) => view.trunk.id === 'trunk-child-1:below',
+    )!;
+    expect(nestedView).toBeDefined();
+    const nestedTrunk = nestedView.trunk;
+    expect(nestedTrunk.parentBlockId).toBe('trunk-child-1');
+    expect(nestedTrunk.placement).toBe('below');
+    expect(nestedTrunk.id).not.toBe(rootTrunk.id);
+    expect(nestedTrunk.x).not.toBe(rootTrunk.x);
+    expect(nestedTrunk.segments.map((segment) => segment.pageNumber)).toEqual([1, 2]);
+    const child1Bottom =
+      layout.blockById['trunk-child-1']!.y + layout.blockById['trunk-child-1']!.height;
+    expect(nestedTrunk.segments[0]!.start.y - child1Bottom).toBeCloseTo(
+      EDGE_STYLE.trunkGap,
+      6,
+    );
+    expect(nestedTrunk.segments[0]!.end.y).toBeCloseTo(contentHeight, 6);
+
+    const grandchildEdge = model.edges[1]!.find(
+      (edge) => edge.branchId === 'branch-grandchild',
+    )!;
+    expect(grandchildEdge.direction).toBe('trunk');
+    expect(grandchildEdge.trunk!.id).toBe(nestedTrunk.id);
+    expect(nestedTrunk.segments[0]!.lead).toBeNull();
+    expect(nestedTrunk.segments[1]!.end).toEqual({
+      x: nestedTrunk.x,
+      y: grandchildEdge.to.y,
+    });
+    expect(model.trunks[2]!.some((view) => view.trunk.id === nestedTrunk.id)).toBe(false);
+
+    // The shared model is deterministic for Page Read/Edit and print.
+    expect(JSON.stringify(buildPageEdgeModel(layout, pages.pages))).toBe(
+      JSON.stringify(buildPageEdgeModel(layout, pages.pages)),
+    );
+  });
+
+  it('keeps a single-child cross-page trunk on the same group contract', () => {
+    const quote = 'one child';
+    const rootText = 'A root with one child on the next page.';
+    const start = rootText.indexOf(quote);
+    const document: NoteDocument = {
+      schemaVersion: 2,
+      id: 'page-trunk-single',
+      title: 'Single trunk',
+      blocks: {
+        root: {
+          id: 'root',
+          label: 'Root',
+          content: {
+            type: 'doc',
+            children: [
+              {
+                type: 'paragraph',
+                children: [
+                  ...(start > 0 ? [{ type: 'text', text: rootText.slice(0, start) }] : []),
+                  {
+                    type: 'text',
+                    text: quote,
+                    marks: [{ type: 'anchor', attrs: { anchorId: 'anchor-one' } }],
+                  },
+                  ...(start + quote.length < rootText.length
+                    ? [{ type: 'text', text: rootText.slice(start + quote.length) }]
+                    : []),
+                ],
+              },
+            ],
+          },
+        },
+        child: textBlock('child', 'Child', 'The only child of this parent.'),
+      },
+      anchors: {
+        'anchor-one': {
+          id: 'anchor-one',
+          blockId: 'root',
+          kind: 'text',
+          selector: { kind: 'text', quote },
+          quote,
+        },
+      },
+      branches: {
+        branch: {
+          id: 'branch',
+          source: { blockId: 'root', anchorId: 'anchor-one' },
+          targetBlockId: 'child',
+          role: 'primary',
+          order: 'a',
+        },
+      },
+      chapters: [{ id: 'chapter-1', title: 'Single', topLevelBlockIds: ['root'] }],
+      assets: {},
+    };
+    const { layout, pages } = layoutPages(document, ['child']);
+    expect(pages.pageCount).toBe(2);
+    const model = buildPageEdgeModel(layout, pages.pages);
+    const trunkView = model.trunks[0]!.find(
+      (view) => view.trunk.id === 'root:below',
+    )!;
+    expect(trunkView).toBeDefined();
+    expect(trunkView.segment.lead).toBeNull();
+    expect(trunkView.trunk.segments.map((segment) => segment.pageNumber)).toEqual([1, 2]);
+    const rootFragment = pages.pages[0]!.fragments.find(
+      (fragment) => fragment.blockId === 'root',
+    )!;
+    expect(trunkView.segment.start.y).toBeCloseTo(
+      rootFragment.page.y + rootFragment.page.height + EDGE_STYLE.trunkGap,
+      6,
+    );
+    expect(trunkView.segment.end.y).toBe(layout.geometry.contentHeightPx);
+    const arm = model.edges[1]!.find((edge) => edge.branchId === 'branch')!;
+    expect(arm.direction).toBe('trunk');
+    expect(arm.label).toBeUndefined();
+    expect(model.trunks[1]![0]!.segment.end).toEqual({
+      x: trunkView.trunk.x,
+      y: arm.to.y,
+    });
   });
 });

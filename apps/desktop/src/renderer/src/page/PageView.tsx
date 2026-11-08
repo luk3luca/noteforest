@@ -32,11 +32,13 @@ import type {
   DerivedPage,
   LayoutDefect,
   PageEdge,
+  PageEdgeModel,
+  PageEdgeTrunkView,
   PageFragment,
   PageGeometry,
 } from '@noteforest/layout';
 import {
-  buildPageEdges,
+  buildPageEdgeModel,
   pageCssVariables,
   pageLayoutOptions,
 } from '@noteforest/layout';
@@ -323,6 +325,7 @@ interface PageSurfaceProps {
   runtime: DocumentRuntime;
   blocking: readonly LayoutDefect[];
   edges: readonly PageEdge[];
+  trunks: readonly PageEdgeTrunkView[];
   children: ReactNode;
 }
 
@@ -336,6 +339,7 @@ function PageSurface({
   runtime,
   blocking,
   edges,
+  trunks,
   children,
 }: PageSurfaceProps): JSX.Element {
   const margins = geometry.marginsPx;
@@ -378,7 +382,7 @@ function PageSurface({
         }}
         data-page-content={pageNumber}
       >
-        <PageEdges edges={edges} geometry={geometry} />
+        <PageEdges edges={edges} trunks={trunks} geometry={geometry} />
         {children}
       </div>
       {blocking.length > 0 ? <DefectBadge defects={blocking} /> : null}
@@ -428,11 +432,14 @@ export function PageView({
   const geometry = useMemo(() => corePageGeometry(settings), [settings]);
   const layoutOptions = useMemo(() => pageLayoutOptions(settings.theme), [settings.theme]);
   // The shared page-edge mapper, not a Page-local router. Only the current
-  // page's slice is handed to the SVG.
-  const pageEdges = useMemo(() => {
-    if (model.layout === null) return [];
-    return buildPageEdges(model.layout, model.pages)[pageNumber - 1] ?? [];
-  }, [model.layout, model.pages, pageNumber]);
+  // page's slice is handed to the SVG; group trunks also expose pass-through
+  // segments for pages with no child of that parent.
+  const pageEdgeModel = useMemo<PageEdgeModel>(() => {
+    if (model.layout === null) return { edges: [], trunks: [] };
+    return buildPageEdgeModel(model.layout, model.pages);
+  }, [model.layout, model.pages]);
+  const pageEdges = pageEdgeModel.edges[pageNumber - 1] ?? [];
+  const pageTrunks = pageEdgeModel.trunks[pageNumber - 1] ?? [];
 
   // Derived model may shrink the page count; keep the shell page in range.
   // Wait for the first derived model: clamping against the loading state would
@@ -785,6 +792,7 @@ export function PageView({
       data-continuation-out={page?.continuationOut.length ?? 0}
       data-continuation-in={page?.continuationIn.length ?? 0}
       data-page-edge-count={pageEdges.length}
+      data-page-trunk-count={pageTrunks.length}
       data-error={model.error !== null ? 'true' : undefined}
       data-empty={placeholderSurface ? 'true' : undefined}
     >
@@ -918,6 +926,7 @@ export function PageView({
               runtime={runtime}
               blocking={showPlaceholder ? [] : pageBlocking}
               edges={showPlaceholder ? [] : pageEdges}
+              trunks={showPlaceholder ? [] : pageTrunks}
             >
               {showPlaceholder ? (
                 placeholder

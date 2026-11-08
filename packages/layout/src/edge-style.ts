@@ -39,6 +39,8 @@ export const EDGE_STYLE = Object.freeze({
    * inset when a wrapped row starts closer than `stemMin`; Continuous keeps it.
    */
   trunkInset: 12,
+  /** Visible gap between the parent card bottom and a below-trunk start. */
+  trunkGap: 8,
   /** Fixed arrowhead polygon, independent of path length. */
   arrowLength: 6,
   arrowHalfWidth: 3,
