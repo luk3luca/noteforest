@@ -1,0 +1,473 @@
+import { after, afterEach, before, describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { rm } from 'node:fs/promises';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import {
+  multiPageBlocksDocument,
+  pageArrowsDocument,
+  writePagePackage,
+} from '../support/page-fixtures.mjs';
+
+const tempRoot = artifactsPath('r2a-ui');
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+let page;
+
+async function launch(name, width = 1440, height = 900) {
+  page = await ui.launch(ui.isolated(name));
+  await h.setWindowSize(width, height);
+}
+
+async function openPackage(env, name, document) {
+  const packagePath = await writePagePackage(env.NOTEFOREST_LIBRARY, name, document);
+  const opened = await page.evaluate(
+    (path) => window.__noteforestTest.openPath(path),
+    packagePath,
+  );
+  assert.equal(opened, true, 'fixture package opens');
+  await page.waitForFunction(
+    (path) => window.__noteforestTest.state().activeTab === path,
+    packagePath,
+    { timeout: 10000 },
+  );
+  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+  return packagePath;
+}
+
+function activePageView() {
+  return page.locator('.nf-editor[data-active="true"] .nf-page-view');
+}
+
+async function waitPageReady(expectedCount = null) {
+  await page.waitForFunction(
+    (count) => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      if (view === null) return false;
+      if (view.getAttribute('data-ready') !== 'true') return false;
+      if (view.getAttribute('data-updating') === 'true') return false;
+      if (count !== null && Number(view.getAttribute('data-page-count')) !== count) return false;
+      return true;
+    },
+    expectedCount,
+    { timeout: 30000 },
+  );
+}
+
+async function showPageRead() {
+  await page.keyboard.press('Meta+3');
+  await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
+  await waitPageReady();
+}
+
+async function pageCount() {
+  return Number(await activePageView().getAttribute('data-page-count'));
+}
+
+async function currentPageNumber() {
+  return Number(await activePageView().getAttribute('data-current-page'));
+}
+
+async function selectedBlockId() {
+  const state = await h.state();
+  const runtime = state.runtimes.find((item) => item.packagePath === state.activeTab);
+  return runtime?.selectedBlockId ?? null;
+}
+
+async function setPageSettingsOverride(packagePath, override) {
+  return page.evaluate(
+    ({ path, value }) => window.__noteforestTest.setPageSettingsOverride(path, value),
+    { path: packagePath, value: override },
+  );
+}
+
+function edgeGroup(branchId) {
+  return activePageView().locator(`[data-page-edge-id="${branchId}"]`);
+}
+
+async function edgeData(branchId) {
+  return edgeGroup(branchId).evaluate((element) => ({
+    role: element.getAttribute('data-page-edge-role'),
+    direction: element.getAttribute('data-page-edge-direction'),
+    targetPage: element.getAttribute('data-page-edge-target-page'),
+    from: element.getAttribute('data-page-edge-from'),
+    to: element.getAttribute('data-page-edge-to'),
+    anchorId: element.getAttribute('data-page-edge-anchor-id'),
+    anchorStart: element.getAttribute('data-page-edge-anchor-start'),
+    pathClass: element.querySelector('.nf-page-edge-path')?.getAttribute('class') ?? '',
+  }));
+}
+
+function parsePoint(value) {
+  const [x, y] = (value ?? '').split(',').map(Number);
+  assert.ok(Number.isFinite(x) && Number.isFinite(y), `point ${value} parses`);
+  return { x, y };
+}
+
+async function fragmentBox(blockId) {
+  return page
+    .locator(`.nf-editor[data-active="true"] [data-fragment-block="${blockId}"]`)
+    .evaluate((element) => ({
+      left: Number.parseFloat(element.style.left),
+      top: Number.parseFloat(element.style.top),
+      width: Number.parseFloat(element.style.width),
+      height: Number.parseFloat(element.style.height),
+    }));
+}
+
+async function allEdges() {
+  return activePageView()
+    .locator('[data-page-edge-id]')
+    .evaluateAll((elements) =>
+      elements.map((element) => ({
+        branchId: element.getAttribute('data-page-edge-id'),
+        role: element.getAttribute('data-page-edge-role'),
+        direction: element.getAttribute('data-page-edge-direction'),
+        targetPage: element.getAttribute('data-page-edge-target-page'),
+        from: element.getAttribute('data-page-edge-from'),
+        to: element.getAttribute('data-page-edge-to'),
+      })),
+    );
+}
+
+describe('R2a page arrows and Continuous cleanup', () => {
+  before(async () => {
+    await rm(tempRoot, { recursive: true, force: true });
+  });
+
+  afterEach(async () => {
+    await h.quit();
+  });
+
+  after(async () => {
+    assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
+  });
+
+  it('draws same-page primary, anchored, and reference arrows in Page Read and Page Edit', async () => {
+    const env = ui.isolated('r2a-same-page');
+    await launch('r2a-same-page');
+    await openPackage(env, 'Page arrows', pageArrowsDocument());
+    await showPageRead();
+
+    assert.equal(await pageCount(), 1, 'the short arrow fixture fits one page');
+    const svg = activePageView().locator('.nf-page-edges');
+    assert.equal(await svg.count(), 1, 'one SVG edge layer lives inside the page content');
+    assert.equal(await svg.getAttribute('aria-hidden'), 'true');
+    assert.equal(
+      Number(await svg.getAttribute('data-page-edge-count')),
+      3,
+      'three same-page edges are projected',
+    );
+    assert.equal(await svg.evaluate((element) => getComputedStyle(element).pointerEvents), 'none');
+
+    const source = await fragmentBox('source');
+    const direct = await fragmentBox('direct');
+    const directEdge = await edgeData('branch-direct');
+    assert.equal(directEdge.role, 'primary');
+    assert.equal(directEdge.direction, 'same-page');
+    const directFrom = parsePoint(directEdge.from);
+    const directTo = parsePoint(directEdge.to);
+    assert.ok(Math.abs(directFrom.x - (source.left + source.width)) <= 0.6, 'primary starts at source right edge');
+    assert.ok(Math.abs(directTo.x - direct.left) <= 0.6, 'primary ends at target left edge');
+    assert.equal(directEdge.pathClass.includes('nf-page-edge-path-primary'), true);
+
+    const calloutEdge = await edgeData('branch-callout');
+    const calloutFrom = parsePoint(calloutEdge.from);
+    assert.equal(calloutEdge.anchorId, 'anchor-1');
+    assert.equal(calloutEdge.anchorStart, 'true');
+    assert.ok(
+      calloutFrom.x < source.left + source.width - 1,
+      'an anchored branch starts at the anchor, not the card edge',
+    );
+    assert.ok(
+      Math.abs(calloutFrom.y - (source.top + source.height / 2)) > 1,
+      'the anchor start is not the source fragment center',
+    );
+
+    const referenceEdge = await edgeData('branch-reference');
+    assert.equal(referenceEdge.role, 'reference');
+    assert.equal(referenceEdge.direction, 'same-page');
+    assert.equal(referenceEdge.pathClass.includes('nf-page-edge-path-reference'), true);
+    const dash = await edgeGroup('branch-reference')
+      .locator('.nf-page-edge-path')
+      .evaluate((element) => getComputedStyle(element).strokeDasharray);
+    assert.notEqual(dash, 'none', 'reference arrows are dashed');
+
+    // Branch/anchor labels stay outside the aria-hidden SVG.
+    const labels = activePageView().locator('[data-page-edge-label]');
+    assert.equal(await labels.count(), 2, 'the anchored callout and labeled reference have chips');
+    const labelTexts = await labels.evaluateAll((elements) =>
+      elements.map((element) => element.textContent?.trim() ?? ''),
+    );
+    assert.deepEqual(labelTexts.sort(), ['also uses', 'eigenvalue'].sort());
+    assert.equal(
+      await activePageView()
+        .locator('[data-page-edge-label="branch"]')
+        .first()
+        .evaluate((element) => getComputedStyle(element).pointerEvents),
+      'none',
+    );
+
+    // Neither the paths nor the labels capture a pointer.
+    const hit = await activePageView().locator('.nf-page-edges').evaluate((element) => {
+      const path = element.querySelector('.nf-page-edge-path');
+      if (path === null || !(path instanceof SVGPathElement)) return null;
+      const point = path.getPointAtLength(path.getTotalLength() / 2);
+      const matrix = path.getScreenCTM();
+      if (matrix === null) return null;
+      const screen = new DOMPoint(point.x, point.y).matrixTransform(matrix);
+      const target = document.elementFromPoint(screen.x, screen.y);
+      return {
+        found: target !== null,
+        inEdges: target?.closest('.nf-page-edges') !== null && target?.closest('.nf-page-edges') !== undefined,
+        inLabels:
+          target?.closest('.nf-page-edge-labels') !== null &&
+          target?.closest('.nf-page-edge-labels') !== undefined,
+      };
+    });
+    assert.ok(hit !== null && hit.found);
+    assert.equal(hit.inEdges, false, 'edge hit testing reaches the page/card, not the SVG');
+    assert.equal(hit.inLabels, false, 'labels never intercept the pointer');
+
+    // Arrow chrome does not break the Page fragment selection path.
+    await activePageView().locator('[data-fragment-block="direct"]').click();
+    assert.equal(await selectedBlockId(), 'direct');
+    assert.equal(await activePageView().locator('[contenteditable="true"]').count(), 0);
+
+    // Page Edit keeps the arrows and the overlay paints above them.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      (await h.state()).activeTab,
+      { timeout: 5000 },
+    );
+    assert.equal(await svg.count(), 1, 'Page Edit keeps the edge layer');
+    assert.equal(Number(await svg.getAttribute('data-page-edge-count')), 3);
+    await activePageView().locator('[data-fragment-block="direct"]').dblclick();
+    const overlay = activePageView().locator('[data-page-edit-overlay="true"]');
+    await overlay.waitFor({ timeout: 10000 });
+    const stacking = await overlay.evaluate((element) => {
+      const overlayZ = Number(getComputedStyle(element).zIndex);
+      const edgesZ = Number(
+        getComputedStyle(element.closest('.nf-page-sheet-wrap')?.querySelector('.nf-page-edges') ??
+          element).zIndex,
+      );
+      return { overlayZ, edgesZ };
+    });
+    assert.ok(
+      Number.isFinite(stacking.overlayZ) && Number.isFinite(stacking.edgesZ),
+      'both layers report a stacking index',
+    );
+    assert.ok(stacking.overlayZ > stacking.edgesZ, 'Page Edit sits above the arrow layer');
+    assert.equal(await activePageView().locator('[contenteditable="true"]').count(), 1);
+  });
+
+  it('shows cross-page indicators on both sides without drawing through the margin', async () => {
+    const env = ui.isolated('r2a-cross-page');
+    await launch('r2a-cross-page');
+    const packagePath = await openPackage(env, 'Page arrows cross page', pageArrowsDocument());
+    const resolved = await setPageSettingsOverride(packagePath, {
+      manualBreakBeforeBlockIds: ['callout'],
+    });
+    assert.deepEqual(resolved.manualBreakBeforeBlockIds, ['callout']);
+    await showPageRead();
+    const count = await pageCount();
+    assert.ok(count >= 2, `the manual break derives at least two pages, got ${count}`);
+    assert.equal(await currentPageNumber(), 1);
+
+    const first = await allEdges();
+    const directOut = first.find((edge) => edge.branchId === 'branch-direct');
+    const calloutOut = first.find((edge) => edge.branchId === 'branch-callout');
+    assert.equal(directOut?.direction, 'to-edge');
+    assert.equal(calloutOut?.direction, 'to-edge');
+    assert.equal(directOut?.targetPage, '2');
+    assert.equal(calloutOut?.targetPage, '2');
+    assert.equal(first.some((edge) => edge.branchId === 'branch-reference'), false);
+
+    const contentWidth = Number(
+      await activePageView()
+        .locator('[data-page-content]')
+        .evaluate((element) => Number.parseFloat(element.style.width)),
+    );
+    assert.ok(Math.abs(parsePoint(directOut?.to).x - contentWidth) <= 0.6, 'outgoing indicator ends at the content edge');
+    assert.ok(Math.abs(parsePoint(calloutOut?.to).x - contentWidth) <= 0.6);
+
+    const outLabels = await activePageView()
+      .locator('[data-page-edge-label="to-edge"]')
+      .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
+    assert.deepEqual(outLabels.sort(), ['→ page 2', '→ page 2']);
+
+    const bounds = await activePageView().locator('[data-page-content]').evaluate((element) => {
+      const content = element.getBoundingClientRect();
+      const svgElement = element.querySelector('.nf-page-edges');
+      if (svgElement === null) return null;
+      const svg = svgElement.getBoundingClientRect();
+      return {
+        content: { left: content.left, right: content.right, top: content.top, bottom: content.bottom },
+        svg: { left: svg.left, right: svg.right, top: svg.top, bottom: svg.bottom },
+      };
+    });
+    assert.ok(bounds !== null);
+    assert.ok(Math.abs(bounds.svg.left - bounds.content.left) <= 1);
+    assert.ok(Math.abs(bounds.svg.right - bounds.content.right) <= 1);
+    assert.ok(Math.abs(bounds.svg.top - bounds.content.top) <= 1);
+    assert.ok(Math.abs(bounds.svg.bottom - bounds.content.bottom) <= 1);
+    assert.equal(
+      await activePageView().locator('.nf-page-edges').evaluate((element) => getComputedStyle(element).overflow),
+      'hidden',
+      'cross-page ink is clipped to the page content box',
+    );
+
+    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.waitForFunction(
+      () =>
+        Number(
+          document
+            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+            ?.getAttribute('data-current-page'),
+        ) === 2,
+      undefined,
+      { timeout: 5000 },
+    );
+    const second = await allEdges();
+    for (const branchId of ['branch-direct', 'branch-callout', 'branch-reference']) {
+      const incoming = second.find((edge) => edge.branchId === branchId);
+      assert.equal(incoming?.direction, 'from-edge', `${branchId} arrives with a from-edge indicator`);
+      assert.equal(incoming?.targetPage, '1');
+      assert.ok(Math.abs(parsePoint(incoming?.from).x) <= 0.6, 'incoming indicator starts at the content edge');
+    }
+    const inLabels = await activePageView()
+      .locator('[data-page-edge-label="from-edge"]')
+      .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
+    assert.deepEqual(inLabels.sort(), ['← from page 1', '← from page 1', '← from page 1']);
+
+    // Page Edit keeps the same cross-page indicators.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
+    );
+    assert.equal(await activePageView().locator('[data-page-edge-label="from-edge"]').count(), 3);
+    assert.equal(await activePageView().locator('.nf-page-edges').count(), 1);
+  });
+
+  it('never measures pages or renders page chrome in Continuous at 1440 and 960', async () => {
+    const env = ui.isolated('r2a-continuous');
+    await launch('r2a-continuous');
+    const packagePath = await openPackage(env, 'Continuous without pages', multiPageBlocksDocument());
+
+    await page.evaluate(() => {
+      const probe = { hosts: 0 };
+      window.__r2aProbe = probe;
+      probe.observer = new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            if (node instanceof Element && node.classList.contains('nf-measure-host')) {
+              probe.hosts += 1;
+            }
+          }
+        }
+      });
+      probe.observer.observe(document.body, { childList: true, subtree: true });
+    });
+
+    async function probe() {
+      return page.evaluate(() => ({
+        hosts: window.__r2aProbe?.hosts ?? -1,
+        liveHosts: document.querySelectorAll('.nf-measure-host').length,
+        markers: document.querySelectorAll('[data-page-marker]').length,
+        markerLayers:
+          document.querySelectorAll('.nf-page-markers, .nf-page-marker, .nf-page-marker-chip').length,
+        pageViews: document.querySelectorAll('.nf-page-view').length,
+        sheets: document.querySelectorAll('.nf-page-sheet').length,
+        pageIndicators: document.querySelectorAll('[data-page-indicator]').length,
+        continues: document.querySelectorAll('.nf-page-continues-list').length,
+        ghosts: document.querySelectorAll('.nf-page-ghost-list').length,
+        edges: document.querySelectorAll('.nf-page-edges').length,
+      }));
+    }
+
+    async function assertContinuous(where) {
+      const state = await probe();
+      assert.equal(state.hosts, 0, `${where}: no page measurement host was created`);
+      assert.equal(state.liveHosts, 0, `${where}: no measurement host is mounted`);
+      assert.equal(state.markers, 0, `${where}: no data-page-marker`);
+      assert.equal(state.markerLayers, 0, `${where}: no marker chrome`);
+      assert.equal(state.pageViews, 0, `${where}: no Page view`);
+      assert.equal(state.sheets, 0, `${where}: no page sheet`);
+      assert.equal(state.pageIndicators, 0, `${where}: no page numbers`);
+      assert.equal(state.continues, 0, `${where}: no continuation chips`);
+      assert.equal(state.ghosts, 0, `${where}: no ghost markers`);
+      assert.equal(state.edges, 0, `${where}: no page arrow layer`);
+    }
+
+    await page.waitForTimeout(350);
+    await assertContinuous('Continuous Edit 1440');
+
+    // A canonical revision change would run the old Continuous marker model.
+    // It must not create any measurement host now.
+    const structure = await ui.structure();
+    const firstBlockId = structure.chapters[0].topLevelBlockIds[0];
+    await ui.applyCommand({
+      type: 'block.editContent',
+      blockId: firstBlockId,
+      content: {
+        type: 'doc',
+        children: [
+          { type: 'paragraph', children: [{ type: 'text', text: 'Edited in Continuous only.' }] },
+        ],
+      },
+    });
+    await page.waitForTimeout(500);
+    await assertContinuous('Continuous Edit after an edit');
+
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      packagePath,
+      { timeout: 5000 },
+    );
+    await page.waitForTimeout(350);
+    await assertContinuous('Continuous Read 1440');
+
+    await h.setWindowSize(960, 720);
+    await page.waitForTimeout(350);
+    await assertContinuous('Continuous Read 960');
+
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
+    );
+    await page.waitForTimeout(350);
+    await assertContinuous('Continuous Edit 960');
+
+    // Page mounts the one model; returning to Continuous disposes it and a new
+    // edit must not measure again.
+    await showPageRead();
+    assert.ok(Number(await activePageView().getAttribute('data-page-count')) > 1);
+    const pageHosts = await page.evaluate(() => window.__r2aProbe?.hosts ?? 0);
+    assert.ok(pageHosts > 0, 'Page measured through its own model');
+    await page.keyboard.press('Meta+2');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view', {
+      state: 'detached',
+    });
+    await page.evaluate(() => {
+      window.__r2aProbe.hosts = 0;
+    });
+    await ui.applyCommand({
+      type: 'block.editContent',
+      blockId: firstBlockId,
+      content: {
+        type: 'doc',
+        children: [
+          { type: 'paragraph', children: [{ type: 'text', text: 'Back to Continuous, still no pages.' }] },
+        ],
+      },
+    });
+    await page.waitForTimeout(500);
+    await assertContinuous('Continuous after leaving Page');
+  });
+});

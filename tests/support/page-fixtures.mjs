@@ -64,6 +64,7 @@ export function pageDocument({
   title = 'Page fixture',
   chapterTitle = 'Chapter 1',
   blocks = [],
+  anchors = [],
   branches = [],
 }) {
   const chapterId = 'chapter-1';
@@ -79,7 +80,13 @@ export function pageDocument({
         id: chapterId,
         title: chapterTitle,
         topLevelBlockIds: blocks
-          .filter((block) => !branches.some((branch) => branch.targetBlockId === block.id))
+          .filter(
+            (block) =>
+              !branches.some(
+                (branch) =>
+                  branch.targetBlockId === block.id && (branch.role ?? 'primary') === 'primary',
+              ),
+          )
           .map((block) => block.id),
       },
     ],
@@ -93,15 +100,21 @@ export function pageDocument({
         },
       ]),
     ),
-    anchors: {},
+    anchors: Object.fromEntries(anchors.map((anchor) => [anchor.id, anchor])),
     branches: Object.fromEntries(
       branches.map((branch, index) => [
         branch.id,
         {
           id: branch.id,
-          source: { blockId: branch.sourceBlockId },
+          source: {
+            blockId: branch.sourceBlockId,
+            ...(branch.sourceAnchorId === undefined
+              ? {}
+              : { anchorId: branch.sourceAnchorId }),
+          },
           targetBlockId: branch.targetBlockId,
-          role: 'primary',
+          role: branch.role ?? 'primary',
+          ...(branch.label === undefined ? {} : { label: branch.label }),
           order: branch.order ?? `m${index}`,
         },
       ]),
@@ -122,6 +135,84 @@ export async function writePagePackage(libraryPath, name, document, assetFiles =
     'utf8',
   );
   return packagePath;
+}
+
+/**
+ * Small page-arrow fixture: a primary direct child, an anchored callout, and a
+ * labeled reference. `manualBreakBeforeBlockIds: ['callout']` turns both
+ * primary/callout and reference edges into cross-page indicators.
+ */
+export function pageArrowsDocument() {
+  const sourceText = 'An eigenvalue is a scalar.';
+  const quote = 'eigenvalue';
+  const start = sourceText.indexOf(quote);
+  const source = {
+    id: 'source',
+    label: 'Source',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            ...(start > 0 ? [{ type: 'text', text: sourceText.slice(0, start) }] : []),
+            {
+              type: 'text',
+              text: quote,
+              marks: [{ type: 'anchor', attrs: { anchorId: 'anchor-1' } }],
+            },
+            ...(start + quote.length < sourceText.length
+              ? [{ type: 'text', text: sourceText.slice(start + quote.length) }]
+              : []),
+          ],
+        },
+      ],
+    },
+  };
+  return pageDocument({
+    id: 'page-arrows',
+    title: 'Page arrows',
+    chapterTitle: 'Arrows',
+    blocks: [
+      source,
+      textBlock('direct', 'Direct child', 'A direct primary child placed to the right.'),
+      textBlock('callout', 'Anchored callout', 'An anchored callout placed below its anchor.'),
+      textBlock('ref', 'Reference target', 'A labeled reference target.'),
+    ],
+    anchors: [
+      {
+        id: 'anchor-1',
+        blockId: 'source',
+        kind: 'text',
+        selector: { kind: 'text', quote, prefix: 'An ', suffix: ' is' },
+        quote,
+        prefix: 'An ',
+        suffix: ' is',
+      },
+    ],
+    branches: [
+      {
+        id: 'branch-direct',
+        sourceBlockId: 'source',
+        targetBlockId: 'direct',
+        role: 'primary',
+      },
+      {
+        id: 'branch-callout',
+        sourceBlockId: 'source',
+        sourceAnchorId: 'anchor-1',
+        targetBlockId: 'callout',
+        role: 'primary',
+      },
+      {
+        id: 'branch-reference',
+        sourceBlockId: 'source',
+        targetBlockId: 'ref',
+        role: 'reference',
+        label: 'also uses',
+      },
+    ],
+  });
 }
 
 /** Long fixture that spans pages, producing continuation/ghost markers. */

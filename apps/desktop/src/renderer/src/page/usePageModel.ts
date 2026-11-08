@@ -8,11 +8,11 @@
  * layout owns the error surface and the continuous editor remains mounted and
  * editable underneath.
  *
- * The hook is owned once per open document (`DocumentEditor`) and shared by the
- * Page layout and the continuous marker layer. It keys completed work by
- * `(document.revision, reloadToken)`, so a layout/mode switch, a selection, a
- * collapse toggle (view state), or returning to a tab never re-measures an
- * unchanged revision. Collapse in particular must not change the page model:
+ * The hook is owned by `PageView` and mounted only while the Page layout is
+ * active: Continuous has no pages and must not measure or paginate. It keys
+ * completed work by `(document.revision, reloadToken, settingsFingerprint)`, so
+ * a selection, a collapse toggle (view state), or a tab switch never re-measures
+ * an unchanged revision. Collapse in particular must not change the page model:
  * Page/PDF always show the full document.
  */
 
