@@ -10,6 +10,7 @@
  * No React, DOM, or measurement types.
  */
 
+import { openArrowPath } from '@noteforest/layout';
 import { GEOMETRY, type Rect } from './geometry';
 
 export interface ReferencePoint {
@@ -59,20 +60,7 @@ function bottom(rect: Rect): number {
 
 /** Open chevron at `tip`, pointing along the unit vector (`dx`, `dy`). */
 function openArrow(tip: ReferencePoint, dx: number, dy: number): string {
-  const length = Math.hypot(dx, dy);
-  if (length === 0) return '';
-  const ux = dx / length;
-  const uy = dy / length;
-  const size = GEOMETRY.edgeArrowLength + 1;
-  const spread = 0.46;
-  const wing = (angle: number): ReferencePoint => ({
-    x: round(tip.x - Math.cos(angle) * size),
-    y: round(tip.y - Math.sin(angle) * size),
-  });
-  const base = Math.atan2(uy, ux);
-  const first = wing(base - spread);
-  const second = wing(base + spread);
-  return `M ${first.x} ${first.y} L ${round(tip.x)} ${round(tip.y)} L ${second.x} ${second.y}`;
+  return openArrowPath(tip, dx, dy);
 }
 
 /**

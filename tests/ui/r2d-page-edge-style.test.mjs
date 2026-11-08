@@ -1,0 +1,586 @@
+import { after, afterEach, before, describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdir, rm } from 'node:fs/promises';
+import { artifactsPath } from '../support/harness.mjs';
+import { createUiSession } from '../support/ui-session.mjs';
+import {
+  compactionDocument,
+  pageArrowsDocument,
+  writePagePackage,
+} from '../support/page-fixtures.mjs';
+
+/**
+ * R2d page edge style.
+ *
+ * Page/PDF now shares one visual language with Continuous: orthogonal routes,
+ * rounded corners, the fixed arrowhead, left target entry where the page has
+ * room, and no cubic Bezier for standard same-page edges. The compaction
+ * parent → later-sibling regression is the main assertion: the route must go
+ * around earlier cards, not behind them.
+ */
+
+const tempRoot = artifactsPath('r2d-ui');
+const outputDir = artifactsPath('r2d', 'ui');
+const ui = createUiSession({ tempRoot });
+const h = ui.harness;
+let page;
+
+const MIN_STEM = 12;
+
+async function launch(name, width = 1440, height = 900) {
+  page = await ui.launch(ui.isolated(name));
+  await h.setWindowSize(width, height);
+}
+
+async function openPackage(env, name, document) {
+  const packagePath = await writePagePackage(env.NOTEFOREST_LIBRARY, name, document);
+  const opened = await page.evaluate(
+    (path) => window.__noteforestTest.openPath(path),
+    packagePath,
+  );
+  assert.equal(opened, true, 'fixture package opens');
+  await page.waitForFunction(
+    (path) => window.__noteforestTest.state().activeTab === path,
+    packagePath,
+    { timeout: 10000 },
+  );
+  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+  return packagePath;
+}
+
+function activePageView() {
+  return page.locator('.nf-editor[data-active="true"] .nf-page-view');
+}
+
+async function waitPageReady(expectedCount = null) {
+  await page.waitForFunction(
+    (count) => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      if (view === null) return false;
+      if (view.getAttribute('data-ready') !== 'true') return false;
+      if (view.getAttribute('data-updating') === 'true') return false;
+      if (count !== null && Number(view.getAttribute('data-page-count')) !== count) return false;
+      return true;
+    },
+    expectedCount,
+    { timeout: 30000 },
+  );
+}
+
+async function showPageRead() {
+  await page.keyboard.press('Meta+3');
+  await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
+  await waitPageReady();
+}
+
+async function showContinuous() {
+  await page.keyboard.press('Meta+2');
+  await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+}
+
+async function pageCount() {
+  return Number(await activePageView().getAttribute('data-page-count'));
+}
+
+async function modelRuns() {
+  return Number(await activePageView().getAttribute('data-model-runs'));
+}
+
+async function waitForRunAtLeast(expected) {
+  await page.waitForFunction(
+    (count) => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      if (view === null || view.getAttribute('data-ready') !== 'true') return false;
+      return Number(view.getAttribute('data-model-runs')) >= count;
+    },
+    expected,
+    { timeout: 30000 },
+  );
+}
+
+async function currentPageNumber() {
+  return Number(await activePageView().getAttribute('data-current-page'));
+}
+
+async function setPageSettingsOverride(packagePath, override) {
+  return page.evaluate(
+    ({ path, value }) => window.__noteforestTest.setPageSettingsOverride(path, value),
+    { path: packagePath, value: override },
+  );
+}
+
+async function contentBox() {
+  return activePageView()
+    .locator('[data-page-content]')
+    .evaluate((element) => ({
+      width: Number.parseFloat(element.style.width),
+      height: Number.parseFloat(element.style.height),
+    }));
+}
+
+async function fragmentBoxes() {
+  return activePageView()
+    .locator('.nf-page-fragment')
+    .evaluateAll((elements) =>
+      elements.map((element) => ({
+        blockId: element.getAttribute('data-fragment-block') ?? '',
+        left: Number.parseFloat(element.style.left),
+        top: Number.parseFloat(element.style.top),
+        width: Number.parseFloat(element.style.width),
+        height: Number.parseFloat(element.style.height),
+      })),
+    );
+}
+
+function parsePoint(value) {
+  const [x, y] = (value ?? '').split(',').map(Number);
+  assert.ok(Number.isFinite(x) && Number.isFinite(y), `point ${value} parses`);
+  return { x, y };
+}
+
+function parseRoute(value) {
+  return (value ?? '')
+    .split(' ')
+    .filter((part) => part.length > 0)
+    .map(parsePoint);
+}
+
+function isOrthogonal(points) {
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    if (
+      Math.abs(previous.x - current.x) > 0.01 &&
+      Math.abs(previous.y - current.y) > 0.01
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function routeHitsRect(points, rect, tolerance = 1) {
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const left = Math.min(start.x, end.x);
+    const right = Math.max(start.x, end.x);
+    const top = Math.min(start.y, end.y);
+    const bottom = Math.max(start.y, end.y);
+    const horizontal = Math.abs(start.y - end.y) < 0.01;
+    const hit = horizontal
+      ? top > rect.top + tolerance &&
+        top < rect.top + rect.height - tolerance &&
+        right > rect.left + tolerance &&
+        left < rect.left + rect.width - tolerance
+      : left > rect.left + tolerance &&
+        left < rect.left + rect.width - tolerance &&
+        bottom > rect.top + tolerance &&
+        top < rect.top + rect.height - tolerance;
+    if (hit) return true;
+  }
+  return false;
+}
+
+async function readEdges() {
+  return activePageView()
+    .locator('[data-page-edge-id]')
+    .evaluateAll((elements) =>
+      elements.map((element) => {
+        const path = element.querySelector('.nf-page-edge-path');
+        const arrow = element.querySelector('.nf-page-edge-arrow');
+        return {
+          branchId: element.getAttribute('data-page-edge-id') ?? '',
+          role: element.getAttribute('data-page-edge-role') ?? '',
+          direction: element.getAttribute('data-page-edge-direction') ?? '',
+          targetPage: element.getAttribute('data-page-edge-target-page'),
+          fromBlock: element.getAttribute('data-page-edge-from-block') ?? '',
+          toBlock: element.getAttribute('data-page-edge-to-block') ?? '',
+          from: element.getAttribute('data-page-edge-from') ?? '',
+          to: element.getAttribute('data-page-edge-to') ?? '',
+          route: element.getAttribute('data-page-edge-route') ?? '',
+          tip: element.getAttribute('data-page-edge-tip') ?? '',
+          entry: element.getAttribute('data-page-edge-entry') ?? '',
+          arrow: element.getAttribute('data-page-edge-arrow') ?? '',
+          stem: Number(element.getAttribute('data-page-edge-stem')),
+          blocked: element.getAttribute('data-page-edge-blocked') === 'true',
+          anchorStart: element.getAttribute('data-page-edge-anchor-start') === 'true',
+          pathD: path?.getAttribute('d') ?? '',
+          arrowD: arrow?.getAttribute('d') ?? '',
+          pathWidth:
+            path === null || path === undefined
+              ? ''
+              : getComputedStyle(path).strokeWidth,
+          pathDash:
+            path === null || path === undefined
+              ? ''
+              : getComputedStyle(path).strokeDasharray,
+          arrowFill:
+            arrow === null || arrow === undefined
+              ? ''
+              : getComputedStyle(arrow).fill,
+          arrowStroke:
+            arrow === null || arrow === undefined
+              ? ''
+              : getComputedStyle(arrow).stroke,
+        };
+      }),
+    );
+}
+
+async function assertOrthogonalPageRoutes(label) {
+  const edges = await readEdges();
+  assert.ok(edges.length > 0, `${label}: page has edges`);
+  const bounds = await contentBox();
+  const fragments = await fragmentBoxes();
+  for (const edge of edges) {
+    assert.equal(edge.blocked, false, `${label}/${edge.branchId}: route is not blocked`);
+    assert.equal(
+      edge.pathD.includes('C'),
+      false,
+      `${label}/${edge.branchId}: no cubic Bezier command`,
+    );
+    const route = parseRoute(edge.route);
+    assert.ok(route.length >= 2, `${label}/${edge.branchId}: route has points`);
+    assert.ok(isOrthogonal(route), `${label}/${edge.branchId}: route is orthogonal`);
+    for (const point of route) {
+      assert.ok(
+        point.x >= -0.6 && point.x <= bounds.width + 0.6,
+        `${label}/${edge.branchId}: x ${point.x} stays in the page content`,
+      );
+      assert.ok(
+        point.y >= -0.6 && point.y <= bounds.height + 0.6,
+        `${label}/${edge.branchId}: y ${point.y} stays in the page content`,
+      );
+    }
+    if (edge.direction === 'same-page') {
+      for (const fragment of fragments) {
+        if (fragment.blockId === edge.fromBlock || fragment.blockId === edge.toBlock) {
+          continue;
+        }
+        assert.equal(
+          routeHitsRect(route, fragment),
+          false,
+          `${label}/${edge.branchId}: route never hides behind ${fragment.blockId}`,
+        );
+      }
+      const tip = parsePoint(edge.tip);
+      const routeTip = route.at(-1);
+      assert.ok(
+        Math.abs(tip.x - routeTip.x) <= 0.01 && Math.abs(tip.y - routeTip.y) <= 0.01,
+        `${label}/${edge.branchId}: tip matches the route end`,
+      );
+      if (edge.entry === 'left') {
+        assert.equal(edge.arrow, 'right', `${label}/${edge.branchId}: left entry points right`);
+        assert.ok(
+          edge.stem >= MIN_STEM - 0.01,
+          `${label}/${edge.branchId}: final stem is at least ${MIN_STEM}px`,
+        );
+        const before = route.at(-2);
+        assert.ok(before !== undefined, `${label}/${edge.branchId}: has a penultimate point`);
+        assert.ok(
+          Math.abs(before.y - tip.y) <= 0.01 && tip.x - before.x >= MIN_STEM - 0.01,
+          `${label}/${edge.branchId}: final segment enters the left edge horizontally`,
+        );
+      }
+    } else {
+      assert.equal(route.length, 2, `${label}/${edge.branchId}: cross-page indicator is straight`);
+      assert.equal(route[0].y, route[1].y, `${label}/${edge.branchId}: cross-page line is horizontal`);
+    }
+    if (edge.role === 'primary') {
+      assert.ok(edge.arrowD.endsWith('Z'), `${label}/${edge.branchId}: primary arrow is filled`);
+      assert.notEqual(edge.arrowFill, 'none', `${label}/${edge.branchId}: primary arrow has fill`);
+    } else {
+      assert.equal(
+        edge.arrowD.endsWith('Z'),
+        false,
+        `${label}/${edge.branchId}: reference arrow is an open chevron`,
+      );
+      assert.equal(edge.arrowFill, 'none', `${label}/${edge.branchId}: reference arrow is not filled`);
+      assert.notEqual(edge.pathDash, 'none', `${label}/${edge.branchId}: reference route is dashed`);
+    }
+  }
+  const widths = new Set(edges.map((edge) => edge.pathWidth));
+  assert.equal(widths.size, 1, `${label}: primary and reference use one stroke width`);
+  return edges;
+}
+
+async function pointerProbe() {
+  return activePageView().locator('.nf-page-edges').evaluate((element) => {
+    const path = element.querySelector('.nf-page-edge-path');
+    if (path === null || !(path instanceof SVGPathElement)) return null;
+    const point = path.getPointAtLength(path.getTotalLength() / 2);
+    const matrix = path.getScreenCTM();
+    if (matrix === null) return null;
+    const screen = new DOMPoint(point.x, point.y).matrixTransform(matrix);
+    const target = document.elementFromPoint(screen.x, screen.y);
+    return {
+      found: target !== null,
+      inEdges:
+        target?.closest('.nf-page-edges') !== null &&
+        target?.closest('.nf-page-edges') !== undefined,
+      inLabels:
+        target?.closest('.nf-page-edge-labels') !== null &&
+        target?.closest('.nf-page-edge-labels') !== undefined,
+    };
+  });
+}
+
+describe('R2d page edge style', () => {
+  before(async () => {
+    await rm(tempRoot, { recursive: true, force: true });
+    await mkdir(outputDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await h.quit();
+  });
+
+  after(async () => {
+    assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
+  });
+
+  it('renders Page Read arrows as shared orthogonal routes and avoids earlier siblings', async () => {
+    const env = ui.isolated('r2d-page-read');
+    await launch('r2d-page-read');
+    await openPackage(env, 'R2d page read', compactionDocument());
+    await showPageRead();
+
+    assert.equal(await pageCount(), 1, 'the compaction fixture fits one landscape page');
+    const edges = await assertOrthogonalPageRoutes('Page Read 1440');
+
+    const leaf2 = edges.find((edge) => edge.branchId === 'branch-comp-leaf-2');
+    const leaf3 = edges.find((edge) => edge.branchId === 'branch-comp-leaf-3');
+    assert.ok(leaf2 !== undefined && leaf3 !== undefined);
+    assert.equal(leaf2.entry, 'left');
+    assert.equal(leaf3.entry, 'left');
+
+    const callout = edges.find((edge) => edge.branchId === 'branch-comp-callout');
+    assert.equal(callout.anchorStart, true, 'the callout edge starts at the resolved anchor');
+    const reference = edges.find((edge) => edge.branchId === 'branch-comp-reference');
+    assert.equal(reference.role, 'reference');
+    assert.equal(reference.direction, 'same-page');
+
+    // The regression's exact shape: parent → third/fourth sibling must not
+    // intersect the callout/child/later cards.
+    const fragments = await fragmentBoxes();
+    const blockers = fragments.filter((fragment) =>
+      ['comp-callout', 'comp-child', 'comp-leaf-2'].includes(fragment.blockId),
+    );
+    for (const edge of [leaf2, leaf3]) {
+      for (const blocker of blockers) {
+        if (blocker.blockId === edge.toBlock) continue;
+        assert.equal(
+          routeHitsRect(parseRoute(edge.route), blocker),
+          false,
+          `${edge.branchId} stays out of ${blocker.blockId}`,
+        );
+      }
+    }
+
+    // One shared arrow/glow language with Continuous: primary filled, reference
+    // open and dashed, same width. Page CSS consumes the shared token.
+    const probe = await pointerProbe();
+    assert.ok(probe !== null && probe.found);
+    assert.equal(probe.inEdges, false, 'the SVG never intercepts a pointer');
+    assert.equal(probe.inLabels, false, 'labels never intercept a pointer');
+    assert.equal(
+      await activePageView()
+        .locator('.nf-page-edges')
+        .evaluate((element) => getComputedStyle(element).pointerEvents),
+      'none',
+    );
+
+    // Page fragment selection still works through the arrow layer.
+    await activePageView().locator('[data-fragment-block="comp-child"]').click();
+    const state = await h.state();
+    assert.equal(
+      state.runtimes.find((item) => item.packagePath === state.activeTab)?.selectedBlockId,
+      'comp-child',
+    );
+
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'page-read-arrows-1440x900-landscape.png'),
+      { width: 1440, height: 900 },
+    );
+  });
+
+  it('keeps the orthogonal route language at 960x720 and on A4 portrait', async () => {
+    const env = ui.isolated('r2d-sizes');
+    await launch('r2d-sizes');
+    const packagePath = await openPackage(env, 'R2d page sizes', compactionDocument());
+    await showPageRead();
+
+    await h.setWindowSize(960, 720);
+    await waitPageReady();
+    await assertOrthogonalPageRoutes('Page Read 960 landscape');
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'page-read-arrows-960x720-landscape.png'),
+      { width: 960, height: 720 },
+    );
+
+    const portraitStart = await modelRuns();
+    const portrait = await setPageSettingsOverride(packagePath, {
+      setup: { orientation: 'portrait' },
+    });
+    assert.equal(portrait.setup.orientation, 'portrait');
+    await waitForRunAtLeast(portraitStart + 1);
+    await waitPageReady();
+    await assertOrthogonalPageRoutes('Page Read 960 portrait');
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'page-read-arrows-960x720-portrait.png'),
+      { width: 960, height: 720 },
+    );
+
+    await h.setWindowSize(1440, 900);
+    await waitPageReady();
+    await assertOrthogonalPageRoutes('Page Read 1440 portrait');
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'page-read-arrows-1440x900-portrait.png'),
+      { width: 1440, height: 900 },
+    );
+
+    const landscapeStart = await modelRuns();
+    await setPageSettingsOverride(packagePath, { setup: { orientation: 'landscape' } });
+    await waitForRunAtLeast(landscapeStart + 1);
+    await waitPageReady();
+    await h.setWindowSize(1440, 900);
+    await assertOrthogonalPageRoutes('Page Read 1440 landscape restored');
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'page-read-arrows-1440x900-landscape-restored.png'),
+      { width: 1440, height: 900 },
+    );
+  });
+
+  it('keeps the same routes in Page Edit and leaves Continuous geometry unchanged', async () => {
+    const env = ui.isolated('r2d-edit');
+    await launch('r2d-edit');
+    const packagePath = await openPackage(env, 'R2d page edit', compactionDocument());
+    await showPageRead();
+    await assertOrthogonalPageRoutes('Page Read before edit');
+
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
+    );
+    await waitPageReady();
+    await assertOrthogonalPageRoutes('Page Edit');
+
+    await activePageView().locator('[data-fragment-block="comp-child"]').dblclick();
+    const overlay = activePageView().locator('[data-page-edit-overlay="true"]');
+    await overlay.waitFor({ timeout: 10000 });
+    const stacking = await overlay.evaluate((element) => {
+      const overlayZ = Number(getComputedStyle(element).zIndex);
+      const edgesZ = Number(
+        getComputedStyle(
+          element.closest('.nf-page-sheet-wrap')?.querySelector('.nf-page-edges') ?? element,
+        ).zIndex,
+      );
+      return { overlayZ, edgesZ };
+    });
+    assert.ok(stacking.overlayZ > stacking.edgesZ, 'Page Edit overlay sits above the arrow layer');
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'page-edit-overlay-arrows-1440x900.png'),
+      { width: 1440, height: 900 },
+    );
+    await page.keyboard.press('Escape');
+    await overlay.waitFor({ state: 'detached', timeout: 10000 });
+
+    // Continuous keeps its own router and never mounts the page arrow layer.
+    await showContinuous();
+    assert.equal(await page.locator('.nf-page-view').count(), 0);
+    assert.equal(await page.locator('.nf-page-edges').count(), 0);
+    const continuous = await page
+      .locator('.nf-editor[data-active="true"] .nf-edge-path')
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute('d') ?? ''));
+    assert.ok(continuous.length > 0, 'Continuous still renders primary arrows');
+    for (const path of continuous) {
+      assert.equal(path.includes('C'), false, 'Continuous primary elbows stay orthogonal');
+    }
+    assert.ok(
+      (await page.locator('[data-reference-edge-id]').count()) > 0,
+      'Continuous reference edges remain',
+    );
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'continuous-arrows-1440x900.png'),
+      { width: 1440, height: 900 },
+    );
+  });
+
+  it('keeps cross-page indicators straight, directional, and on the shared style', async () => {
+    const env = ui.isolated('r2d-cross-page');
+    await launch('r2d-cross-page');
+    const packagePath = await openPackage(env, 'R2d cross page', pageArrowsDocument());
+    const resolved = await setPageSettingsOverride(packagePath, {
+      theme: { pagePacking: 'stacked' },
+      manualBreakBeforeBlockIds: ['callout'],
+    });
+    assert.equal(resolved.theme.pagePacking, 'stacked');
+    assert.deepEqual(resolved.manualBreakBeforeBlockIds, ['callout']);
+    await showPageRead();
+    const count = await pageCount();
+    assert.ok(count >= 2, `expected at least two pages, got ${count}`);
+    assert.equal(await currentPageNumber(), 1);
+
+    const bounds = await contentBox();
+    const outgoing = (await readEdges()).filter((edge) => edge.direction === 'to-edge');
+    assert.ok(outgoing.length >= 2, 'callout and direct indicators leave page 1');
+    for (const edge of outgoing) {
+      assert.equal(edge.targetPage, '2');
+      assert.equal(edge.blocked, false);
+      assert.equal(edge.pathD.includes('C'), false);
+      assert.equal(edge.arrow, 'right');
+      const route = parseRoute(edge.route);
+      assert.equal(route.length, 2, 'outgoing indicator is a straight line');
+      assert.equal(route[0].y, route[1].y);
+      assert.ok(Math.abs(route[1].x - bounds.width) <= 0.6, 'outgoing ink ends at the content edge');
+    }
+    const outLabels = await activePageView()
+      .locator('[data-page-edge-label="to-edge"]')
+      .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
+    assert.deepEqual(outLabels.sort(), ['→ page 2', '→ page 2']);
+
+    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.waitForFunction(
+      () =>
+        Number(
+          document
+            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+            ?.getAttribute('data-current-page'),
+        ) === 2,
+      undefined,
+      { timeout: 5000 },
+    );
+    await waitPageReady();
+    const incoming = (await readEdges()).filter((edge) => edge.direction === 'from-edge');
+    assert.equal(incoming.length, 3);
+    for (const edge of incoming) {
+      assert.equal(edge.targetPage, '1');
+      assert.equal(edge.blocked, false);
+      assert.equal(edge.pathD.includes('C'), false);
+      const route = parseRoute(edge.route);
+      assert.equal(route.length, 2);
+      assert.equal(route[0].y, route[1].y);
+      assert.ok(Math.abs(route[0].x) <= 0.6, 'incoming ink starts at the content edge');
+    }
+    const inLabels = await activePageView()
+      .locator('[data-page-edge-label="from-edge"]')
+      .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
+    assert.deepEqual(inLabels.sort(), ['← from page 1', '← from page 1', '← from page 1']);
+
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
+    );
+    await waitPageReady();
+    assert.equal(await activePageView().locator('.nf-page-edges').count(), 1);
+    await h.screenshot(
+      artifactsPath('r2d', 'ui', 'page-read-cross-page-1440x900.png'),
+      { width: 1440, height: 900 },
+    );
+  });
+});

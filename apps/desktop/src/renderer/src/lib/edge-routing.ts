@@ -18,6 +18,13 @@
  */
 
 import {
+  arrowPath,
+  arrowPoints,
+  roundedPath,
+  simplifyPath,
+  type EdgePoint,
+} from '@noteforest/layout';
+import {
   classifyPlacement,
   clamp,
   GEOMETRY,
@@ -27,10 +34,9 @@ import {
   type Rect,
 } from './geometry';
 
-export interface Point {
-  x: number;
-  y: number;
-}
+export type Point = EdgePoint;
+
+export { arrowPath, arrowPoints, roundedPath };
 
 export type EdgeDirection = 'right' | 'down';
 
@@ -80,37 +86,6 @@ function sameY(left: Point, right: Point): boolean {
   return Math.abs(left.y - right.y) < 0.5;
 }
 
-function sameX(left: Point, right: Point): boolean {
-  return Math.abs(left.x - right.x) < 0.5;
-}
-
-/** Remove duplicate and collinear intermediate points. */
-function simplify(points: Point[]): Point[] {
-  const compact: Point[] = [];
-  for (const point of points) {
-    const last = compact.at(-1);
-    if (last !== undefined && Math.abs(last.x - point.x) < 0.25 && Math.abs(last.y - point.y) < 0.25) {
-      continue;
-    }
-    compact.push(point);
-  }
-  const result: Point[] = [];
-  for (const [index, point] of compact.entries()) {
-    const previous = compact[index - 1];
-    const next = compact[index + 1];
-    if (
-      previous !== undefined &&
-      next !== undefined &&
-      ((sameX(previous, point) && sameX(point, next)) ||
-        (sameY(previous, point) && sameY(point, next)))
-    ) {
-      continue;
-    }
-    result.push(point);
-  }
-  return result;
-}
-
 function pointTowards(from: Point, towards: Point, distance: number): Point {
   const length = Math.hypot(towards.x - from.x, towards.y - from.y);
   if (length === 0) return from;
@@ -125,41 +100,8 @@ function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** SVG path with rounded right-angle corners. */
-export function roundedPath(points: Point[], radius: number): string {
-  const simplified = simplify(points);
-  if (simplified.length === 0) return '';
-  if (simplified.length === 1) {
-    const single = simplified[0] as Point;
-    return `M ${round(single.x)} ${round(single.y)}`;
-  }
-  const first = simplified[0] as Point;
-  let path = `M ${round(first.x)} ${round(first.y)}`;
-  for (let index = 1; index < simplified.length - 1; index += 1) {
-    const previous = simplified[index - 1] as Point;
-    const current = simplified[index] as Point;
-    const next = simplified[index + 1] as Point;
-    const cornerRadius = Math.min(
-      radius,
-      Math.hypot(current.x - previous.x, current.y - previous.y) / 2,
-      Math.hypot(next.x - current.x, next.y - current.y) / 2,
-    );
-    const before = pointTowards(current, previous, cornerRadius);
-    const after = pointTowards(current, next, cornerRadius);
-    if (cornerRadius <= 0.001) {
-      // Radius zero is a true right angle: no degenerate Q segment.
-      path += ` L ${round(current.x)} ${round(current.y)}`;
-      continue;
-    }
-    path += ` L ${round(before.x)} ${round(before.y)} Q ${round(current.x)} ${round(current.y)} ${round(after.x)} ${round(after.y)}`;
-  }
-  const last = simplified[simplified.length - 1] as Point;
-  path += ` L ${round(last.x)} ${round(last.y)}`;
-  return path;
-}
-
 function edgePath(points: Point[], radius: number): string {
-  return roundedPath(simplify(points), radius);
+  return roundedPath(simplifyPath(points), radius);
 }
 
 /**
@@ -191,32 +133,6 @@ export function branchConnectorPath(
     `L ${round(junction.x)} ${round(junction.y)}`,
     `L ${round(childEnd.x)} ${round(childEnd.y)}`,
   ].join(' ');
-}
-
-/** Fixed-size arrowhead polygon at `tip`, pointing right or down. */
-export function arrowPoints(
-  tip: Point,
-  direction: EdgeDirection = 'right',
-): [Point, Point, Point] {
-  const length = GEOMETRY.edgeArrowLength;
-  const half = GEOMETRY.edgeArrowHalfWidth;
-  if (direction === 'down') {
-    return [
-      tip,
-      { x: tip.x - half, y: tip.y - length },
-      { x: tip.x + half, y: tip.y - length },
-    ];
-  }
-  return [
-    tip,
-    { x: tip.x - length, y: tip.y - half },
-    { x: tip.x - length, y: tip.y + half },
-  ];
-}
-
-export function arrowPath(tip: Point, direction: EdgeDirection = 'right'): string {
-  const [a, b, c] = arrowPoints(tip, direction);
-  return `M ${round(a.x)} ${round(a.y)} L ${round(b.x)} ${round(b.y)} L ${round(c.x)} ${round(c.y)} Z`;
 }
 
 function makeArrow(tip: Point, direction: EdgeDirection): RoutedArrow {

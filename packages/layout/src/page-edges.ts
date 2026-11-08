@@ -20,6 +20,11 @@ import type {
   DerivedPage,
   PageFragment,
 } from './types.js';
+import {
+  routePageEdge,
+  straightPageRoute,
+  type PageRoute,
+} from './page-routing.js';
 
 export type PageEdgeDirection = 'same-page' | 'to-edge' | 'from-edge';
 
@@ -43,6 +48,8 @@ export interface PageEdge {
   /** Canonical branch label or anchor quote, when one is present. */
   branchLabel?: string;
   anchorId?: string;
+  /** Shared orthogonal route used by Page Read/Edit and the print model. */
+  route: PageRoute;
 }
 
 interface BlockPageLocation {
@@ -113,6 +120,11 @@ export function buildPageEdges(
 ): PageEdge[][] {
   const result = edgePages(pages);
   const locations = fragmentLocations(pages);
+  const laneCounts = new Map<string, number>();
+  const bounds = {
+    width: layout.geometry.contentWidthPx,
+    height: layout.geometry.contentHeightPx,
+  };
 
   for (const edge of layout.edges) {
     const fromLocation = firstLocation(locations, edge.fromBlockId);
@@ -154,12 +166,40 @@ export function buildPageEdges(
           }
         }
       }
+      const obstacles = page.fragments
+        .filter(
+          (fragment) =>
+            fragment.blockId !== edge.fromBlockId && fragment.blockId !== edge.toBlockId,
+        )
+        .map((fragment) => fragment.page);
+      const laneKey = `${page.pageNumber}:${edge.fromBlockId}:${edge.toBlockId}`;
+      const laneIndex = laneCounts.get(laneKey) ?? 0;
+      laneCounts.set(laneKey, laneIndex + 1);
+      const to = fragmentCenter(samePageTarget, 'left');
+      const route = routePageEdge({
+        from: fromPoint,
+        to,
+        sourceExit: edge.anchorId
+          ? {
+              x:
+                fromLocation.fragment.page.x +
+                fromLocation.fragment.page.width,
+              y: fromPoint.y,
+            }
+          : null,
+        sourceRect: fromLocation.fragment.page,
+        targetRect: samePageTarget.fragment.page,
+        obstacles,
+        bounds,
+        laneIndex,
+      });
       edgesForPage(result, page).push({
         ...base,
         from: fromPoint,
-        to: fragmentCenter(samePageTarget, 'left'),
+        to,
         direction: 'same-page',
         targetPage: null,
+        route,
       });
       continue;
     }
@@ -168,25 +208,29 @@ export function buildPageEdges(
       const outLocation = locationOnPage(locations, edge.fromBlockId, fromPage.pageNumber);
       if (outLocation) {
         const from = fragmentCenter(outLocation, 'right');
+        const to = { x: layout.geometry.contentWidthPx, y: from.y };
         edgesForPage(result, fromPage).push({
           ...base,
           from,
-          to: { x: layout.geometry.contentWidthPx, y: from.y },
+          to,
           direction: 'to-edge',
           targetPage: toPage.pageNumber,
           label: edgeLabel(toPage.pageNumber),
+          route: straightPageRoute(from, to),
         });
       }
       const inLocation = locationOnPage(locations, edge.toBlockId, toPage.pageNumber);
       if (inLocation) {
         const to = fragmentCenter(inLocation, 'left');
+        const from = { x: 0, y: to.y };
         edgesForPage(result, toPage).push({
           ...base,
-          from: { x: 0, y: to.y },
+          from,
           to,
           direction: 'from-edge',
           targetPage: fromPage.pageNumber,
           label: edgeLabel(fromPage.pageNumber),
+          route: straightPageRoute(from, to),
         });
       }
       continue;
@@ -196,13 +240,15 @@ export function buildPageEdges(
     const inLocation = locationOnPage(locations, edge.toBlockId, toPage.pageNumber);
     if (inLocation) {
       const to = fragmentCenter(inLocation, 'left');
+      const from = { x: 0, y: to.y };
       edgesForPage(result, toPage).push({
         ...base,
-        from: { x: 0, y: to.y },
+        from,
         to,
         direction: 'from-edge',
         targetPage: fromPage.pageNumber,
         label: edgeLabel(fromPage.pageNumber),
+        route: straightPageRoute(from, to),
       });
     }
   }

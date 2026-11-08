@@ -10,14 +10,22 @@
  * into paths; it does not route edges again.
  */
 
-import type { PageEdge, PageEdgePoint, PageGeometry } from '@noteforest/layout';
+import {
+  EDGE_STYLE,
+  arrowPath,
+  openArrowForDirection,
+  pageRouteMidpoint,
+  roundedPath,
+  type PageEdge,
+  type PageEdgePoint,
+  type PageGeometry,
+  type PageRoute,
+} from '@noteforest/layout';
 
 interface PageEdgesProps {
   edges: readonly PageEdge[];
   geometry: PageGeometry;
 }
-
-const ARROW_SIZE = 7;
 
 function number(value: number): string {
   const rounded = Math.round(value * 100) / 100;
@@ -28,48 +36,18 @@ function pointAttribute(point: PageEdgePoint): string {
   return `${number(point.x)},${number(point.y)}`;
 }
 
-function arrowHead(to: PageEdgePoint, control: PageEdgePoint, filled: boolean): string {
-  const dx = to.x - control.x;
-  const dy = to.y - control.y;
-  const length = Math.hypot(dx, dy) || 1;
-  const ux = dx / length;
-  const uy = dy / length;
-  const baseX = to.x - ux * ARROW_SIZE;
-  const baseY = to.y - uy * ARROW_SIZE;
-  const wing = ARROW_SIZE * 0.55;
-  const wingX = -uy * wing;
-  const wingY = ux * wing;
-  if (filled) {
-    return `M ${number(to.x)} ${number(to.y)} L ${number(baseX + wingX)} ${number(
-      baseY + wingY,
-    )} L ${number(baseX - wingX)} ${number(baseY - wingY)} Z`;
-  }
-  return `M ${number(baseX + wingX)} ${number(baseY + wingY)} L ${number(to.x)} ${number(
-    to.y,
-  )} L ${number(baseX - wingX)} ${number(baseY - wingY)}`;
+function routeAttribute(route: PageRoute): string {
+  return route.points.map((point) => pointAttribute(point)).join(' ');
 }
 
-function routeEdge(edge: PageEdge): { path: string; arrow: string } {
-  if (edge.direction !== 'same-page') {
-    // Cross-page routes are straight lines to/from the content edge, so the
-    // page margin never carries ink.
-    return {
-      path: `M ${number(edge.from.x)} ${number(edge.from.y)} L ${number(edge.to.x)} ${number(
-        edge.to.y,
-      )}`,
-      arrow: arrowHead(edge.to, edge.from, edge.role === 'primary'),
-    };
-  }
-  const dx = Math.max(24, Math.abs(edge.to.x - edge.from.x) * 0.45);
-  const direction = edge.to.x >= edge.from.x ? 1 : -1;
-  const control1 = { x: edge.from.x + direction * dx, y: edge.from.y };
-  const control2 = { x: edge.to.x - direction * dx, y: edge.to.y };
-  return {
-    path: `M ${number(edge.from.x)} ${number(edge.from.y)} C ${number(control1.x)} ${number(
-      control1.y,
-    )} ${number(control2.x)} ${number(control2.y)} ${number(edge.to.x)} ${number(edge.to.y)}`,
-    arrow: arrowHead(edge.to, control2, edge.role === 'primary'),
-  };
+function routePath(route: PageRoute): string {
+  return roundedPath(route.points, EDGE_STYLE.radius);
+}
+
+function routeArrow(edge: PageEdge): string {
+  return edge.role === 'primary'
+    ? arrowPath(edge.route.tip, edge.route.direction)
+    : openArrowForDirection(edge.route.tip, edge.route.direction);
 }
 
 function edgeLabelText(edge: PageEdge): string | null {
@@ -103,13 +81,14 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
     .map((edge) => {
       if (edge.direction === 'same-page') {
         if (edge.branchLabel === undefined) return null;
+        const midpoint = pageRouteMidpoint(edge.route.points);
         return {
           key: `${edge.branchId}-branch`,
           text: edge.branchLabel,
           aria: accessibleLabel(edge),
           style: {
-            left: (edge.from.x + edge.to.x) / 2,
-            top: (edge.from.y + edge.to.y) / 2,
+            left: midpoint.x,
+            top: midpoint.y,
             transform: 'translate(-50%, -50%)',
           },
           attribute: 'branch' as const,
@@ -159,17 +138,26 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
         data-page-edge-count={edges.length}
       >
         {edges.map((edge) => {
-          const route = routeEdge(edge);
           return (
             <g
               key={`${edge.branchId}-${edge.direction}-${edge.direction === 'same-page' ? '' : edge.targetPage ?? ''}`}
-              className={`nf-page-edge nf-page-edge-${edge.role} nf-page-edge-${edge.direction}`}
+              className={`nf-page-edge nf-page-edge-${edge.role} nf-page-edge-${edge.direction}${
+                edge.route.blocked ? ' nf-page-edge-blocked' : ''
+              }`}
               data-page-edge-id={edge.branchId}
               data-page-edge-role={edge.role}
               data-page-edge-direction={edge.direction}
               data-page-edge-target-page={edge.targetPage ?? undefined}
               data-page-edge-from={pointAttribute(edge.from)}
               data-page-edge-to={pointAttribute(edge.to)}
+              data-page-edge-from-block={edge.fromBlockId}
+              data-page-edge-to-block={edge.toBlockId}
+              data-page-edge-route={routeAttribute(edge.route)}
+              data-page-edge-tip={pointAttribute(edge.route.tip)}
+              data-page-edge-entry={edge.route.entry}
+              data-page-edge-arrow={edge.route.direction}
+              data-page-edge-stem={number(edge.route.stem)}
+              data-page-edge-blocked={edge.route.blocked ? 'true' : undefined}
               data-page-edge-anchor-id={edge.anchorId}
               data-page-edge-anchor-start={
                 edge.anchorId !== undefined && edge.direction === 'same-page' ? 'true' : undefined
@@ -177,13 +165,13 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
             >
               <path
                 className={`nf-page-edge-path nf-page-edge-path-${edge.role}`}
-                d={route.path}
+                d={routePath(edge.route)}
                 vectorEffect="non-scaling-stroke"
                 fill="none"
               />
               <path
                 className={`nf-page-edge-arrow nf-page-edge-arrow-${edge.role}`}
-                d={route.arrow}
+                d={routeArrow(edge)}
                 vectorEffect="non-scaling-stroke"
                 fill={edge.role === 'primary' ? 'currentColor' : 'none'}
               />

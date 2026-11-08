@@ -23,8 +23,8 @@ import { artifactsPath, createHarness, root } from '../support/harness.mjs';
  * Page coverage is a union-area ratio, so side-by-side cards are not counted
  * twice. Row fill groups fragments by their page-local top; max columns is the
  * maximum number of fragments intersecting one horizontal scanline. Arrow
- * crossings are a rough straight-line heuristic over the same page content
- * boxes; PageEdges draws cubic curves, so treat it as a signal.
+ * crossings sample the rendered orthogonal route (R2d); the legacy straight
+ * chord is kept as `chordCrossing*` so the R2c numbers stay comparable.
  */
 
 const tempRoot = artifactsPath('r2c-density-tmp');
@@ -340,6 +340,10 @@ async function readPageMetrics() {
       maxColumnsAtScanline = Math.max(maxColumnsAtScanline, columns);
     }
 
+    // Edges are orthogonal (R2d). The crossing/hidden-segment metric samples
+    // the routed polyline from `data-page-edge-route`, not the straight chord:
+    // a parent → later-sibling edge must not pass behind an earlier card. The
+    // legacy chord metric is kept alongside so the R2c numbers stay comparable.
     const point = (value) => {
       const [x, y] = (value ?? '').split(',').map(Number);
       return { x, y };
@@ -349,45 +353,103 @@ async function readPageMetrics() {
       x <= fragment.x + fragment.width + 1.5 &&
       y >= fragment.y - 1.5 &&
       y <= fragment.y + fragment.height + 1.5;
-    const edges = [...view.querySelectorAll('[data-page-edge-id]')].map((element) => ({
-      branchId: element.getAttribute('data-page-edge-id') ?? '',
-      role: element.getAttribute('data-page-edge-role') ?? '',
-      direction: element.getAttribute('data-page-edge-direction') ?? '',
-      from: point(element.getAttribute('data-page-edge-from')),
-      to: point(element.getAttribute('data-page-edge-to')),
-    }));
+    const sampleInside = (fragments, sourceIndex, targetIndex, x, y) => {
+      for (let index = 0; index < fragments.length; index += 1) {
+        if (index === sourceIndex || index === targetIndex) continue;
+        const fragment = fragments[index];
+        if (
+          x > fragment.x + 1 &&
+          x < fragment.x + fragment.width - 1 &&
+          y > fragment.y + 1 &&
+          y < fragment.y + fragment.height - 1
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const edges = [...view.querySelectorAll('[data-page-edge-id]')].map((element) => {
+      const route = (element.getAttribute('data-page-edge-route') ?? '')
+        .split(' ')
+        .filter((part) => part.length > 0)
+        .map(point);
+      return {
+        branchId: element.getAttribute('data-page-edge-id') ?? '',
+        role: element.getAttribute('data-page-edge-role') ?? '',
+        direction: element.getAttribute('data-page-edge-direction') ?? '',
+        fromBlock: element.getAttribute('data-page-edge-from-block') ?? '',
+        toBlock: element.getAttribute('data-page-edge-to-block') ?? '',
+        blocked: element.getAttribute('data-page-edge-blocked') === 'true',
+        entry: element.getAttribute('data-page-edge-entry') ?? '',
+        arrow: element.getAttribute('data-page-edge-arrow') ?? '',
+        stem: Number(element.getAttribute('data-page-edge-stem')),
+        pathD: element.querySelector('.nf-page-edge-path')?.getAttribute('d') ?? '',
+        from: point(element.getAttribute('data-page-edge-from')),
+        to: point(element.getAttribute('data-page-edge-to')),
+        route,
+      };
+    });
     let crossingEdges = 0;
     let crossingHits = 0;
+    let chordCrossingEdges = 0;
+    let chordCrossingHits = 0;
+    let blockedEdges = 0;
+    const crossingDetails = [];
     for (const edge of edges) {
       if (edge.direction !== 'same-page') continue;
+      if (edge.blocked) blockedEdges += 1;
       const sourceIndex = fragments.findIndex((fragment) =>
         nearRect(fragment, edge.from.x, edge.from.y),
       );
       const targetIndex = fragments.findIndex((fragment) =>
         nearRect(fragment, edge.to.x, edge.to.y),
       );
-      let hits = 0;
-      for (let step = 1; step < 24; step += 1) {
-        const t = step / 24;
-        const x = edge.from.x + (edge.to.x - edge.from.x) * t;
-        const y = edge.from.y + (edge.to.y - edge.from.y) * t;
-        for (let index = 0; index < fragments.length; index += 1) {
-          if (index === sourceIndex || index === targetIndex) continue;
-          const fragment = fragments[index];
-          if (
-            x > fragment.x + 1 &&
-            x < fragment.x + fragment.width - 1 &&
-            y > fragment.y + 1 &&
-            y < fragment.y + fragment.height - 1
-          ) {
-            hits += 1;
-            break;
-          }
+      let routeHits = 0;
+      const route = edge.route.length > 1 ? edge.route : [edge.from, edge.to];
+      for (let index = 1; index < route.length; index += 1) {
+        const start = route[index - 1];
+        const end = route[index];
+        const length = Math.abs(end.x - start.x) + Math.abs(end.y - start.y);
+        const steps = Math.max(2, Math.ceil(length / 2));
+        for (let step = 1; step < steps; step += 1) {
+          const ratio = step / steps;
+          const x = start.x + (end.x - start.x) * ratio;
+          const y = start.y + (end.y - start.y) * ratio;
+          if (sampleInside(fragments, sourceIndex, targetIndex, x, y)) routeHits += 1;
         }
       }
-      if (hits > 0) {
+      if (routeHits > 0) {
         crossingEdges += 1;
-        crossingHits += hits;
+        crossingHits += routeHits;
+        crossingDetails.push({
+          branchId: edge.branchId,
+          role: edge.role,
+          fromBlock: edge.fromBlock,
+          toBlock: edge.toBlock,
+          direction: edge.direction,
+          entry: edge.entry,
+          arrow: edge.arrow,
+          stem: edge.stem,
+          blocked: edge.blocked,
+          from: edge.from,
+          to: edge.to,
+          route,
+          pathD: edge.pathD,
+          fragments,
+          hits: routeHits,
+        });
+      }
+
+      let chordHits = 0;
+      for (let step = 1; step < 24; step += 1) {
+        const ratio = step / 24;
+        const x = edge.from.x + (edge.to.x - edge.from.x) * ratio;
+        const y = edge.from.y + (edge.to.y - edge.from.y) * ratio;
+        if (sampleInside(fragments, sourceIndex, targetIndex, x, y)) chordHits += 1;
+      }
+      if (chordHits > 0) {
+        chordCrossingEdges += 1;
+        chordCrossingHits += chordHits;
       }
     }
 
@@ -469,6 +531,10 @@ async function readPageMetrics() {
       edgeCount: edges.length,
       crossingEdges,
       crossingHits,
+      chordCrossingEdges,
+      chordCrossingHits,
+      blockedEdges,
+      crossingDetails,
       lines: prose.count + table.count,
       maxLinePx: prose.maxPx,
       maxLineChars: prose.maxChars,
@@ -571,10 +637,21 @@ async function measureDocument(label) {
       edges: pages.reduce((total, item) => total + item.edgeCount, 0),
       crossingEdges: pages.reduce((total, item) => total + item.crossingEdges, 0),
       crossingHits: pages.reduce((total, item) => total + item.crossingHits, 0),
+      chordCrossingEdges: pages.reduce((total, item) => total + item.chordCrossingEdges, 0),
+      chordCrossingHits: pages.reduce((total, item) => total + item.chordCrossingHits, 0),
+      blockedEdges: pages.reduce((total, item) => total + item.blockedEdges, 0),
+      crossingDetails: pages.flatMap((item) => item.crossingDetails),
       lines: pages.reduce((total, item) => total + item.lines, 0),
     };
     variants.push(result);
     console.log(`DENSITY ${JSON.stringify(result)}`);
+    if (result.crossingDetails.length > 0) {
+      console.log(
+        `CROSSING-DETAIL ${result.document}/${result.variant} ${JSON.stringify(
+          result.crossingDetails,
+        )}`,
+      );
+    }
   }
   return variants;
 }
@@ -613,6 +690,12 @@ function assertVariantInvariants(entry) {
   assert.equal(entry.overlapPairs, 0, `${entry.document}/${entry.variant}: no overlapping fragments`);
   assert.equal(entry.columnOverlapPx, 0, `${entry.document}/${entry.variant}: no column intrusion`);
   assert.equal(entry.rightOverflow, 0, `${entry.document}/${entry.variant}: no fragment beyond the content box`);
+  assert.equal(entry.blockedEdges, 0, `${entry.document}/${entry.variant}: every page edge is routable`);
+  assert.equal(
+    entry.crossingEdges,
+    0,
+    `${entry.document}/${entry.variant}: no route hides behind a fragment card`,
+  );
 }
 
 describe('R2c page compaction lab', () => {
