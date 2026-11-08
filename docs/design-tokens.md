@@ -99,8 +99,14 @@ so one engine produces one geometry.
 | `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent |
 | `maxWrapIndent` | 54 px | Cap on cumulative wrap indent from the page content left (3 × 18) |
 | `wrapPolicy` | `group-left-origin` | Production default from ADR-0006; lab oracles are not user-facing |
+| `pagePacking` | `stacked` (engine) / `beside` (compact page) | Page/PDF column packing; Continuous never reads it |
 | `minContentWidth` | 160 px | Readable minimum before a block reports `content-too-wide` |
 | `maxContentWidth` | 420 px | Readable text cap; unbreakable content may use more |
+
+`beside` is a page/PDF-only policy: anchored callouts stay below the parent in the
+parent-card lane while the direct-child group starts at the parent `y` in the right
+column. The lane ends one sibling gap before the right group. The Continuous
+callout-projection lane above is a different surface and is unchanged.
 
 M4a lab evidence (`docs/reports/m4a-layout-lab.md`): no page-count delta on the 300-block,
 deep-chain, wide-fan, or showcase fixtures; the only measured trade-off is wide-fan's +99.1 px

@@ -266,9 +266,14 @@ describe('R2a page arrows and Continuous cleanup', () => {
     const env = ui.isolated('r2a-cross-page');
     await launch('r2a-cross-page');
     const packagePath = await openPackage(env, 'Page arrows cross page', pageArrowsDocument());
+    // R2a covers the cross-page mapper; R2b covers the default beside packing.
+    // Keep this fixture on the stacked order so both direct and callout edges
+    // appear on page 2 as the accepted R2a evidence expects.
     const resolved = await setPageSettingsOverride(packagePath, {
+      theme: { pagePacking: 'stacked' },
       manualBreakBeforeBlockIds: ['callout'],
     });
+    assert.equal(resolved.theme.pagePacking, 'stacked');
     assert.deepEqual(resolved.manualBreakBeforeBlockIds, ['callout']);
     await showPageRead();
     const count = await pageCount();

@@ -8,7 +8,7 @@
  * imports.
  */
 
-import type { LayoutOptions, Orientation } from './types.js';
+import type { LayoutOptions, Orientation, PagePacking } from './types.js';
 import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
 
 export type PageSize = 'A4' | 'A5' | 'Letter';
@@ -70,6 +70,12 @@ export interface PageTheme {
   calloutGap: number;
   maxCardWidth: number;
   minContentWidth: number;
+  /**
+   * Page/PDF packing policy. `stacked` is the R2a geometry; `beside` starts the
+   * direct-child group at the parent's y while anchored callouts stay below.
+   * Continuous does not read this field.
+   */
+  pagePacking: PagePacking;
 }
 
 export interface PageSettings {
@@ -131,6 +137,9 @@ const COMPACT_THEME: PageTheme = Object.freeze({
   calloutGap: 12,
   maxCardWidth: 420,
   minContentWidth: 160,
+  // R2b default candidate: direct children start beside the parent while
+  // anchored callouts stay below. The lab decides whether this stays.
+  pagePacking: 'beside',
 });
 
 /**
@@ -161,6 +170,7 @@ const COMFORTABLE_THEME: PageTheme = Object.freeze({
   calloutGap: 20,
   maxCardWidth: 420,
   minContentWidth: 160,
+  pagePacking: 'stacked',
 });
 
 export const PAGE_THEME_PRESETS: Readonly<
@@ -258,6 +268,7 @@ export function pageLayoutOptions(theme: PageTheme): LayoutOptions {
     wrapIndent: theme.wrapIndent,
     maxWrapIndent: theme.maxWrapIndent,
     wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
+    pagePacking: theme.pagePacking,
     calloutGap: theme.calloutGap,
     chapterGap: DEFAULT_LAYOUT_OPTIONS.chapterGap,
     cardPadding: theme.cardPadding,
@@ -321,6 +332,10 @@ function isPreset(value: unknown): value is PageThemePreset {
   return value === 'compact' || value === 'comfortable' || value === 'custom';
 }
 
+function isPagePacking(value: unknown): value is PagePacking {
+  return value === 'stacked' || value === 'beside';
+}
+
 function finiteNumber(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
@@ -377,6 +392,9 @@ function resolveTheme(
   const maxWrapIndent = Math.max(wrapIndent, clamp('maxWrapIndent', 36, 0, 192));
   const minContentWidth = clamp('minContentWidth', 160, 80, 800);
   const maxCardWidth = Math.max(minContentWidth, clamp('maxCardWidth', 420, 120, 2000));
+  const pagePacking = isPagePacking(override['pagePacking'])
+    ? override['pagePacking']
+    : base?.pagePacking ?? 'stacked';
   return {
     preset,
     fontScale,
@@ -402,6 +420,7 @@ function resolveTheme(
     calloutGap: clamp('calloutGap', 12, 0, 96),
     maxCardWidth,
     minContentWidth,
+    pagePacking,
   };
 }
 
@@ -544,6 +563,9 @@ export function normalizePageSettingsOverride(
       if (typeof value === 'number' && Number.isFinite(value)) {
         (theme as Record<string, number>)[key] = resolved.theme[key];
       }
+    }
+    if (isPagePacking(rawTheme['pagePacking'])) {
+      theme.pagePacking = resolved.theme.pagePacking;
     }
     if (Object.keys(theme).length > 0) override.theme = theme;
   }

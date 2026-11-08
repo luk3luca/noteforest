@@ -49,6 +49,7 @@ describe('page settings defaults', () => {
       calloutGap: 12,
       maxCardWidth: 420,
       minContentWidth: 160,
+      pagePacking: 'beside',
     });
     expect(DEFAULT_APP_SETTINGS.page).toBe(DEFAULT_PAGE_SETTINGS);
     expect(DEFAULT_APP_SETTINGS.continuous).toBe(DEFAULT_CONTINUOUS_SETTINGS);
@@ -74,6 +75,7 @@ describe('page settings defaults', () => {
       maxWrapIndent: 54,
       calloutGap: 20,
       maxCardWidth: 420,
+      pagePacking: 'stacked',
     });
   });
 });
@@ -214,6 +216,28 @@ describe('settings normalization and merge', () => {
     expect(resolved.theme.cardPadding).toBe(12);
   });
 
+  it('normalizes the page packing policy from a theme override', () => {
+    expect(
+      normalizePageSettingsOverride({ theme: { pagePacking: 'stacked' } }),
+    ).toEqual({ theme: { pagePacking: 'stacked' } });
+    expect(
+      normalizePageSettingsOverride({ theme: { pagePacking: 'beside' } }),
+    ).toEqual({ theme: { pagePacking: 'beside' } });
+    expect(normalizePageSettingsOverride({ theme: { pagePacking: 'columns' } })).toBeUndefined();
+    expect(
+      mergePageSettings(DEFAULT_PAGE_SETTINGS, { theme: { pagePacking: 'stacked' } }).theme
+        .pagePacking,
+    ).toBe('stacked');
+    // A preset switch starts from that preset's packing unless it is overridden.
+    expect(normalizePageSettings({ theme: { preset: 'comfortable' } }).theme.pagePacking).toBe(
+      'stacked',
+    );
+    expect(
+      normalizePageSettings({ theme: { preset: 'comfortable', pagePacking: 'beside' } }).theme
+        .pagePacking,
+    ).toBe('beside');
+  });
+
   it('drops empty or invalid overrides and normalizes continuous overrides', () => {
     expect(normalizePageSettingsOverride(undefined)).toBeUndefined();
     expect(normalizePageSettingsOverride(null)).toBeUndefined();
@@ -237,6 +261,7 @@ describe('theme maps', () => {
       wrapIndent: theme.wrapIndent,
       maxWrapIndent: theme.maxWrapIndent,
       wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
+      pagePacking: theme.pagePacking,
       calloutGap: theme.calloutGap,
       chapterGap: DEFAULT_LAYOUT_OPTIONS.chapterGap,
       cardPadding: theme.cardPadding,

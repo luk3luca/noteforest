@@ -43,7 +43,29 @@ interface PlacementContext {
   parentBlockId: string | null;
   anchorId: string | null;
   depth: number;
+  /**
+   * Maximum chapter-local x this subtree may occupy. Page packing uses it to
+   * keep a callout subtree inside the left column instead of letting it spill
+   * into the direct-child group. Continuous uses the page content width.
+   */
+  rightLimit: number;
+  /**
+   * Minimum chapter-local x for a wrapped group inside this lane. The default
+   * is the page content left, matching the ADR-0006 cap. A direct-child group
+   * that sits beside anchored callouts raises it to the right column origin so
+   * a wrapped descendant can never wrap back across the safe gap.
+   */
+  wrapFloor: number;
   incomingAnchor?: AnchorAttachment | null;
+}
+
+interface BesideCallout {
+  branch: BranchRecord;
+  target: ContentBlock;
+  x: number;
+  rightLimit: number;
+  anchorId: string | null;
+  attachment: AnchorAttachment | null;
 }
 
 interface ResolvedBlockBox {
@@ -133,12 +155,14 @@ class LayoutBuilder {
           });
           continue;
         }
-        const placed = this.layoutBlock(block, chapter.id, 0, cursorY, this.geometry.contentWidthPx, {
+        const placed = this.layoutBlock(block, chapter.id, 0, cursorY, {
           chapterId: chapter.id,
           role: 'top-level',
           parentBlockId: null,
           anchorId: null,
           depth: 0,
+          rightLimit: this.geometry.contentWidthPx,
+          wrapFloor: PAGE_CONTENT_LEFT,
         });
         cursorY = placed.subtreeBottom + this.options.chapterGap;
       }
@@ -225,10 +249,13 @@ class LayoutBuilder {
   }
 
   /** Capped left origin for a child group that wraps below its parent. */
-  private wrapOriginX(parentX: number): number {
-    return Math.min(
-      parentX + this.options.wrapIndent,
-      PAGE_CONTENT_LEFT + this.options.maxWrapIndent,
+  private wrapOriginX(parentX: number, wrapFloor: number): number {
+    return Math.max(
+      Math.min(
+        parentX + this.options.wrapIndent,
+        PAGE_CONTENT_LEFT + this.options.maxWrapIndent,
+      ),
+      wrapFloor,
     );
   }
 
@@ -261,8 +288,12 @@ class LayoutBuilder {
    * report `layout-overflow` is treated as not fitting. The check is local to
    * the direct child; descendants apply their own group rule.
    */
-  private directChildFitsRight(target: ContentBlock, rightX: number): boolean {
-    const rightAvailable = Math.max(0, this.geometry.contentWidthPx - rightX);
+  private directChildFitsRight(
+    target: ContentBlock,
+    rightX: number,
+    rightLimit: number,
+  ): boolean {
+    const rightAvailable = Math.max(0, rightLimit - rightX);
     const rightContent = Math.max(0, rightAvailable - 2 * (this.options.cardPadding + this.options.cardBorder));
     if (rightContent <= 0) return false;
     const childMax = this.measure(target, { kind: 'max-content' });
@@ -285,7 +316,6 @@ class LayoutBuilder {
     chapterId: string,
     x: number,
     y: number,
-    availableWidth: number,
     context: PlacementContext,
   ): LayoutBlock {
     if (this.stack.has(block.id)) {
@@ -298,10 +328,11 @@ class LayoutBuilder {
         blocksExport: true,
       });
       const empty = this.measure(block, { kind: 'fixed', contentWidth: 0 });
-      return this.makePlaceholderBlock(block, chapterId, x, y, availableWidth, context, empty);
+      return this.makePlaceholderBlock(block, chapterId, x, y, context, empty);
     }
     this.stack.add(block.id);
 
+    const availableWidth = Math.max(0, context.rightLimit - x);
     const box = this.resolveBlockBox(block, availableWidth);
     const { measurement, width, contentWidth } = box;
 
@@ -380,47 +411,9 @@ class LayoutBuilder {
       .sort((a, b) => this.compareAnchoredBranches(a, b, anchorAttachments));
     const direct = branches.filter((branch) => !branch.source.anchorId).sort(compareBranches);
 
-    let subtreeBottom = y + measurement.cardHeight;
-    let calloutCursor = y + measurement.cardHeight + this.options.calloutGap;
-    for (const branch of anchored) {
-      const target = this.document.blocks[branch.targetBlockId];
-      if (!target) continue;
-      if (this.visited.has(target.id)) {
-        this.addDefect({
-          code: 'duplicate-primary',
-          severity: 'warning',
-          message: `Anchored branch ${branch.id} targets block ${target.id}, which already has a primary home; the duplicate placement is skipped.`,
-          blockId: target.id,
-          chapterId,
-          blocksExport: false,
-        });
-        continue;
-      }
-      const anchorId = branch.source.anchorId ?? null;
-      const attachment = anchorId
-        ? anchorAttachments.find((candidate) => candidate.anchorId === anchorId)
-        : undefined;
-      const anchorPoint = attachment?.rect ?? null;
-      const warningPoint = attachment?.warningPoint ?? {
-        x: x + width - 16,
-        y: y + 8,
-      };
-      const calloutX = anchorPoint ? anchorPoint.x : warningPoint.x;
-      const available = Math.max(0, x + width + (this.geometry.contentWidthPx - (x + width)) - calloutX);
-      const placed = this.layoutBlock(target, chapterId, calloutX, calloutCursor, available, {
-        chapterId,
-        role: 'callout',
-        parentBlockId: block.id,
-        anchorId,
-        depth: context.depth + 1,
-        incomingAnchor: attachment ?? null,
-      });
-      layoutBlock.childIds.push(target.id);
-      calloutCursor = placed.subtreeBottom + this.options.calloutGap;
-      subtreeBottom = Math.max(subtreeBottom, placed.subtreeBottom);
-    }
-
-    const directStartY = anchored.length > 0 ? calloutCursor : y;
+    // Direct candidates are resolved before callouts: the beside decision
+    // depends on whether the whole direct-child group can stay in the right
+    // column at the parent's y.
     const rightX = x + width + this.options.siblingGap;
     const candidates: Array<{ branch: BranchRecord; target: ContentBlock; fitsRight: boolean }> = [];
     const fitsByTarget = new Map<string, boolean>();
@@ -430,19 +423,12 @@ class LayoutBuilder {
       if (this.visited.has(target.id)) {
         // A duplicate that is already placed must not influence the group's
         // fit decision; it is skipped with the same warning as before.
-        this.addDefect({
-          code: 'duplicate-primary',
-          severity: 'warning',
-          message: `Primary branch ${branch.id} targets block ${target.id}, which already has a primary home; the duplicate placement is skipped.`,
-          blockId: target.id,
-          chapterId,
-          blocksExport: false,
-        });
+        this.noteDuplicatePrimary('Primary', branch, target, chapterId);
         continue;
       }
       let fitsRight = fitsByTarget.get(target.id);
       if (fitsRight === undefined) {
-        fitsRight = this.directChildFitsRight(target, rightX);
+        fitsRight = this.directChildFitsRight(target, rightX, context.rightLimit);
         fitsByTarget.set(target.id, fitsRight);
       }
       candidates.push({ branch, target, fitsRight });
@@ -453,7 +439,87 @@ class LayoutBuilder {
     // parent at one capped left origin. The two other policies are lab oracles.
     const groupFitsRight = candidates.every((candidate) => candidate.fitsRight);
     const wrapAll = this.options.wrapPolicy === 'group-left-origin' && !groupFitsRight;
-    const groupWrapX = this.wrapOriginX(x);
+    const groupWrapX = this.wrapOriginX(x, context.wrapFloor);
+
+    // R2b beside packing: anchored callouts keep the below-parent order in the
+    // left column, while the direct-child group starts at the parent's y in
+    // the right column. The callout lane ends at the parent's right edge, so
+    // the right column starts one sibling gap later. If any callout cannot fit
+    // the lane without a new width defect, the whole block keeps the stacked
+    // order instead of clipping or overlapping.
+    const besidePlan =
+      this.options.pagePacking === 'beside' &&
+      anchored.length > 0 &&
+      candidates.length > 0 &&
+      !wrapAll
+        ? this.planBesideCallouts(anchored, anchorAttachments, x, width, chapterId)
+        : null;
+    const beside = besidePlan !== null && besidePlan.length > 0;
+
+    let subtreeBottom = y + measurement.cardHeight;
+    let calloutCursor = y + measurement.cardHeight + this.options.calloutGap;
+
+    if (beside && besidePlan !== null) {
+      for (const plan of besidePlan) {
+        if (this.visited.has(plan.target.id)) {
+          this.noteDuplicatePrimary('Anchored', plan.branch, plan.target, chapterId);
+          continue;
+        }
+        const placed = this.layoutBlock(plan.target, chapterId, plan.x, calloutCursor, {
+          chapterId,
+          role: 'callout',
+          parentBlockId: block.id,
+          anchorId: plan.anchorId,
+          depth: context.depth + 1,
+          rightLimit: plan.rightLimit,
+          wrapFloor: context.wrapFloor,
+          incomingAnchor: plan.attachment,
+        });
+        layoutBlock.childIds.push(plan.target.id);
+        calloutCursor = placed.subtreeBottom + this.options.calloutGap;
+        subtreeBottom = Math.max(subtreeBottom, placed.subtreeBottom);
+      }
+    } else {
+      for (const branch of anchored) {
+        const target = this.document.blocks[branch.targetBlockId];
+        if (!target) continue;
+        if (this.visited.has(target.id)) {
+          this.noteDuplicatePrimary('Anchored', branch, target, chapterId);
+          continue;
+        }
+        const anchorId = branch.source.anchorId ?? null;
+        const attachment = anchorId
+          ? anchorAttachments.find((candidate) => candidate.anchorId === anchorId)
+          : undefined;
+        const anchorPoint = attachment?.rect ?? null;
+        const warningPoint = attachment?.warningPoint ?? {
+          x: x + width - 16,
+          y: y + 8,
+        };
+        const calloutX = anchorPoint ? anchorPoint.x : warningPoint.x;
+        const placed = this.layoutBlock(target, chapterId, calloutX, calloutCursor, {
+          chapterId,
+          role: 'callout',
+          parentBlockId: block.id,
+          anchorId,
+          depth: context.depth + 1,
+          rightLimit: context.rightLimit,
+          wrapFloor: context.wrapFloor,
+          incomingAnchor: attachment ?? null,
+        });
+        layoutBlock.childIds.push(target.id);
+        calloutCursor = placed.subtreeBottom + this.options.calloutGap;
+        subtreeBottom = Math.max(subtreeBottom, placed.subtreeBottom);
+      }
+    }
+
+    // In stacked order the direct-child group starts after the callouts, as
+    // before. In beside order it starts at the parent's y; the callouts own
+    // the left column and the right group owns the right column.
+    const directStartY = beside ? y : anchored.length > 0 ? calloutCursor : y;
+    // A wrapped descendant of the beside group must stay in the right column;
+    // wrapping back across the safe gap is what would collide with a callout.
+    const childWrapFloor = beside ? Math.max(context.wrapFloor, rightX) : context.wrapFloor;
 
     let childCursor = directStartY;
     if (wrapAll) {
@@ -466,14 +532,7 @@ class LayoutBuilder {
     }
     for (const { branch, target, fitsRight } of candidates) {
       if (this.visited.has(target.id)) {
-        this.addDefect({
-          code: 'duplicate-primary',
-          severity: 'warning',
-          message: `Primary branch ${branch.id} targets block ${target.id}, which already has a primary home; the duplicate placement is skipped.`,
-          blockId: target.id,
-          chapterId,
-          blocksExport: false,
-        });
+        this.noteDuplicatePrimary('Primary', branch, target, chapterId);
         continue;
       }
       let childX: number;
@@ -495,13 +554,14 @@ class LayoutBuilder {
           );
         }
       }
-      const childAvailable = Math.max(0, this.geometry.contentWidthPx - childX);
-      const placed = this.layoutBlock(target, chapterId, childX, childCursor, childAvailable, {
+      const placed = this.layoutBlock(target, chapterId, childX, childCursor, {
         chapterId,
         role: 'child',
         parentBlockId: block.id,
         anchorId: null,
         depth: context.depth + 1,
+        rightLimit: context.rightLimit,
+        wrapFloor: childWrapFloor,
       });
       layoutBlock.childIds.push(target.id);
       childCursor = placed.subtreeBottom + this.options.siblingGap;
@@ -513,16 +573,86 @@ class LayoutBuilder {
     return layoutBlock;
   }
 
+  private noteDuplicatePrimary(
+    kind: 'Primary' | 'Anchored',
+    branch: BranchRecord,
+    target: ContentBlock,
+    chapterId: string,
+  ): void {
+    this.addDefect({
+      code: 'duplicate-primary',
+      severity: 'warning',
+      message: `${kind} branch ${branch.id} targets block ${target.id}, which already has a primary home; the duplicate placement is skipped.`,
+      blockId: target.id,
+      chapterId,
+      blocksExport: false,
+    });
+  }
+
+  /**
+   * Plan the R2b beside callout lane without placing anything.
+   *
+   * The left lane is the parent card's horizontal band. A callout keeps its
+   * anchor-aligned x while that leaves the preferred minimum content width;
+   * otherwise it clamps left to the parent content edge and keeps the
+   * connector (spec OD-8). If even that lane cannot hold the callout's measured
+   * min-content, the caller falls back to the stacked order for the block.
+   */
+  private planBesideCallouts(
+    anchored: readonly BranchRecord[],
+    anchorAttachments: readonly AnchorAttachment[],
+    x: number,
+    width: number,
+    chapterId: string,
+  ): BesideCallout[] | null {
+    const laneLeft = x + this.options.cardPadding + this.options.cardBorder;
+    const laneRight = x + width;
+    const chrome = 2 * (this.options.cardPadding + this.options.cardBorder);
+    const preferredCardWidth = this.options.minContentWidth + chrome;
+    const plan: BesideCallout[] = [];
+    for (const branch of anchored) {
+      const target = this.document.blocks[branch.targetBlockId];
+      if (!target) continue;
+      if (this.visited.has(target.id)) {
+        this.noteDuplicatePrimary('Anchored', branch, target, chapterId);
+        continue;
+      }
+      const anchorId = branch.source.anchorId ?? null;
+      const attachment = anchorId
+        ? (anchorAttachments.find((candidate) => candidate.anchorId === anchorId) ?? null)
+        : null;
+      const desiredX = Math.max(
+        laneLeft,
+        attachment?.rect?.x ?? attachment?.warningPoint?.x ?? x + width - 16,
+      );
+      const calloutX = desiredX + preferredCardWidth <= laneRight + EPSILON
+        ? desiredX
+        : laneLeft;
+      const available = laneRight - calloutX;
+      if (available <= chrome + EPSILON) return null;
+      const box = this.resolveBlockBox(target, available);
+      if (box.contentTooWide || box.horizontalOverflow) return null;
+      plan.push({
+        branch,
+        target,
+        x: calloutX,
+        rightLimit: laneRight,
+        anchorId,
+        attachment,
+      });
+    }
+    return plan.length > 0 ? plan : null;
+  }
+
   private makePlaceholderBlock(
     block: ContentBlock,
     chapterId: string,
     x: number,
     y: number,
-    availableWidth: number,
     context: PlacementContext,
     measurement: BlockMeasurement,
   ): LayoutBlock {
-    const width = Math.min(availableWidth, measurement.cardWidth);
+    const width = Math.min(Math.max(0, context.rightLimit - x), measurement.cardWidth);
     const placeholder: LayoutBlock = {
       blockId: block.id,
       chapterId,

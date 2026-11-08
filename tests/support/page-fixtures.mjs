@@ -215,9 +215,159 @@ export function pageArrowsDocument() {
   });
 }
 
+/**
+ * R2b beside-packing fixture: a wide parent with two anchored callouts and a
+ * direct child, plus a nested child that also has a callout and a direct child.
+ * One chapter, one page at A4 landscape; no image or font dependency.
+ */
+export function sidePackingDocument() {
+  const rootLead = 'An ';
+  const rootAnchorQuote = 'eigenvalue';
+  const rootText =
+    'An eigenvalue is a scalar that a linear map sends to a multiple of itself. ' +
+    'The scalar is the multiple and the vector is its eigenvector.';
+  const midQuote = 'multiple';
+  const midStart = rootText.indexOf(midQuote);
+  const childText = 'A direct child beside its parent.';
+  const nestedQuote = 'beside';
+  const nestedStart = childText.indexOf(nestedQuote);
+  const root = {
+    id: 'side-root',
+    label: 'Side root',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            { type: 'text', text: rootLead },
+            {
+              type: 'text',
+              text: rootAnchorQuote,
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['anchor-root'] } }],
+            },
+            { type: 'text', text: rootText.slice(rootLead.length + rootAnchorQuote.length, midStart) },
+            {
+              type: 'text',
+              text: midQuote,
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['anchor-mid'] } }],
+            },
+            { type: 'text', text: rootText.slice(midStart + midQuote.length) },
+          ],
+        },
+      ],
+    },
+  };
+  const child = {
+    id: 'side-child',
+    label: 'Direct child',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            { type: 'text', text: childText.slice(0, nestedStart) },
+            {
+              type: 'text',
+              text: nestedQuote,
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['anchor-nested'] } }],
+            },
+            { type: 'text', text: childText.slice(nestedStart + nestedQuote.length) },
+          ],
+        },
+      ],
+    },
+  };
+  return pageDocument({
+    id: 'side-packing',
+    title: 'Side packing',
+    chapterTitle: 'Packing',
+    blocks: [
+      root,
+      textBlock('side-callout-root', 'Root callout', 'A scalar multiple only stretches the vector.'),
+      textBlock('side-callout-mid', 'Mid callout', 'The multiplier is the eigenvalue.'),
+      child,
+      textBlock('side-callout-child', 'Nested callout', 'A nested note beside the child.'),
+      textBlock('side-grandchild', 'Grandchild', 'Grandchild beside the child.'),
+      textBlock('side-ref', 'Reference target', 'A labeled reference target.'),
+    ],
+    anchors: [
+      {
+        id: 'anchor-root',
+        blockId: 'side-root',
+        kind: 'text',
+        selector: { kind: 'text', quote: rootAnchorQuote, prefix: 'An ', suffix: ' is' },
+        quote: rootAnchorQuote,
+        prefix: 'An ',
+        suffix: ' is',
+      },
+      {
+        id: 'anchor-mid',
+        blockId: 'side-root',
+        kind: 'text',
+        selector: { kind: 'text', quote: midQuote, prefix: 'a ', suffix: ' of' },
+        quote: midQuote,
+        prefix: 'a ',
+        suffix: ' of',
+      },
+      {
+        id: 'anchor-nested',
+        blockId: 'side-child',
+        kind: 'text',
+        selector: { kind: 'text', quote: nestedQuote, prefix: 'child ', suffix: ' its' },
+        quote: nestedQuote,
+        prefix: 'child ',
+        suffix: ' its',
+      },
+    ],
+    branches: [
+      {
+        id: 'branch-callout-root',
+        sourceBlockId: 'side-root',
+        sourceAnchorId: 'anchor-root',
+        targetBlockId: 'side-callout-root',
+        role: 'primary',
+      },
+      {
+        id: 'branch-callout-mid',
+        sourceBlockId: 'side-root',
+        sourceAnchorId: 'anchor-mid',
+        targetBlockId: 'side-callout-mid',
+        role: 'primary',
+      },
+      {
+        id: 'branch-child',
+        sourceBlockId: 'side-root',
+        targetBlockId: 'side-child',
+        role: 'primary',
+      },
+      {
+        id: 'branch-callout-child',
+        sourceBlockId: 'side-child',
+        sourceAnchorId: 'anchor-nested',
+        targetBlockId: 'side-callout-child',
+        role: 'primary',
+      },
+      {
+        id: 'branch-grandchild',
+        sourceBlockId: 'side-child',
+        targetBlockId: 'side-grandchild',
+        role: 'primary',
+      },
+      {
+        id: 'branch-reference',
+        sourceBlockId: 'side-root',
+        targetBlockId: 'side-ref',
+        role: 'reference',
+        label: 'also uses',
+      },
+    ],
+  });
+}
+
 /** Long fixture that spans pages, producing continuation/ghost markers. */
-export function longDocument() {
-  const parent = textBlock('parent', 'Parent topic', 'A short parent that owns a long branch.');
+export function longDocument() {  const parent = textBlock('parent', 'Parent topic', 'A short parent that owns a long branch.');
   const child = longTextBlock('child', 'Long branch', 90);
   return pageDocument({
     id: 'portrait-long',
