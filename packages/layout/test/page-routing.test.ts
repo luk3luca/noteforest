@@ -314,6 +314,51 @@ describe('obstacle-aware page routing', () => {
     expect(isOrthogonalRoute(route.points)).toBe(true);
   });
 
+  it('locks a wrapped tree target to a shortened left entry when required', () => {
+    const source = { x: 0, y: 0, width: 200, height: 80 };
+    const target = { x: 12, y: 240, width: 180, height: 80 };
+    const route = routePageEdge({
+      from: { x: 200, y: 40 },
+      to: { x: 12, y: 280 },
+      sourceRect: source,
+      targetRect: target,
+      obstacles: [],
+      bounds: BOUNDS,
+      requiredEntry: 'left',
+    });
+    expect(route.entry).toBe('left');
+    expect(route.direction).toBe('right');
+    expect(route.tip).toEqual({ x: 12, y: 280 });
+    expect(route.stem).toBe(11);
+    expect(isOrthogonalRoute(route.points)).toBe(true);
+    expect(route.blocked).toBe(false);
+    const before = route.points.at(-2)!;
+    const tip = route.points.at(-1)!;
+    expect(Math.abs(before.y - tip.y)).toBeLessThan(0.01);
+    expect(tip.x - before.x).toBeGreaterThan(0);
+  });
+
+  it('keeps a below-stack tree target on the left entry through the obstacle router', () => {
+    const source = { x: 0, y: 0, width: 200, height: 80 };
+    const target = { x: 30, y: 240, width: 180, height: 80 };
+    const route = routePageEdge({
+      from: { x: 12, y: 80 },
+      to: { x: 30, y: 280 },
+      sourceRect: source,
+      targetRect: target,
+      obstacles: [],
+      bounds: BOUNDS,
+      sourceSide: 'bottom',
+      requiredEntry: 'left',
+    });
+    expect(route.entry).toBe('left');
+    expect(route.direction).toBe('right');
+    expect(route.tip).toEqual({ x: 30, y: 280 });
+    expect(route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+    expect(isOrthogonalRoute(route.points)).toBe(true);
+    expect(routeIntersectsRect(route, target)).toBe(false);
+  });
+
   it('honours an anchor start and exits through the source card right edge', () => {
     const source = { x: 0, y: 0, width: 200, height: 100 };
     const target = { x: 224, y: 0, width: 100, height: 100 };

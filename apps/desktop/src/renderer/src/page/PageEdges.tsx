@@ -153,6 +153,10 @@ export function PageEdges({ edges, geometry }: PageEdgesProps): JSX.Element | nu
               data-page-edge-arrow={edge.route.direction}
               data-page-edge-stem={number(edge.route.stem)}
               data-page-edge-blocked={edge.route.blocked ? 'true' : undefined}
+              data-page-edge-placement={edge.placement}
+              data-page-edge-trunk-id={edge.trunk?.id}
+              data-page-edge-trunk-placement={edge.trunk?.placement}
+              data-page-edge-trunk-x={edge.trunk ? number(edge.trunk.x) : undefined}
               data-page-edge-anchor-id={edge.anchorId}
               data-page-edge-anchor-start={
                 edge.anchorId !== undefined && edge.direction === 'same-page' ? 'true' : undefined
