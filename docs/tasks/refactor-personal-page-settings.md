@@ -1,6 +1,6 @@
 # Refactor — personal page settings (master checklist)
 
-**Status:** R1a in progress (8 November 2026)  
+**Status:** R1a complete, R1b next (8 November 2026)  
 **Decision:** `docs/adr/0008-personal-page-settings.md`  
 **Related:** ADR-0002, ADR-0007, `docs/plan.md`  
 **Gate:** do not start M4c PDF until Page View is usable (arrows + density).
@@ -69,21 +69,21 @@ PDF -> same resolved PageSettings and Page pages
 ### R1a — schema v2 and page-settings foundation
 
 Brief: `docs/tasks/r1a-canonical-schema-v2.md`  
-Status: **in progress**
+Status: **complete** — report `docs/reports/r1a-canonical-schema-v2.md`
 
 - [x] ADR-0008 accepted.
 - [x] Audit of current page/settings code and dead code.
-- [ ] `packages/layout/src/page-settings.ts`: types, defaults, normalize/merge, page dimensions,
+- [x] `packages/layout/src/page-settings.ts`: types, defaults, normalize/merge, page dimensions,
       `pageLayoutOptions`, `pageCssVariables`.
-- [ ] Schema v2: `CURRENT_SCHEMA_VERSION = 2`.
-- [ ] Remove `pageSetup`, `manualBreakBeforeBlockIds`, `viewState` from `Document`.
-- [ ] Remove page fields from create commands, store, validation, serialize, restore, block cleanup.
-- [ ] Migration v1→v2 strips the three known legacy fields; preserves other unknown fields.
-- [ ] Layout/paginator stops reading manual breaks/page setup from the document (or marked
+- [x] Schema v2: `CURRENT_SCHEMA_VERSION = 2`.
+- [x] Remove `pageSetup`, `manualBreakBeforeBlockIds`, `viewState` from `Document`.
+- [x] Remove page fields from create commands, store, validation, serialize, restore, block cleanup.
+- [x] Migration v1→v2 strips the three known legacy fields; preserves other unknown fields.
+- [x] Layout/paginator stops reading manual breaks/page setup from the document (or marked
       transient debt explicitly reported for R1b).
-- [ ] Desktop page adapter/model uses default settings temporarily; app still runs.
-- [ ] Fixtures/scripts/tests updated; v1→v2 migration test.
-- [ ] Full verify: boundaries, typecheck, unit, UI, recovery, e2e.
+- [x] Desktop page adapter/model uses default settings temporarily; app still runs.
+- [x] Fixtures/scripts/tests updated; v1→v2 migration test.
+- [x] Full verify: boundaries, typecheck, unit, UI, recovery, e2e.
 
 ### R1b — settings store + PageTheme wiring + compact density
 
