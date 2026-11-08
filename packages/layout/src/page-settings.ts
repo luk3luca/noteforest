@@ -72,8 +72,9 @@ export interface PageTheme {
   minContentWidth: number;
   /**
    * Page/PDF packing policy. `stacked` is the R2a geometry; `beside` starts the
-   * direct-child group at the parent's y while anchored callouts stay below.
-   * Continuous does not read this field.
+   * direct-child group at the parent's y while anchored callouts stay below;
+   * `compaction` fills rows with callouts and children. Continuous does not
+   * read this field.
    */
   pagePacking: PagePacking;
 }
@@ -137,9 +138,9 @@ const COMPACT_THEME: PageTheme = Object.freeze({
   calloutGap: 12,
   maxCardWidth: 420,
   minContentWidth: 160,
-  // R2b default candidate: direct children start beside the parent while
-  // anchored callouts stay below. The lab decides whether this stays.
-  pagePacking: 'beside',
+  // R2c default candidate: the finite-space compaction packer fills rows with
+  // callouts and direct children. The density lab decides whether this stays.
+  pagePacking: 'compaction',
 });
 
 /**
@@ -333,7 +334,7 @@ function isPreset(value: unknown): value is PageThemePreset {
 }
 
 function isPagePacking(value: unknown): value is PagePacking {
-  return value === 'stacked' || value === 'beside';
+  return value === 'stacked' || value === 'beside' || value === 'compaction';
 }
 
 function finiteNumber(value: unknown, fallback: number, min: number, max: number): number {

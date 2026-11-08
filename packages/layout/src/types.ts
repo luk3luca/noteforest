@@ -208,8 +208,15 @@ export type WrapPolicy = 'group-left-origin' | 'right-first-per-child' | 'subtre
  *   the direct-child group starts at the parent's y in the right column. The
  *   callout lane ends at the parent's right edge, so it is always at least one
  *   sibling gap left of the right group at every recursion depth.
+ * - `compaction` is the finite-space page packer: the parent card starts a row,
+ *   anchored callouts and primary direct children are ordered components that
+ *   fill that row left-to-right at their measured widths, and the rest wrap to
+ *   the next row at one capped wrap indent. Every component owns a column for
+ *   its own recursive row, so a subtree never collides with the next sibling.
+ *   Reference targets stay at their primary home; only primary edges are
+ *   layout components.
  */
-export type PagePacking = 'stacked' | 'beside';
+export type PagePacking = 'stacked' | 'beside' | 'compaction';
 
 export interface LayoutBlock {
   blockId: string;
@@ -387,7 +394,7 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   maxWrapIndent: 54,
   wrapPolicy: 'group-left-origin',
   // Continuous and every DOM-free layout keep the R2a geometry by default.
-  // Page/PDF opts into `beside` through the resolved PageTheme.
+  // Page/PDF opts into the resolved PageTheme (compaction for compact).
   pagePacking: 'stacked',
   calloutGap: 20,
   chapterGap: 32,
