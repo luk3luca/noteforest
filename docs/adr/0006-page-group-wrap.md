@@ -95,8 +95,8 @@ M4 layout lab on the showcase and the 300-block fixture comparing:
 
 Metrics: page count, max used width, whitespace, number of wraps, edge crossings, and readability.
 The product owner prioritizes width/readability over page count. Exact `wrapIndent` and cap values
-are decided from the lab and recorded in `docs/design-tokens.md`; they are not silently chosen in
-code.
+are decided from the lab and recorded in `docs/design-tokens-page.md`; they are not silently chosen
+in code.
 
 ## Revisit triggers
 

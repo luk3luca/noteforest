@@ -156,7 +156,7 @@ Research remains useful as input for components, not as an open stack decision. 
 - `docs/review-checklist.md` — review checklist (Sentinel).
 - `docs/definition-of-done.md` — DoD and test strategy (Sentinel).
 - `docs/plan.md` — milestones and tasks (Orchestrator).
-- `docs/design-tokens.md` — single reference for layout, spacing, lane, edge, and surface tokens.
+- `docs/design-tokens.md` — index for Page/Continuous/shared design tokens; Page values in `docs/design-tokens-page.md`, Continuous values in `docs/design-tokens-continuous.md`.
 - `docs/architecture/` — proposed core stabilization and test-suite audit.
 - `docs/agents/roles.md` — role contracts, boundaries, handoff.
 - `docs/agents/brief-template.md` — the specific task-brief template used for every delegation.

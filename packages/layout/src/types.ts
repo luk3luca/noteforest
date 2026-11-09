@@ -407,12 +407,20 @@ export interface LayoutOptions {
   siblingGap: number;
   /** Per-level left-origin indent used when a child group wraps below its parent. */
   wrapIndent: number;
-  /** Maximum cumulative wrap indent from the page content left edge. */
+  /**
+   * Per-level cap on the indent added from the wrapped group's parent left
+   * edge. It is applied at every level and does not accumulate across
+   * ancestors; each nested group gets the same cap from its own parent.
+   */
   maxWrapIndent: number;
   /**
    * Page-only direct-child indent from the parent left when a whole child group
    * wraps below it. It leaves room for the below trunk and its left stem.
-   * Continuous does not read this field.
+   *
+   * Page production always passes the resolved `PageTheme.childIndent` through
+   * `pageLayoutOptions`; `DEFAULT_LAYOUT_OPTIONS.childIndent` is only the
+   * DOM-free engine fallback for tests, labs, and the estimator. The Continuous
+   * renderer does not call `layoutDocument`, so this is not a Continuous token.
    */
   childIndent: number;
   /**
@@ -449,13 +457,23 @@ export interface LayoutOptions {
   segmentGap: number;
 }
 
+/**
+ * DOM-free engine fallback for the Page direct-child indent.
+ *
+ * This is not a design token and not a Continuous value: production Page
+ * layout supplies `PageTheme.childIndent` via `pageLayoutOptions`. The literal
+ * is named here so a future engine default change is a one-line, reviewable
+ * decision instead of a hidden read of a Page theme preset.
+ */
+const ENGINE_DEFAULT_CHILD_INDENT = 26;
+
 export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   minContentWidth: 160,
   maxContentWidth: 420,
   siblingGap: 24,
   wrapIndent: 18,
   maxWrapIndent: 54,
-  childIndent: 26,
+  childIndent: ENGINE_DEFAULT_CHILD_INDENT,
   childTrunkInset: 12,
   calloutTrunkInset: 24,
   calloutCardIndent: 38,
@@ -463,8 +481,9 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   calloutModeMinWidth: 240,
   calloutModes: false,
   wrapPolicy: 'group-left-origin',
-  // Continuous and every DOM-free layout keep the R2a geometry by default.
-  // Page/PDF opts into the resolved PageTheme (compaction for compact).
+  // Continuous and every DOM-free layout keep the R2a stacked geometry by
+  // default. Page/PDF opts into the resolved PageTheme, whose presets use
+  // `beside`; `compaction` is only a lab oracle.
   pagePacking: 'stacked',
   calloutGap: 20,
   chapterGap: 32,
