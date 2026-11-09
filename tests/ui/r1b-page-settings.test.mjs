@@ -243,13 +243,24 @@ describe('R1b personal page settings and page theme', () => {
       setup: { size: 'A5', orientation: 'landscape' },
     });
 
+    // S2-2: the override is durable outside the session, keyed by the
+    // canonical document id, so closing the tab or quitting cannot lose it.
+    const documentId = JSON.parse(
+      await readFile(join(packagePath, 'document.json'), 'utf8'),
+    ).id;
+    const documentSettings = JSON.parse(
+      await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'document-settings.json'), 'utf8'),
+    );
+    assert.deepEqual(
+      documentSettings.entries.find((entry) => entry.documentId === documentId)?.page,
+      { setup: { size: 'A5', orientation: 'landscape' } },
+    );
+    await page.evaluate(() => window.__noteforestTest.flushSession());
     const session = JSON.parse(
       await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'shell-session.json'), 'utf8'),
     );
     const tab = session.tabs.find((item) => item.packagePath === packagePath);
-    assert.deepEqual(tab.pageSettingsOverride, {
-      setup: { size: 'A5', orientation: 'landscape' },
-    });
+    assert.equal(tab.pageSettingsOverride, undefined);
 
     // Page Edit overlay follows the resolved A5 geometry and compact theme.
     await page.keyboard.press('Meta+e');

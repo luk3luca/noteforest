@@ -5,6 +5,7 @@ import type {
   BootstrapResult,
   ChooseExportPathResult,
   CreateDocumentResult,
+  DocumentSettingsSaveResult,
   ExportJobView,
   ExportPdfInput,
   ExportPdfStartResult,
@@ -25,6 +26,7 @@ import type {
   SaveResult,
   SeedResult,
   SessionState,
+  SettingsSaveResult,
   TakeOverLockResult,
   WindowState,
 } from '../shared/api.js';
@@ -60,8 +62,10 @@ const api: NoteForestApi = {
   revealLibrary: (): Promise<void> => ipcRenderer.invoke('library:reveal'),
   saveSession: (state: SessionState): Promise<void> =>
     ipcRenderer.invoke('session:save', state),
-  saveSettings: (settings: AppSettings): Promise<void> =>
+  saveSettings: (settings: AppSettings): Promise<SettingsSaveResult> =>
     ipcRenderer.invoke('settings:save', settings),
+  saveDocumentSettings: (input): Promise<DocumentSettingsSaveResult> =>
+    ipcRenderer.invoke('document-settings:save', input),
   setWindowState: (state: WindowState): Promise<void> =>
     ipcRenderer.invoke('window:set-state', state),
   onMenu: (handler: (command: MenuCommand) => void): (() => void) => {

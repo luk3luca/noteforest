@@ -36,7 +36,7 @@ import {
   toggleFocusBranch,
 } from './actions';
 import { buildSession } from './state/session';
-import { useSettingsStore } from './state/settings';
+import { flushSettingsWrites, useSettingsStore } from './state/settings';
 import { READ_MODE_TOAST } from './lib/editability';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
@@ -88,6 +88,12 @@ async function flushOpenDocuments(): Promise<FlushResult> {
       };
     }
   }
+  // Never quit with a settings write still in flight: the dialog only reports
+  // "saved" after the atomic write, and a quit must keep that promise.
+  const settings = await flushSettingsWrites();
+  if (!settings.ok) {
+    console.error(settings.message);
+  }
   return flushDocuments({
     documents,
     saveSession: () => window.noteforest.saveSession(buildSession()),
@@ -110,9 +116,15 @@ export function App(): JSX.Element {
       try {
         const data = await window.noteforest.bootstrap();
         if (cancelled) return;
-        // Load personal page/continuous settings and every stored per-document
-        // override before the shell becomes ready or any Page surface mounts.
-        useSettingsStore.getState().initialize(data.settings, data.session.tabs);
+        // Load personal settings, their read status, and every durable
+        // per-document override before the shell becomes ready or any Page
+        // surface mounts.
+        useSettingsStore.getState().initialize({
+          settings: data.settings,
+          settingsStatus: data.settingsStatus,
+          documentSettings: data.documentSettings,
+          documentSettingsStatus: data.documentSettingsStatus,
+        });
         const byPath = new Map(data.openDocuments.map((snapshot) => [snapshot.packagePath, snapshot]));
         const recoveryByPath = new Map(
           data.recoveries.map((recovery) => [recovery.packagePath, recovery]),
@@ -124,6 +136,10 @@ export function App(): JSX.Element {
           const recovery = recoveryByPath.get(sessionTab.packagePath);
           if (snapshot !== undefined) {
             registerRuntime(snapshot, sessionByPath.get(sessionTab.packagePath), undefined);
+            // Rename/move: re-key an id-based override to the opened path.
+            useSettingsStore
+              .getState()
+              .adoptDocumentSettings(snapshot.packagePath, snapshot.document.id);
             tabs.push({
               packagePath: snapshot.packagePath,
               title: snapshot.document.title,
@@ -171,6 +187,22 @@ export function App(): JSX.Element {
         state.setReady(true);
         if (data.library.warnings.length > 0) {
           toast.info(data.library.warnings[0] ?? 'Library warnings');
+        }
+        if (
+          data.settingsStatus.state === 'corrupt' ||
+          data.settingsStatus.state === 'unreadable'
+        ) {
+          toast.warning(
+            'Settings could not be read. NoteForest is using defaults; open Settings to review the backup.',
+          );
+        }
+        if (
+          data.documentSettingsStatus.state === 'corrupt' ||
+          data.documentSettingsStatus.state === 'unreadable'
+        ) {
+          toast.warning(
+            'Per-document settings could not be read. Open documents use the global defaults.',
+          );
         }
       } catch (error) {
         if (cancelled) return;
@@ -275,6 +307,14 @@ export function App(): JSX.Element {
       if (insidePageEdit && key === 's') {
         event.preventDefault();
         window.dispatchEvent(new CustomEvent('nf:page-edit-commit'));
+        return;
+      }
+      if (key === ',' && !event.shiftKey && !event.altKey) {
+        // ⌘, opens Settings even with zero documents. The native menu owns the
+        // same accelerator on macOS; this is the renderer fallback and the path
+        // the UI suite can exercise.
+        event.preventDefault();
+        dispatch('settings');
         return;
       }
       if (key === '2' && !event.shiftKey && !event.altKey) {
@@ -433,16 +473,12 @@ export function App(): JSX.Element {
       }, 600);
     };
     const unsubscribe = useShell.subscribe(schedule);
-    // Per-document page/continuous overrides live in the session, so a settings
-    // change must schedule the same session write as navigation state.
-    const unsubscribeSettings = useSettingsStore.subscribe(schedule);
     const interval = setInterval(() => {
       void window.noteforest.saveSession(buildSession());
     }, 5000);
     schedule();
     return () => {
       unsubscribe();
-      unsubscribeSettings();
       clearInterval(interval);
       if (timer !== null) clearTimeout(timer);
     };
@@ -492,7 +528,7 @@ export function App(): JSX.Element {
             revision: item.document.revision,
             orientation: useSettingsStore
               .getState()
-              .resolvedPageSettings(item.packagePath).setup.orientation,
+              .resolvedPageSettings(item.packagePath, item.document.id).setup.orientation,
             chapters: item.document.chapters.length,
             chapterList: item.document.chapters.map((chapter) => ({
               id: chapter.id,
@@ -528,7 +564,8 @@ export function App(): JSX.Element {
           // Personal page setting, never canonical document data.
           manualBreakBeforeBlockIds: useSettingsStore
             .getState()
-            .resolvedPageSettings(runtime.packagePath).manualBreakBeforeBlockIds,
+            .resolvedPageSettings(runtime.packagePath, runtime.document.id)
+            .manualBreakBeforeBlockIds,
         });
       },
       assets: () => {
@@ -558,25 +595,42 @@ export function App(): JSX.Element {
         return structuredClone({
           app: store.app,
           pageOverrides: store.pageOverrides,
-          continuousOverrides: store.continuousOverrides,
+          documentSettings: store.documentSettings,
+          settingsStatus: store.settingsStatus,
+          documentSettingsStatus: store.documentSettingsStatus,
+          saveState: store.saveState,
         });
       },
       setSettings: async (input) => {
-        const settings = useSettingsStore.getState().setAppSettings(input);
-        await window.noteforest.saveSettings(settings);
-        return structuredClone(settings);
+        useSettingsStore.getState().setAppSettings(input);
+        await flushSettingsWrites();
+        return structuredClone(useSettingsStore.getState().app);
       },
       setPageSettingsOverride: async (packagePath, override) => {
-        useSettingsStore.getState().setPageSettingsOverride(packagePath, override);
-        await window.noteforest.saveSession(buildSession());
+        const runtime = allRuntimes().find(
+          (item) => item.packagePath === packagePath,
+        );
+        useSettingsStore
+          .getState()
+          .setPageSettingsOverride(packagePath, override, runtime?.document.id ?? null);
+        await flushSettingsWrites();
         return structuredClone(
-          useSettingsStore.getState().resolvedPageSettings(packagePath),
+          useSettingsStore
+            .getState()
+            .resolvedPageSettings(packagePath, runtime?.document.id ?? null),
         );
       },
-      resolvedPageSettings: (packagePath) =>
-        structuredClone(
-          useSettingsStore.getState().resolvedPageSettings(packagePath),
-        ),
+      resolvedPageSettings: (packagePath) => {
+        const runtime = allRuntimes().find(
+          (item) => item.packagePath === packagePath,
+        );
+        return structuredClone(
+          useSettingsStore
+            .getState()
+            .resolvedPageSettings(packagePath, runtime?.document.id ?? null),
+        );
+      },
+      flushSettings: () => flushSettingsWrites(),
       setFlushMode: (mode: FlushTestMode) => {
         flushTestMode = mode;
       },

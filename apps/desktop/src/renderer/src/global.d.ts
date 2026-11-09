@@ -47,13 +47,15 @@ declare global {
       settings?: () => unknown;
       /** Test-only: replace and persist the global app settings. */
       setSettings?: (settings: unknown) => Promise<unknown>;
-      /** Test-only: set one document override and persist the session. */
+      /** Test-only: set one document override and persist it durably. */
       setPageSettingsOverride?: (
         packagePath: string,
         override: unknown,
       ) => Promise<unknown>;
       /** Test-only: resolved page settings for one document. */
       resolvedPageSettings?: (packagePath: string) => unknown;
+      /** Test-only: await every queued settings write. */
+      flushSettings?: () => Promise<unknown>;
       editorCheck?: () => unknown;
       editorJson?: () => unknown;
       perf?: () => unknown;

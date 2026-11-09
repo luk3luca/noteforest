@@ -9,9 +9,9 @@
 import type { Asset, AssetAvailability, CreatedIds, Document, DocumentCommand } from '@noteforest/core';
 import type {
   AppSettings,
-  ContinuousSettingsOverride,
   PageSettingsOverride,
 } from '@noteforest/layout';
+import type { DocumentSettingsEntry } from './document-settings.js';
 import type { DocumentLayout, InteractionMode, PageFit } from './view-state';
 import type {
   ChooseExportPathResult,
@@ -41,6 +41,12 @@ export type {
   PrintRunMetrics,
   PrintRunSummary,
 } from './export.js';
+
+export type {
+  DocumentIdentity,
+  DocumentSettingsEntry,
+  DocumentSettingsFile,
+} from './document-settings.js';
 
 export type OpenStatus = 'editable' | 'read-only';
 
@@ -127,6 +133,37 @@ export interface LibraryView {
   warnings: string[];
 }
 
+/**
+ * State of one settings file after a read. `defaults` means the file is simply
+ * absent; `corrupt`/`unreadable` are user-visible warnings and never silently
+ * overwrite the stored file on read.
+ */
+export type SettingsFileState = 'ok' | 'defaults' | 'corrupt' | 'unreadable' | 'newer';
+
+export interface SettingsFileStatus {
+  state: SettingsFileState;
+  /** Human reason for a non-ok state. */
+  message?: string;
+  /** Preserved `.corrupt-<timestamp>` copy for a corrupt file. */
+  backupPath?: string;
+  /** Stored schema version for a newer-than-this-app file. */
+  version?: number;
+  /** True when a legacy file was migrated on read. */
+  migrated?: boolean;
+}
+
+export type SettingsSaveResult = { ok: true } | { ok: false; message: string };
+
+export interface DocumentSettingsSaveInput {
+  /** Canonical document id; null keeps a path-only entry. */
+  documentId: string | null;
+  packagePath: string;
+  /** `null` clears the entry. */
+  page: PageSettingsOverride | null;
+}
+
+export type DocumentSettingsSaveResult = SettingsSaveResult;
+
 export interface SessionTabState {
   packagePath: string;
   scrollTop: number;
@@ -138,15 +175,11 @@ export interface SessionTabState {
   currentPage?: number;
   pageZoom?: number;
   pageFit?: PageFit;
-  /** Continuous surface zoom. */
-  zoom?: number;
   /**
-   * Personal per-document page override (ADR-0008). Absent means the global
-   * `settings.json` page settings apply unchanged. Never document content.
+   * Continuous surface zoom. This is the only continuous zoom source (S2-6);
+   * the global settings file has no zoom.
    */
-  pageSettingsOverride?: PageSettingsOverride;
-  /** Personal per-document continuous override. Absent means global settings. */
-  continuousSettingsOverride?: ContinuousSettingsOverride;
+  zoom?: number;
 }
 
 export interface SessionState {
@@ -160,8 +193,14 @@ export interface SessionState {
 export interface BootstrapResult {
   library: LibraryView;
   session: SessionState;
-  /** Personal app settings (page/continuous) resolved from `settings.json`. */
+  /** Personal app settings resolved from `settings.json`. */
   settings: AppSettings;
+  /** Read status of the global settings file (corrupt/migrated/newer). */
+  settingsStatus: SettingsFileStatus;
+  /** Durable per-document overrides (S2-2), outside the session. */
+  documentSettings: DocumentSettingsEntry[];
+  /** Read status of `document-settings.json`. */
+  documentSettingsStatus: SettingsFileStatus;
   openDocuments: OpenDocumentSnapshot[];
   /** Session tabs whose package is damaged, missing, or newer than this app. */
   recoveries: RecoveryDocumentView[];
@@ -439,8 +478,14 @@ export interface NoteForestApi {
   revealDocument(packagePath: string): Promise<RevealResult>;
   revealLibrary(): Promise<void>;
   saveSession(state: SessionState): Promise<void>;
-  /** Persist personal app settings; the main process normalizes before write. */
-  saveSettings(settings: AppSettings): Promise<void>;
+  /**
+   * Persist personal app settings. The main process serializes the write,
+   * merges known fields over the stored file (unknown fields survive), and
+   * resolves only after the atomic write succeeds.
+   */
+  saveSettings(settings: AppSettings): Promise<SettingsSaveResult>;
+  /** Upsert/clear one durable per-document override. */
+  saveDocumentSettings(input: DocumentSettingsSaveInput): Promise<DocumentSettingsSaveResult>;
   setWindowState(state: WindowState): Promise<void>;
   onMenu(handler: (command: MenuCommand) => void): () => void;
   onRequestFlush(handler: () => Promise<FlushResult>): () => void;

@@ -27,7 +27,10 @@ export function createExportSnapshot(
   resolvedSettings?: PageSettings,
 ): ExportSnapshot {
   const settings =
-    resolvedSettings ?? useSettingsStore.getState().resolvedPageSettings(runtime.packagePath);
+    resolvedSettings ??
+    useSettingsStore
+      .getState()
+      .resolvedPageSettings(runtime.packagePath, runtime.document.id);
   const document: NoteDocument = toLayoutDocument(runtime.document);
   return {
     packagePath: runtime.packagePath,

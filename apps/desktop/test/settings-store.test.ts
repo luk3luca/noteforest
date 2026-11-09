@@ -1,79 +1,118 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_APP_SETTINGS,
   DEFAULT_PAGE_SETTINGS,
   PAGE_THEME_PRESETS,
+  type AppSettings,
   type PageSettingsOverride,
 } from '@noteforest/layout';
 import {
+  flushSettingsWrites,
   pageDensityPercent,
   pageDensityValue,
+  pageOverrideFor,
   resetSettingsForTests,
   useSettingsStore,
   withPageDensityOverride,
   withoutPageDensityOverride,
 } from '../src/renderer/src/state/settings';
 
-beforeEach(() => {
+/** Node tests have no window; install a minimal bridge for write tests. */
+function installBridge(overrides: {
+  saveSettings?: (settings: AppSettings) => Promise<{ ok: true } | { ok: false; message: string }>;
+  saveDocumentSettings?: (
+    input: unknown,
+  ) => Promise<{ ok: true } | { ok: false; message: string }>;
+}): void {
+  (globalThis as { window?: unknown }).window = {
+    noteforest: {
+      saveSettings: overrides.saveSettings ?? (async () => ({ ok: true })),
+      saveDocumentSettings: overrides.saveDocumentSettings ?? (async () => ({ ok: true })),
+    },
+  };
+}
+
+function removeBridge(): void {
+  delete (globalThis as { window?: unknown }).window;
+}
+
+async function tick(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+beforeEach(async () => {
+  await flushSettingsWrites();
   resetSettingsForTests();
 });
 
+afterEach(() => {
+  removeBridge();
+});
+
 describe('renderer personal settings resolution', () => {
-  it('starts on the compact product defaults', () => {
+  it('starts on the compact defaults with no Continuous settings path', () => {
     const store = useSettingsStore.getState();
     expect(store.app).toEqual(DEFAULT_APP_SETTINGS);
+    expect(store.app).not.toHaveProperty('continuous');
     expect(store.resolvedPageSettings('/doc')).toEqual(DEFAULT_PAGE_SETTINGS);
     expect(store.resolvedPageSettings('/doc').theme.preset).toBe('compact');
-    expect(store.resolvedContinuousSettings('/doc')).toEqual({ zoom: 1 });
   });
 
-  it('loads global settings plus per-document overrides from bootstrap tabs', () => {
-    useSettingsStore.getState().initialize(
-      { page: { setup: { size: 'Letter' } }, continuous: { zoom: 1.4 } },
-      [
+  it('loads global settings plus durable per-document entries', () => {
+    useSettingsStore.getState().initialize({
+      settings: { page: { setup: { size: 'Letter' } } },
+      documentSettings: [
         {
+          documentId: 'doc-a',
           packagePath: '/doc-a',
-          scrollTop: 0,
-          selectedBlockId: null,
-          pageSettingsOverride: { setup: { orientation: 'portrait' }, theme: { preset: 'comfortable' } },
-          continuousSettingsOverride: { zoom: 2 },
+          page: { setup: { orientation: 'portrait' }, theme: { preset: 'comfortable' } },
         },
-        {
-          packagePath: '/doc-b',
-          scrollTop: 0,
-          selectedBlockId: null,
-        },
+        { documentId: null, packagePath: '/doc-b', page: { theme: { density: 0.9 } } },
       ],
-    );
+    });
     const store = useSettingsStore.getState();
     expect(store.app.page.setup.size).toBe('Letter');
     expect(store.app.page.setup.orientation).toBe('landscape');
 
-    const a = store.resolvedPageSettings('/doc-a');
+    const a = store.resolvedPageSettings('/doc-a', 'doc-a');
     expect(a.setup.size).toBe('Letter');
     expect(a.setup.orientation).toBe('portrait');
     expect(a.theme.preset).toBe('comfortable');
-    expect(store.resolvedContinuousSettings('/doc-a')).toEqual({ zoom: 2 });
 
-    const b = store.resolvedPageSettings('/doc-b');
+    const b = store.resolvedPageSettings('/doc-b', 'doc-b');
     expect(b.setup.size).toBe('Letter');
-    expect(b.setup.orientation).toBe('landscape');
     expect(b.theme.preset).toBe('compact');
-    expect(store.resolvedContinuousSettings('/doc-b')).toEqual({ zoom: 1.4 });
+    expect(b.theme.density).toBe(0.9);
+  });
+
+  it('resolves by document id first and follows a renamed/moved path', () => {
+    useSettingsStore.getState().initialize({
+      settings: {},
+      documentSettings: [
+        {
+          documentId: 'doc-id',
+          packagePath: '/old/place',
+          page: { setup: { size: 'A5' } },
+        },
+      ],
+    });
+    const store = useSettingsStore.getState();
+    expect(store.resolvedPageSettings('/new/place', 'doc-id').setup.size).toBe('A5');
+    // A different document at the old path must not inherit the override.
+    expect(store.resolvedPageSettings('/old/place', 'other-id').setup.size).toBe('A4');
   });
 
   it('keeps an override partial so later global changes still propagate', () => {
     const store = useSettingsStore.getState();
-    store.setPageSettingsOverride('/doc', { setup: { orientation: 'portrait' } });
-    expect(useSettingsStore.getState().resolvedPageSettings('/doc').theme).toEqual(
+    store.setPageSettingsOverride('/doc', { setup: { orientation: 'portrait' } }, 'doc-id');
+    expect(useSettingsStore.getState().resolvedPageSettings('/doc', 'doc-id').theme).toEqual(
       PAGE_THEME_PRESETS.compact,
     );
 
-    useSettingsStore.getState().setAppSettings({
+    useSettingsStore.getState().updateAppSettings({
       page: { theme: { preset: 'comfortable' } },
-      continuous: { zoom: 1 },
     });
-    const resolved = useSettingsStore.getState().resolvedPageSettings('/doc');
+    const resolved = useSettingsStore.getState().resolvedPageSettings('/doc', 'doc-id');
     expect(resolved.setup.orientation).toBe('portrait');
     // The global preset change reaches a document that only overrode orientation.
     expect(resolved.theme.preset).toBe('comfortable');
@@ -82,11 +121,15 @@ describe('renderer personal settings resolution', () => {
 
   it('normalizes, clears, and scopes overrides per document', () => {
     const store = useSettingsStore.getState();
-    const override = store.setPageSettingsOverride('/doc', {
-      setup: { orientation: 'portrait', margins: { top: 20, right: 'bad' } },
-      theme: { bodyPt: 8.5 },
-      manualBreakBeforeBlockIds: ['b1', 'b1'],
-    });
+    const override = store.setPageSettingsOverride(
+      '/doc',
+      {
+        setup: { orientation: 'portrait', margins: { top: 20, right: 'bad' } },
+        theme: { bodyPt: 8.5 },
+        manualBreakBeforeBlockIds: ['b1', 'b1'],
+      },
+      'doc-id',
+    );
     expect(override).toEqual({
       setup: { orientation: 'portrait', margins: { top: 20 } },
       theme: { bodyPt: 8.5 },
@@ -96,14 +139,14 @@ describe('renderer personal settings resolution', () => {
       'landscape',
     );
 
-    useSettingsStore.getState().setPageSettingsOverride('/doc', null);
-    expect(useSettingsStore.getState().pageOverrides['/doc']).toBeUndefined();
-    expect(useSettingsStore.getState().resolvedPageSettings('/doc')).toEqual(
+    useSettingsStore.getState().setPageSettingsOverride('/doc', null, 'doc-id');
+    expect(pageOverrideFor(useSettingsStore.getState(), '/doc', 'doc-id')).toBeUndefined();
+    expect(useSettingsStore.getState().resolvedPageSettings('/doc', 'doc-id')).toEqual(
       useSettingsStore.getState().app.page,
     );
   });
 
-  it('clamps global settings and resolves continuous overrides independently', () => {
+  it('clamps global settings and ignores a legacy continuous block', () => {
     useSettingsStore.getState().setAppSettings({
       page: {
         setup: { size: 'A5', orientation: 'portrait' },
@@ -115,16 +158,122 @@ describe('renderer personal settings resolution', () => {
     expect(app.page.setup.size).toBe('A5');
     expect(app.page.theme.bodyPt).toBe(24);
     expect(app.page.theme.bodyLine).toBe(1);
-    expect(app.continuous.zoom).toBe(4);
+    expect(app).not.toHaveProperty('continuous');
+  });
 
-    useSettingsStore.getState().setContinuousSettingsOverride('/doc', { zoom: 0 });
-    expect(useSettingsStore.getState().resolvedContinuousSettings('/doc')).toEqual({
-      zoom: 0.25,
+  it('adopts a path-only legacy entry when the document id becomes known', () => {
+    useSettingsStore.getState().initialize({
+      settings: {},
+      documentSettings: [
+        { documentId: null, packagePath: '/legacy/doc', page: { theme: { density: 0.85 } } },
+      ],
     });
-    useSettingsStore.getState().setContinuousSettingsOverride('/doc', { zoom: 'bad' });
-    expect(useSettingsStore.getState().resolvedContinuousSettings('/doc')).toEqual({
-      zoom: 4,
+    expect(useSettingsStore.getState().resolvedPageSettings('/legacy/doc', 'doc-id').theme.density).toBe(
+      0.85,
+    );
+    useSettingsStore.getState().adoptDocumentSettings('/legacy/doc', 'doc-id');
+    const entry = useSettingsStore
+      .getState()
+      .documentSettings.find((candidate) => candidate.documentId === 'doc-id');
+    expect(entry?.packagePath).toBe('/legacy/doc');
+    expect(entry?.page).toEqual({ theme: { density: 0.85 } });
+  });
+
+  it('updates one global field without resetting the other globals (S2-5)', () => {
+    useSettingsStore.getState().setAppSettings({
+      page: {
+        setup: { size: 'Letter', orientation: 'portrait' },
+        theme: { preset: 'comfortable', density: 1.1 },
+        manualBreakBeforeBlockIds: ['b1'],
+      },
     });
+    useSettingsStore.getState().updateAppSettings({ page: { theme: { density: 0.9 } } });
+    const app = useSettingsStore.getState().app;
+    expect(app.page.setup.size).toBe('Letter');
+    expect(app.page.setup.orientation).toBe('portrait');
+    expect(app.page.theme.preset).toBe('comfortable');
+    expect(app.page.theme.bodyPt).toBe(10.5);
+    expect(app.page.theme.density).toBe(0.9);
+    expect(app.page.manualBreakBeforeBlockIds).toEqual(['b1']);
+  });
+});
+
+describe('settings write coordinator (S2-5)', () => {
+  it('does not report saved before the write resolves', async () => {
+    let resolveWrite: ((value: { ok: true }) => void) | null = null;
+    installBridge({
+      saveSettings: () =>
+        new Promise<{ ok: true }>((resolve) => {
+          resolveWrite = resolve;
+        }),
+    });
+    useSettingsStore.getState().setAppSettings({ page: { theme: { density: 0.9 } } });
+    await tick();
+    expect(useSettingsStore.getState().saveState.status).toBe('saving');
+    resolveWrite?.({ ok: true });
+    const result = await flushSettingsWrites();
+    expect(result).toEqual({ ok: true });
+    expect(useSettingsStore.getState().saveState.status).toBe('saved');
+  });
+
+  it('surfaces a failed write and keeps the in-memory value for retry', async () => {
+    installBridge({
+      saveSettings: async () => ({ ok: false, message: 'disk full' }),
+    });
+    useSettingsStore.getState().setAppSettings({ page: { theme: { density: 0.9 } } });
+    const result = await flushSettingsWrites();
+    expect(result).toEqual({ ok: false, message: 'disk full' });
+    expect(useSettingsStore.getState().saveState).toEqual({
+      status: 'error',
+      message: 'disk full',
+    });
+    // The optimistic value is still visible; the UI must not claim it is saved.
+    expect(useSettingsStore.getState().app.page.theme.density).toBe(0.9);
+  });
+
+  it('serializes rapid writes so an older payload cannot land last', async () => {
+    const written: number[] = [];
+    let releaseFirst: (() => void) | null = null;
+    installBridge({
+      saveSettings: (settings) => {
+        written.push(settings.page.theme.density);
+        if (written.length === 1) {
+          return new Promise((resolve) => {
+            releaseFirst = () => resolve({ ok: true });
+          });
+        }
+        return Promise.resolve({ ok: true });
+      },
+    });
+
+    useSettingsStore.getState().setAppSettings({ page: { theme: { density: 0.85 } } });
+    useSettingsStore.getState().setAppSettings({ page: { theme: { density: 1.1 } } });
+    const flushed = flushSettingsWrites();
+    await tick();
+    expect(written).toEqual([0.85]);
+    releaseFirst?.();
+    const result = await flushed;
+    expect(result.ok).toBe(true);
+    expect(written).toEqual([0.85, 1.1]);
+    expect(useSettingsStore.getState().saveState.status).toBe('saved');
+  });
+
+  it('surfaces a failed per-document override write', async () => {
+    installBridge({
+      saveDocumentSettings: async () => ({ ok: false, message: 'read-only app support' }),
+    });
+    useSettingsStore.getState().setPageSettingsOverride(
+      '/doc',
+      { theme: { density: 0.8 } },
+      'doc-id',
+    );
+    const result = await flushSettingsWrites();
+    expect(result).toEqual({ ok: false, message: 'read-only app support' });
+    expect(useSettingsStore.getState().saveState.status).toBe('error');
+    // The override still applies for this session, so the UI stays usable.
+    expect(useSettingsStore.getState().resolvedPageSettings('/doc', 'doc-id').theme.density).toBe(
+      0.8,
+    );
   });
 });
 
@@ -132,7 +281,6 @@ describe('Page density settings (M4d1)', () => {
   it('persists a global density and scopes a document override', () => {
     useSettingsStore.getState().setAppSettings({
       page: { theme: { density: 0.9 } },
-      continuous: { zoom: 1 },
     });
     expect(useSettingsStore.getState().app.page.theme.density).toBe(0.9);
     expect(useSettingsStore.getState().resolvedPageSettings('/doc').theme.density).toBe(0.9);
@@ -156,7 +304,7 @@ describe('Page density settings (M4d1)', () => {
       theme: { density: 1.2 },
     });
     expect(store.setPageSettingsOverride('/doc', { theme: { density: 'bad' } })).toBeUndefined();
-    expect(useSettingsStore.getState().pageOverrides['/doc']).toBeUndefined();
+    expect(pageOverrideFor(useSettingsStore.getState(), '/doc')).toBeUndefined();
   });
 
   it('keeps a global density change away from a document override', () => {
@@ -166,7 +314,6 @@ describe('Page density settings (M4d1)', () => {
     });
     useSettingsStore.getState().setAppSettings({
       page: { theme: { density: 1.1 } },
-      continuous: { zoom: 1 },
     });
     const resolved = useSettingsStore.getState().resolvedPageSettings('/doc');
     expect(resolved.theme.density).toBe(0.85);

@@ -42,6 +42,9 @@ import {
 import type {
   ApplyResult,
   BackupCandidateView,
+  DocumentSettingsEntry,
+  DocumentSettingsSaveInput,
+  DocumentSettingsSaveResult,
   ImportImageBytesInput,
   ImportImageResult,
   LibraryView,
@@ -57,15 +60,30 @@ import type {
   SaveResult,
   SessionState,
   SessionTabState,
+  SettingsFileStatus,
+  SettingsSaveResult,
   TakeOverLockResult,
 } from '../shared/api.js';
 import {
   DEFAULT_APP_SETTINGS,
   normalizeAppSettings,
-  normalizeContinuousSettingsOverride,
   normalizePageSettingsOverride,
   type AppSettings,
 } from '@noteforest/layout';
+import {
+  SETTINGS_SCHEMA_VERSION,
+  isRecord,
+  migrateSettingsDocument,
+  settingsDocumentForWrite,
+} from '../shared/settings-file.js';
+import type { LegacySessionOverride } from '../shared/document-settings.js';
+import {
+  migrateLegacySessionOverrides,
+  preserveCorruptFile,
+  readDocumentSettingsFile,
+  saveDocumentSettings as applyDocumentSettings,
+  writeDocumentSettingsFile,
+} from './document-settings.js';
 import { saveFailureCode } from './save-error.js';
 import { normalizeDocumentViewState } from '../shared/view-state.js';
 import {
@@ -1160,44 +1178,182 @@ export async function closeAllStores(): Promise<void> {
 // Personal app settings (ADR-0008; never document content)
 // ---------------------------------------------------------------------------
 
+/** Last parsed `settings.json` object; used to preserve unknown fields on write. */
+let lastSettingsRaw: Record<string, unknown> = {};
+let settingsWriteQueue: Promise<void> = Promise.resolve();
+
+export interface SettingsFileRead {
+  settings: AppSettings;
+  status: SettingsFileStatus;
+  raw: Record<string, unknown>;
+}
+
+function settingsErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message.length > 0
+    ? error.message
+    : String(error);
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'ENOENT'
+  );
+}
+
 /**
- * Read the global personal settings. A missing, unreadable, or corrupt
- * `settings.json` falls back to the product defaults; the app never fails to
- * start because a personal preference file is damaged.
+ * Read the global personal settings with an explicit status (S2-5).
+ *
+ * A missing file is normal (`defaults`). Corrupt JSON is preserved as
+ * `settings.corrupt-<timestamp>.json` and reported; it is never silently
+ * replaced on read. A newer schema is normalized for this session and kept at
+ * its version on write.
  */
+export async function readSettingsFile(): Promise<SettingsFileRead> {
+  const defaults = structuredClone(DEFAULT_APP_SETTINGS);
+  let text: string;
+  try {
+    text = await fs.readFile(settingsPath(), 'utf8');
+  } catch (error) {
+    if (isMissingFile(error)) {
+      lastSettingsRaw = {};
+      return { settings: defaults, status: { state: 'defaults' }, raw: {} };
+    }
+    return {
+      settings: defaults,
+      status: { state: 'unreadable', message: settingsErrorMessage(error) },
+      raw: lastSettingsRaw,
+    };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch (error) {
+    const backupPath = await preserveCorruptFile(settingsPath());
+    return {
+      settings: defaults,
+      status: {
+        state: 'corrupt',
+        message: settingsErrorMessage(error),
+        ...(backupPath === null ? {} : { backupPath }),
+      },
+      raw: {},
+    };
+  }
+  const migrated = migrateSettingsDocument(parsed);
+  lastSettingsRaw = migrated.raw;
+  if (migrated.storedVersion > SETTINGS_SCHEMA_VERSION) {
+    return {
+      settings: migrated.settings,
+      status: { state: 'newer', version: migrated.storedVersion },
+      raw: migrated.raw,
+    };
+  }
+  return {
+    settings: migrated.settings,
+    status: migrated.migrated ? { state: 'ok', migrated: true } : { state: 'ok' },
+    raw: migrated.raw,
+  };
+}
+
+/** Backwards-compatible accessor: the settings without their read status. */
 export async function readSettings(): Promise<AppSettings> {
+  return (await readSettingsFile()).settings;
+}
+
+/** Re-read the raw file immediately before a write to preserve unknown fields. */
+async function readRawSettingsForWrite(): Promise<Record<string, unknown>> {
   try {
     const text = await fs.readFile(settingsPath(), 'utf8');
-    return normalizeAppSettings(
-      JSON.parse(text) as Parameters<typeof normalizeAppSettings>[0],
-    );
+    const parsed = JSON.parse(text) as unknown;
+    return isRecord(parsed) ? parsed : lastSettingsRaw;
   } catch {
-    return structuredClone(DEFAULT_APP_SETTINGS);
+    return lastSettingsRaw;
   }
 }
 
 /**
- * Persist the global personal settings atomically. Every value is normalized
- * first, so a malformed IPC payload cannot write an unsafe page geometry.
+ * Persist the global personal settings atomically. Writes are serialized so two
+ * rapid Apply actions land in order (last write wins) and the result is only a
+ * success after the rename completed. Known paths are replaced; every other
+ * stored field survives (see `settingsDocumentForWrite`).
  */
-export async function writeSettings(input: unknown): Promise<void> {
-  const settings = normalizeAppSettings(
-    input as Parameters<typeof normalizeAppSettings>[0],
+export async function writeSettings(input: unknown): Promise<SettingsSaveResult> {
+  const task = async (): Promise<SettingsSaveResult> => {
+    const settings = normalizeAppSettings(
+      input as Parameters<typeof normalizeAppSettings>[0],
+    );
+    const previous = await readRawSettingsForWrite();
+    const document = settingsDocumentForWrite(previous, settings);
+    try {
+      await fs.mkdir(appSupportDir(), { recursive: true });
+      await writeFileAtomic(settingsPath(), `${JSON.stringify(document, null, 2)}\n`);
+      lastSettingsRaw = document;
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        message: `Could not save settings: ${settingsErrorMessage(error)}`,
+      };
+    }
+  };
+  const result = settingsWriteQueue.then(task, task);
+  settingsWriteQueue = result.then(
+    () => undefined,
+    () => undefined,
   );
-  await fs.mkdir(appSupportDir(), { recursive: true });
-  await writeFileAtomic(settingsPath(), `${JSON.stringify(settings, null, 2)}\n`);
+  return result;
+}
+
+/** Test-only: wait for the serialized settings queue. */
+export async function flushSettingsWrites(): Promise<void> {
+  await settingsWriteQueue;
+}
+
+/** Durable per-document map used by bootstrap and the settings dialog. */
+export function readDocumentSettings(): ReturnType<typeof readDocumentSettingsFile> {
+  return readDocumentSettingsFile(appSupportDir());
+}
+
+export function writeDocumentSettings(
+  entries: readonly DocumentSettingsEntry[],
+): Promise<SettingsSaveResult> {
+  return writeDocumentSettingsFile(appSupportDir(), entries);
+}
+
+export function saveDocumentSettings(
+  input: DocumentSettingsSaveInput,
+): Promise<DocumentSettingsSaveResult> {
+  return applyDocumentSettings(appSupportDir(), input);
 }
 
 // ---------------------------------------------------------------------------
 // Session (UI state only; not document content)
 // ---------------------------------------------------------------------------
 
-export async function readSession(): Promise<SessionState> {
+export interface SessionRead {
+  session: SessionState;
+  /**
+   * Pre-S2-2 session overrides, read only to migrate them once into
+   * `document-settings.json`. New session writes never contain these fields.
+   */
+  legacyOverrides: LegacySessionOverride[];
+}
+
+/**
+ * Read the shell session. Legacy `pageSettingsOverride` and
+ * `continuousSettingsOverride` fields are removed from the returned tabs and
+ * reported separately so bootstrap can migrate them into the durable per-document
+ * map (S2-2). A corrupt session still falls back to the empty default.
+ */
+export async function readSessionWithOverrides(): Promise<SessionRead> {
   const file = sessionPath();
   try {
     const text = await fs.readFile(file, 'utf8');
     const raw = JSON.parse(text) as Partial<SessionState>;
     const tabs: SessionTabState[] = [];
+    const legacyOverrides: LegacySessionOverride[] = [];
     if (Array.isArray(raw.tabs)) {
       for (const tab of raw.tabs) {
         if (typeof tab !== 'object' || tab === null) continue;
@@ -1220,9 +1376,9 @@ export async function readSession(): Promise<SessionState> {
         const pageSettingsOverride = normalizePageSettingsOverride(
           (tab as { pageSettingsOverride?: unknown }).pageSettingsOverride,
         );
-        const continuousSettingsOverride = normalizeContinuousSettingsOverride(
-          (tab as { continuousSettingsOverride?: unknown }).continuousSettingsOverride,
-        );
+        if (pageSettingsOverride !== undefined) {
+          legacyOverrides.push({ packagePath, pageSettingsOverride });
+        }
         tabs.push({
           packagePath,
           scrollTop: Number.isFinite(scrollTop) && scrollTop >= 0 ? scrollTop : 0,
@@ -1234,8 +1390,6 @@ export async function readSession(): Promise<SessionState> {
           pageZoom: view.pageZoom,
           pageFit: view.pageFit,
           zoom: view.zoom,
-          ...(pageSettingsOverride === undefined ? {} : { pageSettingsOverride }),
-          ...(continuousSettingsOverride === undefined ? {} : { continuousSettingsOverride }),
         });
       }
     }
@@ -1253,16 +1407,23 @@ export async function readSession(): Promise<SessionState> {
       }
     }
     return {
-      tabs,
-      activeTab,
-      sidebarCollapsed: raw.sidebarCollapsed === true,
-      sidebarWidth:
-        Number.isFinite(width) && width >= 208 && width <= 360 ? Math.round(width) : 264,
-      collapsedTopics,
+      session: {
+        tabs,
+        activeTab,
+        sidebarCollapsed: raw.sidebarCollapsed === true,
+        sidebarWidth:
+          Number.isFinite(width) && width >= 208 && width <= 360 ? Math.round(width) : 264,
+        collapsedTopics,
+      },
+      legacyOverrides,
     };
   } catch {
-    return structuredClone(DEFAULT_SESSION);
+    return { session: structuredClone(DEFAULT_SESSION), legacyOverrides: [] };
   }
+}
+
+export async function readSession(): Promise<SessionState> {
+  return (await readSessionWithOverrides()).session;
 }
 
 export async function writeSession(state: SessionState): Promise<void> {
@@ -1272,12 +1433,16 @@ export async function writeSession(state: SessionState): Promise<void> {
 
 export async function bootstrap(): Promise<{
   settings: AppSettings;
+  settingsStatus: SettingsFileStatus;
+  documentSettings: DocumentSettingsEntry[];
+  documentSettingsStatus: SettingsFileStatus;
   session: SessionState;
   openDocuments: OpenDocumentSnapshot[];
   recoveries: RecoveryDocumentView[];
 }> {
-  const settings = await readSettings();
-  const session = await readSession();
+  const settingsRead = await readSettingsFile();
+  const sessionRead = await readSessionWithOverrides();
+  const session = sessionRead.session;
   const openDocuments: OpenDocumentSnapshot[] = [];
   const recoveries: RecoveryDocumentView[] = [];
   for (const tab of session.tabs) {
@@ -1299,7 +1464,25 @@ export async function bootstrap(): Promise<{
       );
     }
   }
-  return { settings, session, openDocuments, recoveries };
+  // S2-2: move any session-only override into the durable map keyed by the
+  // canonical document id (path fallback when a package cannot be opened).
+  const documentIdByPath = new Map(
+    openDocuments.map((snapshot) => [snapshot.packagePath, snapshot.document.id]),
+  );
+  const migrated = await migrateLegacySessionOverrides(
+    appSupportDir(),
+    sessionRead.legacyOverrides,
+    documentIdByPath,
+  );
+  return {
+    settings: settingsRead.settings,
+    settingsStatus: settingsRead.status,
+    documentSettings: migrated.entries,
+    documentSettingsStatus: migrated.status,
+    session,
+    openDocuments,
+    recoveries,
+  };
 }
 
 // ---------------------------------------------------------------------------

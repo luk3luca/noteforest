@@ -9,6 +9,7 @@ import {
   registerRuntime,
   removeRuntime,
 } from './state/registry';
+import { useSettingsStore } from './state/settings';
 import {
   useShell,
   type DocumentLayout,
@@ -130,6 +131,11 @@ export async function openPath(packagePath: string): Promise<boolean> {
     return true;
   }
   const runtime = registerRuntime(result, undefined, undefined);
+  // A document moved/renamed on disk keeps its personal settings: re-key the
+  // durable entry from the canonical id to the newly opened path (S2-2).
+  useSettingsStore
+    .getState()
+    .adoptDocumentSettings(packagePath, result.document.id);
   shell().openTab({
     packagePath,
     title: result.document.title,
