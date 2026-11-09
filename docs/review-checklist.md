@@ -470,7 +470,13 @@ and landscape in reader and page views at fit-page and 150% zoom.
       100%).
 - [ ] No block–callout, callout–callout, or label–node overlap.
 - [ ] An anchored callout starts below its anchor, aligns to the anchor's left within 2 px at 100%,
-      and paginates by the normal rule if it reaches the page bottom.
+      and paginates by the normal rule if it reaches the page bottom. **Page mode A exception
+      (R2j):** an anchored callout may sit in the parent card's right lane at the parent's top; its
+      leader leaves the parent's right port, and the anchor mark identifies the branch. This is
+      Page-only and Read/Edit/PDF must agree; Continuous keeps the below-anchor rule.
+- [ ] A Page density preset that changes callout topology (for example Comfortable keeping the
+      legacy stacked layout while Compact uses A/B2) is a product decision, labelled in Settings,
+      never a silent topology change.
 - [ ] Widths are content-driven and adaptive: a large subtree may take more horizontal space, a leaf
       sibling may be narrow, and there is no fixed pixel column per depth.
 - [ ] Siblings stack vertically in branch order; sibling subtrees do not overlap.
@@ -515,8 +521,11 @@ and landscape in reader and page views at fit-page and 150% zoom.
 
 ### 4.3 Anchored branches
 
-- [ ] The branch begins at the anchor, not at the block edge.
-- [ ] The callout is placed below the anchor; it may wrap or paginate like any other branch.
+- [ ] The branch begins at the anchor, not at the block edge. Page mode A is the exception: the
+      primary group leader leaves the parent's right port and the anchor mark identifies the anchor.
+- [ ] The callout is placed below the anchor; it may wrap or paginate like any other branch. Page
+      mode A is the exception defined in §4.1: the callout sits in the parent's right lane at the
+      parent's top and the anchor mark identifies the branch.
 - [ ] Multiple callouts from one anchor stack in branch order; callouts from different anchors follow
       anchor order and do not overlap.
 - [ ] A callout that cannot fit the page width after wrapping is reported as a layout defect, not
@@ -736,6 +745,11 @@ The stack is Electron (ADR-0001) and the PDF pipeline is the shared paginator + 
 
 - [ ] The print compositor consumes the shared paginator's derived pages; it does not compute a
       second pagination or let CSS paged media decide breaks.
+- [ ] The print model/compositor is built from the same real `layoutDocument` + `paginate` output
+      as Page Read/Edit (a hand-built page/layout fixture is not seam evidence), and carries the
+      resolved PageTheme/CSS variables, block measurements/table columns, anchor and missing-asset
+      diagnostics, and page-chrome geometry. A parity test compares Page Read's fragment/edge/trunk
+      data to the print model, including A/B2/stacked trunks and cross-page segments.
 - [ ] Each print page is a fixed A4 container; `@page` supplies size/margins; the renderer waits for
       layout, pagination, fonts, images, and KaTeX.
 - [ ] Text remains real text (not outlines or screenshots) and fonts are embedded.
