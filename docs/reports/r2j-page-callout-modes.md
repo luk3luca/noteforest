@@ -211,3 +211,12 @@ Orchestrator: run the one full `npm run verify` at integration, review the five
 R2j screenshots and the lab deltas with the product owner, then proceed to M4c
 PDF once the Page checkpoint is accepted. No merge, push, or PR was performed
 from this worktree.
+
+## Integration
+
+- Merged to `main` as `1e89bf0` (base `97127cf`).
+- One full `npm run verify` on the integrated tree: **exit 0** — **90 test
+  files / 879 tests**, **31 UI suites / 101 tests**, **16 critical e2e**,
+  **14 recovery**, **0 pageErrors**.
+- Page checkpoint evidence lives on `main` under `artifacts/r2j/`; the
+  product-owner visual/Page check is the next gate before M4c PDF.
