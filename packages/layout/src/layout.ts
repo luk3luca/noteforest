@@ -339,20 +339,31 @@ class LayoutBuilder {
    * R2i: the per-level indent is the PageTheme `childIndent` token. It has to
    * leave room for the below trunk and its 12 px left stem, so the effective
    * indent is at least `wrapIndent` and at most `maxWrapIndent`.
+   *
+   * R2j1: a group whose max-content width nearly fills the page used to be
+   * shifted to the content left, which put the below trunk exactly on the
+   * child card's left edge: the horizontal arm had zero length and the
+   * arrowhead disappeared. When the child cards are still readable at the
+   * stem origin, reserve `trunkInset + stemMin`; the cards reflow narrower and
+   * the arm keeps a visible 12 px left stem. If an unbreakable child cannot
+   * fit there, the caller falls back to the old shift so a genuine width defect
+   * stays explicit instead of being hidden by a forced overlap.
    */
   private wrapOriginX(
     parentX: number,
     rightLimit: number,
     groupWidth: number,
     wrapFloor: number,
+    minimumStemOrigin = PAGE_CONTENT_LEFT,
   ): number {
     const indent = Math.min(
       this.options.maxWrapIndent,
       Math.max(this.options.wrapIndent, this.options.childIndent),
     );
-    const preferred = parentX + indent;
+    const preferred = Math.max(parentX + indent, minimumStemOrigin);
     const maxStart = Math.max(PAGE_CONTENT_LEFT, rightLimit - groupWidth);
-    return Math.max(wrapFloor, Math.min(preferred, maxStart));
+    const start = Math.max(minimumStemOrigin, maxStart);
+    return Math.max(wrapFloor, Math.min(preferred, start));
   }
 
   /**
@@ -730,11 +741,32 @@ class LayoutBuilder {
         Math.min(max.contentWidth, this.options.maxContentWidth) + chrome,
       );
     }, 0);
+    // R2j1: the below group must keep a visible 12 px left stem. The old
+    // shift-to-fit moved a nearly full-width child group to the content left,
+    // so the trunk sat on the card edge and the arrowhead vanished. Reserve
+    // the stem only when every direct-child card is still readable there;
+    // unbreakable content keeps the old shift and its explicit width defect.
+    const effectiveIndent = Math.min(
+      this.options.maxWrapIndent,
+      Math.max(this.options.wrapIndent, this.options.childIndent),
+    );
+    const stemOrigin = Math.max(
+      context.wrapFloor,
+      x + EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin,
+    );
+    const keepStem =
+      effectiveIndent >= EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin - EPSILON &&
+      stemOrigin > context.wrapFloor + EPSILON &&
+      stemOrigin < context.rightLimit - EPSILON &&
+      candidates.every((candidate) =>
+        this.fitsAtOffset(candidate.target, context.rightLimit - stemOrigin),
+      );
     const groupWrapX = this.wrapOriginX(
       x,
       context.rightLimit,
       groupWidth,
       context.wrapFloor,
+      keepStem ? stemOrigin : PAGE_CONTENT_LEFT,
     );
 
     // R2j: resolve anchored callouts before choosing a mode. The page-only

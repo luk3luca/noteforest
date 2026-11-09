@@ -36,6 +36,7 @@ const CALLOUT_TRUNK_INSET = 24;
 const CHILD_TRUNK_INSET = 12;
 const CALLOUT_GAP = 12;
 const SIBLING_GAP = 16;
+const STEM_MIN = 12;
 const TOLERANCE = 1.5;
 
 const A5_PORTRAIT = {
@@ -664,6 +665,10 @@ describe('R2j Page callout modes', () => {
       childA.top >= calloutB.top + calloutB.height - 0.75,
       'the child group starts below the callout stack',
     );
+    assert.ok(
+      childA.left >= CHILD_TRUNK_INSET + STEM_MIN - TOLERANCE,
+      `the full-width child group keeps the below stem origin (${childA.left})`,
+    );
 
     const edges = await readEdges();
     for (const edge of edges) {
@@ -677,6 +682,10 @@ describe('R2j Page callout modes', () => {
     assert.equal(rootCalloutA.trunkId, 'cm-root:below');
     assert.equal(rootChild.trunkId, 'cm-root:below');
     assert.equal(rootCalloutA.trunkGroup, '');
+    assert.ok(
+      rootChild.stem >= STEM_MIN - TOLERANCE,
+      `the full-width child edge keeps a visible stem (${rootChild.stem})`,
+    );
 
     const trunks = await readTrunks();
     assert.ok(

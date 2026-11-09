@@ -25,7 +25,9 @@ parent** from the placed parent card and the resolved Page right limit:
   `(parent, below, group)` trunks across pages.
 - **Stacked fallback** — when neither A nor B2 fits, callouts stay first below
   the parent at their anchor x and children follow below on the one shared
-  below trunk. B1 is not implemented.
+  below trunk. B1 is not implemented. R2j1 reserves the below trunk's 12 px
+  left stem when a nearly full-width child group would otherwise shift onto the
+  trunk, so the child keeps a visible incoming arrow.
 
 The mode is deterministic and pure: it uses `LayoutOptions`/`PageTheme` values
 and the resolved page width only. It never reads a viewport, zoom, or window
@@ -129,7 +131,7 @@ geometry. Whitespace is `1 − block area / band area`.
 |---|---:|---:|---:|---|
 | A, multiple callouts | 1 → 1 | 65.00% → **57.03%** | 559.2 → **455.8** | callouts right, children below |
 | B2, no right lane | 2 → **1** | 55.31% → **33.79%** | 936.0 → **650.3** | 1 blocking defect → **0** |
-| Stacked fallback | 2 → 2 | 12.34% → 12.34% | 466.2 → 466.2 | one shared below trunk |
+| Stacked fallback | 2 → 2 | 16.98% → 16.98% | 466.2 → 466.2 | one shared below trunk; stem reserve (R2j1) |
 | `scale-300.json` | 39 → 39 | 51.22% → **50.44%** | 25016.1 → **24901.7** | 12 callouts move right |
 | `wide-fan.json` | 2 → 2 | 71.22% → 71.22% | unchanged | no callouts |
 | `deep-chain.json` | 3 → 3 | 58.01% → 59.25% | 1738.5 → **1623.1** | one callout right, one below |
@@ -142,7 +144,7 @@ high absolute whitespace ratio):
 |---|---:|---:|---|
 | `page-callout-modes-a.json` | 1 | 83.94% | root 0,0; callouts 462,0 / 462,64; child 26,132; nested callout 377,132; grandchild 52,200 |
 | `page-callout-modes-b2.json` | 1 | 64.65% | callouts 38,95 / 38,159; child 26,227; nested callout 64,291; grandchild 52,359 |
-| `page-callout-modes-stacked.json` | 2 | 30.76% | callouts 27.5/47.4 (anchor x); child 0,305 |
+| `page-callout-modes-stacked.json` | 2 | 30.76% | callouts 27.5/47.4 (anchor x); child 24,305, width 187.6, stem 12 (R2j1) |
 | `page-callout-modes-pages.json` | 3 | page 1 84.86% | callout-a 38,95; parent trunks continue |
 
 Screenshots:

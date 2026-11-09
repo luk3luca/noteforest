@@ -607,6 +607,66 @@ describe('page callout stacked fallback (R2j)', () => {
     expect(result.defects.filter((defect) => defect.blocksExport)).toEqual([]);
   });
 
+  it('keeps a visible below-trunk stem for a nearly full-width child group', () => {
+    const { document, port } = makeDocument(
+      {
+        root: { max: 420, min: 160, height: 120 },
+        callout: { max: 160, min: 80 },
+        child: { max: 600, min: 160, height: 40 },
+      },
+      [
+        { from: 'root', to: 'callout', anchorId: 'a1' },
+        { from: 'root', to: 'child' },
+      ],
+      { root: [{ anchorId: 'a1', x: 10 }] },
+    );
+    // Force the stacked packing: there is no A/B2 mode path here, only the
+    // full-width direct-child group that used to shift to x = 0.
+    const result = layout(document, port, A5_PORTRAIT_NARROW, { pagePacking: 'stacked' });
+    const child = result.blockById['child']!;
+    const stemOrigin = EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin;
+    expect(child.x).toBeGreaterThanOrEqual(stemOrigin - 0.001);
+
+    const pages = paginate(result, document);
+    const model = buildPageEdgeModel(result, pages.pages);
+    const rootBelow = model.trunks[0]!.find((view) => view.trunk.id === 'root:below')!;
+    const childEdge = model.edges[0]!.find(
+      (candidate) => candidate.role === 'primary' && candidate.toBlockId === 'child',
+    )!;
+    // The shared below trunk is pulled left by the anchored callout at x=19,
+    // so it sits at 7 rather than 12; the child still gets a full 12 px stem.
+    expect(childEdge.trunk!.x).toBe(rootBelow.trunk.x);
+    expect(childEdge.to.x - childEdge.trunk!.x).toBeGreaterThanOrEqual(
+      EDGE_STYLE.stemMin - 0.001,
+    );
+    expect(result.defects.filter((defect) => defect.blocksExport)).toEqual([]);
+  });
+
+  it('keeps the old shift when an unbreakable child cannot fit at the stem origin', () => {
+    const { document, port } = makeDocument(
+      {
+        root: { max: 420, min: 160, height: 120 },
+        callout: { max: 160, min: 80 },
+        child: { max: 600, min: 220, height: 40 },
+      },
+      [
+        { from: 'root', to: 'callout', anchorId: 'a1' },
+        { from: 'root', to: 'child' },
+      ],
+      { root: [{ anchorId: 'a1', x: 10 }] },
+    );
+    const result = layout(document, port, A5_PORTRAIT_NARROW, { pagePacking: 'stacked' });
+    const child = result.blockById['child']!;
+    // The 220 px unbreakable child cannot shrink to the 24 px stem origin;
+    // keeping the old full-width shift is better than a hidden overflow.
+    expect(child.x).toBeLessThan(EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin);
+    expect(
+      result.defects.some(
+        (defect) => defect.code === 'content-too-wide' && defect.blockId === 'child',
+      ),
+    ).toBe(true);
+  });
+
   it('keeps the stacked fallback deterministic and free of page chips', () => {
     const { document, port } = stackedDocument();
     const first = layout(document, port, A5_PORTRAIT_NARROW);
