@@ -204,3 +204,15 @@ card; the page-count columns are the meaningful packing evidence.
 Sentinel review of M4d1 against the brief. If accepted, proceed with M4d2
 (export PDF UI) or the full-codebase Sentinel/settings inventory per the
 post-Page roadmap.
+
+## Integration
+
+- Merged to `main` as `a4d142d` (base `bceeeed`; M4d2 was already merged).
+- The only conflict was `package.json`; `test:ui`/`verify` now include both
+  M4d1 and M4d2 suites.
+- One full `npm run verify` on the integrated tree: **exit 0** — **99 test
+  files / 982 tests**, **37 UI suites / 129 tests**, **16 critical e2e**,
+  **14 recovery**, **0 pageErrors**.
+- The M4d2 Page toolbar one-rail fix is retained; density and export UI work
+  together in the integrated build.
+- Evidence: `artifacts/m4d1/settings-page-density.png`; lab table above.

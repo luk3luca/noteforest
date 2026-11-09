@@ -205,6 +205,6 @@ entry points and the default output folder.
   fit-page zoom and the sheet size. The temporary fix keeps the Page toolbar
   on one rail (`flex-wrap: nowrap; overflow-x: auto`); the final narrow-width
   layout belongs to the UI rework.
-- One full `npm run verify` on the integrated tree: **exit 0** — **98 test
-  files / 962 tests**, **36 UI suites / 125 tests**, **16 critical e2e**,
-  **14 recovery**, **0 pageErrors**.
+- One full `npm run verify` on the integrated tree after the M4d1 density
+  merge: **exit 0** — **99 test files / 982 tests**, **37 UI suites / 129
+  tests**, **16 critical e2e**, **14 recovery**, **0 pageErrors**.
