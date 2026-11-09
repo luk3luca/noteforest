@@ -5,6 +5,7 @@ import {
   layoutDocument,
   normalizePageSettings,
   pageChromeLayout,
+  pageCssVariables,
   pageEdgeLabelLayout,
   pageGeometry,
   pageLayoutOptions,
@@ -17,7 +18,7 @@ import {
   type NoteDocument,
   type PageSetup,
 } from '@noteforest/layout';
-import { buildPrintModel } from '@noteforest/pdf';
+import { buildPrintModel, PrintModelSettingsMismatchError } from '@noteforest/pdf';
 import {
   anchorRecordsByBlock,
   projectPageContent,
@@ -199,7 +200,7 @@ function pipeline(
     geometry: layout.geometry,
     assets: {},
   });
-  return { settings, layout, paginated, print, projection };
+  return { document, settings, layout, paginated, print, projection };
 }
 
 function modeAFixture() {
@@ -273,7 +274,7 @@ function expectSeamParity(result: ReturnType<typeof pipeline>): void {
         blocks: print.blocks,
         anchorsByBlock,
         assets: {},
-        listIndent: settings.theme.wrapIndent,
+        listIndent: pageLayoutOptions(settings.theme).wrapIndent,
       }),
     ).toEqual(projected.segmentsByBlock);
     // And every card's static HTML is byte-identical.
@@ -286,7 +287,7 @@ function expectSeamParity(result: ReturnType<typeof pipeline>): void {
           assets: {},
           tableColumns: fromModel,
           anchors: anchorsByBlock.get(fragment.blockId) ?? [],
-          listIndent: settings.theme.wrapIndent,
+          listIndent: pageLayoutOptions(settings.theme).wrapIndent,
         }),
       ).toEqual(segments);
     }
@@ -474,4 +475,39 @@ describe('A5/Letter and portrait/landscape geometry smoke', () => {
       }
     });
   }
+});
+
+describe('M4d1 density identity (Page Read vs print model)', () => {
+  it('keeps Page Read, print segments, and CSS identity under a density lens', () => {
+    const result = pipeline(modeAFixture(), MODE_A_SPECS, A4_LANDSCAPE, {
+      theme: { density: 0.9 },
+    });
+    expectSeamParity(result);
+    expect(result.settings.theme.density).toBe(0.9);
+    expect(result.layout.layoutOptions).toEqual(pageLayoutOptions(result.settings.theme));
+    expect(result.print.fingerprint).toBe(pageSettingsFingerprint(result.settings));
+    expect(result.print.cssVariables).toEqual(pageCssVariables(result.settings.theme));
+    expect(result.print.cssVariables['--nf-page-body-size']).toBe('8.1pt');
+    expect(result.print.cssVariables['--nf-page-card-padding']).toBe('7.2px');
+    expect(result.print.cssVariables['--nf-page-max-card-width']).toBe('378px');
+  });
+
+  it('rejects a print model paired with a different density fingerprint', () => {
+    const result = pipeline(modeAFixture(), MODE_A_SPECS, A4_LANDSCAPE, {
+      theme: { density: 0.9 },
+    });
+    const other = normalizePageSettings({
+      setup: A4_LANDSCAPE,
+      theme: { density: 1 },
+    });
+    expect(() =>
+      buildPrintModel(result.document, result.layout, undefined, {
+        settings: result.settings,
+        pageModelFingerprint: pageSettingsFingerprint(other),
+      }),
+    ).toThrow(PrintModelSettingsMismatchError);
+    // The layout options themselves are also an identity input: a 100% layout
+    // cannot claim the 90% settings even with a matching fingerprint string.
+    expect(result.layout.layoutOptions).not.toEqual(pageLayoutOptions(other.theme));
+  });
 });

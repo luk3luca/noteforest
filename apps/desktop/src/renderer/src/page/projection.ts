@@ -16,6 +16,7 @@ import {
   pageBlockingDefects,
   pageChromeContent,
   pageChromeLayout,
+  pageLayoutOptions,
   type AnchorAttachment,
   type AnchorRecord,
   type BlockMeasurement,
@@ -176,7 +177,9 @@ export function projectPageContent(input: PageProjectionInput): PageProjection {
   const anchorsByBlock = anchorRecordsByBlock(input.document.anchors);
   const warnings = anchorWarningsByBlock(input.anchors);
   const chromeLayout = pageChromeLayout(input.geometry);
-  const listIndent = input.settings.theme.wrapIndent;
+  // The list indent is a Page box metric: read it from the same density-lens
+  // layout options the measurement host used, never from the raw stored theme.
+  const listIndent = pageLayoutOptions(input.settings.theme).wrapIndent;
   // Per-projection cache: a block continuing across pages shares one segment
   // list instead of rebuilding it on every page (R9).
   const segmentCache = new Map<string, PageRenderSegment[]>();

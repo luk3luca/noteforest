@@ -28,6 +28,7 @@ import {
   mergePageSettings,
   normalizeAppSettings,
   normalizeContinuousSettingsOverride,
+  normalizePageDensity,
   normalizePageSettingsOverride,
 } from '@noteforest/layout';
 import type { SessionTabState } from '../../../shared/api';
@@ -180,6 +181,45 @@ export function useContinuousSettings(
     () => mergeContinuousSettings(globalContinuous, override),
     [globalContinuous, override],
   );
+}
+
+/** Slider percent (integer 80–120) of a density value. */
+export function pageDensityPercent(density: number): number {
+  return Math.round(normalizePageDensity(density) * 100);
+}
+
+/** Density multiplier from a slider percent value (80–120). */
+export function pageDensityValue(percent: number): number {
+  return normalizePageDensity(percent / 100);
+}
+
+/**
+ * Keep only the density part of the draft: an explicit per-document density
+ * override, preserving every other page override field.
+ */
+export function withPageDensityOverride(
+  override: PageSettingsOverride | undefined,
+  density: number,
+): PageSettingsOverride {
+  return {
+    ...(override ?? {}),
+    theme: { ...(override?.theme ?? {}), density: normalizePageDensity(density) },
+  };
+}
+
+/**
+ * Drop the density part of a per-document override. Other overrides survive;
+ * an empty result means "use the global settings again".
+ */
+export function withoutPageDensityOverride(
+  override: PageSettingsOverride | undefined,
+): PageSettingsOverride | undefined {
+  if (override?.theme?.density === undefined) return override;
+  const { density: _density, ...theme } = override.theme;
+  const next: PageSettingsOverride = { ...override };
+  if (Object.keys(theme).length === 0) delete next.theme;
+  else next.theme = theme;
+  return Object.keys(next).length === 0 ? undefined : next;
 }
 
 /** Test-only reset: restores defaults without persisting. */

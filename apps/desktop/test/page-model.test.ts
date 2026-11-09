@@ -4,6 +4,7 @@ import {
   DEFAULT_PAGE_SETTINGS,
   createEstimatedMeasurement,
   normalizePageSettings,
+  pageLayoutOptions,
 } from '@noteforest/layout';
 import { toLayoutDocument } from '../src/renderer/src/page/adapter';
 import {
@@ -137,5 +138,32 @@ describe('page model pure parts', () => {
         { code: 'no-safe-break', severity: 'blocking', message: 'b', blocksExport: true },
       ]).map((defect) => defect.code),
     ).toEqual(['no-safe-break']);
+  });
+});
+
+describe('Page density model lens (M4d1)', () => {
+  it('feeds the density lens into layout options and the model fingerprint', () => {
+    const document = longDocument();
+    const note = toLayoutDocument(document);
+    const low = normalizePageSettings({ theme: { density: 0.8 } });
+    const high = normalizePageSettings({ theme: { density: 1.2 } });
+    const lowModel = computePageModel(
+      note,
+      createEstimatedMeasurement(note, pageLayoutOptions(low.theme)),
+      low,
+    );
+    const highModel = computePageModel(
+      note,
+      createEstimatedMeasurement(note, pageLayoutOptions(high.theme)),
+      high,
+    );
+    expect(lowModel.layout.layoutOptions).toEqual(pageLayoutOptions(low.theme));
+    expect(highModel.layout.layoutOptions).toEqual(pageLayoutOptions(high.theme));
+    expect(lowModel.layout.layoutOptions?.cardPadding).toBe(6.4);
+    expect(highModel.layout.layoutOptions?.cardPadding).toBe(9.6);
+    expect(lowModel.layout.geometry).toEqual(highModel.layout.geometry);
+    expect(lowModel.settingsFingerprint).not.toBe(highModel.settingsFingerprint);
+    expect(lowModel.pages.length).toBeGreaterThan(0);
+    expect(highModel.pages.length).toBeGreaterThan(0);
   });
 });

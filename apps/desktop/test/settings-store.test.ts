@@ -3,10 +3,15 @@ import {
   DEFAULT_APP_SETTINGS,
   DEFAULT_PAGE_SETTINGS,
   PAGE_THEME_PRESETS,
+  type PageSettingsOverride,
 } from '@noteforest/layout';
 import {
+  pageDensityPercent,
+  pageDensityValue,
   resetSettingsForTests,
   useSettingsStore,
+  withPageDensityOverride,
+  withoutPageDensityOverride,
 } from '../src/renderer/src/state/settings';
 
 beforeEach(() => {
@@ -120,5 +125,80 @@ describe('renderer personal settings resolution', () => {
     expect(useSettingsStore.getState().resolvedContinuousSettings('/doc')).toEqual({
       zoom: 4,
     });
+  });
+});
+
+describe('Page density settings (M4d1)', () => {
+  it('persists a global density and scopes a document override', () => {
+    useSettingsStore.getState().setAppSettings({
+      page: { theme: { density: 0.9 } },
+      continuous: { zoom: 1 },
+    });
+    expect(useSettingsStore.getState().app.page.theme.density).toBe(0.9);
+    expect(useSettingsStore.getState().resolvedPageSettings('/doc').theme.density).toBe(0.9);
+
+    useSettingsStore.getState().setPageSettingsOverride('/doc', {
+      theme: { density: 1.15 },
+    });
+    expect(useSettingsStore.getState().resolvedPageSettings('/doc').theme.density).toBe(1.15);
+    expect(useSettingsStore.getState().resolvedPageSettings('/other').theme.density).toBe(0.9);
+
+    useSettingsStore.getState().setPageSettingsOverride('/doc', null);
+    expect(useSettingsStore.getState().resolvedPageSettings('/doc').theme.density).toBe(0.9);
+  });
+
+  it('normalizes a density override through the shared range', () => {
+    const store = useSettingsStore.getState();
+    expect(store.setPageSettingsOverride('/doc', { theme: { density: 0.1 } })).toEqual({
+      theme: { density: 0.8 },
+    });
+    expect(store.setPageSettingsOverride('/doc', { theme: { density: 99 } })).toEqual({
+      theme: { density: 1.2 },
+    });
+    expect(store.setPageSettingsOverride('/doc', { theme: { density: 'bad' } })).toBeUndefined();
+    expect(useSettingsStore.getState().pageOverrides['/doc']).toBeUndefined();
+  });
+
+  it('keeps a global density change away from a document override', () => {
+    useSettingsStore.getState().setPageSettingsOverride('/doc', {
+      setup: { orientation: 'portrait' },
+      theme: { density: 0.85 },
+    });
+    useSettingsStore.getState().setAppSettings({
+      page: { theme: { density: 1.1 } },
+      continuous: { zoom: 1 },
+    });
+    const resolved = useSettingsStore.getState().resolvedPageSettings('/doc');
+    expect(resolved.theme.density).toBe(0.85);
+    expect(resolved.setup.orientation).toBe('portrait');
+    expect(useSettingsStore.getState().resolvedPageSettings('/other').theme.density).toBe(1.1);
+  });
+
+  it('builds and drops a density-only document override', () => {
+    expect(pageDensityPercent(0.85)).toBe(85);
+    expect(pageDensityValue(85)).toBe(0.85);
+    expect(pageDensityValue(999)).toBe(1.2);
+    expect(pageDensityValue(1)).toBe(0.8);
+
+    expect(withPageDensityOverride(undefined, 0.85)).toEqual({ theme: { density: 0.85 } });
+    const base: PageSettingsOverride = {
+      setup: { orientation: 'portrait' },
+      theme: { preset: 'comfortable' },
+    };
+    expect(withPageDensityOverride(base, 1.2)).toEqual({
+      setup: { orientation: 'portrait' },
+      theme: { preset: 'comfortable', density: 1.2 },
+    });
+    expect(
+      withoutPageDensityOverride({
+        setup: { orientation: 'portrait' },
+        theme: { preset: 'comfortable', density: 0.9 },
+      }),
+    ).toEqual({ setup: { orientation: 'portrait' }, theme: { preset: 'comfortable' } });
+    expect(withoutPageDensityOverride({ theme: { density: 0.9 } })).toBeUndefined();
+    expect(withoutPageDensityOverride({ theme: { preset: 'compact' } })).toEqual({
+      theme: { preset: 'compact' },
+    });
+    expect(withoutPageDensityOverride(undefined)).toBeUndefined();
   });
 });
