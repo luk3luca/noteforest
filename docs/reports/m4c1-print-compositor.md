@@ -234,7 +234,9 @@ under it (plus the generated `@page` style element; no wrapper).
 
 Evidence artifacts:
 
-- Screenshot: `artifacts/m4c1/ui/print-compositor-a-1440x900.png`.
+- Page Read reference: `artifacts/m4c1/ui/print-compositor-a-1440x900.png`.
+- Print compositor (element screenshot of the print root, no app chrome):
+  `artifacts/m4c1/ui/print-compositor-a-print-1440x900.png`.
 - M4c1 Page Read counts/geometry cross-checked against the committed R2j UI
   evidence JSONs (`artifacts/r2j/page-callout-modes-*.json`).
 - `docs/reports/m4c1-print-compositor.md` (this report).
@@ -270,8 +272,18 @@ Evidence artifacts:
 7. **F5/F10/F11 product decisions** remain outside this task; nothing here
    changes callout topology or anchor association.
 
+## Integration
+
+- Merged to `main` as `9ace62d` (base `ac730ce`).
+- One full `npm run verify` on the integrated tree: **exit 0** — **92 test
+  files / 904 tests**, **32 UI suites / 106 tests**, **16 critical e2e**,
+  **14 recovery**, **0 pageErrors**.
+- The print compositor element screenshot was added after the initial run:
+  `artifacts/m4c1/ui/print-compositor-a-print-1440x900.png`; the M4c1 UI suite
+  remains 5/5 and the final integration verify is green.
+
 ## Next suggested step
 
-Orchestrator: run one full `npm run verify` at integration, then hand M4c1 to
-a targeted Sentinel check for F1–F4 (and the print seam) before starting M4c2
-export orchestration.
+Orchestrator: hand M4c1 to a targeted Sentinel check for F1–F4 and the print
+seam before starting M4c2 export orchestration, unless the product owner
+prefers to go directly to M4c2.

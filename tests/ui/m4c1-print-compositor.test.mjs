@@ -271,7 +271,7 @@ async function printSnapshots(pageCount) {
   return snapshots;
 }
 
-async function assertPrintParity(pageCount, label) {
+async function assertPrintParity(pageCount, label, printScreenshotPath = null) {
   const read = await readSnapshots(pageCount);
   const result = await renderPrint();
   assert.equal(result.pageCount, pageCount, `${label}: print page count equals Page Read`);
@@ -310,6 +310,24 @@ async function assertPrintParity(pageCount, label) {
     assert.deepEqual(actual.ghost, expected.ghost, `${label}: page ${index + 1} ghost`);
     assert.deepEqual(actual.continues, expected.continues, `${label}: page ${index + 1} continues`);
   }
+  if (printScreenshotPath !== null) {
+    // The test host is offscreen for DOM parity; bring it onscreen only for
+    // the visual artifact. The element screenshot captures the print root,
+    // not the app shell around it.
+    const host = page.locator('[data-print-test-host]');
+    await host.evaluate((element) => {
+      element.style.position = 'fixed';
+      element.style.left = '0';
+      element.style.top = '0';
+      element.style.zIndex = '9999';
+      element.style.background = '#e5e7eb';
+      element.style.padding = '24px';
+      element.style.width = '100vw';
+      element.style.height = '100vh';
+      element.style.overflow = 'auto';
+    });
+    await host.locator('[data-print-root]').screenshot({ path: printScreenshotPath });
+  }
   await page.evaluate(() => window.__noteforestTest.clearPrint());
   await page.waitForSelector('[data-print-test-host]', { state: 'detached', timeout: 5000 });
   return { read, print, result };
@@ -336,7 +354,11 @@ describe('M4c1 print compositor parity', () => {
     await openPackage(env, 'Print compositor A', pageCalloutModesDocument());
     await showPageRead();
     const pageCount = Number(await activePageView().getAttribute('data-page-count'));
-    const { read } = await assertPrintParity(pageCount, 'mode A');
+    const { read } = await assertPrintParity(
+      pageCount,
+      'mode A',
+      artifactsPath('m4c1', 'ui', 'print-compositor-a-print-1440x900.png'),
+    );
     // One shared right trunk is present on the print page too.
     const printTrunks = read[0].edgeSvg.trunks.map((trunk) => trunk.attributes['data-page-trunk-id']);
     assert.ok(printTrunks.includes('cm-root:right'), 'print model carries the shared right trunk');
