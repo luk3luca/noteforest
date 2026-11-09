@@ -470,8 +470,12 @@ The visual suite is the only visible-window exception.
 - Personal settings (`settings.json` plus per-document overrides) have a schema version, a
   corrupt-file backup/warning, a serialized writer, and a documented unknown-field policy. They
   survive close/restart, and a failed write is visible rather than silently lost.
+- The durable per-document map follows the same contract: versioned, serialized, corrupt-safe, with
+  a recovery action and a documented unknown-field policy; a rename/move re-keys by document id and
+  a deleted package cannot leak its override to another document.
 - Kill the process during save at several points; reopen; the old or new complete file exists.
-- A newer schema is refused with no write.
+- A newer document schema is refused with no write. A newer personal-settings schema is read with a
+  warning; its version and unknown fields are preserved, and a write never downgrades it.
 - Fuzz JSON, Markdown, and JSON Canvas imports; no crash, bounded time and memory.
 - Duplicate IDs, primary cycles, orphan edges, invalid page settings, and invalid break hints are
   rejected with specific errors.

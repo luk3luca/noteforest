@@ -150,8 +150,8 @@ stack is not silently re-opened. A doc review checks:
 - no unresolved TBD inside must-have scope;
 - terminology matches `AGENTS.md`: block, branch, anchor, outline, chapter, level, reader view,
   page view, paginator, page break, continuation marker, primary/reference edge;
-- page size, orientation, and margins are document settings; pages are derived by the paginator,
-  not stored;
+- page size, orientation, and margins are personal settings (global default plus per-document
+  override); pages are derived by the paginator, not stored;
 - pagination rules are defined: normal blocks atomic, long blocks only at safe internal boundaries,
   continuation markers, optional manual break hints, tables break only between rows;
 - the in-app agent panel/chat is a non-goal; external agent access is an API with local binding,
@@ -345,8 +345,8 @@ Run with a fresh profile and a named fixture; record the session.
       switch preserves reading position and selection.
 - [ ] Editing works in the primary authoring view defined by the UX spec; the other view reflects
       the edit and pagination without a manual refresh.
-- [ ] Page settings (A4 size, document-wide orientation, margins) update both views; portrait and
-      landscape render without clipping; mixed orientation is absent in v1.
+- [ ] Page setup (size, orientation, margins) updates both views; portrait and landscape render
+      without clipping; mixed orientation is absent in v1.
 - [ ] There is no drag-to-position. Dragging a block is disabled, or reorders siblings only if the
       UX spec says so; the affordance makes the difference clear.
 - [ ] Creating and deleting a branch works with pointer and keyboard; the target is highlighted;
@@ -462,8 +462,8 @@ and landscape in reader and page views at fit-page and 150% zoom.
 
 ### 4.1 Adaptive geometry and pagination
 
-- [ ] In page view, every block either fits inside the A4 content box (210 × 297 mm portrait,
-      297 × 210 mm landscape, default 20 mm margins) or is a reported layout defect; nothing
+- [ ] In page view, every block either fits inside the resolved page content box (A4/A5/Letter,
+      portrait or landscape, resolved personal margins) or is a reported layout defect; nothing
       silently crosses a margin.
 - [ ] Each chapter starts on a new derived page; top-level blocks stack vertically in chapter order.
 - [ ] No node–node overlap when rectangles are inflated by the minimum clear gap (16 logical px at
@@ -474,9 +474,9 @@ and landscape in reader and page views at fit-page and 150% zoom.
       (R2j):** an anchored callout may sit in the parent card's right lane at the parent's top; its
       leader leaves the parent's right port, and the anchor mark identifies the branch. This is
       Page-only and Read/Edit/PDF must agree; Continuous keeps the below-anchor rule.
-- [ ] A Page density preset changes only typography/spacing; it never changes callout topology
-      (A/B2/stacked). A topology change is a separate product decision, labelled in Settings,
-      never a silent preset side effect.
+- [ ] A Page density change may move a parent between callout modes (A/B2/stacked) through the
+      same geometric rule; Page Read, Page Edit, and PDF must agree, and the behavior must be
+      tested. A preset switch itself remains density-only (it does not select a topology preset).
 - [ ] Widths are content-driven and adaptive: a large subtree may take more horizontal space, a leaf
       sibling may be narrow, and there is no fixed pixel column per depth.
 - [ ] Siblings stack vertically in branch order; sibling subtrees do not overlap.
@@ -793,8 +793,9 @@ The stack is Electron (ADR-0001) and the PDF pipeline is the shared paginator + 
       versions.
 - [ ] A golden fixture per schema version migrates; page size, orientation, margins, manual break
       hints, IDs, anchors, and edges are preserved.
-- [ ] Document page settings (A4, orientation, 20 mm default margins) persist; pages themselves are
-      recomputed deterministically, and reopening gives the same page count for the same settings.
+- [ ] The resolved personal page setup (size, orientation, margins; global default plus
+      per-document override) persists; pages themselves are recomputed deterministically, and
+      reopening gives the same page count for the same settings.
 - [ ] View state (mode, page, scroll, zoom, selection, collapse) is non-canonical; stale references
       to deleted blocks or pages are dropped on load.
 - [ ] Manual break hint insertion/removal is atomic and undoable; no derived page container is
@@ -830,6 +831,9 @@ Added by the full-codebase settings review (9 November 2026). These checks apply
       and an explicit unknown-field policy; corrupt settings are never silently reset and overwritten.
 - [ ] Settings writes are serialized and atomic; a failed write is visible and the UI never claims a
       save that did not happen.
+- [ ] A durable per-document settings store has a schema version (and a migration when the first new
+      field is added), a corrupt-file backup/warning with a recovery action, serialized atomic writes,
+      and a documented unknown-field policy; a corrupt map is never silently replaced or reset.
 - [ ] A per-document override is partial and survives close, restart, and a document rename/move via
       a stable document identity; switching the global/document scope alone does not create one.
 - [ ] Global and per-document values merge explicitly; a later global change reaches every field the
@@ -844,8 +848,10 @@ Added by the full-codebase settings review (9 November 2026). These checks apply
 - [ ] Density may change callout topology (A/B2/stacked) because it reflows the Page tree; the
       product decision allows it, and the behavior is labeled and tested. A preset change remains
       density-only.
-- [ ] Floors are true in the rendered path: body/label ≥ 7 pt and headings stay above body after every
-      scale/override, not only in the intermediate theme object.
+- [ ] The density/preset path is floored in the rendered path: body/label ≥ 7 pt and headings stay
+      above body after the density lens, not only in the intermediate theme object. `fontScale` and
+      `headingScale` stay hidden until the final CSS size is clamped; a custom value deliberately set
+      below a floor keeps proportional scaling by policy.
 - [ ] Manual break hints are personal, cleaned on delete/split/merge, filtered when stale, and
       reported when unhonorable; no UI path makes them canonical.
 - [ ] Settings controls have a real consumer, a global-vs-document state, Apply/Cancel (or a decided
