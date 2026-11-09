@@ -316,3 +316,15 @@ type metrics at both ends, no settings mismatch.
   (not committed).
 - Next: Sentinel review of M4e2 against the brief; then the Settings/UI rework
   (M4e1 landed separately) and the checklist/AGENTS docs update.
+
+## Integration
+
+- Merged to `main` as `e1817f9` (base `70b6a19`; M4e1 already merged).
+- One full `npm run verify` after both fixes: **exit 0** — **101 test files /
+  1010 tests**, **38 UI suites / 133 tests**, **16 critical e2e**,
+  **14 recovery**, **0 pageErrors**.
+- SettingsDialog conflict resolved by keeping M4e1's no-document/durable scope
+  UI and appending the M4e2 density help sentence.
+- The checklist now records the 7 pt body/label floor and adaptive density
+  topology. The 85–95% type curve change (90% 8.5 pt, page counts 27/19/32 on
+  scale-300/showcase/stress) is accepted as the monotone-curve trade-off.

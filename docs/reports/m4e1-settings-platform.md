@@ -217,3 +217,12 @@ No `pageErrors` in the new or re-run UI suites.
 - Next suggested step: targeted Sentinel review of M4e1, then the M4e2 density/
   topology work. The Settings/UI redesign can proceed with the app-level shell
   and durable override model already in place.
+
+## Integration
+
+- Merged to `main` as `5f21d80` (base `70b6a19`).
+- One full `npm run verify` after the M4e2 merge: **exit 0** — **101 test
+  files / 1010 tests**, **38 UI suites / 133 tests**, **16 critical e2e**,
+  **14 recovery**, **0 pageErrors**.
+- Conflict resolved with M4e2 only in the SettingsDialog density help; the
+  no-document/durable-scope structure is retained.
