@@ -367,6 +367,169 @@ export function sidePackingDocument() {
 }
 
 /**
+ * R2j callout-mode fixture.
+ *
+ * The root is wide enough to consume the readable measure, so the same
+ * document resolves to mode A on A4 landscape and to mode B2 on A5 portrait.
+ * Two anchored callouts and two direct children (the first with its own callout
+ * and child) cover the per-parent choice, independent nested groups, and the
+ * two below trunks. Page size/margins and manual breaks are personal settings
+ * set by the UI suite; the canonical document carries neither.
+ */
+export function pageCalloutModesDocument() {
+  const rootText =
+    'An eigenvalue is a scalar that a linear map sends to a multiple of itself. ' +
+    'The scalar is the multiple and the vector is its eigenvector, so the page callout modes see a wide root.';
+  const firstQuote = 'eigenvalue';
+  const secondQuote = 'page callout modes';
+  const firstStart = rootText.indexOf(firstQuote);
+  const secondStart = rootText.indexOf(secondQuote);
+  const childText = 'A direct child with a nested branch and its own callout.';
+  const nestedQuote = 'nested branch';
+  const nestedStart = childText.indexOf(nestedQuote);
+  const root = {
+    id: 'cm-root',
+    label: 'Callout mode root',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            ...(firstStart > 0 ? [{ type: 'text', text: rootText.slice(0, firstStart) }] : []),
+            {
+              type: 'text',
+              text: firstQuote,
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['anchor-cm-root'] } }],
+            },
+            {
+              type: 'text',
+              text: rootText.slice(firstStart + firstQuote.length, secondStart),
+            },
+            {
+              type: 'text',
+              text: secondQuote,
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['anchor-cm-mid'] } }],
+            },
+            {
+              type: 'text',
+              text: rootText.slice(secondStart + secondQuote.length),
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const child = {
+    id: 'cm-child',
+    label: 'Callout mode child',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            { type: 'text', text: childText.slice(0, nestedStart) },
+            {
+              type: 'text',
+              text: nestedQuote,
+              marks: [{ type: 'anchor', attrs: { anchorIds: ['anchor-cm-child'] } }],
+            },
+            { type: 'text', text: childText.slice(nestedStart + nestedQuote.length) },
+          ],
+        },
+      ],
+    },
+  };
+  return pageDocument({
+    id: 'page-callout-modes',
+    title: 'Page callout modes',
+    chapterTitle: 'Callout modes',
+    blocks: [
+      root,
+      textBlock('cm-callout-a', 'Root callout A', 'A scalar multiple only stretches the vector.'),
+      textBlock('cm-callout-b', 'Root callout B', 'The multiplier is the eigenvalue.'),
+      child,
+      textBlock('cm-child-b', 'Second child', 'A second direct child in the same level column.'),
+      textBlock('cm-grandchild', 'Grandchild', 'A grandchild below its parent when it fits.'),
+      textBlock('cm-nested-callout', 'Nested callout', 'A nested callout for the child group.'),
+    ],
+    anchors: [
+      {
+        id: 'anchor-cm-root',
+        blockId: 'cm-root',
+        kind: 'text',
+        selector: { kind: 'text', quote: firstQuote, prefix: 'An ', suffix: ' is' },
+        quote: firstQuote,
+        prefix: 'An ',
+        suffix: ' is',
+      },
+      {
+        id: 'anchor-cm-mid',
+        blockId: 'cm-root',
+        kind: 'text',
+        selector: { kind: 'text', quote: secondQuote },
+        quote: secondQuote,
+      },
+      {
+        id: 'anchor-cm-child',
+        blockId: 'cm-child',
+        kind: 'text',
+        selector: { kind: 'text', quote: nestedQuote },
+        quote: nestedQuote,
+      },
+    ],
+    branches: [
+      {
+        id: 'branch-cm-callout-a',
+        sourceBlockId: 'cm-root',
+        sourceAnchorId: 'anchor-cm-root',
+        targetBlockId: 'cm-callout-a',
+        role: 'primary',
+        order: 'a',
+      },
+      {
+        id: 'branch-cm-callout-b',
+        sourceBlockId: 'cm-root',
+        sourceAnchorId: 'anchor-cm-mid',
+        targetBlockId: 'cm-callout-b',
+        role: 'primary',
+        order: 'b',
+      },
+      {
+        id: 'branch-cm-child',
+        sourceBlockId: 'cm-root',
+        targetBlockId: 'cm-child',
+        role: 'primary',
+        order: 'c',
+      },
+      {
+        id: 'branch-cm-child-b',
+        sourceBlockId: 'cm-root',
+        targetBlockId: 'cm-child-b',
+        role: 'primary',
+        order: 'd',
+      },
+      {
+        id: 'branch-cm-nested-callout',
+        sourceBlockId: 'cm-child',
+        sourceAnchorId: 'anchor-cm-child',
+        targetBlockId: 'cm-nested-callout',
+        role: 'primary',
+        order: 'a',
+      },
+      {
+        id: 'branch-cm-grandchild',
+        sourceBlockId: 'cm-child',
+        targetBlockId: 'cm-grandchild',
+        role: 'primary',
+        order: 'b',
+      },
+    ],
+  });
+}
+
+/**
  * R2f edge-topology fixture.
  *
  * Root with two direct children that share the right level column (child 2 is

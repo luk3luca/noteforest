@@ -514,24 +514,30 @@ describe('R2d page edge style', () => {
     await launch('r2d-cross-page');
     const packagePath = await openPackage(env, 'R2d cross page', pageArrowsDocument());
     const resolved = await setPageSettingsOverride(packagePath, {
-      manualBreakBeforeBlockIds: ['callout'],
+      setup: {
+        size: 'A5',
+        orientation: 'portrait',
+        margins: { top: 30, right: 30, bottom: 30, left: 30 },
+      },
+      manualBreakBeforeBlockIds: ['callout', 'ref'],
     });
     assert.equal(resolved.theme.pagePacking, 'beside');
-    assert.deepEqual(resolved.manualBreakBeforeBlockIds, ['callout']);
+    assert.deepEqual(resolved.manualBreakBeforeBlockIds, ['callout', 'ref']);
     await showPageRead();
     const count = await pageCount();
     assert.ok(count >= 2, `expected at least two pages, got ${count}`);
     assert.equal(await currentPageNumber(), 1);
 
     const bounds = await contentBox();
-    const firstEdges = await assertOrthogonalPageRoutes('Page 1');
-    assert.deepEqual(firstEdges.map((edge) => edge.branchId), ['branch-direct']);
-    assert.equal(firstEdges[0]?.direction, 'same-page');
+    // Page 1 owns the two B2 trunk starts; the arms are on page 2.
+    const firstEdges = await readEdges();
+    assert.deepEqual(firstEdges, []);
     const firstTrunks = await activePageView()
       .locator('[data-page-trunk-id]')
       .evaluateAll((elements) =>
         elements.map((element) => ({
           id: element.getAttribute('data-page-trunk-id'),
+          group: element.getAttribute('data-page-trunk-group'),
           x: Number(element.getAttribute('data-page-trunk-x')),
           start: element.getAttribute('data-page-trunk-start'),
           end: element.getAttribute('data-page-trunk-end'),
@@ -539,15 +545,18 @@ describe('R2d page edge style', () => {
         })),
       );
     assert.deepEqual(firstTrunks.map((trunk) => trunk.id).sort(), [
-      'source:below',
-      'source:right',
+      'source:below:callout',
+      'source:below:child',
     ]);
-    const belowFirst = firstTrunks.find((trunk) => trunk.id === 'source:below');
-    assert.equal(belowFirst?.segments, 2, 'the below trunk spans both pages');
-    assert.ok(parsePoint(belowFirst?.start).y > 0);
-    assert.ok(Math.abs(parsePoint(belowFirst?.end).y - bounds.height) <= 0.6);
-    const rightFirst = firstTrunks.find((trunk) => trunk.id === 'source:right');
-    assert.equal(rightFirst?.segments, 1, 'the right group ends on its last child page');
+    for (const trunk of firstTrunks) {
+      assert.equal(trunk.segments, 2, 'both below trunks span both pages');
+      assert.ok(parsePoint(trunk.start).y > 0);
+      assert.ok(Math.abs(parsePoint(trunk.end).y - bounds.height) <= 0.6);
+    }
+    const calloutFirst = firstTrunks.find((trunk) => trunk.group === 'callout');
+    const childFirst = firstTrunks.find((trunk) => trunk.group === 'child');
+    assert.ok(calloutFirst !== undefined && childFirst !== undefined);
+    assert.ok(childFirst.x < calloutFirst.x, 'the two trunks never merge');
     assert.equal(
       await activePageView().locator('[data-page-edge-label]').count(),
       0,
@@ -568,17 +577,15 @@ describe('R2d page edge style', () => {
     await waitPageReady();
     const incoming = await assertOrthogonalPageRoutes('Page 2');
     const calloutIn = incoming.find((edge) => edge.branchId === 'branch-callout');
-    const referenceIn = incoming.find((edge) => edge.branchId === 'branch-reference');
+    const directIn = incoming.find((edge) => edge.branchId === 'branch-direct');
     assert.equal(calloutIn.direction, 'trunk');
     assert.equal(calloutIn.targetPage, null);
     assert.equal(calloutIn.entry, 'left');
     assert.equal(calloutIn.pathD.includes('C'), false);
-    assert.equal(referenceIn.direction, 'from-edge');
-    assert.equal(referenceIn.targetPage, '1');
-    const inLabels = await activePageView()
-      .locator('[data-page-edge-label="from-edge"]')
-      .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
-    assert.deepEqual(inLabels, ['← p.1'], 'only the reference keeps a page chip');
+    assert.equal(directIn.direction, 'trunk');
+    assert.equal(directIn.targetPage, null);
+    assert.equal(directIn.entry, 'left');
+    assert.equal(directIn.pathD.includes('C'), false);
     const secondTrunks = await activePageView()
       .locator('[data-page-trunk-id]')
       .evaluateAll((elements) =>
@@ -589,9 +596,43 @@ describe('R2d page edge style', () => {
           end: element.getAttribute('data-page-trunk-end'),
         })),
       );
-    assert.deepEqual(secondTrunks.map((trunk) => trunk.id), ['source:below']);
-    assert.equal(secondTrunks[0]?.x, belowFirst?.x, 'the trunk x is stable across pages');
-    assert.deepEqual(parsePoint(secondTrunks[0]?.start), { x: belowFirst?.x, y: 0 });
+    assert.deepEqual(
+      secondTrunks.map((trunk) => trunk.id).sort(),
+      ['source:below:callout', 'source:below:child'],
+    );
+    for (const trunk of secondTrunks) {
+      const first = firstTrunks.find((candidate) => candidate.id === trunk.id);
+      assert.equal(trunk.x, first?.x, 'the trunk x is stable across pages');
+      assert.deepEqual(parsePoint(trunk.start), { x: first?.x, y: 0 });
+    }
+
+    // The reference target is on the last page and keeps the only page chip.
+    const lastPage = count;
+    let current = 2;
+    while (current < lastPage) {
+      const next = current + 1;
+      await activePageView().locator('[data-page-nav="next"]').click();
+      await page.waitForFunction(
+        (expected) =>
+          Number(
+            document
+              .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+              ?.getAttribute('data-current-page'),
+          ) === expected,
+        next,
+        { timeout: 5000 },
+      );
+      current = next;
+    }
+    const referenceIn = (await readEdges()).find(
+      (edge) => edge.branchId === 'branch-reference',
+    );
+    assert.equal(referenceIn?.direction, 'from-edge');
+    assert.equal(referenceIn?.targetPage, '1');
+    const inLabels = await activePageView()
+      .locator('[data-page-edge-label="from-edge"]')
+      .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
+    assert.deepEqual(inLabels, ['← p.1'], 'only the reference keeps a page chip');
 
     await page.keyboard.press('Meta+e');
     await page.waitForFunction(
@@ -602,7 +643,7 @@ describe('R2d page edge style', () => {
     await waitPageReady();
     assert.equal(await activePageView().locator('.nf-page-edges').count(), 1);
     assert.equal(await activePageView().locator('[data-page-edge-label="from-edge"]').count(), 1);
-    assert.equal(await activePageView().locator('[data-page-trunk-id]').count(), 1);
+    assert.equal(await activePageView().locator('[data-page-trunk-id]').count(), 0);
     await h.screenshot(
       artifactsPath('r2d', 'ui', 'page-read-cross-page-1440x900.png'),
       { width: 1440, height: 900 },

@@ -73,6 +73,16 @@ export interface PageTheme {
    * themes can tune it without touching Continuous.
    */
   childIndent: number;
+  /** Below-trunk inset for the direct-child group in callout mode B2. */
+  childTrunkInset: number;
+  /** Below-trunk inset for the anchored-callout group in callout mode B2. */
+  calloutTrunkInset: number;
+  /** Callout card left offset from the parent left in callout mode B2. */
+  calloutCardIndent: number;
+  /** Gap from the parent right edge to the mode A callout lane. */
+  calloutRightGap: number;
+  /** Minimum free right space that selects callout mode A. */
+  calloutModeMinWidth: number;
   calloutGap: number;
   maxCardWidth: number;
   minContentWidth: number;
@@ -142,6 +152,11 @@ const COMPACT_THEME: PageTheme = Object.freeze({
   wrapIndent: 12,
   maxWrapIndent: 36,
   childIndent: 26,
+  childTrunkInset: 12,
+  calloutTrunkInset: 24,
+  calloutCardIndent: 38,
+  calloutRightGap: 24,
+  calloutModeMinWidth: 240,
   calloutGap: 12,
   maxCardWidth: 420,
   minContentWidth: 160,
@@ -178,6 +193,11 @@ const COMFORTABLE_THEME: PageTheme = Object.freeze({
   wrapIndent: 18,
   maxWrapIndent: 54,
   childIndent: 26,
+  childTrunkInset: 12,
+  calloutTrunkInset: 24,
+  calloutCardIndent: 38,
+  calloutRightGap: 24,
+  calloutModeMinWidth: 240,
   calloutGap: 20,
   maxCardWidth: 420,
   minContentWidth: 160,
@@ -279,6 +299,14 @@ export function pageLayoutOptions(theme: PageTheme): LayoutOptions {
     wrapIndent: theme.wrapIndent,
     maxWrapIndent: theme.maxWrapIndent,
     childIndent: theme.childIndent,
+    childTrunkInset: theme.childTrunkInset,
+    calloutTrunkInset: theme.calloutTrunkInset,
+    calloutCardIndent: theme.calloutCardIndent,
+    calloutRightGap: theme.calloutRightGap,
+    calloutModeMinWidth: theme.calloutModeMinWidth,
+    // R2j callout modes belong to the beside tree packing. The explicit
+    // `stacked` policy keeps the historical geometry as its own oracle.
+    calloutModes: theme.pagePacking === 'beside',
     wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
     pagePacking: theme.pagePacking,
     calloutGap: theme.calloutGap,
@@ -323,6 +351,11 @@ export function pageCssVariables(theme: PageTheme): Record<string, string> {
     '--nf-page-wrap-indent': `${cssNumber(theme.wrapIndent)}px`,
     '--nf-page-max-wrap-indent': `${cssNumber(theme.maxWrapIndent)}px`,
     '--nf-page-child-indent': `${cssNumber(theme.childIndent)}px`,
+    '--nf-page-child-trunk-inset': `${cssNumber(theme.childTrunkInset)}px`,
+    '--nf-page-callout-trunk-inset': `${cssNumber(theme.calloutTrunkInset)}px`,
+    '--nf-page-callout-card-indent': `${cssNumber(theme.calloutCardIndent)}px`,
+    '--nf-page-callout-right-gap': `${cssNumber(theme.calloutRightGap)}px`,
+    '--nf-page-callout-mode-min-width': `${cssNumber(theme.calloutModeMinWidth)}px`,
     '--nf-page-callout-gap': `${cssNumber(theme.calloutGap)}px`,
     '--nf-page-max-card-width': `${cssNumber(theme.maxCardWidth)}px`,
     '--nf-page-min-content-width': `${cssNumber(theme.minContentWidth)}px`,
@@ -404,6 +437,14 @@ function resolveTheme(
   const wrapIndent = clamp('wrapIndent', 12, 0, 96);
   const maxWrapIndent = Math.max(wrapIndent, clamp('maxWrapIndent', 36, 0, 192));
   const childIndent = clamp('childIndent', 26, 0, 96);
+  const childTrunkInset = clamp('childTrunkInset', 12, 0, 96);
+  const calloutTrunkInset = clamp('calloutTrunkInset', 24, 0, 96);
+  const calloutCardIndent = Math.max(
+    calloutTrunkInset,
+    clamp('calloutCardIndent', 38, 0, 160),
+  );
+  const calloutRightGap = clamp('calloutRightGap', 24, 0, 96);
+  const calloutModeMinWidth = clamp('calloutModeMinWidth', 240, 0, 800);
   const minContentWidth = clamp('minContentWidth', 160, 80, 800);
   const maxCardWidth = Math.max(minContentWidth, clamp('maxCardWidth', 420, 120, 2000));
   const pagePacking = isPagePacking(override['pagePacking'])
@@ -432,6 +473,11 @@ function resolveTheme(
     wrapIndent,
     maxWrapIndent,
     childIndent,
+    childTrunkInset,
+    calloutTrunkInset,
+    calloutCardIndent,
+    calloutRightGap,
+    calloutModeMinWidth,
     calloutGap: clamp('calloutGap', 12, 0, 96),
     maxCardWidth,
     minContentWidth,
@@ -525,6 +571,11 @@ const PAGE_THEME_NUMERIC_KEYS = [
   'wrapIndent',
   'maxWrapIndent',
   'childIndent',
+  'childTrunkInset',
+  'calloutTrunkInset',
+  'calloutCardIndent',
+  'calloutRightGap',
+  'calloutModeMinWidth',
   'calloutGap',
   'maxCardWidth',
   'minContentWidth',

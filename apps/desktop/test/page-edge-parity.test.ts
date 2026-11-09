@@ -142,19 +142,27 @@ describe('Continuous/Page edge placement parity', () => {
     for (const edge of continuous) {
       const pageEdge = pageByBranch.get(edge.id);
       expect(pageEdge, `page edge for ${edge.id}`).toBeDefined();
-      expect(pageEdge!.placement, `${edge.id} placement`).toBe(edge.placement);
       // Tree edges enter from the left on both surfaces; Continuous has no
       // top/right tree entry.
       expect(pageEdge!.route.entry).toBe('left');
     }
-    const callout = pageByBranch.get('branch-callout')!;
-    expect(callout.placement).toBe('below');
-    expect(callout.trunk).not.toBeNull();
-    expect(callout.trunk!.placement).toBe('below');
+    // Direct children keep the same placement name on both surfaces.
     const child1 = pageByBranch.get('branch-child-1')!;
     const child2 = pageByBranch.get('branch-child-2')!;
-    expect(child1.placement).toBe('right');
-    expect(child2.placement).toBe('right');
+    expect(child1.placement).toBe('below');
+    expect(child2.placement).toBe('below');
+    expect(child1.trunk!.id).toBe('root:below');
     expect(child2.trunk!.id).toBe(child1.trunk!.id);
+
+    // R2j mode A is a Page/PDF-only lane decision: the anchored callout moves
+    // to the parent's right side even though Continuous keeps its callouts
+    // below. The `EdgePlacement` value is still the shared contract.
+    const callout = pageByBranch.get('branch-callout')!;
+    expect(callout.placement).toBe('right');
+    expect(callout.trunk).not.toBeNull();
+    expect(callout.trunk!.placement).toBe('right');
+    expect(callout.trunk!.id).toBe('root:right');
+    const continuousCallout = continuous.find((edge) => edge.id === 'branch-callout')!;
+    expect(continuousCallout.placement).toBe('below');
   });
 });

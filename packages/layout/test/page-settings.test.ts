@@ -47,6 +47,11 @@ describe('page settings defaults', () => {
       wrapIndent: 12,
       maxWrapIndent: 36,
       childIndent: 26,
+      childTrunkInset: 12,
+      calloutTrunkInset: 24,
+      calloutCardIndent: 38,
+      calloutRightGap: 24,
+      calloutModeMinWidth: 240,
       calloutGap: 12,
       maxCardWidth: 420,
       minContentWidth: 160,
@@ -75,6 +80,11 @@ describe('page settings defaults', () => {
       wrapIndent: 18,
       maxWrapIndent: 54,
       childIndent: 26,
+      childTrunkInset: 12,
+      calloutTrunkInset: 24,
+      calloutCardIndent: 38,
+      calloutRightGap: 24,
+      calloutModeMinWidth: 240,
       calloutGap: 20,
       maxCardWidth: 420,
       pagePacking: 'stacked',
@@ -247,6 +257,40 @@ describe('settings normalization and merge', () => {
     );
   });
 
+  it('normalizes the R2j callout-mode tokens through the same theme path', () => {
+    expect(
+      normalizePageSettingsOverride({
+        theme: {
+          childTrunkInset: 14,
+          calloutTrunkInset: 30,
+          calloutCardIndent: 46,
+          calloutRightGap: 20,
+          calloutModeMinWidth: 300,
+        },
+      }),
+    ).toEqual({
+      theme: {
+        childTrunkInset: 14,
+        calloutTrunkInset: 30,
+        calloutCardIndent: 46,
+        calloutRightGap: 20,
+        calloutModeMinWidth: 300,
+      },
+    });
+    const resolved = normalizePageSettings({
+      theme: {
+        calloutTrunkInset: 30,
+        calloutCardIndent: 20,
+        calloutRightGap: 1000,
+        calloutModeMinWidth: 1000,
+      },
+    });
+    // The card indent never sits left of its trunk; numeric ranges clamp.
+    expect(resolved.theme.calloutCardIndent).toBe(30);
+    expect(resolved.theme.calloutRightGap).toBe(96);
+    expect(resolved.theme.calloutModeMinWidth).toBe(800);
+  });
+
   it('drops empty or invalid overrides and normalizes continuous overrides', () => {
     expect(normalizePageSettingsOverride(undefined)).toBeUndefined();
     expect(normalizePageSettingsOverride(null)).toBeUndefined();
@@ -270,6 +314,12 @@ describe('theme maps', () => {
       wrapIndent: theme.wrapIndent,
       maxWrapIndent: theme.maxWrapIndent,
       childIndent: theme.childIndent,
+      childTrunkInset: theme.childTrunkInset,
+      calloutTrunkInset: theme.calloutTrunkInset,
+      calloutCardIndent: theme.calloutCardIndent,
+      calloutRightGap: theme.calloutRightGap,
+      calloutModeMinWidth: theme.calloutModeMinWidth,
+      calloutModes: true,
       wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
       pagePacking: theme.pagePacking,
       calloutGap: theme.calloutGap,
@@ -296,6 +346,11 @@ describe('theme maps', () => {
     expect(variables['--nf-page-wrap-indent']).toBe('12px');
     expect(variables['--nf-page-max-wrap-indent']).toBe('36px');
     expect(variables['--nf-page-child-indent']).toBe('26px');
+    expect(variables['--nf-page-child-trunk-inset']).toBe('12px');
+    expect(variables['--nf-page-callout-trunk-inset']).toBe('24px');
+    expect(variables['--nf-page-callout-card-indent']).toBe('38px');
+    expect(variables['--nf-page-callout-right-gap']).toBe('24px');
+    expect(variables['--nf-page-callout-mode-min-width']).toBe('240px');
     expect(variables['--nf-page-callout-gap']).toBe('12px');
     expect(variables['--nf-page-max-card-width']).toBe('420px');
     expect(variables['--nf-page-min-content-width']).toBe('160px');

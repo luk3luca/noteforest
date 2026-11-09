@@ -4325,6 +4325,11 @@ body.nf-dragging-block .nf-gutter-handle {
   --nf-page-wrap-indent: 12px;
   --nf-page-max-wrap-indent: 36px;
   --nf-page-child-indent: 26px;
+  --nf-page-child-trunk-inset: 12px;
+  --nf-page-callout-trunk-inset: 24px;
+  --nf-page-callout-card-indent: 38px;
+  --nf-page-callout-right-gap: 24px;
+  --nf-page-callout-mode-min-width: 240px;
   --nf-page-callout-gap: 12px;
   --nf-page-max-card-width: 420px;
   --nf-page-min-content-width: 160px;

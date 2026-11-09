@@ -72,7 +72,22 @@ interface PlacementContext {
    * fits at a readable width. Continuous keeps the page content left.
    */
   columnOriginX: number;
+  /** Page R2j B2 group discriminator; absent for Continuous and shared groups. */
+  trunkGroup?: 'callout' | 'child';
+  /** Page R2j below-trunk inset; absent uses `EDGE_STYLE.trunkInset`. */
+  trunkInset?: number;
   incomingAnchor?: AnchorAttachment | null;
+}
+
+/** R2j per-parent Page callout placement. */
+type PageCalloutMode = 'A' | 'B2' | 'stacked';
+
+/** One anchored callout before placement. */
+interface CalloutEntry {
+  branch: BranchRecord;
+  target: ContentBlock;
+  anchorId: string | null;
+  attachment: AnchorAttachment | null;
 }
 
 interface BesideCallout {
@@ -484,6 +499,69 @@ class LayoutBuilder {
     return this.subtreeColumn(target, available).fits;
   }
 
+  /**
+   * R2j: can a block card sit at a fixed offset without a blocking width
+   * defect? Unlike `cardFitsAvailable`, this accepts a narrower reflowed card
+   * as long as it keeps `minContentWidth` and its unbreakable min content. It
+   * is the mode A/B2 readability gate, not a beside-column preference.
+   */
+  private fitsAtOffset(target: ContentBlock, available: number): boolean {
+    if (available <= EPSILON) return false;
+    const chrome = 2 * (this.options.cardPadding + this.options.cardBorder);
+    const content = available - chrome;
+    if (content < this.options.minContentWidth - EPSILON) return false;
+    const max = this.measure(target, { kind: 'max-content' });
+    if (max.minContentWidth > content + EPSILON) return false;
+    const box = this.resolveBlockBox(target, available);
+    return !box.contentTooWide && !box.horizontalOverflow;
+  }
+
+  /**
+   * R2j per-parent callout mode.
+   *
+   * A: the callout stack fits the free right lane of the parent card. B2: the
+   * parent is placed in a below row, with an outer child trunk at
+   * `childTrunkInset` and an inner callout trunk at `calloutTrunkInset`; both
+   * fixed card offsets must keep a readable card and a full left stem.
+   * Otherwise the block keeps the stacked order (callouts first, children
+   * below). The decision uses the resolved page right limit and the placed
+   * parent box, never a viewport or zoom.
+   */
+  private planCalloutMode(input: {
+    x: number;
+    width: number;
+    rightLimit: number;
+    callouts: readonly CalloutEntry[];
+    children: readonly ContentBlock[];
+  }): PageCalloutMode {
+    const { x, width, rightLimit, callouts, children } = input;
+    if (callouts.length === 0 || children.length === 0) return 'stacked';
+
+    const laneLeft = x + width + this.options.calloutRightGap;
+    const laneAvailable = rightLimit - laneLeft;
+    if (
+      laneAvailable >= this.options.calloutModeMinWidth - EPSILON &&
+      callouts.every((entry) => this.fitsAtOffset(entry.target, laneAvailable))
+    ) {
+      return 'A';
+    }
+
+    const calloutStem = this.options.calloutCardIndent - this.options.calloutTrunkInset;
+    const childStem = this.options.childIndent - this.options.childTrunkInset;
+    if (calloutStem < EDGE_STYLE.stemMin - EPSILON || childStem < EDGE_STYLE.stemMin - EPSILON) {
+      return 'stacked';
+    }
+    const calloutAvailable = rightLimit - (x + this.options.calloutCardIndent);
+    const childAvailable = rightLimit - (x + this.options.childIndent);
+    if (
+      callouts.every((entry) => this.fitsAtOffset(entry.target, calloutAvailable)) &&
+      children.every((target) => this.fitsAtOffset(target, childAvailable))
+    ) {
+      return 'B2';
+    }
+    return 'stacked';
+  }
+
   private layoutBlock(
     block: ContentBlock,
     chapterId: string,
@@ -556,6 +634,8 @@ class LayoutBuilder {
       chapterId,
       role: context.role,
       placement: context.placement,
+      ...(context.trunkGroup === undefined ? {} : { trunkGroup: context.trunkGroup }),
+      ...(context.trunkInset === undefined ? {} : { trunkInset: context.trunkInset }),
       parentBlockId: context.parentBlockId,
       anchorId: context.anchorId,
       depth: context.depth,
@@ -657,13 +737,42 @@ class LayoutBuilder {
       context.wrapFloor,
     );
 
-    // R2b beside packing: anchored callouts keep the below-parent order in the
-    // left column, while the direct-child group starts at the parent's y in
-    // the right column. The callout lane ends at the parent's right edge, so
-    // the right column starts one sibling gap later. If any callout cannot fit
-    // the lane without a new width defect, the whole block keeps the stacked
-    // order instead of clipping or overlapping.
+    // R2j: resolve anchored callouts before choosing a mode. The page-only
+    // modes are part of the beside tree packing; the explicit `stacked` policy
+    // keeps the historical geometry. Duplicate targets are reported during the
+    // placement loop, exactly as before.
+    const calloutEntries: CalloutEntry[] = [];
+    for (const branch of anchored) {
+      const target = this.document.blocks[branch.targetBlockId];
+      if (!target) continue;
+      const anchorId = branch.source.anchorId ?? null;
+      const attachment = anchorId
+        ? (anchorAttachments.find((candidate) => candidate.anchorId === anchorId) ?? null)
+        : null;
+      calloutEntries.push({ branch, target, anchorId, attachment });
+    }
+    const useCalloutModes =
+      this.options.calloutModes && this.options.wrapPolicy === 'group-left-origin';
+    const calloutMode: PageCalloutMode = useCalloutModes
+      ? this.planCalloutMode({
+          x,
+          width,
+          rightLimit: context.rightLimit,
+          callouts: calloutEntries.filter((entry) => !this.visited.has(entry.target.id)),
+          children: candidates.map((candidate) => candidate.target),
+        })
+      : 'stacked';
+    const childrenBelowInMode = calloutMode === 'A' || calloutMode === 'B2';
+    const cardBottom = y + measurement.cardHeight;
+
+    // R2b beside packing (legacy/no-mode path): anchored callouts keep the
+    // below-parent order in the left column, while the direct-child group
+    // starts at the parent's y in the right column. The callout lane ends at
+    // the parent's right edge, so the right column starts one sibling gap
+    // later. If any callout cannot fit the lane without a new width defect,
+    // the whole block keeps the stacked order instead of clipping.
     const besidePlan =
+      !useCalloutModes &&
       this.options.pagePacking === 'beside' &&
       anchored.length > 0 &&
       candidates.length > 0 &&
@@ -672,10 +781,54 @@ class LayoutBuilder {
         : null;
     const beside = besidePlan !== null && besidePlan.length > 0;
 
-    let subtreeBottom = y + measurement.cardHeight;
-    let calloutCursor = y + measurement.cardHeight + this.options.calloutGap;
+    let subtreeBottom = cardBottom;
+    let calloutCursor = cardBottom + this.options.calloutGap;
+    let calloutStackBottom = cardBottom;
 
-    if (beside && besidePlan !== null) {
+    if (childrenBelowInMode) {
+      const calloutX =
+        calloutMode === 'A' ? x + width + this.options.calloutRightGap : x + this.options.calloutCardIndent;
+      if (calloutMode === 'A') {
+        // Mode A: the callout stack shares the parent card's top y. The leader
+        // may leave through the parent's right edge.
+        calloutCursor = y;
+      } else {
+        // Mode B2: callouts start below the parent, on the inner/right trunk.
+        calloutCursor = Math.max(
+          cardBottom + this.options.calloutGap,
+          this.wrapKeepOutBottom(context, calloutX) + this.options.calloutGap,
+        );
+      }
+      for (const entry of calloutEntries) {
+        if (this.visited.has(entry.target.id)) {
+          this.noteDuplicatePrimary('Anchored', entry.branch, entry.target, chapterId);
+          continue;
+        }
+        const placed = this.layoutBlock(entry.target, chapterId, calloutX, calloutCursor, {
+          chapterId,
+          role: 'callout',
+          placement: calloutMode === 'A' ? 'right' : 'below',
+          ...(calloutMode === 'B2'
+            ? {
+                trunkGroup: 'callout' as const,
+                trunkInset: this.options.calloutTrunkInset,
+              }
+            : {}),
+          parentBlockId: block.id,
+          anchorId: entry.anchorId,
+          depth: context.depth + 1,
+          rightLimit: context.rightLimit,
+          wrapFloor: context.wrapFloor,
+          wrapFloorY: context.wrapFloorY,
+          columnOriginX: context.columnOriginX,
+          incomingAnchor: entry.attachment,
+        });
+        layoutBlock.childIds.push(entry.target.id);
+        calloutCursor = placed.subtreeBottom + this.options.calloutGap;
+        calloutStackBottom = Math.max(calloutStackBottom, placed.subtreeBottom);
+        subtreeBottom = Math.max(subtreeBottom, placed.subtreeBottom);
+      }
+    } else if (beside && besidePlan !== null) {
       for (const plan of besidePlan) {
         if (this.visited.has(plan.target.id)) {
           this.noteDuplicatePrimary('Anchored', plan.branch, plan.target, chapterId);
@@ -696,6 +849,7 @@ class LayoutBuilder {
         });
         layoutBlock.childIds.push(plan.target.id);
         calloutCursor = placed.subtreeBottom + this.options.calloutGap;
+        calloutStackBottom = Math.max(calloutStackBottom, placed.subtreeBottom);
         subtreeBottom = Math.max(subtreeBottom, placed.subtreeBottom);
       }
     } else {
@@ -731,28 +885,42 @@ class LayoutBuilder {
         });
         layoutBlock.childIds.push(target.id);
         calloutCursor = placed.subtreeBottom + this.options.calloutGap;
+        calloutStackBottom = Math.max(calloutStackBottom, placed.subtreeBottom);
         subtreeBottom = Math.max(subtreeBottom, placed.subtreeBottom);
       }
     }
 
     // In stacked order the direct-child group starts after the callouts, as
     // before. In beside order it starts at the parent's y; the callouts own
-    // the left column and the right group owns the right column. A descendant
-    // that wraps uses the same group-left origin as a stacked group; the y
-    // floor below the callout lane keeps it clear of the left-column callouts.
-    const directStartY = beside ? y : anchored.length > 0 ? calloutCursor : y;
+    // the left column and the right group owns the right column. In mode A/B2
+    // the lane decision already moved the child group below the parent and the
+    // callout stack; this is the "re-check" for a lane that changes the origin.
+    const directStartY = childrenBelowInMode
+      ? Math.max(
+          cardBottom + this.options.siblingGap,
+          calloutStackBottom + this.options.siblingGap,
+        )
+      : beside
+        ? y
+        : anchored.length > 0
+          ? calloutCursor
+          : y;
     const childWrapFloor = context.wrapFloor;
-    const childWrapFloorY = Math.max(
-      context.wrapFloorY,
-      anchored.length > 0 ? subtreeBottom + this.options.siblingGap : 0,
-    );
+    const childWrapFloorY = childrenBelowInMode
+      ? directStartY
+      : Math.max(
+          context.wrapFloorY,
+          anchored.length > 0 ? subtreeBottom + this.options.siblingGap : 0,
+        );
+    const childModeX =
+      calloutMode === 'B2' ? x + this.options.childIndent : groupWrapX;
 
     let childCursor = directStartY;
-    if (wrapAll) {
-      const keepOutBottom = this.wrapKeepOutBottom(context, groupWrapX);
+    if (wrapAll || childrenBelowInMode) {
+      const keepOutBottom = this.wrapKeepOutBottom(context, childModeX);
       childCursor = Math.max(
         childCursor,
-        y + measurement.cardHeight + this.options.siblingGap,
+        cardBottom + this.options.siblingGap,
         childWrapFloorY,
         keepOutBottom > 0 ? keepOutBottom + this.options.siblingGap : 0,
       );
@@ -763,7 +931,9 @@ class LayoutBuilder {
         continue;
       }
       let childX: number;
-      if (this.options.wrapPolicy === 'group-left-origin') {
+      if (childrenBelowInMode) {
+        childX = calloutMode === 'B2' ? x + this.options.childIndent : groupWrapX;
+      } else if (this.options.wrapPolicy === 'group-left-origin') {
         childX = wrapAll ? groupWrapX : rightX;
       } else if (this.options.wrapPolicy === 'subtree-aware') {
         childX = fitsRight ? rightX : groupWrapX;
@@ -771,15 +941,16 @@ class LayoutBuilder {
         // Pre-M4a regression oracle: the old per-child wrap at parent.x + wrapIndent.
         childX = fitsRight ? rightX : x + this.options.wrapIndent;
       }
-      const childPlacement: EdgePlacement =
-        this.options.wrapPolicy === 'group-left-origin'
+      const childPlacement: EdgePlacement = childrenBelowInMode
+        ? 'below'
+        : this.options.wrapPolicy === 'group-left-origin'
           ? wrapAll
             ? 'below'
             : 'right'
           : fitsRight
             ? 'right'
             : 'below';
-      if (!fitsRight && this.options.wrapPolicy !== 'group-left-origin') {
+      if (!childrenBelowInMode && !fitsRight && this.options.wrapPolicy !== 'group-left-origin') {
         childCursor = Math.max(childCursor, y + measurement.cardHeight + this.options.siblingGap);
         if (this.options.wrapPolicy === 'subtree-aware') {
           const keepOutBottom = this.wrapKeepOutBottom(context, childX);
@@ -793,6 +964,12 @@ class LayoutBuilder {
         chapterId,
         role: 'child',
         placement: childPlacement,
+        ...(calloutMode === 'B2'
+          ? {
+              trunkGroup: 'child' as const,
+              trunkInset: this.options.childTrunkInset,
+            }
+          : {}),
         parentBlockId: block.id,
         anchorId: null,
         depth: context.depth + 1,
@@ -1264,6 +1441,8 @@ class LayoutBuilder {
       chapterId,
       role: context.role,
       placement: context.placement,
+      ...(context.trunkGroup === undefined ? {} : { trunkGroup: context.trunkGroup }),
+      ...(context.trunkInset === undefined ? {} : { trunkInset: context.trunkInset }),
       parentBlockId: context.parentBlockId,
       anchorId: context.anchorId,
       depth: context.depth,

@@ -11,6 +11,7 @@ import {
   paginate,
   type AnchorRecord,
   type NoteDocument,
+  type PageSetup,
 } from '../src/index.js';
 
 const SOURCE_TEXT = 'An eigenvalue is a scalar. A nonzero vector v satisfies Av = λv for some λ, and the spectrum is the set of all eigenvalues.';
@@ -108,13 +109,17 @@ function arrowsDocument(): NoteDocument {
   };
 }
 
-function layoutPages(document: NoteDocument, manualBreakBeforeBlockIds: string[] = []) {
+function layoutPages(
+  document: NoteDocument,
+  manualBreakBeforeBlockIds: string[] = [],
+  setup = DEFAULT_PAGE_SETTINGS.setup,
+) {
   const measurement = createEstimatedMeasurement(document);
   const layout = layoutDocument(
     document,
     measurement,
     pageLayoutOptions(DEFAULT_PAGE_SETTINGS.theme),
-    DEFAULT_PAGE_SETTINGS.setup,
+    setup,
   );
   const pages = paginate(layout, document, { manualBreakBeforeBlockIds });
   return { layout, pages };
@@ -314,28 +319,31 @@ describe('page edge mapper', () => {
     expect(directEdge.role).toBe('primary');
     expect(directEdge.direction).toBe('same-page');
     expect(directEdge.targetPage).toBeNull();
+    // R2j mode A: the callout owns the right lane, so the direct child moves
+    // below the source and starts its own below trunk.
+    expect(layout.blockById['direct']!.placement).toBe('below');
+    expect(directEdge.placement).toBe('below');
+    expect(directEdge.trunk!.id).toBe('source:below');
     expect(directEdge.from).toEqual({
-      x: source.page.x + source.page.width,
-      y: source.page.y + Math.min(source.page.height / 2, 60),
+      x: source.page.x + EDGE_STYLE.trunkInset,
+      y: source.page.y + source.page.height,
     });
-    expect(directEdge.to).toEqual({
-      x: direct.page.x,
-      y: direct.page.y + Math.min(direct.page.height / 2, 60),
-    });
+    expect(directEdge.to.x).toBe(direct.page.x);
 
     const calloutEdge = edges.find((edge) => edge.branchId === 'branch-callout')!;
     const anchor = layout.anchors.find((attachment) => attachment.anchorId === 'anchor-1')!;
     expect(anchor.rect).not.toBeNull();
     expect(calloutEdge.anchorId).toBe('anchor-1');
     expect(calloutEdge.direction).toBe('same-page');
-    // The callout sits below the source and shares the Continuous-style left
-    // trunk, not the source card's right edge. The visible below trunk is
-    // attached to the card bottom (trunkGap is 0).
-    expect(calloutEdge.from.x).toBeCloseTo(source.page.x + 12, 6);
-    expect(calloutEdge.from.y).toBeCloseTo(
-      source.page.y + source.page.height + EDGE_STYLE.trunkGap,
-      6,
-    );
+    // The callout sits in the parent card's right lane. The leader may leave
+    // through the parent's right side; it is a right group, not a below group.
+    expect(layout.blockById['callout']!.placement).toBe('right');
+    expect(calloutEdge.placement).toBe('right');
+    expect(calloutEdge.trunk!.id).toBe('source:right');
+    expect(calloutEdge.from).toEqual({
+      x: source.page.x + source.page.width,
+      y: source.page.y + Math.min(source.page.height / 2, 60),
+    });
     expect(calloutEdge.route.entry).toBe('left');
 
     const reference = edges.find((edge) => edge.branchId === 'branch-reference')!;
@@ -349,48 +357,62 @@ describe('page edge mapper', () => {
     );
   });
 
-  it('continues cross-page primary edges on the group trunk and keeps reference indicators', () => {
-    const { layout, pages } = layoutPages(arrowsDocument(), ['callout', 'direct']);
+  it('continues the B2 callout and child trunks across pages and keeps reference indicators', () => {
+    const narrow: PageSetup = {
+      size: 'A5',
+      orientation: 'portrait',
+      margins: { top: 30, right: 30, bottom: 30, left: 30 },
+    };
+    const { layout, pages } = layoutPages(arrowsDocument(), ['callout', 'ref'], narrow);
     expect(pages.pageCount).toBeGreaterThanOrEqual(2);
     const model = buildPageEdgeModel(layout, pages.pages);
     const byPage = model.edges;
     const first = byPage[0]!;
     const second = byPage[1]!;
 
-    // The callout is below the parent and lands on page 2. The direct child
-    // sits beside the parent, so it stays on page 1: the new tree packing is
-    // not a per-component row break.
-    const directSamePage = first.find((edge) => edge.branchId === 'branch-direct')!;
-    expect(directSamePage.direction).toBe('same-page');
+    // B2 moved the callouts below and split the below group into two trunks.
+    expect(layout.blockById['callout']!.placement).toBe('below');
+    expect(layout.blockById['callout']!.trunkGroup).toBe('callout');
+    expect(layout.blockById['direct']!.placement).toBe('below');
+    expect(layout.blockById['direct']!.trunkGroup).toBe('child');
 
-    // Primary tree edges never emit a to-edge/from-edge indicator. Page 1 owns
-    // the trunk segment; page 2 owns the left-entering arm.
+    // The parent page owns both trunk starts; the child/callout arms are on
+    // page 2 and never emit a to-edge/from-edge indicator.
+    expect(first.filter((edge) => edge.role === 'primary')).toHaveLength(0);
     expect(first.find((edge) => edge.branchId === 'branch-callout')).toBeUndefined();
     const calloutArm = second.find((edge) => edge.branchId === 'branch-callout')!;
-    expect(calloutArm.direction).toBe('trunk');
-    expect(calloutArm.targetPage).toBeNull();
-    expect(calloutArm.label).toBeUndefined();
-    expect(calloutArm.trunk!.id).toBe('source:below');
-    expect(calloutArm.from).toEqual(calloutArm.trunkSegment!.start);
-    expect(calloutArm.trunkSegment!.pageNumber).toBe(2);
-    expect(calloutArm.route.entry).toBe('left');
-    expect(calloutArm.route.direction).toBe('right');
+    const directArm = second.find((edge) => edge.branchId === 'branch-direct')!;
+    for (const arm of [calloutArm, directArm]) {
+      expect(arm.direction).toBe('trunk');
+      expect(arm.targetPage).toBeNull();
+      expect(arm.label).toBeUndefined();
+      expect(arm.from).toEqual(arm.trunkSegment!.start);
+      expect(arm.trunkSegment!.pageNumber).toBe(2);
+      expect(arm.route.entry).toBe('left');
+      expect(arm.route.direction).toBe('right');
+    }
+    expect(calloutArm.trunk!.id).toBe('source:below:callout');
+    expect(directArm.trunk!.id).toBe('source:below:child');
+    expect(calloutArm.trunk!.trunkGroup).toBe('callout');
+    expect(directArm.trunk!.trunkGroup).toBe('child');
+    expect(calloutArm.trunk!.x).toBeGreaterThan(directArm.trunk!.x);
 
-    const trunkView = model.trunks[0]!.find(
-      (view) => view.trunk.id === 'source:below',
-    )!;
-    expect(trunkView).toBeDefined();
-    expect(trunkView.segment.pageNumber).toBe(1);
-    expect(trunkView.segment.start.y).toBeCloseTo(
-      trunkView.trunk.port.y + EDGE_STYLE.trunkGap,
-      6,
-    );
-    expect(trunkView.segment.end.y).toBe(layout.geometry.contentHeightPx);
+    const page1Trunks = model.trunks[0]!;
+    expect(page1Trunks.map((view) => view.trunk.id).sort()).toEqual([
+      'source:below:callout',
+      'source:below:child',
+    ]);
+    for (const view of page1Trunks) {
+      expect(view.segment.start.y).toBeCloseTo(
+        view.trunk.port.y + EDGE_STYLE.trunkGap,
+        6,
+      );
+      expect(view.segment.end.y).toBe(layout.geometry.contentHeightPx);
+    }
 
     // Reference edges never draw a line out of the source page: the target page
     // gets one from-edge chip and the source page has no matching indicator.
-    const referenceOut = first.find((edge) => edge.branchId === 'branch-reference');
-    expect(referenceOut).toBeUndefined();
+    expect(first.find((edge) => edge.branchId === 'branch-reference')).toBeUndefined();
     const refPage = byPage.find((edges) =>
       edges.some((edge) => edge.branchId === 'branch-reference'),
     )!;
@@ -410,8 +432,8 @@ describe('page edge mapper', () => {
   });
 });
 
-describe('page edge topology (R2f)', () => {
-  it('shares one below trunk for wrapped children and callouts, and a nested right trunk', () => {
+describe('page edge topology (R2f + R2j)', () => {
+  it('puts callouts on the right trunk and wrapped children on a separate below trunk', () => {
     const { layout, pages } = layoutPages(topologyDocument());
     expect(pages.pageCount).toBe(1);
     const page = pages.pages[0]!;
@@ -424,9 +446,7 @@ describe('page edge topology (R2f)', () => {
     const callout1Block = layout.blockById['callout1']!;
     const callout2Block = layout.blockById['callout2']!;
 
-    // R2i: the child 1 subtree does not fit beside the root, so the whole
-    // direct-child group moves below the root at the child indent. From that
-    // origin the grandchild fits beside child 1 and owns a nested right trunk.
+    // R2i still wraps the direct-child group below the root at the child indent.
     expect(child1Block.placement).toBe('below');
     expect(child2Block.placement).toBe('below');
     expect(child1Block.x).toBe(root.x + DEFAULT_LAYOUT_OPTIONS.childIndent);
@@ -437,8 +457,17 @@ describe('page edge topology (R2f)', () => {
       child1Block.x + child1Block.width + DEFAULT_PAGE_SETTINGS.theme.siblingGap,
     );
     expect(grandchildBlock.y).toBe(child1Block.y);
-    expect(callout1Block.placement).toBe('below');
-    expect(callout2Block.placement).toBe('below');
+
+    // R2j mode A: both callouts move into the parent's right lane; the child
+    // group stays below and is re-origined by the lane decision.
+    expect(callout1Block.placement).toBe('right');
+    expect(callout2Block.placement).toBe('right');
+    expect(callout1Block.x).toBe(
+      root.x + root.width + DEFAULT_PAGE_SETTINGS.theme.calloutRightGap,
+    );
+    expect(callout2Block.x).toBe(callout1Block.x);
+    expect(callout1Block.y).toBe(root.y);
+    expect(callout2Block.y).toBe(callout1Block.subtreeBottom + DEFAULT_PAGE_SETTINGS.theme.calloutGap);
 
     const edges = buildPageEdges(layout, pages.pages)[0]!;
     const edge = (branchId: string) => edges.find((candidate) => candidate.branchId === branchId)!;
@@ -459,7 +488,7 @@ describe('page edge topology (R2f)', () => {
       expect(candidate.route.blocked).toBe(false);
     }
 
-    // Wrapped children and both anchored callouts share the one below trunk.
+    // Wrapped children share one below trunk.
     expect(child1.placement).toBe('below');
     expect(child2.placement).toBe('below');
     expect(child1.trunk).not.toBeNull();
@@ -468,6 +497,7 @@ describe('page edge topology (R2f)', () => {
     expect(child2.trunk!.id).toBe(child1.trunk!.id);
     expect(child2.trunk!.x).toBe(child1.trunk!.x);
     expect(child1.trunk!.placement).toBe('below');
+    expect(child1.trunk!.trunkGroup).toBeNull();
     const rootBottom = fragment('root').page.y + fragment('root').page.height;
     expect(child1.from).toEqual({
       x: child1.trunk!.x,
@@ -486,16 +516,31 @@ describe('page edge topology (R2f)', () => {
         ),
       ).toBe(true);
     }
-    expect(callout1.trunk!.id).toBe(child1.trunk!.id);
-    expect(callout2.trunk!.id).toBe(callout1.trunk!.id);
-    expect(callout1.from).toEqual(child1.from);
-    expect(callout2.from).toEqual(child1.from);
+
+    // Both callouts share one independent right trunk. Their leader exits the
+    // parent card's right side; they never join the below trunk.
+    expect(callout1.placement).toBe('right');
+    expect(callout2.placement).toBe('right');
+    expect(callout1.trunk!.id).toBe('root:right');
+    expect(callout2.trunk!.id).toBe('root:right');
+    expect(callout1.trunk!.id).not.toBe(child1.trunk!.id);
+    expect(callout1.trunk!.trunkGroup).toBeNull();
+    expect(callout1.from).toEqual({
+      x: fragment('root').page.x + fragment('root').page.width,
+      y: fragment('root').page.y + Math.min(fragment('root').page.height / 2, 60),
+    });
+    expect(callout2.from).toEqual(callout1.from);
+    expect(callout1.trunk!.x).toBeLessThan(callout1.to.x);
+    expect(callout1.trunk!.x).toBeGreaterThan(
+      fragment('root').page.x + fragment('root').page.width,
+    );
 
     // The grandchild is a right target of child 1 on an independent nested
-    // trunk; it never borrows the root below trunk.
+    // trunk; it never borrows either root group trunk.
     expect(grandchild.placement).toBe('right');
     expect(grandchild.trunk!.id).toBe('child1:right');
     expect(grandchild.trunk!.id).not.toBe(child1.trunk!.id);
+    expect(grandchild.trunk!.id).not.toBe(callout1.trunk!.id);
     expect(grandchild.trunk!.x).toBeGreaterThan(
       fragment('child1').page.x + fragment('child1').page.width,
     );
@@ -518,7 +563,7 @@ describe('page edge topology (R2f)', () => {
     );
   });
 
-  it('shares one below trunk between callouts and wrapped direct children', () => {
+  it('splits callout and child groups into two B2 below trunks', () => {
     const document = wrappedBelowDocument();
     const measurement = createEstimatedMeasurement(document);
     const layout = layoutDocument(
@@ -534,27 +579,52 @@ describe('page edge topology (R2f)', () => {
     const pages = paginate(layout, document);
     expect(pages.pageCount).toBe(1);
 
+    // No right space: B2 keeps callouts first on the inner/right trunk and the
+    // child lower on the outer/left trunk.
     expect(layout.blockById['callout']!.placement).toBe('below');
+    expect(layout.blockById['callout']!.trunkGroup).toBe('callout');
     expect(layout.blockById['child']!.placement).toBe('below');
+    expect(layout.blockById['child']!.trunkGroup).toBe('child');
+    const rootBlock = layout.blockById['root']!;
+    expect(layout.blockById['callout']!.x).toBe(
+      rootBlock.x + DEFAULT_PAGE_SETTINGS.theme.calloutCardIndent,
+    );
+    expect(layout.blockById['child']!.x).toBe(
+      rootBlock.x + DEFAULT_PAGE_SETTINGS.theme.childIndent,
+    );
+
     const edges = buildPageEdges(layout, pages.pages)[0]!;
     const callout = edges.find((candidate) => candidate.branchId === 'branch-callout')!;
     const child = edges.find((candidate) => candidate.branchId === 'branch-child')!;
     expect(callout.trunk).not.toBeNull();
     expect(child.trunk).not.toBeNull();
-    expect(callout.trunk!.id).toBe('root:below');
-    expect(child.trunk!.id).toBe(callout.trunk!.id);
-    expect(child.trunk!.x).toBe(callout.trunk!.x);
+    expect(callout.trunk!.id).toBe('root:below:callout');
+    expect(child.trunk!.id).toBe('root:below:child');
+    expect(callout.trunk!.id).not.toBe(child.trunk!.id);
+    expect(callout.trunk!.x).toBe(
+      rootBlock.x + DEFAULT_PAGE_SETTINGS.theme.calloutTrunkInset,
+    );
+    expect(child.trunk!.x).toBe(
+      rootBlock.x + DEFAULT_PAGE_SETTINGS.theme.childTrunkInset,
+    );
+    expect(child.trunk!.x).toBeLessThan(callout.trunk!.x);
     const rootFragment = pages.pages[0]!.fragments.find(
       (fragment) => fragment.blockId === 'root',
     )!;
-    expect(callout.from.y).toBeCloseTo(
-      rootFragment.page.y + rootFragment.page.height + EDGE_STYLE.trunkGap,
-      6,
-    );
-    expect(child.from.y).toBe(callout.from.y);
-    expect(callout.route.entry).toBe('left');
-    expect(child.route.entry).toBe('left');
-    expect(child.route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+    for (const arm of [callout, child]) {
+      expect(arm.from.y).toBeCloseTo(
+        rootFragment.page.y + rootFragment.page.height + EDGE_STYLE.trunkGap,
+        6,
+      );
+      expect(arm.route.entry).toBe('left');
+      expect(arm.route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+    }
+    // Both trunks start at the same parent port y but at distinct x.
+    expect(callout.from.x).toBe(callout.trunk!.x);
+    expect(child.from.x).toBe(child.trunk!.x);
+    expect(callout.from.x).not.toBe(child.from.x);
+    expect(callout.trunk!.port.y).toBeCloseTo(child.trunk!.port.y, 6);
+    expect(callout.trunk!.port.x).not.toBe(child.trunk!.port.x);
   });
 });
 

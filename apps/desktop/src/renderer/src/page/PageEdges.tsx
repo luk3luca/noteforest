@@ -142,6 +142,7 @@ export function PageEdges({ edges, trunks, geometry }: PageEdgesProps): JSX.Elem
             data-page-trunk-id={trunk.id}
             data-page-trunk-parent={trunk.parentBlockId}
             data-page-trunk-placement={trunk.placement}
+            data-page-trunk-group={trunk.trunkGroup ?? undefined}
             data-page-trunk-x={number(trunk.x)}
             data-page-trunk-port={pointAttribute(trunk.port)}
             data-page-trunk-port-page={trunk.portPage}
@@ -194,6 +195,7 @@ export function PageEdges({ edges, trunks, geometry }: PageEdgesProps): JSX.Elem
               data-page-edge-placement={edge.placement}
               data-page-edge-trunk-id={edge.trunk?.id}
               data-page-edge-trunk-placement={edge.trunk?.placement}
+              data-page-edge-trunk-group={edge.trunk?.trunkGroup ?? undefined}
               data-page-edge-trunk-x={edge.trunk ? number(edge.trunk.x) : undefined}
               data-page-edge-trunk-port-page={edge.trunk?.portPage}
               data-page-edge-trunk-segment-page={edge.trunkSegment?.pageNumber}

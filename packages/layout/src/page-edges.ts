@@ -70,6 +70,11 @@ export interface PageEdgeTrunk {
   id: string;
   parentBlockId: string;
   placement: EdgePlacement;
+  /**
+   * R2j B2 below-group split. `null` for right groups and for the shared below
+   * group of the stacked/legacy path.
+   */
+  trunkGroup: 'callout' | 'child' | null;
   /** Parent port: right edge center, or card bottom at `x` for the below group. */
   port: PageEdgePoint;
   /** Page that owns the parent port (1-based). */
@@ -137,6 +142,10 @@ interface PrimaryGroupEdge {
 interface PrimaryGroup {
   parentId: string;
   placement: EdgePlacement;
+  /** R2j B2 split; null keeps one shared below group. */
+  trunkGroup: 'callout' | 'child' | null;
+  /** Below-trunk inset from the parent left. */
+  trunkInset: number;
   entries: PrimaryGroupEdge[];
 }
 
@@ -206,9 +215,6 @@ function trunkViewsForPage(
  * route fixtures without block records are horizontal by construction, so
  * `right` is the only safe default; y is never used as a fallback.
  */
-function placementOf(layout: ContinuousLayout, edge: EdgeLayout): EdgePlacement {
-  return layout.blockById[edge.toBlockId]?.placement ?? 'right';
-}
 
 function pageObstacles(page: DerivedPage, fromBlockId: string, toBlockId: string) {
   return page.fragments
@@ -389,7 +395,9 @@ function buildPrimaryGroup(input: {
     // The below trunk sits inside the parent card when the rows are indented
     // enough. A wrapped row that starts at the wrap indent pulls the trunk to
     // the parent's left edge instead, so the final left stem stays readable.
-    const inset = sourceBox.x + EDGE_STYLE.trunkInset;
+    // R2j mode B2 supplies its own inset per group: 12 for children and 24 for
+    // callouts, which keeps the two trunks independent.
+    const inset = sourceBox.x + group.trunkInset;
     trunkX = Math.max(sourceBox.x, Math.min(inset, minTargetX - EDGE_STYLE.stemMin));
     trunkX = Math.max(0, Math.min(trunkX, Math.max(0, bounds.width - 0.5)));
     // A block can continue across pages: the below port is the true card
@@ -447,9 +455,13 @@ function buildPrimaryGroup(input: {
   }
 
   const trunk: PageEdgeTrunk = {
-    id: `${group.parentId}:${group.placement}`,
+    id:
+      group.trunkGroup === null
+        ? `${group.parentId}:${group.placement}`
+        : `${group.parentId}:${group.placement}:${group.trunkGroup}`,
     parentBlockId: group.parentId,
     placement: group.placement,
+    trunkGroup: group.trunkGroup,
     port,
     portPage,
     x: trunkX,
@@ -543,11 +555,21 @@ export function buildPageEdgeModel(
     if (edge.role === 'primary') {
       // Group by the real layout placement across every page. The page is not
       // part of the key: the trunk must be one record from parent to last arm.
-      const placement = placementOf(layout, edge);
-      const key = `${edge.fromBlockId}:${placement}`;
+      // R2j mode B2 adds one group discriminator so a parent can own separate
+      // callout and child below trunks.
+      const targetBlock = layout.blockById[edge.toBlockId];
+      const placement = targetBlock?.placement ?? 'right';
+      const trunkGroup = targetBlock?.trunkGroup ?? null;
+      const key = `${edge.fromBlockId}:${placement}:${trunkGroup ?? 'shared'}`;
       let group = groups.get(key);
       if (!group) {
-        group = { parentId: edge.fromBlockId, placement, entries: [] };
+        group = {
+          parentId: edge.fromBlockId,
+          placement,
+          trunkGroup,
+          trunkInset: targetBlock?.trunkInset ?? EDGE_STYLE.trunkInset,
+          entries: [],
+        };
         groups.set(key, group);
       }
       const laneKey = `${toPage.pageNumber}:${edge.fromBlockId}:${edge.toBlockId}`;
@@ -598,11 +620,11 @@ export function buildPageEdgeModel(
     });
   }
 
-  // One trunk per `(parent, placement)`, independent of nesting depth. Sorting
-  // the groups keeps the DOM and print output deterministic.
+  // One trunk per `(parent, placement, B2 group)`, independent of nesting
+  // depth. Sorting the groups keeps the DOM and print output deterministic.
   const orderedGroups = [...groups.values()].sort((left, right) => {
-    const leftKey = `${left.parentId}:${left.placement}`;
-    const rightKey = `${right.parentId}:${right.placement}`;
+    const leftKey = `${left.parentId}:${left.placement}:${left.trunkGroup ?? 'shared'}`;
+    const rightKey = `${right.parentId}:${right.placement}:${right.trunkGroup ?? 'shared'}`;
     return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
   });
   for (const group of orderedGroups) {
