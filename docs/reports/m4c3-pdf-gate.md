@@ -278,3 +278,15 @@ No S3 item is silently deferred.
 - [x] `npm run verify:fast` green with real timings; full verify is the
       Orchestrator's integration step.
 - [x] Report maps every criterion and lists risks.
+
+## Integration
+
+- Merged to `main` as `90b620c` (base `911695e`).
+- One full `npm run verify` on the integrated tree: **exit 0** — **97 test
+  files / 959 tests**, **35 UI suites / 118 tests**, **16 critical e2e**,
+  **14 recovery**, **0 pageErrors**.
+- The gate artifacts were regenerated on `main` under `artifacts/m4c3/`; the
+  product-owner PDF and rasters are ready for the visual/Notability check.
+- Next: product-owner PDF acceptance, then the full-codebase Sentinel/refactor
+  with the settings-variable inventory, Settings UI, and targeted Settings
+  Sentinel.
