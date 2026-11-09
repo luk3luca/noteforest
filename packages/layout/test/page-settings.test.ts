@@ -354,18 +354,31 @@ describe('theme maps', () => {
     expect(variables['--nf-page-card-padding']).toBe('8px');
     expect(variables['--nf-page-card-border']).toBe('1px');
     expect(variables['--nf-page-segment-gap']).toBe('4px');
-    expect(variables['--nf-page-sibling-gap']).toBe('16px');
-    expect(variables['--nf-page-wrap-indent']).toBe('12px');
-    expect(variables['--nf-page-max-wrap-indent']).toBe('36px');
-    expect(variables['--nf-page-child-indent']).toBe('26px');
-    expect(variables['--nf-page-child-trunk-inset']).toBe('12px');
-    expect(variables['--nf-page-callout-trunk-inset']).toBe('24px');
-    expect(variables['--nf-page-callout-card-indent']).toBe('38px');
-    expect(variables['--nf-page-callout-right-gap']).toBe('24px');
-    expect(variables['--nf-page-callout-mode-min-width']).toBe('240px');
-    expect(variables['--nf-page-callout-gap']).toBe('12px');
     expect(variables['--nf-page-max-card-width']).toBe('420px');
-    expect(variables['--nf-page-min-content-width']).toBe('160px');
+  });
+
+  it('emits only CSS variables the Page presentation layer consumes', () => {
+    const variables = pageCssVariables(theme);
+    expect(Object.keys(variables).sort()).toEqual(
+      [
+        '--nf-page-body-line',
+        '--nf-page-body-size',
+        '--nf-page-card-border',
+        '--nf-page-card-padding',
+        '--nf-page-chrome-size',
+        '--nf-page-code-line',
+        '--nf-page-code-size',
+        '--nf-page-heading-1',
+        '--nf-page-heading-2',
+        '--nf-page-heading-3',
+        '--nf-page-label-size',
+        '--nf-page-marker-size',
+        '--nf-page-max-card-width',
+        '--nf-page-segment-gap',
+        '--nf-page-table-line',
+        '--nf-page-table-size',
+      ].sort(),
+    );
   });
 
   it('applies font and heading scales', () => {
@@ -607,7 +620,6 @@ describe('page density lens (M4d1/M4e2)', () => {
     expect(low['--nf-page-body-size']).toBe('7pt');
     expect(low['--nf-page-card-padding']).toBe('4.8px');
     expect(low['--nf-page-max-card-width']).toBe('252px');
-    expect(low['--nf-page-min-content-width']).toBe('140px');
     expect(pageCssVariables(at(0.8))['--nf-page-body-size']).toBe('8pt');
     expect(pageCssVariables(at(1.2))['--nf-page-body-size']).toBe('10.8pt');
     // A stored theme at 100% is passed through unchanged.

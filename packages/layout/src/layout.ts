@@ -145,8 +145,21 @@ interface SubtreeColumn {
 
 /** Layout coordinates are chapter-local; a page content box starts at x = 0. */
 const PAGE_CONTENT_LEFT = 0;
-/** Continuous-style callout row indent; leaves room for the 12 px left trunk/stem. */
-const CALLOUT_ROW_INDENT = 26;
+/**
+ * Legacy R2b beside-lane readability floor (pre-A/B2 callout modes).
+ *
+ * The production Page path uses the resolved `PageTheme.minContentWidth`
+ * through the A/B2 callout modes. This smaller historical floor survives only
+ * for the explicit `calloutModes: false` regression oracle, so it is an engine
+ * constant, not a Page design token.
+ */
+const LEGACY_BESIDE_READABLE_WIDTH = 144;
+/**
+ * Legacy R2b fallback inset from the parent right edge for a callout warning
+ * anchor. Kept as an engine constant for the same regression oracle; the
+ * production path resolves a real anchor or the line start.
+ */
+const LEGACY_BESIDE_ANCHOR_INSET = 16;
 
 class LayoutBuilder {
   readonly document: NoteDocument;
@@ -1389,6 +1402,11 @@ class LayoutBuilder {
   /**
    * Plan the R2b beside callout lane without placing anything.
    *
+   * This is the legacy `calloutModes: false` regression path, not the
+   * production A/B2 callout-mode path. Its row origin is the resolved
+   * `PageTheme.childIndent` (`LayoutOptions.childIndent`); only the historical
+   * readability floor and warning-anchor inset stay as named engine constants.
+   *
    * The left lane is the parent card's horizontal band. A callout keeps its
    * anchor-aligned x while that leaves the preferred minimum content width;
    * otherwise it clamps left to the parent content edge and keeps the
@@ -1420,7 +1438,9 @@ class LayoutBuilder {
         : null;
       const desiredX = Math.max(
         laneLeft,
-        attachment?.rect?.x ?? attachment?.warningPoint?.x ?? x + width - 16,
+        attachment?.rect?.x ??
+          attachment?.warningPoint?.x ??
+          x + width - LEGACY_BESIDE_ANCHOR_INSET,
       );
       let calloutX = desiredX + preferredCardWidth <= laneRight + EPSILON
         ? desiredX
@@ -1429,10 +1449,10 @@ class LayoutBuilder {
       // shared left trunk. Shift it to the row indent when the lane still
       // offers a readable card; otherwise keep the minimum stem from the
       // parent's left edge so a left entry never degenerates into a top entry.
-      const stemLeft = laneLeft + CALLOUT_ROW_INDENT;
+      const stemLeft = laneLeft + this.options.childIndent;
       const shiftReadable = (left: number): boolean => {
         const available = laneRight - left;
-        if (available - chrome < 144 - EPSILON) return false;
+        if (available - chrome < LEGACY_BESIDE_READABLE_WIDTH - EPSILON) return false;
         const shifted = this.resolveBlockBox(target, available);
         return !shifted.contentTooWide && !shifted.horizontalOverflow;
       };

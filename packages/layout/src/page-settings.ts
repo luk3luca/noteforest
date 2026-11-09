@@ -75,6 +75,10 @@ export interface PageTheme {
   segmentGap: number;
   siblingGap: number;
   wrapIndent: number;
+  /**
+   * Per-level cap on the wrap indent added from a parent left edge. The cap is
+   * applied at every level and does not accumulate across ancestors.
+   */
   maxWrapIndent: number;
   /**
    * Page-only direct-child indent from the parent left when a whole child group
@@ -303,11 +307,6 @@ export function pageDimensionsMm(
 }
 
 export const PX_PER_MM = 96 / 25.4;
-export const MM_PER_PX = 25.4 / 96;
-
-export function pxToMm(px: number): number {
-  return px * MM_PER_PX;
-}
 
 export function mmToPx(mm: number): number {
   return mm * PX_PER_MM;
@@ -497,6 +496,8 @@ export function pageLayoutOptions(theme: PageTheme): LayoutOptions {
     wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
     pagePacking: effective.pagePacking,
     calloutGap: effective.calloutGap,
+    // Page chapter spacing is an engine constant (32 px), not a PageTheme
+    // field. The Continuous shell's 28 px chapter gap is a separate surface.
     chapterGap: DEFAULT_LAYOUT_OPTIONS.chapterGap,
     cardPadding: effective.cardPadding,
     cardBorder: effective.cardBorder,
@@ -510,12 +511,17 @@ function cssNumber(value: number): string {
 }
 
 /**
- * CSS custom properties for page typography and box metrics.
+ * CSS custom properties for the Page presentation layer.
  *
- * `styles.css` consumes the variables; it never hardcodes a second copy of the
- * theme. R1b writes this map to the page sheet and measurement host; M4d1
- * applies the density lens here, so Page Read, Page Edit, measurement, and
- * print all receive identical values.
+ * Only values that `styles.css` actually consumes are emitted. Typography and
+ * card text metrics drive the Page DOM; `--nf-page-max-card-width` is the Page
+ * measurement host width/cap, so measurement never reads the Continuous
+ * `--nf-child-max-width` token. Placement geometry (indents, trunks, callout
+ * gaps) stays on `PageTheme`/`LayoutOptions` and is written inline by the Page
+ * renderer, not through CSS variables.
+ *
+ * Page Read/Edit, measurement, and print all apply this same map; there is no
+ * static CSS fallback, so the map and the stylesheet cannot drift.
  */
 export function pageCssVariables(theme: PageTheme): Record<string, string> {
   const effective = effectivePageTheme(theme);
@@ -537,18 +543,7 @@ export function pageCssVariables(theme: PageTheme): Record<string, string> {
     '--nf-page-card-padding': `${cssNumber(effective.cardPadding)}px`,
     '--nf-page-card-border': `${cssNumber(effective.cardBorder)}px`,
     '--nf-page-segment-gap': `${cssNumber(effective.segmentGap)}px`,
-    '--nf-page-sibling-gap': `${cssNumber(effective.siblingGap)}px`,
-    '--nf-page-wrap-indent': `${cssNumber(effective.wrapIndent)}px`,
-    '--nf-page-max-wrap-indent': `${cssNumber(effective.maxWrapIndent)}px`,
-    '--nf-page-child-indent': `${cssNumber(effective.childIndent)}px`,
-    '--nf-page-child-trunk-inset': `${cssNumber(effective.childTrunkInset)}px`,
-    '--nf-page-callout-trunk-inset': `${cssNumber(effective.calloutTrunkInset)}px`,
-    '--nf-page-callout-card-indent': `${cssNumber(effective.calloutCardIndent)}px`,
-    '--nf-page-callout-right-gap': `${cssNumber(effective.calloutRightGap)}px`,
-    '--nf-page-callout-mode-min-width': `${cssNumber(effective.calloutModeMinWidth)}px`,
-    '--nf-page-callout-gap': `${cssNumber(effective.calloutGap)}px`,
     '--nf-page-max-card-width': `${cssNumber(effective.maxCardWidth)}px`,
-    '--nf-page-min-content-width': `${cssNumber(effective.minContentWidth)}px`,
   };
 }
 
