@@ -175,8 +175,8 @@ was asserted empty after the gate and packaged exports.
 | Continuation/ghost/trunks | **Pass** | PDF text contains `continues on page` and `continued from page`; representative pages carry 2 trunks (page 1) and 3 edges + 1 trunk (page 38); every page has vector paths. |
 | Broken/missing markers | **Pass** | `anchor-warning` for `f2-b196` and `m4c3-broken-parent`; `missing-asset` for `missingForest` and `m4c3-missing-asset`; placeholder text printed. |
 | Page Read/PDF parity at 1.0 mm | **Pass** | Representative pages 1, 4, 38, 61: max delta **0.39 mm** (0.39/0.20/0.39/0.31); 6–10 text geometry items per page. |
-| A5/Letter smoke | **Pass** | A5 landscape **134** pages (979 KB), Letter portrait **61** pages (808 KB), matching sizes and no glyph/blank failures. |
-| 300-block performance | **Pass** | **522 ms** wall, 27 pages, measure 43.5 ms, settle 18.1 ms, 442 KB, 0 warnings. Budget target 10 s. |
+| A5/Letter smoke | **Pass** | A5 landscape **134** pages (1.00 MB), Letter portrait **61** pages (827 KB), matching sizes and no glyph/blank failures. |
+| 300-block performance | **Pass** | **524 ms** wall, 27 pages, measure 48.0 ms, settle 25.5 ms, 442 KB, 0 warnings. Budget target 10 s. |
 | 1,000-block measurement (manual probe) | **Pass** | **1,004 ms** wall, 50 pages, measure 115.7 ms, settle 53.4 ms, 1.5 MB, 0 warnings. |
 | Packaged export | **Pass** | Staged app outside repo: 2 pages, 931 chars, 1 real image, 0 glyphs, 273 KB; no native dialog. |
 | No network/native dialogs | **Pass** | E2E dialog guard empty; hidden window denies navigation/redirect/window-open/permissions; local CSP. |
