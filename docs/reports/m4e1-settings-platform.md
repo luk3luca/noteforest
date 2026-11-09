@@ -4,7 +4,8 @@
 **Base:** `main` at `70b6a19` (M4e1/M4e2 briefs)  
 **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-9fe348a5-e27f1c8e707763f5`  
 **Branch:** `t3/m4e1-settings-platform-fixes`  
-**Head:** `e7a0b67e7519ced00a4856a7440fc4e803fdcc02`
+**Head (implementation):** `bdbbdc710cf47c23ec0746dd8ac3119e2a2e93c0`; the final
+branch head adds this report.
 
 ## 1. Summary and scope
 
