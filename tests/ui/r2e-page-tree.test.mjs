@@ -23,6 +23,8 @@ let page;
 
 const SIBLING_GAP = 16;
 const CALLOUT_GAP = 12;
+const CALLOUT_RIGHT_GAP = 24;
+const CHILD_INDENT = 26;
 const CARD_CHROME = 2 * (8 + 1);
 
 async function launch(name, width = 1440, height = 900) {
@@ -178,31 +180,36 @@ async function assertTreeGeometry(label) {
   assert.equal(leaf3.depth, 1);
   assert.equal(grandchild.depth, 2);
 
-  // Callouts stay below the parent, never in the sibling row.
+  // R2j mode A: the anchored callout moves to the parent's right lane at the
+  // parent top; the leader may exit the parent card's right side.
   assert.ok(
-    callout.top >= root.top + root.height + CALLOUT_GAP - 0.75,
-    `${label}: the callout starts below the parent`,
+    closeTo(callout.top, root.top, 1),
+    `${label}: the callout starts at the parent y`,
   );
   assert.ok(
-    callout.left <= root.left + root.width + 0.75,
-    `${label}: the callout stays in the parent lane`,
+    closeTo(callout.left - root.left, root.width + CALLOUT_RIGHT_GAP, 2),
+    `${label}: the callout sits in the right lane (${callout.left - root.left})`,
+  );
+  assert.ok(
+    callout.left >= root.left + root.width,
+    `${label}: the callout does not cover the parent card`,
   );
 
-  // Direct children either all fit beside the parent at its y, or the whole
-  // group wraps below it. They never become a row of sibling cards.
-  const beside = closeTo(child.top, root.top, 1);
-  if (beside) {
-    assert.ok(
-      closeTo(child.left, root.left + root.width + SIBLING_GAP, 0.75),
-      `${label}: the child starts one sibling gap right of the parent`,
-    );
-  } else {
-    assert.ok(
-      child.top >= root.top + root.height + CALLOUT_GAP - 0.75,
-      `${label}: the wrapped child starts below the parent/callouts`,
-    );
-    assert.ok(child.left >= root.left - 0.75, `${label}: the wrapped child keeps a left origin`);
-  }
+  // The lane decision re-checks the child origin: the whole direct-child group
+  // moves below the parent at the child indent and starts after the callout
+  // stack. Siblings always share one level column.
+  assert.ok(
+    child.top >= root.top + root.height - 0.75,
+    `${label}: the child group starts below the parent card`,
+  );
+  assert.ok(
+    child.top >= callout.top + callout.height + SIBLING_GAP - 0.75,
+    `${label}: the child group starts below the callout stack`,
+  );
+  assert.ok(
+    closeTo(child.left - root.left, CHILD_INDENT, 1.5),
+    `${label}: the child group uses the Page child indent (${child.left - root.left})`,
+  );
   assert.ok(closeTo(leaf2.left, child.left, 0.75), `${label}: leaf 2 shares the child column`);
   assert.ok(closeTo(leaf3.left, child.left, 0.75), `${label}: leaf 3 shares the child column`);
   assert.ok(

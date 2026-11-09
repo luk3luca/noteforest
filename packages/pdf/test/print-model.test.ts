@@ -199,4 +199,73 @@ describe('print model page routes', () => {
       y: crossIn.to.y,
     });
   });
+
+  it('consumes both R2j B2 below groups without a second trunk model', () => {
+    const b2Layout = {
+      ...layout,
+      blockById: {
+        source: { blockId: 'source', placement: 'below' },
+        callout: { blockId: 'callout', placement: 'below', trunkGroup: 'callout', trunkInset: 24 },
+        child: { blockId: 'child', placement: 'below', trunkGroup: 'child', trunkInset: 12 },
+      },
+      blocks: [],
+      edges: [
+        {
+          branchId: 'b-callout',
+          role: 'primary' as const,
+          fromBlockId: 'source',
+          toBlockId: 'callout',
+          anchorId: null,
+          chapterId: 'chapter-1',
+          from: { x: 0, y: 0 },
+          to: { x: 0, y: 0 },
+          crossChapter: false,
+        },
+        {
+          branchId: 'b-child',
+          role: 'primary' as const,
+          fromBlockId: 'source',
+          toBlockId: 'child',
+          anchorId: null,
+          chapterId: 'chapter-1',
+          from: { x: 0, y: 0 },
+          to: { x: 0, y: 0 },
+          crossChapter: false,
+        },
+      ],
+    } as unknown as ContinuousLayout;
+    const b2Pages = [
+      page(1, [
+        fragment('source', 0, 0, 200, 60),
+        fragment('callout', 38, 72, 120, 40),
+        fragment('child', 26, 130, 120, 40),
+      ]),
+    ];
+    const b2Paginated = {
+      pages: b2Pages,
+      pageCount: 1,
+      defects: [],
+      manualBreakWarnings: [],
+    } as unknown as PaginatedDocument;
+    const model = buildPrintModel(document, b2Layout, b2Paginated);
+    const shared = buildPageEdgeModel(b2Layout, b2Pages);
+    expect(model.pages[0]!.edges).toEqual(shared.edges[0]);
+    expect(model.pages[0]!.trunks).toEqual(shared.trunks[0]);
+    const callout = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-callout')!;
+    const child = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-child')!;
+    expect(callout.trunk!.id).toBe('source:below:callout');
+    expect(callout.trunk!.trunkGroup).toBe('callout');
+    expect(callout.trunk!.x).toBe(24);
+    expect(child.trunk!.id).toBe('source:below:child');
+    expect(child.trunk!.trunkGroup).toBe('child');
+    expect(child.trunk!.x).toBe(12);
+    expect(child.trunk!.x).toBeLessThan(callout.trunk!.x);
+    expect(model.pages[0]!.trunks.map((view) => view.trunk.id).sort()).toEqual([
+      'source:below:callout',
+      'source:below:child',
+    ]);
+    for (const edge of model.pages[0]!.edges) {
+      expect(edge.route.entry).toBe('left');
+    }
+  });
 });

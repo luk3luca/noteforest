@@ -11,10 +11,10 @@ import { pageEdgeTopologyDocument, writePagePackage } from '../support/page-fixt
  * Page Read/Edit and the PDF print model must use the layout's semantic
  * placement, not a y-based guess. R2i wraps the whole direct-child group below
  * the root when the child 1 subtree does not fit right; the grandchild then
- * stays beside child 1 on its own nested right trunk. Wrapped children and
- * callouts share one below trunk, every tree edge enters from the left, and no
- * edge borrows another group's trunk. The fixture is the topology in the
- * product-owner screenshot.
+ * stays beside child 1 on its own nested right trunk. R2j mode A moves the two
+ * anchored callouts into the root's right trunk, so children and callouts own
+ * independent group trunks and every tree edge enters from the left. The
+ * fixture is the topology in the product-owner screenshot.
  */
 
 const tempRoot = artifactsPath('r2f-ui');
@@ -24,6 +24,7 @@ const h = ui.harness;
 let page;
 
 const MIN_STEM = 12;
+const CALLOUT_GAP = 12;
 
 async function launch(name, width = 1440, height = 900) {
   page = await ui.launch(ui.isolated(name));
@@ -275,9 +276,9 @@ describe('R2f Page edge topology', () => {
     const callout1 = fragmentOf(boxes, 'top-callout-1');
     const callout2 = fragmentOf(boxes, 'top-callout-2');
 
-    // R2i: the child 1 subtree does not fit beside the root, so the whole
-    // direct-child group moves below the root at the child indent. Child 2
-    // stays in the same level column and the grandchild fits beside child 1.
+    // R2i wraps the direct-child group below the root at the child indent; R2j
+    // mode A moves both callouts into the root's right lane. Child 2 stays in
+    // the same level column and the grandchild fits beside child 1.
     assert.ok(
       child1.left >= root.left + 26 - 0.75 && child1.left < root.left + root.width - 0.75,
       'child 1 wraps below the root at the child indent',
@@ -302,16 +303,34 @@ describe('R2f Page edge topology', () => {
       Math.abs(grandchild.top - child1.top) <= 1,
       'the grandchild shares the child 1 y',
     );
+    // The two anchored callouts share the right lane; the anchor order decides
+    // which one is first, so assert the lane/stack, not a fixture-specific
+    // branch position.
+    const laneCallouts = [callout1, callout2].sort((left, right) => left.top - right.top);
+    const firstCallout = laneCallouts[0];
+    const secondCallout = laneCallouts[1];
+    assert.ok(
+      Math.abs(firstCallout.top - root.top) <= 0.75,
+      `the first callout starts at the parent y in the right lane (${firstCallout.top} vs ${root.top})`,
+    );
     for (const callout of [callout1, callout2]) {
       assert.ok(
-        callout.top >= root.top + root.height - 0.75,
-        `${callout.blockId} is below the parent`,
-      );
-      assert.ok(
-        callout.left >= root.left - 0.75,
-        `${callout.blockId} keeps the parent lane origin`,
+        callout.left >= root.left + root.width - 0.75,
+        `${callout.blockId} sits right of the parent card`,
       );
     }
+    assert.ok(
+      Math.abs(callout1.left - callout2.left) <= 0.75,
+      'both callouts share the right lane x',
+    );
+    assert.ok(
+      secondCallout.top >= firstCallout.top + firstCallout.height + CALLOUT_GAP - 0.75,
+      'the second callout stacks below the first',
+    );
+    assert.ok(
+      child1.top >= secondCallout.top + secondCallout.height - 0.75,
+      'the child group starts below the whole callout stack',
+    );
 
     const edges = await readEdges();
     assert.equal(edges.length, 5, 'the fixture exposes five primary tree edges');
@@ -327,18 +346,14 @@ describe('R2f Page edge topology', () => {
       assertLeftEntry(edge, edge.branchId);
     }
 
-    // Below group: the wrapped children and both callouts share one trunk and
-    // enter left from the parent card bottom.
+    // Below group: the wrapped children share one trunk and enter left from
+    // the parent card bottom.
     assert.equal(child1Edge.placement, 'below');
     assert.equal(child2Edge.placement, 'below');
     assert.equal(child1Edge.trunkPlacement, 'below');
     assert.equal(child2Edge.trunkPlacement, 'below');
     assert.equal(child1Edge.trunkId, child2Edge.trunkId);
     assert.equal(child2Edge.trunkX, child1Edge.trunkX);
-    assert.equal(child1Edge.trunkId, callout1Edge.trunkId);
-    assert.equal(callout2Edge.trunkId, callout1Edge.trunkId);
-    assert.equal(callout1Edge.from, child1Edge.from);
-    assert.equal(callout2Edge.from, callout1Edge.from);
     assert.ok(
       Math.abs(parsePoint(child1Edge.from).y - (root.top + root.height)) <= 0.75,
       'the below trunk starts attached to the parent bottom edge',
@@ -356,12 +371,33 @@ describe('R2f Page edge topology', () => {
       'child 2 arm ends at its left edge',
     );
 
+    // Callouts own an independent right trunk; they never join the below
+    // group. The leader exits the parent card's right side.
+    for (const edge of [callout1Edge, callout2Edge]) {
+      assert.equal(edge.placement, 'right');
+      assert.equal(edge.trunkPlacement, 'right');
+      assert.equal(edge.trunkId, 'top-root:right');
+      assert.notEqual(edge.trunkId, child1Edge.trunkId);
+      assert.ok(
+        edge.trunkX > root.left + root.width - 0.75,
+        'the callout rail starts right of the parent card',
+      );
+      assert.ok(edge.trunkX < callout1.left + 0.75, 'the callout rail stays left of its cards');
+      assert.ok(
+        Math.abs(parsePoint(edge.from).x - (root.left + root.width)) <= 0.75,
+        'the mode A leader starts at the parent right side',
+      );
+    }
+    assert.equal(callout2Edge.trunkId, callout1Edge.trunkId);
+    assert.deepEqual(callout1Edge.from, callout2Edge.from);
+
     // The grandchild is a right target of child 1 on an independent nested
-    // right trunk, never the root below trunk.
+    // right trunk, never either root group trunk.
     assert.equal(grandchildEdge.placement, 'right');
     assert.equal(grandchildEdge.trunkPlacement, 'right');
     assert.match(grandchildEdge.trunkId, /^top-child-1:right$/);
     assert.notEqual(grandchildEdge.trunkId, child1Edge.trunkId);
+    assert.notEqual(grandchildEdge.trunkId, callout1Edge.trunkId);
     assert.ok(
       grandchildEdge.trunkX > child1.left + child1.width - 0.75,
       'the nested right trunk starts right of child 1',

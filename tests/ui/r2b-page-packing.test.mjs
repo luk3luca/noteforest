@@ -8,10 +8,12 @@ import { sidePackingDocument, writePagePackage } from '../support/page-fixtures.
 /**
  * R2b Page packing UI.
  *
- * The page default is compact + beside: direct children start at the parent's
- * y in the right column, anchored callouts stay below the parent in the left
- * lane, and the lane ends one sibling gap before the right group. Continuous
- * does not mount the page layout at all, so it cannot change here.
+ * The page default is compact + beside. R2j chooses a callout mode per parent:
+ * mode A on a wide page (callouts in the parent's right lane, children below),
+ * mode B2 on a narrow page (two independent below trunks), and the stacked
+ * fallback when neither fits. The explicit `stacked` packing keeps the
+ * historical below-callout geometry. Continuous does not mount the page layout
+ * at all, so it cannot change here.
  */
 
 const tempRoot = artifactsPath('r2b-ui');
@@ -21,7 +23,9 @@ let page;
 
 const SIBLING_GAP = 16;
 const CALLOUT_GAP = 12;
-const CARD_CHROME = 2 * (8 + 1);
+const CALLOUT_RIGHT_GAP = 24;
+const CALLOUT_CARD_INDENT = 38;
+const CHILD_INDENT = 26;
 
 async function launch(name, width = 1440, height = 900) {
   page = await ui.launch(ui.isolated(name));
@@ -129,7 +133,7 @@ function assertNoOverlap(boxes, label) {
   }
 }
 
-async function assertBesideGeometry(label, { nestedBeside = true } = {}) {
+async function assertModeAGeometry(label) {
   const root = await fragmentBox('side-root');
   const rootCallout = await fragmentBox('side-callout-root');
   const midCallout = await fragmentBox('side-callout-mid');
@@ -144,61 +148,48 @@ async function assertBesideGeometry(label, { nestedBeside = true } = {}) {
   assert.equal(root.depth, 0);
   assert.equal(child.depth, 1);
 
-  // Direct child starts at the parent y, in the right column.
-  assert.ok(closeTo(child.top, root.top, 0.75), `${label}: child starts at the parent y`);
-  assert.ok(
-    closeTo(child.left, root.left + root.width + SIBLING_GAP, 0.75),
-    `${label}: child starts one sibling gap right of the parent`,
-  );
-  // Callouts stay below the parent and end before the right group.
-  assert.ok(
-    rootCallout.top >= root.top + root.height + CALLOUT_GAP - 0.75,
-    `${label}: root callout starts below the parent with the callout gap`,
-  );
+  // Mode A: callouts in the parent's right lane, stacked from the parent top.
+  for (const callout of [rootCallout, midCallout]) {
+    assert.ok(
+      closeTo(callout.left, root.left + root.width + CALLOUT_RIGHT_GAP, 2),
+      `${label}: ${callout.blockId} sits in the parent right lane`,
+    );
+  }
+  assert.ok(closeTo(rootCallout.top, root.top, 1), `${label}: the first callout starts at the parent y`);
   assert.ok(
     midCallout.top >= rootCallout.top + rootCallout.height + CALLOUT_GAP - 0.75,
     `${label}: the second root callout stacks below the first`,
   );
-  for (const callout of [rootCallout, midCallout]) {
-    assert.ok(
-      callout.left + callout.width <= child.left - SIBLING_GAP + 0.75,
-      `${label}: callout lane ends one sibling gap before the right group`,
-    );
-  }
+
+  // The lane decision moves the whole direct-child group below at the child
+  // indent, even though the child card alone could fit beside the parent.
   assert.ok(
-    rootCallout.left + rootCallout.width <= root.left + root.width + 0.75,
-    `${label}: the callout lane does not exceed the parent band`,
+    closeTo(child.left, root.left + CHILD_INDENT, 1.5),
+    `${label}: the child uses the child indent`,
+  );
+  assert.ok(
+    child.top >= midCallout.top + midCallout.height + SIBLING_GAP - 0.75,
+    `${label}: the child group starts below the callout stack`,
   );
 
-  // The callout is not clipped: content width stays at or above the readable
-  // minimum unless the fixture lane itself is narrower.
+  // The nested parent repeats mode A independently.
+  const childCallout = await fragmentBox('side-callout-child');
+  const grandChild = await fragmentBox('side-grandchild');
+  assert.equal(childCallout.role, 'callout');
+  assert.equal(grandChild.role, 'child');
   assert.ok(
-    rootCallout.width - CARD_CHROME >= 160 - 0.75,
-    `${label}: root callout keeps a readable content width`,
+    closeTo(childCallout.left, child.left + child.width + CALLOUT_RIGHT_GAP, 2),
+    `${label}: the nested callout uses the child right lane`,
   );
-
-  if (nestedBeside) {
-    const childCallout = await fragmentBox('side-callout-child');
-    const grandChild = await fragmentBox('side-grandchild');
-    assert.equal(childCallout.role, 'callout');
-    assert.equal(grandChild.role, 'child');
-    assert.ok(
-      closeTo(grandChild.top, child.top, 0.75),
-      `${label}: the nested direct child starts at the child y`,
-    );
-    assert.ok(
-      closeTo(grandChild.left, child.left + child.width + SIBLING_GAP, 0.75),
-      `${label}: the nested direct child sits in the child's right column`,
-    );
-    assert.ok(
-      childCallout.top >= child.top + child.height + CALLOUT_GAP - 0.75,
-      `${label}: the nested callout stays below the child`,
-    );
-    assert.ok(
-      childCallout.left + childCallout.width <= grandChild.left - SIBLING_GAP + 0.75,
-      `${label}: the nested callout lane ends before the nested right group`,
-    );
-  }
+  assert.ok(closeTo(childCallout.top, child.top, 1), `${label}: the nested callout starts at the child y`);
+  assert.ok(
+    closeTo(grandChild.left, child.left + CHILD_INDENT, 1.5),
+    `${label}: the nested child uses the child indent`,
+  );
+  assert.ok(
+    grandChild.top >= childCallout.top + childCallout.height + SIBLING_GAP - 0.75,
+    `${label}: the nested child group starts below the nested callout`,
+  );
 
   assertNoOverlap(boxes, label);
   for (const box of boxes) {
@@ -216,7 +207,7 @@ async function assertBesideGeometry(label, { nestedBeside = true } = {}) {
   return { root, child, rootCallout, midCallout };
 }
 
-async function assertWrappedGeometry(label) {
+async function assertB2Geometry(label) {
   const root = await fragmentBox('side-root');
   const rootCallout = await fragmentBox('side-callout-root');
   const midCallout = await fragmentBox('side-callout-mid');
@@ -226,43 +217,47 @@ async function assertWrappedGeometry(label) {
   const content = await contentBox();
   const boxes = await allFragmentBoxes();
 
-  // R2i: portrait cannot hold the whole child subtree beside the root, so the
-  // atomic direct-child group wraps below the root at the child indent. The
-  // block then uses the stacked callout order.
-  assert.ok(child.top >= root.top + root.height - 0.75, `${label}: child wraps below the root`);
-  assert.ok(
-    closeTo(child.left, root.left + 26, 1.5),
-    `${label}: the wrapped child uses the Page child indent`,
-  );
+  // B2: no right lane. Callouts first on the inner/right column, children
+  // lower on the outer/left column.
+  for (const callout of [rootCallout, midCallout]) {
+    assert.ok(
+      closeTo(callout.left, root.left + CALLOUT_CARD_INDENT, 1.5),
+      `${label}: ${callout.blockId} uses the callout card indent`,
+    );
+  }
   assert.ok(
     rootCallout.top >= root.top + root.height + CALLOUT_GAP - 0.75,
-    `${label}: the root callout starts below the parent`,
+    `${label}: the callout group starts below the parent card`,
   );
   assert.ok(
     midCallout.top >= rootCallout.top + rootCallout.height + CALLOUT_GAP - 0.75,
     `${label}: the second root callout stacks below the first`,
   );
   assert.ok(
-    child.top >= midCallout.top + midCallout.height + CALLOUT_GAP - 0.75,
-    `${label}: the wrapped group starts below the whole callout stack`,
+    closeTo(child.left, root.left + CHILD_INDENT, 1.5),
+    `${label}: the wrapped child uses the Page child indent`,
+  );
+  assert.ok(
+    child.top >= midCallout.top + midCallout.height + SIBLING_GAP - 0.75,
+    `${label}: the child group starts below the whole callout stack`,
   );
 
-  // From the new origin the nested group fits beside its own parent again.
+  // The nested group repeats B2 at its own origin.
   assert.ok(
-    closeTo(grandChild.top, child.top, 0.75),
-    `${label}: the nested direct child starts at the child y`,
+    closeTo(childCallout.left, child.left + CALLOUT_CARD_INDENT, 1.5),
+    `${label}: the nested callout uses its own B2 card column`,
   );
   assert.ok(
-    closeTo(grandChild.left, child.left + child.width + SIBLING_GAP, 0.75),
-    `${label}: the nested direct child sits in the child's right column`,
+    closeTo(grandChild.left, child.left + CHILD_INDENT, 1.5),
+    `${label}: the nested child uses its own child column`,
   );
   assert.ok(
     childCallout.top >= child.top + child.height + CALLOUT_GAP - 0.75,
-    `${label}: the nested callout stays below the child`,
+    `${label}: the nested callout starts below the child`,
   );
   assert.ok(
-    childCallout.left + childCallout.width <= grandChild.left - SIBLING_GAP + 0.75,
-    `${label}: the nested callout lane ends before the nested right group`,
+    grandChild.top >= childCallout.top + childCallout.height + SIBLING_GAP - 0.75,
+    `${label}: the nested child group starts below the nested callout`,
   );
 
   assertNoOverlap(boxes, label);
@@ -355,13 +350,14 @@ describe('R2b page packing', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('Page Read uses beside packing with anchor arrows and no overflow at 1440x900', async () => {
+  it('Page Read uses mode A with anchor arrows and no overflow at 1440x900', async () => {
     const env = ui.isolated('r2b-read');
     await launch('r2b-read');
     const packagePath = await openPackage(env, 'Side packing', sidePackingDocument());
     await showPageRead();
 
-    // Compact now defaults to beside/tree packing; no override is needed.
+    // Compact defaults to beside/tree packing; R2j applies the per-parent A/B2
+    // choice on top of it.
     const resolved = await page.evaluate(
       (path) => window.__noteforestTest.resolvedPageSettings(path),
       packagePath,
@@ -369,19 +365,20 @@ describe('R2b page packing', () => {
     assert.equal(resolved.theme.pagePacking, 'beside', 'beside is selected for this suite');
     assert.equal(await pageCount(), 1, 'the short packing fixture fits one page');
 
-    const { root, child, rootCallout } = await assertBesideGeometry('landscape 1440');
+    const { root, child, rootCallout } = await assertModeAGeometry('landscape 1440');
 
-    // The callout is anchor-aligned when the lane allows it (AC-52), and the
-    // connector starts at the resolved anchor, not at the clamped card edge.
+    // The anchor stays declared for accessibility; the visible mode A leader
+    // exits the parent card's right side.
     const anchor = await anchorBox('anchor-root');
     assert.ok(
-      closeTo(rootCallout.left, anchor.left, 2) ||
-        closeTo(rootCallout.left, root.left + 9, 1) ||
-        closeTo(rootCallout.left, root.left + 35, 1),
-      `callout ${rootCallout.left} is anchor-aligned (${anchor.left}) or uses the lane row origin`,
+      anchor.top >= rootCallout.top && anchor.top < root.top + root.height,
+      'the anchor stays inside the parent card, left of the right-lane callout',
     );
-    assert.ok(anchor.top < rootCallout.top, 'the anchor is above its callout');
-    assert.ok(rootCallout.left + rootCallout.width + SIBLING_GAP <= child.left + 0.75);
+    assert.ok(
+      closeTo(rootCallout.left, root.left + root.width + CALLOUT_RIGHT_GAP, 2),
+      'the callout is in the right lane, not the stacked anchor lane',
+    );
+    assert.ok(rootCallout.left > anchor.left, 'the right lane is right of the anchor');
 
     const svg = activePageView().locator('.nf-page-edges');
     assert.equal(await svg.count(), 1);
@@ -405,21 +402,27 @@ describe('R2b page packing', () => {
       'none',
       'reference arrows remain dashed',
     );
+    assert.equal(
+      await activePageView().locator('[data-page-edge-id="branch-callout-root"]').getAttribute('data-page-edge-trunk-id'),
+      'side-root:right',
+    );
   });
 
-  it('keeps beside packing at 960x720 and in portrait, or falls back deterministically', async () => {
+  it('keeps mode A at 960 and in portrait, and switches to B2 on a narrow page', async () => {
     const env = ui.isolated('r2b-sizes');
     await launch('r2b-sizes');
     await openPackage(env, 'Side packing sizes', sidePackingDocument());
     await showPageRead();
 
     await h.setWindowSize(960, 720);
-    await assertBesideGeometry('landscape 960');
+    await assertModeAGeometry('landscape 960');
 
+    // A5 portrait has no right lane: B2 splits the below group into the two
+    // independent trunks and keeps the nested group independent.
     await setSettings({
       page: {
         setup: {
-          size: 'A4',
+          size: 'A5',
           orientation: 'portrait',
           margins: { top: 12, right: 12, bottom: 12, left: 12 },
         },
@@ -429,16 +432,17 @@ describe('R2b page packing', () => {
       continuous: { zoom: 1 },
     });
     await waitPageReady();
-    // R2i: portrait cannot hold the whole root child subtree beside the root,
-    // so the atomic direct-child group wraps below the callout stack at the
-    // Page child indent. The nested group still fits beside its own parent.
-    await assertWrappedGeometry('portrait 1440');
+    const b2 = await assertB2Geometry('A5 portrait 1440');
+    assert.ok(b2 !== null);
 
     await h.setWindowSize(960, 720);
-    await assertWrappedGeometry('portrait 960');
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+    await assertB2Geometry('A5 portrait 960');
 
-    // The fallback is deterministic: switching back to landscape restores the
-    // nested beside geometry.
+    // The choice is deterministic from the resolved Page width: switching back
+    // to A4 landscape restores mode A.
     await setSettings({
       page: {
         setup: {
@@ -452,7 +456,7 @@ describe('R2b page packing', () => {
       continuous: { zoom: 1 },
     });
     await waitPageReady();
-    await assertBesideGeometry('landscape restored');
+    await assertModeAGeometry('landscape restored');
   });
 
   it('keeps the surface in Page Edit and restores stacked when the option is overridden', async () => {
@@ -489,9 +493,9 @@ describe('R2b page packing', () => {
 
     await setPageSettingsOverride(packagePath, { theme: { pagePacking: 'beside' } });
     assert.equal(await pageCount(), 1);
-    const beside = await assertBesideGeometry('landscape after stacked override');
+    const beside = await assertModeAGeometry('landscape after stacked override');
 
-    // Page Edit keeps the same beside geometry and the arrow layer.
+    // Page Edit keeps the same mode A geometry and the arrow layer.
     await page.keyboard.press('Meta+e');
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
@@ -499,7 +503,7 @@ describe('R2b page packing', () => {
       { timeout: 5000 },
     );
     assert.equal(await activePageView().locator('.nf-page-edges').count(), 1);
-    await assertBesideGeometry('Page Edit');
+    await assertModeAGeometry('Page Edit');
 
     await activePageView().locator('[data-fragment-block="side-child"]').dblclick();
     const overlay = activePageView().locator('[data-page-edit-overlay="true"]');
@@ -538,7 +542,7 @@ describe('R2b page packing', () => {
     const childContent = JSON.stringify(structure.blocks['side-child']?.content ?? {});
     assert.match(childContent, /Still beside\./);
     assert.equal(await pageCount(), 1, 'the edited page still fits one page');
-    await assertBesideGeometry('after Page Edit commit');
+    await assertModeAGeometry('after Page Edit commit');
 
     // Continuous does not use the page engine; it renders the classic below
     // callout and no page surface.

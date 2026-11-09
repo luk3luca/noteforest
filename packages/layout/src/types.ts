@@ -234,6 +234,19 @@ export interface LayoutBlock {
   role: BlockRole;
   /** Semantic placement relative to `parentBlockId` (from the layout decision). */
   placement: EdgePlacement;
+  /**
+   * Page R2j below-trunk split for callout mode B2. When both an anchored
+   * callout group and a direct-child group sit below the same parent, the two
+   * groups own independent trunks. Absent for right groups, Continuous, and
+   * the shared/legacy stacked below group.
+   */
+  trunkGroup?: 'callout' | 'child';
+  /**
+   * Page below-trunk inset from the parent left. Absent falls back to
+   * `EDGE_STYLE.trunkInset` (12 px). Page mode B2 sets 24 for callouts and 12
+   * for children; Continuous never reads it.
+   */
+  trunkInset?: number;
   parentBlockId: string | null;
   anchorId: string | null;
   depth: number;
@@ -394,6 +407,30 @@ export interface LayoutOptions {
    * Continuous does not read this field.
    */
   childIndent: number;
+  /**
+   * Page-only below-trunk inset from the parent left for the direct-child group
+   * in callout mode B2. Continuous does not read this field.
+   */
+  childTrunkInset: number;
+  /**
+   * Page-only below-trunk inset from the parent left for the anchored-callout
+   * group in callout mode B2 (the inner/right trunk).
+   */
+  calloutTrunkInset: number;
+  /**
+   * Page-only callout card left offset from the parent left in mode B2 (the
+   * inner/right card column).
+   */
+  calloutCardIndent: number;
+  /** Page-only gap from the parent right edge to the mode A callout lane. */
+  calloutRightGap: number;
+  /** Minimum free right space that selects callout mode A. */
+  calloutModeMinWidth: number;
+  /**
+   * Page-only A/B2 callout lane modes. Continuous keeps this false, and the
+   * explicit legacy `stacked` Page packing does not enable it either.
+   */
+  calloutModes: boolean;
   wrapPolicy: WrapPolicy;
   /** Page/PDF packing policy; ignored by the Continuous renderer. */
   pagePacking: PagePacking;
@@ -411,6 +448,12 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   wrapIndent: 18,
   maxWrapIndent: 54,
   childIndent: 26,
+  childTrunkInset: 12,
+  calloutTrunkInset: 24,
+  calloutCardIndent: 38,
+  calloutRightGap: 24,
+  calloutModeMinWidth: 240,
+  calloutModes: false,
   wrapPolicy: 'group-left-origin',
   // Continuous and every DOM-free layout keep the R2a geometry by default.
   // Page/PDF opts into the resolved PageTheme (compaction for compact).

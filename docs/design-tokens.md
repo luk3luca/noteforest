@@ -105,6 +105,11 @@ so one engine produces one geometry.
 | `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent |
 | `maxWrapIndent` | 54 px | Cap on cumulative wrap indent from the page content left (3 × 18) |
 | `childIndent` | 26 px | Page-only direct-child indent at the wrapped group origin; replaces the old hardcoded 26 px trunk-stem budget. Continuous does not read it |
+| `childTrunkInset` | 12 px | Page-only below-trunk inset for the direct-child group in callout mode B2 (outer/left trunk) |
+| `calloutTrunkInset` | 24 px | Page-only below-trunk inset for the anchored-callout group in callout mode B2 (inner/right trunk) |
+| `calloutCardIndent` | 38 px | Page-only callout card left offset from the parent left in mode B2 |
+| `calloutRightGap` | 24 px | Page-only gap from the parent right edge to the mode A callout lane |
+| `calloutModeMinWidth` | 240 px | Page-only minimum free right space that selects callout mode A |
 | `wrapPolicy` | `group-left-origin` | Production default from ADR-0006; lab oracles are not user-facing |
 | `pagePacking` | `stacked` (engine) / `beside` (compact page) | Page/PDF tree columns; `compaction` is a legacy lab oracle |
 | `minContentWidth` | 160 px | Readable minimum before a block reports `content-too-wide` |
@@ -116,6 +121,16 @@ the overflow wraps to one indented row below. Each component owns a column for i
 own recursive row; reference targets are never duplicated. `beside` and `stacked`
 remain the reference policies. The Continuous callout-projection lane above is a
 different surface and is unchanged.
+
+R2j callout modes are part of the `beside` Page packing (compact). Per parent,
+after the R2i subtree wrap:
+**A** puts anchored callouts in the free right lane (`calloutRightGap`, at least
+`calloutModeMinWidth`) and moves the direct-child group below at `childIndent`;
+**B2** puts callouts first on the inner/right below trunk (`calloutTrunkInset` 24,
+card 38) and children lower on the outer/left trunk (`childTrunkInset` 12, card
+26); the **stacked** fallback keeps callouts first and children below on one
+shared trunk. The explicit `stacked` packing keeps the historical geometry and
+does not run the A/B2 choice; `compaction` remains a legacy lab oracle.
 
 M4a lab evidence (`docs/reports/m4a-layout-lab.md`): no page-count delta on the 300-block,
 deep-chain, wide-fan, or showcase fixtures; the only measured trade-off is wide-fan's +99.1 px

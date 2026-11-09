@@ -168,6 +168,13 @@ const CARD_CHROME = 2 * (DEFAULT_LAYOUT_OPTIONS.cardPadding + DEFAULT_LAYOUT_OPT
 const GAP = DEFAULT_LAYOUT_OPTIONS.siblingGap;
 const INDENT = DEFAULT_LAYOUT_OPTIONS.childIndent;
 
+/**
+ * R2j note: the callout cases below keep the non-mode beside oracle
+ * (`calloutModes: false`) so the R2i subtree-fit rule stays isolated. The
+ * production Page callout modes A/B2/stacked are covered by
+ * `page-callout-modes.test.ts`.
+ */
+
 describe('page subtree-aware wrap (R2i)', () => {
   it('moves the whole first-child subtree below the parent instead of burning a lower-left column', () => {
     const { document, port } = makeDocument(

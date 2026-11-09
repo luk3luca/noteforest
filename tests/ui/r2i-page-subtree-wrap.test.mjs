@@ -32,6 +32,7 @@ let page;
 
 const CHILD_INDENT = 26;
 const SIBLING_GAP = 16;
+const CALLOUT_RIGHT_GAP = 24;
 const TOLERANCE = 1.5;
 
 async function launch(name, width = 1440, height = 900) {
@@ -346,7 +347,7 @@ describe('R2i Page subtree-aware wrap', () => {
     });
   });
 
-  it('keeps callouts below the parent and outside the wrapped child group', async () => {
+  it('moves the callout to the right lane and the child group below (R2j A)', async () => {
     const env = ui.isolated('r2i-callout');
     await launch('r2i-callout');
     await openPackage(env, 'Page subtree wrap callout', pageSubtreeWrapCalloutDocument());
@@ -358,7 +359,11 @@ describe('R2i Page subtree-aware wrap', () => {
     const grandchild = await fragmentBox('r2i-callout-grandchild');
     const { boxes, content } = await writeEvidence('page-subtree-wrap-callout', 'pageSubtreeWrapCallout');
 
-    assert.ok(callout.top >= root.top + root.height - 0.75, 'the callout stays below the parent');
+    assert.ok(
+      closeTo(callout.left - root.left, root.width + CALLOUT_RIGHT_GAP, 2),
+      `the callout moves to the parent right lane (${callout.left - root.left})`,
+    );
+    assert.ok(closeTo(callout.top, root.top, 1), 'the callout starts at the parent y');
     assert.ok(
       child.top >= callout.top + callout.height - 0.75,
       'the wrapped child group starts below the callout stack',
