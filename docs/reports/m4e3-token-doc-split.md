@@ -180,3 +180,13 @@ The baseline was 101 files / 1010 tests; this task adds one guard file with 12 t
 - Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-7962f0f0-9c3c938ff07c157a`
 - Branch: `t3/m4e3-page-continuous-token-docs-split`
 - Head: commit containing this report; run `git rev-parse HEAD` in the worktree for the exact SHA.
+
+## Integration
+
+- Merged to `main` as `0f4c1c0` (base `cc073b2`).
+- One full `npm run verify` on the integrated tree: **exit 0** — **102 test
+  files / 1022 tests**, **38 UI suites / 133 tests**, **16 critical e2e**,
+  **14 recovery**, **0 pageErrors**.
+- Behavior-unchanged evidence remains green; the Page/PDF 61-page gate and
+  density lab are unchanged.
+- Next: settings-schema freeze/targeted re-check, then UI design.
