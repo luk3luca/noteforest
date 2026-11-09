@@ -7,6 +7,11 @@ import { StatusBar } from './shell/StatusBar';
 import { CommandPalette } from './shell/CommandPalette';
 import { ContextMenu } from './shell/ContextMenu';
 import { Dialogs } from './shell/Dialogs';
+import { ExportStatusPanel } from './export/ExportStatusPanel';
+import {
+  exportFlowHistory,
+  useExportUi,
+} from './export/export-flow';
 import { useShell, type TabInfo } from './state/shell';
 import {
   allRuntimes,
@@ -181,8 +186,12 @@ export function App(): JSX.Element {
   const dispatch = useCallback((command: MenuCommand) => {
     if (!HISTORY_COMMANDS.has(command)) {
       const now = performance.now();
-      const previous = lastDispatch.current.get(command) ?? 0;
-      if (now - previous < 120) return;
+      // A missing entry is not "dispatched at time 0": treating it as one
+      // silently dropped the first menu command issued inside the first
+      // 120 ms after the renderer started (for example Export PDF from an
+      // empty library).
+      const previous = lastDispatch.current.get(command);
+      if (previous !== undefined && now - previous < 120) return;
       lastDispatch.current.set(command, now);
     }
     runMenuCommand(command);
@@ -571,6 +580,25 @@ export function App(): JSX.Element {
       setFlushMode: (mode: FlushTestMode) => {
         flushTestMode = mode;
       },
+      exportState: () => {
+        const state = useExportUi.getState();
+        return structuredClone({
+          status: state.status,
+          jobId: state.jobId,
+          outputPath: state.outputPath,
+          documentTitle: state.documentTitle,
+          overwrite: state.overwrite,
+          progress: state.progress,
+          phase: state.phase,
+          pageCount: state.pageCount,
+          pageWidthMm: state.pageWidthMm,
+          pageHeightMm: state.pageHeightMm,
+          cancelling: state.cancelling,
+          error: state.error,
+          warnings: state.warnings,
+        });
+      },
+      exportHistory: () => structuredClone(exportFlowHistory()),
       renderPrint: () => {
         const state = useShell.getState();
         const runtime = allRuntimes().find((item) => item.packagePath === state.activeTab);
@@ -681,6 +709,7 @@ export function App(): JSX.Element {
       <CommandPalette />
       <Dialogs />
       <ContextMenu />
+      <ExportStatusPanel />
       <Toaster theme="dark" position="bottom-right" closeButton={false} />
     </div>
   );

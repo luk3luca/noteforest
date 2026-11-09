@@ -4258,6 +4258,90 @@ body.nf-dragging-block .nf-gutter-handle {
   border-color: rgb(217 139 139 / 0.4) !important;
 }
 
+/* ----------------------------------------------------- M4d2 export panel */
+
+.nf-export-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 44px;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  padding: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-overlay);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.nf-export-panel-failed {
+  border-color: rgb(217 139 139 / 0.4);
+}
+
+.nf-export-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nf-export-title {
+  font-weight: 600;
+}
+
+.nf-export-percent {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-export-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.nf-export-path {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.nf-export-bar {
+  height: 4px;
+  overflow: hidden;
+  background: var(--surface-1);
+  border-radius: 2px;
+}
+
+.nf-export-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 120ms var(--motion);
+}
+
+.nf-export-details {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.nf-export-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 2px;
+}
+
 /* --------------------------------------------------------------- responsive */
 
 @media (max-width: 1100px) {

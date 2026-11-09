@@ -14,6 +14,7 @@ import type {
 } from '@noteforest/layout';
 import type { DocumentLayout, InteractionMode, PageFit } from './view-state';
 import type {
+  ChooseExportPathResult,
   ExportJobView,
   ExportPdfInput,
   ExportPdfStartResult,
@@ -22,6 +23,7 @@ import type {
 } from './export.js';
 
 export type {
+  ChooseExportPathResult,
   ExportFailureCode,
   ExportJobErrorView,
   ExportJobPhase,
@@ -380,6 +382,7 @@ export type MenuCommand =
   | 'new-chapter'
   | 'add-block'
   | 'flush'
+  | 'export-pdf'
   | 'undo'
   | 'redo'
   | 'zoom-in'
@@ -470,6 +473,13 @@ export interface NoteForestApi {
   getExportJob(jobId: string): Promise<ExportJobView | null>;
   /** Request cancellation; true when a running job accepted it. */
   cancelExport(jobId: string): Promise<boolean>;
+  /**
+   * Native save dialog for the PDF export (M4d2). The dialog suggests
+   * `defaultFileName`; a cancelled dialog returns `{ canceled: true }`.
+   */
+  chooseExportPath(input: { defaultFileName: string }): Promise<ChooseExportPathResult>;
+  /** Reveal a produced PDF in the OS file manager (non-destructive). */
+  revealExport(outputPath: string): Promise<RevealResult>;
   /**
    * Answer a main-process snapshot request for an export job. The handler must
    * resolve with the current in-memory document/settings/asset URLs.

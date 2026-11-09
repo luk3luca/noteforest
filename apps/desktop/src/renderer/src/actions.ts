@@ -59,6 +59,7 @@ import {
   READ_MODE_TOAST,
 } from './lib/editability';
 import { commitPageEdit } from './page/page-edit-state';
+import { exportActiveDocument } from './export/export-flow';
 
 function shell() {
   return useShell.getState();
@@ -1127,6 +1128,12 @@ export function paletteCommands(): MenuEntry[] {
     { id: 'new-document', label: 'New document', shortcut: '⌘N', onSelect: () => void createNewDocument() },
     gate({ id: 'new-chapter', label: 'New chapter', shortcut: '⇧⌘N', onSelect: () => void createChapter() }),
     { id: 'save', label: 'Save now', shortcut: '⌘S', onSelect: () => void saveActive() },
+    {
+      id: 'export-pdf',
+      label: 'Export PDF…',
+      shortcut: '⇧⌘E',
+      onSelect: exportActiveDocument,
+    },
     { id: 'close-tab', label: 'Close tab', shortcut: '⌘W', onSelect: () => void closeActiveTab() },
     { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘\\', onSelect: toggleSidebar },
     { id: 'zoom-in', label: 'Zoom in', shortcut: '⌘+', onSelect: () => adjustActiveZoom(0.1) },
@@ -1251,6 +1258,9 @@ export function runMenuCommand(command: MenuCommand): void {
       break;
     case 'save':
       void saveActive();
+      break;
+    case 'export-pdf':
+      exportActiveDocument();
       break;
     case 'close-tab':
       void closeActiveTab();

@@ -54,6 +54,12 @@ export function installApplicationMenu(getWindow: () => BrowserWindow | null, se
         accelerator: 'CmdOrCtrl+S',
         click: () => send('save'),
       },
+      {
+        id: 'menu-export-pdf',
+        label: 'Export PDF…',
+        accelerator: 'CmdOrCtrl+Shift+E',
+        click: () => send('export-pdf'),
+      },
       { type: 'separator' },
       {
         label: 'Close Tab',
