@@ -758,16 +758,29 @@ The stack is Electron (ADR-0001) and the PDF pipeline is the shared paginator + 
       attributes/snapshot HTML; a `print.css` metric drift fails a test.
 - [ ] The export job validates the produced PDF page count and page size against the paginator and
       writes atomically; a blank page or a count/size mismatch is an export failure, not a warning.
+- [ ] A produced blank page is classified from the model (no fragments, edges/trunks, or images on
+      that page) or from raster ink, not from text absence alone; a page that contains only an
+      image is not blank. The failure is tested.
+- [ ] Print-time image/font/KaTeX decode failures are surfaced on the job. An image with declared
+      width/height whose bytes disappear or fail after measurement prints the app placeholder and
+      reports an asset warning, not a browser broken-image glyph.
+- [ ] The main process validates the hidden-window summary shape and finite geometry, binds the
+      snapshot to the requested package and sending window, and does not trust an unchecked cast.
 - [ ] Each print page is a fixed container at the resolved page size (A4/A5/Letter, portrait or
       landscape); `@page` supplies size and zero margins; the renderer waits for layout, pagination,
       fonts, images, and KaTeX.
 - [ ] Text remains real text (not outlines or screenshots) and fonts are embedded.
+- [ ] The export suite includes a real present image and a dimensioned missing/failed image, not
+      only a placeholder fixture without dimensions.
 - [ ] Page size, orientation, margins, breaks, and ghost/continuation markers match the page view.
 - [ ] Vector arrows and images print correctly.
 - [ ] Tables break only between rows; a row and its cells are never split; a too-tall row blocks
       export with a clear error.
 - [ ] The print DOM mirrors the page view's geometry and is not screenshotted.
 - [ ] The chosen pipeline exports from the packaged app, not only the dev server.
+- [ ] The packaged app ships the PDF inspector (`pdfjs-dist`) and its worker as runtime
+      dependencies (unpacked from asar if needed); a packaged export smoke proves the inspector
+      loads and the produced PDF is validated.
 - [ ] The automated 50+ page A4 gate is re-run on Electron upgrades by the Builder; no app-specific import check is required.
 - [ ] A pipeline change requires an ADR and reopens this section.
 
