@@ -774,6 +774,7 @@ export function PageView({
       data-updating={model.updating ? 'true' : 'false'}
       data-page-count={pageCount}
       data-current-page={pageNumber}
+      data-page-density={Math.round(settings.theme.density * 100)}
       data-defect-count={blocking.length}
       data-measurement-calls={model.measurementCalls}
       data-model-runs={model.runs}

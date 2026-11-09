@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { artifactsPath, waitUntil } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import {
+  multiPageBlocksDocument,
   pageCalloutModesDocument,
   pageDocument,
   textBlock,
@@ -248,6 +249,52 @@ describe('M4c2 PDF export orchestration', () => {
       case: 'A5 stacked',
       pageCount: stacked.pageCount,
       pdfPages: stackedPdf.pages.map((item) => [Number(item.widthMm.toFixed(2)), Number(item.heightMm.toFixed(2))]),
+    });
+  });
+
+  it('exports the same Page lens at 80% and 120% density (M4d1)', async () => {
+    const env = ui.isolated('m4c2-density');
+    await launch('m4c2-density');
+    const packagePath = await openPackage(
+      env,
+      'Export density',
+      multiPageBlocksDocument(36),
+    );
+    const results = [];
+    for (const [percent, density] of [
+      [80, 0.8],
+      [120, 1.2],
+    ]) {
+      await setPageSettings(packagePath, { theme: { density } });
+      const outputPath = resolve(outputRoot, `density-${percent}.pdf`);
+      const job = await exportPdf({ packagePath, outputPath });
+      assert.equal(
+        job.status,
+        'done',
+        job.error?.message ?? `density ${percent}% export succeeds`,
+      );
+      assert.equal(
+        job.error,
+        null,
+        `density ${percent}% preflight accepts the effective type metrics`,
+      );
+      assert.ok(
+        !job.warnings.some((warning) => warning.code === 'settings-mismatch'),
+        `density ${percent}% has no settings mismatch`,
+      );
+      const pdf = await inspect(outputPath);
+      assertPageSizes(pdf, job);
+      results.push({ percent, job, pdf });
+    }
+    const [low, high] = results;
+    assert.ok(
+      low.job.pageCount <= high.job.pageCount,
+      `80% exports no more pages than 120%: ${low.job.pageCount} vs ${high.job.pageCount}`,
+    );
+    record({
+      case: 'density 80/120',
+      pages: results.map((item) => ({ density: item.percent, pageCount: item.job.pageCount })),
+      textChars: results.map((item) => item.pdf.text.length),
     });
   });
 

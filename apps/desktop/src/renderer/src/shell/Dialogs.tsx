@@ -10,7 +10,20 @@ import {
 } from 'react-aria-components';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  mergePageSettings,
+  PAGE_DENSITY_MAX,
+  PAGE_DENSITY_MIN,
+  PAGE_DENSITY_STEP,
+} from '@noteforest/layout';
 import { useShell } from '../state/shell';
+import {
+  pageDensityPercent,
+  pageDensityValue,
+  useSettingsStore,
+  withPageDensityOverride,
+  withoutPageDensityOverride,
+} from '../state/settings';
 import { registerRuntime, useRuntime } from '../state/registry';
 import {
   activeRuntime,
@@ -1895,11 +1908,170 @@ function ImageAltDialog({
 
 function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Element {
   const library = useShell((state) => state.library);
+  const packagePath = useShell((state) => state.activeTab);
+  const app = useSettingsStore((state) => state.app);
+  const override = useSettingsStore((state) =>
+    packagePath === null ? undefined : state.pageOverrides[packagePath],
+  );
+  const resolved = useMemo(() => mergePageSettings(app.page, override), [app.page, override]);
+  const documentDensity = override?.theme?.density;
+  const globalPercent = pageDensityPercent(app.page.theme.density);
+  const documentPercent =
+    documentDensity === undefined ? null : pageDensityPercent(documentDensity);
+  // M4d1 temporary thin slice: one Page density control with explicit
+  // Apply/Cancel. Final Settings structure and visual polish are a later task.
+  const [scope, setScope] = useState<'global' | 'document'>(
+    documentPercent === null ? 'global' : 'document',
+  );
+  const [percent, setPercent] = useState(pageDensityPercent(resolved.theme.density));
+  const [saved, setSaved] = useState<string | null>(null);
+
+  const dirty = scope === 'document' ? (documentPercent ?? -1) !== percent : globalPercent !== percent;
+
+  const resetDraft = (): void => {
+    setPercent(scope === 'document' ? documentPercent ?? globalPercent : globalPercent);
+    setSaved(null);
+  };
+
+  const apply = (): void => {
+    const density = pageDensityValue(percent);
+    if (scope === 'document' && packagePath !== null) {
+      useSettingsStore
+        .getState()
+        .setPageSettingsOverride(packagePath, withPageDensityOverride(override, density));
+      setSaved(`Page density ${percent}% saved for this document.`);
+      return;
+    }
+    useSettingsStore.getState().setAppSettings({
+      ...app,
+      page: { ...app.page, theme: { ...app.page.theme, density } },
+    });
+    setSaved(`Page density ${percent}% saved as the global default.`);
+  };
+
+  const useGlobalDensity = (): void => {
+    if (packagePath === null) return;
+    useSettingsStore
+      .getState()
+      .setPageSettingsOverride(packagePath, withoutPageDensityOverride(override) ?? null);
+    setScope('global');
+    setPercent(globalPercent);
+    setSaved('This document uses the global density again.');
+  };
+
   return (
     <Frame
       title="Settings"
       actions={<Button className="nf-button" onPress={onClose}>Done</Button>}
     >
+      <section className="nf-settings-section" data-page-density-section="true">
+        <h3 className="nf-settings-section-title">Page</h3>
+        <fieldset className="nf-fieldset nf-density-scope" data-page-density-scope="true">
+          <legend className="nf-legend">Apply to</legend>
+          <label className="nf-radio">
+            <input
+              type="radio"
+              name="page-density-scope"
+              data-page-density-scope-option="global"
+              checked={scope === 'global'}
+              onChange={() => {
+                setScope('global');
+                setPercent(globalPercent);
+                setSaved(null);
+              }}
+            />
+            <span>Global default</span>
+          </label>
+          <label className="nf-radio">
+            <input
+              type="radio"
+              name="page-density-scope"
+              data-page-density-scope-option="document"
+              checked={scope === 'document'}
+              disabled={packagePath === null}
+              onChange={() => {
+                setScope('document');
+                setPercent(documentPercent ?? globalPercent);
+                setSaved(null);
+              }}
+            />
+            <span>This document</span>
+          </label>
+        </fieldset>
+        <div className="nf-field nf-density-field">
+          <label className="nf-field-label" htmlFor="page-density-slider">
+            Page density
+          </label>
+          <span className="nf-density-row">
+            <input
+              id="page-density-slider"
+              type="range"
+              className="nf-range"
+              min={PAGE_DENSITY_MIN * 100}
+              max={PAGE_DENSITY_MAX * 100}
+              step={PAGE_DENSITY_STEP * 100}
+              value={percent}
+              aria-label="Page density"
+              aria-valuetext={`${percent}%`}
+              data-page-density-slider="true"
+              onChange={(event) => {
+                setPercent(Number(event.target.value));
+                setSaved(null);
+              }}
+            />
+            <span className="nf-density-value" data-page-density-value="true">
+              {percent}%
+            </span>
+            <Button
+              className="nf-button"
+              data-page-density-reset="true"
+              onPress={() => {
+                setPercent(100);
+                setSaved(null);
+              }}
+            >
+              Reset
+            </Button>
+          </span>
+        </div>
+        <p className="nf-dialog-note" data-page-density-note="true">
+          Page Read, Page Edit, and PDF use {pageDensityPercent(resolved.theme.density)}% for this
+          document{documentPercent === null ? '' : ' (document override)'}. Density scales Page
+          typography and card geometry; page size and margins are unchanged.
+        </p>
+        <div className="nf-dialog-inline-actions">
+          <Button
+            className="nf-button nf-button-primary"
+            data-page-density-apply="true"
+            isDisabled={!dirty}
+            onPress={apply}
+          >
+            Apply
+          </Button>
+          <Button
+            className="nf-button"
+            data-page-density-cancel="true"
+            isDisabled={!dirty}
+            onPress={resetDraft}
+          >
+            Cancel
+          </Button>
+          {documentPercent === null ? null : (
+            <Button
+              className="nf-button"
+              data-page-density-use-global="true"
+              onPress={useGlobalDensity}
+            >
+              Use global density
+            </Button>
+          )}
+        </div>
+        {saved === null ? null : (
+          <p className="nf-dialog-note" role="status" data-page-density-saved="true">
+            {saved}
+          </p>
+        )}
+      </section>
       <dl className="nf-settings-list">
         <div>
           <dt>Library</dt>

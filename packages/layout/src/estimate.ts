@@ -3,6 +3,7 @@ import type {
   BlockMeasurement,
   ContentBlock,
   ContentNode,
+  LayoutOptions,
   MeasurementMode,
   MeasurementPort,
   MeasuredAnchor,
@@ -400,10 +401,11 @@ function measureAt(
   mode: MeasurementMode,
   contentWidth: number,
   intrinsic: { natural: number; min: number },
+  layoutOptions: LayoutOptions = DEFAULT_LAYOUT_OPTIONS,
 ): BlockMeasurement {
   const hasAsset = (id: string): boolean => Boolean(document.assets[id]);
   const { segments: raw, tableColumns } = rawSegments(block.content, contentWidth, hasAsset);
-  const options = DEFAULT_LAYOUT_OPTIONS;
+  const options = layoutOptions;
   const labelHeight = block.label ? LABEL_LINE * Math.max(1, Math.ceil(textWidth(block.label, 9) / Math.max(1, contentWidth))) : 0;
   const contentTop = options.cardPadding + options.cardBorder + (block.label ? labelHeight + LABEL_GAP : 0);
   const segments: MeasuredSegment[] = [];
@@ -554,7 +556,18 @@ function groupBy<T>(items: T[]): Map<string, T[]> {
   return map;
 }
 
-export function createEstimatedMeasurement(document: NoteDocument): MeasurementPort {
+/**
+ * Deterministic, DOM-free measurement estimator used by unit tests and labs.
+ *
+ * It is intentionally approximate: the real DOM adapter is the source of
+ * truth. Box metrics (card padding, card border, segment gap) come from the
+ * supplied layout options so a density/settings lab sees the same geometry the
+ * layout pass does; typography stays at its fixed estimate.
+ */
+export function createEstimatedMeasurement(
+  document: NoteDocument,
+  layoutOptions: LayoutOptions = DEFAULT_LAYOUT_OPTIONS,
+): MeasurementPort {
   return {
     measure(block: ContentBlock, mode: MeasurementMode): BlockMeasurement {
       const intrinsic = (() => {
@@ -570,7 +583,7 @@ export function createEstimatedMeasurement(document: NoteDocument): MeasurementP
       if (mode.kind === 'max-content') contentWidth = intrinsic.natural;
       else if (mode.kind === 'min-content') contentWidth = intrinsic.min;
       else contentWidth = mode.contentWidth;
-      return measureAt(document, block, mode, Math.max(1, contentWidth), intrinsic);
+      return measureAt(document, block, mode, Math.max(1, contentWidth), intrinsic, layoutOptions);
     },
   };
 }

@@ -4129,6 +4129,55 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--danger, #e08a8a);
 }
 
+.nf-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.nf-settings-section-title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nf-density-scope {
+  margin: 0;
+}
+
+.nf-density-field {
+  margin: 0;
+}
+
+.nf-density-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nf-range {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent, #7aa2f7);
+}
+
+.nf-density-value {
+  min-width: 40px;
+  color: var(--text-secondary);
+  font-family: var(--mono-font);
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.nf-settings-section .nf-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .nf-settings-list {
   display: flex;
   flex-direction: column;

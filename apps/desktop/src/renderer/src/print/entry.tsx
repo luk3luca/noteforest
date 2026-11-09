@@ -28,6 +28,7 @@ import type {
 } from '@noteforest/layout';
 import {
   contentBlockTitle,
+  effectivePageTheme,
   pageSettingsFingerprint,
   type DerivedPage,
 } from '@noteforest/layout';
@@ -319,9 +320,11 @@ function probeMetrics(printRoot: HTMLElement, settings: PageSettings): PrintRunM
   const lineHeightPx = Number.parseFloat(style.lineHeight);
   const lineHeightRatio =
     Number.isFinite(lineHeightPx) && fontSizePx > 0 ? lineHeightPx / fontSizePx : 0;
-  const expectedFontSizePx =
-    settings.theme.bodyPt * settings.theme.fontScale * EXPECTED_BYTES_PER_PT;
-  const expectedLineHeightRatio = settings.theme.bodyLine;
+  // The printed root uses the density lens (M4d1), so the probe must compare
+  // against the effective theme, not the raw stored values.
+  const effective = effectivePageTheme(settings.theme);
+  const expectedFontSizePx = effective.bodyPt * effective.fontScale * EXPECTED_BYTES_PER_PT;
+  const expectedLineHeightRatio = effective.bodyLine;
   const fontOk = Math.abs(fontSizePx - expectedFontSizePx) <= 0.06;
   const lineOk = Math.abs(lineHeightRatio - expectedLineHeightRatio) <= 0.01;
   return {

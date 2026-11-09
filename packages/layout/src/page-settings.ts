@@ -48,6 +48,14 @@ export type PageThemePreset = 'compact' | 'comfortable' | 'custom';
  */
 export interface PageTheme {
   preset: PageThemePreset;
+  /**
+   * Page-only density multiplier (0.8–1.2, default 1, step 0.05).
+   *
+   * The stored theme values are the unmodified theme; `effectivePageTheme`
+   * applies this lens once for layout, measurement, CSS, and print. Density
+   * never changes page setup/margins and is never a CSS zoom.
+   */
+  density: number;
   fontScale: number;
   bodyPt: number;
   bodyLine: number;
@@ -132,6 +140,7 @@ export interface ContinuousSettingsOverride {
 /** Compact is the dense reading preset and the product default. */
 const COMPACT_THEME: PageTheme = Object.freeze({
   preset: 'compact',
+  density: 1,
   fontScale: 1,
   bodyPt: 9,
   bodyLine: 1.3,
@@ -173,6 +182,7 @@ const COMPACT_THEME: PageTheme = Object.freeze({
  */
 const COMFORTABLE_THEME: PageTheme = Object.freeze({
   preset: 'comfortable',
+  density: 1,
   fontScale: 1,
   bodyPt: 10.5,
   bodyLine: 1.45,
@@ -227,6 +237,40 @@ export const DEFAULT_PAGE_SETTINGS: Readonly<PageSettings> = Object.freeze({
 export const DEFAULT_CONTINUOUS_SETTINGS: Readonly<ContinuousSettings> = Object.freeze({
   zoom: 1,
 });
+
+/**
+ * Page density lens (M4d1).
+ *
+ * One user-facing slider: 80–120%, step 5, default 100. The value is stored in
+ * `PageTheme.density` and applied by `effectivePageTheme`; a stored theme is
+ * always the unmodified preset/override, so changing density is reversible.
+ */
+export const PAGE_DENSITY_MIN = 0.8;
+export const PAGE_DENSITY_MAX = 1.2;
+export const PAGE_DENSITY_STEP = 0.05;
+export const PAGE_DENSITY_DEFAULT = 1;
+/** Density never takes body/label type below 8 pt. */
+export const PAGE_BODY_PT_FLOOR = 8;
+/** Density never takes a card below this content width. */
+export const PAGE_MIN_CONTENT_WIDTH_FLOOR = 150;
+/** Readable clamp for a density-scaled `maxCardWidth`. */
+export const PAGE_MAX_CARD_WIDTH_MIN = 280;
+export const PAGE_MAX_CARD_WIDTH_MAX = 560;
+
+/**
+ * Clamp and round a density value to the 0.8–1.2 lens.
+ *
+ * `effectivePageTheme` and every settings merge path use this one function, so
+ * a document override, settings.json, or a slider cannot introduce a third
+ * range or a floating-point fingerprint.
+ */
+export function normalizePageDensity(value: unknown): number {
+  return roundTo(finiteNumber(value, PAGE_DENSITY_DEFAULT, PAGE_DENSITY_MIN, PAGE_DENSITY_MAX));
+}
+
+function roundTo(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 export const DEFAULT_APP_SETTINGS: Readonly<AppSettings> = Object.freeze({
   page: DEFAULT_PAGE_SETTINGS,
@@ -298,7 +342,8 @@ export function pageGeometry(setup: PageSetup): PageGeometry {
  *
  * The page model and the print model both compute this from the same resolved
  * settings; a stale/mismatched pair fails the export instead of silently
- * rendering a different page count.
+ * rendering a different page count. The theme object carries `density`, so two
+ * lenses over the same document never share a fingerprint.
  */
 export function pageSettingsFingerprint(settings: PageSettings): string {
   return JSON.stringify([
@@ -310,30 +355,127 @@ export function pageSettingsFingerprint(settings: PageSettings): string {
   ]);
 }
 
+/**
+ * Readability guard for a scaled `minContentWidth`.
+ *
+ * The 150 px floor applies to the preset range; a custom value the user set
+ * below it keeps scaling instead of jumping up.
+ */
+function scaledContentWidthFloor(original: number, scaled: number): number {
+  return original >= PAGE_MIN_CONTENT_WIDTH_FLOOR
+    ? Math.max(PAGE_MIN_CONTENT_WIDTH_FLOOR, scaled)
+    : scaled;
+}
+
+/**
+ * Readability clamp for a scaled `maxCardWidth` (280–560).
+ *
+ * The band is applied only when the stored cap is inside it, so the default
+ * 420 px card becomes 336–504; an explicit custom narrow/wide cap keeps its
+ * own scaling instead of being rewritten by the density lens.
+ */
+function scaledCardWidth(original: number, scaled: number): number {
+  let value = scaled;
+  if (original >= PAGE_MAX_CARD_WIDTH_MIN) value = Math.max(PAGE_MAX_CARD_WIDTH_MIN, value);
+  if (original <= PAGE_MAX_CARD_WIDTH_MAX) value = Math.min(PAGE_MAX_CARD_WIDTH_MAX, value);
+  return value;
+}
+
+/**
+ * Apply the density lens to a stored theme.
+ *
+ * This is the single effective-theme resolution: layout options, CSS variables,
+ * DOM measurement, Page Read/Edit, and the print/export snapshot all consume
+ * this function's output. Typography scales with a body-floor of 8 pt, box
+ * metrics scale with their readability floors, and page setup/margins are not
+ * part of the theme at all.
+ *
+ * The returned theme carries `density: 1`, so applying the lens twice is
+ * idempotent. At 100% the stored theme is returned unchanged.
+ */
+export function effectivePageTheme(theme: PageTheme): PageTheme {
+  const density = normalizePageDensity(theme.density);
+  if (density === 1) return theme;
+
+  const scale = (value: number): number => roundTo(value * density);
+  const bodyPt = Math.max(PAGE_BODY_PT_FLOOR, scale(theme.bodyPt));
+  // Headings stay above body even when the body hits its floor; code, tables,
+  // chrome, and markers keep their own smaller floors.
+  const heading1Pt = Math.max(bodyPt + 3, scale(theme.heading1Pt));
+  const heading2Pt = Math.max(bodyPt + 1.5, scale(theme.heading2Pt));
+  const heading3Pt = Math.max(bodyPt + 1, scale(theme.heading3Pt));
+  const wrapIndent = scale(theme.wrapIndent);
+  const maxWrapIndent = Math.max(wrapIndent, scale(theme.maxWrapIndent));
+  const childTrunkInset = scale(theme.childTrunkInset);
+  const calloutTrunkInset = scale(theme.calloutTrunkInset);
+  // R2j1: a wrapped child group always leaves room for its trunk and left stem.
+  const childIndent = Math.max(
+    scale(theme.childIndent),
+    childTrunkInset + EDGE_STYLE.stemMin + 2,
+  );
+  const calloutCardIndent = Math.max(scale(theme.calloutCardIndent), calloutTrunkInset);
+  const minContentWidth = scaledContentWidthFloor(
+    theme.minContentWidth,
+    scale(theme.minContentWidth),
+  );
+  const maxCardWidth = Math.max(
+    minContentWidth,
+    scaledCardWidth(theme.maxCardWidth, scale(theme.maxCardWidth)),
+  );
+
+  return {
+    ...theme,
+    density: 1,
+    bodyPt,
+    heading1Pt,
+    heading2Pt,
+    heading3Pt,
+    codePt: Math.max(7, scale(theme.codePt)),
+    tablePt: Math.max(7, scale(theme.tablePt)),
+    labelPt: Math.max(PAGE_BODY_PT_FLOOR, scale(theme.labelPt)),
+    chromePt: Math.max(6, scale(theme.chromePt)),
+    markerPt: Math.max(6, scale(theme.markerPt)),
+    cardPadding: scale(theme.cardPadding),
+    segmentGap: scale(theme.segmentGap),
+    siblingGap: scale(theme.siblingGap),
+    wrapIndent,
+    maxWrapIndent,
+    childIndent,
+    childTrunkInset,
+    calloutTrunkInset,
+    calloutCardIndent,
+    calloutRightGap: Math.max(EDGE_STYLE.stemMin, scale(theme.calloutRightGap)),
+    calloutGap: scale(theme.calloutGap),
+    minContentWidth,
+    maxCardWidth,
+  };
+}
+
 /** Map a page theme onto the pure layout tuning options. */
 export function pageLayoutOptions(theme: PageTheme): LayoutOptions {
+  const effective = effectivePageTheme(theme);
   return {
-    minContentWidth: theme.minContentWidth,
-    maxContentWidth: theme.maxCardWidth,
-    siblingGap: theme.siblingGap,
-    wrapIndent: theme.wrapIndent,
-    maxWrapIndent: theme.maxWrapIndent,
-    childIndent: theme.childIndent,
-    childTrunkInset: theme.childTrunkInset,
-    calloutTrunkInset: theme.calloutTrunkInset,
-    calloutCardIndent: theme.calloutCardIndent,
-    calloutRightGap: theme.calloutRightGap,
-    calloutModeMinWidth: theme.calloutModeMinWidth,
+    minContentWidth: effective.minContentWidth,
+    maxContentWidth: effective.maxCardWidth,
+    siblingGap: effective.siblingGap,
+    wrapIndent: effective.wrapIndent,
+    maxWrapIndent: effective.maxWrapIndent,
+    childIndent: effective.childIndent,
+    childTrunkInset: effective.childTrunkInset,
+    calloutTrunkInset: effective.calloutTrunkInset,
+    calloutCardIndent: effective.calloutCardIndent,
+    calloutRightGap: effective.calloutRightGap,
+    calloutModeMinWidth: effective.calloutModeMinWidth,
     // R2j callout modes belong to the beside tree packing. The explicit
     // `stacked` policy keeps the historical geometry as its own oracle.
-    calloutModes: theme.pagePacking === 'beside',
+    calloutModes: effective.pagePacking === 'beside',
     wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
-    pagePacking: theme.pagePacking,
-    calloutGap: theme.calloutGap,
+    pagePacking: effective.pagePacking,
+    calloutGap: effective.calloutGap,
     chapterGap: DEFAULT_LAYOUT_OPTIONS.chapterGap,
-    cardPadding: theme.cardPadding,
-    cardBorder: theme.cardBorder,
-    segmentGap: theme.segmentGap,
+    cardPadding: effective.cardPadding,
+    cardBorder: effective.cardBorder,
+    segmentGap: effective.segmentGap,
   };
 }
 
@@ -346,39 +488,42 @@ function cssNumber(value: number): string {
  * CSS custom properties for page typography and box metrics.
  *
  * `styles.css` consumes the variables; it never hardcodes a second copy of the
- * theme. R1b writes this map to the page sheet and measurement host.
+ * theme. R1b writes this map to the page sheet and measurement host; M4d1
+ * applies the density lens here, so Page Read, Page Edit, measurement, and
+ * print all receive identical values.
  */
 export function pageCssVariables(theme: PageTheme): Record<string, string> {
-  const font = theme.fontScale;
-  const heading = theme.fontScale * theme.headingScale;
+  const effective = effectivePageTheme(theme);
+  const font = effective.fontScale;
+  const heading = effective.fontScale * effective.headingScale;
   return {
-    '--nf-page-body-size': `${cssNumber(theme.bodyPt * font)}pt`,
-    '--nf-page-body-line': cssNumber(theme.bodyLine),
-    '--nf-page-label-size': `${cssNumber(theme.labelPt * font)}pt`,
-    '--nf-page-heading-1': `${cssNumber(theme.heading1Pt * heading)}pt`,
-    '--nf-page-heading-2': `${cssNumber(theme.heading2Pt * heading)}pt`,
-    '--nf-page-heading-3': `${cssNumber(theme.heading3Pt * heading)}pt`,
-    '--nf-page-code-size': `${cssNumber(theme.codePt * font)}pt`,
-    '--nf-page-code-line': cssNumber(theme.codeLine),
-    '--nf-page-table-size': `${cssNumber(theme.tablePt * font)}pt`,
-    '--nf-page-table-line': cssNumber(theme.tableLine),
-    '--nf-page-chrome-size': `${cssNumber(theme.chromePt * font)}pt`,
-    '--nf-page-marker-size': `${cssNumber(theme.markerPt * font)}pt`,
-    '--nf-page-card-padding': `${cssNumber(theme.cardPadding)}px`,
-    '--nf-page-card-border': `${cssNumber(theme.cardBorder)}px`,
-    '--nf-page-segment-gap': `${cssNumber(theme.segmentGap)}px`,
-    '--nf-page-sibling-gap': `${cssNumber(theme.siblingGap)}px`,
-    '--nf-page-wrap-indent': `${cssNumber(theme.wrapIndent)}px`,
-    '--nf-page-max-wrap-indent': `${cssNumber(theme.maxWrapIndent)}px`,
-    '--nf-page-child-indent': `${cssNumber(theme.childIndent)}px`,
-    '--nf-page-child-trunk-inset': `${cssNumber(theme.childTrunkInset)}px`,
-    '--nf-page-callout-trunk-inset': `${cssNumber(theme.calloutTrunkInset)}px`,
-    '--nf-page-callout-card-indent': `${cssNumber(theme.calloutCardIndent)}px`,
-    '--nf-page-callout-right-gap': `${cssNumber(theme.calloutRightGap)}px`,
-    '--nf-page-callout-mode-min-width': `${cssNumber(theme.calloutModeMinWidth)}px`,
-    '--nf-page-callout-gap': `${cssNumber(theme.calloutGap)}px`,
-    '--nf-page-max-card-width': `${cssNumber(theme.maxCardWidth)}px`,
-    '--nf-page-min-content-width': `${cssNumber(theme.minContentWidth)}px`,
+    '--nf-page-body-size': `${cssNumber(effective.bodyPt * font)}pt`,
+    '--nf-page-body-line': cssNumber(effective.bodyLine),
+    '--nf-page-label-size': `${cssNumber(effective.labelPt * font)}pt`,
+    '--nf-page-heading-1': `${cssNumber(effective.heading1Pt * heading)}pt`,
+    '--nf-page-heading-2': `${cssNumber(effective.heading2Pt * heading)}pt`,
+    '--nf-page-heading-3': `${cssNumber(effective.heading3Pt * heading)}pt`,
+    '--nf-page-code-size': `${cssNumber(effective.codePt * font)}pt`,
+    '--nf-page-code-line': cssNumber(effective.codeLine),
+    '--nf-page-table-size': `${cssNumber(effective.tablePt * font)}pt`,
+    '--nf-page-table-line': cssNumber(effective.tableLine),
+    '--nf-page-chrome-size': `${cssNumber(effective.chromePt * font)}pt`,
+    '--nf-page-marker-size': `${cssNumber(effective.markerPt * font)}pt`,
+    '--nf-page-card-padding': `${cssNumber(effective.cardPadding)}px`,
+    '--nf-page-card-border': `${cssNumber(effective.cardBorder)}px`,
+    '--nf-page-segment-gap': `${cssNumber(effective.segmentGap)}px`,
+    '--nf-page-sibling-gap': `${cssNumber(effective.siblingGap)}px`,
+    '--nf-page-wrap-indent': `${cssNumber(effective.wrapIndent)}px`,
+    '--nf-page-max-wrap-indent': `${cssNumber(effective.maxWrapIndent)}px`,
+    '--nf-page-child-indent': `${cssNumber(effective.childIndent)}px`,
+    '--nf-page-child-trunk-inset': `${cssNumber(effective.childTrunkInset)}px`,
+    '--nf-page-callout-trunk-inset': `${cssNumber(effective.calloutTrunkInset)}px`,
+    '--nf-page-callout-card-indent': `${cssNumber(effective.calloutCardIndent)}px`,
+    '--nf-page-callout-right-gap': `${cssNumber(effective.calloutRightGap)}px`,
+    '--nf-page-callout-mode-min-width': `${cssNumber(effective.calloutModeMinWidth)}px`,
+    '--nf-page-callout-gap': `${cssNumber(effective.calloutGap)}px`,
+    '--nf-page-max-card-width': `${cssNumber(effective.maxCardWidth)}px`,
+    '--nf-page-min-content-width': `${cssNumber(effective.minContentWidth)}px`,
   };
 }
 
@@ -454,6 +599,11 @@ function resolveTheme(
 
   const fontScale = clamp('fontScale', 1, 0.5, 2);
   const headingScale = clamp('headingScale', 1, 0.5, 2);
+  // Density is a lens over the preset, not a preset value: a preset switch
+  // keeps the user's current density unless the override names one.
+  const density = normalizePageDensity(
+    override['density'] ?? baseTheme?.density ?? presetBase.density ?? PAGE_DENSITY_DEFAULT,
+  );
   const wrapIndent = clamp('wrapIndent', 12, 0, 96);
   const maxWrapIndent = Math.max(wrapIndent, clamp('maxWrapIndent', 36, 0, 192));
   const childIndent = clamp('childIndent', 26, 0, 96);
@@ -474,6 +624,7 @@ function resolveTheme(
     : base?.pagePacking ?? 'stacked';
   return {
     preset,
+    density,
     fontScale,
     bodyPt: clamp('bodyPt', 9, 6, 24),
     bodyLine: clamp('bodyLine', 1.3, 1, 2.5),
@@ -572,6 +723,7 @@ export function mergeContinuousSettings(
 }
 
 const PAGE_THEME_NUMERIC_KEYS = [
+  'density',
   'fontScale',
   'bodyPt',
   'bodyLine',
