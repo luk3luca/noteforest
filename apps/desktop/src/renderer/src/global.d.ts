@@ -9,6 +9,10 @@ declare global {
     noteforest: NoteForestApi;
     /** Entry point loaded by the print surface (M4c2 hidden window). */
     __noteforestPrint?: {
+      entryReady: Promise<boolean>;
+      build: (snapshot: import('../../shared/export').ExportSnapshot) => Promise<
+        import('../../shared/export').PrintBuildResult
+      >;
       render: (payload: { model: PrintModel; assets?: Record<string, string> }) => void;
       clear: () => void;
     };

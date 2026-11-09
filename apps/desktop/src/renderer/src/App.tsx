@@ -36,6 +36,7 @@ import { READ_MODE_TOAST } from './lib/editability';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
 import { commitPageEdit } from './page/page-edit-state';
+import { createExportSnapshot } from './export-snapshot';
 import { printPageModelSnapshot } from './page/print-model-registry';
 import { clearPrintTestSurface, mountPrintTestSurface } from './print/test-surface';
 import { buildPrintModel } from '@noteforest/pdf';
@@ -203,6 +204,22 @@ export function App(): JSX.Element {
       offFlush();
     };
   }, [dispatch]);
+
+  // PDF export (M4c2 R2): the main process never reads the document from disk.
+  // It asks for the current in-memory revision, including unsaved edits. A
+  // pending Page Edit overlay is committed first, exactly like save/close, so
+  // the snapshot cannot silently omit typed text.
+  useEffect(() => {
+    const offSnapshot = window.noteforest.onExportSnapshotRequest(async (request) => {
+      const runtime = allRuntimes().find((item) => item.packagePath === request.packagePath);
+      if (runtime === undefined) return null;
+      if (!(await commitPageEdit(runtime.packagePath))) {
+        return { error: 'Could not commit the Page Edit block before the PDF export.' };
+      }
+      return createExportSnapshot(runtime);
+    });
+    return offSnapshot;
+  }, []);
 
   useEffect(() => {
     if (!ready) return undefined;

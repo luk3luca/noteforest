@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Branch, ContentBlock, Document } from '@noteforest/core';
+import { contentBlockTitle } from '@noteforest/layout';
 import {
   ancestorPath,
   anchorQuote,
@@ -200,5 +201,58 @@ describe('block tree', () => {
     expect(countWords(doc)).toBe(18);
     doc.blocks['A'] = { ...doc.blocks['A']!, label: 'Custom label' };
     expect(blockTitle(doc.blocks['A'])).toBe('Custom label');
+  });
+
+  it('delegates non-text block titles to the shared helper (M4c2 R3)', () => {
+    // The sidebar, palette, Page chrome, and print must not title one block
+    // differently. Every content shape returns the same string as the layout
+    // helper; this catches a future copy drifting from `contentBlockTitle`.
+    const blocks: ContentBlock[] = [
+      {
+        id: 'code',
+        content: {
+          type: 'doc',
+          children: [
+            {
+              type: 'codeBlock',
+              attrs: { language: 'ts' },
+              children: [{ type: 'text', text: 'const answer = 42;' }],
+            },
+          ],
+        },
+      },
+      {
+        id: 'math',
+        content: {
+          type: 'doc',
+          children: [
+            {
+              type: 'paragraph',
+              children: [{ type: 'inlineMath', attrs: { latex: '\\lambda x' } }],
+            },
+          ],
+        },
+      },
+      {
+        id: 'image',
+        content: {
+          type: 'doc',
+          children: [{ type: 'image', attrs: { assetId: 'asset-1' } }],
+        },
+      },
+      { id: 'empty', content: { type: 'doc', children: [] } },
+      {
+        id: 'long',
+        content: paragraph(
+          'A deliberately long block title that must truncate with an ellipsis before it floods the sidebar row',
+        ),
+      },
+    ];
+    for (const candidate of blocks) {
+      expect(blockTitle(candidate)).toBe(contentBlockTitle(candidate as never));
+    }
+    expect(blockTitle(blocks[0])).toBe('const answer = 42;');
+    expect(blockTitle(blocks[3])).toBe('Empty block');
+    expect(blockTitle(blocks[4])!.endsWith('…')).toBe(true);
   });
 });

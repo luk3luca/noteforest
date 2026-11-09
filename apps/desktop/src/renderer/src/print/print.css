@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
- * Print skin (M4c1)
+ * Print skin (M4c1; print-page hardening M4c2 R7/R8)
  *
  * Colours, borders, and shadows only. Every metric (font size, line height,
  * padding, card box, content box, edge/trunk geometry) is inherited from the
@@ -10,7 +10,20 @@
  * One fixed sheet per derived page; sheets are direct children of the root.
  * `break-*` only maps one already-fixed sheet to one PDF page. No paper format
  * or content fragmentation is inferred by CSS.
+ *
+ * This file is also loaded by the app window for the M4c1 print test host, so
+ * every document-level rule is scoped to `html.nf-print-document` (set only by
+ * `print.html`). The app window keeps its dark canvas and scroll behavior.
  * ------------------------------------------------------------------------- */
+
+/* A print page is always light, even on an accidental uncovered page. */
+html.nf-print-document,
+html.nf-print-document body {
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+  overflow: visible;
+}
 
 .nf-print-root {
   display: block;
@@ -24,14 +37,31 @@
   background: #ffffff;
   border: 0;
   box-shadow: none;
+  /* Defective pages are refused by preflight; the print skin never carries
+   * the screen-only screen warning outline (R7). */
+  outline: none;
   overflow: hidden;
   break-inside: avoid;
   page-break-inside: avoid;
 }
 
-.nf-print-root .nf-print-sheet + .nf-print-sheet {
-  break-before: page;
-  page-break-before: always;
+/* One owned rule maps one fixed sheet to one PDF page (R8): `break-after` in
+ * print media, with the last sheet reset. No second `+` break rule. */
+@media print {
+  html.nf-print-document,
+  html.nf-print-document body {
+    background: #ffffff;
+  }
+
+  .nf-print-root .nf-print-sheet {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .nf-print-root .nf-print-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
 }
 
 .nf-print-root .nf-page-edge-path,
@@ -71,16 +101,4 @@
   color: #4d3600;
   background: #ffffff;
   border-color: #b09355;
-}
-
-@media print {
-  .nf-print-root .nf-print-sheet {
-    break-after: page;
-    page-break-after: always;
-  }
-
-  .nf-print-root .nf-print-sheet:last-child {
-    break-after: auto;
-    page-break-after: auto;
-  }
 }

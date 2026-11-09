@@ -311,8 +311,16 @@ export interface ChapterLayout {
 
 export interface ContinuousLayout {
   documentId: string;
+  /** Canonical revision this run measured; absent on legacy/hand-built layouts. */
+  revision?: number;
   title: string;
   pageSetup: PageSetup;
+  /**
+   * Resolved layout options this run used. Page/print identity checks compare
+   * it with `pageLayoutOptions(settings.theme)` so a measured run can never be
+   * paired with a different theme, even if a caller fabricates a fingerprint.
+   */
+  layoutOptions?: LayoutOptions;
   geometry: PageGeometry;
   chapters: ChapterLayout[];
   blocks: LayoutBlock[];

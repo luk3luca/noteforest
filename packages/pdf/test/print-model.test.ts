@@ -21,6 +21,7 @@ import {
 } from '@noteforest/layout';
 import {
   buildPrintModel,
+  PrintModelDocumentMismatchError,
   PrintModelSettingsMismatchError,
   type PrintModel,
 } from '../src/printModel.js';
@@ -215,6 +216,22 @@ function layoutFor(
   return { settings, layout, paginated };
 }
 
+/**
+ * Build with the required measured-run identity (M4c2 R1). Tests that need a
+ * mismatch override one option explicitly.
+ */
+function buildModel(
+  document: NoteDocument,
+  run: Pick<ReturnType<typeof layoutFor>, 'layout' | 'paginated' | 'settings'>,
+  overrides: Partial<Parameters<typeof buildPrintModel>[3]> = {},
+) {
+  return buildPrintModel(document, run.layout, run.paginated, {
+    settings: run.settings,
+    pageModelFingerprint: pageSettingsFingerprint(run.settings),
+    ...overrides,
+  });
+}
+
 function modeADocument(): { document: NoteDocument; specs: Record<string, StubSpec> } {
   const document = makeDocument({
     id: 'mode-a',
@@ -250,7 +267,7 @@ describe('print model from the real Page pipeline', () => {
   it('maps real layout pages, shared page edges/trunks, and page-number records (mode A)', () => {
     const { document, specs } = modeADocument();
     const { settings, layout, paginated } = layoutFor(document, specs);
-    const model = buildPrintModel(document, layout, paginated, { settings });
+    const model = buildModel(document, { settings, layout, paginated });
 
     expect(model.pageCount).toBe(paginated.pageCount);
     expect(model.pages.map((page) => page.pageNumber)).toEqual(
@@ -295,7 +312,7 @@ describe('print model from the real Page pipeline', () => {
   it('keeps the two R2j B2 below trunks independent (A5 portrait)', () => {
     const { document, specs } = modeB2Document();
     const { settings, layout, paginated } = layoutFor(document, specs, A5_PORTRAIT);
-    const model = buildPrintModel(document, layout, paginated, { settings });
+    const model = buildModel(document, { settings, layout, paginated });
     const page = model.pages[0]!;
     const callout = page.edges.find((edge) => edge.branchId === 'branch-01')!;
     const child = page.edges.find((edge) => edge.branchId === 'branch-03')!;
@@ -320,7 +337,7 @@ describe('print model from the real Page pipeline', () => {
       { theme: { pagePacking: 'stacked' } },
     );
     expect(settings.theme.pagePacking).toBe('stacked');
-    const model = buildPrintModel(document, layout, paginated, { settings });
+    const model = buildModel(document, { settings, layout, paginated });
     const page = model.pages[0]!;
     const primary = page.edges.filter((edge) => edge.role === 'primary');
     expect(primary).toHaveLength(4);
@@ -373,8 +390,7 @@ describe('print model from the real Page pipeline', () => {
       image: { max: 200, min: 80, missingAssetIds: ['img-missing'] },
     };
     const { settings, layout, paginated } = layoutFor(document, specs);
-    const model = buildPrintModel(document, layout, paginated, {
-      settings,
+    const model = buildModel(document, { settings, layout, paginated }, {
       failedAssetIds: ['img-failed'],
       assetUrls: { 'img-ok': 'noteforest-asset://ok', 'img-failed': 'noteforest-asset://bad' },
     });
@@ -425,7 +441,7 @@ describe('print model from the real Page pipeline', () => {
       manualBreakBeforeBlockIds: ['b'],
     });
     expect(paginated.pageCount).toBeGreaterThan(1);
-    const model = buildPrintModel(document, layout, paginated, { settings });
+    const model = buildModel(document, { settings, layout, paginated });
     const targetPage = model.pageNumberByBlock.b!;
     const target = model.pages[targetPage - 1]!;
     const label = target.edgeLabels.find((item) => item.edge.branchId === 'branch-01');
@@ -441,17 +457,64 @@ describe('print model from the real Page pipeline', () => {
   });
 });
 
-describe('print model settings identity (F4)', () => {
+describe('print model identity (M4c2 R1/R4/R5)', () => {
   it('fails loudly when the layout was measured with a different page setup', () => {
     const { document, specs } = modeADocument();
     const { layout, paginated } = layoutFor(document, specs, A4_LANDSCAPE);
     const other = normalizePageSettings({ setup: A5_PORTRAIT });
-    expect(() => buildPrintModel(document, layout, paginated, { settings: other })).toThrow(
+    const options = {
+      settings: other,
+      pageModelFingerprint: pageSettingsFingerprint(other),
+    };
+    expect(() => buildPrintModel(document, layout, paginated, options)).toThrow(
       PrintModelSettingsMismatchError,
     );
-    expect(() => buildPrintModel(document, layout, paginated, { settings: other })).toThrow(
-      /page setup/,
-    );
+    expect(() => buildPrintModel(document, layout, paginated, options)).toThrow(/page setup/);
+  });
+
+  it('requires the measured-run fingerprint (no opt-out)', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    // A JS caller (or a stale build) that omits the argument must fail, not
+    // silently pair a layout with a different resolved theme.
+    expect(() =>
+      buildPrintModel(document, layout, paginated, { settings } as never),
+    ).toThrow(PrintModelSettingsMismatchError);
+    expect(() =>
+      buildPrintModel(document, layout, paginated, { settings } as never),
+    ).toThrow(/fingerprint of the measured page model run/);
+    expect(() =>
+      buildPrintModel(document, layout, paginated, {
+        settings,
+        pageModelFingerprint: '',
+      }),
+    ).toThrow(/fingerprint of the measured page model run/);
+  });
+
+  it('rejects a layout measured under a different theme, even with the same page setup', () => {
+    const { document, specs } = modeADocument();
+    const compact = layoutFor(document, specs, A4_LANDSCAPE);
+    const comfortable = normalizePageSettings({
+      setup: A4_LANDSCAPE,
+      theme: { preset: 'comfortable' },
+    });
+    expect(comfortable.theme.bodyPt).not.toBe(compact.settings.theme.bodyPt);
+    // The stale fingerprint of the compact run does not match the comfortable
+    // resolved settings, so the model cannot claim one run while printing another.
+    expect(() =>
+      buildPrintModel(document, compact.layout, compact.paginated, {
+        settings: comfortable,
+        pageModelFingerprint: pageSettingsFingerprint(compact.settings),
+      }),
+    ).toThrow(PrintModelSettingsMismatchError);
+    // Even a fabricated matching fingerprint cannot pass: the measured layout
+    // records its resolved LayoutOptions and must equal the resolved theme.
+    expect(() =>
+      buildPrintModel(document, compact.layout, compact.paginated, {
+        settings: comfortable,
+        pageModelFingerprint: pageSettingsFingerprint(comfortable),
+      }),
+    ).toThrow(/PageTheme/);
   });
 
   it('fails loudly when the pages were paginated with different manual breaks', () => {
@@ -473,6 +536,7 @@ describe('print model settings identity (F4)', () => {
     expect(() =>
       buildPrintModel(document, withoutBreaks.layout, withoutBreaks.paginated, {
         settings: withBreaks,
+        pageModelFingerprint: pageSettingsFingerprint(withBreaks),
       }),
     ).toThrow(/manual breaks/);
   });
@@ -493,10 +557,101 @@ describe('print model settings identity (F4)', () => {
     expect(model.fingerprint).toBe(pageSettingsFingerprint(settings));
   });
 
+  it('fails loudly when the layout/pages belong to another document', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    const other = makeDocument({
+      id: 'other-document',
+      blocks: ['root', 'c1', 'c2', 'k1', 'k2'],
+      edges: [
+        { from: 'root', to: 'c1', anchorId: 'a1' },
+        { from: 'root', to: 'c2', anchorId: 'a2' },
+        { from: 'root', to: 'k1' },
+        { from: 'root', to: 'k2' },
+      ],
+      anchors: [
+        { id: 'a1', blockId: 'root' },
+        { id: 'a2', blockId: 'root' },
+      ],
+    });
+    expect(() =>
+      buildPrintModel(other, layout, paginated, {
+        settings,
+        pageModelFingerprint: pageSettingsFingerprint(settings),
+      }),
+    ).toThrow(PrintModelDocumentMismatchError);
+    expect(() =>
+      buildPrintModel(other, layout, paginated, {
+        settings,
+        pageModelFingerprint: pageSettingsFingerprint(settings),
+      }),
+    ).toThrow(/not other-document/);
+  });
+
+  it('fails loudly when the document revision advanced after the measured run', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    const advanced = { ...document, revision: (document.revision ?? 0) + 1 };
+    expect(() =>
+      buildPrintModel(advanced, layout, paginated, {
+        settings,
+        pageModelFingerprint: pageSettingsFingerprint(settings),
+      }),
+    ).toThrow(PrintModelDocumentMismatchError);
+    expect(() =>
+      buildPrintModel(advanced, layout, paginated, {
+        settings,
+        pageModelFingerprint: pageSettingsFingerprint(settings),
+      }),
+    ).toThrow(/revision/);
+  });
+
+  it('takes defects and manual-break warnings from the validated run (R4)', () => {
+    const document = makeDocument({
+      id: 'warning-carry',
+      blocks: ['b1', 'b2'],
+      chapters: [{ id: 'chapter-1', title: 'Warnings', topLevelBlockIds: ['b1', 'b2'] }],
+    });
+    const specs: Record<string, StubSpec> = {
+      b1: { max: 200, min: 100, height: 60 },
+      b2: { max: 200, min: 100, height: 60 },
+    };
+    const settings = normalizePageSettings({
+      setup: A4_LANDSCAPE,
+      manualBreakBeforeBlockIds: ['unknown-block'],
+    });
+    const layout = layoutDocument(
+      document,
+      stubMeasurement(specs),
+      pageLayoutOptions(settings.theme),
+      settings.setup,
+    );
+    const validated = paginate(layout, document, {
+      manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],
+    });
+    expect(validated.manualBreakWarnings.length).toBeGreaterThan(0);
+    // A caller-supplied page list with the same geometry but stale diagnostics
+    // must not erase the warning: the validated run owns defects/warnings.
+    const stale = {
+      ...validated,
+      defects: [],
+      manualBreakWarnings: [],
+    };
+    const model = buildPrintModel(document, layout, stale, {
+      settings,
+      pageModelFingerprint: pageSettingsFingerprint(settings),
+    });
+    expect(model.manualBreakWarnings).toEqual(validated.manualBreakWarnings);
+    expect(
+      model.manualBreakWarnings.some((warning) => warning.code === 'impossible-hint'),
+    ).toBe(true);
+    expect(model.defects.length).toBeGreaterThan(0);
+  });
+
   it('can derive pagination itself from the resolved settings when pages are omitted', () => {
     const { document, specs } = modeADocument();
     const { settings, layout, paginated } = layoutFor(document, specs);
-    const model = buildPrintModel(document, layout, undefined, { settings });
+    const model = buildModel(document, { settings, layout, paginated: undefined });
     expect(model.pageCount).toBe(paginated.pageCount);
     expect(model.pages.map((page) => page.fragments)).toEqual(
       paginated.pages.map((page) => page.fragments),

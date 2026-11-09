@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
-import { pageCalloutModesDocument, pageDocument, textBlock, imageBlock, writePagePackage } from '../support/page-fixtures.mjs';
+import { pageArrowsDocument, pageCalloutModesDocument, pageDocument, textBlock, imageBlock, writePagePackage } from '../support/page-fixtures.mjs';
 
 /**
  * M4c1 print compositor parity.
@@ -262,6 +262,53 @@ async function renderPrint() {
   return result;
 }
 
+/**
+ * Computed metric probe for the print-skin parity check (M4c2 R6). Inline
+ * attributes alone would not catch a `font-size`/line-height/padding drift in
+ * `print.css`; these are the resolved values Chromium prints with.
+ */
+const METRIC_PROPERTIES = [
+  'fontSize',
+  'lineHeight',
+  'letterSpacing',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'marginTop',
+  'marginBottom',
+];
+
+async function computedMetrics(scopeSelector, sheetSelector) {
+  return page.evaluate(
+    ({ scope, sheet, properties }) => {
+      const rootElement = document.querySelector(scope);
+      const sheetElement = rootElement?.querySelector(sheet);
+      if (rootElement === null || rootElement === undefined || sheetElement === null || sheetElement === undefined) {
+        return null;
+      }
+      const collect = (selector) => {
+        const element = sheetElement.querySelector(selector);
+        if (element === null) return { selector, present: false };
+        const style = getComputedStyle(element);
+        return {
+          selector,
+          present: true,
+          values: Object.fromEntries(properties.map((property) => [property, style[property]])),
+        };
+      };
+      return [
+        '.nf-page-card',
+        '.nf-label',
+        '.nf-page-header',
+        '.nf-page-footer',
+        '.nf-page-edge-label',
+      ].map(collect);
+    },
+    { scope: scopeSelector, sheet: sheetSelector, properties: METRIC_PROPERTIES },
+  );
+}
+
 async function printSnapshots(pageCount) {
   const host = page.locator('[data-print-test-host]');
   const snapshots = [];
@@ -399,6 +446,50 @@ describe('M4c1 print compositor parity', () => {
     assert.equal(result.pageHeightMm, 210);
     const trunkIds = read[0].edgeSvg.trunks.map((trunk) => trunk.attributes['data-page-trunk-id']);
     assert.ok(trunkIds.includes('cm-root:below'), 'print model carries the shared below trunk');
+  });
+
+  it('print skin keeps the Page Read computed metrics (M4c2 R6)', async () => {
+    const env = ui.isolated('m4c1-metrics');
+    await launch('m4c1-metrics');
+    const packagePath = await openPackage(
+      env,
+      'Print compositor metrics',
+      pageArrowsDocument(),
+    );
+    await showPageRead();
+    // Two pages with a cross-page reference: the last page carries a `← p.1`
+    // label, so the edge-label metrics are compared too.
+    await setPageSettingsOverride(packagePath, {
+      setup: {
+        size: 'A5',
+        orientation: 'portrait',
+        margins: { top: 30, right: 30, bottom: 30, left: 30 },
+      },
+      manualBreakBeforeBlockIds: ['callout', 'ref'],
+    });
+    await waitPageReady();
+    const pageCount = Number(await activePageView().getAttribute('data-page-count'));
+    assert.ok(pageCount >= 2, 'the manual breaks derive a continuation page');
+    await gotoPage(pageCount);
+    const read = await computedMetrics('.nf-page-view', '.nf-page-sheet');
+    assert.ok(read !== null, 'Page Read metrics are readable');
+    assert.equal(read.find((item) => item.selector === '.nf-page-card')?.present, true);
+    assert.equal(
+      read.find((item) => item.selector === '.nf-page-edge-label')?.present,
+      true,
+      'Page Read shows the cross-page label',
+    );
+    await renderPrint();
+    const print = await computedMetrics(
+      '[data-print-test-host]',
+      `.nf-print-sheet[data-print-page="${pageCount}"]`,
+    );
+    assert.ok(print !== null, 'print metrics are readable');
+    // A metric declaration in print.css would fail this: font size, line
+    // height, padding, and margins must come from the Page styles.
+    assert.deepEqual(print, read, 'print skin metrics equal Page Read');
+    await page.evaluate(() => window.__noteforestTest.clearPrint());
+    await page.waitForSelector('[data-print-test-host]', { state: 'detached', timeout: 5000 });
   });
 
   it('Letter landscape: page size, content box, and page count match Page Read', async () => {

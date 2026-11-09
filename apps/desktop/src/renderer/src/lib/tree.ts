@@ -17,6 +17,10 @@ import type {
 } from '@noteforest/core';
 import type { EdgePlacement as LayoutEdgePlacement } from '@noteforest/layout';
 import {
+  contentBlockTitle,
+  type ContentNode as LayoutContentNode,
+} from '@noteforest/layout';
+import {
   anchoredChildBranches,
   chapterIdForBlock,
   directChildBranches,
@@ -341,14 +345,15 @@ export function linkedAnchorIds(document: Document): Set<string> {
 
 export function blockTitle(block: ContentBlock | undefined): string {
   if (block === undefined) return 'Untitled block';
-  if (typeof block.label === 'string' && block.label.trim().length > 0) return block.label.trim();
-  const first = block.content.children?.find((node) => {
-    const text = collectText(node).join(' ').trim();
-    return text.length > 0;
+  // One title helper for the sidebar, palette, Page chrome, and print (M4c2
+  // R3): the renderer delegates to the shared layout function instead of
+  // keeping a diverging copy. `border` is irrelevant to the title and core also
+  // has a `strong` value the layout subset does not model, so it is omitted.
+  return contentBlockTitle({
+    id: block.id,
+    content: block.content as unknown as LayoutContentNode,
+    ...(typeof block.label === 'string' ? { label: block.label } : {}),
   });
-  const text = first === undefined ? blockPlainText(block) : collectText(first).join(' ').replace(/\s+/g, ' ').trim();
-  if (text.length === 0) return 'Empty block';
-  return text.length > 72 ? `${text.slice(0, 71)}…` : text;
 }
 
 export function countWords(document: Document): number {

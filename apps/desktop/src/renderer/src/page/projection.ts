@@ -118,20 +118,33 @@ export function segmentsForFragments(input: {
   anchorsByBlock: ReadonlyMap<string, readonly AnchorRecord[]>;
   assets: Readonly<Record<string, string>>;
   listIndent: number;
+  /**
+   * Optional projection-wide cache. Segment lists depend only on the block
+   * (content, measurements, anchors, assets, indent), never on the page, so a
+   * block that continues across pages is built once (M4c2 R9).
+   */
+  segmentCache?: Map<string, PageRenderSegment[]>;
 }): Record<string, PageRenderSegment[]> {
   const result: Record<string, PageRenderSegment[]> = {};
   for (const fragment of input.fragments) {
     if (Object.prototype.hasOwnProperty.call(result, fragment.blockId)) continue;
+    const cached = input.segmentCache?.get(fragment.blockId);
+    if (cached !== undefined) {
+      result[fragment.blockId] = cached;
+      continue;
+    }
     const block =
       input.contentBlocks?.[fragment.blockId] ?? input.document.blocks[fragment.blockId];
     if (block === undefined) continue;
     const measurement = input.blocks[fragment.blockId]?.measurement;
-    result[fragment.blockId] = buildSegments(block, {
+    const segments = buildSegments(block, {
       assets: input.assets,
       tableColumns: measurement?.tableColumns ?? {},
       anchors: input.anchorsByBlock.get(fragment.blockId) ?? [],
       listIndent: input.listIndent,
     });
+    result[fragment.blockId] = segments;
+    input.segmentCache?.set(fragment.blockId, segments);
   }
   return result;
 }
@@ -164,6 +177,9 @@ export function projectPageContent(input: PageProjectionInput): PageProjection {
   const warnings = anchorWarningsByBlock(input.anchors);
   const chromeLayout = pageChromeLayout(input.geometry);
   const listIndent = input.settings.theme.wrapIndent;
+  // Per-projection cache: a block continuing across pages shares one segment
+  // list instead of rebuilding it on every page (R9).
+  const segmentCache = new Map<string, PageRenderSegment[]>();
 
   const pages: ProjectedPage[] = input.pages.map((page) => {
     const anchorWarningsByBlockForPage: Record<string, AnchorAttachment[]> = {};
@@ -190,6 +206,7 @@ export function projectPageContent(input: PageProjectionInput): PageProjection {
         anchorsByBlock,
         assets: input.assets,
         listIndent,
+        segmentCache,
       }),
       anchorWarningsByBlock: anchorWarningsByBlockForPage,
       blocking: pageBlockingDefects(input.defects, page),

@@ -280,8 +280,11 @@ class LayoutBuilder {
 
     return {
       documentId: this.document.id,
+      // Identity of the measured run, checked by the print model (M4c2 R1/R5).
+      revision: this.document.revision,
       title: this.document.title,
       pageSetup: this.pageSetup,
+      layoutOptions: this.options,
       geometry: this.geometry,
       chapters: [...this.chapterPositions.values()],
       blocks: this.blocks,
