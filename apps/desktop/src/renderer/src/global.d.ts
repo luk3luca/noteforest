@@ -26,6 +26,8 @@ declare global {
       renderPrint?: () => unknown;
       /** Test-only: remove the print compositor test host. */
       clearPrint?: () => boolean;
+      /** Test-only: derived page block/continuation summary of the active Page model. */
+      pageModelPages?: () => unknown;
       seed: (kind: 'demo' | 'performance' | 'performance-1000') => Promise<string>;
       /** Test-only: apply a typed command through the active runtime stack. */
       applyStructural?: (command: DocumentCommand) => Promise<unknown>;

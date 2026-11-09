@@ -6,6 +6,10 @@
  * the job asks it for a snapshot; the hidden print window then measures that
  * snapshot. The main process never opens `document.json` for export and never
  * mutates the document.
+ *
+ * M4c3 S3-2 binds the snapshot reply to the requested package and the app
+ * sender: a reply from another renderer or for another document is refused, so
+ * a stale/malicious IPC message cannot be printed as this export.
  */
 
 import { ipcMain, type BrowserWindow } from 'electron';
@@ -26,13 +30,17 @@ const SNAPSHOT_TIMEOUT_MS = 20_000;
 interface PendingSnapshot {
   resolve: (snapshot: ExportSnapshot) => void;
   reject: (error: Error) => void;
+  packagePath: string;
+  senderId: number;
 }
 
 export interface ExportService {
   exportPdf(input: unknown): ExportPdfStartResult;
   getExportJob(jobId: unknown): ExportJobView | null;
   cancelExport(jobId: unknown): boolean;
-  handleSnapshotReply(jobId: unknown, reply: unknown): void;
+  handleSnapshotReply(jobId: unknown, reply: unknown, senderId: number): void;
+  /** True when the sender is the app window (never the hidden print window). */
+  acceptsSender(senderId: number): boolean;
   dispose(): void;
 }
 
@@ -58,10 +66,13 @@ export interface ExportServiceOptions {
   getWindow: () => BrowserWindow | null;
   /** Production `print.html` file or the dev-server URL. */
   printPageTarget: () => PrintPageTarget;
+  /** Snapshot reply bound in tests; defaults to 20 s. */
+  snapshotTimeoutMs?: number;
 }
 
 export function createExportService(options: ExportServiceOptions): ExportService {
   const pending = new Map<string, PendingSnapshot>();
+  const snapshotTimeoutMs = options.snapshotTimeoutMs ?? SNAPSHOT_TIMEOUT_MS;
 
   function failPending(jobId: string, error: Error): void {
     const entry = pending.get(jobId);
@@ -90,10 +101,10 @@ export function createExportService(options: ExportServiceOptions): ExportServic
           jobId,
           new ExportJobError(
             'snapshot-timeout',
-            `The editor did not provide the current document within ${SNAPSHOT_TIMEOUT_MS} ms.`,
+            `The editor did not provide the current document within ${snapshotTimeoutMs} ms.`,
           ),
         );
-      }, SNAPSHOT_TIMEOUT_MS);
+      }, snapshotTimeoutMs);
       const onAbort = (): void => {
         clearTimeout(timer);
         failPending(jobId, new ExportJobError('cancelled', 'Export cancelled.'));
@@ -110,6 +121,8 @@ export function createExportService(options: ExportServiceOptions): ExportServic
           signal.removeEventListener('abort', onAbort);
           rejectSnapshot(error);
         },
+        packagePath,
+        senderId: window.webContents.id,
       });
       window.webContents.send('export:request-snapshot', { jobId, packagePath });
     });
@@ -130,9 +143,20 @@ export function createExportService(options: ExportServiceOptions): ExportServic
       typeof jobId === 'string' && jobId.length > 0 ? manager.getExportJob(jobId) : null,
     cancelExport: (jobId) =>
       typeof jobId === 'string' && jobId.length > 0 ? manager.cancelExport(jobId) : false,
-    handleSnapshotReply(jobId, reply: unknown) {
+    handleSnapshotReply(jobId, reply: unknown, senderId: number) {
       if (typeof jobId !== 'string') return;
-      if (!pending.has(jobId)) return;
+      const entry = pending.get(jobId);
+      if (entry === undefined) return;
+      if (senderId !== entry.senderId) {
+        failPending(
+          jobId,
+          new ExportJobError(
+            'snapshot-failed',
+            'The document snapshot came from an unexpected renderer.',
+          ),
+        );
+        return;
+      }
       if (reply === null) {
         failPending(
           jobId,
@@ -154,9 +178,22 @@ export function createExportService(options: ExportServiceOptions): ExportServic
         );
         return;
       }
-      const entry = pending.get(jobId);
+      if (reply.packagePath !== entry.packagePath) {
+        failPending(
+          jobId,
+          new ExportJobError(
+            'document-mismatch',
+            `The editor returned a snapshot for ${reply.packagePath}, not the requested ${entry.packagePath}.`,
+          ),
+        );
+        return;
+      }
       pending.delete(jobId);
-      entry?.resolve(reply);
+      entry.resolve(reply);
+    },
+    acceptsSender(senderId: number): boolean {
+      const window = options.getWindow();
+      return window !== null && !window.isDestroyed() && window.webContents.id === senderId;
     },
     dispose() {
       for (const jobId of [...pending.keys()]) {
@@ -169,10 +206,21 @@ export function createExportService(options: ExportServiceOptions): ExportServic
 
 /** Register the export IPC surface on the main process. */
 export function installExportIpc(service: ExportService): void {
-  ipcMain.handle('export:pdf', (_event, input: unknown) => service.exportPdf(input));
-  ipcMain.handle('export:job', (_event, jobId: unknown) => service.getExportJob(jobId));
-  ipcMain.handle('export:cancel', (_event, jobId: unknown) => service.cancelExport(jobId));
-  ipcMain.on('export:snapshot', (_event, jobId: unknown, reply: unknown) => {
-    service.handleSnapshotReply(jobId, reply);
+  ipcMain.handle('export:pdf', (event, input: unknown) => {
+    if (!service.acceptsSender(event.sender.id)) {
+      return { ok: false, code: 'invalid-input', message: 'Unexpected export sender.' };
+    }
+    return service.exportPdf(input);
+  });
+  ipcMain.handle('export:job', (event, jobId: unknown) => {
+    if (!service.acceptsSender(event.sender.id)) return null;
+    return service.getExportJob(jobId);
+  });
+  ipcMain.handle('export:cancel', (event, jobId: unknown) => {
+    if (!service.acceptsSender(event.sender.id)) return false;
+    return service.cancelExport(jobId);
+  });
+  ipcMain.on('export:snapshot', (event, jobId: unknown, reply: unknown) => {
+    service.handleSnapshotReply(jobId, reply, event.sender.id);
   });
 }

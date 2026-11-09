@@ -14,6 +14,14 @@ export interface PdfPageInfo {
   widthMm: number;
   heightMm: number;
   text: string;
+  /** Non-empty extracted text items (S2-1 ink check). */
+  textItemCount: number;
+  /** Image XObjects painted on the page (an image-only page is not blank). */
+  imageCount: number;
+  /** Vector path constructions on the page (arrows, borders, trunks). */
+  pathCount: number;
+  /** False when the operator list could not be read; counts are then unknown. */
+  hasOperatorList: boolean;
 }
 
 export interface PdfInspection {
@@ -38,6 +46,7 @@ interface PdfjsTextItem {
  */
 export async function inspectPdf(data: Uint8Array): Promise<PdfInspection> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const { OPS } = pdfjs;
   const loadingTask = pdfjs.getDocument({
     data,
     useSystemFonts: false,
@@ -54,10 +63,12 @@ export async function inspectPdf(data: Uint8Array): Promise<PdfInspection> {
       const viewport = page.getViewport({ scale: 1 });
       const content = await page.getTextContent();
       const parts: string[] = [];
+      let textItemCount = 0;
       for (const item of content.items) {
         if (!('str' in item)) continue;
         const textItem = item as PdfjsTextItem;
         if (textItem.str.length === 0) continue;
+        textItemCount += 1;
         parts.push(textItem.str);
         textItems.push({
           text: textItem.str,
@@ -68,6 +79,27 @@ export async function inspectPdf(data: Uint8Array): Promise<PdfInspection> {
           pageNumber,
         });
       }
+      let imageCount = 0;
+      let pathCount = 0;
+      let hasOperatorList = true;
+      try {
+        const operators = await page.getOperatorList();
+        for (const fn of operators.fnArray) {
+          if (
+            fn === OPS.paintImageXObject ||
+            fn === OPS.paintInlineImageXObject ||
+            fn === OPS.paintImageMaskXObject ||
+            fn === OPS.paintImageXObjectRepeat
+          ) {
+            imageCount += 1;
+          } else if (fn === OPS.constructPath) {
+            pathCount += 1;
+          }
+        }
+      } catch {
+        // Operator-list extraction is optional; text remains authoritative.
+        hasOperatorList = false;
+      }
       const text = parts.join(' ');
       pages.push({
         pageNumber,
@@ -76,6 +108,10 @@ export async function inspectPdf(data: Uint8Array): Promise<PdfInspection> {
         widthMm: (viewport.width * 25.4) / 72,
         heightMm: (viewport.height * 25.4) / 72,
         text,
+        textItemCount,
+        imageCount,
+        pathCount,
+        hasOperatorList,
       });
       page.cleanup();
     }

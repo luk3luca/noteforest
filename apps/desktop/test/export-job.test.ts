@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { NoteDocument, PageSetup } from '@noteforest/layout';
@@ -62,8 +62,24 @@ function summary(overrides: Partial<PrintRunSummary> = {}): PrintRunSummary {
     failedAssetIds: [],
     missingAssetIds: [],
     overflowPages: [],
+    pages: [
+      { pageNumber: 1, fragments: 1, edges: 0, trunks: 0, images: 0, empty: false },
+      { pageNumber: 2, fragments: 1, edges: 0, trunks: 0, images: 0, empty: false },
+    ],
+    modelChecks: {
+      blockCount: 2,
+      placedBlockCount: 2,
+      unplacedBlockIds: [],
+      segmentCount: 2,
+      segmentCoverageOk: true,
+      segmentCoverageIssues: [],
+    },
     rendered: true,
     framesSettled: true,
+    imagesSettled: true,
+    fontsSettled: true,
+    consoleErrors: [],
+    printOverflowPages: [],
     metrics: {
       fontSizePx: 12,
       lineHeightRatio: 1.3,
@@ -84,6 +100,10 @@ function inspection(pageCount = 2, widthMm = 297, heightMm = 210) {
     widthMm,
     heightMm,
     text: `Page ${index + 1} body text`,
+    textItemCount: 1,
+    imageCount: 0,
+    pathCount: 0,
+    hasOperatorList: true,
   }));
   return {
     pageCount,
@@ -292,6 +312,56 @@ describe('PdfExportManager', () => {
     expect(await readdir(dir)).toEqual([]);
   });
 
+  it('fails the job on a truly blank produced page (S2-1)', async () => {
+    const base = inspection(2);
+    const { manager, dir, outputPath } = await harness({
+      inspectPdf: async () => ({
+        ...base,
+        pages: [
+          base.pages[0]!,
+          {
+            ...base.pages[1]!,
+            text: '',
+            textItemCount: 0,
+            imageCount: 0,
+            pathCount: 0,
+          },
+        ],
+        text: base.pages[0]!.text,
+      }),
+    });
+    manager.exportPdf({ packagePath: '/library/export-test', outputPath });
+    const job = await waitTerminal(manager, 'job-1');
+    expect(job.status).toBe('failed');
+    expect(job.error?.code).toBe('validation-failed');
+    expect(job.error?.message).toContain('blank');
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('accepts an image-only produced page without text (S2-1)', async () => {
+    const base = inspection(2);
+    const { manager, outputPath } = await harness({
+      inspectPdf: async () => ({
+        ...base,
+        pages: [
+          base.pages[0]!,
+          {
+            ...base.pages[1]!,
+            text: '',
+            textItemCount: 0,
+            imageCount: 1,
+            pathCount: 0,
+          },
+        ],
+        text: base.pages[0]!.text,
+      }),
+    });
+    manager.exportPdf({ packagePath: '/library/export-test', outputPath });
+    const job = await waitTerminal(manager, 'job-1');
+    expect(job.status).toBe('done');
+    expect(job.warnings.some((warning) => warning.code === 'textless-page')).toBe(true);
+  });
+
   it('refuses a blocking defect with the affected block name and never prints', async () => {
     const print = vi.fn(async () => PDF_BYTES);
     const session = fakeSession({
@@ -434,5 +504,99 @@ describe('PdfExportManager', () => {
     const job = await waitTerminal(manager, 'job-1');
     expect(job.status).toBe('done');
     expect(job.warnings.map((warning) => warning.kind)).toEqual(['manual-break', 'asset']);
+  });
+
+  it('refuses an output path inside the source document package (S3-3)', async () => {
+    const { manager, dir } = await harness();
+    const packagePath = join(dir, 'package');
+    const started = manager.exportPdf({
+      packagePath,
+      outputPath: join(packagePath, 'document.json'),
+      overwrite: true,
+    });
+    expect(started).toEqual(expect.objectContaining({ ok: false, code: 'invalid-input' }));
+    expect(manager.getExportJob('job-1')).toBeNull();
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('creates the temp file exclusively and leaves no output when it already exists (S3-3)', async () => {
+    const { manager, dir, outputPath } = await harness();
+    const tempPath = join(dir, '.note.pdf.job-1.partial');
+    await writeFile(tempPath, 'stale');
+    manager.exportPdf({ packagePath: '/library/export-test', outputPath });
+    const job = await waitTerminal(manager, 'job-1');
+    expect(job.status).toBe('failed');
+    expect(job.error?.code).toBe('write-failed');
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('cleans a stale partial from a crashed export (S3-3)', async () => {
+    const { manager, dir, outputPath } = await harness();
+    const stale = join(dir, '.note.pdf.old-job.partial');
+    await writeFile(stale, 'stale');
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await utimes(stale, old, old);
+    manager.exportPdf({ packagePath: '/library/export-test', outputPath });
+    const job = await waitTerminal(manager, 'job-1');
+    expect(job.status).toBe('done');
+    expect(await readdir(dir)).toEqual(['note.pdf']);
+  });
+
+  it('atomically refuses an output created after the preflight exists check (S3-3)', async () => {
+    const race = { outputPath: '' };
+    const session = fakeSession({
+      print: async () => {
+        // Simulate another process creating the output while the PDF is being
+        // produced; the no-clobber link must fail with output-exists.
+        await writeFile(race.outputPath, 'winner');
+        return PDF_BYTES;
+      },
+    });
+    const { manager, outputPath, dir } = await harness({}, session);
+    race.outputPath = outputPath;
+    manager.exportPdf({ packagePath: '/library/export-test', outputPath });
+    const job = await waitTerminal(manager, 'job-1');
+    expect(job.status).toBe('failed');
+    expect(job.error?.code).toBe('output-exists');
+    expect(await readFile(outputPath, 'utf8')).toBe('winner');
+    expect(await partialFiles(dir)).toEqual([]);
+  });
+
+  it('maps a render failure to the typed render-error code (S3-8)', async () => {
+    const session = fakeSession({
+      summary: async () => {
+        throw new ExportJobError('render-error', 'The print compositor threw while rendering.');
+      },
+    });
+    const { manager, dir, outputPath } = await harness({}, session);
+    manager.exportPdf({ packagePath: '/library/export-test', outputPath });
+    const job = await waitTerminal(manager, 'job-1');
+    expect(job.status).toBe('failed');
+    expect(job.error?.code).toBe('render-error');
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('refuses a rendered:false summary with no preflight block (S3-2)', async () => {
+    const session = fakeSession({
+      summary: async () => summary({ rendered: false }),
+    });
+    const { manager, dir, outputPath } = await harness({}, session);
+    manager.exportPdf({ packagePath: '/library/export-test', outputPath });
+    const job = await waitTerminal(manager, 'job-1');
+    expect(job.status).toBe('failed');
+    expect(job.error?.code).toBe('render-error');
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it('refuses a summary with non-finite geometry (S3-2)', async () => {
+    const session = fakeSession({
+      summary: async () => summary({ pageWidthMm: Number.NaN }),
+    });
+    const { manager, dir, outputPath } = await harness({}, session);
+    manager.exportPdf({ packagePath: '/library/export-test', outputPath });
+    const job = await waitTerminal(manager, 'job-1');
+    expect(job.status).toBe('failed');
+    expect(job.error?.code).toBe('window-failed');
+    expect(await readdir(dir)).toEqual([]);
   });
 });

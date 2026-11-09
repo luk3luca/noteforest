@@ -33,8 +33,9 @@ export default defineConfig({
           '@noteforest/pdf',
           '@noteforest/pdf/node',
         ],
-        // pdfjs-dist is a root devDependency used for Node-side PDF inspection.
-        // Keep it external: bundling breaks its worker module resolution.
+        // pdfjs-dist is a runtime dependency of the app (M4c3 S2-3) used by the
+        // Node-side produced-PDF inspector. Keep it external: bundling breaks
+        // its worker/legacy module resolution; the packaged app ships it.
         include: ['pdfjs-dist'],
       }),
     ],

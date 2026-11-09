@@ -4,6 +4,11 @@
   "private": true,
   "description": "NoteForest desktop shell and branch editor",
   "main": "out/main/index.js",
+  "build": {
+    "asarUnpack": [
+      "node_modules/pdfjs-dist/**"
+    ]
+  },
   "scripts": {
     "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
     "build": "electron-vite build",
@@ -29,6 +34,7 @@
     "katex": "0.18.11",
     "lowlight": "3.3.0",
     "lucide-react": "1.67.0",
+    "pdfjs-dist": "6.5.438",
     "react": "19.3.1",
     "react-aria-components": "1.22.1",
     "react-dom": "19.3.1",

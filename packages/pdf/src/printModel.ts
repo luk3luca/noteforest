@@ -241,8 +241,11 @@ function assertSettingsIdentity(
       fingerprint,
     );
   }
+  // S3-1: the measured-run identity is unbypassable. A hand-built layout that
+  // omits `layoutOptions` cannot claim a fabricated fingerprint, so `undefined`
+  // is a mismatch, not an opt-out.
   if (
-    layout.layoutOptions !== undefined &&
+    layout.layoutOptions === undefined ||
     !sameJson(layout.layoutOptions, pageLayoutOptions(settings.theme))
   ) {
     throw new PrintModelSettingsMismatchError(

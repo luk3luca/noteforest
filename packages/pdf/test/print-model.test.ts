@@ -517,6 +517,25 @@ describe('print model identity (M4c2 R1/R4/R5)', () => {
     ).toThrow(/PageTheme/);
   });
 
+  it('treats a layout without recorded layoutOptions as a theme mismatch (S3-1)', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    const stripped = { ...layout };
+    delete stripped.layoutOptions;
+    expect(() =>
+      buildPrintModel(document, stripped, paginated, {
+        settings,
+        pageModelFingerprint: pageSettingsFingerprint(settings),
+      }),
+    ).toThrow(PrintModelSettingsMismatchError);
+    expect(() =>
+      buildPrintModel(document, stripped, paginated, {
+        settings,
+        pageModelFingerprint: pageSettingsFingerprint(settings),
+      }),
+    ).toThrow(/PageTheme/);
+  });
+
   it('fails loudly when the pages were paginated with different manual breaks', () => {
     const document = makeDocument({
       id: 'manual-break-identity',
