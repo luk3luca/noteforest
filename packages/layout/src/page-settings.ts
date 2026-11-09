@@ -293,6 +293,23 @@ export function pageGeometry(setup: PageSetup): PageGeometry {
   };
 }
 
+/**
+ * Deterministic identity of the resolved page settings.
+ *
+ * The page model and the print model both compute this from the same resolved
+ * settings; a stale/mismatched pair fails the export instead of silently
+ * rendering a different page count.
+ */
+export function pageSettingsFingerprint(settings: PageSettings): string {
+  return JSON.stringify([
+    settings.setup.size,
+    settings.setup.orientation,
+    settings.setup.margins,
+    settings.theme,
+    settings.manualBreakBeforeBlockIds,
+  ]);
+}
+
 /** Map a page theme onto the pure layout tuning options. */
 export function pageLayoutOptions(theme: PageTheme): LayoutOptions {
   return {

@@ -1,0 +1,463 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildPageEdgeModel,
+  DEFAULT_PAGE_SETTINGS,
+  layoutDocument,
+  normalizePageSettings,
+  pageChromeLayout,
+  pageEdgeLabelLayout,
+  pageGeometry,
+  pageLayoutOptions,
+  paginate,
+  type BlockMeasurement,
+  type ContentBlock,
+  type MeasurementMode,
+  type MeasurementPort,
+  type NoteDocument,
+  type PageSetup,
+} from '@noteforest/layout';
+import { buildPrintModel } from '@noteforest/pdf';
+import {
+  anchorRecordsByBlock,
+  projectPageContent,
+  segmentsForFragments,
+} from '../src/renderer/src/page/projection';
+import { buildSegments } from '../src/renderer/src/page/segments';
+
+/**
+ * M4c1 F1/F3 seam parity.
+ *
+ * Every fixture runs the real `layoutDocument` + `paginate` pipeline. The print
+ * model is compared with the exact Page Read projection (the same function the
+ * mounted PageView calls), not with a hand-built page list.
+ */
+
+const A4_LANDSCAPE: PageSetup = {
+  size: 'A4',
+  orientation: 'landscape',
+  margins: { top: 12, right: 12, bottom: 12, left: 12 },
+};
+const A5_PORTRAIT: PageSetup = {
+  size: 'A5',
+  orientation: 'portrait',
+  margins: { top: 12, right: 12, bottom: 12, left: 12 },
+};
+const A5_STACKED: PageSetup = {
+  size: 'A5',
+  orientation: 'portrait',
+  margins: { top: 46, right: 46, bottom: 46, left: 46 },
+};
+
+const CHROME = 2 * (DEFAULT_PAGE_SETTINGS.theme.cardPadding + DEFAULT_PAGE_SETTINGS.theme.cardBorder);
+
+interface StubSpec {
+  max: number;
+  min: number;
+  height?: number;
+  segmentCount?: number;
+  tableColumns?: Record<string, number[]>;
+  missingAssetIds?: string[];
+  anchors?: Array<{ anchorId: string; x: number; occurrence?: number }>;
+}
+
+function stubMeasurement(specs: Record<string, StubSpec>): MeasurementPort {
+  return {
+    measure(block: ContentBlock, mode: MeasurementMode): BlockMeasurement {
+      const spec = specs[block.id] ?? { max: 100, min: 40 };
+      const contentWidth =
+        mode.kind === 'max-content'
+          ? spec.max
+          : mode.kind === 'min-content'
+            ? spec.min
+            : mode.contentWidth;
+      const contentHeight = spec.height ?? 40;
+      const contentTop =
+        DEFAULT_PAGE_SETTINGS.theme.cardPadding + DEFAULT_PAGE_SETTINGS.theme.cardBorder;
+      const segmentCount = Math.max(1, spec.segmentCount ?? 1);
+      const segmentHeight = contentHeight / segmentCount;
+      return {
+        blockId: block.id,
+        mode,
+        cardWidth: contentWidth + CHROME,
+        contentWidth,
+        contentHeight,
+        contentTop,
+        labelHeight: 0,
+        cardHeight:
+          contentTop +
+          contentHeight +
+          DEFAULT_PAGE_SETTINGS.theme.cardPadding +
+          DEFAULT_PAGE_SETTINGS.theme.cardBorder,
+        maxContentWidth: spec.max,
+        minContentWidth: spec.min,
+        segments: Array.from({ length: segmentCount }, (_, index) => ({
+          index,
+          kind: 'paragraph' as const,
+          nodePath: [0],
+          y: index * segmentHeight,
+          height: segmentHeight,
+          breakableBefore: index > 0,
+        })),
+        anchors: (spec.anchors ?? []).map((anchor) => ({
+          anchorId: anchor.anchorId,
+          x: anchor.x,
+          y: 0,
+          width: 20,
+          height: 10,
+          occurrence: anchor.occurrence ?? 0,
+        })),
+        tableColumns: spec.tableColumns ?? {},
+        missingAssetIds: spec.missingAssetIds ?? [],
+      };
+    },
+  };
+}
+
+function textBlock(id: string, text = `Text for ${id}`): ContentBlock {
+  return {
+    id,
+    label: id,
+    content: {
+      type: 'doc',
+      children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
+    },
+  };
+}
+
+function makeDocument(input: {
+  id: string;
+  blocks: string[];
+  edges?: Array<{ from: string; to: string; anchorId?: string; role?: 'primary' | 'reference' }>;
+  anchors?: Array<{ id: string; blockId: string }>;
+  specialBlocks?: ContentBlock[];
+  chapters?: Array<{ id: string; title: string; topLevelBlockIds: string[] }>;
+}): NoteDocument {
+  const blocks: Record<string, ContentBlock> = {};
+  for (const id of input.blocks) blocks[id] = textBlock(id);
+  for (const block of input.specialBlocks ?? []) blocks[block.id] = block;
+  const branches: Record<string, import('@noteforest/layout').BranchRecord> = {};
+  for (const [index, edge] of (input.edges ?? []).entries()) {
+    const id = `branch-${String(index + 1).padStart(2, '0')}`;
+    branches[id] = {
+      id,
+      source: {
+        blockId: edge.from,
+        ...(edge.anchorId === undefined ? {} : { anchorId: edge.anchorId }),
+      },
+      targetBlockId: edge.to,
+      role: edge.role ?? 'primary',
+      order: id,
+    };
+  }
+  const anchors: Record<string, import('@noteforest/layout').AnchorRecord> = {};
+  for (const anchor of input.anchors ?? []) {
+    anchors[anchor.id] = { id: anchor.id, blockId: anchor.blockId, kind: 'text', quote: anchor.id };
+  }
+  return {
+    schemaVersion: 2,
+    id: input.id,
+    title: `Fixture ${input.id}`,
+    revision: 3,
+    blocks,
+    anchors,
+    branches,
+    chapters:
+      input.chapters ??
+      [{ id: 'chapter-1', title: 'Chapter 1', topLevelBlockIds: [input.blocks[0]!] }],
+    assets: {},
+  };
+}
+
+function pipeline(
+  document: NoteDocument,
+  specs: Record<string, StubSpec>,
+  setup: PageSetup,
+  overrides: Parameters<typeof normalizePageSettings>[0] = {},
+) {
+  const settings = normalizePageSettings({ setup, ...overrides });
+  const layout = layoutDocument(
+    document,
+    stubMeasurement(specs),
+    pageLayoutOptions(settings.theme),
+    settings.setup,
+  );
+  const paginated = paginate(layout, document, {
+    manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],
+  });
+  const print = buildPrintModel(document, layout, paginated, { settings });
+  const projection = projectPageContent({
+    document,
+    blocks: layout.blockById,
+    pages: paginated.pages,
+    defects: paginated.defects,
+    anchors: layout.anchors,
+    settings,
+    geometry: layout.geometry,
+    assets: {},
+  });
+  return { settings, layout, paginated, print, projection };
+}
+
+function modeAFixture() {
+  return makeDocument({
+    id: 'mode-a',
+    blocks: ['root', 'c1', 'c2', 'k1', 'k2'],
+    edges: [
+      { from: 'root', to: 'c1', anchorId: 'a1' },
+      { from: 'root', to: 'c2', anchorId: 'a2' },
+      { from: 'root', to: 'k1' },
+      { from: 'root', to: 'k2' },
+    ],
+    anchors: [
+      { id: 'a1', blockId: 'root' },
+      { id: 'a2', blockId: 'root' },
+    ],
+  });
+}
+
+const MODE_A_SPECS: Record<string, StubSpec> = {
+  root: { max: 200, min: 100, anchors: [{ anchorId: 'a1', x: 20 }, { anchorId: 'a2', x: 60 }] },
+  c1: { max: 120, min: 60 },
+  c2: { max: 120, min: 60 },
+  k1: { max: 200, min: 100 },
+  k2: { max: 200, min: 100 },
+};
+
+/** Representative R2i: the whole first-child subtree fails right and wraps. */
+function r2iFixture() {
+  return makeDocument({
+    id: 'r2i-wrap',
+    blocks: ['root', 'c1', 'g1'],
+    edges: [
+      { from: 'root', to: 'c1' },
+      { from: 'c1', to: 'g1' },
+    ],
+    chapters: [{ id: 'chapter-1', title: 'R2i wrap', topLevelBlockIds: ['root'] }],
+  });
+}
+
+const R2I_SPECS: Record<string, StubSpec> = {
+  root: { max: 200, min: 100 },
+  c1: { max: 500, min: 100 },
+  g1: { max: 500, min: 100 },
+};
+
+function expectSeamParity(result: ReturnType<typeof pipeline>): void {
+  const { print, projection, layout, paginated, settings } = result;
+  expect(print.pageCount).toBe(paginated.pageCount);
+  expect(projection.pages).toHaveLength(print.pageCount);
+  const shared = buildPageEdgeModel(layout, paginated.pages);
+  const anchorsByBlock = anchorRecordsByBlock(print.document.anchors);
+  for (const [index, printPage] of print.pages.entries()) {
+    const projected = projection.pages[index]!;
+    expect(printPage.pageNumber).toBe(projected.page.pageNumber);
+    expect(printPage.fragments).toEqual(projected.page.fragments);
+    expect(printPage.edges).toEqual(shared.edges[index]);
+    expect(printPage.trunks).toEqual(shared.trunks[index]);
+    expect(printPage.chrome).toEqual(projected.chrome);
+    expect(printPage.chrome).toMatchObject(pageChromeLayout(layout.geometry));
+    expect(printPage.blockingDefects).toEqual(projected.blocking);
+    expect(printPage.edgeLabels).toEqual(
+      pageEdgeLabelLayout(printPage.edges, layout.geometry),
+    );
+    // The print model's own records (document + per-block measurements) build
+    // exactly the Page Read segments.
+    expect(
+      segmentsForFragments({
+        document: print.document,
+        fragments: printPage.fragments,
+        blocks: print.blocks,
+        anchorsByBlock,
+        assets: {},
+        listIndent: settings.theme.wrapIndent,
+      }),
+    ).toEqual(projected.segmentsByBlock);
+    // And every card's static HTML is byte-identical.
+    for (const fragment of printPage.fragments) {
+      const block = print.document.blocks[fragment.blockId]!;
+      const segments = projected.segmentsByBlock[fragment.blockId] ?? [];
+      const fromModel = print.blocks[fragment.blockId]!.measurement.tableColumns;
+      expect(
+        buildSegments(block, {
+          assets: {},
+          tableColumns: fromModel,
+          anchors: anchorsByBlock.get(fragment.blockId) ?? [],
+          listIndent: settings.theme.wrapIndent,
+        }),
+      ).toEqual(segments);
+    }
+  }
+  const expectedPageByBlock: Record<string, number> = {};
+  for (const projected of projection.pages) {
+    for (const fragment of projected.page.fragments) {
+      if (expectedPageByBlock[fragment.blockId] === undefined) {
+        expectedPageByBlock[fragment.blockId] = projected.page.pageNumber;
+      }
+    }
+  }
+  expect(print.pageNumberByBlock).toEqual(expectedPageByBlock);
+  expect(print.defects).toEqual(paginated.defects);
+}
+
+describe('F1 real-layout print parity (Page Read vs print model)', () => {
+  it('mode A: segments, fragments, edges, trunks, chrome, and page numbers match', () => {
+    const result = pipeline(modeAFixture(), MODE_A_SPECS, A4_LANDSCAPE);
+    expectSeamParity(result);
+    const page = result.print.pages[0]!;
+    const callouts = page.edges.filter(
+      (edge) => edge.branchId === 'branch-01' || edge.branchId === 'branch-02',
+    );
+    expect(callouts).toHaveLength(2);
+    for (const edge of callouts) {
+      expect(edge.placement).toBe('right');
+      expect(edge.trunk?.id).toBe('root:right');
+      expect(edge.route.entry).toBe('left');
+    }
+    // Print ignores nothing: the shared trunk records are the Page records.
+    expect(page.trunks.map((view) => view.trunk.id)).toContain('root:right');
+  });
+
+  it('mode B2: both below trunks and all arms match Page Read', () => {
+    const result = pipeline(modeAFixture(), MODE_A_SPECS, A5_PORTRAIT);
+    expectSeamParity(result);
+    const page = result.print.pages[0]!;
+    const callout = page.edges.find((edge) => edge.branchId === 'branch-01')!;
+    const child = page.edges.find((edge) => edge.branchId === 'branch-03')!;
+    expect(callout.trunk!.id).toBe('root:below:callout');
+    expect(child.trunk!.id).toBe('root:below:child');
+    expect(child.trunk!.x).toBeLessThan(callout.trunk!.x);
+    for (const edge of page.edges) expect(edge.route.entry).toBe('left');
+  });
+
+  it('stacked: legacy shared below trunk stays identical', () => {
+    const result = pipeline(modeAFixture(), MODE_A_SPECS, A5_STACKED, {
+      theme: { pagePacking: 'stacked' },
+    });
+    expect(result.settings.theme.pagePacking).toBe('stacked');
+    expectSeamParity(result);
+    const page = result.print.pages[0]!;
+    expect(new Set(page.edges.map((edge) => edge.trunk?.id))).toEqual(new Set(['root:below']));
+  });
+
+  it('R2i: wrapped subtree placement and its trunks match Page Read', () => {
+    const result = pipeline(r2iFixture(), R2I_SPECS, A4_LANDSCAPE);
+    expectSeamParity(result);
+    const root = result.layout.blockById.root!;
+    const child = result.layout.blockById.c1!;
+    const grandchild = result.layout.blockById.g1!;
+    expect(child.placement).toBe('below');
+    expect(root.x + 26).toBeCloseTo(child.x, 5);
+    expect(grandchild.placement).toBe('right');
+    expect(grandchild.x).toBeGreaterThan(child.x + child.width);
+    expect(result.print.pages[0]!.fragments.find((item) => item.blockId === 'c1')!.page.x).toBe(
+      child.x,
+    );
+  });
+
+  it('keeps real continuation and cross-page reference records in the print model', () => {
+    const document = makeDocument({
+      id: 'continuations',
+      blocks: ['a', 'b', 'long', 'ref-source'],
+      edges: [{ from: 'ref-source', to: 'long', role: 'reference' }],
+      chapters: [
+        {
+          id: 'chapter-1',
+          title: 'Continuations',
+          topLevelBlockIds: ['a', 'b', 'long', 'ref-source'],
+        },
+      ],
+    });
+    const specs: Record<string, StubSpec> = {
+      a: { max: 200, min: 100, height: 80 },
+      b: { max: 200, min: 100, height: 80 },
+      long: { max: 300, min: 120, height: 2000, segmentCount: 20 },
+      'ref-source': { max: 200, min: 100, height: 80 },
+    };
+    const result = pipeline(document, specs, A5_PORTRAIT, {
+      manualBreakBeforeBlockIds: ['long'],
+    });
+    expectSeamParity(result);
+    const continuationPages = result.print.pages.filter(
+      (page) => page.chrome.continuesOn.length > 0 || page.chrome.continuedFrom.length > 0,
+    );
+    expect(continuationPages.length).toBeGreaterThan(0);
+    expect(
+      result.print.pages.some((page) =>
+        page.edgeLabels.some((label) => label.direction === 'from-edge'),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('F3 shared chrome and edge-label positions', () => {
+  it('uses the exact Page Read margin-band fractions and label offsets', () => {
+    const result = pipeline(modeAFixture(), MODE_A_SPECS, A4_LANDSCAPE);
+    const margins = result.layout.geometry.marginsPx;
+    for (const page of result.print.pages) {
+      expect(page.chrome.left).toBe(margins.left);
+      expect(page.chrome.right).toBe(margins.right);
+      expect(page.chrome.headerTop).toBeCloseTo(margins.top * 0.3, 10);
+      expect(page.chrome.ghostTop).toBeCloseTo(margins.top * 0.62, 10);
+      expect(page.chrome.footerBottom).toBeCloseTo(margins.bottom * 0.3, 10);
+      expect(page.chrome.continuesBottom).toBeCloseTo(margins.bottom * 0.6, 10);
+      expect(page.chrome.pageLabel).toBe(
+        `Page ${page.pageNumber} of ${result.print.pageCount}`,
+      );
+    }
+  });
+});
+
+describe('A5/Letter and portrait/landscape geometry smoke', () => {
+  const setups: Array<{ name: string; setup: PageSetup; widthMm: number; heightMm: number }> = [
+    { name: 'A4 portrait', setup: { ...A4_LANDSCAPE, orientation: 'portrait' }, widthMm: 210, heightMm: 297 },
+    { name: 'A4 landscape', setup: A4_LANDSCAPE, widthMm: 297, heightMm: 210 },
+    { name: 'A5 portrait', setup: A5_PORTRAIT, widthMm: 148, heightMm: 210 },
+    { name: 'A5 landscape', setup: { ...A5_PORTRAIT, orientation: 'landscape' }, widthMm: 210, heightMm: 148 },
+    {
+      name: 'Letter portrait',
+      setup: { size: 'Letter', orientation: 'portrait', margins: { top: 12, right: 12, bottom: 12, left: 12 } },
+      widthMm: 215.9,
+      heightMm: 279.4,
+    },
+    {
+      name: 'Letter landscape',
+      setup: { size: 'Letter', orientation: 'landscape', margins: { top: 12, right: 12, bottom: 12, left: 12 } },
+      widthMm: 279.4,
+      heightMm: 215.9,
+    },
+  ];
+
+  for (const { name, setup, widthMm, heightMm } of setups) {
+    it(`${name}: page size, content size, and page count equal the paginator`, () => {
+      const document = makeDocument({
+        id: `geometry-${name}`,
+        blocks: ['b1', 'b2', 'b3'],
+        chapters: [{ id: 'chapter-1', title: 'Geometry', topLevelBlockIds: ['b1', 'b2', 'b3'] }],
+      });
+      const specs: Record<string, StubSpec> = {
+        b1: { max: 300, min: 120, height: 600, segmentCount: 6 },
+        b2: { max: 300, min: 120, height: 600, segmentCount: 6 },
+        b3: { max: 300, min: 120, height: 600, segmentCount: 6 },
+      };
+      const result = pipeline(document, specs, setup);
+      expectSeamParity(result);
+      const geometry = pageGeometry(setup);
+      expect(result.print.geometry).toEqual(geometry);
+      expect(geometry.pageWidthMm).toBe(widthMm);
+      expect(geometry.pageHeightMm).toBe(heightMm);
+      expect(result.print.pageCount).toBe(result.paginated.pageCount);
+      for (const page of result.print.pages) {
+        for (const fragment of page.fragments) {
+          expect(fragment.page.x).toBeGreaterThanOrEqual(-0.25);
+          expect(fragment.page.y).toBeGreaterThanOrEqual(-0.25);
+          expect(fragment.page.x + fragment.page.width).toBeLessThanOrEqual(
+            geometry.contentWidthPx + 0.25,
+          );
+          expect(fragment.page.y + fragment.page.height).toBeLessThanOrEqual(
+            geometry.contentHeightPx + 0.25,
+          );
+        }
+      }
+    });
+  }
+});

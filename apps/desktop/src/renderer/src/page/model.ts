@@ -12,30 +12,28 @@ import type {
   NoteDocument,
   PageSettings,
 } from '@noteforest/layout';
-import { layoutDocument, pageLayoutOptions, paginate } from '@noteforest/layout';
+import {
+  layoutDocument,
+  pageLayoutOptions,
+  pageSettingsFingerprint,
+  paginate,
+} from '@noteforest/layout';
 import { pageSetupOf } from './adapter';
 
+export { blockingDefects, pageBlockingDefects, pageSettingsFingerprint } from '@noteforest/layout';
+
 export interface PageModelData {
+  /** The layout-shaped document this run measured (content + anchors + assets). */
+  document: NoteDocument;
   layout: ContinuousLayout;
   pages: DerivedPage[];
   pageCount: number;
   defects: LayoutDefect[];
+  manualBreakWarnings: LayoutDefect[];
   measurementCalls: number;
   empty: boolean;
-}
-
-/**
- * Fingerprint the resolved settings so the hook can recompute exactly when a
- * page setup/theme/manual-break change makes the old model stale.
- */
-export function pageSettingsFingerprint(settings: PageSettings): string {
-  return JSON.stringify([
-    settings.setup.size,
-    settings.setup.orientation,
-    settings.setup.margins,
-    settings.theme,
-    settings.manualBreakBeforeBlockIds,
-  ]);
+  /** Fingerprint of the resolved settings that produced this model. */
+  settingsFingerprint: string;
 }
 
 export function computePageModel(
@@ -53,18 +51,16 @@ export function computePageModel(
     manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],
   });
   return {
+    document,
     layout,
     pages: paginated.pages,
     pageCount: paginated.pages.length,
     defects: paginated.defects,
+    manualBreakWarnings: paginated.manualBreakWarnings,
     measurementCalls: layout.measurementCalls,
     empty: paginated.pages.length === 0,
+    settingsFingerprint: pageSettingsFingerprint(settings),
   };
-}
-
-/** Blocking defects prevent export and get a visible page badge. */
-export function blockingDefects(defects: readonly LayoutDefect[]): LayoutDefect[] {
-  return defects.filter((defect) => defect.blocksExport);
 }
 
 /** Clamp a 1-based page number to the current derived page count. */

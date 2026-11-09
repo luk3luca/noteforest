@@ -14,8 +14,11 @@ import {
   EDGE_STYLE,
   arrowPath,
   openArrowForDirection,
+  pageEdgeAccessibleLabel,
+  pageEdgeLabelLayout,
   roundedPath,
   type PageEdge,
+  type PageEdgeLabelLayout,
   type PageEdgePoint,
   type PageEdgeTrunkView,
   type PageGeometry,
@@ -26,6 +29,11 @@ interface PageEdgesProps {
   edges: readonly PageEdge[];
   trunks: readonly PageEdgeTrunkView[];
   geometry: PageGeometry;
+  /**
+   * Print passes the label records already resolved by the print model; Page
+   * Read omits them and derives the identical records from the shared helper.
+   */
+  labels?: readonly PageEdgeLabelLayout[];
 }
 
 function number(value: number): string {
@@ -51,77 +59,13 @@ function routeArrow(edge: PageEdge): string {
     : openArrowForDirection(edge.route.tip, edge.route.direction);
 }
 
-function edgeLabelText(edge: PageEdge): string | null {
-  // Short print-style marker; the full sentence stays in the aria-label. The
-  // long “→ page 12” chip did not fit the margin and covered the block text.
-  if (edge.direction === 'to-edge' && edge.targetPage !== null) {
-    return `→ p.${edge.targetPage}`;
-  }
-  if (edge.direction === 'from-edge' && edge.targetPage !== null) {
-    return `← p.${edge.targetPage}`;
-  }
-  return null;
-}
-
-function accessibleLabel(edge: PageEdge): string {
-  const parts: string[] = [];
-  if (edge.role === 'reference') parts.push('Reference');
-  else parts.push('Branch');
-  if (edge.branchLabel !== undefined) parts.push(edge.branchLabel);
-  if (edge.direction === 'to-edge' && edge.targetPage !== null) {
-    parts.push(`continues on page ${edge.targetPage}`);
-  } else if (edge.direction === 'from-edge' && edge.targetPage !== null) {
-    parts.push(`continued from page ${edge.targetPage}`);
-  }
-  return parts.join(' · ');
-}
-
-export function PageEdges({ edges, trunks, geometry }: PageEdgesProps): JSX.Element | null {
+export function PageEdges({ edges, trunks, geometry, labels: resolvedLabels }: PageEdgesProps): JSX.Element | null {
   if (edges.length === 0 && trunks.length === 0) return null;
   const width = geometry.contentWidthPx;
   const height = geometry.contentHeightPx;
-  const labels = edges
-    .map((edge) => {
-      if (edge.direction === 'same-page') {
-        // Same-page branch/anchor quotes already live inside the callout card
-        // and the arrow's accessible title. A route midpoint chip sat on top of
-        // block text, so the page layer never duplicates it.
-        return null;
-      }
-      const text = edgeLabelText(edge);
-      if (text === null) return null;
-      if (edge.direction === 'to-edge') {
-        const margin = Math.max(18, geometry.marginsPx.right - 4);
-        return {
-          key: `${edge.branchId}-to`,
-          text,
-          aria: accessibleLabel(edge),
-          style: {
-            right: -geometry.marginsPx.right + 2,
-            top: edge.from.y,
-            maxWidth: margin,
-            transform: 'translateY(-50%)',
-          },
-          attribute: 'to-edge' as const,
-          edge,
-        };
-      }
-      const margin = Math.max(18, geometry.marginsPx.left - 4);
-      return {
-        key: `${edge.branchId}-from`,
-        text,
-        aria: accessibleLabel(edge),
-        style: {
-          left: -geometry.marginsPx.left + 2,
-          top: edge.to.y,
-          maxWidth: margin,
-          transform: 'translateY(-50%)',
-        },
-        attribute: 'from-edge' as const,
-        edge,
-      };
-    })
-    .filter((label) => label !== null);
+  // Positions and text come from the shared page-edge label layout, the same
+  // records the print compositor consumes.
+  const labels = resolvedLabels ?? pageEdgeLabelLayout(edges, geometry);
 
   return (
     <>
@@ -223,7 +167,7 @@ export function PageEdges({ edges, trunks, geometry }: PageEdgesProps): JSX.Elem
                 fill={edge.role === 'primary' ? 'currentColor' : 'none'}
               />
               {edge.branchLabel === undefined ? null : (
-                <title>{accessibleLabel(edge)}</title>
+                <title>{pageEdgeAccessibleLabel(edge)}</title>
               )}
             </g>
           );
@@ -238,12 +182,18 @@ export function PageEdges({ edges, trunks, geometry }: PageEdgesProps): JSX.Elem
         >
           {labels.map((label) => (
             <span
-              key={label.key}
+              key={`${label.edge.branchId}-${label.direction === 'to-edge' ? 'to' : 'from'}`}
               className={`nf-page-edge-label nf-page-edge-label-${label.edge.role}`}
-              style={label.style}
-              title={label.aria}
-              aria-label={label.aria}
-              data-page-edge-label={label.attribute}
+              style={{
+                ...(label.left === null ? {} : { left: label.left }),
+                ...(label.right === null ? {} : { right: label.right }),
+                top: label.top,
+                maxWidth: label.maxWidth,
+                transform: 'translateY(-50%)',
+              }}
+              title={label.accessibleLabel}
+              aria-label={label.accessibleLabel}
+              data-page-edge-label={label.direction}
               data-page-edge-label-for={label.edge.branchId}
               data-page-edge-target-page={label.edge.targetPage ?? undefined}
             >

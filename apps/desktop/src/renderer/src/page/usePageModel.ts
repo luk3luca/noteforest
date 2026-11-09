@@ -21,6 +21,7 @@ import type {
   ContinuousLayout,
   DerivedPage,
   LayoutDefect,
+  NoteDocument,
   PageSettings,
 } from '@noteforest/layout';
 import type { DocumentRuntime } from '../state/runtime';
@@ -32,12 +33,16 @@ import { computePageModel, pageSettingsFingerprint, type PageModelData } from '.
 const DEBOUNCE_MS = 150;
 
 export interface PageModelState {
+  /** Layout-shaped document of the completed run (null before the first run). */
+  document: NoteDocument | null;
   pages: DerivedPage[];
   layout: ContinuousLayout | null;
   ready: boolean;
   updating: boolean;
   error: string | null;
   defects: LayoutDefect[];
+  manualBreakWarnings: LayoutDefect[];
+  settingsFingerprint: string | null;
   measurementCalls: number;
   /** Successful model runs since the editor mounted (diagnostics only). */
   runs: number;
@@ -161,12 +166,15 @@ export function usePageModel(
   }, [active, revision, reloadToken, runtime, settings, settingsFingerprint]);
 
   return {
+    document: model?.document ?? null,
     pages: model?.pages ?? [],
     layout: model?.layout ?? null,
     ready: model !== null,
     updating,
     error,
     defects: model?.defects ?? [],
+    manualBreakWarnings: model?.manualBreakWarnings ?? [],
+    settingsFingerprint: model?.settingsFingerprint ?? null,
     measurementCalls: model?.measurementCalls ?? 0,
     runs,
     lastRunMs,
