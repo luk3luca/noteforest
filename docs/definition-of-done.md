@@ -436,6 +436,12 @@ The visual suite is the only visible-window exception.
 - Assert unhonored manual break hints are reported and the PDF uses the paginator's actual breaks.
 - Assert the export job validates the produced PDF page count and page size against the paginator
   before the atomic rename; a blank page or a count/size mismatch is an export failure.
+- Assert a truly blank produced page fails the export, classified from the model (no fragments,
+  edges/trunks, or images) or raster ink; a page with only an image is not blank.
+- Assert a dimensioned asset that is deleted or fails after open is reported as an asset warning and
+  prints the app placeholder, not a browser broken-image glyph; include a real present image.
+- Run the export from the packaged app; `pdfjs-dist` is a runtime dependency (worker/legacy assets
+  unpacked if required) and the produced PDF is inspected there.
 - Assert print metric parity with computed styles or raster comparison, not only inline attributes;
   dark-mode body background never prints.
 - Detect `�`, blank pages, and text rendered as images.
