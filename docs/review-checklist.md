@@ -750,8 +750,17 @@ The stack is Electron (ADR-0001) and the PDF pipeline is the shared paginator + 
       resolved PageTheme/CSS variables, block measurements/table columns, anchor and missing-asset
       diagnostics, and page-chrome geometry. A parity test compares Page Read's fragment/edge/trunk
       data to the print model, including A/B2/stacked trunks and cross-page segments.
-- [ ] Each print page is a fixed A4 container; `@page` supplies size/margins; the renderer waits for
-      layout, pagination, fonts, images, and KaTeX.
+- [ ] The print model is tied to the exact measured run: the caller passes the resolved settings
+      fingerprint (theme included) and the document identity, and the build rejects a missing or
+      different fingerprint, a different page setup/manual-break set, and a different document id
+      before rendering.
+- [ ] Print metric parity is asserted by computed style or raster comparison, not only by inline
+      attributes/snapshot HTML; a `print.css` metric drift fails a test.
+- [ ] The export job validates the produced PDF page count and page size against the paginator and
+      writes atomically; a blank page or a count/size mismatch is an export failure, not a warning.
+- [ ] Each print page is a fixed container at the resolved page size (A4/A5/Letter, portrait or
+      landscape); `@page` supplies size and zero margins; the renderer waits for layout, pagination,
+      fonts, images, and KaTeX.
 - [ ] Text remains real text (not outlines or screenshots) and fonts are embedded.
 - [ ] Page size, orientation, margins, breaks, and ghost/continuation markers match the page view.
 - [ ] Vector arrows and images print correctly.
