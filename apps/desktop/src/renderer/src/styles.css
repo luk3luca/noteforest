@@ -4324,6 +4324,7 @@ body.nf-dragging-block .nf-gutter-handle {
   --nf-page-sibling-gap: 16px;
   --nf-page-wrap-indent: 12px;
   --nf-page-max-wrap-indent: 36px;
+  --nf-page-child-indent: 26px;
   --nf-page-callout-gap: 12px;
   --nf-page-max-card-width: 420px;
   --nf-page-min-content-width: 160px;

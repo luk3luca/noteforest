@@ -513,6 +513,7 @@ export function pageTrunkContinuityDocument() {
         'First child, with a nested trunk that crosses a page. This sentence is long enough that the card takes the full readable maximum width, so the nested group cannot fit beside it and wraps below instead.',
       ),
       textBlock('r2g-grandchild', 'Grandchild', 'Nested child on a later page with enough text to keep a readable card width when the page measures it.'),
+      textBlock('r2g-great-grandchild', 'Great-grandchild', 'Fourth level beside its parent on the same page.'),
       textBlock('r2g-child-2', 'Child two', 'Second child on the last page of the trunk.'),
     ],
     branches: [
@@ -529,9 +530,214 @@ export function pageTrunkContinuityDocument() {
         role: 'primary',
       },
       {
+        id: 'branch-r2g-great-grandchild',
+        sourceBlockId: 'r2g-grandchild',
+        targetBlockId: 'r2g-great-grandchild',
+        role: 'primary',
+      },
+      {
         id: 'branch-r2g-child-2',
         sourceBlockId: 'r2g-root',
         targetBlockId: 'r2g-child-2',
+        role: 'primary',
+      },
+    ],
+  });
+}
+
+/**
+ * R2i subtree-aware wrap fixtures.
+ *
+ * Every fixture keeps the first child card narrow enough to fit beside its
+ * parent while the whole child subtree does not. R2i must therefore move the
+ * atomic direct-child group below the parent at the Page child indent instead
+ * of leaving the child right and burning a lower-left column under it.
+ */
+export function pageSubtreeWrapDocument() {
+  return pageDocument({
+    id: 'page-subtree-wrap',
+    title: 'Page subtree wrap',
+    chapterTitle: 'Subtree wrap',
+    blocks: [
+      textBlock('r2i-root', 'Root', 'Root'),
+      textBlock(
+        'r2i-child',
+        'Child',
+        'A first child whose card fits beside the root, but whose whole subtree needs more room than the root right column leaves for it.',
+      ),
+      textBlock(
+        'r2i-grandchild',
+        'Grandchild',
+        'The grandchild fits beside its own parent after the direct-child group wraps below the root at the child indent.',
+      ),
+    ],
+    branches: [
+      { id: 'branch-r2i-child', sourceBlockId: 'r2i-root', targetBlockId: 'r2i-child' },
+      {
+        id: 'branch-r2i-grandchild',
+        sourceBlockId: 'r2i-child',
+        targetBlockId: 'r2i-grandchild',
+      },
+    ],
+  });
+}
+
+export function pageSubtreeWrapNestedDocument() {
+  return pageDocument({
+    id: 'page-subtree-wrap-nested',
+    title: 'Page subtree wrap nested',
+    chapterTitle: 'Nested wrap',
+    blocks: [
+      textBlock('r2i-nested-root', 'Root', 'Root'),
+      textBlock(
+        'r2i-nested-child',
+        'Child',
+        'A first child whose full subtree is wider than the root right column, so the whole group moves below the root at the child indent.',
+      ),
+      textBlock(
+        'r2i-nested-grandchild',
+        'Grandchild',
+        'This grandchild still does not fit beside the child at the new origin, so it wraps one more level below its own parent.',
+      ),
+      textBlock(
+        'r2i-nested-great',
+        'Great-grandchild',
+        'The great-grandchild fits beside the grandchild once both groups have wrapped to their child indents.',
+      ),
+    ],
+    branches: [
+      {
+        id: 'branch-r2i-nested-child',
+        sourceBlockId: 'r2i-nested-root',
+        targetBlockId: 'r2i-nested-child',
+      },
+      {
+        id: 'branch-r2i-nested-grandchild',
+        sourceBlockId: 'r2i-nested-child',
+        targetBlockId: 'r2i-nested-grandchild',
+      },
+      {
+        id: 'branch-r2i-nested-great',
+        sourceBlockId: 'r2i-nested-grandchild',
+        targetBlockId: 'r2i-nested-great',
+      },
+    ],
+  });
+}
+
+export function pageSubtreeWrapSiblingsDocument() {
+  return pageDocument({
+    id: 'page-subtree-wrap-siblings',
+    title: 'Page subtree wrap siblings',
+    chapterTitle: 'Atomic wrap',
+    blocks: [
+      textBlock('r2i-sibling-root', 'Root', 'Root'),
+      textBlock(
+        'r2i-sibling-child',
+        'Child with a branch',
+        'A first child whose full subtree does not fit beside the root, even though its own card does fit in the right column.',
+      ),
+      textBlock(
+        'r2i-sibling-grandchild',
+        'Grandchild',
+        'The grandchild belongs to the first child and must not split the direct-child group into a mixed right and below row.',
+      ),
+      textBlock('r2i-sibling-leaf', 'Sibling leaf', 'A second direct child that fits beside the root on its own.'),
+    ],
+    branches: [
+      {
+        id: 'branch-r2i-sibling-child',
+        sourceBlockId: 'r2i-sibling-root',
+        targetBlockId: 'r2i-sibling-child',
+      },
+      {
+        id: 'branch-r2i-sibling-grandchild',
+        sourceBlockId: 'r2i-sibling-child',
+        targetBlockId: 'r2i-sibling-grandchild',
+      },
+      {
+        id: 'branch-r2i-sibling-leaf',
+        sourceBlockId: 'r2i-sibling-root',
+        targetBlockId: 'r2i-sibling-leaf',
+      },
+    ],
+  });
+}
+
+export function pageSubtreeWrapCalloutDocument() {
+  const rootText = 'A root with an anchored callout below it.';
+  const quote = 'anchored callout';
+  const start = rootText.indexOf(quote);
+  const root = {
+    id: 'r2i-callout-root',
+    label: 'Root',
+    content: {
+      type: 'doc',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            ...(start > 0 ? [{ type: 'text', text: rootText.slice(0, start) }] : []),
+            {
+              type: 'text',
+              text: quote,
+              marks: [{ type: 'anchor', attrs: { anchorId: 'anchor-r2i-callout' } }],
+            },
+            ...(start + quote.length < rootText.length
+              ? [{ type: 'text', text: rootText.slice(start + quote.length) }]
+              : []),
+          ],
+        },
+      ],
+    },
+  };
+  return pageDocument({
+    id: 'page-subtree-wrap-callout',
+    title: 'Page subtree wrap callout',
+    chapterTitle: 'Callout and wrap',
+    blocks: [
+      root,
+      textBlock('r2i-callout-note', 'Callout', 'An anchored callout that stays below its parent.'),
+      textBlock(
+        'r2i-callout-child',
+        'Child',
+        'A first child whose full subtree does not fit beside the root, so the direct-child group wraps below the callout stack.',
+      ),
+      textBlock(
+        'r2i-callout-grandchild',
+        'Grandchild',
+        'The grandchild stays beside its own parent after the atomic group wrap, never in the callout lane.',
+      ),
+    ],
+    anchors: [
+      {
+        id: 'anchor-r2i-callout',
+        blockId: 'r2i-callout-root',
+        kind: 'text',
+        selector: { kind: 'text', quote, prefix: 'with an ', suffix: ' below' },
+        quote,
+        prefix: 'with an ',
+        suffix: ' below',
+      },
+    ],
+    branches: [
+      {
+        id: 'branch-r2i-callout-note',
+        sourceBlockId: 'r2i-callout-root',
+        sourceAnchorId: 'anchor-r2i-callout',
+        targetBlockId: 'r2i-callout-note',
+        role: 'primary',
+      },
+      {
+        id: 'branch-r2i-callout-child',
+        sourceBlockId: 'r2i-callout-root',
+        targetBlockId: 'r2i-callout-child',
+        role: 'primary',
+      },
+      {
+        id: 'branch-r2i-callout-grandchild',
+        sourceBlockId: 'r2i-callout-child',
+        targetBlockId: 'r2i-callout-grandchild',
         role: 'primary',
       },
     ],

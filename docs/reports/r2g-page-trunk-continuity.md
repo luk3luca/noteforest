@@ -1,5 +1,10 @@
 # R2g — Page trunk continuity across pages
 
+> **R2i follow-up (9 November 2026).** The root child group now wraps below the
+> root at the Page child indent. The R2g fixture and expectations use
+> `root:below` and add a great-grandchild so the nested below trunk still crosses
+> a page. The group/segment contract below is unchanged.
+
 > **R2h follow-up (8 November 2026).** The below trunk is now attached to the card bottom
 > (`trunkGap` 0), and wrapped Page children keep at least a 26 px left indent so nested trunks
 > retain a 12 px left inset with a 12 px left stem. The 8 px gap/12 px wrap values below describe

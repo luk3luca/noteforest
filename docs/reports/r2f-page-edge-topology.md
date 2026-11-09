@@ -1,5 +1,11 @@
 # R2f — Page edge topology alignment
 
+> **R2i follow-up (9 November 2026).** Subtree-aware wrap moves the whole
+> direct-child group below the parent when any child subtree does not fit right.
+> The R2f fixture now exercises that topology: wrapped children and callouts share
+> `root:below`, and the grandchild owns the nested `child1:right` trunk. The edge
+> contract described below is unchanged.
+
 **Role:** Builder / Implementer  
 **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-01a2f1de`  
 **Branch:** `t3/r2f-page-edge-topology`  
