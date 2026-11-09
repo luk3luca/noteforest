@@ -7,7 +7,8 @@ import {
   session,
   shell,
 } from 'electron';
-import { basename, join, resolve } from 'node:path';
+import { basename, isAbsolute, join, resolve } from 'node:path';
+import { stat } from 'node:fs/promises';
 import type {
   BootstrapResult,
   FlushResult,
@@ -17,6 +18,7 @@ import type {
   WindowState,
 } from '../shared/api.js';
 import { normalizeFlushResult } from '../shared/flush.js';
+import { pdfFileNameForTitle } from '../shared/export.js';
 import {
   applyCommand,
   appSupportDir,
@@ -513,6 +515,60 @@ function registerIpc(): void {
     appVersion: app.getVersion(),
     platform: process.platform,
   }));
+
+  // M4d2: temporary export entry. The save dialog only chooses the output path;
+  // the job still owns overwrite/atomicity, so a file created after the dialog
+  // is never silently replaced.
+  ipcMain.handle('export:choose-path', async (_event, input: unknown) => {
+    const win = mainWindow;
+    if (win === null || win.isDestroyed()) return { canceled: true as const };
+    const requested =
+      typeof input === 'object' &&
+      input !== null &&
+      typeof (input as { defaultFileName?: unknown }).defaultFileName === 'string'
+        ? (input as { defaultFileName: string }).defaultFileName
+        : '';
+    const defaultFileName = pdfFileNameForTitle(requested.replace(/\.pdf$/i, ''));
+    const choice = await dialog.showSaveDialog(win, {
+      title: 'Export PDF',
+      buttonLabel: 'Export',
+      // A bare filename keeps the OS/Electron default folder (usually the last
+      // used save directory); the UI rework will decide a product default.
+      defaultPath: defaultFileName,
+      filters: [{ name: 'PDF document', extensions: ['pdf'] }],
+      properties: ['createDirectory', 'showOverwriteConfirmation'],
+    });
+    if (
+      choice.canceled ||
+      typeof choice.filePath !== 'string' ||
+      choice.filePath.trim().length === 0
+    ) {
+      return { canceled: true as const };
+    }
+    const outputPath = /\.pdf$/i.test(choice.filePath)
+      ? choice.filePath
+      : `${choice.filePath}.pdf`;
+    let exists = false;
+    try {
+      await stat(outputPath);
+      exists = true;
+    } catch {
+      exists = false;
+    }
+    return { canceled: false as const, outputPath, exists };
+  });
+
+  ipcMain.handle('export:reveal', (_event, outputPath: unknown): RevealResult => {
+    if (
+      typeof outputPath !== 'string' ||
+      !isAbsolute(outputPath) ||
+      !/\.pdf$/i.test(outputPath)
+    ) {
+      return { ok: false, message: 'No PDF path was provided.' };
+    }
+    shell.showItemInFolder(outputPath);
+    return { ok: true };
+  });
 
   ipcMain.on('app:flush-done', (_event, requestId: unknown, result: unknown) => {
     if (typeof requestId !== 'string') return;

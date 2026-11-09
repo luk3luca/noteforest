@@ -3,6 +3,7 @@ import type { AppSettings } from '@noteforest/layout';
 import type {
   ApplyResult,
   BootstrapResult,
+  ChooseExportPathResult,
   CreateDocumentResult,
   ExportJobView,
   ExportPdfInput,
@@ -121,6 +122,10 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('export:job', jobId),
   cancelExport: (jobId: string): Promise<boolean> =>
     ipcRenderer.invoke('export:cancel', jobId),
+  chooseExportPath: (input: { defaultFileName: string }): Promise<ChooseExportPathResult> =>
+    ipcRenderer.invoke('export:choose-path', input),
+  revealExport: (outputPath: string): Promise<RevealResult> =>
+    ipcRenderer.invoke('export:reveal', outputPath),
   onExportSnapshotRequest: (
     handler: (request: ExportSnapshotRequest) => Promise<ExportSnapshotReply>,
   ): (() => void) => {

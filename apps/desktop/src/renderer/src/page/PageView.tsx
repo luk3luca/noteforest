@@ -15,7 +15,7 @@
  * starts the one model run; switching back disposes it.
  */
 
-import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileDown, Minus, Plus } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -42,6 +42,7 @@ import {
   pageCssVariables,
 } from '@noteforest/layout';
 import { openBlockInContinuous } from '../actions';
+import { exportActiveDocument } from '../export/export-flow';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
@@ -875,6 +876,16 @@ export function PageView({
         <div className="nf-page-toolbar-spacer" />
         <div className="nf-page-toolbar-group">
           {model.updating ? <span className="nf-page-status">Updating…</span> : null}
+          <button
+            type="button"
+            className="nf-button nf-page-button nf-page-export"
+            data-page-export="true"
+            title="Export this document to PDF (⇧⌘E)"
+            onClick={exportActiveDocument}
+          >
+            <FileDown size={13} strokeWidth={1.6} aria-hidden="true" />
+            Export PDF
+          </button>
           <button
             type="button"
             className="nf-button nf-page-button nf-page-open-continuous"

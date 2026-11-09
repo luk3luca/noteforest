@@ -22,6 +22,10 @@ declare global {
       openPath: (packagePath: string) => Promise<boolean>;
       flushSession: () => Promise<void>;
       setFlushMode: (mode: 'normal' | 'error' | 'hang') => void;
+      /** Test-only: visible M4d2 export surface state. */
+      exportState?: () => unknown;
+      /** Test-only: ordered M4d2 export surface transitions. */
+      exportHistory?: () => unknown;
       /** Test-only: mount the print compositor from the active Page model. */
       renderPrint?: () => unknown;
       /** Test-only: remove the print compositor test host. */

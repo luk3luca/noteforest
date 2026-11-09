@@ -57,6 +57,32 @@ export interface ExportPdfInput {
 }
 
 /**
+ * Result of the native export save dialog (M4d2).
+ *
+ * `exists` lets the renderer ask for explicit replacement before starting the
+ * job. It is only a hint: the engine still refuses to clobber an existing file
+ * for `overwrite: false`, so a file created after the dialog is never lost.
+ */
+export type ChooseExportPathResult =
+  | { canceled: true }
+  | { canceled: false; outputPath: string; exists: boolean };
+
+/**
+ * Default export filename for a document title. Path separators, reserved
+ * characters, and control characters become spaces; an empty title falls back
+ * to `Untitled`. The `.pdf` extension is added exactly once.
+ */
+export function pdfFileNameForTitle(title: string): string {
+  const cleaned = title
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const base = cleaned.length > 0 ? cleaned : 'Untitled';
+  return /\.pdf$/i.test(base) ? base : `${base}.pdf`;
+}
+
+/**
  * Current-document snapshot handed to the hidden print window.
  *
  * `document` is the layout-shaped canonical document (including unsaved edits),
