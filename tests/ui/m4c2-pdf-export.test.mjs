@@ -252,7 +252,7 @@ describe('M4c2 PDF export orchestration', () => {
     });
   });
 
-  it('exports the same Page lens at 80% and 120% density (M4d1)', async () => {
+  it('exports the same Page lens at 60% and 120% density (M4e2)', async () => {
     const env = ui.isolated('m4c2-density');
     await launch('m4c2-density');
     const packagePath = await openPackage(
@@ -262,7 +262,7 @@ describe('M4c2 PDF export orchestration', () => {
     );
     const results = [];
     for (const [percent, density] of [
-      [80, 0.8],
+      [60, 0.6],
       [120, 1.2],
     ]) {
       await setPageSettings(packagePath, { theme: { density } });
@@ -289,10 +289,10 @@ describe('M4c2 PDF export orchestration', () => {
     const [low, high] = results;
     assert.ok(
       low.job.pageCount <= high.job.pageCount,
-      `80% exports no more pages than 120%: ${low.job.pageCount} vs ${high.job.pageCount}`,
+      `60% exports no more pages than 120%: ${low.job.pageCount} vs ${high.job.pageCount}`,
     );
     record({
-      case: 'density 80/120',
+      case: 'density 60/120',
       pages: results.map((item) => ({ density: item.percent, pageCount: item.job.pageCount })),
       textChars: results.map((item) => item.pdf.text.length),
     });

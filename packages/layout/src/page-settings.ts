@@ -49,7 +49,7 @@ export type PageThemePreset = 'compact' | 'comfortable' | 'custom';
 export interface PageTheme {
   preset: PageThemePreset;
   /**
-   * Page-only density multiplier (0.8–1.2, default 1, step 0.05).
+   * Page-only density multiplier (0.6–1.2, default 1, step 0.05).
    *
    * The stored theme values are the unmodified theme; `effectivePageTheme`
    * applies this lens once for layout, measurement, CSS, and print. Density
@@ -231,33 +231,40 @@ export const DEFAULT_PAGE_SETTINGS: Readonly<PageSettings> = Object.freeze({
 
 
 /**
- * Page density lens (M4d1).
+ * Page density lens (M4d1, widened in M4e2).
  *
- * One user-facing slider: 80–120%, step 5, default 100. The value is stored in
+ * One user-facing slider: 60–120%, step 5, default 100. The value is stored in
  * `PageTheme.density` and applied by `effectivePageTheme`; a stored theme is
  * always the unmodified preset/override, so changing density is reversible.
+ * Every value is snapped to the 5% step, so the slider, `settings.json`, and a
+ * per-document override share one canonical range.
  */
-export const PAGE_DENSITY_MIN = 0.8;
+export const PAGE_DENSITY_MIN = 0.6;
 export const PAGE_DENSITY_MAX = 1.2;
 export const PAGE_DENSITY_STEP = 0.05;
 export const PAGE_DENSITY_DEFAULT = 1;
-/** Density never takes body/label type below 8 pt. */
-export const PAGE_BODY_PT_FLOOR = 8;
+/**
+ * Density type floor: at 60% even a 9 pt body lands here (5.4 would be
+ * unreadable). The floor is the anchor of the low-density type curve.
+ */
+export const PAGE_BODY_PT_FLOOR = 7;
 /** Density never takes a card below this content width. */
-export const PAGE_MIN_CONTENT_WIDTH_FLOOR = 150;
-/** Readable clamp for a density-scaled `maxCardWidth`. */
-export const PAGE_MAX_CARD_WIDTH_MIN = 280;
+export const PAGE_MIN_CONTENT_WIDTH_FLOOR = 140;
+/** Readable clamp for a density-scaled `maxCardWidth`; the 60% preset lands at 252. */
+export const PAGE_MAX_CARD_WIDTH_MIN = 240;
 export const PAGE_MAX_CARD_WIDTH_MAX = 560;
 
 /**
- * Clamp and round a density value to the 0.8–1.2 lens.
+ * Clamp and snap a density value to the 60–120% lens.
  *
  * `effectivePageTheme` and every settings merge path use this one function, so
  * a document override, settings.json, or a slider cannot introduce a third
- * range or a floating-point fingerprint.
+ * range, an off-step value, or a floating-point fingerprint.
  */
 export function normalizePageDensity(value: unknown): number {
-  return roundTo(finiteNumber(value, PAGE_DENSITY_DEFAULT, PAGE_DENSITY_MIN, PAGE_DENSITY_MAX));
+  const clamped = finiteNumber(value, PAGE_DENSITY_DEFAULT, PAGE_DENSITY_MIN, PAGE_DENSITY_MAX);
+  const snapped = Math.round(clamped / PAGE_DENSITY_STEP) * PAGE_DENSITY_STEP;
+  return Math.min(PAGE_DENSITY_MAX, Math.max(PAGE_DENSITY_MIN, roundTo(snapped)));
 }
 
 function roundTo(value: number): number {
@@ -334,7 +341,10 @@ export function pageGeometry(setup: PageSetup): PageGeometry {
  * The page model and the print model both compute this from the same resolved
  * settings; a stale/mismatched pair fails the export instead of silently
  * rendering a different page count. The theme object carries `density`, so two
- * lenses over the same document never share a fingerprint.
+ * lenses over the same document never share a fingerprint. The effective theme
+ * is part of the identity as well: the density type/spacing floors are model
+ * inputs, so a model measured under different floors can never be accepted as
+ * current even when the stored settings are identical.
  */
 export function pageSettingsFingerprint(settings: PageSettings): string {
   return JSON.stringify([
@@ -343,13 +353,14 @@ export function pageSettingsFingerprint(settings: PageSettings): string {
     settings.setup.margins,
     settings.theme,
     settings.manualBreakBeforeBlockIds,
+    effectivePageTheme(settings.theme),
   ]);
 }
 
 /**
  * Readability guard for a scaled `minContentWidth`.
  *
- * The 150 px floor applies to the preset range; a custom value the user set
+ * The 140 px floor applies to the preset range; a custom value the user set
  * below it keeps scaling instead of jumping up.
  */
 function scaledContentWidthFloor(original: number, scaled: number): number {
@@ -359,10 +370,10 @@ function scaledContentWidthFloor(original: number, scaled: number): number {
 }
 
 /**
- * Readability clamp for a scaled `maxCardWidth` (280–560).
+ * Readability clamp for a scaled `maxCardWidth` (240–560).
  *
  * The band is applied only when the stored cap is inside it, so the default
- * 420 px card becomes 336–504; an explicit custom narrow/wide cap keeps its
+ * 420 px card becomes 252–504; an explicit custom narrow/wide cap keeps its
  * own scaling instead of being rewritten by the density lens.
  */
 function scaledCardWidth(original: number, scaled: number): number {
@@ -377,9 +388,16 @@ function scaledCardWidth(original: number, scaled: number): number {
  *
  * This is the single effective-theme resolution: layout options, CSS variables,
  * DOM measurement, Page Read/Edit, and the print/export snapshot all consume
- * this function's output. Typography scales with a body-floor of 8 pt, box
- * metrics scale with their readability floors, and page setup/margins are not
- * part of the theme at all.
+ * this function's output.
+ *
+ * Type curve below 100%: each type size interpolates linearly from its
+ * readability floor at 60% to its preset value at 100% (M4e2). At 80% the
+ * compact body is exactly 8 pt, at 60% exactly 7 pt, so every step is more
+ * compact than the one above it while the floor is reached only at the slider
+ * minimum. Above 100% type scales proportionally. Box metrics scale
+ * proportionally all the way down, with their own readability floors
+ * (`minContentWidth` 140, `maxCardWidth` 240–560). Page setup and margins are
+ * not part of the theme.
  *
  * The returned theme carries `density: 1`, so applying the lens twice is
  * idempotent. At 100% the stored theme is returned unchanged.
@@ -389,12 +407,28 @@ export function effectivePageTheme(theme: PageTheme): PageTheme {
   if (density === 1) return theme;
 
   const scale = (value: number): number => roundTo(value * density);
-  const bodyPt = Math.max(PAGE_BODY_PT_FLOOR, scale(theme.bodyPt));
+  // Position inside the low-density band: 0 at 60%, 1 at 100%.
+  const lowBand = Math.min(
+    1,
+    Math.max(0, (density - PAGE_DENSITY_MIN) / (1 - PAGE_DENSITY_MIN)),
+  );
+  /**
+   * Floor-anchored type: a preset value above its floor reaches the floor at
+   * 60% and the preset value at 100%. A custom value already below the floor
+   * keeps proportional scaling (same policy as `minContentWidth`), so the lens
+   * never enlarges a deliberately small custom size.
+   */
+  const type = (base: number, floor: number): number => {
+    if (base < floor || density >= 1) return scale(base);
+    return roundTo(floor + (base - floor) * lowBand);
+  };
+  const bodyFloor = PAGE_BODY_PT_FLOOR;
+  const bodyPt = type(theme.bodyPt, bodyFloor);
   // Headings stay above body even when the body hits its floor; code, tables,
   // chrome, and markers keep their own smaller floors.
-  const heading1Pt = Math.max(bodyPt + 3, scale(theme.heading1Pt));
-  const heading2Pt = Math.max(bodyPt + 1.5, scale(theme.heading2Pt));
-  const heading3Pt = Math.max(bodyPt + 1, scale(theme.heading3Pt));
+  const heading1Pt = Math.max(bodyPt + 3, type(theme.heading1Pt, bodyFloor + 3));
+  const heading2Pt = Math.max(bodyPt + 1.5, type(theme.heading2Pt, bodyFloor + 1.5));
+  const heading3Pt = Math.max(bodyPt + 1, type(theme.heading3Pt, bodyFloor + 1));
   const wrapIndent = scale(theme.wrapIndent);
   const maxWrapIndent = Math.max(wrapIndent, scale(theme.maxWrapIndent));
   const childTrunkInset = scale(theme.childTrunkInset);
@@ -421,11 +455,11 @@ export function effectivePageTheme(theme: PageTheme): PageTheme {
     heading1Pt,
     heading2Pt,
     heading3Pt,
-    codePt: Math.max(7, scale(theme.codePt)),
-    tablePt: Math.max(7, scale(theme.tablePt)),
-    labelPt: Math.max(PAGE_BODY_PT_FLOOR, scale(theme.labelPt)),
-    chromePt: Math.max(6, scale(theme.chromePt)),
-    markerPt: Math.max(6, scale(theme.markerPt)),
+    codePt: type(theme.codePt, 7),
+    tablePt: type(theme.tablePt, 7),
+    labelPt: type(theme.labelPt, bodyFloor),
+    chromePt: type(theme.chromePt, 6),
+    markerPt: type(theme.markerPt, 6),
     cardPadding: scale(theme.cardPadding),
     segmentGap: scale(theme.segmentGap),
     siblingGap: scale(theme.siblingGap),

@@ -141,12 +141,18 @@ describe('page model pure parts', () => {
   });
 });
 
-describe('Page density model lens (M4d1)', () => {
+describe('Page density model lens (M4d1/M4e2)', () => {
   it('feeds the density lens into layout options and the model fingerprint', () => {
     const document = longDocument();
     const note = toLayoutDocument(document);
+    const lowest = normalizePageSettings({ theme: { density: 0.6 } });
     const low = normalizePageSettings({ theme: { density: 0.8 } });
     const high = normalizePageSettings({ theme: { density: 1.2 } });
+    const lowestModel = computePageModel(
+      note,
+      createEstimatedMeasurement(note, pageLayoutOptions(lowest.theme)),
+      lowest,
+    );
     const lowModel = computePageModel(
       note,
       createEstimatedMeasurement(note, pageLayoutOptions(low.theme)),
@@ -157,12 +163,20 @@ describe('Page density model lens (M4d1)', () => {
       createEstimatedMeasurement(note, pageLayoutOptions(high.theme)),
       high,
     );
+    expect(lowestModel.layout.layoutOptions).toEqual(pageLayoutOptions(lowest.theme));
+    expect(lowestModel.layout.layoutOptions).toMatchObject({
+      cardPadding: 4.8,
+      minContentWidth: 140,
+      maxContentWidth: 252,
+    });
     expect(lowModel.layout.layoutOptions).toEqual(pageLayoutOptions(low.theme));
     expect(highModel.layout.layoutOptions).toEqual(pageLayoutOptions(high.theme));
     expect(lowModel.layout.layoutOptions?.cardPadding).toBe(6.4);
     expect(highModel.layout.layoutOptions?.cardPadding).toBe(9.6);
-    expect(lowModel.layout.geometry).toEqual(highModel.layout.geometry);
+    expect(lowestModel.layout.geometry).toEqual(highModel.layout.geometry);
+    expect(lowestModel.settingsFingerprint).not.toBe(lowModel.settingsFingerprint);
     expect(lowModel.settingsFingerprint).not.toBe(highModel.settingsFingerprint);
+    expect(lowestModel.pages.length).toBeGreaterThan(0);
     expect(lowModel.pages.length).toBeGreaterThan(0);
     expect(highModel.pages.length).toBeGreaterThan(0);
   });

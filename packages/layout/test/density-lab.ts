@@ -25,19 +25,19 @@ import {
 import { loadLabDocument } from './layout-lab.js';
 
 /**
- * M4d1 Page density lab.
+ * M4e2 Page density lab (M4d1 + the 60-120% range).
  *
  * The layout pass is the real `layoutDocument` + `paginate`; measurement is the
  * DOM-free estimator with the same box options as the layout pass. Page counts
  * are therefore an estimate: typography is fixed in the estimator, while the
  * real DOM also shrinks text. The authoritative real-DOM numbers come from the
- * M4d1 UI suite; this lab records the reproducible trend for showcase, stress,
- * and scale-300 at every slider step.
+ * M4d1/M4e2 UI suite; this lab records the reproducible trend for showcase,
+ * stress, and scale-300 at every slider step.
  */
 
 export const STRESS_PATH =
   '/Users/luca/Documents/NoteForest/note-forest-stress-test/document.json';
-export const DENSITY_STEPS = [0.8, 0.85, 0.9, 1, 1.1, 1.2] as const;
+export const DENSITY_STEPS = [0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2] as const;
 
 export type DensityFixture = 'showcase' | 'stress' | 'scale-300';
 
@@ -186,9 +186,7 @@ export function computeDensityMetrics(
       densityPercent: Math.round(settings.theme.density * 100),
       bodyPt: effective.bodyPt,
       heading1Pt: effective.heading1Pt,
-      bodyClamped:
-        settings.theme.bodyPt * settings.theme.density < PAGE_BODY_PT_FLOOR &&
-        effective.bodyPt === PAGE_BODY_PT_FLOOR,
+      bodyClamped: effective.bodyPt <= PAGE_BODY_PT_FLOOR + 0.001,
       cardPadding: effective.cardPadding,
       segmentGap: effective.segmentGap,
       siblingGap: effective.siblingGap,
@@ -210,16 +208,16 @@ export function computeDensityMetrics(
 export function densityInvariantFailures(row: DensityLabRow): string[] {
   const failures: string[] = [];
   if (row.bodyPt < PAGE_BODY_PT_FLOOR) {
-    failures.push(`${row.label} ${row.densityPercent}%: body ${row.bodyPt} pt < 8 pt`);
+    failures.push(`${row.label} ${row.densityPercent}%: body ${row.bodyPt} pt < ${PAGE_BODY_PT_FLOOR} pt`);
   }
   if (row.minContentWidth < PAGE_MIN_CONTENT_WIDTH_FLOOR) {
     failures.push(
-      `${row.label} ${row.densityPercent}%: minContentWidth ${row.minContentWidth} < 150`,
+      `${row.label} ${row.densityPercent}%: minContentWidth ${row.minContentWidth} < ${PAGE_MIN_CONTENT_WIDTH_FLOOR}`,
     );
   }
   if (row.maxCardWidth < PAGE_MAX_CARD_WIDTH_MIN) {
     failures.push(
-      `${row.label} ${row.densityPercent}%: maxCardWidth ${row.maxCardWidth} < 280`,
+      `${row.label} ${row.densityPercent}%: maxCardWidth ${row.maxCardWidth} < ${PAGE_MAX_CARD_WIDTH_MIN}`,
     );
   }
   if (row.maxCardWidth > Math.max(PAGE_MAX_CARD_WIDTH_MAX, row.minContentWidth)) {
@@ -259,7 +257,7 @@ export function formatDensityTable(rows: readonly DensityLabRow[]): string {
     `${(row.whitespaceRatio * 100).toFixed(1)}%`,
     row.layoutHeight.toFixed(1),
     String(row.defects),
-    row.bodyClamped ? 'body floor' : 'scaled',
+    row.bodyClamped ? 'body floor' : 'curve',
   ]);
   const widths = header.map((cell, index) =>
     Math.max(cell.length, ...body.map((row) => row[index]?.length ?? 0)),

@@ -387,12 +387,12 @@ export function usePageSettings(
   return useMemo(() => mergePageSettings(globalPage, override), [globalPage, override]);
 }
 
-/** Slider percent (integer 80–120) of a density value. */
+/** Slider percent (integer 60–120) of a density value. */
 export function pageDensityPercent(density: number): number {
   return Math.round(normalizePageDensity(density) * 100);
 }
 
-/** Density multiplier from a slider percent value (80–120). */
+/** Density multiplier from a slider percent value (60–120). */
 export function pageDensityValue(percent: number): number {
   return normalizePageDensity(percent / 100);
 }

@@ -12,12 +12,12 @@ import {
 } from '../support/page-fixtures.mjs';
 
 /**
- * M4d1 Page density control.
+ * M4d1/M4e2 Page density control.
  *
- * The suite proves the thin slice end to end: the settings slider, the global
- * and per-document scopes, re-pagination, Page Read/Edit typography at two
- * densities, and the real-DOM page-count trend on scale-300 (plus the local
- * showcase/stress notes when present).
+ * The suite proves the slice end to end: the settings slider, the global and
+ * per-document scopes, re-pagination, Page Read/Edit typography at 60/120
+ * (M4e2 range), and the real-DOM page-count trend at 60/70/80/90/100/110/120
+ * on scale-300 (plus the local showcase/stress notes when present).
  */
 
 const tempRoot = artifactsPath('m4d1-ui');
@@ -28,7 +28,7 @@ let page;
 const FIXTURES = resolve(import.meta.dirname, '../../fixtures');
 const SHOWCASE_PACKAGE = '/Users/luca/Documents/NoteForest/note-forest-showcase';
 const STRESS_PACKAGE = '/Users/luca/Documents/NoteForest/note-forest-stress-test';
-const DENSITIES = [0.8, 0.9, 1, 1.1, 1.2];
+const DENSITIES = [0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2];
 
 async function launch(name) {
   page = await ui.launch(ui.isolated(name));
@@ -257,7 +257,7 @@ describe('M4d1 Page density control', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('re-paginates Page Read and Page Edit at 80% and 120%', async () => {
+  it('re-paginates Page Read and Page Edit at 60% and 120%', async () => {
     const env = ui.isolated('m4d1-read-edit');
     await launch('m4d1-read-edit');
     await openPackage(env, 'density-blocks', multiPageBlocksDocument(48));
@@ -275,6 +275,8 @@ describe('M4d1 Page density control', () => {
     const pages120 = await pageCount();
     const height120 = await firstFragmentHeight();
     assert.ok(Math.abs((await bodyPx()) - ptToPx(10.8)) < 0.05, '10.8 pt at 96 dpi');
+    await mkdir(artifactsPath('m4e2'), { recursive: true });
+    await page.screenshot({ path: join(artifactsPath('m4e2'), 'page-read-120.png') });
     assert.ok(height120 > height100, `card grows at 120%: ${height100} -> ${height120}`);
     assert.ok(
       pages120 >= pages100,
@@ -307,7 +309,8 @@ describe('M4d1 Page density control', () => {
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-page-edit-overlay]', { state: 'detached', timeout: 10000 });
 
-    // 80%: body clamps at the 8 pt floor, geometry still shrinks, pages drop.
+    // 60%: body reaches the 7 pt floor (M4e2), geometry shrinks, the model
+    // re-runs under the new low end.
     await page.keyboard.press('Meta+e');
     await page.waitForFunction(
       () =>
@@ -317,34 +320,41 @@ describe('M4d1 Page density control', () => {
       undefined,
       { timeout: 5000 },
     );
-    await setGlobalDensity(0.8);
-    await waitPageReady({ bodySize: '8pt', density: 80 });
-    const pages80 = await pageCount();
-    const height80 = await firstFragmentHeight();
-    assert.ok(Math.abs((await bodyPx()) - ptToPx(8)) < 0.05, '8 pt at 96 dpi (body floor)');
-    assert.ok(height80 < height120, `card shrinks at 80%: ${height120} -> ${height80}`);
-    // A stack of single-line cards that sit at the width cap is the worst case
-    // for the low end (the 8 pt floor shrinks type less than the card cap and a
-    // card can wrap one line more). The real-document page-count trend is in the
-    // lab test below; here the contract is that 80% never needs more pages than
-    // 120% and that the model re-ran under the new lens.
+    await setGlobalDensity(0.6);
+    await waitPageReady({ bodySize: '7pt', density: 60 });
+    const pages60 = await pageCount();
+    const height60 = await firstFragmentHeight();
+    assert.ok(Math.abs((await bodyPx()) - ptToPx(7)) < 0.05, '7 pt at 96 dpi (body floor)');
+    assert.ok(height60 < height120, `card shrinks at 60%: ${height120} -> ${height60}`);
+    const padding60 = await activePageView().evaluate((element) =>
+      getComputedStyle(element).getPropertyValue('--nf-page-card-padding').trim(),
+    );
+    assert.equal(padding60, '4.8px', '60% card padding is density-scaled');
+    // A stack of single-line cards at the width cap is the worst case for the
+    // low end. The real-document page-count trend is in the lab test below;
+    // here the contract is that 60% never needs more pages than 120% and that
+    // the model re-ran under the new lens.
     assert.ok(
-      pages80 <= pages120,
-      `80% never needs more pages than 120%: ${pages80} vs ${pages120}`,
+      pages60 <= pages120,
+      `60% never needs more pages than 120%: ${pages60} vs ${pages120}`,
     );
 
+    const screenshotDir = artifactsPath('m4e2');
+    await mkdir(screenshotDir, { recursive: true });
+    await page.screenshot({ path: join(screenshotDir, 'page-read-60.png') });
+
     await page.keyboard.press('Meta+e');
-    const fragment80 = activePageView().locator('.nf-page-fragment').first();
-    await fragment80.waitFor();
-    await fragment80.dblclick();
-    const overlay80 = page.locator('.nf-editor[data-active="true"] [data-page-edit-overlay]');
-    await overlay80.waitFor({ timeout: 5000 });
+    const fragment60 = activePageView().locator('.nf-page-fragment').first();
+    await fragment60.waitFor();
+    await fragment60.dblclick();
+    const overlay60 = page.locator('.nf-editor[data-active="true"] [data-page-edit-overlay]');
+    await overlay60.waitFor({ timeout: 5000 });
     assert.equal(
-      await overlay80.evaluate((element) =>
+      await overlay60.evaluate((element) =>
         getComputedStyle(element).getPropertyValue('--nf-page-body-size').trim(),
       ),
-      '8pt',
-      'Page Edit follows the clamped 80% lens',
+      '7pt',
+      'Page Edit follows the 60% lens',
     );
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-page-edit-overlay]', { state: 'detached', timeout: 10000 });
@@ -352,7 +362,7 @@ describe('M4d1 Page density control', () => {
     const persisted = JSON.parse(
       await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8'),
     );
-    assert.equal(persisted.page.theme.density, 0.8, 'the global density persists');
+    assert.equal(persisted.page.theme.density, 0.6, 'the global density persists');
   });
 
   it('applies the Settings slider globally and as a per-document override', async () => {
@@ -364,6 +374,12 @@ describe('M4d1 Page density control', () => {
 
     await openSettings();
     assert.equal(await densityDraftValue(), '100%');
+    const sliderRange = await page.locator('[data-page-density-slider]').evaluate((element) => ({
+      min: element.min,
+      max: element.max,
+      step: element.step,
+    }));
+    assert.deepEqual(sliderRange, { min: '60', max: '120', step: '5' }, 'M4e2 slider range');
     assert.equal(
       await page.locator('[data-page-density-scope-option="global"]').isChecked(),
       true,
@@ -383,7 +399,7 @@ describe('M4d1 Page density control', () => {
       path: join(screenshotDir, 'settings-page-density.png'),
     });
     await closeSettings();
-    await waitPageReady({ bodySize: '8pt', density: 85 });
+    await waitPageReady({ bodySize: '8.25pt', density: 85 });
     assert.equal((await settings()).app.page.theme.density, 0.85);
     assert.equal(
       (await settings()).pageOverrides[packagePath],
@@ -434,7 +450,7 @@ describe('M4d1 Page density control', () => {
     await page.locator('[data-page-density-use-global]').click();
     await page.waitForSelector('[data-page-density-saved="true"]');
     await closeSettings();
-    await waitPageReady({ density: 85, bodySize: '8pt' });
+    await waitPageReady({ density: 85, bodySize: '8.25pt' });
     assert.equal((await settings()).pageOverrides[packagePath], undefined);
 
     // Cancel discards the draft and never persists it.
@@ -494,16 +510,19 @@ describe('M4d1 Page density control', () => {
 
     for (const label of new Set(rows.map((row) => row.label))) {
       const fixtureRows = rows.filter((row) => row.label === label);
-      const low = fixtureRows.find((row) => row.density === 80);
+      const lowest = fixtureRows.find((row) => row.density === 60);
+      const dense = fixtureRows.find((row) => row.density === 80);
       const high = fixtureRows.find((row) => row.density === 120);
-      assert.ok(low !== undefined && high !== undefined);
-      assert.ok(low.pages <= high.pages, `${label}: 80% pages <= 120% pages`);
+      assert.ok(lowest !== undefined && dense !== undefined && high !== undefined);
+      assert.ok(lowest.pages <= high.pages, `${label}: 60% pages <= 120% pages`);
       assert.ok(
-        Number.parseFloat(low.body) >= 8,
-        `${label}: body never below 8 pt (${low.body})`,
+        Number.parseFloat(lowest.body) >= 7,
+        `${label}: body never below 7 pt (${lowest.body})`,
       );
+      assert.equal(lowest.body, '7pt', `${label}: 60% reaches the floor`);
+      assert.equal(dense.body, '8pt', `${label}: 80% keeps the 8 pt evidence`);
       assert.ok(
-        Number.parseFloat(low.cardPadding) < Number.parseFloat(high.cardPadding),
+        Number.parseFloat(lowest.cardPadding) < Number.parseFloat(high.cardPadding),
         `${label}: card padding shrinks with density`,
       );
     }

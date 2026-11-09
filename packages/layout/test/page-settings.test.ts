@@ -15,6 +15,7 @@ import {
   PAGE_DENSITY_DEFAULT,
   PAGE_DENSITY_MAX,
   PAGE_DENSITY_MIN,
+  PAGE_DENSITY_STEP,
   PAGE_MAX_CARD_WIDTH_MAX,
   PAGE_MAX_CARD_WIDTH_MIN,
   PAGE_MIN_CONTENT_WIDTH_FLOOR,
@@ -379,22 +380,37 @@ describe('theme maps', () => {
   });
 });
 
-describe('page density lens (M4d1)', () => {
+describe('page density lens (M4d1/M4e2)', () => {
   const compact = PAGE_THEME_PRESETS.compact;
   const at = (density: number) => effectivePageTheme({ ...compact, density });
 
-  it('defaults to 100% and normalizes the 80–120 range', () => {
+  it('defaults to 100% and normalizes the 60-120 range to the 5% step', () => {
     expect(DEFAULT_PAGE_SETTINGS.theme.density).toBe(PAGE_DENSITY_DEFAULT);
     expect(normalizePageSettings().theme.density).toBe(1);
+    expect(PAGE_DENSITY_MIN).toBe(0.6);
+    expect(PAGE_DENSITY_MAX).toBe(1.2);
+    expect(PAGE_DENSITY_STEP).toBe(0.05);
     expect(normalizePageSettings({ theme: { density: 0.5 } }).theme.density).toBe(
       PAGE_DENSITY_MIN,
     );
     expect(normalizePageSettings({ theme: { density: 9 } }).theme.density).toBe(PAGE_DENSITY_MAX);
-    expect(normalizePageSettings({ theme: { density: 0.854 } }).theme.density).toBe(0.85);
     expect(normalizePageSettings({ theme: { density: 'x' } }).theme.density).toBe(1);
     expect(normalizePageDensity(Number.NaN)).toBe(1);
-    for (const density of [0.8, 0.85, 0.9, 1, 1.1, 1.2]) {
+    // One canonical 5% step for the slider, settings.json, and overrides.
+    expect(normalizePageDensity(0.62)).toBe(0.6);
+    expect(normalizePageDensity(0.854)).toBe(0.85);
+    expect(normalizePageDensity(0.63)).toBe(0.65);
+    expect(normalizePageDensity(1.19)).toBe(1.2);
+    for (const density of [0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.2]) {
       expect(normalizePageDensity(density)).toBe(density);
+    }
+  });
+
+  it('keeps every 80-120 value valid and adds the 60-75 steps', () => {
+    for (const density of [0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2]) {
+      const settings = normalizePageSettings({ theme: { density } });
+      expect(settings.theme.density).toBe(density);
+      expect(at(density).bodyPt).toBeGreaterThanOrEqual(PAGE_BODY_PT_FLOOR);
     }
   });
 
@@ -407,6 +423,10 @@ describe('page density lens (M4d1)', () => {
     // Another document keeps the global lens.
     expect(mergePageSettings(DEFAULT_PAGE_SETTINGS, undefined).theme.density).toBe(1);
     expect(normalizePageSettingsOverride({ theme: { density: 'bad' } })).toBeUndefined();
+    // The new low end round-trips through the same override path.
+    expect(normalizePageSettingsOverride({ theme: { density: 0.6 } })).toEqual({
+      theme: { density: 0.6 },
+    });
   });
 
   it('keeps density across a preset switch unless the override names one', () => {
@@ -420,29 +440,90 @@ describe('page density lens (M4d1)', () => {
     expect(explicit.theme.density).toBe(1.1);
   });
 
-  it('includes density in the settings fingerprint', () => {
-    const low = normalizePageSettings({ theme: { density: 0.9 } });
-    const lowAgain = normalizePageSettings({ theme: { density: 0.9 } });
+  it('includes density and the effective lens in the settings fingerprint', () => {
+    const low = normalizePageSettings({ theme: { density: 0.6 } });
+    const lowAgain = normalizePageSettings({ theme: { density: 0.6 } });
     const normal = normalizePageSettings({ theme: { density: 1 } });
     expect(pageSettingsFingerprint(low)).toBe(pageSettingsFingerprint(lowAgain));
     expect(pageSettingsFingerprint(low)).not.toBe(pageSettingsFingerprint(normal));
+    expect(
+      pageSettingsFingerprint(normalizePageSettings({ theme: { density: 0.8 } })),
+    ).not.toBe(pageSettingsFingerprint(normalizePageSettings({ theme: { density: 0.9 } })));
+    // The measured identity carries the resolved floors, not only the stored
+    // density: a model measured under a different lens cannot be accepted.
+    const parts = JSON.parse(pageSettingsFingerprint(low)) as unknown[];
+    expect(parts[3]).toMatchObject({ density: 0.6 });
+    expect(parts[5]).toMatchObject({
+      density: 1,
+      bodyPt: PAGE_BODY_PT_FLOOR,
+      maxCardWidth: 252,
+      minContentWidth: PAGE_MIN_CONTENT_WIDTH_FLOOR,
+    });
   });
 
-  it('scales typography with the 8 pt body floor and keeps headings above body', () => {
-    const low = at(0.8);
+  it('makes 60% strictly more compact than 65/70/80/90/100% in type and boxes', () => {
+    const steps = [0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1];
+    const themes = steps.map(at);
+    for (let index = 1; index < themes.length; index += 1) {
+      const lower = themes[index - 1]!;
+      const higher = themes[index]!;
+      expect(lower.bodyPt, `body at ${steps[index]}`).toBeLessThan(higher.bodyPt);
+      expect(lower.heading1Pt).toBeLessThan(higher.heading1Pt);
+      expect(lower.cardPadding).toBeLessThan(higher.cardPadding);
+      expect(lower.segmentGap).toBeLessThan(higher.segmentGap);
+      expect(lower.maxCardWidth).toBeLessThan(higher.maxCardWidth);
+    }
+    expect(themes[0]).toMatchObject({
+      bodyPt: 7,
+      heading1Pt: 10,
+      heading2Pt: 8.5,
+      heading3Pt: 8,
+      codePt: 7,
+      tablePt: 7,
+      labelPt: 7,
+      chromePt: 6,
+      markerPt: 6,
+      cardPadding: 4.8,
+      segmentGap: 2.4,
+      siblingGap: 9.6,
+      maxCardWidth: 252,
+      minContentWidth: PAGE_MIN_CONTENT_WIDTH_FLOOR,
+    });
+    expect(themes[4]).toMatchObject({
+      bodyPt: 8,
+      heading1Pt: 12,
+      heading2Pt: 10.25,
+      heading3Pt: 9.25,
+      codePt: 7.5,
+      cardPadding: 6.4,
+      maxCardWidth: 336,
+    });
+    expect(themes[6]).toMatchObject({
+      bodyPt: 8.5,
+      heading1Pt: 13,
+      heading2Pt: 11.13,
+      cardPadding: 7.2,
+      maxCardWidth: 378,
+      minContentWidth: 144,
+    });
+    expect(themes[8]).toEqual(compact);
+  });
+
+  it('scales typography from the 7 pt floor to the preset and keeps headings above body', () => {
+    const low = at(0.6);
     expect(low.bodyPt).toBe(PAGE_BODY_PT_FLOOR);
     expect(low.labelPt).toBe(PAGE_BODY_PT_FLOOR);
     expect(low.codePt).toBe(7);
     expect(low.tablePt).toBe(7);
-    expect(low.heading3Pt).toBe(9);
-    expect(low.heading2Pt).toBe(9.6);
-    expect(low.heading1Pt).toBe(11.2);
+    expect(low.heading3Pt).toBeGreaterThanOrEqual(low.bodyPt);
+    expect(low.heading2Pt).toBeGreaterThan(low.bodyPt);
+    expect(low.heading1Pt).toBeGreaterThan(low.bodyPt);
     const high = at(1.2);
     expect(high.bodyPt).toBe(10.8);
     expect(high.heading1Pt).toBe(16.8);
     expect(high.heading2Pt).toBe(14.4);
     expect(high.heading3Pt).toBe(12.6);
-    for (const density of [0.8, 0.85, 0.9, 1, 1.1, 1.2]) {
+    for (const density of [0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 1, 1.1, 1.2]) {
       const theme = at(density);
       expect(theme.bodyPt).toBeGreaterThanOrEqual(PAGE_BODY_PT_FLOOR);
       expect(theme.heading1Pt).toBeGreaterThan(theme.bodyPt);
@@ -452,16 +533,16 @@ describe('page density lens (M4d1)', () => {
   });
 
   it('scales box metrics, indents, and the readable card clamps', () => {
-    const low = at(0.8);
-    expect(low.cardPadding).toBe(6.4);
-    expect(low.segmentGap).toBe(3.2);
-    expect(low.siblingGap).toBe(12.8);
-    expect(low.wrapIndent).toBe(9.6);
-    expect(low.maxWrapIndent).toBe(28.8);
-    expect(low.childIndent).toBe(23.6);
-    expect(low.childTrunkInset).toBe(9.6);
-    expect(low.calloutCardIndent).toBe(30.4);
-    expect(low.maxCardWidth).toBe(336);
+    const low = at(0.6);
+    expect(low.cardPadding).toBe(4.8);
+    expect(low.segmentGap).toBe(2.4);
+    expect(low.siblingGap).toBe(9.6);
+    expect(low.wrapIndent).toBe(7.2);
+    expect(low.maxWrapIndent).toBe(21.6);
+    expect(low.childIndent).toBe(21.2);
+    expect(low.childTrunkInset).toBe(7.2);
+    expect(low.calloutCardIndent).toBe(22.8);
+    expect(low.maxCardWidth).toBe(252);
     expect(low.minContentWidth).toBe(PAGE_MIN_CONTENT_WIDTH_FLOOR);
     const high = at(1.2);
     expect(high.cardPadding).toBe(9.6);
@@ -469,7 +550,7 @@ describe('page density lens (M4d1)', () => {
     expect(high.wrapIndent).toBe(14.4);
     expect(high.maxCardWidth).toBe(504);
     expect(high.minContentWidth).toBe(192);
-    for (const density of [0.8, 0.85, 0.9, 1, 1.1, 1.2]) {
+    for (const density of [0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 1, 1.1, 1.2]) {
       const theme = at(density);
       expect(theme.minContentWidth).toBeGreaterThanOrEqual(PAGE_MIN_CONTENT_WIDTH_FLOOR);
       expect(theme.maxCardWidth).toBeGreaterThanOrEqual(PAGE_MAX_CARD_WIDTH_MIN);
@@ -484,7 +565,7 @@ describe('page density lens (M4d1)', () => {
   });
 
   it('leaves an explicit custom card cap outside the readable band alone', () => {
-    // A custom narrow cap keeps scaling instead of jumping up to 280.
+    // A custom narrow cap keeps scaling instead of jumping up to 240.
     const narrow = effectivePageTheme({
       ...compact,
       density: 0.8,
@@ -496,13 +577,13 @@ describe('page density lens (M4d1)', () => {
     // A custom wide cap keeps scaling instead of being cut to 560.
     const wide = effectivePageTheme({ ...compact, density: 1.2, maxCardWidth: 1000 });
     expect(wide.maxCardWidth).toBe(1200);
-    // A cap inside the band is guarded at 280 when it would go below.
-    const guarded = effectivePageTheme({ ...compact, density: 0.8, maxCardWidth: 300 });
-    expect(guarded.maxCardWidth).toBe(280);
+    // A cap inside the band is guarded at 240 when it would go below.
+    const guarded = effectivePageTheme({ ...compact, density: 0.6, maxCardWidth: 300 });
+    expect(guarded.maxCardWidth).toBe(240);
   });
 
   it('never changes page setup or margins', () => {
-    const low = normalizePageSettings({ theme: { density: 0.8 } });
+    const low = normalizePageSettings({ theme: { density: 0.6 } });
     const high = normalizePageSettings({ theme: { density: 1.2 } });
     expect(low.setup).toEqual(DEFAULT_PAGE_SETTINGS.setup);
     expect(high.setup).toEqual(DEFAULT_PAGE_SETTINGS.setup);
@@ -514,29 +595,34 @@ describe('page density lens (M4d1)', () => {
     expect(effective.density).toBe(1);
     // Applying the lens twice is the identity.
     expect(effectivePageTheme(effective)).toBe(effective);
-    expect(pageLayoutOptions(at(0.8))).toMatchObject({
-      minContentWidth: 150,
-      maxContentWidth: 336,
-      cardPadding: 6.4,
-      segmentGap: 3.2,
-      siblingGap: 12.8,
-      wrapIndent: 9.6,
+    expect(pageLayoutOptions(at(0.6))).toMatchObject({
+      minContentWidth: 140,
+      maxContentWidth: 252,
+      cardPadding: 4.8,
+      segmentGap: 2.4,
+      siblingGap: 9.6,
+      wrapIndent: 7.2,
     });
-    const low = pageCssVariables(at(0.8));
-    expect(low['--nf-page-body-size']).toBe('8pt');
-    expect(low['--nf-page-card-padding']).toBe('6.4px');
-    expect(low['--nf-page-max-card-width']).toBe('336px');
-    expect(low['--nf-page-min-content-width']).toBe('150px');
+    const low = pageCssVariables(at(0.6));
+    expect(low['--nf-page-body-size']).toBe('7pt');
+    expect(low['--nf-page-card-padding']).toBe('4.8px');
+    expect(low['--nf-page-max-card-width']).toBe('252px');
+    expect(low['--nf-page-min-content-width']).toBe('140px');
+    expect(pageCssVariables(at(0.8))['--nf-page-body-size']).toBe('8pt');
     expect(pageCssVariables(at(1.2))['--nf-page-body-size']).toBe('10.8pt');
     // A stored theme at 100% is passed through unchanged.
     expect(pageCssVariables({ ...compact, density: 1 })).toEqual(pageCssVariables(compact));
   });
 
   it('keeps comfortable readable at both ends of the slider', () => {
-    const low = effectivePageTheme({ ...PAGE_THEME_PRESETS.comfortable, density: 0.8 });
-    expect(low.bodyPt).toBe(8.4);
-    expect(low.cardPadding).toBe(9.6);
-    expect(low.heading3Pt).toBe(9.6);
+    const low = effectivePageTheme({ ...PAGE_THEME_PRESETS.comfortable, density: 0.6 });
+    expect(low.bodyPt).toBe(PAGE_BODY_PT_FLOOR);
+    expect(low.cardPadding).toBe(7.2);
+    expect(low.heading3Pt).toBeGreaterThanOrEqual(low.bodyPt);
+    const dense = effectivePageTheme({ ...PAGE_THEME_PRESETS.comfortable, density: 0.8 });
+    expect(dense.bodyPt).toBe(8.75);
+    expect(dense.cardPadding).toBe(9.6);
+    expect(dense.heading3Pt).toBe(10);
     const high = effectivePageTheme({ ...PAGE_THEME_PRESETS.comfortable, density: 1.2 });
     expect(high.bodyPt).toBe(12.6);
     expect(high.cardPadding).toBe(14.4);

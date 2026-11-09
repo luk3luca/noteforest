@@ -2229,7 +2229,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Element {
             {documentAvailable
               ? `Page Read, Page Edit, and PDF use ${pageDensityPercent(resolved.theme.density)}% for this document${documentPercent === null ? '' : ' (document override)'}.`
               : `Global Page density is ${globalPercent}%. A document override appears here when a document is open.`}{' '}
-            Density scales Page typography and card geometry; page size and margins are unchanged.
+            Density scales Page typography and card geometry; page size and margins are unchanged. 60–70% is the densest range and uses the 7–7.5 pt readability floor; 80% and above keeps larger type.
           </p>
           <div className="nf-dialog-inline-actions">
             <Button

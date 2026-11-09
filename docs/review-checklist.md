@@ -841,9 +841,10 @@ Added by the full-codebase settings review (9 November 2026). These checks apply
 - [ ] Density has one effective lens consumed by layout, measurement, Page Read/Edit, and print; its
       range, step, floors, and page-count behavior are recorded and, when the product promises
       monotonicity, tested at every step.
-- [ ] Density never changes callout topology (A/B2/stacked) unless the product decision says it may,
-      in which case the behavior is labeled and tested.
-- [ ] Floors are true in the rendered path: body/label ≥ 8 pt and headings stay above body after every
+- [ ] Density may change callout topology (A/B2/stacked) because it reflows the Page tree; the
+      product decision allows it, and the behavior is labeled and tested. A preset change remains
+      density-only.
+- [ ] Floors are true in the rendered path: body/label ≥ 7 pt and headings stay above body after every
       scale/override, not only in the intermediate theme object.
 - [ ] Manual break hints are personal, cleaned on delete/split/merge, filtered when stale, and
       reported when unhonorable; no UI path makes them canonical.

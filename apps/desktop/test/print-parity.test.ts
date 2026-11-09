@@ -487,7 +487,7 @@ describe('M4d1 density identity (Page Read vs print model)', () => {
     expect(result.layout.layoutOptions).toEqual(pageLayoutOptions(result.settings.theme));
     expect(result.print.fingerprint).toBe(pageSettingsFingerprint(result.settings));
     expect(result.print.cssVariables).toEqual(pageCssVariables(result.settings.theme));
-    expect(result.print.cssVariables['--nf-page-body-size']).toBe('8.1pt');
+    expect(result.print.cssVariables['--nf-page-body-size']).toBe('8.5pt');
     expect(result.print.cssVariables['--nf-page-card-padding']).toBe('7.2px');
     expect(result.print.cssVariables['--nf-page-max-card-width']).toBe('378px');
   });
