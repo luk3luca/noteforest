@@ -25,6 +25,7 @@ export type ExportFailureCode =
   | 'empty-document'
   | 'model-mismatch'
   | 'model-error'
+  | 'render-error'
   | 'preflight-blocked'
   | 'print-failed'
   | 'validation-failed'
@@ -102,6 +103,35 @@ export interface PrintRunMetrics {
 }
 
 /**
+ * One derived page's model content, used to classify a produced blank page
+ * from the model instead of from extracted text (S2-1). An image-only page has
+ * `images > 0` and is valid even though it has no extractable text.
+ */
+export interface PrintRunPageSummary {
+  pageNumber: number;
+  fragments: number;
+  edges: number;
+  trunks: number;
+  images: number;
+  /** No fragments, no edges/trunks, and no image fragments: a truly empty page. */
+  empty: boolean;
+}
+
+/**
+ * Model sentinels for the produced-PDF gate (S3-6): every canonical block is
+ * placed, and every measured segment is covered by exactly one page fragment.
+ * A violation is an export error, not a silent gap.
+ */
+export interface PrintRunModelChecks {
+  blockCount: number;
+  placedBlockCount: number;
+  unplacedBlockIds: string[];
+  segmentCount: number;
+  segmentCoverageOk: boolean;
+  segmentCoverageIssues: string[];
+}
+
+/**
  * Result of the on-demand measured model + render in the hidden print window.
  * The model never comes from the visible Page surface or from disk.
  */
@@ -121,10 +151,22 @@ export interface PrintRunSummary {
   failedAssetIds: string[];
   missingAssetIds: string[];
   overflowPages: number[];
+  /** Per-page model content for blank classification and image-only pages. */
+  pages: PrintRunPageSummary[];
+  /** Block/segment coverage sentinels; a false `segmentCoverageOk` blocks. */
+  modelChecks: PrintRunModelChecks;
   /** False when preflight blocked the render; the manager never prints then. */
   rendered: boolean;
   /** True when two animation frames actually elapsed before the timeout bound. */
   framesSettled: boolean;
+  /** Image settle completed without a timeout (failed ids are reported too). */
+  imagesSettled: boolean;
+  /** Font settle completed without a timeout. */
+  fontsSettled: boolean;
+  /** Print-window console errors captured by the main process. */
+  consoleErrors: string[];
+  /** Pages whose rendered fragments overflow the fixed content box. */
+  printOverflowPages: number[];
   metrics: PrintRunMetrics | null;
   timings: { measureMs: number; settleMs: number };
 }
@@ -143,6 +185,7 @@ export interface ExportWarning {
     | 'anchor'
     | 'asset'
     | 'layout-warning'
+    | 'render'
     | 'validation';
   code: string;
   message: string;
@@ -182,6 +225,9 @@ export interface ExportJobView {
   rendered: boolean | null;
   /** True when the hidden window observed two animation frames and settled. */
   framesSettled: boolean | null;
+  /** Image/font settle outcomes (false is also surfaced as a warning). */
+  imagesSettled: boolean | null;
+  fontsSettled: boolean | null;
   /** Measurement and settle time in the hidden print window (diagnostics). */
   timings: { measureMs: number; settleMs: number } | null;
   warnings: ExportWarning[];
@@ -218,3 +264,135 @@ export type ExportSnapshotReply = ExportSnapshot | { error: string } | null;
 
 /** A produced PDF must match the resolved geometry within the ADR tolerance. */
 export const PDF_PAGE_SIZE_TOLERANCE_MM = 0.25;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((item) => isFiniteNumber(item));
+}
+
+function isPageSetup(value: unknown): value is PageSetup {
+  if (!isRecord(value)) return false;
+  if (value['size'] !== 'A4' && value['size'] !== 'A5' && value['size'] !== 'Letter') {
+    return false;
+  }
+  if (value['orientation'] !== 'portrait' && value['orientation'] !== 'landscape') {
+    return false;
+  }
+  const margins = value['margins'];
+  if (!isRecord(margins)) return false;
+  return ['top', 'right', 'bottom', 'left'].every((key) => isFiniteNumber(margins[key]));
+}
+
+function isPrintRunDefect(value: unknown): value is PrintRunDefect {
+  if (!isRecord(value)) return false;
+  if (typeof value['code'] !== 'string' || typeof value['message'] !== 'string') return false;
+  if (value['severity'] !== 'warning' && value['severity'] !== 'blocking') return false;
+  for (const key of ['blockId', 'blockTitle', 'chapterId'] as const) {
+    if (value[key] !== undefined && typeof value[key] !== 'string') return false;
+  }
+  if (value['pageNumber'] !== undefined && !isFiniteNumber(value['pageNumber'])) return false;
+  return true;
+}
+
+function isPrintRunPageSummary(value: unknown): value is PrintRunPageSummary {
+  if (!isRecord(value)) return false;
+  return (
+    Number.isInteger(value['pageNumber']) &&
+    isFiniteNumber(value['fragments']) &&
+    isFiniteNumber(value['edges']) &&
+    isFiniteNumber(value['trunks']) &&
+    isFiniteNumber(value['images']) &&
+    typeof value['empty'] === 'boolean'
+  );
+}
+
+function isPrintRunModelChecks(value: unknown): value is PrintRunModelChecks {
+  if (!isRecord(value)) return false;
+  return (
+    Number.isInteger(value['blockCount']) &&
+    Number.isInteger(value['placedBlockCount']) &&
+    isStringArray(value['unplacedBlockIds']) &&
+    Number.isInteger(value['segmentCount']) &&
+    typeof value['segmentCoverageOk'] === 'boolean' &&
+    isStringArray(value['segmentCoverageIssues'])
+  );
+}
+
+function isPrintRunMetrics(value: unknown): value is PrintRunMetrics {
+  if (!isRecord(value)) return false;
+  return (
+    isFiniteNumber(value['fontSizePx']) &&
+    isFiniteNumber(value['lineHeightRatio']) &&
+    isFiniteNumber(value['expectedFontSizePx']) &&
+    isFiniteNumber(value['expectedLineHeightRatio']) &&
+    typeof value['ok'] === 'boolean'
+  );
+}
+
+/**
+ * Runtime guard for the hidden-window summary (S3-2). The main process never
+ * casts the IPC/`executeJavaScript` result: a malformed summary (missing
+ * geometry, NaN, a missing metrics record) is refused before it can skip the
+ * page-size check or the render requirement.
+ */
+export function isPrintRunSummary(value: unknown): value is PrintRunSummary {
+  if (!isRecord(value)) return false;
+  if (
+    typeof value['documentId'] !== 'string' ||
+    typeof value['title'] !== 'string' ||
+    typeof value['fingerprint'] !== 'string'
+  ) {
+    return false;
+  }
+  if (value['revision'] !== null && !isFiniteNumber(value['revision'])) return false;
+  if (!Number.isInteger(value['pageCount']) || (value['pageCount'] as number) < 0) return false;
+  if (!isPageSetup(value['pageSetup'])) return false;
+  if (!isFiniteNumber(value['pageWidthMm']) || !isFiniteNumber(value['pageHeightMm'])) {
+    return false;
+  }
+  if (!Array.isArray(value['blockingDefects']) || !value['blockingDefects'].every(isPrintRunDefect)) {
+    return false;
+  }
+  if (!Array.isArray(value['defects']) || !value['defects'].every(isPrintRunDefect)) return false;
+  if (
+    !Array.isArray(value['manualBreakWarnings']) ||
+    !value['manualBreakWarnings'].every(isPrintRunDefect)
+  ) {
+    return false;
+  }
+  if (
+    !isStringArray(value['anchorWarningBlockIds']) ||
+    !isStringArray(value['failedAssetIds']) ||
+    !isStringArray(value['missingAssetIds']) ||
+    !isNumberArray(value['overflowPages']) ||
+    !isNumberArray(value['printOverflowPages']) ||
+    !isStringArray(value['consoleErrors'])
+  ) {
+    return false;
+  }
+  if (!Array.isArray(value['pages']) || !value['pages'].every(isPrintRunPageSummary)) {
+    return false;
+  }
+  if (!isPrintRunModelChecks(value['modelChecks'])) return false;
+  if (typeof value['rendered'] !== 'boolean' || typeof value['framesSettled'] !== 'boolean') {
+    return false;
+  }
+  if (typeof value['imagesSettled'] !== 'boolean' || typeof value['fontsSettled'] !== 'boolean') {
+    return false;
+  }
+  if (value['metrics'] !== null && !isPrintRunMetrics(value['metrics'])) return false;
+  const timings = value['timings'];
+  if (!isRecord(timings)) return false;
+  return isFiniteNumber(timings['measureMs']) && isFiniteNumber(timings['settleMs']);
+}

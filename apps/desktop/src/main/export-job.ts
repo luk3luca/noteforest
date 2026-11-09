@@ -7,17 +7,18 @@
  *
  * The document snapshot is the current renderer revision (including unsaved
  * edits). The hidden print window measures and renders that snapshot; the job
- * validates the produced PDF with `inspectPdf`, then writes a temp file in the
- * output directory and renames it only on success. A failure or cancellation
- * deletes the temp file, never writes the output path, and never touches the
- * document package.
+ * validates the produced PDF with `inspectPdf`, then writes an exclusive temp
+ * file in the output directory and moves it into place only on success
+ * (`link` no-clobber for `overwrite:false`, `rename` for overwrite). A failure
+ * or cancellation deletes the temp file, never writes the output path, and
+ * never touches the document package.
  *
  * The manager is dependency-injected so the state machine, atomicity, and
  * validation are unit-testable without Electron.
  */
 
-import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { link, open, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { PdfInspection } from '@noteforest/pdf/node';
 import type {
   ExportFailureCode,
@@ -31,6 +32,7 @@ import type {
   PrintPdfOptions,
   PrintRunSummary,
 } from '../shared/export.js';
+import { isPrintRunSummary } from '../shared/export.js';
 import { evaluatePreflight, pdfOptionsFor, validateProducedPdf } from './export-preflight.js';
 
 export class ExportJobError extends Error {
@@ -78,6 +80,10 @@ export interface ExportJobDependencies {
   readFile?: (path: string) => Promise<Uint8Array>;
   writeFile?: (path: string, bytes: Uint8Array) => Promise<void>;
   rename?: (from: string, to: string) => Promise<void>;
+  /** Atomic no-clobber primitive for `overwrite:false` (default `link`). */
+  link?: (from: string, to: string) => Promise<void>;
+  /** Best-effort directory fsync after the output is in place. */
+  syncDirectory?: (path: string) => Promise<void>;
   removeFile?: (path: string) => Promise<void>;
   createJobId?: () => string;
   now?: () => number;
@@ -122,6 +128,76 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isAlreadyExists(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'EEXIST'
+  );
+}
+
+/** True when `candidate` is `root` itself or inside `root` (lexical). */
+function isPathInside(root: string, candidate: string): boolean {
+  const rel = relative(root, candidate);
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+/**
+ * Exclusive temp creation (S3-3): `wx` refuses an existing path, `0o600` keeps
+ * the temp private, and `sync` flushes the bytes before the rename/link.
+ */
+async function writeExclusive(path: string, bytes: Uint8Array): Promise<void> {
+  const handle = await open(path, 'wx', 0o600);
+  try {
+    await handle.writeFile(bytes);
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
+/** Best-effort directory fsync after the output link/rename (S3-3). */
+async function syncDirectory(path: string): Promise<void> {
+  let handle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    handle = await open(path, 'r');
+    await handle.sync();
+  } catch {
+    // Some platforms/filesystems do not support opening a directory for fsync.
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}
+
+const STALE_PARTIAL_MS = 60 * 60 * 1000;
+
+/**
+ * Remove `.name.*.partial` files left by a crashed export (S3-3). Only files
+ * older than an hour are removed, so a concurrent running job is untouched.
+ */
+async function cleanupStalePartials(outputPath: string): Promise<void> {
+  const directory = dirname(outputPath);
+  const prefix = `.${basename(outputPath)}.`;
+  let names: string[];
+  try {
+    names = await readdir(directory);
+  } catch {
+    return;
+  }
+  const now = Date.now();
+  for (const name of names) {
+    if (!name.startsWith(prefix) || !name.endsWith('.partial')) continue;
+    const path = join(directory, name);
+    try {
+      const info = await stat(path);
+      if (now - info.mtimeMs < STALE_PARTIAL_MS) continue;
+      await rm(path, { force: true });
+    } catch {
+      // Best-effort cleanup; a locked/stale entry is retried next export.
+    }
+  }
+}
+
 interface NormalizedInput {
   input: ExportPdfInput;
 }
@@ -143,10 +219,19 @@ function normalizeInput(value: unknown): NormalizedInput | { error: string } {
   if (overwrite !== undefined && typeof overwrite !== 'boolean') {
     return { error: 'The overwrite flag must be a boolean.' };
   }
+  const packageRoot = resolve(packagePath);
+  const resolvedOutput = resolve(outputPath);
+  // Source-package protection (S3-3): the export must never write into the
+  // open document package (document.json, assets, backups, or a child path).
+  if (isPathInside(packageRoot, resolvedOutput)) {
+    return {
+      error: 'The output path cannot be the document package or a path inside it.',
+    };
+  }
   return {
     input: {
       packagePath,
-      outputPath: resolve(outputPath),
+      outputPath: resolvedOutput,
       ...(overwrite === undefined ? {} : { overwrite }),
     },
   };
@@ -164,6 +249,8 @@ export class PdfExportManager {
       | 'readFile'
       | 'writeFile'
       | 'rename'
+      | 'link'
+      | 'syncDirectory'
       | 'removeFile'
       | 'createJobId'
       | 'now'
@@ -179,8 +266,10 @@ export class PdfExportManager {
       exists: dependencies.exists ?? pathExists,
       readFile:
         dependencies.readFile ?? (async (path) => new Uint8Array(await readFile(path))),
-      writeFile: dependencies.writeFile ?? ((path, bytes) => writeFile(path, bytes)),
+      writeFile: dependencies.writeFile ?? writeExclusive,
       rename: dependencies.rename ?? rename,
+      link: dependencies.link ?? link,
+      syncDirectory: dependencies.syncDirectory ?? syncDirectory,
       removeFile: dependencies.removeFile ?? removeIfPresent,
       createJobId: dependencies.createJobId ?? defaultJobId,
       now: dependencies.now ?? (() => Date.now()),
@@ -217,6 +306,8 @@ export class PdfExportManager {
       pageHeightMm: null,
       rendered: null,
       framesSettled: null,
+      imagesSettled: null,
+      fontsSettled: null,
       timings: null,
       warnings: [],
       error: null,
@@ -263,6 +354,7 @@ export class PdfExportManager {
   private async run(job: InternalJob): Promise<void> {
     const { view, input } = job;
     try {
+      await cleanupStalePartials(input.outputPath);
       if (!job.view.overwrite && (await this.deps.exists(input.outputPath))) {
         throw new ExportJobError(
           'output-exists',
@@ -290,6 +382,12 @@ export class PdfExportManager {
       try {
         const summary = await this.race(job, session.measure());
         this.throwIfCancelled(job);
+        if (!isPrintRunSummary(summary)) {
+          throw new ExportJobError(
+            'window-failed',
+            'The hidden print window returned a malformed run summary; the export was refused.',
+          );
+        }
         this.applySummary(job, summary);
         const preflight = evaluatePreflight(snapshot, summary);
         view.warnings = preflight.warnings;
@@ -312,6 +410,29 @@ export class PdfExportManager {
             'preflight-blocked',
             `Export blocked: ${blocking.map((error) => error.message).join(' ')}`,
             preflight.errors,
+          );
+        }
+        const typed = preflight.errors.filter(
+          (error) => error.code === 'model-error' || error.code === 'render-error',
+        );
+        if (typed.length > 0) {
+          throw new ExportJobError(
+            typed[0]!.code as ExportFailureCode,
+            typed.map((error) => error.message).join(' '),
+            preflight.errors,
+          );
+        }
+        // S3-2: a print needs a rendered page model and its theme-metrics probe.
+        if (!summary.rendered) {
+          throw new ExportJobError(
+            'render-error',
+            'The print window did not render the page model; the export was refused.',
+          );
+        }
+        if (summary.metrics === null) {
+          throw new ExportJobError(
+            'settings-mismatch',
+            'The print window did not report its resolved PageTheme metrics; the export was refused.',
           );
         }
 
@@ -361,22 +482,33 @@ export class PdfExportManager {
         }
 
         this.setPhase(job, 'write', 0.9);
-        if (!job.view.overwrite && (await this.deps.exists(input.outputPath))) {
-          throw new ExportJobError(
-            'output-exists',
-            `The output file was created by another process: ${input.outputPath}.`,
-          );
-        }
         this.throwIfCancelled(job);
         try {
-          await this.deps.rename(tempPath, input.outputPath);
+          if (job.view.overwrite) {
+            await this.deps.rename(tempPath, input.outputPath);
+            job.tempPath = null;
+          } else {
+            // Atomic no-clobber (S3-3): `link` fails with EEXIST instead of
+            // replacing a file created after the preflight exists check.
+            await this.deps.link(tempPath, input.outputPath);
+            // The output is complete; the temp is now a duplicate. Clear the
+            // tracked path first so a failed unlink is only a stale-file cleanup.
+            job.tempPath = null;
+            await this.deps.removeFile(tempPath).catch(() => undefined);
+          }
+          await this.deps.syncDirectory(dirname(input.outputPath)).catch(() => undefined);
         } catch (error) {
+          if (!job.view.overwrite && isAlreadyExists(error)) {
+            throw new ExportJobError(
+              'output-exists',
+              `The output file was created by another process: ${input.outputPath}.`,
+            );
+          }
           throw new ExportJobError(
             'write-failed',
             `Could not move the PDF into place: ${messageOf(error)}`,
           );
         }
-        job.tempPath = null;
         this.finish(job, 'done', 'done');
       } finally {
         job.session = null;
@@ -443,6 +575,8 @@ export class PdfExportManager {
     view.pageHeightMm = summary.pageHeightMm;
     view.rendered = summary.rendered;
     view.framesSettled = summary.framesSettled;
+    view.imagesSettled = summary.imagesSettled;
+    view.fontsSettled = summary.fontsSettled;
     view.timings = { ...summary.timings };
     this.touch(job);
   }

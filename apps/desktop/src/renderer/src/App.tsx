@@ -611,6 +611,20 @@ export function App(): JSX.Element {
         clearPrintTestSurface();
         return true;
       },
+      pageModelPages: () => {
+        const state = useShell.getState();
+        const runtime = allRuntimes().find((item) => item.packagePath === state.activeTab);
+        if (runtime === undefined) return null;
+        const snapshot = printPageModelSnapshot(runtime.packagePath);
+        if (snapshot === null) return null;
+        return snapshot.pages.map((page) => ({
+          pageNumber: page.pageNumber,
+          blockIds: page.fragments.map((fragment) => fragment.blockId),
+          continuationIn: page.continuationIn.length,
+          continuationOut: page.continuationOut.length,
+          overflow: page.overflow,
+        }));
+      },
       editorCheck: () => {
         return allRuntimes().map((item) => {
           try {

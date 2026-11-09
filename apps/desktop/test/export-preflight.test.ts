@@ -48,8 +48,24 @@ function summary(overrides: Partial<PrintRunSummary> = {}): PrintRunSummary {
     failedAssetIds: [],
     missingAssetIds: [],
     overflowPages: [],
+    pages: [
+      { pageNumber: 1, fragments: 1, edges: 0, trunks: 0, images: 0, empty: false },
+      { pageNumber: 2, fragments: 1, edges: 0, trunks: 0, images: 0, empty: false },
+    ],
+    modelChecks: {
+      blockCount: 2,
+      placedBlockCount: 2,
+      unplacedBlockIds: [],
+      segmentCount: 2,
+      segmentCoverageOk: true,
+      segmentCoverageIssues: [],
+    },
     rendered: true,
     framesSettled: true,
+    imagesSettled: true,
+    fontsSettled: true,
+    consoleErrors: [],
+    printOverflowPages: [],
     metrics: {
       fontSizePx: 12,
       lineHeightRatio: 1.3,
@@ -241,6 +257,10 @@ describe('validateProducedPdf', () => {
       widthMm,
       heightMm,
       text: `Page ${index + 1} body text`,
+      textItemCount: 1,
+      imageCount: 0,
+      pathCount: 0,
+      hasOperatorList: true,
     }));
 
   const inspection = (overrides: {
@@ -296,20 +316,109 @@ describe('validateProducedPdf', () => {
     expect(result.errors[0]!.message).toContain('210.00 × 297.00 mm');
   });
 
-  it('fails on a PDF without text and warns on a blank page', () => {
+  it('fails a truly blank produced page (S2-1) but accepts an image-only page', () => {
     const noText = validateProducedPdf(inspection({ text: '' }), summary());
     expect(noText.ok).toBe(false);
+
     const blank = validateProducedPdf(
       inspection({
         pages: [
           { ...pages(1)[0]!, text: 'First page' },
-          { ...pages(1)[0]!, pageNumber: 2, text: '' },
+          {
+            ...pages(1)[0]!,
+            pageNumber: 2,
+            text: '',
+            textItemCount: 0,
+            imageCount: 0,
+            pathCount: 0,
+          },
         ],
         pageCount: 2,
       }),
       summary(),
     );
-    expect(blank.ok).toBe(true);
-    expect(blank.warnings[0]).toMatchObject({ code: 'blank-page', pageNumber: 2 });
+    expect(blank.ok).toBe(false);
+    expect(blank.errors[0]).toMatchObject({ code: 'blank-page', pageNumber: 2 });
+
+    const imageOnly = validateProducedPdf(
+      inspection({
+        pages: [
+          { ...pages(1)[0]!, text: 'First page' },
+          {
+            ...pages(1)[0]!,
+            pageNumber: 2,
+            text: '',
+            textItemCount: 0,
+            imageCount: 1,
+            pathCount: 0,
+          },
+        ],
+        pageCount: 2,
+      }),
+      summary({
+        pages: [
+          { pageNumber: 1, fragments: 1, edges: 0, trunks: 0, images: 0, empty: false },
+          { pageNumber: 2, fragments: 1, edges: 0, trunks: 0, images: 1, empty: false },
+        ],
+      }),
+    );
+    expect(imageOnly.ok).toBe(true);
+    expect(imageOnly.warnings[0]).toMatchObject({ code: 'textless-page', pageNumber: 2 });
+  });
+
+  it('fails a page the model classifies as empty even when chrome text exists', () => {
+    const result = validateProducedPdf(
+      inspection({
+        pages: [
+          { ...pages(1)[0]!, text: 'First page' },
+          { ...pages(1)[0]!, pageNumber: 2, text: 'Page 2 of 2' },
+        ],
+        pageCount: 2,
+      }),
+      summary({
+        pages: [
+          { pageNumber: 1, fragments: 1, edges: 0, trunks: 0, images: 0, empty: false },
+          { pageNumber: 2, fragments: 0, edges: 0, trunks: 0, images: 0, empty: true },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors[0]).toMatchObject({ code: 'blank-page', pageNumber: 2 });
+    expect(result.errors[0]!.message).toContain('empty page 2');
+  });
+
+  it('blocks a model with lost segment coverage (S3-6)', () => {
+    const result = evaluatePreflight(
+      snapshot(),
+      summary({
+        modelChecks: {
+          blockCount: 2,
+          placedBlockCount: 1,
+          unplacedBlockIds: ['lost-block'],
+          segmentCount: 4,
+          segmentCoverageOk: false,
+          segmentCoverageIssues: ['block-1: fragments cover 2/4 segments'],
+        },
+      }),
+    );
+    expect(result.errors.some((error) => error.code === 'model-error')).toBe(true);
+    expect(result.warnings.some((warning) => warning.code === 'unplaced-block')).toBe(true);
+  });
+
+  it('surfaces settle timeouts and print-window console errors (S3-5/S3-6)', () => {
+    const result = evaluatePreflight(
+      snapshot(),
+      summary({
+        imagesSettled: false,
+        fontsSettled: false,
+        consoleErrors: ['Uncaught TypeError: boom'],
+        printOverflowPages: [2],
+      }),
+    );
+    expect(result.errors.some((error) => error.code === 'preflight-blocked')).toBe(true);
+    const codes = result.warnings.map((warning) => warning.code);
+    expect(codes).toContain('images-not-settled');
+    expect(codes).toContain('fonts-not-settled');
+    expect(codes).toContain('console-error');
   });
 });
