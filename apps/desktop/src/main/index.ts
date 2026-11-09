@@ -49,6 +49,8 @@ import { attachTextContextMenu, installApplicationMenu } from './menu.js';
 import { flushDecision, quitCanProceed } from './lifecycle.js';
 import { installE2EDialogGuard } from './dialog-guard.js';
 import { installAssetProtocol, registerAssetScheme } from './asset-protocol.js';
+import { createExportService, installExportIpc } from './export-service.js';
+import type { PrintPageTarget } from './export-window.js';
 import { IMAGE_EXTENSIONS } from '../shared/images.js';
 
 const isDev = Boolean(process.env['ELECTRON_RENDERER_URL']);
@@ -62,6 +64,22 @@ let mainWindow: BrowserWindow | null = null;
 let allowClose = false;
 let closeInProgress = false;
 let quitting = false;
+
+/** Production `print.html` or the dev-server equivalent for the hidden export window. */
+function printPageTarget(): PrintPageTarget {
+  const devUrl = process.env['ELECTRON_RENDERER_URL'];
+  if (devUrl) {
+    const base = devUrl.endsWith('/') ? devUrl : `${devUrl}/`;
+    return { kind: 'url', url: new URL('print.html', base).toString() };
+  }
+  return { kind: 'file', path: join(__dirname, '../renderer/print.html') };
+}
+
+/** PDF export job + hidden print window; registered with the app IPC surface. */
+const exportService = createExportService({
+  getWindow: () => mainWindow,
+  printPageTarget,
+});
 
 if (isE2E) app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.setName('NoteForest');
@@ -500,6 +518,8 @@ function registerIpc(): void {
     if (typeof requestId !== 'string') return;
     flushWaiters.get(requestId)?.(normalizeFlushResult(result));
   });
+
+  installExportIpc(exportService);
 }
 
 app.on('before-quit', (event) => {
@@ -507,6 +527,7 @@ app.on('before-quit', (event) => {
   const liveWindow = win !== null && !win.isDestroyed();
   if (quitCanProceed(allowClose, liveWindow)) {
     allowClose = true;
+    exportService.dispose();
     return;
   }
   event.preventDefault();

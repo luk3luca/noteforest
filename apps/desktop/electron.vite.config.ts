@@ -26,7 +26,17 @@ export default defineConfig({
   main: {
     plugins: [
       coreTsResolver(),
-      externalizeDepsPlugin({ exclude: ['@noteforest/core', '@noteforest/core/node'] }),
+      externalizeDepsPlugin({
+        exclude: [
+          '@noteforest/core',
+          '@noteforest/core/node',
+          '@noteforest/pdf',
+          '@noteforest/pdf/node',
+        ],
+        // pdfjs-dist is a root devDependency used for Node-side PDF inspection.
+        // Keep it external: bundling breaks its worker module resolution.
+        include: ['pdfjs-dist'],
+      }),
     ],
     build: {
       rollupOptions: {

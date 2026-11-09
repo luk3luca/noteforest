@@ -25,8 +25,8 @@ import type {
   PageSettings,
 } from '@noteforest/layout';
 import type { DocumentRuntime } from '../state/runtime';
-import { assetUrlFor } from '../lib/asset-url';
 import { toLayoutDocument } from './adapter';
+import { assetUrlsForRuntime } from './asset-urls';
 import { createDomPageMeasurement } from './measurement';
 import { computePageModel, pageSettingsFingerprint, type PageModelData } from './model';
 
@@ -53,18 +53,6 @@ export interface PageModelState {
   failedAssetIds: ReadonlySet<string>;
   assetUrls: Readonly<Record<string, string>>;
   reload: () => void;
-}
-
-function assetUrlsFor(runtime: DocumentRuntime): Record<string, string> {
-  const urls: Record<string, string> = {};
-  const availability = runtime.assetAvailability;
-  for (const assetId of Object.keys(runtime.document.assets)) {
-    const state = availability[assetId];
-    if (state === undefined || state === 'available') {
-      urls[assetId] = assetUrlFor(assetId);
-    }
-  }
-  return urls;
 }
 
 function isAbortError(error: unknown): boolean {
@@ -123,7 +111,7 @@ export function usePageModel(
         try {
           const source = runtime.document;
           const noteDocument = toLayoutDocument(source);
-          const urls = assetUrlsFor(runtime);
+          const urls = assetUrlsForRuntime(runtime);
           const measurement = createDomPageMeasurement(noteDocument, urls, settings);
           try {
             await measurement.prepare(Object.values(noteDocument.blocks), controller.signal);

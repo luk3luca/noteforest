@@ -8,10 +8,11 @@
  * anchor/missing-asset diagnostics, and the shared page-chrome/edge-label
  * layout. It never re-routes edges and never lays out or measures content.
  *
- * Settings identity is enforced before a page record is emitted: the layout's
- * page setup/geometry must equal the resolved settings, and the supplied
- * paginated document is re-derived with the resolved manual breaks. A stale or
- * mismatched pair fails loudly instead of silently printing another page count.
+ * Settings identity is enforced before a page record is emitted: the required
+ * page-model fingerprint (same measured run), the layout's page setup/geometry,
+ * the document id/revision, and the supplied paginated document (re-derived with
+ * the resolved manual breaks) must all agree. A stale or mismatched pair fails
+ * loudly instead of silently printing another page count, theme, or document.
  */
 
 import {
@@ -22,6 +23,7 @@ import {
   pageCssVariables,
   pageEdgeLabelLayout,
   pageGeometry,
+  pageLayoutOptions,
   pageSettingsFingerprint,
   pageBlockingDefects,
   paginate,
@@ -139,22 +141,43 @@ export interface PrintModelOptions {
   settings: PageSettings;
   /**
    * Fingerprint returned by the page-model run that produced `layout`/`pages`.
-   * When supplied it must equal the resolved settings fingerprint.
+   *
+   * Required (M4c2 R1): a print model cannot pair a layout measured under one
+   * resolved theme with a different resolved theme. The caller must pass the
+   * fingerprint from the same measured run (never fabricate it); omitting it is
+   * an identity failure, not an opt-out.
    */
-  pageModelFingerprint?: string;
+  pageModelFingerprint: string;
   /** Asset ids whose bytes failed to load/decode during measurement. */
   failedAssetIds?: readonly string[];
   /** Renderer-safe asset URLs for the available assets. */
   assetUrls?: Readonly<Record<string, string>>;
 }
 
-export class PrintModelSettingsMismatchError extends Error {
+/** Base class for print-model identity failures (settings or document). */
+export class PrintModelIdentityError extends Error {
   readonly fingerprint: string;
 
   constructor(message: string, fingerprint: string) {
     super(message);
-    this.name = 'PrintModelSettingsMismatchError';
+    this.name = 'PrintModelIdentityError';
     this.fingerprint = fingerprint;
+  }
+}
+
+/** The measured run and the resolved page settings do not belong together. */
+export class PrintModelSettingsMismatchError extends PrintModelIdentityError {
+  constructor(message: string, fingerprint: string) {
+    super(message, fingerprint);
+    this.name = 'PrintModelSettingsMismatchError';
+  }
+}
+
+/** The layout/pages and the canonical document do not belong together. */
+export class PrintModelDocumentMismatchError extends PrintModelIdentityError {
+  constructor(message: string, fingerprint: string) {
+    super(message, fingerprint);
+    this.name = 'PrintModelDocumentMismatchError';
   }
 }
 
@@ -200,7 +223,13 @@ function assertSettingsIdentity(
   pageModelFingerprint: string | undefined,
 ): string {
   const fingerprint = pageSettingsFingerprint(settings);
-  if (pageModelFingerprint !== undefined && pageModelFingerprint !== fingerprint) {
+  if (typeof pageModelFingerprint !== 'string' || pageModelFingerprint.length === 0) {
+    throw new PrintModelSettingsMismatchError(
+      'Print model requires the fingerprint of the measured page model run; the theme/settings identity cannot be verified without it.',
+      fingerprint,
+    );
+  }
+  if (pageModelFingerprint !== fingerprint) {
     throw new PrintModelSettingsMismatchError(
       `Print model does not match the resolved page settings: page model fingerprint ${pageModelFingerprint} != resolved ${fingerprint}.`,
       fingerprint,
@@ -212,6 +241,15 @@ function assertSettingsIdentity(
       fingerprint,
     );
   }
+  if (
+    layout.layoutOptions !== undefined &&
+    !sameJson(layout.layoutOptions, pageLayoutOptions(settings.theme))
+  ) {
+    throw new PrintModelSettingsMismatchError(
+      'Print model does not match the resolved PageTheme; the layout was measured with different layout options.',
+      fingerprint,
+    );
+  }
   if (!sameJson(layout.geometry, pageGeometry(settings.setup))) {
     throw new PrintModelSettingsMismatchError(
       'Print model geometry does not match the resolved page settings.',
@@ -219,6 +257,33 @@ function assertSettingsIdentity(
     );
   }
   return fingerprint;
+}
+
+/**
+ * R1/R5: the layout/pages must be the measured run of this document revision.
+ * A mixed pair would print another document's content with this one's pages.
+ */
+function assertDocumentIdentity(
+  document: NoteDocument,
+  layout: ContinuousLayout,
+  fingerprint: string,
+): void {
+  if (layout.documentId !== document.id) {
+    throw new PrintModelDocumentMismatchError(
+      `Print model does not match the document: the layout was measured for document ${layout.documentId}, not ${document.id}.`,
+      fingerprint,
+    );
+  }
+  if (
+    layout.revision !== undefined &&
+    document.revision !== undefined &&
+    layout.revision !== document.revision
+  ) {
+    throw new PrintModelDocumentMismatchError(
+      `Print model does not match the document revision: the layout measured revision ${layout.revision}, the document is revision ${document.revision}.`,
+      fingerprint,
+    );
+  }
 }
 
 function anchorWarningsByBlock(
@@ -273,6 +338,11 @@ export function buildPrintModel(
 ): PrintModel {
   const { settings } = options;
   const fingerprint = assertSettingsIdentity(layout, settings, options.pageModelFingerprint);
+  assertDocumentIdentity(document, layout, fingerprint);
+  // The validated run is the only source of pages and defects. A supplied
+  // `paginated` document is accepted only when its page/fragment signature
+  // matches, then discarded: defects and manual-break warnings (R4) must come
+  // from the run validated with this exact page lens, never from a stale copy.
   const expected = paginate(layout, document, {
     manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],
   });
@@ -285,8 +355,7 @@ export function buildPrintModel(
       fingerprint,
     );
   }
-  const derived = paginated ?? expected;
-  const pages = derived.pages;
+  const pages = expected.pages;
 
   // One edge mapper is shared with the Page renderer (`buildPageEdgeModel`), so
   // the print compositor cannot drift onto a second page-edge router. It
@@ -335,7 +404,7 @@ export function buildPrintModel(
       trunks: edgeModel.trunks[index] ?? [],
       edgeLabels: pageEdgeLabelLayout(edges, layout.geometry),
       chrome: { ...chromeLayout, ...content },
-      blockingDefects: pageBlockingDefects(derived.defects, page),
+      blockingDefects: pageBlockingDefects(expected.defects, page),
       anchorWarnings: pageAnchorWarnings(page, anchorWarnings),
       missingAssetIds: pageMissingAssets(page, blocks),
     };
@@ -370,9 +439,9 @@ export function buildPrintModel(
     pages: printPages,
     pageCount: printPages.length,
     pageNumberByBlock,
-    defects: derived.defects,
-    blockingDefects: layoutBlockingDefects(derived.defects),
-    manualBreakWarnings: derived.manualBreakWarnings,
+    defects: expected.defects,
+    blockingDefects: layoutBlockingDefects(expected.defects),
+    manualBreakWarnings: expected.manualBreakWarnings,
     blocks,
     anchors: [...layout.anchors],
     failedAssetIds,

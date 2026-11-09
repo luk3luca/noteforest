@@ -4,6 +4,11 @@ import type {
   ApplyResult,
   BootstrapResult,
   CreateDocumentResult,
+  ExportJobView,
+  ExportPdfInput,
+  ExportPdfStartResult,
+  ExportSnapshotReply,
+  ExportSnapshotRequest,
   FlushResult,
   ImportImageBytesInput,
   ImportImageResult,
@@ -110,6 +115,33 @@ const api: NoteForestApi = {
     appVersion: string;
     platform: string;
   }> => ipcRenderer.invoke('system:info'),
+  exportPdf: (input: ExportPdfInput): Promise<ExportPdfStartResult> =>
+    ipcRenderer.invoke('export:pdf', input),
+  getExportJob: (jobId: string): Promise<ExportJobView | null> =>
+    ipcRenderer.invoke('export:job', jobId),
+  cancelExport: (jobId: string): Promise<boolean> =>
+    ipcRenderer.invoke('export:cancel', jobId),
+  onExportSnapshotRequest: (
+    handler: (request: ExportSnapshotRequest) => Promise<ExportSnapshotReply>,
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      request: ExportSnapshotRequest,
+    ): void => {
+      void Promise.resolve()
+        .then(() => handler(request))
+        .then((reply) => {
+          ipcRenderer.send('export:snapshot', request.jobId, reply);
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error && error.message.length > 0 ? error.message : String(error);
+          ipcRenderer.send('export:snapshot', request.jobId, { error: message });
+        });
+    };
+    ipcRenderer.on('export:request-snapshot', listener);
+    return () => ipcRenderer.removeListener('export:request-snapshot', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('noteforest', api);

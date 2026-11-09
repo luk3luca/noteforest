@@ -13,6 +13,32 @@ import type {
   PageSettingsOverride,
 } from '@noteforest/layout';
 import type { DocumentLayout, InteractionMode, PageFit } from './view-state';
+import type {
+  ExportJobView,
+  ExportPdfInput,
+  ExportPdfStartResult,
+  ExportSnapshotReply,
+  ExportSnapshotRequest,
+} from './export.js';
+
+export type {
+  ExportFailureCode,
+  ExportJobErrorView,
+  ExportJobPhase,
+  ExportJobStatus,
+  ExportJobView,
+  ExportPdfInput,
+  ExportPdfStartResult,
+  ExportSnapshot,
+  ExportSnapshotReply,
+  ExportSnapshotRequest,
+  ExportWarning,
+  PrintBuildResult,
+  PrintPdfOptions,
+  PrintRunDefect,
+  PrintRunMetrics,
+  PrintRunSummary,
+} from './export.js';
 
 export type OpenStatus = 'editable' | 'read-only';
 
@@ -434,4 +460,21 @@ export interface NoteForestApi {
     assetId: string,
   ): Promise<ImportImageResult>;
   getSystemInfo(): Promise<{ electron: string; chrome: string; appVersion: string; platform: string }>;
+  /**
+   * Start a Page PDF export job for an open document. The renderer is asked for
+   * a current-document snapshot (including unsaved edits); the measured print
+   * model and `printToPDF` run in a hidden window in the main process.
+   */
+  exportPdf(input: ExportPdfInput): Promise<ExportPdfStartResult>;
+  /** Poll one export job; `null` when the id is unknown. */
+  getExportJob(jobId: string): Promise<ExportJobView | null>;
+  /** Request cancellation; true when a running job accepted it. */
+  cancelExport(jobId: string): Promise<boolean>;
+  /**
+   * Answer a main-process snapshot request for an export job. The handler must
+   * resolve with the current in-memory document/settings/asset URLs.
+   */
+  onExportSnapshotRequest(
+    handler: (request: ExportSnapshotRequest) => Promise<ExportSnapshotReply>,
+  ): () => void;
 }

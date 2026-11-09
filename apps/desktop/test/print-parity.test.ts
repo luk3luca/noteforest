@@ -8,6 +8,7 @@ import {
   pageEdgeLabelLayout,
   pageGeometry,
   pageLayoutOptions,
+  pageSettingsFingerprint,
   paginate,
   type BlockMeasurement,
   type ContentBlock,
@@ -184,7 +185,10 @@ function pipeline(
   const paginated = paginate(layout, document, {
     manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],
   });
-  const print = buildPrintModel(document, layout, paginated, { settings });
+  const print = buildPrintModel(document, layout, paginated, {
+    settings,
+    pageModelFingerprint: pageSettingsFingerprint(settings),
+  });
   const projection = projectPageContent({
     document,
     blocks: layout.blockById,
@@ -386,6 +390,16 @@ describe('F1 real-layout print parity (Page Read vs print model)', () => {
         page.edgeLabels.some((label) => label.direction === 'from-edge'),
       ),
     ).toBe(true);
+    // R9: a block continuing across pages shares one projected segment list
+    // instead of rebuilding it on every page.
+    const pagesWithLong = result.projection.pages.filter(
+      (page) => page.segmentsByBlock.long !== undefined,
+    );
+    expect(pagesWithLong.length).toBeGreaterThan(1);
+    const firstSegments = pagesWithLong[0]!.segmentsByBlock.long;
+    for (const page of pagesWithLong) {
+      expect(page.segmentsByBlock.long).toBe(firstSegments);
+    }
   });
 });
 
