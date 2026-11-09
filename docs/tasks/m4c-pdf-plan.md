@@ -43,7 +43,8 @@ Rules from ADR-0002:
 5. Print page containers are direct children of the print root (Spike 1 finding:
    wrapper caused 0.14 mm cumulative drift per page).
 6. `printToPDF` uses fixed page size/orientation, `scale: 1`,
-   `printBackground: true`, `preferCSSPageSize: true`, no margins/header/footer;
+   `printBackground: true`, `preferCSSPageSize: true`, numeric zero margins
+   (`{ top: 0, bottom: 0, left: 0, right: 0 }`, inches), no header/footer;
    margins are internal page padding.
 7. Wait for fonts, KaTeX, image decode, and two frames; disable animations;
    deviceScaleFactor 1.

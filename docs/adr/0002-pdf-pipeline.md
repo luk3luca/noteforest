@@ -55,13 +55,13 @@ Rules:
   printBackground: true,
   preferCSSPageSize: true,
   scale: 1,
-  margins: { marginType: 'none' }, // margins are internal page padding
+  margins: { top: 0, bottom: 0, left: 0, right: 0 }, // inches; margins are internal page padding
   displayHeaderFooter: false,
   generateTaggedPDF: false,        // tagged PDF is post-v1
 }
 ```
 
-Exact option names are verified in Spike 1 against the pinned Electron version; a mismatch is a spike finding, not a silent deviation.
+Electron's `PrintToPDFOptions.margins` takes numeric inches, not a `marginType` enum. Exact option names are verified in Spike 1 against the pinned Electron version; a mismatch is a spike finding, not a silent deviation.
 
 ## Why not the alternatives
 
