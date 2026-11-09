@@ -467,6 +467,9 @@ The visual suite is the only visible-window exception.
 
 - A golden file per schema version; migrate to latest and snapshot the semantic diff.
 - Page settings, margins, and manual break hints survive migration; pagination remains deterministic.
+- Personal settings (`settings.json` plus per-document overrides) have a schema version, a
+  corrupt-file backup/warning, a serialized writer, and a documented unknown-field policy. They
+  survive close/restart, and a failed write is visible rather than silently lost.
 - Kill the process during save at several points; reopen; the old or new complete file exists.
 - A newer schema is refused with no write.
 - Fuzz JSON, Markdown, and JSON Canvas imports; no crash, bounded time and memory.
