@@ -2037,7 +2037,8 @@ function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Element {
         <p className="nf-dialog-note" data-page-density-note="true">
           Page Read, Page Edit, and PDF use {pageDensityPercent(resolved.theme.density)}% for this
           document{documentPercent === null ? '' : ' (document override)'}. Density scales Page
-          typography and card geometry; page size and margins are unchanged.
+          typography and card geometry; page size and margins are unchanged. 60–70% is the densest
+          range and uses the 7–7.5 pt readability floor; 80% and above keeps larger type.
         </p>
         <div className="nf-dialog-inline-actions">
           <Button

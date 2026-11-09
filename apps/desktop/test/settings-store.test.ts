@@ -150,7 +150,7 @@ describe('Page density settings (M4d1)', () => {
   it('normalizes a density override through the shared range', () => {
     const store = useSettingsStore.getState();
     expect(store.setPageSettingsOverride('/doc', { theme: { density: 0.1 } })).toEqual({
-      theme: { density: 0.8 },
+      theme: { density: 0.6 },
     });
     expect(store.setPageSettingsOverride('/doc', { theme: { density: 99 } })).toEqual({
       theme: { density: 1.2 },
@@ -176,9 +176,11 @@ describe('Page density settings (M4d1)', () => {
 
   it('builds and drops a density-only document override', () => {
     expect(pageDensityPercent(0.85)).toBe(85);
+    expect(pageDensityPercent(0.6)).toBe(60);
     expect(pageDensityValue(85)).toBe(0.85);
+    expect(pageDensityValue(60)).toBe(0.6);
     expect(pageDensityValue(999)).toBe(1.2);
-    expect(pageDensityValue(1)).toBe(0.8);
+    expect(pageDensityValue(1)).toBe(0.6);
 
     expect(withPageDensityOverride(undefined, 0.85)).toEqual({ theme: { density: 0.85 } });
     const base: PageSettingsOverride = {
