@@ -1,271 +1,508 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPageEdgeModel,
-  type ContinuousLayout,
-  type DerivedPage,
+  DEFAULT_PAGE_SETTINGS,
+  layoutDocument,
+  normalizePageSettings,
+  pageChromeLayout,
+  pageCssVariables,
+  pageGeometry,
+  pageLayoutOptions,
+  pageSettingsFingerprint,
+  paginate,
+  type AnchorRecord,
+  type BlockMeasurement,
+  type BranchRecord,
+  type ContentBlock,
+  type MeasurementMode,
+  type MeasurementPort,
   type NoteDocument,
-  type PageFragment,
-  type PaginatedDocument,
+  type PageSetup,
 } from '@noteforest/layout';
-import { buildPrintModel } from '../src/printModel.js';
+import {
+  buildPrintModel,
+  PrintModelSettingsMismatchError,
+  type PrintModel,
+} from '../src/printModel.js';
 
-const BOUNDS = { width: 1000, height: 700 };
+/**
+ * M4c1 print-model tests.
+ *
+ * Every case runs the real `layoutDocument` + `paginate` pipeline over a
+ * deterministic measurement port. Hand-built page/layout objects are never the
+ * seam evidence (the old fixture that only exercised the shared-builder
+ * callback was the F1 finding).
+ */
 
-function fragment(blockId: string, x: number, y: number, width = 100, height = 80): PageFragment {
+const A4_LANDSCAPE: PageSetup = {
+  size: 'A4',
+  orientation: 'landscape',
+  margins: { top: 12, right: 12, bottom: 12, left: 12 },
+};
+const A5_PORTRAIT: PageSetup = {
+  size: 'A5',
+  orientation: 'portrait',
+  margins: { top: 12, right: 12, bottom: 12, left: 12 },
+};
+const A5_STACKED: PageSetup = {
+  size: 'A5',
+  orientation: 'portrait',
+  margins: { top: 46, right: 46, bottom: 46, left: 46 },
+};
+
+interface StubSpec {
+  max: number;
+  min: number;
+  height?: number;
+  /** Number of equal safe segments (default 1). */
+  segmentCount?: number;
+  tableColumns?: Record<string, number[]>;
+  missingAssetIds?: string[];
+  /** Explicit measured anchor rects for this block. */
+  anchors?: Array<{ anchorId: string; x: number; occurrence?: number }>;
+}
+
+function stubMeasurement(specs: Record<string, StubSpec>): MeasurementPort {
+  const chrome = 2 * (DEFAULT_PAGE_SETTINGS.theme.cardPadding + DEFAULT_PAGE_SETTINGS.theme.cardBorder);
   return {
-    blockId,
-    chapterId: 'chapter-1',
-    role: 'child',
-    depth: 1,
-    source: { x, y, width, height },
-    page: { x, y, width, height },
-    startSegment: 0,
-    endSegment: 0,
-    isFirst: true,
-    isLast: true,
-    isPageStart: true,
-    continuesToPage: null,
-    continuedFromPage: null,
+    measure(block: ContentBlock, mode: MeasurementMode): BlockMeasurement {
+      const spec = specs[block.id] ?? { max: 100, min: 40 };
+      const contentWidth =
+        mode.kind === 'max-content'
+          ? spec.max
+          : mode.kind === 'min-content'
+            ? spec.min
+            : mode.contentWidth;
+      const contentHeight = spec.height ?? 40;
+      const contentTop =
+        DEFAULT_PAGE_SETTINGS.theme.cardPadding + DEFAULT_PAGE_SETTINGS.theme.cardBorder;
+      const segmentCount = Math.max(1, spec.segmentCount ?? 1);
+      const segmentHeight = contentHeight / segmentCount;
+      return {
+        blockId: block.id,
+        mode,
+        cardWidth: contentWidth + chrome,
+        contentWidth,
+        contentHeight,
+        contentTop,
+        labelHeight: 0,
+        cardHeight:
+          contentTop +
+          contentHeight +
+          DEFAULT_PAGE_SETTINGS.theme.cardPadding +
+          DEFAULT_PAGE_SETTINGS.theme.cardBorder,
+        maxContentWidth: spec.max,
+        minContentWidth: spec.min,
+        segments: Array.from({ length: segmentCount }, (_, index) => ({
+          index,
+          kind: 'paragraph' as const,
+          nodePath: [0],
+          y: index * segmentHeight,
+          height: segmentHeight,
+          breakableBefore: index > 0,
+        })),
+        anchors: (spec.anchors ?? []).map((anchor) => ({
+          anchorId: anchor.anchorId,
+          x: anchor.x,
+          y: 0,
+          width: 20,
+          height: 10,
+          occurrence: anchor.occurrence ?? 0,
+        })),
+        tableColumns: spec.tableColumns ?? {},
+        missingAssetIds: spec.missingAssetIds ?? [],
+      };
+    },
   };
 }
 
-function page(pageNumber: number, fragments: PageFragment[]): DerivedPage {
+interface EdgeSpec {
+  from: string;
+  to: string;
+  anchorId?: string;
+  role?: 'primary' | 'reference';
+  label?: string;
+}
+
+interface AnchorSpec {
+  id: string;
+  blockId: string;
+  kind?: AnchorRecord['kind'];
+  quote?: string;
+}
+
+function makeDocument(input: {
+  id?: string;
+  blocks: string[];
+  edges?: EdgeSpec[];
+  anchors?: AnchorSpec[];
+  chapters?: Array<{ id: string; title: string; topLevelBlockIds: string[] }>;
+}): NoteDocument {
+  const blocks: Record<string, ContentBlock> = {};
+  for (const blockId of input.blocks) {
+    blocks[blockId] = {
+      id: blockId,
+      label: blockId,
+      content: {
+        type: 'doc',
+        children: [
+          {
+            type: 'paragraph',
+            children: [{ type: 'text', text: `Text for ${blockId}` }],
+          },
+        ],
+      },
+    };
+  }
+  const branches: Record<string, BranchRecord> = {};
+  for (const [index, edge] of (input.edges ?? []).entries()) {
+    const id = `branch-${String(index + 1).padStart(2, '0')}`;
+    branches[id] = {
+      id,
+      source: {
+        blockId: edge.from,
+        ...(edge.anchorId === undefined ? {} : { anchorId: edge.anchorId }),
+      },
+      targetBlockId: edge.to,
+      role: edge.role ?? 'primary',
+      order: id,
+      ...(edge.label === undefined ? {} : { label: edge.label }),
+    };
+  }
+  const anchors: Record<string, AnchorRecord> = {};
+  for (const anchor of input.anchors ?? []) {
+    anchors[anchor.id] = {
+      id: anchor.id,
+      blockId: anchor.blockId,
+      kind: anchor.kind ?? 'text',
+      quote: anchor.quote ?? anchor.id,
+    };
+  }
   return {
-    pageNumber,
-    chapterId: 'chapter-1',
-    chapterIndex: 0,
-    chapterTitle: 'Chapter 1',
-    yStart: 0,
-    yEnd: BOUNDS.height,
-    isChapterStart: pageNumber === 1,
-    fragments,
-    continuationOut: [],
-    continuationIn: [],
-    overflow: false,
+    schemaVersion: 2,
+    id: input.id ?? 'print-model-fixture',
+    title: 'Print model fixture',
+    revision: 7,
+    blocks,
+    anchors,
+    branches,
+    chapters:
+      input.chapters ??
+      [{ id: 'chapter-1', title: 'Chapter 1', topLevelBlockIds: [input.blocks[0]!] }],
+    assets: {},
   };
 }
 
-const layout = {
-  documentId: 'print-route-fixture',
-  title: 'Print route fixture',
-  pageSetup: {
-    size: 'A4',
-    orientation: 'landscape',
-    margins: { top: 12, right: 12, bottom: 12, left: 12 },
-  },
-  geometry: {
-    pageWidthMm: 297,
-    pageHeightMm: 210,
-    pageWidthPx: 1122.52,
-    pageHeightPx: 793.7,
-    contentWidthPx: BOUNDS.width,
-    contentHeightPx: BOUNDS.height,
-    marginsPx: { top: 45.35, right: 45.35, bottom: 45.35, left: 45.35 },
-  },
-  chapters: [
-    {
-      id: 'chapter-1',
-      title: 'Chapter 1',
-      index: 0,
-      topLevelBlockIds: ['source'],
-      height: BOUNDS.height,
-    },
-  ],
-  blocks: [],
-  blockById: {},
-  anchors: [],
-  edges: [
-    {
-      branchId: 'b-direct',
-      role: 'primary' as const,
-      fromBlockId: 'source',
-      toBlockId: 'middle',
-      anchorId: null,
-      chapterId: 'chapter-1',
-      from: { x: 0, y: 0 },
-      to: { x: 0, y: 0 },
-      crossChapter: false,
-    },
-    {
-      branchId: 'b-later',
-      role: 'primary' as const,
-      fromBlockId: 'source',
-      toBlockId: 'later',
-      anchorId: null,
-      chapterId: 'chapter-1',
-      from: { x: 0, y: 0 },
-      to: { x: 0, y: 0 },
-      crossChapter: false,
-    },
-    {
-      branchId: 'b-cross',
-      role: 'primary' as const,
-      fromBlockId: 'source',
-      toBlockId: 'next-page',
-      anchorId: null,
-      chapterId: 'chapter-1',
-      from: { x: 0, y: 0 },
-      to: { x: 0, y: 0 },
-      crossChapter: false,
-    },
-  ],
-  defects: [],
-  measurementCalls: 0,
-} as unknown as ContinuousLayout;
+function layoutFor(
+  document: NoteDocument,
+  specs: Record<string, StubSpec>,
+  setup: PageSetup = A4_LANDSCAPE,
+  pageSettingsOverrides: Parameters<typeof normalizePageSettings>[0] = {},
+) {
+  const settings = normalizePageSettings({
+    setup,
+    ...pageSettingsOverrides,
+  });
+  const layout = layoutDocument(
+    document,
+    stubMeasurement(specs),
+    pageLayoutOptions(settings.theme),
+    settings.setup,
+  );
+  const paginated = paginate(layout, document, {
+    manualBreakBeforeBlockIds: [...settings.manualBreakBeforeBlockIds],
+  });
+  return { settings, layout, paginated };
+}
 
-const pages = [
-  page(1, [
-    fragment('source', 0, 0, 140, 80),
-    fragment('middle', 156, 0, 150, 100),
-    fragment('later', 322, 0, 150, 100),
-  ]),
-  page(2, [fragment('next-page', 300, 0)]),
-];
-const paginated = { pages, pageCount: 2, defects: [], manualBreakWarnings: [] } as unknown as PaginatedDocument;
-const document = { id: 'print-route-fixture' } as NoteDocument;
+function modeADocument(): { document: NoteDocument; specs: Record<string, StubSpec> } {
+  const document = makeDocument({
+    id: 'mode-a',
+    blocks: ['root', 'c1', 'c2', 'k1', 'k2'],
+    edges: [
+      { from: 'root', to: 'c1', anchorId: 'a1' },
+      { from: 'root', to: 'c2', anchorId: 'a2' },
+      { from: 'root', to: 'k1' },
+      { from: 'root', to: 'k2' },
+    ],
+    anchors: [
+      { id: 'a1', blockId: 'root' },
+      { id: 'a2', blockId: 'root' },
+    ],
+  });
+  return {
+    document,
+    specs: {
+      root: { max: 200, min: 100, anchors: [{ anchorId: 'a1', x: 20 }, { anchorId: 'a2', x: 60 }] },
+      c1: { max: 120, min: 60 },
+      c2: { max: 120, min: 60 },
+      k1: { max: 200, min: 100 },
+      k2: { max: 200, min: 100 },
+    },
+  };
+}
 
-describe('print model page routes', () => {
-  it('consumes the same shared page routes and group trunks as Page Read/Edit', () => {
-    const model = buildPrintModel(document, layout, paginated);
-    const shared = buildPageEdgeModel(layout, pages);
-    for (const [index, printPage] of model.pages.entries()) {
-      expect(printPage.edges).toEqual(shared.edges[index]);
-      expect(printPage.trunks).toEqual(shared.trunks[index]);
-      for (const edge of printPage.edges) {
+function modeB2Document(): { document: NoteDocument; specs: Record<string, StubSpec> } {
+  return modeADocument();
+}
+
+describe('print model from the real Page pipeline', () => {
+  it('maps real layout pages, shared page edges/trunks, and page-number records (mode A)', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    const model = buildPrintModel(document, layout, paginated, { settings });
+
+    expect(model.pageCount).toBe(paginated.pageCount);
+    expect(model.pages.map((page) => page.pageNumber)).toEqual(
+      paginated.pages.map((page) => page.pageNumber),
+    );
+    expect(model.pages.map((page) => page.fragments)).toEqual(
+      paginated.pages.map((page) => page.fragments),
+    );
+    const shared = buildPageEdgeModel(layout, paginated.pages);
+    for (const [index, page] of model.pages.entries()) {
+      expect(page.edges).toEqual(shared.edges[index]);
+      expect(page.trunks).toEqual(shared.trunks[index]);
+      for (const edge of page.edges) {
         expect(edge.route.points.length).toBeGreaterThanOrEqual(2);
         expect(edge.route.tip).toEqual(edge.route.points.at(-1));
       }
     }
-    const later = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-later')!;
-    expect(later.route.blocked).toBe(false);
-    expect(later.route.entry).toBe('left');
-    // The print model consumes the Page/PDF semantic trunk records, not a
-    // second topology: both right-group siblings point at one shared trunk.
-    const directEdge = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-direct')!;
-    expect(directEdge.placement).toBe('right');
-    expect(later.placement).toBe('right');
-    expect(directEdge.trunk).not.toBeNull();
-    expect(later.trunk).not.toBeNull();
-    expect(later.trunk!.id).toBe(directEdge.trunk!.id);
-    expect(later.trunk!.x).toBe(directEdge.trunk!.x);
-    // The parent page keeps the horizontal lead from the card port to the
-    // stable trunk x, then continues to the page bottom because `b-cross` has a
-    // child on page 2.
-    const parentTrunkView = model.pages[0]!.trunks.find(
-      (view) => view.trunk.id === later.trunk!.id,
-    )!;
-    expect(parentTrunkView).toBeDefined();
-    expect(parentTrunkView.segment.lead).toEqual({
-      from: later.trunk!.port,
-      to: { x: later.trunk!.x, y: later.trunk!.port.y },
-    });
-    expect(parentTrunkView.segment.end.y).toBe(BOUNDS.height);
-    // Never behind the earlier sibling card.
-    const middle = pages[0]!.fragments.find((item) => item.blockId === 'middle')!.page;
-    for (let index = 1; index < later.route.points.length; index += 1) {
-      const start = later.route.points[index - 1]!;
-      const end = later.route.points[index]!;
-      const horizontal = Math.abs(start.y - end.y) < 0.001;
-      const left = Math.min(start.x, end.x);
-      const right = Math.max(start.x, end.x);
-      const top = Math.min(start.y, end.y);
-      const bottom = Math.max(start.y, end.y);
-      const hits = horizontal
-        ? top > middle.y + 0.01 &&
-          top < middle.y + middle.height - 0.01 &&
-          right > middle.x + 0.01 &&
-          left < middle.x + middle.width - 0.01
-        : left > middle.x + 0.01 &&
-          left < middle.x + middle.width - 0.01 &&
-          bottom > middle.y + 0.01 &&
-          top < middle.y + middle.height - 0.01;
-      expect(hits).toBe(false);
+    // Mode A: both callouts share one right trunk at the parent's right lane.
+    const calloutEdges = model.pages[0]!.edges.filter(
+      (edge) => edge.branchId === 'branch-01' || edge.branchId === 'branch-02',
+    );
+    expect(calloutEdges).toHaveLength(2);
+    for (const edge of calloutEdges) {
+      expect(edge.placement).toBe('right');
+      expect(edge.trunk?.id).toBe('root:right');
+      expect(edge.route.entry).toBe('left');
+      expect(edge.targetPage).toBeNull();
+      expect(edge.label).toBeUndefined();
     }
-    // A primary cross-page tree edge has no horizontal indicator: the source
-    // page owns the trunk segment and the target page owns the left arm.
-    const crossOut = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-cross');
-    expect(crossOut).toBeUndefined();
-    const crossIn = model.pages[1]!.edges.find((edge) => edge.branchId === 'b-cross')!;
-    expect(crossIn.direction).toBe('trunk');
-    expect(crossIn.targetPage).toBeNull();
-    expect(crossIn.label).toBeUndefined();
-    expect(crossIn.from).toEqual({ x: crossIn.trunk!.x, y: 0 });
-    const targetTrunkView = model.pages[1]!.trunks.find(
-      (view) => view.trunk.id === crossIn.trunk!.id,
-    )!;
-    expect(targetTrunkView.segment.start).toEqual({ x: crossIn.trunk!.x, y: 0 });
-    expect(targetTrunkView.segment.end).toEqual({
-      x: crossIn.trunk!.x,
-      y: crossIn.to.y,
-    });
+    // pageNumberByBlock is the first page each block appears on.
+    for (const page of model.pages) {
+      for (const fragment of page.fragments) {
+        if (model.pageNumberByBlock[fragment.blockId] === page.pageNumber) {
+          expect(page.fragments.some((item) => item.blockId === fragment.blockId)).toBe(true);
+        }
+      }
+    }
+    expect(model.pageNumberByBlock.root).toBe(1);
+    expect(model.fingerprint).toBe(pageSettingsFingerprint(settings));
   });
 
-  it('consumes both R2j B2 below groups without a second trunk model', () => {
-    const b2Layout = {
-      ...layout,
-      blockById: {
-        source: { blockId: 'source', placement: 'below' },
-        callout: { blockId: 'callout', placement: 'below', trunkGroup: 'callout', trunkInset: 24 },
-        child: { blockId: 'child', placement: 'below', trunkGroup: 'child', trunkInset: 12 },
-      },
-      blocks: [],
-      edges: [
-        {
-          branchId: 'b-callout',
-          role: 'primary' as const,
-          fromBlockId: 'source',
-          toBlockId: 'callout',
-          anchorId: null,
-          chapterId: 'chapter-1',
-          from: { x: 0, y: 0 },
-          to: { x: 0, y: 0 },
-          crossChapter: false,
-        },
-        {
-          branchId: 'b-child',
-          role: 'primary' as const,
-          fromBlockId: 'source',
-          toBlockId: 'child',
-          anchorId: null,
-          chapterId: 'chapter-1',
-          from: { x: 0, y: 0 },
-          to: { x: 0, y: 0 },
-          crossChapter: false,
-        },
-      ],
-    } as unknown as ContinuousLayout;
-    const b2Pages = [
-      page(1, [
-        fragment('source', 0, 0, 200, 60),
-        fragment('callout', 38, 72, 120, 40),
-        fragment('child', 26, 130, 120, 40),
-      ]),
-    ];
-    const b2Paginated = {
-      pages: b2Pages,
-      pageCount: 1,
-      defects: [],
-      manualBreakWarnings: [],
-    } as unknown as PaginatedDocument;
-    const model = buildPrintModel(document, b2Layout, b2Paginated);
-    const shared = buildPageEdgeModel(b2Layout, b2Pages);
-    expect(model.pages[0]!.edges).toEqual(shared.edges[0]);
-    expect(model.pages[0]!.trunks).toEqual(shared.trunks[0]);
-    const callout = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-callout')!;
-    const child = model.pages[0]!.edges.find((edge) => edge.branchId === 'b-child')!;
-    expect(callout.trunk!.id).toBe('source:below:callout');
+  it('keeps the two R2j B2 below trunks independent (A5 portrait)', () => {
+    const { document, specs } = modeB2Document();
+    const { settings, layout, paginated } = layoutFor(document, specs, A5_PORTRAIT);
+    const model = buildPrintModel(document, layout, paginated, { settings });
+    const page = model.pages[0]!;
+    const callout = page.edges.find((edge) => edge.branchId === 'branch-01')!;
+    const child = page.edges.find((edge) => edge.branchId === 'branch-03')!;
+    expect(callout.trunk!.id).toBe('root:below:callout');
     expect(callout.trunk!.trunkGroup).toBe('callout');
-    expect(callout.trunk!.x).toBe(24);
-    expect(child.trunk!.id).toBe('source:below:child');
+    expect(child.trunk!.id).toBe('root:below:child');
     expect(child.trunk!.trunkGroup).toBe('child');
-    expect(child.trunk!.x).toBe(12);
     expect(child.trunk!.x).toBeLessThan(callout.trunk!.x);
-    expect(model.pages[0]!.trunks.map((view) => view.trunk.id).sort()).toEqual([
-      'source:below:callout',
-      'source:below:child',
+    expect(page.trunks.map((view) => view.trunk.id).sort()).toEqual([
+      'root:below:callout',
+      'root:below:child',
     ]);
-    for (const edge of model.pages[0]!.edges) {
+    for (const edge of page.edges) expect(edge.route.entry).toBe('left');
+  });
+
+  it('keeps the explicit stacked legacy geometry when the resolved theme asks for it', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(
+      document,
+      specs,
+      A5_STACKED,
+      { theme: { pagePacking: 'stacked' } },
+    );
+    expect(settings.theme.pagePacking).toBe('stacked');
+    const model = buildPrintModel(document, layout, paginated, { settings });
+    const page = model.pages[0]!;
+    const primary = page.edges.filter((edge) => edge.role === 'primary');
+    expect(primary).toHaveLength(4);
+    // One shared below trunk owns every child in the stacked geometry.
+    expect(new Set(primary.map((edge) => edge.trunk?.id))).toEqual(new Set(['root:below']));
+    for (const edge of primary) {
+      expect(edge.placement).toBe('below');
       expect(edge.route.entry).toBe('left');
     }
   });
+
+  it('carries resolved theme, CSS variables, document content, measurements, anchors, assets, and chrome', () => {
+    const document = makeDocument({
+      id: 'complete-inputs',
+      blocks: ['root', 'child', 'resolved', 'broken', 'ambiguous', 'table', 'image'],
+      edges: [
+        { from: 'root', to: 'resolved', anchorId: 'a-resolved' },
+        { from: 'root', to: 'broken', anchorId: 'a-broken' },
+        { from: 'root', to: 'ambiguous', anchorId: 'a-ambiguous' },
+        { from: 'root', to: 'child' },
+      ],
+      anchors: [
+        { id: 'a-resolved', blockId: 'root' },
+        { id: 'a-broken', blockId: 'root' },
+        { id: 'a-ambiguous', blockId: 'root' },
+      ],
+      chapters: [
+        {
+          id: 'chapter-1',
+          title: 'Complete inputs',
+          topLevelBlockIds: ['root', 'table', 'image'],
+        },
+      ],
+    });
+    const specs: Record<string, StubSpec> = {
+      root: {
+        max: 200,
+        min: 100,
+        anchors: [
+          { anchorId: 'a-resolved', x: 12 },
+          { anchorId: 'a-ambiguous', x: 24, occurrence: 0 },
+          { anchorId: 'a-ambiguous', x: 44, occurrence: 1 },
+        ],
+      },
+      child: { max: 120, min: 60 },
+      resolved: { max: 120, min: 60 },
+      broken: { max: 120, min: 60 },
+      ambiguous: { max: 120, min: 60 },
+      table: { max: 300, min: 120, tableColumns: { '0': [140, 90] } },
+      image: { max: 200, min: 80, missingAssetIds: ['img-missing'] },
+    };
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    const model = buildPrintModel(document, layout, paginated, {
+      settings,
+      failedAssetIds: ['img-failed'],
+      assetUrls: { 'img-ok': 'noteforest-asset://ok', 'img-failed': 'noteforest-asset://bad' },
+    });
+
+    // Resolved theme and CSS map are the compositor's only metric source.
+    expect(model.settings).toEqual(settings);
+    expect(model.cssVariables).toEqual(pageCssVariables(settings.theme));
+    expect(model.pageSetup).toEqual(settings.setup);
+    expect(model.geometry).toEqual(pageGeometry(settings.setup));
+    // The previous unused `document` argument is now the content record.
+    expect(model.document).toBe(document);
+    expect(model.document.blocks.table!.content.children?.[0]?.type).toBe('paragraph');
+    // Measurements/table columns come from the real layout records.
+    expect(model.blocks.table!.measurement.tableColumns).toEqual({ '0': [140, 90] });
+    expect(model.blocks.root!.measurement.contentHeight).toBe(40);
+    // Resolved/broken/ambiguous anchor attachments are carried unchanged.
+    expect(model.anchors.find((anchor) => anchor.anchorId === 'a-resolved')?.state).toBe('resolved');
+    expect(model.anchors.find((anchor) => anchor.anchorId === 'a-broken')?.state).toBe('broken');
+    expect(model.anchors.find((anchor) => anchor.anchorId === 'a-ambiguous')?.state).toBe('ambiguous');
+    // Failed and indexed-missing assets are explicit.
+    expect(model.failedAssetIds).toEqual(['img-failed']);
+    expect(model.missingAssetIds).toEqual(['img-missing']);
+    expect(model.assetUrls).toEqual({ 'img-ok': 'noteforest-asset://ok' });
+    // Page chrome positions/text and cross-page labels are model records.
+    expect(model.pages[0]!.chrome).toMatchObject(pageChromeLayout(model.geometry));
+    expect(model.pages[0]!.chrome.documentTitle).toBe('Print model fixture');
+    expect(model.pages[0]!.chrome.chapterTitle).toBe('Complete inputs');
+    expect(model.pages[0]!.chrome.pageLabel).toBe(`Page 1 of ${model.pageCount}`);
+    // Defects are carried with the model, including non-blocking anchor warnings.
+    expect(model.defects.some((defect) => defect.code === 'broken-anchor')).toBe(true);
+    expect(model.defects.some((defect) => defect.code === 'ambiguous-anchor')).toBe(true);
+    expect(model.blockingDefects).toEqual([]);
+  });
+
+  it('records cross-page labels and continuation chrome from real pagination', () => {
+    const document = makeDocument({
+      id: 'cross-page',
+      blocks: ['a', 'b', 'long'],
+      edges: [{ from: 'a', to: 'b', role: 'reference', label: 'See also' }],
+      chapters: [{ id: 'chapter-1', title: 'Cross page', topLevelBlockIds: ['a', 'b', 'long'] }],
+    });
+    const specs: Record<string, StubSpec> = {
+      a: { max: 200, min: 100, height: 300 },
+      b: { max: 200, min: 100, height: 300 },
+      long: { max: 300, min: 120, height: 2000, segmentCount: 20 },
+    };
+    const { settings, layout, paginated } = layoutFor(document, specs, A5_PORTRAIT, {
+      manualBreakBeforeBlockIds: ['b'],
+    });
+    expect(paginated.pageCount).toBeGreaterThan(1);
+    const model = buildPrintModel(document, layout, paginated, { settings });
+    const targetPage = model.pageNumberByBlock.b!;
+    const target = model.pages[targetPage - 1]!;
+    const label = target.edgeLabels.find((item) => item.edge.branchId === 'branch-01');
+    expect(label).toBeDefined();
+    expect(label!.direction).toBe('from-edge');
+    expect(label!.text).toBe(`← p.${model.pageNumberByBlock.a}`);
+    expect(label!.accessibleLabel).toContain('Reference');
+    expect(label!.accessibleLabel).toContain('continued from page');
+    const continuationPages = model.pages.filter(
+      (page) => page.chrome.continuesOn.length > 0 || page.chrome.continuedFrom.length > 0,
+    );
+    expect(continuationPages.length).toBeGreaterThan(0);
+  });
 });
+
+describe('print model settings identity (F4)', () => {
+  it('fails loudly when the layout was measured with a different page setup', () => {
+    const { document, specs } = modeADocument();
+    const { layout, paginated } = layoutFor(document, specs, A4_LANDSCAPE);
+    const other = normalizePageSettings({ setup: A5_PORTRAIT });
+    expect(() => buildPrintModel(document, layout, paginated, { settings: other })).toThrow(
+      PrintModelSettingsMismatchError,
+    );
+    expect(() => buildPrintModel(document, layout, paginated, { settings: other })).toThrow(
+      /page setup/,
+    );
+  });
+
+  it('fails loudly when the pages were paginated with different manual breaks', () => {
+    const document = makeDocument({
+      id: 'manual-break-identity',
+      blocks: ['b1', 'b2'],
+      chapters: [{ id: 'chapter-1', title: 'Two blocks', topLevelBlockIds: ['b1', 'b2'] }],
+    });
+    const specs: Record<string, StubSpec> = {
+      b1: { max: 200, min: 100, height: 60 },
+      b2: { max: 200, min: 100, height: 60 },
+    };
+    const withoutBreaks = layoutFor(document, specs, A4_LANDSCAPE);
+    expect(withoutBreaks.paginated.pageCount).toBe(1);
+    const withBreaks = normalizePageSettings({
+      setup: A4_LANDSCAPE,
+      manualBreakBeforeBlockIds: ['b2'],
+    });
+    expect(() =>
+      buildPrintModel(document, withoutBreaks.layout, withoutBreaks.paginated, {
+        settings: withBreaks,
+      }),
+    ).toThrow(/manual breaks/);
+  });
+
+  it('fails loudly when the page-model fingerprint belongs to a stale settings run', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    expect(() =>
+      buildPrintModel(document, layout, paginated, {
+        settings,
+        pageModelFingerprint: 'stale-page-model',
+      }),
+    ).toThrow(/fingerprint/);
+    const model = buildPrintModel(document, layout, paginated, {
+      settings,
+      pageModelFingerprint: pageSettingsFingerprint(settings),
+    });
+    expect(model.fingerprint).toBe(pageSettingsFingerprint(settings));
+  });
+
+  it('can derive pagination itself from the resolved settings when pages are omitted', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    const model = buildPrintModel(document, layout, undefined, { settings });
+    expect(model.pageCount).toBe(paginated.pageCount);
+    expect(model.pages.map((page) => page.fragments)).toEqual(
+      paginated.pages.map((page) => page.fragments),
+    );
+  });
+});
+
+/** Type-level guard: the compositor input is a plain serializable record. */
+export type PrintModelRecord = PrintModel;

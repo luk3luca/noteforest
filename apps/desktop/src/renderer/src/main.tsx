@@ -4,6 +4,7 @@ import '@fontsource/jetbrains-mono/400.css';
 import '@fontsource/jetbrains-mono/500.css';
 import 'katex/dist/katex.min.css';
 import './styles.css';
+import './print/print.css';
 import { App } from './App';
 import { applyDesignTokens } from './lib/apply-design-tokens';
 

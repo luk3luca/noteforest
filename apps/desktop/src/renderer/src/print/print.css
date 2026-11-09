@@ -1,0 +1,86 @@
+/* ---------------------------------------------------------------------------
+ * Print skin (M4c1)
+ *
+ * Colours, borders, and shadows only. Every metric (font size, line height,
+ * padding, card box, content box, edge/trunk geometry) is inherited from the
+ * Page Read styles and the resolved `pageCssVariables(theme)` map written on
+ * the print root. Do not add `font-size`, `line-height`, `padding`, or a page
+ * size here: the paginator already decided them.
+ *
+ * One fixed sheet per derived page; sheets are direct children of the root.
+ * `break-*` only maps one already-fixed sheet to one PDF page. No paper format
+ * or content fragmentation is inferred by CSS.
+ * ------------------------------------------------------------------------- */
+
+.nf-print-root {
+  display: block;
+  background: #ffffff;
+  color: var(--nf-page-ink);
+}
+
+.nf-print-root .nf-print-sheet {
+  display: block;
+  margin: 0;
+  background: #ffffff;
+  border: 0;
+  box-shadow: none;
+  overflow: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.nf-print-root .nf-print-sheet + .nf-print-sheet {
+  break-before: page;
+  page-break-before: always;
+}
+
+.nf-print-root .nf-page-edge-path,
+.nf-print-root .nf-page-edge-arrow {
+  color: #2b2b2b;
+}
+
+.nf-print-root .nf-page-edge-reference,
+.nf-print-root .nf-page-edge-path-reference,
+.nf-print-root .nf-page-edge-arrow-reference {
+  color: #4d4d4d;
+}
+
+.nf-print-root .nf-page-edge-blocked .nf-page-edge-path,
+.nf-print-root .nf-page-edge-blocked .nf-page-edge-arrow {
+  color: #6b4a00;
+}
+
+.nf-print-root .nf-page-edge-label {
+  border-color: #b5b5b5;
+  background: #ffffff;
+  color: #222222;
+}
+
+.nf-print-root .nf-page-edge-label-reference {
+  border-color: #9a8a6a;
+  color: #4a3d22;
+}
+
+.nf-print-root .nf-page-defect-badge {
+  color: #6b1a14;
+  background: #ffffff;
+  border-color: #a46a62;
+}
+
+.nf-print-root .nf-page-anchor-badge {
+  color: #4d3600;
+  background: #ffffff;
+  border-color: #b09355;
+}
+
+@media print {
+  .nf-print-root .nf-print-sheet {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .nf-print-root .nf-print-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}

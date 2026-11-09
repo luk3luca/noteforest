@@ -135,6 +135,36 @@ export function documentPlainText(document: NoteDocument): string {
     .join('\n');
 }
 
+function collectNodeText(node: ContentNode, out: string[]): string[] {
+  if (typeof node.text === 'string' && node.text.length > 0) out.push(node.text);
+  for (const child of node.children ?? []) collectNodeText(child, out);
+  return out;
+}
+
+/**
+ * Stable display title shared by Page Read chrome and the print compositor.
+ *
+ * The label wins; otherwise the first non-empty content node supplies the
+ * title, and a whole-block text fallback keeps empty/unknown content visible.
+ * Page/print use this one function so a continuation marker cannot drift.
+ */
+export function contentBlockTitle(block: ContentBlock | undefined): string {
+  if (block === undefined) return 'Untitled block';
+  if (typeof block.label === 'string' && block.label.trim().length > 0) {
+    return block.label.trim();
+  }
+  const first = block.content.children?.find((node) => {
+    const text = collectNodeText(node, []).join(' ').trim();
+    return text.length > 0;
+  });
+  const text =
+    first === undefined
+      ? blockPlainText(block)
+      : collectNodeText(first, []).join(' ').replace(/\s+/g, ' ').trim();
+  if (text.length === 0) return 'Empty block';
+  return text.length > 72 ? `${text.slice(0, 71)}…` : text;
+}
+
 export function allBlockIdsInContent(node: ContentNode, out: string[] = []): string[] {
   const anchorId = node.attrs?.['anchorId'];
   if (typeof anchorId === 'string') out.push(anchorId);

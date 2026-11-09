@@ -1,17 +1,27 @@
 /** Ambient bridge exposed by the preload script. */
 import type * as React from 'react';
 import type { DocumentCommand } from '@noteforest/core';
+import type { PrintModel } from '@noteforest/pdf';
 import type { NoteForestApi } from '../../shared/api';
 
 declare global {
   interface Window {
     noteforest: NoteForestApi;
+    /** Entry point loaded by the print surface (M4c2 hidden window). */
+    __noteforestPrint?: {
+      render: (payload: { model: PrintModel; assets?: Record<string, string> }) => void;
+      clear: () => void;
+    };
     __noteforestTest?: {
       state: () => unknown;
       viewState?: () => unknown;
       openPath: (packagePath: string) => Promise<boolean>;
       flushSession: () => Promise<void>;
       setFlushMode: (mode: 'normal' | 'error' | 'hang') => void;
+      /** Test-only: mount the print compositor from the active Page model. */
+      renderPrint?: () => unknown;
+      /** Test-only: remove the print compositor test host. */
+      clearPrint?: () => boolean;
       seed: (kind: 'demo' | 'performance' | 'performance-1000') => Promise<string>;
       /** Test-only: apply a typed command through the active runtime stack. */
       applyStructural?: (command: DocumentCommand) => Promise<unknown>;

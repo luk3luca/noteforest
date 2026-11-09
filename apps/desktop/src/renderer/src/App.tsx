@@ -36,6 +36,9 @@ import { READ_MODE_TOAST } from './lib/editability';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
 import { commitPageEdit } from './page/page-edit-state';
+import { printPageModelSnapshot } from './page/print-model-registry';
+import { clearPrintTestSurface, mountPrintTestSurface } from './print/test-surface';
+import { buildPrintModel } from '@noteforest/pdf';
 import { perfSnapshot, summarize } from './lib/perf';
 
 type FlushTestMode = 'normal' | 'error' | 'hang';
@@ -550,6 +553,46 @@ export function App(): JSX.Element {
         ),
       setFlushMode: (mode: FlushTestMode) => {
         flushTestMode = mode;
+      },
+      renderPrint: () => {
+        const state = useShell.getState();
+        const runtime = allRuntimes().find((item) => item.packagePath === state.activeTab);
+        if (runtime === undefined) return { ok: false, message: 'No active document.' };
+        const snapshot = printPageModelSnapshot(runtime.packagePath);
+        if (snapshot === null) {
+          return { ok: false, message: 'The Page model is not ready.' };
+        }
+        const model = buildPrintModel(
+          snapshot.document,
+          snapshot.layout,
+          {
+            pages: snapshot.pages,
+            pageCount: snapshot.pages.length,
+            defects: snapshot.defects,
+            manualBreakWarnings: snapshot.manualBreakWarnings,
+          },
+          {
+            settings: snapshot.settings,
+            pageModelFingerprint: snapshot.settingsFingerprint,
+            failedAssetIds: [...snapshot.failedAssetIds],
+            assetUrls: snapshot.assetUrls,
+          },
+        );
+        mountPrintTestSurface(model, model.assetUrls);
+        return {
+          ok: true,
+          pageCount: model.pageCount,
+          fingerprint: model.fingerprint,
+          settingsFingerprint: snapshot.settingsFingerprint,
+          pageWidthMm: model.geometry.pageWidthMm,
+          pageHeightMm: model.geometry.pageHeightMm,
+          contentWidthPx: model.geometry.contentWidthPx,
+          contentHeightPx: model.geometry.contentHeightPx,
+        };
+      },
+      clearPrint: () => {
+        clearPrintTestSurface();
+        return true;
       },
       editorCheck: () => {
         return allRuntimes().map((item) => {

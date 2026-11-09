@@ -485,6 +485,30 @@ export function pageHasBlockingDefect(document: PaginatedDocument): boolean {
   return document.defects.some((defect) => defect.blocksExport);
 }
 
+/** Defects that block export and get a visible page badge. */
+export function blockingDefects(defects: readonly LayoutDefect[]): LayoutDefect[] {
+  return defects.filter((defect) => defect.blocksExport);
+}
+
+/**
+ * The blocking defects that apply to one derived page. Shared by Page Read and
+ * print so the page badge and the fragment badge cannot disagree.
+ */
+export function pageBlockingDefects(
+  defects: readonly LayoutDefect[],
+  page: DerivedPage,
+): LayoutDefect[] {
+  const fragmentIds = new Set(page.fragments.map((fragment) => fragment.blockId));
+  return blockingDefects(defects).filter((defect) => {
+    if (defect.pageNumber !== undefined && defect.pageNumber === page.pageNumber) return true;
+    if (defect.blockId !== undefined && fragmentIds.has(defect.blockId)) return true;
+    if (defect.pageNumber === undefined && defect.blockId === undefined) {
+      return defect.chapterId === undefined || defect.chapterId === page.chapterId;
+    }
+    return false;
+  });
+}
+
 export function continuationMarkersForPage(page: DerivedPage): {
   continuesOnPage: number | null;
   continuedFromPage: number | null;

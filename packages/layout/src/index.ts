@@ -4,6 +4,7 @@ export * from './geometry.js';
 export * from './document.js';
 export * from './layout.js';
 export * from './paginator.js';
+export * from './page-chrome.js';
 export * from './page-edges.js';
 export * from './page-routing.js';
 export * from './edge-style.js';

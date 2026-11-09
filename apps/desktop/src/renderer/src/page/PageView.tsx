@@ -40,7 +40,6 @@ import type {
 import {
   buildPageEdgeModel,
   pageCssVariables,
-  pageLayoutOptions,
 } from '@noteforest/layout';
 import { openBlockInContinuous } from '../actions';
 import { useRuntime } from '../state/registry';
@@ -52,17 +51,22 @@ import { pageBlockEditingEnabledFor } from '../lib/editability';
 import { GEOMETRY } from '../lib/geometry';
 import { PageBlockEditor } from './PageBlockEditor';
 import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
-import { anchorHintsForDocument, corePageGeometry } from './adapter';
-import { blockingDefects, clampPageNumber } from './model';
+import { corePageGeometry } from './adapter';
+import { clampPageNumber } from './model';
 import { PageEdges } from './PageEdges';
 import { usePageSettings } from '../state/settings';
 import {
-  buildSegments,
   contentWrapperHtml,
   labelHtml,
   type PageContentBlock,
   type PageRenderSegment,
 } from './segments';
+import {
+  emptyPageChrome,
+  projectPageContent,
+  type ProjectedPageChrome,
+} from './projection';
+import { registerPrintPageModel, unregisterPrintPageModel } from './print-model-registry';
 import { usePageModel } from './usePageModel';
 
 interface PageViewProps {
@@ -226,87 +230,63 @@ function PageFragmentView({
 }
 
 interface PageChromeProps {
-  pageNumber: number;
-  pageCount: number;
-  documentTitle: string;
-  chapterTitle: string;
-  geometry: PageGeometry;
-  page: DerivedPage | null;
-  runtime: DocumentRuntime;
+  chrome: ProjectedPageChrome;
 }
 
-function PageChrome({
-  pageNumber,
-  pageCount,
-  documentTitle,
-  chapterTitle,
-  geometry,
-  page,
-  runtime,
-}: PageChromeProps): JSX.Element {
-  const margins = geometry.marginsPx;
-  const headerTop = margins.top * 0.3;
-  const ghostTop = margins.top * 0.62;
-  const footerBottom = margins.bottom * 0.3;
-  const continuesBottom = margins.bottom * 0.6;
+function PageChrome({ chrome }: PageChromeProps): JSX.Element {
+  const { left, right, headerTop, ghostTop, footerBottom, continuesBottom } = chrome;
   return (
     <>
       <div
         className="nf-page-header"
-        style={{ left: margins.left, right: margins.right, top: headerTop }}
+        style={{ left, right, top: headerTop }}
       >
-        <span className="nf-page-header-title">{documentTitle}</span>
-        <span className="nf-page-header-chapter">{chapterTitle}</span>
+        <span className="nf-page-header-title">{chrome.documentTitle}</span>
+        <span className="nf-page-header-chapter">{chrome.chapterTitle}</span>
       </div>
-      {page !== null && page.continuationIn.length > 0 ? (
+      {chrome.continuedFrom.length > 0 ? (
         <div
           className="nf-page-ghost-list"
-          style={{ left: margins.left, right: margins.right, top: ghostTop }}
+          style={{ left, right, top: ghostTop }}
           data-page-ghost-list="true"
-          data-page-continued-from={page.continuationIn[0]?.fromPage}
+          data-page-continued-from={chrome.continuedFrom[0]?.fromPage}
         >
-          {page.continuationIn.map((continuation) => {
-            const block = runtime.document.blocks[continuation.blockId];
-            const blockLabel = block?.label ?? continuation.ghostParent.blockLabel;
-            return (
-              <div
-                className="nf-page-ghost"
-                key={`${continuation.blockId}-${continuation.fromPage}`}
-              >
-                ↳ continued from page {continuation.fromPage} ·{' '}
-                {continuation.ghostParent.parentLabel}
-                {continuation.ghostParent.anchorQuote === null
-                  ? ''
-                  : ` (${continuation.ghostParent.anchorQuote})`}{' '}
-                → {blockLabel}
-              </div>
-            );
-          })}
+          {chrome.continuedFrom.map((continuation) => (
+            <div
+              className="nf-page-ghost"
+              key={`${continuation.blockId}-${continuation.fromPage}`}
+            >
+              ↳ continued from page {continuation.fromPage} ·{' '}
+              {continuation.parentLabel}
+              {continuation.anchorQuote === null ? '' : ` (${continuation.anchorQuote})`}{' '}
+              → {continuation.blockLabel}
+            </div>
+          ))}
         </div>
       ) : null}
       <div
         className="nf-page-footer"
-        style={{ left: margins.left, right: margins.right, bottom: footerBottom }}
+        style={{ left, right, bottom: footerBottom }}
       >
-        <span className="nf-page-footer-chapter">{chapterTitle}</span>
+        <span className="nf-page-footer-chapter">{chrome.chapterTitle}</span>
         <span className="nf-page-footer-number" data-page-indicator="true">
-          Page {pageNumber} of {pageCount}
+          {chrome.pageLabel}
         </span>
       </div>
-      {page !== null && page.continuationOut.length > 0 ? (
+      {chrome.continuesOn.length > 0 ? (
         <div
           className="nf-page-continues-list"
-          style={{ left: margins.left, right: margins.right, bottom: continuesBottom }}
+          style={{ left, right, bottom: continuesBottom }}
           data-page-continues-list="true"
-          data-page-continues-on={page.continuationOut[0]?.toPage}
+          data-page-continues-on={chrome.continuesOn[0]?.toPage}
         >
-          {page.continuationOut.map((continuation) => (
+          {chrome.continuesOn.map((continuation) => (
             <div
               className="nf-page-continues"
               key={`${continuation.blockId}-${continuation.toPage}`}
             >
               continues on page {continuation.toPage} ·{' '}
-              {titleOf(runtime, continuation.blockId)} →
+              {continuation.blockLabel} →
             </div>
           ))}
         </div>
@@ -319,10 +299,8 @@ interface PageSurfaceProps {
   page: DerivedPage | null;
   pageNumber: number;
   pageCount: number;
-  documentTitle: string;
-  chapterTitle: string;
+  chrome: ProjectedPageChrome;
   geometry: PageGeometry;
-  runtime: DocumentRuntime;
   blocking: readonly LayoutDefect[];
   edges: readonly PageEdge[];
   trunks: readonly PageEdgeTrunkView[];
@@ -333,10 +311,8 @@ function PageSurface({
   page,
   pageNumber,
   pageCount,
-  documentTitle,
-  chapterTitle,
+  chrome,
   geometry,
-  runtime,
   blocking,
   edges,
   trunks,
@@ -363,15 +339,7 @@ function PageSurface({
       data-margin-bottom={margins.bottom.toFixed(3)}
       data-margin-left={margins.left.toFixed(3)}
     >
-      <PageChrome
-        pageNumber={pageNumber}
-        pageCount={pageCount}
-        documentTitle={documentTitle}
-        chapterTitle={chapterTitle}
-        geometry={geometry}
-        page={page}
-        runtime={runtime}
-      />
+      <PageChrome chrome={chrome} />
       <div
         className="nf-page-content"
         style={{
@@ -430,7 +398,31 @@ export function PageView({
   // Page geometry is a personal lens: the sheet, content box, chrome, overlay,
   // and paginator all receive this one resolved setup (A4/A5/Letter).
   const geometry = useMemo(() => corePageGeometry(settings), [settings]);
-  const layoutOptions = useMemo(() => pageLayoutOptions(settings.theme), [settings.theme]);
+  const displayAssets = useMemo(() => {
+    const next: Record<string, string> = { ...model.assetUrls };
+    for (const assetId of model.failedAssetIds) delete next[assetId];
+    return next;
+  }, [model.assetUrls, model.failedAssetIds]);
+  // One content projection for Page Read/Edit: static segments, page-scoped
+  // defects, anchor warnings, and the shared chrome records. The print
+  // compositor consumes the same projection from its own PrintModel.
+  const projection = useMemo(() => {
+    if (model.document === null || model.layout === null) {
+      return { pages: [], blockingDefects: [] };
+    }
+    return projectPageContent({
+      document: model.document,
+      contentBlocks: runtime.document.blocks,
+      blocks: model.layout.blockById,
+      pages: model.pages,
+      defects: model.defects,
+      anchors: model.layout.anchors,
+      settings,
+      geometry,
+      assets: displayAssets,
+    });
+  }, [model.document, model.layout, model.pages, model.defects, settings, geometry, displayAssets, runtime.document]);
+  const projectedPage = projection.pages[pageNumber - 1] ?? null;
   // The shared page-edge mapper, not a Page-local router. Only the current
   // page's slice is handed to the SVG; group trunks also expose pass-through
   // segments for pages with no child of that parent.
@@ -440,6 +432,10 @@ export function PageView({
   }, [model.layout, model.pages]);
   const pageEdges = pageEdgeModel.edges[pageNumber - 1] ?? [];
   const pageTrunks = pageEdgeModel.trunks[pageNumber - 1] ?? [];
+  const blocking = projection.blockingDefects;
+  const pageBlocking = projectedPage?.blocking ?? [];
+  const segmentsByBlock = projectedPage?.segmentsByBlock ?? {};
+  const anchorWarnings = projectedPage?.anchorWarningsByBlock ?? {};
 
   // Derived model may shrink the page count; keep the shell page in range.
   // Wait for the first derived model: clamping against the loading state would
@@ -450,6 +446,46 @@ export function PageView({
       useShell.getState().setDocumentPage(runtime.packagePath, pageNumber);
     }
   }, [active, currentPage, pageNumber, model.ready, runtime.packagePath]);
+
+  // The print surface consumes this exact model run; it never measures or
+  // paginates a second time.
+  useEffect(() => {
+    if (
+      !active ||
+      !model.ready ||
+      model.document === null ||
+      model.layout === null ||
+      model.settingsFingerprint === null
+    ) {
+      return undefined;
+    }
+    registerPrintPageModel({
+      packagePath: runtime.packagePath,
+      document: model.document,
+      layout: model.layout,
+      pages: model.pages,
+      defects: model.defects,
+      manualBreakWarnings: model.manualBreakWarnings,
+      settings,
+      settingsFingerprint: model.settingsFingerprint,
+      assetUrls: model.assetUrls,
+      failedAssetIds: model.failedAssetIds,
+    });
+    return () => unregisterPrintPageModel(runtime.packagePath);
+  }, [
+    active,
+    model.ready,
+    model.document,
+    model.layout,
+    model.pages,
+    model.defects,
+    model.manualBreakWarnings,
+    model.settingsFingerprint,
+    model.assetUrls,
+    model.failedAssetIds,
+    runtime.packagePath,
+    settings,
+  ]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -512,56 +548,6 @@ export function PageView({
       useShell.getState().setDocumentPageZoom(runtime.packagePath, effectiveZoom);
     }
   }, [active, effectiveZoom, pageFit, runtime.packagePath]);
-
-  const anchorsByBlock = useMemo(() => anchorHintsForDocument(runtime.document), [runtime.document]);
-  const displayAssets = useMemo(() => {
-    const next: Record<string, string> = { ...model.assetUrls };
-    for (const assetId of model.failedAssetIds) delete next[assetId];
-    return next;
-  }, [model.assetUrls, model.failedAssetIds]);
-
-  const segmentsByBlock = useMemo(() => {
-    const result: Record<string, PageRenderSegment[]> = {};
-    if (page === null) return result;
-    for (const fragment of page.fragments) {
-      if (result[fragment.blockId] !== undefined) continue;
-      const block = runtime.document.blocks[fragment.blockId];
-      if (block === undefined) continue;
-      const layoutBlock = model.layout?.blockById[fragment.blockId];
-      result[fragment.blockId] = buildSegments(block, {
-        assets: displayAssets,
-        tableColumns: layoutBlock?.measurement.tableColumns ?? {},
-        anchors: anchorsByBlock.get(fragment.blockId) ?? [],
-        listIndent: layoutOptions.wrapIndent,
-      });
-    }
-    return result;
-  }, [page, model.layout, displayAssets, anchorsByBlock, runtime.document, layoutOptions.wrapIndent]);
-
-  const blocking = useMemo(() => blockingDefects(model.defects), [model.defects]);
-  const pageBlocking = useMemo(() => {
-    if (page === null) return [];
-    const fragmentIds = new Set(page.fragments.map((fragment) => fragment.blockId));
-    return blocking.filter((defect) => {
-      if (defect.pageNumber !== undefined && defect.pageNumber === page.pageNumber) return true;
-      if (defect.blockId !== undefined && fragmentIds.has(defect.blockId)) return true;
-      if (defect.pageNumber === undefined && defect.blockId === undefined) {
-        return defect.chapterId === undefined || defect.chapterId === page.chapterId;
-      }
-      return false;
-    });
-  }, [blocking, page]);
-
-  const anchorWarnings = useMemo(() => {
-    const grouped = new Map<string, AnchorAttachment[]>();
-    for (const attachment of model.layout?.anchors ?? []) {
-      if (attachment.state === 'resolved') continue;
-      const list = grouped.get(attachment.blockId) ?? [];
-      list.push(attachment);
-      grouped.set(attachment.blockId, list);
-    }
-    return grouped;
-  }, [model.layout]);
 
   const goToPage = useCallback(
     (next: number) => {
@@ -719,10 +705,17 @@ export function PageView({
     }
   };
 
-  const documentTitle = runtime.document.title;
-  const chapterTitle =
-    page?.chapterTitle ??
-    (runtime.document.chapters[0]?.title?.trim() || 'Chapter 1');
+  const pageChrome =
+    projectedPage?.chrome ??
+    emptyPageChrome({
+      geometry,
+      documentTitle: runtime.document.title,
+      chapterTitle:
+        page?.chapterTitle ??
+        (runtime.document.chapters[0]?.title?.trim() || 'Chapter 1'),
+      pageNumber: 1,
+      pageCount: 1,
+    });
   const placeholder = ((): ReactNode => {
     if (model.error !== null) {
       return (
@@ -920,10 +913,8 @@ export function PageView({
               page={showPlaceholder ? null : page}
               pageNumber={showPlaceholder ? 1 : pageNumber}
               pageCount={showPlaceholder ? 1 : pageCount}
-              documentTitle={documentTitle}
-              chapterTitle={chapterTitle}
+              chrome={pageChrome}
               geometry={geometry}
-              runtime={runtime}
               blocking={showPlaceholder ? [] : pageBlocking}
               edges={showPlaceholder ? [] : pageEdges}
               trunks={showPlaceholder ? [] : pageTrunks}
@@ -942,7 +933,7 @@ export function PageView({
                       selected={selectedBlockId === fragment.blockId}
                       blocking={blocking.filter((defect) => defect.blockId === fragment.blockId)}
                       anchorWarnings={
-                        fragment.isFirst ? anchorWarnings.get(fragment.blockId) ?? [] : []
+                        fragment.isFirst ? anchorWarnings[fragment.blockId] ?? [] : []
                       }
                       editingEnabled={pageEditing}
                       onSelect={selectBlock}
