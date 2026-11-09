@@ -196,3 +196,15 @@ Orchestrator: run the single full `npm run verify`, inspect the Page Read
 screenshot, and hand the build to the product owner for the File-menu/Page-
 button/Notability check. The UI rework should then decide the final export
 entry points and the default output folder.
+
+## Integration
+
+- Merged to `main` as `01608bd` (base `bceeeed`).
+- The new Page toolbar button exposed a fit-page oscillation at 960 px:
+  the wrapping toolbar changed the viewport height, which changed the
+  fit-page zoom and the sheet size. The temporary fix keeps the Page toolbar
+  on one rail (`flex-wrap: nowrap; overflow-x: auto`); the final narrow-width
+  layout belongs to the UI rework.
+- One full `npm run verify` on the integrated tree: **exit 0** — **98 test
+  files / 962 tests**, **36 UI suites / 125 tests**, **16 critical e2e**,
+  **14 recovery**, **0 pageErrors**.

@@ -4714,7 +4714,13 @@ body.nf-dragging-block .nf-gutter-handle {
   flex: none;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  /* Keep the toolbar one rail high. Wrapping changes the page viewport height,
+     which feeds back into fit-page zoom and can oscillate the sheet; the
+     temporary export button exposed this at 960 px. The UI rework owns the
+     final narrow-width layout. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
   gap: var(--nf-card-padding);
   padding: 6px var(--nf-child-row-gap);
   border-bottom: 1px solid var(--border);
