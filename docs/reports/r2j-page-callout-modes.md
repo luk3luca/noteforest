@@ -172,12 +172,11 @@ Screenshots:
 
 ## Open questions / risks
 
-1. **`stacked` packing is an explicit legacy path.** `pageLayoutOptions` enables
-   A/B2 only for `beside`, so the comfortable preset (which still defaults to
-   `stacked`) keeps the pre-R1 below-callout geometry. R2b/R2e's stacked
-   override tests remain meaningful. If the product owner expects A/B2 under an
-   explicitly stacked density preset, that is a small follow-up, not a topology
-   change.
+1. **`stacked` packing is an explicit legacy/lab path.** `pageLayoutOptions`
+   enables A/B2 only for `beside`; the product-owner decision (9 November 2026)
+   is that **Comfortable is density-only**, so it now also uses `beside`/A/B2.
+   Explicit `stacked` remains available for the R2b/R2e oracles and legacy
+   comparisons. A density preset must never change callout topology.
 2. **Callout-only parents stay stacked.** A/B2 are callout-vs-direct-child
    group modes; a parent with anchored callouts and no direct children keeps the
    current below-anchor behavior. This avoids an unrelated visual change for

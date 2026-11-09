@@ -4,6 +4,7 @@ import {
   DEFAULT_CONTINUOUS_SETTINGS,
   DEFAULT_LAYOUT_OPTIONS,
   DEFAULT_PAGE_SETTINGS,
+  EDGE_STYLE,
   mmToPx,
   normalizeAppSettings,
   normalizeContinuousSettings,
@@ -62,7 +63,7 @@ describe('page settings defaults', () => {
     expect(DEFAULT_CONTINUOUS_SETTINGS.zoom).toBe(1);
   });
 
-  it('keeps the comfortable preset at the pre-R1 page density', () => {
+  it('keeps the comfortable preset density-only with the shared Page topology', () => {
     expect(PAGE_THEME_PRESETS.comfortable).toMatchObject({
       preset: 'comfortable',
       bodyPt: 10.5,
@@ -87,7 +88,12 @@ describe('page settings defaults', () => {
       calloutModeMinWidth: 240,
       calloutGap: 20,
       maxCardWidth: 420,
-      pagePacking: 'stacked',
+      pagePacking: 'beside',
+    });
+    // Density only: a preset switch must not change the Page callout topology.
+    expect(pageLayoutOptions(PAGE_THEME_PRESETS.comfortable)).toMatchObject({
+      pagePacking: 'beside',
+      calloutModes: true,
     });
   });
 });
@@ -245,7 +251,7 @@ describe('settings normalization and merge', () => {
     ).toBe('stacked');
     // A preset switch starts from that preset's packing unless it is overridden.
     expect(normalizePageSettings({ theme: { preset: 'comfortable' } }).theme.pagePacking).toBe(
-      'stacked',
+      'beside',
     );
     expect(
       normalizePageSettings({ theme: { preset: 'comfortable', pagePacking: 'beside' } }).theme
@@ -289,6 +295,10 @@ describe('settings normalization and merge', () => {
     expect(resolved.theme.calloutCardIndent).toBe(30);
     expect(resolved.theme.calloutRightGap).toBe(96);
     expect(resolved.theme.calloutModeMinWidth).toBe(800);
+    // R2 seam review F6: a custom mode A gap never collapses the leader stem.
+    expect(
+      normalizePageSettings({ theme: { calloutRightGap: 0 } }).theme.calloutRightGap,
+    ).toBe(EDGE_STYLE.stemMin);
   });
 
   it('drops empty or invalid overrides and normalizes continuous overrides', () => {

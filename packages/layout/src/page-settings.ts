@@ -8,6 +8,7 @@
  * imports.
  */
 
+import { EDGE_STYLE } from './edge-style.js';
 import type { LayoutOptions, Orientation, PagePacking } from './types.js';
 import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
 
@@ -201,7 +202,9 @@ const COMFORTABLE_THEME: PageTheme = Object.freeze({
   calloutGap: 20,
   maxCardWidth: 420,
   minContentWidth: 160,
-  pagePacking: 'stacked',
+  // Comfortable is a density/typography preset, not a topology preset.
+  // The Page tree, callout modes, and trunks stay shared with compact.
+  pagePacking: 'beside',
 });
 
 export const PAGE_THEME_PRESETS: Readonly<
@@ -443,7 +446,9 @@ function resolveTheme(
     calloutTrunkInset,
     clamp('calloutCardIndent', 38, 0, 160),
   );
-  const calloutRightGap = clamp('calloutRightGap', 24, 0, 96);
+  // A below-stem minimum keeps mode A's leader visible even for a custom gap;
+  // 0 produced a zero-length route at the parent's right edge (R2 seam review F6).
+  const calloutRightGap = clamp('calloutRightGap', 24, EDGE_STYLE.stemMin, 96);
   const calloutModeMinWidth = clamp('calloutModeMinWidth', 240, 0, 800);
   const minContentWidth = clamp('minContentWidth', 160, 80, 800);
   const maxCardWidth = Math.max(minContentWidth, clamp('maxCardWidth', 420, 120, 2000));

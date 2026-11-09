@@ -474,9 +474,9 @@ and landscape in reader and page views at fit-page and 150% zoom.
       (R2j):** an anchored callout may sit in the parent card's right lane at the parent's top; its
       leader leaves the parent's right port, and the anchor mark identifies the branch. This is
       Page-only and Read/Edit/PDF must agree; Continuous keeps the below-anchor rule.
-- [ ] A Page density preset that changes callout topology (for example Comfortable keeping the
-      legacy stacked layout while Compact uses A/B2) is a product decision, labelled in Settings,
-      never a silent topology change.
+- [ ] A Page density preset changes only typography/spacing; it never changes callout topology
+      (A/B2/stacked). A topology change is a separate product decision, labelled in Settings,
+      never a silent preset side effect.
 - [ ] Widths are content-driven and adaptive: a large subtree may take more horizontal space, a leaf
       sibling may be narrow, and there is no fixed pixel column per depth.
 - [ ] Siblings stack vertically in branch order; sibling subtrees do not overlap.

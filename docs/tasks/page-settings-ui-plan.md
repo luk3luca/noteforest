@@ -65,7 +65,8 @@ Rules:
 
 ### 3.2 Theme and typography
 
-- Preset: Compact / Comfortable / Custom.
+- Preset: Compact / Comfortable / Custom. Presets are density-only: they change
+  typography/spacing, never callout topology (A/B2/stacked).
 - Font scale and body/heading/code/table/label/chrome sizes.
 - Line heights for body/code/table.
 - Card padding, card border, card radius if exposed.
