@@ -1,7 +1,6 @@
 import type { SessionState } from '../../../shared/api';
 import { DEFAULT_DOCUMENT_VIEW, normalizeDocumentViewState } from '../../../shared/view-state';
 import { allRuntimes } from './registry';
-import { useSettingsStore } from './settings';
 import { useShell } from './shell';
 
 const scrollPositions = new Map<string, number>();
@@ -14,9 +13,13 @@ export function getScroll(packagePath: string): number {
   return scrollPositions.get(packagePath) ?? 0;
 }
 
+/**
+ * Build the shell session. Personal settings overrides are deliberately absent:
+ * they live in `document-settings.json` (S2-2), so a tab close or quit cannot
+ * lose them. Only navigation/UI state belongs here.
+ */
 export function buildSession(): SessionState {
   const state = useShell.getState();
-  const settings = useSettingsStore.getState();
   const byPath = new Map(allRuntimes().map((runtime) => [runtime.packagePath, runtime]));
   return {
     tabs: state.tabs
@@ -26,8 +29,6 @@ export function buildSession(): SessionState {
         const view = normalizeDocumentViewState(
           state.viewByDoc[tab.packagePath] ?? DEFAULT_DOCUMENT_VIEW,
         );
-        const pageSettingsOverride = settings.pageOverrides[tab.packagePath];
-        const continuousSettingsOverride = settings.continuousOverrides[tab.packagePath];
         return {
           packagePath: tab.packagePath,
           scrollTop: getScroll(tab.packagePath),
@@ -39,12 +40,6 @@ export function buildSession(): SessionState {
           pageZoom: view.pageZoom,
           pageFit: view.pageFit,
           zoom: view.zoom,
-          ...(pageSettingsOverride === undefined
-            ? {}
-            : { pageSettingsOverride: structuredClone(pageSettingsOverride) }),
-          ...(continuousSettingsOverride === undefined
-            ? {}
-            : { continuousSettingsOverride: structuredClone(continuousSettingsOverride) }),
         };
       }),
     activeTab: state.activeTab,

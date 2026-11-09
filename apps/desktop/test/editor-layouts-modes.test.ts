@@ -12,7 +12,7 @@ import {
   useSettingsStore,
 } from '../src/renderer/src/state/settings';
 import { useShell } from '../src/renderer/src/state/shell';
-import { readSession } from '../src/main/library';
+import { readSession, readSessionWithOverrides } from '../src/main/library';
 
 const temporaryDirectories: string[] = [];
 let previousAppSupport: string | undefined;
@@ -263,31 +263,39 @@ describe('editor layout and interaction-mode state', () => {
     });
   });
 
-  it('writes per-document personal settings overrides in buildSession', () => {
+  it('keeps personal settings overrides out of the session (S2-2)', () => {
     useShell.setState({
       tabs: [{ packagePath: '/tmp/doc', title: 'Doc' }],
       activeTab: '/tmp/doc',
     });
-    useSettingsStore.getState().setPageSettingsOverride('/tmp/doc', {
-      setup: { size: 'A5', orientation: 'portrait' },
-      theme: { preset: 'comfortable' },
-      manualBreakBeforeBlockIds: ['b2'],
-    });
-    useSettingsStore.getState().setContinuousSettingsOverride('/tmp/doc', { zoom: 1.5 });
-
-    const session = buildSession();
-    expect(session.tabs[0]).toMatchObject({
-      packagePath: '/tmp/doc',
-      pageSettingsOverride: {
+    useSettingsStore.getState().setPageSettingsOverride(
+      '/tmp/doc',
+      {
         setup: { size: 'A5', orientation: 'portrait' },
         theme: { preset: 'comfortable' },
         manualBreakBeforeBlockIds: ['b2'],
       },
-      continuousSettingsOverride: { zoom: 1.5 },
-    });
+      'doc-id',
+    );
+
+    const session = buildSession();
+    expect(session.tabs[0]).not.toHaveProperty('pageSettingsOverride');
+    expect(session.tabs[0]).not.toHaveProperty('continuousSettingsOverride');
+    // The override is durable in the document map, not in the tab.
+    expect(useSettingsStore.getState().documentSettings).toEqual([
+      {
+        documentId: 'doc-id',
+        packagePath: '/tmp/doc',
+        page: {
+          setup: { size: 'A5', orientation: 'portrait' },
+          theme: { preset: 'comfortable' },
+          manualBreakBeforeBlockIds: ['b2'],
+        },
+      },
+    ]);
   });
 
-  it('normalizes stored session overrides and defaults old tabs to none', async () => {
+  it('reads legacy session overrides only for migration and strips them from tabs', async () => {
     const directory = await supportDirectory();
     await mkdir(directory, { recursive: true });
     await writeFile(
@@ -329,41 +337,66 @@ describe('editor layout and interaction-mode state', () => {
       }),
     );
 
-    const session = await readSession();
-    expect(session.tabs[0]?.pageSettingsOverride).toBeUndefined();
-    expect(session.tabs[0]?.continuousSettingsOverride).toBeUndefined();
-    expect(session.tabs[1]?.pageSettingsOverride).toEqual({
-      setup: { size: 'Letter', orientation: 'portrait', margins: { top: 18 } },
-      theme: { preset: 'comfortable', bodyPt: 11 },
-      manualBreakBeforeBlockIds: ['b3'],
-    });
-    expect(session.tabs[1]?.continuousSettingsOverride).toEqual({ zoom: 1.5 });
-    expect(session.tabs[2]?.pageSettingsOverride).toBeUndefined();
-    expect(session.tabs[2]?.continuousSettingsOverride).toBeUndefined();
+    const read = await readSessionWithOverrides();
+    expect(read.session.tabs[0]).not.toHaveProperty('pageSettingsOverride');
+    expect(read.session.tabs[1]).not.toHaveProperty('pageSettingsOverride');
+    expect(read.session.tabs[1]).not.toHaveProperty('continuousSettingsOverride');
+    expect(read.session.tabs[2]).not.toHaveProperty('pageSettingsOverride');
+    expect(read.legacyOverrides).toEqual([
+      {
+        packagePath: '/override/doc',
+        pageSettingsOverride: {
+          setup: { size: 'Letter', orientation: 'portrait', margins: { top: 18 } },
+          theme: { preset: 'comfortable', bodyPt: 11 },
+          manualBreakBeforeBlockIds: ['b3'],
+        },
+      },
+    ]);
   });
 
-  it('round-trips settings overrides through buildSession and readSession', async () => {
+  it('round-trips view state and never writes personal settings into the session', async () => {
     const directory = await supportDirectory();
     await mkdir(directory, { recursive: true });
     useShell.setState({
       tabs: [{ packagePath: '/tmp/doc', title: 'Doc' }],
       activeTab: '/tmp/doc',
+      viewByDoc: {
+        '/tmp/doc': {
+          zoom: 0.8,
+          focusBlockId: null,
+          layout: 'continuous',
+          interactionMode: 'edit',
+          currentPage: 1,
+          pageZoom: 1,
+          pageFit: 'page',
+        },
+      },
     });
-    useSettingsStore.getState().setPageSettingsOverride('/tmp/doc', {
-      setup: { size: 'A5' },
-      theme: { bodyPt: 9.5 },
-    });
-    useSettingsStore.getState().setContinuousSettingsOverride('/tmp/doc', { zoom: 0.8 });
+    useSettingsStore.getState().setPageSettingsOverride(
+      '/tmp/doc',
+      { setup: { size: 'A5' }, theme: { bodyPt: 9.5 } },
+      'doc-id',
+    );
 
     await writeFile(
       path.join(directory, 'shell-session.json'),
       JSON.stringify(buildSession(), null, 2),
     );
-    const restored = await readSession();
-    expect(restored.tabs[0]?.pageSettingsOverride).toEqual({
-      setup: { size: 'A5' },
-      theme: { bodyPt: 9.5 },
+    const restored = await readSessionWithOverrides();
+    expect(restored.session.tabs[0]).toMatchObject({ packagePath: '/tmp/doc', zoom: 0.8 });
+    expect(restored.session.tabs[0]).not.toHaveProperty('pageSettingsOverride');
+    expect(restored.legacyOverrides).toEqual([]);
+  });
+
+  it('keeps one Continuous zoom source in per-document view state (S2-6)', () => {
+    // No global setting can shadow the per-document zoom.
+    expect(useSettingsStore.getState().app).not.toHaveProperty('continuous');
+    useShell.setState({
+      tabs: [{ packagePath: '/tmp/doc', title: 'Doc' }],
+      activeTab: '/tmp/doc',
     });
-    expect(restored.tabs[0]?.continuousSettingsOverride).toEqual({ zoom: 0.8 });
+    useShell.getState().setDocumentZoom('/tmp/doc', 1.4);
+    expect(useShell.getState().viewByDoc['/tmp/doc']?.zoom).toBe(1.4);
+    expect(buildSession().tabs[0]?.zoom).toBe(1.4);
   });
 });

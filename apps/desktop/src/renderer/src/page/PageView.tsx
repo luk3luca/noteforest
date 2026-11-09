@@ -367,7 +367,7 @@ export function PageView({
   useRuntime(runtime.packagePath);
   // One resolved personal page lens and one model per mounted Page surface.
   // Continuous never mounts this component, so it never measures pages.
-  const settings = usePageSettings(runtime.packagePath);
+  const settings = usePageSettings(runtime.packagePath, runtime.document.id);
   const model = usePageModel(runtime, active, settings);
   const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
   const currentPage = view?.currentPage ?? 1;

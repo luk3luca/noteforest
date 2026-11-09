@@ -41,6 +41,7 @@ import {
   saveAllDirty,
   saveDocument,
   saveDocumentCopy,
+  saveDocumentSettings,
   scanLibrary,
   seedDocument,
   takeOverStaleLock,
@@ -295,6 +296,9 @@ function registerIpc(): void {
       library,
       session: restored.session,
       settings: restored.settings,
+      settingsStatus: restored.settingsStatus,
+      documentSettings: restored.documentSettings,
+      documentSettingsStatus: restored.documentSettingsStatus,
       openDocuments: restored.openDocuments,
       recoveries: restored.recoveries,
       appVersion: app.getVersion(),
@@ -441,8 +445,37 @@ function registerIpc(): void {
     await writeSession(state);
   });
 
-  ipcMain.handle('settings:save', async (_event, settings: unknown) => {
-    await writeSettings(settings);
+  ipcMain.handle('settings:save', async (_event, settings: unknown) =>
+    writeSettings(settings),
+  );
+
+  ipcMain.handle('document-settings:save', async (_event, input: unknown) => {
+    if (typeof input !== 'object' || input === null) {
+      return { ok: false as const, message: 'No document settings were provided.' };
+    }
+    const record = input as {
+      documentId?: unknown;
+      packagePath?: unknown;
+      page?: unknown;
+    };
+    if (typeof record.packagePath !== 'string' || record.packagePath.length === 0) {
+      return { ok: false as const, message: 'No document path was provided.' };
+    }
+    if (
+      record.documentId !== null &&
+      record.documentId !== undefined &&
+      typeof record.documentId !== 'string'
+    ) {
+      return { ok: false as const, message: 'Invalid document id.' };
+    }
+    return saveDocumentSettings({
+      documentId:
+        typeof record.documentId === 'string' && record.documentId.length > 0
+          ? record.documentId
+          : null,
+      packagePath: record.packagePath,
+      page: (record.page ?? null) as Parameters<typeof saveDocumentSettings>[0]['page'],
+    });
   });
 
   ipcMain.handle('window:set-state', (_event, state: WindowState) => {

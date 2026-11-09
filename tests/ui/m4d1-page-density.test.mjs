@@ -406,13 +406,24 @@ describe('M4d1 Page density control', () => {
     assert.equal(stored.app.page.theme.density, 0.85, 'global default stays 85%');
     assert.deepEqual(stored.pageOverrides[packagePath], { theme: { density: 0.8 } });
     await flushSession();
+    const documentId = JSON.parse(
+      await readFile(join(packagePath, 'document.json'), 'utf8'),
+    ).id;
+    const documentSettings = JSON.parse(
+      await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'document-settings.json'), 'utf8'),
+    );
+    assert.deepEqual(
+      documentSettings.entries.find((entry) => entry.documentId === documentId)?.page,
+      { theme: { density: 0.8 } },
+      'the document override is durable outside the session',
+    );
     const session = JSON.parse(
       await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'shell-session.json'), 'utf8'),
     );
-    assert.deepEqual(
+    assert.equal(
       session.tabs.find((tab) => tab.packagePath === packagePath)?.pageSettingsOverride,
-      { theme: { density: 0.8 } },
-      'the document override is in the session, not the document',
+      undefined,
+      'the session no longer carries settings overrides',
     );
 
     await openSettings();

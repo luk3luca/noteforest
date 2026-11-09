@@ -18,8 +18,10 @@ import {
 } from '@noteforest/layout';
 import { useShell } from '../state/shell';
 import {
+  flushSettingsWrites,
   pageDensityPercent,
   pageDensityValue,
+  pageOverrideFor,
   useSettingsStore,
   withPageDensityOverride,
   withoutPageDensityOverride,
@@ -92,6 +94,11 @@ export function Dialogs(): JSX.Element | null {
   const { runtime } = useRuntime(activeTab);
 
   if (dialog === null) return null;
+  // Settings is app-level (S2-1): it opens with zero documents, before the
+  // per-document dialog gate. Document-only sections are disabled inside.
+  if (dialog.kind === 'settings') {
+    return <SettingsDialog onClose={close} />;
+  }
   if (runtime === null) {
     return (
       <Frame
@@ -310,10 +317,6 @@ export function Dialogs(): JSX.Element | null {
         onClose={close}
       />
     );
-  }
-
-  if (dialog.kind === 'settings') {
-    return <SettingsDialog onClose={close} />;
   }
 
   return null;
@@ -1909,198 +1912,398 @@ function ImageAltDialog({
 function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Element {
   const library = useShell((state) => state.library);
   const packagePath = useShell((state) => state.activeTab);
+  const { runtime } = useRuntime(packagePath);
+  const documentId = runtime?.document.id ?? null;
+  // A recovery tab has a path but no editable runtime; document-only controls
+  // need a real open document.
+  const documentAvailable = packagePath !== null && runtime !== null;
   const app = useSettingsStore((state) => state.app);
   const override = useSettingsStore((state) =>
-    packagePath === null ? undefined : state.pageOverrides[packagePath],
+    pageOverrideFor(state, packagePath, documentId),
   );
+  const settingsStatus = useSettingsStore((state) => state.settingsStatus);
+  const documentSettingsStatus = useSettingsStore(
+    (state) => state.documentSettingsStatus,
+  );
+  const saveState = useSettingsStore((state) => state.saveState);
   const resolved = useMemo(() => mergePageSettings(app.page, override), [app.page, override]);
   const documentDensity = override?.theme?.density;
   const globalPercent = pageDensityPercent(app.page.theme.density);
   const documentPercent =
     documentDensity === undefined ? null : pageDensityPercent(documentDensity);
   // M4d1 temporary thin slice: one Page density control with explicit
-  // Apply/Cancel. Final Settings structure and visual polish are a later task.
+  // Apply/Cancel. S2-1 makes the dialog app-level; the final Settings IA and
+  // visual polish remain a later task.
   const [scope, setScope] = useState<'global' | 'document'>(
-    documentPercent === null ? 'global' : 'document',
+    documentAvailable && documentPercent !== null ? 'document' : 'global',
   );
   const [percent, setPercent] = useState(pageDensityPercent(resolved.theme.density));
   const [saved, setSaved] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const dirty = scope === 'document' ? (documentPercent ?? -1) !== percent : globalPercent !== percent;
+  const dirty =
+    scope === 'document' ? (documentPercent ?? -1) !== percent : globalPercent !== percent;
 
   const resetDraft = (): void => {
     setPercent(scope === 'document' ? documentPercent ?? globalPercent : globalPercent);
     setSaved(null);
+    setError(null);
+  };
+
+  const reportWrite = async (): Promise<boolean> => {
+    const outcome = await flushSettingsWrites();
+    if (!outcome.ok) {
+      setError(outcome.message);
+      return false;
+    }
+    setError(null);
+    return true;
   };
 
   const apply = (): void => {
+    if (busy) return;
     const density = pageDensityValue(percent);
-    if (scope === 'document' && packagePath !== null) {
-      useSettingsStore
-        .getState()
-        .setPageSettingsOverride(packagePath, withPageDensityOverride(override, density));
-      setSaved(`Page density ${percent}% saved for this document.`);
-      return;
-    }
-    useSettingsStore.getState().setAppSettings({
-      ...app,
-      page: { ...app.page, theme: { ...app.page.theme, density } },
-    });
-    setSaved(`Page density ${percent}% saved as the global default.`);
+    setBusy(true);
+    setSaved(null);
+    setError(null);
+    void (async () => {
+      try {
+        if (scope === 'document' && documentAvailable && packagePath !== null) {
+          useSettingsStore
+            .getState()
+            .setPageSettingsOverride(
+              packagePath,
+              withPageDensityOverride(override, density),
+              documentId,
+            );
+          if (!(await reportWrite())) return;
+          setSaved(`Page density ${percent}% saved for this document.`);
+          return;
+        }
+        useSettingsStore
+          .getState()
+          .updateAppSettings({ page: { theme: { density } } });
+        if (!(await reportWrite())) return;
+        setSaved(`Page density ${percent}% saved as the global default.`);
+      } finally {
+        setBusy(false);
+      }
+    })();
   };
 
   const useGlobalDensity = (): void => {
-    if (packagePath === null) return;
-    useSettingsStore
-      .getState()
-      .setPageSettingsOverride(packagePath, withoutPageDensityOverride(override) ?? null);
-    setScope('global');
-    setPercent(globalPercent);
-    setSaved('This document uses the global density again.');
+    if (!documentAvailable || packagePath === null) return;
+    setBusy(true);
+    setSaved(null);
+    setError(null);
+    void (async () => {
+      try {
+        useSettingsStore
+          .getState()
+          .setPageSettingsOverride(
+            packagePath,
+            withoutPageDensityOverride(override) ?? null,
+            documentId,
+          );
+        if (!(await reportWrite())) return;
+        setScope('global');
+        setPercent(globalPercent);
+        setSaved('This document uses the global density again.');
+      } finally {
+        setBusy(false);
+      }
+    })();
   };
+
+  const resetCorruptSettings = (): void => {
+    setBusy(true);
+    setSaved(null);
+    setError(null);
+    void (async () => {
+      try {
+        useSettingsStore.getState().resetSettingsToDefaults();
+        if (await reportWrite()) setSaved('Settings reset to the product defaults.');
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  const retry = (): void => {
+    setError(null);
+    setSaved(null);
+    setBusy(true);
+    useSettingsStore.getState().retrySettingsWrite();
+    void (async () => {
+      try {
+        if (await reportWrite()) setSaved('Settings saved.');
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  const statusWarning =
+    settingsStatus.state === 'corrupt' ||
+    settingsStatus.state === 'unreadable' ||
+    settingsStatus.state === 'newer';
+  const documentStatusWarning =
+    documentSettingsStatus.state === 'corrupt' ||
+    documentSettingsStatus.state === 'unreadable';
+  const saveError = saveState.status === 'error' ? saveState.message ?? 'Unknown error.' : null;
 
   return (
     <Frame
       title="Settings"
       actions={<Button className="nf-button" onPress={onClose}>Done</Button>}
     >
-      <section className="nf-settings-section" data-page-density-section="true">
-        <h3 className="nf-settings-section-title">Page</h3>
-        <fieldset className="nf-fieldset nf-density-scope" data-page-density-scope="true">
-          <legend className="nf-legend">Apply to</legend>
-          <label className="nf-radio">
-            <input
-              type="radio"
-              name="page-density-scope"
-              data-page-density-scope-option="global"
-              checked={scope === 'global'}
-              onChange={() => {
-                setScope('global');
-                setPercent(globalPercent);
-                setSaved(null);
-              }}
-            />
-            <span>Global default</span>
-          </label>
-          <label className="nf-radio">
-            <input
-              type="radio"
-              name="page-density-scope"
-              data-page-density-scope-option="document"
-              checked={scope === 'document'}
-              disabled={packagePath === null}
-              onChange={() => {
-                setScope('document');
-                setPercent(documentPercent ?? globalPercent);
-                setSaved(null);
-              }}
-            />
-            <span>This document</span>
-          </label>
-        </fieldset>
-        <div className="nf-field nf-density-field">
-          <label className="nf-field-label" htmlFor="page-density-slider">
-            Page density
-          </label>
-          <span className="nf-density-row">
-            <input
-              id="page-density-slider"
-              type="range"
-              className="nf-range"
-              min={PAGE_DENSITY_MIN * 100}
-              max={PAGE_DENSITY_MAX * 100}
-              step={PAGE_DENSITY_STEP * 100}
-              value={percent}
-              aria-label="Page density"
-              aria-valuetext={`${percent}%`}
-              data-page-density-slider="true"
-              onChange={(event) => {
-                setPercent(Number(event.target.value));
-                setSaved(null);
-              }}
-            />
-            <span className="nf-density-value" data-page-density-value="true">
-              {percent}%
+      <div data-settings-dialog="true">
+        {statusWarning ? (
+          <div
+            className="nf-settings-warning"
+            role="alert"
+            data-settings-warning={settingsStatus.state}
+          >
+            <p>
+              {settingsStatus.state === 'corrupt'
+                ? 'settings.json could not be read. NoteForest is using the product defaults.'
+                : settingsStatus.state === 'unreadable'
+                  ? 'settings.json could not be read. NoteForest is using the product defaults.'
+                  : `settings.json was written by a newer NoteForest version (schema ${settingsStatus.version ?? '?'}). Unknown fields are preserved.`}
+            </p>
+            {settingsStatus.message === undefined ? null : (
+              <p className="nf-dialog-note">{settingsStatus.message}</p>
+            )}
+            {settingsStatus.backupPath === undefined ? null : (
+              <p className="nf-dialog-note">
+                A copy of the damaged file is kept at <code>{settingsStatus.backupPath}</code>.
+              </p>
+            )}
+            <div className="nf-dialog-inline-actions">
+              {settingsStatus.state === 'corrupt' ? (
+                <Button
+                  className="nf-button"
+                  data-settings-reset="true"
+                  isDisabled={busy}
+                  onPress={resetCorruptSettings}
+                >
+                  Reset settings
+                </Button>
+              ) : null}
+              <Button
+                className="nf-button"
+                data-settings-dismiss-warning="true"
+                onPress={() => useSettingsStore.getState().dismissSettingsWarning('global')}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {documentStatusWarning ? (
+          <div
+            className="nf-settings-warning"
+            role="alert"
+            data-document-settings-warning={documentSettingsStatus.state}
+          >
+            <p>
+              Per-document settings could not be read. Open documents use the global defaults.
+            </p>
+            {documentSettingsStatus.message === undefined ? null : (
+              <p className="nf-dialog-note">{documentSettingsStatus.message}</p>
+            )}
+            {documentSettingsStatus.backupPath === undefined ? null : (
+              <p className="nf-dialog-note">
+                A copy of the damaged file is kept at{' '}
+                <code>{documentSettingsStatus.backupPath}</code>.
+              </p>
+            )}
+            <div className="nf-dialog-inline-actions">
+              <Button
+                className="nf-button"
+                data-document-settings-dismiss-warning="true"
+                onPress={() =>
+                  useSettingsStore.getState().dismissSettingsWarning('document')
+                }
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {settingsStatus.migrated === true ? (
+          <p className="nf-dialog-note" data-settings-migrated="true">
+            Settings were upgraded to the current format. Existing values were kept.
+          </p>
+        ) : null}
+        {saveError === null && error === null ? null : (
+          <p className="nf-settings-warning" role="alert" data-settings-save-error="true">
+            {error ?? saveError}{' '}
+            <Button className="nf-button" data-settings-retry="true" onPress={retry}>
+              Retry
+            </Button>
+          </p>
+        )}
+
+        <section className="nf-settings-section" data-page-density-section="true">
+          <h3 className="nf-settings-section-title">Page</h3>
+          <fieldset className="nf-fieldset nf-density-scope" data-page-density-scope="true">
+            <legend className="nf-legend">Apply to</legend>
+            <label className="nf-radio">
+              <input
+                type="radio"
+                name="page-density-scope"
+                data-page-density-scope-option="global"
+                checked={scope === 'global'}
+                onChange={() => {
+                  setScope('global');
+                  setPercent(globalPercent);
+                  setSaved(null);
+                }}
+              />
+              <span>Global default</span>
+            </label>
+            <label className="nf-radio">
+              <input
+                type="radio"
+                name="page-density-scope"
+                data-page-density-scope-option="document"
+                checked={scope === 'document'}
+                disabled={!documentAvailable}
+                onChange={() => {
+                  setScope('document');
+                  setPercent(documentPercent ?? globalPercent);
+                  setSaved(null);
+                }}
+              />
+              <span>This document</span>
+            </label>
+          </fieldset>
+          {documentAvailable ? null : (
+            <p
+              className="nf-dialog-note"
+              data-page-density-document-reason="true"
+            >
+              Open an editable document to change its settings. Global defaults apply to every
+              document without an override.
+            </p>
+          )}
+          <div className="nf-field nf-density-field">
+            <label className="nf-field-label" htmlFor="page-density-slider">
+              Page density
+            </label>
+            <span className="nf-density-row">
+              <input
+                id="page-density-slider"
+                type="range"
+                className="nf-range"
+                min={PAGE_DENSITY_MIN * 100}
+                max={PAGE_DENSITY_MAX * 100}
+                step={PAGE_DENSITY_STEP * 100}
+                value={percent}
+                aria-label="Page density"
+                aria-valuetext={`${percent}%`}
+                data-page-density-slider="true"
+                onChange={(event) => {
+                  setPercent(Number(event.target.value));
+                  setSaved(null);
+                }}
+              />
+              <span className="nf-density-value" data-page-density-value="true">
+                {percent}%
+              </span>
+              <Button
+                className="nf-button"
+                data-page-density-reset="true"
+                onPress={() => {
+                  setPercent(100);
+                  setSaved(null);
+                }}
+              >
+                Reset
+              </Button>
             </span>
+          </div>
+          <p className="nf-dialog-note" data-page-density-note="true">
+            {documentAvailable
+              ? `Page Read, Page Edit, and PDF use ${pageDensityPercent(resolved.theme.density)}% for this document${documentPercent === null ? '' : ' (document override)'}.`
+              : `Global Page density is ${globalPercent}%. A document override appears here when a document is open.`}{' '}
+            Density scales Page typography and card geometry; page size and margins are unchanged.
+          </p>
+          <div className="nf-dialog-inline-actions">
+            <Button
+              className="nf-button nf-button-primary"
+              data-page-density-apply="true"
+              isDisabled={!dirty || busy}
+              onPress={apply}
+            >
+              Apply
+            </Button>
             <Button
               className="nf-button"
-              data-page-density-reset="true"
-              onPress={() => {
-                setPercent(100);
-                setSaved(null);
-              }}
+              data-page-density-cancel="true"
+              isDisabled={!dirty || busy}
+              onPress={resetDraft}
             >
-              Reset
+              Cancel
             </Button>
-          </span>
-        </div>
-        <p className="nf-dialog-note" data-page-density-note="true">
-          Page Read, Page Edit, and PDF use {pageDensityPercent(resolved.theme.density)}% for this
-          document{documentPercent === null ? '' : ' (document override)'}. Density scales Page
-          typography and card geometry; page size and margins are unchanged.
-        </p>
+            {documentPercent === null || !documentAvailable ? null : (
+              <Button
+                className="nf-button"
+                data-page-density-use-global="true"
+                isDisabled={busy}
+                onPress={useGlobalDensity}
+              >
+                Use global density
+              </Button>
+            )}
+          </div>
+          {saved === null ? null : (
+            <p className="nf-dialog-note" role="status" data-page-density-saved="true">
+              {saved}
+            </p>
+          )}
+        </section>
+        <dl className="nf-settings-list">
+          <div>
+            <dt>Library</dt>
+            <dd>{library?.libraryPath ?? '—'}</dd>
+          </div>
+          <div>
+            <dt>App data</dt>
+            <dd>{library?.appSupportPath ?? '—'}</dd>
+          </div>
+          <div>
+            <dt>Theme</dt>
+            <dd>Graphite · dark (light tokens reserved)</dd>
+          </div>
+        </dl>
         <div className="nf-dialog-inline-actions">
           <Button
-            className="nf-button nf-button-primary"
-            data-page-density-apply="true"
-            isDisabled={!dirty}
-            onPress={apply}
+            className="nf-button"
+            onPress={() => void window.noteforest.revealLibrary()}
           >
-            Apply
+            Reveal library in Finder
           </Button>
           <Button
             className="nf-button"
-            data-page-density-cancel="true"
-            isDisabled={!dirty}
-            onPress={resetDraft}
+            isDisabled={!documentAvailable}
+            onPress={undoActive}
           >
-            Cancel
+            Undo last change
           </Button>
-          {documentPercent === null ? null : (
-            <Button
-              className="nf-button"
-              data-page-density-use-global="true"
-              onPress={useGlobalDensity}
-            >
-              Use global density
-            </Button>
-          )}
         </div>
-        {saved === null ? null : (
-          <p className="nf-dialog-note" role="status" data-page-density-saved="true">
-            {saved}
+        {documentAvailable ? null : (
+          <p className="nf-dialog-note" data-settings-no-document="true">
+            Document actions are disabled because no document is open.
           </p>
         )}
-      </section>
-      <dl className="nf-settings-list">
-        <div>
-          <dt>Library</dt>
-          <dd>{library?.libraryPath ?? '—'}</dd>
-        </div>
-        <div>
-          <dt>App data</dt>
-          <dd>{library?.appSupportPath ?? '—'}</dd>
-        </div>
-        <div>
-          <dt>Theme</dt>
-          <dd>Graphite · dark (light tokens reserved)</dd>
-        </div>
-      </dl>
-      <div className="nf-dialog-inline-actions">
-        <Button
-          className="nf-button"
-          onPress={() => void window.noteforest.revealLibrary()}
-        >
-          Reveal library in Finder
-        </Button>
-        <Button className="nf-button" onPress={undoActive}>
-          Undo last change
-        </Button>
+        <p className="nf-dialog-note">
+          Documents are local folders with <code>document.json</code> and an assets directory.
+          Autosave runs after 800 ms; ⌘S flushes immediately.
+        </p>
       </div>
-      <p className="nf-dialog-note">
-        Documents are local folders with <code>document.json</code> and an assets directory. Autosave runs after
-        800 ms; ⌘S flushes immediately.
-      </p>
     </Frame>
   );
 }

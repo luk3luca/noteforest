@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_APP_SETTINGS,
-  DEFAULT_CONTINUOUS_SETTINGS,
   DEFAULT_LAYOUT_OPTIONS,
   DEFAULT_PAGE_SETTINGS,
   EDGE_STYLE,
   effectivePageTheme,
   mmToPx,
   normalizeAppSettings,
-  normalizeContinuousSettings,
-  normalizeContinuousSettingsOverride,
   normalizePageDensity,
   normalizePageSettings,
   normalizePageSettingsOverride,
-  mergeContinuousSettings,
   mergePageSettings,
   PAGE_BODY_PT_FLOOR,
   PAGE_DENSITY_DEFAULT,
@@ -69,8 +65,7 @@ describe('page settings defaults', () => {
       pagePacking: 'beside',
     });
     expect(DEFAULT_APP_SETTINGS.page).toBe(DEFAULT_PAGE_SETTINGS);
-    expect(DEFAULT_APP_SETTINGS.continuous).toBe(DEFAULT_CONTINUOUS_SETTINGS);
-    expect(DEFAULT_CONTINUOUS_SETTINGS.zoom).toBe(1);
+    expect(DEFAULT_APP_SETTINGS).not.toHaveProperty('continuous');
   });
 
   it('keeps the comfortable preset density-only with the shared Page topology', () => {
@@ -201,14 +196,15 @@ describe('settings normalization and merge', () => {
     expect(settings.theme.maxCardWidth).toBeGreaterThanOrEqual(800);
   });
 
-  it('normalizes app and continuous settings', () => {
-    expect(normalizeContinuousSettings({ zoom: 99 })).toEqual({ zoom: 4 });
-    expect(normalizeContinuousSettings(undefined)).toEqual({ zoom: 1 });
-    const app = normalizeAppSettings({ page: { setup: { size: 'A5' } }, continuous: { zoom: 0 } });
+  it('normalizes app settings and ignores a legacy continuous block', () => {
+    // S2-6: the dead ContinuousSettings.zoom is gone; a legacy `continuous`
+    // object in stored input cannot resurrect a second zoom source.
+    const app = normalizeAppSettings({
+      page: { setup: { size: 'A5' } },
+      continuous: { zoom: 4 },
+    } as Parameters<typeof normalizeAppSettings>[0]);
     expect(app.page.setup.size).toBe('A5');
-    expect(app.continuous.zoom).toBe(0.25);
-    expect(mergeContinuousSettings({ zoom: 1 }, { zoom: 1.5 })).toEqual({ zoom: 1.5 });
-    expect(mergeContinuousSettings({ zoom: 1.7 }, null)).toEqual({ zoom: 1.7 });
+    expect(app).not.toHaveProperty('continuous');
   });
 
   it('normalizes a per-document override without expanding it into a full settings object', () => {
@@ -311,15 +307,11 @@ describe('settings normalization and merge', () => {
     ).toBe(EDGE_STYLE.stemMin);
   });
 
-  it('drops empty or invalid overrides and normalizes continuous overrides', () => {
+  it('drops empty or invalid overrides', () => {
     expect(normalizePageSettingsOverride(undefined)).toBeUndefined();
     expect(normalizePageSettingsOverride(null)).toBeUndefined();
     expect(normalizePageSettingsOverride({ theme: {} })).toBeUndefined();
     expect(normalizePageSettingsOverride('nope')).toBeUndefined();
-    expect(normalizeContinuousSettingsOverride({ zoom: 2 })).toEqual({ zoom: 2 });
-    expect(normalizeContinuousSettingsOverride({ zoom: 99 })).toEqual({ zoom: 4 });
-    expect(normalizeContinuousSettingsOverride({ zoom: 'x' })).toBeUndefined();
-    expect(normalizeContinuousSettingsOverride(null)).toBeUndefined();
   });
 });
 

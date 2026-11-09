@@ -111,14 +111,13 @@ export interface PageSettings {
   manualBreakBeforeBlockIds: string[];
 }
 
-/** Continuous layout is page-free; only zoom exists in this foundation slice. */
-export interface ContinuousSettings {
-  zoom: number;
-}
-
+/**
+ * Personal app settings. Continuous zoom is intentionally absent: the only
+ * Continuous zoom is the per-document `DocumentViewState.zoom` in the shell
+ * (S2-6). `settingsVersion` is a file concern, not part of this in-memory type.
+ */
 export interface AppSettings {
   page: PageSettings;
-  continuous: ContinuousSettings;
 }
 
 export interface PageSetupOverride {
@@ -131,10 +130,6 @@ export interface PageSettingsOverride {
   setup?: PageSetupOverride;
   theme?: Partial<PageTheme>;
   manualBreakBeforeBlockIds?: readonly string[];
-}
-
-export interface ContinuousSettingsOverride {
-  zoom?: number;
 }
 
 /** Compact is the dense reading preset and the product default. */
@@ -234,9 +229,6 @@ export const DEFAULT_PAGE_SETTINGS: Readonly<PageSettings> = Object.freeze({
   manualBreakBeforeBlockIds: Object.freeze([]) as unknown as string[],
 });
 
-export const DEFAULT_CONTINUOUS_SETTINGS: Readonly<ContinuousSettings> = Object.freeze({
-  zoom: 1,
-});
 
 /**
  * Page density lens (M4d1).
@@ -274,7 +266,6 @@ function roundTo(value: number): number {
 
 export const DEFAULT_APP_SETTINGS: Readonly<AppSettings> = Object.freeze({
   page: DEFAULT_PAGE_SETTINGS,
-  continuous: DEFAULT_CONTINUOUS_SETTINGS,
 });
 
 /** Fixed page dimensions in millimetres, before margins. */
@@ -706,22 +697,6 @@ export function normalizePageSettings(input?: PageSettingsOverride | null): Page
   return mergePageSettings(DEFAULT_PAGE_SETTINGS, override);
 }
 
-export function normalizeContinuousSettings(
-  input?: ContinuousSettingsOverride | null,
-): ContinuousSettings {
-  const record = isRecord(input) ? input : {};
-  return { zoom: finiteNumber(record['zoom'], 1, 0.25, 4) };
-}
-
-/** Merge a per-document continuous override onto the global continuous settings. */
-export function mergeContinuousSettings(
-  base: ContinuousSettings,
-  override?: ContinuousSettingsOverride | null,
-): ContinuousSettings {
-  const record = isRecord(override) ? override : {};
-  return { zoom: finiteNumber(record['zoom'], base.zoom, 0.25, 4) };
-}
-
 const PAGE_THEME_NUMERIC_KEYS = [
   'density',
   'fontScale',
@@ -818,26 +793,12 @@ export function normalizePageSettingsOverride(
   return Object.keys(override).length > 0 ? override : undefined;
 }
 
-/** Normalize a per-document continuous override; invalid input means no override. */
-export function normalizeContinuousSettingsOverride(
-  input?: unknown,
-): ContinuousSettingsOverride | undefined {
-  if (!isRecord(input)) return undefined;
-  const zoom = input['zoom'];
-  if (typeof zoom !== 'number' || !Number.isFinite(zoom)) return undefined;
-  return { zoom: normalizeContinuousSettings(input as ContinuousSettingsOverride).zoom };
-}
-
 /** Resolve the global app settings with safe defaults. */
 export function normalizeAppSettings(input?: {
   page?: PageSettingsOverride | null;
-  continuous?: ContinuousSettingsOverride | null;
 } | null): AppSettings {
   const record = isRecord(input) ? input : {};
   return {
     page: normalizePageSettings(record['page'] as PageSettingsOverride | null | undefined),
-    continuous: normalizeContinuousSettings(
-      record['continuous'] as ContinuousSettingsOverride | null | undefined,
-    ),
   };
 }
