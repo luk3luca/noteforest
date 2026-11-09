@@ -166,6 +166,10 @@ The stack is Electron + React + TypeScript (ADR-0001); the PDF pipeline is the s
 - [ ] **PDF pipeline:** the print compositor consumes the paginator's derived pages and never
       re-paginates; page geometry, ghost/continuation markers, real text layer, embedded fonts, and
       table-row atomicity are verified.
+- [ ] **Export identity:** the print model and the export job consume the same measured page run
+      (resolved settings fingerprint including theme, and document identity); a stale/different
+      theme, settings, or document fails the export instead of printing a different page count or
+      geometry.
 - [ ] **PDF gate:** the 50+ page A4 spike (or the real-app equivalent after M6) passes with real
       text, no cut line/image/formula/code line/table row, and page count equal to the paginator.
 - [ ] **File system:** atomic rename works on APFS; sandbox permissions or security-scoped bookmarks
@@ -430,6 +434,10 @@ The visual suite is the only visible-window exception.
 - Assert export is blocked when a block is too wide or unbreakably too tall and the affected block is
   named.
 - Assert unhonored manual break hints are reported and the PDF uses the paginator's actual breaks.
+- Assert the export job validates the produced PDF page count and page size against the paginator
+  before the atomic rename; a blank page or a count/size mismatch is an export failure.
+- Assert print metric parity with computed styles or raster comparison, not only inline attributes;
+  dark-mode body background never prints.
 - Detect `�`, blank pages, and text rendered as images.
 - Visually check formulas, code, arrow vector quality, and that content stays inside the margins.
 - Page count, page breaks, size, orientation, and margins must be deterministic across repeated
