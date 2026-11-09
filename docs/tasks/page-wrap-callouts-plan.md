@@ -62,8 +62,8 @@ be the wrong abstraction.
 |---|---|---:|
 | `childIndent` | Direct-child/level indent in Page | 26 px |
 | `childTrunkInset` | Outer child trunk from parent left | 12 px |
-| `calloutTrunkInset` | Inner callout trunk from parent left | 38 px |
-| `calloutCardIndent` | Callout card left from parent left | 52 px |
+| `calloutTrunkInset` | Inner callout trunk from parent left | 24 px |
+| `calloutCardIndent` | Callout card left from parent left | 38 px |
 | `calloutRightGap` | Mode A callout lane gap from parent right | 24 px |
 | `calloutModeMinWidth` | Minimum right space to choose mode A | 240 px |
 | `pageStemMin` | Page-only left stem before arrowhead | 12 px |
@@ -139,8 +139,8 @@ P
 
 ## 3. Feature 2 — callout modes A + B2
 
-B1 (one shared below trunk) is only an emergency fallback, not the primary
-design.
+B1 (one shared below trunk) is dropped. The fallback when neither A nor B2
+fits is the current **stacked** placement: callouts first, children below.
 
 ### Mode A — right-side callouts when there is room
 
@@ -186,7 +186,7 @@ if right lane fits callouts:
 else if B2 fits without collision:
   B2
 else:
-  B1 or current stacked fallback (open decision)
+  stacked fallback (callouts first, children below)
 ```
 
 The decision is per parent, not global. It must not depend on viewport or zoom;
@@ -205,25 +205,37 @@ Order to evaluate:
 The exact order is an open design point; it needs to avoid oscillation and
 double layout.
 
-## 4. Open decisions before launch
+## 4. Decisions
 
-1. **B2 offsets:** child trunk 12 / child card 26 / callout trunk 38 / callout
-   card 52? Or callout trunk 24 / card 38? Put the chosen values in PageTheme.
-2. **Fallback when neither A nor B2 fits:** B1 shared trunk, or current stacked
-   callouts-then-children.
-3. **Mode A children:** start below the callout stack at the child indent, with
-   the child trunk to the left; confirm.
-4. **Anchor leaders in mode A:** callout cards to the right of the parent, leader
-   from the anchor exits toward the right; acceptable?
-5. **Whole-subtree fit:** include callout lane and callout mode in the width
-   calculation, or decide callouts after the child wrap? (Recommended: decide
-   after child wrap, then re-check.)
-6. **Page break:** every mode/trunk continues with R2g semantics; callout and
-   child trunks are separate on continuation pages.
+Resolved:
+
+1. **B2 offsets:** callout trunk 24 px, callout card 38 px; child trunk 12 px,
+   child card 26 px. The callout trunk is the inner/right trunk; the child
+   trunk is the outer/left trunk.
+2. **Fallback if neither A nor B2 fits:** stacked — callouts first, children
+   below. B1 is dropped.
+3. **Mode A:** children start below the callout stack at the child indent.
+4. **Mode A callout leader:** it may exit through the parent card's right side.
+5. **Order:** place parent → subtree-aware child wrap → callout mode → re-check
+   if the lane changes the child origin.
+6. **Page breaks:** callout and child trunks continue with R2g semantics;
+   callout and child groups stay separate on continuation pages.
+7. **Settings save:** explicit Apply/Cancel, not instant-save.
+8. **PDF sizes:** A4 full 50+ page gate; A5/Letter smoke checks in M4c.
+
+Still open:
+
+- Manual-break entry point: recommended Page toolbar + block/outline context
+  menu; final UX decision in Settings.
+- Whether any R2i/R2j geometric value is user-facing or advanced/hidden in
+  Settings; the PageTheme metadata inventory decides this.
 
 ## 5. Task sequence for tomorrow
 
 ### P0 — Token/doc split (small, no behavior change)
+
+This is Page-only. Continuous tokens/docs stay independent and are not edited
+except for the shared engine boundary.
 
 - Split docs into Continuous/Page/index; move new Page layout values into
   `PageTheme`; add defaults/tests.
@@ -240,7 +252,7 @@ double layout.
 
 ### R2j — Page callout modes A + B2
 
-- Mode A right lane; B2 two below trunks; B1/stacked fallback.
+- Mode A right lane; B2 two below trunks; stacked fallback.
 - Edge/trunk integration with R2g; no Continuous change.
 - Lab: callouts with/without right space, multiple callouts, page breaks.
 - Estimate: 1–2 days depending final geometry.

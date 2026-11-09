@@ -115,7 +115,7 @@ Pass criteria:
 5. Page size/orientation/margins match resolved PageSetup; no blank pages.
 6. Page Read screenshot and PDF raster agree within a defined tolerance.
 7. Packaged app export; Notability import manual check: text selectable.
-8. A5/Letter and portrait/landscape checks.
+8. A5/Letter smoke checks; full A4 50+ page gate remains mandatory.
 
 ## 5. Settings at export time
 

@@ -174,12 +174,12 @@ the UI is R3 after the Page/PDF checkpoint.
 
 ## 9. Open decisions
 
-1. Instant-save vs explicit Apply/Cancel.
+1. ~~Instant-save vs explicit Apply/Cancel.~~ **Resolved: explicit Apply/Cancel.**
 2. Which R2i/R2j geometry values are user-facing vs advanced/constant.
 3. Page preview inside Settings: miniature or live Page?
 4. Per-document override default: off (use global) or on after first edit?
 5. Continuous panel scope: only zoom now, or canvas width in the same release?
-6. Manual-break entry point: Page toolbar, outline context menu, or both.
+6. Manual-break entry point: Page toolbar, outline context menu, or both. **Recommended: both; final UX later.**
 7. What happens to a per-document override when the document is renamed/moved.
 8. Reset semantics when the global default changes after a document override.
 
