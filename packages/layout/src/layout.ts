@@ -109,10 +109,27 @@ interface ResolvedBlockBox {
   horizontalOverflow: boolean;
 }
 
+/** One block's right-column budget, with the wrap fallback applied recursively. */
+interface SubtreeColumn {
+  /** Outer card width resolved at the requested available width. */
+  cardWidth: number;
+  /**
+   * Width of the right column this subtree needs when descendant groups may
+   * wrap below their own parent: the card plus the widest child column when
+   * the whole child group fits to the right, otherwise just the card.
+   */
+  preferredWidth: number;
+  /**
+   * True when the card and every descendant group stay to the right inside the
+   * requested available width. Any wrap below a block makes this false, so a
+   * parent can move the whole direct-child group below instead of burning a
+   * lower-left column under a child that stayed right.
+   */
+  fits: boolean;
+}
+
 /** Layout coordinates are chapter-local; a page content box starts at x = 0. */
 const PAGE_CONTENT_LEFT = 0;
-/** Minimum wrapped-child indent that leaves a full left stem inside a below trunk. */
-const TRUNK_CHILD_INDENT = EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin + 2;
 /** Continuous-style callout row indent; leaves room for the 12 px left trunk/stem. */
 const CALLOUT_ROW_INDENT = 26;
 
@@ -136,6 +153,9 @@ class LayoutBuilder {
   /** Page-compaction subtree min-card widths, keyed by block + available width. */
   readonly subtreeMinCardCache = new Map<string, number>();
   readonly subtreeMinCardStack = new Set<string>();
+  /** R2i right-column budget per block + available width. */
+  readonly subtreeColumnCache = new Map<string, SubtreeColumn>();
+  readonly subtreeColumnStack = new Set<string>();
   readonly visited = new Set<string>();
   readonly stack = new Set<string>();
   readonly anchorStates = new Map<string, AnchorState>();
@@ -300,6 +320,10 @@ class LayoutBuilder {
    * origin would push the widest card past the right limit, shift the group
    * left just enough to fit. This keeps a wrapped grandchild under its own
    * parent subtree instead of jumping back to the page left.
+   *
+   * R2i: the per-level indent is the PageTheme `childIndent` token. It has to
+   * leave room for the below trunk and its 12 px left stem, so the effective
+   * indent is at least `wrapIndent` and at most `maxWrapIndent`.
    */
   private wrapOriginX(
     parentX: number,
@@ -307,12 +331,9 @@ class LayoutBuilder {
     groupWidth: number,
     wrapFloor: number,
   ): number {
-    // A wrapped child must sit far enough right of the trunk for the 12 px
-    // left stem; the default 12 px Page wrapIndent is only half the budget.
-    // Custom themes with a smaller maxWrapIndent still get their cap.
     const indent = Math.min(
       this.options.maxWrapIndent,
-      Math.max(this.options.wrapIndent, TRUNK_CHILD_INDENT),
+      Math.max(this.options.wrapIndent, this.options.childIndent),
     );
     const preferred = parentX + indent;
     const maxStart = Math.max(PAGE_CONTENT_LEFT, rightLimit - groupWidth);
@@ -343,18 +364,19 @@ class LayoutBuilder {
   }
 
   /**
+   * Card-only fit test used by the lab wrap policies and as the base case of
+   * the R2i subtree recursion.
+   *
    * The same max-content/min-content/minContentWidth comparison used before
    * M4a, plus the ADR-0006 safety check: a child whose own placement would still
    * report `layout-overflow` is treated as not fitting. The check is local to
-   * the direct child; descendants apply their own group rule.
+   * the card; descendants apply their own group rule.
    */
-  private directChildFitsRight(
-    target: ContentBlock,
-    rightX: number,
-    rightLimit: number,
-  ): boolean {
-    const rightAvailable = Math.max(0, rightLimit - rightX);
-    const rightContent = Math.max(0, rightAvailable - 2 * (this.options.cardPadding + this.options.cardBorder));
+  private cardFitsAvailable(target: ContentBlock, available: number): boolean {
+    const rightContent = Math.max(
+      0,
+      available - 2 * (this.options.cardPadding + this.options.cardBorder),
+    );
     if (rightContent <= 0) return false;
     const childMax = this.measure(target, { kind: 'max-content' });
     const wantedChild = Math.max(
@@ -366,9 +388,100 @@ class LayoutBuilder {
       rightContent >= wantedChild - EPSILON &&
       rightContent >= childMax.minContentWidth - EPSILON;
     if (!fitsBand) return false;
-    // Requirement 2: the child itself must be placeable without a horizontal
-    // overflow defect. This does not inspect descendants.
-    return !this.resolveBlockBox(target, rightAvailable).horizontalOverflow;
+    return !this.resolveBlockBox(target, available).horizontalOverflow;
+  }
+
+  private directChildFitsRight(
+    target: ContentBlock,
+    rightX: number,
+    rightLimit: number,
+  ): boolean {
+    return this.cardFitsAvailable(target, Math.max(0, rightLimit - rightX));
+  }
+
+  /** Direct primary targets; anchored callouts own the below lane, not the right column. */
+  private directTargets(blockId: string): ContentBlock[] {
+    const targets: ContentBlock[] = [];
+    for (const branch of this.childrenMap.get(blockId) ?? []) {
+      if (branch.source.anchorId) continue;
+      const target = this.document.blocks[branch.targetBlockId];
+      if (target) targets.push(target);
+    }
+    return targets;
+  }
+
+  /**
+   * R2i right-column budget for one block at `available` width.
+   *
+   * It is the same card box policy used by placement, so a "fits right"
+   * decision cannot diverge from the layout result. A block contributes its
+   * card plus the widest child column only when the whole child group fits to
+   * the right recursively; otherwise the group would wrap below it and the
+   * subtree contributes only its own card. `fits` is the strict recursive
+   * answer the parent group decision needs: it is false when any level would
+   * wrap below.
+   *
+   * Cached by block and available width. A primary cycle (invalid document)
+   * is treated as not fitting; the placement pass still reports the cycle.
+   */
+  private subtreeColumn(target: ContentBlock, available: number): SubtreeColumn {
+    if (available <= EPSILON) {
+      return { cardWidth: 0, preferredWidth: 0, fits: false };
+    }
+    const key = `${target.id}:${available.toFixed(2)}`;
+    const cached = this.subtreeColumnCache.get(key);
+    if (cached) return cached;
+
+    const box = this.resolveBlockBox(target, available);
+    const cardWidth = Math.max(0, box.width);
+    const cardFits = this.cardFitsAvailable(target, available);
+    const children = this.directTargets(target.id);
+    if (children.length === 0) {
+      const column: SubtreeColumn = {
+        cardWidth,
+        preferredWidth: cardWidth,
+        fits: cardFits,
+      };
+      this.subtreeColumnCache.set(key, column);
+      return column;
+    }
+
+    const remaining = available - cardWidth - this.options.siblingGap;
+    if (!cardFits || remaining <= EPSILON || this.subtreeColumnStack.has(target.id)) {
+      const column: SubtreeColumn = {
+        cardWidth,
+        preferredWidth: cardWidth,
+        fits: false,
+      };
+      this.subtreeColumnCache.set(key, column);
+      return column;
+    }
+
+    this.subtreeColumnStack.add(target.id);
+    let widestChild = 0;
+    let childrenFit = true;
+    for (const child of children) {
+      const childColumn = this.subtreeColumn(child, remaining);
+      widestChild = Math.max(widestChild, childColumn.preferredWidth);
+      if (!childColumn.fits) childrenFit = false;
+    }
+    this.subtreeColumnStack.delete(target.id);
+
+    const fits = childrenFit && widestChild <= remaining + EPSILON;
+    const column: SubtreeColumn = {
+      cardWidth,
+      preferredWidth: fits
+        ? cardWidth + this.options.siblingGap + widestChild
+        : cardWidth,
+      fits,
+    };
+    this.subtreeColumnCache.set(key, column);
+    return column;
+  }
+
+  /** R2i: does the whole subtree stay right at this origin? */
+  private subtreeFitsRight(target: ContentBlock, available: number): boolean {
+    return this.subtreeColumn(target, available).fits;
   }
 
   private layoutBlock(
@@ -498,6 +611,7 @@ class LayoutBuilder {
     // depends on whether the whole direct-child group can stay in the right
     // column at the parent's y.
     const rightX = x + width + this.options.siblingGap;
+    const rightAvailable = Math.max(0, context.rightLimit - rightX);
     const candidates: Array<{ branch: BranchRecord; target: ContentBlock; fitsRight: boolean }> = [];
     const fitsByTarget = new Map<string, boolean>();
     for (const branch of direct) {
@@ -511,7 +625,13 @@ class LayoutBuilder {
       }
       let fitsRight = fitsByTarget.get(target.id);
       if (fitsRight === undefined) {
-        fitsRight = this.directChildFitsRight(target, rightX, context.rightLimit);
+        // R2i production rule: the whole subtree has to fit right, not only
+        // the child card. The lab policies keep their documented own-card
+        // oracles so the regression comparison stays intact.
+        fitsRight =
+          this.options.wrapPolicy === 'group-left-origin'
+            ? this.subtreeFitsRight(target, rightAvailable)
+            : this.directChildFitsRight(target, rightX, context.rightLimit);
         fitsByTarget.set(target.id, fitsRight);
       }
       candidates.push({ branch, target, fitsRight });

@@ -46,6 +46,7 @@ describe('page settings defaults', () => {
       siblingGap: 16,
       wrapIndent: 12,
       maxWrapIndent: 36,
+      childIndent: 26,
       calloutGap: 12,
       maxCardWidth: 420,
       minContentWidth: 160,
@@ -73,6 +74,7 @@ describe('page settings defaults', () => {
       siblingGap: 24,
       wrapIndent: 18,
       maxWrapIndent: 54,
+      childIndent: 26,
       calloutGap: 20,
       maxCardWidth: 420,
       pagePacking: 'stacked',
@@ -267,6 +269,7 @@ describe('theme maps', () => {
       siblingGap: theme.siblingGap,
       wrapIndent: theme.wrapIndent,
       maxWrapIndent: theme.maxWrapIndent,
+      childIndent: theme.childIndent,
       wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
       pagePacking: theme.pagePacking,
       calloutGap: theme.calloutGap,
@@ -292,6 +295,7 @@ describe('theme maps', () => {
     expect(variables['--nf-page-sibling-gap']).toBe('16px');
     expect(variables['--nf-page-wrap-indent']).toBe('12px');
     expect(variables['--nf-page-max-wrap-indent']).toBe('36px');
+    expect(variables['--nf-page-child-indent']).toBe('26px');
     expect(variables['--nf-page-callout-gap']).toBe('12px');
     expect(variables['--nf-page-max-card-width']).toBe('420px');
     expect(variables['--nf-page-min-content-width']).toBe('160px');

@@ -102,8 +102,9 @@ so one engine produces one geometry.
 
 | Option | Value | Used for |
 |---|---:|---|
-| `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent; Page below groups enforce at least 26 px (`trunkInset` 12 + `stemMin` 12 + 2) for a full left stem |
+| `wrapIndent` | 18 px | Per-level left indent when a direct-child group wraps below its parent |
 | `maxWrapIndent` | 54 px | Cap on cumulative wrap indent from the page content left (3 × 18) |
+| `childIndent` | 26 px | Page-only direct-child indent at the wrapped group origin; replaces the old hardcoded 26 px trunk-stem budget. Continuous does not read it |
 | `wrapPolicy` | `group-left-origin` | Production default from ADR-0006; lab oracles are not user-facing |
 | `pagePacking` | `stacked` (engine) / `beside` (compact page) | Page/PDF tree columns; `compaction` is a legacy lab oracle |
 | `minContentWidth` | 160 px | Readable minimum before a block reports `content-too-wide` |

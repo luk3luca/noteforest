@@ -67,6 +67,12 @@ export interface PageTheme {
   siblingGap: number;
   wrapIndent: number;
   maxWrapIndent: number;
+  /**
+   * Page-only direct-child indent from the parent left when a whole child group
+   * wraps below it. It replaces the old hardcoded trunk-stem indent so Page
+   * themes can tune it without touching Continuous.
+   */
+  childIndent: number;
   calloutGap: number;
   maxCardWidth: number;
   minContentWidth: number;
@@ -135,6 +141,7 @@ const COMPACT_THEME: PageTheme = Object.freeze({
   siblingGap: 16,
   wrapIndent: 12,
   maxWrapIndent: 36,
+  childIndent: 26,
   calloutGap: 12,
   maxCardWidth: 420,
   minContentWidth: 160,
@@ -170,6 +177,7 @@ const COMFORTABLE_THEME: PageTheme = Object.freeze({
   siblingGap: 24,
   wrapIndent: 18,
   maxWrapIndent: 54,
+  childIndent: 26,
   calloutGap: 20,
   maxCardWidth: 420,
   minContentWidth: 160,
@@ -270,6 +278,7 @@ export function pageLayoutOptions(theme: PageTheme): LayoutOptions {
     siblingGap: theme.siblingGap,
     wrapIndent: theme.wrapIndent,
     maxWrapIndent: theme.maxWrapIndent,
+    childIndent: theme.childIndent,
     wrapPolicy: DEFAULT_LAYOUT_OPTIONS.wrapPolicy,
     pagePacking: theme.pagePacking,
     calloutGap: theme.calloutGap,
@@ -313,6 +322,7 @@ export function pageCssVariables(theme: PageTheme): Record<string, string> {
     '--nf-page-sibling-gap': `${cssNumber(theme.siblingGap)}px`,
     '--nf-page-wrap-indent': `${cssNumber(theme.wrapIndent)}px`,
     '--nf-page-max-wrap-indent': `${cssNumber(theme.maxWrapIndent)}px`,
+    '--nf-page-child-indent': `${cssNumber(theme.childIndent)}px`,
     '--nf-page-callout-gap': `${cssNumber(theme.calloutGap)}px`,
     '--nf-page-max-card-width': `${cssNumber(theme.maxCardWidth)}px`,
     '--nf-page-min-content-width': `${cssNumber(theme.minContentWidth)}px`,
@@ -393,6 +403,7 @@ function resolveTheme(
   const headingScale = clamp('headingScale', 1, 0.5, 2);
   const wrapIndent = clamp('wrapIndent', 12, 0, 96);
   const maxWrapIndent = Math.max(wrapIndent, clamp('maxWrapIndent', 36, 0, 192));
+  const childIndent = clamp('childIndent', 26, 0, 96);
   const minContentWidth = clamp('minContentWidth', 160, 80, 800);
   const maxCardWidth = Math.max(minContentWidth, clamp('maxCardWidth', 420, 120, 2000));
   const pagePacking = isPagePacking(override['pagePacking'])
@@ -420,6 +431,7 @@ function resolveTheme(
     siblingGap: clamp('siblingGap', 16, 0, 96),
     wrapIndent,
     maxWrapIndent,
+    childIndent,
     calloutGap: clamp('calloutGap', 12, 0, 96),
     maxCardWidth,
     minContentWidth,
@@ -512,6 +524,7 @@ const PAGE_THEME_NUMERIC_KEYS = [
   'siblingGap',
   'wrapIndent',
   'maxWrapIndent',
+  'childIndent',
   'calloutGap',
   'maxCardWidth',
   'minContentWidth',

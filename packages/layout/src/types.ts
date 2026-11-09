@@ -388,6 +388,12 @@ export interface LayoutOptions {
   wrapIndent: number;
   /** Maximum cumulative wrap indent from the page content left edge. */
   maxWrapIndent: number;
+  /**
+   * Page-only direct-child indent from the parent left when a whole child group
+   * wraps below it. It leaves room for the below trunk and its left stem.
+   * Continuous does not read this field.
+   */
+  childIndent: number;
   wrapPolicy: WrapPolicy;
   /** Page/PDF packing policy; ignored by the Continuous renderer. */
   pagePacking: PagePacking;
@@ -404,6 +410,7 @@ export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {
   siblingGap: 24,
   wrapIndent: 18,
   maxWrapIndent: 54,
+  childIndent: 26,
   wrapPolicy: 'group-left-origin',
   // Continuous and every DOM-free layout keep the R2a geometry by default.
   // Page/PDF opts into the resolved PageTheme (compaction for compact).

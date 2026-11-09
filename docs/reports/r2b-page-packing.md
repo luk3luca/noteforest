@@ -1,5 +1,11 @@
 # R2b — Page packing (`stacked` / `beside`)
 
+> **R2i follow-up (9 November 2026).** In portrait the whole root child subtree
+> no longer fits beside the root, so the atomic direct-child group wraps below
+> the callout stack. The R2b portrait expectations now assert that deterministic
+> wrap while the nested child still stays beside its own parent. The landscape
+> beside contract below is unchanged.
+
 - **Role:** Implementer / Builder
 - **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-0c595694`
 - **Branch:** `t3/r2b-page-packing`

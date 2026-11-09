@@ -9,10 +9,11 @@ import { pageTrunkContinuityDocument, writePagePackage } from '../support/page-f
  * R2g Page trunk continuity.
  *
  * One trunk per `(parent, placement)` group, aligned at one x across every page
- * from the parent port to the last child arm. Page 1 owns the parent port,
- * page 2 is a pass-through page for the root group, and page 3 owns the last
- * child arm. The nested below trunk of child 1 runs in parallel at its own x
- * and stops at its own last arm. Cross-page tree edges have no `p.N` chip.
+ * from the parent port to the last child arm. R2i wraps the root child group
+ * below the root, so page 1 owns the root group port, page 2 is a pass-through
+ * page for the root group, and page 3 owns the last child arm. The nested below
+ * trunk of child 1 runs in parallel at its own x and stops at its own last arm.
+ * Cross-page tree edges have no `p.N` chip.
  */
 
 const tempRoot = artifactsPath('r2g-ui');
@@ -383,8 +384,9 @@ describe('R2g Page trunk continuity', () => {
     assert.equal(await pageCount(), 3, 'two manual breaks derive three pages');
     const content = await contentBox();
 
-    // Parent page: root and child 1. The root right trunk and child 1's nested
-    // below trunk both run in parallel to the page bottom.
+    // Parent page: root and child 1. R2i wrapped the whole root child group
+    // below the root, so the root below trunk and child 1's nested below trunk
+    // run in parallel to the page bottom.
     assert.equal(await currentPage(), 1);
     const page1Fragments = await fragmentBoxes();
     assert.deepEqual(
@@ -393,39 +395,46 @@ describe('R2g Page trunk continuity', () => {
     );
     const root = fragmentOf(page1Fragments, 'r2g-root');
     const child1 = fragmentOf(page1Fragments, 'r2g-child-1');
-    assert.ok(child1.left >= root.left + root.width - 0.75, 'child 1 is the right group');
+    assert.ok(
+      child1.left >= root.left + 26 - 0.75 && child1.left < root.left + root.width - 0.75,
+      'child 1 wraps below the root at the child indent',
+    );
+    assert.ok(
+      child1.top >= root.top + root.height - 0.75,
+      'child 1 starts below the root card',
+    );
     const page1Edges = await readEdges();
     const page1Trunks = await readTrunks();
     assert.equal(page1Edges.length, 1, 'only the same-page child 1 arm is on page 1');
-    assert.equal(page1Trunks.length, 2, 'right and nested below trunks are independent');
+    assert.equal(page1Trunks.length, 2, 'root and nested below trunks are independent');
     assert.equal(
       await activePageView().locator('[data-page-edge-label]').count(),
       0,
       'no p.N indicator is drawn for a tree edge',
     );
 
-    const rootTrunk = trunkOf(page1Trunks, 'r2g-root:right');
+    const rootTrunk = trunkOf(page1Trunks, 'r2g-root:below');
     assert.equal(rootTrunk.parent, 'r2g-root');
-    assert.equal(rootTrunk.placement, 'right');
+    assert.equal(rootTrunk.placement, 'below');
     assert.equal(rootTrunk.page, 1);
     assert.equal(rootTrunk.portPage, 1);
     assert.equal(rootTrunk.segmentCount, 3, 'one segment per page through the last child');
     assert.ok(
-      rootTrunk.x > root.left + root.width && rootTrunk.x < child1.left,
-      'the right trunk stays between the parent and its children',
+      rootTrunk.x > root.left && rootTrunk.x < child1.left,
+      'the below trunk sits inside the parent lane, left of the wrapped group',
     );
     const rootPort = parsePoint(rootTrunk.port);
     assert.ok(
-      Math.abs(rootPort.x - (root.left + root.width)) <= 0.75,
-      'the right trunk port leaves the parent right edge',
+      Math.abs(rootPort.y - (root.top + root.height)) <= 0.75,
+      'the below trunk port is the parent card bottom',
     );
     assert.ok(
-      Math.abs(rootPort.y - (root.top + Math.min(root.height / 2, 60))) <= 0.75,
-      'the right trunk port is the parent right-edge center',
+      Math.abs(rootPort.x - rootTrunk.x) <= 0.75,
+      'the below trunk port shares the trunk x',
     );
     const rootStart = parsePoint(rootTrunk.start);
     assert.deepEqual(rootStart, { x: rootTrunk.x, y: rootPort.y });
-    assert.deepEqual(parseLead(rootTrunk.lead), [rootPort, rootStart]);
+    assert.equal(parseLead(rootTrunk.lead), null, 'the below trunk has no horizontal lead');
     assert.ok(
       Math.abs(parsePoint(rootTrunk.end).y - content.height) <= 0.75,
       'the parent page trunk reaches the content bottom for a later child',
@@ -460,7 +469,7 @@ describe('R2g Page trunk continuity', () => {
 
     const child1Edge = edgeOf(page1Edges, 'branch-r2g-child-1');
     assert.equal(child1Edge.direction, 'same-page');
-    assert.equal(child1Edge.placement, 'right');
+    assert.equal(child1Edge.placement, 'below');
     assert.equal(child1Edge.trunkId, rootTrunk.trunkId);
     assert.equal(child1Edge.trunkX, rootTrunk.x);
     assert.equal(child1Edge.trunkSegmentPage, 1);
@@ -475,22 +484,22 @@ describe('R2g Page trunk continuity', () => {
     assert.equal(await currentPage(), 2);
     const page2Fragments = await fragmentBoxes();
     assert.deepEqual(
-      page2Fragments.map((fragment) => fragment.blockId),
-      ['r2g-grandchild'],
+      page2Fragments.map((fragment) => fragment.blockId).sort(),
+      ['r2g-grandchild', 'r2g-great-grandchild'],
     );
     const grandchild = fragmentOf(page2Fragments, 'r2g-grandchild');
+    const greatGrandchild = fragmentOf(page2Fragments, 'r2g-great-grandchild');
     const page2Edges = await readEdges();
     const page2Trunks = await readTrunks();
-    assert.equal(page2Edges.length, 1, 'only the nested grandchild arm is on page 2');
-    assert.equal(page2Edges[0].branchId, 'branch-r2g-grandchild');
-    assert.equal(page2Trunks.length, 2, 'the root trunk passes through this page');
+    assert.equal(page2Edges.length, 2, 'the nested arm and the great-grandchild arm are on page 2');
+    assert.equal(page2Trunks.length, 3, 'the root trunk passes through this page');
     assert.equal(
       await activePageView().locator('[data-page-edge-label]').count(),
       0,
       'a pass-through trunk has no page chip',
     );
 
-    const rootPassThrough = trunkOf(page2Trunks, 'r2g-root:right');
+    const rootPassThrough = trunkOf(page2Trunks, 'r2g-root:below');
     assert.equal(rootPassThrough.page, 2);
     assert.equal(rootPassThrough.x, rootTrunk.x, 'the trunk x is stable across pages');
     assert.deepEqual(parsePoint(rootPassThrough.start), { x: rootTrunk.x, y: 0 });
@@ -505,7 +514,7 @@ describe('R2g Page trunk continuity', () => {
     assert.equal(nestedPage2.segmentCount, 2, 'the nested trunk ends on its last child page');
     assert.deepEqual(parsePoint(nestedPage2.start), { x: nestedTrunk.x, y: 0 });
 
-    const grandchildEdge = page2Edges[0];
+    const grandchildEdge = edgeOf(page2Edges, 'branch-r2g-grandchild');
     assert.equal(grandchildEdge.direction, 'trunk');
     assert.equal(grandchildEdge.targetPage, null);
     assert.equal(grandchildEdge.trunkId, nestedTrunk.trunkId);
@@ -520,6 +529,27 @@ describe('R2g Page trunk continuity', () => {
       y: parsePoint(grandchildEdge.to).y,
     });
     assertLeftArm(grandchildEdge, 'page 2 grandchild');
+
+    // The great-grandchild stays beside the grandchild and owns an independent
+    // nested right trunk, never the child 1 below trunk.
+    const greatEdge = edgeOf(page2Edges, 'branch-r2g-great-grandchild');
+    assert.equal(greatEdge.direction, 'same-page');
+    assert.equal(greatEdge.placement, 'right');
+    assert.match(greatEdge.trunkId, /^r2g-grandchild:right$/);
+    assert.notEqual(greatEdge.trunkId, nestedTrunk.trunkId);
+    assert.ok(
+      greatEdge.trunkX > grandchild.left + grandchild.width - 0.75,
+      'the great-grandchild right trunk starts right of the grandchild',
+    );
+    assert.ok(
+      greatEdge.trunkX < greatGrandchild.left + 0.75,
+      'the great-grandchild right trunk stays left of its target',
+    );
+    assert.ok(
+      Math.abs(parsePoint(greatEdge.from).x - (grandchild.left + grandchild.width)) <= 0.75,
+      'the great-grandchild trunk leaves the grandchild right edge',
+    );
+    assertLeftArm(greatEdge, 'page 2 great-grandchild');
 
     // Last child page: the root trunk ends at child 2's arm and the nested
     // trunk is gone; the trunk never continues past its last child.
@@ -541,7 +571,7 @@ describe('R2g Page trunk continuity', () => {
       'the last tree arm has no page chip',
     );
 
-    const rootLast = trunkOf(page3Trunks, 'r2g-root:right');
+    const rootLast = trunkOf(page3Trunks, 'r2g-root:below');
     assert.equal(rootLast.x, rootTrunk.x, 'the same trunk x reaches the last page');
     assert.equal(rootLast.segmentCount, 3);
     assert.deepEqual(parsePoint(rootLast.start), { x: rootTrunk.x, y: 0 });

@@ -3,6 +3,7 @@ import {
   buildPageEdgeModel,
   buildPageEdges,
   createEstimatedMeasurement,
+  DEFAULT_LAYOUT_OPTIONS,
   DEFAULT_PAGE_SETTINGS,
   EDGE_STYLE,
   layoutDocument,
@@ -410,7 +411,7 @@ describe('page edge mapper', () => {
 });
 
 describe('page edge topology (R2f)', () => {
-  it('groups right siblings and below callouts onto separate shared trunks', () => {
+  it('shares one below trunk for wrapped children and callouts, and a nested right trunk', () => {
     const { layout, pages } = layoutPages(topologyDocument());
     expect(pages.pageCount).toBe(1);
     const page = pages.pages[0]!;
@@ -423,12 +424,19 @@ describe('page edge topology (R2f)', () => {
     const callout1Block = layout.blockById['callout1']!;
     const callout2Block = layout.blockById['callout2']!;
 
-    // Placement is the layout decision, not a y comparison: child 2 is lower
-    // than the parent card but still belongs to the right level column.
-    expect(child1Block.placement).toBe('right');
-    expect(child2Block.placement).toBe('right');
+    // R2i: the child 1 subtree does not fit beside the root, so the whole
+    // direct-child group moves below the root at the child indent. From that
+    // origin the grandchild fits beside child 1 and owns a nested right trunk.
+    expect(child1Block.placement).toBe('below');
+    expect(child2Block.placement).toBe('below');
+    expect(child1Block.x).toBe(root.x + DEFAULT_LAYOUT_OPTIONS.childIndent);
+    expect(child2Block.x).toBe(child1Block.x);
     expect(fragment('child2').page.y).toBeGreaterThan(root.y + root.height - 0.5);
-    expect(grandchildBlock.placement).toBe('below');
+    expect(grandchildBlock.placement).toBe('right');
+    expect(grandchildBlock.x).toBe(
+      child1Block.x + child1Block.width + DEFAULT_PAGE_SETTINGS.theme.siblingGap,
+    );
+    expect(grandchildBlock.y).toBe(child1Block.y);
     expect(callout1Block.placement).toBe('below');
     expect(callout2Block.placement).toBe('below');
 
@@ -451,21 +459,21 @@ describe('page edge topology (R2f)', () => {
       expect(candidate.route.blocked).toBe(false);
     }
 
-    // Right-group siblings share one trunk and enter left.
-    expect(child1.placement).toBe('right');
-    expect(child2.placement).toBe('right');
+    // Wrapped children and both anchored callouts share the one below trunk.
+    expect(child1.placement).toBe('below');
+    expect(child2.placement).toBe('below');
     expect(child1.trunk).not.toBeNull();
     expect(child2.trunk).not.toBeNull();
-    expect(child1.trunk!.id).toBe('root:right');
+    expect(child1.trunk!.id).toBe('root:below');
     expect(child2.trunk!.id).toBe(child1.trunk!.id);
     expect(child2.trunk!.x).toBe(child1.trunk!.x);
-    expect(child1.trunk!.placement).toBe('right');
+    expect(child1.trunk!.placement).toBe('below');
+    const rootBottom = fragment('root').page.y + fragment('root').page.height;
     expect(child1.from).toEqual({
-      x: fragment('root').page.x + fragment('root').page.width,
-      y: fragment('root').page.y + Math.min(fragment('root').page.height / 2, 60),
+      x: child1.trunk!.x,
+      y: rootBottom + EDGE_STYLE.trunkGap,
     });
     expect(child2.from).toEqual(child1.from);
-    expect(child2.trunk!.id).not.toBe(callout1.trunk!.id);
     for (const candidate of [child1, child2]) {
       const tip = candidate.route.points.at(-1)!;
       const before = candidate.route.points.at(-2)!;
@@ -478,27 +486,23 @@ describe('page edge topology (R2f)', () => {
         ),
       ).toBe(true);
     }
-
-    // Both anchored callouts are below the parent, share one below trunk, and
-    // enter from the left; child 2 never uses this trunk.
-    expect(callout1.trunk!.id).toBe('root:below');
+    expect(callout1.trunk!.id).toBe(child1.trunk!.id);
     expect(callout2.trunk!.id).toBe(callout1.trunk!.id);
-    expect(callout2.trunk!.x).toBe(callout1.trunk!.x);
-    expect(callout1.trunk!.placement).toBe('below');
-    const rootBottom = fragment('root').page.y + fragment('root').page.height;
-    expect(callout1.from).toEqual({
-      x: callout1.trunk!.x,
-      y: rootBottom + EDGE_STYLE.trunkGap,
-    });
-    expect(callout2.from).toEqual(callout1.from);
+    expect(callout1.from).toEqual(child1.from);
+    expect(callout2.from).toEqual(child1.from);
 
-    // The grandchild is an indented below target of child 1, not a top entry.
-    expect(grandchild.placement).toBe('below');
-    expect(grandchild.trunk!.id).toBe('child1:below');
-    expect(grandchild.trunk!.id).not.toBe(callout1.trunk!.id);
+    // The grandchild is a right target of child 1 on an independent nested
+    // trunk; it never borrows the root below trunk.
+    expect(grandchild.placement).toBe('right');
+    expect(grandchild.trunk!.id).toBe('child1:right');
+    expect(grandchild.trunk!.id).not.toBe(child1.trunk!.id);
+    expect(grandchild.trunk!.x).toBeGreaterThan(
+      fragment('child1').page.x + fragment('child1').page.width,
+    );
+    expect(grandchild.trunk!.x).toBeLessThan(fragment('grandchild').page.x);
     expect(grandchild.from).toEqual({
-      x: grandchild.trunk!.x,
-      y: fragment('child1').page.y + fragment('child1').page.height + EDGE_STYLE.trunkGap,
+      x: fragment('child1').page.x + fragment('child1').page.width,
+      y: fragment('child1').page.y + Math.min(fragment('child1').page.height / 2, 60),
     });
     expect(grandchild.route.entry).toBe('left');
     const grandchildTip = grandchild.route.points.at(-1)!;
@@ -580,6 +584,11 @@ function trunkContinuityDocument(): NoteDocument {
         'Grandchild',
         'Nested child on a later page with enough text to keep a readable card width when the page measures it.',
       ),
+      'trunk-great-grandchild': textBlock(
+        'trunk-great-grandchild',
+        'Great-grandchild',
+        'Fourth level beside its parent on the same page.',
+      ),
       'trunk-child-2': textBlock(
         'trunk-child-2',
         'Child two',
@@ -602,6 +611,13 @@ function trunkContinuityDocument(): NoteDocument {
         role: 'primary',
         order: 'a',
       },
+      'branch-great-grandchild': {
+        id: 'branch-great-grandchild',
+        source: { blockId: 'trunk-grandchild' },
+        targetBlockId: 'trunk-great-grandchild',
+        role: 'primary',
+        order: 'a',
+      },
       'branch-child-2': {
         id: 'branch-child-2',
         source: { blockId: 'trunk-root' },
@@ -616,7 +632,7 @@ function trunkContinuityDocument(): NoteDocument {
 }
 
 describe('page trunk continuity (R2g)', () => {
-  it('keeps one group trunk aligned across pages, pass-through, and the last arm', () => {
+  it('keeps the root and nested below trunks aligned across pages, pass-through, and the last arm', () => {
     const { layout, pages } = layoutPages(trunkContinuityDocument(), [
       'trunk-grandchild',
       'trunk-child-2',
@@ -624,15 +640,30 @@ describe('page trunk continuity (R2g)', () => {
     expect(pages.pageCount).toBe(3);
     const model = buildPageEdgeModel(layout, pages.pages);
     const contentHeight = layout.geometry.contentHeightPx;
+    const rootBlock = layout.blockById['trunk-root']!;
+    const child1Block = layout.blockById['trunk-child-1']!;
+    const child2Block = layout.blockById['trunk-child-2']!;
+    const grandchildBlock = layout.blockById['trunk-grandchild']!;
+
+    // R2i: the child 1 subtree does not fit beside the root, so the whole
+    // direct-child group wraps below the root at the child indent. The nested
+    // grandchild group wraps once more under child 1.
+    expect(child1Block.placement).toBe('below');
+    expect(child2Block.placement).toBe('below');
+    expect(child1Block.x).toBe(rootBlock.x + DEFAULT_LAYOUT_OPTIONS.childIndent);
+    expect(child2Block.x).toBe(child1Block.x);
+    expect(grandchildBlock.placement).toBe('below');
+    expect(grandchildBlock.x).toBe(child1Block.x + DEFAULT_LAYOUT_OPTIONS.childIndent);
+    expect(layout.blockById['trunk-great-grandchild']!.placement).toBe('right');
 
     // Group keys are stable across pages and scoped to one parent + placement.
     const rootView = model.trunks[0]!.find(
-      (view) => view.trunk.id === 'trunk-root:right',
+      (view) => view.trunk.id === 'trunk-root:below',
     )!;
     expect(rootView).toBeDefined();
     const rootTrunk = rootView.trunk;
     expect(rootTrunk.parentBlockId).toBe('trunk-root');
-    expect(rootTrunk.placement).toBe('right');
+    expect(rootTrunk.placement).toBe('below');
     expect(rootTrunk.portPage).toBe(1);
     expect(rootTrunk.segments.map((segment) => segment.pageNumber)).toEqual([1, 2, 3]);
     expect(rootTrunk.segments).toHaveLength(3);
@@ -640,22 +671,20 @@ describe('page trunk continuity (R2g)', () => {
       expect(segment.start.x).toBe(rootTrunk.x);
       expect(segment.end.x).toBe(rootTrunk.x);
     }
-    expect(rootTrunk.x).toBeGreaterThan(
-      layout.blockById['trunk-root']!.x + layout.blockById['trunk-root']!.width,
-    );
-    expect(rootTrunk.x).toBeLessThan(layout.blockById['trunk-child-1']!.x);
+    expect(rootTrunk.x - rootBlock.x).toBeCloseTo(EDGE_STYLE.trunkInset, 6);
+    expect(rootTrunk.x).toBeLessThan(child1Block.x);
 
-    // Parent page: the horizontal lead leaves the parent port, then the
-    // vertical trunk runs to the content bottom because a child is on a later
-    // page.
-    expect(rootTrunk.segments[0]!.start).toEqual({
+    // Parent page: no horizontal lead for a below trunk; the port is the card
+    // bottom and the run reaches the content bottom because a child is later.
+    const rootFragment = pages.pages[0]!.fragments.find(
+      (fragment) => fragment.blockId === 'trunk-root',
+    )!;
+    expect(rootTrunk.port).toEqual({
       x: rootTrunk.x,
-      y: rootTrunk.port.y,
+      y: rootFragment.page.y + rootFragment.page.height,
     });
-    expect(rootTrunk.segments[0]!.lead).toEqual({
-      from: rootTrunk.port,
-      to: rootTrunk.segments[0]!.start,
-    });
+    expect(rootTrunk.segments[0]!.start).toEqual(rootTrunk.port);
+    expect(rootTrunk.segments[0]!.lead).toBeNull();
     expect(rootTrunk.segments[0]!.end.y).toBeCloseTo(contentHeight, 6);
 
     // Pass-through page: no root-group child, still one full vertical segment.
@@ -686,7 +715,7 @@ describe('page trunk continuity (R2g)', () => {
     });
     expect(rootTrunk.segments[2]!.end.x).toBe(rootTrunk.x);
 
-    // Every root-group child shares that one right trunk; no primary tree edge
+    // Every root-group child shares that one below trunk; no primary tree edge
     // carries a to-edge/from-edge indicator or a p.N chip.
     const child1Edge = model.edges[0]!.find(
       (edge) => edge.branchId === 'branch-child-1',
@@ -703,8 +732,8 @@ describe('page trunk continuity (R2g)', () => {
       }
     }
 
-    // The nested parent opens its own trunk: distinct id and x, its own page
-    // segments, and the same 8 px gap below its card on the parent page.
+    // The nested parent opens its own below trunk: distinct id and x, its own
+    // page segments, and the same attached gap below its card.
     const nestedView = model.trunks[0]!.find(
       (view) => view.trunk.id === 'trunk-child-1:below',
     )!;
@@ -714,9 +743,9 @@ describe('page trunk continuity (R2g)', () => {
     expect(nestedTrunk.placement).toBe('below');
     expect(nestedTrunk.id).not.toBe(rootTrunk.id);
     expect(nestedTrunk.x).not.toBe(rootTrunk.x);
+    expect(nestedTrunk.x - child1Block.x).toBeCloseTo(EDGE_STYLE.trunkInset, 6);
     expect(nestedTrunk.segments.map((segment) => segment.pageNumber)).toEqual([1, 2]);
-    const child1Bottom =
-      layout.blockById['trunk-child-1']!.y + layout.blockById['trunk-child-1']!.height;
+    const child1Bottom = child1Block.y + child1Block.height;
     expect(nestedTrunk.segments[0]!.start.y - child1Bottom).toBeCloseTo(
       EDGE_STYLE.trunkGap,
       6,
@@ -734,6 +763,16 @@ describe('page trunk continuity (R2g)', () => {
       y: grandchildEdge.to.y,
     });
     expect(model.trunks[2]!.some((view) => view.trunk.id === nestedTrunk.id)).toBe(false);
+
+    // The great-grandchild stays beside the grandchild on the same page and
+    // owns an independent nested right trunk.
+    const greatEdge = model.edges[1]!.find(
+      (edge) => edge.branchId === 'branch-great-grandchild',
+    )!;
+    expect(greatEdge.direction).toBe('same-page');
+    expect(greatEdge.trunk!.id).toBe('trunk-grandchild:right');
+    expect(greatEdge.trunk!.id).not.toBe(nestedTrunk.id);
+    expect(greatEdge.route.entry).toBe('left');
 
     // The shared model is deterministic for Page Read/Edit and print.
     expect(JSON.stringify(buildPageEdgeModel(layout, pages.pages))).toBe(

@@ -234,7 +234,7 @@ describe('group-level left-origin wrap', () => {
     expect(indent12.blockById['d']!.x).toBe(48);
   });
 
-  it('keeps a per-parent wrap below a taller ancestor card instead of overlapping it', () => {
+  it('wraps a child group below a taller ancestor card instead of overlapping it', () => {
     const { document, port } = makeDocument(
       {
         tall: { max: 200, min: 100, height: 1000 },
@@ -250,20 +250,25 @@ describe('group-level left-origin wrap', () => {
     const tall = result.blockById['tall']!;
     const rightChild = result.blockById['rightChild']!;
     const grandChild = result.blockById['grandChild']!;
-    expect(rightChild.x).toBe(tall.x + tall.width + 24);
-    const chrome = 2 * (DEFAULT_LAYOUT_OPTIONS.cardPadding + DEFAULT_LAYOUT_OPTIONS.cardBorder);
-    const groupWidth = Math.min(500, DEFAULT_LAYOUT_OPTIONS.maxContentWidth) + chrome;
-    expect(grandChild.x).toBe(
-      Math.min(
-        rightChild.x + 26,
-        result.geometry.contentWidthPx - groupWidth,
-      ),
+    // R2i: the full rightChild subtree does not fit beside the tall ancestor,
+    // so the whole direct-child group wraps below it at the child indent.
+    expect(rightChild.x).toBe(tall.x + DEFAULT_LAYOUT_OPTIONS.childIndent);
+    expect(rightChild.y).toBe(tall.y + tall.height + DEFAULT_LAYOUT_OPTIONS.siblingGap);
+    // From the new origin the grandchild still does not fit beside its parent,
+    // so it wraps one more level and never overlaps the taller ancestor.
+    expect(grandChild.x).toBe(rightChild.x + DEFAULT_LAYOUT_OPTIONS.childIndent);
+    expect(grandChild.y).toBe(
+      rightChild.y + rightChild.height + DEFAULT_LAYOUT_OPTIONS.siblingGap,
     );
-    expect(grandChild.y).toBeGreaterThanOrEqual(tall.y + tall.height + 24);
+    expect(overlaps(blockRect(tall), blockRect(rightChild))).toBe(false);
     expect(overlaps(blockRect(tall), blockRect(grandChild))).toBe(false);
     expect(overlaps(blockRect(rightChild), blockRect(grandChild))).toBe(false);
 
+    // The lab per-child policy keeps the old own-card behavior for comparison.
     const subtreeAware = layout(document, port, 'subtree-aware');
+    expect(subtreeAware.blockById['rightChild']!.x).toBe(
+      tall.x + tall.width + DEFAULT_LAYOUT_OPTIONS.siblingGap,
+    );
     expect(overlaps(blockRect(tall), blockRect(subtreeAware.blockById['grandChild']!))).toBe(false);
   });
 

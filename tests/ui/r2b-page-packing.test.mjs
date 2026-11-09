@@ -216,6 +216,71 @@ async function assertBesideGeometry(label, { nestedBeside = true } = {}) {
   return { root, child, rootCallout, midCallout };
 }
 
+async function assertWrappedGeometry(label) {
+  const root = await fragmentBox('side-root');
+  const rootCallout = await fragmentBox('side-callout-root');
+  const midCallout = await fragmentBox('side-callout-mid');
+  const child = await fragmentBox('side-child');
+  const childCallout = await fragmentBox('side-callout-child');
+  const grandChild = await fragmentBox('side-grandchild');
+  const content = await contentBox();
+  const boxes = await allFragmentBoxes();
+
+  // R2i: portrait cannot hold the whole child subtree beside the root, so the
+  // atomic direct-child group wraps below the root at the child indent. The
+  // block then uses the stacked callout order.
+  assert.ok(child.top >= root.top + root.height - 0.75, `${label}: child wraps below the root`);
+  assert.ok(
+    closeTo(child.left, root.left + 26, 1.5),
+    `${label}: the wrapped child uses the Page child indent`,
+  );
+  assert.ok(
+    rootCallout.top >= root.top + root.height + CALLOUT_GAP - 0.75,
+    `${label}: the root callout starts below the parent`,
+  );
+  assert.ok(
+    midCallout.top >= rootCallout.top + rootCallout.height + CALLOUT_GAP - 0.75,
+    `${label}: the second root callout stacks below the first`,
+  );
+  assert.ok(
+    child.top >= midCallout.top + midCallout.height + CALLOUT_GAP - 0.75,
+    `${label}: the wrapped group starts below the whole callout stack`,
+  );
+
+  // From the new origin the nested group fits beside its own parent again.
+  assert.ok(
+    closeTo(grandChild.top, child.top, 0.75),
+    `${label}: the nested direct child starts at the child y`,
+  );
+  assert.ok(
+    closeTo(grandChild.left, child.left + child.width + SIBLING_GAP, 0.75),
+    `${label}: the nested direct child sits in the child's right column`,
+  );
+  assert.ok(
+    childCallout.top >= child.top + child.height + CALLOUT_GAP - 0.75,
+    `${label}: the nested callout stays below the child`,
+  );
+  assert.ok(
+    childCallout.left + childCallout.width <= grandChild.left - SIBLING_GAP + 0.75,
+    `${label}: the nested callout lane ends before the nested right group`,
+  );
+
+  assertNoOverlap(boxes, label);
+  for (const box of boxes) {
+    assert.ok(box.left >= -0.75, `${label}: ${box.blockId} does not start left of the content box`);
+    assert.ok(
+      box.left + box.width <= content.width + 0.75,
+      `${label}: ${box.blockId} does not overflow the content width`,
+    );
+    assert.ok(box.top >= -0.75, `${label}: ${box.blockId} does not start above the content box`);
+    assert.ok(
+      box.top + box.height <= content.height + 0.75,
+      `${label}: ${box.blockId} does not overflow the content height`,
+    );
+  }
+  return { root, child, rootCallout, midCallout };
+}
+
 async function setSettings(settings) {
   const runsBefore = Number(await activePageView().getAttribute('data-model-runs'));
   await page.evaluate(
@@ -364,13 +429,13 @@ describe('R2b page packing', () => {
       continuous: { zoom: 1 },
     });
     await waitPageReady();
-    // Portrait still has enough width for the wide root child in this fixture,
-    // but not for the nested child's own right column; the nested block falls
-    // back to stacked while the root-level beside rule stays active.
-    await assertBesideGeometry('portrait 1440', { nestedBeside: false });
+    // R2i: portrait cannot hold the whole root child subtree beside the root,
+    // so the atomic direct-child group wraps below the callout stack at the
+    // Page child indent. The nested group still fits beside its own parent.
+    await assertWrappedGeometry('portrait 1440');
 
     await h.setWindowSize(960, 720);
-    await assertBesideGeometry('portrait 960', { nestedBeside: false });
+    await assertWrappedGeometry('portrait 960');
 
     // The fallback is deterministic: switching back to landscape restores the
     // nested beside geometry.

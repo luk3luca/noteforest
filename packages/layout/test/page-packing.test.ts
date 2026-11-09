@@ -338,7 +338,7 @@ describe('page packing: beside', () => {
     assertNoOverlaps(result);
   });
 
-  it('floors a wrapped descendant of the right group at the right column origin', () => {
+  it('wraps the whole direct-child group when a grandchild subtree does not fit right', () => {
     const { document, port } = makeDocument(
       {
         root: { max: 400, min: 200, height: 40 },
@@ -359,12 +359,22 @@ describe('page packing: beside', () => {
     const callout = result.blockById['callout']!;
     const child = result.blockById['child']!;
     const grandChild = result.blockById['wrappedGrandChild']!;
-    const rightX = root.x + root.width + DEFAULT_LAYOUT_OPTIONS.siblingGap;
+    const indent = DEFAULT_LAYOUT_OPTIONS.childIndent;
+    const gap = DEFAULT_LAYOUT_OPTIONS.siblingGap;
 
-    expect(child.x).toBe(rightX);
-    expect(grandChild.x).toBeGreaterThanOrEqual(rightX);
-    expect(grandChild.x).toBeGreaterThan(DEFAULT_LAYOUT_OPTIONS.maxWrapIndent);
-    expect(overlaps(blockRect(callout), blockRect(grandChild))).toBe(false);
+    // R2i: the child card fits the right column, but its grandchild subtree
+    // does not, so the atomic direct-child group moves below the parent at the
+    // child indent. The block then uses the stacked callout order.
+    expect(child.x).toBe(root.x + indent);
+    expect(child.y).toBeGreaterThanOrEqual(callout.subtreeBottom + DEFAULT_LAYOUT_OPTIONS.calloutGap);
+    expect(callout.x).toBe(
+      root.x + DEFAULT_LAYOUT_OPTIONS.cardPadding + DEFAULT_LAYOUT_OPTIONS.cardBorder + 40,
+    );
+    // From the new origin the grandchild fits beside its parent.
+    expect(grandChild.x).toBe(child.x + child.width + gap);
+    expect(grandChild.y).toBe(child.y);
+    expect(overlaps(blockRect(callout), blockRect(child))).toBe(false);
+    expect(overlaps(blockRect(child), blockRect(grandChild))).toBe(false);
     assertNoOverlaps(result);
   });
 
