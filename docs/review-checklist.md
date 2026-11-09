@@ -819,6 +819,39 @@ The stack is Electron (ADR-0001) and the PDF pipeline is the shared paginator + 
       documented.
 - [ ] Unsupported files open read-only; no background write.
 
+### 7.1 Personal settings and the Page lens
+
+Added by the full-codebase settings review (9 November 2026). These checks apply to
+`settings.json`, per-document overrides, `PageSettings`/`PageTheme`, and any Settings UI.
+
+- [ ] Settings is an app-level surface: it opens with zero documents, and a per-document subpage is
+      disabled with a reason rather than blocking Settings.
+- [ ] The settings file has a schema version, a pure migration path, a corrupt-file backup/warning,
+      and an explicit unknown-field policy; corrupt settings are never silently reset and overwritten.
+- [ ] Settings writes are serialized and atomic; a failed write is visible and the UI never claims a
+      save that did not happen.
+- [ ] A per-document override is partial and survives close, restart, and a document rename/move via
+      a stable document identity; switching the global/document scope alone does not create one.
+- [ ] Global and per-document values merge explicitly; a later global change reaches every field the
+      document did not override.
+- [ ] Page and Continuous have separate settings namespaces, token docs, and UI sections; a Page
+      surface does not read a Continuous-only token, and a Continuous surface never reads PageTheme.
+- [ ] Page-only values (indents, trunk insets, callout modes, page caps) are PageTheme/Page-owned or
+      documented as shared engine primitives; no legacy Page literal remains outside that layer.
+- [ ] Density has one effective lens consumed by layout, measurement, Page Read/Edit, and print; its
+      range, step, floors, and page-count behavior are recorded and, when the product promises
+      monotonicity, tested at every step.
+- [ ] Density never changes callout topology (A/B2/stacked) unless the product decision says it may,
+      in which case the behavior is labeled and tested.
+- [ ] Floors are true in the rendered path: body/label ≥ 8 pt and headings stay above body after every
+      scale/override, not only in the intermediate theme object.
+- [ ] Manual break hints are personal, cleaned on delete/split/merge, filtered when stale, and
+      reported when unhonorable; no UI path makes them canonical.
+- [ ] Settings controls have a real consumer, a global-vs-document state, Apply/Cancel (or a decided
+      instant-save model, never both), a preview/validation state, and a keyboard/VoiceOver pass.
+- [ ] Export defaults (folder, filename/date, overwrite, metadata) are decided and tested; the PDF
+      metadata contract matches the spec or the spec is updated.
+
 ---
 
 ## 8. External Agent API checks
