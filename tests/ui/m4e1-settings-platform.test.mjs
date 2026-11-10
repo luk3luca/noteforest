@@ -7,7 +7,7 @@ import { createUiSession } from '../support/ui-session.mjs';
 import { multiPageBlocksDocument, writePagePackage } from '../support/page-fixtures.mjs';
 
 /**
- * M4e1 settings platform.
+ * M4e1 settings platform on the Batch A shell.
  *
  * S2-1: Settings opens with zero documents; global controls work and the
  * per-document scope is disabled with a reason. S2-2: a per-document override
@@ -15,9 +15,14 @@ import { multiPageBlocksDocument, writePagePackage } from '../support/page-fixtu
  * session. S2-5: a corrupt settings.json is backed up and warned in the UI; a
  * failed write is visible instead of a false "saved". S2-6: Continuous zoom is
  * only the per-document view state.
+ *
+ * Batch A replaces the draft/Apply model with instant save: every real change
+ * writes (sliders debounced), the footer reports Saving/Saved/error, and a
+ * scope switch never writes or creates an override.
  */
 
 const tempRoot = artifactsPath('m4e1-ui');
+const screenshotDir = artifactsPath('ui-batch-a');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
@@ -45,34 +50,67 @@ async function openPackage(env, name, document) {
 
 async function showPageRead() {
   await page.keyboard.press('Meta+3');
-  await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view[data-ready="true"]', {
-    timeout: 30000,
-  });
+  await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
+  await page.waitForFunction(
+    () => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      return (
+        view !== null &&
+        view.getAttribute('data-ready') === 'true' &&
+        view.getAttribute('data-updating') !== 'true'
+      );
+    },
+    undefined,
+    { timeout: 30000 },
+  );
 }
 
 async function openSettingsWithShortcut() {
-  await page.waitForSelector('.nf-dialog', { state: 'detached' });
+  await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.keyboard.press('Meta+,');
+  await page.waitForSelector('[data-settings-dialog="true"]');
+  assert.equal(await page.locator('.nf-settings-heading').innerText(), 'Settings');
   await page.waitForSelector('[data-page-density-section="true"]');
-  assert.equal(await page.locator('.nf-dialog-title').innerText(), 'Settings');
 }
 
 async function openSettingsFromPalette() {
-  await page.waitForSelector('.nf-dialog', { state: 'detached' });
+  await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.keyboard.press('Meta+k');
-  await page.waitForTimeout(300);
   await page.waitForSelector('.nf-palette');
   await page.getByRole('option', { name: /Settings/ }).click();
+  await page.waitForSelector('[data-settings-dialog="true"]');
   await page.waitForSelector('[data-page-density-section="true"]');
 }
 
 async function closeSettings() {
   await page.getByRole('button', { name: 'Done' }).click();
-  await page.waitForSelector('.nf-dialog', { state: 'detached' });
+  await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
 }
 
 async function densityDraftValue() {
   return (await page.locator('[data-page-density-value]').textContent())?.trim();
+}
+
+async function waitSavedGlobal(percent) {
+  await page.waitForFunction(
+    (expected) =>
+      Math.round(window.__noteforestTest.settings().app.page.theme.density * 100) === expected &&
+      window.__noteforestTest.settings().saveState.status === 'saved',
+    percent,
+    { timeout: 15000 },
+  );
+}
+
+async function waitSavedOverride(packagePath, percent) {
+  await page.waitForFunction(
+    ({ path, expected }) => {
+      const state = window.__noteforestTest.settings();
+      const density = state.pageOverrides[path]?.theme?.density;
+      return Math.round(density * 100) === expected && state.saveState.status === 'saved';
+    },
+    { path: packagePath, expected: percent },
+    { timeout: 15000 },
+  );
 }
 
 async function settingsOnDisk(env) {
@@ -116,6 +154,7 @@ describe('M4e1 settings platform', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(tempRoot, { recursive: true });
+    await mkdir(screenshotDir, { recursive: true });
   });
 
   afterEach(async () => {
@@ -145,15 +184,21 @@ describe('M4e1 settings platform', () => {
       'the global density control is usable',
     );
 
-    // Apply a global default with no document open.
+    // Instant save: the slider writes the global default with no Apply button.
     const slider = page.locator('[data-page-density-slider]');
     await slider.focus();
     await slider.press('ArrowLeft');
     await slider.press('ArrowLeft');
     await slider.press('ArrowLeft');
     assert.equal(await densityDraftValue(), '85%');
-    await page.locator('[data-page-density-apply]').click();
-    await page.waitForSelector('[data-page-density-saved="true"]');
+    assert.equal(await page.locator('[data-page-density-apply]').count(), 0);
+    assert.equal(await page.locator('[data-page-density-cancel]').count(), 0);
+    await waitSavedGlobal(85);
+    assert.equal(
+      await page.locator('[data-settings-status]').getAttribute('data-settings-status'),
+      'saved',
+    );
+    await page.screenshot({ path: join(screenshotDir, 'settings-no-document.png') });
     await closeSettings();
     const stored = await settingsOnDisk(env);
     assert.equal(stored.page.theme.density, 0.85, 'the global default was written');
@@ -177,10 +222,6 @@ describe('M4e1 settings platform', () => {
     );
     assert.equal(await pageDensity(), 85, 'a new document uses the global default');
     assert.equal(packagePath, (await h.state()).activeTab);
-
-    const screenshotDir = artifactsPath('m4e1');
-    await mkdir(screenshotDir, { recursive: true });
-    await page.screenshot({ path: join(screenshotDir, 'settings-no-document.png') });
   });
 
   it('keeps a per-document override across close, quit, and reopen (S2-2)', async () => {
@@ -196,13 +237,16 @@ describe('M4e1 settings platform', () => {
     await page.keyboard.press('Meta+=');
     assert.equal(await viewZoom(packagePath), 1.1, 'Continuous zoom changed for this document');
     assert.equal((await appSettings()).app.continuous, undefined);
-    await page.keyboard.press('Meta+3');
-    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view[data-ready="true"]', {
-      timeout: 30000,
-    });
+    await showPageRead();
 
     await openSettingsWithShortcut();
-    await page.locator('[data-page-density-scope-option="document"]').check();
+    // Switching scope alone is not a write and creates no override.
+    await page.locator('[data-page-density-scope-option="document"]').click();
+    assert.equal(
+      (await appSettings()).pageOverrides[packagePath],
+      undefined,
+      'scope switch creates no override',
+    );
     const slider = page.locator('[data-page-density-slider]');
     await slider.focus();
     await slider.press('ArrowLeft');
@@ -210,8 +254,12 @@ describe('M4e1 settings platform', () => {
     await slider.press('ArrowLeft');
     await slider.press('ArrowLeft');
     assert.equal(await densityDraftValue(), '80%');
-    await page.locator('[data-page-density-apply]').click();
-    await page.waitForSelector('[data-page-density-saved="true"]');
+    await waitSavedOverride(packagePath, 80);
+    assert.equal(
+      await page.locator('[data-page-density-override]').count(),
+      1,
+      'the override dot appears in document scope',
+    );
     await closeSettings();
     await page.waitForFunction(
       () =>
@@ -319,20 +367,23 @@ describe('M4e1 settings platform', () => {
     await openSettingsWithShortcut();
     const slider = page.locator('[data-page-density-slider]');
     await slider.focus();
-    await slider.press('ArrowLeft');
-    assert.equal(await densityDraftValue(), '95%');
 
     // Make the app-support directory read-only so the atomic temp file cannot
-    // be created. The UI must not claim success.
+    // be created before the debounced write starts. The UI must not claim
+    // success.
     const before = (await stat(env.NOTEFOREST_APP_SUPPORT)).mode & 0o777;
     await chmod(env.NOTEFOREST_APP_SUPPORT, 0o500);
     try {
-      await page.locator('[data-page-density-apply]').click();
+      await slider.press('ArrowLeft');
       await page.waitForSelector('[data-settings-save-error="true"]', { timeout: 15000 });
       assert.equal(
         await page.locator('[data-page-density-saved="true"]').count(),
         0,
         'no success note after a failed write',
+      );
+      assert.equal(
+        await page.locator('[data-settings-status]').getAttribute('data-settings-status'),
+        'error',
       );
     } finally {
       await chmod(env.NOTEFOREST_APP_SUPPORT, before);
@@ -340,7 +391,12 @@ describe('M4e1 settings platform', () => {
 
     // Retry succeeds once the directory is writable again.
     await page.locator('[data-settings-retry="true"]').click();
-    await page.waitForSelector('[data-page-density-saved="true"]', { timeout: 15000 });
+    await waitSavedGlobal(95);
+    assert.equal(
+      await page.locator('[data-settings-save-error="true"]').count(),
+      0,
+      'the error clears after the retry',
+    );
     await closeSettings();
     const stored = await settingsOnDisk(env);
     assert.equal(stored.page.theme.density, 0.95);

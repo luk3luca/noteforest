@@ -1020,17 +1020,17 @@ describe('NoteForest M2 editor shell', () => {
     await page.keyboard.press('Control+Shift+Tab');
     await waitActiveTab(secondPath);
 
-    const closeButton = page.locator('[data-close-active-tab="true"]');
-    assert.match((await closeButton.getAttribute('aria-label')) ?? '', /^Close /);
-    assert.equal(await closeButton.isDisabled(), false);
-    await page.locator('.nf-tab[data-active="true"] .nf-tab-label').focus();
-    await page.keyboard.press('Tab');
-    await page.waitForFunction(
-      () => document.activeElement?.hasAttribute('data-close-active-tab') === true,
-      undefined,
-      { timeout: 10000 },
+    assert.equal(
+      await page.locator('[data-close-active-tab="true"]').count(),
+      0,
+      'there is no global close-tab button',
     );
-    await page.keyboard.press('Enter');
+    const closeButton = page.locator('.nf-tab[data-active="true"] .nf-tab-close');
+    assert.match((await closeButton.getAttribute('title')) ?? '', /^Close /);
+    await page.locator('.nf-tab[data-active="true"] .nf-tab-label').focus();
+    // Keyboard close is the tablist Delete handler (⌘W is the global path);
+    // the × remains a pointer affordance inside the presentation tab chip.
+    await page.keyboard.press('Delete');
     await waitTabCount(1);
   });
 
@@ -1658,18 +1658,13 @@ describe('NoteForest M2 editor shell', () => {
     assert.deepEqual(await canonicalStructure(), beforeRapid);
     await h.waitSaved();
 
-    // The settings surface uses the same router: a text edit is undone, not
+    // The shell undo surface uses the same router: a text edit is undone, not
     // presented as a structural-only command.
     await focusBlockEnd(textE);
     await page.keyboard.type(' TOOLBAR-TEXT');
     await h.waitEditorText('TOOLBAR-TEXT');
-    await page.keyboard.press('Meta+k');
-    await page.waitForSelector('.nf-palette');
-    await page.getByRole('option', { name: /Settings/ }).click();
-    await page.waitForSelector('.nf-dialog');
-    await page.getByRole('button', { name: 'Undo last change' }).click();
+    await page.locator('[data-header-undo]').click();
     await h.waitEditorText('TOOLBAR-TEXT', false);
-    await page.getByRole('button', { name: 'Done' }).click();
     await h.waitSaved();
 
     // N1: New chapter is one user action and one structural undo entry. A

@@ -162,18 +162,39 @@ async function setGlobalDensity(density) {
 }
 
 async function openSettings() {
-  await page.waitForSelector('.nf-dialog', { state: 'detached' });
+  await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.keyboard.press('Meta+k');
-  // Let the modal focus restore settle before the palette shortcut is read.
-  await page.waitForTimeout(300);
   await page.waitForSelector('.nf-palette');
   await page.getByRole('option', { name: /Settings/ }).click();
+  await page.waitForSelector('[data-settings-dialog="true"]');
   await page.waitForSelector('[data-page-density-section="true"]');
 }
 
 async function closeSettings() {
   await page.getByRole('button', { name: 'Done' }).click();
-  await page.waitForSelector('.nf-dialog', { state: 'detached' });
+  await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
+}
+
+async function waitSavedGlobal(percent) {
+  await page.waitForFunction(
+    (expected) =>
+      Math.round(window.__noteforestTest.settings().app.page.theme.density * 100) === expected &&
+      window.__noteforestTest.settings().saveState.status === 'saved',
+    percent,
+    { timeout: 15000 },
+  );
+}
+
+async function waitSavedOverride(packagePath, percent) {
+  await page.waitForFunction(
+    ({ path, expected }) => {
+      const state = window.__noteforestTest.settings();
+      const density = state.pageOverrides[path]?.theme?.density;
+      return Math.round(density * 100) === expected && state.saveState.status === 'saved';
+    },
+    { path: packagePath, expected: percent },
+    { timeout: 15000 },
+  );
 }
 
 async function densityDraftValue() {
@@ -365,7 +386,7 @@ describe('M4d1 Page density control', () => {
     assert.equal(persisted.page.theme.density, 0.6, 'the global density persists');
   });
 
-  it('applies the Settings slider globally and as a per-document override', async () => {
+  it('instant-saves the Settings slider globally and as a per-document override', async () => {
     const env = ui.isolated('m4d1-settings');
     await launch('m4d1-settings');
     const packagePath = await openPackage(env, 'density-settings', multiPageBlocksDocument(24));
@@ -381,22 +402,35 @@ describe('M4d1 Page density control', () => {
     }));
     assert.deepEqual(sliderRange, { min: '60', max: '120', step: '5' }, 'M4e2 slider range');
     assert.equal(
-      await page.locator('[data-page-density-scope-option="global"]').isChecked(),
-      true,
+      await page.locator('[data-page-density-scope-option="global"]').getAttribute('aria-pressed'),
+      'true',
       'a document without an override starts on the global scope',
     );
+    // No draft/apply model remains.
+    assert.equal(await page.locator('[data-page-density-apply]').count(), 0);
+    assert.equal(await page.locator('[data-page-density-cancel]').count(), 0);
+    assert.equal(await page.locator('[data-settings-dirty]').count(), 0);
+
     const slider = page.locator('[data-page-density-slider]');
     await slider.focus();
     await slider.press('ArrowLeft');
     await slider.press('ArrowLeft');
     await slider.press('ArrowLeft');
     assert.equal(await densityDraftValue(), '85%');
-    await page.locator('[data-page-density-apply]').click();
-    await page.waitForSelector('[data-page-density-saved="true"]');
-    const screenshotDir = artifactsPath('m4d1');
+    assert.equal(
+      await page.locator('[data-settings-status]').getAttribute('data-settings-status'),
+      'saving',
+      'the footer reports the debounced write',
+    );
+    await waitSavedGlobal(85);
+    assert.equal(
+      await page.locator('[data-settings-status]').getAttribute('data-settings-status'),
+      'saved',
+    );
+    const screenshotDir = artifactsPath('ui-batch-a');
     await mkdir(screenshotDir, { recursive: true });
     await page.screenshot({
-      path: join(screenshotDir, 'settings-page-density.png'),
+      path: join(screenshotDir, 'settings-page.png'),
     });
     await closeSettings();
     await waitPageReady({ bodySize: '8.25pt', density: 85 });
@@ -407,15 +441,30 @@ describe('M4d1 Page density control', () => {
       'global scope does not create a document override',
     );
 
-    // Reopen: the same slider edits the document override, and the explicit
-    // "Use global density" control clears only the density part.
+    // Scope switch never writes or creates an override.
     await openSettings();
     assert.equal(await densityDraftValue(), '85%');
-    await page.locator('[data-page-density-scope-option="document"]').check();
+    await page.locator('[data-page-density-scope-option="document"]').click();
+    assert.equal(
+      await page.locator('[data-page-density-scope-option="document"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(
+      (await settings()).pageOverrides[packagePath],
+      undefined,
+      'switching scope alone creates no override',
+    );
+
+    // Moving the slider in document scope creates one durable override.
     await page.locator('[data-page-density-slider]').focus();
     await page.locator('[data-page-density-slider]').press('ArrowLeft');
-    await page.locator('[data-page-density-apply]').click();
-    await page.waitForSelector('[data-page-density-saved="true"]');
+    await waitSavedOverride(packagePath, 80);
+    assert.equal(await densityDraftValue(), '80%');
+    assert.equal(
+      await page.locator('[data-page-density-override]').count(),
+      1,
+      'the document layer shows the per-field override dot',
+    );
     await closeSettings();
     await waitPageReady({ density: 80, bodySize: '8pt' });
     const stored = await settings();
@@ -442,36 +491,65 @@ describe('M4d1 Page density control', () => {
       'the session no longer carries settings overrides',
     );
 
+    // A document value equal to global auto-removes the override.
     await openSettings();
     assert.equal(
-      await page.locator('[data-page-density-scope-option="document"]').isChecked(),
-      true,
+      await page.locator('[data-page-density-scope-option="document"]').getAttribute('aria-pressed'),
+      'true',
     );
-    await page.locator('[data-page-density-use-global]').click();
-    await page.waitForSelector('[data-page-density-saved="true"]');
+    const equalSlider = page.locator('[data-page-density-slider]');
+    await equalSlider.focus();
+    await equalSlider.press('ArrowRight');
+    assert.equal(await densityDraftValue(), '85%');
+    await page.waitForFunction(
+      (path) => {
+        const state = window.__noteforestTest.settings();
+        return (
+          state.pageOverrides[path] === undefined && state.saveState.status === 'saved'
+        );
+      },
+      packagePath,
+      { timeout: 15000 },
+    );
+    assert.equal(
+      await page.locator('[data-page-density-override]').count(),
+      0,
+      'an equal-to-global value drops the override dot',
+    );
     await closeSettings();
     await waitPageReady({ density: 85, bodySize: '8.25pt' });
-    assert.equal((await settings()).pageOverrides[packagePath], undefined);
 
-    // Cancel discards the draft and never persists it.
+    // "Use global" clears an override without touching the global layer.
     await openSettings();
-    const cancelSlider = page.locator('[data-page-density-slider]');
-    await cancelSlider.focus();
-    await cancelSlider.press('ArrowRight');
-    await cancelSlider.press('ArrowRight');
-    await cancelSlider.press('ArrowRight');
-    assert.equal(await densityDraftValue(), '100%');
-    await page.locator('[data-page-density-cancel]').click();
-    assert.equal(await densityDraftValue(), '85%');
+    await page.locator('[data-page-density-scope-option="document"]').click();
+    const useGlobalSlider = page.locator('[data-page-density-slider]');
+    await useGlobalSlider.focus();
+    await useGlobalSlider.press('ArrowLeft');
+    await waitSavedOverride(packagePath, 80);
+    await page.locator('[data-page-density-use-global]').click();
+    await page.waitForFunction(
+      (path) => {
+        const state = window.__noteforestTest.settings();
+        return (
+          state.pageOverrides[path] === undefined && state.saveState.status === 'saved'
+        );
+      },
+      packagePath,
+      { timeout: 15000 },
+    );
+    assert.equal(await densityDraftValue(), '85%', 'Use global returns to the global value');
     await closeSettings();
+    await waitPageReady({ density: 85, bodySize: '8.25pt' });
     assert.equal((await settings()).app.page.theme.density, 0.85);
-    assert.equal(await activePageView().getAttribute('data-page-density'), '85');
-    // Reset returns the draft to 100% without applying.
+
+    // Reset writes 100% immediately in global scope.
     await openSettings();
+    await page.locator('[data-page-density-scope-option="global"]').click();
     await page.locator('[data-page-density-reset]').click();
-    assert.equal(await densityDraftValue(), '100%');
-    await page.locator('[data-page-density-cancel]').click();
+    await waitSavedGlobal(100);
     await closeSettings();
+    await waitPageReady({ density: 100 });
+    assert.equal((await settings()).app.page.theme.density, 1);
 
     const onDisk = JSON.parse(
       await readFile(join(packagePath, 'document.json'), 'utf8'),
