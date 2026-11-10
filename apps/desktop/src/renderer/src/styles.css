@@ -4365,14 +4365,6 @@ body.nf-dragging-block .nf-gutter-handle {
   font-weight: 600;
 }
 
-.nf-density-scope {
-  margin: 0;
-}
-
-.nf-density-field {
-  margin: 0;
-}
-
 .nf-density-row {
   display: flex;
   align-items: center;
