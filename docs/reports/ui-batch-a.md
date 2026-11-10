@@ -47,6 +47,7 @@ compositor, or PDF output change was made.
 - `757eb65` — `chore(ui): drop the retired density-scope CSS blocks`
 - `e0fe024` — `docs(tokens): align the canvas content budget with edge-to-edge padding`
 - `be8f9b6` — `fix(ui): restore overlay focus and expose the app-data folder`
+- `1552cdc` — `fix(ui): guard overlay focus and announce export states`
 - `e5b5279` — `docs(report): note the adjusted shell/sub-test evidence`
 - `4f277e9` — `docs(report): record the final verify:fast timings`
 - `a54c875` — `docs(report): correct the UI suite count`
