@@ -57,7 +57,7 @@ PageTheme/PDF change is a separate decision, not part of the shell rework.
 
 | ID | Screen | Type | Position | Contents | States |
 |---|---|---|---|---|---|
-| SC-01 | **Workspace** | Primary window | Full window | TopBar, Sidebar, Canvas, optional StatusStrip, overlays | No document, document open, recovery, read-only, save failure, Page Edit, export running |
+| SC-01 | **Workspace** | Primary window | Full window | TopBar, Sidebar, Canvas, StatusStrip, overlays | No document, document open, recovery, read-only, save failure, Page Edit, export running |
 | SC-02 | **Settings** | Overlay (dialog or window) | Centered / separate | SettingsNav, SettingsPane, optional PreviewPane, SettingsActions | No document, dirty, saving/saved/error, corrupt/unreadable/newer, per-document override, read-only |
 | SC-03 | **Export** | Overlay (sheet) | Right/center over Workspace | ExportOptions, ExportProgress, ExportResult, actions | Configuring, running, cancelling, overwrite confirm, done, failed |
 | SC-04 | **Recovery** | Tab view | Inside Workspace canvas | Status, details, backups, restore, retry, reveal, close | Corrupt, missing, newer, unreadable, restore success/failure |
@@ -98,7 +98,7 @@ AppShell
 │     │  │  └─ PageEditOverlay
 │     │  └─ PagePlaceholder   (loading/error/empty)
 │     └─ CanvasFooter         (Continuous only: Add chapter)
-├─ StatusStrip                (optional/minimal: SaveState, WordCount, BlockCount, AnchorHealth)
+├─ StatusStrip                (minimal, extensible: SaveState, WordCount, BlockCount, AnchorHealth)
 └─ OverlayHost
    ├─ SettingsDialog          (SettingsNav, SettingsPane, PreviewPane, SettingsActions)
    ├─ ExportSheet             (ExportOptions, ExportProgress, ExportResult)
@@ -113,12 +113,12 @@ AppShell
 | Name | Type | Position | Parent | Main children | Status | Behavior |
 |---|---|---|---|---|---|---|
 | **AppShell** | Root layout | Full window | — | TopBar, WorkspaceBody, StatusStrip, OverlayHost | Exists (rename from app root) | Single window; dark shell; focus order top → sidebar → canvas |
-| **TopBar** | Bar, 40–44 px | Top, full width | AppShell | WindowControls, TabStrip, NewTabButton, ViewControls, GlobalActions | **Merge** TitleBar + TabBar (proposal) | Window drag region; tabs; view controls; palette |
+| **TopBar** | Bar, 40–44 px | Top, full width | AppShell | WindowControls, TabStrip, NewTabButton, ViewControls, GlobalActions | **Merge** TitleBar + TabBar (accepted 10 Nov) | Window drag region; tabs; view controls; palette |
 | **WindowControls** | Native chrome | Top-left | TopBar | Traffic lights | Exists (native) | macOS close/minimize/zoom; leave inset |
 | **TabStrip** | Bar | Top, after traffic lights | TopBar | Tab, TabOverflowMenu | Move from TabBar | Reorder, overflow, keyboard arrows/Home/End/Delete |
 | **Tab** | Tab item | In TabStrip | TabStrip | Title, dirty dot, lock, recovery, close | Exists | Activate, close, middle-click, dirty/lock/recovery states |
 | **NewTabButton** | Icon button | TopBar, after tabs | TopBar | — | Exists (new note) | Create/open document; `⌘N` |
-| **ViewControls** | Segmented controls | TopBar, right of tabs | TopBar | Layout, Mode, Zoom/Fit | **Add** (consolidates StatusBar + PageToolbar) | Layout-aware; keyboard/menu parity; collapses to overflow on narrow |
+| **ViewControls** | Segmented controls / icon buttons | TopBar or PageToolbar (A/B) | TopBar or PageToolbar | Layout, Mode, Zoom/Fit | **Add**; placement open (D-03) | Layout/mode/zoom; text vs icon variants; layout-aware; keyboard/menu parity; overflow on narrow |
 | **GlobalActions** | Icon buttons | TopBar, far right | TopBar | CommandPaletteButton | Exists | `⌘K`; no Settings gear here |
 | **Sidebar** | Panel, 240–280 px | Left, full height below TopBar | WorkspaceBody | SidebarHeader, LibraryPanel, TopicsPanel, SidebarFooter | Exists | Collapse/expand, resize, persist; narrow auto-collapse |
 | **SidebarHeader** | Row | Top of Sidebar | Sidebar | Search, NewNote, SidebarToggle | Exists + **add toggle** | Search opens palette; new note; toggle `⌘\` |
@@ -129,11 +129,11 @@ AppShell
 | **Canvas** | Main region | Center | WorkspaceBody | ContinuousCanvas or PageCanvas | Exists | Layout switch; focus; banners |
 | **ContinuousCanvas** | Canvas mode | Center | Canvas | Chapters, blocks, edges, selection toolbar, footer | Exists | Edit/Read; zoom/fit; focus branch |
 | **PageCanvas** | Canvas mode | Center | Canvas | PageToolbar, PageStage, PagePlaceholder | Exists | Page Read/Edit; page nav; setup/density/export |
-| **PageToolbar** | Contextual bar, 36–40 px | Top of PageCanvas | PageCanvas | PageNav, SetupButton, DensityButton, ExportButton | Exists + **add setup/density** | Page-specific only; no duplicate layout/mode/zoom |
+| **PageToolbar** | Contextual bar, 36–40 px | Top of PageCanvas | PageCanvas | PageNav, SetupButton, DensityButton, ExportButton | Exists + **add setup/density** | Page-specific: nav, Setup, Density, Export; zoom placement tied to D-03 |
 | **PageStage** | Scroll/zoom container | Center | PageCanvas | PageSheet, PageEditOverlay | Exists | Page zoom/fit; one page at a time |
 | **PageSheet** | Paper sheet | Center | PageStage | PageChrome, PageFragments, PageEdges | Exists | **Exact** geometry/typography; frame only is redesigned |
 | **PageEditOverlay** | In-sheet editor | Over PageSheet | PageStage | PageBlockEditor | Exists | Edit one block; commit/cancel; error keeps text |
-| **StatusStrip** | Thin bar, 22–24 px | Bottom, full width | AppShell | SaveState, WordCount, BlockCount, AnchorHealth | **Reshape or remove** (proposal) | Status only, no second toolbar; optional |
+| **StatusStrip** | Thin bar, 22–24 px | Bottom, full width | AppShell | SaveState, WordCount, BlockCount, AnchorHealth | **Keep**; minimal, extensible (accepted 10 Nov) | Status items only, no navigation buttons; room for future info |
 | **SettingsDialog** | Overlay, ~760×560 | Centered | OverlayHost | SettingsNav, SettingsPane, PreviewPane, SettingsActions | **Replace** the 480 px density-only dialog | Pages; scope; apply/cancel; warnings; no document |
 | **ExportSheet** | Overlay | Right/center | OverlayHost | ExportOptions, ExportProgress, ExportResult | **Replace** floating panel | Configure, run, cancel, result, reveal |
 | **CommandPalette** | Modal overlay | Center top | OverlayHost | Search, groups, hints | Exists | `⌘K`; commands/documents/blocks; no duplicates |
@@ -176,7 +176,7 @@ Use one set of primitives across the shell and Settings:
 │               │   Page: PageStage → PageSheet                │
 │  ⚙ Settings   │                                              │
 ├───────────────┴──────────────────────────────────────────────┤
-│ StatusStrip (optional, minimal: Saved · 1,204 words · ⚠ 2)   │
+│ StatusStrip (minimal, extensible: Saved · 1,204 words · ⚠ 2)  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -187,7 +187,7 @@ TopBar (window, tabs, layout/mode, zoom/fit, palette)
 Sidebar │ PageToolbar: ‹ Page 3 of 12 › │ Setup │ Density │ Export
         │ PageStage: centered A4/A5/Letter sheet
         │ PageSheet: header, fragments, edges, footer
-StatusStrip (optional)
+StatusStrip (minimal)
 ```
 
 ### 4.3 Settings
@@ -216,8 +216,8 @@ scrolls. The **global vs this document** scope is a control inside Page, not a t
 | Page | Purpose | Contents (target) | Model status |
 |---|---|---|---|
 | **General** | App-level defaults | Appearance (dark/light/system), language if added, default layout/mode if added, autosave info | Mostly **DES**; no fields today except data paths |
-| **Page** | Page lens | Page Setup (size, orientation, margins, preview); Typography (preset, density, advanced sizes); Layout (card width, indents/gaps); Manual Breaks | Frozen fields exist; UI absent |
-| **Continuous** | Continuous view | Zoom/fit per document; future canvas/type settings | **No settings namespace in v1**; only per-document view state. Do not invent fields. |
+| **Page** | Page lens | Page Setup (size, orientation, margins, preview) in **both** Settings (global default) and Page (document override); Typography (preset, density, advanced sizes); Layout (card width, indents/gaps); Manual Breaks | Frozen fields exist; UI absent |
+| **Continuous** | Continuous view | Zoom/fit per document (view state); future fields when the product needs them | **Keep the page** (accepted 10 Nov); no settings namespace in v1; view state only. New fields need a decision + `settingsVersion` bump. |
 | **Editor** | Editing behavior | Shortcuts, single-key shortcuts, autosave interval | **DES**; no fields today |
 | **Export** | Export defaults | Folder, filename/date, metadata, tagged PDF, page range | **DES**; no fields today |
 | **Data & About** | Data and recovery | Library path, app-support path, settings file status, backup/reset, document-settings map recovery, version | Paths exist; recovery for the map is **DES** |
@@ -227,8 +227,37 @@ global” per field/group; no override created by switching scope alone; explici
 visible save status (open decision). Read-only documents cannot create a document override.
 
 **Frozen-model caveat:** `AppSettings` is `{ page }`. There is no `ContinuousSettings`. A
-“Continuous” page may show view-state controls (zoom/fit per document) and future notes, but a
-persisted Continuous settings namespace requires a product decision and a `settingsVersion` bump.
+“Continuous” page may show view-state controls (zoom/fit per document) and future fields when the
+product needs them; a persisted Continuous settings namespace requires a product decision and a
+`settingsVersion` bump.
+
+### 5.1 Persisted settings vs view state
+
+“Persisted” means written to disk. The distinction that matters for the Settings IA is *what kind*
+of persisted value it is:
+
+| Store | Contents | Persisted | Applies to | Adding a field |
+|---|---|---|---|---|
+| `settings.json` | `AppSettings = { page }` | Yes, versioned (`settingsVersion: 2`) | All documents (global default) | New namespace/field = schema bump + pure migration |
+| `document-settings.json` | Per-document `page` override, keyed by document id/path | Yes, versioned (`version: 1`) | One document | Same policy; version 2 when the first field is added |
+| `shell-session.json` | View state: layout, mode, current page, Continuous zoom, Page zoom/fit, scroll, selection, collapsed | Yes, per tab/document | One open tab/document | No settings migration; it is navigation state, not a preference |
+| `document.json` | Canonical content | Yes, schema v2 | One document | Content schema, not settings |
+
+Examples:
+
+- **Density** is a persisted setting: `page.theme.density` lives in `settings.json` or in a
+  per-document override, survives restart, and applies as a default. Exposing it needs no schema
+  change.
+- **Continuous zoom** already persists per document in `shell-session.json`, but it is view state:
+  it is restored when you reopen that document, it is not a global default, and it is not a
+  Settings field. That is why a Continuous page can show zoom/fit today without a schema change.
+- **A Continuous default zoom** (“new documents open at 110%”) or **canvas width** would be a
+  persisted setting: it needs a new `continuous` field in `AppSettings`, `settingsVersion: 3`, a
+  migration, and tests. Do it when the product actually needs it, not now.
+
+So: the Continuous page stays in the IA; today it hosts real view-state controls and a short
+explanation. When you use the app and need a new persisted option, we add it deliberately with a
+migration.
 
 ---
 
@@ -248,13 +277,18 @@ persisted Continuous settings namespace requires a product decision and a `setti
 - **Window drag:** the empty TopBar area is a drag region; traffic lights stay inset.
 - **Tabs:** activate, close, middle-click, reorder, overflow menu; dirty dot, lock, recovery.
 - **ViewControls:** layout (Continuous/Page), mode (Edit/Read), zoom/fit; layout-aware; menu,
-  palette, and keyboard target the active layout. Collapses to an overflow menu on narrow widths.
+  palette, and keyboard target the active layout. Placement is A/B: **TopBar** (text or
+  icon+text) vs **PageToolbar** (icon-only with tooltips/aria). Test both in the lab; collapse to
+  overflow on narrow widths.
 - **GlobalActions:** command palette only; no second Settings gear.
 
 ### 6.3 Canvas and Page
 
-- **Layout/mode:** one control in TopBar; no duplicate in StatusStrip or PageToolbar.
+- **Layout/mode:** one control, placement A/B (D-03); no duplicate in StatusStrip.
 - **PageToolbar:** previous/next, “Page N of M”, Setup, Density, Export. Page-specific only.
+- **Page Setup:** both entry points share one `PageSetupForm`. Settings edits the global default;
+  the Page toolbar opens the same form as a sheet/popover and edits the document override, with
+  “Use global” to clear it. The live preview is part of the form.
 - **PageStage:** page zoom/fit, one page at a time; Page Edit overlay on the sheet.
 - **Continuous:** chapters/blocks/edges, selection toolbar, focus branch, add chapter.
 - **Read gating:** all mutating controls (sidebar, palette, menu, context menus, Page problems)
@@ -326,28 +360,44 @@ persisted Continuous settings namespace requires a product decision and a `setti
 
 ---
 
-## 8. Open decisions for the product owner
+## 8. Decisions and status
 
-| ID | Decision | Options | Current proposal |
-|---|---|---|---|
-| D-01 | TopBar | Merge titlebar + tab strip, or keep two rows | Merge; traffic lights in the tab row |
-| D-02 | StatusStrip | Keep minimal, or remove | Keep a thin status line; no buttons except anchor health |
-| D-03 | ViewControls placement | TopBar, PageToolbar, or split | TopBar, layout-aware; PageToolbar page-specific only |
-| D-04 | PageToolbar contents | Zoom here or in TopBar; setup sheet vs popover | PageToolbar: nav, setup, density, export; zoom in TopBar |
-| D-05 | Settings surface | Large modal, separate window, or modeless panel | Large modal with left nav; separate window is possible |
-| D-06 | Settings save model | Instant save + status, or Apply/Cancel | Decide in Settings IA; no mixed model |
-| D-07 | Continuous page | View-state only, or new settings fields | View-state only; no schema change in this rework |
-| D-08 | Page Setup placement | Settings only, Page sheet, or both | Both: global default in Settings, document override in Page sheet |
-| D-09 | Export surface | Sheet with options, or keep panel | Sheet; defaults in Settings > Export |
-| D-10 | Sidebar collapsed | Icon rail or fully hidden | Rail with reveal; width/collapsed persisted |
-| D-11 | Appearance | General page, separate page, or defer | General; dark-only until a field exists |
-| D-12 | Settings pages with no fields | Show as future/disabled, or hide | Hide until fields exist, except a short “future” note |
+| ID | Decision | Options | Proposal | Status 10 Nov |
+|---|---|---|---|---|
+| D-01 | TopBar | Merge titlebar + tab strip, or keep two rows | Merge; traffic lights in the tab row | **Accepted: merge** |
+| D-02 | StatusStrip | Keep minimal, or remove | Keep a thin status line; no buttons except anchor health | **Accepted: keep**, minimal and extensible for future info |
+| D-03 | ViewControls placement | TopBar, PageToolbar, or split | TopBar, layout-aware | **Open**: A/B TopBar (text or icon+text) vs PageToolbar (icon-only) |
+| D-04 | PageToolbar contents | Zoom here or in TopBar; setup sheet vs popover | PageToolbar: nav, setup, density, export; zoom in TopBar | **Accepted in part**: page-specific only; zoom placement tied to D-03 |
+| D-05 | Settings surface | Large modal, separate window, or modeless panel | Large modal with left nav | **Accepted: modal** |
+| D-06 | Settings save model | Instant save + status, or Apply/Cancel | Decide in Settings IA; no mixed model | **Open** |
+| D-07 | Continuous page | View-state only, or new settings fields | View-state only; no schema change in this rework | **Accepted: keep the page**; view state now, persisted fields later |
+| D-08 | Page Setup placement | Settings only, Page sheet, or both | Both: global default in Settings, document override in Page sheet | **Accepted: both**, shared form |
+| D-09 | Export surface | Sheet with options, or keep panel | Sheet; defaults in Settings > Export | **Open** |
+| D-10 | Sidebar collapsed | Icon rail or fully hidden | Rail with reveal; width/collapsed persisted | **Open** (proposal rail) |
+| D-11 | Appearance | General page, separate page, or defer | General; dark-only until a field exists | **Open** |
+| D-12 | Settings pages with no fields | Show as future/disabled, or hide | Hide until fields exist, except a short “future” note | **Accepted: keep pages**, no fake controls |
+
+### 8.1 Notes on the accepted decisions
+
+- **D-01 / D-03 tension:** merging the titlebar and tab strip frees one row, but TopBar space is
+  finite. Variant A puts ViewControls in TopBar (text or icon+text); variant B puts them in
+  PageToolbar (icon-only). The lab decides; the fallback is B if TopBar becomes crowded.
+- **D-02:** StatusStrip is a status line, not a toolbar. It exposes slots (save state, counts,
+  anchor health, future info) and no navigation controls.
+- **D-05:** a modal blocks the document; the Page preview lives inside the modal, not behind it.
+- **D-07:** see §5.1. The Continuous page stays; it shows real view-state controls today. A new
+  persisted option is a deliberate schema change, not a placeholder.
+- **D-08:** one shared `PageSetupForm`; Settings edits the global default, Page edits the document
+  override, and “Use global” clears the override. Changing one never silently changes the other.
+- **D-12:** pages with no real controls are not shown as fake “coming soon” screens; the nav keeps
+  a page only when it has real content or a real view-state control.
 
 ---
 
 ## 9. Next step
 
-Phase 2 (after this map is agreed): define the **contents of each bar and pane per screen** —
+Phase 2 (with the decisions above): define the **contents of each bar and pane per screen** —
 TopBar actions, Sidebar header/footer, PageToolbar controls, Settings pages/rows, Export sheet
-fields — then resolve the settings placement matrix (`research/ui-surface-map.md` §7.17,
-CH-01…CH-16). No mockups or product code until those choices are made.
+fields — then the settings placement matrix (`research/ui-surface-map.md` §7.17, CH-01…CH-16).
+The D-03 A/B variants get a lab prototype only after the contents are fixed; no product code
+until the placement choices are made.
