@@ -71,6 +71,9 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
       <button
         type="button"
         className="nf-tab-close"
+        // The chip wrapper is role=presentation, so a focusable descendant
+        // would invalidate the tablist ARIA tree. Keyboard close is the tablist
+        // Delete handler plus ⌘W; the chip button stays a pointer affordance.
         aria-hidden="true"
         tabIndex={-1}
         title={`Close ${tab.title} (⌘W)`}
@@ -93,9 +96,6 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
 export function TabStrip(): JSX.Element {
   const tabs = useShell((state) => state.tabs);
   const activeTab = useShell((state) => state.activeTab);
-  const activeTabInfo = useShell((state) =>
-    state.tabs.find((tab) => tab.packagePath === state.activeTab),
-  );
   const reorderTabs = useShell((state) => state.reorderTabs);
   const openContextMenu = useShell((state) => state.openContextMenu);
   const library = useShell((state) => state.library);
@@ -178,19 +178,6 @@ export function TabStrip(): JSX.Element {
         </SortableContext>
       </DndContext>
       <div className="nf-tab-actions">
-        <button
-          type="button"
-          className="nf-toolbar-button"
-          aria-label={`Close ${activeTabInfo?.title ?? 'tab'}`}
-          title="Close current tab (⌘W)"
-          data-close-active-tab="true"
-          disabled={activeTab === null}
-          onClick={() => {
-            if (activeTab !== null) void closeTab(activeTab);
-          }}
-        >
-          <X size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
         <button
           type="button"
           className="nf-toolbar-button"

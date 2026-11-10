@@ -1,13 +1,12 @@
 import { Command } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { TabStrip } from './TabBar';
-import { ViewControls } from './ViewControls';
+import { ZoomControls } from './ViewControls';
 
 /**
- * The 44 px Toolbar (V0 visual): the document tab strip, New note, the
- * layout-aware ViewControls, and the command palette. It is the first panel of
- * the main column, so the tabs start after the Sidebar and shift with its
- * collapsed rail; there is no full-width hard rule between it and the canvas.
+ * The 44 px Toolbar (shell C): the document tab strip, the layout-aware zoom
+ * stepper, and the command palette. Layout/mode moved to the fixed canvas
+ * header; the Toolbar no longer carries view segments.
  */
 export function Toolbar(): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);
@@ -17,7 +16,7 @@ export function Toolbar(): JSX.Element {
       <div className="nf-toolbar-leading">
         <TabStrip />
       </div>
-      <ViewControls />
+      <ZoomControls />
       <button
         type="button"
         className="nf-toolbar-button nf-palette-button"

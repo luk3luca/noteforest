@@ -349,7 +349,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
       'trunk ink is clipped to the page content box',
     );
 
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       () =>
         Number(
@@ -397,7 +397,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
     let current = Number(await activePageView().getAttribute('data-current-page'));
     while (current < lastPage) {
       const next = current + 1;
-      await activePageView().locator('[data-page-nav="next"]').click();
+      await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
       await page.waitForFunction(
         (expected) =>
           Number(

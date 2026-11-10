@@ -77,17 +77,25 @@ export const DESIGN_TOKENS = Object.freeze({
   /** Editor canvas. */
   /** Wide finite canvas; placement uses its full logical content width. */
   canvasMaxWidth: 3200,
-  editorPaddingX: 40,
-  editorPaddingTop: 40,
-  /** Ratified shell value: the rendered canvas keeps 88 px below the last block. */
-  editorPaddingBottom: 88,
+  /**
+   * Shell C canvas inset. Content is edge-to-edge (0 px lateral); the canvas
+   * keeps a small top inset for the fixed header focus rings and an 8 px bottom
+   * inset. The header itself uses 6 px lateral padding.
+   */
+  editorPaddingX: 0,
+  editorPaddingTop: 6,
+  editorPaddingBottom: 8,
   /** Responsive canvas steps; both are token-bound so CSS never hard-codes them. */
-  editorPaddingXMedium: 32,
-  editorPaddingTopMedium: 32,
-  editorPaddingBottomMedium: 72,
-  editorPaddingXCompact: 28,
-  editorPaddingTopCompact: 28,
-  editorPaddingBottomCompact: 64,
+  editorPaddingXMedium: 0,
+  editorPaddingTopMedium: 6,
+  editorPaddingBottomMedium: 8,
+  editorPaddingXCompact: 0,
+  editorPaddingTopCompact: 6,
+  editorPaddingBottomCompact: 8,
+  /** Shell C Page stage: 14 px top, 0 lateral, 8 px bottom. */
+  pageStagePaddingX: 0,
+  pageStagePaddingTop: 14,
+  pageStagePaddingBottom: 8,
   /** Vertical gaps. */
   childRowGap: 16,
   /** Ratified shell value: 28 px between chapters. */
@@ -138,6 +146,9 @@ export const DESIGN_TOKEN_CSS_VARIABLES = Object.freeze({
   '--nf-canvas-pad-x-compact': px(DESIGN_TOKENS.editorPaddingXCompact),
   '--nf-canvas-pad-top-compact': px(DESIGN_TOKENS.editorPaddingTopCompact),
   '--nf-canvas-pad-bottom-compact': px(DESIGN_TOKENS.editorPaddingBottomCompact),
+  '--nf-page-stage-pad-x': px(DESIGN_TOKENS.pageStagePaddingX),
+  '--nf-page-stage-pad-top': px(DESIGN_TOKENS.pageStagePaddingTop),
+  '--nf-page-stage-pad-bottom': px(DESIGN_TOKENS.pageStagePaddingBottom),
   '--nf-chapter-gap': px(DESIGN_TOKENS.chapterGap),
   '--nf-child-gap': px(DESIGN_TOKENS.siblingGap),
   '--nf-child-row-gap': px(DESIGN_TOKENS.childRowGap),

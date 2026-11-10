@@ -56,13 +56,6 @@ function activePageView() {
   return page.locator('.nf-editor[data-active="true"] .nf-page-view');
 }
 
-/** TopBar zoom controls own Page zoom/fit in V0; the PageToolbar is nav + export. */
-async function chooseZoomCommand(label) {
-  await page.locator('[data-zoom-menu]').click();
-  await page.getByRole('menuitem', { name: label }).click();
-  await page.locator('.nf-menu').waitFor({ state: 'detached' });
-}
-
 async function waitZoomValue(label) {
   await page.waitForFunction(
     (expected) => document.querySelector('[data-zoom-value]')?.textContent?.trim() === expected,
@@ -139,10 +132,13 @@ describe('M4b1 page view core', () => {
     await card.locator('.nf-block-prose').first().click();
     const selectedBefore = await selectedBlockId();
     assert.equal(typeof selectedBefore, 'string', 'a block is selected in the continuous editor');
+    // Use a stable shell: the fixed canvas header is mounted before the scroll
+    // position is captured, so the restore compares the same viewport height.
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-canvas-header]');
     const scrollBefore = await page
       .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
       .evaluate((element) => {
-        element.scrollTop = 120;
+        element.scrollTop = 40;
         return element.scrollTop;
       });
     // Let the scroll event reach the session recorder before the surface hides.
@@ -190,7 +186,7 @@ describe('M4b1 page view core', () => {
     await firstFragment.click();
     assert.equal(await selectedBlockId(), fragmentBlockId);
     assert.equal(
-      await page.locator('.nf-page-toolbar [data-page-open-continuous]').count(),
+      await page.locator('.nf-canvas-header [data-page-open-continuous]').count(),
       0,
       'the PageToolbar has no Open in continuous editor button',
     );
@@ -208,13 +204,13 @@ describe('M4b1 page view core', () => {
     );
 
     // Zoom/fit are navigation only: the sheet geometry attributes stay A4.
-    await chooseZoomCommand('Fit width');
+    await page.keyboard.press('Shift+2');
     await page.waitForFunction(
       () => document.querySelector('[data-zoom-target="page"]')?.getAttribute('data-page-fit') === 'width',
       undefined,
       { timeout: 5000 },
     );
-    await chooseZoomCommand('Actual size');
+    await page.keyboard.press('Meta+0');
     await waitZoomValue('100%');
     await page.locator('[data-zoom-action="in"]').click();
     await page.waitForFunction(
@@ -247,7 +243,7 @@ describe('M4b1 page view core', () => {
     const scrollAfter = await page
       .locator('.nf-editor[data-active="true"] .nf-editor-scroll')
       .evaluate((element) => element.scrollTop);
-    assert.ok(Math.abs(scrollAfter - scrollBefore) <= 1, 'continuous scroll survives the return');
+    assert.ok(Math.abs(scrollAfter - scrollBefore) <= 1, `continuous scroll survives the return (${scrollBefore} -> ${scrollAfter})`);
     await page.waitForFunction(
       () => document.activeElement?.closest('.nf-prosemirror') !== null,
       undefined,
@@ -295,7 +291,7 @@ describe('M4b1 page view core', () => {
     await activePageView().locator('[data-page-continues-on]').waitFor();
     assert.match(await activePageView().locator('[data-page-continues-list]').innerText(), /continues on page 2/);
 
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
       undefined,
@@ -320,7 +316,7 @@ describe('M4b1 page view core', () => {
       { timeout: 5000 },
     );
     assert.equal(
-      await activePageView().locator('[data-page-nav="prev"]').isDisabled(),
+      await page.locator('[data-canvas-header] [data-page-nav="prev"]').isDisabled(),
       false,
       'previous page is available after the first page',
     );
@@ -365,7 +361,7 @@ describe('M4b1 page view core', () => {
     assert.doesNotMatch(await first.innerText(), /Second chapter body/);
     assert.equal(await first.locator('[data-fragment-block="chapter-2-block"]').count(), 0);
 
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
       undefined,
@@ -824,13 +820,13 @@ describe('M4b1 page view core', () => {
     const zoomBefore = (await viewState(packagePath)).zoom;
 
     await showPageView();
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
       undefined,
       { timeout: 5000 },
     );
-    await chooseZoomCommand('Actual size');
+    await page.keyboard.press('Meta+0');
     await waitZoomValue('100%');
     await page.locator('[data-zoom-action="in"]').click();
     await page.waitForFunction(

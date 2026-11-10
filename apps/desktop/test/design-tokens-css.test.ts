@@ -58,7 +58,7 @@ const mappedVariables = Object.entries(DESIGN_TOKEN_CSS_VARIABLES);
 
 describe('design tokens are the single source for CSS geometry', () => {
   it('keeps the ratified shell and layout values', () => {
-    expect(DESIGN_TOKENS.editorPaddingBottom).toBe(88);
+    expect(DESIGN_TOKENS.editorPaddingBottom).toBe(8);
     expect(DESIGN_TOKENS.chapterGap).toBe(28);
     expect(DESIGN_TOKENS.siblingGap).toBe(24);
     expect(DESIGN_TOKENS.callout.safeGap).toBe(16);
@@ -77,9 +77,12 @@ describe('design tokens are the single source for CSS geometry', () => {
   it('publishes the documented CSS variables from the token module', () => {
     expect(DESIGN_TOKEN_CSS_VARIABLES).toMatchObject({
       '--nf-canvas-max': '3200px',
-      '--nf-canvas-pad-x': '40px',
-      '--nf-canvas-pad-top': '40px',
-      '--nf-canvas-pad-bottom': '88px',
+      '--nf-canvas-pad-x': '0px',
+      '--nf-canvas-pad-top': '6px',
+      '--nf-canvas-pad-bottom': '8px',
+      '--nf-page-stage-pad-x': '0px',
+      '--nf-page-stage-pad-top': '14px',
+      '--nf-page-stage-pad-bottom': '8px',
       '--nf-chapter-gap': '28px',
       '--nf-child-gap': '24px',
       '--nf-child-row-gap': '16px',

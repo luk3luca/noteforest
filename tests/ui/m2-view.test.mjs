@@ -32,12 +32,6 @@ async function focusedBlockId() {
   });
 }
 
-async function chooseZoomCommand(label) {
-  await page.locator('[data-zoom-menu]').click();
-  await page.getByRole('menuitem', { name: label }).click();
-  await page.locator('.nf-menu').waitFor({ state: 'detached' });
-}
-
 describe('NoteForest M2 view controls', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -126,7 +120,7 @@ describe('NoteForest M2 view controls', () => {
     assert.deepEqual(focused.blockIds, before.blockIds, 'Focus branch does not delete blocks');
 
     // Fit width works on the focused branch, not just the whole document.
-    await chooseZoomCommand('Fit width');
+    await page.keyboard.press('Shift+Meta+0');
     await page.waitForFunction(
       () =>
         Number(
@@ -256,7 +250,7 @@ describe('NoteForest M2 view controls', () => {
       beforeFit.overflow > 0,
       `the full demo overflows at the narrow window before Fit (${beforeFit.overflow})`,
     );
-    await chooseZoomCommand('Fit width');
+    await page.keyboard.press('Shift+Meta+0');
     await page.waitForFunction(
       () =>
         Number(
@@ -344,9 +338,9 @@ describe('NoteForest M2 view controls', () => {
     assert.ok(geometry !== null);
     assert.deepEqual(geometry.vars, {
       canvasMax: '3200px',
-      canvasPadX: '40px',
-      canvasPadTop: '40px',
-      canvasPadBottom: '88px',
+      canvasPadX: '0px',
+      canvasPadTop: '6px',
+      canvasPadBottom: '8px',
       chapterGap: '28px',
       childGap: '24px',
       childRowGap: '16px',
@@ -364,10 +358,10 @@ describe('NoteForest M2 view controls', () => {
     });
     assert.deepEqual(geometry.canvas, {
       maxWidth: '3200px',
-      paddingTop: '40px',
-      paddingRight: '40px',
-      paddingBottom: '88px',
-      paddingLeft: '40px',
+      paddingTop: '6px',
+      paddingRight: '0px',
+      paddingBottom: '8px',
+      paddingLeft: '0px',
     });
     assert.equal(geometry.chapterGap, '28px', 'chapter gap comes from --nf-chapter-gap');
     assert.equal(geometry.groupGap, '24px', 'right group gap comes from --nf-child-gap');
@@ -447,12 +441,12 @@ describe('NoteForest M2 view controls', () => {
       };
     });
     assert.deepEqual(narrow, {
-      paddingTop: '32px',
-      paddingRight: '32px',
-      paddingBottom: '72px',
-      paddingLeft: '32px',
-      mediumBottom: '72px',
-      compactBottom: '64px',
+      paddingTop: '6px',
+      paddingRight: '0px',
+      paddingBottom: '8px',
+      paddingLeft: '0px',
+      mediumBottom: '8px',
+      compactBottom: '8px',
       chapterGap: '28px',
     });
     await h.quit();

@@ -34,15 +34,18 @@ never repeats the literal.
 | Token | CSS variable | Value | Used for |
 |---|---|---:|---|
 | `canvasMaxWidth` | `--nf-canvas-max` | 3200 px | Finite wide canvas; placement uses its 3120 px content budget |
-| `editorPaddingX` | `--nf-canvas-pad-x` | 40 px | Canvas horizontal padding |
-| `editorPaddingTop` | `--nf-canvas-pad-top` | 40 px | Canvas top padding |
-| `editorPaddingBottom` | `--nf-canvas-pad-bottom` | **88 px** | Canvas bottom padding |
-| `editorPaddingXMedium` | `--nf-canvas-pad-x-medium` | 32 px | Canvas padding at ≤1100 px |
-| `editorPaddingTopMedium` | `--nf-canvas-pad-top-medium` | 32 px | Canvas padding at ≤1100 px |
-| `editorPaddingBottomMedium` | `--nf-canvas-pad-bottom-medium` | 72 px | Canvas padding at ≤1100 px |
-| `editorPaddingXCompact` | `--nf-canvas-pad-x-compact` | 28 px | Canvas padding at ≤900 px |
-| `editorPaddingTopCompact` | `--nf-canvas-pad-top-compact` | 28 px | Canvas padding at ≤900 px |
-| `editorPaddingBottomCompact` | `--nf-canvas-pad-bottom-compact` | 64 px | Canvas padding at ≤900 px |
+| `editorPaddingX` | `--nf-canvas-pad-x` | 0 px | Canvas horizontal padding (edge-to-edge, shell C) |
+| `editorPaddingTop` | `--nf-canvas-pad-top` | 6 px | Canvas top inset below the fixed header |
+| `editorPaddingBottom` | `--nf-canvas-pad-bottom` | **8 px** | Canvas bottom inset (shell C) |
+| `editorPaddingXMedium` | `--nf-canvas-pad-x-medium` | 0 px | Canvas padding at ≤1100 px |
+| `editorPaddingTopMedium` | `--nf-canvas-pad-top-medium` | 6 px | Canvas padding at ≤1100 px |
+| `editorPaddingBottomMedium` | `--nf-canvas-pad-bottom-medium` | 8 px | Canvas padding at ≤1100 px |
+| `editorPaddingXCompact` | `--nf-canvas-pad-x-compact` | 0 px | Canvas padding at ≤900 px |
+| `editorPaddingTopCompact` | `--nf-canvas-pad-top-compact` | 6 px | Canvas padding at ≤900 px |
+| `editorPaddingBottomCompact` | `--nf-canvas-pad-bottom-compact` | 8 px | Canvas padding at ≤900 px |
+| `pageStagePaddingX` | `--nf-page-stage-pad-x` | 0 px | Page stage lateral padding (frame only; Page sheet unchanged) |
+| `pageStagePaddingTop` | `--nf-page-stage-pad-top` | 14 px | Page stage top padding |
+| `pageStagePaddingBottom` | `--nf-page-stage-pad-bottom` | 8 px | Page stage bottom padding |
 | `chapterGap` | `--nf-chapter-gap` | **28 px** | Continuous chapter gap |
 | `siblingGap` | `--nf-child-gap` | 24 px | Parent card/lane → direct-child group |
 | `childRowGap` | `--nf-child-row-gap` | 16 px | Vertical gap between sibling blocks |
@@ -62,9 +65,10 @@ never repeats the literal.
 | `zIndex.calloutLane` | `--nf-z-lane` | 1 | Callout lane |
 | `zIndex.parentCard` | `--nf-z-card` | 2 | Parent card |
 
-Canonical shell values are ratified and guarded: **88 px** bottom canvas padding, **28 px**
-Continuous chapter gap, **24 px** child gap, and `callout.safeGap` **16 px as a minimum**. The
-responsive canvas steps are token-bound, so no canvas padding literal remains in CSS.
+Canonical shell values are ratified and guarded: **8 px** bottom canvas padding with **0 px**
+lateral content padding (shell C), **28 px** Continuous chapter gap, **24 px** child gap, and
+`callout.safeGap` **16 px as a minimum**. The responsive canvas steps and the Page stage frame
+(14 px top, 0 px lateral, 8 px bottom) are token-bound, so no padding literal remains in CSS.
 
 `wrapIndent` (18 px) is a reserved shell numeric that is not consumed by Continuous CSS today; the
 Page engine has its own per-level `wrapIndent` contract in

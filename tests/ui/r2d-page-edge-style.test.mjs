@@ -563,7 +563,7 @@ describe('R2d page edge style', () => {
       'no p.N chip is drawn for a tree edge',
     );
 
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       () =>
         Number(
@@ -611,7 +611,7 @@ describe('R2d page edge style', () => {
     let current = 2;
     while (current < lastPage) {
       const next = current + 1;
-      await activePageView().locator('[data-page-nav="next"]').click();
+      await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
       await page.waitForFunction(
         (expected) =>
           Number(

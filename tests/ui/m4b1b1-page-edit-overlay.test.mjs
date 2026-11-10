@@ -545,7 +545,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
     // Page navigation from the toolbar commits the overlay first.
     await openOverlay('parent');
     await typeInOverlay(' Nav commit.');
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
       undefined,
@@ -556,7 +556,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
     await waitPageReady();
 
     // Block selection commits the active block.
-    await activePageView().locator('[data-page-nav="prev"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="prev"]').click();
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 1,
       undefined,
@@ -655,7 +655,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageRead();
     await enterPageEdit();
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
       undefined,

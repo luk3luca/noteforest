@@ -212,6 +212,93 @@ button:disabled {
   color: var(--text-tertiary);
 }
 
+/* ------------------------------------------------------------ canvas header */
+
+/*
+ * Shell C: the fixed 34 px header lives inside the rounded canvas panel, above
+ * the scroll container. It is a sibling of the scroll area, so it never moves
+ * with the canvas. Undo/redo and Page controls sit left; icon-only layout/mode
+ * segments sit right. Six px lateral padding keeps the focus rings visible
+ * without re-introducing the old 40 px content gutter.
+ */
+.nf-canvas-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 34px;
+  min-width: 0;
+  padding: 0 6px;
+  background: var(--canvas);
+  user-select: none;
+}
+
+.nf-header-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  min-width: 0;
+}
+
+.nf-header-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  transition: background 120ms var(--motion), color 120ms var(--motion);
+}
+
+.nf-header-button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nf-header-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.nf-header-button:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.nf-header-divider {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+
+.nf-header-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.nf-header-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  margin-left: 2px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.nf-header-export:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 /* --------------------------------------------------------- view controls */
 
 .nf-view-controls {
@@ -236,12 +323,12 @@ button:disabled {
 .nf-view-segment {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  width: 26px;
   height: 24px;
-  padding: 0 8px;
+  padding: 0;
   border-radius: 2px;
   color: var(--text-secondary);
-  font-size: 11.5px;
   white-space: nowrap;
   transition: background 120ms var(--motion), color 120ms var(--motion);
 }
@@ -324,26 +411,26 @@ button:disabled {
 .nf-tab-strip {
   display: flex;
   align-items: center;
+  gap: 4px;
   flex: 1;
   min-width: 0;
   height: 100%;
   -webkit-app-region: no-drag;
 }
 
+/*
+ * Tabs shrink to a 96 px floor instead of scrolling. The `+` and overflow
+ * chevron are outside this box, so they stay visible at every width; the
+ * overflow menu remains the way to reach a tab that can no longer fit.
+ */
 .nf-tablist {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   height: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-}
-
-.nf-tablist::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
 }
 
 /* Rounded tab chip: no vertical separators and no accent top line. */
@@ -351,9 +438,9 @@ button:disabled {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 0 1 190px;
+  flex: 0 1 auto;
   height: 34px;
-  min-width: 118px;
+  min-width: 96px;
   max-width: 190px;
   border: 1px solid transparent;
   border-radius: var(--radius-chip);
@@ -391,6 +478,7 @@ button:disabled {
 }
 
 .nf-tab-title {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -797,7 +885,7 @@ button:disabled {
 .nf-library-open[data-active="true"] {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .nf-library-title {
@@ -956,7 +1044,7 @@ button:disabled {
 .nf-tree-item[data-selected] .nf-tree-row {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .nf-tree-item[data-focus-visible] .nf-tree-row {
@@ -967,7 +1055,7 @@ button:disabled {
 .nf-tree-row[data-selected="true"] {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .nf-tree-chapter-row {
@@ -1056,7 +1144,7 @@ button:disabled {
 .nf-tree-anchor-row[data-anchor-selected="true"] {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .nf-tree-anchor-prefix {
@@ -3473,6 +3561,23 @@ body.nf-dragging-block .nf-gutter-handle {
   font-family: var(--ui-font);
 }
 
+.nf-palette-reason {
+  flex: 0 1 auto;
+  max-width: 190px;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-palette-empty {
+  margin: 0;
+  padding: 18px 12px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
 .nf-palette-foot {
   display: flex;
   gap: 14px;
@@ -3662,7 +3767,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-listbox-item[data-selected] {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .nf-dialog-modal-wide {
@@ -4322,6 +4427,311 @@ body.nf-dragging-block .nf-gutter-handle {
   overflow-wrap: anywhere;
 }
 
+/* ----------------------------------------------------------------- settings */
+
+/*
+ * Batch A Settings shell: a large modal with a stable left nav, one scrolling
+ * page, and a footer that reports the real write. There is no Apply/Cancel and
+ * no dirty-dot state; the Page lens writes immediately.
+ */
+.nf-settings-modal {
+  width: 840px;
+  max-width: 92vw;
+  max-height: 86vh;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-overlay);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.55);
+  overflow: hidden;
+}
+
+.nf-settings {
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  height: 580px;
+  max-height: 86vh;
+}
+
+.nf-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  height: 44px;
+  padding: 0 12px 0 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.nf-settings-heading {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.nf-settings-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.nf-settings-nav {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  gap: 14px;
+  width: 184px;
+  padding: 14px 10px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.nf-settings-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nf-settings-nav-label {
+  padding: 0 8px 4px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nf-settings-nav-item {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.nf-settings-nav-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nf-settings-nav-item[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.nf-settings-pane {
+  flex: 1;
+  min-width: 0;
+  padding: 18px 22px 24px;
+  overflow-y: auto;
+}
+
+.nf-settings-page-title {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.nf-settings-page-description {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-settings-help {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.nf-settings-help code {
+  font-family: var(--mono-font);
+  font-size: 11px;
+}
+
+.nf-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 32px;
+}
+
+.nf-settings-row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.nf-settings-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.nf-settings-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.nf-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  height: 28px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+}
+
+.nf-segmented-item {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.nf-segmented-item:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nf-segmented-item[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.nf-segmented-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.nf-override-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.nf-settings-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 48px;
+  padding: 0 16px;
+  border-top: 1px solid var(--border);
+}
+
+.nf-settings-foot-spacer {
+  flex: 1;
+}
+
+.nf-settings-status {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.nf-settings-status-saved {
+  color: var(--success);
+}
+
+.nf-settings-status-saving {
+  color: var(--text-secondary);
+}
+
+.nf-settings-status-error {
+  color: var(--danger);
+}
+
+.nf-settings-error {
+  min-width: 0;
+  max-width: 320px;
+  overflow: hidden;
+  color: var(--danger);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-settings-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-settings-warning p {
+  margin: 0;
+}
+
+.nf-shortcut-group + .nf-shortcut-group {
+  margin-top: 10px;
+}
+
+.nf-shortcut-group-title {
+  margin: 0 0 4px;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nf-shortcut-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 18px;
+  margin: 0;
+}
+
+.nf-shortcut-row {
+  display: contents;
+}
+
+.nf-shortcut-row dt {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-shortcut-row dd {
+  margin: 0;
+  text-align: right;
+}
+
+.nf-shortcut-row kbd {
+  display: inline-block;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-tertiary);
+  font-family: var(--ui-font);
+  font-size: 10px;
+  line-height: 16px;
+}
+
 /* ---------------------------------------------------------------- context */
 
 .nf-menu-overlay {
@@ -4422,59 +4832,179 @@ body.nf-dragging-block .nf-gutter-handle {
   border-color: rgb(217 139 139 / 0.4) !important;
 }
 
-/* ----------------------------------------------------- M4d2 export panel */
+/* ------------------------------------------------------------- export sheet */
 
-.nf-export-panel {
-  position: fixed;
-  right: 16px;
-  bottom: 44px;
-  z-index: 45;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  width: 320px;
+/* Batch A: one 560 px modal sheet for every export state. */
+.nf-export-overlay {
+  padding-top: 96px;
+}
+
+.nf-export-modal {
+  width: 560px;
   max-width: calc(100vw - 32px);
-  padding: 12px;
+  max-height: 80vh;
   background: var(--surface-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-overlay);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
-  color: var(--text);
-  font-size: 12.5px;
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.55);
+  overflow: hidden;
 }
 
-.nf-export-panel-failed {
-  border-color: rgb(217 139 139 / 0.4);
+.nf-export-sheet {
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
 }
 
 .nf-export-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
+  flex: none;
   gap: 8px;
+  height: 44px;
+  padding: 0 12px 0 18px;
+  border-bottom: 1px solid var(--border);
 }
 
 .nf-export-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
   font-weight: 600;
+}
+
+.nf-export-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 16px;
+  min-height: 0;
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+.nf-export-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nf-export-section-title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nf-export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.nf-export-label {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.nf-export-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nf-export-folder {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: var(--mono-font);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.nf-export-filename-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nf-export-filename {
+  flex: 1;
+}
+
+.nf-export-suffix {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.nf-export-help {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.nf-export-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-export-check input {
+  accent-color: var(--accent);
+}
+
+.nf-export-destination {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nf-export-destination code,
+.nf-export-output {
+  color: var(--text-tertiary);
+  font-family: var(--mono-font);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.nf-export-summary {
+  margin: 0;
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.nf-export-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.nf-export-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .nf-export-percent {
   color: var(--text-secondary);
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
-}
-
-.nf-export-copy {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.nf-export-path {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  word-break: break-all;
 }
 
 .nf-export-bar {
@@ -4491,19 +5021,50 @@ body.nf-dragging-block .nf-gutter-handle {
   transition: width 120ms var(--motion);
 }
 
-.nf-export-details {
-  margin: 0;
+.nf-export-cancel-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+
+.nf-export-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.nf-export-warning-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nf-export-warning-group summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-export-warning-list {
+  margin: 4px 0 0;
   padding-left: 16px;
   color: var(--text-secondary);
   font-size: 11.5px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .nf-export-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 6px;
-  margin-top: 2px;
+  flex: none;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
 }
 
 /* --------------------------------------------------------------- responsive */
@@ -4519,16 +5080,6 @@ body.nf-dragging-block .nf-gutter-handle {
   .nf-canvas {
     padding: var(--nf-canvas-pad-top-compact) var(--nf-canvas-pad-x-compact)
       var(--nf-canvas-pad-bottom-compact);
-  }
-}
-
-@media (max-width: 1180px) {
-  .nf-view-label {
-    display: none;
-  }
-
-  .nf-view-segment {
-    padding: 0 7px;
   }
 }
 
@@ -4862,47 +5413,6 @@ body.nf-dragging-block .nf-gutter-handle {
   outline: none;
 }
 
-.nf-page-toolbar {
-  flex: none;
-  display: flex;
-  align-items: center;
-  /* Keep the toolbar one rail high. Wrapping changes the page viewport height,
-     which feeds back into fit-page zoom and can oscillate the sheet; the
-     temporary export button exposed this at 960 px. The UI rework owns the
-     final narrow-width layout. */
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  height: 38px;
-  gap: var(--nf-card-padding);
-  padding: 0 14px;
-  /* Softened container: the canvas panel owns the surface and the radius, so
-     there is no full-width hard rule below the page controls. */
-  border-bottom: 0;
-  background: transparent;
-}
-
-.nf-page-toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.nf-page-toolbar-spacer {
-  flex: 1;
-}
-
-.nf-page-button {
-  height: 26px;
-  padding: 0 8px;
-  font-size: 12px;
-}
-
-.nf-page-button:disabled {
-  opacity: 0.45;
-}
-
 .nf-page-counter {
   min-width: 64px;
   text-align: center;
@@ -4947,7 +5457,8 @@ body.nf-dragging-block .nf-gutter-handle {
   align-items: flex-start;
   justify-content: center;
   min-width: max-content;
-  padding: var(--nf-canvas-pad-x-medium);
+  padding: var(--nf-page-stage-pad-top) var(--nf-page-stage-pad-x)
+    var(--nf-page-stage-pad-bottom);
 }
 
 .nf-page-sheet-wrap {

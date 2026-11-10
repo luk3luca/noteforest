@@ -72,12 +72,6 @@ async function waitZoomLabel(expectation) {
   );
 }
 
-async function chooseZoomCommand(name) {
-  await page.locator('[data-zoom-menu]').click();
-  await page.getByRole('menuitem', { name }).click();
-  await page.locator('.nf-menu').waitFor({ state: 'detached' });
-}
-
 async function waitRail() {
   await page.waitForFunction(
     () => {
@@ -181,7 +175,12 @@ describe('V0 visual shell', () => {
     assert.equal(toolbar.height, 44, 'Toolbar is 44 px');
     assert.ok(toolbar.top >= titlebar.bottom, 'the Toolbar starts below the TitleBar');
     assert.equal(await page.locator('.nf-toolbar [role="tablist"]').count(), 1);
-    assert.equal(await page.locator('.nf-toolbar [data-view-controls="true"]').count(), 1);
+    assert.equal(await page.locator('.nf-toolbar [data-view-controls="true"]').count(), 0);
+    assert.equal(await page.locator('.nf-canvas-panel [data-canvas-header="true"]').count(), 1);
+    assert.equal(
+      await page.locator('.nf-canvas-panel [data-canvas-header="true"] [data-view-controls="true"]').count(),
+      1,
+    );
     assert.equal(await page.locator('.nf-toolbar [data-toolbar-new="true"]').count(), 1);
     assert.equal(await page.locator('.nf-toolbar [aria-label="Command palette"]').count(), 1);
     assert.equal(await page.locator('.nf-toolbar [aria-label="Settings"]').count(), 0);
@@ -269,10 +268,10 @@ describe('V0 visual shell', () => {
       'one visible Settings entry in the expanded shell',
     );
     await page.locator('.nf-sidebar-settings').click();
-    await page.waitForSelector('.nf-dialog');
-    assert.equal(await page.locator('.nf-dialog-title').innerText(), 'Settings');
+    await page.waitForSelector('[data-settings-dialog="true"]');
+    assert.equal(await page.locator('.nf-settings-heading').innerText(), 'Settings');
     await page.getByRole('button', { name: 'Done' }).click();
-    await page.waitForSelector('.nf-dialog', { state: 'detached' });
+    await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
 
     // The static Graphite label stays gone; the palette still reaches Settings.
     const chromeText = await page.evaluate(() =>
@@ -399,10 +398,10 @@ describe('V0 visual shell', () => {
 
     // Rail Settings opens the same dialog.
     await railSettings.click();
-    await page.waitForSelector('.nf-dialog');
-    assert.equal(await page.locator('.nf-dialog-title').innerText(), 'Settings');
+    await page.waitForSelector('[data-settings-dialog="true"]');
+    assert.equal(await page.locator('.nf-settings-heading').innerText(), 'Settings');
     await page.getByRole('button', { name: 'Done' }).click();
-    await page.waitForSelector('.nf-dialog', { state: 'detached' });
+    await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
 
     // Expand restores the panel. The keyboard and the rail/header buttons
     // alternate so the shell menu-command dedupe never sees two presses of the
@@ -563,26 +562,20 @@ describe('V0 visual shell', () => {
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
 
-    // Page: the container is softened and aligned inside the canvas panel.
+    // Page: the shared fixed canvas header owns page navigation and Export.
     await showPage();
     const canvas = page.locator('.nf-canvas-panel');
-    const toolbar = page.locator('.nf-page-toolbar');
-    await toolbar.waitFor();
-    assert.equal(await canvas.locator('.nf-page-toolbar').count(), 1, 'the PageToolbar is in the canvas');
-    assert.equal(await toolbar.getAttribute('aria-label'), 'Page controls');
-    assert.equal(await css('.nf-page-toolbar', 'border-bottom-width'), '0px');
-    assert.equal(await css('.nf-page-toolbar', 'background-color'), 'rgba(0, 0, 0, 0)');
-    assert.equal(await toolbar.locator('[data-page-nav="prev"]').count(), 1);
-    assert.equal(await toolbar.locator('[data-page-nav="next"]').count(), 1);
-    assert.match(await toolbar.locator('[data-page-counter]').innerText(), /Page 1 of \d+/);
-    assert.equal(await toolbar.locator('[data-page-export="true"]').count(), 1);
-    assert.equal(await toolbar.locator('[data-page-fit]').count(), 0, 'no page fit in the toolbar');
-    assert.equal(await toolbar.locator('[data-page-zoom]').count(), 0, 'no page zoom in the toolbar');
-    assert.equal(
-      await toolbar.locator('[data-page-open-continuous]').count(),
-      0,
-      'no Open in continuous editor in the toolbar',
-    );
+    const header = canvas.locator('[data-canvas-header="true"]');
+    await header.waitFor();
+    assert.equal(await page.locator('.nf-page-toolbar').count(), 0, 'the old PageToolbar is gone');
+    assert.equal(await header.locator('[data-header-undo="true"]').count(), 1);
+    assert.equal(await header.locator('[data-header-redo="true"]').count(), 1);
+    assert.equal(await header.locator('[data-page-nav="prev"]').count(), 1);
+    assert.equal(await header.locator('[data-page-nav="next"]').count(), 1);
+    assert.match(await header.locator('[data-page-counter]').innerText(), /Page 1 of \d+/);
+    assert.equal(await header.locator('[data-page-export="true"]').count(), 1);
+    assert.equal(await header.locator('[data-page-fit]').count(), 0, 'no page fit in the header');
+    assert.equal(await header.locator('[data-page-zoom]').count(), 0, 'no page zoom in the header');
     assert.equal(
       await page.locator('.nf-page-view').getByRole('button', { name: 'Zoom in' }).count(),
       0,
@@ -595,13 +588,13 @@ describe('V0 visual shell', () => {
       .evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
     assert.equal(pageCardRadius, '4px', 'Page cards keep the shared 4 px radius');
 
-    // The Toolbar still owns layout/mode in Page.
+    // The canvas header owns layout/mode in Page.
     assert.equal(
-      await page.locator('.nf-toolbar [data-view-layout="page"]').getAttribute('aria-pressed'),
+      await page.locator('.nf-canvas-header [data-view-layout="page"]').getAttribute('aria-pressed'),
       'true',
     );
     assert.equal(
-      await page.locator('.nf-toolbar [data-view-interaction="read"]').getAttribute('aria-pressed'),
+      await page.locator('.nf-canvas-header [data-view-interaction="read"]').getAttribute('aria-pressed'),
       'true',
     );
     await h.screenshot(resolve(screenshotDir, 'page-toolbar-1440x900.png'), {
@@ -634,21 +627,15 @@ describe('V0 visual shell', () => {
     const continuousZoomed = await viewState(packagePath);
     assert.equal(continuousZoomed.zoom, 1.1, 'Continuous zoom changed');
     assert.equal(continuousZoomed.pageZoom, 1, 'the Page zoom is untouched');
-    await page.locator('[data-zoom-menu]').click();
-    await page.waitForSelector('.nf-menu');
-    assert.equal(
-      await page.getByRole('menuitem', { name: 'Fit page' }).count(),
-      0,
-      'Fit page is hidden in Continuous',
-    );
-    assert.equal(await page.getByRole('menuitem', { name: 'Fit width' }).count(), 1);
-    await page.keyboard.press('Escape');
-    await page.waitForSelector('.nf-menu', { state: 'detached' });
+    assert.equal(await page.locator('[data-zoom-menu]').count(), 0, 'the zoom dropdown is gone');
+    assert.equal(await page.locator('[data-zoom-action="out"]').count(), 1);
+    assert.equal(await page.locator('[data-zoom-value]').count(), 1);
+    assert.equal(await page.locator('[data-zoom-action="in"]').count(), 1);
     await page.keyboard.press('Meta+0');
     await waitZoomLabel('100%');
     assert.equal((await viewState(packagePath)).zoom, 1);
 
-    // Layout + mode from the Toolbar also open Page in Read.
+    // Layout + mode from the canvas header also open Page in Read.
     await page.locator('[data-view-layout="page"]').click();
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.layout === 'page',
@@ -687,21 +674,22 @@ describe('V0 visual shell', () => {
       `${Math.round(pageZoomed.pageZoom * 100)}%`,
     );
 
-    // Fit page / Fit width / Actual size are Page view state.
-    await chooseZoomCommand('Fit page');
+    // Fit page / Fit width / Actual size are Page view state, delivered by the
+    // layout-aware keys (the old zoom dropdown is gone).
+    await page.keyboard.press('Shift+1');
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.pageFit === 'page',
       packagePath,
       { timeout: 10000 },
     );
     assert.equal(await page.locator('[data-zoom-target="page"]').getAttribute('data-page-fit'), 'page');
-    await chooseZoomCommand('Fit width');
+    await page.keyboard.press('Shift+2');
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.pageFit === 'width',
       packagePath,
       { timeout: 10000 },
     );
-    await chooseZoomCommand('Actual size');
+    await page.keyboard.press('Meta+0');
     await page.waitForFunction(
       (path) => {
         const view = window.__noteforestTest.viewState()[path];
@@ -763,21 +751,26 @@ describe('V0 visual shell', () => {
       { timeout: 5000 },
     );
     const narrow = await page.evaluate(() => {
-      const label = document.querySelector('.nf-view-label');
+      const segments = [...document.querySelectorAll('[data-view-controls] .nf-view-segment')];
       const toolbar = document.querySelector('.nf-toolbar')?.getBoundingClientRect();
+      const header = document.querySelector('[data-canvas-header="true"]')?.getBoundingClientRect();
       return {
-        labelDisplay: label === null ? null : getComputedStyle(label).display,
+        labels: segments.map((segment) => segment.textContent?.trim() ?? ''),
+        labelled: segments.every((segment) => (segment.getAttribute('aria-label') ?? '').length > 0),
         toolbarHeight: toolbar?.height ?? 0,
+        headerHeight: header?.height ?? 0,
         scrollWidth: document.documentElement.scrollWidth,
         innerWidth: window.innerWidth,
       };
     });
-    assert.equal(narrow.labelDisplay, 'none', 'view labels collapse to icons');
+    assert.deepEqual(narrow.labels, ['', '', '', ''], 'layout/mode are icon-only');
+    assert.equal(narrow.labelled, true, 'icon-only controls keep accessible labels');
     assert.equal(narrow.toolbarHeight, 44, 'the Toolbar keeps one rail at 960');
+    assert.equal(narrow.headerHeight, 34, 'the canvas header is 34 px');
     assert.ok(
       narrow.scrollWidth <= narrow.innerWidth,
       `no page-level horizontal scroll (${narrow.scrollWidth} <= ${narrow.innerWidth})`,
     );
-    assert.equal(await page.locator('.nf-toolbar [data-view-controls="true"]').count(), 1);
+    assert.equal(await page.locator('.nf-canvas-panel [data-view-controls="true"]').count(), 1);
   });
 });

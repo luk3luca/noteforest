@@ -15,7 +15,6 @@
  * starts the one model run; switching back disposes it.
  */
 
-import { ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -42,7 +41,6 @@ import {
   pageCssVariables,
 } from '@noteforest/layout';
 import { openBlockInContinuous } from '../actions';
-import { exportActiveDocument } from '../export/export-flow';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
@@ -50,6 +48,7 @@ import type { InteractionMode } from '../../../shared/view-state';
 import { blockTitle } from '../lib/tree';
 import { pageBlockEditingEnabledFor } from '../lib/editability';
 import { GEOMETRY } from '../lib/geometry';
+import { CanvasHeader } from '../shell/CanvasHeader';
 import { PageBlockEditor } from './PageBlockEditor';
 import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
 import { corePageGeometry } from './adapter';
@@ -77,8 +76,10 @@ interface PageViewProps {
   interactionMode: InteractionMode;
 }
 
-/** Matches `.nf-page-stage` padding (the canvas medium step). */
-const STAGE_PADDING = GEOMETRY.editorPaddingXMedium;
+/** Matches `.nf-page-stage` padding (shell C: 14 px top, 0 lateral, 8 px bottom). */
+const STAGE_PADDING_X = GEOMETRY.pageStagePaddingX;
+const STAGE_PADDING_Y =
+  GEOMETRY.pageStagePaddingTop + GEOMETRY.pageStagePaddingBottom;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2.5;
 
@@ -529,12 +530,12 @@ export function PageView({
 
   const effectiveZoom = useMemo(() => {
     if (pageFit === 'page') {
-      const byWidth = (viewport.width - 2 * STAGE_PADDING) / geometry.pageWidthPx;
-      const byHeight = (viewport.height - 2 * STAGE_PADDING) / geometry.pageHeightPx;
+      const byWidth = (viewport.width - 2 * STAGE_PADDING_X) / geometry.pageWidthPx;
+      const byHeight = (viewport.height - STAGE_PADDING_Y) / geometry.pageHeightPx;
       return clampZoom(Math.min(byWidth, byHeight, 1));
     }
     if (pageFit === 'width') {
-      return clampZoom((viewport.width - 2 * STAGE_PADDING) / geometry.pageWidthPx);
+      return clampZoom((viewport.width - 2 * STAGE_PADDING_X) / geometry.pageWidthPx);
     }
     return clampZoom(pageZoom);
   }, [pageFit, pageZoom, viewport, geometry.pageWidthPx, geometry.pageHeightPx]);
@@ -777,55 +778,17 @@ export function PageView({
       data-error={model.error !== null ? 'true' : undefined}
       data-empty={placeholderSurface ? 'true' : undefined}
     >
-      <div
-        className="nf-page-toolbar"
-        role="toolbar"
-        aria-label="Page controls"
-        data-page-toolbar="true"
-      >
-        <div className="nf-page-toolbar-group">
-          <button
-            type="button"
-            className="nf-button nf-page-button"
-            data-page-nav="prev"
-            aria-label="Previous page"
-            title="Previous page (⌥↑)"
-            disabled={pageNumber <= 1}
-            onClick={() => goToPage(pageNumber - 1)}
-          >
-            <ChevronLeft size={14} strokeWidth={1.6} aria-hidden="true" />
-          </button>
-          <span className="nf-page-counter" data-page-counter="true">
-            Page {pageNumber} of {pageCount}
-          </span>
-          <button
-            type="button"
-            className="nf-button nf-page-button"
-            data-page-nav="next"
-            aria-label="Next page"
-            title="Next page (⌥↓)"
-            disabled={pageNumber >= pageCount}
-            onClick={() => goToPage(pageNumber + 1)}
-          >
-            <ChevronRight size={14} strokeWidth={1.6} aria-hidden="true" />
-          </button>
-        </div>
-        <div className="nf-page-toolbar-spacer" />
-        <div className="nf-page-toolbar-group">
-          {model.updating ? <span className="nf-page-status">Updating…</span> : null}
-          <button
-            type="button"
-            className="nf-button nf-page-button nf-page-export"
-            data-page-export="true"
-            title="Export this document to PDF (⇧⌘E)"
-            aria-keyshortcuts="Shift+Meta+E"
-            onClick={exportActiveDocument}
-          >
-            <FileDown size={13} strokeWidth={1.6} aria-hidden="true" />
-            Export PDF
-          </button>
-        </div>
-      </div>
+      {active ? (
+        <CanvasHeader
+          page={{
+            pageNumber,
+            pageCount,
+            updating: model.updating,
+            onPrevious: () => goToPage(pageNumber - 1),
+            onNext: () => goToPage(pageNumber + 1),
+          }}
+        />
+      ) : null}
       {model.error !== null ? (
         <div className="nf-page-banner nf-page-banner-error" role="status">
           Page layout error: {model.error}

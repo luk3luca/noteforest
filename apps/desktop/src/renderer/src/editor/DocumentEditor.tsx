@@ -51,6 +51,7 @@ import { getScroll, recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
 import { SaveFailureBanner } from '../shell/SaveFailureBanner';
 import { StaleLockBanner } from '../shell/StaleLockBanner';
+import { CanvasHeader } from '../shell/CanvasHeader';
 import { recordPerf } from '../lib/perf';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 import { PageView } from '../page/PageView';
@@ -741,6 +742,7 @@ function EditorSurface({
 
   return (
     <>
+      {active && visible ? <CanvasHeader /> : null}
       <div
         className="nf-editor-scroll"
         ref={scrollRef}

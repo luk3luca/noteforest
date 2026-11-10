@@ -326,26 +326,22 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
         `${key} matches at 1440`,
       );
     }
-    const canvasWidthBefore = await page
-      .locator('.nf-editor[data-active="true"] .nf-canvas')
-      .evaluate((element) => element.getBoundingClientRect().width);
+    // Shell C is edge-to-edge: the responsive canvas padding no longer changes
+    // the element width, so the window step proves the surface survives a
+    // narrow resize; the zoom step below is the real image display resize.
     await h.setWindowSize(960, 800);
+    await page.waitForFunction(() => window.innerWidth <= 961, undefined, {
+      timeout: 10000,
+    });
     await page.waitForFunction(
-      ({ id, previousCanvas }) => {
-        const card = document.querySelector(
-          `.nf-editor[data-active="true"] [data-block-card="${id}"]`,
-        );
-        const canvas = document.querySelector('.nf-editor[data-active="true"] .nf-canvas');
-        return (
-          card !== null &&
-          canvas !== null &&
-          window.innerWidth <= 961 &&
-          canvas.getBoundingClientRect().width < previousCanvas - 10
-        );
-      },
-      { id: blockId, previousCanvas: canvasWidthBefore },
+      (id) =>
+        document.querySelector(
+          `.nf-editor[data-active="true"] [data-block-card="${id}"] [data-image-node]`,
+        ) !== null,
+      blockId,
       { timeout: 10000 },
     );
+    assert.equal(await page.locator('[data-image-region-marker]').count(), 3);
     const resizedRatio = await regionRatio(blockId, firstAnchor.id);
     assert.ok(resizedRatio !== null);
     for (const key of ['x', 'y', 'width', 'height']) {

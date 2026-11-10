@@ -43,9 +43,7 @@ function cardsByWidth(snapshot) {
 }
 
 async function fitWidthFromTopBar() {
-  await page.locator('[data-zoom-menu]').click();
-  await page.getByRole('menuitem', { name: 'Fit width' }).click();
-  await page.locator('.nf-menu').waitFor({ state: 'detached' });
+  await page.keyboard.press('Shift+Meta+0');
 }
 
 async function linkReference(sourceId, targetId) {

@@ -112,7 +112,7 @@ async function gotoPage(number) {
   let current = await currentPage();
   while (current < number) {
     const next = current + 1;
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       (expected) => {
         const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
@@ -125,7 +125,7 @@ async function gotoPage(number) {
   }
   while (current > number) {
     const previous = current - 1;
-    await activePageView().locator('[data-page-nav="prev"]').click();
+    await page.locator('[data-canvas-header] [data-page-nav="prev"]').click();
     await page.waitForFunction(
       (expected) => {
         const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');

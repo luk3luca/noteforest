@@ -319,8 +319,7 @@ describe('NoteForest M2 visual evidence', () => {
     // Fit width at 1024.
     await h.setWindowSize(1024, 768);
     await h.waitLayout({ blocks: 7 });
-    await page.locator('[data-zoom-menu]').click();
-    await page.getByRole('menuitem', { name: 'Fit width' }).click();
+    await page.keyboard.press('Shift+Meta+0');
     await page.waitForFunction(
       () =>
         Number(

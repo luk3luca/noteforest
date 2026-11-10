@@ -40,6 +40,9 @@ export const GEOMETRY = Object.freeze({
   editorPaddingXCompact: DESIGN_TOKENS.editorPaddingXCompact,
   editorPaddingTopCompact: DESIGN_TOKENS.editorPaddingTopCompact,
   editorPaddingBottomCompact: DESIGN_TOKENS.editorPaddingBottomCompact,
+  pageStagePaddingX: DESIGN_TOKENS.pageStagePaddingX,
+  pageStagePaddingTop: DESIGN_TOKENS.pageStagePaddingTop,
+  pageStagePaddingBottom: DESIGN_TOKENS.pageStagePaddingBottom,
   /** Gaps. */
   siblingGap: DESIGN_TOKENS.siblingGap,
   childRowGap: DESIGN_TOKENS.childRowGap,
