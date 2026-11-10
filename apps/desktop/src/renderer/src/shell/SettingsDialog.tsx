@@ -24,7 +24,6 @@ import { getRuntime, useRuntime } from '../state/registry';
 import { exportActiveDocument } from '../export/export-flow';
 import { commitPageEdit } from '../page/page-edit-state';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
-import { READ_MODE_TITLE } from '../lib/editability';
 
 type SettingsPage =
   | 'general'
@@ -719,8 +718,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                       className="nf-button nf-button-primary"
                       data-settings-export-now="true"
                       onClick={() => {
-                        onClose();
-                        exportActiveDocument();
+                        // Flush a debounced density edit first so the export
+                        // sheet reads the same resolved Page settings.
+                        const pending = flushPending();
+                        const ready =
+                          pending === null ? Promise.resolve() : applyDensity(pending);
+                        void ready.then(() => {
+                          onCloseRef.current();
+                          exportActiveDocument();
+                        });
                       }}
                     >
                       Export PDF…
@@ -903,7 +909,7 @@ function ContinuousSettings(): JSX.Element {
         <h4 className="nf-settings-section-title">Read-only documents</h4>
         <p className="nf-settings-help">
           Zoom and page navigation are personal view state and stay available for a read-only
-          document. {READ_MODE_TITLE}.
+          document. The note content remains read-only.
         </p>
       </section>
     </>
