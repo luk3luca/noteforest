@@ -81,8 +81,8 @@ function paletteItem(label) {
 describe('Batch A UI rework', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
-    await rm(screenshotDir, { recursive: true, force: true });
     await mkdir(tempRoot, { recursive: true });
+    // Keep screenshots from the export/settings suites that ran earlier.
     await mkdir(screenshotDir, { recursive: true });
   });
 
