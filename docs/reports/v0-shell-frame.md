@@ -163,3 +163,12 @@ V1 Settings shell: give the modal its frame, scope, and Appearance/Page/Continuo
 sections from `docs/design/ui-settings-contents.md`, using the frozen settings inventory. Add the
 PageToolbar Setup/Density popovers in the same slice only if the brief keeps them separate from the
 Settings modal.
+
+## 8. Integration
+
+- Orchestrator full `npm run verify` on this branch: **exit 0** — 103 unit files / 1025 tests,
+  16 e2e, 14 recovery, 39 UI suites / 137 tests, 0 pageErrors.
+- One stale test selector fixed during integration: `tests/ui/m3-reference.test.mjs` still clicked
+  the removed status-bar “Fit” button; it now opens the TopBar zoom menu and chooses “Fit width”.
+  No product-code change.
+- Screenshots reviewed at `artifacts/v0-shell/*.png`; branch not merged or pushed.

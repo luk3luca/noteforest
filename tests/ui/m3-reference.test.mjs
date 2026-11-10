@@ -42,6 +42,12 @@ function cardsByWidth(snapshot) {
   return new Map(snapshot.cards.map((card) => [card.id, card]));
 }
 
+async function fitWidthFromTopBar() {
+  await page.locator('[data-zoom-menu]').click();
+  await page.getByRole('menuitem', { name: 'Fit width' }).click();
+  await page.locator('.nf-menu').waitFor({ state: 'detached' });
+}
+
 async function linkReference(sourceId, targetId) {
   await openBlockMenu(sourceId);
   await chooseMenuItem(/^Link as reference/);
@@ -339,7 +345,7 @@ describe('NoteForest M3d1 reference edges', () => {
     await page.locator(`[data-block-card="${spectrumId}"]`).scrollIntoViewIfNeeded();
     // Fit the whole branch on screen so both dashed endpoints and their chips
     // are visible in the evidence screenshot.
-    await page.getByRole('button', { name: 'Fit', exact: true }).click();
+    await fitWidthFromTopBar();
     await page.waitForFunction(
       () => {
         const zoom = Number(
@@ -581,7 +587,7 @@ describe('NoteForest M3d1 reference edges', () => {
     // Screenshot evidence: the target now lives under the new home while the
     // old primary edge remains as a See also reference.
     await mkdir(artifactsPath('m3d2'), { recursive: true });
-    await page.getByRole('button', { name: 'Fit', exact: true }).click();
+    await fitWidthFromTopBar();
     await page.waitForFunction(
       () => {
         const zoom = Number(
