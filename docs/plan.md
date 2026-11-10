@@ -434,7 +434,7 @@ header (C preferred, D alternative), sidebar, status, Page frame, Settings (inst
 palette, overlays/keyboard, responsive/accessibility, and the future settings pages.
 
 Implementation is consolidated into **two delivery batches**: **A** (shell, Settings shell, Export,
-Palette; non-Page/PDF) and **B** (Page settings, future functions, Page/PDF-affecting work), with
-P1–P6 as acceptance checkpoints inside them. Batch A is merged into `design/ui-map` at `af815eb`
-(full verify green; report `docs/reports/ui-batch-a.md`). Batch B is next. Future pages stay empty
-in the lab and out of the product until a real control exists.
+Palette; non-Page/PDF) and **B** (Page settings, Page/PDF-affecting work), with P1–P6 as acceptance
+checkpoints inside them. Batch A is merged at `af815eb`; Batch B is merged at `34e4ade` (full verify
+green; reports `docs/reports/ui-batch-a.md`, `docs/reports/ui-batch-b.md`). The core UI is
+implemented. Future pages stay empty in the lab and out of the product until a real control exists.

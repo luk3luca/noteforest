@@ -215,11 +215,11 @@ To avoid one delegate restart per design page, the implementation is consolidate
   P4 Export + palette, and the palette/read-mode parts of P5. One implementer and worktree,
   checkpoint commits, one `verify:fast`, one full integration verify. Brief:
   `docs/tasks/ui-batch-a.md`; report: `docs/reports/ui-batch-a.md`.
-- **Batch B — Page settings/PDF (next):** P3 Page settings (setup/orientation/margins, live
-  preview, validation, density/preset, scope/override), the Page/PDF-affecting work, and only the
-  remaining P5 parity required by that path. Future functions (Appearance v3, Export defaults,
-  Continuous global, Page chrome, manual breaks, Data recovery, External API) remain empty/planned;
-  no fake controls.
+- **Batch B — Page settings/PDF (merged 11 November 2026, `34e4ade`):** P3 Page settings
+  (setup/orientation/margins, live preview, validation, density/preset, scope/override), the
+  Page/PDF-affecting work, and only the remaining P5 parity required by that path. Future functions
+  (Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks, Data recovery,
+  External API) remain empty/planned; no fake controls.
 
 The phases in §3 remain the acceptance checkpoints inside the batches. Batch A must not change the
 Page sheet, paginator, print compositor, or PDF output.
@@ -242,11 +242,14 @@ Page sheet, paginator, print compositor, or PDF output.
 
 - Shell: Batch A merged; C header (fixed, edge-to-edge, undo/redo left, icon-only views right),
   tabs, zoom removal, active ring are implemented in Electron.
-- Settings: Batch A merged; instant-save shell, scope/override, no-document/read-only, existing
-  Page density. Full Page settings are Batch B.
+- Settings: Batch A + B merged; instant-save shell, scope/override, no-document/read-only, existing
+  Page density and the full Page setup/margins/preview/validation/preset surface.
 - Export: Batch A merged; 560 px sheet, no native save dialog, all states, grouped warnings.
 - Palette: Batch A merged; commands/documents/blocks, search, keyboard, disabled reasons, empty
   state, read-mode gating.
-- Next: Batch B (Page setup/margins/preview/validation/density/preset, Page chrome, Page/PDF).
-  Future functions remain empty pages with the references above. The lab Settings/Export/Palette
-  mocks predate Batch A; Electron is the source for those surfaces now.
+- Page: Batch B merged; Page Read/Edit/measurement/PDF parity at A4/A5/Letter, portrait/landscape,
+  margins, density 60/100/120, and document overrides.
+- Next: product-owner visual/VoiceOver pass; future pages remain planned/empty (Appearance v3,
+  Export defaults, Continuous global, Page chrome, manual breaks, Data recovery, External API,
+  library/backup, light theme/search). The lab Settings/Export/Palette/Page mocks predate Batches
+  A/B; Electron is the source for those surfaces now.

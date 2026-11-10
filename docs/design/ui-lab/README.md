@@ -61,6 +61,6 @@ direction will be ported later, after the product-owner review. The implementati
 complete reference index are in `docs/tasks/ui-rework.md`; future functions are recorded there and
 stay empty/hidden until their phase starts.
 
-**After UI Batch A:** Electron is the source of truth for the shell, Settings, Export, and Palette.
-The lab's Settings/Export/Palette mocks predate Batch A and are kept as the design reference only;
-the lab remains the shell/visual reference for Batch B.
+**After UI Batches A/B:** Electron is the source of truth for the shell, Settings, Export, Palette,
+and Page settings. The lab's Settings/Export/Palette/Page mocks predate the implementation and are
+kept as the design reference only; the lab remains the shell/visual reference for the future pages.

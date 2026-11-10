@@ -1,7 +1,6 @@
 # UI rework — Batch B implementation report
 
-**Status:** Implemented on `t3/page-settings-batch-b`; ready for Orchestrator review and integration
-into `design/ui-map` (not `main`).
+**Status:** Merged into `design/ui-map` (not `main`) after the full verify; core UI complete.
 **Role:** Implementer / Builder
 **Task:** `docs/tasks/ui-batch-b.md`
 **Branch:** `t3/page-settings-batch-b`
@@ -160,8 +159,27 @@ guard remains in force; the Batch B suite does not touch the folder picker.
 
 ## Integration
 
-- The full `npm run verify` was intentionally not run by the Builder; the Orchestrator runs it at
-  integration. Batch B was checked with one `verify:fast` plus the affected UI/PDF suites.
-- Merge into `design/ui-map`, not `main`. No merge, push, or PR was performed by the Builder.
-- Batch B leaves Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks, Data
-  recovery, External API, library/backup, and light theme as future/empty pages.
+- Full `npm run verify` on `34e4ade`: **exit 0** — 105 unit files / 1051 tests, 16/16 e2e, 14/14
+  recovery, 41 UI suites (Batch B included), no failures, 0 pageErrors. The full run found two
+  timing flakes; both were hardened with condition waits, not sleeps: the `m2-editor` keyboard
+  suite (isolated green) and the Batch B Page Edit typing/commit race (`34e4ade`). The Batch B suite
+  was green three consecutive times before the final full verify.
+- Batch B was merged fast-forward into `design/ui-map` (not `main`) from `786a1c0` to `34e4ade`.
+- Screenshots copied to `artifacts/ui-batch-b/` (7 images; ignored by git).
+- Known residual risks:
+  - A global size/orientation change can still make another document's stored margin override
+    impossible; the existing model sanitizer falls back to default margins for that document. The
+    current layer is blocked before the write and the UI never creates such a value. This is an
+    existing defensive merge behavior, tracked as a follow-up (cross-document preflight/warning).
+  - Density remains a lens over the selected preset; changing density does not force the Custom
+    label. Custom is an explicit action that freezes the resolved typography. This is the Q-11
+    alternative; a product decision can change it later.
+  - The live preview runs one additional model pass while Settings is open; same pipeline, not a
+    second paginator.
+- Future pages remain planned/empty: Appearance v3, Export defaults, Continuous global, Page chrome,
+  manual breaks, Data recovery, External API, library/backup, light theme/search.
+
+## Next step
+
+Core UI Batch A + B is complete on `design/ui-map`. Next is the product-owner visual/VoiceOver pass
+and the future settings pages when their schema/tokens/decisions exist.
