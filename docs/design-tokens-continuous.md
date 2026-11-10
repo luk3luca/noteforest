@@ -33,7 +33,7 @@ never repeats the literal.
 
 | Token | CSS variable | Value | Used for |
 |---|---|---:|---|
-| `canvasMaxWidth` | `--nf-canvas-max` | 3200 px | Finite wide canvas; placement uses its 3120 px content budget |
+| `canvasMaxWidth` | `--nf-canvas-max` | 3200 px | Finite wide canvas; placement uses its 3200 px content budget (edge-to-edge) |
 | `editorPaddingX` | `--nf-canvas-pad-x` | 0 px | Canvas horizontal padding (edge-to-edge, shell C) |
 | `editorPaddingTop` | `--nf-canvas-pad-top` | 6 px | Canvas top inset below the fixed header |
 | `editorPaddingBottom` | `--nf-canvas-pad-bottom` | **8 px** | Canvas bottom inset (shell C) |
