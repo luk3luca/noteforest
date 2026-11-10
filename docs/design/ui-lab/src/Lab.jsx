@@ -213,6 +213,10 @@ function Sidebar({ collapsed, onToggle, onSettings, onNew }) {
               </IconButton>
             </span>
           </div>
+          <label className="lab-filter">
+            <Search size={12} strokeWidth={1.5} />
+            <input placeholder="Filter documents" aria-label="Filter documents" />
+          </label>
           <div className="lab-doc-list">
             {documents.map((doc) => (
               <button
@@ -251,6 +255,10 @@ function Sidebar({ collapsed, onToggle, onSettings, onNew }) {
               </button>
             ))}
           </div>
+          <button type="button" className="lab-add-block">
+            <Plus size={12} strokeWidth={1.6} />
+            Add block
+          </button>
         </section>
       </div>
       <div className="lab-sidebar-foot">

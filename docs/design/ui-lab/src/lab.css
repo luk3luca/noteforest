@@ -160,12 +160,13 @@ kbd {
 }
 
 .lab-titlebar {
+  position: relative;
   height: 30px;
   flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 14px;
+  padding: 0 14px 0 84px;
   background: var(--shell);
   user-select: none;
 }
@@ -190,10 +191,13 @@ kbd {
 }
 
 .lab-traffic {
+  position: absolute;
+  left: 14px;
+  top: 0;
+  height: 100%;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding-right: 8px;
   flex: none;
 }
 
@@ -505,6 +509,52 @@ kbd {
 .lab-section-add:hover {
   background: var(--surface-2);
   color: var(--text);
+}
+
+.lab-filter {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  padding: 0 8px;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  color: var(--text-tertiary);
+}
+
+.lab-filter input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.lab-filter input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.lab-add-block {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0 8px;
+  margin-top: 4px;
+  border-radius: var(--radius-control);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-align: left;
+}
+
+.lab-add-block:hover {
+  background: var(--surface-1);
+  color: var(--text-secondary);
 }
 
 .lab-doc-list {

@@ -26,6 +26,8 @@ the expanded / collapsed sidebar. The mock is everything below the LAB bar; anno
 
 ## Status
 
-The current layout is the latest shell direction: thin titlebar for traffic lights, toolbar aligned
-with the content column, persistent rounded sidebar (collapsed to a 48 px rail), floating panels,
-rounded tabs, and a Settings button inside the sidebar footer.
+The lab mirrors the Electron shell merged at `779c7fb` on `design/ui-map`: 30 px titlebar (traffic
+lights + app name), 44 px toolbar in the main column, 264 px sidebar / 48 px rail, 8 px floating
+panels and radii, 34 px / 7 px tabs, 24 px / 6 px floating status strip, 9 px Continuous note
+cards. The mock document/library content is illustrative; the native traffic lights are replaced by
+the lab's fake dots. The Page sheet is still a placeholder for the Page design pass.

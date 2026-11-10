@@ -176,3 +176,14 @@ Orchestrator: run the full `npm run verify`, review the three screenshots, and m
 `design/ui-map` (not `main`). If the traffic-light offset is accepted, apply the one-line
 `trafficLightPosition: { x: 16, y: 9 }` window change and re-capture the expanded-shell screenshot.
 Then start V1 Settings on top of this branch.
+
+## 8. Integration
+
+- Orchestrator full `npm run verify` on `design/ui-map`: **exit 0** — 103 unit files / 1025 tests,
+  16 e2e, 14 recovery, **39 UI suites / 138 tests**, 0 pageErrors.
+- The native traffic-light offset was accepted and applied in integration:
+  `trafficLightPosition: { x: 16, y: 9 }` (`779c7fb`), centered in the 30 px titlebar.
+- The branch was merged into `design/ui-map` (not `main`); screenshots regenerated under
+  `artifacts/v0-shell-visual/`.
+- The browser lab was realigned to the merged shell (filter row, Add block, native-like titlebar
+  spacing) and committed on the design branch.
