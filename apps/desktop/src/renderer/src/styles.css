@@ -21,6 +21,7 @@
    applied from DESIGN_TOKENS at boot (`lib/apply-design-tokens.ts`) as root
    custom properties; never re-declare them in this file. */
 :root {
+  --shell: #101113;
   --canvas: #17181a;
   --sidebar: #131416;
   --surface-1: #1b1d20;
@@ -45,6 +46,10 @@
   --mono-font: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --radius-control: 3px;
   --radius-overlay: 6px;
+  /* V0 floating-shell radii (lab: 8 px panels, 7 px tab chips, 6 px strip). */
+  --radius-panel: 8px;
+  --radius-chip: 7px;
+  --radius-strip: 6px;
   --motion: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: dark;
 }
@@ -113,36 +118,59 @@ button:disabled {
 
 .nf-app {
   display: grid;
-  grid-template-rows: 44px minmax(0, 1fr) 24px;
+  grid-template-rows: 30px minmax(0, 1fr) auto;
   height: 100vh;
-  background: var(--canvas);
+  background: var(--shell);
   overflow: hidden;
 }
 
-/* ---------------------------------------------------------------- top bar */
+/* --------------------------------------------------------------- titlebar */
 
-.nf-topbar {
+.nf-titlebar {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 44px;
-  padding: 0 8px 0 84px;
-  border-bottom: 1px solid var(--border);
-  background: var(--sidebar);
+  height: 30px;
+  /* The native macOS traffic lights overlay this row (hiddenInset window). */
+  padding: 0 14px 0 84px;
+  background: var(--shell);
   -webkit-app-region: drag;
   user-select: none;
 }
 
-.nf-topbar-leading {
+.nf-app-name {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+/* ---------------------------------------------------------------- toolbar */
+
+/* The Toolbar is a rounded panel in the main column, so the tabs start after
+   the Sidebar and shift with the collapsed rail. No full-width hard rule. */
+.nf-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex: none;
+  height: 44px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--sidebar);
+  user-select: none;
+}
+
+.nf-toolbar-leading {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
   height: 100%;
 }
 
-.nf-topbar-button {
+.nf-toolbar-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -153,33 +181,30 @@ button:disabled {
   padding: 0 5px;
   border-radius: var(--radius-control);
   color: var(--text-secondary);
-  -webkit-app-region: no-drag;
   transition: background 120ms var(--motion), color 120ms var(--motion);
 }
 
-.nf-topbar-button:hover {
+.nf-toolbar-button:hover {
   background: var(--surface-2);
   color: var(--text);
 }
 
-.nf-topbar-button:disabled {
+.nf-toolbar-button:disabled {
   opacity: 0.35;
   cursor: default;
 }
 
-.nf-topbar-button:disabled:hover {
+.nf-toolbar-button:disabled:hover {
   background: transparent;
   color: var(--text-secondary);
 }
 
-.nf-sidebar-reveal {
-  color: var(--text-tertiary);
-}
-
 .nf-palette-button {
   flex: none;
+  height: 28px;
   padding: 0 7px;
-  -webkit-app-region: no-drag;
+  border: 1px solid var(--border);
+  background: var(--canvas);
 }
 
 .nf-palette-button span {
@@ -298,7 +323,7 @@ button:disabled {
 
 .nf-tab-strip {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   flex: 1;
   min-width: 0;
   height: 100%;
@@ -307,9 +332,11 @@ button:disabled {
 
 .nf-tablist {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 4px;
   flex: 1;
   min-width: 0;
+  height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -319,33 +346,32 @@ button:disabled {
   display: none;
 }
 
+/* Rounded tab chip: no vertical separators and no accent top line. */
 .nf-tab {
   position: relative;
   display: flex;
   align-items: center;
   flex: 0 1 190px;
-  min-width: 120px;
-  max-width: 200px;
-  border-right: 1px solid var(--border);
+  height: 34px;
+  min-width: 118px;
+  max-width: 190px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-chip);
   -webkit-app-region: no-drag;
-  background: var(--sidebar);
-  transition: background 120ms var(--motion);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: background 120ms var(--motion), border-color 120ms var(--motion);
 }
 
 .nf-tab:hover {
   background: var(--surface-1);
+  color: var(--text);
 }
 
 .nf-tab[data-active="true"] {
   background: var(--canvas);
-}
-
-.nf-tab[data-active="true"]::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 2px;
-  background: var(--accent);
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .nf-tab[data-dragging="true"] {
@@ -360,7 +386,7 @@ button:disabled {
   min-width: 0;
   flex: 1;
   height: 100%;
-  padding: 0 6px 0 11px;
+  padding: 0 4px 0 10px;
   text-align: left;
 }
 
@@ -368,7 +394,7 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -377,11 +403,11 @@ button:disabled {
 }
 
 .nf-tab-dot {
-  width: 6px;
-  height: 6px;
-  flex: 0 0 6px;
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
   border-radius: 50%;
-  background: var(--text-tertiary);
+  background: var(--warning);
 }
 
 .nf-tab-lock {
@@ -428,39 +454,71 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 6px;
-  border-left: 1px solid var(--border);
+  flex: none;
+  padding: 0 2px;
   -webkit-app-region: no-drag;
 }
 
 /* --------------------------------------------------------------- workspace */
 
-.nf-workspace {
+/* The body is a floating row of rounded panels with 8 px gaps. */
+.nf-workspace-shell {
   display: flex;
+  min-width: 0;
   min-height: 0;
-  height: 100%;
+  padding: 4px 8px 8px;
   overflow: hidden;
 }
 
-.nf-workspace-shell {
-  position: relative;
+.nf-workspace {
   display: flex;
-  flex-direction: column;
-  width: 100%;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   height: 100%;
   overflow: hidden;
 }
 
-.nf-workspace-shell > .nf-workspace {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: auto;
+.nf-sidebar-panel {
+  min-width: 0;
+  height: 100%;
+  display: flex;
 }
 
-.nf-workspace-collapsed {
+.nf-sidebar-panel > .nf-sidebar {
+  flex: 1 1 auto;
+}
+
+.nf-main-panel {
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
   display: flex;
+}
+
+.nf-main-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 8px;
+}
+
+.nf-canvas-panel {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}
+
+.nf-canvas-panel > .nf-editor-column {
+  flex: 1;
 }
 
 .nf-editor-column {
@@ -470,21 +528,9 @@ button:disabled {
   min-width: 0;
   min-height: 0;
   height: 100%;
-  background: var(--canvas);
 }
 
-.nf-sidebar-panel {
-  min-width: 208px;
-  height: 100%;
-}
-
-.nf-editor-panel {
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-  display: flex;
-}
-
+/* An 8 px gap doubles as the resize handle; no full-height hard rule. */
 .nf-separator {
   position: relative;
   flex: 0 0 8px;
@@ -496,14 +542,22 @@ button:disabled {
 .nf-separator::after {
   content: "";
   position: absolute;
-  inset: 0 auto 0 3px;
+  inset: 4px auto 4px 4px;
   width: 1px;
-  background: var(--border);
+  background: transparent;
 }
 
 .nf-separator:hover::after,
 .nf-separator[data-separator="active"]::after {
   background: var(--border-strong);
+}
+
+.nf-workspace-shell[data-rail="true"] .nf-separator {
+  cursor: default;
+}
+
+.nf-workspace-shell[data-rail="true"] .nf-separator:hover::after {
+  background: transparent;
 }
 
 /* ---------------------------------------------------------------- sidebar */
@@ -512,15 +566,51 @@ button:disabled {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
   background: var(--sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
   overflow: hidden;
+}
+
+/* Collapsed: a 48 px rail with expand at the top and Settings at the bottom.
+   The column stays mounted; only the expanded content is replaced. */
+.nf-sidebar-rail {
+  align-items: center;
+}
+
+.nf-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  height: 44px;
+}
+
+.nf-rail-spacer {
+  flex: 1;
+}
+
+.nf-rail-foot {
+  display: flex;
+  justify-content: center;
+  flex: none;
+  padding: 8px 0;
+}
+
+.nf-icon-button.nf-rail-button {
+  width: 28px;
+  height: 28px;
+  color: var(--text-secondary);
 }
 
 .nf-sidebar-head {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 10px 10px 8px 12px;
+  gap: 3px;
+  flex: none;
+  height: 44px;
+  padding: 0 8px;
 }
 
 .nf-sidebar-search {
@@ -531,7 +621,7 @@ button:disabled {
   min-width: 0;
   height: 28px;
   padding: 0 8px;
-  background: var(--surface-1);
+  background: var(--canvas);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   color: var(--text-tertiary);
@@ -558,59 +648,63 @@ button:disabled {
   color: var(--text-tertiary);
 }
 
-.nf-new-note {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex: none;
-  height: 26px;
-  padding: 0 6px;
-  border-radius: var(--radius-control);
+.nf-icon-button.nf-new-note {
+  width: 28px;
+  height: 28px;
   color: var(--text-secondary);
-  font-size: 12px;
-  white-space: nowrap;
 }
 
-.nf-new-note:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.nf-sidebar-collapse {
+.nf-icon-button.nf-sidebar-collapse {
   flex: none;
+  width: 28px;
+  height: 28px;
+  color: var(--text-secondary);
 }
 
 .nf-sidebar-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-bottom: 12px;
+  padding: 0 8px 8px;
 }
 
+/* No full-bleed section rules: the panel is one surface; sections use space. */
 .nf-sidebar-section {
-  padding: 4px 0 10px;
-}
-
-.nf-sidebar-section + .nf-sidebar-section {
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
-  padding-top: 10px;
+  padding: 4px 4px 12px;
 }
 
 .nf-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 24px;
-  padding: 0 12px 4px;
+  min-height: 28px;
+  padding: 8px 6px 6px;
 }
 
 .nf-section-label {
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-tertiary);
+}
+
+.nf-section-tail {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.nf-section-count {
+  font-size: 9.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-icon-button.nf-section-add {
+  width: 20px;
+  height: 20px;
 }
 
 .nf-icon-button {
@@ -644,7 +738,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 12px 6px;
+  margin: 0 6px 6px;
   padding: 0 6px;
   height: 24px;
   border: 1px solid var(--border);
@@ -673,7 +767,7 @@ button:disabled {
 }
 
 .nf-library-list {
-  padding: 0 6px;
+  padding: 0 2px;
 }
 
 .nf-library-row {
@@ -797,32 +891,37 @@ button:disabled {
 }
 
 .nf-empty-line {
-  margin: 4px 12px;
+  margin: 4px 8px;
   color: var(--text-tertiary);
   font-size: 12px;
 }
 
+/* Footer is a container with a Settings button, not a full-width button. */
 .nf-sidebar-foot {
   display: flex;
   align-items: center;
-  height: 34px;
-  padding: 0 8px;
-  border-top: 1px solid var(--border);
+  gap: 4px;
+  flex: none;
+  padding: 6px 8px 8px;
+}
+
+.nf-sidebar-foot-spacer {
+  flex: 1;
 }
 
 .nf-sidebar-settings {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  height: 26px;
+  height: 30px;
   padding: 0 8px;
-  border-radius: var(--radius-control);
+  border-radius: 6px;
   color: var(--text-secondary);
   font-size: 12px;
 }
 
 .nf-sidebar-settings:hover {
-  background: var(--surface-2);
+  background: var(--surface-1);
   color: var(--text);
 }
 
@@ -830,7 +929,7 @@ button:disabled {
 
 .nf-tree {
   outline: none;
-  padding: 0 6px;
+  padding: 0 2px;
   font-size: 12.5px;
 }
 
@@ -1689,7 +1788,8 @@ button:disabled {
   min-width: var(--nf-child-min-width);
   max-width: var(--nf-child-max-width);
   padding: var(--nf-card-padding);
-  border-radius: var(--nf-card-radius);
+  /* Continuous note-card surface; Page cards/print keep the shared radius. */
+  border-radius: var(--nf-note-radius);
   background: var(--surface-1);
   transition: background 120ms var(--motion), box-shadow 120ms var(--motion);
 }
@@ -3073,15 +3173,19 @@ body.nf-dragging-block .nf-gutter-handle {
 
 /* ---------------------------------------------------------------- statusbar */
 
+/* A floating 24 px bar inset by 8 px; no border-top and no second toolbar. */
 .nf-statusbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  flex: none;
   height: 24px;
-  padding: 0 12px;
-  border-top: 1px solid var(--border);
+  margin: 0 8px 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-strip);
   background: var(--sidebar);
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-tertiary);
   user-select: none;
 }
@@ -3106,9 +3210,9 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-status-health {
-  padding: 0 6px;
-  border: 1px solid var(--warning);
-  border-radius: 999px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--warning);
   font-size: 10.5px;
@@ -4433,16 +4537,8 @@ body.nf-dragging-block .nf-gutter-handle {
     display: none;
   }
 
-  .nf-topbar {
+  .nf-toolbar {
     gap: 6px;
-    padding-left: 80px;
-  }
-}
-
-@media (max-width: 820px) {
-  .nf-sidebar-panel,
-  .nf-separator {
-    display: none;
   }
 }
 
@@ -4777,10 +4873,13 @@ body.nf-dragging-block .nf-gutter-handle {
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
+  height: 38px;
   gap: var(--nf-card-padding);
-  padding: 6px var(--nf-child-row-gap);
-  border-bottom: 1px solid var(--border);
-  background: var(--sidebar);
+  padding: 0 14px;
+  /* Softened container: the canvas panel owns the surface and the radius, so
+     there is no full-width hard rule below the page controls. */
+  border-bottom: 0;
+  background: transparent;
 }
 
 .nf-page-toolbar-group {

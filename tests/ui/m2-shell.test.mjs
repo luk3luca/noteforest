@@ -89,13 +89,16 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
     await h.waitSaved();
     const scope = h.activeEditor();
-    const target = scope.locator('[data-block-card]', { hasText: 'Characteristic polynomial' }).first();
+    // Scroll to the real end of the canvas: the floating-shell canvas is
+    // shorter than the old full-height editor, so a literal 420 clamped to the
+    // maximum and the restored focus offset then sat outside the tolerance.
+    const target = scope.locator('[data-block-card]').last();
     const targetId = await target.getAttribute('data-block-card');
     await target.click();
     await h.waitSelected(targetId);
     const scroller = scope.locator('.nf-editor-scroll');
     await scroller.evaluate((element) => {
-      element.scrollTop = 420;
+      element.scrollTop = element.scrollHeight;
     });
     await page.waitForFunction(
       () => (document.querySelector('.nf-editor[data-active="true"] .nf-editor-scroll')?.scrollTop ?? 0) > 0,
@@ -180,27 +183,32 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
 
     await axeRun('shell');
 
-    // 200% zoom: the sidebar yields and nothing scrolls horizontally.
+    // 200% zoom: the sidebar yields to the 48 px rail and nothing scrolls horizontally.
     await h.app.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(2);
     });
     await page.waitForFunction(
-      () => document.querySelector('.nf-sidebar-panel') === null,
+      () => {
+        const rail = document.querySelector('.nf-sidebar-rail');
+        return rail !== null && Math.abs(rail.getBoundingClientRect().width - 48) < 1;
+      },
       undefined,
       { timeout: 10000 },
     );
     const zoomState = await page.evaluate(() => ({
       width: window.innerWidth,
       scrollWidth: document.documentElement.scrollWidth,
-      hasSidebar: document.querySelector('.nf-sidebar-panel') !== null,
+      hasRail: document.querySelector('.nf-sidebar-rail') !== null,
+      hasFullSidebar: document.querySelector('.nf-sidebar-search') !== null,
     }));
-    assert.equal(zoomState.hasSidebar, false, 'sidebar yields at 200% zoom');
+    assert.equal(zoomState.hasFullSidebar, false, 'the expanded sidebar yields at 200% zoom');
+    assert.equal(zoomState.hasRail, true, 'the sidebar stays as a 48 px rail');
     assert.ok(zoomState.scrollWidth <= zoomState.width, 'no horizontal overflow at 200% zoom');
     await h.app.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1);
     });
     await page.waitForFunction(
-      () => document.querySelector('.nf-sidebar-panel') !== null,
+      () => document.querySelector('.nf-sidebar-search') !== null,
       undefined,
       { timeout: 10000 },
     );

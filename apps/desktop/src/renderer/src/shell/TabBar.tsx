@@ -86,9 +86,9 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
 }
 
 /**
- * The TopBar document tab strip: tabs (activate, close, middle-click, drag
+ * The Toolbar document tab strip: tabs (activate, close, middle-click, drag
  * reorder), new note, and the overflow menu. The active tab title is the
- * document identity; there is no separate app-name/title row.
+ * document identity; the app name lives in the separate 30 px TitleBar.
  */
 export function TabStrip(): JSX.Element {
   const tabs = useShell((state) => state.tabs);
@@ -180,7 +180,7 @@ export function TabStrip(): JSX.Element {
       <div className="nf-tab-actions">
         <button
           type="button"
-          className="nf-topbar-button"
+          className="nf-toolbar-button"
           aria-label={`Close ${activeTabInfo?.title ?? 'tab'}`}
           title="Close current tab (⌘W)"
           data-close-active-tab="true"
@@ -193,17 +193,17 @@ export function TabStrip(): JSX.Element {
         </button>
         <button
           type="button"
-          className="nf-topbar-button"
+          className="nf-toolbar-button"
           aria-label="New note"
           title="New note (⌘N)"
-          data-topbar-new="true"
+          data-toolbar-new="true"
           onClick={() => void createNewDocument()}
         >
           <Plus size={15} strokeWidth={1.5} aria-hidden="true" />
         </button>
         <button
           type="button"
-          className="nf-topbar-button"
+          className="nf-toolbar-button"
           aria-label="All open tabs"
           title="All tabs"
           onClick={openOverflow}

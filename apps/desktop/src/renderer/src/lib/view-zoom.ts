@@ -2,7 +2,7 @@
  * Layout-aware zoom resolution (V0 shell frame).
  *
  * Continuous and Page each keep their own zoom in the per-document view state.
- * The TopBar view controls, the keyboard shortcuts, the palette, and the native
+ * The Toolbar view controls, the keyboard shortcuts, the palette, and the native
  * View menu must all target the active layout's value; this module is the one
  * pure mapping from view state to "what zoom control am I", so they cannot
  * drift into reading `zoom` while Page is visible (or `pageZoom` while

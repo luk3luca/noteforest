@@ -48,6 +48,7 @@ never repeats the literal.
 | `childRowGap` | `--nf-child-row-gap` | 16 px | Vertical gap between sibling blocks |
 | `cardPadding` | `--nf-card-padding` | 10 px | Continuous card padding |
 | `cardRadius` | `--nf-card-radius` | 4 px | **Shared** card/block-image radius (Page cards use it too) |
+| `noteRadius` | `--nf-note-radius` | 9 px | Continuous note-card surface radius only (Page cards/print keep `cardRadius`) |
 | `childMinWidth` | `--nf-child-min-width` | 144 px | Continuous child card minimum |
 | `childMaxWidth` | `--nf-child-max-width` | 420 px | Continuous child card maximum |
 | `topLevelMinWidth` | `--nf-top-level-min-width` | 160 px | Continuous top-level card minimum |

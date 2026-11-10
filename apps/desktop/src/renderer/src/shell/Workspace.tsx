@@ -1,11 +1,12 @@
-import { Panel, Group, Separator } from 'react-resizable-panels';
-import { useEffect, useState } from 'react';
+import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
+import { useCallback, useEffect, useState } from 'react';
 import { FilePlus2, Search } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { getRuntime, useRegistry } from '../state/registry';
 import { createNewDocument } from '../actions';
 import { DocumentEditor } from '../editor/DocumentEditor';
 import { Sidebar } from './Sidebar';
+import { Toolbar } from './Toolbar';
 import { RecoverySurface } from './RecoverySurface';
 
 function EmptyState(): JSX.Element {
@@ -43,6 +44,18 @@ function useNarrowWindow(): boolean {
   return narrow;
 }
 
+/** Collapsed sidebar width; the rail is a real column, not a hidden panel. */
+const RAIL_WIDTH = 48;
+
+/**
+ * The workspace body (V0 visual): a persistent Sidebar panel and a main column
+ * holding the 44 px Toolbar and the rounded Canvas panel.
+ *
+ * The Sidebar is a collapsible resizable panel that collapses to a 48 px rail.
+ * The Group stays mounted, so the editor keeps its state and scroll across a
+ * collapse. A narrow window auto-collapses to the rail without overwriting the
+ * user's persisted preference; the rail expand is a temporary override there.
+ */
 export function Workspace(): JSX.Element {
   const narrow = useNarrowWindow();
   const sidebarCollapsed = useShell((state) => state.sidebarCollapsed);
@@ -50,7 +63,37 @@ export function Workspace(): JSX.Element {
   const setSidebarWidth = useShell((state) => state.setSidebarWidth);
   const tabs = useShell((state) => state.tabs);
   const activeTab = useShell((state) => state.activeTab);
+  const panelRef = usePanelRef();
+  const [narrowExpanded, setNarrowExpanded] = useState(false);
   useRegistry();
+
+  const rail = sidebarCollapsed || (narrow && !narrowExpanded);
+
+  // The persisted preference is the source of truth; narrow is a viewport
+  // override. Reset the override when the window is wide again.
+  useEffect(() => {
+    if (!narrow) setNarrowExpanded(false);
+  }, [narrow]);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (panel === null) return;
+    if (rail) {
+      if (!panel.isCollapsed()) panel.collapse();
+    } else if (panel.isCollapsed()) {
+      panel.expand();
+      // A panel collapsed before its first layout has no remembered expand
+      // size; the persisted width is the source of truth on every expand.
+      panel.resize(sidebarWidth);
+    }
+  }, [rail, panelRef, sidebarWidth]);
+
+  const expandSidebar = useCallback(() => {
+    if (narrow) setNarrowExpanded(true);
+    if (sidebarCollapsed) useShell.getState().setSidebarCollapsed(false);
+    panelRef.current?.expand();
+    panelRef.current?.resize(sidebarWidth);
+  }, [narrow, panelRef, sidebarCollapsed, sidebarWidth]);
 
   const editor = (
     <div className="nf-editor-column">
@@ -88,18 +131,8 @@ export function Workspace(): JSX.Element {
     </div>
   );
 
-  // The sidebar is user-collapsible (persisted) or auto-hidden on a narrow
-  // window. Narrow auto-hide never overwrites the user's preference.
-  if (sidebarCollapsed || narrow) {
-    return (
-      <div className="nf-workspace nf-workspace-collapsed">
-        {editor}
-      </div>
-    );
-  }
-
   return (
-    <div className="nf-workspace-shell">
+    <div className="nf-workspace-shell" data-rail={rail ? 'true' : 'false'}>
       <Group
         orientation="horizontal"
         className="nf-workspace"
@@ -111,15 +144,25 @@ export function Workspace(): JSX.Element {
           defaultSize={sidebarWidth}
           minSize={208}
           maxSize={360}
+          collapsible
+          collapsedSize={RAIL_WIDTH}
+          disabled={rail}
+          panelRef={panelRef}
           onResize={(size) => {
-            if (size.inPixels > 0) setSidebarWidth(size.inPixels);
+            // Collapse passes through the rail width; never persist it.
+            if (!rail && size.inPixels >= 208) setSidebarWidth(size.inPixels);
           }}
         >
-          <Sidebar />
+          <Sidebar collapsed={rail} onExpand={expandSidebar} />
         </Panel>
         <Separator className="nf-separator" aria-label="Resize sidebar" />
-        <Panel id="editor" className="nf-editor-panel" minSize={480}>
-          {editor}
+        <Panel id="main" className="nf-main-panel" minSize={480}>
+          <div className="nf-main-column">
+            <Toolbar />
+            <div className="nf-canvas-panel" data-canvas-panel="true">
+              {editor}
+            </div>
+          </div>
         </Panel>
       </Group>
     </div>

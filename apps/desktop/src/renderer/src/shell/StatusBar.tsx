@@ -10,7 +10,7 @@ import { currentWordCount } from '../actions';
  *
  * Save state, word/block counts, and anchor health live here. Layout, mode,
  * zoom, focus, path, and theme are not repeated: view controls live in the
- * TopBar, focus is `⇧⌘F`/palette, reveal is the tab menu/Settings.
+ * Toolbar, focus is `⇧⌘F`/palette, Reveal in Finder is the tab menu/Settings.
  */
 export function StatusBar(): JSX.Element {
   const activeTab = useShell((state) => state.activeTab);

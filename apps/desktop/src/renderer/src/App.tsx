@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import type { FlushResult, MenuCommand } from '../../shared/api';
-import { TopBar } from './shell/TopBar';
+import { TitleBar } from './shell/TitleBar';
 import { Workspace } from './shell/Workspace';
 import { StatusBar } from './shell/StatusBar';
 import { CommandPalette } from './shell/CommandPalette';
@@ -746,7 +746,7 @@ export function App(): JSX.Element {
 
   return (
     <div className="nf-app">
-      <TopBar />
+      <TitleBar />
       <Workspace />
       <StatusBar />
       <CommandPalette />

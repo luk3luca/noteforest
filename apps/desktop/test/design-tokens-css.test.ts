@@ -85,6 +85,7 @@ describe('design tokens are the single source for CSS geometry', () => {
       '--nf-child-row-gap': '16px',
       '--nf-card-padding': '10px',
       '--nf-card-radius': '4px',
+      '--nf-note-radius': '9px',
       '--nf-child-min-width': '144px',
       '--nf-child-max-width': '420px',
       '--nf-top-level-min-width': '160px',
@@ -152,7 +153,10 @@ describe('design tokens are the single source for CSS geometry', () => {
     expect(declaration('.nf-block-body', 'min-width')).toBe('var(--nf-child-min-width)');
     expect(declaration('.nf-block-body', 'max-width')).toBe('var(--nf-child-max-width)');
     expect(declaration('.nf-block-body', 'padding')).toBe('var(--nf-card-padding)');
-    expect(declaration('.nf-block-body', 'border-radius')).toBe('var(--nf-card-radius)');
+    expect(declaration('.nf-block-body', 'border-radius')).toBe('var(--nf-note-radius)');
+    // The Continuous note radius is a separate token; Page cards keep the
+    // shared 4 px radius (V0 visual must not change Page/PDF).
+    expect(declaration('.nf-page-card', 'border-radius')).toBe('var(--nf-card-radius)');
     expect(declaration('.nf-block-body[data-top-level="true"]', 'min-width')).toBe(
       'var(--nf-top-level-min-width)',
     );

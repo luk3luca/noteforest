@@ -96,7 +96,13 @@ export const DESIGN_TOKENS = Object.freeze({
   wrapIndent: 18,
   /** Card chrome. */
   cardPadding: 10,
+  /** Shared card/image/Page radius. */
   cardRadius: 4,
+  /**
+   * Continuous note-card surface radius (V0 visual). Continuous cards are a
+   * separate class from Page cards, so Page/print keep the shared 4 px value.
+   */
+  noteRadius: 9,
   /**
    * Documented below-stack stacking. Keep in sync with the renderer rules and
    * `docs/design-tokens.md`; the guard test reads these through the CSS map.
@@ -137,6 +143,7 @@ export const DESIGN_TOKEN_CSS_VARIABLES = Object.freeze({
   '--nf-child-row-gap': px(DESIGN_TOKENS.childRowGap),
   '--nf-card-padding': px(DESIGN_TOKENS.cardPadding),
   '--nf-card-radius': px(DESIGN_TOKENS.cardRadius),
+  '--nf-note-radius': px(DESIGN_TOKENS.noteRadius),
   '--nf-child-min-width': px(DESIGN_TOKENS.childMinWidth),
   '--nf-child-max-width': px(DESIGN_TOKENS.childMaxWidth),
   '--nf-top-level-min-width': px(DESIGN_TOKENS.topLevelMinWidth),

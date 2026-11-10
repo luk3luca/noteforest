@@ -227,12 +227,15 @@ describe('NoteForest M2 visual evidence', () => {
     await rootCard.locator('[data-branch-port]').click();
     await h.waitEdges(3);
 
-    // 200% zoom: the sidebar yields, nothing overflows.
+    // 200% zoom: the sidebar yields to the 48 px rail, nothing overflows.
     await h.app.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(2);
     });
     await page.waitForFunction(
-      () => document.querySelector('.nf-sidebar-panel') === null,
+      () => {
+        const rail = document.querySelector('.nf-sidebar-rail');
+        return rail !== null && Math.abs(rail.getBoundingClientRect().width - 48) < 1;
+      },
       undefined,
       { timeout: 10000 },
     );
@@ -241,7 +244,7 @@ describe('NoteForest M2 visual evidence', () => {
       BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1);
     });
     await page.waitForFunction(
-      () => document.querySelector('.nf-sidebar-panel') !== null,
+      () => document.querySelector('.nf-sidebar-search') !== null,
       undefined,
       { timeout: 10000 },
     );

@@ -309,6 +309,7 @@ describe('NoteForest M2 view controls', () => {
           childRowGap: readVar('--nf-child-row-gap'),
           cardPadding: readVar('--nf-card-padding'),
           cardRadius: readVar('--nf-card-radius'),
+          noteRadius: readVar('--nf-note-radius'),
           childMinWidth: readVar('--nf-child-min-width'),
           childMaxWidth: readVar('--nf-child-max-width'),
           topLevelMinWidth: readVar('--nf-top-level-min-width'),
@@ -351,6 +352,7 @@ describe('NoteForest M2 view controls', () => {
       childRowGap: '16px',
       cardPadding: '10px',
       cardRadius: '4px',
+      noteRadius: '9px',
       childMinWidth: '144px',
       childMaxWidth: '420px',
       topLevelMinWidth: '160px',
@@ -373,7 +375,8 @@ describe('NoteForest M2 view controls', () => {
       minWidth: '144px',
       maxWidth: '420px',
       paddingTop: '10px',
-      radius: '4px',
+      /* The V0 visual rounds Continuous note cards; Page cards keep 4 px. */
+      radius: '9px',
     });
     assert.deepEqual(geometry.topLevel, { minWidth: '160px', maxWidth: '480px' });
     assert.equal(geometry.edge.width, 1.25);

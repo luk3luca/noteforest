@@ -1006,7 +1006,7 @@ describe('NoteForest M2 editor shell', () => {
     // Ctrl+Tab is a real tab cycle, and the active tab exposes a focusable,
     // announced close button.
     const firstPath = (await h.state()).activeTab;
-    await page.locator('.nf-topbar-button[aria-label="New note"]').click();
+    await page.locator('.nf-toolbar-button[aria-label="New note"]').click();
     await page.waitForFunction(
       () => window.__noteforestTest.state().tabs.length === 2,
       undefined,

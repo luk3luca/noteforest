@@ -17,7 +17,7 @@ const ZOOM_COMMANDS: Readonly<Record<ZoomCommand, { label: string }>> = {
 };
 
 /**
- * TopBar view controls (layout, mode, layout-aware zoom).
+ * Toolbar view controls (layout, mode, layout-aware zoom).
  *
  * One visible home for layout/mode/zoom (ADR-0007 surfaces). The zoom target is
  * resolved from the active layout, so Page zoom/fit never touches the hidden
