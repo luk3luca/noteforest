@@ -211,11 +211,12 @@ copy, and tests when the phase starts.
 
 To avoid one delegate restart per design page, the implementation is consolidated:
 
-- **Batch A — non-Page/PDF UI:** P1 shell, P2 Settings shell, P4 Export + palette, and the
-  palette/read-mode parts of P5. One implementer and worktree, checkpoint commits, one
-  `verify:fast`, one full integration verify. Brief: `docs/tasks/ui-batch-a.md`.
-- **Batch B — Page/PDF/future:** P3 Page settings, P6 future functions, and the remaining P5
-  native-menu/dialog/context/toast parity. It starts after Batch A is integrated.
+- **Batch A — non-Page/PDF UI (merged 10 November 2026, `af815eb`):** P1 shell, P2 Settings shell,
+  P4 Export + palette, and the palette/read-mode parts of P5. One implementer and worktree,
+  checkpoint commits, one `verify:fast`, one full integration verify. Brief:
+  `docs/tasks/ui-batch-a.md`; report: `docs/reports/ui-batch-a.md`.
+- **Batch B — Page/PDF/future (next):** P3 Page settings, P6 future functions, and the remaining P5
+  native-menu/dialog/context/toast parity.
 
 The phases in §3 remain the acceptance checkpoints inside the batches. Batch A must not change the
 Page sheet, paginator, print compositor, or PDF output.
@@ -236,10 +237,13 @@ Page sheet, paginator, print compositor, or PDF output.
 
 ## 8. Status
 
-- Shell: V0 visual merged; C/D variants in the lab; C preferred, D alternative.
-- Settings: lab draft; frozen model; instant-save/future-page decisions recorded; implementation not
-  started.
-- Export: shipped M4d2; lab now has all states (configure/overwrite/progress/done/failed/cancelled).
-- Palette: basic shipped; lab now has registry-style groups, search, disabled reason, empty state.
-- Next: Batch A brief is ready (`docs/tasks/ui-batch-a.md`); Batch B follows after integration.
-  Future functions remain empty pages with the references above.
+- Shell: Batch A merged; C header (fixed, edge-to-edge, undo/redo left, icon-only views right),
+  tabs, zoom removal, active ring are implemented in Electron.
+- Settings: Batch A merged; instant-save shell, scope/override, no-document/read-only, existing
+  Page density. Full Page settings are Batch B.
+- Export: Batch A merged; 560 px sheet, no native save dialog, all states, grouped warnings.
+- Palette: Batch A merged; commands/documents/blocks, search, keyboard, disabled reasons, empty
+  state, read-mode gating.
+- Next: Batch B (Page setup/margins/preview/validation/density/preset, Page chrome, Page/PDF).
+  Future functions remain empty pages with the references above. The lab Settings/Export/Palette
+  mocks predate Batch A; Electron is the source for those surfaces now.

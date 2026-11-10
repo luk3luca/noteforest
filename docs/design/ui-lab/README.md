@@ -60,3 +60,7 @@ The **Variant** bar is an exploration surface only. It does not change Electron;
 direction will be ported later, after the product-owner review. The implementation plan and the
 complete reference index are in `docs/tasks/ui-rework.md`; future functions are recorded there and
 stay empty/hidden until their phase starts.
+
+**After UI Batch A:** Electron is the source of truth for the shell, Settings, Export, and Palette.
+The lab's Settings/Export/Palette mocks predate Batch A and are kept as the design reference only;
+the lab remains the shell/visual reference for Batch B.

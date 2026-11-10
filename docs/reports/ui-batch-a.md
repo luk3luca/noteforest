@@ -1,6 +1,6 @@
 # UI rework — Batch A implementation report
 
-**Status:** Implemented; targeted suites and `verify:fast` green; awaiting Orchestrator integration.
+**Status:** Merged into `design/ui-map` (not `main`) after the full verify; Batch B next.
 **Role:** Implementer / Builder
 **Task:** `docs/tasks/ui-batch-a.md`
 **Branch:** `t3/ui-batch-a-shell-settings-export`
@@ -165,7 +165,20 @@ and the final `verify:fast` includes it.
 - Full Batch B (Page setup/margins/preview/validation/preset, Page chrome, manual breaks) remains
   out of scope.
 
+## Integration
+
+- Full `npm run verify` on `af815eb`: all unit/e2e/recovery/UI suites passed; no failures, 0
+  pageErrors. Unit: 103 files / 1027 tests. UI: 40 suites, 510.68 s (Batch A suite included).
+  `verify:fast`: 53.01 s; the targeted recheck after the focus/ARIA follow-up was 18/18.
+- The final focus/ARIA follow-up (`1552cdc`) is included in `af815eb`; it was rechecked with
+  `v0-shell-frame` + `m4d2-export-ui` + `ui-batch-a`.
+- Batch A was merged fast-forward into `design/ui-map` (not `main`) from `4102e06` to `af815eb`.
+- Screenshots copied to `artifacts/ui-batch-a/` (14 images; ignored by git).
+- Batch B next: Page setup/margins/preview/validation/density/preset, Page chrome, and
+  PDF-affecting work. Future functions remain empty/hidden.
+
 ## Next step
 
-The Orchestrator should review the checkpoint commits, run the single full `npm run verify`, and
-merge into `design/ui-map` (not `main`). Batch B starts after that integration.
+Batch B: Page settings (setup/orientation/margins, live preview, validation, density/preset,
+scope/override) and the Page/PDF-affecting pass. Full Page chrome/manual breaks/Appearance/Export
+defaults remain future pages.

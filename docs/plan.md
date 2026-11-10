@@ -435,6 +435,6 @@ palette, overlays/keyboard, responsive/accessibility, and the future settings pa
 
 Implementation is consolidated into **two delivery batches**: **A** (shell, Settings shell, Export,
 Palette; non-Page/PDF) and **B** (Page settings, future functions, Page/PDF-affecting work), with
-P1–P6 as acceptance checkpoints inside them. Batch A brief: `docs/tasks/ui-batch-a.md`. Future
-pages stay empty in the lab and out of the product until a real control exists. No product code
-starts before the lab is frozen.
+P1–P6 as acceptance checkpoints inside them. Batch A is merged into `design/ui-map` at `af815eb`
+(full verify green; report `docs/reports/ui-batch-a.md`). Batch B is next. Future pages stay empty
+in the lab and out of the product until a real control exists.
