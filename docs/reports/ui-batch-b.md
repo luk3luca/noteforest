@@ -95,8 +95,8 @@ changed. The existing print/PDF pipeline still consumes the same resolved settin
 | `npm run check:boundaries` | 174 files, 862 imports, 16 rules | 0.44 s |
 | `npm run typecheck` | all workspaces clean | 4.95 s |
 | `npx vitest run` | 105 files / 1051 tests passed | 2.71 s |
-| `npm run e2e` (critical, in `verify:fast`) | 16/16 passed | 35.84 s (suite) |
-| **`npm run verify:fast`** | **exit 0** | **52.82 s** |
+| `npm run e2e` (critical, in `verify:fast`) | 16/16 passed | 35.79 s (suite) |
+| **`npm run verify:fast`** | **exit 0** | **52.59 s** |
 | Targeted `ui-batch-b` | 9/9 | 10.27 s (suite) |
 | Targeted `ui-batch-a` | 5/5 | 10.53 s |
 | Targeted `m4e1-settings-platform` | 4/4 | 3.27 s |
