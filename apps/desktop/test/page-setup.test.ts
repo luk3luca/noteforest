@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PageSetup, PageSettingsOverride } from '@noteforest/layout';
 import {
-  MARGIN_CONTENT_MESSAGE,
   MARGIN_NUMBER_MESSAGE,
   MARGIN_RANGE_MESSAGE,
   compactOverride,
@@ -80,7 +79,7 @@ describe('Page setup margin validation', () => {
     expect(vertical.valid).toBe(false);
     expect(vertical.fieldErrors.top).toContain('20 mm');
     expect(vertical.fieldErrors.bottom).toBe(vertical.fieldErrors.top);
-    expect(vertical.groupError).toBe(MARGIN_CONTENT_MESSAGE);
+    expect(vertical.groupError).toContain('20 mm');
 
     const horizontalA5 = validateMargins(draft('12', '100', '12', '100'), 'A5', 'landscape');
     expect(horizontalA5.valid).toBe(false);

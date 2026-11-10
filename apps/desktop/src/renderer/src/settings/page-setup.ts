@@ -27,7 +27,6 @@ export const PAGE_MIN_CONTENT_MM = 20;
 
 export const MARGIN_NUMBER_MESSAGE = 'Enter a margin in millimetres.';
 export const MARGIN_RANGE_MESSAGE = 'Use a value from 0 to 100 mm.';
-export const MARGIN_CONTENT_MESSAGE = `Margins must leave at least ${PAGE_MIN_CONTENT_MM} mm of content in each direction.`;
 
 export type MarginDraft = Record<MarginKey, string>;
 
@@ -109,7 +108,12 @@ export function validateMargins(
       valid: false,
       margins: null,
       fieldErrors,
-      groupError: MARGIN_CONTENT_MESSAGE,
+      groupError: Object.values(fieldErrors).some(
+        (message) =>
+          message === MARGIN_NUMBER_MESSAGE || message === MARGIN_RANGE_MESSAGE,
+      )
+        ? 'Enter a number from 0 to 100 mm for each margin.'
+        : `Margins must leave at least ${PAGE_MIN_CONTENT_MM} mm of content in each direction.`,
     };
   }
 
@@ -143,7 +147,7 @@ export function validateMargins(
       valid: false,
       margins: null,
       fieldErrors,
-      groupError: MARGIN_CONTENT_MESSAGE,
+      groupError: `Margins must leave at least ${PAGE_MIN_CONTENT_MM} mm of content in each direction.`,
     };
   }
 
