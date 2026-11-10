@@ -251,7 +251,9 @@ export function ExportSheet(): JSX.Element | null {
                       onChange={(event) => setExportAddDate(event.target.checked)}
                     />
                     <span>Add date</span>
-                    <span className="nf-export-help">— {fileName}</span>
+                    {addDate ? (
+                      <span className="nf-export-help">— {fileName}</span>
+                    ) : null}
                   </label>
                   <div className="nf-export-destination">
                     <span className="nf-export-label">Destination</span>
