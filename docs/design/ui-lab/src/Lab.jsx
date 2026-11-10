@@ -22,8 +22,14 @@ import {
 } from 'lucide-react';
 
 const documents = [
-  { title: 'Untitled', open: true },
-  { title: 'Linear algebra', open: true, active: true },
+  { title: 'Untitled', open: true, chapters: 0 },
+  { title: 'Linear algebra', open: true, active: true, chapters: 1 },
+];
+
+const paletteBlocks = [
+  { title: 'Eigenvalues', chapter: 'Chapter 1' },
+  { title: 'Eigenvector', chapter: 'Chapter 1' },
+  { title: 'Spectrum', chapter: 'Chapter 1' },
 ];
 
 const tabs = [
@@ -40,15 +46,6 @@ const topics = [
   { title: 'Worked example', depth: 1 },
   { title: 'Trace and determinant', depth: 1 },
   { title: 'A = [[2, 1], [1, 2]]', depth: 1 },
-];
-
-const paletteCommands = [
-  { label: 'New note', shortcut: '⌘N' },
-  { label: 'Save now', shortcut: '⌘S' },
-  { label: 'Export PDF…', shortcut: '⇧⌘E' },
-  { label: 'Toggle sidebar', shortcut: '⌘\\' },
-  { label: 'Command palette', shortcut: '⌘K' },
-  { label: 'Settings…', shortcut: '⌘,' },
 ];
 
 const settingsPages = [
@@ -1047,106 +1044,391 @@ function SettingsModal({ onClose }) {
   );
 }
 
-function ExportSheet({ onClose }) {
-  const [step, setStep] = useState('configure');
+function ExportSheet({ onClose, layout }) {
+  const [state, setState] = useState('configure');
+  const stateOptions = [
+    { id: 'configure', label: 'Configure' },
+    { id: 'overwrite', label: 'Overwrite' },
+    { id: 'progress', label: 'Progress' },
+    { id: 'done', label: 'Done' },
+    { id: 'failed', label: 'Failed' },
+    { id: 'cancelled', label: 'Cancelled' },
+  ];
+  const titles = {
+    configure: 'Export PDF',
+    overwrite: 'Replace existing PDF?',
+    progress: 'Exporting PDF…',
+    done: 'PDF exported',
+    failed: 'Export failed',
+    cancelled: 'Export cancelled',
+  };
+
+  let body = null;
+  let footer = null;
+
+  if (state === 'configure') {
+    body = (
+      <div className="lab-modal-body">
+        <section className="lab-export-section">
+          <h3>Destination</h3>
+          <div className="lab-export-path">
+            <span>~/Documents/Exports</span>
+            <button type="button" className="lab-btn">Choose…</button>
+          </div>
+          <Row label="File name">
+            <div className="lab-export-name">
+              <input className="lab-input" defaultValue="Linear algebra" />
+              <span className="lab-file-suffix">.pdf</span>
+            </div>
+          </Row>
+          <label className="lab-check">
+            <input type="checkbox" /> Add date
+          </label>
+          <p className="lab-export-path-preview">~/Documents/Exports/Linear algebra.pdf</p>
+        </section>
+        <section className="lab-export-section">
+          <h3>What will be exported</h3>
+          {layout === 'continuous' ? (
+            <p className="lab-export-note">Page layout will be exported (you are in Continuous).</p>
+          ) : null}
+          <div className="lab-export-summary">
+            <span>{layout === 'continuous' ? 'A4 landscape · 12 mm · 100%' : 'Page layout · A4 landscape · 12 mm · 100%'}</span>
+            <span>12 pages · whole document</span>
+          </div>
+          <p className="lab-export-note">Metadata, tagged PDF, and page range are planned.</p>
+        </section>
+        <p className="lab-export-preflight">Preflight runs automatically when you export.</p>
+      </div>
+    );
+    footer = (
+      <footer className="lab-modal-foot">
+        <button type="button" className="lab-btn" onClick={onClose}>Cancel</button>
+        <span className="lab-topbar-spacer" />
+        <button type="button" className="lab-btn lab-btn-primary" onClick={() => setState('progress')}>Export</button>
+      </footer>
+    );
+  } else if (state === 'overwrite') {
+    body = (
+      <div className="lab-modal-body">
+        <p className="lab-export-lead">A file already exists at:</p>
+        <p className="lab-export-path-preview">~/Documents/Exports/Linear algebra.pdf</p>
+        <p className="lab-export-note">Replacing it cannot be undone.</p>
+      </div>
+    );
+    footer = (
+      <footer className="lab-modal-foot">
+        <button type="button" className="lab-btn" onClick={() => setState('configure')}>Cancel</button>
+        <span className="lab-topbar-spacer" />
+        <button type="button" className="lab-btn lab-btn-danger" onClick={() => setState('progress')}>Replace PDF</button>
+      </footer>
+    );
+  } else if (state === 'progress') {
+    body = (
+      <div className="lab-modal-body">
+        <p className="lab-export-lead">Printing…</p>
+        <div
+          className="lab-progress"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="62"
+          aria-label="Export progress"
+        >
+          <div className="lab-progress-fill" style={{ width: '62%' }} />
+        </div>
+        <div className="lab-export-progress-meta">
+          <span>62%</span>
+          <span>~/Documents/Exports/Linear algebra.pdf</span>
+        </div>
+      </div>
+    );
+    footer = (
+      <footer className="lab-modal-foot">
+        <button type="button" className="lab-btn" onClick={() => setState('cancelled')}>Cancel</button>
+        <span className="lab-topbar-spacer" />
+        <span className="lab-export-status">Writing…</span>
+      </footer>
+    );
+  } else if (state === 'done') {
+    body = (
+      <div className="lab-modal-body">
+        <p className="lab-export-done">12 pages · ~/Documents/Exports/Linear algebra.pdf</p>
+        <section className="lab-export-section">
+          <h3>Warnings (2)</h3>
+          <details className="lab-warning-group">
+            <summary>Layout · Manual break before “Chapter 3” could not be honored</summary>
+            <p>The break was ignored; the block starts on page 7.</p>
+          </details>
+          <details className="lab-warning-group">
+            <summary>Assets · Image asset missing in “Cell diagram”</summary>
+            <p>The image placeholder was used in the PDF.</p>
+          </details>
+        </section>
+      </div>
+    );
+    footer = (
+      <footer className="lab-modal-foot">
+        <button type="button" className="lab-btn">Reveal in Finder</button>
+        <span className="lab-topbar-spacer" />
+        <button type="button" className="lab-btn lab-btn-primary">Open PDF</button>
+        <button type="button" className="lab-btn" onClick={onClose}>Done</button>
+      </footer>
+    );
+  } else if (state === 'failed') {
+    body = (
+      <div className="lab-modal-body">
+        <p className="lab-export-lead">The PDF could not be written because the folder is read-only.</p>
+        <p className="lab-export-error">EACCES · ~/Documents/Exports/Linear algebra.pdf</p>
+        <section className="lab-export-section">
+          <h3>Affected</h3>
+          <p className="lab-export-note">“Cell diagram”, image block</p>
+        </section>
+        <details className="lab-warning-group">
+          <summary>Assets · Image asset missing in “Cell diagram”</summary>
+          <p>The image placeholder was used in the PDF.</p>
+        </details>
+      </div>
+    );
+    footer = (
+      <footer className="lab-modal-foot">
+        <button type="button" className="lab-btn" onClick={onClose}>Close</button>
+        <span className="lab-topbar-spacer" />
+        <button type="button" className="lab-btn lab-btn-primary" onClick={() => setState('configure')}>Retry</button>
+      </footer>
+    );
+  } else {
+    body = (
+      <div className="lab-modal-body">
+        <p className="lab-export-lead">Export cancelled. No file was written.</p>
+      </div>
+    );
+    footer = (
+      <footer className="lab-modal-foot">
+        <button type="button" className="lab-btn" onClick={onClose}>Close</button>
+        <span className="lab-topbar-spacer" />
+        <button type="button" className="lab-btn lab-btn-primary" onClick={() => setState('configure')}>Retry</button>
+      </footer>
+    );
+  }
+
   return (
     <div className="lab-overlay" onMouseDown={onClose}>
-      <div className="lab-modal lab-export" role="dialog" aria-modal="true" aria-label="Export PDF" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="lab-modal-head">
-          <h2>{step === 'done' ? 'PDF exported' : 'Export PDF'}</h2>
-          <IconButton label="Close export" onClick={onClose}>
-            <X size={16} strokeWidth={1.5} />
-          </IconButton>
-        </header>
-        {step === 'configure' ? (
-          <>
-            <div className="lab-modal-body">
-              <section className="lab-export-section">
-                <h3>Destination</h3>
-                <div className="lab-export-path">
-                  <span>~/Documents/Exports</span>
-                  <button type="button" className="lab-btn">Choose…</button>
-                </div>
-                <Row label="File name">
-                  <input className="lab-input" defaultValue="Linear algebra.pdf" />
-                </Row>
-                <label className="lab-check">
-                  <input type="checkbox" /> Add date
-                </label>
-              </section>
-              <section className="lab-export-section">
-                <h3>What will be exported</h3>
-                <div className="lab-export-summary">
-                  <span>Page layout · A4 landscape · 12 mm · 100%</span>
-                  <span>12 pages · whole document</span>
-                </div>
-              </section>
-              <details className="lab-advanced">
-                <summary>Advanced</summary>
-                <Row label="Metadata"><span className="lab-readonly">Title, creator</span></Row>
-                <Row label="Tagged PDF"><span className="lab-readonly">Off</span></Row>
-                <Row label="Page range"><span className="lab-readonly">Whole document</span></Row>
-              </details>
-            </div>
-            <footer className="lab-modal-foot">
-              <button type="button" className="lab-btn" onClick={onClose}>Cancel</button>
-              <button type="button" className="lab-btn lab-btn-primary" onClick={() => setStep('done')}>Export</button>
-            </footer>
-          </>
-        ) : (
-          <>
-            <div className="lab-modal-body">
-              <p className="lab-export-done">12 pages · ~/Documents/Exports/Linear algebra.pdf</p>
-              <section className="lab-export-section">
-                <h3>Warnings (2)</h3>
-                <ul className="lab-warning-list">
-                  <li>Manual break before “Chapter 3” could not be honored</li>
-                  <li>Image asset missing in “Cell diagram”</li>
-                </ul>
-              </section>
-            </div>
-            <footer className="lab-modal-foot">
-              <button type="button" className="lab-btn">Reveal in Finder</button>
-              <span className="lab-topbar-spacer" />
-              <button type="button" className="lab-btn lab-btn-primary">Open PDF</button>
-              <button type="button" className="lab-btn" onClick={onClose}>Done</button>
-            </footer>
-          </>
-        )}
+      <div className="lab-export-wrap" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="lab-export-states" role="group" aria-label="Lab export states">
+          <span className="lab-export-states-label">LAB · EXPORT STATES</span>
+          <div className="lab-bar-group">
+            {stateOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={state === option.id ? 'is-active' : ''}
+                onClick={() => setState(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="lab-modal lab-export" role="dialog" aria-modal="true" aria-label="Export PDF">
+          <header className="lab-modal-head">
+            <h2>{titles[state]}</h2>
+            <IconButton label="Close export" onClick={onClose}>
+              <X size={16} strokeWidth={1.5} />
+            </IconButton>
+          </header>
+          {body}
+          {footer}
+        </div>
       </div>
     </div>
   );
 }
 
-function CommandPalette({ onClose }) {
+function CommandPalette({
+  onClose,
+  layout,
+  setLayout,
+  mode,
+  setMode,
+  onExport,
+  onSettings,
+  onToggleSidebar,
+}) {
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState(0);
+
+  const commands = [
+    { id: 'new-note', label: 'New note', shortcut: '⌘N', run: onClose },
+    { id: 'save', label: 'Save', shortcut: '⌘S', run: onClose },
+    { id: 'export', label: 'Export PDF…', shortcut: '⇧⌘E', run: onExport },
+    {
+      id: 'layout',
+      label: layout === 'continuous' ? 'Switch to Page layout' : 'Switch to Continuous layout',
+      shortcut: layout === 'continuous' ? '⌘3' : '⌘2',
+      run: () => {
+        setLayout(layout === 'continuous' ? 'page' : 'continuous');
+        onClose();
+      },
+    },
+    {
+      id: 'mode',
+      label: mode === 'edit' ? 'Switch to Read mode' : 'Switch to Edit mode',
+      shortcut: '⌘E',
+      run: () => {
+        setMode(mode === 'edit' ? 'read' : 'edit');
+        onClose();
+      },
+    },
+    {
+      id: 'sidebar',
+      label: 'Toggle sidebar',
+      shortcut: '⌘\\',
+      run: () => {
+        onToggleSidebar();
+        onClose();
+      },
+    },
+    { id: 'settings', label: 'Settings…', shortcut: '⌘,', run: onSettings },
+    {
+      id: 'new-chapter',
+      label: 'New chapter',
+      shortcut: '⇧⌘N',
+      disabled: mode === 'read',
+      reason: 'Read mode',
+      run: onClose,
+    },
+  ];
+
+  const value = query.trim().toLowerCase();
+  const match = (text) => text.toLowerCase().includes(value);
+  const filteredCommands = commands.filter((command) => match(command.label));
+  const filteredDocuments = documents.filter((document) => match(document.title));
+  const filteredBlocks = paletteBlocks.filter(
+    (block) => match(block.title) || match(block.chapter),
+  );
+
+  const sections = [
+    { id: 'commands', label: 'Commands', rows: filteredCommands },
+    {
+      id: 'documents',
+      label: 'Documents',
+      rows: filteredDocuments.map((document) => ({
+        id: `document-${document.title}`,
+        label: document.title,
+        meta: `${document.chapters} ${document.chapters === 1 ? 'chapter' : 'chapters'}`,
+        icon: BookOpen,
+        run: onClose,
+      })),
+    },
+    {
+      id: 'blocks',
+      label: 'Blocks',
+      rows: filteredBlocks.map((block) => ({
+        id: `block-${block.title}`,
+        label: block.title,
+        meta: block.chapter,
+        run: onClose,
+      })),
+    },
+  ].filter((section) => section.rows.length > 0);
+
+  let nextIndex = 0;
+  const visibleSections = sections.map((section) => {
+    const rows = section.rows.map((row) => ({ ...row, index: nextIndex++ }));
+    return { ...section, rows };
+  });
+  const flatRows = visibleSections.flatMap((section) => section.rows);
+  const enabledIndexes = flatRows
+    .filter((row) => !row.disabled)
+    .map((row) => row.index);
+  const selectedIndex = enabledIndexes.includes(selected)
+    ? selected
+    : (enabledIndexes[0] ?? -1);
+
+  const move = (delta) => {
+    if (enabledIndexes.length === 0) return;
+    const current = enabledIndexes.indexOf(selectedIndex);
+    const base = current >= 0 ? current : 0;
+    const next = enabledIndexes[(base + delta + enabledIndexes.length) % enabledIndexes.length];
+    setSelected(next);
+  };
+
+  const onSearchKeyDown = (event) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      move(1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      move(-1);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const active = flatRows.find((row) => row.index === selectedIndex);
+      if (active !== undefined && active.disabled !== true) active.run();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      onClose();
+    }
+  };
+
   return (
-    <div className="lab-overlay" onMouseDown={onClose}>
+    <div className="lab-overlay lab-overlay-top" onMouseDown={onClose}>
       <div className="lab-modal lab-palette" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={(event) => event.stopPropagation()}>
         <div className="lab-palette-search">
           <Search size={15} strokeWidth={1.5} />
-          <input autoFocus placeholder="Search or run a command…" aria-label="Search commands" />
+          <input
+            autoFocus
+            value={query}
+            placeholder="Search or run a command…"
+            aria-label="Search commands"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelected(0);
+            }}
+            onKeyDown={onSearchKeyDown}
+          />
           <kbd>⌘K</kbd>
         </div>
         <div className="lab-palette-body">
-          <div className="lab-palette-group">Commands</div>
-          {paletteCommands.map((command) => (
-            <button key={command.label} type="button" className="lab-palette-row">
-              <span>{command.label}</span>
-              <kbd>{command.shortcut}</kbd>
-            </button>
-          ))}
-          <div className="lab-palette-group">Documents</div>
-          {documents.map((doc) => (
-            <button key={doc.title} type="button" className="lab-palette-row">
-              <BookOpen size={13} strokeWidth={1.5} />
-              <span>{doc.title}</span>
-            </button>
-          ))}
-          <div className="lab-palette-group">Blocks</div>
-          <button type="button" className="lab-palette-row">
-            <span>Eigenvalues</span>
-            <span className="lab-palette-meta">Chapter 1</span>
-          </button>
+          {visibleSections.length === 0 ? (
+            <div className="lab-palette-empty">No commands or documents match.</div>
+          ) : (
+            visibleSections.map((section) => (
+              <div key={section.id}>
+                <div className="lab-palette-group">{section.label}</div>
+                {section.rows.map((row) => {
+                  const Icon = row.icon;
+                  return (
+                    <button
+                      key={row.id}
+                      type="button"
+                      className={`lab-palette-row ${row.index === selectedIndex ? 'is-selected' : ''} ${row.disabled ? 'is-disabled' : ''}`}
+                      disabled={row.disabled}
+                      aria-disabled={row.disabled}
+                      onMouseEnter={() => {
+                        if (row.disabled !== true) setSelected(row.index);
+                      }}
+                      onClick={() => {
+                        if (row.disabled !== true) row.run();
+                      }}
+                    >
+                      {Icon ? <Icon size={13} strokeWidth={1.5} aria-hidden="true" /> : null}
+                      <span>{row.label}</span>
+                      {row.disabled ? (
+                        <span className="lab-palette-reason">{row.reason}</span>
+                      ) : row.shortcut ? (
+                        <kbd>{row.shortcut}</kbd>
+                      ) : row.meta ? (
+                        <span className="lab-palette-meta">{row.meta}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ))
+          )}
         </div>
         <footer className="lab-palette-foot">
           <span>↑↓ move</span>
@@ -1295,8 +1577,21 @@ export function Lab() {
         <StatusStrip />
       </div>
       {screen === 'settings' ? <SettingsModal onClose={() => setScreen('workspace')} /> : null}
-      {screen === 'export' ? <ExportSheet onClose={() => setScreen('workspace')} /> : null}
-      {screen === 'palette' ? <CommandPalette onClose={() => setScreen('workspace')} /> : null}
+      {screen === 'export' ? (
+        <ExportSheet layout={layout} onClose={() => setScreen('workspace')} />
+      ) : null}
+      {screen === 'palette' ? (
+        <CommandPalette
+          onClose={() => setScreen('workspace')}
+          layout={layout}
+          setLayout={setLayout}
+          mode={mode}
+          setMode={setMode}
+          onExport={() => setScreen('export')}
+          onSettings={() => setScreen('settings')}
+          onToggleSidebar={() => setCollapsed((value) => !value)}
+        />
+      ) : null}
     </div>
   );
 }

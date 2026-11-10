@@ -29,6 +29,14 @@ accent stripe. All variants share the tab changes (no global close, shrinking ta
 last tab, no horizontal scroll) and the zoom dropdown removal (minus / percentage / plus only;
 click the percentage to reset). The mock is everything below the lab bars; annotate that.
 
+**Export** has a LAB-only state strip: Configure, Overwrite, Progress, Done, Failed, Cancelled. It
+follows `docs/design/ui-export-contents.md` (560 px sheet, no native save dialog, in-sheet
+overwrite, progress/cancel, all warnings).
+
+**Palette** is searchable and keyboard-selectable: commands, documents with chapter counts, blocks,
+disabled rows with a reason, and an empty state. It follows `docs/design/ui-overlays-keyboard.md`;
+the command labels are the registry source.
+
 ## Scope
 
 - Full-shell visual mock: titlebar, toolbar, sidebar, Continuous canvas, Page, status strip,
@@ -49,4 +57,6 @@ traffic lights are replaced by the lab's fake dots. The Page sheet is still a pl
 Page design pass, and the Settings/Export/palette surfaces are design drafts, not Electron parity.
 
 The **Variant** bar is an exploration surface only. It does not change Electron; the selected
-direction will be ported later, after the product-owner review.
+direction will be ported later, after the product-owner review. The implementation plan and the
+complete reference index are in `docs/tasks/ui-rework.md`; future functions are recorded there and
+stay empty/hidden until their phase starts.

@@ -1255,6 +1255,11 @@ kbd {
   background: rgba(8, 9, 10, 0.58);
 }
 
+.lab-overlay-top {
+  align-items: flex-start;
+  padding-top: 9vh;
+}
+
 .lab-settings {
   width: 840px;
   height: 560px;
@@ -1611,6 +1616,17 @@ kbd {
   color: var(--accent-contrast);
 }
 
+.lab-btn-danger {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.lab-btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 24%, transparent);
+  color: var(--danger);
+}
+
 .lab-readonly {
   color: var(--text-secondary);
   font-size: 11.5px;
@@ -1651,10 +1667,38 @@ kbd {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
 }
 
-.lab-export {
-  width: 540px;
+.lab-export-wrap {
+  width: 560px;
   max-width: 92vw;
-  max-height: 86vh;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lab-export-states {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  background: #0c0d0f;
+  border: 1px dashed #3a3f46;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.lab-export-states-label {
+  flex: none;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.lab-export {
+  width: 100%;
+  max-width: 100%;
+  max-height: 80vh;
 }
 
 .lab-modal-head {
@@ -1725,24 +1769,132 @@ kbd {
   font-size: 11px;
 }
 
+.lab-export-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lab-export-name .lab-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.lab-file-suffix {
+  flex: none;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.lab-export-path-preview {
+  margin: 8px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+.lab-export-note {
+  margin: 6px 0 0;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.lab-export-preflight {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+.lab-export-lead {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.lab-export-error {
+  margin: 0 0 12px;
+  color: var(--danger);
+  font-family: var(--mono-font);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.lab-export-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+.lab-export-progress-meta span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-export-status {
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
+.lab-progress {
+  height: 8px;
+  margin-top: 12px;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: 3px;
+}
+
+.lab-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.lab-warning-group {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--warning);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.lab-warning-group:last-child {
+  border-bottom: 0;
+}
+
+.lab-warning-group summary {
+  cursor: pointer;
+}
+
+.lab-warning-group p {
+  margin: 6px 0 0 18px;
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
 .lab-export-done {
   margin: 0 0 16px;
   color: var(--text-secondary);
   font-size: 12px;
 }
 
-.lab-warning-list {
-  margin: 0;
-  padding-left: 16px;
-  color: var(--warning);
-  font-size: 11px;
-  line-height: 1.8;
-}
-
 .lab-palette {
   width: 560px;
   max-width: 92vw;
-  max-height: 70vh;
+  max-height: 60vh;
 }
 
 .lab-palette-search {
@@ -1798,8 +1950,37 @@ kbd {
   color: var(--text);
 }
 
+.lab-palette-row.is-selected {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.lab-palette-row.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.lab-palette-row.is-disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
 .lab-palette-row kbd {
   margin-left: auto;
+}
+
+.lab-palette-reason {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.lab-palette-empty {
+  padding: 18px 12px;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  text-align: center;
 }
 
 .lab-palette-meta {

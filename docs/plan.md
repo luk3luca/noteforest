@@ -425,3 +425,15 @@ Full plan: `docs/tasks/future-manual-resize.md`.
 | PDF visuals still wrong when reconnected | M4 | Use real branched documents; edge-routing fixtures; page-view geometry tests; product-owner review. |
 | 1,000-block performance regresses | M3–M4 | Measure at 300 in M2; virtualization/collapse/LOD in M4. |
 | Library/tabs state gets complex | M2 | One store for open tabs/view state; persistence of recent docs only in M2. |
+
+## UI rework (10 November 2026)
+
+The UI design pass is on `design/ui-map`; the browser lab is `docs/design/ui-lab/`. The master plan
+and complete reference index is **`docs/tasks/ui-rework.md`**. It covers the shell, tabs, canvas
+header (C preferred, D alternative), sidebar, status, Page frame, Settings (instant save), Export,
+palette, overlays/keyboard, responsive/accessibility, and the future settings pages.
+
+Implementation is phased (P1 shell, P2 settings shell, P3 Page settings, P4 Export/palette,
+P5 overlays/keyboard/a11y, P6 future functions). Each phase gets its own brief and worktree; future
+pages stay empty in the lab and out of the product until a real control exists. No product code
+starts before the lab is frozen.
