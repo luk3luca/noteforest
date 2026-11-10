@@ -462,6 +462,6 @@ Purpose: defaults for export, separate from the Export sheet.
 ## 13. Next slice
 
 **Export sheet:** done in `docs/design/ui-export-contents.md` (configure, overwrite, progress,
-result, errors, warnings). Next: overlays and keyboard (palette, dialogs, context menus, toasts,
-shortcut table), then the A/B lab (TopBar words vs symbols, Page Setup entry). No mockups or
-product code until these choices are settled.
+result, errors, warnings). **Overlays/keyboard:** done in `docs/design/ui-overlays-keyboard.md`
+(palette, dialogs, context menus, toasts, shortcut table). Next: the A/B lab (TopBar words vs
+symbols, Page Setup entry). No mockups or product code until these choices are settled.

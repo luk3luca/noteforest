@@ -409,6 +409,7 @@ migration.
 Phase 2 has started: `docs/design/ui-shell-contents.md` covers TopBar, Sidebar, and StatusStrip
 (slice 1); `docs/design/ui-page-contents.md` covers PageToolbar, Page canvas, and Page Edit
 (slice 2); `docs/design/ui-settings-contents.md` covers Settings and the new Appearance page
-(slice 3); `docs/design/ui-export-contents.md` covers the Export sheet (slice 4). Next: overlays
-and keyboard, then the settings placement matrix (`research/ui-surface-map.md` §7.17,
-CH-01…CH-16) and the A/B lab. No product code until the placement choices are made.
+(slice 3); `docs/design/ui-export-contents.md` covers the Export sheet (slice 4);
+`docs/design/ui-overlays-keyboard.md` covers overlays, commands, and keyboard (slice 5). Next: the
+settings placement matrix (`research/ui-surface-map.md` §7.17, CH-01…CH-16) and the A/B lab. No
+product code until the placement choices are made.

@@ -309,6 +309,6 @@ folder.
 
 ## 14. Next slice
 
-Overlays and keyboard: palette contents, dialog inventory, context menus, toasts, the unified
-shortcut table, responsive rules, and the state matrix. Then the A/B lab (TopBar words vs symbols,
-Page Setup entry) and the settings placement matrix.
+**Overlays and keyboard:** done in `docs/design/ui-overlays-keyboard.md` (palette, dialogs, context
+menus, toasts, shortcut table, responsive rules, state matrix). Next: the A/B lab (TopBar words vs
+symbols, Page Setup entry) and the settings placement matrix.

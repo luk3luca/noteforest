@@ -326,6 +326,6 @@ contract for the controls in this slice.
    Continuous, Editor, Export, Data & About, scope, save model, states).
 3. **Export sheet** — done in `docs/design/ui-export-contents.md` (configure, overwrite, progress,
    result, errors, warnings).
-4. **Overlays and keyboard:** palette contents, dialog inventory, context menus, toasts, shortcut
-   table, responsive rules, state matrix.
+4. **Overlays and keyboard** — done in `docs/design/ui-overlays-keyboard.md` (palette, dialogs,
+   context menus, toasts, shortcut table, responsive rules, state matrix).
 5. **A/B lab:** ViewControls variants (TopBar words vs symbols), sidebar collapse, Page Setup entry.
