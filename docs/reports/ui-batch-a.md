@@ -111,7 +111,7 @@ compositor, or PDF output change was made.
 | `npx vitest run` (in `verify:fast`) | 103 files / 1027 tests passed | 2.68 s |
 | `npm run e2e` (critical, in `verify:fast`) | 16/16 passed | 43.96 s |
 | **`npm run verify:fast`** | **exit 0** | **53.01 s** |
-| `npm run test:ui` (full Batch A state) | all 40 suites passed | 510.68 s |
+| `npm run test:ui` (full Batch A state at `be8f9b6`) | all 40 suites passed | 510.68 s |
 | Targeted: `ui-batch-a` | 5/5 | 10.9 s |
 | Targeted: `m4b1-page-view` | 9/9 | 6.1 s |
 | Targeted: `m4c1-print-compositor` | 6/6 | 3.9 s |
@@ -123,7 +123,9 @@ compositor, or PDF output change was made.
 
 No test assertion was weakened, no fixed sleep was added to the new suites, and no native dialog was
 opened by an automated test. The existing test dialog guard still fails fast; export tests override
-the folder picker and assert that no native save dialog is called.
+the folder picker and assert that no native save dialog is called. The final focus/ARIA follow-up
+(`1552cdc`) was rechecked with `v0-shell-frame`, `m4d2-export-ui`, and `ui-batch-a` (18/18 passed),
+and the final `verify:fast` includes it.
 
 ## Acceptance criteria
 
