@@ -386,6 +386,14 @@ describe('Batch B Page settings', () => {
       { timeout: 5000 },
     );
     await page.keyboard.type(' FIRST');
+    await page.waitForFunction(
+      () => {
+        const overlay = document.querySelector('[data-page-edit-overlay]');
+        return overlay !== null && (overlay.textContent ?? '').includes('FIRST');
+      },
+      undefined,
+      { timeout: 5000 },
+    );
     await openSettingsFromButton();
     await page.locator('[data-page-size-option="A5"]').click();
     await page.locator('[data-page-orientation-option="portrait"]').click();
@@ -416,6 +424,14 @@ describe('Batch B Page settings', () => {
       { timeout: 5000 },
     );
     await page.keyboard.type(' SECOND');
+    await page.waitForFunction(
+      () => {
+        const overlay = document.querySelector('[data-page-edit-overlay]');
+        return overlay !== null && (overlay.textContent ?? '').includes('SECOND');
+      },
+      undefined,
+      { timeout: 5000 },
+    );
     await openSettingsFromButton();
     await page.locator('[data-page-density-slider]').focus();
     await page.locator('[data-page-density-slider]').press('End');
