@@ -165,8 +165,8 @@ override**; the global default lives in Settings > Page > Typography.
 - Dark neutral background; the paper sheet centered with generous padding; one page at a time.
 - The sheet keeps a subtle border/shadow; no heavy card stack, no floating panels inside the paper.
 - Zoom/fit come from TopBar `ViewControls`; the stage scrolls if the page exceeds the viewport.
-- Page changes: no decorative page-turn. A 100–120 ms crossfade is optional if it helps orientation;
-  respect reduced motion. Default: none.
+- Page changes are immediate: no crossfade, no page-turn, no added delay. If a future transition
+  is considered, it must not slow down page navigation; the default is none.
 - The stage never re-paginates on scroll; geometry comes from the page model.
 
 ### 4.2 PageSheet chrome
@@ -243,7 +243,7 @@ override**; the global default lives in Settings > Page > Typography.
 - Setup/Density popovers: focus moves in, Escape cancels, focus returns to the trigger; no focus
   trap if non-modal, but the page behind must not steal focus.
 - Page Edit: `role=dialog`, `aria-label="Edit block: title"`, `aria-keyshortcuts="Escape Meta+Enter"`.
-- Reduced motion: no page-turn animation; crossfade optional and disabled.
+- Reduced motion: page changes are immediate; no page-turn animation.
 
 ---
 
@@ -257,7 +257,7 @@ override**; the global default lives in Settings > Page > Typography.
 | P1-04 | Page Edit across layout switch | Reset to Read (current), or preserve | Preserve the explicit mode per document; decide with Q-01 |
 | P1-05 | Density help | Slider + value only, named steps, or presets | Slider + value + one help line; no presets-only |
 | P1-06 | Preview performance | Live re-pagination vs small preview | Live first; fallback to small preview if slow |
-| P1-07 | Page change motion | None, crossfade, or page turn | None; optional 100–120 ms crossfade |
+| P1-07 | Page change motion | None, crossfade, or page turn | None; page changes are immediate (accepted 10 Nov) |
 | P1-08 | Page nav keys | PageUp/PageDown vs other | PageUp/PageDown when the stage is focused |
 | P1-09 | Manual breaks | Include in this rework or defer | Defer until cleanup rules exist; not in this slice |
 | P1-10 | Page chrome toggles | Header/footer/page-number toggles now or later | Later; needs fields + schema bump |
@@ -266,6 +266,6 @@ override**; the global default lives in Settings > Page > Typography.
 
 ## 9. Next slice
 
-**Settings:** modal frame, left nav, General / Page / Continuous / Editor / Export / Data & About,
-rows and controls, scope, Apply/save, preview, and states. Then the ExportSheet, overlays/keyboard,
-and the A/B lab (TopBar words vs symbols).
+**Settings:** done in `docs/design/ui-settings-contents.md` (modal frame, Appearance/theme/
+colors/fonts, Page, Continuous, Editor, Export, Data & About, scope, save model, states). Next:
+the ExportSheet, overlays/keyboard, and the A/B lab (TopBar words vs symbols).

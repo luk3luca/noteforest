@@ -215,7 +215,8 @@ scrolls. The **global vs this document** scope is a control inside Page, not a t
 
 | Page | Purpose | Contents (target) | Model status |
 |---|---|---|---|
-| **General** | App-level defaults | Appearance (dark/light/system), language if added, default layout/mode if added, autosave info | Mostly **DES**; no fields today except data paths |
+| **General** | App-level defaults | Default layout/mode if added, autosave info, language if added | Mostly **DES**; no fields today except data paths |
+| **Appearance** | Shell look and fonts | Theme (dark/light/system), accent, UI text size/font, code font; Page and PDF stay light | **DES / new fields**; `AppSettings.appearance` needs `settingsVersion: 3` + migration; no fields today |
 | **Page** | Page lens | Page Setup (size, orientation, margins, preview) in **both** Settings (global default) and Page (document override); Typography (preset, density, advanced sizes); Layout (card width, indents/gaps); Manual Breaks | Frozen fields exist; UI absent |
 | **Continuous** | Continuous view | Zoom/fit and (future) canvas width, per document (view state); no global default | **Keep the page** (accepted 10 Nov); no settings namespace in v1; view state only. New fields need a decision + `settingsVersion` bump. |
 | **Editor** | Editing behavior | Shortcuts, single-key shortcuts, autosave interval | **DES**; no fields today |
@@ -224,7 +225,8 @@ scrolls. The **global vs this document** scope is a control inside Page, not a t
 
 **Page scope model:** `Global default | This document`. Per-field override indicators; “Use
 global” per field/group; no override created by switching scope alone; explicit Apply/Cancel or a
-visible save status (open decision). Read-only documents cannot create a document override.
+visible save status (open decision). Whether a read-only document may carry a personal page
+override is open (P1-03); it never mutates content.
 
 **Frozen-model caveat:** `AppSettings` is `{ page }`. There is no `ContinuousSettings`. A
 “Continuous” page may show view-state controls (zoom/fit per document) and future fields when the
@@ -375,7 +377,7 @@ migration.
 | D-08 | Page Setup placement | Settings only, Page sheet, or both | Both: global default in Settings, document override in Page sheet | **Accepted: both**, shared form |
 | D-09 | Export surface | Sheet with options, or keep panel | Sheet; defaults in Settings > Export | **Open** |
 | D-10 | Sidebar collapsed | Icon rail or fully hidden | Hidden + reveal; width/collapsed persisted | **Accepted: hidden + reveal** |
-| D-11 | Appearance | General page, separate page, or defer | General; dark-only until a field exists | **Open** |
+| D-11 | Appearance | General page, separate page, or defer | Dedicated Appearance page: theme, colors, fonts; Page/PDF stay light | **Accepted: dedicated page**; fields/schema TBD |
 | D-12 | Settings pages with no fields | Show as future/disabled, or hide | Hide until fields exist, except a short “future” note | **Accepted: keep pages**, no fake controls |
 | D-13 | Continuous zoom/width scope | Global settings vs per-document view state | Per-document view state | **Accepted: per-document**; zoom exists, canvas width is a future view-state field |
 
@@ -396,6 +398,9 @@ migration.
 - **D-13:** Continuous zoom and canvas width are per-document view state, not global settings.
   Zoom already exists in `shell-session.json`; canvas width would be a new `DocumentViewState`
   field when implemented (normalizer, session save, tests), with no `settingsVersion` bump.
+- **D-11:** a dedicated Appearance page is accepted. It covers shell theme, accent, UI text
+  size/font, and code font; Page and PDF stay light. New fields require `settingsVersion: 3`;
+  light tokens and bundled fonts are implementation prerequisites.
 
 ---
 
@@ -403,6 +408,7 @@ migration.
 
 Phase 2 has started: `docs/design/ui-shell-contents.md` covers TopBar, Sidebar, and StatusStrip
 (slice 1); `docs/design/ui-page-contents.md` covers PageToolbar, Page canvas, and Page Edit
-(slice 2). Next: Settings, Export sheet, overlays and keyboard. Then the settings placement matrix
+(slice 2); `docs/design/ui-settings-contents.md` covers Settings and the new Appearance page
+(slice 3). Next: Export sheet, overlays and keyboard, then the settings placement matrix
 (`research/ui-surface-map.md` §7.17, CH-01…CH-16) and the A/B lab. No product code until the
 placement choices are made.

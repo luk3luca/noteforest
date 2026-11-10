@@ -322,8 +322,8 @@ contract for the controls in this slice.
 
 1. **PageToolbar + Canvas** — done in `docs/design/ui-page-contents.md` (page nav, Setup, Density,
    Export, PageStage/PageSheet frame, Page Edit, placeholders, banners).
-2. **Settings:** modal frame, nav, General/Page/Continuous/Editor/Export/Data pages, rows,
-   scope, apply/save, preview, states.
+2. **Settings** — done in `docs/design/ui-settings-contents.md` (modal frame, Appearance, Page,
+   Continuous, Editor, Export, Data & About, scope, save model, states).
 3. **Export sheet:** options, progress, overwrite, result, errors, reveal.
 4. **Overlays and keyboard:** palette contents, dialog inventory, context menus, toasts, shortcut
    table, responsive rules, state matrix.
