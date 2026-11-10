@@ -23,7 +23,10 @@
   --ui-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   --mono-font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius: 6px;
-  --radius-control: 4px;
+  --radius-control: 3px;
+  --radius-panel: 8px;
+  --radius-chip: 7px;
+  --radius-strip: 6px;
   --motion: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: dark;
 }
@@ -185,25 +188,41 @@ kbd {
   gap: 8px;
   padding: 0 8px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: var(--sidebar);
   user-select: none;
 }
 
+.lab-toolbar-leading {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.lab-tab-strip {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
 .lab-traffic {
   position: absolute;
-  left: 14px;
+  left: 16px;
   top: 0;
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex: none;
 }
 
 .lab-traffic span {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   opacity: 0.78;
 }
@@ -224,25 +243,28 @@ kbd {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: 1;
   min-width: 0;
   height: 100%;
-  padding: 0 2px;
-  overflow: hidden;
-  flex: 0 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.lab-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .lab-tab {
   display: flex;
   align-items: center;
-  gap: 7px;
+  flex: 0 1 190px;
   height: 34px;
   min-width: 118px;
   max-width: 190px;
-  padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-chip);
   color: var(--text-secondary);
-  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -257,10 +279,27 @@ kbd {
   color: var(--text);
 }
 
+.lab-tab-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  text-align: left;
+}
+
 .lab-tab-title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.lab-tab.is-active .lab-tab-title {
+  color: var(--text);
 }
 
 .lab-tab-dirty {
@@ -268,17 +307,58 @@ kbd {
   height: 5px;
   border-radius: 50%;
   background: var(--warning);
-  flex: none;
+  flex: 0 0 5px;
 }
 
 .lab-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
+  border-radius: var(--radius-control);
   color: var(--text-tertiary);
-  margin-left: 2px;
-  flex: none;
+  opacity: 0;
+  transition: opacity 120ms var(--motion), background 120ms var(--motion);
 }
 
-.lab-new-tab {
-  margin-left: 2px;
+.lab-tab:hover .lab-tab-close,
+.lab-tab.is-active .lab-tab-close,
+.lab-tab-close:focus-visible {
+  opacity: 1;
+}
+
+.lab-tab-close:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.lab-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  padding: 0 2px;
+}
+
+.lab-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: none;
+  height: 26px;
+  min-width: 26px;
+  padding: 0 5px;
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  transition: background 120ms var(--motion), color 120ms var(--motion);
+}
+
+.lab-toolbar-button:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .lab-topbar-spacer {
@@ -289,7 +369,7 @@ kbd {
 .lab-view-controls {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   flex: none;
 }
 
@@ -297,22 +377,28 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  padding: 2px;
-  background: var(--canvas);
+  height: 28px;
+  padding: 1px;
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
 }
 
 .lab-seg button {
-  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
   padding: 0 8px;
-  border-radius: 3px;
-  color: var(--text-tertiary);
+  border-radius: 2px;
+  color: var(--text-secondary);
   font-size: 11.5px;
   white-space: nowrap;
+  transition: background 120ms var(--motion), color 120ms var(--motion);
 }
 
 .lab-seg button:hover {
+  background: var(--surface-2);
   color: var(--text);
 }
 
@@ -324,22 +410,22 @@ kbd {
 .lab-zoom {
   display: inline-flex;
   align-items: center;
-  gap: 1px;
+  gap: 0;
   height: 28px;
-  padding: 2px;
-  background: var(--canvas);
+  padding: 1px;
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
 }
 
 .lab-zoom button {
-  width: 22px;
-  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
-  color: var(--text-secondary);
+  width: 22px;
+  height: 24px;
+  border-radius: 2px;
+  color: var(--text-tertiary);
 }
 
 .lab-zoom button:hover {
@@ -348,9 +434,13 @@ kbd {
 }
 
 .lab-zoom-value {
-  width: 44px !important;
+  width: auto !important;
+  min-width: 42px;
+  height: 24px;
+  padding: 0 2px;
   font-size: 11px;
-  color: var(--text) !important;
+  color: var(--text-secondary) !important;
+  font-variant-numeric: tabular-nums;
 }
 
 .lab-icon-btn {
@@ -372,13 +462,14 @@ kbd {
 
 .lab-palette-button {
   width: auto;
+  height: 28px;
   padding: 0 7px;
   border: 1px solid var(--border);
   background: var(--canvas);
 }
 
 .lab-palette-button span {
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--text-tertiary);
 }
 
@@ -411,7 +502,7 @@ kbd {
   overflow: hidden;
   background: var(--sidebar);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   transition: width 120ms var(--motion);
 }
 
@@ -471,17 +562,18 @@ kbd {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 4px 8px 8px;
+  padding: 0 8px 8px;
 }
 
 .lab-sidebar-section {
-  padding: 0 8px 12px;
+  padding: 4px 4px 12px;
 }
 
 .lab-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 28px;
   padding: 8px 6px 6px;
   font-size: 9.5px;
   letter-spacing: 0.09em;
@@ -489,9 +581,14 @@ kbd {
   color: var(--text-tertiary);
 }
 
+.lab-section-label {
+  font-weight: 500;
+}
+
 .lab-count {
   font-size: 9.5px;
   color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 .lab-section-tail {
@@ -511,68 +608,81 @@ kbd {
   color: var(--text);
 }
 
+.lab-section-action {
+  width: 22px;
+  height: 22px;
+}
+
 .lab-filter {
-  height: 26px;
+  height: 24px;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 0 4px;
-  padding: 0 8px;
-  background: var(--canvas);
+  margin: 0 6px 6px;
+  padding: 0 6px;
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   color: var(--text-tertiary);
 }
 
+.lab-filter:focus-within {
+  border-color: var(--border-strong);
+}
+
 .lab-filter input {
   flex: 1;
   min-width: 0;
+  height: 22px;
   background: none;
   border: 0;
   outline: none;
-  color: var(--text-secondary);
-  font-size: 11px;
+  color: var(--text);
+  font-size: 12px;
 }
 
 .lab-filter input::placeholder {
   color: var(--text-tertiary);
 }
 
+.lab-section-foot {
+  padding: 6px 12px 0;
+}
+
 .lab-add-block {
-  height: 28px;
-  display: flex;
+  height: 22px;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 0 8px;
-  margin-top: 4px;
+  gap: 4px;
+  padding: 0 4px;
   border-radius: var(--radius-control);
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: 11.5px;
   text-align: left;
 }
 
 .lab-add-block:hover {
   background: var(--surface-1);
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 .lab-doc-list {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
+  padding: 0 2px;
 }
 
 .lab-doc {
   width: 100%;
-  height: 30px;
+  height: 26px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 8px;
+  gap: 7px;
+  padding: 0 6px;
   border-radius: var(--radius-control);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 12.5px;
   text-align: left;
 }
 
@@ -582,39 +692,45 @@ kbd {
 }
 
 .lab-doc.is-active {
-  background: var(--surface-2);
+  background: var(--accent-soft);
   color: var(--text);
+  box-shadow: inset 2px 0 var(--accent);
 }
 
 .lab-doc span:first-of-type {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.lab-doc-meta {
+.lab-open-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
   margin-left: auto;
-  font-size: 9.5px;
-  color: var(--text-tertiary);
-  flex: none;
+  border-radius: 50%;
+  background: var(--text-tertiary);
 }
 
 .lab-tree {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
+  padding: 0 2px;
+  font-size: 12.5px;
 }
 
 .lab-topic {
-  height: 28px;
+  min-height: 26px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-right: 8px;
+  gap: 5px;
+  padding-right: 6px;
   border-radius: var(--radius-control);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 12.5px;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -626,27 +742,59 @@ kbd {
 }
 
 .lab-topic.is-active {
-  background: var(--surface-2);
+  background: var(--accent-soft);
   color: var(--text);
+  box-shadow: inset 2px 0 var(--accent);
 }
 
-.lab-topic > span:last-child {
+.lab-topic.is-chapter {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.lab-topic-label {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .lab-topic-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
   color: var(--text-tertiary);
-  flex: none;
 }
 
-.lab-topic-dot {
-  width: 3px;
-  height: 3px;
-  margin-left: 4px;
+.lab-topic-chevron-spacer {
+  width: 16px;
+  flex: 0 0 16px;
+}
+
+.lab-topic-bullet {
+  width: 4px;
+  height: 4px;
+  flex: 0 0 4px;
   border-radius: 50%;
   background: var(--text-tertiary);
-  flex: none;
+}
+
+.lab-topic-bullet[data-child='true'] {
+  background: var(--border-strong);
+}
+
+.lab-topic-icon {
+  flex: 0 0 13px;
+  color: var(--text-tertiary);
+}
+
+.lab-topic-count {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 .lab-sidebar-foot {
@@ -682,7 +830,7 @@ kbd {
   overflow: hidden;
   background: var(--canvas);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
 }
 
 .lab-canvas-continuous {
@@ -709,11 +857,6 @@ kbd {
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
-}
-
-.lab-chapter-meta {
-  font-size: 10.5px;
-  color: var(--text-tertiary);
 }
 
 .lab-board {
@@ -751,14 +894,6 @@ kbd {
   box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
-.lab-card-label {
-  margin-bottom: 4px;
-  font-size: 9px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-
 .lab-card h2 {
   margin: 0 0 5px;
   font-size: 14px;
@@ -784,19 +919,6 @@ kbd {
   font-size: 10.5px;
   line-height: 1.4;
   white-space: pre-wrap;
-}
-
-.lab-anchor-chip {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  margin-top: 10px;
-  padding: 0 7px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--canvas);
-  color: var(--text-tertiary);
-  font-size: 10.5px;
 }
 
 /* --------------------------------------------------------------------- page */
@@ -939,31 +1061,24 @@ kbd {
   padding: 0 10px;
   background: var(--sidebar);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-strip);
   color: var(--text-tertiary);
   font-size: 10.5px;
+  user-select: none;
 }
 
 .lab-save {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   color: var(--text-secondary);
 }
 
 .lab-save-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--success);
-}
-
-.lab-health {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--warning);
-  font-size: 10.5px;
 }
 
 /* ------------------------------------------------------------------ overlay */

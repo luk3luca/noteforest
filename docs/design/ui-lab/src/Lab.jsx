@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  AlignLeft,
   BookOpen,
   ChevronDown,
   ChevronLeft,
@@ -10,28 +11,32 @@ import {
   Minus,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Plus,
   Search,
   Settings,
-  TriangleAlert,
   X,
 } from 'lucide-react';
 
 const documents = [
-  { title: 'Linear algebra', meta: '12 blocks', active: true },
-  { title: 'Real analysis', meta: '8 blocks' },
-  { title: 'Algorithms', meta: '21 blocks' },
+  { title: 'Untitled', open: true },
+  { title: 'Linear algebra', open: true, active: true },
+];
+
+const tabs = [
+  { title: 'Linear algebra', active: true },
+  { title: 'Untitled', dirty: true },
 ];
 
 const topics = [
-  { title: 'Chapter 1 · Eigenvalues', depth: 0, open: true },
-  { title: 'Eigenvalues', depth: 1, active: true },
-  { title: 'Eigenvector', depth: 2 },
-  { title: 'Characteristic polynomial', depth: 2 },
-  { title: 'Spectrum', depth: 2 },
+  { title: 'Chapter 1 · Eigenvalues', depth: 0, kind: 'chapter', open: true, count: 4 },
+  { title: 'Eigenvalues', depth: 1, active: true, open: true, hasChildren: true, count: 2 },
+  { title: 'Eigenvector', depth: 2, open: true, hasChildren: true, count: 1 },
+  { title: 'Characteristic polynomial', depth: 3 },
+  { title: 'Spectrum', depth: 3 },
   { title: 'Worked example', depth: 1 },
   { title: 'Trace and determinant', depth: 1 },
-  { title: 'Chapter 2 · Diagonalization', depth: 0 },
+  { title: 'A = [[2, 1], [1, 2]]', depth: 1 },
 ];
 
 const paletteCommands = [
@@ -56,17 +61,21 @@ const settingsPages = [
 function Segmented({ value, options, onChange, label }) {
   return (
     <div className="lab-seg" role="group" aria-label={label}>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          className={value === option.value ? 'is-active' : undefined}
-          aria-pressed={value === option.value}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
+      {options.map((option) => {
+        const Icon = option.icon;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            className={value === option.value ? 'is-active' : undefined}
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+          >
+            {Icon ? <Icon size={13} strokeWidth={1.5} aria-hidden="true" /> : null}
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -107,33 +116,52 @@ function TitleBar() {
 function Toolbar({ layout, setLayout, mode, setMode, onPalette }) {
   return (
     <header className="lab-toolbar">
-      <div className="lab-tabs" role="tablist" aria-label="Open documents">
-        {documents.map((doc) => (
-          <button
-            key={doc.title}
-            type="button"
-            role="tab"
-            aria-selected={doc.active}
-            className={`lab-tab ${doc.active ? 'is-active' : ''}`}
-          >
-            <span className="lab-tab-title">{doc.title}</span>
-            {doc.active ? <span className="lab-tab-dirty" title="Unsaved changes" /> : null}
-            <X size={11} strokeWidth={1.6} className="lab-tab-close" aria-hidden="true" />
-          </button>
-        ))}
+      <div className="lab-toolbar-leading">
+        <div className="lab-tab-strip">
+          <div className="lab-tabs" role="tablist" aria-label="Open documents">
+            {tabs.map((tab) => (
+              <div
+                key={tab.title}
+                className={`lab-tab ${tab.active ? 'is-active' : ''}`}
+                role="presentation"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab.active}
+                  className="lab-tab-label"
+                  title={tab.title}
+                >
+                  {tab.dirty ? <span className="lab-tab-dirty" title="Unsaved changes" /> : null}
+                  <span className="lab-tab-title">{tab.title}</span>
+                </button>
+                <button type="button" className="lab-tab-close" aria-label={`Close ${tab.title}`}>
+                  <X size={12} strokeWidth={1.5} aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="lab-tab-actions">
+            <button type="button" className="lab-toolbar-button" aria-label="Close current tab" title="Close current tab (⌘W)">
+              <X size={14} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+            <button type="button" className="lab-toolbar-button" aria-label="New note" title="New note (⌘N)">
+              <Plus size={15} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+            <button type="button" className="lab-toolbar-button" aria-label="All open tabs" title="All tabs">
+              <ChevronDown size={15} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
       </div>
-      <IconButton label="New note" className="lab-new-tab">
-        <Plus size={15} strokeWidth={1.5} />
-      </IconButton>
-      <div className="lab-topbar-spacer" />
       <div className="lab-view-controls" role="toolbar" aria-label="View controls">
         <Segmented
           label="Layout"
           value={layout}
           onChange={setLayout}
           options={[
-            { value: 'continuous', label: 'Continuous' },
-            { value: 'page', label: 'Page' },
+            { value: 'continuous', label: 'Continuous', icon: AlignLeft },
+            { value: 'page', label: 'Page', icon: FileText },
           ]}
         />
         <Segmented
@@ -141,8 +169,8 @@ function Toolbar({ layout, setLayout, mode, setMode, onPalette }) {
           value={mode}
           onChange={setMode}
           options={[
-            { value: 'edit', label: 'Edit' },
-            { value: 'read', label: 'Read' },
+            { value: 'edit', label: 'Edit', icon: Pencil },
+            { value: 'read', label: 'Read', icon: BookOpen },
           ]}
         />
         <div className="lab-zoom" role="group" aria-label="Zoom">
@@ -160,10 +188,16 @@ function Toolbar({ layout, setLayout, mode, setMode, onPalette }) {
           </button>
         </div>
       </div>
-      <IconButton label="Command palette" onClick={onPalette} className="lab-palette-button">
+      <button
+        type="button"
+        className="lab-toolbar-button lab-palette-button"
+        onClick={onPalette}
+        aria-label="Command palette"
+        title="Command palette (⌘K)"
+      >
         <Command size={14} strokeWidth={1.5} />
         <span>K</span>
-      </IconButton>
+      </button>
     </header>
   );
 }
@@ -205,16 +239,16 @@ function Sidebar({ collapsed, onToggle, onSettings, onNew }) {
       <div className="lab-sidebar-scroll">
         <section className="lab-sidebar-section">
           <div className="lab-section-head">
-            <span>Library</span>
+            <span className="lab-section-label">Library</span>
             <span className="lab-section-tail">
-              <span className="lab-count">3</span>
+              <span className="lab-count">2</span>
               <IconButton label="New note" onClick={onNew} className="lab-section-add">
                 <Plus size={12} strokeWidth={1.6} />
               </IconButton>
             </span>
           </div>
           <label className="lab-filter">
-            <Search size={12} strokeWidth={1.5} />
+            <Search size={13} strokeWidth={1.5} />
             <input placeholder="Filter documents" aria-label="Filter documents" />
           </label>
           <div className="lab-doc-list">
@@ -226,39 +260,49 @@ function Sidebar({ collapsed, onToggle, onSettings, onNew }) {
               >
                 <FileText size={13} strokeWidth={1.5} />
                 <span>{doc.title}</span>
-                <span className="lab-doc-meta">{doc.meta}</span>
+                {doc.open ? <span className="lab-open-dot" aria-label="Open" /> : null}
               </button>
             ))}
           </div>
         </section>
         <section className="lab-sidebar-section">
           <div className="lab-section-head">
-            <span>Topics</span>
-            <span className="lab-count">2</span>
+            <span className="lab-section-label">Topics</span>
+            <IconButton label="Add chapter" className="lab-section-action">
+              <Plus size={14} strokeWidth={1.5} />
+            </IconButton>
           </div>
           <div className="lab-tree">
             {topics.map((topic) => (
               <button
                 key={topic.title}
                 type="button"
-                className={`lab-topic ${topic.active ? 'is-active' : ''}`}
-                style={{ paddingLeft: 8 + topic.depth * 16 }}
+                className={`lab-topic ${topic.active ? 'is-active' : ''} ${topic.kind === 'chapter' ? 'is-chapter' : ''}`}
+                style={{ paddingLeft: 6 + topic.depth * 14 }}
               >
-                {topic.depth === 0 ? (
-                  <ChevronDown size={12} strokeWidth={1.5} className="lab-topic-chevron" />
-                ) : topic.depth === 1 ? (
-                  <ChevronRight size={12} strokeWidth={1.5} className="lab-topic-chevron" />
+                {topic.hasChildren || topic.kind === 'chapter' ? (
+                  <span className="lab-topic-chevron">
+                    <ChevronDown size={12} strokeWidth={1.5} />
+                  </span>
                 ) : (
-                  <span className="lab-topic-dot" />
+                  <span className="lab-topic-chevron-spacer" />
                 )}
-                <span>{topic.title}</span>
+                {topic.kind === 'chapter' ? (
+                  <BookOpen size={13} strokeWidth={1.5} className="lab-topic-icon" />
+                ) : (
+                  <span className="lab-topic-bullet" data-child={topic.depth > 2} />
+                )}
+                <span className="lab-topic-label">{topic.title}</span>
+                {topic.count ? <span className="lab-topic-count">{topic.count}</span> : null}
               </button>
             ))}
           </div>
-          <button type="button" className="lab-add-block">
-            <Plus size={12} strokeWidth={1.6} />
-            Add block
-          </button>
+          <div className="lab-section-foot">
+            <button type="button" className="lab-add-block">
+              <Plus size={12} strokeWidth={1.5} />
+              Add block
+            </button>
+          </div>
         </section>
       </div>
       <div className="lab-sidebar-foot">
@@ -277,7 +321,6 @@ function ContinuousCanvas() {
       <div className="lab-chapter">
         <span className="lab-eyebrow">CHAPTER</span>
         <h1>Chapter 1 · Eigenvalues</h1>
-        <span className="lab-chapter-meta">5 blocks</span>
       </div>
       <div className="lab-board">
         <svg className="lab-edges" viewBox="0 0 960 470" aria-hidden="true">
@@ -293,35 +336,29 @@ function ContinuousCanvas() {
         </svg>
 
         <article className="lab-card lab-card-main is-selected" style={{ left: 24, top: 36, width: 320 }}>
-          <div className="lab-card-label">Block</div>
           <h2>Eigenvalues</h2>
           <p>A scalar λ is an eigenvalue of A if there is a nonzero vector v with Av = λv.</p>
-          <div className="lab-anchor-chip">“v ≠ 0”</div>
         </article>
 
         <article className="lab-card" style={{ left: 420, top: 24, width: 260 }}>
-          <div className="lab-card-label">Child</div>
           <h2>Eigenvector</h2>
-          <p>A nonzero vector that satisfies Av = λv.</p>
+          <p>A nonzero vector v that satisfies Av = λv for some λ.</p>
         </article>
 
         <article className="lab-card" style={{ left: 420, top: 180, width: 260 }}>
-          <div className="lab-card-label">Child</div>
           <h2>Spectrum</h2>
-          <p>The set of all eigenvalues of A.</p>
+          <p>The set of all eigenvalues of A, written σ(A).</p>
         </article>
 
         <article className="lab-card" style={{ left: 700, top: 96, width: 236 }}>
-          <div className="lab-card-label">Grandchild</div>
           <h2>Characteristic polynomial</h2>
           <p>Eigenvalues are the roots of det(A − λI) = 0.</p>
           <pre>det(A − λI) = 0</pre>
         </article>
 
         <article className="lab-card lab-card-below" style={{ left: 50, top: 300, width: 320 }}>
-          <div className="lab-card-label">Below</div>
           <h2>Worked example</h2>
-          <p>For A = [[2, 1], [1, 2]], the eigenvalues are 1 and 3.</p>
+          <p>Take the symmetric matrix below. Its eigenvalues are 1 and 3.</p>
           <pre>A = [[2, 1], [1, 2]]</pre>
         </article>
       </div>
@@ -394,13 +431,9 @@ function StatusStrip() {
         <span className="lab-save-dot" />
         Saved
       </span>
-      <span>1,204 words</span>
-      <span>86 blocks</span>
+      <span>92 words</span>
+      <span>7 blocks</span>
       <span className="lab-topbar-spacer" />
-      <button type="button" className="lab-health">
-        <TriangleAlert size={11} strokeWidth={1.5} />
-        2 anchors need repair
-      </button>
     </footer>
   );
 }

@@ -185,5 +185,8 @@ Then start V1 Settings on top of this branch.
   `trafficLightPosition: { x: 16, y: 9 }` (`779c7fb`), centered in the 30 px titlebar.
 - The branch was merged into `design/ui-map` (not `main`); screenshots regenerated under
   `artifacts/v0-shell-visual/`.
-- The browser lab was realigned to the merged shell (filter row, Add block, native-like titlebar
-  spacing) and committed on the design branch.
+- The browser lab was realigned to the merged shell in two passes: first the filter row, Add block,
+  and native-like titlebar spacing (`e5cb312`); then an exact value pass lifted from
+  `styles.css` — 3 px controls, 26 px toolbar buttons, 24 px filter, 26 px library/tree rows,
+  28/24 px view groups, tab actions (close/new/overflow), 20/22 px section actions, and the V0
+  mock content (Linear algebra + Untitled, Topics counts) — committed on the design branch.

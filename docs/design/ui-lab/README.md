@@ -26,8 +26,11 @@ the expanded / collapsed sidebar. The mock is everything below the LAB bar; anno
 
 ## Status
 
-The lab mirrors the Electron shell merged at `779c7fb` on `design/ui-map`: 30 px titlebar (traffic
-lights + app name), 44 px toolbar in the main column, 264 px sidebar / 48 px rail, 8 px floating
-panels and radii, 34 px / 7 px tabs, 24 px / 6 px floating status strip, 9 px Continuous note
-cards. The mock document/library content is illustrative; the native traffic lights are replaced by
-the lab's fake dots. The Page sheet is still a placeholder for the Page design pass.
+The lab mirrors the Electron shell merged at `779c7fb` on `design/ui-map`, with the shell values
+lifted from `apps/desktop/src/renderer/src/styles.css`: 30 px titlebar (traffic lights + app name),
+44 px toolbar in the main column, 264 px sidebar / 48 px rail, 8 px floating panels, 3 px controls,
+34 px / 7 px tab chips, 28 px view groups with 24 px segments, 26 px toolbar buttons, 24 px filter,
+26 px library and tree rows, 24 px / 6 px floating status strip, 9 px Continuous note cards. The
+mock document/library content is illustrative but follows the Electron V0 screenshot; the native
+traffic lights are replaced by the lab's fake dots. The Page sheet is still a placeholder for the
+Page design pass, and the Settings/Export/palette surfaces are design drafts, not Electron parity.
