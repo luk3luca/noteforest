@@ -264,7 +264,7 @@ function createMainWindow(): void {
     backgroundColor: '#17181a',
     title: 'NoteForest',
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 14 },
+    trafficLightPosition: { x: 16, y: 9 },
     webPreferences: webPreferences(),
   });
   harden(mainWindow.webContents);
