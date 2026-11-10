@@ -72,6 +72,53 @@ async function waitPageReady() {
   );
 }
 
+async function waitPageBody(expected) {
+  await page.waitForFunction(
+    (body) => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      if (view === null) return false;
+      if (view.getAttribute('data-ready') !== 'true') return false;
+      if (view.getAttribute('data-updating') === 'true') return false;
+      return getComputedStyle(view).getPropertyValue('--nf-page-body-size').trim() === body;
+    },
+    expected,
+    { timeout: 30000 },
+  );
+}
+
+async function waitSheetGeometry(expected) {
+  await page.waitForFunction(
+    ({ width, height, margins }) => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      if (view === null) return false;
+      if (view.getAttribute('data-ready') !== 'true') return false;
+      if (view.getAttribute('data-updating') === 'true') return false;
+      const sheet = view.querySelector('.nf-page-sheet');
+      if (sheet === null) return false;
+      const near = (value, target) => Math.abs(Number(value) - target) < 0.1;
+      return (
+        near(sheet.getAttribute('data-page-width-px'), width) &&
+        near(sheet.getAttribute('data-page-height-px'), height) &&
+        near(sheet.getAttribute('data-margin-top'), margins.top) &&
+        near(sheet.getAttribute('data-margin-right'), margins.right) &&
+        near(sheet.getAttribute('data-margin-bottom'), margins.bottom) &&
+        near(sheet.getAttribute('data-margin-left'), margins.left)
+      );
+    },
+    {
+      width: expected.width * (96 / 25.4),
+      height: expected.height * (96 / 25.4),
+      margins: {
+        top: expected.margins.top * (96 / 25.4),
+        right: expected.margins.right * (96 / 25.4),
+        bottom: expected.margins.bottom * (96 / 25.4),
+        left: expected.margins.left * (96 / 25.4),
+      },
+    },
+    { timeout: 30000 },
+  );
+}
+
 async function openSettings() {
   await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.keyboard.press('Meta+,');
@@ -355,7 +402,11 @@ describe('Batch B Page settings', () => {
 
     // A second overlay is committed before the density write.
     await closeSettings();
-    await waitPageReady();
+    await waitSheetGeometry({
+      width: 148,
+      height: 210,
+      margins: { top: 12, right: 12, bottom: 12, left: 12 },
+    });
     const secondFragment = activePageView().locator('[data-fragment-block="intro"]').first();
     await secondFragment.dblclick();
     await page.waitForSelector('[data-page-edit-overlay]', { timeout: 5000 });
@@ -447,7 +498,7 @@ describe('Batch B Page settings', () => {
     );
     await page.screenshot({ path: join(screenshotDir, 'page-settings-typography.png') });
     await closeSettings();
-    await waitPageReady();
+    await waitPageBody('12.6pt');
     assert.equal(
       await activePageView().evaluate((element) =>
         getComputedStyle(element).getPropertyValue('--nf-page-body-size').trim(),
@@ -472,7 +523,7 @@ describe('Batch B Page settings', () => {
       { timeout: 15000 },
     );
     await closeSettings();
-    await waitPageReady();
+    await waitPageBody('10.8pt');
     assert.equal(
       await activePageView().evaluate((element) =>
         getComputedStyle(element).getPropertyValue('--nf-page-body-size').trim(),
@@ -498,7 +549,7 @@ describe('Batch B Page settings', () => {
     assert.equal(await page.locator('[data-page-density-value]').innerText(), '100%');
     assert.equal(await page.locator('[data-page-advanced-hidden="true"]').isVisible(), true);
     await closeSettings();
-    await waitPageReady();
+    await waitPageBody('9pt');
     assert.equal(
       await activePageView().evaluate((element) =>
         getComputedStyle(element).getPropertyValue('--nf-page-body-size').trim(),
@@ -782,7 +833,11 @@ describe('Batch B Page settings', () => {
     await page.screenshot({ path: join(screenshotDir, 'page-settings-margins.png') });
 
     await closeSettings();
-    await waitPageReady();
+    await waitSheetGeometry({
+      width: 148,
+      height: 210,
+      margins: { top: 25, right: 25, bottom: 25, left: 30 },
+    });
     const geometry = await sheetGeometry();
     assert.ok(closeTo(geometry.width, 148 * PX_PER_MM, 0.1), 'A5 portrait width');
     assert.ok(closeTo(geometry.height, 210 * PX_PER_MM, 0.1), 'A5 portrait height');
