@@ -217,7 +217,7 @@ scrolls. The **global vs this document** scope is a control inside Page, not a t
 |---|---|---|---|
 | **General** | App-level defaults | Appearance (dark/light/system), language if added, default layout/mode if added, autosave info | Mostly **DES**; no fields today except data paths |
 | **Page** | Page lens | Page Setup (size, orientation, margins, preview) in **both** Settings (global default) and Page (document override); Typography (preset, density, advanced sizes); Layout (card width, indents/gaps); Manual Breaks | Frozen fields exist; UI absent |
-| **Continuous** | Continuous view | Zoom/fit per document (view state); future fields when the product needs them | **Keep the page** (accepted 10 Nov); no settings namespace in v1; view state only. New fields need a decision + `settingsVersion` bump. |
+| **Continuous** | Continuous view | Zoom/fit and (future) canvas width, per document (view state); no global default | **Keep the page** (accepted 10 Nov); no settings namespace in v1; view state only. New fields need a decision + `settingsVersion` bump. |
 | **Editor** | Editing behavior | Shortcuts, single-key shortcuts, autosave interval | **DES**; no fields today |
 | **Export** | Export defaults | Folder, filename/date, metadata, tagged PDF, page range | **DES**; no fields today |
 | **Data & About** | Data and recovery | Library path, app-support path, settings file status, backup/reset, document-settings map recovery, version | Paths exist; recovery for the map is **DES** |
@@ -251,9 +251,10 @@ Examples:
 - **Continuous zoom** already persists per document in `shell-session.json`, but it is view state:
   it is restored when you reopen that document, it is not a global default, and it is not a
   Settings field. That is why a Continuous page can show zoom/fit today without a schema change.
-- **A Continuous default zoom** (“new documents open at 110%”) or **canvas width** would be a
-  persisted setting: it needs a new `continuous` field in `AppSettings`, `settingsVersion: 3`, a
-  migration, and tests. Do it when the product actually needs it, not now.
+- **A global Continuous default zoom** would be a persisted setting; the product owner prefers
+  per-document view state for zoom and width, so we keep them in `shell-session.json` (zoom today,
+  canvas width when implemented). A global default would need a `continuous` field in
+  `AppSettings`, `settingsVersion: 3`, migration, and tests — not now.
 
 So: the Continuous page stays in the IA; today it hosts real view-state controls and a short
 explanation. When you use the app and need a new persisted option, we add it deliberately with a
@@ -376,6 +377,7 @@ migration.
 | D-10 | Sidebar collapsed | Icon rail or fully hidden | Rail with reveal; width/collapsed persisted | **Open** (proposal rail) |
 | D-11 | Appearance | General page, separate page, or defer | General; dark-only until a field exists | **Open** |
 | D-12 | Settings pages with no fields | Show as future/disabled, or hide | Hide until fields exist, except a short “future” note | **Accepted: keep pages**, no fake controls |
+| D-13 | Continuous zoom/width scope | Global settings vs per-document view state | Per-document view state | **Accepted: per-document**; zoom exists, canvas width is a future view-state field |
 
 ### 8.1 Notes on the accepted decisions
 
@@ -391,13 +393,15 @@ migration.
   override, and “Use global” clears the override. Changing one never silently changes the other.
 - **D-12:** pages with no real controls are not shown as fake “coming soon” screens; the nav keeps
   a page only when it has real content or a real view-state control.
+- **D-13:** Continuous zoom and canvas width are per-document view state, not global settings.
+  Zoom already exists in `shell-session.json`; canvas width would be a new `DocumentViewState`
+  field when implemented (normalizer, session save, tests), with no `settingsVersion` bump.
 
 ---
 
 ## 9. Next step
 
-Phase 2 (with the decisions above): define the **contents of each bar and pane per screen** —
-TopBar actions, Sidebar header/footer, PageToolbar controls, Settings pages/rows, Export sheet
-fields — then the settings placement matrix (`research/ui-surface-map.md` §7.17, CH-01…CH-16).
-The D-03 A/B variants get a lab prototype only after the contents are fixed; no product code
-until the placement choices are made.
+Phase 2 has started: `docs/design/ui-shell-contents.md` covers TopBar, Sidebar, and StatusStrip
+(slice 1). Next slices: PageToolbar/Canvas, Settings, Export sheet, overlays and keyboard. Then the
+settings placement matrix (`research/ui-surface-map.md` §7.17, CH-01…CH-16) and the A/B lab. No
+product code until the placement choices are made.
