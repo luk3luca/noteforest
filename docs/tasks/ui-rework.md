@@ -207,9 +207,22 @@ copy, and tests when the phase starts.
 | Library folder / backup | `ui-settings-contents.md` §8; plan M6 | folder change policy; backup retention; destructive confirmations |
 | Light theme / search / onboarding | plan M6; spec/UX | milestones; no UI before the model exists |
 
-## 6. Handoff rules
+## 6. Delivery batches (product-owner decision, 10 November 2026)
 
-- One phase, one brief, one worktree; the builder does not merge.
+To avoid one delegate restart per design page, the implementation is consolidated:
+
+- **Batch A — non-Page/PDF UI:** P1 shell, P2 Settings shell, P4 Export + palette, and the
+  palette/read-mode parts of P5. One implementer and worktree, checkpoint commits, one
+  `verify:fast`, one full integration verify. Brief: `docs/tasks/ui-batch-a.md`.
+- **Batch B — Page/PDF/future:** P3 Page settings, P6 future functions, and the remaining P5
+  native-menu/dialog/context/toast parity. It starts after Batch A is integrated.
+
+The phases in §3 remain the acceptance checkpoints inside the batches. Batch A must not change the
+Page sheet, paginator, print compositor, or PDF output.
+
+## 7. Handoff rules
+
+- One delivery batch, one brief, one worktree; the builder does not merge.
 - The lab is the visual reference; the docs and frozen inventory are the source of truth.
 - No fake controls: future pages are empty or hidden; no disabled "coming soon" rows.
 - Every phase includes no-document, read-only, error, and future-empty states where applicable.
@@ -221,12 +234,12 @@ copy, and tests when the phase starts.
   `ui-overlays-keyboard.md` still says “Save now” while the shortcut table says “Save”. Pick one in
   P4 and sweep the docs.
 
-## 7. Status
+## 8. Status
 
 - Shell: V0 visual merged; C/D variants in the lab; C preferred, D alternative.
 - Settings: lab draft; frozen model; instant-save/future-page decisions recorded; implementation not
   started.
 - Export: shipped M4d2; lab now has all states (configure/overwrite/progress/done/failed/cancelled).
 - Palette: basic shipped; lab now has registry-style groups, search, disabled reason, empty state.
-- Next: freeze the lab, then start P1/P2 briefs; future functions remain empty pages with the
-  references above.
+- Next: Batch A brief is ready (`docs/tasks/ui-batch-a.md`); Batch B follows after integration.
+  Future functions remain empty pages with the references above.

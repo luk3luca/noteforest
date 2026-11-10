@@ -433,7 +433,8 @@ and complete reference index is **`docs/tasks/ui-rework.md`**. It covers the she
 header (C preferred, D alternative), sidebar, status, Page frame, Settings (instant save), Export,
 palette, overlays/keyboard, responsive/accessibility, and the future settings pages.
 
-Implementation is phased (P1 shell, P2 settings shell, P3 Page settings, P4 Export/palette,
-P5 overlays/keyboard/a11y, P6 future functions). Each phase gets its own brief and worktree; future
+Implementation is consolidated into **two delivery batches**: **A** (shell, Settings shell, Export,
+Palette; non-Page/PDF) and **B** (Page settings, future functions, Page/PDF-affecting work), with
+P1–P6 as acceptance checkpoints inside them. Batch A brief: `docs/tasks/ui-batch-a.md`. Future
 pages stay empty in the lab and out of the product until a real control exists. No product code
 starts before the lab is frozen.
