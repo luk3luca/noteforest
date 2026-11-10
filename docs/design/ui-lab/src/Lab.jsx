@@ -1161,7 +1161,7 @@ function CommandPalette({ onClose }) {
 function VariantBar({ variant, setVariant, railMode, setRailMode }) {
   const notes = {
     B: 'Icon-only view controls and undo/redo in the toolbar.',
-    C: 'Preferred: fixed canvas header, undo/redo left, icon-only views right.',
+    C: 'Preferred: fixed edge-to-edge header, undo/redo left, icon-only views right.',
     D: 'Preferred alternative: floating pill, no extra rows.',
     E: 'View controls above Settings; undo/redo stay in the toolbar.',
   };

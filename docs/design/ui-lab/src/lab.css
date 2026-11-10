@@ -731,7 +731,7 @@ kbd {
 .lab-doc.is-active {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .lab-doc span:first-of-type {
@@ -781,7 +781,7 @@ kbd {
 .lab-topic.is-active {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .lab-topic.is-chapter {
@@ -957,7 +957,7 @@ kbd {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 6px 12px 24px;
+  padding: 6px 0 8px;
 }
 
 /* The header is a sibling of the scroll area: it stays fixed while the canvas scrolls. */
@@ -967,7 +967,7 @@ kbd {
   align-items: center;
   gap: 8px;
   height: 34px;
-  padding: 0 14px;
+  padding: 0 6px;
   background: var(--canvas);
 }
 
@@ -1120,7 +1120,7 @@ kbd {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 14px 24px 24px;
+  padding: 14px 0 8px;
 }
 
 .lab-sheet {

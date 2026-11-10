@@ -18,15 +18,16 @@ the expanded / collapsed sidebar. The **Variant** bar switches the four shell ex
 
 - **B · Toolbar icons** — view controls and undo/redo in the toolbar, icon-only.
 - **C · Canvas header** — fixed header inside the canvas: undo/redo left, icon-only layout/mode
-  right, content close below. **Preferred.**
+  right, edge-to-edge content and a tight bottom inset. **Preferred.**
 - **D · Floating pill** — view controls and undo/redo in a floating pill over the canvas.
   **Preferred alternative.**
 - **E · Sidebar** — view controls above Settings; E2 stacks two toggles in the collapsed rail, E3
   uses one View popover.
 
-All variants share the tab changes (no global close, shrinking tabs, `+` after the last tab, no
-horizontal scroll) and the zoom dropdown removal (minus / percentage / plus only; click the
-percentage to reset). The mock is everything below the lab bars; annotate that.
+Active Library/Topics rows use a 1px accent ring around the usual rounded corners, not a left
+accent stripe. All variants share the tab changes (no global close, shrinking tabs, `+` after the
+last tab, no horizontal scroll) and the zoom dropdown removal (minus / percentage / plus only;
+click the percentage to reset). The mock is everything below the lab bars; annotate that.
 
 ## Scope
 
