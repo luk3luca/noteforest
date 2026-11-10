@@ -4606,6 +4606,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-segmented-item[aria-pressed='true'] {
   background: var(--surface-3);
   color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 .nf-segmented-item:disabled {
@@ -4678,6 +4679,265 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-settings-warning p {
   margin: 0;
 }
+
+/* --------------------------------------------------- settings: Page setup (Batch B) */
+
+.nf-settings-modal-page {
+  width: 980px;
+}
+
+.nf-settings-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+}
+
+.nf-settings-section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nf-settings-section-actions .nf-button {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11.5px;
+}
+
+.nf-margin-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.nf-margin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.nf-margin-all-control {
+  gap: 8px;
+}
+
+.nf-margin-all-label {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.nf-margin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 16px;
+}
+
+.nf-margin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nf-margin-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+}
+
+.nf-margin-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nf-input.nf-margin-input {
+  width: 74px;
+  height: 28px;
+  padding: 0 7px;
+  font-family: var(--mono-font);
+  font-size: 12px;
+}
+
+.nf-input.nf-margin-input[aria-invalid='true'] {
+  border-color: var(--danger);
+  outline: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+.nf-margin-unit {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.nf-margin-field-error {
+  color: var(--danger);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.nf-settings-inline-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.nf-icon-button.nf-margin-use-global {
+  width: 22px;
+  height: 22px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.nf-settings-status-invalid {
+  color: var(--warning);
+}
+
+/* ---------------------------------------------------- settings: Page preview (Batch B) */
+
+.nf-settings-preview {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  gap: 10px;
+  width: 258px;
+  padding: 18px 16px 20px;
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.nf-settings-preview-title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nf-settings-preview-stack {
+  position: relative;
+}
+
+.nf-settings-preview-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 250px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.nf-settings-preview-frame {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border-radius: 1px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+.nf-settings-preview-zoom {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+.nf-settings-preview-sheet {
+  box-shadow: none;
+}
+
+.nf-settings-preview-sample {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--nf-page-ink, #1d2330);
+  font-size: var(--nf-page-body-size, 9pt);
+  text-align: center;
+  opacity: 0.68;
+}
+
+.nf-settings-preview-sample span {
+  font-size: var(--nf-page-label-size, 8pt);
+}
+
+.nf-settings-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nf-page-ink, #1d2330);
+  font-size: var(--nf-page-body-size, 9pt);
+  opacity: 0.6;
+}
+
+.nf-settings-preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  color: var(--text);
+  text-align: center;
+}
+
+.nf-settings-preview-overlay p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nf-settings-preview-overlay span {
+  max-width: 190px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.nf-settings-preview-summary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.nf-settings-preview-scope {
+  margin: -4px 0 0;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+}
+
+.nf-settings-preview .nf-settings-help {
+  font-size: 10.5px;
+}
+
+@media (max-width: 920px) {
+  .nf-settings-modal-page {
+    width: 840px;
+  }
+
+  .nf-settings-preview {
+    display: none;
+  }
+}
+
 
 .nf-shortcut-group + .nf-shortcut-group {
   margin-top: 10px;

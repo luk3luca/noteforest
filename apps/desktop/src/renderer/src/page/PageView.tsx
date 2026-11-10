@@ -308,7 +308,7 @@ interface PageSurfaceProps {
   children: ReactNode;
 }
 
-function PageSurface({
+export function PageSurface({
   page,
   pageNumber,
   pageCount,

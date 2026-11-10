@@ -3,28 +3,32 @@ import {
   Modal,
   ModalOverlay,
 } from 'react-aria-components';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  mergePageSettings,
+  pageDimensionsMm,
   PAGE_DENSITY_MAX,
   PAGE_DENSITY_MIN,
   PAGE_DENSITY_STEP,
 } from '@noteforest/layout';
 import { useShell } from '../state/shell';
 import {
-  flushSettingsWrites,
-  pageDensityPercent,
-  pageDensityValue,
-  pageOverrideFor,
-  registerPendingSettingsFlush,
+  flushPendingSettingsEdits,
   useSettingsStore,
-  withPageDensityOverride,
-  withoutPageDensityOverride,
 } from '../state/settings';
-import { getRuntime, useRuntime } from '../state/registry';
+import { useRuntime } from '../state/registry';
 import { exportActiveDocument } from '../export/export-flow';
-import { commitPageEdit } from '../page/page-edit-state';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
+import { usePageSettingsController } from '../settings/usePageSettingsController';
+import { PageSettingsPreview } from '../settings/PageSettingsPreview';
+import {
+  formatMm,
+  hasMarginOverride,
+  hasSetupOverride,
+  hasThemeOverride,
+  MARGIN_KEYS,
+  parseMm,
+  type MarginKey,
+} from '../settings/page-setup';
 
 type SettingsPage =
   | 'general'
@@ -76,12 +80,24 @@ const NAV_GROUPS: NavGroup[] = [
 
 const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
 
-type LocalPhase = 'idle' | 'saving' | 'commit-error';
+const MARGIN_LABELS: Record<MarginKey, string> = {
+  top: 'Top',
+  right: 'Right',
+  bottom: 'Bottom',
+  left: 'Left',
+};
 
-interface DensityAttempt {
-  percent: number;
-  layer: 'global' | 'document';
-}
+const PRESET_LABELS = {
+  compact: 'Compact',
+  comfortable: 'Comfortable',
+  custom: 'Custom',
+} as const;
+
+const MARGIN_RANGE = {
+  min: 0,
+  max: 100,
+  step: 1,
+};
 
 const SHORTCUTS: { group: string; rows: [string, string][] }[] = [
   {
@@ -157,36 +173,20 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
   const documentAvailable = packagePath !== null && runtime !== null;
   const documentId = runtime?.document.id ?? null;
 
-  const app = useSettingsStore((state) => state.app);
-  const override = useSettingsStore((state) =>
-    pageOverrideFor(state, packagePath, documentId),
-  );
   const settingsStatus = useSettingsStore((state) => state.settingsStatus);
   const documentSettingsStatus = useSettingsStore(
     (state) => state.documentSettingsStatus,
   );
   const saveState = useSettingsStore((state) => state.saveState);
+  const pageSettings = usePageSettingsController(
+    packagePath,
+    documentId,
+    documentAvailable,
+  );
 
   const [page, setPage] = useState<SettingsPage>('page');
-  const [phase, setPhase] = useState<LocalPhase>('idle');
-  const [commitError, setCommitError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
 
-  const globalPercent = pageDensityPercent(app.page.theme.density);
-  const documentDensity = override?.theme?.density;
-  const documentPercent =
-    documentDensity === undefined ? null : pageDensityPercent(documentDensity);
-  // Start on the layer that exists: a document override opens in document
-  // scope; otherwise the global default is the least surprising layer.
-  const [scope, setScope] = useState<'global' | 'document'>(
-    documentAvailable && documentPercent !== null ? 'document' : 'global',
-  );
-  const layerPercent = scope === 'document' ? documentPercent ?? globalPercent : globalPercent;
-  const [draftPercent, setDraftPercent] = useState(layerPercent);
-
-  const debounceRef = useRef<number | null>(null);
-  const pendingRef = useRef<DensityAttempt | null>(null);
-  const lastAttemptRef = useRef<DensityAttempt | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   // Capture the real trigger before the modal focus scope moves focus. React
@@ -229,169 +229,35 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
     };
   }, []);
 
-  // Follow the layer's real value when the scope or the stored value changes.
-  // A pending debounce is not cancelled here: it owns its own write.
-  useEffect(() => {
-    setDraftPercent(scope === 'document' ? documentPercent ?? globalPercent : globalPercent);
-  }, [scope, documentPercent, globalPercent, packagePath]);
-
-  const applyDensity = async (attempt: DensityAttempt): Promise<void> => {
-    const state = useSettingsStore.getState();
-    const currentPath = useShell.getState().activeTab;
-    const currentRuntime = currentPath === null ? null : getRuntime(currentPath);
-    const currentDocumentId = currentRuntime?.document.id ?? null;
-    setPhase('saving');
-    setCommitError(null);
-    lastAttemptRef.current = attempt;
-
-    if (currentPath !== null) {
-      const committed = await commitPageEdit(currentPath);
-      if (!committed) {
-        setPhase('commit-error');
-        setCommitError('Page Edit could not be committed. Retry after fixing the block.');
-        return;
-      }
-    }
-
-    let wrote = false;
-    if (
-      attempt.layer === 'document' &&
-      currentPath !== null &&
-      currentRuntime !== null
-    ) {
-      const currentOverride = pageOverrideFor(state, currentPath, currentDocumentId);
-      const global = pageDensityPercent(state.app.page.theme.density);
-      if (attempt.percent === global) {
-        if (currentOverride?.theme?.density !== undefined) {
-          state.setPageSettingsOverride(
-            currentPath,
-            withoutPageDensityOverride(currentOverride) ?? null,
-            currentDocumentId,
-          );
-          wrote = true;
-        }
-      } else {
-        state.setPageSettingsOverride(
-          currentPath,
-          withPageDensityOverride(currentOverride, pageDensityValue(attempt.percent)),
-          currentDocumentId,
-        );
-        wrote = true;
-      }
-    } else {
-      state.updateAppSettings({
-        page: { theme: { density: pageDensityValue(attempt.percent) } },
-      });
-      wrote = true;
-    }
-
-    if (!wrote) {
-      setPhase('idle');
-      return;
-    }
-    const result = await flushSettingsWrites();
-    if (!result.ok) {
-      setPhase('idle');
-      return;
-    }
-    setPhase('idle');
-  };
-
-  const queueDensity = (next: number): void => {
-    const attempt: DensityAttempt = { percent: next, layer: scope };
-    pendingRef.current = attempt;
-    setDraftPercent(next);
-    setPhase('saving');
-    setCommitError(null);
-    if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => {
-      debounceRef.current = null;
-      const pending = pendingRef.current;
-      pendingRef.current = null;
-      if (pending !== null) void applyDensity(pending);
-    }, 240);
-  };
-
-  const flushPending = (): DensityAttempt | null => {
-    if (debounceRef.current !== null) {
-      window.clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-    const pending = pendingRef.current;
-    pendingRef.current = null;
-    return pending;
-  };
-
-  const switchScope = (next: 'global' | 'document'): void => {
-    if (next === scope) return;
-    const pending = flushPending();
-    if (pending !== null) void applyDensity(pending);
-    // Switching layers is never a write by itself. Any pending write keeps
-    // owning the footer status until it resolves; an existing error stays
-    // visible instead of being silently cleared.
-    setScope(next);
-  };
-
-  const clearDensityOverride = (): void => {
-    if (!documentAvailable || packagePath === null) return;
-    const pending = flushPending();
-    if (pending !== null) {
-      // The pending document value is superseded by "Use global".
-      setPhase('idle');
-    }
-    void (async () => {
-      setPhase('saving');
-      setCommitError(null);
-      const committed = await commitPageEdit(packagePath);
-      if (!committed) {
-        setPhase('commit-error');
-        setCommitError('Page Edit could not be committed. Retry after fixing the block.');
-        return;
-      }
-      useSettingsStore
-        .getState()
-        .setPageSettingsOverride(
-          packagePath,
-          withoutPageDensityOverride(override) ?? null,
-          documentId,
-        );
-      const result = await flushSettingsWrites();
-      if (!result.ok) {
-        setPhase('idle');
-        return;
-      }
-      setScope('document');
-      setPhase('idle');
-    })();
-  };
-
-  const pendingFlushRef = useRef<() => Promise<void>>(async () => undefined);
-  pendingFlushRef.current = async () => {
-    const pending = flushPending();
-    if (pending !== null) await applyDensity(pending);
-  };
-  useEffect(() => {
-    registerPendingSettingsFlush(() => pendingFlushRef.current());
-    return () => registerPendingSettingsFlush(null);
-  }, []);
-
-  const retry = (): void => {
-    const attempt = lastAttemptRef.current;
-    setCommitError(null);
-    if (attempt === null) {
-      useSettingsStore.getState().retrySettingsWrite();
-      setPhase('idle');
-      return;
-    }
-    void applyDensity(attempt);
-  };
+  const pageScope = pageSettings.scope;
+  const marginValidation = pageSettings.marginValidation;
+  const marginErrorId = 'page-margin-error';
+  const setupOverridden =
+    pageScope === 'document' && hasSetupOverride(pageSettings.override);
+  const marginGroupOverridden =
+    pageScope === 'document' && hasMarginOverride(pageSettings.override);
+  const themeOverridden =
+    pageScope === 'document' && hasThemeOverride(pageSettings.override);
 
   const errorMessage =
-    commitError ??
+    pageSettings.commitError ??
     (saveState.status === 'error' ? saveState.message ?? 'Unknown error.' : null);
-  const status = errorMessage !== null ? 'error' : phase === 'saving' || saveState.status === 'saving' ? 'saving' : 'saved';
+  const status =
+    errorMessage !== null
+      ? 'error'
+      : pageSettings.invalid
+        ? 'invalid'
+        : pageSettings.saving || saveState.status === 'saving'
+          ? 'saving'
+          : 'saved';
   const statusText =
-    status === 'saved' ? 'Saved' : status === 'saving' ? 'Saving…' : 'Couldn’t save —';
+    status === 'saved'
+      ? 'Saved'
+      : status === 'saving'
+        ? 'Saving…'
+        : status === 'invalid'
+          ? 'Not saved — check margins'
+          : 'Couldn’t save —';
 
   const activePage = NAV_ITEMS.some((item) => item.id === page) ? page : 'page';
   const pageIndex = NAV_ITEMS.findIndex((item) => item.id === activePage);
@@ -416,16 +282,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
 
   /** Persist a debounced edit before closing, then close. */
   const requestClose = (): void => {
-    const pending = flushPending();
-    if (pending !== null) void applyDensity(pending);
+    void pageSettings.flushPending();
     onCloseRef.current();
   };
 
-  const resolved = useMemo(() => mergePageSettings(app.page, override), [app.page, override]);
   const densityRange = {
     min: PAGE_DENSITY_MIN * 100,
     max: PAGE_DENSITY_MAX * 100,
-    step: PAGE_DENSITY_STEP * 100,
+    step: Math.round(PAGE_DENSITY_STEP * 100),
   };
 
   const statusWarning =
@@ -436,112 +300,483 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
     documentSettingsStatus.state === 'corrupt' ||
     documentSettingsStatus.state === 'unreadable';
 
+  const stepMargin = (key: MarginKey, delta: number): void => {
+    const current = parseMm(pageSettings.marginDrafts[key]) ?? pageSettings.layerSetup.margins[key];
+    const next = Math.min(
+      MARGIN_RANGE.max,
+      Math.max(MARGIN_RANGE.min, Math.round((current + delta) * 100) / 100),
+    );
+    pageSettings.setMargin(key, formatMm(next));
+  };
+
+  const stepAllSides = (delta: number): void => {
+    const current =
+      parseMm(pageSettings.allSidesValue) ?? pageSettings.layerSetup.margins.top;
+    const next = Math.min(
+      MARGIN_RANGE.max,
+      Math.max(MARGIN_RANGE.min, Math.round((current + delta) * 100) / 100),
+    );
+    pageSettings.setAllSides(formatMm(next));
+  };
+
+  const pageContentArea = ((): string => {
+    // Content size comes from the same pure geometry the model uses.
+    const margins = marginValidation.margins ?? pageSettings.layerSetup.margins;
+    const { widthMm, heightMm } = pageDimensionsMm(
+      pageSettings.size,
+      pageSettings.orientation,
+    );
+    return `${Math.max(0, widthMm - margins.left - margins.right).toFixed(1)} × ${Math.max(
+      0,
+      heightMm - margins.top - margins.bottom,
+    ).toFixed(1)} mm content`;
+  })();
+
   const globalPage = (
-    <section className="nf-settings-section" data-page-density-section="true">
-      <h3 className="nf-settings-section-title">Page lens</h3>
-      <p className="nf-settings-help">
-        Page Read, Page Edit, the Page preview, and the PDF use these values. Page size and margins
-        are not part of Batch A.
+    <>
+      <p className="nf-settings-help" data-page-lens-help="true">
+        Page Read, Page Edit, the Page preview, and PDF use one resolved Page lens. Setup is a
+        personal setting; it never changes the note content.
       </p>
-      <div className="nf-settings-scope" data-settings-scope="true" role="group" aria-label="Page settings scope">
+
+      <div
+        className="nf-settings-scope"
+        data-page-scope="true"
+        data-settings-scope="true"
+        role="group"
+        aria-label="Page settings scope"
+      >
         <span className="nf-settings-row-label">Apply to</span>
-        <div className="nf-segmented" data-page-density-scope="true">
+        <div className="nf-segmented">
           <button
             type="button"
             className="nf-segmented-item"
-            data-page-density-scope-option="global"
-            aria-pressed={scope === 'global'}
-            onClick={() => switchScope('global')}
+            data-page-scope-option="global"
+            aria-pressed={pageScope === 'global'}
+            onClick={() => pageSettings.setScope('global')}
           >
             Global default
           </button>
           <button
             type="button"
             className="nf-segmented-item"
-            data-page-density-scope-option="document"
-            aria-pressed={scope === 'document'}
+            data-page-scope-option="document"
+            aria-pressed={pageScope === 'document'}
             disabled={!documentAvailable}
+            aria-describedby={documentAvailable ? undefined : 'page-scope-document-reason'}
             title={
               documentAvailable
                 ? undefined
                 : 'Open a document to override Page settings.'
             }
-            onClick={() => switchScope('document')}
+            onClick={() => pageSettings.setScope('document')}
           >
             This document
           </button>
         </div>
       </div>
       {documentAvailable ? null : (
-        <p className="nf-settings-help" data-page-density-document-reason="true">
+        <p
+          id="page-scope-document-reason"
+          className="nf-settings-help"
+          data-page-document-reason="true"
+        >
           Open a document to override Page settings. Global defaults apply to every document
           without an override.
         </p>
       )}
-      <div
-        className="nf-settings-row"
-        data-override={scope === 'document' && documentPercent !== null ? 'true' : 'false'}
-      >
-        <label className="nf-settings-row-label" htmlFor="page-density-slider">
-          Page density
-          {scope === 'document' && documentPercent !== null ? (
-            <span
-              className="nf-override-dot"
-              data-page-density-override="true"
-              title="This document overrides the global density"
-              aria-label="Overridden for this document"
-            />
-          ) : null}
-        </label>
-        <div className="nf-settings-control nf-density-row">
-          <input
-            id="page-density-slider"
-            type="range"
-            className="nf-range"
-            min={densityRange.min}
-            max={densityRange.max}
-            step={densityRange.step}
-            value={draftPercent}
-            aria-label="Page density"
-            aria-valuetext={`${draftPercent}%`}
-            data-page-density-slider="true"
-            onChange={(event) => queueDensity(Number(event.target.value))}
-          />
-          <span className="nf-density-value" data-page-density-value="true">
-            {draftPercent}%
-          </span>
-          {scope === 'document' ? (
-            <button
-              type="button"
-              className="nf-button nf-button-quiet"
-              data-page-density-use-global="true"
-              disabled={!documentAvailable || documentPercent === null}
-              onClick={clearDensityOverride}
-            >
-              Use global
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="nf-button nf-button-quiet"
-              data-page-density-reset="true"
-              disabled={globalPercent === 100}
-              onClick={() => queueDensity(100)}
-            >
-              Reset
-            </button>
-          )}
+
+      <section className="nf-settings-section" data-page-setup-section="true">
+        <div className="nf-settings-section-head">
+          <h4 className="nf-settings-section-title">Page setup</h4>
+          <div className="nf-settings-section-actions">
+            {pageScope === 'document' && setupOverridden ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-setup-use-global="true"
+                onClick={() => pageSettings.useGlobalSetup()}
+              >
+                Use global
+              </button>
+            ) : null}
+            {pageScope === 'global' ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-setup-reset="true"
+                onClick={() => pageSettings.resetSetup()}
+              >
+                Reset to default
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
-      <p className="nf-settings-help" data-page-density-note="true">
-        {documentAvailable
-          ? `Page Read, Page Edit, and PDF use ${pageDensityPercent(resolved.theme.density)}% for this document${
-              documentPercent === null ? '' : ' (document override)'
-            }.`
-          : `Global Page density is ${globalPercent}%. A document override appears here when a document is open.`}{' '}
-        60–70% is the densest range; 80% and above keeps larger type.
-      </p>
-    </section>
+
+        <div className="nf-settings-row">
+          <span className="nf-settings-row-label">
+            Page size
+            {pageSettings.isSizeOverridden ? (
+              <span
+                className="nf-override-dot"
+                data-page-size-override="true"
+                title="This document overrides the global page size"
+                aria-label="Overridden for this document"
+              />
+            ) : null}
+          </span>
+          <div className="nf-settings-control">
+            <div className="nf-segmented">
+              {(['A4', 'A5', 'Letter'] as const).map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  className="nf-segmented-item"
+                  data-page-size-option={size}
+                  aria-pressed={pageSettings.size === size}
+                  onClick={() => pageSettings.setSize(size)}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+            {pageScope === 'document' && pageSettings.isSizeOverridden ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-size-use-global="true"
+                onClick={() => pageSettings.useGlobalSize()}
+              >
+                Use global
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="nf-settings-row">
+          <span className="nf-settings-row-label">
+            Orientation
+            {pageSettings.isOrientationOverridden ? (
+              <span
+                className="nf-override-dot"
+                data-page-orientation-override="true"
+                title="This document overrides the global orientation"
+                aria-label="Overridden for this document"
+              />
+            ) : null}
+          </span>
+          <div className="nf-settings-control">
+            <div className="nf-segmented">
+              {(['portrait', 'landscape'] as const).map((orientation) => (
+                <button
+                  key={orientation}
+                  type="button"
+                  className="nf-segmented-item"
+                  data-page-orientation-option={orientation}
+                  aria-pressed={pageSettings.orientation === orientation}
+                  onClick={() => pageSettings.setOrientation(orientation)}
+                >
+                  {orientation === 'portrait' ? 'Portrait' : 'Landscape'}
+                </button>
+              ))}
+            </div>
+            {pageScope === 'document' && pageSettings.isOrientationOverridden ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-orientation-use-global="true"
+                onClick={() => pageSettings.useGlobalOrientation()}
+              >
+                Use global
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="nf-margin-block" data-page-margins="true">
+          <div className="nf-margin-head">
+            <span className="nf-settings-row-label">
+              Margins
+              {marginGroupOverridden ? (
+                <span
+                  className="nf-override-dot"
+                  data-page-margins-override="true"
+                  title="This document overrides at least one margin"
+                  aria-label="Overridden for this document"
+                />
+              ) : null}
+            </span>
+            <div className="nf-settings-control nf-margin-all-control">
+              <label className="nf-margin-all-label" htmlFor="page-margin-all">
+                All sides
+              </label>
+              <div className="nf-margin-input-row">
+                <input
+                  id="page-margin-all"
+                  className="nf-input nf-margin-input"
+                  type="text"
+                  inputMode="decimal"
+                  value={pageSettings.allSidesValue}
+                  placeholder="Mixed"
+                  aria-label="All sides margin in millimetres"
+                  aria-invalid={marginValidation.groupError !== null ? true : undefined}
+                  aria-describedby={
+                    marginValidation.groupError !== null ? marginErrorId : undefined
+                  }
+                  data-page-margin-all="true"
+                  onChange={(event) => pageSettings.setAllSides(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+                    event.preventDefault();
+                    stepAllSides((event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 5 : 1));
+                  }}
+                />
+                <span className="nf-margin-unit">mm</span>
+              </div>
+              {marginGroupOverridden ? (
+                <button
+                  type="button"
+                  className="nf-button nf-button-quiet"
+                  data-page-margins-use-global="true"
+                  onClick={() => pageSettings.useGlobalMargins()}
+                >
+                  Use global margins
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="nf-margin-grid">
+            {MARGIN_KEYS.map((key) => {
+              const fieldError = marginValidation.fieldErrors[key];
+              const describedBy =
+                [
+                  fieldError === undefined ? null : `page-margin-${key}-error`,
+                  marginValidation.groupError === null ? null : marginErrorId,
+                ]
+                  .filter((value): value is string => value !== null)
+                  .join(' ') || undefined;
+              return (
+                <div className="nf-margin-field" key={key}>
+                  <label className="nf-margin-label" htmlFor={`page-margin-${key}`}>
+                    {MARGIN_LABELS[key]}
+                    {pageSettings.isMarginOverridden(key) ? (
+                      <span
+                        className="nf-override-dot"
+                        data-page-margin-override={key}
+                        title={`This document overrides the ${MARGIN_LABELS[
+                          key
+                        ].toLowerCase()} margin`}
+                        aria-label="Overridden for this document"
+                      />
+                    ) : null}
+                  </label>
+                  <div className="nf-margin-input-row">
+                    <input
+                      id={`page-margin-${key}`}
+                      className="nf-input nf-margin-input"
+                      type="text"
+                      inputMode="decimal"
+                      value={pageSettings.marginDrafts[key]}
+                      aria-label={`${MARGIN_LABELS[key]} margin in millimetres`}
+                      aria-invalid={fieldError === undefined ? undefined : true}
+                      aria-describedby={describedBy}
+                      data-page-margin={key}
+                      onChange={(event) => pageSettings.setMargin(key, event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+                        event.preventDefault();
+                        stepMargin(
+                          key,
+                          (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 5 : 1),
+                        );
+                      }}
+                    />
+                    <span className="nf-margin-unit">mm</span>
+                    {pageScope === 'document' && pageSettings.isMarginOverridden(key) ? (
+                      <button
+                        type="button"
+                        className="nf-icon-button nf-margin-use-global"
+                        data-page-margin-use-global={key}
+                        title={`Use the global ${MARGIN_LABELS[key].toLowerCase()} margin`}
+                        aria-label={`Use global for the ${MARGIN_LABELS[
+                          key
+                        ].toLowerCase()} margin`}
+                        onClick={() => pageSettings.useGlobalMargin(key)}
+                      >
+                        ↺
+                      </button>
+                    ) : null}
+                  </div>
+                  {fieldError === undefined ? null : (
+                    <span
+                      id={`page-margin-${key}-error`}
+                      className="nf-margin-field-error"
+                      data-page-margin-field-error={key}
+                    >
+                      {fieldError}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {marginValidation.groupError === null ? null : (
+            <p
+              id={marginErrorId}
+              className="nf-settings-inline-error"
+              role="alert"
+              data-page-margin-error="true"
+            >
+              {marginValidation.groupError}
+            </p>
+          )}
+          <p className="nf-settings-help" data-page-margins-help="true">
+            0–100 mm per side. The content area must keep at least 20 mm on each axis.
+            {marginValidation.margins === null ? '' : ` ${pageContentArea}.`}
+          </p>
+        </div>
+
+        {pageSettings.setupError === null ? null : (
+          <p
+            className="nf-settings-inline-error"
+            role="alert"
+            data-page-setup-error="true"
+          >
+            {pageSettings.setupError}
+          </p>
+        )}
+      </section>
+
+      <section className="nf-settings-section" data-page-typography-section="true">
+        <div className="nf-settings-section-head">
+          <h4 className="nf-settings-section-title">Typography</h4>
+          <div className="nf-settings-section-actions">
+            {pageScope === 'document' && themeOverridden ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-theme-use-global="true"
+                onClick={() => pageSettings.useGlobalTheme()}
+              >
+                Use global
+              </button>
+            ) : null}
+            {pageScope === 'global' ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-theme-reset="true"
+                onClick={() => pageSettings.resetTheme()}
+              >
+                Reset to default
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="nf-settings-row">
+          <span className="nf-settings-row-label">
+            Preset
+            {pageSettings.isPresetOverridden ? (
+              <span
+                className="nf-override-dot"
+                data-page-preset-override="true"
+                title="This document overrides the global preset"
+                aria-label="Overridden for this document"
+              />
+            ) : null}
+          </span>
+          <div className="nf-settings-control">
+            <div className="nf-segmented">
+              {(['compact', 'comfortable', 'custom'] as const).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className="nf-segmented-item"
+                  data-page-preset-option={preset}
+                  aria-pressed={pageSettings.preset === preset}
+                  onClick={() => pageSettings.setPreset(preset)}
+                >
+                  {PRESET_LABELS[preset]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="nf-settings-row"
+          data-page-density-section="true"
+          data-override={pageSettings.isDensityOverridden ? 'true' : 'false'}
+        >
+          <label className="nf-settings-row-label" htmlFor="page-density-slider">
+            Page density
+            {pageSettings.isDensityOverridden ? (
+              <span
+                className="nf-override-dot"
+                data-page-density-override="true"
+                title="This document overrides the global density"
+                aria-label="Overridden for this document"
+              />
+            ) : null}
+          </label>
+          <div className="nf-settings-control nf-density-row">
+            <input
+              id="page-density-slider"
+              type="range"
+              className="nf-range"
+              min={densityRange.min}
+              max={densityRange.max}
+              step={densityRange.step}
+              value={pageSettings.densityPercent}
+              aria-label="Page density"
+              aria-valuetext={`${pageSettings.densityPercent}%`}
+              data-page-density-slider="true"
+              onChange={(event) => pageSettings.queueDensity(Number(event.target.value))}
+            />
+            <span className="nf-density-value" data-page-density-value="true">
+              {pageSettings.densityPercent}%
+            </span>
+            {pageScope === 'document' ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-density-use-global="true"
+                disabled={!documentAvailable || !pageSettings.isDensityOverridden}
+                onClick={() => pageSettings.useGlobalDensity()}
+              >
+                Use global
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-density-reset="true"
+                disabled={pageSettings.densityPercent === 100}
+                onClick={() => pageSettings.queueDensity(100)}
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="nf-settings-help" data-page-density-note="true">
+          {pageScope === 'document'
+            ? `Page Read, Page Edit, and PDF use ${pageSettings.densityPercent}% for this document${
+                pageSettings.isDensityOverridden ? ' (document override)' : ''
+              }.`
+            : `Global Page density is ${pageSettings.densityPercent}%. A document with its own density override keeps that value.`}{' '}
+          60–70% is the densest range; 80% and above keeps larger type.
+        </p>
+        <p className="nf-settings-help" data-page-density-topology-note="true">
+          Density can move a callout between the right lane and below; the tree order stays fixed.
+        </p>
+        <p className="nf-settings-help" data-page-advanced-hidden="true">
+          Advanced typography, Page font, page chrome, and manual breaks are not available yet.
+        </p>
+      </section>
+    </>
   );
 
   return (
@@ -553,7 +788,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
         if (!open) requestClose();
       }}
     >
-      <Modal className="nf-settings-modal" data-settings-dialog="true">
+      <Modal
+        className={`nf-settings-modal${activePage === 'page' ? ' nf-settings-modal-page' : ''}`}
+        data-settings-dialog="true"
+      >
         <Dialog className="nf-settings" aria-label="Settings">
           <header className="nf-settings-head">
             <h2 className="nf-settings-heading">Settings</h2>
@@ -755,12 +993,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                       className="nf-button nf-button-primary"
                       data-settings-export-now="true"
                       onClick={() => {
-                        // Flush a debounced density edit first so the export
+                        // Flush every debounced Page edit first so the export
                         // sheet reads the same resolved Page settings.
-                        const pending = flushPending();
-                        const ready =
-                          pending === null ? Promise.resolve() : applyDensity(pending);
-                        void ready.then(() => {
+                        void flushPendingSettingsEdits().then(() => {
                           onCloseRef.current();
                           exportActiveDocument();
                         });
@@ -840,6 +1075,16 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                 </>
               ) : null}
             </section>
+            {activePage === 'page' ? (
+              <PageSettingsPreview
+                runtime={runtime}
+                settings={pageSettings.previewSettings}
+                invalid={pageSettings.previewInvalid}
+                scopeLabel={
+                  pageScope === 'document' ? 'This document' : 'Global default'
+                }
+              />
+            ) : null}
           </div>
           <footer className="nf-settings-foot">
             <span
@@ -859,7 +1104,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                   type="button"
                   className="nf-button"
                   data-settings-retry="true"
-                  onClick={retry}
+                  onClick={() => pageSettings.retry()}
                 >
                   Retry
                 </button>
