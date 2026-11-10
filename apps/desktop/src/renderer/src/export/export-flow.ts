@@ -157,9 +157,11 @@ function wait(ms: number): Promise<void> {
 /** The single running export, or null; at most one flow may own the surface. */
 let activeRun = 0;
 let opening = false;
+let starting = false;
+let choosingFolder = false;
 
 function flowBusy(): boolean {
-  if (opening) return true;
+  if (opening || starting) return true;
   const status = useExportUi.getState().status;
   return status === 'running' || status === 'confirm-overwrite';
 }
@@ -253,59 +255,90 @@ async function openExportSheet(): Promise<void> {
 
 /** Native folder picker; directories only. Never a save dialog. */
 export async function chooseExportFolder(): Promise<void> {
-  const state = useExportUi.getState();
-  let choice;
+  if (choosingFolder) return;
+  choosingFolder = true;
   try {
-    choice = await window.noteforest.chooseExportFolder({
-      defaultPath: state.folder,
-    });
-  } catch (error) {
-    update({
-      error: {
-        code: 'internal-error',
-        message:
-          error instanceof Error ? error.message : 'Could not choose an export folder.',
-        details: [],
-      },
-      status: 'failed',
-    });
-    record();
-    return;
+    const state = useExportUi.getState();
+    let choice;
+    try {
+      choice = await window.noteforest.chooseExportFolder({
+        defaultPath: state.folder,
+      });
+    } catch (error) {
+      update({
+        error: {
+          code: 'internal-error',
+          message:
+            error instanceof Error ? error.message : 'Could not choose an export folder.',
+          details: [],
+        },
+        status: 'failed',
+      });
+      record();
+      return;
+    }
+    if (choice.canceled) return;
+    setExportFolder(choice.folderPath);
+  } finally {
+    choosingFolder = false;
   }
-  if (choice.canceled) return;
-  setExportFolder(choice.folderPath);
 }
 
 /** Run preflight/existence, then either ask once in-sheet or start the job. */
 export async function startExport(): Promise<void> {
   const state = useExportUi.getState();
-  if (state.status !== 'configure' || flowBusy()) return;
-  const folder = state.folder;
-  if (folder === null || folder.trim().length === 0) {
-    update({
-      error: {
-        code: 'invalid-input',
-        message: 'Choose an export folder first.',
-        details: [],
-      },
-      status: 'failed',
-    });
-    record();
-    return;
-  }
-  const outputPath = joinExportPath(folder, exportFileName(state.baseName, state.addDate));
-  let exists = false;
+  if (starting || state.status !== 'configure' || flowBusy()) return;
+  starting = true;
   try {
-    exists = (await window.noteforest.exportPathExists(outputPath)).exists;
-  } catch {
-    exists = false;
+    const folder = state.folder;
+    if (folder === null || folder.trim().length === 0) {
+      update({
+        error: {
+          code: 'invalid-input',
+          message: 'Choose an export folder first.',
+          details: [],
+        },
+        status: 'failed',
+      });
+      record();
+      return;
+    }
+    // A Page Edit may have opened after the sheet (or a previous commit may
+    // have failed). Commit it now: a failure blocks the job and keeps the
+    // overlay's text.
+    const runtime = getRuntime(useShell.getState().activeTab);
+    if (runtime === null) {
+      fail({
+        code: 'document-not-open',
+        message: 'The document is not open.',
+        details: [],
+      });
+      return;
+    }
+    if (!(await commitPageEdit(runtime.packagePath))) {
+      fail({
+        code: 'snapshot-failed',
+        message: 'Could not commit the Page Edit block before the PDF export.',
+        details: [],
+      });
+      return;
+    }
+    const outputPath = joinExportPath(folder, exportFileName(state.baseName, state.addDate));
+    let exists = false;
+    try {
+      exists = (await window.noteforest.exportPathExists(outputPath)).exists;
+    } catch {
+      exists = false;
+    }
+    if (exists) {
+      update({ ...state, status: 'confirm-overwrite', outputPath });
+      record();
+      return;
+    }
+    await runExport(outputPath, false);
+  } finally {
+    starting = false;
   }
-  if (exists) {
-    update({ ...state, status: 'confirm-overwrite', outputPath });
-    record();
-    return;
-  }
-  await runExport(outputPath, false);
 }
 
 /** Replace the existing PDF after the one in-sheet confirmation. */
@@ -339,6 +372,7 @@ async function runExport(outputPath: string, overwrite: boolean): Promise<void> 
     outputPath,
     documentTitle: runtime.title,
     overwrite,
+    jobId: null,
     phase: 'queued',
     progress: 0,
     pageCount: null,
@@ -495,6 +529,7 @@ export function retryExport(): void {
   update({
     ...state,
     status: 'configure',
+    jobId: null,
     progress: 0,
     phase: null,
     cancelling: false,
