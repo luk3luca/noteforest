@@ -98,11 +98,11 @@ These are the decisions the UI plan is built on; details are recorded in the pha
 | **Settings frame and IA** | Lab draft | `ui-settings-contents.md`, `settings-inventory.md`, `settings-freeze-review.md`, `full-codebase-settings-review.md`, lab | **P2** | Instant save; nav; future pages; no document/read-only/error states. |
 | **Settings > General** | Lab draft | `ui-settings-contents.md` §2; no schema fields today | **P2** | Defaults are DES; keep the page small or empty until fields exist. |
 | **Settings > Appearance** | Lab draft | `ui-settings-contents.md` §3; `settingsVersion: 3`; light/accent tokens | **P6** | Empty/future page; theme/accent/uiScale/uiFont/codeFont; code font PDF gate. |
-| **Settings > Page** | Lab draft | `ui-settings-contents.md` §4; `settings-inventory.md`; `design-tokens-page.md`; ADR-0008 | **P3** | Setup/margins/preview/validation/density/preset/scope; advanced later. |
+| **Settings > Page** | Lab draft | `ui-settings-contents.md` §4; `settings-inventory.md`; `design-tokens-page.md`; ADR-0008; `settings-freeze-review.md` S3-12 | **P3** | Setup/margins/preview/validation/density/preset/scope; advanced later. |
 | **Settings > Continuous** | Lab draft | `ui-settings-contents.md` §5; `settings-freeze-review.md`; ADR-0008; M4e1 report | **P6** | Remove per-document page; global-only when real fields exist; zoom is view state. |
 | **Settings > Editor** | Lab draft | `ui-settings-contents.md` §6; `ui-overlays-keyboard.md` | **P2/P5** | Real shortcut list; future single-key/autosave rows hidden. |
 | **Settings > Export** | Lab draft | `ui-settings-contents.md` §7; `ui-export-contents.md` §9 | **P6** | Future defaults; empty page until the `export` namespace exists. |
-| **Settings > Data & About** | Lab draft | `ui-settings-contents.md` §8; `settings-freeze-review.md` S3-3/S3-12 | **P2/P6** | Paths/reveal/settings status; recovery/reset map later. |
+| **Settings > Data & About** | Lab draft | `ui-settings-contents.md` §8; `settings-freeze-review.md` S3-3 (map recovery) | **P2/P6** | Paths/reveal/settings status; recovery/reset map later. |
 | **Export sheet** | Shipped M4d2; lab states | `ui-export-contents.md`, ADR-0002, `m4c1`/`m4c2`/`m4c3` reviews, `apps/desktop/src/main/export-*.ts`, `renderer/src/export/` | **P4** | 560 px; no native save dialog; overwrite/progress/result; all warnings. |
 | **Command palette** | Basic shipped; lab | `ui-overlays-keyboard.md`, `ux.md`, command registry/read-mode gating, `shell/CommandPalette.tsx` | **P4** | Commands/documents/blocks; search; disabled reason; no content search; keyboard. |
 | **Dialogs, context menus** | Shipped/basic | `ui-overlays-keyboard.md` §2–3, `ux.md`, `shell/Dialogs.tsx`, `ContextMenu.tsx` | **P5** | Shared frames; gating; no native message boxes. |
@@ -116,7 +116,7 @@ These are the decisions the UI plan is built on; details are recorded in the pha
 | Phase | Scope | Gate |
 |---|---|---|
 | **P1 — Shell foundation** | C header (D alternative), tabs shrink/no scroll/`+`, zoom dropdown removal, active-row ring, no-document/read-only shell states, status strip, responsive shell. | Screenshots at 1280/1440; tab stress (2/8/14); no pageErrors; targeted UI/e2e; `verify:fast`. |
-| **P2 — Settings shell** | Instant save, nav, future empty pages, Data & About paths/status, no-document/read-only, save error/corrupt/newer states, no fake controls. | Settings UI tests incl. no document, write failure, future page empty; screenshots; `verify:fast`. |
+| **P2 — Settings shell** | Instant save, nav, future empty pages, Data & About paths/status, no-document/read-only, save error/corrupt/newer states, no fake controls; refresh the lab Settings mock to the same model (no Apply/Cancel). | Settings UI tests incl. no document, write failure, future page empty; lab/product parity; screenshots; `verify:fast`. |
 | **P3 — Page settings** | Setup/orientation/margins, defaults, scope/override, live preview, validation, density/preset; Page Edit commit policy. | Margins validation; scope switch no override; preview updates; Page/PDF parity; tests/screenshots. |
 | **P4 — Export + palette** | Export sheet all states; no native save dialog; overwrite/progress/result; palette registry, search, groups, disabled reasons, keyboard. | Export UI tests incl. overwrite/cancel/fail/warnings; palette keyboard/read-mode tests; screenshot. |
 | **P5 — Overlays, menu, keyboard, a11y** | Dialogs, context menus, toasts/banners, native menu parity, shortcut table, responsive, focus/VoiceOver. | Keyboard/read-mode parity; a11y checks; visual/VoiceOver pass; `verify:fast`. |
@@ -157,13 +157,17 @@ runs one full `npm run verify` at each integration, not per builder.
 - `docs/reviews/m4c1-print-compositor-review.md`,
   `docs/reviews/m4c2-export-orchestration-review.md`,
   `docs/design/ui-export-contents.md`.
-- Reports: `docs/reports/m4c1-*`, `m4c2-*`, `m4c3-*`, `m4d1-*`, `m4d2-*`,
-  `m4e1-*`, `m4e2-*`, `m4e3-*`.
+- Reports: `docs/reports/m4c1-print-compositor.md`,
+  `docs/reports/m4c2-export-orchestration.md`, `docs/reports/m4c3-pdf-gate.md`,
+  `docs/reports/m4d1-page-density.md`, `docs/reports/m4d2-export-ui.md`,
+  `docs/reports/m4e1-settings-platform.md`, `docs/reports/m4e2-page-density-topology.md`,
+  `docs/reports/m4e3-token-doc-split.md`.
 
 ### Export
 
 - `docs/design/ui-export-contents.md` — all states, destination, overwrite, progress, warnings.
-- `docs/design/ui-settings-contents.md` §7/§9 — future defaults.
+- `docs/design/ui-settings-contents.md` §7 — future defaults.
+- `docs/design/ui-export-contents.md` §9 — cross-link to the future `export` namespace.
 - `docs/adr/0002-pdf-pipeline.md`.
 - `apps/desktop/src/main/export-job.ts`, `export-preflight.ts`, `export-service.ts`,
   `export-window.ts`, `apps/desktop/src/shared/export.ts`,
