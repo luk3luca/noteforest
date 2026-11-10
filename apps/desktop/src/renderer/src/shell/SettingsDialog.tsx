@@ -189,6 +189,29 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
   const lastAttemptRef = useRef<DensityAttempt | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // Capture the real trigger before the modal focus scope moves focus. React
+  // Aria restores focus for its own dismiss paths; the shell closes Settings by
+  // removing the surface, so restore explicitly on unmount too.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  if (
+    returnFocusRef.current === null &&
+    typeof document !== 'undefined' &&
+    document.activeElement instanceof HTMLElement &&
+    document.activeElement !== document.body
+  ) {
+    returnFocusRef.current = document.activeElement;
+  }
+  useEffect(
+    () => () => {
+      const target = returnFocusRef.current;
+      if (target === null) return;
+      // Run after React Aria's modal focus scope restores.
+      requestAnimationFrame(() => {
+        if (target.isConnected) target.focus({ preventScroll: true });
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -768,6 +791,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                       onClick={() => void window.noteforest.revealLibrary()}
                     >
                       Reveal library in Finder
+                    </button>
+                    <button
+                      type="button"
+                      className="nf-button"
+                      data-settings-reveal-app-data="true"
+                      onClick={() => void window.noteforest.revealAppSupport()}
+                    >
+                      Reveal app data in Finder
                     </button>
                   </section>
                   <section className="nf-settings-section">

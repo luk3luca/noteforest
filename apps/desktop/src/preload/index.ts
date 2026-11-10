@@ -62,6 +62,7 @@ const api: NoteForestApi = {
   revealDocument: (packagePath: string): Promise<RevealResult> =>
     ipcRenderer.invoke('document:reveal', packagePath),
   revealLibrary: (): Promise<void> => ipcRenderer.invoke('library:reveal'),
+  revealAppSupport: (): Promise<void> => ipcRenderer.invoke('settings:reveal'),
   saveSession: (state: SessionState): Promise<void> =>
     ipcRenderer.invoke('session:save', state),
   saveSettings: (settings: AppSettings): Promise<SettingsSaveResult> =>

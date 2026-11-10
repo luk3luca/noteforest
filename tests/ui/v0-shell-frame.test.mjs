@@ -272,6 +272,11 @@ describe('V0 visual shell', () => {
     assert.equal(await page.locator('.nf-settings-heading').innerText(), 'Settings');
     await page.getByRole('button', { name: 'Done' }).click();
     await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
+    await page.waitForFunction(
+      () => document.activeElement?.classList.contains('nf-sidebar-settings') === true,
+      undefined,
+      { timeout: 5000 },
+    );
 
     // The static Graphite label stays gone; the palette still reaches Settings.
     const chromeText = await page.evaluate(() =>

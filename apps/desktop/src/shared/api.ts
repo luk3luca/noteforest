@@ -481,6 +481,8 @@ export interface NoteForestApi {
   closeDocument(packagePath: string, options: { save: boolean }): Promise<void>;
   revealDocument(packagePath: string): Promise<RevealResult>;
   revealLibrary(): Promise<void>;
+  /** Reveal the app-support/settings folder in the OS file manager. */
+  revealAppSupport(): Promise<void>;
   saveSession(state: SessionState): Promise<void>;
   /**
    * Persist personal app settings. The main process serializes the write,

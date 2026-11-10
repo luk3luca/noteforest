@@ -334,6 +334,13 @@ describe('Batch A UI rework', () => {
     await launch('batch-a-settings', env);
     await openSettings();
 
+    assert.equal(
+      await page.locator('.nf-settings').evaluate(
+        (element) => element.closest('[role="dialog"]') !== null,
+      ),
+      true,
+      'the Settings surface is a labelled modal dialog',
+    );
     const navLabels = await page.locator('.nf-settings-nav-item').allInnerTexts();
     assert.deepEqual(navLabels, [
       'General',
@@ -343,6 +350,19 @@ describe('Batch A UI rework', () => {
       'Export',
       'Data & About',
     ]);
+    // Arrow navigation is a real page switch and moves focus with it.
+    await page.locator('[data-settings-nav="page"]').focus();
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction(
+      () => document.activeElement?.id === 'nf-settings-nav-continuous',
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(
+      await page.locator('[data-settings-nav="continuous"]').getAttribute('aria-current'),
+      'page',
+    );
+    await page.locator('[data-settings-nav="page"]').click();
     assert.doesNotMatch(await page.locator('.nf-settings').innerText(), /Appearance|coming soon/i);
     assert.equal(await page.locator('[data-page-density-apply]').count(), 0);
     assert.equal(await page.locator('[data-page-density-cancel]').count(), 0);
@@ -358,6 +378,12 @@ describe('Batch A UI rework', () => {
       'no-document document scope explains why',
     );
     assert.equal(await page.locator('[data-page-density-slider]').isEnabled(), true);
+    // Continuous is per-document view state, so it is disabled with a reason
+    // when no document is open.
+    await page.locator('[data-settings-nav="continuous"]').click();
+    assert.equal(await page.locator('[data-continuous-no-document]').isVisible(), true);
+    assert.equal(await page.locator('[data-continuous-zoom-slider]').isDisabled(), true);
+    await page.locator('[data-settings-nav="page"]').click();
     await page.screenshot({ path: join(screenshotDir, 'settings-no-document.png') });
 
     // Export page: a real action, no fake default controls.
@@ -382,6 +408,7 @@ describe('Batch A UI rework', () => {
     assert.equal(await page.locator('[data-settings-schema-version]').innerText(), '2');
     assert.ok((await page.locator('[data-settings-version]').innerText()).length > 0);
     assert.equal(await page.locator('[data-settings-reveal-library]').count(), 1);
+    assert.equal(await page.locator('[data-settings-reveal-app-data]').count(), 1);
     await page.screenshot({ path: join(screenshotDir, 'settings-data.png') });
     await closeSettings();
     await h.quit();
@@ -467,6 +494,72 @@ describe('Batch A UI rework', () => {
       .update(await readFile(join(packagePath, 'document.json')))
       .digest('hex');
     assert.equal(afterHash, documentHash, 'the read-only document content was not modified');
+  });
+
+  it('commits an open Page Edit before a Page density write', async () => {
+    const env = ui.isolated('batch-a-page-edit-settings');
+    const packagePath = await writePagePackage(
+      env.NOTEFOREST_LIBRARY,
+      'page-edit-settings',
+      pageDocument({
+        id: 'batch-a-page-edit-settings',
+        title: 'Page edit settings',
+        chapterTitle: 'Chapter',
+        blocks: [textBlock('intro', 'Intro', 'Original page text.')],
+      }),
+    );
+    await launch('batch-a-page-edit-settings', env);
+    const opened = await page.evaluate(
+      (path) => window.__noteforestTest.openPath(path),
+      packagePath,
+    );
+    assert.equal(opened, true);
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.state().activeTab === path,
+      packagePath,
+      { timeout: 10000 },
+    );
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+
+    await page.keyboard.press('Meta+3');
+    await page.waitForFunction(
+      () => document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-ready') === 'true',
+      undefined,
+      { timeout: 30000 },
+    );
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      () => document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-interaction-mode') === 'edit',
+      undefined,
+      { timeout: 5000 },
+    );
+    const fragment = page.locator('.nf-editor[data-active="true"] .nf-page-fragment').first();
+    await fragment.dblclick();
+    const overlay = page.locator('[data-page-edit-overlay]');
+    await overlay.waitFor({ timeout: 5000 });
+    await page.waitForFunction(
+      () => document.activeElement?.closest('[data-page-edit-overlay]') !== null,
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.type(' EDITED');
+
+    // The density write must commit the overlay first.
+    await openSettings();
+    const slider = page.locator('[data-page-density-slider]');
+    await slider.focus();
+    await slider.press('ArrowLeft');
+    await page.waitForFunction(
+      () =>
+        Math.round(window.__noteforestTest.settings().app.page.theme.density * 100) === 95 &&
+        window.__noteforestTest.settings().saveState.status === 'saved',
+      undefined,
+      { timeout: 15000 },
+    );
+    await page.waitForSelector('[data-page-edit-overlay]', { state: 'detached', timeout: 10000 });
+    await closeSettings();
+    const structure = await page.evaluate(() => window.__noteforestTest.structure());
+    assert.match(JSON.stringify(structure.blocks.intro.content), /EDITED/);
   });
 
   it('navigates the palette by keyboard, groups/search/empty state, and read-mode reasons', async () => {

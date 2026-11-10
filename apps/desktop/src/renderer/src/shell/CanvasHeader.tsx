@@ -102,14 +102,19 @@ export function CanvasHeader({
             >
               <ChevronRight size={14} strokeWidth={1.6} aria-hidden="true" />
             </button>
-            {page.updating ? <span className="nf-page-status">Updating…</span> : null}
+            {page.updating ? (
+              <span key="page-updating" className="nf-page-status">
+                Updating…
+              </span>
+            ) : null}
             <button
+              key="page-export"
               type="button"
               className="nf-header-export"
               data-page-export="true"
               title="Export this document to PDF (⇧⌘E)"
               aria-keyshortcuts="Shift+Meta+E"
-              onClick={exportActiveDocument}
+              onClick={(event) => exportActiveDocument(event.currentTarget)}
             >
               <FileDown size={13} strokeWidth={1.6} aria-hidden="true" />
               Export PDF

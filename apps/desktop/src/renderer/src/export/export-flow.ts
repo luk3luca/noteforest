@@ -177,9 +177,21 @@ function recomputeDestination(): void {
   });
 }
 
+/** The element that opened the current sheet, for explicit focus restore. */
+let pendingReturnFocus: HTMLElement | null = null;
+
 /** Open the shared export sheet for the active document. */
-export function exportActiveDocument(): void {
-  void openExportSheet();
+export function exportActiveDocument(trigger?: HTMLElement | null): void {
+  void openExportSheet(trigger ?? null);
+}
+
+/** Consumed by the sheet on mount; cleared when the sheet unmounts. */
+export function peekExportReturnFocus(): HTMLElement | null {
+  return pendingReturnFocus;
+}
+
+export function clearExportReturnFocus(): void {
+  pendingReturnFocus = null;
 }
 
 export function setExportFolder(folder: string): void {
@@ -197,7 +209,7 @@ export function setExportAddDate(addDate: boolean): void {
   recomputeDestination();
 }
 
-async function openExportSheet(): Promise<void> {
+async function openExportSheet(trigger: HTMLElement | null): Promise<void> {
   if (flowBusy()) {
     // Focus the existing modal sheet; never start a second job.
     return;
@@ -206,6 +218,7 @@ async function openExportSheet(): Promise<void> {
   if (current.status !== 'idle' && current.status !== 'done' && current.status !== 'failed' && current.status !== 'cancelled') {
     return;
   }
+  pendingReturnFocus = trigger;
   const shell = useShell.getState();
   const runtime = getRuntime(shell.activeTab);
   if (runtime === null) {

@@ -357,6 +357,13 @@ describe('Batch A export sheet', () => {
     );
     await page.locator('[data-export-status="done"]').waitFor({ state: 'visible' });
     await page.screenshot({ path: resolve(screenshotDir, 'export-page-done.png') });
+    await page.locator('[data-export-dismiss]').click();
+    await page.waitForSelector('[data-export-sheet]', { state: 'detached' });
+    await page.waitForFunction(
+      () => document.activeElement?.hasAttribute('data-page-export') === true,
+      undefined,
+      { timeout: 5000 },
+    );
     record({ case: 'page header', pageCount: state.pageCount, pages: pdf.pageCount });
   });
 
@@ -473,6 +480,17 @@ describe('Batch A export sheet', () => {
     await page.waitForSelector('[data-export-status="running"]');
     const before = await exportState();
     assert.ok(before.jobId !== null, 'the running job is tracked');
+
+    // A second export invocation focuses the running sheet and starts no job.
+    await invokeAppMenu('menu-export-pdf');
+    await page.waitForFunction(
+      (jobId) =>
+        window.__noteforestTest.exportState().status === 'running' &&
+        window.__noteforestTest.exportState().jobId === jobId,
+      before.jobId,
+      { timeout: 5000 },
+    );
+    assert.equal(await page.locator('[data-export-status="running"]').count(), 1);
 
     // Esc while running asks before cancelling; no native dialog.
     await page.keyboard.press('Escape');

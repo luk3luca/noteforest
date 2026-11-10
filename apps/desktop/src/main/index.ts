@@ -442,6 +442,10 @@ function registerIpc(): void {
     await shell.openPath(libraryDir());
   });
 
+  ipcMain.handle('settings:reveal', async () => {
+    await shell.openPath(appSupportDir());
+  });
+
   ipcMain.handle('session:save', async (_event, state: SessionState) => {
     await writeSession(state);
   });

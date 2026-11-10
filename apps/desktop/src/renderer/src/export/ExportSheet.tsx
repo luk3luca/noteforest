@@ -5,17 +5,19 @@
  */
 
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ExportWarning } from '../../../shared/export';
 import { exportFileName, joinExportPath, pdfBaseNameForTitle } from '../../../shared/export';
 import {
   cancelActiveExport,
   cancelReplaceExport,
   chooseExportFolder,
+  clearExportReturnFocus,
   confirmReplaceExport,
   dismissCancelPrompt,
   dismissExportStatus,
   openExportedPdf,
+  peekExportReturnFocus,
   requestCancelExport,
   retryExport,
   revealExportedPdf,
@@ -132,6 +134,43 @@ export function ExportSheet(): JSX.Element | null {
   const warnings = useExportUi((state) => state.warnings);
   const overwrite = useExportUi((state) => state.overwrite);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  // The sheet is removed by the export store, not by React Aria's dismiss
+  // callback; restore the trigger explicitly (Settings does the same).
+  const initialReturnFocus = peekExportReturnFocus();
+  const returnFocusRef = useRef<HTMLElement | null>(
+    initialReturnFocus ??
+      (typeof document !== 'undefined' &&
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body
+        ? document.activeElement
+        : null),
+  );
+  const returnFocusWasPageExport = useRef(
+    initialReturnFocus?.hasAttribute('data-page-export') === true,
+  );
+  useEffect(
+    () => () => {
+      const original = returnFocusRef.current;
+      clearExportReturnFocus();
+      if (original === null) return;
+      // Run after React Aria's modal focus scope restores; otherwise its
+      // restore wins and the trigger never regains focus. A page-model update
+      // can replace the header button while the sheet is open, so fall back to
+      // the current Page export control when the original node is gone.
+      requestAnimationFrame(() => {
+        const target =
+          original.isConnected
+            ? original
+            : returnFocusWasPageExport.current
+              ? document.querySelector<HTMLElement>('[data-page-export="true"]')
+              : null;
+        if (target !== null && target.isConnected) {
+          target.focus({ preventScroll: true });
+        }
+      });
+    },
+    [],
+  );
 
   const fileName = useMemo(() => exportFileName(baseName, addDate), [baseName, addDate]);
   const normalizedBase = pdfBaseNameForTitle(baseName);
