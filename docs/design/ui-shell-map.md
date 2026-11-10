@@ -118,7 +118,7 @@ AppShell
 | **TabStrip** | Bar | Top, after traffic lights | TopBar | Tab, TabOverflowMenu | Move from TabBar | Reorder, overflow, keyboard arrows/Home/End/Delete |
 | **Tab** | Tab item | In TabStrip | TabStrip | Title, dirty dot, lock, recovery, close | Exists | Activate, close, middle-click, dirty/lock/recovery states |
 | **NewTabButton** | Icon button | TopBar, after tabs | TopBar | — | Exists (new note) | Create/open document; `⌘N` |
-| **ViewControls** | Segmented controls / icon buttons | TopBar or PageToolbar (A/B) | TopBar or PageToolbar | Layout, Mode, Zoom/Fit | **Add**; placement open (D-03) | Layout/mode/zoom; text vs icon variants; layout-aware; keyboard/menu parity; overflow on narrow |
+| **ViewControls** | Segmented controls / icon buttons | TopBar (A words / B symbols); PageToolbar fallback | TopBar | Layout, Mode, Zoom/Fit | **Add**; D-03 test order accepted | Layout/mode/zoom; text vs icon variants; layout-aware; keyboard/menu parity; overflow on narrow |
 | **GlobalActions** | Icon buttons | TopBar, far right | TopBar | CommandPaletteButton | Exists | `⌘K`; no Settings gear here |
 | **Sidebar** | Panel, 240–280 px | Left, full height below TopBar | WorkspaceBody | SidebarHeader, LibraryPanel, TopicsPanel, SidebarFooter | Exists | Collapse/expand, resize, persist; narrow auto-collapse |
 | **SidebarHeader** | Row | Top of Sidebar | Sidebar | Search, NewNote, SidebarToggle | Exists + **add toggle** | Search opens palette; new note; toggle `⌘\` |
@@ -278,14 +278,14 @@ migration.
 - **Window drag:** the empty TopBar area is a drag region; traffic lights stay inset.
 - **Tabs:** activate, close, middle-click, reorder, overflow menu; dirty dot, lock, recovery.
 - **ViewControls:** layout (Continuous/Page), mode (Edit/Read), zoom/fit; layout-aware; menu,
-  palette, and keyboard target the active layout. Placement is A/B: **TopBar** (text or
-  icon+text) vs **PageToolbar** (icon-only with tooltips/aria). Test both in the lab; collapse to
-  overflow on narrow widths.
+  palette, and keyboard target the active layout. Test **TopBar with words** first, then **TopBar
+  with symbols**; PageToolbar is only the fallback if both fail. Collapse to overflow on narrow
+  widths.
 - **GlobalActions:** command palette only; no second Settings gear.
 
 ### 6.3 Canvas and Page
 
-- **Layout/mode:** one control, placement A/B (D-03); no duplicate in StatusStrip.
+- **Layout/mode:** one control in TopBar (D-03); no duplicate in StatusStrip.
 - **PageToolbar:** previous/next, “Page N of M”, Setup, Density, Export. Page-specific only.
 - **Page Setup:** both entry points share one `PageSetupForm`. Settings edits the global default;
   the Page toolbar opens the same form as a sheet/popover and edits the document override, with
@@ -367,23 +367,23 @@ migration.
 |---|---|---|---|---|
 | D-01 | TopBar | Merge titlebar + tab strip, or keep two rows | Merge; traffic lights in the tab row | **Accepted: merge** |
 | D-02 | StatusStrip | Keep minimal, or remove | Keep a thin status line; no buttons except anchor health | **Accepted: keep**, minimal and extensible for future info |
-| D-03 | ViewControls placement | TopBar, PageToolbar, or split | TopBar, layout-aware | **Open**: A/B TopBar (text or icon+text) vs PageToolbar (icon-only) |
+| D-03 | ViewControls placement | TopBar, PageToolbar, or split | TopBar, layout-aware | **Accepted test order**: TopBar words first, TopBar symbols second; PageToolbar only fallback |
 | D-04 | PageToolbar contents | Zoom here or in TopBar; setup sheet vs popover | PageToolbar: nav, setup, density, export; zoom in TopBar | **Accepted in part**: page-specific only; zoom placement tied to D-03 |
 | D-05 | Settings surface | Large modal, separate window, or modeless panel | Large modal with left nav | **Accepted: modal** |
 | D-06 | Settings save model | Instant save + status, or Apply/Cancel | Decide in Settings IA; no mixed model | **Open** |
 | D-07 | Continuous page | View-state only, or new settings fields | View-state only; no schema change in this rework | **Accepted: keep the page**; view state now, persisted fields later |
 | D-08 | Page Setup placement | Settings only, Page sheet, or both | Both: global default in Settings, document override in Page sheet | **Accepted: both**, shared form |
 | D-09 | Export surface | Sheet with options, or keep panel | Sheet; defaults in Settings > Export | **Open** |
-| D-10 | Sidebar collapsed | Icon rail or fully hidden | Rail with reveal; width/collapsed persisted | **Open** (proposal rail) |
+| D-10 | Sidebar collapsed | Icon rail or fully hidden | Hidden + reveal; width/collapsed persisted | **Accepted: hidden + reveal** |
 | D-11 | Appearance | General page, separate page, or defer | General; dark-only until a field exists | **Open** |
 | D-12 | Settings pages with no fields | Show as future/disabled, or hide | Hide until fields exist, except a short “future” note | **Accepted: keep pages**, no fake controls |
 | D-13 | Continuous zoom/width scope | Global settings vs per-document view state | Per-document view state | **Accepted: per-document**; zoom exists, canvas width is a future view-state field |
 
 ### 8.1 Notes on the accepted decisions
 
-- **D-01 / D-03 tension:** merging the titlebar and tab strip frees one row, but TopBar space is
-  finite. Variant A puts ViewControls in TopBar (text or icon+text); variant B puts them in
-  PageToolbar (icon-only). The lab decides; the fallback is B if TopBar becomes crowded.
+- **D-01 / D-03:** merging the titlebar and tab strip frees one row. Variant A puts ViewControls in
+  TopBar with words; variant B uses symbols in TopBar. PageToolbar is only the fallback if both
+  fail; the lab decides A vs B.
 - **D-02:** StatusStrip is a status line, not a toolbar. It exposes slots (save state, counts,
   anchor health, future info) and no navigation controls.
 - **D-05:** a modal blocks the document; the Page preview lives inside the modal, not behind it.
@@ -402,6 +402,7 @@ migration.
 ## 9. Next step
 
 Phase 2 has started: `docs/design/ui-shell-contents.md` covers TopBar, Sidebar, and StatusStrip
-(slice 1). Next slices: PageToolbar/Canvas, Settings, Export sheet, overlays and keyboard. Then the
-settings placement matrix (`research/ui-surface-map.md` §7.17, CH-01…CH-16) and the A/B lab. No
-product code until the placement choices are made.
+(slice 1); `docs/design/ui-page-contents.md` covers PageToolbar, Page canvas, and Page Edit
+(slice 2). Next: Settings, Export sheet, overlays and keyboard. Then the settings placement matrix
+(`research/ui-surface-map.md` §7.17, CH-01…CH-16) and the A/B lab. No product code until the
+placement choices are made.

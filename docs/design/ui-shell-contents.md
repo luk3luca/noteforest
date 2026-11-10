@@ -75,7 +75,7 @@ global actions sit at the right. No separate titlebar row.
 
 ### 1.4 ViewControls — A/B
 
-**Variant A — TopBar (default proposal).**
+**Variant A — TopBar, words (test first).**
 
 | Control | Presentation | Shortcut | Behavior |
 |---|---|---|---|
@@ -88,14 +88,15 @@ Order: `Layout | Mode | Zoom` with a divider between mode and zoom. On narrow wi
 collapse first, then the zoom stepper collapses to the percent button, then the controls move to
 the overflow menu.
 
-**Variant B — PageToolbar (A/B candidate).**
+**Variant B — TopBar, symbols (test second).**
 
-- TopBar keeps tabs, new, palette, and the layout switch only.
-- PageToolbar holds mode + zoom/fit as icon-only controls with tooltips/aria.
-- Continuous has no PageToolbar, so it needs a compact floating `ViewControls` at the bottom-right
-  of the canvas (mode + zoom) or a TopBar fallback. This is the main cost of variant B.
-- The A/B test compares: space, discoverability, keyboard reach, one-hand use, narrow windows,
-  and whether the floating control feels like a second toolbar.
+- Same TopBar placement and control order as variant A, but layout/mode are icon-only with
+  tooltips/accessible labels; zoom stays a percent button with a menu.
+- This tests whether labels are necessary for a first-time user and how much space the TopBar
+  saves at 900–1200 px.
+- **PageToolbar is only a fallback** if both TopBar variants fail (crowding or discoverability).
+  If that happens, PageToolbar takes mode + zoom/fit for Page and Continuous needs a compact
+  floating fallback; that is a last resort, not the first test.
 
 **What to measure in the lab:** time to switch layout/mode, whether users find zoom/fit, TopBar
 crowding at 900/1000/1200 px, and whether the icon-only variant loses meaning without labels.
@@ -131,7 +132,7 @@ The sidebar is content: library and topics stay; only chrome changes.
 
 ```text
 ┌──────────────────────────────┐
-│ [ Search…            ⌘K ] [‹]│  header
+│ [ Search…        ⌘K ] [＋] [‹]│  header
 ├──────────────────────────────┤
 │ DOCUMENTS                    │
 │ [ Filter documents… ]        │
@@ -154,11 +155,13 @@ The sidebar is content: library and topics stay; only chrome changes.
 | Control | Presentation | Behavior | States |
 |---|---|---|---|
 | **Search** | Button with search icon + “Search” + `⌘K` hint | Opens the command palette (commands, documents, blocks) | Enabled always; tooltip clarifies it is not content search yet |
+| **New note** | `+` icon + “New” label (icon-only on narrow) | Creates a new document (`⌘N`); same command as the TopBar `+` | Enabled; disabled only while a blocking dialog is open |
 | **SidebarToggle** | Chevron-left, 24 px | Collapses/expands; `⌘\`; persists | Expanded/collapsed; `aria-expanded`, `aria-controls` |
 
-**New note:** the canonical visible entry is the TopBar `+`. The sidebar header does not repeat it;
-the empty workspace, menu, and palette remain contextual/shortcut entries. (Proposal; open choice
-in §5.)
+**New note (accepted 10 Nov):** both the TopBar `+` and the sidebar New note are visible. They are
+the same command, with the same label, tooltip, and shortcut; the empty state, menu, and palette
+remain contextual/shortcut entries. This is a deliberate exception for a frequent action, not two
+different commands.
 
 ### 2.3 LibraryPanel
 
@@ -203,13 +206,12 @@ in §5.)
 
 ### 2.6 Collapse, expand, resize
 
-- **Expanded:** toggle in the header; width 208–360; double-click the resizer resets to 264.
-- **Collapsed (two options, D-10 still open):**
-  - **A. Hidden + reveal:** the sidebar disappears; a `SidebarReveal` button appears at the left
-    of the TopBar/canvas; `⌘\` toggles. Cleanest; no duplicate icon rail.
-  - **B. Icon rail (48 px):** toggle, search, settings; library/topics hidden. More discoverable,
-    but adds a second icon vocabulary.
-  - Proposal: A. The lab can compare if needed.
+- **Expanded:** toggle in the header; width default 264, range 208–360; double-click the resizer
+  resets to 264. If the lab shows long topic rows are cramped, test 272 before changing the
+  default.
+- **Collapsed (accepted 10 Nov): hidden + reveal.** The sidebar disappears; a `SidebarReveal`
+  button appears at the left of the TopBar/canvas; `⌘\` toggles. No icon rail, so there is no
+  second icon vocabulary.
 - Collapsed state and width persist in the session; narrow windows (<760 px) auto-collapse but do
   not overwrite the user's preference.
 - Focus order: TopBar → Sidebar header → Library → Topics → Footer → Canvas.
@@ -284,7 +286,7 @@ It is slot-based so it can grow.
 
 | Command | Visible entry | Shortcut | Notes |
 |---|---|---|---|
-| New document | TopBar `+`; empty state; menu/palette | `⌘N` | Canonical visible entry is `+` |
+| New note | TopBar `+`; sidebar New note; empty state; menu/palette | `⌘N` | Two visible entries, same command |
 | Open document | Empty state; menu/palette | `⌘O` | No permanent sidebar button |
 | Command palette | TopBar `⌘K`; sidebar Search | `⌘K` | Palette searches commands/documents/blocks; not content |
 | Settings | Sidebar footer gear | `⌘,` | One visible entry |
@@ -301,28 +303,28 @@ contract for the controls in this slice.
 
 ## 5. Open choices in this slice
 
-| ID | Choice | Options | Proposal |
-|---|---|---|---|
-| S1-01 | New note entry | TopBar `+` only; sidebar “New note” only; both | TopBar `+` canonical; empty state contextual; no sidebar duplicate |
-| S1-02 | Sidebar collapsed | Hidden + reveal; 48 px icon rail | Hidden + reveal (A) |
-| S1-03 | Sidebar width | 264 default (current); 240; 280 | 264, range 208–360 |
-| S1-04 | Search semantics | Palette only; sidebar filter only; both | Sidebar Search opens palette; library filter stays local |
-| S1-05 | Tab close affordance | Active/hover only; always visible | Active + hover/focus; keyboard reachable |
-| S1-06 | ViewControls A/B | TopBar vs PageToolbar + continuous fallback | Test A first; B in the lab |
-| S1-07 | StatusStrip contents | Save + counts + anchor health; add page count; add export progress | Save/counts/anchor health; page count stays in PageToolbar |
-| S1-08 | Section labels | “Documents” / “Topics” vs “Library” / “Outline” | “Documents” / “Topics” (product language) |
-| S1-09 | Palette wording | “Search” vs “Search or run a command” | “Search or run a command” placeholder; “Search” label is acceptable if tooltip clarifies |
-| S1-10 | New document copy | “New note” vs “New document” | “New note” in the app UI; keep “Document” for file/library concepts; align the native menu later |
+| ID | Choice | Options | Proposal | Status 10 Nov |
+|---|---|---|---|---|
+| S1-01 | New note entry | TopBar `+` only; sidebar “New note” only; both | Both visible, same command/label/shortcut; empty state contextual | **Accepted: both** |
+| S1-02 | Sidebar collapsed | Hidden + reveal; 48 px icon rail | Hidden + reveal | **Accepted** |
+| S1-03 | Sidebar width | 264 default (current); 240; 280 | 264, range 208–360; test 272 if cramped | **Accepted** |
+| S1-04 | Search semantics | Palette only; sidebar filter only; both | Sidebar Search opens palette; library filter stays local | **Open: evaluate in lab** |
+| S1-05 | Tab close affordance | Active/hover only; always visible | Active + hover/focus; keyboard reachable | **Open; default proposal** |
+| S1-06 | ViewControls A/B | TopBar vs PageToolbar + continuous fallback | TopBar words first; TopBar symbols second; PageToolbar only fallback | **Accepted test order** |
+| S1-07 | StatusStrip contents | Save + counts + anchor health; add page count; add export progress | Save/counts/anchor health; page count stays in PageToolbar | **Accepted** |
+| S1-08 | Section labels | “Documents” / “Topics” vs “Library” / “Outline” | “Documents” / “Topics” (product language) | **Accepted** |
+| S1-09 | Palette wording | “Search” vs “Search or run a command” | “Search or run a command” placeholder; “Search” label is acceptable if tooltip clarifies | **Open** |
+| S1-10 | New document copy | “New note” vs “New document” | “New note” in the app UI; keep “Document” for file/library concepts; align the native menu later | **Accepted** |
 
 ---
 
 ## 6. Next slices
 
-1. **PageToolbar + Canvas:** page nav, Setup, Density, Export, PageStage/PageSheet frame, Page Edit
-   overlay, placeholders, banners.
+1. **PageToolbar + Canvas** — done in `docs/design/ui-page-contents.md` (page nav, Setup, Density,
+   Export, PageStage/PageSheet frame, Page Edit, placeholders, banners).
 2. **Settings:** modal frame, nav, General/Page/Continuous/Editor/Export/Data pages, rows,
    scope, apply/save, preview, states.
 3. **Export sheet:** options, progress, overwrite, result, errors, reveal.
 4. **Overlays and keyboard:** palette contents, dialog inventory, context menus, toasts, shortcut
    table, responsive rules, state matrix.
-5. **A/B lab:** ViewControls variants (text vs icons), sidebar collapse, Page Setup entry.
+5. **A/B lab:** ViewControls variants (TopBar words vs symbols), sidebar collapse, Page Setup entry.
