@@ -103,8 +103,8 @@ compositor, or PDF output change was made.
 |---|---|---:|
 | `npm run check:boundaries` | 170 files, 840 imports, 16 rules | 0.40 s |
 | `npm run typecheck` | all workspaces clean | 4.87 s |
-| `npx vitest run` (in `verify:fast`) | 103 files / 1027 tests passed | 2.67 s |
-| `npm run e2e` (critical, in `verify:fast`) | 16/16 passed | 43.93 s |
+| `npx vitest run` (in `verify:fast`) | 103 files / 1027 tests passed | 2.69 s |
+| `npm run e2e` (critical, in `verify:fast`) | 16/16 passed | 44.15 s |
 | **`npm run verify:fast`** | **exit 0** | **53.23 s** |
 | `npm run test:ui` (full Batch A state) | all 40 suites passed | 511.38 s |
 | Targeted: `ui-batch-a` | 5/5 | 10.9 s |
