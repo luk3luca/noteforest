@@ -106,7 +106,7 @@ compositor, or PDF output change was made.
 | `npx vitest run` (in `verify:fast`) | 103 files / 1027 tests passed | 2.67 s |
 | `npm run e2e` (critical, in `verify:fast`) | 16/16 passed | 43.93 s |
 | **`npm run verify:fast`** | **exit 0** | **53.23 s** |
-| `npm run test:ui` (full Batch A state) | all 39 suites passed | 511.38 s |
+| `npm run test:ui` (full Batch A state) | all 40 suites passed | 511.38 s |
 | Targeted: `ui-batch-a` | 5/5 | 10.9 s |
 | Targeted: `m4b1-page-view` | 9/9 | 6.1 s |
 | Targeted: `m4c1-print-compositor` | 6/6 | 3.9 s |
