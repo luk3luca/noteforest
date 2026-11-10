@@ -9,6 +9,14 @@
 **Scope:** the desktop shell. The Page sheet's internal layout and the PDF output are not
 redesigned here; only the frame around the Page changes.
 
+**Shell revision (10 November 2026, after V0):** the product owner revised the shell after seeing
+the Electron V0 and the browser lab. The target is now a **30 px TitleBar** (traffic lights + app
+name), a **44 px Toolbar inside the main column** (tabs start after the Sidebar), a **persistent
+sidebar column** that collapses to a **48 px rail** (expand + Settings in the rail), and **rounded
+floating panels** with 8 px gaps. The browser lab at `docs/design/ui-lab` is the visual reference.
+The single merged TopBar and the hidden + titlebar-reveal sidebar are superseded (D-01/D-10). Page
+design remains open; the Page sheet/PDF boundary above still applies.
+
 ---
 
 ## 0. How to read this map
@@ -33,8 +41,8 @@ PageTheme/PDF change is a separate decision, not part of the shell rework.
 
 ## 1. Principles
 
-1. **Three regions + overlays.** Workspace = TopBar + Sidebar + Canvas. Everything else is an
-   overlay (Settings, Export, Palette, Dialogs, Toasts) or a contextual bar (PageToolbar).
+1. **Three regions + overlays.** Workspace = TitleBar + Toolbar + Sidebar + Canvas. Everything else
+   is an overlay (Settings, Export, Palette, Dialogs, Toasts) or a contextual bar (PageToolbar).
 2. **One command, one canonical home.** Other appearances are shortcuts. Duplicate entry points
    are removed, not restyled.
 3. **Place by scope.** Global app settings → Settings; per-document Page settings → Page context
@@ -57,7 +65,7 @@ PageTheme/PDF change is a separate decision, not part of the shell rework.
 
 | ID | Screen | Type | Position | Contents | States |
 |---|---|---|---|---|---|
-| SC-01 | **Workspace** | Primary window | Full window | TopBar, Sidebar, Canvas, StatusStrip, overlays | No document, document open, recovery, read-only, save failure, Page Edit, export running |
+| SC-01 | **Workspace** | Primary window | Full window | TitleBar, Toolbar, Sidebar, Canvas, StatusStrip, overlays | No document, document open, recovery, read-only, save failure, Page Edit, export running |
 | SC-02 | **Settings** | Overlay (dialog or window) | Centered / separate | SettingsNav, SettingsPane, optional PreviewPane, SettingsActions | No document, dirty, saving/saved/error, corrupt/unreadable/newer, per-document override, read-only |
 | SC-03 | **Export** | Overlay (sheet) | Right/center over Workspace | ExportOptions, ExportProgress, ExportResult, actions | Configuring, running, cancelling, overwrite confirm, done, failed |
 | SC-04 | **Recovery** | Tab view | Inside Workspace canvas | Status, details, backups, restore, retry, reveal, close | Corrupt, missing, newer, unreadable, restore success/failure |
@@ -73,35 +81,30 @@ PageTheme/PDF change is a separate decision, not part of the shell rework.
 
 ```text
 AppShell
-├─ TopBar
-│  ├─ WindowControls          (macOS traffic lights; drag region)
-│  ├─ TabStrip
-│  │  ├─ Tab                  (title, dirty dot, lock, recovery, close)
-│  │  └─ TabOverflowMenu
-│  ├─ NewTabButton
-│  ├─ ViewControls            (layout Continuous/Page; mode Edit/Read; zoom/fit)
-│  └─ GlobalActions           (CommandPaletteButton; no Settings gear)
+├─ TitleBar                  (30 px: macOS traffic lights, app name, drag region)
 ├─ WorkspaceBody
-│  ├─ Sidebar                 (collapsible, resizable)
-│  │  ├─ SidebarHeader        (Search, NewNote, SidebarToggle)
-│  │  ├─ LibraryPanel         (filter, DocumentRow, row menu)
-│  │  ├─ TopicsPanel          (ChapterRow, BlockRow, AnchorRow)
-│  │  └─ SidebarFooter        (SettingsButton; single entry)
+│  ├─ Sidebar                (persistent full-height panel; collapsed = 48 px rail)
+│  │  ├─ SidebarHeader       (Search, NewNote, SidebarToggle)
+│  │  ├─ LibraryPanel        (filter, DocumentRow, row menu, section NewNote)
+│  │  ├─ TopicsPanel         (ChapterRow, BlockRow, AnchorRow)
+│  │  └─ SidebarFooter       (container; SettingsButton; room for future items)
 │  ├─ SidebarResizer
-│  └─ Canvas
-│     ├─ CanvasBanners        (read-only, save failure, repair)
-│     ├─ ContinuousCanvas     (ChapterCard, BlockCard, EdgeLayer, SelectionToolbar, CanvasFooter)
-│     ├─ PageCanvas
-│     │  ├─ PageToolbar       (PageNav, SetupButton, DensityButton, ExportButton)
-│     │  ├─ PageStage
-│     │  │  ├─ PageSheet      (PageChrome, PageFragments, PageEdges)
-│     │  │  └─ PageEditOverlay
-│     │  └─ PagePlaceholder   (loading/error/empty)
-│     └─ CanvasFooter         (Continuous only: Add chapter)
-├─ StatusStrip                (minimal, extensible: SaveState, WordCount, BlockCount, AnchorHealth)
+│  └─ MainColumn
+│     ├─ Toolbar             (44 px: TabStrip, New, ViewControls, Palette)
+│     └─ Canvas
+│        ├─ CanvasBanners    (read-only, save failure, repair)
+│        ├─ ContinuousCanvas (ChapterCard, BlockCard, EdgeLayer, SelectionToolbar, CanvasFooter)
+│        ├─ PageCanvas
+│        │  ├─ PageToolbar   (PageNav, SetupButton, DensityButton, ExportButton)
+│        │  ├─ PageStage
+│        │  │  ├─ PageSheet  (PageChrome, PageFragments, PageEdges)
+│        │  │  └─ PageEditOverlay
+│        │  └─ PagePlaceholder (loading/error/empty)
+│        └─ CanvasFooter     (Continuous only: Add chapter)
+├─ StatusStrip               (floating 24 px status bar: save, counts, anchor health)
 └─ OverlayHost
-   ├─ SettingsDialog          (SettingsNav, SettingsPane, PreviewPane, SettingsActions)
-   ├─ ExportSheet             (ExportOptions, ExportProgress, ExportResult)
+   ├─ SettingsDialog         (SettingsNav, SettingsPane, PreviewPane, SettingsActions)
+   ├─ ExportSheet            (ExportOptions, ExportProgress, ExportResult)
    ├─ CommandPalette
    ├─ DialogHost
    ├─ ContextMenuHost
@@ -112,28 +115,31 @@ AppShell
 
 | Name | Type | Position | Parent | Main children | Status | Behavior |
 |---|---|---|---|---|---|---|
-| **AppShell** | Root layout | Full window | — | TopBar, WorkspaceBody, StatusStrip, OverlayHost | Exists (rename from app root) | Single window; dark shell; focus order top → sidebar → canvas |
-| **TopBar** | Bar, 40–44 px | Top, full width | AppShell | WindowControls, TabStrip, NewTabButton, ViewControls, GlobalActions | **Merge** TitleBar + TabBar (accepted 10 Nov) | Window drag region; tabs; view controls; palette |
-| **WindowControls** | Native chrome | Top-left | TopBar | Traffic lights | Exists (native) | macOS close/minimize/zoom; leave inset |
-| **TabStrip** | Bar | Top, after traffic lights | TopBar | Tab, TabOverflowMenu | Move from TabBar | Reorder, overflow, keyboard arrows/Home/End/Delete |
+| **AppShell** | Root layout | Full window | — | TitleBar, WorkspaceBody, StatusStrip, OverlayHost | Exists (rename from app root) | Single window; dark shell; focus order title → sidebar → toolbar → canvas |
+| **TitleBar** | Bar, 30 px | Top, full width | AppShell | WindowControls, AppName | **Revised 10 Nov** from merged TopBar | Window drag region; traffic lights; no tabs |
+| **WindowControls** | Native chrome | Top-left | TitleBar | Traffic lights | Exists (native) | macOS close/minimize/zoom; leave inset |
+| **Toolbar** | Bar, 44 px | Top of MainColumn, after Sidebar | MainColumn | TabStrip, NewTabButton, ViewControls, GlobalActions | **Revised 10 Nov** | Tabs start after Sidebar; shifts with the collapsed rail; no hard full-width rule |
+| **TabStrip** | Row | In Toolbar | Toolbar | Tab, TabOverflowMenu | Move from TabBar | Rounded chips, 4 px gap; reorder, overflow, keyboard arrows/Home/End/Delete |
 | **Tab** | Tab item | In TabStrip | TabStrip | Title, dirty dot, lock, recovery, close | Exists | Activate, close, middle-click, dirty/lock/recovery states |
-| **NewTabButton** | Icon button | TopBar, after tabs | TopBar | — | Exists (new note) | Create/open document; `⌘N` |
-| **ViewControls** | Segmented controls / icon buttons | TopBar (A words / B symbols); PageToolbar fallback | TopBar | Layout, Mode, Zoom/Fit | **Add**; D-03 test order accepted | Layout/mode/zoom; text vs icon variants; layout-aware; keyboard/menu parity; overflow on narrow |
-| **GlobalActions** | Icon buttons | TopBar, far right | TopBar | CommandPaletteButton | Exists | `⌘K`; no Settings gear here |
-| **Sidebar** | Panel, 240–280 px | Left, full height below TopBar | WorkspaceBody | SidebarHeader, LibraryPanel, TopicsPanel, SidebarFooter | Exists | Collapse/expand, resize, persist; narrow auto-collapse |
-| **SidebarHeader** | Row | Top of Sidebar | Sidebar | Search, NewNote, SidebarToggle | Exists + **add toggle** | Search opens palette; new note; toggle `⌘\` |
-| **LibraryPanel** | Scroll section | Sidebar | Sidebar | Filter, DocumentRow | Exists | Filter, open, row menu, recovery label |
+| **NewTabButton** | Icon button | Toolbar, after tabs | Toolbar | — | Exists (new note) | Create/open document; `⌘N` |
+| **ViewControls** | Segmented controls / icon buttons | Toolbar (D-03 words first; icons later) | Toolbar | Layout, Mode, Zoom/Fit | **Add**; D-03 test order accepted | Layout/mode/zoom; layout-aware; keyboard/menu parity; overflow on narrow |
+| **GlobalActions** | Icon button | Toolbar, far right | Toolbar | CommandPaletteButton | Exists | `⌘K`; no Settings gear here |
+| **WorkspaceBody** | Row | Below TitleBar | AppShell | Sidebar, SidebarResizer, MainColumn | **Revised 10 Nov** | 8 px gaps; rounded panels; no full-bleed hard rules |
+| **Sidebar** | Rounded panel, 264 px | Left, full height | WorkspaceBody | SidebarHeader, LibraryPanel, TopicsPanel, SidebarFooter | **Revised 10 Nov** | Persistent column; collapsed = 48 px rail with expand + Settings; resize/persist |
+| **SidebarHeader** | Row, 44 px | Top of Sidebar | Sidebar | Search, NewNote, SidebarToggle | Exists + toggle | Search opens palette; icon-only new note; toggle `⌘\` |
+| **LibraryPanel** | Scroll section | Sidebar | Sidebar | Filter, DocumentRow, section NewNote | Exists + section `+` | Filter, open, row menu, recovery label |
 | **TopicsPanel** | Scroll section | Sidebar | Sidebar | ChapterRow, BlockRow, AnchorRow | Exists | Tree selection, rename, collapse, context menu |
-| **SidebarFooter** | Row | Bottom of Sidebar | Sidebar | SettingsButton | Exists | **Single Settings entry**; `⌘,`; remove fake “Graphite” label |
+| **SidebarFooter** | Container | Bottom of Sidebar | Sidebar | SettingsButton; future items | **Revised 10 Nov** | Settings is a button inside the footer, not the whole footer |
 | **SidebarResizer** | Separator | Right edge of Sidebar | WorkspaceBody | — | Exists | Drag 208–360; double-click reset |
-| **Canvas** | Main region | Center | WorkspaceBody | ContinuousCanvas or PageCanvas | Exists | Layout switch; focus; banners |
-| **ContinuousCanvas** | Canvas mode | Center | Canvas | Chapters, blocks, edges, selection toolbar, footer | Exists | Edit/Read; zoom/fit; focus branch |
-| **PageCanvas** | Canvas mode | Center | Canvas | PageToolbar, PageStage, PagePlaceholder | Exists | Page Read/Edit; page nav; setup/density/export |
-| **PageToolbar** | Contextual bar, 36–40 px | Top of PageCanvas | PageCanvas | PageNav, SetupButton, DensityButton, ExportButton | Exists + **add setup/density** | Page-specific: nav, Setup, Density, Export; zoom placement tied to D-03 |
-| **PageStage** | Scroll/zoom container | Center | PageCanvas | PageSheet, PageEditOverlay | Exists | Page zoom/fit; one page at a time |
-| **PageSheet** | Paper sheet | Center | PageStage | PageChrome, PageFragments, PageEdges | Exists | **Exact** geometry/typography; frame only is redesigned |
+| **MainColumn** | Column | Right of Sidebar | WorkspaceBody | Toolbar, Canvas | **Add 10 Nov** | Holds the toolbar and canvas; shifts when the rail changes width |
+| **Canvas** | Rounded panel | MainColumn | MainColumn | ContinuousCanvas or PageCanvas | Exists | Panel border/radius; no full-bleed hard rules |
+| **ContinuousCanvas** | Canvas mode | MainColumn | Canvas | Chapters, blocks, edges, selection toolbar, footer | Exists | Edit/Read; zoom/fit; focus branch; cards rounded 9 px |
+| **PageCanvas** | Canvas mode | MainColumn | Canvas | PageToolbar, PageStage, PagePlaceholder | Exists | Page Read/Edit; page nav; setup/density/export |
+| **PageToolbar** | Contextual bar, 36–40 px | Top of PageCanvas | PageCanvas | PageNav, SetupButton, DensityButton, ExportButton | Exists + **add setup/density** | Page-specific: nav, Setup, Density, Export; no hard full-width rule |
+| **PageStage** | Scroll/zoom container | MainColumn | PageCanvas | PageSheet, PageEditOverlay | Exists | Page zoom/fit; one page at a time |
+| **PageSheet** | Paper sheet | Center | PageStage | PageChrome, PageFragments, PageEdges | Exists | **Exact** geometry/typography; Page design still open |
 | **PageEditOverlay** | In-sheet editor | Over PageSheet | PageStage | PageBlockEditor | Exists | Edit one block; commit/cancel; error keeps text |
-| **StatusStrip** | Thin bar, 22–24 px | Bottom, full width | AppShell | SaveState, WordCount, BlockCount, AnchorHealth | **Keep**; minimal, extensible (accepted 10 Nov) | Status items only, no navigation buttons; room for future info |
+| **StatusStrip** | Floating bar, 24 px | Bottom, inset 8 px | AppShell | SaveState, WordCount, BlockCount, AnchorHealth | **Keep**; minimal, extensible (accepted 10 Nov) | Status items only; no navigation buttons; floating border/radius |
 | **SettingsDialog** | Overlay, ~760×560 | Centered | OverlayHost | SettingsNav, SettingsPane, PreviewPane, SettingsActions | **Replace** the 480 px density-only dialog | Pages; scope; apply/cancel; warnings; no document |
 | **ExportSheet** | Overlay | Right/center | OverlayHost | ExportOptions, ExportProgress, ExportResult | **Replace** floating panel | Configure, run, cancel, result, reveal |
 | **CommandPalette** | Modal overlay | Center top | OverlayHost | Search, groups, hints | Exists | `⌘K`; commands/documents/blocks; no duplicates |
@@ -167,27 +173,31 @@ Use one set of primitives across the shell and Settings:
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ TopBar: ● ● ● │ tabs … │ + │ Continuous Page │ Edit Read │ ⌘K │
-├───────────────┬──────────────────────────────────────────────┤
-│ Sidebar       │ PageToolbar (Page only)                      │
-│  Search  New  ├──────────────────────────────────────────────┤
-│  Library      │ Canvas                                       │
-│  Topics       │   Continuous: chapters/blocks/edges          │
-│               │   Page: PageStage → PageSheet                │
-│  ⚙ Settings   │                                              │
-├───────────────┴──────────────────────────────────────────────┤
-│ StatusStrip (minimal, extensible: Saved · 1,204 words · ⚠ 2)  │
+│ TitleBar: ● ● ●   NoteForest                                 │
+├────────────────┬─────────────────────────────────────────────┤
+│ Sidebar        │ Toolbar: tabs … + │ Continuous Page │ ⌘K    │
+│  Search + ‹    ├─────────────────────────────────────────────┤
+│  Library       │ Canvas (rounded panel)                      │
+│  Topics        │  Continuous: chapters/blocks/edges          │
+│                │  Page: PageToolbar → PageStage → PageSheet  │
+│  ⚙ Settings    │                                             │
+├────────────────┴─────────────────────────────────────────────┤
+│ StatusStrip (floating: Saved · 1,204 words · ⚠ 2)           │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+The sidebar is a persistent rounded panel; the toolbar and canvas are separate rounded panels in
+the main column, with 8 px gaps. Collapsed sidebar = 48 px rail; the toolbar starts after it.
 
 ### 4.2 Page mode
 
 ```text
-TopBar (window, tabs, layout/mode, zoom/fit, palette)
-Sidebar │ PageToolbar: ‹ Page 3 of 12 › │ Setup │ Density │ Export
-        │ PageStage: centered A4/A5/Letter sheet
-        │ PageSheet: header, fragments, edges, footer
-StatusStrip (minimal)
+TitleBar (traffic lights, app name)
+Sidebar  │ Toolbar (tabs, layout/mode, zoom/fit, palette)
+         │ PageToolbar: ‹ Page 3 of 12 › │ Setup │ Density │ Export
+         │ PageStage: centered A4/A5/Letter sheet
+         │ PageSheet: header, fragments, edges, footer
+StatusStrip (floating, minimal)
 ```
 
 ### 4.3 Settings
@@ -268,26 +278,29 @@ migration.
 
 ### 6.1 Sidebar
 
-- **Collapse/expand:** `SidebarToggle` in the header, `⌘\`, and a reveal control when collapsed.
+- **Collapse/expand:** `SidebarToggle` in the header, `⌘\`, and the rail expand control. The sidebar
+  stays a column; collapsed = 48 px rail with expand at the top and Settings at the bottom.
   Collapsed state and width persist in the session; narrow windows auto-collapse.
 - **Resize:** right-edge separator, 208–360 px, double-click resets to 264.
-- **Focus:** toggle and rows are real buttons/tree items; focus order TopBar → Sidebar → Canvas.
-- **Single Settings entry:** gear in the footer only. The titlebar gear is removed. The static
-  “Graphite” label is removed or becomes a real appearance entry inside Settings.
+- **Focus:** toggle and rows are real buttons/tree items; focus order TitleBar → Sidebar → Toolbar
+  → Canvas.
+- **Single Settings entry:** Settings is a button inside the footer container, not the whole footer.
+  The titlebar gear is removed. The static “Graphite” label is removed.
 
-### 6.2 TopBar and tabs
+### 6.2 TitleBar, Toolbar, and tabs
 
-- **Window drag:** the empty TopBar area is a drag region; traffic lights stay inset.
+- **TitleBar:** 30 px, traffic lights + app name; empty areas are the window drag region.
+- **Toolbar:** 44 px, inside the main column, starting after the sidebar; tabs, new note,
+  ViewControls, palette. Tabs are rounded chips with 4 px gaps.
 - **Tabs:** activate, close, middle-click, reorder, overflow menu; dirty dot, lock, recovery.
 - **ViewControls:** layout (Continuous/Page), mode (Edit/Read), zoom/fit; layout-aware; menu,
-  palette, and keyboard target the active layout. Test **TopBar with words** first, then **TopBar
-  with symbols**; PageToolbar is only the fallback if both fail. Collapse to overflow on narrow
-  widths.
+  palette, and keyboard target the active layout. In the Toolbar with words for now; symbols are a
+  later compactness pass. Collapse to overflow on narrow widths.
 - **GlobalActions:** command palette only; no second Settings gear.
 
 ### 6.3 Canvas and Page
 
-- **Layout/mode:** one control in TopBar (D-03); no duplicate in StatusStrip.
+- **Layout/mode:** one control in the Toolbar (D-03); no duplicate in StatusStrip.
 - **PageToolbar:** previous/next, “Page N of M”, Setup, Density, Export. Page-specific only.
 - **Page Setup:** both entry points share one `PageSetupForm`. Settings edits the global default;
   the Page toolbar opens the same form as a sheet/popover and edits the document override, with
@@ -299,7 +312,7 @@ migration.
 
 ### 6.4 Settings
 
-- **Entry:** sidebar footer gear, `⌘,`, palette. One canonical visible entry.
+- **Entry:** sidebar footer Settings button, `⌘,`, palette. One canonical visible entry.
 - **Navigation:** left nav pages; content pane; optional preview pane for Page.
 - **Scope:** global/document; per-field override; use global; reset; dirty/apply/cancel.
 - **States:** no document (document scope disabled with reason), read-only, corrupt/unreadable/
@@ -333,19 +346,19 @@ migration.
 | Current (Scout id) | Target | Action |
 |---|---|---|
 | SH-01 App window | AppShell | Keep, rename |
-| SH-02 TitleBar | TopBar (window controls + drag) | **Merge** (proposal) |
-| SH-03 Tab strip | TopBar.TabStrip | **Move** |
-| SH-04 Tab overflow | TopBar.TabOverflowMenu | Keep |
-| SH-05 Sidebar | Sidebar | Keep |
+| SH-02 TitleBar | TitleBar (30 px traffic lights + app name) | **Revised**: split from the toolbar |
+| SH-03 Tab strip | Toolbar.TabStrip (starts after Sidebar) | **Move** |
+| SH-04 Tab overflow | Toolbar.TabOverflowMenu | Keep |
+| SH-05 Sidebar | Sidebar (persistent panel; 48 px rail collapsed) | Keep; rail replaces hide |
 | SH-06 Sidebar header | SidebarHeader | Keep; add toggle |
-| SH-07 Library | LibraryPanel | Keep |
+| SH-07 Library | LibraryPanel | Keep; section `+` |
 | SH-08 Library row menu | ContextMenuHost | Keep |
 | SH-09 Topics | TopicsPanel | Keep |
 | SH-10 Chapter/block menus | ContextMenuHost | Keep |
-| SH-11 Sidebar footer | SidebarFooter | Keep; **single** Settings entry |
+| SH-11 Sidebar footer | SidebarFooter container + SettingsButton | **Revised**: button inside footer |
 | SH-12 Splitter | SidebarResizer | Keep |
 | SH-13 Empty state | EmptyWorkspace | Keep |
-| SH-14 Status bar | StatusStrip + TopBar.ViewControls | **Reshape/split**; no second toolbar |
+| SH-14 Status bar | StatusStrip (floating) + Toolbar.ViewControls | **Reshape/split**; no second toolbar |
 | SH-15 Command palette | CommandPalette | Keep, restyle |
 | SH-16 Native menu | NativeMenu | Keep; gate items |
 | SH-18 Renderer context menu | ContextMenuHost | Keep |
@@ -367,25 +380,28 @@ migration.
 
 | ID | Decision | Options | Proposal | Status 10 Nov |
 |---|---|---|---|---|
-| D-01 | TopBar | Merge titlebar + tab strip, or keep two rows | Merge; traffic lights in the tab row | **Accepted: merge** |
-| D-02 | StatusStrip | Keep minimal, or remove | Keep a thin status line; no buttons except anchor health | **Accepted: keep**, minimal and extensible for future info |
-| D-03 | ViewControls placement | TopBar, PageToolbar, or split | TopBar, layout-aware | **Accepted test order**: TopBar words first, TopBar symbols second; PageToolbar only fallback |
-| D-04 | PageToolbar contents | Zoom here or in TopBar; setup sheet vs popover | PageToolbar: nav, setup, density, export; zoom in TopBar | **Accepted in part**: page-specific only; zoom placement tied to D-03 |
+| D-01 | TitleBar / Toolbar | Single merged top bar, or a thin titlebar + content toolbar | 30 px titlebar (traffic lights + app name) + 44 px toolbar in the main column; tabs start after the sidebar | **Revised 10 Nov after V0**: split; single TopBar superseded |
+| D-02 | StatusStrip | Keep minimal, or remove | Keep a thin floating status line; no buttons except anchor health | **Accepted: keep**, minimal and extensible for future info |
+| D-03 | ViewControls placement | Toolbar, PageToolbar, or split | Toolbar, layout-aware | **Revised**: in the Toolbar; words for now, symbols later; PageToolbar fallback not needed |
+| D-04 | PageToolbar contents | Zoom here or in Toolbar; setup sheet vs popover | PageToolbar: nav, setup, density, export; zoom in Toolbar | **Accepted in part**: page-specific only; zoom placement tied to D-03 |
 | D-05 | Settings surface | Large modal, separate window, or modeless panel | Large modal with left nav | **Accepted: modal** |
 | D-06 | Settings save model | Instant save + status, or Apply/Cancel | Decide in Settings IA; no mixed model | **Open** |
 | D-07 | Continuous page | View-state only, or new settings fields | View-state only; no schema change in this rework | **Accepted: keep the page**; view state now, persisted fields later |
 | D-08 | Page Setup placement | Settings only, Page sheet, or both | Both: global default in Settings, document override in Page sheet | **Accepted: both**, shared form |
 | D-09 | Export surface | Sheet with options, or keep panel | Sheet; defaults in Settings > Export | **Open** |
-| D-10 | Sidebar collapsed | Icon rail or fully hidden | Hidden + reveal; width/collapsed persisted | **Accepted: hidden + reveal** |
+| D-10 | Sidebar collapsed | Rail, hidden + reveal, or unmount | Persistent sidebar; collapsed = 48 px rail with expand + Settings; toolbar shifts | **Revised 10 Nov after V0**: rail; titlebar reveal superseded |
 | D-11 | Appearance | General page, separate page, or defer | Dedicated Appearance page: theme, colors, fonts; Page/PDF stay light | **Accepted: dedicated page**; fields/schema TBD |
 | D-12 | Settings pages with no fields | Show as future/disabled, or hide | Hide until fields exist, except a short “future” note | **Accepted: keep pages**, no fake controls |
 | D-13 | Continuous zoom/width scope | Global settings vs per-document view state | Per-document view state | **Accepted: per-document**; zoom exists, canvas width is a future view-state field |
 
 ### 8.1 Notes on the accepted decisions
 
-- **D-01 / D-03:** merging the titlebar and tab strip frees one row. Variant A puts ViewControls in
-  TopBar with words; variant B uses symbols in TopBar. PageToolbar is only the fallback if both
-  fail; the lab decides A vs B.
+- **D-01 / D-03:** the titlebar/toolbar split is the revised line: a 30 px titlebar for traffic
+  lights and app name, a 44 px toolbar in the main column. Tabs start after the sidebar.
+  ViewControls are in the toolbar with words for now; symbols are a later compactness pass.
+- **D-10:** the sidebar is a persistent column. Collapsed means a 48 px rail with expand at the top
+  and Settings at the bottom; the toolbar shifts left. The earlier hidden + titlebar reveal is
+  superseded.
 - **D-02:** StatusStrip is a status line, not a toolbar. It exposes slots (save state, counts,
   anchor health, future info) and no navigation controls.
 - **D-05:** a modal blocks the document; the Page preview lives inside the modal, not behind it.
@@ -406,10 +422,9 @@ migration.
 
 ## 9. Next step
 
-Phase 2 has started: `docs/design/ui-shell-contents.md` covers TopBar, Sidebar, and StatusStrip
-(slice 1); `docs/design/ui-page-contents.md` covers PageToolbar, Page canvas, and Page Edit
-(slice 2); `docs/design/ui-settings-contents.md` covers Settings and the new Appearance page
-(slice 3); `docs/design/ui-export-contents.md` covers the Export sheet (slice 4);
-`docs/design/ui-overlays-keyboard.md` covers overlays, commands, and keyboard (slice 5). Next: the
-settings placement matrix (`research/ui-surface-map.md` §7.17, CH-01…CH-16) and the A/B lab. No
-product code until the placement choices are made.
+The content slices are done. The V0 shell frame is merged into `design/ui-map`; a **V0 visual
+pass** now ports the revised shell (titlebar/toolbar split, persistent sidebar rail, floating
+panels, rounded tabs/cards) from `docs/design/ui-lab` into Electron. The brief is
+`docs/tasks/v0-shell-visual.md`; the result merges back into `design/ui-map`, not `main`. After that:
+V1 Settings shell. The settings placement matrix (`research/ui-surface-map.md` §7.17,
+CH-01…CH-16) is resolved by the content slices; the remaining item is the Page design discussion.

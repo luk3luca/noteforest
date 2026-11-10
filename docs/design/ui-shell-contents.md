@@ -10,6 +10,14 @@ settings), `docs/design-tokens.md`, `docs/design-tokens-page.md`,
 **Scope of this slice:** TopBar, Sidebar, StatusStrip. PageToolbar/Canvas, Settings, and Export
 follow in the next slices.
 
+> **Shell revision 10 November 2026, after V0:** the product owner revised the shell after using
+> the Electron V0 and the browser lab. The target is now a **30 px TitleBar** (traffic lights + app
+> name), a **44 px Toolbar in the main column** (tabs start after the Sidebar), a **persistent
+> Sidebar column** that collapses to a **48 px rail** (expand + Settings in the rail), rounded
+> floating panels with 8 px gaps, and rounded tab chips. The single merged TopBar and the
+> hidden + titlebar-reveal sidebar below are superseded. `docs/design/ui-lab` is the visual
+> reference; the Electron port is `docs/tasks/v0-shell-visual.md`. Page design remains open.
+
 ---
 
 ## 0. Conventions
