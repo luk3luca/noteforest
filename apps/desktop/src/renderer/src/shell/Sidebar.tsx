@@ -1,4 +1,4 @@
-import { Anchor, BookOpen, ChevronRight, FileText, FileWarning, MoreHorizontal, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
+import { Anchor, BookOpen, ChevronRight, FileText, FileWarning, MoreHorizontal, PanelLeftClose, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
 import {
   Button,
   Tree,
@@ -44,15 +44,6 @@ function LibrarySection(): JSX.Element {
     <section className="nf-sidebar-section" aria-label="Library">
       <div className="nf-section-head">
         <span className="nf-section-label">Library</span>
-        <button
-          type="button"
-          className="nf-icon-button"
-          aria-label="New document"
-          title="New document (⌘N)"
-          onClick={() => void createNewDocument()}
-        >
-          <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
       </div>
       <div className="nf-library-search">
         <Search size={13} strokeWidth={1.5} aria-hidden="true" />
@@ -606,17 +597,35 @@ function TopicSection(): JSX.Element {
 export function Sidebar(): JSX.Element {
   const openDialog = useShell((state) => state.openDialog);
   const openPalette = useShell((state) => state.setPaletteOpen);
+  const collapseSidebar = (): void => useShell.getState().setSidebarCollapsed(true);
   return (
-    <aside className="nf-sidebar" aria-label="Sidebar">
+    <aside className="nf-sidebar" id="nf-sidebar" aria-label="Sidebar">
       <div className="nf-sidebar-head">
         <button type="button" className="nf-sidebar-search" onClick={() => openPalette(true)}>
           <Search size={13} strokeWidth={1.5} aria-hidden="true" />
           <span>Search</span>
           <kbd>⌘K</kbd>
         </button>
-        <button type="button" className="nf-new-note" onClick={() => void createNewDocument()}>
+        <button
+          type="button"
+          className="nf-new-note"
+          aria-label="New note"
+          title="New note (⌘N)"
+          onClick={() => void createNewDocument()}
+        >
           <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
           <span>New note</span>
+        </button>
+        <button
+          type="button"
+          className="nf-icon-button nf-sidebar-collapse"
+          aria-label="Collapse sidebar"
+          aria-expanded={true}
+          aria-controls="nf-sidebar"
+          title="Collapse sidebar (⌘\\)"
+          onClick={collapseSidebar}
+        >
+          <PanelLeftClose size={15} strokeWidth={1.5} aria-hidden="true" />
         </button>
       </div>
       <div className="nf-sidebar-scroll">
@@ -626,14 +635,14 @@ export function Sidebar(): JSX.Element {
       <div className="nf-sidebar-foot">
         <button
           type="button"
-          className="nf-icon-button"
+          className="nf-sidebar-settings"
           aria-label="Settings"
           title="Settings (⌘,)"
           onClick={() => openDialog({ kind: 'settings' })}
         >
           <Settings size={15} strokeWidth={1.5} aria-hidden="true" />
+          <span>Settings</span>
         </button>
-        <span className="nf-sidebar-foot-label">Graphite</span>
       </div>
     </aside>
   );

@@ -85,7 +85,12 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
   );
 }
 
-export function TabBar(): JSX.Element {
+/**
+ * The TopBar document tab strip: tabs (activate, close, middle-click, drag
+ * reorder), new note, and the overflow menu. The active tab title is the
+ * document identity; there is no separate app-name/title row.
+ */
+export function TabStrip(): JSX.Element {
   const tabs = useShell((state) => state.tabs);
   const activeTab = useShell((state) => state.activeTab);
   const activeTabInfo = useShell((state) =>
@@ -105,7 +110,7 @@ export function TabBar(): JSX.Element {
   const openOverflow = (event: React.MouseEvent<HTMLButtonElement>): void => {
     const rect = event.currentTarget.getBoundingClientRect();
     openContextMenu(rect.left - 120, rect.bottom + 4, [
-      { id: 'new', label: 'New document', shortcut: '⌘N', onSelect: () => void createNewDocument() },
+      { id: 'new', label: 'New note', shortcut: '⌘N', onSelect: () => void createNewDocument() },
       ...(tabs.length === 0
         ? []
         : [{ id: 'sep', label: '', separator: true } as const]),
@@ -157,7 +162,7 @@ export function TabBar(): JSX.Element {
   };
 
   return (
-    <div className="nf-tabbar">
+    <div className="nf-tab-strip">
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={tabs.map((tab) => tab.packagePath)} strategy={horizontalListSortingStrategy}>
           <div
@@ -172,10 +177,10 @@ export function TabBar(): JSX.Element {
           </div>
         </SortableContext>
       </DndContext>
-      <div className="nf-tabbar-actions">
+      <div className="nf-tab-actions">
         <button
           type="button"
-          className="nf-tabbar-button nf-tabbar-close"
+          className="nf-topbar-button"
           aria-label={`Close ${activeTabInfo?.title ?? 'tab'}`}
           title="Close current tab (⌘W)"
           data-close-active-tab="true"
@@ -188,16 +193,17 @@ export function TabBar(): JSX.Element {
         </button>
         <button
           type="button"
-          className="nf-tabbar-button"
-          aria-label="New document"
-          title="New document (⌘N)"
+          className="nf-topbar-button"
+          aria-label="New note"
+          title="New note (⌘N)"
+          data-topbar-new="true"
           onClick={() => void createNewDocument()}
         >
           <Plus size={15} strokeWidth={1.5} aria-hidden="true" />
         </button>
         <button
           type="button"
-          className="nf-tabbar-button"
+          className="nf-topbar-button"
           aria-label="All open tabs"
           title="All tabs"
           onClick={openOverflow}

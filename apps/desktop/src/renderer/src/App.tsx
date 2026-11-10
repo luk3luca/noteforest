@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import type { FlushResult, MenuCommand } from '../../shared/api';
-import { TitleBar } from './shell/TitleBar';
+import { TopBar } from './shell/TopBar';
 import { Workspace } from './shell/Workspace';
 import { StatusBar } from './shell/StatusBar';
 import { CommandPalette } from './shell/CommandPalette';
@@ -23,12 +23,9 @@ import {
   activeDocumentLayout,
   activeEditingEnabled,
   activeRuntime,
-  adjustActivePageZoom,
-  adjustActiveZoom,
-  fitActiveWidth,
+  adjustActiveLayoutZoom,
+  fitActiveLayout,
   openPath,
-  resetActivePageZoom,
-  resetActiveZoom,
   runMenuCommand,
   setActiveDocumentLayout,
   setActivePageFit,
@@ -342,26 +339,18 @@ export function App(): JSX.Element {
       }
       if (key === '=' || key === '+') {
         event.preventDefault();
-        if (layout === 'page') adjustActivePageZoom(0.1);
-        else adjustActiveZoom(0.1);
+        adjustActiveLayoutZoom(0.1);
         return;
       }
       if (key === '-') {
         event.preventDefault();
-        if (layout === 'page') adjustActivePageZoom(-0.1);
-        else adjustActiveZoom(-0.1);
+        adjustActiveLayoutZoom(-0.1);
         return;
       }
       if (event.code === 'Digit0') {
         event.preventDefault();
-        if (layout === 'page') {
-          if (event.shiftKey) setActivePageFit('width');
-          else resetActivePageZoom();
-        } else if (event.shiftKey) {
-          fitActiveWidth();
-        } else {
-          resetActiveZoom();
-        }
+        if (event.shiftKey) fitActiveLayout('fit-width');
+        else fitActiveLayout('actual');
         return;
       }
       if (key === 'f' && event.shiftKey) {
@@ -757,7 +746,7 @@ export function App(): JSX.Element {
 
   return (
     <div className="nf-app">
-      <TitleBar />
+      <TopBar />
       <Workspace />
       <StatusBar />
       <CommandPalette />

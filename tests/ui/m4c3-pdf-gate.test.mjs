@@ -195,7 +195,8 @@ async function showPageReadActualSize() {
   await page.keyboard.press('Meta+3');
   await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
   await waitPageReady();
-  await page.locator('[data-page-fit="actual"]').click();
+  await page.locator('[data-zoom-menu]').click();
+  await page.getByRole('menuitem', { name: 'Actual size' }).click();
   await page.waitForFunction(
     () => {
       const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');

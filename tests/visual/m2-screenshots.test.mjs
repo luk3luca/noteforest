@@ -90,7 +90,8 @@ describe('NoteForest M2 visual evidence', () => {
       undefined,
       { timeout: 10000 },
     );
-    await page.locator('.nf-document-title').click();
+    await page.locator('.nf-tab[data-active="true"]').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Rename document…' }).click();
     await page.locator('.nf-dialog').getByRole('textbox', { name: 'Name' }).fill('Reading notes');
     await page.locator('.nf-dialog').getByRole('button', { name: 'Save', exact: true }).click();
     await h.waitSaved();
@@ -250,8 +251,7 @@ describe('NoteForest M2 visual evidence', () => {
     const rootId = await rootCard.getAttribute('data-block-card');
     await rootCard.locator('.nf-block-prose').first().click();
     await h.waitSelected(rootId);
-    const focusButton = page.locator('.nf-status-focus');
-    await focusButton.click();
+    await page.keyboard.press('Shift+Meta+F');
     await page.waitForFunction(
       () => {
         const scope = document.querySelector('.nf-editor[data-active="true"]');
@@ -264,9 +264,16 @@ describe('NoteForest M2 visual evidence', () => {
     );
     await h.waitLayout({ blocks: 7 });
     await shot('focus-branch-1440x900.png', 1440, 900);
-    await focusButton.click();
+    await page.keyboard.press('Shift+Meta+F');
     await page.waitForFunction(
-      () => document.querySelector('.nf-status-focus')?.getAttribute('aria-pressed') === 'false',
+      () => {
+        const state = window.__noteforestTest.state();
+        const focused =
+          state.activeTab === null
+            ? null
+            : window.__noteforestTest.viewState()[state.activeTab]?.focusBlockId ?? null;
+        return focused === null;
+      },
       undefined,
       { timeout: 10000 },
     );
@@ -279,7 +286,7 @@ describe('NoteForest M2 visual evidence', () => {
     const characteristicId = await characteristic.getAttribute('data-block-card');
     await characteristic.click();
     await h.waitSelected(characteristicId);
-    await focusButton.click();
+    await page.keyboard.press('Shift+Meta+F');
     await page.waitForFunction(
       () => {
         const scope = document.querySelector('.nf-editor[data-active="true"]');
@@ -292,9 +299,16 @@ describe('NoteForest M2 visual evidence', () => {
     );
     await h.waitLayout({ blocks: 7 });
     await shot('focus-ancestors-1440x900.png', 1440, 900);
-    await focusButton.click();
+    await page.keyboard.press('Shift+Meta+F');
     await page.waitForFunction(
-      () => document.querySelector('.nf-status-focus')?.getAttribute('aria-pressed') === 'false',
+      () => {
+        const state = window.__noteforestTest.state();
+        const focused =
+          state.activeTab === null
+            ? null
+            : window.__noteforestTest.viewState()[state.activeTab]?.focusBlockId ?? null;
+        return focused === null;
+      },
       undefined,
       { timeout: 10000 },
     );
@@ -302,7 +316,8 @@ describe('NoteForest M2 visual evidence', () => {
     // Fit width at 1024.
     await h.setWindowSize(1024, 768);
     await h.waitLayout({ blocks: 7 });
-    await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
+    await page.locator('[data-zoom-menu]').click();
+    await page.getByRole('menuitem', { name: 'Fit width' }).click();
     await page.waitForFunction(
       () =>
         Number(

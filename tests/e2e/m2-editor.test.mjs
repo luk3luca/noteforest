@@ -45,7 +45,7 @@ async function waitActiveTab(packagePath) {
 
 async function waitZoomLabel(label) {
   await page.waitForFunction(
-    (expected) => document.querySelector('.nf-status-zoom')?.textContent?.trim() === expected,
+    (expected) => document.querySelector('[data-zoom-value]')?.textContent?.trim() === expected,
     label,
     { timeout: 10000 },
   );
@@ -580,8 +580,9 @@ describe('NoteForest M2 editor shell', () => {
     await h.waitSaved();
     assert.equal(await edges.count(), 0, 'detaching promotes the target and removes the arrow');
 
-    // Rename document.
-    await page.locator('.nf-document-title').click();
+    // Rename document from the tab context menu (V0 removed the title row).
+    await page.locator('.nf-tab[data-active="true"]').click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Rename document…' }).click();
     await page.locator('.nf-dialog').getByRole('textbox', { name: 'Name' }).fill('M2 notes');
     await page.locator('.nf-dialog').getByRole('button', { name: 'Save', exact: true }).click();
     await h.waitSaved();
@@ -1005,7 +1006,7 @@ describe('NoteForest M2 editor shell', () => {
     // Ctrl+Tab is a real tab cycle, and the active tab exposes a focusable,
     // announced close button.
     const firstPath = (await h.state()).activeTab;
-    await page.locator('.nf-tabbar-button[aria-label="New document"]').click();
+    await page.locator('.nf-topbar-button[aria-label="New note"]').click();
     await page.waitForFunction(
       () => window.__noteforestTest.state().tabs.length === 2,
       undefined,

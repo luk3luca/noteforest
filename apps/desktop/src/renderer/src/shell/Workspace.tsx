@@ -1,12 +1,11 @@
 import { Panel, Group, Separator } from 'react-resizable-panels';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { FilePlus2, Search } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { getRuntime, useRegistry } from '../state/registry';
 import { createNewDocument } from '../actions';
 import { DocumentEditor } from '../editor/DocumentEditor';
 import { Sidebar } from './Sidebar';
-import { TabBar } from './TabBar';
 import { RecoverySurface } from './RecoverySurface';
 
 function EmptyState(): JSX.Element {
@@ -88,25 +87,19 @@ export function Workspace(): JSX.Element {
       </div>
     </div>
   );
-  const tabsStrip = <TabBar />;
 
+  // The sidebar is user-collapsible (persisted) or auto-hidden on a narrow
+  // window. Narrow auto-hide never overwrites the user's preference.
   if (sidebarCollapsed || narrow) {
     return (
       <div className="nf-workspace nf-workspace-collapsed">
-        {tabsStrip}
         {editor}
       </div>
     );
   }
 
   return (
-    <div
-      className="nf-workspace-shell"
-      style={{ '--nf-sidebar-width': `${sidebarWidth}px` } as CSSProperties}
-    >
-      {/* DOM order is the keyboard focus order: the tab strip comes before the
-          sidebar and the editor, while CSS keeps it over the editor column. */}
-      {tabsStrip}
+    <div className="nf-workspace-shell">
       <Group
         orientation="horizontal"
         className="nf-workspace"

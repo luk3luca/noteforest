@@ -56,6 +56,25 @@ function activePageView() {
   return page.locator('.nf-editor[data-active="true"] .nf-page-view');
 }
 
+/** TopBar zoom controls own Page zoom/fit in V0; the PageToolbar is nav + export. */
+async function chooseZoomCommand(label) {
+  await page.locator('[data-zoom-menu]').click();
+  await page.getByRole('menuitem', { name: label }).click();
+  await page.locator('.nf-menu').waitFor({ state: 'detached' });
+}
+
+async function waitZoomValue(label) {
+  await page.waitForFunction(
+    (expected) => document.querySelector('[data-zoom-value]')?.textContent?.trim() === expected,
+    label,
+    { timeout: 5000 },
+  );
+}
+
+function pageZoomGroup() {
+  return page.locator('[data-zoom-target="page"]');
+}
+
 function activeSheet() {
   return activePageView().locator('.nf-page-sheet').first();
 }
@@ -171,9 +190,9 @@ describe('M4b1 page view core', () => {
     await firstFragment.click();
     assert.equal(await selectedBlockId(), fragmentBlockId);
     assert.equal(
-      await activePageView().locator('[data-page-open-continuous]').isDisabled(),
-      false,
-      'Open in continuous editor is enabled after selecting a block',
+      await page.locator('.nf-page-toolbar [data-page-open-continuous]').count(),
+      0,
+      'the PageToolbar has no Open in continuous editor button',
     );
 
     // Live model update while page view is visible (no manual refresh).
@@ -189,21 +208,17 @@ describe('M4b1 page view core', () => {
     );
 
     // Zoom/fit are navigation only: the sheet geometry attributes stay A4.
-    await activePageView().locator('[data-page-fit="width"]').click();
+    await chooseZoomCommand('Fit width');
     await page.waitForFunction(
-      () => document.querySelector('.nf-editor[data-active="true"] [data-page-fit="width"]')?.getAttribute('aria-pressed') === 'true',
+      () => document.querySelector('[data-zoom-target="page"]')?.getAttribute('data-page-fit') === 'width',
       undefined,
       { timeout: 5000 },
     );
-    await activePageView().locator('[data-page-fit="actual"]').click();
+    await chooseZoomCommand('Actual size');
+    await waitZoomValue('100%');
+    await page.locator('[data-zoom-action="in"]').click();
     await page.waitForFunction(
-      () => document.querySelector('.nf-editor[data-active="true"] [data-page-zoom-value]')?.textContent?.trim() === '100%',
-      undefined,
-      { timeout: 5000 },
-    );
-    await activePageView().locator('[data-page-zoom="in"]').click();
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] [data-page-zoom-value]')?.textContent?.replace('%', '')) > 100,
+      () => Number(document.querySelector('[data-zoom-value]')?.textContent?.replace('%', '')) > 100,
       undefined,
       { timeout: 5000 },
     );
@@ -213,7 +228,7 @@ describe('M4b1 page view core', () => {
     );
     await page.keyboard.press('Shift+1');
     await page.waitForFunction(
-      () => document.querySelector('.nf-editor[data-active="true"] [data-page-fit="page"]')?.getAttribute('aria-pressed') === 'true',
+      () => document.querySelector('[data-zoom-target="page"]')?.getAttribute('data-page-fit') === 'page',
       undefined,
       { timeout: 5000 },
     );
@@ -239,19 +254,19 @@ describe('M4b1 page view core', () => {
       { timeout: 5000 },
     );
 
-    // The explicit page -> continuous-editor bridge selects and focuses the same block.
+    // The Page fragment read path (double-click) opens the same block in
+    // Continuous Edit. The PageToolbar no longer has a duplicate button.
     await showPageView();
     const target = activePageView().locator('.nf-page-fragment').first();
     const targetId = await target.getAttribute('data-fragment-block');
-    await target.click();
-    await activePageView().locator('[data-page-open-continuous]').click();
+    await target.dblclick();
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.layout === 'continuous' &&
         window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
       packagePath,
       { timeout: 5000 },
     );
-    assert.equal(await selectedBlockId(), targetId, 'Open in continuous editor keeps the block');
+    assert.equal(await selectedBlockId(), targetId, 'the fragment read path keeps the block');
   });
 
   it('navigates a multi-page landscape document and shows continuation markers', async () => {
@@ -815,13 +830,9 @@ describe('M4b1 page view core', () => {
       undefined,
       { timeout: 5000 },
     );
-    await activePageView().locator('[data-page-fit="actual"]').click();
-    await page.waitForFunction(
-      () => document.querySelector('.nf-editor[data-active="true"] [data-page-zoom-value]')?.textContent?.trim() === '100%',
-      undefined,
-      { timeout: 5000 },
-    );
-    await activePageView().locator('[data-page-zoom="in"]').click();
+    await chooseZoomCommand('Actual size');
+    await waitZoomValue('100%');
+    await page.locator('[data-zoom-action="in"]').click();
     await page.waitForFunction(
       (path) => (window.__noteforestTest.viewState()[path]?.pageZoom ?? 1) > 1,
       packagePath,
@@ -861,8 +872,8 @@ describe('M4b1 page view core', () => {
     );
     assert.equal(await currentPageNumber(), 2);
     assert.equal(
-      await activePageView().locator('[data-page-fit="page"]').getAttribute('aria-pressed'),
-      'false',
+      await pageZoomGroup().getAttribute('data-page-fit'),
+      'none',
       'the restored manual zoom is not replaced by fit page',
     );
     assert.equal(await page.locator('[data-view-interaction="edit"]').isDisabled(), false);

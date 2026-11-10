@@ -16,10 +16,26 @@ async function launch(overrides = {}) {
 
 async function waitZoomLabel(label) {
   await page.waitForFunction(
-    (expected) => document.querySelector('.nf-status-zoom')?.textContent?.trim() === expected,
+    (expected) => document.querySelector('[data-zoom-value]')?.textContent?.trim() === expected,
     label,
     { timeout: 10000 },
   );
+}
+
+/** The stored Focus branch anchor for the active document. */
+async function focusedBlockId() {
+  return page.evaluate(() => {
+    const state = window.__noteforestTest.state();
+    return state.activeTab === null
+      ? null
+      : window.__noteforestTest.viewState()[state.activeTab]?.focusBlockId ?? null;
+  });
+}
+
+async function chooseZoomCommand(label) {
+  await page.locator('[data-zoom-menu]').click();
+  await page.getByRole('menuitem', { name: label }).click();
+  await page.locator('.nf-menu').waitFor({ state: 'detached' });
 }
 
 describe('NoteForest M2 view controls', () => {
@@ -41,7 +57,7 @@ describe('NoteForest M2 view controls', () => {
     await h.setWindowSize(1440, 900);
     await seedDemo();
 
-    const zoomLabel = page.locator('.nf-status-zoom');
+    const zoomLabel = page.locator('[data-zoom-value]');
     assert.equal((await zoomLabel.innerText()).trim(), '100%');
     await page.keyboard.press('Meta+-');
     await waitZoomLabel('90%');
@@ -69,9 +85,8 @@ describe('NoteForest M2 view controls', () => {
     const rootId = await rootCard.getAttribute('data-block-card');
     await rootCard.locator('.nf-block-prose').first().click();
     await h.waitSelected(rootId);
-    const focusButton = page.locator('.nf-status-focus');
-    assert.equal(await focusButton.getAttribute('aria-pressed'), 'false');
-    await focusButton.click();
+    assert.equal(await focusedBlockId(), null);
+    await page.keyboard.press('Shift+Meta+F');
     await page.waitForFunction(
       () => {
         const scope = document.querySelector('.nf-editor[data-active="true"]');
@@ -87,7 +102,7 @@ describe('NoteForest M2 view controls', () => {
       { timeout: 10000 },
     );
     await h.waitLayout({ blocks: 7 });
-    assert.equal(await focusButton.getAttribute('aria-pressed'), 'true');
+    assert.equal(await focusedBlockId(), rootId, '⇧⌘F focuses the selected root');
     const focused = await page.evaluate(() => {
       const current = window.__noteforestTest.state();
       const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
@@ -111,7 +126,7 @@ describe('NoteForest M2 view controls', () => {
     assert.deepEqual(focused.blockIds, before.blockIds, 'Focus branch does not delete blocks');
 
     // Fit width works on the focused branch, not just the whole document.
-    await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
+    await chooseZoomCommand('Fit width');
     await page.waitForFunction(
       () =>
         Number(
@@ -131,23 +146,25 @@ describe('NoteForest M2 view controls', () => {
       'zoom does not flag edge defects',
     );
 
-    await focusButton.click();
+    await page.keyboard.press('Shift+Meta+F');
     await page.waitForFunction(
       (expected) => {
         const scope = document.querySelector('.nf-editor[data-active="true"]');
         const visible = (element) => element.getClientRects().length > 0;
         if (scope === null) return false;
         const cards = [...scope.querySelectorAll('[data-block-card]')].filter(visible).length;
-        return (
-          document.querySelector('.nf-status-focus')?.getAttribute('aria-pressed') === 'false' &&
-          cards === expected
-        );
+        const state = window.__noteforestTest.state();
+        const focused =
+          state.activeTab === null
+            ? null
+            : window.__noteforestTest.viewState()[state.activeTab]?.focusBlockId ?? null;
+        return focused === null && cards === expected;
       },
       before.visible,
       { timeout: 10000 },
     );
     await h.waitLayout({ blocks: 7 });
-    assert.equal(await focusButton.getAttribute('aria-pressed'), 'false');
+    assert.equal(await focusedBlockId(), null, '⇧⌘F exits Focus branch');
     assert.equal(
       await h.activeEditor().locator('[data-block-card]:visible').count(),
       before.visible,
@@ -163,7 +180,7 @@ describe('NoteForest M2 view controls', () => {
     const characteristicId = await characteristic.getAttribute('data-block-card');
     await characteristic.click();
     await h.waitSelected(characteristicId);
-    await focusButton.click();
+    await page.keyboard.press('Shift+Meta+F');
     await page.waitForFunction(
       () => {
         const scope = document.querySelector('.nf-editor[data-active="true"]');
@@ -178,6 +195,7 @@ describe('NoteForest M2 view controls', () => {
       { timeout: 10000 },
     );
     await h.waitLayout({ blocks: 7 });
+    assert.equal(await focusedBlockId(), characteristicId, 'the deep block is the focus anchor');
     const ancestors = await page.evaluate(() => {
       const scope = document.querySelector('.nf-editor[data-active="true"]');
       const visible = (element) => element.getClientRects().length > 0;
@@ -197,10 +215,16 @@ describe('NoteForest M2 view controls', () => {
     assert.equal(ancestors.arrows, 2, 'the ancestor path keeps its two arrows');
     assert.ok(ancestors.texts.some((text) => text.includes('Characteristic')));
     assert.ok(!ancestors.texts.some((text) => text.includes('Spectrum')), 'sibling branch hides');
-    await focusButton.click();
+    await page.keyboard.press('Shift+Meta+F');
     await page.waitForFunction(
-      () =>
-        document.querySelector('.nf-status-focus')?.getAttribute('aria-pressed') === 'false',
+      () => {
+        const state = window.__noteforestTest.state();
+        const focused =
+          state.activeTab === null
+            ? null
+            : window.__noteforestTest.viewState()[state.activeTab]?.focusBlockId ?? null;
+        return focused === null;
+      },
       undefined,
       { timeout: 10000 },
     );
@@ -232,7 +256,7 @@ describe('NoteForest M2 view controls', () => {
       beforeFit.overflow > 0,
       `the full demo overflows at the narrow window before Fit (${beforeFit.overflow})`,
     );
-    await page.locator('.nf-status-view').getByRole('button', { name: 'Fit', exact: true }).click();
+    await chooseZoomCommand('Fit width');
     await page.waitForFunction(
       () =>
         Number(

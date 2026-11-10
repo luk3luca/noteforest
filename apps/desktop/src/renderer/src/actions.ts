@@ -61,6 +61,10 @@ import {
 } from './lib/editability';
 import { commitPageEdit } from './page/page-edit-state';
 import { exportActiveDocument } from './export/export-flow';
+import {
+  zoomCommandIsValid,
+  type ZoomCommand,
+} from './lib/view-zoom';
 
 function shell() {
   return useShell.getState();
@@ -354,6 +358,44 @@ export function resetActiveZoom(): void {
 export function fitActiveWidth(): void {
   if (shell().activeTab === null) return;
   window.dispatchEvent(new CustomEvent('nf:fit-width'));
+}
+
+/**
+ * Adjust the zoom of the active layout: Continuous `zoom` or Page `pageZoom`.
+ * Page never touches the hidden Continuous zoom and vice versa.
+ */
+export function adjustActiveLayoutZoom(delta: number): void {
+  if (activeDocumentLayout() === 'page') {
+    adjustActivePageZoom(delta);
+    return;
+  }
+  adjustActiveZoom(delta);
+}
+
+/** 100% for the active layout (Page: manual zoom, no fit). */
+export function resetActiveLayoutZoom(): void {
+  if (activeDocumentLayout() === 'page') {
+    resetActivePageZoom();
+    return;
+  }
+  resetActiveZoom();
+}
+
+/**
+ * Apply one zoom menu command to the active layout. `fit-page` only exists in
+ * Page; calling it from Continuous is ignored instead of silently fitting a
+ * page that is not on screen.
+ */
+export function fitActiveLayout(command: ZoomCommand): void {
+  const layout = activeDocumentLayout();
+  if (!zoomCommandIsValid(layout, command)) return;
+  if (layout === 'page') {
+    if (command === 'actual') resetActivePageZoom();
+    else setActivePageFit(command === 'fit-page' ? 'page' : 'width');
+    return;
+  }
+  if (command === 'actual') resetActiveZoom();
+  else fitActiveWidth();
 }
 
 /* ------------------------------------------------- editor layouts and modes */
@@ -1142,10 +1184,10 @@ export function paletteCommands(): MenuEntry[] {
     },
     { id: 'close-tab', label: 'Close tab', shortcut: '⌘W', onSelect: () => void closeActiveTab() },
     { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘\\', onSelect: toggleSidebar },
-    { id: 'zoom-in', label: 'Zoom in', shortcut: '⌘+', onSelect: () => adjustActiveZoom(0.1) },
-    { id: 'zoom-out', label: 'Zoom out', shortcut: '⌘−', onSelect: () => adjustActiveZoom(-0.1) },
-    { id: 'zoom-reset', label: 'Actual size', shortcut: '⌘0', onSelect: resetActiveZoom },
-    { id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: fitActiveWidth },
+    { id: 'zoom-in', label: 'Zoom in', shortcut: '⌘+', onSelect: () => adjustActiveLayoutZoom(0.1) },
+    { id: 'zoom-out', label: 'Zoom out', shortcut: '⌘−', onSelect: () => adjustActiveLayoutZoom(-0.1) },
+    { id: 'zoom-reset', label: 'Actual size', shortcut: '⌘0', onSelect: resetActiveLayoutZoom },
+    { id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: () => fitActiveLayout('fit-width') },
     { id: 'continuous-layout', label: 'Continuous layout', shortcut: '⌘2', onSelect: () => setActiveDocumentLayout('continuous') },
     { id: 'page-layout', label: 'Page layout', shortcut: '⌘3', onSelect: () => setActiveDocumentLayout('page') },
     {
@@ -1298,16 +1340,16 @@ export function runMenuCommand(command: MenuCommand): void {
       redoActive();
       break;
     case 'zoom-in':
-      adjustActiveZoom(0.1);
+      adjustActiveLayoutZoom(0.1);
       break;
     case 'zoom-out':
-      adjustActiveZoom(-0.1);
+      adjustActiveLayoutZoom(-0.1);
       break;
     case 'zoom-reset':
-      resetActiveZoom();
+      resetActiveLayoutZoom();
       break;
     case 'fit-width':
-      fitActiveWidth();
+      fitActiveLayout('fit-width');
       break;
     case 'focus-branch':
       toggleFocusBranch();

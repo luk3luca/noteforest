@@ -15,7 +15,7 @@
  * starts the one model run; switching back disposes it.
  */
 
-import { ChevronLeft, ChevronRight, FileDown, Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -81,7 +81,6 @@ interface PageViewProps {
 const STAGE_PADDING = GEOMETRY.editorPaddingXMedium;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2.5;
-const ZOOM_STEP = 0.1;
 
 function clampZoom(value: number): number {
   if (!Number.isFinite(value)) return 1;
@@ -570,19 +569,6 @@ export function PageView({
     [runtime.packagePath],
   );
 
-  const zoomBy = useCallback(
-    (delta: number) => {
-      useShell.getState().setDocumentPageFit(runtime.packagePath, 'none');
-      useShell.getState().setDocumentPageZoom(runtime.packagePath, clampZoom(effectiveZoom + delta));
-    },
-    [effectiveZoom, runtime.packagePath],
-  );
-
-  const actualSize = useCallback(() => {
-    useShell.getState().setDocumentPageFit(runtime.packagePath, 'none');
-    useShell.getState().setDocumentPageZoom(runtime.packagePath, 1);
-  }, [runtime.packagePath]);
-
   const selectBlock = useCallback(
     (blockId: string) => {
       runtime.selectBlock(blockId);
@@ -791,7 +777,12 @@ export function PageView({
       data-error={model.error !== null ? 'true' : undefined}
       data-empty={placeholderSurface ? 'true' : undefined}
     >
-      <div className="nf-page-toolbar" role="toolbar" aria-label="Page layout controls">
+      <div
+        className="nf-page-toolbar"
+        role="toolbar"
+        aria-label="Page controls"
+        data-page-toolbar="true"
+      >
         <div className="nf-page-toolbar-group">
           <button
             type="button"
@@ -819,61 +810,6 @@ export function PageView({
             <ChevronRight size={14} strokeWidth={1.6} aria-hidden="true" />
           </button>
         </div>
-        <div className="nf-page-toolbar-group">
-          <button
-            type="button"
-            className="nf-button nf-page-button"
-            data-page-zoom="out"
-            aria-label="Zoom out"
-            title="Zoom out (⌘−)"
-            onClick={() => zoomBy(-ZOOM_STEP)}
-          >
-            <Minus size={13} strokeWidth={1.6} aria-hidden="true" />
-          </button>
-          <span className="nf-page-zoom" data-page-zoom-value="true">
-            {Math.round(effectiveZoom * 100)}%
-          </span>
-          <button
-            type="button"
-            className="nf-button nf-page-button"
-            data-page-zoom="in"
-            aria-label="Zoom in"
-            title="Zoom in (⌘+)"
-            onClick={() => zoomBy(ZOOM_STEP)}
-          >
-            <Plus size={13} strokeWidth={1.6} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="nf-button nf-page-button"
-            data-page-fit="page"
-            aria-pressed={pageFit === 'page'}
-            title="Fit page (⇧1)"
-            onClick={() => setFit('page')}
-          >
-            Fit page
-          </button>
-          <button
-            type="button"
-            className="nf-button nf-page-button"
-            data-page-fit="width"
-            aria-pressed={pageFit === 'width'}
-            title="Fit width (⇧2)"
-            onClick={() => setFit('width')}
-          >
-            Fit width
-          </button>
-          <button
-            type="button"
-            className="nf-button nf-page-button"
-            data-page-fit="actual"
-            aria-pressed={pageFit === 'none' && Math.abs(pageZoom - 1) < 0.001}
-            title="Actual size (⌘0)"
-            onClick={actualSize}
-          >
-            Actual
-          </button>
-        </div>
         <div className="nf-page-toolbar-spacer" />
         <div className="nf-page-toolbar-group">
           {model.updating ? <span className="nf-page-status">Updating…</span> : null}
@@ -882,24 +818,11 @@ export function PageView({
             className="nf-button nf-page-button nf-page-export"
             data-page-export="true"
             title="Export this document to PDF (⇧⌘E)"
+            aria-keyshortcuts="Shift+Meta+E"
             onClick={exportActiveDocument}
           >
             <FileDown size={13} strokeWidth={1.6} aria-hidden="true" />
             Export PDF
-          </button>
-          <button
-            type="button"
-            className="nf-button nf-page-button nf-page-open-continuous"
-            data-page-open-continuous="true"
-            disabled={selectedBlockId === null}
-            title={
-              selectedBlockId === null
-                ? 'Select a block on the page first'
-                : `Open ${titleOf(runtime, selectedBlockId)} in the continuous editor`
-            }
-            onClick={() => openBlockInContinuous(selectedBlockId)}
-          >
-            Open in continuous editor
           </button>
         </div>
       </div>
