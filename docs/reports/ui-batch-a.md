@@ -143,6 +143,11 @@ the folder picker and assert that no native save dialog is called.
 - The per-tab `×` remains a pointer affordance. It is not focusable because the tab chip wrapper is
   `role="presentation"`; making it focusable breaks the tablist ARIA tree (axe
   `aria-required-children`). Keyboard close is `Delete` on the tablist and `⌘W`, as tested.
+- The Page-view scroll-preservation check captures the scroll position after the fixed header has
+  mounted and uses a 40 px offset. The old 120 px value was measured before the header settled and
+  was clamped; the assertion still requires the same position within 1 px after the round trip.
+- The e2e router check now uses the fixed header undo. The old Settings “Undo last change” duplicate
+  was removed with the rest of the Settings actions; the palette/header remain the canonical paths.
 - Export folder defaults are the main-process session default (`~/Documents` until a folder is
   chosen). Export defaults persistence is explicitly out of Batch A.
 - The Settings slider debounce is 240 ms. Closing Settings, Export PDF, and close/quit flush the
