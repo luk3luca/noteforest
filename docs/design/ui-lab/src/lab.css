@@ -152,6 +152,36 @@ kbd {
   white-space: nowrap;
 }
 
+.lab-variants {
+  min-height: 36px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: #0c0d0f;
+  border-bottom: 1px dashed #3a3f46;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.lab-variants-label {
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lab-variants-note {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  font-size: 10.5px;
+}
+
 /* -------------------------------------------------------------------- shell */
 
 .lab-app {
@@ -243,24 +273,18 @@ kbd {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   height: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-}
-
-.lab-tabs::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
 }
 
 .lab-tab {
   display: flex;
   align-items: center;
-  flex: 0 1 190px;
+  flex: 0 1 auto;
   height: 34px;
-  min-width: 118px;
+  min-width: 96px;
   max-width: 190px;
   border: 1px solid transparent;
   border-radius: var(--radius-chip);
@@ -407,6 +431,17 @@ kbd {
   color: var(--text);
 }
 
+.lab-seg-compact button {
+  padding: 0 6px;
+}
+
+.lab-history {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
 .lab-zoom {
   display: inline-flex;
   align-items: center;
@@ -494,6 +529,7 @@ kbd {
 }
 
 .lab-sidebar {
+  position: relative;
   width: 264px;
   flex: none;
   display: flex;
@@ -508,6 +544,7 @@ kbd {
 
 .lab-sidebar-rail {
   width: 48px;
+  overflow: visible;
 }
 
 .lab-rail-head {
@@ -821,9 +858,87 @@ kbd {
   color: var(--text);
 }
 
+.lab-sidebar-view {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 0;
+}
+
+.lab-sidebar-view .lab-seg {
+  flex: 1;
+}
+
+.lab-sidebar-view .lab-seg button {
+  flex: 1;
+  justify-content: center;
+}
+
+.lab-rail-view {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 4px;
+  padding: 0 0 8px;
+}
+
+.lab-view-popover {
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 220px;
+  padding: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.lab-sidebar-popover {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 84px;
+  width: auto;
+}
+
+.lab-rail-popover {
+  position: absolute;
+  left: calc(100% + 8px);
+  bottom: 8px;
+}
+
+.lab-popover-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lab-popover-label {
+  color: var(--text-tertiary);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lab-popover-group .lab-seg {
+  width: 100%;
+}
+
+.lab-popover-group .lab-seg button {
+  flex: 1;
+  justify-content: center;
+}
+
 /* ------------------------------------------------------------------- canvas */
 
 .lab-canvas {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -834,15 +949,61 @@ kbd {
 }
 
 .lab-canvas-continuous {
+  display: flex;
+  flex-direction: column;
+}
+
+.lab-canvas-scroll {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: 18px 16px 32px;
+  padding: 6px 12px 24px;
+}
+
+/* The header is a sibling of the scroll area: it stays fixed while the canvas scrolls. */
+.lab-canvas-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  background: var(--canvas);
+}
+
+.lab-header-divider {
+  width: 1px;
+  height: 18px;
+  flex: none;
+  background: var(--border);
+}
+
+.lab-floating-pill {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.lab-pill-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
 }
 
 .lab-chapter {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 
 .lab-eyebrow {
@@ -959,7 +1120,7 @@ kbd {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 28px;
+  padding: 14px 24px 24px;
 }
 
 .lab-sheet {
@@ -1665,6 +1826,10 @@ kbd {
 @media (max-width: 1000px) {
   .lab-board {
     zoom: 0.64;
+  }
+
+  .lab-variants-note {
+    display: none;
   }
 }
 

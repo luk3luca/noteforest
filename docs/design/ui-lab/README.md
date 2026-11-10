@@ -14,7 +14,19 @@ npx vite docs/design/ui-lab --port 5180
 Open `http://127.0.0.1:5180/`.
 
 The **LAB** bar at the top switches Workspace / Settings / Export / Palette, Continuous / Page, and
-the expanded / collapsed sidebar. The mock is everything below the LAB bar; annotate that.
+the expanded / collapsed sidebar. The **Variant** bar switches the four shell experiments:
+
+- **B · Toolbar icons** — view controls and undo/redo in the toolbar, icon-only.
+- **C · Canvas header** — fixed header inside the canvas: undo/redo left, icon-only layout/mode
+  right, content close below. **Preferred.**
+- **D · Floating pill** — view controls and undo/redo in a floating pill over the canvas.
+  **Preferred alternative.**
+- **E · Sidebar** — view controls above Settings; E2 stacks two toggles in the collapsed rail, E3
+  uses one View popover.
+
+All variants share the tab changes (no global close, shrinking tabs, `+` after the last tab, no
+horizontal scroll) and the zoom dropdown removal (minus / percentage / plus only; click the
+percentage to reset). The mock is everything below the lab bars; annotate that.
 
 ## Scope
 
@@ -34,3 +46,6 @@ lifted from `apps/desktop/src/renderer/src/styles.css`: 30 px titlebar (traffic 
 mock document/library content is illustrative but follows the Electron V0 screenshot; the native
 traffic lights are replaced by the lab's fake dots. The Page sheet is still a placeholder for the
 Page design pass, and the Settings/Export/palette surfaces are design drafts, not Electron parity.
+
+The **Variant** bar is an exploration surface only. It does not change Electron; the selected
+direction will be ported later, after the product-owner review.

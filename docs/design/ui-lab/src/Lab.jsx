@@ -13,8 +13,11 @@ import {
   PanelLeftOpen,
   Pencil,
   Plus,
+  Redo2,
   Search,
   Settings,
+  SlidersHorizontal,
+  Undo2,
   X,
 } from 'lucide-react';
 
@@ -58,9 +61,9 @@ const settingsPages = [
   { group: 'Data', id: 'data', label: 'Data & About' },
 ];
 
-function Segmented({ value, options, onChange, label }) {
+function Segmented({ value, options, onChange, label, compact = false }) {
   return (
-    <div className="lab-seg" role="group" aria-label={label}>
+    <div className={`lab-seg ${compact ? 'lab-seg-compact' : ''}`} role="group" aria-label={label}>
       {options.map((option) => {
         const Icon = option.icon;
         return (
@@ -69,14 +72,101 @@ function Segmented({ value, options, onChange, label }) {
             type="button"
             className={value === option.value ? 'is-active' : undefined}
             aria-pressed={value === option.value}
+            aria-label={compact ? option.label : undefined}
+            title={compact ? option.label : undefined}
             onClick={() => onChange(option.value)}
           >
             {Icon ? <Icon size={13} strokeWidth={1.5} aria-hidden="true" /> : null}
-            {option.label}
+            {compact ? null : option.label}
           </button>
         );
       })}
     </div>
+  );
+}
+
+function ViewSegments({ layout, setLayout, mode, setMode, compact = false }) {
+  return (
+    <>
+      <Segmented
+        label="Layout"
+        compact={compact}
+        value={layout}
+        onChange={setLayout}
+        options={[
+          { value: 'continuous', label: 'Continuous', icon: AlignLeft },
+          { value: 'page', label: 'Page', icon: FileText },
+        ]}
+      />
+      <Segmented
+        label="Mode"
+        compact={compact}
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: 'edit', label: 'Edit', icon: Pencil },
+          { value: 'read', label: 'Read', icon: BookOpen },
+        ]}
+      />
+    </>
+  );
+}
+
+function ViewControls({ layout, setLayout, mode, setMode, compact = false }) {
+  return (
+    <div className="lab-view-controls" role="toolbar" aria-label="View controls">
+      <ViewSegments
+        layout={layout}
+        setLayout={setLayout}
+        mode={mode}
+        setMode={setMode}
+        compact={compact}
+      />
+    </div>
+  );
+}
+
+function UndoRedo() {
+  return (
+    <div className="lab-history" role="group" aria-label="History">
+      <button type="button" className="lab-toolbar-button" aria-label="Undo" title="Undo (⌘Z)">
+        <Undo2 size={14} strokeWidth={1.5} aria-hidden="true" />
+      </button>
+      <button type="button" className="lab-toolbar-button" aria-label="Redo" title="Redo (⇧⌘Z)">
+        <Redo2 size={14} strokeWidth={1.5} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+function ZoomControls() {
+  return (
+    <div className="lab-zoom" role="group" aria-label="Zoom">
+      <button type="button" aria-label="Zoom out" title="Zoom out (⌘−)">
+        <Minus size={12} strokeWidth={1.7} />
+      </button>
+      <button type="button" className="lab-zoom-value" title="Reset zoom (⌘0)">
+        100%
+      </button>
+      <button type="button" aria-label="Zoom in" title="Zoom in (⌘+)">
+        <Plus size={12} strokeWidth={1.7} />
+      </button>
+    </div>
+  );
+}
+
+function PaletteButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="lab-toolbar-button lab-palette-button"
+      onClick={onClick}
+      aria-label="Command palette"
+      title="Command palette (⌘K)"
+    >
+      <Command size={14} strokeWidth={1.5} />
+      <span>K</span>
+    </button>
   );
 }
 
@@ -113,50 +203,77 @@ function TitleBar() {
   );
 }
 
-function Toolbar({ layout, setLayout, mode, setMode, onPalette }) {
+function TabStrip() {
+  return (
+    <div className="lab-tab-strip">
+      <div className="lab-tabs" role="tablist" aria-label="Open documents">
+        {tabs.map((tab) => (
+          <div
+            key={tab.title}
+            className={`lab-tab ${tab.active ? 'is-active' : ''}`}
+            role="presentation"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab.active}
+              className="lab-tab-label"
+              title={tab.title}
+            >
+              {tab.dirty ? <span className="lab-tab-dirty" title="Unsaved changes" /> : null}
+              <span className="lab-tab-title">{tab.title}</span>
+            </button>
+            <button type="button" className="lab-tab-close" aria-label={`Close ${tab.title}`}>
+              <X size={12} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="lab-tab-actions">
+        <button type="button" className="lab-toolbar-button" aria-label="New note" title="New note (⌘N)">
+          <Plus size={15} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+        <button type="button" className="lab-toolbar-button" aria-label="All open tabs" title="All tabs">
+          <ChevronDown size={15} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Toolbar({ variant, layout, setLayout, mode, setMode, onPalette }) {
   return (
     <header className="lab-toolbar">
       <div className="lab-toolbar-leading">
-        <div className="lab-tab-strip">
-          <div className="lab-tabs" role="tablist" aria-label="Open documents">
-            {tabs.map((tab) => (
-              <div
-                key={tab.title}
-                className={`lab-tab ${tab.active ? 'is-active' : ''}`}
-                role="presentation"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab.active}
-                  className="lab-tab-label"
-                  title={tab.title}
-                >
-                  {tab.dirty ? <span className="lab-tab-dirty" title="Unsaved changes" /> : null}
-                  <span className="lab-tab-title">{tab.title}</span>
-                </button>
-                <button type="button" className="lab-tab-close" aria-label={`Close ${tab.title}`}>
-                  <X size={12} strokeWidth={1.5} aria-hidden="true" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="lab-tab-actions">
-            <button type="button" className="lab-toolbar-button" aria-label="Close current tab" title="Close current tab (⌘W)">
-              <X size={14} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-            <button type="button" className="lab-toolbar-button" aria-label="New note" title="New note (⌘N)">
-              <Plus size={15} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-            <button type="button" className="lab-toolbar-button" aria-label="All open tabs" title="All tabs">
-              <ChevronDown size={15} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+        <TabStrip />
       </div>
-      <div className="lab-view-controls" role="toolbar" aria-label="View controls">
+      {variant === 'B' ? (
+        <>
+          <UndoRedo />
+          <ViewControls
+            layout={layout}
+            setLayout={setLayout}
+            mode={mode}
+            setMode={setMode}
+            compact
+          />
+        </>
+      ) : null}
+      {variant === 'E' ? <UndoRedo /> : null}
+      <ZoomControls />
+      <PaletteButton onClick={onPalette} />
+    </header>
+  );
+}
+
+function ViewPopover({ className, layout, setLayout, mode, setMode }) {
+  return (
+    <div className={`${className} lab-view-popover`} role="dialog" aria-label="View controls">
+      <div className="lab-popover-group">
+        <span className="lab-popover-label">Layout</span>
         <Segmented
           label="Layout"
+          compact
           value={layout}
           onChange={setLayout}
           options={[
@@ -164,8 +281,12 @@ function Toolbar({ layout, setLayout, mode, setMode, onPalette }) {
             { value: 'page', label: 'Page', icon: FileText },
           ]}
         />
+      </div>
+      <div className="lab-popover-group">
+        <span className="lab-popover-label">Mode</span>
         <Segmented
           label="Mode"
+          compact
           value={mode}
           onChange={setMode}
           options={[
@@ -173,36 +294,27 @@ function Toolbar({ layout, setLayout, mode, setMode, onPalette }) {
             { value: 'read', label: 'Read', icon: BookOpen },
           ]}
         />
-        <div className="lab-zoom" role="group" aria-label="Zoom">
-          <button type="button" aria-label="Zoom out" title="Zoom out (⌘−)">
-            <Minus size={12} strokeWidth={1.7} />
-          </button>
-          <button type="button" className="lab-zoom-value" title="Reset zoom (⌘0)">
-            100%
-          </button>
-          <button type="button" aria-label="Zoom in" title="Zoom in (⌘+)">
-            <Plus size={12} strokeWidth={1.7} />
-          </button>
-          <button type="button" aria-label="Zoom options" title="Zoom options">
-            <ChevronDown size={12} strokeWidth={1.7} />
-          </button>
-        </div>
       </div>
-      <button
-        type="button"
-        className="lab-toolbar-button lab-palette-button"
-        onClick={onPalette}
-        aria-label="Command palette"
-        title="Command palette (⌘K)"
-      >
-        <Command size={14} strokeWidth={1.5} />
-        <span>K</span>
-      </button>
-    </header>
+    </div>
   );
 }
 
-function Sidebar({ collapsed, onToggle, onSettings, onNew }) {
+function Sidebar({
+  variant,
+  railMode,
+  collapsed,
+  onToggle,
+  onSettings,
+  onNew,
+  layout,
+  setLayout,
+  mode,
+  setMode,
+}) {
+  const [viewOpen, setViewOpen] = useState(false);
+  const toggleLayout = () => setLayout(layout === 'continuous' ? 'page' : 'continuous');
+  const toggleMode = () => setMode(mode === 'edit' ? 'read' : 'edit');
+
   if (collapsed) {
     return (
       <aside className="lab-sidebar lab-sidebar-rail" aria-label="Sidebar">
@@ -212,6 +324,49 @@ function Sidebar({ collapsed, onToggle, onSettings, onNew }) {
           </IconButton>
         </div>
         <div className="lab-topbar-spacer" />
+        {variant === 'E' ? (
+          <div className="lab-rail-view">
+            {railMode === 'popover' ? (
+              <>
+                <IconButton label="View controls" onClick={() => setViewOpen((value) => !value)}>
+                  <SlidersHorizontal size={15} strokeWidth={1.5} />
+                </IconButton>
+                {viewOpen ? (
+                  <ViewPopover
+                    className="lab-rail-popover"
+                    layout={layout}
+                    setLayout={setLayout}
+                    mode={mode}
+                    setMode={setMode}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <>
+                <IconButton
+                  label={`Layout: ${layout === 'continuous' ? 'Continuous' : 'Page'}`}
+                  onClick={toggleLayout}
+                >
+                  {layout === 'continuous' ? (
+                    <AlignLeft size={15} strokeWidth={1.5} />
+                  ) : (
+                    <FileText size={15} strokeWidth={1.5} />
+                  )}
+                </IconButton>
+                <IconButton
+                  label={`Mode: ${mode === 'edit' ? 'Edit' : 'Read'}`}
+                  onClick={toggleMode}
+                >
+                  {mode === 'edit' ? (
+                    <Pencil size={15} strokeWidth={1.5} />
+                  ) : (
+                    <BookOpen size={15} strokeWidth={1.5} />
+                  )}
+                </IconButton>
+              </>
+            )}
+          </div>
+        ) : null}
         <div className="lab-rail-foot">
           <IconButton label="Settings" onClick={onSettings}>
             <Settings size={15} strokeWidth={1.5} />
@@ -305,6 +460,34 @@ function Sidebar({ collapsed, onToggle, onSettings, onNew }) {
           </div>
         </section>
       </div>
+      {variant === 'E' ? (
+        <div className="lab-sidebar-view">
+          {railMode === 'popover' ? (
+            <>
+              <IconButton label="View controls" onClick={() => setViewOpen((value) => !value)}>
+                <SlidersHorizontal size={15} strokeWidth={1.5} />
+              </IconButton>
+              {viewOpen ? (
+                <ViewPopover
+                  className="lab-sidebar-popover"
+                  layout={layout}
+                  setLayout={setLayout}
+                  mode={mode}
+                  setMode={setMode}
+                />
+              ) : null}
+            </>
+          ) : (
+            <ViewSegments
+              layout={layout}
+              setLayout={setLayout}
+              mode={mode}
+              setMode={setMode}
+              compact
+            />
+          )}
+        </div>
+      ) : null}
       <div className="lab-sidebar-foot">
         <button type="button" className="lab-settings-entry" onClick={onSettings}>
           <Settings size={15} strokeWidth={1.5} />
@@ -315,76 +498,145 @@ function Sidebar({ collapsed, onToggle, onSettings, onNew }) {
   );
 }
 
-function ContinuousCanvas() {
+function PageNav() {
   return (
-    <div className="lab-canvas lab-canvas-continuous">
-      <div className="lab-chapter">
-        <span className="lab-eyebrow">CHAPTER</span>
-        <h1>Chapter 1 · Eigenvalues</h1>
-      </div>
-      <div className="lab-board">
-        <svg className="lab-edges" viewBox="0 0 960 470" aria-hidden="true">
-          <defs>
-            <marker id="lab-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
-              <path d="M0 0 L8 4 L0 8 Z" fill="var(--edge)" />
-            </marker>
-          </defs>
-          <path d="M344 111 H380 V84 H420" markerEnd="url(#lab-arrow)" />
-          <path d="M344 111 H380 V240 H420" markerEnd="url(#lab-arrow)" />
-          <path d="M680 84 H690 V156 H700" markerEnd="url(#lab-arrow)" />
-          <path d="M184 186 V240 H210 V300" markerEnd="url(#lab-arrow)" />
-        </svg>
-
-        <article className="lab-card lab-card-main is-selected" style={{ left: 24, top: 36, width: 320 }}>
-          <h2>Eigenvalues</h2>
-          <p>A scalar λ is an eigenvalue of A if there is a nonzero vector v with Av = λv.</p>
-        </article>
-
-        <article className="lab-card" style={{ left: 420, top: 24, width: 260 }}>
-          <h2>Eigenvector</h2>
-          <p>A nonzero vector v that satisfies Av = λv for some λ.</p>
-        </article>
-
-        <article className="lab-card" style={{ left: 420, top: 180, width: 260 }}>
-          <h2>Spectrum</h2>
-          <p>The set of all eigenvalues of A, written σ(A).</p>
-        </article>
-
-        <article className="lab-card" style={{ left: 700, top: 96, width: 236 }}>
-          <h2>Characteristic polynomial</h2>
-          <p>Eigenvalues are the roots of det(A − λI) = 0.</p>
-          <pre>det(A − λI) = 0</pre>
-        </article>
-
-        <article className="lab-card lab-card-below" style={{ left: 50, top: 300, width: 320 }}>
-          <h2>Worked example</h2>
-          <p>Take the symmetric matrix below. Its eigenvalues are 1 and 3.</p>
-          <pre>A = [[2, 1], [1, 2]]</pre>
-        </article>
-      </div>
+    <div className="lab-page-nav">
+      <IconButton label="Previous page">
+        <ChevronLeft size={14} strokeWidth={1.6} />
+      </IconButton>
+      <span>Page 1 of 2</span>
+      <IconButton label="Next page">
+        <ChevronRight size={14} strokeWidth={1.6} />
+      </IconButton>
     </div>
   );
 }
 
-function PageCanvas() {
+function PageExportButton() {
+  return (
+    <button type="button" className="lab-btn lab-export-btn">
+      <FileDown size={13} strokeWidth={1.6} />
+      Export PDF
+    </button>
+  );
+}
+
+function CanvasHeader({ layout, setLayout, mode, setMode, page = false }) {
+  return (
+    <div className="lab-canvas-header">
+      <UndoRedo />
+      {page ? (
+        <>
+          <span className="lab-header-divider" aria-hidden="true" />
+          <PageNav />
+          <PageExportButton />
+        </>
+      ) : null}
+      <div className="lab-topbar-spacer" />
+      <ViewControls
+        layout={layout}
+        setLayout={setLayout}
+        mode={mode}
+        setMode={setMode}
+        compact
+      />
+    </div>
+  );
+}
+
+function FloatingPill({ layout, setLayout, mode, setMode }) {
+  return (
+    <div className="lab-floating-pill" role="toolbar" aria-label="Canvas controls">
+      <UndoRedo />
+      <span className="lab-pill-divider" aria-hidden="true" />
+      <ViewControls
+        layout={layout}
+        setLayout={setLayout}
+        mode={mode}
+        setMode={setMode}
+        compact
+      />
+    </div>
+  );
+}
+
+function ContinuousCanvas({ variant, layout, setLayout, mode, setMode }) {
+  return (
+    <div className="lab-canvas lab-canvas-continuous">
+      {variant === 'C' ? (
+        <CanvasHeader layout={layout} setLayout={setLayout} mode={mode} setMode={setMode} />
+      ) : null}
+      <div className="lab-canvas-scroll">
+        <div className="lab-chapter">
+          <span className="lab-eyebrow">CHAPTER</span>
+          <h1>Chapter 1 · Eigenvalues</h1>
+        </div>
+        <div className="lab-board">
+          <svg className="lab-edges" viewBox="0 0 960 470" aria-hidden="true">
+            <defs>
+              <marker id="lab-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M0 0 L8 4 L0 8 Z" fill="var(--edge)" />
+              </marker>
+            </defs>
+            <path d="M344 111 H380 V84 H420" markerEnd="url(#lab-arrow)" />
+            <path d="M344 111 H380 V240 H420" markerEnd="url(#lab-arrow)" />
+            <path d="M680 84 H690 V156 H700" markerEnd="url(#lab-arrow)" />
+            <path d="M184 186 V240 H210 V300" markerEnd="url(#lab-arrow)" />
+          </svg>
+
+          <article className="lab-card lab-card-main is-selected" style={{ left: 24, top: 36, width: 320 }}>
+            <h2>Eigenvalues</h2>
+            <p>A scalar λ is an eigenvalue of A if there is a nonzero vector v with Av = λv.</p>
+          </article>
+
+          <article className="lab-card" style={{ left: 420, top: 24, width: 260 }}>
+            <h2>Eigenvector</h2>
+            <p>A nonzero vector v that satisfies Av = λv for some λ.</p>
+          </article>
+
+          <article className="lab-card" style={{ left: 420, top: 180, width: 260 }}>
+            <h2>Spectrum</h2>
+            <p>The set of all eigenvalues of A, written σ(A).</p>
+          </article>
+
+          <article className="lab-card" style={{ left: 700, top: 96, width: 236 }}>
+            <h2>Characteristic polynomial</h2>
+            <p>Eigenvalues are the roots of det(A − λI) = 0.</p>
+            <pre>det(A − λI) = 0</pre>
+          </article>
+
+          <article className="lab-card lab-card-below" style={{ left: 50, top: 300, width: 320 }}>
+            <h2>Worked example</h2>
+            <p>Take the symmetric matrix below. Its eigenvalues are 1 and 3.</p>
+            <pre>A = [[2, 1], [1, 2]]</pre>
+          </article>
+        </div>
+      </div>
+      {variant === 'D' ? (
+        <FloatingPill layout={layout} setLayout={setLayout} mode={mode} setMode={setMode} />
+      ) : null}
+    </div>
+  );
+}
+
+function PageCanvas({ variant, layout, setLayout, mode, setMode }) {
   return (
     <div className="lab-canvas lab-canvas-page">
-      <div className="lab-page-toolbar">
-        <div className="lab-page-nav">
-          <IconButton label="Previous page">
-            <ChevronLeft size={14} strokeWidth={1.6} />
-          </IconButton>
-          <span>Page 1 of 2</span>
-          <IconButton label="Next page">
-            <ChevronRight size={14} strokeWidth={1.6} />
-          </IconButton>
+      {variant === 'C' ? (
+        <CanvasHeader
+          layout={layout}
+          setLayout={setLayout}
+          mode={mode}
+          setMode={setMode}
+          page
+        />
+      ) : (
+        <div className="lab-page-toolbar">
+          <PageNav />
+          <div className="lab-topbar-spacer" />
+          <PageExportButton />
         </div>
-        <div className="lab-topbar-spacer" />
-        <button type="button" className="lab-btn lab-export-btn">
-          <FileDown size={13} strokeWidth={1.6} />
-          Export PDF
-        </button>
-      </div>
+      )}
       <div className="lab-page-stage">
         <article className="lab-sheet" aria-label="Page 1 of 2">
           <header className="lab-sheet-head">
@@ -420,6 +672,9 @@ function PageCanvas() {
           </footer>
         </article>
       </div>
+      {variant === 'D' ? (
+        <FloatingPill layout={layout} setLayout={setLayout} mode={mode} setMode={setMode} />
+      ) : null}
     </div>
   );
 }
@@ -885,7 +1140,6 @@ function CommandPalette({ onClose }) {
             <button key={doc.title} type="button" className="lab-palette-row">
               <BookOpen size={13} strokeWidth={1.5} />
               <span>{doc.title}</span>
-              <span className="lab-palette-meta">{doc.meta}</span>
             </button>
           ))}
           <div className="lab-palette-group">Blocks</div>
@@ -904,6 +1158,45 @@ function CommandPalette({ onClose }) {
   );
 }
 
+function VariantBar({ variant, setVariant, railMode, setRailMode }) {
+  const notes = {
+    B: 'Icon-only view controls and undo/redo in the toolbar.',
+    C: 'Preferred: fixed canvas header, undo/redo left, icon-only views right.',
+    D: 'Preferred alternative: floating pill, no extra rows.',
+    E: 'View controls above Settings; undo/redo stay in the toolbar.',
+  };
+  return (
+    <div className="lab-variants">
+      <span className="lab-variants-label">Variant</span>
+      <div className="lab-bar-group">
+        <button type="button" className={variant === 'B' ? 'is-active' : ''} onClick={() => setVariant('B')}>
+          B · Toolbar icons
+        </button>
+        <button type="button" className={variant === 'C' ? 'is-active' : ''} onClick={() => setVariant('C')}>
+          C · Canvas header
+        </button>
+        <button type="button" className={variant === 'D' ? 'is-active' : ''} onClick={() => setVariant('D')}>
+          D · Floating pill
+        </button>
+        <button type="button" className={variant === 'E' ? 'is-active' : ''} onClick={() => setVariant('E')}>
+          E · Sidebar
+        </button>
+      </div>
+      {variant === 'E' ? (
+        <div className="lab-bar-group">
+          <button type="button" className={railMode === 'toggles' ? 'is-active' : ''} onClick={() => setRailMode('toggles')}>
+            E2 · Toggles
+          </button>
+          <button type="button" className={railMode === 'popover' ? 'is-active' : ''} onClick={() => setRailMode('popover')}>
+            E3 · Popover
+          </button>
+        </div>
+      ) : null}
+      <span className="lab-variants-note">{notes[variant]}</span>
+    </div>
+  );
+}
+
 function LabBar({ screen, setScreen, layout, setLayout, collapsed, setCollapsed }) {
   return (
     <div className="lab-bar">
@@ -911,7 +1204,7 @@ function LabBar({ screen, setScreen, layout, setLayout, collapsed, setCollapsed 
         <span className="lab-badge-dot" />
         LAB
       </span>
-      <span className="lab-bar-title">Browser pass · V0 is not the design</span>
+      <span className="lab-bar-title">Browser pass · shell variants</span>
       <div className="lab-bar-group">
         <button type="button" className={screen === 'workspace' ? 'is-active' : ''} onClick={() => setScreen('workspace')}>Workspace</button>
         <button type="button" className={screen === 'settings' ? 'is-active' : ''} onClick={() => setScreen('settings')}>Settings</button>
@@ -936,6 +1229,8 @@ export function Lab() {
   const [layout, setLayout] = useState('continuous');
   const [mode, setMode] = useState('edit');
   const [collapsed, setCollapsed] = useState(false);
+  const [variant, setVariant] = useState('C');
+  const [railMode, setRailMode] = useState('toggles');
 
   return (
     <div className="lab-shell">
@@ -947,24 +1242,54 @@ export function Lab() {
         collapsed={collapsed}
         setCollapsed={setCollapsed}
       />
+      <VariantBar
+        variant={variant}
+        setVariant={setVariant}
+        railMode={railMode}
+        setRailMode={setRailMode}
+      />
       <div className="lab-app">
         <TitleBar />
         <div className="lab-body">
           <Sidebar
+            key={`${variant}-${collapsed}-${railMode}`}
+            variant={variant}
+            railMode={railMode}
             collapsed={collapsed}
             onToggle={() => setCollapsed((value) => !value)}
             onSettings={() => setScreen('settings')}
             onNew={() => undefined}
+            layout={layout}
+            setLayout={setLayout}
+            mode={mode}
+            setMode={setMode}
           />
           <main className="lab-main">
             <Toolbar
+              variant={variant}
               layout={layout}
               setLayout={setLayout}
               mode={mode}
               setMode={setMode}
               onPalette={() => setScreen('palette')}
             />
-            {layout === 'continuous' ? <ContinuousCanvas /> : <PageCanvas />}
+            {layout === 'continuous' ? (
+              <ContinuousCanvas
+                variant={variant}
+                layout={layout}
+                setLayout={setLayout}
+                mode={mode}
+                setMode={setMode}
+              />
+            ) : (
+              <PageCanvas
+                variant={variant}
+                layout={layout}
+                setLayout={setLayout}
+                mode={mode}
+                setMode={setMode}
+              />
+            )}
           </main>
         </div>
         <StatusStrip />
