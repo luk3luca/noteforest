@@ -189,6 +189,24 @@ let writeQueue: Promise<void> = Promise.resolve();
 let writeSequence = 0;
 let lastResult: SettingsSaveResult = { ok: true };
 let lastFailed: PendingWrite | null = null;
+/**
+ * A debounced UI edit (currently the Settings density slider) that has not
+ * enqueued its write yet. Close/quit calls this before waiting on the queue, so
+ * an instant-save value cannot be lost inside the debounce window.
+ */
+let pendingSettingsFlush: (() => Promise<void>) | null = null;
+
+export function registerPendingSettingsFlush(
+  flush: (() => Promise<void>) | null,
+): void {
+  pendingSettingsFlush = flush;
+}
+
+/** Apply any debounced settings edit, then leave its write queued. */
+export async function flushPendingSettingsEdits(): Promise<void> {
+  const flush = pendingSettingsFlush;
+  if (flush !== null) await flush();
+}
 
 /**
  * Serialize one write. The newest queued write owns the visible status; an

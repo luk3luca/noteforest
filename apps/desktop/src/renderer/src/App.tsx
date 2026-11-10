@@ -33,7 +33,11 @@ import {
   toggleFocusBranch,
 } from './actions';
 import { buildSession } from './state/session';
-import { flushSettingsWrites, useSettingsStore } from './state/settings';
+import {
+  flushPendingSettingsEdits,
+  flushSettingsWrites,
+  useSettingsStore,
+} from './state/settings';
 import { READ_MODE_TOAST } from './lib/editability';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
@@ -90,8 +94,10 @@ async function flushOpenDocuments(): Promise<FlushResult> {
       };
     }
   }
-  // Never quit with a settings write still in flight: the dialog only reports
-  // "saved" after the atomic write, and a quit must keep that promise.
+  // Never quit with a debounced settings edit or a settings write still in
+  // flight: the dialog only reports "saved" after the atomic write, and a quit
+  // must keep that promise.
+  await flushPendingSettingsEdits();
   const settings = await flushSettingsWrites();
   if (!settings.ok) {
     console.error(settings.message);

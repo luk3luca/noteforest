@@ -16,6 +16,7 @@ import {
   pageDensityPercent,
   pageDensityValue,
   pageOverrideFor,
+  registerPendingSettingsFlush,
   useSettingsStore,
   withPageDensityOverride,
   withoutPageDensityOverride,
@@ -337,6 +338,16 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
       setPhase('idle');
     })();
   };
+
+  const pendingFlushRef = useRef<() => Promise<void>>(async () => undefined);
+  pendingFlushRef.current = async () => {
+    const pending = flushPending();
+    if (pending !== null) await applyDensity(pending);
+  };
+  useEffect(() => {
+    registerPendingSettingsFlush(() => pendingFlushRef.current());
+    return () => registerPendingSettingsFlush(null);
+  }, []);
 
   const retry = (): void => {
     const attempt = lastAttemptRef.current;
