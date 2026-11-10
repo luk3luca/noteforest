@@ -158,6 +158,7 @@ export function ExportSheet(): JSX.Element | null {
       // can replace the header button while the sheet is open, so fall back to
       // the current Page export control when the original node is gone.
       requestAnimationFrame(() => {
+        if (document.querySelector('[role="dialog"]') !== null) return;
         const target =
           original.isConnected
             ? original
@@ -336,7 +337,11 @@ export function ExportSheet(): JSX.Element | null {
             ) : null}
 
             {status === 'running' ? (
-              <section className="nf-export-section" data-export-progress={value}>
+              <section
+                className="nf-export-section"
+                data-export-progress={value}
+                aria-live="polite"
+              >
                 <div className="nf-export-progress-head">
                   <span data-export-phase-label="true">{phaseLabel(phase)}</span>
                   <span className="nf-export-percent" data-export-percent="true">
@@ -384,7 +389,12 @@ export function ExportSheet(): JSX.Element | null {
             ) : null}
 
             {status === 'done' ? (
-              <section className="nf-export-section" data-export-done="true">
+              <section
+                className="nf-export-section"
+                data-export-done="true"
+                role="status"
+                aria-live="polite"
+              >
                 <p className="nf-export-copy" data-export-done-pages="true">
                   {pageCount === null
                     ? 'The PDF was written.'
@@ -400,7 +410,7 @@ export function ExportSheet(): JSX.Element | null {
             ) : null}
 
             {status === 'failed' ? (
-              <section className="nf-export-section" data-export-failed="true">
+              <section className="nf-export-section" data-export-failed="true" role="alert">
                 <p className="nf-export-copy" data-export-error-message="true">
                   {error?.message ?? 'The PDF export failed.'}
                 </p>
@@ -413,7 +423,12 @@ export function ExportSheet(): JSX.Element | null {
             ) : null}
 
             {status === 'cancelled' ? (
-              <section className="nf-export-section" data-export-cancelled="true">
+              <section
+                className="nf-export-section"
+                data-export-cancelled="true"
+                role="status"
+                aria-live="polite"
+              >
                 <p className="nf-export-copy">Export cancelled. No file was written.</p>
                 <code className="nf-export-output">{outputPath}</code>
               </section>

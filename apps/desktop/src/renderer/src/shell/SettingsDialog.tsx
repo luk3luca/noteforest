@@ -207,6 +207,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
       if (target === null) return;
       // Run after React Aria's modal focus scope restores.
       requestAnimationFrame(() => {
+        // Do not steal focus from a surface that opened while Settings closed
+        // (for example Settings -> Export PDF…).
+        if (document.querySelector('[role="dialog"]') !== null) return;
         if (target.isConnected) target.focus({ preventScroll: true });
       });
     },
