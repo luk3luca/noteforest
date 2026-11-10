@@ -41,6 +41,7 @@ changed. The existing print/PDF pipeline still consumes the same resolved settin
 - `288cd24` — `feat(settings): Page setup, scope, live preview, and validation`
 - `5ab5ce3` — `test(settings): Page scope overrides, preset/density, and Page/PDF parity`
 - `d3d63fe` — `fix(settings): summarize margin errors without duplicating field messages`
+- `1afea0b` — `test(ui): settle the Page Read parity screenshot`
 - this report commit — `docs(report): add the Batch B implementation report`
 
 ## Files changed
