@@ -791,6 +791,7 @@ describe('Batch B Page settings', () => {
     assert.ok(closeTo(geometry.marginBottom, 25 * PX_PER_MM, 0.1));
     assert.ok(closeTo(geometry.marginLeft, 30 * PX_PER_MM, 0.1));
     assert.ok(geometry.pageCount > initialCount);
+    await waitPageReady();
     await page.screenshot({ path: join(screenshotDir, 'page-read-a5-margins.png') });
 
     const stored = JSON.parse(
