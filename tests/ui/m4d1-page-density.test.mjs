@@ -402,7 +402,7 @@ describe('M4d1 Page density control', () => {
     }));
     assert.deepEqual(sliderRange, { min: '60', max: '120', step: '5' }, 'M4e2 slider range');
     assert.equal(
-      await page.locator('[data-page-density-scope-option="global"]').getAttribute('aria-pressed'),
+      await page.locator('[data-page-scope-option="global"]').getAttribute('aria-pressed'),
       'true',
       'a document without an override starts on the global scope',
     );
@@ -444,9 +444,9 @@ describe('M4d1 Page density control', () => {
     // Scope switch never writes or creates an override.
     await openSettings();
     assert.equal(await densityDraftValue(), '85%');
-    await page.locator('[data-page-density-scope-option="document"]').click();
+    await page.locator('[data-page-scope-option="document"]').click();
     assert.equal(
-      await page.locator('[data-page-density-scope-option="document"]').getAttribute('aria-pressed'),
+      await page.locator('[data-page-scope-option="document"]').getAttribute('aria-pressed'),
       'true',
     );
     assert.equal(
@@ -494,7 +494,7 @@ describe('M4d1 Page density control', () => {
     // A document value equal to global auto-removes the override.
     await openSettings();
     assert.equal(
-      await page.locator('[data-page-density-scope-option="document"]').getAttribute('aria-pressed'),
+      await page.locator('[data-page-scope-option="document"]').getAttribute('aria-pressed'),
       'true',
     );
     const equalSlider = page.locator('[data-page-density-slider]');
@@ -521,7 +521,7 @@ describe('M4d1 Page density control', () => {
 
     // "Use global" clears an override without touching the global layer.
     await openSettings();
-    await page.locator('[data-page-density-scope-option="document"]').click();
+    await page.locator('[data-page-scope-option="document"]').click();
     const useGlobalSlider = page.locator('[data-page-density-slider]');
     await useGlobalSlider.focus();
     await useGlobalSlider.press('ArrowLeft');
@@ -544,7 +544,7 @@ describe('M4d1 Page density control', () => {
 
     // Reset writes 100% immediately in global scope.
     await openSettings();
-    await page.locator('[data-page-density-scope-option="global"]').click();
+    await page.locator('[data-page-scope-option="global"]').click();
     await page.locator('[data-page-density-reset]').click();
     await waitSavedGlobal(100);
     await closeSettings();

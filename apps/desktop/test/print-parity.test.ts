@@ -3,6 +3,7 @@ import {
   buildPageEdgeModel,
   DEFAULT_PAGE_SETTINGS,
   layoutDocument,
+  mergePageSettings,
   normalizePageSettings,
   pageChromeLayout,
   pageCssVariables,
@@ -48,6 +49,11 @@ const A5_STACKED: PageSetup = {
   size: 'A5',
   orientation: 'portrait',
   margins: { top: 46, right: 46, bottom: 46, left: 46 },
+};
+const LETTER_PORTRAIT: PageSetup = {
+  size: 'Letter',
+  orientation: 'portrait',
+  margins: { top: 12, right: 12, bottom: 12, left: 12 },
 };
 
 const CHROME = 2 * (DEFAULT_PAGE_SETTINGS.theme.cardPadding + DEFAULT_PAGE_SETTINGS.theme.cardBorder);
@@ -177,6 +183,14 @@ function pipeline(
   overrides: Parameters<typeof normalizePageSettings>[0] = {},
 ) {
   const settings = normalizePageSettings({ setup, ...overrides });
+  return pipelineWithSettings(document, specs, settings);
+}
+
+function pipelineWithSettings(
+  document: NoteDocument,
+  specs: Record<string, StubSpec>,
+  settings: ReturnType<typeof normalizePageSettings>,
+) {
   const layout = layoutDocument(
     document,
     stubMeasurement(specs),
@@ -250,6 +264,9 @@ const R2I_SPECS: Record<string, StubSpec> = {
 function expectSeamParity(result: ReturnType<typeof pipeline>): void {
   const { print, projection, layout, paginated, settings } = result;
   expect(print.pageCount).toBe(paginated.pageCount);
+  expect(print.geometry).toEqual(pageGeometry(settings.setup));
+  expect(print.fingerprint).toBe(pageSettingsFingerprint(settings));
+  expect(print.cssVariables).toEqual(pageCssVariables(settings.theme));
   expect(projection.pages).toHaveLength(print.pageCount);
   const shared = buildPageEdgeModel(layout, paginated.pages);
   const anchorsByBlock = anchorRecordsByBlock(print.document.anchors);
@@ -509,5 +526,94 @@ describe('M4d1 density identity (Page Read vs print model)', () => {
     // The layout options themselves are also an identity input: a 100% layout
     // cannot claim the 90% settings even with a matching fingerprint string.
     expect(result.layout.layoutOptions).not.toEqual(pageLayoutOptions(other.theme));
+  });
+});
+
+describe('Batch B Page settings parity (size, orientation, margins, density)', () => {
+  const baseDocument = makeDocument({
+    id: 'batch-b-parity',
+    blocks: ['b1', 'b2', 'b3'],
+    chapters: [{ id: 'chapter-1', title: 'Batch B', topLevelBlockIds: ['b1', 'b2', 'b3'] }],
+  });
+  const baseSpecs: Record<string, StubSpec> = {
+    b1: { max: 300, min: 120, height: 420, segmentCount: 4 },
+    b2: { max: 260, min: 100, height: 380, segmentCount: 3 },
+    b3: { max: 320, min: 120, height: 520, segmentCount: 5 },
+  };
+
+  const setups: Array<{ name: string; setup: PageSetup }> = [
+    { name: 'A4 portrait', setup: { ...A4_LANDSCAPE, orientation: 'portrait' } },
+    { name: 'A4 landscape', setup: A4_LANDSCAPE },
+    { name: 'A5 portrait', setup: A5_PORTRAIT },
+    { name: 'A5 landscape', setup: { ...A5_PORTRAIT, orientation: 'landscape' } },
+    { name: 'Letter portrait', setup: LETTER_PORTRAIT },
+    { name: 'Letter landscape', setup: { ...LETTER_PORTRAIT, orientation: 'landscape' } },
+  ];
+
+  for (const { name, setup } of setups) {
+    it(`${name}: Page Read projection and print model stay identical`, () => {
+      const result = pipeline(baseDocument, baseSpecs, setup);
+      expectSeamParity(result);
+    });
+  }
+
+  const densityCases: Array<{ name: string; setup: PageSetup; density: number }> = [
+    {
+      name: 'A4 landscape 25 mm 60%',
+      setup: { ...A4_LANDSCAPE, margins: { top: 25, right: 25, bottom: 25, left: 25 } },
+      density: 0.6,
+    },
+    {
+      name: 'A5 portrait 25 mm 100%',
+      setup: { ...A5_PORTRAIT, margins: { top: 25, right: 25, bottom: 25, left: 25 } },
+      density: 1,
+    },
+    {
+      name: 'Letter landscape 25 mm 120%',
+      setup: {
+        ...LETTER_PORTRAIT,
+        orientation: 'landscape',
+        margins: { top: 25, right: 25, bottom: 25, left: 25 },
+      },
+      density: 1.2,
+    },
+  ];
+
+  for (const { name, setup, density } of densityCases) {
+    it(`${name}: non-default margins and density keep print parity`, () => {
+      const result = pipeline(baseDocument, baseSpecs, setup, { theme: { density } });
+      expectSeamParity(result);
+      expect(result.settings.theme.density).toBeCloseTo(density, 10);
+      expect(result.print.cssVariables).toEqual(pageCssVariables(result.settings.theme));
+    });
+  }
+
+  it('resolves a document override with the global defaults and keeps one print model', () => {
+    const global = mergePageSettings(DEFAULT_PAGE_SETTINGS, undefined);
+    const resolved = mergePageSettings(global, {
+      setup: {
+        size: 'Letter',
+        orientation: 'portrait',
+        margins: { top: 20, right: 25, bottom: 20, left: 25 },
+      },
+      theme: { density: 1.2 },
+    });
+    expect(resolved.setup.size).toBe('Letter');
+    expect(resolved.setup.orientation).toBe('portrait');
+    expect(resolved.setup.margins).toEqual({ top: 20, right: 25, bottom: 20, left: 25 });
+    expect(resolved.theme.density).toBe(1.2);
+    // The global object is untouched by the override.
+    expect(global.setup.size).toBe('A4');
+    expect(global.setup.margins).toEqual({ top: 12, right: 12, bottom: 12, left: 12 });
+    expect(global.theme.density).toBe(1);
+
+    const result = pipelineWithSettings(baseDocument, baseSpecs, resolved);
+    expectSeamParity(result);
+    expect(result.print.geometry.pageWidthMm).toBe(215.9);
+    expect(result.print.geometry.pageHeightMm).toBe(279.4);
+    expect(result.projection.pages[0]!.chrome.left).toBeCloseTo(
+      pageGeometry(resolved.setup).marginsPx.left,
+      10,
+    );
   });
 });

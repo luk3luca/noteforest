@@ -171,10 +171,10 @@ describe('M4e1 settings platform', () => {
     assert.deepEqual((await h.state()).tabs, [], 'the session starts with no documents');
 
     await openSettingsWithShortcut();
-    const documentScope = page.locator('[data-page-density-scope-option="document"]');
+    const documentScope = page.locator('[data-page-scope-option="document"]');
     assert.equal(await documentScope.isDisabled(), true, 'document scope is disabled');
     assert.equal(
-      await page.locator('[data-page-density-document-reason="true"]').isVisible(),
+      await page.locator('[data-page-document-reason="true"]').isVisible(),
       true,
       'the disabled document scope explains why',
     );
@@ -241,7 +241,7 @@ describe('M4e1 settings platform', () => {
 
     await openSettingsWithShortcut();
     // Switching scope alone is not a write and creates no override.
-    await page.locator('[data-page-density-scope-option="document"]').click();
+    await page.locator('[data-page-scope-option="document"]').click();
     assert.equal(
       (await appSettings()).pageOverrides[packagePath],
       undefined,

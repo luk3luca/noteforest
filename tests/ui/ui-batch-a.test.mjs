@@ -369,11 +369,11 @@ describe('Batch A UI rework', () => {
     assert.equal(await page.locator('[data-settings-dirty]').count(), 0);
     assert.equal(await page.locator('[data-settings-dirty-dot]').count(), 0);
     assert.equal(
-      await page.locator('[data-page-density-scope-option="document"]').isDisabled(),
+      await page.locator('[data-page-scope-option="document"]').isDisabled(),
       true,
     );
     assert.equal(
-      await page.locator('[data-page-density-document-reason]').isVisible(),
+      await page.locator('[data-page-document-reason]').isVisible(),
       true,
       'no-document document scope explains why',
     );
@@ -466,11 +466,11 @@ describe('Batch A UI rework', () => {
       .digest('hex');
     await openSettings();
     assert.equal(
-      await page.locator('[data-page-density-scope-option="document"]').isDisabled(),
+      await page.locator('[data-page-scope-option="document"]').isDisabled(),
       false,
       'a read-only document may carry a personal page override',
     );
-    await page.locator('[data-page-density-scope-option="document"]').click();
+    await page.locator('[data-page-scope-option="document"]').click();
     await page.locator('[data-page-density-slider]').focus();
     await page.locator('[data-page-density-slider]').press('ArrowLeft');
     await page.waitForFunction(
