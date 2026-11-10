@@ -47,6 +47,10 @@ compositor, or PDF output change was made.
 - `757eb65` — `chore(ui): drop the retired density-scope CSS blocks`
 - `e0fe024` — `docs(tokens): align the canvas content budget with edge-to-edge padding`
 - `be8f9b6` — `fix(ui): restore overlay focus and expose the app-data folder`
+- `e5b5279` — `docs(report): note the adjusted shell/sub-test evidence`
+- `4f277e9` — `docs(report): record the final verify:fast timings`
+- `a54c875` — `docs(report): correct the UI suite count`
+- `934e24a` — `docs(report): add the Batch A implementation report`
 
 ## Files changed
 
@@ -103,10 +107,10 @@ compositor, or PDF output change was made.
 |---|---|---:|
 | `npm run check:boundaries` | 170 files, 840 imports, 16 rules | 0.40 s |
 | `npm run typecheck` | all workspaces clean | 4.87 s |
-| `npx vitest run` (in `verify:fast`) | 103 files / 1027 tests passed | 2.69 s |
-| `npm run e2e` (critical, in `verify:fast`) | 16/16 passed | 44.15 s |
-| **`npm run verify:fast`** | **exit 0** | **53.23 s** |
-| `npm run test:ui` (full Batch A state) | all 40 suites passed | 511.38 s |
+| `npx vitest run` (in `verify:fast`) | 103 files / 1027 tests passed | 2.68 s |
+| `npm run e2e` (critical, in `verify:fast`) | 16/16 passed | 43.96 s |
+| **`npm run verify:fast`** | **exit 0** | **53.01 s** |
+| `npm run test:ui` (full Batch A state) | all 40 suites passed | 510.68 s |
 | Targeted: `ui-batch-a` | 5/5 | 10.9 s |
 | Targeted: `m4b1-page-view` | 9/9 | 6.1 s |
 | Targeted: `m4c1-print-compositor` | 6/6 | 3.9 s |
