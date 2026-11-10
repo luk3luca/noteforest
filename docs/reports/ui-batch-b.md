@@ -150,6 +150,9 @@ guard remains in force; the Batch B suite does not touch the folder picker.
   A rejected commit keeps the existing Page Edit overlay/error path (M4b1b1); Batch B does not add a
   second overlay, and the settings controller surfaces the commit error in the footer and blocks the
   write.
+- **Settled-lens assertions.** Page geometry checks wait for the sheet width/height/margins and body
+  size, not a bare ready flag, so a settings write and the Page model run cannot race the assertion.
+  The Batch B suite was run twice consecutively green after this hardening.
 - **Responsive Page settings.** The Page modal is 980 px wide at ≥920 px with a 258 px preview column;
   below 920 px the preview is hidden and the normal 840 px modal remains.
 - **No schema/PDF change.** `settings.json` stays v2 and the per-document map format is unchanged. The
