@@ -3,10 +3,12 @@ import type { AppSettings } from '@noteforest/layout';
 import type {
   ApplyResult,
   BootstrapResult,
-  ChooseExportPathResult,
+  ChooseExportFolderResult,
   CreateDocumentResult,
   DocumentSettingsSaveResult,
+  ExportDefaults,
   ExportJobView,
+  ExportPathStatus,
   ExportPdfInput,
   ExportPdfStartResult,
   ExportSnapshotReply,
@@ -126,10 +128,16 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('export:job', jobId),
   cancelExport: (jobId: string): Promise<boolean> =>
     ipcRenderer.invoke('export:cancel', jobId),
-  chooseExportPath: (input: { defaultFileName: string }): Promise<ChooseExportPathResult> =>
-    ipcRenderer.invoke('export:choose-path', input),
+  getExportDefaults: (): Promise<ExportDefaults> =>
+    ipcRenderer.invoke('export:defaults'),
+  chooseExportFolder: (input): Promise<ChooseExportFolderResult> =>
+    ipcRenderer.invoke('export:choose-folder', input),
+  exportPathExists: (outputPath: string): Promise<ExportPathStatus> =>
+    ipcRenderer.invoke('export:path-exists', outputPath),
   revealExport: (outputPath: string): Promise<RevealResult> =>
     ipcRenderer.invoke('export:reveal', outputPath),
+  openExport: (outputPath: string): Promise<RevealResult> =>
+    ipcRenderer.invoke('export:open', outputPath),
   onExportSnapshotRequest: (
     handler: (request: ExportSnapshotRequest) => Promise<ExportSnapshotReply>,
   ): (() => void) => {

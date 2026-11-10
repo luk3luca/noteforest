@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { pdfFileNameForTitle } from '../src/shared/export';
+import {
+  exportDateStamp,
+  exportFileName,
+  joinExportPath,
+  pdfBaseNameForTitle,
+  pdfFileNameForTitle,
+} from '../src/shared/export';
 
 /**
  * M4d2: the export save dialog suggests `<document title>.pdf`. The helper is
@@ -23,5 +29,26 @@ describe('export PDF filename', () => {
   it('falls back to Untitled for an empty or whitespace title', () => {
     expect(pdfFileNameForTitle('')).toBe('Untitled.pdf');
     expect(pdfFileNameForTitle('   ')).toBe('Untitled.pdf');
+    expect(pdfBaseNameForTitle('   ')).toBe('Untitled');
+  });
+
+  it('composes the sheet filename with an optional local date', () => {
+    const day = new Date(2026, 10, 10);
+    expect(exportDateStamp(day)).toBe('2026-11-10');
+    expect(exportFileName('Linear algebra', false, day)).toBe('Linear algebra.pdf');
+    expect(exportFileName('Linear algebra.pdf', true, day)).toBe(
+      'Linear algebra — 2026-11-10.pdf',
+    );
+    expect(exportFileName('', false, day)).toBe('Untitled.pdf');
+    expect(exportFileName('Notes / Lecture', false, day)).toBe('Notes Lecture.pdf');
+  });
+
+  it('joins a folder and a filename without doubling separators', () => {
+    expect(joinExportPath('/Users/luca/Documents', 'Note.pdf')).toBe(
+      '/Users/luca/Documents/Note.pdf',
+    );
+    expect(joinExportPath('/Users/luca/Documents/', 'Note.pdf')).toBe(
+      '/Users/luca/Documents/Note.pdf',
+    );
   });
 });

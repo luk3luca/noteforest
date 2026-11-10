@@ -14,8 +14,10 @@ import type {
 import type { DocumentSettingsEntry } from './document-settings.js';
 import type { DocumentLayout, InteractionMode, PageFit } from './view-state';
 import type {
-  ChooseExportPathResult,
+  ChooseExportFolderResult,
+  ExportDefaults,
   ExportJobView,
+  ExportPathStatus,
   ExportPdfInput,
   ExportPdfStartResult,
   ExportSnapshotReply,
@@ -23,12 +25,14 @@ import type {
 } from './export.js';
 
 export type {
-  ChooseExportPathResult,
+  ChooseExportFolderResult,
+  ExportDefaults,
   ExportFailureCode,
   ExportJobErrorView,
   ExportJobPhase,
   ExportJobStatus,
   ExportJobView,
+  ExportPathStatus,
   ExportPdfInput,
   ExportPdfStartResult,
   ExportSnapshot,
@@ -518,13 +522,19 @@ export interface NoteForestApi {
   getExportJob(jobId: string): Promise<ExportJobView | null>;
   /** Request cancellation; true when a running job accepted it. */
   cancelExport(jobId: string): Promise<boolean>;
+  /** Session default export folder; the sheet composes the filename. */
+  getExportDefaults(): Promise<ExportDefaults>;
   /**
-   * Native save dialog for the PDF export (M4d2). The dialog suggests
-   * `defaultFileName`; a cancelled dialog returns `{ canceled: true }`.
+   * Native folder picker for the export destination (directories only). This
+   * is the only native surface in the export flow; there is no save dialog.
    */
-  chooseExportPath(input: { defaultFileName: string }): Promise<ChooseExportPathResult>;
+  chooseExportFolder(input?: { defaultPath?: string | null }): Promise<ChooseExportFolderResult>;
+  /** Whether an absolute `.pdf` path already exists (in-sheet overwrite gate). */
+  exportPathExists(outputPath: string): Promise<ExportPathStatus>;
   /** Reveal a produced PDF in the OS file manager (non-destructive). */
   revealExport(outputPath: string): Promise<RevealResult>;
+  /** Open a produced PDF in the default OS application. */
+  openExport(outputPath: string): Promise<RevealResult>;
   /**
    * Answer a main-process snapshot request for an export job. The handler must
    * resolve with the current in-memory document/settings/asset URLs.

@@ -115,6 +115,9 @@ export function installApplicationMenu(getWindow: () => BrowserWindow | null, se
       {
         label: 'Command Palette…',
         accelerator: 'CmdOrCtrl+K',
+        // Renderer-owned accelerator: one keypress is one toggle path. The menu
+        // still shows the shortcut and a menu click sends the same command.
+        registerAccelerator: false,
         click: () => send('command-palette'),
       },
       {

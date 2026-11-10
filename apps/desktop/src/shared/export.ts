@@ -56,30 +56,72 @@ export interface ExportPdfInput {
   overwrite?: boolean;
 }
 
-/**
- * Result of the native export save dialog (M4d2).
- *
- * `exists` lets the renderer ask for explicit replacement before starting the
- * job. It is only a hint: the engine still refuses to clobber an existing file
- * for `overwrite: false`, so a file created after the dialog is never lost.
- */
-export type ChooseExportPathResult =
-  | { canceled: true }
-  | { canceled: false; outputPath: string; exists: boolean };
+/** Session/app default destination for the Export sheet. */
+export interface ExportDefaults {
+  folder: string;
+}
 
 /**
- * Default export filename for a document title. Path separators, reserved
- * characters, and control characters become spaces; an empty title falls back
- * to `Untitled`. The `.pdf` extension is added exactly once.
+ * Result of the native folder picker (the only native surface in the export
+ * flow). The filename and the overwrite decision stay inside the sheet.
  */
-export function pdfFileNameForTitle(title: string): string {
+export type ChooseExportFolderResult =
+  | { canceled: true }
+  | { canceled: false; folderPath: string };
+
+/** Existence probe used for the in-sheet replacement confirmation. */
+export interface ExportPathStatus {
+  exists: boolean;
+}
+
+/**
+ * Base export filename for a document title (no extension). Path separators,
+ * reserved characters, and control characters become spaces; an empty title
+ * falls back to `Untitled`. The sheet owns the fixed `.pdf` suffix.
+ */
+export function pdfBaseNameForTitle(title: string): string {
   const cleaned = title
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/[\\/:*?"<>|]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  const base = cleaned.length > 0 ? cleaned : 'Untitled';
-  return /\.pdf$/i.test(base) ? base : `${base}.pdf`;
+  const withoutExtension = cleaned.replace(/\.pdf$/i, '').trim();
+  return withoutExtension.length > 0 ? withoutExtension : 'Untitled';
+}
+
+/** Default export filename for a document title, with one `.pdf` extension. */
+export function pdfFileNameForTitle(title: string): string {
+  return `${pdfBaseNameForTitle(title)}.pdf`;
+}
+
+/** Local calendar date used by the optional Add date suffix. */
+export function exportDateStamp(now: Date = new Date()): string {
+  const year = String(now.getFullYear()).padStart(4, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * The sheet filename: a sanitized base, an optional ` — YYYY-MM-DD` suffix, and
+ * exactly one `.pdf`.
+ */
+export function exportFileName(
+  base: string,
+  addDate: boolean,
+  now: Date = new Date(),
+): string {
+  const clean = pdfBaseNameForTitle(base);
+  return `${clean}${addDate ? ` — ${exportDateStamp(now)}` : ''}.pdf`;
+}
+
+/** Join a chosen folder and a sheet filename without doubling separators. */
+export function joinExportPath(folder: string, fileName: string): string {
+  const trimmed = folder.trim().replace(/[\\/]+$/, '');
+  if (trimmed.length === 0) return fileName;
+  const separator =
+    trimmed.includes('\\') && !trimmed.includes('/') ? '\\' : '/';
+  return `${trimmed}${separator}${fileName}`;
 }
 
 /**

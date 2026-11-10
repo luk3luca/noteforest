@@ -1163,50 +1163,67 @@ export function paletteCommands(): MenuEntry[] {
   const editingEnabled = activeEditingEnabled();
   // Read mode disables the entry instead of silently ignoring the click; the
   // visible suffix is the reason and stays searchable.
-  const gate = (entry: MenuEntry): MenuEntry =>
-    editingEnabled
-      ? entry
-      : {
+  const gate = (entry: MenuEntry): MenuEntry => {
+    if (runtime === null) {
+      return {
+        ...entry,
+        disabled: true,
+        reason: 'Open a document first',
+        onSelect: undefined,
+      };
+    }
+    if (editingEnabled) return entry;
+    return {
+      ...entry,
+      disabled: true,
+      reason: 'Read mode — switch to Continuous Edit to run this command',
+      onSelect: undefined,
+    };
+  };
+  const withDocument = (entry: MenuEntry): MenuEntry =>
+    runtime === null
+      ? {
           ...entry,
-          label: `${entry.label}${READ_MODE_SUFFIX}`,
           disabled: true,
+          reason: 'Open a document first',
           onSelect: undefined,
-        };
+        }
+      : entry;
   return [
-    { id: 'new-document', label: 'New document', shortcut: '⌘N', onSelect: () => void createNewDocument() },
+    { id: 'new-document', label: 'New note', shortcut: '⌘N', onSelect: () => void createNewDocument() },
     gate({ id: 'new-chapter', label: 'New chapter', shortcut: '⇧⌘N', onSelect: () => void createChapter() }),
-    { id: 'save', label: 'Save now', shortcut: '⌘S', onSelect: () => void saveActive() },
-    {
+    withDocument({ id: 'save', label: 'Save', shortcut: '⌘S', onSelect: () => void saveActive() }),
+    withDocument({
       id: 'export-pdf',
       label: 'Export PDF…',
       shortcut: '⇧⌘E',
       onSelect: exportActiveDocument,
-    },
+    }),
     { id: 'close-tab', label: 'Close tab', shortcut: '⌘W', onSelect: () => void closeActiveTab() },
     { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘\\', onSelect: toggleSidebar },
-    { id: 'zoom-in', label: 'Zoom in', shortcut: '⌘+', onSelect: () => adjustActiveLayoutZoom(0.1) },
-    { id: 'zoom-out', label: 'Zoom out', shortcut: '⌘−', onSelect: () => adjustActiveLayoutZoom(-0.1) },
-    { id: 'zoom-reset', label: 'Actual size', shortcut: '⌘0', onSelect: resetActiveLayoutZoom },
-    { id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: () => fitActiveLayout('fit-width') },
-    { id: 'continuous-layout', label: 'Continuous layout', shortcut: '⌘2', onSelect: () => setActiveDocumentLayout('continuous') },
-    { id: 'page-layout', label: 'Page layout', shortcut: '⌘3', onSelect: () => setActiveDocumentLayout('page') },
-    {
+    withDocument({ id: 'zoom-in', label: 'Zoom in', shortcut: '⌘+', onSelect: () => adjustActiveLayoutZoom(0.1) }),
+    withDocument({ id: 'zoom-out', label: 'Zoom out', shortcut: '⌘−', onSelect: () => adjustActiveLayoutZoom(-0.1) }),
+    withDocument({ id: 'zoom-reset', label: 'Actual size', shortcut: '⌘0', onSelect: resetActiveLayoutZoom }),
+    withDocument({ id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: () => fitActiveLayout('fit-width') }),
+    withDocument({ id: 'continuous-layout', label: 'Switch to Continuous', shortcut: '⌘2', onSelect: () => setActiveDocumentLayout('continuous') }),
+    withDocument({ id: 'page-layout', label: 'Switch to Page', shortcut: '⌘3', onSelect: () => setActiveDocumentLayout('page') }),
+    withDocument({
       id: 'toggle-interaction-mode',
-      label: activeInteractionMode() === 'edit' ? 'Read mode' : 'Edit mode',
+      label: activeInteractionMode() === 'edit' ? 'Switch to Read mode' : 'Switch to Edit mode',
       shortcut: '⌘E',
       onSelect: toggleActiveInteractionMode,
-    },
-    { id: 'focus-branch', label: 'Focus branch', shortcut: '⇧⌘F', onSelect: toggleFocusBranch },
-    {
+    }),
+    withDocument({ id: 'focus-branch', label: 'Focus branch', shortcut: '⇧⌘F', onSelect: toggleFocusBranch }),
+    withDocument({
       id: 'rename-document',
       label: 'Rename document…',
       onSelect: () => shell().openDialog({ kind: 'rename-document' }),
-    },
-    {
+    }),
+    withDocument({
       id: 'reveal',
       label: 'Reveal document in Finder',
       onSelect: revealActive,
-    },
+    }),
     gate({
       id: 'add-block',
       label: 'Add top-level block',
@@ -1242,11 +1259,11 @@ export function paletteCommands(): MenuEntry[] {
         shell().openDialog({ kind: 'link-reference', blockId: selected });
       },
     }),
-    {
+    withDocument({
       id: 'anchor-health',
       label: 'Anchor health…',
       onSelect: () => shell().openDialog({ kind: 'anchor-health' }),
-    },
+    }),
     gate({ id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) }),
     gate({ id: 'block-h1', label: 'Block type: Heading 1', onSelect: () => applyBlockType(1) }),
     gate({ id: 'block-h2', label: 'Block type: Heading 2', onSelect: () => applyBlockType(2) }),
@@ -1263,7 +1280,12 @@ export function paletteCommands(): MenuEntry[] {
       shortcut: '⇧⌘Z',
       onSelect: redoActive,
     }),
-    { id: 'settings', label: 'Settings…', shortcut: '⌘,', onSelect: () => shell().openDialog({ kind: 'settings' }) },
+    {
+      id: 'settings',
+      label: 'Settings…',
+      shortcut: '⌘,',
+      onSelect: () => shell().openDialog({ kind: 'settings' }),
+    },
     gate({
       id: 'insert-table',
       label: 'Insert table',

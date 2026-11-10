@@ -47,7 +47,14 @@ async function closePalette() {
 }
 
 function paletteItem(label) {
-  return page.locator('.nf-palette-item', { hasText: label }).first();
+  // Match the row label, not the disabled-reason sentence: "New chapter —
+  // Read mode — switch to Continuous Edit…" must not shadow the real
+  // "Switch to Continuous" command row.
+  return page
+    .locator('.nf-palette-item', {
+      has: page.locator('.nf-palette-label', { hasText: label }),
+    })
+    .first();
 }
 
 async function assertPaletteDisabled(label) {
@@ -190,9 +197,9 @@ describe('M4b1a2 Read-mode global gating', () => {
     ]) {
       await assertPaletteDisabled(label);
     }
-    await assertPaletteEnabled('Save now');
+    await assertPaletteEnabled('Save');
     await assertPaletteEnabled('Rename document');
-    await assertPaletteEnabled('Continuous layout');
+    await assertPaletteEnabled('Switch to Continuous');
     await h.screenshot(
       artifactsPath('m4b1a2', 'continuous-read-palette-1440x900.png'),
       { width: 1440, height: 900 },
@@ -336,7 +343,7 @@ describe('M4b1a2 Read-mode global gating', () => {
     for (const label of ['New chapter', 'Add top-level block', 'Undo', 'Redo', 'Insert table']) {
       await assertPaletteDisabled(label);
     }
-    await assertPaletteEnabled('Save now');
+    await assertPaletteEnabled('Save');
     await closePalette();
 
     await page.keyboard.press('Meta+z');

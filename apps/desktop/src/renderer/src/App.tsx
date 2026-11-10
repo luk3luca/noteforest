@@ -7,7 +7,7 @@ import { StatusBar } from './shell/StatusBar';
 import { CommandPalette } from './shell/CommandPalette';
 import { ContextMenu } from './shell/ContextMenu';
 import { Dialogs } from './shell/Dialogs';
-import { ExportStatusPanel } from './export/ExportStatusPanel';
+import { ExportSheet } from './export/ExportSheet';
 import {
   exportFlowHistory,
   useExportUi,
@@ -47,12 +47,17 @@ import { perfSnapshot, summarize } from './lib/perf';
 type FlushTestMode = 'normal' | 'error' | 'hang';
 
 /**
- * Undo/redo are deliberately exempt from the menu-command dedupe: repeated
- * presses are intentional. Their native menu accelerators are not registered
+ * Commands with a renderer-owned accelerator are deliberately exempt from the
+ * menu-command dedupe: repeated presses are intentional. Undo/redo and the
+ * command palette have unregistered native accelerators
  * (`registerAccelerator: false` in the main menu), so the renderer keydown is
  * the single delivery path and there is no native/renderer duplicate to drop.
  */
-const HISTORY_COMMANDS = new Set<MenuCommand>(['undo', 'redo']);
+const SINGLE_PATH_COMMANDS = new Set<MenuCommand>([
+  'undo',
+  'redo',
+  'command-palette',
+]);
 
 /** Move to the previous/next open tab; a no-op with fewer than two tabs. */
 function cycleActiveTab(direction: -1 | 1): void {
@@ -213,7 +218,7 @@ export function App(): JSX.Element {
   }, []);
 
   const dispatch = useCallback((command: MenuCommand) => {
-    if (!HISTORY_COMMANDS.has(command)) {
+    if (!SINGLE_PATH_COMMANDS.has(command)) {
       const now = performance.now();
       // A missing entry is not "dispatched at time 0": treating it as one
       // silently dropped the first menu command issued inside the first
@@ -630,7 +635,14 @@ export function App(): JSX.Element {
           jobId: state.jobId,
           outputPath: state.outputPath,
           documentTitle: state.documentTitle,
+          folder: state.folder,
+          baseName: state.baseName,
+          addDate: state.addDate,
+          layout: state.layout,
+          pageSetup: state.pageSetup,
+          density: state.density,
           overwrite: state.overwrite,
+          cancelPrompt: state.cancelPrompt,
           progress: state.progress,
           phase: state.phase,
           pageCount: state.pageCount,
@@ -752,7 +764,7 @@ export function App(): JSX.Element {
       <CommandPalette />
       <Dialogs />
       <ContextMenu />
-      <ExportStatusPanel />
+      <ExportSheet />
       <Toaster theme="dark" position="bottom-right" closeButton={false} />
     </div>
   );

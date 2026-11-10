@@ -40,6 +40,8 @@ export interface MenuEntry {
   shortcut?: string;
   danger?: boolean;
   disabled?: boolean;
+  /** Why a palette/context row is disabled (palette shows it; menus use title). */
+  reason?: string;
   separator?: boolean;
   onSelect?: () => void;
 }

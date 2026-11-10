@@ -18,7 +18,6 @@ import type {
   WindowState,
 } from '../shared/api.js';
 import { normalizeFlushResult } from '../shared/flush.js';
-import { pdfFileNameForTitle } from '../shared/export.js';
 import {
   applyCommand,
   appSupportDir,
@@ -64,6 +63,8 @@ if (isE2E) installE2EDialogGuard(dialog);
 // Custom schemes must be registered before the app is ready.
 registerAssetScheme();
 let mainWindow: BrowserWindow | null = null;
+/** Last folder chosen in the export sheet picker; session/app scope only. */
+let lastExportFolder: string | null = null;
 let allowClose = false;
 let closeInProgress = false;
 let quitting = false;
@@ -549,46 +550,63 @@ function registerIpc(): void {
     platform: process.platform,
   }));
 
-  // M4d2: temporary export entry. The save dialog only chooses the output path;
-  // the job still owns overwrite/atomicity, so a file created after the dialog
-  // is never silently replaced.
-  ipcMain.handle('export:choose-path', async (_event, input: unknown) => {
+  // Batch A export sheet: the folder picker is the only native surface. The
+  // renderer owns the filename and the in-sheet overwrite decision; the job
+  // engine still refuses to clobber for `overwrite: false`.
+  ipcMain.handle('export:defaults', () => ({
+    folder: lastExportFolder ?? app.getPath('documents'),
+  }));
+
+  ipcMain.handle('export:choose-folder', async (_event, input: unknown) => {
     const win = mainWindow;
     if (win === null || win.isDestroyed()) return { canceled: true as const };
-    const requested =
+    const requestedPath =
       typeof input === 'object' &&
       input !== null &&
-      typeof (input as { defaultFileName?: unknown }).defaultFileName === 'string'
-        ? (input as { defaultFileName: string }).defaultFileName
-        : '';
-    const defaultFileName = pdfFileNameForTitle(requested.replace(/\.pdf$/i, ''));
-    const choice = await dialog.showSaveDialog(win, {
-      title: 'Export PDF',
-      buttonLabel: 'Export',
-      // A bare filename keeps the OS/Electron default folder (usually the last
-      // used save directory); the UI rework will decide a product default.
-      defaultPath: defaultFileName,
-      filters: [{ name: 'PDF document', extensions: ['pdf'] }],
-      properties: ['createDirectory', 'showOverwriteConfirmation'],
+      typeof (input as { defaultPath?: unknown }).defaultPath === 'string' &&
+      (input as { defaultPath: string }).defaultPath.length > 0
+        ? (input as { defaultPath: string }).defaultPath
+        : null;
+    const choice = await dialog.showOpenDialog(win, {
+      title: 'Choose export folder',
+      buttonLabel: 'Choose',
+      defaultPath: requestedPath ?? lastExportFolder ?? app.getPath('documents'),
+      properties: ['openDirectory', 'createDirectory'],
     });
-    if (
-      choice.canceled ||
-      typeof choice.filePath !== 'string' ||
-      choice.filePath.trim().length === 0
-    ) {
+    const folderPath = choice.filePaths[0];
+    if (choice.canceled || folderPath === undefined || folderPath.trim().length === 0) {
       return { canceled: true as const };
     }
-    const outputPath = /\.pdf$/i.test(choice.filePath)
-      ? choice.filePath
-      : `${choice.filePath}.pdf`;
-    let exists = false;
+    lastExportFolder = folderPath;
+    return { canceled: false as const, folderPath };
+  });
+
+  ipcMain.handle('export:path-exists', async (_event, outputPath: unknown) => {
+    if (
+      typeof outputPath !== 'string' ||
+      !isAbsolute(outputPath) ||
+      !/\.pdf$/i.test(outputPath)
+    ) {
+      return { exists: false };
+    }
     try {
       await stat(outputPath);
-      exists = true;
+      return { exists: true };
     } catch {
-      exists = false;
+      return { exists: false };
     }
-    return { canceled: false as const, outputPath, exists };
+  });
+
+  ipcMain.handle('export:open', async (_event, outputPath: unknown): Promise<RevealResult> => {
+    if (
+      typeof outputPath !== 'string' ||
+      !isAbsolute(outputPath) ||
+      !/\.pdf$/i.test(outputPath)
+    ) {
+      return { ok: false, message: 'No PDF path was provided.' };
+    }
+    const message = await shell.openPath(outputPath);
+    return message.length === 0 ? { ok: true } : { ok: false, message };
   });
 
   ipcMain.handle('export:reveal', (_event, outputPath: unknown): RevealResult => {
