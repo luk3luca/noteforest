@@ -215,8 +215,11 @@ To avoid one delegate restart per design page, the implementation is consolidate
   P4 Export + palette, and the palette/read-mode parts of P5. One implementer and worktree,
   checkpoint commits, one `verify:fast`, one full integration verify. Brief:
   `docs/tasks/ui-batch-a.md`; report: `docs/reports/ui-batch-a.md`.
-- **Batch B — Page/PDF/future (next):** P3 Page settings, P6 future functions, and the remaining P5
-  native-menu/dialog/context/toast parity.
+- **Batch B — Page settings/PDF (next):** P3 Page settings (setup/orientation/margins, live
+  preview, validation, density/preset, scope/override), the Page/PDF-affecting work, and only the
+  remaining P5 parity required by that path. Future functions (Appearance v3, Export defaults,
+  Continuous global, Page chrome, manual breaks, Data recovery, External API) remain empty/planned;
+  no fake controls.
 
 The phases in §3 remain the acceptance checkpoints inside the batches. Batch A must not change the
 Page sheet, paginator, print compositor, or PDF output.
