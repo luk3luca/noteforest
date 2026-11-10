@@ -1,6 +1,8 @@
 # UI contents — phase 2, slice 3 (Settings, including Appearance)
 
-**Status:** Draft for product-owner review. Contents, IA, and states; not visual design and not code.
+**Status:** First draft, accepted as a working basis. Contents, IA, and states; not visual design
+and not code. Decisions marked “proposal” are provisional until tried hands-on; the product owner
+will revisit them after using the app.
 **Date:** 10 November 2026.
 **Branch:** `design/ui-map`.
 **Inputs:** `docs/design/ui-shell-map.md` (structure, D-01…D-13),
@@ -459,6 +461,7 @@ Purpose: defaults for export, separate from the Export sheet.
 
 ## 13. Next slice
 
-**Export sheet contents** (options, progress, overwrite, result, errors, reveal), then overlays and
-keyboard (palette, dialogs, context menus, toasts, shortcut table), then the A/B lab (TopBar words
-vs symbols, Page Setup entry). No mockups or product code until these choices are settled.
+**Export sheet:** done in `docs/design/ui-export-contents.md` (configure, overwrite, progress,
+result, errors, warnings). Next: overlays and keyboard (palette, dialogs, context menus, toasts,
+shortcut table), then the A/B lab (TopBar words vs symbols, Page Setup entry). No mockups or
+product code until these choices are settled.

@@ -324,7 +324,8 @@ contract for the controls in this slice.
    Export, PageStage/PageSheet frame, Page Edit, placeholders, banners).
 2. **Settings** — done in `docs/design/ui-settings-contents.md` (modal frame, Appearance, Page,
    Continuous, Editor, Export, Data & About, scope, save model, states).
-3. **Export sheet:** options, progress, overwrite, result, errors, reveal.
+3. **Export sheet** — done in `docs/design/ui-export-contents.md` (configure, overwrite, progress,
+   result, errors, warnings).
 4. **Overlays and keyboard:** palette contents, dialog inventory, context menus, toasts, shortcut
    table, responsive rules, state matrix.
 5. **A/B lab:** ViewControls variants (TopBar words vs symbols), sidebar collapse, Page Setup entry.
