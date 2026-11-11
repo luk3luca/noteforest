@@ -109,7 +109,7 @@ These are the decisions the UI plan is built on; details are recorded in the pha
 | **Toasts, banners** | Shipped/basic | `ui-overlays-keyboard.md` §4, `SaveFailureBanner`, `StaleLockBanner` | **P5** | No toast for export/settings; banners for decisions. |
 | **Native menu, shortcuts, keyboard** | Shipped/basic | `ui-overlays-keyboard.md` §5, `ux.md`, `main/menu.ts` | **P5** | Registry parity; read-mode whitelist; K-01…K-14. |
 | **Responsive, accessibility, VoiceOver** | Specified | `ui-overlays-keyboard.md` §6/8, `ui-settings-contents.md` §1.4/1.5, `docs/definition-of-done.md`, `review-checklist.md` | **P5** | Breakpoints; focus trap; labels/reasons; product-owner VoiceOver/visual pass. |
-| **Page chrome, manual breaks, Data recovery, External API, library/backup, light theme/search** | Future | `settings-freeze-review.md` open #7; `ui-settings-contents.md` §4.5/§8; ADR-0003; plan M5/M6 | **P6** | References complete; details in phase briefs; empty pages until real controls. |
+| **Page chrome, manual breaks, Data recovery, library/backup, light theme/search** | Future | `settings-freeze-review.md` open #7; `ui-settings-contents.md` §4.5/§8; plan M6 | **P6** | References complete; details in phase briefs; empty pages until real controls. |
 
 ## 3. Phases
 
@@ -120,7 +120,7 @@ These are the decisions the UI plan is built on; details are recorded in the pha
 | **P3 — Page settings** | Setup/orientation/margins, defaults, scope/override, live preview, validation, density/preset; Page Edit commit policy. | Margins validation; scope switch no override; preview updates; Page/PDF parity; tests/screenshots. |
 | **P4 — Export + palette** | Export sheet all states; no native save dialog; overwrite/progress/result; palette registry, search, groups, disabled reasons, keyboard. | Export UI tests incl. overwrite/cancel/fail/warnings; palette keyboard/read-mode tests; screenshot. |
 | **P5 — Overlays, menu, keyboard, a11y** | Dialogs, context menus, toasts/banners, native menu parity, shortcut table, responsive, focus/VoiceOver. | Keyboard/read-mode parity; a11y checks; visual/VoiceOver pass; `verify:fast`. |
-| **P6 — Future settings** | Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks, Data recovery, External API, library/backup, light/search. | Per-feature briefs; no schema change without a migration; PDF gates where output changes. |
+| **P6 — Future settings** | Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks, Data recovery, library/backup, light/search. | Per-feature briefs; no schema change without a migration; PDF gates where output changes. |
 
 Phase gates are cumulative: a later phase cannot break an earlier accepted surface. The Orchestrator
 runs one full `npm run verify` at each integration, not per builder.
@@ -203,7 +203,7 @@ copy, and tests when the phase starts.
 | Page chrome | `settings-freeze-review.md` open #7; Page/PDF docs | field list and defaults; header/footer/page-number/chapter-start design |
 | Manual breaks | `ui-settings-contents.md` §4.5; `settings-freeze-review.md` | delete/split/merge cleanup rules; no fake list |
 | Data recovery | `ui-settings-contents.md` §8; `settings-freeze-review.md` S3-3/S3-12 | reset map/restore backup + confirmation; backup path |
-| External API / agent access | `docs/adr/0003-external-agent-api.md`; plan M5 | token/scope/audit surface; decide Settings page vs separate surface |
+| External API / agent access | `docs/adr/0003-external-agent-api.md` | **Removed from Settings** (product owner, 11 Nov 2026). Any future agent surface is MCP/commands, not a Settings token/scope/audit harness page. |
 | Library folder / backup | `ui-settings-contents.md` §8; plan M6 | folder change policy; backup retention; destructive confirmations |
 | Light theme / search / onboarding | plan M6; spec/UX | milestones; no UI before the model exists |
 
@@ -217,9 +217,16 @@ To avoid one delegate restart per design page, the implementation is consolidate
   `docs/tasks/ui-batch-a.md`; report: `docs/reports/ui-batch-a.md`.
 - **Batch B — Page settings/PDF (merged 11 November 2026, `34e4ade`):** P3 Page settings
   (setup/orientation/margins, live preview, validation, density/preset, scope/override), the
-  Page/PDF-affecting work, and only the remaining P5 parity required by that path. Future functions
-  (Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks, Data recovery,
-  External API) remain empty/planned; no fake controls.
+  Page/PDF-affecting work, and only the remaining P5 parity required by that path.
+- **Batch C — Page advanced typography/layout (next):** frozen PageTheme fields, first-class
+  `maxCardWidth` and the advanced typography/layout groups; no schema. Brief:
+  `docs/tasks/ui-settings-advanced.md`.
+- **Batch V — visual refinement (after C):** Settings fixed width, toast tokens, tab behavior,
+  canvas inset. Then `design/ui-map` merges to `main`.
+- Future functions (Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks,
+  Data recovery, library/backup, light/search) remain empty/planned; no fake controls.
+  **External API/agent access is removed from Settings** (product owner, 11 November 2026): any
+  future agent surface is MCP/commands, not a Settings token/scope/audit harness.
 
 The phases in §3 remain the acceptance checkpoints inside the batches. Batch A must not change the
 Page sheet, paginator, print compositor, or PDF output.
@@ -249,7 +256,8 @@ Page sheet, paginator, print compositor, or PDF output.
   state, read-mode gating.
 - Page: Batch B merged; Page Read/Edit/measurement/PDF parity at A4/A5/Letter, portrait/landscape,
   margins, density 60/100/120, and document overrides.
-- Next: product-owner visual/VoiceOver pass; future pages remain planned/empty (Appearance v3,
-  Export defaults, Continuous global, Page chrome, manual breaks, Data recovery, External API,
-  library/backup, light theme/search). The lab Settings/Export/Palette/Page mocks predate Batches
-  A/B; Electron is the source for those surfaces now.
+- Next: Batch C Page advanced typography/layout (brief `docs/tasks/ui-settings-advanced.md`), then
+  the visual refinement batch (Settings fixed width, toast, tabs, canvas inset), then merge
+  `design/ui-map` to `main`. Future pages remain planned/empty (Appearance v3, Export defaults,
+  Continuous global, Page chrome, manual breaks, Data recovery, library/backup, light/search).
+  External API/agent access is not a Settings page; MCP/commands only if pursued.

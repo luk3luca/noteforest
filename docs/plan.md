@@ -433,8 +433,12 @@ and complete reference index is **`docs/tasks/ui-rework.md`**. It covers the she
 header (C preferred, D alternative), sidebar, status, Page frame, Settings (instant save), Export,
 palette, overlays/keyboard, responsive/accessibility, and the future settings pages.
 
-Implementation is consolidated into **two delivery batches**: **A** (shell, Settings shell, Export,
-Palette; non-Page/PDF) and **B** (Page settings, Page/PDF-affecting work), with P1–P6 as acceptance
-checkpoints inside them. Batch A is merged at `af815eb`; Batch B is merged at `34e4ade` (full verify
-green; reports `docs/reports/ui-batch-a.md`, `docs/reports/ui-batch-b.md`). The core UI is
-implemented. Future pages stay empty in the lab and out of the product until a real control exists.
+Implementation is consolidated into **delivery batches**: **A** (shell, Settings shell, Export,
+Palette; non-Page/PDF), **B** (Page settings, Page/PDF-affecting work), and **C** (Page advanced
+typography/layout), with P1–P6 as acceptance checkpoints inside them. Batch A is merged at
+`af815eb`; Batch B is merged at `34e4ade` (full verify green; reports
+`docs/reports/ui-batch-a.md`, `docs/reports/ui-batch-b.md`). Batch C is next
+(`docs/tasks/ui-settings-advanced.md`), then the visual refinement batch, then `design/ui-map`
+merges to `main`. External API/agent access is removed from Settings; any future agent surface is
+MCP/commands, not a Settings harness/agent page. Future pages stay empty in the lab and out of the
+product until a real control exists.
