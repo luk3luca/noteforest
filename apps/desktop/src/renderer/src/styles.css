@@ -4435,11 +4435,10 @@ body.nf-dragging-block .nf-gutter-handle {
 /* ----------------------------------------------------------------- settings */
 
 /*
- * Batch A Settings shell: a large modal with a stable left nav, one scrolling
- * page, and a footer that reports the real write. There is no Apply/Cancel and
- * no dirty-dot state; the Page lens writes immediately.
- */
-/*
+ * Settings shell: a large modal with a stable left nav, one scrolling page,
+ * and a footer that reports the real write. There is no Apply/Cancel and no
+ * dirty-dot state; the Page lens writes immediately.
+ *
  * Batch V: one desktop width for every page. Only the viewport narrows the
  * modal; the active Settings page never changes it. The fixed 580 px dialog
  * height keeps the header/footer still while the page body scrolls.
