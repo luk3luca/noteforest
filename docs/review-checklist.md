@@ -366,6 +366,9 @@ Run with a fresh profile and a named fixture; record the session.
 - [ ] Focus ring is visible on blocks, ports, anchors, page controls, and toolbar; focus is not lost
       after an action.
 - [ ] Tab order follows visual order; no focus traps; Esc closes overlays.
+- [ ] While a modal, sheet, palette, or dialog is open, global shortcuts and native-menu commands
+      cannot switch tabs, change layout/mode, create or close documents, or run authoring commands
+      behind it; the overlay owns the command surface until it closes.
 - [ ] Shortcuts do not fire while typing in text, code, or math; Cmd+Z scope is unambiguous.
 - [ ] Single-key shortcuts do not conflict with typing or IME.
 - [ ] Sibling reorder via keyboard works, is announced, and does not conflict with editor
@@ -829,6 +832,8 @@ Added by the full-codebase settings review (9 November 2026). These checks apply
       disabled with a reason rather than blocking Settings.
 - [ ] The settings file has a schema version, a pure migration path, a corrupt-file backup/warning,
       and an explicit unknown-field policy; corrupt settings are never silently reset and overwritten.
+      An implicit write is refused until the user explicitly resets, and the warning and save status
+      cannot disagree after that reset.
 - [ ] Settings writes are serialized and atomic; a failed write is visible and the UI never claims a
       save that did not happen.
 - [ ] A durable per-document settings store has a schema version (and a migration when the first new
@@ -836,6 +841,9 @@ Added by the full-codebase settings review (9 November 2026). These checks apply
       and a documented unknown-field policy; a corrupt map is never silently replaced or reset.
 - [ ] A per-document override is partial and survives close, restart, and a document rename/move via
       a stable document identity; switching the global/document scope alone does not create one.
+- [ ] A document-scoped settings write is bound to the package and document identity captured when
+      the edit starts; switching tabs, closing the document, or opening another document cannot
+      retarget the write, and a skipped write never reports saved.
 - [ ] Global and per-document values merge explicitly; a later global change reaches every field the
       document did not override.
 - [ ] Page and Continuous have separate settings namespaces, token docs, and UI sections; a Page

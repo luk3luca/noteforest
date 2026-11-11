@@ -388,6 +388,12 @@ Performance (`tests/perf/`) and screenshot evidence (`tests/visual/`) are separa
 and are not part of the critical gate. Artifact roots honour `NOTEFOREST_ARTIFACTS` (default
 `artifacts/`).
 
+UI suites run through `tests/ui/run.mjs`: one `node --test` process per file, a default pool of
+`min(8, availableParallelism() − 2)` workers, and `shell/settings/page/anchors/images` groups.
+Each suite owns its app-support, library, and artifact roots; a suite never deletes another suite's
+evidence. A failing suite prints its TAP output and fails the gate; a timeout kills the suite and
+also fails the gate. `verify` runs the runner once after the build from `verify:fast`.
+
 E2E windows run **hidden** by default (`NOTEFOREST_E2E_HIDDEN=1`): no visible window, no
 `bringToFront`, no dock icon, so a test run never steals keyboard focus or interferes with the
 machine. The visual screenshot suite opts into a visible window (`NOTEFOREST_E2E_HIDDEN=0`, also
@@ -485,6 +491,8 @@ The visual suite is the only visible-window exception.
 - Write the regression test before the fix.
 - No test-only branches in production code.
 - No order dependence; each test owns its fixtures.
+- The UI runner's suite list is checked against `tests/ui/*.test.mjs` (or generated), so a new
+  suite cannot be added without running.
 - No network; time and randomness are injected.
 - Coverage is not a target. Anchors, layout, pagination, persistence, migration, and External API
   commands must cover failure paths; uncovered critical lines are justified in review.
