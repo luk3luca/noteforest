@@ -6,8 +6,8 @@
 - Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-19bfe10f-e087c17c96db4ff0`
 - Branch: `t3/ui-sentinel-fixes`
 - Brief: `docs/tasks/ui-sentinel-fixes.md`; review: `docs/reviews/ui-post-merge-review.md` (F1–F3, F4, F7)
-- Heads: first batch `38daf71`; **correction head is this commit** (exact SHA in the handoff message),
-  which adds the immediate-write target correction described in §1 “F2 correction”.
+- Heads: first batch `38daf71`; correction `58a9b6a` (immediate-write target captured before the
+  flush, §1 “F2 correction”). Merged into `main` at `58a9b6a` after the integration verify.
 
 ## 1. Summary
 
@@ -201,9 +201,17 @@ and the corrupt-settings `m4e1` test now additionally proves refusal + reset.
 - Hook order in the CI runner and the 1–7 worker matrix were not re-measured (default pool only, as in
   the brief).
 
-## 6. Next suggested step
+## 6. Integration
 
-Targeted Sentinel re-check of F1–F3 plus the F4/F7 evidence in this worktree: reproduce the original
-three findings (Export tab switch, settings cross-document write, corrupt-settings overwrite) and
-confirm they now fail closed, then run `npm run verify` once at integration. Do not start the next
-settings block until this re-check is accepted.
+- Fast-forward into `main` from `dd22969` to `58a9b6a` (26 files, +2023/−283).
+- Orchestrator full `npm run verify` on `main` at `58a9b6a`: **exit 0, 169.35 s** — 109 unit files /
+  1099 tests, 16/16 e2e, 14/14 recovery, 44/44 UI at the default pool, 0 pageErrors.
+- Next: targeted Sentinel re-check of F1–F3 and the F4/F7 evidence; the next settings block waits
+  for that verdict.
+
+## 7. Next suggested step
+
+Targeted Sentinel re-check of F1–F3 plus the F4/F7 evidence: reproduce the original three findings
+(Export tab switch, settings cross-document write, corrupt-settings overwrite) on the integrated
+`main` and confirm they now fail closed. Do not start the next settings block until the re-check is
+accepted.

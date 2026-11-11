@@ -441,7 +441,9 @@ Batch A is merged at `af815eb`; Batch B at `34e4ade`; Batch C at `35edd06`; Batc
 `ui-batch-v.md`). UI Batches A/B/C/V are merged on `main` at `a44a257`; future work continues on
 `main`. The UI post-merge Sentinel is done (`docs/reviews/ui-post-merge-review.md`): **request
 changes**, no S1, three S2 (F1 overlay command gating/export document identity, F2 settings write
-identity across tab changes, F3 corrupt global settings overwrite). The S2 fixes and a targeted
-re-check come before the next settings block. External API/agent access is removed from Settings;
+identity across tab changes, F3 corrupt global settings overwrite). The S2 fix batch (plus F4/F7
+test-evidence and runner hardening) is merged at `58a9b6a` with a green full verify; the targeted
+Sentinel re-check comes before the next settings block. External API/agent access is removed from
+Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.
