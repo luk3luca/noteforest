@@ -828,10 +828,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
         if (!open) requestClose();
       }}
     >
-      <Modal
-        className={`nf-settings-modal${activePage === 'page' ? ' nf-settings-modal-page' : ''}`}
-        data-settings-dialog="true"
-      >
+      <Modal className="nf-settings-modal" data-settings-dialog="true">
         <Dialog className="nf-settings" aria-label="Settings">
           <header className="nf-settings-head">
             <h2 className="nf-settings-heading">Settings</h2>

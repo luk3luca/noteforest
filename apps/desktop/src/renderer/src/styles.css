@@ -4426,8 +4426,13 @@ body.nf-dragging-block .nf-gutter-handle {
  * page, and a footer that reports the real write. There is no Apply/Cancel and
  * no dirty-dot state; the Page lens writes immediately.
  */
+/*
+ * Batch V: one desktop width for every page. Only the viewport narrows the
+ * modal; the active Settings page never changes it. The fixed 580 px dialog
+ * height keeps the header/footer still while the page body scrolls.
+ */
 .nf-settings-modal {
-  width: 840px;
+  width: 980px;
   max-width: 92vw;
   max-height: 86vh;
   background: var(--surface-3);
@@ -4514,8 +4519,17 @@ body.nf-dragging-block .nf-gutter-handle {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
+/*
+ * One content column on every page: 536 px plus the 184 px nav and the 258 px
+ * preview fills the 978 px modal content box exactly. Non-Page pages center
+ * the same column instead of stretching into the preview space, so no page
+ * looks like it is missing a third column.
+ */
 .nf-settings-pane {
-  flex: 1;
+  flex: 1 1 0;
+  width: 100%;
+  max-width: 536px;
+  margin: 0 auto;
   min-width: 0;
   padding: 18px 22px 24px;
   overflow-y: auto;
@@ -4681,10 +4695,6 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 /* --------------------------------------------------- settings: Page setup (Batch B) */
-
-.nf-settings-modal-page {
-  width: 980px;
-}
 
 .nf-settings-section-head {
   display: flex;
@@ -4998,8 +5008,10 @@ body.nf-dragging-block .nf-gutter-handle {
   font-size: 10.5px;
 }
 
+/* Viewport rule, not a page rule: the Page preview hides and every Settings
+   page uses the narrow width together. */
 @media (max-width: 920px) {
-  .nf-settings-modal-page {
+  .nf-settings-modal {
     width: 840px;
   }
 
