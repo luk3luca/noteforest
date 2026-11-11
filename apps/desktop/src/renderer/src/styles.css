@@ -1768,7 +1768,6 @@ button:disabled {
 .nf-chapter-title {
   margin: 0;
   padding: 1px 2px;
-  margin-left: -2px;
   border-radius: var(--radius-control);
   font-family: var(--ui-font);
   font-size: 20px;
@@ -1785,7 +1784,6 @@ button:disabled {
 
 .nf-chapter-title-input {
   width: 100%;
-  margin-left: -2px;
   padding: 1px 2px;
   border: 0;
   border-radius: var(--radius-control);

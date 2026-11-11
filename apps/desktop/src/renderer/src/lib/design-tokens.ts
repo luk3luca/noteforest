@@ -78,18 +78,19 @@ export const DESIGN_TOKENS = Object.freeze({
   /** Wide finite canvas; placement uses its full logical content width. */
   canvasMaxWidth: 3200,
   /**
-   * Shell C canvas inset. Content is edge-to-edge (0 px lateral); the canvas
+   * Shell C canvas inset. Batch V adds an 8 px lateral content inset (6 px
+   * compact) so the chapter title is not flush with the panel edge; the canvas
    * keeps a small top inset for the fixed header focus rings and an 8 px bottom
    * inset. The header itself uses 6 px lateral padding.
    */
-  editorPaddingX: 0,
+  editorPaddingX: 8,
   editorPaddingTop: 6,
   editorPaddingBottom: 8,
   /** Responsive canvas steps; both are token-bound so CSS never hard-codes them. */
-  editorPaddingXMedium: 0,
+  editorPaddingXMedium: 8,
   editorPaddingTopMedium: 6,
   editorPaddingBottomMedium: 8,
-  editorPaddingXCompact: 0,
+  editorPaddingXCompact: 6,
   editorPaddingTopCompact: 6,
   editorPaddingBottomCompact: 8,
   /** Shell C Page stage: 14 px top, 0 lateral, 8 px bottom. */

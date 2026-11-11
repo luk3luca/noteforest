@@ -54,13 +54,13 @@ describe('geometry', () => {
     expect(GEOMETRY.childGap).toBe(24);
     expect(GEOMETRY.siblingGap).toBe(24);
     expect(GEOMETRY.canvasMaxWidth).toBe(3200);
-    expect(GEOMETRY.editorPaddingX).toBe(0);
+    expect(GEOMETRY.editorPaddingX).toBe(8);
     expect(GEOMETRY.editorPaddingTop).toBe(6);
     expect(GEOMETRY.editorPaddingBottom).toBe(8);
-    expect(GEOMETRY.editorPaddingXMedium).toBe(0);
+    expect(GEOMETRY.editorPaddingXMedium).toBe(8);
     expect(GEOMETRY.editorPaddingTopMedium).toBe(6);
     expect(GEOMETRY.editorPaddingBottomMedium).toBe(8);
-    expect(GEOMETRY.editorPaddingXCompact).toBe(0);
+    expect(GEOMETRY.editorPaddingXCompact).toBe(6);
     expect(GEOMETRY.editorPaddingTopCompact).toBe(6);
     expect(GEOMETRY.editorPaddingBottomCompact).toBe(8);
     expect(GEOMETRY.pageStagePaddingX).toBe(0);

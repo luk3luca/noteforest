@@ -58,6 +58,9 @@ const mappedVariables = Object.entries(DESIGN_TOKEN_CSS_VARIABLES);
 
 describe('design tokens are the single source for CSS geometry', () => {
   it('keeps the ratified shell and layout values', () => {
+    expect(DESIGN_TOKENS.editorPaddingX).toBe(8);
+    expect(DESIGN_TOKENS.editorPaddingXMedium).toBe(8);
+    expect(DESIGN_TOKENS.editorPaddingXCompact).toBe(6);
     expect(DESIGN_TOKENS.editorPaddingBottom).toBe(8);
     expect(DESIGN_TOKENS.chapterGap).toBe(28);
     expect(DESIGN_TOKENS.siblingGap).toBe(24);
@@ -77,9 +80,15 @@ describe('design tokens are the single source for CSS geometry', () => {
   it('publishes the documented CSS variables from the token module', () => {
     expect(DESIGN_TOKEN_CSS_VARIABLES).toMatchObject({
       '--nf-canvas-max': '3200px',
-      '--nf-canvas-pad-x': '0px',
+      '--nf-canvas-pad-x': '8px',
       '--nf-canvas-pad-top': '6px',
       '--nf-canvas-pad-bottom': '8px',
+      '--nf-canvas-pad-x-medium': '8px',
+      '--nf-canvas-pad-top-medium': '6px',
+      '--nf-canvas-pad-bottom-medium': '8px',
+      '--nf-canvas-pad-x-compact': '6px',
+      '--nf-canvas-pad-top-compact': '6px',
+      '--nf-canvas-pad-bottom-compact': '8px',
       '--nf-page-stage-pad-x': '0px',
       '--nf-page-stage-pad-top': '14px',
       '--nf-page-stage-pad-bottom': '8px',
@@ -144,6 +153,10 @@ describe('design tokens are the single source for CSS geometry', () => {
       'var(--nf-canvas-pad-top) var(--nf-canvas-pad-x) var(--nf-canvas-pad-bottom)',
     );
     expect(declaration('.nf-chapter', 'margin-bottom')).toBe('var(--nf-chapter-gap)');
+    // Batch V: the old optical -2 px offset is gone so the chapter title block
+    // starts at the same lateral inset as the cards.
+    expect(declaration('.nf-chapter-title', 'margin-left')).toBeUndefined();
+    expect(declaration('.nf-chapter-title-input', 'margin-left')).toBeUndefined();
     expect(declaration('.nf-chapter-blocks > div', 'gap')).toBe('var(--nf-child-row-gap)');
     expect(declaration('.nf-branch-children', 'margin-left')).toBe('var(--nf-child-gap)');
     expect(declaration('.nf-branch-children-inner > div', 'gap')).toBe(

@@ -33,14 +33,14 @@ never repeats the literal.
 
 | Token | CSS variable | Value | Used for |
 |---|---|---:|---|
-| `canvasMaxWidth` | `--nf-canvas-max` | 3200 px | Finite wide canvas; placement uses its 3200 px content budget (edge-to-edge) |
-| `editorPaddingX` | `--nf-canvas-pad-x` | 0 px | Canvas horizontal padding (edge-to-edge, shell C) |
+| `canvasMaxWidth` | `--nf-canvas-max` | 3200 px | Finite wide canvas; placement uses the 3200 px cap minus the lateral inset |
+| `editorPaddingX` | `--nf-canvas-pad-x` | **8 px** | Canvas horizontal padding (chapter/card inset) |
 | `editorPaddingTop` | `--nf-canvas-pad-top` | 6 px | Canvas top inset below the fixed header |
 | `editorPaddingBottom` | `--nf-canvas-pad-bottom` | **8 px** | Canvas bottom inset (shell C) |
-| `editorPaddingXMedium` | `--nf-canvas-pad-x-medium` | 0 px | Canvas padding at ≤1100 px |
+| `editorPaddingXMedium` | `--nf-canvas-pad-x-medium` | **8 px** | Canvas padding at ≤1100 px |
 | `editorPaddingTopMedium` | `--nf-canvas-pad-top-medium` | 6 px | Canvas padding at ≤1100 px |
 | `editorPaddingBottomMedium` | `--nf-canvas-pad-bottom-medium` | 8 px | Canvas padding at ≤1100 px |
-| `editorPaddingXCompact` | `--nf-canvas-pad-x-compact` | 0 px | Canvas padding at ≤900 px |
+| `editorPaddingXCompact` | `--nf-canvas-pad-x-compact` | **6 px** | Canvas padding at ≤900 px |
 | `editorPaddingTopCompact` | `--nf-canvas-pad-top-compact` | 6 px | Canvas padding at ≤900 px |
 | `editorPaddingBottomCompact` | `--nf-canvas-pad-bottom-compact` | 8 px | Canvas padding at ≤900 px |
 | `pageStagePaddingX` | `--nf-page-stage-pad-x` | 0 px | Page stage lateral padding (frame only; Page sheet unchanged) |
@@ -65,10 +65,12 @@ never repeats the literal.
 | `zIndex.calloutLane` | `--nf-z-lane` | 1 | Callout lane |
 | `zIndex.parentCard` | `--nf-z-card` | 2 | Parent card |
 
-Canonical shell values are ratified and guarded: **8 px** bottom canvas padding with **0 px**
-lateral content padding (shell C), **28 px** Continuous chapter gap, **24 px** child gap, and
-`callout.safeGap` **16 px as a minimum**. The responsive canvas steps and the Page stage frame
-(14 px top, 0 px lateral, 8 px bottom) are token-bound, so no padding literal remains in CSS.
+Canonical shell values are ratified and guarded: **8 px** lateral canvas padding (**6 px** at the
+compact step) with **8 px** bottom padding, **28 px** Continuous chapter gap, **24 px** child gap,
+and `callout.safeGap` **16 px as a minimum**. The chapter title's old −2 px optical offset is removed,
+so its visible block starts at the same inset as the cards. The responsive canvas steps and the Page
+stage frame (14 px top, 0 px lateral, 8 px bottom) are token-bound, so no padding literal remains in
+CSS.
 
 `wrapIndent` (18 px) is a reserved shell numeric that is not consumed by Continuous CSS today; the
 Page engine has its own per-level `wrapIndent` contract in

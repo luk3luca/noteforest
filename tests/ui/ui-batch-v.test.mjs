@@ -475,4 +475,61 @@ describe('Batch V visual refinement', () => {
       'the newly active tab expands',
     );
   });
+
+  it('starts the Continuous chapter title at the 8 px lateral inset', async () => {
+    await launch('batch-v-canvas');
+    await ui.seedDemo();
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-chapter-title');
+
+    const measure = async () =>
+      page.evaluate(() => {
+        const canvas = document.querySelector('.nf-editor[data-active="true"] .nf-canvas');
+        const title = canvas?.querySelector('.nf-chapter-title');
+        const card = canvas?.querySelector('[data-block-card]');
+        if (canvas === null || title === null || card === null) return null;
+        const canvasBox = canvas.getBoundingClientRect();
+        return {
+          paddingLeft: getComputedStyle(canvas).paddingLeft,
+          titleMarginLeft: getComputedStyle(title).marginLeft,
+          titleInset: title.getBoundingClientRect().left - canvasBox.left,
+          cardInset: card.getBoundingClientRect().left - canvasBox.left,
+        };
+      });
+
+    const wide = await measure();
+    assert.ok(wide !== null);
+    assert.equal(wide.paddingLeft, '8px');
+    assert.equal(wide.titleMarginLeft, '0px');
+    assert.ok(
+      Math.abs(wide.titleInset - 8) <= 0.5,
+      `the chapter title starts at an 8 px inset (${wide.titleInset})`,
+    );
+    assert.ok(
+      Math.abs(wide.cardInset - 8) <= 0.5,
+      `the cards share the same canvas inset (${wide.cardInset})`,
+    );
+    await page.screenshot({ path: join(screenshotDir, 'canvas-chapter-inset.png') });
+
+    // The medium step keeps 8 px; the compact step drops to 6 px.
+    await h.setWindowSize(1050, 800);
+    await page.waitForFunction(() => window.innerWidth <= 1100, undefined, {
+      timeout: 5000,
+    });
+    const medium = await measure();
+    assert.ok(medium !== null);
+    assert.equal(medium.paddingLeft, '8px');
+    assert.ok(Math.abs(medium.titleInset - 8) <= 0.5);
+
+    await page.setViewportSize({ width: 880, height: 800 });
+    await page.waitForFunction(() => window.innerWidth <= 900, undefined, {
+      timeout: 5000,
+    });
+    const compact = await measure();
+    assert.ok(compact !== null);
+    assert.equal(compact.paddingLeft, '6px');
+    assert.ok(
+      Math.abs(compact.titleInset - 6) <= 0.5,
+      `the compact step keeps the title at 6 px (${compact.titleInset})`,
+    );
+  });
 });
