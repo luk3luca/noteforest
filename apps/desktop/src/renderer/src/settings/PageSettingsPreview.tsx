@@ -93,7 +93,7 @@ function PreviewOverlay({ invalid }: { invalid: boolean }): JSX.Element | null {
   return (
     <div className="nf-settings-preview-overlay" data-page-preview-invalid="true">
       <p>Preview paused</p>
-      <span>Fix the highlighted margins to update the page.</span>
+      <span>Fix the highlighted values to update the page.</span>
     </div>
   );
 }
@@ -336,7 +336,7 @@ function DocumentPreview({
   const css = pageCssVariables(settings.theme) as CSSProperties;
   const summary =
     invalid
-      ? 'Preview paused — fix the margins.'
+      ? 'Preview paused — fix the highlighted values.'
       : state === 'loading'
         ? 'Measuring the page layout…'
         : state === 'error'

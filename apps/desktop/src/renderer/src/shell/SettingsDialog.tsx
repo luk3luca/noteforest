@@ -21,6 +21,10 @@ import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';
 import { PageSettingsPreview } from '../settings/PageSettingsPreview';
 import {
+  AdvancedTypographyFields,
+  PageLayoutSection,
+} from '../settings/PageAdvancedSettings';
+import {
   formatMm,
   hasMarginOverride,
   hasSetupOverride,
@@ -256,7 +260,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
       : status === 'saving'
         ? 'Saving…'
         : status === 'invalid'
-          ? 'Not saved — check margins'
+          ? 'Not saved — check the highlighted values'
           : 'Couldn’t save —';
 
   const activePage = NAV_ITEMS.some((item) => item.id === page) ? page : 'page';
@@ -696,7 +700,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                   className="nf-segmented-item"
                   data-page-preset-option={preset}
                   aria-pressed={pageSettings.preset === preset}
-                  onClick={() => pageSettings.setPreset(preset)}
+                  onClick={() => pageSettings.requestPreset(preset)}
                 >
                   {PRESET_LABELS[preset]}
                 </button>
@@ -704,6 +708,38 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
             </div>
           </div>
         </div>
+
+        {pageSettings.presetWarning === null ? null : (
+          <div
+            className="nf-settings-warning"
+            role="alert"
+            data-page-preset-warning="true"
+          >
+            <p>
+              Switching to {PRESET_LABELS[pageSettings.presetWarning]} replaces the custom
+              typography and layout values in this layer. Custom is the option that keeps the
+              current values.
+            </p>
+            <div className="nf-dialog-inline-actions">
+              <button
+                type="button"
+                className="nf-button"
+                data-page-preset-confirm="true"
+                onClick={() => pageSettings.confirmPresetSwitch()}
+              >
+                Switch and replace
+              </button>
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-preset-cancel="true"
+                onClick={() => pageSettings.cancelPresetSwitch()}
+              >
+                Keep custom values
+              </button>
+            </div>
+          </div>
+        )}
 
         <div
           className="nf-settings-row"
@@ -772,10 +808,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
         <p className="nf-settings-help" data-page-density-topology-note="true">
           Density can move a callout between the right lane and below; the tree order stays fixed.
         </p>
+        <AdvancedTypographyFields controller={pageSettings} />
         <p className="nf-settings-help" data-page-advanced-hidden="true">
-          Advanced typography, Page font, page chrome, and manual breaks are not available yet.
+          Page font, page chrome, manual breaks, and engine values (packing, callout modes, trunk
+          insets, lane gate) are not available in Settings.
         </p>
       </section>
+
+      <PageLayoutSection controller={pageSettings} />
     </>
   );
 

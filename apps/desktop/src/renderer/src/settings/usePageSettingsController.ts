@@ -5,10 +5,11 @@
  * every valid change writes through the existing global store or the durable
  * per-document map. Scope is a layer selector; switching it never writes.
  *
- * The draft exists only for the two things instant-save still debounces and
- * validates: the four margin fields and the density slider. Margins are raw
- * text until every field is valid, so an invalid value can show an inline error
- * and block the write instead of being silently reset by the layout fallback.
+ * The draft exists only for the things instant-save still debounces and
+ * validates: the four margin fields, the density slider, and the advanced
+ * typography/layout number fields plus the first-class max card width. Raw text
+ * is kept until every related field is valid, so an invalid value can show an
+ * inline error and block the write instead of being silently reset.
  *
  * Every write path that can re-paginate goes through
  * `commitThenWritePageSettings`, so an open Page Edit block is committed first
@@ -63,12 +64,31 @@ import {
   type MarginKey,
   type MarginValidation,
 } from './page-setup';
+import {
+  ADVANCED_LAYOUT_KEYS,
+  ADVANCED_TYPOGRAPHY_KEYS,
+  customThemeOverride,
+  EDITABLE_THEME_KEYS,
+  hasThemeFieldOverride,
+  isThemeFieldOverridden,
+  pageThemeDraftFrom,
+  presetSwitchReplacesAdvancedValues,
+  samePageThemeNumber,
+  validatePageThemeDrafts,
+  withThemeField,
+  withoutThemeField,
+  withoutThemeFields,
+  type EditableThemeKey,
+  type PageThemeDraft,
+  type PageThemeDraftValidation,
+} from './page-advanced';
 import { commitThenWritePageSettings } from './page-settings-write';
 
 export type PageSettingsScope = 'global' | 'document';
 
 const DENSITY_DEBOUNCE_MS = 240;
 const MARGIN_DEBOUNCE_MS = 300;
+const THEME_DEBOUNCE_MS = 300;
 
 interface DensityPending {
   kind: 'density';
@@ -82,7 +102,20 @@ interface MarginsPending {
   layer: PageSettingsScope;
 }
 
-type PendingWrite = DensityPending | MarginsPending;
+/**
+ * A Page theme write. `patch` holds the changed editable fields; `custom` is
+ * true when at least one advanced typography/layout field changed, which
+ * freezes the resolved layer into the Custom marker. `maxCardWidth` is
+ * first-class and writes as a normal partial field.
+ */
+interface ThemePending {
+  kind: 'theme';
+  patch: Partial<Record<EditableThemeKey, number>>;
+  custom: boolean;
+  layer: PageSettingsScope;
+}
+
+type PendingWrite = DensityPending | MarginsPending | ThemePending;
 
 export interface PageSettingsController {
   scope: PageSettingsScope;
@@ -119,12 +152,27 @@ export interface PageSettingsController {
   preset: PageThemePreset;
   densityPercent: number;
   setPreset: (preset: PageThemePreset) => void;
+  /** Preset click that asks before replacing custom advanced values (Q-11). */
+  requestPreset: (preset: PageThemePreset) => void;
+  presetWarning: PageThemePreset | null;
+  confirmPresetSwitch: () => void;
+  cancelPresetSwitch: () => void;
   queueDensity: (percent: number) => void;
   useGlobalTheme: () => void;
   useGlobalDensity: () => void;
   resetTheme: () => void;
   isPresetOverridden: boolean;
   isDensityOverridden: boolean;
+
+  themeDrafts: PageThemeDraft;
+  themeValidation: PageThemeDraftValidation;
+  setThemeField: (key: EditableThemeKey, text: string) => void;
+  isThemeFieldOverridden: (key: EditableThemeKey) => boolean;
+  useGlobalThemeField: (key: EditableThemeKey) => void;
+  hasAdvancedTypographyOverrides: boolean;
+  hasAdvancedLayoutOverrides: boolean;
+  useGlobalAdvancedTypography: () => void;
+  useGlobalAdvancedLayout: () => void;
 
   saving: boolean;
   invalid: boolean;
@@ -191,14 +239,20 @@ export function usePageSettingsController(
   const [densityPercent, setDensityPercent] = useState(() =>
     pageDensityPercent(resolved.theme.density),
   );
+  const [themeDrafts, setThemeDrafts] = useState<PageThemeDraft>(() =>
+    pageThemeDraftFrom(resolved.theme),
+  );
+  const [presetWarning, setPresetWarning] = useState<PageThemePreset | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const densityPending = useRef<DensityPending | null>(null);
   const marginsPending = useRef<MarginsPending | null>(null);
+  const themePending = useRef<ThemePending | null>(null);
   const densityTimer = useRef<number | null>(null);
   const marginsTimer = useRef<number | null>(null);
+  const themeTimer = useRef<number | null>(null);
   const lastAttempt = useRef<PendingWrite | null>(null);
   const lastImmediate = useRef<(() => void) | null>(null);
   const packagePathRef = useRef(packagePath);
@@ -221,9 +275,42 @@ export function usePageSettingsController(
       setMarginDrafts(marginDraftFrom(next.setup.margins));
       setAllSidesDraft(null);
       setDensityPercent(pageDensityPercent(next.theme.density));
+      setThemeDrafts(pageThemeDraftFrom(next.theme));
+      setPresetWarning(null);
     },
     [],
   );
+
+  /**
+   * Theme-only resync after an immediate theme action.
+   *
+   * A user can type into another advanced field before the write flush
+   * resolves, so the raw drafts must follow the new layer synchronously in the
+   * apply callback; otherwise an old value looks like a fresh edit and gets
+   * frozen back into the Custom baseline.
+   */
+  const syncThemeDraftsFromStore = useCallback((nextScope: PageSettingsScope) => {
+    const state = useSettingsStore.getState();
+    const next = layerSettings(
+      state.app,
+      nextScope,
+      pageOverrideFor(state, packagePathRef.current, documentIdRef.current),
+    );
+    setThemeDrafts(pageThemeDraftFrom(next.theme));
+    setPresetWarning(null);
+  }, []);
+
+  /** Setup-only resync: never clobber theme drafts from a newer edit. */
+  const syncSetupDraftsFromStore = useCallback((nextScope: PageSettingsScope) => {
+    const state = useSettingsStore.getState();
+    const next = layerSettings(
+      state.app,
+      nextScope,
+      pageOverrideFor(state, packagePathRef.current, documentIdRef.current),
+    );
+    setMarginDrafts(marginDraftFrom(next.setup.margins));
+    setAllSidesDraft(null);
+  }, []);
 
   // Follow the selected layer when it changes. A debounced write owns its own
   // update after this; the effect deliberately does not fire on every stored
@@ -246,6 +333,14 @@ export function usePageSettingsController(
     [marginDrafts, layerSetup.size, layerSetup.orientation],
   );
 
+  const themeValidation = useMemo(
+    () =>
+      validatePageThemeDrafts(themeDrafts, {
+        childTrunkInset: layerTheme.childTrunkInset,
+      }),
+    [themeDrafts, layerTheme.childTrunkInset],
+  );
+
   const allSidesValue = allSidesDraft ?? allSidesDraftOf(marginDrafts) ?? '';
 
   const clearDensityTimer = (): void => {
@@ -259,6 +354,13 @@ export function usePageSettingsController(
     if (marginsTimer.current !== null) {
       window.clearTimeout(marginsTimer.current);
       marginsTimer.current = null;
+    }
+  };
+
+  const clearThemeTimer = (): void => {
+    if (themeTimer.current !== null) {
+      window.clearTimeout(themeTimer.current);
+      themeTimer.current = null;
     }
   };
 
@@ -291,6 +393,53 @@ export function usePageSettingsController(
         state.updateAppSettings({
           page: { theme: { density: pageDensityValue(pending.percent) } },
         });
+      }
+      return;
+    }
+
+    if (pending.kind === 'theme') {
+      const globalTheme = state.app.page.theme;
+      if (pending.custom) {
+        // Freeze the current resolved layer (all hidden values included) so the
+        // Custom marker keeps exactly what the user saw, then apply the edits.
+        const layerTheme = layerSettings(
+          state.app,
+          pending.layer,
+          pending.layer === 'document' && path !== null
+            ? pageOverrideFor(state, path, id)
+            : undefined,
+        ).theme;
+        const fullTheme: PageTheme = {
+          ...layerTheme,
+          ...pending.patch,
+          preset: 'custom',
+        };
+        if (pending.layer === 'document' && path !== null) {
+          state.setPageSettingsOverride(
+            path,
+            customThemeOverride(pageOverrideFor(state, path, id), fullTheme, globalTheme),
+            id,
+          );
+        } else {
+          state.updateAppSettings({ page: { theme: fullTheme } });
+        }
+        return;
+      }
+      const value = pending.patch.maxCardWidth;
+      if (value === undefined) return;
+      if (pending.layer === 'document' && path !== null) {
+        state.setPageSettingsOverride(
+          path,
+          withThemeField(
+            pageOverrideFor(state, path, id),
+            'maxCardWidth',
+            value,
+            globalTheme,
+          ),
+          id,
+        );
+      } else {
+        state.updateAppSettings({ page: { theme: { maxCardWidth: value } } });
       }
       return;
     }
@@ -347,11 +496,20 @@ export function usePageSettingsController(
     return pending;
   };
 
+  const takeTheme = (): ThemePending | null => {
+    clearThemeTimer();
+    const pending = themePending.current;
+    themePending.current = null;
+    return pending;
+  };
+
   const flushPending = useCallback(async (): Promise<boolean> => {
     const density = takeDensity();
+    const theme = takeTheme();
     const margins = takeMargins();
     let ok = true;
     if (density !== null) ok = (await applyPending(density)) && ok;
+    if (theme !== null) ok = (await applyPending(theme)) && ok;
     if (margins !== null) ok = (await applyPending(margins)) && ok;
     return ok;
   }, [applyPending]);
@@ -391,6 +549,23 @@ export function usePageSettingsController(
       const next = takeMargins();
       if (next !== null) void applyPending(next);
     }, MARGIN_DEBOUNCE_MS);
+  };
+
+  const scheduleTheme = (
+    patch: Partial<Record<EditableThemeKey, number>>,
+    custom: boolean,
+  ): void => {
+    const layer = scopeRef.current;
+    const pending: ThemePending = { kind: 'theme', patch, custom, layer };
+    themePending.current = pending;
+    setSaving(true);
+    setCommitError(null);
+    clearThemeTimer();
+    themeTimer.current = window.setTimeout(() => {
+      themeTimer.current = null;
+      const next = takeTheme();
+      if (next !== null) void applyPending(next);
+    }, THEME_DEBOUNCE_MS);
   };
 
   const setScope = (next: PageSettingsScope): void => {
@@ -526,6 +701,45 @@ export function usePageSettingsController(
     scheduleMargins(check.margins);
   };
 
+  /**
+   * Edit one advanced/first-class theme field.
+   *
+   * The raw text stays visible even when invalid. A valid change writes after a
+   * short debounce; every advanced typography/layout edit marks the layer
+   * Custom while preserving the current resolved values. `maxCardWidth` is
+   * first-class and writes as a normal partial field.
+   */
+  const setThemeField = (key: EditableThemeKey, text: string): void => {
+    const nextDrafts: PageThemeDraft = { ...themeDrafts, [key]: text };
+    setThemeDrafts(nextDrafts);
+    const check = validatePageThemeDrafts(nextDrafts, {
+      childTrunkInset: layerTheme.childTrunkInset,
+    });
+    if (!check.valid || check.values === null) {
+      // An invalid draft blocks its write; the user's text stays visible.
+      clearThemeTimer();
+      themePending.current = null;
+      setSaving(false);
+      return;
+    }
+    const patch: Partial<Record<EditableThemeKey, number>> = {};
+    for (const field of EDITABLE_THEME_KEYS) {
+      if (!samePageThemeNumber(check.values[field], layerTheme[field])) {
+        patch[field] = check.values[field];
+      }
+    }
+    if (Object.keys(patch).length === 0) {
+      clearThemeTimer();
+      themePending.current = null;
+      setSaving(false);
+      return;
+    }
+    const custom =
+      ADVANCED_TYPOGRAPHY_KEYS.some((field) => patch[field] !== undefined) ||
+      ADVANCED_LAYOUT_KEYS.some((field) => patch[field] !== undefined);
+    scheduleTheme(patch, custom);
+  };
+
   const useGlobalSetup = (): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
     void runImmediate(() => {
@@ -535,8 +749,7 @@ export function usePageSettingsController(
         withoutSetup(pageOverrideFor(state, packagePath, documentId)) ?? null,
         documentId,
       );
-    }).then((ok) => {
-      if (ok) syncDraftsFromStore('document');
+      syncSetupDraftsFromStore('document');
     });
   };
 
@@ -576,8 +789,7 @@ export function usePageSettingsController(
         withoutMargin(pageOverrideFor(state, packagePath, documentId), key) ?? null,
         documentId,
       );
-    }).then((ok) => {
-      if (ok) syncDraftsFromStore('document');
+      syncSetupDraftsFromStore('document');
     });
   };
 
@@ -590,8 +802,7 @@ export function usePageSettingsController(
         withoutMargins(pageOverrideFor(state, packagePath, documentId)) ?? null,
         documentId,
       );
-    }).then((ok) => {
-      if (ok) syncDraftsFromStore('document');
+      syncSetupDraftsFromStore('document');
     });
   };
 
@@ -601,8 +812,7 @@ export function usePageSettingsController(
       useSettingsStore.getState().updateAppSettings({
         page: { setup: DEFAULT_PAGE_SETTINGS.setup },
       });
-    }).then((ok) => {
-      if (ok) syncDraftsFromStore('global');
+      syncSetupDraftsFromStore('global');
     });
   };
 
@@ -615,8 +825,7 @@ export function usePageSettingsController(
         withoutTheme(pageOverrideFor(state, packagePath, documentId)) ?? null,
         documentId,
       );
-    }).then((ok) => {
-      if (ok) syncDraftsFromStore('document');
+      syncThemeDraftsFromStore('document');
     });
   };
 
@@ -630,8 +839,32 @@ export function usePageSettingsController(
         withoutPageDensityOverride(current) ?? null,
         documentId,
       );
-    }).then((ok) => {
-      if (ok) syncDraftsFromStore('document');
+    });
+  };
+
+  const useGlobalThemeField = (key: EditableThemeKey): void => {
+    if (scopeRef.current !== 'document' || packagePath === null) return;
+    void runImmediate(() => {
+      const state = useSettingsStore.getState();
+      state.setPageSettingsOverride(
+        packagePath,
+        withoutThemeField(pageOverrideFor(state, packagePath, documentId), key) ?? null,
+        documentId,
+      );
+      syncThemeDraftsFromStore('document');
+    });
+  };
+
+  const useGlobalAdvanced = (keys: readonly EditableThemeKey[]): void => {
+    if (scopeRef.current !== 'document' || packagePath === null) return;
+    void runImmediate(() => {
+      const state = useSettingsStore.getState();
+      state.setPageSettingsOverride(
+        packagePath,
+        withoutThemeFields(pageOverrideFor(state, packagePath, documentId), keys) ?? null,
+        documentId,
+      );
+      syncThemeDraftsFromStore('document');
     });
   };
 
@@ -641,8 +874,7 @@ export function usePageSettingsController(
       useSettingsStore.getState().updateAppSettings({
         page: { theme: DEFAULT_PAGE_SETTINGS.theme },
       });
-    }).then((ok) => {
-      if (ok) syncDraftsFromStore('global');
+      syncThemeDraftsFromStore('global');
     });
   };
 
@@ -653,7 +885,7 @@ export function usePageSettingsController(
     ) {
       return;
     }
-    void runImmediate(() => {
+    const applyPreset = (): void => {
       const state = useSettingsStore.getState();
       const path = packagePathRef.current;
       const id = documentIdRef.current;
@@ -695,7 +927,42 @@ export function usePageSettingsController(
         return;
       }
       state.updateAppSettings({ page: { theme: { preset, density: currentDensity } } });
+    };
+    void runImmediate(() => {
+      applyPreset();
+      syncThemeDraftsFromStore(scopeRef.current);
     });
+  };
+
+  const requestPreset = (preset: PageThemePreset): void => {
+    if (
+      preset === layerTheme.preset &&
+      (scopeRef.current === 'global' || override?.theme?.preset === undefined)
+    ) {
+      setPresetWarning(null);
+      return;
+    }
+    // Custom freezes the current values; it never replaces them. A compact or
+    // comfortable switch would drop explicit advanced values, so ask first.
+    if (
+      preset !== 'custom' &&
+      presetSwitchReplacesAdvancedValues(scopeRef.current, layerTheme, override)
+    ) {
+      setPresetWarning(preset);
+      return;
+    }
+    setPresetWarning(null);
+    setPreset(preset);
+  };
+
+  const confirmPresetSwitch = (): void => {
+    const next = presetWarning;
+    setPresetWarning(null);
+    if (next !== null) setPreset(next);
+  };
+
+  const cancelPresetSwitch = (): void => {
+    setPresetWarning(null);
   };
 
   const queueDensity = (percent: number): void => {
@@ -727,12 +994,25 @@ export function usePageSettingsController(
   const previewSettings = useMemo<PageSettings>(() => {
     const margins = marginValidation.margins ?? layerSetup.margins;
     const density = pageDensityValue(densityPercent);
+    // Fields are all-or-nothing: a single invalid draft pauses the draft
+    // preview instead of showing a half-applied theme the app would not write.
+    const theme =
+      themeValidation.values === null
+        ? layerTheme
+        : { ...layerTheme, ...themeValidation.values };
     return {
       ...resolved,
       setup: { ...layerSetup, margins: { ...margins } },
-      theme: { ...layerTheme, density },
+      theme: { ...theme, density },
     };
-  }, [resolved, layerSetup, layerTheme, marginValidation.margins, densityPercent]);
+  }, [
+    resolved,
+    layerSetup,
+    layerTheme,
+    marginValidation.margins,
+    themeValidation.values,
+    densityPercent,
+  ]);
 
   return {
     scope,
@@ -768,6 +1048,10 @@ export function usePageSettingsController(
     preset: layerTheme.preset,
     densityPercent,
     setPreset,
+    requestPreset,
+    presetWarning,
+    confirmPresetSwitch,
+    cancelPresetSwitch,
     queueDensity,
     useGlobalTheme,
     useGlobalDensity,
@@ -775,13 +1059,26 @@ export function usePageSettingsController(
     isPresetOverridden: scope === 'document' && override?.theme?.preset !== undefined,
     isDensityOverridden:
       scope === 'document' && override?.theme?.density !== undefined,
+    themeDrafts,
+    themeValidation,
+    setThemeField,
+    isThemeFieldOverridden: (key) =>
+      scope === 'document' && isThemeFieldOverridden(override, key),
+    useGlobalThemeField,
+    hasAdvancedTypographyOverrides:
+      scope === 'document' &&
+      hasThemeFieldOverride(override, ADVANCED_TYPOGRAPHY_KEYS),
+    hasAdvancedLayoutOverrides:
+      scope === 'document' && hasThemeFieldOverride(override, ADVANCED_LAYOUT_KEYS),
+    useGlobalAdvancedTypography: () => useGlobalAdvanced(ADVANCED_TYPOGRAPHY_KEYS),
+    useGlobalAdvancedLayout: () => useGlobalAdvanced(ADVANCED_LAYOUT_KEYS),
     saving,
-    invalid: !marginValidation.valid,
+    invalid: !marginValidation.valid || !themeValidation.valid,
     commitError,
     retry,
     clearError: () => setCommitError(null),
     previewSettings,
-    previewInvalid: !marginValidation.valid,
+    previewInvalid: !marginValidation.valid || !themeValidation.valid,
     flushPending,
   };
 }
