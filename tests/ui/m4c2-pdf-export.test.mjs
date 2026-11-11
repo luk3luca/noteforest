@@ -186,6 +186,8 @@ describe('M4c2 PDF export orchestration', () => {
     assert.equal(job.pageWidthMm, 297);
     assert.equal(job.pageHeightMm, 210);
     assert.ok(textContains(pdf.text, 'Page callout modes'), 'document title is in the PDF');
+    assert.ok(textContains(pdf.text, 'Callout modes'), 'chapter title is in the PDF footer');
+    assert.ok(textContains(pdf.text, `Page 1 of ${job.pageCount}`), 'page number is in the PDF');
     assert.ok(textContains(pdf.text, 'eigenvalue'), 'body text is in the PDF');
     assert.deepEqual(await readDirectory(outputRoot), ['mode-a-a4-landscape.pdf']);
     record({
@@ -197,6 +199,61 @@ describe('M4c2 PDF export orchestration', () => {
         heightMm: Number(item.heightMm.toFixed(2)),
         chars: item.text.length,
       })),
+    });
+  });
+
+  it('exports the resolved Page chrome sources and the page-number switch (R2)', async () => {
+    const env = ui.isolated('m4c2-chrome');
+    await launch('m4c2-chrome');
+    const packagePath = await openPackage(
+      env,
+      'Export chrome',
+      pageDocument({
+        id: 'export-chrome',
+        title: 'Chrome export title',
+        chapterTitle: 'Chrome export chapter',
+        blocks: [textBlock('chrome', 'Chrome block', 'Chrome export body.')],
+      }),
+    );
+    const defaultPath = resolve(outputRoot, 'chrome-default.pdf');
+    const defaults = await exportPdf({ packagePath, outputPath: defaultPath });
+    assert.equal(defaults.status, 'done', defaults.error?.message ?? 'default chrome exports');
+    const defaultPdf = await inspect(defaultPath);
+    assert.ok(
+      textContains(defaultPdf.text, 'Chrome export title'),
+      'the default header prints the document title',
+    );
+    assert.ok(
+      textContains(defaultPdf.text, 'Chrome export chapter'),
+      'the default footer prints the chapter title',
+    );
+    assert.ok(textContains(defaultPdf.text, 'Page 1 of 1'), 'page 1 is not suppressed');
+
+    await setPageSettings(packagePath, {
+      chrome: { header: 'none', footer: 'document', pageNumber: false },
+    });
+    const customPath = resolve(outputRoot, 'chrome-custom.pdf');
+    const custom = await exportPdf({ packagePath, outputPath: customPath });
+    assert.equal(custom.status, 'done', custom.error?.message ?? 'custom chrome exports');
+    const customPdf = await inspect(customPath);
+    assert.ok(
+      textContains(customPdf.text, 'Chrome export title'),
+      'the document title moves to the footer',
+    );
+    assert.equal(
+      textContains(customPdf.text, 'Chrome export chapter'),
+      false,
+      'the chapter title is absent when header/footer do not select it',
+    );
+    assert.equal(
+      textContains(customPdf.text, 'Page 1 of 1'),
+      false,
+      'the page number is off in the PDF too',
+    );
+    record({
+      case: 'chrome',
+      defaultPages: defaultPdf.pageCount,
+      customPages: customPdf.pageCount,
     });
   });
 

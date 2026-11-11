@@ -180,4 +180,26 @@ describe('Page density model lens (M4d1/M4e2)', () => {
     expect(lowModel.pages.length).toBeGreaterThan(0);
     expect(highModel.pages.length).toBeGreaterThan(0);
   });
+
+  it('includes chrome in the model fingerprint without changing page geometry or pages', () => {
+    const document = longDocument();
+    const note = toLayoutDocument(document);
+    const base = normalizePageSettings({});
+    const chrome = normalizePageSettings({
+      chrome: { header: 'none', footer: 'document', pageNumber: false },
+    });
+    const baseModel = computePageModel(
+      note,
+      createEstimatedMeasurement(note),
+      base,
+    );
+    const chromeModel = computePageModel(
+      note,
+      createEstimatedMeasurement(note),
+      chrome,
+    );
+    expect(chromeModel.settingsFingerprint).not.toBe(baseModel.settingsFingerprint);
+    expect(chromeModel.pages).toEqual(baseModel.pages);
+    expect(chromeModel.layout.geometry).toEqual(baseModel.layout.geometry);
+  });
 });

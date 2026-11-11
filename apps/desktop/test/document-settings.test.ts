@@ -143,11 +143,21 @@ describe('document settings identity (S2-2)', () => {
         { documentId: null, packagePath: '/b', page: null },
         { packagePath: 42, page: { theme: { density: 0.9 } } },
         'nope',
+        {
+          documentId: 'chrome',
+          packagePath: '/chrome',
+          page: { chrome: { pageNumber: false, header: 'bogus' } },
+        },
       ],
     });
     expect(read.found).toBe(true);
     expect(read.entries).toEqual([
       { documentId: 'a', packagePath: '/a', page: { theme: { density: 1.2 } } },
+      {
+        documentId: 'chrome',
+        packagePath: '/chrome',
+        page: { chrome: { pageNumber: false } },
+      },
     ]);
     expect(JSON.parse(serializeDocumentSettingsFile(read.entries))).toMatchObject({
       version: 1,

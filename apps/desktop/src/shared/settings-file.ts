@@ -107,6 +107,7 @@ export function settingsDocumentForWrite(
   const rawSetup = isRecord(rawPage['setup']) ? rawPage['setup'] : {};
   const rawMargins = isRecord(rawSetup['margins']) ? rawSetup['margins'] : {};
   const rawTheme = isRecord(rawPage['theme']) ? rawPage['theme'] : {};
+  const rawChrome = isRecord(rawPage['chrome']) ? rawPage['chrome'] : {};
   base['settingsVersion'] = version;
   base['page'] = {
     ...rawPage,
@@ -117,6 +118,9 @@ export function settingsDocumentForWrite(
       margins: { ...rawMargins, ...settings.page.setup.margins },
     },
     theme: { ...rawTheme, ...settings.page.theme },
+    // R2 chrome is additive: a file without it loads the defaults, and an
+    // unknown future chrome key written by a newer build is preserved.
+    chrome: { ...rawChrome, ...settings.page.chrome },
     manualBreakBeforeBlockIds: [...settings.page.manualBreakBeforeBlockIds],
   };
   return base;

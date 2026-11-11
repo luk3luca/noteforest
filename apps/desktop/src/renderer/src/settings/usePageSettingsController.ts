@@ -21,6 +21,8 @@ import type {
   AppSettings,
   MarginsMm,
   Orientation,
+  PageChrome,
+  PageChromeSource,
   PageSettings,
   PageSettingsOverride,
   PageSetup,
@@ -29,6 +31,7 @@ import type {
   PageThemePreset,
 } from '@noteforest/layout';
 import {
+  DEFAULT_PAGE_CHROME,
   DEFAULT_PAGE_SETTINGS,
   mergePageSettings,
   PAGE_DENSITY_MAX,
@@ -49,18 +52,24 @@ import {
 } from '../state/settings';
 import {
   MARGIN_KEYS,
+  chromeFieldOverridden,
+  hasChromeOverride,
   marginDraftFrom,
   marginOverridden,
   parseMm,
   sameMm,
   validateMargins,
+  withChromeField,
   withMargins,
   withSetupField,
+  withoutChrome,
+  withoutChromeField,
   withoutMargin,
   withoutMargins,
   withoutSetupField,
   withoutSetup,
   withoutTheme,
+  type ChromeKey,
   type MarginDraft,
   type MarginKey,
   type MarginValidation,
@@ -142,6 +151,7 @@ export interface PageSettingsController {
   resolved: PageSettings;
   layerSetup: PageSetup;
   layerTheme: PageTheme;
+  layerChrome: PageChrome;
 
   size: PageSize;
   orientation: Orientation;
@@ -162,6 +172,14 @@ export interface PageSettingsController {
   isSizeOverridden: boolean;
   isOrientationOverridden: boolean;
   isMarginOverridden: (key: MarginKey) => boolean;
+
+  setChromeSource: (field: 'header' | 'footer', source: PageChromeSource) => void;
+  setChromePageNumber: (enabled: boolean) => void;
+  isChromeOverridden: (key: ChromeKey) => boolean;
+  hasChromeOverrides: boolean;
+  useGlobalChrome: () => void;
+  useGlobalChromeField: (key: ChromeKey) => void;
+  resetChrome: () => void;
 
   preset: PageThemePreset;
   densityPercent: number;
@@ -245,6 +263,7 @@ export function usePageSettingsController(
   );
   const layerSetup = resolved.setup;
   const layerTheme = resolved.theme;
+  const layerChrome = resolved.chrome;
 
   const [marginDrafts, setMarginDrafts] = useState<MarginDraft>(() =>
     marginDraftFrom(resolved.setup.margins),
@@ -920,6 +939,97 @@ export function usePageSettingsController(
     });
   };
 
+  /**
+   * One chrome field (R2). Chrome is a discrete, instantly-saved control: it
+   * uses the same captured-target immediate path as size/orientation so a
+   * document/tab change can never retarget the write. A document value equal to
+   * the global value removes the override instead of storing a no-op.
+   */
+  const setChromeSource = (field: 'header' | 'footer', source: PageChromeSource): void => {
+    if (source === layerChrome[field]) return;
+    void runImmediate((target) => {
+      const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      const id = target.documentId;
+      if (target.scope === 'document' && path !== null) {
+        state.setPageSettingsOverride(
+          path,
+          withChromeField(
+            pageOverrideFor(state, path, id),
+            field,
+            source,
+            state.app.page.chrome,
+          ) ?? null,
+          id,
+        );
+        return;
+      }
+      const patch: Partial<PageChrome> = {};
+      (patch as Record<string, unknown>)[field] = source;
+      state.updateAppSettings({ page: { chrome: patch } });
+    });
+  };
+
+  const setChromePageNumber = (enabled: boolean): void => {
+    if (enabled === layerChrome.pageNumber) return;
+    void runImmediate((target) => {
+      const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      const id = target.documentId;
+      if (target.scope === 'document' && path !== null) {
+        state.setPageSettingsOverride(
+          path,
+          withChromeField(
+            pageOverrideFor(state, path, id),
+            'pageNumber',
+            enabled,
+            state.app.page.chrome,
+          ) ?? null,
+          id,
+        );
+        return;
+      }
+      state.updateAppSettings({ page: { chrome: { pageNumber: enabled } } });
+    });
+  };
+
+  const useGlobalChrome = (): void => {
+    if (scopeRef.current !== 'document' || packagePath === null) return;
+    void runImmediate((target) => {
+      const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
+      state.setPageSettingsOverride(
+        path,
+        withoutChrome(pageOverrideFor(state, path, target.documentId)) ?? null,
+        target.documentId,
+      );
+    });
+  };
+
+  const useGlobalChromeField = (key: ChromeKey): void => {
+    if (scopeRef.current !== 'document' || packagePath === null) return;
+    void runImmediate((target) => {
+      const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
+      state.setPageSettingsOverride(
+        path,
+        withoutChromeField(pageOverrideFor(state, path, target.documentId), key) ?? null,
+        target.documentId,
+      );
+    });
+  };
+
+  const resetChrome = (): void => {
+    if (scopeRef.current !== 'global') return;
+    void runImmediate(() => {
+      useSettingsStore.getState().updateAppSettings({
+        page: { chrome: DEFAULT_PAGE_CHROME },
+      });
+    });
+  };
+
   const useGlobalTheme = (): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
     void runImmediate((target) => {
@@ -1143,6 +1253,7 @@ export function usePageSettingsController(
     resolved,
     layerSetup,
     layerTheme,
+    layerChrome,
     size: layerSetup.size,
     orientation: layerSetup.orientation,
     marginDrafts,
@@ -1163,6 +1274,13 @@ export function usePageSettingsController(
     isOrientationOverridden:
       scope === 'document' && override?.setup?.orientation !== undefined,
     isMarginOverridden: (key) => scope === 'document' && marginOverridden(override, key),
+    setChromeSource,
+    setChromePageNumber,
+    isChromeOverridden: (key) => scope === 'document' && chromeFieldOverridden(override, key),
+    hasChromeOverrides: scope === 'document' && hasChromeOverride(override),
+    useGlobalChrome,
+    useGlobalChromeField,
+    resetChrome,
     preset: layerTheme.preset,
     densityPercent,
     setPreset,

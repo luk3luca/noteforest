@@ -11,6 +11,8 @@
 import type {
   MarginsMm,
   Orientation,
+  PageChrome,
+  PageChromeSource,
   PageSettingsOverride,
   PageSetup,
   PageSize,
@@ -20,6 +22,12 @@ import { pageDimensionsMm } from '@noteforest/layout';
 export type MarginKey = keyof MarginsMm;
 
 export const MARGIN_KEYS: readonly MarginKey[] = ['top', 'right', 'bottom', 'left'];
+
+export type ChromeKey = keyof PageChrome;
+
+export const CHROME_KEYS: readonly ChromeKey[] = ['header', 'footer', 'pageNumber'];
+
+export const CHROME_SOURCES: readonly PageChromeSource[] = ['none', 'document', 'chapter'];
 
 /** UI limits; the layout model clamps to the same band as a defensive fallback. */
 export const PAGE_MARGIN_MAX_MM = 100;
@@ -181,6 +189,17 @@ export function hasThemeOverride(override: PageSettingsOverride | undefined): bo
   return override?.theme !== undefined && Object.keys(override.theme).length > 0;
 }
 
+export function hasChromeOverride(override: PageSettingsOverride | undefined): boolean {
+  return override?.chrome !== undefined && Object.keys(override.chrome).length > 0;
+}
+
+export function chromeFieldOverridden(
+  override: PageSettingsOverride | undefined,
+  key: ChromeKey,
+): boolean {
+  return override?.chrome?.[key] !== undefined;
+}
+
 function cloneOverride(override: PageSettingsOverride | undefined): PageSettingsOverride {
   const next: PageSettingsOverride = { ...(override ?? {}) };
   if (next.setup !== undefined) {
@@ -192,6 +211,7 @@ function cloneOverride(override: PageSettingsOverride | undefined): PageSettings
     };
   }
   if (next.theme !== undefined) next.theme = { ...next.theme };
+  if (next.chrome !== undefined) next.chrome = { ...next.chrome };
   return next;
 }
 
@@ -215,6 +235,9 @@ export function compactOverride(
   }
   if (next.theme !== undefined && Object.keys(next.theme).length === 0) {
     delete next.theme;
+  }
+  if (next.chrome !== undefined && Object.keys(next.chrome).length === 0) {
+    delete next.chrome;
   }
   return Object.keys(next).length === 0 ? undefined : next;
 }
@@ -278,6 +301,47 @@ export function withoutTheme(
   if (override === undefined) return undefined;
   const { theme: _theme, ...rest } = override;
   return compactOverride(rest);
+}
+
+export function withoutChrome(
+  override: PageSettingsOverride | undefined,
+): PageSettingsOverride | undefined {
+  if (override === undefined) return undefined;
+  const { chrome: _chrome, ...rest } = override;
+  return compactOverride(rest);
+}
+
+/**
+ * Store one chrome field on a document override.
+ *
+ * A value equal to the global value removes the field instead of storing a
+ * no-op, so a later global change still reaches this document.
+ */
+export function withChromeField<K extends ChromeKey>(
+  override: PageSettingsOverride | undefined,
+  field: K,
+  value: PageChrome[K],
+  globalChrome: PageChrome,
+): PageSettingsOverride | undefined {
+  const next = cloneOverride(override);
+  const chrome: Partial<PageChrome> = { ...(next.chrome ?? {}) };
+  (chrome as Record<string, unknown>)[field] = value;
+  for (const key of CHROME_KEYS) {
+    if (chrome[key] === globalChrome[key]) delete chrome[key];
+  }
+  if (Object.keys(chrome).length === 0) delete next.chrome;
+  else next.chrome = chrome;
+  return compactOverride(next);
+}
+
+export function withoutChromeField(
+  override: PageSettingsOverride | undefined,
+  key: ChromeKey,
+): PageSettingsOverride | undefined {
+  if (override === undefined) return undefined;
+  const next = cloneOverride(override);
+  if (next.chrome !== undefined) delete next.chrome[key];
+  return compactOverride(next);
 }
 
 export function withoutSetupField(

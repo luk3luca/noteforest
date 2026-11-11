@@ -137,6 +137,29 @@ describe('renderer personal settings resolution', () => {
     expect(resolved.theme.bodyPt).toBe(10.5);
   });
 
+  it('patches chrome per field and resolves a document chrome override', () => {
+    const store = useSettingsStore.getState();
+    store.updateAppSettings({ page: { chrome: { header: 'chapter' } } });
+    expect(useSettingsStore.getState().app.page.chrome).toEqual({
+      header: 'chapter',
+      footer: 'chapter',
+      pageNumber: true,
+    });
+    store.setPageSettingsOverride('/doc', { chrome: { pageNumber: false } }, 'doc-id');
+    expect(useSettingsStore.getState().resolvedPageSettings('/doc', 'doc-id').chrome).toEqual({
+      header: 'chapter',
+      footer: 'chapter',
+      pageNumber: false,
+    });
+    // A later global footer change reaches the document, its own fields stay.
+    useSettingsStore.getState().updateAppSettings({ page: { chrome: { footer: 'none' } } });
+    expect(useSettingsStore.getState().resolvedPageSettings('/doc', 'doc-id').chrome).toEqual({
+      header: 'chapter',
+      footer: 'none',
+      pageNumber: false,
+    });
+  });
+
   it('normalizes, clears, and scopes overrides per document', () => {
     const store = useSettingsStore.getState();
     const override = store.setPageSettingsOverride(

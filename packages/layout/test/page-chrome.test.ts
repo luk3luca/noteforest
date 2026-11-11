@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_PAGE_CHROME,
   pageChromeContent,
+  pageChromeLabel,
   pageChromeLayout,
+  pageChromeText,
   pageEdgeLabelLayout,
   pageGeometry,
   type DerivedPage,
   type NoteDocument,
+  type PageChrome,
   type PageEdge,
   type PageSetup,
 } from '../src/index.js';
@@ -138,9 +142,12 @@ describe('pageChromeContent', () => {
       page: page(),
       documentTitle: 'Chrome fixture',
       pageCount: 5,
+      chrome: DEFAULT_PAGE_CHROME,
     });
     expect(content.documentTitle).toBe('Chrome fixture');
     expect(content.chapterTitle).toBe('Chapter 1');
+    expect(content.headerText).toBe('Chrome fixture');
+    expect(content.footerText).toBe('Chapter 1');
     expect(content.pageLabel).toBe('Page 2 of 5');
     expect(content.continuedFrom).toEqual([
       {
@@ -157,6 +164,39 @@ describe('pageChromeContent', () => {
     ]);
   });
 
+  it('resolves every header/footer source and the page-number switch', () => {
+    const sources = ['none', 'document', 'chapter'] as const;
+    for (const header of sources) {
+      for (const footer of sources) {
+        for (const pageNumber of [true, false]) {
+          const chrome: PageChrome = { header, footer, pageNumber };
+          const content = pageChromeContent({
+            document: document(),
+            page: page(),
+            documentTitle: 'Chrome fixture',
+            pageCount: 5,
+            chrome,
+          });
+          expect(content.headerText).toBe(
+            pageChromeText(header, 'Chrome fixture', 'Chapter 1'),
+          );
+          expect(content.footerText).toBe(
+            pageChromeText(footer, 'Chrome fixture', 'Chapter 1'),
+          );
+          expect(content.pageLabel).toBe(pageNumber ? 'Page 2 of 5' : null);
+          // Ghost/continues labels never depend on the chrome sources.
+          expect(content.continuedFrom).toHaveLength(1);
+          expect(content.continuesOn).toHaveLength(1);
+        }
+      }
+    }
+    expect(pageChromeText('none', 'Document', 'Chapter')).toBeNull();
+    expect(pageChromeText('document', 'Document', 'Chapter')).toBe('Document');
+    expect(pageChromeText('chapter', 'Document', 'Chapter')).toBe('Chapter');
+    expect(pageChromeLabel({ ...DEFAULT_PAGE_CHROME, pageNumber: false }, 1, 1)).toBeNull();
+    expect(pageChromeLabel(DEFAULT_PAGE_CHROME, 3, 9)).toBe('Page 3 of 9');
+  });
+
   it('falls back to the first content text for an unlabeled continuation block', () => {
     const content = pageChromeContent({
       document: document(),
@@ -169,6 +209,7 @@ describe('pageChromeContent', () => {
       },
       documentTitle: 'Chrome fixture',
       pageCount: 5,
+      chrome: DEFAULT_PAGE_CHROME,
     });
     expect(content.continuesOn[0]!.blockLabel).toBe('First unlabeled block text');
   });

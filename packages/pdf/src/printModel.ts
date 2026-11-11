@@ -390,6 +390,7 @@ export function buildPrintModel(
       page,
       documentTitle: layout.title,
       pageCount: pages.length,
+      chrome: settings.chrome,
     });
     return {
       pageNumber: page.pageNumber,

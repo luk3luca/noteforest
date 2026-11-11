@@ -242,6 +242,65 @@ describe('Batch B Page settings', () => {
     );
     assert.match(await page.locator('[data-page-preview-summary="true"]').innerText(), /A5 portrait/);
     assert.equal(await page.locator('[data-page-density-slider]').isEnabled(), true);
+
+    // R2: global chrome controls drive the same sample preview.
+    assert.equal(
+      await page.locator('[data-page-chrome-option="header-document"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(
+      await page.locator('[data-page-chrome-option="footer-chapter"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(await page.locator('[data-page-chrome-page-number]').isChecked(), true);
+    assert.equal(
+      await page.locator('[data-page-preview="true"] .nf-page-header-text').innerText(),
+      'Sample page',
+    );
+    assert.equal(
+      await page.locator('[data-page-preview="true"] .nf-page-footer-text').innerText(),
+      'Page geometry preview',
+    );
+    await page.locator('[data-page-chrome-option="header-none"]').click();
+    await page.locator('[data-page-chrome-option="footer-none"]').click();
+    await page.locator('[data-page-chrome-page-number]').uncheck();
+    await page.waitForFunction(
+      () => {
+        const state = window.__noteforestTest.settings();
+        return (
+          state.app.page.chrome.header === 'none' &&
+          state.app.page.chrome.footer === 'none' &&
+          state.app.page.chrome.pageNumber === false &&
+          state.saveState.status === 'saved'
+        );
+      },
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal(await page.locator('[data-page-preview="true"] .nf-page-header').count(), 0);
+    assert.equal(await page.locator('[data-page-preview="true"] .nf-page-footer').count(), 0);
+    assert.equal(await page.locator('[data-page-preview="true"] [data-page-indicator]').count(), 0);
+    await page.locator('[data-page-chrome-reset="true"]').click();
+    await page.waitForFunction(
+      () => {
+        const state = window.__noteforestTest.settings();
+        return (
+          state.app.page.chrome.header === 'document' &&
+          state.app.page.chrome.footer === 'chapter' &&
+          state.app.page.chrome.pageNumber === true
+        );
+      },
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal(
+      await page.locator('[data-page-preview="true"] .nf-page-header-text').innerText(),
+      'Sample page',
+    );
+    assert.match(
+      await page.locator('[data-page-preview="true"] [data-page-indicator]').innerText(),
+      /Page 1 of 1/,
+    );
     await page.screenshot({ path: join(screenshotDir, 'page-settings-sample-preview.png') });
 
     await closeSettings();
@@ -250,6 +309,11 @@ describe('Batch B Page settings', () => {
     );
     assert.equal(stored.page.setup.size, 'A5');
     assert.equal(stored.page.setup.orientation, 'portrait');
+    assert.deepEqual(stored.page.chrome, {
+      header: 'document',
+      footer: 'chapter',
+      pageNumber: true,
+    });
   });
 
   it('allows personal Page setup overrides on a read-only document without changing content', async () => {
@@ -335,6 +399,20 @@ describe('Batch B Page settings', () => {
       packagePath,
       { timeout: 15000 },
     );
+    // Chrome is personal too (R2) and follows the same read-only document rule.
+    await page.locator('[data-page-chrome-option="header-none"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const state = window.__noteforestTest.settings();
+        return (
+          state.pageOverrides[path]?.chrome?.header === 'none' &&
+          state.saveState.status === 'saved'
+        );
+      },
+      packagePath,
+      { timeout: 15000 },
+    );
+    assert.equal(await page.locator('[data-page-chrome-override="header"]').count(), 1);
     await closeSettings();
     assert.equal((await settings()).app.page.setup.size, 'A4');
     const afterHash = createHash('sha256')
@@ -346,7 +424,7 @@ describe('Batch B Page settings', () => {
     );
     assert.deepEqual(
       durable.entries.find((entry) => entry.packagePath === packagePath)?.page,
-      { setup: { size: 'A5' } },
+      { setup: { size: 'A5' }, chrome: { header: 'none' } },
     );
   });
 
@@ -444,6 +522,34 @@ describe('Batch B Page settings', () => {
     const content = JSON.stringify((await ui.structure()).blocks.intro.content);
     assert.match(content, /FIRST/);
     assert.match(content, /SECOND/);
+
+    // A chrome write follows the same commit-before-write ordering (R2).
+    await closeSettings();
+    await activePageView().locator('[data-fragment-block="intro"]').first().dblclick();
+    await page.waitForSelector('[data-page-edit-overlay]', { timeout: 5000 });
+    await page.waitForFunction(
+      () => document.activeElement?.closest('[data-page-edit-overlay]') !== null,
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.type(' THIRD');
+    await page.waitForFunction(
+      () => {
+        const overlay = document.querySelector('[data-page-edit-overlay]');
+        return overlay !== null && (overlay.textContent ?? '').includes('THIRD');
+      },
+      undefined,
+      { timeout: 5000 },
+    );
+    await openSettingsFromButton();
+    await page.locator('[data-page-chrome-option="header-none"]').click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.settings().app.page.chrome.header === 'none',
+      undefined,
+      { timeout: 15000 },
+    );
+    await page.waitForSelector('[data-page-edit-overlay]', { state: 'detached', timeout: 10000 });
+    assert.match(JSON.stringify((await ui.structure()).blocks.intro.content), /THIRD/);
 
     await closeSettings();
     await page.waitForFunction(
@@ -1168,5 +1274,207 @@ describe('Batch B Page settings', () => {
       false,
       'cleared overrides leave no durable entry',
     );
+  });
+
+  it('edits global and document Page chrome without a write on scope switch', async () => {
+    const env = ui.isolated('batch-b-page-chrome');
+    await launch('batch-b-page-chrome', env);
+    const packagePath = await openPackage(
+      env,
+      'chrome-settings',
+      pageDocument({
+        id: 'batch-b-page-chrome',
+        title: 'Chrome settings document',
+        chapterTitle: 'Chrome settings chapter',
+        blocks: [
+          textBlock('chrome-intro', 'Intro', 'Chrome settings body.'),
+          textBlock('chrome-extra', 'Extra', 'A second block keeps the chapter valid.'),
+        ],
+      }),
+    );
+    await showPageRead();
+    await openSettings();
+    await page.waitForSelector('[data-page-chrome-section="true"]');
+
+    // The global layer starts on the approved defaults.
+    assert.equal(
+      await page.locator('[data-page-chrome-option="header-document"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(
+      await page.locator('[data-page-chrome-option="footer-chapter"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(await page.locator('[data-page-chrome-page-number]').isChecked(), true);
+
+    // Switching to the document layer never writes and creates no entry.
+    await page.locator('[data-page-scope-option="document"]').click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-page-scope-option="document"]')
+          ?.getAttribute('aria-pressed') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal((await settings()).pageOverrides[packagePath], undefined);
+
+    // A header override writes only that field and shows the override dot.
+    await page.locator('[data-page-chrome-option="header-none"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const state = window.__noteforestTest.settings();
+        return (
+          state.pageOverrides[path]?.chrome?.header === 'none' &&
+          state.saveState.status === 'saved'
+        );
+      },
+      packagePath,
+      { timeout: 15000 },
+    );
+    assert.equal((await settings()).app.page.chrome.header, 'document', 'global stays unchanged');
+    assert.equal(await page.locator('[data-page-chrome-override="header"]').count(), 1);
+    assert.equal(await page.locator('[data-page-chrome-use-global="header"]').count(), 1);
+    // Page Read behind Settings follows the same resolved chrome.
+    await page.waitForFunction(
+      () => document.querySelector('.nf-editor[data-active="true"] .nf-page-header') === null,
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal(
+      await page.locator('[data-page-preview="true"] .nf-page-header').count(),
+      0,
+      'the preview drops the header too',
+    );
+
+    // Choosing the global value removes the override instead of storing a no-op.
+    await page.locator('[data-page-chrome-option="header-document"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const state = window.__noteforestTest.settings();
+        return state.pageOverrides[path] === undefined && state.saveState.status === 'saved';
+      },
+      packagePath,
+      { timeout: 15000 },
+    );
+    assert.equal(await page.locator('[data-page-chrome-override="header"]').count(), 0);
+
+    // Page number off removes the indicator in Page Read and the preview.
+    await page.locator('[data-page-chrome-page-number]').uncheck();
+    await page.waitForFunction(
+      (path) =>
+        window.__noteforestTest.settings().pageOverrides[path]?.chrome?.pageNumber === false,
+      packagePath,
+      { timeout: 15000 },
+    );
+    await page.waitForFunction(
+      () =>
+        document.querySelector(
+          '.nf-editor[data-active="true"] .nf-page-view [data-page-indicator]',
+        ) === null,
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal(
+      await page.locator('[data-page-preview="true"] [data-page-indicator]').count(),
+      0,
+    );
+    assert.equal(await page.locator('[data-page-chrome-override="pageNumber"]').count(), 1);
+
+    // Footer source is independent and updates the footer text on Page Read.
+    await page.locator('[data-page-chrome-option="footer-document"]').click();
+    await page.waitForFunction(
+      (path) =>
+        window.__noteforestTest.settings().pageOverrides[path]?.chrome?.footer === 'document',
+      packagePath,
+      { timeout: 15000 },
+    );
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector(
+            '.nf-editor[data-active="true"] .nf-page-view .nf-page-footer-text',
+          )
+          ?.textContent?.trim() === 'Chrome settings document',
+      undefined,
+      { timeout: 15000 },
+    );
+    await page.waitForFunction(
+      () => window.__noteforestTest.settings().saveState.status === 'saved',
+      undefined,
+      { timeout: 15000 },
+    );
+    await page.locator('[data-page-chrome-section="true"]').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(screenshotDir, 'page-settings-chrome-override.png') });
+
+    // Scope switches never write: the durable override is unchanged.
+    const beforeSwitch = JSON.stringify((await settings()).pageOverrides[packagePath]);
+    await page.locator('[data-page-scope-option="global"]').click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-page-scope-option="global"]')
+          ?.getAttribute('aria-pressed') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(
+      await page.locator('[data-page-chrome-override="pageNumber"]').count(),
+      0,
+      'no dots in the global layer',
+    );
+    await page.locator('[data-page-scope-option="document"]').click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-page-scope-option="document"]')
+          ?.getAttribute('aria-pressed') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(JSON.stringify((await settings()).pageOverrides[packagePath]), beforeSwitch);
+
+    // Per-field and group Use global clear the override.
+    await page.locator('[data-page-chrome-use-global="pageNumber"]').click();
+    await page.waitForFunction(
+      (path) =>
+        window.__noteforestTest.settings().pageOverrides[path]?.chrome?.pageNumber === undefined,
+      packagePath,
+      { timeout: 15000 },
+    );
+    await page.locator('[data-page-chrome-use-global="true"]').click();
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.settings().pageOverrides[path] === undefined,
+      packagePath,
+      { timeout: 15000 },
+    );
+    assert.equal(await page.locator('[data-page-chrome-override="header"]').count(), 0);
+    assert.equal(await page.locator('[data-page-chrome-override="footer"]').count(), 0);
+    assert.equal(await page.locator('[data-page-chrome-override="pageNumber"]').count(), 0);
+
+    // Global chrome changes reach the document when it has no override.
+    await page.locator('[data-page-scope-option="global"]').click();
+    await page.locator('[data-page-chrome-option="header-chapter"]').click();
+    await page.waitForFunction(
+      () =>
+        window.__noteforestTest.settings().app.page.chrome.header === 'chapter' &&
+        window.__noteforestTest.settings().saveState.status === 'saved',
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal(
+      await page.locator('[data-page-preview="true"] .nf-page-header-text').innerText(),
+      'Chrome settings chapter',
+    );
+    await closeSettings();
+    assert.equal((await resolvedPageSettings(packagePath)).chrome.header, 'chapter');
+    const stored = JSON.parse(
+      await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8'),
+    );
+    assert.deepEqual(stored.page.chrome, {
+      header: 'chapter',
+      footer: 'chapter',
+      pageNumber: true,
+    });
   });
 });

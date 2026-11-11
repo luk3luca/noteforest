@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import type { PageSetup, PageSettingsOverride } from '@noteforest/layout';
+import type { PageChrome, PageSetup, PageSettingsOverride } from '@noteforest/layout';
 import {
   MARGIN_NUMBER_MESSAGE,
   MARGIN_RANGE_MESSAGE,
+  chromeFieldOverridden,
   compactOverride,
   formatMm,
+  hasChromeOverride,
   marginDraftFrom,
   parseMm,
   sameMm,
   validateMargins,
+  withChromeField,
   withMargins,
   withSetupField,
+  withoutChrome,
+  withoutChromeField,
   withoutMargin,
   withoutMargins,
   withoutSetup,
@@ -187,5 +192,61 @@ describe('Page setup per-document overrides', () => {
     expect(valid.margins).toEqual({ top: 30, right: 30, bottom: 30, left: 30 });
     const invalid = validateMargins(draft('80', '80', '80', '80'), A5_LANDSCAPE.size, A5_LANDSCAPE.orientation);
     expect(invalid.valid).toBe(false);
+  });
+});
+
+const GLOBAL_CHROME: PageChrome = { header: 'document', footer: 'chapter', pageNumber: true };
+
+describe('R2 page chrome overrides', () => {
+  it('stores only the fields that differ from global and drops equal values', () => {
+    expect(withChromeField(undefined, 'header', 'document', GLOBAL_CHROME)).toBeUndefined();
+    expect(withChromeField(undefined, 'footer', 'chapter', GLOBAL_CHROME)).toBeUndefined();
+    expect(withChromeField(undefined, 'pageNumber', true, GLOBAL_CHROME)).toBeUndefined();
+    expect(withChromeField(undefined, 'header', 'none', GLOBAL_CHROME)).toEqual({
+      chrome: { header: 'none' },
+    });
+    expect(withChromeField(undefined, 'footer', 'none', GLOBAL_CHROME)).toEqual({
+      chrome: { footer: 'none' },
+    });
+    expect(withChromeField(undefined, 'pageNumber', false, GLOBAL_CHROME)).toEqual({
+      chrome: { pageNumber: false },
+    });
+  });
+
+  it('removes an equal value again without touching other chrome or theme fields', () => {
+    const base: PageSettingsOverride = {
+      chrome: { header: 'none', pageNumber: false },
+      theme: { density: 0.9 },
+    };
+    expect(withChromeField(base, 'header', 'document', GLOBAL_CHROME)).toEqual({
+      chrome: { pageNumber: false },
+      theme: { density: 0.9 },
+    });
+    expect(withChromeField(base, 'pageNumber', true, GLOBAL_CHROME)).toEqual({
+      chrome: { header: 'none' },
+      theme: { density: 0.9 },
+    });
+    expect(
+      withChromeField(base, 'footer', 'chapter', GLOBAL_CHROME),
+      'writing the global footer keeps the other two explicit fields',
+    ).toEqual(base);
+    const cleared = withChromeField(base, 'header', 'document', GLOBAL_CHROME);
+    expect(withChromeField(cleared, 'pageNumber', true, GLOBAL_CHROME)).toEqual({
+      theme: { density: 0.9 },
+    });
+  });
+
+  it('reports per-field presence and clears chrome through Use global', () => {
+    const base: PageSettingsOverride = {
+      chrome: { footer: 'none' },
+      setup: { size: 'A5' },
+    };
+    expect(hasChromeOverride(base)).toBe(true);
+    expect(hasChromeOverride({ setup: { size: 'A5' } })).toBe(false);
+    expect(chromeFieldOverridden(base, 'footer')).toBe(true);
+    expect(chromeFieldOverridden(base, 'header')).toBe(false);
+    expect(withoutChromeField(base, 'footer')).toEqual({ setup: { size: 'A5' } });
+    expect(withoutChrome(base)).toEqual({ setup: { size: 'A5' } });
+    expect(withoutChrome({ chrome: { header: 'none' } })).toBeUndefined();
   });
 });

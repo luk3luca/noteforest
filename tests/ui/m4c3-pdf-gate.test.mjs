@@ -265,8 +265,8 @@ async function readPageGeometry() {
     };
     return {
       labels: [...sheet.querySelectorAll('[data-fragment-block] .nf-label')].map(box),
-      headerTitle: box(sheet.querySelector('.nf-page-header-title')),
-      headerChapter: box(sheet.querySelector('.nf-page-header-chapter')),
+      headerTitle: box(sheet.querySelector('.nf-page-header-text')),
+      footerText: box(sheet.querySelector('.nf-page-footer-text')),
       footerNumber: box(sheet.querySelector('.nf-page-footer-number')),
       edges: sheet.querySelectorAll('[data-page-edge-id]').length,
       trunks: sheet.querySelectorAll('[data-page-trunk-id]').length,
@@ -282,9 +282,9 @@ function assertLabelParity(pdf, pdfPage, geometry, label) {
     ...(geometry.headerTitle === null
       ? []
       : [{ ...geometry.headerTitle, kind: 'header-title' }]),
-    ...(geometry.headerChapter === null
+    ...(geometry.footerText === null
       ? []
-      : [{ ...geometry.headerChapter, kind: 'header-chapter' }]),
+      : [{ ...geometry.footerText, kind: 'footer-text' }]),
     ...(geometry.footerNumber === null
       ? []
       : [{ ...geometry.footerNumber, kind: 'footer-number' }]),

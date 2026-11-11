@@ -4597,6 +4597,18 @@ body.nf-dragging-block .nf-gutter-handle {
   justify-content: flex-end;
 }
 
+.nf-settings-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.nf-settings-check input {
+  accent-color: var(--accent);
+}
+
 .nf-settings-scope {
   display: flex;
   align-items: center;
@@ -6018,27 +6030,37 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--nf-page-muted);
 }
 
-.nf-page-header-title {
+.nf-page-header-text {
   font-weight: 600;
   color: var(--nf-page-header-ink);
 }
 
-.nf-page-header-chapter {
-  text-align: right;
-}
-
+/* Footer text left, page number centered, right slot empty. The two 1fr
+ * columns keep the auto-width number at the exact band center. */
 .nf-page-footer {
   position: absolute;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: baseline;
   gap: var(--nf-card-padding);
   font-size: var(--nf-page-chrome-size);
   line-height: 1.2;
   color: var(--nf-page-muted);
 }
 
+.nf-page-footer-text {
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nf-page-footer-number {
+  grid-column: 2;
+  text-align: center;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .nf-page-ghost-list,

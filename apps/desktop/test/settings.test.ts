@@ -92,6 +92,61 @@ describe('global settings persistence', () => {
     expect(settings.page.setup).toEqual(DEFAULT_APP_SETTINGS.page.setup);
   });
 
+  it('writes the R2 chrome settings and loads an old file without them as defaults', async () => {
+    // Pre-R2 files have no `page.chrome`; they must load the approved defaults.
+    await writeRaw({
+      settingsVersion: 2,
+      page: {
+        setup: { size: 'A4', orientation: 'landscape' },
+        theme: { preset: 'compact' },
+      },
+    });
+    const old = await readSettings();
+    expect(old.page.chrome).toEqual({
+      header: 'document',
+      footer: 'chapter',
+      pageNumber: true,
+    });
+
+    const written = await writeSettings({
+      page: {
+        chrome: { header: 'chapter', footer: 'none', pageNumber: false },
+      },
+    });
+    expect(written).toEqual({ ok: true });
+    const stored = await readRaw();
+    expect(stored['settingsVersion']).toBe(2);
+    expect(stored['page']).toMatchObject({
+      chrome: { header: 'chapter', footer: 'none', pageNumber: false },
+    });
+    const reread = await readSettings();
+    expect(reread.page.chrome).toEqual({
+      header: 'chapter',
+      footer: 'none',
+      pageNumber: false,
+    });
+  });
+
+  it('preserves an unknown future chrome key while writing the known chrome fields', async () => {
+    await writeRaw({
+      settingsVersion: 2,
+      page: { chrome: { futureChrome: 'keep', header: 'none' } },
+    });
+    const read = await readSettingsFile();
+    expect(read.settings.page.chrome.header).toBe('none');
+    await writeSettings({
+      ...read.settings,
+      page: {
+        ...read.settings.page,
+        chrome: { ...read.settings.page.chrome, footer: 'document' },
+      },
+    });
+    const stored = await readRaw();
+    expect(stored['page']).toMatchObject({
+      chrome: { futureChrome: 'keep', header: 'none', footer: 'document', pageNumber: true },
+    });
+  });
+
   it('migrates a versionless v1 file, drops the dead continuous block, and keeps page values', async () => {
     await writeRaw({
       page: {

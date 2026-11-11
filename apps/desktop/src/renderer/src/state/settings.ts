@@ -61,6 +61,7 @@ export interface AppSettingsPatch {
       margins?: Partial<PageSettings['setup']['margins']>;
     };
     theme?: Partial<PageSettings['theme']>;
+    chrome?: Partial<PageSettings['chrome']>;
     manualBreakBeforeBlockIds?: readonly string[];
   };
 }
@@ -182,6 +183,8 @@ function normalizePatch(current: AppSettings, patch: AppSettingsPatch): AppSetti
         margins: { ...current.page.setup.margins, ...margins },
       },
       theme,
+      // Chrome is a per-field patch; a partial change keeps the other sources.
+      chrome: { ...current.page.chrome, ...(page.chrome ?? {}) },
       manualBreakBeforeBlockIds:
         page.manualBreakBeforeBlockIds ?? current.page.manualBreakBeforeBlockIds,
     },

@@ -66,6 +66,11 @@ describe('page settings defaults', () => {
       pagePacking: 'beside',
     });
     expect(DEFAULT_APP_SETTINGS.page).toBe(DEFAULT_PAGE_SETTINGS);
+    expect(DEFAULT_PAGE_SETTINGS.chrome).toEqual({
+      header: 'document',
+      footer: 'chapter',
+      pageNumber: true,
+    });
     expect(DEFAULT_APP_SETTINGS).not.toHaveProperty('continuous');
   });
 
@@ -316,6 +321,70 @@ describe('settings normalization and merge', () => {
   });
 });
 
+describe('R2 page chrome settings', () => {
+  it('loads old settings and overrides without chrome with the approved defaults', () => {
+    // A settings.json / document override written before R2 has no `chrome`.
+    const old = normalizePageSettings({
+      setup: { size: 'A5' },
+      theme: { bodyPt: 10 },
+      manualBreakBeforeBlockIds: ['b2'],
+    });
+    expect(old.chrome).toEqual({ header: 'document', footer: 'chapter', pageNumber: true });
+    expect(normalizePageSettingsOverride({ setup: { size: 'A5' } })).toEqual({
+      setup: { size: 'A5' },
+    });
+    expect(mergePageSettings(DEFAULT_PAGE_SETTINGS, { theme: { bodyPt: 10 } }).chrome).toEqual(
+      DEFAULT_PAGE_SETTINGS.chrome,
+    );
+  });
+
+  it('sanitizes an invalid or partial chrome value field by field', () => {
+    expect(
+      normalizePageSettings({
+        chrome: { header: 'none', footer: 'custom', pageNumber: 'yes' },
+      }).chrome,
+    ).toEqual({ header: 'none', footer: 'chapter', pageNumber: true });
+    expect(
+      normalizePageSettings({ chrome: { header: 'chapter', footer: 'none', pageNumber: false } })
+        .chrome,
+    ).toEqual({ header: 'chapter', footer: 'none', pageNumber: false });
+    expect(normalizePageSettings({ chrome: null }).chrome).toEqual(DEFAULT_PAGE_SETTINGS.chrome);
+  });
+
+  it('keeps only explicitly present chrome fields in a document override', () => {
+    expect(
+      normalizePageSettingsOverride({ chrome: { footer: 'none', pageNumber: false } }),
+    ).toEqual({ chrome: { footer: 'none', pageNumber: false } });
+    expect(normalizePageSettingsOverride({ chrome: { header: 'bogus' } })).toBeUndefined();
+    expect(normalizePageSettingsOverride({ chrome: {} })).toBeUndefined();
+    const resolved = mergePageSettings(DEFAULT_PAGE_SETTINGS, {
+      chrome: { footer: 'document' },
+    });
+    expect(resolved.chrome).toEqual({
+      header: 'document',
+      footer: 'document',
+      pageNumber: true,
+    });
+  });
+
+  it('includes chrome in the settings fingerprint used by measurement and print', () => {
+    const base = normalizePageSettings({});
+    const header = normalizePageSettings({ chrome: { header: 'none' } });
+    const footer = normalizePageSettings({ chrome: { footer: 'none' } });
+    const number = normalizePageSettings({ chrome: { pageNumber: false } });
+    const fingerprints = [
+      pageSettingsFingerprint(base),
+      pageSettingsFingerprint(header),
+      pageSettingsFingerprint(footer),
+      pageSettingsFingerprint(number),
+    ];
+    expect(new Set(fingerprints).size).toBe(4);
+    // A chrome change does not change page geometry or the effective theme.
+    expect(header.setup).toEqual(base.setup);
+    expect(header.theme).toEqual(base.theme);
+  });
+});
+
 describe('theme maps', () => {
   const theme = PAGE_THEME_PRESETS.compact;
   it('maps a theme to layout options without a second tuning path', () => {
@@ -466,7 +535,8 @@ describe('page density lens (M4d1/M4e2)', () => {
     // density: a model measured under a different lens cannot be accepted.
     const parts = JSON.parse(pageSettingsFingerprint(low)) as unknown[];
     expect(parts[3]).toMatchObject({ density: 0.6 });
-    expect(parts[5]).toMatchObject({
+    expect(parts[4]).toEqual({ header: 'document', footer: 'chapter', pageNumber: true });
+    expect(parts[6]).toMatchObject({
       density: 1,
       bodyPt: PAGE_BODY_PT_FLOOR,
       maxCardWidth: 252,

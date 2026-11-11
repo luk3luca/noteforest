@@ -15,7 +15,9 @@ import {
   blockingDefects,
   pageBlockingDefects,
   pageChromeContent,
+  pageChromeLabel,
   pageChromeLayout,
+  pageChromeText,
   pageLayoutOptions,
   type AnchorAttachment,
   type AnchorRecord,
@@ -23,6 +25,7 @@ import {
   type DerivedPage,
   type LayoutDefect,
   type NoteDocument,
+  type PageChrome,
   type PageChromeContent,
   type PageChromeLayout,
   type PageFragment,
@@ -160,12 +163,24 @@ export function emptyPageChrome(input: {
   chapterTitle: string;
   pageNumber: number;
   pageCount: number;
+  /** Resolved personal chrome sources and page-number switch (R2). */
+  chrome: PageChrome;
 }): ProjectedPageChrome {
   return {
     ...pageChromeLayout(input.geometry),
     documentTitle: input.documentTitle,
     chapterTitle: input.chapterTitle,
-    pageLabel: `Page ${input.pageNumber} of ${input.pageCount}`,
+    headerText: pageChromeText(
+      input.chrome.header,
+      input.documentTitle,
+      input.chapterTitle,
+    ),
+    footerText: pageChromeText(
+      input.chrome.footer,
+      input.documentTitle,
+      input.chapterTitle,
+    ),
+    pageLabel: pageChromeLabel(input.chrome, input.pageNumber, input.pageCount),
     continuedFrom: [],
     continuesOn: [],
   };
@@ -198,6 +213,7 @@ export function projectPageContent(input: PageProjectionInput): PageProjection {
       page,
       documentTitle: input.document.title,
       pageCount: input.pages.length,
+      chrome: input.settings.chrome,
     });
     return {
       page,

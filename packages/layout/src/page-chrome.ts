@@ -14,7 +14,7 @@
 
 import { contentBlockTitle } from './document.js';
 import type { PageEdge } from './page-edges.js';
-import type { PageGeometry } from './page-settings.js';
+import type { PageChrome, PageChromeSource, PageGeometry } from './page-settings.js';
 import type { ContinuationIn, ContinuationOut, DerivedPage, NoteDocument } from './types.js';
 
 /** Margin-band positions for one page (content-local x is the content box). */
@@ -69,10 +69,40 @@ export interface PageChromeContinuationOut {
 export interface PageChromeContent {
   documentTitle: string;
   chapterTitle: string;
-  /** `Page N of M`, the stable footer label. */
-  pageLabel: string;
+  /** Resolved running header text; null when the header source is None. */
+  headerText: string | null;
+  /** Resolved running footer text; null when the footer source is None. */
+  footerText: string | null;
+  /** `Page N of M`, or null when the page number is turned off. */
+  pageLabel: string | null;
   continuedFrom: PageChromeContinuationIn[];
   continuesOn: PageChromeContinuationOut[];
+}
+
+/** Resolve one chrome source to its generated text. */
+export function pageChromeText(
+  source: PageChromeSource,
+  documentTitle: string,
+  chapterTitle: string,
+): string | null {
+  switch (source) {
+    case 'document':
+      return documentTitle;
+    case 'chapter':
+      return chapterTitle;
+    case 'none':
+    default:
+      return null;
+  }
+}
+
+/** `Page N of M` when the number is on; null when it is off. */
+export function pageChromeLabel(
+  chrome: PageChrome,
+  pageNumber: number,
+  pageCount: number,
+): string | null {
+  return chrome.pageNumber ? `Page ${pageNumber} of ${pageCount}` : null;
 }
 
 function continuedFromEntry(
@@ -112,12 +142,16 @@ export function pageChromeContent(input: {
   page: DerivedPage;
   documentTitle: string;
   pageCount: number;
+  /** Resolved personal chrome sources and page-number switch (R2). */
+  chrome: PageChrome;
 }): PageChromeContent {
-  const { document, page, documentTitle, pageCount } = input;
+  const { document, page, documentTitle, pageCount, chrome } = input;
   return {
     documentTitle,
     chapterTitle: page.chapterTitle,
-    pageLabel: `Page ${page.pageNumber} of ${pageCount}`,
+    headerText: pageChromeText(chrome.header, documentTitle, page.chapterTitle),
+    footerText: pageChromeText(chrome.footer, documentTitle, page.chapterTitle),
+    pageLabel: pageChromeLabel(chrome, page.pageNumber, pageCount),
     continuedFrom: page.continuationIn.map((continuation) =>
       continuedFromEntry(document, continuation),
     ),

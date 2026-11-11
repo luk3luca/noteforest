@@ -108,9 +108,25 @@ export interface PageTheme {
   pagePacking: PagePacking;
 }
 
+export type PageChromeSource = 'none' | 'document' | 'chapter';
+
+/**
+ * Running header/footer sources (R2 Page chrome).
+ *
+ * The header/footer text is generated from the canonical document and chapter
+ * titles; there is no free text. `pageNumber` prints `Page N of M` at the
+ * bottom center on every page (no page-1 exception).
+ */
+export interface PageChrome {
+  header: PageChromeSource;
+  footer: PageChromeSource;
+  pageNumber: boolean;
+}
+
 export interface PageSettings {
   setup: PageSetup;
   theme: PageTheme;
+  chrome: PageChrome;
   /** Personal manual page-break hints; never canonical document content. */
   manualBreakBeforeBlockIds: string[];
 }
@@ -133,6 +149,7 @@ export interface PageSetupOverride {
 export interface PageSettingsOverride {
   setup?: PageSetupOverride;
   theme?: Partial<PageTheme>;
+  chrome?: Partial<PageChrome>;
   manualBreakBeforeBlockIds?: readonly string[];
 }
 
@@ -223,6 +240,13 @@ export const PAGE_THEME_PRESETS: Readonly<
   comfortable: COMFORTABLE_THEME,
 });
 
+/** Approved R2 chrome defaults: document title, chapter footer, number on. */
+export const DEFAULT_PAGE_CHROME: Readonly<PageChrome> = Object.freeze({
+  header: 'document',
+  footer: 'chapter',
+  pageNumber: true,
+});
+
 export const DEFAULT_PAGE_SETTINGS: Readonly<PageSettings> = Object.freeze({
   setup: Object.freeze({
     size: 'A4',
@@ -230,6 +254,7 @@ export const DEFAULT_PAGE_SETTINGS: Readonly<PageSettings> = Object.freeze({
     margins: Object.freeze({ top: 12, right: 12, bottom: 12, left: 12 }),
   }),
   theme: COMPACT_THEME,
+  chrome: DEFAULT_PAGE_CHROME,
   manualBreakBeforeBlockIds: Object.freeze([]) as unknown as string[],
 });
 
@@ -351,6 +376,7 @@ export function pageSettingsFingerprint(settings: PageSettings): string {
     settings.setup.orientation,
     settings.setup.margins,
     settings.theme,
+    settings.chrome,
     settings.manualBreakBeforeBlockIds,
     effectivePageTheme(settings.theme),
   ]);
@@ -567,6 +593,27 @@ function isPagePacking(value: unknown): value is PagePacking {
   return value === 'stacked' || value === 'beside' || value === 'compaction';
 }
 
+function isPageChromeSource(value: unknown): value is PageChromeSource {
+  return value === 'none' || value === 'document' || value === 'chapter';
+}
+
+/**
+ * Sanitize one chrome layer.
+ *
+ * Unknown sources and non-boolean `pageNumber` values fall back to `base`, so an
+ * old settings file without `chrome` and a corrupt partial override both load
+ * the approved defaults instead of failing.
+ */
+function sanitizeChrome(input: unknown, base: PageChrome): PageChrome {
+  const record = isRecord(input) ? input : {};
+  return {
+    header: isPageChromeSource(record['header']) ? record['header'] : base.header,
+    footer: isPageChromeSource(record['footer']) ? record['footer'] : base.footer,
+    pageNumber:
+      typeof record['pageNumber'] === 'boolean' ? record['pageNumber'] : base.pageNumber,
+  };
+}
+
 function finiteNumber(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
@@ -709,6 +756,7 @@ export function mergePageSettings(
     },
   };
   const theme = resolveTheme(override?.theme, base.theme);
+  const chrome = sanitizeChrome(override?.chrome, base.chrome);
   const manualBreakBeforeBlockIds =
     override?.manualBreakBeforeBlockIds === undefined
       ? sanitizeManualBreaks(base.manualBreakBeforeBlockIds)
@@ -716,6 +764,7 @@ export function mergePageSettings(
   return {
     setup: sanitizeSetup(setupInput),
     theme,
+    chrome,
     manualBreakBeforeBlockIds,
   };
 }
@@ -817,6 +866,17 @@ export function normalizePageSettingsOverride(
 
   if (Array.isArray(input['manualBreakBeforeBlockIds'])) {
     override.manualBreakBeforeBlockIds = resolved.manualBreakBeforeBlockIds;
+  }
+
+  const rawChrome = isRecord(input['chrome']) ? input['chrome'] : null;
+  if (rawChrome !== null) {
+    const chrome: Partial<PageChrome> = {};
+    if (isPageChromeSource(rawChrome['header'])) chrome.header = resolved.chrome.header;
+    if (isPageChromeSource(rawChrome['footer'])) chrome.footer = resolved.chrome.footer;
+    if (typeof rawChrome['pageNumber'] === 'boolean') {
+      chrome.pageNumber = resolved.chrome.pageNumber;
+    }
+    if (Object.keys(chrome).length > 0) override.chrome = chrome;
   }
 
   return Object.keys(override).length > 0 ? override : undefined;

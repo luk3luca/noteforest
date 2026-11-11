@@ -432,8 +432,34 @@ describe('F3 shared chrome and edge-label positions', () => {
       expect(page.chrome.ghostTop).toBeCloseTo(margins.top * 0.62, 10);
       expect(page.chrome.footerBottom).toBeCloseTo(margins.bottom * 0.3, 10);
       expect(page.chrome.continuesBottom).toBeCloseTo(margins.bottom * 0.6, 10);
+      expect(page.chrome.headerText).toBe(result.print.documentTitle);
+      expect(page.chrome.footerText).toBe(page.chapterTitle);
       expect(page.chrome.pageLabel).toBe(
         `Page ${page.pageNumber} of ${result.print.pageCount}`,
+      );
+    }
+  });
+
+  it('keeps the chrome sources and page-number switch identical in Page Read and print', () => {
+    const custom = pipeline(modeAFixture(), MODE_A_SPECS, A4_LANDSCAPE, {
+      chrome: { header: 'none', footer: 'document', pageNumber: false },
+    });
+    expectSeamParity(custom);
+    for (const page of custom.projection.pages) {
+      expect(page.chrome.headerText).toBeNull();
+      expect(page.chrome.footerText).toBe(page.chrome.documentTitle);
+      expect(page.chrome.pageLabel).toBeNull();
+      // Ghost/continues labels stay available regardless of chrome sources.
+      expect(Array.isArray(page.chrome.continuedFrom)).toBe(true);
+      expect(Array.isArray(page.chrome.continuesOn)).toBe(true);
+    }
+    const defaults = pipeline(modeAFixture(), MODE_A_SPECS, A4_LANDSCAPE);
+    expectSeamParity(defaults);
+    for (const projected of defaults.projection.pages) {
+      expect(projected.chrome.headerText).toBe(projected.chrome.documentTitle);
+      expect(projected.chrome.footerText).toBe(projected.chrome.chapterTitle);
+      expect(projected.chrome.pageLabel).toBe(
+        `Page ${projected.page.pageNumber} of ${defaults.print.pageCount}`,
       );
     }
   });

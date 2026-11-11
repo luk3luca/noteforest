@@ -20,6 +20,7 @@ import type {
 import { buildPageEdgeModel, pageCssVariables } from '@noteforest/layout';
 import type { DocumentRuntime } from '../state/runtime';
 import { corePageGeometry } from '../page/adapter';
+import { PageChromeView } from '../page/PageChromeView';
 import { PageSurface } from '../page/PageView';
 import { PageEdges } from '../page/PageEdges';
 import { emptyPageChrome, projectPageContent } from '../page/projection';
@@ -107,6 +108,20 @@ function SamplePreview({
 }): JSX.Element {
   const geometry = useMemo(() => corePageGeometry(settings), [settings]);
   const css = pageCssVariables(settings.theme) as CSSProperties;
+  // The no-document sample uses the exact same chrome projection as Page Read,
+  // so a header/footer/page-number change is visible immediately.
+  const chrome = useMemo(
+    () =>
+      emptyPageChrome({
+        geometry,
+        documentTitle: 'Sample page',
+        chapterTitle: 'Page geometry preview',
+        pageNumber: 1,
+        pageCount: 1,
+        chrome: settings.chrome,
+      }),
+    [geometry, settings.chrome],
+  );
   return (
     <>
       <div className="nf-settings-preview-stack">
@@ -120,16 +135,7 @@ function SamplePreview({
             }}
             data-page-preview-sheet="true"
           >
-            <div
-              className="nf-page-header"
-              style={{
-                left: geometry.marginsPx.left,
-                right: geometry.marginsPx.right,
-                top: geometry.marginsPx.top * 0.3,
-              }}
-            >
-              <span className="nf-page-header-title">Sample page</span>
-            </div>
+            <PageChromeView chrome={chrome} />
             <div
               className="nf-page-content"
               style={{
@@ -143,16 +149,6 @@ function SamplePreview({
                 <strong>Sample page</strong>
                 <span>No document open. Global Page settings apply.</span>
               </div>
-            </div>
-            <div
-              className="nf-page-footer"
-              style={{
-                left: geometry.marginsPx.left,
-                right: geometry.marginsPx.right,
-                bottom: geometry.marginsPx.bottom * 0.3,
-              }}
-            >
-              <span className="nf-page-footer-chapter">Page geometry preview</span>
             </div>
           </div>
         </PreviewFrame>
@@ -322,6 +318,7 @@ function DocumentPreview({
         page?.chapterTitle ?? (runtime.document.chapters[0]?.title?.trim() || 'Chapter 1'),
       pageNumber: 1,
       pageCount: Math.max(1, model.pages.length),
+      chrome: settings.chrome,
     });
 
   const state = invalid

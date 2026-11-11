@@ -25,6 +25,7 @@ import {
   PageLayoutSection,
 } from '../settings/PageAdvancedSettings';
 import {
+  CHROME_SOURCES,
   formatMm,
   hasMarginOverride,
   hasSetupOverride,
@@ -88,6 +89,12 @@ const PRESET_LABELS = {
   compact: 'Compact',
   comfortable: 'Comfortable',
   custom: 'Custom',
+} as const;
+
+const CHROME_SOURCE_LABELS = {
+  none: 'None',
+  document: 'Document title',
+  chapter: 'Chapter title',
 } as const;
 
 const MARGIN_RANGE = {
@@ -272,6 +279,7 @@ export function SettingsDialog({
     pageScope === 'document' && hasMarginOverride(pageSettings.override);
   const themeOverridden =
     pageScope === 'document' && hasThemeOverride(pageSettings.override);
+  const chromeOverridden = pageSettings.hasChromeOverrides;
 
   const errorMessage =
     pageSettings.commitError ??
@@ -713,6 +721,120 @@ export function SettingsDialog({
         )}
       </section>
 
+      <section className="nf-settings-section" data-page-chrome-section="true">
+        <div className="nf-settings-section-head">
+          <h4 className="nf-settings-section-title">Chrome</h4>
+          <div className="nf-settings-section-actions">
+            {pageScope === 'document' && chromeOverridden ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-chrome-use-global="true"
+                onClick={() => pageSettings.useGlobalChrome()}
+              >
+                Use global
+              </button>
+            ) : null}
+            {pageScope === 'global' ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-chrome-reset="true"
+                onClick={() => pageSettings.resetChrome()}
+              >
+                Reset to default
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {(['header', 'footer'] as const).map((field) => (
+          <div className="nf-settings-row" key={field}>
+            <span className="nf-settings-row-label">
+              {field === 'header' ? 'Header' : 'Footer'}
+              {pageSettings.isChromeOverridden(field) ? (
+                <span
+                  className="nf-override-dot"
+                  data-page-chrome-override={field}
+                  title={`This document overrides the global ${
+                    field === 'header' ? 'header' : 'footer'
+                  } source`}
+                  aria-label="Overridden for this document"
+                />
+              ) : null}
+            </span>
+            <div className="nf-settings-control">
+              <div className="nf-segmented">
+                {CHROME_SOURCES.map((source) => (
+                  <button
+                    key={source}
+                    type="button"
+                    className="nf-segmented-item"
+                    data-page-chrome-option={`${field}-${source}`}
+                    aria-pressed={pageSettings.layerChrome[field] === source}
+                    onClick={() => pageSettings.setChromeSource(field, source)}
+                  >
+                    {CHROME_SOURCE_LABELS[source]}
+                  </button>
+                ))}
+              </div>
+              {pageScope === 'document' && pageSettings.isChromeOverridden(field) ? (
+                <button
+                  type="button"
+                  className="nf-button nf-button-quiet"
+                  data-page-chrome-use-global={field}
+                  onClick={() => pageSettings.useGlobalChromeField(field)}
+                >
+                  Use global
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ))}
+
+        <div className="nf-settings-row">
+          <label className="nf-settings-row-label" htmlFor="page-chrome-page-number">
+            Page number
+            {pageSettings.isChromeOverridden('pageNumber') ? (
+              <span
+                className="nf-override-dot"
+                data-page-chrome-override="pageNumber"
+                title="This document overrides the global page-number setting"
+                aria-label="Overridden for this document"
+              />
+            ) : null}
+          </label>
+          <div className="nf-settings-control">
+            <label className="nf-settings-check">
+              <input
+                id="page-chrome-page-number"
+                type="checkbox"
+                checked={pageSettings.layerChrome.pageNumber}
+                data-page-chrome-page-number="true"
+                onChange={(event) => pageSettings.setChromePageNumber(event.target.checked)}
+              />
+              <span>Show “Page N of M” at the bottom center</span>
+            </label>
+            {pageScope === 'document' &&
+            pageSettings.isChromeOverridden('pageNumber') ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-page-chrome-use-global="pageNumber"
+                onClick={() => pageSettings.useGlobalChromeField('pageNumber')}
+              >
+                Use global
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <p className="nf-settings-help" data-page-chrome-help="true">
+          Header and footer text come from the document and chapter titles; there is no free
+          text, no page-1 exception, and the page number always sits at the bottom center.
+        </p>
+      </section>
+
       <section className="nf-settings-section" data-page-typography-section="true">
         <div className="nf-settings-section-head">
           <h4 className="nf-settings-section-title">Typography</h4>
@@ -871,8 +993,8 @@ export function SettingsDialog({
         </p>
         <AdvancedTypographyFields controller={pageSettings} />
         <p className="nf-settings-help" data-page-advanced-hidden="true">
-          Page font, page chrome, manual breaks, and engine values (packing, callout modes, trunk
-          insets, lane gate) are not available in Settings.
+          Page font, manual breaks, and engine values (packing, callout modes, trunk insets,
+          lane gate) are not available in Settings.
         </p>
       </section>
 

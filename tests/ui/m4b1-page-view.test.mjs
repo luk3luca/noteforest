@@ -1,8 +1,8 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { artifactsPath, pngSize, root } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import { textDoc } from '../support/fixtures.mjs';
@@ -18,6 +18,7 @@ import {
 } from '../support/page-fixtures.mjs';
 
 const tempRoot = artifactsPath('m4b1-ui');
+const screenshotDir = artifactsPath('m4b1-page-chrome');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
@@ -108,6 +109,7 @@ async function selectedBlockId() {
 describe('M4b1 page view core', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
+    await mkdir(screenshotDir, { recursive: true });
   });
 
   afterEach(async () => {
@@ -373,6 +375,118 @@ describe('M4b1 page view core', () => {
     assert.match(await second.innerText(), /Page 2 of 2/);
     assert.match(await second.innerText(), /Second chapter body/);
     assert.doesNotMatch(await second.innerText(), /First chapter body/);
+  });
+
+  it('renders the resolved header/footer sources and the centered page number in Read and Edit', async () => {
+    await launch(ui.isolated('m4b1-chrome'));
+    await h.setWindowSize(1440, 900);
+    const env = ui.isolated('m4b1-chrome');
+    const packagePath = await openPackage(
+      env,
+      'Chrome page',
+      pageDocument({
+        id: 'page-chrome',
+        title: 'Chrome page title',
+        chapterTitle: 'Chrome chapter',
+        blocks: [textBlock('chrome-block', 'Chrome block', 'Chrome body.')],
+      }),
+    );
+    await showPageView();
+    const sheet = activeSheet();
+
+    // Approved defaults: header = document title only; footer = chapter title
+    // on the left; page number at the bottom center; no page-1 suppression.
+    assert.equal((await sheet.locator('.nf-page-header-text').innerText()).trim(), 'Chrome page title');
+    assert.equal(
+      await sheet.locator('.nf-page-header-chapter').count(),
+      0,
+      'the header no longer repeats the chapter title',
+    );
+    assert.equal((await sheet.locator('.nf-page-footer-text').innerText()).trim(), 'Chrome chapter');
+    assert.match(await sheet.locator('[data-page-indicator]').innerText(), /Page 1 of 1/);
+
+    const boxes = await sheet.evaluate((element) => {
+      const sheetRect = element.getBoundingClientRect();
+      const pageWidthPx = Number(element.getAttribute('data-page-width-px'));
+      const scale = sheetRect.width / pageWidthPx;
+      const box = (selector) => {
+        const node = element.querySelector(selector);
+        if (node === null) return null;
+        const rect = node.getBoundingClientRect();
+        return {
+          left: (rect.left - sheetRect.left) / scale,
+          right: (rect.right - sheetRect.left) / scale,
+          center: (rect.left + rect.right) / 2 / scale - sheetRect.left / scale,
+        };
+      };
+      return {
+        width: pageWidthPx,
+        marginLeft: Number(element.getAttribute('data-margin-left')),
+        marginRight: Number(element.getAttribute('data-margin-right')),
+        footerText: box('.nf-page-footer-text'),
+        number: box('[data-page-indicator]'),
+      };
+    });
+    assert.ok(boxes.footerText !== null && boxes.number !== null, 'footer text and number render');
+    assert.ok(
+      Math.abs(boxes.footerText.left - boxes.marginLeft) <= 1,
+      'footer text starts at the left margin',
+    );
+    const bandCenter = boxes.marginLeft + (boxes.width - boxes.marginLeft - boxes.marginRight) / 2;
+    assert.ok(
+      Math.abs(boxes.number.center - bandCenter) <= 1.5,
+      `page number is centered (${boxes.number.center.toFixed(1)} vs ${bandCenter.toFixed(1)})`,
+    );
+    assert.ok(
+      boxes.number.right < boxes.width - boxes.marginRight,
+      'page number is no longer right-aligned',
+    );
+    await page.screenshot({ path: join(screenshotDir, 'page-chrome-defaults.png') });
+
+    const runsBefore = Number(await activePageView().getAttribute('data-model-runs'));
+    const setChrome = async (chrome) => {
+      await page.evaluate(
+        ({ path, value }) => window.__noteforestTest.setPageSettingsOverride(path, value),
+        { path: packagePath, value: chrome === null ? null : { chrome } },
+      );
+      await page.waitForFunction(
+        (runs) => {
+          const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+          return (
+            view !== null &&
+            Number(view.getAttribute('data-model-runs')) > runs &&
+            view.getAttribute('data-ready') === 'true' &&
+            view.getAttribute('data-updating') === 'false'
+          );
+        },
+        runsBefore,
+        { timeout: 30000 },
+      );
+    };
+
+    // All sources off: no header, no footer, no page indicator anywhere.
+    await setChrome({ header: 'none', footer: 'none', pageNumber: false });
+    assert.equal(await activeSheet().locator('.nf-page-header').count(), 0);
+    assert.equal(await activeSheet().locator('.nf-page-footer').count(), 0);
+    assert.equal(await activeSheet().locator('[data-page-indicator]').count(), 0);
+    assert.doesNotMatch(await activeSheet().innerText(), /Page 1 of 1/);
+
+    // Swapped sources and the number back on.
+    await setChrome({ header: 'chapter', footer: 'document', pageNumber: true });
+    assert.equal((await activeSheet().locator('.nf-page-header-text').innerText()).trim(), 'Chrome chapter');
+    assert.equal((await activeSheet().locator('.nf-page-footer-text').innerText()).trim(), 'Chrome page title');
+    assert.match(await activeSheet().locator('[data-page-indicator]').innerText(), /Page 1 of 1/);
+
+    // Page Edit renders the same chrome.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
+    );
+    assert.equal((await activeSheet().locator('.nf-page-header-text').innerText()).trim(), 'Chrome chapter');
+    assert.equal((await activeSheet().locator('.nf-page-footer-text').innerText()).trim(), 'Chrome page title');
+    assert.match(await activeSheet().locator('[data-page-indicator]').innerText(), /Page 1 of 1/);
   });
 
   it('renders a labeled missing-image placeholder and a real empty page', async () => {

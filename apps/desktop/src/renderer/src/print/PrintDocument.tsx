@@ -17,6 +17,7 @@ import type { PrintModel, PrintPage } from '@noteforest/pdf';
 import type { AnchorAttachment, LayoutDefect, PageFragment } from '@noteforest/layout';
 import { contentBlockTitle } from '@noteforest/layout';
 import { PageEdges } from '../page/PageEdges';
+import { PageChromeView } from '../page/PageChromeView';
 import { projectPageContent, type ProjectedPage } from '../page/projection';
 import {
   contentWrapperHtml,
@@ -61,61 +62,6 @@ function AnchorWarningBadge({
     >
       ⚠ anchor
     </span>
-  );
-}
-
-function PrintChrome({ page }: { page: PrintPage }): JSX.Element {
-  const { chrome } = page;
-  const { left, right, headerTop, ghostTop, footerBottom, continuesBottom } = chrome;
-  return (
-    <>
-      <div className="nf-page-header" style={{ left, right, top: headerTop }}>
-        <span className="nf-page-header-title">{chrome.documentTitle}</span>
-        <span className="nf-page-header-chapter">{chrome.chapterTitle}</span>
-      </div>
-      {chrome.continuedFrom.length > 0 ? (
-        <div
-          className="nf-page-ghost-list"
-          style={{ left, right, top: ghostTop }}
-          data-page-ghost-list="true"
-          data-page-continued-from={chrome.continuedFrom[0]?.fromPage}
-        >
-          {chrome.continuedFrom.map((continuation) => (
-            <div
-              className="nf-page-ghost"
-              key={`${continuation.blockId}-${continuation.fromPage}`}
-            >
-              ↳ continued from page {continuation.fromPage} · {continuation.parentLabel}
-              {continuation.anchorQuote === null ? '' : ` (${continuation.anchorQuote})`} →{' '}
-              {continuation.blockLabel}
-            </div>
-          ))}
-        </div>
-      ) : null}
-      <div className="nf-page-footer" style={{ left, right, bottom: footerBottom }}>
-        <span className="nf-page-footer-chapter">{chrome.chapterTitle}</span>
-        <span className="nf-page-footer-number" data-page-indicator="true">
-          {chrome.pageLabel}
-        </span>
-      </div>
-      {chrome.continuesOn.length > 0 ? (
-        <div
-          className="nf-page-continues-list"
-          style={{ left, right, bottom: continuesBottom }}
-          data-page-continues-list="true"
-          data-page-continues-on={chrome.continuesOn[0]?.toPage}
-        >
-          {chrome.continuesOn.map((continuation) => (
-            <div
-              className="nf-page-continues"
-              key={`${continuation.blockId}-${continuation.toPage}`}
-            >
-              continues on page {continuation.toPage} · {continuation.blockLabel} →
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </>
   );
 }
 
@@ -222,7 +168,7 @@ function PrintSheet({
       data-margin-bottom={margins.bottom.toFixed(3)}
       data-margin-left={margins.left.toFixed(3)}
     >
-      <PrintChrome page={page} />
+      <PageChromeView chrome={page.chrome} />
       <div
         className="nf-page-content"
         style={{

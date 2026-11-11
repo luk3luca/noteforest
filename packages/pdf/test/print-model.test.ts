@@ -418,6 +418,8 @@ describe('print model from the real Page pipeline', () => {
     expect(model.pages[0]!.chrome).toMatchObject(pageChromeLayout(model.geometry));
     expect(model.pages[0]!.chrome.documentTitle).toBe('Print model fixture');
     expect(model.pages[0]!.chrome.chapterTitle).toBe('Complete inputs');
+    expect(model.pages[0]!.chrome.headerText).toBe('Print model fixture');
+    expect(model.pages[0]!.chrome.footerText).toBe('Complete inputs');
     expect(model.pages[0]!.chrome.pageLabel).toBe(`Page 1 of ${model.pageCount}`);
     // Defects are carried with the model, including non-blocking anchor warnings.
     expect(model.defects.some((defect) => defect.code === 'broken-anchor')).toBe(true);
@@ -454,6 +456,35 @@ describe('print model from the real Page pipeline', () => {
       (page) => page.chrome.continuesOn.length > 0 || page.chrome.continuedFrom.length > 0,
     );
     expect(continuationPages.length).toBeGreaterThan(0);
+  });
+
+  it('renders the resolved R2 chrome sources and page-number switch on every page', () => {
+    const { document, specs } = modeADocument();
+    const custom = layoutFor(document, specs, A4_LANDSCAPE, {
+      chrome: { header: 'chapter', footer: 'none', pageNumber: false },
+    });
+    const model = buildModel(document, custom);
+    expect(model.settings.chrome).toEqual({
+      header: 'chapter',
+      footer: 'none',
+      pageNumber: false,
+    });
+    for (const page of model.pages) {
+      expect(page.chrome.headerText).toBe(page.chapterTitle);
+      expect(page.chrome.footerText).toBeNull();
+      expect(page.chrome.pageLabel).toBeNull();
+      // Titles stay available for the ghost/continues bands.
+      expect(page.chrome.documentTitle).toBe('Print model fixture');
+      expect(page.chrome.chapterTitle.length).toBeGreaterThan(0);
+    }
+    // Nothing is suppressed on page 1: the default number is on for every page.
+    const defaults = buildModel(document, layoutFor(document, specs));
+    expect(defaults.pages[0]!.chrome.pageLabel).toBe(`Page 1 of ${defaults.pageCount}`);
+    expect(defaults.pages.at(-1)!.chrome.pageLabel).toBe(
+      `Page ${defaults.pageCount} of ${defaults.pageCount}`,
+    );
+    expect(defaults.pages[0]!.chrome.headerText).toBe('Print model fixture');
+    expect(defaults.pages[0]!.chrome.footerText).toBe(defaults.pages[0]!.chapterTitle);
   });
 });
 
@@ -534,6 +565,31 @@ describe('print model identity (M4c2 R1/R4/R5)', () => {
         pageModelFingerprint: pageSettingsFingerprint(settings),
       }),
     ).toThrow(/PageTheme/);
+  });
+
+  it('treats a chrome change as part of the measured/print identity', () => {
+    const { document, specs } = modeADocument();
+    const measured = layoutFor(document, specs);
+    const chromeOnly = normalizePageSettings({
+      setup: A4_LANDSCAPE,
+      chrome: { header: 'none' },
+    });
+    expect(pageSettingsFingerprint(chromeOnly)).not.toBe(
+      pageSettingsFingerprint(measured.settings),
+    );
+    // A stale measured run cannot be printed with a different chrome setting,
+    // even though chrome does not change page geometry.
+    expect(() =>
+      buildPrintModel(document, measured.layout, measured.paginated, {
+        settings: chromeOnly,
+        pageModelFingerprint: pageSettingsFingerprint(measured.settings),
+      }),
+    ).toThrow(PrintModelSettingsMismatchError);
+    const fresh = layoutFor(document, specs, A4_LANDSCAPE, {
+      chrome: { header: 'none' },
+    });
+    const model = buildModel(document, fresh);
+    expect(model.pages[0]!.chrome.headerText).toBeNull();
   });
 
   it('fails loudly when the pages were paginated with different manual breaks', () => {
