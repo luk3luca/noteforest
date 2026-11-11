@@ -102,8 +102,12 @@ interface SettingsState extends SettingsSnapshot {
   ) => PageSettings;
   /** Dismiss a corrupt/unreadable/newer warning without changing the file. */
   dismissSettingsWarning: (which: 'global' | 'document') => void;
-  /** Replace the global settings with product defaults and persist them. */
-  resetSettingsToDefaults: () => void;
+  /**
+   * Explicit reset: replace `settings.json` with the product defaults through
+   * the dedicated main-process path. The corrupt warning clears only when the
+   * write really succeeded.
+   */
+  resetSettingsToDefaults: () => Promise<SettingsSaveResult>;
   /** Retry the last failed settings write. */
   retrySettingsWrite: () => void;
 }
@@ -158,6 +162,7 @@ function normalizePatch(current: AppSettings, patch: AppSettingsPatch): AppSetti
 interface SettingsBridge {
   saveSettings: (settings: AppSettings) => Promise<SettingsSaveResult>;
   saveDocumentSettings: (input: DocumentSettingsSaveInput) => Promise<SettingsSaveResult>;
+  resetSettings?: () => Promise<SettingsSaveResult>;
 }
 
 function bridge(): SettingsBridge | null {
@@ -173,6 +178,9 @@ function bridge(): SettingsBridge | null {
   return {
     saveSettings: (settings) => api.saveSettings(settings),
     saveDocumentSettings: (input) => api.saveDocumentSettings(input),
+    ...(typeof api.resetSettings === 'function'
+      ? { resetSettings: () => api.resetSettings() }
+      : {}),
   };
 }
 
@@ -366,11 +374,23 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   resetSettingsToDefaults: () => {
     const defaults = normalizeAppSettings(DEFAULT_APP_SETTINGS);
-    set({
-      app: defaults,
-      settingsStatus: OK_STATUS,
+    // The in-memory view already showed defaults while the file was corrupt;
+    // the file itself is replaced only by this explicit action.
+    set({ app: defaults });
+    const write = async (): Promise<SettingsSaveResult> => {
+      const api = bridge();
+      if (api === null) return { ok: true };
+      if (api.resetSettings !== undefined) return api.resetSettings();
+      // A bridge without the dedicated reset path can only try the ordinary
+      // write; a corrupt file makes that fail and the error stays visible.
+      return api.saveSettings(defaults);
+    };
+    lastFailed = write;
+    const result = enqueueWrite(write);
+    void result.then((outcome) => {
+      if (outcome.ok) set({ settingsStatus: OK_STATUS });
     });
-    void persistAppSettings(defaults);
+    return result;
   },
 
   retrySettingsWrite: () => {

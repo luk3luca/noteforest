@@ -26,7 +26,7 @@ import { inspectPdfFile, textContains } from '../../scripts/lib/pdf.mjs';
 
 const tempRoot = artifactsPath('m4d2-ui');
 const outputRoot = artifactsPath('m4d2', 'export');
-const screenshotDir = artifactsPath('ui-batch-a');
+const screenshotDir = artifactsPath('m4d2-export-ui');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 const evidence = [];

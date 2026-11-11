@@ -487,9 +487,16 @@ export interface NoteForestApi {
   /**
    * Persist personal app settings. The main process serializes the write,
    * merges known fields over the stored file (unknown fields survive), and
-   * resolves only after the atomic write succeeds.
+   * resolves only after the atomic write succeeds. An implicit write is refused
+   * while `settings.json` exists but cannot be read or parsed.
    */
   saveSettings(settings: AppSettings): Promise<SettingsSaveResult>;
+  /**
+   * Explicit reset: atomically replace `settings.json` with the product
+   * defaults, including over a corrupt/unreadable file. The damaged backup is
+   * kept. This is the only path allowed to replace a corrupt file.
+   */
+  resetSettings(): Promise<SettingsSaveResult>;
   /** Upsert/clear one durable per-document override. */
   saveDocumentSettings(input: DocumentSettingsSaveInput): Promise<DocumentSettingsSaveResult>;
   setWindowState(state: WindowState): Promise<void>;

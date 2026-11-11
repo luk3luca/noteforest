@@ -2,7 +2,7 @@
 import type * as React from 'react';
 import type { DocumentCommand } from '@noteforest/core';
 import type { PrintModel } from '@noteforest/pdf';
-import type { NoteForestApi } from '../../shared/api';
+import type { MenuCommand, NoteForestApi } from '../../shared/api';
 
 declare global {
   interface Window {
@@ -20,6 +20,14 @@ declare global {
       state: () => unknown;
       viewState?: () => unknown;
       openPath: (packagePath: string) => Promise<boolean>;
+      /** Test-only: activate one tab without the gated shortcut path. */
+      activateTab?: (packagePath: string) => void;
+      /** Test-only: close one tab without the gated shell command. */
+      closePath?: (packagePath: string) => Promise<void>;
+      /** Test-only: dispatch a MenuCommand through the native-menu path. */
+      dispatchMenuCommand?: (command: MenuCommand) => void;
+      /** Test-only: which surface owns the global command channel right now. */
+      overlayOwner?: () => 'dialog' | 'palette' | 'export' | null;
       /** Test-only: show one tokenized toast without adding a toast API. */
       showToast?: (
         type: 'success' | 'info' | 'warning' | 'error',

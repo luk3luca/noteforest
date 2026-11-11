@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
 import { CircleCheck, CircleX, Info, LoaderCircle, TriangleAlert } from 'lucide-react';
 import type { FlushResult, MenuCommand } from '../../shared/api';
@@ -25,6 +25,7 @@ import {
   activeEditingEnabled,
   activeRuntime,
   adjustActiveLayoutZoom,
+  closeTab,
   fitActiveLayout,
   openPath,
   runMenuCommand,
@@ -33,6 +34,7 @@ import {
   toggleActiveInteractionMode,
   toggleFocusBranch,
 } from './actions';
+import { activeOverlayOwner, overlayOwnsCommands } from './shell/overlay-owner';
 import { buildSession } from './state/session';
 import {
   flushPendingSettingsEdits,
@@ -94,6 +96,39 @@ function cycleActiveTab(direction: -1 | 1): void {
   if (next !== undefined) state.setActiveTab(next.packagePath);
 }
 
+/**
+ * Native-menu and renderer-shortcut delivery, shared by the two paths.
+ *
+ * One gate covers both: while a modal surface (Settings/dialog, palette, or the
+ * Export sheet) owns the command channel, an app command is ignored. Native
+ * menu roles (cut/copy/paste/select-all/quit) are OS responder actions, not
+ * `MenuCommand`s, so they stay available.
+ */
+const lastDispatch = new Map<string, number>();
+
+/**
+ * The palette's own toggle is local to the palette: ⌘K closes the surface that
+ * owns the channel. Every other command stays blocked behind it.
+ */
+function isPaletteOwnToggle(command: MenuCommand): boolean {
+  return command === 'command-palette' && activeOverlayOwner() === 'palette';
+}
+
+function dispatch(command: MenuCommand): void {
+  if (overlayOwnsCommands() && !isPaletteOwnToggle(command)) return;
+  if (!SINGLE_PATH_COMMANDS.has(command)) {
+    const now = performance.now();
+    // A missing entry is not "dispatched at time 0": treating it as one
+    // silently dropped the first menu command issued inside the first
+    // 120 ms after the renderer started (for example Export PDF from an
+    // empty library).
+    const previous = lastDispatch.get(command);
+    if (previous !== undefined && now - previous < 120) return;
+    lastDispatch.set(command, now);
+  }
+  runMenuCommand(command);
+}
+
 /** Test-only override, reachable through `window.__noteforestTest`. */
 let flushTestMode: FlushTestMode = 'normal';
 
@@ -137,7 +172,6 @@ export function App(): JSX.Element {
   );
   const { runtime } = useRuntime(activeTab);
   const dirty = useAllDirty();
-  const lastDispatch = useRef(new Map<string, number>());
 
   useEffect(() => {
     let cancelled = false;
@@ -244,20 +278,6 @@ export function App(): JSX.Element {
     };
   }, []);
 
-  const dispatch = useCallback((command: MenuCommand) => {
-    if (!SINGLE_PATH_COMMANDS.has(command)) {
-      const now = performance.now();
-      // A missing entry is not "dispatched at time 0": treating it as one
-      // silently dropped the first menu command issued inside the first
-      // 120 ms after the renderer started (for example Export PDF from an
-      // empty library).
-      const previous = lastDispatch.current.get(command);
-      if (previous !== undefined && now - previous < 120) return;
-      lastDispatch.current.set(command, now);
-    }
-    runMenuCommand(command);
-  }, []);
-
   useEffect(() => {
     const offMenu = window.noteforest.onMenu((command) => dispatch(command));
     const offFlush = window.noteforest.onRequestFlush(async () => {
@@ -273,7 +293,7 @@ export function App(): JSX.Element {
       offMenu();
       offFlush();
     };
-  }, [dispatch]);
+  }, []);
 
   // PDF export (M4c2 R2): the main process never reads the document from disk.
   // It asks for the current in-memory revision, including unsaved edits. A
@@ -294,6 +314,20 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (!ready) return undefined;
     const onKeyDown = (event: KeyboardEvent): void => {
+      // A modal surface owns the global shortcut channel (F1). Returning here
+      // (without preventDefault) leaves overlay-local behavior untouched:
+      // typing, Escape/Done, palette arrows/Enter, and the Export sheet's own
+      // buttons never pass through this handler. The palette's own ⌘K toggle is
+      // the one app command that belongs to the surface that owns the channel.
+      if (overlayOwnsCommands()) {
+        const paletteToggle =
+          activeOverlayOwner() === 'palette' &&
+          (event.metaKey || event.ctrlKey) &&
+          !event.shiftKey &&
+          !event.altKey &&
+          event.key.toLowerCase() === 'k';
+        if (!paletteToggle) return;
+      }
       // Control+Tab is not a focus-traversal key (plain Tab is), so it can
       // safely cycle documents. This branch must run before the mod check:
       // `ctrlKey` makes `mod` true and used to make it unreachable.
@@ -472,7 +506,7 @@ export function App(): JSX.Element {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [dispatch, ready]);
+  }, [ready]);
 
   useEffect(() => {
     void window.noteforest.setWindowState({
@@ -561,6 +595,15 @@ export function App(): JSX.Element {
         };
       },
       openPath: async (packagePath: string) => openPath(packagePath),
+      /** Test-only: activate a tab without the global shortcut path (F2). */
+      activateTab: (packagePath: string) => useShell.getState().setActiveTab(packagePath),
+      /** Test-only: close one tab without the gated shell command (F1/F2). */
+      closePath: async (packagePath: string) =>
+        closeTab(packagePath, { force: true, save: false }),
+      /** Test-only: dispatch a MenuCommand through the native-menu path. */
+      dispatchMenuCommand: (command: MenuCommand) => dispatch(command),
+      /** Test-only: which surface currently owns the global command channel. */
+      overlayOwner: () => activeOverlayOwner(),
       viewState: () => structuredClone(useShell.getState().viewByDoc),
       /**
        * Test-only visual probe for the tokenized toast. It calls the same
@@ -670,6 +713,7 @@ export function App(): JSX.Element {
         const state = useExportUi.getState();
         return structuredClone({
           status: state.status,
+          packagePath: state.packagePath,
           jobId: state.jobId,
           outputPath: state.outputPath,
           documentTitle: state.documentTitle,

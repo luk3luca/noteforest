@@ -296,8 +296,10 @@ describe('M4d1 Page density control', () => {
     const pages120 = await pageCount();
     const height120 = await firstFragmentHeight();
     assert.ok(Math.abs((await bodyPx()) - ptToPx(10.8)) < 0.05, '10.8 pt at 96 dpi');
-    await mkdir(artifactsPath('m4e2'), { recursive: true });
-    await page.screenshot({ path: join(artifactsPath('m4e2'), 'page-read-120.png') });
+    await mkdir(artifactsPath('m4d1-page-density'), { recursive: true });
+    await page.screenshot({
+      path: join(artifactsPath('m4d1-page-density'), 'page-read-120.png'),
+    });
     assert.ok(height120 > height100, `card grows at 120%: ${height100} -> ${height120}`);
     assert.ok(
       pages120 >= pages100,
@@ -360,7 +362,7 @@ describe('M4d1 Page density control', () => {
       `60% never needs more pages than 120%: ${pages60} vs ${pages120}`,
     );
 
-    const screenshotDir = artifactsPath('m4e2');
+    const screenshotDir = artifactsPath('m4d1-page-density');
     await mkdir(screenshotDir, { recursive: true });
     await page.screenshot({ path: join(screenshotDir, 'page-read-60.png') });
 
@@ -427,7 +429,7 @@ describe('M4d1 Page density control', () => {
       await page.locator('[data-settings-status]').getAttribute('data-settings-status'),
       'saved',
     );
-    const screenshotDir = artifactsPath('ui-batch-a');
+    const screenshotDir = artifactsPath('m4d1-page-density');
     await mkdir(screenshotDir, { recursive: true });
     await page.screenshot({
       path: join(screenshotDir, 'settings-page.png'),

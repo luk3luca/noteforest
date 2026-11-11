@@ -1262,15 +1262,54 @@ export async function readSettings(): Promise<AppSettings> {
   return (await readSettingsFile()).settings;
 }
 
-/** Re-read the raw file immediately before a write to preserve unknown fields. */
-async function readRawSettingsForWrite(): Promise<Record<string, unknown>> {
+/**
+ * Raw settings object for one implicit write, or the reason the write must be
+ * refused (UI Sentinel F3).
+ *
+ * A file that exists but cannot be read or parsed is treated like the corrupt
+ * per-document map in `saveDocumentSettings`: the bytes and the backup stay
+ * untouched until the user explicitly resets. The check runs at write time, so
+ * a file corrupted after bootstrap is refused too.
+ */
+type SettingsRawForWrite =
+  | { ok: true; raw: Record<string, unknown> }
+  | { ok: false; message: string };
+
+async function readSettingsRawForWrite(): Promise<SettingsRawForWrite> {
+  let text: string;
   try {
-    const text = await fs.readFile(settingsPath(), 'utf8');
-    const parsed = JSON.parse(text) as unknown;
-    return isRecord(parsed) ? parsed : lastSettingsRaw;
-  } catch {
-    return lastSettingsRaw;
+    text = await fs.readFile(settingsPath(), 'utf8');
+  } catch (error) {
+    if (isMissingFile(error)) return { ok: true, raw: {} };
+    return {
+      ok: false,
+      message: `settings.json could not be read; nothing was written: ${settingsErrorMessage(error)}`,
+    };
   }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch (error) {
+    return {
+      ok: false,
+      message: `settings.json is corrupt and was not overwritten: ${settingsErrorMessage(
+        error,
+      )}. Use Reset settings to replace it with the product defaults.`,
+    };
+  }
+  return { ok: true, raw: isRecord(parsed) ? parsed : lastSettingsRaw };
+}
+
+/** Serialize one settings-file write; the newest queued task wins. */
+function enqueueSettingsWrite(
+  task: () => Promise<SettingsSaveResult>,
+): Promise<SettingsSaveResult> {
+  const result = settingsWriteQueue.then(task, task);
+  settingsWriteQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }
 
 /**
@@ -1278,14 +1317,18 @@ async function readRawSettingsForWrite(): Promise<Record<string, unknown>> {
  * rapid Apply actions land in order (last write wins) and the result is only a
  * success after the rename completed. Known paths are replaced; every other
  * stored field survives (see `settingsDocumentForWrite`).
+ *
+ * An implicit write is refused while `settings.json` exists but cannot be read
+ * or parsed: corrupt bytes are never silently replaced by a normal change.
  */
 export async function writeSettings(input: unknown): Promise<SettingsSaveResult> {
-  const task = async (): Promise<SettingsSaveResult> => {
+  return enqueueSettingsWrite(async () => {
     const settings = normalizeAppSettings(
       input as Parameters<typeof normalizeAppSettings>[0],
     );
-    const previous = await readRawSettingsForWrite();
-    const document = settingsDocumentForWrite(previous, settings);
+    const read = await readSettingsRawForWrite();
+    if (!read.ok) return { ok: false, message: read.message };
+    const document = settingsDocumentForWrite(read.raw, settings);
     try {
       await fs.mkdir(appSupportDir(), { recursive: true });
       await writeFileAtomic(settingsPath(), `${JSON.stringify(document, null, 2)}\n`);
@@ -1297,13 +1340,33 @@ export async function writeSettings(input: unknown): Promise<SettingsSaveResult>
         message: `Could not save settings: ${settingsErrorMessage(error)}`,
       };
     }
-  };
-  const result = settingsWriteQueue.then(task, task);
-  settingsWriteQueue = result.then(
-    () => undefined,
-    () => undefined,
-  );
-  return result;
+  });
+}
+
+/**
+ * Explicit "Reset settings": atomically replace `settings.json` with the
+ * product defaults. This is the only path allowed to replace a corrupt or
+ * unreadable file, and it keeps the existing corrupt backup. Returns the real
+ * write result so the renderer can clear the warning only after success.
+ */
+export async function resetSettings(): Promise<SettingsSaveResult> {
+  return enqueueSettingsWrite(async () => {
+    const settings = normalizeAppSettings(
+      structuredClone(DEFAULT_APP_SETTINGS) as Parameters<typeof normalizeAppSettings>[0],
+    );
+    const document = settingsDocumentForWrite({}, settings);
+    try {
+      await fs.mkdir(appSupportDir(), { recursive: true });
+      await writeFileAtomic(settingsPath(), `${JSON.stringify(document, null, 2)}\n`);
+      lastSettingsRaw = document;
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        message: `Could not reset settings: ${settingsErrorMessage(error)}`,
+      };
+    }
+  });
 }
 
 /** Test-only: wait for the serialized settings queue. */

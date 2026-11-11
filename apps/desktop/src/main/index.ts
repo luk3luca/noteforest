@@ -35,6 +35,7 @@ import {
   listBackups,
   openDocument,
   reloadDocument,
+  resetSettings,
   restoreBackup,
   restoreNewestBackup,
   saveAllDirty,
@@ -453,6 +454,10 @@ function registerIpc(): void {
   ipcMain.handle('settings:save', async (_event, settings: unknown) =>
     writeSettings(settings),
   );
+
+  // The only path allowed to replace a corrupt/unreadable settings file: the
+  // explicit Settings → "Reset settings" action (UI Sentinel F3).
+  ipcMain.handle('settings:reset', async () => resetSettings());
 
   ipcMain.handle('document-settings:save', async (_event, input: unknown) => {
     if (typeof input !== 'object' || input === null) {

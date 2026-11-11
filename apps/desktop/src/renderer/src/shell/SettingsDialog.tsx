@@ -894,7 +894,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                         type="button"
                         className="nf-button"
                         data-settings-reset="true"
-                        onClick={() => useSettingsStore.getState().resetSettingsToDefaults()}
+                        onClick={() =>
+                          void useSettingsStore.getState().resetSettingsToDefaults()
+                        }
                       >
                         Reset settings
                       </button>
@@ -1031,9 +1033,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                       data-settings-export-now="true"
                       onClick={() => {
                         // Flush every debounced Page edit first so the export
-                        // sheet reads the same resolved Page settings.
+                        // sheet reads the same resolved Page settings. Settings
+                        // stays open underneath: the Export sheet is a second
+                        // modal, and the overlay gate keeps both surfaces owned
+                        // until Export is dismissed (UI Sentinel F1).
                         void flushPendingSettingsEdits().then(() => {
-                          onCloseRef.current();
                           exportActiveDocument();
                         });
                       }}

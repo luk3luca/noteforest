@@ -23,11 +23,15 @@ function installBridge(overrides: {
   saveDocumentSettings?: (
     input: unknown,
   ) => Promise<{ ok: true } | { ok: false; message: string }>;
+  resetSettings?: () => Promise<{ ok: true } | { ok: false; message: string }>;
 }): void {
   (globalThis as { window?: unknown }).window = {
     noteforest: {
       saveSettings: overrides.saveSettings ?? (async () => ({ ok: true })),
       saveDocumentSettings: overrides.saveDocumentSettings ?? (async () => ({ ok: true })),
+      ...(overrides.resetSettings === undefined
+        ? {}
+        : { resetSettings: overrides.resetSettings }),
     },
   };
 }
@@ -274,6 +278,58 @@ describe('settings write coordinator (S2-5)', () => {
     expect(useSettingsStore.getState().resolvedPageSettings('/doc', 'doc-id').theme.density).toBe(
       0.8,
     );
+  });
+
+  it('clears the corrupt warning only after an explicit reset succeeds (F3)', async () => {
+    let resetCalls = 0;
+    installBridge({
+      resetSettings: async () => {
+        resetCalls += 1;
+        return { ok: true };
+      },
+    });
+    useSettingsStore.setState({ settingsStatus: { state: 'corrupt', message: 'bad json' } });
+
+    const result = await useSettingsStore.getState().resetSettingsToDefaults();
+    expect(result).toEqual({ ok: true });
+    expect(resetCalls).toBe(1);
+    expect(useSettingsStore.getState().settingsStatus).toEqual({ state: 'ok' });
+    expect(useSettingsStore.getState().saveState.status).toBe('saved');
+    expect(useSettingsStore.getState().app).toEqual(DEFAULT_APP_SETTINGS);
+  });
+
+  it('keeps the corrupt warning and the error visible when a reset fails (F3)', async () => {
+    installBridge({
+      resetSettings: async () => ({
+        ok: false,
+        message: 'settings.json is corrupt and was not overwritten',
+      }),
+    });
+    useSettingsStore.setState({ settingsStatus: { state: 'corrupt', message: 'bad json' } });
+
+    const result = await useSettingsStore.getState().resetSettingsToDefaults();
+    expect(result.ok).toBe(false);
+    expect(useSettingsStore.getState().settingsStatus.state).toBe('corrupt');
+    expect(useSettingsStore.getState().saveState).toEqual({
+      status: 'error',
+      message: 'settings.json is corrupt and was not overwritten',
+    });
+  });
+
+  it('never reports saved for an ordinary write refused over a corrupt file (F3)', async () => {
+    installBridge({
+      saveSettings: async () => ({
+        ok: false,
+        message: 'settings.json is corrupt and was not overwritten',
+      }),
+    });
+    useSettingsStore.setState({ settingsStatus: { state: 'corrupt', message: 'bad json' } });
+
+    useSettingsStore.getState().updateAppSettings({ page: { theme: { density: 0.8 } } });
+    const result = await flushSettingsWrites();
+    expect(result.ok).toBe(false);
+    expect(useSettingsStore.getState().settingsStatus.state).toBe('corrupt');
+    expect(useSettingsStore.getState().saveState.status).toBe('error');
   });
 });
 

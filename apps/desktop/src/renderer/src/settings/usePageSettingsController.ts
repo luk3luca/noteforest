@@ -36,6 +36,7 @@ import {
   PAGE_DENSITY_STEP,
 } from '@noteforest/layout';
 import { commitPageEdit } from '../page/page-edit-state';
+import { getRuntime } from '../state/registry';
 import {
   flushSettingsWrites,
   pageDensityPercent,
@@ -83,6 +84,12 @@ import {
   type PageThemeDraftValidation,
 } from './page-advanced';
 import { commitThenWritePageSettings } from './page-settings-write';
+import {
+  capturePageSettingsTarget,
+  pageSettingsTargetIsGone,
+  PAGE_SETTINGS_TARGET_CLOSED_MESSAGE,
+  type PageSettingsWriteTarget,
+} from './page-settings-target';
 
 export type PageSettingsScope = 'global' | 'document';
 
@@ -93,13 +100,13 @@ const THEME_DEBOUNCE_MS = 300;
 interface DensityPending {
   kind: 'density';
   percent: number;
-  layer: PageSettingsScope;
+  target: PageSettingsWriteTarget;
 }
 
 interface MarginsPending {
   kind: 'margins';
   margins: MarginsMm;
-  layer: PageSettingsScope;
+  target: PageSettingsWriteTarget;
 }
 
 /**
@@ -112,10 +119,16 @@ interface ThemePending {
   kind: 'theme';
   patch: Partial<Record<EditableThemeKey, number>>;
   custom: boolean;
-  layer: PageSettingsScope;
+  target: PageSettingsWriteTarget;
 }
 
 type PendingWrite = DensityPending | MarginsPending | ThemePending;
+
+/** One immediate write: the action plus the identity captured at its start. */
+interface ImmediateWrite {
+  apply: (target: PageSettingsWriteTarget) => void;
+  target: PageSettingsWriteTarget;
+}
 
 export interface PageSettingsController {
   scope: PageSettingsScope;
@@ -254,13 +267,27 @@ export function usePageSettingsController(
   const marginsTimer = useRef<number | null>(null);
   const themeTimer = useRef<number | null>(null);
   const lastAttempt = useRef<PendingWrite | null>(null);
-  const lastImmediate = useRef<(() => void) | null>(null);
+  const lastImmediate = useRef<ImmediateWrite | null>(null);
+  /** True after a write was skipped because its document closed (F2). */
+  const targetLost = useRef(false);
   const packagePathRef = useRef(packagePath);
   const documentIdRef = useRef(documentId);
   const scopeRef = useRef(scope);
   packagePathRef.current = packagePath;
   documentIdRef.current = documentId;
   scopeRef.current = scope;
+
+  /** Identity of the document/layer the next edit starts on (F2). */
+  const captureTarget = useCallback(
+    (): PageSettingsWriteTarget =>
+      capturePageSettingsTarget(scopeRef.current, packagePathRef.current, documentIdRef.current),
+    [],
+  );
+  const targetIsGone = useCallback(
+    (target: PageSettingsWriteTarget): boolean =>
+      pageSettingsTargetIsGone(target, (path) => getRuntime(path) !== null),
+    [],
+  );
 
   const syncDraftsFromStore = useCallback(
     (nextScope: PageSettingsScope) => {
@@ -364,14 +391,21 @@ export function usePageSettingsController(
     }
   };
 
-  const writePending = useCallback((pending: PendingWrite): void => {
+  /**
+   * Apply one pending Page settings edit to the store layer captured at its
+   * start (F2). Returns false when that target document is gone; the caller
+   * then reports a visible "not saved" state instead of `saved`.
+   *
+   * The path/id never come from the live refs: a tab switch, a document close,
+   * or a Settings remount cannot retarget the write.
+   */
+  const writePending = useCallback((pending: PendingWrite): boolean => {
     const state = useSettingsStore.getState();
-    const path = packagePathRef.current;
-    const id = documentIdRef.current;
-    if (pending.layer === 'document' && path === null) return;
+    const { scope: layer, packagePath: path, documentId: id } = pending.target;
+    if (layer === 'document' && (path === null || getRuntime(path) === null)) return false;
 
     if (pending.kind === 'density') {
-      if (pending.layer === 'document' && path !== null) {
+      if (layer === 'document' && path !== null) {
         const current = pageOverrideFor(state, path, id);
         const globalPercent = pageDensityPercent(state.app.page.theme.density);
         if (pending.percent === globalPercent) {
@@ -394,7 +428,7 @@ export function usePageSettingsController(
           page: { theme: { density: pageDensityValue(pending.percent) } },
         });
       }
-      return;
+      return true;
     }
 
     if (pending.kind === 'theme') {
@@ -404,17 +438,15 @@ export function usePageSettingsController(
         // Custom marker keeps exactly what the user saw, then apply the edits.
         const layerTheme = layerSettings(
           state.app,
-          pending.layer,
-          pending.layer === 'document' && path !== null
-            ? pageOverrideFor(state, path, id)
-            : undefined,
+          layer,
+          layer === 'document' && path !== null ? pageOverrideFor(state, path, id) : undefined,
         ).theme;
         const fullTheme: PageTheme = {
           ...layerTheme,
           ...pending.patch,
           preset: 'custom',
         };
-        if (pending.layer === 'document' && path !== null) {
+        if (layer === 'document' && path !== null) {
           state.setPageSettingsOverride(
             path,
             customThemeOverride(pageOverrideFor(state, path, id), fullTheme, globalTheme),
@@ -423,53 +455,66 @@ export function usePageSettingsController(
         } else {
           state.updateAppSettings({ page: { theme: fullTheme } });
         }
-        return;
+        return true;
       }
       const value = pending.patch.maxCardWidth;
-      if (value === undefined) return;
-      if (pending.layer === 'document' && path !== null) {
+      if (value === undefined) return true;
+      if (layer === 'document' && path !== null) {
         state.setPageSettingsOverride(
           path,
-          withThemeField(
-            pageOverrideFor(state, path, id),
-            'maxCardWidth',
-            value,
-            globalTheme,
-          ),
+          withThemeField(pageOverrideFor(state, path, id), 'maxCardWidth', value, globalTheme),
           id,
         );
       } else {
         state.updateAppSettings({ page: { theme: { maxCardWidth: value } } });
       }
-      return;
+      return true;
     }
 
-    if (pending.layer === 'document' && path !== null) {
+    if (layer === 'document' && path !== null) {
       const current = pageOverrideFor(state, path, id);
       state.setPageSettingsOverride(
         path,
         withMargins(current, pending.margins, state.app.page.setup) ?? null,
         id,
       );
-      return;
+      return true;
     }
     state.updateAppSettings({
       page: { setup: { margins: { ...pending.margins } } },
     });
+    return true;
   }, []);
 
   const applyPending = useCallback(
     async (pending: PendingWrite): Promise<boolean> => {
       setSaving(true);
       setCommitError(null);
+      const target = pending.target;
+      if (targetIsGone(target)) {
+        // The document closed after the edit started. Never write (the path is
+        // stale) and never report saved; the footer shows the reason.
+        lastAttempt.current = null;
+        targetLost.current = true;
+        setCommitError(PAGE_SETTINGS_TARGET_CLOSED_MESSAGE);
+        setSaving(false);
+        return false;
+      }
       lastAttempt.current = pending;
-      const path = packagePathRef.current;
       const outcome = await commitThenWritePageSettings({
-        packagePath: path,
+        packagePath: target.packagePath,
+        targetGone: () => targetIsGone(target),
         commit: commitPageEdit,
         apply: () => writePending(pending),
         flush: flushSettingsWrites,
       });
+      if (outcome === 'target-gone') {
+        lastAttempt.current = null;
+        targetLost.current = true;
+        setCommitError(PAGE_SETTINGS_TARGET_CLOSED_MESSAGE);
+        setSaving(false);
+        return false;
+      }
       if (outcome === 'commit-error') {
         setCommitError('Page Edit could not be committed. Retry after fixing the block.');
         setSaving(false);
@@ -479,7 +524,7 @@ export function usePageSettingsController(
       setSaving(false);
       return outcome === 'saved';
     },
-    [writePending],
+    [targetIsGone, writePending],
   );
 
   const takeDensity = (): DensityPending | null => {
@@ -524,9 +569,13 @@ export function usePageSettingsController(
   }, []);
 
   const scheduleDensity = (percent: number): void => {
-    const layer = scopeRef.current;
-    const pending: DensityPending = { kind: 'density', percent, layer };
+    const pending: DensityPending = {
+      kind: 'density',
+      percent,
+      target: captureTarget(),
+    };
     densityPending.current = pending;
+    targetLost.current = false;
     setSaving(true);
     setCommitError(null);
     clearDensityTimer();
@@ -538,9 +587,13 @@ export function usePageSettingsController(
   };
 
   const scheduleMargins = (margins: MarginsMm): void => {
-    const layer = scopeRef.current;
-    const pending: MarginsPending = { kind: 'margins', margins, layer };
+    const pending: MarginsPending = {
+      kind: 'margins',
+      margins,
+      target: captureTarget(),
+    };
     marginsPending.current = pending;
+    targetLost.current = false;
     setSaving(true);
     setCommitError(null);
     clearMarginsTimer();
@@ -555,9 +608,14 @@ export function usePageSettingsController(
     patch: Partial<Record<EditableThemeKey, number>>,
     custom: boolean,
   ): void => {
-    const layer = scopeRef.current;
-    const pending: ThemePending = { kind: 'theme', patch, custom, layer };
+    const pending: ThemePending = {
+      kind: 'theme',
+      patch,
+      custom,
+      target: captureTarget(),
+    };
     themePending.current = pending;
+    targetLost.current = false;
     setSaving(true);
     setCommitError(null);
     clearThemeTimer();
@@ -581,19 +639,37 @@ export function usePageSettingsController(
     })();
   };
 
-  /** One immediate write path: flush pending edits, commit Page Edit, write. */
-  const runImmediate = async (apply: () => void): Promise<boolean> => {
-    const flushed = await flushPending();
-    if (!flushed) return false;
+  /**
+   * One immediate write, bound to the target captured when it starts. `retry`
+   * replays the exact same target; a document that closed in between is
+   * reported instead of retargeted.
+   */
+  const executeImmediate = async (immediate: ImmediateWrite): Promise<boolean> => {
     setSaving(true);
     setCommitError(null);
-    lastImmediate.current = apply;
+    const { apply, target } = immediate;
+    if (targetIsGone(target)) {
+      lastImmediate.current = null;
+      targetLost.current = true;
+      setCommitError(PAGE_SETTINGS_TARGET_CLOSED_MESSAGE);
+      setSaving(false);
+      return false;
+    }
+    lastImmediate.current = immediate;
     const outcome = await commitThenWritePageSettings({
-      packagePath: packagePathRef.current,
+      packagePath: target.packagePath,
+      targetGone: () => targetIsGone(target),
       commit: commitPageEdit,
-      apply,
+      apply: () => apply(target),
       flush: flushSettingsWrites,
     });
+    if (outcome === 'target-gone') {
+      lastImmediate.current = null;
+      targetLost.current = true;
+      setCommitError(PAGE_SETTINGS_TARGET_CLOSED_MESSAGE);
+      setSaving(false);
+      return false;
+    }
     if (outcome === 'commit-error') {
       setCommitError('Page Edit could not be committed. Retry after fixing the block.');
       setSaving(false);
@@ -602,6 +678,16 @@ export function usePageSettingsController(
     if (outcome === 'saved') lastImmediate.current = null;
     setSaving(false);
     return outcome === 'saved';
+  };
+
+  /** One immediate write path: flush pending edits, commit Page Edit, write. */
+  const runImmediate = async (
+    apply: (target: PageSettingsWriteTarget) => void,
+  ): Promise<boolean> => {
+    targetLost.current = false;
+    const flushed = await flushPending();
+    if (!flushed) return false;
+    return executeImmediate({ apply, target: captureTarget() });
   };
 
   const canChangeSetup = (nextSize: PageSize, nextOrientation: Orientation): boolean => {
@@ -623,11 +709,11 @@ export function usePageSettingsController(
   const setSize = (size: PageSize): void => {
     if (size === layerSetup.size) return;
     if (!canChangeSetup(size, layerSetup.orientation)) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
-      const path = packagePathRef.current;
-      const id = documentIdRef.current;
-      if (scopeRef.current === 'document' && path !== null) {
+      const path = target.packagePath;
+      const id = target.documentId;
+      if (target.scope === 'document' && path !== null) {
         state.setPageSettingsOverride(
           path,
           withSetupField(pageOverrideFor(state, path, id), 'size', size, state.app.page.setup) ??
@@ -643,11 +729,11 @@ export function usePageSettingsController(
   const setOrientation = (orientation: Orientation): void => {
     if (orientation === layerSetup.orientation) return;
     if (!canChangeSetup(layerSetup.size, orientation)) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
-      const path = packagePathRef.current;
-      const id = documentIdRef.current;
-      if (scopeRef.current === 'document' && path !== null) {
+      const path = target.packagePath;
+      const id = target.documentId;
+      if (target.scope === 'document' && path !== null) {
         state.setPageSettingsOverride(
           path,
           withSetupField(
@@ -742,12 +828,14 @@ export function usePageSettingsController(
 
   const useGlobalSetup = (): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
       state.setPageSettingsOverride(
-        packagePath,
-        withoutSetup(pageOverrideFor(state, packagePath, documentId)) ?? null,
-        documentId,
+        path,
+        withoutSetup(pageOverrideFor(state, path, target.documentId)) ?? null,
+        target.documentId,
       );
       syncSetupDraftsFromStore('document');
     });
@@ -755,39 +843,45 @@ export function usePageSettingsController(
 
   const useGlobalSize = (): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
       state.setPageSettingsOverride(
-        packagePath,
-        withoutSetupField(pageOverrideFor(state, packagePath, documentId), 'size') ?? null,
-        documentId,
+        path,
+        withoutSetupField(pageOverrideFor(state, path, target.documentId), 'size') ?? null,
+        target.documentId,
       );
     });
   };
 
   const useGlobalOrientation = (): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
       state.setPageSettingsOverride(
-        packagePath,
+        path,
         withoutSetupField(
-          pageOverrideFor(state, packagePath, documentId),
+          pageOverrideFor(state, path, target.documentId),
           'orientation',
         ) ?? null,
-        documentId,
+        target.documentId,
       );
     });
   };
 
   const useGlobalMargin = (key: MarginKey): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
       state.setPageSettingsOverride(
-        packagePath,
-        withoutMargin(pageOverrideFor(state, packagePath, documentId), key) ?? null,
-        documentId,
+        path,
+        withoutMargin(pageOverrideFor(state, path, target.documentId), key) ?? null,
+        target.documentId,
       );
       syncSetupDraftsFromStore('document');
     });
@@ -795,12 +889,14 @@ export function usePageSettingsController(
 
   const useGlobalMargins = (): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
       state.setPageSettingsOverride(
-        packagePath,
-        withoutMargins(pageOverrideFor(state, packagePath, documentId)) ?? null,
-        documentId,
+        path,
+        withoutMargins(pageOverrideFor(state, path, target.documentId)) ?? null,
+        target.documentId,
       );
       syncSetupDraftsFromStore('document');
     });
@@ -818,12 +914,14 @@ export function usePageSettingsController(
 
   const useGlobalTheme = (): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
       state.setPageSettingsOverride(
-        packagePath,
-        withoutTheme(pageOverrideFor(state, packagePath, documentId)) ?? null,
-        documentId,
+        path,
+        withoutTheme(pageOverrideFor(state, path, target.documentId)) ?? null,
+        target.documentId,
       );
       syncThemeDraftsFromStore('document');
     });
@@ -831,25 +929,29 @@ export function usePageSettingsController(
 
   const useGlobalDensity = (): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
-      const current = pageOverrideFor(state, packagePath, documentId);
+      const path = target.packagePath;
+      if (path === null) return;
+      const current = pageOverrideFor(state, path, target.documentId);
       state.setPageSettingsOverride(
-        packagePath,
+        path,
         withoutPageDensityOverride(current) ?? null,
-        documentId,
+        target.documentId,
       );
     });
   };
 
   const useGlobalThemeField = (key: EditableThemeKey): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
       state.setPageSettingsOverride(
-        packagePath,
-        withoutThemeField(pageOverrideFor(state, packagePath, documentId), key) ?? null,
-        documentId,
+        path,
+        withoutThemeField(pageOverrideFor(state, path, target.documentId), key) ?? null,
+        target.documentId,
       );
       syncThemeDraftsFromStore('document');
     });
@@ -857,12 +959,14 @@ export function usePageSettingsController(
 
   const useGlobalAdvanced = (keys: readonly EditableThemeKey[]): void => {
     if (scopeRef.current !== 'document' || packagePath === null) return;
-    void runImmediate(() => {
+    void runImmediate((target) => {
       const state = useSettingsStore.getState();
+      const path = target.packagePath;
+      if (path === null) return;
       state.setPageSettingsOverride(
-        packagePath,
-        withoutThemeFields(pageOverrideFor(state, packagePath, documentId), keys) ?? null,
-        documentId,
+        path,
+        withoutThemeFields(pageOverrideFor(state, path, target.documentId), keys) ?? null,
+        target.documentId,
       );
       syncThemeDraftsFromStore('document');
     });
@@ -885,13 +989,13 @@ export function usePageSettingsController(
     ) {
       return;
     }
-    const applyPreset = (): void => {
+    const applyPreset = (target: PageSettingsWriteTarget): void => {
       const state = useSettingsStore.getState();
-      const path = packagePathRef.current;
-      const id = documentIdRef.current;
+      const path = target.packagePath;
+      const id = target.documentId;
       const current = pageOverrideFor(state, path, id);
       const currentDensity = state.app.page.theme.density;
-      if (scopeRef.current === 'document' && path !== null) {
+      if (target.scope === 'document' && path !== null) {
         const resolvedTheme = mergePageSettings(state.app.page, current).theme;
         if (preset === 'custom') {
           state.setPageSettingsOverride(
@@ -928,9 +1032,9 @@ export function usePageSettingsController(
       }
       state.updateAppSettings({ page: { theme: { preset, density: currentDensity } } });
     };
-    void runImmediate(() => {
-      applyPreset();
-      syncThemeDraftsFromStore(scopeRef.current);
+    void runImmediate((target) => {
+      applyPreset(target);
+      syncThemeDraftsFromStore(target.scope);
     });
   };
 
@@ -976,6 +1080,12 @@ export function usePageSettingsController(
   };
 
   const retry = (): void => {
+    if (targetLost.current) {
+      // The target is still gone: Retry cannot resurrect it, and claiming
+      // "saved" here would hide a write that never happened.
+      setCommitError(PAGE_SETTINGS_TARGET_CLOSED_MESSAGE);
+      return;
+    }
     setCommitError(null);
     const attempt = lastAttempt.current;
     if (attempt !== null) {
@@ -984,7 +1094,7 @@ export function usePageSettingsController(
     }
     const immediate = lastImmediate.current;
     if (immediate !== null) {
-      void runImmediate(immediate);
+      void executeImmediate(immediate);
       return;
     }
     useSettingsStore.getState().retrySettingsWrite();

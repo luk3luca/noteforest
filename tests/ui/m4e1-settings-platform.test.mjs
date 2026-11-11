@@ -2,7 +2,7 @@ import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { artifactsPath } from '../support/harness.mjs';
+import { artifactsPath, waitUntil } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import { multiPageBlocksDocument, writePagePackage } from '../support/page-fixtures.mjs';
 
@@ -22,7 +22,7 @@ import { multiPageBlocksDocument, writePagePackage } from '../support/page-fixtu
  */
 
 const tempRoot = artifactsPath('m4e1-ui');
-const screenshotDir = artifactsPath('ui-batch-a');
+const screenshotDir = artifactsPath('m4e1-settings');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
@@ -358,6 +358,77 @@ describe('M4e1 settings platform', () => {
       await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8'),
       '{not json',
     );
+
+    // UI Sentinel F3: an ordinary change must not overwrite the corrupt file.
+    // The write is refused, the footer never claims success, and the warning and
+    // backup stay exactly as they were.
+    const slider = page.locator('[data-page-density-slider]');
+    await slider.focus();
+    await slider.press('ArrowLeft');
+    await page.waitForSelector('[data-settings-save-error="true"]', { timeout: 15000 });
+    assert.equal(
+      await page.locator('[data-settings-status]').getAttribute('data-settings-status'),
+      'error',
+      'a refused write is never reported as saved',
+    );
+    assert.match(
+      await page.locator('[data-settings-save-error="true"]').innerText(),
+      /corrupt/i,
+      'the refusal explains that the file is corrupt',
+    );
+    assert.equal(
+      await page.locator('[data-settings-warning="corrupt"]').isVisible(),
+      true,
+      'the corrupt warning stays visible',
+    );
+    assert.equal(
+      await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8'),
+      '{not json',
+      'the ordinary change left the corrupt bytes untouched',
+    );
+    assert.equal(
+      await readFile(join(env.NOTEFOREST_APP_SUPPORT, backup), 'utf8'),
+      '{not json',
+      'the corrupt backup is untouched',
+    );
+
+    // The explicit Reset is the only path that replaces the file.
+    await page.locator('[data-settings-reset="true"]').click();
+    await page.waitForSelector('[data-settings-warning="corrupt"]', { state: 'detached' });
+    await page.waitForFunction(
+      () => window.__noteforestTest.settings().saveState.status === 'saved',
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal(
+      await page.locator('[data-settings-status]').getAttribute('data-settings-status'),
+      'saved',
+      'the successful reset reports saved',
+    );
+    const resetBytes = await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8');
+    const resetFile = JSON.parse(resetBytes);
+    assert.equal(resetFile.settingsVersion, 2, 'the reset writes a valid current file');
+    assert.equal(resetFile.page.theme.density, 1, 'the reset restores the product defaults');
+    assert.equal(
+      await readFile(join(env.NOTEFOREST_APP_SUPPORT, backup), 'utf8'),
+      '{not json',
+      'a successful reset keeps the corrupt evidence',
+    );
+
+    // Once the file is valid again, ordinary changes save.
+    await slider.focus();
+    await slider.press('ArrowLeft');
+    await waitUntil(async () => {
+      try {
+        const stored = JSON.parse(
+          await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8'),
+        );
+        return stored.page?.theme?.density === 0.95;
+      } catch {
+        return false;
+      }
+    }, 'the post-reset change is written', 15000);
+    assert.equal(await page.locator('[data-settings-warning="corrupt"]').count(), 0);
     await closeSettings();
   });
 

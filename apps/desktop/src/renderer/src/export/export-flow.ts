@@ -47,6 +47,12 @@ export type ExportUiStatus =
 
 export interface ExportUiState {
   status: ExportUiStatus;
+  /**
+   * Document captured when the sheet opened. Every later step (Page Edit
+   * commit, preflight, job start) uses this path; a tab switch behind the sheet
+   * can never retarget the export.
+   */
+  packagePath: string | null;
   jobId: string | null;
   outputPath: string | null;
   documentTitle: string | null;
@@ -76,6 +82,7 @@ export interface ExportUiState {
 
 const IDLE: ExportUiState = {
   status: 'idle',
+  packagePath: null,
   jobId: null,
   outputPath: null,
   documentTitle: null,
@@ -251,6 +258,7 @@ async function openExportSheet(trigger: HTMLElement | null): Promise<void> {
     update({
       ...IDLE,
       status: 'configure',
+      packagePath: runtime.packagePath,
       documentTitle: runtime.title,
       folder,
       baseName,
@@ -317,18 +325,20 @@ export async function startExport(): Promise<void> {
       return;
     }
     // A Page Edit may have opened after the sheet (or a previous commit may
-    // have failed). Commit it now: a failure blocks the job and keeps the
-    // overlay's text.
-    const runtime = getRuntime(useShell.getState().activeTab);
-    if (runtime === null) {
+    // have failed). Commit it now for the pinned document: a failure blocks the
+    // job and keeps the overlay's text.
+    const packagePath = state.packagePath;
+    const runtime = getRuntime(packagePath);
+    if (packagePath === null || runtime === null) {
       fail({
         code: 'document-not-open',
-        message: 'The document is not open.',
+        message:
+          'The document this export was started for is no longer open. Reopen it and export again; no file was written.',
         details: [],
       });
       return;
     }
-    if (!(await commitPageEdit(runtime.packagePath))) {
+    if (!(await commitPageEdit(packagePath))) {
       fail({
         code: 'snapshot-failed',
         message: 'Could not commit the Page Edit block before the PDF export.',
@@ -371,19 +381,22 @@ export function cancelReplaceExport(): void {
 }
 
 async function runExport(outputPath: string, overwrite: boolean): Promise<void> {
-  const shell = useShell.getState();
-  const runtime = getRuntime(shell.activeTab);
-  if (runtime === null) {
-    fail({ code: 'document-not-open', message: 'The document is not open.', details: [] });
+  const current = useExportUi.getState();
+  const runtime = getRuntime(current.packagePath);
+  if (current.packagePath === null || runtime === null) {
+    fail({
+      code: 'document-not-open',
+      message:
+        'The document this export was started for is no longer open. Reopen it and export again; no file was written.',
+      details: [],
+    });
     return;
   }
-  const current = useExportUi.getState();
   const run = ++activeRun;
   update({
     ...current,
     status: 'running',
     outputPath,
-    documentTitle: runtime.title,
     overwrite,
     jobId: null,
     phase: 'queued',

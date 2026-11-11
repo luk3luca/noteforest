@@ -3,7 +3,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_APP_SETTINGS } from '@noteforest/layout';
-import { readSettings, readSettingsFile, writeSettings } from '../src/main/library';
+import {
+  readSettings,
+  readSettingsFile,
+  resetSettings,
+  writeSettings,
+} from '../src/main/library';
 
 let root = '';
 let support = '';
@@ -188,5 +193,61 @@ describe('global settings persistence', () => {
     expect(second).toEqual({ ok: true });
     const stored = await readRaw();
     expect(stored['page']).toMatchObject({ theme: { density: 1.1 } });
+  });
+
+  it('refuses an implicit write over a corrupt settings.json and keeps the bytes and backup (F3)', async () => {
+    await fs.mkdir(support, { recursive: true });
+    await fs.writeFile(settingsFile(), '{not json', 'utf8');
+    // The read creates the one backup; the refused write must not touch it.
+    const read = await readSettingsFile();
+    expect(read.status.state).toBe('corrupt');
+    const backupsBefore = (await fs.readdir(support)).filter((name) =>
+      /^settings\.corrupt-.*\.json$/.test(name),
+    );
+    expect(backupsBefore).toHaveLength(1);
+
+    const refused = await writeSettings({ page: { theme: { density: 0.95 } } });
+    expect(refused.ok).toBe(false);
+    expect(refused.ok === false ? refused.message : '').toMatch(/corrupt/i);
+    expect(await fs.readFile(settingsFile(), 'utf8')).toBe('{not json');
+    const backupsAfter = (await fs.readdir(support)).filter((name) =>
+      /^settings\.corrupt-.*\.json$/.test(name),
+    );
+    expect(backupsAfter).toEqual(backupsBefore);
+    expect(await fs.readFile(path.join(support, backupsBefore[0]!), 'utf8')).toBe('{not json');
+  });
+
+  it('re-checks the file at write time so a corruption after bootstrap is refused (F3)', async () => {
+    expect(await writeSettings({ page: { theme: { density: 0.9 } } })).toEqual({ ok: true });
+    await fs.writeFile(settingsFile(), '{half', 'utf8');
+    const refused = await writeSettings({ page: { theme: { density: 1.1 } } });
+    expect(refused.ok).toBe(false);
+    expect(await fs.readFile(settingsFile(), 'utf8')).toBe('{half');
+  });
+
+  it('replaces a corrupt file only through the explicit reset and keeps the backup (F3)', async () => {
+    await fs.mkdir(support, { recursive: true });
+    await fs.writeFile(settingsFile(), '{not json', 'utf8');
+    const read = await readSettingsFile();
+    expect(read.status.state).toBe('corrupt');
+
+    const reset = await resetSettings();
+    expect(reset).toEqual({ ok: true });
+    const stored = await readRaw();
+    expect(stored['settingsVersion']).toBe(2);
+    expect(stored['page']).toEqual(
+      JSON.parse(JSON.stringify(DEFAULT_APP_SETTINGS.page)) as unknown,
+    );
+    // The damaged evidence survives the reset.
+    const backups = (await fs.readdir(support)).filter((name) =>
+      /^settings\.corrupt-.*\.json$/.test(name),
+    );
+    expect(backups.length).toBeGreaterThanOrEqual(1);
+    expect(await fs.readFile(path.join(support, backups[0]!), 'utf8')).toBe('{not json');
+
+    // The file is valid again, so an ordinary change saves.
+    expect(await readSettingsFile().then((result) => result.status)).toEqual({ state: 'ok' });
+    expect(await writeSettings({ page: { theme: { density: 1.05 } } })).toEqual({ ok: true });
+    expect((await readRaw())['page']).toMatchObject({ theme: { density: 1.05 } });
   });
 });

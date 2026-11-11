@@ -67,6 +67,7 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('session:save', state),
   saveSettings: (settings: AppSettings): Promise<SettingsSaveResult> =>
     ipcRenderer.invoke('settings:save', settings),
+  resetSettings: (): Promise<SettingsSaveResult> => ipcRenderer.invoke('settings:reset'),
   saveDocumentSettings: (input): Promise<DocumentSettingsSaveResult> =>
     ipcRenderer.invoke('document-settings:save', input),
   setWindowState: (state: WindowState): Promise<void> =>

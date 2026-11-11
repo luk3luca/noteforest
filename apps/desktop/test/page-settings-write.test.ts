@@ -75,4 +75,50 @@ describe('Page settings write ordering', () => {
     expect(outcome).toBe('write-error');
     expect(recorder.calls).toEqual(['commit:/doc', 'apply', 'flush']);
   });
+
+  it('skips commit, write, and flush when the captured target is already gone', async () => {
+    const recorder = recordingWrite();
+    const outcome = await commitThenWritePageSettings({
+      packagePath: '/doc',
+      targetGone: () => true,
+      commit: recorder.commit,
+      apply: recorder.apply,
+      flush: recorder.flush,
+    });
+    expect(outcome).toBe('target-gone');
+    expect(recorder.calls).toEqual([]);
+  });
+
+  it('re-checks the target after the commit and never reports a skipped write as saved', async () => {
+    const recorder = recordingWrite();
+    let gone = false;
+    const outcome = await commitThenWritePageSettings({
+      packagePath: '/doc',
+      targetGone: () => gone,
+      commit: async (path) => {
+        const committed = await recorder.commit(path);
+        gone = true; // the document closed while the commit was awaiting
+        return committed;
+      },
+      apply: recorder.apply,
+      flush: recorder.flush,
+    });
+    expect(outcome).toBe('target-gone');
+    expect(recorder.calls).toEqual(['commit:/doc']);
+  });
+
+  it('reports target-gone when the apply step refused to write', async () => {
+    const recorder = recordingWrite();
+    const outcome = await commitThenWritePageSettings({
+      packagePath: '/doc',
+      commit: recorder.commit,
+      apply: () => {
+        recorder.calls.push('apply');
+        return false;
+      },
+      flush: recorder.flush,
+    });
+    expect(outcome).toBe('target-gone');
+    expect(recorder.calls).toEqual(['commit:/doc', 'apply']);
+  });
 });

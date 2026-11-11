@@ -4,7 +4,7 @@
 through a small worker pool. It does not build; `npm run test:ui` builds first.
 
 ```bash
-npm run test:ui                 # build + all 43 suites
+npm run test:ui                 # build + all suites in tests/ui/suites.mjs
 npm run test:ui:core            # shell + settings only (quick loop)
 npm run test:ui:shell
 npm run test:ui:settings
@@ -16,8 +16,19 @@ node tests/ui/run.mjs --list
 ```
 
 `verify` now runs `verify:fast`, recovery, then the runner once; it no longer
-repeats the 43-command chain in two package scripts. `verify:ui:core` is the
-same chain limited to the shell + settings groups.
+repeats the per-file command chain in two package scripts. `verify:ui:core` is
+the same chain limited to the shell + settings groups.
+
+The suite list and groups live in `tests/ui/suites.mjs` (pure data, imported by
+`run.mjs`). `apps/desktop/test/ui-suite-list.test.ts` asserts that list equals
+`tests/ui/*.test.mjs` exactly, so adding or removing a suite without updating
+`suites.mjs` fails the unit gate.
+
+Each suite owns one evidence directory (`artifacts/ui-batch-a`,
+`artifacts/m4e1-settings`, `artifacts/m4d1-page-density`,
+`artifacts/m4d2-export-ui`, ...). A `before` hook only deletes its own temp,
+output, and screenshot directories, so a parallel run cannot remove another
+suite's screenshots.
 
 ## Why
 
