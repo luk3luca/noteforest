@@ -1,6 +1,6 @@
 # UI settings — Batch C implementation report
 
-**Status:** Complete on `design/ui-map` lineage; ready for Orchestrator review and merge.
+**Status:** Merged into `design/ui-map` (not `main`) after the full verify; visual batch next.
 **Role:** Implementer / Builder
 **Task:** `docs/tasks/ui-settings-advanced.md`
 **Branch:** `t3/ui-settings-advanced-batch-c`
@@ -182,9 +182,21 @@ changed for that test. The Batch B Custom→Compact path now exercises the new w
 - Base: `7eb9f40`
 - Head at handback: this report commit on top of `712fdc8`
 
+## Integration
+
+- Full `npm run verify` on `35edd06`: **exit 0** — 106 unit files / 1071 tests, 16/16 e2e,
+  14/14 recovery, 42 UI suites (Batch C included), no failures, 0 pageErrors. The Batch B Page
+  Edit typing flake did not recur.
+- Batch C was merged fast-forward into `design/ui-map` (not `main`) from `7eb9f40` to `35edd06`.
+- Screenshots copied to `artifacts/ui-settings-advanced/` (6 images; ignored by git).
+- Known residual risks: cross-field validation is group-wide; a global max-card-only customization
+  triggers the preset warning because the preset write replaces the whole theme; child-indent uses
+  the hidden trunk inset. These are honest UX nuances for the product-owner visual pass.
+
 ## Next step
 
-Orchestrator review, full `npm run verify`, and merge into `design/ui-map` (not `main`). The
-product-owner visual/VoiceOver pass should include the Custom preset warning and the cross-field
-body/heading interaction. The visual refinement batch follows Batch C, then `design/ui-map` merges
-to `main`.
+The visual refinement batch follows Batch C (Settings fixed width, toast, tabs, canvas inset), then
+`design/ui-map` merges to `main`. Future blocks (Appearance v3, Export defaults, Page chrome,
+manual breaks, Data recovery, Continuous global, Editor/General) stay planned; External API/agent
+access is not a Settings page. The product-owner visual/VoiceOver pass should include the Custom
+preset warning and the cross-field body/heading interaction.

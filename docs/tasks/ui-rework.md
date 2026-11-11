@@ -218,11 +218,11 @@ To avoid one delegate restart per design page, the implementation is consolidate
 - **Batch B — Page settings/PDF (merged 11 November 2026, `34e4ade`):** P3 Page settings
   (setup/orientation/margins, live preview, validation, density/preset, scope/override), the
   Page/PDF-affecting work, and only the remaining P5 parity required by that path.
-- **Batch C — Page advanced typography/layout (next):** frozen PageTheme fields, first-class
-  `maxCardWidth` and the advanced typography/layout groups; no schema. Brief:
-  `docs/tasks/ui-settings-advanced.md`.
-- **Batch V — visual refinement (after C):** Settings fixed width, toast tokens, tab behavior,
-  canvas inset. Then `design/ui-map` merges to `main`.
+- **Batch C — Page advanced typography/layout (merged 11 November 2026, `35edd06`):** frozen
+  PageTheme fields, first-class `maxCardWidth` and the advanced typography/layout groups; no schema.
+  Brief: `docs/tasks/ui-settings-advanced.md`; report: `docs/reports/ui-batch-c.md`.
+- **Batch V — visual refinement (next):** Settings fixed width, toast tokens, tab behavior, canvas
+  inset. Then `design/ui-map` merges to `main`.
 - Future functions (Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks,
   Data recovery, library/backup, light/search) remain empty/planned; no fake controls.
   **External API/agent access is removed from Settings** (product owner, 11 November 2026): any
@@ -254,10 +254,10 @@ Page sheet, paginator, print compositor, or PDF output.
 - Export: Batch A merged; 560 px sheet, no native save dialog, all states, grouped warnings.
 - Palette: Batch A merged; commands/documents/blocks, search, keyboard, disabled reasons, empty
   state, read-mode gating.
-- Page: Batch B merged; Page Read/Edit/measurement/PDF parity at A4/A5/Letter, portrait/landscape,
-  margins, density 60/100/120, and document overrides.
-- Next: Batch C Page advanced typography/layout (brief `docs/tasks/ui-settings-advanced.md`), then
-  the visual refinement batch (Settings fixed width, toast, tabs, canvas inset), then merge
+- Page: Batch B + C merged; Page Read/Edit/measurement/PDF parity at A4/A5/Letter,
+  portrait/landscape, margins, density 60/100/120, document overrides, advanced typography/layout,
+  and first-class max card width.
+- Next: Batch V visual refinement (Settings fixed width, toast, tabs, canvas inset), then merge
   `design/ui-map` to `main`. Future pages remain planned/empty (Appearance v3, Export defaults,
   Continuous global, Page chrome, manual breaks, Data recovery, library/backup, light/search).
   External API/agent access is not a Settings page; MCP/commands only if pursued.

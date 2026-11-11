@@ -434,11 +434,10 @@ header (C preferred, D alternative), sidebar, status, Page frame, Settings (inst
 palette, overlays/keyboard, responsive/accessibility, and the future settings pages.
 
 Implementation is consolidated into **delivery batches**: **A** (shell, Settings shell, Export,
-Palette; non-Page/PDF), **B** (Page settings, Page/PDF-affecting work), and **C** (Page advanced
-typography/layout), with P1–P6 as acceptance checkpoints inside them. Batch A is merged at
-`af815eb`; Batch B is merged at `34e4ade` (full verify green; reports
-`docs/reports/ui-batch-a.md`, `docs/reports/ui-batch-b.md`). Batch C is next
-(`docs/tasks/ui-settings-advanced.md`), then the visual refinement batch, then `design/ui-map`
-merges to `main`. External API/agent access is removed from Settings; any future agent surface is
-MCP/commands, not a Settings harness/agent page. Future pages stay empty in the lab and out of the
-product until a real control exists.
+Palette; non-Page/PDF), **B** (Page settings, Page/PDF-affecting work), **C** (Page advanced
+typography/layout), and **V** (visual refinement), with P1–P6 as acceptance checkpoints inside them.
+Batch A is merged at `af815eb`; Batch B at `34e4ade`; Batch C at `35edd06` (full verify green;
+reports `docs/reports/ui-batch-a.md`, `ui-batch-b.md`, `ui-batch-c.md`). Batch V is next, then
+`design/ui-map` merges to `main`. External API/agent access is removed from Settings; any future
+agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay empty in the
+lab and out of the product until a real control exists.
