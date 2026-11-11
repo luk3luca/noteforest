@@ -87,6 +87,7 @@ import { commitThenWritePageSettings } from './page-settings-write';
 import {
   capturePageSettingsTarget,
   pageSettingsTargetIsGone,
+  runImmediatePageSettingsWrite,
   PAGE_SETTINGS_TARGET_CLOSED_MESSAGE,
   type PageSettingsWriteTarget,
 } from './page-settings-target';
@@ -680,14 +681,21 @@ export function usePageSettingsController(
     return outcome === 'saved';
   };
 
-  /** One immediate write path: flush pending edits, commit Page Edit, write. */
-  const runImmediate = async (
+  /**
+   * One immediate write path: capture the target, flush pending edits, commit
+   * Page Edit, write. The capture happens before the flush (F2): the flush can
+   * await a Page Edit commit and settings IPC, and a tab/layer change in that
+   * window must not retarget the write.
+   */
+  const runImmediate = (
     apply: (target: PageSettingsWriteTarget) => void,
   ): Promise<boolean> => {
     targetLost.current = false;
-    const flushed = await flushPending();
-    if (!flushed) return false;
-    return executeImmediate({ apply, target: captureTarget() });
+    return runImmediatePageSettingsWrite({
+      captureTarget,
+      flushPending,
+      execute: (target) => executeImmediate({ apply, target }),
+    });
   };
 
   const canChangeSetup = (nextSize: PageSize, nextOrientation: Orientation): boolean => {

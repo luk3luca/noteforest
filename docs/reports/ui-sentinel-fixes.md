@@ -6,6 +6,8 @@
 - Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-19bfe10f-e087c17c96db4ff0`
 - Branch: `t3/ui-sentinel-fixes`
 - Brief: `docs/tasks/ui-sentinel-fixes.md`; review: `docs/reviews/ui-post-merge-review.md` (F1–F3, F4, F7)
+- Heads: first batch `38daf71`; **correction head is this commit** (exact SHA in the handoff message),
+  which adds the immediate-write target correction described in §1 “F2 correction”.
 
 ## 1. Summary
 
@@ -51,6 +53,23 @@ change.
   before and after the commit plus a `target-gone` outcome when `apply` refuses. A scope switch still
   flushes on the layer that was typed on.
 
+#### F2 correction — immediate write target captured before the flush
+
+An integration review found that `runImmediate` captured its target **after** `await flushPending()`.
+The flush can await a Page Edit commit and the settings IPC, so a tab/layer change in that window
+retargeted an immediate size/orientation/preset/Use-global/reset write to the newly active document —
+the same cross-document F2 class this batch fixes. Fixed by extracting
+`runImmediatePageSettingsWrite` in `settings/page-settings-target.ts`: it captures the target first,
+then flushes, then executes the captured target. `usePageSettingsController.runImmediate` now delegates
+to it; `executeImmediate` still re-checks the captured target before and after the commit, so a
+document that closes during the flush is still reported as “not saved”.
+
+A deterministic UI repro is not reliable here (the defect window is exactly a real commit/IPC
+round-trip), so the regression is the unit contract in `page-settings-target.test.ts`: “captures before
+the flush and executes the captured target unchanged” switches the live identity to another document
+inside `flushPending` and asserts the original target is executed. The existing UI F2 tests (tab switch
+during the debounce, closed document) still cover the user paths.
+
 ### F3 — corrupt global settings
 
 - `writeSettings` now re-reads `settings.json` at write time and refuses an implicit write when the
@@ -87,7 +106,8 @@ Product:
 - `apps/desktop/src/renderer/src/shell/overlay-owner.ts` (new)
 - `apps/desktop/src/renderer/src/App.tsx`
 - `apps/desktop/src/renderer/src/export/export-flow.ts`
-- `apps/desktop/src/renderer/src/settings/page-settings-target.ts` (new)
+- `apps/desktop/src/renderer/src/settings/page-settings-target.ts` (new; also owns the corrected
+  `runImmediatePageSettingsWrite` capture-before-flush contract)
 - `apps/desktop/src/renderer/src/settings/page-settings-write.ts`
 - `apps/desktop/src/renderer/src/settings/usePageSettingsController.ts`
 - `apps/desktop/src/renderer/src/state/settings.ts`
@@ -123,11 +143,11 @@ and the corrupt-settings `m4e1` test now additionally proves refusal + reset.
 |---|---|---:|
 | `npm run check:boundaries` (in verify) | 178 files, 877 imports, 16 rules | pass |
 | `npm run typecheck` (in verify) | all workspaces clean | pass |
-| `npm test` (in verify, final) | 109 files / 1096 tests passed (baseline 107/1075; +2 files/+21 tests) | 2.68 s |
+| `npm test` (in verify on `38daf71`) | 109 files / 1096 tests passed; after the correction 109 files / **1099** tests | 2.68 s |
 | `npm run e2e` (in verify) | 16/16 passed | 44.03 s node-test |
 | `npm run test:recovery:run` (in verify) | 14/14 passed | 17.46 s |
 | UI runner, default pool 8 (in verify) | 44/44 passed, 0 pageErrors | 95.8 s |
-| **`npm run verify` total** | **exit 0** | **166.35 s (2:46.35)** |
+| `npm run verify` total (on `38daf71`, before the F2 correction) | **exit 0** | **166.35 s (2:46.35)** |
 | UI run #1 at default concurrency (explicit) | 44/44 passed | 95.5 s |
 | UI run #2 at default concurrency (explicit) | 44/44 passed | 95.4 s |
 | Evidence coexistence after the two runs | `ui-batch-a` 7 files, `m4e1-settings` 1, `m4d1-page-density` 3, `m4d2-export-ui` 6, `ui-overlay-command-gate` 3 | pass |
@@ -135,6 +155,11 @@ and the corrupt-settings `m4e1` test now additionally proves refusal + reset.
 | `m4e1-settings-platform` alone | 4/4 passed | 12.1 s |
 | Timeout injection (`NOTEFOREST_UI_TIMEOUT_MS=800`, `--concurrency 1 --fail-fast`) | `FAIL m2-view.test.mjs (0.8s, timed out after 0.8 s)`, exit 1 | 0.8 s |
 | Targeted impacted suites while working (batch A/B, batch V/C, m4d1, m4d2, m2-shell, m4b1a2, m4b1b1, r1b) | all passed | — |
+| **Correction:** `npm run typecheck` | clean | — |
+| **Correction:** `npx vitest run` page-settings-target/-write, settings, settings-store, ui-suite-list | 5 files / 53 tests | 0.24 s |
+| **Correction:** `npm run verify:fast` | exit 0; boundaries 178/877, unit 109 files / **1099** tests, e2e 16/16 | 52.80 s |
+| **Correction:** `ui-overlay-command-gate` + `m4e1-settings-platform` | 11/11 tests (7 + 4) | — |
+| Full `npm run verify` after the correction | intentionally **not re-run**; integration runs it on this head | — |
 
 ## 4. Acceptance criteria
 
@@ -142,11 +167,11 @@ and the corrupt-settings `m4e1` test now additionally proves refusal + reset.
 |---|---|---|
 | Export open for B: `⌘1`, `Ctrl+Tab`, native close/tab command do not change the active tab; Export writes B’s content to B’s filename. If B closes, Export fails clearly and writes nothing. | Pass | `ui-overlay-command-gate` › “pins Export to the document it opened for…” (asserts pinned `packagePath`, PDF text contains only BETA-MARKER, filename `Overlay Beta.pdf`, no command changes the snapshot) and “fails a pinned export clearly…” (`document-not-open`, empty output directory). |
 | With Settings open, tab/layout/mode/palette/new/close/save/reopen/open/export/sidebar commands and zoom keys do nothing; typing, Escape/Done, palette row execution, native cut/copy/paste/quit keep working. | Pass | `ui-overlay-command-gate` › “keeps Settings, shortcut keys, and native menu commands behind Settings” (⌘1/2/3/E/K/W/N/„, zoom, focus, ⌘⇧E, five native menu commands; margin typing saves; Edit role items `cut/copy/paste/selectall` and app-menu `quit` remain enabled) and “gates the command channel behind the palette while its own rows run” (arrow/Enter/row execution, palette-local ⌘K toggle, Escape). |
-| A document-scoped margin/theme/density edit followed by a tab/document change during the debounce lands on the typed document or is discarded with a visible “not saved” state; never another document, never `saved` without a write. | Pass | `ui-overlay-command-gate` › “writes a debounced document edit to the document where it was typed” (B override `margins.top: 25`, A has no entry, footer saved) and “…reports a visible not-saved state…” (error footer with the closed-target message, no `26` written anywhere, Retry keeps the error, Done closes). Unit: `page-settings-target.test.ts` (6), `page-settings-write.test.ts` (+3 skipped-target cases). |
+| A document-scoped margin/theme/density edit followed by a tab/document change during the debounce lands on the typed document or is discarded with a visible “not saved” state; never another document, never `saved` without a write. | Pass | `ui-overlay-command-gate` › “writes a debounced document edit to the document where it was typed” (B override `margins.top: 25`, A has no entry, footer saved) and “…reports a visible not-saved state…” (error footer with the closed-target message, no `26` written anywhere, Retry keeps the error, Done closes). Unit: `page-settings-target.test.ts` (6 target tests + 3 immediate capture-before-flush tests, including the correction), `page-settings-write.test.ts` (+3 skipped-target cases). |
 | Corrupt global `settings.json` is not overwritten by an ordinary change (bytes unchanged, warning and backup intact, footer not Saved); explicit Reset replaces it with defaults, clears the warning, later changes save. | Pass | `m4e1-settings-platform` › “backs up a corrupt settings.json and warns in Settings (S2-5)” extended: slider change → status `error` + `/corrupt/`, bytes and backup unchanged, warning visible; Reset → warning detached, footer saved, valid schema-2 defaults, backup kept; next slider change writes `0.95`. Unit: `settings.test.ts` (refusal, corruption after bootstrap, reset + backup) and `settings-store.test.ts` (warning clears only on reset success, refused write never saved). |
 | Four evidence directories distinct and coexist after a parallel run; no cross-suite delete. | Pass | `ui-suite-list.test.ts` static guard (one directory per suite, no other suite names `ui-batch-a`); two explicit 44/44 runs at concurrency 8 left all four directories with their own files (see §3). |
 | Runner meta-test fails if a suite is added/removed without `suites.mjs`; timeout prints an explicit reason and fails the gate. | Pass | `ui-suite-list.test.ts` compares `FILES` to `tests/ui/*.test.mjs` exactly; timeout injection prints `timed out after 0.8 s` and exits 1; formatter unit tests cover pass/exit/signal/timeout lines. |
-| Regressions: new UI test F1/F2, extended `m4e1` F3, unit tests corrupt-write + reset and write-target, runner meta/formatter. | Pass | Files in §2; unit 109/1096 and UI 44/44 above. |
+| Regressions: new UI test F1/F2, extended `m4e1` F3, unit tests corrupt-write + reset and write-target (including the immediate capture-before-flush contract), runner meta/formatter. | Pass | Files in §2; unit 109 files / 1099 tests after the correction and UI 44/44 above. |
 | `npm run verify` exit 0 with real timings; UI 43+ suites at the default pool, no pageErrors; no existing assertion weakened/deleted. | Pass | Final verify exit 0, 166.35 s, 44/44 UI, 0 pageErrors; diff review shows only additions/stricter expectations. |
 
 ## 5. Open questions / risks
@@ -164,6 +189,10 @@ and the corrupt-settings `m4e1` test now additionally proves refusal + reset.
   behavior; no fs lock is introduced (out of scope).
 - **Settings closed during a skipped write:** when Settings is already closed, the “not saved” message
   has no surface. That is the tracked F9 (Settings close error visibility), not weakened here.
+- **Immediate-write regression is unit-level:** the capture-before-flush defect only appears when a
+  tab/layer change lands inside a real commit/IPC round-trip, which a UI test cannot make
+  deterministic without adding a test-only delay hook; the extracted helper is unit-tested instead,
+  and the existing UI F2 paths still exercise `runImmediate`.
 - **UI timing:** one manual run of two Electron suites in parallel (outside the runner) missed a 5 s
   wait in `ui-batch-b` once; every gate run at concurrency 8 (four full runs) was green. No retries or
   sleeps were added.

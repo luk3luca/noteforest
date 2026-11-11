@@ -44,3 +44,29 @@ export function pageSettingsTargetIsGone(
   if (target.packagePath === null) return true;
   return !isOpen(target.packagePath);
 }
+
+/** One immediate Page settings action (size, orientation, preset, reset, …). */
+export interface ImmediatePageSettingsWrite<T> {
+  captureTarget: () => T;
+  /** Flushes debounced edits; it can await a Page Edit commit and settings IPC. */
+  flushPending: () => Promise<boolean>;
+  execute: (target: T) => Promise<boolean>;
+}
+
+/**
+ * Run one immediate Page settings write bound to the identity captured when it
+ * starts.
+ *
+ * The capture must happen **before** `flushPending`: the flush can await a Page
+ * Edit commit and the settings IPC, and a tab/layer change in that window must
+ * not retarget the immediate write to another document. Capturing after the
+ * flush is exactly the cross-document F2 defect this helper prevents.
+ */
+export async function runImmediatePageSettingsWrite<T>(
+  write: ImmediatePageSettingsWrite<T>,
+): Promise<boolean> {
+  const target = write.captureTarget();
+  const flushed = await write.flushPending();
+  if (!flushed) return false;
+  return write.execute(target);
+}
