@@ -5152,18 +5152,77 @@ body.nf-dragging-block .nf-gutter-handle {
 
 /* ------------------------------------------------------------------ sonner */
 
-[data-sonner-toast] {
-  background: var(--surface-3) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text) !important;
-  border-radius: var(--radius-overlay) !important;
+/*
+ * Batch V toast tokens. The container is tokenized already; this aligns the
+ * internals with the app surface, radius, typography, and semantic colors
+ * without changing duration, stacking, actions, or dismissal behavior.
+ */
+[data-sonner-toaster] {
+  --width: 340px !important;
   font-family: var(--ui-font) !important;
-  font-size: 12.5px !important;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35) !important;
 }
 
-[data-sonner-toast][data-type="error"] {
-  border-color: rgb(217 139 139 / 0.4) !important;
+[data-sonner-toaster] [data-sonner-toast][data-styled='true'] {
+  padding: 12px 14px !important;
+  background: var(--surface-3) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-panel) !important;
+  color: var(--text) !important;
+  font-family: var(--ui-font) !important;
+  font-size: 12.5px !important;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-title] {
+  color: var(--text) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-description] {
+  color: var(--text-secondary) !important;
+  font-size: 11.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-icon] {
+  width: 16px !important;
+  height: 16px !important;
+  color: var(--text-secondary);
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-icon] svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.5;
+}
+
+[data-sonner-toast][data-type='success'] [data-icon] {
+  color: var(--success) !important;
+}
+
+[data-sonner-toast][data-type='info'] [data-icon] {
+  color: var(--accent) !important;
+}
+
+[data-sonner-toast][data-type='warning'] [data-icon] {
+  color: var(--warning) !important;
+}
+
+[data-sonner-toast][data-type='error'] [data-icon] {
+  color: var(--danger) !important;
+}
+
+@keyframes nf-toast-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+[data-sonner-toast] .nf-toast-loading {
+  animation: nf-toast-spin 1s linear infinite;
 }
 
 /* ------------------------------------------------------------- export sheet */

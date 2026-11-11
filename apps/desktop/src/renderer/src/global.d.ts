@@ -20,6 +20,12 @@ declare global {
       state: () => unknown;
       viewState?: () => unknown;
       openPath: (packagePath: string) => Promise<boolean>;
+      /** Test-only: show one tokenized toast without adding a toast API. */
+      showToast?: (
+        type: 'success' | 'info' | 'warning' | 'error',
+        title: string,
+        description?: string,
+      ) => void;
       flushSession: () => Promise<void>;
       setFlushMode: (mode: 'normal' | 'error' | 'hang') => void;
       /** Test-only: visible M4d2 export surface state. */

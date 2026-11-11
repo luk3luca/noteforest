@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
+import { CircleCheck, CircleX, Info, LoaderCircle, TriangleAlert } from 'lucide-react';
 import type { FlushResult, MenuCommand } from '../../shared/api';
 import { TitleBar } from './shell/TitleBar';
 import { Workspace } from './shell/Workspace';
@@ -49,6 +50,26 @@ import { buildPrintModel } from '@noteforest/pdf';
 import { perfSnapshot, summarize } from './lib/perf';
 
 type FlushTestMode = 'normal' | 'error' | 'hang';
+
+/**
+ * Batch V toast icons: the app's outline language at 16 px / 1.5 stroke,
+ * coloured per type by the toast CSS. Sonner's default filled/bright icons are
+ * deliberately replaced; the toast API and its behavior stay unchanged.
+ */
+const TOAST_ICONS = {
+  success: <CircleCheck size={16} strokeWidth={1.5} aria-hidden="true" />,
+  info: <Info size={16} strokeWidth={1.5} aria-hidden="true" />,
+  warning: <TriangleAlert size={16} strokeWidth={1.5} aria-hidden="true" />,
+  error: <CircleX size={16} strokeWidth={1.5} aria-hidden="true" />,
+  loading: (
+    <LoaderCircle
+      size={16}
+      strokeWidth={1.5}
+      className="nf-toast-loading"
+      aria-hidden="true"
+    />
+  ),
+};
 
 /**
  * Commands with a renderer-owned accelerator are deliberately exempt from the
@@ -541,6 +562,17 @@ export function App(): JSX.Element {
       },
       openPath: async (packagePath: string) => openPath(packagePath),
       viewState: () => structuredClone(useShell.getState().viewByDoc),
+      /**
+       * Test-only visual probe for the tokenized toast. It calls the same
+       * public toast helpers the product uses; it adds no toast API.
+       */
+      showToast: (type, title, description) => {
+        const options = description === undefined ? undefined : { description };
+        if (type === 'success') toast.success(title, options);
+        else if (type === 'info') toast.info(title, options);
+        else if (type === 'warning') toast.warning(title, options);
+        else toast.error(title, options);
+      },
       applyStructural: async (command) => {
         const state = useShell.getState();
         const runtime = allRuntimes().find(
@@ -771,7 +803,12 @@ export function App(): JSX.Element {
       <Dialogs />
       <ContextMenu />
       <ExportSheet />
-      <Toaster theme="dark" position="bottom-right" closeButton={false} />
+      <Toaster
+        theme="dark"
+        position="bottom-right"
+        closeButton={false}
+        icons={TOAST_ICONS}
+      />
     </div>
   );
 }
