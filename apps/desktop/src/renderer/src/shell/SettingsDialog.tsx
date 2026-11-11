@@ -198,6 +198,10 @@ export function SettingsDialog({
   const documentSettingsStatus = useSettingsStore(
     (state) => state.documentSettingsStatus,
   );
+  const documentSettingsBackup = useSettingsStore(
+    (state) => state.documentSettingsBackup,
+  );
+  const dismissedWarnings = useSettingsStore((state) => state.dismissedWarnings);
   const saveState = useSettingsStore((state) => state.saveState);
   const pageSettings = usePageSettingsController(
     packagePath,
@@ -208,6 +212,14 @@ export function SettingsDialog({
   const [page, setPage] = useState<SettingsPageId>(initialPage);
   const [shortcutQuery, setShortcutQuery] = useState('');
   const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [globalResetError, setGlobalResetError] = useState<string | null>(null);
+  const [documentRecoveryConfirm, setDocumentRecoveryConfirm] = useState<
+    'reset' | 'restore' | null
+  >(null);
+  const [documentRecoveryBusy, setDocumentRecoveryBusy] = useState(false);
+  const [documentRecoveryError, setDocumentRecoveryError] = useState<string | null>(
+    null,
+  );
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -322,6 +334,36 @@ export function SettingsDialog({
   const documentStatusWarning =
     documentSettingsStatus.state === 'corrupt' ||
     documentSettingsStatus.state === 'unreadable';
+  const globalRecoveryAvailable =
+    settingsStatus.state === 'corrupt' || settingsStatus.state === 'unreadable';
+  const documentRecoveryAvailable =
+    documentSettingsStatus.state === 'corrupt' ||
+    documentSettingsStatus.state === 'unreadable';
+
+  const runGlobalReset = async (): Promise<void> => {
+    setGlobalResetError(null);
+    const result = await useSettingsStore.getState().resetSettingsToDefaults();
+    if (!result.ok) setGlobalResetError(result.message);
+  };
+
+  const runDocumentRecovery = async (kind: 'reset' | 'restore'): Promise<void> => {
+    setDocumentRecoveryBusy(true);
+    setDocumentRecoveryError(null);
+    try {
+      const store = useSettingsStore.getState();
+      const result =
+        kind === 'reset'
+          ? await store.resetDocumentSettings()
+          : await store.restoreDocumentSettingsBackup();
+      if (!result.ok) {
+        setDocumentRecoveryError(result.message);
+        return;
+      }
+      setDocumentRecoveryConfirm(null);
+    } finally {
+      setDocumentRecoveryBusy(false);
+    }
+  };
 
   const stepMargin = (key: MarginKey, delta: number): void => {
     const current = parseMm(pageSettings.marginDrafts[key]) ?? pageSettings.layerSetup.margins[key];
@@ -886,7 +928,7 @@ export function SettingsDialog({
               ))}
             </nav>
             <section className="nf-settings-pane" aria-label={NAV_ITEMS[pageIndex]?.label ?? 'Settings'}>
-              {statusWarning ? (
+              {statusWarning && !dismissedWarnings.global ? (
                 <div
                   className="nf-settings-warning"
                   role="alert"
@@ -908,14 +950,12 @@ export function SettingsDialog({
                     </p>
                   )}
                   <div className="nf-dialog-inline-actions">
-                    {settingsStatus.state === 'corrupt' ? (
+                    {globalRecoveryAvailable ? (
                       <button
                         type="button"
                         className="nf-button"
                         data-settings-reset="true"
-                        onClick={() =>
-                          void useSettingsStore.getState().resetSettingsToDefaults()
-                        }
+                        onClick={() => void runGlobalReset()}
                       >
                         Reset settings
                       </button>
@@ -929,9 +969,18 @@ export function SettingsDialog({
                       Dismiss
                     </button>
                   </div>
+                  {globalResetError === null ? null : (
+                    <p
+                      className="nf-settings-help"
+                      role="alert"
+                      data-settings-recovery-error="true"
+                    >
+                      {globalResetError}
+                    </p>
+                  )}
                 </div>
               ) : null}
-              {documentStatusWarning ? (
+              {documentStatusWarning && !dismissedWarnings.document ? (
                 <div
                   className="nf-settings-warning"
                   role="alert"
@@ -939,21 +988,33 @@ export function SettingsDialog({
                 >
                   <p>
                     Per-document settings could not be read. Open documents use the global
-                    defaults.
+                    defaults until you reset or restore the map.
                   </p>
                   {documentSettingsStatus.message === undefined ? null : (
                     <p className="nf-settings-help">{documentSettingsStatus.message}</p>
                   )}
-                  <button
-                    type="button"
-                    className="nf-button"
-                    data-document-settings-dismiss-warning="true"
-                    onClick={() =>
-                      useSettingsStore.getState().dismissSettingsWarning('document')
-                    }
-                  >
-                    Dismiss
-                  </button>
+                  <div className="nf-dialog-inline-actions">
+                    {documentRecoveryAvailable ? (
+                      <button
+                        type="button"
+                        className="nf-button"
+                        data-document-settings-reset-banner="true"
+                        onClick={() => setPage('data')}
+                      >
+                        Recover in Data &amp; About
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="nf-button"
+                      data-document-settings-dismiss-warning="true"
+                      onClick={() =>
+                        useSettingsStore.getState().dismissSettingsWarning('document')
+                      }
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               ) : null}
               {activePage === 'general' ? (
@@ -1173,11 +1234,167 @@ export function SettingsDialog({
                         </dd>
                       </div>
                     </dl>
+                    {settingsStatus.message === undefined ? null : (
+                      <p className="nf-settings-help" data-settings-file-message="true">
+                        {settingsStatus.message}
+                      </p>
+                    )}
+                    {settingsStatus.backupPath === undefined ? null : (
+                      <p className="nf-settings-help" data-settings-backup-path="true">
+                        A copy of the damaged file is kept at{' '}
+                        <code>{settingsStatus.backupPath}</code>.
+                      </p>
+                    )}
                     {settingsStatus.migrated === true ? (
                       <p className="nf-settings-help" data-settings-migrated="true">
                         Settings were upgraded to the current format. Existing values were kept.
                       </p>
                     ) : null}
+                    {globalRecoveryAvailable ? (
+                      <>
+                        <p className="nf-settings-help">
+                          Reset replaces settings.json with the product defaults. The damaged
+                          copy above is kept; note content is not affected.
+                        </p>
+                        <button
+                          type="button"
+                          className="nf-button"
+                          data-settings-reset-file="true"
+                          onClick={() => void runGlobalReset()}
+                        >
+                          Reset settings
+                        </button>
+                      </>
+                    ) : null}
+                    {globalResetError === null ? null : (
+                      <p
+                        className="nf-settings-help"
+                        role="alert"
+                        data-settings-file-recovery-error="true"
+                      >
+                        {globalResetError}
+                      </p>
+                    )}
+                  </section>
+                  <section className="nf-settings-section" data-document-settings-section="true">
+                    <h4 className="nf-settings-section-title">Document settings</h4>
+                    <dl className="nf-settings-list">
+                      <div>
+                        <dt>Status</dt>
+                        <dd data-document-settings-file-status={documentSettingsStatus.state}>
+                          {statusLabel(documentSettingsStatus.state)}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="nf-settings-help">
+                      Per-document page overrides live in document-settings.json. Resetting or
+                      restoring this map never changes note content.
+                    </p>
+                    {documentSettingsStatus.message === undefined ? null : (
+                      <p
+                        className="nf-settings-help"
+                        data-document-settings-message="true"
+                      >
+                        {documentSettingsStatus.message}
+                      </p>
+                    )}
+                    {documentSettingsStatus.backupPath === undefined ? null : (
+                      <p
+                        className="nf-settings-help"
+                        data-document-settings-corrupt-backup-path="true"
+                      >
+                        A copy of the damaged file is kept at{' '}
+                        <code>{documentSettingsStatus.backupPath}</code>.
+                      </p>
+                    )}
+                    {documentSettingsBackup === null ? null : (
+                      <p
+                        className="nf-settings-help"
+                        data-document-settings-backup-path="true"
+                      >
+                        Newest valid backup:{' '}
+                        <code>{documentSettingsBackup.path}</code>
+                      </p>
+                    )}
+                    <div className="nf-dialog-inline-actions">
+                      {documentRecoveryAvailable ? (
+                        <button
+                          type="button"
+                          className="nf-button"
+                          data-document-settings-reset="true"
+                          disabled={documentRecoveryBusy}
+                          onClick={() => {
+                            setDocumentRecoveryError(null);
+                            setDocumentRecoveryConfirm('reset');
+                          }}
+                        >
+                          Reset map
+                        </button>
+                      ) : null}
+                      {documentSettingsBackup === null ? null : (
+                        <button
+                          type="button"
+                          className="nf-button"
+                          data-document-settings-restore="true"
+                          disabled={documentRecoveryBusy}
+                          onClick={() => {
+                            setDocumentRecoveryError(null);
+                            setDocumentRecoveryConfirm('restore');
+                          }}
+                        >
+                          Restore backup
+                        </button>
+                      )}
+                    </div>
+                    {documentRecoveryConfirm === null ? null : (
+                      <div
+                        className="nf-settings-warning"
+                        role="group"
+                        aria-label={
+                          documentRecoveryConfirm === 'reset'
+                            ? 'Confirm reset map'
+                            : 'Confirm restore backup'
+                        }
+                        data-document-settings-confirm-panel={documentRecoveryConfirm}
+                      >
+                        <p>
+                          {documentRecoveryConfirm === 'reset'
+                            ? 'This removes all per-document page overrides. Note content is not affected.'
+                            : 'Restore the newest valid backup over the current document settings map? The current file is backed up first. Note content is not affected.'}
+                        </p>
+                        <div className="nf-dialog-inline-actions">
+                          <button
+                            type="button"
+                            className="nf-button nf-button-primary"
+                            data-document-settings-confirm={documentRecoveryConfirm}
+                            disabled={documentRecoveryBusy}
+                            onClick={() =>
+                              void runDocumentRecovery(documentRecoveryConfirm)
+                            }
+                          >
+                            {documentRecoveryConfirm === 'reset' ? 'Reset map' : 'Restore backup'}
+                          </button>
+                          <button
+                            type="button"
+                            className="nf-button"
+                            data-document-settings-cancel="true"
+                            disabled={documentRecoveryBusy}
+                            onClick={() => setDocumentRecoveryConfirm(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {documentRecoveryError === null ? null : (
+                      <p
+                        className="nf-settings-help"
+                        role="alert"
+                        data-document-settings-recovery-error="true"
+                      >
+                        {documentRecoveryError}
+                      </p>
+                    )}
                   </section>
                   <section className="nf-settings-section">
                     <h4 className="nf-settings-section-title">About</h4>

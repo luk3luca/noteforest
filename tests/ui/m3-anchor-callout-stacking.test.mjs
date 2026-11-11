@@ -480,8 +480,8 @@ describe('NoteForest M3g4/M3h1 callout stacking and active state', () => {
 
     await parentCard.scrollIntoViewIfNeeded();
     await h.waitLayout({ blocks: 7, arrows: 3 });
-    await mkdir(artifactsPath('m3g1'), { recursive: true });
-    await h.screenshot(artifactsPath('m3g1', 'idle-anchor-1440x900.png'), {
+    await mkdir(artifactsPath('m3-anchor-callout-stacking'), { recursive: true });
+    await h.screenshot(artifactsPath('m3-anchor-callout-stacking', 'idle-anchor-1440x900.png'), {
       width: 1440,
       height: 900,
     });

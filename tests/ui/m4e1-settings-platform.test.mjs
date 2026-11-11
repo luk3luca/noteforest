@@ -331,7 +331,7 @@ describe('M4e1 settings platform', () => {
     );
   });
 
-  it('backs up a corrupt settings.json and warns in Settings (S2-5)', async () => {
+  it('backs up a corrupt settings.json and warns in Settings', async () => {
     const env = ui.isolated('m4e1-corrupt');
     await mkdir(env.NOTEFOREST_APP_SUPPORT, { recursive: true });
     await writeFile(
@@ -432,7 +432,7 @@ describe('M4e1 settings platform', () => {
     await closeSettings();
   });
 
-  it('shows a failed settings write instead of a false saved state (S2-5)', async () => {
+  it('shows a failed settings write instead of a false saved state', async () => {
     const env = ui.isolated('m4e1-write-failure');
     await launch('m4e1-write-failure', env);
     await openSettingsWithShortcut();

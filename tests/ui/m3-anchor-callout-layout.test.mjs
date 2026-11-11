@@ -424,8 +424,8 @@ describe('NoteForest M3b2c/M3g callout layout and geometry', () => {
     );
     await parentCard.scrollIntoViewIfNeeded();
     await h.waitLayout({ blocks: 11, arrows: 7 });
-    await mkdir(artifactsPath('m3g1'), { recursive: true });
-    await h.screenshot(artifactsPath('m3g1', 'below-stack-1440x900.png'), {
+    await mkdir(artifactsPath('m3-anchor-callout-layout'), { recursive: true });
+    await h.screenshot(artifactsPath('m3-anchor-callout-layout', 'below-stack-1440x900.png'), {
       width: 1440,
       height: 900,
     });

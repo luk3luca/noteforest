@@ -24,6 +24,14 @@ function installBridge(overrides: {
     input: unknown,
   ) => Promise<{ ok: true } | { ok: false; message: string }>;
   resetSettings?: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  resetDocumentSettings?: () => Promise<
+    | { ok: true; entries: unknown[]; backupPath?: string; backup: unknown }
+    | { ok: false; message: string }
+  >;
+  restoreDocumentSettingsBackup?: () => Promise<
+    | { ok: true; entries: unknown[]; backupPath?: string; backup: unknown }
+    | { ok: false; message: string }
+  >;
 }): void {
   (globalThis as { window?: unknown }).window = {
     noteforest: {
@@ -32,6 +40,12 @@ function installBridge(overrides: {
       ...(overrides.resetSettings === undefined
         ? {}
         : { resetSettings: overrides.resetSettings }),
+      ...(overrides.resetDocumentSettings === undefined
+        ? {}
+        : { resetDocumentSettings: overrides.resetDocumentSettings }),
+      ...(overrides.restoreDocumentSettingsBackup === undefined
+        ? {}
+        : { restoreDocumentSettingsBackup: overrides.restoreDocumentSettingsBackup }),
     },
   };
 }
@@ -330,6 +344,153 @@ describe('settings write coordinator (S2-5)', () => {
     expect(result.ok).toBe(false);
     expect(useSettingsStore.getState().settingsStatus.state).toBe('corrupt');
     expect(useSettingsStore.getState().saveState.status).toBe('error');
+  });
+});
+
+describe('settings recovery affordances (S3-2, S3-13)', () => {
+  it('dismisses the global banner without clearing the read status', () => {
+    useSettingsStore.setState({
+      settingsStatus: { state: 'unreadable', message: 'EACCES: permission denied' },
+    });
+    useSettingsStore.getState().dismissSettingsWarning('global');
+    expect(useSettingsStore.getState().dismissedWarnings).toEqual({
+      global: true,
+      document: false,
+    });
+    // The real status stays for Data & About and for the refused-write path.
+    expect(useSettingsStore.getState().settingsStatus).toEqual({
+      state: 'unreadable',
+      message: 'EACCES: permission denied',
+    });
+  });
+
+  it('dismisses the document banner without clearing the map status', () => {
+    useSettingsStore.setState({
+      documentSettingsStatus: { state: 'corrupt', message: 'bad json' },
+    });
+    useSettingsStore.getState().dismissSettingsWarning('document');
+    expect(useSettingsStore.getState().dismissedWarnings.document).toBe(true);
+    expect(useSettingsStore.getState().documentSettingsStatus).toEqual({
+      state: 'corrupt',
+      message: 'bad json',
+    });
+  });
+
+  it('re-shows a successful reset status over a dismissed banner', async () => {
+    installBridge({ resetSettings: async () => ({ ok: true }) });
+    useSettingsStore.setState({
+      settingsStatus: { state: 'corrupt', message: 'bad json' },
+      dismissedWarnings: { global: true, document: false },
+    });
+    const result = await useSettingsStore.getState().resetSettingsToDefaults();
+    expect(result).toEqual({ ok: true });
+    expect(useSettingsStore.getState().settingsStatus).toEqual({ state: 'ok' });
+    expect(useSettingsStore.getState().dismissedWarnings.global).toBe(false);
+  });
+
+  it('clears the document map and overrides after an explicit reset succeeds', async () => {
+    installBridge({
+      resetDocumentSettings: async () => ({ ok: true, entries: [], backup: null }),
+    });
+    useSettingsStore.setState({
+      documentSettings: [
+        { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.8 } } },
+      ],
+      pageOverrides: { '/doc': { theme: { density: 0.8 } } },
+      documentSettingsStatus: { state: 'corrupt', message: 'bad json' },
+      dismissedWarnings: { global: false, document: true },
+    });
+
+    const result = await useSettingsStore.getState().resetDocumentSettings();
+    expect(result).toEqual({ ok: true });
+    const store = useSettingsStore.getState();
+    expect(store.documentSettings).toEqual([]);
+    expect(store.pageOverrides).toEqual({});
+    expect(store.documentSettingsStatus).toEqual({ state: 'ok' });
+    expect(store.documentSettingsBackup).toBeNull();
+    expect(store.dismissedWarnings.document).toBe(false);
+    expect(store.saveState.status).toBe('saved');
+    expect(store.resolvedPageSettings('/doc', 'doc-id')).toEqual(store.app.page);
+  });
+
+  it('keeps the map and the corrupt status when a reset fails', async () => {
+    installBridge({
+      resetDocumentSettings: async () => ({
+        ok: false,
+        message: 'Could not save document settings: EACCES',
+      }),
+    });
+    const entry = {
+      documentId: 'doc-id',
+      packagePath: '/doc',
+      page: { theme: { density: 0.8 } },
+    };
+    useSettingsStore.setState({
+      documentSettings: [entry],
+      pageOverrides: { '/doc': { theme: { density: 0.8 } } },
+      documentSettingsStatus: { state: 'corrupt', message: 'bad json' },
+    });
+
+    const result = await useSettingsStore.getState().resetDocumentSettings();
+    expect(result.ok).toBe(false);
+    const store = useSettingsStore.getState();
+    expect(store.documentSettings).toEqual([entry]);
+    expect(store.documentSettingsStatus.state).toBe('corrupt');
+    expect(store.saveState).toEqual({
+      status: 'error',
+      message: 'Could not save document settings: EACCES',
+    });
+  });
+
+  it('loads a restored backup into entries, page overrides, and the backup view', async () => {
+    const backup = { path: '/support/document-settings.backup-2026.json', createdAt: '2026-11-11T10:00:00.000Z' };
+    installBridge({
+      restoreDocumentSettingsBackup: async () => ({
+        ok: true,
+        entries: [
+          { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.85 } } },
+        ],
+        backupPath: '/support/document-settings.backup-2026b.json',
+        backup,
+      }),
+    });
+    useSettingsStore.setState({
+      documentSettingsStatus: { state: 'corrupt', message: 'bad json' },
+      dismissedWarnings: { global: false, document: true },
+    });
+
+    const result = await useSettingsStore.getState().restoreDocumentSettingsBackup();
+    expect(result).toEqual({ ok: true });
+    const store = useSettingsStore.getState();
+    expect(store.documentSettings).toEqual([
+      { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.85 } } },
+    ]);
+    expect(store.pageOverrides['/doc']).toEqual({ theme: { density: 0.85 } });
+    expect(store.documentSettingsStatus).toEqual({ state: 'ok' });
+    expect(store.documentSettingsBackup).toEqual(backup);
+    expect(store.dismissedWarnings.document).toBe(false);
+  });
+
+  it('keeps the corrupt status and current entries when a restore fails', async () => {
+    installBridge({
+      restoreDocumentSettingsBackup: async () => ({
+        ok: false,
+        message: 'No valid document settings backup was found.',
+      }),
+    });
+    useSettingsStore.setState({
+      documentSettingsStatus: { state: 'corrupt', message: 'bad json' },
+      documentSettings: [],
+      pageOverrides: {},
+    });
+    const result = await useSettingsStore.getState().restoreDocumentSettingsBackup();
+    expect(result.ok).toBe(false);
+    const store = useSettingsStore.getState();
+    expect(store.documentSettingsStatus.state).toBe('corrupt');
+    expect(store.saveState).toEqual({
+      status: 'error',
+      message: 'No valid document settings backup was found.',
+    });
   });
 });
 

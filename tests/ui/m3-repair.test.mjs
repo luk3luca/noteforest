@@ -365,8 +365,8 @@ describe('M3e anchor repair and health', () => {
       1,
     );
     assert.deepEqual(await structure(), before, 'candidate selection does not mutate');
-    await mkdir(artifactsPath('m3h2'), { recursive: true });
-    await h.screenshot(artifactsPath('m3h2', 'anchor-repair-preview-1440x900.png'), {
+    await mkdir(artifactsPath('m3-repair'), { recursive: true });
+    await h.screenshot(artifactsPath('m3-repair', 'anchor-repair-preview-1440x900.png'), {
       width: 1440,
       height: 900,
     });

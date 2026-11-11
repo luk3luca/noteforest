@@ -798,8 +798,8 @@ describe('NoteForest M3d1 reference edges', () => {
     assert.ok(parentRowText.includes('Delete parent'));
     assert.deepEqual(await structure(), beforeDelete, 'opening the dialog mutates nothing');
 
-    await mkdir(artifactsPath('m3h2'), { recursive: true });
-    await h.screenshot(artifactsPath('m3h2', 'delete-reference-disclosure-1440x900.png'), {
+    await mkdir(artifactsPath('m3-reference'), { recursive: true });
+    await h.screenshot(artifactsPath('m3-reference', 'delete-reference-disclosure-1440x900.png'), {
       width: 1440,
       height: 900,
     });

@@ -168,6 +168,38 @@ export interface DocumentSettingsSaveInput {
 
 export type DocumentSettingsSaveResult = SettingsSaveResult;
 
+/**
+ * One restorable `document-settings.json` backup. The path is opaque to the
+ * renderer: the main process chooses the newest valid file, backs up the
+ * current map first, and re-validates it before replacing anything.
+ */
+export interface DocumentSettingsBackupView {
+  path: string;
+  createdAt: string;
+}
+
+/**
+ * Explicit document-map recovery (S3-13/S3-3). `entries` is the map the
+ * renderer store must now use; `backup` is the newest valid backup after the
+ * action, so the Data page can offer Restore without another round trip.
+ */
+export interface DocumentSettingsRecoverySuccess {
+  ok: true;
+  entries: DocumentSettingsEntry[];
+  /** Copy of the file that was replaced; absent when there was no file. */
+  backupPath?: string;
+  backup: DocumentSettingsBackupView | null;
+}
+
+export interface DocumentSettingsRecoveryFailure {
+  ok: false;
+  message: string;
+}
+
+export type DocumentSettingsRecoveryResult =
+  | DocumentSettingsRecoverySuccess
+  | DocumentSettingsRecoveryFailure;
+
 export interface SessionTabState {
   packagePath: string;
   scrollTop: number;
@@ -205,6 +237,8 @@ export interface BootstrapResult {
   documentSettings: DocumentSettingsEntry[];
   /** Read status of `document-settings.json`. */
   documentSettingsStatus: SettingsFileStatus;
+  /** Newest valid map backup, when Restore backup can be offered. */
+  documentSettingsBackup: DocumentSettingsBackupView | null;
   openDocuments: OpenDocumentSnapshot[];
   /** Session tabs whose package is damaged, missing, or newer than this app. */
   recoveries: RecoveryDocumentView[];
@@ -500,6 +534,17 @@ export interface NoteForestApi {
   resetSettings(): Promise<SettingsSaveResult>;
   /** Upsert/clear one durable per-document override. */
   saveDocumentSettings(input: DocumentSettingsSaveInput): Promise<DocumentSettingsSaveResult>;
+  /**
+   * Explicit map reset: back up the current `document-settings.json`, then
+   * atomically replace it with an empty map. The only path allowed to recover a
+   * corrupt/unreadable map; ordinary saves stay refused until it succeeds.
+   */
+  resetDocumentSettings(): Promise<DocumentSettingsRecoveryResult>;
+  /**
+   * Restore the newest valid map backup. The current file is backed up first
+   * and the backup is validated; an invalid backup never replaces the map.
+   */
+  restoreDocumentSettingsBackup(): Promise<DocumentSettingsRecoveryResult>;
   setWindowState(state: WindowState): Promise<void>;
   onMenu(handler: (command: MenuCommand) => void): () => void;
   onRequestFlush(handler: () => Promise<FlushResult>): () => void;

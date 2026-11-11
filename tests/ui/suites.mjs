@@ -53,6 +53,7 @@ export const FILES = [
   'ui-editor-shortcuts.test.mjs',
   'ui-batch-v.test.mjs',
   'ui-overlay-command-gate.test.mjs',
+  'ui-settings-recovery.test.mjs',
 ];
 
 function unique(values) {
@@ -75,6 +76,7 @@ export const GROUPS = {
     'ui-batch-b.test.mjs',
     'ui-settings-advanced.test.mjs',
     'ui-editor-shortcuts.test.mjs',
+    'ui-settings-recovery.test.mjs',
     'ui-overlay-command-gate.test.mjs',
   ],
   anchors: [

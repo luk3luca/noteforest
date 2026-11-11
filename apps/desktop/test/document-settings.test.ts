@@ -12,9 +12,14 @@ import {
 } from '../src/shared/document-settings';
 import {
   documentSettingsPath,
+  findNewestValidDocumentSettingsBackup,
   flushDocumentSettingsWrites,
+  listDocumentSettingsBackups,
   migrateLegacySessionOverrides,
+  parseDocumentSettingsBackup,
   readDocumentSettingsFile,
+  resetDocumentSettings,
+  restoreDocumentSettingsBackup,
   saveDocumentSettings,
   writeDocumentSettingsFile,
 } from '../src/main/document-settings';
@@ -238,5 +243,181 @@ describe('document settings file', () => {
     ]);
     const read = await readDocumentSettingsFile(support);
     expect(read.entries).toEqual(migrated.entries);
+  });
+});
+
+async function mapEntries(): Promise<unknown[]> {
+  const parsed = JSON.parse(
+    await fs.readFile(documentSettingsPath(support), 'utf8'),
+  ) as { entries: unknown[] };
+  return parsed.entries;
+}
+
+async function backupNames(): Promise<string[]> {
+  return (await fs.readdir(support))
+    .filter((name) => /^document-settings\.backup-.*\.json$/.test(name))
+    .sort();
+}
+
+async function writeBackup(name: string, value: unknown): Promise<string> {
+  const target = path.join(support, name);
+  await fs.writeFile(target, JSON.stringify(value), 'utf8');
+  return target;
+}
+
+describe('document settings recovery (S3-13)', () => {
+  it('resets a corrupt map to an empty one, keeps a backup, and re-enables saves', async () => {
+    await fs.writeFile(documentSettingsPath(support), '{broken', 'utf8');
+    const read = await readDocumentSettingsFile(support);
+    expect(read.status.state).toBe('corrupt');
+
+    const reset = await resetDocumentSettings(support);
+    expect(reset.ok).toBe(true);
+    if (!reset.ok) return;
+    expect(reset.entries).toEqual([]);
+    // The current (corrupt) bytes are copied aside; the copy is not restorable.
+    expect(reset.backupPath).toBeTruthy();
+    expect(await fs.readFile(reset.backupPath!, 'utf8')).toBe('{broken');
+    expect(reset.backup).toBeNull();
+    expect(await mapEntries()).toEqual([]);
+    // The read-time corrupt backup is preserved and the file is valid now.
+    const corrupt = (await fs.readdir(support)).filter((name) =>
+      /^document-settings\.corrupt-.*\.json$/.test(name),
+    );
+    expect(corrupt).toHaveLength(1);
+    expect(await fs.readFile(path.join(support, corrupt[0]!), 'utf8')).toBe('{broken');
+    expect(await readDocumentSettingsFile(support)).toEqual({
+      entries: [],
+      status: { state: 'ok' },
+    });
+
+    // An ordinary override saves again only after the explicit reset.
+    expect(
+      await saveDocumentSettings(support, {
+        documentId: 'doc-id',
+        packagePath: '/doc',
+        page: { theme: { density: 0.9 } },
+      }),
+    ).toEqual({ ok: true });
+    expect(await mapEntries()).toHaveLength(1);
+  });
+
+  it('refuses ordinary saves while the map is unreadable and resets explicitly', async () => {
+    await writeDocumentSettingsFile(support, [
+      { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.8 } } },
+    ]);
+    await fs.chmod(documentSettingsPath(support), 0o000);
+    try {
+      const read = await readDocumentSettingsFile(support);
+      expect(read.status.state).toBe('unreadable');
+      const refused = await saveDocumentSettings(support, {
+        documentId: 'doc-id',
+        packagePath: '/doc',
+        page: { theme: { density: 1.1 } },
+      });
+      expect(refused.ok).toBe(false);
+    } finally {
+      await fs.chmod(documentSettingsPath(support), 0o600);
+    }
+
+    const reset = await resetDocumentSettings(support);
+    expect(reset.ok).toBe(true);
+    expect(await mapEntries()).toEqual([]);
+    expect(await readDocumentSettingsFile(support)).toEqual({
+      entries: [],
+      status: { state: 'ok' },
+    });
+  });
+
+  it('restores the newest valid backup and backs up the current file first', async () => {
+    await writeDocumentSettingsFile(support, [
+      { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.85 } } },
+    ]);
+    const reset = await resetDocumentSettings(support);
+    expect(reset.ok).toBe(true);
+    if (!reset.ok) return;
+    // A valid map was backed up before the reset, so Restore is available.
+    expect(reset.backup).not.toBeNull();
+    expect(await mapEntries()).toEqual([]);
+
+    await writeDocumentSettingsFile(support, [
+      { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.75 } } },
+    ]);
+    const restored = await restoreDocumentSettingsBackup(support);
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(restored.entries).toEqual([
+      { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.85 } } },
+    ]);
+    expect(await mapEntries()).toEqual(restored.entries);
+    // The replaced map (0.75) is preserved as a new backup.
+    const names = await backupNames();
+    expect(names.length).toBe(2);
+    const texts = await Promise.all(
+      names.map((name) => fs.readFile(path.join(support, name), 'utf8')),
+    );
+    expect(texts.some((text) => text.includes('0.75'))).toBe(true);
+    expect(await readDocumentSettingsFile(support)).toEqual({
+      entries: restored.entries,
+      status: { state: 'ok' },
+    });
+  });
+
+  it('chooses the newest valid backup and skips an invalid newer file', async () => {
+    await writeBackup('document-settings.backup-2026-01-01T00-00-00-000Z.json', {
+      version: 1,
+      entries: [
+        { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.7 } } },
+      ],
+    });
+    await writeBackup('document-settings.backup-2026-01-02T00-00-00-000Z.json', {
+      entries: 'not-a-list',
+    });
+    await writeBackup('document-settings.backup-2026-01-03T00-00-00-000Z.json', {
+      version: 1,
+      entries: [
+        { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.95 } } },
+      ],
+    });
+
+    expect(await listDocumentSettingsBackups(support)).toHaveLength(3);
+    const newest = await findNewestValidDocumentSettingsBackup(support);
+    expect(newest?.path).toContain('2026-01-03');
+    expect(newest?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(parseDocumentSettingsBackup('{"entries":"nope"}').ok).toBe(false);
+    expect(parseDocumentSettingsBackup('{broken').ok).toBe(false);
+
+    const restored = await restoreDocumentSettingsBackup(support);
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(restored.entries).toEqual([
+      { documentId: 'doc-id', packagePath: '/doc', page: { theme: { density: 0.95 } } },
+    ]);
+  });
+
+  it('fails without replacing the map when no valid backup exists', async () => {
+    await fs.writeFile(documentSettingsPath(support), '{broken', 'utf8');
+    await writeBackup('document-settings.backup-2026-01-02T00-00-00-000Z.json', {
+      entries: 'not-a-list',
+    });
+    expect(await findNewestValidDocumentSettingsBackup(support)).toBeNull();
+
+    const restored = await restoreDocumentSettingsBackup(support);
+    expect(restored.ok).toBe(false);
+    if (restored.ok) return;
+    expect(restored.message).toMatch(/No valid document settings backup/);
+    // Nothing was replaced, invalidated, or deleted.
+    expect(await fs.readFile(documentSettingsPath(support), 'utf8')).toBe('{broken');
+    const names = await backupNames();
+    expect(names).toEqual(['document-settings.backup-2026-01-02T00-00-00-000Z.json']);
+  });
+
+  it('does not touch a missing map and reports no backup on reset', async () => {
+    const reset = await resetDocumentSettings(support);
+    expect(reset.ok).toBe(true);
+    if (!reset.ok) return;
+    expect(reset.backupPath).toBeUndefined();
+    expect(reset.backup).toBeNull();
+    expect(await mapEntries()).toEqual([]);
   });
 });

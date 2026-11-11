@@ -11,6 +11,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from '@noteforest/core/node';
 import type {
+  DocumentSettingsBackupView,
+  DocumentSettingsRecoveryResult,
   DocumentSettingsSaveInput,
   DocumentSettingsSaveResult,
   SettingsFileStatus,
@@ -26,6 +28,7 @@ import {
 } from '../shared/document-settings.js';
 
 const FILE_NAME = 'document-settings.json';
+const BACKUP_PREFIX = 'document-settings.backup-';
 
 export interface DocumentSettingsRead {
   entries: DocumentSettingsEntry[];
@@ -36,16 +39,26 @@ export function documentSettingsPath(directory: string): string {
   return path.join(directory, FILE_NAME);
 }
 
-export async function preserveCorruptFile(filePath: string): Promise<string | null> {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+function timestampStem(): string {
+  return new Date().toISOString().replace(/[:.]/g, '-');
+}
+
+/** First free `<file>.<label>-<timestamp>.json` path for a side-copy. */
+async function uniqueSideCopyPath(filePath: string, label: string): Promise<string> {
   const extension = path.extname(filePath);
   const base = filePath.slice(0, filePath.length - extension.length);
-  let target = `${base}.corrupt-${stamp}${extension}`;
+  const stamp = timestampStem();
+  let target = `${base}.${label}-${stamp}${extension}`;
   let counter = 1;
   while (await pathExists(target)) {
     counter += 1;
-    target = `${base}.corrupt-${stamp}-${counter}${extension}`;
+    target = `${base}.${label}-${stamp}-${counter}${extension}`;
   }
+  return target;
+}
+
+export async function preserveCorruptFile(filePath: string): Promise<string | null> {
+  const target = await uniqueSideCopyPath(filePath, 'corrupt');
   try {
     await fs.copyFile(filePath, target);
     return target;
@@ -173,6 +186,158 @@ export async function saveDocumentSettings(
     const written = await writeEntries(directory, entries);
     if (!written.ok) return written;
     return { ok: true };
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export type DocumentSettingsBackupParse =
+  | { ok: true; entries: DocumentSettingsEntry[] }
+  | { ok: false; message: string };
+
+/**
+ * Parse and normalize one backup file. A backup is valid only when it is JSON
+ * with an entry list; the shared normalizer then applies the same identity and
+ * page-override rules as a normal read. Restore never writes a map it could not
+ * read this way.
+ */
+export function parseDocumentSettingsBackup(text: string): DocumentSettingsBackupParse {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch (error) {
+    return { ok: false, message: `The backup is not valid JSON: ${errorMessage(error)}` };
+  }
+  const list = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed) && Array.isArray(parsed['entries'])
+      ? (parsed['entries'] as unknown[])
+      : null;
+  if (list === null) {
+    return { ok: false, message: 'The backup has no document settings entry list.' };
+  }
+  return { ok: true, entries: normalizeDocumentSettingsFile(parsed).entries };
+}
+
+/** Existing `.backup-<timestamp>.json` side-copies, newest filename first. */
+async function documentSettingsBackupNames(directory: string): Promise<string[]> {
+  let names: string[];
+  try {
+    names = await fs.readdir(directory);
+  } catch {
+    return [];
+  }
+  return names
+    .filter((name) => name.startsWith(BACKUP_PREFIX) && name.endsWith('.json'))
+    .sort()
+    .reverse();
+}
+
+export async function listDocumentSettingsBackups(
+  directory: string,
+): Promise<DocumentSettingsBackupView[]> {
+  const backups: DocumentSettingsBackupView[] = [];
+  for (const name of await documentSettingsBackupNames(directory)) {
+    const filePath = path.join(directory, name);
+    try {
+      const info = await fs.stat(filePath);
+      backups.push({ path: filePath, createdAt: info.mtime.toISOString() });
+    } catch {
+      // A vanished backup is not a candidate.
+    }
+  }
+  return backups;
+}
+
+/**
+ * Newest backup that parses and normalizes. The main process owns this choice;
+ * an invalid newest file is skipped rather than restored.
+ */
+export async function findNewestValidDocumentSettingsBackup(
+  directory: string,
+): Promise<DocumentSettingsBackupView | null> {
+  for (const backup of await listDocumentSettingsBackups(directory)) {
+    try {
+      const text = await fs.readFile(backup.path, 'utf8');
+      if (parseDocumentSettingsBackup(text).ok) return backup;
+    } catch {
+      // Unreadable candidate; keep looking for an older valid one.
+    }
+  }
+  return null;
+}
+
+/** Side-copy the current map before it is replaced. Best effort: a missing or
+ * unreadable file has nothing to copy. */
+async function backupCurrentMap(directory: string): Promise<string | null> {
+  const file = documentSettingsPath(directory);
+  if (!(await pathExists(file))) return null;
+  const target = await uniqueSideCopyPath(file, 'backup');
+  try {
+    await fs.copyFile(file, target);
+    return target;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Explicit map reset (S3-13): copy the current file aside, then atomically
+ * write an empty map through the serialized queue. This is the only path that
+ * may replace a corrupt/unreadable map; ordinary saves stay refused until the
+ * user chooses it.
+ */
+export async function resetDocumentSettings(
+  directory: string,
+): Promise<DocumentSettingsRecoveryResult> {
+  return enqueue(async () => {
+    const backupPath = await backupCurrentMap(directory);
+    const written = await writeEntries(directory, []);
+    if (!written.ok) return { ok: false, message: written.message };
+    return {
+      ok: true,
+      entries: [],
+      ...(backupPath === null ? {} : { backupPath }),
+      backup: await findNewestValidDocumentSettingsBackup(directory),
+    };
+  });
+}
+
+/**
+ * Restore the newest valid backup. The current file is copied aside first, the
+ * chosen backup is re-read and normalized inside the queue, and any failure
+ * leaves the current map untouched.
+ */
+export async function restoreDocumentSettingsBackup(
+  directory: string,
+): Promise<DocumentSettingsRecoveryResult> {
+  return enqueue(async () => {
+    const candidate = await findNewestValidDocumentSettingsBackup(directory);
+    if (candidate === null) {
+      return { ok: false, message: 'No valid document settings backup was found.' };
+    }
+    let text: string;
+    try {
+      text = await fs.readFile(candidate.path, 'utf8');
+    } catch (error) {
+      return { ok: false, message: `Could not read the backup: ${errorMessage(error)}` };
+    }
+    const parsed = parseDocumentSettingsBackup(text);
+    if (!parsed.ok) {
+      // The file changed since it was listed; never replace the map with it.
+      return { ok: false, message: parsed.message };
+    }
+    const backupPath = await backupCurrentMap(directory);
+    const written = await writeEntries(directory, parsed.entries);
+    if (!written.ok) return { ok: false, message: written.message };
+    return {
+      ok: true,
+      entries: parsed.entries,
+      ...(backupPath === null ? {} : { backupPath }),
+      backup: await findNewestValidDocumentSettingsBackup(directory),
+    };
   });
 }
 

@@ -35,8 +35,10 @@ import {
   listBackups,
   openDocument,
   reloadDocument,
+  resetDocumentSettingsMap,
   resetSettings,
   restoreBackup,
+  restoreDocumentSettingsMap,
   restoreNewestBackup,
   saveAllDirty,
   saveDocument,
@@ -301,6 +303,7 @@ function registerIpc(): void {
       settingsStatus: restored.settingsStatus,
       documentSettings: restored.documentSettings,
       documentSettingsStatus: restored.documentSettingsStatus,
+      documentSettingsBackup: restored.documentSettingsBackup,
       openDocuments: restored.openDocuments,
       recoveries: restored.recoveries,
       appVersion: app.getVersion(),
@@ -458,6 +461,11 @@ function registerIpc(): void {
   // The only path allowed to replace a corrupt/unreadable settings file: the
   // explicit Settings → "Reset settings" action (UI Sentinel F3).
   ipcMain.handle('settings:reset', async () => resetSettings());
+
+  // S3-13: the explicit map recovery actions. Both back up the current file and
+  // write through the serialized map queue; ordinary saves stay refused.
+  ipcMain.handle('document-settings:reset', async () => resetDocumentSettingsMap());
+  ipcMain.handle('document-settings:restore', async () => restoreDocumentSettingsMap());
 
   ipcMain.handle('document-settings:save', async (_event, input: unknown) => {
     if (typeof input !== 'object' || input === null) {

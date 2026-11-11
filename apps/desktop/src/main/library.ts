@@ -42,7 +42,9 @@ import {
 import type {
   ApplyResult,
   BackupCandidateView,
+  DocumentSettingsBackupView,
   DocumentSettingsEntry,
+  DocumentSettingsRecoveryResult,
   DocumentSettingsSaveInput,
   DocumentSettingsSaveResult,
   ImportImageBytesInput,
@@ -78,9 +80,12 @@ import {
 } from '../shared/settings-file.js';
 import type { LegacySessionOverride } from '../shared/document-settings.js';
 import {
+  findNewestValidDocumentSettingsBackup,
   migrateLegacySessionOverrides,
   preserveCorruptFile,
   readDocumentSettingsFile,
+  resetDocumentSettings,
+  restoreDocumentSettingsBackup,
   saveDocumentSettings as applyDocumentSettings,
   writeDocumentSettingsFile,
 } from './document-settings.js';
@@ -1391,6 +1396,19 @@ export function saveDocumentSettings(
   return applyDocumentSettings(appSupportDir(), input);
 }
 
+/**
+ * Explicit recovery for a corrupt/unreadable map (S3-13): back up the current
+ * file, then atomically replace it with an empty map.
+ */
+export function resetDocumentSettingsMap(): Promise<DocumentSettingsRecoveryResult> {
+  return resetDocumentSettings(appSupportDir());
+}
+
+/** Restore the newest valid map backup; the current file is backed up first. */
+export function restoreDocumentSettingsMap(): Promise<DocumentSettingsRecoveryResult> {
+  return restoreDocumentSettingsBackup(appSupportDir());
+}
+
 // ---------------------------------------------------------------------------
 // Session (UI state only; not document content)
 // ---------------------------------------------------------------------------
@@ -1499,6 +1517,7 @@ export async function bootstrap(): Promise<{
   settingsStatus: SettingsFileStatus;
   documentSettings: DocumentSettingsEntry[];
   documentSettingsStatus: SettingsFileStatus;
+  documentSettingsBackup: DocumentSettingsBackupView | null;
   session: SessionState;
   openDocuments: OpenDocumentSnapshot[];
   recoveries: RecoveryDocumentView[];
@@ -1542,6 +1561,9 @@ export async function bootstrap(): Promise<{
     settingsStatus: settingsRead.status,
     documentSettings: migrated.entries,
     documentSettingsStatus: migrated.status,
+    // Computed after the one-time session migration so a backup written by it
+    // is visible on the first Data page. A read-only scan, never a write.
+    documentSettingsBackup: await findNewestValidDocumentSettingsBackup(appSupportDir()),
     session,
     openDocuments,
     recoveries,

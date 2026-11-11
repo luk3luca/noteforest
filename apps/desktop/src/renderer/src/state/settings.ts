@@ -33,6 +33,8 @@ import {
   normalizePageSettingsOverride,
 } from '@noteforest/layout';
 import type {
+  DocumentSettingsBackupView,
+  DocumentSettingsRecoveryResult,
   DocumentSettingsSaveInput,
   SettingsFileStatus,
   SettingsSaveResult,
@@ -68,6 +70,16 @@ export interface SettingsBootstrap {
   settingsStatus?: SettingsFileStatus;
   documentSettings?: unknown;
   documentSettingsStatus?: SettingsFileStatus;
+  documentSettingsBackup?: DocumentSettingsBackupView | null;
+}
+
+/**
+ * Banner dismissals are session-only. The file status itself is never cleared
+ * by Dismiss: Data & About keeps showing the real status and recovery action.
+ */
+export interface SettingsWarningDismissals {
+  global: boolean;
+  document: boolean;
 }
 
 export interface SettingsSnapshot {
@@ -78,6 +90,8 @@ export interface SettingsSnapshot {
   pageOverrides: Record<string, PageSettingsOverride>;
   settingsStatus: SettingsFileStatus;
   documentSettingsStatus: SettingsFileStatus;
+  documentSettingsBackup: DocumentSettingsBackupView | null;
+  dismissedWarnings: SettingsWarningDismissals;
   saveState: SettingsSaveState;
 }
 
@@ -100,7 +114,10 @@ interface SettingsState extends SettingsSnapshot {
     packagePath: string | null | undefined,
     documentId?: string | null,
   ) => PageSettings;
-  /** Dismiss a corrupt/unreadable/newer warning without changing the file. */
+  /**
+   * Hide the top warning banner for this session only. The stored read status
+   * is untouched, so Data & About keeps the status and the recovery action.
+   */
   dismissSettingsWarning: (which: 'global' | 'document') => void;
   /**
    * Explicit reset: replace `settings.json` with the product defaults through
@@ -108,11 +125,23 @@ interface SettingsState extends SettingsSnapshot {
    * write really succeeded.
    */
   resetSettingsToDefaults: () => Promise<SettingsSaveResult>;
+  /**
+   * Explicit map reset (S3-13): the main process backs up the current
+   * `document-settings.json` and writes an empty map atomically. In-memory
+   * entries and overrides clear only after that write succeeds.
+   */
+  resetDocumentSettings: () => Promise<SettingsSaveResult>;
+  /**
+   * Restore the newest valid map backup. The main process backs up the current
+   * file and validates the backup; an invalid backup leaves everything intact.
+   */
+  restoreDocumentSettingsBackup: () => Promise<SettingsSaveResult>;
   /** Retry the last failed settings write. */
   retrySettingsWrite: () => void;
 }
 
 const OK_STATUS: SettingsFileStatus = { state: 'ok' };
+const NO_DISMISSALS: SettingsWarningDismissals = { global: false, document: false };
 
 function statusOrDefault(status: SettingsFileStatus | undefined): SettingsFileStatus {
   return status ?? OK_STATUS;
@@ -163,6 +192,8 @@ interface SettingsBridge {
   saveSettings: (settings: AppSettings) => Promise<SettingsSaveResult>;
   saveDocumentSettings: (input: DocumentSettingsSaveInput) => Promise<SettingsSaveResult>;
   resetSettings?: () => Promise<SettingsSaveResult>;
+  resetDocumentSettings?: () => Promise<DocumentSettingsRecoveryResult>;
+  restoreDocumentSettingsBackup?: () => Promise<DocumentSettingsRecoveryResult>;
 }
 
 function bridge(): SettingsBridge | null {
@@ -180,6 +211,12 @@ function bridge(): SettingsBridge | null {
     saveDocumentSettings: (input) => api.saveDocumentSettings(input),
     ...(typeof api.resetSettings === 'function'
       ? { resetSettings: () => api.resetSettings() }
+      : {}),
+    ...(typeof api.resetDocumentSettings === 'function'
+      ? { resetDocumentSettings: () => api.resetDocumentSettings() }
+      : {}),
+    ...(typeof api.restoreDocumentSettingsBackup === 'function'
+      ? { restoreDocumentSettingsBackup: () => api.restoreDocumentSettingsBackup() }
       : {}),
   };
 }
@@ -286,6 +323,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   pageOverrides: {},
   settingsStatus: OK_STATUS,
   documentSettingsStatus: OK_STATUS,
+  documentSettingsBackup: null,
+  dismissedWarnings: { ...NO_DISMISSALS },
   saveState: { status: 'idle' },
 
   initialize: (bootstrap) => {
@@ -298,6 +337,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       pageOverrides: pageOverridesByPath(entries),
       settingsStatus: statusOrDefault(bootstrap.settingsStatus),
       documentSettingsStatus: statusOrDefault(bootstrap.documentSettingsStatus),
+      documentSettingsBackup: bootstrap.documentSettingsBackup ?? null,
+      dismissedWarnings: { ...NO_DISMISSALS },
       saveState: { status: 'idle' },
     });
   },
@@ -368,8 +409,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   dismissSettingsWarning: (which) => {
-    if (which === 'global') set({ settingsStatus: OK_STATUS });
-    else set({ documentSettingsStatus: OK_STATUS });
+    // Session-only banner dismissal (S3-2). The file status stays exactly as
+    // read so Data & About can still show the message, backup and recovery.
+    set((state) => ({
+      dismissedWarnings: { ...state.dismissedWarnings, [which]: true },
+    }));
   },
 
   resetSettingsToDefaults: () => {
@@ -388,9 +432,59 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     lastFailed = write;
     const result = enqueueWrite(write);
     void result.then((outcome) => {
-      if (outcome.ok) set({ settingsStatus: OK_STATUS });
+      if (outcome.ok) {
+        set((state) => ({
+          settingsStatus: OK_STATUS,
+          dismissedWarnings: { ...state.dismissedWarnings, global: false },
+        }));
+      }
     });
     return result;
+  },
+
+  resetDocumentSettings: () => {
+    const write = async (): Promise<SettingsSaveResult> => {
+      const api = bridge();
+      if (api === null) return { ok: true };
+      if (api.resetDocumentSettings === undefined) {
+        return { ok: false, message: 'This build cannot reset document settings.' };
+      }
+      const result = await api.resetDocumentSettings();
+      if (!result.ok) return result;
+      // Replace, never merge: a reset means the durable map is empty.
+      set((state) => ({
+        documentSettings: result.entries,
+        pageOverrides: pageOverridesByPath(result.entries),
+        documentSettingsStatus: OK_STATUS,
+        documentSettingsBackup: result.backup,
+        dismissedWarnings: { ...state.dismissedWarnings, document: false },
+      }));
+      return { ok: true };
+    };
+    lastFailed = write;
+    return enqueueWrite(write);
+  },
+
+  restoreDocumentSettingsBackup: () => {
+    const write = async (): Promise<SettingsSaveResult> => {
+      const api = bridge();
+      if (api === null) return { ok: true };
+      if (api.restoreDocumentSettingsBackup === undefined) {
+        return { ok: false, message: 'This build cannot restore document settings.' };
+      }
+      const result = await api.restoreDocumentSettingsBackup();
+      if (!result.ok) return result;
+      set((state) => ({
+        documentSettings: result.entries,
+        pageOverrides: pageOverridesByPath(result.entries),
+        documentSettingsStatus: OK_STATUS,
+        documentSettingsBackup: result.backup,
+        dismissedWarnings: { ...state.dismissedWarnings, document: false },
+      }));
+      return { ok: true };
+    };
+    lastFailed = write;
+    return enqueueWrite(write);
   },
 
   retrySettingsWrite: () => {
@@ -475,6 +569,8 @@ export function resetSettingsForTests(): void {
     pageOverrides: {},
     settingsStatus: OK_STATUS,
     documentSettingsStatus: OK_STATUS,
+    documentSettingsBackup: null,
+    dismissedWarnings: { ...NO_DISMISSALS },
     saveState: { status: 'idle' },
   });
 }

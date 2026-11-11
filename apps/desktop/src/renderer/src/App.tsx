@@ -187,6 +187,7 @@ export function App(): JSX.Element {
           settingsStatus: data.settingsStatus,
           documentSettings: data.documentSettings,
           documentSettingsStatus: data.documentSettingsStatus,
+          documentSettingsBackup: data.documentSettingsBackup,
         });
         const byPath = new Map(data.openDocuments.map((snapshot) => [snapshot.packagePath, snapshot]));
         const recoveryByPath = new Map(
@@ -256,7 +257,7 @@ export function App(): JSX.Element {
           data.settingsStatus.state === 'unreadable'
         ) {
           toast.warning(
-            'Settings could not be read. NoteForest is using defaults; open Settings to review the backup.',
+            'Settings could not be read. NoteForest is using defaults; open Settings → Data & About to review the backup and reset.',
           );
         }
         if (
@@ -264,7 +265,7 @@ export function App(): JSX.Element {
           data.documentSettingsStatus.state === 'unreadable'
         ) {
           toast.warning(
-            'Per-document settings could not be read. Open documents use the global defaults.',
+            'Per-document settings could not be read. Open Settings → Data & About to reset or restore them.',
           );
         }
       } catch (error) {
@@ -673,6 +674,8 @@ export function App(): JSX.Element {
           documentSettings: store.documentSettings,
           settingsStatus: store.settingsStatus,
           documentSettingsStatus: store.documentSettingsStatus,
+          documentSettingsBackup: store.documentSettingsBackup,
+          dismissedWarnings: store.dismissedWarnings,
           saveState: store.saveState,
         });
       },

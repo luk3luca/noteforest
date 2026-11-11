@@ -5,6 +5,7 @@ import type {
   BootstrapResult,
   ChooseExportFolderResult,
   CreateDocumentResult,
+  DocumentSettingsRecoveryResult,
   DocumentSettingsSaveResult,
   ExportDefaults,
   ExportJobView,
@@ -70,6 +71,10 @@ const api: NoteForestApi = {
   resetSettings: (): Promise<SettingsSaveResult> => ipcRenderer.invoke('settings:reset'),
   saveDocumentSettings: (input): Promise<DocumentSettingsSaveResult> =>
     ipcRenderer.invoke('document-settings:save', input),
+  resetDocumentSettings: (): Promise<DocumentSettingsRecoveryResult> =>
+    ipcRenderer.invoke('document-settings:reset'),
+  restoreDocumentSettingsBackup: (): Promise<DocumentSettingsRecoveryResult> =>
+    ipcRenderer.invoke('document-settings:restore'),
   setWindowState: (state: WindowState): Promise<void> =>
     ipcRenderer.invoke('window:set-state', state),
   onMenu: (handler: (command: MenuCommand) => void): (() => void) => {

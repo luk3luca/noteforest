@@ -250,4 +250,39 @@ describe('global settings persistence', () => {
     expect(await writeSettings({ page: { theme: { density: 1.05 } } })).toEqual({ ok: true });
     expect((await readRaw())['page']).toMatchObject({ theme: { density: 1.05 } });
   });
+
+  it('reports an unreadable file and resets it only on the explicit action (S3-2)', async () => {
+    await writeRaw({ page: { theme: { density: 0.8 } } });
+    const file = settingsFile();
+    await fs.chmod(file, 0o000);
+    try {
+      const read = await readSettingsFile();
+      expect(read.status.state).toBe('unreadable');
+      expect(read.status.message).toBeTruthy();
+      // The ordinary write is refused while the file cannot be read.
+      const refused = await writeSettings({ page: { theme: { density: 0.9 } } });
+      expect(refused.ok).toBe(false);
+    } finally {
+      await fs.chmod(file, 0o600);
+    }
+
+    const reset = await resetSettings();
+    expect(reset).toEqual({ ok: true });
+    expect(await readSettingsFile().then((result) => result.status)).toEqual({ state: 'ok' });
+    expect((await readRaw())['page']).toMatchObject({ theme: { density: 1 } });
+  });
+
+  it('keeps the warning and file intact when the explicit reset fails (S3-2)', async () => {
+    await fs.mkdir(support, { recursive: true });
+    // A directory at the settings path is unreadable and cannot be replaced by
+    // an atomic rename, so the reset reports failure instead of success.
+    await fs.mkdir(settingsFile());
+    expect((await readSettingsFile()).status.state).toBe('unreadable');
+    const reset = await resetSettings();
+    expect(reset.ok).toBe(false);
+    if (reset.ok) return;
+    expect(reset.message).toMatch(/Could not reset settings/);
+    expect((await fs.stat(settingsFile())).isDirectory()).toBe(true);
+    expect((await readSettingsFile()).status.state).toBe('unreadable');
+  });
 });

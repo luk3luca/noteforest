@@ -49,6 +49,12 @@ describe('UI suite list', () => {
       'm4d1-page-density.test.mjs': 'm4d1-page-density',
       'm4d2-export-ui.test.mjs': 'm4d2-export-ui',
       'ui-editor-shortcuts.test.mjs': 'ui-editor-shortcuts',
+      'ui-overlay-command-gate.test.mjs': 'ui-overlay-command-gate',
+      'ui-settings-recovery.test.mjs': 'ui-settings-recovery',
+      'm3-anchor-callout-layout.test.mjs': 'm3-anchor-callout-layout',
+      'm3-anchor-callout-stacking.test.mjs': 'm3-anchor-callout-stacking',
+      'm3-reference.test.mjs': 'm3-reference',
+      'm3-repair.test.mjs': 'm3-repair',
     } as const;
     const directories = Object.values(owners);
     expect(new Set(directories).size).toBe(directories.length);
@@ -56,13 +62,15 @@ describe('UI suite list', () => {
       const source = await suiteSource(file);
       expect(source, `${file} writes ${directory}`).toContain(`'${directory}'`);
     }
-    // Only the Batch A suite may name the shared Batch A evidence directory.
+    // Only the owning suite may name a guarded evidence directory.
     for (const file of await suiteFilesOnDisk()) {
-      if (file === 'ui-batch-a.test.mjs') continue;
       const source = await suiteSource(file);
-      expect(source, `${file} never touches another suite's evidence`).not.toContain(
-        "'ui-batch-a'",
-      );
+      for (const [owner, directory] of Object.entries(owners)) {
+        if (file === owner) continue;
+        expect(source, `${file} never touches ${owner}'s evidence`).not.toContain(
+          `'${directory}'`,
+        );
+      }
     }
   });
 
