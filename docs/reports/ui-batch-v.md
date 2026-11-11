@@ -182,11 +182,7 @@ integration, per the brief).
 - Product-visible trade-offs for the visual pass: tab windowing at 10–14 tabs (hidden tabs remain
   in the overflow menu; activating one brings it into view), centered non-Page Settings content,
   and the Continuous Fit-width 0.91 consequence of the 8 px inset. Page/PDF are unchanged.
-- Next: fast-forward `design/ui-map` to `main`.
-
-## Next step
-
-Fast-forward `design/ui-map` to `main`; future work continues on `main`. Future settings pages
-(Appearance v3, Export defaults, Page chrome, manual breaks, Data recovery, Continuous global,
-Editor/General), External API/agent access, and the lazy-new-document lifecycle remain out of
-scope.
+- Next: fast-forward `design/ui-map` to `main` (done at `a44a257`); future work continues on `main`.
+  Future settings pages (Appearance v3, Export defaults, Page chrome, manual breaks, Data recovery,
+  Continuous global, Editor/General), External API/agent access, and the lazy-new-document lifecycle
+  remain out of scope.

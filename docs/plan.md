@@ -438,7 +438,7 @@ Palette; non-Page/PDF), **B** (Page settings, Page/PDF-affecting work), **C** (P
 typography/layout), and **V** (visual refinement), with P1–P6 as acceptance checkpoints inside them.
 Batch A is merged at `af815eb`; Batch B at `34e4ade`; Batch C at `35edd06`; Batch V at `4df220d`
 (full verify green; reports `docs/reports/ui-batch-a.md`, `ui-batch-b.md`, `ui-batch-c.md`,
-`ui-batch-v.md`). The next gate is fast-forwarding `design/ui-map` to `main`; future work continues
-on `main`. External API/agent access is removed from Settings; any future agent surface is
+`ui-batch-v.md`). UI Batches A/B/C/V are merged on `main` at `a44a257`; future work continues on
+`main`. External API/agent access is removed from Settings; any future agent surface is
 MCP/commands, not a Settings harness/agent page. Future pages stay empty in the lab and out of the
 product until a real control exists.

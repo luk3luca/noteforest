@@ -258,7 +258,7 @@ Page sheet, paginator, print compositor, or PDF output.
 - Page: Batch B + C merged; Page Read/Edit/measurement/PDF parity at A4/A5/Letter,
   portrait/landscape, margins, density 60/100/120, document overrides, advanced typography/layout,
   and first-class max card width.
-- Next: fast-forward `design/ui-map` to `main`; future work continues on `main`. Future pages
-  remain planned/empty (Appearance v3, Export defaults, Continuous global, Page chrome, manual
-  breaks, Data recovery, library/backup, light/search). External API/agent access is not a Settings
-  page; MCP/commands only if pursued.
+- Next: UI Batches A/B/C/V are merged on `main` at `a44a257`; future work continues on `main`.
+  Future pages remain planned/empty (Appearance v3, Export defaults, Continuous global, Page chrome,
+  manual breaks, Data recovery, library/backup, light/search). External API/agent access is not a
+  Settings page; MCP/commands only if pursued.
