@@ -214,7 +214,7 @@ describe('Batch A UI rework', () => {
     await page.screenshot({ path: join(screenshotDir, 'continuous-header.png') });
   });
 
-  it('shrinks tabs to a 96 px floor, keeps + after the last tab, and uses the accent ring', async () => {
+  it('keeps inactive tabs compact at the floor with an expanded active tab and + after the last tab', async () => {
     await launch('batch-a-tabs');
     await ui.seedDemo();
     await page.waitForSelector('.nf-tablist');
@@ -257,16 +257,22 @@ describe('Batch A UI rework', () => {
       await h.waitSaved();
     }
     assert.equal(await page.locator('.nf-tab').count(), 5);
-    const wideTab = (await box('.nf-tab:first-of-type')).width;
-    assert.ok(wideTab <= 190.5, `tabs cap at 190 px (${wideTab})`);
+    const activeTabWidth = await page
+      .locator('.nf-tab[data-active="true"]')
+      .evaluate((element) => element.getBoundingClientRect().width);
+    assert.ok(
+      activeTabWidth >= 169.5 && activeTabWidth <= 220.5,
+      `the active tab expands (${activeTabWidth})`,
+    );
 
-    // Narrowing shrinks them toward the 96 px floor; the tablist never scrolls.
+    // Narrowing shrinks the inactive tabs toward the 80 px floor; the tablist
+    // never scrolls and the active tab keeps its expanded priority width.
     await h.setWindowSize(960, 768);
     await page.waitForFunction(() => window.innerWidth <= 980, undefined, { timeout: 5000 });
     await page.waitForFunction(
       () => {
         const tabs = [...document.querySelectorAll('.nf-tab')];
-        return tabs.length === 5 && tabs.every((tab) => tab.getBoundingClientRect().width < 190);
+        return tabs.length === 5 && tabs.every((tab) => tab.getBoundingClientRect().width <= 220.5);
       },
       undefined,
       { timeout: 10000 },
@@ -277,19 +283,32 @@ describe('Batch A UI rework', () => {
       const plusButton = document.querySelector('.nf-tab-actions [data-toolbar-new="true"]');
       return {
         widths: tabs.map((tab) => tab.getBoundingClientRect().width),
+        activeIndex: tabs.findIndex((tab) => tab.getAttribute('data-active') === 'true'),
         overflowX: list === null ? null : getComputedStyle(list).overflowX,
         plusVisible: plusButton !== null && plusButton.getClientRects().length > 0,
         pageScroll: document.documentElement.scrollWidth,
         innerWidth: window.innerWidth,
       };
     });
-    assert.ok(
-      tabInfo.widths.every((width) => width >= 95.5),
-      `tabs never shrink below 96 px (${tabInfo.widths.join(', ')})`,
+    const activeWidth = tabInfo.widths[tabInfo.activeIndex];
+    const inactiveWidths = tabInfo.widths.filter(
+      (_, index) => index !== tabInfo.activeIndex,
     );
     assert.ok(
-      tabInfo.widths.every((width) => width < 190),
-      `tabs actually shrink (${tabInfo.widths.join(', ')})`,
+      activeWidth !== undefined && activeWidth >= 169.5 && activeWidth <= 220.5,
+      `the active tab keeps its expanded width (${activeWidth})`,
+    );
+    assert.ok(
+      inactiveWidths.every((width) => width >= 79.5 && width <= 96.5),
+      `inactive tabs shrink toward the 80 px floor (${inactiveWidths.join(', ')})`,
+    );
+    assert.ok(
+      inactiveWidths.every((width) => activeWidth > width),
+      `the active tab stays the widest (${activeWidth})`,
+    );
+    assert.ok(
+      inactiveWidths.some((width) => width < 96),
+      'inactive tabs actually shrink under pressure',
     );
     assert.equal(tabInfo.overflowX, 'hidden', 'the tablist does not scroll horizontally');
     assert.equal(tabInfo.plusVisible, true, 'the + stays visible');

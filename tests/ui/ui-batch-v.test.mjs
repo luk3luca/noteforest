@@ -315,4 +315,164 @@ describe('Batch V visual refinement', () => {
     assert.equal(visibility.visible, 3, 'at most three toasts are visible');
     assert.equal(visibility.focusedInsideToast, false, 'a toast never steals focus');
   });
+
+  it('expands the active tab and windows the rest at the status-safe floor', async () => {
+    await launch('batch-v-tabs');
+    await ui.seedDemo();
+    await page.waitForSelector('.nf-tablist');
+
+    const tabCount = async () => page.evaluate(() => window.__noteforestTest.state().tabs.length);
+    const addTab = async (expected) => {
+      await page.locator('[data-toolbar-new="true"]').click();
+      await page.waitForFunction(
+        (count) => window.__noteforestTest.state().tabs.length === count,
+        expected,
+        { timeout: 15000 },
+      );
+      await h.waitSaved();
+    };
+
+    await addTab(2);
+    await page.screenshot({ path: join(screenshotDir, 'tabs-2.png') });
+
+    while ((await tabCount()) < 8) {
+      await addTab((await tabCount()) + 1);
+    }
+    await page.screenshot({ path: join(screenshotDir, 'tabs-8.png') });
+
+    while ((await tabCount()) < 14) {
+      await addTab((await tabCount()) + 1);
+    }
+    await h.setWindowSize(1200, 800);
+    await page.waitForFunction(
+      () => {
+        const state = window.__noteforestTest.state();
+        return (
+          state.tabs.length === 14 &&
+          document.querySelectorAll('.nf-tab').length < state.tabs.length
+        );
+      },
+      undefined,
+      { timeout: 15000 },
+    );
+    await page.screenshot({ path: join(screenshotDir, 'tabs-14.png') });
+
+    const stress = await page.evaluate(() => {
+      const state = window.__noteforestTest.state();
+      const tabs = [...document.querySelectorAll('.nf-tab')];
+      const active = tabs.find((tab) => tab.getAttribute('data-active') === 'true');
+      const activeBox = active?.getBoundingClientRect() ?? null;
+      const list = document.querySelector('.nf-tablist');
+      const listBox = list?.getBoundingClientRect() ?? null;
+      const plus = document.querySelector('.nf-tab-actions [data-toolbar-new="true"]');
+      const last = tabs.at(-1)?.getBoundingClientRect() ?? null;
+      const plusBox = plus?.getBoundingClientRect() ?? null;
+      return {
+        tabCount: state.tabs.length,
+        visibleCount: tabs.length,
+        activeIndex: tabs.indexOf(active),
+        widths: tabs.map((tab) => tab.getBoundingClientRect().width),
+        activeWidth: activeBox?.width ?? null,
+        activeLeft: activeBox?.left ?? null,
+        activeRight: activeBox?.right ?? null,
+        listLeft: listBox?.left ?? null,
+        listRight: listBox?.right ?? null,
+        overflowX: list === null ? null : getComputedStyle(list).overflowX,
+        plusVisible: plusBox !== null && plusBox.width > 0,
+        plusAfterLast: plusBox !== null && last !== null && plusBox.left >= last.right - 0.5,
+        pageScroll: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+        closeSizes: tabs.map((tab) => {
+          const close = tab.querySelector('.nf-tab-close');
+          const icon = tab.querySelector('.nf-tab-close svg');
+          return {
+            close: close?.getBoundingClientRect().width ?? null,
+            closeHeight: close?.getBoundingClientRect().height ?? null,
+            icon: icon?.getBoundingClientRect().width ?? null,
+          };
+        }),
+      };
+    });
+
+    assert.equal(stress.tabCount, 14);
+    assert.ok(stress.visibleCount < 14, 'the overflow window hides tabs beyond the floor');
+    assert.ok(stress.activeWidth !== null);
+    assert.ok(
+      stress.activeWidth >= 169.5 && stress.activeWidth <= 220.5,
+      `the active tab expands between 170 and 220 px (${stress.activeWidth})`,
+    );
+    assert.ok(
+      stress.activeLeft !== null &&
+        stress.listLeft !== null &&
+        stress.activeLeft >= stress.listLeft - 0.5 &&
+        stress.activeRight !== null &&
+        stress.listRight !== null &&
+        stress.activeRight <= stress.listRight + 0.5,
+      'the active tab is fully visible in the window',
+    );
+    const inactive = stress.widths.filter((_, index) => index !== stress.activeIndex);
+    assert.ok(
+      inactive.length > 0 && inactive.every((width) => width >= 79.5 && width <= 96.5),
+      `inactive tabs stay compact at the 80–96 px floor (${inactive.join(', ')})`,
+    );
+    assert.ok(
+      inactive.every((width) => stress.activeWidth > width),
+      'the active tab is wider than every inactive tab',
+    );
+    assert.ok(
+      stress.closeSizes.every(
+        (size) => size.close === 20 && size.closeHeight === 20 && size.icon === 12,
+      ),
+      'tab close controls never shrink',
+    );
+    assert.equal(stress.overflowX, 'hidden', 'the tablist never scrolls horizontally');
+    assert.equal(stress.plusVisible, true, 'the + stays visible');
+    assert.equal(stress.plusAfterLast, true, 'the + follows the last visible tab');
+    assert.ok(stress.pageScroll <= stress.innerWidth, 'the shell never scrolls horizontally');
+
+    // The overflow menu still lists every open tab.
+    await page.locator('.nf-tab-actions [aria-label="All open tabs"]').click();
+    await page.waitForSelector('.nf-menu');
+    const menuText = await page.locator('.nf-menu').innerText();
+    const menuUntitled = menuText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line === 'Untitled').length;
+    assert.ok(
+      menuUntitled >= 13,
+      `the overflow menu lists the hidden Untitled tabs (${menuUntitled})`,
+    );
+
+    // Activate the first tab, which the window hid at 14 tabs.
+    await page.getByRole('menuitem', { name: 'Linear algebra', exact: true }).click();
+    await page.waitForSelector('.nf-menu', { state: 'detached' });
+    await page.waitForFunction(() => {
+      const active = document.querySelector('.nf-tab[data-active="true"]');
+      return active?.textContent?.includes('Linear algebra') ?? false;
+    });
+    const afterActivation = await page.evaluate(() => {
+      const tab = document.querySelector('.nf-tab[data-active="true"]');
+      const list = document.querySelector('.nf-tablist');
+      if (tab === null || list === null) return null;
+      const tabBox = tab.getBoundingClientRect();
+      const listBox = list.getBoundingClientRect();
+      return {
+        width: tabBox.width,
+        left: tabBox.left,
+        right: tabBox.right,
+        listLeft: listBox.left,
+        listRight: listBox.right,
+      };
+    });
+    assert.ok(afterActivation !== null);
+    assert.ok(
+      afterActivation.left >= afterActivation.listLeft - 0.5 &&
+        afterActivation.right <= afterActivation.listRight + 0.5,
+      'the newly active tab is always brought into view',
+    );
+    assert.ok(
+      afterActivation.width >= 169.5 && afterActivation.width <= 220.5,
+      'the newly active tab expands',
+    );
+  });
 });

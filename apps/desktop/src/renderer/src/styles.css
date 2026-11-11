@@ -433,21 +433,33 @@ button:disabled {
   overflow: hidden;
 }
 
-/* Rounded tab chip: no vertical separators and no accent top line. */
+/*
+ * Batch V tab policy: inactive tabs are compact (96 px, shrinking to an 80 px
+ * floor), the active tab expands (170–220 px). Status icons never shrink and
+ * the title ellipsizes. When the floor no longer fits, TabBar renders only the
+ * visible window; the overflow menu reaches every tab and the tablist never
+ * scrolls horizontally.
+ */
 .nf-tab {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 0 1 auto;
+  flex: 0 1 96px;
   height: 34px;
-  min-width: 96px;
-  max-width: 190px;
+  min-width: 80px;
+  max-width: 96px;
   border: 1px solid transparent;
   border-radius: var(--radius-chip);
   -webkit-app-region: no-drag;
   background: transparent;
   color: var(--text-secondary);
   transition: background 120ms var(--motion), border-color 120ms var(--motion);
+}
+
+.nf-tab[data-active="true"] {
+  flex: 1 1 170px;
+  min-width: 170px;
+  max-width: 220px;
 }
 
 .nf-tab:hover {
@@ -499,6 +511,7 @@ button:disabled {
 }
 
 .nf-tab-lock {
+  flex: none;
   color: var(--text-tertiary);
 }
 
@@ -506,6 +519,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 12px;
   width: 12px;
   height: 12px;
   border: 1px solid var(--warning);
@@ -518,6 +532,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: 20px;
   height: 20px;
   margin-right: 6px;
