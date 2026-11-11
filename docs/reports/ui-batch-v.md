@@ -1,6 +1,6 @@
 # UI Batch V — visual refinement implementation report
 
-**Status:** Ready for Orchestrator review; not merged, pushed, or opened as a PR.
+**Status:** Merged into `design/ui-map` after the full verify; `main` fast-forward gate next.
 **Role:** Implementer / Builder
 **Task:** `docs/tasks/ui-batch-v.md`
 **Branch:** `t3/ui-batch-v-visual-refinements`
@@ -170,10 +170,23 @@ integration, per the brief).
 - Base: `82917fa`
 - Head at handback: this report commit on top of `51bd1cc`
 
+## Integration
+
+- Full `npm run verify` on `4df220d`: **exit 0** — 107 unit files / 1075 tests, 16/16 e2e,
+  14/14 recovery, 43 UI suites (Batch V included), no failures, 0 pageErrors.
+- The full run found one stale Batch A assertion (canvas lateral padding 0 vs the new 8 px inset);
+  it was aligned to the intended visual change in `4df220d`, Batch A passed 5/5, and the full
+  verify was re-run green.
+- Batch V was merged fast-forward into `design/ui-map` (not `main`) from `82917fa` to `4df220d`.
+- Screenshots copied to `artifacts/ui-batch-v/` (10 images; ignored by git).
+- Product-visible trade-offs for the visual pass: tab windowing at 10–14 tabs (hidden tabs remain
+  in the overflow menu; activating one brings it into view), centered non-Page Settings content,
+  and the Continuous Fit-width 0.91 consequence of the 8 px inset. Page/PDF are unchanged.
+- Next: fast-forward `design/ui-map` to `main`.
+
 ## Next step
 
-The Orchestrator reviews this report and the screenshots, runs the full `npm run verify` at
-integration, validates the tab window and Settings centering with the product owner, merges Batch V
-into `design/ui-map`, then performs the `design/ui-map` → `main` merge gate. Future settings pages
+Fast-forward `design/ui-map` to `main`; future work continues on `main`. Future settings pages
 (Appearance v3, Export defaults, Page chrome, manual breaks, Data recovery, Continuous global,
-Editor/General), External API/agent access, and the lazy-new-document lifecycle remain out of scope.
+Editor/General), External API/agent access, and the lazy-new-document lifecycle remain out of
+scope.

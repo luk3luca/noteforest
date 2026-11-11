@@ -221,8 +221,9 @@ To avoid one delegate restart per design page, the implementation is consolidate
 - **Batch C — Page advanced typography/layout (merged 11 November 2026, `35edd06`):** frozen
   PageTheme fields, first-class `maxCardWidth` and the advanced typography/layout groups; no schema.
   Brief: `docs/tasks/ui-settings-advanced.md`; report: `docs/reports/ui-batch-c.md`.
-- **Batch V — visual refinement (next):** Settings fixed width, toast tokens, tab behavior, canvas
-  inset. Then `design/ui-map` merges to `main`.
+- **Batch V — visual refinement (merged 11 November 2026, `4df220d`):** Settings fixed width, toast
+  tokens, tab behavior, canvas inset. Brief: `docs/tasks/ui-batch-v.md`; report:
+  `docs/reports/ui-batch-v.md`. Next: fast-forward `design/ui-map` to `main`.
 - Future functions (Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks,
   Data recovery, library/backup, light/search) remain empty/planned; no fake controls.
   **External API/agent access is removed from Settings** (product owner, 11 November 2026): any
@@ -257,7 +258,7 @@ Page sheet, paginator, print compositor, or PDF output.
 - Page: Batch B + C merged; Page Read/Edit/measurement/PDF parity at A4/A5/Letter,
   portrait/landscape, margins, density 60/100/120, document overrides, advanced typography/layout,
   and first-class max card width.
-- Next: Batch V visual refinement (Settings fixed width, toast, tabs, canvas inset), then merge
-  `design/ui-map` to `main`. Future pages remain planned/empty (Appearance v3, Export defaults,
-  Continuous global, Page chrome, manual breaks, Data recovery, library/backup, light/search).
-  External API/agent access is not a Settings page; MCP/commands only if pursued.
+- Next: fast-forward `design/ui-map` to `main`; future work continues on `main`. Future pages
+  remain planned/empty (Appearance v3, Export defaults, Continuous global, Page chrome, manual
+  breaks, Data recovery, library/backup, light/search). External API/agent access is not a Settings
+  page; MCP/commands only if pursued.
