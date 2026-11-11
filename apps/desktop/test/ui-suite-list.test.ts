@@ -48,6 +48,7 @@ describe('UI suite list', () => {
       'm4e1-settings-platform.test.mjs': 'm4e1-settings',
       'm4d1-page-density.test.mjs': 'm4d1-page-density',
       'm4d2-export-ui.test.mjs': 'm4d2-export-ui',
+      'ui-editor-shortcuts.test.mjs': 'ui-editor-shortcuts',
     } as const;
     const directories = Object.values(owners);
     expect(new Set(directories).size).toBe(directories.length);

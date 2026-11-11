@@ -1347,6 +1347,9 @@ export function runMenuCommand(command: MenuCommand): void {
     case 'settings':
       shell().openDialog({ kind: 'settings' });
       break;
+    case 'settings-shortcuts':
+      shell().openDialog({ kind: 'settings', page: 'editor' });
+      break;
     case 'new-chapter':
       void createChapter();
       break;

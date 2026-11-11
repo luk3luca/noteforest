@@ -422,6 +422,7 @@ export type MenuCommand =
   | 'toggle-sidebar'
   | 'command-palette'
   | 'settings'
+  | 'settings-shortcuts'
   | 'new-chapter'
   | 'add-block'
   | 'flush'

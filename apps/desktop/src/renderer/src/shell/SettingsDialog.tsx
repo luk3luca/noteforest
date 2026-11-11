@@ -33,17 +33,10 @@ import {
   parseMm,
   type MarginKey,
 } from '../settings/page-setup';
-
-type SettingsPage =
-  | 'general'
-  | 'page'
-  | 'continuous'
-  | 'editor'
-  | 'export'
-  | 'data';
+import type { SettingsPageId } from '../settings/settings-pages';
 
 interface NavItem {
-  id: SettingsPage;
+  id: SettingsPageId;
   label: string;
 }
 
@@ -145,6 +138,23 @@ const SHORTCUTS: { group: string; rows: [string, string][] }[] = [
   },
 ];
 
+/**
+ * Case-insensitive filter over the rendered shortcut rows. Matches the row
+ * label and the displayed key combination; groups with no match disappear.
+ */
+function filterShortcuts(query: string): { group: string; rows: [string, string][] }[] {
+  const normalized = query.trim().toLowerCase();
+  return SHORTCUTS.map((group) => ({
+    group: group.group,
+    rows: group.rows.filter(
+      ([label, shortcut]) =>
+        normalized.length === 0 ||
+        label.toLowerCase().includes(normalized) ||
+        shortcut.toLowerCase().includes(normalized),
+    ),
+  })).filter((group) => group.rows.length > 0);
+}
+
 function statusLabel(state: 'ok' | 'defaults' | 'corrupt' | 'unreadable' | 'newer'): string {
   switch (state) {
     case 'ok':
@@ -170,7 +180,14 @@ function statusLabel(state: 'ok' | 'defaults' | 'corrupt' | 'unreadable' | 'newe
  * layer selector only; switching it never writes. A Page value equal to the
  * global value removes the per-document override instead of storing a no-op.
  */
-export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Element {
+export function SettingsDialog({
+  onClose,
+  initialPage = 'page',
+}: {
+  onClose: () => void;
+  /** Page to open on; the Help → Keyboard shortcuts command targets Editor. */
+  initialPage?: SettingsPageId;
+}): JSX.Element {
   const packagePath = useShell((state) => state.activeTab);
   const library = useShell((state) => state.library);
   const { runtime } = useRuntime(packagePath);
@@ -188,7 +205,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
     documentAvailable,
   );
 
-  const [page, setPage] = useState<SettingsPage>('page');
+  const [page, setPage] = useState<SettingsPageId>(initialPage);
+  const [shortcutQuery, setShortcutQuery] = useState('');
   const [appVersion, setAppVersion] = useState<string | null>(null);
 
   const onCloseRef = useRef(onClose);
@@ -265,6 +283,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
 
   const activePage = NAV_ITEMS.some((item) => item.id === page) ? page : 'page';
   const pageIndex = NAV_ITEMS.findIndex((item) => item.id === activePage);
+  const shortcutGroups = filterShortcuts(shortcutQuery);
 
   const onNavKeyDown = (event: React.KeyboardEvent<HTMLElement>): void => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') {
@@ -988,23 +1007,79 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
               {activePage === 'editor' ? (
                 <>
                   <h3 className="nf-settings-page-title">Editor</h3>
-                  <section className="nf-settings-section">
+                  <section className="nf-settings-section" data-shortcuts-section="true">
                     <h4 className="nf-settings-section-title">Keyboard shortcuts</h4>
-                    {SHORTCUTS.map((group) => (
-                      <div key={group.group} className="nf-shortcut-group" data-shortcut-group={group.group}>
-                        <h5 className="nf-shortcut-group-title">{group.group}</h5>
-                        <dl className="nf-shortcut-list">
-                          {group.rows.map(([label, shortcut]) => (
-                            <div key={`${group.group}-${label}`} className="nf-shortcut-row">
-                              <dt>{label}</dt>
-                              <dd>
-                                <kbd>{shortcut}</kbd>
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </div>
-                    ))}
+                    <div className="nf-shortcut-search">
+                      <input
+                        className="nf-input"
+                        type="text"
+                        value={shortcutQuery}
+                        placeholder="Search by name or shortcut"
+                        aria-label="Search keyboard shortcuts"
+                        data-shortcut-search="true"
+                        autoFocus={initialPage === 'editor'}
+                        onChange={(event) => setShortcutQuery(event.target.value)}
+                        onKeyDown={(event) => {
+                          // Escape clears the query first. Only an empty field
+                          // lets the modal overlay close Settings.
+                          if (event.key !== 'Escape' || shortcutQuery.length === 0) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setShortcutQuery('');
+                        }}
+                      />
+                      {shortcutQuery.length === 0 ? null : (
+                        <button
+                          type="button"
+                          className="nf-button nf-button-quiet"
+                          data-shortcut-clear="true"
+                          onClick={() => setShortcutQuery('')}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    {shortcutGroups.length === 0 ? (
+                      <p className="nf-shortcut-empty" data-shortcuts-empty="true">
+                        No shortcuts match “{shortcutQuery.trim()}”.{' '}
+                        <button
+                          type="button"
+                          className="nf-button nf-button-quiet"
+                          data-shortcuts-empty-clear="true"
+                          onClick={() => setShortcutQuery('')}
+                        >
+                          Clear search
+                        </button>
+                      </p>
+                    ) : (
+                      shortcutGroups.map((group) => (
+                        <div
+                          key={group.group}
+                          className="nf-shortcut-group"
+                          data-shortcut-group={group.group}
+                        >
+                          <h5 className="nf-shortcut-group-title">{group.group}</h5>
+                          <dl className="nf-shortcut-list">
+                            {group.rows.map(([label, shortcut]) => (
+                              <div
+                                key={`${group.group}-${label}`}
+                                className="nf-shortcut-row"
+                                data-shortcut-row="true"
+                              >
+                                <dt>{label}</dt>
+                                <dd>
+                                  <kbd>{shortcut}</kbd>
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </div>
+                      ))
+                    )}
+                    <p className="nf-settings-help" data-shortcuts-help="true">
+                      A read-only reference of the app shortcuts; it is not a configurable
+                      keymap.
+                    </p>
                   </section>
                   <section className="nf-settings-section">
                     <h4 className="nf-settings-section-title">Saving</h4>

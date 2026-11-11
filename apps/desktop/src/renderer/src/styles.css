@@ -5033,6 +5033,25 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 
+.nf-shortcut-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nf-shortcut-search .nf-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.nf-shortcut-empty {
+  margin: 0;
+  padding: 10px 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .nf-shortcut-group + .nf-shortcut-group {
   margin-top: 10px;
 }

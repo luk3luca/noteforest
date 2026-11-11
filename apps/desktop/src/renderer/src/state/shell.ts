@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import type { LibraryView, RecoveryStatus } from '../../../shared/api';
+import type { SettingsPageId } from '../settings/settings-pages';
 import {
   DEFAULT_DOCUMENT_VIEW,
   clampContinuousZoom,
@@ -62,7 +63,7 @@ export type DialogState =
   | { kind: 'reload-from-disk'; packagePath: string }
   | { kind: 'overwrite-external'; packagePath: string }
   | { kind: 'restore-backup'; packagePath: string }
-  | { kind: 'settings' };
+  | { kind: 'settings'; page?: SettingsPageId };
 
 export interface ContextMenuState {
   x: number;

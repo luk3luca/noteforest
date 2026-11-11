@@ -83,7 +83,7 @@ export function Dialogs(): JSX.Element | null {
   // Settings is app-level (S2-1): it opens with zero documents, before the
   // per-document dialog gate. Document-only sections are disabled inside.
   if (dialog.kind === 'settings') {
-    return <SettingsDialog onClose={close} />;
+    return <SettingsDialog onClose={close} initialPage={dialog.page} />;
   }
   if (runtime === null) {
     return (

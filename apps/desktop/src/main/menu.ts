@@ -174,8 +174,11 @@ export function installApplicationMenu(getWindow: () => BrowserWindow | null, se
     role: 'help',
     submenu: [
       {
+        id: 'menu-keyboard-shortcuts',
+        // Opens Settings on the Editor page instead of the default Page page:
+        // the menu item promises the shortcut list, not the whole Settings modal.
         label: 'Keyboard shortcuts',
-        click: () => send('settings'),
+        click: () => send('settings-shortcuts'),
       },
     ],
   });

@@ -50,6 +50,7 @@ export const FILES = [
   'ui-batch-a.test.mjs',
   'ui-batch-b.test.mjs',
   'ui-settings-advanced.test.mjs',
+  'ui-editor-shortcuts.test.mjs',
   'ui-batch-v.test.mjs',
   'ui-overlay-command-gate.test.mjs',
 ];
@@ -73,6 +74,7 @@ export const GROUPS = {
     'r1b-page-settings.test.mjs',
     'ui-batch-b.test.mjs',
     'ui-settings-advanced.test.mjs',
+    'ui-editor-shortcuts.test.mjs',
     'ui-overlay-command-gate.test.mjs',
   ],
   anchors: [
