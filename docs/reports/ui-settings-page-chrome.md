@@ -174,6 +174,15 @@ Screenshots/evidence:
 | Existing assertions updated to the new intended output, none weakened; no pageErrors | **Pass** | `m4c3` header/footer selectors updated (footer text added to the geometry checks); m4c2 checks extended; suite `after` hooks assert empty `pageErrors` |
 | `npm run verify` exit 0 with real timings; UI suites at the default pool | **Pass** | Table above |
 
+## Integration
+
+- Fast-forward into `main` from `25e71d8` to `d23b582`.
+- Full `npm run verify` on `main` at `d23b582`: **exit 0, 175.94 s** — 109 unit files /
+  1129 tests, 16/16 e2e, 14/14 recovery, **46/46 UI** at the default pool, 0 pageErrors.
+- Open for the product-owner visual pass: the number is centered in the footer margin band;
+  with asymmetric margins it is not paper-center. A one-line `(left − right) / 2` offset is
+  the change if paper-center is required.
+
 ## Open questions / risks
 
 1. **Center reference with asymmetric margins.** The number is centered in the footer margin

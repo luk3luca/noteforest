@@ -200,7 +200,7 @@ copy, and tests when the phase starts.
 | Appearance v3 | `ui-settings-contents.md` §3; `settings-freeze-review.md`; light/accent tokens | `settingsVersion: 3`, pure migration, light token set/accent tokens, code-font PDF gate |
 | Export defaults | `ui-settings-contents.md` §7; `ui-export-contents.md` §9 | `export` namespace + migration; PDF metadata/tagged gate |
 | Continuous global | `ui-settings-contents.md` §5; `settings-freeze-review.md` | real global fields (canvas width/card width/spacing); no per-document override |
-| Page chrome | `settings-freeze-review.md` open #7; Page/PDF docs | field list and defaults; header/footer/page-number/chapter-start design |
+| Page chrome | `settings-freeze-review.md` open #7; Page/PDF docs | **Shipped in R2** (`docs/reports/ui-settings-page-chrome.md`): header/footer/page-number; chapter-start remains future |
 | Manual breaks | `ui-settings-contents.md` §4.5; `settings-freeze-review.md` | delete/split/merge cleanup rules; no fake list |
 | Data recovery | `ui-settings-contents.md` §8; `settings-freeze-review.md` S3-3/S3-12 | reset map/restore backup + confirmation; backup path |
 | External API / agent access | `docs/adr/0003-external-agent-api.md` | **Removed from Settings** (product owner, 11 Nov 2026). Any future agent surface is MCP/commands, not a Settings token/scope/audit harness page. |

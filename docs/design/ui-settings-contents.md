@@ -250,6 +250,9 @@ Purpose: the Page lens. Global default + per-document override; preview on the r
 | Orientation | Segmented Portrait / Landscape | Re-paginates; preview |
 | Margins | Four NumberFields (mm) + “All sides” | 0–100; content area min 20 mm per axis; inline validation |
 | Preview | Page thumbnail | Draft values; no separate model |
+| Chrome | Header | Segmented None / Document title / Chapter title | Default document title; generated, no free text |
+| Chrome | Footer | Segmented None / Document title / Chapter title | Default chapter title; generated, no free text |
+| Chrome | Page number | Toggle | On by default, bottom center, no page-1 exception |
 | Reset | “Use global” (document) / “Reset to default” (global) | No silent fallback |
 
 ### 4.3 Typography
