@@ -439,6 +439,9 @@ typography/layout), and **V** (visual refinement), with P1–P6 as acceptance ch
 Batch A is merged at `af815eb`; Batch B at `34e4ade`; Batch C at `35edd06`; Batch V at `4df220d`
 (full verify green; reports `docs/reports/ui-batch-a.md`, `ui-batch-b.md`, `ui-batch-c.md`,
 `ui-batch-v.md`). UI Batches A/B/C/V are merged on `main` at `a44a257`; future work continues on
-`main`. External API/agent access is removed from Settings; any future agent surface is
-MCP/commands, not a Settings harness/agent page. Future pages stay empty in the lab and out of the
-product until a real control exists.
+`main`. The UI post-merge Sentinel is done (`docs/reviews/ui-post-merge-review.md`): **request
+changes**, no S1, three S2 (F1 overlay command gating/export document identity, F2 settings write
+identity across tab changes, F3 corrupt global settings overwrite). The S2 fixes and a targeted
+re-check come before the next settings block. External API/agent access is removed from Settings;
+any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
+empty in the lab and out of the product until a real control exists.
