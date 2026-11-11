@@ -201,6 +201,15 @@ files). The pre-rebase full verify timing is consistent with the previous ~3 min
 - Dismissal is intentionally not persisted: a restart re-shows the banner. Data & About remains the
   durable, always-visible recovery surface.
 
+## 8. Integration
+
+- Rebased onto `f5c9f69` (R5) and merged fast-forward into `main` at `4a87ae8`.
+- Full `npm run verify` on `main` at `4a87ae8`: **exit 0, 170.47 s** — 109 unit files / 1114 tests,
+  16/16 e2e, 14/14 recovery, **46/46 UI** at the default pool, 0 pageErrors.
+- No separate Sentinel review was run for this batch; a targeted review can be folded into the next
+  settings checkpoint.
+- Next settings task: R2 Page chrome.
+
 ## 7. Next suggested step
 
 Targeted Sentinel review of this batch against the brief (S3-2, S3-13/S3-3, S4), including a manual

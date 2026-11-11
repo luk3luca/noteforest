@@ -445,7 +445,9 @@ identity across tab changes, F3 corrupt global settings overwrite). The S2 fix b
 test-evidence and runner hardening) is merged at `58a9b6a` with a green full verify. The targeted
 Sentinel re-check (`docs/reviews/ui-sentinel-fixes-recheck.md`) is **accept with findings**: F1–F3 closed,
 F4/F7 sound; S3 follow-ups are the Close Window gate, settings recovery after Dismiss/unreadable, and
-test nits. The next settings block is unblocked. External API/agent access is removed from
+test nits. The next settings block is unblocked. Wave 1 is merged at `4a87ae8`: R1 data recovery (S3-2,
+document map reset/restore, S4 nits) and R5 Editor shortcuts (Help → Editor, searchable list),
+with a green full verify (109 unit files / 1114 tests, 46/46 UI). Next: R2 Page chrome. External API/agent access is removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.

@@ -109,6 +109,15 @@ Evidence screenshots (suite-owned directory `artifacts/ui-editor-shortcuts/`):
   `dispatchMenuCommand` bridge (no new bridge method).
 - **Close Window (S3-1)** was not touched; the overlay gate behavior for menus is unchanged.
 
+## Integration
+
+- Merged into `main` at `f5c9f69`; R1 was rebased onto it, and the Wave 1 integration verify ran on
+  `main` at `4a87ae8`: **exit 0, 170.47 s** — 109 unit files / 1114 tests, 16/16 e2e, 14/14
+  recovery, **46/46 UI** at the default pool, 0 pageErrors.
+- No separate Sentinel review was run for this small batch; the UI suite and the integration verify
+  are the evidence. A targeted review can be folded into the next settings checkpoint.
+- Product-owner visual/VoiceOver pass remains open.
+
 ## Next suggested step
 
 Sentinel review of this batch against the brief (AP-22/S3-8 + search), then continue the
