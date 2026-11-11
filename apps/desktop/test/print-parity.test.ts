@@ -617,3 +617,115 @@ describe('Batch B Page settings parity (size, orientation, margins, density)', (
     );
   });
 });
+
+describe('Batch C advanced typography/layout parity', () => {
+  const document = makeDocument({
+    id: 'batch-c-advanced',
+    blocks: ['b1', 'b2', 'b3'],
+    chapters: [{ id: 'chapter-1', title: 'Batch C', topLevelBlockIds: ['b1', 'b2', 'b3'] }],
+  });
+  const specs: Record<string, StubSpec> = {
+    b1: { max: 300, min: 120, height: 500, segmentCount: 4 },
+    b2: { max: 260, min: 100, height: 460, segmentCount: 3 },
+    b3: { max: 320, min: 120, height: 620, segmentCount: 5 },
+  };
+  const advanced = {
+    bodyPt: 11,
+    bodyLine: 1.5,
+    heading1Pt: 18,
+    heading2Pt: 15,
+    heading3Pt: 12,
+    codePt: 9,
+    codeLine: 1.4,
+    tablePt: 9,
+    tableLine: 1.3,
+    labelPt: 10,
+    minContentWidth: 180,
+    cardPadding: 14,
+    cardBorder: 2,
+    segmentGap: 6,
+    siblingGap: 20,
+    calloutGap: 22,
+    wrapIndent: 22,
+    maxWrapIndent: 64,
+    childIndent: 34,
+    maxCardWidth: 360,
+  } as const;
+
+  it('keeps Page Read and the print model identical for every advanced field at 100%', () => {
+    const result = pipeline(document, specs, A4_LANDSCAPE, { theme: advanced });
+    expectSeamParity(result);
+    expect(result.settings.theme).toMatchObject(advanced);
+    expect(result.layout.layoutOptions).toEqual(pageLayoutOptions(result.settings.theme));
+    expect(result.print.cssVariables).toEqual(pageCssVariables(result.settings.theme));
+    expect(result.print.cssVariables).toMatchObject({
+      '--nf-page-body-size': '11pt',
+      '--nf-page-body-line': '1.5',
+      '--nf-page-heading-1': '18pt',
+      '--nf-page-heading-2': '15pt',
+      '--nf-page-heading-3': '12pt',
+      '--nf-page-code-size': '9pt',
+      '--nf-page-code-line': '1.4',
+      '--nf-page-table-size': '9pt',
+      '--nf-page-table-line': '1.3',
+      '--nf-page-label-size': '10pt',
+      '--nf-page-card-padding': '14px',
+      '--nf-page-card-border': '2px',
+      '--nf-page-segment-gap': '6px',
+      '--nf-page-max-card-width': '360px',
+    });
+    expect(result.layout.layoutOptions).toMatchObject({
+      minContentWidth: 180,
+      maxContentWidth: 360,
+      cardPadding: 14,
+      cardBorder: 2,
+      segmentGap: 6,
+      siblingGap: 20,
+      calloutGap: 22,
+      wrapIndent: 22,
+      maxWrapIndent: 64,
+      childIndent: 34,
+    });
+  });
+
+  it('applies the density lens once to advanced type and boxes', () => {
+    const result = pipeline(document, specs, A4_LANDSCAPE, {
+      theme: { ...advanced, density: 0.8 },
+    });
+    expectSeamParity(result);
+    expect(result.settings.theme.density).toBe(0.8);
+    // Stored values stay raw; the effective theme and print map agree.
+    expect(result.settings.theme.bodyPt).toBe(11);
+    expect(result.print.cssVariables['--nf-page-body-size']).toBe('9pt');
+    expect(result.print.cssVariables['--nf-page-card-padding']).toBe('11.2px');
+    expect(result.print.cssVariables['--nf-page-max-card-width']).toBe('288px');
+    expect(result.layout.layoutOptions).toMatchObject({
+      minContentWidth: 144,
+      maxContentWidth: 288,
+      cardPadding: 11.2,
+      segmentGap: 4.8,
+      siblingGap: 16,
+      calloutGap: 17.6,
+      wrapIndent: 17.6,
+      maxWrapIndent: 51.2,
+      childIndent: 27.2,
+    });
+  });
+
+  it('keeps the density card band for preset-range caps and custom scaling outside it', () => {
+    const inBand = pipeline(document, specs, A4_LANDSCAPE, {
+      theme: { maxCardWidth: 360, density: 0.6 },
+    });
+    expectSeamParity(inBand);
+    // 360 × 0.6 = 216 is lifted to the 240 px band floor.
+    expect(inBand.layout.layoutOptions.maxContentWidth).toBe(240);
+
+    const custom = pipeline(document, specs, A4_LANDSCAPE, {
+      theme: { maxCardWidth: 700, density: 0.6 },
+    });
+    expectSeamParity(custom);
+    // A custom cap outside 240–560 keeps its own proportional scaling.
+    expect(custom.layout.layoutOptions.maxContentWidth).toBe(420);
+    expect(custom.print.cssVariables['--nf-page-max-card-width']).toBe('420px');
+  });
+});

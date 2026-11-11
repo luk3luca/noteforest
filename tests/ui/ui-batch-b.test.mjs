@@ -476,7 +476,7 @@ describe('Batch B Page settings', () => {
     assert.equal((await resolvedPageSettings(packagePath)).setup.size, 'A5');
   });
 
-  it('applies presets, density 60/100/120, and Custom without exposing advanced typography', async () => {
+  it('applies presets, density 60/100/120, and Custom with advanced typography collapsed', async () => {
     const env = ui.isolated('batch-b-typography');
     await launch('batch-b-typography', env);
     const packagePath = await openPackage(env, 'typography-blocks', multiPageBlocksDocument(24));
@@ -523,9 +523,12 @@ describe('Batch B Page settings', () => {
       'Custom preserves the comfortable 120% typography',
     );
 
-    // Compact keeps the density lens and returns to the compact baseline.
+    // Compact keeps the density lens and returns to the compact baseline. A
+    // Custom layer would be replaced, so Batch C asks first (Q-11).
     await openSettingsFromButton();
     await page.locator('[data-page-preset-option="compact"]').click();
+    await page.waitForSelector('[data-page-preset-warning="true"]', { timeout: 5000 });
+    await page.locator('[data-page-preset-confirm="true"]').click();
     await page.waitForFunction(
       () => {
         const state = window.__noteforestTest.settings();
@@ -708,7 +711,19 @@ describe('Batch B Page settings', () => {
       { min: '60', max: '120', step: '5' },
     );
     assert.equal(await page.locator('[data-page-advanced-hidden="true"]').isVisible(), true);
-    assert.equal(await page.locator('[data-page-advanced-typography]').count(), 0);
+    assert.equal(await page.locator('[data-page-advanced-typography]').count(), 1);
+    assert.equal(
+      await page
+        .locator('[data-page-advanced-typography]')
+        .evaluate((element) => element.open),
+      false,
+      'advanced typography is collapsed by default',
+    );
+    assert.equal(
+      await page.locator('[data-page-theme-input="bodyPt"]').isVisible(),
+      false,
+      'a collapsed disclosure does not show its fields',
+    );
 
     await waitPreviewReady();
     assert.equal(

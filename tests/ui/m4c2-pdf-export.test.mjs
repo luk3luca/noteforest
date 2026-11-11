@@ -298,6 +298,63 @@ describe('M4c2 PDF export orchestration', () => {
     });
   });
 
+  it('exports advanced typography and advanced layout values from Continuous (Batch C)', async () => {
+    const env = ui.isolated('m4c2-advanced');
+    await launch('m4c2-advanced');
+    const packagePath = await openPackage(
+      env,
+      'Export advanced',
+      multiPageBlocksDocument(24),
+    );
+    await setPageSettings(packagePath, {
+      theme: {
+        bodyPt: 11,
+        bodyLine: 1.5,
+        heading1Pt: 18,
+        heading2Pt: 15,
+        heading3Pt: 12,
+        codePt: 9,
+        codeLine: 1.4,
+        tablePt: 9,
+        tableLine: 1.3,
+        labelPt: 10,
+        minContentWidth: 180,
+        cardPadding: 14,
+        cardBorder: 2,
+        segmentGap: 6,
+        siblingGap: 20,
+        calloutGap: 22,
+        wrapIndent: 22,
+        maxWrapIndent: 64,
+        childIndent: 34,
+        maxCardWidth: 360,
+        density: 0.8,
+      },
+    });
+    const outputPath = resolve(outputRoot, 'advanced-typography-layout.pdf');
+    const job = await exportPdf({ packagePath, outputPath });
+    assert.equal(job.status, 'done', job.error?.message ?? 'advanced export succeeds');
+    assert.equal(job.error, null);
+    assert.ok(
+      !job.warnings.some((warning) => warning.code === 'settings-mismatch'),
+      'advanced values do not change the settings identity',
+    );
+    assert.equal(job.pageWidthMm, 297);
+    assert.equal(job.pageHeightMm, 210);
+    const pdf = await inspect(outputPath);
+    assertPageSizes(pdf, job);
+    assert.ok(textContains(pdf.text, 'Continuous markers'), 'the document title is in the PDF');
+    assert.ok(
+      textContains(pdf.text, 'A short top-level block'),
+      'the body text survives the advanced type/storage lenses',
+    );
+    record({
+      case: 'advanced typography/layout',
+      pageCount: job.pageCount,
+      pdfPages: pdf.pages.map((item) => [Number(item.widthMm.toFixed(2)), Number(item.heightMm.toFixed(2))]),
+    });
+  });
+
   it('exports Letter portrait and landscape with the matching PDF geometry', async () => {
     const env = ui.isolated('m4c2-letter');
     await launch('m4c2-letter');
