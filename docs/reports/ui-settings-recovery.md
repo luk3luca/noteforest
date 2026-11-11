@@ -2,10 +2,11 @@
 
 - Role: Implementer / Builder
 - Date: 11 November 2026
-- Base: `main` at `b63a78e`
+- Base: `main` at `b63a78e` (R1), rebased onto `main` at `f5c9f69` (R5)
 - Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-a90b1690-bcd4fccd84cce5d8`
 - Branch: `t3/settings-data-recovery`
-- Head: the commit that adds this report (`git log -1 --oneline` in the worktree)
+- Rebased head: `ac48cc7` on `f5c9f69`; the branch head adds this rebase note
+  (`git log -1 --oneline` in the worktree)
 - Brief: `docs/tasks/ui-settings-recovery.md`
 
 ## 1. Summary
@@ -56,6 +57,35 @@ keeps recovery reachable after Dismiss, and closes the S4 test-guard nits.
   `m3-reference` / `m3-repair`. All four are guarded as unique owners.
 - Removed the stale `(S2-5)` suffix from the two `m4e1-settings-platform` test titles; behavior
   assertions are unchanged.
+
+### Rebase onto `f5c9f69` (R5 — Settings Editor shortcuts/search)
+
+`main` moved to `f5c9f69` while this branch was open. The rebase produced three textual conflicts;
+all were resolved by keeping both batches, and the auto-merged files were checked by reading the
+result:
+
+- `tests/ui/suites.mjs` — the `settings` group had one slot each for `ui-editor-shortcuts` (R5) and
+  `ui-settings-recovery` (R1). Kept both, in `FILES` order, before `ui-overlay-command-gate`.
+  `FILES` is now 46 suites; `all` 46, `settings` 8, `core` 13 (shell 6 + settings 8 − the shared
+  overlay suite).
+- `apps/desktop/test/ui-suite-list.test.ts` — kept R5's `ui-editor-shortcuts` owner entry together
+  with `ui-overlay-command-gate`, `ui-settings-recovery`, and the four split m3 owners, under the
+  generalized cross-suite guard.
+- `tests/ui/README.md` — the Settings overlap row now lists and describes both
+  `ui-editor-shortcuts` (R5) and `ui-settings-recovery`; the evidence-directory paragraph already
+  carried both new directories.
+- `apps/desktop/src/renderer/src/shell/SettingsDialog.tsx` — auto-merged. Verified both features
+  survive: R5's `initialPage`/`SettingsPageId`, shortcut search, empty state and Escape-clears-query
+  behavior, plus this batch's `dismissedWarnings` banner gating, Data & About statuses and
+  Reset map / Restore backup recovery.
+- `apps/desktop/src/shared/api.ts` — auto-merged. R5's `settings-shortcuts` `MenuCommand` and this
+  batch's `documentSettingsBackup`/recovery API coexist.
+- No other R5 touch point (`menu.ts`, `actions.ts`, `settings-pages.ts`, `Dialogs.tsx`,
+  `state/shell.ts`, `styles.css`) conflicts with this batch.
+
+Post-rebase targeted checks: typecheck clean, `ui-suite-list` 6/6, `ui-editor-shortcuts` 4/4 +
+`ui-settings-recovery` 6/6, settings group 8/8. The full `npm run verify` below was run on the
+pre-rebase tree (45 suites); the Orchestrator runs the integration verify on `main` after merge.
 
 ## 2. Recovery semantics (decisions inside the brief)
 
@@ -114,21 +144,31 @@ Tests:
 
 ## 4. Checks run (real timings, this machine)
 
+Pre-rebase full gate (on the R1 branch before R5 landed; not re-run after the rebase, per the
+Orchestrator's instruction):
+
 | Check | Result | Real time |
 |---|---|---:|
-| `npm run verify` (exit 0, on this tree) | boundaries 178 files / 877 imports / 16 rules; typecheck clean; unit 109 files / **1114** tests; e2e **16/16**; recovery **14/14**; UI **45/45**; 0 pageErrors | **2:47.90 wall** |
+| `npm run verify` (exit 0, pre-rebase tree) | boundaries 178 files / 877 imports / 16 rules; typecheck clean; unit 109 files / **1114** tests; e2e **16/16**; recovery **14/14**; UI **45/45**; 0 pageErrors | **2:47.90 wall** |
 | ├ boundaries | `npm run check:boundaries` | 0.4 s |
 | ├ unit (`vitest`) | 109 files / 1114 tests | 2.82 s |
 | ├ e2e | `tests/e2e/m2-editor.test.mjs`, 16/16 | 44.0 s |
 | ├ recovery | 14/14 | 17.5 s |
 | └ UI suites | 45/45 at the default pool (8), new suite included | 97.2 s |
-| Targeted unit (during work) | 4 files / 62 tests | 0.49 s |
-| Targeted UI settings group | 7/7 (incl. `ui-settings-recovery` 14.4 s) | 21.9 s |
-| New suite alone | 6/6, no pageErrors | 11.0 s |
 
-The UI count moved 44 → 45 (new `ui-settings-recovery`); unit tests moved 1099 → 1114 (15 new
-assertions across the four unit files). The full verify timing is consistent with the previous
-~3 min baseline.
+Post-rebase targeted checks (R1 on `f5c9f69`, both batches merged):
+
+| Check | Result | Real time |
+|---|---|---:|
+| `npm run typecheck` | clean (all four workspaces) | ~8 s |
+| `npx vitest run apps/desktop/test/ui-suite-list.test.ts` | 6/6 | 0.08 s |
+| `node --test ui-editor-shortcuts ui-settings-recovery` | **10/10** (4 + 6), no pageErrors | 20.9 s |
+| `node tests/ui/run.mjs --group settings` | **8/8** (both new suites included) | 22.8 s |
+| `node tests/ui/run.mjs --list` | `all 46, settings 8, shell 6, anchors 13, images 4, page 16, core 13` | < 1 s |
+
+The rebased UI count is 46 (R5's `ui-editor-shortcuts` + this batch's `ui-settings-recovery`); the
+settings group grew 6 → 7 → 8. Unit tests moved 1099 → 1114 (15 new assertions across the four unit
+files). The pre-rebase full verify timing is consistent with the previous ~3 min baseline.
 
 ## 5. Acceptance criteria
 
@@ -140,7 +180,7 @@ assertions across the four unit files). The full verify timing is consistent wit
 | Save remains refused while the map is corrupt/unreadable until an explicit recovery action | **Pass** | existing refusal + new unreadable refusal; UI test 4 asserts the failed ordinary override leaves `{broken` on disk |
 | S4: guard includes `ui-overlay-command-gate`, every evidence directory has one owner, four suites use unique directories, stale `(S2-5)` titles gone | **Pass** | `ui-suite-list.test.ts`; `suites.mjs`; m3/m4e1 diffs |
 | No schema/dependency change; no assertion weakened; no native dialog; no fixed sleep | **Pass** | no version/schema edits, no packages added; test titles only renamed; inline confirm; tests use condition waits only |
-| `npm run verify` exit 0 with real timings; UI 45 suites at the default pool, no pageErrors | **Pass** | table above; `ui-settings-recovery` after-hook asserts `h.pageErrors` empty |
+| `npm run verify` exit 0 with real timings; UI suites at the default pool, no pageErrors | **Pass (pre-rebase full gate; post-rebase targeted)** | section 4: pre-rebase 45/45 full verify; post-rebase typecheck + suite-list + 10/10 new-suite + settings 8/8; `ui-settings-recovery` after-hook asserts `h.pageErrors` empty |
 
 ## 6. Risks / open questions
 
