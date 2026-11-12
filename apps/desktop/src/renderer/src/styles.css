@@ -54,13 +54,19 @@ html[data-theme="dark"] {
   --surface-1: #1b1d20;
   --surface-2: #202329;
   --surface-3: #262a30;
+  /* Continuous note-card surface and hover: one step off the canvas so a card
+     reads as a note, not as canvas whitespace. Not --surface-1: in light that
+     role is white and would equal the canvas. */
+  --note-surface: #1b1d20;
+  --note-surface-hover: #202329;
   --text-1: #e7e8ea;
   --text-2: #a6abb2;
   --text-3: #8b9199;
   --border-1: #2e3238;
   --border-2: #3c4148;
-  --edge: #5e6670;
-  --edge-muted: #3a3f46;
+  /* Resting edges are a visible tree line, not a hint. */
+  --edge: #7b858f;
+  --edge-muted: #565f68;
   --danger: #d98b8b;
   --danger-soft: #351f22;
   --danger-border: #6a3a3d;
@@ -85,13 +91,17 @@ html[data-theme="light"] {
   --surface-1: #ffffff;
   --surface-2: #f2f5f7;
   --surface-3: #e8edf1;
+  /* Light note cards need their own surface: --surface-1 is white, so a card
+     would disappear into the canvas. */
+  --note-surface: #f6f8fb;
+  --note-surface-hover: #eef3f7;
   --text-1: #1a1f23;
   --text-2: #4d5a63;
   --text-3: #5f6b75;
   --border-1: #d7dee4;
   --border-2: #b8c4cd;
-  --edge: #8b959d;
-  --edge-muted: #c3ccd2;
+  --edge: #6c7882;
+  --edge-muted: #9aa5ad;
   --danger: #a23b32;
   --danger-soft: #fbeae7;
   --danger-border: #e0b3ac;
@@ -2066,22 +2076,19 @@ button:disabled {
   padding: var(--nf-card-padding);
   /* Continuous note-card surface; Page cards/print keep the shared radius. */
   border-radius: var(--nf-note-radius);
-  background: var(--surface-1);
+  background: var(--note-surface);
   transition: background 120ms var(--motion), box-shadow 120ms var(--motion);
 }
 
+/* Top-level and child cards share the same note surface: a top-level block is a
+   note too, not canvas transparency. */
 .nf-block-body[data-top-level="true"] {
   min-width: var(--nf-top-level-min-width);
   max-width: var(--nf-top-level-max-width);
-  background: transparent;
 }
 
 .nf-block-body:hover {
-  background: var(--surface-2);
-}
-
-.nf-block-body[data-top-level="true"]:hover {
-  background: var(--surface-1);
+  background: var(--note-surface-hover);
 }
 
 .nf-block-body[data-active="true"] {
@@ -3191,12 +3198,12 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-block-body[data-callout="true"] {
-  background: var(--surface-1);
+  background: var(--note-surface);
   box-shadow: inset 0 0 0 1px var(--border-1);
 }
 
 .nf-block-body[data-callout="true"]:hover {
-  background: var(--surface-2);
+  background: var(--note-surface-hover);
 }
 
 .nf-block-body[data-callout="true"][data-active="true"] {

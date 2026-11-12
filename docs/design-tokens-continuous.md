@@ -59,8 +59,7 @@ never repeats the literal.
 | `rowIndent` | `--nf-row-indent` | 26 px | Continuous below-stack rows from the lane left |
 | `edgeWidth` | `--nf-edge-width` | 1.25 | Primary/reference edge stroke (shared) |
 | `edgeWidthActive` | `--nf-edge-width-active` | 1.75 | Selected path stroke (shared) |
-| `edgeWidthMuted` | `--nf-edge-width-muted` | 1 | Unselected path stroke (shared) |
-| `zIndex.edge` | `--nf-z-edge` | 0 | Edge layer |
+| `edgeWidthMuted` | `--nf-edge-width-muted` | 1 | Unselected path stroke (shared) || `zIndex.edge` | `--nf-z-edge` | 0 | Edge layer |
 | `zIndex.rightGroup` | `--nf-z-right-group` | 0 | Direct-child group |
 | `zIndex.calloutLane` | `--nf-z-lane` | 1 | Callout lane |
 | `zIndex.parentCard` | `--nf-z-card` | 2 | Parent card |
@@ -212,6 +211,15 @@ These remain CSS variables in `styles.css` (`--surface-*`, `--border-*`, `--text
 fonts). They are part of the same shell design system but are not duplicated in the TS token module
 yet. Page skin colors (`--nf-page-ink` and the related Page color variables) are Page-only and are
 not Continuous tokens.
+
+Continuous cards use their own surface roles: `--note-surface` (`#1b1d20` dark, `#f6f8fb` light) and
+`--note-surface-hover` (`#202329`, `#eef3f7`). Cards never use `--surface-1`: in light that role is
+white and equals the canvas. Top-level and child cards share the same surface.
+
+Resting edges use `--edge` (`#7b858f` dark, `#6c7882` light) and muted edges `--edge-muted`
+(`#565f68`, `#9aa5ad`); active edges stay `--edge-active` (the accent). Stroke widths (1.25 / 1.75 /
+1) and the 6 × 3 arrowhead are unchanged. Page/PDF edge colors and the Page stroke width are a
+separate skin; see [`design-tokens-page.md`](design-tokens-page.md#page-route-and-shared-edge-values).
 
 ## Future resize tokens (post-M4, not scheduled)
 

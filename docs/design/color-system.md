@@ -75,7 +75,7 @@ React Aria variables are aliases, not new colors.
 | Panels/cards | `--surface-1`, `--surface-2` hover, `--border-1` |
 | Menus/palette/toasts | `--surface-3`, `--border-1`, status accents |
 | Tabs | active `--canvas`/`--border-1`/`--text-1`; inactive `--text-2`; hover `--surface-1` |
-| Continuous card | `--surface-1`, `--surface-2` hover, `--accent` active ring |
+| Continuous card | `--note-surface`, `--note-surface-hover`, `--accent` active ring |
 | Canvas edges | `--edge`, `--edge-active`, `--edge-muted`, `--warning` defect |
 | Anchor marks | `--accent` underline/dot, `--accent-soft` selected |
 | Text selection | `--accent-soft`, `--text-1` |
@@ -106,6 +106,8 @@ React Aria variables are aliases, not new colors.
 | `--surface-1` | same | Panel/card/control surface |
 | `--surface-2` | same | Raised/hover surface |
 | `--surface-3` | same | Menu/overlay/toast surface |
+| `--note-surface` | new | Continuous note-card surface; distinct from the canvas in both themes |
+| `--note-surface-hover` | new | Continuous note-card hover |
 | `--text-1` | `--text` | Primary text |
 | `--text-2` | `--text-secondary` | Secondary text |
 | `--text-3` | `--text-tertiary` | Tertiary text/icons |
@@ -146,6 +148,8 @@ Dark values keep the current look except the added roles:
 --surface-1: #1b1d20;
 --surface-2: #202329;
 --surface-3: #262a30;
+--note-surface: #1b1d20;
+--note-surface-hover: #202329;
 --text-1: #e7e8ea;
 --text-2: #a6abb2;
 --text-3: #8b9199;
@@ -179,6 +183,9 @@ three text roles meet 4.5:1 on every shell surface (12 November 2026 review).
 --surface-1: #ffffff;
 --surface-2: #f2f5f7;
 --surface-3: #e8edf1;
+/* Cards never use --surface-1: in light it is white and equals the canvas. */
+--note-surface: #f6f8fb;
+--note-surface-hover: #eef3f7;
 --text-1: #1a1f23;
 --text-2: #4d5a63;
 --text-3: #5f6b75;
@@ -323,6 +330,9 @@ sizing change is separate but related.
 2. **Registry completeness.** Every accent has all keys in dark and light; unknown id falls back.
 3. **Contrast.** Text on accent ≥ 4.5:1; focus ring and control border ≥ 3:1.
 4. **Paper isolation.** Switching theme/accent does not change Page Read, Page Edit, or the PDF.
+   The Page arrow skin and stroke width are Page-owned (`PAGE_EDGE_STYLE`,
+   `--nf-page-edge-width`); Continuous resting edges (`--edge`, `--edge-muted`) never reach the
+   paper.
 5. **No decorative color.** A review checklist item: colored stripes/borders must express state, not
    decoration; status uses icon + text + neutral surface.
 6. **No component-level palettes.** Components use roles; a new palette is registry data.

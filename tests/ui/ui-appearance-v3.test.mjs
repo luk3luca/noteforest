@@ -4,7 +4,7 @@ import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
-import { pageDocument, writePagePackage } from '../support/page-fixtures.mjs';
+import { pageDocument, textBlock, writePagePackage } from '../support/page-fixtures.mjs';
 import { inspectPdfFile, normalizeText } from '../../scripts/lib/pdf.mjs';
 
 /**
@@ -123,6 +123,18 @@ async function computed(selector, property) {
   return page.locator(selector).first().evaluate((element, name) => {
     return getComputedStyle(element).getPropertyValue(name);
   }, property);
+}
+
+/** Wait for a transitioned background to settle on the expected color. */
+async function waitForBackground(selector, expected) {
+  await page.waitForFunction(
+    ([target, value]) => {
+      const element = document.querySelector(target);
+      return element !== null && getComputedStyle(element).backgroundColor === value;
+    },
+    [selector, expected],
+    { timeout: 5000 },
+  );
 }
 
 async function waitTheme(theme) {
@@ -598,6 +610,82 @@ describe('R3 appearance v3', () => {
     const { codeFontFamily: _c, inlineCodeFontFamily: _d, ...paperBaseline } = baseline;
     assert.deepEqual(paperAfterCodeFont, paperBaseline);
     await page.screenshot({ path: join(screenshotDir, 'paper-system-mono.png') });
+  });
+
+  it('gives Continuous cards a note surface and visible resting edges in both themes', async () => {
+    const env = ui.isolated('appearance-note-surface');
+    await launch('appearance-note-surface');
+    const document = pageDocument({
+      id: 'appearance-note-surface',
+      title: 'Note surface',
+      blocks: [
+        textBlock('surface-root', 'Root', 'A top-level note with one child.'),
+        textBlock('surface-child', 'Child', 'A child note card.'),
+      ],
+      branches: [
+        {
+          id: 'surface-branch',
+          sourceBlockId: 'surface-root',
+          targetBlockId: 'surface-child',
+        },
+      ],
+    });
+    await openPackage(env, 'appearance-note-surface', document);
+    // SVG stroke paths have no fill area, so Playwright reports them hidden;
+    // presence in the layer is what matters.
+    await page.waitForSelector('.nf-edge-path', { state: 'attached' });
+    await waitTheme('dark');
+
+    // NodeViewWrapper is the card: data-block-card and .nf-block-body are one element.
+    const topLevelCard = '.nf-block-body[data-block-card="surface-root"]';
+    const childCard = '.nf-block-body[data-block-card="surface-child"]';
+    const canvasSelector = '[data-canvas-panel="true"]';
+
+    // Dark: the card surface is the accepted 1b1d20 and top-level cards are no
+    // longer transparent.
+    assert.equal(await cssVariable('--note-surface'), '#1b1d20');
+    assert.equal(await cssVariable('--note-surface-hover'), '#202329');
+    const darkCanvas = await computed(canvasSelector, 'background-color');
+    assert.equal(darkCanvas, 'rgb(23, 24, 26)');
+    assert.equal(await computed(topLevelCard, 'background-color'), 'rgb(27, 29, 32)');
+    assert.equal(await computed(childCard, 'background-color'), 'rgb(27, 29, 32)');
+    // Resting edges are stronger; width and arrowhead are unchanged.
+    assert.equal(await computed('.nf-edge-path', 'stroke'), 'rgb(123, 133, 143)');
+    assert.equal(await computed('.nf-edge-path', 'stroke-width'), '1.25px');
+    const arrowBox = await page.locator('.nf-edge-arrow').first().evaluate((element) => {
+      const box = element.getBBox();
+      return { width: box.width, height: box.height };
+    });
+    assert.equal(arrowBox.width, 6, 'the arrowhead is still 6 px long');
+    assert.equal(arrowBox.height, 6, 'the arrowhead is still 6 px wide');
+    await page.screenshot({ path: join(screenshotDir, 'continuous-note-surface-dark.png') });
+
+    // Hover uses the note-surface-hover role, including a top-level card.
+    await page.locator(topLevelCard).hover();
+    await waitForBackground(topLevelCard, 'rgb(32, 35, 41)');
+    await page.mouse.move(4, 4);
+    await waitForBackground(topLevelCard, 'rgb(27, 29, 32)');
+
+    // Light: the card surface is distinct from the white canvas.
+    await openSettings('appearance');
+    await chooseTheme('light');
+    await waitTheme('light');
+    await closeSettings();
+    assert.equal(await cssVariable('--note-surface'), '#f6f8fb');
+    assert.equal(await cssVariable('--note-surface-hover'), '#eef3f7');
+    assert.equal(await computed(canvasSelector, 'background-color'), 'rgb(255, 255, 255)');
+    await waitForBackground(topLevelCard, 'rgb(246, 248, 251)');
+    await waitForBackground(childCard, 'rgb(246, 248, 251)');
+    assert.equal(await computed('.nf-edge-path', 'stroke'), 'rgb(108, 120, 130)');
+    await page.screenshot({ path: join(screenshotDir, 'continuous-note-surface-light.png') });
+
+    // The Page skin keeps its own edge color while the shell theme changes.
+    await waitForPageRead();
+    assert.equal(
+      await computed('.nf-editor[data-active="true"] .nf-page-edges', 'color'),
+      'rgb(63, 111, 143)',
+      'Page arrows keep the fixed paper color',
+    );
   });
 
   it('centers the page number on the paper with asymmetric margins', async () => {

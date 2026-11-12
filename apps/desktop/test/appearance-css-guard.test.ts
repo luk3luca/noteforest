@@ -154,6 +154,8 @@ const SHELL_SURFACES = [
   '--surface-1',
   '--surface-2',
   '--surface-3',
+  '--note-surface',
+  '--note-surface-hover',
 ] as const;
 
 const TEXT_ROLES = ['--text-1', '--text-2', '--text-3'] as const;
@@ -220,6 +222,8 @@ describe('shell color contract', () => {
         '--border-2',
         '--edge',
         '--edge-muted',
+        '--note-surface',
+        '--note-surface-hover',
         '--danger',
         '--danger-soft',
         '--danger-border',
@@ -291,6 +295,116 @@ describe('shell color contract', () => {
     const appearanceIndex = mainSource.indexOf('applyAppearance(DEFAULT_APPEARANCE');
     expect(appearanceIndex).toBeGreaterThan(-1);
     expect(appearanceIndex).toBeLessThan(mainSource.indexOf('createRoot(container)'));
+  });
+});
+
+describe('Continuous note surface and resting edges', () => {
+  const themes = [
+    {
+      selector: 'html, html[data-theme="dark"]',
+      note: '#1b1d20',
+      hover: '#202329',
+      edge: '#7b858f',
+      edgeMuted: '#565f68',
+    },
+    {
+      selector: 'html[data-theme="light"]',
+      note: '#f6f8fb',
+      hover: '#eef3f7',
+      edge: '#6c7882',
+      edgeMuted: '#9aa5ad',
+    },
+  ] as const;
+
+  it('gives cards a note surface that is distinct from the canvas in both themes', () => {
+    for (const theme of themes) {
+      const declarations = declarationsOf(rule(theme.selector).body);
+      expect(declarations.get('--note-surface'), theme.selector).toBe(theme.note);
+      expect(declarations.get('--note-surface-hover'), theme.selector).toBe(theme.hover);
+      const canvas = declarations.get('--bg-canvas') as string;
+      const surface1 = declarations.get('--surface-1') as string;
+      for (const role of ['--note-surface', '--note-surface-hover'] as const) {
+        const value = declarations.get(role) as string;
+        expect(value, `${theme.selector} ${role} must not equal the canvas`).not.toBe(canvas);
+        expect(
+          contrast(value, canvas),
+          `${theme.selector} ${role} vs canvas`,
+        ).toBeGreaterThanOrEqual(1.04);
+      }
+      // Dark keeps the accepted card look; light is where surface-1 equals the
+      // canvas and a separate role is required.
+      if (theme.selector.includes('dark')) {
+        expect(theme.note).toBe(surface1);
+      } else {
+        expect(theme.note).not.toBe(surface1);
+      }
+    }
+  });
+
+  it('keeps the note surface on every Continuous card state', () => {
+    expect(declarationsOf(rule('.nf-block-body').body).get('background')).toBe(
+      'var(--note-surface)',
+    );
+    expect(declarationsOf(rule('.nf-block-body:hover').body).get('background')).toBe(
+      'var(--note-surface-hover)',
+    );
+    // Top-level blocks are notes too: no transparent override and no separate
+    // hover background.
+    const topLevel = declarationsOf(rule('.nf-block-body[data-top-level="true"]').body);
+    expect(topLevel.has('background')).toBe(false);
+    expect(
+      rules.some(
+        (candidate) =>
+          normalizeSelector(candidate.selector) ===
+          '.nf-block-body[data-top-level="true"]:hover',
+      ),
+    ).toBe(false);
+    expect(declarationsOf(rule('.nf-block-body[data-callout="true"]').body).get('background')).toBe(
+      'var(--note-surface)',
+    );
+    expect(
+      declarationsOf(rule('.nf-block-body[data-callout="true"]:hover').body).get('background'),
+    ).toBe('var(--note-surface-hover)');
+  });
+
+  it('makes resting edges visible without changing the stroke contract', () => {
+    for (const theme of themes) {
+      const declarations = declarationsOf(rule(theme.selector).body);
+      expect(declarations.get('--edge'), theme.selector).toBe(theme.edge);
+      expect(declarations.get('--edge-muted'), theme.selector).toBe(theme.edgeMuted);
+      expect(
+        contrast(theme.edge, declarations.get('--bg-canvas') as string),
+        `${theme.selector} resting edge vs canvas`,
+      ).toBeGreaterThanOrEqual(3);
+      // Muted edges read dimmer than resting edges but stay visible.
+      expect(contrast(theme.edgeMuted, declarations.get('--bg-canvas') as string)).toBeLessThan(
+        contrast(theme.edge, declarations.get('--bg-canvas') as string),
+      );
+      expect(
+        contrast(theme.edgeMuted, declarations.get('--bg-canvas') as string),
+        `${theme.selector} muted edge vs canvas`,
+      ).toBeGreaterThanOrEqual(2);
+    }
+    expect(declarationsOf(rule('.nf-edge-path').body).get('stroke')).toBe('var(--edge)');
+    expect(declarationsOf(rule('.nf-edge-path').body).get('stroke-width')).toBe(
+      'var(--nf-edge-width)',
+    );
+    expect(declarationsOf(rule('.nf-edge-active').body).get('stroke')).toBe(
+      'var(--edge-active)',
+    );
+    // Active edges stay the accent, never the resting neutral.
+    expect(declarationsOf(rule('.nf-edge-active').body).get('stroke-width')).toBe(
+      'var(--nf-edge-width-active)',
+    );
+  });
+
+  it('keeps Page and print edge colors on their own skin', () => {
+    expect(declarationsOf(rule('.nf-page-edges').body).get('color')).toBe('#3f6f8f');
+    expect(declarationsOf(rule('.nf-page-edge-reference').body).get('color')).toBe('#8a6a2f');
+    expect(declarationsOf(rule('.nf-page-edge-path').body).get('stroke')).toBe('currentColor');
+    expect(printSource).toContain('.nf-print-root .nf-page-edge-path');
+    expect(printSource).toContain('color: #2b2b2b;');
+    expect(printSource).toContain('color: #4d4d4d;');
   });
 });
 
