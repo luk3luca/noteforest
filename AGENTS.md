@@ -152,6 +152,7 @@ Research remains useful as input for components, not as an open stack decision. 
 
 - `research/landscape.md` — Scout's first research report (prior art, components, names).
 - `research/native-stacks.md` — Scout's stack review and go/no-go verdict.
+- `research/color-palettes.md` — shell palette research, recommended values, theme-pack assessment (12 November 2026).
 - `docs/spec.md` — product/data-model/behavior spec (Architect).
 - `docs/ux.md` — interaction flows and keyboard model (UX).
 - `docs/review-checklist.md` — review checklist (Sentinel).
