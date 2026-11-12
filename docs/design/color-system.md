@@ -169,7 +169,8 @@ Accent roles come from the registry (§4), not from the theme block.
 ### 3.3 Light values (initial proposal)
 
 These are starting values; the contrast test may adjust a step. The light theme is shell-only; the
-Page paper stays as it is.
+Page paper stays as it is. The contrast test adjusted the light tertiary text to `#5f6b75` so all
+three text roles meet 4.5:1 on every shell surface (12 November 2026 review).
 
 ```css
 --bg-app: #f3f5f7;
@@ -180,7 +181,7 @@ Page paper stays as it is.
 --surface-3: #e8edf1;
 --text-1: #1a1f23;
 --text-2: #4d5a63;
---text-3: #6f7c86;
+--text-3: #5f6b75;
 --border-1: #d7dee4;
 --border-2: #b8c4cd;
 --danger: #a23b32;

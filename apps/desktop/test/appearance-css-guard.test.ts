@@ -113,6 +113,51 @@ function rule(selector: string): CssRule {
 
 const LITERAL = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g;
 
+/** WCAG relative luminance of a `#rrggbb` token value. */
+function channel(value: number): number {
+  const normalized = value / 255;
+  return normalized <= 0.03928
+    ? normalized / 12.92
+    : ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function luminance(hex: string): number {
+  const cleaned = hex.replace('#', '');
+  const full =
+    cleaned.length === 3
+      ? cleaned
+          .split('')
+          .map((part) => `${part}${part}`)
+          .join('')
+      : cleaned;
+  expect(full, `${hex} is a #rrggbb token`).toMatch(/^[0-9a-f]{6}$/);
+  return (
+    0.2126 * channel(Number.parseInt(full.slice(0, 2), 16)) +
+    0.7152 * channel(Number.parseInt(full.slice(2, 4), 16)) +
+    0.0722 * channel(Number.parseInt(full.slice(4, 6), 16))
+  );
+}
+
+function contrast(left: string, right: string): number {
+  const first = luminance(left);
+  const second = luminance(right);
+  const lighter = Math.max(first, second);
+  const darker = Math.min(first, second);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** Every shell surface a text role can sit on. */
+const SHELL_SURFACES = [
+  '--bg-app',
+  '--bg-canvas',
+  '--bg-sidebar',
+  '--surface-1',
+  '--surface-2',
+  '--surface-3',
+] as const;
+
+const TEXT_ROLES = ['--text-1', '--text-2', '--text-3'] as const;
+
 describe('shell color contract', () => {
   it('allows color literals only in the theme blocks and the Page skin', () => {
     const offenders: string[] = [];
@@ -123,6 +168,39 @@ describe('shell color contract', () => {
       offenders.push(`${candidate.selector}: ${matches.join(' ')}`);
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('meets 4.5:1 for every shell text role on every shell surface, in both themes', () => {
+    for (const selector of ['html, html[data-theme="dark"]', 'html[data-theme="light"]']) {
+      const declarations = declarationsOf(rule(selector).body);
+      const surfaces = SHELL_SURFACES.map((name) => {
+        const value = declarations.get(name);
+        expect(value, `${selector} ${name}`).toBeDefined();
+        return { name, value: value as string };
+      });
+      for (const role of TEXT_ROLES) {
+        const text = declarations.get(role);
+        expect(text, `${selector} ${role}`).toBeDefined();
+        for (const surface of surfaces) {
+          expect(
+            contrast(text as string, surface.value),
+            `${selector} ${role} on ${surface.name}`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+  });
+
+  it('keeps the light text hierarchy: text-3 stays lighter than text-2', () => {
+    const light = declarationsOf(rule('html[data-theme="light"]').body);
+    expect(light.get('--text-2')).toBe('#4d5a63');
+    expect(luminance(light.get('--text-3') as string)).toBeGreaterThan(
+      luminance(light.get('--text-2') as string),
+    );
+    // text-1 is the darkest step, so the three roles read as a hierarchy.
+    expect(luminance(light.get('--text-1') as string)).toBeLessThan(
+      luminance(light.get('--text-2') as string),
+    );
   });
 
   it('keeps the canonical roles on the dark and light theme blocks', () => {

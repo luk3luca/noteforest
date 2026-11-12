@@ -157,7 +157,7 @@ Screenshots/evidence (in `artifacts/`):
 | Tabs expanded when space allows; inactive shrink first; active at 220 until the floor; overflow threshold unchanged; no horizontal scroll; stable status icons; overflow lists all | **PASS** | `tab-policy.test.ts` (CSS contract + window thresholds), `ui-batch-v` tab test at 2/4/8/14 tabs (220/220/shrunk-active-220/windowed, + after last, menu lists all) |
 | Page number centered on the paper with asymmetric margins; symmetric unchanged; Page/PDF parity | **PASS** | `page-chrome.test.ts` (shift sign, band + shift = paper center), `ui-appearance-v3` test 3 (Read/Edit/preview within 1 px / 0.6 %, PDF within 2 mm of page center) |
 | Status panel between Toolbar and canvas; full→slim, Review, Take over, generic read-only, canvas reflow; corrupt/missing keep RecoverySurface; no pageErrors | **PASS** | `ui-document-status` (placement, reflow, per-document Cancel, restart, reduced motion, no focus trap, take over + save), `m2f-recovery` (Esc = Cancel, slim bar, metadata Details, take over) |
-| Guards: accent completeness/contrast, CSS literal scan, paper isolation | **PASS** | `appearance.test.ts` (4 accents × 2 themes: text on accent/hover/strong ≥ 4.5, ring/border ≥ 3 on every surface), `appearance-css-guard.test.ts`, `ui-appearance-v3` paper/PDF tests |
+| Guards: accent completeness/contrast, shell text contrast, CSS literal scan, paper isolation | **PASS** | `appearance.test.ts` (4 accents × 2 themes: text on accent/hover/strong ≥ 4.5, ring/border ≥ 3 on every surface), `appearance-css-guard.test.ts` (`text-1/2/3` ≥ 4.5 on all six shell surfaces in both themes; light `text-3` lighter than `text-2`), `ui-appearance-v3` paper/PDF tests |
 | `npm run verify` exit 0 with real timings; all UI suites at the default pool | **PASS** | exit 0, 2:50; UI 48/48 at concurrency 8 |
 
 ## 5. Deviations and decisions inside the brief
@@ -193,10 +193,12 @@ Screenshots/evidence (in `artifacts/`):
 
 - **Product-owner visual check.** The batch needs a human dark/light pass (accent strength,
   light-theme contrast feel, slim-bar placement) and the existing PDF visual check.
-- **Light theme body text.** The brief's contrast gate covers accent text (≥ 4.5) and focus/control
-  borders (≥ 3); `--text-3` on white is ~4.3:1. It is tertiary text and outside the stated gate, so
-  the approved palette was not changed. If the product owner wants AA for all text, raise
-  `--text-3` one step (product-visible).
+- **Light theme body text (resolved in the correction commit).** The brief's contrast gate covers
+  accent text (≥ 4.5) and focus/control borders (≥ 3); the first pass left `--text-3` at `#6f7c86`
+  (~4.28:1 on white). It is now `#5f6b75`, which meets 4.5:1 on every shell surface (5.46 canvas,
+  5.00 bg-app, 4.99 surface-2, 4.81 bg-sidebar, 4.63 surface-3) while staying lighter than
+  `--text-2` (`#4d5a63`). A unit test now covers `text-1/2/3` against all six shell surfaces in
+  both themes.
 - **`settingsVersion: 3` migration message.** Every v2 file now reports "Settings were upgraded to
   the current format" once. That is correct but a user-visible notice; the Sentinel may want to
   confirm the copy.
