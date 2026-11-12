@@ -4,6 +4,7 @@
  */
 export type SettingsPageId =
   | 'general'
+  | 'appearance'
   | 'page'
   | 'continuous'
   | 'editor'

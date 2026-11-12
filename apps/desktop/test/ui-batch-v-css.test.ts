@@ -84,14 +84,18 @@ describe('Batch V visual contracts', () => {
     expect(declaration(toast, 'padding')).toBe('12px 14px');
     expect(declaration(toast, 'border-radius')).toBe('var(--radius-panel)');
     expect(declaration(toast, 'background')).toBe('var(--surface-3)');
-    expect(declaration(toast, 'border')).toBe('1px solid var(--border)');
-    expect(declaration(toast, 'box-shadow')).toBe('0 12px 32px rgb(0 0 0 / 0.45)');
-    expect(declaration(`${toast} [data-title]`, 'font-size')).toBe('12.5px');
+    expect(declaration(toast, 'border')).toBe('1px solid var(--border-1)');
+    expect(declaration(toast, 'box-shadow')).toBe('var(--shadow-toast)');
+    expect(declaration(`${toast} [data-title]`, 'font-size')).toBe(
+      'calc(12.5px * var(--ui-scale))',
+    );
     expect(declaration(`${toast} [data-title]`, 'font-weight')).toBe('500');
-    expect(declaration(`${toast} [data-description]`, 'font-size')).toBe('11.5px');
+    expect(declaration(`${toast} [data-description]`, 'font-size')).toBe(
+      'calc(11.5px * var(--ui-scale))',
+    );
     expect(declaration(`${toast} [data-description]`, 'font-weight')).toBe('400');
     expect(declaration(`${toast} [data-description]`, 'color')).toBe(
-      'var(--text-secondary)',
+      'var(--text-2)',
     );
     expect(declaration(`${toast} [data-icon]`, 'width')).toBe('16px');
     expect(declaration(`${toast} [data-icon] svg`, 'stroke-width')).toBe('1.5');

@@ -1,0 +1,257 @@
+import { describe, expect, it } from 'vitest';
+import {
+  ACCENTS,
+  CODE_FONTS,
+  DEFAULT_APPEARANCE,
+  DEFAULT_ACCENT_ID,
+  DEFAULT_CODE_FONT,
+  UI_FONTS,
+  UI_FONT_STACKS,
+  UI_SCALES,
+  accentSet,
+  accentValues,
+  appearanceCssVariables,
+  codeFontStack,
+  normalizeAppearance,
+  resolveTheme,
+  uiFontStack,
+  type AccentValues,
+} from '../src/index.js';
+
+/**
+ * R3 appearance contract: the registry is the single source for accent values,
+ * every set is complete for dark and light, and the contrast thresholds hold
+ * where the design requires them (text on the accent fill, focus/control rings
+ * against the surfaces). Adding a palette later is registry data only.
+ */
+
+function channel(value: number): number {
+  const normalized = value / 255;
+  return normalized <= 0.03928
+    ? normalized / 12.92
+    : ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function luminance(hex: string): number {
+  const cleaned = hex.replace('#', '');
+  const full =
+    cleaned.length === 3
+      ? cleaned
+          .split('')
+          .map((part) => `${part}${part}`)
+          .join('')
+      : cleaned;
+  const red = Number.parseInt(full.slice(0, 2), 16);
+  const green = Number.parseInt(full.slice(2, 4), 16);
+  const blue = Number.parseInt(full.slice(4, 6), 16);
+  return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue);
+}
+
+function contrast(left: string, right: string): number {
+  const first = luminance(left);
+  const second = luminance(right);
+  const lighter = Math.max(first, second);
+  const darker = Math.min(first, second);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+const DARK_SURFACES = ['#101113', '#17181a', '#131416', '#1b1d20', '#202329', '#262a30'];
+const LIGHT_SURFACES = ['#f3f5f7', '#ffffff', '#edf1f4', '#f2f5f7', '#e8edf1'];
+
+describe('accent registry', () => {
+  it('ships the four approved accents with both theme value sets', () => {
+    expect(ACCENTS.map((accent) => accent.id)).toEqual([
+      'blue',
+      'teal',
+      'amber',
+      'rose',
+    ]);
+    expect(ACCENTS.map((accent) => accent.label)).toEqual([
+      'Blue',
+      'Teal',
+      'Amber',
+      'Rose',
+    ]);
+    for (const accent of ACCENTS) {
+      for (const theme of ['dark', 'light'] as const) {
+        const values = accent[theme];
+        const keys: (keyof AccentValues)[] = [
+          'accent',
+          'strong',
+          'soft',
+          'hover',
+          'contrast',
+        ];
+        for (const key of keys) {
+          expect(values[key], `${accent.id}.${theme}.${key}`).toMatch(/^#[0-9a-f]{6}$/);
+        }
+      }
+    }
+  });
+
+  it('keeps the blue values the product owner approved', () => {
+    expect(accentSet('blue').dark).toEqual({
+      accent: '#9bb7d4',
+      strong: '#b9d0e6',
+      soft: '#26313c',
+      hover: '#a9c3dc',
+      contrast: '#101418',
+    });
+    expect(accentSet('blue').light).toEqual({
+      accent: '#2f5f8a',
+      strong: '#1f4a6d',
+      soft: '#e2edf6',
+      hover: '#264d71',
+      contrast: '#ffffff',
+    });
+  });
+
+  it('falls back to blue for an unknown or missing accent id', () => {
+    expect(accentSet('ultraviolet').id).toBe(DEFAULT_ACCENT_ID);
+    expect(accentSet(undefined).id).toBe(DEFAULT_ACCENT_ID);
+    expect(accentSet(null).id).toBe(DEFAULT_ACCENT_ID);
+    expect(accentValues('ultraviolet', 'light')).toEqual(accentSet('blue').light);
+  });
+
+  it('meets text-on-accent 4.5:1 for every accent and theme', () => {
+    for (const accent of ACCENTS) {
+      for (const theme of ['dark', 'light'] as const) {
+        const values = accent[theme];
+        expect(
+          contrast(values.contrast, values.accent),
+          `${accent.id}.${theme} text on accent`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrast(values.contrast, values.hover),
+          `${accent.id}.${theme} text on accent hover`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrast(values.contrast, values.strong),
+          `${accent.id}.${theme} text on accent strong`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('meets 3:1 for the focus ring, control border, and selection ring', () => {
+    for (const accent of ACCENTS) {
+      for (const surface of DARK_SURFACES) {
+        expect(
+          contrast(accent.dark.strong, surface),
+          `${accent.id}.dark strong on ${surface}`,
+        ).toBeGreaterThanOrEqual(3);
+        expect(
+          contrast(accent.dark.accent, surface),
+          `${accent.id}.dark accent on ${surface}`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+      for (const surface of LIGHT_SURFACES) {
+        expect(
+          contrast(accent.light.strong, surface),
+          `${accent.id}.light strong on ${surface}`,
+        ).toBeGreaterThanOrEqual(3);
+        expect(
+          contrast(accent.light.accent, surface),
+          `${accent.id}.light accent on ${surface}`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+});
+
+describe('appearance normalization', () => {
+  it('uses the product defaults for a missing or invalid appearance', () => {
+    expect(DEFAULT_APPEARANCE).toEqual({
+      theme: 'dark',
+      accent: 'blue',
+      uiScale: 1,
+      uiFont: 'system',
+      codeFont: 'jetbrains',
+    });
+    expect(normalizeAppearance(undefined)).toEqual(DEFAULT_APPEARANCE);
+    expect(normalizeAppearance(null)).toEqual(DEFAULT_APPEARANCE);
+    expect(normalizeAppearance({})).toEqual(DEFAULT_APPEARANCE);
+    expect(normalizeAppearance('light')).toEqual(DEFAULT_APPEARANCE);
+    expect(normalizeAppearance([])).toEqual(DEFAULT_APPEARANCE);
+  });
+
+  it('accepts every documented value and normalizes the rest', () => {
+    expect(
+      normalizeAppearance({
+        theme: 'system',
+        accent: 'rose',
+        uiScale: 0.9,
+        uiFont: 'serif',
+        codeFont: 'system-mono',
+      }),
+    ).toEqual({
+      theme: 'system',
+      accent: 'rose',
+      uiScale: 0.9,
+      uiFont: 'serif',
+      codeFont: 'system-mono',
+    });
+    expect(
+      normalizeAppearance({
+        theme: 'neon',
+        accent: 'teal',
+        uiScale: 1.25,
+        uiFont: 'mono',
+        codeFont: 'fira',
+        futureField: 'keep-me',
+      }),
+    ).toEqual({ ...DEFAULT_APPEARANCE, accent: 'teal' });
+  });
+
+  it('is idempotent', () => {
+    const once = normalizeAppearance({ theme: 'light', accent: 'amber', uiScale: 1.1 });
+    expect(normalizeAppearance(once)).toEqual(once);
+  });
+});
+
+describe('appearance resolution', () => {
+  it('resolves system against the OS preference and keeps explicit themes', () => {
+    expect(resolveTheme('system', true)).toBe('dark');
+    expect(resolveTheme('system', false)).toBe('light');
+    expect(resolveTheme('dark', false)).toBe('dark');
+    expect(resolveTheme('light', true)).toBe('light');
+  });
+
+  it('lists the documented option sets', () => {
+    expect(UI_SCALES).toEqual([0.9, 1, 1.1]);
+    expect(UI_FONTS).toEqual(['system', 'serif']);
+    expect(CODE_FONTS).toEqual(['jetbrains', 'system-mono']);
+    expect(DEFAULT_CODE_FONT).toBe('jetbrains');
+  });
+
+  it('falls back to the system UI font and JetBrains code font', () => {
+    expect(uiFontStack('comic')).toBe(UI_FONT_STACKS.system);
+    expect(uiFontStack('serif')).toBe(UI_FONT_STACKS.serif);
+    expect(codeFontStack(undefined)).toContain('JetBrains Mono');
+    expect(codeFontStack('papyrus')).toContain('JetBrains Mono');
+    expect(codeFontStack('system-mono')).toContain('ui-monospace');
+  });
+
+  it('publishes the accent scale, UI scale, and fonts as root variables', () => {
+    const variables = appearanceCssVariables(
+      { theme: 'dark', accent: 'teal', uiScale: 1.1, uiFont: 'serif', codeFont: 'system-mono' },
+      'dark',
+    );
+    expect(variables).toEqual({
+      '--accent': '#8fc7c0',
+      '--accent-strong': '#a9d9d3',
+      '--accent-soft': '#233432',
+      '--accent-hover': '#a3d5cd',
+      '--accent-contrast': '#101418',
+      '--ui-scale': '1.1',
+      '--ui-font': UI_FONT_STACKS.serif,
+      '--mono-font': expect.stringContaining('ui-monospace') as unknown as string,
+    });
+    const light = appearanceCssVariables(
+      { theme: 'light', accent: 'teal', uiScale: 1, uiFont: 'system', codeFont: 'jetbrains' },
+      'light',
+    );
+    expect(light['--accent']).toBe('#1f6f66');
+    expect(light['--ui-scale']).toBe('1');
+  });
+});

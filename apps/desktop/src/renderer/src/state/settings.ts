@@ -22,6 +22,7 @@ import { useMemo } from 'react';
 import { create } from 'zustand';
 import type {
   AppSettings,
+  AppearanceSettings,
   PageSettings,
   PageSettingsOverride,
 } from '@noteforest/layout';
@@ -64,6 +65,8 @@ export interface AppSettingsPatch {
     chrome?: Partial<PageSettings['chrome']>;
     manualBreakBeforeBlockIds?: readonly string[];
   };
+  /** Global shell appearance; global-only, never per document. */
+  appearance?: Partial<AppearanceSettings>;
 }
 
 export interface SettingsBootstrap {
@@ -188,6 +191,7 @@ function normalizePatch(current: AppSettings, patch: AppSettingsPatch): AppSetti
       manualBreakBeforeBlockIds:
         page.manualBreakBeforeBlockIds ?? current.page.manualBreakBeforeBlockIds,
     },
+    appearance: { ...current.appearance, ...(patch.appearance ?? {}) },
   });
 }
 

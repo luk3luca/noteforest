@@ -50,6 +50,7 @@ import { printPageModelSnapshot } from './page/print-model-registry';
 import { clearPrintTestSurface, mountPrintTestSurface } from './print/test-surface';
 import { buildPrintModel } from '@noteforest/pdf';
 import { perfSnapshot, summarize } from './lib/perf';
+import { useAppearanceSync } from './shell/useAppearanceSync';
 
 type FlushTestMode = 'normal' | 'error' | 'hang';
 
@@ -172,6 +173,8 @@ export function App(): JSX.Element {
   );
   const { runtime } = useRuntime(activeTab);
   const dirty = useAllDirty();
+  // One writer for `data-theme`, the accent roles, and the shell fonts.
+  const resolvedTheme = useAppearanceSync();
 
   useEffect(() => {
     let cancelled = false;
@@ -759,6 +762,9 @@ export function App(): JSX.Element {
           {
             settings: snapshot.settings,
             pageModelFingerprint: snapshot.settingsFingerprint,
+            // The visible Page model measured with the current appearance code
+            // font; the print model must agree or fail the identity check.
+            codeFont: useSettingsStore.getState().app.appearance.codeFont,
             failedAssetIds: [...snapshot.failedAssetIds],
             assetUrls: snapshot.assetUrls,
           },
@@ -851,7 +857,7 @@ export function App(): JSX.Element {
       <ContextMenu />
       <ExportSheet />
       <Toaster
-        theme="dark"
+        theme={resolvedTheme}
         position="bottom-right"
         closeButton={false}
         icons={TOAST_ICONS}

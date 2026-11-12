@@ -13,6 +13,11 @@
  * v1 -> v2: `continuous` is removed. Its only field was `zoom`, which was dead
  * and duplicated the per-document `DocumentViewState.zoom` (S2-6). The rest of
  * the page settings are preserved.
+ *
+ * v2 -> v3: the global `appearance` namespace (theme, accent, uiScale, uiFont,
+ * codeFont). A missing block normalizes to the product defaults; unknown
+ * top-level, page, and appearance keys survive a write. The migration is pure:
+ * it never writes during a read.
  */
 
 import {
@@ -21,7 +26,7 @@ import {
   type PageSettingsOverride,
 } from '@noteforest/layout';
 
-export const SETTINGS_SCHEMA_VERSION = 2;
+export const SETTINGS_SCHEMA_VERSION = 3;
 
 export interface MigratedSettingsDocument {
   settings: AppSettings;
@@ -59,8 +64,9 @@ export function settingsDocumentVersion(raw: Record<string, unknown>): number {
 }
 
 /**
- * Pure migration chain. Only v1 needs work today (drop the dead `continuous`
- * block); future versions append a case here.
+ * Pure migration chain. v1 drops the dead `continuous` block; v2 gains the
+ * `appearance` namespace (defaults when absent). Future versions append a case
+ * here.
  */
 export function migrateSettingsDocument(input: unknown): MigratedSettingsDocument {
   const raw = isRecord(input) ? input : {};
@@ -73,9 +79,11 @@ export function migrateSettingsDocument(input: unknown): MigratedSettingsDocumen
     candidate = rest;
     migrated = true;
   }
+  if (storedVersion < SETTINGS_SCHEMA_VERSION) migrated = true;
   return {
     settings: normalizeAppSettings({
       page: candidate['page'] as PageSettingsOverride | null | undefined,
+      appearance: candidate['appearance'],
     }),
     storedVersion,
     version,
@@ -108,7 +116,18 @@ export function settingsDocumentForWrite(
   const rawMargins = isRecord(rawSetup['margins']) ? rawSetup['margins'] : {};
   const rawTheme = isRecord(rawPage['theme']) ? rawPage['theme'] : {};
   const rawChrome = isRecord(rawPage['chrome']) ? rawPage['chrome'] : {};
+  const rawAppearance = isRecord(base['appearance']) ? base['appearance'] : {};
   base['settingsVersion'] = version;
+  // R3 appearance is global and additive: known fields are normalized, an
+  // unknown future appearance key written by a newer build is preserved.
+  base['appearance'] = {
+    ...rawAppearance,
+    theme: settings.appearance.theme,
+    accent: settings.appearance.accent,
+    uiScale: settings.appearance.uiScale,
+    uiFont: settings.appearance.uiFont,
+    codeFont: settings.appearance.codeFont,
+  };
   base['page'] = {
     ...rawPage,
     setup: {

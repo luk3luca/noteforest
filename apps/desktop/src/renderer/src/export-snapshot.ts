@@ -9,7 +9,7 @@
  */
 
 import type { NoteDocument, PageSettings } from '@noteforest/layout';
-import { pageSettingsFingerprint } from '@noteforest/layout';
+import { isCodeFont, pageSettingsFingerprint } from '@noteforest/layout';
 import type { ExportSnapshot } from '../../shared/export';
 import type { DocumentRuntime } from './state/runtime';
 import { useSettingsStore } from './state/settings';
@@ -32,6 +32,8 @@ export function createExportSnapshot(
       .getState()
       .resolvedPageSettings(runtime.packagePath, runtime.document.id);
   const document: NoteDocument = toLayoutDocument(runtime.document);
+  const storedCodeFont = useSettingsStore.getState().app.appearance.codeFont;
+  const codeFont = isCodeFont(storedCodeFont) ? storedCodeFont : 'jetbrains';
   return {
     packagePath: runtime.packagePath,
     documentId: document.id,
@@ -39,7 +41,10 @@ export function createExportSnapshot(
     title: document.title,
     document,
     settings,
-    settingsFingerprint: pageSettingsFingerprint(settings),
+    // The measured run and the hidden print window must agree on the code
+    // font; the fingerprint covers it so a stale export fails loudly (R3).
+    settingsFingerprint: pageSettingsFingerprint(settings, codeFont),
+    codeFont,
     assetUrls: assetUrlsForRuntime(runtime),
     failedAssetIds: failedAssetIdsForRuntime(runtime),
   };

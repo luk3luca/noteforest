@@ -11,7 +11,12 @@
  * stale `document.json`.
  */
 
-import type { NoteDocument, PageSettings, PageSetup } from '@noteforest/layout';
+import type {
+  CodeFontId,
+  NoteDocument,
+  PageSettings,
+  PageSetup,
+} from '@noteforest/layout';
 
 /** Typed failure surfaces; a failed export never writes a partial PDF. */
 export type ExportFailureCode =
@@ -128,8 +133,11 @@ export function joinExportPath(folder: string, fileName: string): string {
  * Current-document snapshot handed to the hidden print window.
  *
  * `document` is the layout-shaped canonical document (including unsaved edits),
- * `settings` is the resolved personal page lens for that document, and
- * `settingsFingerprint` is the fingerprint of the same resolved run.
+ * `settings` is the resolved personal page lens for that document,
+ * `settingsFingerprint` is the fingerprint of the same resolved run, and
+ * `codeFont` is the appearance code font that run was measured with. The code
+ * font is part of the print/measure identity: the hidden window must render the
+ * same font or fail.
  */
 export interface ExportSnapshot {
   packagePath: string;
@@ -139,6 +147,7 @@ export interface ExportSnapshot {
   document: NoteDocument;
   settings: PageSettings;
   settingsFingerprint: string;
+  codeFont: CodeFontId;
   /** Renderer-safe display URLs for available assets. */
   assetUrls: Record<string, string>;
   /** Assets already known missing/changed in the open session. */

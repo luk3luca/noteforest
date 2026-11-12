@@ -630,6 +630,31 @@ describe('print model identity (M4c2 R1/R4/R5)', () => {
       pageModelFingerprint: pageSettingsFingerprint(settings),
     });
     expect(model.fingerprint).toBe(pageSettingsFingerprint(settings));
+    expect(model.codeFont).toBe('jetbrains');
+  });
+
+  it('includes the code font in the print/measure identity (R3)', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    const measuredJetBrains = pageSettingsFingerprint(settings, 'jetbrains');
+    const measuredSystemMono = pageSettingsFingerprint(settings, 'system-mono');
+    expect(measuredSystemMono).not.toBe(measuredJetBrains);
+
+    // The measured run used system-mono; printing with the default refuses.
+    expect(() =>
+      buildPrintModel(document, layout, paginated, {
+        settings,
+        pageModelFingerprint: measuredSystemMono,
+      }),
+    ).toThrow(PrintModelSettingsMismatchError);
+
+    const model = buildPrintModel(document, layout, paginated, {
+      settings,
+      codeFont: 'system-mono',
+      pageModelFingerprint: measuredSystemMono,
+    });
+    expect(model.codeFont).toBe('system-mono');
+    expect(model.fingerprint).toBe(measuredSystemMono);
   });
 
   it('fails loudly when the layout/pages belong to another document', () => {

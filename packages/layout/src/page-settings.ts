@@ -8,6 +8,13 @@
  * imports.
  */
 
+import {
+  DEFAULT_APPEARANCE,
+  DEFAULT_CODE_FONT,
+  normalizeAppearance,
+  type AppearanceSettings,
+  type CodeFontId,
+} from './appearance.js';
 import { EDGE_STYLE } from './edge-style.js';
 import type { LayoutOptions, Orientation, PagePacking } from './types.js';
 import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
@@ -138,6 +145,8 @@ export interface PageSettings {
  */
 export interface AppSettings {
   page: PageSettings;
+  /** Global shell appearance (R3); never per-document. */
+  appearance: AppearanceSettings;
 }
 
 export interface PageSetupOverride {
@@ -302,6 +311,7 @@ function roundTo(value: number): number {
 
 export const DEFAULT_APP_SETTINGS: Readonly<AppSettings> = Object.freeze({
   page: DEFAULT_PAGE_SETTINGS,
+  appearance: DEFAULT_APPEARANCE,
 });
 
 /** Fixed page dimensions in millimetres, before margins. */
@@ -369,8 +379,15 @@ export function pageGeometry(setup: PageSetup): PageGeometry {
  * is part of the identity as well: the density type/spacing floors are model
  * inputs, so a model measured under different floors can never be accepted as
  * current even when the stored settings are identical.
+ *
+ * The code font is the one appearance value that reaches Page/PDF: it changes
+ * code metrics, so it joins the identity. A measured run under JetBrains Mono
+ * can never be printed with System Mono (R3).
  */
-export function pageSettingsFingerprint(settings: PageSettings): string {
+export function pageSettingsFingerprint(
+  settings: PageSettings,
+  codeFont: CodeFontId = DEFAULT_CODE_FONT,
+): string {
   return JSON.stringify([
     settings.setup.size,
     settings.setup.orientation,
@@ -379,6 +396,7 @@ export function pageSettingsFingerprint(settings: PageSettings): string {
     settings.chrome,
     settings.manualBreakBeforeBlockIds,
     effectivePageTheme(settings.theme),
+    codeFont,
   ]);
 }
 
@@ -885,9 +903,11 @@ export function normalizePageSettingsOverride(
 /** Resolve the global app settings with safe defaults. */
 export function normalizeAppSettings(input?: {
   page?: PageSettingsOverride | null;
+  appearance?: unknown;
 } | null): AppSettings {
   const record = isRecord(input) ? input : {};
   return {
     page: normalizePageSettings(record['page'] as PageSettingsOverride | null | undefined),
+    appearance: normalizeAppearance(record['appearance']),
   };
 }

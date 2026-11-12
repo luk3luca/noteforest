@@ -7,10 +7,16 @@ import './styles.css';
 import './print/print.css';
 import { App } from './App';
 import { applyDesignTokens } from './lib/apply-design-tokens';
+import { applyAppearance, prefersDarkNow } from './lib/apply-appearance';
+import { DEFAULT_APPEARANCE } from '@noteforest/layout';
 
 // Geometry tokens become root custom properties before the first render; the
 // stylesheet only reads `var(--nf-*)` for them.
 applyDesignTokens();
+// The default appearance (dark, blue, default scale/fonts) is applied before the
+// first paint. Stored settings replace it when bootstrap resolves; without this
+// the accent roles would be undefined for the first frame.
+applyAppearance(DEFAULT_APPEARANCE, { prefersDark: prefersDarkNow() });
 
 const container = document.getElementById('root');
 if (container === null) throw new Error('missing #root');

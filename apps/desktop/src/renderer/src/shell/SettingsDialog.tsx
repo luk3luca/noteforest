@@ -20,6 +20,7 @@ import { exportActiveDocument } from '../export/export-flow';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';
 import { PageSettingsPreview } from '../settings/PageSettingsPreview';
+import { AppearanceSettingsPage } from '../settings/AppearanceSettings';
 import {
   AdvancedTypographyFields,
   PageLayoutSection,
@@ -54,7 +55,10 @@ interface NavGroup {
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'App',
-    items: [{ id: 'general', label: 'General' }],
+    items: [
+      { id: 'general', label: 'General' },
+      { id: 'appearance', label: 'Appearance' },
+    ],
   },
   {
     label: 'Document',
@@ -1172,6 +1176,8 @@ export function SettingsDialog({
                   </section>
                 </>
               ) : null}
+
+              {activePage === 'appearance' ? <AppearanceSettingsPage /> : null}
 
               {activePage === 'page' ? (
                 <>

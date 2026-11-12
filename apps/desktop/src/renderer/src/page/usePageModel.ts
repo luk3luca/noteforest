@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type {
+  CodeFontId,
   ContinuousLayout,
   DerivedPage,
   LayoutDefect,
@@ -25,6 +26,7 @@ import type {
   PageSettings,
 } from '@noteforest/layout';
 import type { DocumentRuntime } from '../state/runtime';
+import { useSettingsStore } from '../state/settings';
 import { toLayoutDocument } from './adapter';
 import { assetUrlsForRuntime } from './asset-urls';
 import { createDomPageMeasurement } from './measurement';
@@ -96,7 +98,12 @@ export function usePageModel(
     setReloadToken((value) => value + 1);
   }, []);
 
-  const settingsFingerprint = pageSettingsFingerprint(settings);
+  // The code font is the one appearance value that changes page metrics; it
+  // joins the measured-run identity so the pages re-measure when it changes.
+  const codeFont: CodeFontId = useSettingsStore(
+    (state) => state.app.appearance.codeFont,
+  );
+  const settingsFingerprint = pageSettingsFingerprint(settings, codeFont);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -117,7 +124,7 @@ export function usePageModel(
             await measurement.prepare(Object.values(noteDocument.blocks), controller.signal);
             if (controller.signal.aborted) return;
             const computeStartedAt = performance.now();
-            const computed = computePageModel(noteDocument, measurement, settings);
+            const computed = computePageModel(noteDocument, measurement, settings, codeFont);
             const computeMs = performance.now() - computeStartedAt;
             if (controller.signal.aborted) return;
             setModel(computed);
@@ -151,7 +158,7 @@ export function usePageModel(
     // are explicit: the resolved fingerprint joins the key and dependencies so
     // the same document re-paginates under the new page lens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, revision, reloadToken, runtime, settings, settingsFingerprint]);
+  }, [active, revision, reloadToken, runtime, settings, settingsFingerprint, codeFont]);
 
   return {
     document: model?.document ?? null,

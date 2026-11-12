@@ -18,6 +18,7 @@
 import {
   blockingDefects as layoutBlockingDefects,
   buildPageEdgeModel,
+  DEFAULT_CODE_FONT,
   pageChromeContent,
   pageChromeLayout,
   pageCssVariables,
@@ -31,6 +32,7 @@ import {
   type AnchorState,
   type BlockMeasurement,
   type BlockRole,
+  type CodeFontId,
   type ContinuationIn,
   type ContinuationOut,
   type ContinuousLayout,
@@ -113,8 +115,13 @@ export interface PrintModel {
   document: NoteDocument;
   /** Resolved personal page lens used for layout, pagination, and print CSS. */
   settings: PageSettings;
-  /** Deterministic identity of the resolved settings. */
+  /** Deterministic identity of the resolved settings + code font. */
   fingerprint: string;
+  /**
+   * Code font that produced this model. It is the only appearance value the
+   * paper reads; the print root publishes its stack as `--mono-font`.
+   */
+  codeFont: CodeFontId;
   /** Resolved `pageCssVariables(theme)` — never the stylesheet fallback. */
   cssVariables: Record<string, string>;
   pageSetup: PageSetup;
@@ -139,6 +146,12 @@ export interface PrintModel {
 export interface PrintModelOptions {
   /** Resolved page settings used for the measured layout/pages. */
   settings: PageSettings;
+  /**
+   * Code font used for the measured run. The print/measure identity includes
+   * it: a layout measured with another code font is refused instead of
+   * printing different code metrics. Defaults to the product code font.
+   */
+  codeFont?: CodeFontId;
   /**
    * Fingerprint returned by the page-model run that produced `layout`/`pages`.
    *
@@ -221,8 +234,9 @@ function assertSettingsIdentity(
   layout: ContinuousLayout,
   settings: PageSettings,
   pageModelFingerprint: string | undefined,
+  codeFont: CodeFontId,
 ): string {
-  const fingerprint = pageSettingsFingerprint(settings);
+  const fingerprint = pageSettingsFingerprint(settings, codeFont);
   if (typeof pageModelFingerprint !== 'string' || pageModelFingerprint.length === 0) {
     throw new PrintModelSettingsMismatchError(
       'Print model requires the fingerprint of the measured page model run; the theme/settings identity cannot be verified without it.',
@@ -340,7 +354,13 @@ export function buildPrintModel(
   options: PrintModelOptions,
 ): PrintModel {
   const { settings } = options;
-  const fingerprint = assertSettingsIdentity(layout, settings, options.pageModelFingerprint);
+  const codeFont = options.codeFont ?? DEFAULT_CODE_FONT;
+  const fingerprint = assertSettingsIdentity(
+    layout,
+    settings,
+    options.pageModelFingerprint,
+    codeFont,
+  );
   assertDocumentIdentity(document, layout, fingerprint);
   // The validated run is the only source of pages and defects. A supplied
   // `paginated` document is accepted only when its page/fragment signature
@@ -437,6 +457,7 @@ export function buildPrintModel(
     document,
     settings,
     fingerprint,
+    codeFont,
     cssVariables: pageCssVariables(settings.theme),
     pageSetup: layout.pageSetup,
     geometry: layout.geometry,

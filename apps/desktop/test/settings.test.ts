@@ -64,7 +64,7 @@ describe('global settings persistence', () => {
     });
     expect(result).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(2);
+    expect(stored['settingsVersion']).toBe(3);
     expect(stored['continuous']).toBeUndefined();
     expect(stored).toMatchObject({
       page: {
@@ -115,7 +115,7 @@ describe('global settings persistence', () => {
     });
     expect(written).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(2);
+    expect(stored['settingsVersion']).toBe(3);
     expect(stored['page']).toMatchObject({
       chrome: { header: 'chapter', footer: 'none', pageNumber: false },
     });
@@ -124,6 +124,100 @@ describe('global settings persistence', () => {
       header: 'chapter',
       footer: 'none',
       pageNumber: false,
+    });
+  });
+
+  it('migrates a v2 file to schema v3 with the default appearance and keeps its page values (R3)', async () => {
+    await writeRaw({
+      settingsVersion: 2,
+      page: {
+        setup: { size: 'A4', orientation: 'landscape' },
+        theme: { preset: 'compact', density: 0.9 },
+      },
+    });
+    const read = await readSettingsFile();
+    // A v2 file is migrated in memory: pure, no write, no data change.
+    expect(read.status).toEqual({ state: 'ok', migrated: true });
+    expect(read.settings.page.theme.density).toBe(0.9);
+    expect(read.settings.appearance).toEqual({
+      theme: 'dark',
+      accent: 'blue',
+      uiScale: 1,
+      uiFont: 'system',
+      codeFont: 'jetbrains',
+    });
+
+    expect(await writeSettings(read.settings)).toEqual({ ok: true });
+    const stored = await readRaw();
+    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['appearance']).toEqual({
+      theme: 'dark',
+      accent: 'blue',
+      uiScale: 1,
+      uiFont: 'system',
+      codeFont: 'jetbrains',
+    });
+    expect(stored['page']).toMatchObject({
+      setup: { size: 'A4', orientation: 'landscape' },
+      theme: { preset: 'compact', density: 0.9 },
+    });
+  });
+
+  it('writes the appearance namespace and preserves unknown appearance keys (R3)', async () => {
+    await writeRaw({
+      settingsVersion: 2,
+      appearance: { futureAppearance: 'keep' },
+    });
+    const read = await readSettingsFile();
+    await writeSettings({
+      ...read.settings,
+      appearance: {
+        ...read.settings.appearance,
+        theme: 'light',
+        accent: 'teal',
+        uiScale: 1.1,
+        uiFont: 'serif',
+        codeFont: 'system-mono',
+      },
+    });
+    const stored = await readRaw();
+    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['appearance']).toEqual({
+      futureAppearance: 'keep',
+      theme: 'light',
+      accent: 'teal',
+      uiScale: 1.1,
+      uiFont: 'serif',
+      codeFont: 'system-mono',
+    });
+    const reread = await readSettings();
+    expect(reread.appearance).toEqual({
+      theme: 'light',
+      accent: 'teal',
+      uiScale: 1.1,
+      uiFont: 'serif',
+      codeFont: 'system-mono',
+    });
+  });
+
+  it('normalizes an unknown appearance accent, theme, scale, or font to the defaults', async () => {
+    await writeRaw({
+      settingsVersion: 3,
+      appearance: {
+        theme: 'neon',
+        accent: 'ultraviolet',
+        uiScale: 1.4,
+        uiFont: 'comic',
+        codeFont: 'papyrus',
+      },
+    });
+    const read = await readSettings();
+    expect(read.appearance).toEqual({
+      theme: 'dark',
+      accent: 'blue',
+      uiScale: 1,
+      uiFont: 'system',
+      codeFont: 'jetbrains',
     });
   });
 
@@ -164,7 +258,7 @@ describe('global settings persistence', () => {
 
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(2);
+    expect(stored['settingsVersion']).toBe(3);
     expect(stored['continuous']).toBeUndefined();
     expect(stored['page']).toMatchObject({
       setup: { size: 'Letter', orientation: 'portrait' },
@@ -184,10 +278,11 @@ describe('global settings persistence', () => {
       },
     });
     const read = await readSettingsFile();
-    expect(read.status).toEqual({ state: 'ok' });
+    // A v2 file is migrated to v3 in memory (defaults for the new namespace).
+    expect(read.status).toEqual({ state: 'ok', migrated: true });
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(2);
+    expect(stored['settingsVersion']).toBe(3);
     expect(stored['futureTop']).toEqual({ enabled: true });
     expect(stored['page']).toMatchObject({
       futurePage: 'keep',
@@ -198,16 +293,17 @@ describe('global settings persistence', () => {
 
   it('keeps a newer schema version and its unknown fields instead of downgrading', async () => {
     await writeRaw({
-      settingsVersion: 3,
+      settingsVersion: 4,
       futureTop: true,
       continuous: { future: true },
       page: { theme: { density: 0.95 }, futurePage: 1 },
+      appearance: { theme: 'light', futureAppearance: 'keep' },
     });
     const read = await readSettingsFile();
-    expect(read.status).toEqual({ state: 'newer', version: 3 });
+    expect(read.status).toEqual({ state: 'newer', version: 4 });
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['settingsVersion']).toBe(4);
     expect(stored['futureTop']).toBe(true);
     // A newer schema's "continuous" is an unknown future key, not the removed
     // v1 block, so it survives the write.
@@ -215,6 +311,11 @@ describe('global settings persistence', () => {
     expect(stored['page']).toMatchObject({
       theme: { density: 0.95 },
       futurePage: 1,
+    });
+    expect(stored['appearance']).toMatchObject({
+      theme: 'light',
+      futureAppearance: 'keep',
+      accent: 'blue',
     });
   });
 
@@ -289,7 +390,7 @@ describe('global settings persistence', () => {
     const reset = await resetSettings();
     expect(reset).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(2);
+    expect(stored['settingsVersion']).toBe(3);
     expect(stored['page']).toEqual(
       JSON.parse(JSON.stringify(DEFAULT_APP_SETTINGS.page)) as unknown,
     );

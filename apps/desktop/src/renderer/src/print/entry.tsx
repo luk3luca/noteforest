@@ -29,6 +29,7 @@ import type {
 import {
   contentBlockTitle,
   effectivePageTheme,
+  isCodeFont,
   pageSettingsFingerprint,
   type DerivedPage,
 } from '@noteforest/layout';
@@ -393,6 +394,7 @@ function isExportSnapshot(value: unknown): value is ExportSnapshot {
     typeof snapshot.packagePath === 'string' &&
     typeof snapshot.documentId === 'string' &&
     typeof snapshot.settingsFingerprint === 'string' &&
+    isCodeFont(snapshot.codeFont) &&
     typeof snapshot.document === 'object' &&
     snapshot.document !== null &&
     typeof snapshot.settings === 'object' &&
@@ -421,7 +423,7 @@ async function build(snapshot: ExportSnapshot): Promise<PrintBuildResult> {
   if (!isExportSnapshot(snapshot)) {
     return failed('invalid-input', 'The export snapshot is incomplete or malformed.');
   }
-  if (snapshot.settingsFingerprint !== pageSettingsFingerprint(snapshot.settings)) {
+  if (snapshot.settingsFingerprint !== pageSettingsFingerprint(snapshot.settings, snapshot.codeFont)) {
     return failed(
       'settings-mismatch',
       'The export snapshot settings do not match its settings fingerprint.',
@@ -440,7 +442,12 @@ async function build(snapshot: ExportSnapshot): Promise<PrintBuildResult> {
   try {
     await measurement.prepare(Object.values(snapshot.document.blocks));
     measuredFailedAssetIds = [...measurement.failedAssetIds];
-    measured = computePageModel(snapshot.document, measurement, snapshot.settings);
+    measured = computePageModel(
+      snapshot.document,
+      measurement,
+      snapshot.settings,
+      snapshot.codeFont,
+    );
     model = buildPrintModel(
       snapshot.document,
       measured.layout,
@@ -452,6 +459,7 @@ async function build(snapshot: ExportSnapshot): Promise<PrintBuildResult> {
       },
       {
         settings: snapshot.settings,
+        codeFont: snapshot.codeFont,
         // Required (M4c2 R1): the fingerprint from this exact measured run.
         pageModelFingerprint: measured.settingsFingerprint,
         failedAssetIds: uniqueSorted([...snapshot.failedAssetIds, ...measuredFailedAssetIds]),

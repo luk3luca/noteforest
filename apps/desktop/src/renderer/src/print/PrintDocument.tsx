@@ -15,7 +15,7 @@
 import { useMemo, type CSSProperties } from 'react';
 import type { PrintModel, PrintPage } from '@noteforest/pdf';
 import type { AnchorAttachment, LayoutDefect, PageFragment } from '@noteforest/layout';
-import { contentBlockTitle } from '@noteforest/layout';
+import { codeFontStack, contentBlockTitle } from '@noteforest/layout';
 import { PageEdges } from '../page/PageEdges';
 import { PageChromeView } from '../page/PageChromeView';
 import { projectPageContent, type ProjectedPage } from '../page/projection';
@@ -224,10 +224,18 @@ export function PrintDocument({ model, assets }: PrintDocumentProps): JSX.Elemen
   return (
     <div
       className="nf-print-root nf-page-scope"
-      style={model.cssVariables as CSSProperties}
+      style={
+        {
+          ...model.cssVariables,
+          // The only appearance value the paper reads (R3). It is also part of
+          // the model fingerprint, so a stale measured run cannot adopt it.
+          '--mono-font': codeFontStack(model.codeFont),
+        } as CSSProperties
+      }
       data-print-root="true"
       data-print-page-count={model.pageCount}
       data-print-fingerprint={model.fingerprint}
+      data-print-code-font={model.codeFont}
       data-print-page-width-mm={model.geometry.pageWidthMm}
       data-print-page-height-mm={model.geometry.pageHeightMm}
     >
