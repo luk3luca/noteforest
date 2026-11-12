@@ -31,6 +31,15 @@ export interface PageChromeLayout {
   footerBottom: number;
   /** Bottom of the continues-on list. */
   continuesBottom: number;
+  /**
+   * Horizontal shift that puts the page number at the paper center.
+   *
+   * The footer band is the content box, so its center sits at
+   * `pageWidth/2 + (left - right)/2`; the number is shifted by the negative of
+   * that offset, i.e. `(right - left)/2`. Symmetric margins give 0, so the
+   * current output is unchanged.
+   */
+  pageNumberShift: number;
 }
 
 /**
@@ -46,6 +55,8 @@ export function pageChromeLayout(geometry: PageGeometry): PageChromeLayout {
     ghostTop: margins.top * 0.62,
     footerBottom: margins.bottom * 0.3,
     continuesBottom: margins.bottom * 0.6,
+    // Paper-centered page number (R3): the footer text stays left.
+    pageNumberShift: (margins.right - margins.left) / 2,
   };
 }
 

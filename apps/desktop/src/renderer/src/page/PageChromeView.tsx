@@ -47,7 +47,12 @@ export function PageChromeView({ chrome }: { chrome: PageChromeRecord }): JSX.El
             {chrome.footerText === null ? '' : chrome.footerText}
           </span>
           {chrome.pageLabel === null ? null : (
-            <span className="nf-page-footer-number" data-page-indicator="true">
+            <span
+              className="nf-page-footer-number"
+              style={{ transform: `translateX(${chrome.pageNumberShift}px)` }}
+              data-page-indicator="true"
+              data-page-number-shift={chrome.pageNumberShift.toFixed(3)}
+            >
               {chrome.pageLabel}
             </span>
           )}

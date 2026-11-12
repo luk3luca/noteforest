@@ -133,6 +133,27 @@ describe('pageChromeLayout', () => {
       expect(layout.continuesBottom).toBeCloseTo(margins.bottom * 0.6, 10);
     }
   });
+
+  it('centers the page number on the paper with asymmetric margins', () => {
+    // Symmetric margins keep today's output exactly.
+    expect(pageChromeLayout(pageGeometry(A4_LANDSCAPE)).pageNumberShift).toBe(0);
+    expect(pageChromeLayout(pageGeometry(A5_STACKED)).pageNumberShift).toBe(0);
+
+    const asymmetric: PageSetup = {
+      size: 'A4',
+      orientation: 'portrait',
+      margins: { top: 20, right: 10, bottom: 20, left: 30 },
+    };
+    const geometry = pageGeometry(asymmetric);
+    const layout = pageChromeLayout(geometry);
+    const shift = layout.pageNumberShift;
+    expect(shift).toBeCloseTo((geometry.marginsPx.right - geometry.marginsPx.left) / 2, 10);
+    expect(shift).toBeCloseTo(-(asymmetric.margins.left - asymmetric.margins.right) * (96 / 25.4) / 2, 10);
+
+    // Band center + shift = paper center.
+    const bandCenter = layout.left + (geometry.pageWidthPx - layout.left - layout.right) / 2;
+    expect(bandCenter + shift).toBeCloseTo(geometry.pageWidthPx / 2, 6);
+  });
 });
 
 describe('pageChromeContent', () => {

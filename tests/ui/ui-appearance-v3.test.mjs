@@ -1,10 +1,11 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import { pageDocument, writePagePackage } from '../support/page-fixtures.mjs';
+import { inspectPdfFile, normalizeText } from '../../scripts/lib/pdf.mjs';
 
 /**
  * R3 appearance v3: shell color contract, dark/light/system themes, accent
@@ -206,6 +207,102 @@ async function chooseTheme(value) {
 async function chooseAccent(value) {
   await page.locator(`[data-accent-option="${value}"]`).click();
   await waitSavedAppearance({ accent: value });
+}
+
+/**
+ * Page-number center against the paper center for one sheet. `ratio` is scale
+ * independent (0.5 is the paper center); `offsetPx` is in paper pixels when the
+ * sheet exposes its unscaled width.
+ */
+async function pageNumberCenter(sheetSelector) {
+  return page.evaluate((selector) => {
+    const sheet = document.querySelector(selector);
+    if (sheet === null) return null;
+    const number = sheet.querySelector('[data-page-indicator]');
+    if (number === null) return null;
+    const sheetBox = sheet.getBoundingClientRect();
+    const numberBox = number.getBoundingClientRect();
+    const numberCenter = numberBox.left + numberBox.width / 2;
+    const ratio = (numberCenter - sheetBox.left) / sheetBox.width;
+    const widthPx = Number(sheet.getAttribute('data-page-width-px'));
+    const offsetPx = Number.isFinite(widthPx)
+      ? (numberCenter - (sheetBox.left + sheetBox.width / 2)) / (sheetBox.width / widthPx)
+      : null;
+    return { ratio, offsetPx, shift: number.getAttribute('data-page-number-shift') };
+  }, sheetSelector);
+}
+
+async function invokeAppMenu(id) {
+  await h.app.evaluate(
+    ({ Menu, BrowserWindow }, menuId) => {
+      const item = Menu.getApplicationMenu()?.getMenuItemById(menuId);
+      if (item === null || item === undefined) throw new Error(`missing menu item ${menuId}`);
+      item.click(item, BrowserWindow.getAllWindows()[0], undefined);
+    },
+    id,
+  );
+}
+
+/** Simulate the native folder picker with a deterministic choice. */
+async function mockFolderDialog(folderPath) {
+  await h.app.evaluate(({ dialog }, chosen) => {
+    globalThis.__nfFolderDialogCalls = [];
+    dialog.showOpenDialog = async (_window, options) => {
+      globalThis.__nfFolderDialogCalls.push(structuredClone(options));
+      return { canceled: false, filePaths: [chosen] };
+    };
+  }, folderPath);
+}
+
+async function exportPdf(folder, fileName) {
+  await invokeAppMenu('menu-export-pdf');
+  await page.waitForSelector('[data-export-status="configure"]', { timeout: 10000 });
+  await mockFolderDialog(folder);
+  await page.locator('[data-export-choose-folder]').click();
+  await page.waitForFunction(
+    (expected) => document.querySelector('[data-export-folder]')?.textContent?.trim() === expected,
+    folder,
+    { timeout: 10000 },
+  );
+  await page.locator('[data-export-filename]').fill(fileName);
+  await page.locator('[data-export-start]').click();
+  await page.waitForFunction(
+    () => window.__noteforestTest.exportState().status === 'done',
+    undefined,
+    { timeout: 180000 },
+  );
+  const outputPath = resolve(folder, `${fileName}.pdf`);
+  await stat(outputPath);
+  return outputPath;
+}
+
+/**
+ * The paper-centered page number inside a produced PDF.
+ *
+ * pdf.js may split `Page 1 of 1` into several text items. The footer band is
+ * identified from the bottom of the page and the label items are unioned; the
+ * left footer text is excluded because it never carries a `Page` token.
+ */
+function pdfPageNumberCenter(pdf, pageNumber) {
+  const pdfPage = pdf.pages[pageNumber - 1];
+  const items = pdf.textItems.filter((item) => item.pageNumber === pageNumber);
+  const isFooter = (item) => {
+    const topPt = pdfPage.heightPt - item.y - item.height;
+    return topPt > pdfPage.heightPt * 0.8;
+  };
+  const footerItems = items.filter(isFooter).sort((left, right) => left.x - right.x);
+  const labelItems = footerItems.filter((item) => {
+    const text = normalizeText(item.text);
+    return text.length > 0 && (/^page\b/.test(text) || text === 'of' || /^\d+$/.test(text));
+  });
+  if (labelItems.length === 0) return null;
+  const left = Math.min(...labelItems.map((item) => item.x));
+  const right = Math.max(...labelItems.map((item) => item.x + item.width));
+  return {
+    centerPt: (left + right) / 2,
+    pageCenterPt: pdfPage.widthPt / 2,
+    label: labelItems.map((item) => item.text).join(' '),
+  };
 }
 
 describe('R3 appearance v3', () => {
@@ -452,6 +549,115 @@ describe('R3 appearance v3', () => {
     assert.deepEqual(paperAfterCodeFont, paperBaseline);
     await page.screenshot({ path: join(screenshotDir, 'paper-system-mono.png') });
   });
+
+  it('centers the page number on the paper with asymmetric margins', async () => {
+    const env = ui.isolated('appearance-page-number');
+    const outputRoot = artifactsPath('ui-appearance-v3', 'export');
+    await rm(outputRoot, { recursive: true, force: true });
+    await mkdir(outputRoot, { recursive: true });
+    await launch('appearance-page-number');
+    const packagePath = await openPackage(
+      env,
+      'appearance-page-number',
+      codeDocument('appearance-page-number'),
+    );
+    // Deliberately asymmetric: left 30 mm, right 10 mm.
+    await page.evaluate(
+      (path) =>
+        window.__noteforestTest.setPageSettingsOverride(path, {
+          setup: { margins: { top: 20, right: 10, bottom: 20, left: 30 } },
+        }),
+      packagePath,
+    );
+    await waitForPageRead();
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-page-indicator]');
+
+    const read = await pageNumberCenter('.nf-editor[data-active="true"] .nf-page-sheet');
+    assert.ok(read !== null, 'Page Read renders the page number');
+    assert.ok(
+      Math.abs(read.ratio - 0.5) <= 0.003,
+      `Page Read: the number sits at the paper center (ratio ${read.ratio})`,
+    );
+    assert.ok(
+      read.offsetPx !== null && Math.abs(read.offsetPx) <= 1,
+      `Page Read: paper-center offset within 1 px (${read.offsetPx})`,
+    );
+    assert.equal(read.shift, '-37.795', 'the shift is (right - left) / 2 in paper px');
+    await page.screenshot({ path: join(screenshotDir, 'page-number-read-asymmetric.png') });
+
+    // Page Edit keeps the same chrome geometry.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+          ?.getAttribute('data-interaction-mode') === 'edit',
+      undefined,
+      { timeout: 5000 },
+    );
+    const fragment = page
+      .locator('.nf-editor[data-active="true"] [data-fragment-block]')
+      .first();
+    await fragment.dblclick();
+    await page.waitForSelector('[data-page-edit-overlay]', { timeout: 5000 });
+    const edit = await pageNumberCenter('.nf-editor[data-active="true"] .nf-page-sheet');
+    assert.ok(edit !== null);
+    assert.ok(
+      Math.abs(edit.ratio - 0.5) <= 0.003,
+      `Page Edit: the number sits at the paper center (ratio ${edit.ratio})`,
+    );
+    await page.screenshot({ path: join(screenshotDir, 'page-number-edit-asymmetric.png') });
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-page-edit-overlay]', { state: 'detached', timeout: 10000 });
+
+    // The Settings preview uses the same shared chrome geometry.
+    await openSettings('page');
+    await page.locator('[data-page-scope-option="document"]').click();
+    await page.waitForSelector('[data-page-preview="true"][data-page-preview-state="ready"]', {
+      timeout: 15000,
+    });
+    await page.waitForFunction(() => {
+      const sheet = document.querySelector('[data-page-preview="true"] .nf-page-sheet');
+      return (
+        sheet !== null &&
+        sheet.querySelector('[data-page-indicator]') !== null &&
+        sheet.querySelector('.nf-page-footer-text') !== null
+      );
+    });
+    const preview = await pageNumberCenter('[data-page-preview="true"] .nf-page-sheet');
+    assert.ok(preview !== null, 'the preview renders the page number');
+    assert.ok(
+      Math.abs(preview.ratio - 0.5) <= 0.006,
+      `Preview: the number sits at the paper center (ratio ${preview.ratio})`,
+    );
+    await page.screenshot({ path: join(screenshotDir, 'page-number-preview-asymmetric.png') });
+    await closeSettings();
+
+    // The PDF composes the same paper: the number center matches the page center.
+    const outputPath = await exportPdf(outputRoot, 'page-number-asymmetric');
+    const pdf = await inspectPdfFile(outputPath);
+    assert.equal(pdf.pageCount >= 1, true);
+    const center = pdfPageNumberCenter(pdf, 1);
+    assert.ok(center !== null, 'the produced PDF carries the page number label');
+    assert.match(normalizeText(center.label), /page 1 of 1/);
+    const deltaMm = (Math.abs(center.centerPt - center.pageCenterPt) * 25.4) / 72;
+    assert.ok(
+      deltaMm <= 2,
+      `PDF: the number center is within 2 mm of the page center (${deltaMm.toFixed(2)} mm)`,
+    );
+    await writePdfEvidence(outputRoot, {
+      read,
+      edit,
+      preview,
+      pdf: {
+        pageWidthMm: pdf.pages[0].widthMm,
+        pageCenterPt: center.pageCenterPt,
+        numberCenterPt: center.centerPt,
+        deltaMm,
+        label: center.label,
+      },
+    });
+  });
 });
 
 /** Quit, relaunch with the same app support, and read the persisted values. */
@@ -482,4 +688,12 @@ async function chooseThemePersisted(env) {
   assert.equal(await page.locator('[data-ui-font-select]').inputValue(), 'system');
   assert.equal(await page.locator('[data-code-font-select]').inputValue(), 'jetbrains');
   await closeSettings();
+}
+
+async function writePdfEvidence(directory, evidence) {
+  await writeFile(
+    resolve(directory, 'page-number-evidence.json'),
+    JSON.stringify(evidence, null, 2),
+    'utf8',
+  );
 }
