@@ -453,8 +453,11 @@ R3 Appearance v3 is merged at `d276353` (color contract, dark/light/system, four
 scale/font, code-font identity, Appearance page, tab sizing, page-number paper-center, detached
 status panel; green full verify). Continuous & shell polish is merged at `b7b5459`: edge-style split
 with a Page/PDF no-op, note-surface/top-level cards, stronger edges, Settings General default,
-titlebar/bubble/port polish. Next: palette tune from `research/color-palettes.md`, Page edge
-corridor, then R4 Export defaults and R6. External API/agent access is removed from
+titlebar/bubble/port polish. The palette/Page/anchor batch is merged at `c05635e`: measured pastel
+tune plus four Vivid accents in labelled registry groups (no schema bump), the fixed 18 px Page edge
+corridor that density no longer scales (A4 61, A5 landscape 134, Letter 62, 300-block 27), and the
+squared anchor quote chip with KaTeX formulas and the `Σ` fallback. Next: R4 Export defaults
+(schema v4) then R6 Continuous global. External API/agent access is removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.
