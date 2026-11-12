@@ -416,6 +416,11 @@ describe('R3 appearance v3', () => {
       `the sidebar row grows (${largeSidebar} vs ${shell.sidebarRow})`,
     );
     assert.equal(await cssVariable('--ui-scale'), '1.1');
+    assert.equal(
+      await computed('.nf-settings-nav-item', 'font-size'),
+      '13.75px',
+      'Settings labels follow the UI scale',
+    );
 
     // UI font changes the shell only.
     await page.locator('[data-ui-font-select]').selectOption('serif');
@@ -431,7 +436,20 @@ describe('R3 appearance v3', () => {
     assert.match(editorCode, /ui-monospace/);
     assert.doesNotMatch(editorCode, /JetBrains Mono/);
 
+    // The command palette is shell chrome too: 12.5 px at the same 1.1 scale.
+    await closeSettings();
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    assert.equal(
+      await computed('.nf-palette-item', 'font-size'),
+      '13.75px',
+      'the command palette follows the UI scale',
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.nf-palette', { state: 'detached' });
+
     // Compact restores the default scale; the controls keep the stored values.
+    await openSettings('appearance');
     await page.locator('[data-ui-scale-option="0.9"]').click();
     await waitSavedAppearance({ uiScale: 0.9 });
     assert.equal(await computed('.nf-tab-title', 'font-size'), '10.8px');

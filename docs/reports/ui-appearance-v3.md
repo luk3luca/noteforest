@@ -126,10 +126,10 @@ Modified (main paths):
 | `npx vitest run` | 113 files / **1171 tests** passed, ~3.0 s |
 | e2e (`tests/e2e/m2-editor.test.mjs`) | 16 tests passed |
 | recovery (`m2f-recovery` + backup-restore) | 14 tests passed |
-| UI (`node tests/ui/run.mjs`) | **48/48 suites**, 8 workers, **98.9 s** |
-| **`npm run verify`** (final) | **exit 0, 2:50 total** (`/tmp/verify-final.log`) |
+| UI (`node tests/ui/run.mjs`) | **48/48 suites**, 8 workers, **99.1 s** |
+| **`npm run verify`** (final, at head) | **exit 0, 2:50 total** (`/tmp/verify-final2.log`) |
 
-New/affected UI suite timings from the final full run: `ui-appearance-v3` 15.3 s,
+New/affected UI suite timings from the final full run: `ui-appearance-v3` 15.5 s,
 `ui-document-status` 11.6 s, `ui-batch-v` 25.3 s, `ui-batch-a` 22.2 s, `m4e1-settings-platform`
 14.0 s, `ui-settings-recovery` 11.6 s, `m2-shell` 13.9 s, `m4c1` 12.6 s, `m4c2` 21.3 s,
 `m4c3-pdf-gate` 30.7 s, `m4c3-packaged` 2.3 s, `m4d1` 20.8 s, `m4d2` 24.1 s, `r1b` 12.8 s. No fixed sleeps were added;
