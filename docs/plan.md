@@ -451,7 +451,10 @@ with a green full verify (109 unit files / 1114 tests, 46/46 UI). R2 Page chrome
 `d23b582` (typed PageChrome, approved defaults, Page/PDF parity; additive, no version bump).
 R3 Appearance v3 is merged at `d276353` (color contract, dark/light/system, four accents, UI
 scale/font, code-font identity, Appearance page, tab sizing, page-number paper-center, detached
-status panel; green full verify). Next: Page edge geometry, then R4 Export defaults. External API/agent access is removed from
+status panel; green full verify). Continuous & shell polish is merged at `b7b5459`: edge-style split
+with a Page/PDF no-op, note-surface/top-level cards, stronger edges, Settings General default,
+titlebar/bubble/port polish. Next: palette tune from `research/color-palettes.md`, Page edge
+corridor, then R4 Export defaults and R6. External API/agent access is removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.

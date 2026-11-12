@@ -187,7 +187,18 @@ PDF/page gates inside the verify: `m4b1-page-view`, `m4b1a2`, `m4b1b1`, `r1b`, `
 - `artifacts/m2-shell/branch-port-expanded.png`
 - `artifacts/m2-shell/branch-port-collapsed.png`
 
-## 7. Next suggested step
+## 7. Integration
+
+- Merged into `main` at `b7b5459` with a merge commit (main already contained the palette research
+  docs); the three feature commits are `bc6f591`, `ed18dbf`, and `ad7593d`.
+- Full `npm run verify` on `main` at `b7b5459`: **exit 0, 173.59 s** — 114 unit files / 1183
+  tests, 16/16 e2e, 14/14 recovery, **48/48 UI**, 0 pageErrors. Page/PDF parity and the 50+ page
+  gate passed after the edge split.
+- Next: palette tune from `research/color-palettes.md` (data-only; pending product-owner approval),
+  then the Page edge corridor (18 px, density-independent), then R6 with the deferred live edge
+  preview.
+
+## 8. Next suggested step
 
 1. **Page edge corridor batch:** standardize the 18 px Page edge corridor and make Page edges
    independent of density, still reading `PAGE_EDGE_STYLE`/`--nf-page-edge-width` only, with print
