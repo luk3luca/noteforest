@@ -126,13 +126,13 @@ Modified (main paths):
 | `npx vitest run` | 113 files / **1171 tests** passed, ~3.0 s |
 | e2e (`tests/e2e/m2-editor.test.mjs`) | 16 tests passed |
 | recovery (`m2f-recovery` + backup-restore) | 14 tests passed |
-| UI (`node tests/ui/run.mjs`) | **48/48 suites**, 8 workers, **99.5 s** |
-| **`npm run verify`** | **exit 0, 2:51 total** (`/tmp/verify-2.log`) |
+| UI (`node tests/ui/run.mjs`) | **48/48 suites**, 8 workers, **98.9 s** |
+| **`npm run verify`** (final) | **exit 0, 2:50 total** (`/tmp/verify-final.log`) |
 
-New/affected UI suite timings from the full run: `ui-appearance-v3` 14.8 s,
-`ui-document-status` 11.6 s, `ui-batch-v` 25.5 s, `ui-batch-a` 22.7 s, `m4e1-settings-platform`
-14.4 s, `ui-settings-recovery` 11.8 s, `m4c1` 12.7 s, `m4c2` 22.0 s, `m4c3-pdf-gate` 31.3 s,
-`m4c3-packaged` 2.7 s, `m4d1` 21.4 s, `m4d2` 24.7 s, `r1b` 12.9 s. No fixed sleeps were added;
+New/affected UI suite timings from the final full run: `ui-appearance-v3` 15.3 s,
+`ui-document-status` 11.6 s, `ui-batch-v` 25.3 s, `ui-batch-a` 22.2 s, `m4e1-settings-platform`
+14.0 s, `ui-settings-recovery` 11.6 s, `m2-shell` 13.9 s, `m4c1` 12.6 s, `m4c2` 21.3 s,
+`m4c3-pdf-gate` 30.7 s, `m4c3-packaged` 2.3 s, `m4d1` 20.8 s, `m4d2` 24.1 s, `r1b` 12.8 s. No fixed sleeps were added;
 every wait is a condition, and the suites ran at the default pool.
 
 Screenshots/evidence (in `artifacts/`):
@@ -158,7 +158,7 @@ Screenshots/evidence (in `artifacts/`):
 | Page number centered on the paper with asymmetric margins; symmetric unchanged; Page/PDF parity | **PASS** | `page-chrome.test.ts` (shift sign, band + shift = paper center), `ui-appearance-v3` test 3 (Read/Edit/preview within 1 px / 0.6 %, PDF within 2 mm of page center) |
 | Status panel between Toolbar and canvas; full→slim, Review, Take over, generic read-only, canvas reflow; corrupt/missing keep RecoverySurface; no pageErrors | **PASS** | `ui-document-status` (placement, reflow, per-document Cancel, restart, reduced motion, no focus trap, take over + save), `m2f-recovery` (Esc = Cancel, slim bar, metadata Details, take over) |
 | Guards: accent completeness/contrast, CSS literal scan, paper isolation | **PASS** | `appearance.test.ts` (4 accents × 2 themes: text on accent/hover/strong ≥ 4.5, ring/border ≥ 3 on every surface), `appearance-css-guard.test.ts`, `ui-appearance-v3` paper/PDF tests |
-| `npm run verify` exit 0 with real timings; all UI suites at the default pool | **PASS** | exit 0, 2:51; UI 48/48 at concurrency 8 |
+| `npm run verify` exit 0 with real timings; all UI suites at the default pool | **PASS** | exit 0, 2:50; UI 48/48 at concurrency 8 |
 
 ## 5. Deviations and decisions inside the brief
 
