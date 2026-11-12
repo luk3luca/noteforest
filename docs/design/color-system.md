@@ -1,6 +1,8 @@
 # Color system and document status panel — design
 
-**Status:** draft for product-owner review, 12 November 2026.
+**Status:** approved for R3 implementation, 12 November 2026. R3 scope: Appearance v3 + tab sizing +
+page-number paper-center + `DocumentStatusPanel` for stale lock/read-only. Corrupt/missing keeps the
+`RecoverySurface`; Page/print alignment is a later no-op.
 **Scope:** shell color roles, dark/light themes, accent registry, the Page/print boundary, and the
 `DocumentStatusPanel` pattern for stale-lock / read-only / corrupt documents.
 **Out of scope:** implementation, palette research beyond the four initial accents, Page theme packs,
@@ -334,12 +336,12 @@ sizing change is separate but related.
 | 3 | Page/print `--paper-*` alignment | Visual no-op, PDF parity |
 | 4 | More accents/full theme packs | Data-only if the registry holds |
 
-Open decisions:
+Resolved decisions (12 November 2026):
 
-1. **R3 scope:** Appearance only, or Appearance + tabs + page-number fix + status panel? The tab
-   sizing and page-number fixes are small; the panel is a shell component and fits the same worktree.
-2. **Initial accent values:** accept the four proposals or refine them before R3.
-3. **Page/print alignment:** after R3 as a no-op (recommended) or inside R3.
-4. **Naming:** adopt the canonical names in §3 with aliases for one migration; confirm.
+1. **R3 scope:** Appearance v3 + tab sizing + page-number paper-center + `DocumentStatusPanel` for
+   stale lock/read-only, in one worktree. Corrupt/missing is excluded and keeps `RecoverySurface`.
+2. **Initial accent values:** the four proposals are accepted; the contrast test may adjust a step.
+3. **Page/print alignment:** after R3 as a visual no-op with PDF parity; not inside R3.
+4. **Naming:** the canonical names in §3 with migration aliases.
 
 No implementation starts until this document is approved.
