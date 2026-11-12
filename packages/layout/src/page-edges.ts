@@ -29,7 +29,8 @@ import type {
   EdgePlacement,
   PageFragment,
 } from './types.js';
-import { EDGE_STYLE, simplifyPath } from './edge-style.js';
+import { PAGE_EDGE_STYLE } from './edge-style.js';
+import { simplifyPath } from './edge-path.js';
 import {
   routeIntersectsRect,
   routePageEdge,
@@ -382,10 +383,10 @@ function buildPrimaryGroup(input: {
   let portPage: number;
 
   if (group.placement === 'right') {
-    const desired = minTargetX - EDGE_STYLE.stemMin;
+    const desired = minTargetX - PAGE_EDGE_STYLE.stemMin;
     const sourceRight = sourceBox.x + sourceBox.width;
-    const laneMin = sourceRight + EDGE_STYLE.laneMin;
-    const laneMax = Math.max(laneMin, sourceRight + EDGE_STYLE.laneMax);
+    const laneMin = sourceRight + PAGE_EDGE_STYLE.laneMin;
+    const laneMax = Math.max(laneMin, sourceRight + PAGE_EDGE_STYLE.laneMax);
     trunkX = Math.min(Math.max(desired, laneMin), laneMax);
     // A rail must stay left of every target so the arm can enter from the left.
     trunkX = Math.max(Math.min(trunkX, minTargetX - 1), sourceRight + 0.5);
@@ -398,7 +399,7 @@ function buildPrimaryGroup(input: {
     // R2j mode B2 supplies its own inset per group: 12 for children and 24 for
     // callouts, which keeps the two trunks independent.
     const inset = sourceBox.x + group.trunkInset;
-    trunkX = Math.max(sourceBox.x, Math.min(inset, minTargetX - EDGE_STYLE.stemMin));
+    trunkX = Math.max(sourceBox.x, Math.min(inset, minTargetX - PAGE_EDGE_STYLE.stemMin));
     trunkX = Math.max(0, Math.min(trunkX, Math.max(0, bounds.width - 0.5)));
     // A block can continue across pages: the below port is the true card
     // bottom, i.e. the last fragment, not the first fragment's page bottom.
@@ -567,7 +568,7 @@ export function buildPageEdgeModel(
           parentId: edge.fromBlockId,
           placement,
           trunkGroup,
-          trunkInset: targetBlock?.trunkInset ?? EDGE_STYLE.trunkInset,
+          trunkInset: targetBlock?.trunkInset ?? PAGE_EDGE_STYLE.trunkInset,
           entries: [],
         };
         groups.set(key, group);

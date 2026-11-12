@@ -11,27 +11,28 @@
  * must consume `var(--nf-*)` for them and never repeat the literal; guard test:
  * `apps/desktop/test/design-tokens-css.test.ts`.
  *
- * Edge stroke, arrowhead, corner, lane, and stem values come from the shared
- * `EDGE_STYLE` in `@noteforest/layout` (R2d), so Continuous, Page, and the print
- * model cannot drift. Keep the non-edge shell values here.
+ * Edge stroke, arrowhead, corner, lane, and stem values come from
+ * `CONTINUOUS_EDGE_STYLE` in `@noteforest/layout`: the Continuous canvas reads
+ * its own style object, never the Page one, so a future Continuous edge setting
+ * cannot reach Page Read or the PDF. Keep the non-edge shell values here.
  *
  * `rowIndent` and `trunkInset` are measured from the lane's left edge, which is
  * also the parent card's left edge: the callout/direct row and the shared trunk
  * move together when the lane is wider than a narrow parent.
  */
 
-import { EDGE_STYLE } from '@noteforest/layout';
+import { CONTINUOUS_EDGE_STYLE } from '@noteforest/layout';
 
 /** CSS-bound values shared by the renderer and the stylesheet. */
 export const DESIGN_TOKENS = Object.freeze({
   /** Shared below-stack row left offset from the lane/parent left edge. */
   rowIndent: 26,
   /** Shared below-stack trunk left offset from the parent card left edge. */
-  trunkInset: EDGE_STYLE.trunkInset,
+  trunkInset: CONTINUOUS_EDGE_STYLE.trunkInset,
   /** Visible gap between the parent card bottom and the below trunk start. */
-  trunkGap: EDGE_STYLE.trunkGap,
+  trunkGap: CONTINUOUS_EDGE_STYLE.trunkGap,
   /** Minimum straight stem before a fixed arrowhead. */
-  stemMin: EDGE_STYLE.stemMin,
+  stemMin: CONTINUOUS_EDGE_STYLE.stemMin,
   /**
    * Gap between a parent card/lane and the direct-child group. The 24 px budget
    * is `edgeLaneMin` (10) + `stemMin` (12) + `edgeGap` (2), so a shared right
@@ -56,19 +57,19 @@ export const DESIGN_TOKENS = Object.freeze({
     safeGap: 16,
   }),
   /** Primary elbows are near-right angles, never wide arcs. */
-  edgeRadius: EDGE_STYLE.radius,
+  edgeRadius: CONTINUOUS_EDGE_STYLE.radius,
   /** Space kept between the arrow tip and the child's left edge. */
-  edgeGap: EDGE_STYLE.gap,
+  edgeGap: CONTINUOUS_EDGE_STYLE.gap,
   /** Fixed arrowhead polygon, independent of path length. */
-  edgeArrowLength: EDGE_STYLE.arrowLength,
-  edgeArrowHalfWidth: EDGE_STYLE.arrowHalfWidth,
-  edgeWidth: EDGE_STYLE.edgeWidth,
-  edgeWidthActive: EDGE_STYLE.edgeWidthActive,
-  edgeWidthMuted: EDGE_STYLE.edgeWidthMuted,
+  edgeArrowLength: CONTINUOUS_EDGE_STYLE.arrowLength,
+  edgeArrowHalfWidth: CONTINUOUS_EDGE_STYLE.arrowHalfWidth,
+  edgeWidth: CONTINUOUS_EDGE_STYLE.edgeWidth,
+  edgeWidthActive: CONTINUOUS_EDGE_STYLE.edgeWidthActive,
+  edgeWidthMuted: CONTINUOUS_EDGE_STYLE.edgeWidthMuted,
   /** Shared trunk lane, clamped between these offsets from the parent edge. */
-  edgeLaneMin: EDGE_STYLE.laneMin,
-  edgeLaneMax: EDGE_STYLE.laneMax,
-  edgeMinGap: EDGE_STYLE.minGap,
+  edgeLaneMin: CONTINUOUS_EDGE_STYLE.laneMin,
+  edgeLaneMax: CONTINUOUS_EDGE_STYLE.laneMax,
+  edgeMinGap: CONTINUOUS_EDGE_STYLE.minGap,
   /** Block width bounds (cards are content-driven inside them). */
   topLevelMinWidth: 160,
   topLevelMaxWidth: 480,

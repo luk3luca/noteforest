@@ -5,7 +5,7 @@ import {
   createEstimatedMeasurement,
   DEFAULT_LAYOUT_OPTIONS,
   DEFAULT_PAGE_SETTINGS,
-  EDGE_STYLE,
+  PAGE_EDGE_STYLE,
   layoutDocument,
   pageLayoutOptions,
   paginate,
@@ -325,7 +325,7 @@ describe('page edge mapper', () => {
     expect(directEdge.placement).toBe('below');
     expect(directEdge.trunk!.id).toBe('source:below');
     expect(directEdge.from).toEqual({
-      x: source.page.x + EDGE_STYLE.trunkInset,
+      x: source.page.x + PAGE_EDGE_STYLE.trunkInset,
       y: source.page.y + source.page.height,
     });
     expect(directEdge.to.x).toBe(direct.page.x);
@@ -404,7 +404,7 @@ describe('page edge mapper', () => {
     ]);
     for (const view of page1Trunks) {
       expect(view.segment.start.y).toBeCloseTo(
-        view.trunk.port.y + EDGE_STYLE.trunkGap,
+        view.trunk.port.y + PAGE_EDGE_STYLE.trunkGap,
         6,
       );
       expect(view.segment.end.y).toBe(layout.geometry.contentHeightPx);
@@ -501,7 +501,7 @@ describe('page edge topology (R2f + R2j)', () => {
     const rootBottom = fragment('root').page.y + fragment('root').page.height;
     expect(child1.from).toEqual({
       x: child1.trunk!.x,
-      y: rootBottom + EDGE_STYLE.trunkGap,
+      y: rootBottom + PAGE_EDGE_STYLE.trunkGap,
     });
     expect(child2.from).toEqual(child1.from);
     for (const candidate of [child1, child2]) {
@@ -509,7 +509,7 @@ describe('page edge topology (R2f + R2j)', () => {
       const before = candidate.route.points.at(-2)!;
       expect(tip).toEqual(candidate.to);
       expect(Math.abs(before.y - tip.y)).toBeLessThan(0.01);
-      expect(tip.x - before.x).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+      expect(tip.x - before.x).toBeGreaterThanOrEqual(PAGE_EDGE_STYLE.stemMin - 0.01);
       expect(
         candidate.route.points.some(
           (point) => Math.abs(point.x - candidate.trunk!.x) < 0.01,
@@ -554,7 +554,7 @@ describe('page edge topology (R2f + R2j)', () => {
     const grandchildBefore = grandchild.route.points.at(-2)!;
     expect(Math.abs(grandchildBefore.y - grandchildTip.y)).toBeLessThan(0.01);
     expect(grandchildTip.x - grandchildBefore.x).toBeGreaterThanOrEqual(
-      EDGE_STYLE.stemMin - 0.01,
+      PAGE_EDGE_STYLE.stemMin - 0.01,
     );
 
     // Determinism: the DOM and print model get the same order/data.
@@ -613,11 +613,11 @@ describe('page edge topology (R2f + R2j)', () => {
     )!;
     for (const arm of [callout, child]) {
       expect(arm.from.y).toBeCloseTo(
-        rootFragment.page.y + rootFragment.page.height + EDGE_STYLE.trunkGap,
+        rootFragment.page.y + rootFragment.page.height + PAGE_EDGE_STYLE.trunkGap,
         6,
       );
       expect(arm.route.entry).toBe('left');
-      expect(arm.route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+      expect(arm.route.stem).toBeGreaterThanOrEqual(PAGE_EDGE_STYLE.stemMin - 0.01);
     }
     // Both trunks start at the same parent port y but at distinct x.
     expect(callout.from.x).toBe(callout.trunk!.x);
@@ -741,7 +741,7 @@ describe('page trunk continuity (R2g)', () => {
       expect(segment.start.x).toBe(rootTrunk.x);
       expect(segment.end.x).toBe(rootTrunk.x);
     }
-    expect(rootTrunk.x - rootBlock.x).toBeCloseTo(EDGE_STYLE.trunkInset, 6);
+    expect(rootTrunk.x - rootBlock.x).toBeCloseTo(PAGE_EDGE_STYLE.trunkInset, 6);
     expect(rootTrunk.x).toBeLessThan(child1Block.x);
 
     // Parent page: no horizontal lead for a below trunk; the port is the card
@@ -813,11 +813,11 @@ describe('page trunk continuity (R2g)', () => {
     expect(nestedTrunk.placement).toBe('below');
     expect(nestedTrunk.id).not.toBe(rootTrunk.id);
     expect(nestedTrunk.x).not.toBe(rootTrunk.x);
-    expect(nestedTrunk.x - child1Block.x).toBeCloseTo(EDGE_STYLE.trunkInset, 6);
+    expect(nestedTrunk.x - child1Block.x).toBeCloseTo(PAGE_EDGE_STYLE.trunkInset, 6);
     expect(nestedTrunk.segments.map((segment) => segment.pageNumber)).toEqual([1, 2]);
     const child1Bottom = child1Block.y + child1Block.height;
     expect(nestedTrunk.segments[0]!.start.y - child1Bottom).toBeCloseTo(
-      EDGE_STYLE.trunkGap,
+      PAGE_EDGE_STYLE.trunkGap,
       6,
     );
     expect(nestedTrunk.segments[0]!.end.y).toBeCloseTo(contentHeight, 6);
@@ -918,7 +918,7 @@ describe('page trunk continuity (R2g)', () => {
       (fragment) => fragment.blockId === 'root',
     )!;
     expect(trunkView.segment.start.y).toBeCloseTo(
-      rootFragment.page.y + rootFragment.page.height + EDGE_STYLE.trunkGap,
+      rootFragment.page.y + rootFragment.page.height + PAGE_EDGE_STYLE.trunkGap,
       6,
     );
     expect(trunkView.segment.end.y).toBe(layout.geometry.contentHeightPx);

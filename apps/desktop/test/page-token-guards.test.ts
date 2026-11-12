@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  CONTINUOUS_EDGE_STYLE,
   DEFAULT_LAYOUT_OPTIONS,
-  EDGE_STYLE,
+  PAGE_EDGE_STYLE,
   PAGE_BODY_PT_FLOOR,
   PAGE_DENSITY_DEFAULT,
   PAGE_DENSITY_MAX,
@@ -157,10 +158,36 @@ describe('Page and Continuous token ownership', () => {
     for (const name of Object.keys(DESIGN_TOKEN_CSS_VARIABLES)) {
       expect(continuousDoc, `Continuous doc missing ${name}`).toContain(name);
     }
-    for (const name of Object.keys(EDGE_STYLE)) {
-      expect(continuousDoc, `Continuous doc missing EDGE_STYLE.${name}`).toContain(`\`${name}\``);
+    for (const name of Object.keys(CONTINUOUS_EDGE_STYLE)) {
+      expect(continuousDoc, `Continuous doc missing CONTINUOUS_EDGE_STYLE.${name}`).toContain(
+        `\`${name}\``,
+      );
     }
+    // The Page-only route values belong to the Page style and doc; the
+    // Continuous canvas never reads them (a pointer is fine, a value row is not).
+    for (const name of ['pageClearance', 'pageLaneStep', 'pageTurnPenalty']) {
+      expect(pageDoc, `Page doc missing PAGE_EDGE_STYLE.${name}`).toContain(`\`${name}\``);
+      expect(continuousDoc, `Continuous doc must not own ${name}`).not.toContain(
+        `| \`${name}\``,
+      );
+    }
+    expect(continuousDoc).toContain('CONTINUOUS_EDGE_STYLE');
+    expect(pageDoc).toContain('PAGE_EDGE_STYLE');
+    expect(continuousDoc).toContain('edge-path.ts');
     expect(continuousDoc).toContain('DocumentViewState.zoom');
+  });
+
+  it('keeps the Page edge width out of the Continuous CSS token', () => {
+    expect(PAGE_EDGE_STYLE.edgeWidth).toBe(1.25);
+    expect(CONTINUOUS_EDGE_STYLE.edgeWidth).toBe(1.25);
+    expect(pageDoc).toContain('`--nf-page-edge-width`');
+    expect(declaration('.nf-page-edge-path', 'stroke-width')).toBe(
+      'var(--nf-page-edge-width)',
+    );
+    expect(declaration('.nf-page-edge-arrow', 'stroke-width')).toBe(
+      'var(--nf-page-edge-width)',
+    );
+    expect(declaration('.nf-edge-path', 'stroke-width')).toBe('var(--nf-edge-width)');
   });
 
   it('removes stale ownership wording', () => {

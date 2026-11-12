@@ -6230,7 +6230,9 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-page-edge-path {
   stroke: currentColor;
-  stroke-width: var(--nf-edge-width);
+  /* Page arrows own their width: a Continuous edge setting cannot reach the
+     paper. The value comes from `pageCssVariables`. */
+  stroke-width: var(--nf-page-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.88;
@@ -6243,7 +6245,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-page-edge-arrow {
   stroke: currentColor;
-  stroke-width: var(--nf-edge-width);
+  stroke-width: var(--nf-page-edge-width);
   stroke-linejoin: round;
   opacity: 0.95;
 }
@@ -6258,7 +6260,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-page-edge-arrow-reference {
   fill: none;
   stroke: currentColor;
-  stroke-width: var(--nf-edge-width);
+  stroke-width: var(--nf-page-edge-width);
 }
 
 .nf-page-edge-blocked .nf-page-edge-path {

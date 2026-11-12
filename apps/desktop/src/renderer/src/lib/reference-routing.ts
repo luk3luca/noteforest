@@ -10,7 +10,7 @@
  * No React, DOM, or measurement types.
  */
 
-import { openArrowPath } from '@noteforest/layout';
+import { CONTINUOUS_EDGE_STYLE, openArrowPath } from '@noteforest/layout';
 import { GEOMETRY, type Rect } from './geometry';
 
 export interface ReferencePoint {
@@ -60,7 +60,8 @@ function bottom(rect: Rect): number {
 
 /** Open chevron at `tip`, pointing along the unit vector (`dx`, `dy`). */
 function openArrow(tip: ReferencePoint, dx: number, dy: number): string {
-  return openArrowPath(tip, dx, dy);
+  // Continuous reference chevrons use the Continuous style only.
+  return openArrowPath(tip, dx, dy, CONTINUOUS_EDGE_STYLE);
 }
 
 /**

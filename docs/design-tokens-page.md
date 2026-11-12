@@ -165,13 +165,26 @@ toggles are not part of this token set.
 
 ## Page route and shared edge values
 
-Page Read/Edit and PDF share the edge renderer and orthogonal paths from `edge-style.ts`. Pageless
-Page-only route search values are `pageClearance` 3 px, `pageLaneStep` 4 px, and `pageTurnPenalty`
-60 px (search cost only, not a visual value). Primary tree edges enter the target from the left;
-reference edges keep the generic router and alternate entry sides. The full shared edge table
-(stroke, arrowhead, corner, lane, stem, trunk) is in
-[`design-tokens-continuous.md#shared-edge-primitives`](design-tokens-continuous.md#shared-edge-primitives).
-Do not add a second copy in the Page renderer or the print model.
+Page Read/Edit and PDF share the edge renderer and orthogonal paths from `edge-path.ts`, but read
+their own style object: `PAGE_EDGE_STYLE` in `packages/layout/src/edge-style.ts`. Page layout, the
+page router, the Page renderer, and the print model never read `CONTINUOUS_EDGE_STYLE` or the
+shared/base `EDGE_STYLE`; guard: `packages/layout/test/edge-style-isolation.test.ts`.
+
+Page-only route search values (on top of the shared contract) are:
+
+| Token | Value | Used for |
+|---|---:|---|
+| `pageClearance` | 3 px | Page route/card clearance |
+| `pageLaneStep` | 4 px | Parallel duplicate Page edges |
+| `pageTurnPenalty` | 60 px | Page route search cost, not a visual value |
+
+Primary tree edges enter the target from the left; reference edges keep the generic router and
+alternate entry sides. The full shared edge table (stroke, arrowhead, corner, lane, stem, trunk) is
+in [`design-tokens-continuous.md#shared-edge-primitives`](design-tokens-continuous.md#shared-edge-primitives).
+Do not add a second copy in the Page renderer or the print model. The Page stroke width reaches CSS
+as `--nf-page-edge-width`, emitted by `pageCssVariables` from `PAGE_EDGE_STYLE.edgeWidth`; the
+Continuous `--nf-edge-width` is not a Page token.
+
 
 ## Page presentation CSS variables
 
@@ -189,6 +202,7 @@ PageTheme and no dead Page geometry variables.
 | `--nf-page-chrome-size`, `--nf-page-marker-size` | Chrome and continuation/edge markers |
 | `--nf-page-card-padding`, `--nf-page-card-border`, `--nf-page-segment-gap` | Card box and segment spacing |
 | `--nf-page-max-card-width` | Page measurement host width/cap; Page measurement never reads the Continuous `--nf-child-max-width` |
+| `--nf-page-edge-width` | Page arrow stroke width from `PAGE_EDGE_STYLE`; never the Continuous `--nf-edge-width` |
 
 `fontScale`/`headingScale` multiply the already-floored type sizes in this map. They are advanced
 values and are hidden until the floor/heading-order interaction is resolved; density remains the

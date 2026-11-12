@@ -147,10 +147,23 @@ calloutWidth = min(laneWidth - rowIndent, calloutSafeRight - calloutLeft)
 
 ## Shared edge primitives
 
-Continuous, Page Read/Edit, and the PDF print model all consume `EDGE_STYLE` and the path helpers in
-`packages/layout/src/edge-style.ts`: `roundedPath` (orthogonal `L`/`Q`, never cubic `C`),
-`arrowPath` (filled 6 × 3 primary polygon), and `openArrowForDirection` (7 px open reference
-chevron). `DESIGN_TOKENS` re-exports these values as `GEOMETRY`; do not add a second copy.
+Continuous, Page Read/Edit, and the PDF print model share one visual language but **not one style
+object**. `packages/layout/src/edge-style.ts` owns three frozen-style contracts:
+
+- `CONTINUOUS_EDGE_STYLE` — the only edge style the Continuous canvas reads. It carries the shared
+  geometry and stroke values.
+- `PAGE_EDGE_STYLE` — the only edge style Page layout, the page router, the Page renderer, and the
+  print model read. It adds the Page-only route-search values.
+- `EDGE_STYLE` — the shared/base default kept for one release. It is the default argument of the
+  path helpers, never a surface style. A Page/print module that read it would let a future
+  Continuous edge setting drift the paper; guard:
+  `packages/layout/test/edge-style-isolation.test.ts`.
+
+The pure path/arrow algorithms moved to `packages/layout/src/edge-path.ts`
+(`roundedPath`, `simplifyPath`, `arrowPoints`, `arrowPath`, `arrowDirectionVector`,
+`openArrowPath`, `openArrowForDirection`). Each arrow helper takes the style it must use and
+defaults to `EDGE_STYLE`, so existing callers keep their signature. `DESIGN_TOKENS` re-exports the
+Continuous values as `GEOMETRY`; do not add a second copy.
 
 | Token | Value | Used for |
 |---|---:|---|
@@ -165,13 +178,13 @@ chevron). `DESIGN_TOKENS` re-exports these values as `GEOMETRY`; do not add a se
 | `edgeWidth` / `edgeWidthActive` / `edgeWidthMuted` | 1.25 / 1.75 / 1 | Path stroke widths |
 | `minGap` | 4 px | Minimum routed segment gap |
 | `referenceArrowLength` / `referenceArrowSpread` | 7 px / 0.46 | Open reference chevron |
-| `pageClearance` | 3 px | Page route/card clearance (Page-only consumer) |
-| `pageLaneStep` | 4 px | Parallel duplicate Page edges (Page-only consumer) |
-| `pageTurnPenalty` | 60 px | Page route search cost, not a visual value |
 
 `DESIGN_TOKENS` re-exports the shared values as `edgeRadius`, `edgeGap`, `edgeArrowLength`,
 `edgeArrowHalfWidth`, `edgeLaneMin`, `edgeLaneMax`, and `edgeMinGap`; these are aliases of the
-`EDGE_STYLE` rows above, not a second source.
+`CONTINUOUS_EDGE_STYLE` rows above, not a second source. The Page-only route values
+(`pageClearance`, `pageLaneStep`, `pageTurnPenalty`) are `PAGE_EDGE_STYLE` fields documented in
+[`design-tokens-page.md`](design-tokens-page.md#page-route-and-shared-edge-values).
+
 
 Continuous and Page arrows use the same stroke width, fixed arrowhead size/fill rules, near-right
 corner radius, and minimum stem. Reference edges are dashed with an open chevron and never join the

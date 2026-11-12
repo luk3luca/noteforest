@@ -3,7 +3,7 @@ import {
   blockRect,
   buildPageEdgeModel,
   DEFAULT_PAGE_SETTINGS,
-  EDGE_STYLE,
+  PAGE_EDGE_STYLE,
   layoutDocument,
   overlaps,
   pageLayoutOptions,
@@ -486,7 +486,7 @@ describe('page callout mode B2 (R2j)', () => {
     // page chip.
     for (const candidate of edges) {
       expect(candidate.route.entry).toBe('left');
-      expect(candidate.route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+      expect(candidate.route.stem).toBeGreaterThanOrEqual(PAGE_EDGE_STYLE.stemMin - 0.01);
       expect(candidate.label).toBeUndefined();
       expect(candidate.targetPage).toBeNull();
     }
@@ -624,7 +624,7 @@ describe('page callout stacked fallback (R2j)', () => {
     // full-width direct-child group that used to shift to x = 0.
     const result = layout(document, port, A5_PORTRAIT_NARROW, { pagePacking: 'stacked' });
     const child = result.blockById['child']!;
-    const stemOrigin = EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin;
+    const stemOrigin = PAGE_EDGE_STYLE.trunkInset + PAGE_EDGE_STYLE.stemMin;
     expect(child.x).toBeGreaterThanOrEqual(stemOrigin - 0.001);
 
     const pages = paginate(result, document);
@@ -637,7 +637,7 @@ describe('page callout stacked fallback (R2j)', () => {
     // so it sits at 7 rather than 12; the child still gets a full 12 px stem.
     expect(childEdge.trunk!.x).toBe(rootBelow.trunk.x);
     expect(childEdge.to.x - childEdge.trunk!.x).toBeGreaterThanOrEqual(
-      EDGE_STYLE.stemMin - 0.001,
+      PAGE_EDGE_STYLE.stemMin - 0.001,
     );
     expect(result.defects.filter((defect) => defect.blocksExport)).toEqual([]);
   });
@@ -659,7 +659,7 @@ describe('page callout stacked fallback (R2j)', () => {
     const child = result.blockById['child']!;
     // The 220 px unbreakable child cannot shrink to the 24 px stem origin;
     // keeping the old full-width shift is better than a hidden overflow.
-    expect(child.x).toBeLessThan(EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin);
+    expect(child.x).toBeLessThan(PAGE_EDGE_STYLE.trunkInset + PAGE_EDGE_STYLE.stemMin);
     expect(
       result.defects.some(
         (defect) => defect.code === 'content-too-wide' && defect.blockId === 'child',

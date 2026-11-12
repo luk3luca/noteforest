@@ -243,7 +243,7 @@ export interface LayoutBlock {
   trunkGroup?: 'callout' | 'child';
   /**
    * Page below-trunk inset from the parent left. Absent falls back to
-   * `EDGE_STYLE.trunkInset` (12 px). Page mode B2 sets 24 for callouts and 12
+   * `PAGE_EDGE_STYLE.trunkInset` (12 px). Page mode B2 sets 24 for callouts and 12
    * for children; Continuous never reads it.
    */
   trunkInset?: number;

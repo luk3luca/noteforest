@@ -6,7 +6,7 @@ import {
   validateDocument,
 } from './document.js';
 import { clamp } from './geometry.js';
-import { EDGE_STYLE } from './edge-style.js';
+import { PAGE_EDGE_STYLE } from './edge-style.js';
 import type {
   AnchorAttachment,
   AnchorState,
@@ -74,7 +74,7 @@ interface PlacementContext {
   columnOriginX: number;
   /** Page R2j B2 group discriminator; absent for Continuous and shared groups. */
   trunkGroup?: 'callout' | 'child';
-  /** Page R2j below-trunk inset; absent uses `EDGE_STYLE.trunkInset`. */
+  /** Page R2j below-trunk inset; absent uses `PAGE_EDGE_STYLE.trunkInset`. */
   trunkInset?: number;
   incomingAnchor?: AnchorAttachment | null;
 }
@@ -575,7 +575,10 @@ class LayoutBuilder {
 
     const calloutStem = this.options.calloutCardIndent - this.options.calloutTrunkInset;
     const childStem = this.options.childIndent - this.options.childTrunkInset;
-    if (calloutStem < EDGE_STYLE.stemMin - EPSILON || childStem < EDGE_STYLE.stemMin - EPSILON) {
+    if (
+      calloutStem < PAGE_EDGE_STYLE.stemMin - EPSILON ||
+      childStem < PAGE_EDGE_STYLE.stemMin - EPSILON
+    ) {
       return 'stacked';
     }
     const calloutAvailable = rightLimit - (x + this.options.calloutCardIndent);
@@ -768,10 +771,11 @@ class LayoutBuilder {
     );
     const stemOrigin = Math.max(
       context.wrapFloor,
-      x + EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin,
+      x + PAGE_EDGE_STYLE.trunkInset + PAGE_EDGE_STYLE.stemMin,
     );
     const keepStem =
-      effectiveIndent >= EDGE_STYLE.trunkInset + EDGE_STYLE.stemMin - EPSILON &&
+      effectiveIndent >=
+        PAGE_EDGE_STYLE.trunkInset + PAGE_EDGE_STYLE.stemMin - EPSILON &&
       stemOrigin > context.wrapFloor + EPSILON &&
       stemOrigin < context.rightLimit - EPSILON &&
       candidates.every((candidate) =>
@@ -1460,7 +1464,7 @@ class LayoutBuilder {
         if (shiftReadable(stemLeft)) {
           calloutX = stemLeft;
         } else {
-          const minimumStemLeft = Math.max(laneLeft, x + EDGE_STYLE.stemMin);
+          const minimumStemLeft = Math.max(laneLeft, x + PAGE_EDGE_STYLE.stemMin);
           if (calloutX < minimumStemLeft && shiftReadable(minimumStemLeft)) {
             calloutX = minimumStemLeft;
           }

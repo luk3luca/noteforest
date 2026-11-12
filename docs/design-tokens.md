@@ -14,7 +14,7 @@ shared-primitives table explicitly says otherwise.
 |---|---|---|---|
 | **Page** | `PageSetup`, `PageTheme`, density, page typography/boxes, Page packing and callout topology, page chrome, Page route values, print/PDF constraints | `packages/layout/src/page-settings.ts`, `page-chrome.ts`, `page-routing.ts` | [`design-tokens-page.md`](design-tokens-page.md) |
 | **Continuous** | Canvas width/padding, shell gaps, card shell, Continuous zoom view state, callout lane/safe zone, stacking, shell CSS variables | `apps/desktop/src/renderer/src/lib/design-tokens.ts`, `apply-design-tokens.ts`, `apps/desktop/src/shared/view-state.ts` | [`design-tokens-continuous.md`](design-tokens-continuous.md) |
-| **Shared engine primitives** | Edge stroke, arrowhead, corner radius, lane/stem/trunk values, orthogonal path helpers, shared card radius | `packages/layout/src/edge-style.ts`; shell card radius in `design-tokens.ts` | [`design-tokens-continuous.md`](design-tokens-continuous.md#shared-edge-primitives) |
+| **Shared engine primitives** | Edge stroke, arrowhead, corner radius, lane/stem/trunk values, orthogonal path helpers, shared card radius | `packages/layout/src/edge-style.ts` (surface styles), `packages/layout/src/edge-path.ts` (path/arrow algorithms); shell card radius in `design-tokens.ts` | [`design-tokens-continuous.md`](design-tokens-continuous.md#shared-edge-primitives) |
 
 The Page presentation map (`pageCssVariables`) is Page-only and is documented in the Page doc.
 It is not a token namespace and never supplies Continuous values.
