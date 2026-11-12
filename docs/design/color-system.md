@@ -5,7 +5,7 @@ page-number paper-center + `DocumentStatusPanel` for stale lock/read-only. Corru
 `RecoverySurface`; Page/print alignment is a later no-op.
 **Scope:** shell color roles, dark/light themes, accent registry, the Page/print boundary, and the
 `DocumentStatusPanel` pattern for stale-lock / read-only / corrupt documents.
-**Out of scope:** implementation, palette research beyond the four initial accents, Page theme packs,
+**Out of scope:** implementation, palette research beyond the curated accent registry, Page theme packs,
 and any change to the Page/PDF paper.
 **Related:** `docs/design/ui-settings-contents.md` §3, `docs/design-tokens.md`,
 `docs/design-tokens-page.md`, `docs/design-tokens-continuous.md`, ADR-0007, ADR-0008.
@@ -44,7 +44,7 @@ React Aria variables are aliases, not new colors.
 | `--border-strong` | `#3c4148` | Hover/strong borders |
 | `--text` | `#e7e8ea` | Primary text |
 | `--text-secondary` | `#a6abb2` | Secondary text |
-| `--text-tertiary` | `#8b9199` | Tertiary text/icons |
+| `--text-tertiary` | `#949aa2` | Tertiary text/icons |
 | `--accent` | `#9bb7d4` | Primary fill, selection, focus |
 | `--accent-soft` | `#26313c` | Selected row/card, text selection |
 | `--accent-contrast` | `#101418` | Text on accent fill |
@@ -111,8 +111,8 @@ React Aria variables are aliases, not new colors.
 | `--text-1` | `--text` | Primary text |
 | `--text-2` | `--text-secondary` | Secondary text |
 | `--text-3` | `--text-tertiary` | Tertiary text/icons |
-| `--border-1` | `--border` | Normal border |
-| `--border-2` | `--border-strong` | Strong/hover border |
+| `--border-1` | `--border` | Resting hairline (see SC 1.4.11 exception below) |
+| `--border-2` | `--border-strong` | Strong/hover/focus control boundary (3:1) |
 | `--accent` | same | Primary fill |
 | `--accent-strong` | new | Ring, focus, active edge; stronger than fill |
 | `--accent-soft` | same | Selection/soft fill |
@@ -152,9 +152,9 @@ Dark values keep the current look except the added roles:
 --note-surface-hover: #202329;
 --text-1: #e7e8ea;
 --text-2: #a6abb2;
---text-3: #8b9199;
+--text-3: #949aa2;
 --border-1: #2e3238;
---border-2: #3c4148;
+--border-2: #6e737a;
 --danger: #d98b8b;
 --danger-soft: #351f22;
 --danger-border: #6a3a3d;
@@ -170,11 +170,12 @@ Dark values keep the current look except the added roles:
 
 Accent roles come from the registry (§4), not from the theme block.
 
-### 3.3 Light values (initial proposal)
+### 3.3 Light values
 
-These are starting values; the contrast test may adjust a step. The light theme is shell-only; the
-Page paper stays as it is. The contrast test adjusted the light tertiary text to `#5f6b75` so all
-three text roles meet 4.5:1 on every shell surface (12 November 2026 review).
+These are the starting values; the contrast test may adjust a step. The light theme is shell-only; the
+Page paper stays as it is. The contrast test adjusted the light tertiary text to `#5b6771` so all
+three text roles meet 4.5:1 on every shell surface (12 November 2026 review), then the measured
+palette tune shifted `--note-surface`/hover and `--border-2`.
 
 ```css
 --bg-app: #f3f5f7;
@@ -184,13 +185,13 @@ three text roles meet 4.5:1 on every shell surface (12 November 2026 review).
 --surface-2: #f2f5f7;
 --surface-3: #e8edf1;
 /* Cards never use --surface-1: in light it is white and equals the canvas. */
---note-surface: #f6f8fb;
---note-surface-hover: #eef3f7;
+--note-surface: #f2f6f9;
+--note-surface-hover: #e9f0f5;
 --text-1: #1a1f23;
 --text-2: #4d5a63;
---text-3: #5f6b75;
+--text-3: #5b6771;
 --border-1: #d7dee4;
---border-2: #b8c4cd;
+--border-2: #82888c;
 --danger: #a23b32;
 --danger-soft: #fbeae7;
 --danger-border: #e0b3ac;
@@ -219,10 +220,12 @@ three text roles meet 4.5:1 on every shell surface (12 November 2026 review).
 ### 4.1 Shape
 
 ```ts
+type AccentGroup = 'pastel' | 'vivid';
+
 interface AccentSet {
   id: string;              // stored in settings; unknown -> default
   label: string;           // "Blue"
-  swatch: string;          // UI swatch (the accent fill)
+  group: AccentGroup;      // Appearance list section; display metadata only
   dark: AccentValues;
   light: AccentValues;
 }
@@ -237,21 +240,37 @@ interface AccentValues {
 ```
 
 `accent-ring` = `strong`; `edge-active` = `strong`; `focus-ring` = `strong`. The registry is the single
-source for accent values. The Appearance page renders swatches from it.
+source for accent values. `ACCENT_GROUPS` and `accentsInGroup()` drive the two labelled Appearance
+sections (Pastel, Vivid). The swatch color is the resolved `accent` value, derived at render time;
+there is no stored swatch field. `accent` remains a validated id string and the settings schema stays
+`settingsVersion: 3`, with no migration.
 
-### 4.2 Initial four accents
+### 4.2 Accents
 
-Initial proposals; the contrast test validates and may tune a step. Values are not a dependency.
+All values are approved data (12 November 2026). The contrast tests validate text on accent/hover/
+strong ≥ 4.5:1, accent/strong against every shell surface ≥ 3:1, and text-3 on the soft fill ≥ 4.5:1,
+in both themes.
 
-| id | Dark accent / strong / soft | Light accent / strong / soft |
+**Pastel**
+
+| id | Dark accent / strong / soft / hover / contrast | Light accent / strong / soft / hover / contrast |
 |---|---|---|
-| blue | `#9bb7d4` / `#b9d0e6` / `#26313c` | `#2f5f8a` / `#1f4a6d` / `#e2edf6` |
-| teal | `#8fc7c0` / `#a9d9d3` / `#233432` | `#1f6f66` / `#15564f` / `#e0f1ee` |
-| amber | `#d6b17a` / `#e6c795` / `#3a3124` | `#8a5a00` / `#6f4800` / `#fff2d6` |
-| rose | `#d99aa8` / `#e7b3bf` / `#3a2830` | `#9b3f55` / `#7d2f43` / `#f8e4e9` |
+| blue | `#9bb7d4` / `#b9d0e6` / `#26313c` / `#a9c3dc` / `#101418` | `#2f5f8a` / `#1f4a6d` / `#e2edf6` / `#264d71` / `#ffffff` |
+| teal | `#89c0ba` / `#99d1ca` / `#233432` / `#92cac3` / `#101418` | `#1f6f66` / `#15564f` / `#e0f1ee` / `#175c55` / `#ffffff` |
+| amber | `#d6b17a` / `#e6c795` / `#382f22` / `#e3c48f` / `#101418` | `#8a5a00` / `#6f4800` / `#fff2d6` / `#714900` / `#ffffff` |
+| rose | `#e5a5b3` / `#f6b5c3` / `#3a2830` / `#efaebc` / `#101418` | `#9b3f55` / `#7d2f43` / `#f8e4e9` / `#873348` / `#ffffff` |
 
-Hover and contrast values are part of each set; the table omits them for brevity. Contrast rules:
-text on accent ≥ 4.5:1, focus ring vs adjacent surface ≥ 3:1, border vs surface ≥ 3:1 for controls.
+**Vivid**
+
+| id | Dark accent / strong / soft / hover / contrast | Light accent / strong / soft / hover / contrast |
+|---|---|---|
+| violet | `#BE38F3` / `#D26BFF` / `#2A173A` / `#C94DFF` / `#0B0F12` | `#8B2BB8` / `#6F1E96` / `#F3E1FB` / `#7A25A6` / `#FFFFFF` |
+| magenta | `#F43F8E` / `#FF6BA8` / `#361524` / `#FF57A0` / `#101418` | `#B0185C` / `#8E124A` / `#FBE0EC` / `#9F1553` / `#FFFFFF` |
+| cyan | `#22D3EE` / `#67E8F9` / `#0C242B` / `#3BDDF3` / `#101418` | `#0E7490` / `#0B5F77` / `#DDF5FA` / `#0C6A84` / `#FFFFFF` |
+| orange | `#FB923C` / `#FDBA74` / `#2C1E12` / `#FCA55A` / `#101418` | `#C2410C` / `#9A3412` / `#FDE8D7` / `#AD3A0B` / `#FFFFFF` |
+
+Vivid dark sets are light-on-dark fills with a near-black `contrast`; Vivid light sets are dark
+saturated fills with white `contrast`. The group field is the only structural addition.
 
 ### 4.3 Settings
 
@@ -259,7 +278,17 @@ text on accent ≥ 4.5:1, focus ring vs adjacent surface ≥ 3:1, border vs surf
 `accent: string`, `uiScale: 0.9 | 1 | 1.1`, `uiFont: 'system' | 'serif'`,
 `codeFont: 'jetbrains' | 'system-mono'`. Missing fields normalize to defaults: dark, blue, 1,
 system, jetbrains. Unknown accent id falls back to the default. There is no per-document appearance
-override in v1. Adding an accent later is a registry entry; no migration.
+override in v1. Adding an accent later is a registry entry; no migration or schema change.
+
+### 4.4 Border roles and the resting exception
+
+`--border-1` is the calm resting hairline: cards, panels, inputs, and secondary buttons at rest. It is
+allowed below 3:1 against its surface (documented SC 1.4.11 exception) because the boundary is
+decorative separation, not the only means to identify a control: labels, icons, and layout carry the
+affordance. `--border-2` is the strong boundary and must reach 3:1 against every shell surface; it is
+the hover/focus/active border. Resting buttons and inputs do not switch to `border-2`; only their
+hover/focus/selected states do. The CSS guard asserts the 3:1 rule for `border-2` and keeps `border-1`
+at rest.
 
 ## 5. `DocumentStatusPanel` pattern
 
@@ -328,7 +357,9 @@ sizing change is separate but related.
 1. **No literals outside token blocks.** A test scans `styles.css` and fails on hex/rgba outside
    `:root` theme blocks, the accent block, the Page scope, and print CSS.
 2. **Registry completeness.** Every accent has all keys in dark and light; unknown id falls back.
-3. **Contrast.** Text on accent ≥ 4.5:1; focus ring and control border ≥ 3:1.
+3. **Contrast.** Text on accent/hover/strong ≥ 4.5:1; text-3 on the soft fill ≥ 4.5:1; `border-2`,
+   focus ring, and selection ring ≥ 3:1. `border-1` stays the resting hairline with the documented
+   SC 1.4.11 exception.
 4. **Paper isolation.** Switching theme/accent does not change Page Read, Page Edit, or the PDF.
    The Page arrow skin and stroke width are Page-owned (`PAGE_EDGE_STYLE`,
    `--nf-page-edge-width`); Continuous resting edges (`--edge`, `--edge-muted`) never reach the
@@ -345,7 +376,7 @@ sizing change is separate but related.
 | 1 (R3) | Shell token normalization, dark/light, accent registry, Appearance settings | No Page change; one full verify |
 | 2 | `DocumentStatusPanel` + slim bar | Could ride in R3 as a companion or follow |
 | 3 | Page/print `--paper-*` alignment | Visual no-op, PDF parity |
-| 4 | More accents/full theme packs | Data-only if the registry holds |
+| 4 | More accents/full theme packs | Data-only if the registry holds; the Vivid four are the first data-only group |
 
 Resolved decisions (12 November 2026):
 

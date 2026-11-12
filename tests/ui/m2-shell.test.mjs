@@ -314,7 +314,7 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     });
     assert.deepEqual(portStyle, {
       border: '1px',
-      borderColor: 'rgb(60, 65, 72)',
+      borderColor: 'rgb(110, 115, 122)',
       background: 'rgb(32, 35, 41)',
       radius: '999px',
       chevron: { width: 12, stroke: '1.5px' },

@@ -38,10 +38,19 @@ export interface AccentValues {
   contrast: string;
 }
 
+/**
+ * Accent families in the Appearance list. `pastel` is the initial four curated
+ * sets; `vivid` is the second four approved on 12 November 2026. The group is
+ * display metadata only: `accent` stays a validated id string.
+ */
+export type AccentGroup = 'pastel' | 'vivid';
+
 export interface AccentSet {
   /** Stored in settings; an unknown id falls back to the default. */
   id: string;
   label: string;
+  /** Appearance page group; adding a palette never changes the settings schema. */
+  group: AccentGroup;
   dark: AccentValues;
   light: AccentValues;
 }
@@ -56,14 +65,16 @@ export interface AppearanceSettings {
 }
 
 /**
- * The four approved accents (12 November 2026). Hover/contrast values complete
- * each set; the contrast test validates text-on-accent >= 4.5:1 and the
- * focus/control rings >= 3:1 against the shell surfaces.
+ * The eight approved accents (12 November 2026): four pastel and four vivid.
+ * Hover/contrast values complete each set; the contrast test validates
+ * text-on-accent >= 4.5:1, the focus/control rings >= 3:1 against the shell
+ * surfaces, and text-3 on the soft fill >= 4.5:1.
  */
 export const ACCENTS: readonly AccentSet[] = Object.freeze([
   Object.freeze({
     id: 'blue',
     label: 'Blue',
+    group: 'pastel',
     dark: Object.freeze({
       accent: '#9bb7d4',
       strong: '#b9d0e6',
@@ -82,11 +93,12 @@ export const ACCENTS: readonly AccentSet[] = Object.freeze([
   Object.freeze({
     id: 'teal',
     label: 'Teal',
+    group: 'pastel',
     dark: Object.freeze({
-      accent: '#8fc7c0',
-      strong: '#a9d9d3',
+      accent: '#89c0ba',
+      strong: '#99d1ca',
       soft: '#233432',
-      hover: '#a3d5cd',
+      hover: '#92cac3',
       contrast: '#101418',
     }),
     light: Object.freeze({
@@ -100,10 +112,11 @@ export const ACCENTS: readonly AccentSet[] = Object.freeze([
   Object.freeze({
     id: 'amber',
     label: 'Amber',
+    group: 'pastel',
     dark: Object.freeze({
       accent: '#d6b17a',
       strong: '#e6c795',
-      soft: '#3a3124',
+      soft: '#382f22',
       hover: '#e3c48f',
       contrast: '#101418',
     }),
@@ -118,24 +131,112 @@ export const ACCENTS: readonly AccentSet[] = Object.freeze([
   Object.freeze({
     id: 'rose',
     label: 'Rose',
+    group: 'pastel',
     dark: Object.freeze({
-      accent: '#d99aa8',
-      strong: '#e7b3bf',
+      accent: '#e5a5b3',
+      strong: '#f6b5c3',
       soft: '#3a2830',
-      hover: '#e3aab6',
+      hover: '#efaebc',
       contrast: '#101418',
     }),
     light: Object.freeze({
       accent: '#9b3f55',
       strong: '#7d2f43',
       soft: '#f8e4e9',
-      hover: '#7d2f43',
+      hover: '#873348',
       contrast: '#ffffff',
+    }),
+  }),
+  Object.freeze({
+    id: 'violet',
+    label: 'Violet',
+    group: 'vivid',
+    dark: Object.freeze({
+      accent: '#BE38F3',
+      strong: '#D26BFF',
+      soft: '#2A173A',
+      hover: '#C94DFF',
+      contrast: '#0B0F12',
+    }),
+    light: Object.freeze({
+      accent: '#8B2BB8',
+      strong: '#6F1E96',
+      soft: '#F3E1FB',
+      hover: '#7A25A6',
+      contrast: '#FFFFFF',
+    }),
+  }),
+  Object.freeze({
+    id: 'magenta',
+    label: 'Magenta',
+    group: 'vivid',
+    dark: Object.freeze({
+      accent: '#F43F8E',
+      strong: '#FF6BA8',
+      soft: '#361524',
+      hover: '#FF57A0',
+      contrast: '#101418',
+    }),
+    light: Object.freeze({
+      accent: '#B0185C',
+      strong: '#8E124A',
+      soft: '#FBE0EC',
+      hover: '#9F1553',
+      contrast: '#FFFFFF',
+    }),
+  }),
+  Object.freeze({
+    id: 'cyan',
+    label: 'Cyan',
+    group: 'vivid',
+    dark: Object.freeze({
+      accent: '#22D3EE',
+      strong: '#67E8F9',
+      soft: '#0C242B',
+      hover: '#3BDDF3',
+      contrast: '#101418',
+    }),
+    light: Object.freeze({
+      accent: '#0E7490',
+      strong: '#0B5F77',
+      soft: '#DDF5FA',
+      hover: '#0C6A84',
+      contrast: '#FFFFFF',
+    }),
+  }),
+  Object.freeze({
+    id: 'orange',
+    label: 'Orange',
+    group: 'vivid',
+    dark: Object.freeze({
+      accent: '#FB923C',
+      strong: '#FDBA74',
+      soft: '#2C1E12',
+      hover: '#FCA55A',
+      contrast: '#101418',
+    }),
+    light: Object.freeze({
+      accent: '#C2410C',
+      strong: '#9A3412',
+      soft: '#FDE8D7',
+      hover: '#AD3A0B',
+      contrast: '#FFFFFF',
     }),
   }),
 ]);
 
 export const DEFAULT_ACCENT_ID = 'blue';
+
+/** Appearance groups, in display order. */
+export const ACCENT_GROUPS: readonly { id: AccentGroup; label: string }[] = Object.freeze([
+  Object.freeze({ id: 'pastel', label: 'Pastel' }),
+  Object.freeze({ id: 'vivid', label: 'Vivid' }),
+]);
+
+/** The registry entries of one group, in registry order. */
+export function accentsInGroup(group: AccentGroup): readonly AccentSet[] {
+  return ACCENTS.filter((accent) => accent.group === group);
+}
 
 export const THEMES: readonly AppearanceTheme[] = Object.freeze([
   'dark',

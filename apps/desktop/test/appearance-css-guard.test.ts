@@ -306,18 +306,41 @@ describe('Continuous note surface and resting edges', () => {
       hover: '#202329',
       edge: '#7b858f',
       edgeMuted: '#565f68',
+      text3: '#949aa2',
+      border2: '#6e737a',
     },
     {
       selector: 'html[data-theme="light"]',
-      note: '#f6f8fb',
-      hover: '#eef3f7',
+      note: '#f2f6f9',
+      hover: '#e9f0f5',
       edge: '#6c7882',
       edgeMuted: '#9aa5ad',
+      text3: '#5b6771',
+      border2: '#82888c',
     },
   ] as const;
 
-  it('gives cards a note surface that is distinct from the canvas in both themes', () => {
+  it('keeps border-2 as the 3:1 hover/focus boundary and border-1 at rest', () => {
+    // Documented SC 1.4.11 exception: border-1 is the resting hairline and may
+    // sit below 3:1; border-2 is the non-text control boundary and must pass.
     for (const theme of themes) {
+      const declarations = declarationsOf(rule(theme.selector).body);
+      expect(declarations.get('--border-2'), theme.selector).toBe(theme.border2);
+      expect(declarations.get('--text-3'), theme.selector).toBe(theme.text3);
+      for (const surface of SHELL_SURFACES) {
+        const value = declarations.get(surface);
+        expect(value, `${theme.selector} ${surface}`).toBeDefined();
+        expect(
+          contrast(theme.border2, value as string),
+          `${theme.selector} border-2 on ${surface}`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+      // border-1 stays the calm resting edge; it is never promoted to border-2.
+      expect(declarations.get('--border-1'), theme.selector).not.toBe(theme.border2);
+    }
+  });
+
+  it('gives cards a note surface that is distinct from the canvas in both themes', () => {    for (const theme of themes) {
       const declarations = declarationsOf(rule(theme.selector).body);
       expect(declarations.get('--note-surface'), theme.selector).toBe(theme.note);
       expect(declarations.get('--note-surface-hover'), theme.selector).toBe(theme.hover);

@@ -12,7 +12,8 @@
 
 import { RotateCcw } from 'lucide-react';
 import {
-  ACCENTS,
+  ACCENT_GROUPS,
+  accentsInGroup,
   accentValues,
   UI_SCALES,
   type AppearanceSettings,
@@ -95,25 +96,38 @@ export function AppearanceSettingsPage(): JSX.Element {
           <span className="nf-settings-row-label">Accent</span>
           <div className="nf-settings-control">
             <div
-              className="nf-accent-swatches"
-              role="group"
-              aria-label="Accent color"
+              className="nf-accent-groups"
               data-accent-options="true"
             >
-              {ACCENTS.map((entry) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  className="nf-accent-swatch"
-                  data-accent-option={entry.id}
-                  aria-label={entry.label}
-                  aria-pressed={appearance.accent === entry.id}
-                  title={entry.label}
-                  style={{ background: entry[resolvedTheme].accent }}
-                  onClick={() => patchAppearance({ accent: entry.id })}
+              {ACCENT_GROUPS.map((group) => (
+                <div
+                  key={group.id}
+                  className="nf-accent-group"
+                  data-accent-group={group.id}
+                  role="group"
+                  aria-label={`${group.label} accent color`}
                 >
-                  <span className="nf-sr-only">{entry.label}</span>
-                </button>
+                  <span className="nf-accent-group-label" aria-hidden="true">
+                    {group.label}
+                  </span>
+                  <div className="nf-accent-swatches">
+                    {accentsInGroup(group.id).map((entry) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className="nf-accent-swatch"
+                        data-accent-option={entry.id}
+                        aria-label={entry.label}
+                        aria-pressed={appearance.accent === entry.id}
+                        title={entry.label}
+                        style={{ background: entry[resolvedTheme].accent }}
+                        onClick={() => patchAppearance({ accent: entry.id })}
+                      >
+                        <span className="nf-sr-only">{entry.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

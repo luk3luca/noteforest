@@ -212,8 +212,8 @@ fonts). They are part of the same shell design system but are not duplicated in 
 yet. Page skin colors (`--nf-page-ink` and the related Page color variables) are Page-only and are
 not Continuous tokens.
 
-Continuous cards use their own surface roles: `--note-surface` (`#1b1d20` dark, `#f6f8fb` light) and
-`--note-surface-hover` (`#202329`, `#eef3f7`). Cards never use `--surface-1`: in light that role is
+Continuous cards use their own surface roles: `--note-surface` (`#1b1d20` dark, `#f2f6f9` light) and
+`--note-surface-hover` (`#202329`, `#e9f0f5`). Cards never use `--surface-1`: in light that role is
 white and equals the canvas. Top-level and child cards share the same surface.
 
 Resting edges use `--edge` (`#7b858f` dark, `#6c7882` light) and muted edges `--edge-muted`

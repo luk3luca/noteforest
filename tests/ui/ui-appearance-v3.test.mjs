@@ -360,6 +360,15 @@ describe('R3 appearance v3', () => {
         [...document.querySelectorAll(`[${attribute}]`)]
           .filter((element) => element.getAttribute('aria-pressed') === 'true')
           .map((element) => element.getAttribute(attribute));
+      const group = (id) => {
+        const element = document.querySelector(`[data-accent-group="${id}"]`);
+        return {
+          label: element?.querySelector('.nf-accent-group-label')?.textContent?.trim() ?? null,
+          options: [...(element?.querySelectorAll('[data-accent-option]') ?? [])].map(
+            (option) => option.getAttribute('data-accent-option'),
+          ),
+        };
+      };
       return {
         themes: pressed('data-appearance-theme-option'),
         accents: pressed('data-accent-option'),
@@ -368,11 +377,21 @@ describe('R3 appearance v3', () => {
         uiFont: document.querySelector('[data-ui-font-select]')?.value ?? null,
         codeFont: document.querySelector('[data-code-font-select]')?.value ?? null,
         themeCount: document.querySelectorAll('[data-appearance-theme-option]').length,
+        pastel: group('pastel'),
+        vivid: group('vivid'),
       };
     });
     assert.deepEqual(controls.themes, ['dark'], 'Dark is the default theme');
     assert.deepEqual(controls.accents, ['blue'], 'Blue is the default accent');
-    assert.equal(controls.swatches, 4, 'four curated accent swatches');
+    assert.equal(controls.swatches, 8, 'eight curated accent swatches');
+    assert.deepEqual(controls.pastel, {
+      label: 'Pastel',
+      options: ['blue', 'teal', 'amber', 'rose'],
+    });
+    assert.deepEqual(controls.vivid, {
+      label: 'Vivid',
+      options: ['violet', 'magenta', 'cyan', 'orange'],
+    });
     assert.deepEqual(controls.scales, ['1'], 'Default UI text size');
     assert.equal(controls.uiFont, 'system');
     assert.equal(controls.codeFont, 'jetbrains');
@@ -415,7 +434,18 @@ describe('R3 appearance v3', () => {
     await chooseTheme('dark');
     await waitTheme('dark');
     await chooseAccent('teal');
-    assert.equal(await roleColor('--accent'), 'rgb(143, 199, 192)');
+    assert.equal(await roleColor('--accent'), 'rgb(137, 192, 186)');
+
+    // Vivid group: a different palette family with the same contract.
+    await chooseAccent('violet');
+    assert.equal(await roleColor('--accent'), 'rgb(190, 56, 243)');
+    assert.equal(await roleColor('--accent-strong'), 'rgb(210, 107, 255)');
+    assert.equal(
+      await page.locator('[data-accent-group="vivid"] [data-accent-option="violet"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    await page.screenshot({ path: join(screenshotDir, 'appearance-dark-violet.png') });
+    await chooseAccent('teal');
 
     // UI text size scales shell chrome text only.
     await page.locator('[data-ui-scale-option="1.1"]').click();

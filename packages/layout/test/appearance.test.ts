@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACCENTS,
+  ACCENT_GROUPS,
   CODE_FONTS,
   DEFAULT_APPEARANCE,
   DEFAULT_ACCENT_ID,
@@ -10,6 +11,7 @@ import {
   UI_SCALES,
   accentSet,
   accentValues,
+  accentsInGroup,
   appearanceCssVariables,
   codeFontStack,
   normalizeAppearance,
@@ -55,24 +57,66 @@ function contrast(left: string, right: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-const DARK_SURFACES = ['#101113', '#17181a', '#131416', '#1b1d20', '#202329', '#262a30'];
-const LIGHT_SURFACES = ['#f3f5f7', '#ffffff', '#edf1f4', '#f2f5f7', '#e8edf1'];
+const DARK_SURFACES = [
+  '#101113',
+  '#17181a',
+  '#131416',
+  '#1b1d20',
+  '#202329',
+  '#262a30',
+];
+const LIGHT_SURFACES = [
+  '#f3f5f7',
+  '#ffffff',
+  '#edf1f4',
+  '#f2f5f7',
+  '#e8edf1',
+  '#f2f6f9',
+  '#e9f0f5',
+];
+/** Tertiary text values from the shell theme blocks (12 November 2026 tune). */
+const TEXT_3 = { dark: '#949aa2', light: '#5b6771' } as const;
 
 describe('accent registry', () => {
-  it('ships the four approved accents with both theme value sets', () => {
+  it('ships the four pastel and four vivid accents with both theme value sets', () => {
     expect(ACCENTS.map((accent) => accent.id)).toEqual([
       'blue',
       'teal',
       'amber',
       'rose',
+      'violet',
+      'magenta',
+      'cyan',
+      'orange',
     ]);
     expect(ACCENTS.map((accent) => accent.label)).toEqual([
       'Blue',
       'Teal',
       'Amber',
       'Rose',
+      'Violet',
+      'Magenta',
+      'Cyan',
+      'Orange',
+    ]);
+    expect(ACCENT_GROUPS.map((group) => [group.id, group.label])).toEqual([
+      ['pastel', 'Pastel'],
+      ['vivid', 'Vivid'],
+    ]);
+    expect(accentsInGroup('pastel').map((accent) => accent.id)).toEqual([
+      'blue',
+      'teal',
+      'amber',
+      'rose',
+    ]);
+    expect(accentsInGroup('vivid').map((accent) => accent.id)).toEqual([
+      'violet',
+      'magenta',
+      'cyan',
+      'orange',
     ]);
     for (const accent of ACCENTS) {
+      expect(accent.group === 'pastel' || accent.group === 'vivid').toBe(true);
       for (const theme of ['dark', 'light'] as const) {
         const values = accent[theme];
         const keys: (keyof AccentValues)[] = [
@@ -83,7 +127,7 @@ describe('accent registry', () => {
           'contrast',
         ];
         for (const key of keys) {
-          expect(values[key], `${accent.id}.${theme}.${key}`).toMatch(/^#[0-9a-f]{6}$/);
+          expect(values[key], `${accent.id}.${theme}.${key}`).toMatch(/^#[0-9a-fA-F]{6}$/);
         }
       }
     }
@@ -103,6 +147,55 @@ describe('accent registry', () => {
       soft: '#e2edf6',
       hover: '#264d71',
       contrast: '#ffffff',
+    });
+  });
+
+  it('keeps the tuned pastel steps', () => {
+    expect(accentSet('teal').dark).toMatchObject({
+      accent: '#89c0ba',
+      strong: '#99d1ca',
+      hover: '#92cac3',
+    });
+    expect(accentSet('rose').dark).toMatchObject({
+      accent: '#e5a5b3',
+      strong: '#f6b5c3',
+      hover: '#efaebc',
+    });
+    expect(accentSet('rose').light.hover).toBe('#873348');
+    expect(accentSet('amber').dark.soft).toBe('#382f22');
+  });
+
+  it('keeps the approved Vivid values exactly', () => {
+    expect(accentSet('violet')).toEqual({
+      id: 'violet',
+      label: 'Violet',
+      group: 'vivid',
+      dark: {
+        accent: '#BE38F3',
+        strong: '#D26BFF',
+        soft: '#2A173A',
+        hover: '#C94DFF',
+        contrast: '#0B0F12',
+      },
+      light: {
+        accent: '#8B2BB8',
+        strong: '#6F1E96',
+        soft: '#F3E1FB',
+        hover: '#7A25A6',
+        contrast: '#FFFFFF',
+      },
+    });
+    expect(accentSet('magenta')).toMatchObject({
+      dark: { accent: '#F43F8E', strong: '#FF6BA8', soft: '#361524', hover: '#FF57A0', contrast: '#101418' },
+      light: { accent: '#B0185C', strong: '#8E124A', soft: '#FBE0EC', hover: '#9F1553', contrast: '#FFFFFF' },
+    });
+    expect(accentSet('cyan')).toMatchObject({
+      dark: { accent: '#22D3EE', strong: '#67E8F9', soft: '#0C242B', hover: '#3BDDF3', contrast: '#101418' },
+      light: { accent: '#0E7490', strong: '#0B5F77', soft: '#DDF5FA', hover: '#0C6A84', contrast: '#FFFFFF' },
+    });
+    expect(accentSet('orange')).toMatchObject({
+      dark: { accent: '#FB923C', strong: '#FDBA74', soft: '#2C1E12', hover: '#FCA55A', contrast: '#101418' },
+      light: { accent: '#C2410C', strong: '#9A3412', soft: '#FDE8D7', hover: '#AD3A0B', contrast: '#FFFFFF' },
     });
   });
 
@@ -155,6 +248,19 @@ describe('accent registry', () => {
           `${accent.id}.light accent on ${surface}`,
         ).toBeGreaterThanOrEqual(3);
       }
+    }
+  });
+
+  it('keeps tertiary text readable on every selected soft fill', () => {
+    for (const accent of ACCENTS) {
+      expect(
+        contrast(TEXT_3.dark, accent.dark.soft),
+        `${accent.id}.dark text-3 on soft`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(TEXT_3.light, accent.light.soft),
+        `${accent.id}.light text-3 on soft`,
+      ).toBeGreaterThanOrEqual(4.5);
     }
   });
 });
@@ -238,10 +344,10 @@ describe('appearance resolution', () => {
       'dark',
     );
     expect(variables).toEqual({
-      '--accent': '#8fc7c0',
-      '--accent-strong': '#a9d9d3',
+      '--accent': '#89c0ba',
+      '--accent-strong': '#99d1ca',
       '--accent-soft': '#233432',
-      '--accent-hover': '#a3d5cd',
+      '--accent-hover': '#92cac3',
       '--accent-contrast': '#101418',
       '--ui-scale': '1.1',
       '--ui-font': UI_FONT_STACKS.serif,
