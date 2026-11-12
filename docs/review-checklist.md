@@ -736,7 +736,7 @@ and landscape in reader and page views at fit-page and 150% zoom.
 - [ ] Exporting a landscape document preserves orientation, A4 page size, and margins.
 - [ ] Page count, page size, orientation, and margins are validated against the page view and
       paginator before the file is written; a mismatch is an export failure, not a warning.
-- [ ] Product owner visual check (optional): the PDF looks correct on the Mac; page size is comfortable. Notability or another annotation app is out of scope.
+- [ ] Product owner visual check (optional): the PDF looks correct on the Mac; page size is comfortable. Third-party annotation apps are out of scope.
       (manual check each release).
 - [ ] Annotations: v1 scope excludes the study layer. If a toggle exists, test both modes; a
       visible toggle is a scope violation unless an ADR approved it.

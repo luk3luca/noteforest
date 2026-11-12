@@ -74,7 +74,7 @@ wording in the v1.3 callout lane.
 - Page containers: creating, duplicating, deleting, splitting, moving, or reordering pages.
 - Fixed depth columns, arbitrary block positions, manual pins, nudges, freeform canvas, minimap, free drawing.
 - A separate reader/outline PDF export. The Continuous layout is an editor layout, not an export mode.
-- Freehand ink, handwritten annotations, highlights drawn on the page. Annotations happen in Notability after export.
+- Freehand ink, handwritten annotations, highlights drawn on the page. Annotations happen in an external PDF app after export.
 - Collaboration, comments, presence, accounts, sync.
 - A document library, tab strip, tags, databases, backlink queries, daily notes. Multiple documents open in separate windows with recents.
 - Per-page orientation (v1 uses one document-wide orientation at a time).
@@ -131,10 +131,10 @@ Luca is a student, at a Mac, typing fast during a lecture or while reading a tex
 
 #### P2 — The Studier
 
-Luca returns to the document days later, before an exam. He opens the document in Continuous Read, follows a continuous argument, notices a derived page-break marker, switches to Page Read to check what the PDF will look like, follows an anchored branch from a formula term, then exports all pages and annotates them on an iPad in Notability.
+Luca returns to the document days later, before an exam. He opens the document in Continuous Read, follows a continuous argument, notices a derived page-break marker, switches to Page Read to check what the PDF will look like, follows an anchored branch from a formula term, then exports all pages and annotates them on an iPad in an external PDF app.
 
 - **Goal:** re-enter a topic quickly and follow the argument the way he originally built it.
-- **Success:** understands a region in 10–15 minutes; exports in one action; every page is legible and its text is searchable in Notability.
+- **Success:** understands a region in 10–15 minutes; exports in one action; every page is legible and its text is searchable in the annotation app.
 - **Abandon signal:** page breaks that cut a branch without a continuation marker; a PDF that differs from Page Read; an anchor that points at the wrong word.
 
 #### P3 — The Returner
@@ -153,7 +153,7 @@ Luca opens a six-month-old document. He half-remembers a term but not where it l
 | T2 | Branch from a word, formula term or code token | P1 | Daily | < 5 s from selection to typing | Select, `⌘⇧Return` |
 | T3 | Reorder and reparent structure | P1, P2 | Daily | No dialog, one gesture or key | `Tab` / `⇧Tab`, drag, `⌘⇧↑↓` |
 | T4 | Read continuously and check the paginated result | P2 | Weekly | < 10 min | `⌘2` Continuous, `⌘E` Read, `⌘3` Page, `⌥↑↓` |
-| T5 | Export all pages as a PDF for Notability | P2 | Weekly | < 30 s | `⌘⇧E` or `⌘P` |
+| T5 | Export all pages as a PDF for external annotation | P2 | Weekly | < 30 s | `⌘⇧E` or `⌘P` |
 | T6 | Find a block and understand its chapter and page | P3 | Weekly | < 1 min | `⌘F`, breadcrumbs, `⌘[` / `⌘]` |
 | T7 | Recover from a lost anchor, an unbreakable overflow, or a save conflict | P3 | Rare | < 2 min, no data loss | Status chip, element banner, conflict sheet |
 | T8 | Start a new chapter and move blocks into it | P1 | Occasional | < 1 min | Chapter menu, drag across chapter divider |
@@ -182,7 +182,7 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 
 **A. Capturing a lecture (P1).** Luca hits `⌘N`, types "Eigenvalues and eigenvectors" as the first top-level block in Chapter 1, presses `Return` for a sibling and `Tab` to make it a child, types the definition, selects "λ" and presses `⌘⇧Return`, types one sentence about the stretch factor, then `Esc`, `⌘Return` on the top-level block for the next branch. He starts Chapter 2 for the algorithm with `⌘⌥C`. He never opens the inspector. The Continuous layout is laying out in the background; derived page-break markers appear where the paginator breaks. He will switch to Page Read later to check the print.
 
-**B. Studying before an exam (P2).** Luca opens the same document, presses `⌘2` for Continuous and `⌘E` for Read, follows chapter 1 to the `det(A − λI)` anchor, reads the expansion in the callout below it, presses `⌘⇧F` to focus that subtree, `Esc`, then `⌘3` to check Page Read: chapter 2 starts on page 2, and a ghost parent with a continuation marker shows where chapter 1's last branch resumes. He presses `⌘⇧E`, exports all pages, and AirDrops the PDF to the iPad for Notability.
+**B. Studying before an exam (P2).** Luca opens the same document, presses `⌘2` for Continuous and `⌘E` for Read, follows chapter 1 to the `det(A − λI)` anchor, reads the expansion in the callout below it, presses `⌘⇧F` to focus that subtree, `Esc`, then `⌘3` to check Page Read: chapter 2 starts on page 2, and a ghost parent with a continuation marker shows where chapter 1's last branch resumes. He presses `⌘⇧E`, exports all pages, and AirDrops the PDF to the iPad for annotation in an external app.
 
 ---
 
@@ -314,7 +314,7 @@ Page setup (document-level in v1):
 |---|---|---|---|
 | Page size | A4 | A4, Letter | Re-paginates the whole document |
 | Orientation | Portrait | Portrait, Landscape | One document-wide orientation at a time; changing it reflows all pages |
-| Margins | Normal | Normal, Wide right (≈30% extra, for Notability) | Changes the printable area |
+| Margins | Normal | Normal, Wide right (≈30% extra, for handwriting/annotation space) | Changes the printable area |
 | Chapter start | New page | New page, Continuous | A manual break hint at each chapter heading |
 | Page numbers | On | On, Off | Footer, part of every page |
 | Running header | Document title | On, Off | Small header outside the content area |
@@ -931,7 +931,7 @@ v1 has one export: all pages, generated by the same paginator as the Page layout
 - Page/PDF include the full document; the Continuous collapse state is not exported.
 - Export is a snapshot; later edits do not change the file.
 - The document title, chapter titles and page count are in the PDF metadata; page numbers are in the footer.
-- **Notability workflow:** choose A4, portrait, and the **Wide right** margin in Page Setup for handwriting space. Import the PDF into Notability and annotate. The app does not write ink back into the document.
+- **Handwriting workflow:** choose A4, portrait, and the **Wide right** margin in Page Setup for handwriting space. Import the standard PDF into an external annotation app. The app does not write ink back into the document.
 
 ### F13 — Search and navigate
 
@@ -952,7 +952,6 @@ Search is a navigation tool, not a query language. A document-wide search palett
 2. Choose page numbers and running header on/off.
 3. The sheet shows a live preview of page 1 and a warning: "Changing the page geometry will re-paginate all 5 pages. 2 manual breaks may be affected."
 4. **Apply**. The paginator recomputes. The action is undoable. If an element overflows, the overflow banner appears and export is blocked until it fits.
-5. A **Notability** preset sets A4, portrait, wide right margin, page numbers on, chapter start on a new page.
 
 **Manual break hints**
 
@@ -1790,7 +1789,7 @@ Rules:
 - Continuous: continuous scroll/swipe; Page: page swipe/pinch; page navigation by swipe. Read modes are the default for touch study; Edit mode is available with the on-screen keyboard.
 - Text editing works with the on-screen keyboard.
 - Pencil is for ink annotations in a later phase; the document model must not assume ink in a block.
-- The page PDF is the iPad bridge for v1; Notability handles ink.
+- The page PDF is the iPad bridge for v1; external annotation apps handle ink.
 
 ---
 
@@ -1813,9 +1812,9 @@ Rules:
 | Q13 | **Resolved:** Is page orientation document-level or per page? | Mixed orientation would complicate the paginator and the PDF. | **One document-wide orientation at a time; changing it reflows all pages. No per-page orientation.** |
 | Q14 | Should a chapter always start on a new page? | It aids structure but can waste space | Default on; toggle per chapter; test |
 | Q15 | Should page numbers be stable identifiers? | They change with content; users may cite them | Treat as derived; manual breaks stabilize; use block links |
-| Q16 | Should dark mode produce a dark PDF? | Some study at night; Notability assumes white | Light only v1; evaluate |
+| Q16 | Should dark mode produce a dark PDF? | Some study at night; annotation apps assume white | Light only v1; evaluate |
 | Q17 | Is the sample the right onboarding, or templates? | Sample teaches the differentiator | Sample first; templates later |
-| Q18 | Should Continuous allow free text/shape annotations? | Top scope-creep request; different product | No; annotations in PDF/Notability |
+| Q18 | Should Continuous allow free text/shape annotations? | Top scope-creep request; different product | No; annotations happen in the external PDF app |
 | Q19 | Do we need page thumbnails? | Many pages need quick navigation; Continuous markers may be enough | Page indicator v1; thumbnails if asked |
 | Q20 | Should Continuous show page gaps? | A continuous layout with derived markers vs a slight gap at page breaks | Markers only in v1; test readability; markers are hints, not exact print geometry |
 | Q21 | Do we need a split view (Outline + Continuous, or Continuous + Page)? | The surface model is already a lot; split view doubles space and focus | No split in v1; revisit after real use |

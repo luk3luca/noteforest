@@ -8,7 +8,7 @@
 
 ## Context
 
-The product needs a **Page PDF** with selectable text, real formulas and code, embedded images, A4 portrait/landscape, document margins, continuation/ghost markers, and deterministic page count. The same pages must appear in the reader, the page view, and the PDF. The PDF is imported into Notability; a screenshot or a separate linear render is not acceptable.
+The product needs a **Page PDF** with selectable text, real formulas and code, embedded images, A4 portrait/landscape, document margins, continuation/ghost markers, and deterministic page count. The same pages must appear in the reader, the page view, and the PDF. The PDF is used in a standard PDF annotation app; a screenshot or a separate linear render is not acceptable.
 
 Two failure modes are unacceptable:
 
@@ -68,7 +68,7 @@ Electron's `PrintToPDFOptions.margins` takes numeric inches, not a `marginType` 
 | Option | Why not |
 |---|---|
 | **CSS paged media as the paginator** | Creates a second source of truth for breaks; page counts and continuation markers drift from the page view. Unacceptable for a WYSIWYG page product. |
-| **Screenshot the page view** | No selectable text; fails the core Notability use case. |
+| **Screenshot the page view** | No selectable text; fails the core annotation use case. |
 | **Native PDFKit / `NSPrintOperation`** | Strong native text/PDF, but requires a second renderer over the layout tree and moves the app off the chosen stack. A fallback only if Chromium print fails the gate. |
 | **Typst** | Excellent paged media and math, but a separate layout engine and document model; it cannot reproduce the interactive adaptive tree without a second layout implementation. Suitable for a future document-only export, not v1 Page PDF. |
 | **Rust `printpdf` / `oxidize-pdf`** | Low-level text layout and pagination would be custom; same two-engine problem. |
@@ -111,7 +111,7 @@ Pass criteria:
 4. Continuation/ghost markers appear exactly where the paginator reports continuations.
 5. Page size, orientation, and margins match `pageSetup`; no unexpected blank page.
 6. Page-view screenshot and PDF raster agree within the print-theme tolerance (layout, breaks, block positions).
-7. Notability import: body text is selectable/highlightable/searchable; formulas and code are readable.
+7. External annotation app import (manual, optional): body text is selectable/highlightable/searchable; formulas and code are readable. The app has no integration with any annotation app.
 8. Export from the packaged app, not only the dev server.
 
 If any criterion fails, PDF commitment pauses and the Orchestrator writes a fallback ADR (CDP print or native compositor). The app does not silently switch pipelines.
