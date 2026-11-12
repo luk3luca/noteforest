@@ -43,7 +43,7 @@
         border: 1px solid #e2e7eb;
       }
       .theme-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 10px; }
-      .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .compare { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
       @media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
       .caption { font-size: 10.5px; color: var(--text3); margin-bottom: 5px; }
       .callout { background: var(--panel); border-radius: 9px; padding: 10px; min-height: 96px; }
@@ -52,6 +52,10 @@
       .pill, .inline { border: 0; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; min-width: 0; }
       .pill { padding: 0 6px; border: 1px solid var(--border); border-radius: 999px; background: var(--pill); color: var(--text2); font-size: 10.5px; line-height: 1.65; }
       .pill:hover { border-color: var(--border2); color: var(--text); }
+      .square { padding: 0 6px; border: 1px solid var(--border); border-radius: 3px; background: var(--pill); color: var(--text2); font-size: 10.5px; line-height: 1.65; display: inline-flex; align-items: center; gap: 3px; min-width: 0; }
+      .square .glyph { color: var(--accent); flex: 0 0 auto; }
+      .square:hover { border-color: var(--border2); color: var(--text); }
+      .square.selected { border-color: var(--accent-strong); background: var(--accent-soft); color: var(--text); }
       .inline { padding: 0 2px; background: transparent; color: var(--text2); font-size: 11px; line-height: 1.4; border-radius: 4px; }
       .inline .glyph { color: var(--accent); flex: 0 0 auto; }
       .inline .quote { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -74,7 +78,7 @@
   </head>
   <body>
     <div class="wrap">
-      <p class="lede"><strong>Anchor quote:</strong> the current pill (left) versus the proposed inline quote (right). The inline version is a text reference, not a badge; the glyph and the quote are enough.</p>
+      <p class="lede"><strong>Anchor quote:</strong> the current pill, a squared chip in the app control language, and the borderless inline quote. The squared chip keeps the anchor affordance; the inline version is a quiet text reference.</p>
 
       <div class="theme-block dark">
         <div class="theme-label">Dark</div>
@@ -84,6 +88,16 @@
             <div class="callout">
               <div class="head">
                 <button class="pill"><span>“</span><span>eigenvalue</span></button>
+                <span class="branches">2 branches</span>
+              </div>
+              <p class="body"><strong>An eigenvalue</strong> is a scalar λ such that Av = λv for a nonzero vector v.</p>
+            </div>
+          </div>
+          <div>
+            <div class="caption">Squared chip</div>
+            <div class="callout">
+              <div class="head">
+                <button class="square"><span class="glyph">“</span><span class="quote">eigenvalue</span></button>
                 <span class="branches">2 branches</span>
               </div>
               <p class="body"><strong>An eigenvalue</strong> is a scalar λ such that Av = λv for a nonzero vector v.</p>
@@ -116,6 +130,16 @@
             </div>
           </div>
           <div>
+            <div class="caption">Squared chip</div>
+            <div class="callout">
+              <div class="head">
+                <button class="square"><span class="glyph">“</span><span class="quote">eigenvalue</span></button>
+                <span class="branches">2 branches</span>
+              </div>
+              <p class="body"><strong>An eigenvalue</strong> is a scalar λ such that Av = λv for a nonzero vector v.</p>
+            </div>
+          </div>
+          <div>
             <div class="caption">Inline quote</div>
             <div class="callout">
               <div class="head">
@@ -132,8 +156,10 @@
         <div class="variant"><span class="caption">Formula term</span><button class="inline"><span class="glyph">Σ</span><span class="math">λ</span></button></div>
         <div class="variant"><span class="caption">Code</span><button class="inline"><span class="glyph">{} </span><code>det(A)</code></button></div>
         <div class="variant"><span class="caption">Image</span><button class="inline"><span class="glyph">▧</span><span>diagram · region</span></button></div>
-        <div class="variant"><span class="caption">Selected</span><button class="inline selected"><span class="glyph">“</span><span class="quote">eigenvalue</span></button></div>
-        <div class="variant"><span class="caption">Hover</span><button class="inline hover"><span class="glyph">“</span><span class="quote">eigenvalue</span></button></div>
+        <div class="variant"><span class="caption">Squared</span><button class="square"><span class="glyph">“</span><span class="quote">eigenvalue</span></button></div>
+        <div class="variant"><span class="caption">Squared selected</span><button class="square selected"><span class="glyph">“</span><span class="quote">eigenvalue</span></button></div>
+        <div class="variant"><span class="caption">Inline selected</span><button class="inline selected"><span class="glyph">“</span><span class="quote">eigenvalue</span></button></div>
+        <div class="variant"><span class="caption">Inline hover</span><button class="inline hover"><span class="glyph">“</span><span class="quote">eigenvalue</span></button></div>
       </div>
 
       <p class="note">Design proof only. The app will use real KaTeX for formula anchors; this page shows the shape and states. <code>docs/design/ui-lab/anchor-quote.html</code></p>
