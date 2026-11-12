@@ -458,6 +458,35 @@ describe('M2f phase 4b empty chapters and stale locks', () => {
     const banner = page.locator('[data-stale-lock-banner="true"]');
     await banner.waitFor({ timeout: 10000 });
     assert.match(await banner.innerText(), /Read-only · stale lock/);
+    // R3: the shell status panel sits between the Toolbar and the canvas panel,
+    // outside the canvas surface; lock metadata is a secondary Details row.
+    const placement = await page.evaluate(() => {
+      const toolbar = document.querySelector('[data-toolbar="true"]');
+      const panel = document.querySelector('[data-stale-lock-banner="true"]');
+      const canvas = document.querySelector('[data-canvas-panel="true"]');
+      if (toolbar === null || panel === null || canvas === null) return null;
+      return {
+        parent: panel.parentElement?.className ?? '',
+        toolbarBottom: toolbar.getBoundingClientRect().bottom,
+        panelTop: panel.getBoundingClientRect().top,
+        panelBottom: panel.getBoundingClientRect().bottom,
+        canvasTop: canvas.getBoundingClientRect().top,
+        canvasHeight: canvas.getBoundingClientRect().height,
+        insideCanvas: panel.closest('.nf-canvas-panel') !== null,
+      };
+    });
+    assert.ok(placement !== null);
+    assert.match(placement.parent, /nf-main-column/);
+    assert.equal(placement.insideCanvas, false, 'the panel is outside the canvas surface');
+    assert.ok(
+      placement.panelTop >= placement.toolbarBottom - 0.5,
+      'the panel follows the Toolbar',
+    );
+    assert.ok(
+      placement.canvasTop >= placement.panelBottom - 0.5,
+      'the canvas panel follows the status panel',
+    );
+    await banner.locator('[data-status-details] summary').click();
     assert.equal(await banner.locator('[data-lock-pid="true"]').innerText(), '2147483647');
     assert.equal(await banner.locator('[data-lock-host="true"]').innerText(), 'stale-lock-test');
     assert.equal(await banner.locator('[data-lock-session="true"]').innerText(), 'dead-session');
@@ -470,14 +499,44 @@ describe('M2f phase 4b empty chapters and stale locks', () => {
     assert.equal(runtime?.lock?.sessionId, 'dead-session');
     assert.equal((await readLock(lockPath)).token, 'dead-token', 'no silent lock break');
 
-    await banner.locator('[data-stale-lock-action="cancel"]').click();
-    await banner.locator('[data-stale-lock-canceled="true"]').waitFor({ timeout: 5000 });
+    // Esc is Cancel: the panel collapses to the slim bar instead of disappearing.
+    await page.keyboard.press('Escape');
+    const slim = page.locator('[data-status-slim="true"][data-status-kind="stale-lock"]');
+    await slim.waitFor({ timeout: 5000 });
+    assert.match(await slim.innerText(), /Read-only · stale lock/);
+    assert.equal(
+      await slim.locator('[data-stale-lock-action="review"]').count(),
+      1,
+      'Cancel keeps the explanation and a Review action',
+    );
+    const reflow = await page.evaluate(() => {
+      const canvas = document.querySelector('[data-canvas-panel="true"]');
+      const panel = document.querySelector('[data-status-slim="true"]');
+      if (canvas === null || panel === null) return null;
+      return {
+        canvasHeight: canvas.getBoundingClientRect().height,
+        panelHeight: panel.getBoundingClientRect().height,
+        panelBottom: panel.getBoundingClientRect().bottom,
+        canvasTop: canvas.getBoundingClientRect().top,
+      };
+    });
+    assert.ok(reflow !== null);
+    assert.ok(
+      Math.abs(reflow.panelHeight - 34) <= 1.5,
+      `the slim bar is 34 px (${reflow.panelHeight})`,
+    );
+    assert.ok(
+      reflow.canvasHeight > placement.canvasHeight,
+      `the canvas reflows taller after Cancel (${reflow.canvasHeight} > ${placement.canvasHeight})`,
+    );
+    assert.ok(reflow.canvasTop >= reflow.panelBottom - 0.5);
     state = await h.state();
     runtime = state.runtimes.find((item) => item.packagePath === packagePath);
     assert.equal(runtime?.status, 'read-only');
     assert.equal((await readLock(lockPath)).token, 'dead-token', 'Cancel leaves the lock untouched');
 
-    await banner.locator('[data-stale-lock-action="review"]').click();
+    await page.locator('[data-stale-lock-action="review"]').click();
+    await banner.waitFor({ timeout: 5000 });
     await banner.locator('[data-stale-lock-action="take-over"]').click();
     await page.waitForFunction(
       (path) => {

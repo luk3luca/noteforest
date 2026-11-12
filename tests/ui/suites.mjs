@@ -55,6 +55,7 @@ export const FILES = [
   'ui-overlay-command-gate.test.mjs',
   'ui-settings-recovery.test.mjs',
   'ui-appearance-v3.test.mjs',
+  'ui-document-status.test.mjs',
 ];
 
 function unique(values) {
@@ -70,6 +71,7 @@ export const GROUPS = {
     'ui-batch-v.test.mjs',
     'ui-overlay-command-gate.test.mjs',
     'ui-appearance-v3.test.mjs',
+    'ui-document-status.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',
@@ -81,6 +83,7 @@ export const GROUPS = {
     'ui-settings-recovery.test.mjs',
     'ui-overlay-command-gate.test.mjs',
     'ui-appearance-v3.test.mjs',
+    'ui-document-status.test.mjs',
   ],
   anchors: [
     'm3-anchor-callout-layout.test.mjs',

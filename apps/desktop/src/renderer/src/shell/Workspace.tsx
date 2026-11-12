@@ -2,12 +2,13 @@ import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { useCallback, useEffect, useState } from 'react';
 import { FilePlus2, Search } from 'lucide-react';
 import { useShell } from '../state/shell';
-import { getRuntime, useRegistry } from '../state/registry';
+import { getRuntime, useRegistry, useRuntime } from '../state/registry';
 import { createNewDocument } from '../actions';
 import { DocumentEditor } from '../editor/DocumentEditor';
 import { Sidebar } from './Sidebar';
 import { Toolbar } from './Toolbar';
 import { RecoverySurface } from './RecoverySurface';
+import { DocumentStatusPanel } from './DocumentStatusPanel';
 
 function EmptyState(): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);
@@ -66,6 +67,9 @@ export function Workspace(): JSX.Element {
   const panelRef = usePanelRef();
   const [narrowExpanded, setNarrowExpanded] = useState(false);
   useRegistry();
+  // The status panel belongs to the active document only and lives outside the
+  // canvas scroll/zoom surface (R3).
+  const { runtime: activeRuntime } = useRuntime(activeTab);
 
   const rail = sidebarCollapsed || (narrow && !narrowExpanded);
 
@@ -159,6 +163,7 @@ export function Workspace(): JSX.Element {
         <Panel id="main" className="nf-main-panel" minSize={480}>
           <div className="nf-main-column">
             <Toolbar />
+            <DocumentStatusPanel runtime={activeRuntime} />
             <div className="nf-canvas-panel" data-canvas-panel="true">
               {editor}
             </div>

@@ -50,7 +50,6 @@ import { showsChapterCanvas } from '../lib/chapters';
 import { getScroll, recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
 import { SaveFailureBanner } from '../shell/SaveFailureBanner';
-import { StaleLockBanner } from '../shell/StaleLockBanner';
 import { CanvasHeader } from '../shell/CanvasHeader';
 import { recordPerf } from '../lib/perf';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
@@ -138,17 +137,14 @@ function blockIdAtViewSelection(view: EditorView): string | null {
   return blockIdAtPosition(view.state, selection.from);
 }
 
+/**
+ * Document-local notices only (R3). Read-only and stale-lock state moved to the
+ * shell `DocumentStatusPanel`; save failure and the repair notice stay here
+ * because they describe this editor's content, not the shell status.
+ */
 function DocumentBanners({ runtime }: { runtime: DocumentRuntime }): JSX.Element {
   return (
     <>
-      {runtime.readOnlyReason === 'stale-lock' ? (
-        <StaleLockBanner runtime={runtime} />
-      ) : runtime.status !== 'editable' ? (
-        <div className="nf-readonly-banner" role="status">
-          Read-only document{runtime.readOnlyReason === undefined ? '' : ` · ${runtime.readOnlyReason}`}. Your file
-          is not being modified.
-        </div>
-      ) : null}
       <SaveFailureBanner runtime={runtime} />
       {runtime.repairNotice === null ? null : (
         <div className="nf-repair-banner" role="status">

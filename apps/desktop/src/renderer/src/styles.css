@@ -1462,87 +1462,191 @@ button:disabled {
   text-underline-offset: 2px;
 }
 
-.nf-readonly-banner {
-  padding: 6px 16px;
-  border-bottom: 1px solid var(--border-1);
+/* ------------------------------------------------- document status panel */
+
+/*
+ * R3 document status panel. Shell chrome between the Toolbar and the canvas
+ * panel: a neutral surface with a warning icon and title, never a colored left
+ * stripe. The canvas reflows because the panel is in normal flow. Appearance
+ * animates height/opacity for 120 ms; the global reduced-motion rule removes it.
+ */
+.nf-status-panel {
+  flex: none;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px 14px;
+  padding: 12px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-panel);
   background: var(--surface-1);
+  animation: nf-status-appear 120ms var(--motion);
+}
+
+@keyframes nf-status-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nf-status-icon {
   color: var(--warning);
-  font-size: 12px;
+  margin-top: 1px;
 }
 
-/* Stale-lock consent: metadata + explicit takeover, no automatic break. */
-.nf-stale-lock {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 10px 20px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border-1);
-  border-left: 3px solid var(--warning);
-  background: var(--surface-1);
-}
-
-.nf-stale-lock-copy {
-  flex: 1 1 460px;
+.nf-status-copy {
   min-width: 0;
 }
 
-.nf-stale-lock-title {
+.nf-status-title {
+  display: block;
   color: var(--warning);
-  font-size: 12px;
+  font-size: calc(12.5px * var(--ui-scale));
+  font-weight: 600;
 }
 
-.nf-stale-lock-text {
-  margin: 4px 0 8px;
+.nf-status-body {
+  margin: 4px 0 0;
   color: var(--text-2);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: calc(12px * var(--ui-scale));
+  line-height: 1.45;
 }
 
-.nf-stale-lock-meta {
+.nf-status-details {
+  margin-top: 6px;
+}
+
+.nf-status-details summary {
+  cursor: pointer;
+  color: var(--text-3);
+  font-size: calc(11.5px * var(--ui-scale));
+}
+
+.nf-status-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 18px;
-  margin: 0;
-  font-size: 11.5px;
+  margin: 6px 0 0;
+  font-size: calc(11.5px * var(--ui-scale));
 }
 
-.nf-stale-lock-meta div {
+.nf-status-meta div {
   display: flex;
   gap: 5px;
 }
 
-.nf-stale-lock-meta dt {
+.nf-status-meta dt {
   color: var(--text-3);
 }
 
-.nf-stale-lock-meta dd {
+.nf-status-meta dd {
   margin: 0;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
 
-.nf-stale-lock-meta-wide {
+.nf-status-meta-wide {
   flex-basis: 100%;
 }
 
-.nf-stale-lock-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.nf-stale-lock-note {
-  margin: 8px 0 0;
-  color: var(--text-2);
-  font-size: 12px;
-}
-
-.nf-stale-lock-error {
+.nf-status-error {
   margin: 8px 0 0;
   color: var(--danger);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.nf-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+
+/* 34 px slim bar: the explanation survives Cancel; Review opens the panel. */
+.nf-status-slim {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-panel);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font-size: calc(11.5px * var(--ui-scale));
+}
+
+.nf-status-slim-icon {
+  flex: none;
+  color: var(--warning);
+}
+
+.nf-status-slim-label {
+  flex: none;
+  color: var(--text-1);
+  font-weight: 550;
+}
+
+.nf-status-slim-reason {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-status-slim-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.nf-status-slim-details {
+  position: relative;
+  margin: 0;
+}
+
+.nf-status-slim-details summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: calc(11.5px * var(--ui-scale));
+}
+
+.nf-status-slim-details p {
+  position: absolute;
+  right: 0;
+  top: 22px;
+  z-index: 30;
+  width: 320px;
+  max-width: 70vw;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-panel);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-panel);
+  color: var(--text-2);
+  font-size: calc(11.5px * var(--ui-scale));
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .nf-status-panel {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+
+  .nf-status-actions {
+    grid-column: 2;
+    justify-self: start;
+    flex-wrap: wrap;
+  }
 }
 
 /* Persistent save-failure recovery surface. Calm, document-level, never a toast. */
