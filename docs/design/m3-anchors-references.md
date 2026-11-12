@@ -1221,6 +1221,30 @@ outline order, and D3 anchored-first order do not change.
 All geometry is derived at render time and recomputed after content/layout changes. Nothing is
 stored in the document. `lastKnown` may be used only for a repair preview.
 
+### 6.3.1 Anchor quote chip (12 November 2026)
+
+The callout quote is a **squared chip**, not a 999 px pill: `border-radius: var(--radius-control)`
+3 px, 1 px `--border-1`, `--surface-2`, glyph in `--accent`, label in `--text-2` at 10.5 px.
+Hover promotes the boundary to `--border-2` and the text to `--text-1`; the selected state uses the
+`--accent-soft` fill with a 1 px `--accent-strong` inset border. `--border-1` stays the resting
+hairline (documented SC 1.4.11 exception); selection and hover carry the stronger roles.
+
+The chip keeps the button, click-to-focus/select behavior, `aria-label`, `title`,
+`data-anchor-quote`, `data-anchor-kind`, `data-anchor-state`, `data-anchor-selected`, and the
+callout head layout. Content by anchor kind:
+
+| Kind | Glyph | Content |
+|---|---|---|
+| Text | `“` | The display quote, capped and ellipsized. |
+| Formula whole / term | `Σ` | Inline KaTeX from `selector.latex` (the existing dependency), max width 180 px. |
+| Code | `{}` | Monospace quote with the existing 48-code-point truncation. |
+| Image region / point | `▧` | Label plus `region` / `point`. |
+
+Formula safety: an empty source, a source over 96 code points, or a KaTeX error falls back to the Σ
+glyph plus the plain quote; the full LaTeX stays in `title`. The KaTeX tree is `aria-hidden`; the
+button label carries the accessible plain quote. The chip never widens the callout head or card.
+Page Read/PDF ghost labels stay plain text: the chip is a Continuous-only surface.
+
 ### 6.4 Marker, selection, and keyboard
 
 - Anchor mark: subtle dotted underline + dot; quieter than a highlight (UX 10.4). Broken:

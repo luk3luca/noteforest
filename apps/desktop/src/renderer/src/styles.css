@@ -3227,15 +3227,21 @@ body.nf-dragging-block .nf-gutter-handle {
   margin: -1px -1px 6px;
 }
 
+/*
+ * Anchor quote chip: squared app control (3 px), not a pill. The resting
+ * border stays border-1 (documented SC 1.4.11 exception); hover promotes the
+ * boundary to border-2, and selection uses the accent-soft fill with an
+ * accent-strong inset border.
+ */
 .nf-callout-quote {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
   max-width: 100%;
   padding: 0 6px;
   border: 1px solid var(--border-1);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: var(--surface-2);
   color: var(--text-2);
   font-family: var(--ui-font);
@@ -3250,8 +3256,9 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-callout-quote[data-anchor-selected="true"] {
-  border-color: var(--accent);
+  border-color: transparent;
   background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-strong);
   color: var(--text-1);
 }
 
@@ -3269,6 +3276,26 @@ body.nf-dragging-block .nf-gutter-handle {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Code anchors keep a code face and the same truncation. */
+.nf-callout-quote-code {
+  font-family: var(--mono-font);
+  font-size: 10.5px;
+}
+
+/* Inline KaTeX: a term or short whole formula, never wider than the chip. */
+.nf-callout-quote-formula {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(180px, 100%);
+  overflow: hidden;
+}
+
+.nf-callout-quote-formula .katex {
+  font-size: 1.05em;
+  line-height: 1.2;
   white-space: nowrap;
 }
 

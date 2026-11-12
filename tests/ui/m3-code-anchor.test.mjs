@@ -207,6 +207,12 @@ describe('NoteForest M3c3a code range anchors', () => {
     const chipText = (await quoteChip.locator('.nf-callout-quote-text').textContent())?.trim();
     assert.ok(chipText.length < FIRST_LINE.length, 'the code quote chip is truncated');
     assert.ok(chipText.endsWith('…'), 'the truncated code quote ends with an ellipsis');
+    // Code keeps the mono face; the chip itself is a squared control.
+    assert.match(
+      await quoteChip.locator('.nf-callout-quote-code').evaluate((el) => getComputedStyle(el).fontFamily),
+      /mono/i,
+    );
+    assert.equal(await quoteChip.evaluate((el) => getComputedStyle(el).borderRadius), '3px');
 
     // The child is focused after the branch.
     await page.waitForFunction(

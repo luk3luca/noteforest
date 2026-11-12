@@ -116,10 +116,11 @@ describe('NoteForest M3c2a formula term anchors', () => {
     assert.equal(await quoteChip.getAttribute('data-anchor-kind'), 'formula');
     assert.equal(await quoteChip.getAttribute('data-anchor-quote'), '\\lambda');
     assert.equal(await quoteChip.getAttribute('data-anchor-state'), 'resolved');
-    assert.equal(
-      (await quoteChip.locator('.nf-callout-quote-text').textContent())?.trim(),
-      '\\lambda',
-    );
+    // The term renders inline with KaTeX, not as raw LaTeX text.
+    assert.equal(await quoteChip.getAttribute('data-anchor-formula'), 'katex');
+    assert.equal(await quoteChip.locator('.nf-callout-quote-formula .katex').count(), 1);
+    assert.match(await quoteChip.getAttribute('title'), /\\lambda/);
+    assert.equal(await quoteChip.evaluate((el) => getComputedStyle(el).borderRadius), '3px');
 
     // The child is focused after the branch.
     await page.waitForFunction(
@@ -183,10 +184,10 @@ describe('NoteForest M3c2a formula term anchors', () => {
     await repeatedCallout.waitFor();
     const repeatedChip = repeatedCallout.locator('.nf-callout-quote');
     assert.equal(await repeatedChip.getAttribute('data-anchor-state'), 'ambiguous');
-    assert.equal(
-      (await repeatedChip.locator('.nf-callout-quote-text').textContent())?.trim(),
-      '\\lambda',
-    );
+    // An ambiguous term still renders its known selector source inline and
+    // keeps the warning state beside the chip.
+    assert.equal(await repeatedChip.getAttribute('data-anchor-formula'), 'katex');
+    assert.equal(await repeatedChip.locator('.nf-callout-quote-formula .katex').count(), 1);
     assert.equal(
       (await repeatedCallout.locator('.nf-callout-state').textContent())?.trim(),
       'Ambiguous',

@@ -133,4 +133,26 @@ describe('Batch V visual contracts', () => {
       'var(--danger)',
     );
   });
+
+  it('renders the anchor quote as a squared chip, not a pill', () => {
+    expect(declaration('.nf-callout-quote', 'border-radius')).toBe(
+      'var(--radius-control)',
+    );
+    expect(declaration('.nf-callout-quote', 'border')).toBe('1px solid var(--border-1)');
+    expect(declaration('.nf-callout-quote', 'background')).toBe('var(--surface-2)');
+    expect(declaration('.nf-callout-quote', 'color')).toBe('var(--text-2)');
+    expect(declaration('.nf-callout-quote:hover', 'border-color')).toBe('var(--border-2)');
+    expect(declaration('.nf-callout-quote:hover', 'color')).toBe('var(--text-1)');
+    expect(declaration('.nf-callout-quote-glyph', 'color')).toBe('var(--accent)');
+    expect(
+      declaration('.nf-callout-quote[data-anchor-selected="true"]', 'background'),
+    ).toBe('var(--accent-soft)');
+    expect(
+      declaration('.nf-callout-quote[data-anchor-selected="true"]', 'box-shadow'),
+    ).toBe('inset 0 0 0 1px var(--accent-strong)');
+    expect(declaration('.nf-callout-quote-code', 'font-family')).toBe('var(--mono-font)');
+    expect(declaration('.nf-callout-quote-formula', 'max-width')).toBe(
+      'min(180px, 100%)',
+    );
+  });
 });

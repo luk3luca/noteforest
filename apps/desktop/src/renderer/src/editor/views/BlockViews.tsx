@@ -42,6 +42,7 @@ import {
   codeLineMarkerRect,
   codeRangeRects,
 } from '../../lib/code-anchor-geometry';
+import { anchorFormulaRender } from '../anchor-formula';
 
 function stringAttr(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -710,6 +711,39 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
           calloutImagePoint ? 'point' : 'region'
         }`
       : quoteChipText(anchorKind, anchorQuoteText);
+  // Formula chips render the live selector source, not the projection snapshot:
+  // a whole formula keeps its full LaTeX and a term keeps the selected term.
+  const calloutFormulaLatex = useMemo(() => {
+    if (anchorKind !== 'formula' || anchorId.length === 0 || bindings === null) return '';
+    const selector = bindings.runtime.document.anchors[anchorId]?.selector;
+    if (typeof selector !== 'object' || selector === null || Array.isArray(selector)) {
+      return '';
+    }
+    const record = selector as Record<string, unknown>;
+    return record['kind'] === 'formula' && typeof record['latex'] === 'string'
+      ? record['latex']
+      : '';
+  }, [anchorKind, anchorId, bindings, runtimeVersion]);
+  // Empty/very long/invalid LaTeX yields a null html and falls back to the Σ
+  // glyph plus the plain quote; the title keeps the full source either way.
+  const formulaChip = useMemo(
+    () =>
+      anchorKind === 'formula'
+        ? anchorFormulaRender(calloutFormulaLatex || anchorQuoteText)
+        : null,
+    [anchorKind, calloutFormulaLatex, anchorQuoteText],
+  );
+  const chipFormulaText = formulaChip?.plain || chipQuote;
+  const chipTitle =
+    anchorKind === 'formula'
+      ? `Formula anchor: “${chipFormulaText || 'anchor'}”`
+      : anchorKind === 'code'
+        ? `Code anchor: “${chipQuote}”`
+        : anchorKind === 'image'
+          ? `Image ${calloutImagePoint ? 'point' : 'region'} anchor: “${chipQuote}”`
+          : anchorQuoteText.length > 0
+            ? `Anchor: “${chipQuote}”`
+            : 'Anchored branch';
 
   // Callout state is derived from the same canonical revision as the block
   // warning. The node attribute is only the projection snapshot; after a
@@ -1247,6 +1281,13 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             data-anchor-state={anchorStateAttr}
             data-anchor-kind={anchorKind || undefined}
             data-anchor-selected={branchSelected ? 'true' : 'false'}
+            data-anchor-formula={
+              anchorKind === 'formula'
+                ? formulaChip?.html !== null
+                  ? 'katex'
+                  : 'fallback'
+                : undefined
+            }
             aria-label={`Select ${
               anchorKind === 'formula'
                 ? 'formula '
@@ -1258,17 +1299,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             }anchor “${chipQuote || 'anchor'}”, ${calloutAnchorCount} ${
               calloutAnchorCount === 1 ? 'branch' : 'branches'
             }`}
-            title={
-              anchorKind === 'formula'
-                ? `Formula anchor: “${chipQuote}”`
-                : anchorKind === 'code'
-                  ? `Code anchor: “${chipQuote}”`
-                  : anchorKind === 'image'
-                    ? `Image ${calloutImagePoint ? 'point' : 'region'} anchor: “${chipQuote}”`
-                    : anchorQuoteText.length > 0
-                      ? `Anchor: “${chipQuote}”`
-                      : 'Anchored branch'
-            }
+            title={chipTitle}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -1286,7 +1317,25 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
                     ? '▧'
                     : '“'}
             </span>
-            <span className="nf-callout-quote-text">{chipQuote || 'anchor'}</span>
+            {anchorKind === 'formula' && formulaChip?.html ? (
+              <span
+                className="nf-callout-quote-text nf-callout-quote-formula"
+                // The KaTeX tree is decorative here: the button label and the
+                // title carry the accessible plain formula.
+                aria-hidden="true"
+                dangerouslySetInnerHTML={{ __html: formulaChip.html }}
+              />
+            ) : (
+              <span
+                className={
+                  anchorKind === 'code'
+                    ? 'nf-callout-quote-text nf-callout-quote-code'
+                    : 'nf-callout-quote-text'
+                }
+              >
+                {(anchorKind === 'formula' ? chipFormulaText : chipQuote) || 'anchor'}
+              </span>
+            )}
           </button>
           {effectiveAnchorState === 'broken' ||
           effectiveAnchorState === 'ambiguous' ||

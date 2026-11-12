@@ -295,6 +295,13 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
       await page.locator(`[data-block-card="${pointBranch.targetBlockId}"] [data-anchor-quote]`).innerText(),
       /point/,
     );
+    // Image chips keep the ▧ glyph, label and region/point, squared.
+    const pointChip = page.locator(
+      `[data-block-card="${pointBranch.targetBlockId}"] .nf-callout-quote`,
+    );
+    assert.equal(await pointChip.getAttribute('data-anchor-kind'), 'image');
+    assert.match(await pointChip.innerText(), /▧/);
+    assert.equal(await pointChip.evaluate((el) => getComputedStyle(el).borderRadius), '3px');
 
     // Undo removes exactly the point branch, target, anchor, binding, and marker.
     const beforeUndo = await ui.structure();

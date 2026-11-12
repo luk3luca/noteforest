@@ -190,6 +190,49 @@ describe('NoteForest M3b2b anchored outline', () => {
       'sibling branches from the same anchor stay unselected',
     );
 
+    // The anchor chip is a squared control, not a pill: selected uses the
+    // accent-soft fill with an accent-strong inset border; hover uses border-2.
+    const selectedChip = page.locator(
+      `[data-block-card="${symTwo.blockId}"] .nf-callout-quote`,
+    );
+    const selectedStyle = await selectedChip.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        radius: style.borderRadius,
+        background: style.backgroundColor,
+        shadow: style.boxShadow,
+      };
+    });
+    assert.equal(selectedStyle.radius, '3px', 'the chip uses the control radius');
+    assert.equal(selectedStyle.background, 'rgb(38, 49, 60)', 'selected chip uses accent-soft');
+    assert.match(selectedStyle.shadow, /rgb\(185, 208, 230\)/, 'selected chip has the accent-strong inset border');
+    const siblingChip = page.locator(`[data-block-card="${symOne.blockId}"] .nf-callout-quote`);
+    await siblingChip.hover();
+    assert.equal(
+      await siblingChip.evaluate((element) => getComputedStyle(element).borderColor),
+      'rgb(110, 115, 122)',
+      'hover promotes the boundary to border-2',
+    );
+    await page.mouse.move(4, 4);
+    await h.screenshot(artifactsPath('m3b2b', 'anchor-chip-dark-1440x900.png'));
+    const darkApp = (await page.evaluate(() => window.__noteforestTest.settings())).app;
+    await page.evaluate(async (app) => {
+      await window.__noteforestTest.setSettings({
+        page: app.page,
+        appearance: { ...app.appearance, theme: 'light' },
+      });
+    }, darkApp);
+    await page.waitForSelector('html[data-theme="light"]');
+    await h.screenshot(artifactsPath('m3b2b', 'anchor-chip-light-1440x900.png'));
+    const lightApp = (await page.evaluate(() => window.__noteforestTest.settings())).app;
+    await page.evaluate(async (app) => {
+      await window.__noteforestTest.setSettings({
+        page: app.page,
+        appearance: { ...app.appearance, theme: 'dark' },
+      });
+    }, lightApp);
+    await page.waitForSelector('html[data-theme="dark"]');
+
     // Collapsing the parent hides the callout lane and its subtrees, and the
     // hidden count includes the anchored children.
     const port = page.locator(`[data-branch-port="${parentId}"]`);

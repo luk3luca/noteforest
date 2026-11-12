@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
-import { addTopLevelBlock } from '../support/fixtures.mjs';
+import { addTopLevelBlock, textDoc } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3c1-ui');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 const {
   isolated,
+  applyCommand,
   structure,
   seedDemo,
   waitForCallouts,
@@ -97,19 +98,20 @@ describe('NoteForest M3c1 whole-formula anchors', () => {
     const childId = childBranch?.targetBlockId;
     assert.equal(typeof childId, 'string');
 
-    // The formula node carries the atomic binding; the callout chip shows the
-    // truncated LaTeX and keeps the lane/routing projection from M3b2a.
+    // The formula node carries the atomic binding; the callout chip renders the
+    // selector LaTeX inline with KaTeX and keeps the lane/routing projection.
     await waitForFormulaBinding(parentId, anchorId);
     const callout = page.locator(`[data-callout-row="true"][data-anchor-id="${anchorId}"]`);
     await callout.waitFor();
     const quoteChip = callout.locator('.nf-callout-quote');
     assert.equal(await quoteChip.getAttribute('data-anchor-kind'), 'formula');
     assert.equal(await quoteChip.getAttribute('data-anchor-quote'), latex);
-    assert.equal(
-      (await quoteChip.locator('.nf-callout-quote-text').textContent())?.trim(),
-      latex,
-    );
+    assert.equal(await quoteChip.getAttribute('data-anchor-formula'), 'katex');
+    assert.equal(await quoteChip.locator('.nf-callout-quote-formula .katex').count(), 1);
+    assert.match(await quoteChip.getAttribute('title'), /E = mc\^2/);
     assert.equal(await quoteChip.getAttribute('data-anchor-state'), 'resolved');
+    // The squared chip is not a pill: the control radius is 3 px.
+    assert.equal(await quoteChip.evaluate((el) => getComputedStyle(el).borderRadius), '3px');
     await waitForCallouts(parentId, 1, { polling: 100 });
 
     // The child is focused and editable immediately after the branch.
@@ -268,8 +270,112 @@ describe('NoteForest M3c1 whole-formula anchors', () => {
       width: 1440,
       height: 900,
     });
+    const chipApp = (await page.evaluate(() => window.__noteforestTest.settings())).app;
+    await page.evaluate(async (app) => {
+      await window.__noteforestTest.setSettings({
+        page: app.page,
+        appearance: { ...app.appearance, theme: 'light' },
+      });
+    }, chipApp);
+    await page.waitForSelector('html[data-theme="light"]');
+    await h.screenshot(artifactsPath('m3c1', 'formula-anchor-light-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    const lightChipApp = (await page.evaluate(() => window.__noteforestTest.settings())).app;
+    await page.evaluate(async (app) => {
+      await window.__noteforestTest.setSettings({
+        page: app.page,
+        appearance: { ...app.appearance, theme: 'dark' },
+      });
+    }, lightChipApp);
+    await page.waitForSelector('html[data-theme="dark"]');
 
     await page.keyboard.press('Meta+s');
     await h.waitSaved();
   });
+
+  it('falls back to the plain quote for invalid and over-long formulas', async () => {
+    const env = isolated('formula-chip-fallback');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+
+    const longLatex = Array.from({ length: 24 }, (_, index) => `x_{${index}}`).join(' + ');
+    assert.ok(longLatex.length > 96, 'the fixture is over the chip rendering limit');
+    const cases = [
+      { id: 'm3c1-formula-invalid', latex: '\\frac{' },
+      { id: 'm3c1-formula-long', latex: longLatex },
+    ];
+
+    for (const item of cases) {
+      await addTopLevelBlock(ui, item.id, {
+        type: 'doc',
+        children: [
+          { type: 'paragraph', children: [{ type: 'text', text: 'Formula fallback' }] },
+          { type: 'mathBlock', attrs: { latex: item.latex } },
+        ],
+      });
+      // Build the same whole-formula anchor and primary branch the keyboard
+      // creates, without depending on the editor rendering an invalid formula.
+      const anchorId = `${item.id}-anchor`;
+      await applyCommand({
+        type: 'anchor.create',
+        anchorId,
+        blockId: item.id,
+        kind: 'formula',
+        selector: { kind: 'formula', form: 'whole', latex: item.latex },
+        binding: { kind: 'formula', form: 'whole', nodePath: [1] },
+        quote: item.latex,
+      });
+      const childId = `${item.id}-child`;
+      await addTopLevelBlock(ui, childId, textDoc('Formula fallback child'));
+      await applyCommand({
+        type: 'branch.create',
+        sourceBlockId: item.id,
+        sourceAnchorId: anchorId,
+        targetBlockId: childId,
+        role: 'primary',
+      });
+      const created = await structure();
+      assert.equal(created.anchors[anchorId]?.kind, 'formula');
+      const chip = page.locator(
+        `[data-callout-row="true"][data-anchor-id="${anchorId}"] .nf-callout-quote`,
+      );
+      await chip.waitFor();
+      assert.equal(await chip.getAttribute('data-anchor-kind'), 'formula');
+      assert.equal(
+        await chip.getAttribute('data-anchor-formula'),
+        'fallback',
+        'invalid or over-long LaTeX never reaches KaTeX',
+      );
+      assert.equal(
+        await chip.locator('.katex').count(),
+        0,
+        'no KaTeX tree is rendered for the fallback',
+      );
+      assert.match(await chip.innerText(), /Σ/, 'the fallback keeps the Σ glyph');
+      assert.ok(
+        (await chip.getAttribute('title')).includes(item.latex),
+        'the title keeps the full formula source',
+      );
+      assert.equal(
+        await chip.evaluate((element) => getComputedStyle(element).borderRadius),
+        '3px',
+      );
+    }
+
+    await page.locator(`[data-block-card="m3c1-formula-invalid"]`).scrollIntoViewIfNeeded();
+    await h.screenshot(artifactsPath('m3c1', 'formula-chip-fallback-dark-1440x900.png'));
+    const darkApp = (await page.evaluate(() => window.__noteforestTest.settings())).app;
+    await page.evaluate(async (app) => {
+      await window.__noteforestTest.setSettings({
+        page: app.page,
+        appearance: { ...app.appearance, theme: 'light' },
+      });
+    }, darkApp);
+    await page.waitForSelector('html[data-theme="light"]');
+    await h.screenshot(artifactsPath('m3c1', 'formula-chip-fallback-light-1440x900.png'));
+  });
+
 });
