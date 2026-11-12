@@ -448,8 +448,10 @@ F4/F7 sound; S3 follow-ups are the Close Window gate, settings recovery after Di
 test nits. The next settings block is unblocked. Wave 1 is merged at `4a87ae8`: R1 data recovery (S3-2,
 document map reset/restore, S4 nits) and R5 Editor shortcuts (Help → Editor, searchable list),
 with a green full verify (109 unit files / 1114 tests, 46/46 UI). R2 Page chrome is merged at
-`d23b582` (typed PageChrome, approved defaults, Page/PDF parity; additive, no version bump). Next:
-R3 Appearance v3. External API/agent access is removed from
+`d23b582` (typed PageChrome, approved defaults, Page/PDF parity; additive, no version bump).
+R3 Appearance v3 is merged at `d276353` (color contract, dark/light/system, four accents, UI
+scale/font, code-font identity, Appearance page, tab sizing, page-number paper-center, detached
+status panel; green full verify). Next: Page edge geometry, then R4 Export defaults. External API/agent access is removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.

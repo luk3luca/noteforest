@@ -212,7 +212,17 @@ Screenshots/evidence (in `artifacts/`):
 - **Windows/Linux fonts.** `ui-serif`/`ui-monospace` resolve to platform fonts; the tests run on
   macOS and assert stack families, not glyph metrics.
 
-## 7. Next suggested step
+## 7. Integration
+
+- Fast-forward into `main` from `94ea3bd` to `d276353`.
+- Full `npm run verify` on `main` at `d276353`: **exit 0, 174.91 s** — 113 unit files / 1173
+  tests, 16/16 e2e, 14/14 recovery, **48/48 UI** at the default pool, 0 pageErrors.
+- The light `--text-3` correction is included (`#5f6b75`, 4.63:1 on `surface-3`), with the
+  text-role contrast guard.
+- Next: Page edge geometry (gap consistency across right/below/callout and density), then R4 Export
+  defaults; the product-owner dark/light and PDF visual pass remains open.
+
+## 8. Next suggested step
 
 Run the targeted R3 Sentinel against `docs/tasks/ui-appearance-v3.md` and
 `docs/design/color-system.md`, then the product-owner dark/light and PDF visual pass. After

@@ -120,7 +120,7 @@ These are the decisions the UI plan is built on; details are recorded in the pha
 | **P3 — Page settings** | Setup/orientation/margins, defaults, scope/override, live preview, validation, density/preset; Page Edit commit policy. | Margins validation; scope switch no override; preview updates; Page/PDF parity; tests/screenshots. |
 | **P4 — Export + palette** | Export sheet all states; no native save dialog; overwrite/progress/result; palette registry, search, groups, disabled reasons, keyboard. | Export UI tests incl. overwrite/cancel/fail/warnings; palette keyboard/read-mode tests; screenshot. |
 | **P5 — Overlays, menu, keyboard, a11y** | Dialogs, context menus, toasts/banners, native menu parity, shortcut table, responsive, focus/VoiceOver. | Keyboard/read-mode parity; a11y checks; visual/VoiceOver pass; `verify:fast`. |
-| **P6 — Future settings** | Appearance v3, Export defaults, Continuous global, Page chrome, manual breaks, Data recovery, library/backup, light/search. | Per-feature briefs; no schema change without a migration; PDF gates where output changes. |
+| **P6 — Future settings** | Export defaults, Continuous global, manual breaks, Data recovery, library/backup, search. Appearance, light theme, and Page chrome are shipped. | Per-feature briefs; no schema change without a migration; PDF gates where output changes. |
 
 Phase gates are cumulative: a later phase cannot break an earlier accepted surface. The Orchestrator
 runs one full `npm run verify` at each integration, not per builder.
@@ -197,7 +197,7 @@ copy, and tests when the phase starts.
 
 | Function | References | Entry criteria |
 |---|---|---|
-| Appearance v3 | `ui-settings-contents.md` §3; `settings-freeze-review.md`; light/accent tokens | `settingsVersion: 3`, pure migration, light token set/accent tokens, code-font PDF gate |
+| Appearance v3 | `ui-settings-contents.md` §3; `color-system.md`; `settings-freeze-review.md` | **Shipped in R3** (`docs/reports/ui-appearance-v3.md`): canonical color contract, dark/light/system, four accents, UI scale/font, code font; code-font PDF gate |
 | Export defaults | `ui-settings-contents.md` §7; `ui-export-contents.md` §9 | `export` namespace + migration; PDF metadata/tagged gate |
 | Continuous global | `ui-settings-contents.md` §5; `settings-freeze-review.md` | real global fields (canvas width/card width/spacing); no per-document override |
 | Page chrome | `settings-freeze-review.md` open #7; Page/PDF docs | **Shipped in R2** (`docs/reports/ui-settings-page-chrome.md`): header/footer/page-number; chapter-start remains future |
@@ -258,7 +258,7 @@ Page sheet, paginator, print compositor, or PDF output.
 - Page: Batch B + C merged; Page Read/Edit/measurement/PDF parity at A4/A5/Letter,
   portrait/landscape, margins, density 60/100/120, document overrides, advanced typography/layout,
   and first-class max card width.
-- Next: UI Batches A/B/C/V are merged on `main` at `a44a257`; future work continues on `main`.
-  Future pages remain planned/empty (Appearance v3, Export defaults, Continuous global, Page chrome,
-  manual breaks, Data recovery, library/backup, light/search). External API/agent access is not a
-  Settings page; MCP/commands only if pursued.
+- Next: UI Batches A/B/C/V, Wave 1, R2, and R3 are merged on `main`; future work continues there.
+  Future pages remain planned/empty (Export defaults, Continuous global, manual breaks, Data
+  recovery, library/backup, search). External API/agent access is not a Settings page;
+  MCP/commands only if pursued.
