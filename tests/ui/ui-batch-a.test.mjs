@@ -363,6 +363,7 @@ describe('Batch A UI rework', () => {
     const navLabels = await page.locator('.nf-settings-nav-item').allInnerTexts();
     assert.deepEqual(navLabels, [
       'General',
+      'Appearance',
       'Page',
       'Continuous',
       'Editor',
@@ -382,7 +383,7 @@ describe('Batch A UI rework', () => {
       'page',
     );
     await page.locator('[data-settings-nav="page"]').click();
-    assert.doesNotMatch(await page.locator('.nf-settings').innerText(), /Appearance|coming soon/i);
+    assert.doesNotMatch(await page.locator('.nf-settings').innerText(), /coming soon/i);
     assert.equal(await page.locator('[data-page-density-apply]').count(), 0);
     assert.equal(await page.locator('[data-page-density-cancel]').count(), 0);
     assert.equal(await page.locator('[data-settings-dirty]').count(), 0);
@@ -424,7 +425,7 @@ describe('Batch A UI rework', () => {
       await page.locator('[data-settings-file-status]').innerText(),
       /^(OK|Defaults)/,
     );
-    assert.equal(await page.locator('[data-settings-schema-version]').innerText(), '2');
+    assert.equal(await page.locator('[data-settings-schema-version]').innerText(), '3');
     assert.ok((await page.locator('[data-settings-version]').innerText()).length > 0);
     assert.equal(await page.locator('[data-settings-reveal-library]').count(), 1);
     assert.equal(await page.locator('[data-settings-reveal-app-data]').count(), 1);

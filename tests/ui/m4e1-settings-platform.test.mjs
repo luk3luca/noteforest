@@ -202,7 +202,7 @@ describe('M4e1 settings platform', () => {
     await closeSettings();
     const stored = await settingsOnDisk(env);
     assert.equal(stored.page.theme.density, 0.85, 'the global default was written');
-    assert.equal(stored.settingsVersion, 2);
+    assert.equal(stored.settingsVersion, 3);
 
     // The palette path reaches the same app-level Settings surface.
     await openSettingsFromPalette();
@@ -407,7 +407,7 @@ describe('M4e1 settings platform', () => {
     );
     const resetBytes = await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8');
     const resetFile = JSON.parse(resetBytes);
-    assert.equal(resetFile.settingsVersion, 2, 'the reset writes a valid current file');
+    assert.equal(resetFile.settingsVersion, 3, 'the reset writes a valid current file');
     assert.equal(resetFile.page.theme.density, 1, 'the reset restores the product defaults');
     assert.equal(
       await readFile(join(env.NOTEFOREST_APP_SUPPORT, backup), 'utf8'),

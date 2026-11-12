@@ -469,6 +469,36 @@ describe('R3 appearance v3', () => {
     await chooseThemePersisted(env);
   });
 
+  it('works with zero documents and has no document or read-only scope', async () => {
+    await launch('appearance-no-document');
+    assert.deepEqual((await h.state()).tabs, [], 'the session starts with no documents');
+    await openSettings('appearance');
+    assert.equal(
+      await page.locator('.nf-settings-page-title').first().innerText(),
+      'Appearance',
+    );
+    assert.equal(
+      await page.locator('[data-settings-pane] [data-page-scope]').count(),
+      0,
+      'Appearance is global: there is no Page scope selector',
+    );
+    for (const selector of [
+      '[data-appearance-theme-option]',
+      '[data-accent-option]',
+      '[data-ui-scale-option]',
+      '[data-ui-font-select]',
+      '[data-code-font-select]',
+    ]) {
+      const control = page.locator(selector).first();
+      assert.equal(await control.isVisible(), true, `${selector} is visible`);
+      assert.equal(await control.isEnabled(), true, `${selector} is enabled`);
+    }
+    await chooseTheme('light');
+    await waitTheme('light');
+    await page.screenshot({ path: join(screenshotDir, 'appearance-no-document.png') });
+    await closeSettings();
+  });
+
   it('keeps the Page paper unchanged across theme, accent, scale, and UI font', async () => {
     const env = ui.isolated('appearance-paper');
     await launch('appearance-paper');
