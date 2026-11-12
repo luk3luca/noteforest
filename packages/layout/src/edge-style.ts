@@ -73,6 +73,55 @@ export interface PageEdgeStyle extends SharedEdgeStyle {
 }
 
 /**
+ * Page corridor constants (12 November 2026).
+ *
+ * One invariant for the Page tree: the parent card's right edge to the child
+ * card's left edge is exactly 18 px, split as a 4 px lead (the trunk lane) and
+ * the 14 px final stem before the fixed 6 x 6 arrowhead. The same 14 px stem is
+ * north of every below port: child 12 + 14 = 26, callout 24 + 14 = 38.
+ *
+ * These are engine constants, not density-scaled settings: the corridor must
+ * stay identical at 60/70/100/120% so a density change never moves an arrow.
+ * `PageTheme` keeps the matching stored fields for settings compatibility, but
+ * `effectivePageTheme`/`pageLayoutOptions` always resolve these values.
+ */
+export interface PageEdgeGeometry {
+  /** Horizontal lead from the parent port to the corridor trunk. */
+  lead: number;
+  /** Final straight run before the arrowhead. */
+  stem: number;
+  /** lead + stem: parent card right edge to child card left edge. */
+  corridor: number;
+  /** Vertical gap between a sibling card bottom and the next card. */
+  siblingGap: number;
+  /** Wrapped child origin: child trunk inset + stem. */
+  childIndent: number;
+  /** Callout card origin in mode B2: callout trunk inset + stem. */
+  calloutCardIndent: number;
+  /** Vertical gap between stacked callout cards. */
+  calloutGap: number;
+  /** Parent right edge to the mode A callout lane. */
+  calloutRightGap: number;
+  /** Below-trunk inset for the direct-child group. */
+  childTrunkInset: number;
+  /** Below-trunk inset for the anchored-callout group. */
+  calloutTrunkInset: number;
+}
+
+export const PAGE_EDGE_GEOMETRY: PageEdgeGeometry = Object.freeze({
+  lead: 4,
+  stem: 14,
+  corridor: 18,
+  siblingGap: 18,
+  childIndent: 26,
+  calloutCardIndent: 38,
+  calloutGap: 16,
+  calloutRightGap: 24,
+  childTrunkInset: 12,
+  calloutTrunkInset: 24,
+});
+
+/**
  * Shared/base default (one release). Used as the default argument of the path
  * helpers so existing callers keep their signature; no surface renderer reads it.
  */
@@ -125,11 +174,15 @@ export const CONTINUOUS_EDGE_STYLE: SharedEdgeStyle = {
 /**
  * The Page Read/Edit and PDF edge style. The only style Page layout, the page
  * router, the Page renderer, and the print model may read.
+ *
+ * The Page stem is 14 px (the Page corridor in `PAGE_EDGE_GEOMETRY`), while the
+ * Continuous canvas keeps its own 12 px stem. Stroke widths and the fixed
+ * 6 x 6 arrowhead stay the shared Page contract.
  */
 export const PAGE_EDGE_STYLE: PageEdgeStyle = Object.freeze({
   gap: 2,
   radius: 2,
-  stemMin: 12,
+  stemMin: PAGE_EDGE_GEOMETRY.stem,
   laneMin: 2,
   laneMax: 14,
   trunkInset: 12,

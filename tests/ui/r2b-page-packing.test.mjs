@@ -21,8 +21,9 @@ const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
 
-const SIBLING_GAP = 16;
-const CALLOUT_GAP = 12;
+// Fixed Page corridor: lead 4 + stem 14.
+const SIBLING_GAP = 18;
+const CALLOUT_GAP = 16;
 const CALLOUT_RIGHT_GAP = 24;
 const CALLOUT_CARD_INDENT = 38;
 const CHILD_INDENT = 26;

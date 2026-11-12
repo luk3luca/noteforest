@@ -7,6 +7,7 @@ import {
   DEFAULT_PAGE_SETTINGS,
   EDGE_STYLE,
   layoutDocument,
+  PAGE_EDGE_GEOMETRY,
   PAGE_EDGE_STYLE,
   pageLayoutOptions,
   paginate,
@@ -170,8 +171,11 @@ describe('edge style ownership', () => {
     );
     expect(Object.keys(EDGE_STYLE).sort()).toEqual(Object.keys(PAGE_EDGE_STYLE).sort());
 
-    // The current values are the frozen M2/M3 edge contract on both surfaces.
+    // The current values are the frozen M2/M3 edge contract on both surfaces,
+    // except the stem: the Page corridor owns a 14 px stem and Continuous keeps
+    // its 12 px canvas stem.
     for (const key of sharedKeys) {
+      if (key === 'stemMin') continue;
       expect(
         PAGE_EDGE_STYLE[key as keyof typeof PAGE_EDGE_STYLE],
         `PAGE_EDGE_STYLE.${key}`,
@@ -179,7 +183,8 @@ describe('edge style ownership', () => {
     }
     expect(PAGE_EDGE_STYLE.gap).toBe(2);
     expect(PAGE_EDGE_STYLE.radius).toBe(2);
-    expect(PAGE_EDGE_STYLE.stemMin).toBe(12);
+    expect(PAGE_EDGE_STYLE.stemMin).toBe(PAGE_EDGE_GEOMETRY.stem);
+    expect(CONTINUOUS_EDGE_STYLE.stemMin).toBe(12);
     expect(PAGE_EDGE_STYLE.trunkInset).toBe(12);
     expect(PAGE_EDGE_STYLE.trunkGap).toBe(0);
     expect(PAGE_EDGE_STYLE.arrowLength).toBe(6);
@@ -232,7 +237,10 @@ describe('edge style ownership', () => {
     } finally {
       Object.assign(CONTINUOUS_EDGE_STYLE, original);
     }
-    expect(CONTINUOUS_EDGE_STYLE.stemMin).toBe(PAGE_EDGE_STYLE.stemMin);
+    // The surfaces no longer share a stem: Continuous stays 12 px, Page uses
+    // the 14 px corridor stem, and poisoning one never reaches the other.
+    expect(CONTINUOUS_EDGE_STYLE.stemMin).toBe(12);
+    expect(PAGE_EDGE_STYLE.stemMin).toBe(14);
   });
 
   it('keeps Page and Continuous modules on their own style objects', () => {
@@ -244,6 +252,9 @@ describe('edge style ownership', () => {
       ['page-edges.ts', '../src/page-edges.ts'],
       ['page-settings.ts', '../src/page-settings.ts'],
       ['PageEdges.tsx', '../../../apps/desktop/src/renderer/src/page/PageEdges.tsx'],
+    ];
+    // The Page advanced UI no longer owns geometry, so it reads no edge style.
+    const noEdgeStyleModules: Array<[string, string]> = [
       ['page-advanced.ts', '../../../apps/desktop/src/renderer/src/settings/page-advanced.ts'],
     ];
     // Print delegates its paths to PageEdges, so it must not carry a style at all.
@@ -251,7 +262,7 @@ describe('edge style ownership', () => {
       ['PrintDocument.tsx', '../../../apps/desktop/src/renderer/src/print/PrintDocument.tsx'],
       ['printModel.ts', '../../pdf/src/printModel.ts'],
     ];
-    for (const [name, path] of [...pageGeometryModules, ...printModules]) {
+    for (const [name, path] of [...pageGeometryModules, ...printModules, ...noEdgeStyleModules]) {
       const source = read(path);
       expect(source, `${name} must not read the Continuous style`).not.toContain(
         'CONTINUOUS_EDGE_STYLE',

@@ -50,16 +50,16 @@ theme; explicit overrides win; `custom` is a marker for explicit values with no 
 | `cardPadding` (px) | 8 | 12 | 0–40; density scales proportionally |
 | `cardBorder` (px) | 1 | 1 | 0–8; not density-scaled |
 | `segmentGap` (px) | 4 | 8 | 0–32; density scales proportionally |
-| `siblingGap` (px) | 16 | 24 | 0–96; density scales proportionally |
-| `wrapIndent` (px) | 12 | 18 | 0–96; density scales proportionally |
-| `maxWrapIndent` (px) | 36 | 54 | 0–192; forced to at least `wrapIndent`; density scales proportionally |
-| `childIndent` (px) | 26 | 26 | 0–96; density floor is `childTrunkInset + stemMin + 2` |
-| `childTrunkInset` (px) | 12 | 12 | 0–96; density scales proportionally |
-| `calloutTrunkInset` (px) | 24 | 24 | 0–96; density scales proportionally |
-| `calloutCardIndent` (px) | 38 | 38 | 0–160, at least `calloutTrunkInset`; density scales proportionally |
-| `calloutRightGap` (px) | 24 | 24 | `stemMin`–96; density scales proportionally, floor 12 |
+| `siblingGap` (px) | 18 | 18 | **Engine constant** (`PAGE_EDGE_GEOMETRY`); stored 0–96 but not density-scaled |
+| `wrapIndent` (px) | 12 | 18 | 0–96; fixed under density (origin token) |
+| `maxWrapIndent` (px) | 36 | 54 | 0–192; forced to at least `wrapIndent`; fixed under density; never below `childIndent` |
+| `childIndent` (px) | 26 | 26 | **Engine constant** = `childTrunkInset` 12 + stem 14; stored 0–96, ignored by the engine |
+| `childTrunkInset` (px) | 12 | 12 | **Engine constant**; stored 0–96, ignored |
+| `calloutTrunkInset` (px) | 24 | 24 | **Engine constant**; stored 0–96, ignored |
+| `calloutCardIndent` (px) | 38 | 38 | **Engine constant** = `calloutTrunkInset` 24 + stem 14; stored 0–160, ignored |
+| `calloutRightGap` (px) | 24 | 24 | **Engine constant**; stored `stemMin`–96, ignored |
 | `calloutModeMinWidth` (px) | 240 | 240 | 0–800; not density-scaled |
-| `calloutGap` (px) | 12 | 20 | 0–96; density scales proportionally |
+| `calloutGap` (px) | 16 | 16 | **Engine constant**; stored 0–96, ignored |
 | `maxCardWidth` (px) | 420 | 420 | 120–2000; density clamps the preset band to 240–560 |
 | `minContentWidth` (px) | 160 | 160 | 80–800; density floor 140 for preset-range values |
 
@@ -103,10 +103,15 @@ applying it twice is the identity.
 
 Below 100% type follows a floor-anchored curve: each preset size interpolates from its floor at
 60% to the preset value at 100%, so 70% is denser than 80% and 60% is the densest step. At 60% the
-compact theme resolves to body 7 pt, card padding 4.8 px, max card 252 px, min content 140 px, and
-child indent 21.2 px. At 120% body is 10.8 pt, card padding 9.6 px, and max card 504 px. Box values
-scale proportionally; page setup/margins never change. Density may change wrapping/topology because
-the placed width and lane gate are geometric inputs; that is the current model, not a token drift.
+compact theme resolves to body 7 pt, card padding 4.8 px, and max card 252 px; at 120% body is
+10.8 pt, card padding 9.6 px, and max card 504 px.
+
+Density does **not** scale the Page edge corridor or the wrap origins: `siblingGap`, `childIndent`,
+`calloutCardIndent`, `calloutGap`, `calloutRightGap`, the trunk insets, `wrapIndent`, and
+`maxWrapIndent` are fixed at every step, so 60/70/100/120% draw the same arrows. Density still moves
+typography, card padding, segment gap, and content/card width, so wrapping can change because the
+placed width and the mode-A lane gate are geometric inputs; that is the current model, not a token
+drift. Page setup/margins never change.
 
 ## Wrap and indent semantics
 
@@ -117,20 +122,22 @@ the placed width and lane gate are geometric inputs; that is the current model, 
   not accumulate across ancestors: each nested group applies the same cap from its own parent, and
   `wrapOriginX` also clamps the origin to the available right limit.
 - `childIndent` is the Page-only direct-child origin when the whole group wraps or when callout mode
-  B2 moves children below. It must leave room for the child trunk inset plus a 12 px stem.
+  B2 moves children below. It is the fixed corridor value (12 px trunk + 14 px stem = 26 px) and is a
+  hard floor: a stored `maxWrapIndent` below it cannot pull the group inside the artery.
 - `DEFAULT_LAYOUT_OPTIONS.childIndent = 26` is only the DOM-free **engine default** for tests, labs,
-  and the estimator. Page production always supplies the resolved `PageTheme.childIndent` through
+  and the estimator. Page production always supplies `PAGE_EDGE_GEOMETRY.childIndent` through
   `pageLayoutOptions`; the Continuous renderer does not call `layoutDocument`.
-- `childTrunkInset` / `calloutTrunkInset` / `calloutCardIndent` own the mode B2 two-trunk geometry.
-  `calloutRightGap` and `calloutModeMinWidth` own the mode A right lane.
+- `childTrunkInset` / `calloutTrunkInset` / `calloutCardIndent` own the mode B2 two-trunk geometry
+  and are fixed engine constants. `calloutRightGap` and `calloutModeMinWidth` own the mode A right
+  lane; `calloutRightGap` is fixed (24) and only `calloutModeMinWidth` remains a theme lever.
 
 ## Page packing and callout topology
 
 Presets use `beside`, the product-owner tree model:
 
 - Direct children share one vertical level column at the parent's y when the whole primary subtree
-  fits to the right. Otherwise the atomic direct-child group moves below the parent at
-  `childIndent` (floored by `wrapIndent`, capped by `maxWrapIndent`).
+  fits to the right. Otherwise the atomic direct-child group moves below the parent at the fixed
+  `childIndent` 26 (`wrapIndent` can raise it, `maxWrapIndent` caps it, but never below 26).
 - Callouts stay below the parent in the legacy `stacked` order. With `beside`, each parent resolves
   one deterministic callout mode from the placed card and resolved Page width:
   **A** places anchored callouts in the free right lane (`calloutRightGap`, needs at least
@@ -143,7 +150,7 @@ Presets use `beside`, the product-owner tree model:
   `compaction` remains a legacy lab oracle only.
 - Page trunks group by `(parentBlockId, placement)`, continue across pages, and keep the below trunk
   attached at the parent card bottom (`EDGE_STYLE.trunkGap` 0). Wrapped Page children keep at least
-  a 26 px indent for the 12 px trunk inset and 12 px stem. Both `childIndent` and
+  a 26 px indent for the 12 px trunk inset and 14 px stem. Both `childIndent` and
   `maxWrapIndent` are documented as per-level values above.
 
 ## Page chrome and labels
@@ -169,6 +176,27 @@ Page Read/Edit and PDF share the edge renderer and orthogonal paths from `edge-p
 their own style object: `PAGE_EDGE_STYLE` in `packages/layout/src/edge-style.ts`. Page layout, the
 page router, the Page renderer, and the print model never read `CONTINUOUS_EDGE_STYLE` or the
 shared/base `EDGE_STYLE`; guard: `packages/layout/test/edge-style-isolation.test.ts`.
+
+### Page edge corridor
+
+`PAGE_EDGE_GEOMETRY` (same module) is the one Page corridor contract:
+
+| Token | Value | Used for |
+|---|---:|---|
+| `lead` | 4 px | Parent port (right edge / trunk) to the corridor trunk |
+| `stem` | 14 px | Final straight run before the fixed arrowhead; `PAGE_EDGE_STYLE.stemMin` |
+| `corridor` | 18 px | `lead + stem` = parent card right edge → child card left edge = `siblingGap` |
+| `siblingGap` | 18 px | Vertical sibling gap; also the right-group horizontal corridor |
+| `childIndent` | 26 px | `childTrunkInset` 12 + `stem` 14 |
+| `calloutCardIndent` | 38 px | `calloutTrunkInset` 24 + `stem` 14 |
+| `calloutGap` | 16 px | Stacked callout card gap |
+| `calloutRightGap` | 24 px | Parent right edge to the mode A callout lane |
+| `childTrunkInset` / `calloutTrunkInset` | 12 / 24 px | Below-trunk insets (B2 groups) |
+
+The 6 × 6 px arrowhead (`arrowLength` 6, `arrowHalfWidth` 3) and the Page stroke widths
+(1.25 / 1.75 / 1) are unchanged. The corridor is density-independent and is not a user-facing
+advanced control; the stored `PageTheme` fields remain for settings compatibility only. Continuous
+keeps its own 12 px stem and 16 px child gap; the two surfaces never share these values.
 
 Page-only route search values (on top of the shared contract) are:
 
@@ -217,10 +245,10 @@ the Page fields through `pageLayoutOptions(theme)`.
 |---|---:|---|
 | `minContentWidth` | 160 | Page theme (engine fallback) |
 | `maxContentWidth` | 420 | Page theme (engine fallback) |
-| `siblingGap` | 24 | Page theme (engine fallback) |
+| `siblingGap` | 24 | DOM-free engine fallback (Page production always uses `PAGE_EDGE_GEOMETRY.siblingGap` 18) |
 | `wrapIndent` | 18 | Page theme (engine fallback) |
 | `maxWrapIndent` | 54 | Page theme (engine fallback), per level |
-| `childIndent` | 26 | Page theme (engine fallback) |
+| `childIndent` | 26 | Engine fallback (matches the Page corridor) |
 | `childTrunkInset` | 12 | Page theme (engine fallback) |
 | `calloutTrunkInset` | 24 | Page theme (engine fallback) |
 | `calloutCardIndent` | 38 | Page theme (engine fallback) |

@@ -168,7 +168,7 @@ Continuous values as `GEOMETRY`; do not add a second copy.
 |---|---:|---|
 | `gap` | 2 px | Arrow-tip gap before the card |
 | `radius` | 2 px | Maximum corner rounding; corners are near-right angles |
-| `stemMin` | 12 px | Final horizontal segment before every arrowhead |
+| `stemMin` | 12 px (Continuous) / 14 px (Page corridor) | Final horizontal segment before every arrowhead; the Page value comes from `PAGE_EDGE_GEOMETRY.stem` |
 | `laneMin` / `laneMax` | 2 / 14 px | Shared trunk lane offsets from the parent edge |
 | `trunkInset` | 12 px | Below trunk start from the parent card left |
 | `trunkGap` | 0 px | Below trunk starts attached to the parent card bottom |
@@ -185,10 +185,11 @@ Continuous values as `GEOMETRY`; do not add a second copy.
 [`design-tokens-page.md`](design-tokens-page.md#page-route-and-shared-edge-values).
 
 
-Continuous and Page arrows use the same stroke width, fixed arrowhead size/fill rules, near-right
-corner radius, and minimum stem. Reference edges are dashed with an open chevron and never join the
-primary V4 trunk. Page group trunks add continuity across pages; their attachment rule uses the same
-`trunkGap` 0 and 12 px stem, documented in the Page doc.
+Continuous and Page arrows use the same stroke width, fixed arrowhead size/fill rules, and
+near-right corner radius. The final stem is surface-owned: Continuous keeps 12 px, Page uses the
+fixed 14 px corridor (`PAGE_EDGE_GEOMETRY`). Reference edges are dashed with an open chevron and
+never join the primary V4 trunk. Page group trunks add continuity across pages; their attachment
+rule uses the same `trunkGap` 0 and the corridor stem, documented in the Page doc.
 
 ## Stacking
 

@@ -356,6 +356,10 @@ class LayoutBuilder {
    * leave room for the below trunk and its 12 px left stem, so the effective
    * indent is at least `wrapIndent` and at most `maxWrapIndent`.
    *
+   * R2j1/corridor: the child indent is a hard floor. A density- or
+   * custom-scaled `maxWrapIndent` below it (for example 21.6 px at 60%) must not
+   * pull a wrapped child inside the 12 + 14 px artery.
+   *
    * R2j1: a group whose max-content width nearly fills the page used to be
    * shifted to the content left, which put the below trunk exactly on the
    * child card's left edge: the horizontal arm had zero length and the
@@ -372,9 +376,9 @@ class LayoutBuilder {
     wrapFloor: number,
     minimumStemOrigin = PAGE_CONTENT_LEFT,
   ): number {
-    const indent = Math.min(
-      this.options.maxWrapIndent,
-      Math.max(this.options.wrapIndent, this.options.childIndent),
+    const indent = Math.max(
+      this.options.childIndent,
+      Math.min(this.options.maxWrapIndent, this.options.wrapIndent),
     );
     const preferred = Math.max(parentX + indent, minimumStemOrigin);
     const maxStart = Math.max(PAGE_CONTENT_LEFT, rightLimit - groupWidth);

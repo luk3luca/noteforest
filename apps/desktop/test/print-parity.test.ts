@@ -706,12 +706,16 @@ describe('Batch C advanced typography/layout parity', () => {
       cardPadding: 14,
       cardBorder: 2,
       segmentGap: 6,
-      siblingGap: 20,
-      calloutGap: 22,
+      // The stored legacy corridor is kept on the theme but the engine uses
+      // the fixed Page corridor.
+      siblingGap: 18,
+      calloutGap: 16,
       wrapIndent: 22,
       maxWrapIndent: 64,
-      childIndent: 34,
+      childIndent: 26,
     });
+    expect(result.settings.theme.siblingGap).toBe(20);
+    expect(result.settings.theme.childIndent).toBe(34);
   });
 
   it('applies the density lens once to advanced type and boxes', () => {
@@ -730,11 +734,11 @@ describe('Batch C advanced typography/layout parity', () => {
       maxContentWidth: 288,
       cardPadding: 11.2,
       segmentGap: 4.8,
-      siblingGap: 16,
-      calloutGap: 17.6,
-      wrapIndent: 17.6,
-      maxWrapIndent: 51.2,
-      childIndent: 27.2,
+      siblingGap: 18,
+      calloutGap: 16,
+      wrapIndent: 22,
+      maxWrapIndent: 64,
+      childIndent: 26,
     });
   });
 

@@ -201,8 +201,8 @@ describe('page route primitives', () => {
 describe('obstacle-aware page routing', () => {
   it('routes a parent to a later sibling around the intervening card', () => {
     const source = { x: 0, y: 0, width: 140, height: 80 };
-    const middle = { x: 156, y: 0, width: 150, height: 100 };
-    const later = { x: 322, y: 0, width: 150, height: 100 };
+    const middle = { x: 158, y: 0, width: 150, height: 100 };
+    const later = { x: 326, y: 0, width: 150, height: 100 };
     const route = routePageEdge({
       from: { x: source.x + source.width, y: 40 },
       to: { x: later.x, y: 50 },
@@ -226,7 +226,8 @@ describe('obstacle-aware page routing', () => {
 
   it('never crosses any earlier sibling in a packed row', () => {
     const source = { x: 0, y: 0, width: 140, height: 80 };
-    const siblings = [156, 322, 488, 654].map((x, index) => ({
+    // 18 px Page corridor between packed sibling cards.
+    const siblings = [158, 326, 494, 662].map((x, index) => ({
       x,
       y: 0,
       width: 150,

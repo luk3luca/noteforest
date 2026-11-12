@@ -701,11 +701,11 @@ describe('R3 appearance v3', () => {
     await chooseTheme('light');
     await waitTheme('light');
     await closeSettings();
-    assert.equal(await cssVariable('--note-surface'), '#f6f8fb');
-    assert.equal(await cssVariable('--note-surface-hover'), '#eef3f7');
+    assert.equal(await cssVariable('--note-surface'), '#f2f6f9');
+    assert.equal(await cssVariable('--note-surface-hover'), '#e9f0f5');
     assert.equal(await computed(canvasSelector, 'background-color'), 'rgb(255, 255, 255)');
-    await waitForBackground(topLevelCard, 'rgb(246, 248, 251)');
-    await waitForBackground(childCard, 'rgb(246, 248, 251)');
+    await waitForBackground(topLevelCard, 'rgb(242, 246, 249)');
+    await waitForBackground(childCard, 'rgb(242, 246, 249)');
     assert.equal(await computed('.nf-edge-path', 'stroke'), 'rgb(108, 120, 130)');
     await page.screenshot({ path: join(screenshotDir, 'continuous-note-surface-light.png') });
 

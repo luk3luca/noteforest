@@ -284,11 +284,8 @@ describe('Batch C Page advanced typography and layout', () => {
       'cardPadding',
       'cardBorder',
       'segmentGap',
-      'siblingGap',
-      'calloutGap',
       'wrapIndent',
       'maxWrapIndent',
-      'childIndent',
     ];
     for (const key of layoutKeys) {
       assert.equal(
@@ -326,6 +323,9 @@ describe('Batch C Page advanced typography and layout', () => {
       'calloutCardIndent',
       'calloutRightGap',
       'calloutModeMinWidth',
+      'siblingGap',
+      'childIndent',
+      'calloutGap',
     ]) {
       assert.equal(
         await page.locator(`[data-page-theme-input="${hidden}"]`).count(),
@@ -479,11 +479,8 @@ describe('Batch C Page advanced typography and layout', () => {
       cardPadding: '14',
       cardBorder: '2',
       segmentGap: '6',
-      siblingGap: '20',
-      calloutGap: '22',
       wrapIndent: '22',
       maxWrapIndent: '64',
-      childIndent: '34',
     };
     for (const [key, value] of Object.entries(targets)) {
       await fillThemeField(key, value);
@@ -494,11 +491,8 @@ describe('Batch C Page advanced typography and layout', () => {
       cardPadding: 14,
       cardBorder: 2,
       segmentGap: 6,
-      siblingGap: 20,
-      calloutGap: 22,
       wrapIndent: 22,
       maxWrapIndent: 64,
-      childIndent: 34,
       preset: 'custom',
     });
 
@@ -558,7 +552,8 @@ describe('Batch C Page advanced typography and layout', () => {
     assert.equal(resolved.theme.minContentWidth, 180);
     assert.equal(resolved.theme.wrapIndent, 22);
     assert.equal(resolved.theme.maxWrapIndent, 64);
-    assert.equal(resolved.theme.childIndent, 34);
+    // The edge corridor stays an engine constant and is never written by the UI.
+    assert.equal(resolved.theme.childIndent, 26);
   });
 
   it('validates cross-field constraints inline, keeps the input, and blocks the write', async () => {
@@ -612,14 +607,6 @@ describe('Batch C Page advanced typography and layout', () => {
     assert.equal((await settings()).app.page.theme.maxWrapIndent, 36);
     await fillThemeField('maxWrapIndent', '60');
     await waitThemeSaved({ maxWrapIndent: 60 });
-
-    // The child indent must keep the trunk and stem visible.
-    await fillThemeField('childIndent', '20');
-    await page.waitForSelector('[data-page-theme-error="childIndent"]', { timeout: 5000 });
-    assert.match(await page.locator('[data-page-theme-error="childIndent"]').innerText(), /26 px/);
-    assert.equal((await settings()).app.page.theme.childIndent, 26);
-    await fillThemeField('childIndent', '26');
-    await waitThemeSaved({ childIndent: 26 });
 
     // The card cap cannot be below the content floor.
     await fillThemeField('minContentWidth', '300');

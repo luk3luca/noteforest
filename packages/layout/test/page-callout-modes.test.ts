@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   blockRect,
   buildPageEdgeModel,
+  buildPageEdges,
   DEFAULT_PAGE_SETTINGS,
+  PAGE_EDGE_GEOMETRY,
   PAGE_EDGE_STYLE,
   layoutDocument,
   overlaps,
@@ -521,14 +523,16 @@ describe('page callout mode B2 (R2j)', () => {
     expect(result.blockById['c1']!.trunkGroup).toBeUndefined();
   });
 
-  it('supports overriding the A lane floor and the B2 offsets through PageTheme', () => {
+  it('keeps the corridor when a legacy theme stores custom A/B2 offsets', () => {
     const { document, port } = b2Document();
     const wideFloor = layout(document, port, A4_LANDSCAPE, { calloutModeMinWidth: 900 });
     expect(wideFloor.blockById['c1']!.placement).toBe('below');
     expect(wideFloor.blockById['c1']!.x).toBe(
-      wideFloor.blockById['root']!.x + THEME.calloutCardIndent,
+      wideFloor.blockById['root']!.x + PAGE_EDGE_GEOMETRY.calloutCardIndent,
     );
 
+    // Legacy stored offsets no longer reach the engine: the layout keeps the
+    // fixed corridor (38/26 card origins, 24/12 trunk insets).
     const custom = layout(document, port, A4_LANDSCAPE, {
       calloutModeMinWidth: 900,
       childTrunkInset: 14,
@@ -537,11 +541,17 @@ describe('page callout mode B2 (R2j)', () => {
       calloutCardIndent: 44,
     });
     expect(custom.blockById['c1']!.x).toBe(
-      custom.blockById['root']!.x + 44,
+      custom.blockById['root']!.x + PAGE_EDGE_GEOMETRY.calloutCardIndent,
     );
-    expect(custom.blockById['k1']!.x).toBe(custom.blockById['root']!.x + 32);
-    expect(custom.blockById['c1']!.trunkInset).toBe(28);
-    expect(custom.blockById['k1']!.trunkInset).toBe(14);
+    expect(custom.blockById['k1']!.x).toBe(
+      custom.blockById['root']!.x + PAGE_EDGE_GEOMETRY.childIndent,
+    );
+    expect(custom.blockById['c1']!.trunkInset).toBe(
+      PAGE_EDGE_GEOMETRY.calloutTrunkInset,
+    );
+    expect(custom.blockById['k1']!.trunkInset).toBe(
+      PAGE_EDGE_GEOMETRY.childTrunkInset,
+    );
   });
 });
 
@@ -798,6 +808,111 @@ describe('page callout modes across pages (R2j)', () => {
         expect(b2[0]!.trunk.id).not.toBe(b2[1]!.trunk.id);
         expect(b2[0]!.trunk.x).not.toBe(b2[1]!.trunk.x);
       }
+    }
+  });
+});
+
+
+describe('Page edge corridor (fixed 18 px)', () => {
+  const densities = [0.6, 0.7, 1, 1.2] as const;
+
+  function corridorDocument() {
+    return makeDocument(
+      {
+        root: { max: 200, min: 100 },
+        c1: { max: 120, min: 60 },
+        k1: { max: 160, min: 80 },
+        g1: { max: 120, min: 60 },
+      },
+      [
+        { from: 'root', to: 'c1', anchorId: 'a1' },
+        { from: 'root', to: 'k1' },
+        { from: 'k1', to: 'g1' },
+      ],
+      { root: [{ anchorId: 'a1', x: 20 }] },
+    );
+  }
+
+  it('draws the same lead + stem corridor at 60/70/100/120%', () => {
+    for (const density of densities) {
+      const { document, port } = corridorDocument();
+      const result = layout(document, port, A4_LANDSCAPE, { density });
+      const root = result.blockById['root']!;
+      const callout = result.blockById['c1']!;
+      const child = result.blockById['k1']!;
+      const grandchild = result.blockById['g1']!;
+
+      // Mode A: callout lane at 24, wrapped child group at 26 (12 + 14), right
+      // grandchild at the 18 px sibling corridor.
+      expect(callout.placement, `${density} callout`).toBe('right');
+      expect(callout.x - (root.x + root.width)).toBe(
+        PAGE_EDGE_GEOMETRY.calloutRightGap,
+      );
+      expect(child.placement, `${density} child`).toBe('below');
+      expect(child.x - root.x).toBe(PAGE_EDGE_GEOMETRY.childIndent);
+      expect(grandchild.placement, `${density} grandchild`).toBe('right');
+      expect(grandchild.x - (child.x + child.width)).toBe(
+        PAGE_EDGE_GEOMETRY.siblingGap,
+      );
+
+      const pages = paginate(result, document);
+      const edges = buildPageEdges(result, pages.pages)[0]!;
+      const edge = (from: string, to: string) =>
+        edges.find(
+          (candidate) =>
+            candidate.role === 'primary' &&
+            candidate.fromBlockId === from &&
+            candidate.toBlockId === to,
+        )!;
+
+      const childEdge = edge('root', 'k1');
+      // Below trunk: attached at the card bottom, 12 px inset, 14 px stem.
+      expect(childEdge.trunk!.x - root.x).toBe(
+        PAGE_EDGE_GEOMETRY.childTrunkInset,
+      );
+      expect(childEdge.to.x - childEdge.trunk!.x).toBe(PAGE_EDGE_GEOMETRY.stem);
+      expect(childEdge.route.stem).toBe(PAGE_EDGE_GEOMETRY.stem);
+
+      const calloutEdge = edge('root', 'c1');
+      // Mode A right lane: 24 px parent gap = 10 px lead + 14 px stem.
+      expect(calloutEdge.from.x).toBe(root.x + root.width);
+      expect(calloutEdge.trunk!.x - calloutEdge.from.x).toBe(
+        PAGE_EDGE_GEOMETRY.calloutRightGap - PAGE_EDGE_GEOMETRY.stem,
+      );
+      expect(calloutEdge.to.x - calloutEdge.trunk!.x).toBe(
+        PAGE_EDGE_GEOMETRY.stem,
+      );
+      expect(calloutEdge.route.stem).toBe(PAGE_EDGE_GEOMETRY.stem);
+
+      const grandchildEdge = edge('k1', 'g1');
+      // Right group: 18 px sibling gap = 4 px lead + 14 px stem.
+      expect(grandchildEdge.from.x).toBe(child.x + child.width);
+      expect(grandchildEdge.trunk!.x - grandchildEdge.from.x).toBe(
+        PAGE_EDGE_GEOMETRY.lead,
+      );
+      expect(grandchildEdge.to.x - grandchildEdge.trunk!.x).toBe(
+        PAGE_EDGE_GEOMETRY.stem,
+      );
+      expect(grandchildEdge.route.stem).toBe(PAGE_EDGE_GEOMETRY.stem);
+
+      const childTip = childEdge.route.points.at(-1)!;
+      const childBefore = childEdge.route.points.at(-2)!;
+      expect(Math.abs(childBefore.y - childTip.y)).toBeLessThan(0.01);
+      expect(childTip.x - childBefore.x).toBe(PAGE_EDGE_GEOMETRY.stem);
+      expect(childEdge.route.entry).toBe('left');
+      const grandchildTip = grandchildEdge.route.points.at(-1)!;
+      const grandchildBefore = grandchildEdge.route.points.at(-2)!;
+      expect(Math.abs(grandchildBefore.y - grandchildTip.y)).toBeLessThan(0.01);
+      // Same-y siblings draw one straight 18 px corridor; the trunk still
+      // resolves to 4 + 14, but the polyline has no vertical leg to show it.
+      expect(grandchildTip.x - grandchildBefore.x).toBe(
+        PAGE_EDGE_GEOMETRY.corridor,
+      );
+      expect(grandchildEdge.route.entry).toBe('left');
+      // The callout sits at the parent port y, so its visible run is the whole
+      // 24 px lane; the trunk split still resolves to lead 10 + stem 14.
+      expect(calloutEdge.route.entry).toBe('left');
+      expect(calloutEdge.route.stem).toBe(PAGE_EDGE_GEOMETRY.stem);
     }
   });
 });

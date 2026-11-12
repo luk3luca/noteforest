@@ -3,6 +3,7 @@ import {
   DEFAULT_APP_SETTINGS,
   DEFAULT_LAYOUT_OPTIONS,
   DEFAULT_PAGE_SETTINGS,
+  PAGE_EDGE_GEOMETRY,
   PAGE_EDGE_STYLE,
   effectivePageTheme,
   mmToPx,
@@ -51,7 +52,7 @@ describe('page settings defaults', () => {
       tableLine: 1.25,
       cardPadding: 8,
       segmentGap: 4,
-      siblingGap: 16,
+      siblingGap: 18,
       wrapIndent: 12,
       maxWrapIndent: 36,
       childIndent: 26,
@@ -60,7 +61,7 @@ describe('page settings defaults', () => {
       calloutCardIndent: 38,
       calloutRightGap: 24,
       calloutModeMinWidth: 240,
-      calloutGap: 12,
+      calloutGap: 16,
       maxCardWidth: 420,
       minContentWidth: 160,
       pagePacking: 'beside',
@@ -88,7 +89,7 @@ describe('page settings defaults', () => {
       tableLine: 1.35,
       cardPadding: 12,
       segmentGap: 8,
-      siblingGap: 24,
+      siblingGap: 18,
       wrapIndent: 18,
       maxWrapIndent: 54,
       childIndent: 26,
@@ -97,7 +98,7 @@ describe('page settings defaults', () => {
       calloutCardIndent: 38,
       calloutRightGap: 24,
       calloutModeMinWidth: 240,
-      calloutGap: 20,
+      calloutGap: 16,
       maxCardWidth: 420,
       pagePacking: 'beside',
     });
@@ -149,7 +150,7 @@ describe('settings normalization and merge', () => {
     });
     expect(settings.theme.preset).toBe('compact');
     expect(settings.theme.bodyPt).toBe(10);
-    expect(settings.theme.siblingGap).toBe(16);
+    expect(settings.theme.siblingGap).toBe(18);
     expect(settings.manualBreakBeforeBlockIds).toEqual(['b2', 'b3']);
   });
 
@@ -569,7 +570,7 @@ describe('page density lens (M4d1/M4e2)', () => {
       markerPt: 6,
       cardPadding: 4.8,
       segmentGap: 2.4,
-      siblingGap: 9.6,
+      siblingGap: 18,
       maxCardWidth: 252,
       minContentWidth: PAGE_MIN_CONTENT_WIDTH_FLOOR,
     });
@@ -620,18 +621,18 @@ describe('page density lens (M4d1/M4e2)', () => {
     const low = at(0.6);
     expect(low.cardPadding).toBe(4.8);
     expect(low.segmentGap).toBe(2.4);
-    expect(low.siblingGap).toBe(9.6);
-    expect(low.wrapIndent).toBe(7.2);
-    expect(low.maxWrapIndent).toBe(21.6);
-    expect(low.childIndent).toBe(21.2);
-    expect(low.childTrunkInset).toBe(7.2);
-    expect(low.calloutCardIndent).toBe(22.8);
+    expect(low.siblingGap).toBe(18);
+    expect(low.wrapIndent).toBe(12);
+    expect(low.maxWrapIndent).toBe(36);
+    expect(low.childIndent).toBe(26);
+    expect(low.childTrunkInset).toBe(12);
+    expect(low.calloutCardIndent).toBe(38);
     expect(low.maxCardWidth).toBe(252);
     expect(low.minContentWidth).toBe(PAGE_MIN_CONTENT_WIDTH_FLOOR);
     const high = at(1.2);
     expect(high.cardPadding).toBe(9.6);
-    expect(high.siblingGap).toBe(19.2);
-    expect(high.wrapIndent).toBe(14.4);
+    expect(high.siblingGap).toBe(18);
+    expect(high.wrapIndent).toBe(12);
     expect(high.maxCardWidth).toBe(504);
     expect(high.minContentWidth).toBe(192);
     for (const density of [0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 1, 1.1, 1.2]) {
@@ -678,14 +679,14 @@ describe('page density lens (M4d1/M4e2)', () => {
     const effective = at(0.9);
     expect(effective.density).toBe(1);
     // Applying the lens twice is the identity.
-    expect(effectivePageTheme(effective)).toBe(effective);
+    expect(effectivePageTheme(effective)).toEqual(effective);
     expect(pageLayoutOptions(at(0.6))).toMatchObject({
       minContentWidth: 140,
       maxContentWidth: 252,
       cardPadding: 4.8,
       segmentGap: 2.4,
-      siblingGap: 9.6,
-      wrapIndent: 7.2,
+      siblingGap: 18,
+      wrapIndent: 12,
     });
     const low = pageCssVariables(at(0.6));
     expect(low['--nf-page-body-size']).toBe('7pt');
@@ -710,5 +711,96 @@ describe('page density lens (M4d1/M4e2)', () => {
     expect(high.bodyPt).toBe(12.6);
     expect(high.cardPadding).toBe(14.4);
     expect(high.maxCardWidth).toBe(504);
+  });
+});
+
+describe('Page edge corridor (fixed 18 px)', () => {
+  const compact = PAGE_THEME_PRESETS.compact;
+  const densities = [0.6, 0.7, 1, 1.2] as const;
+
+  it('defines one lead + stem invariant', () => {
+    expect(PAGE_EDGE_GEOMETRY.lead).toBe(4);
+    expect(PAGE_EDGE_GEOMETRY.stem).toBe(14);
+    expect(PAGE_EDGE_GEOMETRY.corridor).toBe(18);
+    expect(PAGE_EDGE_GEOMETRY.lead + PAGE_EDGE_GEOMETRY.stem).toBe(
+      PAGE_EDGE_GEOMETRY.corridor,
+    );
+    expect(PAGE_EDGE_GEOMETRY.corridor).toBe(PAGE_EDGE_GEOMETRY.siblingGap);
+    expect(PAGE_EDGE_GEOMETRY.childIndent).toBe(
+      PAGE_EDGE_GEOMETRY.childTrunkInset + PAGE_EDGE_GEOMETRY.stem,
+    );
+    expect(PAGE_EDGE_GEOMETRY.calloutCardIndent).toBe(
+      PAGE_EDGE_GEOMETRY.calloutTrunkInset + PAGE_EDGE_GEOMETRY.stem,
+    );
+    // The Page style uses the same stem; the fixed arrowhead and stroke widths
+    // stay the current Page contract.
+    expect(PAGE_EDGE_STYLE.stemMin).toBe(PAGE_EDGE_GEOMETRY.stem);
+    expect(PAGE_EDGE_STYLE.arrowLength).toBe(6);
+    expect(PAGE_EDGE_STYLE.arrowHalfWidth).toBe(3);
+    expect(PAGE_EDGE_STYLE.edgeWidth).toBe(1.25);
+    expect(PAGE_EDGE_STYLE.edgeWidthActive).toBe(1.75);
+    expect(PAGE_EDGE_STYLE.edgeWidthMuted).toBe(1);
+  });
+
+  it('keeps the same corridor and arrowhead at 60/70/100/120%', () => {
+    for (const density of densities) {
+      const effective = effectivePageTheme({ ...compact, density });
+      expect(effective.siblingGap, `sibling gap at ${density}`).toBe(
+        PAGE_EDGE_GEOMETRY.siblingGap,
+      );
+      expect(effective.childIndent).toBe(PAGE_EDGE_GEOMETRY.childIndent);
+      expect(effective.childTrunkInset).toBe(PAGE_EDGE_GEOMETRY.childTrunkInset);
+      expect(effective.calloutTrunkInset).toBe(PAGE_EDGE_GEOMETRY.calloutTrunkInset);
+      expect(effective.calloutCardIndent).toBe(PAGE_EDGE_GEOMETRY.calloutCardIndent);
+      expect(effective.calloutGap).toBe(PAGE_EDGE_GEOMETRY.calloutGap);
+      expect(effective.calloutRightGap).toBe(PAGE_EDGE_GEOMETRY.calloutRightGap);
+      // Indents and wrap origins are fixed too, so a group cannot be pulled
+      // inside the artery by a density-scaled cap.
+      expect(effective.wrapIndent).toBe(compact.wrapIndent);
+      expect(effective.maxWrapIndent).toBe(compact.maxWrapIndent);
+      expect(effective.maxWrapIndent).toBeGreaterThanOrEqual(effective.childIndent);
+
+      const options = pageLayoutOptions({ ...compact, density });
+      expect(options.siblingGap).toBe(PAGE_EDGE_GEOMETRY.siblingGap);
+      expect(options.childIndent).toBe(PAGE_EDGE_GEOMETRY.childIndent);
+      expect(options.childTrunkInset).toBe(PAGE_EDGE_GEOMETRY.childTrunkInset);
+      expect(options.calloutTrunkInset).toBe(PAGE_EDGE_GEOMETRY.calloutTrunkInset);
+      expect(options.calloutCardIndent).toBe(PAGE_EDGE_GEOMETRY.calloutCardIndent);
+      expect(options.calloutGap).toBe(PAGE_EDGE_GEOMETRY.calloutGap);
+      expect(options.calloutRightGap).toBe(PAGE_EDGE_GEOMETRY.calloutRightGap);
+      // Density still moves type, padding, segment gap, and content width
+      // below 100%.
+      if (density < 1) {
+        expect(effective.cardPadding).toBeLessThan(compact.cardPadding);
+        expect(effective.segmentGap).toBeLessThan(compact.segmentGap);
+      }
+    }
+    const high = effectivePageTheme({ ...compact, density: 1.2 });
+    expect(high.cardPadding).toBe(9.6);
+    expect(high.segmentGap).toBe(4.8);
+  });
+
+  it('ignores a legacy stored geometry override at every density', () => {
+    const legacy = {
+      ...compact,
+      siblingGap: 40,
+      childIndent: 60,
+      calloutCardIndent: 70,
+      calloutGap: 30,
+      calloutRightGap: 36,
+      childTrunkInset: 30,
+      calloutTrunkInset: 44,
+      maxWrapIndent: 20,
+    };
+    for (const density of densities) {
+      const options = pageLayoutOptions({ ...legacy, density });
+      expect(options.siblingGap).toBe(PAGE_EDGE_GEOMETRY.siblingGap);
+      expect(options.childIndent).toBe(PAGE_EDGE_GEOMETRY.childIndent);
+      expect(options.calloutCardIndent).toBe(PAGE_EDGE_GEOMETRY.calloutCardIndent);
+      expect(options.calloutGap).toBe(PAGE_EDGE_GEOMETRY.calloutGap);
+      expect(options.calloutRightGap).toBe(PAGE_EDGE_GEOMETRY.calloutRightGap);
+      expect(options.childTrunkInset).toBe(PAGE_EDGE_GEOMETRY.childTrunkInset);
+      expect(options.calloutTrunkInset).toBe(PAGE_EDGE_GEOMETRY.calloutTrunkInset);
+    }
   });
 });

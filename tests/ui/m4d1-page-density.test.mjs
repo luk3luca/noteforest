@@ -291,6 +291,10 @@ describe('M4d1 Page density control', () => {
     const height100 = await firstFragmentHeight();
     assert.ok(Math.abs((await bodyPx()) - ptToPx(9)) < 0.05, '9 pt at 96 dpi');
     assert.ok(pages100 > 1);
+    await mkdir(artifactsPath('m4d1-page-density'), { recursive: true });
+    await page.screenshot({
+      path: join(artifactsPath('m4d1-page-density'), 'page-read-100.png'),
+    });
 
     // 120%: type and card geometry grow, the same document needs more pages.
     await setGlobalDensity(1.2);

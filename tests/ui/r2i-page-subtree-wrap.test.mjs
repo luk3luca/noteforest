@@ -31,7 +31,8 @@ const h = ui.harness;
 let page;
 
 const CHILD_INDENT = 26;
-const SIBLING_GAP = 16;
+// Fixed Page corridor: lead 4 + stem 14.
+const SIBLING_GAP = 18;
 const CALLOUT_RIGHT_GAP = 24;
 const TOLERANCE = 1.5;
 
@@ -244,7 +245,7 @@ describe('R2i Page subtree-aware wrap', () => {
     });
   });
 
-  it('uses the childIndent PageTheme token at the wrapped origin', async () => {
+  it('keeps the fixed child corridor when a legacy childIndent is stored', async () => {
     const env = ui.isolated('r2i-indent');
     await launch('r2i-indent');
     const packagePath = await openPackage(env, 'Page subtree wrap indent', pageSubtreeWrapDocument());
@@ -258,14 +259,16 @@ describe('R2i Page subtree-aware wrap', () => {
     await waitPageReady(1);
     const rootAfter = await fragmentBox('r2i-root');
     const childAfter = await fragmentBox('r2i-child');
+    // The stored legacy offset is kept for compatibility but is no longer an
+    // engine lever: the Page corridor is a fixed 26 px (12 trunk + 14 stem).
     assert.ok(
-      closeTo(childAfter.left - rootAfter.left, 40, 2),
-      `the resolved childIndent token moves the wrap origin (${childAfter.left - rootAfter.left})`,
+      closeTo(childAfter.left - rootAfter.left, CHILD_INDENT, 2),
+      `the engine keeps the fixed child corridor (${childAfter.left - rootAfter.left})`,
     );
     const grandchild = await fragmentBox('r2i-grandchild');
     assert.ok(
       grandchild.left >= childAfter.left + childAfter.width - 0.75,
-      'the grandchild still fits beside the child at the custom origin',
+      'the grandchild still fits beside the child at the fixed origin',
     );
     await writeEvidence('page-subtree-wrap-indent', 'pageSubtreeWrapIndent40');
   });

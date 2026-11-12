@@ -13,7 +13,7 @@
  */
 
 import type { PageSettingsOverride, PageTheme } from '@noteforest/layout';
-import { PAGE_EDGE_STYLE, PAGE_THEME_PRESETS } from '@noteforest/layout';
+import { PAGE_THEME_PRESETS } from '@noteforest/layout';
 import { compactOverride } from './page-setup';
 
 /**
@@ -74,17 +74,21 @@ export const ADVANCED_TYPOGRAPHY_KEYS = [
 
 export type AdvancedTypographyKey = (typeof ADVANCED_TYPOGRAPHY_KEYS)[number];
 
-/** Advanced layout, in the frozen order. `maxCardWidth` is first-class. */
+/**
+ * Advanced layout, in the frozen order. `maxCardWidth` is first-class.
+ *
+ * The Page edge corridor (`siblingGap`, `childIndent`, `calloutGap`, and the
+ * callout/right-gap fields) is an engine constant (`PAGE_EDGE_GEOMETRY`), not a
+ * user lever: those stored fields stay in the model for compatibility but are
+ * no longer exposed here.
+ */
 export const ADVANCED_LAYOUT_KEYS = [
   'minContentWidth',
   'cardPadding',
   'cardBorder',
   'segmentGap',
-  'siblingGap',
-  'calloutGap',
   'wrapIndent',
   'maxWrapIndent',
-  'childIndent',
 ] as const satisfies readonly PageThemeNumericKey[];
 
 export type AdvancedLayoutKey = (typeof ADVANCED_LAYOUT_KEYS)[number];
@@ -140,11 +144,8 @@ export const PAGE_THEME_FIELD_SPECS: Readonly<
   cardPadding: { label: 'Card padding', unit: 'px', min: 0, max: 40, step: 1 },
   cardBorder: { label: 'Card border', unit: 'px', min: 0, max: 8, step: 1 },
   segmentGap: { label: 'Segment gap', unit: 'px', min: 0, max: 32, step: 1 },
-  siblingGap: { label: 'Sibling gap', unit: 'px', min: 0, max: 96, step: 1 },
-  calloutGap: { label: 'Callout gap', unit: 'px', min: 0, max: 96, step: 1 },
   wrapIndent: { label: 'List indent', unit: 'px', min: 0, max: 96, step: 1 },
   maxWrapIndent: { label: 'Max list indent', unit: 'px', min: 0, max: 192, step: 1 },
-  childIndent: { label: 'Child indent', unit: 'px', min: 0, max: 96, step: 1 },
   maxCardWidth: { label: 'Max card width', unit: 'px', min: 120, max: 2000, step: 1 },
 });
 
@@ -193,21 +194,12 @@ function rangeMessage(key: EditableThemeKey): string {
 }
 
 /**
- * The effective child indent must leave room for the child trunk and the
- * shared stem (R2j1). `childTrunkInset` is a hidden model value; the UI uses the
- * current layer's stored inset so a legacy/custom baseline is respected.
- */
-export function minimumChildIndent(childTrunkInset: number): number {
-  return childTrunkInset + PAGE_EDGE_STYLE.stemMin + 2;
-}
-
-/**
  * Validate every editable Page theme draft against the frozen ranges and the
  * model's cross-field rules. No value is clamped or reset.
  */
 export function validatePageThemeDrafts(
   draft: PageThemeDraft,
-  context: { childTrunkInset: number },
+  _context?: { childTrunkInset: number },
 ): PageThemeDraftValidation {
   const errors: Partial<Record<EditableThemeKey, string>> = {};
   const parsed = {} as Record<EditableThemeKey, number>;
@@ -254,13 +246,6 @@ export function validatePageThemeDrafts(
     errors.maxWrapIndent = `Max list indent must be at least the list indent (${formatPageThemeNumber(
       parsed.wrapIndent,
     )} px or more).`;
-  }
-
-  const childMinimum = minimumChildIndent(context.childTrunkInset);
-  if (parsed.childIndent < childMinimum) {
-    errors.childIndent = `Child indent must be at least ${formatPageThemeNumber(
-      childMinimum,
-    )} px to keep the trunk and stem visible.`;
   }
 
   // `resolveTheme` raises the cap to the content floor; block the pair instead

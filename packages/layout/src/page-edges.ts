@@ -29,7 +29,7 @@ import type {
   EdgePlacement,
   PageFragment,
 } from './types.js';
-import { PAGE_EDGE_STYLE } from './edge-style.js';
+import { PAGE_EDGE_GEOMETRY, PAGE_EDGE_STYLE } from './edge-style.js';
 import { simplifyPath } from './edge-path.js';
 import {
   routeIntersectsRect,
@@ -385,7 +385,9 @@ function buildPrimaryGroup(input: {
   if (group.placement === 'right') {
     const desired = minTargetX - PAGE_EDGE_STYLE.stemMin;
     const sourceRight = sourceBox.x + sourceBox.width;
-    const laneMin = sourceRight + PAGE_EDGE_STYLE.laneMin;
+    // The Page corridor starts with a fixed 4 px lead, so lead 4 + stem 14 =
+    // the 18 px sibling gap. The lane maximum still allows an obstacle detour.
+    const laneMin = sourceRight + PAGE_EDGE_GEOMETRY.lead;
     const laneMax = Math.max(laneMin, sourceRight + PAGE_EDGE_STYLE.laneMax);
     trunkX = Math.min(Math.max(desired, laneMin), laneMax);
     // A rail must stay left of every target so the arm can enter from the left.

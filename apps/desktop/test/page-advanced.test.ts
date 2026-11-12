@@ -16,7 +16,6 @@ import {
   formatPageThemeNumber,
   hasThemeFieldOverride,
   isThemeFieldOverridden,
-  minimumChildIndent,
   pageThemeDraftFrom,
   parsePageThemeNumber,
   presetSwitchReplacesAdvancedValues,
@@ -94,11 +93,8 @@ describe('advanced Page theme draft parsing and ranges', () => {
         cardPadding: '14',
         cardBorder: '2',
         segmentGap: '6',
-        siblingGap: '20',
-        calloutGap: '22',
         wrapIndent: '22',
         maxWrapIndent: '64',
-        childIndent: '34',
         maxCardWidth: '360',
       }),
     );
@@ -107,7 +103,6 @@ describe('advanced Page theme draft parsing and ranges', () => {
       bodyPt: 12,
       heading1Pt: 16,
       maxCardWidth: 360,
-      childIndent: 34,
     });
   });
 
@@ -157,16 +152,13 @@ describe('advanced Page theme cross-field rules', () => {
     ).toBe(true);
   });
 
-  it('requires the child indent to keep the hidden trunk and stem visible', () => {
-    expect(minimumChildIndent(12)).toBe(26);
-    const invalid = validate(draftFrom(COMPACT, { childIndent: '25' }));
-    expect(invalid.valid).toBe(false);
-    expect(invalid.errors.childIndent).toContain('26 px');
-    // A legacy custom trunk inset raises the floor instead of being ignored.
-    expect(minimumChildIndent(24)).toBe(38);
-    const legacy = validate(draftFrom(COMPACT, { childIndent: '30' }), 24);
-    expect(legacy.valid).toBe(false);
-    expect(legacy.errors.childIndent).toContain('38 px');
+  it('keeps the edge corridor out of the editable advanced fields', () => {
+    // siblingGap / childIndent / calloutGap are engine constants now. A stored
+    // legacy value is not in the draft and cannot be edited.
+    for (const key of ['siblingGap', 'childIndent', 'calloutGap'] as const) {
+      expect(EDITABLE_THEME_KEYS).not.toContain(key);
+      expect(Object.keys(pageThemeDraftFrom(COMPACT))).not.toContain(key);
+    }
   });
 
   it('requires the max card width to be at least the minimum content width', () => {
@@ -291,9 +283,9 @@ describe('advanced Page theme overrides', () => {
     expect(effective.cardPadding).toBeCloseTo(11.2, 5);
     expect(effective.maxCardWidth).toBe(304);
     expect(effective.minContentWidth).toBe(144);
-    expect(effective.wrapIndent).toBeCloseTo(17.6, 5);
-    expect(effective.maxWrapIndent).toBe(48);
-    expect(effective.childIndent).toBeCloseTo(27.2, 5);
+    expect(effective.wrapIndent).toBe(22);
+    expect(effective.maxWrapIndent).toBe(60);
+    expect(effective.childIndent).toBe(26);
     expect(effective.density).toBe(1);
   });
 });
@@ -355,11 +347,8 @@ describe('advanced field catalog', () => {
       'cardPadding',
       'cardBorder',
       'segmentGap',
-      'siblingGap',
-      'calloutGap',
       'wrapIndent',
       'maxWrapIndent',
-      'childIndent',
     ]);
     expect(EDITABLE_THEME_KEYS).toContain(MAX_CARD_WIDTH_KEY);
     for (const hidden of [
@@ -372,6 +361,9 @@ describe('advanced field catalog', () => {
       'calloutCardIndent',
       'calloutRightGap',
       'calloutModeMinWidth',
+      'siblingGap',
+      'childIndent',
+      'calloutGap',
     ] as const) {
       expect(EDITABLE_THEME_KEYS).not.toContain(hidden);
     }

@@ -227,11 +227,13 @@ describe('group-level left-origin wrap', () => {
     // cap no longer applies (product-owner tree rule, 8 November 2026).
     expect(result.blockById['d']!.x).toBe(104);
 
-    const indent12 = layout(document, port, 'group-left-origin', 12);
-    expect(indent12.blockById['a']!.x).toBe(12);
-    expect(indent12.blockById['b']!.x).toBe(24);
-    expect(indent12.blockById['c']!.x).toBe(36);
-    expect(indent12.blockById['d']!.x).toBe(48);
+    // The child corridor is a hard floor: a stored wrap cap below it cannot
+    // pull a wrapped group inside the 12 + 14 px artery.
+    const capped = layout(document, port, 'group-left-origin', 12);
+    expect(capped.blockById['a']!.x).toBe(DEFAULT_LAYOUT_OPTIONS.childIndent);
+    expect(capped.blockById['b']!.x).toBe(2 * DEFAULT_LAYOUT_OPTIONS.childIndent);
+    expect(capped.blockById['c']!.x).toBe(3 * DEFAULT_LAYOUT_OPTIONS.childIndent);
+    expect(capped.blockById['d']!.x).toBe(4 * DEFAULT_LAYOUT_OPTIONS.childIndent);
   });
 
   it('wraps a child group below a taller ancestor card instead of overlapping it', () => {
