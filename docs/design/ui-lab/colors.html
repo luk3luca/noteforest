@@ -97,9 +97,9 @@
       .canvas { position: relative; flex: 1; padding: 18px 22px 22px; overflow: hidden; }
       .chapter { color: var(--text-3); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
       .canvas h2 { margin: 2px 0 18px; font-size: 21px; letter-spacing: -0.01em; }
-      .tree { position: relative; min-height: 360px; }
+      .tree { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
       .note {
-        position: absolute;
+        position: relative;
         width: 240px;
         padding: 10px;
         border-radius: 9px;
@@ -108,18 +108,15 @@
         transition: background 120ms ease;
       }
       .note:hover { background: var(--note-surface-hover); }
-      .note.top { left: 0; top: 66px; }
-      .note.child { left: 316px; top: 66px; }
-      .note.callout { left: 316px; top: 214px; }
       .note .kicker { color: var(--text-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
       .note p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text-2); }
       .note strong { color: var(--text-1); font-weight: 600; }
-      .edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-      .edges path { fill: none; stroke: var(--edge); stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; }
-      .edges path.active { stroke: var(--accent-strong); stroke-width: 1.75; }
-      .edges polygon { fill: var(--edge); }
-      .edges polygon.active { fill: var(--accent-strong); }
-      .below-label { position: absolute; left: 246px; top: 322px; color: var(--text-3); font-size: 10.5px; }
+      .edge-h { flex: 0 0 64px; height: 24px; }
+      .edge-h path, .edge-below path { fill: none; stroke: var(--edge); stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-h polygon, .edge-below polygon { fill: var(--edge); }
+      .callout-row { display: flex; align-items: flex-end; gap: 0; margin-top: 18px; }
+      .edge-below { flex: 0 0 64px; height: 54px; }
+      .edge-note { color: var(--text-3); font-size: 10.5px; margin-left: 8px; align-self: center; }
       .samples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
       .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--border-1); border-radius: 999px; color: var(--text-2); font-size: 11.5px; }
       .dot { width: 7px; height: 7px; border-radius: 50%; }
@@ -136,8 +133,7 @@
       .footer code { color: var(--text-2); }
       @media (max-width: 900px) {
         .sidebar { display: none; }
-        .note.child, .note.callout { left: 270px; }
-        .below-label { display: none; }
+        .tree { row-gap: 12px; }
       }
     </style>
   </head>
@@ -222,23 +218,25 @@
                 <div class="kicker">Top-level block</div>
                 <p><strong>An eigenvalue</strong> is a scalar λ such that Av = λv for a nonzero vector v.</p>
               </div>
+              <svg class="edge-h" width="64" height="24" viewBox="0 0 64 24" aria-hidden="true">
+                <path d="M 0 12 H 52" />
+                <polygon points="60,12 50,7 50,17" />
+              </svg>
               <div class="note child">
                 <div class="kicker">Child block</div>
                 <p>The spectrum is the set of all eigenvalues of A, counted with multiplicity.</p>
               </div>
+            </div>
+            <div class="callout-row">
+              <svg class="edge-below" width="64" height="54" viewBox="0 0 64 54" aria-hidden="true">
+                <path d="M 4 0 V 34 H 52" />
+                <polygon points="60,34 50,29 50,39" />
+              </svg>
               <div class="note callout">
-                <div class="kicker">Callout</div>
+                <div class="kicker">Callout / below trunk</div>
                 <p>If v is an eigenvector, any nonzero scalar multiple of v is an eigenvector too.</p>
               </div>
-              <svg class="edges" viewBox="0 0 800 360" preserveAspectRatio="none" aria-hidden="true">
-                <path d="M 240 110 H 284 V 110 H 308" />
-                <polygon points="316,110 306,105 306,115" />
-                <path d="M 120 170 V 248 H 308" />
-                <polygon points="316,248 306,243 306,253" />
-                <path class="active" d="M 240 132 H 270 V 132 H 284" />
-                <polygon class="active" points="292,132 282,127 282,137" />
-              </svg>
-              <div class="below-label">resting edge · active edge · below trunk</div>
+              <span class="edge-note">Resting edge · below trunk</span>
             </div>
             <div class="samples">
               <button class="btn primary">Primary action</button>
