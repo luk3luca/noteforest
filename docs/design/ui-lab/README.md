@@ -13,6 +13,10 @@ npx vite docs/design/ui-lab --port 5180
 
 Open `http://127.0.0.1:5180/`.
 
+The **Colors proof** page is at `http://127.0.0.1:5180/colors.html`: dark/light, R3 current vs the
+research recommendation, four accents, note-surface and border options, and shell/edge samples.
+It is design-only and does not load the app.
+
 The **LAB** bar at the top switches Workspace / Settings / Export / Palette, Continuous / Page, and
 the expanded / collapsed sidebar. The **Variant** bar switches the four shell experiments:
 

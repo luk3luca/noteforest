@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-palette="current">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NoteForest color proof</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --radius: 8px;
+        --radius-control: 3px;
+      }
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--bg-app);
+        color: var(--text-1);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        font-size: 13px;
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+      }
+      code, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace; }
+      .proof { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+      .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+      .head h1 { margin: 0 0 4px; font-size: 18px; letter-spacing: -0.01em; }
+      .head p { margin: 0; color: var(--text-2); font-size: 12px; max-width: 620px; }
+      .controls { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end; }
+      .control { display: flex; flex-direction: column; gap: 5px; }
+      .control > span { color: var(--text-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+      .seg { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--border-1); border-radius: var(--radius-control); background: var(--surface-1); }
+      .seg button { border: 0; border-radius: 2px; padding: 5px 9px; background: transparent; color: var(--text-2); font: inherit; cursor: pointer; }
+      .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text-1); box-shadow: inset 0 0 0 1px var(--accent-strong); }
+      .swatches { display: flex; gap: 6px; align-items: center; }
+      .swatch { width: 24px; height: 24px; padding: 0; border: 1px solid var(--border-2); border-radius: 50%; cursor: pointer; }
+      .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--text-1); }
+      .check { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 12px; }
+      .check input { accent-color: var(--accent); }
+      .window {
+        display: flex;
+        min-height: 570px;
+        border: 1px solid var(--border-1);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--bg-canvas);
+        box-shadow: 0 18px 48px rgb(0 0 0 / 0.18);
+      }
+      .sidebar {
+        width: 218px;
+        flex: 0 0 218px;
+        padding: 10px;
+        background: var(--bg-sidebar);
+        border-right: 1px solid var(--border-1);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .brand { font-size: 11px; line-height: 1; color: var(--text-3); padding: 6px 8px 12px; }
+      .section { margin: 10px 8px 4px; color: var(--text-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
+      .row { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: var(--radius-control); color: var(--text-2); }
+      .row:hover { background: var(--surface-1); color: var(--text-1); }
+      .row.selected { background: var(--accent-soft); color: var(--text-1); box-shadow: inset 0 0 0 1px var(--accent-strong); }
+      .row .muted { color: var(--text-3); margin-left: auto; font-size: 10.5px; }
+      .row .bullet { width: 4px; height: 4px; border-radius: 50%; background: var(--text-3); }
+      .main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg-canvas); }
+      .titlebar { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 14px 0 18px; background: var(--bg-app); border-bottom: 1px solid var(--border-1); }
+      .traffic { display: inline-flex; gap: 6px; margin-right: 8px; }
+      .traffic i { width: 8px; height: 8px; border-radius: 50%; background: var(--border-2); }
+      .appname { font-size: 11px; line-height: 1; transform: translateY(0.5px); color: var(--text-3); }
+      .toolbar { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: var(--surface-1); border-bottom: 1px solid var(--border-1); }
+      .tabs { display: flex; align-items: center; gap: 4px; min-width: 0; }
+      .tab { height: 34px; display: inline-flex; align-items: center; padding: 0 14px; border: 1px solid transparent; border-radius: 7px; color: var(--text-2); white-space: nowrap; }
+      .tab.active { background: var(--bg-canvas); border-color: var(--border-1); color: var(--text-1); }
+      .tab.plus { color: var(--text-3); padding: 0 10px; }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 8px 10px 0;
+        padding: 10px 12px;
+        background: var(--surface-1);
+        border: 1px solid var(--border-1);
+        border-radius: var(--radius);
+      }
+      .status-icon { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; color: var(--warning); background: var(--warning-soft); font-size: 11px; font-weight: 700; }
+      .status-copy { min-width: 0; flex: 1; }
+      .status-title { color: var(--warning); font-size: 12px; font-weight: 600; }
+      .status-copy p { margin: 2px 0 0; color: var(--text-2); font-size: 11.5px; }
+      .status-actions { display: flex; gap: 6px; }
+      .btn { border: 1px solid var(--border-1); border-radius: var(--radius-control); background: var(--surface-1); color: var(--text-2); padding: 5px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+      .btn:hover { background: var(--surface-2); border-color: var(--border-2); color: var(--text-1); }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+      .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+      .btn.danger { color: var(--danger); border-color: var(--danger-border); background: var(--danger-soft); }
+      .canvas { position: relative; flex: 1; padding: 18px 22px 22px; overflow: hidden; }
+      .chapter { color: var(--text-3); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+      .canvas h2 { margin: 2px 0 18px; font-size: 21px; letter-spacing: -0.01em; }
+      .tree { position: relative; min-height: 360px; }
+      .note {
+        position: absolute;
+        width: 240px;
+        padding: 10px;
+        border-radius: 9px;
+        background: var(--note-surface);
+        color: var(--text-1);
+        transition: background 120ms ease;
+      }
+      .note:hover { background: var(--note-surface-hover); }
+      .note.top { left: 0; top: 66px; }
+      .note.child { left: 316px; top: 66px; }
+      .note.callout { left: 316px; top: 214px; }
+      .note .kicker { color: var(--text-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+      .note p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text-2); }
+      .note strong { color: var(--text-1); font-weight: 600; }
+      .edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+      .edges path { fill: none; stroke: var(--edge); stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; }
+      .edges path.active { stroke: var(--accent-strong); stroke-width: 1.75; }
+      .edges polygon { fill: var(--edge); }
+      .edges polygon.active { fill: var(--accent-strong); }
+      .below-label { position: absolute; left: 246px; top: 322px; color: var(--text-3); font-size: 10.5px; }
+      .samples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--border-1); border-radius: 999px; color: var(--text-2); font-size: 11.5px; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; }
+      .dot.success { background: var(--success); }
+      .dot.warning { background: var(--warning); }
+      .dot.danger { background: var(--danger); }
+      .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px 18px; padding: 12px 14px; border: 1px solid var(--border-1); border-radius: var(--radius); background: var(--surface-1); }
+      .legend-item { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .legend-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-1); flex: 0 0 14px; }
+      .legend-label { color: var(--text-3); font-size: 11px; }
+      .legend-value { color: var(--text-2); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .legend-note { grid-column: 1 / -1; margin: 0; color: var(--text-3); font-size: 11px; }
+      .footer { display: flex; justify-content: space-between; gap: 12px; color: var(--text-3); font-size: 11px; }
+      .footer code { color: var(--text-2); }
+      @media (max-width: 900px) {
+        .sidebar { display: none; }
+        .note.child, .note.callout { left: 270px; }
+        .below-label { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="proof">
+      <header class="head">
+        <div>
+          <h1>NoteForest color proof</h1>
+          <p>
+            A design-only proof, not Electron. Toggle dark/light and the current R3 palette versus the
+            research recommendation. The same token names as the app are used on this page.
+          </p>
+        </div>
+        <div class="controls">
+          <div class="control">
+            <span>Theme</span>
+            <div class="seg" id="theme-control" role="group" aria-label="Theme">
+              <button type="button" data-theme-option="dark" aria-pressed="true">Dark</button>
+              <button type="button" data-theme-option="light" aria-pressed="false">Light</button>
+            </div>
+          </div>
+          <div class="control">
+            <span>Palette</span>
+            <div class="seg" id="palette-control" role="group" aria-label="Palette">
+              <button type="button" data-palette-option="current" aria-pressed="true">R3 current</button>
+              <button type="button" data-palette-option="recommended" aria-pressed="false">Recommended</button>
+            </div>
+          </div>
+          <div class="control">
+            <span>Accent</span>
+            <div class="swatches" id="accent-control" role="group" aria-label="Accent"></div>
+          </div>
+          <label class="check">
+            <input type="checkbox" id="strong-note" />
+            Stronger note surface (light)
+          </label>
+        </div>
+      </header>
+
+      <div class="window" id="mock">
+        <aside class="sidebar">
+          <div class="brand">NoteForest</div>
+          <div class="section">Library</div>
+          <div class="row"><span class="bullet"></span>Linear algebra <span class="muted">12</span></div>
+          <div class="row selected"><span class="bullet"></span>Eigenvalues <span class="muted">7</span></div>
+          <div class="row"><span class="bullet"></span>Probability <span class="muted">9</span></div>
+          <div class="section">Topics</div>
+          <div class="row">Chapter 1</div>
+          <div class="row" style="padding-left: 22px;">1.1 Vectors</div>
+          <div class="row" style="padding-left: 22px;">1.2 Matrices</div>
+          <div class="row" style="padding-left: 22px;">1.3 Determinants</div>
+        </aside>
+        <main class="main">
+          <div class="titlebar"><span class="traffic"><i></i><i></i><i></i></span><span class="appname">NoteForest</span></div>
+          <div class="toolbar">
+            <div class="tabs">
+              <span class="tab active">Eigenvalues</span>
+              <span class="tab">Determinants</span>
+              <span class="tab">Probability</span>
+              <span class="tab plus">+</span>
+            </div>
+            <span style="flex:1"></span>
+            <button class="btn">100%</button>
+            <button class="btn" aria-label="Command palette">⌘K</button>
+          </div>
+          <div class="status">
+            <div class="status-icon">!</div>
+            <div class="status-copy">
+              <div class="status-title">Read-only · stale lock</div>
+              <p>Another session left a lock; the heartbeat is stale. Your file has not been modified.</p>
+            </div>
+            <div class="status-actions">
+              <button class="btn primary">Take over lock</button>
+              <button class="btn">Cancel</button>
+            </div>
+          </div>
+          <div class="canvas">
+            <div class="chapter">Chapter</div>
+            <h2>Eigenvalues</h2>
+            <div class="tree">
+              <div class="note top">
+                <div class="kicker">Top-level block</div>
+                <p><strong>An eigenvalue</strong> is a scalar λ such that Av = λv for a nonzero vector v.</p>
+              </div>
+              <div class="note child">
+                <div class="kicker">Child block</div>
+                <p>The spectrum is the set of all eigenvalues of A, counted with multiplicity.</p>
+              </div>
+              <div class="note callout">
+                <div class="kicker">Callout</div>
+                <p>If v is an eigenvector, any nonzero scalar multiple of v is an eigenvector too.</p>
+              </div>
+              <svg class="edges" viewBox="0 0 800 360" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M 240 110 H 284 V 110 H 308" />
+                <polygon points="316,110 306,105 306,115" />
+                <path d="M 120 170 V 248 H 308" />
+                <polygon points="316,248 306,243 306,253" />
+                <path class="active" d="M 240 132 H 270 V 132 H 284" />
+                <polygon class="active" points="292,132 282,127 282,137" />
+              </svg>
+              <div class="below-label">resting edge · active edge · below trunk</div>
+            </div>
+            <div class="samples">
+              <button class="btn primary">Primary action</button>
+              <button class="btn">Secondary</button>
+              <button class="btn danger">Danger</button>
+              <span class="chip"><span class="dot success"></span>Saved</span>
+              <span class="chip"><span class="dot warning"></span>Stale lock</span>
+              <span class="chip"><span class="dot danger"></span>Failed</span>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <section class="legend" aria-label="Token values">
+        <div class="legend-item"><span class="legend-swatch" id="sw-text3"></span><span class="legend-label">text-3 on surface-3</span><span class="legend-value" id="val-text3"></span></div>
+        <div class="legend-item"><span class="legend-swatch" id="sw-border2"></span><span class="legend-label">border-2 on surface-3</span><span class="legend-value" id="val-border2"></span></div>
+        <div class="legend-item"><span class="legend-swatch" id="sw-note"></span><span class="legend-label">note surface vs canvas</span><span class="legend-value" id="val-note"></span></div>
+        <div class="legend-item"><span class="legend-swatch" id="sw-edge"></span><span class="legend-label">edge on canvas</span><span class="legend-value" id="val-edge"></span></div>
+        <p class="legend-note">
+          Text and control targets are WCAG 4.5:1 and 3:1. The note surface is a separation cue, not text.
+          The recommended palette also harmonises dark teal/rose perceived lightness and fixes selected amber text.
+        </p>
+      </section>
+
+      <footer class="footer">
+        <span>Design proof only · no product code, no Page/PDF change</span>
+        <span><code>docs/design/ui-lab/colors.html</code></span>
+      </footer>
+    </div>
+
+    <script>
+      const rgb = (hex) => {
+        const value = hex.replace('#', '');
+        const full = value.length === 3 ? value.split('').map((c) => c + c).join('') : value;
+        return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+      };
+      const channel = (v) => {
+        const n = v / 255;
+        return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+      };
+      const luminance = (hex) => {
+        const [r, g, b] = rgb(hex);
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+      };
+      const contrast = (a, b) => {
+        const l1 = luminance(a);
+        const l2 = luminance(b);
+        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      };
+
+      const accentsCurrent = {
+        blue: { accent: '#9bb7d4', strong: '#b9d0e6', soft: '#26313c', hover: '#a9c3dc', contrast: '#101418' },
+        teal: { accent: '#8fc7c0', strong: '#a9d9d3', soft: '#233432', hover: '#a3d5cd', contrast: '#101418' },
+        amber: { accent: '#d6b17a', strong: '#e6c795', soft: '#3a3124', hover: '#e3c48f', contrast: '#101418' },
+        rose: { accent: '#d99aa8', strong: '#e7b3bf', soft: '#3a2830', hover: '#e3aab6', contrast: '#101418' },
+      };
+      const accentsRecommended = {
+        blue: accentsCurrent.blue,
+        teal: { accent: '#89c0ba', strong: '#99d1ca', soft: '#233432', hover: '#92cac3', contrast: '#101418' },
+        amber: { accent: '#d6b17a', strong: '#e6c795', soft: '#382f22', hover: '#e3c48f', contrast: '#101418' },
+        rose: { accent: '#e5a5b3', strong: '#f6b5c3', soft: '#3a2830', hover: '#efaebc', contrast: '#101418' },
+      };
+      const accentsCurrentLight = {
+        blue: { accent: '#2f5f8a', strong: '#1f4a6d', soft: '#e2edf6', hover: '#264d71', contrast: '#ffffff' },
+        teal: { accent: '#1f6f66', strong: '#15564f', soft: '#e0f1ee', hover: '#175c55', contrast: '#ffffff' },
+        amber: { accent: '#8a5a00', strong: '#6f4800', soft: '#fff2d6', hover: '#714900', contrast: '#ffffff' },
+        rose: { accent: '#9b3f55', strong: '#7d2f43', soft: '#f8e4e9', hover: '#7d2f43', contrast: '#ffffff' },
+      };
+      const accentsRecommendedLight = {
+        ...accentsCurrentLight,
+        rose: { ...accentsCurrentLight.rose, hover: '#873348' },
+      };
+
+      const baseDark = {
+        bgApp: '#101113', bgCanvas: '#17181a', bgSidebar: '#131416',
+        surface1: '#1b1d20', surface2: '#202329', surface3: '#262a30',
+        text1: '#e7e8ea', text2: '#a6abb2', text3: '#8b9199',
+        border1: '#2e3238', border2: '#3c4148',
+        note: '#1b1d20', noteHover: '#202329',
+        edge: '#7b858f', edgeMuted: '#565f68',
+        danger: '#d98b8b', dangerSoft: '#351f22', dangerBorder: '#6a3a3d',
+        success: '#8fbf9f', successSoft: '#1e2f26',
+        warning: '#d6b17a', warningSoft: '#352c1e', warningBorder: '#6a5536',
+      };
+      const baseLight = {
+        bgApp: '#f3f5f7', bgCanvas: '#ffffff', bgSidebar: '#edf1f4',
+        surface1: '#ffffff', surface2: '#f2f5f7', surface3: '#e8edf1',
+        text1: '#1a1f23', text2: '#4d5a63', text3: '#5f6b75',
+        border1: '#d7dee4', border2: '#b8c4cd',
+        note: '#f6f8fb', noteHover: '#eef3f7',
+        edge: '#6c7882', edgeMuted: '#9aa5ad',
+        danger: '#a23b32', dangerSoft: '#fbeae7', dangerBorder: '#e0b3ac',
+        success: '#2f6b4f', successSoft: '#e6f2eb',
+        warning: '#8a5a00', warningSoft: '#fff4dc', warningBorder: '#e6c98a',
+      };
+
+      const palettes = {
+        current: {
+          dark: { ...baseDark, accents: accentsCurrent },
+          light: { ...baseLight, accents: accentsCurrentLight },
+        },
+        recommended: {
+          dark: { ...baseDark, text3: '#949aa2', border2: '#6e737a', accents: accentsRecommended },
+          light: { ...baseLight, text3: '#5b6771', border2: '#82888c', accents: accentsRecommendedLight },
+        },
+      };
+
+      const state = { theme: 'dark', palette: 'current', accent: 'blue', strongNote: false };
+      const root = document.documentElement;
+      const accentControl = document.getElementById('accent-control');
+      const strongNote = document.getElementById('strong-note');
+
+      const accentLabels = { blue: 'Blue', teal: 'Teal', amber: 'Amber', rose: 'Rose' };
+      for (const id of Object.keys(accentLabels)) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'swatch';
+        button.dataset.accentOption = id;
+        button.title = accentLabels[id];
+        button.setAttribute('aria-label', accentLabels[id]);
+        button.addEventListener('click', () => {
+          state.accent = id;
+          apply();
+        });
+        accentControl.append(button);
+      }
+
+      function setVar(name, value) {
+        root.style.setProperty(name, value);
+      }
+
+      function apply() {
+        const theme = palettes[state.palette][state.theme];
+        root.dataset.theme = state.theme;
+        root.dataset.palette = state.palette;
+        root.style.colorScheme = state.theme;
+        setVar('--bg-app', theme.bgApp);
+        setVar('--bg-canvas', theme.bgCanvas);
+        setVar('--bg-sidebar', theme.bgSidebar);
+        setVar('--surface-1', theme.surface1);
+        setVar('--surface-2', theme.surface2);
+        setVar('--surface-3', theme.surface3);
+        setVar('--text-1', theme.text1);
+        setVar('--text-2', theme.text2);
+        setVar('--text-3', theme.text3);
+        setVar('--border-1', theme.border1);
+        setVar('--border-2', theme.border2);
+        setVar('--note-surface', state.strongNote && state.theme === 'light' ? '#f2f6f9' : theme.note);
+        setVar('--note-surface-hover', state.strongNote && state.theme === 'light' ? '#e8eff4' : theme.noteHover);
+        setVar('--edge', theme.edge);
+        setVar('--edge-muted', theme.edgeMuted);
+        setVar('--danger', theme.danger);
+        setVar('--danger-soft', theme.dangerSoft);
+        setVar('--danger-border', theme.dangerBorder);
+        setVar('--success', theme.success);
+        setVar('--success-soft', theme.successSoft);
+        setVar('--warning', theme.warning);
+        setVar('--warning-soft', theme.warningSoft);
+        setVar('--warning-border', theme.warningBorder);
+        setVar('--overlay', state.theme === 'dark' ? 'rgb(0 0 0 / 0.4)' : 'rgb(16 20 24 / 0.38)');
+        setVar('--shadow-panel', state.theme === 'dark' ? '0 8px 24px rgb(0 0 0 / 0.35)' : '0 8px 24px rgb(16 20 24 / 0.12)');
+        const accent = theme.accents[state.accent];
+        setVar('--accent', accent.accent);
+        setVar('--accent-strong', accent.strong);
+        setVar('--accent-soft', accent.soft);
+        setVar('--accent-hover', accent.hover);
+        setVar('--accent-contrast', accent.contrast);
+        for (const button of accentControl.querySelectorAll('[data-accent-option]')) {
+          const id = button.dataset.accentOption;
+          button.style.background = theme.accents[id].accent;
+          button.setAttribute('aria-pressed', String(id === state.accent));
+        }
+        for (const button of document.querySelectorAll('[data-theme-option]')) {
+          button.setAttribute('aria-pressed', String(button.dataset.themeOption === state.theme));
+        }
+        for (const button of document.querySelectorAll('[data-palette-option]')) {
+          button.setAttribute('aria-pressed', String(button.dataset.paletteOption === state.palette));
+        }
+        updateLegend(theme);
+      }
+
+      function updateLegend(theme) {
+        const note = root.style.getPropertyValue('--note-surface').trim();
+        const edge = theme.edge;
+        document.getElementById('sw-text3').style.background = theme.text3;
+        document.getElementById('sw-border2').style.background = theme.border2;
+        document.getElementById('sw-note').style.background = note;
+        document.getElementById('sw-edge').style.background = edge;
+        document.getElementById('val-text3').textContent = `${theme.text3} · ${contrast(theme.text3, theme.surface3).toFixed(2)}:1`;
+        document.getElementById('val-border2').textContent = `${theme.border2} · ${contrast(theme.border2, theme.surface3).toFixed(2)}:1`;
+        document.getElementById('val-note').textContent = `${note} · Δ separation ${contrast(note, theme.bgCanvas).toFixed(2)}:1`;
+        document.getElementById('val-edge').textContent = `${edge} · ${contrast(edge, theme.bgCanvas).toFixed(2)}:1`;
+      }
+
+      for (const button of document.querySelectorAll('[data-theme-option]')) {
+        button.addEventListener('click', () => { state.theme = button.dataset.themeOption; apply(); });
+      }
+      for (const button of document.querySelectorAll('[data-palette-option]')) {
+        button.addEventListener('click', () => { state.palette = button.dataset.paletteOption; apply(); });
+      }
+      strongNote.addEventListener('change', () => { state.strongNote = strongNote.checked; apply(); });
+
+      apply();
+    </script>
+  </body>
+</html>
