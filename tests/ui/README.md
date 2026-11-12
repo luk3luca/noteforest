@@ -78,7 +78,7 @@ is to share one app/session per surface and move assertions into subtests.
 
 | Surface | Files | Overlap / unique coverage |
 |---|---|---|
-| Shell | `v0-shell-frame`, `m2-shell`, `m2-view`, `ui-batch-a`, `ui-batch-v`, `ui-appearance-v3` | Titlebar/rail/status (V0), tab ARIA/scroll restore (m2-shell), zoom/fit (m2-view), C header/settings/palette (Batch A), Settings width/toast/inset (Batch V), appearance themes/accents/UI scale/fonts, code font, paper isolation (R3). |
+| Shell | `v0-shell-frame`, `m2-shell`, `m2-view`, `ui-batch-a`, `ui-batch-v`, `ui-appearance-v3`, `ui-document-status` | Titlebar/rail/status (V0), tab ARIA/scroll restore (m2-shell), zoom/fit (m2-view), C header/settings/palette (Batch A), Settings width/toast/inset (Batch V), appearance themes/accents/UI scale/fonts + code font PDF + paper isolation (R3 appearance), stale-lock/read-only status panel (R3 status). |
 | Settings | `m4e1-settings-platform`, `m4d1-page-density`, `r1b-page-settings`, `ui-batch-b`, `ui-settings-advanced`, `ui-editor-shortcuts`, `ui-settings-recovery` | No-document/corrupt/failed write (m4e1), real-DOM density (m4d1), Page setup/override/read-only (r1b/B), advanced typography/layout (C), Editor shortcut search + native Help command + overlay gate (`ui-editor-shortcuts`), global + document-map recovery (R1). |
 | Page/edges | `r2a`, `r2b`, `r2e`, `r2d`, `r2f`, `r2g`, `r2i`, `r2j` | Distinct geometry/edge/callout assertions on the same Page surface; best candidate for two shared-app suites. |
 | Anchors | 13 `m3*` files | Distinct text/formula/code/reference/repair/outline cases; group by family, not delete. |

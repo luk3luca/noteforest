@@ -273,6 +273,8 @@ async function exportPdf(folder, fileName) {
   );
   const outputPath = resolve(folder, `${fileName}.pdf`);
   await stat(outputPath);
+  await page.locator('[data-export-close="true"]').click();
+  await page.waitForSelector('[data-export-sheet="true"]', { state: 'detached', timeout: 10000 });
   return outputPath;
 }
 
@@ -657,6 +659,81 @@ describe('R3 appearance v3', () => {
         label: center.label,
       },
     });
+  });
+
+  it('keeps the PDF identical across shell appearance and follows the code font', async () => {
+    const env = ui.isolated('appearance-pdf');
+    const outputRoot = artifactsPath('ui-appearance-v3', 'export');
+    await mkdir(outputRoot, { recursive: true });
+    await launch('appearance-pdf');
+    await openPackage(env, 'appearance-pdf', codeDocument('appearance-pdf'));
+
+    const summarize = async (path) => {
+      const pdf = await inspectPdfFile(path);
+      const bytes = await readFile(path, 'latin1');
+      const fonts = new Set();
+      for (const match of bytes.matchAll(/\/(?:BaseFont|FontName)\s*\/([^\s/\[\]<>()]+)/g)) {
+        fonts.add(match[1].replace(/^[A-Z]{6}\+/, ''));
+      }
+      return {
+        pageCount: pdf.pageCount,
+        pageWidthMm: pdf.pages[0].widthMm,
+        pageHeightMm: pdf.pages[0].heightMm,
+        text: normalizeText(pdf.pages.map((pdfPage) => pdfPage.text).join('\n')),
+        textItemCount: pdf.textItems.length,
+        missingGlyphs: pdf.missingGlyphCount,
+        fonts: [...fonts].sort(),
+      };
+    };
+
+    const baselinePath = await exportPdf(outputRoot, 'appearance-baseline');
+    const baseline = await summarize(baselinePath);
+    assert.match(baseline.text, /const paper = "unchanged"/, 'the code prints as real text');
+    assert.equal(baseline.missingGlyphs, 0);
+    assert.ok(
+      baseline.fonts.some((font) => /JetBrains/i.test(font)),
+      `the default code font is JetBrains Mono (${baseline.fonts.join(', ')})`,
+    );
+
+    // Theme, accent, UI scale, and UI font leave the PDF untouched.
+    await openSettings('appearance');
+    await chooseTheme('light');
+    await chooseAccent('rose');
+    await page.locator('[data-ui-scale-option="1.1"]').click();
+    await waitSavedAppearance({ uiScale: 1.1 });
+    await page.locator('[data-ui-font-select]').selectOption('serif');
+    await waitSavedAppearance({ uiFont: 'serif' });
+    await closeSettings();
+    const shellChangedPath = await exportPdf(outputRoot, 'appearance-shell-changed');
+    const shellChanged = await summarize(shellChangedPath);
+    assert.deepEqual(
+      shellChanged,
+      baseline,
+      'theme, accent, UI scale, and UI font leave the PDF text, size, and fonts unchanged',
+    );
+
+    // The code font reaches the PDF: same text and size, different font.
+    await openSettings('appearance');
+    await page.locator('[data-code-font-select]').selectOption('system-mono');
+    await waitSavedAppearance({ codeFont: 'system-mono' });
+    await closeSettings();
+    const codeChangedPath = await exportPdf(outputRoot, 'appearance-code-changed');
+    const codeChanged = await summarize(codeChangedPath);
+    assert.equal(codeChanged.pageCount, baseline.pageCount);
+    assert.ok(Math.abs(codeChanged.pageWidthMm - baseline.pageWidthMm) <= 0.01);
+    assert.equal(codeChanged.text, baseline.text, 'the same real text is exported');
+    assert.equal(codeChanged.missingGlyphs, 0);
+    assert.notDeepEqual(codeChanged.fonts, baseline.fonts, 'the code font changed in the PDF');
+    assert.equal(
+      codeChanged.fonts.some((font) => /JetBrains/i.test(font)),
+      false,
+      'System Mono does not embed JetBrains Mono',
+    );
+    await writeFile(
+      resolve(outputRoot, 'pdf-code-font-evidence.json'),
+      JSON.stringify({ baseline, shellChanged, codeChanged }, null, 2),
+      'utf8',
+    );
   });
 });
 
