@@ -7,47 +7,15 @@ import { useShell, type TabInfo } from '../state/shell';
 import { useRuntime } from '../state/registry';
 import { closeTab, createNewDocument, openPath, openTabMenu } from '../actions';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
+import { TAB_GAP, TAB_MAX_WIDTH, visibleTabWindow } from '../lib/tab-policy';
 
 /**
- * Batch V tab policy. Active tabs expand (170–220 px), inactive tabs stay
- * compact (96 px, shrinking to an 80 px floor). When even the floor does not
- * fit, the visible window keeps the active tab and as many neighbours as fit;
- * the existing overflow menu lists every open tab. Keep these in sync with
- * `.nf-tab` / `.nf-tab[data-active]` in styles.css.
+ * R3 tab sizing. All tabs may expand to 220 px; inactive tabs shrink first (to
+ * an 80 px floor) and the active tab keeps 220 until they are at the floor, then
+ * may shrink to 170. When the floors do not fit, the visible window keeps the
+ * active tab and as many neighbours as fit; the overflow menu lists every open
+ * tab. The CSS owns the flex geometry; `lib/tab-policy.ts` owns the threshold.
  */
-const TAB_GAP = 4;
-const INACTIVE_TAB_FLOOR = 80;
-const ACTIVE_TAB_FLOOR = 170;
-
-function visibleTabWindow(
-  tabs: TabInfo[],
-  activeTab: string | null,
-  available: number,
-): TabInfo[] {
-  if (tabs.length === 0) return tabs;
-  if (!Number.isFinite(available)) return tabs;
-  const floorWidth = (count: number): number =>
-    ACTIVE_TAB_FLOOR + Math.max(0, count - 1) * (INACTIVE_TAB_FLOOR + TAB_GAP);
-  if (floorWidth(tabs.length) <= available) return tabs;
-
-  const activeIndex = tabs.findIndex((tab) => tab.packagePath === activeTab);
-  let start = activeIndex < 0 ? 0 : activeIndex;
-  let end = start;
-  const fits = (nextStart: number, nextEnd: number): boolean =>
-    floorWidth(nextEnd - nextStart + 1) <= available;
-  let preferAfter = true;
-  while (true) {
-    const canAfter = end + 1 < tabs.length && fits(start, end + 1);
-    const canBefore = start - 1 >= 0 && fits(start - 1, end);
-    if (preferAfter && canAfter) end += 1;
-    else if (!preferAfter && canBefore) start -= 1;
-    else if (canAfter) end += 1;
-    else if (canBefore) start -= 1;
-    else break;
-    preferAfter = !preferAfter;
-  }
-  return tabs.slice(start, end + 1);
-}
 
 function tabButtonTitle(tab: TabInfo): string {
   return tab.title;
@@ -165,6 +133,14 @@ export function TabStrip(): JSX.Element {
     () => visibleTabWindow(tabs, activeTab, availableWidth),
     [tabs, activeTab, availableWidth],
   );
+  // The tablist asks for one 220 px slot per visible tab (plus gaps), so a few
+  // tabs expand to the maximum and the `+` stays right after the last one. When
+  // that request exceeds the strip it shrinks, and the tabs shrink with it;
+  // inactive tabs shrink first (see `.nf-tab` in styles.css).
+  const listWidth =
+    visibleTabs.length === 0
+      ? 0
+      : visibleTabs.length * TAB_MAX_WIDTH + (visibleTabs.length - 1) * TAB_GAP;
 
   const onDragEnd = (event: DragEndEvent): void => {
     const { active, over } = event;
@@ -237,6 +213,7 @@ export function TabStrip(): JSX.Element {
             className="nf-tablist"
             role="tablist"
             aria-label="Open documents"
+            style={{ width: `min(100%, ${listWidth}px)` }}
             onKeyDown={onTablistKeyDown}
           >
             {visibleTabs.map((tab) => (

@@ -78,7 +78,7 @@ is to share one app/session per surface and move assertions into subtests.
 
 | Surface | Files | Overlap / unique coverage |
 |---|---|---|
-| Shell | `v0-shell-frame`, `m2-shell`, `m2-view`, `ui-batch-a`, `ui-batch-v` | Titlebar/rail/status (V0), tab ARIA/scroll restore (m2-shell), zoom/fit (m2-view), C header/settings/palette (Batch A), Settings width/toast/tab stress/inset (Batch V). |
+| Shell | `v0-shell-frame`, `m2-shell`, `m2-view`, `ui-batch-a`, `ui-batch-v`, `ui-appearance-v3` | Titlebar/rail/status (V0), tab ARIA/scroll restore (m2-shell), zoom/fit (m2-view), C header/settings/palette (Batch A), Settings width/toast/inset (Batch V), appearance themes/accents/UI scale/fonts, code font, paper isolation (R3). |
 | Settings | `m4e1-settings-platform`, `m4d1-page-density`, `r1b-page-settings`, `ui-batch-b`, `ui-settings-advanced`, `ui-editor-shortcuts`, `ui-settings-recovery` | No-document/corrupt/failed write (m4e1), real-DOM density (m4d1), Page setup/override/read-only (r1b/B), advanced typography/layout (C), Editor shortcut search + native Help command + overlay gate (`ui-editor-shortcuts`), global + document-map recovery (R1). |
 | Page/edges | `r2a`, `r2b`, `r2e`, `r2d`, `r2f`, `r2g`, `r2i`, `r2j` | Distinct geometry/edge/callout assertions on the same Page surface; best candidate for two shared-app suites. |
 | Anchors | 13 `m3*` files | Distinct text/formula/code/reference/repair/outline cases; group by family, not delete. |
@@ -88,6 +88,18 @@ is to share one app/session per surface and move assertions into subtests.
 No suite is removed here: the current overlap is mostly repeated Electron
 startup and shared fixtures. A future consolidation should first write a
 file → surface/AC matrix and keep every unique assertion.
+
+## R3 tab sizing policy
+
+Every tab may expand to 220 px when space allows. Inactive tabs shrink first,
+from 220 down to an 80 px floor; the active tab keeps its expanded width and may
+shrink to 170 px only once the inactive tabs are at the floor. When even those
+floor widths do not fit, the existing visible window hides the far tabs and the
+overflow menu still lists every tab. Status icons and the close control never
+shrink, the `+` stays after the last visible tab, and the tablist never scrolls
+horizontally. The flex geometry lives in `styles.css`; the window threshold and
+constants live in `apps/desktop/src/renderer/src/lib/tab-policy.ts` and are
+guarded by `apps/desktop/test/tab-policy.test.ts`.
 
 ## Concurrency policy
 

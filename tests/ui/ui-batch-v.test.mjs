@@ -316,7 +316,7 @@ describe('Batch V visual refinement', () => {
     assert.equal(visibility.focusedInsideToast, false, 'a toast never steals focus');
   });
 
-  it('expands the active tab and windows the rest at the status-safe floor', async () => {
+  it('expands tabs when space allows, shrinks inactive tabs first, then windows', async () => {
     await launch('batch-v-tabs');
     await ui.seedDemo();
     await page.waitForSelector('.nf-tablist');
@@ -332,13 +332,56 @@ describe('Batch V visual refinement', () => {
       await h.waitSaved();
     };
 
+    const measure = async () =>
+      page.evaluate(() => {
+        const tabs = [...document.querySelectorAll('.nf-tab')];
+        const active = tabs.find((tab) => tab.getAttribute('data-active') === 'true');
+        return {
+          widths: tabs.map((tab) => tab.getBoundingClientRect().width),
+          activeWidth: active?.getBoundingClientRect().width ?? null,
+          activeIndex: tabs.indexOf(active),
+        };
+      });
+
     await addTab(2);
     await page.screenshot({ path: join(screenshotDir, 'tabs-2.png') });
+    const two = await measure();
+    assert.equal(two.widths.length, 2);
+    assert.ok(
+      two.widths.every((width) => width >= 219.5 && width <= 220.5),
+      `all tabs expand to 220 px when space allows (${two.widths.join(', ')})`,
+    );
+
+    while ((await tabCount()) < 4) {
+      await addTab((await tabCount()) + 1);
+    }
+    await page.screenshot({ path: join(screenshotDir, 'tabs-4.png') });
+    const four = await measure();
+    assert.ok(
+      four.widths.every((width) => width >= 219.5 && width <= 220.5),
+      `four tabs still fit at 220 px (${four.widths.join(', ')})`,
+    );
 
     while ((await tabCount()) < 8) {
       await addTab((await tabCount()) + 1);
     }
     await page.screenshot({ path: join(screenshotDir, 'tabs-8.png') });
+    const eight = await measure();
+    const inactiveEight = eight.widths.filter((_, index) => index !== eight.activeIndex);
+    assert.ok(eight.activeWidth !== null);
+    assert.ok(
+      eight.activeWidth >= 219.5 && eight.activeWidth <= 220.5,
+      `the active tab stays expanded at eight tabs (${eight.activeWidth})`,
+    );
+    assert.ok(
+      inactiveEight.length > 0 &&
+        inactiveEight.every((width) => width > 80.5 && width < 219.5),
+      `inactive tabs start shrinking before overflow (${inactiveEight.join(', ')})`,
+    );
+    assert.ok(
+      inactiveEight.every((width) => (eight.activeWidth ?? 0) > width),
+      'the active tab is wider than every inactive tab',
+    );
 
     while ((await tabCount()) < 14) {
       await addTab((await tabCount()) + 1);
@@ -399,7 +442,7 @@ describe('Batch V visual refinement', () => {
     assert.ok(stress.activeWidth !== null);
     assert.ok(
       stress.activeWidth >= 169.5 && stress.activeWidth <= 220.5,
-      `the active tab expands between 170 and 220 px (${stress.activeWidth})`,
+      `the active tab stays between 170 and 220 px (${stress.activeWidth})`,
     );
     assert.ok(
       stress.activeLeft !== null &&
@@ -412,8 +455,8 @@ describe('Batch V visual refinement', () => {
     );
     const inactive = stress.widths.filter((_, index) => index !== stress.activeIndex);
     assert.ok(
-      inactive.length > 0 && inactive.every((width) => width >= 79.5 && width <= 96.5),
-      `inactive tabs stay compact at the 80–96 px floor (${inactive.join(', ')})`,
+      inactive.length > 0 && inactive.every((width) => width >= 79.5 && width <= 220.5),
+      `inactive tabs stay between the 80 px floor and 220 px (${inactive.join(', ')})`,
     );
     assert.ok(
       inactive.every((width) => stress.activeWidth > width),

@@ -59,11 +59,11 @@ describe('Batch V visual contracts', () => {
     );
   });
 
-  it('keeps the active tab expanded and inactive tabs compact at the floor', () => {
-    expect(declaration('.nf-tab', 'flex')).toBe('0 1 96px');
+  it('lets every tab expand and shrinks inactive tabs first (R3)', () => {
+    expect(declaration('.nf-tab', 'flex')).toBe('1 1000 220px');
     expect(declaration('.nf-tab', 'min-width')).toBe('80px');
-    expect(declaration('.nf-tab', 'max-width')).toBe('96px');
-    expect(declaration('.nf-tab[data-active="true"]', 'flex')).toBe('1 1 170px');
+    expect(declaration('.nf-tab', 'max-width')).toBe('220px');
+    expect(declaration('.nf-tab[data-active="true"]', 'flex')).toBe('1 1 220px');
     expect(declaration('.nf-tab[data-active="true"]', 'min-width')).toBe('170px');
     expect(declaration('.nf-tab[data-active="true"]', 'max-width')).toBe('220px');
   });
