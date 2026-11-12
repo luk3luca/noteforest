@@ -11,7 +11,7 @@
  */
 
 import {
-  EDGE_STYLE,
+  PAGE_EDGE_STYLE,
   arrowPath,
   openArrowForDirection,
   pageEdgeAccessibleLabel,
@@ -50,13 +50,15 @@ function routeAttribute(route: PageRoute): string {
 }
 
 function routePath(route: PageRoute): string {
-  return roundedPath(route.points, EDGE_STYLE.radius);
+  return roundedPath(route.points, PAGE_EDGE_STYLE.radius);
 }
 
 function routeArrow(edge: PageEdge): string {
+  // Page Read, Page Edit, and print pass the Page style explicitly: a future
+  // Continuous edge setting can never change the paper.
   return edge.role === 'primary'
-    ? arrowPath(edge.route.tip, edge.route.direction)
-    : openArrowForDirection(edge.route.tip, edge.route.direction);
+    ? arrowPath(edge.route.tip, edge.route.direction, PAGE_EDGE_STYLE)
+    : openArrowForDirection(edge.route.tip, edge.route.direction, PAGE_EDGE_STYLE);
 }
 
 export function PageEdges({ edges, trunks, geometry, labels: resolvedLabels }: PageEdgesProps): JSX.Element | null {

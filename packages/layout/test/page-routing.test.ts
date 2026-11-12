@@ -3,7 +3,7 @@ import {
   arrowPoints,
   buildPageEdges,
   buildPageEdgeModel,
-  EDGE_STYLE,
+  PAGE_EDGE_STYLE,
   isOrthogonalRoute,
   openArrowPath,
   pageRouteMidpoint,
@@ -118,7 +118,7 @@ describe('page route primitives', () => {
       { x: 60, y: 60 },
       { x: 120, y: 60 },
     ];
-    const path = roundedPath(points, EDGE_STYLE.radius);
+    const path = roundedPath(points, PAGE_EDGE_STYLE.radius);
     expect(path).not.toMatch(/\bC\b/);
     expect(path).toContain(' Q ');
     expect(path.startsWith('M 10 10')).toBe(true);
@@ -130,23 +130,23 @@ describe('page route primitives', () => {
     const right = arrowPoints({ x: 100, y: 100 }, 'right');
     expect(right[0]).toEqual({ x: 100, y: 100 });
     expect(right[1]).toEqual({
-      x: 100 - EDGE_STYLE.arrowLength,
-      y: 100 - EDGE_STYLE.arrowHalfWidth,
+      x: 100 - PAGE_EDGE_STYLE.arrowLength,
+      y: 100 - PAGE_EDGE_STYLE.arrowHalfWidth,
     });
     const left = arrowPoints({ x: 100, y: 100 }, 'left');
     expect(left[1]).toEqual({
-      x: 100 + EDGE_STYLE.arrowLength,
-      y: 100 - EDGE_STYLE.arrowHalfWidth,
+      x: 100 + PAGE_EDGE_STYLE.arrowLength,
+      y: 100 - PAGE_EDGE_STYLE.arrowHalfWidth,
     });
     const down = arrowPoints({ x: 100, y: 100 }, 'down');
     expect(down[1]).toEqual({
-      x: 100 - EDGE_STYLE.arrowHalfWidth,
-      y: 100 - EDGE_STYLE.arrowLength,
+      x: 100 - PAGE_EDGE_STYLE.arrowHalfWidth,
+      y: 100 - PAGE_EDGE_STYLE.arrowLength,
     });
     const up = arrowPoints({ x: 100, y: 100 }, 'up');
     expect(up[1]).toEqual({
-      x: 100 - EDGE_STYLE.arrowHalfWidth,
-      y: 100 + EDGE_STYLE.arrowLength,
+      x: 100 - PAGE_EDGE_STYLE.arrowHalfWidth,
+      y: 100 + PAGE_EDGE_STYLE.arrowLength,
     });
     for (const direction of ['right', 'left', 'down', 'up'] as const) {
       expect(openArrowPath({ x: 10, y: 10 }, ...(direction === 'right'
@@ -182,7 +182,7 @@ describe('page route primitives', () => {
       { x: 642.33, y: 248.99 },
       { x: 642.33, y: 211.75 },
     ]);
-    expect(roundedPath(points, EDGE_STYLE.radius)).toContain('Q');
+    expect(roundedPath(points, PAGE_EDGE_STYLE.radius)).toContain('Q');
   });
 
   it('computes a deterministic midpoint on the polyline', () => {
@@ -214,13 +214,13 @@ describe('obstacle-aware page routing', () => {
     expect(route.blocked).toBe(false);
     expect(route.entry).toBe('left');
     expect(route.direction).toBe('right');
-    expect(route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin);
+    expect(route.stem).toBeGreaterThanOrEqual(PAGE_EDGE_STYLE.stemMin);
     expect(isOrthogonalRoute(route.points)).toBe(true);
     expect(routeIntersectsRect(route, middle)).toBe(false);
     expect(route.tip).toEqual({ x: later.x, y: 50 });
     const last = route.points.at(-1)!;
     const beforeLast = route.points.at(-2)!;
-    expect(last.x - beforeLast.x).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.001);
+    expect(last.x - beforeLast.x).toBeGreaterThanOrEqual(PAGE_EDGE_STYLE.stemMin - 0.001);
     expect(Math.abs(last.y - beforeLast.y)).toBeLessThan(0.001);
   });
 
@@ -244,7 +244,7 @@ describe('obstacle-aware page routing', () => {
       });
       expect(route.blocked, `sibling ${index} is routable`).toBe(false);
       expect(route.entry).toBe('left');
-      expect(route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.001);
+      expect(route.stem).toBeGreaterThanOrEqual(PAGE_EDGE_STYLE.stemMin - 0.001);
       for (const obstacle of obstacles) {
         if (obstacle === target) continue;
         expect(routeIntersectsRect(route, obstacle), `sibling ${index} avoids ${obstacle.x}`).toBe(
@@ -271,7 +271,7 @@ describe('obstacle-aware page routing', () => {
       { x: 100, y: 40 },
       { x: 124, y: 40 },
     ]);
-    expect(roundedPath(route.points, EDGE_STYLE.radius)).not.toMatch(/\bC\b/);
+    expect(roundedPath(route.points, PAGE_EDGE_STYLE.radius)).not.toMatch(/\bC\b/);
   });
 
   it('falls back to the target top only when the left edge has no room', () => {
@@ -289,7 +289,7 @@ describe('obstacle-aware page routing', () => {
     expect(route.entry).toBe('top');
     expect(route.direction).toBe('down');
     expect(route.tip).toEqual({ x: 100, y: 240 });
-    expect(route.stem).toBe(EDGE_STYLE.stemMin);
+    expect(route.stem).toBe(PAGE_EDGE_STYLE.stemMin);
     expect(isOrthogonalRoute(route.points)).toBe(true);
     expect(
       routeIntersectsRect(route, target),
@@ -310,7 +310,7 @@ describe('obstacle-aware page routing', () => {
     expect(route.blocked).toBe(false);
     expect(route.entry).toBe('top');
     expect(route.direction).toBe('down');
-    expect(route.stem).toBe(EDGE_STYLE.stemMin);
+    expect(route.stem).toBe(PAGE_EDGE_STYLE.stemMin);
     expect(route.tip).toEqual({ x: 102, y: 240 });
     expect(isOrthogonalRoute(route.points)).toBe(true);
   });
@@ -355,7 +355,7 @@ describe('obstacle-aware page routing', () => {
     expect(route.entry).toBe('left');
     expect(route.direction).toBe('right');
     expect(route.tip).toEqual({ x: 30, y: 280 });
-    expect(route.stem).toBeGreaterThanOrEqual(EDGE_STYLE.stemMin - 0.01);
+    expect(route.stem).toBeGreaterThanOrEqual(PAGE_EDGE_STYLE.stemMin - 0.01);
     expect(isOrthogonalRoute(route.points)).toBe(true);
     expect(routeIntersectsRect(route, target)).toBe(false);
   });

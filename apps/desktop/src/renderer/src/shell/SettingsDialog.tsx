@@ -193,10 +193,13 @@ function statusLabel(state: 'ok' | 'defaults' | 'corrupt' | 'unreadable' | 'newe
  */
 export function SettingsDialog({
   onClose,
-  initialPage = 'page',
+  initialPage = 'general',
 }: {
   onClose: () => void;
-  /** Page to open on; the Help → Keyboard shortcuts command targets Editor. */
+  /**
+   * Page to open on. ⌘, and the palette land on General; the Help → Keyboard
+   * shortcuts command targets Editor, and the Page toolbar can target Page.
+   */
   initialPage?: SettingsPageId;
 }): JSX.Element {
   const packagePath = useShell((state) => state.activeTab);

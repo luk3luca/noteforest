@@ -340,12 +340,64 @@ describe('Batch A UI rework', () => {
     assert.match(topicShadow, /0px 0px 0px 1px inset/);
     assert.doesNotMatch(topicShadow, /2px 0px 0px 0px inset/);
 
-    // The Settings nav uses the same ring.
+    // The Settings nav uses the same ring. ⌘, lands on General.
     await page.keyboard.press('Meta+,');
     await page.waitForSelector('[data-settings-dialog="true"]');
-    const navShadow = await css('[data-settings-nav="page"]', 'box-shadow');
+    const navShadow = await css('[data-settings-nav="general"]', 'box-shadow');
     assert.match(navShadow, /0px 0px 0px 1px inset/);
     await closeSettings();
+  });
+
+  it('keeps SelectionToolbar icons on the 14 px chrome weight with 26 px targets', async () => {
+    await launch('batch-a-selection-toolbar');
+    await seedPerformance();
+    const prose = page
+      .locator('.nf-editor[data-active="true"] [data-block-card] .nf-block-prose p')
+      .first();
+    await prose.click({ position: { x: 2, y: 6 } });
+    await page.keyboard.press('Home');
+    await page.keyboard.down('Shift');
+    for (let index = 0; index < 6; index += 1) await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+    await page
+      .locator('[data-testid="selection-toolbar"] [data-action="branch-from-selection"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
+
+    const bubble = await page.evaluate(() => {
+      const toolbar = document.querySelector('[data-testid="selection-toolbar"]');
+      const style = getComputedStyle(toolbar);
+      const icons = [...toolbar.querySelectorAll('.nf-bubble-button svg')].map((svg) => {
+        const box = svg.getBoundingClientRect();
+        const button = svg.closest('button').getBoundingClientRect();
+        return {
+          width: box.width,
+          height: box.height,
+          strokeWidth: getComputedStyle(svg).strokeWidth,
+          targetWidth: button.width,
+          targetHeight: button.height,
+        };
+      });
+      return {
+        background: style.backgroundColor,
+        borderColor: style.borderTopColor,
+        icons,
+      };
+    });
+    assert.equal(bubble.icons.length, 6, 'six bubble actions keep their icons');
+    for (const icon of bubble.icons) {
+      assert.equal(icon.width, 14, 'SelectionToolbar icons are 14 px wide');
+      assert.equal(icon.height, 14, 'SelectionToolbar icons are 14 px high');
+      assert.equal(icon.strokeWidth, '1.5px', 'SelectionToolbar icons use the 1.5 stroke');
+      assert.equal(icon.targetWidth, 26, 'the button target stays 26 px wide');
+      assert.equal(icon.targetHeight, 26, 'the button target stays 26 px high');
+    }
+    assert.equal(bubble.background, 'rgb(38, 42, 48)', 'the bubble keeps surface-3');
+    assert.equal(bubble.borderColor, 'rgb(46, 50, 56)', 'the bubble keeps its border');
+    await page.screenshot({
+      path: join(screenshotDir, 'selection-toolbar-14px.png'),
+    });
+    // Leave no selection behind for the next launch in this process.
+    await page.keyboard.press('Escape');
   });
 
   it('shows the instant-save Settings shell with only real pages and a read-only document', async () => {
@@ -370,16 +422,21 @@ describe('Batch A UI rework', () => {
       'Export',
       'Data & About',
     ]);
-    // Arrow navigation is a real page switch and moves focus with it.
-    await page.locator('[data-settings-nav="page"]').focus();
+    // ⌘, lands on General. Arrow navigation is a real page switch and moves
+    // focus with it (the nav steps from the active page).
+    assert.equal(
+      await page.locator('[data-settings-nav="general"]').getAttribute('aria-current'),
+      'page',
+    );
+    await page.locator('[data-settings-nav="general"]').focus();
     await page.keyboard.press('ArrowDown');
     await page.waitForFunction(
-      () => document.activeElement?.id === 'nf-settings-nav-continuous',
+      () => document.activeElement?.id === 'nf-settings-nav-appearance',
       undefined,
       { timeout: 5000 },
     );
     assert.equal(
-      await page.locator('[data-settings-nav="continuous"]').getAttribute('aria-current'),
+      await page.locator('[data-settings-nav="appearance"]').getAttribute('aria-current'),
       'page',
     );
     await page.locator('[data-settings-nav="page"]').click();
@@ -485,6 +542,7 @@ describe('Batch A UI rework', () => {
       .update(await readFile(join(packagePath, 'document.json')))
       .digest('hex');
     await openSettings();
+    await page.locator('[data-settings-nav="page"]').click();
     assert.equal(
       await page.locator('[data-page-scope-option="document"]').isDisabled(),
       false,
@@ -564,8 +622,10 @@ describe('Batch A UI rework', () => {
     );
     await page.keyboard.type(' EDITED');
 
-    // The density write must commit the overlay first.
+    // The density write must commit the overlay first. Settings opens on
+    // General; the density lens lives on the Page page.
     await openSettings();
+    await page.locator('[data-settings-nav="page"]').click();
     const slider = page.locator('[data-page-density-slider]');
     await slider.focus();
     await slider.press('ArrowLeft');

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPageEdgeModel,
+  CONTINUOUS_EDGE_STYLE,
   DEFAULT_PAGE_SETTINGS,
   layoutDocument,
   normalizePageSettings,
+  PAGE_EDGE_STYLE,
   pageChromeLayout,
   pageCssVariables,
   pageGeometry,
@@ -761,3 +763,61 @@ describe('print model identity (M4c2 R1/R4/R5)', () => {
 
 /** Type-level guard: the compositor input is a plain serializable record. */
 export type PrintModelRecord = PrintModel;
+
+/**
+ * Commit 0 isolation: the print model is built from Page layout + Page edges,
+ * so a future Continuous edge setting must not move any printed geometry. The
+ * print renderer resolves paths through `PageEdges` (`PAGE_EDGE_STYLE`); this
+ * test proves the model itself cannot see the Continuous values.
+ */
+describe('print model edge style isolation', () => {
+  function printable(model: PrintModel): string {
+    return JSON.stringify({
+      pageCount: model.pageCount,
+      pages: model.pages.map((page) => ({
+        fragments: page.fragments,
+        edges: page.edges,
+        trunks: page.trunks,
+      })),
+    });
+  }
+
+  it('is byte-identical when the Continuous edge values change', () => {
+    const { document, specs } = modeADocument();
+    const { settings, layout, paginated } = layoutFor(document, specs);
+    const baseline = buildModel(document, { settings, layout, paginated });
+    const printedEdges = baseline.pages.flatMap((page) => page.edges);
+    expect(printedEdges.length).toBeGreaterThan(0);
+
+    const original = { ...CONTINUOUS_EDGE_STYLE };
+    try {
+      Object.assign(CONTINUOUS_EDGE_STYLE, {
+        gap: 11,
+        radius: 9,
+        stemMin: 40,
+        laneMin: 21,
+        laneMax: 64,
+        trunkInset: 33,
+        trunkGap: 7,
+        arrowLength: 18,
+        arrowHalfWidth: 9,
+        edgeWidth: 5,
+        edgeWidthActive: 6,
+        edgeWidthMuted: 4,
+        minGap: 12,
+        referenceArrowLength: 19,
+        referenceArrowSpread: 0.9,
+      });
+      expect(CONTINUOUS_EDGE_STYLE.stemMin).toBe(40);
+      const after = buildModel(document, { settings, layout, paginated });
+      expect(printable(after)).toBe(printable(baseline));
+      // The print CSS carries the Page stroke width, not the Continuous one.
+      expect(after.cssVariables['--nf-page-edge-width']).toBe(
+        String(PAGE_EDGE_STYLE.edgeWidth),
+      );
+      expect(after.cssVariables['--nf-edge-width']).toBeUndefined();
+    } finally {
+      Object.assign(CONTINUOUS_EDGE_STYLE, original);
+    }
+  });
+});

@@ -15,7 +15,7 @@ import {
   type AppearanceSettings,
   type CodeFontId,
 } from './appearance.js';
-import { EDGE_STYLE } from './edge-style.js';
+import { PAGE_EDGE_STYLE } from './edge-style.js';
 import type { LayoutOptions, Orientation, PagePacking } from './types.js';
 import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
 
@@ -479,7 +479,7 @@ export function effectivePageTheme(theme: PageTheme): PageTheme {
   // R2j1: a wrapped child group always leaves room for its trunk and left stem.
   const childIndent = Math.max(
     scale(theme.childIndent),
-    childTrunkInset + EDGE_STYLE.stemMin + 2,
+    childTrunkInset + PAGE_EDGE_STYLE.stemMin + 2,
   );
   const calloutCardIndent = Math.max(scale(theme.calloutCardIndent), calloutTrunkInset);
   const minContentWidth = scaledContentWidthFloor(
@@ -512,7 +512,7 @@ export function effectivePageTheme(theme: PageTheme): PageTheme {
     childTrunkInset,
     calloutTrunkInset,
     calloutCardIndent,
-    calloutRightGap: Math.max(EDGE_STYLE.stemMin, scale(theme.calloutRightGap)),
+    calloutRightGap: Math.max(PAGE_EDGE_STYLE.stemMin, scale(theme.calloutRightGap)),
     calloutGap: scale(theme.calloutGap),
     minContentWidth,
     maxCardWidth,
@@ -588,6 +588,9 @@ export function pageCssVariables(theme: PageTheme): Record<string, string> {
     '--nf-page-card-border': `${cssNumber(effective.cardBorder)}px`,
     '--nf-page-segment-gap': `${cssNumber(effective.segmentGap)}px`,
     '--nf-page-max-card-width': `${cssNumber(effective.maxCardWidth)}px`,
+    // Page arrows read the Page edge style only. The Continuous canvas keeps
+    // `--nf-edge-width`, so a Continuous edge setting cannot change the paper.
+    '--nf-page-edge-width': cssNumber(PAGE_EDGE_STYLE.edgeWidth),
   };
 }
 
@@ -700,7 +703,7 @@ function resolveTheme(
   );
   // A below-stem minimum keeps mode A's leader visible even for a custom gap;
   // 0 produced a zero-length route at the parent's right edge (R2 seam review F6).
-  const calloutRightGap = clamp('calloutRightGap', 24, EDGE_STYLE.stemMin, 96);
+  const calloutRightGap = clamp('calloutRightGap', 24, PAGE_EDGE_STYLE.stemMin, 96);
   const calloutModeMinWidth = clamp('calloutModeMinWidth', 240, 0, 800);
   const minContentWidth = clamp('minContentWidth', 160, 80, 800);
   const maxCardWidth = Math.max(minContentWidth, clamp('maxCardWidth', 420, 120, 2000));

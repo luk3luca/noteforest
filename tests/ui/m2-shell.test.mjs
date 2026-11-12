@@ -1,11 +1,12 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { appDir, artifactsPath, axePath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 
 const tempRoot = artifactsPath('m2f-phase5c-shell-ui');
+const screenshotDir = artifactsPath('m2-shell');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 const { isolated } = ui;
@@ -63,6 +64,7 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(tempRoot, { recursive: true });
+    await mkdir(screenshotDir, { recursive: true });
     // axe is injected from the app origin; the production CSP blocks inline scripts.
     await copyFile(axePath, resolve(appDir, 'out/renderer/axe.min.js'));
   });
@@ -279,9 +281,8 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
       assert.ok(Math.abs(depth.width - 144) <= 1, 'empty child uses the 144 px minimum');
     }
 
-    // The branch port (collapse chevron / child-count bubble) and the add-child
-    // control share one center line: the port has no horizontal padding, so its
-    // 16 px box matches the 16 px control below it.
+    // The branch port (collapse chevron / child count) uses the same 18 px
+    // circle as the add controls and shares their vertical center line.
     const expandedPorts = await portGeometry();
     assert.equal(expandedPorts.length, 3, 'three parents expose a branch port');
     assert.ok(
@@ -289,14 +290,51 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
       'the chain starts expanded',
     );
     assert.ok(
-      expandedPorts.every((row) => Math.abs(row.portWidth - 16) <= 0.5),
-      `expanded ports are 16 px (${expandedPorts.map((row) => row.portWidth).join(', ')})`,
+      expandedPorts.every((row) => Math.abs(row.portWidth - 18) <= 0.5),
+      `expanded ports are the 18 px circle (${expandedPorts.map((row) => row.portWidth).join(', ')})`,
     );
     assertPortCentered(expandedPorts, 'expanded');
-
-    // Collapse the deepest parent: the count bubble replaces the chevron in the
-    // same 16 px box.
+    const portStyle = await page.evaluate(() => {
+      const port = document.querySelector('[data-branch-port]');
+      const chevron = port?.querySelector('.nf-port-chevron');
+      const style = port === null ? null : getComputedStyle(port);
+      return {
+        border: style?.borderTopWidth ?? null,
+        borderColor: style?.borderTopColor ?? null,
+        background: style?.backgroundColor ?? null,
+        radius: style?.borderRadius ?? null,
+        chevron:
+          chevron === null || chevron === undefined
+            ? null
+            : {
+                width: chevron.getBoundingClientRect().width,
+                stroke: getComputedStyle(chevron).strokeWidth,
+              },
+      };
+    });
+    assert.deepEqual(portStyle, {
+      border: '1px',
+      borderColor: 'rgb(60, 65, 72)',
+      background: 'rgb(32, 35, 41)',
+      radius: '999px',
+      chevron: { width: 12, stroke: '1.5px' },
+    });
+    // The circle is a hover affordance like the add controls: show it before the
+    // evidence screenshot.
     const deepestParent = page.locator(`[data-block-card="${expandedPorts.at(-1).id}"]`);
+    await deepestParent.hover();
+    await page.waitForFunction(
+      (id) => {
+        const port = document.querySelector(`[data-branch-port="${id}"]`);
+        return port !== null && getComputedStyle(port).opacity === '1';
+      },
+      expandedPorts.at(-1).id,
+      { timeout: 5000 },
+    );
+    await h.activeEditor().screenshot({ path: join(screenshotDir, 'branch-port-expanded.png') });
+
+    // Collapse the deepest parent: the count replaces the chevron inside the
+    // same 18 px circle; the circle itself does not change size.
     await deepestParent.locator('[data-branch-port]').click();
     await page.waitForFunction(
       (id) =>
@@ -312,17 +350,29 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     const collapsedPort = collapsedPorts.find((row) => row.collapsed);
     assert.ok(collapsedPort !== undefined, 'one port is collapsed');
     assert.ok(
-      Math.abs(collapsedPort.dotWidth - 16) <= 0.5,
-      `a single-digit bubble is 16 px wide (${collapsedPort.dotWidth})`,
+      Math.abs(collapsedPort.portWidth - 18) <= 0.5,
+      `the collapsed port keeps the 18 px circle (${collapsedPort.portWidth})`,
     );
     assert.ok(
-      Math.abs(collapsedPort.dotRight - collapsedPort.addCenter - 8) <= 0.5,
-      `the bubble right edge stays on the add-child right edge (${collapsedPort.dotRight} vs ${collapsedPort.addCenter + 8})`,
+      Math.abs(
+        collapsedPort.dotLeft +
+          collapsedPort.dotWidth / 2 -
+          (collapsedPort.addCenter + 0.5),
+      ) <= 1.5,
+      `the count sits inside the circle (${collapsedPort.dotLeft}..${collapsedPort.dotLeft + collapsedPort.dotWidth} vs ${collapsedPort.portCenter})`,
     );
     assert.ok(
       collapsedPort.dotLeft >= collapsedPort.cardRight - 10 - 0.5,
-      `the bubble does not overlap the card content edge (${collapsedPort.dotLeft} vs ${collapsedPort.cardRight - 10})`,
+      `the count does not overlap the card content edge (${collapsedPort.dotLeft} vs ${collapsedPort.cardRight - 10})`,
     );
+    assert.equal(
+      await page
+        .locator(`[data-branch-port="${collapsedPort.id}"] .nf-port-dot`)
+        .innerText(),
+      '1',
+      'the collapsed port keeps the child count',
+    );
+    await h.activeEditor().screenshot({ path: join(screenshotDir, 'branch-port-collapsed.png') });
     await deepestParent.locator('[data-branch-port]').click();
     await page.waitForFunction(
       (id) =>

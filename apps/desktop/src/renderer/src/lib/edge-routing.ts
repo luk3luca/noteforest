@@ -20,6 +20,7 @@
 import {
   arrowPath,
   arrowPoints,
+  CONTINUOUS_EDGE_STYLE,
   roundedPath,
   simplifyPath,
   type EdgePoint,
@@ -139,8 +140,9 @@ function makeArrow(tip: Point, direction: EdgeDirection): RoutedArrow {
   return {
     direction,
     tip,
-    points: arrowPoints(tip, direction),
-    path: arrowPath(tip, direction),
+    // Continuous reads its own edge style; the Page surface pins its own.
+    points: arrowPoints(tip, direction, CONTINUOUS_EDGE_STYLE),
+    path: arrowPath(tip, direction, CONTINUOUS_EDGE_STYLE),
   };
 }
 

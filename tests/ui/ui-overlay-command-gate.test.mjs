@@ -155,6 +155,8 @@ async function openSettings() {
   await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.keyboard.press('Meta+,');
   await page.waitForSelector('[data-settings-dialog="true"]');
+  // Settings opens on General; Page margins live on the Page page.
+  await page.locator('[data-settings-nav="page"]').click();
   await page.waitForSelector('[data-page-margin="top"]');
 }
 

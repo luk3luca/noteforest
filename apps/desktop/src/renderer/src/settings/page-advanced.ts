@@ -13,7 +13,7 @@
  */
 
 import type { PageSettingsOverride, PageTheme } from '@noteforest/layout';
-import { EDGE_STYLE, PAGE_THEME_PRESETS } from '@noteforest/layout';
+import { PAGE_EDGE_STYLE, PAGE_THEME_PRESETS } from '@noteforest/layout';
 import { compactOverride } from './page-setup';
 
 /**
@@ -198,7 +198,7 @@ function rangeMessage(key: EditableThemeKey): string {
  * current layer's stored inset so a legacy/custom baseline is respected.
  */
 export function minimumChildIndent(childTrunkInset: number): number {
-  return childTrunkInset + EDGE_STYLE.stemMin + 2;
+  return childTrunkInset + PAGE_EDGE_STYLE.stemMin + 2;
 }
 
 /**

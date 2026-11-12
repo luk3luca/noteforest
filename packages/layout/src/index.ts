@@ -9,4 +9,5 @@ export * from './page-chrome.js';
 export * from './page-edges.js';
 export * from './page-routing.js';
 export * from './edge-style.js';
+export * from './edge-path.js';
 export * from './estimate.js';

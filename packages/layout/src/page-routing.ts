@@ -8,7 +8,7 @@
  * - the route leaves the source fragment to the right and enters the target
  *   from the left whenever the page has room for a real stem;
  * - fragment card boxes are obstacles; the route never crosses a card interior
- *   and the final stem is at least `EDGE_STYLE.stemMin` where possible;
+ *   and the final stem is at least `PAGE_EDGE_STYLE.stemMin` where possible;
  * - when the left of a target is outside the content box (a top-level card on
  *   the content left), the router falls back to the target top, then right,
  *   then bottom, with the same arrow/corner primitives;
@@ -20,11 +20,11 @@
  */
 
 import {
-  EDGE_STYLE,
-  simplifyPath,
+  PAGE_EDGE_STYLE,
   type EdgeArrowDirection,
   type EdgePoint,
 } from './edge-style.js';
+import { simplifyPath } from './edge-path.js';
 
 export interface PageRouteRect {
   x: number;
@@ -315,8 +315,8 @@ function buildEntries(
   // 11 px, so the target top is preferred instead of shortening the stem.
   const candidates: EntryCandidate[] = [];
   for (const entry of order) {
-    if (available[entry] < EDGE_STYLE.stemMin) continue;
-    const candidate = makeCandidate(entry, EDGE_STYLE.stemMin);
+    if (available[entry] < PAGE_EDGE_STYLE.stemMin) continue;
+    const candidate = makeCandidate(entry, PAGE_EDGE_STYLE.stemMin);
     if (valid(candidate)) candidates.push(candidate);
   }
   if (candidates.length > 0) return candidates;
@@ -325,7 +325,7 @@ function buildEntries(
   // order and shorten only as much as the page forces.
   for (const entry of order) {
     const room = available[entry];
-    const full = Math.min(EDGE_STYLE.stemMin, room);
+    const full = Math.min(PAGE_EDGE_STYLE.stemMin, room);
     if (full < 1) {
       if (input.requiredEntry === undefined) continue;
       const candidate = makeCandidate(entry, 0);
@@ -435,7 +435,7 @@ function searchOrthogonal(input: SearchInput): EdgePoint[] | null {
   // Continuous branch lane. Duplicate edges can move one step per parallel
   // edge so they never overdraw exactly.
   for (let index = 0; index < 4; index += 1) {
-    xs.push(start.x + index * EDGE_STYLE.pageLaneStep);
+    xs.push(start.x + index * PAGE_EDGE_STYLE.pageLaneStep);
   }
   const xValues = uniqueSorted(
     xs.filter(
@@ -577,7 +577,7 @@ function searchOrthogonal(input: SearchInput): EdgePoint[] | null {
       if (!free) continue;
       const from = pointAt(nodeIndex);
       const to = pointAt(nextNode);
-      const turn = nextDirection === directionIndex ? 0 : EDGE_STYLE.pageTurnPenalty;
+      const turn = nextDirection === directionIndex ? 0 : PAGE_EDGE_STYLE.pageTurnPenalty;
       push(
         nextNode,
         nextDirection,
@@ -639,7 +639,7 @@ function fallbackRoute(
         ? Math.max(0, Math.min(start.x, tip.x - 0.5))
         : Math.max(
             MARGIN,
-            Math.min(start.x + EDGE_STYLE.laneMin, Math.max(MARGIN, tip.x - 1)),
+            Math.min(start.x + PAGE_EDGE_STYLE.laneMin, Math.max(MARGIN, tip.x - 1)),
           );
     const points = simplifyPath([
       start,
@@ -673,7 +673,7 @@ function fallbackRoute(
     };
   }
   const railX = Math.min(
-    Math.max(start.x + EDGE_STYLE.laneMin, MARGIN),
+    Math.max(start.x + PAGE_EDGE_STYLE.laneMin, MARGIN),
     Math.max(MARGIN, input.bounds.width - MARGIN),
   );
   const points = simplifyPath([
@@ -740,7 +740,7 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
   }
   if (input.sourceRect) rawObstacles.push(input.sourceRect);
   rawObstacles.push(target);
-  const clearance = EDGE_STYLE.pageClearance;
+  const clearance = PAGE_EDGE_STYLE.pageClearance;
   // Search obstacles keep every card (including source/target) clear by the
   // visual clearance. The source exit stub and the target entry stem are the
   // only segments allowed to cross that clearance; they are checked against
@@ -759,7 +759,7 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
           x: exit.x,
           y: Math.min(
             input.bounds.height - MARGIN,
-            Math.max(MARGIN, exit.y + EDGE_STYLE.pageClearance + 1),
+            Math.max(MARGIN, exit.y + PAGE_EDGE_STYLE.pageClearance + 1),
           ),
         }
       : input.sourceRect
@@ -770,8 +770,8 @@ export function routePageEdge(input: PageRouteInput): PageRoute {
                 exit.x,
                 exit.x +
                   Math.max(
-                    EDGE_STYLE.pageClearance,
-                    EDGE_STYLE.laneMin + (input.laneIndex ?? 0) * EDGE_STYLE.pageLaneStep,
+                    PAGE_EDGE_STYLE.pageClearance,
+                    PAGE_EDGE_STYLE.laneMin + (input.laneIndex ?? 0) * PAGE_EDGE_STYLE.pageLaneStep,
                   ),
               ),
             ),

@@ -123,7 +123,30 @@ async function openSettings() {
   await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.keyboard.press('Meta+,');
   await page.waitForSelector('[data-settings-dialog="true"]', { timeout: 10000 });
+  // Settings opens on General; this suite covers the Page setup page.
+  await page.locator('[data-settings-nav="page"]').click();
   await page.waitForSelector('[data-page-setup-section="true"]');
+}
+
+/**
+ * The overlay root exists before TipTap's view is mounted. Typing before the
+ * view's onCreate baseline would be recorded as part of that baseline, so the
+ * commit would treat the text as unchanged. Wait for the mounted ProseMirror
+ * view and for focus inside the overlay.
+ */
+async function waitForEditView() {
+  await page.waitForFunction(
+    () => {
+      const view = document.querySelector('[data-page-edit-overlay] .ProseMirror');
+      return (
+        view !== null &&
+        view.getAttribute('contenteditable') === 'true' &&
+        document.activeElement?.closest('[data-page-edit-overlay]') !== null
+      );
+    },
+    undefined,
+    { timeout: 10000 },
+  );
 }
 
 /**
@@ -135,6 +158,8 @@ async function openSettingsFromButton() {
   await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.locator('.nf-sidebar-settings').click();
   await page.waitForSelector('[data-settings-dialog="true"]', { timeout: 10000 });
+  // Settings opens on General; this suite covers the Page setup page.
+  await page.locator('[data-settings-nav="page"]').click();
   await page.waitForSelector('[data-page-setup-section="true"]');
 }
 
@@ -463,6 +488,7 @@ describe('Batch B Page settings', () => {
       undefined,
       { timeout: 5000 },
     );
+    await waitForEditView();
     await page.keyboard.type(' FIRST');
     await page.waitForFunction(
       () => {
@@ -501,6 +527,7 @@ describe('Batch B Page settings', () => {
       undefined,
       { timeout: 5000 },
     );
+    await waitForEditView();
     await page.keyboard.type(' SECOND');
     await page.waitForFunction(
       () => {
@@ -519,6 +546,16 @@ describe('Batch B Page settings', () => {
       { timeout: 15000 },
     );
     await page.waitForSelector('[data-page-edit-overlay]', { state: 'detached', timeout: 10000 });
+    // The write commits the overlay first; wait for the committed document state
+    // instead of racing the save round-trip.
+    await page.waitForFunction(
+      () =>
+        /SECOND/.test(
+          JSON.stringify(window.__noteforestTest.structure().blocks.intro.content),
+        ),
+      undefined,
+      { timeout: 10000, polling: 100 },
+    );
     const content = JSON.stringify((await ui.structure()).blocks.intro.content);
     assert.match(content, /FIRST/);
     assert.match(content, /SECOND/);
@@ -532,6 +569,7 @@ describe('Batch B Page settings', () => {
       undefined,
       { timeout: 5000 },
     );
+    await waitForEditView();
     await page.keyboard.type(' THIRD');
     await page.waitForFunction(
       () => {
@@ -549,6 +587,14 @@ describe('Batch B Page settings', () => {
       { timeout: 15000 },
     );
     await page.waitForSelector('[data-page-edit-overlay]', { state: 'detached', timeout: 10000 });
+    await page.waitForFunction(
+      () =>
+        /THIRD/.test(
+          JSON.stringify(window.__noteforestTest.structure().blocks.intro.content),
+        ),
+      undefined,
+      { timeout: 10000 },
+    );
     assert.match(JSON.stringify((await ui.structure()).blocks.intro.content), /THIRD/);
 
     await closeSettings();

@@ -54,13 +54,19 @@ html[data-theme="dark"] {
   --surface-1: #1b1d20;
   --surface-2: #202329;
   --surface-3: #262a30;
+  /* Continuous note-card surface and hover: one step off the canvas so a card
+     reads as a note, not as canvas whitespace. Not --surface-1: in light that
+     role is white and would equal the canvas. */
+  --note-surface: #1b1d20;
+  --note-surface-hover: #202329;
   --text-1: #e7e8ea;
   --text-2: #a6abb2;
   --text-3: #8b9199;
   --border-1: #2e3238;
   --border-2: #3c4148;
-  --edge: #5e6670;
-  --edge-muted: #3a3f46;
+  /* Resting edges are a visible tree line, not a hint. */
+  --edge: #7b858f;
+  --edge-muted: #565f68;
   --danger: #d98b8b;
   --danger-soft: #351f22;
   --danger-border: #6a3a3d;
@@ -85,13 +91,17 @@ html[data-theme="light"] {
   --surface-1: #ffffff;
   --surface-2: #f2f5f7;
   --surface-3: #e8edf1;
+  /* Light note cards need their own surface: --surface-1 is white, so a card
+     would disappear into the canvas. */
+  --note-surface: #f6f8fb;
+  --note-surface-hover: #eef3f7;
   --text-1: #1a1f23;
   --text-2: #4d5a63;
   --text-3: #5f6b75;
   --border-1: #d7dee4;
   --border-2: #b8c4cd;
-  --edge: #8b959d;
-  --edge-muted: #c3ccd2;
+  --edge: #6c7882;
+  --edge-muted: #9aa5ad;
   --danger: #a23b32;
   --danger-soft: #fbeae7;
   --danger-border: #e0b3ac;
@@ -214,6 +224,12 @@ button:disabled {
   color: var(--text-3);
   font-size: calc(11px * var(--ui-scale));
   letter-spacing: 0.01em;
+  /* Optical centering against the native traffic lights (trafficLightPosition
+     y 9 + ~12 px light height). The 30 px row and the 84 px native inset stay
+     untouched; line-height 1 removes the half-leading that pulled the glyphs
+     up, and the half-pixel offset seats them on the lights' visual center. */
+  line-height: 1;
+  transform: translateY(0.5px);
 }
 
 /* ---------------------------------------------------------------- toolbar */
@@ -2066,22 +2082,19 @@ button:disabled {
   padding: var(--nf-card-padding);
   /* Continuous note-card surface; Page cards/print keep the shared radius. */
   border-radius: var(--nf-note-radius);
-  background: var(--surface-1);
+  background: var(--note-surface);
   transition: background 120ms var(--motion), box-shadow 120ms var(--motion);
 }
 
+/* Top-level and child cards share the same note surface: a top-level block is a
+   note too, not canvas transparency. */
 .nf-block-body[data-top-level="true"] {
   min-width: var(--nf-top-level-min-width);
   max-width: var(--nf-top-level-max-width);
-  background: transparent;
 }
 
 .nf-block-body:hover {
-  background: var(--surface-2);
-}
-
-.nf-block-body[data-top-level="true"]:hover {
-  background: var(--surface-1);
+  background: var(--note-surface-hover);
 }
 
 .nf-block-body[data-active="true"] {
@@ -2833,23 +2846,26 @@ button:disabled {
 }
 
 /* Collapse lives at the top-right of the card, not in an in-flow footer: a
-   one-line block with children stays one line tall. The add-child `+` owns the
-   right-edge center (the branch port), so the two never compete. */
+   one-line block with children stays one line tall. It uses the same 18 px
+   circle as the add controls (border + surface), so the card chrome reads as one
+   family; its center sits on the right edge, like the add-child control. */
 .nf-branch-port {
   position: absolute;
-  right: -8px;
-  top: -8px;
+  right: -9px;
+  top: -9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  /* No horizontal padding: the port box stays the same 16 px width as the
-     add-child control below it, so both share one center line. A multi-digit
-     count still grows the box to the left from the fixed right edge. */
+  min-width: 18px;
+  height: 18px;
+  /* No horizontal padding in the expanded state: the chevron center stays on
+     the same vertical line as the add-child control below it. A multi-digit
+     count grows the pill to the left from the fixed right edge. */
   padding: 0;
+  border: 1px solid var(--border-2);
   border-radius: 999px;
-  color: var(--text-3);
+  background: var(--surface-2);
+  color: var(--text-2);
   opacity: 0;
   transition: opacity 120ms var(--motion), background 120ms var(--motion);
   z-index: 4;
@@ -2877,16 +2893,12 @@ button:disabled {
   display: none;
 }
 
+/* The count lives inside the same circle; it never draws a second bubble. */
 .nf-branch-port[data-collapsed="true"] .nf-port-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
   padding: 0 3px;
-  border: 1px solid var(--border-2);
-  border-radius: 999px;
-  background: var(--surface-3);
   color: var(--text-2);
   font-size: 10px;
   line-height: 1;
@@ -3191,12 +3203,12 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-block-body[data-callout="true"] {
-  background: var(--surface-1);
+  background: var(--note-surface);
   box-shadow: inset 0 0 0 1px var(--border-1);
 }
 
 .nf-block-body[data-callout="true"]:hover {
-  background: var(--surface-2);
+  background: var(--note-surface-hover);
 }
 
 .nf-block-body[data-callout="true"][data-active="true"] {
@@ -6230,7 +6242,9 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-page-edge-path {
   stroke: currentColor;
-  stroke-width: var(--nf-edge-width);
+  /* Page arrows own their width: a Continuous edge setting cannot reach the
+     paper. The value comes from `pageCssVariables`. */
+  stroke-width: var(--nf-page-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
   opacity: 0.88;
@@ -6243,7 +6257,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-page-edge-arrow {
   stroke: currentColor;
-  stroke-width: var(--nf-edge-width);
+  stroke-width: var(--nf-page-edge-width);
   stroke-linejoin: round;
   opacity: 0.95;
 }
@@ -6258,7 +6272,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-page-edge-arrow-reference {
   fill: none;
   stroke: currentColor;
-  stroke-width: var(--nf-edge-width);
+  stroke-width: var(--nf-page-edge-width);
 }
 
 .nf-page-edge-blocked .nf-page-edge-path {

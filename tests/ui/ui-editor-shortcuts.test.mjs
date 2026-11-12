@@ -167,14 +167,15 @@ describe('Settings Editor shortcut list', () => {
     await page.screenshot({ path: join(screenshotDir, 'editor-shortcuts.png') });
   });
 
-  it('keeps the default Settings entry on Page and gates the shortcut command behind the modal', async () => {
+  it('opens the default Settings entry on General and gates the shortcut command behind the modal', async () => {
     await launch('editor-shortcuts-command');
 
-    // ⌘, opens the current default page, not the shortcut list.
+    // ⌘, opens General, not the shortcut list and not the Page page.
     await page.keyboard.press('Meta+,');
     await waitSettingsOpen();
-    assert.equal(await activeNav(), 'Page');
+    assert.equal(await activeNav(), 'General');
     assert.equal(await page.locator('[data-shortcut-search="true"]').count(), 0);
+    assert.equal(await page.locator('[data-settings-nav="general"]').getAttribute('aria-current'), 'page');
 
     // The same gated dispatch path as every menu command: Settings owns the
     // channel, so the command cannot switch the open dialog to Editor.
@@ -182,7 +183,7 @@ describe('Settings Editor shortcut list', () => {
     assert.equal(before, 'dialog');
     await dispatchMenuCommand('settings-shortcuts');
     await settle();
-    assert.equal(await activeNav(), 'Page', 'the open Settings dialog keeps its page');
+    assert.equal(await activeNav(), 'General', 'the open Settings dialog keeps its page');
     assert.equal(await page.locator('[data-shortcut-search="true"]').count(), 0);
 
     await page.getByRole('button', { name: 'Done' }).click();

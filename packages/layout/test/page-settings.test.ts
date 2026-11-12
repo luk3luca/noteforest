@@ -3,7 +3,7 @@ import {
   DEFAULT_APP_SETTINGS,
   DEFAULT_LAYOUT_OPTIONS,
   DEFAULT_PAGE_SETTINGS,
-  EDGE_STYLE,
+  PAGE_EDGE_STYLE,
   effectivePageTheme,
   mmToPx,
   normalizeAppSettings,
@@ -310,7 +310,7 @@ describe('settings normalization and merge', () => {
     // R2 seam review F6: a custom mode A gap never collapses the leader stem.
     expect(
       normalizePageSettings({ theme: { calloutRightGap: 0 } }).theme.calloutRightGap,
-    ).toBe(EDGE_STYLE.stemMin);
+    ).toBe(PAGE_EDGE_STYLE.stemMin);
   });
 
   it('drops empty or invalid overrides', () => {
@@ -437,6 +437,7 @@ describe('theme maps', () => {
         '--nf-page-chrome-size',
         '--nf-page-code-line',
         '--nf-page-code-size',
+        '--nf-page-edge-width',
         '--nf-page-heading-1',
         '--nf-page-heading-2',
         '--nf-page-heading-3',
@@ -641,7 +642,7 @@ describe('page density lens (M4d1/M4e2)', () => {
         Math.max(PAGE_MAX_CARD_WIDTH_MAX, theme.minContentWidth),
       );
       // R2j1 keeps the wrapped-child stem origin clear of its trunk.
-      expect(theme.childIndent).toBeGreaterThanOrEqual(theme.childTrunkInset + EDGE_STYLE.stemMin);
+      expect(theme.childIndent).toBeGreaterThanOrEqual(theme.childTrunkInset + PAGE_EDGE_STYLE.stemMin);
       expect(theme.calloutCardIndent).toBeGreaterThanOrEqual(theme.calloutTrunkInset);
       expect(theme.maxWrapIndent).toBeGreaterThanOrEqual(theme.wrapIndent);
     }

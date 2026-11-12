@@ -70,6 +70,13 @@ async function openSettingsWithShortcut() {
   await page.keyboard.press('Meta+,');
   await page.waitForSelector('[data-settings-dialog="true"]');
   assert.equal(await page.locator('.nf-settings-heading').innerText(), 'Settings');
+  // ⌘, opens General; the density lens lives on the Page page.
+  assert.equal(
+    await page.locator('[data-settings-nav="general"]').getAttribute('aria-current'),
+    'page',
+    '⌘, lands on General',
+  );
+  await page.locator('[data-settings-nav="page"]').click();
   await page.waitForSelector('[data-page-density-section="true"]');
 }
 
@@ -79,6 +86,7 @@ async function openSettingsFromPalette() {
   await page.waitForSelector('.nf-palette');
   await page.getByRole('option', { name: /Settings/ }).click();
   await page.waitForSelector('[data-settings-dialog="true"]');
+  await page.locator('[data-settings-nav="page"]').click();
   await page.waitForSelector('[data-page-density-section="true"]');
 }
 
