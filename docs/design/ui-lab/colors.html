@@ -33,7 +33,9 @@
       .seg { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--border-1); border-radius: var(--radius-control); background: var(--surface-1); }
       .seg button { border: 0; border-radius: 2px; padding: 5px 9px; background: transparent; color: var(--text-2); font: inherit; cursor: pointer; }
       .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text-1); box-shadow: inset 0 0 0 1px var(--accent-strong); }
-      .swatches { display: flex; gap: 6px; align-items: center; }
+      .swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; max-width: 380px; }
+      .swatch-group { display: inline-flex; align-items: center; gap: 6px; }
+      .swatch-group-label { color: var(--text-3); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.07em; }
       .swatch { width: 24px; height: 24px; padding: 0; border: 1px solid var(--border-2); border-radius: 50%; cursor: pointer; }
       .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--text-1); }
       .check { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 12px; }
@@ -144,7 +146,8 @@
           <h1>NoteForest color proof</h1>
           <p>
             A design-only proof, not Electron. Toggle dark/light and the current R3 palette versus the
-            research recommendation. The same token names as the app are used on this page.
+            research recommendation. The Pastel accents show the tune; the Vivid accents are the new
+            brighter group. The same token names as the app are used on this page.
           </p>
         </div>
         <div class="controls">
@@ -257,7 +260,7 @@
         <div class="legend-item"><span class="legend-swatch" id="sw-edge"></span><span class="legend-label">edge on canvas</span><span class="legend-value" id="val-edge"></span></div>
         <p class="legend-note">
           Text and control targets are WCAG 4.5:1 and 3:1. The note surface is a separation cue, not text.
-          The recommended palette also harmonises dark teal/rose perceived lightness and fixes selected amber text.
+          The recommended palette also harmonises dark teal/rose perceived lightness and fixes selected amber text. Vivid accents are the new brighter group; the Pastel group is the tuned R3 set.
         </p>
       </section>
 
@@ -309,6 +312,18 @@
         ...accentsCurrentLight,
         rose: { ...accentsCurrentLight.rose, hover: '#873348' },
       };
+      const accentsVivid = {
+        violet: { accent: '#BE38F3', strong: '#D26BFF', soft: '#2A173A', hover: '#C94DFF', contrast: '#0B0F12' },
+        magenta: { accent: '#F43F8E', strong: '#FF6BA8', soft: '#361524', hover: '#FF57A0', contrast: '#101418' },
+        cyan: { accent: '#22D3EE', strong: '#67E8F9', soft: '#0C242B', hover: '#3BDDF3', contrast: '#101418' },
+        orange: { accent: '#FB923C', strong: '#FDBA74', soft: '#2C1E12', hover: '#FCA55A', contrast: '#101418' },
+      };
+      const accentsVividLight = {
+        violet: { accent: '#8B2BB8', strong: '#6F1E96', soft: '#F3E1FB', hover: '#7A25A6', contrast: '#FFFFFF' },
+        magenta: { accent: '#B0185C', strong: '#8E124A', soft: '#FBE0EC', hover: '#9F1553', contrast: '#FFFFFF' },
+        cyan: { accent: '#0E7490', strong: '#0B5F77', soft: '#DDF5FA', hover: '#0C6A84', contrast: '#FFFFFF' },
+        orange: { accent: '#C2410C', strong: '#9A3412', soft: '#FDE8D7', hover: '#AD3A0B', contrast: '#FFFFFF' },
+      };
 
       const baseDark = {
         bgApp: '#101113', bgCanvas: '#17181a', bgSidebar: '#131416',
@@ -335,12 +350,12 @@
 
       const palettes = {
         current: {
-          dark: { ...baseDark, accents: accentsCurrent },
-          light: { ...baseLight, accents: accentsCurrentLight },
+          dark: { ...baseDark, accents: { ...accentsCurrent, ...accentsVivid } },
+          light: { ...baseLight, accents: { ...accentsCurrentLight, ...accentsVividLight } },
         },
         recommended: {
-          dark: { ...baseDark, text3: '#949aa2', border2: '#6e737a', accents: accentsRecommended },
-          light: { ...baseLight, text3: '#5b6771', border2: '#82888c', accents: accentsRecommendedLight },
+          dark: { ...baseDark, text3: '#949aa2', border2: '#6e737a', accents: { ...accentsRecommended, ...accentsVivid } },
+          light: { ...baseLight, text3: '#5b6771', border2: '#82888c', accents: { ...accentsRecommendedLight, ...accentsVividLight } },
         },
       };
 
@@ -349,19 +364,31 @@
       const accentControl = document.getElementById('accent-control');
       const strongNote = document.getElementById('strong-note');
 
-      const accentLabels = { blue: 'Blue', teal: 'Teal', amber: 'Amber', rose: 'Rose' };
-      for (const id of Object.keys(accentLabels)) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'swatch';
-        button.dataset.accentOption = id;
-        button.title = accentLabels[id];
-        button.setAttribute('aria-label', accentLabels[id]);
-        button.addEventListener('click', () => {
-          state.accent = id;
-          apply();
-        });
-        accentControl.append(button);
+      const accentGroups = [
+        { label: 'Pastel', ids: { blue: 'Blue', teal: 'Teal', amber: 'Amber', rose: 'Rose' } },
+        { label: 'Vivid', ids: { violet: 'Violet', magenta: 'Magenta', cyan: 'Cyan', orange: 'Orange' } },
+      ];
+      for (const group of accentGroups) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'swatch-group';
+        const label = document.createElement('span');
+        label.className = 'swatch-group-label';
+        label.textContent = group.label;
+        wrapper.append(label);
+        for (const [id, name] of Object.entries(group.ids)) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'swatch';
+          button.dataset.accentOption = id;
+          button.title = name;
+          button.setAttribute('aria-label', name);
+          button.addEventListener('click', () => {
+            state.accent = id;
+            apply();
+          });
+          wrapper.append(button);
+        }
+        accentControl.append(wrapper);
       }
 
       function setVar(name, value) {
