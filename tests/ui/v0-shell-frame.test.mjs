@@ -1,7 +1,7 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import { addAnchor, addBranch, addTopLevelBlock, textDoc } from '../support/fixtures.mjs';
@@ -147,6 +147,25 @@ describe('V0 visual shell', () => {
     const titlebar = await box('.nf-titlebar');
     assert.equal(titlebar.height, 30, 'TitleBar is 30 px');
     assert.equal((await page.locator('.nf-titlebar').innerText()).trim(), 'NoteForest');
+    // The native traffic-light inset and row height are unchanged; only the
+    // label's optical center moves (line-height 1 + 0.5 px).
+    assert.equal(
+      await css('.nf-titlebar', 'padding-left'),
+      '84px',
+      'the native traffic-light inset is unchanged',
+    );
+    assert.equal(await css('.nf-app-name', 'line-height'), '11px', 'line-height is 1');
+    assert.equal(
+      await css('.nf-app-name', 'transform'),
+      'matrix(1, 0, 0, 1, 0, 0.5)',
+      'the label carries the 0.5 px optical offset',
+    );
+    const appName = await box('.nf-app-name');
+    assert.ok(
+      Math.abs(appName.top + appName.height / 2 - (titlebar.top + 15.5)) <= 0.6,
+      `the label centers on the traffic lights' visual center (${appName.top + appName.height / 2})`,
+    );
+
     assert.equal(
       await page.locator('.nf-titlebar [role="tablist"]').count(),
       0,
@@ -319,6 +338,39 @@ describe('V0 visual shell', () => {
       width: 1440,
       height: 900,
     });
+
+    // 2x titlebar evidence. `scale: 'device'` captures at the device pixel
+    // ratio (2 on a Retina Mac), so the 30 px row lands as a 1440 x 60 image.
+    // Page screenshots cannot capture the native traffic lights (macOS draws
+    // them outside the web contents); the JSON records the native placement the
+    // label is aligned to.
+    const finalTitlebar = await box('.nf-titlebar');
+    const finalAppName = await box('.nf-app-name');
+    const devicePixelRatio = await page.evaluate(() => window.devicePixelRatio);
+    await page.locator('.nf-titlebar').screenshot({
+      path: join(screenshotDir, 'titlebar-alignment-2x.png'),
+      scale: 'device',
+    });
+    await writeFile(
+      join(screenshotDir, 'titlebar-alignment.json'),
+      JSON.stringify(
+        {
+          devicePixelRatio,
+          screenshotScale: devicePixelRatio >= 2 ? 2 : 1,
+          titlebarHeight: finalTitlebar.height,
+          nativeTrafficLightInsetPx: 84,
+          trafficLightPosition: { x: 16, y: 9 },
+          labelLineHeight: await css('.nf-app-name', 'line-height'),
+          labelTransform: await css('.nf-app-name', 'transform'),
+          labelCenterPx: finalAppName.top + finalAppName.height / 2,
+          titlebarCenterPx: finalTitlebar.top + finalTitlebar.height / 2,
+          screenshot: 'titlebar-alignment-2x.png',
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
   });
 
   it('keeps the sidebar as a persistent 48 px rail with expand and Settings', async () => {

@@ -92,6 +92,8 @@ async function openSettings() {
   await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.keyboard.press('Meta+,');
   await page.waitForSelector('[data-settings-dialog="true"]', { timeout: 10000 });
+  // Settings opens on General; this suite covers the Page setup page.
+  await page.locator('[data-settings-nav="page"]').click();
   await page.waitForSelector('[data-page-setup-section="true"]');
 }
 
@@ -99,6 +101,8 @@ async function openSettingsFromButton() {
   await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
   await page.locator('.nf-sidebar-settings').click();
   await page.waitForSelector('[data-settings-dialog="true"]', { timeout: 10000 });
+  // Settings opens on General; this suite covers the Page setup page.
+  await page.locator('[data-settings-nav="page"]').click();
   await page.waitForSelector('[data-page-setup-section="true"]');
 }
 

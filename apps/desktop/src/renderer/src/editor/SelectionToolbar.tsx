@@ -67,7 +67,7 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => getEditorBindings(editor)?.branchFromSelection()}
           >
-            <GitBranch size={15} strokeWidth={1.5} aria-hidden="true" />
+            <GitBranch size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -77,7 +77,7 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => editor.chain().focus().toggleBold().run()}
           >
-            <Bold size={15} strokeWidth={1.5} aria-hidden="true" />
+            <Bold size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -87,7 +87,7 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           >
-            <Italic size={15} strokeWidth={1.5} aria-hidden="true" />
+            <Italic size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -97,7 +97,7 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => editor.chain().focus().toggleCode().run()}
           >
-            <Code size={15} strokeWidth={1.5} aria-hidden="true" />
+            <Code size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -107,7 +107,7 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
             onMouseDown={(event) => event.preventDefault()}
             onClick={openLink}
           >
-            <Link2 size={15} strokeWidth={1.5} aria-hidden="true" />
+            <Link2 size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -118,7 +118,7 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
               useShell.getState().openDialog({ kind: 'math', mathKind: 'inline', latex: '', pos: null })
             }
           >
-            <Sigma size={15} strokeWidth={1.5} aria-hidden="true" />
+            <Sigma size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
         </div>
       )}

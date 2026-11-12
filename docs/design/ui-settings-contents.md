@@ -82,7 +82,9 @@ Nav behavior:
 
 - Click/arrow keys select a page; the draft survives page switches.
 - Dirty dot on pages with unsaved changes; the Apply button count reflects all dirty pages.
-- `⌘,` opens Settings; `Esc` closes (confirm if dirty); focus is trapped and restored.
+- `⌘,` opens Settings on **General**; the palette Settings entry matches. Help → Keyboard
+  shortcuts opens **Editor**, and the Page toolbar entry opens **Page**. `Esc` closes (confirm if
+  dirty); focus is trapped and restored.
 
 ### 1.3 Footer and save model (proposal D-06)
 

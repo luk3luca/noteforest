@@ -78,6 +78,30 @@ describe('Batch V visual contracts', () => {
     expect(declaration('.nf-tab-dot', 'flex')).toBe('0 0 5px');
   });
 
+  it('keeps the shell polish: titlebar optical center and the 18 px branch port', () => {
+    expect(declaration('.nf-titlebar', 'height')).toBe('30px');
+    expect(declaration('.nf-titlebar', 'padding')).toBe('0 14px 0 84px');
+    expect(declaration('.nf-app-name', 'line-height')).toBe('1');
+    expect(declaration('.nf-app-name', 'transform')).toBe('translateY(0.5px)');
+    expect(declaration('.nf-branch-port', 'min-width')).toBe('18px');
+    expect(declaration('.nf-branch-port', 'height')).toBe('18px');
+    expect(declaration('.nf-branch-port', 'right')).toBe('-9px');
+    expect(declaration('.nf-branch-port', 'top')).toBe('-9px');
+    expect(declaration('.nf-branch-port', 'border')).toBe('1px solid var(--border-2)');
+    expect(declaration('.nf-branch-port', 'background')).toBe('var(--surface-2)');
+    expect(declaration('.nf-branch-port', 'border-radius')).toBe('999px');
+    expect(declaration('.nf-branch-port:hover', 'background')).toBe('var(--surface-3)');
+    // The count is inside the same circle, not a second bubble.
+    expect(declaration('.nf-branch-port[data-collapsed="true"] .nf-port-dot', 'border')).toBe(
+      undefined,
+    );
+    expect(
+      declaration('.nf-branch-port[data-collapsed="true"] .nf-port-dot', 'background'),
+    ).toBe(undefined);
+    expect(declaration('.nf-bubble-button', 'width')).toBe('26px');
+    expect(declaration('.nf-bubble-button', 'height')).toBe('26px');
+  });
+
   it('keeps the toast surface on the app tokens', () => {
     expect(declaration('[data-sonner-toaster]', '--width')).toBe('340px');
     const toast = "[data-sonner-toaster] [data-sonner-toast][data-styled='true']";
