@@ -1,9 +1,10 @@
 # Continuous design tokens
 
-**Status:** Active (M4e3 split, 9 November 2026)
+**Status:** Active (R6 global Continuous settings, 13 November 2026)
 **Source of truth:** `apps/desktop/src/renderer/src/lib/design-tokens.ts` (`DESIGN_TOKENS`,
 `DESIGN_TOKEN_CSS_VARIABLES`), `apps/desktop/src/renderer/src/lib/apply-design-tokens.ts`,
-`apps/desktop/src/renderer/src/styles.css`, `apps/desktop/src/shared/view-state.ts`, and the shared
+`apps/desktop/src/renderer/src/styles.css`, `apps/desktop/src/shared/view-state.ts`,
+`packages/layout/src/continuous-settings.ts` (R6 defaults/clamp/resolution), and the shared
 `packages/layout/src/edge-style.ts`.
 **Index:** [`design-tokens.md`](design-tokens.md). **Page:** [`design-tokens-page.md`](design-tokens-page.md).
 
@@ -21,8 +22,42 @@ Continuous are coincidental unless this document lists them as shared primitives
 | `DocumentViewState.interactionMode` | `edit` on Continuous, `read` on Page | `edit` / `read` | Per-document view state |
 
 There is no separate `ContinuousSettings.zoom`: the only Continuous zoom is
-`DocumentViewState.zoom`, applied by `DocumentEditor`. Canvas width, font, and spacing are not user
-settings today; future Continuous fields belong in this namespace, not in `PageTheme`.
+`DocumentViewState.zoom`, applied by `DocumentEditor`. R6 adds the global `continuous`
+namespace (`spacing`, `arrows`, `widths`) for canvas geometry only; zoom is not a Settings
+control and there is no global zoom default. Future Continuous view-style or manual-break
+fields do not belong in `PageTheme`.
+
+## R6 global Continuous settings
+
+`AppSettings.continuous` (settings.json schema v5) is global-only. The pure source is
+`packages/layout/src/continuous-settings.ts`: defaults, ranges, snapping, canvas floor, CSS
+variables, and the resolved Continuous edge style.
+
+| Field | Default | Range | Step |
+|---|---:|---:|---:|
+| `spacing.chapterGap` | 28 | 16–48 | 1 |
+| `spacing.siblingGap` | 24 | 12–40 | 1 |
+| `spacing.childRowGap` | 16 | 8–32 | 1 |
+| `arrows.width` | 1.25 | 0.75–2.5 | 0.25 |
+| `arrows.activeWidth` | 1.75 | 1.25–3, ≥ resting | 0.25 |
+| `arrows.mutedWidth` | 1 | 0.5–2 | 0.25 |
+| `arrows.size` | 6 | 4–10 | 1 |
+| `widths.canvasMax` | 3200 | 2400–4800 | 100 |
+| `widths.topLevelMax` | 480 | 320–640 | 20 |
+| `widths.childMax` | 420 | 280–560 | 20 |
+
+`continuousCanvasFloor` is `topLevelMax + siblingGap + childMax + 16 px edge corridor`; a
+smaller canvas cap is raised to that floor. The renderer resolves the values into
+`--nf-chapter-gap`, `--nf-child-gap`, `--nf-child-row-gap`, `--nf-canvas-max`,
+`--nf-top-level-max-width`, `--nf-child-max-width`, and the three `--nf-edge-width*`
+variables, scoped to the Continuous surface (and the Settings preview stage). Arrow
+length/half-width and the three stroke widths are resolved by `continuousEdgeStyle` for
+the Continuous router. The root `DESIGN_TOKENS` map remains the boot/default fallback, so a
+migrated v4 file draws the same canvas.
+
+Page Read/Edit, measurement, and the PDF print compositor never read this namespace: they
+read `PAGE_EDGE_STYLE`, `PAGE_EDGE_GEOMETRY`, `PageTheme`, `PageChrome`, and `--paper-*`.
+Isolation is guarded by `apps/desktop/test/continuous-settings-isolation.test.ts`.
 
 ## Canvas and shell tokens
 
@@ -46,20 +81,20 @@ never repeats the literal.
 | `pageStagePaddingX` | `--nf-page-stage-pad-x` | 0 px | Page stage lateral padding (frame only; Page sheet unchanged) |
 | `pageStagePaddingTop` | `--nf-page-stage-pad-top` | 14 px | Page stage top padding |
 | `pageStagePaddingBottom` | `--nf-page-stage-pad-bottom` | 8 px | Page stage bottom padding |
-| `chapterGap` | `--nf-chapter-gap` | **28 px** | Continuous chapter gap |
-| `siblingGap` | `--nf-child-gap` | 24 px | Parent card/lane → direct-child group |
-| `childRowGap` | `--nf-child-row-gap` | 16 px | Vertical gap between sibling blocks |
+| `chapterGap` | `--nf-chapter-gap` | **28 px** | Continuous chapter gap (R6 default; user may override) |
+| `siblingGap` | `--nf-child-gap` | 24 px | Parent card/lane → direct-child group (R6 default) |
+| `childRowGap` | `--nf-child-row-gap` | 16 px | Vertical gap between sibling blocks (R6 default) |
 | `cardPadding` | `--nf-card-padding` | 10 px | Continuous card padding |
 | `cardRadius` | `--nf-card-radius` | 4 px | **Shared** card/block-image radius (Page cards use it too) |
 | `noteRadius` | `--nf-note-radius` | 9 px | Continuous note-card surface radius only (Page cards/print keep `cardRadius`) |
 | `childMinWidth` | `--nf-child-min-width` | 144 px | Continuous child card minimum |
-| `childMaxWidth` | `--nf-child-max-width` | 420 px | Continuous child card maximum |
+| `childMaxWidth` | `--nf-child-max-width` | 420 px | Continuous child card maximum (R6 default) |
 | `topLevelMinWidth` | `--nf-top-level-min-width` | 160 px | Continuous top-level card minimum |
-| `topLevelMaxWidth` | `--nf-top-level-max-width` | 480 px | Continuous top-level card maximum |
+| `topLevelMaxWidth` | `--nf-top-level-max-width` | 480 px | Continuous top-level card maximum (R6 default) |
 | `rowIndent` | `--nf-row-indent` | 26 px | Continuous below-stack rows from the lane left |
-| `edgeWidth` | `--nf-edge-width` | 1.25 | Primary/reference edge stroke (shared) |
-| `edgeWidthActive` | `--nf-edge-width-active` | 1.75 | Selected path stroke (shared) |
-| `edgeWidthMuted` | `--nf-edge-width-muted` | 1 | Unselected path stroke (shared) || `zIndex.edge` | `--nf-z-edge` | 0 | Edge layer |
+| `edgeWidth` | `--nf-edge-width` | 1.25 | Continuous primary/reference edge stroke (R6 default) |
+| `edgeWidthActive` | `--nf-edge-width-active` | 1.75 | Continuous selected path stroke (R6 default) |
+| `edgeWidthMuted` | `--nf-edge-width-muted` | 1 | Continuous unselected path stroke (R6 default) || `zIndex.edge` | `--nf-z-edge` | 0 | Edge layer |
 | `zIndex.rightGroup` | `--nf-z-right-group` | 0 | Direct-child group |
 | `zIndex.calloutLane` | `--nf-z-lane` | 1 | Callout lane |
 | `zIndex.parentCard` | `--nf-z-card` | 2 | Parent card |
@@ -164,6 +199,11 @@ The pure path/arrow algorithms moved to `packages/layout/src/edge-path.ts`
 defaults to `EDGE_STYLE`, so existing callers keep their signature. `DESIGN_TOKENS` re-exports the
 Continuous values as `GEOMETRY`; do not add a second copy.
 
+R6 resolves `continuousEdgeStyle(settings)` from the global Continuous settings: it overrides
+`arrowLength`/`arrowHalfWidth` (one fixed size) and `edgeWidth`/`edgeWidthActive`/`edgeWidthMuted`,
+then keeps every other Continuous primitive unchanged. The renderer passes that object to
+`EdgeLayer`; the Page surface never sees it.
+
 | Token | Value | Used for |
 |---|---:|---|
 | `gap` | 2 px | Arrow-tip gap before the card |
@@ -185,11 +225,13 @@ Continuous values as `GEOMETRY`; do not add a second copy.
 [`design-tokens-page.md`](design-tokens-page.md#page-route-and-shared-edge-values).
 
 
-Continuous and Page arrows use the same stroke width, fixed arrowhead size/fill rules, and
-near-right corner radius. The final stem is surface-owned: Continuous keeps 12 px, Page uses the
-fixed 14 px corridor (`PAGE_EDGE_GEOMETRY`). Reference edges are dashed with an open chevron and
-never join the primary V4 trunk. Page group trunks add continuity across pages; their attachment
-rule uses the same `trunkGap` 0 and the corridor stem, documented in the Page doc.
+Continuous and Page arrows share the fixed arrowhead shape/fill rules and the near-right corner
+radius, but each surface owns its stroke width and arrowhead size: Continuous resolves them from
+the R6 settings (defaults 1.25/1.75/1 and 6 px), while Page keeps `PAGE_EDGE_STYLE` (1.25/1.75/1
+and 6 px). The final stem is surface-owned: Continuous keeps 12 px, Page uses the fixed 14 px
+corridor (`PAGE_EDGE_GEOMETRY`). Reference edges are dashed with an open chevron and never join the
+primary V4 trunk. Page group trunks add continuity across pages; their attachment rule uses the
+same `trunkGap` 0 and the corridor stem, documented in the Page doc.
 
 ## Stacking
 

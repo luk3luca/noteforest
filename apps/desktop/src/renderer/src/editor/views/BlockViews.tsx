@@ -22,6 +22,7 @@ import { getEditorBindings, setDragBlockId } from '../bindings';
 import { useRuntimeVersion } from '../useRuntimeVersion';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
 import { useShell } from '../../state/shell';
+import { useSettingsStore } from '../../state/settings';
 import { calloutLaneWidth, placeCallout, GEOMETRY } from '../../lib/geometry';
 import { anchorHealthReason } from '../../lib/anchor-health';
 import {
@@ -250,6 +251,9 @@ export function BlockView({ node }: NodeViewProps): JSX.Element {
 export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
   const parentId = stringAttr(node.attrs['parentId']);
   const laneRef = useRef<HTMLDivElement | null>(null);
+  const siblingGap = useSettingsStore(
+    (state) => state.app.continuous.spacing.siblingGap,
+  );
 
   useLayoutEffect(() => {
     const lane = laneRef.current;
@@ -347,7 +351,12 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
           }
           // Local coordinates: the lane and the parent card share a left edge,
           // so the parent is `{ x: 0, width: cardWidth }` here.
-          const placement = placeCallout({ x: 0, width: cardWidth }, laneWidth, anchorX);
+          const placement = placeCallout(
+            { x: 0, width: cardWidth },
+            laneWidth,
+            anchorX,
+            siblingGap,
+          );
           const offset = Math.round(placement.left);
           const delta = Math.round(anchorX - offset);
           row.style.setProperty('--nf-callout-offset', `${offset}px`);
@@ -409,7 +418,7 @@ export function CalloutLaneView({ node }: NodeViewProps): JSX.Element {
       attachmentObserver?.disconnect();
       cleanupSetup?.();
     };
-  }, [parentId]);
+  }, [parentId, siblingGap]);
 
   return (
     <NodeViewWrapper className="nf-callout-lane" data-parent-id={parentId} data-callout-lane={parentId}>

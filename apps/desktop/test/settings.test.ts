@@ -64,8 +64,8 @@ describe('global settings persistence', () => {
     });
     expect(result).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
-    expect(stored['continuous']).toBeUndefined();
+    expect(stored['settingsVersion']).toBe(5);
+    expect(stored['continuous']).toEqual(DEFAULT_APP_SETTINGS.continuous);
     expect(stored).toMatchObject({
       page: {
         setup: {
@@ -81,7 +81,8 @@ describe('global settings persistence', () => {
     const read = await readSettingsFile();
     expect(read.status).toEqual({ state: 'ok' });
     expect(read.settings.page.theme.preset).toBe('comfortable');
-    expect(read.settings).not.toHaveProperty('continuous');
+    expect(read.settings.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
+    expect(read.settings.continuous).not.toHaveProperty('zoom');
   });
 
   it('fills partial settings from defaults and clamps unsafe values', async () => {
@@ -115,7 +116,7 @@ describe('global settings persistence', () => {
     });
     expect(written).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['settingsVersion']).toBe(5);
     expect(stored['page']).toMatchObject({
       chrome: { header: 'chapter', footer: 'none', pageNumber: false },
     });
@@ -149,7 +150,7 @@ describe('global settings persistence', () => {
 
     expect(await writeSettings(read.settings)).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['settingsVersion']).toBe(5);
     expect(stored['appearance']).toEqual({
       theme: 'dark',
       accent: 'blue',
@@ -181,7 +182,7 @@ describe('global settings persistence', () => {
       },
     });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['settingsVersion']).toBe(5);
     expect(stored['appearance']).toEqual({
       futureAppearance: 'keep',
       theme: 'light',
@@ -221,7 +222,7 @@ describe('global settings persistence', () => {
     });
   });
 
-  it('migrates a v3 file to schema v4 with export.folder = null and preserves page/appearance (R4)', async () => {
+  it('migrates a v3 file to schema v5 with the R4/R6 namespaces and preserves page/appearance', async () => {
     await writeRaw({
       settingsVersion: 3,
       page: {
@@ -238,10 +239,11 @@ describe('global settings persistence', () => {
       },
     });
     const read = await readSettingsFile();
-    // The v3 -> v4 migration is pure: the read normalizes the new namespace in
-    // memory and never writes the file.
+    // The v3 -> v5 migration is pure: the read normalizes both new namespaces
+    // in memory and never writes the file.
     expect(read.status).toEqual({ state: 'ok', migrated: true });
     expect(read.settings.export).toEqual({ folder: null });
+    expect(read.settings.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
     expect(read.settings.page.theme.density).toBe(0.85);
     expect(read.settings.page.chrome).toEqual({
       header: 'chapter',
@@ -252,7 +254,8 @@ describe('global settings persistence', () => {
 
     expect(await writeSettings(read.settings)).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['settingsVersion']).toBe(5);
+    expect(stored['continuous']).toEqual(DEFAULT_APP_SETTINGS.continuous);
     expect(stored['export']).toEqual({ folder: null });
     expect(stored['page']).toMatchObject({
       setup: { size: 'A5', orientation: 'portrait' },
@@ -262,19 +265,22 @@ describe('global settings persistence', () => {
     expect(stored['appearance']).toMatchObject({ theme: 'light', accent: 'teal' });
   });
 
-  it('round-trips a v4 export folder and preserves unknown export keys (R4)', async () => {
+  it('round-trips a v4 export folder, migrates to v5 continuous defaults, and preserves unknown keys (R4/R6)', async () => {
     await writeRaw({
       settingsVersion: 4,
       export: { folder: '/Users/luca/Exports', futureExport: 'keep' },
       futureTop: { enabled: true },
     });
     const read = await readSettingsFile();
-    expect(read.status).toEqual({ state: 'ok' });
+    // v4 -> v5 is a pure in-memory migration: no write on read.
+    expect(read.status).toEqual({ state: 'ok', migrated: true });
     expect(read.settings.export).toEqual({ folder: '/Users/luca/Exports' });
+    expect(read.settings.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
 
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['settingsVersion']).toBe(5);
+    expect(stored['continuous']).toEqual(DEFAULT_APP_SETTINGS.continuous);
     expect(stored['export']).toEqual({
       futureExport: 'keep',
       folder: '/Users/luca/Exports',
@@ -335,18 +341,65 @@ describe('global settings persistence', () => {
     expect(read.status).toEqual({ state: 'ok', migrated: true });
     expect(read.settings.page.setup.size).toBe('Letter');
     expect(read.settings.page.theme.density).toBe(0.9);
-    expect(read.settings).not.toHaveProperty('continuous');
+    expect(read.settings.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
+    expect(read.settings.continuous).not.toHaveProperty('zoom');
 
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
-    expect(stored['continuous']).toBeUndefined();
+    expect(stored['settingsVersion']).toBe(5);
+    expect(stored['continuous']).toEqual(DEFAULT_APP_SETTINGS.continuous);
     expect(stored['page']).toMatchObject({
       setup: { size: 'Letter', orientation: 'portrait' },
       theme: { preset: 'comfortable', density: 0.9 },
       manualBreakBeforeBlockIds: ['b1'],
     });
   });
+
+  it('round-trips a v5 continuous namespace and preserves unknown nested keys (R6)', async () => {
+    await writeRaw({
+      settingsVersion: 5,
+      continuous: {
+        spacing: { chapterGap: 40, siblingGap: 30, childRowGap: 20, futureSpacing: 'keep' },
+        arrows: { width: 2, activeWidth: 1.5, mutedWidth: 1.5, size: 9 },
+        widths: { canvasMax: 3600, topLevelMax: 600, childMax: 500 },
+        futureContinuous: { keep: true },
+      },
+    });
+    const read = await readSettingsFile();
+    expect(read.status).toEqual({ state: 'ok' });
+    // Active width is raised to at least the resting width.
+    expect(read.settings.continuous).toEqual({
+      spacing: { chapterGap: 40, siblingGap: 30, childRowGap: 20 },
+      arrows: { width: 2, activeWidth: 2, mutedWidth: 1.5, size: 9 },
+      widths: { canvasMax: 3600, topLevelMax: 600, childMax: 500 },
+    });
+
+    await writeSettings(read.settings);
+    const stored = await readRaw();
+    expect(stored['settingsVersion']).toBe(5);
+    expect(stored['continuous']).toMatchObject({
+      futureContinuous: { keep: true },
+      spacing: { chapterGap: 40, siblingGap: 30, childRowGap: 20, futureSpacing: 'keep' },
+      arrows: { width: 2, activeWidth: 2, mutedWidth: 1.5, size: 9 },
+      widths: { canvasMax: 3600, topLevelMax: 600, childMax: 500 },
+    });
+  });
+
+  it('migrates a v1 legacy continuous zoom into the R6 defaults after the removal step', async () => {
+    await writeRaw({
+      settingsVersion: 1,
+      continuous: { zoom: 2 },
+      futureTop: true,
+    });
+    const read = await readSettingsFile();
+    expect(read.status).toEqual({ state: 'ok', migrated: true });
+    expect(read.settings.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
+    await writeSettings(read.settings);
+    const stored = await readRaw();
+    expect(stored['continuous']).toEqual(DEFAULT_APP_SETTINGS.continuous);
+    expect(stored['futureTop']).toBe(true);
+  });
+
 
   it('preserves unknown top-level and nested fields across a write', async () => {
     await writeRaw({
@@ -363,7 +416,7 @@ describe('global settings persistence', () => {
     expect(read.status).toEqual({ state: 'ok', migrated: true });
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['settingsVersion']).toBe(5);
     expect(stored['futureTop']).toEqual({ enabled: true });
     expect(stored['page']).toMatchObject({
       futurePage: 'keep',
@@ -374,22 +427,31 @@ describe('global settings persistence', () => {
 
   it('keeps a newer schema version and its unknown fields instead of downgrading', async () => {
     await writeRaw({
-      settingsVersion: 5,
+      settingsVersion: 6,
       futureTop: true,
-      continuous: { future: true },
+      continuous: {
+        future: true,
+        spacing: { futureSpacing: 3 },
+        widths: { futureWidth: 7 },
+      },
       page: { theme: { density: 0.95 }, futurePage: 1 },
       appearance: { theme: 'light', futureAppearance: 'keep' },
       export: { futureExport: 'keep' },
     });
     const read = await readSettingsFile();
-    expect(read.status).toEqual({ state: 'newer', version: 5 });
+    expect(read.status).toEqual({ state: 'newer', version: 6 });
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(5);
+    expect(stored['settingsVersion']).toBe(6);
     expect(stored['futureTop']).toBe(true);
-    // A newer schema's "continuous" is an unknown future key, not the removed
-    // v1 block, so it survives the write.
-    expect(stored['continuous']).toEqual({ future: true });
+    // A newer schema's Continuous namespace keeps every unknown key while the
+    // known R6 fields are normalized into it.
+    expect(stored['continuous']).toMatchObject({
+      future: true,
+      spacing: { futureSpacing: 3, chapterGap: 28, siblingGap: 24, childRowGap: 16 },
+      arrows: { width: 1.25, activeWidth: 1.75, mutedWidth: 1, size: 6 },
+      widths: { futureWidth: 7, canvasMax: 3200, topLevelMax: 480, childMax: 420 },
+    });
     expect(stored['page']).toMatchObject({
       theme: { density: 0.95 },
       futurePage: 1,
@@ -473,7 +535,7 @@ describe('global settings persistence', () => {
     const reset = await resetSettings();
     expect(reset).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['settingsVersion']).toBe(5);
     expect(stored['page']).toEqual(
       JSON.parse(JSON.stringify(DEFAULT_APP_SETTINGS.page)) as unknown,
     );

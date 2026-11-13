@@ -23,6 +23,7 @@ import { create } from 'zustand';
 import type {
   AppSettings,
   AppearanceSettings,
+  ContinuousSettings,
   PageSettings,
   PageSettingsOverride,
 } from '@noteforest/layout';
@@ -70,6 +71,12 @@ export interface AppSettingsPatch {
   appearance?: Partial<AppearanceSettings>;
   /** Global export defaults; global-only, never per document. */
   export?: Partial<AppSettings['export']>;
+  /** Global Continuous canvas geometry; global-only, never per document. */
+  continuous?: {
+    spacing?: Partial<ContinuousSettings['spacing']>;
+    arrows?: Partial<ContinuousSettings['arrows']>;
+    widths?: Partial<ContinuousSettings['widths']>;
+  };
 }
 
 export interface SettingsBootstrap {
@@ -187,6 +194,7 @@ function normalizePatch(current: AppSettings, patch: AppSettingsPatch): AppSetti
   // OS Documents folder and must not fall back to the previous custom path.
   const exportFolder =
     patch.export?.folder === undefined ? current.export.folder : patch.export.folder;
+  const continuous = patch.continuous ?? {};
   return normalizeAppSettings({
     page: {
       setup: {
@@ -202,6 +210,11 @@ function normalizePatch(current: AppSettings, patch: AppSettingsPatch): AppSetti
     },
     appearance: { ...current.appearance, ...(patch.appearance ?? {}) },
     export: { folder: exportFolder },
+    continuous: {
+      spacing: { ...current.continuous.spacing, ...(continuous.spacing ?? {}) },
+      arrows: { ...current.continuous.arrows, ...(continuous.arrows ?? {}) },
+      widths: { ...current.continuous.widths, ...(continuous.widths ?? {}) },
+    },
   });
 }
 
@@ -252,22 +265,27 @@ let writeSequence = 0;
 let lastResult: SettingsSaveResult = { ok: true };
 let lastFailed: PendingWrite | null = null;
 /**
- * A debounced UI edit (currently the Settings density slider) that has not
- * enqueued its write yet. Close/quit calls this before waiting on the queue, so
- * an instant-save value cannot be lost inside the debounce window.
+ * Debounced UI edits (the Settings density/margins/advanced fields and the R6
+ * Continuous sliders) that have not enqueued their writes yet. Close/quit
+ * flushes every registered flusher, so an instant-save value cannot be lost
+ * inside a debounce window. Multiple controllers can be mounted at once
+ * (Page + Continuous), so this is a set, not one slot.
  */
-let pendingSettingsFlush: (() => Promise<void>) | null = null;
+const pendingSettingsFlushes = new Set<() => Promise<void>>();
 
-export function registerPendingSettingsFlush(
-  flush: (() => Promise<void>) | null,
-): void {
-  pendingSettingsFlush = flush;
+/** Register one debounced flusher; returns its unregister function. */
+export function registerPendingSettingsFlush(flush: () => Promise<void>): () => void {
+  pendingSettingsFlushes.add(flush);
+  return () => {
+    pendingSettingsFlushes.delete(flush);
+  };
 }
 
 /** Apply any debounced settings edit, then leave its write queued. */
 export async function flushPendingSettingsEdits(): Promise<void> {
-  const flush = pendingSettingsFlush;
-  if (flush !== null) await flush();
+  for (const flush of [...pendingSettingsFlushes]) {
+    await flush();
+  }
 }
 
 /**

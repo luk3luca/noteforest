@@ -535,7 +535,7 @@ describe('R3 appearance v3', () => {
     const stored = JSON.parse(
       await readFile(resolve(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8'),
     );
-    assert.equal(stored['settingsVersion'], 4);
+    assert.equal(stored['settingsVersion'], 5);
     assert.deepEqual(stored['appearance'], {
       theme: 'dark',
       accent: 'blue',

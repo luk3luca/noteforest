@@ -3,9 +3,13 @@ import type { Editor } from '@tiptap/core';
 import { Fragment, Slice } from '@tiptap/pm/model';
 import { EditorState, NodeSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { toast } from 'sonner';
 import { buildEditorDocument, markCrossDocumentImages, stripAnchorBindings, stripUnbackedImages, type PMNode } from '../lib/adapter';
+import {
+  continuousCssVariables,
+  continuousEdgeStyle,
+} from '@noteforest/layout';
 import { branchSelectionAnchor } from '../lib/anchor-selection';
 import { imageFilesFromDataTransfer } from '../lib/image';
 import { rememberCopiedImages, scheduleImageClipboardRepair } from '../lib/image-clipboard';
@@ -36,6 +40,7 @@ import {
 } from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
 import { useShell } from '../state/shell';
+import { useSettingsStore } from '../state/settings';
 import type { InteractionMode } from '../../../shared/view-state';
 import {
   activeEditingEnabled,
@@ -63,6 +68,7 @@ interface DocumentEditorProps {
 function useCanvasWidth(
   ref: RefObject<HTMLDivElement | null>,
   active: boolean,
+  canvasMax: number,
 ): number {
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
@@ -73,11 +79,11 @@ function useCanvasWidth(
     // content width, not the current viewport. A deep tree therefore keeps
     // going right and the scroll container reveals it, instead of wrapping at
     // the window edge. The CSS canvas grows to max-content (bounded by the
-    // same token), so a short document still fills the viewport without a
-    // permanent horizontal scrollbar.
+    // same resolved cap), so a short document still fills the viewport without
+    // a permanent horizontal scrollbar.
     const logicalWidth = Math.max(
       0,
-      GEOMETRY.canvasMaxWidth - 2 * GEOMETRY.editorPaddingX,
+      canvasMax - 2 * GEOMETRY.editorPaddingX,
     );
     const update = (): void => setWidth(Math.max(element.clientWidth, logicalWidth));
     update();
@@ -88,7 +94,7 @@ function useCanvasWidth(
       observer.disconnect();
       window.removeEventListener('resize', update);
     };
-  }, [ref, active]);
+  }, [ref, active, canvasMax]);
   return width;
 }
 
@@ -208,6 +214,11 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
   // chapter cards visible even when every chapter is empty.
   const blockCount = Object.keys(runtime.document.blocks).length;
   const continuousVisible = layout === 'continuous';
+  const continuousSettings = useSettingsStore((state) => state.app.continuous);
+  const continuousSurfaceStyle = useMemo(
+    () => continuousCssVariables(continuousSettings) as CSSProperties,
+    [continuousSettings],
+  );
   const continuous = showsChapterCanvas(runtime.document.chapters, blockCount) ? (
     <EditorSurface
       runtime={runtime}
@@ -235,7 +246,7 @@ export function DocumentEditor({ runtime, active }: DocumentEditorProps): JSX.El
       <div
         className="nf-continuous-surface"
         data-continuous-surface="true"
-        style={continuousVisible ? undefined : { display: 'none' }}
+        style={continuousVisible ? continuousSurfaceStyle : { display: 'none' }}
       >
         {continuous}
       </div>
@@ -270,6 +281,11 @@ function EditorSurface({
   visibleRef.current = visible;
   const interactionModeRef = useRef(interactionMode);
   interactionModeRef.current = interactionMode;
+  const continuousSettings = useSettingsStore((state) => state.app.continuous);
+  const continuousEdge = useMemo(
+    () => continuousEdgeStyle(continuousSettings),
+    [continuousSettings],
+  );
   /** Whether the editor owned focus when Read mode started. */
   const focusedBeforeRead = useRef(false);
   const previousInteractionMode = useRef(interactionMode);
@@ -636,11 +652,16 @@ function EditorSurface({
     [runtime.document, selectedId, runtime.version],
   );
   const rects = useBlockRects(contentRef, runtime.version, editor !== null, zoom);
-  const canvasWidth = useCanvasWidth(contentRef, active && visible);
+  const canvasWidth = useCanvasWidth(
+    contentRef,
+    active && visible,
+    continuousSettings.widths.canvasMax,
+  );
   const belowChildIds = useBelowStackPlacement({
     runtime,
     rects,
     availableWidth: canvasWidth,
+    siblingGap: continuousSettings.spacing.siblingGap,
     active: active && visible,
   });
   const edges = useMemo(
@@ -779,6 +800,7 @@ function EditorSurface({
               referenceEdges={referenceEdges}
               rects={rects}
               activePath={activePath}
+              edgeStyle={continuousEdge}
               selectedBlockId={selectedId}
               onEdgeClick={(childId, anchor) => openBlockMenu(childId, anchor)}
               onTrunkClick={(parentId) => {

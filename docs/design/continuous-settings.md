@@ -1,6 +1,6 @@
 # Continuous settings — R6 design
 
-**Status:** Draft for product-owner review. No implementation yet.
+**Status:** Approved (13 November 2026); implemented in R6 on schema v5.
 **Date:** 13 November 2026.
 **Scope:** one **global** Continuous settings page: spacing, arrows, widths, and a live preview.
 No per-document overrides and no view-style setting. Page/PDF are untouched.

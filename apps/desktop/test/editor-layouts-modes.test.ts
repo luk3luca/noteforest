@@ -389,8 +389,10 @@ describe('editor layout and interaction-mode state', () => {
   });
 
   it('keeps one Continuous zoom source in per-document view state (S2-6)', () => {
-    // No global setting can shadow the per-document zoom.
-    expect(useSettingsStore.getState().app).not.toHaveProperty('continuous');
+    // No global setting can shadow the per-document zoom: R6 adds canvas
+    // geometry only, never a zoom field.
+    expect(useSettingsStore.getState().app.continuous).not.toHaveProperty('zoom');
+    expect(useSettingsStore.getState().app.continuous).not.toHaveProperty('viewState');
     useShell.setState({
       tabs: [{ packagePath: '/tmp/doc', title: 'Doc' }],
       activeTab: '/tmp/doc',

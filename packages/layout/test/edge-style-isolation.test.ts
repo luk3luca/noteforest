@@ -270,6 +270,9 @@ describe('edge style ownership', () => {
       expect(source, `${name} must not read the shared base`).not.toMatch(
         /\bEDGE_STYLE\b(?!\.)/,
       );
+      expect(source, `${name} must not resolve Continuous settings`).not.toMatch(
+        /\bcontinuous(CssVariables|EdgeStyle)\b/,
+      );
     }
     for (const [name, path] of pageGeometryModules) {
       expect(read(path), `${name} must read PAGE_EDGE_STYLE`).toContain('PAGE_EDGE_STYLE');
@@ -281,6 +284,7 @@ describe('edge style ownership', () => {
       ['design-tokens.ts', '../../../apps/desktop/src/renderer/src/lib/design-tokens.ts'],
       ['edge-routing.ts', '../../../apps/desktop/src/renderer/src/lib/edge-routing.ts'],
       ['reference-routing.ts', '../../../apps/desktop/src/renderer/src/lib/reference-routing.ts'],
+      ['continuous-settings.ts', '../src/continuous-settings.ts'],
     ];
     for (const [name, path] of continuousModules) {
       const source = read(path);

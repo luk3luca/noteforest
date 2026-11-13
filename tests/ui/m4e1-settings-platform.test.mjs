@@ -210,7 +210,7 @@ describe('M4e1 settings platform', () => {
     await closeSettings();
     const stored = await settingsOnDisk(env);
     assert.equal(stored.page.theme.density, 0.85, 'the global default was written');
-    assert.equal(stored.settingsVersion, 4);
+    assert.equal(stored.settingsVersion, 5);
 
     // The palette path reaches the same app-level Settings surface.
     await openSettingsFromPalette();
@@ -244,7 +244,9 @@ describe('M4e1 settings platform', () => {
     await page.keyboard.press('Meta+2');
     await page.keyboard.press('Meta+=');
     assert.equal(await viewZoom(packagePath), 1.1, 'Continuous zoom changed for this document');
-    assert.equal((await appSettings()).app.continuous, undefined);
+    const continuousSettings = (await appSettings()).app.continuous;
+    assert.equal(continuousSettings.zoom, undefined, 'no global zoom setting');
+    assert.equal(continuousSettings.viewState, undefined, 'no global view state');
     await showPageRead();
 
     await openSettingsWithShortcut();
@@ -415,7 +417,7 @@ describe('M4e1 settings platform', () => {
     );
     const resetBytes = await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'settings.json'), 'utf8');
     const resetFile = JSON.parse(resetBytes);
-    assert.equal(resetFile.settingsVersion, 4, 'the reset writes a valid current file');
+    assert.equal(resetFile.settingsVersion, 5, 'the reset writes a valid current file');
     assert.equal(resetFile.page.theme.density, 1, 'the reset restores the product defaults');
     assert.equal(
       await readFile(join(env.NOTEFOREST_APP_SUPPORT, backup), 'utf8'),

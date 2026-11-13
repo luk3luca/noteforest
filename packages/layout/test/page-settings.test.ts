@@ -72,7 +72,11 @@ describe('page settings defaults', () => {
       footer: 'chapter',
       pageNumber: true,
     });
-    expect(DEFAULT_APP_SETTINGS).not.toHaveProperty('continuous');
+    expect(DEFAULT_APP_SETTINGS.continuous).toEqual({
+      spacing: { chapterGap: 28, siblingGap: 24, childRowGap: 16 },
+      arrows: { width: 1.25, activeWidth: 1.75, mutedWidth: 1, size: 6 },
+      widths: { canvasMax: 3200, topLevelMax: 480, childMax: 420 },
+    });
   });
 
   it('keeps the comfortable preset density-only with the shared Page topology', () => {
@@ -203,15 +207,16 @@ describe('settings normalization and merge', () => {
     expect(settings.theme.maxCardWidth).toBeGreaterThanOrEqual(800);
   });
 
-  it('normalizes app settings and ignores a legacy continuous block', () => {
-    // S2-6: the dead ContinuousSettings.zoom is gone; a legacy `continuous`
-    // object in stored input cannot resurrect a second zoom source.
+  it('normalizes app settings and ignores a legacy continuous zoom', () => {
+    // S2-6: the dead ContinuousSettings.zoom is gone. R6 replaces the legacy
+    // block with the global canvas namespace; an unknown `zoom` key is ignored.
     const app = normalizeAppSettings({
       page: { setup: { size: 'A5' } },
       continuous: { zoom: 4 },
     } as Parameters<typeof normalizeAppSettings>[0]);
     expect(app.page.setup.size).toBe('A5');
-    expect(app).not.toHaveProperty('continuous');
+    expect(app.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
+    expect(app.continuous).not.toHaveProperty('zoom');
     expect(app.export).toEqual({ folder: null });
   });
 

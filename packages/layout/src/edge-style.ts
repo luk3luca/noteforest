@@ -147,11 +147,11 @@ export const EDGE_STYLE: PageEdgeStyle = Object.freeze({
 });
 
 /**
- * The Continuous canvas' edge style.
+ * The Continuous canvas' edge style defaults.
  *
- * Not frozen: R6 resolves Continuous edge settings into this namespace, and the
- * isolation test temporarily overrides the values to prove Page/PDF output
- * cannot observe them. Production code treats it as read-only.
+ * Not frozen: the R6 resolver (`continuousEdgeStyle`) and the isolation test
+ * temporarily override the values to prove Page/PDF output cannot observe them.
+ * Production code treats it as the fallback/default object.
  */
 export const CONTINUOUS_EDGE_STYLE: SharedEdgeStyle = {
   gap: 2,

@@ -18,6 +18,8 @@ import { useRuntime } from '../state/registry';
 import { openLibrary, removeRecentLibrary, revealLibraryPath } from '../actions';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';
+import { useContinuousSettingsController } from '../settings/useContinuousSettingsController';
+import { ContinuousSettingsPage } from '../settings/ContinuousSettings';
 import { PageSettingsPreview } from '../settings/PageSettingsPreview';
 import { AppearanceSettingsPage } from '../settings/AppearanceSettings';
 import { ExportSettingsPage } from '../settings/ExportSettings';
@@ -222,6 +224,7 @@ export function SettingsDialog({
     documentId,
     documentAvailable,
   );
+  const continuousSettings = useContinuousSettingsController();
 
   const [page, setPage] = useState<SettingsPageId>(initialPage);
   const [shortcutQuery, setShortcutQuery] = useState('');
@@ -289,6 +292,7 @@ export function SettingsDialog({
   const chromeOverridden = pageSettings.hasChromeOverrides;
 
   const errorMessage =
+    continuousSettings.error ??
     pageSettings.commitError ??
     (saveState.status === 'error' ? saveState.message ?? 'Unknown error.' : null);
   const status =
@@ -296,7 +300,7 @@ export function SettingsDialog({
       ? 'error'
       : pageSettings.invalid
         ? 'invalid'
-        : pageSettings.saving || saveState.status === 'saving'
+        : pageSettings.saving || continuousSettings.saving || saveState.status === 'saving'
           ? 'saving'
           : 'saved';
   const statusText =
@@ -333,7 +337,13 @@ export function SettingsDialog({
   /** Persist a debounced edit before closing, then close. */
   const requestClose = (): void => {
     void pageSettings.flushPending();
+    void continuousSettings.flushPending();
     onCloseRef.current();
+  };
+
+  const retrySettings = (): void => {
+    if (continuousSettings.error !== null) continuousSettings.retry();
+    else pageSettings.retry();
   };
 
   const densityRange = {
@@ -1193,7 +1203,7 @@ export function SettingsDialog({
               ) : null}
 
               {activePage === 'continuous' ? (
-                <ContinuousSettings />
+                <ContinuousSettingsPage controller={continuousSettings} />
               ) : null}
 
               {activePage === 'editor' ? (
@@ -1601,7 +1611,7 @@ export function SettingsDialog({
                   type="button"
                   className="nf-button"
                   data-settings-retry="true"
-                  onClick={() => pageSettings.retry()}
+                  onClick={retrySettings}
                 >
                   Retry
                 </button>
@@ -1620,85 +1630,5 @@ export function SettingsDialog({
         </Dialog>
       </Modal>
     </ModalOverlay>
-  );
-}
-
-/**
- * Continuous is per-document view state, not a settings namespace. The page
- * therefore edits `DocumentViewState.zoom` directly and has no global default.
- */
-function ContinuousSettings(): JSX.Element {
-  const packagePath = useShell((state) => state.activeTab);
-  const { runtime } = useRuntime(packagePath);
-  const zoom = useShell((state) =>
-    packagePath === null ? undefined : state.viewByDoc[packagePath]?.zoom,
-  );
-  const available = runtime !== null && packagePath !== null;
-  const percent = Math.round((zoom ?? 1) * 100);
-
-  return (
-    <>
-      <h3 className="nf-settings-page-title">Continuous</h3>
-      <p className="nf-settings-page-description">
-        These controls apply to this document. There are no global Continuous settings.
-      </p>
-      {available ? null : (
-        <p className="nf-settings-help" data-continuous-no-document="true">
-          Open a document to change Continuous view.
-        </p>
-      )}
-      <section className="nf-settings-section" data-continuous-zoom-section="true">
-        <h4 className="nf-settings-section-title">Zoom</h4>
-        <div className="nf-settings-row">
-          <label className="nf-settings-row-label" htmlFor="continuous-zoom-slider">
-            Continuous zoom
-          </label>
-          <div className="nf-settings-control nf-density-row">
-            <input
-              id="continuous-zoom-slider"
-              type="range"
-              className="nf-range"
-              min={50}
-              max={200}
-              step={5}
-              value={percent}
-              disabled={!available}
-              aria-label="Continuous zoom"
-              aria-valuetext={`${percent}%`}
-              data-continuous-zoom-slider="true"
-              onChange={(event) => {
-                if (packagePath === null) return;
-                useShell.getState().setDocumentZoom(packagePath, Number(event.target.value) / 100);
-              }}
-            />
-            <span className="nf-density-value" data-continuous-zoom-value="true">
-              {percent}%
-            </span>
-            <button
-              type="button"
-              className="nf-button nf-button-quiet"
-              data-continuous-zoom-actual="true"
-              disabled={!available}
-              onClick={() => {
-                if (packagePath !== null) useShell.getState().setDocumentZoom(packagePath, 1);
-              }}
-            >
-              Actual size
-            </button>
-          </div>
-        </div>
-        <p className="nf-settings-help">
-          View state only: zoom is saved per document in the session, not in settings.json. Fit
-          width stays in the View menu, palette, and ⇧⌘0.
-        </p>
-      </section>
-      <section className="nf-settings-section">
-        <h4 className="nf-settings-section-title">Read-only documents</h4>
-        <p className="nf-settings-help">
-          Zoom and page navigation are personal view state and stay available for a read-only
-          document. The note content remains read-only.
-        </p>
-      </section>
-    </>
   );
 }

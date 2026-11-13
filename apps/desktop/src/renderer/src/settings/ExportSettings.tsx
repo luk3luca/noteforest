@@ -3,7 +3,7 @@
  *
  * One global export default: the destination folder for the Export sheet.
  * `null` means the OS Documents folder; a chosen folder is stored in
- * `settings.json` (`settingsVersion: 4`). The page is intentionally small:
+ * `settings.json` (`settingsVersion: 5`). The page is intentionally small:
  * filenames are always the document title with `.pdf`, and metadata, tagged
  * PDF, and page ranges are not implemented, so no placeholder controls exist.
  *

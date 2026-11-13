@@ -19,6 +19,8 @@ interface BelowStackPlacementInput {
   rects: ReadonlyMap<string, Rect>;
   /** Canvas content width in layout pixels (zoom independent). */
   availableWidth: number;
+  /** Resolved global Continuous sibling gap. */
+  siblingGap: number;
   active: boolean;
 }
 
@@ -45,6 +47,7 @@ export function useBelowStackPlacement({
   runtime,
   rects,
   availableWidth,
+  siblingGap,
   active,
 }: BelowStackPlacementInput): ReadonlySet<string> {
   const [applied, setApplied] = useState<ReadonlySet<string>>(new Set());
@@ -111,7 +114,7 @@ export function useBelowStackPlacement({
         calloutSafeWidth:
           laneWidth === undefined
             ? undefined
-            : calloutSafeZoneWidth(parent, laneWidth),
+            : calloutSafeZoneWidth(parent, laneWidth, siblingGap),
         forceBelow: belowStackParents.has(parentId),
       });
       for (const id of plan.below) next.add(id);
@@ -120,7 +123,7 @@ export function useBelowStackPlacement({
     appliedRef.current = next;
     setApplied(next);
     runtime.applyChildPlacement(next);
-  }, [runtime, rects, availableWidth, active, runtime.version]);
+  }, [runtime, rects, availableWidth, siblingGap, active, runtime.version]);
 
   return applied;
 }

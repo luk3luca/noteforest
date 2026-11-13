@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { CONTINUOUS_EDGE_STYLE, type SharedEdgeStyle } from '@noteforest/layout';
 import type { Rect } from '../../lib/geometry';
 import {
   routeBelowStackGroup,
@@ -28,6 +29,8 @@ interface EdgeLayerProps {
   referenceEdges?: readonly ReferenceEdgeDescriptor[];
   rects: ReadonlyMap<string, Rect>;
   activePath: ReadonlySet<string>;
+  /** Resolved Continuous edge style (R6); defaults to the canvas contract. */
+  edgeStyle?: SharedEdgeStyle;
   selectedBlockId?: string | null;
   onEdgeClick?: (childId: string, anchor: { x: number; y: number }) => void;
   onTrunkClick?: (parentId: string) => void;
@@ -39,7 +42,7 @@ interface RoutedGroupResult {
   trunks: RoutedTrunk[];
 }
 
-export function EdgeLayer({ edges, referenceEdges = [], rects, activePath, selectedBlockId = null, onEdgeClick, onTrunkClick, onReferenceEdgeClick }: EdgeLayerProps): JSX.Element {
+export function EdgeLayer({ edges, referenceEdges = [], rects, activePath, edgeStyle = CONTINUOUS_EDGE_STYLE, selectedBlockId = null, onEdgeClick, onTrunkClick, onReferenceEdgeClick }: EdgeLayerProps): JSX.Element {
   // Any selected block mutes the branches outside its path, including a
   // top-level block (whose path contains only itself, so every branch is
   // muted). Deeper selections additionally light their active path.
@@ -79,6 +82,7 @@ export function EdgeLayer({ edges, referenceEdges = [], rects, activePath, selec
           parentId,
           parent: group.parent,
           children: group.below,
+          options: { style: edgeStyle },
         });
         edgesOut.push(...below.edges);
         trunks.push(...below.trunks);
@@ -88,6 +92,7 @@ export function EdgeLayer({ edges, referenceEdges = [], rects, activePath, selec
           parentId,
           parent: group.parent,
           children: group.right,
+          options: { style: edgeStyle },
         });
         edgesOut.push(...right.edges);
         trunks.push(...right.trunks);
@@ -96,7 +101,7 @@ export function EdgeLayer({ edges, referenceEdges = [], rects, activePath, selec
     }
     recordPerf('edge', performance.now() - started);
     return result;
-  }, [edges, rects]);
+  }, [edges, rects, edgeStyle]);
 
   const groupedEdges = useMemo(() => {
     const byParent = new Map<string, RoutedGroupResult>();

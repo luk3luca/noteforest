@@ -21,7 +21,10 @@
  * move together when the lane is wider than a narrow parent.
  */
 
-import { CONTINUOUS_EDGE_STYLE } from '@noteforest/layout';
+import {
+  CONTINUOUS_EDGE_STYLE,
+  DEFAULT_CONTINUOUS_SETTINGS,
+} from '@noteforest/layout';
 
 /** CSS-bound values shared by the renderer and the stylesheet. */
 export const DESIGN_TOKENS = Object.freeze({
@@ -34,11 +37,13 @@ export const DESIGN_TOKENS = Object.freeze({
   /** Minimum straight stem before a fixed arrowhead. */
   stemMin: CONTINUOUS_EDGE_STYLE.stemMin,
   /**
-   * Gap between a parent card/lane and the direct-child group. The 24 px budget
-   * is `edgeLaneMin` (10) + `stemMin` (12) + `edgeGap` (2), so a shared right
-   * trunk leaves the parent with a visible horizontal lead before descending.
+   * Gap between a parent card/lane and the direct-child group. This is the
+   * pre-R6 token default; the resolved global Continuous setting overrides it
+   * on the Continuous surface. The 24 px budget is `edgeLaneMin` (10) +
+   * `stemMin` (12) + `edgeGap` (2), so a shared right trunk leaves the parent
+   * with a visible horizontal lead before descending.
    */
-  siblingGap: 24,
+  siblingGap: DEFAULT_CONTINUOUS_SETTINGS.spacing.siblingGap,
   /** Gap between an anchor mark and its callout row. */
   calloutGap: 16,
   /** Independent callout lane width bounds. */
@@ -72,12 +77,12 @@ export const DESIGN_TOKENS = Object.freeze({
   edgeMinGap: CONTINUOUS_EDGE_STYLE.minGap,
   /** Block width bounds (cards are content-driven inside them). */
   topLevelMinWidth: 160,
-  topLevelMaxWidth: 480,
+  topLevelMaxWidth: DEFAULT_CONTINUOUS_SETTINGS.widths.topLevelMax,
   childMinWidth: 144,
-  childMaxWidth: 420,
+  childMaxWidth: DEFAULT_CONTINUOUS_SETTINGS.widths.childMax,
   /** Editor canvas. */
   /** Wide finite canvas; placement uses its full logical content width. */
-  canvasMaxWidth: 3200,
+  canvasMaxWidth: DEFAULT_CONTINUOUS_SETTINGS.widths.canvasMax,
   /**
    * Shell C canvas inset. Batch V adds an 8 px lateral content inset (6 px
    * compact) so the chapter title is not flush with the panel edge; the canvas
@@ -99,9 +104,9 @@ export const DESIGN_TOKENS = Object.freeze({
   pageStagePaddingTop: 14,
   pageStagePaddingBottom: 8,
   /** Vertical gaps. */
-  childRowGap: 16,
+  childRowGap: DEFAULT_CONTINUOUS_SETTINGS.spacing.childRowGap,
   /** Ratified shell value: 28 px between chapters. */
-  chapterGap: 28,
+  chapterGap: DEFAULT_CONTINUOUS_SETTINGS.spacing.chapterGap,
   /** Reserved for the M4 page renderer, which may wrap a child below. */
   wrapIndent: 18,
   /** Card chrome. */

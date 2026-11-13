@@ -170,10 +170,9 @@ export function lanePush(parent: Pick<Rect, 'x' | 'width'>, laneWidth: number): 
 export function calloutRightGroupX(
   parent: Pick<Rect, 'x' | 'width'>,
   laneWidth: number,
+  gap: number = DESIGN_TOKENS.siblingGap,
 ): number {
-  return (
-    Math.max(rectRight(parent), parent.x + laneWidth) + DESIGN_TOKENS.siblingGap
-  );
+  return Math.max(rectRight(parent), parent.x + laneWidth) + gap;
 }
 
 /**
@@ -185,10 +184,11 @@ export function calloutRightGroupX(
 export function calloutSafeRight(
   parent: Pick<Rect, 'x' | 'width'>,
   laneWidth: number,
+  gap: number = DESIGN_TOKENS.siblingGap,
 ): number {
   return Math.min(
     parent.x + laneWidth,
-    calloutRightGroupX(parent, laneWidth) - DESIGN_TOKENS.callout.safeGap,
+    calloutRightGroupX(parent, laneWidth, gap) - DESIGN_TOKENS.callout.safeGap,
   );
 }
 
@@ -201,18 +201,20 @@ export function calloutSafeRight(
 export function calloutSafeZoneWidth(
   parent: Pick<Rect, 'x' | 'width'>,
   laneWidth: number,
+  gap: number = DESIGN_TOKENS.siblingGap,
 ): number {
   // The safe right can sit past the lane when the right-group gap is larger
   // than the callout safe gap. The row itself is still capped by the lane.
-  return calloutSafeRight(parent, laneWidth) - (parent.x + DESIGN_TOKENS.rowIndent);
+  return calloutSafeRight(parent, laneWidth, gap) - (parent.x + DESIGN_TOKENS.rowIndent);
 }
 
 /** True when the direct group must wrap below to leave the callout safe zone. */
 export function calloutNeedsWrap(
   parent: Pick<Rect, 'x' | 'width'>,
   laneWidth: number,
+  gap: number = DESIGN_TOKENS.siblingGap,
 ): boolean {
-  return calloutSafeZoneWidth(parent, laneWidth) < DESIGN_TOKENS.calloutMinWidth - 0.5;
+  return calloutSafeZoneWidth(parent, laneWidth, gap) < DESIGN_TOKENS.calloutMinWidth - 0.5;
 }
 
 export interface CalloutPlacement {
@@ -244,9 +246,10 @@ export function placeCallout(
   parent: Pick<Rect, 'x' | 'width'>,
   laneWidth: number,
   anchorOffset: number,
+  gap: number = DESIGN_TOKENS.siblingGap,
 ): CalloutPlacement {
   const laneLeft = parent.x;
-  const safeRight = calloutSafeRight(parent, laneWidth);
+  const safeRight = calloutSafeRight(parent, laneWidth, gap);
   const minimumLeft = laneLeft + DESIGN_TOKENS.rowIndent;
   const safeMaximumLeft = Math.max(
     minimumLeft,

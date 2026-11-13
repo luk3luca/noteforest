@@ -599,10 +599,9 @@ export function usePageSettingsController(
   const flushRef = useRef<() => Promise<boolean>>(flushPending);
   flushRef.current = flushPending;
   useEffect(() => {
-    registerPendingSettingsFlush(async () => {
+    return registerPendingSettingsFlush(async () => {
       await flushRef.current();
     });
-    return () => registerPendingSettingsFlush(null);
   }, []);
 
   const scheduleDensity = (percent: number): void => {

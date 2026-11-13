@@ -5099,6 +5099,97 @@ body.nf-dragging-block .nf-gutter-handle {
   font-size: calc(12.5px * var(--ui-scale));
 }
 
+/* ------------------------------------------------------- Continuous settings */
+
+.nf-continuous-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.nf-continuous-control .nf-range {
+  flex: 1;
+  max-width: 220px;
+}
+
+.nf-continuous-value {
+  min-width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-continuous-advanced {
+  margin: 0 0 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-panel);
+  background: var(--surface-1);
+}
+
+.nf-continuous-advanced > summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: calc(12.5px * var(--ui-scale));
+  user-select: none;
+}
+
+.nf-continuous-advanced > summary:hover {
+  color: var(--text-1);
+}
+
+.nf-continuous-advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+}
+
+.nf-continuous-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nf-continuous-preview-stage {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-panel);
+  background: var(--canvas);
+}
+
+.nf-settings-continuous-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  overflow: hidden;
+  border-radius: var(--nf-note-radius);
+  background: var(--note-surface);
+  color: var(--text-1);
+  box-shadow: inset 0 0 0 1px var(--border-1);
+}
+
+.nf-settings-continuous-card-label {
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nf-settings-continuous-card-body {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+}
+
 .nf-settings-control {
   display: flex;
   align-items: center;
@@ -6606,7 +6697,8 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-page-banner {
   flex: none;
-  padding: 5px var(--nf-child-row-gap);
+  /* Page view shell chrome; intentionally not a Continuous token. */
+  padding: 5px 12px;
   font-size: 11px;
   border-bottom: 1px solid var(--border-1);
 }
@@ -6904,7 +6996,7 @@ body.nf-dragging-block .nf-gutter-handle {
   align-items: center;
   justify-content: center;
   gap: var(--nf-page-segment-gap);
-  padding: var(--nf-child-gap);
+  padding: var(--nf-page-card-padding);
   text-align: center;
 }
 

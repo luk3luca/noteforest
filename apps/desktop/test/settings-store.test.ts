@@ -68,10 +68,10 @@ afterEach(() => {
 });
 
 describe('renderer personal settings resolution', () => {
-  it('starts on the compact defaults with no Continuous settings path', () => {
+  it('starts on the compact defaults with the global Continuous defaults', () => {
     const store = useSettingsStore.getState();
     expect(store.app).toEqual(DEFAULT_APP_SETTINGS);
-    expect(store.app).not.toHaveProperty('continuous');
+    expect(store.app.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
     expect(store.resolvedPageSettings('/doc')).toEqual(DEFAULT_PAGE_SETTINGS);
     expect(store.resolvedPageSettings('/doc').theme.preset).toBe('compact');
   });
@@ -187,7 +187,7 @@ describe('renderer personal settings resolution', () => {
     );
   });
 
-  it('clamps global settings and ignores a legacy continuous block', () => {
+  it('clamps global settings and ignores a legacy continuous zoom', () => {
     useSettingsStore.getState().setAppSettings({
       page: {
         setup: { size: 'A5', orientation: 'portrait' },
@@ -199,7 +199,47 @@ describe('renderer personal settings resolution', () => {
     expect(app.page.setup.size).toBe('A5');
     expect(app.page.theme.bodyPt).toBe(24);
     expect(app.page.theme.bodyLine).toBe(1);
-    expect(app).not.toHaveProperty('continuous');
+    expect(app.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
+  });
+
+  it('merges a Continuous patch field by field and clamps it (R6)', () => {
+    const store = useSettingsStore.getState();
+    store.updateAppSettings({
+      continuous: {
+        spacing: { chapterGap: 40 },
+        arrows: { width: 2.5, activeWidth: 1.25, size: 99 },
+        widths: { childMax: 900 },
+      },
+    });
+    const continuous = useSettingsStore.getState().app.continuous;
+    expect(continuous.spacing).toEqual({
+      chapterGap: 40,
+      siblingGap: 24,
+      childRowGap: 16,
+    });
+    // Active width can never be narrower than the resting width, and every
+    // value is clamped to the documented ranges.
+    expect(continuous.arrows).toEqual({
+      width: 2.5,
+      activeWidth: 2.5,
+      mutedWidth: 1,
+      size: 10,
+    });
+    expect(continuous.widths).toEqual({
+      canvasMax: 3200,
+      topLevelMax: 480,
+      childMax: 560,
+    });
+
+    // A later patch keeps the other Continuous values.
+    useSettingsStore.getState().updateAppSettings({
+      continuous: { spacing: { siblingGap: 30 } },
+    });
+    expect(useSettingsStore.getState().app.continuous.spacing).toEqual({
+      chapterGap: 40,
+      siblingGap: 30,
+      childRowGap: 16,
+    });
   });
 
   it('adopts a path-only legacy entry when the document id becomes known', () => {

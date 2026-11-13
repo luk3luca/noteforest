@@ -1,5 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import {
+  continuousCssVariables,
+  DEFAULT_CONTINUOUS_SETTINGS,
+} from '@noteforest/layout';
 import { applyDesignTokens } from '../src/renderer/src/lib/apply-design-tokens';
 import {
   DESIGN_TOKENS,
@@ -129,6 +133,25 @@ describe('design tokens are the single source for CSS geometry', () => {
     const callIndex = mainSource.indexOf('applyDesignTokens();');
     expect(callIndex).toBeGreaterThan(-1);
     expect(callIndex).toBeLessThan(mainSource.indexOf('createRoot(container)'));
+  });
+
+  it('keeps the pre-R6 tokens as the Continuous settings defaults', () => {
+    expect(DESIGN_TOKENS.chapterGap).toBe(DEFAULT_CONTINUOUS_SETTINGS.spacing.chapterGap);
+    expect(DESIGN_TOKENS.siblingGap).toBe(DEFAULT_CONTINUOUS_SETTINGS.spacing.siblingGap);
+    expect(DESIGN_TOKENS.childRowGap).toBe(DEFAULT_CONTINUOUS_SETTINGS.spacing.childRowGap);
+    expect(DESIGN_TOKENS.canvasMaxWidth).toBe(DEFAULT_CONTINUOUS_SETTINGS.widths.canvasMax);
+    expect(DESIGN_TOKENS.topLevelMaxWidth).toBe(
+      DEFAULT_CONTINUOUS_SETTINGS.widths.topLevelMax,
+    );
+    expect(DESIGN_TOKENS.childMaxWidth).toBe(DEFAULT_CONTINUOUS_SETTINGS.widths.childMax);
+    // The resolved default map is exactly the boot fallback for the variables
+    // it owns, so a migrated v4 file has no visual change.
+    const resolved = continuousCssVariables(DEFAULT_CONTINUOUS_SETTINGS);
+    for (const [name, value] of Object.entries(resolved)) {
+      expect(DESIGN_TOKEN_CSS_VARIABLES[name as keyof typeof DESIGN_TOKEN_CSS_VARIABLES]).toBe(
+        value,
+      );
+    }
   });
 
   it('does not declare a CSS value that the token module owns', () => {

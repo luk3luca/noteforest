@@ -15,6 +15,11 @@ import {
   type AppearanceSettings,
   type CodeFontId,
 } from './appearance.js';
+import {
+  DEFAULT_CONTINUOUS_SETTINGS,
+  normalizeContinuousSettings,
+  type ContinuousSettings,
+} from './continuous-settings.js';
 import { PAGE_EDGE_GEOMETRY, PAGE_EDGE_STYLE } from './edge-style.js';
 import type { LayoutOptions, Orientation, PagePacking } from './types.js';
 import { DEFAULT_LAYOUT_OPTIONS } from './types.js';
@@ -157,7 +162,9 @@ export interface ExportSettings {
 /**
  * Personal app settings. Continuous zoom is intentionally absent: the only
  * Continuous zoom is the per-document `DocumentViewState.zoom` in the shell
- * (S2-6). `settingsVersion` is a file concern, not part of this in-memory type.
+ * (S2-6). The R6 `continuous` namespace is global canvas geometry (spacing,
+ * arrows, width caps), never per-document. `settingsVersion` is a file
+ * concern, not part of this in-memory type.
  */
 export interface AppSettings {
   page: PageSettings;
@@ -165,6 +172,8 @@ export interface AppSettings {
   appearance: AppearanceSettings;
   /** Global PDF export defaults (R4); never per-document. */
   export: ExportSettings;
+  /** Global Continuous canvas geometry (R6); never per-document. */
+  continuous: ContinuousSettings;
 }
 
 export interface PageSetupOverride {
@@ -331,6 +340,7 @@ export const DEFAULT_APP_SETTINGS: Readonly<AppSettings> = Object.freeze({
   page: DEFAULT_PAGE_SETTINGS,
   appearance: DEFAULT_APPEARANCE,
   export: Object.freeze({ folder: null }) as ExportSettings,
+  continuous: DEFAULT_CONTINUOUS_SETTINGS,
 });
 
 /** Fixed page dimensions in millimetres, before margins. */
@@ -952,11 +962,13 @@ export function normalizeAppSettings(input?: {
   page?: PageSettingsOverride | null;
   appearance?: unknown;
   export?: unknown;
+  continuous?: unknown;
 } | null): AppSettings {
   const record = isRecord(input) ? input : {};
   return {
     page: normalizePageSettings(record['page'] as PageSettingsOverride | null | undefined),
     appearance: normalizeAppearance(record['appearance']),
     export: normalizeExportSettings(record['export']),
+    continuous: normalizeContinuousSettings(record['continuous']),
   };
 }

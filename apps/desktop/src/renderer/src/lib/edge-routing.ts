@@ -24,6 +24,7 @@ import {
   roundedPath,
   simplifyPath,
   type EdgePoint,
+  type SharedEdgeStyle,
 } from '@noteforest/layout';
 import {
   classifyPlacement,
@@ -52,6 +53,8 @@ export interface RouteOptions {
   trunkInset?: number;
   /** Visible gap between the parent card bottom and the below trunk start. */
   trunkGap?: number;
+  /** Resolved Continuous edge style; defaults to the shared canvas style. */
+  style?: SharedEdgeStyle;
 }
 
 export interface RoutedArrow {
@@ -136,13 +139,18 @@ export function branchConnectorPath(
   ].join(' ');
 }
 
-function makeArrow(tip: Point, direction: EdgeDirection): RoutedArrow {
+function makeArrow(
+  tip: Point,
+  direction: EdgeDirection,
+  style: SharedEdgeStyle,
+): RoutedArrow {
   return {
     direction,
     tip,
-    // Continuous reads its own edge style; the Page surface pins its own.
-    points: arrowPoints(tip, direction, CONTINUOUS_EDGE_STYLE),
-    path: arrowPath(tip, direction, CONTINUOUS_EDGE_STYLE),
+    // Continuous reads its own resolved edge style; the Page surface pins its
+    // own.
+    points: arrowPoints(tip, direction, style),
+    path: arrowPath(tip, direction, style),
   };
 }
 
@@ -193,6 +201,7 @@ function routeSingleRight(
   const gap = options.gap ?? GEOMETRY.edgeGap;
   const radius = options.radius ?? GEOMETRY.edgeRadius;
   const stemMin = options.stemMin ?? GEOMETRY.stemMin;
+  const style = options.style ?? CONTINUOUS_EDGE_STYLE;
   const childCenter = rectCenter(child.rect);
   const start: Point = { x: rectRight(parent), y: rectCenter(parent).y };
   const end: Point = { x: child.rect.x - gap, y: childCenter.y };
@@ -206,7 +215,7 @@ function routeSingleRight(
     path: branchConnectorPath(start, laneX, end.y, end, radius),
     start,
     end,
-    arrow: makeArrow(end, 'right'),
+    arrow: makeArrow(end, 'right', style),
     defect,
   };
 }
@@ -227,6 +236,7 @@ function routeRightGroup(
   const gap = options.gap ?? GEOMETRY.edgeGap;
   const radius = options.radius ?? GEOMETRY.edgeRadius;
   const stemMin = options.stemMin ?? GEOMETRY.stemMin;
+  const style = options.style ?? CONTINUOUS_EDGE_STYLE;
   const parentCenter = rectCenter(parent);
   const parentPort: Point = { x: rectRight(parent), y: parentCenter.y };
   // Trunk topology follows the measured vertical order, not branch order: a
@@ -250,7 +260,7 @@ function routeRightGroup(
       path: edgePath([start, end], radius),
       start,
       end,
-      arrow: makeArrow(end, 'right'),
+      arrow: makeArrow(end, 'right', style),
       defect: end.x - start.x < stemMin - 0.5,
     });
   }
@@ -302,6 +312,7 @@ export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
   const gap = input.options?.gap ?? GEOMETRY.edgeGap;
   const stemMin = input.options?.stemMin ?? GEOMETRY.stemMin;
   const radius = input.options?.radius ?? GEOMETRY.edgeRadius;
+  const style = input.options?.style ?? CONTINUOUS_EDGE_STYLE;
   const parentBottom = rectBottom(parent);
   // The trunk begins a small gap below the card instead of touching its border;
   // the gap is shared by single-row elbows and the multi-row shared trunk.
@@ -349,7 +360,7 @@ export function routeBelowStackGroup(input: RouteGroupInput): RoutedGroup {
       path: edgePath(points, elbowRadius),
       start: points[0] as Point,
       end,
-      arrow: makeArrow(end, 'right'),
+      arrow: makeArrow(end, 'right', style),
       defect: trunkDefect || end.x - trunkX < stemMin - 0.5,
     });
   }
@@ -435,7 +446,7 @@ export function routeBranchEdge(input: {
     path: '',
     start: tip,
     end: tip,
-    arrow: makeArrow(tip, 'down'),
+    arrow: makeArrow(tip, 'down', input.options?.style ?? CONTINUOUS_EDGE_STYLE),
     defect: true,
   };
 }

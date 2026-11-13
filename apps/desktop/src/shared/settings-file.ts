@@ -23,6 +23,12 @@
  * to `folder: null` (the OS Documents folder). Unknown top-level, page,
  * appearance, and export keys survive a write; there is no per-document export
  * namespace. The migration is pure: the next ordinary write stamps v4.
+ *
+ * v4 -> v5: the global `continuous` namespace (spacing, arrows, widths). The
+ * defaults equal the pre-R6 canvas tokens, so a migrated file draws the same
+ * canvas. Unknown top-level and nested `continuous` keys survive a write; the
+ * v1 -> v2 legacy-zoom removal stays first in the chain. The migration is pure:
+ * the next ordinary write stamps v5.
  */
 
 import {
@@ -31,7 +37,7 @@ import {
   type PageSettingsOverride,
 } from '@noteforest/layout';
 
-export const SETTINGS_SCHEMA_VERSION = 4;
+export const SETTINGS_SCHEMA_VERSION = 5;
 
 export interface MigratedSettingsDocument {
   settings: AppSettings;
@@ -71,7 +77,8 @@ export function settingsDocumentVersion(raw: Record<string, unknown>): number {
 /**
  * Pure migration chain. v1 drops the dead `continuous` block; v2 gains the
  * `appearance` namespace (defaults when absent); v3 gains the `export`
- * namespace (`folder: null`, the OS Documents folder, when absent). Future
+ * namespace (`folder: null`, the OS Documents folder, when absent); v4 gains
+ * the global `continuous` canvas namespace (R6 defaults when absent). Future
  * versions append a case here.
  */
 export function migrateSettingsDocument(input: unknown): MigratedSettingsDocument {
@@ -91,6 +98,7 @@ export function migrateSettingsDocument(input: unknown): MigratedSettingsDocumen
       page: candidate['page'] as PageSettingsOverride | null | undefined,
       appearance: candidate['appearance'],
       export: candidate['export'],
+      continuous: candidate['continuous'],
     }),
     storedVersion,
     version,
@@ -104,7 +112,7 @@ export function migrateSettingsDocument(input: unknown): MigratedSettingsDocumen
  *
  * This is the "no blind full replace" boundary for the file: known paths are
  * overwritten with normalized values, unknown paths and keys survive. The
- * version is never lowered, so a v4 file written by a newer build stays v4.
+ * version is never lowered, so a v5 file written by a newer build stays v5.
  */
 export function settingsDocumentForWrite(
   previousRaw: unknown,
@@ -117,7 +125,8 @@ export function settingsDocumentForWrite(
       ? storedVersion
       : SETTINGS_SCHEMA_VERSION;
   // The v1 -> v2 migration removes the dead Continuous zoom block. A file from
-  // a newer schema keeps every unknown key, including a future `continuous`.
+  // a newer schema keeps every unknown key, including future Continuous keys;
+  // the R6 namespace below then rewrites only its known fields.
   if (storedVersion === null || storedVersion < 2) delete base['continuous'];
   const rawPage = isRecord(base['page']) ? base['page'] : {};
   const rawSetup = isRecord(rawPage['setup']) ? rawPage['setup'] : {};
@@ -126,6 +135,10 @@ export function settingsDocumentForWrite(
   const rawChrome = isRecord(rawPage['chrome']) ? rawPage['chrome'] : {};
   const rawAppearance = isRecord(base['appearance']) ? base['appearance'] : {};
   const rawExport = isRecord(base['export']) ? base['export'] : {};
+  const rawContinuous = isRecord(base['continuous']) ? base['continuous'] : {};
+  const rawSpacing = isRecord(rawContinuous['spacing']) ? rawContinuous['spacing'] : {};
+  const rawArrows = isRecord(rawContinuous['arrows']) ? rawContinuous['arrows'] : {};
+  const rawWidths = isRecord(rawContinuous['widths']) ? rawContinuous['widths'] : {};
   base['settingsVersion'] = version;
   // R3 appearance is global and additive: known fields are normalized, an
   // unknown future appearance key written by a newer build is preserved.
@@ -142,6 +155,15 @@ export function settingsDocumentForWrite(
   base['export'] = {
     ...rawExport,
     folder: settings.export.folder,
+  };
+  // R6 Continuous is global and additive: a v4 file gains the defaults, and
+  // unknown future keys at every level (namespace, spacing, arrows, widths)
+  // survive the write.
+  base['continuous'] = {
+    ...rawContinuous,
+    spacing: { ...rawSpacing, ...settings.continuous.spacing },
+    arrows: { ...rawArrows, ...settings.continuous.arrows },
+    widths: { ...rawWidths, ...settings.continuous.widths },
   };
   base['page'] = {
     ...rawPage,

@@ -460,11 +460,13 @@ describe('Batch A UI rework', () => {
       'no-document document scope explains why',
     );
     assert.equal(await page.locator('[data-page-density-slider]').isEnabled(), true);
-    // Continuous is per-document view state, so it is disabled with a reason
-    // when no document is open.
+    // Continuous is now a global page: it works with no document open and has
+    // no per-document zoom control.
     await page.locator('[data-settings-nav="continuous"]').click();
-    assert.equal(await page.locator('[data-continuous-no-document]').isVisible(), true);
-    assert.equal(await page.locator('[data-continuous-zoom-slider]').isDisabled(), true);
+    assert.equal(await page.locator('[data-continuous-no-document]').count(), 0);
+    assert.equal(await page.locator('[data-continuous-zoom-slider]').count(), 0);
+    assert.equal(await page.locator('[data-continuous-slider="chapterGap"]').isEnabled(), true);
+    assert.equal(await page.locator('[data-continuous-preview="true"]').count(), 1);
     await page.locator('[data-settings-nav="page"]').click();
     await page.screenshot({ path: join(screenshotDir, 'settings-no-document.png') });
 
@@ -499,7 +501,7 @@ describe('Batch A UI rework', () => {
       await page.locator('[data-settings-file-status]').innerText(),
       /^(OK|Defaults)/,
     );
-    assert.equal(await page.locator('[data-settings-schema-version]').innerText(), '4');
+    assert.equal(await page.locator('[data-settings-schema-version]').innerText(), '5');
     assert.ok((await page.locator('[data-settings-version]').innerText()).length > 0);
     assert.equal(await page.locator('[data-settings-reveal-library]').count(), 1);
     assert.equal(await page.locator('[data-settings-reveal-app-data]').count(), 1);
