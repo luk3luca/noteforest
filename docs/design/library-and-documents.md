@@ -159,10 +159,11 @@ The app never recursively deletes a library folder. There is no “Delete librar
 
 ### 4.2 New note placement
 
-Current duplicate: the global header and the Library header both create a note. This design keeps
-**one** New note control. Recommendation: **Library header `+`** (contextual, next to the document
-list); remove the global header `+`. The header becomes `[collapse][search]`. Open decision; the
-alternative is one global `+` visible from both tabs.
+Current duplicate: the sidebar header and the Library header both create a note. This design keeps
+**one sidebar New note**: the **Library header `+`** (contextual, next to the document list); the
+global sidebar-header `+` is removed. The header becomes `[collapse][search]`. The **document tab-bar
+`+`** next to the open document tabs is a separate tab-creation affordance and stays (product owner,
+13 November 2026).
 
 ### 4.3 Library switcher menu
 
@@ -385,7 +386,7 @@ decision log; implementation follows the **Confirmed** column.
 | ID | Decision | Options | Confirmed |
 |---|---|---|---|
 | LD-01 | Tab labels | Library/Outline; Files/Topics | **Library/Outline** |
-| LD-02 | New note placement | Library header only; global header only; both | **Library header only**; the global header `+` is removed in L1 |
+| LD-02 | New note placement | Library header only; global header only; both | **Library header only**; the global sidebar-header `+` is removed in L1. The document tab-bar `+` is a separate tab-creation affordance and stays (product owner, 13 November 2026). |
 | LD-03 | Library switch with open tabs | Keep tabs; close tabs after flush | **Keep tabs**, show the library in the tooltip |
 | LD-04 | Delete semantics | OS Trash; permanent delete | **OS Trash** |
 | LD-05 | External documents | v1; later | **Later**, after L4 |
