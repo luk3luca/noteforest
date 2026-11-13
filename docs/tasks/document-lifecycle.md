@@ -16,9 +16,30 @@ External documents, multi-root, search, backup UI, R4 and R6 are outside this br
 
 ## Goal
 
-One worktree, two ordered commits (L3, L4), one `npm run verify:fast`, targeted UI suites.
+One worktree, three ordered commits (review hardening, L3, L4), one `npm run verify:fast`,
+targeted UI suites.
 
 ## In scope
+
+### Commit H — L1+L2 review hardening
+
+Small fixes from the L1+L2 integration review; no new product behavior beyond removing a dead control.
+
+- Strengthen `apps/desktop/test/no-left-accent.test.ts`: the guard currently matches
+  `nf-tree|nf-block-card|nf-card|nf-chapter|nf-library-row` and misses `.nf-block-body` (the actual
+  Continuous card). Cover `nf-block-body`, `nf-block-inner`, `nf-page-card`/`nf-page-sheet` and the
+  callout card; add a UI computed-style assertion on a selected Continuous block and on an anchor
+  row (0 left border, full-row ring only). The product owner explicitly rejected left accent bars.
+- Add the missing **failed-flush blocks a library switch** test: use the existing save-failure/flush
+  test hook or a deterministic temp-package failure; assert the active library did not change and the
+  error is surfaced. No fixed sleeps, no native dialog.
+- Fix the **moved-recent with no open tab** stale `LibraryView.recent`: when
+  `reconcileMovedDocuments` changes the recent-documents manifest, return a fresh
+  `scanLibrary(root)` (or an explicit `recentChanged` flag) instead of the pre-reconciliation view;
+  add a main/UI test for a moved recent with no open tab.
+- Remove the dead disabled **Remove from Recent** menu item from the Library switcher (it is always
+  disabled because the menu is anchored to the active library); the Data & About recent-library rows
+  keep the real Remove action. Update the switcher test if it asserts the dead item.
 
 ### Commit L3 — Draft creation and materialization
 
@@ -98,14 +119,24 @@ Read:
   `state/shell.ts`, `state/session.ts`, `actions.ts`, `shell/Sidebar.tsx`, `shell/Dialogs.tsx`,
   `shell/Workspace.tsx`, `export/export-flow.ts`, `main/export-*.ts`.
 - Tests: `tests/ui/ui-batch-a.test.mjs`, `ui-document-status.test.mjs`,
-  `tests/ui/v0-shell-frame.test.mjs`, `apps/desktop/test/*runtime*`, `*session*`, `*library*`,
-  `*export*`, `packages/core/test/storage.test.ts`, `repository.test.ts`.
+  `tests/ui/v0-shell-frame.test.mjs`, `tests/ui/library-surface.test.mjs`,
+  `apps/desktop/test/no-left-accent.test.ts`, `apps/desktop/test/library-roots-main.test.ts`,
+  `apps/desktop/test/*runtime*`, `*session*`, `*library*`, `*export*`,
+  `packages/core/test/storage.test.ts`, `repository.test.ts`.
 - `docs/agents/brief-template.md`.
 
 Expected to touch: the files above, their tests, and `docs/reports/document-lifecycle.md`.
 
 ## Acceptance criteria
 
+- [ ] The no-left-accent guard covers `.nf-block-body`, block inner, page card/sheet and the callout
+      card; a selected Continuous block and an anchor row have 0 left border and only the full-row
+      ring.
+- [ ] A failed flush blocks a library switch with the error; the active library is unchanged.
+- [ ] A moved recent document with no open tab returns a fresh `LibraryView.recent` in the same
+      launch; a main/UI test covers it.
+- [ ] The dead disabled “Remove from Recent” switcher item is gone; Data & About still removes a
+      recent library.
 - [ ] `+` shows a draft tab; nothing appears in the library folder, recents, or locks until the first
       real modification.
 - [ ] The first edit/command/rename/asset/export/settings change materializes one package in the
@@ -146,7 +177,7 @@ Stop and report when:
 
 ## Report format
 
-- Summary mapped to L3 and L4.
+- Summary mapped to H, L3 and L4.
 - Files changed.
 - Checks with real timings and suite counts.
 - Acceptance criteria pass/fail with evidence.
