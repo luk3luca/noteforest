@@ -41,6 +41,11 @@ One worktree, two ordered commits (L1, L2), one `npm run verify:fast`, targeted 
   confirmed). Update the Batch A tests that assert the header `+`; keep the Library `+` working.
 - Replace the Library/Topics section dividers from the fix batch with the tab boundary; keep the
   footer `border-top` and the sidebar grid/rows.
+- **No left accent/bar treatment.** Remove the `border-inline-start` (and the first/last radius
+  adjustments) from `.nf-tree-anchor-row`; anchors are grouped by indentation and the quote, and a
+  selected row uses the same full-row ring as every other row. No block, card, chapter, or tree row
+  may use a left accent bar. Add a guard test and a screenshot; the product owner explicitly rejected
+  left accent blocks.
 - Sidebar collapse/expand and the rail stay unchanged; the tabs are only in the expanded panel.
 - Persist the active tab in the session; restore on launch. Opening a document does not force a tab
   switch; the last tab wins.
@@ -120,6 +125,8 @@ Expected to touch: the files above, their tests, and `docs/reports/library-surfa
 
 - [ ] Sidebar has Library/Outline tabs with ARIA and persisted active tab; Outline shows the active
       document and its empty state; Library shows the active library, filter and documents.
+- [ ] No block, card, chapter or tree row uses a left accent bar; the anchor-row left rule is gone,
+      grouping comes from indentation/quote, and selection is the full-row ring.
 - [ ] One New note control (Library header); the global header `+` is gone; the Library `+` creates
       a note in the active library.
 - [ ] The user can open a folder as a library, create a new library, switch between recents, and see
