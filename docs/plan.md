@@ -468,8 +468,12 @@ with OS Trash, and document-id move reconciliation; briefs are `docs/tasks/libra
 (L1+L2) and `docs/tasks/document-lifecycle.md` (L3+L4). L1+L2 are merged at `f0cd036`: Library/Outline
 sidebar tabs with a persisted tab, one sidebar New note, no left accent bars, `libraries.json` v1
 recents, one active library with open/create/switch/locate/remove/refresh, missing/no-library states,
-Data links, flush-before-switch, and document-id move reconciliation. Next: L3+L4 document lifecycle,
-R4 Export defaults (schema v4), R6 Continuous global. External API/agent access is removed from
+Data links, flush-before-switch, and document-id move reconciliation. L3+L4 are merged at `6bfa212`:
+in-memory drafts materialize on the first real mutation and swap the tab path without remounting;
+rename/reveal/Move-to-Trash uses the OS Trash with flush/live-lock rules and cleanup; H hardening
+extends the no-left guard, adds the failed-flush test, refreshes moved recents, and removes the dead
+switcher item. Next: R4 Export defaults (schema v4), R6 Continuous global. External API/agent access
+is removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.

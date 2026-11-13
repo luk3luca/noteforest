@@ -1,6 +1,6 @@
 # Library & documents — design
 
-**Status:** Approved for design (product owner, 13 November 2026). No implementation yet.
+**Status:** Approved; L1–L4 implemented and merged at `6bfa212` (13 November 2026). L5 backup UI remains future.
 **Date:** 13 November 2026.
 **Scope:** one active library per window, a Library/Outline sidebar split, deferred document
 creation (drafts), and document lifecycle (rename, reveal, move to Trash). Multi-root workspaces,
