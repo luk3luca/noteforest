@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NoteForest — special text lab</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --canvas: #17181a;
+        --surface-1: #1b1d20;
+        --surface-2: #202329;
+        --surface-3: #26292f;
+        --border: #2e3238;
+        --border-2: #3a3f47;
+        --text: #e7e8ea;
+        --text-secondary: #a6abb2;
+        --text-tertiary: #7e848c;
+        --accent: #9bb7d4;
+        --accent-soft: #2a3542;
+        --code: #d7c9a7;
+        --danger: #d98b8b;
+        --ok: #9ecfae;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      header.lab-head {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+      header .variant {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      header p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 18px 22px 60px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-1);
+        padding: 14px 16px 16px;
+      }
+      .panel h2 {
+        margin: 0 0 6px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .panel h3 {
+        margin: 0 0 6px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .panel-head h2 { margin: 0; }
+      .spacer { flex: 1; }
+      .variants {
+        display: flex;
+        gap: 4px;
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--surface-2);
+      }
+      .variants button {
+        border: 0;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 12px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      .variants button.active {
+        background: var(--accent-soft);
+        color: var(--text);
+        box-shadow: inset 0 0 0 1px var(--border-2);
+      }
+      .variants button:hover { color: var(--text); }
+      .reset {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 12px;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+      .reset:hover { color: var(--text); border-color: var(--border-2); }
+      .hint {
+        margin: 8px 0 10px;
+        color: var(--text-tertiary);
+        font-size: 12px;
+      }
+      .status {
+        margin: 10px 0 0;
+        min-height: 18px;
+        color: var(--accent);
+        font-size: 12px;
+      }
+      .editor {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--surface-2);
+        min-height: 190px;
+      }
+      textarea {
+        field-sizing: content;
+        display: block;
+        width: 100%;
+        resize: none;
+        border: 0;
+        outline: none;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        line-height: 1.5;
+        padding: 2px 0;
+        overflow: hidden;
+      }
+      textarea::placeholder { color: var(--text-tertiary); }
+      .node-p { display: block; }
+      .code {
+        margin: 6px 0;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: #141618;
+        overflow: hidden;
+      }
+      .code-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 5px 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-3);
+        color: var(--text-tertiary);
+        font-size: 11px;
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+      }
+      .code-head .lang { color: var(--accent); }
+      .code-body {
+        padding: 8px 10px;
+        color: var(--code);
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.55;
+        min-height: 42px;
+        white-space: pre-wrap;
+      }
+      .fence-close {
+        display: block;
+        width: 100%;
+        border: 0;
+        border-top: 1px dashed var(--border);
+        background: transparent;
+        color: var(--text-tertiary);
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        text-align: left;
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+      .fence-close:hover { color: var(--accent); background: var(--surface-3); }
+      .fence-close span {
+        margin-left: 8px;
+        font-family: inherit;
+        font-size: 10.5px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .probe {
+        margin: 4px 0 12px;
+        padding: 8px 10px;
+        border-left: 2px solid var(--border-2);
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+      .probe code { color: var(--code); }
+      #inline-source {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--surface-2);
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 12px;
+      }
+      .inline-previews {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .rendered {
+        min-height: 74px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--surface-2);
+        line-height: 1.6;
+        white-space: normal;
+      }
+      .rendered code {
+        padding: 1px 4px;
+        border-radius: 4px;
+        background: #141618;
+        color: var(--code);
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 12px;
+      }
+      table.compare {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      table.compare th,
+      table.compare td {
+        border-bottom: 1px solid var(--border);
+        padding: 7px 8px;
+        text-align: left;
+        vertical-align: top;
+      }
+      table.compare th { color: var(--text-tertiary); font-weight: 600; }
+      table.compare td:first-child { color: var(--text-secondary); width: 190px; }
+      .note {
+        margin: 10px 0 0;
+        color: var(--text-tertiary);
+        font-size: 11.5px;
+        line-height: 1.6;
+      }
+      .note strong { color: var(--text-secondary); }
+    </style>
+  </head>
+  <body>
+    <header class="lab-head">
+      <h1>Special text lab</h1>
+      <span class="variant">design prototype</span>
+      <p>Code fences and inline code: the behaviours side by side.</p>
+    </header>
+
+    <main>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>1 · Code fences</h2>
+          <span class="spacer"></span>
+          <div class="variants" role="group" aria-label="Fence behaviour">
+            <button type="button" data-variant="A">A · Markdown</button>
+            <button type="button" data-variant="B" class="active">B · Node (today)</button>
+            <button type="button" data-variant="C">C · Auto-close</button>
+          </div>
+          <button type="button" class="reset" id="reset">Reset</button>
+        </div>
+        <p class="hint">
+          Put the caret in the first, empty line, type three backticks (optionally a language, e.g.
+          ```python) and press Enter. The three variants differ in what happens to the text that
+          already exists below, and in how you leave the block.
+        </p>
+        <div class="editor" id="editor"></div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel">
+        <h2>2 · Inline code</h2>
+        <p class="hint">
+          Type in the source. The same text is rendered under the two rules, so an unclosed backtick
+          shows the difference immediately.
+        </p>
+        <textarea id="inline-source" rows="4" spellcheck="false"></textarea>
+        <div class="inline-previews">
+          <div>
+            <h3>E1 · closing required (live)</h3>
+            <div class="rendered" id="inline-e1"></div>
+          </div>
+          <div>
+            <h3>E2 · unclosed runs to the end (Markdown)</h3>
+            <div class="rendered" id="inline-e2"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>3 · What each behaviour costs</h2>
+        <table class="compare">
+          <thead>
+            <tr>
+              <th></th>
+              <th>A · Markdown</th>
+              <th>B · Node (today)</th>
+              <th>C · Auto-close</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Text already below the fence</td>
+              <td>converted to code (undoable)</td>
+              <td>stays where it is</td>
+              <td>stays where it is</td>
+            </tr>
+            <tr>
+              <td>Closing fence</td>
+              <td>you type it</td>
+              <td>you type it</td>
+              <td>already visible from the start</td>
+            </tr>
+            <tr>
+              <td>Leave without a fence</td>
+              <td>no</td>
+              <td>↓ / click (safety valve)</td>
+              <td>fence row / ↓</td>
+            </tr>
+            <tr>
+              <td>Surprise risk</td>
+              <td>a fence above swallows the rest</td>
+              <td>forgetting the exit</td>
+              <td>almost none</td>
+            </tr>
+            <tr>
+              <td>Implementation cost</td>
+              <td>higher: one-time conversion + undo</td>
+              <td>zero (already merged)</td>
+              <td>low: a closing-fence row in the node view</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">
+          <strong>What this lab does not simulate:</strong> the real editor is ProseMirror, so undo
+          granularity, selection inside a node view and pagination are approximate here. The fence
+          textareas are plain editors: syntax colours are not part of this decision.
+        </p>
+      </section>
+    </main>
+
+    <script>
+      const editor = document.getElementById('editor');
+      const status = document.getElementById('status');
+      const variants = document.querySelectorAll('[data-variant]');
+      const resetButton = document.getElementById('reset');
+
+      let variant = 'B';
+      let nodes = [];
+      let seq = 0;
+
+      const newId = () => 'n' + ++seq;
+
+      function sample() {
+        return [
+          { kind: 'p', text: '' },
+          { kind: 'p', text: 'Testo normale sopra la tabella.' },
+          { kind: 'p', text: '| Name | Value |' },
+          { kind: 'p', text: '| lambda | 1.25 |' },
+          { kind: 'p', text: 'Ultima riga di testo.' },
+        ];
+      }
+
+      function log(message) {
+        status.textContent = message;
+      }
+
+      function render() {
+        editor.replaceChildren(...nodes.map(renderNode));
+        requestAnimationFrame(() => {
+          editor.querySelectorAll('textarea').forEach(grow);
+        });
+      }
+
+      function renderNode(node) {
+        if (node.kind === 'p') {
+          const textarea = document.createElement('textarea');
+          textarea.className = 'node-p';
+          textarea.dataset.node = node.id;
+          textarea.rows = 1;
+          textarea.value = node.text;
+          textarea.placeholder = 'Type here';
+          textarea.spellcheck = false;
+          return textarea;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'code';
+        wrap.dataset.node = node.id;
+
+        const head = document.createElement('div');
+        head.className = 'code-head';
+        const lang = document.createElement('span');
+        lang.className = 'lang';
+        lang.textContent = node.language;
+        const hint = document.createElement('span');
+        hint.textContent =
+          variant === 'C' ? 'closing fence ready' : 'closing fence: type it on an empty line';
+        head.append(lang, hint);
+
+        const body = document.createElement('textarea');
+        body.className = 'code-body';
+        body.rows = 2;
+        body.value = node.text;
+        body.spellcheck = false;
+        body.placeholder = 'code';
+
+        wrap.append(head, body);
+
+        if (variant === 'C') {
+          const close = document.createElement('button');
+          close.type = 'button';
+          close.className = 'fence-close';
+          close.dataset.close = node.id;
+          close.innerHTML = '``` <span>close and write below</span>';
+          wrap.append(close);
+        }
+
+        return wrap;
+      }
+
+      function grow(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+      }
+
+      function focusNode(id, offset = 0) {
+        const host = editor.querySelector('[data-node="' + id + '"]');
+        if (host === null) return;
+        const target = host.matches('textarea') ? host : host.querySelector('textarea');
+        target.focus();
+        const end = Math.min(offset, target.value.length);
+        target.selectionStart = end;
+        target.selectionEnd = end;
+      }
+
+      function openFence(node, language) {
+        const index = nodes.findIndex((entry) => entry.id === node.id);
+        const before = nodes.slice(0, index);
+        const after = nodes.slice(index + 1);
+        const code = {
+          kind: 'code',
+          id: newId(),
+          language: language === '' ? 'plaintext' : language,
+          text: '',
+        };
+        let swallowed = 0;
+        if (variant === 'A') {
+          swallowed = after.length;
+          code.text = after.map((entry) => entry.text).join('\n');
+          nodes = [...before, code];
+        } else {
+          nodes = [...before, code, ...after];
+        }
+        render();
+        focusNode(code.id, 0);
+        if (variant === 'A') {
+          log(
+            swallowed === 0
+              ? 'A · Markdown: fence opened. Nothing below, so the block is simply empty. Close it with ``` at the end.'
+              : 'A · Markdown: fence opened and ' +
+                swallowed +
+                ' node(s) below converted to code. Close it with ``` at the end.',
+          );
+        } else if (variant === 'C') {
+          log(
+            'C · Auto-close: the block already shows its closing fence. Click the fence row or press ↓ to write below.',
+          );
+        } else {
+          log(
+            'B · Node: the block opens empty and the text below stays. Type ``` on an empty line, or press ↓ to leave.',
+          );
+        }
+      }
+
+      function closeFence(node) {
+        node.text = node.text.replace(/(^|\n)```\s*$/, '$1').replace(/\n$/, '');
+        const index = nodes.findIndex((entry) => entry.id === node.id);
+        const paragraph = { kind: 'p', id: newId(), text: '' };
+        nodes.splice(index + 1, 0, paragraph);
+        render();
+        focusNode(paragraph.id, 0);
+        log('Fence closed: a normal paragraph now sits below the block.');
+      }
+
+      function leaveBelow(node) {
+        const index = nodes.findIndex((entry) => entry.id === node.id);
+        const next = nodes[index + 1];
+        if (next !== undefined && next.kind === 'p') {
+          focusNode(next.id, 0);
+          log('Caret moved below the block: the next paragraph is normal text.');
+          return;
+        }
+        const paragraph = { kind: 'p', id: newId(), text: '' };
+        nodes.splice(index + 1, 0, paragraph);
+        render();
+        focusNode(paragraph.id, 0);
+        log('Caret moved below the block: a new normal paragraph was created.');
+      }
+
+      function splitParagraph(node, textarea) {
+        const at = textarea.selectionStart;
+        const value = textarea.value;
+        node.text = value.slice(0, at);
+        const index = nodes.findIndex((entry) => entry.id === node.id);
+        const paragraph = { kind: 'p', id: newId(), text: value.slice(at) };
+        nodes.splice(index + 1, 0, paragraph);
+        render();
+        focusNode(paragraph.id, 0);
+      }
+
+      editor.addEventListener('input', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLTextAreaElement)) return;
+        const host = target.closest('[data-node]');
+        if (host === null) return;
+        const node = nodes.find((entry) => entry.id === host.dataset.node);
+        if (node === undefined) return;
+        grow(target);
+
+        if (node.kind === 'p') {
+          node.text = target.value;
+          return;
+        }
+
+        node.text = target.value;
+        if (variant !== 'C' && /(^|\n)```\s*$/.test(node.text)) closeFence(node);
+      });
+
+      editor.addEventListener('keydown', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLTextAreaElement)) return;
+        const host = target.closest('[data-node]');
+        if (host === null) return;
+        const node = nodes.find((entry) => entry.id === host.dataset.node);
+        if (node === undefined) return;
+
+        if (node.kind === 'p' && event.key === 'Enter') {
+          event.preventDefault();
+          const match = target.value.trim().match(/^```(\w*)$/);
+          if (match !== null) {
+            openFence(node, match[1]);
+            return;
+          }
+          splitParagraph(node, target);
+          return;
+        }
+
+        if (node.kind === 'code' && (event.key === 'ArrowDown' || event.key === 'Escape')) {
+          const atEnd = target.selectionStart === target.value.length;
+          if (event.key === 'Escape' || atEnd) {
+            event.preventDefault();
+            leaveBelow(node);
+          }
+        }
+      });
+
+      editor.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-close]');
+        if (button === null) return;
+        const node = nodes.find((entry) => entry.id === button.dataset.close);
+        if (node !== undefined) leaveBelow(node);
+      });
+
+      variants.forEach((button) => {
+        button.addEventListener('click', () => {
+          variant = button.dataset.variant;
+          variants.forEach((entry) => entry.classList.toggle('active', entry === button));
+          reset();
+        });
+      });
+
+      resetButton.addEventListener('click', reset);
+
+      function reset() {
+        nodes = sample().map((entry) => ({ ...entry, id: newId() }));
+        render();
+        requestAnimationFrame(() => focusNode(nodes[0].id, 0));
+        log('Ready. Type ``` in the first line to open a fence.');
+      }
+
+      const inlineSource = document.getElementById('inline-source');
+      const inlineE1 = document.getElementById('inline-e1');
+      const inlineE2 = document.getElementById('inline-e2');
+
+      const escapeHtml = (value) =>
+        value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+
+      function renderE1(text) {
+        return escapeHtml(text)
+          .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+          .replace(/\n/g, '<br>');
+      }
+
+      function renderE2(text) {
+        let out = '';
+        let index = 0;
+        while (index < text.length) {
+          if (text[index] === '`') {
+            const close = text.indexOf('`', index + 1);
+            if (close === -1) {
+              out += '<code>' + escapeHtml(text.slice(index + 1)) + '</code>';
+              break;
+            }
+            out += '<code>' + escapeHtml(text.slice(index + 1, close)) + '</code>';
+            index = close + 1;
+            continue;
+          }
+          out += escapeHtml(text[index]);
+          index += 1;
+        }
+        return out.replace(/\n/g, '<br>');
+      }
+
+      function renderInline() {
+        const text = inlineSource.value;
+        inlineE1.innerHTML = renderE1(text);
+        inlineE2.innerHTML = renderE2(text);
+      }
+
+      inlineSource.addEventListener('input', renderInline);
+
+      inlineSource.value =
+        'Usa `npm run build` per compilare.\n' +
+        'Ecco un backtick non chiuso: `questo testo resta codice fino alla fine.\n' +
+        'Questa riga è dentro o fuori?';
+
+      reset();
+      renderInline();
+    </script>
+  </body>
+</html>
