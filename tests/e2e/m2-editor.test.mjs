@@ -780,7 +780,7 @@ describe('NoteForest M2 editor shell', () => {
     assert.ok(edgeEnd.x < trunk.childLeft, 'the arrowhead stops before the child');
     assert.ok(Math.abs(edgeEnd.y - trunk.childCenterY) < 1.5, 'the arrow enters at the child side');
 
-    // Plain Backspace on an empty child keeps it and moves the caret up.
+    // Plain Backspace on an empty child keeps it and the caret in place.
     const workedCard = scope.locator('[data-block-card]', { hasText: 'Worked example' }).first();
     const workedId = await workedCard.getAttribute('data-block-card');
     await workedCard.click();
@@ -792,9 +792,20 @@ describe('NoteForest M2 editor shell', () => {
     assert.ok(childId !== null && childId !== workedId, 'the new child block is focused');
     assert.equal((await h.activeRuntimeInfo()).blocks, before + 1);
     await page.keyboard.press('Backspace');
-    await h.waitSelected(workedId);
     assert.equal((await h.activeRuntimeInfo()).blocks, before + 1, 'Backspace never deletes an empty block');
-    assert.equal((await h.activeRuntimeInfo()).selectedBlockId, workedId, 'the caret moves to the previous block');
+    assert.equal(
+      (await h.activeRuntimeInfo()).selectedBlockId,
+      childId,
+      'Backspace stays on the empty block instead of focusing the previous one',
+    );
+    const emptyCaretBlock = await page.evaluate(() => {
+      const selection = window.getSelection();
+      if (selection === null || selection.rangeCount === 0) return null;
+      const node = selection.getRangeAt(0).startContainer;
+      const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return element?.closest('[data-block-card]')?.getAttribute('data-block-card') ?? null;
+    });
+    assert.equal(emptyCaretBlock, childId, 'the caret stays in the empty block');
 
     // Cmd+Backspace is the destructive path.
     await h.activeEditor().locator(`[data-block-card="${childId}"]`).click();

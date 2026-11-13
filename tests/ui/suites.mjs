@@ -10,6 +10,7 @@
 export const FILES = [
   'm2-view.test.mjs',
   'm2-shell.test.mjs',
+  'backspace-boundary.test.mjs',
   'v0-shell-frame.test.mjs',
   'm3-anchor-callout-layout.test.mjs',
   'm3-anchor-callout-stacking.test.mjs',
@@ -75,6 +76,7 @@ export const GROUPS = {
   shell: [
     'm2-view.test.mjs',
     'm2-shell.test.mjs',
+    'backspace-boundary.test.mjs',
     'v0-shell-frame.test.mjs',
     'ui-batch-a.test.mjs',
     'ui-batch-v.test.mjs',

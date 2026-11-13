@@ -3,7 +3,6 @@ import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 import { getEditorBindings } from './bindings';
 import { backspaceAction } from '../lib/backspace';
-import { visibleBlockIds } from '../lib/tree';
 
 function currentBlockId(editor: Editor): string | null {
   const selection = editor.state.selection;
@@ -43,12 +42,6 @@ function selectedBlock(editor: Editor): NodeSelection | null {
   return selection instanceof NodeSelection && selection.node.type.name === 'branchBlock'
     ? selection
     : null;
-}
-
-function blockBodyIsEmpty(editor: Editor): boolean {
-  const depth = blockBodyDepth(editor);
-  if (depth === null) return false;
-  return editor.state.selection.$from.node(depth).textContent.trim().length === 0;
 }
 
 export const BranchKeymap = Extension.create({
@@ -185,31 +178,22 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      // Plain Backspace is never destructive for a block: an empty block stays
-      // and the caret moves to the previous block. Tables and code keep the
-      // native behavior (Backspace edits inside the cell / code line).
+      // Plain Backspace never leaves the active block: at its very start the
+      // key is swallowed (empty blocks stay; no cross-block join) and every
+      // other position keeps the native editor keymap. Tables, code, lists and
+      // blockquotes stay native so Backspace edits inside them.
       Backspace: () => {
         const editor = this.editor;
-        const id = currentBlockId(editor);
-        const current = bindings();
         const depth = blockBodyDepth(editor);
-        const { $from } = editor.state.selection;
-        const ids =
-          current === null ? [] : visibleBlockIds(current.runtime.document, current.runtime.collapsed);
-        const index = id === null ? -1 : ids.indexOf(id);
+        const selection = editor.state.selection;
+        const { $from } = selection;
         const action = backspaceAction({
-          selectionEmpty: editor.state.selection.empty,
+          // NodeSelection.empty is true; only a real collapsed caret counts.
+          selectionEmpty: selection.empty && !(selection instanceof NodeSelection),
           atomic: inAtomicContext(editor),
           atBlockStart: depth !== null && $from.parentOffset === 0 && $from.index(depth) === 0,
-          empty: blockBodyIsEmpty(editor),
-          hasPrevious: index > 0,
         });
-        if (action === 'native') return false;
-        if (action === 'previous' && id !== null && current !== null) {
-          const previous = ids[index - 1];
-          if (previous !== undefined) current.runtime.focusBlock(previous, { at: 'end' });
-        }
-        return true;
+        return action === 'stay';
       },
 
       // ⌘Backspace deletes the active block (confirmation when it has
