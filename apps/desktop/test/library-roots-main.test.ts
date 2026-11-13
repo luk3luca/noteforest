@@ -166,6 +166,36 @@ describe('active library roots', () => {
     expect(session.activeLibrary).toBe(path.resolve(movedRoot));
   });
 
+  it('returns a fresh recent list when a moved recent has no open tab', async () => {
+    await activeLibraryPath();
+    const created = await createDocument({ title: 'Moved recent' });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const oldPath = created.snapshot.packagePath;
+    await closeAllStores();
+
+    const movedPath = path.join(libraryA, 'moved-recent-package');
+    await fs.rename(oldPath, movedPath);
+    // No open tab names the document: only the recent-documents manifest is
+    // stale after the move.
+    await writeSession({
+      tabs: [],
+      activeTab: null,
+      sidebarCollapsed: false,
+      sidebarWidth: 264,
+      collapsedTopics: {},
+      sidebarTab: 'library',
+      activeLibrary: libraryA,
+    });
+
+    const opened = await openLibraryPath(libraryA);
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    expect(opened.reconciledTabs).toBeUndefined();
+    expect(opened.library.recent[0]?.packagePath).toBe(movedPath);
+    expect(opened.library.recent[0]?.missing).not.toBe(true);
+  });
+
   it('rejects a package root and a nested library, but creates a sibling library', async () => {
     await activeLibraryPath();
     const packageRoot = path.join(root, 'package');

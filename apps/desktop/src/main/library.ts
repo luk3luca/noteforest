@@ -464,13 +464,14 @@ export async function openLibraryPath(candidate: string): Promise<LibraryActionR
     return { ok: false, message: validation.message ?? 'That folder cannot be a library.' };
   }
   const library = await activateLibraryPath(validation.path);
-  const reconciledTabs = library.missing
-    ? []
+  const reconciliation = library.missing
+    ? { tabs: [], recentChanged: false }
     : await reconcileMovedDocuments(validation.path, library.documents);
+  const refreshed = reconciliation.tabs.length > 0 || reconciliation.recentChanged;
   return {
     ok: true,
-    library: reconciledTabs.length > 0 ? await scanLibrary(validation.path) : library,
-    ...(reconciledTabs.length === 0 ? {} : { reconciledTabs }),
+    library: refreshed ? await scanLibrary(validation.path) : library,
+    ...(reconciliation.tabs.length === 0 ? {} : { reconciledTabs: reconciliation.tabs }),
   };
 }
 
@@ -513,13 +514,14 @@ export async function switchLibraryRoot(candidate: string): Promise<LibraryActio
     return { ok: false, message: 'That folder is not one of the known libraries.' };
   }
   const library = await activateLibraryPath(resolved);
-  const reconciledTabs = library.missing
-    ? []
+  const reconciliation = library.missing
+    ? { tabs: [], recentChanged: false }
     : await reconcileMovedDocuments(resolved, library.documents);
+  const refreshed = reconciliation.tabs.length > 0 || reconciliation.recentChanged;
   return {
     ok: true,
-    library: reconciledTabs.length > 0 ? await scanLibrary(resolved) : library,
-    ...(reconciledTabs.length === 0 ? {} : { reconciledTabs }),
+    library: refreshed ? await scanLibrary(resolved) : library,
+    ...(reconciliation.tabs.length === 0 ? {} : { reconciledTabs: reconciliation.tabs }),
   };
 }
 
@@ -576,37 +578,46 @@ export async function locateLibraryRoot(
   knownLibraryCanonicalCache = null;
 
   const scanned = await scanLibrary(chosen);
-  const reconciledTabs = scanned.missing
-    ? []
+  const reconciliation = scanned.missing
+    ? { tabs: [], recentChanged: false }
     : await reconcileMovedDocuments(chosen, scanned.documents);
+  const refreshed = reconciliation.tabs.length > 0 || reconciliation.recentChanged;
   const view = wasActive
-    ? reconciledTabs.length > 0
+    ? refreshed
       ? await scanLibrary(chosen)
       : scanned
     : await scanLibrary(active ?? undefined);
   return {
     ok: true,
     library: view,
-    ...(reconciledTabs.length === 0 ? {} : { reconciledTabs }),
+    ...(reconciliation.tabs.length === 0 ? {} : { reconciledTabs: reconciliation.tabs }),
   };
 }
 
 /**
  * Match missing session tabs and recent-document entries to a scanned document
  * by canonical `document.id`. Legacy path-only entries (no id) stay missing.
+ *
+ * `recentChanged` tells the caller that the recent-documents manifest was
+ * rewritten (a moved recent with no open tab), so the pre-reconciliation
+ * `LibraryView` is stale and must be replaced with a fresh scan.
  */
 async function reconcileMovedDocuments(
   root: string,
   documents: LibraryView['documents'],
-): Promise<Array<{ from: string; to: string; documentId: string }>> {
+): Promise<{
+  tabs: Array<{ from: string; to: string; documentId: string }>;
+  recentChanged: boolean;
+}> {
   const byId = new Map<string, string>();
   for (const document of documents) {
     if (document.status === 'ok' && document.documentId !== null) {
       byId.set(document.documentId, document.packagePath);
     }
   }
-  if (byId.size === 0) return [];
+  if (byId.size === 0) return { tabs: [], recentChanged: false };
   const reconciled: Array<{ from: string; to: string; documentId: string }> = [];
+  let recentChanged = false;
 
   const session = await readSession();
   const tabs: SessionTabState[] = [];
@@ -657,6 +668,7 @@ async function reconcileMovedDocuments(
       });
     }
     if (manifestChanged) {
+      recentChanged = true;
       const manifest: RecentDocumentsManifest = {
         version: read.manifest.version,
         items,
@@ -671,7 +683,7 @@ async function reconcileMovedDocuments(
     // Recent-document reconciliation is best-effort; tabs are the primary state.
   }
   void root;
-  return reconciled;
+  return { tabs: reconciled, recentChanged };
 }
 
 /**
@@ -2143,8 +2155,10 @@ export async function bootstrap(): Promise<{
   const active = await activeLibraryPath();
   let library = await scanLibrary(active ?? undefined);
   if (active !== null && !library.missing) {
-    const reconciled = await reconcileMovedDocuments(active, library.documents);
-    if (reconciled.length > 0) library = await scanLibrary(active);
+    const reconciliation = await reconcileMovedDocuments(active, library.documents);
+    if (reconciliation.tabs.length > 0 || reconciliation.recentChanged) {
+      library = await scanLibrary(active);
+    }
   }
   const sessionRead = await readSessionWithOverrides();
   const session = sessionRead.session;

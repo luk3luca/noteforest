@@ -145,6 +145,22 @@ describe('Library surface', () => {
     );
     assert.ok(created !== null && created.startsWith(activePath), 'the note is in the active library');
     await h.waitSaved();
+    // A selected Continuous block is the full-card ring, never a left accent bar.
+    await page
+      .locator('.nf-editor[data-active="true"] [data-block-card] .nf-block-prose')
+      .first()
+      .click();
+    const selectedCard = page
+      .locator('.nf-editor[data-active="true"] .nf-block-body[data-active="true"]')
+      .first();
+    await selectedCard.waitFor();
+    const cardStyle = await selectedCard.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { border: style.borderInlineStartWidth, shadow: style.boxShadow };
+    });
+    assert.equal(cardStyle.border, '0px', 'the selected Continuous block has no left border');
+    assert.match(cardStyle.shadow, /0px 0px 0px 1px inset/, 'selection is the full-card ring');
+    assert.doesNotMatch(cardStyle.shadow, /(?:2|3|4)px 0px/, 'selection has no left stripe');
     await page.screenshot({ path: join(screenshotDir, 'library-tab.png') });
 
     // Arrow keys move selection and focus together.
@@ -274,11 +290,23 @@ describe('Library surface', () => {
       'the active library has a check',
     );
     assert.equal(
-      await page.getByRole('menuitem', { name: 'Remove from Recent', exact: true }).isDisabled(),
-      true,
-      'Remove from Recent is disabled for the active library',
+      await page.getByRole('menuitem', { name: 'Remove from Recent', exact: true }).count(),
+      0,
+      'the dead switcher Remove from Recent item is gone (Data & About owns it)',
     );
     await page.screenshot({ path: join(screenshotDir, 'library-switcher.png') });
+    // Data & About keeps the real recent-library removal.
+    await page.keyboard.press('Escape');
+    await page.locator('.nf-menu').waitFor({ state: 'detached' });
+    await page.keyboard.press('Meta+,');
+    await page.waitForSelector('[data-settings-dialog="true"]');
+    await page.locator('[data-settings-nav="data"]').click();
+    assert.ok(
+      (await page.locator('[data-settings-library-remove]').count()) > 0,
+      'Data & About still offers Remove from Recent',
+    );
+    await page.getByRole('button', { name: 'Done' }).click();
+    await openSwitcher();
     await mockFolderDialog(libraryB);
     await chooseMenu('Open Folder as Library…');
     await waitLibraryPath(libraryB);
@@ -379,6 +407,50 @@ describe('Library surface', () => {
     await chooseMenu('Open Folder as Library…');
     await page.getByText(/inside the library/).waitFor({ timeout: 15000 });
     assert.equal((await sidebarState()).library.path, study);
+  });
+
+  it('blocks a library switch when the open document flush fails', async () => {
+    const env = ui.isolated('flush');
+    await launch('flush', env);
+    await ui.seedDemo();
+    const libraryA = (await sidebarState()).library.path;
+    const demoPackage = (await sidebarState()).tabs[0].packagePath;
+    const libraryB = join(tempRoot, 'flush-library-b');
+    await mkdir(libraryB, { recursive: true });
+
+    // Deterministic save failure: the file changes on disk after it was opened,
+    // so the flush before the switch must refuse to overwrite it.
+    const original = await readFile(join(demoPackage, 'document.json'), 'utf8');
+    const changed = JSON.parse(original);
+    changed.title = 'Changed outside NoteForest';
+    await writeFile(join(demoPackage, 'document.json'), `${JSON.stringify(changed, null, 2)}\n`);
+
+    await openSwitcher();
+    await mockFolderDialog(libraryB);
+    await chooseMenu('Open Folder as Library…');
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll('[data-sonner-toast]')].some((element) =>
+          element.textContent?.includes('changed on disk'),
+        ),
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal(
+      (await sidebarState()).library.path,
+      libraryA,
+      'the active library did not change after the failed flush',
+    );
+    assert.equal(
+      (await librariesFile(env)).libraries.some((entry) => entry.path === libraryB),
+      false,
+      'the refused library was not activated or recorded',
+    );
+
+    // Restore the fixture so the quit path is clean: discard this tab without
+    // writing, then quit with no dirty documents.
+    await writeFile(join(demoPackage, 'document.json'), original);
+    await page.evaluate((path) => window.__noteforestTest.closePath(path), demoPackage);
   });
 
   it('shows the missing state, locates a moved library, and reconciles the open tab', async () => {

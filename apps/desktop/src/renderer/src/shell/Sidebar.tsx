@@ -177,12 +177,6 @@ function LibrarySection(): JSX.Element {
         label: 'Reveal in Finder',
         onSelect: () => void revealLibraryPath(libraryPath),
       },
-      {
-        id: 'library-remove',
-        label: 'Remove from Recent',
-        disabled: true,
-        reason: 'Switch to another library first',
-      },
     );
     useShell.getState().openContextMenu(anchor.x, anchor.y, entries);
   };
