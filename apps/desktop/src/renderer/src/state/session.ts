@@ -31,6 +31,7 @@ export function buildSession(): SessionState {
         );
         return {
           packagePath: tab.packagePath,
+          documentId: runtime?.document.id ?? null,
           scrollTop: getScroll(tab.packagePath),
           selectedBlockId: runtime?.selectedBlockId ?? null,
           collapsed: runtime === undefined ? [] : [...runtime.collapsed],
@@ -47,5 +48,9 @@ export function buildSession(): SessionState {
     sidebarWidth: state.sidebarWidth,
     collapsedTopics: state.collapsedTopics,
     sidebarTab: state.sidebarTab,
+    activeLibrary:
+      state.library === null || state.library.libraryPath.length === 0
+        ? null
+        : state.library.libraryPath,
   };
 }

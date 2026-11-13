@@ -11,6 +11,7 @@ import { basename, isAbsolute, join, resolve } from 'node:path';
 import { stat } from 'node:fs/promises';
 import type {
   BootstrapResult,
+  CreateLibraryInput,
   FlushResult,
   MenuCommand,
   RevealResult,
@@ -19,6 +20,7 @@ import type {
 } from '../shared/api.js';
 import { normalizeFlushResult } from '../shared/flush.js';
 import {
+  activeLibraryPath,
   applyCommand,
   appSupportDir,
   bootstrap,
@@ -26,15 +28,19 @@ import {
   closeDocument,
   copyImageAsset,
   createDocument,
+  createLibraryRoot,
   defaultRestoreDestination,
   dirtyDocuments,
   importImageBytes,
   importImageFile,
-  isInsideLibrary,
-  libraryDir,
+  isInsideKnownLibrary,
+  libraryRootForPath,
   listBackups,
+  locateLibraryRoot,
   openDocument,
+  openLibraryPath,
   reloadDocument,
+  removeRecentLibraryRoot,
   resetDocumentSettingsMap,
   resetSettings,
   restoreBackup,
@@ -46,6 +52,7 @@ import {
   saveDocumentSettings,
   scanLibrary,
   seedDocument,
+  switchLibraryRoot,
   takeOverStaleLock,
   writeSession,
   writeSettings,
@@ -292,12 +299,37 @@ function createMainWindow(): void {
   });
 }
 
+/** Native directory picker used by the library open/create/locate flows. */
+async function chooseLibraryDirectory(
+  title: string,
+  buttonLabel: string,
+  defaultPath?: string,
+): Promise<string | null> {
+  const win = mainWindow;
+  if (win === null || win.isDestroyed()) return null;
+  const choice = await dialog.showOpenDialog(win, {
+    title,
+    buttonLabel,
+    ...(defaultPath === undefined ? {} : { defaultPath }),
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  const folder = choice.filePaths[0];
+  if (choice.canceled || folder === undefined || folder.trim().length === 0) return null;
+  return folder;
+}
+
+function libraryActionFailure(error: unknown): { ok: false; message: string } {
+  return {
+    ok: false,
+    message: error instanceof Error && error.message.length > 0 ? error.message : String(error),
+  };
+}
+
 function registerIpc(): void {
   ipcMain.handle('app:bootstrap', async (): Promise<BootstrapResult> => {
-    const library = await scanLibrary();
     const restored = await bootstrap();
     return {
-      library,
+      library: restored.library,
       session: restored.session,
       settings: restored.settings,
       settingsStatus: restored.settingsStatus,
@@ -311,7 +343,72 @@ function registerIpc(): void {
     };
   });
 
-  ipcMain.handle('library:scan', () => scanLibrary());
+  ipcMain.handle('library:scan', (_event, root?: string) => scanLibrary(root));
+
+  ipcMain.handle('library:open', async () => {
+    const folder = await chooseLibraryDirectory('Open folder as library', 'Open Library');
+    if (folder === null) {
+      return { ok: false as const, canceled: true, message: 'No folder was chosen.' };
+    }
+    try {
+      return await openLibraryPath(folder);
+    } catch (error) {
+      return libraryActionFailure(error);
+    }
+  });
+
+  ipcMain.handle('library:choose-parent', async () => {
+    const folder = await chooseLibraryDirectory('Choose parent folder', 'Choose');
+    if (folder === null) return { canceled: true as const };
+    return { canceled: false as const, path: folder };
+  });
+
+  ipcMain.handle('library:create-root', async (_event, input: unknown) => {
+    try {
+      return await createLibraryRoot(input as CreateLibraryInput);
+    } catch (error) {
+      return libraryActionFailure(error);
+    }
+  });
+
+  ipcMain.handle('library:switch', async (_event, libraryPath: unknown) => {
+    if (typeof libraryPath !== 'string' || libraryPath.length === 0) {
+      return { ok: false as const, message: 'No library path was provided.' };
+    }
+    try {
+      return await switchLibraryRoot(libraryPath);
+    } catch (error) {
+      return libraryActionFailure(error);
+    }
+  });
+
+  ipcMain.handle('library:remove-recent', async (_event, libraryPath: unknown) => {
+    if (typeof libraryPath !== 'string' || libraryPath.length === 0) {
+      return { ok: false as const, message: 'No library path was provided.' };
+    }
+    try {
+      return await removeRecentLibraryRoot(libraryPath);
+    } catch (error) {
+      return libraryActionFailure(error);
+    }
+  });
+
+  ipcMain.handle('library:locate', async (_event, missingPath: unknown) => {
+    if (typeof missingPath !== 'string' || missingPath.length === 0) {
+      return { ok: false as const, message: 'No missing library path was provided.' };
+    }
+    const folder = await chooseLibraryDirectory('Locate library', 'Use this folder');
+    if (folder === null) {
+      return { ok: false as const, canceled: true, message: 'No folder was chosen.' };
+    }
+    try {
+      return await locateLibraryRoot(missingPath, folder);
+    } catch (error) {
+      return libraryActionFailure(error);
+    }
+  });
+
+  ipcMain.handle('library:refresh', () => scanLibrary());
 
   ipcMain.handle('library:create', (_event, input: { title?: string }) =>
     createDocument(input ?? {}),
@@ -336,7 +433,10 @@ function registerIpc(): void {
     if (win === null || win.isDestroyed()) {
       return { ok: false as const, message: 'The window is not available.' };
     }
-    const base = join(libraryDir(), `${basename(packagePath) || 'document'} copy`);
+    const base = join(
+      (await libraryRootForPath(packagePath)) ?? app.getPath('documents'),
+      `${basename(packagePath) || 'document'} copy`,
+    );
     const choice = await dialog.showSaveDialog(win, {
       title: 'Save a copy',
       buttonLabel: 'Save copy',
@@ -431,19 +531,27 @@ function registerIpc(): void {
     },
   );
 
-  ipcMain.handle('document:reveal', (_event, packagePath: unknown): RevealResult => {
+  ipcMain.handle('document:reveal', async (_event, packagePath: unknown): Promise<RevealResult> => {
     if (typeof packagePath !== 'string' || packagePath.length === 0) {
       return { ok: false, message: 'No document path was provided.' };
     }
-    if (!isInsideLibrary(packagePath)) {
-      return { ok: false, message: 'Document is outside the NoteForest library.' };
+    if (!(await isInsideKnownLibrary(packagePath))) {
+      return { ok: false, message: 'Document is outside the known NoteForest libraries.' };
     }
     shell.showItemInFolder(join(packagePath, 'document.json'));
     return { ok: true };
   });
 
-  ipcMain.handle('library:reveal', async () => {
-    await shell.openPath(libraryDir());
+  ipcMain.handle('library:reveal', async (_event, libraryPath?: unknown): Promise<RevealResult> => {
+    const target =
+      typeof libraryPath === 'string' && libraryPath.length > 0
+        ? libraryPath
+        : await activeLibraryPath();
+    if (target === null || target.length === 0) {
+      return { ok: false, message: 'No library is open.' };
+    }
+    const message = await shell.openPath(target);
+    return message.length === 0 ? { ok: true } : { ok: false, message };
   });
 
   ipcMain.handle('settings:reveal', async () => {

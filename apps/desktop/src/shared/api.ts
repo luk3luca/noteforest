@@ -129,12 +129,57 @@ export interface RecoveryDocumentView {
   warnings: string[];
 }
 
+export interface RecentLibraryView {
+  path: string;
+  name: string;
+  /** Parent path, only when two recents share a basename (LD-09). */
+  parentPath?: string;
+  lastOpenedAt: string;
+  missing: boolean;
+  active: boolean;
+}
+
 export interface LibraryView {
+  /** Active library root; an empty string means no library is open. */
   libraryPath: string;
+  libraryName: string;
   appSupportPath: string;
   documents: DocumentSummary[];
   recent: RecentDocumentView[];
+  /** Recent libraries (global, max 8, newest first). */
+  libraries: RecentLibraryView[];
+  /** The active library folder is missing; it is never recreated. */
+  missing: boolean;
   warnings: string[];
+}
+
+export interface LibraryActionSuccess {
+  ok: true;
+  library: LibraryView;
+  /**
+   * Session tabs whose missing path was matched by document id during a
+   * library open/locate. The renderer reopens them at the new path.
+   */
+  reconciledTabs?: Array<{ from: string; to: string; documentId: string }>;
+}
+
+export interface LibraryActionFailure {
+  ok: false;
+  canceled?: boolean;
+  message: string;
+}
+
+export type LibraryActionResult = LibraryActionSuccess | LibraryActionFailure;
+
+export interface LibraryParentChoice {
+  canceled: boolean;
+  path?: string;
+  message?: string;
+}
+
+export interface CreateLibraryInput {
+  name: string;
+  parentPath: string;
 }
 
 /**
@@ -202,6 +247,8 @@ export type DocumentSettingsRecoveryResult =
 
 export interface SessionTabState {
   packagePath: string;
+  /** Canonical document id, used to reconcile a moved package by id. */
+  documentId?: string | null;
   scrollTop: number;
   selectedBlockId: string | null;
   collapsed?: string[];
@@ -229,6 +276,12 @@ export interface SessionState {
   collapsedTopics: Record<string, string[]>;
   /** Persisted Library/Outline tab; legacy sessions without it open Library. */
   sidebarTab: SidebarTab;
+  /**
+   * Active library root. `undefined` means a legacy session that never had the
+   * field; `null` means the user removed the last library. The two are
+   * deliberately distinct so a removed library is not recreated on launch.
+   */
+  activeLibrary?: string | null;
 }
 
 export interface BootstrapResult {
@@ -505,8 +558,23 @@ export type ImportImageResult = ImportImageSuccess | ImportImageFailure;
 
 export interface NoteForestApi {
   bootstrap(): Promise<BootstrapResult>;
-  scanLibrary(): Promise<LibraryView>;
+  /** Scan the active library, or one explicit root during validation. */
+  scanLibrary(root?: string): Promise<LibraryView>;
   createDocument(input: { title?: string }): Promise<CreateDocumentResult>;
+  /** Native directory picker; validates, scans, activates, and records recent. */
+  openLibrary(): Promise<LibraryActionResult>;
+  /** Native parent picker for the New Library modal. */
+  chooseLibraryParent(): Promise<LibraryParentChoice>;
+  /** Create `<parent>/<name>`, then validate and activate it. */
+  createLibrary(input: CreateLibraryInput): Promise<LibraryActionResult>;
+  /** Activate a known recent (including a missing one, which shows its state). */
+  switchLibrary(libraryPath: string): Promise<LibraryActionResult>;
+  /** Recents only: never deletes files. Removing the active library falls back. */
+  removeRecentLibrary(libraryPath: string): Promise<LibraryActionResult>;
+  /** Native picker; replaces a missing library path and reconciles by document id. */
+  locateLibrary(missingPath: string): Promise<LibraryActionResult>;
+  /** Re-scan the active library after external changes. */
+  refreshLibrary(): Promise<LibraryView>;
   openDocument(packagePath: string): Promise<OpenDocumentResult>;
   /** Explicitly remove a stale lock and reopen writable; never automatic. */
   takeOverLock(packagePath: string): Promise<TakeOverLockResult>;
@@ -520,7 +588,8 @@ export interface NoteForestApi {
   reloadDocument(packagePath: string): Promise<ReloadDocumentResult>;
   closeDocument(packagePath: string, options: { save: boolean }): Promise<void>;
   revealDocument(packagePath: string): Promise<RevealResult>;
-  revealLibrary(): Promise<void>;
+  /** Reveal one known library root (defaults to the active library). */
+  revealLibrary(libraryPath?: string): Promise<RevealResult>;
   /** Reveal the app-support/settings folder in the OS file manager. */
   revealAppSupport(): Promise<void>;
   saveSession(state: SessionState): Promise<void>;

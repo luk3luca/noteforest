@@ -1,5 +1,6 @@
 import { Menu, MenuItem, Separator } from 'react-aria-components';
 import { useEffect, useRef } from 'react';
+import { Check } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useShell } from '../state/shell';
 
@@ -100,7 +101,12 @@ export function ContextMenu(): JSX.Element | null {
 
   if (menu === null) return null;
   const width = 224;
-  const height = menu.items.length * 28 + 12;
+  const height =
+    menu.items.reduce(
+      (sum, item) => sum + (item.description === undefined ? 28 : 42),
+      12,
+    );
+  const hasChecks = menu.items.some((item) => item.checked !== undefined);
   const left = Math.max(8, Math.min(menu.x, window.innerWidth - width - 8));
   const top = Math.max(8, Math.min(menu.y, window.innerHeight - height - 8));
 
@@ -135,6 +141,7 @@ export function ContextMenu(): JSX.Element | null {
               <MenuItem
                 key={entry.id}
                 id={entry.id}
+                data-menu-entry={entry.id}
                 textValue={entry.label}
                 isDisabled={entry.disabled === true}
                 className={({ isFocused, isDisabled }) =>
@@ -143,7 +150,17 @@ export function ContextMenu(): JSX.Element | null {
                     .join(' ')
                 }
               >
-                <span>{entry.label}</span>
+                {hasChecks ? (
+                  <span className="nf-menu-check" aria-hidden="true">
+                    {entry.checked === true ? <Check size={12} strokeWidth={1.8} /> : null}
+                  </span>
+                ) : null}
+                <span className="nf-menu-copy">
+                  <span className="nf-menu-label">{entry.label}</span>
+                  {entry.description === undefined ? null : (
+                    <span className="nf-menu-description">{entry.description}</span>
+                  )}
+                </span>
                 {entry.shortcut === undefined ? null : <kbd className="nf-menu-shortcut">{entry.shortcut}</kbd>}
               </MenuItem>
             ),

@@ -359,7 +359,7 @@ describe('restore newest backup from recovery', () => {
     await fs.mkdir(outside, { recursive: true });
     await expect(openDocument(outside)).resolves.toMatchObject({
       ok: false,
-      message: 'Document is outside the NoteForest library.',
+      message: 'Document is outside the known NoteForest libraries.',
     });
     await expect(restoreNewestBackup(outside)).resolves.toMatchObject({
       ok: false,

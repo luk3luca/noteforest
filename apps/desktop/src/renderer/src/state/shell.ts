@@ -53,6 +53,10 @@ export interface MenuEntry {
   disabled?: boolean;
   /** Why a palette/context row is disabled (palette shows it; menus use title). */
   reason?: string;
+  /** Switcher menu: current library check. */
+  checked?: boolean;
+  /** Switcher menu: duplicate-basename parent path on a second line. */
+  description?: string;
   separator?: boolean;
   onSelect?: () => void;
 }
@@ -73,6 +77,7 @@ export type DialogState =
   | { kind: 'reload-from-disk'; packagePath: string }
   | { kind: 'overwrite-external'; packagePath: string }
   | { kind: 'restore-backup'; packagePath: string }
+  | { kind: 'new-library' }
   | { kind: 'settings'; page?: SettingsPageId };
 
 export interface ContextMenuState {

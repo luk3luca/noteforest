@@ -1,7 +1,12 @@
 /** Application actions shared by the shell, menus, palette, and editor. */
 
 import { toast } from 'sonner';
-import type { MenuCommand, OpenDocumentResult, RecoveryDocumentView } from '../../shared/api';
+import type {
+  LibraryActionSuccess,
+  MenuCommand,
+  OpenDocumentResult,
+  RecoveryDocumentView,
+} from '../../shared/api';
 import type { ApplyOutcome, DocumentRuntime } from './state/runtime';
 import {
   allRuntimes,
@@ -9,7 +14,12 @@ import {
   registerRuntime,
   removeRuntime,
 } from './state/registry';
-import { useSettingsStore } from './state/settings';
+import {
+  flushPendingSettingsEdits,
+  flushSettingsWrites,
+  useSettingsStore,
+} from './state/settings';
+import { isPathInside } from './lib/paths';
 import {
   useShell,
   type DocumentLayout,
@@ -113,6 +123,7 @@ export function report(outcome: ApplyOutcome | Promise<ApplyOutcome | void> | vo
 export async function openPath(packagePath: string): Promise<boolean> {
   const existing = getRuntime(packagePath);
   if (existing !== null) {
+    await syncActiveLibraryForPath(packagePath);
     shell().setActiveTab(packagePath);
     return true;
   }
@@ -121,6 +132,7 @@ export async function openPath(packagePath: string): Promise<boolean> {
     toast.error(result.message);
     return false;
   }
+  await syncActiveLibraryForPath(packagePath);
   if (isRecoveryResult(result)) {
     shell().openTab({
       packagePath: result.packagePath,
@@ -174,6 +186,133 @@ export async function createNewDocument(): Promise<void> {
     packagePath: result.snapshot.packagePath,
     title: result.snapshot.document.title,
   });
+}
+
+/* ------------------------------------------------------------- libraries */
+
+async function applyLibraryResult(result: LibraryActionSuccess): Promise<void> {
+  useShell.getState().setLibrary(result.library);
+  for (const mapping of result.reconciledTabs ?? []) {
+    const state = useShell.getState();
+    if (!state.tabs.some((tab) => tab.packagePath === mapping.from)) continue;
+    state.closeTab(mapping.from);
+    await openPath(mapping.to);
+  }
+}
+
+/**
+ * Flush every open document and pending settings write before a library switch.
+ * A failed flush blocks the switch with the real error (LD-03 keeps tabs open).
+ */
+async function flushBeforeLibrarySwitch(): Promise<boolean> {
+  for (const runtime of allRuntimes()) {
+    if (!(await commitPageEdit(runtime.packagePath))) {
+      toast.error('Could not commit a Page Edit block before switching libraries.');
+      return false;
+    }
+  }
+  await flushPendingSettingsEdits();
+  const settings = await flushSettingsWrites();
+  if (!settings.ok) {
+    toast.error(settings.message);
+    return false;
+  }
+  for (const runtime of allRuntimes()) {
+    await runtime.flush();
+    if (runtime.saveState === 'error') {
+      toast.error(runtime.saveError ?? 'Could not save before switching libraries.');
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * LD-03: activating a tab from another known library makes that library
+ * active. Switching from the Library menu never retargets open tabs.
+ */
+export async function syncActiveLibraryForPath(packagePath: string): Promise<void> {
+  const state = useShell.getState();
+  const library = state.library;
+  if (library === null) return;
+  if (library.libraryPath.length > 0 && isPathInside(library.libraryPath, packagePath)) {
+    return;
+  }
+  const target = library.libraries.find((entry) => isPathInside(entry.path, packagePath));
+  if (target === undefined || target.active) return;
+  const result = await window.noteforest.switchLibrary(target.path);
+  if (!result.ok) {
+    toast.error(result.message);
+    return;
+  }
+  await applyLibraryResult(result);
+}
+
+export async function openLibrary(): Promise<void> {
+  if (!(await flushBeforeLibrarySwitch())) return;
+  const result = await window.noteforest.openLibrary();
+  if (!result.ok) {
+    if (result.canceled !== true) toast.error(result.message);
+    return;
+  }
+  await applyLibraryResult(result);
+}
+
+export async function chooseLibraryParent(): Promise<string | null> {
+  const choice = await window.noteforest.chooseLibraryParent();
+  if (choice.canceled) return null;
+  return choice.path ?? null;
+}
+
+export async function createLibrary(name: string, parentPath: string): Promise<boolean> {
+  if (!(await flushBeforeLibrarySwitch())) return false;
+  const result = await window.noteforest.createLibrary({ name, parentPath });
+  if (!result.ok) {
+    toast.error(result.message);
+    return false;
+  }
+  await applyLibraryResult(result);
+  return true;
+}
+
+export async function switchLibrary(libraryPath: string): Promise<void> {
+  if (!(await flushBeforeLibrarySwitch())) return;
+  const result = await window.noteforest.switchLibrary(libraryPath);
+  if (!result.ok) {
+    toast.error(result.message);
+    return;
+  }
+  await applyLibraryResult(result);
+}
+
+export async function removeRecentLibrary(libraryPath: string): Promise<void> {
+  if (!(await flushBeforeLibrarySwitch())) return;
+  const result = await window.noteforest.removeRecentLibrary(libraryPath);
+  if (!result.ok) {
+    toast.error(result.message);
+    return;
+  }
+  await applyLibraryResult(result);
+}
+
+export async function locateLibrary(missingPath: string): Promise<void> {
+  if (!(await flushBeforeLibrarySwitch())) return;
+  const result = await window.noteforest.locateLibrary(missingPath);
+  if (!result.ok) {
+    if (result.canceled !== true) toast.error(result.message);
+    return;
+  }
+  await applyLibraryResult(result);
+}
+
+export async function refreshLibrary(): Promise<void> {
+  const library = await window.noteforest.refreshLibrary();
+  shell().setLibrary(library);
+}
+
+export async function revealLibraryPath(libraryPath?: string): Promise<void> {
+  const result = await window.noteforest.revealLibrary(libraryPath);
+  if (!result.ok) toast.error(result.message ?? 'Could not reveal the library.');
 }
 
 export async function createChapter(): Promise<ApplyOutcome | null> {

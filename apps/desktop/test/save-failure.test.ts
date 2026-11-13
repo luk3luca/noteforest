@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { createDocument } from '@noteforest/core';
 import type { OpenDocumentSnapshot, SaveRequestOptions, SaveResult } from '../src/shared/api';
 import {
@@ -14,7 +17,7 @@ import {
 } from '../src/renderer/src/lib/save-failure';
 import { saveFailureCode } from '../src/main/save-error';
 import {
-  isInsideLibrary,
+  isInsideKnownLibrary,
   reloadDocument,
   saveDocument,
   saveDocumentCopy,
@@ -334,18 +337,28 @@ describe('core error to save-failure code', () => {
 });
 
 describe('library path scope', () => {
-  it('accepts only paths inside the configured library', () => {
-    const previous = process.env['NOTEFOREST_LIBRARY'];
-    process.env['NOTEFOREST_LIBRARY'] = '/tmp/noteforest-scope/library';
+  it('accepts only paths inside a known library', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'noteforest-scope-'));
+    const library = path.join(root, 'library');
+    const support = path.join(root, 'support');
+    await fs.mkdir(library, { recursive: true });
+    await fs.mkdir(support, { recursive: true });
+    const previousLibrary = process.env['NOTEFOREST_LIBRARY'];
+    const previousSupport = process.env['NOTEFOREST_APP_SUPPORT'];
+    process.env['NOTEFOREST_LIBRARY'] = library;
+    process.env['NOTEFOREST_APP_SUPPORT'] = support;
     try {
-      expect(isInsideLibrary('/tmp/noteforest-scope/library/note')).toBe(true);
-      expect(isInsideLibrary('/tmp/noteforest-scope/library')).toBe(true);
-      expect(isInsideLibrary('/tmp/noteforest-scope/library-evil/note')).toBe(false);
-      expect(isInsideLibrary('/tmp/noteforest-scope')).toBe(false);
-      expect(isInsideLibrary('/tmp/noteforest-scope/library/../outside')).toBe(false);
+      expect(await isInsideKnownLibrary(path.join(library, 'note'))).toBe(true);
+      expect(await isInsideKnownLibrary(library)).toBe(true);
+      expect(await isInsideKnownLibrary(path.join(root, 'library-evil', 'note'))).toBe(false);
+      expect(await isInsideKnownLibrary(root)).toBe(false);
+      expect(await isInsideKnownLibrary(path.join(library, '..', 'outside'))).toBe(false);
     } finally {
-      if (previous === undefined) delete process.env['NOTEFOREST_LIBRARY'];
-      else process.env['NOTEFOREST_LIBRARY'] = previous;
+      if (previousLibrary === undefined) delete process.env['NOTEFOREST_LIBRARY'];
+      else process.env['NOTEFOREST_LIBRARY'] = previousLibrary;
+      if (previousSupport === undefined) delete process.env['NOTEFOREST_APP_SUPPORT'];
+      else process.env['NOTEFOREST_APP_SUPPORT'] = previousSupport;
+      await fs.rm(root, { recursive: true, force: true });
     }
   });
 

@@ -5,6 +5,7 @@ import type {
   BootstrapResult,
   ChooseExportFolderResult,
   CreateDocumentResult,
+  CreateLibraryInput,
   DocumentSettingsRecoveryResult,
   DocumentSettingsSaveResult,
   ExportDefaults,
@@ -17,6 +18,8 @@ import type {
   FlushResult,
   ImportImageBytesInput,
   ImportImageResult,
+  LibraryActionResult,
+  LibraryParentChoice,
   LibraryView,
   ListBackupsResult,
   MenuCommand,
@@ -37,9 +40,21 @@ import { normalizeFlushResult } from '../shared/flush.js';
 
 const api: NoteForestApi = {
   bootstrap: (): Promise<BootstrapResult> => ipcRenderer.invoke('app:bootstrap'),
-  scanLibrary: (): Promise<LibraryView> => ipcRenderer.invoke('library:scan'),
+  scanLibrary: (root?: string): Promise<LibraryView> => ipcRenderer.invoke('library:scan', root),
   createDocument: (input): Promise<CreateDocumentResult> =>
     ipcRenderer.invoke('library:create', input),
+  openLibrary: (): Promise<LibraryActionResult> => ipcRenderer.invoke('library:open'),
+  chooseLibraryParent: (): Promise<LibraryParentChoice> =>
+    ipcRenderer.invoke('library:choose-parent'),
+  createLibrary: (input: CreateLibraryInput): Promise<LibraryActionResult> =>
+    ipcRenderer.invoke('library:create-root', input),
+  switchLibrary: (libraryPath: string): Promise<LibraryActionResult> =>
+    ipcRenderer.invoke('library:switch', libraryPath),
+  removeRecentLibrary: (libraryPath: string): Promise<LibraryActionResult> =>
+    ipcRenderer.invoke('library:remove-recent', libraryPath),
+  locateLibrary: (missingPath: string): Promise<LibraryActionResult> =>
+    ipcRenderer.invoke('library:locate', missingPath),
+  refreshLibrary: (): Promise<LibraryView> => ipcRenderer.invoke('library:refresh'),
   openDocument: (packagePath: string): Promise<OpenDocumentResult> =>
     ipcRenderer.invoke('document:open', packagePath),
   takeOverLock: (packagePath: string): Promise<TakeOverLockResult> =>
@@ -62,7 +77,8 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('document:close', packagePath, options),
   revealDocument: (packagePath: string): Promise<RevealResult> =>
     ipcRenderer.invoke('document:reveal', packagePath),
-  revealLibrary: (): Promise<void> => ipcRenderer.invoke('library:reveal'),
+  revealLibrary: (libraryPath?: string): Promise<RevealResult> =>
+    ipcRenderer.invoke('library:reveal', libraryPath),
   revealAppSupport: (): Promise<void> => ipcRenderer.invoke('settings:reveal'),
   saveSession: (state: SessionState): Promise<void> =>
     ipcRenderer.invoke('session:save', state),

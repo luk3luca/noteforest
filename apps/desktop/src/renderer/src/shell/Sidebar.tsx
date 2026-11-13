@@ -7,9 +7,24 @@ import {
   type Selection,
 } from 'react-aria-components';
 import { useMemo, useRef, useState } from 'react';
-import { useShell, type TabInfo } from '../state/shell';
+import { useShell, type MenuEntry, type TabInfo } from '../state/shell';
 import { useRegistry, useRuntime } from '../state/registry';
-import { createChapter, createNewDocument, focusBlock, openLibraryMenu, openBlockMenu, openChapterMenu, openPath, renameChapter } from '../actions';
+import {
+  createChapter,
+  createNewDocument,
+  focusBlock,
+  locateLibrary,
+  openBlockMenu,
+  openChapterMenu,
+  openLibrary,
+  openLibraryMenu,
+  openPath,
+  refreshLibrary,
+  removeRecentLibrary,
+  renameChapter,
+  revealLibraryPath,
+  switchLibrary,
+} from '../actions';
 import {
   anchorIsWarning,
   anchorQuote,
@@ -102,10 +117,15 @@ function LibrarySection(): JSX.Element {
   const library = useShell((state) => state.library);
   const tabs = useShell((state) => state.tabs);
   const activeTab = useShell((state) => state.activeTab);
+  const openDialog = useShell((state) => state.openDialog);
   const [query, setQuery] = useState('');
 
   const documents = library?.documents ?? [];
-  const libraryName = libraryDisplayName(library?.libraryPath);
+  const libraryPath = library?.libraryPath ?? '';
+  const libraryName = library?.libraryName ?? libraryDisplayName(libraryPath);
+  const missing = library?.missing === true;
+  const noLibrary = library !== null && libraryPath.length === 0;
+
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (value.length === 0) return documents;
@@ -115,18 +135,84 @@ function LibrarySection(): JSX.Element {
   const tabFor = (packagePath: string): TabInfo | undefined =>
     tabs.find((tab) => tab.packagePath === packagePath);
 
+  const openSwitcher = (anchor: { x: number; y: number }): void => {
+    const entries: MenuEntry[] = [];
+    for (const recent of library?.libraries ?? []) {
+      entries.push({
+        id: `library-switch-${recent.path}`,
+        label: recent.name,
+        ...(recent.parentPath === undefined ? {} : { description: recent.parentPath }),
+        checked: recent.active,
+        onSelect: () => {
+          if (!recent.active) void switchLibrary(recent.path);
+        },
+      });
+    }
+    if (entries.length === 0) {
+      entries.push({
+        id: 'library-empty',
+        label: 'No recent libraries',
+        disabled: true,
+      });
+    }
+    entries.push(
+      { id: 'sep-library', label: '', separator: true },
+      {
+        id: 'library-open',
+        label: 'Open Folder as Library…',
+        onSelect: () => void openLibrary(),
+      },
+      {
+        id: 'library-new',
+        label: 'New Library…',
+        onSelect: () => openDialog({ kind: 'new-library' }),
+      },
+      {
+        id: 'library-refresh',
+        label: 'Refresh',
+        onSelect: () => void refreshLibrary(),
+      },
+      {
+        id: 'library-reveal',
+        label: 'Reveal in Finder',
+        onSelect: () => void revealLibraryPath(libraryPath),
+      },
+      {
+        id: 'library-remove',
+        label: 'Remove from Recent',
+        disabled: true,
+        reason: 'Switch to another library first',
+      },
+    );
+    useShell.getState().openContextMenu(anchor.x, anchor.y, entries);
+  };
+
+  if (library === null) {
+    return (
+      <section className="nf-sidebar-section nf-library-section" aria-label="Library">
+        <p className="nf-empty-line">Loading library…</p>
+      </section>
+    );
+  }
+
   return (
     <section className="nf-sidebar-section nf-library-section" aria-label="Library">
       <div className="nf-library-head">
-        <span
+        <button
+          type="button"
           className="nf-library-switcher"
           data-library-switcher="true"
           data-library-name={libraryName}
-          title={library?.libraryPath ?? 'No library open'}
+          title={libraryPath.length > 0 ? libraryPath : 'No library open'}
+          aria-haspopup="menu"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            openSwitcher({ x: rect.left, y: rect.bottom + 2 });
+          }}
         >
           <span className="nf-library-name">{libraryName}</span>
           <ChevronDown size={12} strokeWidth={1.5} aria-hidden="true" />
-        </span>
+        </button>
         <span className="nf-section-tail">
           <span className="nf-section-count" data-library-count="true">
             {documents.length}
@@ -136,98 +222,169 @@ function LibrarySection(): JSX.Element {
             className="nf-icon-button nf-section-add"
             data-library-new="true"
             aria-label="New note"
-            title="New note (⌘N)"
+            title={
+              missing || noLibrary ? 'Open a library before creating a note' : 'New note (⌘N)'
+            }
+            disabled={missing || noLibrary}
             onClick={() => void createNewDocument()}
           >
             <Plus size={13} strokeWidth={1.6} aria-hidden="true" />
           </button>
         </span>
       </div>
-      <div className="nf-library-search">
-        <Search size={13} strokeWidth={1.5} aria-hidden="true" />
-        <input
-          type="search"
-          value={query}
-          placeholder="Filter documents"
-          aria-label="Filter documents"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </div>
-      <div className="nf-library-list" role="list">
-        {filtered.length === 0 ? (
-          <p className="nf-empty-line" data-library-empty="true">
-            {documents.length === 0 ? 'No documents yet.' : 'No matching documents.'}
+      {missing ? (
+        <div className="nf-library-missing" data-library-missing="true">
+          <p className="nf-library-missing-title">Library not found</p>
+          <p className="nf-library-missing-path" data-library-missing-path="true" title={libraryPath}>
+            {libraryPath}
           </p>
-        ) : (
-          filtered.map((document) => {
-            const tab = tabFor(document.packagePath);
-            const isOpen = tab !== undefined;
-            const isActive = tab?.packagePath === activeTab;
-            return (
-              <div
-                key={document.packagePath}
-                className="nf-library-row"
-                role="listitem"
-                data-active={isActive}
-              >
-                <button
-                  type="button"
-                  className="nf-library-open"
-                  data-library-document="true"
-                  data-doc-status={document.status}
-                  title={
-                    document.status === 'ok'
-                      ? document.packagePath
-                      : `${document.packagePath}\n${document.reason ?? ''}`
-                  }
-                  onClick={() => void openPath(document.packagePath)}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    openLibraryMenu(document.packagePath, { x: event.clientX, y: event.clientY });
-                  }}
-                >
-                  {document.status === 'ok' ? (
-                    <FileText size={13} strokeWidth={1.5} aria-hidden="true" />
-                  ) : (
-                    <FileWarning
-                      size={13}
-                      strokeWidth={1.5}
-                      className="nf-library-warning-icon"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span className="nf-library-copy">
-                    <span className="nf-library-title">{document.title}</span>
-                    {document.status === 'ok' ? null : (
-                      <span className="nf-library-reason" data-doc-reason="true">
-                        {document.reason ?? 'The package could not be read.'}
+          <div className="nf-library-missing-actions">
+            <button
+              type="button"
+              className="nf-text-button"
+              data-library-locate="true"
+              onClick={() => void locateLibrary(libraryPath)}
+            >
+              Locate…
+            </button>
+            <button
+              type="button"
+              className="nf-text-button"
+              data-library-remove="true"
+              onClick={() => void removeRecentLibrary(libraryPath)}
+            >
+              Remove from Recent
+            </button>
+            <button
+              type="button"
+              className="nf-text-button"
+              data-library-open-another="true"
+              onClick={() => void openLibrary()}
+            >
+              Open another…
+            </button>
+          </div>
+        </div>
+      ) : noLibrary ? (
+        <div className="nf-library-missing" data-library-none="true">
+          <p className="nf-library-missing-title">No library open</p>
+          <p className="nf-library-missing-copy">
+            Open a folder of NoteForest notes as your library.
+          </p>
+          <div className="nf-library-missing-actions">
+            <button
+              type="button"
+              className="nf-text-button"
+              data-library-open-another="true"
+              onClick={() => void openLibrary()}
+            >
+              Open Folder as Library…
+            </button>
+            <button
+              type="button"
+              className="nf-text-button"
+              data-library-new-library="true"
+              onClick={() => openDialog({ kind: 'new-library' })}
+            >
+              New Library…
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="nf-library-search">
+            <Search size={13} strokeWidth={1.5} aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              placeholder="Filter documents"
+              aria-label="Filter documents"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <div className="nf-library-list" role="list">
+            {filtered.length === 0 ? (
+              <p className="nf-empty-line" data-library-empty="true">
+                {documents.length === 0 ? 'No documents yet.' : 'No matching documents.'}
+              </p>
+            ) : (
+              filtered.map((document) => {
+                const tab = tabFor(document.packagePath);
+                const isOpen = tab !== undefined;
+                const isActive = tab?.packagePath === activeTab;
+                return (
+                  <div
+                    key={document.packagePath}
+                    className="nf-library-row"
+                    role="listitem"
+                    data-active={isActive}
+                  >
+                    <button
+                      type="button"
+                      className="nf-library-open"
+                      data-library-document="true"
+                      data-doc-status={document.status}
+                      title={
+                        document.status === 'ok'
+                          ? document.packagePath
+                          : `${document.packagePath}\n${document.reason ?? ''}`
+                      }
+                      onClick={() => void openPath(document.packagePath)}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        openLibraryMenu(document.packagePath, {
+                          x: event.clientX,
+                          y: event.clientY,
+                        });
+                      }}
+                    >
+                      {document.status === 'ok' ? (
+                        <FileText size={13} strokeWidth={1.5} aria-hidden="true" />
+                      ) : (
+                        <FileWarning
+                          size={13}
+                          strokeWidth={1.5}
+                          className="nf-library-warning-icon"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="nf-library-copy">
+                        <span className="nf-library-title">{document.title}</span>
+                        {document.status === 'ok' ? null : (
+                          <span className="nf-library-reason" data-doc-reason="true">
+                            {document.reason ?? 'The package could not be read.'}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  {document.status === 'ok' ? null : (
-                    <span className="nf-library-status" data-doc-status-label="true">
-                      {recoveryStatusLabel(document.status)}
-                    </span>
-                  )}
-                  {isOpen ? <span className="nf-open-dot" aria-label="Open" /> : null}
-                </button>
-                <button
-                  type="button"
-                  className="nf-row-menu"
-                  aria-label={`Actions for ${document.title}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    openLibraryMenu(document.packagePath, { x: rect.left - 140, y: rect.bottom + 2 });
-                  }}
-                >
-                  <MoreHorizontal size={14} strokeWidth={1.5} aria-hidden="true" />
-                </button>
-              </div>
-            );
-          })
-        )}
-      </div>
+                      {document.status === 'ok' ? null : (
+                        <span className="nf-library-status" data-doc-status-label="true">
+                          {recoveryStatusLabel(document.status)}
+                        </span>
+                      )}
+                      {isOpen ? <span className="nf-open-dot" aria-label="Open" /> : null}
+                    </button>
+                    <button
+                      type="button"
+                      className="nf-row-menu"
+                      aria-label={`Actions for ${document.title}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        openLibraryMenu(document.packagePath, {
+                          x: rect.left - 140,
+                          y: rect.bottom + 2,
+                        });
+                      }}
+                    >
+                      <MoreHorizontal size={14} strokeWidth={1.5} aria-hidden="true" />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
     </section>
   );
 }

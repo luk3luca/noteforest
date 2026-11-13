@@ -17,6 +17,7 @@ import {
 } from '../state/settings';
 import { useRuntime } from '../state/registry';
 import { exportActiveDocument } from '../export/export-flow';
+import { openLibrary, removeRecentLibrary, revealLibraryPath } from '../actions';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';
 import { PageSettingsPreview } from '../settings/PageSettingsPreview';
@@ -1334,7 +1335,7 @@ export function SettingsDialog({
                       type="button"
                       className="nf-button"
                       data-settings-reveal-library="true"
-                      onClick={() => void window.noteforest.revealLibrary()}
+                      onClick={() => void revealLibraryPath()}
                     >
                       Reveal library in Finder
                     </button>
@@ -1345,6 +1346,72 @@ export function SettingsDialog({
                       onClick={() => void window.noteforest.revealAppSupport()}
                     >
                       Reveal app data in Finder
+                    </button>
+                  </section>
+                  <section className="nf-settings-section">
+                    <h4 className="nf-settings-section-title">Libraries</h4>
+                    <p className="nf-settings-help">
+                      One active library per window. Recent libraries are global; removing one never
+                      deletes files.
+                    </p>
+                    <div className="nf-library-settings-list" data-settings-library-list="true">
+                      {(library?.libraries ?? []).length === 0 ? (
+                        <p className="nf-settings-help" data-settings-library-empty="true">
+                          No recent libraries.
+                        </p>
+                      ) : (
+                        (library?.libraries ?? []).map((recent) => (
+                          <div
+                            key={recent.path}
+                            className="nf-library-settings-row"
+                            data-settings-library-row={recent.path}
+                            data-active={recent.active}
+                          >
+                            <span className="nf-library-settings-copy">
+                              <span className="nf-library-settings-name">
+                                {recent.name}
+                                {recent.active ? ' — active' : ''}
+                              </span>
+                              <span className="nf-library-settings-path" title={recent.path}>
+                                {recent.path}
+                              </span>
+                              {recent.missing ? (
+                                <span className="nf-library-settings-missing">Not found</span>
+                              ) : null}
+                            </span>
+                            <button
+                              type="button"
+                              className="nf-text-button"
+                              data-settings-library-reveal={recent.path}
+                              onClick={() => void revealLibraryPath(recent.path)}
+                            >
+                              Reveal
+                            </button>
+                            <button
+                              type="button"
+                              className="nf-text-button"
+                              data-settings-library-remove={recent.path}
+                              disabled={recent.active}
+                              title={
+                                recent.active
+                                  ? 'Switch to another library before removing this one'
+                                  : 'Remove from Recent'
+                              }
+                              onClick={() => void removeRecentLibrary(recent.path)}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="nf-button"
+                      data-settings-library-open="true"
+                      onClick={() => void openLibrary()}
+                    >
+                      Open Library…
                     </button>
                   </section>
                   <section className="nf-settings-section">

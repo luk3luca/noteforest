@@ -33,15 +33,18 @@ import {
   NodeDocumentRepository,
   pathExists,
   readRecentDocuments,
+  recentManifestPath,
   restoreCandidateToPackage,
   writeDocumentPackageCopy,
   writeFileAtomic,
   type DocumentStore,
   type OpenDocumentResult as CoreOpenDocumentResult,
+  type RecentDocumentsManifest,
 } from '@noteforest/core/node';
 import type {
   ApplyResult,
   BackupCandidateView,
+  CreateLibraryInput,
   DocumentSettingsBackupView,
   DocumentSettingsEntry,
   DocumentSettingsRecoveryResult,
@@ -49,11 +52,13 @@ import type {
   DocumentSettingsSaveResult,
   ImportImageBytesInput,
   ImportImageResult,
+  LibraryActionResult,
   LibraryView,
   ListBackupsResult,
   LockInfoView,
   OpenDocumentResult,
   OpenDocumentSnapshot,
+  RecentLibraryView,
   RecoveryDocumentView,
   ReloadDocumentResult,
   RestoreBackupResult,
@@ -110,6 +115,17 @@ import {
   imageMimeFromName,
 } from '../shared/images.js';
 import { readImageDimensions } from './image-dimensions.js';
+import {
+  duplicateLibraryBasenames,
+  libraryBasename,
+  normalizeLibraryPath,
+  readLibraryRoots,
+  removeLibraryRecent,
+  replaceLibraryRecent,
+  upsertLibraryRecent,
+  writeLibraryRoots,
+  type LibraryRootEntry,
+} from './library-roots.js';
 
 const DEFAULT_SESSION: SessionState = {
   tabs: [],
@@ -138,8 +154,524 @@ function settingsPath(): string {
   return path.join(appSupportDir(), 'settings.json');
 }
 
-export function isInsideLibrary(candidate: string): boolean {
-  return isPathInside(libraryDir(), candidate);
+/**
+ * Active library and recents are session/app-support state. The cache is keyed
+ * by the seed/support paths so an isolated test environment (or a worktree
+ * launch) never reuses another environment's active library.
+ */
+let activeLibraryCache: string | null | undefined;
+let knownLibrariesCache: string[] | null = null;
+let knownLibraryCanonicalCache: string[] | null = null;
+let libraryRuntimeWarnings: string[] = [];
+let libraryCacheKey = '';
+
+function currentLibraryCacheKey(): string {
+  return `${libraryDir()}\0${appSupportDir()}`;
+}
+
+function ensureLibraryCacheScope(): void {
+  const key = currentLibraryCacheKey();
+  if (key === libraryCacheKey) return;
+  libraryCacheKey = key;
+  activeLibraryCache = undefined;
+  knownLibrariesCache = null;
+  knownLibraryCanonicalCache = null;
+  libraryRuntimeWarnings = [];
+}
+
+async function pathIsDirectory(target: string): Promise<boolean> {
+  try {
+    return (await fs.stat(target)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function canonicalLibraryPath(target: string): Promise<string> {
+  const resolved = path.resolve(target);
+  try {
+    return await fs.realpath(resolved);
+  } catch {
+    const parent = path.dirname(resolved);
+    if (parent === resolved) return resolved;
+    return path.join(await canonicalLibraryPath(parent), path.basename(resolved));
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error && error.message.length > 0
+    ? error.message
+    : String(error);
+}
+
+function dedupeWarnings(warnings: readonly string[]): string[] {
+  return [...new Set(warnings)];
+}
+
+async function persistActiveLibrary(next: string | null): Promise<void> {
+  const session = await readSession();
+  if (session.activeLibrary === next) return;
+  await writeSession({ ...session, activeLibrary: next });
+}
+
+async function addRecentLibrary(
+  chosen: string,
+  lastOpenedAt: string,
+): Promise<LibraryRootEntry[]> {
+  const roots = await readLibraryRoots(appSupportDir());
+  libraryRuntimeWarnings.push(...roots.warnings);
+  const chosenCanonical = await canonicalLibraryPath(chosen);
+  const kept: LibraryRootEntry[] = [];
+  for (const entry of roots.libraries) {
+    if ((await canonicalLibraryPath(entry.path)) === chosenCanonical) continue;
+    kept.push(entry);
+  }
+  const next = upsertLibraryRecent(kept, {
+    path: normalizeLibraryPath(chosen),
+    lastOpenedAt,
+  });
+  await writeLibraryRoots(appSupportDir(), next);
+  knownLibrariesCache = null;
+  knownLibraryCanonicalCache = null;
+  return next;
+}
+
+/**
+ * Resolve the active library from the session. A missing stored library is
+ * returned as-is (never recreated). Only a session with no `activeLibrary`
+ * field and no recents seeds the default `~/Documents/NoteForest`; an explicit
+ * `null` means the user removed the last library and stays empty.
+ */
+export async function activeLibraryPath(): Promise<string | null> {
+  ensureLibraryCacheScope();
+  if (activeLibraryCache !== undefined) return activeLibraryCache;
+
+  const session = await readSession();
+  if (session.activeLibrary !== undefined) {
+    activeLibraryCache =
+      session.activeLibrary === null
+        ? null
+        : normalizeLibraryPath(session.activeLibrary);
+    if (activeLibraryCache !== null) {
+      const roots = await readLibraryRoots(appSupportDir());
+      libraryRuntimeWarnings.push(...roots.warnings);
+      const present = roots.libraries.some(
+        (entry) => normalizeLibraryPath(entry.path) === activeLibraryCache,
+      );
+      if (!present) {
+        await addRecentLibrary(activeLibraryCache, new Date().toISOString());
+      }
+    }
+    return activeLibraryCache;
+  }
+
+  const roots = await readLibraryRoots(appSupportDir());
+  libraryRuntimeWarnings.push(...roots.warnings);
+  if (roots.libraries.length > 0) {
+    activeLibraryCache = roots.libraries[0]?.path ?? null;
+    await persistActiveLibrary(activeLibraryCache);
+    return activeLibraryCache;
+  }
+
+  // First run (or a pre-L2 session with no recents): create the seed/default
+  // library once and record it. This is the only path that creates a root.
+  const seed = normalizeLibraryPath(libraryDir());
+  await fs.mkdir(seed, { recursive: true });
+  activeLibraryCache = seed;
+  await addRecentLibrary(seed, new Date().toISOString());
+  await persistActiveLibrary(seed);
+  return seed;
+}
+
+async function knownLibraryPaths(): Promise<string[]> {
+  ensureLibraryCacheScope();
+  if (knownLibrariesCache !== null) return knownLibrariesCache;
+  const active = await activeLibraryPath();
+  const roots = await readLibraryRoots(appSupportDir());
+  libraryRuntimeWarnings.push(...roots.warnings);
+  const candidates = [
+    ...(active === null ? [] : [active]),
+    ...roots.libraries.map((entry) => entry.path),
+  ];
+  const paths: string[] = [];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    const normalized = normalizeLibraryPath(candidate);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    paths.push(normalized);
+  }
+  knownLibrariesCache = paths;
+  knownLibraryCanonicalCache = null;
+  return paths;
+}
+
+async function knownLibraryCanonicalPaths(): Promise<string[]> {
+  if (knownLibraryCanonicalCache !== null) return knownLibraryCanonicalCache;
+  const paths = await knownLibraryPaths();
+  const canonical: string[] = [];
+  const seen = new Set<string>();
+  for (const candidate of paths) {
+    const real = await canonicalLibraryPath(candidate);
+    if (seen.has(real)) continue;
+    seen.add(real);
+    canonical.push(real);
+  }
+  knownLibraryCanonicalCache = canonical;
+  return canonical;
+}
+
+/** Commands and opens are limited to the active library plus known recents. */
+export async function isInsideKnownLibrary(candidate: string): Promise<boolean> {
+  return (await libraryRootForPath(candidate)) !== null;
+}
+
+/** The known library root that contains `candidate`, or null. */
+export async function libraryRootForPath(candidate: string): Promise<string | null> {
+  const real = await canonicalLibraryPath(candidate);
+  for (const root of await knownLibraryPaths()) {
+    if (isPathInside(await canonicalLibraryPath(root), real)) return root;
+  }
+  return null;
+}
+
+async function recentLibraryViews(active: string | null): Promise<RecentLibraryView[]> {
+  const roots = await readLibraryRoots(appSupportDir());
+  libraryRuntimeWarnings.push(...roots.warnings);
+  const duplicates = duplicateLibraryBasenames(roots.libraries);
+  const activeCanonical = active === null ? null : await canonicalLibraryPath(active);
+  const views: RecentLibraryView[] = [];
+  for (const entry of roots.libraries) {
+    const name = libraryBasename(entry.path);
+    const missing = !(await pathIsDirectory(entry.path));
+    const canonical = await canonicalLibraryPath(entry.path);
+    views.push({
+      path: entry.path,
+      name,
+      lastOpenedAt: entry.lastOpenedAt,
+      missing,
+      active: activeCanonical !== null && canonical === activeCanonical,
+      ...(duplicates.has(name) ? { parentPath: path.dirname(entry.path) } : {}),
+    });
+  }
+  return views;
+}
+
+async function activateLibraryPath(next: string): Promise<LibraryView> {
+  ensureLibraryCacheScope();
+  const normalized = normalizeLibraryPath(next);
+  activeLibraryCache = normalized;
+  knownLibrariesCache = null;
+  knownLibraryCanonicalCache = null;
+  await addRecentLibrary(normalized, new Date().toISOString());
+  await persistActiveLibrary(normalized);
+  return scanLibrary(normalized);
+}
+
+interface LibraryValidation {
+  ok: boolean;
+  path?: string;
+  message?: string;
+}
+
+/**
+ * A library root is a real directory, not a document package, and not nested
+ * with another known library. `ignorePath` is the missing path being located:
+ * it is removed from the known set so its replacement can be validated.
+ */
+async function validateLibraryRoot(
+  candidate: string,
+  ignorePath?: string,
+): Promise<LibraryValidation> {
+  if (typeof candidate !== 'string' || candidate.trim().length === 0) {
+    return { ok: false, message: 'No folder was chosen.' };
+  }
+  const resolved = normalizeLibraryPath(candidate);
+  if (!(await pathIsDirectory(resolved))) {
+    return {
+      ok: false,
+      message: `That folder does not exist or is not a directory: ${resolved}`,
+    };
+  }
+  try {
+    await fs.access(resolved, fsConstants.R_OK);
+  } catch {
+    return { ok: false, message: `The folder is not readable: ${resolved}` };
+  }
+  if (await pathExists(documentJsonPath(resolved))) {
+    return {
+      ok: false,
+      message:
+        'This is a document, not a library. Choose the folder that contains NoteForest notes.',
+    };
+  }
+
+  const canonical = await canonicalLibraryPath(resolved);
+  const ignoreCanonical =
+    ignorePath === undefined ? null : await canonicalLibraryPath(ignorePath);
+  for (const root of await knownLibraryPaths()) {
+    const rootCanonical = await canonicalLibraryPath(root);
+    if (rootCanonical === canonical || rootCanonical === ignoreCanonical) continue;
+    if (isPathInside(rootCanonical, canonical)) {
+      return {
+        ok: false,
+        message: `That folder is inside the library “${libraryBasename(root)}”. Choose a folder outside it.`,
+      };
+    }
+    if (isPathInside(canonical, rootCanonical)) {
+      return {
+        ok: false,
+        message: `“${libraryBasename(root)}” is already a library inside that folder. Choose a folder that does not contain another library.`,
+      };
+    }
+  }
+  return { ok: true, path: resolved };
+}
+
+async function validateNewLibraryTarget(target: string): Promise<LibraryValidation> {
+  const parent = path.dirname(target);
+  if (!(await pathIsDirectory(parent))) {
+    return { ok: false, message: 'Choose a parent folder that exists.' };
+  }
+  if (await pathExists(target)) {
+    return {
+      ok: false,
+      message: `A folder named “${path.basename(target)}” already exists there.`,
+    };
+  }
+  const canonical = await canonicalLibraryPath(target);
+  for (const root of await knownLibraryPaths()) {
+    const rootCanonical = await canonicalLibraryPath(root);
+    if (isPathInside(rootCanonical, canonical)) {
+      return {
+        ok: false,
+        message: `That folder would be inside the library “${libraryBasename(root)}”. Choose a parent outside it.`,
+      };
+    }
+    if (isPathInside(canonical, rootCanonical)) {
+      return {
+        ok: false,
+        message: `“${libraryBasename(root)}” is already a library inside that parent. Choose another parent.`,
+      };
+    }
+  }
+  return { ok: true, path: target };
+}
+
+export async function openLibraryPath(candidate: string): Promise<LibraryActionResult> {
+  const validation = await validateLibraryRoot(candidate);
+  if (!validation.ok || validation.path === undefined) {
+    return { ok: false, message: validation.message ?? 'That folder cannot be a library.' };
+  }
+  const library = await activateLibraryPath(validation.path);
+  const reconciledTabs = library.missing
+    ? []
+    : await reconcileMovedDocuments(validation.path, library.documents);
+  return {
+    ok: true,
+    library: reconciledTabs.length > 0 ? await scanLibrary(validation.path) : library,
+    ...(reconciledTabs.length === 0 ? {} : { reconciledTabs }),
+  };
+}
+
+export async function createLibraryRoot(
+  input: CreateLibraryInput,
+): Promise<LibraryActionResult> {
+  const name = typeof input?.name === 'string' ? input.name.trim() : '';
+  if (name.length === 0) return { ok: false, message: 'Enter a library name.' };
+  if (name === '.' || name === '..' || /[\\/]/.test(name)) {
+    return { ok: false, message: 'The library name cannot contain a path separator.' };
+  }
+  if (typeof input?.parentPath !== 'string' || input.parentPath.trim().length === 0) {
+    return { ok: false, message: 'Choose a parent folder.' };
+  }
+  const target = path.join(normalizeLibraryPath(input.parentPath), name);
+  const validation = await validateNewLibraryTarget(target);
+  if (!validation.ok || validation.path === undefined) {
+    return { ok: false, message: validation.message ?? 'That library cannot be created.' };
+  }
+  try {
+    await fs.mkdir(validation.path);
+  } catch (error) {
+    return { ok: false, message: `Could not create the library: ${errorMessage(error)}` };
+  }
+  const library = await activateLibraryPath(validation.path);
+  return { ok: true, library };
+}
+
+export async function switchLibraryRoot(candidate: string): Promise<LibraryActionResult> {
+  const resolved = normalizeLibraryPath(candidate);
+  const canonical = await canonicalLibraryPath(resolved);
+  let known = false;
+  for (const root of await knownLibraryCanonicalPaths()) {
+    if (root === canonical) {
+      known = true;
+      break;
+    }
+  }
+  if (!known) {
+    return { ok: false, message: 'That folder is not one of the known libraries.' };
+  }
+  const library = await activateLibraryPath(resolved);
+  const reconciledTabs = library.missing
+    ? []
+    : await reconcileMovedDocuments(resolved, library.documents);
+  return {
+    ok: true,
+    library: reconciledTabs.length > 0 ? await scanLibrary(resolved) : library,
+    ...(reconciledTabs.length === 0 ? {} : { reconciledTabs }),
+  };
+}
+
+export async function removeRecentLibraryRoot(
+  candidate: string,
+): Promise<LibraryActionResult> {
+  const resolved = normalizeLibraryPath(candidate);
+  const roots = await readLibraryRoots(appSupportDir());
+  const next = removeLibraryRecent(roots.libraries, resolved);
+  await writeLibraryRoots(appSupportDir(), next);
+  knownLibrariesCache = null;
+  knownLibraryCanonicalCache = null;
+
+  const active = await activeLibraryPath();
+  const activeCanonical = active === null ? null : await canonicalLibraryPath(active);
+  const removedCanonical = await canonicalLibraryPath(resolved);
+  if (activeCanonical !== null && activeCanonical === removedCanonical) {
+    const fallback = next[0]?.path ?? null;
+    activeLibraryCache = fallback;
+    await persistActiveLibrary(fallback);
+    knownLibrariesCache = null;
+    knownLibraryCanonicalCache = null;
+    return { ok: true, library: await scanLibrary(fallback ?? undefined) };
+  }
+  return { ok: true, library: await scanLibrary(active ?? undefined) };
+}
+
+export async function locateLibraryRoot(
+  missingPath: string,
+  chosenPath: string,
+): Promise<LibraryActionResult> {
+  const missing = normalizeLibraryPath(missingPath);
+  const validation = await validateLibraryRoot(chosenPath, missing);
+  if (!validation.ok || validation.path === undefined) {
+    return { ok: false, message: validation.message ?? 'That folder cannot be the library.' };
+  }
+  const chosen = validation.path;
+  const roots = await readLibraryRoots(appSupportDir());
+  const next = replaceLibraryRecent(roots.libraries, missing, {
+    path: chosen,
+    lastOpenedAt: new Date().toISOString(),
+  });
+  await writeLibraryRoots(appSupportDir(), next);
+
+  const active = await activeLibraryPath();
+  const activeCanonical = active === null ? null : await canonicalLibraryPath(active);
+  const missingCanonical = await canonicalLibraryPath(missing);
+  const wasActive = activeCanonical !== null && activeCanonical === missingCanonical;
+  if (wasActive) {
+    activeLibraryCache = chosen;
+    await persistActiveLibrary(chosen);
+  }
+  knownLibrariesCache = null;
+  knownLibraryCanonicalCache = null;
+
+  const scanned = await scanLibrary(chosen);
+  const reconciledTabs = scanned.missing
+    ? []
+    : await reconcileMovedDocuments(chosen, scanned.documents);
+  const view = wasActive
+    ? reconciledTabs.length > 0
+      ? await scanLibrary(chosen)
+      : scanned
+    : await scanLibrary(active ?? undefined);
+  return {
+    ok: true,
+    library: view,
+    ...(reconciledTabs.length === 0 ? {} : { reconciledTabs }),
+  };
+}
+
+/**
+ * Match missing session tabs and recent-document entries to a scanned document
+ * by canonical `document.id`. Legacy path-only entries (no id) stay missing.
+ */
+async function reconcileMovedDocuments(
+  root: string,
+  documents: LibraryView['documents'],
+): Promise<Array<{ from: string; to: string; documentId: string }>> {
+  const byId = new Map<string, string>();
+  for (const document of documents) {
+    if (document.status === 'ok' && document.documentId !== null) {
+      byId.set(document.documentId, document.packagePath);
+    }
+  }
+  if (byId.size === 0) return [];
+  const reconciled: Array<{ from: string; to: string; documentId: string }> = [];
+
+  const session = await readSession();
+  const tabs: SessionTabState[] = [];
+  let sessionChanged = false;
+  for (const tab of session.tabs) {
+    const documentId = tab.documentId;
+    if (documentId === undefined || documentId === null) {
+      tabs.push(tab);
+      continue;
+    }
+    if (await pathExists(documentJsonPath(tab.packagePath))) {
+      tabs.push(tab);
+      continue;
+    }
+    const next = byId.get(documentId);
+    if (next === undefined) {
+      tabs.push(tab);
+      continue;
+    }
+    sessionChanged = true;
+    reconciled.push({ from: tab.packagePath, to: next, documentId });
+    tabs.push({ ...tab, packagePath: next });
+  }
+  if (sessionChanged) {
+    await writeSession({ ...session, tabs });
+  }
+
+  try {
+    const read = await readRecentDocuments(appSupportDir());
+    let manifestChanged = false;
+    const items: RecentDocumentsManifest['items'] = [];
+    for (const item of read.manifest.items) {
+      if (await pathExists(documentJsonPath(item.path))) {
+        items.push(item);
+        continue;
+      }
+      const next = byId.get(item.documentId);
+      if (next === undefined) {
+        items.push(item);
+        continue;
+      }
+      const summary = documents.find((document) => document.packagePath === next);
+      manifestChanged = true;
+      items.push({
+        ...item,
+        path: next,
+        title: summary?.title ?? item.title,
+      });
+    }
+    if (manifestChanged) {
+      const manifest: RecentDocumentsManifest = {
+        version: read.manifest.version,
+        items,
+      };
+      await fs.mkdir(appSupportDir(), { recursive: true });
+      await writeFileAtomic(
+        recentManifestPath(appSupportDir()),
+        `${JSON.stringify(manifest, null, 2)}\n`,
+      );
+    }
+  } catch {
+    // Recent-document reconciliation is best-effort; tabs are the primary state.
+  }
+  void root;
+  return reconciled;
 }
 
 /**
@@ -201,18 +733,41 @@ async function snapshot(store: DocumentStore): Promise<OpenDocumentSnapshot | nu
   };
 }
 
-export async function ensureLibrary(): Promise<string> {
-  const directory = libraryDir();
-  await fs.mkdir(directory, { recursive: true });
-  return directory;
-}
-
-export async function scanLibrary(): Promise<LibraryView> {
-  const directory = await ensureLibrary();
+export async function scanLibrary(root?: string): Promise<LibraryView> {
+  ensureLibraryCacheScope();
+  const active = await activeLibraryPath();
+  const directory = root === undefined ? active : normalizeLibraryPath(root);
   const support = appSupportDir();
-  const listing = await repository.list(directory);
-  const documents: LibraryView['documents'] = listing.documents;
-  const warnings: string[] = [...listing.warnings];
+  const libraries = await recentLibraryViews(active);
+  const warnings: string[] = [...libraryRuntimeWarnings];
+
+  if (directory === null || directory.length === 0) {
+    return {
+      libraryPath: '',
+      libraryName: 'Library',
+      appSupportPath: support,
+      documents: [],
+      recent: [],
+      libraries,
+      missing: false,
+      warnings: dedupeWarnings(warnings),
+    };
+  }
+
+  let documents: LibraryView['documents'] = [];
+  let missing = false;
+  if (!(await pathIsDirectory(directory))) {
+    missing = true;
+    warnings.push(`Library not found: ${directory}`);
+  } else {
+    try {
+      const listing = await repository.list(directory);
+      documents = listing.documents;
+      warnings.push(...listing.warnings);
+    } catch (error) {
+      warnings.push(`Could not scan the library: ${errorMessage(error)}`);
+    }
+  }
 
   let recent: LibraryView['recent'] = [];
   try {
@@ -221,26 +776,35 @@ export async function scanLibrary(): Promise<LibraryView> {
     recent = await Promise.all(
       read.manifest.items.map(async (item) => {
         const packagePath = path.resolve(item.path);
-        let missing = false;
+        let itemMissing = false;
         try {
           await fs.access(documentJsonPath(packagePath));
         } catch {
-          missing = true;
+          itemMissing = true;
         }
         return {
           documentId: item.documentId,
           title: item.title,
           packagePath,
           lastOpenedAt: item.lastOpenedAt,
-          ...(missing ? { missing } : {}),
+          ...(itemMissing ? { missing: true } : {}),
         };
       }),
     );
   } catch (error) {
-    warnings.push(`Could not read recent documents: ${error instanceof Error ? error.message : String(error)}`);
+    warnings.push(`Could not read recent documents: ${errorMessage(error)}`);
   }
 
-  return { libraryPath: directory, appSupportPath: support, documents, recent, warnings };
+  return {
+    libraryPath: directory,
+    libraryName: libraryBasename(directory),
+    appSupportPath: support,
+    documents,
+    recent,
+    libraries,
+    missing,
+    warnings: dedupeWarnings(warnings),
+  };
 }
 
 export interface OpenedStore {
@@ -299,8 +863,8 @@ function recoveryViewForError(packagePath: string, message: string): RecoveryDoc
 
 export async function openStore(packagePath: string): Promise<OpenStoreResult> {
   const resolved = path.resolve(packagePath);
-  if (!isInsideLibrary(resolved)) {
-    return { error: 'Document is outside the NoteForest library.' };
+  if (!(await isInsideKnownLibrary(resolved))) {
+    return { error: 'Document is outside the known NoteForest libraries.' };
   }
   const existing = repository.get(resolved);
   if (existing !== null) {
@@ -308,7 +872,6 @@ export async function openStore(packagePath: string): Promise<OpenStoreResult> {
     if (current !== null) return { store: existing, snapshot: current };
   }
 
-  await ensureLibrary();
   const result = await repository.open(resolved, { registerRecent: true });
   if (result.document === null) {
     // Recovery-only stores are closed by the repository: they have no
@@ -344,8 +907,8 @@ export async function takeOverStaleLock(
     return { ok: false, code: 'unknown', message: 'No document path was provided.' };
   }
   const resolved = path.resolve(packagePath);
-  if (!isInsideLibrary(resolved)) {
-    return { ok: false, code: 'unknown', message: 'Document is outside the NoteForest library.' };
+  if (!(await isInsideKnownLibrary(resolved))) {
+    return { ok: false, code: 'unknown', message: 'Document is outside the known NoteForest libraries.' };
   }
 
   const existing = repository.get(resolved);
@@ -404,7 +967,19 @@ export async function createDocument(input: { title?: string }): Promise<{
   snapshot: OpenDocumentSnapshot;
   library: LibraryView;
 } | { ok: false; message: string }> {
-  const directory = await ensureLibrary();
+  const directory = await activeLibraryPath();
+  if (directory === null || directory.length === 0) {
+    return {
+      ok: false,
+      message: 'No library is open. Open a folder as a library first.',
+    };
+  }
+  if (!(await pathIsDirectory(directory))) {
+    return {
+      ok: false,
+      message: `The active library was not found: ${directory}. Locate it or open another library.`,
+    };
+  }
   const title = input.title?.trim() || 'Untitled';
   const created = await repository.create(directory, { title });
   if (!created.ok) {
@@ -634,8 +1209,8 @@ export async function copyImageAsset(
     return { ok: false, message: 'The copied image asset id is malformed.' };
   }
   const source = path.resolve(sourcePackagePath);
-  if (!isInsideLibrary(source)) {
-    return { ok: false, message: 'The source document is outside the NoteForest library.' };
+  if (!(await isInsideKnownLibrary(source))) {
+    return { ok: false, message: 'The source document is outside the known NoteForest libraries.' };
   }
   if (source === path.resolve(targetPackagePath)) {
     return { ok: false, message: 'The source and destination documents are the same.' };
@@ -942,9 +1517,9 @@ export async function saveDocumentCopy(
   });
   if (!copied.ok) return { ok: false, message: copied.error.message };
 
-  // Opening is only possible inside the library; a copy saved elsewhere is
+  // Opening is only possible inside a known library; a copy saved elsewhere is
   // revealed in Finder by the caller instead.
-  if (isInsideLibrary(copied.packagePath)) {
+  if (await isInsideKnownLibrary(copied.packagePath)) {
     const copy = await openStore(copied.packagePath);
     if (!('error' in copy) && !('recovery' in copy)) {
       return {
@@ -972,8 +1547,8 @@ export async function listBackups(packagePath: string): Promise<ListBackupsResul
     return { ok: false, message: 'No document path was provided.' };
   }
   const resolved = path.resolve(packagePath);
-  if (!isInsideLibrary(resolved)) {
-    return { ok: false, message: 'Document is outside the NoteForest library.' };
+  if (!(await isInsideKnownLibrary(resolved))) {
+    return { ok: false, message: 'Document is outside the known NoteForest libraries.' };
   }
   try {
     const candidates = await repository.listBackups(resolved);
@@ -1002,7 +1577,11 @@ async function findValidBackup(
 
 /** Unique default copy name: `<library>/<folder> restored <timestamp>`. */
 export async function defaultRestoreDestination(packagePath: string): Promise<string> {
-  return uniqueRestoreDestination(libraryDir(), packagePath, new Date(), pathExists);
+  const root = (await libraryRootForPath(packagePath)) ?? (await activeLibraryPath());
+  if (root === null || root.length === 0) {
+    throw new Error('No library is open.');
+  }
+  return uniqueRestoreDestination(root, packagePath, new Date(), pathExists);
 }
 
 /**
@@ -1027,11 +1606,12 @@ export async function restoreBackup(
   }
 
   const sourcePackage = path.resolve(packagePath);
-  if (!isInsideLibrary(sourcePackage)) {
+  const sourceRoot = await libraryRootForPath(sourcePackage);
+  if (sourceRoot === null) {
     return {
       ok: false,
       code: 'outside-library',
-      message: 'Document is outside the NoteForest library.',
+      message: 'Document is outside the known NoteForest libraries.',
     };
   }
 
@@ -1055,7 +1635,7 @@ export async function restoreBackup(
   const target = path.resolve(destination);
   const scope = restoreDestinationProblem({
     destination: target,
-    libraryDir: libraryDir(),
+    libraryDir: sourceRoot,
     sourcePackagePath: sourcePackage,
     documentExists: false,
   });
@@ -1136,11 +1716,11 @@ export async function restoreNewestBackup(
     return { ok: false, code: 'unknown', message: 'No document path was provided.' };
   }
   const resolved = path.resolve(packagePath);
-  if (!isInsideLibrary(resolved)) {
+  if (!(await isInsideKnownLibrary(resolved))) {
     return {
       ok: false,
       code: 'outside-library',
-      message: 'Document is outside the NoteForest library.',
+      message: 'Document is outside the known NoteForest libraries.',
     };
   }
   const listing = await listBackups(resolved);
@@ -1169,8 +1749,8 @@ export async function reloadDocument(packagePath: string): Promise<ReloadDocumen
     return { ok: false, message: 'No document path was provided.' };
   }
   const resolved = path.resolve(packagePath);
-  if (!isInsideLibrary(resolved)) {
-    return { ok: false, message: 'Document is outside the NoteForest library.' };
+  if (!(await isInsideKnownLibrary(resolved))) {
+    return { ok: false, message: 'Document is outside the known NoteForest libraries.' };
   }
   const existing = repository.get(resolved);
   if (existing !== null) {
@@ -1482,6 +2062,9 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
         }
         tabs.push({
           packagePath,
+          ...(typeof (tab as { documentId?: unknown }).documentId === 'string'
+            ? { documentId: (tab as { documentId: string }).documentId }
+            : {}),
           scrollTop: Number.isFinite(scrollTop) && scrollTop >= 0 ? scrollTop : 0,
           selectedBlockId: typeof selectedBlockId === 'string' ? selectedBlockId : null,
           collapsed,
@@ -1507,6 +2090,13 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
         }
       }
     }
+    const rawActiveLibrary = (raw as { activeLibrary?: unknown }).activeLibrary;
+    const activeLibrary =
+      rawActiveLibrary === null
+        ? null
+        : typeof rawActiveLibrary === 'string' && rawActiveLibrary.length > 0
+          ? path.resolve(rawActiveLibrary)
+          : undefined;
     return {
       session: {
         tabs,
@@ -1520,6 +2110,7 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
             : SIDEBAR_SNAP_WIDTH,
         collapsedTopics,
         sidebarTab: raw.sidebarTab === 'outline' ? 'outline' : 'library',
+        ...(activeLibrary === undefined ? {} : { activeLibrary }),
       },
       legacyOverrides,
     };
@@ -1538,6 +2129,7 @@ export async function writeSession(state: SessionState): Promise<void> {
 }
 
 export async function bootstrap(): Promise<{
+  library: LibraryView;
   settings: AppSettings;
   settingsStatus: SettingsFileStatus;
   documentSettings: DocumentSettingsEntry[];
@@ -1548,6 +2140,12 @@ export async function bootstrap(): Promise<{
   recoveries: RecoveryDocumentView[];
 }> {
   const settingsRead = await readSettingsFile();
+  const active = await activeLibraryPath();
+  let library = await scanLibrary(active ?? undefined);
+  if (active !== null && !library.missing) {
+    const reconciled = await reconcileMovedDocuments(active, library.documents);
+    if (reconciled.length > 0) library = await scanLibrary(active);
+  }
   const sessionRead = await readSessionWithOverrides();
   const session = sessionRead.session;
   const openDocuments: OpenDocumentSnapshot[] = [];
@@ -1582,6 +2180,7 @@ export async function bootstrap(): Promise<{
     documentIdByPath,
   );
   return {
+    library,
     settings: settingsRead.settings,
     settingsStatus: settingsRead.status,
     documentSettings: migrated.entries,
@@ -1635,7 +2234,13 @@ function branch(sourceBlockId: string, targetBlockId: string, order: string): Br
 }
 
 async function writeSeedDocument(title: string, document: Document): Promise<string> {
-  const directory = await ensureLibrary();
+  const directory = await activeLibraryPath();
+  if (directory === null || directory.length === 0) {
+    throw new Error('No library is open.');
+  }
+  if (!(await pathIsDirectory(directory))) {
+    throw new Error(`The active library was not found: ${directory}`);
+  }
   const report = validateDocument(document);
   if (!report.ok) {
     throw new Error(`seed document is invalid: ${report.errors.map((issue) => issue.message).join('; ')}`);

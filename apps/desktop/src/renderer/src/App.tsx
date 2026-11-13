@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import { CircleCheck, CircleX, Info, LoaderCircle, TriangleAlert } from 'lucide-react';
 import type { FlushResult, MenuCommand } from '../../shared/api';
@@ -31,6 +31,7 @@ import {
   runMenuCommand,
   setActiveDocumentLayout,
   setActivePageFit,
+  syncActiveLibraryForPath,
   toggleActiveInteractionMode,
   toggleFocusBranch,
 } from './actions';
@@ -173,6 +174,9 @@ export function App(): JSX.Element {
   );
   const { runtime } = useRuntime(activeTab);
   const dirty = useAllDirty();
+  // The first ready render restores the session's active library; only a later
+  // tab activation makes another known library active (LD-03).
+  const libraryFollowReady = useRef(false);
   // One writer for `data-theme`, the accent roles, and the shell fonts.
   const resolvedTheme = useAppearanceSync();
 
@@ -282,6 +286,16 @@ export function App(): JSX.Element {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!libraryFollowReady.current) {
+      libraryFollowReady.current = true;
+      return;
+    }
+    if (activeTab === null) return;
+    void syncActiveLibraryForPath(activeTab);
+  }, [ready, activeTab]);
 
   useEffect(() => {
     const offMenu = window.noteforest.onMenu((command) => dispatch(command));
@@ -567,6 +581,9 @@ export function App(): JSX.Element {
               ? null
               : {
                   path: state.library.libraryPath,
+                  name: state.library.libraryName,
+                  missing: state.library.missing,
+                  libraries: state.library.libraries,
                   documents: state.library.documents.map((document) => ({
                     packagePath: document.packagePath,
                     title: document.title,

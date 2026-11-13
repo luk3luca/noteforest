@@ -14,7 +14,9 @@ import { useShell } from '../state/shell';
 import { registerRuntime, useRuntime } from '../state/registry';
 import {
   activeRuntime,
+  chooseLibraryParent,
   closeTab,
+  createLibrary,
   renameChapter,
   renameDocument,
   report,
@@ -73,6 +75,86 @@ function Frame({ title, description, children, actions, wide = false }: FramePro
   );
 }
 
+function NewLibraryDialog({ onClose }: { onClose: () => void }): JSX.Element {
+  const [name, setName] = useState('NoteForest');
+  const [parentPath, setParentPath] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const chooseParent = async (): Promise<void> => {
+    const chosen = await chooseLibraryParent();
+    if (chosen !== null) {
+      setParentPath(chosen);
+      setError(null);
+    }
+  };
+
+  const create = async (): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const ok = await createLibrary(name, parentPath);
+    setBusy(false);
+    if (ok) onClose();
+    else setError('Could not create the library. Check the name and parent folder.');
+  };
+
+  return (
+    <Frame
+      title="New Library"
+      description="Create a folder for a new set of NoteForest notes."
+      actions={
+        <>
+          <Button className="nf-button" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="nf-button nf-button-primary"
+            data-new-library-create="true"
+            isDisabled={busy || name.trim().length === 0 || parentPath.length === 0}
+            onPress={() => void create()}
+          >
+            Create Library
+          </Button>
+        </>
+      }
+    >
+      <div data-new-library-dialog="true">
+        <label className="nf-field">
+          <span className="nf-field-label">Name</span>
+          <Input
+            className="nf-input"
+            data-new-library-name="true"
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              setError(null);
+            }}
+            autoFocus
+          />
+        </label>
+        <div className="nf-new-library-parent">
+          <Button
+            className="nf-button"
+            data-new-library-choose-parent="true"
+            onPress={() => void chooseParent()}
+          >
+            Choose parent folder…
+          </Button>
+          <p className="nf-settings-help" data-new-library-parent="true">
+            {parentPath.length === 0 ? 'No parent folder chosen.' : parentPath}
+          </p>
+        </div>
+        {error === null ? null : (
+          <p className="nf-field-error" role="alert" data-new-library-error="true">
+            {error}
+          </p>
+        )}
+      </div>
+    </Frame>
+  );
+}
+
 export function Dialogs(): JSX.Element | null {
   const dialog = useShell((state) => state.dialog);
   const close = useShell((state) => state.closeDialog);
@@ -84,6 +166,10 @@ export function Dialogs(): JSX.Element | null {
   // per-document dialog gate. Document-only sections are disabled inside.
   if (dialog.kind === 'settings') {
     return <SettingsDialog onClose={close} initialPage={dialog.page} />;
+  }
+  // Library creation is app-level and works with no document open.
+  if (dialog.kind === 'new-library') {
+    return <NewLibraryDialog onClose={close} />;
   }
   if (runtime === null) {
     return (

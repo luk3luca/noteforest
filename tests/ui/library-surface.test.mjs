@@ -1,9 +1,10 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
+import { pageDocument, textBlock, writePagePackage } from '../support/page-fixtures.mjs';
 
 /**
  * L1 sidebar surface: Library/Outline tabs, session restore, ARIA keyboard
@@ -24,6 +25,51 @@ async function launch(name, overrides = {}) {
 
 async function sidebarState() {
   return page.evaluate(() => window.__noteforestTest.state());
+}
+
+/** Replace the guarded native directory picker with a deterministic choice. */
+async function mockFolderDialog(folderPath) {
+  await h.app.evaluate(({ dialog }, chosen) => {
+    globalThis.__nfFolderDialogCalls = [];
+    dialog.showOpenDialog = async (_window, options) => {
+      globalThis.__nfFolderDialogCalls.push(structuredClone(options));
+      return { canceled: false, filePaths: [chosen] };
+    };
+  }, folderPath);
+}
+
+async function openSwitcher() {
+  await page.locator('[data-library-switcher]').click();
+  await page.locator('.nf-menu').waitFor();
+}
+
+async function chooseMenu(label) {
+  await page.getByRole('menuitem', { name: label, exact: true }).click();
+  await page.locator('.nf-menu').waitFor({ state: 'detached' });
+}
+
+async function waitLibraryPath(expected) {
+  await page.waitForFunction(
+    (path) => window.__noteforestTest.state().library?.path === path,
+    expected,
+    { timeout: 15000 },
+  );
+}
+
+async function waitTabPath(from, to) {
+  await page.waitForFunction(
+    ({ from: oldPath, to: newPath }) =>
+      window.__noteforestTest.state().tabs.some((tab) => tab.packagePath === newPath) &&
+      !window.__noteforestTest.state().tabs.some((tab) => tab.packagePath === oldPath),
+    { from, to },
+    { timeout: 15000 },
+  );
+}
+
+async function librariesFile(env) {
+  return JSON.parse(
+    await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'libraries.json'), 'utf8'),
+  );
 }
 
 describe('Library surface', () => {
@@ -198,5 +244,231 @@ describe('Library surface', () => {
     await page.waitForSelector('.nf-sidebar-rail');
     await page.locator('[data-sidebar-expand="true"]').click();
     await page.waitForSelector('[data-sidebar-tab="outline"][aria-selected="true"]');
+  });
+
+  it('opens a folder as a library, switches recents, keeps tabs, and follows the active tab', async () => {
+    const env = ui.isolated('roots');
+    await launch('roots', env);
+    await ui.seedDemo();
+    const libraryA = (await sidebarState()).library.path;
+    const libraryB = join(tempRoot, 'roots-library-b');
+    await mkdir(libraryB, { recursive: true });
+    const bPackage = await writePagePackage(
+      libraryB,
+      'b-note',
+      pageDocument({
+        id: 'library-surface-b',
+        title: 'B note',
+        chapterTitle: 'B chapter',
+        blocks: [textBlock('b1', 'B1', 'Text from library B.')],
+      }),
+    );
+
+    await openSwitcher();
+    assert.match(await page.locator('.nf-menu').innerText(), /Open Folder as Library/);
+    assert.equal(
+      await page
+        .locator(`[data-menu-entry="library-switch-${libraryA}"] .nf-menu-check svg`)
+        .count(),
+      1,
+      'the active library has a check',
+    );
+    assert.equal(
+      await page.getByRole('menuitem', { name: 'Remove from Recent', exact: true }).isDisabled(),
+      true,
+      'Remove from Recent is disabled for the active library',
+    );
+    await page.screenshot({ path: join(screenshotDir, 'library-switcher.png') });
+    await mockFolderDialog(libraryB);
+    await chooseMenu('Open Folder as Library…');
+    await waitLibraryPath(libraryB);
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().library?.documents.some((document) => document.title === 'B note'),
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal((await sidebarState()).tabs.length, 1, 'the old library tab stays open');
+    assert.equal((await librariesFile(env)).libraries[0].path, libraryB);
+
+    // Open the B document; then switch back to A through the switcher.
+    await page.locator('[data-library-document]', { hasText: 'B note' }).click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().tabs.length === 2,
+      undefined,
+      { timeout: 15000 },
+    );
+    await h.waitSaved();
+    await openSwitcher();
+    await chooseMenu('roots-library');
+    await waitLibraryPath(libraryA);
+    assert.equal((await sidebarState()).tabs.length, 2, 'open tabs survive a library switch');
+
+    // A document from another known library activates its library (LD-03).
+    await page.evaluate((path) => window.__noteforestTest.openPath(path), bPackage);
+    await waitLibraryPath(libraryB);
+    const afterB = (await sidebarState()).library.libraries;
+    assert.equal(afterB[0]?.path, libraryB);
+    assert.equal(afterB[0]?.active, true);
+
+    // Activating the demo tab makes library A active again.
+    await page.locator('.nf-tab', { hasText: 'Linear algebra' }).click();
+    await waitLibraryPath(libraryA);
+    await page.screenshot({ path: join(screenshotDir, 'library-tab-recents.png') });
+
+    // Launch restores the session's active library, not the active tab's
+    // library: switch back to A while the B tab stays active, then relaunch.
+    await page.locator('.nf-tab', { hasText: 'B note' }).click();
+    await waitLibraryPath(libraryB);
+    await openSwitcher();
+    await chooseMenu('roots-library');
+    await waitLibraryPath(libraryA);
+    await h.flushSession();
+    await h.quit();
+    page = await ui.launch(env);
+    await h.setWindowSize(1440, 900);
+    await waitLibraryPath(libraryA);
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().activeTab),
+      bPackage,
+      'the session active library wins on launch while the B tab stays active',
+    );
+  });
+
+  it('creates a new library and rejects package and nested roots', async () => {
+    await launch('create');
+    const parent = join(tempRoot, 'new-library-parent');
+    await mkdir(parent, { recursive: true });
+
+    await openSwitcher();
+    await chooseMenu('New Library…');
+    await page.waitForSelector('[data-new-library-dialog]');
+    assert.equal(await page.locator('[data-new-library-name]').inputValue(), 'NoteForest');
+    assert.equal(await page.locator('[data-new-library-create]').isDisabled(), true);
+    await page.screenshot({ path: join(screenshotDir, 'new-library.png') });
+
+    await mockFolderDialog(parent);
+    await page.locator('[data-new-library-choose-parent]').click();
+    await page.waitForFunction(
+      (chosen) =>
+        document.querySelector('[data-new-library-parent]')?.textContent?.includes(chosen) === true,
+      parent,
+      { timeout: 15000 },
+    );
+    await page.locator('[data-new-library-name]').fill('Study');
+    await page.locator('[data-new-library-create]').click();
+    await page.waitForSelector('[data-new-library-dialog]', { state: 'detached' });
+    const study = join(parent, 'Study');
+    await waitLibraryPath(study);
+    assert.equal((await stat(study)).isDirectory(), true);
+
+    // A package root is rejected with a clear message and no switch.
+    const packageRoot = join(tempRoot, 'package-root');
+    await mkdir(packageRoot, { recursive: true });
+    await writeFile(join(packageRoot, 'document.json'), '{}');
+    await openSwitcher();
+    await mockFolderDialog(packageRoot);
+    await chooseMenu('Open Folder as Library…');
+    await page.getByText(/This is a document, not a library/).waitFor({ timeout: 15000 });
+    assert.equal((await sidebarState()).library.path, study);
+
+    // A folder inside a known library is a nested library and is rejected.
+    const nested = join(study, 'nested');
+    await mkdir(nested, { recursive: true });
+    await openSwitcher();
+    await mockFolderDialog(nested);
+    await chooseMenu('Open Folder as Library…');
+    await page.getByText(/inside the library/).waitFor({ timeout: 15000 });
+    assert.equal((await sidebarState()).library.path, study);
+  });
+
+  it('shows the missing state, locates a moved library, and reconciles the open tab', async () => {
+    const env = ui.isolated('missing');
+    await launch('missing', env);
+    await ui.seedDemo();
+    const libraryA = (await sidebarState()).library.path;
+    const demoPackage = (await sidebarState()).tabs[0].packagePath;
+    await h.flushSession();
+    await h.quit();
+
+    const moved = join(tempRoot, 'missing-library-moved');
+    await rename(libraryA, moved);
+    page = await ui.launch(env);
+    await h.setWindowSize(1440, 900);
+    await page.waitForSelector('[data-library-missing="true"]');
+    assert.match(await page.locator('[data-library-missing]').innerText(), /Library not found/);
+    assert.equal(await page.locator('[data-library-missing-path]').innerText(), libraryA);
+    await page.screenshot({ path: join(screenshotDir, 'library-missing.png') });
+
+    // The Outline tab still renders while the library is missing.
+    await page.locator('[data-sidebar-tab="outline"]').click();
+    await page.waitForSelector('[data-sidebar-panel="outline"]');
+    await page.locator('[data-sidebar-tab="library"]').click();
+
+    await mockFolderDialog(moved);
+    await page.locator('[data-library-locate]').click();
+    await waitLibraryPath(moved);
+    const movedPackage = join(moved, demoPackage.split('/').at(-1));
+    await waitTabPath(demoPackage, movedPackage);
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]', {
+      timeout: 15000,
+    });
+    assert.equal((await sidebarState()).library.missing, false);
+  });
+
+  it('removes recents from Data and shows the no-library state without recreating', async () => {
+    const env = ui.isolated('data');
+    await launch('data', env);
+    const libraryA = (await sidebarState()).library.path;
+    const libraryB = join(tempRoot, 'data-library-b');
+    await mkdir(libraryB, { recursive: true });
+
+    await openSwitcher();
+    await mockFolderDialog(libraryB);
+    await chooseMenu('Open Folder as Library…');
+    await waitLibraryPath(libraryB);
+    await openSwitcher();
+    await chooseMenu('data-library');
+    await waitLibraryPath(libraryA);
+
+    await page.keyboard.press('Meta+,');
+    await page.waitForSelector('[data-settings-dialog="true"]');
+    await page.locator('[data-settings-nav="data"]').click();
+    const bRow = page.locator(`[data-settings-library-row="${libraryB}"]`);
+    assert.equal(await bRow.count(), 1);
+    const aRow = page.locator(`[data-settings-library-row="${libraryA}"]`);
+    assert.equal(
+      await aRow.locator('[data-settings-library-remove]').isDisabled(),
+      true,
+      'the active library cannot be removed from Data',
+    );
+    assert.equal(await page.locator('[data-settings-library-open]').count(), 1);
+    assert.equal(
+      await bRow.locator('[data-settings-library-remove]').isDisabled(),
+      false,
+      'a non-active recent can be removed',
+    );
+    await bRow.locator('[data-settings-library-remove]').click();
+    await page.waitForFunction(
+      (path) =>
+        !window.__noteforestTest.state().library?.libraries.some((entry) => entry.path === path),
+      libraryB,
+      { timeout: 15000 },
+    );
+    assert.equal((await stat(libraryB)).isDirectory(), true, 'removing a recent never deletes files');
+    assert.equal((await sidebarState()).library.path, libraryA);
+    await page.screenshot({ path: join(screenshotDir, 'data-libraries.png') });
+    await page.getByRole('button', { name: 'Done' }).click();
+
+    // Delete the active folder externally, refresh into the missing state, then
+    // remove it from recents: the empty library state must not recreate it.
+    await rm(libraryA, { recursive: true, force: true });
+    await openSwitcher();
+    await chooseMenu('Refresh');
+    await page.waitForSelector('[data-library-missing="true"]');
+    await page.locator('[data-library-remove]').click();
+    await page.waitForSelector('[data-library-none="true"]');
+    assert.equal((await sidebarState()).library.path, '');
+    await assert.rejects(stat(libraryA));
+    await page.screenshot({ path: join(screenshotDir, 'no-library.png') });
   });
 });

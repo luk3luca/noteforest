@@ -1048,6 +1048,7 @@ describe('NoteForest M2 editor shell', () => {
     const firstPath = (await h.state()).activeTab;
     await page.keyboard.type('Root block');
     await h.waitSaved();
+    await showOutline();
 
     // Three Control+Enter presses before the first IPC round-trip can finish.
     await h.rapidKeydowns('Enter', 3, { ctrlKey: true });
@@ -1156,6 +1157,7 @@ describe('NoteForest M2 editor shell', () => {
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
     await h.waitSaved();
     await h.waitLayout({ blocks: 7, arrows: 3 });
+    await showOutline();
     await waitHistoryState({
       lastHistoryOperation: null,
       canUndoStructural: false,
