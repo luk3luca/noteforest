@@ -1668,14 +1668,13 @@ button:disabled {
   font-size: calc(11.5px * var(--ui-scale));
 }
 
-.nf-status-slim-details p {
+.nf-status-slim-details-popover {
   position: absolute;
   right: 0;
   top: 22px;
   z-index: 30;
-  width: 320px;
+  width: 340px;
   max-width: 70vw;
-  margin: 0;
   padding: 10px 12px;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-panel);
@@ -1684,6 +1683,14 @@ button:disabled {
   color: var(--text-2);
   font-size: calc(11.5px * var(--ui-scale));
   line-height: 1.45;
+}
+
+.nf-status-slim-details-popover p {
+  margin: 0;
+}
+
+.nf-status-slim-details-popover .nf-status-meta {
+  margin-top: 8px;
 }
 
 @media (max-width: 760px) {

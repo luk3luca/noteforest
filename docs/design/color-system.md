@@ -322,13 +322,15 @@ sizing change is separate but related.
 
 | State | Panel | Actions | On action |
 |---|---|---|---|
-| Stale lock (read-only) | Full panel, warning icon, metadata | Take over lock / Cancel | Take over: dismiss, editable; Cancel: collapse to slim bar |
-| Read-only (no lock) | Slim bar or full panel once | Details / Dismiss | Slim bar persists while read-only |
+| Stale lock (read-only) | Full panel, warning icon, metadata | Take over lock / Cancel | Take over: dismiss, editable; Cancel: collapse to slim bar with Take over lock + Review |
+| Read-only (no lock) | Slim bar | Recheck (locked only) / Details | Recheck reopens from disk; a live lock stays read-only, a removed lock becomes editable |
 | Corrupt/missing document | Full panel, warning icon, reason | Open recovery / Reveal | Recovery surface or dismiss to slim bar |
 | Resolved | Removed | — | Canvas expands with a 120 ms height/opacity animation |
 
 - **Cancel must not remove the only explanation.** It collapses to a 34 px bar: lock icon,
-  "Read-only · stale lock", "Review". The tab lock icon remains.
+  "Read-only · stale lock", Take over lock, Review. The tab lock icon remains. Generic read-only
+  keeps Details (with lock metadata) and, for a live lock, Recheck: reopening from disk cannot
+  force-break the lock, so it stays read-only until the other session closes or quits.
 - `role="alert"` on appearance; `aria-live="polite"` for the slim bar. Focus goes to the primary
   action only when the state starts blocking an edit; otherwise the panel is announced without
   stealing focus. `Esc` = Cancel. No focus trap; it is not a modal.

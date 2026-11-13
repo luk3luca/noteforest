@@ -509,6 +509,95 @@ describe('single-writer lock', () => {
     await recovered.store.close();
     await expect(fs.access(lockPath)).rejects.toMatchObject({ code: 'ENOENT' });
   });
+
+  it('creates over a freed folder name with a stale lock and stays editable', async () => {
+    const created = await createPackage('Reused Name');
+    const freedPath = created.packagePath;
+    await created.store.close();
+    const lockPath = lockPathForPackage(freedPath, appSupport);
+    await fs.mkdir(path.dirname(lockPath), { recursive: true });
+    await fs.writeFile(
+      lockPath,
+      `${JSON.stringify(
+        {
+          version: 1,
+          documentPath: freedPath,
+          pid: 2_147_483_647,
+          host: os.hostname(),
+          sessionId: 'deleted-package-session',
+          token: 'stale-token',
+          acquiredAt: '2020-01-01T00:00:00.000Z',
+          heartbeatAt: '2020-01-01T00:00:00.000Z',
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    // The package was deleted but its lock survived; the name is free again.
+    await fs.rm(freedPath, { recursive: true, force: true });
+
+    const reused = await createDocumentPackage(
+      library,
+      { title: 'Reused Name' },
+      options(),
+    );
+    expect(reused.ok).toBe(true);
+    if (!reused.ok) return;
+    stores.push(reused.store);
+    expect(reused.packagePath).toBe(freedPath);
+    expect(reused.store.readOnly).toBe(false);
+
+    // The new store owns a live lock and accepts an edit and a save.
+    const renamed = reused.store.apply({ type: 'document.rename', title: 'Reused and edited' });
+    expect(renamed.ok).toBe(true);
+    expect((await reused.store.save()).ok).toBe(true);
+    const record = JSON.parse(await fs.readFile(lockPath, 'utf8')) as {
+      token: string;
+      documentPath: string;
+    };
+    expect(record.token).not.toBe('stale-token');
+    expect(record.documentPath).toBe(freedPath);
+  });
+
+  it('still refuses to create over a live lock on a freed folder name', async () => {
+    const created = await createPackage('Live Name');
+    const freedPath = created.packagePath;
+    await created.store.close();
+    const lockPath = lockPathForPackage(freedPath, appSupport);
+    await fs.mkdir(path.dirname(lockPath), { recursive: true });
+    await fs.writeFile(
+      lockPath,
+      `${JSON.stringify(
+        {
+          version: 1,
+          documentPath: freedPath,
+          pid: process.pid,
+          host: os.hostname(),
+          sessionId: 'live-session',
+          token: 'live-token',
+          acquiredAt: new Date().toISOString(),
+          heartbeatAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await fs.rm(freedPath, { recursive: true, force: true });
+
+    const blocked = await createDocumentPackage(
+      library,
+      { title: 'Live Name' },
+      options(),
+    );
+    expect(blocked.ok).toBe(false);
+    if (blocked.ok) return;
+    expect(blocked.error.code).toBe('document-locked');
+    // The failed creation removes the folder it made and leaves the lock alone.
+    await expect(fs.access(freedPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect((JSON.parse(await fs.readFile(lockPath, 'utf8')) as { token: string }).token).toBe(
+      'live-token',
+    );
+  });
 });
 
 describe('external modification detection', () => {

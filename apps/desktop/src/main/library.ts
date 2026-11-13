@@ -406,7 +406,21 @@ export async function createDocument(input: { title?: string }): Promise<{
   const directory = await ensureLibrary();
   const title = input.title?.trim() || 'Untitled';
   const created = await repository.create(directory, { title });
-  if (!created.ok) return { ok: false, message: created.error.message };
+  if (!created.ok) {
+    // A live lock on the freshly allocated folder name is a session collision,
+    // not a filesystem detail: never surface the raw lock path/message.
+    if (
+      created.error.code === 'document-locked' ||
+      created.error.code === 'stale-lock'
+    ) {
+      return {
+        ok: false,
+        message:
+          'The note folder is locked by another NoteForest session. Close the other NoteForest window and try again.',
+      };
+    }
+    return { ok: false, message: created.error.message };
+  }
   const chapterId = created.document.chapters[0]?.id;
   if (chapterId !== undefined) {
     const block = created.store.apply({

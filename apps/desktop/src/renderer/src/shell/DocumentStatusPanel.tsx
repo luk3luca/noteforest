@@ -9,8 +9,10 @@
  * to the icon and the title.
  *
  * Cancel is not a dismissal: the panel collapses to a 34 px slim bar that keeps
- * the explanation and a Review action. Cancel is per document for the session.
- * Corrupt/missing documents keep the dedicated `RecoverySurface`.
+ * the explanation, Take over lock, and Review. Cancel is per document for the
+ * session. Generic read-only keeps a Recheck that only reopens the package; it
+ * never force-breaks a live lock. Corrupt/missing documents keep the dedicated
+ * `RecoverySurface`.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -46,14 +48,57 @@ function reasonLabel(reason: string | undefined): string {
   }
 }
 
+/** PID/host/session/heartbeat for a live or stale lock. Not a takeover action. */
+function LockMetadata({ runtime }: { runtime: DocumentRuntime }): JSX.Element | null {
+  if (runtime.lock === undefined) return null;
+  const corruptLock = runtime.lock.corrupt === true;
+  return (
+    <dl className="nf-status-meta" data-lock-metadata="true">
+      {corruptLock ? (
+        <div className="nf-status-meta-wide">
+          <dt>Lock file</dt>
+          <dd data-lock-corrupt="true">
+            The lock file is corrupt and its owner cannot be read.
+          </dd>
+        </div>
+      ) : (
+        <>
+          <div>
+            <dt>PID</dt>
+            <dd data-lock-pid="true">{runtime.lock.pid ?? 'unknown'}</dd>
+          </div>
+          <div>
+            <dt>Host</dt>
+            <dd data-lock-host="true">{lockHost(runtime)}</dd>
+          </div>
+          <div>
+            <dt>Session</dt>
+            <dd data-lock-session="true">{runtime.lock.sessionId ?? 'unknown'}</dd>
+          </div>
+          <div>
+            <dt>Heartbeat</dt>
+            <dd data-lock-heartbeat="true">{heartbeatLabel(runtime)}</dd>
+          </div>
+        </>
+      )}
+    </dl>
+  );
+}
+
 function SlimBar({
   runtime,
   staleLock,
+  busy,
   onReview,
+  onTakeOver,
+  onRecheck,
 }: {
   runtime: DocumentRuntime;
   staleLock: boolean;
+  busy: boolean;
   onReview?: () => void;
+  onTakeOver?: () => void;
+  onRecheck?: () => void;
 }): JSX.Element {
   return (
     <div
@@ -83,24 +128,55 @@ function SlimBar({
       )}
       <span className="nf-status-slim-actions">
         {staleLock ? (
-          <button
-            type="button"
-            className="nf-button nf-button-quiet"
-            data-stale-lock-action="review"
-            onClick={onReview}
-          >
-            Review
-          </button>
+          <>
+            <button
+              type="button"
+              className="nf-button nf-button-primary"
+              data-stale-lock-action="take-over"
+              disabled={busy}
+              onClick={onTakeOver}
+            >
+              {busy ? 'Taking over…' : 'Take over lock'}
+            </button>
+            <button
+              type="button"
+              className="nf-button nf-button-quiet"
+              data-stale-lock-action="review"
+              disabled={busy}
+              onClick={onReview}
+            >
+              Review
+            </button>
+          </>
         ) : (
-          <details className="nf-status-details nf-status-slim-details" data-status-details="true">
-            <summary>Details</summary>
-            <p>
-              This document opened read-only. Your file is not being modified.
-              {runtime.readOnlyReason === undefined
-                ? ''
-                : ` Reason: ${reasonLabel(runtime.readOnlyReason)}.`}
-            </p>
-          </details>
+          <>
+            {runtime.readOnlyReason === 'locked' ? (
+              <button
+                type="button"
+                className="nf-button nf-button-quiet"
+                data-status-action="recheck"
+                disabled={busy}
+                onClick={onRecheck}
+              >
+                {busy ? 'Rechecking…' : 'Recheck'}
+              </button>
+            ) : null}
+            <details className="nf-status-details nf-status-slim-details" data-status-details="true">
+              <summary>Details</summary>
+              <div className="nf-status-slim-details-popover">
+                <p>
+                  This document opened read-only. Your file is not being modified. If
+                  another NoteForest window is open, close it. If no other window is open,
+                  quit NoteForest completely and reopen: a lock from a previous run becomes
+                  stale and offers Take over.
+                  {runtime.readOnlyReason === undefined
+                    ? ''
+                    : ` Reason: ${reasonLabel(runtime.readOnlyReason)}.`}
+                </p>
+                <LockMetadata runtime={runtime} />
+              </div>
+            </details>
+          </>
         )}
       </span>
     </div>
@@ -143,23 +219,6 @@ export function DocumentStatusPanel({
   if (runtime === null) return null;
   if (runtime.status === 'editable') return null;
 
-  if (!staleLock) {
-    return <SlimBar runtime={runtime} staleLock={false} />;
-  }
-
-  if (collapsed) {
-    return (
-      <SlimBar
-        runtime={runtime}
-        staleLock
-        onReview={() => {
-          if (packagePath !== null) setCollapsed(packagePath, false);
-          setError(null);
-        }}
-      />
-    );
-  }
-
   const cancel = (): void => {
     if (packagePath !== null) setCollapsed(packagePath, true);
     setError(null);
@@ -187,7 +246,64 @@ export function DocumentStatusPanel({
     }
   };
 
-  const corruptLock = runtime.lock?.corrupt === true;
+  const recheck = async (): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await runtime.reloadFromDisk();
+      if (!result.ok) {
+        toast.error(result.message ?? 'Could not reopen the document.');
+        return;
+      }
+      if (runtime.readOnlyReason === 'locked') {
+        toast.warning('Still read-only: another NoteForest session holds the lock.', {
+          description:
+            'Close the other NoteForest window, or quit NoteForest completely and reopen.',
+        });
+        return;
+      }
+      if (runtime.status === 'editable') {
+        // Refresh the tab identity so the lock icon disappears with the panel.
+        useShell.getState().openTab({
+          packagePath: runtime.packagePath,
+          title: runtime.title,
+        });
+        toast.success('Document reopened. This document is now editable.');
+      } else {
+        toast.info('Rechecked the document. It is still read-only.');
+      }
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!staleLock) {
+    return (
+      <SlimBar
+        runtime={runtime}
+        staleLock={false}
+        busy={busy}
+        onRecheck={() => void recheck()}
+      />
+    );
+  }
+
+  if (collapsed) {
+    return (
+      <SlimBar
+        runtime={runtime}
+        staleLock
+        busy={busy}
+        onTakeOver={() => void takeOver()}
+        onReview={() => {
+          if (packagePath !== null) setCollapsed(packagePath, false);
+          setError(null);
+        }}
+      />
+    );
+  }
 
   return (
     <section
@@ -214,39 +330,13 @@ export function DocumentStatusPanel({
         <p className="nf-status-body">
           Another NoteForest session left a lock on this document, but its heartbeat is
           stale. Your file has not been modified. Take over only if you are sure no other
-          session is still writing it.
+          session is still writing it. If no other NoteForest window is open, quit
+          NoteForest completely and reopen; a lock from the previous run becomes stale and
+          offers Take over.
         </p>
         <details className="nf-status-details" data-status-details="true">
           <summary>Lock details</summary>
-          <dl className="nf-status-meta" data-lock-metadata="true">
-            {corruptLock ? (
-              <div className="nf-status-meta-wide">
-                <dt>Lock file</dt>
-                <dd data-lock-corrupt="true">
-                  The lock file is corrupt and its owner cannot be read.
-                </dd>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <dt>PID</dt>
-                  <dd data-lock-pid="true">{runtime.lock?.pid ?? 'unknown'}</dd>
-                </div>
-                <div>
-                  <dt>Host</dt>
-                  <dd data-lock-host="true">{lockHost(runtime)}</dd>
-                </div>
-                <div>
-                  <dt>Session</dt>
-                  <dd data-lock-session="true">{runtime.lock?.sessionId ?? 'unknown'}</dd>
-                </div>
-                <div>
-                  <dt>Heartbeat</dt>
-                  <dd data-lock-heartbeat="true">{heartbeatLabel(runtime)}</dd>
-                </div>
-              </>
-            )}
-          </dl>
+          <LockMetadata runtime={runtime} />
         </details>
         {error === null ? null : (
           <p className="nf-status-error" role="alert" data-stale-lock-error="true">

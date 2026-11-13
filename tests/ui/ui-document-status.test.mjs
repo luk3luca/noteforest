@@ -123,6 +123,17 @@ async function runtimeState(packagePath) {
   return state.runtimes.find((item) => item.packagePath === packagePath);
 }
 
+async function waitToast(text) {
+  await page.waitForFunction(
+    (expected) =>
+      [...document.querySelectorAll('[data-sonner-toast]')].some((element) =>
+        element.textContent?.includes(expected),
+      ),
+    text,
+    { timeout: 10000 },
+  );
+}
+
 async function canvasPanel() {
   return page.evaluate(() => {
     const canvas = document.querySelector('[data-canvas-panel="true"]');
@@ -209,13 +220,28 @@ describe('R3 document status panel', () => {
     assert.ok(placement.canvasTop >= placement.panelBottom - 0.5);
     assert.ok(Math.abs(placement.panelHeight - 34) <= 1.5, `slim bar is 34 px (${placement.panelHeight})`);
 
-    // Details is a real disclosure, not a second card.
+    // Details is a real disclosure, not a second card. A live lock exposes the
+    // lock metadata and the quit/reopen guidance, but never a takeover.
+    const recheck = slim().locator('[data-status-action="recheck"]');
+    assert.equal(await recheck.count(), 1, 'a locked document offers Recheck');
     await slim().locator('[data-status-details] summary').click();
-    assert.match(
-      await slim().locator('[data-status-details] p').innerText(),
-      /opened read-only/,
+    const details = slim().locator('[data-status-details]');
+    assert.match(await details.innerText(), /opened read-only/);
+    assert.match(await details.innerText(), /quit NoteForest completely and reopen/);
+    assert.equal(await details.locator('[data-lock-pid="true"]').innerText(), '2147483647');
+    assert.equal(await details.locator('[data-lock-host="true"]').innerText(), 'another-mac');
+    assert.equal(await details.locator('[data-lock-session="true"]').innerText(), 'status-session');
+    assert.doesNotMatch(
+      await details.locator('[data-lock-heartbeat="true"]').innerText(),
+      /unknown/,
     );
     await page.screenshot({ path: join(screenshotDir, 'read-only-slim.png') });
+
+    // Recheck reopens the package but a live lock still keeps it read-only.
+    await recheck.click();
+    await waitToast('Still read-only');
+    assert.equal((await runtimeState(lockedPath))?.readOnlyReason, 'locked');
+    assert.match(await slim().innerText(), /Read-only/);
 
     // Switching to an editable document removes the panel and the canvas grows.
     await openPath(editablePath);
@@ -233,6 +259,41 @@ describe('R3 document status panel', () => {
     await activate(lockedPath);
     await slim().waitFor({ timeout: 10000 });
     assert.match(await slim().innerText(), /Read-only/);
+    assert.equal(await page.locator('.nf-status-slim-icon').count(), 1);
+
+    // Once the live lock disappears, Recheck reopens the package as editable
+    // and removes both the panel and the tab lock icon. No force-break path.
+    await rm(lockPathFor(env, lockedPath));
+    await slim().locator('[data-status-action="recheck"]').click();
+    await page.waitForFunction(
+      (path) => {
+        const current = window.__noteforestTest.state();
+        return current.runtimes.find((item) => item.packagePath === path)?.status === 'editable';
+      },
+      lockedPath,
+      { timeout: 10000 },
+    );
+    await page.waitForFunction(() => document.querySelector('[data-document-status]') === null, undefined, {
+      timeout: 10000,
+    });
+    assert.equal(
+      await page.locator('.nf-tab[data-active="true"] .nf-tab-lock').count(),
+      0,
+      'the recovered tab no longer shows the lock icon',
+    );
+
+    // The mounted editor gained editability with the runtime, not only the
+    // status: typing and saving work without a reopen.
+    await page
+      .locator('.nf-editor[data-active="true"] [data-block-card] .nf-block-prose')
+      .first()
+      .click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' unlocked');
+    await h.waitEditorText('unlocked');
+    await h.waitSaved();
+    const saved = JSON.parse(await readFile(resolve(lockedPath, 'document.json'), 'utf8'));
+    assert.match(JSON.stringify(saved), /unlocked/);
   });
 
   it('collapses a stale lock per document, reviews, and takes over', async () => {
@@ -292,6 +353,15 @@ describe('R3 document status panel', () => {
     assert.equal(await page.locator('[data-stale-lock-banner="true"]').count(), 0);
     assert.equal((await readLock(lockPath)).token, lockBefore.token, 'Cancel keeps the lock');
 
+    // The compressed bar keeps both the one-click takeover and the explanation.
+    assert.equal(
+      await slim().locator('[data-stale-lock-action="take-over"]').count(),
+      1,
+      'the slim stale bar offers Take over lock',
+    );
+    assert.equal(await slim().locator('[data-stale-lock-action="review"]').count(), 1);
+    await page.screenshot({ path: join(screenshotDir, 'stale-lock-slim.png') });
+
     // Cancel is per document for the session: leaving and returning keeps slim.
     await openPath(editablePath);
     assert.equal(await page.locator('[data-document-status]').count(), 0);
@@ -316,8 +386,10 @@ describe('R3 document status panel', () => {
     await page.locator('[data-stale-lock-action="review"]').click();
     await full().waitFor({ timeout: 5000 });
 
-    // Take over makes the document editable and removes the panel.
-    await page.locator('[data-stale-lock-action="take-over"]').click();
+    // Take over from the compressed bar is one click.
+    await page.locator('[data-stale-lock-action="cancel"]').click();
+    await slim().waitFor({ timeout: 5000 });
+    await slim().locator('[data-stale-lock-action="take-over"]').click();
     await page.waitForFunction(
       (path) => {
         const current = window.__noteforestTest.state();
@@ -343,5 +415,58 @@ describe('R3 document status panel', () => {
     await h.waitSaved();
     const saved = JSON.parse(await readFile(resolve(stalePath, 'document.json'), 'utf8'));
     assert.match(JSON.stringify(saved), /editable/);
+  });
+
+  it('creates a new note over a stale lock and reports a live lock without internals', async () => {
+    const env = ui.isolated('status-create');
+    await mkdir(env.NOTEFOREST_LIBRARY, { recursive: true });
+    const stalePath = join(env.NOTEFOREST_LIBRARY, 'untitled');
+    const staleLock = await writeLock(env, stalePath, {
+      pid: 2_147_483_647,
+      host: 'stale-create-lock',
+      heartbeatAt: '2020-01-01T00:00:00.000Z',
+      token: 'create-stale-token',
+    });
+    await launch('status-create');
+
+    // New note reuses the freed "untitled" folder name; the stale lock from the
+    // deleted package must not block creation.
+    await page.locator('.nf-new-note').click();
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 1, undefined, {
+      timeout: 10000,
+    });
+    const created = await page.evaluate(() => {
+      const current = window.__noteforestTest.state();
+      return current.runtimes.find((item) => item.packagePath === current.activeTab) ?? null;
+    });
+    assert.equal(created?.status, 'editable', 'the new note is editable');
+    assert.equal(created?.title, 'Untitled');
+    assert.notEqual((await readLock(staleLock)).token, 'create-stale-token');
+
+    // A live lock on the next free folder name still fails, with a user-facing
+    // message that never exposes the lock path.
+    const livePath = join(env.NOTEFOREST_LIBRARY, 'untitled-2');
+    const liveLock = await writeLock(env, livePath, {
+      pid: process.pid,
+      host: 'live-create-host',
+      heartbeatAt: new Date().toISOString(),
+      token: 'create-live-token',
+    });
+    const tabsBefore = (await h.state()).tabs.length;
+    await page.locator('.nf-new-note').click();
+    await waitToast('locked by another NoteForest session');
+    const toastText = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-sonner-toast]')]
+        .map((element) => element.textContent ?? '')
+        .join(' '),
+    );
+    assert.match(toastText, /Close the other NoteForest window and try again/);
+    assert.doesNotMatch(toastText, /\.lock/);
+    assert.ok(
+      !toastText.includes(env.NOTEFOREST_APP_SUPPORT),
+      'the toast never exposes the app-support lock path',
+    );
+    assert.equal((await h.state()).tabs.length, tabsBefore, 'the failed note did not open');
+    assert.equal((await readLock(liveLock)).token, 'create-live-token', 'the live lock is untouched');
   });
 });

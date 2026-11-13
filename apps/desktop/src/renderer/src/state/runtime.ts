@@ -511,10 +511,12 @@ export class DocumentRuntime {
   async reloadFromDisk(): Promise<{ ok: boolean; message?: string }> {
     return this.session.queue.run(async () => {
       this.saves.clearTimers();
+      const wasEditable = this.editable;
       const result = await this.gateway.reloadDocument(this.packagePath);
       if (!result.ok) return { ok: false, message: result.message };
       this.status = result.snapshot.status;
       this.readOnlyReason = result.snapshot.readOnlyReason;
+      this.lock = result.snapshot.lock;
       this.replaceAvailability(result.snapshot.assetAvailability);
       // Reload replaces the canonical document: old structural inverses and
       // text history no longer describe it.
@@ -522,6 +524,11 @@ export class DocumentRuntime {
       this.validateSelectedAnchor();
       this.version += 1;
       this.saves.reset();
+      // A Recheck can turn a read-only open into an editable one; the mounted
+      // editor must gain editability, not only the runtime status. Only touch
+      // the editor when the mode actually changed: setEditable emits an update
+      // that would schedule an unnecessary save on an ordinary external reload.
+      if (this.editable !== wasEditable) this.editor?.setEditable(this.editable);
       this.rebuildEditor(this.selectedBlockId, { resetHistory: true });
       this.reconcileEditor(this.selectedBlockId);
       this.notify();

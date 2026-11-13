@@ -889,9 +889,14 @@ export async function createDocumentPackage(
   let lockHandle: LockHandle | null = null;
   try {
     await fs.mkdir(assetsDirPath(packageDir), { recursive: true });
+    // The folder was created by this call, so no live writer can own it: a
+    // lock keyed by this path can only be stale (a deleted package left it) or
+    // corrupt. Break only those; a live lock acquired between mkdir and here
+    // still fails and the fresh directory is removed below.
     const acquired = await acquireDocumentLock(packageDir, {
       appSupportDir,
       ...(options.lockDir === undefined ? {} : { lockDir: options.lockDir }),
+      breakStale: true,
       documentId: document.id,
     });
     if (!acquired.ok) {
