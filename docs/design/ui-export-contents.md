@@ -1,21 +1,43 @@
 # UI contents — phase 2, slice 4 (Export sheet)
 
-**Status:** First draft. Contents, states, and behavior; not visual design and not code.
-**Date:** 10 November 2026.
-**Branch:** `design/ui-map`.
+**Status:** Confirmed for R4 (13 November 2026). Contents, states, and behavior; not visual design and not code.
+**Date:** 10 November 2026 (R4 decisions applied 13 November 2026).
+**Branch:** `design/ui-map` (R4 on `main`).
 **Inputs:** `docs/design/ui-shell-map.md` (D-01…D-13), `docs/design/ui-settings-contents.md`
 (slice 3), `research/ui-surface-map.md` (as-is export), `docs/adr/0002-pdf-pipeline.md`,
-`docs/reviews/m4c2-export-orchestration-review.md`, `docs/reviews/m4c3*`.
+`docs/reviews/m4c2-export-orchestration-review.md`, `docs/reviews/m4c3*`,
+`docs/tasks/r4-export-defaults.md`.
 **Scope:** the Export PDF flow: entry, configure, overwrite, progress, cancel, result, errors,
-warnings. PDF rendering/layout is unchanged; the export uses the same Page model and print
-compositor.
+warnings, and the global Export settings. PDF rendering/layout is unchanged; the export uses the
+same Page model and print compositor.
+
+---
+
+## 0. R4 confirmed decisions
+
+- **Global default folder, one setting.** `settings.json` schema v4 adds
+  `export: { folder: string | null }`. `null` means the OS Documents folder; any other value is the
+  saved default. There is no per-document export settings namespace.
+- **The sheet starts at the settings default.** **Choose…** changes the folder for the current
+  export only; the saved default is changed only in **Settings → Export**.
+- **No date.** The filename is always `<document title>.pdf` (sanitized, empty → `Untitled.pdf`).
+  There is no filename pattern, no date suffix, and no Add date control.
+- **No Advanced controls.** Metadata, tagged PDF, and page range are not implemented and are not
+  shown as disabled “coming soon” rows.
+- **Missing folder fails visibly.** If the saved or chosen folder no longer exists, the export
+  fails with the folder/write error and the sheet returns to Configure; NoteForest never creates or
+  substitutes a folder silently.
+- **Status surfaces are neutral.** Save failure, draft materialization, and read-only state share
+  the R3 detached-panel language: 1 px border, `--radius-panel`, `--surface-1`, a warning/danger
+  icon and title, and actions on the right. No colored left stripe. A draft failure shows only the
+  draft banner; a materialized package path lives in Details.
 
 ---
 
 ## 0. Principles
 
-- **One flow.** File → Export PDF… (`⇧⌘E`), the palette, and the PageToolbar Export button all open
-  the same sheet. One export job at a time.
+- **One flow.** File → Export PDF… (`⇧⌘E`), the palette, the PageToolbar Export button, and
+  Settings → Export all open the same sheet. One export job at a time.
 - **No native save dialog.** Folder choice uses the native folder picker; filename, overwrite, and
   options are in the sheet. This removes the current native-dialog + app-panel double prompt.
 - **The export is the Page layout.** From Continuous, the sheet says so; the PDF is always the Page
@@ -34,6 +56,7 @@ compositor.
 | File → Export PDF… (`⇧⌘E`) | Opens the sheet for the active document |
 | Command palette | Same; searchable as “Export PDF…” |
 | PageToolbar Export | Same; only in Page |
+| Settings → Export → Export PDF… | Same sheet for the active document; Settings stays open underneath |
 | No document | Entry disabled with a reason; `⇧⌘E` does nothing or shows “Open a document to export” |
 | Read-only document | Allowed; export does not mutate content |
 | Page Edit open | Commit the overlay before the snapshot; if the commit fails, block export and show the error |
@@ -54,15 +77,11 @@ body, sticky footer. One surface for every state; no separate floating panel.
 ├──────────────────────────────────────────────────────────────┤
 │ Destination                                                  │
 │  ~/Documents/Exports                        [ Choose… ]      │
-│  File name  [ Note title.pdf            ]   [ ] Add date     │
+│  File name  [ Note title.pdf            ]                    │
 │                                                              │
 │ What will be exported                                        │
 │  Page layout · A4 landscape · 12 mm · 100%                   │
 │  12 pages · whole document                                   │
-│                                                              │
-│ ▸ Metadata                                                   │
-│ ▸ Accessibility                                              │
-│ ▸ Page range                                                 │
 │                                                              │
 │ Preflight runs automatically when you export.                │
 ├──────────────────────────────────────────────────────────────┤
@@ -78,14 +97,15 @@ body, sticky footer. One surface for every state; no separate floating panel.
 
 | Element | Control | Behavior |
 |---|---|---|
-| Folder | Read-only path + **Choose…** | Native folder picker (directories only); last used folder, fallback `~/Documents` |
+| Folder | Read-only path + **Choose…** | Starts at the global `export.folder` setting, or the OS Documents folder when `null`. The picker is directories-only. Choosing a folder changes this export only; **Settings → Export** changes the saved default. |
 | File name | Text field | Default sanitized `<title>.pdf`; `.pdf` fixed; empty → `Untitled.pdf`; no path separators; inline validation |
-| Add date | Checkbox | Off by default; on → `<title> — YYYY-MM-DD.pdf`; the Settings > Export default can change it later |
 | Destination preview | Text | Full path; updates with folder/filename |
 
 - The folder picker never confirms overwrite; overwrite is an in-sheet decision (§4).
-- The last-used folder is remembered for the session/app; per-document default is a Settings
-  decision (S3-11/E-02).
+- There is no Add date control. The filename is always `<title>.pdf`; no date, pattern, metadata,
+  tagged PDF, or page-range rows exist.
+- A missing folder fails at export time with the folder/write error; the sheet returns to Configure
+  and requires **Choose…**. The app never creates or copies a destination silently.
 
 ### 3.2 What will be exported
 
@@ -102,13 +122,9 @@ If the page model is stale or updating, show “Updating pages…” and disable
 
 ### 3.3 Advanced options
 
-| Group | Control | Status |
-|---|---|---|
-| **Metadata** | Title (default document title), Subject (empty), Creator (NoteForest) | **Future**; current PDF sets none; needs print-model fields |
-| **Accessibility** | Tagged PDF toggle (default off) | **Future**; PDF gate |
-| **Page range** | Whole document / selection / current page | **Future**; v1 is whole document |
-
-Future rows appear only when implemented; no disabled “coming soon” controls.
+There is no Advanced area in R4. Metadata (title/subject/creator), tagged PDF, and page range are
+not implemented and do not appear as rows, toggles, or disabled “coming soon” controls. Future rows
+appear only when implemented.
 
 ### 3.4 Footer
 
@@ -225,24 +241,32 @@ Warnings (2)
 - Read-only documents may export; Page Edit is unavailable.
 - Page Edit open: commit first; failure blocks export.
 - The export job is serialized; no concurrent exports.
-- The sheet does not change document content; options are not persisted unless they become Settings
-  defaults (future `export` namespace).
+- The sheet does not change document content. The folder default comes from global settings; the
+  sheet's Choose… and filename are per-export and are not persisted.
 - File writes remain atomic: temp → inspect → rename; cancel/failure cleanup.
+- A missing default folder fails with the folder/write error; the folder is never created or
+  replaced silently.
 
 ---
 
-## 9. Settings > Export (cross-link)
+## 9. Settings > Export (R4, implemented)
 
 | Setting | Store | Status |
 |---|---|---|
-| Default folder | `export.folder` (future) | **DES**; sheet remembers last used for now |
-| Filename/date default | `export.filenamePattern` (future) | **DES** |
-| Metadata defaults | `export.metadata` (future) | **DES** |
-| Tagged PDF default | `export.tagged` (future) | **DES**; PDF gate |
-| Page range default | `export.range` (future) | **DES**; v1 whole document |
+| Default folder | `export.folder` in `settings.json` schema v4 (`null` = OS Documents) | **Shipped**; Choose… + Use Documents on the Export settings page |
+| File name | Fixed `<title>.pdf`, sanitized; no date | **Shipped as a read-only note**; no pattern/date control and no per-export persistence |
+| Metadata defaults | — | **Not implemented**; not shown |
+| Tagged PDF default | — | **Not implemented**; not shown |
+| Page range default | — | **Not implemented**; whole document only; not shown |
 
-The sheet reads these defaults when they exist; today it uses the document title and the last-used
-folder.
+The Export settings page is global only: there is no document scope switch. The sheet starts at
+this default on every open. The sheet's **Choose…** and filename edit are per-export and are never
+written back to settings. The file name example uses the active document title (sanitized) or
+`Untitled.pdf` when no document is open.
+
+The page keeps the **Export PDF…** action; Page layout is always exported. A missing custom folder
+is reported by the export and must be re-chosen. The native folder picker is the only native
+surface; there is no save dialog.
 
 ---
 
@@ -253,6 +277,7 @@ folder.
 | Filename empty/only spaces | Normalize to `Untitled.pdf`; show the normalized name |
 | Filename with `/` or `:` | Sanitize; show the sanitized name |
 | Existing file | In-sheet overwrite confirm; one prompt |
+| Saved default folder missing | Export fails with the folder/write error; return to Configure and require Choose…; never create the folder |
 | File disappears between check and write | Fail with a clear error; do not overwrite a different file |
 | No write permission | Fail with the OS message; Retry after choosing another folder |
 | Page model updating | Wait/disable with “Updating pages…” |
@@ -286,29 +311,30 @@ folder.
 
 ---
 
-## 13. Open choices
+## 13. Decided choices (R4)
 
-| ID | Choice | Options | Proposal |
-|---|---|---|---|
-| E-01 | Surface | Modal sheet; non-modal panel | Modal sheet for configure/progress/result |
-| E-02 | Default folder | Last used; Documents; Downloads; per document | Last used for the session; fallback `~/Documents` |
-| E-03 | Filename/date | `<title>.pdf`; `<title> — date.pdf` | `<title>.pdf`; Add date off by default |
-| E-04 | Metadata | None; title/subject/creator | Title = document title, creator = NoteForest; future |
-| E-05 | Tagged PDF | Now; later | Later; PDF gate |
-| E-06 | Page range | Whole document; current page; selection | Whole document in v1 |
-| E-07 | Done actions | Open PDF; Reveal; both | Open PDF primary, Reveal secondary |
-| E-08 | Preflight display | Pre-export summary; result only | Result only; blocking failures before writing |
-| E-09 | Overwrite | In-sheet; native dialog | In-sheet only; one prompt |
-| E-10 | Cancel cleanup | Keep temp; remove temp | Remove temp; no partial final file |
-| E-11 | Concurrent exports | One; multiple | One at a time |
-| E-12 | Export from Continuous | Allow; require Page first | Allow; sheet states Page layout |
-| E-13 | Warnings | Truncate; show all | Show all, grouped/expandable |
-| E-14 | Settings defaults | Now; later | Later; `export` namespace decision |
+| ID | Choice | Decision |
+|---|---|---|
+| E-01 | Surface | Modal sheet for configure/progress/result |
+| E-02 | Default folder | Global `export.folder` (settings v4); `null` = OS Documents; Choose… in the sheet is per-export |
+| E-03 | Filename/date | `<title>.pdf`; no date and no pattern |
+| E-04 | Metadata | Not implemented; not shown |
+| E-05 | Tagged PDF | Not implemented; not shown |
+| E-06 | Page range | Whole document only; not shown |
+| E-07 | Done actions | Open PDF primary, Reveal secondary |
+| E-08 | Preflight display | Result only; blocking failures before writing |
+| E-09 | Overwrite | In-sheet only; one prompt |
+| E-10 | Cancel cleanup | Remove temp; no partial final file |
+| E-11 | Concurrent exports | One at a time |
+| E-12 | Export from Continuous | Allow; sheet states Page layout |
+| E-13 | Warnings | Show all, grouped/expandable |
+| E-14 | Settings defaults | Default folder shipped in schema v4; no other export defaults |
 
 ---
 
 ## 14. Next slice
 
 **Overlays and keyboard:** done in `docs/design/ui-overlays-keyboard.md` (palette, dialogs, context
-menus, toasts, shortcut table, responsive rules, state matrix). Next: the A/B lab (TopBar words vs
-symbols, Page Setup entry) and the settings placement matrix.
+menus, toasts, shortcut table, responsive rules, state matrix). Next: R6 Continuous design. Future
+export work (metadata, tagged PDF, page range, filename patterns) needs its own decision and is not
+scaffolded in the UI.

@@ -12,16 +12,15 @@ import {
 } from '@noteforest/layout';
 import { useShell } from '../state/shell';
 import {
-  flushPendingSettingsEdits,
   useSettingsStore,
 } from '../state/settings';
 import { useRuntime } from '../state/registry';
-import { exportActiveDocument } from '../export/export-flow';
 import { openLibrary, removeRecentLibrary, revealLibraryPath } from '../actions';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';
 import { PageSettingsPreview } from '../settings/PageSettingsPreview';
 import { AppearanceSettingsPage } from '../settings/AppearanceSettings';
+import { ExportSettingsPage } from '../settings/ExportSettings';
 import {
   AdvancedTypographyFields,
   PageLayoutSection,
@@ -1281,40 +1280,7 @@ export function SettingsDialog({
                 </>
               ) : null}
 
-              {activePage === 'export' ? (
-                <>
-                  <h3 className="nf-settings-page-title">Export</h3>
-                  <section className="nf-settings-section">
-                    <h4 className="nf-settings-section-title">Current behavior</h4>
-                    <p className="nf-settings-help">
-                      The Export sheet chooses a folder, a file name, and the replacement decision
-                      for each export. The PDF is always the Page layout with the resolved page
-                      settings.
-                    </p>
-                    <p className="nf-settings-help">
-                      Export defaults (folder, file name pattern, metadata, tagged PDF, page range)
-                      do not exist yet and are not shown as placeholder controls.
-                    </p>
-                    <button
-                      type="button"
-                      className="nf-button nf-button-primary"
-                      data-settings-export-now="true"
-                      onClick={() => {
-                        // Flush every debounced Page edit first so the export
-                        // sheet reads the same resolved Page settings. Settings
-                        // stays open underneath: the Export sheet is a second
-                        // modal, and the overlay gate keeps both surfaces owned
-                        // until Export is dismissed (UI Sentinel F1).
-                        void flushPendingSettingsEdits().then(() => {
-                          exportActiveDocument();
-                        });
-                      }}
-                    >
-                      Export PDF…
-                    </button>
-                  </section>
-                </>
-              ) : null}
+              {activePage === 'export' ? <ExportSettingsPage /> : null}
 
               {activePage === 'data' ? (
                 <>

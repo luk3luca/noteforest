@@ -468,11 +468,23 @@ describe('Batch A UI rework', () => {
     await page.locator('[data-settings-nav="page"]').click();
     await page.screenshot({ path: join(screenshotDir, 'settings-no-document.png') });
 
-    // Export page: a real action, no fake default controls.
+    // Export page: a real global default folder, a real action, and no fake
+    // Advanced controls.
     await page.locator('[data-settings-nav="export"]').click();
+    await page.waitForSelector('[data-settings-export-folder]');
     assert.equal(await page.locator('[data-settings-export-now]').isEnabled(), true);
+    assert.equal((await page.locator('[data-settings-export-folder]').innerText()).trim(), 'Documents');
+    assert.equal(await page.locator('[data-settings-export-choose]').count(), 1);
+    assert.equal(await page.locator('[data-settings-export-reset]').isDisabled(), true);
+    assert.equal(
+      (await page.locator('[data-settings-export-filename]').innerText()).trim(),
+      'Untitled.pdf',
+    );
     assert.equal(await page.locator('[data-settings-defaults]').count(), 0);
-    assert.match(await page.locator('.nf-settings-pane').innerText(), /do not exist yet/);
+    assert.doesNotMatch(
+      await page.locator('.nf-settings-pane').innerText(),
+      /do not exist yet|metadata|tagged|page range|coming soon/i,
+    );
 
     // Editor page: a real shortcut list, no fake toggles.
     await page.locator('[data-settings-nav="editor"]').click();
@@ -487,7 +499,7 @@ describe('Batch A UI rework', () => {
       await page.locator('[data-settings-file-status]').innerText(),
       /^(OK|Defaults)/,
     );
-    assert.equal(await page.locator('[data-settings-schema-version]').innerText(), '3');
+    assert.equal(await page.locator('[data-settings-schema-version]').innerText(), '4');
     assert.ok((await page.locator('[data-settings-version]').innerText()).length > 0);
     assert.equal(await page.locator('[data-settings-reveal-library]').count(), 1);
     assert.equal(await page.locator('[data-settings-reveal-app-data]').count(), 1);

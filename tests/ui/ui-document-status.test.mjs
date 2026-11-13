@@ -1,7 +1,7 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile, chmod } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
@@ -132,6 +132,30 @@ async function waitToast(text) {
     text,
     { timeout: 10000 },
   );
+}
+
+/** Switch the shell theme through the real appearance settings path. */
+async function setTheme(theme) {
+  await page.evaluate(async (next) => {
+    const app = window.__noteforestTest.settings().app;
+    await window.__noteforestTest.setSettings({
+      ...app,
+      appearance: { ...app.appearance, theme: next },
+    });
+  }, theme);
+  await page.waitForFunction(
+    (next) => document.documentElement.dataset.theme === next,
+    theme,
+    { timeout: 10000 },
+  );
+  // Cards animate background/color for 120 ms; wait for running CSS
+  // transitions to finish before a screenshot instead of sleeping.
+  await page.evaluate(async () => {
+    const transitions = document
+      .getAnimations()
+      .filter((animation) => animation.constructor.name === 'CSSTransition');
+    await Promise.all(transitions.map((animation) => animation.finished.catch(() => undefined)));
+  });
 }
 
 /**
@@ -516,6 +540,16 @@ describe('R3 document status panel', () => {
       .click();
     await page.keyboard.type('L');
     await page.waitForSelector('[data-draft-materialize-error]');
+    assert.equal(
+      await page.locator('[data-save-failure="true"]').count(),
+      0,
+      'a draft failure never renders the save-failure surface as well',
+    );
+    assert.doesNotMatch(
+      await page.locator('.nf-main-column').innerText(),
+      /draft:/,
+      'the raw draft key is never visible',
+    );
     const bannerText = await page.evaluate(() =>
       [...document.querySelectorAll('[data-draft-materialize-error]')]
         .map((element) => element.textContent ?? '')
@@ -553,5 +587,92 @@ describe('R3 document status panel', () => {
       { timeout: 10000 },
     );
     await h.waitSaved();
+  });
+
+  it('shows a real save failure as a neutral shell panel outside the canvas (R4)', async () => {
+    await launch('status-save-failure');
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    const packagePath = (await h.state()).activeTab;
+    await chmod(packagePath, 0o555);
+    try {
+      await h.activeEditor().locator('[data-block-card] .nf-block-prose').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' Surface permission failure');
+      await page.waitForFunction(
+        () => {
+          const current = window.__noteforestTest.state();
+          const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+          return runtime?.saveFailure?.code === 'permission';
+        },
+        undefined,
+        { timeout: 10000 },
+      );
+
+      const banner = page.locator('[data-save-failure="true"]');
+      await banner.waitFor();
+      const geometry = await banner.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          parent: element.parentElement?.className ?? '',
+          insideCanvas: element.closest('.nf-canvas-panel') !== null,
+          borderLeftWidth: style.borderLeftWidth,
+          borderRightWidth: style.borderRightWidth,
+          borderLeftColor: style.borderLeftColor,
+          borderTopColor: style.borderTopColor,
+          borderRadius: style.borderRadius,
+        };
+      });
+      assert.match(geometry.parent, /nf-main-column/);
+      assert.equal(geometry.insideCanvas, false, 'the save failure is shell chrome');
+      assert.equal(geometry.borderLeftWidth, '1px');
+      assert.equal(geometry.borderRightWidth, '1px');
+      assert.equal(
+        geometry.borderLeftColor,
+        geometry.borderTopColor,
+        'no colored left stripe: every border edge uses the neutral border token',
+      );
+      assert.notEqual(geometry.borderRadius, '0px');
+
+      const title = banner.locator('.nf-save-failure-title');
+      assert.match(await title.innerText(), /cannot write/i);
+      assert.match(await banner.locator('.nf-save-failure-message').innerText(), /permission|EACCES/i);
+      for (const action of ['retry', 'restore-backup', 'save-copy', 'reload', 'reveal']) {
+        assert.equal(
+          await banner.locator(`[data-save-action="${action}"]`).count(),
+          1,
+          `${action} action is preserved`,
+        );
+      }
+      assert.equal(
+        await banner.locator('[data-save-action="overwrite"]').count(),
+        0,
+        'permission failures never offer overwrite',
+      );
+      // The package path lives in a closed Details disclosure, not a primary
+      // monospace line.
+      assert.equal(await banner.locator('[data-save-failure-details] summary').innerText(), 'Details');
+      assert.equal(
+        await banner.locator('[data-save-failure-details]').getAttribute('open'),
+        null,
+      );
+      assert.equal(
+        await banner.locator('[data-save-failure-path]').textContent(),
+        packagePath,
+      );
+
+      await page.screenshot({ path: join(screenshotDir, 'save-failure-dark.png') });
+      await setTheme('light');
+      await page.screenshot({ path: join(screenshotDir, 'save-failure-light.png') });
+      await setTheme('dark');
+    } finally {
+      await chmod(packagePath, 0o755);
+    }
+
+    const banner = page.locator('[data-save-failure="true"]');
+    await banner.locator('[data-save-action="retry"]').click();
+    await h.waitSaved();
+    await page.waitForSelector('[data-save-failure="true"]', { state: 'detached' });
   });
 });

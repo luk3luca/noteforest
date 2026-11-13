@@ -1851,61 +1851,99 @@ button:disabled {
   }
 }
 
-/* Persistent save-failure recovery surface. Calm, document-level, never a toast. */
+/* Persistent save-failure recovery surface (R4). Shell chrome between the
+   Toolbar and the canvas panel, matching DraftMaterializeBanner and the R3
+   DocumentStatusPanel: one neutral panel, one border, a warning/danger icon and
+   title, body copy, actions on the right. No colored left stripe and no danger
+   title bar. */
 .nf-save-failure {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 10px 20px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-1);
-  border-left: 3px solid var(--danger);
+  flex: none;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px 14px;
+  padding: 12px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-panel);
   background: var(--surface-1);
+  animation: nf-status-appear 120ms var(--motion);
+}
+
+.nf-save-failure-icon {
+  margin-top: 1px;
+  color: var(--danger);
+}
+
+.nf-save-failure[data-save-failure-tone='warning'] .nf-save-failure-icon,
+.nf-save-failure[data-save-failure-tone='warning'] .nf-save-failure-title {
+  color: var(--warning);
 }
 
 .nf-save-failure-copy {
-  flex: 1 1 360px;
   min-width: 0;
 }
 
 .nf-save-failure-title {
   display: block;
   color: var(--danger);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-scale));
   font-weight: 600;
-}
-
-.nf-save-failure-message {
-  margin: 5px 0 0;
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 .nf-save-failure-hint {
   margin: 4px 0 0;
   color: var(--text-2);
-  font-size: 11.5px;
+  font-size: calc(12px * var(--ui-scale));
   line-height: 1.45;
+}
+
+.nf-save-failure-message {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: calc(11.5px * var(--ui-scale));
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.nf-save-failure-details {
+  margin-top: 6px;
+}
+
+.nf-save-failure-details summary {
+  cursor: pointer;
+  color: var(--text-3);
+  font-size: calc(11.5px * var(--ui-scale));
 }
 
 .nf-save-failure-path {
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
   color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-family: var(--mono-font);
+  font-size: calc(10.5px * var(--ui-scale));
   overflow-wrap: anywhere;
 }
 
 .nf-save-failure-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
   align-items: center;
-  padding-top: 1px;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 360px;
+}
+
+@media (max-width: 760px) {
+  .nf-save-failure {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+
+  .nf-save-failure-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    justify-self: start;
+    max-width: none;
+  }
 }
 
 /* Read-only package recovery tab. Never a modal: it must stay inspectable. */
@@ -5068,6 +5106,29 @@ body.nf-dragging-block .nf-gutter-handle {
   flex: 1;
   min-width: 0;
   justify-content: flex-end;
+}
+
+/* R4 Export defaults: the path is read-only text; the two buttons are real
+   actions (native folder picker / reset to the OS Documents folder). The path
+   truncates in one row so the label and actions stay aligned. */
+.nf-settings-export-folder-control {
+  flex-wrap: nowrap;
+}
+
+.nf-settings-export-folder-control .nf-button {
+  flex: none;
+}
+
+.nf-settings-export-path {
+  flex: 0 1 auto;
+  min-width: 80px;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-2);
+  font-family: var(--mono-font);
+  font-size: calc(11px * var(--ui-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nf-settings-check {

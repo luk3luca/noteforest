@@ -64,7 +64,7 @@ describe('global settings persistence', () => {
     });
     expect(result).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['settingsVersion']).toBe(4);
     expect(stored['continuous']).toBeUndefined();
     expect(stored).toMatchObject({
       page: {
@@ -115,7 +115,7 @@ describe('global settings persistence', () => {
     });
     expect(written).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['settingsVersion']).toBe(4);
     expect(stored['page']).toMatchObject({
       chrome: { header: 'chapter', footer: 'none', pageNumber: false },
     });
@@ -149,7 +149,7 @@ describe('global settings persistence', () => {
 
     expect(await writeSettings(read.settings)).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['settingsVersion']).toBe(4);
     expect(stored['appearance']).toEqual({
       theme: 'dark',
       accent: 'blue',
@@ -181,7 +181,7 @@ describe('global settings persistence', () => {
       },
     });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['settingsVersion']).toBe(4);
     expect(stored['appearance']).toEqual({
       futureAppearance: 'keep',
       theme: 'light',
@@ -218,6 +218,87 @@ describe('global settings persistence', () => {
       uiScale: 1,
       uiFont: 'system',
       codeFont: 'jetbrains',
+    });
+  });
+
+  it('migrates a v3 file to schema v4 with export.folder = null and preserves page/appearance (R4)', async () => {
+    await writeRaw({
+      settingsVersion: 3,
+      page: {
+        setup: { size: 'A5', orientation: 'portrait' },
+        theme: { preset: 'compact', density: 0.85 },
+        chrome: { header: 'chapter', footer: 'none', pageNumber: false },
+      },
+      appearance: {
+        theme: 'light',
+        accent: 'teal',
+        uiScale: 1.1,
+        uiFont: 'serif',
+        codeFont: 'system-mono',
+      },
+    });
+    const read = await readSettingsFile();
+    // The v3 -> v4 migration is pure: the read normalizes the new namespace in
+    // memory and never writes the file.
+    expect(read.status).toEqual({ state: 'ok', migrated: true });
+    expect(read.settings.export).toEqual({ folder: null });
+    expect(read.settings.page.theme.density).toBe(0.85);
+    expect(read.settings.page.chrome).toEqual({
+      header: 'chapter',
+      footer: 'none',
+      pageNumber: false,
+    });
+    expect(read.settings.appearance.theme).toBe('light');
+
+    expect(await writeSettings(read.settings)).toEqual({ ok: true });
+    const stored = await readRaw();
+    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['export']).toEqual({ folder: null });
+    expect(stored['page']).toMatchObject({
+      setup: { size: 'A5', orientation: 'portrait' },
+      theme: { preset: 'compact', density: 0.85 },
+      chrome: { header: 'chapter', footer: 'none', pageNumber: false },
+    });
+    expect(stored['appearance']).toMatchObject({ theme: 'light', accent: 'teal' });
+  });
+
+  it('round-trips a v4 export folder and preserves unknown export keys (R4)', async () => {
+    await writeRaw({
+      settingsVersion: 4,
+      export: { folder: '/Users/luca/Exports', futureExport: 'keep' },
+      futureTop: { enabled: true },
+    });
+    const read = await readSettingsFile();
+    expect(read.status).toEqual({ state: 'ok' });
+    expect(read.settings.export).toEqual({ folder: '/Users/luca/Exports' });
+
+    await writeSettings(read.settings);
+    const stored = await readRaw();
+    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['export']).toEqual({
+      futureExport: 'keep',
+      folder: '/Users/luca/Exports',
+    });
+    expect(stored['futureTop']).toEqual({ enabled: true });
+    expect(await readSettings()).toMatchObject({
+      export: { folder: '/Users/luca/Exports' },
+    });
+  });
+
+  it('normalizes an unknown or empty export folder to the Documents default (R4)', async () => {
+    for (const value of [
+      { folder: 42 },
+      { folder: '   ' },
+      { folder: null },
+      'not-an-object',
+    ]) {
+      await writeRaw({ settingsVersion: 4, export: value });
+      const read = await readSettings();
+      expect(read.export).toEqual({ folder: null });
+    }
+    await writeSettings({ export: { folder: '  /Users/luca/Exports  ' } });
+    expect(await readSettings()).toMatchObject({
+      export: { folder: '/Users/luca/Exports' },
     });
   });
 
@@ -258,7 +339,7 @@ describe('global settings persistence', () => {
 
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['settingsVersion']).toBe(4);
     expect(stored['continuous']).toBeUndefined();
     expect(stored['page']).toMatchObject({
       setup: { size: 'Letter', orientation: 'portrait' },
@@ -282,7 +363,7 @@ describe('global settings persistence', () => {
     expect(read.status).toEqual({ state: 'ok', migrated: true });
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['settingsVersion']).toBe(4);
     expect(stored['futureTop']).toEqual({ enabled: true });
     expect(stored['page']).toMatchObject({
       futurePage: 'keep',
@@ -293,17 +374,18 @@ describe('global settings persistence', () => {
 
   it('keeps a newer schema version and its unknown fields instead of downgrading', async () => {
     await writeRaw({
-      settingsVersion: 4,
+      settingsVersion: 5,
       futureTop: true,
       continuous: { future: true },
       page: { theme: { density: 0.95 }, futurePage: 1 },
       appearance: { theme: 'light', futureAppearance: 'keep' },
+      export: { futureExport: 'keep' },
     });
     const read = await readSettingsFile();
-    expect(read.status).toEqual({ state: 'newer', version: 4 });
+    expect(read.status).toEqual({ state: 'newer', version: 5 });
     await writeSettings(read.settings);
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(4);
+    expect(stored['settingsVersion']).toBe(5);
     expect(stored['futureTop']).toBe(true);
     // A newer schema's "continuous" is an unknown future key, not the removed
     // v1 block, so it survives the write.
@@ -317,6 +399,7 @@ describe('global settings persistence', () => {
       futureAppearance: 'keep',
       accent: 'blue',
     });
+    expect(stored['export']).toMatchObject({ futureExport: 'keep', folder: null });
   });
 
   it('preserves a corrupt file, warns, and never silently overwrites it on read', async () => {
@@ -390,7 +473,7 @@ describe('global settings persistence', () => {
     const reset = await resetSettings();
     expect(reset).toEqual({ ok: true });
     const stored = await readRaw();
-    expect(stored['settingsVersion']).toBe(3);
+    expect(stored['settingsVersion']).toBe(4);
     expect(stored['page']).toEqual(
       JSON.parse(JSON.stringify(DEFAULT_APP_SETTINGS.page)) as unknown,
     );

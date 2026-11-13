@@ -212,6 +212,24 @@ describe('settings normalization and merge', () => {
     } as Parameters<typeof normalizeAppSettings>[0]);
     expect(app.page.setup.size).toBe('A5');
     expect(app).not.toHaveProperty('continuous');
+    expect(app.export).toEqual({ folder: null });
+  });
+
+  it('normalizes the global export folder (R4)', () => {
+    expect(normalizeAppSettings().export).toEqual({ folder: null });
+    expect(normalizeAppSettings({}).export).toEqual({ folder: null });
+    expect(normalizeAppSettings({ export: null }).export).toEqual({ folder: null });
+    expect(normalizeAppSettings({ export: 'nope' }).export).toEqual({ folder: null });
+    expect(normalizeAppSettings({ export: { folder: 7 } }).export).toEqual({ folder: null });
+    expect(normalizeAppSettings({ export: { folder: '   ' } }).export).toEqual({ folder: null });
+    expect(normalizeAppSettings({ export: { folder: '  /Users/luca/Exports ' } }).export).toEqual({
+      folder: '/Users/luca/Exports',
+    });
+    // Unknown export keys are dropped from the in-memory type; the file write
+    // path preserves them separately (`settingsDocumentForWrite`).
+    expect(normalizeAppSettings({ export: { folder: null, future: 1 } }).export).toEqual({
+      folder: null,
+    });
   });
 
   it('normalizes a per-document override without expanding it into a full settings object', () => {

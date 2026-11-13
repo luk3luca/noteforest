@@ -237,6 +237,23 @@ describe('renderer personal settings resolution', () => {
     expect(app.page.theme.density).toBe(0.9);
     expect(app.page.manualBreakBeforeBlockIds).toEqual(['b1']);
   });
+
+  it('patches the global export folder and resets it to Documents (R4)', () => {
+    const store = useSettingsStore.getState();
+    expect(store.app.export).toEqual({ folder: null });
+    store.updateAppSettings({ export: { folder: '/Users/luca/Exports' } });
+    expect(useSettingsStore.getState().app.export).toEqual({
+      folder: '/Users/luca/Exports',
+    });
+    // A page patch keeps the export default.
+    useSettingsStore.getState().updateAppSettings({ page: { theme: { density: 0.9 } } });
+    expect(useSettingsStore.getState().app.export).toEqual({
+      folder: '/Users/luca/Exports',
+    });
+    // An explicit null resets to the OS Documents folder.
+    useSettingsStore.getState().updateAppSettings({ export: { folder: null } });
+    expect(useSettingsStore.getState().app.export).toEqual({ folder: null });
+  });
 });
 
 describe('settings write coordinator (S2-5)', () => {

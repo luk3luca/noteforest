@@ -109,7 +109,7 @@ async function readDiskDocument(packagePath) {
 }
 
 function activeSaveBanner() {
-  return page.locator('.nf-editor[data-active="true"] [data-save-failure="true"]');
+  return page.locator('.nf-main-column [data-save-failure="true"]');
 }
 
 /**

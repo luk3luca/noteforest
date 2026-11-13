@@ -22,12 +22,14 @@ function rules(css: string): CssRule[] {
 }
 
 /**
- * Product-owner guard: no block, card, chapter, library, page, or tree row may
- * use a left accent bar. The Continuous card is `.nf-block-body` (not
- * `.nf-block-card`, which is the DOM measurement hook), the Page renderer draws
- * `.nf-page-card` on `.nf-page-sheet`, and callouts share `.nf-block-body`
- * with `data-callout`. Anchored outline rows are grouped by indentation and the
- * quote; selection is the same full-row ring as every other row.
+ * Product-owner guard: no block, card, chapter, library, page, tree, or
+ * document-level status row may use a left accent bar. The Continuous card is
+ * `.nf-block-body` (not `.nf-block-card`, which is the DOM measurement hook),
+ * the Page renderer draws `.nf-page-card` on `.nf-page-sheet`, and callouts
+ * share `.nf-block-body` with `data-callout`. Anchored outline rows are grouped
+ * by indentation and the quote; selection is the same full-row ring as every
+ * other row. R4 status surfaces (save failure, draft materialize, read-only
+ * panel/slim bar) are neutral detached panels with no stripe.
  */
 const LEFT_ACCENT_FREE = [
   'nf-tree',
@@ -40,6 +42,10 @@ const LEFT_ACCENT_FREE = [
   'nf-page-card',
   'nf-page-sheet',
   'data-callout',
+  'nf-save-failure',
+  'nf-draft-banner',
+  'nf-status-panel',
+  'nf-status-slim',
 ];
 
 /**
@@ -56,6 +62,10 @@ const REQUIRED_COVERAGE = [
   'nf-page-card',
   'nf-page-sheet',
   'data-callout',
+  'nf-save-failure',
+  'nf-draft-banner',
+  'nf-status-panel',
+  'nf-status-slim',
 ];
 
 describe('no left accent bars', () => {
@@ -103,5 +113,28 @@ describe('no left accent bars', () => {
     );
     expect(selected).toBeDefined();
     expect(selected?.body).toContain('inset 0 0 0 1px var(--accent)');
+  });
+
+  it('keeps the save-failure and status panels neutral detached surfaces (R4)', async () => {
+    const css = await readFile(stylesPath, 'utf8');
+    const allRules = rules(css);
+    for (const token of ['nf-save-failure', 'nf-draft-banner', 'nf-status-panel', 'nf-status-slim']) {
+      const surface = allRules.find((rule) =>
+        rule.selector.trim().endsWith(`.${token}`),
+      );
+      expect(surface, `${token} base rule exists`).toBeDefined();
+      expect(surface?.body, `${token} has no left stripe`).not.toMatch(
+        /border-(inline-start|left)\s*:/,
+      );
+      expect(surface?.body, `${token} has no left accent shadow`).not.toMatch(
+        /box-shadow\s*:/,
+      );
+    }
+    const saveFailure = allRules.find((rule) =>
+      rule.selector.trim().endsWith('.nf-save-failure'),
+    );
+    expect(saveFailure?.body).toMatch(/border:\s*1px solid var\(--border-1\)/);
+    expect(saveFailure?.body).toContain('border-radius: var(--radius-panel)');
+    expect(saveFailure?.body).toContain('background: var(--surface-1)');
   });
 });

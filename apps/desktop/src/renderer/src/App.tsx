@@ -769,7 +769,6 @@ export function App(): JSX.Element {
           documentTitle: state.documentTitle,
           folder: state.folder,
           baseName: state.baseName,
-          addDate: state.addDate,
           layout: state.layout,
           pageSetup: state.pageSetup,
           density: state.density,

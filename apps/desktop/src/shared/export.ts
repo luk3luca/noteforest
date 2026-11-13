@@ -61,9 +61,23 @@ export interface ExportPdfInput {
   overwrite?: boolean;
 }
 
-/** Session/app default destination for the Export sheet. */
+/** Global settings default destination for the Export sheet (R4). */
 export interface ExportDefaults {
   folder: string;
+}
+
+/**
+ * Resolve the global export default folder: the `export.folder` setting when
+ * set, otherwise the OS Documents folder. The main process owns the OS path, so
+ * this pure helper never guesses a home directory. It also never creates or
+ * substitutes a missing custom folder; the export job reports the write failure
+ * and the sheet requires Choose….
+ */
+export function resolveExportDefaultFolder(
+  folder: string | null | undefined,
+  documentsFolder: string,
+): string {
+  return folder ?? documentsFolder;
 }
 
 /**
@@ -99,25 +113,12 @@ export function pdfFileNameForTitle(title: string): string {
   return `${pdfBaseNameForTitle(title)}.pdf`;
 }
 
-/** Local calendar date used by the optional Add date suffix. */
-export function exportDateStamp(now: Date = new Date()): string {
-  const year = String(now.getFullYear()).padStart(4, '0');
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 /**
- * The sheet filename: a sanitized base, an optional ` — YYYY-MM-DD` suffix, and
- * exactly one `.pdf`.
+ * The sheet filename: a sanitized base and exactly one `.pdf`. There is no date
+ * suffix and no filename pattern (R4).
  */
-export function exportFileName(
-  base: string,
-  addDate: boolean,
-  now: Date = new Date(),
-): string {
-  const clean = pdfBaseNameForTitle(base);
-  return `${clean}${addDate ? ` — ${exportDateStamp(now)}` : ''}.pdf`;
+export function exportFileName(base: string): string {
+  return `${pdfBaseNameForTitle(base)}.pdf`;
 }
 
 /** Join a chosen folder and a sheet filename without doubling separators. */

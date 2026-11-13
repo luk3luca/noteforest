@@ -144,6 +144,17 @@ export interface PageSettings {
 }
 
 /**
+ * Global export defaults (R4).
+ *
+ * `folder: null` means the OS Documents folder; a non-empty path is the user's
+ * default destination. Export defaults are global only: there is no
+ * per-document export namespace. Filenames are always `<title>.pdf`.
+ */
+export interface ExportSettings {
+  folder: string | null;
+}
+
+/**
  * Personal app settings. Continuous zoom is intentionally absent: the only
  * Continuous zoom is the per-document `DocumentViewState.zoom` in the shell
  * (S2-6). `settingsVersion` is a file concern, not part of this in-memory type.
@@ -152,6 +163,8 @@ export interface AppSettings {
   page: PageSettings;
   /** Global shell appearance (R3); never per-document. */
   appearance: AppearanceSettings;
+  /** Global PDF export defaults (R4); never per-document. */
+  export: ExportSettings;
 }
 
 export interface PageSetupOverride {
@@ -317,6 +330,7 @@ function roundTo(value: number): number {
 export const DEFAULT_APP_SETTINGS: Readonly<AppSettings> = Object.freeze({
   page: DEFAULT_PAGE_SETTINGS,
   appearance: DEFAULT_APPEARANCE,
+  export: Object.freeze({ folder: null }) as ExportSettings,
 });
 
 /** Fixed page dimensions in millimetres, before margins. */
@@ -918,14 +932,31 @@ export function normalizePageSettingsOverride(
   return Object.keys(override).length > 0 ? override : undefined;
 }
 
+/**
+ * Normalize one export namespace.
+ *
+ * `null`, a missing block, an unknown value, an empty string, and a non-string
+ * all mean "use the OS Documents folder". A non-empty string is kept trimmed;
+ * the main process resolves the actual folder and reports a missing one, so an
+ * export never creates or substitutes a destination silently.
+ */
+export function normalizeExportSettings(input?: unknown): ExportSettings {
+  const record = isRecord(input) ? input : {};
+  const raw = record['folder'];
+  const folder = typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
+  return { folder };
+}
+
 /** Resolve the global app settings with safe defaults. */
 export function normalizeAppSettings(input?: {
   page?: PageSettingsOverride | null;
   appearance?: unknown;
+  export?: unknown;
 } | null): AppSettings {
   const record = isRecord(input) ? input : {};
   return {
     page: normalizePageSettings(record['page'] as PageSettingsOverride | null | undefined),
     appearance: normalizeAppearance(record['appearance']),
+    export: normalizeExportSettings(record['export']),
   };
 }

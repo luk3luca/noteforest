@@ -60,7 +60,6 @@ export interface ExportUiState {
   folder: string | null;
   /** Filename without the fixed `.pdf` suffix. */
   baseName: string;
-  addDate: boolean;
   /** Layout at the time the sheet opened; the PDF is always the Page layout. */
   layout: DocumentLayout | null;
   pageSetup: PageSetup | null;
@@ -88,7 +87,6 @@ const IDLE: ExportUiState = {
   documentTitle: null,
   folder: null,
   baseName: '',
-  addDate: false,
   layout: null,
   pageSetup: null,
   density: null,
@@ -177,10 +175,7 @@ function recomputeDestination(): void {
   const state = useExportUi.getState();
   if (state.folder === null) return;
   update({
-    outputPath: joinExportPath(
-      state.folder,
-      exportFileName(state.baseName, state.addDate),
-    ),
+    outputPath: joinExportPath(state.folder, exportFileName(state.baseName)),
   });
 }
 
@@ -208,11 +203,6 @@ export function setExportFolder(folder: string): void {
 
 export function setExportBaseName(baseName: string): void {
   update({ baseName });
-  recomputeDestination();
-}
-
-export function setExportAddDate(addDate: boolean): void {
-  update({ addDate });
   recomputeDestination();
 }
 
@@ -273,7 +263,10 @@ async function openExportSheet(trigger: HTMLElement | null): Promise<void> {
       pageSetup: settings.setup,
       density: settings.theme.density,
       pageCount: model?.pages.length ?? null,
-      outputPath: folder.length === 0 ? null : joinExportPath(folder, pdfFileNameForTitle(runtime.title)),
+      outputPath:
+        folder.length === 0
+          ? null
+          : joinExportPath(folder, pdfFileNameForTitle(runtime.title)),
     });
     record();
   } finally {
@@ -353,7 +346,7 @@ export async function startExport(): Promise<void> {
       });
       return;
     }
-    const outputPath = joinExportPath(folder, exportFileName(state.baseName, state.addDate));
+    const outputPath = joinExportPath(folder, exportFileName(state.baseName));
     let exists = false;
     try {
       exists = (await window.noteforest.exportPathExists(outputPath)).exists;
@@ -555,7 +548,7 @@ export function dismissExportStatus(): void {
   setIdle();
 }
 
-/** Failed/Cancelled → Configure with the same folder, name, and date option. */
+/** Failed/Cancelled → Configure with the same folder and name. */
 export function retryExport(): void {
   const state = useExportUi.getState();
   if (state.status !== 'failed' && state.status !== 'cancelled') return;

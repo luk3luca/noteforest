@@ -18,6 +18,11 @@
  * codeFont). A missing block normalizes to the product defaults; unknown
  * top-level, page, and appearance keys survive a write. The migration is pure:
  * it never writes during a read.
+ *
+ * v3 -> v4: the global `export` namespace (`folder`). A missing block normalizes
+ * to `folder: null` (the OS Documents folder). Unknown top-level, page,
+ * appearance, and export keys survive a write; there is no per-document export
+ * namespace. The migration is pure: the next ordinary write stamps v4.
  */
 
 import {
@@ -26,7 +31,7 @@ import {
   type PageSettingsOverride,
 } from '@noteforest/layout';
 
-export const SETTINGS_SCHEMA_VERSION = 3;
+export const SETTINGS_SCHEMA_VERSION = 4;
 
 export interface MigratedSettingsDocument {
   settings: AppSettings;
@@ -65,8 +70,9 @@ export function settingsDocumentVersion(raw: Record<string, unknown>): number {
 
 /**
  * Pure migration chain. v1 drops the dead `continuous` block; v2 gains the
- * `appearance` namespace (defaults when absent). Future versions append a case
- * here.
+ * `appearance` namespace (defaults when absent); v3 gains the `export`
+ * namespace (`folder: null`, the OS Documents folder, when absent). Future
+ * versions append a case here.
  */
 export function migrateSettingsDocument(input: unknown): MigratedSettingsDocument {
   const raw = isRecord(input) ? input : {};
@@ -84,6 +90,7 @@ export function migrateSettingsDocument(input: unknown): MigratedSettingsDocumen
     settings: normalizeAppSettings({
       page: candidate['page'] as PageSettingsOverride | null | undefined,
       appearance: candidate['appearance'],
+      export: candidate['export'],
     }),
     storedVersion,
     version,
@@ -97,12 +104,13 @@ export function migrateSettingsDocument(input: unknown): MigratedSettingsDocumen
  *
  * This is the "no blind full replace" boundary for the file: known paths are
  * overwritten with normalized values, unknown paths and keys survive. The
- * version is never lowered, so a v3 file written by a newer build stays v3.
+ * version is never lowered, so a v4 file written by a newer build stays v4.
  */
 export function settingsDocumentForWrite(
   previousRaw: unknown,
   settings: AppSettings,
-): Record<string, unknown> {  const base = isRecord(previousRaw) ? structuredClone(previousRaw) : {};
+): Record<string, unknown> {
+  const base = isRecord(previousRaw) ? structuredClone(previousRaw) : {};
   const storedVersion = numericVersion(base['settingsVersion']);
   const version =
     storedVersion !== null && storedVersion > SETTINGS_SCHEMA_VERSION
@@ -117,6 +125,7 @@ export function settingsDocumentForWrite(
   const rawTheme = isRecord(rawPage['theme']) ? rawPage['theme'] : {};
   const rawChrome = isRecord(rawPage['chrome']) ? rawPage['chrome'] : {};
   const rawAppearance = isRecord(base['appearance']) ? base['appearance'] : {};
+  const rawExport = isRecord(base['export']) ? base['export'] : {};
   base['settingsVersion'] = version;
   // R3 appearance is global and additive: known fields are normalized, an
   // unknown future appearance key written by a newer build is preserved.
@@ -127,6 +136,12 @@ export function settingsDocumentForWrite(
     uiScale: settings.appearance.uiScale,
     uiFont: settings.appearance.uiFont,
     codeFont: settings.appearance.codeFont,
+  };
+  // R4 export defaults are global and additive: a v3 file gains
+  // `export.folder: null`, and unknown future export keys survive.
+  base['export'] = {
+    ...rawExport,
+    folder: settings.export.folder,
   };
   base['page'] = {
     ...rawPage,

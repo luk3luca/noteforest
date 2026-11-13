@@ -49,7 +49,6 @@ import { editingEnabledFor, READ_MODE_TITLE, READ_MODE_TOAST } from '../lib/edit
 import { showsChapterCanvas } from '../lib/chapters';
 import { getScroll, recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
-import { SaveFailureBanner } from '../shell/SaveFailureBanner';
 import { CanvasHeader } from '../shell/CanvasHeader';
 import { recordPerf } from '../lib/perf';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
@@ -138,14 +137,15 @@ function blockIdAtViewSelection(view: EditorView): string | null {
 }
 
 /**
- * Document-local notices only (R3). Read-only and stale-lock state moved to the
- * shell `DocumentStatusPanel`; save failure and the repair notice stay here
- * because they describe this editor's content, not the shell status.
+ * Document-local notices only (R4). Read-only/stale-lock state is the shell
+ * `DocumentStatusPanel`; save failure and the draft materialization failure are
+ * shell chrome in `Workspace` so every document-level error shares placement
+ * and shape. The repair notice stays here because it describes this editor's
+ * content.
  */
 function DocumentBanners({ runtime }: { runtime: DocumentRuntime }): JSX.Element {
   return (
     <>
-      <SaveFailureBanner runtime={runtime} />
       {runtime.repairNotice === null ? null : (
         <div className="nf-repair-banner" role="status">
           <span>{runtime.repairNotice}</span>

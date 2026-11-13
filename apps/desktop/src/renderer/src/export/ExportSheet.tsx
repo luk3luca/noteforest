@@ -5,7 +5,7 @@
  */
 
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ExportWarning } from '../../../shared/export';
 import { exportFileName, joinExportPath, pdfBaseNameForTitle } from '../../../shared/export';
 import {
@@ -21,7 +21,6 @@ import {
   requestCancelExport,
   retryExport,
   revealExportedPdf,
-  setExportAddDate,
   setExportBaseName,
   startExport,
   useExportUi,
@@ -119,7 +118,6 @@ export function ExportSheet(): JSX.Element | null {
   const status = useExportUi((state) => state.status);
   const folder = useExportUi((state) => state.folder);
   const baseName = useExportUi((state) => state.baseName);
-  const addDate = useExportUi((state) => state.addDate);
   const outputPath = useExportUi((state) => state.outputPath);
   const documentTitle = useExportUi((state) => state.documentTitle);
   const layout = useExportUi((state) => state.layout);
@@ -173,7 +171,7 @@ export function ExportSheet(): JSX.Element | null {
     [],
   );
 
-  const fileName = useMemo(() => exportFileName(baseName, addDate), [baseName, addDate]);
+  const fileName = exportFileName(baseName);
   const normalizedBase = pdfBaseNameForTitle(baseName);
   const sanitized = normalizedBase !== baseName.trim().replace(/\.pdf$/i, '').trim();
   const destination =
@@ -282,18 +280,9 @@ export function ExportSheet(): JSX.Element | null {
                         Saved as {fileName}
                       </span>
                     ) : null}
-                  </label>
-                  <label className="nf-export-check">
-                    <input
-                      type="checkbox"
-                      checked={addDate}
-                      data-export-add-date="true"
-                      onChange={(event) => setExportAddDate(event.target.checked)}
-                    />
-                    <span>Add date</span>
-                    {addDate ? (
-                      <span className="nf-export-help">— {fileName}</span>
-                    ) : null}
+                    <span className="nf-export-help" data-export-filename-note="true">
+                      The document title is the file name; no date or pattern is added.
+                    </span>
                   </label>
                   <div className="nf-export-destination">
                     <span className="nf-export-label">Destination</span>

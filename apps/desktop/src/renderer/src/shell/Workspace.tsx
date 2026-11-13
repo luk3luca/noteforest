@@ -15,6 +15,7 @@ import { Toolbar } from './Toolbar';
 import { RecoverySurface } from './RecoverySurface';
 import { DocumentStatusPanel } from './DocumentStatusPanel';
 import { DraftMaterializeBanner } from './DraftMaterializeBanner';
+import { SaveFailureBanner } from './SaveFailureBanner';
 
 function EmptyState(): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);
@@ -262,6 +263,7 @@ export function Workspace(): JSX.Element {
           <div className="nf-main-column">
             <Toolbar />
             <DraftMaterializeBanner runtime={activeRuntime} />
+            <SaveFailureBanner runtime={activeRuntime} />
             <DocumentStatusPanel runtime={activeRuntime} />
             <div className="nf-canvas-panel" data-canvas-panel="true">
               {editor}

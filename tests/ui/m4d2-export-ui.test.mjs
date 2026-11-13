@@ -259,12 +259,26 @@ describe('Batch A export sheet', () => {
     await setFileName('   ');
     assert.match(await page.locator('[data-export-destination]').innerText(), /Untitled\.pdf/);
     await setFileName('Export menu');
-    await page.locator('[data-export-add-date]').check();
     assert.match(
       await page.locator('[data-export-destination]').innerText(),
-      /Export menu — \d{4}-\d{2}-\d{2}\.pdf/,
+      /Export menu\.pdf$/,
+      'the filename has no date suffix',
     );
-    await page.locator('[data-export-add-date]').uncheck();
+    assert.equal(
+      await page.locator('[data-export-add-date]').count(),
+      0,
+      'the Add date control is removed',
+    );
+    assert.equal(
+      await page.locator('[data-export-filename-note]').count(),
+      1,
+      'the sheet states the filename rule',
+    );
+    assert.doesNotMatch(
+      await page.locator('[data-export-status="configure"]').innerText(),
+      /\bmetadata\b|\btagged\b|page range|coming soon/i,
+      'no Advanced rows are shown',
+    );
 
     const outputPath = resolve(folder, 'Export menu.pdf');
     await startExport();
@@ -550,8 +564,18 @@ describe('Batch A export sheet', () => {
     const firstHash = await sha256(outputPath);
     await page.locator('[data-export-dismiss]').click();
 
-    // Second run: the existing file triggers the one in-sheet replacement.
+    // Second run: the sheet starts at the global default again; the folder
+    // chosen for the previous export is not remembered (R4). Choose the same
+    // folder for this export, then the existing file triggers the one in-sheet
+    // replacement.
     await openExportSheetFromMenu();
+    await page.locator('[data-export-choose-folder]').click();
+    await page.waitForFunction(
+      (expected) =>
+        document.querySelector('[data-export-folder]')?.textContent?.trim() === expected,
+      folder,
+      { timeout: 10000 },
+    );
     await startExport();
     await page.waitForSelector('[data-export-status="confirm-overwrite"]');
     await page.screenshot({ path: resolve(screenshotDir, 'export-overwrite.png') });
@@ -610,6 +634,177 @@ describe('Batch A export sheet', () => {
     }
     await page.screenshot({ path: resolve(screenshotDir, 'export-warnings.png') });
     record({ case: 'warnings', warnings: state.warnings.length, groups: groupCount });
+  });
+
+  it('starts at the global export default; Choose… changes only this export (R4)', async () => {
+    const env = ui.isolated('m4d2-default-folder');
+    await launch('m4d2-default-folder');
+    await openPackage(
+      env,
+      'Default folder',
+      pageDocument({
+        id: 'm4d2-default-folder',
+        title: 'Default folder',
+        chapterTitle: 'Export',
+        blocks: [textBlock('intro', 'Intro', 'A document exported from a saved default.')],
+      }),
+    );
+    const defaultFolder = resolve(outputRoot, 'settings-default');
+    const perExportFolder = resolve(outputRoot, 'per-export');
+    await mkdir(defaultFolder, { recursive: true });
+    await mkdir(perExportFolder, { recursive: true });
+    await page.evaluate(
+      (folder) => window.__noteforestTest.setSettings({ export: { folder } }),
+      defaultFolder,
+    );
+    const settingsBefore = await page.evaluate(() => window.__noteforestTest.settings());
+    assert.equal(settingsBefore.app.export.folder, defaultFolder);
+
+    await openExportSheetFromMenu();
+    assert.equal((await exportState()).folder, defaultFolder, 'the sheet starts at the setting');
+    assert.equal(
+      (await page.locator('[data-export-folder]').innerText()).trim(),
+      defaultFolder,
+    );
+    await chooseFolder(perExportFolder);
+    assert.equal(
+      (await page.locator('[data-export-folder]').innerText()).trim(),
+      perExportFolder,
+    );
+    await startExport();
+    const state = await waitExportStatus('done');
+    assert.equal(state.outputPath, resolve(perExportFolder, 'Default folder.pdf'));
+    const settingsAfterChoose = await page.evaluate(() => window.__noteforestTest.settings());
+    assert.equal(
+      settingsAfterChoose.app.export.folder,
+      defaultFolder,
+      'Choose… in the sheet does not change the saved default',
+    );
+    await page.locator('[data-export-dismiss]').click();
+    await page.waitForSelector('[data-export-sheet]', { state: 'detached' });
+
+    // Reopening returns to the saved default, not the last per-export choice.
+    await openExportSheetFromMenu();
+    assert.equal((await exportState()).folder, defaultFolder);
+    await page.locator('[data-export-dismiss]').click();
+    record({
+      case: 'settings default folder',
+      defaultFolder,
+      perExportFolder,
+      outputPath: state.outputPath,
+    });
+  });
+
+  it('errors on a missing default folder and requires Choose… without creating it (R4)', async () => {
+    const env = ui.isolated('m4d2-missing-folder');
+    await launch('m4d2-missing-folder');
+    await openPackage(
+      env,
+      'Missing folder',
+      pageDocument({
+        id: 'm4d2-missing-folder',
+        title: 'Missing folder',
+        chapterTitle: 'Export',
+        blocks: [textBlock('intro', 'Intro', 'A document with a deleted default folder.')],
+      }),
+    );
+    const missingFolder = resolve(outputRoot, 'deleted-default');
+    await rm(missingFolder, { recursive: true, force: true });
+    await page.evaluate(
+      (folder) => window.__noteforestTest.setSettings({ export: { folder } }),
+      missingFolder,
+    );
+    await openExportSheetFromMenu();
+    assert.equal((await exportState()).folder, missingFolder);
+    await startExport();
+    const failed = await waitExportStatus('failed');
+    assert.equal(failed.error.code, 'write-failed');
+    assert.match(failed.error.message, /temporary PDF/i);
+    // The folder is never created silently and no file appears.
+    await assert.rejects(stat(missingFolder), 'the missing folder is not created');
+    assert.equal(await fileExists(resolve(missingFolder, 'Missing folder.pdf')), false);
+
+    // Retry returns to Configure; Choose… is required to proceed.
+    await page.locator('[data-export-retry]').click();
+    await page.waitForSelector('[data-export-status="configure"]');
+    assert.equal((await exportState()).folder, missingFolder);
+    const validFolder = resolve(outputRoot, 'missing-folder-recovered');
+    await mkdir(validFolder, { recursive: true });
+    await chooseFolder(validFolder);
+    await startExport();
+    const done = await waitExportStatus('done');
+    assert.equal(done.outputPath, resolve(validFolder, 'Missing folder.pdf'));
+    assert.equal(await fileExists(done.outputPath), true);
+    record({ case: 'missing default folder', error: failed.error.code });
+  });
+
+  it('offers a real Settings > Export page with a global default folder (R4)', async () => {
+    const env = ui.isolated('m4d2-settings-export');
+    await launch('m4d2-settings-export');
+    await openPackage(
+      env,
+      'Settings export',
+      pageDocument({
+        id: 'm4d2-settings-export',
+        title: 'Settings export',
+        chapterTitle: 'Export',
+        blocks: [textBlock('intro', 'Intro', 'A document with a Settings export page.')],
+      }),
+    );
+    await page.keyboard.press('Meta+,');
+    await page.waitForSelector('[data-settings-dialog="true"]');
+    await page.locator('[data-settings-nav="export"]').click();
+    await page.waitForSelector('[data-settings-export-folder]');
+
+    // Defaults to Documents when the setting is null; the reset is disabled.
+    assert.equal((await page.locator('[data-settings-export-folder]').innerText()).trim(), 'Documents');
+    assert.equal(await page.locator('[data-settings-export-reset]').isDisabled(), true);
+    assert.equal(
+      (await page.locator('[data-settings-export-filename]').innerText()).trim(),
+      'Settings export.pdf',
+      'the filename note is the sanitized document title with no date',
+    );
+    assert.equal(await page.locator('[data-settings-export-now]').isEnabled(), true);
+    assert.doesNotMatch(
+      await page.locator('.nf-settings-pane').innerText(),
+      /metadata|tagged|page range|coming soon/i,
+      'no Advanced placeholder controls',
+    );
+    await page.screenshot({ path: resolve(screenshotDir, 'settings-export-documents.png') });
+
+    // Choose… stores a new global default through the instant-save path.
+    const customFolder = resolve(outputRoot, 'settings-custom');
+    await mkdir(customFolder, { recursive: true });
+    await mockFolderDialog(customFolder);
+    await page.locator('[data-settings-export-choose]').click();
+    await page.waitForFunction(
+      (expected) =>
+        document.querySelector('[data-settings-export-folder]')?.textContent?.trim() ===
+        expected,
+      customFolder,
+      { timeout: 10000 },
+    );
+    const saved = await page.evaluate(() => window.__noteforestTest.settings());
+    assert.equal(saved.app.export.folder, customFolder);
+    assert.equal(await page.locator('[data-settings-export-reset]').isDisabled(), false);
+    await page.screenshot({ path: resolve(screenshotDir, 'settings-export-custom.png') });
+
+    // Use Documents resets the global default to null.
+    await page.locator('[data-settings-export-reset]').click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-settings-export-folder]')?.textContent?.trim() ===
+        'Documents',
+    );
+    const reset = await page.evaluate(() => window.__noteforestTest.settings());
+    assert.equal(reset.app.export.folder, null);
+    assert.equal(await page.locator('[data-settings-export-reset]').isDisabled(), true);
+
+    // The Export PDF action is still present on the real page.
+    assert.equal(await page.locator('[data-settings-export-now]').count(), 1);
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
+    record({ case: 'settings export page', customFolder });
   });
 
   it('reports no active document without opening any native dialog', async () => {

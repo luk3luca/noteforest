@@ -35,6 +35,30 @@ async function state() {
   return page.evaluate(() => window.__noteforestTest.state());
 }
 
+/** Switch the shell theme through the real appearance settings path. */
+async function setTheme(theme) {
+  await page.evaluate(async (next) => {
+    const app = window.__noteforestTest.settings().app;
+    await window.__noteforestTest.setSettings({
+      ...app,
+      appearance: { ...app.appearance, theme: next },
+    });
+  }, theme);
+  await page.waitForFunction(
+    (next) => document.documentElement.dataset.theme === next,
+    theme,
+    { timeout: 10000 },
+  );
+  // Cards animate background/color for 120 ms; wait for running CSS
+  // transitions to finish before a screenshot instead of sleeping.
+  await page.evaluate(async () => {
+    const transitions = document
+      .getAnimations()
+      .filter((animation) => animation.constructor.name === 'CSSTransition');
+    await Promise.all(transitions.map((animation) => animation.finished.catch(() => undefined)));
+  });
+}
+
 async function clickNewNote(expectedTabs) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     if ((await state()).tabs.length >= expectedTabs) return;
@@ -281,6 +305,32 @@ describe('Document lifecycle', () => {
     }
     await page.waitForSelector('[data-draft-materialize-error]');
     await page.screenshot({ path: join(screenshotDir, 'draft-blocked.png') });
+    // A draft failure is exactly one surface: DraftMaterializeBanner in the
+    // shell, with no save-failure banner and no raw `draft:<id>` text.
+    assert.equal(await page.locator('[data-draft-materialize-error]').count(), 1);
+    assert.equal(
+      await page.locator('[data-save-failure="true"]').count(),
+      0,
+      'the save-failure surface is suppressed while the runtime is a draft',
+    );
+    const draftSurface = await page
+      .locator('[data-draft-materialize-error]')
+      .evaluate((element) => ({
+        parent: element.parentElement?.className ?? '',
+        insideCanvas: element.closest('.nf-canvas-panel') !== null,
+        actions: [...element.querySelectorAll('button')].map((button) => button.textContent?.trim()),
+      }));
+    assert.match(draftSurface.parent, /nf-main-column/);
+    assert.equal(draftSurface.insideCanvas, false, 'the draft banner is shell chrome');
+    assert.deepEqual(draftSurface.actions, ['Choose another library…', 'Retry']);
+    assert.doesNotMatch(
+      await page.locator('.nf-main-column').innerText(),
+      /draft:/,
+      'the raw draft key is never visible',
+    );
+    await setTheme('light');
+    await page.screenshot({ path: join(screenshotDir, 'draft-blocked-light.png') });
+    await setTheme('dark');
 
     // Scroll and select before the swap; remember the exact editor DOM node.
     const before = await page.evaluate(() => {

@@ -68,6 +68,8 @@ export interface AppSettingsPatch {
   };
   /** Global shell appearance; global-only, never per document. */
   appearance?: Partial<AppearanceSettings>;
+  /** Global export defaults; global-only, never per document. */
+  export?: Partial<AppSettings['export']>;
 }
 
 export interface SettingsBootstrap {
@@ -181,6 +183,10 @@ function normalizePatch(current: AppSettings, patch: AppSettingsPatch): AppSetti
     page.theme?.preset !== undefined
       ? { ...page.theme }
       : { ...current.page.theme, ...(page.theme ?? {}) };
+  // Export is a global folder-only namespace; an explicit `null` resets to the
+  // OS Documents folder and must not fall back to the previous custom path.
+  const exportFolder =
+    patch.export?.folder === undefined ? current.export.folder : patch.export.folder;
   return normalizeAppSettings({
     page: {
       setup: {
@@ -195,6 +201,7 @@ function normalizePatch(current: AppSettings, patch: AppSettingsPatch): AppSetti
         page.manualBreakBeforeBlockIds ?? current.page.manualBreakBeforeBlockIds,
     },
     appearance: { ...current.appearance, ...(patch.appearance ?? {}) },
+    export: { folder: exportFolder },
   });
 }
 

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  exportDateStamp,
   exportFileName,
   joinExportPath,
   pdfBaseNameForTitle,
@@ -8,10 +7,10 @@ import {
 } from '../src/shared/export';
 
 /**
- * M4d2: the export save dialog suggests `<document title>.pdf`. The helper is
- * shared by the renderer (default name) and main (dialog validation), so a
- * title with path separators or reserved characters can never leak into the
- * suggested filename or add a second extension.
+ * R4: the export filename is always `<document title>.pdf`. The helper is
+ * shared by the renderer (default name) and the sheet, so a title with path
+ * separators or reserved characters can never leak into the name or add a
+ * second extension. No date suffix and no filename pattern exist.
  */
 describe('export PDF filename', () => {
   it('uses the document title with one .pdf extension', () => {
@@ -32,15 +31,12 @@ describe('export PDF filename', () => {
     expect(pdfBaseNameForTitle('   ')).toBe('Untitled');
   });
 
-  it('composes the sheet filename with an optional local date', () => {
-    const day = new Date(2026, 10, 10);
-    expect(exportDateStamp(day)).toBe('2026-11-10');
-    expect(exportFileName('Linear algebra', false, day)).toBe('Linear algebra.pdf');
-    expect(exportFileName('Linear algebra.pdf', true, day)).toBe(
-      'Linear algebra — 2026-11-10.pdf',
-    );
-    expect(exportFileName('', false, day)).toBe('Untitled.pdf');
-    expect(exportFileName('Notes / Lecture', false, day)).toBe('Notes Lecture.pdf');
+  it('composes the sheet filename with no date or pattern', () => {
+    expect(exportFileName('Linear algebra')).toBe('Linear algebra.pdf');
+    expect(exportFileName('Linear algebra.pdf')).toBe('Linear algebra.pdf');
+    expect(exportFileName('')).toBe('Untitled.pdf');
+    expect(exportFileName('Notes / Lecture')).toBe('Notes Lecture.pdf');
+    expect(exportFileName('Linear algebra')).not.toMatch(/\d{4}-\d{2}-\d{2}/);
   });
 
   it('joins a folder and a filename without doubling separators', () => {

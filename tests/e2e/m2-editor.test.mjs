@@ -372,7 +372,7 @@ function setFirstBlockText(document, value) {
 }
 
 function activeSaveBanner() {
-  return page.locator('.nf-editor[data-active="true"] [data-save-failure="true"]');
+  return page.locator('.nf-main-column [data-save-failure="true"]');
 }
 
 describe('NoteForest M2 editor shell', () => {
@@ -2299,7 +2299,7 @@ describe('NoteForest M2 editor shell', () => {
     await dialog.waitFor({ state: 'detached' });
     assert.match(await editor.innerText(), /Local change discarded by reload/);
     assert.equal(
-      await editor.locator('[data-save-failure="true"]').count(),
+      await page.locator('[data-save-failure="true"]').count(),
       1,
       'cancel keeps the failure visible',
     );
@@ -2314,7 +2314,7 @@ describe('NoteForest M2 editor shell', () => {
     await confirm.waitFor();
     await confirm.getByRole('button', { name: 'Reload from disk', exact: true }).click();
 
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-save-failure="true"]', {
+    await page.waitForSelector('.nf-main-column [data-save-failure="true"]', {
       state: 'detached',
     });
     await h.waitSaved();

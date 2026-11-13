@@ -151,7 +151,7 @@ describe('settings data recovery', () => {
     assert.equal((await appSettings()).saveState.status, 'saved');
 
     const stored = JSON.parse(await readFile(appSupport(env, 'settings.json'), 'utf8'));
-    assert.equal(stored.settingsVersion, 3, 'the reset writes a valid current file');
+    assert.equal(stored.settingsVersion, 4, 'the reset writes a valid current file');
     assert.equal(stored.page.theme.density, 1, 'the reset restores the product defaults');
     assert.equal(
       await readFile(appSupport(env, backupsBefore[0]), 'utf8'),
@@ -184,7 +184,7 @@ describe('settings data recovery', () => {
     await page.locator('[data-settings-reset-file="true"]').click();
     await waitSettingsState('settingsStatus', 'ok');
     const stored = JSON.parse(await readFile(settingsPath, 'utf8'));
-    assert.equal(stored.settingsVersion, 3);
+    assert.equal(stored.settingsVersion, 4);
     assert.equal(stored.page.theme.density, 1);
     assert.deepEqual(stored.appearance, {
       theme: 'dark',
@@ -229,7 +229,7 @@ describe('settings data recovery', () => {
     await page.locator('[data-settings-reset-file="true"]').click();
     await waitSettingsState('settingsStatus', 'ok');
     const stored = JSON.parse(await readFile(appSupport(env, 'settings.json'), 'utf8'));
-    assert.equal(stored.settingsVersion, 3);
+    assert.equal(stored.settingsVersion, 4);
     assert.equal((await appSettings()).saveState.status, 'saved');
   });
 

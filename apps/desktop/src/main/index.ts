@@ -12,12 +12,14 @@ import { stat } from 'node:fs/promises';
 import type {
   BootstrapResult,
   CreateLibraryInput,
+  ExportDefaults,
   FlushResult,
   MenuCommand,
   RevealResult,
   SessionState,
   WindowState,
 } from '../shared/api.js';
+import { resolveExportDefaultFolder } from '../shared/export.js';
 import { normalizeFlushResult } from '../shared/flush.js';
 import {
   activeLibraryPath,
@@ -43,6 +45,7 @@ import {
   materializeDraftSession,
   openDocument,
   openLibraryPath,
+  readSettings,
   reloadDocument,
   removeMissingDocument,
   removeRecentLibraryRoot,
@@ -80,8 +83,6 @@ if (isE2E) installE2EDialogGuard(dialog);
 // Custom schemes must be registered before the app is ready.
 registerAssetScheme();
 let mainWindow: BrowserWindow | null = null;
-/** Last folder chosen in the export sheet picker; session/app scope only. */
-let lastExportFolder: string | null = null;
 let allowClose = false;
 let closeInProgress = false;
 let quitting = false;
@@ -755,9 +756,19 @@ function registerIpc(): void {
   // Batch A export sheet: the folder picker is the only native surface. The
   // renderer owns the filename and the in-sheet overwrite decision; the job
   // engine still refuses to clobber for `overwrite: false`.
-  ipcMain.handle('export:defaults', () => ({
-    folder: lastExportFolder ?? app.getPath('documents'),
-  }));
+  //
+  // R4: the global `export.folder` setting is the source of truth. A missing
+  // setting means the OS Documents folder. Choosing a folder in the sheet is a
+  // per-export decision and never writes the setting.
+  ipcMain.handle('export:defaults', async (): Promise<ExportDefaults> => {
+    let folder: string | null = null;
+    try {
+      folder = (await readSettings()).export.folder;
+    } catch {
+      folder = null;
+    }
+    return { folder: resolveExportDefaultFolder(folder, app.getPath('documents')) };
+  });
 
   ipcMain.handle('export:choose-folder', async (_event, input: unknown) => {
     const win = mainWindow;
@@ -772,14 +783,13 @@ function registerIpc(): void {
     const choice = await dialog.showOpenDialog(win, {
       title: 'Choose export folder',
       buttonLabel: 'Choose',
-      defaultPath: requestedPath ?? lastExportFolder ?? app.getPath('documents'),
+      defaultPath: requestedPath ?? app.getPath('documents'),
       properties: ['openDirectory', 'createDirectory'],
     });
     const folderPath = choice.filePaths[0];
     if (choice.canceled || folderPath === undefined || folderPath.trim().length === 0) {
       return { canceled: true as const };
     }
-    lastExportFolder = folderPath;
     return { canceled: false as const, folderPath };
   });
 
