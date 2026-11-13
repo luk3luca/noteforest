@@ -1,7 +1,7 @@
 /** Zustand: shell and session state only. Document content lives in runtimes. */
 
 import { create } from 'zustand';
-import type { LibraryView, RecoveryStatus, SidebarTab } from '../../../shared/api';
+import type { LibraryView, RecoveryStatus, SidebarTab, TrashPreflight } from '../../../shared/api';
 import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -38,6 +38,12 @@ export interface RecoveryTabInfo {
 
 export interface TabInfo {
   packagePath: string;
+  /**
+   * Stable editor identity across the draft→package path swap. It is the
+   * canonical document id when known (normal documents and drafts) and the
+   * package path for recovery/missing tabs.
+   */
+  tabKey?: string;
   title: string;
   missing?: boolean;
   error?: string;
@@ -77,6 +83,7 @@ export type DialogState =
   | { kind: 'reload-from-disk'; packagePath: string }
   | { kind: 'overwrite-external'; packagePath: string }
   | { kind: 'restore-backup'; packagePath: string }
+  | { kind: 'trash-document'; packagePath: string; preflight: TrashPreflight }
   | { kind: 'new-library' }
   | { kind: 'settings'; page?: SettingsPageId };
 
@@ -111,6 +118,12 @@ interface ShellState {
   closeTab: (packagePath: string) => void;
   setActiveTab: (packagePath: string) => void;
   reorderTabs: (from: string, to: string) => void;
+  /**
+   * Move every shell reference from a draft key to the materialized package
+   * path (tab, active tab, view state, collapsed topics, closed stack). The
+   * editor is keyed by `tabKey`, so this never remounts it.
+   */
+  rekeyDocument: (from: string, to: string, title?: string) => void;
   pushClosed: (tab: TabInfo) => void;
   popClosed: () => TabInfo | undefined;
   updateTitle: (packagePath: string, title: string) => void;
@@ -194,6 +207,34 @@ export const useShell = create<ShellState>((set, get) => ({
     }),
 
   setActiveTab: (packagePath) => set({ activeTab: packagePath }),
+
+  rekeyDocument: (from, to, title) =>
+    set((state) => {
+      if (from === to) return state;
+      const tabs = state.tabs.map((tab) =>
+        tab.packagePath === from
+          ? { ...tab, packagePath: to, ...(title === undefined ? {} : { title }) }
+          : tab,
+      );
+      const activeTab = state.activeTab === from ? to : state.activeTab;
+      const rekey = <T,>(map: Record<string, T>): Record<string, T> => {
+        if (map[from] === undefined) return map;
+        const next = { ...map };
+        next[to] = next[from] as T;
+        delete next[from];
+        return next;
+      };
+      const recentClosed = state.recentClosed.map((tab) =>
+        tab.packagePath === from ? { ...tab, packagePath: to } : tab,
+      );
+      return {
+        tabs,
+        activeTab,
+        viewByDoc: rekey(state.viewByDoc),
+        collapsedTopics: rekey(state.collapsedTopics),
+        recentClosed,
+      };
+    }),
 
   reorderTabs: (from, to) =>
     set((state) => {

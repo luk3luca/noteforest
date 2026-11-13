@@ -1608,6 +1608,63 @@ button:disabled {
  * stripe. The canvas reflows because the panel is in normal flow. Appearance
  * animates height/opacity for 120 ms; the global reduced-motion rule removes it.
  */
+/* L3 draft materialization failure: same neutral detached surface, warning in
+   the icon/title only, actions on the right. */
+.nf-draft-banner {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-panel);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font-size: calc(11.5px * var(--ui-scale));
+}
+
+.nf-draft-banner-icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--warning);
+}
+
+.nf-draft-banner-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.nf-draft-banner-title {
+  color: var(--text-1);
+  font-weight: 550;
+}
+
+.nf-draft-banner-message {
+  margin-top: 2px;
+  color: var(--text-2);
+}
+
+.nf-draft-banner-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* L4 Move to Trash confirmation: title + full package path. */
+.nf-trash-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nf-trash-path {
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--ui-scale));
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
 .nf-status-panel {
   flex: none;
   display: grid;

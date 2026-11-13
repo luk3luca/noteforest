@@ -49,7 +49,8 @@ function harness(document: Document): SessionHarness {
     callsAtCommit: -1,
   };
   const session = new DocumentSession(document, {
-    packagePath,
+    packagePath: () => packagePath,
+    adoptPackagePath: () => undefined,
     gateway: memory.gateway,
     isEditable: () => state.editable,
     commitEditor: () => {
@@ -165,7 +166,8 @@ function scriptedSession(
   let versions = 0;
   let notifications = 0;
   const session = new DocumentSession(document, {
-    packagePath,
+    packagePath: () => packagePath,
+    adoptPackagePath: () => undefined,
     gateway,
     isEditable: () => true,
     commitEditor: async () => true,
@@ -487,7 +489,8 @@ describe('DocumentSession content commit', () => {
     let versions = 0;
     let notifications = 0;
     const session = new DocumentSession(document, {
-      packagePath,
+      packagePath: () => packagePath,
+      adoptPackagePath: () => undefined,
       gateway,
       isEditable: () => true,
       commitEditor: async () => true,

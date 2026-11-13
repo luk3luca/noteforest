@@ -1,7 +1,7 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
@@ -130,6 +130,34 @@ async function waitToast(text) {
         element.textContent?.includes(expected),
       ),
     text,
+    { timeout: 10000 },
+  );
+}
+
+/**
+ * Click the sidebar `+` until the expected tab appears. Condition-based (no
+ * sleep): a click that lands before the shell's first renderer tick can be
+ * dropped, and a draft tab appears asynchronously.
+ */
+async function clickNewNoteOnce(expectedTabs) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const current = (await h.state()).tabs.length;
+    if (current >= expectedTabs) return;
+    await page.locator('[data-library-new="true"]').click();
+    try {
+      await page.waitForFunction(
+        (count) => window.__noteforestTest.state().tabs.length === count,
+        expectedTabs,
+        { timeout: 3000 },
+      );
+      return;
+    } catch {
+      // The click did not reach the handler yet; retry only while no tab opened.
+    }
+  }
+  await page.waitForFunction(
+    (count) => window.__noteforestTest.state().tabs.length === count,
+    expectedTabs,
     { timeout: 10000 },
   );
 }
@@ -417,7 +445,7 @@ describe('R3 document status panel', () => {
     assert.match(JSON.stringify(saved), /editable/);
   });
 
-  it('creates a new note over a stale lock and reports a live lock without internals', async () => {
+  it('creates a draft over a stale lock and reports a live lock without internals', async () => {
     const env = ui.isolated('status-create');
     await mkdir(env.NOTEFOREST_LIBRARY, { recursive: true });
     const stalePath = join(env.NOTEFOREST_LIBRARY, 'untitled');
@@ -428,23 +456,51 @@ describe('R3 document status panel', () => {
       token: 'create-stale-token',
     });
     await launch('status-create');
+    await page.waitForSelector(
+      '[data-sidebar-panel="library"] [data-library-new="true"]:not([disabled])',
+    );
 
-    // New note reuses the freed "untitled" folder name; the stale lock from the
-    // deleted package must not block creation.
-    await page.locator('[data-library-new="true"]').click();
-    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 1, undefined, {
-      timeout: 10000,
-    });
-    const created = await page.evaluate(() => {
+    // `+` opens an in-memory draft: no folder, lock, or recent entry yet.
+    await clickNewNoteOnce(1);
+    const draft = await page.evaluate(() => {
       const current = window.__noteforestTest.state();
       return current.runtimes.find((item) => item.packagePath === current.activeTab) ?? null;
     });
-    assert.equal(created?.status, 'editable', 'the new note is editable');
-    assert.equal(created?.title, 'Untitled');
+    assert.equal(draft?.status, 'editable', 'the draft is editable');
+    assert.equal(draft?.title, 'Untitled');
+    assert.match(draft?.packagePath ?? '', /^draft:/, 'the tab key is a draft key');
+    await assert.rejects(stat(stalePath), 'the untouched draft creates no folder');
+    assert.equal((await readLock(staleLock)).token, 'create-stale-token');
+
+    // The first keystroke materializes; the stale lock from the deleted package
+    // must not block creation.
+    await page
+      .locator('.nf-editor[data-active="true"] .nf-block-prose')
+      .first()
+      .click();
+    await page.keyboard.type('D');
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return runtime !== null && runtime !== undefined && !runtime.draftId;
+      },
+      undefined,
+      { timeout: 15000 },
+    );
+    const materialized = await page.evaluate(() => {
+      const current = window.__noteforestTest.state();
+      return current.runtimes.find((item) => item.packagePath === current.activeTab) ?? null;
+    });
+    assert.ok(
+      (materialized?.packagePath ?? '').startsWith(env.NOTEFOREST_LIBRARY),
+      'the draft materializes inside the active library',
+    );
+    assert.equal((await stat(materialized?.packagePath ?? '')).isDirectory(), true);
     assert.notEqual((await readLock(staleLock)).token, 'create-stale-token');
 
     // A live lock on the next free folder name still fails, with a user-facing
-    // message that never exposes the lock path.
+    // message that never exposes the lock path, and the draft stays in memory.
     const livePath = join(env.NOTEFOREST_LIBRARY, 'untitled-2');
     const liveLock = await writeLock(env, livePath, {
       pid: process.pid,
@@ -453,20 +509,49 @@ describe('R3 document status panel', () => {
       token: 'create-live-token',
     });
     const tabsBefore = (await h.state()).tabs.length;
-    await page.locator('[data-library-new="true"]').click();
-    await waitToast('locked by another NoteForest session');
-    const toastText = await page.evaluate(() =>
-      [...document.querySelectorAll('[data-sonner-toast]')]
+    await clickNewNoteOnce(tabsBefore + 1);
+    await page
+      .locator('.nf-editor[data-active="true"] .nf-block-prose')
+      .first()
+      .click();
+    await page.keyboard.type('L');
+    await page.waitForSelector('[data-draft-materialize-error]');
+    const bannerText = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-draft-materialize-error]')]
         .map((element) => element.textContent ?? '')
         .join(' '),
     );
-    assert.match(toastText, /Close the other NoteForest window and try again/);
-    assert.doesNotMatch(toastText, /\.lock/);
+    assert.match(bannerText, /locked by another NoteForest session/);
+    assert.match(bannerText, /Close the other NoteForest window and try again/);
+    assert.doesNotMatch(bannerText, /\.lock/);
     assert.ok(
-      !toastText.includes(env.NOTEFOREST_APP_SUPPORT),
-      'the toast never exposes the app-support lock path',
+      !bannerText.includes(env.NOTEFOREST_APP_SUPPORT),
+      'the banner never exposes the app-support lock path',
     );
-    assert.equal((await h.state()).tabs.length, tabsBefore, 'the failed note did not open');
+    await page.screenshot({ path: join(screenshotDir, 'draft-live-lock.png') });
+    const keptDraft = await page.evaluate(() => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      return runtime === null || runtime === undefined
+        ? null
+        : { draftId: runtime.draftId, error: runtime.draftError };
+    });
+    assert.ok(keptDraft !== null && keptDraft.draftId !== null, 'the draft stays in memory');
+    assert.match(keptDraft.error?.message ?? '', /locked by another NoteForest session/);
+    assert.equal((await h.state()).tabs.length, tabsBefore + 1, 'the draft tab stays open');
     assert.equal((await readLock(liveLock)).token, 'create-live-token', 'the live lock is untouched');
+    await assert.rejects(stat(livePath), 'a failed materialization leaves no folder');
+
+    // Discard the blocked draft so the close/quit path has no unsaved draft to
+    // materialize (the live lock still blocks it).
+    await page.evaluate(() =>
+      window.__noteforestTest.closePath(window.__noteforestTest.state().activeTab),
+    );
+    await page.waitForFunction(
+      (count) => window.__noteforestTest.state().tabs.length === count,
+      tabsBefore,
+      { timeout: 10000 },
+    );
+    await h.waitSaved();
   });
 });

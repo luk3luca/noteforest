@@ -217,7 +217,7 @@ export function TabStrip(): JSX.Element {
             onKeyDown={onTablistKeyDown}
           >
             {visibleTabs.map((tab) => (
-              <SortableTab key={tab.packagePath} tab={tab} />
+              <SortableTab key={tab.tabKey ?? tab.packagePath} tab={tab} />
             ))}
           </div>
         </SortableContext>

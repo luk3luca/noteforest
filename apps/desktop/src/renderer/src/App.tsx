@@ -213,12 +213,14 @@ export function App(): JSX.Element {
               .adoptDocumentSettings(snapshot.packagePath, snapshot.document.id);
             tabs.push({
               packagePath: snapshot.packagePath,
+              tabKey: snapshot.document.id,
               title: snapshot.document.title,
               ...(snapshot.status === 'read-only' ? { readOnlyReason: snapshot.readOnlyReason } : {}),
             });
           } else if (recovery !== undefined) {
             tabs.push({
               packagePath: recovery.packagePath,
+              tabKey: recovery.packagePath,
               title: recovery.title,
               recovery: {
                 status: recovery.status,
@@ -232,6 +234,7 @@ export function App(): JSX.Element {
             const parts = sessionTab.packagePath.split('/');
             tabs.push({
               packagePath: sessionTab.packagePath,
+              tabKey: sessionTab.packagePath,
               title: recent?.title ?? parts.at(-1) ?? 'Missing document',
               missing: true,
             });
@@ -566,6 +569,7 @@ export function App(): JSX.Element {
           ready: state.ready,
           tabs: state.tabs.map((tab) => ({
             packagePath: tab.packagePath,
+            tabKey: tab.tabKey ?? tab.packagePath,
             title: tab.title,
             missing: tab.missing === true,
             recovery: tab.recovery === undefined ? null : tab.recovery.status,
@@ -584,6 +588,12 @@ export function App(): JSX.Element {
                   name: state.library.libraryName,
                   missing: state.library.missing,
                   libraries: state.library.libraries,
+                  recent: state.library.recent.map((item) => ({
+                    documentId: item.documentId,
+                    title: item.title,
+                    packagePath: item.packagePath,
+                    missing: item.missing === true,
+                  })),
                   documents: state.library.documents.map((document) => ({
                     packagePath: document.packagePath,
                     title: document.title,
@@ -593,6 +603,9 @@ export function App(): JSX.Element {
                 },
           runtimes: allRuntimes().map((item) => ({
             packagePath: item.packagePath,
+            documentId: item.document.id,
+            draftId: item.draftId,
+            draftError: item.draftError,
             title: item.document.title,
             blocks: Object.keys(item.document.blocks).length,
             blockIds: Object.keys(item.document.blocks),
@@ -868,6 +881,7 @@ export function App(): JSX.Element {
         state.setLibrary(result.library);
         state.openTab({
           packagePath: result.snapshot.packagePath,
+          tabKey: result.snapshot.document.id,
           title: result.snapshot.document.title,
         });
         return result.snapshot.packagePath;

@@ -2,6 +2,9 @@ import { useCallback, useSyncExternalStore } from 'react';
 import type { OpenDocumentSnapshot, SessionTabState } from '../../../shared/api';
 import { createElectronDocumentGateway } from './electron-document-gateway';
 import { DocumentRuntime, type RestorePoint } from './runtime';
+import { rekeyScroll } from './scroll-store';
+import { useSettingsStore } from './settings';
+import { useShell } from './shell';
 
 const runtimes = new Map<string, DocumentRuntime>();
 const documentGateway = createElectronDocumentGateway();
@@ -18,6 +21,29 @@ export function subscribeRegistry(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/**
+ * Draft materialization moved this runtime from `draft:<id>` to a package path.
+ * The runtime instance, its canonical document, undo history, selection, and
+ * the mounted editor are untouched; only identity maps and the shell tab move.
+ */
+function handlePackagePathChange(
+  runtime: DocumentRuntime,
+  previous: string,
+  next: string,
+): void {
+  if (runtimes.get(previous) === runtime) {
+    runtimes.delete(previous);
+    runtimes.set(next, runtime);
+  }
+  rekeyScroll(previous, next);
+  const documentId = runtime.document.id;
+  useShell.getState().rekeyDocument(previous, next, runtime.document.title);
+  // Materialization does not change the document id: any per-document override
+  // created while it was a draft follows the document to its package path.
+  useSettingsStore.getState().adoptDocumentSettings(next, documentId);
+  bump();
+}
+
 export function registerRuntime(
   snapshot: OpenDocumentSnapshot,
   tab: SessionTabState | undefined,
@@ -31,6 +57,9 @@ export function registerRuntime(
       ? null
       : { scrollTop: tab.scrollTop, selectedBlockId: tab.selectedBlockId };
   const runtime = new DocumentRuntime(snapshot, collapsed, restore, documentGateway);
+  runtime.onPackagePathChange = (previous, next) => {
+    handlePackagePathChange(runtime, previous, next);
+  };
   runtimes.set(snapshot.packagePath, runtime);
   bump();
   void runtime.ensureChaptersHaveBlocks();

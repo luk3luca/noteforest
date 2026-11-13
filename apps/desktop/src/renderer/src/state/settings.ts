@@ -44,6 +44,7 @@ import {
   adoptDocumentSettingsEntry,
   findDocumentSettingsEntry,
   normalizeDocumentSettingsFile,
+  normalizePackagePath,
   upsertDocumentSettingsEntry,
   type DocumentSettingsEntry,
 } from '../../../shared/document-settings';
@@ -114,6 +115,8 @@ interface SettingsState extends SettingsSnapshot {
   ) => PageSettingsOverride | undefined;
   /** Re-key an entry when a document opens from a renamed/moved path. */
   adoptDocumentSettings: (packagePath: string, documentId: string | null) => void;
+  /** Drop one document's entry locally after Move to Trash cleaned the file. */
+  forgetDocumentSettings: (documentId: string | null, packagePath: string) => void;
   resolvedPageSettings: (
     packagePath: string | null | undefined,
     documentId?: string | null,
@@ -401,6 +404,19 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       packagePath: entry.packagePath,
       page: entry.page,
     });
+  },
+
+  forgetDocumentSettings: (documentId, packagePath) => {
+    const targetPath = normalizePackagePath(packagePath);
+    const next = get().documentSettings.filter(
+      (entry) =>
+        !(
+          (documentId !== null && entry.documentId === documentId) ||
+          normalizePackagePath(entry.packagePath) === targetPath
+        ),
+    );
+    if (next.length === get().documentSettings.length) return;
+    set({ documentSettings: next, pageOverrides: pageOverridesByPath(next) });
   },
 
   resolvedPageSettings: (packagePath, documentId) => {

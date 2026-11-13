@@ -20,6 +20,7 @@ import type {
 } from '../shared/api.js';
 import {
   normalizeDocumentSettingsFile,
+  normalizePackagePath,
   serializeDocumentSettingsFile,
   upsertDocumentSettingsEntry,
   type DocumentSettingsEntry,
@@ -186,6 +187,41 @@ export async function saveDocumentSettings(
     const written = await writeEntries(directory, entries);
     if (!written.ok) return written;
     return { ok: true };
+  });
+}
+
+/**
+ * Remove every entry for one document (Move to Trash). Identity is the
+ * canonical document id first, plus the package path fallback for a path-only
+ * legacy entry. A corrupt/unreadable map is never overwritten implicitly: the
+ * cleanup is best effort and reports the read warning.
+ */
+export async function removeDocumentSettingsEntries(
+  directory: string,
+  identity: { documentId?: string | null; packagePath: string },
+): Promise<SettingsSaveResult> {
+  return enqueue(async () => {
+    const read = await readDocumentSettingsFile(directory);
+    if (read.status.state === 'corrupt' || read.status.state === 'unreadable') {
+      return {
+        ok: false,
+        message:
+          read.status.message ??
+          'Document settings could not be read; the override entry was kept.',
+      };
+    }
+    const id =
+      typeof identity.documentId === 'string' && identity.documentId.trim().length > 0
+        ? identity.documentId.trim()
+        : null;
+    const targetPath = normalizePackagePath(identity.packagePath);
+    const next = read.entries.filter((entry) => {
+      if (id !== null && entry.documentId === id) return false;
+      if (normalizePackagePath(entry.packagePath) === targetPath) return false;
+      return true;
+    });
+    if (next.length === read.entries.length) return { ok: true };
+    return writeEntries(directory, next);
   });
 }
 

@@ -43,9 +43,15 @@ export type HistoryOperation = 'text' | 'structural';
  * editor, the save coordinator, or UI state directly.
  */
 export interface DocumentSessionPorts {
-  readonly packagePath: string;
+  /**
+   * The document key at call time. A draft starts as `draft:<id>` and becomes a
+   * real package path after materialization; the session never caches it.
+   */
+  packagePath(): string;
   /** Platform port; the only way commands and content commits reach the store. */
   readonly gateway: DocumentGateway;
+  /** Adopt a new package path returned by a command/save (draft materialization). */
+  adoptPackagePath(next: string): void;
   /** True while the document is writable. */
   isEditable(): boolean;
   /**
@@ -141,8 +147,21 @@ export class DocumentSession {
   }
 
   /** Apply one command through the gateway without the editable/commit guards. */
-  apply(command: DocumentCommand): Promise<ApplyResult> {
-    return this.ports.gateway.apply(this.ports.packagePath, command);
+  async apply(command: DocumentCommand): Promise<ApplyResult> {
+    const result = await this.ports.gateway.apply(this.ports.packagePath(), command);
+    this.adoptResultPath(result.packagePath);
+    return result;
+  }
+
+  /**
+   * Adopt a package path returned by the main process. This is how a draft's
+   * first command can materialize the package; the document id, content, and
+   * history stay exactly as they are.
+   */
+  private adoptResultPath(next: string | undefined): void {
+    if (typeof next !== 'string' || next.length === 0) return;
+    if (next === this.ports.packagePath()) return;
+    this.ports.adoptPackagePath(next);
   }
 
   /**

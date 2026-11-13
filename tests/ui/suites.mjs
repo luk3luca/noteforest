@@ -57,6 +57,7 @@ export const FILES = [
   'ui-appearance-v3.test.mjs',
   'ui-document-status.test.mjs',
   'library-surface.test.mjs',
+  'document-lifecycle.test.mjs',
 ];
 
 function unique(values) {
@@ -74,6 +75,7 @@ export const GROUPS = {
     'ui-appearance-v3.test.mjs',
     'ui-document-status.test.mjs',
     'library-surface.test.mjs',
+    'document-lifecycle.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',

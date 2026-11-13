@@ -24,22 +24,27 @@ import {
   applyCommand,
   appSupportDir,
   bootstrap,
+  chooseDraftLibrary,
   closeAllStores,
   closeDocument,
   copyImageAsset,
   createDocument,
+  createDraftSession,
   createLibraryRoot,
   defaultRestoreDestination,
   dirtyDocuments,
+  discardAllDraftSessions,
   importImageBytes,
   importImageFile,
   isInsideKnownLibrary,
   libraryRootForPath,
   listBackups,
   locateLibraryRoot,
+  materializeDraftSession,
   openDocument,
   openLibraryPath,
   reloadDocument,
+  removeMissingDocument,
   removeRecentLibraryRoot,
   resetDocumentSettingsMap,
   resetSettings,
@@ -54,6 +59,8 @@ import {
   seedDocument,
   switchLibraryRoot,
   takeOverStaleLock,
+  trashDocument,
+  trashPreflight,
   writeSession,
   writeSettings,
 } from './library.js';
@@ -247,6 +254,7 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
       }
     }
     await closeAllStores();
+    await discardAllDraftSessions();
     allowClose = true;
     if (quitting) {
       app.quit();
@@ -412,6 +420,75 @@ function registerIpc(): void {
 
   ipcMain.handle('library:create', (_event, input: { title?: string }) =>
     createDocument(input ?? {}),
+  );
+
+  // L3: a draft is in-memory only; nothing is written until materialization.
+  ipcMain.handle('draft:create', () => createDraftSession());
+
+  ipcMain.handle('draft:materialize', (_event, documentKey: unknown) => {
+    if (typeof documentKey !== 'string' || documentKey.length === 0) {
+      return {
+        ok: false as const,
+        code: 'unknown' as const,
+        message: 'No draft was provided.',
+      };
+    }
+    return materializeDraftSession(documentKey);
+  });
+
+  ipcMain.handle('draft:choose-library', async (_event, documentKey: unknown) => {
+    if (typeof documentKey !== 'string' || documentKey.length === 0) {
+      return { ok: false as const, message: 'No draft was provided.' };
+    }
+    const folder = await chooseLibraryDirectory(
+      'Choose a library for this note',
+      'Use this library',
+    );
+    if (folder === null) {
+      return { ok: false as const, canceled: true, message: 'No folder was chosen.' };
+    }
+    return chooseDraftLibrary(documentKey, folder);
+  });
+
+  ipcMain.handle('document:trash-preflight', (_event, packagePath: unknown) => {
+    if (typeof packagePath !== 'string' || packagePath.length === 0) {
+      return {
+        packagePath: '',
+        title: 'Untitled',
+        status: 'missing' as const,
+        documentId: null,
+        liveLock: false,
+        lock: null,
+        open: false,
+        canTrash: false,
+        reason: 'No document path was provided.',
+      };
+    }
+    return trashPreflight(packagePath);
+  });
+
+  ipcMain.handle('document:trash', async (_event, packagePath: unknown) => {
+    if (typeof packagePath !== 'string' || packagePath.length === 0) {
+      return {
+        ok: false as const,
+        code: 'unknown' as const,
+        message: 'No document path was provided.',
+      };
+    }
+    return trashDocument(packagePath, (target) => shell.trashItem(target));
+  });
+
+  ipcMain.handle(
+    'document:remove-missing',
+    async (_event, packagePath: unknown, documentId: unknown) => {
+      if (typeof packagePath !== 'string' || packagePath.length === 0) {
+        return { ok: false as const, message: 'No document path was provided.' };
+      }
+      return removeMissingDocument(
+        packagePath,
+        typeof documentId === 'string' && documentId.length > 0 ? documentId : null,
+      );
+    },
   );
 
   ipcMain.handle('document:open', (_event, packagePath: string) => openDocument(packagePath));

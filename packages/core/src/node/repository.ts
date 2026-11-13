@@ -116,6 +116,11 @@ export interface DocumentRepository {
     input?: CreateDocumentPackageInput,
     options?: RepositoryCreateOptions,
   ): Promise<CreateDocumentPackageResult | CreateDocumentPackageFailure>;
+  /**
+   * Register a store created outside `open`/`create` (draft materialization).
+   * The caller already holds the lock; the repository owns closing it.
+   */
+  adopt(store: DocumentStore): void;
   /** Atomic save with backup-before-write and external-modification checks. */
   save(packagePath: string, options?: SaveOptions): Promise<SaveResult>;
   /** Snapshot the canonical file (manual, pre-migration, pre-repair). */
@@ -297,6 +302,16 @@ export class NodeDocumentRepository implements DocumentRepository {
       this.stores.set(path.resolve(result.packagePath), result.store);
     }
     return result;
+  }
+
+  /** Register a store whose lock and document were created by the caller. */
+  adopt(store: DocumentStore): void {
+    const resolved = path.resolve(store.packagePath);
+    const existing = this.stores.get(resolved);
+    if (existing !== undefined && existing !== store) {
+      void existing.close().catch(() => undefined);
+    }
+    this.stores.set(resolved, store);
   }
 
   async save(packagePath: string, options: SaveOptions = {}): Promise<SaveResult> {

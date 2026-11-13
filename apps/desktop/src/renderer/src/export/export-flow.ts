@@ -234,6 +234,13 @@ async function openExportSheet(trigger: HTMLElement | null): Promise<void> {
   }
   opening = true;
   try {
+    // A draft materializes before the export sheet pins its document path: the
+    // PDF job and its "document not open" guard need a real package.
+    const prepared = await runtime.ensureMaterialized();
+    if (!prepared.ok) {
+      toast.error(prepared.message);
+      return;
+    }
     if (!(await commitPageEdit(runtime.packagePath))) {
       fail({
         code: 'snapshot-failed',

@@ -849,6 +849,82 @@ export interface CreateDocumentPackageFailure {
   error: CoreError;
 }
 
+/**
+ * Materialize an existing in-memory document into a fresh package.
+ *
+ * Used by draft creation: the document identity (and every block, branch,
+ * anchor, and asset record) already exists, so the folder is allocated from the
+ * current title and `document.json` is written atomically. The folder was just
+ * created by this call, so a lock keyed by its path can only be stale or
+ * corrupt: `breakStale` is explicit here and a live lock still fails.
+ */
+async function writePackageFromDocument(
+  packageDir: string,
+  document: Document,
+  options: DocumentStoreOptions,
+  appSupportDir: string,
+  warnings: ValidationIssue[],
+): Promise<CreateDocumentPackageResult | CreateDocumentPackageFailure> {
+  const backupsDir =
+    options.backupsDir ?? backupsDirForPackage(appSupportDir, packageDir);
+  let lockHandle: LockHandle | null = null;
+  try {
+    await fs.mkdir(assetsDirPath(packageDir), { recursive: true });
+    const acquired = await acquireDocumentLock(packageDir, {
+      appSupportDir,
+      ...(options.lockDir === undefined ? {} : { lockDir: options.lockDir }),
+      breakStale: true,
+      documentId: document.id,
+    });
+    if (!acquired.ok) {
+      await fs.rm(packageDir, { recursive: true, force: true }).catch(() => undefined);
+      return {
+        ok: false,
+        error: coreError(
+          acquired.reason === 'stale-lock' ? 'stale-lock' : 'document-locked',
+          acquired.message,
+          { lockPath: acquired.lockPath },
+        ),
+      };
+    }
+    lockHandle = acquired.handle;
+    const payload = stringifyDocument(document);
+    await writeFileAtomic(documentJsonPath(packageDir), payload, {
+      ...(options.atomicWriteHooks === undefined ? {} : { hooks: options.atomicWriteHooks }),
+    });
+    const store = new DocumentStore({
+      packagePath: packageDir,
+      appSupportDir,
+      backupsDir,
+      readOnly: false,
+      document,
+      errors: [],
+      warnings,
+      lastSaved: { exists: true, hash: sha256Hex(payload), revision: document.revision },
+      lockHandle,
+      options,
+    });
+    if (options.registerRecent !== false) {
+      try {
+        await recordRecentDocument(
+          { documentId: document.id, title: document.title, path: packageDir },
+          { appSupportDir, limit: options.recentLimit ?? 50 },
+        );
+      } catch {
+        // Recent manifest failure must not fail document creation.
+      }
+    }
+    return { ok: true, packagePath: packageDir, document, store, warnings };
+  } catch (error) {
+    if (lockHandle !== null) await lockHandle.release().catch(() => undefined);
+    await fs.rm(packageDir, { recursive: true, force: true }).catch(() => undefined);
+    return {
+      ok: false,
+      error: coreError('io-error', `could not create document package: ${errorMessage(error)}`),
+    };
+  }
+}
+
 export async function createDocumentPackage(
   libraryDir: string,
   input: CreateDocumentPackageInput = {},
@@ -884,78 +960,56 @@ export async function createDocumentPackage(
     return { ok: false, error: coreError('io-error', `could not create document folder: ${errorMessage(error)}`) };
   }
 
-  const backupsDir =
-    options.backupsDir ?? backupsDirForPackage(appSupportDir, packageDir);
-  let lockHandle: LockHandle | null = null;
-  try {
-    await fs.mkdir(assetsDirPath(packageDir), { recursive: true });
-    // The folder was created by this call, so no live writer can own it: a
-    // lock keyed by this path can only be stale (a deleted package left it) or
-    // corrupt. Break only those; a live lock acquired between mkdir and here
-    // still fails and the fresh directory is removed below.
-    const acquired = await acquireDocumentLock(packageDir, {
-      appSupportDir,
-      ...(options.lockDir === undefined ? {} : { lockDir: options.lockDir }),
-      breakStale: true,
-      documentId: document.id,
-    });
-    if (!acquired.ok) {
-      await fs.rm(packageDir, { recursive: true, force: true }).catch(() => undefined);
-      return {
-        ok: false,
-        error: coreError(
-          acquired.reason === 'stale-lock' ? 'stale-lock' : 'document-locked',
-          acquired.message,
-          { lockPath: acquired.lockPath },
-        ),
-      };
-    }
-    lockHandle = acquired.handle;
-    const payload = stringifyDocument(document);
-    await writeFileAtomic(documentJsonPath(packageDir), payload, {
-      ...(options.atomicWriteHooks === undefined ? {} : { hooks: options.atomicWriteHooks }),
-    });
-    const store = new DocumentStore({
-      packagePath: packageDir,
-      appSupportDir,
-      backupsDir,
-      readOnly: false,
-      document,
-      errors: [],
-      warnings: created.warnings.map((message) => ({
-        severity: 'warning',
-        code: 'invalid-shape',
-        message,
-      })),
-      lastSaved: { exists: true, hash: sha256Hex(payload), revision: document.revision },
-      lockHandle,
-      options,
-    });
-    if (options.registerRecent !== false) {
-      try {
-        await recordRecentDocument(
-          { documentId: document.id, title: document.title, path: packageDir },
-          { appSupportDir, limit: options.recentLimit ?? 50 },
-        );
-      } catch {
-        // Recent manifest failure must not fail document creation.
-      }
-    }
-    return {
-      ok: true,
-      packagePath: packageDir,
-      document,
-      store,
-      warnings: [],
-    };
-  } catch (error) {
-    if (lockHandle !== null) await lockHandle.release().catch(() => undefined);
-    await fs.rm(packageDir, { recursive: true, force: true }).catch(() => undefined);
+  return writePackageFromDocument(
+    packageDir,
+    document,
+    options,
+    appSupportDir,
+    created.warnings.map((message) => ({
+      severity: 'warning',
+      code: 'invalid-shape',
+      message,
+    })),
+  );
+}
+
+/**
+ * Write one existing in-memory document into a new package. The document id,
+ * revision, blocks, branches, anchors, and assets are kept exactly as supplied;
+ * only the folder name is derived from the title. Validation runs before any
+ * folder is created, so an invalid draft never leaves a half package.
+ */
+export async function materializeDocumentPackage(
+  libraryDir: string,
+  document: Document,
+  options: DocumentStoreOptions = {},
+): Promise<CreateDocumentPackageResult | CreateDocumentPackageFailure> {
+  const { appSupportDir } = resolvePaths(libraryDir, options);
+  const report = validateDocument(document);
+  if (!report.ok) {
     return {
       ok: false,
-      error: coreError('io-error', `could not create document package: ${errorMessage(error)}`),
+      error: coreError(
+        'invalid-document',
+        `refusing to create a package from an invalid document: ${
+          report.errors[0]?.message ?? 'validation failed'
+        }`,
+        { errorCount: report.errors.length },
+      ),
     };
   }
+
+  let packageDir: string;
+  try {
+    packageDir = await createUniquePackageDir(libraryDir, document.title);
+  } catch (error) {
+    return {
+      ok: false,
+      error: coreError('io-error', `could not create document folder: ${errorMessage(error)}`),
+    };
+  }
+
+  return writePackageFromDocument(packageDir, document, options, appSupportDir, report.warnings);
 }
 
 /** Convenience alias for callers that only need the affected IDs after apply. */

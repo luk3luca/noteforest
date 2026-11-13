@@ -317,6 +317,75 @@ export interface CreateDocumentFailure {
 
 export type CreateDocumentResult = CreateDocumentSuccess | CreateDocumentFailure;
 
+/**
+ * A draft created in the main process: an in-memory document with a stable
+ * `draftId`, a bound library, and no package folder, lock, or recent entry.
+ * The renderer mounts `snapshot` under the opaque `draft:<id>` key.
+ */
+export interface DraftView {
+  draftId: string;
+  /** Library active at creation; switching libraries never retargets it. */
+  libraryPath: string;
+  /** Snapshot mounted by the renderer; `packagePath` is the draft key. */
+  snapshot: OpenDocumentSnapshot;
+}
+
+export type CreateDraftResult =
+  | { ok: true; draft: DraftView }
+  | { ok: false; message: string };
+
+export type MaterializeDraftCode = 'library-missing' | 'locked' | 'not-found' | 'unknown';
+
+/**
+ * Result of writing a draft's first package. On success the renderer swaps the
+ * document key/path without remounting the editor; the document id is unchanged.
+ */
+export type MaterializeDraftResult =
+  | { ok: true; packagePath: string; library: LibraryView }
+  | { ok: false; code: MaterializeDraftCode; message: string };
+
+export type DraftLibraryResult =
+  | { ok: true; libraryPath: string; library: LibraryView }
+  | { ok: false; canceled?: boolean; message: string };
+
+export type TrashDocumentStatus = 'ok' | 'missing' | 'newer-schema' | 'unreadable';
+
+/**
+ * Destructive-action preflight. The confirmation dialog is the explicit
+ * authorization; this only reports what the dialog must warn about.
+ */
+export interface TrashPreflight {
+  packagePath: string;
+  title: string;
+  status: TrashDocumentStatus;
+  documentId: string | null;
+  /** Another live session holds the writer lock (never broken here). */
+  liveLock: boolean;
+  lock: LockInfoView | null;
+  /** The package is open in this window. */
+  open: boolean;
+  /** Move to Trash is allowed after confirmation. */
+  canTrash: boolean;
+  /** Why trashing is refused, when `canTrash` is false. */
+  reason?: string;
+}
+
+export type TrashFailureCode =
+  | 'not-found'
+  | 'library-root'
+  | 'locked'
+  | 'unsaved'
+  | 'trash-failed'
+  | 'unknown';
+
+export type TrashDocumentResult =
+  | { ok: true; library: LibraryView }
+  | { ok: false; code: TrashFailureCode; message: string };
+
+export type RemoveMissingDocumentResult =
+  | { ok: true; library: LibraryView }
+  | { ok: false; message: string };
+
 export interface OpenDocumentFailure {
   ok: false;
   message: string;
@@ -342,6 +411,11 @@ export interface ApplyResult {
   inverse?: DocumentCommand | null;
   /** Availability for affected assets; only present when a command touched one. */
   assetAvailability?: AssetAvailability[];
+  /**
+   * The package path when a command against a draft materialized it. The
+   * renderer adopts this path without remounting the editor.
+   */
+  packagePath?: string;
   message?: string;
   code?: string;
 }
@@ -366,6 +440,8 @@ export interface SaveSuccess {
   ok: true;
   changed: boolean;
   revision: number;
+  /** Present when a draft save materialized the package. */
+  packagePath?: string;
 }
 
 export interface SaveFailure {
@@ -561,6 +637,15 @@ export interface NoteForestApi {
   /** Scan the active library, or one explicit root during validation. */
   scanLibrary(root?: string): Promise<LibraryView>;
   createDocument(input: { title?: string }): Promise<CreateDocumentResult>;
+  /**
+   * Create an in-memory draft bound to the active library. No package folder,
+   * lock, or recent entry exists until the first real mutation materializes it.
+   */
+  createDraft(): Promise<CreateDraftResult>;
+  /** Materialize one draft (idempotent) and return its new package path. */
+  materializeDraft(packageKey: string): Promise<MaterializeDraftResult>;
+  /** Rebind a draft whose creation library is missing to a chosen library. */
+  chooseDraftLibrary(packageKey: string): Promise<DraftLibraryResult>;
   /** Native directory picker; validates, scans, activates, and records recent. */
   openLibrary(): Promise<LibraryActionResult>;
   /** Native parent picker for the New Library modal. */
@@ -588,6 +673,18 @@ export interface NoteForestApi {
   reloadDocument(packagePath: string): Promise<ReloadDocumentResult>;
   closeDocument(packagePath: string, options: { save: boolean }): Promise<void>;
   revealDocument(packagePath: string): Promise<RevealResult>;
+  /** Read-only preflight for Move to Trash (title/status/lock/open). */
+  trashPreflight(packagePath: string): Promise<TrashPreflight>;
+  /**
+   * Move one package to the OS Trash after the explicit confirmation. The
+   * library root itself can never be trashed, and a live lock is refused.
+   */
+  trashDocument(packagePath: string): Promise<TrashDocumentResult>;
+  /** Cleanup only: forget a missing package (recent/settings/session). Never deletes. */
+  removeMissingDocument(
+    packagePath: string,
+    documentId?: string | null,
+  ): Promise<RemoveMissingDocumentResult>;
   /** Reveal one known library root (defaults to the active library). */
   revealLibrary(libraryPath?: string): Promise<RevealResult>;
   /** Reveal the app-support/settings folder in the OS file manager. */

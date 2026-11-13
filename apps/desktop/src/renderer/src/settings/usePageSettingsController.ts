@@ -510,7 +510,7 @@ export function usePageSettingsController(
     async (pending: PendingWrite): Promise<boolean> => {
       setSaving(true);
       setCommitError(null);
-      const target = pending.target;
+      let target = pending.target;
       if (targetIsGone(target)) {
         // The document closed after the edit started. Never write (the path is
         // stale) and never report saved; the footer shows the reason.
@@ -519,6 +519,23 @@ export function usePageSettingsController(
         setCommitError(PAGE_SETTINGS_TARGET_CLOSED_MESSAGE);
         setSaving(false);
         return false;
+      }
+      // A per-document change is a real mutation: a draft materializes first,
+      // and the write is retargeted to the new package path. The document id
+      // stays the same, so the override is never lost.
+      if (target.scope === 'document' && target.packagePath !== null) {
+        const runtime = getRuntime(target.packagePath);
+        if (runtime !== null && runtime.isDraft) {
+          const prepared = await runtime.ensureMaterialized();
+          if (!prepared.ok) {
+            lastAttempt.current = null;
+            setCommitError(prepared.message);
+            setSaving(false);
+            return false;
+          }
+          target = { ...target, packagePath: runtime.packagePath };
+          pending = { ...pending, target };
+        }
       }
       lastAttempt.current = pending;
       const outcome = await commitThenWritePageSettings({

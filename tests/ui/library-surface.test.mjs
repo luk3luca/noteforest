@@ -129,22 +129,48 @@ describe('Library surface', () => {
       'the global header + is gone',
     );
 
-    // The one + creates a note inside the active library.
+    // The one + opens an in-memory draft: no folder, recent, or lock.
     const before = await sidebarState();
     const activePath = before.library?.path ?? '';
     assert.ok(activePath.length > 0);
     const tabsBefore = before.tabs.length;
+    const libraryCountBefore = before.library?.documents.length ?? 0;
     await page.locator('[data-library-new="true"]').click();
     await page.waitForFunction(
       (count) => window.__noteforestTest.state().tabs.length === count + 1,
       tabsBefore,
       { timeout: 15000 },
     );
+    const draftKey = await page.evaluate(
+      () => window.__noteforestTest.state().tabs.at(-1)?.packagePath ?? null,
+    );
+    assert.match(draftKey ?? '', /^draft:/, 'the new tab is a draft key');
+    assert.equal(
+      (await sidebarState()).library?.documents.length,
+      libraryCountBefore,
+      'the draft is not listed in the library yet',
+    );
+
+    // The first keystroke materializes it inside the active library; the tab
+    // path changes without remounting the editor.
+    await page.locator('.nf-editor[data-active="true"] .nf-block-prose').first().click();
+    await page.keyboard.type('Draft text');
+    await page.waitForFunction(
+      (key) => !window.__noteforestTest.state().tabs.some((tab) => tab.packagePath === key),
+      draftKey,
+      { timeout: 15000 },
+    );
     const created = await page.evaluate(
       () => window.__noteforestTest.state().tabs.at(-1)?.packagePath ?? null,
     );
     assert.ok(created !== null && created.startsWith(activePath), 'the note is in the active library');
+    assert.equal((await stat(created)).isDirectory(), true, 'the package folder exists');
     await h.waitSaved();
+    await page.waitForFunction(
+      (count) => window.__noteforestTest.state().library?.documents.length === count,
+      libraryCountBefore + 1,
+      { timeout: 15000 },
+    );
     // A selected Continuous block is the full-card ring, never a left accent bar.
     await page
       .locator('.nf-editor[data-active="true"] [data-block-card] .nf-block-prose')

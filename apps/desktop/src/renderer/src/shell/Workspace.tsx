@@ -14,6 +14,7 @@ import { Sidebar } from './Sidebar';
 import { Toolbar } from './Toolbar';
 import { RecoverySurface } from './RecoverySurface';
 import { DocumentStatusPanel } from './DocumentStatusPanel';
+import { DraftMaterializeBanner } from './DraftMaterializeBanner';
 
 function EmptyState(): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);
@@ -213,7 +214,7 @@ export function Workspace(): JSX.Element {
           }
           if (runtime === null) return null;
           return (
-            <DocumentEditor key={tab.packagePath} runtime={runtime} active={active} />
+            <DocumentEditor key={tab.tabKey ?? tab.packagePath} runtime={runtime} active={active} />
           );
         })}
       </div>
@@ -260,6 +261,7 @@ export function Workspace(): JSX.Element {
         <Panel id="main" className="nf-main-panel" minSize={480}>
           <div className="nf-main-column">
             <Toolbar />
+            <DraftMaterializeBanner runtime={activeRuntime} />
             <DocumentStatusPanel runtime={activeRuntime} />
             <div className="nf-canvas-panel" data-canvas-panel="true">
               {editor}

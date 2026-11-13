@@ -16,6 +16,8 @@ import {
   activeRuntime,
   chooseLibraryParent,
   closeTab,
+  confirmRemoveMissingDocument,
+  confirmTrashDocument,
   createLibrary,
   renameChapter,
   renameDocument,
@@ -46,7 +48,7 @@ import {
   type AnchorHealthRow,
   type AnchorRepairPreview,
 } from '../lib/anchor-health';
-import type { BackupCandidateView } from '../../../shared/api';
+import type { BackupCandidateView, TrashPreflight } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
 import { SettingsDialog } from './SettingsDialog';
 
@@ -155,6 +157,76 @@ function NewLibraryDialog({ onClose }: { onClose: () => void }): JSX.Element {
   );
 }
 
+/**
+ * Move to Trash confirmation (L4). The title and path are named explicitly, the
+ * primary action is destructive, and Cancel is focused by default. A missing
+ * package gets the cleanup-only Remove from recents variant; a newer-schema
+ * package gets a stronger warning; a stale lock is cleared only here.
+ */
+function TrashDocumentDialog({
+  preflight,
+  onClose,
+}: {
+  preflight: TrashPreflight;
+  onClose: () => void;
+}): JSX.Element {
+  const missing = preflight.status === 'missing';
+  return (
+    <Frame
+      title={missing ? 'Remove from recents?' : 'Move to Trash?'}
+      description={
+        missing
+          ? 'The package folder has no document.json. This only forgets the document; no file or folder is deleted.'
+          : 'The note folder moves to the system Trash. You can recover it from the Trash.'
+      }
+      actions={
+        <>
+          <Button className="nf-button" autoFocus onPress={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="nf-button nf-button-danger"
+            data-trash-confirm="true"
+            onPress={() => {
+              onClose();
+              if (missing) void confirmRemoveMissingDocument(preflight);
+              else void confirmTrashDocument(preflight);
+            }}
+          >
+            {missing ? 'Remove from recents' : 'Move to Trash'}
+          </Button>
+        </>
+      }
+    >
+      <div className="nf-trash-summary" data-trash-dialog="true" data-trash-status={preflight.status}>
+        <p className="nf-dialog-text" data-trash-title="true">
+          “{preflight.title}”
+        </p>
+        <p className="nf-trash-path" data-trash-path="true">
+          {preflight.packagePath}
+        </p>
+        {preflight.status === 'newer-schema' ? (
+          <p className="nf-field-error" data-trash-newer-schema="true" role="alert">
+            This note was written by a newer NoteForest version. Moving it to the Trash is safe,
+            but this app cannot read or recover its contents.
+          </p>
+        ) : null}
+        {preflight.liveLock ? (
+          <p className="nf-field-error" data-trash-live-lock="true" role="alert">
+            Another NoteForest session is writing this document. Close the other window and try
+            again; the live lock is never broken.
+          </p>
+        ) : null}
+        {preflight.lock !== null ? (
+          <p className="nf-settings-help" data-trash-stale-lock="true">
+            A stale lock from a previous session will be cleared before the move.
+          </p>
+        ) : null}
+      </div>
+    </Frame>
+  );
+}
+
 export function Dialogs(): JSX.Element | null {
   const dialog = useShell((state) => state.dialog);
   const close = useShell((state) => state.closeDialog);
@@ -170,6 +242,11 @@ export function Dialogs(): JSX.Element | null {
   // Library creation is app-level and works with no document open.
   if (dialog.kind === 'new-library') {
     return <NewLibraryDialog onClose={close} />;
+  }
+  // Move to Trash targets a library row and may be opened for a closed or
+  // missing package; it must not require an active document.
+  if (dialog.kind === 'trash-document') {
+    return <TrashDocumentDialog preflight={dialog.preflight} onClose={close} />;
   }
   if (runtime === null) {
     return (

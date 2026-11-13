@@ -13,6 +13,7 @@
 import type { DocumentCommand } from '@noteforest/core';
 import type {
   ApplyResult,
+  MaterializeDraftResult,
   ReloadDocumentResult,
   RestoreBackupResult,
   SaveCopyResult,
@@ -24,6 +25,8 @@ import type {
 export interface DocumentGateway {
   /** Explicit stale-lock takeover; never automatic. */
   takeOverLock(packagePath: string): Promise<TakeOverLockResult>;
+  /** Materialize a draft into a package; returns the new path (idempotent). */
+  materializeDraft(documentKey: string): Promise<MaterializeDraftResult>;
   /** Apply one typed command to the canonical document in the main process. */
   apply(packagePath: string, command: DocumentCommand): Promise<ApplyResult>;
   /** Write the canonical document to disk (atomic save + backup in main). */

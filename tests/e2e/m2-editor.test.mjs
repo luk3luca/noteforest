@@ -394,7 +394,7 @@ describe('NoteForest M2 editor shell', () => {
 
   it('creates documents, edits blocks, branches, reparents, reorders and restores', async () => {
     await launch(isolated('lifecycle'));
-    const firstPath = await (async () => {
+    let firstPath = await (async () => {
       await page.waitForSelector('.nf-empty-state');
       assert.match(await page.locator('.nf-empty-title').innerText(), /NoteForest/);
       await page.locator('.nf-empty-actions .nf-button-primary').click();
@@ -410,6 +410,9 @@ describe('NoteForest M2 editor shell', () => {
     await h.waitSaved();
     await page.waitForSelector('.nf-tab-dot', { state: 'detached' });
     assert.equal(await page.locator('.nf-tab-dot').count(), 0, 'dirty dot clears after autosave');
+    // The first keystroke materialized the draft; the tab key is now the package.
+    firstPath = (await h.state()).tabs[0].packagePath;
+    assert.doesNotMatch(firstPath, /^draft:/, 'the note has a real package path');
 
     await page.keyboard.press('Control+Enter');
     await h.waitBlockCount(2);
@@ -1045,9 +1048,12 @@ describe('NoteForest M2 editor shell', () => {
     await page.waitForSelector('.nf-empty-state');
     await page.locator('.nf-empty-actions .nf-button-primary').click();
     await h.waitBlockCount(1);
-    const firstPath = (await h.state()).activeTab;
+    let firstPath = (await h.state()).activeTab;
     await page.keyboard.type('Root block');
     await h.waitSaved();
+    // The first keystroke materialized the draft; the tab key is now the package.
+    firstPath = (await h.state()).activeTab;
+    assert.doesNotMatch(firstPath, /^draft:/, 'the note has a real package path');
     await showOutline();
 
     // Three Control+Enter presses before the first IPC round-trip can finish.

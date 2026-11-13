@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   createDocument as createCoreDocument,
+  executeCommand,
   orderKeysAfter,
   validateDocument,
   type AssetAvailability,
@@ -29,11 +30,16 @@ import {
   defaultAppSupportDir,
   documentJsonPath,
   assetsDirPath,
+  isLockStale,
+  materializeDocumentPackage,
   NodeAssetStore,
   NodeDocumentRepository,
+  packageTitle,
   pathExists,
+  readDocumentLock,
   readRecentDocuments,
   recentManifestPath,
+  removeRecentDocument,
   restoreCandidateToPackage,
   writeDocumentPackageCopy,
   writeFileAtomic,
@@ -44,23 +50,27 @@ import {
 import type {
   ApplyResult,
   BackupCandidateView,
+  CreateDraftResult,
   CreateLibraryInput,
   DocumentSettingsBackupView,
   DocumentSettingsEntry,
   DocumentSettingsRecoveryResult,
   DocumentSettingsSaveInput,
   DocumentSettingsSaveResult,
+  DraftLibraryResult,
   ImportImageBytesInput,
   ImportImageResult,
   LibraryActionResult,
   LibraryView,
   ListBackupsResult,
   LockInfoView,
+  MaterializeDraftResult,
   OpenDocumentResult,
   OpenDocumentSnapshot,
   RecentLibraryView,
   RecoveryDocumentView,
   ReloadDocumentResult,
+  RemoveMissingDocumentResult,
   RestoreBackupResult,
   SaveCopyResult,
   SaveRequestOptions,
@@ -70,6 +80,9 @@ import type {
   SettingsFileStatus,
   SettingsSaveResult,
   TakeOverLockResult,
+  TrashDocumentResult,
+  TrashDocumentStatus,
+  TrashPreflight,
 } from '../shared/api.js';
 import {
   DEFAULT_APP_SETTINGS,
@@ -94,6 +107,7 @@ import {
   migrateLegacySessionOverrides,
   preserveCorruptFile,
   readDocumentSettingsFile,
+  removeDocumentSettingsEntries,
   resetDocumentSettings,
   restoreDocumentSettingsBackup,
   saveDocumentSettings as applyDocumentSettings,
@@ -115,6 +129,7 @@ import {
   imageMimeFromName,
 } from '../shared/images.js';
 import { readImageDimensions } from './image-dimensions.js';
+import { draftIdFromKey, draftKey, isDraftKey } from '../shared/drafts.js';
 import {
   duplicateLibraryBasenames,
   libraryBasename,
@@ -323,6 +338,7 @@ async function knownLibraryCanonicalPaths(): Promise<string[]> {
 
 /** Commands and opens are limited to the active library plus known recents. */
 export async function isInsideKnownLibrary(candidate: string): Promise<boolean> {
+  if (isDraftKey(candidate)) return false;
   return (await libraryRootForPath(candidate)) !== null;
 }
 
@@ -692,6 +708,232 @@ async function reconcileMovedDocuments(
  */
 const repository = new NodeDocumentRepository({ appSupportDir });
 
+// ---------------------------------------------------------------------------
+// Draft sessions (L3)
+//
+// A draft is a canonical document that exists only in memory: no package
+// folder, no lock, and no recent entry. It keeps a stable `draftId`, a stable
+// document id, and the library that was active at creation. The first real
+// mutation materializes it into a normal package; the tab key/path changes but
+// the renderer never remounts its editor.
+// ---------------------------------------------------------------------------
+
+interface DraftSession {
+  draftId: string;
+  document: Document;
+  /** Library active at creation. A library switch never retargets it. */
+  libraryPath: string;
+  /** Real package path after materialization; null while still in memory. */
+  materializedPath: string | null;
+}
+
+const draftSessions = new Map<string, DraftSession>();
+
+function draftSessionForPath(documentKey: string): DraftSession | null {
+  const draftId = draftIdFromKey(documentKey);
+  if (draftId === null) return null;
+  return draftSessions.get(draftId) ?? null;
+}
+
+function draftSnapshot(session: DraftSession): OpenDocumentSnapshot {
+  return {
+    packagePath: draftKey(session.draftId),
+    document: session.document,
+    status: 'editable',
+    assetAvailability: [],
+    errors: [],
+    warnings: [],
+  };
+}
+
+/** Open a new in-memory draft bound to the active library. Writes nothing. */
+export async function createDraftSession(): Promise<CreateDraftResult> {
+  const directory = await activeLibraryPath();
+  if (directory === null || directory.length === 0) {
+    return { ok: false, message: 'No library is open. Open a folder as a library first.' };
+  }
+  if (!(await pathIsDirectory(directory))) {
+    return {
+      ok: false,
+      message: `The active library was not found: ${directory}. Locate it or open another library.`,
+    };
+  }
+
+  let document = createCoreDocument({ title: 'Untitled', chapterTitle: 'Chapter 1' });
+  const chapterId = document.chapters[0]?.id;
+  if (chapterId !== undefined) {
+    const block = executeCommand(document, {
+      type: 'block.create',
+      // Match the editor's empty-body projection. Without this, the mount-time
+      // normalization would be committed as a "first edit" and materialize an
+      // untouched draft on close/quit.
+      content: { type: 'doc', children: [{ type: 'paragraph' }] },
+      placement: { kind: 'top-level', chapterId },
+    });
+    if (!block.ok) {
+      return { ok: false, message: `Could not create the draft: ${block.message}` };
+    }
+    document = block.document;
+  }
+
+  const draftId = crypto.randomUUID();
+  const session: DraftSession = {
+    draftId,
+    document,
+    libraryPath: directory,
+    materializedPath: null,
+  };
+  draftSessions.set(draftId, session);
+  return {
+    ok: true,
+    draft: {
+      draftId,
+      libraryPath: directory,
+      snapshot: draftSnapshot(session),
+    },
+  };
+}
+
+type DraftMaterializeFailure = {
+  ok: false;
+  code: 'library-missing' | 'locked' | 'not-found' | 'unknown';
+  message: string;
+};
+
+/**
+ * Write one draft into a real package. Idempotent: a draft that already
+ * materialized returns its path. The package folder is allocated by the
+ * existing title rules, the lock is acquired with `breakStale: true` (the
+ * folder was just created by this call, so only a stale/corrupt lock can exist
+ * there; a live lock still fails), `document.json` is written atomically, and
+ * the recent list is updated by the core writer.
+ */
+async function ensureDraftMaterialized(
+  session: DraftSession,
+): Promise<{ ok: true; packagePath: string } | DraftMaterializeFailure> {
+  if (session.materializedPath !== null) {
+    return { ok: true, packagePath: session.materializedPath };
+  }
+  if (!(await pathIsDirectory(session.libraryPath))) {
+    return {
+      ok: false,
+      code: 'library-missing',
+      message: `The library this note was created in is not available: ${session.libraryPath}. Reconnect it or choose another library, then retry.`,
+    };
+  }
+  const created = await materializeDocumentPackage(session.libraryPath, session.document, {
+    appSupportDir: appSupportDir(),
+    registerRecent: true,
+  });
+  if (!created.ok) {
+    if (
+      created.error.code === 'document-locked' ||
+      created.error.code === 'stale-lock'
+    ) {
+      return {
+        ok: false,
+        code: 'locked',
+        message:
+          'The note folder is locked by another NoteForest session. Close the other NoteForest window and try again.',
+      };
+    }
+    return { ok: false, code: 'unknown', message: created.error.message };
+  }
+  repository.adopt(created.store);
+  session.materializedPath = created.packagePath;
+  session.document = created.document;
+  return { ok: true, packagePath: created.packagePath };
+}
+
+/** Materialize one draft on demand (explicit IPC); never remounts the editor. */
+export async function materializeDraftSession(
+  documentKey: string,
+): Promise<MaterializeDraftResult> {
+  const session = draftSessionForPath(documentKey);
+  if (session === null) {
+    return {
+      ok: false,
+      code: 'not-found',
+      message: 'This draft is no longer open. Create a new note and try again.',
+    };
+  }
+  const target = await ensureDraftMaterialized(session);
+  if (!target.ok) return target;
+  return {
+    ok: true,
+    packagePath: target.packagePath,
+    library: await scanLibrary(),
+  };
+}
+
+/** Materialize a draft before an operation that needs real package bytes. */
+async function materializedTargetPath(
+  documentKey: string,
+): Promise<{ ok: true; packagePath: string } | { ok: false; message: string }> {
+  const draft = draftSessionForPath(documentKey);
+  if (draft === null) return { ok: true, packagePath: documentKey };
+  const target = await ensureDraftMaterialized(draft);
+  return target.ok ? { ok: true, packagePath: target.packagePath } : { ok: false, message: target.message };
+}
+
+/**
+ * Rebind a draft whose creation library is missing to a library the user
+ * chooses now. The library is validated and activated through the normal
+ * library paths, then the draft retries materialization into it.
+ */
+export async function chooseDraftLibrary(
+  documentKey: string,
+  chosenPath: string,
+): Promise<DraftLibraryResult> {
+  const session = draftSessionForPath(documentKey);
+  if (session === null) {
+    return { ok: false, message: 'This draft is no longer open.' };
+  }
+  const validation = await validateLibraryRoot(chosenPath);
+  if (!validation.ok || validation.path === undefined) {
+    return { ok: false, message: validation.message ?? 'That folder cannot be a library.' };
+  }
+  session.libraryPath = validation.path;
+  const library = await activateLibraryPath(validation.path);
+  return { ok: true, libraryPath: validation.path, library };
+}
+
+/** Discard one draft session; a materialized draft's store is closed. */
+async function discardDraftSession(documentKey: string): Promise<void> {
+  const session = draftSessionForPath(documentKey);
+  if (session === null) return;
+  draftSessions.delete(session.draftId);
+  if (session.materializedPath !== null) {
+    await repository.close(session.materializedPath, { save: false });
+  }
+}
+
+/** Close/quit: drop every in-memory draft; materialized stores close too. */
+export async function discardAllDraftSessions(): Promise<void> {
+  const sessions = [...draftSessions.values()];
+  draftSessions.clear();
+  for (const session of sessions) {
+    if (session.materializedPath !== null) {
+      await repository.close(session.materializedPath, { save: false });
+    }
+  }
+}
+
+/** Test/diagnostic view of the in-memory drafts (no renderer exposure). */
+export function draftSessionPaths(): Array<{
+  draftId: string;
+  documentKey: string;
+  packagePath: string | null;
+  libraryPath: string;
+}> {
+  return [...draftSessions.values()].map((session) => ({
+    draftId: session.draftId,
+    documentKey: draftKey(session.draftId),
+    packagePath: session.materializedPath,
+    libraryPath: session.libraryPath,
+  }));
+}
+
 function lockInfoView(store: DocumentStore): LockInfoView | undefined {
   const info = store.lockInfo;
   if (info === undefined) return undefined;
@@ -874,6 +1116,13 @@ function recoveryViewForError(packagePath: string, message: string): RecoveryDoc
 }
 
 export async function openStore(packagePath: string): Promise<OpenStoreResult> {
+  if (isDraftKey(packagePath)) {
+    const draft = draftSessionForPath(packagePath);
+    if (draft === null) return { error: 'This draft is no longer open.' };
+    // A draft has no package to open; callers that need a real store must
+    // materialize first (apply/save/import do this themselves).
+    return { error: 'The note is still a draft and has no package folder yet.' };
+  }
   const resolved = path.resolve(packagePath);
   if (!(await isInsideKnownLibrary(resolved))) {
     return { error: 'Document is outside the known NoteForest libraries.' };
@@ -1030,6 +1279,18 @@ export async function applyCommand(
   packagePath: string,
   command: DocumentCommand,
 ): Promise<ApplyResult> {
+  // A draft has no store. Any real command materializes the package first; the
+  // result carries the new path so the renderer can swap its tab key without
+  // remounting the editor.
+  const draft = draftSessionForPath(packagePath);
+  if (draft !== null) {
+    const target = await ensureDraftMaterialized(draft);
+    if (!target.ok) {
+      return { ok: false, message: target.message, code: target.code };
+    }
+    const result = await applyCommand(target.packagePath, command);
+    return { ...result, packagePath: target.packagePath };
+  }
   const opened = await openStore(packagePath);
   if ('error' in opened) return { ok: false, message: opened.error, code: 'not-found' };
   if ('recovery' in opened) {
@@ -1083,6 +1344,9 @@ export async function importImageFile(
   packagePath: string,
   filePath: string,
 ): Promise<ImportImageResult> {
+  const target = await materializedTargetPath(packagePath);
+  if (!target.ok) return { ok: false, message: target.message };
+  packagePath = target.packagePath;
   const opened = await openStore(packagePath);
   if ('error' in opened) return { ok: false, message: opened.error };
   if ('recovery' in opened) return { ok: false, message: opened.recovery.reason };
@@ -1143,6 +1407,9 @@ export async function importImageBytes(
   packagePath: string,
   input: ImportImageBytesInput,
 ): Promise<ImportImageResult> {
+  const target = await materializedTargetPath(packagePath);
+  if (!target.ok) return { ok: false, message: target.message };
+  packagePath = target.packagePath;
   const opened = await openStore(packagePath);
   if ('error' in opened) return { ok: false, message: opened.error };
   if ('recovery' in opened) return { ok: false, message: opened.recovery.reason };
@@ -1220,8 +1487,11 @@ export async function copyImageAsset(
   if (!/^[0-9a-f]{64}$/.test(assetId)) {
     return { ok: false, message: 'The copied image asset id is malformed.' };
   }
+  const materialized = await materializedTargetPath(targetPackagePath);
+  if (!materialized.ok) return { ok: false, message: materialized.message };
+  targetPackagePath = materialized.packagePath;
   const source = path.resolve(sourcePackagePath);
-  if (!(await isInsideKnownLibrary(source))) {
+  if (!(await isInsideKnownLibrary(source)) || isDraftKey(sourcePackagePath)) {
     return { ok: false, message: 'The source document is outside the known NoteForest libraries.' };
   }
   if (source === path.resolve(targetPackagePath)) {
@@ -1429,6 +1699,17 @@ export async function saveDocument(
 ): Promise<SaveResult> {
   if (typeof packagePath !== 'string' || packagePath.length === 0) {
     return { ok: false, changed: false, revision: 0, code: 'unknown', error: 'No document path was provided.' };
+  }
+  // An untouched draft is never written: a plain save (⌘S or a clean flush)
+  // succeeds with no change. A dirty draft materializes before the write in the
+  // renderer; this branch only forwards a materialized draft.
+  const draft = draftSessionForPath(packagePath);
+  if (draft !== null) {
+    if (draft.materializedPath === null) {
+      return { ok: true, changed: false, revision: draft.document.revision };
+    }
+    const saved = await saveDocument(draft.materializedPath, options);
+    return saved.ok ? { ...saved, packagePath: draft.materializedPath } : saved;
   }
   // The renderer may only force a write after the explicit overwrite dialog.
   // Anything other than a boolean flag is rejected before the store is touched.
@@ -1775,8 +2056,316 @@ export async function reloadDocument(packagePath: string): Promise<ReloadDocumen
 }
 
 export async function closeDocument(packagePath: string, options: { save: boolean }): Promise<void> {
+  if (isDraftKey(packagePath)) {
+    await discardDraftSession(packagePath);
+    return;
+  }
   const resolved = path.resolve(packagePath);
   await repository.close(resolved, { save: options.save });
+}
+
+/**
+ * Read-only preflight for Move to Trash. It reuses the same validation as the
+ * library scan, reports a live lock without breaking it, and refuses the
+ * library root itself (LD-12). The confirmation dialog is the explicit
+ * authorization for a stale/corrupt lock.
+ */
+export async function trashPreflight(packagePath: string): Promise<TrashPreflight> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return {
+      packagePath: '',
+      title: 'Untitled',
+      status: 'missing',
+      documentId: null,
+      liveLock: false,
+      lock: null,
+      open: false,
+      canTrash: false,
+      reason: 'No document path was provided.',
+    };
+  }
+  if (isDraftKey(packagePath)) {
+    return {
+      packagePath,
+      title: 'Untitled',
+      status: 'missing',
+      documentId: null,
+      liveLock: false,
+      lock: null,
+      open: false,
+      canTrash: false,
+      reason: 'This note is still a draft. Close its tab to discard it; nothing has been written.',
+    };
+  }
+  const resolved = path.resolve(packagePath);
+  const fallbackTitle = path.basename(resolved) || 'Untitled';
+  const base: TrashPreflight = {
+    packagePath: resolved,
+    title: fallbackTitle,
+    status: 'missing',
+    documentId: null,
+    liveLock: false,
+    lock: null,
+    open: false,
+    canTrash: false,
+  };
+  if (!(await isInsideKnownLibrary(resolved))) {
+    return { ...base, reason: 'Document is outside the known NoteForest libraries.' };
+  }
+  const root = await libraryRootForPath(resolved);
+  if (root !== null) {
+    const rootCanonical = await canonicalLibraryPath(root);
+    const packageCanonical = await canonicalLibraryPath(resolved);
+    if (rootCanonical === packageCanonical) {
+      return {
+        ...base,
+        reason:
+          'The library folder itself cannot be moved to the Trash. Remove it from Recent instead; its notes stay on disk.',
+      };
+    }
+  }
+
+  const store = repository.get(resolved);
+  const open = store !== null;
+  let status: TrashDocumentStatus = 'ok';
+  let title = fallbackTitle;
+  let documentId: string | null = null;
+  const onDisk = await pathExists(documentJsonPath(resolved));
+  if (!onDisk) {
+    // The package folder exists but its document.json is gone, even if an open
+    // store still holds the in-memory copy. The row is a missing package and the
+    // cleanup (Remove from recents) is the safe action.
+    status = 'missing';
+    if (store !== null && store.document !== null) {
+      title = store.document.title;
+      documentId = store.document.id;
+    } else {
+      title = packageTitle(resolved, null);
+    }
+  } else if (store !== null && store.document !== null) {
+    title = store.document.title;
+    documentId = store.document.id;
+  } else {
+    const validated = await repository.validate(resolved);
+    if (validated.ok) {
+      title = validated.document.title;
+      documentId = validated.document.id;
+    } else {
+      status = validated.error.code === 'newer-schema' ? 'newer-schema' : 'unreadable';
+      try {
+        const text = await fs.readFile(documentJsonPath(resolved), 'utf8');
+        title = packageTitle(resolved, text);
+      } catch {
+        title = packageTitle(resolved, null);
+      }
+    }
+  }
+
+  // A lock in this process belongs to our editable store; only a read-only
+  // store can be blocked by another session's live lock.
+  let liveLock = false;
+  let lock: LockInfoView | null = null;
+  if (store === null || store.readOnly) {
+    const record = await readDocumentLock(resolved, {
+      appSupportDir: appSupportDir(),
+    }).catch(() => null);
+    if (record !== null) {
+      liveLock = !isLockStale(record);
+      lock = {
+        pid: record.pid,
+        host: record.host,
+        sessionId: record.sessionId,
+        acquiredAt: record.acquiredAt,
+        heartbeatAt: record.heartbeatAt,
+        corrupt: false,
+      };
+    }
+  }
+
+  const canTrash = status !== 'missing' && !liveLock;
+  const reason =
+    status === 'missing'
+      ? 'The package folder has no document.json. Remove it from recents instead.'
+      : liveLock
+        ? 'Another NoteForest session is writing this document. Close the other window and try again; the live lock is never broken.'
+        : undefined;
+  return {
+    packagePath: resolved,
+    title,
+    status,
+    documentId,
+    liveLock,
+    lock,
+    open,
+    canTrash,
+    ...(reason === undefined ? {} : { reason }),
+  };
+}
+
+export type TrashItem = (target: string) => Promise<void>;
+
+/**
+ * Move one document package to the OS Trash after the explicit confirmation.
+ *
+ * The store is closed and the lock released before the move; the move is
+ * Electron's `shell.trashItem` (never a recursive delete). A failure leaves the
+ * file untouched and reports the OS error. A live lock is refused; a
+ * stale/corrupt lock is broken here because the confirmation dialog is the
+ * explicit authorization. On success the recent entry, per-document settings,
+ * and session tab are removed.
+ */
+export async function trashDocument(
+  packagePath: string,
+  trashItem: TrashItem,
+): Promise<TrashDocumentResult> {
+  const preflight = await trashPreflight(packagePath);
+  if (!preflight.canTrash) {
+    const code =
+      preflight.reason?.includes('library folder') === true
+        ? 'library-root'
+        : preflight.liveLock
+          ? 'locked'
+          : preflight.status === 'missing'
+            ? 'not-found'
+            : 'unknown';
+    return {
+      ok: false,
+      code,
+      message: preflight.reason ?? 'This document cannot be moved to the Trash.',
+    };
+  }
+  const resolved = preflight.packagePath;
+  if (!(await isInsideKnownLibrary(resolved))) {
+    return { ok: false, code: 'not-found', message: 'Document is outside the known NoteForest libraries.' };
+  }
+  const root = await libraryRootForPath(resolved);
+  if (root !== null) {
+    const rootCanonical = await canonicalLibraryPath(root);
+    const packageCanonical = await canonicalLibraryPath(resolved);
+    if (rootCanonical === packageCanonical) {
+      return {
+        ok: false,
+        code: 'library-root',
+        message: 'The library folder itself can never be moved to the Trash.',
+      };
+    }
+  }
+
+  const store = repository.get(resolved);
+  if (store !== null && store.hasUnsavedChanges) {
+    return {
+      ok: false,
+      code: 'unsaved',
+      message: `“${preflight.title}” has unsaved changes. Save or discard them before moving it to the Trash.`,
+    };
+  }
+
+  // Close the store and release our lock before the OS move. A stale/corrupt
+  // lock is removed only here, after the confirmation.
+  await repository.close(resolved, { save: false });
+  const broken = await breakStaleLock(resolved, { appSupportDir: appSupportDir() });
+  if (!broken.ok && broken.reason === 'locked') {
+    return {
+      ok: false,
+      code: 'locked',
+      message:
+        'Another NoteForest session is writing this document. It was not moved.',
+    };
+  }
+  if (!broken.ok && broken.reason === 'io-error') {
+    return {
+      ok: false,
+      code: 'trash-failed',
+      message: `Could not release the document lock: ${broken.message ?? 'filesystem error'}. It was not moved.`,
+    };
+  }
+
+  try {
+    await trashItem(resolved);
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'trash-failed',
+      message: `Could not move “${preflight.title}” to the Trash: ${
+        error instanceof Error && error.message.length > 0 ? error.message : String(error)
+      }. The folder was not changed.`,
+    };
+  }
+
+  await removeRecentDocument(resolved, appSupportDir()).catch(() => undefined);
+  await removeDocumentSettingsEntries(appSupportDir(), {
+    documentId: preflight.documentId,
+    packagePath: resolved,
+  }).catch(() => undefined);
+  await removeSessionDocument(resolved, preflight.documentId);
+  return { ok: true, library: await scanLibrary() };
+}
+
+/**
+ * Cleanup-only removal for a package that no longer exists (`missing`). It
+ * removes the recent entry, per-document settings, and session tab and never
+ * deletes a folder or a file.
+ */
+export async function removeMissingDocument(
+  packagePath: string,
+  documentId: string | null = null,
+): Promise<RemoveMissingDocumentResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, message: 'No document path was provided.' };
+  }
+  if (isDraftKey(packagePath)) {
+    await discardDraftSession(packagePath);
+    return { ok: true, library: await scanLibrary() };
+  }
+  const resolved = path.resolve(packagePath);
+  if (!(await isInsideKnownLibrary(resolved))) {
+    return { ok: false, message: 'Document is outside the known NoteForest libraries.' };
+  }
+  if (await pathExists(documentJsonPath(resolved))) {
+    return {
+      ok: false,
+      message: 'The document still exists. Use Move to Trash to remove it.',
+    };
+  }
+  // An open tab may still hold the in-memory document; this cleanup never
+  // writes and never deletes the folder.
+  await repository.close(resolved, { save: false });
+  await removeRecentDocument(resolved, appSupportDir()).catch(() => undefined);
+  await removeDocumentSettingsEntries(appSupportDir(), {
+    documentId,
+    packagePath: resolved,
+  }).catch(() => undefined);
+  await removeSessionDocument(resolved, documentId);
+  return { ok: true, library: await scanLibrary() };
+}
+
+/** Remove one document from the persisted session (tab + active fallback). */
+async function removeSessionDocument(
+  packagePath: string,
+  documentId: string | null,
+): Promise<void> {
+  try {
+    const session = await readSession();
+    const resolved = path.resolve(packagePath);
+    const tabs = session.tabs.filter(
+      (tab) =>
+        path.resolve(tab.packagePath) !== resolved &&
+        !(
+          documentId !== null &&
+          tab.documentId !== undefined &&
+          tab.documentId === documentId
+        ),
+    );
+    if (tabs.length === session.tabs.length) return;
+    const activeTab =
+      session.activeTab !== null &&
+      tabs.some((tab) => tab.packagePath === session.activeTab)
+        ? session.activeTab
+        : tabs[0]?.packagePath ?? null;
+    await writeSession({ ...session, tabs, activeTab });
+  } catch {
+    // Session cleanup is best effort; the renderer closes the tab itself.
+  }
 }
 
 export function dirtyDocuments(): Array<{ packagePath: string; title: string }> {

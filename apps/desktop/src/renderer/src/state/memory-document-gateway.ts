@@ -20,6 +20,8 @@
 import { executeCommand, type Document, type DocumentCommand } from '@noteforest/core';
 import type {
   ApplyResult,
+  LibraryView,
+  MaterializeDraftResult,
   OpenDocumentSnapshot,
   OpenStatus,
   ReloadDocumentResult,
@@ -33,6 +35,7 @@ import type { DocumentGateway } from './document-gateway';
 
 export type InMemoryGatewayCall =
   | { readonly method: 'takeOverLock'; readonly packagePath: string }
+  | { readonly method: 'materializeDraft'; readonly documentKey: string }
   | {
       readonly method: 'apply';
       readonly packagePath: string;
@@ -67,6 +70,7 @@ export interface InMemoryDocumentGateway {
   queueRestoreBackup(result: RestoreBackupResult): void;
   queueReload(result: ReloadDocumentResult): void;
   queueTakeOverLock(result: TakeOverLockResult): void;
+  queueMaterializeDraft(result: MaterializeDraftResult): void;
 }
 
 export interface InMemoryDocumentGatewayOptions {
@@ -74,6 +78,21 @@ export interface InMemoryDocumentGatewayOptions {
   document: Document;
   status?: OpenStatus;
   readOnlyReason?: string;
+  /** Path the default materialization returns (a draft becomes this package). */
+  materializedPath?: string;
+}
+
+function memoryLibrary(libraryPath: string): LibraryView {
+  return {
+    libraryPath,
+    libraryName: libraryPath.split('/').filter((part) => part.length > 0).at(-1) ?? 'Library',
+    appSupportPath: '/memory/support',
+    documents: [],
+    recent: [],
+    libraries: [],
+    missing: false,
+    warnings: [],
+  };
 }
 
 export function createInMemoryDocumentGateway(
@@ -90,6 +109,7 @@ export function createInMemoryDocumentGateway(
   const restoreBackupResults: RestoreBackupResult[] = [];
   const reloadResults: ReloadDocumentResult[] = [];
   const takeOverLockResults: TakeOverLockResult[] = [];
+  const materializeResults: MaterializeDraftResult[] = [];
 
   const snapshot = (): OpenDocumentSnapshot => ({
     packagePath: options.packagePath,
@@ -115,6 +135,19 @@ export function createInMemoryDocumentGateway(
       status = 'editable';
       readOnlyReason = undefined;
       return { ok: true, snapshot: snapshot() };
+    },
+
+    materializeDraft: async (documentKey) => {
+      calls.push({ method: 'materializeDraft', documentKey });
+      const scripted = materializeResults.shift();
+      if (scripted !== undefined) return scripted;
+      const packagePath =
+        options.materializedPath ?? documentKey.replace(/^draft:/, '/memory/library/');
+      return {
+        ok: true,
+        packagePath,
+        library: memoryLibrary('/memory/library'),
+      };
     },
 
     apply: async (packagePath, command) => {
@@ -185,5 +218,6 @@ export function createInMemoryDocumentGateway(
     queueRestoreBackup: (result) => restoreBackupResults.push(result),
     queueReload: (result) => reloadResults.push(result),
     queueTakeOverLock: (result) => takeOverLockResults.push(result),
+    queueMaterializeDraft: (result) => materializeResults.push(result),
   };
 }

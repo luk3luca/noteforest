@@ -12,6 +12,7 @@ import type { DocumentGateway } from './document-gateway';
 export function createElectronDocumentGateway(): DocumentGateway {
   return {
     takeOverLock: (packagePath) => window.noteforest.takeOverLock(packagePath),
+    materializeDraft: (documentKey) => window.noteforest.materializeDraft(documentKey),
     apply: (packagePath, command) => window.noteforest.apply(packagePath, command),
     save: (packagePath, options) => window.noteforest.save(packagePath, options),
     saveCopy: (packagePath) => window.noteforest.saveCopy(packagePath),

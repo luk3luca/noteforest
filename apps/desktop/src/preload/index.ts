@@ -5,9 +5,11 @@ import type {
   BootstrapResult,
   ChooseExportFolderResult,
   CreateDocumentResult,
+  CreateDraftResult,
   CreateLibraryInput,
   DocumentSettingsRecoveryResult,
   DocumentSettingsSaveResult,
+  DraftLibraryResult,
   ExportDefaults,
   ExportJobView,
   ExportPathStatus,
@@ -22,10 +24,12 @@ import type {
   LibraryParentChoice,
   LibraryView,
   ListBackupsResult,
+  MaterializeDraftResult,
   MenuCommand,
   NoteForestApi,
   OpenDocumentResult,
   ReloadDocumentResult,
+  RemoveMissingDocumentResult,
   RestoreBackupResult,
   RevealResult,
   SaveCopyResult,
@@ -34,6 +38,8 @@ import type {
   SessionState,
   SettingsSaveResult,
   TakeOverLockResult,
+  TrashDocumentResult,
+  TrashPreflight,
   WindowState,
 } from '../shared/api.js';
 import { normalizeFlushResult } from '../shared/flush.js';
@@ -43,6 +49,11 @@ const api: NoteForestApi = {
   scanLibrary: (root?: string): Promise<LibraryView> => ipcRenderer.invoke('library:scan', root),
   createDocument: (input): Promise<CreateDocumentResult> =>
     ipcRenderer.invoke('library:create', input),
+  createDraft: (): Promise<CreateDraftResult> => ipcRenderer.invoke('draft:create'),
+  materializeDraft: (documentKey: string): Promise<MaterializeDraftResult> =>
+    ipcRenderer.invoke('draft:materialize', documentKey),
+  chooseDraftLibrary: (documentKey: string): Promise<DraftLibraryResult> =>
+    ipcRenderer.invoke('draft:choose-library', documentKey),
   openLibrary: (): Promise<LibraryActionResult> => ipcRenderer.invoke('library:open'),
   chooseLibraryParent: (): Promise<LibraryParentChoice> =>
     ipcRenderer.invoke('library:choose-parent'),
@@ -77,6 +88,15 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('document:close', packagePath, options),
   revealDocument: (packagePath: string): Promise<RevealResult> =>
     ipcRenderer.invoke('document:reveal', packagePath),
+  trashPreflight: (packagePath: string): Promise<TrashPreflight> =>
+    ipcRenderer.invoke('document:trash-preflight', packagePath),
+  trashDocument: (packagePath: string): Promise<TrashDocumentResult> =>
+    ipcRenderer.invoke('document:trash', packagePath),
+  removeMissingDocument: (
+    packagePath: string,
+    documentId?: string | null,
+  ): Promise<RemoveMissingDocumentResult> =>
+    ipcRenderer.invoke('document:remove-missing', packagePath, documentId ?? null),
   revealLibrary: (libraryPath?: string): Promise<RevealResult> =>
     ipcRenderer.invoke('library:reveal', libraryPath),
   revealAppSupport: (): Promise<void> => ipcRenderer.invoke('settings:reveal'),

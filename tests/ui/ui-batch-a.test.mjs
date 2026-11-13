@@ -330,6 +330,10 @@ describe('Batch A UI rework', () => {
     // Active Library and Topics rows use a 1 px accent ring, not a left stripe.
     await h.setWindowSize(1440, 900);
     await page.waitForFunction(() => window.innerWidth > 1300, undefined, { timeout: 5000 });
+    // The created tabs are drafts and have no library row; activate the seeded
+    // document so the Library row assertion has a real package.
+    await page.locator('.nf-tab').first().click();
+    await page.waitForSelector('.nf-library-row[data-active="true"]');
     const libraryShadow = await css('.nf-library-row[data-active="true"]', 'box-shadow');
     assert.match(libraryShadow, /0px 0px 0px 1px inset/);
     assert.doesNotMatch(libraryShadow, /2px 0px 0px 0px inset/);

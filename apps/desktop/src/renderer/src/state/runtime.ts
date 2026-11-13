@@ -44,10 +44,15 @@ import { TextSelection } from '@tiptap/pm/state';
 import type {
   ApplyResult,
   LockInfoView,
+  MaterializeDraftResult,
   OpenDocumentSnapshot,
   RestoreBackupResult,
   SaveCopyResult,
+  SaveFailureCode,
+  SaveRequestOptions,
+  SaveResult,
 } from '../../../shared/api';
+import { draftIdFromKey } from '../../../shared/drafts';
 import { buildBlockNode, withBody } from '../lib/adapter';
 import {
   contentWithImage,
@@ -124,7 +129,27 @@ function withBlockLevel(node: ProseNode, topLevel: boolean, depth: number): Pros
 }
 
 export class DocumentRuntime {
-  readonly packagePath: string;
+  /**
+   * Document key at call time: a real package path, or `draft:<id>` until the
+   * first real mutation materializes the package. The document id never changes.
+   */
+  private currentPath: string;
+
+  /**
+   * Fires after a draft materializes, before the caller renders the new key.
+   * The registry/actions use it to move the runtime and the shell tab from the
+   * draft key to the package path without remounting the editor.
+   */
+  onPackagePathChange:
+    | ((previous: string, next: string, documentId: string) => void)
+    | null = null;
+
+  /** Last draft materialization failure (library missing, lock, disk). */
+  draftError: { code: string; message: string } | null = null;
+
+  private draftMaterializing: Promise<
+    { ok: true } | { ok: false; code: string; message: string }
+  > | null = null;
 
   status: OpenDocumentSnapshot['status'];
 
@@ -194,7 +219,7 @@ export class DocumentRuntime {
     restore: RestorePoint | null,
     gateway: DocumentGateway = createElectronDocumentGateway(),
   ) {
-    this.packagePath = snapshot.packagePath;
+    this.currentPath = snapshot.packagePath;
     this.status = snapshot.status;
     this.readOnlyReason = snapshot.readOnlyReason;
     this.lock = snapshot.lock;
@@ -202,8 +227,9 @@ export class DocumentRuntime {
     this.restorePoint = restore;
     this.gateway = gateway;
     this.session = new DocumentSession(snapshot.document, {
-      packagePath: this.packagePath,
+      packagePath: () => this.currentPath,
       gateway: this.gateway,
+      adoptPackagePath: (next) => this.adoptPackagePath(next),
       isEditable: () => this.editable,
       commitEditor: () => this.commitContentInternal(),
       bumpVersion: () => {
@@ -229,12 +255,137 @@ export class DocumentRuntime {
       queue: this.session.queue,
       isEditable: () => this.editable,
       commit: () => this.commitContentInternal(),
-      write: (options) => this.gateway.save(this.packagePath, options),
+      write: (options) => this.writeDocument(options),
       saveCopy: () => this.gateway.saveCopy(this.packagePath),
       applyRevision: (revision) => this.session.applyRevision(revision),
       changed: () => this.notify(),
     });
     for (const id of collapsed) this.collapsed.add(id);
+  }
+
+  /** Document key: a package path, or `draft:<id>` before materialization. */
+  get packagePath(): string {
+    return this.currentPath;
+  }
+
+  /** The draft id while this document has no package, else null. */
+  get draftId(): string | null {
+    return draftIdFromKey(this.currentPath);
+  }
+
+  get isDraft(): boolean {
+    return this.draftId !== null;
+  }
+
+  /**
+   * Adopt the package path returned by materialization (or by a command/save
+   * that materialized a draft). Content, revision, selection, and undo history
+   * are untouched: only the document key changes.
+   */
+  adoptPackagePath(next: string): void {
+    if (next.length === 0 || next === this.currentPath) return;
+    const previous = this.currentPath;
+    this.currentPath = next;
+    this.draftError = null;
+    this.onPackagePathChange?.(previous, next, this.document.id);
+    this.notify();
+  }
+
+  /**
+   * Materialize a draft. Safe to call outside the serial queue and idempotent;
+   * a non-draft returns ok immediately. The editor buffer is committed first,
+   * so the first keystroke is included in the first package write.
+   */
+  ensureMaterialized(): Promise<
+    { ok: true } | { ok: false; code: string; message: string }
+  > {
+    if (!this.isDraft) return Promise.resolve({ ok: true });
+    if (this.draftMaterializing !== null) return this.draftMaterializing;
+    const run = this.session.queue.run(() => this.materializeLocked());
+    this.draftMaterializing = run.finally(() => {
+      this.draftMaterializing = null;
+    });
+    return this.draftMaterializing;
+  }
+
+  /**
+   * Materialization inside the serial queue (never `queue.run` from here). The
+   * first content commit may already materialize through the lazy main-process
+   * path; this re-checks the key before asking explicitly.
+   */
+  private async materializeLocked(): Promise<
+    { ok: true } | { ok: false; code: string; message: string }
+  > {
+    if (!this.isDraft) return { ok: true };
+    if (!this.editable) {
+      return {
+        ok: false,
+        code: 'read-only',
+        message: 'This note is open read-only; it cannot be saved.',
+      };
+    }
+    this.saves.clearPendingCommit();
+    const committed = await this.commitContentInternal();
+    if (!committed) {
+      const message = this.saveError ?? 'Could not commit the pending edit.';
+      // The commit itself can fail because the lazy main-process materialization
+      // failed (missing library, live lock); keep that visible on the draft too.
+      this.draftError = {
+        code: this.saves.saveFailure?.code ?? 'commit-failed',
+        message,
+      };
+      this.notify();
+      return { ok: false, code: 'save-failed', message };
+    }
+    if (!this.isDraft) return { ok: true };
+    const documentKey = this.currentPath;
+    let result: MaterializeDraftResult;
+    try {
+      result = await this.gateway.materializeDraft(documentKey);
+    } catch (error) {
+      result = {
+        ok: false,
+        code: 'unknown',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+    if (!result.ok) {
+      this.draftError = { code: result.code, message: result.message };
+      this.notify();
+      return result;
+    }
+    this.adoptPackagePath(result.packagePath);
+    return { ok: true };
+  }
+
+  /** Save one document, materializing a dirty draft first. Runs inside the queue. */
+  private async writeDocument(options?: SaveRequestOptions): Promise<SaveResult> {
+    // An untouched draft is discarded, never written: a plain save (⌘S, a
+    // library-switch flush, close) must not create a package. Only a dirty
+    // draft materializes; explicit user actions call `ensureMaterialized`.
+    if (this.isDraft && this.saves.dirty) {
+      const prepared = await this.materializeLocked();
+      if (!prepared.ok) {
+        const code: SaveFailureCode =
+          prepared.code === 'library-missing'
+            ? 'not-found'
+            : prepared.code === 'locked'
+              ? 'lock-lost'
+              : 'unknown';
+        return {
+          ok: false,
+          changed: false,
+          revision: this.document.revision,
+          code,
+          error: prepared.message,
+        };
+      }
+    }
+    const result = await this.gateway.save(this.packagePath, options);
+    if (result.ok && result.packagePath !== undefined) {
+      this.adoptPackagePath(result.packagePath);
+    }
+    return result;
   }
 
   /** Canonical document at the current revision. */
@@ -426,6 +577,12 @@ export class DocumentRuntime {
     // A failed save stays visible and authoritative; typing does not downgrade
     // the status back to a plain "Unsaved changes".
     this.saves.noteTextEdit();
+    // A draft materializes on the first keystroke, not on the 800 ms autosave.
+    // The task commits the editor buffer first, so the typed text is in the
+    // first package write.
+    if (this.isDraft && this.draftMaterializing === null) {
+      void this.ensureMaterialized();
+    }
   }
 
   /**

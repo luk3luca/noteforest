@@ -49,6 +49,12 @@ export async function insertImageFromDialog(
   }
   const toastId = beginCopy(1);
   try {
+    // The asset bytes live inside the package, so a draft materializes first.
+    const prepared = await runtime.ensureMaterialized();
+    if (!prepared.ok) {
+      toast.error(prepared.message, { id: toastId });
+      return;
+    }
     const result = await window.noteforest.importImage(runtime.packagePath);
     if (!result.ok) {
       if (result.canceled) toast.dismiss(toastId);
@@ -80,6 +86,11 @@ export async function replaceImageFromDialog(
   }
   const toastId = beginCopy(1);
   try {
+    const prepared = await runtime.ensureMaterialized();
+    if (!prepared.ok) {
+      toast.error(prepared.message, { id: toastId });
+      return;
+    }
     const result = await window.noteforest.importImage(runtime.packagePath);
     if (!result.ok) {
       if (result.canceled) toast.dismiss(toastId);
@@ -149,6 +160,11 @@ export async function insertImagesFromFiles(
   const images = files.filter((file) => mimeForImageFile(file) !== undefined);
   if (images.length === 0) return;
   const toastId = beginCopy(images.length);
+  const prepared = await runtime.ensureMaterialized();
+  if (!prepared.ok) {
+    toast.error(prepared.message, { id: toastId });
+    return;
+  }
   for (const file of images) {
     const mime = mimeForImageFile(file);
     if (mime === undefined) {

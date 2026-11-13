@@ -351,15 +351,21 @@ function EditorSurface({
           return true;
         },
       },
-      onUpdate: () => {
+      onUpdate: ({ transaction }) => {
         // A hidden surface (page layout) or Read mode must not turn a
         // programmatic rebuild or an editable toggle into a text-history entry.
+        // `docChanged` is the real-edit signal: `setEditable` and other
+        // non-document transactions must not dirty (or materialize) a draft.
+        if (!transaction.docChanged) return;
         if (visibleRef.current && interactionModeRef.current === 'edit') {
           runtime.noteEditorUpdate();
         }
       },
     },
-    [runtime.packagePath],
+    // The runtime instance is the editor identity. A draft→package path swap
+    // must not recreate the TipTap editor (selection, scroll, and text history
+    // would be lost); handlers read the current path at call time.
+    [runtime],
   );
 
   useEffect(() => {

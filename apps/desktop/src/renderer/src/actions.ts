@@ -6,6 +6,7 @@ import type {
   MenuCommand,
   OpenDocumentResult,
   RecoveryDocumentView,
+  TrashPreflight,
 } from '../../shared/api';
 import type { ApplyOutcome, DocumentRuntime } from './state/runtime';
 import {
@@ -71,6 +72,7 @@ import {
 } from './lib/editability';
 import { commitPageEdit } from './page/page-edit-state';
 import { exportActiveDocument } from './export/export-flow';
+import { isDraftKey } from '../../shared/drafts';
 import {
   zoomCommandIsValid,
   type ZoomCommand,
@@ -136,6 +138,7 @@ export async function openPath(packagePath: string): Promise<boolean> {
   if (isRecoveryResult(result)) {
     shell().openTab({
       packagePath: result.packagePath,
+      tabKey: result.packagePath,
       title: result.title,
       recovery: {
         status: result.status,
@@ -154,6 +157,7 @@ export async function openPath(packagePath: string): Promise<boolean> {
     .adoptDocumentSettings(packagePath, result.document.id);
   shell().openTab({
     packagePath,
+    tabKey: result.document.id,
     title: result.document.title,
     ...(result.status === 'read-only' ? { readOnlyReason: result.readOnlyReason } : {}),
   });
@@ -174,18 +178,46 @@ function isRecoveryResult(result: OpenDocumentResult): result is RecoveryDocumen
   return 'recovery' in result && result.recovery === true;
 }
 
+/**
+ * `+` creates an in-memory draft bound to the active library. Nothing is
+ * written, locked, or added to the library list/recents until the first real
+ * mutation materializes it.
+ */
 export async function createNewDocument(): Promise<void> {
-  const result = await window.noteforest.createDocument({ title: 'Untitled' });
+  const result = await window.noteforest.createDraft();
   if (!result.ok) {
     toast.error(result.message);
     return;
   }
-  registerRuntime(result.snapshot, undefined, undefined);
-  shell().setLibrary(result.library);
+  const { snapshot } = result.draft;
+  registerRuntime(snapshot, undefined, undefined);
   shell().openTab({
-    packagePath: result.snapshot.packagePath,
-    title: result.snapshot.document.title,
+    packagePath: snapshot.packagePath,
+    tabKey: snapshot.document.id,
+    title: snapshot.document.title,
   });
+}
+
+/** Retry a failed draft materialization (library reconnected, lock freed). */
+export async function retryDraftMaterialization(runtime: DocumentRuntime): Promise<boolean> {
+  const result = await runtime.ensureMaterialized();
+  if (!result.ok) {
+    toast.error(result.message);
+    return false;
+  }
+  return true;
+}
+
+/** Choose another library for a draft whose creation library is missing. */
+export async function chooseLibraryForDraft(runtime: DocumentRuntime): Promise<void> {
+  if (!runtime.isDraft) return;
+  const result = await window.noteforest.chooseDraftLibrary(runtime.packagePath);
+  if (!result.ok) {
+    if (result.canceled !== true) toast.error(result.message);
+    return;
+  }
+  shell().setLibrary(result.library);
+  await retryDraftMaterialization(runtime);
 }
 
 /* ------------------------------------------------------------- libraries */
@@ -232,10 +264,19 @@ async function flushBeforeLibrarySwitch(): Promise<boolean> {
  * active. Switching from the Library menu never retargets open tabs.
  */
 export async function syncActiveLibraryForPath(packagePath: string): Promise<void> {
+  // A draft has no library path of its own; it keeps its creation binding until
+  // materialization (LD-10).
+  if (isDraftKey(packagePath)) return;
   const state = useShell.getState();
   const library = state.library;
   if (library === null) return;
   if (library.libraryPath.length > 0 && isPathInside(library.libraryPath, packagePath)) {
+    // Materialization adds a package the last scan did not see; activation of a
+    // known row is a no-op.
+    if (!library.documents.some((document) => document.packagePath === packagePath)) {
+      const scanned = await window.noteforest.refreshLibrary();
+      shell().setLibrary(scanned);
+    }
     return;
   }
   const target = library.libraries.find((entry) => isPathInside(entry.path, packagePath));
@@ -381,6 +422,15 @@ export async function renameDocument(title: string): Promise<void> {
   if (runtime === null) return;
   const clean = title.trim();
   if (clean.length === 0 || clean === runtime.document.title) return;
+  // A rename is a real mutation: a draft materializes first so the title change
+  // and the package are saved together.
+  if (runtime.isDraft) {
+    const prepared = await runtime.ensureMaterialized();
+    if (!prepared.ok) {
+      toast.error(prepared.message);
+      return;
+    }
+  }
   const outcome = await runtime.applyStructural({ type: 'document.rename', title: clean });
   if (!outcome.ok) {
     toast.error(outcome.message ?? 'Could not rename the document.');
@@ -446,10 +496,14 @@ export async function closeTab(
         return;
       }
     }
-    await window.noteforest.closeDocument(packagePath, { save: false });
-    removeRuntime(packagePath);
+    // A draft key is discarded in the main process; a materialized document
+    // path releases its store and lock as usual.
+    await window.noteforest.closeDocument(runtime.packagePath, { save: false });
+    removeRuntime(runtime.packagePath);
   }
-  if (tab !== undefined) shell().pushClosed(tab);
+  // A draft is never a reopenable closed tab: it has no package on disk until
+  // it materializes, and a discarded draft must not be reopened.
+  if (tab !== undefined && !isDraftKey(tab.packagePath)) shell().pushClosed(tab);
   shell().closeTab(packagePath);
 }
 
@@ -667,6 +721,75 @@ export function revealActive(): void {
 export async function revealDocumentPath(packagePath: string): Promise<void> {
   const result = await window.noteforest.revealDocument(packagePath);
   if (!result.ok) toast.error(result.message ?? 'Could not reveal the document.');
+}
+
+/* --------------------------------------------------------- Move to Trash */
+
+/**
+ * Open the confirmation for one library row. A live lock or an outside-library
+ * path is reported directly and no destructive action is offered; a missing
+ * package gets the cleanup-only variant instead.
+ */
+export async function requestTrashDocument(packagePath: string): Promise<void> {
+  if (isDraftKey(packagePath)) {
+    toast.info('This note is still a draft. Close its tab to discard it; nothing has been written.');
+    return;
+  }
+  const preflight = await window.noteforest.trashPreflight(packagePath);
+  if (!preflight.canTrash && (preflight.status !== 'missing' || preflight.liveLock)) {
+    toast.error(preflight.reason ?? 'This document cannot be moved to the Trash.');
+    return;
+  }
+  shell().openDialog({ kind: 'trash-document', packagePath, preflight });
+}
+
+/** Confirmed Move to Trash: flush first, then the main-process OS Trash move. */
+export async function confirmTrashDocument(preflight: TrashPreflight): Promise<void> {
+  const packagePath = preflight.packagePath;
+  const runtime = getRuntime(packagePath);
+  if (runtime !== null) {
+    // An open Page Edit is not in the runtime until it commits.
+    if (!(await commitPageEdit(packagePath))) {
+      toast.error('Could not commit the Page Edit block before moving the note to the Trash.');
+      return;
+    }
+    await runtime.flush();
+    if (runtime.saveState === 'error') {
+      toast.error(runtime.saveError ?? 'Could not save before moving the note to the Trash.');
+      return;
+    }
+  }
+  const result = await window.noteforest.trashDocument(packagePath);
+  if (!result.ok) {
+    toast.error(result.message);
+    return;
+  }
+  shell().setLibrary(result.library);
+  useSettingsStore
+    .getState()
+    .forgetDocumentSettings(preflight.documentId, packagePath);
+  if (runtime !== null) removeRuntime(packagePath);
+  shell().closeTab(packagePath);
+  toast.success(`Moved “${preflight.title}” to the Trash`);
+}
+
+/** Missing package: cleanup-only, never deletes anything. */
+export async function confirmRemoveMissingDocument(preflight: TrashPreflight): Promise<void> {
+  const result = await window.noteforest.removeMissingDocument(
+    preflight.packagePath,
+    preflight.documentId,
+  );
+  if (!result.ok) {
+    toast.error(result.message);
+    return;
+  }
+  shell().setLibrary(result.library);
+  useSettingsStore
+    .getState()
+    .forgetDocumentSettings(preflight.documentId, preflight.packagePath);
+  if (getRuntime(preflight.packagePath) !== null) removeRuntime(preflight.packagePath);
+  shell().closeTab(preflight.packagePath);
+  toast.success(`Removed “${preflight.title}” from recents`);
 }
 
 export function focusBlock(packagePath: string, blockId: string): void {
@@ -1221,6 +1344,7 @@ export function openTabMenu(
 ): void {
   const tab = shell().tabs.find((item) => item.packagePath === packagePath);
   if (tab === undefined) return;
+  const draft = isDraftKey(packagePath);
   shell().openContextMenu(anchor.x, anchor.y, [
     {
       id: 'activate',
@@ -1237,13 +1361,14 @@ export function openTabMenu(
     },
     {
       id: 'reveal',
-      label: 'Reveal in Finder',
-      onSelect: () => void revealDocumentPath(packagePath),
+      label: draft ? 'Reveal in Finder — not saved yet' : 'Reveal in Finder',
+      disabled: draft,
+      ...(draft ? {} : { onSelect: () => void revealDocumentPath(packagePath) }),
     },
     { id: 'sep', label: '', separator: true },
     {
       id: 'close',
-      label: 'Close tab',
+      label: draft ? 'Discard draft' : 'Close tab',
       shortcut: '⌘W',
       onSelect: () => void closeTab(packagePath),
     },
@@ -1258,6 +1383,9 @@ export function openLibraryMenu(
     (document) => document.packagePath === packagePath,
   );
   const editable = entry === undefined || entry.status === 'ok';
+  const missing = entry?.status === 'missing';
+  const runtime = getRuntime(packagePath);
+  const renameEnabled = editable && (runtime === null || runtime.editable);
   shell().openContextMenu(anchor.x, anchor.y, [
     {
       id: 'open',
@@ -1273,15 +1401,45 @@ export function openLibraryMenu(
       ? [
           {
             id: 'rename',
-            label: 'Rename document…',
-            onSelect: () => {
-              void openPath(packagePath).then((opened) => {
-                if (opened) shell().openDialog({ kind: 'rename-document' });
-              });
-            },
+            label: renameEnabled
+              ? 'Rename document…'
+              : 'Rename document… (read-only)',
+            disabled: !renameEnabled,
+            ...(renameEnabled
+              ? {
+                  onSelect: () => {
+                    void openPath(packagePath).then((opened) => {
+                      if (!opened) return;
+                      const current = getRuntime(packagePath);
+                      if (current === null || !current.editable) {
+                        toast.error('This document is open read-only and cannot be renamed.');
+                        return;
+                      }
+                      shell().openDialog({ kind: 'rename-document' });
+                    });
+                  },
+                }
+              : {}),
           },
         ]
       : []),
+    { id: 'sep-document', label: '', separator: true },
+    ...(missing
+      ? [
+          {
+            id: 'remove-missing',
+            label: 'Remove from recents',
+            onSelect: () => void requestTrashDocument(packagePath),
+          },
+        ]
+      : [
+          {
+            id: 'trash',
+            label: 'Move to Trash…',
+            danger: true,
+            onSelect: () => void requestTrashDocument(packagePath),
+          },
+        ]),
   ]);
 }
 
