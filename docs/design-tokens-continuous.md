@@ -217,10 +217,15 @@ Continuous cards use their own surface roles: `--note-surface` (`#1b1d20` dark, 
 `--note-surface-hover` (`#202329`, `#e9f0f5`). Cards never use `--surface-1`: in light that role is
 white and equals the canvas. Top-level and child cards share the same surface.
 
-Resting edges use `--edge` (`#7b858f` dark, `#6c7882` light) and muted edges `--edge-muted`
-(`#565f68`, `#9aa5ad`); active edges stay `--edge-active` (the accent). Stroke widths (1.25 / 1.75 /
-1) and the 6 × 3 arrowhead are unchanged. Page/PDF edge colors and the Page stroke width are a
-separate skin; see [`design-tokens-page.md`](design-tokens-page.md#page-route-and-shared-edge-values).
+Resting primary edges derive from the accent: `--edge: var(--accent-strong)` (the same value as
+`--edge-active`), so an unselected tree already reads as one accent-colored structure. Selection is
+carried by width, not a second color: the selected path uses `--nf-edge-width-active` 1.75, every
+other branch uses `--edge-muted` (`#565f68` dark, `#9aa5ad` light, 0.35 opacity); the selected
+card's accent ring remains the block cue. Reference edges keep their neutral, lower-emphasis dashed
+stroke through `--edge-reference` (`#7b858f` dark, `#6c7882` light) and never become accent unless
+the reference itself is selected. Stroke widths (1.25 / 1.75 / 1) and the 6 × 3 arrowhead are
+unchanged. Page/PDF edge colors and the Page stroke width are a separate skin; see
+[`design-tokens-page.md`](design-tokens-page.md#page-route-and-shared-edge-values).
 
 ## Future resize tokens (post-M4, not scheduled)
 

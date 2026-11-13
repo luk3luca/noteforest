@@ -161,6 +161,25 @@ async function waitSavedAppearance(patch) {
   );
 }
 
+/** Clear the mount-time block selection through the Page Escape contract. */
+async function clearSelection() {
+  await page.keyboard.press('Meta+3');
+  await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
+  await page.locator('.nf-page-view').click({ position: { x: 8, y: 8 } });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(
+    () => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+      return runtime?.selectedBlockId === null;
+    },
+    undefined,
+    { timeout: 5000 },
+  );
+  await page.keyboard.press('Meta+2');
+  await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view', { state: 'detached' });
+}
+
 async function waitForPageRead() {
   await page.keyboard.press('Meta+3');
   await page.waitForFunction(
@@ -651,12 +670,25 @@ describe('R3 appearance v3', () => {
       blocks: [
         textBlock('surface-root', 'Root', 'A top-level note with one child.'),
         textBlock('surface-child', 'Child', 'A child note card.'),
+        textBlock('surface-sibling', 'Sibling', 'A second child that stays muted.'),
+        textBlock('surface-reference', 'Referenced', 'A reference target.'),
       ],
       branches: [
         {
           id: 'surface-branch',
           sourceBlockId: 'surface-root',
           targetBlockId: 'surface-child',
+        },
+        {
+          id: 'surface-sibling-branch',
+          sourceBlockId: 'surface-root',
+          targetBlockId: 'surface-sibling',
+        },
+        {
+          id: 'surface-reference-branch',
+          sourceBlockId: 'surface-root',
+          targetBlockId: 'surface-reference',
+          role: 'reference',
         },
       ],
     });
@@ -665,6 +697,7 @@ describe('R3 appearance v3', () => {
     // presence in the layer is what matters.
     await page.waitForSelector('.nf-edge-path', { state: 'attached' });
     await waitTheme('dark');
+    await clearSelection();
 
     // NodeViewWrapper is the card: data-block-card and .nf-block-body are one element.
     const topLevelCard = '.nf-block-body[data-block-card="surface-root"]';
@@ -679,9 +712,17 @@ describe('R3 appearance v3', () => {
     assert.equal(darkCanvas, 'rgb(23, 24, 26)');
     assert.equal(await computed(topLevelCard, 'background-color'), 'rgb(27, 29, 32)');
     assert.equal(await computed(childCard, 'background-color'), 'rgb(27, 29, 32)');
-    // Resting edges are stronger; width and arrowhead are unchanged.
-    assert.equal(await computed('.nf-edge-path', 'stroke'), 'rgb(123, 133, 143)');
+    // The resting primary edge is the accent strong color; selection is the
+    // same color at the active width, with the other branches muted.
+    const darkStrong = await roleColor('--accent-strong');
+    assert.equal(darkStrong, 'rgb(185, 208, 230)', 'the default dark accent strong');
+    assert.equal(await computed('.nf-edge-path', 'stroke'), darkStrong);
     assert.equal(await computed('.nf-edge-path', 'stroke-width'), '1.25px');
+    assert.equal(
+      await computed('.nf-edge-path.nf-edge-reference, .nf-edge-reference', 'stroke'),
+      'rgb(123, 133, 143)',
+      'reference edges keep the neutral stroke',
+    );
     const arrowBox = await page.locator('.nf-edge-arrow').first().evaluate((element) => {
       const box = element.getBBox();
       return { width: box.width, height: box.height };
@@ -689,6 +730,28 @@ describe('R3 appearance v3', () => {
     assert.equal(arrowBox.width, 6, 'the arrowhead is still 6 px long');
     assert.equal(arrowBox.height, 6, 'the arrowhead is still 6 px wide');
     await page.screenshot({ path: join(screenshotDir, 'continuous-note-surface-dark.png') });
+
+    // Selection still changes the edge presentation: the selected path keeps
+    // the accent at 1.75 px while every other branch is muted at 1 px / 0.35.
+    await page.locator(childCard).locator('.nf-block-prose').click();
+    await h.waitSelected('surface-child');
+    await page.waitForFunction(
+      () => {
+        const active = document.querySelector('.nf-edge-path.nf-edge-active');
+        const muted = document.querySelector('.nf-edge-path.nf-edge-muted');
+        if (active === null || muted === null) return false;
+        return (
+          Math.abs(Number.parseFloat(getComputedStyle(active).strokeWidth) - 1.75) < 0.001 &&
+          Math.abs(Number.parseFloat(getComputedStyle(muted).strokeWidth) - 1) < 0.001
+        );
+      },
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(await computed('.nf-edge-path.nf-edge-active', 'stroke'), darkStrong);
+    assert.equal(await computed('.nf-edge-path.nf-edge-muted', 'stroke'), 'rgb(86, 95, 104)');
+    assert.equal(await computed('.nf-edge-path.nf-edge-muted', 'opacity'), '0.35');
+    await page.screenshot({ path: join(screenshotDir, 'continuous-edges-dark-selected.png') });
 
     // Hover uses the note-surface-hover role, including a top-level card.
     await page.locator(topLevelCard).hover();
@@ -706,7 +769,12 @@ describe('R3 appearance v3', () => {
     assert.equal(await computed(canvasSelector, 'background-color'), 'rgb(255, 255, 255)');
     await waitForBackground(topLevelCard, 'rgb(242, 246, 249)');
     await waitForBackground(childCard, 'rgb(242, 246, 249)');
-    assert.equal(await computed('.nf-edge-path', 'stroke'), 'rgb(108, 120, 130)');
+    assert.equal(await roleColor('--edge'), 'rgb(31, 74, 109)', 'light resting edge is accent strong');
+    assert.equal(
+      await roleColor('--edge-reference'),
+      'rgb(108, 120, 130)',
+      'light reference edges keep the neutral stroke',
+    );
     await page.screenshot({ path: join(screenshotDir, 'continuous-note-surface-light.png') });
 
     // The Page skin keeps its own edge color while the shell theme changes.

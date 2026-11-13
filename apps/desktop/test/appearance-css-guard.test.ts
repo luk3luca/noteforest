@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { ACCENTS } from '@noteforest/layout';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -122,7 +123,7 @@ function channel(value: number): number {
 }
 
 function luminance(hex: string): number {
-  const cleaned = hex.replace('#', '');
+  const cleaned = hex.replace('#', '').toLowerCase();
   const full =
     cleaned.length === 3
       ? cleaned
@@ -220,7 +221,7 @@ describe('shell color contract', () => {
         '--text-3',
         '--border-1',
         '--border-2',
-        '--edge',
+        '--edge-reference',
         '--edge-muted',
         '--note-surface',
         '--note-surface-hover',
@@ -240,7 +241,14 @@ describe('shell color contract', () => {
       }
     }
     const light = declarationsOf(rule('html[data-theme="light"]').body);
-    for (const role of ['--bg-app', '--bg-canvas', '--surface-1', '--text-1', '--border-1']) {
+    for (const role of [
+      '--bg-app',
+      '--bg-canvas',
+      '--surface-1',
+      '--text-1',
+      '--border-1',
+      '--edge-reference',
+    ]) {
       expect(light.has(role), `light ${role}`).toBe(true);
     }
   });
@@ -263,6 +271,7 @@ describe('shell color contract', () => {
       '--border': 'var(--border-1)',
       '--border-strong': 'var(--border-2)',
       '--accent-ring': 'var(--accent-strong)',
+      '--edge': 'var(--accent-strong)',
       '--edge-active': 'var(--accent-strong)',
       '--focus-ring': 'var(--accent-ring)',
     };
@@ -272,7 +281,7 @@ describe('shell color contract', () => {
   });
 
   it('derives the ring roles instead of declaring a second color', () => {
-    for (const name of ['--accent-ring', '--focus-ring', '--edge-active']) {
+    for (const name of ['--accent-ring', '--focus-ring', '--edge', '--edge-active']) {
       const values = rules.filter((candidate) => candidate.body.includes(`${name}:`));
       for (const candidate of values) {
         const value = declarationsOf(candidate.body).get(name);
@@ -304,7 +313,7 @@ describe('Continuous note surface and resting edges', () => {
       selector: 'html, html[data-theme="dark"]',
       note: '#1b1d20',
       hover: '#202329',
-      edge: '#7b858f',
+      edgeReference: '#7b858f',
       edgeMuted: '#565f68',
       text3: '#949aa2',
       border2: '#6e737a',
@@ -313,7 +322,7 @@ describe('Continuous note surface and resting edges', () => {
       selector: 'html[data-theme="light"]',
       note: '#f2f6f9',
       hover: '#e9f0f5',
-      edge: '#6c7882',
+      edgeReference: '#6c7882',
       edgeMuted: '#9aa5ad',
       text3: '#5b6771',
       border2: '#82888c',
@@ -390,23 +399,38 @@ describe('Continuous note surface and resting edges', () => {
     ).toBe('var(--note-surface-hover)');
   });
 
-  it('makes resting edges visible without changing the stroke contract', () => {
+  it('derives the resting primary edge from every accent strong value', () => {
+    const canvases = {
+      dark: declarationsOf(rule('html, html[data-theme="dark"]').body).get('--bg-canvas') as string,
+      light: declarationsOf(rule('html[data-theme="light"]').body).get('--bg-canvas') as string,
+    };
+    for (const accent of ACCENTS) {
+      for (const theme of ['dark', 'light'] as const) {
+        expect(
+          contrast(accent[theme].strong, canvases[theme]),
+          `${accent.id} ${theme} accent-strong on canvas`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it('keeps the neutral reference stroke separate from the accent primary edge', () => {
     for (const theme of themes) {
       const declarations = declarationsOf(rule(theme.selector).body);
-      expect(declarations.get('--edge'), theme.selector).toBe(theme.edge);
+      expect(declarations.get('--edge-reference'), theme.selector).toBe(theme.edgeReference);
       expect(declarations.get('--edge-muted'), theme.selector).toBe(theme.edgeMuted);
+      expect(declarations.has('--edge'), `${theme.selector} has no --edge literal`).toBe(false);
       expect(
-        contrast(theme.edge, declarations.get('--bg-canvas') as string),
-        `${theme.selector} resting edge vs canvas`,
+        contrast(theme.edgeReference, declarations.get('--bg-canvas') as string),
+        `${theme.selector} reference edge vs canvas`,
       ).toBeGreaterThanOrEqual(3);
-      // Muted edges read dimmer than resting edges but stay visible.
-      expect(contrast(theme.edgeMuted, declarations.get('--bg-canvas') as string)).toBeLessThan(
-        contrast(theme.edge, declarations.get('--bg-canvas') as string),
-      );
       expect(
         contrast(theme.edgeMuted, declarations.get('--bg-canvas') as string),
         `${theme.selector} muted edge vs canvas`,
       ).toBeGreaterThanOrEqual(2);
+      expect(
+        contrast(theme.edgeMuted, declarations.get('--bg-canvas') as string),
+      ).toBeLessThan(contrast(theme.edgeReference, declarations.get('--bg-canvas') as string));
     }
     expect(declarationsOf(rule('.nf-edge-path').body).get('stroke')).toBe('var(--edge)');
     expect(declarationsOf(rule('.nf-edge-path').body).get('stroke-width')).toBe(
@@ -415,9 +439,22 @@ describe('Continuous note surface and resting edges', () => {
     expect(declarationsOf(rule('.nf-edge-active').body).get('stroke')).toBe(
       'var(--edge-active)',
     );
-    // Active edges stay the accent, never the resting neutral.
     expect(declarationsOf(rule('.nf-edge-active').body).get('stroke-width')).toBe(
       'var(--nf-edge-width-active)',
+    );
+    expect(declarationsOf(rule('.nf-edge-muted').body).get('stroke')).toBe('var(--edge-muted)');
+    expect(declarationsOf(rule('.nf-edge-muted').body).get('stroke-width')).toBe(
+      'var(--nf-edge-width-muted)',
+    );
+    expect(declarationsOf(rule('.nf-edge-reference').body).get('stroke')).toBe(
+      'var(--edge-reference)',
+    );
+    expect(declarationsOf(rule('.nf-edge-reference-arrow').body).get('stroke')).toBe(
+      'var(--edge-reference)',
+    );
+    // A selected reference stays the accent; reference strokes never turn red.
+    expect(declarationsOf(rule('.nf-edge-reference.nf-edge-reference-active').body).get('stroke')).toBe(
+      'var(--edge-active)',
     );
   });
 

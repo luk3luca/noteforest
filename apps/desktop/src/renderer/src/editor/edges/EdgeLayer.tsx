@@ -40,7 +40,10 @@ interface RoutedGroupResult {
 }
 
 export function EdgeLayer({ edges, referenceEdges = [], rects, activePath, selectedBlockId = null, onEdgeClick, onTrunkClick, onReferenceEdgeClick }: EdgeLayerProps): JSX.Element {
-  const hasSelection = activePath.size > 1;
+  // Any selected block mutes the branches outside its path, including a
+  // top-level block (whose path contains only itself, so every branch is
+  // muted). Deeper selections additionally light their active path.
+  const hasSelection = activePath.size > 0;
 
   const routed = useMemo(() => {
     const started = performance.now();

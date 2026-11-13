@@ -661,6 +661,157 @@ describe('V0 visual shell', () => {
     await showContinuous();
   });
 
+  it('uses the accent as the resting Continuous edge and keeps selection readable', async () => {
+    await launch('edges');
+    await ui.seedDemo();
+    // The editor selects the first block on mount; clear it through the Page
+    // surface's Escape contract so the idle screenshots start from nothing.
+    await page.keyboard.press('Meta+3');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
+    await page.locator('.nf-page-view').click({ position: { x: 8, y: 8 } });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return runtime?.selectedBlockId === null;
+      },
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+2');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view', { state: 'detached' });
+    await page.waitForSelector('.nf-edge-path', { state: 'attached' });
+
+    const edgeColors = () =>
+      page.evaluate(() => {
+        const probe = document.createElement('div');
+        document.body.appendChild(probe);
+        const role = (name) => {
+          probe.style.color = `var(${name})`;
+          return getComputedStyle(probe).color;
+        };
+        const result = {
+          accentStrong: role('--accent-strong'),
+          reference: role('--edge-reference'),
+          muted: role('--edge-muted'),
+          resting: null,
+        };
+        probe.remove();
+        const path = document.querySelector(
+          '.nf-editor[data-active="true"] .nf-edge-path:not(.nf-edge-active):not(.nf-edge-muted)',
+        );
+        if (path !== null) result.resting = getComputedStyle(path).stroke;
+        return result;
+      });
+
+    const dark = await edgeColors();
+    assert.equal(dark.resting, dark.accentStrong, 'no selection: resting primary edges use accent-strong');
+    assert.notEqual(dark.resting, dark.reference, 'primary and reference edges stay distinct');
+    await h.screenshot(resolve(screenshotDir, 'edges-dark-idle.png'), { width: 1440, height: 900 });
+
+    async function waitRestingEdge() {
+      await page.waitForFunction(
+        () => {
+          const probe = document.createElement('div');
+          probe.style.color = 'var(--accent-strong)';
+          document.body.appendChild(probe);
+          const expected = getComputedStyle(probe).color;
+          probe.remove();
+          const path = document.querySelector(
+            '.nf-editor[data-active="true"] .nf-edge-path:not(.nf-edge-active):not(.nf-edge-muted)',
+          );
+          return path !== null && getComputedStyle(path).stroke === expected;
+        },
+        undefined,
+        { timeout: 5000 },
+      );
+    }
+
+    async function setTheme(theme) {
+      await page.keyboard.press('Meta+,');
+      await page.waitForSelector('[data-settings-dialog="true"]');
+      await page.locator('[data-settings-nav="appearance"]').click();
+      await page.locator(`[data-appearance-theme-option="${theme}"]`).click();
+      await page.waitForFunction(
+        (expected) => document.documentElement.dataset.theme === expected,
+        theme,
+        { timeout: 10000 },
+      );
+      await page.getByRole('button', { name: 'Done' }).click();
+      await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
+    }
+
+    await setTheme('light');
+    await waitRestingEdge();
+    const light = await edgeColors();
+    assert.equal(light.resting, light.accentStrong, 'light resting primary edges use accent-strong');
+    await h.screenshot(resolve(screenshotDir, 'edges-light-idle.png'), { width: 1440, height: 900 });
+
+    // A top-level selection mutes every branch (the top-level block is the
+    // whole selected path) while the card ring marks the block.
+    const topLevel = h.activeEditor().locator('[data-block-card][data-top-level="true"]').first();
+    const topLevelId = await topLevel.getAttribute('data-block-card');
+    await topLevel.locator('.nf-block-prose').click();
+    await h.waitSelected(topLevelId);
+    await page.waitForFunction(
+      () => {
+        const muted = [...document.querySelectorAll('.nf-edge-path.nf-edge-muted')];
+        return (
+          muted.length > 0 &&
+          muted.every((path) => getComputedStyle(path).opacity === '0.35')
+        );
+      },
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(
+      await page.locator('.nf-edge-path.nf-edge-active').count(),
+      0,
+      'a top-level selection has no descendant path edge',
+    );
+    await h.screenshot(resolve(screenshotDir, 'edges-light-selected.png'), { width: 1440, height: 900 });
+
+    // Selecting a descendant keeps its path active at 1.75 px while the other
+    // branches are muted at 1 px / 0.35 opacity.
+    const spectrum = h
+      .activeEditor()
+      .locator('[data-block-card]', { hasText: 'Spectrum' })
+      .first();
+    const spectrumId = await spectrum.getAttribute('data-block-card');
+    await spectrum.locator('.nf-block-prose').click();
+    await h.waitSelected(spectrumId);
+    await page.waitForFunction(
+      () => {
+        const active = document.querySelector('.nf-edge-path.nf-edge-active');
+        const muted = document.querySelector('.nf-edge-path.nf-edge-muted');
+        return (
+          active !== null &&
+          muted !== null &&
+          Math.abs(Number.parseFloat(getComputedStyle(active).strokeWidth) - 1.75) < 0.001 &&
+          Math.abs(Number.parseFloat(getComputedStyle(muted).strokeWidth) - 1) < 0.001
+        );
+      },
+      undefined,
+      { timeout: 5000 },
+    );
+    const selectedLight = await page.evaluate(() => {
+      const active = document.querySelector('.nf-edge-path.nf-edge-active');
+      const muted = document.querySelector('.nf-edge-path.nf-edge-muted');
+      return {
+        activeStroke: active === null ? null : getComputedStyle(active).stroke,
+        mutedStroke: muted === null ? null : getComputedStyle(muted).stroke,
+        mutedOpacity: muted === null ? null : getComputedStyle(muted).opacity,
+      };
+    });
+    assert.equal(selectedLight.activeStroke, light.accentStrong);
+    assert.equal(selectedLight.mutedStroke, light.muted);
+    assert.equal(selectedLight.mutedOpacity, '0.35');
+
+    await setTheme('dark');
+    await h.screenshot(resolve(screenshotDir, 'edges-dark-selected.png'), { width: 1440, height: 900 });
+  });
+
   it('targets the active layout for zoom and fit without touching the hidden layout', async () => {
     await launch('zoom');
     await ui.seedDemo();

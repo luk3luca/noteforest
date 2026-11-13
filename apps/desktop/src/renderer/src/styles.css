@@ -64,8 +64,10 @@ html[data-theme="dark"] {
   --text-3: #949aa2;
   --border-1: #2e3238;
   --border-2: #6e737a;
-  /* Resting edges are a visible tree line, not a hint. */
-  --edge: #7b858f;
+  /* Reference edges keep their neutral, lower-emphasis stroke. Primary edges
+     are the accent-strong alias below (selected and resting share one color;
+     width and the muted branches carry selection). */
+  --edge-reference: #7b858f;
   --edge-muted: #565f68;
   --danger: #d98b8b;
   --danger-soft: #351f22;
@@ -100,7 +102,7 @@ html[data-theme="light"] {
   --text-3: #5b6771;
   --border-1: #d7dee4;
   --border-2: #82888c;
-  --edge: #6c7882;
+  --edge-reference: #6c7882;
   --edge-muted: #9aa5ad;
   --danger: #a23b32;
   --danger-soft: #fbeae7;
@@ -119,7 +121,9 @@ html[data-theme="light"] {
 /*
  * Migration aliases and derived roles. Aliases are `var()` references, never
  * duplicated values: a role change reaches both names. `--accent-ring`,
- * `--edge-active`, and `--focus-ring` all derive from `--accent-strong`.
+ * `--edge`, `--edge-active`, and `--focus-ring` all derive from
+ * `--accent-strong`; a resting primary edge already uses the selected accent,
+ * and selection is carried by width plus muted branches (no second color).
  */
 :root {
   --shell: var(--bg-app);
@@ -131,6 +135,7 @@ html[data-theme="light"] {
   --border: var(--border-1);
   --border-strong: var(--border-2);
   --accent-ring: var(--accent-strong);
+  --edge: var(--accent-strong);
   --edge-active: var(--accent-strong);
   --focus-ring: var(--accent-ring);
 }
@@ -3384,7 +3389,7 @@ body.nf-dragging-block .nf-gutter-handle {
 /* Reference edges (M3d1): dashed, thin, open chevron. They never share the
    primary trunk and are routed only after cards are placed. */
 .nf-edge-reference {
-  stroke: var(--edge);
+  stroke: var(--edge-reference);
   stroke-width: var(--nf-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -3399,7 +3404,7 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-edge-reference-arrow {
-  stroke: var(--edge);
+  stroke: var(--edge-reference);
   stroke-width: var(--nf-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
