@@ -769,9 +769,11 @@ button:disabled {
 }
 
 /* Collapsed: a 48 px rail with expand at the top and Settings at the bottom.
-   The column stays mounted; only the expanded content is replaced. */
+   The column stays mounted; only the expanded content is replaced. Head and
+   foot stay full width with the same 8 px inset as the expanded shell, so the
+   collapse/expand and Settings icons keep their exact centres and sizes. */
 .nf-sidebar-rail {
-  align-items: center;
+  align-items: stretch;
 }
 
 .nf-rail-head {
@@ -779,6 +781,7 @@ button:disabled {
   align-items: center;
   justify-content: flex-start;
   flex: none;
+  width: 100%;
   height: 44px;
   padding: 0 8px;
 }
@@ -792,6 +795,7 @@ button:disabled {
   align-items: center;
   justify-content: flex-start;
   flex: none;
+  width: 100%;
   padding: 6px 8px 8px;
 }
 
@@ -1238,10 +1242,21 @@ button:disabled {
   align-items: center;
   gap: 7px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 8px 0 0;
   border-radius: 6px;
   color: var(--text-2);
   font-size: calc(12px * var(--ui-scale));
+}
+
+/* The 30 x 30 icon slot is the same box as the collapsed rail gear, so the
+   gear centre does not move across the collapse transition. */
+.nf-sidebar-settings-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
 }
 
 .nf-sidebar-settings:hover {
@@ -4947,17 +4962,19 @@ body.nf-dragging-block .nf-gutter-handle {
 
 /*
  * Settings shell: a large modal with a stable left nav, one scrolling page,
- * and a footer that reports the real write. There is no Apply/Cancel and no
- * dirty-dot state; the Page lens writes immediately.
+ * one shared preview rail, and a footer that reports the real write. There is
+ * no Apply/Cancel and no dirty-dot state; the Page lens writes immediately.
  *
- * Batch V: one desktop width for every page. Only the viewport narrows the
- * modal; the active Settings page never changes it. The fixed 580 px dialog
- * height keeps the header/footer still while the page body scrolls.
+ * Batch A/V gave every page one desktop width. The settings-shell layout batch
+ * makes the surface wider and taller (1180 x 820) so the three preview pages
+ * share a real right rail, and caps the height so the footer always stays
+ * reachable below the fixed 108 px overlay offset. The overlay stays
+ * top-anchored; there is no vertical centering.
  */
 .nf-settings-modal {
-  width: 980px;
+  width: 1180px;
   max-width: 92vw;
-  max-height: 86vh;
+  height: min(820px, calc(100vh - 132px));
   background: var(--surface-3);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-overlay);
@@ -4965,12 +4982,12 @@ body.nf-dragging-block .nf-gutter-handle {
   overflow: hidden;
 }
 
+/* Follows the modal height: one literal, on the modal. */
 .nf-settings {
   outline: none;
   display: flex;
   flex-direction: column;
-  height: 580px;
-  max-height: 86vh;
+  height: 100%;
 }
 
 .nf-settings-head {
@@ -5043,10 +5060,10 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 /*
- * One content column on every page: 536 px plus the 184 px nav and the 258 px
- * preview fills the 978 px modal content box exactly. Non-Page pages center
- * the same column instead of stretching into the preview space, so no page
- * looks like it is missing a third column.
+ * One content column on every page: 536 px plus the 184 px nav. Pages with a
+ * preview add the shared right rail (clamp 320–400 px); the column centers in
+ * whatever space remains, so non-preview pages never look like a third column
+ * is missing.
  */
 .nf-settings-pane {
   flex: 1 1 0;
@@ -5147,16 +5164,26 @@ body.nf-dragging-block .nf-gutter-handle {
   padding-top: 8px;
 }
 
-.nf-continuous-preview {
+/*
+ * Continuous sample: the frame owns the scaled size and clips the stage; the
+ * stage keeps its real px geometry (cards, spacing, corridor, arrows) and one
+ * uniform transform scales it to fit the rail width.
+ */
+.nf-continuous-preview-fit {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex: none;
+  justify-content: center;
+}
+
+.nf-continuous-preview-frame {
+  position: relative;
+  flex: none;
+  overflow: hidden;
 }
 
 .nf-continuous-preview-stage {
   position: relative;
-  max-width: 100%;
-  overflow: hidden;
+  transform-origin: top left;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-panel);
   background: var(--canvas);
@@ -5539,17 +5566,30 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--warning);
 }
 
-/* ---------------------------------------------------- settings: Page preview (Batch B) */
+/* ---------------------------------- settings: shared preview rail (Page, Continuous, Appearance) */
 
+/*
+ * One rail for every Settings page with a preview. Width is viewport-modal
+ * driven, never page driven: 34% of the body clamped between 320 and 400 px,
+ * so switching pages can never resize the modal or the rail. Pages without a
+ * preview render no rail.
+ */
 .nf-settings-preview {
   display: flex;
   flex-direction: column;
   flex: none;
   gap: 10px;
-  width: 258px;
+  width: clamp(320px, 34%, 400px);
   padding: 18px 16px 20px;
   border-left: 1px solid var(--border-1);
   overflow-y: auto;
+}
+
+.nf-settings-preview > .nf-settings-preview-title,
+.nf-settings-preview > .nf-settings-preview-scope,
+.nf-settings-preview > .nf-settings-preview-summary,
+.nf-settings-preview > .nf-settings-help {
+  flex: none;
 }
 
 .nf-settings-preview-title {
@@ -5559,22 +5599,41 @@ body.nf-dragging-block .nf-gutter-handle {
   font-weight: 600;
 }
 
-.nf-settings-preview-stack {
+/*
+ * Stacked page sheets. The container takes the leftover rail height and the
+ * component derives one uniform scale from it, so both sheets fit without
+ * scrolling and shrink together on shorter windows.
+ */
+.nf-settings-preview-pages {
   position: relative;
-}
-
-.nf-settings-preview-stage {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 250px;
-  padding: 10px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-control);
-  background: var(--surface-1);
-  overflow: hidden;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 0;
 }
 
+.nf-settings-preview-page {
+  display: flex;
+  justify-content: center;
+  flex: none;
+}
+
+.nf-settings-preview-page-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+}
+
+/* The 14 px line + 4 px gap is the SHEET_LABEL_ROW contract in PageSettingsPreview. */
+.nf-settings-preview-page-label {
+  height: 14px;
+  line-height: 14px;
+  color: var(--text-3);
+  font-size: calc(10.5px * var(--ui-scale));
+}
 .nf-settings-preview-frame {
   position: relative;
   flex: none;
@@ -5845,6 +5904,11 @@ body.nf-dragging-block .nf-gutter-handle {
   border: 1px solid var(--border-1);
   border-radius: var(--radius-panel);
   background: var(--bg-canvas);
+}
+
+/* In the shared rail the sample reads as one column, not a miniature page. */
+.nf-settings-preview .nf-appearance-preview {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .nf-appearance-preview-surface {

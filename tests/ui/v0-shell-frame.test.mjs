@@ -416,7 +416,12 @@ describe('V0 visual shell', () => {
     const iconCenter = async (selector) =>
       page.locator(selector).first().evaluate((element) => {
         const rect = element.getBoundingClientRect();
-        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        return {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+          w: rect.width,
+          h: rect.height,
+        };
       });
     const expandedCollapseIcon = await iconCenter('[aria-label="Collapse sidebar"] svg');
     const expandedSettingsIcon = await iconCenter('.nf-sidebar-settings svg');
@@ -452,8 +457,10 @@ describe('V0 visual shell', () => {
     assert.equal(await page.locator('[data-sidebar-reveal="true"]').count(), 0, 'no titlebar reveal');
     assert.equal(await page.locator('.nf-titlebar button').count(), 0);
 
-    // Collapse/expand and Settings keep the same icon centers (within 1 px) so
-    // neither control jumps across the rail transition.
+    // Collapse/expand and Settings keep the same icon centres (within 0.5 px)
+    // and the same 15 px icon size across the rail transition. The rail head
+    // and foot are full width with the same 8 px inset as the expanded shell,
+    // and the footer gear shares the 30 x 30 icon slot.
     const railExpandIcon = await iconCenter('[data-sidebar-expand="true"] svg');
     const railSettingsIcon = await iconCenter('[data-rail-settings="true"] svg');
     for (const [name, expanded, railIcon] of [
@@ -461,9 +468,13 @@ describe('V0 visual shell', () => {
       ['Settings', expandedSettingsIcon, railSettingsIcon],
     ]) {
       assert.ok(
-        Math.abs(expanded.x - railIcon.x) <= 1 && Math.abs(expanded.y - railIcon.y) <= 1,
+        Math.abs(expanded.x - railIcon.x) <= 0.5 && Math.abs(expanded.y - railIcon.y) <= 0.5,
         `${name} icon center is stable (${expanded.x},${expanded.y} -> ${railIcon.x},${railIcon.y})`,
       );
+      assert.equal(expanded.w, 15, `${name} icon keeps its 15 px width`);
+      assert.equal(expanded.h, 15, `${name} icon keeps its 15 px height`);
+      assert.equal(railIcon.w, 15, `${name} rail icon is 15 px wide`);
+      assert.equal(railIcon.h, 15, `${name} rail icon is 15 px tall`);
     }
 
     // The Toolbar shifts to the rail edge; the tabs follow it.

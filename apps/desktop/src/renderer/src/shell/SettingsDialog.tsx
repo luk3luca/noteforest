@@ -20,8 +20,10 @@ import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';
 import { useContinuousSettingsController } from '../settings/useContinuousSettingsController';
 import { ContinuousSettingsPage } from '../settings/ContinuousSettings';
+import { ContinuousSettingsPreview } from '../settings/ContinuousSettingsPreview';
 import { PageSettingsPreview } from '../settings/PageSettingsPreview';
 import { AppearanceSettingsPage } from '../settings/AppearanceSettings';
+import { AppearanceSettingsPreview } from '../settings/AppearanceSettingsPreview';
 import { ExportSettingsPage } from '../settings/ExportSettings';
 import {
   AdvancedTypographyFields,
@@ -60,14 +62,12 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'general', label: 'General' },
       { id: 'appearance', label: 'Appearance' },
+      { id: 'continuous', label: 'Continuous' },
     ],
   },
   {
     label: 'Document',
-    items: [
-      { id: 'page', label: 'Page' },
-      { id: 'continuous', label: 'Continuous' },
-    ],
+    items: [{ id: 'page', label: 'Page' }],
   },
   {
     label: 'Workflow',
@@ -1592,6 +1592,10 @@ export function SettingsDialog({
                 }
               />
             ) : null}
+            {activePage === 'continuous' ? (
+              <ContinuousSettingsPreview settings={continuousSettings.settings} />
+            ) : null}
+            {activePage === 'appearance' ? <AppearanceSettingsPreview /> : null}
           </div>
           <footer className="nf-settings-foot">
             <span

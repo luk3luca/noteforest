@@ -1,12 +1,15 @@
 /**
- * Live Page preview for Settings (Batch B).
+ * Live Page preview for Settings (Batch B, two stacked pages in the shared rail).
  *
  * The preview is not a skeleton and does not have its own paginator: it mounts
  * the same `usePageModel` measurement/layout/paginate pipeline as Page Read,
- * with the draft setup/theme and the active scope. The first derived page is
- * rendered with the same projection, CSS variables, chrome, fragment markup,
- * and edge mapper. Invalid margins keep the last valid model visible and show
- * an explicit paused state; no document shows a clearly labelled sample.
+ * with the draft setup/theme and the active scope. The first two derived pages
+ * render with the same projection, CSS variables, chrome, fragment markup, and
+ * edge mapper — page 1 above page 2, like a document. Both sheets are scaled by
+ * one uniform factor so they fit the rail height without scrolling; on shorter
+ * windows they scale down instead of clipping. Invalid margins keep the last
+ * valid model visible and show an explicit paused state; no document shows a
+ * clearly labelled sample and an empty document stays one sheet.
  */
 
 import { useMemo, type CSSProperties, type ReactNode } from 'react';
@@ -16,13 +19,13 @@ import type {
   PageFragment,
   PageGeometry,
   PageSettings,
+  PageTheme,
 } from '@noteforest/layout';
 import { buildPageEdgeModel, pageCssVariables } from '@noteforest/layout';
 import type { DocumentRuntime } from '../state/runtime';
 import { corePageGeometry } from '../page/adapter';
 import { PageChromeView } from '../page/PageChromeView';
 import { PageSurface } from '../page/PageView';
-import { PageEdges } from '../page/PageEdges';
 import { emptyPageChrome, projectPageContent } from '../page/projection';
 import {
   contentWrapperHtml,
@@ -32,6 +35,7 @@ import {
 } from '../page/segments';
 import { usePageModel } from '../page/usePageModel';
 import { formatMm, MARGIN_KEYS } from './page-setup';
+import { useMeasuredElement, type MeasuredSize } from './useMeasuredSize';
 
 interface PageSettingsPreviewProps {
   runtime: DocumentRuntime | null;
@@ -40,39 +44,65 @@ interface PageSettingsPreviewProps {
   scopeLabel: string;
 }
 
-const PREVIEW_MAX_WIDTH = 218;
-const PREVIEW_MAX_HEIGHT = 230;
+/**
+ * CSS contract shared with `.nf-settings-preview-page-label` and
+ * `.nf-settings-preview-pages`: a 14 px label line plus a 4 px gap above each
+ * sheet, and a 10 px gap between stacked sheets. The UI suite proves the sheets
+ * fit, so a drift here fails there instead of silently clipping.
+ */
+const SHEET_LABEL_ROW = 18;
+const SHEET_ROW_GAP = 10;
 
-function previewScale(geometry: PageGeometry): number {
-  return Math.min(
-    PREVIEW_MAX_WIDTH / geometry.pageWidthPx,
-    PREVIEW_MAX_HEIGHT / geometry.pageHeightPx,
-    1,
-  );
+function previewScale(
+  geometry: PageGeometry,
+  available: MeasuredSize,
+  sheetCount: number,
+  withLabels: boolean,
+): number {
+  if (sheetCount <= 0) return 0;
+  const labelRows = withLabels ? SHEET_LABEL_ROW * sheetCount : 0;
+  const rows = SHEET_ROW_GAP * (sheetCount - 1);
+  const perSheet = (available.height - labelRows - rows) / sheetCount;
+  if (available.width <= 0 || perSheet <= 0) return 0;
+  return Math.min(available.width / geometry.pageWidthPx, perSheet / geometry.pageHeightPx, 1);
 }
 
-function PreviewFrame({
+function PreviewSheetFrame({
   geometry,
+  scale,
+  index,
+  label,
   children,
 }: {
   geometry: PageGeometry;
+  scale: number;
+  index: number;
+  label: string | null;
   children: ReactNode;
 }): JSX.Element {
-  const scale = previewScale(geometry);
+  const width = geometry.pageWidthPx * scale;
+  const height = geometry.pageHeightPx * scale;
   return (
-    <div className="nf-settings-preview-stage" aria-hidden="true">
-      <div
-        className="nf-settings-preview-frame"
-        style={{
-          width: `${geometry.pageWidthPx * scale}px`,
-          height: `${geometry.pageHeightPx * scale}px`,
-        }}
-      >
+    <div className="nf-settings-preview-page" data-page-preview-page={index}>
+      <div className="nf-settings-preview-page-sheet" style={{ width: `${width}px` }}>
+        {label === null ? null : (
+          <span className="nf-settings-preview-page-label" data-page-preview-label="true">
+            {label}
+          </span>
+        )}
         <div
-          className="nf-settings-preview-zoom"
-          style={{ transform: `scale(${scale})` }}
+          className="nf-settings-preview-frame"
+          data-page-preview-sheet="true"
+          data-page-preview-sheet-index={index}
+          style={{ width: `${width}px`, height: `${height}px` }}
+          aria-hidden="true"
         >
-          {children}
+          <div
+            className="nf-settings-preview-zoom"
+            style={{ transform: `scale(${scale})` }}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>
@@ -99,6 +129,31 @@ function PreviewOverlay({ invalid }: { invalid: boolean }): JSX.Element | null {
   );
 }
 
+/** The plain A4 sheet used by the no-document sample and the empty state. */
+function PreviewSheet({
+  geometry,
+  theme,
+  children,
+}: {
+  geometry: PageGeometry;
+  theme: PageTheme;
+  children: ReactNode;
+}): JSX.Element {
+  const css = pageCssVariables(theme) as CSSProperties;
+  return (
+    <div
+      className="nf-page-sheet nf-page-scope nf-settings-preview-sheet"
+      style={{
+        ...css,
+        width: `${geometry.pageWidthPx}px`,
+        height: `${geometry.pageHeightPx}px`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function SamplePreview({
   settings,
   invalid,
@@ -107,7 +162,8 @@ function SamplePreview({
   invalid: boolean;
 }): JSX.Element {
   const geometry = useMemo(() => corePageGeometry(settings), [settings]);
-  const css = pageCssVariables(settings.theme) as CSSProperties;
+  const { ref: stackRef, size: measured } = useMeasuredElement();
+  const scale = previewScale(geometry, measured, 1, false);
   // The no-document sample uses the exact same chrome projection as Page Read,
   // so a header/footer/page-number change is visible immediately.
   const chrome = useMemo(
@@ -124,17 +180,14 @@ function SamplePreview({
   );
   return (
     <>
-      <div className="nf-settings-preview-stack">
-        <PreviewFrame geometry={geometry}>
-          <div
-            className="nf-page-sheet nf-page-scope nf-settings-preview-sheet"
-            style={{
-              ...css,
-              width: `${geometry.pageWidthPx}px`,
-              height: `${geometry.pageHeightPx}px`,
-            }}
-            data-page-preview-sheet="true"
-          >
+      <div className="nf-settings-preview-pages" ref={stackRef}>
+        <PreviewSheetFrame
+          geometry={geometry}
+          scale={scale}
+          index={1}
+          label={null}
+        >
+          <PreviewSheet geometry={geometry} theme={settings.theme}>
             <PageChromeView chrome={chrome} />
             <div
               className="nf-page-content"
@@ -150,8 +203,8 @@ function SamplePreview({
                 <span>No document open. Global Page settings apply.</span>
               </div>
             </div>
-          </div>
-        </PreviewFrame>
+          </PreviewSheet>
+        </PreviewSheetFrame>
         <PreviewOverlay invalid={invalid} />
       </div>
       <p className="nf-settings-preview-summary" data-page-preview-summary="true">
@@ -172,20 +225,18 @@ function EmptyDocumentPreview({
   invalid: boolean;
 }): JSX.Element {
   const geometry = useMemo(() => corePageGeometry(settings), [settings]);
-  const css = pageCssVariables(settings.theme) as CSSProperties;
+  const { ref: stackRef, size: measured } = useMeasuredElement();
+  const scale = previewScale(geometry, measured, 1, false);
   return (
     <>
-      <div className="nf-settings-preview-stack">
-        <PreviewFrame geometry={geometry}>
-          <div
-            className="nf-page-sheet nf-page-scope nf-settings-preview-sheet"
-            style={{
-              ...css,
-              width: `${geometry.pageWidthPx}px`,
-              height: `${geometry.pageHeightPx}px`,
-            }}
-            data-page-preview-sheet="true"
-          >
+      <div className="nf-settings-preview-pages" ref={stackRef}>
+        <PreviewSheetFrame
+          geometry={geometry}
+          scale={scale}
+          index={1}
+          label={null}
+        >
+          <PreviewSheet geometry={geometry} theme={settings.theme}>
             <div
               className="nf-page-content"
               style={{
@@ -200,8 +251,8 @@ function EmptyDocumentPreview({
                 <span>{runtime.document.title}</span>
               </div>
             </div>
-          </div>
-        </PreviewFrame>
+          </PreviewSheet>
+        </PreviewSheetFrame>
         <PreviewOverlay invalid={invalid} />
       </div>
       <p className="nf-settings-preview-summary" data-page-preview-summary="true">
@@ -307,19 +358,12 @@ function DocumentPreview({
     return buildPageEdgeModel(model.layout, model.pages);
   }, [model.layout, model.pages]);
 
-  const page = model.pages[0] ?? null;
-  const projected = projection.pages[0] ?? null;
-  const chrome =
-    projected?.chrome ??
-    emptyPageChrome({
-      geometry,
-      documentTitle: runtime.document.title,
-      chapterTitle:
-        page?.chapterTitle ?? (runtime.document.chapters[0]?.title?.trim() || 'Chapter 1'),
-      pageNumber: 1,
-      pageCount: Math.max(1, model.pages.length),
-      chrome: settings.chrome,
-    });
+  // Page 1 and page 2, from the same model and projection. Never a second
+  // usePageModel pass and never a re-pagination: this is the derived list.
+  const sheets = model.pages.slice(0, 2);
+  const pageCount = Math.max(1, model.pages.length);
+  const { ref: stackRef, size: measured } = useMeasuredElement();
+  const scale = previewScale(geometry, measured, sheets.length, true);
 
   const state = invalid
     ? 'invalid'
@@ -373,6 +417,7 @@ function DocumentPreview({
       data-page-preview-state={state}
       data-page-preview-updating={model.updating ? 'true' : 'false'}
       data-page-preview-page-count={model.pages.length}
+      data-page-preview-sheet-count={sheets.length}
       data-page-preview-size={settings.setup.size}
       data-page-preview-orientation={settings.setup.orientation}
       data-page-preview-density={Math.round(settings.theme.density * 100)}
@@ -384,29 +429,39 @@ function DocumentPreview({
       <p className="nf-settings-preview-scope" data-page-preview-scope="true">
         {scopeLabel}
       </p>
-      <div className="nf-settings-preview-stack">
-        <PreviewFrame geometry={geometry}>
-          <PageSurface
-            page={page}
-            pageNumber={1}
-            pageCount={Math.max(1, model.pages.length)}
-            chrome={chrome}
-            geometry={geometry}
-            blocking={projected?.blocking ?? []}
-            edges={model.layout === null ? [] : (edgeModel.edges[0] ?? [])}
-            trunks={model.layout === null ? [] : (edgeModel.trunks[0] ?? [])}
-          >
-            {page === null ? (
-              <div className="nf-settings-preview-placeholder">
-                {state === 'loading' ? 'Measuring…' : 'Preview unavailable'}
-              </div>
-            ) : (
-              <>
-                <PageEdges
-                  edges={edgeModel.edges[0] ?? []}
-                  trunks={edgeModel.trunks[0] ?? []}
-                  geometry={geometry}
-                />
+      <div className="nf-settings-preview-pages" ref={stackRef}>
+        {sheets.map((page, index) => {
+          const projected = projection.pages[index] ?? null;
+          const chrome =
+            projected?.chrome ??
+            emptyPageChrome({
+              geometry,
+              documentTitle: runtime.document.title,
+              chapterTitle:
+                page.chapterTitle ??
+                (runtime.document.chapters[0]?.title?.trim() || 'Chapter 1'),
+              pageNumber: page.pageNumber,
+              pageCount,
+              chrome: settings.chrome,
+            });
+          return (
+            <PreviewSheetFrame
+              key={`page-${page.pageNumber}`}
+              geometry={geometry}
+              scale={scale}
+              index={page.pageNumber}
+              label={String(page.pageNumber)}
+            >
+              <PageSurface
+                page={page}
+                pageNumber={page.pageNumber}
+                pageCount={pageCount}
+                chrome={chrome}
+                geometry={geometry}
+                blocking={projected?.blocking ?? []}
+                edges={model.layout === null ? [] : (edgeModel.edges[index] ?? [])}
+                trunks={model.layout === null ? [] : (edgeModel.trunks[index] ?? [])}
+              >
                 {page.fragments.map((fragment) => (
                   <PreviewFragment
                     key={`${fragment.blockId}-${fragment.startSegment}-${fragment.page.y.toFixed(2)}`}
@@ -416,10 +471,15 @@ function DocumentPreview({
                     segments={projected?.segmentsByBlock[fragment.blockId] ?? []}
                   />
                 ))}
-              </>
-            )}
-          </PageSurface>
-        </PreviewFrame>
+              </PageSurface>
+            </PreviewSheetFrame>
+          );
+        })}
+        {sheets.length === 0 ? (
+          <div className="nf-settings-preview-placeholder">
+            {state === 'loading' ? 'Measuring…' : 'Preview unavailable'}
+          </div>
+        ) : null}
         <PreviewOverlay invalid={invalid} />
       </div>
       <p

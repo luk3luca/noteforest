@@ -14,7 +14,6 @@ import { ChevronDown, RotateCcw } from 'lucide-react';
 import {
   ACCENT_GROUPS,
   accentsInGroup,
-  accentValues,
   UI_SCALES,
   type AppearanceSettings,
   type AppearanceTheme,
@@ -54,7 +53,6 @@ function patchAppearance(patch: Partial<AppearanceSettings>): void {
 export function AppearanceSettingsPage(): JSX.Element {
   const appearance = useSettingsStore((state) => state.app.appearance);
   const resolvedTheme = useResolvedTheme();
-  const accent = accentValues(appearance.accent, resolvedTheme);
 
   return (
     <>
@@ -228,32 +226,10 @@ export function AppearanceSettingsPage(): JSX.Element {
 
       <section className="nf-settings-section" data-appearance-preview-section="true">
         <h4 className="nf-settings-section-title">Preview</h4>
-        <div className="nf-appearance-preview" data-appearance-preview="true">
-          <div className="nf-appearance-preview-surface">
-            <span className="nf-appearance-preview-title">Surface text</span>
-            <span className="nf-appearance-preview-muted">Secondary text</span>
-          </div>
-          <div className="nf-appearance-preview-actions">
-            <span className="nf-button nf-button-primary nf-appearance-preview-button">
-              Primary
-            </span>
-            <span
-              className="nf-appearance-preview-focus"
-              style={{ borderColor: accent.strong }}
-              data-appearance-preview-focus="true"
-            />
-            <span
-              className="nf-appearance-preview-row"
-              style={{ background: accent.soft }}
-              data-appearance-preview-selection="true"
-            >
-              Selected row
-            </span>
-          </div>
-          <code className="nf-appearance-preview-code" data-appearance-preview-code="true">
-            const forest = {'{ notes: 42 }'};
-          </code>
-        </div>
+        <p className="nf-settings-help" data-appearance-preview-help="true">
+          Theme, accent, and type are visible in the right rail while the controls stay in view.
+          Page and PDF keep the paper light.
+        </p>
         <div className="nf-settings-section-actions">
           <button
             type="button"

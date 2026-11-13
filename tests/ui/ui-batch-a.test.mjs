@@ -421,11 +421,27 @@ describe('Batch A UI rework', () => {
     assert.deepEqual(navLabels, [
       'General',
       'Appearance',
-      'Page',
       'Continuous',
+      'Page',
       'Editor',
       'Export',
       'Data & About',
+    ]);
+    // Continuous is global: it moved from Document to App; Page is the only
+    // Document item.
+    const navGroups = await page.evaluate(() =>
+      [...document.querySelectorAll('.nf-settings-nav-group')].map((group) => ({
+        label: group.querySelector('.nf-settings-nav-label')?.textContent?.trim() ?? '',
+        items: [...group.querySelectorAll('.nf-settings-nav-item')].map(
+          (item) => item.textContent?.trim() ?? '',
+        ),
+      })),
+    );
+    assert.deepEqual(navGroups, [
+      { label: 'App', items: ['General', 'Appearance', 'Continuous'] },
+      { label: 'Document', items: ['Page'] },
+      { label: 'Workflow', items: ['Editor', 'Export'] },
+      { label: 'Data', items: ['Data & About'] },
     ]);
     // ⌘, lands on General. Arrow navigation is a real page switch and moves
     // focus with it (the nav steps from the active page).

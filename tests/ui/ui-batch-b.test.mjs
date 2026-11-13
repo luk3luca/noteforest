@@ -246,6 +246,16 @@ describe('Batch B Page settings', () => {
     );
     assert.match(await page.locator('[data-page-preview-summary="true"]').innerText(), /A4 landscape/);
     assert.match(await page.locator('[data-page-preview="true"]').innerText(), /Sample page/);
+    assert.equal(
+      await page.locator('[data-page-preview-sheet="true"]').count(),
+      1,
+      'the no-document sample stays one sheet',
+    );
+    assert.equal(
+      await page.locator('[data-page-preview-label="true"]').count(),
+      0,
+      'the sample sheet has no page number',
+    );
 
     await page.locator('[data-page-size-option="A5"]').click();
     await page.locator('[data-page-orientation-option="portrait"]').click();

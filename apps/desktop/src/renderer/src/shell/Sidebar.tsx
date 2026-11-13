@@ -954,7 +954,9 @@ export function Sidebar({
           title="Settings (⌘,)"
           onClick={openSettings}
         >
-          <Settings size={15} strokeWidth={1.5} aria-hidden="true" />
+          <span className="nf-sidebar-settings-icon">
+            <Settings size={15} strokeWidth={1.5} aria-hidden="true" />
+          </span>
           <span>Settings</span>
         </button>
         <span className="nf-sidebar-foot-spacer" aria-hidden="true" />

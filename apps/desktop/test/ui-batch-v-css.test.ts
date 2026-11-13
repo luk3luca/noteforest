@@ -47,13 +47,23 @@ function declaration(selector: string, property: string): string | undefined {
 }
 
 describe('Batch V visual contracts', () => {
-  it('keeps one 980 px Settings surface with a fixed height and content column', () => {
-    expect(declaration('.nf-settings-modal', 'width')).toBe('980px');
+  it('keeps one 1180 px Settings surface with a viewport-capped height and content column', () => {
+    expect(declaration('.nf-settings-modal', 'width')).toBe('1180px');
     expect(declaration('.nf-settings-modal', 'max-width')).toBe('92vw');
-    expect(declaration('.nf-settings', 'height')).toBe('580px');
+    expect(declaration('.nf-settings-modal', 'height')).toBe(
+      'min(820px, calc(100vh - 132px))',
+    );
+    expect(declaration('.nf-settings', 'height')).toBe('100%');
     expect(declaration('.nf-settings-pane', 'max-width')).toBe('536px');
     expect(declaration('.nf-settings-pane', 'margin')).toBe('0 auto');
     expect(stylesSource).not.toContain('.nf-settings-modal-page');
+    // One shared preview rail for Page, Continuous, and Appearance.
+    expect(declaration('.nf-settings-preview', 'width')).toBe(
+      'clamp(320px, 34%, 400px)',
+    );
+    expect(declaration('.nf-settings-preview', 'border-left')).toBe(
+      '1px solid var(--border-1)',
+    );
     expect(css).toContain(
       '@media (max-width: 920px) { .nf-settings-modal { width: 840px; } .nf-settings-preview { display: none; }',
     );

@@ -60,6 +60,7 @@ export const FILES = [
   'ui-document-status.test.mjs',
   'library-surface.test.mjs',
   'document-lifecycle.test.mjs',
+  'settings-shell-layout.test.mjs',
 ];
 
 /**
@@ -86,6 +87,7 @@ export const GROUPS = {
     'ui-document-status.test.mjs',
     'library-surface.test.mjs',
     'document-lifecycle.test.mjs',
+    'settings-shell-layout.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',
@@ -99,6 +101,7 @@ export const GROUPS = {
     'ui-overlay-command-gate.test.mjs',
     'ui-appearance-v3.test.mjs',
     'ui-document-status.test.mjs',
+    'settings-shell-layout.test.mjs',
   ],
   anchors: [
     'm3-anchor-callout-layout.test.mjs',

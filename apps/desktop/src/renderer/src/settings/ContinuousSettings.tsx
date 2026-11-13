@@ -18,7 +18,6 @@ import {
   CONTINUOUS_WIDTH_MAX,
   CONTINUOUS_WIDTH_MIN,
 } from '@noteforest/layout';
-import { ContinuousSettingsPreview } from './ContinuousSettingsPreview';
 import type { ContinuousSettingsController } from './useContinuousSettingsController';
 
 function formatValue(value: number): string {
@@ -236,7 +235,9 @@ export function ContinuousSettingsPage({
       </details>
 
       <Section title="Preview">
-        <ContinuousSettingsPreview settings={settings} />
+        <p className="nf-settings-help" data-continuous-preview-help="true">
+          The sample tree is in the right rail and follows every value on this page.
+        </p>
       </Section>
 
       <section className="nf-settings-section" data-continuous-reset-section="true">

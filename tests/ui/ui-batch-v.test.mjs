@@ -67,22 +67,38 @@ async function settingsGeometry() {
       return {
         left: box.left,
         right: box.right,
+        top: box.top,
+        bottom: box.bottom,
         width: box.width,
         height: box.height,
       };
     };
-    const preview = document.querySelector('[data-page-preview="true"]');
+    const rails = document.querySelectorAll(
+      '[data-page-preview="true"], [data-continuous-preview="true"], [data-appearance-preview="true"]',
+    );
+    const rail =
+      [...rails].find(
+        (element) =>
+          element.getClientRects().length > 0 && getComputedStyle(element).display !== 'none',
+      ) ?? null;
     return {
       modal: rect('[data-settings-dialog="true"]'),
       dialog: rect('.nf-settings'),
+      head: rect('.nf-settings-head'),
       body: rect('.nf-settings-body'),
       nav: rect('.nf-settings-nav'),
       pane: rect('.nf-settings-pane'),
-      preview: rect('[data-page-preview="true"]'),
-      previewVisible:
-        preview !== null &&
-        preview.getClientRects().length > 0 &&
-        getComputedStyle(preview).display !== 'none',
+      foot: rect('.nf-settings-foot'),
+      rail: rail === null ? null : rect(`.nf-settings-preview`),
+      railVisible: rail !== null,
+      innerHeight: window.innerHeight,
+      footVisible: (() => {
+        const element = document.querySelector('.nf-settings-foot');
+        if (element === null) return false;
+        const box = element.getBoundingClientRect();
+        return box.bottom <= window.innerHeight + 0.5 && box.top >= 0;
+      })(),
+      paneOverflow: getComputedStyle(document.querySelector('.nf-settings-pane')).overflowY,
     };
   });
 }
@@ -102,13 +118,13 @@ describe('Batch V visual refinement', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('keeps one fixed Settings width and height for General, Page, and Editor', async () => {
+  it('keeps one fixed Settings width and height for every page and one shared preview rail', async () => {
     await launch('batch-v-settings');
     await ui.seedDemo();
     await openSettings();
 
     const measurements = [];
-    for (const id of ['page', 'general', 'editor', 'page']) {
+    for (const id of ['page', 'general', 'continuous', 'appearance', 'page']) {
       await showSettingsPage(id);
       if (id === 'page') {
         await page.waitForSelector(
@@ -128,16 +144,21 @@ describe('Batch V visual refinement', () => {
       }
     }
 
+    const previewPages = new Set(['page', 'continuous', 'appearance']);
     for (const entry of measurements) {
       assert.equal(
         Math.round(entry.modal.width),
-        980,
-        `${entry.id}: one 980 px desktop Settings width`,
+        1180,
+        `${entry.id}: one 1180 px desktop Settings width`,
       );
-      assert.equal(
-        Math.round(entry.dialog.height),
-        580,
-        `${entry.id}: the Settings height stays fixed`,
+      const expectedHeight = Math.min(820, entry.innerHeight - 132);
+      assert.ok(
+        Math.abs(entry.modal.height - expectedHeight) <= 0.5,
+        `${entry.id}: the Settings height is min(820, 100vh - 132) (${entry.modal.height} vs ${expectedHeight})`,
+      );
+      assert.ok(
+        Math.abs(entry.dialog.height - (entry.modal.height - 2)) <= 0.5,
+        `${entry.id}: the dialog follows the modal height (one height literal)`,
       );
       assert.equal(
         Math.round(entry.pane.width),
@@ -145,22 +166,59 @@ describe('Batch V visual refinement', () => {
         `${entry.id}: one content column width`,
       );
       assert.equal(
-        entry.previewVisible,
-        entry.id === 'page',
-        `${entry.id}: the preview exists only on Page`,
+        entry.modal.top,
+        108,
+        `${entry.id}: the overlay stays top-anchored at the 108 px offset`,
       );
+      assert.equal(entry.footVisible, true, `${entry.id}: the footer is always reachable`);
+      assert.equal(entry.paneOverflow, 'auto', `${entry.id}: only the page body scrolls`);
+      for (const fixed of ['head', 'nav', 'foot']) {
+        assert.equal(
+          Math.round(entry[fixed].height),
+          Math.round(measurements[0][fixed].height),
+          `${entry.id}: the ${fixed} keeps its fixed height`,
+        );
+      }
+      assert.equal(
+        entry.railVisible,
+        previewPages.has(entry.id),
+        `${entry.id}: the shared rail exists exactly on the preview pages`,
+      );
+      if (entry.railVisible) {
+        const expectedRail = Math.min(
+          400,
+          Math.max(320, entry.body.width * 0.34),
+        );
+        assert.ok(
+          Math.abs(entry.rail.width - expectedRail) <= 0.5,
+          `${entry.id}: the rail is clamp(320, 34%, 400) (${entry.rail.width} vs ${expectedRail})`,
+        );
+      }
+    }
+
+    // Switching pages never changes the modal width or height.
+    for (const entry of measurements) {
+      assert.equal(Math.round(entry.modal.width), Math.round(measurements[0].modal.width));
+      assert.ok(Math.abs(entry.modal.height - measurements[0].modal.height) <= 0.5);
     }
 
     const general = measurements.find((entry) => entry.id === 'general');
     const pageEntry = measurements.find((entry) => entry.id === 'page');
-    assert.ok(general !== undefined && pageEntry !== undefined);
+    const continuousEntry = measurements.find((entry) => entry.id === 'continuous');
+    const appearanceEntry = measurements.find((entry) => entry.id === 'appearance');
+    assert.ok(
+      general !== undefined &&
+        pageEntry !== undefined &&
+        continuousEntry !== undefined &&
+        appearanceEntry !== undefined,
+    );
     assert.equal(
       Math.round(general.pane.width),
       Math.round(pageEntry.pane.width),
       'General and Page use the same content width',
     );
 
-    // Non-Page pages center the content column instead of leaving an empty
+    // Non-preview pages center the content column instead of leaving an empty
     // third column: the free space on both sides of the pane is equal.
     const generalFreeLeft = general.pane.left - general.nav.right;
     const generalFreeRight = general.body.right - general.pane.right;
@@ -169,16 +227,20 @@ describe('Batch V visual refinement', () => {
       `General content is centered (${generalFreeLeft} vs ${generalFreeRight})`,
     );
 
-    // The Page preview sits directly after the pane and ends at the body edge.
-    assert.ok(pageEntry.preview !== null);
+    // The shared rail sits directly after the page section and ends at the
+    // body edge; Page, Continuous, and Appearance use the same width.
+    for (const entry of [pageEntry, continuousEntry, appearanceEntry]) {
+      assert.ok(entry.rail !== null);
+      assert.ok(
+        Math.abs(entry.rail.right - entry.body.right) <= 1,
+        `${entry.id}: the rail fills the right side of the body`,
+      );
+      assert.ok(Math.abs(entry.rail.height - entry.body.height) <= 0.5);
+    }
     assert.ok(
-      Math.abs(pageEntry.preview.right - pageEntry.body.right) <= 1,
-      'the Page preview fills the right side of the body',
-    );
-    assert.equal(
-      Math.round(pageEntry.preview.width),
-      258,
-      'the Page preview column keeps its width',
+      Math.abs(pageEntry.rail.width - continuousEntry.rail.width) <= 0.5 &&
+        Math.abs(pageEntry.rail.width - appearanceEntry.rail.width) <= 0.5,
+      'one rail width for Page, Continuous, and Appearance',
     );
 
     // Above 920 px the preview is a viewport rule only; every page shares the
@@ -186,9 +248,13 @@ describe('Batch V visual refinement', () => {
     // 960 px minimum, so drive the layout viewport directly here.
     await page.setViewportSize({ width: 900, height: 800 });
     await page.waitForFunction(() => window.innerWidth <= 920, undefined, { timeout: 5000 });
+    for (const id of ['page', 'continuous', 'appearance']) {
+      await showSettingsPage(id);
+      const narrowPreview = await settingsGeometry();
+      assert.equal(narrowPreview.railVisible, false, `${id}: the rail hides under 920 px`);
+    }
     await showSettingsPage('page');
     const narrowPage = await settingsGeometry();
-    assert.equal(narrowPage.previewVisible, false, 'the Page preview hides under 920 px');
     await showSettingsPage('general');
     const narrowGeneral = await settingsGeometry();
     assert.equal(
@@ -197,6 +263,7 @@ describe('Batch V visual refinement', () => {
       'the viewport, not the active page, sets the narrow width',
     );
     assert.ok(narrowGeneral.modal.width <= 840, 'the narrow Settings width is bounded');
+    assert.equal(narrowPage.footVisible, true, 'the narrow footer is reachable');
 
     await showSettingsPage('page');
     await closeSettings();
