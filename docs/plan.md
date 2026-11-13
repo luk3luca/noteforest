@@ -480,9 +480,13 @@ cleans stale test apps by userData. The block-boundary Backspace fix is merged a
 Backspace at the very start of a non-atomic block body stays in the block (`native | stay`), empty or
 not, while code/table/list item/blockquote stay native and `⌘Backspace`/Delete remain the only
 structural deletes; the full verify is green (123 unit files/1252 tests, e2e 16, recovery 14, UI
-51/51). R6 Continuous settings is in progress: global `continuous` namespace at `settingsVersion: 5`,
-spacing/arrow/width controls, Reset, and a live sample preview, with Page/PDF isolation as the merge
-gate. Next: R6 integration and the product-owner visual/VoiceOver pass. External API/agent access is
+51/51). R6 Continuous settings is merged at `2b7a016`: a global `continuous` namespace at
+`settingsVersion: 5` with spacing, arrow widths plus one fixed arrowhead size, Advanced width caps,
+Reset, and a live 1+2+1-callout preview that works with no document; the values reach only the
+`.nf-continuous-surface` CSS variables and the resolved Continuous edge style, an isolation test
+proves Page/PDF unchanged, and the per-document zoom controls are gone from Settings. Next: the R6
+visual/VoiceOver pass, the Continuous nav-group IA fix, a post-freeze settings-inventory delta
+(chrome, appearance, export, continuous), and a targeted Sentinel review. External API/agent access is
 removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
