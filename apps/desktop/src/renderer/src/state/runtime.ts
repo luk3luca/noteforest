@@ -143,6 +143,14 @@ export class DocumentRuntime {
 
   /** Anchor selected from a marker, quote chip, outline row, or block menu. */
   selectedAnchor: EditorAnchorSelection | null = null;
+  /** Keep a just-selected anchor through the focus-driven editor sync. */
+  private anchorFocusHold = false;
+  /**
+   * True only after a user action selected a block (canvas pointer/key, outline,
+   * palette, marker). The mount-time editor selection is not user intent, so it
+   * keeps the resting accent edges instead of muting the whole tree.
+   */
+  selectionExplicit = false;
 
   readonly collapsed = new Set<string>();
 
@@ -1523,6 +1531,12 @@ export class DocumentRuntime {
 
   private applyAnchorSelection(selection: EditorAnchorSelection): void {
     this.selectedAnchor = selection;
+    this.selectionExplicit = true;
+    // The same action that selects an anchor also focuses its source or target
+    // in the editor. That focus emits a selection sync after this call; the
+    // hold keeps the anchor until a real editor interaction clears it (pointer
+    // or keyboard) or an explicit selectBlock replaces the selection.
+    this.anchorFocusHold = true;
     if (this.editor !== null) setEditorSelectedAnchor(this.editor, selection);
     this.notify();
   }
@@ -1545,6 +1559,7 @@ export class DocumentRuntime {
   }
 
   clearAnchorSelection(): void {
+    this.anchorFocusHold = false;
     if (this.selectedAnchor === null) return;
     this.selectedAnchor = null;
     if (this.editor !== null) setEditorSelectedAnchor(this.editor, null);
@@ -1605,27 +1620,59 @@ export class DocumentRuntime {
       this.selectedBlockId = blockId;
       if (this.editor !== null) setEditorSelectedBlock(this.editor, blockId, false);
     }
+    this.selectionExplicit = true;
     return this.cycleAnchor(blockId, anchorId);
   }
 
   selectBlock(blockId: string | null): void {
+    this.setBlockSelection(blockId, true);
+  }
+
+  /** Mark the interaction as a user selection before the sync reports a block. */
+  markSelectionExplicit(): void {
+    this.selectionExplicit = true;
+  }
+
+  private setBlockSelection(blockId: string | null, explicit: boolean): void {
     let changed = false;
     if (this.selectedBlockId !== blockId) {
       this.selectedBlockId = blockId;
       changed = true;
     }
-    // Moving to an unrelated block clears the anchor highlight. Selecting the
-    // anchor's source or its branch target keeps it.
-    if (
-      this.selectedAnchor !== null &&
-      blockId !== this.selectedAnchor.blockId &&
-      blockId !== this.selectedAnchor.targetBlockId
-    ) {
+    if (explicit || blockId === null) this.selectionExplicit = explicit && blockId !== null;
+    // An explicit block selection always owns the selection. Even the anchor's
+    // source or target clears the highlight; the sidebar anchor row restores it
+    // by calling selectAnchor right after selectBlock, while a canvas click
+    // leaves exactly one block selected.
+    this.anchorFocusHold = false;
+    if (this.selectedAnchor !== null) {
       this.selectedAnchor = null;
       if (this.editor !== null) setEditorSelectedAnchor(this.editor, null);
       changed = true;
     }
     if (changed) this.notify();
+  }
+
+  /**
+   * Block selection reported by the ProseMirror focus/selection sync. Unlike an
+   * explicit selectBlock, a sync emitted by focusing an anchor's source or
+   * target keeps a just-installed anchor selection. A pointer or key in the
+   * editor clears the anchor first, so canvas interaction always wins.
+   */
+  syncEditorBlockSelection(blockId: string | null): void {
+    const selection = this.selectedAnchor;
+    if (
+      this.anchorFocusHold &&
+      selection !== null &&
+      (blockId === selection.blockId || blockId === selection.targetBlockId)
+    ) {
+      if (this.selectedBlockId !== blockId) {
+        this.selectedBlockId = blockId;
+        this.notify();
+      }
+      return;
+    }
+    this.setBlockSelection(blockId, false);
   }
 
   async toggleCollapse(blockId: string): Promise<void> {

@@ -206,6 +206,68 @@ describe('NoteForest M3b2b anchored outline', () => {
     assert.equal(selectedStyle.radius, '3px', 'the chip uses the control radius');
     assert.equal(selectedStyle.background, 'rgb(38, 49, 60)', 'selected chip uses accent-soft');
     assert.match(selectedStyle.shadow, /rgb\(185, 208, 230\)/, 'selected chip has the accent-strong inset border');
+
+    // Repro: an explicit block selection in the canvas clears the anchor even
+    // when the block is the anchor's own source. Exactly one row stays selected.
+    await page
+      .locator(`[data-block-card="${parentId}"] .nf-block-prose`)
+      .first()
+      .click();
+    await page.waitForFunction(
+      (blockId) => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return runtime?.selectedBlockId === blockId && runtime?.selectedAnchor === null;
+      },
+      parentId,
+      { timeout: 10000 },
+    );
+    assert.equal(
+      await page.locator('.nf-sidebar .nf-tree-anchor-row[data-anchor-selected="true"]').count(),
+      0,
+      'the anchor row clears when its source block is selected',
+    );
+    assert.equal(
+      await page.locator('.nf-sidebar .nf-tree-item[data-selected]').count(),
+      1,
+      'exactly one block row stays selected',
+    );
+    assert.equal(
+      await page.locator('[data-block-card] [data-anchor-selected="true"]').count(),
+      0,
+      'no editor anchor highlight survives the block selection',
+    );
+
+    // The same holds when the anchor's branch target is selected in the canvas.
+    await page.locator(`.nf-sidebar .nf-tree-anchor-row[data-block-id="${symTwo.blockId}"]`).click();
+    await page.waitForFunction(
+      ({ anchorId, target }) => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return runtime?.selectedAnchor?.anchorId === anchorId && runtime?.selectedAnchor?.targetBlockId === target;
+      },
+      { anchorId: symOne.anchorId, target: symTwo.blockId },
+      { timeout: 10000 },
+    );
+    await page
+      .locator(`[data-block-card="${symTwo.blockId}"] .nf-block-prose`)
+      .first()
+      .click();
+    await page.waitForFunction(
+      ({ blockId }) => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return runtime?.selectedBlockId === blockId && runtime?.selectedAnchor === null;
+      },
+      { blockId: symTwo.blockId },
+      { timeout: 10000 },
+    );
+    assert.equal(
+      await page.locator('.nf-sidebar .nf-tree-anchor-row[data-anchor-selected="true"]').count(),
+      0,
+      'the anchor row clears when its target block is selected',
+    );
+
     const siblingChip = page.locator(`[data-block-card="${symOne.blockId}"] .nf-callout-quote`);
     await siblingChip.hover();
     assert.equal(

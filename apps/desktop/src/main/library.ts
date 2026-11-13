@@ -73,6 +73,11 @@ import {
   type AppSettings,
 } from '@noteforest/layout';
 import {
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_SNAP_WIDTH,
+} from '../shared/shell.js';
+import {
   SETTINGS_SCHEMA_VERSION,
   isRecord,
   migrateSettingsDocument,
@@ -110,7 +115,7 @@ const DEFAULT_SESSION: SessionState = {
   tabs: [],
   activeTab: null,
   sidebarCollapsed: false,
-  sidebarWidth: 264,
+  sidebarWidth: SIDEBAR_SNAP_WIDTH,
   collapsedTopics: {},
 };
 
@@ -1493,7 +1498,11 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
         activeTab,
         sidebarCollapsed: raw.sidebarCollapsed === true,
         sidebarWidth:
-          Number.isFinite(width) && width >= 208 && width <= 360 ? Math.round(width) : 264,
+          Number.isFinite(width) &&
+          width >= SIDEBAR_MIN_WIDTH &&
+          width <= SIDEBAR_MAX_WIDTH
+            ? Math.round(width)
+            : SIDEBAR_SNAP_WIDTH,
         collapsedTopics,
       },
       legacyOverrides,

@@ -403,6 +403,14 @@ describe('V0 visual shell', () => {
     const widenedWidth = (await box('.nf-sidebar')).width;
     assert.ok(widenedWidth > initialWidth, `dragging widens the sidebar (${widenedWidth} > ${initialWidth})`);
 
+    const iconCenter = async (selector) =>
+      page.locator(selector).first().evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      });
+    const expandedCollapseIcon = await iconCenter('[aria-label="Collapse sidebar"] svg');
+    const expandedSettingsIcon = await iconCenter('.nf-sidebar-settings svg');
+
     await page.locator('[aria-label="Collapse sidebar"]').click();
     await waitRail();
 
@@ -433,6 +441,20 @@ describe('V0 visual shell', () => {
     assert.ok(rail.bottom - settingsBox.bottom < 24, 'Settings sits at the bottom of the rail');
     assert.equal(await page.locator('[data-sidebar-reveal="true"]').count(), 0, 'no titlebar reveal');
     assert.equal(await page.locator('.nf-titlebar button').count(), 0);
+
+    // Collapse/expand and Settings keep the same icon centers (within 1 px) so
+    // neither control jumps across the rail transition.
+    const railExpandIcon = await iconCenter('[data-sidebar-expand="true"] svg');
+    const railSettingsIcon = await iconCenter('[data-rail-settings="true"] svg');
+    for (const [name, expanded, railIcon] of [
+      ['collapse/expand', expandedCollapseIcon, railExpandIcon],
+      ['Settings', expandedSettingsIcon, railSettingsIcon],
+    ]) {
+      assert.ok(
+        Math.abs(expanded.x - railIcon.x) <= 1 && Math.abs(expanded.y - railIcon.y) <= 1,
+        `${name} icon center is stable (${expanded.x},${expanded.y} -> ${railIcon.x},${railIcon.y})`,
+      );
+    }
 
     // The Toolbar shifts to the rail edge; the tabs follow it.
     const railToolbar = await box('.nf-toolbar');
@@ -664,8 +686,9 @@ describe('V0 visual shell', () => {
   it('uses the accent as the resting Continuous edge and keeps selection readable', async () => {
     await launch('edges');
     await ui.seedDemo();
-    // The editor selects the first block on mount; clear it through the Page
-    // surface's Escape contract so the idle screenshots start from nothing.
+
+    // Clear the mount selection through the Page surface's Escape contract so
+    // the idle screenshots start from nothing.
     await page.keyboard.press('Meta+3');
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
     await page.locator('.nf-page-view').click({ position: { x: 8, y: 8 } });
@@ -704,6 +727,12 @@ describe('V0 visual shell', () => {
         if (path !== null) result.resting = getComputedStyle(path).stroke;
         return result;
       });
+
+    // The mount-time editor selection is not a user selection: the tree keeps
+    // its resting accent edges instead of opening already muted.
+    const mounted = await edgeColors();
+    assert.equal(mounted.resting, mounted.accentStrong, 'mount keeps resting accent edges');
+    assert.equal(await page.locator('.nf-edge-path.nf-edge-muted').count(), 0);
 
     const dark = await edgeColors();
     assert.equal(dark.resting, dark.accentStrong, 'no selection: resting primary edges use accent-strong');
@@ -939,6 +968,101 @@ describe('V0 visual shell', () => {
       height: 900,
     });
 
+  });
+
+  it('resizes the sidebar 180..640, snaps near 264, and resets on double-click', async () => {
+    const env = ui.isolated('sidebar-resize');
+    page = await ui.launch(env);
+    await h.setWindowSize(1440, 900);
+    await ui.seedDemo();
+    const topicRow = page.locator('.nf-tree-row[data-block-id]').first();
+    const topicId = await topicRow.getAttribute('data-block-id');
+    await topicRow.click();
+    await h.waitSelected(topicId);
+
+    async function dragTo(target) {
+      const separator = await box('.nf-separator');
+      const current = (await box('.nf-sidebar')).width;
+      const x = separator.left + separator.width / 2;
+      const y = separator.top + 120;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      const delta = target - current;
+      const steps = Math.max(1, Math.ceil(Math.abs(delta) / 10));
+      for (let step = 1; step <= steps; step += 1) {
+        await page.mouse.move(x + (delta * step) / steps, y);
+      }
+      await page.mouse.up();
+    }
+
+    async function waitWidth(target, tolerance = 2) {
+      await page.waitForFunction(
+        ({ expected, allowed }) =>
+          Math.abs(
+            (document.querySelector('.nf-sidebar')?.getBoundingClientRect().width ?? 0) - expected,
+          ) <= allowed,
+        { expected: target, allowed: tolerance },
+        { timeout: 5000 },
+      );
+    }
+
+    // Range: the old 208/360 literals are gone.
+    await dragTo(180);
+    await waitWidth(180);
+    assert.ok(Math.abs((await box('.nf-sidebar')).width - 180) <= 1, 'the 180 px floor holds');
+    await h.screenshot(resolve(screenshotDir, 'sidebar-expanded-180-selected.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    await dragTo(900);
+    await waitWidth(640);
+    assert.ok(Math.abs((await box('.nf-sidebar')).width - 640) <= 1, 'the 640 px ceiling holds');
+
+    // A steady 560 px drag persists across a relaunch.
+    await dragTo(560);
+    await waitWidth(560);
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().sidebarCollapsed === false,
+      undefined,
+      { timeout: 5000 },
+    );
+    await h.screenshot(resolve(screenshotDir, 'sidebar-expanded-560-selected.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await h.flushSession();
+    await h.quit();
+    page = await ui.launch(env);
+    await h.setWindowSize(1440, 900);
+    await waitExpandedSidebar();
+    assert.ok(
+      Math.abs((await box('.nf-sidebar')).width - 560) <= 2,
+      `the 560 px width persists (${(await box('.nf-sidebar')).width})`,
+    );
+
+    // Releasing within 10 px of the default settles onto 264.
+    await dragTo(270);
+    await page.waitForFunction(
+      () => Math.abs((document.querySelector('.nf-sidebar')?.getBoundingClientRect().width ?? 0) - 264) <= 0.5,
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.ok(Math.abs((await box('.nf-sidebar')).width - 264) <= 0.5, 'the drag snaps to 264');
+    await h.screenshot(resolve(screenshotDir, 'sidebar-expanded-264-selected.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // A double-click on the separator resets immediately to 264.
+    await dragTo(420);
+    await waitWidth(420);
+    const separator = page.locator('.nf-separator');
+    assert.equal(await separator.getAttribute('aria-label'), 'Resize sidebar');
+    assert.match(await separator.getAttribute('title'), /double-click to reset/);
+    await separator.dblclick();
+    await waitWidth(264, 0.5);
+    assert.ok(Math.abs((await box('.nf-sidebar')).width - 264) <= 0.5, 'double-click resets to 264');
   });
 
   it('targets the active layout for zoom and fit without touching the hidden layout', async () => {

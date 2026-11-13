@@ -2,6 +2,11 @@
 
 import { create } from 'zustand';
 import type { LibraryView, RecoveryStatus } from '../../../shared/api';
+import {
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_SNAP_WIDTH,
+} from '../../../shared/shell';
 import type { SettingsPageId } from '../settings/settings-pages';
 import {
   DEFAULT_DOCUMENT_VIEW,
@@ -17,6 +22,11 @@ import {
 } from '../../../shared/view-state';
 
 export type { DocumentLayout, DocumentViewState, InteractionMode, PageFit };
+export {
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_SNAP_WIDTH,
+} from '../../../shared/shell';
 
 /** Read-only package state shown by the recovery tab. */
 export interface RecoveryTabInfo {
@@ -126,7 +136,7 @@ export const useShell = create<ShellState>((set, get) => ({
   activeTab: null,
   recentClosed: [],
   sidebarCollapsed: false,
-  sidebarWidth: 264,
+  sidebarWidth: SIDEBAR_SNAP_WIDTH,
   paletteOpen: false,
   paletteQuery: '',
   paletteDocumentsOnly: false,
@@ -212,7 +222,13 @@ export const useShell = create<ShellState>((set, get) => ({
     })),
 
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-  setSidebarWidth: (width) => set({ sidebarWidth: Math.max(208, Math.min(360, Math.round(width))) }),
+  setSidebarWidth: (width) =>
+    set({
+      sidebarWidth: Math.max(
+        SIDEBAR_MIN_WIDTH,
+        Math.min(SIDEBAR_MAX_WIDTH, Math.round(width)),
+      ),
+    }),
 
   setPaletteOpen: (open, options = {}) =>
     set({

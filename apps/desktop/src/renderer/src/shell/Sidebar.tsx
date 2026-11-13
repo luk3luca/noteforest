@@ -465,7 +465,9 @@ function TopicSection(): JSX.Element {
       const anchorId = incoming?.source.anchorId;
       if (incoming !== undefined && anchorId !== undefined) {
         // The row targets an anchored callout: keep the branch selected and
-        // highlight its quote/anchor on the source block.
+        // highlight its quote/anchor on the source block. The explicit block
+        // selection clears any previous anchor; selectAnchor then installs
+        // this row's anchor and holds it through the focus-driven canvas sync.
         runtime.selectBlock(id);
         runtime.selectAnchor(incoming.source.blockId, anchorId, incoming.id);
       }
@@ -678,6 +680,17 @@ export function Sidebar({
   return (
     <aside className="nf-sidebar" id="nf-sidebar" aria-label="Sidebar" data-collapsed="false">
       <div className="nf-sidebar-head">
+        <button
+          type="button"
+          className="nf-icon-button nf-sidebar-collapse"
+          aria-label="Collapse sidebar"
+          aria-expanded={true}
+          aria-controls="nf-sidebar"
+          title="Collapse sidebar (⌘\\)"
+          onClick={collapseSidebar}
+        >
+          <PanelLeftClose size={15} strokeWidth={1.5} aria-hidden="true" />
+        </button>
         <button type="button" className="nf-sidebar-search" onClick={() => openPalette(true)}>
           <Search size={13} strokeWidth={1.5} aria-hidden="true" />
           <span>Search</span>
@@ -691,17 +704,6 @@ export function Sidebar({
           onClick={() => void createNewDocument()}
         >
           <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="nf-icon-button nf-sidebar-collapse"
-          aria-label="Collapse sidebar"
-          aria-expanded={true}
-          aria-controls="nf-sidebar"
-          title="Collapse sidebar (⌘\\)"
-          onClick={collapseSidebar}
-        >
-          <PanelLeftClose size={15} strokeWidth={1.5} aria-hidden="true" />
         </button>
       </div>
       <div className="nf-sidebar-scroll">

@@ -777,9 +777,10 @@ button:disabled {
 .nf-rail-head {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   flex: none;
   height: 44px;
+  padding: 0 8px;
 }
 
 .nf-rail-spacer {
@@ -788,15 +789,23 @@ button:disabled {
 
 .nf-rail-foot {
   display: flex;
-  justify-content: center;
+  align-items: center;
+  justify-content: flex-start;
   flex: none;
-  padding: 8px 0;
+  padding: 6px 8px 8px;
 }
 
 .nf-icon-button.nf-rail-button {
   width: 28px;
   height: 28px;
   color: var(--text-2);
+}
+
+/* The rail Settings button is the same 30 x 30 box as the expanded footer
+   button, so the gear does not move across the collapse transition. */
+.nf-icon-button.nf-rail-button[data-rail-settings='true'] {
+  width: 30px;
+  height: 30px;
 }
 
 .nf-sidebar-head {

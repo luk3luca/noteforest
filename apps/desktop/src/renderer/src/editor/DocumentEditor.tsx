@@ -382,7 +382,7 @@ function EditorSurface({
       // selection or a blurred editor is the selected-but-not-editing state
       // that reveals the anchor marker buttons.
       setEditorSelectedBlock(editor, blockId, editor.isFocused && !nodeSelected);
-      runtime.selectBlock(blockId);
+      runtime.syncEditorBlockSelection(blockId);
     };
     const bindings: EditorBindings = {
       runtime,
@@ -453,12 +453,28 @@ function EditorSurface({
     editor.on('selectionUpdate', syncSelection);
     editor.on('focus', syncSelection);
     editor.on('blur', syncSelection);
+    // A real pointer or key in a block's prose is an explicit block interaction
+    // and owns the selection: clear the anchor before the selection sync
+    // reports the block, so the source/target case cannot keep both selected.
+    // Anchor affordances (marker buttons, callout quotes) are outside the prose
+    // and keep their cycle behavior.
+    const clearAnchorOnInteraction = (event: Event): void => {
+      if (event.target instanceof Element && event.target.closest('.nf-block-prose') !== null) {
+        runtime.markSelectionExplicit();
+        runtime.clearAnchorSelection();
+      }
+    };
+    const editorDom = editor.view.dom;
+    editorDom.addEventListener('pointerdown', clearAnchorOnInteraction, true);
+    editorDom.addEventListener('keydown', clearAnchorOnInteraction, true);
     syncSelection();
     recordPerf('mount', performance.now() - mountedAt);
     return () => {
       editor.off('selectionUpdate', syncSelection);
       editor.off('focus', syncSelection);
       editor.off('blur', syncSelection);
+      editorDom.removeEventListener('pointerdown', clearAnchorOnInteraction, true);
+      editorDom.removeEventListener('keydown', clearAnchorOnInteraction, true);
       clearEditorBindings(editor);
       runtime.attachEditor(null);
     };
@@ -602,7 +618,9 @@ function EditorSurface({
     editor.commands.focus();
   }, [editor, runtime, active, visible]);
 
-  const selectedId = runtime.selectedBlockId;
+  // The mount-time editor selection is not a user selection: it must not mute
+  // the tree's resting accent edges. Only an explicit action owns the path.
+  const selectedId = runtime.selectionExplicit ? runtime.selectedBlockId : null;
   const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
   const zoom = view?.zoom ?? 1;
   const focusBlockId = view?.focusBlockId ?? null;
