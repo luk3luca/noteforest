@@ -1586,9 +1586,7 @@ export function paletteCommands(): MenuEntry[] {
     gate({
       id: 'insert-table',
       label: 'Insert table',
-      onSelect: () => {
-        runtime?.editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-      },
+      onSelect: () => shell().openDialog({ kind: 'table-size' }),
     }),
     gate({
       id: 'insert-image',

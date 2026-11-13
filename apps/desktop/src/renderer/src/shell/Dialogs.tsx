@@ -51,6 +51,7 @@ import {
 import type { BackupCandidateView, TrashPreflight } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
 import { SettingsDialog } from './SettingsDialog';
+import { TableSizeDialog } from './TableSizeDialog';
 
 interface FrameProps {
   title: string;
@@ -378,6 +379,10 @@ export function Dialogs(): JSX.Element | null {
 
   if (dialog.kind === 'math') {
     return <MathDialog mathKind={dialog.mathKind} latex={dialog.latex} pos={dialog.pos} onClose={close} />;
+  }
+
+  if (dialog.kind === 'table-size') {
+    return <TableSizeDialog onClose={close} />;
   }
 
   if (dialog.kind === 'close-tab') {

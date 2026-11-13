@@ -211,18 +211,6 @@ export function PageBlockEditor({
     return () => window.removeEventListener('nf:page-edit-commit', onCommitRequest);
   }, [commit, runtime]);
 
-  // Formula editing stays a Continuous authoring action in this slice. The
-  // math node view dispatches this event for a double click; suppress it while
-  // the Page overlay is active instead of opening a mutating dialog against
-  // the hidden continuous editor.
-  useEffect(() => {
-    const suppressMathDialog = (event: Event): void => {
-      event.stopImmediatePropagation();
-    };
-    window.addEventListener('nf:edit-math', suppressMathDialog, true);
-    return () => window.removeEventListener('nf:edit-math', suppressMathDialog, true);
-  }, []);
-
   useEffect(() => {
     rootRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, []);

@@ -32,6 +32,7 @@ import { EdgeLayer } from './edges/EdgeLayer';
 import { useBlockRects } from './edges/useBlockRects';
 import { useBelowStackPlacement } from './useBelowStackPlacement';
 import { SelectionToolbar } from './SelectionToolbar';
+import { TableToolbar } from './TableToolbar';
 import { clearEditorBindings, getDragBlockId, setDragBlockId, setEditorBindings, type EditorBindings } from './bindings';
 import {
   clearEditorImageAuthoring,
@@ -43,14 +44,13 @@ import { useShell } from '../state/shell';
 import { useSettingsStore } from '../state/settings';
 import type { InteractionMode } from '../../../shared/view-state';
 import {
-  activeEditingEnabled,
   createChapter,
   openBlockMenu,
   openChapterMenu,
   openReferenceMenu,
   requestBlockDelete,
 } from '../actions';
-import { editingEnabledFor, READ_MODE_TITLE, READ_MODE_TOAST } from '../lib/editability';
+import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import { showsChapterCanvas } from '../lib/chapters';
 import { getScroll, recordScroll } from '../state/session';
 import { useRuntime } from '../state/registry';
@@ -598,27 +598,6 @@ function EditorSurface({
   }, [visible, editor, runtime.packagePath]);
 
   useEffect(() => {
-    if (!active) return undefined;
-    const handler = (event: Event): void => {
-      // Double-clicking a formula in Read must not open the mutating math
-      // dialog. Navigation/selection through the formula stays available.
-      if (!activeEditingEnabled()) {
-        toast.info(READ_MODE_TOAST);
-        return;
-      }
-      const detail = (event as CustomEvent<{ kind: 'inline' | 'block'; latex: string; pos: number }>).detail;
-      useShell.getState().openDialog({
-        kind: 'math',
-        mathKind: detail.kind,
-        latex: detail.latex,
-        pos: detail.pos,
-      });
-    };
-    window.addEventListener('nf:edit-math', handler);
-    return () => window.removeEventListener('nf:edit-math', handler);
-  }, [active]);
-
-  useEffect(() => {
     if (editor === null || restoredRef.current || !visible) return;
     restoredRef.current = true;
     const point = runtime.restore;
@@ -828,7 +807,10 @@ function EditorSurface({
         </div>
       </div>
       {editor === null || interactionMode === 'read' ? null : (
-        <SelectionToolbar editor={editor} />
+        <>
+          <TableToolbar editor={editor} />
+          <SelectionToolbar editor={editor} />
+        </>
       )}
     </>
   );

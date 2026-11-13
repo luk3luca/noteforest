@@ -79,6 +79,7 @@ export type DialogState =
   | { kind: 'rename-block'; blockId: string }
   | { kind: 'link'; href: string }
   | { kind: 'math'; mathKind: 'inline' | 'block'; latex: string; pos: number | null }
+  | { kind: 'table-size' }
   | { kind: 'close-tab'; packagePath: string }
   | { kind: 'reload-from-disk'; packagePath: string }
   | { kind: 'overwrite-external'; packagePath: string }

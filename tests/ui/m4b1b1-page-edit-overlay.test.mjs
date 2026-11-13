@@ -384,7 +384,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.press('Enter');
 
-    await page.keyboard.type('$$x^2$$');
+    await page.keyboard.type('$x^2$');
     await page.keyboard.type(' ');
     await overlay().locator('[data-type="inline-math"]').waitFor({ timeout: 5000 });
 

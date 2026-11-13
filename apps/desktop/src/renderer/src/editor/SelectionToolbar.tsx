@@ -29,7 +29,16 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
   };
 
   return (
-    <BubbleMenu editor={editor} className="nf-bubble" data-testid="selection-toolbar">
+    <BubbleMenu
+      editor={editor}
+      className="nf-bubble"
+      data-testid="selection-toolbar"
+      // The table owns its own contextual toolbar; a cell selection must not
+      // stack both bubbles. The default "non-empty selection" rule stays.
+      shouldShow={({ editor: current, state }) =>
+        current.isEditable && !state.selection.empty && !current.isActive('table')
+      }
+    >
       {linkOpen ? (
         <form
           className="nf-bubble-link"

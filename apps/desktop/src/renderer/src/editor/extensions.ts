@@ -1,22 +1,11 @@
-import {
-  Mark,
-  Node,
-  mergeAttributes,
-  type Editor,
-  type NodeViewRenderer,
-} from '@tiptap/core';
-import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { Mark, Node, mergeAttributes } from '@tiptap/core';
 import { Image } from '@tiptap/extension-image';
 import { Link } from '@tiptap/extension-link';
-import { BlockMath, InlineMath } from '@tiptap/extension-mathematics';
 import { Placeholder } from '@tiptap/extension-placeholder';
-import { TableKit } from '@tiptap/extension-table';
-import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
-import { NodeSelection } from '@tiptap/pm/state';
-import { ReactNodeViewRenderer } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { common, createLowlight } from 'lowlight';
+import { ReactNodeViewRenderer } from '@tiptap/react';
 import { normalizeAnchorIds } from '@noteforest/core';
+import { anchorIdsAttribute, anchorIdsFromElement } from './anchor-attrs';
 import {
   BlockBodyView,
   BlockView,
@@ -25,8 +14,10 @@ import {
   ChapterView,
 } from './views/BlockViews';
 import { ImageNodeView } from './views/ImageNodeView';
-
-const lowlight = createLowlight(common);
+import { CodeBlockKeys, CodeBlockNode } from './code-block';
+import { InlineCodeBacktick } from './inline-code';
+import { BlockFormulaNode, InlineFormulaNode } from './formulas';
+import { TableEditing, TableExtensions } from './tables';
 
 /**
  * M3c3b1: canonical image nodes carry `assetId`, not a display path. The
@@ -93,127 +84,13 @@ const CanonicalImage = Image.extend({
             ? { 'data-nf-unavailable': attributes['unavailable'] }
             : {},
       },
-      anchorIds: formulaAnchorIdsAttr(),
+      anchorIds: anchorIdsAttribute(),
     };
   },
   addNodeView() {
     return ReactNodeViewRenderer(ImageNodeView);
   },
 }).configure({ allowBase64: false, inline: false });
-
-function anchorIdsFromElement(element: HTMLElement): string[] {
-  const raw = element.getAttribute('data-anchor-ids') ?? element.getAttribute('data-anchor-id') ?? '';
-  return normalizeAnchorIds(raw.split(',').map((value) => value.trim()));
-}
-
-function formulaAnchorIdsAttr(): Record<string, unknown> {
-  return {
-    default: [],
-    parseHTML: (element: HTMLElement) => anchorIdsFromElement(element),
-    renderHTML: (attributes: Record<string, unknown>) => {
-      const ids = normalizeAnchorIds(
-        Array.isArray(attributes['anchorIds']) ? (attributes['anchorIds'] as string[]) : [],
-      );
-      return ids.length === 0 ? {} : { 'data-anchor-ids': ids.join(',') };
-    },
-  };
-}
-
-/**
- * M3c1: whole-formula anchors bind through `attrs.anchorIds` on the formula
- * node (ADR-0005 §1). The math nodes keep their KaTeX node view; this wrapper
- * adds the canonical attribute and a DOM marker source. A plain click selects
- * the whole formula (NodeSelection); a double click keeps opening the existing
- * formula editor.
- */
-function createFormulaNodeView(
-  parentRenderer: NodeViewRenderer,
-  editor: Editor,
-): NodeViewRenderer {
-  return (props) => {
-    const view = parentRenderer(props);
-    const dom = view.dom as HTMLElement;
-    const syncAnchorAttributes = (node: ProseMirrorNode): void => {
-      const ids = normalizeAnchorIds(
-        Array.isArray(node.attrs['anchorIds']) ? (node.attrs['anchorIds'] as string[]) : [],
-      );
-      if (ids.length > 0) {
-        dom.setAttribute('data-anchor-ids', ids.join(','));
-        dom.classList.add('nf-formula-anchor');
-      } else {
-        dom.removeAttribute('data-anchor-ids');
-        dom.classList.remove('nf-formula-anchor');
-      }
-      dom.setAttribute('data-anchor-kind', 'formula');
-    };
-    syncAnchorAttributes(props.node);
-    const handleClick = (event: MouseEvent): void => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const pos = props.getPos();
-      if (typeof pos !== 'number') return;
-      if (event.detail >= 2) {
-        window.dispatchEvent(
-          new CustomEvent('nf:edit-math', {
-            detail: {
-              kind: props.node.type.name === 'blockMath' ? 'block' : 'inline',
-              latex: String(props.node.attrs['latex'] ?? ''),
-              pos,
-            },
-          }),
-        );
-        return;
-      }
-      const selection = NodeSelection.create(editor.state.doc, pos);
-      editor.view.dispatch(editor.state.tr.setSelection(selection));
-      editor.view.focus();
-    };
-    dom.addEventListener('click', handleClick);
-    const destroy = view.destroy?.bind(view);
-    return {
-      ...view,
-      destroy() {
-        dom.removeEventListener('click', handleClick);
-        destroy?.();
-      },
-    };
-  };
-}
-
-function extendFormulaNode<T extends Node>(extension: T): T {
-  return extension.extend({
-    addAttributes() {
-      const parent = (this.parent?.() ?? {}) as Record<string, unknown>;
-      return {
-        ...parent,
-        anchorIds: formulaAnchorIdsAttr(),
-      };
-    },
-    addNodeView() {
-      const parentRenderer = this.parent?.() ?? null;
-      if (parentRenderer === null) return null;
-      return createFormulaNodeView(parentRenderer, this.editor);
-    },
-  }) as T;
-}
-
-/**
- * M3c3a: code anchors bind through `attrs.anchorIds` on the codeBlock node
- * (ADR-0005 §1). The codeBlock keeps its native editable `<pre><code>` render;
- * only the atomic attribute and the code DOM marker source are added.
- */
-function extendCodeBlock<T extends Node>(extension: T): T {
-  return extension.extend({
-    addAttributes() {
-      const parent = (this.parent?.() ?? {}) as Record<string, unknown>;
-      return {
-        ...parent,
-        anchorIds: formulaAnchorIdsAttr(),
-      };
-    },
-  }) as T;
-}
 
 /**
  * Text-anchor binding mark (ADR-0005 §1).
@@ -441,19 +318,14 @@ export function createEditorExtensions(options: EditorExtensionOptions = {}) {
       linkOnPaste: true,
       HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
     }),
-    extendCodeBlock(CodeBlockLowlight).configure({
-      lowlight,
-      defaultLanguage: 'plaintext',
-      HTMLAttributes: { 'data-anchor-kind': 'code' },
-    }),
+    CodeBlockNode,
+    CodeBlockKeys,
+    InlineCodeBacktick,
     CanonicalImage,
-    TableKit.configure({ table: { resizable: false } }),
-    extendFormulaNode(BlockMath).configure({
-      katexOptions: { throwOnError: false },
-    }),
-    extendFormulaNode(InlineMath).configure({
-      katexOptions: { throwOnError: false },
-    }),
+    ...TableExtensions,
+    TableEditing,
+    InlineFormulaNode,
+    BlockFormulaNode,
     Placeholder.configure({
       placeholder: options.placeholder ?? 'Type something, or press /',
       showOnlyWhenEditable: true,

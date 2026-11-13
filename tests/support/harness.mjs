@@ -478,6 +478,18 @@ export function createHarness({ tempRoot }) {
     }
   }
 
+  /** Main-process Electron clipboard read (UI tests never use OS dialogs). */
+  async function clipboardText() {
+    if (app === undefined) throw new Error('clipboardText: launch the app first');
+    return app.evaluate(({ clipboard }) => clipboard.readText());
+  }
+
+  /** Main-process Electron clipboard write; drives paste conversion deterministically. */
+  async function writeClipboard(text) {
+    if (app === undefined) throw new Error('writeClipboard: launch the app first');
+    await app.evaluate(({ clipboard }, value) => clipboard.writeText(value), text);
+  }
+
   return {
     get app() {
       return app;
@@ -507,5 +519,7 @@ export function createHarness({ tempRoot }) {
     rapidKeydowns,
     rapidKeySequence,
     screenshot,
+    clipboardText,
+    writeClipboard,
   };
 }

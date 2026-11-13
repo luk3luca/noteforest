@@ -77,6 +77,15 @@ html[data-theme="dark"] {
   --warning: #d6b17a;
   --warning-soft: #352c1e;
   --warning-border: #6a5536;
+  /* Editor-only syntax colours (special-text A). Page/PDF never read them. */
+  --code-keyword: #b9a6d8;
+  --code-string: #a8c7a0;
+  --code-number: #d6b17a;
+  --code-comment: #7f8790;
+  --code-function: #9bb7d4;
+  --code-type: #8fc7c2;
+  --code-tag: #d98b8b;
+  --code-meta: #c9b98a;
   --overlay: rgb(0 0 0 / 0.4);
   --shadow-panel: 0 8px 24px rgb(0 0 0 / 0.35);
   --shadow-overlay: 0 24px 64px rgb(0 0 0 / 0.55);
@@ -112,6 +121,15 @@ html[data-theme="light"] {
   --warning: #8a5a00;
   --warning-soft: #fff4dc;
   --warning-border: #e6c98a;
+  /* Editor-only syntax colours (special-text A). Page/PDF never read them. */
+  --code-keyword: #6b4f9a;
+  --code-string: #2f6b4f;
+  --code-number: #8a5a00;
+  --code-comment: #5b6771;
+  --code-function: #2c5f8a;
+  --code-type: #1f6f6a;
+  --code-tag: #a23b32;
+  --code-meta: #7a5a00;
   --overlay: rgb(16 20 24 / 0.38);
   --shadow-panel: 0 8px 24px rgb(16 20 24 / 0.12);
   --shadow-overlay: 0 24px 64px rgb(16 20 24 / 0.2);
@@ -7339,4 +7357,441 @@ body.nf-dragging-block .nf-gutter-handle {
   margin: 0 0 var(--nf-page-segment-gap);
   text-align: center;
   overflow-x: auto;
+}
+
+/* ------------------------------------------------------ special text editing */
+/*
+ * Areas A–D of the special-text brief. The code chrome and syntax colours are
+ * editor-only: Page Read/Edit and the print compositor never receive these
+ * classes or variables. Table scrolling is scoped to the Continuous surface,
+ * so the Page/PDF table layout is untouched.
+ */
+
+/* A · Code block: auto-close chrome. */
+.nf-continuous-surface .nf-code-block {
+  position: relative;
+  margin: 8px 0;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+.nf-continuous-surface .nf-code-block .nf-code-pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: transparent;
+  border-radius: 0;
+  overflow-x: auto;
+}
+
+.nf-continuous-surface .nf-code-block .nf-code-content {
+  font-family: var(--mono-font);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.nf-code-actions {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.nf-code-label {
+  color: var(--text-3);
+  font-family: var(--mono-font);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.nf-code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: 10.5px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms var(--motion);
+}
+
+.nf-code-block:hover .nf-code-copy,
+.nf-code-copy:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nf-code-copy:hover {
+  border-color: var(--border-2);
+  color: var(--text-1);
+}
+
+.nf-code-block[data-code-state="editing"] .nf-code-actions {
+  display: none;
+}
+
+.nf-code-fence {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 10px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-family: var(--mono-font);
+  font-size: 12px;
+  user-select: none;
+}
+
+.nf-code-fence-open {
+  border-bottom: 1px solid var(--border-1);
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+}
+
+.nf-code-fence-close-row {
+  padding: 0;
+  border-top: 1px dashed var(--border-1);
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+}
+
+.nf-code-fence-mark {
+  color: var(--text-3);
+}
+
+.nf-code-fence-close {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 10px;
+  color: var(--text-3);
+  font-family: var(--mono-font);
+  font-size: 12px;
+  text-align: left;
+}
+
+.nf-code-fence-close:hover {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.nf-code-fence-hint {
+  color: var(--text-3);
+  font-family: var(--ui-font);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nf-code-lang-input {
+  width: 14ch;
+  min-width: 6ch;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--mono-font);
+  font-size: 12px;
+  outline: none;
+}
+
+.nf-code-lang-input::placeholder {
+  color: var(--text-3);
+  opacity: 0.7;
+}
+
+.nf-code-lang-input:focus {
+  border-color: var(--border-2);
+  background: var(--surface-2);
+}
+
+/* A · Syntax colours. Scoped to the Continuous editor; Page Read/Edit and the
+   PDF render neutral code. */
+.nf-continuous-surface .hljs-comment,
+.nf-continuous-surface .hljs-quote {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.nf-continuous-surface .hljs-keyword,
+.nf-continuous-surface .hljs-selector-tag,
+.nf-continuous-surface .hljs-literal,
+.nf-continuous-surface .hljs-doctag {
+  color: var(--code-keyword);
+}
+
+.nf-continuous-surface .hljs-string,
+.nf-continuous-surface .hljs-regexp,
+.nf-continuous-surface .hljs-addition {
+  color: var(--code-string);
+}
+
+.nf-continuous-surface .hljs-number,
+.nf-continuous-surface .hljs-symbol,
+.nf-continuous-surface .hljs-bullet {
+  color: var(--code-number);
+}
+
+.nf-continuous-surface .hljs-title,
+.nf-continuous-surface .hljs-title.function_,
+.nf-continuous-surface .hljs-section {
+  color: var(--code-function);
+}
+
+.nf-continuous-surface .hljs-type,
+.nf-continuous-surface .hljs-built_in,
+.nf-continuous-surface .hljs-class .hljs-title {
+  color: var(--code-type);
+}
+
+.nf-continuous-surface .hljs-attr,
+.nf-continuous-surface .hljs-attribute,
+.nf-continuous-surface .hljs-variable,
+.nf-continuous-surface .hljs-template-variable {
+  color: var(--code-meta);
+}
+
+.nf-continuous-surface .hljs-tag,
+.nf-continuous-surface .hljs-name,
+.nf-continuous-surface .hljs-deletion {
+  color: var(--code-tag);
+}
+
+.nf-continuous-surface .hljs-emphasis {
+  font-style: italic;
+}
+
+.nf-continuous-surface .hljs-strong {
+  font-weight: 650;
+}
+
+/* C · Formula in-place source editor. */
+.nf-formula-node {
+  position: relative;
+}
+
+.nf-formula-source-editor {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  font-family: var(--mono-font);
+  vertical-align: baseline;
+}
+
+.nf-formula-node[data-type="block-math"] .nf-formula-source-editor {
+  display: flex;
+}
+
+.nf-formula-source-delim {
+  color: var(--text-3);
+  font-size: 12px;
+  user-select: none;
+}
+
+.nf-formula-node .nf-formula-source {
+  flex: 1 1 22ch;
+  width: auto;
+  min-width: 12ch;
+  min-height: 0;
+  margin: 0;
+  padding: 1px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  font-family: var(--mono-font);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
+.nf-formula-term-action {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.nf-formula-preview {
+  display: block;
+  flex-basis: 100%;
+  min-height: 0;
+  padding-top: 4px;
+  color: var(--text-2);
+  font-family: var(--ui-font);
+  font-size: 0.95em;
+  overflow-x: auto;
+}
+
+/* D · Continuous table scrolling: the wrapper scrolls, the card does not grow. */
+.nf-continuous-surface .nf-block-prose .tableWrapper {
+  max-width: 100%;
+  margin: 8px 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.nf-continuous-surface .nf-block-prose .tableWrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.nf-continuous-surface .nf-block-prose .tableWrapper::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--border-2);
+}
+
+.nf-continuous-surface .nf-block-prose .tableWrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nf-continuous-surface .nf-block-prose .tableWrapper > table {
+  margin: 0;
+  width: max-content;
+  /* TableView writes an inline per-column min-width; max-content is the value
+     that keeps cells unwrapped and lets the wrapper scroll instead. */
+  min-width: max-content !important;
+}
+
+/* D · Contextual table toolbar. */
+.nf-table-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-overlay);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-panel);
+  z-index: 30;
+}
+
+.nf-table-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.nf-bubble-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--border-1);
+}
+
+.nf-table-toolbar .nf-bubble-wide {
+  width: auto;
+  gap: 5px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.nf-table-source {
+  max-width: 360px;
+  max-height: 180px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font-family: var(--mono-font);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  user-select: text;
+}
+
+/* D · Size picker. */
+.nf-table-size-dialog {
+  width: 320px;
+}
+
+.nf-table-size-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0 8px;
+}
+
+.nf-table-size-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nf-table-size-row {
+  display: flex;
+  gap: 3px;
+}
+
+.nf-table-size-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-2);
+  border-radius: 2px;
+  background: var(--surface-1);
+}
+
+.nf-table-size-cell:hover {
+  border-color: var(--accent);
+}
+
+.nf-table-size-cell[data-table-size-active="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.nf-table-size-cell[aria-pressed="true"] {
+  border-color: var(--accent-strong);
+}
+
+.nf-table-size-label {
+  margin: 0;
+  color: var(--text-2);
+  font-family: var(--mono-font);
+  font-size: 12px;
+}
+
+/* Page Edit is not the Continuous authoring surface: the code block keeps a
+   neutral editable body and no fence chrome or token colours. */
+.nf-page-edit-prose .nf-code-actions,
+.nf-page-edit-prose .nf-code-fence {
+  display: none;
+}
+
+.nf-page-edit-prose .nf-code-block {
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
+.nf-page-edit-prose .nf-code-block .nf-code-pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* The chrome uses the `hidden` attribute; author display rules must not win. */
+.nf-code-block .nf-code-actions[hidden],
+.nf-code-block .nf-code-fence[hidden],
+.nf-code-block .nf-code-label[hidden] {
+  display: none;
 }

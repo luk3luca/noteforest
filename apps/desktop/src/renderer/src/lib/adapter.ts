@@ -23,6 +23,7 @@ import {
 } from '@noteforest/core';
 import { assetUrlFor } from './asset-url';
 import { anchorQuote, anchorState } from './tree';
+import { normalizeTableCellChildren } from './table-cell';
 
 export interface PMMark {
   type: string;
@@ -275,7 +276,14 @@ export function contentToPM(
     if (normalized.length > 0) result.marks = normalized;
   }
   if (Array.isArray(node.children)) {
-    result.content = node.children.map((child) => contentToPM(child, options));
+    // Table cells are inline-only in the editor (special-text editing, D).
+    // Existing rich cells are flattened by a pure projection on load; the
+    // canonical document keeps its shape until the table is edited.
+    const children =
+      node.type === 'tableCell' || node.type === 'tableHeader'
+        ? normalizeTableCellChildren(node.children)
+        : node.children;
+    result.content = children.map((child) => contentToPM(child, options));
   }
   return result;
 }
