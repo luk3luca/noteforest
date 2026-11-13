@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { resolve } from 'node:path';
-import { formatSuiteResult, GROUPS } from './suites.mjs';
+import { formatSuiteResult, GROUPS, SERIAL_FILES } from './suites.mjs';
 
 /**
  * UI suite runner.
@@ -79,16 +79,36 @@ function selectedFiles(groups) {
 function runOne(file) {
   return new Promise((resolveRun) => {
     const started = Date.now();
+    const detached = process.platform !== 'win32';
     const child = spawn(process.execPath, ['--test', `tests/ui/${file}`], {
       cwd: root,
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],
+      // A suite owns a process group so a timeout can kill Electron children,
+      // not just the node --test parent. A leaked app keeps its userData
+      // single-instance lock and makes the next run of the same suite hang.
+      detached,
     });
     const output = [];
     let timedOut = false;
+    const killTree = () => {
+      if (detached) {
+        try {
+          process.kill(-(child.pid ?? 0), 'SIGKILL');
+          return;
+        } catch {
+          // Fall through to the direct child kill.
+        }
+      }
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        // Already gone.
+      }
+    };
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGKILL');
+      killTree();
     }, timeoutMs);
     child.stdout.on('data', (data) => output.push(data));
     child.stderr.on('data', (data) => output.push(data));
@@ -105,6 +125,9 @@ function runOne(file) {
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
+      // A suite that exits normally should have closed its Electron apps; kill
+      // any descendant left behind so the next run never inherits a stale lock.
+      killTree();
       resolveRun({
         file,
         // A killed child reports a null code; the timeout is still a failure.
@@ -152,33 +175,54 @@ console.log(
   `UI suites: ${files.length} file(s), groups=${options.groups.join(',')}, concurrency=${options.concurrency}`,
 );
 
+const parallelFiles = files.filter((file) => !SERIAL_FILES.has(file));
+const serialFiles = files.filter((file) => SERIAL_FILES.has(file));
+if (serialFiles.length > 0) {
+  console.log(
+    `UI serial: ${serialFiles.length} suite(s) after the pool (${serialFiles.join(', ')})`,
+  );
+}
+
 let next = 0;
 let failed = false;
 let passed = 0;
 const results = [];
 const started = Date.now();
 
+async function runFile(file) {
+  const result = await runOne(file);
+  results.push(result);
+  console.log(formatSuiteResult(result));
+  if (result.code === 0) {
+    passed += 1;
+    if (options.verbose) process.stdout.write(result.output);
+  } else {
+    failed = true;
+    process.stdout.write(result.output);
+  }
+  return result;
+}
+
 async function worker() {
-  while (next < files.length) {
+  while (next < parallelFiles.length) {
     if (failed && options.failFast) return;
-    const file = files[next];
+    const file = parallelFiles[next];
     next += 1;
-    const result = await runOne(file);
-    results.push(result);
-    console.log(formatSuiteResult(result));
-    if (result.code === 0) {
-      passed += 1;
-      if (options.verbose) process.stdout.write(result.output);
-    } else {
-      failed = true;
-      process.stdout.write(result.output);
-    }
+    await runFile(file);
   }
 }
 
 await Promise.all(
-  Array.from({ length: Math.min(options.concurrency, files.length) }, () => worker()),
+  Array.from(
+    { length: Math.min(options.concurrency, parallelFiles.length) },
+    () => worker(),
+  ),
 );
+
+for (const file of serialFiles) {
+  if (failed && options.failFast) break;
+  await runFile(file);
+}
 
 const failedResults = results.filter((result) => result.code !== 0);
 const totalSeconds = ((Date.now() - started) / 1000).toFixed(1);

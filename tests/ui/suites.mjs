@@ -60,6 +60,13 @@ export const FILES = [
   'document-lifecycle.test.mjs',
 ];
 
+/**
+ * Suites that launch enough Electron apps (six full app lifecycles, real OS
+ * Trash) to be unreliable in the parallel pool. They run after the pool with
+ * concurrency 1: ~15s, instead of a 600s pool timeout.
+ */
+export const SERIAL_FILES = new Set(['document-lifecycle.test.mjs']);
+
 function unique(values) {
   return [...new Set(values)];
 }

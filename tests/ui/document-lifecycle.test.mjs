@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { artifactsPath, waitUntil } from '../support/harness.mjs';
+import { artifactsPath, killTestAppsUnder, waitUntil } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import { pageDocument, textBlock, writePagePackage } from '../support/page-fixtures.mjs';
 
@@ -163,6 +163,10 @@ async function refreshLibrary() {
 
 describe('Document lifecycle', () => {
   before(async () => {
+    // Kill a stale test app from an earlier run before removing its userData;
+    // a running app can rewrite its session after the rm and leave an active
+    // library path that no longer exists.
+    killTestAppsUnder(tempRoot);
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(tempRoot, { recursive: true });
     await mkdir(screenshotDir, { recursive: true });

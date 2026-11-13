@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
@@ -37,6 +38,19 @@ export async function pngSize(path) {
 }
 
 /**
+ * A previous run can leave an Electron app alive after a timeout. It keeps the
+ * userData single-instance lock, so the next launch of the same isolated
+ * environment exits as a second instance and Playwright waits forever for a
+ * window. Kill only test apps whose explicit userData is under this path.
+ */
+export function killTestAppsUnder(pathPrefix) {
+  if (process.platform === 'win32') return;
+  spawnSync('pkill', ['-9', '-f', `user-data-dir=${pathPrefix}`], {
+    stdio: 'ignore',
+  });
+}
+
+/**
  * One Electron app per test, plus condition-based waits shared by the critical,
  * performance and visual suites. Artifact roots honour NOTEFOREST_ARTIFACTS.
  */
@@ -44,6 +58,10 @@ export function createHarness({ tempRoot }) {
   let app;
   let page;
   const pageErrors = [];
+
+  function killStaleTestApp(appSupport) {
+    killTestAppsUnder(appSupport);
+  }
 
   function baseEnv(overrides = {}) {
     const env = { ...process.env };
@@ -63,6 +81,8 @@ export function createHarness({ tempRoot }) {
     // Visual/screenshot suites pass NOTEFOREST_E2E_HIDDEN: '0'.
     const hidden =
       (overrides.NOTEFOREST_E2E_HIDDEN ?? process.env.NOTEFOREST_E2E_HIDDEN ?? '1') !== '0';
+    const appSupport = overrides.NOTEFOREST_APP_SUPPORT ?? resolve(tempRoot, 'support');
+    killStaleTestApp(appSupport);
     app = await electron.launch({
       args: ['.'],
       cwd: appDir,
@@ -112,6 +132,18 @@ export function createHarness({ tempRoot }) {
       await current.close();
     } catch {
       // Already closed by quit.
+    }
+    // A wedged app can outlive the Playwright connection and keep its userData
+    // single-instance lock. Kill the main process so the next suite launch of
+    // the same isolated environment starts a real window instead of quitting
+    // as a second instance.
+    if (child.exitCode === null && child.signalCode === null) {
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        // Already gone.
+      }
+      await Promise.race([closed, delay(2000)]);
     }
   }
 
