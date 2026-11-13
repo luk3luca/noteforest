@@ -484,9 +484,15 @@ structural deletes; the full verify is green (123 unit files/1252 tests, e2e 16,
 `settingsVersion: 5` with spacing, arrow widths plus one fixed arrowhead size, Advanced width caps,
 Reset, and a live 1+2+1-callout preview that works with no document; the values reach only the
 `.nf-continuous-surface` CSS variables and the resolved Continuous edge style, an isolation test
-proves Page/PDF unchanged, and the per-document zoom controls are gone from Settings. Next: the R6
-visual/VoiceOver pass, the Continuous nav-group IA fix, a post-freeze settings-inventory delta
-(chrome, appearance, export, continuous), and a targeted Sentinel review. External API/agent access is
+proves Page/PDF unchanged, and the per-document zoom controls are gone from Settings. The
+settings/shell layout batch is merged at `a4a4fb4`: Settings is 1180 × 820 (viewport-capped),
+Page/Continuous/Appearance share one `clamp(320px, 34%, 400px)` preview rail (Continuous
+scale-to-fit, Appearance one column, Page stacked pages 1–2 from one page model), Continuous moved to
+the App nav group, and the sidebar collapse/Settings icons keep identical measured centres (≤ 0.5 px);
+full verify green (126 unit files/1267 tests, e2e 16, recovery 14, UI 53/53). Next: the
+settings/shell visual/VoiceOver pass, a post-freeze settings-inventory delta (chrome, appearance,
+export, continuous), the special-text design once the table rules are closed, and a targeted Sentinel.
+External API/agent access is
 removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
