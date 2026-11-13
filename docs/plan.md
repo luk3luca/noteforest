@@ -456,8 +456,17 @@ with a Page/PDF no-op, note-surface/top-level cards, stronger edges, Settings Ge
 titlebar/bubble/port polish. The palette/Page/anchor batch is merged at `c05635e`: measured pastel
 tune plus four Vivid accents in labelled registry groups (no schema bump), the fixed 18 px Page edge
 corridor that density no longer scales (A4 61, A5 landscape 134, Letter 62, 300-block 27), and the
-squared anchor quote chip with KaTeX formulas and the `Σ` fallback. Next: R4 Export defaults
-(schema v4) then R6 Continuous global. External API/agent access is removed from
+squared anchor quote chip with KaTeX formulas and the `Σ` fallback. The UI shell fixes batch is
+merged at `ca5b68c`: accent-strong resting Continuous edges with neutral reference edges, one 320 px
+Settings control geometry and a true 10 px card inset, one sidebar grid with full-row selection,
+28 px rows, dividers, a left collapse control and matched rail icons, 180/640/264 width constants
+with release snap and double-click reset, explicit block selection clearing the anchor, and stale
+lock creation/panel recovery (one-click Take over, generic Recheck). Library & documents is designed
+and approved (`docs/design/library-and-documents.md`): one active library, `libraries.json` recents,
+Library/Outline sidebar tabs, drafts materialized on the first real edit, rename/reveal/Move-to-Trash
+with OS Trash, and document-id move reconciliation; briefs are `docs/tasks/library-surface.md`
+(L1+L2) and `docs/tasks/document-lifecycle.md` (L3+L4). Next: L1+L2, L3+L4, R4 Export defaults
+(schema v4), R6 Continuous global. External API/agent access is removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.
