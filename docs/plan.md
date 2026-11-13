@@ -472,8 +472,12 @@ Data links, flush-before-switch, and document-id move reconciliation. L3+L4 are 
 in-memory drafts materialize on the first real mutation and swap the tab path without remounting;
 rename/reveal/Move-to-Trash uses the OS Trash with flush/live-lock rules and cleanup; H hardening
 extends the no-left guard, adds the failed-flush test, refreshes moved recents, and removes the dead
-switcher item. Next: R4 Export defaults (schema v4), R6 Continuous global. External API/agent access
-is removed from
+switcher item. R4 Export defaults is merged at `694a434`: `settingsVersion: 4` with the global
+`export` namespace, Settings → Export default folder/Documents, `<title>.pdf` without date, empty
+Advanced, the sheet reading the setting, and neutral status surfaces (`SaveFailureBanner` in shell
+chrome, no left stripe, draft-only banner). The UI runner runs `document-lifecycle` serially and
+cleans stale test apps by userData. Next: R6 Continuous design. External API/agent access is removed
+from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.
