@@ -816,7 +816,7 @@ button:disabled {
   min-width: 0;
   height: 28px;
   padding: 0 8px;
-  background: var(--bg-canvas);
+  background: var(--surface-1);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-control);
   color: var(--text-3);
@@ -864,9 +864,15 @@ button:disabled {
   padding: 0 8px 8px;
 }
 
-/* No full-bleed section rules: the panel is one surface; sections use space. */
+/* One horizontal grid: the scroll container owns the lateral inset; sections,
+   lists and the tree add none, so search, filter, headers, rows and the footer
+   share one content box. Sections separate with space and a single divider. */
 .nf-sidebar-section {
-  padding: 4px 4px 12px;
+  padding: 4px 0 0;
+}
+
+.nf-library-section {
+  padding-bottom: 12px;
 }
 
 .nf-section-head {
@@ -874,7 +880,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   min-height: 28px;
-  padding: 8px 6px 6px;
+  padding: 2px 6px 4px;
 }
 
 .nf-section-label {
@@ -898,8 +904,8 @@ button:disabled {
 }
 
 .nf-icon-button.nf-section-add {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
 }
 
 .nf-icon-button {
@@ -933,9 +939,9 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 6px 6px;
+  margin: 0 0 6px;
   padding: 0 6px;
-  height: 24px;
+  height: 28px;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-control);
   color: var(--text-3);
@@ -949,7 +955,7 @@ button:disabled {
 .nf-library-search input {
   flex: 1;
   min-width: 0;
-  height: 22px;
+  height: 26px;
   background: transparent;
   border: 0;
   outline: none;
@@ -962,17 +968,25 @@ button:disabled {
 }
 
 .nf-library-list {
-  padding: 0 2px;
+  padding: 0;
 }
 
 .nf-library-row {
   display: flex;
   align-items: center;
+  min-height: 28px;
   border-radius: var(--radius-control);
 }
 
 .nf-library-row:hover {
   background: var(--surface-1);
+}
+
+/* The selection surface is the whole 224 px row: the hidden `…` menu stays
+   inside it instead of stealing 20 px from the selected background. */
+.nf-library-row[data-active="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .nf-library-open {
@@ -981,7 +995,7 @@ button:disabled {
   gap: 7px;
   flex: 1;
   min-width: 0;
-  height: 26px;
+  height: 28px;
   padding: 0 6px;
   color: var(--text-2);
   font-size: calc(12.5px * var(--ui-scale));
@@ -989,10 +1003,9 @@ button:disabled {
   border-radius: var(--radius-control);
 }
 
-.nf-library-open[data-active="true"] {
-  background: var(--accent-soft);
+.nf-library-row[data-active="true"] .nf-library-open {
+  background: transparent;
   color: var(--text-1);
-  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .nf-library-title {
@@ -1097,6 +1110,7 @@ button:disabled {
   align-items: center;
   gap: 4px;
   flex: none;
+  border-top: 1px solid var(--border-1);
   padding: 6px 8px 8px;
 }
 
@@ -1124,8 +1138,13 @@ button:disabled {
 
 .nf-tree {
   outline: none;
-  padding: 0 2px;
+  padding: 0;
   font-size: calc(12.5px * var(--ui-scale));
+}
+
+.nf-topics-section {
+  border-top: 1px solid var(--border-1);
+  padding-top: 8px;
 }
 
 .nf-tree-item {
@@ -1136,7 +1155,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 5px;
-  min-height: 26px;
+  min-height: 28px;
   padding-right: 6px;
   border-radius: var(--radius-control);
   color: var(--text-2);

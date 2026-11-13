@@ -41,7 +41,7 @@ function LibrarySection(): JSX.Element {
     tabs.find((tab) => tab.packagePath === packagePath);
 
   return (
-    <section className="nf-sidebar-section" aria-label="Library">
+    <section className="nf-sidebar-section nf-library-section" aria-label="Library">
       <div className="nf-section-head">
         <span className="nf-section-label">Library</span>
         <span className="nf-section-tail">
@@ -56,7 +56,7 @@ function LibrarySection(): JSX.Element {
             title="New note (⌘N)"
             onClick={() => void createNewDocument()}
           >
-            <Plus size={12} strokeWidth={1.6} aria-hidden="true" />
+            <Plus size={13} strokeWidth={1.6} aria-hidden="true" />
           </button>
         </span>
       </div>
@@ -81,11 +81,15 @@ function LibrarySection(): JSX.Element {
             const isOpen = tab !== undefined;
             const isActive = tab?.packagePath === activeTab;
             return (
-              <div key={document.packagePath} className="nf-library-row" role="listitem">
+              <div
+                key={document.packagePath}
+                className="nf-library-row"
+                role="listitem"
+                data-active={isActive}
+              >
                 <button
                   type="button"
                   className="nf-library-open"
-                  data-active={isActive}
                   data-library-document="true"
                   data-doc-status={document.status}
                   title={
@@ -508,7 +512,7 @@ function TopicSection(): JSX.Element {
             void createChapter();
           }}
         >
-          <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
+          <Plus size={13} strokeWidth={1.5} aria-hidden="true" />
         </button>
       </div>
       {chapters.length === 0 ? (

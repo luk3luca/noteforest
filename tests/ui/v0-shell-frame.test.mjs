@@ -812,6 +812,135 @@ describe('V0 visual shell', () => {
     await h.screenshot(resolve(screenshotDir, 'edges-dark-selected.png'), { width: 1440, height: 900 });
   });
 
+  it('keeps one sidebar grid with equal selection surfaces and 28 px rows', async () => {
+    await launch('sidebar-grid');
+    await ui.seedDemo();
+
+    const topicRow = page.locator('.nf-tree-row[data-block-id]').first();
+    const topicId = await topicRow.getAttribute('data-block-id');
+    await topicRow.click();
+    await h.waitSelected(topicId);
+
+    const grid = await page.evaluate(() => {
+      const box = (selector) => {
+        const element = document.querySelector(selector);
+        if (element === null) return null;
+        const rect = element.getBoundingClientRect();
+        return {
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          bottom: rect.bottom,
+          width: rect.width,
+          height: rect.height,
+        };
+      };
+      const scroll = document.querySelector('.nf-sidebar-scroll');
+      if (scroll === null) return null;
+      const scrollBox = scroll.getBoundingClientRect();
+      const scrollStyle = getComputedStyle(scroll);
+      const background = (selector) => {
+        const element = document.querySelector(selector);
+        return element === null ? null : getComputedStyle(element).backgroundColor;
+      };
+      const iconSize = (selector) => {
+        const icon = document.querySelector(`${selector} svg`);
+        if (icon === null) return null;
+        const rect = icon.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      };
+      return {
+        contentLeft: scrollBox.left + Number.parseFloat(scrollStyle.paddingLeft),
+        contentRight: scrollBox.right - Number.parseFloat(scrollStyle.paddingRight),
+        search: box('.nf-sidebar-search'),
+        filter: box('.nf-library-search'),
+        libraryHead: box('.nf-sidebar-section[aria-label="Library"] .nf-section-head'),
+        topicsHead: box('.nf-sidebar-section[aria-label="Topics"] .nf-section-head'),
+        libraryRow: box('.nf-library-row[data-active="true"]'),
+        libraryOpen: box('.nf-library-row[data-active="true"] .nf-library-open'),
+        libraryMenu: box('.nf-library-row[data-active="true"] .nf-row-menu'),
+        topicRow: box('.nf-tree-row[data-selected="true"]'),
+        librarySearchBackground: background('.nf-library-search'),
+        topSearchBackground: background('.nf-sidebar-search'),
+        topicsBorderTop: getComputedStyle(
+          document.querySelector('.nf-topics-section'),
+        ).borderTopWidth,
+        footerBorderTop: getComputedStyle(
+          document.querySelector('.nf-sidebar-foot'),
+        ).borderTopWidth,
+        libraryAdd: box('.nf-library-section [data-library-new="true"]'),
+        topicsAdd: box('.nf-topics-section .nf-icon-button'),
+        libraryAddIcon: iconSize('.nf-library-section [data-library-new="true"]'),
+        topicsAddIcon: iconSize('.nf-topics-section .nf-icon-button'),
+        settings: box('.nf-sidebar-settings'),
+        footer: box('.nf-sidebar-foot'),
+      };
+    });
+    assert.ok(grid !== null);
+    const close = (left, right, label) =>
+      assert.ok(Math.abs(left - right) <= 0.5, `${label} (${left} vs ${right})`);
+
+    // One content box: the scroll padding is the only horizontal inset.
+    for (const [name, element] of [
+      ['filter', grid.filter],
+      ['library header', grid.libraryHead],
+      ['library row', grid.libraryRow],
+      ['topics header', grid.topicsHead],
+      ['topics row', grid.topicRow],
+    ]) {
+      assert.ok(element !== null);
+      close(element.left, grid.contentLeft, `${name} left edge is the grid edge`);
+    }
+    close(grid.libraryRow.right, grid.contentRight, 'library row right edge');
+    close(grid.topicRow.right, grid.contentRight, 'topics row right edge');
+
+    // One row height: search, filter, library rows and tree rows are 28 px.
+    assert.equal(grid.search.height, 28, 'top search is 28 px');
+    assert.equal(grid.filter.height, 28, 'library filter is 28 px');
+    assert.equal(grid.libraryRow.height, 28, 'library row is 28 px');
+    assert.equal(grid.topicRow.height, 28, 'topic row is 28 px');
+    assert.equal(
+      grid.librarySearchBackground,
+      grid.topSearchBackground,
+      'both search surfaces use surface-1',
+    );
+
+    // Selection is the full row: the invisible menu stays inside the surface.
+    close(grid.libraryRow.width, grid.topicRow.width, 'Library and Topics selected widths');
+    close(
+      grid.libraryRow.width,
+      grid.contentRight - grid.contentLeft,
+      'selected width equals the row content width',
+    );
+    assert.ok(
+      grid.libraryOpen.width < grid.libraryRow.width - 15,
+      'the open button leaves the 20 px menu inside the selected row',
+    );
+    assert.ok(grid.libraryMenu.left > grid.libraryOpen.right - 1);
+
+    // Section separation and footer button contract.
+    assert.equal(grid.topicsBorderTop, '1px', 'Topics has a top divider');
+    assert.equal(grid.footerBorderTop, '1px', 'the footer has a top divider');
+    assert.ok(
+      grid.settings.width < grid.footer.width * 0.75,
+      'Settings stays a button inside the footer',
+    );
+    close(grid.libraryAdd.width, 22, 'Library add is 22 px');
+    close(grid.topicsAdd.width, 22, 'Topics add is 22 px');
+    close(grid.libraryAdd.right, grid.contentRight - 6, 'Library add right edge');
+    close(grid.topicsAdd.right, grid.contentRight - 6, 'Topics add right edge');
+    assert.ok(
+      Math.abs((grid.libraryAddIcon?.width ?? 0) - 13) <= 0.5 &&
+        Math.abs((grid.topicsAddIcon?.width ?? 0) - 13) <= 0.5,
+      'both add icons are 13 px',
+    );
+    await h.screenshot(resolve(screenshotDir, 'sidebar-expanded-264-selected.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+  });
+
   it('targets the active layout for zoom and fit without touching the hidden layout', async () => {
     await launch('zoom');
     await ui.seedDemo();
