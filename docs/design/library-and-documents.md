@@ -1,6 +1,6 @@
 # Library & documents — design
 
-**Status:** Draft for product-owner review. No implementation.
+**Status:** Approved for design (product owner, 13 November 2026). No implementation yet.
 **Date:** 13 November 2026.
 **Scope:** one active library per window, a Library/Outline sidebar split, deferred document
 creation (drafts), and document lifecycle (rename, reveal, move to Trash). Multi-root workspaces,
@@ -377,12 +377,15 @@ L2 (the Library tab is the switcher surface). L5 after L4.
 
 ---
 
-## 11. Open decisions
+## 11. Decisions (confirmed 13 November 2026)
 
-| ID | Decision | Options | Recommendation |
+The product owner confirmed every recommendation below as the decision. The options remain as a
+decision log; implementation follows the **Confirmed** column.
+
+| ID | Decision | Options | Confirmed |
 |---|---|---|---|
 | LD-01 | Tab labels | Library/Outline; Files/Topics | **Library/Outline** |
-| LD-02 | New note placement | Library header only; global header only; both | **Library header only**; remove the duplicate |
+| LD-02 | New note placement | Library header only; global header only; both | **Library header only**; the global header `+` is removed in L1 |
 | LD-03 | Library switch with open tabs | Keep tabs; close tabs after flush | **Keep tabs**, show the library in the tooltip |
 | LD-04 | Delete semantics | OS Trash; permanent delete | **OS Trash** |
 | LD-05 | External documents | v1; later | **Later**, after L4 |
