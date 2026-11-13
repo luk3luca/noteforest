@@ -117,6 +117,7 @@ const DEFAULT_SESSION: SessionState = {
   sidebarCollapsed: false,
   sidebarWidth: SIDEBAR_SNAP_WIDTH,
   collapsedTopics: {},
+  sidebarTab: 'library',
 };
 
 export function libraryDir(): string {
@@ -1518,6 +1519,7 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
             ? Math.round(width)
             : SIDEBAR_SNAP_WIDTH,
         collapsedTopics,
+        sidebarTab: raw.sidebarTab === 'outline' ? 'outline' : 'library',
       },
       legacyOverrides,
     };

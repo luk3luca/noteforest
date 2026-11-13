@@ -79,6 +79,7 @@ describe('NoteForest M3b2b anchored outline', () => {
     await launch(isolated('outline'));
     await h.setWindowSize(1440, 900);
     await seedDemo();
+    await ui.showOutline();
 
     const parentCard = h
       .activeEditor()
@@ -132,8 +133,8 @@ describe('NoteForest M3b2b anchored outline', () => {
     assert.deepEqual(rows.map((row) => row.first), ['true', 'false', 'true']);
     assert.deepEqual(rows.map((row) => row.last), ['false', 'true', 'true']);
     assert.ok(
-      rows.every((row) => Number.parseFloat(row.border) >= 1),
-      'the anchor group has a visible left rule',
+      rows.every((row) => Number.parseFloat(row.border) === 0),
+      'anchored rows have no left accent rule',
     );
 
     const directPadding = await page.evaluate((id) => {
@@ -249,6 +250,11 @@ describe('NoteForest M3b2b anchored outline', () => {
       { anchorId: symOne.anchorId, target: symTwo.blockId },
       { timeout: 10000 },
     );
+    const anchorShadow = await page
+      .locator('.nf-sidebar .nf-tree-anchor-row[data-anchor-selected="true"]')
+      .evaluate((element) => getComputedStyle(element).boxShadow);
+    assert.match(anchorShadow, /0px 0px 0px 1px inset/, 'the selected anchor row uses the full-row ring');
+    assert.doesNotMatch(anchorShadow, /2px 0px/, 'the selected anchor row has no left stripe');
     await page
       .locator(`[data-block-card="${symTwo.blockId}"] .nf-block-prose`)
       .first()

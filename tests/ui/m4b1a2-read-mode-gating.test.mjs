@@ -131,6 +131,7 @@ describe('M4b1a2 Read-mode global gating', () => {
   it('gates shell authoring in Continuous Read and re-enables it in Continuous Edit', async () => {
     await launch('m4b1a2-continuous');
     await ui.seedDemo();
+    await ui.showOutline();
     const packagePath = (await h.state()).activeTab;
     const before = await activeRuntimeInfo();
     const firstBlockId = before.blockIds[0];
@@ -309,6 +310,7 @@ describe('M4b1a2 Read-mode global gating', () => {
   it('gates Page Read and Page Edit shell commands, and re-enables undo in Continuous Edit', async () => {
     await launch('m4b1a2-page');
     await ui.seedDemo();
+    await ui.showOutline();
     const packagePath = (await h.state()).activeTab;
     const before = await activeRuntimeInfo();
     const chapterRow = page.locator('.nf-tree-chapter-row').first();

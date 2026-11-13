@@ -35,6 +35,12 @@ async function waitTabCount(count) {
   );
 }
 
+/** The Outline tab is not the default sidebar surface (L1). */
+async function showOutline() {
+  await page.locator('[data-sidebar-tab="outline"]').click();
+  await page.waitForSelector('[data-sidebar-panel="outline"]');
+}
+
 async function waitActiveTab(packagePath) {
   await page.waitForFunction(
     (expected) => window.__noteforestTest.state().activeTab === expected,
@@ -589,7 +595,7 @@ describe('NoteForest M2 editor shell', () => {
     assert.equal((await h.state()).tabs[0].title, 'M2 notes');
 
     // Second document + tab switching.
-    await page.locator('.nf-new-note').click();
+    await page.locator('[data-library-new="true"]').click();
     await waitTabCount(2);
     await page.keyboard.type('Second document text');
     await h.waitNativeEdited(true);
@@ -1887,6 +1893,7 @@ describe('NoteForest M2 editor shell', () => {
     const chapterInput = page.locator('.nf-chapter-title-input');
     await chapterInput.fill('Linear systems');
     await chapterInput.press('Enter');
+    await showOutline();
     await page.waitForFunction(
       () => document.querySelector('.nf-tree-chapter-row .nf-tree-label')?.textContent?.trim() === 'Linear systems',
       undefined,
@@ -1962,6 +1969,7 @@ describe('NoteForest M2 editor shell', () => {
     await page.evaluate(() => window.__noteforestTest.seed('demo'));
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
     await h.waitSaved();
+    await showOutline();
 
     const initial = (await h.activeRuntimeInfo()).chapterList;
     assert.equal(initial.length, 1);

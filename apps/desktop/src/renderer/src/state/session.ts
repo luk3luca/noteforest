@@ -46,5 +46,6 @@ export function buildSession(): SessionState {
     sidebarCollapsed: state.sidebarCollapsed,
     sidebarWidth: state.sidebarWidth,
     collapsedTopics: state.collapsedTopics,
+    sidebarTab: state.sidebarTab,
   };
 }

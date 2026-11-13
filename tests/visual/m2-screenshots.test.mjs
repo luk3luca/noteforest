@@ -84,7 +84,7 @@ describe('NoteForest M2 visual evidence', () => {
     await h.waitEdges(4);
 
     // A second document so the shell reads as a real session.
-    await page.locator('.nf-new-note').click();
+    await page.locator('[data-library-new="true"]').click();
     await page.waitForFunction(
       () => window.__noteforestTest.state().tabs.length === 2,
       undefined,

@@ -218,12 +218,17 @@ export interface SessionTabState {
   zoom?: number;
 }
 
+/** Expanded-sidebar surface. The footer Settings entry is outside both tabs. */
+export type SidebarTab = 'library' | 'outline';
+
 export interface SessionState {
   tabs: SessionTabState[];
   activeTab: string | null;
   sidebarCollapsed: boolean;
   sidebarWidth: number;
   collapsedTopics: Record<string, string[]>;
+  /** Persisted Library/Outline tab; legacy sessions without it open Library. */
+  sidebarTab: SidebarTab;
 }
 
 export interface BootstrapResult {

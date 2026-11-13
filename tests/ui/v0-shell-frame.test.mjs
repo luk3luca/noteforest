@@ -234,25 +234,35 @@ describe('V0 visual shell', () => {
     assert.notEqual(chip.borderColor, 'rgba(0, 0, 0, 0)', 'the active chip has a visible border');
     assert.equal(await css('.nf-tablist', 'column-gap'), '4px');
 
-    // Sidebar header: search, icon-only New note, collapse.
+    // Sidebar header: search and collapse only. The one New note control lives
+    // in the Library header (LD-02).
     assert.equal(await page.locator('.nf-sidebar-search').count(), 1);
-    const headerNew = page.locator('.nf-sidebar-head [aria-label="New note"]');
-    assert.equal(await headerNew.count(), 1);
-    assert.equal((await headerNew.innerText()).trim(), '', 'header New note is icon-only');
+    assert.equal(
+      await page.locator('.nf-sidebar-head [aria-label="New note"]').count(),
+      0,
+      'the global header + is gone',
+    );
     assert.equal(
       await page.locator('.nf-sidebar-head [aria-label="Collapse sidebar"]').count(),
       1,
     );
 
-    // Library has an icon-only `+` beside its count and it creates a note.
-    const libraryHead = page.locator('.nf-sidebar-section[aria-label="Library"] .nf-section-head');
+    // Library header: active library name, count, and the one New note `+`.
+    const libraryHead = page.locator(
+      '.nf-sidebar-section[aria-label="Library"] .nf-library-head',
+    );
     const libraryText = await libraryHead.innerText();
-    assert.match(libraryText, /Library/i);
+    assert.ok((await libraryHead.locator('[data-library-name]').innerText()).length > 0);
     assert.match(libraryText, /\d+/, 'the Library count is visible');
     const libraryAdd = libraryHead.locator('[data-library-new="true"]');
     assert.equal(await libraryAdd.count(), 1);
     assert.equal(await libraryAdd.getAttribute('aria-label'), 'New note');
     assert.equal((await libraryAdd.innerText()).trim(), '', 'the Library + is icon-only');
+    assert.equal(
+      await page.locator('.nf-sidebar-section[aria-label="Library"] [data-library-new="true"]').count(),
+      1,
+      'the Library header has the only New note control in the sidebar',
+    );
     const tabsBefore = await page.evaluate(() => window.__noteforestTest.state().tabs.length);
     await libraryAdd.click();
     await page.waitForFunction(
@@ -845,129 +855,165 @@ describe('V0 visual shell', () => {
     await launch('sidebar-grid');
     await ui.seedDemo();
 
-    const topicRow = page.locator('.nf-tree-row[data-block-id]').first();
-    const topicId = await topicRow.getAttribute('data-block-id');
-    await topicRow.click();
-    await h.waitSelected(topicId);
-
-    const grid = await page.evaluate(() => {
-      const box = (selector) => {
-        const element = document.querySelector(selector);
-        if (element === null) return null;
-        const rect = element.getBoundingClientRect();
-        return {
-          left: rect.left,
-          right: rect.right,
-          top: rect.top,
-          bottom: rect.bottom,
-          width: rect.width,
-          height: rect.height,
+    const readGrid = (selectors) =>
+      page.evaluate((wanted) => {
+        const box = (selector) => {
+          const element = document.querySelector(selector);
+          if (element === null) return null;
+          const rect = element.getBoundingClientRect();
+          return {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+          };
         };
-      };
-      const scroll = document.querySelector('.nf-sidebar-scroll');
-      if (scroll === null) return null;
-      const scrollBox = scroll.getBoundingClientRect();
-      const scrollStyle = getComputedStyle(scroll);
-      const background = (selector) => {
-        const element = document.querySelector(selector);
-        return element === null ? null : getComputedStyle(element).backgroundColor;
-      };
-      const iconSize = (selector) => {
-        const icon = document.querySelector(`${selector} svg`);
-        if (icon === null) return null;
-        const rect = icon.getBoundingClientRect();
-        return { width: rect.width, height: rect.height };
-      };
-      return {
-        contentLeft: scrollBox.left + Number.parseFloat(scrollStyle.paddingLeft),
-        contentRight: scrollBox.right - Number.parseFloat(scrollStyle.paddingRight),
-        search: box('.nf-sidebar-search'),
-        filter: box('.nf-library-search'),
-        libraryHead: box('.nf-sidebar-section[aria-label="Library"] .nf-section-head'),
-        topicsHead: box('.nf-sidebar-section[aria-label="Topics"] .nf-section-head'),
-        libraryRow: box('.nf-library-row[data-active="true"]'),
-        libraryOpen: box('.nf-library-row[data-active="true"] .nf-library-open'),
-        libraryMenu: box('.nf-library-row[data-active="true"] .nf-row-menu'),
-        topicRow: box('.nf-tree-row[data-selected="true"]'),
-        librarySearchBackground: background('.nf-library-search'),
-        topSearchBackground: background('.nf-sidebar-search'),
-        topicsBorderTop: getComputedStyle(
-          document.querySelector('.nf-topics-section'),
-        ).borderTopWidth,
-        footerBorderTop: getComputedStyle(
-          document.querySelector('.nf-sidebar-foot'),
-        ).borderTopWidth,
-        libraryAdd: box('.nf-library-section [data-library-new="true"]'),
-        topicsAdd: box('.nf-topics-section .nf-icon-button'),
-        libraryAddIcon: iconSize('.nf-library-section [data-library-new="true"]'),
-        topicsAddIcon: iconSize('.nf-topics-section .nf-icon-button'),
-        settings: box('.nf-sidebar-settings'),
-        footer: box('.nf-sidebar-foot'),
-      };
+        const scroll = document.querySelector('.nf-sidebar-scroll');
+        if (scroll === null) return null;
+        const scrollBox = scroll.getBoundingClientRect();
+        const scrollStyle = getComputedStyle(scroll);
+        const background = (selector) => {
+          const element = document.querySelector(selector);
+          return element === null ? null : getComputedStyle(element).backgroundColor;
+        };
+        const iconSize = (selector) => {
+          const icon = document.querySelector(`${selector} svg`);
+          if (icon === null) return null;
+          const rect = icon.getBoundingClientRect();
+          return { width: rect.width, height: rect.height };
+        };
+        const result = {
+          contentLeft: scrollBox.left + Number.parseFloat(scrollStyle.paddingLeft),
+          contentRight: scrollBox.right - Number.parseFloat(scrollStyle.paddingRight),
+          search: box('.nf-sidebar-search'),
+          tabs: box('.nf-sidebar-tabs'),
+          scroll: box('.nf-sidebar-scroll'),
+          librarySearchBackground: background('.nf-library-search'),
+          topSearchBackground: background('.nf-sidebar-search'),
+          footerBorderTop: getComputedStyle(
+            document.querySelector('.nf-sidebar-foot'),
+          ).borderTopWidth,
+          tabBorderTop: getComputedStyle(
+            document.querySelector('.nf-sidebar-tabs'),
+          ).borderTopWidth,
+          settings: box('.nf-sidebar-settings'),
+          footer: box('.nf-sidebar-foot'),
+        };
+        for (const [name, selector] of Object.entries(wanted)) {
+          result[name] = box(selector);
+          if (selector.includes('[data-library-new') || selector.includes('.nf-icon-button')) {
+            result[`${name}Icon`] = iconSize(selector);
+          }
+        }
+        return result;
+      }, selectors);
+
+    const libraryGrid = await readGrid({
+      filter: '.nf-library-search',
+      libraryHead: '.nf-sidebar-section[aria-label="Library"] .nf-library-head',
+      libraryRow: '.nf-library-row[data-active="true"]',
+      libraryOpen: '.nf-library-row[data-active="true"] .nf-library-open',
+      libraryMenu: '.nf-library-row[data-active="true"] .nf-row-menu',
+      libraryAdd: '.nf-library-section [data-library-new="true"]',
     });
-    assert.ok(grid !== null);
+    assert.ok(libraryGrid !== null);
     const close = (left, right, label) =>
       assert.ok(Math.abs(left - right) <= 0.5, `${label} (${left} vs ${right})`);
 
+    // The tab strip is the boundary above the scroll panel, not inside it.
+    assert.equal(libraryGrid.tabBorderTop, '1px', 'the tab strip has its own border');
+    assert.ok(libraryGrid.tabs.bottom <= libraryGrid.scroll.top + 0.5);
+    assert.equal(
+      await page.locator('.nf-sidebar-section[aria-label="Topics"]').count(),
+      0,
+      'the Outline panel is not mounted under the Library tab',
+    );
+
     // One content box: the scroll padding is the only horizontal inset.
     for (const [name, element] of [
-      ['filter', grid.filter],
-      ['library header', grid.libraryHead],
-      ['library row', grid.libraryRow],
-      ['topics header', grid.topicsHead],
-      ['topics row', grid.topicRow],
+      ['filter', libraryGrid.filter],
+      ['library header', libraryGrid.libraryHead],
+      ['library row', libraryGrid.libraryRow],
     ]) {
       assert.ok(element !== null);
-      close(element.left, grid.contentLeft, `${name} left edge is the grid edge`);
+      close(element.left, libraryGrid.contentLeft, `${name} left edge is the grid edge`);
     }
-    close(grid.libraryRow.right, grid.contentRight, 'library row right edge');
-    close(grid.topicRow.right, grid.contentRight, 'topics row right edge');
+    close(libraryGrid.libraryRow.right, libraryGrid.contentRight, 'library row right edge');
 
     // One row height: search, filter, library rows and tree rows are 28 px.
-    assert.equal(grid.search.height, 28, 'top search is 28 px');
-    assert.equal(grid.filter.height, 28, 'library filter is 28 px');
-    assert.equal(grid.libraryRow.height, 28, 'library row is 28 px');
-    assert.equal(grid.topicRow.height, 28, 'topic row is 28 px');
+    assert.equal(libraryGrid.search.height, 28, 'top search is 28 px');
+    assert.equal(libraryGrid.filter.height, 28, 'library filter is 28 px');
+    assert.equal(libraryGrid.libraryRow.height, 28, 'library row is 28 px');
     assert.equal(
-      grid.librarySearchBackground,
-      grid.topSearchBackground,
+      libraryGrid.librarySearchBackground,
+      libraryGrid.topSearchBackground,
       'both search surfaces use surface-1',
     );
 
     // Selection is the full row: the invisible menu stays inside the surface.
-    close(grid.libraryRow.width, grid.topicRow.width, 'Library and Topics selected widths');
     close(
-      grid.libraryRow.width,
-      grid.contentRight - grid.contentLeft,
+      libraryGrid.libraryRow.width,
+      libraryGrid.contentRight - libraryGrid.contentLeft,
       'selected width equals the row content width',
     );
     assert.ok(
-      grid.libraryOpen.width < grid.libraryRow.width - 15,
+      libraryGrid.libraryOpen.width < libraryGrid.libraryRow.width - 15,
       'the open button leaves the 20 px menu inside the selected row',
     );
-    assert.ok(grid.libraryMenu.left > grid.libraryOpen.right - 1);
+    assert.ok(libraryGrid.libraryMenu.left > libraryGrid.libraryOpen.right - 1);
+    close(libraryGrid.libraryAdd.width, 22, 'Library add is 22 px');
+    close(libraryGrid.libraryAdd.right, libraryGrid.contentRight - 6, 'Library add right edge');
+    assert.ok(Math.abs((libraryGrid.libraryAddIcon?.width ?? 0) - 13) <= 0.5);
+
+    // The Outline tab uses the same grid, 28 px rows, and no section divider.
+    await ui.showOutline();
+    const topicRow = page.locator('.nf-tree-row[data-block-id]').first();
+    const topicId = await topicRow.getAttribute('data-block-id');
+    await topicRow.click();
+    await h.waitSelected(topicId);
+    const outlineGrid = await readGrid({
+      topicsHead: '.nf-sidebar-section[aria-label="Outline"] .nf-section-head',
+      topicRow: '.nf-tree-row[data-selected="true"]',
+      topicsAdd: '.nf-topics-section .nf-icon-button',
+    });
+    assert.ok(outlineGrid !== null);
+    for (const [name, element] of [
+      ['topics header', outlineGrid.topicsHead],
+      ['topics row', outlineGrid.topicRow],
+    ]) {
+      assert.ok(element !== null);
+      close(element.left, outlineGrid.contentLeft, `${name} left edge is the grid edge`);
+    }
+    close(outlineGrid.topicRow.right, outlineGrid.contentRight, 'topics row right edge');
+    assert.equal(outlineGrid.topicRow.height, 28, 'topic row is 28 px');
+    close(
+      outlineGrid.topicRow.width,
+      outlineGrid.contentRight - outlineGrid.contentLeft,
+      'the topic selection is the full row',
+    );
+    assert.equal(
+      await page.locator('.nf-topics-section').evaluate(
+        (element) => getComputedStyle(element).borderTopWidth,
+      ),
+      '0px',
+      'the tab boundary replaces the Topics section divider',
+    );
+    close(outlineGrid.topicsAdd.width, 22, 'Outline add is 22 px');
+    close(outlineGrid.topicsAdd.right, outlineGrid.contentRight - 6, 'Outline add right edge');
+    assert.ok(Math.abs((outlineGrid.topicsAddIcon?.width ?? 0) - 13) <= 0.5);
 
     // Section separation and footer button contract.
-    assert.equal(grid.topicsBorderTop, '1px', 'Topics has a top divider');
-    assert.equal(grid.footerBorderTop, '1px', 'the footer has a top divider');
+    assert.equal(libraryGrid.footerBorderTop, '1px', 'the footer has a top divider');
     assert.ok(
-      grid.settings.width < grid.footer.width * 0.75,
+      libraryGrid.settings.width < libraryGrid.footer.width * 0.75,
       'Settings stays a button inside the footer',
-    );
-    close(grid.libraryAdd.width, 22, 'Library add is 22 px');
-    close(grid.topicsAdd.width, 22, 'Topics add is 22 px');
-    close(grid.libraryAdd.right, grid.contentRight - 6, 'Library add right edge');
-    close(grid.topicsAdd.right, grid.contentRight - 6, 'Topics add right edge');
-    assert.ok(
-      Math.abs((grid.libraryAddIcon?.width ?? 0) - 13) <= 0.5 &&
-        Math.abs((grid.topicsAddIcon?.width ?? 0) - 13) <= 0.5,
-      'both add icons are 13 px',
     );
     await h.screenshot(resolve(screenshotDir, 'sidebar-expanded-264-selected.png'), {
       width: 1440,
       height: 900,
     });
-
   });
 
   it('resizes the sidebar 180..640, snaps near 264, and resets on double-click', async () => {
@@ -975,6 +1021,7 @@ describe('V0 visual shell', () => {
     page = await ui.launch(env);
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
+    await ui.showOutline();
     const topicRow = page.locator('.nf-tree-row[data-block-id]').first();
     const topicId = await topicRow.getAttribute('data-block-id');
     await topicRow.click();

@@ -237,6 +237,7 @@ export function App(): JSX.Element {
         state.setLibrary(data.library);
         state.setSidebarCollapsed(data.session.sidebarCollapsed);
         state.setSidebarWidth(data.session.sidebarWidth);
+        state.setSidebarTab(data.session.sidebarTab);
         for (const [packagePath, ids] of Object.entries(data.session.collapsedTopics)) {
           state.setCollapsedTopics(packagePath, ids);
         }
@@ -560,6 +561,19 @@ export function App(): JSX.Element {
           paletteOpen: state.paletteOpen,
           dialog: state.dialog,
           sidebarCollapsed: state.sidebarCollapsed,
+          sidebarTab: state.sidebarTab,
+          library:
+            state.library === null
+              ? null
+              : {
+                  path: state.library.libraryPath,
+                  documents: state.library.documents.map((document) => ({
+                    packagePath: document.packagePath,
+                    title: document.title,
+                    status: document.status,
+                    documentId: document.documentId,
+                  })),
+                },
           runtimes: allRuntimes().map((item) => ({
             packagePath: item.packagePath,
             title: item.document.title,

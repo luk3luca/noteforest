@@ -335,6 +335,7 @@ describe('Batch A UI rework', () => {
     assert.doesNotMatch(libraryShadow, /2px 0px 0px 0px inset/);
     const firstCard = h.activeEditor().locator('[data-block-card]').first();
     await firstCard.click();
+    await ui.showOutline();
     await page.waitForSelector('.nf-tree-item[data-selected] .nf-tree-row');
     const topicShadow = await css('.nf-tree-item[data-selected] .nf-tree-row', 'box-shadow');
     assert.match(topicShadow, /0px 0px 0px 1px inset/);

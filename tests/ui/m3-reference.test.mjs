@@ -181,6 +181,7 @@ describe('NoteForest M3d1 reference edges', () => {
     await launch(env);
     await h.setWindowSize(1440, 900);
     await seedDemo();
+    await ui.showOutline();
 
     const seeded = await structure();
     await addTopLevelBlock(ui, SOURCE_ID, textDoc(SOURCE_TEXT));
@@ -400,6 +401,7 @@ describe('NoteForest M3d1 reference edges', () => {
     await launch(env);
     await h.setWindowSize(1440, 900);
     await seedDemo();
+    await ui.showOutline();
 
     const seeded = await structure();
     const sourceId = 'm3d1-anchor-source';
@@ -504,6 +506,7 @@ describe('NoteForest M3d1 reference edges', () => {
     await launch(env);
     await h.setWindowSize(1440, 900);
     await seedDemo();
+    await ui.showOutline();
 
     const homeParentId = 'm3d2-home-parent';
     const targetId = 'm3d2-target';
@@ -738,6 +741,7 @@ describe('NoteForest M3d1 reference edges', () => {
     await launch(env);
     await h.setWindowSize(1440, 900);
     await seedDemo();
+    await ui.showOutline();
 
     const seeded = await structure();
     const chapterTitle = seeded.chapters[0].title ?? 'Untitled chapter';

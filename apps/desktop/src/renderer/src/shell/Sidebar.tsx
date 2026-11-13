@@ -1,4 +1,4 @@
-import { Anchor, BookOpen, ChevronRight, FileText, FileWarning, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
+import { Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
 import {
   Button,
   Tree,
@@ -6,7 +6,7 @@ import {
   TreeItemContent,
   type Selection,
 } from 'react-aria-components';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useShell, type TabInfo } from '../state/shell';
 import { useRegistry, useRuntime } from '../state/registry';
 import { createChapter, createNewDocument, focusBlock, openLibraryMenu, openBlockMenu, openChapterMenu, openPath, renameChapter } from '../actions';
@@ -23,6 +23,80 @@ import {
 import { recoveryStatusLabel } from '../lib/recovery';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import type { DocumentRuntime } from '../state/runtime';
+import type { SidebarTab } from '../../../shared/api';
+
+const SIDEBAR_TABS: ReadonlyArray<{ id: SidebarTab; label: string }> = [
+  { id: 'library', label: 'Library' },
+  { id: 'outline', label: 'Outline' },
+];
+
+/**
+ * Library/Outline tab strip (LD-01). Automatic activation on arrow keys matches
+ * the design's keyboard model; focus moves with the selected tab. The footer
+ * Settings entry is outside the tablist and the panel.
+ */
+function SidebarTabs(): JSX.Element {
+  const sidebarTab = useShell((state) => state.sidebarTab);
+  const setSidebarTab = useShell((state) => state.setSidebarTab);
+  const refs = useRef<Record<SidebarTab, HTMLButtonElement | null>>({
+    library: null,
+    outline: null,
+  });
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    const index = SIDEBAR_TABS.findIndex((tab) => tab.id === sidebarTab);
+    let next: SidebarTab | null = null;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      next = SIDEBAR_TABS[(index + 1) % SIDEBAR_TABS.length]?.id ?? null;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      next =
+        SIDEBAR_TABS[(index - 1 + SIDEBAR_TABS.length) % SIDEBAR_TABS.length]?.id ?? null;
+    } else if (event.key === 'Home') {
+      next = SIDEBAR_TABS[0]?.id ?? null;
+    } else if (event.key === 'End') {
+      next = SIDEBAR_TABS.at(-1)?.id ?? null;
+    }
+    if (next === null) return;
+    event.preventDefault();
+    setSidebarTab(next);
+    refs.current[next]?.focus();
+  };
+
+  return (
+    <div
+      className="nf-sidebar-tabs"
+      role="tablist"
+      aria-label="Sidebar views"
+      data-sidebar-tabs="true"
+      onKeyDown={onKeyDown}
+    >
+      {SIDEBAR_TABS.map((tab) => (
+        <button
+          key={tab.id}
+          ref={(element) => {
+            refs.current[tab.id] = element;
+          }}
+          type="button"
+          role="tab"
+          id={`nf-sidebar-tab-${tab.id}`}
+          className="nf-sidebar-tab"
+          data-sidebar-tab={tab.id}
+          aria-selected={sidebarTab === tab.id}
+          aria-controls="nf-sidebar-panel"
+          tabIndex={sidebarTab === tab.id ? 0 : -1}
+          onClick={() => setSidebarTab(tab.id)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function libraryDisplayName(libraryPath: string | undefined): string {
+  if (libraryPath === undefined || libraryPath.length === 0) return 'Library';
+  return libraryPath.split('/').filter((part) => part.length > 0).at(-1) ?? 'Library';
+}
 
 function LibrarySection(): JSX.Element {
   const library = useShell((state) => state.library);
@@ -31,6 +105,7 @@ function LibrarySection(): JSX.Element {
   const [query, setQuery] = useState('');
 
   const documents = library?.documents ?? [];
+  const libraryName = libraryDisplayName(library?.libraryPath);
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (value.length === 0) return documents;
@@ -42,8 +117,16 @@ function LibrarySection(): JSX.Element {
 
   return (
     <section className="nf-sidebar-section nf-library-section" aria-label="Library">
-      <div className="nf-section-head">
-        <span className="nf-section-label">Library</span>
+      <div className="nf-library-head">
+        <span
+          className="nf-library-switcher"
+          data-library-switcher="true"
+          data-library-name={libraryName}
+          title={library?.libraryPath ?? 'No library open'}
+        >
+          <span className="nf-library-name">{libraryName}</span>
+          <ChevronDown size={12} strokeWidth={1.5} aria-hidden="true" />
+        </span>
         <span className="nf-section-tail">
           <span className="nf-section-count" data-library-count="true">
             {documents.length}
@@ -72,7 +155,7 @@ function LibrarySection(): JSX.Element {
       </div>
       <div className="nf-library-list" role="list">
         {filtered.length === 0 ? (
-          <p className="nf-empty-line">
+          <p className="nf-empty-line" data-library-empty="true">
             {documents.length === 0 ? 'No documents yet.' : 'No matching documents.'}
           </p>
         ) : (
@@ -407,11 +490,15 @@ function TopicSection(): JSX.Element {
 
   if (runtime === null || activePath === null) {
     return (
-      <section className="nf-sidebar-section" aria-label="Topics">
+      <section className="nf-sidebar-section nf-topics-section" aria-label="Outline">
         <div className="nf-section-head">
-          <span className="nf-section-label">Topics</span>
+          <span className="nf-section-label">Outline</span>
         </div>
-        <p className="nf-empty-line">{activePath === null ? 'No document open.' : 'Document unavailable.'}</p>
+        <p className="nf-empty-line" data-outline-empty="true">
+          {activePath === null
+            ? 'Open a document to see its outline.'
+            : 'Document unavailable.'}
+        </p>
       </section>
     );
   }
@@ -501,9 +588,9 @@ function TopicSection(): JSX.Element {
   };
 
   return (
-    <section className="nf-sidebar-section nf-topics-section" aria-label="Topics">
+    <section className="nf-sidebar-section nf-topics-section" aria-label="Outline">
       <div className="nf-section-head">
-        <span className="nf-section-label">Topics</span>
+        <span className="nf-section-label">Outline</span>
         <button
           type="button"
           className="nf-icon-button"
@@ -631,6 +718,7 @@ export function Sidebar({
 } = {}): JSX.Element {
   const openDialog = useShell((state) => state.openDialog);
   const openPalette = useShell((state) => state.setPaletteOpen);
+  const sidebarTab = useShell((state) => state.sidebarTab);
   const collapseSidebar = (): void => useShell.getState().setSidebarCollapsed(true);
   const expandSidebar = (): void => {
     if (onExpand !== undefined) onExpand();
@@ -696,19 +784,16 @@ export function Sidebar({
           <span>Search</span>
           <kbd>⌘K</kbd>
         </button>
-        <button
-          type="button"
-          className="nf-icon-button nf-new-note"
-          aria-label="New note"
-          title="New note (⌘N)"
-          onClick={() => void createNewDocument()}
-        >
-          <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
       </div>
-      <div className="nf-sidebar-scroll">
-        <LibrarySection />
-        <TopicSection />
+      <SidebarTabs />
+      <div
+        className="nf-sidebar-scroll"
+        id="nf-sidebar-panel"
+        role="tabpanel"
+        aria-labelledby={`nf-sidebar-tab-${sidebarTab}`}
+        data-sidebar-panel={sidebarTab}
+      >
+        {sidebarTab === 'library' ? <LibrarySection /> : <TopicSection />}
       </div>
       <div className="nf-sidebar-foot">
         <button

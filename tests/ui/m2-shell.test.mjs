@@ -226,6 +226,7 @@ describe('NoteForest M2 shell, layout, and accessibility', () => {
     await page.keyboard.press('Escape');
     await page.waitForSelector('.nf-palette', { state: 'detached' });
 
+    await ui.showOutline();
     await page.locator('.nf-tree').focus();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowUp');

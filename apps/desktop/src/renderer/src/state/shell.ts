@@ -1,7 +1,7 @@
 /** Zustand: shell and session state only. Document content lives in runtimes. */
 
 import { create } from 'zustand';
-import type { LibraryView, RecoveryStatus } from '../../../shared/api';
+import type { LibraryView, RecoveryStatus, SidebarTab } from '../../../shared/api';
 import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -91,6 +91,7 @@ interface ShellState {
   recentClosed: TabInfo[];
   sidebarCollapsed: boolean;
   sidebarWidth: number;
+  sidebarTab: SidebarTab;
   paletteOpen: boolean;
   paletteQuery: string;
   paletteDocumentsOnly: boolean;
@@ -110,6 +111,7 @@ interface ShellState {
   updateTitle: (packagePath: string, title: string) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setSidebarWidth: (width: number) => void;
+  setSidebarTab: (tab: SidebarTab) => void;
   setPaletteOpen: (open: boolean, options?: { documentsOnly?: boolean; query?: string }) => void;
   setPaletteQuery: (query: string) => void;
   openDialog: (dialog: DialogState) => void;
@@ -137,6 +139,7 @@ export const useShell = create<ShellState>((set, get) => ({
   recentClosed: [],
   sidebarCollapsed: false,
   sidebarWidth: SIDEBAR_SNAP_WIDTH,
+  sidebarTab: 'library',
   paletteOpen: false,
   paletteQuery: '',
   paletteDocumentsOnly: false,
@@ -229,6 +232,7 @@ export const useShell = create<ShellState>((set, get) => ({
         Math.min(SIDEBAR_MAX_WIDTH, Math.round(width)),
       ),
     }),
+  setSidebarTab: (tab) => set({ sidebarTab: tab === 'outline' ? 'outline' : 'library' }),
 
   setPaletteOpen: (open, options = {}) =>
     set({

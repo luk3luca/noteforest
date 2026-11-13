@@ -431,7 +431,7 @@ describe('R3 document status panel', () => {
 
     // New note reuses the freed "untitled" folder name; the stale lock from the
     // deleted package must not block creation.
-    await page.locator('.nf-new-note').click();
+    await page.locator('[data-library-new="true"]').click();
     await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 1, undefined, {
       timeout: 10000,
     });
@@ -453,7 +453,7 @@ describe('R3 document status panel', () => {
       token: 'create-live-token',
     });
     const tabsBefore = (await h.state()).tabs.length;
-    await page.locator('.nf-new-note').click();
+    await page.locator('[data-library-new="true"]').click();
     await waitToast('locked by another NoteForest session');
     const toastText = await page.evaluate(() =>
       [...document.querySelectorAll('[data-sonner-toast]')]

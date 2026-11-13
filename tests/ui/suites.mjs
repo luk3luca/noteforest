@@ -56,6 +56,7 @@ export const FILES = [
   'ui-settings-recovery.test.mjs',
   'ui-appearance-v3.test.mjs',
   'ui-document-status.test.mjs',
+  'library-surface.test.mjs',
 ];
 
 function unique(values) {
@@ -72,6 +73,7 @@ export const GROUPS = {
     'ui-overlay-command-gate.test.mjs',
     'ui-appearance-v3.test.mjs',
     'ui-document-status.test.mjs',
+    'library-surface.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',

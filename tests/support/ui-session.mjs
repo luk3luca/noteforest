@@ -43,6 +43,18 @@ export function createUiSession({ tempRoot }) {
     return result;
   }
 
+  /** Switch the expanded sidebar to the Outline tab (L1). */
+  async function showOutline() {
+    await current().locator('[data-sidebar-tab="outline"]').click();
+    await current().waitForSelector('[data-sidebar-panel="outline"]');
+  }
+
+  /** Switch the expanded sidebar to the Library tab (L1). */
+  async function showLibrary() {
+    await current().locator('[data-sidebar-tab="library"]').click();
+    await current().waitForSelector('[data-sidebar-panel="library"]');
+  }
+
   async function structure() {
     return current().evaluate(() => window.__noteforestTest.structure());
   }
@@ -262,6 +274,8 @@ export function createUiSession({ tempRoot }) {
     applyCommand,
     structure,
     seedDemo,
+    showOutline,
+    showLibrary,
     openBlockMenu,
     openBlockMenuFromGutter,
     chooseMenuItem,
