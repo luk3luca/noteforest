@@ -476,8 +476,14 @@ switcher item. R4 Export defaults is merged at `694a434`: `settingsVersion: 4` w
 `export` namespace, Settings → Export default folder/Documents, `<title>.pdf` without date, empty
 Advanced, the sheet reading the setting, and neutral status surfaces (`SaveFailureBanner` in shell
 chrome, no left stripe, draft-only banner). The UI runner runs `document-lifecycle` serially and
-cleans stale test apps by userData. Next: R6 Continuous design. External API/agent access is removed
-from
+cleans stale test apps by userData. The block-boundary Backspace fix is merged at `6727388`: a plain
+Backspace at the very start of a non-atomic block body stays in the block (`native | stay`), empty or
+not, while code/table/list item/blockquote stay native and `⌘Backspace`/Delete remain the only
+structural deletes; the full verify is green (123 unit files/1252 tests, e2e 16, recovery 14, UI
+51/51). R6 Continuous settings is in progress: global `continuous` namespace at `settingsVersion: 5`,
+spacing/arrow/width controls, Reset, and a live sample preview, with Page/PDF isolation as the merge
+gate. Next: R6 integration and the product-owner visual/VoiceOver pass. External API/agent access is
+removed from
 Settings;
 any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
 empty in the lab and out of the product until a real control exists.
