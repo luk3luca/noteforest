@@ -10,7 +10,7 @@
  * value that reaches the paper is the code font, and the preview strip says so.
  */
 
-import { RotateCcw } from 'lucide-react';
+import { ChevronDown, RotateCcw } from 'lucide-react';
 import {
   ACCENT_GROUPS,
   accentsInGroup,
@@ -164,21 +164,29 @@ export function AppearanceSettingsPage(): JSX.Element {
             UI font
           </label>
           <div className="nf-settings-control">
-            <select
-              id="appearance-ui-font"
-              className="nf-input nf-select"
-              data-ui-font-select="true"
-              value={appearance.uiFont}
-              onChange={(event) =>
-                patchAppearance({ uiFont: event.target.value as UiFontId })
-              }
-            >
-              {UI_FONT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <span className="nf-select-wrap">
+              <select
+                id="appearance-ui-font"
+                className="nf-select"
+                data-ui-font-select="true"
+                value={appearance.uiFont}
+                onChange={(event) =>
+                  patchAppearance({ uiFont: event.target.value as UiFontId })
+                }
+              >
+                {UI_FONT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="nf-select-chevron"
+                size={14}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            </span>
           </div>
         </div>
         <div className="nf-settings-row">
@@ -186,21 +194,29 @@ export function AppearanceSettingsPage(): JSX.Element {
             Code font
           </label>
           <div className="nf-settings-control">
-            <select
-              id="appearance-code-font"
-              className="nf-input nf-select"
-              data-code-font-select="true"
-              value={appearance.codeFont}
-              onChange={(event) =>
-                patchAppearance({ codeFont: event.target.value as CodeFontId })
-              }
-            >
-              {CODE_FONT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <span className="nf-select-wrap">
+              <select
+                id="appearance-code-font"
+                className="nf-select"
+                data-code-font-select="true"
+                value={appearance.codeFont}
+                onChange={(event) =>
+                  patchAppearance({ codeFont: event.target.value as CodeFontId })
+                }
+              >
+                {CODE_FONT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="nf-select-chevron"
+                size={14}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            </span>
           </div>
         </div>
         <p className="nf-settings-help" data-appearance-type-help="true">

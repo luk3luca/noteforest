@@ -202,6 +202,162 @@ describe('Batch V visual refinement', () => {
     await closeSettings();
   });
 
+  it('keeps one 320 px Settings control geometry and a symmetric 10 px card inset', async () => {
+    await launch('batch-v-controls');
+    await ui.seedDemo();
+    await openSettings();
+
+    async function controlGeometry() {
+      return page.evaluate(() => {
+        const rect = (element) => {
+          const box = element.getBoundingClientRect();
+          return {
+            left: box.left,
+            right: box.right,
+            top: box.top,
+            bottom: box.bottom,
+            width: box.width,
+            height: box.height,
+          };
+        };
+        const groups = [...document.querySelectorAll('.nf-settings-pane .nf-segmented')].map(
+          (group) => {
+            const items = [...group.querySelectorAll('.nf-segmented-item')];
+            return {
+              ...rect(group),
+              labels: items.map((item) => item.textContent?.trim() ?? ''),
+              itemWidths: items.map((item) => item.getBoundingClientRect().width),
+              clipped: items
+                .filter((item) => item.scrollWidth > item.clientWidth + 0.5)
+                .map((item) => item.textContent?.trim() ?? ''),
+            };
+          },
+        );
+        const selects = [...document.querySelectorAll('.nf-settings-pane .nf-select')].map(
+          (select) => {
+            const wrap = select.closest('.nf-select-wrap');
+            const chevron = wrap?.querySelector('.nf-select-chevron');
+            const selectBox = rect(select);
+            const chevronBox = chevron === null || chevron === undefined ? null : rect(chevron);
+            return {
+              ...selectBox,
+              appearance: getComputedStyle(select).appearance,
+              paddingRight: getComputedStyle(select).paddingRight,
+              chevron: chevronBox,
+              chevronInside:
+                chevronBox !== null &&
+                chevronBox.right <= selectBox.right &&
+                chevronBox.left >= selectBox.left &&
+                chevronBox.top >= selectBox.top &&
+                chevronBox.bottom <= selectBox.bottom,
+            };
+          },
+        );
+        return { groups, selects };
+      });
+    }
+
+    // Page exposes the widest label set (None / Document title / Chapter title).
+    await showSettingsPage('page');
+    await page.waitForSelector('[data-page-setup-section="true"]');
+    const pageControls = await controlGeometry();
+    assert.ok(pageControls.groups.length >= 5, 'Page has several segmented groups');
+    for (const group of pageControls.groups) {
+      assert.ok(Math.abs(group.width - 320) <= 0.5, `segmented group width 320 (${group.width})`);
+      assert.equal(group.height, 28, 'segmented group height 28');
+      const first = group.itemWidths[0];
+      assert.ok(
+        group.itemWidths.every((width) => Math.abs(width - first) <= 0.5),
+        `equal-width segments (${group.labels.join(' / ')}: ${group.itemWidths.join(', ')})`,
+      );
+      assert.deepEqual(group.clipped, [], `no clipped segment label (${group.labels.join(' / ')})`);
+    }
+    await page.screenshot({ path: join(screenshotDir, 'settings-page-controls-100.png') });
+
+    // The brief's worst case is 115% even though the shipped max step is 110.
+    await page.evaluate(() => document.documentElement.style.setProperty('--ui-scale', '1.15'));
+    const pageControls115 = await controlGeometry();
+    for (const group of pageControls115.groups) {
+      assert.ok(Math.abs(group.width - 320) <= 0.5, '320 px survives UI scale 115');
+      assert.deepEqual(
+        group.clipped,
+        [],
+        `no clipped segment label at 115% (${group.labels.join(' / ')})`,
+      );
+    }
+    await page.screenshot({ path: join(screenshotDir, 'settings-page-controls-115.png') });
+    await page.evaluate(() => document.documentElement.style.removeProperty('--ui-scale'));
+
+    await showSettingsPage('appearance');
+    const appearanceControls = await controlGeometry();
+    assert.equal(appearanceControls.selects.length, 2, 'UI font and code font selects');
+    for (const select of appearanceControls.selects) {
+      assert.ok(Math.abs(select.width - 320) <= 0.5, `select width 320 (${select.width})`);
+      assert.equal(select.height, 28, 'select height 28');
+      assert.equal(select.appearance, 'none', 'native arrow suppressed');
+      assert.equal(select.paddingRight, '30px');
+      assert.equal(select.chevronInside, true, 'the chevron sits fully inside the select');
+      assert.ok(
+        select.chevron !== null && Math.abs(select.right - select.chevron.right - 9) <= 0.5,
+        'the chevron is 9 px from the select right edge',
+      );
+      assert.equal(select.chevron.width, 14);
+    }
+    await page.screenshot({ path: join(screenshotDir, 'settings-typography-100.png') });
+    await page.evaluate(() => document.documentElement.style.setProperty('--ui-scale', '1.15'));
+    await page.screenshot({ path: join(screenshotDir, 'settings-typography-115.png') });
+    await page.evaluate(() => document.documentElement.style.removeProperty('--ui-scale'));
+    await closeSettings();
+
+    // Continuous: the React node-view wrapper reset gives both a top-level and
+    // a child card the same 10 px content inset at top and bottom.
+    const insets = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('.nf-editor[data-active="true"] [data-block-card]')];
+      const measure = (card) => {
+        const prose = card.querySelector('.nf-block-prose');
+        const firstWrapper = prose?.firstElementChild;
+        const lastWrapper = prose?.lastElementChild;
+        const first = firstWrapper?.firstElementChild ?? firstWrapper;
+        const last = lastWrapper?.lastElementChild ?? lastWrapper;
+        if (first === null || first === undefined || last === null || last === undefined) {
+          return null;
+        }
+        const cardBox = card.getBoundingClientRect();
+        const firstBox = first.getBoundingClientRect();
+        const lastBox = last.getBoundingClientRect();
+        return {
+          top: firstBox.top - cardBox.top,
+          bottom: cardBox.bottom - lastBox.bottom,
+          firstTag: first.tagName,
+          lastTag: last.tagName,
+          paddingTop: getComputedStyle(card).paddingTop,
+          paddingBottom: getComputedStyle(card).paddingBottom,
+        };
+      };
+      const topLevel = cards.find((card) => card.getAttribute('data-top-level') === 'true');
+      const child = cards.find((card) => card.getAttribute('data-top-level') === 'false');
+      return {
+        topLevel: topLevel === undefined ? null : measure(topLevel),
+        child: child === undefined ? null : measure(child),
+      };
+    });
+    assert.ok(insets.topLevel !== null && insets.child !== null);
+    for (const [name, value] of Object.entries(insets)) {
+      assert.ok(value !== null);
+      assert.ok(
+        Math.abs(value.top - 10) <= 0.75,
+        `${name}: first content sits at the 10 px top inset (${value.top})`,
+      );
+      assert.ok(
+        Math.abs(value.bottom - 10) <= 0.75,
+        `${name}: last content ends at the 10 px bottom inset (${value.bottom})`,
+      );
+      assert.equal(value.paddingTop, '10px');
+      assert.equal(value.paddingBottom, '10px');
+    }
+    await page.screenshot({ path: join(screenshotDir, 'card-inset-top-level-child.png') });
+  });
+
   it('uses the app toast surface, typography, and stroke icons', async () => {
     await launch('batch-v-toast');
     await ui.seedDemo();

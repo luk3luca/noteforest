@@ -134,6 +134,38 @@ describe('Batch V visual contracts', () => {
     );
   });
 
+  it('keeps one Settings control geometry for segmented groups and selects', () => {
+    expect(declaration('.nf-segmented', 'display')).toBe('inline-grid');
+    expect(declaration('.nf-segmented', 'grid-auto-flow')).toBe('column');
+    expect(declaration('.nf-segmented', 'grid-auto-columns')).toBe('1fr');
+    expect(declaration('.nf-segmented', 'width')).toBe('320px');
+    expect(declaration('.nf-segmented', 'max-width')).toBe('100%');
+    expect(declaration('.nf-segmented', 'height')).toBe('28px');
+    expect(declaration('.nf-segmented-item', 'min-width')).toBe('0');
+    expect(declaration('.nf-segmented-item', 'padding')).toBe('0 6px');
+    expect(declaration('.nf-segmented-item', 'text-align')).toBe('center');
+    expect(declaration('.nf-segmented-item', 'white-space')).toBe('nowrap');
+    expect(declaration('.nf-select-wrap', 'position')).toBe('relative');
+    expect(declaration('.nf-select-wrap', 'width')).toBe('320px');
+    expect(declaration('.nf-select', 'appearance')).toBe('none');
+    expect(declaration('.nf-select', 'width')).toBe('320px');
+    expect(declaration('.nf-select', 'height')).toBe('28px');
+    expect(declaration('.nf-select', 'padding')).toBe('0 30px 0 8px');
+    expect(declaration('.nf-select-chevron', 'right')).toBe('9px');
+    expect(declaration('.nf-select-chevron', 'width')).toBe('14px');
+    expect(declaration('.nf-select-chevron', 'height')).toBe('14px');
+    expect(declaration('.nf-select-chevron', 'pointer-events')).toBe('none');
+    expect(declaration('.nf-select-chevron', 'color')).toBe('var(--text-3)');
+  });
+
+  it('resets only the node-view wrapper first/last margins inside a card', () => {
+    expect(declaration('.nf-block-prose > :first-child > :first-child', 'margin-top')).toBe('0');
+    expect(declaration('.nf-block-prose > :last-child > :last-child', 'margin-bottom')).toBe('0');
+    // The direct resets stay: they cover a wrapper that is itself the content.
+    expect(declaration('.nf-block-prose > *:first-child', 'margin-top')).toBe('0');
+    expect(declaration('.nf-block-prose > *:last-child', 'margin-bottom')).toBe('0');
+  });
+
   it('renders the anchor quote as a squared chip, not a pill', () => {
     expect(declaration('.nf-callout-quote', 'border-radius')).toBe(
       'var(--radius-control)',

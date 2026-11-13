@@ -2142,6 +2142,17 @@ button:disabled {
   margin-bottom: 0;
 }
 
+/* The React node-view wrapper is the first child of `.nf-block-prose`, so the
+   direct reset above never reaches the real heading/paragraph. Reset only the
+   wrapper's first/last element; nested margins elsewhere stay intact. */
+.nf-block-prose > :first-child > :first-child {
+  margin-top: 0;
+}
+
+.nf-block-prose > :last-child > :last-child {
+  margin-bottom: 0;
+}
+
 /* Text-anchor marker: dotted underline + dot, visible on every resolved span.
    The mark carries data-anchor-mark/-ids so tests can assert the binding. */
 .nf-anchor-mark {
@@ -4835,10 +4846,16 @@ body.nf-dragging-block .nf-gutter-handle {
   gap: 16px;
 }
 
+/* One control geometry: every segmented group is the same 320 px inline grid,
+   so 2-choice and 3-choice rows share the total width and equal buttons. */
 .nf-segmented {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   align-items: center;
   gap: 1px;
+  width: 320px;
+  max-width: 100%;
   height: 28px;
   padding: 1px;
   border: 1px solid var(--border-1);
@@ -4847,11 +4864,16 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-segmented-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
   height: 24px;
-  padding: 0 10px;
+  padding: 0 6px;
   border-radius: 2px;
   color: var(--text-2);
   font-size: calc(12px * var(--ui-scale));
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -5330,20 +5352,46 @@ body.nf-dragging-block .nf-gutter-handle {
 
 /* ----------------------------------------------------- appearance settings */
 
-/* Real select for UI/code font. One role per property, no literal colors. */
+/* Real select for UI/code font. Same geometry as the segmented groups; the
+   chevron is a real icon inside the box, so the native arrow is suppressed and
+   can never clip at a UI scale step. */
+.nf-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 320px;
+  max-width: 100%;
+}
+
 .nf-select {
-  min-width: 168px;
-  height: 26px;
-  padding: 0 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 320px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 30px 0 8px;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-control);
   background: var(--surface-1);
   color: var(--text-1);
   font-size: calc(12.5px * var(--ui-scale));
+  outline: none;
 }
 
-.nf-select:hover {
+.nf-select:hover,
+.nf-select:focus {
   border-color: var(--border-2);
+}
+
+.nf-select-chevron {
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
 .nf-accent-groups {
