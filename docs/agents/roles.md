@@ -85,8 +85,9 @@ milestone.
 **Job:** implement exactly one task brief in a worktree, with tests.
 
 - Inputs: one task brief, the linked spec/UX/ADR, the current code.
-- Outputs: code, tests, a report in `docs/reports/`, a worktree path, a branch, commits.
+- Outputs: code, tests, a report in `docs/reports/`, a worktree path, a branch, one commit (default).
 - May: make local implementation decisions inside the brief; ask before adding a dependency.
+- Commit policy: one commit per worktree/slice. Never split files or hunks or rewrite history for neatness unless the product owner explicitly asks for separate commits.
 - Must not: change the spec, UX, ADR, plan, or product decisions; merge; start M3/page/PDF work
   unless the brief says so; weaken or delete tests to make a gate pass.
 - Testing: targeted tests while working (`npx vitest run <file>`, `node --test --test-name-pattern

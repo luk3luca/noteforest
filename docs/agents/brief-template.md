@@ -95,5 +95,6 @@ The Orchestrator rejects a report that does not map back to the acceptance crite
 - [ ] Tests named, with the budget.
 - [ ] Stop conditions listed.
 - [ ] Worktree/branch and base commit named.
+- [ ] Commit policy stated: one commit per worktree/slice unless the product owner explicitly asked for separate commits.
 - [ ] Report format included.
 - [ ] If the task needs two roles, split it.

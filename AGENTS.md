@@ -63,6 +63,7 @@ All agents use **DeepSeek V4.1 Flash Max** (`opencode-go/deepseek-v4.1-flash#max
 11. Builder works in a worktree and reports the worktree path. Orchestrator integrates; Builder does not merge.
 12. The Orchestrator never edits product code directly. Before starting any change, it asks the product owner for explicit confirmation, then delegates one brief to an Implementer in a worktree. Direct edits are allowed only when the product owner explicitly asks for them.
 12. Manual checks that need a human (subjective visual judgement, screen recording) belong to the product owner. Agents do not record the screen; they provide PDF/screenshot evidence.
+13. One worktree = one commit by default. Do not split commits per file or hunk and do not spend time curating history unless the product owner explicitly asks. The review unit is the diff plus the report, not the commit sequence.
 
 ## Product owner clarifications
 
