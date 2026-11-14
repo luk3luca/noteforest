@@ -1,9 +1,17 @@
 # ADR-0003 — External Agent API: local HTTP + MCP, auth, locking, audit
 
-- **Status:** Accepted
+- **Status:** **Withdrawn** by the product owner (14 November 2026). History only; not a v1
+  requirement. The integration is now file-based Markdown import (see AGENTS.md “Agent-friendly
+  authoring”), with no server, tokens, MCP, live command API, or audit surface.
 - **Date:** 3 November 2026
-- **Decision owner:** Orchestrator, ratified by the product owner
+- **Decision owner:** Orchestrator, ratified by the product owner; withdrawn 14 November 2026
 - **Related:** spec §12 (External Agent API), §15.18 (AC-70–AC-74), `docs/adr/0002-pdf-pipeline.md`
+
+> **Withdrawal note (14 November 2026).** The product owner decided not to build an API harness or
+> a live agent surface. External agents produce Markdown and import it as a note; the importer owns
+> the forest structure and formatting. Nothing in this ADR is built or required. The text below is
+> kept only as a record of the previous decision.
+
 
 ## Context
 

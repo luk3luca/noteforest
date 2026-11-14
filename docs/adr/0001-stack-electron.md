@@ -74,7 +74,7 @@ Positive:
 
 - The spike can start from a known-good editor/PDF toolchain instead of building one.
 - One layout tree, one paginator, two renderers, one PDF pipeline.
-- The external API is orthogonal: Node's HTTP server and an MCP adapter are straightforward.
+- A local agent API was considered and withdrawn on 14 November 2026; agent authoring is file-based Markdown import.
 
 Negative:
 

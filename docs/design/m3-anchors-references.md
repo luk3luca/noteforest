@@ -122,7 +122,6 @@ implement from UX §8.5 before it is corrected.
 
 - Page view and PDF visuals, the paginator's page-break geometry, AC-51–AC-53, AC-60–AC-66; M4.
 - A second layout engine or a second anchor resolver; M3 exposes the shared contract.
-- The External Agent API/MCP and its scopes/dry-run/audit; M5.
 - Annotations, iPad/Pencil, collaboration, sync, plugins, spaced repetition.
 - A full right-hand inspector; the anchor health sheet is the M3 surface.
 - Formula text extraction/search in PDF; best-effort formula text is M4+.

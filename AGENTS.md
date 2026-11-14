@@ -124,24 +124,11 @@ These override any conflicting research input.
 - **Editor shell (M2 direction, 3 November 2026)**: an Obsidian-like desktop shell — left sidebar with the document library and the active document's topic tree, top tabs for multiple open documents, and a continuous **branch editor** with basic primary block-to-block branches and visible arrows. Dark mode default; calm, minimal, keyboard-first; no dashboard/AI-slop patterns. Span anchors and reference edges are M3; page view/PDF are M4. Full spec: `docs/ux-shell.md`.
 - **PDF priority (3 November 2026)**: editor first. The Spike 1 layout/paginator/print pipeline is a technical foundation; page view and PDF polish are deferred to M4, after real documents and branches exist. Do not spend M2 time on PDF visuals or third-party annotation apps.
 - **Broken anchors**: visible marker + fallback to the whole block + repair dialog; never silent data loss.
-- **V1 scope**: all core features discussed — reader, page preview, PDF, chapters, blocks, branches, text/formula/code/image anchors, images, code, tables, shared children, outline, multiple documents, search, dark mode, external agent API (no in-app agent panel) — delivered in vertical slices; polish later. Non-goals: iPad/Pencil, annotations, collaboration, plugins, spaced repetition, in-app agent chat/autonomy.
+- **V1 scope**: all core features discussed — reader, page preview, PDF, chapters, blocks, branches, text/formula/code/image anchors, images, code, tables, shared children, outline, multiple documents, search, dark mode, agent-friendly Markdown import — delivered in vertical slices; polish later. Non-goals: iPad/Pencil, annotations, collaboration, plugins, spaced repetition, in-app agent chat/autonomy, local HTTP/MCP agent API.
+- **Agent-friendly authoring (14 November 2026)**: external agents do not get a server, tokens, or a live command API. The integration is **file-based**: an agent writes Markdown and imports it as a NoteForest note (same import path as a human), so the forest structure and formatting come from the importer. No in-app agent panel, no background autonomy.
 - **Testing**: T3 Code internal browser for manual/visual checks; Playwright for automated e2e, visual regression, and PDF text extraction. E2E must never open native OS dialogs: the main process installs a test dialog guard under `NOTEFOREST_E2E=1` that records calls and returns safe non-blocking defaults; a test that needs a dialog overrides the recorder explicitly. An unmocked dialog must fail fast, never wait for a human click.
 - **Performance**: 300 blocks guaranteed, 1,000 usable with virtualization/collapse/focus. This is a rendering/layout limit, not a hard Electron limit; GPUI is a later option only if benchmarks justify a rewrite.
 
-## External agent API (v1, D16–D20 closed)
-
-No in-app agent panel in v1. The app exposes a typed local API so external agents (Hermes, OpenCode, etc.) can read and mutate documents through the same command layer as the UI. Full decisions: `docs/adr/0003-external-agent-api.md`.
-
-- **Off by default, loopback-only.** The server binds to `127.0.0.1`; no remote bind, no TLS requirement for loopback, no cloud relay, no web access, no telemetry.
-- **Transport**: local HTTP JSON API first, with an MCP adapter that maps to the same commands and queries. Neither path is privileged. A CLI can wrap the same client.
-- **Auth**: bearer token, **shown once**, stored **hashed** (plus a short display prefix), **revocable** immediately. Tokens are **document-scoped**: each token names exactly one document in v1. A token can be read-only or read/write; `destructive` requires an explicit separate grant.
-- **Scopes**: `read`, `write`, `export`, `destructive`, `audit`. A write token cannot grant itself `destructive`; escalation requires a new token issued by the user in the app.
-- **Commands**: open/read document, search, create/edit/delete block, create branch from block or anchor, reorder/reparent, create chapter, export PDF, undo/redo, read audit. Every mutation is a typed command with validation, an inverse, and undo/redo. Direct JSON writes are rejected.
-- **Concurrency**: single-writer lock per document plus a monotonic `baseRevision`. Stale commands fail with a rebase/refresh error; no silent overwrite. Concurrent readers are allowed. External file edits are detected and blocked as in the spec.
-- **Dry-run / apply / undo**: mutating commands support `dryRun` with a diff and affected IDs; apply is all-or-nothing against `baseRevision`; destructive commands require `confirm` naming the affected IDs; undo shares the UI session stack.
-- **Audit**: every request (read, write, dry-run, export, failure) is audit-logged locally with timestamp, token/client ID, command, document, base revision, result, affected IDs, and duration. Audit logs are append-only, outside the document package, not in git.
-- **No background autonomy**: the app never polls, retries, or runs agent turns. The external client decides when to call.
-- **PDF export**: `export.pdf` returns a job ID; status is queryable. Small exports usually finish before the first poll. Output path and overwrite policy are explicit.
 
 ## Stack decision (closed)
 
@@ -167,7 +154,7 @@ Research remains useful as input for components, not as an open stack decision. 
 - `docs/tasks/` — milestone and phase task briefs.
 - `docs/reviews/` — Sentinel review reports.
 - `docs/reports/` — Builder implementation reports.
-- `docs/adr/` — architecture decision records: stack, PDF, External API, UI shell/editor.
+- `docs/adr/` — architecture decision records: stack, PDF, UI shell/editor, personal page settings, copy identity. ADR-0003 (External API) is withdrawn.
 - `docs/spike-01-layout-paginator-pdf.md` — Spike 1 brief and gates (historical).
 - `docs/spikes/` — Spike 1 report, gate evidence, and artifacts.
 - `research/ui-components.md` — M2 shell/editor component and visual research.
@@ -179,7 +166,6 @@ apps/desktop/       # Electron main + preload + React editor shell (M2)
 packages/core/      # document model, schema, commands, serialization, persistence
 packages/layout/    # pure adaptive layout + paginator + fixtures + geometry tests (Spike 1 foundation)
 packages/pdf/       # print compositor + printToPDF/verify orchestration (Spike 1 foundation)
-packages/api/       # local HTTP JSON API + MCP adapter (not scaffolded yet)
 docs/
   adr/
   agents/
@@ -192,7 +178,6 @@ AGENTS.md
 ```
 
 `apps/desktop`, `packages/core`, `packages/layout`, and `packages/pdf` exist.
-`packages/api` is scaffolded in M5, not in M2.
 
 ## Reporting format
 

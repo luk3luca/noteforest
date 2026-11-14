@@ -17,8 +17,8 @@ The product works, but too much critical behavior lives in a few files:
 | `apps/desktop/src/renderer/src/editor/views/BlockViews.tsx` | ~1,360 |
 
 The M3h1 placement-undo workaround (capture/replay ProseMirror history) shows the cost of mixing
-view projection, canonical content, and undo in one runtime. M4 will add page/PDF, M5 will add an
-external API, and M6 will add settings; without seams those will increase coupling.
+view projection, canonical content, and undo in one runtime. M4 added page/PDF, M5 will add Markdown import/export, and M6 will add search and settings; without
+seams those would increase coupling.
 
 ## Stable seams to extract now
 
@@ -84,7 +84,8 @@ discriminated unions/state machines. No DI container, no event sourcing, no micr
 
 ## Only interfaces now, implementations later
 
-- **External API/MCP**: `ApplicationService` and query contracts; auth/audit middleware comes with M5.
+- **Markdown import/export**: the importer/exporter uses `ApplicationService` and the typed command
+  layer; no API server.
 - **Asset pipeline**: `AssetStore` contract delivered in `packages/core/src/assets.ts`; the
   content-addressed implementation and image UI come with M3c3b.
 - **Settings/theme**: token registry; UI and full type/radius scales in M6.

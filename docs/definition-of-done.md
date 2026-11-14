@@ -9,8 +9,8 @@
 
 ## Phase note
 
-The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002); the External Agent API defaults are
-decided (ADR-0003). The spec v0.4.5 is approved and the M3 design delta is merged (UX v1.4,
+The v1 stack and PDF pipeline are decided (ADR-0001, ADR-0002). The External Agent API (ADR-0003) is
+withdrawn; agent authoring is file-based Markdown import. The spec v0.4.5 is approved and the M3 design delta is merged (UX v1.4,
 ADR-0005). **Current gate:** the M3h Sentinel re-review is **accept with minor**
 (`docs/reviews/m3h-review.md`); M3h4/M3h5 are merged (S3-3/S3-8 closed) and the product-owner
 VoiceOver/visual gate remains before M3 acceptance. `npm run verify` (typecheck, unit, critical e2e, recovery, UI) is the task gate. M2f is
@@ -29,8 +29,7 @@ implementation**, not general application code. A docs task is done when:
 - nothing contradicts the locked layout model (no freeform canvas, pins, fixed columns, stored page
   containers, or separate reader PDF);
 - stack, PDF, and API behavior match the ADRs; a deviation is an ADR, not a doc edit;
-- the in-app chat/agent panel is treated as a v1 non-goal; the agent surface is the External Agent
-  API;
+- the in-app chat/agent panel and local API are v1 non-goals; the agent path is Markdown import;
 - the Reviewer has approved the document.
 
 Code-related sections activate when implementation starts. A change to the chosen stack, PDF
@@ -84,7 +83,6 @@ implementer claim.
 - [ ] Reader and page views were checked in A4 portrait and landscape, with the page count recorded.
 - [ ] Dark mode (default) and light mode were checked; the PDF stays light in both.
 - [ ] Freeze mode is read-only; exit offers incremental or full reflow; selection and page survive.
-- [ ] External Agent API work verified token scopes, the dry-run diff, apply, undo, audit entry, and
       document lock.
 - [ ] A UI change includes an app screenshot, with before/after when visual. A screen recording is
       optional and only when the product owner asks for it; agents do not record the screen.
@@ -177,42 +175,6 @@ The stack is Electron + React + TypeScript (ADR-0001); the PDF pipeline is the s
 - [ ] **Packaging:** the build is reproducible even before signing and notarization exist.
 - [ ] A stack or PDF-pipeline change requires an ADR and reopens this section.
 
-### 1.13 External Agent API
-
-The in-app chat/agent panel is a v1 non-goal. The agent surface is a local API.
-
-- [ ] The API is off by default; the user enables it, chooses a port, and issues or revokes tokens.
-- [ ] API mutations use the shared typed command API; there is no API-only store, file, or model
-      mutation.
-- [ ] The HTTP JSON API and the MCP adapter map to the same command catalog; there is no second
-      command surface.
-- [ ] The server binds loopback or a Unix socket only.
-- [ ] Bearer tokens are shown once, stored hashed, compared in constant time, and revocable; scopes
-      are `read`, `write`, `export`, `destructive`, and `audit`, and a token cannot self-escalate.
-- [ ] Token secrets never appear in the document package, git, PDF metadata, logs, errors, or the
-      audit log.
-- [ ] Tokens are document-scoped in v1; a token cannot read another document by path or ID. Library
-      scope is not available without a new ADR.
-- [ ] Dry-run returns a structured diff; commands validate `baseRevision`; apply is atomic;
-      destructive actions require explicit confirmation naming the affected IDs; a stale revision is
-      refused.
-- [ ] Responses return created/updated IDs, diff, new revision, undo token, and audit ID; API undo
-      names a transaction ID, succeeds only while it is the top undoable entry, and reverts one entry
-      on the shared stack.
-- [ ] One writer lock per document (OS advisory lock + lock file); concurrent readers are allowed;
-      a second writer conflicts instead of corrupting; lock recovery is explicit.
-- [ ] Every request (read, write, dry-run, export, failure) is audit-logged with token/client,
-      command, document, base revision, result, affected IDs, and duration; no note body by default.
-- [ ] No write is silent: every mutation returns a command ID and audit entry, and the UI reflects it.
-- [ ] Note content is untrusted; malicious content cannot trigger a command without an explicit API
-      call.
-- [ ] Auth, scope, validation, conflict, lock, and rate-limit errors are structured; no partial
-      mutation; retries are idempotent; no outbound network.
-- [ ] Auth/scope, MCP mapping, audit, dry-run/apply/undo, lock/concurrency, malicious-content, and
-      no-network tests pass.
-
----
-
 ## 2. Per-task DoD template
 
 Copy this into the task and fill every field:
@@ -230,7 +192,7 @@ Non-goals:
 Dependencies approved:
 Files expected:
 Page/layout impact (size, orientation, margins, pagination, manual breaks, page count):
-External API impact (commands, scopes, audit, lock):
+Agent/import impact (Markdown mapping, assets, round-trip):
 Test plan:
 Fixtures:
 Evidence (links):
@@ -255,7 +217,6 @@ Rules:
 - A fixture or a reproducible starting state.
 - Approved dependencies.
 - Page size, orientation, margins, pagination rule, and expected page count.
-- External Agent API scope and permissions, when the task touches the API.
 - No open product decision.
 - For UI work, the expected states and keyboard model.
 
@@ -275,7 +236,6 @@ If any is missing, the task is **Blocked**, not started.
 | **End-to-end** | User flows on the packaged app | Every PR (smoke) and nightly (full) | Must pass |
 | **Visual** | T3 internal browser for manual/visual checks; Playwright screenshots and geometry snapshots | Every PR on a fixed runner | No unintended diff |
 | **PDF** | Page fidelity, text extraction, page count, fonts; Playwright plus `pdftotext` | Every export change; every release | Must pass |
-| **External API** | Auth/scopes, dry-run, apply/undo, audit, locking, malicious content | Every API change; every release | Must pass |
 | **Performance** | Budgets on fixed fixtures | Nightly or weekly; every release | No regression over 20% |
 | **Migration / crash / fuzz** | Old files, kill mid-save, malformed input | Every schema change and every release | Must pass |
 
@@ -335,8 +295,6 @@ Generate valid documents and assert:
 27. Freeze mode is read-only and freezes the layout/pagination snapshot; exiting offers incremental
     or full reflow, and full reflow on request or after the configured idle period converges to the
     same deterministic layout and pagination.
-28. Every External Agent API mutation maps to shared commands; dry-run is non-mutating; apply is
-    all-or-none and undoable as one entry.
 
 Stability suite gates: adding one block keeps at least 95% of pre-existing blocks within 2 px in
 continuous coordinates; deleting one moves survivors outside the affected parent subtree and
@@ -358,8 +316,6 @@ Log the seed. Save any shrunk failure as a named regression fixture.
   line is cut; the block exists once.
 - **Freeze mode:** read-only freeze, freeze badge, exit to incremental or full reflow, selection/page
   preserved, and full reflow converging to the same deterministic layout and pagination.
-- **External API:** token auth and scopes, dry-run, apply/undo, audit, stale proposal, concurrent
-  writers, file locking, atomic failure, and malicious-content isolation.
 - **Reader/page parity:** the two views derive the same layout and break positions; switching
   preserves reading position and selection.
 - **Undo:** coalescing rules and save boundaries.
@@ -371,8 +327,8 @@ Log the seed. Save any shrunk failure as a named regression fixture.
 - Load fixtures through an app API, not through UI setup, to keep tests fast and stable.
 - Cover: create, edit, branch, anchor, save/reload, collapse, page navigation, reader/page switch,
   page-break marker actions, pagination, continuation markers, long-block continuation, freeze and
-  reflow, dark/light switch, External API dry-run/apply/undo with scopes, export preflight, export
-  PDF, keyboard-only path.
+  reflow, dark/light switch, Markdown import/export round-trip, export preflight, export PDF,
+  keyboard-only path.
 - No arbitrary sleeps; wait for explicit app signals.
 - One smoke path on every PR; full matrix nightly.
 - Test the packaged app on Electron. Do not assume a browser-only path is enough; verify the
@@ -500,30 +456,8 @@ The visual suite is the only visible-window exception.
 - The UI runner's suite list is checked against `tests/ui/*.test.mjs` (or generated), so a new
   suite cannot be added without running.
 - No network; time and randomness are injected.
-- Coverage is not a target. Anchors, layout, pagination, persistence, migration, and External API
-  commands must cover failure paths; uncovered critical lines are justified in review.
-
-### 3.11 External Agent API tests
-
-- Command/schema unit tests: valid arguments, unknown fields, missing fields, oversized payloads.
-- Auth tests: missing, invalid, and revoked tokens; constant-time comparison; token rotation. Expiry
-  tests are added only if token expiry is implemented (not in v1).
-- Scope tests: read-only token cannot write; document/folder scope cannot reach another file; scope
-  is checked per command.
-- Dry-run tests: structured diff, no mutation, no audit write beyond the read/dry-run event.
-- Apply/undo tests: atomic apply, one-entry undo, stale document version returns a conflict, retry
-  with the same idempotency key does not duplicate.
-- MCP adapter tests: every MCP tool maps to the same command catalog and validates scopes/revisions.
-- Audit tests: every request including read, dry-run, export, and failure gets an entry with
-  token/client, command, base revision, result, and duration; no secrets or note body by default;
-  append-only and survives restart.
-- Concurrency tests: two writers, one lock, second gets a conflict; stale lock TTL recovers; no
-  interleaved or corrupt save.
-- Malicious-content fixtures: instructions in note text, fake command JSON, hidden text, malicious
-  links, huge content; none triggers a command without an explicit call.
-- No-network default test; token never logged; rate limits and timeouts bounded.
-
----
+- Coverage is not a target. Anchors, layout, pagination, persistence, migration, and Markdown
+  import/export must cover failure paths; uncovered critical lines are justified in review.
 
 ## 4. Required fixtures
 
@@ -629,8 +563,8 @@ Notes:
 ### Scope and quality
 
 - [ ] Stack and PDF pipeline ADRs approved (ADR-0001, ADR-0002); no placeholder engine remains.
-- [ ] External Agent API ADR approved (ADR-0003); tokens are document-scoped, shown once, hashed,
-      revocable; single-writer lock and audit are in place.
+- [ ] ADR-0003 (External Agent API) remains withdrawn; agent authoring is file-based Markdown
+      import; no token, server, or audit surface is shipped.
 - [ ] Milestone tasks are approved; no S1 or S2 is open.
 - [ ] Known limitations are documented.
 - [ ] No half-built feature is visible: annotation layer, collaboration, iPad, in-app chat/agent
@@ -661,9 +595,6 @@ Notes:
       page and is deterministic.
 - [ ] Dark mode (default) and light mode verified across reader, page, code, math, and images.
 - [ ] Broken anchors show the whole-block fallback and repair dialog; no branch is silently lost.
-- [ ] External Agent API: off by default, loopback-only, token shown once with read/write/export/
-      destructive/audit scopes, dry-run and baseRevision, atomic apply/undo, audit of every request,
-      lock/concurrency, MCP mapping, and no outbound network.
 - [ ] T3 Code internal browser manual checks completed; Playwright e2e, visual, and PDF text
       extraction green.
 - [ ] Large document with 1,000 blocks across derived pages: usable with virtualization, collapse,
@@ -708,7 +639,5 @@ Notes:
   omits ghost/continuation markers;
 - PDF page count or page breaks differ from the page view, or content is cut across PDF pages;
 - pages are stored as containers or fixed columns are reintroduced without an ADR;
-- an External Agent API write bypasses auth/scope/audit, applies without confirmation, or exposes
-  the token;
 - the reviewer has not approved;
 - a normal action can lose data.

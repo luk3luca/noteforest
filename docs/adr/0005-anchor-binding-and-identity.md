@@ -5,7 +5,7 @@
 - **Decision owner:** Product owner (approved C1, C8, C9, OD-1–OD-12 on 5 November 2026); recorded by the Planner / Architect
 - **Depends on:** `docs/spec.md` v0.4.5, `docs/design/m3-anchors-references.md`, ADR-0004
 - **Changes:** spec §4.4/§4.10/§5.2/§5.4/§8; adds the `anchorIds` content binding; no schema bump
-- **Scope:** M3 only. No M4 page/PDF visuals, no M5 External Agent API, no annotations, no iPad.
+- **Scope:** M3 only. No M4 page/PDF visuals, no M5 Markdown import/export, no annotations, no iPad.
 
 ## Context
 

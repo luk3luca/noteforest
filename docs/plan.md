@@ -39,8 +39,8 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M3i** | Core stabilization | Runtime/session/projection/save/gateway boundaries, repository/migrations/asset contract, command aggregates/invariants, boundary check, test harness cleanup | No visual change, no new runtime dep, all gates green | **Done 6 Nov 2026; see `docs/reports/m3i-closure.md`** |
 | **M3c3b** | Image pipeline + image anchors | Deferred AC-21: asset store, image insertion/rendering, region/point anchors, missing-asset behavior | AC-21 + image rows of AC-57 | **Delivered by M3c3b1/b2; crop/region re-pick follow-ups** |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | **Unblocked; planned** |
-| **M5** | External API + MCP | HTTP JSON API, MCP adapter, tokens/scopes, dry-run/apply/undo, audit, lock integration | AC-70–AC-74; ADR-0003 test matrix | Planned |
-| **M6** | Library, search, polish | Search, light theme, accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
+| **M5** | Markdown import/export + agent-friendly authoring | Markdown → note importer (headings/chapters/blocks, lists/code/math/tables/images), note → Markdown export, round-trip tests, agent-friendly entry point (file/CLI) | Import/export round-trip; F2 revisit; no HTTP/MCP API | Planned |
+| **M6** | Search + polish | `⌘F` find bar, light theme (shipped), accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
 
 ## M1 — Spike 1 (done)
 
@@ -99,7 +99,6 @@ What is deferred:
 - span anchors on words/formulas/code/image regions (M3);
 - reference edges, shared children, "see also" (M3);
 - page view, adaptive page layout, PDF (M4);
-- external API/MCP (M5);
 - collaboration, plugins, annotations, iPad;
 - pixel-perfect final visual design.
 
@@ -399,10 +398,11 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
 
 Canonical schema v2 removes `pageSetup`, `manualBreakBeforeBlockIds`, and `viewState`. Page settings (size/orientation/margins, PageTheme, manual breaks) are personal: global defaults + per-document overrides outside the document. Continuous has no pages. Page/PDF consume the resolved settings. Sequence: R1a schema/settings foundation, R1b settings store + page theme/density, R2 Page arrows + continuous marker removal, R3 settings UI/manual breaks, R4 docs/visual sweep. Master checklist/linea guida: `docs/tasks/refactor-personal-page-settings.md`; briefs under `docs/tasks/r1a-*` etc.
 
-## M5–M6 — API and polish (planned)
+## M5–M6 — Import/export, search and polish (planned)
 
-- M5: local HTTP JSON API + MCP adapter on the same command layer; tokens/scopes, dry-run/apply/undo, audit, single-writer lock.
-- M6: search, light theme, accessibility, onboarding, packaging, release checks.
+- M5: Markdown import/export; an agent hands over Markdown and the importer creates the forest note
+  (headings → chapters/blocks, rich content preserved, assets copied). No local HTTP/MCP API.
+- M6: `⌘F` find bar, light theme (shipped), accessibility, onboarding, packaging, release checks.
 
 ## Future — manual resize (post-M4, not scheduled)
 
@@ -497,8 +497,6 @@ recovery 14, UI 54/54); the 8-way pool times out on this machine. The NoteForest
 refreshed from `docs/tasks/showcase-refresh.md` (113 blocks, 74 branches, 12 chapters; full backup
 under `artifacts/showcase-backup-*`). Next: the product-owner showcase/visual review and its fixes,
 then the targeted Sentinel over `58a9b6a..head` with the settings-inventory delta.
-External API/agent access is
-removed from
-Settings;
-any future agent surface is MCP/commands, not a Settings harness/agent page. Future pages stay
-empty in the lab and out of the product until a real control exists.
+Future pages stay
+empty in the lab and out of the product until a real control exists. Agent access is file-based
+Markdown import; there is no Settings API page.

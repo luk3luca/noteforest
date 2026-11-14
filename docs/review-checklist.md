@@ -89,8 +89,6 @@ to the orchestrator.
 - For page work, check both A4 orientations, the reader and page views, and record the page count.
 - For visual and PDF work, run the manual check in the T3 Code internal browser and capture the
   result; Playwright covers the repeatable e2e, visual-regression, and PDF text-extraction subset.
-- For External Agent API work, use a local token with read and write scopes, exercise dry-run →
-  apply → undo, and check the audit entry and lock behavior.
 
 ### 1.5 Probe beyond the happy path
 
@@ -119,8 +117,6 @@ anchor, or content at a page break, it is S1 regardless of how rare it looks.
 - **Coverage:** a percentage is not evidence of correctness.
 - **Summaries:** verify the file, not the sentence. A confident summary is a lead, not a proof.
 - **Absence of errors:** no console error does not prove the positive state; check the output.
-- **External API evidence:** require the token scope, structured dry-run diff, audit entry, command
-  ID, and post-apply undo state; a transcript is not evidence.
 
 ### 1.7 Verdict and report
 
@@ -140,7 +136,8 @@ anchor, or content at a page break, it is S1 regardless of how rare it looks.
 ### 1.9 Reviewing docs and specs
 
 Spec v0.4.5 is approved; this section applies to doc changes during M2f and later. The stack and PDF
-pipeline are decided (ADR-0001, ADR-0002), as are the External Agent API defaults (ADR-0003). A doc
+pipeline are decided (ADR-0001, ADR-0002); the External Agent API (ADR-0003) is withdrawn and agent
+integration is file-based Markdown import. A doc
 review checks that the document matches the ADRs, that deviations are explicit, and that the chosen
 stack is not silently re-opened. A doc review checks:
 
@@ -157,8 +154,8 @@ stack is not silently re-opened. A doc review checks:
   override); pages are derived by the paginator, not stored;
 - pagination rules are defined: normal blocks atomic, long blocks only at safe internal boundaries,
   continuation markers, optional manual break hints, tables break only between rows;
-- the in-app agent panel/chat is a non-goal; external agent access is an API with local binding,
-  token scopes, audit, and explicit confirmation;
+- the in-app agent panel/chat and local API are non-goals; agent authoring is file-based Markdown
+  import;
 - adaptive geometry is stated: content-driven widths, wrap below the parent with a slight indent,
   sibling-only reordering;
 - anchored branch placement below the anchor and how it paginates are defined;
@@ -880,93 +877,13 @@ Added by the full-codebase settings review (9 November 2026). These checks apply
 
 ---
 
-## 8. External Agent API checks
-
-No in-app chat or agent panel ships in v1; that is a non-goal. External agents use a local API over
-the same typed commands as the UI.
-
-### 8.1 Shared command surface
-
-- [ ] Every API mutation maps to a public typed command also used by the UI; there is no API-only
-      store, file, or model mutation path.
-- [ ] Commands validate preconditions (primary cycle, anchor validity, safe continuation boundary,
-      document lock) before mutating; a rejected command changes nothing.
-- [ ] Schemas are typed and versioned; unknown fields and oversized payloads are rejected with
-      structured errors.
-- [ ] API commands are undoable with the same labels and grouping as UI commands, and return a
-      command ID.
-- [ ] The local HTTP JSON API and the MCP adapter map to the same command catalog; there is no second
-      command surface.
-- [ ] No API-only bypass of validation, confirmation, scope, or audit.
-
-### 8.2 Local-only binding, auth, and scopes
-
-- [ ] The API is off by default; the user enables it, chooses a port, and issues or revokes tokens.
-- [ ] The server binds loopback or a Unix socket only; it is not reachable from the LAN or a remote
-      tunnel by default.
-- [ ] Every request requires a bearer token; the secret is shown once, stored hashed, compared in
-      constant time, and revocable.
-- [ ] The token secret never appears in the document package, git, PDF metadata, logs, errors, or the
-      audit log (only a token ID).
-- [ ] Scopes are `read`, `write`, `export`, `destructive`, and `audit`; read and write are separate,
-      and a write token cannot grant itself destructive scope.
-- [ ] A token can be limited to one document or library; path traversal and arbitrary filesystem
-      access are rejected.
-- [ ] Rate limits and timeouts bound malformed or abusive requests.
-
-### 8.3 Dry run, confirmation, apply, and undo
-
-- [ ] A dry-run/proposal endpoint returns a structured diff (blocks, branches, anchors, page
-      settings, manual breaks) without mutating.
-- [ ] Destructive actions (delete, overwrite, chapter reorder, page setup, manual break removal)
-      require explicit confirmation or a scoped confirmation token; no silent apply.
-- [ ] Apply is atomic: all commands apply or none; partial apply is impossible.
-- [ ] A stale `baseRevision` or document-version conflict returns a structured conflict and is never
-      applied silently.
-- [ ] The response is typed: created/updated IDs, human-readable diff, new revision, undo token, and
-      audit ID.
-- [ ] Undo/redo through the API uses the shared command stack; apply then undo reverts as one entry
-      and the UI sees the result.
-- [ ] An idempotency key prevents duplicate apply on retry.
-- [ ] The API does not change view state (page, zoom, selection) by default.
-
-### 8.4 Concurrency, locking, and audit
-
-- [ ] One writer lock per document; API and UI serialize through it; commands validate `baseRevision`;
-      a second writer gets a conflict, not a corrupt file.
-- [ ] The lock is released on disconnect or crash with a TTL; a stale lock is recoverable.
-- [ ] Open/save respects the lock and atomic save; no interleaved writes.
-- [ ] Every request (read, write, dry-run, export, failure) gets an audit entry with timestamp,
-      token/client ID, command, document, base revision, result, affected IDs, and duration; note
-      content is omitted by default.
-- [ ] The audit log is local and append-only; it does not leak into the document package, git, or PDF
-      metadata.
-- [ ] No write is silent: every successful mutation returns a command ID and an audit entry, and the
-      UI reflects the change.
-- [ ] Every write is attributable; there are no anonymous mutations.
-- [ ] The audit log survives restart and can be exported or cleared per policy.
-
-### 8.5 Content trust, errors, and tests
-
-- [ ] Note content is treated as data, not instructions; API responses label it as such.
-- [ ] Malicious note content cannot cause a command unless the agent explicitly calls one; nothing is
-      auto-executed.
-- [ ] Auth, scope, validation, conflict, lock, and rate-limit errors are structured and actionable,
-      with no partial mutation.
-- [ ] Retries are idempotent; timeouts cancel; no duplicate commands.
-- [ ] No background autonomy or web access; the API is local and makes no outbound network call.
-- [ ] Tests cover auth/scopes, audit, dry-run/apply/undo, lock/concurrency, malicious content, and
-      the no-network default.
-
----
-
 ## 9. Severity and verdicts
 
 ### 9.1 Severity
 
 | Level | Definition | Examples | Gate |
 |---|---|---|---|
-| **S1 Blocker** | Data loss or corruption, crash on a core path, security/privacy breach, silent anchor detachment, PDF without a text layer, content loss at a page break, unauthorized External Agent API write, token exposure, primary cycle accepted on load | Typing before an anchor breaks it after reload; deleting a block silently deletes its subtree; pagination drops or duplicates a block; autosave truncates the file; the PDF has no selectable text or the wrong page count; an API request writes without a token or scope | Never merge or release |
+| **S1 Blocker** | Data loss or corruption, crash on a core path, security/privacy breach, silent anchor detachment, PDF without a text layer, content loss at a page break, unauthorized local API write, token exposure, primary cycle accepted on load | Typing before an anchor breaks it after reload; deleting a block silently deletes its subtree; pagination drops or duplicates a block; autosave truncates the file; the PDF has no selectable text or the wrong page count | Never merge or release |
 | **S2 Major** | Acceptance criterion unmet, common-case adaptive-layout overlap, broken undo, budget missed on target hardware, unsafe block split, missing continuation marker, core flow inaccessible, misleading save/export state | A reference edge changes pagination; adaptive widths overlap a sibling; a text line, image, formula, table row, or code line is cut at a page boundary; a ghost-parent marker is missing; a keyboard-only user cannot create a branch; save fails silently | Blocks task done |
 | **S3 Minor** | Edge-case visual defect, copy inconsistency, missing tooltip, non-blocking performance | Arrow endpoint 2 px off at 150% zoom; a landscape margin differs slightly from portrait; "link" vs "branch" in a tooltip; a label overlaps only with an unusually long title | Follow-up issue allowed |
 | **S4 Nit** | Style, naming, comment, formatting | Variable name, comment wording, import order | Optional |
@@ -1002,7 +919,6 @@ Rules:
 - Stack/PDF: Electron + shared paginator + printToPDF (ADR-0001, ADR-0002)
 - Theme: dark (default) or light
 - Page settings / views: size, orientation, margins, page count and breaks, reader/page parity
-- External API: token scope, command ID, audit ID (when relevant)
 - Verdict: Approve | Approve with nits | Request changes | Blocked
 
 ## Scope reviewed
@@ -1054,7 +970,7 @@ Before approving, answer each question:
 8. Did I verify shared-child and reference-edge behavior, including cross-page references?
 9. Did I check PDF page fidelity, continuation markers, and text extraction if the task touches
    export?
-10. Did I verify External Agent API auth/scopes, dry-run, audit, locking, and undo?
+10. Did I verify the Markdown import/export path if the task touches it?
 11. Can I state what I could not verify?
 
 Any "no" means the task is not approved.

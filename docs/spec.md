@@ -3,10 +3,10 @@
 **Version:** v0.5 (ADR-0007 editor layouts and modes)  
 **Date:** 7 November 2026  
 **Owner:** Planner / Architect  
-**Status:** Approved for Spike 1. v0.5 applies the product owner's ratified ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**; Continuous + Edit is the default; Page Read is exact and read-only; Page Edit is planned/optional; PDF exports the Page layout in Read mode; continuous page-break markers are derived hints from the same paginator, not WYSIWYG; one canonical document, segment/safe-break model, and paginator; Page/PDF show full content and collapse is a continuous/outline navigation aid. It supersedes D14/A15/A16 and the old "reader vs page view" pair. v0.4.5 applied the approved M3 anchor/reference decisions (C1, C8, C9, OD-1–OD-12) from `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005. v0.4.4 reverted depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, External Agent API defaults, and table pagination on 3 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
+**Status:** Approved for Spike 1. v0.5 applies the product owner's ratified ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**; Continuous + Edit is the default; Page Read is exact and read-only; Page Edit is planned/optional; PDF exports the Page layout in Read mode; continuous page-break markers are derived hints from the same paginator, not WYSIWYG; one canonical document, segment/safe-break model, and paginator; Page/PDF show full content and collapse is a continuous/outline navigation aid. It supersedes D14/A15/A16 and the old "reader vs page view" pair. v0.4.5 applied the approved M3 anchor/reference decisions (C1, C8, C9, OD-1–OD-12) from `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005. v0.4.4 reverted depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, and table pagination on 3 November 2026; the External Agent API was withdrawn on 14 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
 **Working title:** NoteForest (an existing NoteForest study app exists; public-release clearance or a rename is required before packaging)
 
-This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, React Aria Components, Tailwind CSS v4, and KaTeX (ADR-0001, ADR-0004). CodeMirror 6 is a later addition; the custom SVG edge overlay replaces React Flow. PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API defaults are decided in ADR-0003. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, external API, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
+This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, React Aria Components, Tailwind CSS v4, and KaTeX (ADR-0001, ADR-0004). CodeMirror 6 is a later addition; the custom SVG edge overlay replaces React Flow. PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API (ADR-0003) is withdrawn; agent integration is file-based Markdown import. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, Markdown import/export, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
 
 **Normative language.** **MUST** means required for the v1 prototype to be accepted. **SHOULD** means expected unless explicitly deferred with a recorded decision. **MAY** means optional. Assumptions are labelled **A1**, **A2**, and so on. Decisions that still need approval are labelled **D1**, **D2**, and so on. Open questions are labelled **Q1**, **Q2**, and so on.
 
@@ -27,7 +27,7 @@ This document defines the product behavior, conceptual data model, invariants, a
 9. [Content model](#9-content-model)
 10. [Persistence](#10-persistence)
 11. [PDF export](#11-pdf-export)
-12. [External Agent API](#12-external-agent-api)
+12. [Markdown import for agents](#12-markdown-import-for-agents)
 13. [Edge cases](#13-edge-cases)
 14. [Performance and scale](#14-performance-and-scale)
 15. [Acceptance criteria for the v1 prototype](#15-acceptance-criteria-for-the-v1-prototype)
@@ -96,7 +96,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 - **G8.** Export the paginator's A4 pages as a real-text PDF in portrait or landscape, with safe block continuations, no cut lines/images/code lines, and continuation/ghost-parent markers.
 - **G9.** Remain responsive at 300 blocks and usable at 1,000 blocks with layout virtualization, collapse, and level-of-detail strategies; no 60 fps claim at 1,000 unless measured.
 - **G10.** Provide multiple documents in a user-chosen folder, document/library search, and a clean minimal UI with dark mode as the default.
-- **G11.** Provide a local-only **External Agent API** backed by the typed command API: token auth, read/write scopes, audit logging, undo/redo, dry-run proposals, and PDF export. No in-app chat panel in v1.
+- **G11.** Provide **file-based agent authoring**: import Markdown as a forest note with the same command layer and formatting. No local HTTP/MCP API, tokens, or in-app agent panel in v1.
 
 ### 1.6 Non-goals for v1
 
@@ -112,7 +112,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 - **N10.** A plugin system, scripting, or embedded HTML/JavaScript in notes.
 - **N11.** An infinite canvas, free positioning, manual pins, fixed pixel columns, or arbitrary drag-to-place layout.
 - **N12.** A separate linear reader PDF, a spatial map export, or a page-container document format in v1. The Continuous layout is an editor layout, not an export; pages are derived.
-- **N13.** An in-app agent panel/chat in v1. Agents interact through the local External Agent API instead.
+- **N13.** An in-app agent panel/chat and a local HTTP/MCP agent API in v1. Agents hand over Markdown files instead.
 - **N14.** Storing user note documents in git. Git is for code and project docs only; notes are standard files in a user-chosen folder.
 - **N15.** Agent background autonomy, web access from the app, shell/filesystem access, or auto-apply of destructive changes in v1.
 
@@ -146,7 +146,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 | **A16** | Continuous + Edit is the default authoring surface in v1. Page Read is the exact A4/PDF proof and is read-only; Page Edit is planned/optional and disabled until implemented. The choice is closed by ADR-0007 (supersedes D14). | UX and keyboard design would need a revision if Page Edit becomes primary or the default changes. |
 | **A17** | Note documents are standard files in a user-chosen folder; git is used only for code and project docs. | Note versioning/sync needs a different design. |
 | **A18** | Visual direction is clean, Obsidian-like, minimal, with dark mode as the default and a light theme available. | Visual design and theme tokens need revision. |
-| **A19** | The app exposes a local-only External Agent API; there is no in-app agent panel or background autonomy in v1. | API, auth, and UI scope change. |
+| **A19** | Agent integration is file-based Markdown import; there is no local API, no in-app agent panel, and no background autonomy in v1. | Import-mapping or UI scope change. |
 | **A20** | Long blocks may continue at safe internal boundaries; page breaks never cut a line, image, formula, code line, or table row. A table row is atomic. | Pagination and block-continuation markers need a different model. |
 
 ### 1.9 Adaptive layout and derived pages at a glance
@@ -180,7 +180,7 @@ V1 includes all core features discussed, delivered in end-to-end vertical slices
 - **Slice 2 — Layout:** adaptive tree, paginator, Continuous layout (Edit/Read), Page layout (Read now, Edit later), derived page-break markers, page-break hints, freeze/full-reflow modes.
 - **Slice 3 — Export:** Page PDF with real text, continuation markers, text-layer verification.
 - **Slice 4 — Library and visual:** multiple documents, document/library search, dark mode default, minimal Obsidian-like UI.
-- **Slice 5 — External Agent API:** typed command API exposure, local HTTP JSON + MCP adapter, token auth/read-write scopes, audit log, dry-run/proposals, undo/redo, tests. No in-app chat panel.
+- **Slice 5 — Markdown import/export:** Markdown → forest note importer, note → Markdown export, assets, round-trip tests, and the agent-friendly file/CLI path. No API server, tokens, or chat panel.
 
 Each slice ends with automated tests and a manual/visual check. No core feature is cut from v1; a slice may be descoped only with explicit product-owner approval. The sequence is a delivery order, not a permission to ship a half-feature. The in-app agent panel/chat is parked; external agents use the API instead.
 
@@ -331,11 +331,11 @@ As a student, I keep several note documents in a folder I choose, switch between
 
 **Done when:** multiple documents open independently, each is a single JSON file plus assets, and search results show the document, chapter, and page path.
 
-### US-16 — Use an external agent
+### US-16 — Bring a note in from an agent
 
-As a power user, I enable the local External Agent API and let an external tool read the current document, propose or apply edits, and export a PDF within token scopes.
+As a power user, I give an external agent a Markdown file and import it as a NoteForest note, so the agent can prepare content without a live API.
 
-**Done when:** the API is off by default, requires a token, logs every call, supports read/write scopes and destructive confirmation, and shares undo/redo with the UI.
+**Done when:** the importer turns headings, paragraphs, lists, quotes, code, math, tables, and images into the forest structure, the note opens as a normal document, and no server, token, or in-app agent panel is involved.
 
 ---
 
@@ -1060,7 +1060,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 - No gradients, glass effects, heavy shadows, or decorative illustrations in the document surface. Page guides, margins, and block borders are subtle.
 - Typography is readable for long study sessions; code and math have dedicated styles and must not rely on color alone.
 - Primary/reference edges, anchors, broken anchors, page breaks, continuations, selection, and focus remain distinguishable in both themes and for color-vision deficiencies.
-- There is no in-app agent panel/chat in v1; external agents use the local API. No chat chrome is part of the main window.
+- There is no in-app agent panel/chat in v1, and no local agent API. Agents hand over Markdown files; no chat chrome is part of the main window.
 
 ### 6.10 View state
 
@@ -1666,7 +1666,7 @@ No migration ships without a golden fixture for every prior version and a failur
 
 ### 10.9 Privacy and security
 
-- Local-only by default: no telemetry, no analytics, no outbound network requests, no cloud sync. The external API binds to loopback only and is off unless the user enables it.
+- Local-only by default: no telemetry, no analytics, no outbound network requests, no cloud sync, no local API server.
 - No secrets in the document package. API tokens are stored hashed outside the document.
 - Raw HTML, scripts, and remote content are never executed.
 - Links are sanitized; external links open outside the document.
@@ -1677,7 +1677,7 @@ No migration ships without a golden fixture for every prior version and a failur
 
 - v1 is single-user. Do not implement CRDTs, merge, or multi-device sync.
 - Enforce a single instance per document package; opening it again focuses the existing window or opens read-only.
-- The external API uses `baseRevision` plus a single-writer/lock policy; two writers must not corrupt the file (D18 closed: OS advisory lock + lock file, one writer, concurrent readers).
+- Every write uses the single-writer/lock policy and `baseRevision`; two writers must not corrupt the file (OS advisory lock + lock file, one writer, concurrent readers).
 - Detect external modification by comparing the file's modification time and/or content hash before saving. If it changed, prompt: reload, overwrite, or save a copy. Never silently overwrite.
 - If two windows somehow open the same package, the second is read-only and says so.
 - A future sync or collaboration feature requires a separate ADR and a CRDT or equivalent design; it is not retrofitted into this model by assumption.
@@ -1846,120 +1846,16 @@ The PDF pipeline is **decided (ADR-0002): Electron `webContents.printToPDF`, dri
 
 ---
 
-## 12. External Agent API
+## 12. Markdown import for agents
 
-### 12.1 Principles
+The External Agent API (ADR-0003) was **withdrawn** by the product owner on 14 November 2026. V1 has
+no local HTTP server, MCP adapter, tokens, scopes, or audit log, and no in-app agent panel.
 
-- **External API, no in-app panel.** V1 exposes a local-only API for external agents and tools. It does not ship an in-app chat/agent panel.
-- **One command API.** Every mutation—from the UI or an external agent—goes through the same typed command layer. No client writes `document.json` directly.
-- **Same validation, same undo.** UI and API commands share preconditions, invariants, undo/redo, and audit logging. An external client cannot bypass a rule by editing JSON.
-- **Local-only.** The API binds to loopback and is disabled unless the user enables it and issues a token. No remote access, no cloud relay.
-- **No background autonomy, no web access.** The app does not run agent turns, watch the document, or browse the web. The external client decides when to call; the app only serves requests.
-- **Destructive actions require explicit confirmation.** Delete, merge, delete-subtree, chapter deletion, and irreversible page-setup changes require a separate confirmation parameter and audit entry.
-- **Dry-run where practical.** Mutating commands support validation/diff without applying, so an external agent can propose before it writes.
-
-### 12.2 Command API
-
-Every mutation is a serializable command with this envelope:
-
-| Field | Required | Meaning |
-|---|---|---|
-| `id` | yes | Unique command ID. |
-| `type` | yes | Versioned command type, for example `block.create`, `block.edit`, `branch.create`, `anchor.repair`. |
-| `version` | yes | Command schema version. |
-| `actor` | yes | `user` or `external`; external commands carry a token/client ID. |
-| `documentId` | yes | Target document. |
-| `baseRevision` | yes | Document revision the command was prepared against. Apply fails if the document has moved and the command cannot be rebased safely. |
-| `context` | yes | Chapter, block, anchor, selection, or range the command targets. |
-| `args` | yes | Typed command arguments. |
-| `scopes` | yes | Required scopes, for example `read`, `write`, `export`, `destructive`, `audit`. |
-| `idempotencyKey` | no | Prevents duplicate apply of the same request. |
-| `dryRun` | no | Validate and return a diff without mutating. |
-
-Command behavior:
-
-- A command validates type, arguments, preconditions, scopes, and document revision before mutation.
-- It returns a typed result: created/updated IDs, a human-readable diff, a new revision, an undo token, and an audit ID.
-- A batch of commands is a transaction. Apply is all-or-nothing; failure leaves the document unchanged.
-- Every mutating command has an inverse for undo/redo. Multi-step operations are grouped into one transaction.
-- Read operations are separate typed queries (`document.open`, `document.read`, `block.read`, `search`, `layout.snapshot`); they never mutate.
-- Stale commands fail with a rebase/refresh error; they never apply against a changed document silently.
-
-### 12.3 Command catalog (v1 minimum)
-
-| Category | Commands |
-|---|---|
-| **Document** | open, read, search, export PDF; get layout/pagination snapshot |
-| **Chapter** | create, rename, reorder, delete (destructive) |
-| **Block** | create top-level/child/sibling, edit content/label, split, merge, delete (promote/subtree), duplicate subtree |
-| **Branch** | create from block, create from anchor, delete, make home, move here, promote/demote, reorder sibling/top-level |
-| **Anchor** | create, create branch from anchor, repair/relink, attach branches to block, delete |
-| **Page setup** | change orientation/margins, add/remove page-break hints |
-| **Undo/audit** | undo, redo, read audit log |
-
-The catalog is intentionally complete for v1 mutations. A new mutation requires a typed command, an inverse, a scope, and an audit entry; it must not be added as an ad-hoc JSON edit.
-
-### 12.4 Transport
-
-- **Local HTTP JSON API** on loopback, plus an **MCP adapter** that maps MCP tools to the same commands and queries. This is the decided shape (D16 closed): HTTP is the primitive, MCP is an adapter.
-- HTTP and MCP share one command implementation; neither has a privileged path.
-- The server is off by default. The user enables it, chooses a port (or accepts an ephemeral localhost port), and issues/revokes tokens.
-- No remote bind, no TLS termination requirement for loopback, no cloud relay, no webhook egress. Reject non-loopback `Host` headers and browser cross-origin requests; mutating requests require the bearer token and a JSON content type.
-- Long-running operations (PDF export, large search) return a job ID with status; the API must not block indefinitely.
-
-### 12.5 Authentication, scopes, and confirmation (decided)
-
-- Bearer-token authentication; tokens are generated by the app, **shown once**, stored **hashed** (with a short display prefix for identification), and **revocable**. Revocation is immediate.
-- **Document-scoped tokens (D17 closed).** Each token names exactly one document in v1; there is no library-wide token and no implicit "all documents" access. To work on another document, the user issues another token. The token's document ID is enforced server-side on every request.
-- Scopes: `read`, `write`, `export`, `destructive`, `audit`. `read` permits queries; `write` permits non-destructive mutations; `export` permits PDF; `destructive` permits delete/merge/chapter deletion and requires an explicit `confirm` field naming the affected IDs; `audit` permits reading the audit log.
-- A write token cannot grant itself `destructive`; escalation requires a new token issued by the user. A token cannot widen its document scope.
-- Every destructive request without an explicit confirmation fails with a typed error and no mutation.
-- Tokens and API access are local-only; no token is stored in the document package or git.
-- Token lifetime: long-lived by default with explicit revocation; optional expiry is a future addition, not required in v1.
-
-### 12.6 Audit logging, undo/redo, and concurrency
-
-- Every API request (read, write, dry-run, export, failure) gets an audit entry: timestamp, token/client ID, command, document, base revision, result, affected IDs, and duration.
-- Audit logs are append-only and app-managed; they are not part of the document package. Retention is configurable.
-- Undo/redo is available through the API with `write` scope and uses the same session stack as the UI. API undo names a `transactionId`; it succeeds only if that transaction is still the top undoable entry, otherwise it fails with `undo_unavailable`. The API never undoes across a document reload. Undo restores the prior document state and writes an audit entry.
-- `baseRevision` prevents lost updates. A stale command fails with `409 revision_conflict`; the client must re-read and retry.
-- **Single-writer lock (D18 closed).** Each open document has one writer: the app instance that opened it holds a lock (an OS advisory lock plus a lock file with PID/host/session metadata). Concurrent readers are allowed. A second process that opens the document is read-only and says so; it cannot acquire the write lock. The lock is released on close, crash recovery, or explicit "take over" by the user in the app.
-- The external API never acquires the lock independently: it routes writes to the open app instance. If no instance has the document open, write commands fail with `document_not_open`; the app does not spawn a headless writer in v1.
-- External file edits are detected as in §10.10; an open API writer must not overwrite silently. On conflict, writes are blocked until the user resolves reload/overwrite/save-copy.
-
-### 12.7 Dry-run, proposal, and apply
-
-- Mutating commands support `dryRun: true` where practical: validate, return the diff, affected IDs, and any pagination/layout impact without writing.
-- A dry-run is not a reservation; the document may change before apply.
-- Apply uses the same typed command batch and `baseRevision`; stale dry-runs fail safely.
-- Destructive dry-runs return the exact delete/merge list; apply requires `confirm` with those IDs.
-- There is no autonomous apply loop in the app. The external client decides when to call apply; the app never polls or retries on its own.
-
-### 12.8 Safety and privacy
-
-- The API is loopback-only and off by default. No web access, no outbound requests, no telemetry.
-- The app does not execute document text as instructions. API requests are typed commands with scopes and confirmation, not natural-language authority.
-- No shell, filesystem, or arbitrary network tool is exposed. PDF export writes only to the configured export location.
-- Audit logs and tokens must not leak into the document package, git, or PDF metadata.
-- A compromised token is revocable without changing the document; audit entries identify its use.
-
-### 12.9 Decisions (closed)
-
-| ID | Decision | Resolution |
-|---|---|---|
-| **D16** | API shape. | **Closed:** HTTP JSON is the primitive; the MCP adapter maps to the same commands. Neither is privileged. |
-| **D17** | Auth and scope granularity. | **Closed:** bearer token, shown once, stored hashed, revocable; document-scoped in v1; scopes `read`/`write`/`export`/`destructive`/`audit`. |
-| **D18** | Concurrency and file locking. | **Closed:** single writer per document (OS advisory lock + lock file), concurrent readers, monotonic `baseRevision`, stale writes fail; API routes through the open app instance. |
-| **D19** | Command surface. | **Closed:** v1 exposes the semantic command catalog in §12.3, not raw JSON patches. Low-level primitives stay internal and are composed into semantic commands. |
-| **D20** | PDF export API behavior. | **Closed:** `export.pdf` is job-based (job ID + status), output path is explicit, overwrite requires a flag; small exports usually finish before the first poll. |
-
-The full rationale and consequences are in `docs/adr/0003-external-agent-api.md`.
-
-### 12.10 API acceptance
-
-API acceptance criteria are AC-70 through AC-74 in §15.18. They cover the typed command API, local transport, auth/scopes, audit/undo, dry-run/confirmation, and no background/web behavior.
-
----
+Agent integration is **file-based**: an external agent writes Markdown, and the user (or a CLI that
+wraps the same importer) imports it as a NoteForest note. The importer maps headings, paragraphs,
+lists, quotes, code, math, tables, and images into the forest structure. The app remains the only
+writer of `document.json`; there is no background autonomy, no remote bind, and no web access. The
+import/export design is M5 in `docs/plan.md`.
 
 ## 13. Edge cases
 
@@ -2272,14 +2168,6 @@ A reviewer should be able to run this script without developer help:
 - **AC-68 (Must).** Search finds text, code, LaTeX source, and labels in the current document and in the library; results show the chapter/page path and reveal the block.
 - **AC-69 (Must).** The default theme is a clean, minimal, Obsidian-like dark mode; a light theme is available. Page guides, block borders, and selection states remain legible in both.
 
-### 15.18 External Agent API
-
-- **AC-70 (Must).** Every document mutation used by the UI is available as a typed command with validation, an inverse, and undo/redo. An external client cannot mutate the document by writing JSON directly; a direct-write attempt is rejected.
-- **AC-71 (Must).** The API is local-only over loopback, exposed as HTTP JSON plus an MCP adapter that maps to the same commands. It is off by default, requires a bearer token shown once, stored hashed, and revocable, with document-scoped `read`/`write`/`export`/`destructive`/`audit` scopes, and has no background autonomy or outbound web access.
-- **AC-72 (Must).** Mutating commands support `dryRun` where practical, return a diff/affected IDs, and apply all-or-nothing against `baseRevision`. Destructive commands require explicit confirmation naming the affected IDs; stale commands fail safely.
-- **AC-73 (Must).** Every request is audit-logged with token/client, command, result, and revision. Undo/redo is available through the API with `write` scope, names a `transactionId`, and shares the UI undo stack; it only succeeds when that transaction is still the top undoable entry. Tokens are revocable.
-- **AC-74 (Must).** The v1 command catalog includes open/read document, search, create/edit/delete block, create branch from block or anchor, reorder/reparent, create chapter, export PDF, and undo/redo. Concurrent writes cannot corrupt the file; the document uses a monotonic `baseRevision` and a single-writer lock with concurrent readers.
-
 ### 15.19 Testing tools
 
 - **AC-75 (Must).** T3 Code's internal browser is used for manual and visual checks of the Continuous layout (Edit and Read), Page Read, dark mode, page-break/continuation states, and API-triggered changes.
@@ -2310,11 +2198,11 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **D13** | PDF pipeline gate. | **Closed:** Electron `printToPDF` driven by the shared paginator (ADR-0002); hard gate is a 50+ page A4 spike with real text, no cut line/image/formula/code line/table row, and page count equal to the paginator. Fallback requires a new ADR. | Orchestrator | Done; gate runs in Spike 1 |
 | **D14** | Primary authoring surface: reader or page view? | **Superseded by ADR-0007 (v0.5):** the reader/page pair is replaced by layouts Continuous/Page × modes Edit/Read. Continuous + Edit is the default; Page Read is the exact read-only proof; Page Edit is planned/optional. | UX + product owner | Superseded |
 | **D15** | Page orientation. | **Closed:** one document-wide orientation, portrait or landscape; changing it reflows all pages. | Product owner | Done |
-| **D16** | External API shape. | **Closed:** HTTP JSON is the primitive; the MCP adapter maps to the same commands. | Architect + Orchestrator | Done |
-| **D17** | External API authentication/scopes. | **Closed:** bearer token shown once/stored hashed/revocable; document-scoped; scopes `read`/`write`/`export`/`destructive`/`audit`. | Architect + security review | Done |
-| **D18** | External API concurrency/file locking. | **Closed:** one writer per document via OS advisory lock + lock file, concurrent readers, monotonic `baseRevision`, no silent overwrite. | Architect + Orchestrator | Done |
-| **D19** | External API command surface. | **Closed:** semantic command catalog in §12.3; low-level primitives stay internal. | Architect | Done |
-| **D20** | PDF export API behavior. | **Closed:** `export.pdf` is job-based with explicit output path and overwrite flag. | Architect | Done |
+| **D16** | External API shape. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
+| **D17** | External API authentication/scopes. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
+| **D18** | External API concurrency/file locking. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
+| **D19** | External API command surface. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
+| **D20** | PDF export API behavior. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
 | **D21** | Table pagination. | **Closed:** page breaks only between rows; a row and its cells are atomic; a row taller than the page is a pagination defect. Header repetition is not required in v1. | Product owner | Done |
 | **D22** | Depth columns. | **Superseded by D23.** Same-depth global x alignment caused one wide block to push every later column right and made the canvas effectively unbounded. | Product owner | Superseded |
 | **D23** | Parent-relative child placement. | **Closed:** a child group starts after its parent card plus the sibling gap; same-depth blocks under different parents may differ in x; content-driven widths; editor scrolls horizontally for deep branches; zoom/fit-width and branch focus are navigation aids. Page/PDF applies A4 in M4. | Product owner | Done |
@@ -2358,7 +2246,6 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | Content-model decision is delayed or wrong, causing rework. | Medium | High | D1 closed; keep the adapter narrow; schema versioning; fixtures. | Editor work bypasses the adapter or adds a second source of truth. |
 | Continuous/Page performance degrades at 1,000 blocks. | Medium | Medium | Benchmark early; collapse/LOD; page virtualization; soft cap; measure before changing architecture. | Scroll/render stutter at 300 visible blocks. |
 | Data loss or corruption erodes trust. | Low | High | Atomic saves; backups; recovery; no silent overwrite; malformed-file tests. | Any test loses the last good document. |
-| External API token leak or concurrent writer corrupts a document. | Medium | High | Loopback-only, hashed/revocable tokens, scopes, `baseRevision`, single-writer lock, audit log, integration tests. | Two writers diverge or an unexpected client writes without an audit entry. |
 | Shared-child mental model confuses users. | Medium | Medium | Explicit home; see-also; default link vs move; onboarding copy; user testing. | Users expect two equal parents or duplicated content. |
 | Markdown users expect perfect portability/round-trip. | Medium | Medium | Label export as lossy; document the canonical format; provide export, not a mirror. | A user edits exported Markdown and expects re-import fidelity. |
 | Undo/focus bugs with two editors or view switching. | Medium | Medium | One active editor; command stack; routing tests; commit on switch. | Keystrokes lost or undo affects the wrong view. |
@@ -2446,7 +2333,7 @@ This example is the recommended golden fixture for model, layout, pagination, an
 | v0.1 | 3 November 2026 | Incorporated Sentinel review gates: layout tolerances, scale promise, anchor policy, shared-child lifecycle, persistence/migration matrix, PDF shell gate; added AC-51–AC-62. |
 | v0.2 | 3 November 2026 | Applied the product owner's adaptive-layout correction: Document → Chapters → top-level blocks; content-driven widths and wrap-below layout; pages derived by the paginator; continuation markers; reader/page views share one engine; Page PDF only; NoteForest working title; D1/D6/D8/D12 closed. |
 | v0.3 | 3 November 2026 | Parked the in-app agent panel; replaced it with the External Agent API (HTTP JSON + MCP, token auth/scopes, audit, dry-run, undo/redo). Marked stack and PDF pipeline TBD (Electron provisional). Added long-block safe continuations, ghost-parent markers, freeze/full-reflow modes, document-wide orientation, multiple documents, dark default, T3/Playwright testing gates. |
-| v0.4 | 3 November 2026 | Ratified Electron + React + TypeScript (ADR-0001) and the `printToPDF` pipeline driven by the shared paginator (ADR-0002); closed D2–D6, D12–D14, D16–D20; added D21 table pagination (break only between rows, row atomic); closed the External API defaults (ADR-0003: off by default, loopback, document-scoped bearer tokens shown once/hashed/revocable, single-writer lock + `baseRevision`, dry-run/apply/undo, local audit); fixed the reader as primary editor; replaced the TBD pipeline note with the decided pipeline and its 50+ page gate. |
+| v0.4 | 3 November 2026 | Ratified Electron + React + TypeScript (ADR-0001) and the `printToPDF` pipeline driven by the shared paginator (ADR-0002); closed D2–D6, D12–D14, D16–D20; added D21 table pagination (break only between rows, row atomic); closed the External API defaults (ADR-0003, withdrawn 14 November 2026); fixed the reader as primary editor; replaced the TBD pipeline note with the decided pipeline and its 50+ page gate. |
 | v0.4.1 | 3 November 2026 | Clarified PDF acceptance (S3, AC-45, §11.10, demo script, risk): the gate is a correct standard PDF reviewed on the Mac; no app-specific import is required. The annotated-iPad workflow remains the downstream use case, not a test dependency. |
 | v0.4.2 | 4 November 2026 | New documents default to A4 landscape; existing documents keep their orientation. Editor canvas widens to use the landscape width; page view/PDF consume the orientation in M4. |
 | v0.4.3 | 4 November 2026 | Depth columns (D22): blocks at the same depth share one x origin within a chapter; widths remain content-driven; top-level blocks stack vertically; editor scrolls horizontally when columns exceed the viewport; page/PDF applies the A4 constraint in M4. |
