@@ -112,7 +112,10 @@ The activity icon switches the sidebar content to a **compact Health view** (not
 
 ## 9. Slices
 
-- **S1**: bar + Library/Outline + Settings; remove the top tabs; collapse; tests.
+- **S1**: bar + Library/Outline + Settings; remove the top tabs; collapse; tests. Also the
+  **visual token pass** from `docs/design/value-audit.md`: radii 4/8, popover gaps 4/8/12, docs
+  180/640/264 alignment. The Continuous card padding and the Settings pane 536 stay separate
+  decisions (measurement-affecting / layout pass).
 - **S2**: Anchor Health view + badge + Locate + Open full health (after the Anchor Health v1 sheet).
 - **S3**: future sections (Search, Topics, Data) as they become real.
 
