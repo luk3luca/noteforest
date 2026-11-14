@@ -7,8 +7,8 @@
  * the code body is the only editable part, so lowlight decorations, selection
  * and the caret stay native.
  *
- * States: idle (no fences, language label when set, copy on hover), editing
- * (opening fence with an editable language token, closing-fence row).
+ * States: idle (no fences, language label top-right), editing (opening fence
+ * with an editable language token and the copy action, closing-fence row).
  */
 
 import type { Editor } from '@tiptap/core';
@@ -75,7 +75,7 @@ export class CodeBlockNodeView {
     this.copyButton.addEventListener('mousedown', (event) => event.preventDefault());
     this.copyButton.addEventListener('click', () => this.copy());
 
-    this.actions.append(this.label, this.copyButton);
+    this.actions.append(this.label);
 
     this.openFence = document.createElement('div');
     this.openFence.className = 'nf-code-fence nf-code-fence-open';
@@ -107,7 +107,7 @@ export class CodeBlockNodeView {
       }
     });
     this.languageInput.addEventListener('blur', () => this.commitLanguage());
-    this.openFence.append(fenceMark, this.languageInput);
+    this.openFence.append(fenceMark, this.languageInput, this.copyButton);
 
     this.pre = document.createElement('pre');
     this.pre.className = 'nf-code-pre';

@@ -1,7 +1,8 @@
 import { Bold, Code, GitBranch, Italic, Link2, Sigma } from 'lucide-react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/core';
-import { useState } from 'react';
+import { NodeSelection } from '@tiptap/pm/state';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEditorBindings } from './bindings';
 import { useShell } from '../state/shell';
 
@@ -9,9 +10,28 @@ interface ToolbarProps {
   editor: Editor;
 }
 
+/** Formula atoms own their actions in the source-editor row, not here. */
+const FORMULA_NODE_TYPES = new Set(['inlineMath', 'blockMath', 'mathBlock']);
+
 export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
   const [linkOpen, setLinkOpen] = useState(false);
   const [href, setHref] = useState('');
+
+  const resetLink = useCallback((): void => {
+    setLinkOpen(false);
+    setHref('');
+  }, []);
+
+  // A new selection always starts from the buttons: the previous link form is
+  // stale target state and must not survive the bubble hiding or a move.
+  useEffect(() => {
+    editor.on('selectionUpdate', resetLink);
+    return () => {
+      editor.off('selectionUpdate', resetLink);
+    };
+  }, [editor, resetLink]);
+
+  const menuOptions = useMemo(() => ({ onHide: resetLink }), [resetLink]);
 
   const openLink = (): void => {
     setHref(String(editor.getAttributes('link')['href'] ?? ''));
@@ -33,11 +53,20 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
       editor={editor}
       className="nf-bubble"
       data-testid="selection-toolbar"
+      options={menuOptions}
       // The table owns its own contextual toolbar; a cell selection must not
       // stack both bubbles. The default "non-empty selection" rule stays.
-      shouldShow={({ editor: current, state }) =>
-        current.isEditable && !state.selection.empty && !current.isActive('table')
-      }
+      // A formula NodeSelection is owned by the formula action row, and an open
+      // formula source editor must keep the textarea focus and its caret.
+      shouldShow={({ editor: current, state }) => {
+        if (!current.isEditable || state.selection.empty) return false;
+        const selection = state.selection;
+        if (selection instanceof NodeSelection && FORMULA_NODE_TYPES.has(selection.node.type.name)) {
+          return false;
+        }
+        if (current.view.dom.querySelector('.nf-formula-node-editing') !== null) return false;
+        return !current.isActive('table');
+      }}
     >
       {linkOpen ? (
         <form

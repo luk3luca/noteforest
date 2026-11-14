@@ -7,8 +7,9 @@
  * the draft.
  *
  * A plain DOM node view is used because the source textarea must keep native
- * caret navigation: a React node view re-render reset it. The term-anchor
- * action stays available for a non-empty LaTeX selection.
+ * caret navigation: a React node view re-render reset it. While the source
+ * editor is open one stable action row offers Branch from term, Copy formula
+ * and Inline/Block; the row never reflows when a term selection appears.
  */
 
 import type { Editor } from '@tiptap/core';
@@ -16,10 +17,15 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import { NodeSelection } from '@tiptap/pm/state';
 import katex from 'katex';
 import { formulaTermSelection } from '../../lib/anchor-selection';
+import { writeClipboardText } from '../../lib/clipboard';
+import { formulaCopySource, formulaKindTarget, type FormulaKind } from '../../lib/formula-clipboard';
+import { consumeFormulaAutoEdit, convertFormulaKind } from '../../lib/formula-convert';
 import { unwrapFormulaSource } from '../../lib/formula-input';
 import { branchFromFormulaTerm } from '../../lib/formula-term-branch';
 import { getEditorBindings } from '../bindings';
 import { installLocalTextKeys } from '../../lib/local-text-keys';
+
+const COPIED_FEEDBACK_MS = 1000;
 
 function renderKatex(element: HTMLElement, latex: string, block: boolean): void {
   element.replaceChildren();
@@ -51,11 +57,14 @@ export class FormulaNodeView {
   private readonly block: boolean;
   private node: PMNode;
   private editing = false;
-  private termReady = false;
   private readonly renderHost: HTMLElement;
   private textarea: HTMLTextAreaElement | null = null;
   private preview: HTMLElement | null = null;
   private termButton: HTMLButtonElement | null = null;
+  private copyButton: HTMLButtonElement | null = null;
+  private copiedTimer: number | null = null;
+  /** True while the clipboard helper (which steals DOM focus) is running. */
+  private copying = false;
 
   constructor(options: FormulaNodeViewOptions) {
     this.editor = options.editor;
@@ -72,6 +81,16 @@ export class FormulaNodeView {
     this.dom.appendChild(this.renderHost);
     this.dom.addEventListener('click', this.handleClick);
     this.render();
+    // An Inline/Block conversion replaces the node type, so ProseMirror mounts
+    // a fresh node view. The conversion marks the target position and that new
+    // view reopens the source editor once its DOM is attached.
+    requestAnimationFrame(() => {
+      if (this.editing || !this.dom.isConnected) return;
+      const pos = this.getPos();
+      if (typeof pos === 'number' && consumeFormulaAutoEdit(this.editor, pos)) {
+        this.openSource();
+      }
+    });
   }
 
   update(node: PMNode): boolean {
@@ -99,6 +118,10 @@ export class FormulaNodeView {
 
   destroy(): void {
     this.dom.removeEventListener('click', this.handleClick);
+    if (this.copiedTimer !== null) {
+      window.clearTimeout(this.copiedTimer);
+      this.copiedTimer = null;
+    }
   }
 
   private render(): void {
@@ -144,7 +167,6 @@ export class FormulaNodeView {
 
   private openSource(): void {
     this.editing = true;
-    this.termReady = false;
     this.render();
     this.dom.replaceChildren(this.buildSourceEditor());
     const textarea = this.textarea;
@@ -156,17 +178,34 @@ export class FormulaNodeView {
       if (preview !== null) {
         renderKatex(preview, unwrapFormulaSource(textarea.value), this.block);
       }
+      this.syncTerm();
     }
   }
 
   private closeSource(): void {
     this.editing = false;
-    this.termReady = false;
     this.textarea = null;
     this.preview = null;
     this.termButton = null;
+    this.copyButton = null;
+    if (this.copiedTimer !== null) {
+      window.clearTimeout(this.copiedTimer);
+      this.copiedTimer = null;
+    }
     this.dom.replaceChildren(this.renderHost);
     this.render();
+  }
+
+  private actionButton(label: string, testId: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'nf-button nf-formula-action';
+    button.dataset['testid'] = testId;
+    button.textContent = label;
+    // Keep the textarea focused: the action row is editor chrome, not a focus
+    // target of its own.
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    return button;
   }
 
   private buildSourceEditor(): HTMLElement {
@@ -199,6 +238,9 @@ export class FormulaNodeView {
     textarea.addEventListener('keyup', () => this.syncTerm());
     textarea.addEventListener('mouseup', () => this.syncTerm());
     textarea.addEventListener('blur', () => {
+      // The clipboard fallback focuses a temporary textarea for a moment; that
+      // focus loss is not a commit.
+      if (this.copying) return;
       this.commitSource(false);
     });
     textarea.addEventListener('keydown', (event) => {
@@ -216,11 +258,33 @@ export class FormulaNodeView {
     close.setAttribute('aria-hidden', 'true');
     close.textContent = this.block ? '$$' : '$';
 
+    const actions = document.createElement('span');
+    actions.className = 'nf-formula-actions';
+    actions.dataset['formulaActions'] = 'true';
+    actions.contentEditable = 'false';
+
+    const termButton = this.actionButton('Branch from term', 'branch-from-term');
+    termButton.disabled = true;
+    termButton.addEventListener('click', () => this.branch());
+    const copyButton = this.actionButton('Copy formula', 'copy-formula');
+    copyButton.addEventListener('click', () => this.copyFormula());
+    const kindButton = this.actionButton(this.block ? 'Inline' : 'Block', 'toggle-formula-kind');
+    kindButton.dataset['formulaKindTarget'] = this.block ? 'inline' : 'block';
+    kindButton.setAttribute(
+      'aria-label',
+      this.block ? 'Convert to inline formula' : 'Convert to block formula',
+    );
+    kindButton.title = this.block ? 'Convert to inline formula' : 'Convert to block formula';
+    kindButton.addEventListener('click', () => this.toggleKind());
+    actions.append(termButton, copyButton, kindButton);
+    this.termButton = termButton;
+    this.copyButton = copyButton;
+
     const preview = document.createElement('span');
     preview.className = 'nf-formula-preview';
     preview.setAttribute('aria-hidden', 'true');
 
-    editor.append(open, textarea, close, preview);
+    editor.append(open, textarea, close, actions, preview);
     this.textarea = textarea;
     this.preview = preview;
     return editor;
@@ -234,23 +298,49 @@ export class FormulaNodeView {
       textarea.selectionStart,
       textarea.selectionEnd,
     );
-    const ready = selected !== null;
-    if (ready === this.termReady) return;
-    this.termReady = ready;
-    if (ready) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'nf-button nf-formula-term-action';
-      button.dataset['testid'] = 'branch-from-term';
-      button.textContent = 'Branch from term';
-      button.addEventListener('mousedown', (event) => event.preventDefault());
-      button.addEventListener('click', () => this.branch());
-      this.termButton = button;
-      this.preview?.before(button);
-      return;
-    }
-    this.termButton?.remove();
-    this.termButton = null;
+    const ready = selected !== null && selected.term.trim().length > 0;
+    if (this.termButton !== null) this.termButton.disabled = !ready;
+  }
+
+  private copyFormula(): void {
+    const textarea = this.textarea;
+    if (this.copying || textarea === null) return;
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
+    const latex = unwrapFormulaSource(textarea.value);
+    const kind: FormulaKind = this.block ? 'blockMath' : 'inlineMath';
+    this.copying = true;
+    void writeClipboardText(formulaCopySource(latex, kind))
+      .then((ok) => {
+        if (!ok || this.copyButton === null) return;
+        this.copyButton.textContent = 'Copied';
+        if (this.copiedTimer !== null) window.clearTimeout(this.copiedTimer);
+        this.copiedTimer = window.setTimeout(() => {
+          this.copiedTimer = null;
+          if (this.copyButton !== null) this.copyButton.textContent = 'Copy formula';
+        }, COPIED_FEEDBACK_MS);
+      })
+      .finally(() => {
+        this.copying = false;
+        // Restore the source caret after the temporary clipboard element.
+        if (!this.editing || this.textarea === null) return;
+        this.textarea.focus();
+        this.textarea.setSelectionRange(selectionStart, selectionEnd);
+        this.syncTerm();
+      });
+  }
+
+  private toggleKind(): void {
+    const pos = this.getPos();
+    if (typeof pos !== 'number') return;
+    const current = this.editor.state.doc.nodeAt(pos);
+    if (current === null) return;
+    const target = formulaKindTarget(current.type.name);
+    if (target === null) return;
+    const latex = unwrapFormulaSource(this.textarea?.value ?? this.latex());
+    // One transaction covers type, latex and selection: one undo entry. The new
+    // node view reopens the source editor at the marked position.
+    convertFormulaKind(this.editor, pos, target, latex);
   }
 
   private commitSource(refocus: boolean): void {

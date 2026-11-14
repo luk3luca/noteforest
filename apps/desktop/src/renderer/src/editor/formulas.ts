@@ -11,7 +11,10 @@
 import { InputRule, type Editor } from '@tiptap/core';
 import { BlockMath, InlineMath } from '@tiptap/extension-mathematics';
 import type { Node as PMNode, NodeType } from '@tiptap/pm/model';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
+import type { EditorView } from '@tiptap/pm/view';
 import { anchorIdsAttribute } from './anchor-attrs';
+import { formulaPasteTransaction } from '../lib/formula-paste';
 import { findInlineMathInput, isBlockMathEnterTrigger } from '../lib/formula-input';
 import { FormulaNodeView } from './views/formula-node-view';
 
@@ -58,6 +61,19 @@ function blockMathInputRule(getType: () => NodeType): InputRule {
   });
 }
 
+/**
+ * A pasted exact formula becomes a formula node. Inline formulas replace the
+ * selection in the current textblock; a block formula replaces an empty
+ * paragraph or lands after the current paragraph with a paragraph below.
+ * Anything that is not exactly one `$…$`/`$$…$$` string stays a plain paste.
+ */
+function insertPastedFormula(view: EditorView, text: string): boolean {
+  const tr = formulaPasteTransaction(view.state, text);
+  if (tr === null) return false;
+  view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
 export const InlineFormulaNode = InlineMath.extend({
   addAttributes() {
     const parent = (this.parent?.() ?? {}) as Record<string, unknown>;
@@ -78,6 +94,25 @@ export const InlineFormulaNode = InlineMath.extend({
   },
   addNodeView() {
     return formulaNodeView();
+  },
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('formulaPaste'),
+        props: {
+          handlePaste: (view, event) => {
+            if (!view.editable) return false;
+            const text = event.clipboardData?.getData('text/plain') ?? '';
+            if (text.trim().length === 0) return false;
+            // Only take the paste when the formula actually inserts; anything
+            // else keeps the default paste path.
+            if (!insertPastedFormula(view, text)) return false;
+            event.preventDefault();
+            return true;
+          },
+        },
+      }),
+    ];
   },
 }).configure({ katexOptions: { throwOnError: false } });
 

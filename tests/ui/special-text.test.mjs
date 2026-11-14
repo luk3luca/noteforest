@@ -36,6 +36,27 @@ async function blankBlock(blockId) {
   });
 }
 
+/**
+ * Click the right edge of a code block body and wait until the node view reports
+ * the editing state. The PM selection can lag a synthetic click, so a key press
+ * right after a plain click would run against the previous selection.
+ */
+async function clickCodeEnd(blockId) {
+  const line = card(blockId).locator('pre[data-anchor-kind="code"] code');
+  const box = await line.boundingBox();
+  await line.click({
+    position: { x: Math.max(1, (box?.width ?? 20) - 2), y: Math.max(2, (box?.height ?? 18) / 2) },
+  });
+  await page.waitForFunction(
+    (block) =>
+      document
+        .querySelector(`[data-block-card="${block}"] [data-code-block="true"]`)
+        ?.getAttribute('data-code-state') === 'editing',
+    blockId,
+    { timeout: 5000 },
+  );
+}
+
 async function focusProse(blockId) {
   const prose = card(blockId).locator('.nf-block-prose p').first();
   await prose.scrollIntoViewIfNeeded();
@@ -60,6 +81,63 @@ async function typeInBlank(blockId, text) {
 
 function paragraphs(blockId) {
   return card(blockId).locator('.nf-block-prose p');
+}
+
+/**
+ * Paragraph text without the live-preview delimiter widgets. The widgets are
+ * editor affordances, never document text; the canonical content still has no
+ * backtick.
+ */
+async function proseText(blockId) {
+  return page.evaluate((block) => {
+    const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+    if (prose === null) return '';
+    const clone = prose.cloneNode(true);
+    for (const delimiter of clone.querySelectorAll('.nf-inline-code-delim')) {
+      delimiter.remove();
+    }
+    return clone.textContent ?? '';
+  }, blockId);
+}
+
+/** The number of inline-code delimiter widgets rendered in a block. */
+function delimiterCount(blockId) {
+  return card(blockId).locator('.nf-inline-code-delim').count();
+}
+
+async function selectedBlockId() {
+  return page.evaluate(() => {
+    const current = window.__noteforestTest.state();
+    const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+    return runtime?.selectedBlockId ?? null;
+  });
+}
+
+/**
+ * Block-body child tags plus the tag/index that owns the browser caret. Used by
+ * the table paragraph actions: the caret must land in the new paragraph, in the
+ * same block, without a block jump.
+ */
+async function proseCaretInfo(blockId) {
+  return page.evaluate((block) => {
+    const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+    if (prose === null) return null;
+    const container = prose.querySelector('[data-node-view-content-react]') ?? prose;
+    const tagOf = (element) =>
+      element.tagName === 'TABLE' || element.querySelector(':scope > table') !== null
+        ? 'table'
+        : element.tagName.toLowerCase();
+    const children = [...container.children].map(tagOf);
+    const node = window.getSelection()?.anchorNode ?? null;
+    const element =
+      node === null ? null : node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    const paragraph = element?.closest?.('p') ?? null;
+    return {
+      children,
+      index: paragraph === null ? -1 : [...container.children].indexOf(paragraph),
+      tableIndex: children.indexOf('table'),
+    };
+  }, blockId);
 }
 
 /** `row:cell` of the table cell that owns the browser caret, or null. */
@@ -133,17 +211,29 @@ describe('NoteForest special text editing', () => {
       /def value\(\): return 1  # note/,
     );
 
-    // Editing: opening fence + closing row, no idle label.
+    // Editing: opening fence + closing row with the copy action; the language
+    // label is the idle affordance and is hidden while editing.
     assert.equal(await code.locator('[data-code-label]').isVisible(), false);
-    await h.screenshot(artifactsPath('special-text', 'code-editing-1440x900.png'), {
+    const copy = code.locator('[data-code-action="copy"]');
+    assert.equal(await copy.isVisible(), true);
+    await copy.click();
+    await page.waitForFunction(
+      (block) =>
+        document
+          .querySelector(`[data-block-card="${block}"] [data-code-action="copy"]`)
+          ?.textContent?.includes('Copied') === true,
+      blockId,
+      { timeout: 5000 },
+    );
+    assert.equal(await h.clipboardText(), 'def value(): return 1  # note');
+    await h.screenshot(artifactsPath('special-text-polish', 'code-editing-1440x900.png'), {
       width: 1440,
       height: 900,
     });
 
     // ArrowDown at the end exits to a paragraph and shows the idle state: no
-    // fences, a language label and the copy affordance only on hover.
-    await card(blockId).locator('pre[data-anchor-kind="code"] code').click();
-    await page.keyboard.press('End');
+    // fences, a top-right language label, and no copy button (idle or hover).
+    await clickCodeEnd(blockId);
     await page.keyboard.press('ArrowDown');
     await page.waitForFunction(
       (block) =>
@@ -179,25 +269,15 @@ describe('NoteForest special text editing', () => {
       blockId,
       { timeout: 5000 },
     );
-    // Copy on hover (an idle affordance; editing hides the header).
+    // Idle chrome: the language label is top-right and the copy action is
+    // editing-only; hovering the idle block must not reveal it.
     await code.hover();
-    const copy = code.locator('[data-code-action="copy"]');
-    await copy.waitFor();
-    assert.ok(
-      (await copy.evaluate((el) => getComputedStyle(el).opacity)) !== '0',
-      'the copy button is visible on hover',
+    assert.equal(
+      await code.locator('[data-code-action="copy"]').isVisible(),
+      false,
+      'the copy action is not an idle or hover affordance',
     );
-    await copy.click();
-    await page.waitForFunction(
-      (block) =>
-        document
-          .querySelector(`[data-block-card="${block}"] [data-code-action="copy"]`)
-          ?.textContent?.includes('Copied') === true,
-      blockId,
-      { timeout: 5000 },
-    );
-    assert.equal(await h.clipboardText(), 'def value(): return 1  # note');
-    await h.screenshot(artifactsPath('special-text', 'code-idle-1440x900.png'), {
+    await h.screenshot(artifactsPath('special-text-polish', 'code-idle-1440x900.png'), {
       width: 1440,
       height: 900,
     });
@@ -220,7 +300,7 @@ describe('NoteForest special text editing', () => {
     await page
       .locator('[data-testid="selection-toolbar"]')
       .waitFor({ state: 'detached', timeout: 5000 });
-    await card(blockId).locator('pre[data-anchor-kind="code"] code').click();
+    await clickCodeEnd(blockId);
     await page.keyboard.press('Meta+Enter');
     await page.waitForFunction(
       (block) =>
@@ -232,7 +312,7 @@ describe('NoteForest special text editing', () => {
     );
 
     // The closing row exits too.
-    await card(blockId).locator('pre[data-anchor-kind="code"] code').click();
+    await clickCodeEnd(blockId);
     await code.locator('[data-code-action="close"]').waitFor();
     await code.locator('[data-code-action="close"]').click();
     await page.waitForFunction(
@@ -310,17 +390,77 @@ describe('NoteForest special text editing', () => {
       'npm run build',
     );
     assert.equal(
-      (await card(blockId).locator('.nf-block-prose').first().innerText()).includes('`'),
+      (await proseText(blockId)).includes('`'),
       false,
       'the toggling backticks never enter the text',
     );
 
-    // ⇧` inserts a literal backtick.
-    await page.keyboard.press('Shift+Backquote');
-    assert.equal(
-      (await card(blockId).locator('.nf-block-prose').first().innerText()).includes('`'),
-      true,
+    // Entering the chip shows the live-preview delimiters at both ends; moving
+    // the caret out of the marked range hides them again.
+    await card(blockId).locator('.nf-block-prose code').first().click();
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-inline-code-delim`)
+          .length === 2,
+      blockId,
+      { timeout: 5000 },
     );
+    assert.equal(await delimiterCount(blockId), 2);
+    assert.equal(
+      await card(blockId)
+        .locator('.nf-inline-code-delim')
+        .first()
+        .evaluate((element) => element.textContent),
+      '`',
+    );
+    const mark = await page.evaluate((block) => {
+      const code = document.querySelector(`[data-block-card="${block}"] .nf-block-prose code`);
+      const selection = window.getSelection();
+      const node = selection?.anchorNode ?? null;
+      return {
+        length: code?.textContent?.length ?? 0,
+        offset:
+          node !== null && code !== null && code.contains(node)
+            ? selection.anchorOffset
+            : 0,
+      };
+    }, blockId);
+    // Move just past the marked range: from the caret to the range end, then
+    // one character into the following text.
+    for (let index = 0; index < Math.max(1, mark.length - mark.offset + 1); index += 1) {
+      await page.keyboard.press('ArrowRight');
+    }
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-inline-code-delim`)
+          .length === 0,
+      blockId,
+      { timeout: 5000 },
+    );
+    assert.equal(await delimiterCount(blockId), 0);
+    assert.equal(
+      await card(blockId).locator('.nf-block-prose code').count(),
+      1,
+      'the canonical mark survives the live-preview widgets',
+    );
+
+    // ⇧` inserts a literal backtick, never a delimiter widget.
+    await page.keyboard.press('Shift+Backquote');
+    await page.waitForFunction(
+      (block) => {
+        const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+        if (prose === null) return false;
+        const clone = prose.cloneNode(true);
+        for (const delimiter of clone.querySelectorAll('.nf-inline-code-delim')) {
+          delimiter.remove();
+        }
+        return (clone.textContent ?? '').includes('`');
+      },
+      blockId,
+      { timeout: 5000 },
+    );
+    assert.equal((await proseText(blockId)).includes('`'), true);
+    assert.equal(await delimiterCount(blockId), 0);
 
     // A selection wraps and unwraps.
     const secondId = 'st-inline-selection';
@@ -342,6 +482,44 @@ describe('NoteForest special text editing', () => {
     await page.waitForFunction(
       (block) =>
         document.querySelector(`[data-block-card="${block}"] .nf-block-prose code`) === null,
+      secondId,
+    );
+
+    // The mini menu applies and removes the same mark; entering the chip shows
+    // the delimiters, and collapsing the caret at its end keeps them.
+    const inlineCodeButton = page.locator(
+      '[data-testid="selection-toolbar"] [aria-label="Inline code"]',
+    );
+    await inlineCodeButton.waitFor({ state: 'visible' });
+    await inlineCodeButton.click();
+    await page.waitForSelector(`[data-block-card="${secondId}"] .nf-block-prose code`);
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-inline-code-delim`)
+          .length === 2,
+      secondId,
+      { timeout: 5000 },
+    );
+    await h.screenshot(artifactsPath('special-text-polish', 'inline-code-delimiters-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    for (let index = 0; index < 'word'.length; index += 1) {
+      await page.keyboard.press('Shift+ArrowLeft');
+    }
+    await inlineCodeButton.waitFor({ state: 'visible' });
+    await inlineCodeButton.click();
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(`[data-block-card="${block}"] .nf-block-prose code`) === null,
+      secondId,
+    );
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-inline-code-delim`)
+          .length === 0,
       secondId,
     );
 
@@ -382,6 +560,76 @@ describe('NoteForest special text editing', () => {
     });
     await page.keyboard.press('Meta+s');
     await h.waitSaved();
+  });
+
+  it('B2: plain arrows stay inside the block and ⌘↓ still navigates', async () => {
+    const env = isolated('special-text-arrows');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+
+    const firstId = 'st-arrow-first';
+    const secondId = 'st-arrow-second';
+    await blankBlock(firstId);
+    await typeInBlank(firstId, 'alpha');
+    await blankBlock(secondId);
+    await typeInBlank(secondId, 'beta');
+    await focusProse(firstId);
+    await page.keyboard.press('Meta+ArrowRight');
+    await page.waitForFunction(
+      () => window.__noteforestTest.caretLocation()?.offset === 'alpha'.length,
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(await selectedBlockId(), firstId);
+
+    // At the block end, ArrowDown and ArrowRight are consumed: the caret and
+    // the selected block stay in the first block.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await selectedBlockId(), firstId);
+    assert.equal(
+      await page.evaluate((block) => {
+        const selection = window.getSelection();
+        const node = selection?.anchorNode ?? null;
+        return (
+          node !== null &&
+          document
+            .querySelector(`[data-block-card="${block}"] .nf-block-prose`)
+            ?.contains(node) === true
+        );
+      }, firstId),
+      true,
+    );
+
+    // At the block start, ArrowUp and ArrowLeft are consumed too. The native
+    // ⌘← moves the DOM caret before ProseMirror observes it: the following
+    // ArrowRight must still move natively (no stale-state swallow), and the
+    // arrows at the live start are then consumed.
+    await page.keyboard.press('Meta+ArrowLeft');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(
+      await page.evaluate(() => window.getSelection()?.anchorOffset),
+      1,
+      'the first ArrowRight after ⌘← moves natively',
+    );
+    await page.keyboard.press('Meta+ArrowLeft');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await selectedBlockId(), firstId);
+    assert.equal(await page.evaluate(() => window.getSelection()?.anchorOffset), 0);
+
+    // Block navigation is still ⌘↓.
+    await page.keyboard.press('Meta+ArrowDown');
+    await page.waitForFunction(
+      (expected) => {
+        const current = window.__noteforestTest.state();
+        const runtime = current.runtimes.find((item) => item.packagePath === current.activeTab);
+        return runtime?.selectedBlockId === expected;
+      },
+      secondId,
+      { timeout: 5000 },
+    );
   });
 
   it('C: $…$ and $$…$$ rules, in-place source editing and the anchor click', async () => {
@@ -511,6 +759,252 @@ describe('NoteForest special text editing', () => {
     await h.waitSaved();
   });
 
+  it('G: the link form resets when the selection bubble hides', async () => {
+    const env = isolated('special-text-link');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+
+    const blockId = 'st-link-reset';
+    await blankBlock(blockId);
+    await typeInBlank(blockId, 'link target text');
+    const selectLink = async () => {
+      await page.keyboard.press('Meta+ArrowLeft');
+      for (let index = 0; index < 'link'.length; index += 1) {
+        await page.keyboard.press('Shift+ArrowRight');
+      }
+      await page.locator('[data-testid="selection-toolbar"]').waitFor({ state: 'visible' });
+    };
+    await selectLink();
+    await page.locator('[data-testid="selection-toolbar"] [aria-label="Link"]').click();
+    const form = page.locator('.nf-bubble-link');
+    await form.waitFor();
+    await form.locator('input').fill('https://example.com');
+
+    // Clicking outside collapses the selection and hides the bubble.
+    await card(blockId).locator('.nf-block-prose p').first().click();
+    await page.waitForSelector('.nf-bubble-link', { state: 'detached' });
+    await selectLink();
+    assert.equal(await page.locator('.nf-bubble-link').count(), 0);
+    assert.equal(
+      await page.locator('[data-testid="selection-toolbar"] [aria-label="Link"]').isVisible(),
+      true,
+      'the new bubble starts from the buttons',
+    );
+    await h.screenshot(artifactsPath('special-text-polish', 'link-reset-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+  });
+
+  it('E: formula outline, source action row, copy/convert and paste', async () => {
+    const env = isolated('special-text-formula-polish');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+
+    const blockId = 'st-formula-polish';
+    const latex = '\\frac{a}{b}+\\frac{c}{d}';
+    await blankBlock(blockId);
+    await typeInBlank(blockId, `Av = $${latex}$ v`);
+    const formula = card(blockId).locator('[data-type="inline-math"]').first();
+    await formula.waitFor();
+
+    // One inline-block box: the formula's full rendered height and width, not a
+    // fragmented inline line box.
+    const metrics = await formula.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      const katex = element.querySelector('.katex')?.getBoundingClientRect() ?? null;
+      return {
+        display: style.display,
+        verticalAlign: style.verticalAlign,
+        width: box.width,
+        height: box.height,
+        katexWidth: katex?.width ?? 0,
+        katexHeight: katex?.height ?? 0,
+        rects: element.getClientRects().length,
+      };
+    });
+    assert.equal(metrics.display, 'inline-block');
+    assert.equal(metrics.verticalAlign, 'middle');
+    assert.equal(metrics.rects, 1);
+    assert.ok(metrics.height >= metrics.katexHeight - 1, 'the box holds the full formula height');
+    assert.ok(metrics.width >= metrics.katexWidth - 1, 'the box holds the full formula width');
+
+    // The outline stays anchor-only: a selected, non-anchored formula has none.
+    await formula.click();
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(
+          `[data-block-card="${block}"] [data-type="inline-math"].ProseMirror-selectednode`,
+        ) !== null,
+      blockId,
+      { timeout: 5000 },
+    );
+    await waitCaretSettled();
+    assert.equal(
+      await formula.evaluate((element) => getComputedStyle(element).outlineStyle),
+      'none',
+      'no selection outline without an anchor',
+    );
+    assert.equal(
+      await page.locator('[data-testid="selection-toolbar"]').count(),
+      0,
+      'the general selection toolbar is suppressed for a formula NodeSelection',
+    );
+
+    // Anchor the whole formula, then reselect it: one dashed rectangle around
+    // the full rendered box.
+    await page.keyboard.press('Meta+Shift+Enter');
+    await h.waitCanonicalBlockCount(9);
+    await h.waitBlockCount(9);
+    await formula.click();
+    await page.waitForFunction(
+      (block) =>
+        document.querySelector(
+          `[data-block-card="${block}"] [data-type="inline-math"].ProseMirror-selectednode`,
+        ) !== null,
+      blockId,
+      { timeout: 5000 },
+    );
+    const outline = await formula.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      return {
+        style: style.outlineStyle,
+        width: style.outlineWidth,
+        rects: element.getClientRects().length,
+        height: box.height,
+      };
+    });
+    assert.equal(outline.style, 'dashed');
+    assert.notEqual(outline.width, '0px');
+    assert.equal(outline.rects, 1);
+    await h.screenshot(artifactsPath('special-text-polish', 'formula-selection-rect-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Double click opens the source editor and keeps its textarea focused; the
+    // general selection toolbar stays away.
+    await formula.dblclick();
+    const source = card(blockId).locator('[data-formula-source]');
+    await source.waitFor();
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute('data-formula-source') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    await source.press('End');
+    await page.keyboard.type('+z');
+    assert.equal(await source.inputValue(), `${latex}+z`);
+    assert.equal(await page.locator('[data-testid="selection-toolbar"]').count(), 0);
+
+    // One stable action row with three commands; Branch from term is disabled
+    // until a non-empty LaTeX selection exists.
+    const actions = card(blockId).locator('[data-formula-actions="true"]');
+    await actions.waitFor();
+    assert.equal(await actions.locator('button').count(), 3);
+    const termAction = actions.locator('[data-testid="branch-from-term"]');
+    assert.equal(await termAction.isDisabled(), true);
+    await ui.selectRange(source, 0, latex.length);
+    assert.equal(await termAction.isDisabled(), false);
+    await h.screenshot(artifactsPath('special-text-polish', 'formula-action-row-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Copy formula writes the source with the inline delimiters.
+    await actions.locator('[data-testid="copy-formula"]').click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-testid="copy-formula"]')?.textContent === 'Copied',
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(await h.clipboardText(), `$${latex}+z$`);
+
+    // Branch from the term keeps the existing flow: the source closes, a child
+    // and the term anchor are created.
+    await termAction.click();
+    await page.waitForSelector('[data-formula-source]', { state: 'detached' });
+    await h.waitCanonicalBlockCount(10);
+    await h.waitBlockCount(10);
+
+    // Reopen the source: the term-highlight layer is mounted but hidden so it
+    // cannot overlay the textarea, and the textarea owns the focus.
+    await formula.dblclick();
+    await source.waitFor();
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute('data-formula-source') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    const termLayer = card(blockId).locator('[data-formula-term-layer]');
+    await termLayer.waitFor({ state: 'attached' });
+    assert.equal(await termLayer.isVisible(), false);
+    assert.equal(await source.isVisible(), true);
+
+    // Inline → block keeps the source and the editor open. One conversion is
+    // one transaction: the single undo below returns to inline.
+    const toggle = actions.locator('[data-testid="toggle-formula-kind"]');
+    assert.equal(await toggle.getAttribute('data-formula-kind-target'), 'block');
+    await toggle.click();
+    await page.waitForSelector(`[data-block-card="${blockId}"] [data-type="block-math"]`);
+    await source.waitFor();
+    await page.waitForFunction(
+      () => document.activeElement?.getAttribute('data-formula-source') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(await source.inputValue(), `${latex}+z`);
+    const reverse = actions.locator('[data-testid="toggle-formula-kind"]');
+    assert.equal(await reverse.getAttribute('data-formula-kind-target'), 'inline');
+
+    // Commit the draft by clicking the paragraph text, then one undo returns to
+    // the single conversion transaction.
+    await card(blockId).locator('.nf-block-prose p').first().click({ position: { x: 2, y: 2 } });
+    await page.waitForSelector(`[data-block-card="${blockId}"] [data-formula-source]`, {
+      state: 'detached',
+    });
+    await page.keyboard.press('Meta+z');
+    await page.waitForSelector(`[data-block-card="${blockId}"] [data-type="inline-math"]`);
+
+    // Paste creates the formula node instead of literal text.
+    const pasteInlineId = 'st-formula-paste-inline';
+    await blankBlock(pasteInlineId);
+    await focusProse(pasteInlineId);
+    await h.writeClipboard('$x^2$');
+    await page.keyboard.press('Meta+v');
+    await page.waitForFunction(
+      (block) =>
+        document
+          .querySelector(`[data-block-card="${block}"] [data-type="inline-math"]`)
+          ?.getAttribute('data-latex') === 'x^2',
+      pasteInlineId,
+      { timeout: 5000 },
+    );
+    const pasteBlockId = 'st-formula-paste-block';
+    await blankBlock(pasteBlockId);
+    await focusProse(pasteBlockId);
+    await h.writeClipboard('$$\\frac{1}{2}$$');
+    await page.keyboard.press('Meta+v');
+    await page.waitForFunction(
+      (block) =>
+        document
+          .querySelector(`[data-block-card="${block}"] [data-type="block-math"]`)
+          ?.getAttribute('data-latex') === '\\frac{1}{2}',
+      pasteBlockId,
+      { timeout: 5000 },
+    );
+
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+  });
+
   it('D: table picker, toolbar, keyboard, conversions, copy and scrolling', async () => {
     const env = isolated('special-text-table');
     await launch(env);
@@ -572,6 +1066,76 @@ describe('NoteForest special text editing', () => {
       width: 1440,
       height: 900,
     });
+
+    // Paragraph above/below: one paragraph in the same block body, the caret
+    // moves into it, and one undo removes exactly that paragraph.
+    const tableCard = page
+      .locator('.nf-editor[data-active="true"] [data-block-card]')
+      .filter({ has: page.locator('.nf-block-prose table') })
+      .first();
+    const tableBlockId = await tableCard.getAttribute('data-block-card');
+    assert.equal(typeof tableBlockId, 'string');
+    const baseChildren = (await proseCaretInfo(tableBlockId)).children;
+    const baseParagraphs = baseChildren.filter((tag) => tag === 'p').length;
+    const cell = table.locator('tbody > tr').nth(1).locator('td').last();
+    await cell.click();
+    await toolbar.waitFor();
+    await toolbar.locator('[data-action="paragraph-above"]').click();
+    await page.waitForFunction(
+      ({ block, expected }) => {
+        const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+        const container = prose?.querySelector('[data-node-view-content-react]') ?? prose;
+        return container !== null && container.querySelectorAll(':scope > p').length === expected;
+      },
+      { block: tableBlockId, expected: baseParagraphs + 1 },
+      { timeout: 5000 },
+    );
+    const above = await proseCaretInfo(tableBlockId);
+    assert.equal(above.children.length, baseChildren.length + 1);
+    assert.equal(above.index, above.tableIndex - 1, 'the caret is in the paragraph above');
+    assert.equal(await selectedBlockId(), tableBlockId, 'the block never jumps');
+    await page.keyboard.press('Meta+z');
+    await page.waitForFunction(
+      ({ block, expected }) => {
+        const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+        const container = prose?.querySelector('[data-node-view-content-react]') ?? prose;
+        return container !== null && container.querySelectorAll(':scope > p').length === expected;
+      },
+      { block: tableBlockId, expected: baseParagraphs },
+      { timeout: 5000 },
+    );
+
+    await cell.click();
+    await toolbar.waitFor();
+    await toolbar.locator('[data-action="paragraph-below"]').click();
+    await page.waitForFunction(
+      ({ block, expected }) => {
+        const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+        const container = prose?.querySelector('[data-node-view-content-react]') ?? prose;
+        return container !== null && container.querySelectorAll(':scope > p').length === expected;
+      },
+      { block: tableBlockId, expected: baseParagraphs + 1 },
+      { timeout: 5000 },
+    );
+    const below = await proseCaretInfo(tableBlockId);
+    assert.equal(below.children.length, baseChildren.length + 1);
+    assert.equal(below.index, below.tableIndex + 1, 'the caret is in the paragraph below');
+    assert.equal(await selectedBlockId(), tableBlockId, 'the block never jumps');
+    await h.screenshot(artifactsPath('special-text-polish', 'table-paragraph-actions-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await page.keyboard.press('Meta+z');
+    await page.waitForFunction(
+      ({ block, expected }) => {
+        const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+        const container = prose?.querySelector('[data-node-view-content-react]') ?? prose;
+        return container !== null && container.querySelectorAll(':scope > p').length === expected;
+      },
+      { block: tableBlockId, expected: baseParagraphs },
+      { timeout: 5000 },
+    );
+    assert.deepEqual((await proseCaretInfo(tableBlockId)).children, baseChildren);
 
     // Enter is a hard break inside a cell (never a new block).
     const bodyCell = table.locator('tbody > tr').nth(1).locator('td').first();
@@ -726,6 +1290,56 @@ describe('NoteForest special text editing', () => {
       height: 900,
     });
 
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+  });
+
+  it('D3: block menu is grouped, renames Focus to Edit and inserts a table', async () => {
+    const env = isolated('special-text-menu');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+
+    const blockId = 'st-menu-target';
+    await blankBlock(blockId);
+    await ui.openBlockMenu(blockId);
+    const ids = await page
+      .locator('.nf-menu [data-menu-entry]')
+      .evaluateAll((items) => items.map((item) => item.getAttribute('data-menu-entry')));
+    assert.deepEqual(ids, [
+      'focus',
+      'insert-image',
+      'insert-table',
+      'add-child',
+      'add-sibling',
+      'split-at-caret',
+      'merge-previous',
+      'link-reference',
+      'move',
+      'move-up',
+      'move-down',
+      'delete',
+    ]);
+    assert.equal(
+      (await page.locator('[data-menu-entry="focus"]').innerText()).trim(),
+      'Edit block',
+    );
+    assert.match(
+      (await page.locator('[data-menu-entry="delete"]').innerText()).trim(),
+      /^Delete block/,
+    );
+
+    // Insert table uses the same size dialog as the palette and lands in the
+    // block that opened the menu.
+    await page.getByRole('menuitem', { name: /^Insert table/ }).click();
+    const picker = page.locator('.nf-table-size-dialog');
+    await picker.waitFor();
+    assert.equal(await picker.locator('input[type="checkbox"]').count(), 0);
+    await picker.locator('[data-table-size="2:2"]').click();
+    const table = card(blockId).locator('.nf-block-prose table');
+    await table.waitFor();
+    assert.equal(await table.locator('tr').count(), 2);
+    assert.equal(await table.locator('tr').first().locator('th').count(), 2);
     await page.keyboard.press('Meta+s');
     await h.waitSaved();
   });

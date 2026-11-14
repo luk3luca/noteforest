@@ -152,16 +152,14 @@ describe('NoteForest M3c1 whole-formula anchors', () => {
     assert.deepEqual(redone.anchors[anchorId], created.anchors[anchorId]);
     assert.equal(redone.branches[childBranch.id]?.source.anchorId, anchorId);
 
-    // The floating toolbar reuses the exact formula anchor instead of creating
-    // a second one; undo keeps the anchor and the original child.
+    // The floating toolbar is suppressed for a formula NodeSelection (the
+    // formula source row owns formula actions); ⌘⇧Enter runs the same branch
+    // command and must reuse the exact anchor.
     const formula = page.locator(
       `[data-block-card="${parentId}"] [data-type="block-math"].tiptap-mathematics-render`,
     );
     await formula.click();
-    await page.waitForSelector(
-      '[data-testid="selection-toolbar"] [data-action="branch-from-selection"]',
-    );
-    await page.locator('[data-action="branch-from-selection"]').click();
+    await page.keyboard.press('Meta+Shift+Enter');
     await h.waitCanonicalBlockCount(10);
     await h.waitBlockCount(10);
     const reused = await structure();
@@ -181,12 +179,9 @@ describe('NoteForest M3c1 whole-formula anchors', () => {
     assert.ok(afterReuseUndo.blocks[childId] !== undefined, 'the original child survives');
 
     // Branch once more; the new child is focused, so type immediately. This is
-    // the M3c1 authoring contract, exercised through the toolbar path.
+    // the M3c1 authoring contract, exercised through the shortcut path.
     await formula.click();
-    await page.waitForSelector(
-      '[data-testid="selection-toolbar"] [data-action="branch-from-selection"]',
-    );
-    await page.locator('[data-action="branch-from-selection"]').click();
+    await page.keyboard.press('Meta+Shift+Enter');
     await h.waitCanonicalBlockCount(10);
     await h.waitBlockCount(10);
     const typedStructure = await structure();

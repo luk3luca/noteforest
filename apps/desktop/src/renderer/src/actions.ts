@@ -1187,7 +1187,7 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
   const entries: MenuEntry[] = [
     {
       id: 'focus',
-      label: 'Focus block',
+      label: 'Edit block',
       onSelect: () => runtime.focusBlock(blockId),
     },
     {
@@ -1200,6 +1200,19 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
     },
     ...imageEntries,
     {
+      id: 'insert-table',
+      label: 'Insert table…',
+      disabled: !runtime.editable,
+      ...(runtime.editable
+        ? {
+            onSelect: () => {
+              runtime.focusBlock(blockId);
+              shell().openDialog({ kind: 'table-size' });
+            },
+          }
+        : {}),
+    },
+    {
       id: 'add-child',
       label: 'Add child block',
       shortcut: '⌃⏎',
@@ -1211,6 +1224,7 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       shortcut: '⌥⏎',
       onSelect: () => report(runtime.addSibling(blockId)),
     },
+    { id: 'sep-structure', label: '', separator: true },
     {
       id: 'split-at-caret',
       label: splitCheck.ok ? 'Split at caret' : `Split at caret — ${splitCheck.reason}`,
@@ -1235,13 +1249,21 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       shortcut: '⌘⇧L',
       onSelect: () => shell().openDialog({ kind: 'link-reference', blockId }),
     },
-    ...(anchorEntries.length === 0
+    ...(branch === undefined
       ? []
-      : [{ id: 'sep-anchors', label: '', separator: true }, ...anchorEntries]),
-    ...(referenceEntries.length === 0
-      ? []
-      : [{ id: 'sep-references', label: '', separator: true }, ...referenceEntries]),
-    { id: 'sep-1', label: '', separator: true },
+      : [
+          {
+            id: 'demote',
+            label: 'Demote to reference',
+            onSelect: () => report(runtime.demoteBranch(branch.id)),
+          },
+          {
+            id: 'detach',
+            label: 'Detach from parent',
+            onSelect: () => report(runtime.deleteBranch(blockId)),
+          },
+        ]),
+    { id: 'sep-position', label: '', separator: true },
     {
       id: 'move',
       label: 'Move to…',
@@ -1279,21 +1301,17 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
           },
         ]
       : []),
-    { id: 'sep-2', label: '', separator: true },
-    ...(branch === undefined
+    ...(anchorEntries.length === 0 && referenceEntries.length === 0
       ? []
       : [
-          {
-            id: 'demote',
-            label: 'Demote to reference',
-            onSelect: () => report(runtime.demoteBranch(branch.id)),
-          },
-          {
-            id: 'detach',
-            label: 'Detach from parent',
-            onSelect: () => report(runtime.deleteBranch(blockId)),
-          },
+          { id: 'sep-anchors', label: '', separator: true },
+          ...anchorEntries,
+          ...(anchorEntries.length > 0 && referenceEntries.length > 0
+            ? [{ id: 'sep-references', label: '', separator: true }]
+            : []),
+          ...referenceEntries,
         ]),
+    { id: 'sep-delete', label: '', separator: true },
     {
       id: 'delete',
       label: 'Delete block…',

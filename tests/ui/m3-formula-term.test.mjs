@@ -60,14 +60,15 @@ describe('NoteForest M3c2a formula term anchors', () => {
     // substring exposes the term action.
     const uniqueTextarea = await openTermDialog(parentId, 0);
     assert.equal(await uniqueTextarea.inputValue(), uniqueLatex);
-    assert.equal(
-      await page.locator('[data-testid="branch-from-term"]').count(),
-      0,
-      'no term action before a selection',
-    );
+    // The stable action row is always present while the source editor is open;
+    // only a non-empty LaTeX term selection enables Branch from term.
+    const termAction = page.locator('[data-testid="branch-from-term"]');
+    assert.equal(await termAction.count(), 1);
+    assert.equal(await termAction.isDisabled(), true);
     await selectRange(uniqueTextarea, 5, 7);
     const branchButton = page.locator('[data-testid="branch-from-term"]');
     await branchButton.waitFor({ state: 'visible' });
+    assert.equal(await branchButton.isDisabled(), false);
     assert.equal((await branchButton.textContent())?.trim(), 'Branch from term');
     await branchButton.click();
     await page.waitForSelector('.nf-textarea', { state: 'detached' });

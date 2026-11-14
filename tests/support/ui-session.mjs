@@ -238,6 +238,11 @@ export function createUiSession({ tempRoot }) {
     await textarea.press('Home');
     for (let index = 0; index < start; index += 1) await textarea.press('ArrowRight');
     for (let index = 0; index < length; index += 1) await textarea.press('Shift+ArrowRight');
+    // The stable action row starts disabled and enables on the first non-empty
+    // term selection; wait for that state before the caller clicks.
+    await current()
+      .locator('[data-testid="branch-from-term"]:not([disabled])')
+      .waitFor({ timeout: 5000 });
   }
 
   /** Health chip counts; a zero total means the chip must be absent. */

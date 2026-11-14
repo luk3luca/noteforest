@@ -1,8 +1,20 @@
 import { Extension } from '@tiptap/core';
 import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
+import type { ResolvedPos } from '@tiptap/pm/model';
 import { getEditorBindings } from './bindings';
 import { backspaceAction } from '../lib/backspace';
+import { arrowBoundaryAction, type ArrowBoundaryKey } from '../lib/arrow-boundary';
+
+function blockIdAt($pos: ResolvedPos): string | null {
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    const node = $pos.node(depth);
+    if (node.type.name === 'branchBlock') {
+      return typeof node.attrs['blockId'] === 'string' ? node.attrs['blockId'] : null;
+    }
+  }
+  return null;
+}
 
 function currentBlockId(editor: Editor): string | null {
   const selection = editor.state.selection;
@@ -63,7 +75,83 @@ export const BranchKeymap = Extension.create({
       return true;
     };
 
+    /**
+     * Plain arrows stay inside the block at its very start/end. Code blocks,
+     * tables and a focused local text control (the formula source textarea)
+     * keep the native path: those surfaces own their caret keys.
+     *
+     * The boundary is read from the live DOM caret, not only from the
+     * ProseMirror state: Chromium moves the caret with a native shortcut
+     * (⌘←/⌘→) before ProseMirror observes the selection change, and consuming
+     * the next arrow against that stale state would trap the caret.
+     */
+    const arrowStays = (key: ArrowBoundaryKey): boolean => {
+      if (!canEdit()) return false;
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')
+      ) {
+        return false;
+      }
+      const editor = this.editor;
+      const selection = editor.state.selection;
+      if (selection instanceof NodeSelection) return false;
+      const dom = window.getSelection();
+      const domPoint =
+        dom !== null &&
+        dom.rangeCount > 0 &&
+        dom.anchorNode !== null &&
+        editor.view.dom.contains(dom.anchorNode)
+          ? dom
+          : null;
+      if (domPoint !== null && !domPoint.isCollapsed) return false;
+      let $from = selection.$from;
+      if (domPoint !== null) {
+        try {
+          const domResolved = editor.state.doc.resolve(
+            editor.view.posAtDOM(domPoint.anchorNode as Node, domPoint.anchorOffset),
+          );
+          // The browser caret is the visible truth. If it is in another block
+          // than the editor state (a click or a menu focus the state has not
+          // observed yet), let the native key move it: consuming at a boundary
+          // read from the stale block would trap the caret.
+          if (blockIdAt(domResolved) !== blockIdAt(selection.$from)) return false;
+          $from = domResolved;
+        } catch {
+          // A DOM point that does not map to the document keeps the state.
+        }
+      }
+      let depth = -1;
+      let atomic = false;
+      for (let current = $from.depth; current > 0; current -= 1) {
+        const name = $from.node(current).type.name;
+        if (name === 'codeBlock' || name === 'table') atomic = true;
+        if (name === 'blockBody' && depth < 0) depth = current;
+      }
+      if (depth < 0) return false;
+      const body = $from.node(depth);
+      const action = arrowBoundaryAction({
+        key,
+        selectionEmpty: domPoint !== null ? domPoint.isCollapsed : selection.empty,
+        atomic,
+        atBlockStart: $from.parentOffset === 0 && $from.index(depth) === 0,
+        atBlockEnd:
+          $from.parentOffset === $from.parent.content.size &&
+          $from.index(depth) === body.childCount - 1,
+      });
+      return action === 'stay';
+    };
+
     return {
+      // Plain arrow keys never leave the active block; the native path still
+      // handles every in-block caret move. ⌘↑/⌘↓, click and the outline remain
+      // the block navigation.
+      ArrowUp: () => arrowStays('ArrowUp'),
+      ArrowDown: () => arrowStays('ArrowDown'),
+      ArrowLeft: () => arrowStays('ArrowLeft'),
+      ArrowRight: () => arrowStays('ArrowRight'),
+
       // Enter stays a paragraph split inside the block; at the end of a
       // heading it creates a normal paragraph so a heading is never sticky.
       Enter: () => {

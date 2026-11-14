@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react';
 import { writeClipboardText } from '../lib/clipboard';
 import {
   currentCellAlign,
+  insertParagraphAroundTable,
   setColumnAlign,
   tableGfmAtSelection,
   type TableAlign,
@@ -213,6 +214,31 @@ export function TableToolbar({ editor }: { editor: Editor }): JSX.Element {
           onClick={() => setColumnAlign(editor, 'right')}
         >
           <AlignRight size={14} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+        <span className="nf-bubble-sep" aria-hidden="true" />
+        <button
+          type="button"
+          className="nf-bubble-button nf-bubble-wide"
+          data-action="paragraph-above"
+          aria-label="Paragraph above"
+          title="Insert a paragraph above the table"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => insertParagraphAroundTable(editor, 'before')}
+        >
+          <span aria-hidden="true">¶</span>
+          <span>Above</span>
+        </button>
+        <button
+          type="button"
+          className="nf-bubble-button nf-bubble-wide"
+          data-action="paragraph-below"
+          aria-label="Paragraph below"
+          title="Insert a paragraph below the table"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => insertParagraphAroundTable(editor, 'after')}
+        >
+          <span aria-hidden="true">¶</span>
+          <span>Below</span>
         </button>
         <span className="nf-bubble-sep" aria-hidden="true" />
         <button

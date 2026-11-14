@@ -8,7 +8,7 @@
 
 import type { Editor } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
-import { TextSelection } from '@tiptap/pm/state';
+import { TextSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { gfmFromTableNode, parseGfmTable } from '../lib/gfm-table';
 import { tableNodeFromGfm } from './table-node';
 
@@ -22,7 +22,11 @@ export interface TableLocation {
 }
 
 export function tableAtSelection(editor: Editor): TableLocation | null {
-  const { $from } = editor.state.selection;
+  return tableAtSelectionFrom(editor.state);
+}
+
+function tableAtSelectionFrom(state: EditorState): TableLocation | null {
+  const { $from } = state.selection;
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     if ($from.node(depth).type.name !== 'table') continue;
     return {
@@ -72,6 +76,45 @@ export function tableGfmAtSelection(editor: Editor): string | null {
   const table = tableAtSelection(editor);
   if (table === null) return null;
   return gfmFromTableNode(table.node.toJSON() as Parameters<typeof gfmFromTableNode>[0]);
+}
+
+/**
+ * The one transaction that inserts an empty paragraph immediately
+ * before/after the table at the caret. Pure so the resulting document is
+ * unit-tested without a view.
+ */
+export function paragraphAroundTableTransaction(
+  state: EditorState,
+  where: 'before' | 'after',
+): { tr: Transaction; pos: number } | null {
+  const table = tableAtSelectionFrom(state);
+  if (table === null) return null;
+  const paragraph = state.schema.nodes['paragraph'];
+  if (paragraph === undefined) return null;
+  const inserted = paragraph.createAndFill();
+  if (inserted === null) return null;
+  const at = where === 'before' ? table.pos : table.pos + table.node.nodeSize;
+  const tr = state.tr.insert(at, inserted);
+  const pos = at + 1;
+  tr.setSelection(TextSelection.create(tr.doc, pos));
+  return { tr, pos };
+}
+
+/**
+ * Insert one empty paragraph immediately before/after the table, in the same
+ * block body, and put the caret in it. One transaction, one undo entry. The
+ * action is always enabled inside a table: a block that already has a
+ * paragraph simply gets another one.
+ */
+export function insertParagraphAroundTable(
+  editor: Editor,
+  where: 'before' | 'after',
+): boolean {
+  const plan = paragraphAroundTableTransaction(editor.state, where);
+  if (plan === null) return false;
+  editor.view.dispatch(plan.tr.scrollIntoView());
+  editor.view.focus();
+  return true;
 }
 
 // ---------------------------------------------------------------------------

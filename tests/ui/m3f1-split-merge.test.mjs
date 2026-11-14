@@ -22,7 +22,7 @@ async function closeMenu() {
 
 async function focusBlock(blockId) {
   await openBlockMenuFromGutter(blockId);
-  await page.getByRole('menuitem', { name: 'Focus block', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit block', exact: true }).click();
   await page.getByRole('menu').waitFor({ state: 'hidden' });
   await page.waitForFunction(
     (expected) => window.__noteforestTest.caretLocation()?.blockId === expected,

@@ -232,11 +232,13 @@ describe('M4b1a2 Read-mode global gating', () => {
     await page.locator('.nf-menu').waitFor();
     const addChild = page.getByRole('menuitem', { name: /Add child block/ });
     const deleteBlock = page.getByRole('menuitem', { name: /Delete block/ });
-    const focusBlock = page.getByRole('menuitem', { name: /^Focus block/ });
+    const insertTableEntry = page.getByRole('menuitem', { name: /^Insert table/ });
+    const editBlock = page.getByRole('menuitem', { name: /^Edit block/ });
     assert.equal(await addChild.getAttribute('aria-disabled'), 'true');
     assert.match(await addChild.innerText(), /Read mode/);
     assert.equal(await deleteBlock.getAttribute('aria-disabled'), 'true');
-    assert.notEqual(await focusBlock.getAttribute('aria-disabled'), 'true');
+    assert.equal(await insertTableEntry.getAttribute('aria-disabled'), 'true');
+    assert.notEqual(await editBlock.getAttribute('aria-disabled'), 'true');
     await page.keyboard.press('Escape');
     await page.locator('.nf-menu').waitFor({ state: 'detached' });
 
