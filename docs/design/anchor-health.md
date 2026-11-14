@@ -1,8 +1,11 @@
-# Anchor health — design proposal
+# Document health — design proposal
 
-**Status:** Proposal for product-owner review. No implementation yet.
+**Status:** Proposal for product-owner review. No implementation yet. The product owner named the
+surface **Document health** on 14 November 2026 and asked it to hold the whole document audit, not
+only anchors. The file name `anchor-health.md` is retained for existing links.
 **Date:** 14 November 2026.
-**Scope:** a document-level audit that finds broken, hidden, and lost anchors, plus the repair surface.
+**Scope:** a document-level audit of anchors **and structural/branch problems**, plus the repair
+surface. It is the umbrella health surface; anchor health is one category inside it.
 **Builds on:** M3e anchor health (`apps/desktop/src/renderer/src/lib/anchor-health.ts`,
 `src/shell/Dialogs.tsx`), the M3 anchor resolver, the status-bar chip, the block warning.
 **Not in scope:** shell activity bar (separate design), library-wide scan (v3), automatic repair.
@@ -43,6 +46,9 @@ it under “All”, but nothing points to it.
 | Asset | image anchor with missing/changed asset or crop | `assetAvailability` + hash/crop |
 | Cell | anchor inside a table cell after inline-only normalization | block content path through `tableCell` |
 | Branch | source/target missing, duplicate primary home, cycle, bad role/order | branch graph audit |
+| Orphan block | block not reachable from any chapter or primary/reference path | graph reachability from chapters |
+| Empty chapter | chapter with zero top-level blocks | `chapter.topLevelBlockIds.length = 0` |
+| Orientation | schema/version or document identity inconsistency | document header audit (later) |
 
 Severity: **S1** data-loss risk (missing target, missing record, duplicate primary home, cycle);
 **S2** needs repair (broken, ambiguous, orphan); **S3** cleanup/information (idle, drift, hidden by
@@ -82,10 +88,10 @@ Rules:
 
 ## 4. UI
 
-Extend the existing **Anchor health** sheet (modal), not a new surface.
+Extend the existing **Document health** sheet (modal), not a new surface.
 
-- Header: `N anchors · X broken · Y ambiguous · Z idle · W orphan · H hidden` + **Check again**.
-- Filters: **All / Needs repair / Broken / Ambiguous / Idle / Orphans / Hidden**, with counts; search
+- Header: `N issues · X broken · Y ambiguous · Z idle · W orphan · H hidden · S structure` + **Check again**.
+- Filters: **All / Needs repair / Broken / Ambiguous / Idle / Orphans / Structure / Hidden**, with counts; search
   by block, chapter, quote, kind.
 - Rows: state badge, kind, block + chapter, quote, branch count, reason; click = **Locate**
   (expand ancestors, select the block/term, scroll). Idle and hidden rows are visually quieter.
@@ -99,39 +105,48 @@ Extend the existing **Anchor health** sheet (modal), not a new surface.
   - Missing target: **Relink…** / **Remove branch**.
   - Drift: **Update binding** (repair) / Keep.
   - Hidden — collapsed: **Expand & locate**.
-  - Hidden — unreachable: **Move block to chapter…** / **Delete block…** (destructive, confirmed).
+  - Hidden — unreachable / orphan block: **Move block to chapter…** / **Delete block…** (destructive,
+    confirmed).
+  - Empty chapter: **Add block** / **Delete chapter…** (confirmed).
   - Duplicate: choose the keeper / delete the other.
-- Empty state: “No anchors need repair” + idle/orphan counts when present.
+- Empty state: “No document issues need repair” + idle/orphan/structure counts when present.
 - Status bar: keep the existing **needs repair** chip for broken/ambiguous; add a **secondary muted
-  indicator** for idle/orphans (e.g., “2 idle”), clickable to the sheet filtered on Idle. No alarm
+  indicator** for idle/orphans/structure (e.g., “2 idle”), clickable to the sheet filtered on Idle. No alarm
   for idle.
-- Palette: **Check anchors…** opens the sheet.
+- Palette: **Check document health…** opens the sheet.
 - The sheet is read-only until an action; every action is a typed command with undo; no auto-fix.
 - Performance: synchronous audit on open; a manual Check again; 300/1,000 blocks. No scan per
   keystroke. A worker only if the 1,000-block audit measures above ~50 ms.
 
 ## 5. Slices
 
-- **v1**: Idle filter + counts, orphan references/records, missing targets, Locate/expand, status-bar
-  secondary indicator, palette entry, Remove anchor / Branch from anchor / Delete record / Remove
-  branch. This finds the formula-term idle anchor.
-- **v2**: drift, duplicates, hidden/unreachable, asset and cell checks, relink, move block, search.
+- **v1**: anchor idle/orphan/missing-target checks; **structural checks** (orphan block not reachable
+  from a chapter, branch target missing, duplicate primary home, cycle, empty chapter); Idle/Orphans/
+  Structure filters + counts, Locate/expand, status-bar secondary indicator, palette entry, Remove
+  anchor / Branch from anchor / Delete record / Remove branch / Move orphan to chapter. This finds
+  the formula-term idle anchor and the structural problems that silently break the tree.
+- **v2**: drift, duplicates, hidden/unreachable detail, asset and cell checks, relink, move block,
+  search, reference-edge audit (branchless references, reference cycles).
 - **v3**: library-wide scan (closed documents, read-only, report per document).
 
 ## 6. Tests
 
 - Pure audit fixtures: healthy, broken, ambiguous, idle, orphan reference, orphan record, missing
-  target, drift, duplicate, collapsed, unreachable, image missing, anchor in a cell.
+  target, drift, duplicate, collapsed, unreachable, image missing, anchor in a cell, duplicate
+  primary home, cycle, empty chapter.
 - UI: sheet filters/counts, Locate, idle remove/branch, orphan strip, missing-target remove, status
   bar secondary indicator, palette entry, no mutation on open.
 - Regression: the M3e sheet actions still work; the status bar needs-repair count unchanged.
 
-## 7. Open decisions
+## 7. Decisions
 
-1. Name: **Anchor health** or **Document health** (if v2 includes orphan blocks and branch issues)?
-2. Idle: informational (not “needs repair”) — recommended.
-3. Collapsed: “hidden” information with Expand & locate — recommended.
-4. Audit on open or only on Check again — recommended: on open.
-5. Include reference edges and branchless branches in v1 or v2 — recommended v2.
-6. Should the Health view live in the future activity bar (compact summary) with this sheet as the
-   repair surface? Recommended yes, but the sheet ships first.
+Resolved with the product owner (14 November 2026):
+
+1. **Name:** Document health. It holds anchors, structure/branch issues, and later content checks;
+   it is not an anchor-only panel.
+2. **Idle:** informational, not “needs repair”.
+3. **Collapsed:** “hidden” information with Expand & locate.
+4. **Audit on open:** yes; Check again is manual.
+5. **Reference edges:** v2 (branchless references, reference cycles); branch integrity is v1.
+6. **Activity bar:** the sheet ships first; the activity bar summary/badge (S2) consumes it.
+

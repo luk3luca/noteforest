@@ -151,11 +151,16 @@ Suggested order: after the Sentinel, a **visual token pass**: radii (4/8), popov
 card padding decision, Settings pane decision, docs alignment. Radius changes are visual-only; card
 padding changes need a Continuous visual + geometry check; Page/PDF untouched.
 
-## 5. Open decisions
+## 5. Decisions
 
-1. Radius scale: 4/8 (recommended) or 4/8/10 (keep the note softer)?
-2. Continuous card padding: keep 10, or 8/12 with a visual pass?
-3. Settings pane: keep 536, or use the available ~592?
-4. Sidebar range: keep 180/264/640 (recommended) or re-ratify to 208–360?
-5. Do the token pass before or after the Sentinel? (Recommended after; it is visual-only except the
-   card padding.)
+Resolved with the product owner (14 November 2026):
+
+1. **Radius scale:** **4/8** (control/card and panel/overlay/chip/note); the note radius 9 maps to 8.
+   No third 10 step.
+2. **Continuous card padding:** keep **10**, documented as the note-surface optical inset. Changing
+   it is measurement-affecting; not worth a Continuous/Page geometry pass now.
+3. **Settings pane:** keep **536**, documented as a deliberate readable width (8×67, on the grid).
+   It is not a token and not a layout bug.
+4. **Sidebar range:** keep **180/264/640**; docs aligned to the code.
+5. **Token pass timing:** after the Sentinel, folded into the shell activity bar S1 (visual-only:
+   radii, popover gaps); card padding and pane width are documented, not changed.

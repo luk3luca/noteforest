@@ -114,16 +114,20 @@ The activity icon switches the sidebar content to a **compact Health view** (not
 
 - **S1**: bar + Library/Outline + Settings; remove the top tabs; collapse; tests. Also the
   **visual token pass** from `docs/design/value-audit.md`: radii 4/8, popover gaps 4/8/12, docs
-  180/640/264 alignment. The Continuous card padding and the Settings pane 536 stay separate
-  decisions (measurement-affecting / layout pass).
-- **S2**: Anchor Health view + badge + Locate + Open full health (after the Anchor Health v1 sheet).
+  180/640/264 alignment. The Continuous card padding stays **10** (documented as the note-surface
+  optical inset; no measurement change) and the Settings pane stays **536** (documented as a
+  deliberate readable width). No `⌥1/2/3` shortcuts in S1; the palette is the entry point.
+- **S2**: **Document health** view + badge + Locate + Open full health (after the Document health v1
+  sheet; the design is `docs/design/anchor-health.md`, renamed in product).
 - **S3**: future sections (Search, Topics, Data) as they become real.
 
-## 10. Open decisions
+## 10. Decisions
 
-1. Bar **48** (recommended) or 44 (header-aligned)?
-2. Health icon **opens the view** (recommended) or the modal directly?
-3. Collapse control: chevron at the bar top, or the active icon toggles the content (recommended:
-   chevron, explicit)?
-4. Do we add `⌥1/2/3` section shortcuts in S1 or leave the palette only?
-5. Keep the Library/Outline names or rename to “Documents”/“Outline” in the bar tooltips?
+Resolved with the product owner (14 November 2026):
+
+1. Bar **48**; the numbers in §2 are the measured rationale.
+2. Health icon **opens the view**; the view links to the full sheet.
+3. Collapse control: explicit chevron at the bar top.
+4. No `⌥1/2/3` shortcuts in S1; palette only.
+5. Keep **Library** and **Outline** as the names.
+
