@@ -55,6 +55,7 @@ describe('UI suite list', () => {
       'm3-anchor-callout-stacking.test.mjs': 'm3-anchor-callout-stacking',
       'm3-reference.test.mjs': 'm3-reference',
       'm3-repair.test.mjs': 'm3-repair',
+      'list-fixes.test.mjs': 'list-fixes',
     } as const;
     const directories = Object.values(owners);
     expect(new Set(directories).size).toBe(directories.length);

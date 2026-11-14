@@ -2778,6 +2778,92 @@ button:disabled {
   margin: 0;
 }
 
+/* List markers --------------------------------------------------------------
+   Tailwind preflight resets every `ul`/`ol` to `list-style: none`, so the block
+   prose had indentation but no marker at any depth. Restore the markers only
+   for the editor prose (Continuous Edit/Read and the Page Edit overlay, which
+   share the extension set); menus, sidebars, settings, dialogs and the Page
+   renderer keep their own explicit `.nf-li-marker` glyphs and its print
+   compositor never mounts this scope.
+
+   The depth cycle counts any list ancestor, so a mixed `ol` inside `ul` still
+   gets the depth-2 marker for its type. Depth 1–6 cycle; deeper nesting keeps
+   the depth-6 step (the marker stays visible, it just repeats). The 20 px
+   padding-left above is the marker gutter: an outside marker is painted there,
+   inside the card, so it is never clipped. */
+.nf-block-prose ul {
+  list-style-type: disc;
+}
+
+.nf-block-prose :is(ul, ol) ul {
+  list-style-type: circle;
+}
+
+.nf-block-prose :is(ul, ol) :is(ul, ol) ul {
+  list-style-type: square;
+}
+
+.nf-block-prose :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+  list-style-type: disc;
+}
+
+.nf-block-prose :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ul {
+  list-style-type: circle;
+}
+
+.nf-block-prose
+  :is(ul, ol)
+  :is(ul, ol)
+  :is(ul, ol)
+  :is(ul, ol)
+  :is(ul, ol)
+  ul {
+  list-style-type: square;
+}
+
+.nf-block-prose ol {
+  list-style-type: decimal;
+}
+
+.nf-block-prose :is(ul, ol) ol {
+  list-style-type: lower-alpha;
+}
+
+.nf-block-prose :is(ul, ol) :is(ul, ol) ol {
+  list-style-type: lower-roman;
+}
+
+.nf-block-prose :is(ul, ol) :is(ul, ol) :is(ul, ol) ol {
+  list-style-type: decimal;
+}
+
+.nf-block-prose :is(ul, ol) :is(ul, ol) :is(ul, ol) :is(ul, ol) ol {
+  list-style-type: lower-alpha;
+}
+
+.nf-block-prose
+  :is(ul, ol)
+  :is(ul, ol)
+  :is(ul, ol)
+  :is(ul, ol)
+  :is(ul, ol)
+  ol {
+  list-style-type: lower-roman;
+}
+
+/* The marker is a quiet label, not content: the muted text role. */
+.nf-block-prose li::marker {
+  color: var(--text-3);
+}
+
+/* The Page Edit overlay is the only block prose on fixed light paper; its
+   markers follow the page muted role instead of the shell theme so the marker
+   does not change colour with the app theme. Page Read and print render no
+   block prose at all. */
+.nf-page-scope .nf-block-prose li::marker {
+  color: var(--nf-page-muted);
+}
+
 .nf-block-prose blockquote {
   margin: 8px 0;
   padding-left: 12px;

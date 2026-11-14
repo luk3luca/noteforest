@@ -16,6 +16,7 @@ import {
 import { ImageNodeView } from './views/ImageNodeView';
 import { CodeBlockKeys, CodeBlockNode } from './code-block';
 import { InlineCodeBacktick } from './inline-code';
+import { ParenOrderedListInput } from './lists';
 import { BlockFormulaNode, InlineFormulaNode } from './formulas';
 import { TableEditing, TableExtensions } from './tables';
 
@@ -321,6 +322,8 @@ export function createEditorExtensions(options: EditorExtensionOptions = {}) {
     CodeBlockNode,
     CodeBlockKeys,
     InlineCodeBacktick,
+    // `1) ` typed lists; the `1. ` marker stays with StarterKit's orderedList.
+    ParenOrderedListInput,
     CanonicalImage,
     ...TableExtensions,
     TableEditing,

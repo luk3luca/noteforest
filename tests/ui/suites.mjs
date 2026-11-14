@@ -63,6 +63,7 @@ export const FILES = [
   'library-surface.test.mjs',
   'document-lifecycle.test.mjs',
   'settings-shell-layout.test.mjs',
+  'list-fixes.test.mjs',
 ];
 
 /**
@@ -92,6 +93,7 @@ export const GROUPS = {
     'library-surface.test.mjs',
     'document-lifecycle.test.mjs',
     'settings-shell-layout.test.mjs',
+    'list-fixes.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',
