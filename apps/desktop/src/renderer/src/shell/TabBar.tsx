@@ -1,10 +1,11 @@
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronDown, Lock, Plus, X } from 'lucide-react';
+import { ChevronDown, FileText, Lock, Plus, X } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useShell, type TabInfo } from '../state/shell';
 import { useRuntime } from '../state/registry';
+import { useMarkdownEntry } from '../state/markdown';
 import { closeTab, createNewDocument, openPath, openTabMenu } from '../actions';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 import { TAB_GAP, TAB_MAX_WIDTH, visibleTabWindow } from '../lib/tab-policy';
@@ -18,7 +19,7 @@ import { TAB_GAP, TAB_MAX_WIDTH, visibleTabWindow } from '../lib/tab-policy';
  */
 
 function tabButtonTitle(tab: TabInfo): string {
-  return tab.title;
+  return tab.kind === 'markdown' ? `${tab.title} — Markdown file` : tab.title;
 }
 
 function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
@@ -28,7 +29,12 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
   const active = useShell((state) => state.activeTab) === tab.packagePath;
   const setActive = useShell((state) => state.setActiveTab);
   const { runtime } = useRuntime(tab.packagePath);
-  const dirty = tab.missing !== true && runtime !== null && runtime.saveState !== 'saved';
+  const markdown = useMarkdownEntry(tab.kind === 'markdown' ? tab.packagePath : null);
+  const dirty =
+    tab.missing !== true &&
+    (tab.kind === 'markdown'
+      ? markdown?.dirty === true
+      : runtime !== null && runtime.saveState !== 'saved');
   const readOnly = tab.readOnlyReason !== undefined || runtime?.status === 'read-only';
 
   return (
@@ -73,6 +79,15 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
           >
             !
           </span>
+        ) : null}
+        {tab.kind === 'markdown' ? (
+          <FileText
+            size={11}
+            strokeWidth={1.5}
+            className="nf-tab-kind-icon"
+            data-tab-kind="markdown"
+            aria-hidden="true"
+          />
         ) : null}
         {readOnly ? <Lock size={11} strokeWidth={1.5} className="nf-tab-lock" aria-hidden="true" /> : null}
         {dirty ? <span className="nf-tab-dot" aria-label="Unsaved changes" /> : null}

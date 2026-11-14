@@ -146,7 +146,7 @@ function runOne(file) {
 function printHelp() {
   console.log(`UI suite runner
 
-  node tests/ui/run.mjs [--group all|core|shell|settings|page|anchors|images]
+  node tests/ui/run.mjs [--group all|core|shell|settings|page|anchors|images|markdown]
                        [--concurrency 1..8] [--fail-fast] [--verbose] [--list]
 
 Groups overlap by surface; "all" is the unique full list. The runner builds

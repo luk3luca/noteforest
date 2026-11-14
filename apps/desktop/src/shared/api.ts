@@ -64,17 +64,54 @@ export type LibraryDocumentStatus = 'ok' | 'unreadable' | 'missing' | 'newer-sch
 
 export type RecoveryStatus = Exclude<LibraryDocumentStatus, 'ok'>;
 
+/**
+ * Library row kind. `note` is a NoteForest package; `markdown` is a guest
+ * `.md` file at the library root. The field is additive: an older row is a
+ * note. A Markdown row has no document id, revision, blocks, or chapters.
+ */
+export type LibraryDocumentKind = 'note' | 'markdown';
+
 export interface DocumentSummary {
   packagePath: string;
   title: string;
+  kind?: LibraryDocumentKind;
   status: LibraryDocumentStatus;
   /** Human reason for a non-ok status; absent for ok rows. */
   reason?: string;
   documentId: string | null;
   revision: number | null;
   updatedAt: string;
+  /** Always 0 for a Markdown row; the UI never shows a fake note count. */
   blockCount: number;
+  /** Always 0 for a Markdown row; the UI never shows a fake note count. */
   chapterCount: number;
+}
+
+/**
+ * One opened Markdown guest file. The renderer parses `markdown` with the flat
+ * schema; there is no document id, lock, revision, or Page/PDF surface.
+ */
+export interface MarkdownFileView {
+  /** Canonical absolute path; the session/tab key. */
+  path: string;
+  /** File basename, for example `notes.md`. */
+  title: string;
+  /** UTF-8 source. In-memory guest content; never a NoteForest document. */
+  markdown: string;
+  /** Present when the file was restored but could not be read. */
+  error?: string;
+}
+
+export type MarkdownOpenResult =
+  | { ok: true; file: MarkdownFileView }
+  | { ok: false; canceled?: boolean; message?: string };
+
+export interface MarkdownImageResolution {
+  ok: boolean;
+  /** Confined `noteforest-md://` URL; absent on failure. */
+  url?: string;
+  /** Placeholder reason for a remote, unsafe, or missing image. */
+  reason?: string;
 }
 
 export interface RecentDocumentView {
@@ -298,6 +335,8 @@ export interface BootstrapResult {
   /** Newest valid map backup, when Restore backup can be offered. */
   documentSettingsBackup: DocumentSettingsBackupView | null;
   openDocuments: OpenDocumentSnapshot[];
+  /** Session tabs that are Markdown guest files, re-read from their paths. */
+  markdownFiles: MarkdownFileView[];
   /** Session tabs whose package is damaged, missing, or newer than this app. */
   recoveries: RecoveryDocumentView[];
   appVersion: string;
@@ -583,6 +622,7 @@ export interface FlushResult {
 export type MenuCommand =
   | 'new-document'
   | 'open-document'
+  | 'open-markdown'
   | 'save'
   | 'close-tab'
   | 'close-window'
@@ -671,6 +711,20 @@ export interface NoteForestApi {
   /** Re-scan the active library after external changes. */
   refreshLibrary(): Promise<LibraryView>;
   openDocument(packagePath: string): Promise<OpenDocumentResult>;
+  /**
+   * Native picker for a Markdown guest file, then one read. It never creates a
+   * document, lock, or recent package entry.
+   */
+  openMarkdownFile(): Promise<MarkdownOpenResult>;
+  /** Read one known Markdown path (library row, session restore, reopen). */
+  readMarkdownFile(path: string): Promise<MarkdownOpenResult>;
+  /**
+   * Resolve a Markdown image relative to its file through the confined
+   * `noteforest-md:` protocol. Remote/absolute/traversal sources are refused.
+   */
+  resolveMarkdownImage(path: string, source: string): Promise<MarkdownImageResolution>;
+  /** Reveal the Markdown file itself in the OS file manager. */
+  revealMarkdownFile(path: string): Promise<RevealResult>;
   /** Explicitly remove a stale lock and reopen writable; never automatic. */
   takeOverLock(packagePath: string): Promise<TakeOverLockResult>;
   apply(packagePath: string, command: DocumentCommand): Promise<ApplyResult>;

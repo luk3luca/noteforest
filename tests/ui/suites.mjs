@@ -65,6 +65,7 @@ export const FILES = [
   'settings-shell-layout.test.mjs',
   'list-fixes.test.mjs',
   'editor-appearance.test.mjs',
+  'markdown-file-view.test.mjs',
 ];
 
 /**
@@ -95,6 +96,7 @@ export const GROUPS = {
     'document-lifecycle.test.mjs',
     'settings-shell-layout.test.mjs',
     'list-fixes.test.mjs',
+    'markdown-file-view.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',
@@ -131,6 +133,7 @@ export const GROUPS = {
     'm3c3b3-image-integrity.test.mjs',
     'm3c3b4-image-lifecycle.test.mjs',
   ],
+  markdown: ['markdown-file-view.test.mjs'],
   page: [
     'm4b1-page-view.test.mjs',
     'm4b1a2-read-mode-gating.test.mjs',

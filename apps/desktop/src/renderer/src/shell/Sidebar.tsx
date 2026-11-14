@@ -39,6 +39,7 @@ import { recoveryStatusLabel } from '../lib/recovery';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import type { DocumentRuntime } from '../state/runtime';
 import type { SidebarTab } from '../../../shared/api';
+import { isMarkdownPath } from '../../../shared/markdown';
 
 const SIDEBAR_TABS: ReadonlyArray<{ id: SidebarTab; label: string }> = [
   { id: 'library', label: 'Library' },
@@ -317,6 +318,7 @@ function LibrarySection(): JSX.Element {
                       type="button"
                       className="nf-library-open"
                       data-library-document="true"
+                      data-library-kind={document.kind ?? 'note'}
                       data-doc-status={document.status}
                       title={
                         document.status === 'ok'
@@ -633,6 +635,7 @@ function TopicSection(): JSX.Element {
     activePath === null ? false : editingEnabledFor(runtime, state.viewByDoc[activePath]),
   );
   const [renaming, setRenaming] = useState<RenameTarget | null>(null);
+  const markdownActive = activePath !== null && isMarkdownPath(activePath);
 
   const chapters = useMemo(
     () => (runtime === null ? [] : buildChapterTrees(runtime.document)),
@@ -646,9 +649,11 @@ function TopicSection(): JSX.Element {
           <span className="nf-section-label">Outline</span>
         </div>
         <p className="nf-empty-line" data-outline-empty="true">
-          {activePath === null
-            ? 'Open a document to see its outline.'
-            : 'Document unavailable.'}
+          {markdownActive
+            ? 'A Markdown file has no outline.'
+            : activePath === null
+              ? 'Open a document to see its outline.'
+              : 'Document unavailable.'}
         </p>
       </section>
     );

@@ -65,6 +65,7 @@ import type {
   LibraryView,
   ListBackupsResult,
   LockInfoView,
+  MarkdownFileView,
   MaterializeDraftResult,
   OpenDocumentResult,
   OpenDocumentSnapshot,
@@ -116,6 +117,8 @@ import {
 } from './document-settings.js';
 import { saveFailureCode } from './save-error.js';
 import { normalizeDocumentViewState } from '../shared/view-state.js';
+import { isMarkdownPath, isMarkdownFileName, markdownFileTitle } from '../shared/markdown.js';
+import { readMarkdownFile } from './markdown-file.js';
 import {
   backupCandidates,
   isPathInside,
@@ -998,6 +1001,53 @@ async function snapshot(store: DocumentStore): Promise<OpenDocumentSnapshot | nu
   };
 }
 
+/**
+ * Root-level `.md` guest files for the Library list. These are ordinary files,
+ * not packages: no `document.json` is read and a missing/unreadable file is a
+ * file problem, never a "broken note".
+ */
+async function listRootMarkdownFiles(
+  directory: string,
+  warnings: string[],
+): Promise<LibraryView['documents']> {
+  let entries;
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    warnings.push(`Could not read the library: ${errorMessage(error)}`);
+    return [];
+  }
+  const rows: LibraryView['documents'] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || entry.name.startsWith('.') || !isMarkdownFileName(entry.name)) {
+      continue;
+    }
+    const filePath = path.join(directory, entry.name);
+    let updatedAt = new Date().toISOString();
+    let status: 'ok' | 'unreadable' = 'ok';
+    let reason: string | undefined;
+    try {
+      updatedAt = (await fs.stat(filePath)).mtime.toISOString();
+    } catch (error) {
+      status = 'unreadable';
+      reason = `could not read this Markdown file: ${errorMessage(error)}`;
+    }
+    rows.push({
+      packagePath: filePath,
+      title: entry.name,
+      kind: 'markdown',
+      status,
+      ...(reason === undefined ? {} : { reason }),
+      documentId: null,
+      revision: null,
+      updatedAt,
+      blockCount: 0,
+      chapterCount: 0,
+    });
+  }
+  return rows;
+}
+
 export async function scanLibrary(root?: string): Promise<LibraryView> {
   ensureLibraryCacheScope();
   const active = await activeLibraryPath();
@@ -1027,7 +1077,11 @@ export async function scanLibrary(root?: string): Promise<LibraryView> {
   } else {
     try {
       const listing = await repository.list(directory);
-      documents = listing.documents;
+      const markdown = await listRootMarkdownFiles(directory, warnings);
+      documents = [...listing.documents, ...markdown].sort((left, right) => {
+        const byUpdatedAt = right.updatedAt.localeCompare(left.updatedAt);
+        return byUpdatedAt !== 0 ? byUpdatedAt : left.title.localeCompare(right.title);
+      });
       warnings.push(...listing.warnings);
     } catch (error) {
       warnings.push(`Could not scan the library: ${errorMessage(error)}`);
@@ -2830,6 +2884,7 @@ export async function bootstrap(): Promise<{
   documentSettingsBackup: DocumentSettingsBackupView | null;
   session: SessionState;
   openDocuments: OpenDocumentSnapshot[];
+  markdownFiles: MarkdownFileView[];
   recoveries: RecoveryDocumentView[];
 }> {
   const settingsRead = await readSettingsFile();
@@ -2844,8 +2899,25 @@ export async function bootstrap(): Promise<{
   const sessionRead = await readSessionWithOverrides();
   const session = sessionRead.session;
   const openDocuments: OpenDocumentSnapshot[] = [];
+  const markdownFiles: MarkdownFileView[] = [];
   const recoveries: RecoveryDocumentView[] = [];
   for (const tab of session.tabs) {
+    // A `.md` tab is a guest file, re-read from its own path. It never goes
+    // through the package store, lock, schema validation, or recent manifest.
+    if (isMarkdownPath(tab.packagePath)) {
+      const read = await readMarkdownFile(tab.packagePath);
+      if (read.ok) {
+        markdownFiles.push(read.file);
+      } else {
+        markdownFiles.push({
+          path: tab.packagePath,
+          title: markdownFileTitle(tab.packagePath),
+          markdown: '',
+          error: read.message ?? 'The Markdown file could not be read.',
+        });
+      }
+      continue;
+    }
     try {
       const opened = await openStore(tab.packagePath);
       if ('recovery' in opened) {
@@ -2885,6 +2957,7 @@ export async function bootstrap(): Promise<{
     documentSettingsBackup: await findNewestValidDocumentSettingsBackup(appSupportDir()),
     session,
     openDocuments,
+    markdownFiles,
     recoveries,
   };
 }

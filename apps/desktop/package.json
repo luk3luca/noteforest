@@ -33,6 +33,8 @@
     "@tiptap/starter-kit": "3.32.2",
     "katex": "0.18.11",
     "lowlight": "3.3.0",
+    "markdown-it": "14.3.3",
+    "prosemirror-markdown": "1.13.9",
     "lucide-react": "1.67.0",
     "pdfjs-dist": "6.5.438",
     "react": "19.3.1",
@@ -44,6 +46,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.4",
+    "@types/markdown-it": "14.2.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "tailwindcss": "4.3.4"

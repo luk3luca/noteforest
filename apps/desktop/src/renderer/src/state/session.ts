@@ -1,6 +1,7 @@
 import type { SessionState } from '../../../shared/api';
 import { DEFAULT_DOCUMENT_VIEW, normalizeDocumentViewState } from '../../../shared/view-state';
 import { isDraftKey } from '../../../shared/drafts';
+import { isMarkdownPath } from '../../../shared/markdown';
 import { allRuntimes } from './registry';
 import { useShell } from './shell';
 import { getScroll } from './scroll-store';
@@ -32,15 +33,16 @@ export function buildSession(): SessionState {
         const view = normalizeDocumentViewState(
           state.viewByDoc[tab.packagePath] ?? DEFAULT_DOCUMENT_VIEW,
         );
+        const markdown = isMarkdownPath(tab.packagePath);
         return {
           packagePath: tab.packagePath,
           documentId: runtime?.document.id ?? null,
           scrollTop: getScroll(tab.packagePath),
           selectedBlockId: runtime?.selectedBlockId ?? null,
           collapsed: runtime === undefined ? [] : [...runtime.collapsed],
-          layout: view.layout,
+          layout: markdown ? ('continuous' as const) : view.layout,
           interactionMode: view.interactionMode,
-          currentPage: view.currentPage,
+          currentPage: markdown ? 1 : view.currentPage,
           pageZoom: view.pageZoom,
           pageFit: view.pageFit,
           zoom: view.zoom,

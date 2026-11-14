@@ -4,6 +4,8 @@ import { TriangleAlert } from 'lucide-react';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
 import { currentWordCount } from '../actions';
+import { useMarkdownEntry } from '../state/markdown';
+import { isMarkdownPath } from '../../../shared/markdown';
 
 /**
  * Minimal status strip (V0): status only, no second toolbar.
@@ -18,6 +20,9 @@ export function StatusBar(): JSX.Element {
     state.tabs.find((tab) => tab.packagePath === state.activeTab),
   );
   const { runtime } = useRuntime(activeTab);
+  const markdown = useMarkdownEntry(
+    activeTab !== null && isMarkdownPath(activeTab) ? activeTab : null,
+  );
   const counts = useMemo(() => currentWordCount(), [runtime?.seq]);
   const anchorHealth = useMemo(() => {
     if (runtime === null) return { broken: 0, ambiguous: 0, total: 0 };
@@ -30,6 +35,28 @@ export function StatusBar(): JSX.Element {
       total: resolved.broken + resolved.ambiguous,
     };
   }, [runtime, runtime?.document, runtime?.version, runtime?.assetAvailability]);
+
+  if (markdown !== null) {
+    return (
+      <footer className="nf-statusbar" data-markdown-status="true">
+        <span
+          className={`nf-status-item nf-status-${markdown.dirty ? 'unsaved' : 'saved'}`}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          data-save-state={markdown.dirty ? 'unsaved' : 'saved'}
+        >
+          <span className="nf-status-dot" aria-hidden="true" />
+          {markdown.dirty ? 'Unsaved changes' : 'Markdown file'}
+        </span>
+        <span className="nf-status-item nf-status-secondary">Markdown preview</span>
+        <span className="nf-status-spacer" />
+        <span className="nf-status-item nf-status-secondary">
+          {markdown.dirty ? 'Not saved to disk yet' : 'Read from disk'}
+        </span>
+      </footer>
+    );
+  }
 
   if (runtime === null) {
     return (

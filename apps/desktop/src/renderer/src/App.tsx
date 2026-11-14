@@ -14,6 +14,8 @@ import {
   useExportUi,
 } from './export/export-flow';
 import { useShell, type TabInfo } from './state/shell';
+import { useAnyMarkdownDirty, useMarkdownFiles } from './state/markdown';
+import { isMarkdownPath } from '../../shared/markdown';
 import {
   allRuntimes,
   registerRuntime,
@@ -24,6 +26,7 @@ import {
   activeDocumentLayout,
   activeEditingEnabled,
   activeRuntime,
+  activeTabIsMarkdown,
   adjustActiveLayoutZoom,
   closeTab,
   fitActiveLayout,
@@ -173,7 +176,9 @@ export function App(): JSX.Element {
     state.tabs.find((tab) => tab.packagePath === state.activeTab),
   );
   const { runtime } = useRuntime(activeTab);
-  const dirty = useAllDirty();
+  const runtimeDirty = useAllDirty();
+  const markdownDirty = useAnyMarkdownDirty();
+  const dirty = runtimeDirty || markdownDirty;
   // The first ready render restores the session's active library; only a later
   // tab activation makes another known library active (LD-03).
   const libraryFollowReady = useRef(false);
@@ -197,12 +202,29 @@ export function App(): JSX.Element {
           documentSettingsBackup: data.documentSettingsBackup,
         });
         const byPath = new Map(data.openDocuments.map((snapshot) => [snapshot.packagePath, snapshot]));
+        const markdownByPath = new Map(
+          data.markdownFiles.map((file) => [file.path, file]),
+        );
         const recoveryByPath = new Map(
           data.recoveries.map((recovery) => [recovery.packagePath, recovery]),
         );
         const sessionByPath = new Map(data.session.tabs.map((tab) => [tab.packagePath, tab]));
         const tabs: TabInfo[] = [];
         for (const sessionTab of data.session.tabs) {
+          // A Markdown guest file is restored from its path, never from a
+          // package snapshot, recovery, or recent manifest entry.
+          if (isMarkdownPath(sessionTab.packagePath)) {
+            const file = markdownByPath.get(sessionTab.packagePath);
+            if (file === undefined) continue;
+            useMarkdownFiles.getState().openFile(file);
+            tabs.push({
+              packagePath: file.path,
+              tabKey: file.path,
+              title: file.title,
+              kind: 'markdown',
+            });
+            continue;
+          }
           const snapshot = byPath.get(sessionTab.packagePath);
           const recovery = recoveryByPath.get(sessionTab.packagePath);
           if (snapshot !== undefined) {
@@ -251,9 +273,12 @@ export function App(): JSX.Element {
           state.setCollapsedTopics(packagePath, ids);
         }
         for (const sessionTab of data.session.tabs) {
+          const view = normalizeDocumentViewState(sessionTab);
           state.setDocumentViewState(
             sessionTab.packagePath,
-            normalizeDocumentViewState(sessionTab),
+            isMarkdownPath(sessionTab.packagePath)
+              ? { ...view, layout: 'continuous' }
+              : view,
           );
         }
         const active =
@@ -488,6 +513,9 @@ export function App(): JSX.Element {
           break;
         case 'l': {
           if (!event.shiftKey) break;
+          // The link-reference dialog is a NoteForest block command; a Markdown
+          // guest file has no branches or references.
+          if (activeTabIsMarkdown()) break;
           // The link-reference dialog is a mutating shell path and follows the
           // same gate as the palette and block menu.
           if (!activeEditingEnabled()) {
@@ -537,7 +565,11 @@ export function App(): JSX.Element {
       dirty,
       title: runtime?.title ?? activeTabInfo?.title ?? 'NoteForest',
       representedPath:
-        runtime === null ? null : `${runtime.packagePath}/document.json`,
+        runtime === null
+          ? activeTabInfo?.kind === 'markdown'
+            ? activeTabInfo.packagePath
+            : null
+          : `${runtime.packagePath}/document.json`,
     });
   }, [dirty, runtime?.title, runtime?.packagePath, activeTabInfo?.title]);
 
@@ -573,6 +605,7 @@ export function App(): JSX.Element {
             packagePath: tab.packagePath,
             tabKey: tab.tabKey ?? tab.packagePath,
             title: tab.title,
+            kind: tab.kind ?? 'note',
             missing: tab.missing === true,
             recovery: tab.recovery === undefined ? null : tab.recovery.status,
             recoveryReason: tab.recovery?.reason ?? null,
@@ -582,6 +615,12 @@ export function App(): JSX.Element {
           dialog: state.dialog,
           sidebarCollapsed: state.sidebarCollapsed,
           sidebarTab: state.sidebarTab,
+          markdownFiles: Object.values(useMarkdownFiles.getState().files).map((file) => ({
+            path: file.path,
+            title: file.title,
+            dirty: file.dirty,
+            error: file.error,
+          })),
           library:
             state.library === null
               ? null

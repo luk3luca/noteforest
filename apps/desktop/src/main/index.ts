@@ -72,6 +72,12 @@ import { attachTextContextMenu, installApplicationMenu } from './menu.js';
 import { flushDecision, quitCanProceed } from './lifecycle.js';
 import { installE2EDialogGuard } from './dialog-guard.js';
 import { installAssetProtocol, registerAssetScheme } from './asset-protocol.js';
+import {
+  installMarkdownProtocol,
+  registerMarkdownScheme,
+} from './markdown-protocol.js';
+import { readMarkdownFile, resolveMarkdownImage } from './markdown-file.js';
+import { isMarkdownFileName } from '../shared/markdown.js';
 import { createExportService, installExportIpc } from './export-service.js';
 import type { PrintPageTarget } from './export-window.js';
 import { IMAGE_EXTENSIONS } from '../shared/images.js';
@@ -83,6 +89,7 @@ const isE2EHidden = isE2E && process.env['NOTEFOREST_E2E_HIDDEN'] !== '0';
 if (isE2E) installE2EDialogGuard(dialog);
 // Custom schemes must be registered before the app is ready.
 registerAssetScheme();
+registerMarkdownScheme();
 let mainWindow: BrowserWindow | null = null;
 let allowClose = false;
 let closeInProgress = false;
@@ -347,6 +354,7 @@ function registerIpc(): void {
       documentSettingsStatus: restored.documentSettingsStatus,
       documentSettingsBackup: restored.documentSettingsBackup,
       openDocuments: restored.openDocuments,
+      markdownFiles: restored.markdownFiles,
       recoveries: restored.recoveries,
       appVersion: app.getVersion(),
       platform: process.platform,
@@ -510,6 +518,54 @@ function registerIpc(): void {
   );
 
   ipcMain.handle('document:open', (_event, packagePath: string) => openDocument(packagePath));
+
+  // Markdown guest files are ordinary files, not packages: no store, lock,
+  // revision, recent entry, or document-settings write is involved.
+  ipcMain.handle('markdown:open', async () => {
+    const win = mainWindow;
+    if (win === null || win.isDestroyed()) {
+      return { ok: false as const, message: 'The window is not available.' };
+    }
+    const choice = await dialog.showOpenDialog(win, {
+      title: 'Open Markdown',
+      buttonLabel: 'Open',
+      properties: ['openFile'],
+      filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdown', 'mkd'] }],
+    });
+    const filePath = choice.filePaths[0];
+    if (choice.canceled || filePath === undefined) {
+      return { ok: false as const, canceled: true, message: 'No Markdown file was chosen.' };
+    }
+    return readMarkdownFile(filePath);
+  });
+
+  ipcMain.handle('markdown:read', (_event, filePath: unknown) => {
+    if (typeof filePath !== 'string' || filePath.length === 0) {
+      return { ok: false as const, message: 'No Markdown path was provided.' };
+    }
+    return readMarkdownFile(filePath);
+  });
+
+  ipcMain.handle('markdown:resolve-image', (_event, filePath: unknown, source: unknown) => {
+    if (typeof filePath !== 'string' || filePath.length === 0) {
+      return { ok: false, reason: 'The Markdown file is not open.' };
+    }
+    if (typeof source !== 'string') {
+      return { ok: false, reason: 'The image has no source.' };
+    }
+    return resolveMarkdownImage(filePath, source);
+  });
+
+  ipcMain.handle('markdown:reveal', (_event, filePath: unknown): RevealResult => {
+    if (typeof filePath !== 'string' || filePath.length === 0 || !isAbsolute(filePath)) {
+      return { ok: false, message: 'No Markdown path was provided.' };
+    }
+    if (!isMarkdownFileName(filePath)) {
+      return { ok: false, message: 'That is not a Markdown file.' };
+    }
+    shell.showItemInFolder(filePath);
+    return { ok: true };
+  });
 
   ipcMain.handle('document:take-over-lock', (_event, packagePath: string) =>
     takeOverStaleLock(packagePath),
@@ -889,6 +945,7 @@ if (!gotLock) {
       callback(false);
     });
     installAssetProtocol();
+    installMarkdownProtocol();
     registerIpc();
     installApplicationMenu(() => mainWindow, sendMenuCommand);
     createMainWindow();

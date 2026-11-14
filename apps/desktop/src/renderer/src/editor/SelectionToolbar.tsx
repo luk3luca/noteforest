@@ -8,12 +8,18 @@ import { useShell } from '../state/shell';
 
 interface ToolbarProps {
   editor: Editor;
+  /**
+   * `markdown` hides forest-only actions (branch from selection) and the math
+   * dialog, which targets a NoteForest block. The formatting/link controls and
+   * the bubble behavior are the same surface.
+   */
+  variant?: 'forest' | 'markdown';
 }
 
 /** Formula atoms own their actions in the source-editor row, not here. */
 const FORMULA_NODE_TYPES = new Set(['inlineMath', 'blockMath', 'mathBlock']);
 
-export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
+export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): JSX.Element {
   const [linkOpen, setLinkOpen] = useState(false);
   const [href, setHref] = useState('');
 
@@ -96,17 +102,19 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
         </form>
       ) : (
         <div className="nf-bubble-row">
-          <button
-            type="button"
-            className="nf-bubble-button nf-bubble-branch"
-            aria-label="Branch from selection"
-            title="Branch from selection (⌘⇧Return)"
-            data-action="branch-from-selection"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => getEditorBindings(editor)?.branchFromSelection()}
-          >
-            <GitBranch size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
+          {variant === 'markdown' ? null : (
+            <button
+              type="button"
+              className="nf-bubble-button nf-bubble-branch"
+              aria-label="Branch from selection"
+              title="Branch from selection (⌘⇧Return)"
+              data-action="branch-from-selection"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => getEditorBindings(editor)?.branchFromSelection()}
+            >
+              <GitBranch size={14} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          )}
           <button
             type="button"
             className="nf-bubble-button"
@@ -147,17 +155,19 @@ export function SelectionToolbar({ editor }: ToolbarProps): JSX.Element {
           >
             <Link2 size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            className="nf-bubble-button"
-            aria-label="Insert math"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() =>
-              useShell.getState().openDialog({ kind: 'math', mathKind: 'inline', latex: '', pos: null })
-            }
-          >
-            <Sigma size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
+          {variant === 'markdown' ? null : (
+            <button
+              type="button"
+              className="nf-bubble-button"
+              aria-label="Insert math"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() =>
+                useShell.getState().openDialog({ kind: 'math', mathKind: 'inline', latex: '', pos: null })
+              }
+            >
+              <Sigma size={14} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+          )}
         </div>
       )}
     </BubbleMenu>

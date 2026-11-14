@@ -44,6 +44,11 @@ export function installApplicationMenu(getWindow: () => BrowserWindow | null, se
         click: () => send('open-document'),
       },
       {
+        label: 'Open Markdown…',
+        accelerator: 'CmdOrCtrl+Shift+O',
+        click: () => send('open-markdown'),
+      },
+      {
         label: 'New Chapter',
         accelerator: 'CmdOrCtrl+Shift+N',
         click: () => send('new-chapter'),

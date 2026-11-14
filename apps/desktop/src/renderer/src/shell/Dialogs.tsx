@@ -249,6 +249,36 @@ export function Dialogs(): JSX.Element | null {
   if (dialog.kind === 'trash-document') {
     return <TrashDocumentDialog preflight={dialog.preflight} onClose={close} />;
   }
+  // A Markdown guest file has no runtime and no save path in M1. The discard
+  // confirmation is the only destructive choice; Cancel leaves it untouched.
+  if (dialog.kind === 'markdown-discard') {
+    const tab = useShell.getState().tabs.find((item) => item.packagePath === dialog.path);
+    return (
+      <Frame
+        title="Close Markdown file?"
+        description="This preview keeps Markdown edits in memory and does not save the file yet. Closing the tab discards them."
+        actions={
+          <>
+            <Button className="nf-button" onPress={close}>
+              Cancel
+            </Button>
+            <Button
+              className="nf-button nf-button-danger"
+              data-markdown-discard="true"
+              onPress={() => {
+                close();
+                void closeTab(dialog.path, { force: true, save: false });
+              }}
+            >
+              Discard Changes
+            </Button>
+          </>
+        }
+      >
+        <p className="nf-dialog-text">{tab?.title ?? 'This Markdown file'}</p>
+      </Frame>
+    );
+  }
   if (runtime === null) {
     return (
       <Frame

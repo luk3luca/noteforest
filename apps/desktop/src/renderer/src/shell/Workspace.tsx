@@ -10,6 +10,8 @@ import {
 import { getRuntime, useRegistry, useRuntime } from '../state/registry';
 import { createNewDocument } from '../actions';
 import { DocumentEditor } from '../editor/DocumentEditor';
+import { MarkdownFileEditor } from '../markdown/MarkdownFileEditor';
+import { isMarkdownPath } from '../../../shared/markdown';
 import { Sidebar } from './Sidebar';
 import { Toolbar } from './Toolbar';
 import { RecoverySurface } from './RecoverySurface';
@@ -192,6 +194,18 @@ export function Workspace(): JSX.Element {
         {tabs.length === 0 ? <EmptyState /> : null}
         {tabs.map((tab) => {
           const active = tab.packagePath === activeTab;
+          // A Markdown guest file has no runtime and no package recovery
+          // surface. It stays mounted (hidden) so tab switches keep its undo
+          // history and in-memory edits.
+          if (isMarkdownPath(tab.packagePath)) {
+            return (
+              <MarkdownFileEditor
+                key={tab.tabKey ?? tab.packagePath}
+                path={tab.packagePath}
+                active={active}
+              />
+            );
+          }
           const runtime = getRuntime(tab.packagePath);
           const recovery =
             tab.recovery ??

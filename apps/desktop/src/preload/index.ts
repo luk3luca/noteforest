@@ -24,6 +24,8 @@ import type {
   LibraryParentChoice,
   LibraryView,
   ListBackupsResult,
+  MarkdownImageResolution,
+  MarkdownOpenResult,
   MaterializeDraftResult,
   MenuCommand,
   NoteForestApi,
@@ -71,6 +73,16 @@ const api: NoteForestApi = {
   refreshLibrary: (): Promise<LibraryView> => ipcRenderer.invoke('library:refresh'),
   openDocument: (packagePath: string): Promise<OpenDocumentResult> =>
     ipcRenderer.invoke('document:open', packagePath),
+  openMarkdownFile: (): Promise<MarkdownOpenResult> => ipcRenderer.invoke('markdown:open'),
+  readMarkdownFile: (path: string): Promise<MarkdownOpenResult> =>
+    ipcRenderer.invoke('markdown:read', path),
+  resolveMarkdownImage: (
+    path: string,
+    source: string,
+  ): Promise<MarkdownImageResolution> =>
+    ipcRenderer.invoke('markdown:resolve-image', path, source),
+  revealMarkdownFile: (path: string): Promise<RevealResult> =>
+    ipcRenderer.invoke('markdown:reveal', path),
   takeOverLock: (packagePath: string): Promise<TakeOverLockResult> =>
     ipcRenderer.invoke('document:take-over-lock', packagePath),
   apply: (packagePath: string, command): Promise<ApplyResult> =>

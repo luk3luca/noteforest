@@ -82,9 +82,12 @@ export function CommandPalette(): JSX.Element | null {
       result.push({
         id: `doc-${document.packagePath}`,
         label: document.title,
-        hint: `${document.chapterCount} ${
-          document.chapterCount === 1 ? 'chapter' : 'chapters'
-        }`,
+        hint:
+          document.kind === 'markdown'
+            ? 'Markdown file'
+            : `${document.chapterCount} ${
+                document.chapterCount === 1 ? 'chapter' : 'chapters'
+              }`,
         group: 'Documents',
         action: () => void openPath(document.packagePath),
       });

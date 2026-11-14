@@ -8,6 +8,9 @@ import type {
   RecoveryDocumentView,
   TrashPreflight,
 } from '../../shared/api';
+import { isMarkdownPath } from '../../shared/markdown';
+import { markdownEntry, useMarkdownFiles } from './state/markdown';
+import { markdownHistory } from './markdown/markdown-editor-registry';
 import type { ApplyOutcome, DocumentRuntime } from './state/runtime';
 import {
   allRuntimes,
@@ -136,6 +139,7 @@ export function report(outcome: ApplyOutcome | Promise<ApplyOutcome | void> | vo
 }
 
 export async function openPath(packagePath: string): Promise<boolean> {
+  if (isMarkdownPath(packagePath)) return openMarkdownPath(packagePath);
   const existing = getRuntime(packagePath);
   if (existing !== null) {
     await syncActiveLibraryForPath(packagePath);
@@ -192,6 +196,64 @@ function isOpenFailure(
 
 function isRecoveryResult(result: OpenDocumentResult): result is RecoveryDocumentView {
   return 'recovery' in result && result.recovery === true;
+}
+
+/* ------------------------------------------------------ Markdown guest files */
+
+/** True when the active tab is a Markdown guest file (never a package). */
+export function activeTabIsMarkdown(): boolean {
+  const path = shell().activeTab;
+  return path !== null && isMarkdownPath(path);
+}
+
+function adoptMarkdownFile(file: {
+  path: string;
+  title: string;
+  markdown: string;
+  error?: string;
+}): void {
+  useMarkdownFiles.getState().openFile(file);
+  shell().openTab({
+    packagePath: file.path,
+    tabKey: file.path,
+    title: file.title,
+    kind: 'markdown',
+  });
+  useShell.getState().setDocumentViewState(file.path, {
+    layout: 'continuous',
+    interactionMode: 'edit',
+  });
+}
+
+/** Open a `.md` path from the library, a session restore, or Reopen Tab. */
+export async function openMarkdownPath(path: string): Promise<boolean> {
+  const existing = markdownEntry(path);
+  if (existing !== null) {
+    shell().setActiveTab(path);
+    return true;
+  }
+  const result = await window.noteforest.readMarkdownFile(path);
+  if (!result.ok) {
+    if (result.canceled !== true) {
+      toast.error(result.message ?? 'Could not open the Markdown file.');
+    }
+    return false;
+  }
+  adoptMarkdownFile(result.file);
+  return true;
+}
+
+/** File → Open Markdown…: one native picker, then the same guest tab. */
+export async function openMarkdownDialog(): Promise<void> {
+  const result = await window.noteforest.openMarkdownFile();
+  if (!result.ok) {
+    if (result.canceled !== true) {
+      toast.error(result.message ?? 'Could not open the Markdown file.');
+    }
+    return;
+  }
+  adoptMarkdownFile(result.file);
+  await syncActiveLibraryForPath(result.file.path);
 }
 
 /**
@@ -473,6 +535,10 @@ export async function renameChapter(chapterId: string, title: string): Promise<v
 }
 
 export async function saveActive(): Promise<void> {
+  if (activeTabIsMarkdown()) {
+    toast.info('This Markdown preview keeps edits in memory and does not save the file yet.');
+    return;
+  }
   const runtime = activeRuntime();
   if (runtime === null) return;
   if (!(await commitPageEdit(runtime.packagePath))) {
@@ -489,6 +555,20 @@ export async function closeTab(
   packagePath: string,
   options: { force?: boolean; save?: boolean } = {},
 ): Promise<void> {
+  // A Markdown guest file has no runtime, lock, or save path. A dirty tab asks
+  // before discarding its in-memory edits; M1 never writes the file.
+  if (isMarkdownPath(packagePath)) {
+    const entry = markdownEntry(packagePath);
+    if (entry !== null && entry.dirty && options.force !== true) {
+      shell().openDialog({ kind: 'markdown-discard', path: packagePath });
+      return;
+    }
+    useMarkdownFiles.getState().closeFile(packagePath);
+    const tab = shell().tabs.find((item) => item.packagePath === packagePath);
+    if (tab !== undefined) shell().pushClosed(tab);
+    shell().closeTab(packagePath);
+    return;
+  }
   const runtime = getRuntime(packagePath);
   const tab = shell().tabs.find((item) => item.packagePath === packagePath);
   if (
@@ -565,6 +645,7 @@ export function resetActiveZoom(): void {
 
 /** Ask the active editor to compute a Fit-width zoom from its visible cards. */
 export function fitActiveWidth(): void {
+  if (activeTabIsMarkdown()) return;
   if (shell().activeTab === null) return;
   window.dispatchEvent(new CustomEvent('nf:fit-width'));
 }
@@ -574,6 +655,7 @@ export function fitActiveWidth(): void {
  * Page never touches the hidden Continuous zoom and vice versa.
  */
 export function adjustActiveLayoutZoom(delta: number): void {
+  if (activeTabIsMarkdown()) return;
   if (activeDocumentLayout() === 'page') {
     adjustActivePageZoom(delta);
     return;
@@ -583,6 +665,7 @@ export function adjustActiveLayoutZoom(delta: number): void {
 
 /** 100% for the active layout (Page: manual zoom, no fit). */
 export function resetActiveLayoutZoom(): void {
+  if (activeTabIsMarkdown()) return;
   if (activeDocumentLayout() === 'page') {
     resetActivePageZoom();
     return;
@@ -596,6 +679,7 @@ export function resetActiveLayoutZoom(): void {
  * page that is not on screen.
  */
 export function fitActiveLayout(command: ZoomCommand): void {
+  if (activeTabIsMarkdown()) return;
   const layout = activeDocumentLayout();
   if (!zoomCommandIsValid(layout, command)) return;
   if (layout === 'page') {
@@ -611,6 +695,7 @@ export function fitActiveLayout(command: ZoomCommand): void {
 
 export function activeDocumentLayout(): DocumentLayout {
   const state = shell();
+  if (state.activeTab !== null && isMarkdownPath(state.activeTab)) return 'continuous';
   return state.activeTab === null
     ? 'continuous'
     : state.viewByDoc[state.activeTab]?.layout ?? 'continuous';
@@ -624,6 +709,8 @@ export function activeDocumentLayout(): DocumentLayout {
 export function setActiveDocumentLayout(layout: DocumentLayout): void {
   const path = shell().activeTab;
   if (path === null) return;
+  // A Markdown guest file is Continuous only; there is no Page/PDF surface.
+  if (isMarkdownPath(path)) return;
   if ((shell().viewByDoc[path]?.layout ?? 'continuous') === layout) return;
   void commitPageEdit(path).then((committed) => {
     if (committed) shell().setDocumentLayout(path, layout);
@@ -714,6 +801,7 @@ export function openBlockInContinuous(blockId: string | null): void {
  * only: the document, the editor buffer, and the saved file are untouched.
  */
 export function toggleFocusBranch(): void {
+  if (activeTabIsMarkdown()) return;
   const runtime = activeRuntime();
   if (runtime === null) return;
   const path = runtime.packagePath;
@@ -729,6 +817,13 @@ export function toggleFocusBranch(): void {
 }
 
 export function revealActive(): void {
+  const path = shell().activeTab;
+  if (path !== null && isMarkdownPath(path)) {
+    void window.noteforest.revealMarkdownFile(path).then((result) => {
+      if (!result.ok) toast.error(result.message ?? 'Could not reveal the Markdown file.');
+    });
+    return;
+  }
   const runtime = activeRuntime();
   if (runtime === null) return;
   void revealDocumentPath(runtime.packagePath);
@@ -893,6 +988,11 @@ function runHistory(runtime: DocumentRuntime, action: HistoryAction): void {
 }
 
 export function undoActive(): void {
+  const path = shell().activeTab;
+  if (path !== null && isMarkdownPath(path)) {
+    markdownHistory(path, 'undo');
+    return;
+  }
   const runtime = activeRuntime();
   if (runtime === null) return;
   if (blockedByReadMode(runtime)) return;
@@ -900,6 +1000,11 @@ export function undoActive(): void {
 }
 
 export function redoActive(): void {
+  const path = shell().activeTab;
+  if (path !== null && isMarkdownPath(path)) {
+    markdownHistory(path, 'redo');
+    return;
+  }
   const runtime = activeRuntime();
   if (runtime === null) return;
   if (blockedByReadMode(runtime)) return;
@@ -1495,6 +1600,32 @@ export function openTabMenu(
 ): void {
   const tab = shell().tabs.find((item) => item.packagePath === packagePath);
   if (tab === undefined) return;
+  if (tab.kind === 'markdown') {
+    shell().openContextMenu(anchor.x, anchor.y, [
+      {
+        id: 'activate',
+        label: 'Open',
+        onSelect: () => shell().setActiveTab(packagePath),
+      },
+      {
+        id: 'reveal',
+        label: 'Reveal in Finder',
+        onSelect: () => {
+          void window.noteforest.revealMarkdownFile(packagePath).then((result) => {
+            if (!result.ok) toast.error(result.message ?? 'Could not reveal the Markdown file.');
+          });
+        },
+      },
+      { id: 'sep-markdown-tab', label: '', separator: true },
+      {
+        id: 'close',
+        label: 'Close tab',
+        shortcut: '⌘W',
+        onSelect: () => void closeTab(packagePath),
+      },
+    ]);
+    return;
+  }
   const draft = isDraftKey(packagePath);
   shell().openContextMenu(anchor.x, anchor.y, [
     {
@@ -1533,6 +1664,37 @@ export function openLibraryMenu(
   const entry = shell().library?.documents.find(
     (document) => document.packagePath === packagePath,
   );
+  if (entry?.kind === 'markdown') {
+    const tab = shell().tabs.find((item) => item.packagePath === packagePath);
+    shell().openContextMenu(anchor.x, anchor.y, [
+      {
+        id: 'open',
+        label: 'Open',
+        onSelect: () => void openMarkdownPath(packagePath),
+      },
+      {
+        id: 'reveal',
+        label: 'Reveal in Finder',
+        onSelect: () => {
+          void window.noteforest.revealMarkdownFile(packagePath).then((result) => {
+            if (!result.ok) toast.error(result.message ?? 'Could not reveal the Markdown file.');
+          });
+        },
+      },
+      ...(tab === undefined
+        ? []
+        : [
+            { id: 'sep-markdown', label: '', separator: true },
+            {
+              id: 'close',
+              label: 'Close tab',
+              shortcut: '⌘W',
+              onSelect: () => void closeTab(packagePath),
+            },
+          ]),
+    ]);
+    return;
+  }
   const editable = entry === undefined || entry.status === 'ok';
   const missing = entry?.status === 'missing';
   const runtime = getRuntime(packagePath);
@@ -1606,6 +1768,32 @@ function applyBlockType(level: 1 | 2 | 3 | null): void {
 }
 
 export function paletteCommands(): MenuEntry[] {
+  if (activeTabIsMarkdown()) {
+    const mode = activeInteractionMode();
+    return [
+      {
+        id: 'open-markdown',
+        label: 'Open Markdown…',
+        shortcut: '⇧⌘O',
+        onSelect: () => void openMarkdownDialog(),
+      },
+      {
+        id: 'toggle-interaction-mode',
+        label: mode === 'edit' ? 'Switch to Read mode' : 'Switch to Edit mode',
+        shortcut: '⌘E',
+        onSelect: toggleActiveInteractionMode,
+      },
+      { id: 'reveal', label: 'Reveal Markdown file in Finder', onSelect: revealActive },
+      { id: 'close-tab', label: 'Close tab', shortcut: '⌘W', onSelect: () => void closeActiveTab() },
+      { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘\\', onSelect: toggleSidebar },
+      {
+        id: 'settings',
+        label: 'Settings…',
+        shortcut: '⌘,',
+        onSelect: () => shell().openDialog({ kind: 'settings' }),
+      },
+    ];
+  }
   const runtime = activeRuntime();
   const selected = runtime?.selectedBlockId ?? null;
   const editingEnabled = activeEditingEnabled();
@@ -1647,6 +1835,12 @@ export function paletteCommands(): MenuEntry[] {
       : outdentTarget(runtime.document, selected);
   return [
     { id: 'new-document', label: 'New note', shortcut: '⌘N', onSelect: () => void createNewDocument() },
+    {
+      id: 'open-markdown',
+      label: 'Open Markdown…',
+      shortcut: '⇧⌘O',
+      onSelect: () => void openMarkdownDialog(),
+    },
     gate({ id: 'new-chapter', label: 'New chapter', shortcut: '⇧⌘N', onSelect: () => void createChapter() }),
     withDocument({ id: 'save', label: 'Save', shortcut: '⌘S', onSelect: () => void saveActive() }),
     withDocument({
@@ -1800,10 +1994,17 @@ export function runMenuCommand(command: MenuCommand): void {
     case 'open-document':
       shell().setPaletteOpen(true, { documentsOnly: true });
       break;
+    case 'open-markdown':
+      void openMarkdownDialog();
+      break;
     case 'save':
       void saveActive();
       break;
     case 'export-pdf':
+      if (activeTabIsMarkdown()) {
+        toast.info('Markdown files have no Page or PDF export.');
+        break;
+      }
       exportActiveDocument();
       break;
     case 'close-tab':
