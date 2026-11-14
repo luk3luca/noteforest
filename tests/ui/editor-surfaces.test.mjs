@@ -94,6 +94,11 @@ async function selectBlock(blockId) {
     undefined,
     { timeout: 5000 },
   );
+  // The gutter selection is a NodeSelection; keyboard commands (Tab) only run
+  // when the editor owns focus. Pointer events on the gutter do not focus it.
+  await page
+    .locator('.nf-editor[data-active="true"] .ProseMirror')
+    .evaluate((element) => element.focus());
 }
 
 function proseDocument() {
