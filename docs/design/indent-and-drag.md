@@ -48,6 +48,10 @@ No silent anchor loss; no prompt. The reference edge is the citation.
 
 - `⇥` / `⇧⇥` only when a **block is selected and text editing is not active**; inside text, Tab
   keeps its native/table behavior.
+- **Known UX gap (product owner, 14 November 2026):** Tab from the text caret traverses focusable
+  buttons, so structural Indent only works after clicking the gutter/grabber. This hidden block
+  selection is anti-functional; the shortcut audit will propose a caret-friendly alias (for example
+  `⌘]`/`⌘[`) and/or a visible block-focus entry. Tab may remain an alias only on a selected block.
 - Position menu gains **Indent** next to Outdent; the command palette gains both.
 - Commands are the accessible path; drag is optional.
 

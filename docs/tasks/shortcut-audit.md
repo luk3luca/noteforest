@@ -14,6 +14,13 @@ keys, and shell commands. The product owner reports that `Tab`/`Shift+Tab` struc
 behave as expected, and asks for an audit of duplicates, wrong bindings, and undocumented keys before
 adding more.
 
+**Product-owner observation (14 November 2026):** from the text caret, Tab/Shift+Tab traverses the
+focusable buttons; structural Indent only activates after clicking the gutter/grabber. That hidden
+block-selection mode is anti-functional and must be reconsidered. The audit must propose a
+discoverable entry (for example a `⌘]`/`⌘[` caret-friendly alias, an explicit block-focus mode, or
+Escape/⌘-click block selection) and decide whether Tab remains an alias only on a selected block.
+No implementation in this audit.
+
 ## Scope
 
 Inventory every binding from the source:
