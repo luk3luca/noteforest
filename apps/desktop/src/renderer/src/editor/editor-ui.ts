@@ -87,6 +87,19 @@ export function setEditorInteractionMode(editor: Editor, interactionMode: Intera
   update(editor, { interactionMode });
 }
 
+/**
+ * Subscribe a plain DOM node view to the editor UI state. React node views use
+ * `useEditorUi`; the code and formula node views are plain DOM and need the
+ * same signal to close their own editors when the shell leaves Edit (F1).
+ */
+export function subscribeEditorUi(editor: Editor, listener: () => void): () => void {
+  const entry = stateFor(editor);
+  entry.listeners.add(listener);
+  return () => {
+    entry.listeners.delete(listener);
+  };
+}
+
 export function setEditorImageAuthoring(
   editor: Editor,
   imageAuthoring: EditorImageAuthoring | null,

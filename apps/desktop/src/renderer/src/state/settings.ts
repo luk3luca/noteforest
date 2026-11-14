@@ -125,7 +125,11 @@ interface SettingsState extends SettingsSnapshot {
   /** Re-key an entry when a document opens from a renamed/moved path. */
   adoptDocumentSettings: (packagePath: string, documentId: string | null) => void;
   /** Drop one document's entry locally after Move to Trash cleaned the file. */
-  forgetDocumentSettings: (documentId: string | null, packagePath: string) => void;
+  forgetDocumentSettings: (
+    documentId: string | null,
+    packagePath: string,
+    sharedIdPaths?: readonly string[],
+  ) => void;
   resolvedPageSettings: (
     packagePath: string | null | undefined,
     documentId?: string | null,
@@ -431,16 +435,29 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     });
   },
 
-  forgetDocumentSettings: (documentId, packagePath) => {
+  forgetDocumentSettings: (documentId, packagePath, sharedIdPaths = []) => {
     const targetPath = normalizePackagePath(packagePath);
-    const next = get().documentSettings.filter(
-      (entry) =>
-        !(
-          (documentId !== null && entry.documentId === documentId) ||
-          normalizePackagePath(entry.packagePath) === targetPath
-        ),
-    );
-    if (next.length === get().documentSettings.length) return;
+    const entries = get().documentSettings;
+    // A document id is not unique after Save a copy / a Finder duplicate. Use
+    // it as a cleanup key only when no other known package, session tab, or
+    // durable entry names it at another path; otherwise the copy keeps its
+    // override (F3).
+    const idShared =
+      documentId !== null &&
+      (sharedIdPaths.some(
+        (candidate) => normalizePackagePath(candidate) !== targetPath,
+      ) ||
+        entries.some(
+          (entry) =>
+            entry.documentId === documentId &&
+            normalizePackagePath(entry.packagePath) !== targetPath,
+        ));
+    const next = entries.filter((entry) => {
+      if (normalizePackagePath(entry.packagePath) === targetPath) return false;
+      if (documentId !== null && !idShared && entry.documentId === documentId) return false;
+      return true;
+    });
+    if (next.length === entries.length) return;
     set({ documentSettings: next, pageOverrides: pageOverridesByPath(next) });
   },
 

@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { availableParallelism } from 'node:os';
 import { resolve } from 'node:path';
 import { formatSuiteResult, GROUPS, SERIAL_FILES } from './suites.mjs';
 
@@ -24,8 +23,10 @@ import { formatSuiteResult, GROUPS, SERIAL_FILES } from './suites.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const timeoutMs = Number(process.env.NOTEFOREST_UI_TIMEOUT_MS ?? 10 * 60 * 1000);
-// Two cores are left for the browser/OS; the measured curve flattens after 8.
-const defaultConcurrency = Math.max(1, Math.min(8, availableParallelism() - 2));
+// Encode the concurrency that was fully green on the 10-core dev machine
+// (14 Nov 2026). The machine default (8 = cores - 2) times out; DoD §3.5 names
+// the measured gate parameter. Override with NOTEFOREST_UI_CONCURRENCY.
+const defaultConcurrency = 4;
 
 function parseArgs(argv) {
   const options = {

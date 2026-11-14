@@ -124,6 +124,28 @@ async function createPackage(title: string): Promise<string> {
   return created.snapshot.packagePath;
 }
 
+/** Give a second package the source package's document id (a copy). */
+async function shareDocumentId(source: string, target: string): Promise<string> {
+  const sourceDocument = JSON.parse(
+    await fs.readFile(path.join(source, 'document.json'), 'utf8'),
+  ) as { id: string };
+  const targetPath = path.join(target, 'document.json');
+  const targetDocument = JSON.parse(await fs.readFile(targetPath, 'utf8')) as { id: string };
+  targetDocument.id = sourceDocument.id;
+  await fs.writeFile(targetPath, `${JSON.stringify(targetDocument, null, 2)}\n`);
+  return sourceDocument.id;
+}
+
+function sessionTab(packagePath: string, documentId: string) {
+  return {
+    packagePath,
+    documentId,
+    scrollTop: 0,
+    selectedBlockId: null,
+    collapsed: [],
+  };
+}
+
 describe('draft sessions', () => {
   it('creates an in-memory draft with no folder, lock, or recent entry', async () => {
     await activeLibraryPath();
@@ -401,8 +423,70 @@ describe('Move to Trash', () => {
     expect(view.documents).toEqual([]);
   });
 
-  it('refuses a live lock and leaves the package untouched', async () => {
+  it('trashing one copy keeps the other copy override and session tab', async () => {
     await activeLibraryPath();
+    const original = await createPackage('Original copy');
+    const copy = await createPackage('Second copy');
+    const sharedId = await shareDocumentId(original, copy);
+    await closeAllStores();
+    await writeDocumentSettingsFile(support, [
+      {
+        documentId: sharedId,
+        packagePath: copy,
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+    await writeSession({
+      tabs: [sessionTab(original, sharedId), sessionTab(copy, sharedId)],
+      activeTab: copy,
+      sidebarCollapsed: false,
+      sidebarWidth: 264,
+      collapsedTopics: {},
+      sidebarTab: 'library',
+      activeLibrary: library,
+    });
+
+    const result = await trashDocument(original, trashItem);
+    expect(result.ok).toBe(true);
+    expect((await readDocumentSettingsFile(support)).entries).toEqual([
+      {
+        documentId: sharedId,
+        packagePath: copy,
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+    const session = await readSession();
+    expect(session.tabs.map((tab) => tab.packagePath)).toEqual([copy]);
+    expect(session.activeTab).toBe(copy);
+    const view = await scanLibrary();
+    expect(view.documents.map((document) => document.packagePath)).toEqual([copy]);
+  });
+
+  it('never reconciles a missing tab to one of two duplicate-id copies', async () => {
+    await activeLibraryPath();
+    const first = await createPackage('First duplicate');
+    const second = await createPackage('Second duplicate');
+    const sharedId = await shareDocumentId(first, second);
+    await closeAllStores();
+    const missing = path.join(library, 'moved-away');
+    await writeSession({
+      tabs: [sessionTab(missing, sharedId)],
+      activeTab: missing,
+      sidebarCollapsed: false,
+      sidebarWidth: 264,
+      collapsedTopics: {},
+      sidebarTab: 'library',
+      activeLibrary: library,
+    });
+
+    const opened = await openLibraryPath(library);
+    expect(opened.ok).toBe(true);
+    if (opened.ok) expect(opened.reconciledTabs ?? []).toEqual([]);
+    const session = await readSession();
+    expect(session.tabs[0]?.packagePath).toBe(missing);
+  });
+
+  it('refuses a live lock and leaves the package untouched', async () => {    await activeLibraryPath();
     const packagePath = await createPackage('Busy note');
     await closeAllStores();
     await liveLock(packagePath);

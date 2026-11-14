@@ -47,6 +47,13 @@ function declaration(selector: string, property: string): string | undefined {
 }
 
 describe('Batch V visual contracts', () => {
+  it('paints the scrollbar corner transparent so two-axis scrollers have no white square', () => {
+    // F10: Chromium defaults the corner between two scrollbars to the light
+    // theme surface; the Continuous canvas and wide table wrappers scroll on
+    // both axes in both app themes.
+    expect(declaration('::-webkit-scrollbar-corner', 'background')).toBe('transparent');
+  });
+
   it('keeps one 1180 px Settings surface with a viewport-capped height and content column', () => {
     expect(declaration('.nf-settings-modal', 'width')).toBe('1180px');
     expect(declaration('.nf-settings-modal', 'max-width')).toBe('92vw');

@@ -535,6 +535,9 @@ export function usePageSettingsController(
           }
           target = { ...target, packagePath: runtime.packagePath };
           pending = { ...pending, target };
+          // The tab rekeys on the next render; point the draft sync helpers at
+          // the package immediately.
+          packagePathRef.current = target.packagePath;
         }
       }
       lastAttempt.current = pending;
@@ -680,16 +683,39 @@ export function usePageSettingsController(
    * replays the exact same target; a document that closed in between is
    * reported instead of retargeted.
    */
-  const executeImmediate = async (immediate: ImmediateWrite): Promise<boolean> => {
+  const executeImmediate = async (request: ImmediateWrite): Promise<boolean> => {
     setSaving(true);
     setCommitError(null);
-    const { apply, target } = immediate;
+    let immediate = request;
+    let { target } = immediate;
+    const { apply } = immediate;
     if (targetIsGone(target)) {
       lastImmediate.current = null;
       targetLost.current = true;
       setCommitError(PAGE_SETTINGS_TARGET_CLOSED_MESSAGE);
       setSaving(false);
       return false;
+    }
+    // Every immediate document-scoped write (size, orientation, chrome,
+    // preset, reset, use-global) is a real mutation too: materialize a draft
+    // first and retarget the write to the package path, exactly like
+    // `applyPending`. No override may stay keyed `draft:<id>` (F4).
+    if (target.scope === 'document' && target.packagePath !== null) {
+      const runtime = getRuntime(target.packagePath);
+      if (runtime !== null && runtime.isDraft) {
+        const prepared = await runtime.ensureMaterialized();
+        if (!prepared.ok) {
+          lastImmediate.current = null;
+          setCommitError(prepared.message);
+          setSaving(false);
+          return false;
+        }
+        target = { ...target, packagePath: runtime.packagePath };
+        immediate = { ...immediate, target };
+        // The tab rekeys on the next render; point the draft sync helpers at
+        // the package immediately.
+        packagePathRef.current = target.packagePath;
+      }
     }
     lastImmediate.current = immediate;
     const outcome = await commitThenWritePageSettings({

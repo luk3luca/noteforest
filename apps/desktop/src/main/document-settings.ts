@@ -19,8 +19,8 @@ import type {
   SettingsSaveResult,
 } from '../shared/api.js';
 import {
+  documentSettingsRemoval,
   normalizeDocumentSettingsFile,
-  normalizePackagePath,
   serializeDocumentSettingsFile,
   upsertDocumentSettingsEntry,
   type DocumentSettingsEntry,
@@ -191,15 +191,22 @@ export async function saveDocumentSettings(
 }
 
 /**
- * Remove every entry for one document (Move to Trash). Identity is the
- * canonical document id first, plus the package path fallback for a path-only
- * legacy entry. A corrupt/unreadable map is never overwritten implicitly: the
- * cleanup is best effort and reports the read warning.
+ * Remove the durable entries for one document (Move to Trash / missing cleanup).
+ *
+ * The exact package path is always removed. The document id is removed only
+ * when it is not shared by another known package or session tab: a copy keeps
+ * its own override, so an ambiguous id leaves the other entries and reports
+ * them. A corrupt/unreadable map is never overwritten implicitly.
  */
+export type DocumentSettingsRemovalResult =
+  | { ok: true; removed: string[]; keptAmbiguous: string[] }
+  | { ok: false; message: string };
+
 export async function removeDocumentSettingsEntries(
   directory: string,
   identity: { documentId?: string | null; packagePath: string },
-): Promise<SettingsSaveResult> {
+  options: { sharedIdPaths?: readonly string[] } = {},
+): Promise<DocumentSettingsRemovalResult> {
   return enqueue(async () => {
     const read = await readDocumentSettingsFile(directory);
     if (read.status.state === 'corrupt' || read.status.state === 'unreadable') {
@@ -210,18 +217,25 @@ export async function removeDocumentSettingsEntries(
           'Document settings could not be read; the override entry was kept.',
       };
     }
-    const id =
-      typeof identity.documentId === 'string' && identity.documentId.trim().length > 0
-        ? identity.documentId.trim()
-        : null;
-    const targetPath = normalizePackagePath(identity.packagePath);
-    const next = read.entries.filter((entry) => {
-      if (id !== null && entry.documentId === id) return false;
-      if (normalizePackagePath(entry.packagePath) === targetPath) return false;
-      return true;
+    const plan = documentSettingsRemoval(read.entries, {
+      documentId: identity.documentId ?? null,
+      packagePath: identity.packagePath,
+      sharedIdPaths: options.sharedIdPaths ?? [],
     });
-    if (next.length === read.entries.length) return { ok: true };
-    return writeEntries(directory, next);
+    if (plan.removed.length === 0) {
+      return {
+        ok: true,
+        removed: [],
+        keptAmbiguous: plan.keptAmbiguous.map((entry) => entry.packagePath),
+      };
+    }
+    const written = await writeEntries(directory, plan.entries);
+    if (!written.ok) return { ok: false, message: written.message };
+    return {
+      ok: true,
+      removed: plan.removed.map((entry) => entry.packagePath),
+      keptAmbiguous: plan.keptAmbiguous.map((entry) => entry.packagePath),
+    };
   });
 }
 

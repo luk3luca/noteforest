@@ -19,6 +19,7 @@ import {
 } from '../../lib/code-fence';
 import { writeClipboardText } from '../../lib/clipboard';
 import { commitCodeLanguage, exitCodeBlock } from '../code-block-actions';
+import { subscribeEditorUi } from '../editor-ui';
 import { installLocalTextKeys } from '../../lib/local-text-keys';
 
 const COPIED_FEEDBACK_MS = 1200;
@@ -46,6 +47,8 @@ export class CodeBlockNodeView {
   private editing = false;
   private copiedTimer: number | null = null;
   private readonly onSelectionChange: () => void;
+  private readonly cleanupTextKeys: () => void;
+  private readonly cleanupEditorUi: () => void;
 
   constructor(options: CodeBlockNodeViewOptions) {
     this.editor = options.editor;
@@ -92,7 +95,7 @@ export class CodeBlockNodeView {
     this.languageInput.title = 'Language; empty means plain text';
     this.languageInput.spellcheck = false;
     this.languageInput.placeholder = 'language';
-    installLocalTextKeys(this.languageInput);
+    this.cleanupTextKeys = installLocalTextKeys(this.languageInput);
     this.languageInput.addEventListener('mousedown', (event) => event.stopPropagation());
     this.languageInput.addEventListener('keydown', (event) => {
       event.stopPropagation();
@@ -137,6 +140,7 @@ export class CodeBlockNodeView {
     closeButton.append(closeMark, closeHint);
     closeButton.addEventListener('mousedown', (event) => event.preventDefault());
     closeButton.addEventListener('click', () => {
+      if (!this.editor.isEditable) return;
       const pos = this.getPos();
       if (typeof pos === 'number') exitCodeBlock(this.editor, pos);
     });
@@ -147,6 +151,9 @@ export class CodeBlockNodeView {
     this.onSelectionChange = () => this.syncState();
     this.editor.on('selectionUpdate', this.onSelectionChange);
     this.editor.on('transaction', this.onSelectionChange);
+    // The mode switch is neither a selection update nor a transaction; the
+    // shell mirrors it through the editor UI state instead (F1).
+    this.cleanupEditorUi = subscribeEditorUi(this.editor, this.onSelectionChange);
     this.render();
   }
 
@@ -169,6 +176,8 @@ export class CodeBlockNodeView {
   destroy(): void {
     this.editor.off('selectionUpdate', this.onSelectionChange);
     this.editor.off('transaction', this.onSelectionChange);
+    this.cleanupEditorUi();
+    this.cleanupTextKeys();
     if (this.copiedTimer !== null) window.clearTimeout(this.copiedTimer);
   }
 
@@ -192,12 +201,17 @@ export class CodeBlockNodeView {
   private syncState(): void {
     const pos = this.getPos();
     let editing = false;
-    if (typeof pos === 'number') {
+    if (this.editor.isEditable && typeof pos === 'number') {
       const current = this.editor.state.doc.nodeAt(pos);
       if (current !== null && current.type.name === 'codeBlock') {
         const { from, to } = this.editor.state.selection;
         editing = from > pos && to < pos + current.nodeSize;
       }
+    }
+    if (!editing && this.editing) {
+      // Leaving Edit never commits the uncommitted language token; Read keeps
+      // the canonical language and closes the fence.
+      this.languageInput.value = codeFenceLanguageToken(this.node.attrs['language']);
     }
     if (editing === this.editing) {
       this.applyVisibility();
@@ -216,6 +230,7 @@ export class CodeBlockNodeView {
   }
 
   private commitLanguage(): void {
+    if (!this.editor.isEditable) return;
     const pos = this.getPos();
     if (typeof pos === 'number') {
       commitCodeLanguage(this.editor, pos, this.languageInput.value);
@@ -226,6 +241,8 @@ export class CodeBlockNodeView {
   }
 
   private copy(): void {
+    // Copy is editing chrome; Read closes the fence that owns it.
+    if (!this.editor.isEditable) return;
     void writeClipboardText(this.node.textContent).then((ok) => {
       if (!ok) return;
       this.copyButton.textContent = 'Copied';

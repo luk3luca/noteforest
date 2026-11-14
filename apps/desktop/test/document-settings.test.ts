@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   adoptDocumentSettingsEntry,
+  documentSettingsRemoval,
   findDocumentSettingsEntry,
   migrateSessionOverrides,
   normalizeDocumentSettingsFile,
@@ -18,6 +19,7 @@ import {
   migrateLegacySessionOverrides,
   parseDocumentSettingsBackup,
   readDocumentSettingsFile,
+  removeDocumentSettingsEntries,
   resetDocumentSettings,
   restoreDocumentSettingsBackup,
   saveDocumentSettings,
@@ -134,6 +136,26 @@ describe('document settings identity (S2-2)', () => {
     ).toBe(entries);
   });
 
+  it('re-keys a draft-keyed entry to the package path on materialization', () => {
+    const entries = upsertDocumentSettingsEntry(
+      [],
+      { documentId: 'doc-id', packagePath: 'draft:abc' },
+      { chrome: { pageNumber: false } },
+    );
+    expect(
+      adoptDocumentSettingsEntry(entries, {
+        documentId: 'doc-id',
+        packagePath: '/library/untitled',
+      }),
+    ).toEqual([
+      {
+        documentId: 'doc-id',
+        packagePath: '/library/untitled',
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+  });
+
   it('normalizes a stored file and drops invalid entries', () => {
     const read = normalizeDocumentSettingsFile({
       version: 1,
@@ -185,6 +207,44 @@ describe('document settings identity (S2-2)', () => {
       { documentId: 'known', packagePath: '/known', page: { theme: { density: 0.8 } } },
       { documentId: null, packagePath: '/unknown', page: { setup: { size: 'A5' } } },
     ]);
+  });
+});
+
+describe('document settings cleanup identity (F3)', () => {
+  it('removes the exact path and keeps a same-id copy entry', () => {
+    const original = {
+      documentId: 'shared',
+      packagePath: '/library/original',
+      page: { chrome: { pageNumber: false } },
+    };
+    const copy = {
+      documentId: 'shared',
+      packagePath: '/library/copy',
+      page: { chrome: { pageNumber: false } },
+    };
+    const plan = documentSettingsRemoval([original, copy], {
+      documentId: 'shared',
+      packagePath: '/library/original',
+      sharedIdPaths: ['/library/copy'],
+    });
+    expect(plan.removed).toEqual([original]);
+    expect(plan.entries).toEqual([copy]);
+    expect(plan.keptAmbiguous).toEqual([copy]);
+  });
+
+  it('uses an unambiguous id to remove one stale moved-path entry', () => {
+    const stale = {
+      documentId: 'doc-id',
+      packagePath: '/library/old-name',
+      page: { setup: { size: 'A5' } },
+    };
+    const plan = documentSettingsRemoval([stale], {
+      documentId: 'doc-id',
+      packagePath: '/library/new-name',
+    });
+    expect(plan.removed).toEqual([stale]);
+    expect(plan.entries).toEqual([]);
+    expect(plan.keptAmbiguous).toEqual([]);
   });
 });
 
@@ -253,6 +313,65 @@ describe('document settings file', () => {
     ]);
     const read = await readDocumentSettingsFile(support);
     expect(read.entries).toEqual(migrated.entries);
+  });
+
+  it('keeps a same-id copy override when the other copy is removed', async () => {
+    await writeDocumentSettingsFile(support, [
+      {
+        documentId: 'shared',
+        packagePath: '/library/copy',
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+    const removed = await removeDocumentSettingsEntries(
+      support,
+      { documentId: 'shared', packagePath: '/library/original' },
+      { sharedIdPaths: ['/library/copy'] },
+    );
+    expect(removed).toEqual({
+      ok: true,
+      removed: [],
+      keptAmbiguous: ['/library/copy'],
+    });
+    expect((await readDocumentSettingsFile(support)).entries).toEqual([
+      {
+        documentId: 'shared',
+        packagePath: '/library/copy',
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+  });
+
+  it('removes the exact path even when the id is shared', async () => {
+    await writeDocumentSettingsFile(support, [
+      {
+        documentId: 'shared',
+        packagePath: '/library/copy',
+        page: { chrome: { pageNumber: false } },
+      },
+      {
+        documentId: 'moved',
+        packagePath: '/library/original',
+        page: { setup: { size: 'A5' } },
+      },
+    ]);
+    const removed = await removeDocumentSettingsEntries(
+      support,
+      { documentId: 'shared', packagePath: '/library/original' },
+      { sharedIdPaths: ['/library/copy'] },
+    );
+    expect(removed).toEqual({
+      ok: true,
+      removed: ['/library/original'],
+      keptAmbiguous: ['/library/copy'],
+    });
+    expect((await readDocumentSettingsFile(support)).entries).toEqual([
+      {
+        documentId: 'shared',
+        packagePath: '/library/copy',
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
   });
 });
 

@@ -173,6 +173,7 @@ function insertTableFromRun(
   editor: Editor,
   run: ParagraphRun,
   addParagraphAfter: boolean,
+  caretAfterTable = false,
 ): boolean {
   const data = parseGfmTable(run.lines.join('\n'));
   if (data === null) return false;
@@ -188,6 +189,10 @@ function insertTableFromRun(
     const after = run.from + table.nodeSize;
     tr.insert(after, inserted);
     tr.setSelection(TextSelection.create(tr.doc, after + 1));
+  } else if (caretAfterTable) {
+    // The blank trigger paragraph is kept below the table: the caret starts
+    // inside it, so the next keystroke lands in the document (F5).
+    tr.setSelection(TextSelection.create(tr.doc, run.from + table.nodeSize + 1));
   }
   editor.view.dispatch(tr.scrollIntoView());
   return true;
@@ -195,8 +200,9 @@ function insertTableFromRun(
 
 /**
  * Enter on a blank paragraph converts the table lines directly above it. The
- * blank paragraph stays and keeps the caret; another data row can therefore be
- * typed by pressing Enter again before the conversion happens.
+ * blank paragraph stays, below the new table, and keeps the caret; another data
+ * row can therefore be typed by pressing Enter again before the conversion
+ * happens.
  */
 export function convertTableOnBlankParagraph(editor: Editor): boolean {
   const { $from } = editor.state.selection;
@@ -210,11 +216,12 @@ export function convertTableOnBlankParagraph(editor: Editor): boolean {
   if (index === 0) return false;
   const previous = container.child(index - 1);
   if (previous.type.name !== 'paragraph') return false;
-  // Resolve inside the previous paragraph, not between the two blocks.
+  // Resolve inside the previous paragraph, not between the two blocks, and stop
+  // the run at it: the blank trigger paragraph must stay and keep the caret.
   const previousStart = $from.before() - previous.nodeSize;
-  const previousRun = paragraphsAround(editor, previousStart + 1, { backwardsOnly: false });
+  const previousRun = paragraphsAround(editor, previousStart + 1, { backwardsOnly: true });
   if (previousRun === null) return false;
-  return insertTableFromRun(editor, previousRun, false);
+  return insertTableFromRun(editor, previousRun, false, true);
 }
 
 /**

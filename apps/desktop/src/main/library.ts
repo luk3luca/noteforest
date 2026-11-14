@@ -626,10 +626,20 @@ async function reconcileMovedDocuments(
   recentChanged: boolean;
 }> {
   const byId = new Map<string, string>();
+  const duplicateIds = new Set<string>();
   for (const document of documents) {
     if (document.status === 'ok' && document.documentId !== null) {
-      byId.set(document.documentId, document.packagePath);
+      if (byId.has(document.documentId)) duplicateIds.add(document.documentId);
+      else byId.set(document.documentId, document.packagePath);
     }
+  }
+  // A duplicated document id (Save a copy / Finder duplicate) cannot identify
+  // one package: never bind a missing tab or recent to the wrong copy.
+  for (const id of duplicateIds) byId.delete(id);
+  if (duplicateIds.size > 0) {
+    console.warn(
+      `[noteforest] left moved documents unresolved for ${duplicateIds.size} duplicated document id(s): ${[...duplicateIds].join(', ')}`,
+    );
   }
   if (byId.size === 0) return { tabs: [], recentChanged: false };
   const reconciled: Array<{ from: string; to: string; documentId: string }> = [];
@@ -2293,11 +2303,24 @@ export async function trashDocument(
   }
 
   await removeRecentDocument(resolved, appSupportDir()).catch(() => undefined);
-  await removeDocumentSettingsEntries(appSupportDir(), {
-    documentId: preflight.documentId,
-    packagePath: resolved,
-  }).catch(() => undefined);
-  await removeSessionDocument(resolved, preflight.documentId);
+  // A copy keeps the same document id (Save a copy / Finder duplicate): the
+  // cleanup may use the id only when no other known package or session tab
+  // shares it. Otherwise the copy keeps its override and its session tab.
+  const sharedIdPaths = await sharedDocumentIdPaths(preflight.documentId, resolved);
+  const removedSettings = await removeDocumentSettingsEntries(
+    appSupportDir(),
+    {
+      documentId: preflight.documentId,
+      packagePath: resolved,
+    },
+    { sharedIdPaths },
+  ).catch(() => null);
+  if (removedSettings !== null && removedSettings.ok && removedSettings.keptAmbiguous.length > 0) {
+    console.warn(
+      `[noteforest] kept document settings for ${removedSettings.keptAmbiguous.length} package(s) sharing document id ${preflight.documentId ?? 'unknown'}: ${removedSettings.keptAmbiguous.join(', ')}`,
+    );
+  }
+  await removeSessionDocument(resolved, preflight.documentId, sharedIdPaths);
   return { ok: true, library: await scanLibrary() };
 }
 
@@ -2331,32 +2354,95 @@ export async function removeMissingDocument(
   // writes and never deletes the folder.
   await repository.close(resolved, { save: false });
   await removeRecentDocument(resolved, appSupportDir()).catch(() => undefined);
-  await removeDocumentSettingsEntries(appSupportDir(), {
-    documentId,
-    packagePath: resolved,
-  }).catch(() => undefined);
-  await removeSessionDocument(resolved, documentId);
+  const sharedIdPaths = await sharedDocumentIdPaths(documentId, resolved);
+  const removedSettings = await removeDocumentSettingsEntries(
+    appSupportDir(),
+    {
+      documentId,
+      packagePath: resolved,
+    },
+    { sharedIdPaths },
+  ).catch(() => null);
+  if (removedSettings !== null && removedSettings.ok && removedSettings.keptAmbiguous.length > 0) {
+    console.warn(
+      `[noteforest] kept document settings for ${removedSettings.keptAmbiguous.length} package(s) sharing document id ${documentId ?? 'unknown'}: ${removedSettings.keptAmbiguous.join(', ')}`,
+    );
+  }
+  await removeSessionDocument(resolved, documentId, sharedIdPaths);
   return { ok: true, library: await scanLibrary() };
+}
+
+/**
+ * Other known packages and session tabs that carry one document id. The id is
+ * not unique after a copy, so it can only be a cleanup key when this list is
+ * empty (F3).
+ */
+async function sharedDocumentIdPaths(
+  documentId: string | null,
+  packagePath: string,
+): Promise<string[]> {
+  if (documentId === null) return [];
+  const resolved = path.resolve(packagePath);
+  const paths = new Set<string>();
+  const root = await libraryRootForPath(resolved);
+  if (root !== null) {
+    const scanned = await scanLibrary(root);
+    for (const document of scanned.documents) {
+      if (
+        document.status === 'ok' &&
+        document.documentId === documentId &&
+        path.resolve(document.packagePath) !== resolved
+      ) {
+        paths.add(document.packagePath);
+      }
+    }
+  }
+  const session = await readSession();
+  for (const tab of session.tabs) {
+    if (tab.documentId === documentId && path.resolve(tab.packagePath) !== resolved) {
+      paths.add(tab.packagePath);
+    }
+  }
+  return [...paths];
 }
 
 /** Remove one document from the persisted session (tab + active fallback). */
 async function removeSessionDocument(
   packagePath: string,
   documentId: string | null,
+  sharedIdPaths: readonly string[] = [],
 ): Promise<void> {
   try {
     const session = await readSession();
     const resolved = path.resolve(packagePath);
+    const idShared =
+      documentId !== null &&
+      (sharedIdPaths.some((candidate) => path.resolve(candidate) !== resolved) ||
+        session.tabs.some(
+          (tab) =>
+            tab.documentId === documentId && path.resolve(tab.packagePath) !== resolved,
+        ));
     const tabs = session.tabs.filter(
       (tab) =>
         path.resolve(tab.packagePath) !== resolved &&
         !(
           documentId !== null &&
+          !idShared &&
           tab.documentId !== undefined &&
           tab.documentId === documentId
         ),
     );
     if (tabs.length === session.tabs.length) return;
+    if (
+      idShared &&
+      tabs.some(
+        (tab) => documentId !== null && tab.documentId === documentId,
+      )
+    ) {
+      console.warn(
+        `[noteforest] kept the session tab of a package sharing document id ${documentId}; it is not the one that was removed.`,
+      );
+    }
     const activeTab =
       session.activeTab !== null &&
       tabs.some((tab) => tab.packagePath === session.activeTab)

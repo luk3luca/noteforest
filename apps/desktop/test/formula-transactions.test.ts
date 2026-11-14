@@ -2,7 +2,9 @@ import { getSchema } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { EditorState, Selection, TextSelection } from '@tiptap/pm/state';
 import { describe, expect, it } from 'vitest';
+import { resolveAnchor, type ContentNode, type Document } from '@noteforest/core';
 import { createEditorExtensions } from '../src/renderer/src/editor/extensions';
+import { pmToContent } from '../src/renderer/src/lib/adapter';
 import { formulaKindTransaction } from '../src/renderer/src/lib/formula-convert';
 import { formulaPasteTransaction } from '../src/renderer/src/lib/formula-paste';
 
@@ -141,7 +143,81 @@ describe('formula kind conversion', () => {
     const paragraphPos = findPos(doc, 'paragraph');
     expect(formulaKindTransaction(before, paragraphPos, 'blockMath', 'x')).toBeNull();
   });
+
+  it('keeps a text anchor in the converted paragraph resolvable (F9)', () => {
+    const anchorMark = schema.marks['anchor'].create({ anchorIds: ['a1'] });
+    const paragraph = schema.node('paragraph', null, [
+      schema.text('see '),
+      schema.text('term', [anchorMark]),
+      inlineFormula('x^2'),
+      schema.text(' after'),
+    ]);
+    const doc = editorDoc([paragraph]);
+    const pos = findPos(doc, 'inlineMath');
+    const before = state(doc);
+    const plan = formulaKindTransaction(before, pos, 'blockMath', 'x^2');
+    expect(plan).not.toBeNull();
+    const next = before.apply(plan!.tr);
+    const body = blockBody(next.doc);
+    expect(body.child(0).textContent).toBe('see term');
+    expect(body.child(1).type.name).toBe('blockMath');
+
+    const canonical = (node: PMNode): ContentNode => {
+      // `pmToContent` maps ProseMirror JSON (plain nodes), not live PM nodes.
+      const projected = pmToContent(node.toJSON());
+      return { type: 'doc', children: projected.children ?? [] };
+    };
+    expect(resolveAnchor(anchorDocument(canonical(body)), 'a1').state).toBe('resolved');
+    const resolution = resolveAnchor(anchorDocument(canonical(body)), 'a1');
+    expect(resolution.reason).toBe('exact-binding');
+    if (resolution.resolved?.range.kind === 'text') {
+      expect(resolution.resolved.range.ranges).toHaveLength(1);
+    }
+  });
 });
+
+/** Canonical document with one text anchor in the source block. */
+function anchorDocument(content: ContentNode): Document {
+  return {
+    schemaVersion: 2,
+    id: 'doc',
+    title: 'Document',
+    createdAt: '2026-11-14T00:00:00.000Z',
+    updatedAt: '2026-11-14T00:00:00.000Z',
+    revision: 1,
+    chapters: [{ id: 'c1', title: 'One', topLevelBlockIds: ['A'] }],
+    blocks: {
+      A: { id: 'A', content },
+      B: {
+        id: 'B',
+        content: {
+          type: 'doc',
+          children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Target' }] }],
+        },
+      },
+    },
+    anchors: {
+      a1: {
+        id: 'a1',
+        blockId: 'A',
+        kind: 'text',
+        selector: { kind: 'text', quote: 'term' },
+        quote: 'term',
+      },
+    },
+    branches: {
+      'branch-a1': {
+        id: 'branch-a1',
+        source: { blockId: 'A', anchorId: 'a1' },
+        targetBlockId: 'B',
+        role: 'primary',
+        order: 'a',
+      },
+    },
+    assets: {},
+    annotations: [],
+  };
+}
 
 describe('formula paste', () => {
   it('inserts an inline formula at the caret inside a paragraph', () => {

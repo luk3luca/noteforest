@@ -39,8 +39,9 @@ export interface RecoveryTabInfo {
 export interface TabInfo {
   packagePath: string;
   /**
-   * Stable editor identity across the draft→package path swap. It is the
-   * canonical document id when known (normal documents and drafts) and the
+   * Stable tab/editor identity. A draft keys by the canonical document id, so
+   * the draft→package swap never remounts it; a normal tab adds its package
+   * path, so two copies sharing a document id never collide (F3). It is the
    * package path for recovery/missing tabs.
    */
   tabKey?: string;

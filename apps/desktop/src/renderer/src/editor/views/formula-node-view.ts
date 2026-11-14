@@ -23,6 +23,7 @@ import { consumeFormulaAutoEdit, convertFormulaKind } from '../../lib/formula-co
 import { unwrapFormulaSource } from '../../lib/formula-input';
 import { branchFromFormulaTerm } from '../../lib/formula-term-branch';
 import { getEditorBindings } from '../bindings';
+import { subscribeEditorUi } from '../editor-ui';
 import { installLocalTextKeys } from '../../lib/local-text-keys';
 
 const COPIED_FEEDBACK_MS = 1000;
@@ -63,6 +64,9 @@ export class FormulaNodeView {
   private termButton: HTMLButtonElement | null = null;
   private copyButton: HTMLButtonElement | null = null;
   private copiedTimer: number | null = null;
+  /** Cleanup for the current source textarea's local key handling. */
+  private cleanupTextKeys: (() => void) | null = null;
+  private readonly cleanupEditorUi: () => void;
   /** True while the clipboard helper (which steals DOM focus) is running. */
   private copying = false;
 
@@ -80,12 +84,15 @@ export class FormulaNodeView {
     this.renderHost.className = 'nf-formula-render';
     this.dom.appendChild(this.renderHost);
     this.dom.addEventListener('click', this.handleClick);
+    // The mode switch is neither a selection update nor a transaction; the
+    // shell mirrors it through the editor UI state instead (F1).
+    this.cleanupEditorUi = subscribeEditorUi(this.editor, () => this.syncEditMode());
     this.render();
     // An Inline/Block conversion replaces the node type, so ProseMirror mounts
     // a fresh node view. The conversion marks the target position and that new
     // view reopens the source editor once its DOM is attached.
     requestAnimationFrame(() => {
-      if (this.editing || !this.dom.isConnected) return;
+      if (this.editing || !this.dom.isConnected || !this.editor.isEditable) return;
       const pos = this.getPos();
       if (typeof pos === 'number' && consumeFormulaAutoEdit(this.editor, pos)) {
         this.openSource();
@@ -118,10 +125,22 @@ export class FormulaNodeView {
 
   destroy(): void {
     this.dom.removeEventListener('click', this.handleClick);
+    this.cleanupEditorUi();
+    this.cleanupTextKeys?.();
+    this.cleanupTextKeys = null;
     if (this.copiedTimer !== null) {
       window.clearTimeout(this.copiedTimer);
       this.copiedTimer = null;
     }
+  }
+
+  /**
+   * Read mode closes the in-place source editor without committing its draft.
+   * The node view is the only surface outside the shell gates that owns a
+   * writable text control (F1).
+   */
+  private syncEditMode(): void {
+    if (!this.editor.isEditable && this.editing) this.closeSource();
   }
 
   private render(): void {
@@ -166,6 +185,7 @@ export class FormulaNodeView {
   };
 
   private openSource(): void {
+    if (!this.editor.isEditable) return;
     this.editing = true;
     this.render();
     this.dom.replaceChildren(this.buildSourceEditor());
@@ -188,6 +208,8 @@ export class FormulaNodeView {
     this.preview = null;
     this.termButton = null;
     this.copyButton = null;
+    this.cleanupTextKeys?.();
+    this.cleanupTextKeys = null;
     if (this.copiedTimer !== null) {
       window.clearTimeout(this.copiedTimer);
       this.copiedTimer = null;
@@ -227,7 +249,7 @@ export class FormulaNodeView {
     textarea.spellcheck = false;
     textarea.rows = this.block ? 2 : 1;
     textarea.value = this.latex();
-    installLocalTextKeys(textarea);
+    this.cleanupTextKeys = installLocalTextKeys(textarea);
     textarea.addEventListener('input', () => {
       if (this.preview !== null) {
         renderKatex(this.preview, unwrapFormulaSource(textarea.value), this.block);
@@ -331,6 +353,7 @@ export class FormulaNodeView {
   }
 
   private toggleKind(): void {
+    if (!this.editor.isEditable) return;
     const pos = this.getPos();
     if (typeof pos !== 'number') return;
     const current = this.editor.state.doc.nodeAt(pos);
@@ -340,10 +363,25 @@ export class FormulaNodeView {
     const latex = unwrapFormulaSource(this.textarea?.value ?? this.latex());
     // One transaction covers type, latex and selection: one undo entry. The new
     // node view reopens the source editor at the marked position.
-    convertFormulaKind(this.editor, pos, target, latex);
+    const converted = convertFormulaKind(this.editor, pos, target, latex);
+    if (!converted.ok) {
+      // Inline→block is rejected inside a table cell (inline-only). Never leave
+      // the action as a silent no-op.
+      getEditorBindings(this.editor)?.notify(
+        target === 'blockMath'
+          ? 'A formula inside a table cell stays inline. Move it out of the table for a block formula.'
+          : 'This formula could not be converted.',
+        'info',
+      );
+    }
   }
 
   private commitSource(refocus: boolean): void {
+    // Read mode never writes the source editor, even if a pending blur fires.
+    if (!this.editor.isEditable) {
+      this.closeSource();
+      return;
+    }
     const pos = this.getPos();
     const textarea = this.textarea;
     const next = unwrapFormulaSource(textarea?.value ?? this.latex());
@@ -368,6 +406,7 @@ export class FormulaNodeView {
   }
 
   private branch(): void {
+    if (!this.editor.isEditable) return;
     const pos = this.getPos();
     const textarea = this.textarea;
     const bindings = getEditorBindings(this.editor);

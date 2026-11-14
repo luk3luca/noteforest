@@ -135,7 +135,7 @@ crowding at 900/1000/1200 px, and whether the icon-only variant loses meaning wi
 
 ### 2.1 Structure
 
-Left panel, default 264 px (range 208–360), full height below TopBar. Resizable, collapsible.
+Left panel, default 264 px (range 180–640), full height below TopBar. Resizable, collapsible.
 The sidebar is content: library and topics stay; only chrome changes.
 
 ```text
@@ -214,7 +214,7 @@ different commands.
 
 ### 2.6 Collapse, expand, resize
 
-- **Expanded:** toggle in the header; width default 264, range 208–360; double-click the resizer
+- **Expanded:** toggle in the header; width default 264, range 180–640; double-click the resizer
   resets to 264. If the lab shows long topic rows are cramped, test 272 before changing the
   default.
 - **Collapsed (accepted 10 Nov): hidden + reveal.** The sidebar disappears; a `SidebarReveal`
@@ -315,7 +315,7 @@ contract for the controls in this slice.
 |---|---|---|---|---|
 | S1-01 | New note entry | TopBar `+` only; sidebar “New note” only; both | Both visible, same command/label/shortcut; empty state contextual | **Accepted: both** |
 | S1-02 | Sidebar collapsed | Hidden + reveal; 48 px icon rail | Hidden + reveal | **Accepted** |
-| S1-03 | Sidebar width | 264 default (current); 240; 280 | 264, range 208–360; test 272 if cramped | **Accepted** |
+| S1-03 | Sidebar width | 264 default (current); 240; 280 | 264, range 180–640; test 272 if cramped | **Accepted** |
 | S1-04 | Search semantics | Palette only; sidebar filter only; both | Sidebar Search opens palette; library filter stays local | **Open: evaluate in lab** |
 | S1-05 | Tab close affordance | Active/hover only; always visible | Active + hover/focus; keyboard reachable | **Open; default proposal** |
 | S1-06 | ViewControls A/B | TopBar vs PageToolbar + continuous fallback | TopBar words first; TopBar symbols second; PageToolbar only fallback | **Accepted test order** |

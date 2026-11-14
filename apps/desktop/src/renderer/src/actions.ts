@@ -157,7 +157,10 @@ export async function openPath(packagePath: string): Promise<boolean> {
     .adoptDocumentSettings(packagePath, result.document.id);
   shell().openTab({
     packagePath,
-    tabKey: result.document.id,
+    // A copy keeps the document id, so the path keeps the editor key unique
+    // for two open copies (F3). A draft keys by the document id so its
+    // materialization never remounts the editor.
+    tabKey: `${result.document.id}:${packagePath}`,
     title: result.document.title,
     ...(result.status === 'read-only' ? { readOnlyReason: result.readOnlyReason } : {}),
   });
@@ -767,10 +770,38 @@ export async function confirmTrashDocument(preflight: TrashPreflight): Promise<v
   shell().setLibrary(result.library);
   useSettingsStore
     .getState()
-    .forgetDocumentSettings(preflight.documentId, packagePath);
+    .forgetDocumentSettings(
+      preflight.documentId,
+      packagePath,
+      sharedDocumentIdPaths(preflight.documentId, packagePath),
+    );
   if (runtime !== null) removeRuntime(packagePath);
   shell().closeTab(packagePath);
   toast.success(`Moved “${preflight.title}” to the Trash`);
+}
+
+/**
+ * Other known packages and session tabs that carry one document id. A copy
+ * keeps the same id, so the renderer cleanup must not remove the copy's
+ * override either (F3).
+ */
+function sharedDocumentIdPaths(
+  documentId: string | null,
+  packagePath: string,
+): string[] {
+  if (documentId === null) return [];
+  const state = shell();
+  const paths = new Set<string>();
+  for (const document of state.library?.documents ?? []) {
+    if (document.documentId === documentId && document.packagePath !== packagePath) {
+      paths.add(document.packagePath);
+    }
+  }
+  for (const tab of state.tabs) {
+    if (tab.packagePath === packagePath) continue;
+    if (getRuntime(tab.packagePath)?.document.id === documentId) paths.add(tab.packagePath);
+  }
+  return [...paths];
 }
 
 /** Missing package: cleanup-only, never deletes anything. */
@@ -786,7 +817,11 @@ export async function confirmRemoveMissingDocument(preflight: TrashPreflight): P
   shell().setLibrary(result.library);
   useSettingsStore
     .getState()
-    .forgetDocumentSettings(preflight.documentId, preflight.packagePath);
+    .forgetDocumentSettings(
+      preflight.documentId,
+      preflight.packagePath,
+      sharedDocumentIdPaths(preflight.documentId, preflight.packagePath),
+    );
   if (getRuntime(preflight.packagePath) !== null) removeRuntime(preflight.packagePath);
   shell().closeTab(preflight.packagePath);
   toast.success(`Removed “${preflight.title}” from recents`);

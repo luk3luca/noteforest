@@ -130,7 +130,7 @@ AppShell
 | **LibraryPanel** | Scroll section | Sidebar | Sidebar | Filter, DocumentRow, section NewNote | Exists + section `+` | Filter, open, row menu, recovery label |
 | **TopicsPanel** | Scroll section | Sidebar | Sidebar | ChapterRow, BlockRow, AnchorRow | Exists | Tree selection, rename, collapse, context menu |
 | **SidebarFooter** | Container | Bottom of Sidebar | Sidebar | SettingsButton; future items | **Revised 10 Nov** | Settings is a button inside the footer, not the whole footer |
-| **SidebarResizer** | Separator | Right edge of Sidebar | WorkspaceBody | — | Exists | Drag 208–360; double-click reset |
+| **SidebarResizer** | Separator | Right edge of Sidebar | WorkspaceBody | — | Exists | Drag 180–640; double-click reset |
 | **MainColumn** | Column | Right of Sidebar | WorkspaceBody | Toolbar, Canvas | **Add 10 Nov** | Holds the toolbar and canvas; shifts when the rail changes width |
 | **Canvas** | Rounded panel | MainColumn | MainColumn | ContinuousCanvas or PageCanvas | Exists | Panel border/radius; no full-bleed hard rules |
 | **ContinuousCanvas** | Canvas mode | MainColumn | Canvas | Chapters, blocks, edges, selection toolbar, footer | Exists | Edit/Read; zoom/fit; focus branch; cards rounded 9 px |
@@ -281,7 +281,7 @@ migration.
 - **Collapse/expand:** `SidebarToggle` in the header, `⌘\`, and the rail expand control. The sidebar
   stays a column; collapsed = 48 px rail with expand at the top and Settings at the bottom.
   Collapsed state and width persist in the session; narrow windows auto-collapse.
-- **Resize:** right-edge separator, 208–360 px, double-click resets to 264.
+- **Resize:** right-edge separator, 180–640 px, double-click resets to 264.
 - **Focus:** toggle and rows are real buttons/tree items; focus order TitleBar → Sidebar → Toolbar
   → Canvas.
 - **Single Settings entry:** Settings is a button inside the footer container, not the whole footer.

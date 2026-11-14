@@ -213,7 +213,9 @@ export function App(): JSX.Element {
               .adoptDocumentSettings(snapshot.packagePath, snapshot.document.id);
             tabs.push({
               packagePath: snapshot.packagePath,
-              tabKey: snapshot.document.id,
+              // Two packages can share a document id after a copy; the path
+              // keeps the editor/tab keys unique (F3).
+              tabKey: `${snapshot.document.id}:${snapshot.packagePath}`,
               title: snapshot.document.title,
               ...(snapshot.status === 'read-only' ? { readOnlyReason: snapshot.readOnlyReason } : {}),
             });
@@ -880,7 +882,7 @@ export function App(): JSX.Element {
         state.setLibrary(result.library);
         state.openTab({
           packagePath: result.snapshot.packagePath,
-          tabKey: result.snapshot.document.id,
+          tabKey: `${result.snapshot.document.id}:${result.snapshot.packagePath}`,
           title: result.snapshot.document.title,
         });
         return result.snapshot.packagePath;

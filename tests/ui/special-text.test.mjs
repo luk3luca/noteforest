@@ -413,6 +413,58 @@ describe('NoteForest special text editing', () => {
         .evaluate((element) => element.textContent),
       '`',
     );
+
+    // F6: the delimiter widgets are an Edit affordance. Continuous Read keeps
+    // the stored code mark but renders no backticks that are not content.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.nf-editor[data-active="true"]')
+          ?.getAttribute('data-interaction-mode') === 'read',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-inline-code-delim`)
+          .length === 0,
+      blockId,
+      { timeout: 5000 },
+    );
+    assert.equal(await delimiterCount(blockId), 0);
+    assert.equal(
+      await card(blockId).locator('.nf-block-prose code').count(),
+      1,
+      'Read keeps the stored code mark',
+    );
+    assert.equal(
+      (await proseText(blockId)).includes('`'),
+      false,
+      'Read renders no delimiter backticks',
+    );
+    await h.screenshot(
+      artifactsPath('sentinel-fixes', 'read-delimiters-hidden-1440x900.png'),
+      { width: 1440, height: 900 },
+    );
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.nf-editor[data-active="true"]')
+          ?.getAttribute('data-interaction-mode') === 'edit',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-inline-code-delim`)
+          .length === 2,
+      blockId,
+      { timeout: 5000 },
+    );
+    assert.equal(await delimiterCount(blockId), 2, 'Edit shows the delimiters again');
+
     const mark = await page.evaluate((block) => {
       const code = document.querySelector(`[data-block-card="${block}"] .nf-block-prose code`);
       const selection = window.getSelection();
@@ -1176,6 +1228,39 @@ describe('NoteForest special text editing', () => {
     await page.keyboard.press('Shift+Tab');
     assert.notEqual(await cellAtCaret(), appendedCell, 'Shift+Tab moves to the previous cell');
 
+    // F9: inline → block inside a cell names the reason instead of a dead
+    // click. The cell keeps an inline formula and the source stays open.
+    // Leave the table first: the contextual toolbar can cover a cell (F8).
+    await page
+      .locator('.nf-editor[data-active="true"] .nf-prosemirror')
+      .click({ position: { x: 2, y: 2 } });
+    await waitCaretSettled();
+    const formulaCell = table.locator('tbody > tr').nth(1).locator('td').nth(1);
+    await formulaCell.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' $z$');
+    const cellFormula = formulaCell.locator('[data-type="inline-math"]').first();
+    await cellFormula.waitFor();
+    await cellFormula.dblclick();
+    const cellSource = formulaCell.locator('[data-formula-source]');
+    await cellSource.waitFor();
+    await formulaCell.locator('[data-testid="toggle-formula-kind"]').click();
+    await page
+      .locator('[data-sonner-toast]', { hasText: 'stays inline' })
+      .first()
+      .waitFor({ timeout: 5000 });
+    assert.equal(
+      await formulaCell.locator('[data-type="inline-math"]').count(),
+      1,
+      'the formula inside the cell stays inline',
+    );
+    assert.equal(
+      await formulaCell.locator('[data-type="block-math"]').count(),
+      0,
+      'no block formula was inserted into the cell',
+    );
+    await cellSource.press('Escape');
+
     // Typed GFM conversion on the blank paragraph after the last row.
     const typedId = 'st-table-typed';
     await blankBlock(typedId);
@@ -1191,6 +1276,15 @@ describe('NoteForest special text editing', () => {
       await card(typedId).locator('.nf-block-prose table tr').count(),
       2,
     );
+    // F5: the blank trigger paragraph survives below the table and keeps the
+    // caret; one undo removes the conversion.
+    const typedAfterConvert = await proseCaretInfo(typedId);
+    assert.equal(typedAfterConvert.children.at(-1), 'p');
+    assert.equal(
+      typedAfterConvert.index,
+      typedAfterConvert.tableIndex + 1,
+      'the caret is in the paragraph below the typed table',
+    );
     await page.keyboard.press('Meta+z');
     await page.waitForFunction(
       (block) =>
@@ -1198,6 +1292,47 @@ describe('NoteForest special text editing', () => {
       typedId,
       { timeout: 5000 },
     );
+
+    // Typing immediately after a typed conversion lands in the document
+    // instead of nowhere (F5).
+    const typingId = 'st-table-typed-input';
+    await blankBlock(typingId);
+    await typeInBlank(typingId, '| E | F |');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('| --- | --- |');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('| 7 | 8 |');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector(`[data-block-card="${typingId}"] .nf-block-prose table`);
+    await page.keyboard.type('ZZ');
+    await page.waitForFunction(
+      (block) => {
+        const prose = document.querySelector(`[data-block-card="${block}"] .nf-block-prose`);
+        const container = prose?.querySelector('[data-node-view-content-react]') ?? prose;
+        const last = container?.lastElementChild ?? null;
+        return last?.tagName === 'P' && last.textContent === 'ZZ';
+      },
+      typingId,
+      { timeout: 5000 },
+    );
+    // The canonical runtime commit is debounced; wait for it before asserting.
+    await page.waitForFunction(
+      (block) => {
+        const content = window.__noteforestTest.structure()?.blocks?.[block]?.content;
+        const last = content?.children?.at(-1);
+        return last?.type === 'paragraph' && last.children?.[0]?.text === 'ZZ';
+      },
+      typingId,
+      { timeout: 5000 },
+    );
+    const typedContent = (await ui.structure()).blocks[typingId].content.children;
+    assert.equal(typedContent.at(-1)?.type, 'paragraph');
+    assert.equal(typedContent.at(-1)?.children?.[0]?.text, 'ZZ');
+    await h.screenshot(artifactsPath('sentinel-fixes', 'gfm-typed-caret-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
 
     // Cmd+Enter converts an explicit paragraph run without the blank line.
     const cmdId = 'st-table-cmd';

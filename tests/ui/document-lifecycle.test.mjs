@@ -143,6 +143,16 @@ async function recentsFile(env) {
   }
 }
 
+async function documentSettingsFile(env) {
+  return JSON.parse(
+    await readFile(join(env.NOTEFOREST_APP_SUPPORT, 'document-settings.json'), 'utf8'),
+  );
+}
+
+function pageOverrideEntry(file, packagePath) {
+  return file.entries.find((entry) => entry.packagePath === packagePath) ?? null;
+}
+
 async function openRowMenu(title) {
   const row = page.locator('[data-sidebar-panel="library"] .nf-library-row', { hasText: title });
   await row.waitFor();
@@ -286,6 +296,99 @@ describe('Document lifecycle', () => {
     assert.equal(await page.locator('[data-export-sheet="true"]').count(), 1);
     await page.locator('[data-export-close="true"]').click();
     await page.waitForSelector('[data-export-sheet="true"]', { state: 'detached' });
+  });
+
+  it('materializes a draft for an immediate Page setting and leaves no draft override', async () => {
+    const env = ui.isolated('draft-immediate');
+    await launch('draft-immediate', env);
+    await clickNewNote(1);
+    const draftKey = (await state()).tabs[0]?.packagePath ?? '';
+    assert.match(draftKey, /^draft:/);
+
+    await page.keyboard.press('Meta+,');
+    await page.waitForSelector('[data-settings-dialog="true"]');
+    await page.locator('[data-settings-nav="page"]').click();
+    await page.locator('[data-page-scope-option="document"]').click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-page-scope-option="document"]')
+          ?.getAttribute('aria-pressed') === 'true',
+    );
+
+    // Immediate chrome write (not a debounced slider): the first click must
+    // materialize the draft and retarget the write to the package (F4). The
+    // controlled checkbox can re-render while the materialization awaits, so
+    // the click is not asserted on the DOM; the persisted override is.
+    await page.locator('[data-page-chrome-page-number]').click();
+    const packagePath = await waitTabPathChange(draftKey);
+    const chromeEntry = await waitUntil(async () => {
+      try {
+        const entry = pageOverrideEntry(await documentSettingsFile(env), packagePath);
+        return entry?.page?.chrome?.pageNumber === false ? entry : false;
+      } catch {
+        return false;
+      }
+    }, 'immediate chrome override on the package');
+
+    // A size and a preset change are immediate writes too; they stay on the
+    // same package and keep the earlier chrome override.
+    await page.locator('[data-page-size-option="A5"]').click();
+    await page.locator('[data-page-preset-option="comfortable"]').click();
+    const fullEntry = await waitUntil(async () => {
+      try {
+        const entry = pageOverrideEntry(await documentSettingsFile(env), packagePath);
+        return entry?.page?.setup?.size === 'A5' &&
+          entry?.page?.theme?.preset === 'comfortable' &&
+          entry?.page?.chrome?.pageNumber === false
+          ? entry
+          : false;
+      } catch {
+        return false;
+      }
+    }, 'immediate size and preset override on the package');
+    assert.equal(fullEntry.documentId, chromeEntry.documentId);
+
+    const inMemory = await page.evaluate(() => window.__noteforestTest.settings());
+    assert.equal(
+      inMemory.documentSettings.some((entry) => String(entry.packagePath).startsWith('draft:')),
+      false,
+      'no in-memory override stays keyed by the draft',
+    );
+    const stored = await documentSettingsFile(env);
+    assert.deepEqual(
+      stored.entries.map((entry) => entry.packagePath),
+      [packagePath],
+      'exactly one package-keyed override was written',
+    );
+    assert.equal(
+      stored.entries.some((entry) => String(entry.packagePath).startsWith('draft:')),
+      false,
+      'the map has no draft-keyed entry',
+    );
+
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
+    assert.equal(
+      (await state()).tabs[0]?.packagePath,
+      packagePath,
+      'the tab stays materialized',
+    );
+    assert.equal(
+      (await stat(join(packagePath, 'document.json'))).isFile(),
+      true,
+      'the document persisted',
+    );
+    await page.screenshot({
+      path: join(artifactsPath('sentinel-fixes'), 'draft-immediate-materialized.png'),
+    });
+    // Closing the tab keeps the override and leaves no orphan draft entry.
+    await page.evaluate(() =>
+      window.__noteforestTest.closePath(window.__noteforestTest.state().activeTab),
+    );
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 0);
+    const afterClose = await documentSettingsFile(env);
+    assert.deepEqual(afterClose.entries.map((entry) => entry.packagePath), [packagePath]);
   });
 
   it('materializes on the first keystroke and keeps the mounted editor state', async () => {
@@ -492,6 +595,125 @@ describe('Document lifecycle', () => {
       'the session no longer names the trashed document',
     );
     await page.screenshot({ path: join(screenshotDir, 'trash-next-tab.png') });
+  });
+
+  it('trashing one copy keeps the other copy override and session tab', async () => {
+    const env = ui.isolated('duplicate-id');
+    const sharedId = 'lifecycle-shared-id';
+    const original = await writePagePackage(
+      env.NOTEFOREST_LIBRARY,
+      'shared-original',
+      pageDocument({
+        id: sharedId,
+        title: 'Shared original',
+        chapterTitle: 'Shared id',
+        blocks: [textBlock('shared-original-block', 'Original', 'The original package.')],
+      }),
+    );
+    const copy = await writePagePackage(
+      env.NOTEFOREST_LIBRARY,
+      'shared-copy',
+      pageDocument({
+        id: sharedId,
+        title: 'Shared copy',
+        chapterTitle: 'Shared id',
+        blocks: [textBlock('shared-copy-block', 'Copy', 'The copied package.')],
+      }),
+    );
+    await launch('duplicate-id', env);
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().library?.documents.length === 2,
+      undefined,
+      { timeout: 15000 },
+    );
+
+    await page.locator('[data-library-document]', { hasText: 'Shared original' }).click();
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.state().activeTab === path,
+      original,
+    );
+    await page.locator('[data-library-document]', { hasText: 'Shared copy' }).click();
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.state().activeTab === path,
+      copy,
+    );
+    assert.equal((await state()).tabs.length, 2, 'both copies are open');
+
+    // Give the copy its own per-document Page override.
+    await page.keyboard.press('Meta+,');
+    await page.waitForSelector('[data-settings-dialog="true"]');
+    await page.locator('[data-settings-nav="page"]').click();
+    await page.locator('[data-page-scope-option="document"]').click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-page-scope-option="document"]')
+          ?.getAttribute('aria-pressed') === 'true',
+    );
+    await page.locator('[data-page-chrome-page-number]').click();
+    const copyEntry = await waitUntil(async () => {
+      try {
+        const entry = pageOverrideEntry(await documentSettingsFile(env), copy);
+        return entry?.page?.chrome?.pageNumber === false ? entry : false;
+      } catch {
+        return false;
+      }
+    }, 'copy page override');
+    assert.equal(copyEntry.documentId, sharedId);
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
+    await h.flushSession();
+    const sessionBefore = await sessionFile(env);
+    assert.equal(
+      sessionBefore.tabs.some((tab) => tab.packagePath === copy),
+      true,
+      'the copy has a session tab before the trash',
+    );
+
+    // Move the original to the Trash. The copy shares its document id; the
+    // cleanup must not remove the copy's override or session tab (F3).
+    await openRowMenu('Shared original');
+    await chooseRowMenu('Move to Trash…');
+    await page.waitForSelector('[data-trash-dialog="true"]');
+    await page.locator('[data-trash-confirm="true"]').click();
+    await page.waitForFunction(
+      (path) =>
+        window.__noteforestTest.state().tabs.length === 1 &&
+        window.__noteforestTest.state().activeTab === path,
+      copy,
+      { timeout: 15000 },
+    );
+    await assert.rejects(stat(original), 'the original package left the library');
+    const afterTrash = await state();
+    assert.equal(afterTrash.library?.documents.some((doc) => doc.packagePath === copy), true);
+
+    const inMemory = await page.evaluate(() => window.__noteforestTest.settings());
+    const survivingEntry = inMemory.documentSettings.find((entry) => entry.packagePath === copy);
+    assert.ok(survivingEntry !== undefined, 'the copy override is still in memory');
+    assert.equal(survivingEntry.page.chrome.pageNumber, false);
+    const stored = await documentSettingsFile(env);
+    assert.deepEqual(
+      stored.entries.map((entry) => entry.packagePath),
+      [copy],
+      'only the copy override remains on disk',
+    );
+    assert.equal(stored.entries[0].documentId, sharedId);
+    const sessionAfter = await sessionFile(env);
+    assert.deepEqual(
+      sessionAfter.tabs.map((tab) => tab.packagePath),
+      [copy],
+      'the copy session tab survives the trash',
+    );
+    assert.equal(sessionAfter.activeTab, copy);
+
+    const resolved = await page.evaluate(
+      (path) => window.__noteforestTest.resolvedPageSettings(path),
+      copy,
+    );
+    assert.equal(resolved.chrome.pageNumber, false, 'the copy resolves its own override');
+    await page.screenshot({
+      path: join(artifactsPath('sentinel-fixes'), 'two-copy-trash-survivor.png'),
+    });
   });
 
   it('blocks Move to Trash when the open document cannot be flushed', async () => {

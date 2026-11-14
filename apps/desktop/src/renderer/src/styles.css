@@ -6111,6 +6111,13 @@ body.nf-dragging-block .nf-gutter-handle {
   background-clip: content-box;
 }
 
+/* Where both axes scroll, Chromium paints the corner in the default light
+   colour unless it is styled: a white square on the dark Continuous canvas and
+   a wide table wrapper. It carries no content, so it is always transparent. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* ------------------------------------------------------------------ sonner */
 
 /*

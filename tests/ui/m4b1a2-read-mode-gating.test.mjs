@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { rm } from 'node:fs/promises';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
+import { addTopLevelBlock, codeDoc, formulaDoc } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m4b1a2-ui');
 const ui = createUiSession({ tempRoot });
@@ -309,8 +310,144 @@ describe('M4b1a2 Read-mode global gating', () => {
     await h.waitCanonicalBlockCount(before.blocks + 1);
   });
 
-  it('gates Page Read and Page Edit shell commands, and re-enables undo in Continuous Edit', async () => {
-    await launch('m4b1a2-page');
+  it('closes the code and formula node-view editors in Read and never writes', async () => {
+    await launch('m4b1a2-node-views');
+    await ui.seedDemo();
+    const packagePath = (await h.state()).activeTab;
+    const codeId = 'gating-code';
+    await addTopLevelBlock(ui, codeId, codeDoc('let x = 1;'));
+    const formulaId = 'gating-formula';
+    await addTopLevelBlock(ui, formulaId, formulaDoc('x^2'));
+    await h.waitSaved();
+
+    const code = page.locator(
+      `.nf-editor[data-active="true"] [data-block-card="${codeId}"] [data-code-block="true"]`,
+    );
+    const languageInput = code.locator('[data-code-language-input]');
+    const formula = page
+      .locator(
+        `.nf-editor[data-active="true"] [data-block-card="${formulaId}"] [data-type="inline-math"]`,
+      )
+      .first();
+    const formulaSource = page.locator(
+      `.nf-editor[data-active="true"] [data-block-card="${formulaId}"] [data-formula-source]`,
+    );
+    const formulaActions = page.locator(
+      `.nf-editor[data-active="true"] [data-block-card="${formulaId}"] [data-formula-actions="true"]`,
+    );
+
+    const before = await ui.structure();
+    const runtimeBefore = await activeRuntimeInfo();
+
+    // F1 code: Edit → Read with the caret inside the fence closes the chrome.
+    await code.locator('pre code').click();
+    await page.waitForFunction(
+      (block) =>
+        document
+          .querySelector(`[data-block-card="${block}"] [data-code-block="true"]`)
+          ?.getAttribute('data-code-state') === 'editing',
+      codeId,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+e');
+    await waitViewMode(packagePath, 'continuous', 'read');
+    await page.waitForFunction(
+      (block) =>
+        document
+          .querySelector(`[data-block-card="${block}"] [data-code-block="true"]`)
+          ?.getAttribute('data-code-state') !== 'editing',
+      codeId,
+      { timeout: 5000 },
+    );
+    assert.equal(await code.getAttribute('data-code-state'), 'idle');
+    assert.equal(await languageInput.isVisible(), false, 'the language input is closed');
+    assert.equal(
+      await code.locator('[data-code-action="close"]').isVisible(),
+      false,
+      'the closing row is closed',
+    );
+    assert.equal(
+      await code.locator('[data-code-action="copy"]').isVisible(),
+      false,
+      'the copy action is closed',
+    );
+
+    // The hidden controls are guarded too, not merely invisible: a forced DOM
+    // language commit, blur, close click and typing write nothing.
+    await languageInput.evaluate((input) => {
+      input.value = 'python';
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      input.dispatchEvent(new FocusEvent('blur'));
+    });
+    await code.locator('[data-code-action="close"]').evaluate((button) => button.click());
+    await page.keyboard.type('python');
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+
+    // F1 formula: open the source in Edit with an unsaved draft, then Read.
+    await page.keyboard.press('Meta+e');
+    await waitViewMode(packagePath, 'continuous', 'edit');
+    await formula.dblclick();
+    await formulaSource.waitFor();
+    await formulaSource.fill('y^3');
+
+    await page.keyboard.press('Meta+e');
+    await waitViewMode(packagePath, 'continuous', 'read');
+    await page.waitForSelector(
+      `[data-block-card="${formulaId}"] [data-formula-source]`,
+      { state: 'detached', timeout: 5000 },
+    );
+    assert.equal(
+      await formulaActions.count(),
+      0,
+      'the Branch/Copy/Inline-Block action row is closed',
+    );
+    // A double-click in Read is a NodeSelection, never a writable source.
+    await formula.dblclick();
+    assert.equal(
+      await page.locator(`[data-block-card="${formulaId}"] [data-formula-source]`).count(),
+      0,
+      'a Read double-click does not reopen the source',
+    );
+    await page.keyboard.type('y^3');
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+    await h.screenshot(
+      artifactsPath('sentinel-fixes', 'read-mode-node-view-closed-1440x900.png'),
+      { width: 1440, height: 900 },
+    );
+
+    const after = await ui.structure();
+    assert.deepEqual(after.blocks, before.blocks, 'Read leaves every block body unchanged');
+    assert.deepEqual(after.anchors, before.anchors, 'Read creates no anchor');
+    assert.deepEqual(after.branches, before.branches, 'Read creates no branch');
+    assert.equal(
+      after.blocks[codeId].content.children[0].attrs.language,
+      'ts',
+      'the canonical code language is unchanged',
+    );
+    assert.equal(
+      after.blocks[formulaId].content.children[0].children[0].attrs.latex,
+      'x^2',
+      'the canonical LaTeX is unchanged',
+    );
+    assert.equal(
+      (await activeRuntimeInfo()).revision,
+      runtimeBefore.revision,
+      'Read mode produces no canonical revision',
+    );
+
+    // Back in Edit the discarded draft never comes back: the source reopens
+    // with the canonical LaTeX.
+    await page.keyboard.press('Meta+e');
+    await waitViewMode(packagePath, 'continuous', 'edit');
+    await formula.dblclick();
+    await formulaSource.waitFor();
+    assert.equal(await formulaSource.inputValue(), 'x^2');
+    await page.keyboard.press('Escape');
+  });
+
+  it('gates Page Read and Page Edit shell commands, and re-enables undo in Continuous Edit', async () => {    await launch('m4b1a2-page');
     await ui.seedDemo();
     await ui.showOutline();
     const packagePath = (await h.state()).activeTab;

@@ -187,6 +187,66 @@ export function adoptDocumentSettingsEntry(
   return next;
 }
 
+export interface DocumentCleanupIdentity extends DocumentIdentity {
+  /**
+   * Other known packages and session tabs that carry the same document id.
+   * A shared id means a copy owns its own entry: the id must not be used as a
+   * cleanup key.
+   */
+  sharedIdPaths?: readonly string[];
+}
+
+export interface DocumentSettingsRemovalPlan {
+  /** Map to write after the cleanup. */
+  entries: DocumentSettingsEntry[];
+  /** Entries removed by the exact path or by an unambiguous document id. */
+  removed: DocumentSettingsEntry[];
+  /** Id-keyed entries left because a known copy shares the id. */
+  keptAmbiguous: DocumentSettingsEntry[];
+}
+
+/**
+ * Which durable entries a Move-to-Trash cleanup may remove.
+ *
+ * The exact package path is always removed. The document id is used as a second
+ * key only when it is not shared: `sharedIdPaths` names other known packages and
+ * session tabs that carry the same id. A shared id is ambiguous — a copy keeps
+ * its own override — so every other id-keyed entry stays and is reported.
+ */
+export function documentSettingsRemoval(
+  entries: readonly DocumentSettingsEntry[],
+  identity: DocumentCleanupIdentity,
+): DocumentSettingsRemovalPlan {
+  const targetPath = normalizePackagePath(identity.packagePath);
+  const id = cleanId(identity.documentId);
+  const idShared =
+    id !== null &&
+    (identity.sharedIdPaths ?? []).some(
+      (candidate) => normalizePackagePath(candidate) !== targetPath,
+    );
+  const kept: DocumentSettingsEntry[] = [];
+  const removed: DocumentSettingsEntry[] = [];
+  const keptAmbiguous: DocumentSettingsEntry[] = [];
+  for (const entry of entries) {
+    const path = normalizePackagePath(entry.packagePath);
+    if (path === targetPath) {
+      removed.push(entry);
+      continue;
+    }
+    if (id !== null && entry.documentId === id) {
+      if (idShared) {
+        kept.push(entry);
+        keptAmbiguous.push(entry);
+      } else {
+        removed.push(entry);
+      }
+      continue;
+    }
+    kept.push(entry);
+  }
+  return { entries: kept, removed, keptAmbiguous };
+}
+
 /**
  * Move legacy session tab overrides into the durable document map.
  *

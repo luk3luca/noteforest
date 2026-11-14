@@ -58,11 +58,14 @@ export const InlineCodeBacktick = Extension.create({
   priority: 1100,
 
   addProseMirrorPlugins() {
+    const editor = this.editor;
     return [
       new Plugin({
         key: new PluginKey('inlineCodeBacktick'),
         props: {
-          decorations: (state) => delimiterDecorations(state),
+          // The delimiter widgets are an Edit affordance: Read keeps the stored
+          // `code` mark but never renders backticks that are not content (F6).
+          decorations: (state) => (editor.isEditable ? delimiterDecorations(state) : null),
           handleKeyDown: (view, event) => {
             if (!view.editable) return false;
             if (isFormElement(event.target)) return false;
