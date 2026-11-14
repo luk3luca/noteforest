@@ -14,8 +14,15 @@ import {
   useExportUi,
 } from './export/export-flow';
 import { useShell, type TabInfo } from './state/shell';
-import { useAnyMarkdownDirty, useMarkdownFiles } from './state/markdown';
+import {
+  dirtyMarkdownFiles,
+  useAnyMarkdownDirty,
+  useMarkdownFiles,
+} from './state/markdown';
 import { isMarkdownPath } from '../../shared/markdown';
+import { markdownEditor } from './markdown/markdown-editor-registry';
+import { flushMarkdownFiles } from './markdown/markdown-save';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import {
   allRuntimes,
   registerRuntime,
@@ -32,6 +39,7 @@ import {
   fitActiveLayout,
   openPath,
   runMenuCommand,
+  saveActive,
   setActiveDocumentLayout,
   setActivePageFit,
   syncActiveLibraryForPath,
@@ -166,6 +174,13 @@ async function flushOpenDocuments(): Promise<FlushResult> {
   return flushDocuments({
     documents,
     saveSession: () => window.noteforest.saveSession(buildSession()),
+  }).then((result) => {
+    if (result.status !== 'ok') return result;
+    // Markdown guest files live only in the renderer. The main process includes
+    // them in the same Save / Don't Save / Cancel prompt and asks for the atomic
+    // writes when the user chooses Save.
+    const pendingMarkdown = dirtyMarkdownFiles();
+    return pendingMarkdown.length === 0 ? result : { ...result, pendingMarkdown };
   });
 }
 
@@ -222,6 +237,8 @@ export function App(): JSX.Element {
               tabKey: file.path,
               title: file.title,
               kind: 'markdown',
+              ...(file.readOnly ? { readOnlyReason: file.readOnlyReason } : {}),
+              ...(file.error !== undefined ? { missing: true } : {}),
             });
             continue;
           }
@@ -274,10 +291,17 @@ export function App(): JSX.Element {
         }
         for (const sessionTab of data.session.tabs) {
           const view = normalizeDocumentViewState(sessionTab);
+          const guest = isMarkdownPath(sessionTab.packagePath)
+            ? useMarkdownFiles.getState().files[sessionTab.packagePath]
+            : undefined;
           state.setDocumentViewState(
             sessionTab.packagePath,
             isMarkdownPath(sessionTab.packagePath)
-              ? { ...view, layout: 'continuous' }
+              ? {
+                  ...view,
+                  layout: 'continuous',
+                  ...(guest?.readOnly === true ? { interactionMode: 'read' as const } : {}),
+                }
               : view,
           );
         }
@@ -338,9 +362,13 @@ export function App(): JSX.Element {
       }
       return flushOpenDocuments();
     });
+    const offMarkdownSave = window.noteforest.onRequestMarkdownSave(() =>
+      flushMarkdownFiles(),
+    );
     return () => {
       offMenu();
       offFlush();
+      offMarkdownSave();
     };
   }, []);
 
@@ -620,6 +648,15 @@ export function App(): JSX.Element {
             title: file.title,
             dirty: file.dirty,
             error: file.error,
+            readOnly: file.readOnly,
+            readOnlyReason: file.readOnlyReason,
+            tooLarge: file.tooLarge,
+            missing: file.missing,
+            saving: file.saving,
+            saveError: file.saveError,
+            conflict: file.conflict,
+            base: file.base,
+            lastSavedAt: file.lastSavedAt,
           })),
           library:
             state.library === null
@@ -754,6 +791,40 @@ export function App(): JSX.Element {
         return runtime?.caretLocation() ?? null;
       },
       flushSession: () => window.noteforest.saveSession(buildSession()),
+      /** Test-only: the same save action without the 120 ms menu throttle. */
+      saveNow: () => saveActive(),
+      /**
+       * Test-only: set a real ProseMirror selection in one Markdown guest
+       * editor so the platform copy path (⌘C) carries rich nodes.
+       */
+      markdownSelect: (path, kind) => {
+        const editor = markdownEditor(path);
+        if (editor === null) return null;
+        let match: { from: number; to: number; text: string } | null = null;
+        editor.state.doc.descendants((node, pos) => {
+          if (match !== null) return false;
+          if (node.type.name !== kind) return true;
+          if (kind === 'paragraph') {
+            const text = node.textBetween(0, node.content.size, '\n', '\n');
+            if (!text.includes('A paragraph with')) return true;
+            match = { from: pos + 1, to: pos + node.content.size, text };
+            return false;
+          }
+          match = { from: pos, to: pos + node.nodeSize, text: node.textContent.slice(0, 80) };
+          return false;
+        });
+        if (match === null) return null;
+        const selected = match as { from: number; to: number; text: string };
+        const transaction = editor.state.tr;
+        transaction.setSelection(
+          kind === 'paragraph'
+            ? TextSelection.create(transaction.doc, selected.from, selected.to)
+            : NodeSelection.create(transaction.doc, selected.from),
+        );
+        editor.view.dispatch(transaction);
+        editor.view.focus();
+        return selected;
+      },
       settings: () => {
         const store = useSettingsStore.getState();
         return structuredClone({

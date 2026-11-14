@@ -101,7 +101,7 @@ describe('Markdown parser', () => {
     expect(nodesOfType(document, 'tableCell')[2]?.attrs?.['align']).toBe('right');
 
     const infos = nodesOfType(document, 'codeBlock').map((node) => node.attrs?.['language']);
-    expect(infos).toEqual(['yaml', 'ts', null]);
+    expect(infos).toEqual(['ts', null]);
     expect(nodesOfType(document, 'inlineMath')[0]?.attrs?.['latex']).toBe('x^2 + y^2');
     expect(nodesOfType(document, 'blockMath')[0]?.attrs?.['latex']).toBe(
       'a^2 + b^2 = c^2',
@@ -123,13 +123,34 @@ describe('Markdown parser', () => {
 
   it('keeps raw HTML, frontmatter, footnotes, and MDX as plain text or a labelled block', () => {
     const document = parseMarkdown(FIXTURE);
-    expect(nodesOfType(document, 'codeBlock')[0]?.attrs?.['language']).toBe('yaml');
-    expect(textOf(document)).toContain('title: Fixture');
+    const frontmatter = nodesOfType(document, 'frontmatter');
+    expect(frontmatter).toHaveLength(1);
+    expect(frontmatter[0]?.attrs?.['raw']).toBe('---\ntitle: Fixture\nowner: Luca\n---\n');
     expect(textOf(document)).toContain('<div>raw html block</div>');
     expect(textOf(document)).toContain('[^1]');
     expect(textOf(document)).toContain('<Component prop={1} />');
     // Never a script/iframe node: the flat schema has no raw-HTML node.
     expect(nodesOfType(document, 'html')).toHaveLength(0);
+  });
+
+  it('keeps the exact frontmatter prefix (colons, quotes, comments, CRLF)', () => {
+    const prefix = [
+      '---',
+      'title: "A: quoted # not a comment"',
+      "owner: 'Luca: single quotes'",
+      '# a real comment',
+      'tags: [alpha, beta]',
+      'ratio: 3:14',
+      '---',
+      '',
+    ].join('\r\n');
+    const document = parseMarkdown(`${prefix}# Body\r\n`);
+    const raw = nodesOfType(document, 'frontmatter')[0]?.attrs?.['raw'];
+    expect(raw).toBe(prefix);
+    // A horizontal rule later is not frontmatter; an unterminated one is not
+    // frontmatter either.
+    expect(nodesOfType(parseMarkdown('# Title\n\n---\n\nbody'), 'frontmatter')).toHaveLength(0);
+    expect(nodesOfType(parseMarkdown('---\ntitle: open\n\n# Body'), 'frontmatter')).toHaveLength(0);
   });
 
   it('keeps internal links as text and only marks external links', () => {

@@ -16,6 +16,7 @@
 import MarkdownIt from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
 import { flatMarkdownSchema } from './flat-schema';
+import { splitFrontmatter } from './frontmatter';
 
 export interface MarkdownMarkJson {
   type: string;
@@ -52,7 +53,6 @@ const tokenizer = new MarkdownIt({
 });
 
 const EXTERNAL_LINK = /^(?:https?|mailto):/i;
-const FRONTMATTER = /^---\n([\s\S]*?)\n(?:---|\.\.\.)(?:\n|$)/;
 
 function paragraph(content: MarkdownNodeJson[] = []): MarkdownNodeJson {
   return content.length === 0
@@ -463,18 +463,11 @@ function sourceWithoutFrontmatter(source: string): {
   prefix: MarkdownNodeJson[];
   body: string;
 } {
-  const match = FRONTMATTER.exec(source);
-  if (match === null) return { prefix: [], body: source };
-  const raw = match[1] ?? '';
+  const split = splitFrontmatter(source);
+  if (split === null) return { prefix: [], body: source };
   return {
-    prefix: [
-      {
-        type: 'codeBlock',
-        attrs: { language: 'yaml' },
-        ...(raw.length === 0 ? {} : { content: [{ type: 'text', text: raw }] }),
-      },
-    ],
-    body: source.slice(match[0].length),
+    prefix: [{ type: 'frontmatter', attrs: { raw: split.raw } }],
+    body: split.body,
   };
 }
 
@@ -505,9 +498,11 @@ function validDocument(
  */
 export function parseMarkdown(source: string): MarkdownDocumentJson {
   try {
-    const normalized = source.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
-    if (normalized.trim().length === 0) return emptyDocument();
-    const { prefix, body } = sourceWithoutFrontmatter(normalized);
+    // The frontmatter prefix is split from the original bytes (CRLF/BOM
+    // included) so a save can re-emit it verbatim; only the body is normalized.
+    const { prefix, body: rawBody } = sourceWithoutFrontmatter(source);
+    const body = rawBody.replace(/\r\n?/g, '\n');
+    if (prefix.length === 0 && body.trim().length === 0) return emptyDocument();
     const tokens = tokenizer.parse(body, {});
     const blocks = [...prefix, ...parseBlocks(tokens)];
     return validDocument(

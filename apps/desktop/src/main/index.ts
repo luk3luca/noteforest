@@ -14,6 +14,8 @@ import type {
   CreateLibraryInput,
   ExportDefaults,
   FlushResult,
+  MarkdownFlushResult,
+  MarkdownSaveInput,
   MenuCommand,
   RevealResult,
   SessionState,
@@ -21,7 +23,7 @@ import type {
   WindowState,
 } from '../shared/api.js';
 import { resolveExportDefaultFolder } from '../shared/export.js';
-import { normalizeFlushResult } from '../shared/flush.js';
+import { normalizeFlushResult, normalizeMarkdownFlushResult } from '../shared/flush.js';
 import {
   activeLibraryPath,
   applyCommand,
@@ -76,7 +78,7 @@ import {
   installMarkdownProtocol,
   registerMarkdownScheme,
 } from './markdown-protocol.js';
-import { readMarkdownFile, resolveMarkdownImage } from './markdown-file.js';
+import { readMarkdownFile, resolveMarkdownImage, saveMarkdownFile } from './markdown-file.js';
 import { isMarkdownFileName } from '../shared/markdown.js';
 import { createExportService, installExportIpc } from './export-service.js';
 import type { PrintPageTarget } from './export-window.js';
@@ -188,6 +190,43 @@ function requestRendererFlush(win: BrowserWindow): Promise<FlushResult> {
   });
 }
 
+const markdownSaveWaiters = new Map<string, (result: MarkdownFlushResult) => void>();
+
+function markdownSaveTimeoutMs(): number {
+  const override = Number(process.env['NOTEFOREST_MARKDOWN_SAVE_TIMEOUT_MS']);
+  if (Number.isFinite(override) && override >= 1) return Math.floor(override);
+  return 10000;
+}
+
+/**
+ * Ask the renderer to atomically save every dirty Markdown guest file. The
+ * content lives only in the renderer, so the main process cannot write it.
+ * Used by the shared Save/Don't Save/Cancel close flow and the E2E branch.
+ */
+function requestRendererMarkdownSave(win: BrowserWindow): Promise<MarkdownFlushResult> {
+  return new Promise((resolve) => {
+    if (win.isDestroyed()) {
+      resolve({ ok: false, failures: ['The window was closed before it could save.'] });
+      return;
+    }
+    const timeout = markdownSaveTimeoutMs();
+    const requestId = `markdown-save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const timer = setTimeout(() => {
+      markdownSaveWaiters.delete(requestId);
+      resolve({
+        ok: false,
+        failures: [`The editor did not confirm the Markdown save within ${timeout} ms.`],
+      });
+    }, timeout);
+    markdownSaveWaiters.set(requestId, (result) => {
+      clearTimeout(timer);
+      markdownSaveWaiters.delete(requestId);
+      resolve(result);
+    });
+    win.webContents.send('app:request-markdown-save', requestId);
+  });
+}
+
 async function showFlushFailure(win: BrowserWindow, result: FlushResult): Promise<boolean> {
   const reason = result.error ?? 'The editor did not report a reason.';
   const response = await dialog.showMessageBox(win, {
@@ -218,14 +257,22 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
     }
     if (win.isDestroyed()) return;
     const dirty = dirtyDocuments();
-    if (dirty.length > 0) {
+    // Markdown guest files live only in the renderer: the flush response names
+    // the dirty ones so this same Save / Don't Save / Cancel prompt covers
+    // them, and Save asks the renderer for the atomic writes.
+    const pendingMarkdown = result.pendingMarkdown ?? [];
+    const dirtyTitles = [...dirty.map((item) => item.title), ...pendingMarkdown.map((item) => item.title)];
+    if (dirtyTitles.length > 0) {
       if (isE2E) {
-        const failures = await saveAllDirty();
+        const failures = (await saveAllDirty()).map((item) => item.error);
+        if (pendingMarkdown.length > 0) {
+          failures.push(...(await requestRendererMarkdownSave(win)).failures);
+        }
         if (failures.length > 0) {
           await dialog.showMessageBox(win, {
             type: 'error',
             message: 'Could not save your changes.',
-            detail: failures.map((item) => item.error).join('\n'),
+            detail: failures.join('\n'),
             buttons: ['Cancel'],
           });
           quitting = false;
@@ -235,10 +282,10 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
         const response = await dialog.showMessageBox(win, {
           type: 'warning',
           message:
-            dirty.length === 1
-              ? `Save changes to “${dirty[0]?.title ?? 'this document'}” before closing?`
-              : `Save changes to ${dirty.length} documents before closing?`,
-          detail: dirty.map((item) => item.title).join('\n'),
+            dirtyTitles.length === 1
+              ? `Save changes to “${dirtyTitles[0] ?? 'this document'}” before closing?`
+              : `Save changes to ${dirtyTitles.length} documents before closing?`,
+          detail: dirtyTitles.join('\n'),
           buttons: ['Save', 'Don’t Save', 'Cancel'],
           defaultId: 0,
           cancelId: 2,
@@ -248,12 +295,15 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
           return;
         }
         if (response.response === 0) {
-          const failures = await saveAllDirty();
+          const failures = (await saveAllDirty()).map((item) => item.error);
+          if (pendingMarkdown.length > 0) {
+            failures.push(...(await requestRendererMarkdownSave(win)).failures);
+          }
           if (failures.length > 0) {
             await dialog.showMessageBox(win, {
               type: 'error',
               message: 'Could not save your changes.',
-              detail: failures.map((item) => item.error).join('\n'),
+              detail: failures.join('\n'),
               buttons: ['Cancel'],
             });
             quitting = false;
@@ -544,6 +594,46 @@ function registerIpc(): void {
       return { ok: false as const, message: 'No Markdown path was provided.' };
     }
     return readMarkdownFile(filePath);
+  });
+
+  ipcMain.handle('markdown:save', (_event, input: unknown) => {
+    if (typeof input !== 'object' || input === null) {
+      return { ok: false as const, code: 'unknown' as const, message: 'No Markdown save was provided.' };
+    }
+    const candidate = input as {
+      path?: unknown;
+      markdown?: unknown;
+      base?: unknown;
+      overwriteExternal?: unknown;
+    };
+    if (typeof candidate.path !== 'string' || candidate.path.length === 0) {
+      return { ok: false as const, code: 'unknown' as const, message: 'No Markdown path was provided.' };
+    }
+    if (typeof candidate.markdown !== 'string') {
+      return { ok: false as const, code: 'unknown' as const, message: 'No Markdown content was provided.' };
+    }
+    let base = null;
+    if (candidate.base !== null) {
+      if (typeof candidate.base !== 'object' || candidate.base === null) {
+        return { ok: false as const, code: 'unknown' as const, message: 'No Markdown base was provided.' };
+      }
+      const fingerprint = candidate.base as { mtimeMs?: unknown; size?: unknown; hash?: unknown };
+      if (
+        typeof fingerprint.mtimeMs !== 'number' ||
+        typeof fingerprint.size !== 'number' ||
+        typeof fingerprint.hash !== 'string'
+      ) {
+        return { ok: false as const, code: 'unknown' as const, message: 'No Markdown base was provided.' };
+      }
+      base = { mtimeMs: fingerprint.mtimeMs, size: fingerprint.size, hash: fingerprint.hash };
+    }
+    const saveInput: MarkdownSaveInput = {
+      path: candidate.path,
+      markdown: candidate.markdown,
+      base,
+      overwriteExternal: candidate.overwriteExternal === true,
+    };
+    return saveMarkdownFile(saveInput);
   });
 
   ipcMain.handle('markdown:resolve-image', (_event, filePath: unknown, source: unknown) => {
@@ -909,6 +999,11 @@ function registerIpc(): void {
   ipcMain.on('app:flush-done', (_event, requestId: unknown, result: unknown) => {
     if (typeof requestId !== 'string') return;
     flushWaiters.get(requestId)?.(normalizeFlushResult(result));
+  });
+
+  ipcMain.on('app:markdown-save-done', (_event, requestId: unknown, result: unknown) => {
+    if (typeof requestId !== 'string') return;
+    markdownSaveWaiters.get(requestId)?.(normalizeMarkdownFlushResult(result));
   });
 
   installExportIpc(exportService);

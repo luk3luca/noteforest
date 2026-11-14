@@ -12,6 +12,7 @@ import type {
   PageSettingsOverride,
 } from '@noteforest/layout';
 import type { DocumentSettingsEntry } from './document-settings.js';
+import type { MarkdownFileFingerprint } from './markdown.js';
 import type { DocumentLayout, InteractionMode, PageFit } from './view-state';
 import type {
   ChooseExportFolderResult,
@@ -98,12 +99,82 @@ export interface MarkdownFileView {
   title: string;
   /** UTF-8 source. In-memory guest content; never a NoteForest document. */
   markdown: string;
+  /**
+   * Conflict baseline; `null` when the file was not read (above the display
+   * cap) and saving is therefore refused.
+   */
+  base: MarkdownFileFingerprint | null;
+  /**
+   * The file is above the editable cap and opens read-only. Nothing is
+   * written back until the file shrinks below the cap outside this app.
+   */
+  readOnly: boolean;
+  /** Human reason for `readOnly`; shown as a banner. */
+  readOnlyReason?: string;
+  /** Above the display cap: the body is not read (`markdown` is empty). */
+  tooLarge?: boolean;
   /** Present when the file was restored but could not be read. */
   error?: string;
 }
 
+/** One dirty Markdown tab reported to the close/quit flow. */
+export interface MarkdownPendingFile {
+  path: string;
+  title: string;
+}
+
+export type MarkdownSaveFailureCode =
+  | 'conflict'
+  | 'missing'
+  | 'read-only'
+  | 'permission'
+  | 'disk-full'
+  | 'unknown';
+
+/**
+ * One atomic save of a guest file. `base` is the fingerprint the renderer
+ * believes is on disk; the main process re-stats and refuses to overwrite a
+ * file that changed outside the app unless `overwriteExternal` is explicit.
+ */
+export interface MarkdownSaveInput {
+  path: string;
+  markdown: string;
+  base: MarkdownFileFingerprint | null;
+  overwriteExternal?: boolean;
+}
+
+export interface MarkdownSaveSuccess {
+  ok: true;
+  /** Fingerprint after the save (unchanged fingerprint for a no-op save). */
+  base: MarkdownFileFingerprint;
+  /** True when the bytes already matched, so the file was not rewritten. */
+  unchanged: boolean;
+}
+
+export interface MarkdownSaveFailure {
+  ok: false;
+  code: MarkdownSaveFailureCode;
+  message: string;
+  /** Current on-disk fingerprint when it could be read (conflict detail). */
+  base?: MarkdownFileFingerprint | null;
+}
+
+export type MarkdownSaveResult = MarkdownSaveSuccess | MarkdownSaveFailure;
+
+/** Result of the main-process “save every dirty guest file” request. */
+export interface MarkdownFlushResult {
+  ok: boolean;
+  /** One `title: reason` line per file that could not be saved. */
+  failures: string[];
+}
+
+export interface MarkdownOpenSuccess {
+  ok: true;
+  file: MarkdownFileView;
+}
+
 export type MarkdownOpenResult =
-  | { ok: true; file: MarkdownFileView }
+  | MarkdownOpenSuccess
   | { ok: false; canceled?: boolean; message?: string };
 
 export interface MarkdownImageResolution {
@@ -617,6 +688,12 @@ export type FlushStatus = 'ok' | 'error' | 'timeout';
 export interface FlushResult {
   status: FlushStatus;
   error?: string;
+  /**
+   * Dirty Markdown guest files at close/quit. They live only in the renderer,
+   * so the main process cannot save them itself; the Save/Don't Save/Cancel
+   * dialog asks the renderer through `onRequestMarkdownSave`.
+   */
+  pendingMarkdown?: MarkdownPendingFile[];
 }
 
 export type MenuCommand =
@@ -719,6 +796,11 @@ export interface NoteForestApi {
   /** Read one known Markdown path (library row, session restore, reopen). */
   readMarkdownFile(path: string): Promise<MarkdownOpenResult>;
   /**
+   * Atomically save one Markdown guest file (tmp → rename, one `.md.bak`).
+   * A changed base is a conflict unless `overwriteExternal` is explicit.
+   */
+  saveMarkdownFile(input: MarkdownSaveInput): Promise<MarkdownSaveResult>;
+  /**
    * Resolve a Markdown image relative to its file through the confined
    * `noteforest-md:` protocol. Remote/absolute/traversal sources are refused.
    */
@@ -783,6 +865,11 @@ export interface NoteForestApi {
   setWindowState(state: WindowState): Promise<void>;
   onMenu(handler: (command: MenuCommand) => void): () => void;
   onRequestFlush(handler: () => Promise<FlushResult>): () => void;
+  /**
+   * Answer a main-process “save dirty guest files” request during the
+   * Save/Don't Save/Cancel close flow. Resolve only after every atomic write.
+   */
+  onRequestMarkdownSave(handler: () => Promise<MarkdownFlushResult>): () => void;
   debugSeed(kind: 'demo' | 'performance' | 'performance-1000'): Promise<SeedResult>;
   /** Native image picker; the chosen file is copied into the package assets. */
   importImage(packagePath: string): Promise<ImportImageResult>;

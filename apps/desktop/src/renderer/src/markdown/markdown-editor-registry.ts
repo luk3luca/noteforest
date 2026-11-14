@@ -9,6 +9,22 @@ import type { Editor } from '@tiptap/core';
 
 const editors = new Map<string, Editor>();
 
+/**
+ * Flat guest editors. The shared formula node view uses this to hide the
+ * "Branch from term" action: a Markdown file has no blocks or anchors, so that
+ * control would be a dead end. A `WeakSet` keeps the marker with the editor
+ * instance (no path bookkeeping, no leak after unmount).
+ */
+const flatEditors = new WeakSet<Editor>();
+
+export function markFlatMarkdownEditor(editor: Editor): void {
+  flatEditors.add(editor);
+}
+
+export function isFlatMarkdownEditor(editor: Editor): boolean {
+  return flatEditors.has(editor);
+}
+
 export function registerMarkdownEditor(path: string, editor: Editor): void {
   editors.set(path, editor);
 }

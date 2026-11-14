@@ -2913,6 +2913,8 @@ export async function bootstrap(): Promise<{
           path: tab.packagePath,
           title: markdownFileTitle(tab.packagePath),
           markdown: '',
+          base: null,
+          readOnly: true,
           error: read.message ?? 'The Markdown file could not be read.',
         });
       }

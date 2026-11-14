@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { flushDecision, quitCanProceed } from '../src/main/lifecycle';
-import { normalizeFlushResult } from '../src/shared/flush';
+import { normalizeFlushResult, normalizeMarkdownFlushResult } from '../src/shared/flush';
 
 describe('quit lifecycle', () => {
   it('allows a quit after the close handshake completed', () => {
@@ -63,5 +63,45 @@ describe('flush result normalization', () => {
     const result = normalizeFlushResult({ status: 'timeout' });
     expect(result.status).toBe('timeout');
     expect(result.error).toMatch(/reason/);
+  });
+
+  it('keeps dirty Markdown guest files in the close/quit prompt', () => {
+    expect(
+      normalizeFlushResult({
+        status: 'ok',
+        pendingMarkdown: [
+          { path: '/notes/a.md', title: 'a.md' },
+          { path: '', title: 'bad.md' },
+          { path: '/notes/b.md', title: '' },
+          { nope: true },
+        ],
+      }),
+    ).toEqual({
+      status: 'ok',
+      pendingMarkdown: [{ path: '/notes/a.md', title: 'a.md' }],
+    });
+    // A guest-file list never turns an error/timeout into a successful flush.
+    expect(
+      normalizeFlushResult({
+        status: 'error',
+        error: 'no save',
+        pendingMarkdown: [{ path: '/notes/a.md', title: 'a.md' }],
+      }),
+    ).toEqual({ status: 'error', error: 'no save' });
+  });
+});
+
+describe('Markdown flush normalization', () => {
+  it('accepts only an explicit ok with no failures', () => {
+    expect(normalizeMarkdownFlushResult({ ok: true, failures: [] })).toEqual({
+      ok: true,
+      failures: [],
+    });
+    expect(normalizeMarkdownFlushResult({ ok: true, failures: ['x.md: conflict'] })).toEqual({
+      ok: false,
+      failures: ['x.md: conflict'],
+    });
+    expect(normalizeMarkdownFlushResult({ ok: false, failures: [] }).ok).toBe(false);
+    expect(normalizeMarkdownFlushResult(null).failures.length).toBe(1);
   });
 });

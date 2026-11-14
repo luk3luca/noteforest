@@ -20,6 +20,7 @@ import { InlineCodeBacktick } from '../editor/inline-code';
 import { ParenOrderedListInput } from '../editor/lists';
 import { BlockFormulaNode, InlineFormulaNode } from '../editor/formulas';
 import { TableEditing, TableExtensions } from '../editor/tables';
+import { MarkdownFrontmatterNode } from './frontmatter-node';
 
 /**
  * Plain inline image node used by the schema and the serializer. The renderer
@@ -63,6 +64,7 @@ export function createFlatMarkdownExtensions(
     TableEditing,
     InlineFormulaNode,
     BlockFormulaNode,
+    MarkdownFrontmatterNode,
   ];
 }
 

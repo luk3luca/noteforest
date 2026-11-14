@@ -1,17 +1,23 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
-import { artifactsPath } from '../support/harness.mjs';
+import { artifactsPath, waitUntil } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 
 /**
- * M1 Markdown guest-file surface: open from the flat library root and from
- * File → Open Markdown…, render the declared GFM subset through the flat
- * editor, Continuous Edit/Read, a clear Markdown badge, no forest/Page/PDF
- * chrome, confined local images with remote placeholders, explicit dirty state,
- * and session restore by path. M1 never writes the file (that is M2).
+ * M1 + M2 Markdown guest-file surface.
+ *
+ * M1: open from the flat library and File → Open Markdown…, render the declared
+ * GFM subset, Continuous Edit/Read, a clear Markdown badge, no forest/Page/PDF
+ * chrome, confined local images, session restore.
+ *
+ * M2: autosave + ⌘S with an atomic write and one `.md.bak`; verbatim read-only
+ * frontmatter; external-change Reload/Overwrite/Cancel with no silent overwrite;
+ * missing-file state with no recreate; the 2 MB read-only guard; the same dirty
+ * close prompt as notes; rich copy/paste into a NoteForest note; and the
+ * "Branch from term" action hidden in a guest-file formula.
  */
 
 const tempRoot = artifactsPath('markdown-file-temp');
@@ -21,8 +27,11 @@ const h = ui.harness;
 let page;
 
 const FIXTURE = `---
-title: Guest fixture
-owner: Luca
+title: "Guest: fixture # not a comment"
+owner: 'Luca'
+# a real YAML comment
+tags: [markdown, guest]
+ratio: 3:14
 ---
 
 # Markdown fixture
@@ -77,7 +86,16 @@ $$
 <Component prop={1} />
 `;
 
-function state() {
+const FRONTMATTER_PREFIX = `---
+title: "Guest: fixture # not a comment"
+owner: 'Luca'
+# a real YAML comment
+tags: [markdown, guest]
+ratio: 3:14
+---
+`;
+
+async function state() {
   return page.evaluate(() => window.__noteforestTest.state());
 }
 
@@ -90,22 +108,10 @@ async function settle() {
   );
 }
 
-async function libraryPath() {
-  return join(tempRoot, 'library');
-}
-
-async function fixturePath() {
-  return join(await libraryPath(), 'fixture.md');
-}
-
-async function otherPath() {
-  return join(tempRoot, 'outside', 'other.md');
-}
-
-async function writeFixtures() {
-  const library = await libraryPath();
+async function writeFixtures(env) {
+  const library = env.NOTEFOREST_LIBRARY;
   await mkdir(library, { recursive: true });
-  await writeFile(await fixturePath(), FIXTURE);
+  await writeFile(join(library, 'fixture.md'), FIXTURE);
   const canvas = createCanvas(320, 120);
   const context = canvas.getContext('2d');
   context.fillStyle = '#2f6f5e';
@@ -113,11 +119,10 @@ async function writeFixtures() {
   context.fillStyle = '#e8f1ec';
   context.fillRect(24, 24, 272, 72);
   await writeFile(join(library, 'pic.png'), canvas.toBuffer('image/png'));
-  await mkdir(join(tempRoot, 'outside'), { recursive: true });
-  await writeFile(await otherPath(), '# Other file\n\nOpened from File → Open Markdown…\n');
 }
 
-async function launch(name, env) {
+async function launch(env) {
+  await writeFixtures(env);
   page = await ui.launch({ ...env, NOTEFOREST_E2E_HIDDEN: '0' });
   await h.setWindowSize(1440, 900);
 }
@@ -144,11 +149,81 @@ async function activateMarkdownPath(path, requireEditable = true) {
   await waitMarkdownEditor(requireEditable);
 }
 
-describe('Markdown file view M1', () => {
+async function openFixtureFromLibrary() {
+  const row = page.locator('[data-library-document][data-library-kind="markdown"]', {
+    hasText: 'fixture.md',
+  });
+  await row.waitFor({ timeout: 15000 });
+  await row.click();
+  await waitMarkdownEditor();
+}
+
+async function dispatch(command) {
+  await page.evaluate((value) => window.__noteforestTest.dispatchMenuCommand(value), command);
+}
+
+/** The same product save action without the 120 ms menu-command throttle. */
+async function saveNow() {
+  await page.evaluate(() => window.__noteforestTest.saveNow());
+}
+
+async function waitFile(path, needle, present = true) {
+  return waitUntil(
+    async () => {
+      try {
+        const bytes = await readFile(path, 'utf8');
+        return present ? bytes.includes(needle) : !bytes.includes(needle);
+      } catch {
+        return present ? false : true;
+      }
+    },
+    `file ${present ? 'contains' : 'lacks'} ${needle}`,
+    10000,
+  );
+}
+
+async function waitMarkdownState(path, predicate) {
+  await page.waitForFunction(
+    ({ target, check }) => {
+      const file = window.__noteforestTest
+        .state()
+        .markdownFiles.find((entry) => entry.path === target);
+      if (file === undefined) return false;
+      if (check.dirty !== undefined && file.dirty !== check.dirty) return false;
+      if (check.missing !== undefined && file.missing !== check.missing) return false;
+      if (check.conflict !== undefined && file.conflict !== check.conflict) return false;
+      return true;
+    },
+    { target: path, check: predicate },
+    { timeout: 10000 },
+  );
+}
+
+async function noteContentSummary() {
+  return page.evaluate(() => {
+    const structure = window.__noteforestTest.structure();
+    const types = {};
+    const markedText = [];
+    const texts = [];
+    const walk = (node) => {
+      if (node === null || typeof node !== 'object') return;
+      if (typeof node.type === 'string') types[node.type] = (types[node.type] ?? 0) + 1;
+      if (typeof node.text === 'string') {
+        texts.push(node.text);
+        const marks = (node.marks ?? []).map((mark) => mark.type);
+        if (marks.length > 0) markedText.push({ text: node.text, marks });
+      }
+      for (const child of node.children ?? []) walk(child);
+    };
+    for (const block of Object.values(structure.blocks)) walk(block.content);
+    return { types, markedText, text: texts.join(' ') };
+  });
+}
+
+describe('Markdown file view', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(screenshotDir, { recursive: true });
-    await writeFixtures();
   });
 
   afterEach(async () => {
@@ -159,46 +234,27 @@ describe('Markdown file view M1', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('opens from the flat library, renders the subset, and has no forest or Page chrome', async () => {
-    const env = ui.isolated('markdown');
-    await mkdir(env.NOTEFOREST_LIBRARY, { recursive: true });
-    await writeFile(join(env.NOTEFOREST_LIBRARY, 'fixture.md'), FIXTURE);
-    await writeFile(
-      join(env.NOTEFOREST_LIBRARY, 'pic.png'),
-      await readFile(join(await libraryPath(), 'pic.png')),
-    );
-
-    await launch('markdown', env);
+  it('opens, renders the subset, keeps frontmatter read-only, and hides the branch action', async () => {
+    const env = ui.isolated('markdown-render');
+    await launch(env);
     const mdPath = join(env.NOTEFOREST_LIBRARY, 'fixture.md');
+
     const fileMenu = await h.app.evaluate(({ Menu }) => {
       const file = Menu.getApplicationMenu()?.items.find((item) => item.label === 'File');
       return file?.submenu?.items.map((item) => item.label) ?? [];
     });
     assert.ok(fileMenu.includes('Open Markdown…'), 'File menu has Open Markdown…');
 
-    // The library lists the .md as a file row, not a broken package.
-    const row = page.locator('[data-library-document][data-library-kind="markdown"]');
-    await row.waitFor({ timeout: 15000 });
-    assert.match(await row.innerText(), /fixture\.md/);
-    assert.equal(await page.locator('[data-doc-reason]').count(), 0);
-
-    await row.click();
-    await waitMarkdownEditor();
+    await openFixtureFromLibrary();
 
     // Tab identity and badge.
     assert.equal(
-      await page.evaluate((path) => window.__noteforestTest.state().tabs[0]?.kind, mdPath),
+      (await state()).tabs.find((tab) => tab.packagePath === mdPath)?.kind,
       'markdown',
     );
-    assert.match(await page.locator('.nf-tablist [role="tab"]').first().innerText(), /fixture\.md/);
     assert.equal(await page.locator('[data-markdown-badge]').innerText(), 'Markdown file');
-    assert.equal(
-      await page.locator('.nf-tablist [role="tab"]').first().getAttribute('data-tab-kind'),
-      null,
-    );
-    assert.equal(await page.locator('.nf-tablist [data-tab-kind="markdown"]').count(), 1);
 
-    // Declared subset renders through the reused node views and prose CSS.
+    // The declared subset renders through the reused node views.
     const editor = page.locator('.nf-markdown-editor[data-active="true"]');
     assert.equal(await editor.locator('h1').innerText(), 'Markdown fixture');
     assert.equal(await editor.locator('h2').innerText(), 'Overview');
@@ -211,26 +267,39 @@ describe('Markdown file view M1', () => {
     assert.equal(await editor.locator('ul ul li').count(), 1);
     assert.equal(await editor.locator('ol li').count(), 2);
     assert.equal(await editor.locator('blockquote').count(), 1);
-    assert.match(
-      await editor.locator('.nf-code-block').first().innerText(),
-      /title: Guest fixture/,
-    );
-    assert.match(
-      await editor.locator('.nf-code-block').nth(1).innerText(),
-      /const answer: number = 42;/,
-    );
     assert.equal(await editor.locator('table').count(), 1);
     assert.equal(await editor.locator('table th').count(), 3);
     assert.equal(await editor.locator('table td').count(), 3);
     assert.equal(await editor.locator('.katex').count(), 2);
     assert.equal(await editor.locator('hr').count(), 1);
 
-    // The confined local image loads; the remote one is a labelled placeholder.
+    // Frontmatter: a labelled read-only block, not an editable YAML fence.
+    const frontmatter = editor.locator('[data-markdown-frontmatter]');
+    assert.equal(await frontmatter.count(), 1);
+    assert.match(
+      await frontmatter.locator('.nf-markdown-frontmatter-label').innerText(),
+      /FRONTMATTER/i,
+    );
+    assert.equal(
+      await frontmatter.locator('.nf-markdown-frontmatter-body').textContent(),
+      FRONTMATTER_PREFIX,
+    );
+    assert.equal(
+      await frontmatter.locator('.nf-markdown-frontmatter-body').evaluate((element) =>
+        element.closest('[data-markdown-frontmatter]')?.getAttribute('contenteditable'),
+      ),
+      'false',
+    );
+    assert.match(await editor.locator('.nf-code-block').first().innerText(), /const answer/);
+
+    // Local image loads; the remote image is a labelled placeholder.
     const localImage = editor.locator('img.nf-markdown-image-el');
     await localImage.waitFor({ timeout: 15000 });
     await page.waitForFunction(
       () => {
-        const image = document.querySelector('.nf-markdown-editor[data-active="true"] img.nf-markdown-image-el');
+        const image = document.querySelector(
+          '.nf-markdown-editor[data-active="true"] img.nf-markdown-image-el',
+        );
         return image !== null && image.naturalWidth === 320;
       },
       undefined,
@@ -241,39 +310,39 @@ describe('Markdown file view M1', () => {
       /Remote images are not loaded\./,
     );
 
-    // Raw HTML, MDX, and frontmatter stay visible text/blocks, never executed.
+    // Raw HTML/MDX stay visible text; no forest or Page/PDF chrome.
     assert.match(await editor.innerText(), /<div>raw html stays text<\/div>/);
     assert.match(await editor.innerText(), /<Component prop=\{1\} \/>/);
-    assert.match(await editor.innerText(), /title: Guest fixture/);
     assert.equal(await editor.locator('script, iframe, style').count(), 0);
-
-    // No forest or Page/PDF chrome.
     assert.equal(await editor.locator('[data-block-card]').count(), 0);
     assert.equal(await editor.locator('[data-chapter-id]').count(), 0);
     assert.equal(await editor.locator('.nf-edge-path').count(), 0);
     assert.equal(await editor.locator('[data-page-counter]').count(), 0);
     assert.equal(await editor.locator('[data-page-export]').count(), 0);
     assert.equal(await editor.locator('[data-view-layout="page"]').count(), 0);
-    assert.equal(await page.locator('.nf-markdown-editor[data-active="true"] [data-canvas-action="add-chapter"]').count(), 0);
-    assert.equal((await state()).runtimes.length, 0, 'a Markdown file creates no document runtime');
+    assert.equal((await state()).runtimes.length, 0);
 
-    // The outline tab names the absence instead of faking a tree.
-    await ui.showOutline();
-    assert.match(
-      await page.locator('[data-outline-empty]').innerText(),
-      /A Markdown file has no outline\./,
+    // A guest-file formula hides "Branch from term" (no blocks or anchors).
+    const blockMath = editor.locator('[data-type="block-math"]').first();
+    await blockMath.dblclick();
+    await page.waitForSelector('[data-formula-actions="true"]');
+    assert.equal(
+      await page.locator('[data-testid="branch-from-term"]').count(),
+      0,
+      'a Markdown formula has no dead branch control',
     );
+    assert.equal(
+      await page.locator('[data-formula-actions="true"][data-formula-no-branch="true"]').count(),
+      1,
+    );
+    assert.ok((await page.locator('[data-testid="copy-formula"]').count()) >= 1);
+    await page.keyboard.press('Escape');
 
-    // No document-settings entry is created for a guest file.
     const settings = await page.evaluate(() => window.__noteforestTest.settings());
     assert.equal(
       settings.documentSettings.some((entry) => entry.packagePath === mdPath),
       false,
     );
-
-    await page.locator('.nf-toolbar').screenshot({
-      path: join(screenshotDir, 'tab.png'),
-    });
 
     const setMarkdownScroll = (position) =>
       page.evaluate((where) => {
@@ -284,89 +353,16 @@ describe('Markdown file view M1', () => {
         scroller.scrollTop = where === 'bottom' ? scroller.scrollHeight : 0;
       }, position);
 
-    // Edit, document start: headings, lists, code, table, math, image.
     await setMarkdownScroll('top');
     await settle();
-    await page.screenshot({ path: join(screenshotDir, 'edit-top.png') });
+    await page.screenshot({ path: join(screenshotDir, 'frontmatter-readonly.png') });
+    await page.locator('.nf-toolbar').screenshot({ path: join(screenshotDir, 'tab.png') });
 
-    // Edit: type in the sentinel paragraph, dirty state becomes explicit.
-    await ui.showLibrary();
-    const beforeBytes = await readFile(mdPath, 'utf8');
-    const paragraph = editor.locator('p', { hasText: 'EDIT-ME paragraph' });
-    await paragraph.click();
-    await page.keyboard.press('End');
-    await page.keyboard.type(' edited in M1');
-    await page.waitForFunction(
-      () => window.__noteforestTest.state().markdownFiles[0]?.dirty === true,
-      undefined,
-      { timeout: 10000 },
-    );
-    assert.equal(await page.locator('[aria-label="Unsaved changes"]').count(), 1);
-    assert.match(await page.locator('[data-markdown-status]').innerText(), /Unsaved changes/);
-    assert.match(await page.locator('[data-markdown-status]').innerText(), /Not saved to disk yet/);
-
-    // Global ⌘Z/⇧⌘Z route to the flat editor's own history.
-    await page.keyboard.press('Meta+z');
-    await page.waitForFunction(
-      () =>
-        !(document.querySelector('.nf-markdown-editor[data-active="true"]')?.textContent ?? '').includes(
-          'edited in M1',
-        ),
-      undefined,
-      { timeout: 10000 },
-    );
-    await page.keyboard.press('Meta+Shift+z');
-    await page.waitForFunction(
-      () =>
-        (document.querySelector('.nf-markdown-editor[data-active="true"]')?.textContent ?? '').includes(
-          'edited in M1',
-        ),
-      undefined,
-      { timeout: 10000 },
-    );
-
-    await setMarkdownScroll('bottom');
-    await settle();
-    await page.screenshot({ path: join(screenshotDir, 'edit-bottom.png') });
-
-    // Read: same content, not editable, no formatting toolbar.
-    await page.locator('.nf-markdown-editor[data-active="true"] [data-markdown-mode="read"]').click();
-    await page.waitForSelector('.nf-markdown-editor[data-active="true"] [contenteditable="false"]');
-    assert.equal(await page.locator('[data-testid="selection-toolbar"]').count(), 0);
-    assert.equal(
-      await page
-        .locator('.nf-markdown-editor[data-active="true"] [data-markdown-mode="read"]')
-        .getAttribute('aria-pressed'),
-      'true',
-    );
-    await page.evaluate(() => {
-      window.getSelection()?.removeAllRanges();
-      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    });
-    await setMarkdownScroll('top');
-    await settle();
-    await setMarkdownScroll('top');
-    await settle();
-    await page.screenshot({ path: join(screenshotDir, 'read-top.png') });
-    await setMarkdownScroll('bottom');
-    await settle();
-    await page.screenshot({ path: join(screenshotDir, 'read-bottom.png') });
-    await setMarkdownScroll('top');
-    await settle();
-
-    // M1 never writes: the file bytes are unchanged after Edit and Read.
-    assert.equal(await readFile(mdPath, 'utf8'), beforeBytes);
-
-    // A dirty close asks before discarding in-memory edits.
-    await page.evaluate(() => window.__noteforestTest.dispatchMenuCommand('close-tab'));
-    await page.waitForSelector('[data-markdown-discard]', { timeout: 10000 });
-    assert.match(await page.locator('.nf-dialog-title').innerText(), /Close Markdown file\?/);
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await page.waitForSelector('[data-markdown-discard]', { state: 'detached' });
-    assert.equal((await state()).tabs.length, 1);
-
-    // File → Open Markdown… opens a path outside the library.
-    const other = await otherPath();
+    // File → Open Markdown… still opens an outside path (M1 regression guard).
+    const outsideDir = join(tempRoot, 'outside');
+    await mkdir(outsideDir, { recursive: true });
+    const other = join(outsideDir, 'other.md');
+    await writeFile(other, '# Other file\n\nOpened from File → Open Markdown…\n');
     await h.app.evaluate(({ dialog }, chosen) => {
       globalThis.__nfMarkdownDialogCalls = [];
       dialog.showOpenDialog = async (_window, options) => {
@@ -374,9 +370,7 @@ describe('Markdown file view M1', () => {
         return { canceled: false, filePaths: [chosen] };
       };
     }, other);
-    await page.evaluate(() =>
-      window.__noteforestTest.dispatchMenuCommand('open-markdown'),
-    );
+    await dispatch('open-markdown');
     await page.waitForFunction(
       (path) =>
         window.__noteforestTest
@@ -393,21 +387,85 @@ describe('Markdown file view M1', () => {
     const calls = await h.app.evaluate(() => globalThis.__nfMarkdownDialogCalls ?? []);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].filters?.[0]?.extensions?.includes('md'), true);
+  });
 
-    // Persist the session, then restore by path on a fresh window.
-    await page.evaluate(() => window.__noteforestTest.flushSession());
-    await page.evaluate((path) => window.__noteforestTest.activateTab(path), mdPath);
+  it('autosaves and ⌘S atomically, keeps .md.bak, never writes in Read, and prompts on close/quit', async () => {
+    const env = ui.isolated('markdown-save');
+    await launch(env);
+    const mdPath = join(env.NOTEFOREST_LIBRARY, 'fixture.md');
+    const original = await readFile(mdPath, 'utf8');
+
+    await openFixtureFromLibrary();
+    const editor = page.locator('.nf-markdown-editor[data-active="true"]');
+
+    // First save is manual: the previous bytes become .md.bak.
+    const paragraph = editor.locator('p', { hasText: 'EDIT-ME paragraph' });
+    await paragraph.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' ALPHA');
+    await dispatch('save');
+    await waitFile(mdPath, 'EDIT-ME paragraph: type here. ALPHA');
+    await waitMarkdownState(mdPath, { dirty: false });
+    assert.equal(await readFile(`${mdPath}.bak`, 'utf8'), original);
+    assert.match(await page.locator('[data-markdown-status]').innerText(), /Saved/);
+
+    // Second save is the 700 ms autosave: the backup now holds the first save.
+    const firstSave = await readFile(mdPath, 'utf8');
+    await page.keyboard.press('End');
+    await page.keyboard.type(' BETA');
+    await waitFile(mdPath, 'BETA');
+    await waitMarkdownState(mdPath, { dirty: false });
+    assert.equal(await readFile(`${mdPath}.bak`, 'utf8'), firstSave);
+    await page.screenshot({ path: join(screenshotDir, 'save-state.png') });
+
+    // Read mode is not editable and a save command never touches the file.
+    const savedBytes = await readFile(mdPath, 'utf8');
+    const savedMtime = (await stat(mdPath)).mtimeMs;
+    await editor.locator('[data-markdown-mode="read"]').click();
+    await page.waitForSelector('.nf-markdown-editor[data-active="true"] [contenteditable="false"]');
+    await dispatch('save');
     await settle();
-    await page.evaluate(() => window.__noteforestTest.flushSession());
-    const session = await readFile(
-      join(env.NOTEFOREST_APP_SUPPORT, 'shell-session.json'),
-      'utf8',
-    );
-    assert.match(session, /fixture\.md/);
-    assert.match(session, /other\.md/);
+    assert.equal(await readFile(mdPath, 'utf8'), savedBytes);
+    assert.equal((await stat(mdPath)).mtimeMs, savedMtime);
+    assert.equal(await page.locator('[data-testid="selection-toolbar"]').count(), 0);
 
+    // A dirty tab asks Save / Don't Save / Cancel like a note.
+    await editor.locator('[data-markdown-mode="edit"]').click();
+    await page.waitForSelector('.nf-markdown-editor[data-active="true"] [contenteditable="true"]');
+    await paragraph.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' GAMMA');
+    await waitMarkdownState(mdPath, { dirty: true });
+    await dispatch('close-tab');
+    await page.waitForSelector('[data-markdown-close-save]', { timeout: 10000 });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.waitForSelector('[data-markdown-close-save]', { state: 'detached' });
+    assert.equal((await state()).tabs.length, 1);
+    // The tab close button is the same user path without the menu-command
+    // throttle (two dispatches inside 120 ms would drop the second one).
+    await page.locator('.nf-tab-close').first().click();
+    await page.waitForSelector('[data-markdown-close-discard]', { timeout: 10000 });
+    await page.locator('[data-markdown-close-discard]').click();
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 0);
+    assert.equal((await readFile(mdPath, 'utf8')).includes('GAMMA'), false);
+
+    // Reopening reads the saved bytes, not the discarded local edits.
+    await openFixtureFromLibrary();
+    assert.equal(
+      (await page.locator('.nf-markdown-editor[data-active="true"]').innerText()).includes('BETA'),
+      true,
+    );
+
+    // A dirty quit participates in the shared flush: the E2E close branch asks
+    // the renderer for the atomic saves before the window closes.
+    const reopened = page.locator('.nf-markdown-editor[data-active="true"]');
+    await reopened.locator('p', { hasText: 'EDIT-ME paragraph' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' DELTA');
+    await waitMarkdownState(mdPath, { dirty: true });
     await h.quit();
     page = await ui.launch({ ...env, NOTEFOREST_E2E_HIDDEN: '1' });
+    await waitFile(mdPath, 'DELTA');
     await page.waitForFunction(
       (path) =>
         window.__noteforestTest
@@ -416,33 +474,229 @@ describe('Markdown file view M1', () => {
       mdPath,
       { timeout: 20000 },
     );
-    const restored = await state();
-    assert.equal(restored.tabs.filter((tab) => tab.kind === 'markdown').length, 2);
-    assert.equal(restored.markdownFiles.length, 2);
-    // A restored `.md` tab reads the file again; M1 in-memory edits were never
-    // written, so the restored source has no "edited in M1" text.
     await activateMarkdownPath(mdPath, false);
-    assert.equal(
-      await page
-        .locator('.nf-markdown-editor[data-active="true"] [data-markdown-mode="read"]')
-        .getAttribute('aria-pressed'),
-      'true',
+    assert.match(
+      await page.locator('.nf-markdown-editor[data-active="true"]').innerText(),
+      /DELTA/,
+    );
+  });
+
+  it('never silently overwrites an external change; Reload and Overwrite are explicit; a deleted file stays missing', async () => {
+    const env = ui.isolated('markdown-conflict');
+    await launch(env);
+    const mdPath = join(env.NOTEFOREST_LIBRARY, 'fixture.md');
+    await openFixtureFromLibrary();
+    const editor = page.locator('.nf-markdown-editor[data-active="true"]');
+
+    // External write, then a local edit + save: the dialog must appear.
+    await writeFile(mdPath, '# External change\n\nSomeone else edited this.\n');
+    const externalBytes = await readFile(mdPath, 'utf8');
+    const paragraph = editor.locator('p', { hasText: 'EDIT-ME paragraph' });
+    await paragraph.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' local');
+    await dispatch('save');
+    await page.waitForSelector('[data-markdown-conflict-overwrite]', { timeout: 10000 });
+    assert.match(await page.locator('.nf-dialog-title').innerText(), /changed on disk/);
+    assert.equal(await readFile(mdPath, 'utf8'), externalBytes);
+    await page.screenshot({ path: join(screenshotDir, 'conflict.png') });
+
+    // Cancel writes nothing and leaves the conflict flagged.
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await waitMarkdownState(mdPath, { conflict: true });
+    assert.match(await page.locator('[data-markdown-status]').innerText(), /External change/);
+    assert.equal(await readFile(mdPath, 'utf8'), externalBytes);
+
+    // Reload discards the local edit and shows the external version.
+    await saveNow();
+    await page.waitForSelector('[data-markdown-conflict-reload]', { timeout: 10000 });
+    await page.locator('[data-markdown-conflict-reload]').click();
+    await page.waitForFunction(
+      (path) => {
+        const file = window.__noteforestTest
+          .state()
+          .markdownFiles.find((entry) => entry.path === path);
+        return file?.dirty === false && file?.conflict === false;
+      },
+      mdPath,
+      { timeout: 10000 },
     );
     assert.equal(
       await page.locator('.nf-markdown-editor[data-active="true"] h1').innerText(),
-      'Markdown fixture',
+      'External change',
     );
+
+    // Local edit + second external write; Overwrite keeps the local content and
+    // stores the external bytes in the single .md.bak.
+    const heading = page.locator('.nf-markdown-editor[data-active="true"] h1');
+    await heading.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' local');
+    await writeFile(mdPath, '# External again\n');
+    await saveNow();
+    await page.waitForSelector('[data-markdown-conflict-overwrite]', { timeout: 10000 });
+    await page.locator('[data-markdown-conflict-overwrite]').click();
+    await waitMarkdownState(mdPath, { dirty: false, conflict: false });
+    assert.match(await readFile(mdPath, 'utf8'), /^# External change local/);
+    assert.equal(await readFile(`${mdPath}.bak`, 'utf8'), '# External again\n');
+
+    // External delete: the tab is missing, nothing is recreated.
+    await rm(mdPath);
+    await heading.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' more');
+    await saveNow();
+    await page.waitForSelector('[data-markdown-missing]', { timeout: 10000 });
+    await waitMarkdownState(mdPath, { missing: true });
     assert.equal(
-      (await page.locator('.nf-markdown-editor[data-active="true"]').innerText()).includes(
-        'edited in M1',
-      ),
-      false,
-    );
-    assert.equal(
-      (await page.locator('.nf-markdown-editor[data-active="true"]').innerText()).includes(
-        'title: Guest fixture',
-      ),
+      (await state()).tabs.find((tab) => tab.packagePath === mdPath)?.missing,
       true,
     );
+    await assert.rejects(stat(mdPath));
+
+    // Clean up through the same close prompt (Don't Save).
+    await page.locator('.nf-tab-close').first().click();
+    await page.waitForSelector('[data-markdown-close-discard]', { timeout: 10000 });
+    await page.locator('[data-markdown-close-discard]').click();
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 0);
+  });
+
+  it('opens a >2 MB file read-only with a message and never writes it', async () => {
+    const env = ui.isolated('markdown-large');
+    await mkdir(env.NOTEFOREST_LIBRARY, { recursive: true });
+    const largePath = join(env.NOTEFOREST_LIBRARY, 'large.md');
+    const largeSource = `# Large guest\n\n${'x'.repeat(2 * 1024 * 1024 + 4096)}\n`;
+    await writeFile(largePath, largeSource);
+    const bytes = await readFile(largePath);
+    page = await ui.launch({ ...env, NOTEFOREST_E2E_HIDDEN: '0' });
+    await h.setWindowSize(1440, 900);
+
+    const row = page.locator('[data-library-document][data-library-kind="markdown"]', {
+      hasText: 'large.md',
+    });
+    await row.waitFor({ timeout: 15000 });
+    await row.click();
+    await waitMarkdownEditor(false);
+
+    await page.waitForSelector('[data-markdown-too-large]', { timeout: 10000 });
+    assert.match(await page.locator('[data-markdown-too-large]').innerText(), /2 MB/);
+    assert.match(
+      await page.locator('[data-markdown-too-large]').innerText(),
+      /not opened here/,
+    );
+    assert.match(await page.locator('[data-markdown-status]').innerText(), /Read-only/);
+    assert.equal(
+      await page
+        .locator('.nf-markdown-editor[data-active="true"] [data-markdown-mode="edit"]')
+        .isDisabled(),
+      true,
+    );
+    // The body is not parsed or rendered at all; no contenteditable editor.
+    assert.equal(
+      await page.locator('.nf-markdown-editor[data-active="true"] [contenteditable="true"]').count(),
+      0,
+    );
+    await page.screenshot({ path: join(screenshotDir, 'large-readonly.png') });
+
+    // A save command and a mode click never write the large file.
+    await dispatch('save');
+    await page
+      .locator('.nf-markdown-editor[data-active="true"] [data-markdown-mode="edit"]')
+      .click({ force: true });
+    await settle();
+    assert.deepEqual(await readFile(largePath), bytes);
+    await assert.rejects(stat(`${largePath}.bak`));
+  });
+
+  it('copies a paragraph, table, formula, and code into a note as rich nodes', async () => {
+    const env = ui.isolated('markdown-copy');
+    await launch(env);
+    await ui.seedDemo();
+    const mdPath = join(env.NOTEFOREST_LIBRARY, 'fixture.md');
+    await openFixtureFromLibrary();
+    const note = (await state()).runtimes[0];
+    assert.ok(note, 'the seeded note runtime is open');
+
+    async function pasteIntoNote(kind, expected, canonical = expected) {
+      const selected = await page.evaluate(
+        ({ path, nodeKind }) => window.__noteforestTest.markdownSelect(path, nodeKind),
+        { path: mdPath, nodeKind: kind },
+      );
+      assert.ok(selected, `selection for ${kind}`);
+      await page.keyboard.press('Meta+c');
+      const clipboard = await h.clipboardText();
+      if (kind === 'paragraph' || kind === 'table' || kind === 'codeBlock') {
+        assert.ok(clipboard.length > 0, `${kind} reached the clipboard`);
+      }
+
+      await page.evaluate((path) => window.__noteforestTest.activateTab(path), note.packagePath);
+      await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+      const targetCard = page.locator('.nf-editor[data-active="true"] [data-block-card]').first();
+      await targetCard.locator('p').first().click();
+      await page.keyboard.press('End');
+      await page.keyboard.press('Meta+v');
+
+      // The live editor is the immediate source of truth; the canonical
+      // document follows through the note's own save/commit path.
+      await page.waitForFunction(
+        (expectedType) => {
+          const runtimes = window.__noteforestTest.editorJson();
+          const types = {};
+          const walk = (node) => {
+            if (node === null || typeof node !== 'object') return;
+            if (typeof node.type === 'string') types[node.type] = (types[node.type] ?? 0) + 1;
+            for (const mark of node.marks ?? []) {
+              if (typeof mark.type === 'string') types[mark.type] = (types[mark.type] ?? 0) + 1;
+            }
+            for (const child of node.content ?? []) walk(child);
+          };
+          for (const runtime of runtimes) walk(runtime.json);
+          return (types[expectedType] ?? 0) > 0;
+        },
+        expected,
+        { timeout: 10000 },
+      );
+      await h.waitSaved();
+      await page.waitForFunction(
+        (expectedType) => {
+          const structure = window.__noteforestTest.structure();
+          const types = {};
+          const walk = (node) => {
+            if (node === null || typeof node !== 'object') return;
+            if (typeof node.type === 'string') types[node.type] = (types[node.type] ?? 0) + 1;
+            for (const mark of node.marks ?? []) {
+              if (typeof mark.type === 'string') types[mark.type] = (types[mark.type] ?? 0) + 1;
+            }
+            for (const child of node.children ?? []) walk(child);
+          };
+          for (const block of Object.values(structure.blocks)) walk(block.content);
+          return (types[expectedType] ?? 0) > 0;
+        },
+        canonical,
+        { timeout: 10000 },
+      );
+    }
+
+    await pasteIntoNote('paragraph', 'bold');
+    await activateMarkdownPath(mdPath);
+    await pasteIntoNote('table', 'table');
+    await activateMarkdownPath(mdPath);
+    await pasteIntoNote('inlineMath', 'inlineMath');
+    await activateMarkdownPath(mdPath);
+    await pasteIntoNote('blockMath', 'blockMath', 'mathBlock');
+    await activateMarkdownPath(mdPath);
+    await pasteIntoNote('codeBlock', 'codeBlock');
+
+    const summary = await noteContentSummary();
+    assert.ok((summary.types['table'] ?? 0) >= 1, 'a table node survived the paste');
+    assert.ok((summary.types['inlineMath'] ?? 0) >= 1, 'an inline formula survived');
+    assert.ok((summary.types['mathBlock'] ?? 0) >= 1, 'a block formula survived');
+    assert.ok((summary.types['codeBlock'] ?? 0) >= 1, 'a code block survived');
+    assert.match(summary.text, /const answer: number = 42;/);
+    const marks = new Set(summary.markedText.flatMap((entry) => entry.marks));
+    for (const mark of ['bold', 'italic', 'strike', 'code', 'link']) {
+      assert.ok(marks.has(mark), `the ${mark} mark survived`);
+    }
+    await page.screenshot({ path: join(screenshotDir, 'copy-paste-note.png') });
   });
 });

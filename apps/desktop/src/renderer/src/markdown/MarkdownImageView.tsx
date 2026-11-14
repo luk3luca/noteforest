@@ -118,4 +118,36 @@ export const MarkdownImageView = MarkdownImage.extend({
   addNodeView() {
     return ReactNodeViewRenderer(MarkdownImageNodeView);
   },
+  /**
+   * The guest-file HTML serialization is not a network surface: an image is
+   * represented as a labelled placeholder with its original source in a data
+   * attribute. The node view owns the real (confined) `noteforest-md:` image;
+   * a raw `src` here would make any HTML serialization fetch a remote URL.
+   */
+  renderHTML({ node }) {
+    const src = stringAttr(node.attrs['src']);
+    const alt = stringAttr(node.attrs['alt']);
+    return [
+      'span',
+      {
+        'data-markdown-image': 'true',
+        'data-src': src,
+        'data-alt': alt,
+        class: 'nf-markdown-image-raw',
+      },
+      alt.length > 0 ? alt : src,
+    ];
+  },
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-markdown-image]',
+        getAttrs: (element) => ({
+          src: (element as HTMLElement).getAttribute('data-src') ?? '',
+          alt: (element as HTMLElement).getAttribute('data-alt') ?? '',
+        }),
+      },
+      ...(this.parent?.() ?? []),
+    ];
+  },
 }).configure({ allowBase64: false, inline: true });

@@ -9,8 +9,35 @@
 
 export const MARKDOWN_EXTENSIONS = ['md', 'markdown', 'mdown', 'mkd'] as const;
 
-/** Renderer file-size guard: a larger file is refused instead of freezing. */
+/**
+ * Editable cap: a `.md` above 2 MB opens read-only instead of freezing the
+ * window. The value is deliberately small: a guest file is parsed and
+ * rendered synchronously, and a bigger file belongs in a Markdown editor.
+ */
 export const MAX_MARKDOWN_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Conflict baseline recorded on open and after every successful save. `hash`
+ * is the SHA-256 of the exact bytes, so an external write that keeps the size
+ * and the mtime (a same-second edit from a coarse timestamp) is still caught.
+ */
+export interface MarkdownFileFingerprint {
+  mtimeMs: number;
+  size: number;
+  hash: string;
+}
+
+/** True when the on-disk fingerprint no longer matches the recorded base. */
+export function markdownFingerprintChanged(
+  base: MarkdownFileFingerprint,
+  current: MarkdownFileFingerprint,
+): boolean {
+  return (
+    base.size !== current.size ||
+    base.hash !== current.hash ||
+    base.mtimeMs !== current.mtimeMs
+  );
+}
 
 export function markdownExtension(fileName: string): string | null {
   const dot = fileName.lastIndexOf('.');

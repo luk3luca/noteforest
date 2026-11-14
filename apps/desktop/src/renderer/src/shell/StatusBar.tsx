@@ -37,22 +37,62 @@ export function StatusBar(): JSX.Element {
   }, [runtime, runtime?.document, runtime?.version, runtime?.assetAvailability]);
 
   if (markdown !== null) {
+    const state = markdown.missing
+      ? 'error'
+      : markdown.readOnly
+        ? 'read-only'
+        : markdown.saving
+          ? 'saving'
+          : markdown.saveError !== null
+            ? 'error'
+            : markdown.conflict
+              ? 'unsaved'
+              : markdown.dirty
+                ? 'unsaved'
+                : 'saved';
+    const label = markdown.missing
+      ? 'File missing'
+      : markdown.readOnly
+        ? 'Read-only'
+        : markdown.saving
+          ? 'Saving…'
+          : markdown.saveError !== null
+            ? 'Save failed'
+            : markdown.conflict
+              ? 'External change'
+              : markdown.dirty
+                ? 'Unsaved changes'
+                : 'Saved';
+    const detail = markdown.missing
+      ? 'Nothing is written; the file is not recreated'
+      : markdown.readOnly
+        ? 'Large file · not written'
+        : markdown.saving
+          ? 'Writing atomically…'
+          : markdown.saveError !== null
+            ? markdown.saveError
+            : markdown.conflict
+              ? 'Save paused · the file changed on disk'
+              : markdown.dirty
+                ? 'Not saved to disk yet'
+                : 'Saved to disk';
     return (
       <footer className="nf-statusbar" data-markdown-status="true">
         <span
-          className={`nf-status-item nf-status-${markdown.dirty ? 'unsaved' : 'saved'}`}
+          className={`nf-status-item nf-status-${state}`}
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          data-save-state={markdown.dirty ? 'unsaved' : 'saved'}
+          data-save-state={state}
+          title={detail}
         >
           <span className="nf-status-dot" aria-hidden="true" />
-          {markdown.dirty ? 'Unsaved changes' : 'Markdown file'}
+          {label}
         </span>
-        <span className="nf-status-item nf-status-secondary">Markdown preview</span>
+        <span className="nf-status-item nf-status-secondary">Markdown file</span>
         <span className="nf-status-spacer" />
-        <span className="nf-status-item nf-status-secondary">
-          {markdown.dirty ? 'Not saved to disk yet' : 'Read from disk'}
+        <span className="nf-status-item nf-status-secondary" data-markdown-save-detail="true">
+          {detail}
         </span>
       </footer>
     );

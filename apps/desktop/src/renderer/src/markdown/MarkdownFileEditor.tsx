@@ -11,9 +11,11 @@ import { TableToolbar } from '../editor/TableToolbar';
 import { createFlatMarkdownExtensions } from './flat-schema';
 import { MarkdownFilePathContext, MarkdownImageView } from './MarkdownImageView';
 import {
+  markFlatMarkdownEditor,
   registerMarkdownEditor,
   unregisterMarkdownEditor,
 } from './markdown-editor-registry';
+import { scheduleMarkdownAutosave } from './markdown-save';
 
 interface MarkdownFileEditorProps {
   path: string;
@@ -31,7 +33,8 @@ interface HistoryState {
  * Continuous only, Edit/Read. It reuses the code/formula/table node views, the
  * selection/table toolbars, and the prose CSS, but mounts no forest node, no
  * block/chapter label, no outline tree, no Page/PDF control, and no anchor
- * decoration. M1 edits stay in memory and only set the explicit dirty flag.
+ * decoration. M2 adds the debounced autosave + ⌘S path, a read-only
+ * frontmatter block, and the read-only/large-file states.
  */
 export function MarkdownFileEditor({ path, active }: MarkdownFileEditorProps): JSX.Element {
   const entry = useMarkdownEntry(path);
@@ -63,6 +66,12 @@ export function MarkdownFileEditor({ path, active }: MarkdownFileEditorProps): J
       onUpdate: ({ transaction }) => {
         if (!transaction.docChanged) return;
         setDirty(path, true);
+        scheduleMarkdownAutosave(path);
+      },
+      onCreate: ({ editor }) => {
+        // The shared formula node view hides "Branch from term" for this flat
+        // editor: a guest file has no blocks, anchors, or branches.
+        markFlatMarkdownEditor(editor);
       },
     },
     [path],
@@ -90,7 +99,29 @@ export function MarkdownFileEditor({ path, active }: MarkdownFileEditorProps): J
     };
   }, [editor, path, refreshHistory]);
 
-  const editable = entry !== null && entry.error === null && active && interactionMode === 'edit';
+  const readOnly = entry !== null && entry.readOnly;
+  const tooLarge = entry !== null && entry.tooLarge;
+  const missing = entry !== null && entry.missing;
+  const editable =
+    entry !== null &&
+    entry.error === null &&
+    active &&
+    interactionMode === 'edit' &&
+    !readOnly &&
+    !tooLarge &&
+    !missing;
+  const editDisabledReason =
+    entry === null
+      ? null
+      : entry.error !== null
+        ? entry.error
+        : readOnly
+          ? entry.readOnlyReason ?? 'This Markdown file is open read-only.'
+          : missing
+            ? 'This Markdown file is no longer on disk. Copy what you need; saving is unavailable.'
+            : tooLarge
+              ? entry.readOnlyReason ?? 'This Markdown file is too large to edit.'
+              : null;
 
   useEffect(() => {
     if (editor === null) return;
@@ -187,8 +218,12 @@ export function MarkdownFileEditor({ path, active }: MarkdownFileEditorProps): J
               data-markdown-mode="edit"
               aria-pressed={interactionMode === 'edit'}
               aria-label="Markdown Edit mode"
-              title="Edit this Markdown file (⌘E)"
-              disabled={entry.error !== null}
+              title={
+                editDisabledReason === null
+                  ? 'Edit this Markdown file (⌘E)'
+                  : `Edit unavailable: ${editDisabledReason}`
+              }
+              disabled={editDisabledReason !== null}
               onClick={() => useShell.getState().setDocumentInteractionMode(path, 'edit')}
             >
               Edit
@@ -215,14 +250,37 @@ export function MarkdownFileEditor({ path, active }: MarkdownFileEditorProps): J
           <p className="nf-markdown-error-copy">{entry.error}</p>
           <p className="nf-markdown-error-copy">{entry.path}</p>
         </div>
-      ) : (
-        <div className="nf-editor-scroll nf-markdown-scroll" ref={scrollRef}>
-          <div className="nf-markdown-document">
-            <MarkdownFilePathContext.Provider value={path}>
-              <EditorContent editor={editor} />
-            </MarkdownFilePathContext.Provider>
-          </div>
+      ) : entry.tooLarge ? (
+        <div className="nf-markdown-error" role="alert" data-markdown-too-large="true">
+          <h2 className="nf-markdown-error-title">Markdown file is too large</h2>
+          <p className="nf-markdown-error-copy">{entry.readOnlyReason}</p>
+          <p className="nf-markdown-error-copy">{entry.path}</p>
         </div>
+      ) : (
+        <>
+          {entry.readOnly || entry.missing ? (
+            <div
+              className="nf-markdown-banner"
+              role="status"
+              data-markdown-readonly={entry.readOnly ? 'true' : undefined}
+              data-markdown-missing={entry.missing ? 'true' : undefined}
+            >
+              <strong>{entry.readOnly ? 'Read-only' : 'File missing'}</strong>
+              <span>
+                {entry.readOnly
+                  ? entry.readOnlyReason
+                  : 'This file is no longer on disk. NoteForest will not recreate it; copy anything you still need.'}
+              </span>
+            </div>
+          ) : null}
+          <div className="nf-editor-scroll nf-markdown-scroll" ref={scrollRef}>
+            <div className="nf-markdown-document">
+              <MarkdownFilePathContext.Provider value={path}>
+                <EditorContent editor={editor} />
+              </MarkdownFilePathContext.Provider>
+            </div>
+          </div>
+        </>
       )}
       {editor === null || !editable || entry.error !== null ? null : (
         <>

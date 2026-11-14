@@ -33,6 +33,10 @@ import {
   type FormulaTermSelection,
 } from '../lib/anchor-selection';
 import { overwriteConfirmation } from '../lib/save-failure';
+import {
+  reloadMarkdownFromDisk,
+  overwriteMarkdownFile,
+} from '../markdown/markdown-save';
 import { backupMetadataLine } from '../lib/backup-restore';
 import { editingEnabledFor } from '../lib/editability';
 import {
@@ -249,33 +253,92 @@ export function Dialogs(): JSX.Element | null {
   if (dialog.kind === 'trash-document') {
     return <TrashDocumentDialog preflight={dialog.preflight} onClose={close} />;
   }
-  // A Markdown guest file has no runtime and no save path in M1. The discard
-  // confirmation is the only destructive choice; Cancel leaves it untouched.
-  if (dialog.kind === 'markdown-discard') {
+  // A Markdown guest file has no runtime. A dirty close asks Save / Don't Save
+  // / Cancel, exactly like a note; Save runs the atomic write before closing.
+  if (dialog.kind === 'markdown-close') {
     const tab = useShell.getState().tabs.find((item) => item.packagePath === dialog.path);
     return (
       <Frame
         title="Close Markdown file?"
-        description="This preview keeps Markdown edits in memory and does not save the file yet. Closing the tab discards them."
+        description="This file has changes that have not been saved yet."
         actions={
           <>
-            <Button className="nf-button" onPress={close}>
-              Cancel
-            </Button>
+            <Button className="nf-button" onPress={close}>Cancel</Button>
             <Button
-              className="nf-button nf-button-danger"
-              data-markdown-discard="true"
+              className="nf-button"
+              data-markdown-close-discard="true"
               onPress={() => {
                 close();
                 void closeTab(dialog.path, { force: true, save: false });
               }}
             >
-              Discard Changes
+              Don’t Save
+            </Button>
+            <Button
+              className="nf-button nf-button-primary"
+              data-markdown-close-save="true"
+              onPress={() => {
+                close();
+                void closeTab(dialog.path, { force: true, save: true });
+              }}
+            >
+              Save
             </Button>
           </>
         }
       >
         <p className="nf-dialog-text">{tab?.title ?? 'This Markdown file'}</p>
+      </Frame>
+    );
+  }
+  // The only destructive guest-file choice. Reload discards the local edits;
+  // Overwrite keeps them and replaces the external version; Esc/Cancel writes
+  // nothing and leaves the conflict flagged.
+  if (dialog.kind === 'markdown-conflict') {
+    const tab = useShell.getState().tabs.find((item) => item.packagePath === dialog.path);
+    return (
+      <Frame
+        title="This file changed on disk"
+        description="Another app wrote this Markdown file. Nothing has been overwritten."
+        actions={
+          <>
+            <Button className="nf-button" onPress={close}>Cancel</Button>
+            <Button
+              className="nf-button"
+              data-markdown-conflict-reload="true"
+              onPress={() => {
+                close();
+                void reloadMarkdownFromDisk(dialog.path).then((outcome) => {
+                  if (outcome.status === 'failed') toast.error(outcome.message);
+                });
+              }}
+            >
+              Reload
+            </Button>
+            <Button
+              className="nf-button nf-button-danger"
+              data-markdown-conflict-overwrite="true"
+              onPress={() => {
+                close();
+                void overwriteMarkdownFile(dialog.path).then((outcome) => {
+                  if (outcome.status === 'failed') toast.error(outcome.message);
+                  else if (outcome.status === 'missing') {
+                    toast.error('This Markdown file is no longer on disk. Nothing was written.');
+                  }
+                });
+              }}
+            >
+              Overwrite
+            </Button>
+          </>
+        }
+      >
+        <p className="nf-dialog-text">{tab?.title ?? 'This Markdown file'}</p>
+        <p className="nf-dialog-text">{dialog.path}</p>
+        <p className="nf-settings-help">
+          Reload replaces the editor with the version on disk. Overwrite writes the editor content
+          and keeps a .bak of the previous bytes.
+        </p>
       </Frame>
     );
   }

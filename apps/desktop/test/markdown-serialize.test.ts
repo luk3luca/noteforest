@@ -81,7 +81,7 @@ describe('Markdown serializer', () => {
     expect(serializeMarkdown(second)).toBe(markdown);
   });
 
-  it('keeps frontmatter, raw text, and unsupported syntax visible', () => {
+  it('keeps frontmatter verbatim and raw text/unsupported syntax visible', () => {
     const source = `---
 title: Fixture
 ---
@@ -90,10 +90,43 @@ title: Fixture
 
 MDX <Component />`;
     const markdown = serializeMarkdown(parseMarkdown(source));
-    expect(markdown).toContain('```yaml');
-    expect(markdown).toContain('title: Fixture');
+    expect(markdown.startsWith('---\ntitle: Fixture\n---\n')).toBe(true);
+    expect(markdown).not.toContain('```yaml');
     expect(markdown).toContain('<div>raw</div>');
     expect(markdown).toContain('<Component />');
+  });
+
+  it('round-trips YAML frontmatter byte-identically before the normalized body', () => {
+    const prefix = [
+      '---',
+      'title: "A: quoted # not a comment"',
+      "note: 'single: quote'",
+      '# a comment with --- inside',
+      'tags: [alpha, beta]',
+      'ratio: 3:14',
+      '---',
+      '',
+    ].join('\n');
+    const source = `${prefix}# Heading\n\nBody with **bold**.\n`;
+    const document = parseMarkdown(source);
+    const frontmatter = document.content[0];
+    expect(frontmatter?.type).toBe('frontmatter');
+    expect(frontmatter?.attrs?.['raw']).toBe(prefix);
+    const saved = serializeMarkdown(document);
+    expect(saved.startsWith(prefix)).toBe(true);
+    expect(saved.slice(prefix.length)).toBe('# Heading\n\nBody with **bold**.\n');
+    // Re-parsing the saved bytes keeps the same prefix and the same content.
+    const again = parseMarkdown(saved);
+    expect(again.content[0]?.attrs?.['raw']).toBe(prefix);
+    expect(again.content).toEqual(document.content);
+  });
+
+  it('writes a frontmatter-only file without adding or losing bytes', () => {
+    const source = '---\ntitle: Only\n---\n';
+    expect(serializeMarkdown(parseMarkdown(source))).toBe(source);
+    expect(serializeMarkdown(parseMarkdown('---\ntitle: Only\n---'))).toBe(
+      '---\ntitle: Only\n---',
+    );
   });
 
   it('escapes table pipes and keeps cell inline marks', () => {

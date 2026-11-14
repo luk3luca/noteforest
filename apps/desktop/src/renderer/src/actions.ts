@@ -3,6 +3,7 @@
 import { toast } from 'sonner';
 import type {
   LibraryActionSuccess,
+  MarkdownFileView,
   MenuCommand,
   OpenDocumentResult,
   RecoveryDocumentView,
@@ -11,6 +12,10 @@ import type {
 import { isMarkdownPath } from '../../shared/markdown';
 import { markdownEntry, useMarkdownFiles } from './state/markdown';
 import { markdownHistory } from './markdown/markdown-editor-registry';
+import {
+  cancelMarkdownAutosave,
+  saveMarkdownNow,
+} from './markdown/markdown-save';
 import type { ApplyOutcome, DocumentRuntime } from './state/runtime';
 import {
   allRuntimes,
@@ -206,22 +211,18 @@ export function activeTabIsMarkdown(): boolean {
   return path !== null && isMarkdownPath(path);
 }
 
-function adoptMarkdownFile(file: {
-  path: string;
-  title: string;
-  markdown: string;
-  error?: string;
-}): void {
+function adoptMarkdownFile(file: MarkdownFileView): void {
   useMarkdownFiles.getState().openFile(file);
   shell().openTab({
     packagePath: file.path,
     tabKey: file.path,
     title: file.title,
     kind: 'markdown',
+    ...(file.readOnly ? { readOnlyReason: file.readOnlyReason } : {}),
   });
   useShell.getState().setDocumentViewState(file.path, {
     layout: 'continuous',
-    interactionMode: 'edit',
+    interactionMode: file.readOnly ? 'read' : 'edit',
   });
 }
 
@@ -536,7 +537,15 @@ export async function renameChapter(chapterId: string, title: string): Promise<v
 
 export async function saveActive(): Promise<void> {
   if (activeTabIsMarkdown()) {
-    toast.info('This Markdown preview keeps edits in memory and does not save the file yet.');
+    const path = shell().activeTab;
+    if (path === null) return;
+    cancelMarkdownAutosave(path);
+    const outcome = await saveMarkdownNow(path, { manual: true });
+    if (outcome.status === 'failed') toast.error(outcome.message);
+    else if (outcome.status === 'blocked') toast.info(outcome.message);
+    else if (outcome.status === 'missing') {
+      toast.error('This Markdown file is no longer on disk. Nothing was written.');
+    }
     return;
   }
   const runtime = activeRuntime();
@@ -555,14 +564,38 @@ export async function closeTab(
   packagePath: string,
   options: { force?: boolean; save?: boolean } = {},
 ): Promise<void> {
-  // A Markdown guest file has no runtime, lock, or save path. A dirty tab asks
-  // before discarding its in-memory edits; M1 never writes the file.
+  // A Markdown guest file lives only in the renderer. A dirty tab uses the
+  // same Save / Don't Save / Cancel prompt as a note; Save writes atomically
+  // first and keeps the tab open when it conflicts.
   if (isMarkdownPath(packagePath)) {
     const entry = markdownEntry(packagePath);
-    if (entry !== null && entry.dirty && options.force !== true) {
-      shell().openDialog({ kind: 'markdown-discard', path: packagePath });
+    const dirty = entry !== null && entry.dirty;
+    if (dirty && options.force !== true) {
+      // The dialog owns the decision: do not autosave behind it. Otherwise
+      // "Don't Save" could race a debounce that already wrote the file.
+      cancelMarkdownAutosave(packagePath);
+      shell().openDialog({ kind: 'markdown-close', path: packagePath });
       return;
     }
+    if (dirty && options.save === true) {
+      cancelMarkdownAutosave(packagePath);
+      const outcome = await saveMarkdownNow(packagePath, { manual: true });
+      if (outcome.status === 'conflict') {
+        shell().openDialog({ kind: 'markdown-conflict', path: packagePath });
+        return;
+      }
+      if (outcome.status !== 'saved' && outcome.status !== 'clean') {
+        toast.error(
+          outcome.status === 'blocked'
+            ? outcome.message
+            : outcome.status === 'missing'
+              ? 'This Markdown file is no longer on disk. Nothing was written.'
+              : outcome.message,
+        );
+        return;
+      }
+    }
+    cancelMarkdownAutosave(packagePath);
     useMarkdownFiles.getState().closeFile(packagePath);
     const tab = shell().tabs.find((item) => item.packagePath === packagePath);
     if (tab !== undefined) shell().pushClosed(tab);

@@ -27,6 +27,7 @@ import { formulaCopySource, formulaKindTarget, type FormulaKind } from '../../li
 import { consumeFormulaAutoEdit, convertFormulaKind } from '../../lib/formula-convert';
 import { unwrapFormulaSource } from '../../lib/formula-input';
 import { branchFromFormulaTerm } from '../../lib/formula-term-branch';
+import { isFlatMarkdownEditor } from '../../markdown/markdown-editor-registry';
 import { getEditorBindings } from '../bindings';
 import { subscribeEditorUi } from '../editor-ui';
 import { installLocalTextKeys } from '../../lib/local-text-keys';
@@ -412,9 +413,13 @@ export class FormulaNodeView {
     actions.dataset['formulaActions'] = 'true';
     actions.contentEditable = 'false';
 
-    const termButton = this.actionButton('Branch from term', 'branch-from-term');
-    termButton.disabled = true;
-    termButton.addEventListener('click', () => this.branch());
+    const termButton = isFlatMarkdownEditor(this.editor)
+      ? null
+      : this.actionButton('Branch from term', 'branch-from-term');
+    if (termButton !== null) {
+      termButton.disabled = true;
+      termButton.addEventListener('click', () => this.branch());
+    }
     const copyButton = this.actionButton('Copy formula', 'copy-formula');
     copyButton.addEventListener('click', () => this.copyFormula());
     const kindButton = this.actionButton(this.block ? 'Inline' : 'Block', 'toggle-formula-kind');
@@ -425,7 +430,15 @@ export class FormulaNodeView {
     );
     kindButton.title = this.block ? 'Convert to inline formula' : 'Convert to block formula';
     kindButton.addEventListener('click', () => this.toggleKind());
-    actions.append(termButton, copyButton, kindButton);
+    if (termButton === null) {
+      // A Markdown guest file has no blocks or anchors, so "Branch from term"
+      // would be a dead control. The row keeps Copy formula and Inline/Block.
+      actions.dataset['formulaNoBranch'] = 'true';
+      actions.title = 'Markdown files have no block anchors or branches.';
+      actions.append(copyButton, kindButton);
+    } else {
+      actions.append(termButton, copyButton, kindButton);
+    }
     this.termButton = termButton;
     this.copyButton = copyButton;
 

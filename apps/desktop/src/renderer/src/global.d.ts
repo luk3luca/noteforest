@@ -35,6 +35,13 @@ declare global {
         description?: string,
       ) => void;
       flushSession: () => Promise<void>;
+      /** Test-only: run the product save action without the menu throttle. */
+      saveNow?: () => Promise<void>;
+      /** Test-only: set a rich ProseMirror selection in a Markdown guest editor. */
+      markdownSelect?: (
+        path: string,
+        kind: 'paragraph' | 'table' | 'blockMath' | 'inlineMath' | 'codeBlock',
+      ) => { from: number; to: number; text: string } | null;
       setFlushMode: (mode: 'normal' | 'error' | 'hang') => void;
       /** Test-only: visible M4d2 export surface state. */
       exportState?: () => unknown;

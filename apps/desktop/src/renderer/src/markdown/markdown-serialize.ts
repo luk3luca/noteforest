@@ -77,6 +77,13 @@ const nodes: ConstructorParameters<typeof MarkdownSerializer>[0] = {
   text(state, node) {
     state.text(node.text ?? '');
   },
+  frontmatter(state, node) {
+    // Byte-identical `---…---` prefix. It owns its own trailing newline; no
+    // `closeBlock`, so the normalized body follows immediately.
+    const raw = typeof node.attrs['raw'] === 'string' ? node.attrs['raw'] : '';
+    state.write(raw);
+    if (raw.length > 0 && !raw.endsWith('\n')) state.write('\n');
+  },
   paragraph(state, node) {
     state.renderInline(node);
     state.closeBlock(node);
@@ -197,6 +204,14 @@ const serializer = new MarkdownSerializer(nodes, marks, {
 export function serializeMarkdown(document: MarkdownDocumentJson): string {
   const node = flatMarkdownSchema().nodeFromJSON(document);
   const output = serializer.serialize(node, { tightLists: true });
+  const first = node.firstChild;
+  if (first !== null && first.type.name === 'frontmatter') {
+    // The prefix is preserved byte-for-byte; only the body is normalized.
+    const raw = typeof first.attrs['raw'] === 'string' ? first.attrs['raw'] : '';
+    const body = output.startsWith(raw) ? output.slice(raw.length) : output;
+    const normalizedBody = body.replace(/[ \t]+\n/g, '\n').trimEnd();
+    return normalizedBody.length === 0 ? raw : `${raw}${normalizedBody}\n`;
+  }
   const normalized = output.replace(/[ \t]+\n/g, '\n').trimEnd();
   return normalized.length === 0 ? '' : `${normalized}\n`;
 }

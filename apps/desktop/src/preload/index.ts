@@ -25,7 +25,10 @@ import type {
   LibraryView,
   ListBackupsResult,
   MarkdownImageResolution,
+  MarkdownFlushResult,
   MarkdownOpenResult,
+  MarkdownSaveInput,
+  MarkdownSaveResult,
   MaterializeDraftResult,
   MenuCommand,
   NoteForestApi,
@@ -45,7 +48,7 @@ import type {
   TrashPreflight,
   WindowState,
 } from '../shared/api.js';
-import { normalizeFlushResult } from '../shared/flush.js';
+import { normalizeFlushResult, normalizeMarkdownFlushResult } from '../shared/flush.js';
 
 const api: NoteForestApi = {
   bootstrap: (): Promise<BootstrapResult> => ipcRenderer.invoke('app:bootstrap'),
@@ -76,6 +79,8 @@ const api: NoteForestApi = {
   openMarkdownFile: (): Promise<MarkdownOpenResult> => ipcRenderer.invoke('markdown:open'),
   readMarkdownFile: (path: string): Promise<MarkdownOpenResult> =>
     ipcRenderer.invoke('markdown:read', path),
+  saveMarkdownFile: (input: MarkdownSaveInput): Promise<MarkdownSaveResult> =>
+    ipcRenderer.invoke('markdown:save', input),
   resolveMarkdownImage: (
     path: string,
     source: string,
@@ -154,6 +159,25 @@ const api: NoteForestApi = {
     };
     ipcRenderer.on('app:request-flush', listener);
     return () => ipcRenderer.removeListener('app:request-flush', listener);
+  },
+  onRequestMarkdownSave: (handler: () => Promise<MarkdownFlushResult>): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, requestId: string): void => {
+      void Promise.resolve()
+        .then(handler)
+        .then((result) => {
+          ipcRenderer.send('app:markdown-save-done', requestId, normalizeMarkdownFlushResult(result));
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error && error.message.length > 0 ? error.message : String(error);
+          ipcRenderer.send('app:markdown-save-done', requestId, {
+            ok: false,
+            failures: [message],
+          } satisfies MarkdownFlushResult);
+        });
+    };
+    ipcRenderer.on('app:request-markdown-save', listener);
+    return () => ipcRenderer.removeListener('app:request-markdown-save', listener);
   },
   debugSeed: (kind): Promise<SeedResult> => ipcRenderer.invoke('debug:seed', kind),
   importImage: (packagePath: string): Promise<ImportImageResult> =>

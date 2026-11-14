@@ -84,7 +84,8 @@ export type DialogState =
   | { kind: 'math'; mathKind: 'inline' | 'block'; latex: string; pos: number | null }
   | { kind: 'table-size' }
   | { kind: 'close-tab'; packagePath: string }
-  | { kind: 'markdown-discard'; path: string }
+  | { kind: 'markdown-close'; path: string }
+  | { kind: 'markdown-conflict'; path: string }
   | { kind: 'reload-from-disk'; packagePath: string }
   | { kind: 'overwrite-external'; packagePath: string }
   | { kind: 'restore-backup'; packagePath: string }
