@@ -52,6 +52,10 @@ No silent anchor loss; no prompt. The reference edge is the citation.
   buttons, so structural Indent only works after clicking the gutter/grabber. This hidden block
   selection is anti-functional; the shortcut audit will propose a caret-friendly alias (for example
   `⌘]`/`⌘[`) and/or a visible block-focus entry. Tab may remain an alias only on a selected block.
+- **Future visual state:** editing (caret in text) and block focus (selected for structural actions)
+  must be visually distinct. Consider a wavy/dashed accent outline for block focus versus the
+  straight editing rectangle; no colour-only cue, no layout shift, no animation. Design with the
+  shortcut/block-focus step.
 - Position menu gains **Indent** next to Outdent; the command palette gains both.
 - Commands are the accessible path; drag is optional.
 

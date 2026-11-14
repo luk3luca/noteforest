@@ -21,6 +21,15 @@ discoverable entry (for example a `⌘]`/`⌘[` caret-friendly alias, an explici
 Escape/⌘-click block selection) and decide whether Tab remains an alias only on a selected block.
 No implementation in this audit.
 
+**Future visual-state requirement (product owner, 14 November 2026):** the user must be able to tell
+whether a block is being **edited** (caret in text) or is in **block focus** (selected for structural
+actions). The current straight accent outline is ambiguous. The future design should give block focus
+a distinct shape, for example a wavy/dashed accent outline instead of the straight editing rectangle;
+it must not rely on colour alone, must not shift layout, must stay legible in dark/light and Page
+Edit, and should avoid animation. Define the state model (text editing, block focus, Read selection)
+and the visual language before implementation. This is a design item for the later shortcut/block-
+focus step, not part of the current phases.
+
 ## Scope
 
 Inventory every binding from the source:
