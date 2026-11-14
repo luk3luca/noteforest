@@ -388,8 +388,9 @@ Performance (`tests/perf/`) and screenshot evidence (`tests/visual/`) are separa
 and are not part of the critical gate. Artifact roots honour `NOTEFOREST_ARTIFACTS` (default
 `artifacts/`).
 
-UI suites run through `tests/ui/run.mjs`: one `node --test` process per file, a default pool of
-`min(8, availableParallelism() − 2)` workers, and `shell/settings/page/anchors/images` groups.
+UI suites run through `tests/ui/run.mjs`: one `node --test` process per file, an encoded default
+pool of **4** workers (`NOTEFOREST_UI_CONCURRENCY` / `--concurrency` override it, capped at 8), and
+`shell/settings/page/anchors/images` groups.
 Each suite owns its app-support, library, and artifact roots; a suite never deletes another suite's
 evidence. A failing suite prints its TAP output and fails the gate; a timeout kills the suite and
 also fails the gate. `verify` runs the runner once after the build from `verify:fast`.
