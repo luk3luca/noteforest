@@ -520,8 +520,11 @@ describe('M4b1b1 Page Edit content overlay', () => {
     const cellFormula = overlay().locator('[data-type="inline-math"]').first();
     await cellFormula.waitFor();
     await cellFormula.dblclick();
-    await overlay().locator('[data-formula-source]').waitFor();
-    await overlay().locator('[data-testid="toggle-formula-kind"]').click();
+    // The Page Edit formula source is a viewport-clamped panel mounted on the
+    // body (editor chrome), not a child of the page overlay.
+    const formulaPanel = page.locator('[data-page-edit-extension="true"]');
+    await formulaPanel.locator('[data-formula-source]').waitFor();
+    await formulaPanel.locator('[data-testid="toggle-formula-kind"]').click();
     await page
       .locator('[data-sonner-toast]', { hasText: 'stays inline' })
       .first()
