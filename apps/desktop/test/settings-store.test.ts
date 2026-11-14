@@ -242,6 +242,23 @@ describe('renderer personal settings resolution', () => {
     });
   });
 
+  it('keeps a same-id durable entry when the trashed package has no known copy path (R1)', () => {
+    const copyEntry = {
+      documentId: 'shared',
+      packagePath: '/library-b/copy',
+      page: { chrome: { pageNumber: false } },
+    };
+    useSettingsStore.getState().initialize({
+      settings: {},
+      documentSettings: [copyEntry],
+    });
+    // No `sharedIdPaths`: a closed copy in another library is only visible
+    // through its durable entry, which must keep it alive — the same rule main
+    // applies in `documentSettingsRemoval`.
+    useSettingsStore.getState().forgetDocumentSettings('shared', '/library-a/original');
+    expect(useSettingsStore.getState().documentSettings).toEqual([copyEntry]);
+  });
+
   it('adopts a path-only legacy entry when the document id becomes known', () => {
     useSettingsStore.getState().initialize({
       settings: {},

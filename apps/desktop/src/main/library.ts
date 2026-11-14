@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   createDocument as createCoreDocument,
+  createDocumentCopy,
   executeCommand,
   orderKeysAfter,
   validateDocument,
@@ -1788,6 +1789,11 @@ export async function saveDocument(
 /**
  * Write the current canonical document (including edits not yet on disk) plus
  * its assets into a new package. The original package is never written.
+ *
+ * The copy is a **new document** (ADR-0009): a fresh canonical id, the
+ * destination package name as its title, copy-time timestamps, and revision 1.
+ * Content, anchors, branches, and assets are preserved; per-document Page
+ * settings are keyed by document id, so the copy starts on the global layer.
  */
 export async function saveDocumentCopy(
   packagePath: string,
@@ -1816,7 +1822,7 @@ export async function saveDocumentCopy(
   const copied = await writeDocumentPackageCopy({
     sourcePackagePath: source,
     targetPackagePath: target,
-    document,
+    document: createDocumentCopy(document, { title: path.basename(target) }),
   });
   if (!copied.ok) return { ok: false, message: copied.error.message };
 

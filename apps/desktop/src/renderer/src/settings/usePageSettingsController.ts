@@ -39,7 +39,7 @@ import {
   PAGE_DENSITY_STEP,
 } from '@noteforest/layout';
 import { commitPageEdit } from '../page/page-edit-state';
-import { getRuntime } from '../state/registry';
+import { getRuntime, getRuntimeByDocumentId } from '../state/registry';
 import {
   flushSettingsWrites,
   pageDensityPercent,
@@ -96,6 +96,7 @@ import { commitThenWritePageSettings } from './page-settings-write';
 import {
   capturePageSettingsTarget,
   pageSettingsTargetIsGone,
+  resolveMaterializedPageSettingsTarget,
   runImmediatePageSettingsWrite,
   PAGE_SETTINGS_TARGET_CLOSED_MESSAGE,
   type PageSettingsWriteTarget,
@@ -306,6 +307,19 @@ export function usePageSettingsController(
   const targetIsGone = useCallback(
     (target: PageSettingsWriteTarget): boolean =>
       pageSettingsTargetIsGone(target, (path) => getRuntime(path) !== null),
+    [],
+  );
+  /**
+   * Resolve a captured draft target to its open materialized package (R2).
+   * The pre-execute flush can materialize the draft, replacing the `draft:<id>`
+   * key; the document id survives, so the same document is found by id.
+   */
+  const resolveMaterializedTarget = useCallback(
+    (target: PageSettingsWriteTarget): PageSettingsWriteTarget | null =>
+      resolveMaterializedPageSettingsTarget(target, {
+        forPath: (path) => getRuntime(path),
+        forDocumentId: (id) => getRuntimeByDocumentId(id),
+      }),
     [],
   );
 
@@ -689,6 +703,18 @@ export function usePageSettingsController(
     let immediate = request;
     let { target } = immediate;
     const { apply } = immediate;
+    // A pending debounced write can materialize the draft in the pre-execute
+    // flush (R2): the captured `draft:<id>` key is replaced by its package
+    // before this immediate write starts. Resolve the same document by id so
+    // the following write lands instead of reporting "document closed". The
+    // capture still happens before the flush (F2), so a tab/layer change in
+    // that window cannot retarget the write.
+    const materialized = resolveMaterializedTarget(target);
+    if (materialized !== null) {
+      target = materialized;
+      immediate = { ...immediate, target };
+      packagePathRef.current = target.packagePath;
+    }
     if (targetIsGone(target)) {
       lastImmediate.current = null;
       targetLost.current = true;

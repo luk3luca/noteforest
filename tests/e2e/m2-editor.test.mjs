@@ -2257,11 +2257,16 @@ describe('NoteForest M2 editor shell', () => {
         { timeout: 10000 },
       );
       const copy = await readDiskDocument(destination);
+      const originalDocument = await readDiskDocument(packagePath);
       assert.match(JSON.stringify(copy), /Rescued from a failed save/);
-      assert.equal(copy.id, (await readDiskDocument(packagePath)).id, 'copy keeps the document identity');
+      // ADR-0009: a copy is a new document with its own identity, the
+      // destination name as title, and a fresh revision.
+      assert.notEqual(copy.id, originalDocument.id, 'the copy gets a new document identity');
+      assert.equal(copy.title, 'rescued copy', 'the copy takes the destination name');
+      assert.equal(copy.revision, 1, 'the copy starts its own revision history');
       assert.deepEqual(
         Object.keys(copy.blocks).sort(),
-        Object.keys((await readDiskDocument(packagePath)).blocks).sort(),
+        Object.keys(originalDocument.blocks).sort(),
         'copy contains every block',
       );
       assert.equal(

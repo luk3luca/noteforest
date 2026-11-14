@@ -391,6 +391,101 @@ describe('Document lifecycle', () => {
     assert.deepEqual(afterClose.entries.map((entry) => entry.packagePath), [packagePath]);
   });
 
+  it('keeps an immediate A5 write when a debounced density materializes the draft (R2)', async () => {
+    const env = ui.isolated('draft-debounce-immediate');
+    await launch('draft-debounce-immediate', env);
+    await clickNewNote(1);
+    const draftKey = (await state()).tabs[0]?.packagePath ?? '';
+    assert.match(draftKey, /^draft:/);
+
+    await page.keyboard.press('Meta+,');
+    await page.waitForSelector('[data-settings-dialog="true"]');
+    await page.locator('[data-settings-nav="page"]').click();
+    await page.locator('[data-page-scope-option="document"]').click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-page-scope-option="document"]')
+          ?.getAttribute('aria-pressed') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+
+    // Move the density slider (240 ms debounced write) and click A5 inside that
+    // window, in one task: the A5 write captures the draft target, its
+    // pre-execute flush applies the density and materializes the draft, and the
+    // captured draft key must resolve to the new package by document id (R2).
+    // No sleep and no timing assumption: the debounce timer cannot fire before
+    // the same task ends.
+    await page.evaluate(() => {
+      const slider = document.querySelector('[data-page-density-slider]');
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      ).set;
+      setter.call(slider, '120');
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('[data-page-size-option="A5"]').click();
+    });
+
+    const packagePath = await waitTabPathChange(draftKey);
+    const entry = await waitUntil(async () => {
+      try {
+        const candidate = pageOverrideEntry(await documentSettingsFile(env), packagePath);
+        return candidate?.page?.setup?.size === 'A5' &&
+          Math.round((candidate?.page?.theme?.density ?? 0) * 100) === 120
+          ? candidate
+          : false;
+      } catch {
+        return false;
+      }
+    }, 'density flush + immediate size override');
+
+    // The write reported saved, not "the document closed before this change was
+    // saved", and Retry was never needed.
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-settings-status]')
+          ?.getAttribute('data-settings-status') === 'saved',
+      undefined,
+      { timeout: 15000 },
+    );
+    assert.equal(await page.locator('[data-settings-save-error]').count(), 0);
+    assert.equal(await page.locator('[data-settings-retry]').count(), 0);
+    await page.waitForFunction(
+      () => {
+        const preview = document.querySelector('[data-page-preview="true"]');
+        return (
+          preview?.getAttribute('data-page-preview-size') === 'A5' &&
+          preview?.getAttribute('data-page-preview-density') === '120'
+        );
+      },
+      undefined,
+      { timeout: 15000 },
+    );
+    const documentId = await page.evaluate(
+      (path) =>
+        window.__noteforestTest.state().runtimes.find(
+          (runtime) => runtime.packagePath === path,
+        )?.documentId,
+      packagePath,
+    );
+    assert.equal(typeof documentId, 'string', 'the copy has a real document identity');
+    assert.equal(entry.documentId, documentId, 'the override is keyed by that identity');
+    const inMemory = await page.evaluate(() => window.__noteforestTest.settings());
+    assert.equal(
+      inMemory.documentSettings.some((candidate) => String(candidate.packagePath).startsWith('draft:')),
+      false,
+      'no in-memory override stays keyed by the draft',
+    );
+
+    await mkdir(artifactsPath('identity-followups'), { recursive: true });
+    await page.screenshot({
+      path: join(artifactsPath('identity-followups'), 'density-debounce-a5.png'),
+    });
+  });
+
   it('materializes on the first keystroke and keeps the mounted editor state', async () => {
     const env = ui.isolated('materialize');
     await launch('materialize', env);

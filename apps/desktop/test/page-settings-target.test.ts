@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   capturePageSettingsTarget,
   pageSettingsTargetIsGone,
+  resolveMaterializedPageSettingsTarget,
   runImmediatePageSettingsWrite,
   PAGE_SETTINGS_TARGET_CLOSED_MESSAGE,
   type PageSettingsWriteTarget,
@@ -116,5 +117,74 @@ describe('Immediate Page settings write target', () => {
       execute: async () => false,
     });
     expect(outcome).toBe(false);
+  });
+});
+
+/**
+ * F4 residual (R2): a pending debounced write can materialize the draft during
+ * the pre-execute flush. The captured `draft:<id>` key is gone, but the same
+ * document is open under its package path with the same canonical id.
+ */
+describe('Materialized draft target resolution', () => {
+  const draft = capturePageSettingsTarget('document', 'draft:doc-a', 'doc-a');
+
+  function lookup(overrides: {
+    draftOpen?: boolean;
+    byId?: { packagePath: string; isDraft: boolean } | null;
+    packagePath?: string;
+  } = {}) {
+    const packagePath = overrides.packagePath ?? '/library/note';
+    return {
+      forPath: (path: string) =>
+        path === 'draft:doc-a' && overrides.draftOpen === true
+          ? { packagePath: 'draft:doc-a', isDraft: true }
+          : null,
+      forDocumentId: (id: string) =>
+        id === 'doc-a'
+          ? (overrides.byId === undefined
+              ? { packagePath, isDraft: false }
+              : overrides.byId)
+          : null,
+    };
+  }
+
+  it('retargets a captured draft to the open package of the same document', () => {
+    expect(resolveMaterializedPageSettingsTarget(draft, lookup())).toEqual({
+      scope: 'document',
+      packagePath: '/library/note',
+      documentId: 'doc-a',
+    });
+  });
+
+  it('leaves the target alone while the draft runtime is still open', () => {
+    expect(
+      resolveMaterializedPageSettingsTarget(draft, lookup({ draftOpen: true })),
+    ).toBeNull();
+  });
+
+  it('never retargets a captured package path that closed (F2)', () => {
+    const captured = capturePageSettingsTarget('document', '/library/closed', 'doc-a');
+    expect(resolveMaterializedPageSettingsTarget(captured, lookup())).toBeNull();
+  });
+
+  it('does not guess between ambiguous same-id runtimes or a still-draft runtime', () => {
+    expect(
+      resolveMaterializedPageSettingsTarget(draft, lookup({ byId: null })),
+    ).toBeNull();
+    expect(
+      resolveMaterializedPageSettingsTarget(
+        draft,
+        lookup({ byId: { packagePath: '/library/note', isDraft: true } }),
+      ),
+    ).toBeNull();
+  });
+
+  it('never retargets a global target', () => {
+    expect(
+      resolveMaterializedPageSettingsTarget(
+        capturePageSettingsTarget('global', 'draft:doc-a', 'doc-a'),
+        lookup(),
+      ),
+    ).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, createContentBlock } from '../src/document.js';
+import { createDocument, createContentBlock, createDocumentCopy } from '../src/document.js';
+import { sequentialIdFactory } from '../src/ids.js';
 import { emptyContent } from '../src/types.js';
 import {
   isLegalMove,
@@ -87,6 +88,51 @@ describe('document factory', () => {
     expect(first.content).not.toBe(second.content);
     first.content.children?.push({ type: 'paragraph' });
     expect(second.content.children).toEqual([]);
+  });
+
+  it('copies a document under a new identity, title, revision, and timestamps (ADR-0009)', () => {
+    const source = newDocument(deterministicContext());
+    const sourceId = source.id;
+    const now = (): string => '2026-11-14T12:00:00.000Z';
+    const context = { newId: sequentialIdFactory('copy'), now };
+    const copy = createDocumentCopy(source, { title: '  Linear algebra copy  ', context });
+    expect(copy.id).not.toBe(sourceId);
+    expect(copy.title).toBe('Linear algebra copy');
+    expect(copy.revision).toBe(1);
+    expect(copy.createdAt).toBe(now());
+    expect(copy.createdAt).not.toBe(source.createdAt);
+    expect(copy.chapters).toEqual(source.chapters);
+    expect(copy.blocks).toEqual(source.blocks);
+    expect(copy.anchors).toEqual(source.anchors);
+    expect(copy.branches).toEqual(source.branches);
+    expect(validateDocument(copy).ok).toBe(true);
+
+    // Two copies of one document get distinct identities; the source is never
+    // mutated.
+    const second = createDocumentCopy(source, { title: 'Second copy', context });
+    expect(second.id).not.toBe(copy.id);
+    expect(source.id).toBe(sourceId);
+    expect(source.title).toBe('Test document');
+    expect(source.revision).toBe(0);
+
+    // A colliding id from the factory is retried instead of reusing the source
+    // identity.
+    let attempts = 0;
+    const colliding = {
+      newId: () => (attempts++ === 0 ? sourceId : 'copy-fresh'),
+      now,
+    };
+    expect(createDocumentCopy(source, { title: 'Guarded', context: colliding }).id).toBe(
+      'copy-fresh',
+    );
+
+    // A blank destination title falls back to a usable default, and unknown
+    // root fields survive the copy.
+    expect(createDocumentCopy(source, { title: '   ', context }).title).toBe('Untitled');
+    const extended = { ...source, extensions: { custom: { keep: true } } } as typeof source;
+    expect(createDocumentCopy(extended, { title: 'Extended', context }).extensions).toEqual({
+      custom: { keep: true },
+    });
   });
 });
 

@@ -71,6 +71,24 @@ export function getRuntime(packagePath: string | null | undefined): DocumentRunt
   return runtimes.get(packagePath) ?? null;
 }
 
+/**
+ * The open runtime for one canonical document id, or null when none is open or
+ * two open packages share the id (a Finder duplicate). Callers must not guess
+ * between ambiguous same-id copies.
+ */
+export function getRuntimeByDocumentId(
+  documentId: string | null | undefined,
+): DocumentRuntime | null {
+  if (documentId === null || documentId === undefined || documentId.length === 0) return null;
+  let found: DocumentRuntime | null = null;
+  for (const runtime of runtimes.values()) {
+    if (runtime.document.id !== documentId) continue;
+    if (found !== null && found !== runtime) return null;
+    found = runtime;
+  }
+  return found;
+}
+
 export function removeRuntime(packagePath: string): void {
   const runtime = runtimes.get(packagePath);
   if (runtime === undefined) return;

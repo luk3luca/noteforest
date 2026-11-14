@@ -191,7 +191,8 @@ export interface DocumentCleanupIdentity extends DocumentIdentity {
   /**
    * Other known packages and session tabs that carry the same document id.
    * A shared id means a copy owns its own entry: the id must not be used as a
-   * cleanup key.
+   * cleanup key. Any other durable entry with the same id is treated the same
+   * way by `documentSettingsRemoval`.
    */
   sharedIdPaths?: readonly string[];
 }
@@ -210,8 +211,10 @@ export interface DocumentSettingsRemovalPlan {
  *
  * The exact package path is always removed. The document id is used as a second
  * key only when it is not shared: `sharedIdPaths` names other known packages and
- * session tabs that carry the same id. A shared id is ambiguous — a copy keeps
- * its own override — so every other id-keyed entry stays and is reported.
+ * session tabs that carry the same id, and any other durable entry with that id
+ * (a closed copy in another library is not in either scan) is ambiguous too. A
+ * shared id means a copy keeps its own override, so every other id-keyed entry
+ * stays and is reported.
  */
 export function documentSettingsRemoval(
   entries: readonly DocumentSettingsEntry[],
@@ -221,9 +224,14 @@ export function documentSettingsRemoval(
   const id = cleanId(identity.documentId);
   const idShared =
     id !== null &&
-    (identity.sharedIdPaths ?? []).some(
+    ((identity.sharedIdPaths ?? []).some(
       (candidate) => normalizePackagePath(candidate) !== targetPath,
-    );
+    ) ||
+      entries.some(
+        (entry) =>
+          entry.documentId === id &&
+          normalizePackagePath(entry.packagePath) !== targetPath,
+      ));
   const kept: DocumentSettingsEntry[] = [];
   const removed: DocumentSettingsEntry[] = [];
   const keptAmbiguous: DocumentSettingsEntry[] = [];

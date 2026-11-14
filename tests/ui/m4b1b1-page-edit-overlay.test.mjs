@@ -452,6 +452,101 @@ describe('M4b1b1 Page Edit content overlay', () => {
     );
   });
 
+  it('names the cell-conversion reason inside the Page Edit overlay (R3)', async () => {
+    const env = ui.isolated('m4b1b1-formula-cell');
+    await launch('m4b1b1-formula-cell');
+    const cellParagraph = (children) => ({ type: 'paragraph', children });
+    const document = pageDocument({
+      id: 'page-edit-formula-cell',
+      title: 'Page Edit formula cell',
+      chapterTitle: 'Tables',
+      blocks: [
+        {
+          id: 'formula-table',
+          label: 'Formula table',
+          content: {
+            type: 'doc',
+            children: [
+              {
+                type: 'table',
+                children: [
+                  {
+                    type: 'tableRow',
+                    children: [
+                      {
+                        type: 'tableHeader',
+                        children: [cellParagraph([{ type: 'text', text: 'Term' }])],
+                      },
+                      {
+                        type: 'tableCell',
+                        children: [cellParagraph([{ type: 'text', text: 'Value' }])],
+                      },
+                    ],
+                  },
+                  {
+                    type: 'tableRow',
+                    children: [
+                      {
+                        type: 'tableCell',
+                        children: [
+                          cellParagraph([
+                            { type: 'text', text: 'z = ' },
+                            { type: 'inlineMath', attrs: { latex: 'z' } },
+                          ]),
+                        ],
+                      },
+                      {
+                        type: 'tableCell',
+                        children: [cellParagraph([{ type: 'text', text: '1' }])],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    });
+    await openPackage(env, 'Page Edit formula cell', document);
+    await showPageRead();
+    await enterPageEdit();
+    await openOverlay('formula-table');
+
+    // Inline → Block inside a cell is rejected. The overlay mounts the node
+    // view without editor bindings, so the reason must come from the shared
+    // toast helper; a dead click is the bug (R3).
+    const cellFormula = overlay().locator('[data-type="inline-math"]').first();
+    await cellFormula.waitFor();
+    await cellFormula.dblclick();
+    await overlay().locator('[data-formula-source]').waitFor();
+    await overlay().locator('[data-testid="toggle-formula-kind"]').click();
+    await page
+      .locator('[data-sonner-toast]', { hasText: 'stays inline' })
+      .first()
+      .waitFor({ timeout: 5000 });
+    assert.equal(
+      await overlay().locator('[data-type="inline-math"]').count(),
+      1,
+      'the formula inside the cell stays inline',
+    );
+    assert.equal(
+      await overlay().locator('[data-type="block-math"]').count(),
+      0,
+      'no block formula was inserted into the cell',
+    );
+
+    // Done closes the overlay with the rejected conversion unapplied. (The
+    // source row is left open on purpose: Escape there also closes the
+    // overlay, which would make this assertion depend on event ordering.)
+    await overlay().locator('[data-page-edit-done]').click();
+    await waitOverlayClosed();
+    const content = await runtimeContent('formula-table');
+    const serialized = JSON.stringify(content);
+    assert.match(serialized, /"type":"inlineMath"/, 'the inline formula survives the commit');
+    assert.equal(serialized.includes('mathBlock'), false, 'no block formula was written');
+  });
+
   it('renders images inside the overlay read-only, with no image actions', async () => {
     const env = ui.isolated('m4b1b1-image');
     await launch('m4b1b1-image');

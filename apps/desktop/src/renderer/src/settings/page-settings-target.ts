@@ -8,6 +8,8 @@
  * writable, so a tab or document change can never retarget the write.
  */
 
+import { isDraftKey } from '../../../shared/drafts';
+
 export type PageSettingsWriteScope = 'global' | 'document';
 
 export interface PageSettingsWriteTarget {
@@ -43,6 +45,49 @@ export function pageSettingsTargetIsGone(
   if (target.scope !== 'document') return false;
   if (target.packagePath === null) return true;
   return !isOpen(target.packagePath);
+}
+
+/** The identity-relevant view of one open document runtime. */
+export interface PageSettingsRuntimeIdentity {
+  packagePath: string;
+  isDraft: boolean;
+}
+
+/** Open-runtime lookups used to resolve a captured draft target (R2). */
+export interface PageSettingsRuntimeLookup {
+  /** Runtime for one document key (a package path or a `draft:<id>` key). */
+  forPath: (packagePath: string) => PageSettingsRuntimeIdentity | null;
+  /** Runtime for one canonical document id; null when absent or ambiguous. */
+  forDocumentId: (documentId: string) => PageSettingsRuntimeIdentity | null;
+}
+
+/**
+ * Resolve a captured draft target to the open materialized runtime of the same
+ * document (R2).
+ *
+ * A pending debounced write can run during the pre-execute flush and
+ * materialize the draft, so the captured `draft:<id>` key no longer maps to a
+ * runtime. The document id does not change on materialization, so the same
+ * document is found by id before the target-gone check. Only a **draft** key is
+ * retargeted: a captured package path that closed must still be reported, never
+ * rebound to another open document (the F2 cross-document defect).
+ *
+ * Returns null when the target needs no retarget or the same-id runtime is
+ * absent, still a draft, or ambiguous.
+ */
+export function resolveMaterializedPageSettingsTarget(
+  target: PageSettingsWriteTarget,
+  lookup: PageSettingsRuntimeLookup,
+): PageSettingsWriteTarget | null {
+  if (target.scope !== 'document') return null;
+  const path = target.packagePath;
+  if (path === null || target.documentId === null) return null;
+  if (!isDraftKey(path)) return null;
+  if (lookup.forPath(path) !== null) return null;
+  const runtime = lookup.forDocumentId(target.documentId);
+  if (runtime === null || runtime.isDraft) return null;
+  if (runtime.packagePath === path) return null;
+  return { ...target, packagePath: runtime.packagePath };
 }
 
 /** One immediate Page settings action (size, orientation, preset, reset, …). */

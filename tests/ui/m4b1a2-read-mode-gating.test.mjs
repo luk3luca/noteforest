@@ -447,7 +447,8 @@ describe('M4b1a2 Read-mode global gating', () => {
     await page.keyboard.press('Escape');
   });
 
-  it('gates Page Read and Page Edit shell commands, and re-enables undo in Continuous Edit', async () => {    await launch('m4b1a2-page');
+  it('gates Page Read and Page Edit shell commands, and re-enables undo in Continuous Edit', async () => {
+    await launch('m4b1a2-page');
     await ui.seedDemo();
     await ui.showOutline();
     const packagePath = (await h.state()).activeTab;

@@ -83,6 +83,47 @@ export function cloneDocument(document: Document): Document {
   return structuredClone(document);
 }
 
+export interface CreateDocumentCopyInput {
+  /** Title of the copy; usually the destination package name. */
+  title: string;
+  /** Deterministic id/clock injection for tests. */
+  context?: Partial<CoreContext>;
+}
+
+/**
+ * Copy a document under a **new identity** (ADR-0009, "Save a copy").
+ *
+ * A copy is a new document: a fresh id from the id factory, the destination
+ * name as its title, `createdAt`/`updatedAt` at copy time, and revision 1.
+ * Content, anchors, branches, shared children, assets, and unknown fields are
+ * preserved verbatim. The source document is never mutated, and a package's
+ * personal Page settings are not part of the document, so a new id cannot
+ * inherit the source's overrides.
+ */
+export function createDocumentCopy(
+  document: Document,
+  input: CreateDocumentCopyInput,
+): Document {
+  const { newId, now } = createContext(input.context);
+  const timestamp = now();
+  const title = input.title.trim().length > 0 ? input.title.trim() : 'Untitled';
+  let id = newId();
+  for (let attempt = 0; attempt < 32 && id === document.id; attempt += 1) {
+    id = newId();
+  }
+  if (id === document.id) {
+    throw new RangeError('Could not generate a new document ID for the copy');
+  }
+  return {
+    ...structuredClone(document),
+    id,
+    title,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    revision: 1,
+  };
+}
+
 /** Byte-stable canonical JSON used for comparisons in tests and diagnostics. */
 export function documentFingerprint(document: Document): string {
   return JSON.stringify(document);

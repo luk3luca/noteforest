@@ -24,6 +24,7 @@ import {
   readSession,
   removeMissingDocument,
   saveDocument,
+  saveDocumentCopy,
   scanLibrary,
   trashDocument,
   trashPreflight,
@@ -361,6 +362,138 @@ describe('draft sessions', () => {
   });
 });
 
+describe('Save a copy identity (ADR-0009)', () => {
+  it('mints a distinct id, destination title, revision 1, and copy timestamps', async () => {
+    await activeLibraryPath();
+    const original = await createPackage('Identity source');
+    const sourceBytes = await fs.readFile(path.join(original, 'document.json'));
+    const sourceDocument = JSON.parse(sourceBytes.toString('utf8')) as {
+      id: string;
+      title: string;
+      revision: number;
+      blocks: Record<string, unknown>;
+      createdAt: string;
+    };
+    const originalSnapshot = await openDocument(original);
+    if ('ok' in originalSnapshot || 'recovery' in originalSnapshot) {
+      throw new Error('original did not open');
+    }
+    await fs.mkdir(path.join(original, 'assets'), { recursive: true });
+    await fs.writeFile(path.join(original, 'assets', 'figure.png'), 'png-bytes');
+    await writeDocumentSettingsFile(support, [
+      {
+        documentId: sourceDocument.id,
+        packagePath: original,
+        page: { setup: { size: 'A5' } },
+      },
+    ]);
+
+    const first = await saveDocumentCopy(original, path.join(library, 'Identity copy one'));
+    const second = await saveDocumentCopy(original, path.join(library, 'Identity copy two'));
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+
+    const readCopy = async (packagePath: string) =>
+      JSON.parse(
+        await fs.readFile(path.join(packagePath, 'document.json'), 'utf8'),
+      ) as typeof sourceDocument & { updatedAt: string };
+    const firstCopy = await readCopy(first.packagePath);
+    const secondCopy = await readCopy(second.packagePath);
+
+    expect(firstCopy.id).not.toBe(sourceDocument.id);
+    expect(secondCopy.id).not.toBe(sourceDocument.id);
+    expect(firstCopy.id).not.toBe(secondCopy.id);
+    expect(firstCopy.title).toBe('Identity copy one');
+    expect(secondCopy.title).toBe('Identity copy two');
+    expect(firstCopy.revision).toBe(1);
+    expect(secondCopy.revision).toBe(1);
+    expect(firstCopy.createdAt).toBe(firstCopy.updatedAt);
+    expect(firstCopy.createdAt).not.toBe(sourceDocument.createdAt);
+    expect(Object.keys(firstCopy.blocks).sort()).toEqual(
+      Object.keys(sourceDocument.blocks).sort(),
+    );
+    expect(await fs.readFile(path.join(first.packagePath, 'assets', 'figure.png'), 'utf8')).toBe(
+      'png-bytes',
+    );
+    expect(await fs.readFile(path.join(second.packagePath, 'assets', 'figure.png'), 'utf8')).toBe(
+      'png-bytes',
+    );
+
+    // The copy opens as a normal document with its own identity and revision.
+    const openedCopy = await openDocument(first.packagePath);
+    if ('ok' in openedCopy || 'recovery' in openedCopy) throw new Error('copy did not open');
+    expect(openedCopy.document.id).toBe(firstCopy.id);
+    expect(openedCopy.document.revision).toBe(1);
+    expect(openedCopy.document.title).toBe('Identity copy one');
+
+    // The source package is never modified, and its per-document override is
+    // not inherited by either copy (the map is keyed by document id).
+    expect(await fs.readFile(path.join(original, 'document.json'))).toEqual(sourceBytes);
+    expect((await readDocumentSettingsFile(support)).entries).toEqual([
+      {
+        documentId: sourceDocument.id,
+        packagePath: original,
+        page: { setup: { size: 'A5' } },
+      },
+    ]);
+    expect((await readDocumentSettingsFile(support)).entries.some(
+      (entry) => entry.documentId === firstCopy.id || entry.documentId === secondCopy.id,
+    )).toBe(false);
+  });
+
+  it('trashing the original after Save a copy keeps the copy override and tab', async () => {
+    await activeLibraryPath();
+    const original = await createPackage('Copy trash source');
+    const originalSnapshot = await openDocument(original);
+    if ('ok' in originalSnapshot || 'recovery' in originalSnapshot) {
+      throw new Error('original did not open');
+    }
+    const copied = await saveDocumentCopy(original, path.join(library, 'Copy trash target'));
+    expect(copied.ok).toBe(true);
+    if (!copied.ok) return;
+    const copySnapshot = await openDocument(copied.packagePath);
+    if ('ok' in copySnapshot || 'recovery' in copySnapshot) {
+      throw new Error('copy did not open');
+    }
+    const copyId = copySnapshot.document.id;
+    expect(copyId).not.toBe(originalSnapshot.document.id);
+    await closeAllStores();
+    await writeDocumentSettingsFile(support, [
+      {
+        documentId: copyId,
+        packagePath: copied.packagePath,
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+    await writeSession({
+      tabs: [
+        sessionTab(original, originalSnapshot.document.id),
+        sessionTab(copied.packagePath, copyId),
+      ],
+      activeTab: copied.packagePath,
+      sidebarCollapsed: false,
+      sidebarWidth: 264,
+      collapsedTopics: {},
+      sidebarTab: 'library',
+      activeLibrary: library,
+    });
+
+    const result = await trashDocument(original, trashItem);
+    expect(result.ok).toBe(true);
+    expect((await readDocumentSettingsFile(support)).entries).toEqual([
+      {
+        documentId: copyId,
+        packagePath: copied.packagePath,
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+    const session = await readSession();
+    expect(session.tabs.map((tab) => tab.packagePath)).toEqual([copied.packagePath]);
+    expect(session.activeTab).toBe(copied.packagePath);
+  });
+});
+
 describe('Move to Trash', () => {
   it('moves one package to the injected OS Trash and cleans every reference', async () => {
     await activeLibraryPath();
@@ -462,6 +595,52 @@ describe('Move to Trash', () => {
     expect(view.documents.map((document) => document.packagePath)).toEqual([copy]);
   });
 
+  it('keeps a closed same-id copy in another library when the original is trashed (R1)', async () => {
+    await activeLibraryPath();
+    const original = await createPackage('Cross-library original');
+    const libraryB = path.join(root, 'Library B');
+    await fs.mkdir(libraryB, { recursive: true });
+    const openedB = await openLibraryPath(libraryB);
+    expect(openedB.ok).toBe(true);
+    const copy = await createPackage('Cross-library copy');
+    const sharedId = await shareDocumentId(original, copy);
+    const openedA = await openLibraryPath(library);
+    expect(openedA.ok).toBe(true);
+    await closeAllStores();
+    // The copy's durable override is the only evidence of the shared id: it is
+    // not in the trashed package's library root and it has no session tab.
+    await writeDocumentSettingsFile(support, [
+      {
+        documentId: sharedId,
+        packagePath: copy,
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+    await writeSession({
+      tabs: [sessionTab(original, sharedId)],
+      activeTab: original,
+      sidebarCollapsed: false,
+      sidebarWidth: 264,
+      collapsedTopics: {},
+      sidebarTab: 'library',
+      activeLibrary: library,
+    });
+
+    const result = await trashDocument(original, trashItem);
+    expect(result.ok).toBe(true);
+    expect((await fs.stat(copy)).isDirectory()).toBe(true);
+    expect((await readDocumentSettingsFile(support)).entries).toEqual([
+      {
+        documentId: sharedId,
+        packagePath: copy,
+        page: { chrome: { pageNumber: false } },
+      },
+    ]);
+    const session = await readSession();
+    expect(session.tabs).toEqual([]);
+    expect(session.activeTab).toBeNull();
+  });
+
   it('never reconciles a missing tab to one of two duplicate-id copies', async () => {
     await activeLibraryPath();
     const first = await createPackage('First duplicate');
@@ -486,7 +665,8 @@ describe('Move to Trash', () => {
     expect(session.tabs[0]?.packagePath).toBe(missing);
   });
 
-  it('refuses a live lock and leaves the package untouched', async () => {    await activeLibraryPath();
+  it('refuses a live lock and leaves the package untouched', async () => {
+    await activeLibraryPath();
     const packagePath = await createPackage('Busy note');
     await closeAllStores();
     await liveLock(packagePath);

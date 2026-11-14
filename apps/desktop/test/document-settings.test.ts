@@ -232,7 +232,12 @@ describe('document settings cleanup identity (F3)', () => {
     expect(plan.keptAmbiguous).toEqual([copy]);
   });
 
-  it('uses an unambiguous id to remove one stale moved-path entry', () => {
+  it('keeps a same-id entry at another path even when no shared path is known', () => {
+    // A closed copy in another library is in neither the trashed package's
+    // library scan nor the session, so the durable entry itself is the only
+    // evidence of the shared id (R1). Removing it by id would lose the copy's
+    // override; it is kept and reported instead. The orphan entry is harmless:
+    // `adoptDocumentSettingsEntry` re-keys it on the next open.
     const stale = {
       documentId: 'doc-id',
       packagePath: '/library/old-name',
@@ -242,9 +247,9 @@ describe('document settings cleanup identity (F3)', () => {
       documentId: 'doc-id',
       packagePath: '/library/new-name',
     });
-    expect(plan.removed).toEqual([stale]);
-    expect(plan.entries).toEqual([]);
-    expect(plan.keptAmbiguous).toEqual([]);
+    expect(plan.removed).toEqual([]);
+    expect(plan.entries).toEqual([stale]);
+    expect(plan.keptAmbiguous).toEqual([stale]);
   });
 });
 

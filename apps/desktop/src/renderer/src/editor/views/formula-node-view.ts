@@ -16,6 +16,7 @@ import type { Editor } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { NodeSelection } from '@tiptap/pm/state';
 import katex from 'katex';
+import { toast } from 'sonner';
 import { formulaTermSelection } from '../../lib/anchor-selection';
 import { writeClipboardText } from '../../lib/clipboard';
 import { formulaCopySource, formulaKindTarget, type FormulaKind } from '../../lib/formula-clipboard';
@@ -366,12 +367,13 @@ export class FormulaNodeView {
     const converted = convertFormulaKind(this.editor, pos, target, latex);
     if (!converted.ok) {
       // Inline→block is rejected inside a table cell (inline-only). Never leave
-      // the action as a silent no-op.
-      getEditorBindings(this.editor)?.notify(
+      // the action as a silent no-op. The reason goes through the shared toast
+      // helper rather than editor bindings: the Page Edit overlay mounts this
+      // node view without registering bindings (R3).
+      toast.info(
         target === 'blockMath'
           ? 'A formula inside a table cell stays inline. Move it out of the table for a block formula.'
           : 'This formula could not be converted.',
-        'info',
       );
     }
   }
