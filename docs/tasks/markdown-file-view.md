@@ -27,9 +27,9 @@ A `.md` file is a **guest file**, not a NoteForest note:
 - A deterministic serializer for the same subset; output is normalized Markdown, not byte-identical.
 - Local image paths resolve relative to the `.md`; a confined file protocol is used; remote images
   are not fetched. No path traversal outside the file's folder tree.
-- Dependency gate: a Markdown parser/serializer is **new**. Proposed: `markdown-it` +
-  `prosemirror-markdown` (both MIT, no runtime network). Ask the Orchestrator/product owner before
-  adding; if not approved, stop and report. Do not vendor a parser.
+- Dependency gate: **approved by the product owner on 14 November 2026** for `markdown-it` +
+  `prosemirror-markdown` (both MIT, no runtime network). Add only these; no second parser stack and
+  no vendored parser. If the implementation needs another package, stop and ask.
 
 ### Flat editor
 

@@ -167,6 +167,9 @@ not a second document backend.
 
 ## 13. Decisions
 
+Dependencies: the product owner approved `markdown-it` + `prosemirror-markdown` (MIT) on
+14 November 2026 for the parser/serializer. No runtime network; no second parser stack.
+
 Resolved by the Orchestrator for the barebone (14 November 2026); the product owner can override any
 of them before the brief:
 
