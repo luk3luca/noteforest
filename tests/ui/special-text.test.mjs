@@ -160,6 +160,12 @@ describe('NoteForest special text editing', () => {
       (await card(blockId).locator('[data-code-label]').textContent())?.trim(),
       'python',
     );
+    await page.waitForFunction(
+      (block) =>
+        document.querySelectorAll(`[data-block-card="${block}"] .nf-block-prose p`).length === 1,
+      blockId,
+      { timeout: 5000 },
+    );
     assert.equal(await paragraphs(blockId).count(), 1, 'one paragraph sits below the code');
     await page.waitForFunction(
       (block) => {
