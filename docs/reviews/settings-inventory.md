@@ -382,7 +382,7 @@ No Settings control should be built on a Continuous zoom/type field: there is no
 | AP-1 | Appearance theme | dark only; “Graphite · dark (light tokens reserved)” | — | G | **DES** | **DES** | No `AppSettings` field; UX says light mode available. |
 | AP-2 | Library path | `~/Documents/NoteForest` | env override in tests | E | **U (About/Data)** | ENG | `library.ts:94-98`; not a preference today. |
 | AP-3 | App-support path | OS app-support | fixed | E | **U (About/Data)** | ENG | `library.ts:100-102`. |
-| AP-4 | Sidebar width | 264 px | 208–360 | V/G | **A / shell** | F | Session state; not Page settings. |
+| AP-4 | Sidebar width | 264 px | 180–640 | V/G | **A / shell** | F | Session state; not Page settings. Code/inventory use 180/264/640; the old 208–360 was the M2 range. |
 | AP-5 | Sidebar collapsed | false | bool | V/G | **U** | F | Session state. |
 | AP-6 | Collapsed topics | `{}` | per document | V | **U** | F | Session state; not settings. |
 | AP-7 | Default layout | Continuous | continuous/page | V | **U** | F | View state; no global default. |

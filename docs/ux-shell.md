@@ -47,7 +47,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar across the window; **sidebar full content height on the left**; **36 px tab strip only in the editor column**, to the right of the sidebar; sidebar 264 px default (208–360, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,600 px with 28–40 px padding and horizontal scroll when a deep branch exceeds the viewport. The sidebar and editor scroll independently.
+**Dimensions.** The wireframe compresses the two top rows. Final anatomy: 38 px title bar across the window; **sidebar full content height on the left**; **36 px tab strip only in the editor column**, to the right of the sidebar; sidebar 264 px default (180–640, collapsible); splitter 1 px visual / 8 px hit area; editor min 480 px; canvas max ~1,600 px with 28–40 px padding and horizontal scroll when a deep branch exceeds the viewport. The sidebar and editor scroll independently.
 
 ### Tab strip (36 px)
 
@@ -60,7 +60,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 - `⌘1`, `⌘4…9` switch to tab N; `⌘2`/`⌘3` are reserved for Continuous/Page; `⌘⇧[` / `⌘⇧]` previous/next.
 - No nested tabs, no split view, no pinned tabs in M2.
 
-### Sidebar (left, 264 px default, resizable 208–360 px)
+### Sidebar (left, 264 px default, resizable 180–640 px)
 
 - Header: app name (small caps or 12 px semibold), workspace/document search (`⌘K` command palette), `+ New note`.
 - **Library:** a flat list of documents in the chosen folder, with a search field and a "Recent" section. Each row has a document icon, title, and (on hover) a `⋯` menu: rename, reveal in Finder, close.

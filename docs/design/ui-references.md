@@ -100,8 +100,9 @@ this exact component.
   [BoardUI Tree View](https://www.boardui.com/components/tree-view) for the Topics tree: indent
   guides, collapse, keyboard.
 
-**Take:** header Search/New/Toggle; library + topics; footer Settings; width 264, range 208–360;
-hidden + reveal collapse; `⌘\`; persisted width/collapsed.
+**Take:** header Search/New/Toggle; library + topics; footer Settings; width 264, range 180–640
+(the original 208–360 research range was widened in the shell); hidden + reveal collapse; `⌘\`;
+persisted width/collapsed.
 
 **Avoid:** floating card sidebar, announcement card, user menu, badge noise, 3xl radius, permanent
 icon rail (we chose hidden + reveal).

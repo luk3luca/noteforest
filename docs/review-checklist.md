@@ -1,6 +1,6 @@
 # Review checklist
 
-**Status:** v11 — delta Sentinel additions (Read-mode node-view chrome, lossy load projection); spec v0.4.5.
+**Status:** v11 — delta Sentinel additions (Read-mode node-view chrome, lossy load projection); spec v0.5, UX v1.5.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).

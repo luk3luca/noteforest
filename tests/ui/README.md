@@ -103,15 +103,18 @@ guarded by `apps/desktop/test/tab-policy.test.ts`.
 
 ## Concurrency policy
 
-- Default is `min(8, availableParallelism() - 2)`: 8 workers on this 10-core
-  Mac, fewer on smaller machines. Override with `--concurrency N`, the
-  `NOTEFOREST_UI_CONCURRENCY` env var, or `--concurrency 1` to bisect a flake.
+- Default is **4**, the concurrency that was fully green on the 10-core dev
+  machine (14 Nov 2026: 54/54 suites, 207.9 s). The old
+  `min(8, availableParallelism() - 2)` default timed out at 8. Override with
+  `--concurrency N`, the `NOTEFOREST_UI_CONCURRENCY` env var, or
+  `--concurrency 1` to bisect a flake.
 - Suites use distinct `NOTEFOREST_LIBRARY` / `NOTEFOREST_APP_SUPPORT` roots, so
   there is no shared app-support state. Each file is still one `node --test`
   process; the pool only schedules files.
-- The whole matrix above was green at 1, 2, 3, 4, 6, and 8 workers. If a suite
-  flakes under load, rerun it with `--concurrency 1` and report the flake; do
-  not add retries or fixed sleeps.
+- The full matrix has been green at 1, 2, 3 and 4 workers. 6 and 8 were green
+  historically but 8 is not the default and can time out under load; if a suite
+  flakes, rerun it with `--concurrency 1` and report the flake; do not add
+  retries or fixed sleeps.
 - The full verify is still the integration gate; `test:ui:core` is for quick
   loops. A Page/PDF change should run the `page` group plus the affected
   settings/shell suite.

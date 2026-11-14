@@ -1,6 +1,6 @@
 # Definition of Done
 
-**Status:** v8 — M3 design delta; spec v0.4.5.
+**Status:** v8 — M3 design delta; spec v0.5, UX v1.5.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/review-checklist.md` (review procedure, severity, report template).
