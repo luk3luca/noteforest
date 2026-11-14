@@ -419,6 +419,9 @@ agent API, no MCP, no forest builder**; the only agent-adjacent feature is the M
 | **5** | Vault folders: nested folders for note packages and `.md` files | phase 4 | library tree, move/trash, full verify |
 | **6** | `⌘F` find bar only (UX F13) | phase 5 | find bar across both layouts |
 
+**Status (15 November 2026):** phases 0, 1 and 2 are done and integrated. The product owner paused the
+roadmap after phase 2; phases 3–6 are planned and not started. Resume only on an explicit go-ahead.
+
 ### Phase 0 — close the integrated batch
 
 - Targeted Sentinel re-check of the identity + editor-surfaces commits; one review document; no code

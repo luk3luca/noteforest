@@ -1,6 +1,6 @@
 # Markdown file view — barebone design
 
-**Status:** approved direction (14 November 2026). No implementation yet.
+**Status:** implemented in two slices (M1 parse/render/open b5f306e, M2 save/conflict/copy 6bc743e, 15 November 2026).
 **Scope:** open a `.md` file in the canvas, render it, edit it, save it. Not a NoteForest
 note, not a second canonical format, not a Page/PDF surface.
 **Related:** `docs/design/markdown-import-export.md` (future, not this), `AGENTS.md`
