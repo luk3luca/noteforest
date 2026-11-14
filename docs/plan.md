@@ -485,7 +485,9 @@ Design: `docs/design/shell-activity-bar.md`.
 
 - One builder at a time per code area; the phase-0 review and list fix may run in parallel.
 - One full `npm run verify` at UI concurrency 4 per integration, not per builder.
-- A targeted Sentinel re-check after each substantial phase; no self-review.
+- **No further Sentinel re-checks after the post-A–F follow-up** (product-owner decision, 14 November
+  2026). The full verify and the product-owner visual/VoiceOver pass are the gate; the Orchestrator
+  fixes or reports integration findings directly.
 - Docs alignment (AGENTS/spec/UX/inventory) is the Orchestrator's work and may run while builders
   work.
 - Product-owner visual/VoiceOver pass after phase 1 and after phase 4.
