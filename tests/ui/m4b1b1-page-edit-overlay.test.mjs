@@ -453,6 +453,80 @@ describe('M4b1b1 Page Edit content overlay', () => {
     );
   });
 
+  it('commits the block with one ⌘↵ inside the Page Edit formula panel (F3)', async () => {
+    const env = ui.isolated('m4b1b1-formula-commit');
+    await launch('m4b1b1-formula-commit');
+    const document = pageDocument({
+      id: 'page-edit-formula-commit',
+      title: 'Page Edit formula commit',
+      chapterTitle: 'Formulas',
+      blocks: [
+        {
+          id: 'formula-block',
+          label: 'Formula block',
+          content: {
+            type: 'doc',
+            children: [{ type: 'blockMath', attrs: { latex: 'E = mc^2' } }],
+          },
+        },
+        textBlock('after-formula', 'After', 'Text after the formula block.'),
+      ],
+    });
+    await openPackage(env, 'Page Edit formula commit', document);
+    await showPageRead();
+    await enterPageEdit();
+    await openOverlay('formula-block');
+    await overlay().locator('[data-type="block-math"]').first().dblclick();
+    // The source is body-mounted chrome, outside the overlay's key handler.
+    const panel = page.locator('[data-page-edit-extension="true"]');
+    const source = panel.locator('[data-formula-source]');
+    await source.waitFor();
+    await source.fill('E = mc^3');
+
+    // One ⌘↵ commits the formula source and the block overlay in one press.
+    await page.keyboard.press('Meta+Enter');
+    await waitOverlayClosed();
+    await page.waitForFunction(
+      () =>
+        JSON.stringify(
+          window.__noteforestTest.structure()?.blocks?.['formula-block']?.content,
+        ).includes('mc^3'),
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal(await panel.count(), 0, 'the panel closes with the overlay');
+
+    // One structural undo restores the pre-edit formula.
+    await page.keyboard.press('Meta+2');
+    await page.waitForFunction(
+      () =>
+        window.__noteforestTest.viewState()[window.__noteforestTest.state().activeTab]?.layout ===
+        'continuous',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+z');
+    await page.waitForFunction(
+      () => {
+        const content = JSON.stringify(
+          window.__noteforestTest.structure()?.blocks?.['formula-block']?.content,
+        );
+        return content.includes('mc^2') && !content.includes('mc^3');
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    const runtime = await page.evaluate(() => {
+      const state = window.__noteforestTest.state();
+      return state.runtimes.find((entry) => entry.packagePath === state.activeTab);
+    });
+    assert.equal(
+      runtime.canUndoStructural,
+      false,
+      'one undo restored the whole formula edit (one structural entry)',
+    );
+  });
+
   it('names the cell-conversion reason inside the Page Edit overlay (R3)', async () => {
     const env = ui.isolated('m4b1b1-formula-cell');
     await launch('m4b1b1-formula-cell');
@@ -541,8 +615,9 @@ describe('M4b1b1 Page Edit content overlay', () => {
     );
 
     // Done closes the overlay with the rejected conversion unapplied. (The
-    // source row is left open on purpose: Escape there also closes the
-    // overlay, which would make this assertion depend on event ordering.)
+    // source row is left open on purpose: Escape there belongs to the source
+    // first and leaves the overlay open, so this assertion would then depend on
+    // event ordering.)
     await overlay().locator('[data-page-edit-done]').click();
     await waitOverlayClosed();
     const content = await runtimeContent('formula-table');

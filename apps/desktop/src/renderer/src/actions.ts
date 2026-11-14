@@ -73,6 +73,7 @@ import { commitPageEdit } from './page/page-edit-state';
 import { exportActiveDocument } from './export/export-flow';
 import { isDraftKey } from '../../shared/drafts';
 import { indentTarget, outdentTarget } from './lib/indent';
+import { reorderTarget } from './lib/reorder';
 import {
   captureTextTarget,
   classifyEditorContextTarget,
@@ -1139,6 +1140,12 @@ export function openBlockMenu(
   const branch = incomingBranch(runtime.document, blockId);
   const indent = indentTarget(runtime.document, blockId);
   const outdent = outdentTarget(runtime.document, blockId);
+  // Reorder is port-scoped: an anchored callout moves among its anchor's
+  // children, a direct child among the parent's direct children. A cross-port
+  // neighbour is not a reorder target, so the entry states why instead of
+  // reporting a silent success (F1).
+  const moveUp = reorderTarget(runtime.document, blockId, -1);
+  const moveDown = reorderTarget(runtime.document, blockId, 1);
   const images = imagesInContent(block.content);
   const imageEntries: MenuEntry[] = [];
   for (const [index, image] of images.entries()) {
@@ -1332,14 +1339,18 @@ export function openBlockMenu(
     {
       id: 'move-up',
       label: 'Move up',
+      description: moveUp.ok ? undefined : moveUp.reason,
       shortcut: '⌥↑',
-      onSelect: () => report(runtime.reorderSibling(blockId, -1)),
+      disabled: !moveUp.ok,
+      ...(moveUp.ok ? { onSelect: () => report(runtime.reorderSibling(blockId, -1)) } : {}),
     },
     {
       id: 'move-down',
       label: 'Move down',
+      description: moveDown.ok ? undefined : moveDown.reason,
       shortcut: '⌥↓',
-      onSelect: () => report(runtime.reorderSibling(blockId, 1)),
+      disabled: !moveDown.ok,
+      ...(moveDown.ok ? { onSelect: () => report(runtime.reorderSibling(blockId, 1)) } : {}),
     },
     {
       id: 'indent',

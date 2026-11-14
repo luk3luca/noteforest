@@ -6,6 +6,10 @@
  * Enter/blur commits `attrs.latex`, Escape cancels, and a KaTeX preview follows
  * the draft.
  *
+ * In Page Edit the source is a body-mounted, viewport-clamped panel: ⌘⏎ commits
+ * the formula source and the block overlay in one structural undo, while Escape
+ * closes the source first and leaves the overlay open.
+ *
  * A plain DOM node view is used because the source textarea must keep native
  * caret navigation: a React node view re-render reset it. While the source
  * editor is open one stable action row offers Branch from term, Copy formula
@@ -26,6 +30,7 @@ import { branchFromFormulaTerm } from '../../lib/formula-term-branch';
 import { getEditorBindings } from '../bindings';
 import { subscribeEditorUi } from '../editor-ui';
 import { installLocalTextKeys } from '../../lib/local-text-keys';
+import { PAGE_EDIT_SHORTCUT_COMMIT_EVENT } from '../../page/page-edit-state';
 import {
   openTextOnlyContextMenu,
   rememberTextControlSelection,
@@ -81,6 +86,8 @@ export class FormulaNodeView {
   private suppressBlur = false;
   /** Page Edit mounts the source as viewport-clamped chrome, not inline text. */
   private pagePanel: HTMLElement | null = null;
+  /** The Page Edit overlay root the panel belongs to; null outside Page Edit. */
+  private pageOverlay: HTMLElement | null = null;
   private panelFrame: number | null = null;
   private cleanupPagePanel: (() => void) | null = null;
 
@@ -210,6 +217,7 @@ export class FormulaNodeView {
       // is far too narrow for the action row. The source is editor chrome, so
       // it becomes a viewport-clamped panel anchored to the formula instead of
       // widening or scrolling the page overlay.
+      this.pageOverlay = overlay;
       this.mountPagePanel(source);
     } else {
       this.dom.replaceChildren(source);
@@ -238,6 +246,7 @@ export class FormulaNodeView {
     this.cleanupTextKeys?.();
     this.cleanupTextKeys = null;
     this.detachPagePanel();
+    this.pageOverlay = null;
     if (this.copiedTimer !== null) {
       window.clearTimeout(this.copiedTimer);
       this.copiedTimer = null;
@@ -371,6 +380,19 @@ export class FormulaNodeView {
       this.commitSource(false);
     });
     textarea.addEventListener('keydown', (event) => {
+      const commitChord = event.key === 'Enter' && (event.metaKey || event.ctrlKey);
+      if (commitChord && this.pageOverlay !== null) {
+        // Page Edit hint: “Esc or ⌘⏎ commits”. One ⌘⏎ commits the formula
+        // source and the block overlay in one structural undo. The panel is
+        // body-mounted, so it forwards the chord to the overlay instead of
+        // committing only the source (F3).
+        event.preventDefault();
+        event.stopPropagation();
+        const overlay = this.pageOverlay;
+        this.commitSource(false);
+        overlay.dispatchEvent(new CustomEvent(PAGE_EDIT_SHORTCUT_COMMIT_EVENT));
+        return;
+      }
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         this.commitSource(true);

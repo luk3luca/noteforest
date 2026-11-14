@@ -82,7 +82,16 @@ async function escapeMenu() {
  * Select one block as an object through the real gutter pointerdown. The
  * gutter of the first card can sit under the fixed canvas header, so the
  * synthetic pointer keeps the test independent of the hit-testing offset while
- * still running the product handler that sets the branchBlock node selection.
+ * still running the product handler that sets the branchBlock node selection
+ * and focuses the editor.
+ *
+ * The product focus is the contract: keyboard structural commands (Tab,
+ * Shift+Tab) only run while the editor owns the caret, so the normal path
+ * asserts `document.activeElement` inside `.ProseMirror`. The explicit
+ * `.focus()` below is a documented hidden-window fallback only: a hidden E2E
+ * window can report `document.hasFocus() === false`, and then the product focus
+ * call has nowhere to land. If the window does report focus, the missing editor
+ * focus is a regression and the assertion fails.
  */
 async function selectBlock(blockId) {
   await page.locator(`[data-block-actions="${blockId}"]`).evaluate((button) => {
@@ -94,11 +103,31 @@ async function selectBlock(blockId) {
     undefined,
     { timeout: 5000 },
   );
-  // The gutter selection is a NodeSelection; keyboard commands (Tab) only run
-  // when the editor owns focus. Pointer events on the gutter do not focus it.
-  await page
-    .locator('.nf-editor[data-active="true"] .ProseMirror')
-    .evaluate((element) => element.focus());
+  const focused = await page
+    .waitForFunction(
+      () => document.activeElement?.closest('.ProseMirror') !== null,
+      undefined,
+      { timeout: 3000 },
+    )
+    .then(
+      () => true,
+      () => false,
+    );
+  if (!focused) {
+    assert.equal(
+      await page.evaluate(() => document.hasFocus()),
+      false,
+      'the gutter pointerdown focuses the editor in a focused window',
+    );
+    await page
+      .locator('.nf-editor[data-active="true"] .ProseMirror')
+      .evaluate((element) => element.focus());
+    await page.waitForFunction(
+      () => document.activeElement?.closest('.ProseMirror') !== null,
+      undefined,
+      { timeout: 5000 },
+    );
+  }
 }
 
 function proseDocument() {
@@ -911,6 +940,111 @@ describe('Editor surfaces: contextual menu, Page formula, mode parity, indent', 
       },
       { childId: secondId, parentId: firstId },
       { timeout: 10000 },
+    );
+  });
+
+  it('reorders two callouts from one anchor with Move up and one undo', async () => {
+    const env = ui.isolated('surfaces-anchored-reorder');
+    await launch('surfaces-anchored-reorder');
+    await openPackage(env, 'Surfaces anchored reorder', proseDocument());
+
+    const first = await ui.createAnchoredChild('prose-block', 'eigenvalue');
+    await page.waitForSelector(`[data-block-card="${first.blockId}"]`);
+
+    // A second primary branch from the same anchor: two callouts in one port.
+    const chapterId = (await ui.structure()).chapters[0].id;
+    await ui.applyCommand({
+      type: 'block.create',
+      blockId: 'anchored-second',
+      label: 'Second callout',
+      content: {
+        type: 'doc',
+        children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Second callout body.' }] }],
+      },
+      placement: { kind: 'top-level', chapterId },
+    });
+    await ui.applyCommand({
+      type: 'branch.create',
+      sourceBlockId: 'prose-block',
+      sourceAnchorId: first.anchorId,
+      targetBlockId: 'anchored-second',
+      role: 'primary',
+    });
+    await page.waitForSelector('[data-block-card="anchored-second"]');
+
+    const anchorOrder = () =>
+      page.evaluate(
+        (anchorId) => {
+          const structure = window.__noteforestTest.structure();
+          return Object.values(structure.branches)
+            .filter((branch) => branch.role === 'primary' && branch.source.anchorId === anchorId)
+            .sort((left, right) => {
+              if (left.order !== right.order) return left.order < right.order ? -1 : 1;
+              return left.id < right.id ? -1 : 1;
+            })
+            .map((branch) => [branch.targetBlockId, branch.order]);
+        },
+        first.anchorId,
+      );
+    const waitAnchorOrder = async (expected) => {
+      await page.waitForFunction(
+        ({ anchorId, ids }) => {
+          const structure = window.__noteforestTest.structure();
+          const order = Object.values(structure.branches)
+            .filter((branch) => branch.role === 'primary' && branch.source.anchorId === anchorId)
+            .sort((left, right) => {
+              if (left.order !== right.order) return left.order < right.order ? -1 : 1;
+              return left.id < right.id ? -1 : 1;
+            })
+            .map((branch) => branch.targetBlockId);
+          return JSON.stringify(order) === JSON.stringify(ids);
+        },
+        { anchorId: first.anchorId, ids: expected },
+        { timeout: 10000 },
+      );
+    };
+
+    const before = await anchorOrder();
+    assert.deepEqual(
+      before.map(([id]) => id),
+      [first.blockId, 'anchored-second'],
+      'two callouts share one anchor port',
+    );
+    assert.notEqual(before[0][1], before[1][1], 'the port has unique order keys');
+
+    // The first callout cannot move up, and the disabled entry states why.
+    await ui.openBlockMenuFromGutter(first.blockId);
+    const disabledUp = page.locator('[data-menu-entry="move-up"]');
+    assert.equal(await disabledUp.getAttribute('aria-disabled'), 'true');
+    assert.match(await disabledUp.innerText(), /first block in this group/);
+    await escapeMenu();
+
+    // Move up on the second callout swaps the order inside the anchor port.
+    await ui.openBlockMenuFromGutter('anchored-second');
+    assert.notEqual(
+      await page.locator('[data-menu-entry="move-up"]').getAttribute('aria-disabled'),
+      'true',
+      'the second callout can move up',
+    );
+    await openMenuItem(await menuEntryIds(), 'move-up');
+    await waitAnchorOrder(['anchored-second', first.blockId]);
+    const after = await anchorOrder();
+    assert.equal(
+      new Set(after.map(([, order]) => order)).size,
+      2,
+      'the swap keeps unique order keys in the anchor port',
+    );
+    const moved = await page.evaluate(() => window.__noteforestTest.structure());
+    assert.equal(moved.branches[first.branchId].role, 'primary', 'the anchor keeps its primary edge');
+    assert.equal(moved.branches[first.branchId].source.anchorId, first.anchorId);
+    assert.equal(moved.anchors[first.anchorId].blockId, 'prose-block');
+
+    // One undo restores the pre-move order.
+    await page.keyboard.press('Meta+z');
+    await waitAnchorOrder([first.blockId, 'anchored-second']);
+    assert.deepEqual(
+      (await anchorOrder()).map(([id]) => id),
+      [first.blockId, 'anchored-second'],
     );
   });
 

@@ -19,6 +19,15 @@ export type PageEditCommitReason =
   | 'block'
   | 'external';
 
+/**
+ * DOM event a body-mounted Page Edit extension dispatches on the overlay root
+ * to request the overlay's own `⌘↵` commit. The formula panel is mounted on the
+ * body (viewport-clamped chrome), so it sits outside the overlay's key handler
+ * and outside its dialog subtree; it forwards the chord instead of keeping a
+ * second commit path.
+ */
+export const PAGE_EDIT_SHORTCUT_COMMIT_EVENT = 'nf:page-edit-shortcut-commit';
+
 export interface PageEditHandle {
   blockId: string;
   /**

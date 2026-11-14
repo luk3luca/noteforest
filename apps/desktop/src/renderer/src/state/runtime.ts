@@ -79,6 +79,7 @@ import {
   siblingIds,
 } from '../lib/tree';
 import { indentTarget, outdentTarget } from '../lib/indent';
+import { reorderPairReason, reorderTarget } from '../lib/reorder';
 import type { DocumentGateway } from './document-gateway';
 import { DocumentSession, type ContentChange } from './document-session';
 import { createElectronDocumentGateway } from './electron-document-gateway';
@@ -2085,15 +2086,9 @@ export class DocumentRuntime {
   }
 
   async reorderSibling(blockId: string, direction: -1 | 1): Promise<ApplyOutcome> {
-    const siblings = siblingIds(this.document, blockId);
-    const index = siblings.indexOf(blockId);
-    const targetIndex = index + direction;
-    if (index < 0 || targetIndex < 0 || targetIndex >= siblings.length) {
-      return { ok: false, message: 'Already at the edge of this branch.' };
-    }
-    const target = siblings[targetIndex];
-    if (target === undefined) return { ok: false, message: 'No sibling to reorder against.' };
-    return this.moveSiblingFast(blockId, target, direction > 0);
+    const check = reorderTarget(this.document, blockId, direction);
+    if (!check.ok) return { ok: false, message: check.reason };
+    return this.moveSiblingFast(blockId, check.targetBlockId, direction > 0);
   }
 
   async moveBlockBeforeOrAfter(
@@ -2101,13 +2096,8 @@ export class DocumentRuntime {
     targetId: string,
     after: boolean,
   ): Promise<ApplyOutcome> {
-    const sourceParent = parentIdOf(this.document, sourceId);
-    const targetParent = parentIdOf(this.document, targetId);
-    const sourceTop = sourceParent === null ? chapterIdOf(this.document, sourceId) : null;
-    const targetTop = targetParent === null ? chapterIdOf(this.document, targetId) : null;
-    if (sourceParent !== targetParent || sourceTop !== targetTop) {
-      return { ok: false, message: 'Only siblings can be reordered by drag.' };
-    }
+    const reason = reorderPairReason(this.document, sourceId, targetId);
+    if (reason !== null) return { ok: false, message: reason };
     return this.moveSiblingFast(sourceId, targetId, after);
   }
 

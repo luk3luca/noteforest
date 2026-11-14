@@ -16,15 +16,14 @@ import { rememberCopiedImages, scheduleImageClipboardRepair } from '../lib/image
 import { insertImagesFromFiles } from '../lib/image-insert';
 import {
   ancestorPath,
-  chapterIdOf,
   edgePairs,
   linkedAnchorIds,
-  parentIdOf,
   referenceEdgePairs,
   subtreeIds,
   visibleBlockIds,
 } from '../lib/tree';
 import { contentBounds, fitZoom } from '../lib/placement';
+import { canReorderSibling } from '../lib/reorder';
 import { GEOMETRY } from '../lib/geometry';
 import { createEditorExtensions } from './extensions';
 import { BranchKeymap } from './keymap';
@@ -446,19 +445,8 @@ function EditorSurface({
           if (!outcome.ok) toast.error(outcome.message ?? 'Could not reorder the block.');
         });
       },
-      canReorder: (sourceId: string, targetId: string) => {
-        if (sourceId === targetId) return false;
-        const sourceParent = parentIdOf(runtime.document, sourceId);
-        const targetParent = parentIdOf(runtime.document, targetId);
-        if (sourceParent === null || targetParent === null) {
-          return (
-            sourceParent === null &&
-            targetParent === null &&
-            chapterIdOf(runtime.document, sourceId) === chapterIdOf(runtime.document, targetId)
-          );
-        }
-        return sourceParent === targetParent;
-      },
+      canReorder: (sourceId: string, targetId: string) =>
+        canReorderSibling(runtime.document, sourceId, targetId),
       dropOnBlock: (sourceId: string, targetId: string, after: boolean) => {
         void runtime.moveBlockBeforeOrAfter(sourceId, targetId, after).then((outcome) => {
           if (!outcome.ok) toast.error(outcome.message ?? 'Could not move the block.');

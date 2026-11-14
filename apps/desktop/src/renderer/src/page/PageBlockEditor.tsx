@@ -35,6 +35,7 @@ import { openTextOnlyContextMenu } from '../lib/editor-context-menu';
 import type { DocumentRuntime } from '../state/runtime';
 import {
   registerPageEdit,
+  PAGE_EDIT_SHORTCUT_COMMIT_EVENT,
   type PageEditCommitReason,
 } from './page-edit-state';
 
@@ -220,6 +221,19 @@ export function PageBlockEditor({
     window.addEventListener('nf:page-edit-commit', onCommitRequest);
     return () => window.removeEventListener('nf:page-edit-commit', onCommitRequest);
   }, [commit, runtime]);
+
+  // ⌘↵ inside body-mounted Page Edit chrome (the formula panel) is forwarded to
+  // the same commit as the overlay's own key handler: the panel lives on the
+  // body to stay viewport-clamped, so `onKeyDownCapture` is not its ancestor.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (root === null) return;
+    const onShortcutCommit = (): void => {
+      void commit('shortcut');
+    };
+    root.addEventListener(PAGE_EDIT_SHORTCUT_COMMIT_EVENT, onShortcutCommit);
+    return () => root.removeEventListener(PAGE_EDIT_SHORTCUT_COMMIT_EVENT, onShortcutCommit);
+  }, [commit]);
 
   useEffect(() => {
     rootRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });

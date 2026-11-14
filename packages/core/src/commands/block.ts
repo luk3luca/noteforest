@@ -12,7 +12,6 @@ import type { CoreContext } from '../ids.js';
 import {
   chapterIdForBlock,
   compareBranches,
-  directChildBranches,
   findTopLevelPlacement,
   primaryChildBranches,
   primaryParentBranch,
@@ -28,6 +27,7 @@ import {
   allIds,
   anchorOrFail,
   appendBranchesToPort,
+  appendOrderKeyAtPort,
   assertContent,
   assertId,
   assertIndex,
@@ -46,6 +46,7 @@ import {
   reject,
   rejectEmptyChapter,
   removeBlocks,
+  samePort,
   type BranchPort,
   type ChangeSet,
 } from './shared.js';
@@ -222,19 +223,19 @@ function detachBlock(
   if (incoming.source.anchorId !== undefined) {
     // Reparenting an anchored child never drops the anchor: the old anchored
     // primary edge becomes a reference with the same source and anchor (the
-    // citation), and the destination gets a fresh primary edge. The snapshot
-    // inverse restores both records in one undo. (A same-parent reorder is
-    // handled before detach and keeps the primary role.)
-    const siblings = directChildBranches(document, incoming.source.blockId);
-    const index = siblings.findIndex((branch) => branch.id === incoming.id);
+    // citation), and the destination gets a fresh primary edge. The reference
+    // port has its own order space, so the converted edge is re-keyed at the
+    // end of it; keeping the old primary key could duplicate a reference key
+    // at the same anchor (F2). The snapshot inverse restores both records in
+    // one undo. (A same-parent reorder is handled before detach and keeps the
+    // primary role.)
+    const port = portOf(incoming.source);
+    const order = appendOrderKeyAtPort(document, port, 'reference', changes);
     incoming.role = 'reference';
+    incoming.order = order;
     changes.branch(incoming.id);
     return {
-      placement: {
-        kind: 'child',
-        parentBlockId: incoming.source.blockId,
-        index: Math.max(0, index),
-      },
+      placement: { kind: 'child', parentBlockId: incoming.source.blockId, index: 0 },
       incomingBranch: null,
     };
   }
@@ -529,31 +530,72 @@ export function applyBlockMove(
     }
   }
 
-  // A same-parent move of an anchored primary child keeps the existing edge
-  // (and its anchor): the anchor port is the block's home, so only its order
-  // can change. Reparenting still detaches below.
+  // A sibling move only reorders inside one **port**: the parent block's direct
+  // children, or the children of one anchor inside it. An anchored callout and
+  // a direct child of the same parent sit in different order spaces, and
+  // `BlockPlacement` cannot address another anchor, so a cross-port sibling
+  // request is rejected instead of silently writing a key into a foreign port
+  // (F1). Changing parents stays with `child`/`top-level` placement.
   const incomingPrimary = primaryParentBranch(document, command.blockId);
+  if (command.to.kind === 'sibling' && incomingPrimary !== undefined) {
+    const targetPrimary = primaryParentBranch(document, command.to.siblingBlockId);
+    if (
+      targetPrimary !== undefined &&
+      targetPrimary.source.blockId === incomingPrimary.source.blockId &&
+      !samePort(targetPrimary.source, portOf(incomingPrimary.source))
+    ) {
+      reject(
+        'invalid-placement',
+        'Move up/down cannot cross between an anchored callout and the parent’s direct children; use Move to… to change the parent',
+      );
+    }
+  }
+
+  // A same-parent move of an anchored primary child keeps the existing edge
+  // (and its anchor): the anchor port is the block's home, so only its own
+  // order can change. The order is computed inside that port (excluding the
+  // moving branch), never against the parent's direct children. Reparenting
+  // still detaches below.
   if (
     incomingPrimary !== undefined &&
     incomingPrimary.source.anchorId !== undefined &&
     destination.kind === 'child' &&
     destination.parentBlockId === incomingPrimary.source.blockId
   ) {
-    const children = primaryDirectChildren(document, destination.parentBlockId);
-    const low = destination.index > 0 ? children[destination.index - 1]?.order ?? null : null;
-    const high =
-      destination.index < children.length ? children[destination.index]?.order ?? null : null;
-    let nextOrder = incomingPrimary.order;
-    try {
-      nextOrder = orderBetween(low, high);
-    } catch {
-      // Exhausted key space keeps the previous order instead of failing the
-      // move: the anchor relationship is the contract here, not the key.
+    const port = portOf(incomingPrimary.source);
+    const siblings = portBranches(document, port, 'primary').filter(
+      (branch) => branch.id !== incomingPrimary.id,
+    );
+    const to = command.to;
+    let index = siblings.length;
+    if (to.kind === 'sibling') {
+      const siblingBlockId = to.siblingBlockId;
+      const siblingIndex = siblings.findIndex(
+        (branch) => branch.targetBlockId === siblingBlockId,
+      );
+      if (siblingIndex < 0) {
+        reject('invalid-placement', 'sibling is not in this anchor port');
+      }
+      index = siblingIndex + (to.after !== false ? 1 : 0);
     }
-    if (nextOrder !== incomingPrimary.order) {
-      incomingPrimary.order = nextOrder;
-      changes.branch(incomingPrimary.id);
+    const nextOrder = orderKeyForPortIndexInList(
+      document,
+      port,
+      'primary',
+      siblings,
+      index,
+      changes,
+    );
+    if (nextOrder === incomingPrimary.order) {
+      // A same-parent move that cannot change the order is not a success: the
+      // old code reported one while writing a key into another port (F1).
+      reject(
+        'invalid-placement',
+        'the block is already in that position in its anchor port',
+      );
     }
+    incomingPrimary.order = nextOrder;
+    changes.branch(incomingPrimary.id);
     changes.block(command.blockId);
     return null;
   }

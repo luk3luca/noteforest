@@ -2,12 +2,12 @@
  * Per-document editor view state (ADR-0007).
  *
  * Layout (continuous vs page) and interaction mode (edit vs read) are
- * orthogonal axes. Page opens in Read on a layout switch, but an explicit
- * stored Page Edit is a valid state and persists in the session. Unknown or
- * missing modes fall back to the safe default for the layout. This module is
- * the single source for defaults and clamping shared by the renderer store,
- * session serialization, and the main process session reader. View state never
- * enters `document.json`.
+ * orthogonal axes. A layout switch preserves the current Edit/Read, so an
+ * explicit stored Page Edit is a valid state and persists in the session.
+ * Unknown or missing modes fall back to the safe default for the layout. This
+ * module is the single source for defaults and clamping shared by the renderer
+ * store, session serialization, and the main process session reader. View state
+ * never enters `document.json`.
  */
 
 /** Screen-optimized continuous scroll or the paginated A4 page layout. */
@@ -75,10 +75,11 @@ export function normalizePageFit(value: unknown): PageFit {
 }
 
 /**
- * An explicit `edit`/`read` is preserved for both layouts. Unknown or missing
- * values keep the safe default: Page Read (a layout switch still opens Page
- * Read) and Continuous Edit. A stored Page Edit is therefore restored, while a
- * corrupt interaction mode can never turn Page into an accidental editor.
+ * An explicit `edit`/`read` is preserved for both layouts; switching layouts
+ * keeps the mode. Unknown or missing values keep the safe default: Page Read
+ * (legacy/corrupt input only) and Continuous Edit. A stored Page Edit is
+ * therefore restored, while a corrupt interaction mode can never turn Page into
+ * an accidental editor.
  */
 export function normalizeInteractionMode(
   layout: DocumentLayout,
