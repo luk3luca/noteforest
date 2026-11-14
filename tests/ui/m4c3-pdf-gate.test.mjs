@@ -205,6 +205,7 @@ async function showPageReadActualSize() {
     undefined,
     { timeout: 10000 },
   );
+  await ui.ensureInteractionMode('read');
 }
 
 async function currentPageNumber() {

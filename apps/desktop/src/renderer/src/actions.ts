@@ -43,7 +43,6 @@ import {
   incomingBranch,
   incomingReferenceBranches,
   outgoingReferenceBranches,
-  parentIdOf,
 } from './lib/tree';
 import {
   anchoredChildBranches,
@@ -73,6 +72,14 @@ import {
 import { commitPageEdit } from './page/page-edit-state';
 import { exportActiveDocument } from './export/export-flow';
 import { isDraftKey } from '../../shared/drafts';
+import { indentTarget, outdentTarget } from './lib/indent';
+import {
+  captureTextTarget,
+  classifyEditorContextTarget,
+  ensureCellSelection,
+  tableMenuEntries,
+  textMenuEntries,
+} from './lib/editor-context-menu';
 import {
   zoomCommandIsValid,
   type ZoomCommand,
@@ -111,15 +118,20 @@ export function report(outcome: ApplyOutcome | Promise<ApplyOutcome | void> | vo
   if (outcome === undefined) return;
   if (outcome instanceof Promise) {
     void outcome.then((value) => {
-      if (value !== undefined && value !== null && !value.ok) {
+      if (value === undefined || value === null) return;
+      if (!value.ok) {
         toast.error(value.message ?? 'The command was rejected.');
+        return;
       }
+      if (value.notice !== undefined) toast.info(value.notice);
     });
     return;
   }
   if (!outcome.ok) {
     toast.error(outcome.message ?? 'The command was rejected.');
+    return;
   }
+  if (outcome.notice !== undefined) toast.info(outcome.notice);
 }
 
 export async function openPath(packagePath: string): Promise<boolean> {
@@ -901,6 +913,8 @@ function readOnlySafeMenuEntry(entry: MenuEntry): boolean {
   return (
     entry.id === 'focus' ||
     entry.id === 'collapse' ||
+    entry.id === 'text-copy' ||
+    entry.id === 'text-select-all' ||
     entry.id.startsWith('anchor-select-') ||
     entry.id.startsWith('anchor-cycle-') ||
     entry.id.startsWith('reference-open-') ||
@@ -911,7 +925,8 @@ function readOnlySafeMenuEntry(entry: MenuEntry): boolean {
 /**
  * Disable every mutating context-menu entry in Read mode and say why. The
  * whitelist is intentionally narrow: an unknown/new entry is treated as
- * mutating until it is proven navigation.
+ * mutating until it is proven navigation. Copy/Select All are text actions,
+ * not document mutations, so Read keeps them usable.
  */
 function gateMenuEntries(entries: MenuEntry[], editingEnabled: boolean): MenuEntry[] {
   if (editingEnabled) return entries;
@@ -1106,14 +1121,24 @@ export function openImageMenu(
   );
 }
 
-export function openBlockMenu(blockId: string, anchor: { x: number; y: number }): void {
+export function openBlockMenu(
+  blockId: string,
+  anchor: { x: number; y: number },
+  options: { target?: Element | null } = {},
+): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
   const block = runtime.document.blocks[blockId];
   if (block === undefined) return;
+  const editingEnabled = editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath]);
+  const surface =
+    options.target === undefined || options.target === null
+      ? 'card'
+      : classifyEditorContextTarget(options.target);
   const children = directChildIds(runtime.document, blockId);
   const branch = incomingBranch(runtime.document, blockId);
-  const hasParent = parentIdOf(runtime.document, blockId) !== null;
+  const indent = indentTarget(runtime.document, blockId);
+  const outdent = outdentTarget(runtime.document, blockId);
   const images = imagesInContent(block.content);
   const imageEntries: MenuEntry[] = [];
   for (const [index, image] of images.entries()) {
@@ -1316,16 +1341,22 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
       shortcut: '⌥↓',
       onSelect: () => report(runtime.reorderSibling(blockId, 1)),
     },
-    ...(hasParent
-      ? [
-          {
-            id: 'outdent',
-            label: 'Outdent',
-            shortcut: '⇧Tab',
-            onSelect: () => report(runtime.outdent(blockId)),
-          },
-        ]
-      : []),
+    {
+      id: 'indent',
+      label: 'Indent',
+      description: indent.ok ? undefined : indent.reason,
+      shortcut: '⇥',
+      disabled: !indent.ok,
+      ...(indent.ok ? { onSelect: () => report(runtime.indent(blockId)) } : {}),
+    },
+    {
+      id: 'outdent',
+      label: 'Outdent',
+      description: outdent.ok ? undefined : outdent.reason,
+      shortcut: '⇧⇥',
+      disabled: !outdent.ok,
+      ...(outdent.ok ? { onSelect: () => report(runtime.outdent(blockId)) } : {}),
+    },
     ...(children.length > 0
       ? [
           {
@@ -1358,10 +1389,66 @@ export function openBlockMenu(blockId: string, anchor: { x: number; y: number })
     anchor.x,
     anchor.y,
     gateMenuEntries(
-      entries,
-      editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath]),
+      composeContextEntries({
+        surface,
+        target: options.target ?? null,
+        anchor,
+        editingEnabled,
+        editor: runtime.editor,
+        blockEntries: entries,
+      }),
+      editingEnabled,
     ),
   );
+}
+
+/**
+ * One menu component, target-aware groups. Prose gets the text group plus the
+ * complete block menu; a card gets the block menu; a cell gets text + table
+ * commands; code and formula inputs get text only; Read text gets Copy/Select
+ * All only.
+ */
+function composeContextEntries(input: {
+  surface: ReturnType<typeof classifyEditorContextTarget>;
+  target: Element | null;
+  anchor: { x: number; y: number };
+  editingEnabled: boolean;
+  editor: DocumentRuntime['editor'];
+  blockEntries: MenuEntry[];
+}): MenuEntry[] {
+  const snapshot = input.target === null ? null : captureTextTarget(input.target);
+  const text =
+    snapshot === null ? [] : textMenuEntries(snapshot, { readOnly: !input.editingEnabled });
+  if (
+    input.surface === 'formula-source' ||
+    input.surface === 'code-language' ||
+    input.surface === 'code'
+  ) {
+    return text;
+  }
+  if (input.surface === 'cell') {
+    if (!input.editingEnabled) return text;
+    const cellPosition = ensureCellSelection(
+      input.editor,
+      input.target,
+      input.anchor.x,
+      input.anchor.y,
+    );
+    return [
+      ...text,
+      { id: 'sep-table', label: '', separator: true },
+      ...tableMenuEntries({ editor: input.editor, cellPosition }),
+    ];
+  }
+  if (input.surface === 'prose') {
+    if (!input.editingEnabled) return text;
+    return [
+      ...text,
+      { id: 'sep-text', label: '', separator: true },
+      ...input.blockEntries,
+    ];
+  }
+  return input.blockEntries;
 }
 
 export function openChapterMenu(
@@ -1539,6 +1626,14 @@ export function paletteCommands(): MenuEntry[] {
           onSelect: undefined,
         }
       : entry;
+  const indentCheck =
+    runtime === null || selected === null
+      ? { ok: false as const, reason: 'Select a block first.' }
+      : indentTarget(runtime.document, selected);
+  const outdentCheck =
+    runtime === null || selected === null
+      ? { ok: false as const, reason: 'Select a block first.' }
+      : outdentTarget(runtime.document, selected);
   return [
     { id: 'new-document', label: 'New note', shortcut: '⌘N', onSelect: () => void createNewDocument() },
     gate({ id: 'new-chapter', label: 'New chapter', shortcut: '⇧⌘N', onSelect: () => void createChapter() }),
@@ -1608,6 +1703,26 @@ export function paletteCommands(): MenuEntry[] {
         if (selected === null) return;
         shell().openDialog({ kind: 'link-reference', blockId: selected });
       },
+    }),
+    gate({
+      id: 'indent-block',
+      label: 'Indent block',
+      shortcut: '⇥',
+      disabled: indentCheck.ok !== true,
+      ...(indentCheck.ok ? {} : { reason: indentCheck.reason }),
+      ...(indentCheck.ok && selected !== null
+        ? { onSelect: () => report(runtime?.indent(selected)) }
+        : {}),
+    }),
+    gate({
+      id: 'outdent-block',
+      label: 'Outdent block',
+      shortcut: '⇧⇥',
+      disabled: outdentCheck.ok !== true,
+      ...(outdentCheck.ok ? {} : { reason: outdentCheck.reason }),
+      ...(outdentCheck.ok && selected !== null
+        ? { onSelect: () => report(runtime?.outdent(selected)) }
+        : {}),
     }),
     withDocument({
       id: 'anchor-health',

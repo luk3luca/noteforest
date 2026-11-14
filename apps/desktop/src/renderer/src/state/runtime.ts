@@ -37,6 +37,7 @@ import type {
 import {
   anchoredChildBranches,
   planBlockMerge,
+  primaryParentBranch,
   textAnchorSelectorForBinding,
 } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
@@ -70,12 +71,14 @@ import {
 } from '../editor/editor-ui';
 import {
   ancestorPath,
+  blockTitle,
   chapterIdOf,
   directChildIds,
   incomingBranch,
   parentIdOf,
   siblingIds,
 } from '../lib/tree';
+import { indentTarget, outdentTarget } from '../lib/indent';
 import type { DocumentGateway } from './document-gateway';
 import { DocumentSession, type ContentChange } from './document-session';
 import { createElectronDocumentGateway } from './electron-document-gateway';
@@ -100,6 +103,11 @@ export interface ApplyOutcome {
   assetId?: string;
   /** True when an existing edge was reused instead of creating a new one. */
   duplicate?: boolean;
+  /**
+   * Success-side information that is worth a toast (for example a reparent
+   * that kept the old anchor as a reference). Never shown for a failed call.
+   */
+  notice?: string;
 }
 
 /**
@@ -1868,12 +1876,27 @@ export class DocumentRuntime {
     for (const id of ids) this.collapsed.add(id);
   }
 
+  /**
+   * The copy shown when a reparent kept the old anchored primary edge as a
+   * citation. One toast for every path (Indent, Outdent, Move to…), and the
+   * core snapshot still restores both edges with one undo.
+   */
+  private citedAnchorNotice(
+    incoming: ReturnType<typeof primaryParentBranch>,
+  ): string | undefined {
+    if (incoming === undefined || incoming.source.anchorId === undefined) return undefined;
+    if (this.document.branches[incoming.id]?.role !== 'reference') return undefined;
+    const sourceTitle = blockTitle(this.document.blocks[incoming.source.blockId]);
+    return `Kept as reference from “${sourceTitle}”.`;
+  }
+
   async moveBlock(
     blockId: string,
     target: { kind: 'top-level'; chapterId: string } | { kind: 'child'; parentBlockId: string },
   ): Promise<ApplyOutcome> {
     return this.session.queue.run(async () => {
       const oldParent = parentIdOf(this.document, blockId);
+      const incoming = primaryParentBranch(this.document, blockId);
       const result = await this.runCommandInternal({
         type: 'block.move',
         blockId,
@@ -1890,30 +1913,60 @@ export class DocumentRuntime {
         this.rebuildEditor(blockId);
       }
       this.reconcileEditor(blockId);
-      return { ok: true };
+      const notice = this.citedAnchorNotice(incoming);
+      return notice === undefined ? { ok: true } : { ok: true, notice };
+    });
+  }
+
+  /**
+   * Indent: the block and its subtree become the last child of the previous
+   * primary sibling. One `block.move` call, one structural entry; the core
+   * rejects cycles and a chapter that would become empty.
+   */
+  async indent(blockId: string): Promise<ApplyOutcome> {
+    const check = indentTarget(this.document, blockId);
+    if (!check.ok) return { ok: false, message: check.reason };
+    return this.session.queue.run(async () => {
+      const oldParent = parentIdOf(this.document, blockId);
+      const incoming = primaryParentBranch(this.document, blockId);
+      const result = await this.runCommandInternal({
+        type: 'block.move',
+        blockId,
+        to: { kind: 'child', parentBlockId: check.parentBlockId },
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not indent the block.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
+      if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
+        this.rebuildEditor(blockId);
+      }
+      this.reconcileEditor(blockId);
+      const notice = this.citedAnchorNotice(incoming);
+      return notice === undefined ? { ok: true } : { ok: true, notice };
     });
   }
 
   async outdent(blockId: string): Promise<ApplyOutcome> {
+    const check = outdentTarget(this.document, blockId);
+    if (!check.ok) return { ok: false, message: check.reason };
     return this.session.queue.run(async () => {
-      const parent = parentIdOf(this.document, blockId);
-      if (parent === null) return { ok: false, message: 'This block is already top-level.' };
-      const chapterId = chapterIdOf(this.document, parent);
-      if (chapterId === null) return { ok: false, message: 'Block has no chapter.' };
+      const incoming = primaryParentBranch(this.document, blockId);
       const result = await this.runCommandInternal({
         type: 'block.move',
         blockId,
-        to: { kind: 'sibling', siblingBlockId: parent, after: true },
+        to: { kind: 'sibling', siblingBlockId: check.parentBlockId, after: true },
       });
       if (!result.ok || result.document === undefined) {
         return { ok: false, message: result.message ?? 'Could not outdent the block.' };
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
-      if (!this.moveBlockNodeToNewParent(blockId, parent)) {
+      if (!this.moveBlockNodeToNewParent(blockId, check.parentBlockId)) {
         this.rebuildEditor(blockId);
       }
       this.reconcileEditor(blockId);
-      return { ok: true };
+      const notice = this.citedAnchorNotice(incoming);
+      return notice === undefined ? { ok: true } : { ok: true, notice };
     });
   }
 

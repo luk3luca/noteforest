@@ -101,11 +101,12 @@ export function ContextMenu(): JSX.Element | null {
 
   if (menu === null) return null;
   const width = 224;
-  const height =
-    menu.items.reduce(
-      (sum, item) => sum + (item.description === undefined ? 28 : 42),
-      12,
-    );
+  const maxHeight = Math.max(160, window.innerHeight - 16);
+  const estimated = menu.items.reduce(
+    (sum, item) => sum + (item.description === undefined ? 28 : 42),
+    12,
+  );
+  const height = Math.min(estimated, maxHeight);
   const hasChecks = menu.items.some((item) => item.checked !== undefined);
   const left = Math.max(8, Math.min(menu.x, window.innerWidth - width - 8));
   const top = Math.max(8, Math.min(menu.y, window.innerHeight - height - 8));
@@ -113,6 +114,7 @@ export function ContextMenu(): JSX.Element | null {
   return createPortal(
     <div
       className="nf-menu-overlay"
+      data-menu-overlay="true"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) close();
       }}
@@ -120,7 +122,7 @@ export function ContextMenu(): JSX.Element | null {
       <div
         ref={ref}
         className="nf-menu"
-        style={{ left, top, width }}
+        style={{ left, top, width, maxHeight }}
         role="presentation"
         onContextMenu={(event) => event.preventDefault()}
       >
@@ -136,7 +138,7 @@ export function ContextMenu(): JSX.Element | null {
         >
           {menu.items.map((entry) =>
             entry.separator === true ? (
-              <Separator key={entry.id} className="nf-menu-separator" />
+              <Separator key={entry.id} className="nf-menu-separator" data-menu-separator={entry.id} />
             ) : (
               <MenuItem
                 key={entry.id}

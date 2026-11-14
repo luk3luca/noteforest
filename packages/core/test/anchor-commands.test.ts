@@ -1207,7 +1207,7 @@ describe('anchored traversal and lifted M2 restrictions', () => {
     if (!branch.ok) expect(branch.code).toBe('cycle');
   });
 
-  it('moves an anchored child to top level and back, restoring the original branch on undo', () => {
+  it('moves an anchored child to top level and keeps the cited anchor as a reference', () => {
     const { context, document, a, a1, b, chapterId } = buildFixture();
     const created = createTextAnchor(document, context, a, 'anchor-1', 6, 16, 'eigenvalue');
     const anchored = run(created.document, {
@@ -1224,15 +1224,26 @@ describe('anchored traversal and lifted M2 restrictions', () => {
       blockId: b,
       to: { kind: 'top-level', chapterId, atIndex: 0 },
     }, context);
-    expect(moved.document.branches[branchId]).toBeUndefined();
+    // The old anchored primary edge is kept as a reference: the anchor is the
+    // citation and is never silently lost on a reparent.
+    expect(moved.document.branches[branchId]?.role).toBe('reference');
+    expect(moved.document.branches[branchId]?.source).toEqual({
+      blockId: a,
+      anchorId: 'anchor-1',
+    });
     expect(moved.document.chapters.find((chapter) => chapter.id === chapterId)?.topLevelBlockIds[0]).toBe(b);
+    expect(
+      Object.values(moved.document.branches).some(
+        (branch) => branch.role === 'primary' && branch.targetBlockId === b,
+      ),
+    ).toBe(false);
     const undone = undoOf(moved);
     expect(stable(undone.document)).toEqual(stable(beforeMove));
     expect(undone.document.branches[branchId]).toEqual(beforeMove.branches[branchId]);
     void a1;
   });
 
-  it('moves an anchored child under another parent with a fresh edge and exact undo', () => {
+  it('moves an anchored child under another parent with a reference citation and exact undo', () => {
     const { context, document, a, b, c } = buildFixture();
     const created = createTextAnchor(document, context, a, 'anchor-1', 6, 16, 'eigenvalue');
     const anchored = run(created.document, {
@@ -1249,7 +1260,13 @@ describe('anchored traversal and lifted M2 restrictions', () => {
       blockId: b,
       to: { kind: 'child', parentBlockId: c },
     }, context);
-    expect(moved.document.branches[oldBranchId]).toBeUndefined();
+    // The anchor survives as a dashed reference with the same source/anchor;
+    // the destination owns the fresh primary edge.
+    expect(moved.document.branches[oldBranchId]?.role).toBe('reference');
+    expect(moved.document.branches[oldBranchId]?.source).toEqual({
+      blockId: a,
+      anchorId: 'anchor-1',
+    });
     const incoming = Object.values(moved.document.branches).find(
       (branch) => branch.role === 'primary' && branch.targetBlockId === b,
     );
@@ -1259,6 +1276,8 @@ describe('anchored traversal and lifted M2 restrictions', () => {
     const undone = undoOf(moved);
     expect(stable(undone.document)).toEqual(stable(beforeMove));
     expect(undone.document.branches[oldBranchId]).toEqual(beforeMove.branches[oldBranchId]);
+    const redone = redoOf(undone);
+    expect(stable(redone.document)).toEqual(stable(moved.document));
   });
 
   it('promotes anchored primary children when their parent block is deleted', () => {

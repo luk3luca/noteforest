@@ -93,6 +93,8 @@ export interface ContextMenuState {
   x: number;
   y: number;
   items: MenuEntry[];
+  /** Cleanup for the surface that opened the menu (never steals focus). */
+  onClose?: () => void;
 }
 
 /** Navigation-only view state. Never written to the document. */
@@ -136,7 +138,7 @@ interface ShellState {
   setPaletteQuery: (query: string) => void;
   openDialog: (dialog: DialogState) => void;
   closeDialog: () => void;
-  openContextMenu: (x: number, y: number, items: MenuEntry[]) => void;
+  openContextMenu: (x: number, y: number, items: MenuEntry[], options?: { onClose?: () => void }) => void;
   closeContextMenu: () => void;
   setCollapsedTopics: (packagePath: string, ids: string[]) => void;
   setDocumentViewState: (packagePath: string, view: Partial<DocumentViewState>) => void;
@@ -293,8 +295,16 @@ export const useShell = create<ShellState>((set, get) => ({
   openDialog: (dialog) => set({ dialog }),
   closeDialog: () => set({ dialog: null }),
 
-  openContextMenu: (x, y, items) => set({ contextMenu: { x, y, items } }),
-  closeContextMenu: () => set({ contextMenu: null }),
+  openContextMenu: (x, y, items, options = {}) =>
+    set((state) => {
+      state.contextMenu?.onClose?.();
+      return { contextMenu: { x, y, items, ...(options.onClose === undefined ? {} : { onClose: options.onClose }) } };
+    }),
+  closeContextMenu: () =>
+    set((state) => {
+      state.contextMenu?.onClose?.();
+      return { contextMenu: null };
+    }),
 
   setCollapsedTopics: (packagePath, ids) =>
     set((state) => ({
@@ -335,13 +345,13 @@ export const useShell = create<ShellState>((set, get) => ({
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
       if (current.layout === layout) return state;
-      // A layout switch opens Page in Read (no accidental editing); returning
-      // to Continuous restores the default Edit mode. Page Edit is explicit.
-      const interactionMode: InteractionMode = layout === 'page' ? 'read' : 'edit';
+      // Layout and interaction mode are independent (ADR-0007): switching
+      // Continuous ⇄ Page keeps Edit or Read. Page Edit stays opt-in per block;
+      // committing the active overlay is the caller's job before this runs.
       return {
         viewByDoc: {
           ...state.viewByDoc,
-          [packagePath]: { ...current, layout, interactionMode },
+          [packagePath]: { ...current, layout },
         },
       };
     }),
@@ -349,8 +359,8 @@ export const useShell = create<ShellState>((set, get) => ({
   setDocumentInteractionMode: (packagePath, mode) =>
     set((state) => {
       const current = state.viewByDoc[packagePath] ?? DEFAULT_DOCUMENT_VIEW;
-      // Page Edit is opt-in: the user can toggle Edit in the Page layout. Page
-      // still opens in Read on a layout switch.
+      // Page Edit is opt-in per block. The mode itself is independent from the
+      // layout: an explicit Edit/Read choice survives Continuous ⇄ Page.
       const next: InteractionMode = mode === 'edit' ? 'edit' : 'read';
       if (current.interactionMode === next) return state;
       return {

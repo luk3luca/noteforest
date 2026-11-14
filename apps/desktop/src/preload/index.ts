@@ -38,6 +38,7 @@ import type {
   SessionState,
   SettingsSaveResult,
   TakeOverLockResult,
+  TextEditCommand,
   TrashDocumentResult,
   TrashPreflight,
   WindowState,
@@ -46,6 +47,8 @@ import { normalizeFlushResult } from '../shared/flush.js';
 
 const api: NoteForestApi = {
   bootstrap: (): Promise<BootstrapResult> => ipcRenderer.invoke('app:bootstrap'),
+  editTextCommand: (command: TextEditCommand): Promise<void> =>
+    ipcRenderer.invoke('shell:edit-text-command', command),
   scanLibrary: (root?: string): Promise<LibraryView> => ipcRenderer.invoke('library:scan', root),
   createDocument: (input): Promise<CreateDocumentResult> =>
     ipcRenderer.invoke('library:create', input),

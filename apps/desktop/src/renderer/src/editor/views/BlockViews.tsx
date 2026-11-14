@@ -44,6 +44,7 @@ import {
   codeRangeRects,
 } from '../../lib/code-anchor-geometry';
 import { anchorFormulaRender } from '../anchor-formula';
+import { openTextOnlyContextMenu, rememberTextControlSelection } from '../../lib/editor-context-menu';
 
 function stringAttr(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -68,6 +69,7 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(title);
   const committing = useRef(false);
+  const suppressBlur = useRef(false);
   const headRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -123,6 +125,18 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
 
   const onContextMenu = (event: MouseEvent<HTMLDivElement>): void => {
     event.preventDefault();
+    // The chapter-title input is a text control: a right-click there is a text
+    // menu, not the chapter structure menu.
+    if (event.target instanceof HTMLInputElement) {
+      // Do not commit the chapter draft just because the menu took focus.
+      suppressBlur.current = true;
+      openTextOnlyContextMenu(
+        event.target,
+        { x: event.clientX, y: event.clientY },
+        { onClose: () => { suppressBlur.current = false; } },
+      );
+      return;
+    }
     if (readOnly) return;
     bindings?.openChapterMenu(chapterId, { x: event.clientX, y: event.clientY });
   };
@@ -161,9 +175,18 @@ export function ChapterView({ node, editor }: NodeViewProps): JSX.Element {
             autoFocus
             aria-label="Chapter title"
             onChange={(event) => setValue(event.target.value)}
-            onBlur={commit}
+            onMouseDown={(event) => {
+              if (event.button === 2) rememberTextControlSelection(event.currentTarget);
+            }}
+            onBlur={() => {
+              if (suppressBlur.current) return;
+              commit();
+            }}
             onKeyDown={onTitleKeyDown}
-            onFocus={(event) => event.currentTarget.select()}
+            onFocus={(event) => {
+              suppressBlur.current = false;
+              event.currentTarget.select();
+            }}
           />
         ) : (
           <button
@@ -1056,6 +1079,10 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     event.preventDefault();
     event.stopPropagation();
     const source = blockId;
+    // Clicking the gutter is the explicit block-selection entry (UX §4.5):
+    // set a real branchBlock node selection so a caret is not active and the
+    // structural keys (⇥ / ⇧⇥ / Delete) apply to this block.
+    bindings.runtime.focusBlock(source, { select: true, scroll: false });
     bindings.setDragSource(source);
     setDragBlockId(source);
     bindings.runtime.selectBlock(source);
@@ -1096,8 +1123,11 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
 
   const onContextMenu = (event: MouseEvent<HTMLDivElement>): void => {
     event.preventDefault();
-    if (readOnly) return;
-    bindings?.openBlockMenu(blockId, { x: event.clientX, y: event.clientY });
+    bindings?.openBlockMenu(
+      blockId,
+      { x: event.clientX, y: event.clientY },
+      { target: event.target instanceof Element ? event.target : null },
+    );
   };
 
   const toggleCollapse = useCallback(() => {

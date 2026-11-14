@@ -80,6 +80,7 @@ async function showPageRead() {
   await page.keyboard.press('Meta+3');
   await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
   await waitPageReady();
+  await ui.ensureInteractionMode('read');
 }
 
 async function enterPageEdit() {

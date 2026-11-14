@@ -194,6 +194,7 @@ async function waitForPageRead() {
     undefined,
     { timeout: 20000 },
   );
+  await ui.ensureInteractionMode('read');
 }
 
 /** Page-paper fingerprint: geometry, paper colors, and Page typography. */

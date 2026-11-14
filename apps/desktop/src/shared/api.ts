@@ -608,6 +608,9 @@ export interface SeedResult {
   library: LibraryView;
 }
 
+/** Native editing commands used by the editor's custom context menu. */
+export type TextEditCommand = 'cut' | 'copy' | 'paste';
+
 /** Input for a paste/drop import. Bytes are copied into the package assets. */
 export interface ImportImageBytesInput {
   bytes: Uint8Array;
@@ -634,6 +637,13 @@ export type ImportImageResult = ImportImageSuccess | ImportImageFailure;
 
 export interface NoteForestApi {
   bootstrap(): Promise<BootstrapResult>;
+  /**
+   * Cut/Copy/Paste for the renderer-owned editor context menu. The main
+   * process runs the native edit command on the focused webContents so rich
+   * text and undo keep the platform behavior (and reading the OS clipboard
+   * never becomes a renderer permission prompt).
+   */
+  editTextCommand(command: TextEditCommand): Promise<void>;
   /** Scan the active library, or one explicit root during validation. */
   scanLibrary(root?: string): Promise<LibraryView>;
   createDocument(input: { title?: string }): Promise<CreateDocumentResult>;

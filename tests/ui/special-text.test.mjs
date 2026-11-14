@@ -1437,7 +1437,9 @@ describe('NoteForest special text editing', () => {
 
     const blockId = 'st-menu-target';
     await blankBlock(blockId);
-    await ui.openBlockMenu(blockId);
+    // The gutter opens the card/chrome menu: the complete block menu without
+    // the prose text group.
+    await ui.openBlockMenuFromGutter(blockId);
     const ids = await page
       .locator('.nf-menu [data-menu-entry]')
       .evaluateAll((items) => items.map((item) => item.getAttribute('data-menu-entry')));
@@ -1453,6 +1455,8 @@ describe('NoteForest special text editing', () => {
       'move',
       'move-up',
       'move-down',
+      'indent',
+      'outdent',
       'delete',
     ]);
     assert.equal(

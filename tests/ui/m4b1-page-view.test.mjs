@@ -147,6 +147,7 @@ describe('M4b1 page view core', () => {
     await page.waitForTimeout(80);
 
     await showPageView();
+    await ui.ensureInteractionMode('read');
     assert.equal((await viewState(packagePath)).layout, 'page');
     assert.equal((await viewState(packagePath)).interactionMode, 'read');
     assert.equal(await page.locator('.nf-continuous-surface').evaluate((element) => getComputedStyle(element).display), 'none');
@@ -231,12 +232,19 @@ describe('M4b1 page view core', () => {
       { timeout: 5000 },
     );
 
-    // Back to Continuous Edit: the page layout is gone, selection and scroll survive.
+    // Back to Continuous keeps Read; ⌘E returns to Edit. Selection and scroll
+    // survive both switches.
     await page.keyboard.press('Meta+2');
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view', { state: 'detached' });
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.layout === 'continuous' &&
-        window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+        window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      packagePath,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
       packagePath,
       { timeout: 5000 },
     );
@@ -255,6 +263,7 @@ describe('M4b1 page view core', () => {
     // The Page fragment read path (double-click) opens the same block in
     // Continuous Edit. The PageToolbar no longer has a duplicate button.
     await showPageView();
+    await ui.ensureInteractionMode('read');
     const target = activePageView().locator('.nf-page-fragment').first();
     const targetId = await target.getAttribute('data-fragment-block');
     await target.dblclick();
@@ -477,7 +486,16 @@ describe('M4b1 page view core', () => {
     assert.equal((await activeSheet().locator('.nf-page-footer-text').innerText()).trim(), 'Chrome page title');
     assert.match(await activeSheet().locator('[data-page-indicator]').innerText(), /Page 1 of 1/);
 
-    // Page Edit renders the same chrome.
+    // Page Read and Page Edit render the same chrome.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      packagePath,
+      { timeout: 5000 },
+    );
+    assert.equal((await activeSheet().locator('.nf-page-header-text').innerText()).trim(), 'Chrome chapter');
+    assert.equal((await activeSheet().locator('.nf-page-footer-text').innerText()).trim(), 'Chrome page title');
+    assert.match(await activeSheet().locator('[data-page-indicator]').innerText(), /Page 1 of 1/);
     await page.keyboard.press('Meta+e');
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
@@ -842,17 +860,19 @@ describe('M4b1 page view core', () => {
     await h.waitSelected(otherId);
   });
 
-  it('opens Page in Read, enables explicit Page Edit, and returns to Continuous Edit', async () => {
+  it('preserves Edit/Read across layout switches and keeps Page Edit opt-in per block', async () => {
     await launch(ui.isolated('m4b1a-page-seam'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
     const packagePath = (await h.state()).activeTab;
 
+    // Continuous Edit -> Page keeps Edit. The page does not auto-open an
+    // overlay and shows no contenteditable until a block is opened.
     await page.keyboard.press('Meta+3');
     await page.waitForFunction(
       (path) => {
         const view = window.__noteforestTest.viewState()[path];
-        return view?.layout === 'page' && view?.interactionMode === 'read';
+        return view?.layout === 'page' && view?.interactionMode === 'edit';
       },
       packagePath,
       { timeout: 5000 },
@@ -862,30 +882,14 @@ describe('M4b1 page view core', () => {
       await page.locator('[data-view-layout="page"]').getAttribute('aria-pressed'),
       'true',
     );
-    const edit = page.locator('[data-view-interaction="edit"]');
-    assert.equal(await edit.isDisabled(), false, 'Page Edit is available');
-    assert.match((await edit.getAttribute('title')) ?? '', /Page Edit mode/);
+    assert.match(
+      (await page.locator('[data-view-interaction="edit"]').getAttribute('title')) ?? '',
+      /Page Edit mode/,
+    );
     assert.equal(
-      await page.locator('[data-view-interaction="read"]').getAttribute('aria-pressed'),
+      await page.locator('[data-view-interaction="edit"]').getAttribute('aria-pressed'),
       'true',
-    );
-    assert.equal(
-      await page.locator('.nf-editor[data-active="true"] .nf-page-view').getAttribute('data-interaction-mode'),
-      'read',
-    );
-    assert.equal(
-      await page.locator('.nf-editor[data-active="true"] .nf-page-view [contenteditable="true"]').count(),
-      0,
-      'Page Read has no editable surface',
-    );
-
-    // ⌘E enters Page Edit; Page still has no contenteditable until a block
-    // overlay is opened, and the page geometry is unchanged.
-    await page.keyboard.press('Meta+e');
-    await page.waitForFunction(
-      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
-      packagePath,
-      { timeout: 5000 },
+      'Page keeps the Edit mode',
     );
     assert.equal(
       await page.locator('.nf-editor[data-active="true"] .nf-page-view').getAttribute('data-interaction-mode'),
@@ -897,11 +901,35 @@ describe('M4b1 page view core', () => {
       'Page Edit has no editor until a block is opened',
     );
     assert.equal(
-      await page.locator('[data-view-interaction="edit"]').getAttribute('aria-pressed'),
-      'true',
+      await page.locator('[data-page-edit-overlay]').count(),
+      0,
+      'Page Edit never auto-opens an overlay',
     );
 
-    // Continuous restores the default Edit mode.
+    // Page Edit -> Read, and back.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      packagePath,
+      { timeout: 5000 },
+    );
+    assert.equal(
+      await page.locator('[data-view-interaction="read"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-page-view [contenteditable="true"]').count(),
+      0,
+      'Page Read has no editable surface',
+    );
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
+    );
+
+    // Page Edit -> Continuous keeps Edit.
     await page.keyboard.press('Meta+2');
     await page.waitForFunction(
       (path) => {
@@ -915,6 +943,43 @@ describe('M4b1 page view core', () => {
     assert.equal(
       await page.locator('.nf-editor[data-active="true"] .nf-prosemirror').getAttribute('contenteditable'),
       'true',
+    );
+
+    // Continuous Read -> Page keeps Read, and Continuous keeps it back.
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      packagePath,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+3');
+    await page.waitForFunction(
+      (path) => {
+        const view = window.__noteforestTest.viewState()[path];
+        return view?.layout === 'page' && view?.interactionMode === 'read';
+      },
+      packagePath,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+2');
+    await page.waitForFunction(
+      (path) => {
+        const view = window.__noteforestTest.viewState()[path];
+        return view?.layout === 'continuous' && view?.interactionMode === 'read';
+      },
+      packagePath,
+      { timeout: 5000 },
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-prosemirror').getAttribute('contenteditable'),
+      'false',
+      'Continuous stays Read',
+    );
+    await page.keyboard.press('Meta+e');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',
+      packagePath,
+      { timeout: 5000 },
     );
   });
 
@@ -934,6 +999,7 @@ describe('M4b1 page view core', () => {
     const zoomBefore = (await viewState(packagePath)).zoom;
 
     await showPageView();
+    await ui.ensureInteractionMode('read');
     await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,

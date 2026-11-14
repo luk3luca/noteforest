@@ -140,6 +140,7 @@ async function waitForPageRead() {
     undefined,
     { timeout: 20000 },
   );
+  await ui.ensureInteractionMode('read');
 }
 
 async function fileExists(path) {
@@ -338,7 +339,7 @@ describe('Batch A export sheet', () => {
       return window.__noteforestTest.viewState()[state.activeTab];
     });
     assert.equal(view.layout, 'page');
-    assert.equal(view.interactionMode, 'read', 'Page opens in Read');
+    assert.equal(view.interactionMode, 'read', 'the export case runs in Page Read');
     const folder = resolve(outputRoot, 'page-toolbar');
     await mkdir(folder, { recursive: true });
     await mockFolderDialog(folder);

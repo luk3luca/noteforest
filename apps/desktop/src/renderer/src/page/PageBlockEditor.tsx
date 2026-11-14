@@ -19,6 +19,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from 'react';
 import type { PageFragment, PageGeometry, PageSettings } from '@noteforest/layout';
 import { pageCssVariables } from '@noteforest/layout';
@@ -30,6 +31,7 @@ import {
 } from '../lib/adapter';
 import { blockContentFromEditorJson, editorJsonIsEmpty } from '../lib/page-edit';
 import { blockTitle } from '../lib/tree';
+import { openTextOnlyContextMenu } from '../lib/editor-context-menu';
 import type { DocumentRuntime } from '../state/runtime';
 import {
   registerPageEdit,
@@ -193,6 +195,14 @@ export function PageBlockEditor({
       const root = rootRef.current;
       if (root === null) return;
       if (event.target instanceof Node && root.contains(event.target)) return;
+      // Editor chrome that belongs to this overlay but lives in the body (the
+      // context menu and the fixed Page formula panel) is not an outside click.
+      if (
+        event.target instanceof Element &&
+        event.target.closest('.nf-menu-overlay, [data-page-edit-extension]') !== null
+      ) {
+        return;
+      }
       void commit('outside');
     };
     document.addEventListener('pointerdown', onPointerDown, true);
@@ -229,6 +239,18 @@ export function PageBlockEditor({
     }
   };
 
+  // Page Edit is a one-block editor overlay: its prose owns a text-only menu
+  // (Cut/Copy/Paste/Select All). Block structure actions stay on the
+  // Continuous card menu; they must not mutate the block behind this buffer.
+  const onContextMenu = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest('[data-formula-source], [data-code-language-input]') !== null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openTextOnlyContextMenu(target, { x: event.clientX, y: event.clientY });
+  };
+
   const spanning = !fragment.isFirst || !fragment.isLast;
   // The overlay is positioned in the page-layout coordinate system of the
   // resolved settings and uses the same theme variables as the sheet behind it.
@@ -253,6 +275,7 @@ export function PageBlockEditor({
       data-page-edit-block={blockId}
       data-page-edit-spanning={spanning ? 'true' : undefined}
       onKeyDownCapture={onKeyDown}
+      onContextMenu={onContextMenu}
     >
       <div className="nf-page-edit-header">
         <span className="nf-page-edit-title" data-page-edit-title="true" title={initial.title}>

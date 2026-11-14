@@ -63,6 +63,7 @@ async function showPageRead() {
     undefined,
     { timeout: 30000 },
   );
+  await ui.ensureInteractionMode('read');
 }
 
 async function openSettingsWithShortcut() {

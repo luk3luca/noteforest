@@ -50,7 +50,8 @@ describe('editor layout and interaction-mode state', () => {
     expect(normalizeDocumentViewState({})).toEqual(DEFAULT_DOCUMENT_VIEW);
     expect(normalizeDocumentViewState(undefined)).toEqual(DEFAULT_DOCUMENT_VIEW);
 
-    // An explicit Page Edit persists; Page only opens Read on a new switch.
+    // An explicit Page Edit persists; a Page view with no stored mode is a
+    // legacy/invalid value and still falls back to Read.
     const pageWithEdit = normalizeDocumentViewState({
       layout: 'page',
       interactionMode: 'edit',
@@ -94,25 +95,36 @@ describe('editor layout and interaction-mode state', () => {
     expect(normalizeDocumentViewState({ currentPage: 3.6 }).currentPage).toBe(4);
   });
 
-  it('opens Page in Read, allows explicit Page Edit, and returns to Continuous Edit', () => {
+  it('preserves Edit/Read across a layout switch and allows explicit Page Edit', () => {
     const store = useShell.getState();
     expect(store.viewByDoc['doc']).toBeUndefined();
 
+    // Continuous Edit -> Page keeps Edit (layout and mode are independent).
     store.setDocumentLayout('doc', 'page');
     expect(useShell.getState().viewByDoc['doc']?.layout).toBe('page');
+    expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('edit');
+
+    useShell.getState().setDocumentInteractionMode('doc', 'read');
     expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('read');
 
+    // Page Read -> Continuous keeps Read.
+    useShell.getState().setDocumentLayout('doc', 'continuous');
+    expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('read');
+
+    // Continuous Read -> Page keeps Read.
+    useShell.getState().setDocumentLayout('doc', 'page');
+    expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('read');
+
+    // Page Edit -> Continuous keeps Edit.
     useShell.getState().setDocumentInteractionMode('doc', 'edit');
+    useShell.getState().setDocumentLayout('doc', 'continuous');
     expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('edit');
 
     // Re-selecting the same layout is a no-op and never resets Page Edit.
     useShell.getState().setDocumentLayout('doc', 'page');
     expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('edit');
-
-    useShell.getState().setDocumentLayout('doc', 'continuous');
+    useShell.getState().setDocumentLayout('doc', 'page');
     expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('edit');
-    useShell.getState().setDocumentInteractionMode('doc', 'read');
-    expect(useShell.getState().viewByDoc['doc']?.interactionMode).toBe('read');
   });
 
   it('clamps navigation setters and restores a full view state', () => {

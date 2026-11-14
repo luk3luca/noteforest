@@ -688,14 +688,22 @@ describe('V0 visual shell', () => {
       .evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
     assert.equal(pageCardRadius, '4px', 'Page cards keep the shared 4 px radius');
 
-    // The canvas header owns layout/mode in Page.
+    // The canvas header owns layout/mode in Page. A layout switch preserves
+    // the current mode, so the pressed toggle is whichever mode is active.
     assert.equal(
       await page.locator('.nf-canvas-header [data-view-layout="page"]').getAttribute('aria-pressed'),
       'true',
     );
+    const pageMode = await page.evaluate(() => {
+      const state = window.__noteforestTest.state();
+      return window.__noteforestTest.viewState()[state.activeTab]?.interactionMode ?? 'edit';
+    });
     assert.equal(
-      await page.locator('.nf-canvas-header [data-view-interaction="read"]').getAttribute('aria-pressed'),
+      await page
+        .locator(`.nf-canvas-header [data-view-interaction="${pageMode}"]`)
+        .getAttribute('aria-pressed'),
       'true',
+      'the header toggle reflects the active interaction mode',
     );
     await h.screenshot(resolve(screenshotDir, 'page-toolbar-1440x900.png'), {
       width: 1440,
@@ -1154,7 +1162,8 @@ describe('V0 visual shell', () => {
     await waitZoomLabel('100%');
     assert.equal((await viewState(packagePath)).zoom, 1);
 
-    // Layout + mode from the canvas header also open Page in Read.
+    // Layout + mode from the canvas header: switching layout preserves the
+    // current mode, so Continuous Edit opens Page Edit.
     await page.locator('[data-view-layout="page"]').click();
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.layout === 'page',
@@ -1163,7 +1172,7 @@ describe('V0 visual shell', () => {
     );
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
     const pageOpened = await viewState(packagePath);
-    assert.equal(pageOpened.interactionMode, 'read', 'Page opens in Read');
+    assert.equal(pageOpened.interactionMode, 'edit', 'Page keeps the Edit mode');
     assert.equal(pageOpened.zoom, 1, 'the hidden Continuous zoom stayed at 100%');
     assert.equal(await page.locator('[data-zoom-target]').getAttribute('data-zoom-target'), 'page');
     assert.deepEqual(
@@ -1222,6 +1231,16 @@ describe('V0 visual shell', () => {
     assert.equal(afterFits.zoom, 1, 'Page fit never changed the Continuous zoom');
 
     // Mode works inside Page and inside Continuous.
+    await page.locator('[data-view-interaction="read"]').click();
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'read',
+      packagePath,
+      { timeout: 10000 },
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] .nf-page-view').getAttribute('data-interaction-mode'),
+      'read',
+    );
     await page.locator('[data-view-interaction="edit"]').click();
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.interactionMode === 'edit',

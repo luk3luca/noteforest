@@ -6007,6 +6007,9 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-menu {
   position: fixed;
   padding: 4px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--surface-3);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-overlay);
@@ -7680,6 +7683,52 @@ body.nf-dragging-block .nf-gutter-handle {
   font-family: var(--ui-font);
   font-size: 0.95em;
   overflow-x: auto;
+}
+
+/*
+ * Page Edit formula panel (editor chrome).
+ *
+ * The Page Edit overlay is anchored to one fragment-sized block, which can be
+ * narrower than the formula action row. In Page Edit the source is a fixed
+ * panel anchored to the formula and clamped to the viewport by the node view:
+ * it may overflow the block/page bounds, but no button or preview is clipped
+ * and the panel itself never scrolls horizontally. It sits above the page but
+ * below the context menu (z 60).
+ */
+.nf-formula-panel-page {
+  position: fixed;
+  z-index: 45;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  width: 420px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-overlay);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-panel);
+  font-family: var(--mono-font);
+  overflow: visible;
+}
+
+.nf-formula-panel-page .nf-formula-source {
+  flex: 1 1 18ch;
+  min-width: 8ch;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+.nf-formula-panel-page .nf-formula-preview {
+  overflow-x: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.nf-formula-panel-page .nf-formula-actions {
+  gap: 6px;
 }
 
 /* D · Continuous table scrolling: the wrapper scrolls, the card does not grow. */

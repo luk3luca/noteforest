@@ -640,12 +640,7 @@ describe('Batch A UI rework', () => {
       undefined,
       { timeout: 30000 },
     );
-    await page.keyboard.press('Meta+e');
-    await page.waitForFunction(
-      () => document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-interaction-mode') === 'edit',
-      undefined,
-      { timeout: 5000 },
-    );
+    await ui.ensureInteractionMode('edit');
     const fragment = page.locator('.nf-editor[data-active="true"] .nf-page-fragment').first();
     await fragment.dblclick();
     const overlay = page.locator('[data-page-edit-overlay]');

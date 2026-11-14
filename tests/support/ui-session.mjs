@@ -59,6 +59,28 @@ export function createUiSession({ tempRoot }) {
     return current().evaluate(() => window.__noteforestTest.structure());
   }
 
+  /**
+   * Set the active document's interaction mode through the product shortcut.
+   * Layout and mode are independent (ADR-0007 amendment): a Page switch keeps
+   * the current Edit/Read, so a suite that needs Page Read states it.
+   */
+  async function ensureInteractionMode(mode) {
+    const currentMode = await current().evaluate(() => {
+      const state = window.__noteforestTest.state();
+      return window.__noteforestTest.viewState()[state.activeTab]?.interactionMode ?? 'edit';
+    });
+    if (currentMode === mode) return;
+    await current().keyboard.press('Meta+e');
+    await current().waitForFunction(
+      (expected) => {
+        const state = window.__noteforestTest.state();
+        return window.__noteforestTest.viewState()[state.activeTab]?.interactionMode === expected;
+      },
+      mode,
+      { timeout: 10000 },
+    );
+  }
+
   /** Seed the demo document and wait for its 7 blocks / 3 arrows to settle. */
   async function seedDemo() {
     await current().evaluate(() => window.__noteforestTest.seed('demo'));
@@ -278,6 +300,7 @@ export function createUiSession({ tempRoot }) {
     launch,
     applyCommand,
     structure,
+    ensureInteractionMode,
     seedDemo,
     showOutline,
     showLibrary,

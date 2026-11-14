@@ -5,6 +5,7 @@ import type { ResolvedPos } from '@tiptap/pm/model';
 import { getEditorBindings } from './bindings';
 import { backspaceAction } from '../lib/backspace';
 import { arrowBoundaryAction, type ArrowBoundaryKey } from '../lib/arrow-boundary';
+import { indentTarget, outdentTarget } from '../lib/indent';
 
 function blockIdAt($pos: ResolvedPos): string | null {
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
@@ -236,10 +237,11 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      // Tab is native indent in lists/code/tables/blockquotes; "make child"
-      // only on a selected block, never while typing a normal paragraph. Every
-      // other case returns false so the browser moves focus out of the editor
-      // instead of trapping keyboard users inside the contenteditable body.
+      // Tab is native indent in lists/code/tables/blockquotes. On a selected
+      // block it is the structural Indent: become the last child of the
+      // previous primary sibling (the same block.move path as the menu and
+      // palette). Every other case returns false so the browser moves focus out
+      // of the editor instead of trapping keyboard users inside the body.
       Tab: () => {
         if (!canEdit()) return false;
         const editor = this.editor;
@@ -249,7 +251,12 @@ export const BranchKeymap = Extension.create({
         if (selection === null || current === null) return false;
         const id = typeof selection.node.attrs['blockId'] === 'string' ? selection.node.attrs['blockId'] : null;
         if (id === null) return false;
-        current.report(current.runtime.addChild(id));
+        const check = indentTarget(current.runtime.document, id);
+        if (!check.ok) {
+          current.notify(check.reason, 'info');
+          return true;
+        }
+        current.report(current.runtime.indent(id));
         return true;
       },
 
@@ -262,6 +269,11 @@ export const BranchKeymap = Extension.create({
         if (selection === null || current === null) return false;
         const id = typeof selection.node.attrs['blockId'] === 'string' ? selection.node.attrs['blockId'] : null;
         if (id === null) return false;
+        const check = outdentTarget(current.runtime.document, id);
+        if (!check.ok) {
+          current.notify(check.reason, 'info');
+          return true;
+        }
         current.report(current.runtime.outdent(id));
         return true;
       },

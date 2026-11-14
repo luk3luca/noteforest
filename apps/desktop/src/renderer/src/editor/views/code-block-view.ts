@@ -21,6 +21,10 @@ import { writeClipboardText } from '../../lib/clipboard';
 import { commitCodeLanguage, exitCodeBlock } from '../code-block-actions';
 import { subscribeEditorUi } from '../editor-ui';
 import { installLocalTextKeys } from '../../lib/local-text-keys';
+import {
+  openTextOnlyContextMenu,
+  rememberTextControlSelection,
+} from '../../lib/editor-context-menu';
 
 const COPIED_FEEDBACK_MS = 1200;
 
@@ -46,6 +50,8 @@ export class CodeBlockNodeView {
   private node: PMNode;
   private editing = false;
   private copiedTimer: number | null = null;
+  /** A context-menu blur must not commit the language draft. */
+  private suppressBlur = false;
   private readonly onSelectionChange: () => void;
   private readonly cleanupTextKeys: () => void;
   private readonly cleanupEditorUi: () => void;
@@ -96,7 +102,23 @@ export class CodeBlockNodeView {
     this.languageInput.spellcheck = false;
     this.languageInput.placeholder = 'language';
     this.cleanupTextKeys = installLocalTextKeys(this.languageInput);
-    this.languageInput.addEventListener('mousedown', (event) => event.stopPropagation());
+    this.languageInput.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+      if (event.button === 2) rememberTextControlSelection(this.languageInput);
+    });
+    this.languageInput.addEventListener('focus', () => {
+      this.suppressBlur = false;
+    });
+    this.languageInput.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.suppressBlur = true;
+      openTextOnlyContextMenu(
+        this.languageInput,
+        { x: event.clientX, y: event.clientY },
+        { onClose: () => { this.suppressBlur = false; } },
+      );
+    });
     this.languageInput.addEventListener('keydown', (event) => {
       event.stopPropagation();
       if (event.key === 'Enter') {
@@ -109,7 +131,10 @@ export class CodeBlockNodeView {
         this.editor.view.focus();
       }
     });
-    this.languageInput.addEventListener('blur', () => this.commitLanguage());
+    this.languageInput.addEventListener('blur', () => {
+      if (this.suppressBlur) return;
+      this.commitLanguage();
+    });
     this.openFence.append(fenceMark, this.languageInput, this.copyButton);
 
     this.pre = document.createElement('pre');
@@ -120,6 +145,16 @@ export class CodeBlockNodeView {
     code.spellcheck = false;
     this.pre.appendChild(code);
     this.contentDOM = code;
+    // Code text is a text target: the complete block menu must not appear over
+    // it, and the native text menu must not compete with the custom one.
+    this.pre.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openTextOnlyContextMenu(
+        event.target instanceof Element ? event.target : this.contentDOM,
+        { x: event.clientX, y: event.clientY },
+      );
+    });
 
     this.closeRow = document.createElement('div');
     this.closeRow.className = 'nf-code-fence nf-code-fence-close-row';

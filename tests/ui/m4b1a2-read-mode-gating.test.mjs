@@ -472,6 +472,14 @@ describe('M4b1a2 Read-mode global gating', () => {
     assert.equal(withChild.canUndoStructural, true);
 
     await page.keyboard.press('Meta+3');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.viewState()[path]?.layout === 'page',
+      packagePath,
+      { timeout: 5000 },
+    );
+    // Layout and mode are independent: state Page Read explicitly for the
+    // Read-only gating assertions.
+    await ui.ensureInteractionMode('read');
     await waitViewMode(packagePath, 'page', 'read');
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
     const structureBeforeUndo = await ui.structure();
@@ -571,8 +579,13 @@ describe('M4b1a2 Read-mode global gating', () => {
       { width: 1440, height: 900 },
     );
 
-    // Continuous restores Edit, which re-enables undo and the shell controls.
+    // Layout and mode are independent: Page Read -> Continuous keeps Read, so
+    // the shell stays gated until ⌘E explicitly returns to Edit.
     await page.keyboard.press('Meta+2');
+    await waitViewMode(packagePath, 'continuous', 'read');
+    assert.equal(await addChapter.isDisabled(), true);
+    assert.equal(await addBlock.isDisabled(), true);
+    await page.keyboard.press('Meta+e');
     await waitViewMode(packagePath, 'continuous', 'edit');
     assert.equal(await addChapter.isDisabled(), false);
     assert.equal(await addBlock.isDisabled(), false);

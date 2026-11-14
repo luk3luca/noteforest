@@ -263,11 +263,19 @@ function storedStructure(document) {
   };
 }
 
+/** Open the card/chrome block menu from the gutter (target-independent). */
+async function openBlockActions(id) {
+  await page.locator(`[data-block-actions="${id}"]`).evaluate((button) => {
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+  });
+  await page.waitForSelector('.nf-menu');
+}
+
 /** Delete one block through the real context menu and confirmation dialog. */
 async function deleteBlockThroughDialog(text, mode = 'promote') {
   const id = await blockIdWithText(text);
   assert.ok(id !== null, `no block contains ${text}`);
-  await blockCard(id).click({ button: 'right' });
+  await openBlockActions(id);
   await page.getByRole('menuitem', { name: /Delete block/ }).click();
   if (mode === 'delete-subtree') {
     await page.getByRole('radio', { name: /Delete the whole subtree/ }).check();
@@ -279,7 +287,7 @@ async function deleteBlockThroughDialog(text, mode = 'promote') {
 async function detachBlockThroughMenu(text) {
   const id = await blockIdWithText(text);
   assert.ok(id !== null, `no block contains ${text}`);
-  await blockCard(id).click({ button: 'right' });
+  await openBlockActions(id);
   await page.getByRole('menuitem', { name: 'Detach from parent' }).click();
   return id;
 }
@@ -288,7 +296,7 @@ async function detachBlockThroughMenu(text) {
 async function outdentBlockThroughMenu(text) {
   const id = await blockIdWithText(text);
   assert.ok(id !== null, `no block contains ${text}`);
-  await blockCard(id).click({ button: 'right' });
+  await openBlockActions(id);
   await page.getByRole('menuitem', { name: 'Outdent' }).click();
   return id;
 }
@@ -994,7 +1002,12 @@ describe('NoteForest M2 editor shell', () => {
     await rootCard.click({ button: 'right' });
     await page.waitForSelector('.nf-menu');
     await page.waitForFunction(
-      () => document.querySelector('.nf-menu [role="menuitem"]') === document.activeElement,
+      () => {
+        const menu = document.querySelector('.nf-menu');
+        const first =
+          menu?.querySelector('[role="menuitem"]:not([aria-disabled="true"])') ?? null;
+        return first !== null && first === document.activeElement;
+      },
       undefined,
       { timeout: 10000 },
     );

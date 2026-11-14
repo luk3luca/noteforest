@@ -26,6 +26,10 @@ import { branchFromFormulaTerm } from '../../lib/formula-term-branch';
 import { getEditorBindings } from '../bindings';
 import { subscribeEditorUi } from '../editor-ui';
 import { installLocalTextKeys } from '../../lib/local-text-keys';
+import {
+  openTextOnlyContextMenu,
+  rememberTextControlSelection,
+} from '../../lib/editor-context-menu';
 
 const COPIED_FEEDBACK_MS = 1000;
 
@@ -70,6 +74,15 @@ export class FormulaNodeView {
   private readonly cleanupEditorUi: () => void;
   /** True while the clipboard helper (which steals DOM focus) is running. */
   private copying = false;
+  /**
+   * True while the editor context menu owns focus. A blur caused by the menu
+   * is not a commit: the source stays open with its value and selection.
+   */
+  private suppressBlur = false;
+  /** Page Edit mounts the source as viewport-clamped chrome, not inline text. */
+  private pagePanel: HTMLElement | null = null;
+  private panelFrame: number | null = null;
+  private cleanupPagePanel: (() => void) | null = null;
 
   constructor(options: FormulaNodeViewOptions) {
     this.editor = options.editor;
@@ -129,6 +142,7 @@ export class FormulaNodeView {
     this.cleanupEditorUi();
     this.cleanupTextKeys?.();
     this.cleanupTextKeys = null;
+    this.detachPagePanel();
     if (this.copiedTimer !== null) {
       window.clearTimeout(this.copiedTimer);
       this.copiedTimer = null;
@@ -189,10 +203,20 @@ export class FormulaNodeView {
     if (!this.editor.isEditable) return;
     this.editing = true;
     this.render();
-    this.dom.replaceChildren(this.buildSourceEditor());
+    const source = this.buildSourceEditor();
+    const overlay = this.dom.closest<HTMLElement>('.nf-page-edit-overlay');
+    if (overlay !== null) {
+      // Page Edit: the inline formula sits in one fragment-sized block, which
+      // is far too narrow for the action row. The source is editor chrome, so
+      // it becomes a viewport-clamped panel anchored to the formula instead of
+      // widening or scrolling the page overlay.
+      this.mountPagePanel(source);
+    } else {
+      this.dom.replaceChildren(source);
+    }
     const textarea = this.textarea;
     if (textarea !== null) {
-      textarea.focus();
+      textarea.focus({ preventScroll: true });
       const end = textarea.value.length;
       textarea.setSelectionRange(end, end);
       const preview = this.preview;
@@ -200,23 +224,84 @@ export class FormulaNodeView {
         renderKatex(preview, unwrapFormulaSource(textarea.value), this.block);
       }
       this.syncTerm();
+      this.repositionPagePanel();
     }
   }
 
   private closeSource(): void {
     this.editing = false;
+    this.suppressBlur = false;
     this.textarea = null;
     this.preview = null;
     this.termButton = null;
     this.copyButton = null;
     this.cleanupTextKeys?.();
     this.cleanupTextKeys = null;
+    this.detachPagePanel();
     if (this.copiedTimer !== null) {
       window.clearTimeout(this.copiedTimer);
       this.copiedTimer = null;
     }
     this.dom.replaceChildren(this.renderHost);
     this.render();
+  }
+
+  /** Page Edit formula panel: fixed and clamped to the viewport. */
+  private mountPagePanel(panel: HTMLElement): void {
+    panel.classList.add('nf-formula-panel-page');
+    panel.dataset['pageEditExtension'] = 'true';
+    document.body.appendChild(panel);
+    this.pagePanel = panel;
+    const request = (): void => this.requestPagePanelPosition();
+    window.addEventListener('scroll', request, true);
+    window.addEventListener('resize', request);
+    this.cleanupPagePanel = () => {
+      window.removeEventListener('scroll', request, true);
+      window.removeEventListener('resize', request);
+    };
+    this.repositionPagePanel();
+  }
+
+  private requestPagePanelPosition(): void {
+    if (this.panelFrame !== null) return;
+    this.panelFrame = requestAnimationFrame(() => {
+      this.panelFrame = null;
+      this.repositionPagePanel();
+    });
+  }
+
+  private repositionPagePanel(): void {
+    const panel = this.pagePanel;
+    if (panel === null || !panel.isConnected) return;
+    const anchor = this.dom.getBoundingClientRect();
+    const margin = 8;
+    const width = Math.min(420, Math.max(280, window.innerWidth - margin * 2));
+    panel.style.width = `${width}px`;
+    const height = panel.offsetHeight;
+    const left = Math.min(Math.max(margin, anchor.left), window.innerWidth - width - margin);
+    let top = anchor.bottom + 6;
+    if (top + height > window.innerHeight - margin) {
+      const above = anchor.top - height - 6;
+      top =
+        above >= margin
+          ? above
+          : Math.max(margin, window.innerHeight - height - margin);
+    }
+    if (top < margin) top = margin;
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  }
+
+  private detachPagePanel(): void {
+    if (this.panelFrame !== null) {
+      cancelAnimationFrame(this.panelFrame);
+      this.panelFrame = null;
+    }
+    this.cleanupPagePanel?.();
+    this.cleanupPagePanel = null;
+    const panel = this.pagePanel;
+    this.pagePanel = null;
+    panel?.remove();
   }
 
   private actionButton(label: string, testId: string): HTMLButtonElement {
@@ -260,10 +345,29 @@ export class FormulaNodeView {
     textarea.addEventListener('select', () => this.syncTerm());
     textarea.addEventListener('keyup', () => this.syncTerm());
     textarea.addEventListener('mouseup', () => this.syncTerm());
+    textarea.addEventListener('mousedown', (event) => {
+      if (event.button === 2) rememberTextControlSelection(textarea);
+    });
+    textarea.addEventListener('focus', () => {
+      // Returning from the menu is not a new commit condition.
+      this.suppressBlur = false;
+    });
+    // The custom menu owns the right-click inside the source. It must neither
+    // close the source nor commit the draft: the value and selection stay.
+    textarea.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.suppressBlur = true;
+      openTextOnlyContextMenu(
+        textarea,
+        { x: event.clientX, y: event.clientY },
+        { onClose: () => { this.suppressBlur = false; } },
+      );
+    });
     textarea.addEventListener('blur', () => {
-      // The clipboard fallback focuses a temporary textarea for a moment; that
-      // focus loss is not a commit.
-      if (this.copying) return;
+      // The menu temporarily owns focus; the draft must survive it. The
+      // clipboard fallback also focuses a temporary textarea for a moment.
+      if (this.copying || this.suppressBlur) return;
       this.commitSource(false);
     });
     textarea.addEventListener('keydown', (event) => {

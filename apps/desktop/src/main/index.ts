@@ -17,6 +17,7 @@ import type {
   MenuCommand,
   RevealResult,
   SessionState,
+  TextEditCommand,
   WindowState,
 } from '../shared/api.js';
 import { resolveExportDefaultFolder } from '../shared/export.js';
@@ -350,6 +351,22 @@ function registerIpc(): void {
       appVersion: app.getVersion(),
       platform: process.platform,
     };
+  });
+
+  /**
+   * The renderer-owned editor context menu runs the platform edit command.
+   * Focus is restored by the renderer before this invoke, so Cut/Copy/Paste
+   * act on the control that was right-clicked and keep rich text plus the
+   * native undo stack. Only the three fixed commands are accepted.
+   */
+  ipcMain.handle('shell:edit-text-command', (event, command: unknown) => {
+    if (command !== 'cut' && command !== 'copy' && command !== 'paste') {
+      throw new Error('unknown text edit command');
+    }
+    const target: TextEditCommand = command;
+    if (target === 'cut') event.sender.cut();
+    else if (target === 'copy') event.sender.copy();
+    else event.sender.paste();
   });
 
   ipcMain.handle('library:scan', (_event, root?: string) => scanLibrary(root));

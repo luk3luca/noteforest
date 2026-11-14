@@ -481,9 +481,12 @@ function EditorSurface({
       },
       report: (outcome) => {
         void outcome.then((value) => {
-          if (value !== undefined && value !== null && !value.ok) {
+          if (value === undefined || value === null) return;
+          if (!value.ok) {
             toast.error(value.message ?? 'The command was rejected.');
+            return;
           }
+          if (value.notice !== undefined) toast.info(value.notice);
         });
       },
       notify: (message: string, kind?: 'error' | 'info') => {

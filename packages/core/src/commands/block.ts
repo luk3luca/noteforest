@@ -220,11 +220,14 @@ function detachBlock(
     reject('internal-invariant', `block "${blockId}" is neither top-level nor a primary child`);
   }
   if (incoming.source.anchorId !== undefined) {
-    // Moving an anchored child removes the old anchored edge; a fresh direct
-    // edge is created at the destination (the snapshot restores the old ID).
+    // Reparenting an anchored child never drops the anchor: the old anchored
+    // primary edge becomes a reference with the same source and anchor (the
+    // citation), and the destination gets a fresh primary edge. The snapshot
+    // inverse restores both records in one undo. (A same-parent reorder is
+    // handled before detach and keeps the primary role.)
     const siblings = directChildBranches(document, incoming.source.blockId);
     const index = siblings.findIndex((branch) => branch.id === incoming.id);
-    delete document.branches[incoming.id];
+    incoming.role = 'reference';
     changes.branch(incoming.id);
     return {
       placement: {
@@ -524,6 +527,35 @@ export function applyBlockMove(
     if (sourceChapter.topLevelBlockIds.length === 1 && emptiesSource) {
       rejectEmptyChapter(sourceChapter, 'move');
     }
+  }
+
+  // A same-parent move of an anchored primary child keeps the existing edge
+  // (and its anchor): the anchor port is the block's home, so only its order
+  // can change. Reparenting still detaches below.
+  const incomingPrimary = primaryParentBranch(document, command.blockId);
+  if (
+    incomingPrimary !== undefined &&
+    incomingPrimary.source.anchorId !== undefined &&
+    destination.kind === 'child' &&
+    destination.parentBlockId === incomingPrimary.source.blockId
+  ) {
+    const children = primaryDirectChildren(document, destination.parentBlockId);
+    const low = destination.index > 0 ? children[destination.index - 1]?.order ?? null : null;
+    const high =
+      destination.index < children.length ? children[destination.index]?.order ?? null : null;
+    let nextOrder = incomingPrimary.order;
+    try {
+      nextOrder = orderBetween(low, high);
+    } catch {
+      // Exhausted key space keeps the previous order instead of failing the
+      // move: the anchor relationship is the contract here, not the key.
+    }
+    if (nextOrder !== incomingPrimary.order) {
+      incomingPrimary.order = nextOrder;
+      changes.branch(incomingPrimary.id);
+    }
+    changes.block(command.blockId);
+    return null;
   }
 
   const previousChapter = chapterIdForBlock(document, command.blockId);
