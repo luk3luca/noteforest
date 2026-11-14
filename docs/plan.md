@@ -398,11 +398,98 @@ Full plan: `docs/tasks/m4-reader-page-pdf.md`. Decision: ADR-0006 group-level le
 
 Canonical schema v2 removes `pageSetup`, `manualBreakBeforeBlockIds`, and `viewState`. Page settings (size/orientation/margins, PageTheme, manual breaks) are personal: global defaults + per-document overrides outside the document. Continuous has no pages. Page/PDF consume the resolved settings. Sequence: R1a schema/settings foundation, R1b settings store + page theme/density, R2 Page arrows + continuous marker removal, R3 settings UI/manual breaks, R4 docs/visual sweep. Master checklist/linea guida: `docs/tasks/refactor-personal-page-settings.md`; briefs under `docs/tasks/r1a-*` etc.
 
-## M5–M6 — Import/export, search and polish (planned)
+## Post-A–F roadmap (14 November 2026)
 
-- M5: Markdown import/export; an agent hands over Markdown and the importer creates the forest note
-  (headings → chapters/blocks, rich content preserved, assets copied). No local HTTP/MCP API.
-- M6: `⌘F` find bar, light theme (shipped), accessibility, onboarding, packaging, release checks.
+A–F status: **C and A are merged and verified** (identity fixes, copy id, context menus, Page formula
+panel, mode parity); **D v1 is merged** (Indent/Outdent, anchored reparent to reference); `B`, `E` and
+`F` remain. The full verify at UI concurrency 4 is green (134 unit files / 1343 tests, e2e 16,
+recovery 14, UI 55/55, 213.6 s). The targeted re-check of C+A+D is still pending.
+
+The product owner confirmed the order through phase 5, plus the find bar from phase 6. Manual breaks,
+Markdown export, packaging and the remaining polish are out of this roadmap. There is **no external
+agent API, no MCP, no forest builder**; the only agent-adjacent feature is the Markdown file view.
+
+| Phase | Scope | Depends on | Exit |
+|---|---|---|---|
+| **0** | Re-check C+A+D; list fixes (bullet markers, `1)` ordered lists) | current `main` | review verdict; list fixes green |
+| **1** | Editor appearance: Monokai/One Light, Page/PDF syntax colours; table-toolbar redesign (F8) | phase 0 | full verify; PDF colour/text check |
+| **2** | Markdown file view (barebone): parse/render/edit/save `.md` files, conflict check, copy/paste into notes | phase 1 | 1–2 batches; screenshots |
+| **3** | Document health v1 (anchors + structure) | phase 2 | sheet/status/palette; full verify |
+| **4** | Shell activity bar S1 + token pass; S2 Document health view | phase 3 | shell/health review; full verify |
+| **5** | Vault folders: nested folders for note packages and `.md` files | phase 4 | library tree, move/trash, full verify |
+| **6** | `⌘F` find bar only (UX F13) | phase 5 | find bar across both layouts |
+
+### Phase 0 — close the integrated batch
+
+- Targeted Sentinel re-check of the identity + editor-surfaces commits; one review document; no code
+  changes in the review role.
+- List fixes: Tailwind preflight hides bullet markers; restore depth markers inside
+  `.nf-block-prose`; add the `1)` ordered-list input rule with a `start` value; Page/PDF unchanged
+  (their markers are explicit).
+- One full verify after both.
+
+### Phase 1 — editor appearance
+
+- Code palette: Monokai dark, One Light light (design: `docs/design/code-palette.md`).
+- Page Read/Edit and PDF render syntax colours from the same segments; text stays real; no
+  pagination change.
+- F8 table toolbar: compact silhouette that does not cover the header row; all commands retained.
+- Not in scope: the gap between two consecutive code blocks (recorded follow-up).
+
+### Phase 2 — Markdown file view
+
+Design: `docs/design/markdown-file-view.md`.
+
+- `.md` is a guest file, not a forest note: no id, anchors, branches, Page/PDF, export.
+- Flat Continuous editor, Edit/Read, GFM subset + math/code/tables/local images.
+- Autosave + `⌘S`, atomic write, `.md.bak`, mtime/hash conflict dialog, large-file cap.
+- Copy/paste from the Markdown tab into a note is the primary acceptance path.
+- Library v1: `.md` at the root; vault folders later.
+
+### Phase 3 — Document health v1
+
+Design: `docs/design/anchor-health.md` (product name Document health).
+
+- Pure audit: anchors (broken/ambiguous/idle/orphans/missing target) + structure (orphan block,
+  missing target, duplicate primary, cycle, empty chapter).
+- Sheet with counts/filters/Locate/actions; status-bar secondary indicator; palette entry.
+- Read-only audit; every action is a typed command with undo; no auto-fix.
+- v2: drift, duplicates, assets/cells, reference audit, library scan.
+
+### Phase 4 — activity bar
+
+Design: `docs/design/shell-activity-bar.md`.
+
+- S1: 48 px vertical bar with Library/Outline/Health and Settings at the bottom; remove the
+  Library/Outline segmented header; collapse control; ARIA vertical tablist; token pass (radii 4/8,
+  popover gaps 4/8/12; card padding 10 and Settings pane 536 stay documented, not changed).
+- S2: Document health compact view + badge + Locate + Open full health, after phase 3.
+- No document tabs removed; the top segmented control is what goes away.
+
+### Phase 5 — vault folders
+
+- Library scans a recursive tree: folders, note packages (folder with `document.json`) and `.md`
+  leaves from phase 2.
+- Sidebar tree with create/rename/move/trash, empty folders, hidden/asset exclusion, symlink policy.
+- Flush/lock rules on move; session/recents path updates; document-id move reconciliation.
+- No virtual folders, tags, cross-library search or Markdown-native notes.
+
+### Phase 6 — find bar
+
+- `⌘F` find in the open document; block text, code, LaTeX source, anchor quotes, branch labels,
+  chapter titles; case-insensitive, no regex v1; matches grouped by chapter/block; Return/Shift+Return
+  cycle; Esc restores selection; `⌘G`/`⌘⇧G`; collapsed content expands; Page jumps to the page.
+- Not a global library search and not a query language.
+
+### Execution rules
+
+- One builder at a time per code area; the phase-0 review and list fix may run in parallel.
+- One full `npm run verify` at UI concurrency 4 per integration, not per builder.
+- A targeted Sentinel re-check after each substantial phase; no self-review.
+- Docs alignment (AGENTS/spec/UX/inventory) is the Orchestrator's work and may run while builders
+  work.
+- Product-owner visual/VoiceOver pass after phase 1 and after phase 4.
+
 
 ## Future — manual resize (post-M4, not scheduled)
 
