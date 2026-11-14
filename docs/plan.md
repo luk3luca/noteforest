@@ -489,9 +489,14 @@ settings/shell layout batch is merged at `a4a4fb4`: Settings is 1180 × 820 (vie
 Page/Continuous/Appearance share one `clamp(320px, 34%, 400px)` preview rail (Continuous
 scale-to-fit, Appearance one column, Page stacked pages 1–2 from one page model), Continuous moved to
 the App nav group, and the sidebar collapse/Settings icons keep identical measured centres (≤ 0.5 px);
-full verify green (126 unit files/1267 tests, e2e 16, recovery 14, UI 53/53). Next: the
-settings/shell visual/VoiceOver pass, a post-freeze settings-inventory delta (chrome, appearance,
-export, continuous), the special-text design once the table rules are closed, and a targeted Sentinel.
+Special text editing is merged at `f6fcb65`: auto-closing code fences, inline-code toggle,
+`$…$`/`$$…$$` with in-place formula editing, and tables with a contextual toolbar, inline-only
+cells, typed/pasted GFM and Copy as Markdown. The initial no-op text history entry is fixed at
+`1907acd`. The full verify is green at UI concurrency 4 (127 unit files/1287 tests, e2e 16,
+recovery 14, UI 54/54); the 8-way pool times out on this machine. The NoteForest Showcase was
+refreshed from `docs/tasks/showcase-refresh.md` (113 blocks, 74 branches, 12 chapters; full backup
+under `artifacts/showcase-backup-*`). Next: the product-owner showcase/visual review and its fixes,
+then the targeted Sentinel over `58a9b6a..head` with the settings-inventory delta.
 External API/agent access is
 removed from
 Settings;
