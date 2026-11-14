@@ -39,7 +39,7 @@ The first touchable slice is an Obsidian-like desktop shell: left sidebar with t
 | **M3i** | Core stabilization | Runtime/session/projection/save/gateway boundaries, repository/migrations/asset contract, command aggregates/invariants, boundary check, test harness cleanup | No visual change, no new runtime dep, all gates green | **Done 6 Nov 2026; see `docs/reports/m3i-closure.md`** |
 | **M3c3b** | Image pipeline + image anchors | Deferred AC-21: asset store, image insertion/rendering, region/point anchors, missing-asset behavior | AC-21 + image rows of AC-57 | **Delivered by M3c3b1/b2; crop/region re-pick follow-ups** |
 | **M4** | Reader/page + PDF | Reader as primary editor, page view, adaptive layout, freeze/reflow, PDF arrows and print polish from real documents | AC-23–AC-33, AC-39–AC-45, AC-51–AC-53, AC-60–AC-66 | **Unblocked; planned** |
-| **M5** | Markdown import/export + agent-friendly authoring | Markdown → note importer (headings/chapters/blocks, lists/code/math/tables/images), note → Markdown export, round-trip tests, agent-friendly entry point (file/CLI) | Import/export round-trip; F2 revisit; no HTTP/MCP API | Planned |
+| **M5** | Markdown file view | Open/render/edit/save a `.md` guest file (flat, Edit/Read), conflict check, copy/paste into notes; optional note→Markdown export | Phase 2; no forest importer/builder/API | Planned |
 | **M6** | Search + polish | `⌘F` find bar, light theme (shipped), accessibility, onboarding, packaging, release checks | AC-67–AC-69, AC-75–AC-76; DoD release checklist | Planned |
 
 ## M1 — Spike 1 (done)

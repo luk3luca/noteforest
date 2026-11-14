@@ -3,10 +3,10 @@
 **Version:** v0.5 (ADR-0007 editor layouts and modes)  
 **Date:** 7 November 2026  
 **Owner:** Planner / Architect  
-**Status:** Approved for Spike 1. v0.5 applies the product owner's ratified ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**; Continuous + Edit is the default; Page Read is exact and read-only; Page Edit is planned/optional; PDF exports the Page layout in Read mode; continuous page-break markers are derived hints from the same paginator, not WYSIWYG; one canonical document, segment/safe-break model, and paginator; Page/PDF show full content and collapse is a continuous/outline navigation aid. It supersedes D14/A15/A16 and the old "reader vs page view" pair. v0.4.5 applied the approved M3 anchor/reference decisions (C1, C8, C9, OD-1–OD-12) from `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005. v0.4.4 reverted depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, and table pagination on 3 November 2026; the External Agent API was withdrawn on 14 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
+**Status:** Approved for Spike 1. v0.5 applies the product owner's ratified ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**; Continuous + Edit is the default; Page Read is exact and read-only; Page Edit is available and opt-in; PDF exports the Page layout in Read mode; continuous page-break markers are derived hints from the same paginator, not WYSIWYG; one canonical document, segment/safe-break model, and paginator; Page/PDF show full content and collapse is a continuous/outline navigation aid. It supersedes D14/A15/A16 and the old "reader vs page view" pair. v0.4.5 applied the approved M3 anchor/reference decisions (C1, C8, C9, OD-1–OD-12) from `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005. v0.4.4 reverted depth columns to parent-relative placement; v0.4.3 added depth-column alignment (now superseded); v0.4.2 added the landscape default; v0.4.1 clarified PDF acceptance: a correct standard PDF reviewed on the Mac is sufficient; no app-specific import is a gate. The product owner ratified the v1 stack, PDF pipeline, and table pagination on 3 November 2026; the External Agent API was withdrawn on 14 November 2026. Implementation beyond Spike 1 still requires milestone approval.  
 **Working title:** NoteForest (an existing NoteForest study app exists; public-release clearance or a rename is required before packaging)
 
-This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, React Aria Components, Tailwind CSS v4, and KaTeX (ADR-0001, ADR-0004). CodeMirror 6 is a later addition; the custom SVG edge overlay replaces React Flow. PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API (ADR-0003) is withdrawn; agent integration is file-based Markdown import. The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, Markdown import/export, and local files. The canonical content representation is structured JSON with Markdown import/export, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
+This document defines the product behavior, conceptual data model, invariants, and acceptance criteria for the first prototype. **The v1 stack is decided:** Electron + React + TypeScript, with TipTap/ProseMirror, React Aria Components, Tailwind CSS v4, and KaTeX (ADR-0001, ADR-0004). CodeMirror 6 is a later addition; the custom SVG edge overlay replaces React Flow. PDF export uses the shared paginator and Electron `printToPDF` (ADR-0002). The External Agent API (ADR-0003) is withdrawn. V1 has no agent import/builder; it can open a `.md` file as a guest file (Continuous Edit/Read, no forest, no Page/PDF). The fixed requirements remain A4 pagination, real selectable text, no cut line/image/formula/code line/table row, local files, and the Markdown file view. The canonical content representation is structured JSON, as recorded in `AGENTS.md`. This document does not define visual design or the final keyboard map; those belong in `docs/ux.md`.
 
 **Normative language.** **MUST** means required for the v1 prototype to be accepted. **SHOULD** means expected unless explicitly deferred with a recorded decision. **MAY** means optional. Assumptions are labelled **A1**, **A2**, and so on. Decisions that still need approval are labelled **D1**, **D2**, and so on. Open questions are labelled **Q1**, **Q2**, and so on.
 
@@ -27,7 +27,7 @@ This document defines the product behavior, conceptual data model, invariants, a
 9. [Content model](#9-content-model)
 10. [Persistence](#10-persistence)
 11. [PDF export](#11-pdf-export)
-12. [Markdown import for agents](#12-markdown-import-for-agents)
+12. [Markdown file view](#12-markdown-file-view)
 13. [Edge cases](#13-edge-cases)
 14. [Performance and scale](#14-performance-and-scale)
 15. [Acceptance criteria for the v1 prototype](#15-acceptance-criteria-for-the-v1-prototype)
@@ -135,7 +135,7 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 | **A5** | Typical documents have 50–300 blocks and roughly 1–50 derived pages; the supported ceiling is about 1,000 blocks. | Performance strategy and validation limits change. |
 | **A6** | PDF pages are A4 portrait or landscape, produced by the paginator; no separate reader PDF in v1. | PDF layout and page-navigation design change. |
 | **A7** | Annotations are a separate study layer, out of scope for v1. | The schema and export need a full annotation design. |
-| **A8** | Canonical content is structured JSON/ProseMirror JSON with Markdown import/export (decided in AGENTS.md). | Anchor binding and Markdown export behavior change. |
+| **A8** | Canonical content is structured JSON/ProseMirror JSON; the Markdown file view is a flat guest surface, not a forest import (decided in AGENTS.md). | Markdown-native or forest-import scope change. |
 | **A9** | The v1 stack is **decided**: Electron + React + TypeScript with TipTap/ProseMirror, CodeMirror 6, KaTeX, React Flow, and Electron `printToPDF` (ADR-0001, ADR-0002). | A stack change requires a benchmark-backed ADR; the spec remains platform-neutral where possible. |
 | **A10** | UI copy is English; content is Unicode. | Localization and font coverage need explicit work. |
 | **A11** | Block widths are content-driven and adaptive within a page width; there is no manual resize, pin, fixed pixel column, or free position. | A resize/free-layout model would be needed. |
@@ -143,10 +143,10 @@ The product is not a general whiteboard and not a general knowledge base. It is 
 | **A13** | Pages are derived by the paginator; optional manual page-break hints are document settings. There is no stored page container in v1. | A page-container/auto-layout model needs a different schema. |
 | **A14** | A document may contain multiple chapters; the v1 UI MAY expose one chapter at a time. | Chapter navigation and multi-chapter editing need a UI design. |
 | **A15** | The Page layout and PDF share one page layout engine, one measurement, and one paginator. The Continuous layout shares the canonical document, segment/safe-break model, and paginator breaks as derived markers, but is a screen-optimized renderer and is not a second pagination engine. | A second paginator or CSS re-pagination would risk divergence and duplicate bugs. |
-| **A16** | Continuous + Edit is the default authoring surface in v1. Page Read is the exact A4/PDF proof and is read-only; Page Edit is planned/optional and disabled until implemented. The choice is closed by ADR-0007 (supersedes D14). | UX and keyboard design would need a revision if Page Edit becomes primary or the default changes. |
+| **A16** | Continuous + Edit is the default authoring surface in v1. Page Read is the exact A4/PDF proof and is read-only; Page Edit is implemented, opt-in, and the layout switch preserves the mode. The choice is closed by ADR-0007 (supersedes D14). | UX and keyboard design would need a revision if Page Edit becomes primary or the default changes. |
 | **A17** | Note documents are standard files in a user-chosen folder; git is used only for code and project docs. | Note versioning/sync needs a different design. |
 | **A18** | Visual direction is clean, Obsidian-like, minimal, with dark mode as the default and a light theme available. | Visual design and theme tokens need revision. |
-| **A19** | Agent integration is file-based Markdown import; there is no local API, no in-app agent panel, and no background autonomy in v1. | Import-mapping or UI scope change. |
+| **A19** | There is no local API, no in-app agent panel, no background autonomy, and no forest builder in v1; a `.md` file can be opened as a flat guest file. | Agent/import scope change. |
 | **A20** | Long blocks may continue at safe internal boundaries; page breaks never cut a line, image, formula, code line, or table row. A table row is atomic. | Pagination and block-continuation markers need a different model. |
 
 ### 1.9 Adaptive layout and derived pages at a glance
@@ -180,7 +180,7 @@ V1 includes all core features discussed, delivered in end-to-end vertical slices
 - **Slice 2 — Layout:** adaptive tree, paginator, Continuous layout (Edit/Read), Page layout (Read now, Edit later), derived page-break markers, page-break hints, freeze/full-reflow modes.
 - **Slice 3 — Export:** Page PDF with real text, continuation markers, text-layer verification.
 - **Slice 4 — Library and visual:** multiple documents, document/library search, dark mode default, minimal Obsidian-like UI.
-- **Slice 5 — Markdown import/export:** Markdown → forest note importer, note → Markdown export, assets, round-trip tests, and the agent-friendly file/CLI path. No API server, tokens, or chat panel.
+- **Slice 5 — Markdown file view:** open, render, edit and save a `.md` guest file (flat, Edit/Read), local images, conflict check, copy/paste into notes. No forest importer, builder, API server, tokens, or chat panel.
 
 Each slice ends with automated tests and a manual/visual check. No core feature is cut from v1; a slice may be descoped only with explicit product-owner approval. The sequence is a delivery order, not a permission to ship a half-feature. The in-app agent panel/chat is parked; external agents use the API instead.
 
@@ -217,10 +217,10 @@ Each slice ends with automated tests and a manual/visual check. No core feature 
 | **Freeze mode** | A read-only study mode that freezes the layout and pagination snapshot; no automatic reflow while reading. |
 | **Full reflow** | A request or idle-triggered recomputation of the entire layout and pagination; page breaks may change. |
 | **Continuous layout** | A screen-optimized continuous vertical rendering of the document with page-break markers derived from the paginator. It supports Edit and Read modes; its markers are hints, not WYSIWYG page geometry. |
-| **Page layout** | An A4-bounded rendering of the derived pages used by the PDF. Page Read is exact and read-only in the current implementation; Page Edit is planned and optional. |
+| **Page layout** | An A4-bounded rendering of the derived pages used by the PDF. Page Read is exact and read-only; Page Edit is opt-in and shares the same geometry. |
 | **Edit mode** | The active layout accepts authoring commands, with one active block editor at a time. |
 | **Read mode** | The active layout is read-only for content; selection, navigation, links, anchors, copy, scroll, zoom, and focus remain available. |
-| **Page Read / Page Edit** | Page Read is the exact, read-only A4 proof. Page Edit is the planned optional A4-bounded authoring surface with one active block editor; it uses the same geometry and paginator. |
+| **Page Read / Page Edit** | Page Read is the exact, read-only A4 proof. Page Edit is the opt-in A4-bounded authoring surface with one active block editor; it uses the same geometry and paginator. Switching layout preserves Edit/Read. |
 | **Reader** | Historical view name retired by ADR-0007. It remains only in historical notes and for concurrent file readers. |
 | **Shared child** | A block with one primary parent and zero or more reference parents. It appears once; it is referenced from multiple places. |
 | **Outline order** | The depth-first order produced by traversing chapters, top-level blocks, and ordered children. It is the canonical reading order. |
@@ -848,7 +848,7 @@ The canonical model MUST remain usable by a future iPad or native companion with
 | **Make root** | Menu/command | Remove the primary incoming edge; make the block a top-level block after the former top-level block in the chapter. Subtree intact. |
 | **Make home / move here** | Reference edge action | See §5.3. |
 | **Drag in outline** | Drag row | Reorder or reparent with a drop indicator. Dropping into a descendant is rejected. |
-| **Drag in Continuous Edit/Page Edit** | Drag card | Reorders the block among its siblings or top-level blocks with a drop indicator. It never sets an arbitrary x/y, never pins, and never free-drags. Page Read accepts no drag; Page Edit is planned. |
+| **Drag in Continuous Edit/Page Edit** | Drag card | Reorders the block among its siblings or top-level blocks with a drop indicator. It never sets an arbitrary x/y, never pins, and never free-drags. Page Read accepts no drag; Page Edit is opt-in. |
 | **Add page-break hint** | Command on a block or page-break marker | Request a page break before the block. The paginator honors it where possible; it is a hint, not a page container. |
 | **Remove page-break hint** | Command on the hint | Remove the request; pagination is recomputed. |
 | **Change page orientation** | Document/page setup | Switch A4 portrait ↔ landscape. Recompute layout and pagination; page count may change. |
@@ -857,7 +857,7 @@ The canonical model MUST remain usable by a future iPad or native companion with
 ### 5.6 View operations
 
 - **Switch layout.** Outline ↔ Continuous ↔ Page, preserving focused block, selection, collapse state, Continuous scroll, current page, and zoom/fit.
-- **Switch interaction mode.** Edit ↔ Read within the active layout. Switching commits the active edit and creates no undo entry. Continuous supports both; Page Read is available now, Page Edit is planned and disabled until implemented.
+- **Switch interaction mode.** Edit ↔ Read within the active layout. Switching commits the active edit and creates no undo entry. Continuous and Page support both modes; Page Edit is an opt-in single-block overlay.
 - **Split view (SHOULD).** Show outline and the active layout side by side over the same document. The same one-editor rule applies.
 - **Collapse / expand.** Collapse hides primary descendants and their callouts in the outline and Continuous layout; expand restores them. Collapse subtree and expand all are commands. State is shared by the outline and Continuous layout. The Page layout and PDF show the full document; collapse does not change their content.
 - **Page navigation.** Previous/next page, page thumbnails/sidebar, go to page, go to chapter. Changing page is view state and never changes document data.
@@ -924,12 +924,12 @@ The outline is the fast authoring surface and the canonical reading order.
 
 ### 6.3 Continuous and Page layouts
 
-There are two layouts over the same document: **Continuous** and **Page**. Each has an **Edit** and a **Read** mode. Continuous + Edit is the default. Page Read is the exact A4 proof and is read-only in the current implementation; Page Edit is planned and optional. "Canvas" means the Page layout; it is **not an infinite canvas**.
+There are two layouts over the same document: **Continuous** and **Page**. Each has an **Edit** and a **Read** mode. Continuous + Edit is the default. Page Read is the exact A4 proof and is read-only; Page Edit is implemented, opt-in, and the layout switch preserves the mode. "Canvas" means the Page layout; it is **not an infinite canvas**.
 
 **Shared model**
 
 - One canonical document, one segment/safe-break model, and one paginator. Pages are derived, never containers.
-- The Page layout and PDF share one geometry and one measurement. Page Read and Page Edit (when implemented) differ only in interactivity, not geometry.
+- The Page layout and PDF share one geometry and one measurement. Page Read and Page Edit differ only in interactivity, not geometry.
 - The Continuous layout does not compute page breaks and does not use CSS re-pagination. It consumes the paginator's breaks as markers/hints. The Page layout/PDF are the exact geometry; continuous markers are derived hints and do not claim pixel parity.
 - Page and PDF show the full document content. Collapse is a Continuous/outline navigation aid; it never removes content from Page or PDF. If collapse in Page is added later, it is a separate product decision with explicit export semantics.
 - One active editor. Switching layout or mode commits the active edit and preserves the focused block, selection, collapse state, Continuous scroll, current page, and zoom/fit.
@@ -959,8 +959,8 @@ There are two layouts over the same document: **Continuous** and **Page**. Each 
 - Continuation markers appear at the bottom of the source page and the top of the target page.
 - Page controls: previous/next, page thumbnails, page number, orientation, margins, fit page, fit width, actual size, zoom.
 - **Page Read** is exact and read-only: it is the visual proof for PDF export and must show the same breaks and continuations as the PDF. It accepts selection, navigation, zoom, focus, link/anchor following, copy, Page Setup, and Export; it accepts no content or structural edits.
-- **Page Edit** is planned and optional: one active block editor overlay, no free canvas, no second paginator, and the same geometry as Page Read. It is disabled and visibly unavailable until implemented; it must not be a broken toggle.
-- Page Read and Page Edit (when implemented) show the full document, regardless of the Continuous collapse state.
+- **Page Edit** is opt-in: one active block editor overlay, no free canvas, no second paginator, and the same geometry as Page Read. It never auto-opens.
+- Page Read and Page Edit show the full document, regardless of the Continuous collapse state.
 
 **Freeze study mode**
 
@@ -1067,7 +1067,7 @@ A core authoring operation MUST NOT be mouse-only. A menu or command palette fal
 - Layout (`continuous` or `page`), interaction mode (`edit` or `read`), current derived page, Continuous scroll and zoom/fit, Page zoom and fit, outline scroll, focused block, selected blocks, and collapsed blocks are persisted as view state.
 - View state is per document and may be reset without touching content. It is stored in the session/app state, never in `document.json`.
 - Stale view-state references are dropped on load; an invalid page number falls back to the nearest existing derived page. An unknown layout falls back to `continuous`; an unknown mode falls back to `edit` for Continuous and `read` for Page.
-- Page Read is read-only; if a persisted state asks for Page Edit while Page Edit is unavailable, the app opens Page Read with a clear disabled Edit control, not a broken state.
+- Page Read is read-only; Page Edit is the same geometry with one active block overlay. A persisted Read state never opens the overlay.
 - Switching layout or mode preserves focus, selection, collapse, Continuous scroll, current page, and zoom/fit; it creates no undo entry.
 - Opening a document SHOULD restore the last layout, mode, and focus, but a corrupt view state must never prevent loading the document.
 
@@ -1497,7 +1497,7 @@ The authoring experience SHOULD feel Markdown-like: typing `#`, `-`, `**`, backt
 
 ### 9.7 Decision and adapter
 
-**Decided: Option B, structured JSON/ProseMirror JSON canonical, with Markdown import/export.** The product owner delegated the choice; `AGENTS.md` records it. D1 is closed.
+**Decided: Option B, structured JSON/ProseMirror JSON canonical, with a flat Markdown guest view.** The product owner delegated the choice; `AGENTS.md` records it. D1 is closed.
 
 Rationale: the product's differentiator is anchored branches. Anchors need stable inline identity; branches, chapters, and anchors need one canonical home; and the page PDF needs a reliable content tree.
 
@@ -1704,7 +1704,7 @@ No migration ships without a golden fixture for every prior version and a failur
 **Goals:**
 
 - produce a page-based PDF with real, selectable text;
-- use the same paginator as the Page layout, so the PDF matches the Page layout (Page Read and, later, Page Edit geometry);
+- use the same paginator as the Page layout, so the PDF matches the Page layout (Page Read and Page Edit geometry);
 - preserve every block exactly once, including shared children;
 - keep anchored branches below their anchors, with continuation/ghost-parent markers when a branch crosses a page;
 - break between blocks first; allow a long block to continue only at safe internal boundaries;
@@ -1846,16 +1846,19 @@ The PDF pipeline is **decided (ADR-0002): Electron `webContents.printToPDF`, dri
 
 ---
 
-## 12. Markdown import for agents
+## 12. Markdown file view
 
 The External Agent API (ADR-0003) was **withdrawn** by the product owner on 14 November 2026. V1 has
-no local HTTP server, MCP adapter, tokens, scopes, or audit log, and no in-app agent panel.
+no local HTTP server, MCP adapter, tokens, scopes, audit log, in-app agent panel, or forest builder.
 
-Agent integration is **file-based**: an external agent writes Markdown, and the user (or a CLI that
-wraps the same importer) imports it as a NoteForest note. The importer maps headings, paragraphs,
-lists, quotes, code, math, tables, and images into the forest structure. The app remains the only
-writer of `document.json`; there is no background autonomy, no remote bind, and no web access. The
-import/export design is M5 in `docs/plan.md`.
+A `.md` file can be opened as a **guest file**: Continuous only, Edit/Read, rendered from the
+declared GFM subset + math/code/tables/local images. It has no document id, revision, anchors,
+branches, Page/PDF, export, or per-document Page settings. Edits save back to the same file with an
+atomic write and an external-change conflict check. The design is
+`docs/design/markdown-file-view.md`; the roadmap is `docs/plan.md` phase 2.
+
+There is no automatic Markdown→forest import. An external agent (or the user) may prepare Markdown,
+open it as a guest file, and copy snippets into a note; the app does not build a forest from it.
 
 ## 13. Edge cases
 
@@ -2077,9 +2080,9 @@ Each criterion is behavioral and observable. "Must" criteria gate the prototype;
 
 ### 15.5 Synchronization
 
-- **AC-31 (Must).** An edit in Continuous Edit is visible in the outline and the Page layout without a manual refresh or a second paginator. When Page Edit is implemented, an edit there is visible in the outline and Continuous layout the same way.
+- **AC-31 (Must).** An edit in Continuous Edit is visible in the outline and the Page layout without a manual refresh or a second paginator. An edit in Page Edit is visible in the outline and Continuous layout the same way.
 - **AC-32 (Must).** Only one block editor is active. Switching layouts, modes, or blocks commits the edit and does not lose keystrokes.
-- **AC-33 (Must).** Switching layout or mode preserves the focused block, collapse state, Continuous scroll, current page, selection, and zoom/fit; a hidden focused block is revealed. A mode switch creates no undo entry, and an unavailable Page Edit falls back to Page Read without a broken state.
+- **AC-33 (Must).** Switching layout or mode preserves the focused block, collapse state, Continuous scroll, current page, selection, and zoom/fit; a hidden focused block is revealed. A mode switch creates no undo entry; Page Read and Page Edit share geometry.
 
 ### 15.6 Persistence
 
@@ -2183,7 +2186,7 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 
 | ID | Decision | Recommendation | Owner | Needed before |
 |---|---|---|---|---|
-| **D1** | Canonical content: Markdown or structured JSON? | **Closed:** structured JSON/ProseMirror JSON canonical, Markdown import/export. Recorded in AGENTS.md. | Orchestrator + product owner | Done |
+| **D1** | Canonical content: Markdown or structured JSON? | **Closed:** structured JSON/ProseMirror JSON canonical; Markdown is a flat guest view, not a forest import. Recorded in AGENTS.md. | Orchestrator + product owner | Done |
 | **D2** | Block granularity: rich body or single content node? | **Closed:** rich body; a block can contain paragraphs, lists, code, math, images, tables. | Architect + product owner | Done |
 | **D3** | Outline order: anchored children before or after direct children? | **Closed:** anchored first, ordered by anchor position, then direct children in branch order. | UX + product owner | Done |
 | **D4** | Shared-child default and role changes. | **Closed:** reference by default when the target has a home; add-as-child when it is a top-level block; explicit "make home" and "move here." | Product owner | Done |
@@ -2196,18 +2199,18 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **D11** | Version history UI. | Autosave + rotating backups; no user-facing version history in v1. | Orchestrator | Persistence |
 | **D12** | Stack and product name. | **Closed:** Electron + React + TypeScript (ADR-0001); GPUI no-go; SwiftUI only if iPad becomes co-primary; Qt fallback. Name: NoteForest (working title; existing app conflict; clearance/rename required). | Orchestrator | Done |
 | **D13** | PDF pipeline gate. | **Closed:** Electron `printToPDF` driven by the shared paginator (ADR-0002); hard gate is a 50+ page A4 spike with real text, no cut line/image/formula/code line/table row, and page count equal to the paginator. Fallback requires a new ADR. | Orchestrator | Done; gate runs in Spike 1 |
-| **D14** | Primary authoring surface: reader or page view? | **Superseded by ADR-0007 (v0.5):** the reader/page pair is replaced by layouts Continuous/Page × modes Edit/Read. Continuous + Edit is the default; Page Read is the exact read-only proof; Page Edit is planned/optional. | UX + product owner | Superseded |
+| **D14** | Primary authoring surface: reader or page view? | **Superseded by ADR-0007 (v0.5):** the reader/page pair is replaced by layouts Continuous/Page × modes Edit/Read. Continuous + Edit is the default; Page Read is the exact read-only proof; Page Edit is implemented, opt-in, and the layout switch preserves the mode. | UX + product owner | Superseded |
 | **D15** | Page orientation. | **Closed:** one document-wide orientation, portrait or landscape; changing it reflows all pages. | Product owner | Done |
-| **D16** | External API shape. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
-| **D17** | External API authentication/scopes. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
-| **D18** | External API concurrency/file locking. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
-| **D19** | External API command surface. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
-| **D20** | PDF export API behavior. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API; agent integration is file-based Markdown import. | Product owner | Withdrawn |
+| **D16** | External API shape. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API and no forest builder; a `.md` file opens as a flat guest file. | Product owner | Withdrawn |
+| **D17** | External API authentication/scopes. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API and no forest builder; a `.md` file opens as a flat guest file. | Product owner | Withdrawn |
+| **D18** | External API concurrency/file locking. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API and no forest builder; a `.md` file opens as a flat guest file. | Product owner | Withdrawn |
+| **D19** | External API command surface. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API and no forest builder; a `.md` file opens as a flat guest file. | Product owner | Withdrawn |
+| **D20** | PDF export API behavior. | **Withdrawn (14 Nov 2026):** no local HTTP/MCP API and no forest builder; a `.md` file opens as a flat guest file. | Product owner | Withdrawn |
 | **D21** | Table pagination. | **Closed:** page breaks only between rows; a row and its cells are atomic; a row taller than the page is a pagination defect. Header repetition is not required in v1. | Product owner | Done |
 | **D22** | Depth columns. | **Superseded by D23.** Same-depth global x alignment caused one wide block to push every later column right and made the canvas effectively unbounded. | Product owner | Superseded |
 | **D23** | Parent-relative child placement. | **Closed:** a child group starts after its parent card plus the sibling gap; same-depth blocks under different parents may differ in x; content-driven widths; editor scrolls horizontally for deep branches; zoom/fit-width and branch focus are navigation aids. Page/PDF applies A4 in M4. | Product owner | Done |
 | **D24** | M3 anchor/reference design decisions. | **Closed (5 November 2026):** C1, C8, C9 and OD-1–OD-12 approved as recommended in `docs/design/m3-anchors-references.md`; binding/identity contract in ADR-0005; spec v0.4.5 and UX v1.3 apply the delta. | Product owner + Orchestrator | Done |
-| **D25** | Editor layouts and interaction modes. | **Closed (7 November 2026, ADR-0007):** two independent axes, layouts Continuous/Page × modes Edit/Read; Continuous + Edit default; Page Read exact/read-only, Page Edit planned/optional; PDF exports Page Read; continuous page-break markers are derived hints; Page/PDF show full content; one document/segment/paginator. | Product owner | Done |
+| **D25** | Editor layouts and interaction modes. | **Closed (7 November 2026, ADR-0007):** two independent axes, layouts Continuous/Page × modes Edit/Read; Continuous + Edit default; Page Read exact/read-only, Page Edit opt-in; PDF exports Page Read; continuous page-break markers are derived hints; Page/PDF show full content; one document/segment/paginator. | Product owner | Done |
 
 ### 16.2 Questions
 
@@ -2223,7 +2226,7 @@ The layout tolerances (16 px minimum gap, 2 px anchor alignment, 95% add-block s
 | **Q8** | Are empty blocks allowed? | Yes; they are valid authoring state and are not auto-deleted. |
 | **Q9** | Should PDF export include collapsed subtrees? | Yes; export all document content, not the current collapse state. No "export visible only" option in v1. |
 | **Q10** | What happens when a manual page-break hint cannot be honored? | The paginator ignores impossible hints and shows a warning; it never creates an empty page or cuts a line/image/formula/code line. |
-| **Q12** | Which view is primary for authoring: reader or page? | **Resolved by ADR-0007 (D14 superseded):** Continuous + Edit is the default authoring surface; Page Read is the exact read-only proof; Page Edit is planned/optional. |
+| **Q12** | Which view is primary for authoring: reader or page? | **Resolved by ADR-0007 (D14 superseded):** Continuous + Edit is the default authoring surface; Page Read is the exact read-only proof; Page Edit is opt-in. |
 | **Q13** | Should there be an "export visible only" option? | Not in v1; default export includes all content. |
 | **Q14** | Should page setup (margins) be per chapter or per document? | Document-level in v1; per-chapter margins later if needed. Orientation remains document-wide (D15). |
 
@@ -2339,4 +2342,4 @@ This example is the recommended golden fixture for model, layout, pagination, an
 | v0.4.3 | 4 November 2026 | Depth columns (D22): blocks at the same depth share one x origin within a chapter; widths remain content-driven; top-level blocks stack vertically; editor scrolls horizontally when columns exceed the viewport; page/PDF applies the A4 constraint in M4. |
 | v0.4.4 | 4 November 2026 | Reverted D22 to parent-relative child placement (D23): a child group starts after its parent plus the gap; same-depth blocks under different parents may differ in x. Content-driven widths and horizontal editor scroll remain; zoom/fit-width and branch focus are navigation aids. |
 | v0.4.5 | 5 November 2026 | Applied the approved M3 design delta (C1, C8, C9, OD-1–OD-12): `anchorIds` content binding and one-contiguous-binding I10; anchored-primary promotion on block delete; idle anchor + explicit removal; role-independent branch dedupe; make-home root rule; callout lane; dashed reference edges + chips; status-chip health sheet; AC-56 M3 manifest / M4 PDF; AC-18 split/merge in M3f; cross-chapter merge rejected; text-selection projection. Binding/identity contract in ADR-0005. |
-| v0.5 | 7 November 2026 | Applied ADR-0007 editor layouts and modes: layouts Continuous/Page × modes Edit/Read; Continuous + Edit default; Page Read exact/read-only, Page Edit planned/optional; PDF exports Page Read; continuous page-break markers are derived hints, not WYSIWYG; one canonical document/segment model/paginator; Page/PDF show full content and collapse stays continuous/outline. Revised D14/A15/A16, §6.3/§6.10, glossary, view state (stored outside `document.json`), PDF references, AC-29/AC-31/AC-33, and reader/page flows. Added D25. |
+| v0.5 | 7 November 2026 | Applied ADR-0007 editor layouts and modes: layouts Continuous/Page × modes Edit/Read; Continuous + Edit default; Page Read exact/read-only, Page Edit opt-in; PDF exports Page Read; continuous page-break markers are derived hints, not WYSIWYG; one canonical document/segment model/paginator; Page/PDF show full content and collapse stays continuous/outline. Revised D14/A15/A16, §6.3/§6.10, glossary, view state (stored outside `document.json`), PDF references, AC-29/AC-31/AC-33, and reader/page flows. Added D25. |

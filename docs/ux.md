@@ -9,7 +9,7 @@
 
 This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is decided (Electron, ADR-0001); this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md`, the spec, and the ADRs.
 
-**Revision note (v1.5).** Adopts ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**. **Continuous + Edit** is the default; **Page Read** is exact and read-only for now; **Page Edit** is planned and visibly disabled; **PDF** exports Page Read. Continuous page-break markers are derived hints from the same paginator, not WYSIWYG; Page/PDF are the exact geometry and always show the full document. Collapse stays an outline/Continuous navigation aid. `⌘2` is Continuous, `⌘3` is Page, `⌘E` toggles Edit/Read; inline code moves to `⌘⇧C` to free `⌘E`. "Reader" is retired as a view name except in historical notes.
+**Revision note (v1.5).** Adopts ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**. **Continuous + Edit** is the default; **Page Read** is exact and read-only; **Page Edit** is available as an opt-in overlay; **PDF** exports Page Read. Continuous page-break markers are derived hints from the same paginator, not WYSIWYG; Page/PDF are the exact geometry and always show the full document. Collapse stays an outline/Continuous navigation aid. `⌘2` is Continuous, `⌘3` is Page, `⌘E` toggles Edit/Read; inline code moves to `⌘⇧C` to free `⌘E`. "Reader" is retired as a view name except in historical notes.
 
 **Revision note (v1.4).** The product owner revised the below-stack rendering: direct children stay
 to the right while they fit and join the below stack only when they wrap; anchored callouts always
@@ -23,12 +23,12 @@ wording in the v1.3 callout lane.
 
 ## 0. UX decisions for v1.5
 
-**Locked by the product owner (v1):** layouts Continuous | Page × modes Edit | Read (ADR-0007); Continuous + Edit is the default; Page Read is the exact read-only PDF proof; Page Edit is planned and disabled until implemented; page orientation is document-wide; visual direction is clean, Obsidian-like and minimal with dark mode default; long blocks continue at safe boundaries; layout uses incremental reflow plus a freeze mode; broken anchors fall back to the whole block; agent integration is file-based Markdown import, not a local API. The relevant open questions are marked resolved below.
+**Locked by the product owner (v1):** layouts Continuous | Page × modes Edit | Read (ADR-0007); Continuous + Edit is the default; Page Read is the exact read-only PDF proof; Page Edit is available; switching layout preserves the current mode; page orientation is document-wide; visual direction is clean, Obsidian-like and minimal with dark mode default; long blocks continue at safe boundaries; layout uses incremental reflow plus a freeze mode; broken anchors fall back to the whole block; Markdown files open as flat guest files; there is no automatic forest import, builder, or local API. The relevant open questions are marked resolved below.
 
 | # | Decision | Why |
 |---|---|---|
 | D1 | One window per document; no tab strip and no document library in v1 | A study document is a place, not a tab. Keeps the window chrome simple. |
-| D2 | Outline plus two spatial layouts: Continuous and Page, each with Edit/Read. One main surface at a time; no split view in v1. Default Continuous + Edit; Page Read is the exact read-only PDF proof; Page Edit is planned and disabled until implemented; Outline remains the structural editor | Outline is the fastest structural editor; Continuous preserves flow for authoring; Page shows exactly what the PDF will render, without conflating layout and mode. Split view doubles focus and space. |
+| D2 | Outline plus two spatial layouts: Continuous and Page, each with Edit/Read. One main surface at a time; no split view in v1. Default Continuous + Edit; Page Read is the exact read-only PDF proof; Page Edit is available and opt-in; Outline remains the structural editor | Outline is the fastest structural editor; Continuous preserves flow for authoring; Page shows exactly what the PDF will render, without conflating layout and mode. Split view doubles focus and space. |
 | D3 | `Return` creates a new block; `Shift+Return` inserts a line break inside the block | The block is the unit of structure. This is the outliner contract that makes authoring fast. |
 | D4 | `Tab` / `Shift+Tab` change block structure; list-item indentation uses `⌘]` / `⌘[` | One predictable meaning for Tab in an outliner. The conflict with lists is real; see Q9. |
 | D5 | Fixed logical order, adaptive geometry: only sibling order changes. No free positioning, no pins, no nudges | The product owner's model. Structure is stable; the layout adapts to content and page width. |
@@ -44,8 +44,8 @@ wording in the v1.3 callout lane.
 | D15 | Layout stability uses hybrid incremental reflow, a freeze mode for study, and full reflow on request/after idle | Keeps authoring responsive and reading stable; freeze prevents page breaks moving under the reader. |
 | D16 | Visual direction: clean, Obsidian-like, minimal; dark mode default | Content-first, low chrome; dark reduces glare in study sessions. |
 | D17 | A broken anchor falls back to the whole block, with a visible marker and a repair flow | A branch is never lost; the fallback keeps the relationship usable while the user repairs it. |
-| D18 | Agent authoring is file-based Markdown import. In-app agent chat, autonomy, and a local API are non-goals for v1 | An agent can prepare a note without a server or token surface; the app stays focused on authoring. |
-| D19 | Layout and mode are independent: Continuous or Page × Edit or Read. Default Continuous + Edit; Page opens Read; Page Edit is planned and disabled; `⌘2` Continuous, `⌘3` Page, `⌘E` Edit/Read | ADR-0007. The old Reader/Page pair conflated layout with mode; orthogonality keeps authoring and print proof separate. |
+| D18 | Markdown files open as flat guest files; there is no automatic forest import, builder, in-app agent chat, autonomy, or local API in v1 | A file can be read/edited without turning it into a note; the app stays focused on authoring. |
+| D19 | Layout and mode are independent: Continuous or Page × Edit or Read. Default Continuous + Edit; switching layout preserves Edit/Read; Page Edit is opt-in and never auto-opens; `⌘2` Continuous, `⌘3` Page, `⌘E` Edit/Read | ADR-0007. The old Reader/Page pair conflated layout with mode; orthogonality keeps authoring and print proof separate. |
 
 ---
 
@@ -64,7 +64,7 @@ wording in the v1.3 callout lane.
 - Real-text PDF export of all pages, generated by the same paginator.
 - Multiple documents, each in its own window, with recent documents.
 - Search across the current document.
-- Agent-friendly authoring: import a Markdown file as a forest note. No local API, tokens, or in-app chat.
+- Markdown file view: open a `.md` as a flat guest file (Edit/Read), no forest, Page or export. No local API, tokens, or in-app chat.
 - Clean, minimal visual language; dark mode default.
 - Flat document files with assets; autosave and manual save.
 - Mac only.
@@ -104,7 +104,7 @@ wording in the v1.3 callout lane.
 | **Page layout** | The A4-bounded rendering of the same derived pages used by the PDF; Read is exact and read-only now, Edit is planned | "Page"; the product owner calls it the canvas |
 | **Mode** | `Edit` or `Read`; independent from layout | UI says "Edit" / "Read" |
 | **Page Read** | The exact, read-only Page layout; the visual PDF proof | "Page · Read"; PDF target |
-| **Page Edit** | The planned optional Page-layout authoring surface with one active block editor | "Page · Edit"; disabled until implemented |
+| **Page Edit** | The opt-in Page-layout authoring surface with one active block editor | "Page · Edit"; never auto-opens |
 | **Page** | A pagination result at the current page size; not a container | "Page 2 of 5"; derived |
 | **Page break** | A computed boundary between two blocks in reading order | Shown as a derived marker in Continuous/Outline and as an exact page boundary in Page |
 | **Manual break hint** | A stored request to start a page before a block | "Manual break"; the paginator honors it when possible |
@@ -169,7 +169,7 @@ Luca opens a six-month-old document. He half-remembers a term but not where it l
 | Branch from the current block | 1 key | `⌘Return` |
 | Branch from a word | selection + 1 key | Select with keyboard or mouse, `⌘⇧Return` |
 | Switch layout | 1 key | `⌘2` Continuous / `⌘3` Page (`⌘1` Outline) |
-| Toggle Edit/Read | 1 key | `⌘E` (Page Edit disabled until implemented) |
+| Toggle Edit/Read | 1 key | `⌘E` (Page Edit opt-in) |
 | Previous / next page | 1 key | `⌥↑` / `⌥↓` |
 | Fit view (Continuous: width; Page: page) | 1 key | `⇧1` |
 | Export all pages | 1 key | `⌘P` |
@@ -201,7 +201,7 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 9. **The pointer is optional; the keyboard is complete.** Every flow can be completed without a mouse. Every pointer action has a menu equivalent.
 10. **Export is a product surface, not a side effect.** The PDF is what the user studies on; it is the Page Read rendering and must be previewed and tested like a screen.
 11. **Layout stability is a feature.** Incremental reflow keeps authoring fast; freeze mode keeps study stable; a full reflow runs on request or after idle.
-12. **Mode is not layout.** Reading does not switch to a different renderer, and Page Read does not become editable just because the user wants to edit there. Page Edit is its own planned surface.
+12. **Mode is not layout.** Reading does not switch to a different renderer, and Page Read does not become editable just because the user wants to edit there. Page Edit is the same page geometry with one active block editor.
 
 ### 3.2 Invariants (testable)
 
@@ -214,7 +214,7 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 7. Pagination is deterministic: the same document, page setup and manual break hints produce the same pages in Continuous markers, Page Read/Edit, and PDF.
 8. A block may continue only at safe internal boundaries; no line, image, code block, or formula is cut.
 9. The only spatial change a user can make is sibling order. There is no free positioning, pin, or nudge state.
-10. Agent authoring is a local Markdown file import; the app never runs an agent or a server.
+10. A `.md` file opens as a flat guest view; the app never runs an agent, an importer, or a server.
 11. A page is never a container: inserting or deleting content changes pagination, not a page object.
 12. Page and PDF always show the full document; collapse never removes content from them.
 13. No destructive action is triggered by a single unmodified click.
@@ -262,14 +262,14 @@ One document per window. The window has six regions:
 | **Continuous** | One continuous vertical layout of the tree, with derived page-break markers drawn across it | Reading a topic in one flow; spatial authoring; following anchored branches | Horizontal markers with page numbers and continuation labels; hints, not exact print geometry | **Edit:** full authoring with continuous reflow. **Read:** read-only, navigation/copy/links preserved |
 | **Page** | The same derived pages paginated into A4, exact print geometry | Checking fit, what the PDF will look like, page-level reading | Exact page boundaries and footers | **Read:** exact and read-only now. **Edit:** planned, disabled until implemented |
 
-**Resolved for v1 (ADR-0007).** **Continuous + Edit** is the default spatial authoring surface: page boundaries do not interrupt the flow, and a long branch stays visible. **Continuous + Read** is read-only. **Page Read** is the exact PDF proof: it is the best place to judge fit, but it is not an editing surface. **Page Edit** is planned and visibly disabled until implemented. Outline remains the fastest way to build structure.
+**Resolved for v1 (ADR-0007).** **Continuous + Edit** is the default spatial authoring surface: page boundaries do not interrupt the flow, and a long branch stays visible. **Continuous + Read** is read-only. **Page Read** is the exact PDF proof: it is the best place to judge fit, but it is not an editing surface. **Page Edit** is available as an opt-in single-block overlay. Outline remains the fastest way to build structure.
 
 Rules:
 
 - The switcher has two independent controls: `Outline | Continuous | Page` (`⌘1` / `⌘2` / `⌘3`) and `Edit | Read` (`⌘E`). `⌘E` applies to Continuous and Page; Outline has no mode, so the Edit/Read control is disabled there.
-- Continuous + Edit is the default. Page opens in Read; Page Edit is disabled and announced as unavailable.
+- Continuous + Edit is the default. The layout switch preserves Edit/Read; Page Edit is opt-in and never auto-opens.
 - Continuous Read is read-only for content: selection, links, anchors, reference navigation, copy, scroll, zoom, focus and outline navigation remain available.
-- Page Read is read-only for content: selection, page navigation, zoom, focus, link/anchor following, copy, Page Setup and Export. Editing happens in Outline or Continuous Edit (and, later, Page Edit).
+- Page Read is read-only for content: selection, page navigation, zoom, focus, link/anchor following, copy, Page Setup and Export. Editing happens in Outline, Continuous Edit, or the Page Edit overlay.
 - The layout and mode are persisted per document for the session.
 - Continuous scroll and current page are separate view states; switching preserves both.
 - There is no split view in v1 (Q21).
@@ -298,7 +298,7 @@ DOCUMENT
 | **Document** | The file. It has a title and one or more chapters. |
 | **Chapter** | A named group of top-level blocks. It has a title, an order, and a "start on a new page" setting (default on). |
 | **Top-level block** | A content block with no primary parent, inside a chapter. It can be a standalone sentence or a 1–2 word phrase with children. |
-| **Chapter heading** | A heading, not a content block. It has no branches, anchors, or child blocks. It is editable in the outline and Continuous Edit; Page Read shows the heading read-only (Page Edit, later, may edit it). |
+| **Chapter heading** | A heading, not a content block. It has no branches, anchors, or child blocks. It is editable in the outline and Continuous Edit; Page Read shows the heading read-only; the Page Edit overlay edits block content. |
 | **Top-level order** | Chapters are ordered; top-level blocks are ordered inside a chapter. The document order is chapter order, then top-level order, then depth-first child order. |
 | **Pages** | Derived by the paginator. They are not stored, not named, and not editable as objects. |
 | **Page break** | Computed between blocks, or at a safe internal boundary inside a long block. It never falls inside a line, image, code block, formula, or table row. |
@@ -582,7 +582,7 @@ Flow index:
 | New sibling below | `Return` | Block → Add Sibling | Context menu → Add Sibling |
 | New child | `⌘Return` | Block → Add Child Block | `⌘Return`, or click the branch handle |
 
-Page Read is read-only: add, edit, and delete commands are disabled there. Page Edit is planned and disabled until implemented. Use Continuous Edit or Outline.
+Page Read is read-only: add, edit, and delete commands are disabled there. Page Edit is available as an opt-in overlay. Use Continuous Edit or Outline.
 
 **Steps (outline, sibling)**
 
@@ -705,7 +705,7 @@ Page Read is read-only: add, edit, and delete commands are disabled there. Page 
 
 **Rules**
 
-- Anchors are created in Outline or Continuous Edit. Page Read is read-only: clicking an anchor dot follows its branch, but does not create one. Page Edit is planned and will use the same anchor rules.
+- Anchors are created in Outline or Continuous Edit. Page Read is read-only: clicking an anchor dot follows its branch, but does not create one. Page Edit uses the same anchor rules.
 - An anchor must be inside one block. A multi-block selection disables **Branch** with "Anchors work within one block." A text selection containing inline math or images is allowed: the quote uses a plain-text projection (text + LaTeX source + image alt/placeholder), and the mark binding remains truth (OD-12). A selection that crosses a block-level atomic node (display math, image, code block) or a table-cell boundary is rejected.
 - If nothing is selected, `⌘⇧Return` branches from the whole block.
 - Anchors are unique per span. Branching the same span again creates another branch from the same anchor, not a second anchor. Overlapping anchors are allowed; each has its own ID.
@@ -742,7 +742,7 @@ Page Read is read-only: add, edit, and delete commands are disabled there. Page 
 | `⌥`-drag from the branch handle to a block | Reference link from source to target |
 | Drag to empty space | Nothing; snaps back. No free positioning. |
 
-Page Read is read-only: it accepts selection, page navigation, zoom and focus, but no drag, reparent, or reorder. Use Continuous Edit or Outline to change structure. Page Edit is planned and disabled until implemented.
+Page Read is read-only: it accepts selection, page navigation, zoom and focus, but no drag, reparent, or reorder. Use Continuous Edit or Outline to change structure. Page Edit is available as an opt-in overlay.
 
 **Rules**
 
@@ -781,7 +781,7 @@ A block has exactly one primary parent. It may have any number of reference link
 - Outline: `⌥`-drag a block onto another.
 - Continuous Edit: `⌥`-drag a block body, or `⌥`-drag from a branch handle.
 - Continuous Edit: `⌥`-drop from an anchor drag creates a reference link from the anchor.
-- Page Read: read-only; click a "See also" chip or a reference edge to follow it. Link creation happens in the editor or Outline. Page Edit is planned.
+- Page Read: read-only; click a "See also" chip or a reference edge to follow it. Link creation happens in the editor or Outline. Page Edit is opt-in.
 
 **Rules**
 
@@ -860,7 +860,7 @@ Rules:
 ### F10 — Switch layouts and modes
 
 1. `⌘1` Outline, `⌘2` Continuous, `⌘3` Page.
-2. `⌘E` toggles Edit/Read inside the active layout. In Page, `⌘E` is disabled with "Page editing is not available yet." until Page Edit ships.
+2. `⌘E` toggles Edit/Read inside the active layout. In Page, `⌘E` toggles Page Read/Page Edit.
 3. If an editor is open, the edit is committed first. A layout/mode switch creates no undo entry.
 4. Selection, focus, breadcrumbs, chapter, focus mode, and layout freeze carry over.
 5. Continuous scrolls to the block's layout position; Page scrolls to the block's page; Outline scrolls to the row.
@@ -971,7 +971,7 @@ Search is a navigation tool, not a query language. A document-wide search palett
 ### F15 — Manage chapters
 
 - **New Chapter** (`⌘⌥C`): adds a chapter after the current one, with one empty top-level block and a "start on new page" hint. Focus goes to the chapter title; `Return` commits the title and moves the caret to the first top-level block.
-- **Rename**: click the chapter heading in the outline or Continuous Edit; type; `Return`. Page Read shows the heading read-only; Page Edit (later) may edit it.
+- **Rename**: click the chapter heading in the outline or Continuous Edit; type; `Return`. Page Read shows the heading read-only; the Page Edit overlay edits block content.
 - **Reorder**: drag the chapter heading in the outline, or Chapter → Move Up/Down. Chapter order is document order.
 - **Delete**: Chapter menu → Delete Chapter. If it has content, confirm with block count; undoable. Deleting the last chapter leaves a new empty chapter.
 - **Start on new page**: a toggle in the chapter inspector or Chapter menu; it is a manual break hint at the heading. Default on.
@@ -1004,7 +1004,7 @@ They differ in presentation and mode:
 | Modes | **Edit** (default): full authoring with continuous reflow. **Read:** read-only; navigation, links, anchors, copy, zoom, focus preserved | **Read:** exact and read-only now. **Edit:** planned, disabled until implemented |
 | Best for | Flow, authoring, long branches | Fit, print proof, WYSIWYG check |
 
-Page Read is the PDF target: it shows exactly what the PDF will render. Page Edit, when implemented, will share the same geometry and differ only in interactivity. Continuous markers come from the same paginator but are not a pixel-accurate preview.
+Page Read is the PDF target: it shows exactly what the PDF will render. Page Edit shares the same geometry and differs only in interactivity. Continuous markers come from the same paginator but are not a pixel-accurate preview.
 
 Page/PDF always show the full document. Collapse is an outline/Continuous navigation aid; it never hides content from Page or PDF.
 
@@ -1062,7 +1062,7 @@ Continuous rules:
 | `⇧1` | Fit page | 200 ms |
 | `⇧2` | Fit width | 200 ms |
 | `⌥↑` / `⌥↓` | Previous/next page | Page indicator |
-| `⌘E` | Disabled in Page Read until Page Edit ships | Title: "Page editing is not available yet." |
+| `⌘E` | Toggle Edit/Read in Page | Page Edit is an opt-in single-block overlay |
 | Click a ghost parent | Jump to the real parent | Scrolls to its page; selects it |
 | Click block | Select for inspection | Ring |
 | Click a reference chip / anchor | Follow the link or branch | Jumps to the target; selection updates |
@@ -1074,7 +1074,7 @@ Continuous rules:
 Page rules:
 
 - **Page Read is read-only for content.** It accepts selection, page navigation, zoom, focus, link following, Page Setup and Export; it does not accept text editing, structural edits, drag, or delete. New Chapter and manual-break commands are disabled in Page Read.
-- **Page Edit is planned and disabled.** The Edit control is visibly unavailable with a clear reason, not a broken toggle. When implemented, Page Edit will use one active block editor overlay and the same geometry as Page Read.
+- **Page Edit is opt-in.** It uses one active block editor overlay and the same geometry as Page Read; it never auto-opens.
 - Double-click or `Return` is a bridge to Continuous Edit: it switches to Continuous in Edit mode and focuses the same block. It never opens an editor on Page Read.
 - A long text block may continue at a safe boundary; a line, image, code block, or formula is always whole. If an atomic element cannot fit, it is an unbreakable overflow (F9).
 - A continuation page starts with a ghost parent above the resumed content; it is dimmed and not editable.
@@ -1090,7 +1090,7 @@ Page rules:
 - Dragging onto a block with `⇧` reparents; a cycle is refused with "Would create a loop. Hold ⌥ to link instead."
 - Dragging from a branch handle onto a block makes the target a child; if the target already has a parent, the role popover appears.
 - Dragging to empty space does nothing; the block snaps back. No free positioning, no pins, no nudges.
-- After a drop, Continuous Edit reflows. Page Read is read-only and shows the result when you switch to it; if an element overflows, the banner appears. Page Edit is planned.
+- After a drop, Continuous Edit reflows. Page Read is read-only and shows the result when you switch to it; if an element overflows, the banner appears. Page Edit is opt-in.
 - `Esc` during a drag cancels and restores the original order.
 - Group drag is not supported; multi-selection is for actions, not positioning.
 - Page Read accepts no drag. Use Continuous Edit or Outline for structural changes.
@@ -1114,7 +1114,7 @@ Page rules:
 | Chapter heading (Continuous Edit/Outline) | Rename, New Chapter After, Move Up/Down, Start on New Page, Delete Chapter |
 | Chapter heading (Page Read, read-only) | Open in Continuous Editor |
 
-In Continuous Read and Page Read, editing items are disabled; their menus show navigation, copy, Page Setup and Export only. Page Edit is planned and, when implemented, will share Page Read geometry with editing enabled.
+In Continuous Read and Page Read, editing items are disabled; their menus show navigation, copy, Page Setup and Export only. Page Edit is opt-in and shares Page Read geometry with editing enabled.
 
 Menu items are the accessible version of every gesture. Anything in a context menu must also be in the menu bar.
 
@@ -1357,12 +1357,12 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 
 **Page Read (read-only)**
 
-Page Read has no editing shortcuts. `Return` or double-click opens the selected block in Continuous Edit; add, edit, delete, indent, and drag commands are disabled. Page Edit is planned and will reuse the Continuous authoring shortcuts with one active block editor.
+Page Read has no editing shortcuts. `Return` or double-click opens the selected block in Continuous Edit; add, edit, delete, indent, and drag commands are disabled. Page Edit is opt-in and reuses the Continuous authoring shortcuts with one active block editor.
 
 ### 9.5 Shortcut rules
 
 - **Single-key shortcuts** (`F`, `⇧1`, `⇧2`, arrows) work in Continuous with no editor open and in Page (Read-only now). They can be disabled in Settings.
-- **Page Read is read-only.** Content and structure commands are disabled in Page Read, including New Chapter, New Block, Insert/Remove Manual Break, Delete, indent/outdent, and drag/drop. `Return` or double-click opens the block in Continuous Edit. Undo/redo remain global; the preview updates. Page Edit is planned and disabled until implemented.
+- **Page Read is read-only.** Content and structure commands are disabled in Page Read, including New Chapter, New Block, Insert/Remove Manual Break, Delete, indent/outdent, and drag/drop. `Return` or double-click opens the block in Continuous Edit. Undo/redo remain global; the preview updates. Page Edit is available as an opt-in overlay.
 - **`⌘E` is mode, not inline code.** Inline code is `⌘⇧C` so Edit/Read has one unambiguous global meaning.
 - **`Tab` is the only structural key that changes meaning inside code blocks.**
 - **`Esc` never cancels editing.** It commits and leaves. `⌘Z` is the way back.
@@ -1395,7 +1395,7 @@ This section defines behavior and hierarchy, not final visual design.
 | **Ghost parent** | A dimmed, non-editable ancestor at the top of a continuation page; click jumps to the real parent |
 | **Surface** | A block is a readable card in Continuous/Page; a row in the outline; the print renderer in the PDF |
 | **Anchor dots** | 8 pt visual, 24 × 24 pt hit area |
-| **Branch handle** | Right-edge handle in Outline/Continuous Edit; click adds a child, drag to a block reparents. Hidden in Continuous Read and Page Read. Page Edit is planned |
+| **Branch handle** | Right-edge handle in Outline/Continuous Edit; click adds a child, drag to a block reparents. Hidden in Continuous Read and Page Read; Page Edit is opt-in |
 | **Chips** | Child count, shared, framed, top-level, lost anchor, overflow |
 
 ### 10.2 Block states
@@ -1419,7 +1419,7 @@ This section defines behavior and hierarchy, not final visual design.
 | **Search hit** | Find result | Highlight; current hit stronger | `Return` cycles |
 | **Drop target** | During drag | Line/rounded outline/dashed/forbidden | Release |
 | **Unbreakable overflow** | Line/image/code/formula too tall/wide | Warning outline; banner; export blocked | Resize/shorten element, landscape |
-| **Preview (Page Read)** | Page Read | No caret, no handles; selection ring only | Inspect, follow links; **Open in Continuous Editor** to edit. Page Edit is planned |
+| **Preview (Page Read)** | Page Read | No caret, no handles; selection ring only | Inspect, follow links; **Open in Continuous Editor** to edit; Page Edit is opt-in |
 | **Read-only file** | Newer schema/locked | No caret; banner | Export only |
 
 ### 10.3 Branches and arrows
@@ -1707,7 +1707,7 @@ Motion is never the only signal.
 - Tab order: toolbar → main view → inspector → status bar.
 - Outline: single Tab stop; arrows move; `Tab`/`⇧Tab` change structure; `⌃Tab` leaves.
 - Continuous: single Tab stop; `Tab` enters at the focused block; arrows move spatially; `Return` edits in Edit mode; `Esc` steps out; `⌃Tab` leaves. In Read mode `Return` opens the focused block's links/actions, not an editor.
-- Page: single Tab stop; `Tab` enters at the focused block; arrows move; `Return` or double-click opens the block in Continuous Edit; `Esc` steps out; `⌃Tab` leaves. Page Edit is planned.
+- Page: single Tab stop; `Tab` enters at the focused block; arrows move; `Return` or double-click opens the block in Continuous Edit; `Esc` steps out; `⌃Tab` leaves. Page Edit is opt-in.
 - Page navigation `⌥↑/↓`; announced as "Page 2 of 5".
 - Focus restored after layout/mode switches, undo, dialogs, export.
 - Dialogs trap focus and return it.
@@ -1716,7 +1716,7 @@ Motion is never the only signal.
 
 - **Outline:** nested list with explicit levels; chapter headings and page-break markers announced as separators ("Page 2, automatic; Chapter 2 starts here"). Blocks announce type, first line, level, children, collapsed, shared, anchors, lost anchor, overflow.
 - **Continuous:** a continuous document in outline order; derived page-break markers announced as "Page 2 starts here; Chapter 1 continues." Not read as a spatial canvas. Edit and Read are announced.
-- **Page:** a sequence of page sections; each announces page number, chapter, top-level count, overflow. Blocks read in order; visual positions not read. Page Read is read-only; activating a block opens it in Continuous Edit. Page Edit is planned.
+- **Page:** a sequence of page sections; each announces page number, chapter, top-level count, overflow. Blocks read in order; visual positions not read. Page Read is read-only; activating a block opens it in Continuous Edit. Page Edit is opt-in.
 - **Branches:** "Branch from “λ, the eigenvalue” to “λ is the stretch factor”."
 - **Anchors:** "Anchor: λ, 1 branch"; lost as "Lost anchor: λ, attached to the whole block, needs reattachment".
 - **Continuation and ghost parent:** "Chapter 1 continues on page 2; ghost parent: Definition, continued from page 1."
@@ -1795,7 +1795,7 @@ Rules:
 
 | # | Question | Why it matters | Current proposal / next step |
 |---|---|---|---|
-| Q1 | **Resolved by ADR-0007:** which spatial layout is primary? | Reader preserved flow; Page showed fit. | **Continuous + Edit is the default authoring surface. Continuous Read is read-only. Page Read is the exact read-only PDF proof. Page Edit is planned/optional.** |
+| Q1 | **Resolved by ADR-0007:** which spatial layout is primary? | Reader preserved flow; Page showed fit. | **Continuous + Edit is the default authoring surface. Continuous Read is read-only. Page Read is the exact read-only PDF proof. Page Edit is available, opt-in, and the layout switch preserves the mode.** |
 | Q2 | Is "chapter" or "document" the right user-facing noun? | The product owner says chapter; the file is a document | Use document in v1; revisit naming |
 | Q3 | How should adaptive widths be chosen? | Content-driven widths can make rows unbalanced; a large subtree may dominate | Measure content, cap extreme widths, balance rows; test with real notes |
 | Q4 | When should a child wrap below the parent instead of going right? | The wrap rule defines the visual rhythm and page count | Wrap when the child + margin does not fit; keep a slight indent; test |
@@ -1820,16 +1820,18 @@ Rules:
 
 ---
 
-## 16. Agent authoring (file-based)
+## 16. Markdown file view
 
-V1 has **no in-app agent chat, sidebar, conversation, proposals, autonomous agent, or local API**.
-An external agent prepares a Markdown file; the user imports it as a NoteForest note (File → Import
-Markdown… or the CLI that wraps the same importer). The importer owns the forest structure and
-formatting, and the app remains the only writer of `document.json`.
+V1 has **no in-app agent chat, sidebar, conversation, proposals, autonomous agent, local API, or
+forest builder**. A `.md` file can be opened as a **flat guest file**:
 
-- No token, endpoint, scope, status indicator, or API settings page.
-- No background autonomy, web access, URL fetching, or external tool execution.
-- The imported note is a normal document: edit, branch, export PDF, and move to Trash as usual.
+- Continuous only, Edit/Read; no chapters, blocks, branches, anchors, Page, PDF, or export;
+- rendered from the declared GFM subset + math/code/tables/local images;
+- edits save back to the same file with an atomic write and an external-change conflict check;
+- copy/paste from the Markdown tab into a NoteForest note is the intended bridge.
+
+No token, endpoint, scope, status indicator, or API settings page. No automatic Markdown→forest
+import. The design is `docs/design/markdown-file-view.md`.
 
 ---
 

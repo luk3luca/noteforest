@@ -386,7 +386,7 @@ No Settings control should be built on a Continuous zoom/type field: there is no
 | AP-5 | Sidebar collapsed | false | bool | V/G | **U** | F | Session state. |
 | AP-6 | Collapsed topics | `{}` | per document | V | **U** | F | Session state; not settings. |
 | AP-7 | Default layout | Continuous | continuous/page | V | **U** | F | View state; no global default. |
-| AP-8 | Default interaction mode | Edit (Continuous), Read (Page) | edit/read | V | **U** | F | `view-state.ts:77-89`. |
+| AP-8 | Interaction mode | Edit (default); switching layout preserves it | edit/read | V | **U** | F | `view-state.ts`; Page Edit is opt-in and never auto-opens. |
 | AP-9 | Current page | 1 | clamped | V | **U** | F | View state. |
 | AP-10 | Page zoom | 1 | 0.1–2.5, step 0.01 | V | **U** | F | `PageView` duplicates the clamp constants (S3-11). |
 | AP-11 | Page fit | `page` | page/width/none | V | **U** | F | View state. |

@@ -1,6 +1,8 @@
 # ADR-0007 — Editor layouts and interaction modes
 
-- **Status:** Accepted by the product owner (7 November 2026)
+- **Status:** Accepted by the product owner (7 November 2026); amended 14 November 2026:
+  Page Edit is implemented, and switching layout preserves the current Edit/Read mode. Page Edit
+  remains opt-in per block and never auto-opens.
 - **Decision owner:** Product owner
 - **Supersedes:** D14/A15/A16 and the "Reader vs Page view" pair in `docs/spec.md`
 - **Related:** ADR-0002 (PDF), ADR-0006 (group wrap), `docs/ux.md`, M4 plan
