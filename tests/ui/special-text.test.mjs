@@ -363,13 +363,41 @@ describe('NoteForest special text editing', () => {
     await input.press('Escape');
     assert.equal(await input.inputValue(), 'not-a-language');
 
-    // Page Read stays neutral: no code chrome and no token colours.
+    // Use a real grammar for the Page colour assertion (same block, real text).
+    await card(blockId).locator('pre[data-anchor-kind="code"] code').click();
+    await input.fill('python');
+    await input.press('Enter');
+    await page.waitForFunction(
+      (block) =>
+        document
+          .querySelector(`[data-block-card="${block}"] [data-code-block="true"]`)
+          ?.getAttribute('data-code-language') === 'python',
+      blockId,
+    );
+
+    // Page Read renders the same token colours (editor appearance phase 1) but
+    // keeps editor code chrome out of the paper.
     await page.keyboard.press('Meta+3');
     await page.locator('.nf-editor[data-active="true"] .nf-page-view').waitFor();
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-sheet');
     assert.equal(await page.locator('.nf-page-view [data-code-block]').count(), 0);
-    assert.equal(await page.locator('.nf-page-view .hljs-keyword').count(), 0);
-    assert.equal(await page.locator('.nf-page-view .hljs-comment').count(), 0);
+    const pageKeyword = page.locator('.nf-page-view .hljs-keyword').first();
+    await pageKeyword.waitFor();
+    assert.ok((await page.locator('.nf-page-view .hljs-keyword').count()) > 0);
+    assert.equal(
+      await pageKeyword.evaluate((element) => getComputedStyle(element).color),
+      'rgb(166, 38, 164)',
+      'the paper uses the One Light keyword role',
+    );
+    assert.ok((await page.locator('.nf-page-view .hljs-comment').count()) > 0);
+    assert.match(
+      await page
+        .locator(`.nf-page-view .nf-page-fragment[data-fragment-block="${blockId}"] .nf-code-line`)
+        .first()
+        .innerText(),
+      /def value\(\): return 1 +# note/,
+      'the code line still carries real selectable text',
+    );
 
     await page.keyboard.press('Meta+s');
     await h.waitSaved();

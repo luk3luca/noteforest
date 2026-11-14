@@ -77,15 +77,16 @@ html[data-theme="dark"] {
   --warning: #d6b17a;
   --warning-soft: #352c1e;
   --warning-border: #6a5536;
-  /* Editor-only syntax colours (special-text A). Page/PDF never read them. */
-  --code-keyword: #b9a6d8;
-  --code-string: #a8c7a0;
-  --code-number: #d6b17a;
-  --code-comment: #7f8790;
-  --code-function: #9bb7d4;
-  --code-type: #8fc7c2;
-  --code-tag: #d98b8b;
-  --code-meta: #c9b98a;
+  /* Syntax colours: Monokai for the dark editor (design: code-palette.md).
+     The Page paper is always light and reads its own One Light roles. */
+  --code-keyword: #f92672;
+  --code-string: #e6db74;
+  --code-number: #ae81ff;
+  --code-comment: #75715e;
+  --code-function: #a6e22e;
+  --code-type: #66d9ef;
+  --code-tag: #f92672;
+  --code-meta: #fd971f;
   --overlay: rgb(0 0 0 / 0.4);
   --shadow-panel: 0 8px 24px rgb(0 0 0 / 0.35);
   --shadow-overlay: 0 24px 64px rgb(0 0 0 / 0.55);
@@ -121,15 +122,15 @@ html[data-theme="light"] {
   --warning: #8a5a00;
   --warning-soft: #fff4dc;
   --warning-border: #e6c98a;
-  /* Editor-only syntax colours (special-text A). Page/PDF never read them. */
-  --code-keyword: #6b4f9a;
-  --code-string: #2f6b4f;
-  --code-number: #8a5a00;
-  --code-comment: #5b6771;
-  --code-function: #2c5f8a;
-  --code-type: #1f6f6a;
-  --code-tag: #a23b32;
-  --code-meta: #7a5a00;
+  /* Syntax colours: One Light for the light editor (design: code-palette.md). */
+  --code-keyword: #a626a4;
+  --code-string: #50a14f;
+  --code-number: #986801;
+  --code-comment: #a0a1a7;
+  --code-function: #4078f2;
+  --code-type: #c18401;
+  --code-tag: #e45649;
+  --code-meta: #986801;
   --overlay: rgb(16 20 24 / 0.38);
   --shadow-panel: 0 8px 24px rgb(16 20 24 / 0.12);
   --shadow-overlay: 0 24px 64px rgb(16 20 24 / 0.2);
@@ -6587,6 +6588,17 @@ body.nf-dragging-block .nf-gutter-handle {
   --nf-page-focus: #9bb7d4;
   --nf-page-defect: #d98b8b;
   --nf-page-edge-blocked: #d6b17a;
+  /* One Light syntax roles for the fixed-light paper. Page Read/Edit and the
+     print compositor read these, never the shell `--code-*` theme roles, so the
+     PDF keeps One Light in a dark app theme. */
+  --nf-page-code-keyword: #a626a4;
+  --nf-page-code-string: #50a14f;
+  --nf-page-code-number: #986801;
+  --nf-page-code-comment: #a0a1a7;
+  --nf-page-code-function: #4078f2;
+  --nf-page-code-type: #c18401;
+  --nf-page-code-tag: #e45649;
+  --nf-page-code-meta: #986801;
 }
 
 .nf-page-scope {
@@ -7616,12 +7628,21 @@ body.nf-dragging-block .nf-gutter-handle {
   background: var(--surface-2);
 }
 
-/* A · Syntax colours. Scoped to the Continuous editor; Page Read/Edit and the
-   PDF render neutral code. */
+/* A · Syntax colours (editor appearance phase 1). The same token roles reach
+   Continuous, Page Read/Edit, and print. `hljs-*` classes only exist on
+   highlighted code-block content, so tables, inline code, and prose never read
+   these rules. The paper uses its own fixed One Light roles; Continuous follows
+   the app theme (Monokai dark, One Light light). Font style/weight stay
+   Continuous-only: Page/PDF typography may not change. */
 .nf-continuous-surface .hljs-comment,
 .nf-continuous-surface .hljs-quote {
   color: var(--code-comment);
   font-style: italic;
+}
+
+.nf-page-scope .hljs-comment,
+.nf-page-scope .hljs-quote {
+  color: var(--nf-page-code-comment);
 }
 
 .nf-continuous-surface .hljs-keyword,
@@ -7631,10 +7652,23 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--code-keyword);
 }
 
+.nf-page-scope .hljs-keyword,
+.nf-page-scope .hljs-selector-tag,
+.nf-page-scope .hljs-literal,
+.nf-page-scope .hljs-doctag {
+  color: var(--nf-page-code-keyword);
+}
+
 .nf-continuous-surface .hljs-string,
 .nf-continuous-surface .hljs-regexp,
 .nf-continuous-surface .hljs-addition {
   color: var(--code-string);
+}
+
+.nf-page-scope .hljs-string,
+.nf-page-scope .hljs-regexp,
+.nf-page-scope .hljs-addition {
+  color: var(--nf-page-code-string);
 }
 
 .nf-continuous-surface .hljs-number,
@@ -7643,16 +7677,34 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--code-number);
 }
 
+.nf-page-scope .hljs-number,
+.nf-page-scope .hljs-symbol,
+.nf-page-scope .hljs-bullet {
+  color: var(--nf-page-code-number);
+}
+
 .nf-continuous-surface .hljs-title,
 .nf-continuous-surface .hljs-title.function_,
 .nf-continuous-surface .hljs-section {
   color: var(--code-function);
 }
 
+.nf-page-scope .hljs-title,
+.nf-page-scope .hljs-title.function_,
+.nf-page-scope .hljs-section {
+  color: var(--nf-page-code-function);
+}
+
 .nf-continuous-surface .hljs-type,
 .nf-continuous-surface .hljs-built_in,
 .nf-continuous-surface .hljs-class .hljs-title {
   color: var(--code-type);
+}
+
+.nf-page-scope .hljs-type,
+.nf-page-scope .hljs-built_in,
+.nf-page-scope .hljs-class .hljs-title {
+  color: var(--nf-page-code-type);
 }
 
 .nf-continuous-surface .hljs-attr,
@@ -7662,10 +7714,23 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--code-meta);
 }
 
+.nf-page-scope .hljs-attr,
+.nf-page-scope .hljs-attribute,
+.nf-page-scope .hljs-variable,
+.nf-page-scope .hljs-template-variable {
+  color: var(--nf-page-code-meta);
+}
+
 .nf-continuous-surface .hljs-tag,
 .nf-continuous-surface .hljs-name,
 .nf-continuous-surface .hljs-deletion {
   color: var(--code-tag);
+}
+
+.nf-page-scope .hljs-tag,
+.nf-page-scope .hljs-name,
+.nf-page-scope .hljs-deletion {
+  color: var(--nf-page-code-tag);
 }
 
 .nf-continuous-surface .hljs-emphasis {
@@ -7846,12 +7911,14 @@ body.nf-dragging-block .nf-gutter-handle {
   min-width: max-content !important;
 }
 
-/* D · Contextual table toolbar. */
+/* D · Contextual table toolbar. One compact icon row: the panel is no taller
+   than a table header row. Placement is header-aware (below the table when the
+   caret is in the header row); see TableToolbar.tsx. */
 .nf-table-toolbar {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 4px;
+  padding: 3px;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-overlay);
   background: var(--surface-3);
@@ -7862,7 +7929,12 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-table-toolbar-row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
+}
+
+.nf-table-toolbar .nf-bubble-button {
+  width: 22px;
+  height: 22px;
 }
 
 .nf-bubble-sep {
@@ -7872,11 +7944,64 @@ body.nf-dragging-block .nf-gutter-handle {
   background: var(--border-1);
 }
 
-.nf-table-toolbar .nf-bubble-wide {
-  width: auto;
-  gap: 5px;
-  padding: 0 7px;
+.nf-table-toolbar .nf-bubble-sep {
+  height: 14px;
+  margin: 0 3px;
+}
+
+.nf-table-toolbar-glyph {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* The copy confirmation is announced and remains in the button's text for the
+   existing feedback contract; the visible cue is the icon swap. */
+.nf-table-toolbar-feedback {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The source preview is a separate read-only panel, not part of the toolbar
+   silhouette: expanding it never grows the bar over the table or the active
+   cell. It sits in the empty lower-right corner of the editor. */
+.nf-table-source-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 44px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: 240px;
+  padding: 6px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-overlay);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-panel);
+}
+
+.nf-table-source-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+  color: var(--text-2);
   font-size: 11px;
+}
+
+.nf-table-source-header .nf-bubble-button {
+  flex: none;
+  width: 22px;
+  height: 22px;
 }
 
 .nf-table-source {
@@ -7894,6 +8019,10 @@ body.nf-dragging-block .nf-gutter-handle {
   white-space: pre;
   overflow: auto;
   user-select: text;
+}
+
+.nf-table-source-panel .nf-table-source {
+  max-width: none;
 }
 
 /* D · Size picker. */

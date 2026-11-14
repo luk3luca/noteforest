@@ -14,7 +14,7 @@
 import { Extension, type Editor } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { TextSelection } from '@tiptap/pm/state';
-import { createLowlight, common } from 'lowlight';
+import { lowlight } from '../lib/code-highlight';
 import { anchorIdsAttribute } from './anchor-attrs';
 import {
   caretAtCodeEnd,
@@ -24,8 +24,6 @@ import {
 import { parseCodeFenceParagraph, normalizeCodeLanguage } from '../lib/code-fence';
 import { PLAINTEXT_LANGUAGE } from '../lib/special-text-constants';
 import { CodeBlockNodeView } from './views/code-block-view';
-
-const lowlight = createLowlight(common);
 
 function isCodeChrome(event: Event): boolean {
   const target = event.target;

@@ -17,6 +17,12 @@
 
 import katex from 'katex';
 import type { AnchorRecord, ContentNode, SegmentKind } from '@noteforest/layout';
+import {
+  codeAnchorSpans,
+  highlightCodeLineHtml,
+  type CodeAnchorHint,
+} from '../lib/code-highlight';
+import { normalizeCodeLanguage } from '../lib/code-fence';
 
 /** Intrinsic-only fallback. Fixed table layout always re-measures real columns. */
 const FALLBACK_TABLE_COLUMN_WIDTH = 56;
@@ -381,11 +387,13 @@ function blockInCellHtml(node: ContentNode, options: SegmentOptions): InlineResu
     const text = codeBlockText(node);
     const lines = text.length > 0 ? text.split('\n') : [''];
     const anchorIds = anchorIdsOf(node);
+    const language = normalizeCodeLanguage(stringAttr(node.attrs, 'language'));
     let html = '';
     for (const [index, line] of lines.entries()) {
+      const highlighted = highlightCodeLineHtml(line, language, []);
       html += `<div class="nf-code-line">${index === 0 && anchorIds.length > 0
-        ? wrapAnchors(escapeHtml(line) || '&nbsp;', anchorIds, 'span')
-        : escapeHtml(line) || '&nbsp;'}</div>`;
+        ? wrapAnchors(highlighted || '&nbsp;', anchorIds, 'span')
+        : highlighted || '&nbsp;'}</div>`;
     }
     return { html, anchorIds };
   }
@@ -515,14 +523,13 @@ function codeBlockText(node: ContentNode): string {
   return collect(node);
 }
 
-interface CodeTokenHint {
-  anchorId: string;
-  token: string;
-}
-
-function codeTokensFor(block: PageContentBlock, options: SegmentOptions, node: ContentNode): CodeTokenHint[] {
+function codeTokensFor(
+  block: PageContentBlock,
+  options: SegmentOptions,
+  node: ContentNode,
+): CodeAnchorHint[] {
   const ids = new Set(anchorIdsOf(node));
-  const hints: CodeTokenHint[] = [];
+  const hints: CodeAnchorHint[] = [];
   for (const anchor of options.anchors ?? []) {
     if (anchor.blockId !== block.id) continue;
     if (anchor.kind !== 'code') continue;
@@ -534,42 +541,6 @@ function codeTokensFor(block: PageContentBlock, options: SegmentOptions, node: C
     hints.push({ anchorId: anchor.id, token });
   }
   return hints;
-}
-
-function highlightCodeLine(
-  line: string,
-  hints: readonly CodeTokenHint[],
-): { html: string; anchorIds: string[] } {
-  if (hints.length === 0 || line.length === 0) {
-    return { html: escapeHtml(line), anchorIds: [] };
-  }
-  const ordered = [...hints].sort((left, right) => right.token.length - left.token.length);
-  const anchorIds: string[] = [];
-  let html = '';
-  let cursor = 0;
-  while (cursor < line.length) {
-    let match: { start: number; token: string; anchorId: string } | null = null;
-    for (const hint of ordered) {
-      const start = line.indexOf(hint.token, cursor);
-      if (start < 0) continue;
-      if (
-        match === null ||
-        start < match.start ||
-        (start === match.start && hint.token.length > match.token.length)
-      ) {
-        match = { start, token: hint.token, anchorId: hint.anchorId };
-      }
-    }
-    if (match === null) {
-      html += escapeHtml(line.slice(cursor));
-      break;
-    }
-    html += escapeHtml(line.slice(cursor, match.start));
-    html += wrapAnchors(escapeHtml(match.token), [match.anchorId], 'span');
-    if (!anchorIds.includes(match.anchorId)) anchorIds.push(match.anchorId);
-    cursor = match.start + match.token.length;
-  }
-  return { html, anchorIds: sortedUnique(anchorIds) };
 }
 
 function tableCellHtml(cell: ContentNode, options: SegmentOptions): InlineResult {
@@ -718,10 +689,11 @@ export function buildSegments(block: PageContentBlock, options: SegmentOptions):
         const hints = codeTokensFor(block, options, node);
         const hintedIds = new Set(hints.map((hint) => hint.anchorId));
         const wholeCodeIds = anchorIdsOf(node).filter((id) => !hintedIds.has(id));
+        const language = normalizeCodeLanguage(stringAttr(node.attrs, 'language'));
         for (const [lineIndex, line] of lines.entries()) {
-          const highlighted = highlightCodeLine(line, hints);
-          let html = highlighted.html;
-          let anchorIds = highlighted.anchorIds;
+          const spans = codeAnchorSpans(line, hints);
+          let html = highlightCodeLineHtml(line, language, spans);
+          let anchorIds = sortedUnique(spans.map((span) => span.anchorId));
           if (lineIndex === 0 && wholeCodeIds.length > 0) {
             html = wrapAnchors(html || '&nbsp;', wholeCodeIds, 'span');
             anchorIds = sortedUnique([...anchorIds, ...wholeCodeIds]);

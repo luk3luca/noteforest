@@ -64,6 +64,7 @@ export const FILES = [
   'document-lifecycle.test.mjs',
   'settings-shell-layout.test.mjs',
   'list-fixes.test.mjs',
+  'editor-appearance.test.mjs',
 ];
 
 /**
@@ -147,6 +148,7 @@ export const GROUPS = {
     'm4c3-pdf-gate.test.mjs',
     'm4c3-packaged-export.test.mjs',
     'm4d2-export-ui.test.mjs',
+    'editor-appearance.test.mjs',
   ],
 };
 

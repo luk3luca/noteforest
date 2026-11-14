@@ -304,4 +304,92 @@ describe('static page segments', () => {
     expect(sliced).toContain('Three');
     expect(sliced.match(/data-seg=/g)?.length).toBe(2);
   });
+
+  it('highlights Page code lines with the block language and keeps anchors', () => {
+    const codeText = 'def greeting(name):\n    return "hello"  # greet';
+    const anchors: AnchorRecord[] = [
+      {
+        id: 'a-greeting',
+        blockId: 'b1',
+        kind: 'code',
+        quote: 'greeting',
+        codeToken: 'greeting',
+      },
+    ];
+    const segments = buildSegments(
+      block([
+        {
+          type: 'codeBlock',
+          attrs: { text: codeText, language: 'python' },
+          children: [text(codeText)],
+        },
+      ]),
+      options({ anchors }),
+    );
+
+    // One segment per code line: highlighting never changes segmentation.
+    expect(segments).toHaveLength(2);
+    expect(segments.map((segment) => segment.kind)).toEqual(['code-line', 'code-line']);
+    expect(segments[0]!.html).toContain('<div class="nf-code-line" data-line="1">');
+    expect(segments[0]!.html).toContain('hljs-keyword');
+    expect(segments[0]!.html).toContain('hljs-title');
+    expect(segments[0]!.html).toContain('data-anchor-id="a-greeting"');
+    expect(segments[0]!.html.match(/data-anchor-id="a-greeting"/g)).toHaveLength(1);
+    expect(segments[1]!.html).toContain('hljs-string');
+    expect(segments[1]!.html).toContain('hljs-comment');
+    expect(segments[0]!.anchorIds).toEqual(['a-greeting']);
+    expect(segments[0]!.html).not.toContain('nf-code-fence');
+    expect(segments[0]!.html).not.toContain('data-code-block');
+  });
+
+  it('leaves plaintext code, inline code, and table text without syntax spans', () => {
+    const segments = buildSegments(
+      block([
+        {
+          type: 'codeBlock',
+          attrs: { text: 'plain = true', language: 'plaintext' },
+          children: [text('plain = true')],
+        },
+        paragraph('inline `value` stays neutral', [{ type: 'code' }]),
+        {
+          type: 'table',
+          attrs: { headerRow: true },
+          children: [
+            {
+              type: 'tableRow',
+              children: [{ type: 'tableHeader', children: [paragraph('Header')] }],
+            },
+          ],
+        },
+      ]),
+      options(),
+    );
+
+    expect(segments[0]!.html).not.toContain('hljs-');
+    expect(segments[1]!.html).toContain('nf-inline-code');
+    expect(segments[1]!.html).not.toContain('hljs-');
+    expect(segments[2]!.html).toContain('Header');
+    expect(segments[2]!.html).not.toContain('hljs-');
+  });
+
+  it('wraps the whole-code anchor around the highlighted first line only', () => {
+    const codeText = 'const total = 1;\nconst scaled = total * 2;';
+    const segments = buildSegments(
+      block([
+        {
+          type: 'codeBlock',
+          attrs: { text: codeText, language: 'typescript', anchorIds: ['a-whole'] },
+          children: [text(codeText)],
+        },
+      ]),
+      options(),
+    );
+
+    expect(segments).toHaveLength(2);
+    expect(segments[0]!.html).toContain('data-anchor-id="a-whole"');
+    expect(segments[0]!.html).toContain('hljs-keyword');
+    expect(segments[0]!.html.match(/data-anchor-id="a-whole"/g)).toHaveLength(1);
+    expect(segments[1]!.html).not.toContain('data-anchor-id="a-whole"');
+    expect(segments[0]!.anchorIds).toEqual(['a-whole']);
+  });
 });

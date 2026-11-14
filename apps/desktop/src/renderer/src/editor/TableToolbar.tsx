@@ -1,9 +1,17 @@
 /**
- * Contextual table toolbar (special-text editing, D).
+ * Contextual table toolbar (special-text editing D; editor appearance phase 1).
  *
  * Shown only while the caret is inside a table and the surface is editable.
- * Row/column operations, per-column alignment, Copy as Markdown and a
- * read-only source popover. No merge, header toggle or resize.
+ * Row/column operations, per-column alignment, paragraph insertion, Copy as
+ * Markdown, and a read-only source popover. No merge, header toggle or resize.
+ *
+ * The silhouette is one compact icon row, so the floating panel is no taller
+ * than a table header row. Placement is header-aware: with the caret in the
+ * header row, or whenever an above-caret bar would overlap the header, the bar
+ * is drawn below the table; otherwise it sits above the active cell. Floating
+ * UI shift/flip keep it inside the viewport. The source preview is a separate
+ * read-only panel, not part of the bar, so expanding it never grows the
+ * silhouette. Commands, labels, roles, and keyboard behavior are unchanged.
  */
 
 import {
@@ -14,14 +22,18 @@ import {
   ArrowLeftToLine,
   ArrowRightToLine,
   ArrowUpToLine,
+  Check,
   Code2,
   Columns3,
   Copy,
   Rows3,
+  X,
 } from 'lucide-react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/core';
-import { useEffect, useState } from 'react';
+import { PluginKey } from '@tiptap/pm/state';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { writeClipboardText } from '../lib/clipboard';
 import {
   currentCellAlign,
@@ -60,14 +72,96 @@ function useTableSnapshot(editor: Editor): TableSnapshot {
   return snapshot;
 }
 
+/** Stable plugin key: the toolbar owns its bubble and never shares the default. */
+const TABLE_TOOLBAR_MENU_KEY = new PluginKey('tableToolbarMenu');
+const TABLE_TOOLBAR_OFFSET = 8;
+/** Extra space between the table bottom and a header-row toolbar. */
+const TABLE_TOOLBAR_GAP = 10;
+/** First-show height before the menu is attached (one compact icon row). */
+const TABLE_TOOLBAR_ESTIMATED_HEIGHT = 32;
+
+function emptyRect(left: number, top: number, width: number): {
+  x: number;
+  y: number;
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  width: number;
+  height: number;
+} {
+  return {
+    x: left,
+    y: top,
+    top,
+    bottom: top,
+    left,
+    right: left + width,
+    width,
+    height: 0,
+  };
+}
+
 export function TableToolbar({ editor }: { editor: Editor }): JSX.Element {
   const { align, gfm } = useTableSnapshot(editor);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!editor.isActive('table')) setSourceOpen(false);
   }, [editor, gfm]);
+
+  const getReferencedVirtualElement = useCallback(() => {
+    if (!editor.isActive('table')) return null;
+    const { view, state } = editor;
+    const at = view.domAtPos(state.selection.from);
+    const node = at.node instanceof Element ? at.node : at.node.parentElement;
+    const cell = node?.closest('td, th') ?? null;
+    const table = cell?.closest('table') ?? null;
+    if (cell === null || table === null) return null;
+    const bounds = table.getBoundingClientRect();
+    const cellBounds = cell.getBoundingClientRect();
+    const menuHeight = Math.max(
+      menuRef.current?.getBoundingClientRect().height ?? 0,
+      TABLE_TOOLBAR_ESTIMATED_HEIGHT,
+    );
+    const headerRow = table.querySelector('tr');
+    const headerBottom = headerRow?.getBoundingClientRect().bottom ?? bounds.top;
+    // Above-caret placement would overlap the header row (header caret or a
+    // first body row): draw the whole bar below the table instead. The active
+    // cell and the header row are never covered.
+    const belowTable =
+      editor.isActive('tableHeader') ||
+      cellBounds.top - TABLE_TOOLBAR_OFFSET - menuHeight < headerBottom;
+    if (belowTable) {
+      // A zero-height reference below the table: placement "top" draws the
+      // menu above it, i.e. just under the table.
+      const rect = emptyRect(
+        bounds.left,
+        bounds.bottom + TABLE_TOOLBAR_GAP + menuHeight,
+        bounds.width,
+      );
+      return {
+        getBoundingClientRect: () => rect,
+        getClientRects: () => [rect],
+      };
+    }
+    return {
+      getBoundingClientRect: () => cellBounds,
+      getClientRects: () => [cellBounds],
+    };
+  }, [editor]);
+
+  const menuOptions = useMemo(
+    () => ({
+      placement: 'top' as const,
+      offset: TABLE_TOOLBAR_OFFSET,
+      flip: { padding: 8 },
+      shift: { padding: 8 },
+    }),
+    [],
+  );
 
   const run = (action: string): void => {
     const chain = editor.chain().focus();
@@ -104,175 +198,214 @@ export function TableToolbar({ editor }: { editor: Editor }): JSX.Element {
   };
 
   return (
-    <BubbleMenu
-      editor={editor}
-      className="nf-table-toolbar"
-      data-testid="table-toolbar"
-      shouldShow={({ editor: current }) => current.isEditable && current.isActive('table')}
-    >
-      <div className="nf-table-toolbar-row" role="toolbar" aria-label="Table">
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="row-above"
-          aria-label="Insert row above"
-          title="Insert row above"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => run('row-above')}
-        >
-          <ArrowUpToLine size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="row-below"
-          aria-label="Insert row below"
-          title="Insert row below"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => run('row-below')}
-        >
-          <ArrowDownToLine size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="row-delete"
-          aria-label="Delete row"
-          title="Delete row"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => run('row-delete')}
-        >
-          <Rows3 size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <span className="nf-bubble-sep" aria-hidden="true" />
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="column-left"
-          aria-label="Insert column left"
-          title="Insert column left"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => run('column-left')}
-        >
-          <ArrowLeftToLine size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="column-right"
-          aria-label="Insert column right"
-          title="Insert column right"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => run('column-right')}
-        >
-          <ArrowRightToLine size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="column-delete"
-          aria-label="Delete column"
-          title="Delete column"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => run('column-delete')}
-        >
-          <Columns3 size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <span className="nf-bubble-sep" aria-hidden="true" />
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="align-left"
-          aria-label="Align column left"
-          title="Align column left"
-          aria-pressed={align === 'left'}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setColumnAlign(editor, 'left')}
-        >
-          <AlignLeft size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="align-center"
-          aria-label="Align column center"
-          title="Align column center"
-          aria-pressed={align === 'center'}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setColumnAlign(editor, 'center')}
-        >
-          <AlignCenter size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="nf-bubble-button"
-          data-action="align-right"
-          aria-label="Align column right"
-          title="Align column right"
-          aria-pressed={align === 'right'}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setColumnAlign(editor, 'right')}
-        >
-          <AlignRight size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <span className="nf-bubble-sep" aria-hidden="true" />
-        <button
-          type="button"
-          className="nf-bubble-button nf-bubble-wide"
-          data-action="paragraph-above"
-          aria-label="Paragraph above"
-          title="Insert a paragraph above the table"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => insertParagraphAroundTable(editor, 'before')}
-        >
-          <span aria-hidden="true">¶</span>
-          <span>Above</span>
-        </button>
-        <button
-          type="button"
-          className="nf-bubble-button nf-bubble-wide"
-          data-action="paragraph-below"
-          aria-label="Paragraph below"
-          title="Insert a paragraph below the table"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => insertParagraphAroundTable(editor, 'after')}
-        >
-          <span aria-hidden="true">¶</span>
-          <span>Below</span>
-        </button>
-        <span className="nf-bubble-sep" aria-hidden="true" />
-        <button
-          type="button"
-          className="nf-bubble-button nf-bubble-wide"
-          data-action="copy-markdown"
-          aria-label="Copy table as Markdown"
-          title="Copy table as Markdown"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={copy}
-        >
-          <Copy size={14} strokeWidth={1.5} aria-hidden="true" />
-          <span>{copied ? 'Copied' : 'Markdown'}</span>
-        </button>
-        <button
-          type="button"
-          className="nf-bubble-button nf-bubble-wide"
-          data-action="toggle-source"
-          aria-label="Show table source"
-          aria-expanded={sourceOpen}
-          aria-pressed={sourceOpen}
-          title="Show table source"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setSourceOpen((open) => !open)}
-        >
-          <Code2 size={14} strokeWidth={1.5} aria-hidden="true" />
-          <span>{sourceOpen ? 'Hide source' : 'Source'}</span>
-        </button>
-      </div>
-      {sourceOpen ? (
-        <pre className="nf-table-source" data-table-source="true" aria-label="Table source">
-          {gfm}
-        </pre>
-      ) : null}
-    </BubbleMenu>
+    <>
+      <BubbleMenu
+        editor={editor}
+        ref={menuRef}
+        className="nf-table-toolbar"
+        data-testid="table-toolbar"
+        pluginKey={TABLE_TOOLBAR_MENU_KEY}
+        options={menuOptions}
+        getReferencedVirtualElement={getReferencedVirtualElement}
+        shouldShow={({ editor: current }) => current.isEditable && current.isActive('table')}
+      >
+        <div className="nf-table-toolbar-row" role="toolbar" aria-label="Table">
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="row-above"
+            aria-label="Insert row above"
+            title="Insert row above"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('row-above')}
+          >
+            <ArrowUpToLine size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="row-below"
+            aria-label="Insert row below"
+            title="Insert row below"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('row-below')}
+          >
+            <ArrowDownToLine size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="row-delete"
+            aria-label="Delete row"
+            title="Delete row"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('row-delete')}
+          >
+            <Rows3 size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <span className="nf-bubble-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="column-left"
+            aria-label="Insert column left"
+            title="Insert column left"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('column-left')}
+          >
+            <ArrowLeftToLine size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="column-right"
+            aria-label="Insert column right"
+            title="Insert column right"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('column-right')}
+          >
+            <ArrowRightToLine size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="column-delete"
+            aria-label="Delete column"
+            title="Delete column"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => run('column-delete')}
+          >
+            <Columns3 size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <span className="nf-bubble-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="align-left"
+            aria-label="Align column left"
+            title="Align column left"
+            aria-pressed={align === 'left'}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setColumnAlign(editor, 'left')}
+          >
+            <AlignLeft size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="align-center"
+            aria-label="Align column center"
+            title="Align column center"
+            aria-pressed={align === 'center'}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setColumnAlign(editor, 'center')}
+          >
+            <AlignCenter size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="align-right"
+            aria-label="Align column right"
+            title="Align column right"
+            aria-pressed={align === 'right'}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setColumnAlign(editor, 'right')}
+          >
+            <AlignRight size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+          <span className="nf-bubble-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="paragraph-above"
+            aria-label="Insert paragraph above the table"
+            title="Insert a paragraph above the table"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => insertParagraphAroundTable(editor, 'before')}
+          >
+            <span className="nf-table-toolbar-glyph" aria-hidden="true">
+              ¶↑
+            </span>
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="paragraph-below"
+            aria-label="Insert paragraph below the table"
+            title="Insert a paragraph below the table"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => insertParagraphAroundTable(editor, 'after')}
+          >
+            <span className="nf-table-toolbar-glyph" aria-hidden="true">
+              ¶↓
+            </span>
+          </button>
+          <span className="nf-bubble-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="copy-markdown"
+            aria-label="Copy table as Markdown"
+            title="Copy table as Markdown"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={copy}
+          >
+            {copied ? (
+              <Check size={14} strokeWidth={1.5} aria-hidden="true" />
+            ) : (
+              <Copy size={14} strokeWidth={1.5} aria-hidden="true" />
+            )}
+            <span className="nf-table-toolbar-feedback" role="status">
+              {copied ? 'Copied' : ''}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="nf-bubble-button"
+            data-action="toggle-source"
+            aria-label="Show table source"
+            aria-expanded={sourceOpen}
+            aria-pressed={sourceOpen}
+            title="Show table source"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setSourceOpen((open) => !open)}
+          >
+            <Code2 size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        </div>
+      </BubbleMenu>
+      {sourceOpen
+        ? createPortal(
+            <div
+              className="nf-table-source-panel"
+              role="dialog"
+              aria-label="Table source"
+              data-table-source-panel="true"
+            >
+              <div className="nf-table-source-header">
+                <span>Table source</span>
+                <button
+                  type="button"
+                  className="nf-bubble-button"
+                  aria-label="Close table source"
+                  title="Close table source"
+                  onClick={() => setSourceOpen(false)}
+                >
+                  <X size={14} strokeWidth={1.5} aria-hidden="true" />
+                </button>
+              </div>
+              <pre
+                className="nf-table-source"
+                data-table-source="true"
+                aria-label="Table source"
+              >
+                {gfm}
+              </pre>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
