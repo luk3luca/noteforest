@@ -219,9 +219,14 @@ export function replaceEditorDocument(surface: EditorSurface, pmDocument: PMNode
  * rebuilds replace arbitrary content, so old positional history steps no
  * longer map to a meaningful document.
  */
-export function clearTextHistory(surface: EditorSurface): void {
+export function clearTextHistory(
+  surface: EditorSurface,
+  options: { force?: boolean } = {},
+): void {
   const state = surface.state();
-  if (undoDepth(state) === 0 && redoDepth(state) === 0) return;
+  // `force` lets the mount path reset a no-op entry that `undoDepth` does not
+  // see; rebuild paths keep the cheap early return.
+  if (options.force !== true && undoDepth(state) === 0 && redoDepth(state) === 0) return;
   const plugin = state.plugins.find((candidate) =>
     isHistoryState(candidate.getState(state)),
   );

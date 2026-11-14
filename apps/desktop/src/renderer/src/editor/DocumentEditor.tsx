@@ -40,6 +40,7 @@ import {
   setEditorSelectedBlock,
 } from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
+import { clearTextHistory } from '../state/editor-projection';
 import { useShell } from '../state/shell';
 import { useSettingsStore } from '../state/settings';
 import type { InteractionMode } from '../../../shared/view-state';
@@ -388,6 +389,25 @@ function EditorSurface({
     if (editor === null) return undefined;
     const mountedAt = performance.now();
     runtime.attachEditor(editor);
+    // A fresh editor can begin with a no-op text-history entry produced by the
+    // initial projection. Clear it once the mount transactions settle, before
+    // the user can type, so the first undo stays tied to the first real edit.
+    let initialHistoryCleared = false;
+    const clearInitialHistory = (): void => {
+      if (initialHistoryCleared) return;
+      initialHistoryCleared = true;
+      if (!visibleRef.current) return;
+      clearTextHistory(
+        {
+          state: () => editor.state,
+          dispatch: (transaction) => editor.view.dispatch(transaction),
+        },
+        { force: true },
+      );
+    };
+    editor.on('selectionUpdate', clearInitialHistory);
+    const initialHistoryFrame = requestAnimationFrame(clearInitialHistory);
+    const initialHistoryTimer = window.setTimeout(clearInitialHistory, 0);
     const syncSelection = (): void => {
       // The page layout keeps the continuous editor mounted for scroll/undo
       // continuity, but a structural command may rebuild its hidden
@@ -492,6 +512,9 @@ function EditorSurface({
     syncSelection();
     recordPerf('mount', performance.now() - mountedAt);
     return () => {
+      editor.off('selectionUpdate', clearInitialHistory);
+      cancelAnimationFrame(initialHistoryFrame);
+      window.clearTimeout(initialHistoryTimer);
       editor.off('selectionUpdate', syncSelection);
       editor.off('focus', syncSelection);
       editor.off('blur', syncSelection);
