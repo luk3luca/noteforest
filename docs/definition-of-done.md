@@ -393,6 +393,11 @@ UI suites run through `tests/ui/run.mjs`: one `node --test` process per file, a 
 Each suite owns its app-support, library, and artifact roots; a suite never deletes another suite's
 evidence. A failing suite prints its TAP output and fails the gate; a timeout kills the suite and
 also fails the gate. `verify` runs the runner once after the build from `verify:fast`.
+**The pool concurrency is a measured gate parameter:** the integration run must use the concurrency
+that was fully green on the target machine and record it with the evidence (14 November 2026: **4**
+on the 10-core dev machine; the machine default 8 times out there). Encode the value in the verify
+invocation or the runner default instead of relying on the machine default; a local-only timeout is
+not an accepted limitation.
 
 E2E windows run **hidden** by default (`NOTEFOREST_E2E_HIDDEN=1`): no visible window, no
 `bringToFront`, no dock icon, so a test run never steals keyboard focus or interferes with the

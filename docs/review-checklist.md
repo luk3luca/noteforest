@@ -1,11 +1,14 @@
 # Review checklist
 
-**Status:** v10 — M3h re-review (accept with minor); spec v0.4.5.
+**Status:** v11 — delta Sentinel additions (Read-mode node-view chrome, lossy load projection); spec v0.4.5.
 **Owner:** Reviewer / Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, fixtures, test strategy).
 
-**Current gate:** M2f is accepted; the M3 Sentinel re-review is **accept with minor**
+**Current gate:** the historical paragraph below pre-dates M4; the current gate is recorded in
+`docs/plan.md` and `docs/reviews/post-settings-library-special-text-review.md`.
+
+**Historical gate (M3h):** M2f is accepted; the M3 Sentinel re-review is **accept with minor**
 (`docs/reviews/m3h-review.md`). All four M3 request-changes S2 findings are closed for their
 specified paths; S3-8 leaf-delete disclosure and S3-3 token single-source are closed by M3h4/M3h5.
 AC-21/image AC-57 are deferred to M3c3b; S3-5/S3-6/S3-7 are tracked follow-ups. The product-owner
@@ -264,6 +267,10 @@ Verify these at the command layer **and** on load (a hostile file must not hang 
 - [ ] Save failure is visible; the app never claims a save that did not happen.
 - [ ] Editor render failures (KaTeX, image decode, code highlighter) degrade locally and do not
       crash the document.
+- [ ] **A load-time projection or normalization that cannot represent legacy content refuses the
+      conversion or preserves the original.** A lossy projection (for example non-inline content in a
+      table cell) is never written back silently; the user gets a warning and an explicit choice, and
+      the canonical content stays recoverable.
 - [ ] Logs do not contain note content by default.
 
 ### 2.6 Performance
@@ -370,6 +377,10 @@ Run with a fresh profile and a named fixture; record the session.
       cannot switch tabs, change layout/mode, create or close documents, or run authoring commands
       behind it; the overlay owns the command surface until it closes.
 - [ ] Shortcuts do not fire while typing in text, code, or math; Cmd+Z scope is unambiguous.
+- [ ] **Read mode is non-editable for every control, including in-place node-view chrome** (code
+      fences, formula source editors, table toolbars, nested text inputs). Entering Read closes or
+      hides any open in-place editor, and no DOM control can dispatch a document transaction or a
+      structural command while the surface is Read — not only the documented shortcut/menu paths.
 - [ ] Single-key shortcuts do not conflict with typing or IME.
 - [ ] Sibling reorder via keyboard works, is announced, and does not conflict with editor
       navigation.
