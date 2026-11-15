@@ -82,6 +82,12 @@ import { exportActiveDocument } from './export/export-flow';
 import { isDraftKey } from '../../shared/drafts';
 import { indentTarget, outdentTarget } from './lib/indent';
 import { reorderTarget } from './lib/reorder';
+import { documentHealthReport } from './shell/useDocumentHealth';
+import {
+  documentHealthSection,
+  firstRepairHealthRowId,
+  type DocumentHealthSectionId,
+} from './lib/document-health-sections';
 import {
   captureTextTarget,
   classifyEditorContextTarget,
@@ -116,6 +122,51 @@ function blockedByReadMode(runtime: DocumentRuntime): boolean {
   if (editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath])) return false;
   toast.info(READ_MODE_TOAST);
   return true;
+}
+
+/**
+ * The one entry point for every Document health affordance (S2).
+ *
+ * Health is a sidebar section, not a sheet: the status chip, the palette and the
+ * block lost-anchor chip all land there. When the caller knows an issue (a
+ * specific anchor, or the status chip's first repair row) the row is selected
+ * and its 520 px repair modal opens; otherwise the section is revealed with
+ * `Anchors to fix` expanded. Read mode is not gated here: the list is a
+ * read-only audit and the modal disables its mutations.
+ */
+export function openDocumentHealth(
+  options: {
+    anchorId?: string;
+    section?: DocumentHealthSectionId;
+    openFirstRepair?: boolean;
+  } = {},
+): void {
+  const state = shell();
+  state.setSidebarTab('health');
+  state.setSidebarCollapsed(false);
+  const runtime = activeRuntime();
+  if (runtime === null) {
+    if (options.section !== undefined) state.setHealthSectionOpen(options.section, true);
+    else state.setHealthSectionOpen('anchors', true);
+    return;
+  }
+  const report = documentHealthReport(runtime);
+  let rowId: string | null = null;
+  if (options.anchorId !== undefined) {
+    rowId = `anchor:${options.anchorId}`;
+    if (!report.rows.some((row) => row.id === rowId)) rowId = null;
+  } else if (options.openFirstRepair === true) {
+    rowId = firstRepairHealthRowId(report.rows);
+  }
+  if (options.section !== undefined) state.setHealthSectionOpen(options.section, true);
+  if (rowId !== null) {
+    const row = report.rows.find((candidate) => candidate.id === rowId);
+    if (row !== undefined) state.setHealthSectionOpen(documentHealthSection(row.category).id, true);
+    state.setHealthSelectedRowId(rowId);
+    state.openDialog({ kind: 'health-issue', rowId });
+    return;
+  }
+  if (options.section === undefined) state.setHealthSectionOpen('anchors', true);
 }
 
 export function activeTab(): TabInfo | undefined {
@@ -2297,8 +2348,8 @@ export function paletteCommands(): MenuEntry[] {
     }),
     {
       id: 'anchor-health',
-      label: 'Check document health…',
-      onSelect: () => shell().openDialog({ kind: 'anchor-health' }),
+      label: 'Document health',
+      onSelect: () => openDocumentHealth(),
     },
     gate({ id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) }),
     gate({ id: 'block-h1', label: 'Block type: Heading 1', onSelect: () => applyBlockType(1) }),

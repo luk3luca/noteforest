@@ -4,7 +4,10 @@ import { create } from 'zustand';
 import type { LibraryView, RecoveryStatus, SidebarTab, TrashPreflight } from '../../../shared/api';
 import { SIDEBAR_SNAP_WIDTH, clampSidebarContentWidth } from '../../../shared/shell';
 import type { SettingsPageId } from '../settings/settings-pages';
-import type { DocumentHealthFilter } from '../lib/document-health';
+import {
+  DEFAULT_OPEN_HEALTH_SECTIONS,
+  type DocumentHealthSectionId,
+} from '../lib/document-health-sections';
 import {
   DEFAULT_DOCUMENT_VIEW,
   clampContinuousZoom,
@@ -77,7 +80,7 @@ export type DialogState =
   | { kind: 'delete-branch'; blockId: string }
   | { kind: 'link-reference'; blockId: string; anchorId?: string }
   | { kind: 'image-alt'; blockId: string; path: number[]; assetId: string; alt: string }
-  | { kind: 'anchor-health'; anchorId?: string; filter?: DocumentHealthFilter }
+  | { kind: 'health-issue'; rowId: string }
   | { kind: 'rename-document' }
   | { kind: 'rename-chapter'; chapterId: string }
   | { kind: 'rename-block'; blockId: string }
@@ -125,6 +128,10 @@ interface ShellState {
   viewByDoc: Record<string, DocumentViewState>;
   /** Expanded Library-tree folders, as root-relative paths (phase 3). */
   expandedLibraryFolders: string[];
+  /** Health sections open in this session (Anchors to fix by default). */
+  healthOpenSections: DocumentHealthSectionId[];
+  /** The issue row selected in the Health list; survives closing the modal. */
+  healthSelectedRowId: string | null;
   setReady: (ready: boolean) => void;
   setLibrary: (library: LibraryView) => void;
   setExpandedLibraryFolders: (paths: string[]) => void;
@@ -147,6 +154,9 @@ interface ShellState {
   setSidebarCollapsed: (collapsed: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setSidebarTab: (tab: SidebarTab) => void;
+  setHealthSectionOpen: (section: DocumentHealthSectionId, open: boolean) => void;
+  toggleHealthSection: (section: DocumentHealthSectionId) => void;
+  setHealthSelectedRowId: (rowId: string | null) => void;
   setPaletteOpen: (open: boolean, options?: { documentsOnly?: boolean; query?: string }) => void;
   setPaletteQuery: (query: string) => void;
   openDialog: (dialog: DialogState) => void;
@@ -183,6 +193,8 @@ export const useShell = create<ShellState>((set, get) => ({
   collapsedTopics: {},
   viewByDoc: {},
   expandedLibraryFolders: [],
+  healthOpenSections: [...DEFAULT_OPEN_HEALTH_SECTIONS],
+  healthSelectedRowId: null,
 
   setReady: (ready) => set({ ready }),
   setLibrary: (library) => set({ library }),
@@ -309,7 +321,29 @@ export const useShell = create<ShellState>((set, get) => ({
 
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   setSidebarWidth: (width) => set({ sidebarWidth: clampSidebarContentWidth(width) }),
-  setSidebarTab: (tab) => set({ sidebarTab: tab === 'outline' ? 'outline' : 'library' }),
+  setSidebarTab: (tab) =>
+    set({
+      sidebarTab:
+        tab === 'outline' || tab === 'health' ? tab : 'library',
+    }),
+
+  setHealthSectionOpen: (section, open) =>
+    set((state) => {
+      const current = state.healthOpenSections.includes(section);
+      if (current === open) return state;
+      return {
+        healthOpenSections: open
+          ? [...state.healthOpenSections, section]
+          : state.healthOpenSections.filter((id) => id !== section),
+      };
+    }),
+  toggleHealthSection: (section) =>
+    set((state) => ({
+      healthOpenSections: state.healthOpenSections.includes(section)
+        ? state.healthOpenSections.filter((id) => id !== section)
+        : [...state.healthOpenSections, section],
+    })),
+  setHealthSelectedRowId: (rowId) => set({ healthSelectedRowId: rowId }),
 
   setPaletteOpen: (open, options = {}) =>
     set({

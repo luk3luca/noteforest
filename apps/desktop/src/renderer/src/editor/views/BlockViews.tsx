@@ -21,7 +21,7 @@ import {
 import { getEditorBindings, setDragBlockId } from '../bindings';
 import { useRuntimeVersion } from '../useRuntimeVersion';
 import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
-import { useShell } from '../../state/shell';
+import { openDocumentHealth } from '../../actions';
 import { useSettingsStore } from '../../state/settings';
 import { calloutLaneWidth, placeCallout, GEOMETRY } from '../../lib/geometry';
 import { anchorHealthReason } from '../../lib/anchor-health';
@@ -1453,21 +1453,18 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
           contentEditable={false}
           data-anchor-warning={anchorWarnings[0]?.anchorId ?? ''}
           data-anchor-state={anchorWarnings[0]?.state ?? ''}
-          aria-label={`${anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}. Open anchor health to repair.`}
+          aria-label={`${anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}. Open document health to repair.`}
           title={
             anchorWarnings[0] === undefined
-              ? 'Open anchor health'
-              : `${anchorHealthReason(anchorWarnings[0].reason)} Open Anchor health to repair; the branch and target stay.`
+              ? 'Open document health'
+              : `${anchorHealthReason(anchorWarnings[0].reason)} Open document health to repair; the branch and target stay.`
           }
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
             const first = anchorWarnings[0];
             if (first === undefined) return;
-            useShell.getState().openDialog({
-              kind: 'anchor-health',
-              anchorId: first.anchorId,
-            });
+            openDocumentHealth({ anchorId: first.anchorId });
           }}
         >
           <TriangleAlert size={12} strokeWidth={1.5} aria-hidden="true" />

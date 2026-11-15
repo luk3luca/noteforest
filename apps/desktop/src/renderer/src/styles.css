@@ -778,13 +778,23 @@ button:disabled {
 
 .nf-sidebar {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   height: 100%;
   min-width: 0;
   background: var(--bg-sidebar);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-panel);
   overflow: hidden;
+}
+
+/* Expanded: activity bar + content row, then the full-width Settings footer.
+   Collapsed: the same row with the bar only (the rail is exactly 48 px). */
+.nf-sidebar-main {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* S1 activity bar: the card's leading 48 px column. It renders in both states,
@@ -850,7 +860,8 @@ button:disabled {
   min-height: 8px;
 }
 
-/* The Settings divider is unconditional: it is visible expanded and collapsed. */
+/* The Settings group is collapsed-only (S2 Part A): the expanded card shows the
+   full-width footer instead, so there is never a second gear. */
 .nf-activity-foot {
   display: flex;
   align-items: center;
@@ -860,6 +871,30 @@ button:disabled {
   width: 100%;
   padding-top: 8px;
   border-top: 1px solid var(--border-1);
+}
+
+/* The Health badge is a small square counter, not a pill (S1 decision, kept in
+   S2): radius 2, tabular number, hidden at zero. */
+.nf-activity-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 2px;
+  border-radius: 2px;
+  background: var(--danger);
+  color: var(--bg-sidebar);
+  font-family: var(--ui-font);
+  font-size: calc(9px * var(--ui-scale));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 13px;
+  text-align: center;
+}
+
+.nf-activity-section {
+  position: relative;
 }
 
 .nf-sidebar-content {
@@ -873,6 +908,50 @@ button:disabled {
 /* Collapsed: the card is exactly the bar, so nothing shifts. */
 .nf-sidebar-rail {
   align-items: stretch;
+}
+
+/* Expanded footer: one full-width row under both columns, above a 1 px divider.
+   The 8/2 px inset puts the 28 px gear box at x 10, exactly where the collapsed
+   bar's gear sits, and the 6/8 px padding keeps the same vertical centre. */
+.nf-sidebar-foot {
+  display: flex;
+  align-items: center;
+  flex: none;
+  border-top: 1px solid var(--border-1);
+  padding: 6px 8px 8px;
+}
+
+.nf-sidebar-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--text-2);
+  font-size: calc(12px * var(--ui-scale));
+  text-align: left;
+}
+
+.nf-sidebar-settings-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-inline-start: 2px;
+}
+
+.nf-sidebar-settings:hover {
+  background: var(--surface-1);
+  color: var(--text-1);
+}
+
+.nf-sidebar-settings:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
 }
 
 .nf-sidebar-head {
@@ -1081,7 +1160,8 @@ button:disabled {
   color: var(--text-3);
 }
 
-.nf-library-search {
+.nf-library-search,
+.nf-health-search {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1094,11 +1174,13 @@ button:disabled {
   background: var(--surface-1);
 }
 
-.nf-library-search:focus-within {
+.nf-library-search:focus-within,
+.nf-health-search:focus-within {
   border-color: var(--border-2);
 }
 
-.nf-library-search input {
+.nf-library-search input,
+.nf-health-search input {
   flex: 1;
   min-width: 0;
   height: 26px;
@@ -1109,7 +1191,8 @@ button:disabled {
   color: var(--text-1);
 }
 
-.nf-library-search input::placeholder {
+.nf-library-search input::placeholder,
+.nf-health-search input::placeholder {
   color: var(--text-3);
 }
 
@@ -4472,249 +4555,155 @@ body.nf-dragging-block .nf-gutter-handle {
   width: 640px;
 }
 
-/* M3e anchor health sheet. Rows are buttons with a separate repair action so
-   keyboard activation and pointer navigation stay independent. */
-.nf-health {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* S2 Document health: the sidebar report and the 520 px repair modal.
+   No pills and no left accent stripes: the section carries the task, the modal
+   carries the severity word, and selection is a filled row. */
+.nf-dialog-modal-repair {
+  width: 520px;
 }
 
-.nf-health-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-bottom: 2px;
+.nf-health-section {
+  padding-bottom: 12px;
 }
 
-.nf-health-toolbar {
+.nf-health-head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
-  min-height: 24px;
+  padding: 2px 6px 4px;
+}
+
+.nf-health-title {
+  color: var(--text-1);
+  font-size: calc(13px * var(--ui-scale));
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .nf-health-summary {
-  margin: 0;
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: calc(11px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.nf-health-search {
+  margin-bottom: 6px;
+}
+
+.nf-health-tree {
+  outline: none;
+}
+
+.nf-health-group {
+  min-width: 0;
+}
+
+.nf-health-section-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
   color: var(--text-2);
   font-size: calc(11.5px * var(--ui-scale));
-}
-
-.nf-health-filter {
-  padding: 3px 9px;
-  border: 1px solid var(--border-1);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-3);
-  font-size: calc(11.5px * var(--ui-scale));
-  cursor: pointer;
-}
-
-.nf-health-filter:hover {
-  color: var(--text-1);
-  background: var(--surface-2);
-}
-
-.nf-health-filter[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.nf-health-filter:focus-visible,
-.nf-health-back:focus-visible {
-  outline: 2px solid var(--accent-ring);
-  outline-offset: 1px;
-}
-
-.nf-health-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.nf-health-row {
-  display: flex;
-  align-items: stretch;
-  gap: 6px;
-  min-width: 0;
-}
-
-.nf-health-row-main {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-  padding: 7px 9px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-control);
-  background: var(--surface-1);
   text-align: left;
   cursor: pointer;
 }
 
-.nf-health-row-main:hover {
-  border-color: var(--border-2);
-  background: var(--surface-2);
+.nf-health-section-row:hover {
+  background: var(--surface-1);
+  color: var(--text-1);
 }
 
-.nf-health-row-main:focus-visible,
-.nf-health-repair:focus-visible,
-.nf-health-candidate:focus-visible {
+.nf-health-section-row[aria-expanded='true'] .nf-health-section-name {
+  color: var(--text-1);
+  font-weight: 550;
+}
+
+.nf-health-section-row:focus-visible,
+.nf-health-row-button:focus-visible {
   outline: 2px solid var(--accent-ring);
   outline-offset: 1px;
 }
 
-.nf-health-row-top {
+.nf-health-section-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-health-section-count {
+  flex: 0 0 auto;
+  color: var(--text-3);
+  font-size: calc(10.5px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.nf-health-rows {
+  min-width: 0;
+}
+
+.nf-health-row {
+  min-width: 0;
+}
+
+.nf-health-row-button {
   display: flex;
   align-items: center;
-  gap: 7px;
-  flex-wrap: wrap;
-}
-
-.nf-health-state {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 6px;
-  border: 1px solid var(--warning);
-  border-radius: 999px;
-  color: var(--warning);
-  font-size: calc(10px * var(--ui-scale));
-  line-height: 1.6;
-  white-space: nowrap;
-}
-
-/* An idle record is valid, not an error: keep the same chip shape without
-   borrowing the warning color. */
-.nf-health-state-idle {
-  border-color: var(--border-2);
-  color: var(--text-3);
-}
-
-/* Severity is the first column and the scanning key: S1 data-loss, S2 repair,
-   S3 information. Keep colour plus the literal label (non-colour cue). */
-.nf-health-severity {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 5px;
-  border: 1px solid var(--border-1);
-  border-radius: 999px;
-  color: var(--text-3);
-  font-size: calc(9.5px * var(--ui-scale));
-  line-height: 1.6;
-  white-space: nowrap;
-}
-
-.nf-health-severity-s1 {
-  border-color: var(--danger);
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-
-.nf-health-severity-s2 {
-  border-color: var(--warning);
-  color: var(--warning);
-}
-
-.nf-health-severity-s3 {
-  border-color: var(--border-2);
-  color: var(--text-3);
-}
-
-/* Informational rows are quieter: they never need repair. */
-.nf-health-row-info .nf-health-row-main {
+  gap: 6px;
+  width: 100%;
+  height: 27px;
+  padding: 0 6px 0 18px;
+  border: 0;
+  border-radius: 3px;
   background: transparent;
-}
-
-.nf-health-row-info .nf-health-quote {
-  color: var(--text-2);
-  font-weight: 500;
-}
-
-.nf-health-state-anchor-block-missing,
-.nf-health-state-branch-target-missing,
-.nf-health-state-duplicate-primary,
-.nf-health-state-cycle,
-.nf-health-state-orphan-reference {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.nf-health-state-orphan-record,
-.nf-health-state-orphan-block {
-  border-color: var(--warning);
-  color: var(--warning);
-}
-
-.nf-health-state-empty-chapter,
-.nf-health-state-hidden {
-  border-color: var(--border-2);
-  color: var(--text-3);
-}
-
-.nf-health-kind,
-.nf-health-branch-count {
-  color: var(--text-3);
-  font-size: calc(10.5px * var(--ui-scale));
-  white-space: nowrap;
-}
-
-.nf-health-quote {
-  overflow: hidden;
-  color: var(--text-1);
-  font-size: calc(12.5px * var(--ui-scale));
-  font-weight: 550;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nf-health-context,
-.nf-health-block,
-.nf-health-reason {
-  overflow: hidden;
   color: var(--text-2);
   font-size: calc(11.5px * var(--ui-scale));
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nf-health-context {
-  font-family: var(--mono-font);
-  font-size: calc(10.5px * var(--ui-scale));
-  color: var(--text-3);
-}
-
-.nf-health-block {
-  color: var(--text-3);
-}
-
-.nf-health-repair {
-  align-self: center;
-  padding: 4px 9px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-control);
-  background: var(--surface-2);
-  color: var(--text-2);
-  font-size: calc(11.5px * var(--ui-scale));
+  text-align: left;
   cursor: pointer;
 }
 
-.nf-health-repair:hover {
-  border-color: var(--accent);
+.nf-health-row-button:hover {
+  background: var(--surface-1);
   color: var(--text-1);
+}
+
+.nf-health-row-button[data-selected='true'] {
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-weight: 550;
+}
+
+.nf-health-row-quote {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-health-row-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: calc(10px * var(--ui-scale));
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .nf-health-empty {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 4px 0;
-  color: var(--text-3);
+  margin: 6px 6px 0;
+  color: var(--text-2);
   font-size: calc(12px * var(--ui-scale));
 }
 
@@ -4725,107 +4714,149 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-health-empty-info {
   color: var(--text-3);
   font-size: calc(11px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
 }
 
-.nf-health-detail {
+/* --------------------------------------------------------------- modal */
+
+.nf-health-dialog-head {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 14px 11px;
+  border-bottom: 1px solid var(--border-1);
 }
 
-.nf-health-back {
-  align-self: flex-start;
-  padding: 2px 0;
-  background: transparent;
+.nf-health-dialog-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.nf-health-kicker {
+  margin: 0 0 2px;
   color: var(--text-3);
-  font-size: calc(11.5px * var(--ui-scale));
-  cursor: pointer;
+  font-size: calc(10px * var(--ui-scale));
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.nf-health-back:hover {
+.nf-health-dialog-title {
+  margin: 0;
+  padding: 0;
+  font-size: calc(14px * var(--ui-scale));
+  font-weight: 600;
+}
+
+.nf-health-dialog-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--text-3);
+}
+
+.nf-health-dialog-close:hover {
+  background: var(--surface-1);
   color: var(--text-1);
 }
 
-.nf-health-detail-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  flex-wrap: wrap;
+/* Read mode disables mutations; the disabled primary must not look active. */
+.nf-health-dialog button:disabled {
+  opacity: 0.5;
 }
 
-.nf-health-detail-head .nf-health-quote {
-  font-size: calc(13.5px * var(--ui-scale));
-}
-
-.nf-health-detail-meta,
-.nf-health-detail-context {
-  margin: 0;
-  color: var(--text-2);
-  font-size: calc(12px * var(--ui-scale));
-}
-
-.nf-health-detail-context {
-  font-family: var(--mono-font);
-  font-size: calc(11px * var(--ui-scale));
-  color: var(--text-3);
-  overflow-wrap: anywhere;
-}
-
-.nf-health-section {
-  padding-top: 4px;
-  border-top: 1px solid var(--border-1);
-}
-
-.nf-health-section-title {
-  margin: 4px 0 6px;
-  color: var(--text-3);
-  font-size: calc(10.5px * var(--ui-scale));
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.nf-health-branches {
+.nf-health-dialog-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  gap: 8px;
+  padding: 12px 14px;
 }
 
-.nf-health-branch {
+.nf-health-dialog-actions {
+  align-items: center;
+  gap: 6px;
+}
+
+.nf-health-dialog-spacer {
+  flex: 1;
+}
+
+.nf-health-issue-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
-  padding: 4px 6px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-control);
-  background: var(--surface-1);
 }
 
-.nf-health-branch-role {
-  flex: 0 0 auto;
+.nf-health-severity-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: var(--text-3);
-  font-size: calc(10px * var(--ui-scale));
-  text-transform: uppercase;
+  font-size: calc(10.5px * var(--ui-scale));
   letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
-.nf-health-branch-target {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
+.nf-health-severity-s1 {
+  color: var(--danger);
+}
+
+.nf-health-severity-s2 {
+  color: var(--warning);
+}
+
+.nf-health-severity-s3 {
+  color: var(--text-3);
+}
+
+.nf-health-issue-kind {
+  margin-left: auto;
+  color: var(--text-3);
+  font-family: var(--mono-font);
+  font-size: calc(10px * var(--ui-scale));
+}
+
+.nf-health-issue-quote {
+  margin: 0;
+  color: var(--text-1);
+  font-size: calc(15px * var(--ui-scale));
+  font-weight: 550;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.nf-health-issue-meta,
+.nf-health-issue-context {
+  margin: 0;
+  color: var(--text-3);
+  font-size: calc(11px * var(--ui-scale));
+}
+
+.nf-health-issue-context {
+  font-family: var(--mono-font);
+  font-size: calc(10.5px * var(--ui-scale));
+  overflow-wrap: anywhere;
+}
+
+.nf-health-issue-reason {
+  margin: 0;
   color: var(--text-2);
   font-size: calc(12px * var(--ui-scale));
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.55;
 }
 
-.nf-health-branch-delete {
-  flex: 0 0 auto;
+.nf-health-issue-section {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-1);
+}
+
+.nf-health-issue-section-title {
+  margin: 0 0 6px;
+  color: var(--text-2);
+  font-size: calc(10.5px * var(--ui-scale));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .nf-health-candidate-list {
@@ -4838,7 +4869,8 @@ body.nf-dragging-block .nf-gutter-handle {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 6px 8px;
+  width: 100%;
+  padding: 7px 9px;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-control);
   background: var(--surface-1);
@@ -4847,35 +4879,93 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-health-candidate:hover {
+  border-color: var(--border-2);
+}
+
+.nf-health-candidate[aria-pressed='true'] {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
 
+.nf-health-candidate:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.nf-health-candidate:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
 .nf-health-candidate-label {
   color: var(--text-1);
-  font-size: calc(12px * var(--ui-scale));
+  font-size: calc(11.5px * var(--ui-scale));
+  line-height: 1.4;
 }
 
 .nf-health-candidate-context {
   overflow: hidden;
   color: var(--text-3);
   font-family: var(--mono-font);
-  font-size: calc(10.5px * var(--ui-scale));
+  font-size: calc(10px * var(--ui-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nf-health-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nf-health-branch {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.nf-health-branch-role {
+  flex: 0 0 auto;
+  color: var(--text-3);
+  font-family: var(--mono-font);
+  font-size: calc(9.5px * var(--ui-scale));
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.nf-health-branch-target {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: calc(11.5px * var(--ui-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-health-branch-delete {
+  flex: 0 0 auto;
 }
 
 .nf-health-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding-top: 6px;
+  padding-top: 8px;
   border-top: 1px solid var(--border-1);
 }
 
+.nf-health-danger {
+  color: var(--danger);
+}
+
 .nf-health-confirm {
-  margin-top: 6px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border: 1px solid var(--warning);
   border-radius: var(--radius-control);
   background: var(--surface-2);
@@ -4886,8 +4976,7 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-health-preview {
-  margin-top: 6px;
-  padding: 8px 10px;
+  padding: 10px 11px;
   border: 1px solid var(--accent);
   border-radius: var(--radius-control);
   background: var(--surface-2);
@@ -4910,56 +4999,54 @@ body.nf-dragging-block .nf-gutter-handle {
   min-width: 0;
   flex-direction: column;
   gap: 3px;
-  padding: 7px 9px;
+  padding: 7px 8px;
   border: 1px solid var(--border-1);
-  border-radius: var(--radius-control);
-  background: var(--surface-1);
+  border-radius: 3px;
+  background: var(--surface-3);
 }
 
 .nf-health-preview-label {
   color: var(--text-3);
-  font-size: calc(10px * var(--ui-scale));
+  font-size: calc(9.5px * var(--ui-scale));
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .nf-health-preview-quote {
-  overflow: hidden;
   color: var(--text-1);
-  font-size: calc(12.5px * var(--ui-scale));
-  font-weight: 550;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: calc(11.5px * var(--ui-scale));
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .nf-health-preview-context {
   overflow: hidden;
   color: var(--text-3);
   font-family: var(--mono-font);
-  font-size: calc(10.5px * var(--ui-scale));
+  font-size: calc(9.5px * var(--ui-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .nf-health-preview-descriptor {
   color: var(--text-2);
-  font-size: calc(10.5px * var(--ui-scale));
+  font-size: calc(10px * var(--ui-scale));
 }
 
 .nf-health-preview-arrow {
   align-self: center;
   color: var(--text-3);
-  font-size: calc(14px * var(--ui-scale));
+  font-size: calc(12px * var(--ui-scale));
 }
 
 .nf-health-preview-meta {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   gap: 3px 10px;
-  margin: 0 0 8px;
+  margin: 0;
   color: var(--text-2);
-  font-size: calc(11px * var(--ui-scale));
+  font-size: calc(10.5px * var(--ui-scale));
 }
 
 .nf-health-preview-meta > div {
@@ -4983,7 +5070,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-health-preview-branch,
 .nf-health-preview-target {
   color: var(--text-2);
-  font-size: calc(10.5px * var(--ui-scale));
+  font-size: calc(10px * var(--ui-scale));
 }
 
 .nf-health-preview-branch {

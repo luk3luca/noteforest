@@ -3717,7 +3717,10 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
             ? Math.round(width)
             : SIDEBAR_SNAP_WIDTH,
         collapsedTopics,
-        sidebarTab: raw.sidebarTab === 'outline' ? 'outline' : 'library',
+        sidebarTab:
+          raw.sidebarTab === 'outline' || raw.sidebarTab === 'health'
+            ? raw.sidebarTab
+            : 'library',
         ...(expandedLibraryFolders === undefined ? {} : { expandedLibraryFolders }),
         ...(activeLibrary === undefined ? {} : { activeLibrary }),
       },

@@ -645,6 +645,8 @@ export function App(): JSX.Element {
           sidebarCollapsed: state.sidebarCollapsed,
           sidebarWidth: state.sidebarWidth,
           sidebarTab: state.sidebarTab,
+          healthSelectedRowId: state.healthSelectedRowId,
+          healthOpenSections: [...state.healthOpenSections],
           markdownFiles: Object.values(useMarkdownFiles.getState().files).map((file) => ({
             path: file.path,
             title: file.title,

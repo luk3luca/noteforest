@@ -372,7 +372,13 @@ describe('Settings & shell layout batch', () => {
     // activity bar renders in both, so nothing in it can move).
     await closeSettings();
     const expandedCollapse = await iconCenter('[data-sidebar-toggle="true"] svg');
-    const expandedSettings = await iconCenter('[data-activity-settings="true"] svg');
+    const expandedSettings = await iconCenter('[data-sidebar-settings="true"] svg');
+    assert.equal(await page.locator('[data-activity-foot="true"]').count(), 0, 'no duplicate gear expanded');
+    assert.equal(await page.locator('[data-sidebar-settings="true"]').count(), 1);
+    assert.equal(
+      (await page.locator('[data-sidebar-settings="true"]').innerText()).trim(),
+      'Settings',
+    );
     await page.screenshot({
       path: join(screenshotDir, 'sidebar-expanded-settings-icons.png'),
       scale: 'css',

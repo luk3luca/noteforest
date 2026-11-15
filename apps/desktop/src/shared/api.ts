@@ -463,8 +463,8 @@ export interface SessionTabState {
   zoom?: number;
 }
 
-/** Expanded-sidebar surface. The footer Settings entry is outside both tabs. */
-export type SidebarTab = 'library' | 'outline';
+/** Expanded-sidebar surface. The footer Settings entry is outside all of them. */
+export type SidebarTab = 'library' | 'outline' | 'health';
 
 export interface SessionState {
   tabs: SessionTabState[];
@@ -472,7 +472,7 @@ export interface SessionState {
   sidebarCollapsed: boolean;
   sidebarWidth: number;
   collapsedTopics: Record<string, string[]>;
-  /** Persisted Library/Outline tab; legacy sessions without it open Library. */
+  /** Persisted Library/Outline/Health section; legacy sessions open Library. */
   sidebarTab: SidebarTab;
   /**
    * Expanded Library tree folders, as root-relative paths. Additive: a legacy

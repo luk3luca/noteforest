@@ -100,7 +100,7 @@ describe('Library surface', () => {
       await page.locator('[data-sidebar-tabs]').getAttribute('aria-orientation'),
       'vertical',
     );
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 2);
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 3);
     assert.equal(
       await page.locator('.nf-sidebar-tabs').count(),
       0,
@@ -241,7 +241,7 @@ describe('Library surface', () => {
       });
     assert.equal(focusRing.width, '2px', 'the focused section has a visible ring');
     assert.equal(focusRing.style, 'solid');
-    // Home/End reach both ends, and Up wraps to the last section.
+    // Home/End reach both ends (Health is the third tab), and arrows wrap.
     await page.keyboard.press('Home');
     await page.waitForFunction(
       () => document.querySelector('[data-sidebar-tab="library"]')?.getAttribute('aria-selected') === 'true',
@@ -250,13 +250,20 @@ describe('Library surface', () => {
     );
     await page.keyboard.press('End');
     await page.waitForFunction(
-      () => document.querySelector('[data-sidebar-tab="outline"]')?.getAttribute('aria-selected') === 'true',
+      () => document.querySelector('[data-sidebar-tab="health"]')?.getAttribute('aria-selected') === 'true',
       undefined,
       { timeout: 5000 },
     );
+    assert.equal(await page.locator('[data-sidebar-panel="health"]').count(), 1);
     await page.keyboard.press('ArrowDown');
     await page.waitForFunction(
       () => document.querySelector('[data-sidebar-tab="library"]')?.getAttribute('aria-selected') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('ArrowUp');
+    await page.waitForFunction(
+      () => document.querySelector('[data-sidebar-tab="health"]')?.getAttribute('aria-selected') === 'true',
       undefined,
       { timeout: 5000 },
     );
@@ -353,26 +360,26 @@ describe('Library surface', () => {
     );
     await page.screenshot({ path: join(screenshotDir, 'outline-empty.png') });
 
-    // Health is a bridge in S1: it opens the sheet (or its no-document state)
-    // and leaves the active section unchanged.
-    await page.locator('[data-activity-health="true"]').click();
-    await page.waitForSelector('[data-anchor-health="true"]');
+    // Health is a real section in S2: the icon selects it and the panel shows
+    // its no-document state (no sheet, no modal).
+    await page.locator('[data-sidebar-tab="health"]').click();
+    await page.waitForSelector('[data-sidebar-panel="health"]');
     assert.equal(
       await page.locator('[data-health-no-document="true"]').count(),
       1,
-      'the sheet shows its no-document state',
+      'the section shows its no-document state',
     );
+    assert.equal(await page.locator('[data-health-dialog="true"]').count(), 0);
     assert.equal(
       (await sidebarState()).sidebarTab,
-      'outline',
-      'the health action does not change the active section',
+      'health',
+      'the Health icon changes the active section',
     );
-    await page.keyboard.press('Escape');
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.locator('[data-sidebar-tab="outline"]').click();
+    await page.waitForSelector('[data-sidebar-panel="outline"]');
     assert.equal(
       await page.locator('[data-sidebar-tab="outline"]').getAttribute('aria-selected'),
       'true',
-      'the Outline section is still active',
     );
 
     // Collapse/expand keeps the rail contract and the selected tab.
