@@ -1,6 +1,6 @@
 # Find bar (`⌘F`) and the sidebar Search view
 
-**Status:** design for phase 6 (bar) and the future Search section (sidebar). No code.
+**Status:** the bar is implemented and merged at `365ed15` (15 November 2026); the sidebar Search and the Page word highlight are the follow-ups.
 **Lab:** `docs/design/find-bar-ui-lab/`.
 **Date:** 15 November 2026.
 

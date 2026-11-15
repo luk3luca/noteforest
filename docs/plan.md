@@ -425,7 +425,10 @@ already mixing packages, `.md` files, images and backups. **Phase 3 (vault/libra
 (app-level library actions in Read, New note here, `not-found` banner, bounded test cleanup).
 **Phase 4 (Document health) is complete (15 November 2026).** **Phase 5 is merged**: S1 (activity
 bar) at `fb64eb0`, S2 (Document health in the sidebar + repair modal) at `f84a7fd`, S2.1 (health
-polish) at `5c4eb2c` and S2.2 (card chrome + fixes) at `3a4ebd4`. S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
+polish) at `5c4eb2c` and S2.2 (card chrome + fixes) at `3a4ebd4`. **Phase 6 (find bar) is merged at
+`365ed15`**: the minimal `⌘F` bar (occurrences, DFS order, Continuous highlights, Page block ring),
+the chip size fix and the Editor shortcut entry. Next: the sidebar Search view, then the copy sweep
+(`docs/design/copy-audit.md`). S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
 entry, the full-width Settings footer when expanded and the Library note/`.md` icons. S2 made Health
 a third tab with a square needs-repair counter, the grouped sections, the repair modal and the
 retirement of the v1 sheet. S2.1 added the refresh next to the search, four sections always visible
