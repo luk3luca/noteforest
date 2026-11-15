@@ -424,14 +424,17 @@ the **vault/library** ahead of Document health and the activity bar because the 
 already mixing packages, `.md` files, images and backups. **Phase 3 (vault/library) is complete (15 November 2026)**, including the usability follow-up
 (app-level library actions in Read, New note here, `not-found` banner, bounded test cleanup).
 **Phase 4 (Document health) is complete (15 November 2026).** **Phase 5 is merged**: S1 (activity
-bar) at `fb64eb0`, S2 (Document health in the sidebar + repair modal) at `f84a7fd` and S2.1 (health
-polish) at `5c4eb2c`. S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
+bar) at `fb64eb0`, S2 (Document health in the sidebar + repair modal) at `f84a7fd`, S2.1 (health
+polish) at `5c4eb2c` and S2.2 (card chrome + fixes) at `3a4ebd4`. S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
 entry, the full-width Settings footer when expanded and the Library note/`.md` icons. S2 made Health
 a third tab with a square needs-repair counter, the grouped sections, the repair modal and the
 retirement of the v1 sheet. S2.1 added the refresh next to the search, four sections always visible
 with `0`, uppercase labels, two-line rows, the 560 px modal with three blocks, the fixed footer
-slots and the simplified copy. The product-owner visual pass is pending. Phase 6 (find bar) is
-planned. No legacy files exist; the test vault may be rewritten.
+slots and the simplified copy. S2.2 moved the block state and references into one in-card bottom
+row, squared every text chip (no capsules), widened the canvas inset to 24/20/16, kept the four zero
+sections in the all-clear, removed `keepAnchorBroken` and fixed the Page fit-sync race. The
+product-owner visual pass is pending. Phase 6 (find bar) is next; the design is
+`docs/design/find-bar.md`. No legacy files exist; the test vault may be rewritten.
 
 ### Phase 0 — close the integrated batch
 

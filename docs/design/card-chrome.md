@@ -1,6 +1,6 @@
 # Card chrome — states and references
 
-**Status:** approved 15 November 2026; implementation pending.
+**Status:** implemented and merged at `3a4ebd4` (15 November 2026); product-owner visual pass pending.
 **Scope:** Continuous Edit/Read. Page and PDF have their own renderer and are unchanged.
 
 ## 1. Placement rule
