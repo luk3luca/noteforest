@@ -38,7 +38,8 @@ button (28 px, next to the field, not in the footer).
 - Open sections and the selected row persist per session; only `sidebarTab` is written to the
   session file.
 - No document: “Open a document to check its anchors.” All clear: “No issues found” plus the
-  information counts. Read mode: rows open the modal read-only.
+  information counts **and the four sections with `0`** (the checklist is always visible). Read
+  mode: rows open the modal read-only.
 - Interaction: a `tree` (sections are expandable level-1 nodes, rows are level-2 leaves):
   Up/Down move, Left/Right collapse/expand, Enter opens the modal; focus returns to the row when the
   modal closes.
