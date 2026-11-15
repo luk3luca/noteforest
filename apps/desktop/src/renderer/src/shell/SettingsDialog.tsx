@@ -118,6 +118,8 @@ const SHORTCUTS: { group: string; rows: [string, string][] }[] = [
       ['Save', '⌘S'],
       ['Export PDF…', '⇧⌘E'],
       ['Command palette', '⌘K'],
+      ['Find in note', '⌘F'],
+      ['Next / previous match', '⌘G / ⇧⌘G'],
       ['Settings', '⌘,'],
       ['Toggle sidebar', '⌘\\'],
       ['Continuous / Page', '⌘2 / ⌘3'],

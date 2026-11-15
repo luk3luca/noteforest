@@ -185,6 +185,21 @@ describe('card chrome row', () => {
     );
   });
 
+  it('aligns the callout quote chip with the state and reference chips at 20 px', () => {
+    // Phase 6 chip fix: the quote chip is a button with a 11 px face, the state
+    // and reference chips keep 20 px / 10.5 px. All three read as one 20 px row
+    // at rest; the quote may still grow for a KaTeX formula.
+    const quote = declarationsOf('.nf-callout-quote');
+    expect(quote.get('min-height')).toBe('20px');
+    expect(quote.get('font-size')).toBe('11px');
+    expect(quote.has('height')).toBe(false);
+    expect(declarationsOf('.nf-callout-quote-code').get('font-size')).toBe('11px');
+    for (const selector of ['.nf-callout-state', '.nf-ref-chip']) {
+      expect(declarationsOf(selector).get('height'), selector).toBe('20px');
+      expect(declarationsOf(selector).get('font-size'), selector).toBe('10.5px');
+    }
+  });
+
   it('keeps the canvas inset clear of the 16 px gutter and drag handle', () => {
     // The gutter is 16 px to the left of the card and 14 px wide; the canvas
     // inset is what keeps it inside the visible scroll area at every width.

@@ -17,6 +17,7 @@ import { MarkdownFileEditor } from '../markdown/MarkdownFileEditor';
 import { isMarkdownPath } from '../../../shared/markdown';
 import { Sidebar } from './Sidebar';
 import { Toolbar } from './Toolbar';
+import { FindBar } from './FindBar';
 import { RecoverySurface } from './RecoverySurface';
 import { DocumentStatusPanel } from './DocumentStatusPanel';
 import { DraftMaterializeBanner } from './DraftMaterializeBanner';
@@ -296,6 +297,7 @@ export function Workspace(): JSX.Element {
             <DocumentStatusPanel runtime={activeRuntime} />
             <div className="nf-canvas-panel" data-canvas-panel="true">
               {editor}
+              <FindBar />
             </div>
           </div>
         </Panel>

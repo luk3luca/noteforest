@@ -26,6 +26,7 @@ import { contentBounds, fitZoom } from '../lib/placement';
 import { canReorderSibling } from '../lib/reorder';
 import { GEOMETRY } from '../lib/geometry';
 import { createEditorExtensions } from './extensions';
+import { findHighlightKey } from './find-decorations';
 import { BranchKeymap } from './keymap';
 import { EdgeLayer } from './edges/EdgeLayer';
 import { useBlockRects } from './edges/useBlockRects';
@@ -40,7 +41,7 @@ import {
 } from './editor-ui';
 import type { DocumentRuntime } from '../state/runtime';
 import { clearTextHistory } from '../state/editor-projection';
-import { useShell } from '../state/shell';
+import { useShell, currentFindResult } from '../state/shell';
 import { useSettingsStore } from '../state/settings';
 import type { InteractionMode } from '../../../shared/view-state';
 import {
@@ -515,6 +516,31 @@ function EditorSurface({
       runtime.attachEditor(null);
     };
   }, [editor, runtime]);
+
+  // Find (`⌘F`): the bar's query and current hit are pushed into the editor as
+  // plugin state (decorations only). Closing the bar — or a hit with no text
+  // node (a stored quote, a label, a chapter title) — clears the marks.
+  const findOpen = useShell((state) => state.findOpen);
+  const findQuery = useShell((state) => state.findQuery);
+  const findCurrent = useShell((state) => currentFindResult(state));
+  const findCurrentBlockId = findCurrent?.blockId ?? null;
+  const findCurrentOccurrence =
+    findCurrent !== null && (findCurrent.field === 'text' || findCurrent.field === 'code')
+      ? findCurrent.occurrence
+      : -1;
+
+  useEffect(() => {
+    if (editor === null) return;
+    const highlight =
+      findOpen && findQuery.length > 0
+        ? {
+            query: findQuery,
+            blockId: findCurrentBlockId,
+            occurrence: findCurrentOccurrence,
+          }
+        : null;
+    editor.view.dispatch(editor.state.tr.setMeta(findHighlightKey, highlight));
+  }, [editor, findOpen, findQuery, findCurrentBlockId, findCurrentOccurrence]);
 
   // The continuous editor is the authoring surface. Read mode keeps the same
   // ProseMirror state mounted and only flips editability: selection, scroll,

@@ -35,8 +35,12 @@ import {
   activeRuntime,
   activeTabIsMarkdown,
   adjustActiveLayoutZoom,
+  closeFind,
   closeTab,
+  findNext,
+  findPrevious,
   fitActiveLayout,
+  openFind,
   openPath,
   runMenuCommand,
   saveActive,
@@ -433,6 +437,15 @@ export function App(): JSX.Element {
           return;
         }
       }
+      // Escape closes the find bar and restores the selection the bar saved on
+      // open. The bar is not a modal owner (⌘G must keep working while typing),
+      // so this lives in the global channel; a dialog above it returned already.
+      if (event.key === 'Escape' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (!useShell.getState().findOpen) return;
+        event.preventDefault();
+        closeFind();
+        return;
+      }
       const mod = event.metaKey || event.ctrlKey;
       if (!mod) return;
       const key = event.key.toLowerCase();
@@ -495,6 +508,23 @@ export function App(): JSX.Element {
         event.preventDefault();
         if (event.shiftKey) fitActiveLayout('fit-width');
         else fitActiveLayout('actual');
+        return;
+      }
+      if (key === 'f' && !event.shiftKey && !event.altKey) {
+        // ⌘F: no native menu accelerator owns it (see the custom menu) and
+        // Electron has no built-in find UI, so the renderer is the only path.
+        event.preventDefault();
+        openFind();
+        return;
+      }
+      if (key === 'g' && !event.altKey) {
+        // ⌘G / ⇧⌘G move the current find hit; with the bar closed they do
+        // nothing (there is no search to move through).
+        if (!useShell.getState().findOpen) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.shiftKey) findPrevious();
+        else findNext();
         return;
       }
       if (key === 'f' && event.shiftKey) {
@@ -647,6 +677,24 @@ export function App(): JSX.Element {
           sidebarTab: state.sidebarTab,
           healthSelectedRowId: state.healthSelectedRowId,
           healthOpenSections: [...state.healthOpenSections],
+          findOpen: state.findOpen,
+          findQuery: state.findQuery,
+          findIndex: state.findIndex,
+          findTotal: state.findTotal,
+          findTruncated: state.findTruncated,
+          findResults: state.findResults.map((result) => ({
+            id: result.id,
+            kind: result.kind,
+            field: result.field,
+            blockId: result.blockId,
+            chapterId: result.chapterId,
+            anchorId: result.anchorId ?? null,
+            branchId: result.branchId ?? null,
+            start: result.start,
+            end: result.end,
+            occurrence: result.occurrence,
+            snippet: result.snippet,
+          })),
           markdownFiles: Object.values(useMarkdownFiles.getState().files).map((file) => ({
             path: file.path,
             title: file.title,

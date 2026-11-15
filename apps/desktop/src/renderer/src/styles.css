@@ -721,6 +721,9 @@ button:disabled {
 }
 
 .nf-canvas-panel {
+  /* Find bar host (phase 6): the bar floats at the canvas top-right and never
+     participates in the canvas flow or the Page zoom. */
+  position: relative;
   display: flex;
   flex: 1;
   min-width: 0;
@@ -3773,14 +3776,18 @@ body.nf-dragging-block .nf-gutter-handle {
   gap: 4px;
   min-width: 0;
   max-width: 100%;
+  /* One chip height with the state and reference chips (20 px): the quote
+     carries a slightly larger 11 px face, so the line box is centred instead of
+     inflating the chip. A KaTeX formula may still grow past 20 px. */
+  min-height: 20px;
   padding: 0 6px;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-control);
   background: var(--surface-2);
   color: var(--text-2);
   font-family: var(--ui-font);
-  font-size: 10.5px;
-  line-height: 1.65;
+  font-size: 11px;
+  line-height: 1.2;
   cursor: pointer;
 }
 
@@ -3816,7 +3823,7 @@ body.nf-dragging-block .nf-gutter-handle {
 /* Code anchors keep a code face and the same truncation. */
 .nf-callout-quote-code {
   font-family: var(--mono-font);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 /* Inline KaTeX: a term or short whole formula, never wider than the chip. */
@@ -4222,6 +4229,109 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-button-danger:hover {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+/* -------------------------------------------------------------------- find */
+
+/*
+ * Floating find bar (phase 6, docs/design/find-bar.md §2). 360 × 40, 10 px from
+ * the canvas top-right corner, 8 px radius, shadow. It floats over the note:
+ * it is not in the canvas flow, it is not part of Page, and the PDF never sees
+ * it. Anatomy is query + count + previous/next + close, nothing else.
+ */
+.nf-find-bar {
+  position: absolute;
+  top: 44px;
+  right: 10px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 360px;
+  height: 40px;
+  padding: 0 6px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-panel);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-toast);
+}
+
+.nf-find-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-1);
+  font-family: var(--ui-font);
+  font-size: 12px;
+  line-height: 1;
+  outline: none;
+}
+
+.nf-find-input::placeholder {
+  color: var(--text-3);
+}
+
+.nf-find-input:focus-visible {
+  border-color: var(--accent-strong);
+  outline: 1px solid var(--accent-ring);
+  outline-offset: 0;
+}
+
+.nf-find-count {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  color: var(--text-3);
+  font-family: var(--ui-font);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.nf-find-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.nf-find-button:hover:not(:disabled) {
+  border-color: var(--border-1);
+  background: var(--surface-1);
+  color: var(--text-1);
+}
+
+.nf-find-button:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.nf-find-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Continuous: every match is marked; the current one is stronger. Plugin
+   decorations only — no document change, no history entry. */
+.nf-find-hit {
+  border-radius: 2px;
+  background: var(--accent-soft);
+}
+
+.nf-find-hit-current {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-strong);
 }
 
 /* ---------------------------------------------------------------- overlays */
@@ -7542,6 +7652,17 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-page-fragment[data-selected="true"] {
   outline: 2px solid var(--nf-page-focus);
+  z-index: 2;
+}
+
+/* Find (`⌘F`) on the page: the bar scrolls to the page that holds the block and
+   rings it. The dashed Page-local ring sits outside the solid selection outline
+   (a find hit also selects its block), so the current hit reads apart from a
+   plain selection. The exact-word highlight inside the page is a follow-up
+   (CSS Custom Highlight API); the print model never sees this attribute. */
+.nf-page-fragment[data-find-current="true"] {
+  outline: 2px dashed var(--nf-page-focus);
+  outline-offset: 3px;
   z-index: 2;
 }
 
