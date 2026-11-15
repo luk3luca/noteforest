@@ -4,10 +4,19 @@
  * A `.md` file is not a NoteForest package: it has no document id, revision,
  * lock, Page settings, or forest structure. These helpers are intentionally
  * path- and DOM-free so both sides agree on what a Markdown path is and which
- * image sources may be resolved without ever fetching the network.
+ * image sources may be resolved without ever fetching the network. The naming
+ * rules themselves live in `@noteforest/core` so the vault scan and this
+ * surface cannot disagree.
  */
 
-export const MARKDOWN_EXTENSIONS = ['md', 'markdown', 'mdown', 'mkd'] as const;
+import { isMarkdownFileName } from '@noteforest/core';
+
+export {
+  MARKDOWN_EXTENSIONS,
+  markdownExtension,
+  isMarkdownFileName,
+  markdownFileTitle,
+} from '@noteforest/core';
 
 /**
  * Editable cap: a `.md` above 2 MB opens read-only instead of freezing the
@@ -39,27 +48,10 @@ export function markdownFingerprintChanged(
   );
 }
 
-export function markdownExtension(fileName: string): string | null {
-  const dot = fileName.lastIndexOf('.');
-  if (dot < 0 || dot === fileName.length - 1) return null;
-  return fileName.slice(dot + 1).toLowerCase();
-}
-
-export function isMarkdownFileName(fileName: string): boolean {
-  const extension = markdownExtension(fileName);
-  return extension !== null && (MARKDOWN_EXTENSIONS as readonly string[]).includes(extension);
-}
-
 export function isMarkdownPath(path: string): boolean {
   const normalized = path.endsWith('/') ? path.slice(0, -1) : path;
   const base = normalized.slice(normalized.lastIndexOf('/') + 1);
   return base.length > 0 && isMarkdownFileName(base);
-}
-
-/** Library/dialog label for a Markdown file; the tab uses the full basename. */
-export function markdownFileTitle(path: string): string {
-  const normalized = path.endsWith('/') ? path.slice(0, -1) : path;
-  return normalized.slice(normalized.lastIndexOf('/') + 1);
 }
 
 export type MarkdownImageSource =

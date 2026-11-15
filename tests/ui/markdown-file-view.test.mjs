@@ -1,6 +1,7 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
 import { artifactsPath, waitUntil } from '../support/harness.mjs';
@@ -13,7 +14,8 @@ import { createUiSession } from '../support/ui-session.mjs';
  * GFM subset, Continuous Edit/Read, a clear Markdown badge, no forest/Page/PDF
  * chrome, confined local images, session restore.
  *
- * M2: autosave + ⌘S with an atomic write and one `.md.bak`; verbatim read-only
+ * M2: autosave + ⌘S with an atomic write and one app-support previous copy
+ * (never a `.md.bak` in the vault); verbatim read-only
  * frontmatter; external-change Reload/Overwrite/Cancel with no silent overwrite;
  * missing-file state with no recreate; the 2 MB read-only guard; the same dirty
  * close prompt as notes; rich copy/paste into a NoteForest note; and the
@@ -147,6 +149,18 @@ async function activateMarkdownPath(path, requireEditable = true) {
     { timeout: 10000 },
   );
   await waitMarkdownEditor(requireEditable);
+}
+
+/** The one previous copy lives in app support, keyed by the canonical path. */
+async function backupPaths(env, filePath) {
+  const real = await realpath(filePath);
+  const directory = join(
+    env.NOTEFOREST_APP_SUPPORT,
+    'backups',
+    'markdown',
+    createHash('sha256').update(real).digest('hex'),
+  );
+  return { directory, previous: join(directory, 'previous.md'), meta: join(directory, 'meta.json') };
 }
 
 async function openFixtureFromLibrary() {
@@ -402,7 +416,7 @@ describe('Markdown file view', () => {
     assert.equal(calls[0].filters?.[0]?.extensions?.includes('md'), true);
   });
 
-  it('autosaves and ⌘S atomically, keeps .md.bak, never writes in Read, and prompts on close/quit', async () => {
+  it('autosaves and ⌘S atomically, keeps one app-support copy, never writes in Read, and prompts on close/quit', async () => {
     const env = ui.isolated('markdown-save');
     await launch(env);
     const mdPath = join(env.NOTEFOREST_LIBRARY, 'fixture.md');
@@ -411,7 +425,9 @@ describe('Markdown file view', () => {
     await openFixtureFromLibrary();
     const editor = page.locator('.nf-markdown-editor[data-active="true"]');
 
-    // First save is manual: the previous bytes become .md.bak.
+    const backup = await backupPaths(env, mdPath);
+
+    // First save is manual: the previous bytes become the app-support copy.
     const paragraph = editor.locator('p', { hasText: 'EDIT-ME paragraph' });
     await paragraph.click();
     await page.keyboard.press('End');
@@ -419,7 +435,13 @@ describe('Markdown file view', () => {
     await dispatch('save');
     await waitFile(mdPath, 'EDIT-ME paragraph: type here. ALPHA');
     await waitMarkdownState(mdPath, { dirty: false });
-    assert.equal(await readFile(`${mdPath}.bak`, 'utf8'), original);
+    assert.equal(await readFile(backup.previous, 'utf8'), original);
+    // The vault never gets a `.md.bak`.
+    await assert.rejects(stat(`${mdPath}.bak`));
+    const meta = JSON.parse(await readFile(backup.meta, 'utf8'));
+    assert.equal(meta.path, await realpath(mdPath));
+    assert.equal(meta.size, Buffer.byteLength(original, 'utf8'));
+    assert.equal(meta.hash, createHash('sha256').update(original, 'utf8').digest('hex'));
     assert.match(await page.locator('[data-markdown-status]').innerText(), /Saved/);
 
     // Second save is the 700 ms autosave: the backup now holds the first save.
@@ -428,7 +450,7 @@ describe('Markdown file view', () => {
     await page.keyboard.type(' BETA');
     await waitFile(mdPath, 'BETA');
     await waitMarkdownState(mdPath, { dirty: false });
-    assert.equal(await readFile(`${mdPath}.bak`, 'utf8'), firstSave);
+    assert.equal(await readFile(backup.previous, 'utf8'), firstSave);
     await page.screenshot({ path: join(screenshotDir, 'save-state.png') });
 
     // Read mode is not editable and a save command never touches the file.
@@ -498,6 +520,7 @@ describe('Markdown file view', () => {
     const env = ui.isolated('markdown-conflict');
     await launch(env);
     const mdPath = join(env.NOTEFOREST_LIBRARY, 'fixture.md');
+    const backup = await backupPaths(env, mdPath);
     await openFixtureFromLibrary();
     const editor = page.locator('.nf-markdown-editor[data-active="true"]');
 
@@ -540,7 +563,7 @@ describe('Markdown file view', () => {
     );
 
     // Local edit + second external write; Overwrite keeps the local content and
-    // stores the external bytes in the single .md.bak.
+    // stores the external bytes in the single app-support copy.
     const heading = page.locator('.nf-markdown-editor[data-active="true"] h1');
     await heading.click();
     await page.keyboard.press('End');
@@ -551,7 +574,8 @@ describe('Markdown file view', () => {
     await page.locator('[data-markdown-conflict-overwrite]').click();
     await waitMarkdownState(mdPath, { dirty: false, conflict: false });
     assert.match(await readFile(mdPath, 'utf8'), /^# External change local/);
-    assert.equal(await readFile(`${mdPath}.bak`, 'utf8'), '# External again\n');
+    assert.equal(await readFile(backup.previous, 'utf8'), '# External again\n');
+    await assert.rejects(stat(`${mdPath}.bak`));
 
     // External delete: the tab is missing, nothing is recreated.
     await rm(mdPath);
@@ -619,6 +643,7 @@ describe('Markdown file view', () => {
     await settle();
     assert.deepEqual(await readFile(largePath), bytes);
     await assert.rejects(stat(`${largePath}.bak`));
+    await assert.rejects(stat((await backupPaths(env, largePath)).previous));
   });
 
   it('copies a paragraph, table, formula, and code into a note as rich nodes', async () => {

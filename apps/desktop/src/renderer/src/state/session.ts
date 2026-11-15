@@ -53,6 +53,7 @@ export function buildSession(): SessionState {
     sidebarWidth: state.sidebarWidth,
     collapsedTopics: state.collapsedTopics,
     sidebarTab: state.sidebarTab,
+    expandedLibraryFolders: [...state.expandedLibraryFolders],
     activeLibrary:
       state.library === null || state.library.libraryPath.length === 0
         ? null

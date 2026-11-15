@@ -20,3 +20,4 @@ export * from './block-ops.js';
 export * from './commands.js';
 export * from './duplicate.js';
 export * from './export-plan.js';
+export * from './markdown.js';

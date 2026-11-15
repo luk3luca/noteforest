@@ -88,6 +88,7 @@ function memoryLibrary(libraryPath: string): LibraryView {
     libraryName: libraryPath.split('/').filter((part) => part.length > 0).at(-1) ?? 'Library',
     appSupportPath: '/memory/support',
     documents: [],
+    tree: [],
     recent: [],
     libraries: [],
     missing: false,

@@ -66,6 +66,7 @@ export const FILES = [
   'list-fixes.test.mjs',
   'editor-appearance.test.mjs',
   'markdown-file-view.test.mjs',
+  'vault-library.test.mjs',
 ];
 
 /**
@@ -73,7 +74,11 @@ export const FILES = [
  * Trash) to be unreliable in the parallel pool. They run after the pool with
  * concurrency 1: ~15s, instead of a 600s pool timeout.
  */
-export const SERIAL_FILES = new Set(['document-lifecycle.test.mjs']);
+export const SERIAL_FILES = new Set([
+  'document-lifecycle.test.mjs',
+  // Real OS Trash moves plus several app lifecycles: keep it off the pool.
+  'vault-library.test.mjs',
+]);
 
 function unique(values) {
   return [...new Set(values)];
@@ -97,6 +102,7 @@ export const GROUPS = {
     'settings-shell-layout.test.mjs',
     'list-fixes.test.mjs',
     'markdown-file-view.test.mjs',
+    'vault-library.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',

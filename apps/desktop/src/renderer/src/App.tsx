@@ -286,6 +286,7 @@ export function App(): JSX.Element {
         state.setSidebarCollapsed(data.session.sidebarCollapsed);
         state.setSidebarWidth(data.session.sidebarWidth);
         state.setSidebarTab(data.session.sidebarTab);
+        state.setExpandedLibraryFolders(data.session.expandedLibraryFolders ?? []);
         for (const [packagePath, ids] of Object.entries(data.session.collapsedTopics)) {
           state.setCollapsedTopics(packagePath, ids);
         }
@@ -678,7 +679,9 @@ export function App(): JSX.Element {
                     status: document.status,
                     documentId: document.documentId,
                   })),
+                  tree: state.library.tree,
                 },
+          expandedLibraryFolders: state.expandedLibraryFolders,
           runtimes: allRuntimes().map((item) => ({
             packagePath: item.packagePath,
             documentId: item.document.id,

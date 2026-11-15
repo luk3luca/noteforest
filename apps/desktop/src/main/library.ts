@@ -44,29 +44,40 @@ import {
   restoreCandidateToPackage,
   writeDocumentPackageCopy,
   writeFileAtomic,
+  isVaultAssetDirName,
+  isVaultBackupName,
+  VAULT_ASSETS_DIR,
+  VAULT_MARKER_NAME,
   type DocumentStore,
   type OpenDocumentResult as CoreOpenDocumentResult,
   type RecentDocumentsManifest,
+  type VaultDocumentRow,
+  type VaultNode,
+  type VaultScan,
 } from '@noteforest/core/node';
 import type {
   ApplyResult,
   BackupCandidateView,
   CreateDraftResult,
   CreateLibraryInput,
+  CreateVaultFolderInput,
   DocumentSettingsBackupView,
   DocumentSettingsEntry,
   DocumentSettingsRecoveryResult,
   DocumentSettingsSaveInput,
   DocumentSettingsSaveResult,
+  DocumentSummary,
   DraftLibraryResult,
   ImportImageBytesInput,
   ImportImageResult,
   LibraryActionResult,
+  LibraryTreeNode,
   LibraryView,
   ListBackupsResult,
   LockInfoView,
   MarkdownFileView,
   MaterializeDraftResult,
+  MoveVaultEntryInput,
   OpenDocumentResult,
   OpenDocumentSnapshot,
   RecentLibraryView,
@@ -85,6 +96,9 @@ import type {
   TrashDocumentResult,
   TrashDocumentStatus,
   TrashPreflight,
+  VaultActionResult,
+  VaultEntryKind,
+  VaultMoveView,
 } from '../shared/api.js';
 import {
   DEFAULT_APP_SETTINGS,
@@ -109,6 +123,7 @@ import {
   migrateLegacySessionOverrides,
   preserveCorruptFile,
   readDocumentSettingsFile,
+  remapDocumentSettingsPaths,
   removeDocumentSettingsEntries,
   resetDocumentSettings,
   restoreDocumentSettingsBackup,
@@ -153,6 +168,7 @@ const DEFAULT_SESSION: SessionState = {
   sidebarWidth: SIDEBAR_SNAP_WIDTH,
   collapsedTopics: {},
   sidebarTab: 'library',
+  expandedLibraryFolders: [],
 };
 
 export function libraryDir(): string {
@@ -184,6 +200,34 @@ let knownLibraryCanonicalCache: string[] | null = null;
 let libraryRuntimeWarnings: string[] = [];
 let libraryCacheKey = '';
 
+/**
+ * Last vault scan per root. `scanLibrary` is called by bootstrap, refresh, and
+ * after every library mutation; a recursive scan must never run per keystroke
+ * or per row render. The cache is invalidated by every mutating operation and
+ * by an explicit Refresh (which also sees external nested changes). A root
+ * mtime change (a folder or file added at the top level outside the app) also
+ * invalidates it.
+ */
+let vaultScanCache: {
+  scope: string;
+  root: string;
+  rootMtimeMs: number;
+  scan: VaultScan;
+} | null = null;
+
+export function invalidateLibraryScan(): void {
+  vaultScanCache = null;
+}
+
+/** Force the next scan to hit the filesystem (explicit Refresh). */
+export function invalidateLibraryScanFor(root?: string): void {
+  if (root === undefined || vaultScanCache === null) {
+    vaultScanCache = null;
+    return;
+  }
+  if (path.resolve(root) === vaultScanCache.root) vaultScanCache = null;
+}
+
 function currentLibraryCacheKey(): string {
   return `${libraryDir()}\0${appSupportDir()}`;
 }
@@ -196,6 +240,7 @@ function ensureLibraryCacheScope(): void {
   knownLibrariesCache = null;
   knownLibraryCanonicalCache = null;
   libraryRuntimeWarnings = [];
+  vaultScanCache = null;
 }
 
 async function pathIsDirectory(target: string): Promise<boolean> {
@@ -385,7 +430,8 @@ async function activateLibraryPath(next: string): Promise<LibraryView> {
   knownLibraryCanonicalCache = null;
   await addRecentLibrary(normalized, new Date().toISOString());
   await persistActiveLibrary(normalized);
-  return scanLibrary(normalized);
+  // Opening a library always sees the current disk state.
+  return scanLibraryAfterChange(normalized);
 }
 
 interface LibraryValidation {
@@ -876,7 +922,7 @@ export async function materializeDraftSession(
   return {
     ok: true,
     packagePath: target.packagePath,
-    library: await scanLibrary(),
+    library: await scanLibraryAfterChange(),
   };
 }
 
@@ -1002,53 +1048,83 @@ async function snapshot(store: DocumentStore): Promise<OpenDocumentSnapshot | nu
 }
 
 /**
- * Root-level `.md` guest files for the Library list. These are ordinary files,
- * not packages: no `document.json` is read and a missing/unreadable file is a
- * file problem, never a "broken note".
+ * Map one core vault row onto the IPC contract. A Markdown row never gets a
+ * fake block or chapter count, and a missing package keeps its missing status.
  */
-async function listRootMarkdownFiles(
-  directory: string,
-  warnings: string[],
-): Promise<LibraryView['documents']> {
-  let entries;
-  try {
-    entries = await fs.readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    warnings.push(`Could not read the library: ${errorMessage(error)}`);
-    return [];
-  }
-  const rows: LibraryView['documents'] = [];
-  for (const entry of entries) {
-    if (!entry.isFile() || entry.name.startsWith('.') || !isMarkdownFileName(entry.name)) {
-      continue;
-    }
-    const filePath = path.join(directory, entry.name);
-    let updatedAt = new Date().toISOString();
-    let status: 'ok' | 'unreadable' = 'ok';
-    let reason: string | undefined;
-    try {
-      updatedAt = (await fs.stat(filePath)).mtime.toISOString();
-    } catch (error) {
-      status = 'unreadable';
-      reason = `could not read this Markdown file: ${errorMessage(error)}`;
-    }
-    rows.push({
-      packagePath: filePath,
-      title: entry.name,
-      kind: 'markdown',
-      status,
-      ...(reason === undefined ? {} : { reason }),
-      documentId: null,
-      revision: null,
-      updatedAt,
-      blockCount: 0,
-      chapterCount: 0,
-    });
-  }
-  return rows;
+function documentSummaryFromRow(row: VaultDocumentRow): DocumentSummary {
+  return {
+    packagePath: row.path,
+    title: row.title,
+    kind: row.kind,
+    status: row.status,
+    ...(row.reason === undefined ? {} : { reason: row.reason }),
+    documentId: row.documentId,
+    revision: row.revision,
+    updatedAt: row.updatedAt,
+    blockCount: row.blockCount,
+    chapterCount: row.chapterCount,
+  };
 }
 
-export async function scanLibrary(root?: string): Promise<LibraryView> {
+function libraryTreeFromVault(nodes: VaultNode[]): LibraryTreeNode[] {
+  return nodes.map((node): LibraryTreeNode => {
+    if (node.kind === 'folder') {
+      return {
+        kind: 'folder',
+        path: node.path,
+        name: node.name,
+        relativePath: node.relativePath,
+        children: libraryTreeFromVault(node.children),
+        ...(node.warning === undefined ? {} : { warning: node.warning }),
+      };
+    }
+    return {
+      kind: node.kind,
+      path: node.path,
+      name: node.name,
+      relativePath: node.relativePath,
+      summary: documentSummaryFromRow(node.row),
+    };
+  });
+}
+
+/**
+ * Cached recursive scan. A recursive vault is more than a one-level `readdir`;
+ * the shell must not rescan it on every render or keystroke. Every library
+ * mutation invalidates the cache, and Refresh forces a fresh scan.
+ */
+async function scanVaultCached(directory: string): Promise<VaultScan> {
+  const scope = currentLibraryCacheKey();
+  const root = path.resolve(directory);
+  let rootMtimeMs = 0;
+  try {
+    rootMtimeMs = (await fs.stat(root)).mtimeMs;
+  } catch {
+    // The caller reports the missing-library state; the scan warns as well.
+  }
+  const cached = vaultScanCache;
+  if (
+    cached !== null &&
+    cached.scope === scope &&
+    cached.root === root &&
+    cached.rootMtimeMs === rootMtimeMs
+  ) {
+    return cached.scan;
+  }
+  const scan = await repository.scanVault(root);
+  vaultScanCache = { scope, root, rootMtimeMs, scan };
+  return scan;
+}
+
+export interface ScanLibraryOptions {
+  /** Skip the cache: an explicit Refresh must see external changes. */
+  force?: boolean;
+}
+
+export async function scanLibrary(
+  root?: string,
+  options: ScanLibraryOptions = {},
+): Promise<LibraryView> {
   ensureLibraryCacheScope();
   const active = await activeLibraryPath();
   const directory = root === undefined ? active : normalizeLibraryPath(root);
@@ -1062,6 +1138,7 @@ export async function scanLibrary(root?: string): Promise<LibraryView> {
       libraryName: 'Library',
       appSupportPath: support,
       documents: [],
+      tree: [],
       recent: [],
       libraries,
       missing: false,
@@ -1069,20 +1146,22 @@ export async function scanLibrary(root?: string): Promise<LibraryView> {
     };
   }
 
-  let documents: LibraryView['documents'] = [];
+  let documents: DocumentSummary[] = [];
+  let tree: LibraryTreeNode[] = [];
   let missing = false;
   if (!(await pathIsDirectory(directory))) {
     missing = true;
     warnings.push(`Library not found: ${directory}`);
   } else {
     try {
-      const listing = await repository.list(directory);
-      const markdown = await listRootMarkdownFiles(directory, warnings);
-      documents = [...listing.documents, ...markdown].sort((left, right) => {
+      if (options.force === true) invalidateLibraryScanFor(directory);
+      const scan = await scanVaultCached(directory);
+      documents = scan.documents.map(documentSummaryFromRow).sort((left, right) => {
         const byUpdatedAt = right.updatedAt.localeCompare(left.updatedAt);
         return byUpdatedAt !== 0 ? byUpdatedAt : left.title.localeCompare(right.title);
       });
-      warnings.push(...listing.warnings);
+      tree = libraryTreeFromVault(scan.nodes);
+      warnings.push(...scan.warnings);
     } catch (error) {
       warnings.push(`Could not scan the library: ${errorMessage(error)}`);
     }
@@ -1119,10 +1198,43 @@ export async function scanLibrary(root?: string): Promise<LibraryView> {
     libraryName: libraryBasename(directory),
     appSupportPath: support,
     documents,
+    tree,
     recent,
     libraries,
     missing,
     warnings: dedupeWarnings(warnings),
+  };
+}
+
+/**
+ * Scan after a mutation: the cache can never serve a pre-change tree.
+ */
+async function scanLibraryAfterChange(root?: string): Promise<LibraryView> {
+  invalidateLibraryScanFor(root);
+  return scanLibrary(root, { force: true });
+}
+
+/**
+ * Explicit Refresh (menu, palette, after external changes). External moves and
+ * renames are reconciled by document id exactly like a library open, and the
+ * renderer receives the tab path mappings so it can follow them.
+ */
+export async function refreshLibrary(): Promise<LibraryActionResult> {
+  ensureLibraryCacheScope();
+  const active = await activeLibraryPath();
+  invalidateLibraryScan();
+  const scanned = await scanLibrary(active ?? undefined, { force: true });
+  if (scanned.missing || active === null || scanned.libraryPath.length === 0) {
+    return { ok: true, library: scanned };
+  }
+  const reconciliation = await reconcileMovedDocuments(active, scanned.documents);
+  if (reconciliation.tabs.length === 0 && !reconciliation.recentChanged) {
+    return { ok: true, library: scanned };
+  }
+  return {
+    ok: true,
+    library: await scanLibrary(active, { force: true }),
+    ...(reconciliation.tabs.length === 0 ? {} : { reconciledTabs: reconciliation.tabs }),
   };
 }
 
@@ -1337,7 +1449,7 @@ export async function createDocument(input: { title?: string }): Promise<{
   }
   const current = await snapshot(created.store);
   if (current === null) return { ok: false, message: 'The new document could not be opened.' };
-  return { ok: true, snapshot: current, library: await scanLibrary() };
+  return { ok: true, snapshot: current, library: await scanLibraryAfterChange() };
 }
 
 export async function applyCommand(
@@ -1889,7 +2001,7 @@ export async function saveDocumentCopy(
         ok: true,
         packagePath: copied.packagePath,
         snapshot: copy.snapshot,
-        library: await scanLibrary(),
+        library: await scanLibraryAfterChange(),
       };
     }
   }
@@ -2053,7 +2165,7 @@ export async function restoreBackup(
     return { ok: false, code, message: restored.error.message };
   }
 
-  const library = await scanLibrary();
+  const library = await scanLibraryAfterChange();
   const opened = await openStore(restored.targetPackagePath);
   if ('error' in opened || 'recovery' in opened) {
     return { ok: true, packagePath: restored.targetPackagePath, library };
@@ -2195,6 +2307,48 @@ export async function trashPreflight(packagePath: string): Promise<TrashPrefligh
     }
   }
 
+  // Phase 3: a plain folder and a `.md` guest file are first-class targets.
+  const described = await describeVaultEntry(resolved);
+  if (described !== null && described.kind === 'markdown') {
+    return {
+      ...base,
+      title: described.title,
+      status: 'ok',
+      kind: 'markdown',
+      canTrash: true,
+    };
+  }
+  if (described !== null && described.kind === 'folder') {
+    const content = await vaultContentUnder(resolved);
+    let liveLock = false;
+    let open = false;
+    for (const note of content.notes) {
+      if (repository.get(note.path) !== null) open = true;
+      const info = await noteLiveLock(note.path);
+      if (info.live) liveLock = true;
+    }
+    return {
+      ...base,
+      title: described.title,
+      status: 'ok',
+      kind: 'folder',
+      open,
+      liveLock,
+      canTrash: !liveLock,
+      contained: {
+        notes: content.notes.length,
+        folders: content.folders,
+        markdown: content.markdown.length,
+      },
+      ...(liveLock
+        ? {
+            reason:
+              'Another NoteForest session is writing a note inside this folder. Close the other window and try again; the live lock is never broken.',
+          }
+        : {}),
+    };
+  }
+
   const store = repository.get(resolved);
   const open = store !== null;
   let status: TrashDocumentStatus = 'ok';
@@ -2275,6 +2429,99 @@ export async function trashPreflight(packagePath: string): Promise<TrashPrefligh
 export type TrashItem = (target: string) => Promise<void>;
 
 /**
+ * Remove every session tab (and expanded-folder entry) at or under one path
+ * after a folder or `.md` trash. Never touches recents or settings: those are
+ * removed per contained note by the caller.
+ */
+async function removeSessionPathsUnder(prefix: string): Promise<void> {
+  try {
+    const session = await readSession();
+    const resolved = path.resolve(prefix);
+    const library = session.activeLibrary ?? '';
+    const tabs = session.tabs.filter((tab) => !isPathInside(resolved, tab.packagePath));
+    const expanded = (session.expandedLibraryFolders ?? []).filter(
+      (relative) => !isPathInside(resolved, path.join(library, relative)),
+    );
+    const tabsChanged = tabs.length !== session.tabs.length;
+    const expandedChanged =
+      expanded.length !== (session.expandedLibraryFolders ?? []).length;
+    if (!tabsChanged && !expandedChanged) return;
+    const activeTab =
+      session.activeTab !== null && tabs.some((tab) => tab.packagePath === session.activeTab)
+        ? session.activeTab
+        : tabs[0]?.packagePath ?? null;
+    await writeSession({ ...session, tabs, activeTab, expandedLibraryFolders: expanded });
+  } catch {
+    // Session cleanup is best effort; the renderer closes its tabs itself.
+  }
+}
+
+/**
+ * Move one plain library folder to the OS Trash. Every contained open note is
+ * refused when unsaved or live-locked, then released; recents, per-document
+ * settings, and session tabs of the contained notes are cleaned. The folder
+ * itself (empty or not) is never silently deleted.
+ */
+async function trashVaultFolder(
+  resolved: string,
+  preflight: TrashPreflight,
+  trashItem: TrashItem,
+): Promise<TrashDocumentResult> {
+  const content = await vaultContentUnder(resolved);
+  for (const note of content.notes) {
+    const store = repository.get(note.path);
+    if (store !== null && store.hasUnsavedChanges) {
+      return {
+        ok: false,
+        code: 'unsaved',
+        message: `“${note.title}” has unsaved changes. Save or discard them before moving the folder to the Trash.`,
+      };
+    }
+  }
+  for (const note of content.notes) {
+    const { live } = await noteLiveLock(note.path);
+    if (live) {
+      return {
+        ok: false,
+        code: 'locked',
+        message:
+          'Another NoteForest session is writing a note inside this folder. It was not moved.',
+      };
+    }
+  }
+
+  for (const note of content.notes) {
+    if (repository.get(note.path) === null) continue;
+    await repository.close(note.path, { save: false });
+    await breakStaleLock(note.path, { appSupportDir: appSupportDir() }).catch(
+      () => undefined,
+    );
+  }
+
+  try {
+    await trashItem(resolved);
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'trash-failed',
+      message: `Could not move “${preflight.title}” to the Trash: ${errorMessage(error)}. The folder was not changed.`,
+    };
+  }
+
+  for (const note of content.notes) {
+    await removeRecentDocument(note.path, appSupportDir()).catch(() => undefined);
+    const sharedIdPaths = await sharedDocumentIdPaths(note.documentId, note.path);
+    await removeDocumentSettingsEntries(
+      appSupportDir(),
+      { documentId: note.documentId, packagePath: note.path },
+      { sharedIdPaths },
+    ).catch(() => undefined);
+  }
+  await removeSessionPathsUnder(resolved);
+  return { ok: true, library: await scanLibraryAfterChange() };
+}
+
+/**
  * Move one document package to the OS Trash after the explicit confirmation.
  *
  * The store is closed and the lock released before the move; the move is
@@ -2319,6 +2566,23 @@ export async function trashDocument(
         message: 'The library folder itself can never be moved to the Trash.',
       };
     }
+  }
+
+  if (preflight.kind === 'markdown') {
+    try {
+      await trashItem(resolved);
+    } catch (error) {
+      return {
+        ok: false,
+        code: 'trash-failed',
+        message: `Could not move “${preflight.title}” to the Trash: ${errorMessage(error)}. The file was not changed.`,
+      };
+    }
+    await removeSessionPathsUnder(resolved);
+    return { ok: true, library: await scanLibraryAfterChange() };
+  }
+  if (preflight.kind === 'folder') {
+    return trashVaultFolder(resolved, preflight, trashItem);
   }
 
   const store = repository.get(resolved);
@@ -2381,7 +2645,7 @@ export async function trashDocument(
     );
   }
   await removeSessionDocument(resolved, preflight.documentId, sharedIdPaths);
-  return { ok: true, library: await scanLibrary() };
+  return { ok: true, library: await scanLibraryAfterChange() };
 }
 
 /**
@@ -2429,7 +2693,7 @@ export async function removeMissingDocument(
     );
   }
   await removeSessionDocument(resolved, documentId, sharedIdPaths);
-  return { ok: true, library: await scanLibrary() };
+  return { ok: true, library: await scanLibraryAfterChange() };
 }
 
 /**
@@ -2512,6 +2776,510 @@ async function removeSessionDocument(
   } catch {
     // Session cleanup is best effort; the renderer closes the tab itself.
   }
+}
+
+/* ------------------------------------------------- vault entries (phase 3) */
+
+const VAULT_NAME_MAX = 120;
+
+function vaultFailure(
+  code:
+    | 'not-found'
+    | 'library-root'
+    | 'outside-library'
+    | 'exists'
+    | 'invalid-name'
+    | 'invalid-target'
+    | 'locked'
+    | 'unsaved'
+    | 'unknown',
+  message: string,
+): VaultActionResult {
+  return { ok: false, code, message };
+}
+
+/** `assets`, hidden, backup, separator, and Markdown names are not folders. */
+function normalizeVaultFolderName(
+  input: unknown,
+): { ok: true; name: string } | { ok: false; message: string } {
+  const name = typeof input === 'string' ? input.trim() : '';
+  if (name.length === 0) return { ok: false, message: 'Enter a folder name.' };
+  if (name === '.' || name === '..') {
+    return { ok: false, message: 'That folder name is reserved.' };
+  }
+  if (name.startsWith('.')) {
+    return { ok: false, message: 'A folder name cannot start with a dot.' };
+  }
+  if (/[\\/:\0]/.test(name)) {
+    return { ok: false, message: 'A folder name cannot contain “/”, “\\”, or “:”.' };
+  }
+  if (name.length > VAULT_NAME_MAX) {
+    return {
+      ok: false,
+      message: `A folder name cannot be longer than ${VAULT_NAME_MAX} characters.`,
+    };
+  }
+  if (isVaultAssetDirName(name)) {
+    return { ok: false, message: 'That name is reserved for note assets.' };
+  }
+  if (isVaultBackupName(name)) {
+    return { ok: false, message: 'That name is reserved for backups.' };
+  }
+  if (isMarkdownFileName(name)) {
+    return { ok: false, message: 'A folder name cannot end with a Markdown extension.' };
+  }
+  return { ok: true, name };
+}
+
+interface VaultEntryDescription {
+  resolved: string;
+  kind: VaultEntryKind;
+  title: string;
+  documentId: string | null;
+  status: TrashDocumentStatus;
+}
+
+/**
+ * Classify one existing library path: a plain folder, a note package (or a
+ * missing one), or a Markdown guest file. Symlinks are never entries.
+ */
+async function describeVaultEntry(
+  targetPath: string,
+): Promise<VaultEntryDescription | null> {
+  const resolved = path.resolve(targetPath);
+  let stats: Awaited<ReturnType<typeof fs.lstat>>;
+  try {
+    stats = await fs.lstat(resolved);
+  } catch {
+    return null;
+  }
+  if (stats.isSymbolicLink()) return null;
+  if (stats.isFile()) {
+    if (!isMarkdownFileName(resolved)) return null;
+    return {
+      resolved,
+      kind: 'markdown',
+      title: markdownFileTitle(resolved),
+      documentId: null,
+      status: 'ok',
+    };
+  }
+  if (!stats.isDirectory()) return null;
+  const hasDocumentJson = await pathExists(documentJsonPath(resolved));
+  if (!hasDocumentJson) {
+    const looksLikePackage =
+      (await pathIsDirectory(path.join(resolved, VAULT_ASSETS_DIR))) ||
+      (await pathExists(path.join(resolved, VAULT_MARKER_NAME)));
+    if (!looksLikePackage) {
+      return {
+        resolved,
+        kind: 'folder',
+        title: path.basename(resolved) || 'Folder',
+        documentId: null,
+        status: 'ok',
+      };
+    }
+    return {
+      resolved,
+      kind: 'note',
+      title: packageTitle(resolved, null),
+      documentId: null,
+      status: 'missing',
+    };
+  }
+  const store = repository.get(resolved);
+  if (store !== null && store.document !== null) {
+    return {
+      resolved,
+      kind: 'note',
+      title: store.document.title,
+      documentId: store.document.id,
+      status: 'ok',
+    };
+  }
+  const validated = await repository.validate(resolved);
+  if (validated.ok) {
+    return {
+      resolved,
+      kind: 'note',
+      title: validated.document.title,
+      documentId: validated.document.id,
+      status: 'ok',
+    };
+  }
+  let rawTitle = packageTitle(resolved, null);
+  try {
+    rawTitle = packageTitle(
+      resolved,
+      await fs.readFile(documentJsonPath(resolved), 'utf8'),
+    );
+  } catch {
+    // The folder name is the honest fallback.
+  }
+  return {
+    resolved,
+    kind: 'note',
+    title: rawTitle,
+    documentId: null,
+    status: validated.error.code === 'newer-schema' ? 'newer-schema' : 'unreadable',
+  };
+}
+
+/** Contained notes/Markdown files and folder count for one folder. */
+async function vaultContentUnder(folder: string): Promise<{
+  notes: VaultDocumentRow[];
+  markdown: VaultDocumentRow[];
+  folders: number;
+}> {
+  const scan = await repository.scanVault(folder);
+  const notes: VaultDocumentRow[] = [];
+  const markdown: VaultDocumentRow[] = [];
+  let folders = 0;
+  const walk = (nodes: VaultNode[]): void => {
+    for (const node of nodes) {
+      if (node.kind === 'folder') {
+        folders += 1;
+        walk(node.children);
+      } else if (node.kind === 'note') {
+        notes.push(node.row);
+      } else {
+        markdown.push(node.row);
+      }
+    }
+  };
+  walk(scan.nodes);
+  return { notes, markdown, folders };
+}
+
+/** Live lock metadata for one package, unless this process holds the writer. */
+async function noteLiveLock(
+  packagePath: string,
+): Promise<{ live: boolean; lock: LockInfoView | null }> {
+  const store = repository.get(packagePath);
+  if (store !== null && !store.readOnly) return { live: false, lock: null };
+  const record = await readDocumentLock(packagePath, {
+    appSupportDir: appSupportDir(),
+  }).catch(() => null);
+  if (record === null) return { live: false, lock: null };
+  return {
+    live: !isLockStale(record),
+    lock: {
+      pid: record.pid,
+      host: record.host,
+      sessionId: record.sessionId,
+      acquiredAt: record.acquiredAt,
+      heartbeatAt: record.heartbeatAt,
+      corrupt: false,
+    },
+  };
+}
+
+/** Every note path under one folder or entry, with its display title. */
+async function vaultNotesUnder(
+  source: string,
+  kind: VaultEntryKind,
+  title: string,
+): Promise<Array<{ path: string; title: string }>> {
+  if (kind === 'markdown') return [];
+  if (kind === 'note') return [{ path: source, title }];
+  const content = await vaultContentUnder(source);
+  return content.notes.map((note) => ({ path: note.path, title: note.title }));
+}
+
+/**
+ * Session tabs, expanded folders, recent-document entries, and per-document
+ * settings follow one move. Note identity is the document id, so the durable
+ * settings map keeps its entry and only the path is re-keyed; a `.md` follows
+ * by path and has no settings entry.
+ */
+async function followMovedPaths(
+  from: string,
+  to: string,
+  kind: VaultEntryKind,
+  libraryRoot: string,
+  documentId: string | null = null,
+): Promise<VaultMoveView[]> {
+  const fromResolved = path.resolve(from);
+  const toResolved = path.resolve(to);
+  const root = path.resolve(libraryRoot);
+  const remap = (candidate: string): string => {
+    if (!isPathInside(fromResolved, candidate)) return candidate;
+    const relative = path.relative(fromResolved, candidate);
+    return relative.length === 0 ? toResolved : path.join(toResolved, relative);
+  };
+  const toRelative = (absolute: string): string =>
+    path.relative(root, absolute).split(path.sep).join('/');
+
+  try {
+    const session = await readSession();
+    let changed = false;
+    const tabs: SessionTabState[] = session.tabs.map((tab) => {
+      if (!isPathInside(fromResolved, tab.packagePath)) return tab;
+      changed = true;
+      return { ...tab, packagePath: remap(tab.packagePath) };
+    });
+    const activeTab =
+      session.activeTab !== null && isPathInside(fromResolved, session.activeTab)
+        ? remap(session.activeTab)
+        : session.activeTab;
+    const expanded = (session.expandedLibraryFolders ?? []).map((relative) => {
+      const absolute = path.join(root, relative);
+      return isPathInside(fromResolved, absolute) ? toRelative(remap(absolute)) : relative;
+    });
+    if (changed || activeTab !== session.activeTab) {
+      await writeSession({ ...session, tabs, activeTab, expandedLibraryFolders: expanded });
+    } else if (session.expandedLibraryFolders !== undefined) {
+      await writeSession({ ...session, expandedLibraryFolders: expanded });
+    }
+  } catch {
+    // Session follow-up is best effort; the renderer remaps its own tabs.
+  }
+
+  const moves: VaultMoveView[] = [];
+  const seen = new Set<string>();
+  const addMove = (move: VaultMoveView): void => {
+    if (seen.has(move.from)) return;
+    seen.add(move.from);
+    moves.push(move);
+  };
+  if (kind === 'folder') {
+    addMove({ from: fromResolved, to: toResolved, kind: 'folder', documentId: null });
+    try {
+      const content = await vaultContentUnder(toResolved);
+      for (const note of content.notes) {
+        addMove({
+          from: path.join(fromResolved, path.relative(toResolved, note.path)),
+          to: note.path,
+          kind: 'note',
+          documentId: note.documentId,
+        });
+      }
+      for (const file of content.markdown) {
+        addMove({
+          from: path.join(fromResolved, path.relative(toResolved, file.path)),
+          to: file.path,
+          kind: 'markdown',
+          documentId: null,
+        });
+      }
+    } catch {
+      // The move already succeeded; the renderer reopens from the fresh scan.
+    }
+  } else {
+    addMove({ from: fromResolved, to: toResolved, kind, documentId });
+  }
+
+  try {
+    const read = await readRecentDocuments(appSupportDir());
+    let changed = false;
+    const items = read.manifest.items.map((item) => {
+      if (!isPathInside(fromResolved, item.path)) return item;
+      changed = true;
+      return { ...item, path: remap(item.path) };
+    });
+    if (changed) {
+      await fs.mkdir(appSupportDir(), { recursive: true });
+      await writeFileAtomic(
+        recentManifestPath(appSupportDir()),
+        `${JSON.stringify({ version: read.manifest.version, items }, null, 2)}\n`,
+      );
+    }
+  } catch {
+    // Recents are a convenience; the package is already at its new path.
+  }
+
+  if (kind !== 'markdown') {
+    await remapDocumentSettingsPaths(appSupportDir(), fromResolved, toResolved).catch(
+      () => undefined,
+    );
+  }
+  return moves;
+}
+
+export async function createVaultFolder(
+  input: CreateVaultFolderInput,
+): Promise<VaultActionResult> {
+  const parent = path.resolve(typeof input?.parentPath === 'string' ? input.parentPath : '');
+  const root = await libraryRootForPath(parent);
+  if (root === null) {
+    return vaultFailure(
+      'outside-library',
+      'Choose a folder inside the current NoteForest library.',
+    );
+  }
+  if (!(await pathIsDirectory(parent))) {
+    return vaultFailure('not-found', 'That folder no longer exists.');
+  }
+  const parentDescription = await describeVaultEntry(parent);
+  const parentIsRoot =
+    (await canonicalLibraryPath(parent)) === (await canonicalLibraryPath(root));
+  if (!parentIsRoot && (parentDescription === null || parentDescription.kind !== 'folder')) {
+    return vaultFailure(
+      'invalid-target',
+      'Choose a folder, not a note package or a file.',
+    );
+  }
+  const checked = normalizeVaultFolderName(input?.name);
+  if (!checked.ok) return vaultFailure('invalid-name', checked.message);
+  const target = path.join(parent, checked.name);
+  if (await pathExists(target)) {
+    return vaultFailure('exists', `“${checked.name}” already exists.`);
+  }
+  try {
+    await fs.mkdir(target);
+  } catch (error) {
+    return vaultFailure('unknown', `Could not create the folder: ${errorMessage(error)}`);
+  }
+  return { ok: true, library: await scanLibraryAfterChange(root), moves: [] };
+}
+
+export async function renameVaultFolder(
+  folderPath: string,
+  name: string,
+): Promise<VaultActionResult> {
+  if (typeof folderPath !== 'string' || folderPath.length === 0) {
+    return vaultFailure('not-found', 'No folder path was provided.');
+  }
+  const resolved = path.resolve(folderPath);
+  const root = await libraryRootForPath(resolved);
+  if (root === null) {
+    return vaultFailure('outside-library', 'That folder is outside the known libraries.');
+  }
+  const rootCanonical = await canonicalLibraryPath(root);
+  if ((await canonicalLibraryPath(resolved)) === rootCanonical) {
+    return vaultFailure(
+      'library-root',
+      'The library folder itself cannot be renamed here. Use Reveal in Finder or replace it in Recent.',
+    );
+  }
+  const description = await describeVaultEntry(resolved);
+  if (description === null) return vaultFailure('not-found', 'That folder no longer exists.');
+  if (description.kind !== 'folder') {
+    return vaultFailure('invalid-target', 'Only folders can be renamed here.');
+  }
+  const checked = normalizeVaultFolderName(name);
+  if (!checked.ok) return vaultFailure('invalid-name', checked.message);
+  if (checked.name === description.title) {
+    return { ok: true, library: await scanLibrary(), moves: [] };
+  }
+  const target = path.join(path.dirname(resolved), checked.name);
+  // A case-only rename resolves to the same folder on a case-insensitive volume;
+  // it is a valid rename, not an existing sibling.
+  const caseOnly =
+    path.basename(resolved).toLowerCase() === checked.name.toLowerCase() &&
+    path.basename(resolved) !== checked.name;
+  if (!caseOnly && (await pathExists(target))) {
+    return vaultFailure('exists', `“${checked.name}” already exists in that folder.`);
+  }
+  try {
+    await fs.rename(resolved, target);
+  } catch (error) {
+    return vaultFailure('unknown', `Could not rename the folder: ${errorMessage(error)}`);
+  }
+  const moves = await followMovedPaths(resolved, target, 'folder', root);
+  return { ok: true, library: await scanLibraryAfterChange(root), moves };
+}
+
+/**
+ * Move one folder, note package, or Markdown file into another library folder.
+ *
+ * Guards, in order: both paths are in the same known library, the destination
+ * is a folder, a folder is never moved inside itself, the destination does not
+ * exist, and every open note under the source is saved with no live lock from
+ * another session. The renderer flushes first; these checks are the guard of
+ * last resort.
+ */
+export async function moveVaultEntry(
+  input: MoveVaultEntryInput,
+): Promise<VaultActionResult> {
+  if (typeof input?.sourcePath !== 'string' || input.sourcePath.length === 0) {
+    return vaultFailure('not-found', 'No entry was chosen.');
+  }
+  if (
+    typeof input?.targetFolderPath !== 'string' ||
+    input.targetFolderPath.length === 0
+  ) {
+    return vaultFailure('invalid-target', 'Choose a destination folder.');
+  }
+  const source = path.resolve(input.sourcePath);
+  const targetFolder = path.resolve(input.targetFolderPath);
+  const root = await libraryRootForPath(source);
+  if (root === null) {
+    return vaultFailure('outside-library', 'That entry is outside the known libraries.');
+  }
+  const targetRoot = await libraryRootForPath(targetFolder);
+  if (targetRoot === null || path.resolve(targetRoot) !== path.resolve(root)) {
+    return vaultFailure('invalid-target', 'Move to a folder in the same library.');
+  }
+  const rootCanonical = await canonicalLibraryPath(root);
+  if ((await canonicalLibraryPath(source)) === rootCanonical) {
+    return vaultFailure('library-root', 'The library folder itself cannot be moved.');
+  }
+  if (!(await pathIsDirectory(targetFolder))) {
+    return vaultFailure('invalid-target', 'The destination folder no longer exists.');
+  }
+  const targetDescription = await describeVaultEntry(targetFolder);
+  const targetIsRoot =
+    (await canonicalLibraryPath(targetFolder)) === (await canonicalLibraryPath(root));
+  if (!targetIsRoot && (targetDescription === null || targetDescription.kind !== 'folder')) {
+    return vaultFailure(
+      'invalid-target',
+      'Choose a folder, not a note package or a file.',
+    );
+  }
+  const description = await describeVaultEntry(source);
+  if (description === null) return vaultFailure('not-found', 'That entry no longer exists.');
+  if (description.kind === 'folder' && isPathInside(source, targetFolder)) {
+    return vaultFailure('invalid-target', 'A folder cannot be moved inside itself.');
+  }
+  if (path.dirname(source) === targetFolder) {
+    return { ok: true, library: await scanLibrary(), moves: [] };
+  }
+  const destination = path.join(targetFolder, path.basename(source));
+  if (await pathExists(destination)) {
+    return vaultFailure(
+      'exists',
+      `“${path.basename(destination)}” already exists in the destination folder.`,
+    );
+  }
+
+  const affected = await vaultNotesUnder(source, description.kind, description.title);
+  for (const note of affected) {
+    const store = repository.get(note.path);
+    if (store !== null && store.hasUnsavedChanges) {
+      return vaultFailure(
+        'unsaved',
+        `“${note.title}” has unsaved changes. Save it before moving.`,
+      );
+    }
+  }
+  for (const note of affected) {
+    const { live } = await noteLiveLock(note.path);
+    if (live) {
+      return vaultFailure(
+        'locked',
+        'Another NoteForest session is writing one of these notes. Close the other window and try again; the live lock is never broken.',
+      );
+    }
+  }
+
+  // Release this process's stores before the move. A stale lock inside the
+  // package is broken here only because the move itself is explicit.
+  for (const note of affected) {
+    if (repository.get(note.path) === null) continue;
+    await repository.close(note.path, { save: false });
+    await breakStaleLock(note.path, { appSupportDir: appSupportDir() }).catch(
+      () => undefined,
+    );
+  }
+
+  try {
+    await fs.rename(source, destination);
+  } catch (error) {
+    return vaultFailure('unknown', `Could not move the entry: ${errorMessage(error)}`);
+  }
+  const moves = await followMovedPaths(source, destination, description.kind, root, description.documentId);
+  return { ok: true, library: await scanLibraryAfterChange(root), moves };
 }
 
 export function dirtyDocuments(): Array<{ packagePath: string; title: string }> {
@@ -2844,6 +3612,12 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
         : typeof rawActiveLibrary === 'string' && rawActiveLibrary.length > 0
           ? path.resolve(rawActiveLibrary)
           : undefined;
+    const rawExpanded = (raw as { expandedLibraryFolders?: unknown }).expandedLibraryFolders;
+    const expandedLibraryFolders = Array.isArray(rawExpanded)
+      ? rawExpanded
+          .filter((item): item is string => typeof item === 'string' && item.length > 0)
+          .slice(0, 500)
+      : undefined;
     return {
       session: {
         tabs,
@@ -2857,6 +3631,7 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
             : SIDEBAR_SNAP_WIDTH,
         collapsedTopics,
         sidebarTab: raw.sidebarTab === 'outline' ? 'outline' : 'library',
+        ...(expandedLibraryFolders === undefined ? {} : { expandedLibraryFolders }),
         ...(activeLibrary === undefined ? {} : { activeLibrary }),
       },
       legacyOverrides,
@@ -3138,5 +3913,5 @@ export async function seedDocument(kind: 'demo' | 'performance' | 'performance-1
   const opened = await openStore(packagePath);
   if ('error' in opened) throw new Error(opened.error);
   if ('recovery' in opened) throw new Error(opened.recovery.reason);
-  return { snapshot: opened.snapshot, library: await scanLibrary() };
+  return { snapshot: opened.snapshot, library: await scanLibraryAfterChange() };
 }

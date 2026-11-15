@@ -15,3 +15,4 @@ export * from './repository.js';
 export * from './store.js';
 export * from './recovery.js';
 export * from './copy.js';
+export * from './vault.js';

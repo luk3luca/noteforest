@@ -91,6 +91,9 @@ export type DialogState =
   | { kind: 'restore-backup'; packagePath: string }
   | { kind: 'trash-document'; packagePath: string; preflight: TrashPreflight }
   | { kind: 'new-library' }
+  | { kind: 'new-folder'; parentPath: string }
+  | { kind: 'rename-folder'; path: string; name: string }
+  | { kind: 'move-vault-entry'; path: string; name: string; entryKind: 'folder' | 'note' | 'markdown' }
   | { kind: 'settings'; page?: SettingsPageId };
 
 export interface ContextMenuState {
@@ -119,8 +122,13 @@ interface ShellState {
   contextMenu: ContextMenuState | null;
   collapsedTopics: Record<string, string[]>;
   viewByDoc: Record<string, DocumentViewState>;
+  /** Expanded Library-tree folders, as root-relative paths (phase 3). */
+  expandedLibraryFolders: string[];
   setReady: (ready: boolean) => void;
   setLibrary: (library: LibraryView) => void;
+  setExpandedLibraryFolders: (paths: string[]) => void;
+  setLibraryFolderExpanded: (relativePath: string, expanded: boolean) => void;
+  toggleLibraryFolder: (relativePath: string) => void;
   setTabs: (tabs: TabInfo[], activeTab: string | null) => void;
   openTab: (tab: TabInfo, options?: { activate?: boolean }) => void;
   closeTab: (packagePath: string) => void;
@@ -173,9 +181,29 @@ export const useShell = create<ShellState>((set, get) => ({
   contextMenu: null,
   collapsedTopics: {},
   viewByDoc: {},
+  expandedLibraryFolders: [],
 
   setReady: (ready) => set({ ready }),
   setLibrary: (library) => set({ library }),
+
+  setExpandedLibraryFolders: (paths) =>
+    set({ expandedLibraryFolders: [...new Set(paths)] }),
+  setLibraryFolderExpanded: (relativePath, expanded) =>
+    set((state) => {
+      const current = state.expandedLibraryFolders.includes(relativePath);
+      if (current === expanded) return state;
+      return {
+        expandedLibraryFolders: expanded
+          ? [...state.expandedLibraryFolders, relativePath]
+          : state.expandedLibraryFolders.filter((path) => path !== relativePath),
+      };
+    }),
+  toggleLibraryFolder: (relativePath) =>
+    set((state) => ({
+      expandedLibraryFolders: state.expandedLibraryFolders.includes(relativePath)
+        ? state.expandedLibraryFolders.filter((path) => path !== relativePath)
+        : [...state.expandedLibraryFolders, relativePath],
+    })),
 
   setTabs: (tabs, activeTab) => set({ tabs, activeTab }),
 

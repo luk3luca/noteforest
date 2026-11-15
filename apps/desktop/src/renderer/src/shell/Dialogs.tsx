@@ -19,8 +19,11 @@ import {
   confirmRemoveMissingDocument,
   confirmTrashDocument,
   createLibrary,
+  createVaultFolder,
+  moveVaultEntryTo,
   renameChapter,
   renameDocument,
+  renameVaultFolder,
   report,
   undoActive,
 } from '../actions';
@@ -166,7 +169,8 @@ function NewLibraryDialog({ onClose }: { onClose: () => void }): JSX.Element {
  * Move to Trash confirmation (L4). The title and path are named explicitly, the
  * primary action is destructive, and Cancel is focused by default. A missing
  * package gets the cleanup-only Remove from recents variant; a newer-schema
- * package gets a stronger warning; a stale lock is cleared only here.
+ * package gets a stronger warning; a stale lock is cleared only here. Phase 3
+ * adds the plain-folder and `.md` guest-file variants.
  */
 function TrashDocumentDialog({
   preflight,
@@ -176,14 +180,27 @@ function TrashDocumentDialog({
   onClose: () => void;
 }): JSX.Element {
   const missing = preflight.status === 'missing';
+  const folder = preflight.kind === 'folder';
+  const markdown = preflight.kind === 'markdown';
+  const contained = preflight.contained;
+  const title = missing
+    ? 'Remove from recents?'
+    : folder
+      ? 'Move folder to Trash?'
+      : markdown
+        ? 'Move file to Trash?'
+        : 'Move to Trash?';
+  const description = missing
+    ? 'The package folder has no document.json. This only forgets the document; no file or folder is deleted.'
+    : folder
+      ? 'The folder and everything inside it move to the system Trash. You can recover it from the Trash; the library folder itself is never moved.'
+      : markdown
+        ? 'The Markdown file moves to the system Trash. You can recover it from the Trash.'
+        : 'The note folder moves to the system Trash. You can recover it from the Trash.';
   return (
     <Frame
-      title={missing ? 'Remove from recents?' : 'Move to Trash?'}
-      description={
-        missing
-          ? 'The package folder has no document.json. This only forgets the document; no file or folder is deleted.'
-          : 'The note folder moves to the system Trash. You can recover it from the Trash.'
-      }
+      title={title}
+      description={description}
       actions={
         <>
           <Button className="nf-button" autoFocus onPress={onClose}>
@@ -203,13 +220,25 @@ function TrashDocumentDialog({
         </>
       }
     >
-      <div className="nf-trash-summary" data-trash-dialog="true" data-trash-status={preflight.status}>
+      <div
+        className="nf-trash-summary"
+        data-trash-dialog="true"
+        data-trash-status={preflight.status}
+        data-trash-kind={preflight.kind ?? 'note'}
+      >
         <p className="nf-dialog-text" data-trash-title="true">
           “{preflight.title}”
         </p>
         <p className="nf-trash-path" data-trash-path="true">
           {preflight.packagePath}
         </p>
+        {folder && contained !== undefined ? (
+          <p className="nf-settings-help" data-trash-contained="true">
+            {contained.notes} {contained.notes === 1 ? 'note' : 'notes'}, {contained.markdown}{' '}
+            Markdown {contained.markdown === 1 ? 'file' : 'files'}, and {contained.folders}{' '}
+            {contained.folders === 1 ? 'folder' : 'folders'} inside.
+          </p>
+        ) : null}
         {preflight.status === 'newer-schema' ? (
           <p className="nf-field-error" data-trash-newer-schema="true" role="alert">
             This note was written by a newer NoteForest version. Moving it to the Trash is safe,
@@ -232,6 +261,284 @@ function TrashDocumentDialog({
   );
 }
 
+/**
+ * New folder inside one library folder (phase 3). The parent path is named
+ * explicitly; the main process validates the name and the library membership.
+ */
+function NewFolderDialog({
+  parentPath,
+  onClose,
+}: {
+  parentPath: string;
+  onClose: () => void;
+}): JSX.Element {
+  const [name, setName] = useState('New folder');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = async (): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const ok = await createVaultFolder(parentPath, name);
+    setBusy(false);
+    if (ok) onClose();
+    else setError('Could not create the folder. Check the name and try again.');
+  };
+
+  return (
+    <Frame
+      title="New folder"
+      description={`Inside ${parentPath}`}
+      actions={
+        <>
+          <Button className="nf-button" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="nf-button nf-button-primary"
+            data-new-folder-create="true"
+            isDisabled={busy || name.trim().length === 0}
+            onPress={() => void create()}
+          >
+            Create Folder
+          </Button>
+        </>
+      }
+    >
+      <div data-new-folder-dialog="true">
+        <label className="nf-field">
+          <span className="nf-field-label">Name</span>
+          <Input
+            className="nf-input"
+            data-new-folder-name="true"
+            autoFocus
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              setError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void create();
+              }
+            }}
+          />
+        </label>
+        {error === null ? null : (
+          <p className="nf-field-error" role="alert" data-new-folder-error="true">
+            {error}
+          </p>
+        )}
+      </div>
+    </Frame>
+  );
+}
+
+/** Rename one library folder in place; descendants move with it. */
+function RenameFolderDialog({
+  folderPath,
+  initial,
+  onClose,
+}: {
+  folderPath: string;
+  initial: string;
+  onClose: () => void;
+}): JSX.Element {
+  const [name, setName] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async (): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const ok = await renameVaultFolder(folderPath, name);
+    setBusy(false);
+    if (ok) onClose();
+    else setError('Could not rename the folder. Check the name and try again.');
+  };
+
+  return (
+    <Frame
+      title="Rename folder"
+      description={folderPath}
+      actions={
+        <>
+          <Button className="nf-button" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="nf-button nf-button-primary"
+            data-rename-folder-save="true"
+            isDisabled={busy || name.trim().length === 0}
+            onPress={() => void save()}
+          >
+            Rename
+          </Button>
+        </>
+      }
+    >
+      <div data-rename-folder-dialog="true">
+        <label className="nf-field">
+          <span className="nf-field-label">Name</span>
+          <Input
+            className="nf-input"
+            data-rename-folder-name="true"
+            autoFocus
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              setError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void save();
+              }
+            }}
+          />
+        </label>
+        {error === null ? null : (
+          <p className="nf-field-error" role="alert" data-rename-folder-error="true">
+            {error}
+          </p>
+        )}
+      </div>
+    </Frame>
+  );
+}
+
+interface MoveTarget {
+  path: string;
+  label: string;
+  depth: number;
+}
+
+/**
+ * Destination folders for one move: the library root plus every folder except
+ * the moved folder itself, its descendants, and its current parent (a no-op).
+ */
+function moveTargets(
+  library: ReturnType<typeof useShell.getState>['library'],
+  sourcePath: string,
+  entryKind: 'folder' | 'note' | 'markdown',
+): MoveTarget[] {
+  if (library === null || library.libraryPath.length === 0) return [];
+  const targets: MoveTarget[] = [
+    { path: library.libraryPath, label: library.libraryName, depth: 0 },
+  ];
+  const currentParent = sourcePath.slice(0, sourcePath.lastIndexOf('/'));
+  const walk = (nodes: typeof library.tree, depth: number): void => {
+    for (const node of nodes) {
+      if (node.kind !== 'folder') continue;
+      const insideSource =
+        entryKind === 'folder' &&
+        (node.path === sourcePath || node.path.startsWith(`${sourcePath}/`));
+      if (!insideSource && node.path !== currentParent) {
+        targets.push({ path: node.path, label: node.name, depth });
+      }
+      walk(node.children, depth + 1);
+    }
+  };
+  walk(library.tree, 1);
+  // The root is the current parent when the entry is a direct child: moving
+  // "here" is a no-op, so it is not offered.
+  return targets.filter((target) => target.path !== currentParent);
+}
+
+/**
+ * Move one note, Markdown file, or folder to another library folder. A dialog
+ * (not drag-and-drop) keeps the operation keyboard reachable and testable; the
+ * main process re-checks the destination and the library boundary.
+ */
+function MoveVaultEntryDialog({
+  path,
+  name,
+  entryKind,
+  onClose,
+}: {
+  path: string;
+  name: string;
+  entryKind: 'folder' | 'note' | 'markdown';
+  onClose: () => void;
+}): JSX.Element {
+  const library = useShell((state) => state.library);
+  const targets = useMemo(
+    () => moveTargets(library, path, entryKind),
+    [library, path, entryKind],
+  );
+  const [target, setTarget] = useState(targets[0]?.path ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const move = async (): Promise<void> => {
+    if (busy || target.length === 0) return;
+    setBusy(true);
+    setError(null);
+    const ok = await moveVaultEntryTo(path, target);
+    setBusy(false);
+    if (ok) onClose();
+    else setError('Could not move the entry. Check the destination and try again.');
+  };
+
+  return (
+    <Frame
+      title={`Move “${name}”`}
+      description="Choose a folder in this library."
+      actions={
+        <>
+          <Button className="nf-button" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="nf-button nf-button-primary"
+            data-move-confirm="true"
+            isDisabled={busy || target.length === 0 || targets.length === 0}
+            onPress={() => void move()}
+          >
+            Move
+          </Button>
+        </>
+      }
+    >
+      <div data-move-dialog="true">
+        {targets.length === 0 ? (
+          <p className="nf-empty-line">There is no other folder to move this into.</p>
+        ) : (
+          <div className="nf-move-targets" role="radiogroup" aria-label="Destination folder">
+            {targets.map((folder) => (
+              <label
+                key={folder.path}
+                className="nf-move-target"
+                data-move-target={folder.path}
+                style={{ paddingInlineStart: 8 + folder.depth * 14 }}
+              >
+                <input
+                  type="radio"
+                  name="nf-move-target"
+                  value={folder.path}
+                  checked={target === folder.path}
+                  onChange={() => setTarget(folder.path)}
+                />
+                <span>{folder.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        {error === null ? null : (
+          <p className="nf-field-error" role="alert" data-move-error="true">
+            {error}
+          </p>
+        )}
+      </div>
+    </Frame>
+  );
+}
+
+
+
 export function Dialogs(): JSX.Element | null {
   const dialog = useShell((state) => state.dialog);
   const close = useShell((state) => state.closeDialog);
@@ -252,6 +559,30 @@ export function Dialogs(): JSX.Element | null {
   // missing package; it must not require an active document.
   if (dialog.kind === 'trash-document') {
     return <TrashDocumentDialog preflight={dialog.preflight} onClose={close} />;
+  }
+  // Vault entries (folders, guest files) are app-level: these dialogs work with
+  // no document open and never need a runtime.
+  if (dialog.kind === 'new-folder') {
+    return <NewFolderDialog parentPath={dialog.parentPath} onClose={close} />;
+  }
+  if (dialog.kind === 'rename-folder') {
+    return (
+      <RenameFolderDialog
+        folderPath={dialog.path}
+        initial={dialog.name}
+        onClose={close}
+      />
+    );
+  }
+  if (dialog.kind === 'move-vault-entry') {
+    return (
+      <MoveVaultEntryDialog
+        path={dialog.path}
+        name={dialog.name}
+        entryKind={dialog.entryKind}
+        onClose={close}
+      />
+    );
   }
   // A Markdown guest file has no runtime. A dirty close asks Save / Don't Save
   // / Cancel, exactly like a note; Save runs the atomic write before closing.
@@ -337,7 +668,7 @@ export function Dialogs(): JSX.Element | null {
         <p className="nf-dialog-text">{dialog.path}</p>
         <p className="nf-settings-help">
           Reload replaces the editor with the version on disk. Overwrite writes the editor content
-          and keeps a .bak of the previous bytes.
+          and keeps one previous copy in app support (never in your library).
         </p>
       </Frame>
     );

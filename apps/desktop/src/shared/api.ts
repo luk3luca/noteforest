@@ -89,6 +89,42 @@ export interface DocumentSummary {
 }
 
 /**
+ * One row of the recursive Library tree (phase 3). The tree is additive: the
+ * flat `documents` list keeps every note and Markdown row for reconciliation,
+ * counts, and the existing row menus.
+ *
+ * - `folder`: a directory without `document.json`; it may be empty.
+ * - `note`: a note package, including a damaged/missing one.
+ * - `markdown`: a `.md` guest file. It has no document id and no block or
+ *   chapter count.
+ */
+export type LibraryTreeNodeKind = 'folder' | 'note' | 'markdown';
+
+export interface LibraryFolderNode {
+  kind: 'folder';
+  /** Absolute folder path. */
+  path: string;
+  /** Display name (the folder basename). */
+  name: string;
+  /** Root-relative path for stable keys and expansion state. */
+  relativePath: string;
+  children: LibraryTreeNode[];
+  /** The OS refused to list this folder; it stays visible as a folder. */
+  warning?: string;
+}
+
+export interface LibraryDocumentNode {
+  kind: 'note' | 'markdown';
+  /** Absolute package folder path, or the `.md` file path. */
+  path: string;
+  name: string;
+  relativePath: string;
+  summary: DocumentSummary;
+}
+
+export type LibraryTreeNode = LibraryFolderNode | LibraryDocumentNode;
+
+/**
  * One opened Markdown guest file. The renderer parses `markdown` with the flat
  * schema; there is no document id, lock, revision, or Page/PDF surface.
  */
@@ -253,6 +289,8 @@ export interface LibraryView {
   libraryName: string;
   appSupportPath: string;
   documents: DocumentSummary[];
+  /** Recursive folders/notes/Markdown files; the Library sidebar renders this. */
+  tree: LibraryTreeNode[];
   recent: RecentDocumentView[];
   /** Recent libraries (global, max 8, newest first). */
   libraries: RecentLibraryView[];
@@ -288,6 +326,58 @@ export interface LibraryParentChoice {
 export interface CreateLibraryInput {
   name: string;
   parentPath: string;
+}
+
+/* ------------------------------------------------------------ vault entries */
+
+/** One folder/note/Markdown node in the library tree. */
+export type VaultEntryKind = 'folder' | 'note' | 'markdown';
+
+export type VaultFailureCode =
+  | 'not-found'
+  | 'library-root'
+  | 'outside-library'
+  | 'exists'
+  | 'invalid-name'
+  | 'invalid-target'
+  | 'locked'
+  | 'unsaved'
+  | 'unknown';
+
+/** One path change performed by a move; the renderer remaps open tabs. */
+export interface VaultMoveView {
+  from: string;
+  to: string;
+  kind: VaultEntryKind;
+  documentId: string | null;
+}
+
+export interface VaultActionSuccess {
+  ok: true;
+  library: LibraryView;
+  /** Empty for a no-op move; a folder move reports one entry per descendant. */
+  moves: VaultMoveView[];
+}
+
+export interface VaultActionFailure {
+  ok: false;
+  code: VaultFailureCode;
+  message: string;
+}
+
+export type VaultActionResult = VaultActionSuccess | VaultActionFailure;
+
+export interface CreateVaultFolderInput {
+  /** Library root or an existing folder inside it. */
+  parentPath: string;
+  name: string;
+}
+
+export interface MoveVaultEntryInput {
+  /** A folder, note package, or `.md` file inside the library. */
+  sourcePath: string;
+  /** Destination folder: the library root or a folder inside it. */
+  targetFolderPath: string;
 }
 
 /**
@@ -385,6 +475,12 @@ export interface SessionState {
   /** Persisted Library/Outline tab; legacy sessions without it open Library. */
   sidebarTab: SidebarTab;
   /**
+   * Expanded Library tree folders, as root-relative paths. Additive: a legacy
+   * session opens every folder collapsed. A folder that no longer exists is
+   * ignored by the tree.
+   */
+  expandedLibraryFolders?: string[];
+  /**
    * Active library root. `undefined` means a legacy session that never had the
    * field; `null` means the user removed the last library. The two are
    * deliberately distinct so a removed library is not recreated on launch.
@@ -478,6 +574,10 @@ export interface TrashPreflight {
   canTrash: boolean;
   /** Why trashing is refused, when `canTrash` is false. */
   reason?: string;
+  /** What the target is: a note package, a plain folder, or a `.md` file. */
+  kind?: VaultEntryKind;
+  /** Contained entries for a folder target (recursive counts). */
+  contained?: { notes: number; folders: number; markdown: number };
 }
 
 export type TrashFailureCode =
@@ -785,8 +885,22 @@ export interface NoteForestApi {
   removeRecentLibrary(libraryPath: string): Promise<LibraryActionResult>;
   /** Native picker; replaces a missing library path and reconciles by document id. */
   locateLibrary(missingPath: string): Promise<LibraryActionResult>;
-  /** Re-scan the active library after external changes. */
-  refreshLibrary(): Promise<LibraryView>;
+  /**
+   * Force a fresh scan after external changes and reconcile moved packages by
+   * document id, so open tabs follow their new paths.
+   */
+  refreshLibrary(): Promise<LibraryActionResult>;
+  /** Reveal a folder, note package, or `.md` file inside the library. */
+  revealVaultEntry(targetPath: string): Promise<RevealResult>;
+  /** Create one folder inside a library folder (or the root). */
+  createVaultFolder(input: CreateVaultFolderInput): Promise<VaultActionResult>;
+  /** Rename one library folder in place; descendants are untouched. */
+  renameVaultFolder(folderPath: string, name: string): Promise<VaultActionResult>;
+  /**
+   * Move a folder, note package, or `.md` file into another library folder.
+   * The renderer flushes and closes the affected tabs first.
+   */
+  moveVaultEntry(input: MoveVaultEntryInput): Promise<VaultActionResult>;
   openDocument(packagePath: string): Promise<OpenDocumentResult>;
   /**
    * Native picker for a Markdown guest file, then one read. It never creates a
@@ -796,8 +910,9 @@ export interface NoteForestApi {
   /** Read one known Markdown path (library row, session restore, reopen). */
   readMarkdownFile(path: string): Promise<MarkdownOpenResult>;
   /**
-   * Atomically save one Markdown guest file (tmp → rename, one `.md.bak`).
-   * A changed base is a conflict unless `overwriteExternal` is explicit.
+   * Atomically save one Markdown guest file (tmp → rename) with one previous
+   * copy in app support. A changed base is a conflict unless `overwriteExternal`
+   * is explicit.
    */
   saveMarkdownFile(input: MarkdownSaveInput): Promise<MarkdownSaveResult>;
   /**

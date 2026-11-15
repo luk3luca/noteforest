@@ -21,6 +21,7 @@ import type {
 import {
   documentSettingsRemoval,
   normalizeDocumentSettingsFile,
+  normalizePackagePath,
   serializeDocumentSettingsFile,
   upsertDocumentSettingsEntry,
   type DocumentSettingsEntry,
@@ -242,6 +243,45 @@ export async function removeDocumentSettingsEntries(
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+/**
+ * Re-key every durable entry at or under one folder after a move/rename
+ * (phase 3). The document id is the identity, so this only follows the path;
+ * a corrupt/unreadable map is never rewritten implicitly.
+ */
+export async function remapDocumentSettingsPaths(
+  directory: string,
+  from: string,
+  to: string,
+): Promise<SettingsSaveResult> {
+  return enqueue(async () => {
+    const read = await readDocumentSettingsFile(directory);
+    if (read.status.state === 'corrupt' || read.status.state === 'unreadable') {
+      return {
+        ok: false,
+        message:
+          read.status.message ??
+          'Document settings could not be read; their paths were not updated.',
+      };
+    }
+    const fromRoot = normalizePackagePath(from);
+    const toRoot = normalizePackagePath(to);
+    const inside = (candidate: string): boolean =>
+      candidate === fromRoot || candidate.startsWith(`${fromRoot}/`);
+    let changed = false;
+    const entries = read.entries.map((entry) => {
+      if (!inside(entry.packagePath)) return entry;
+      changed = true;
+      const relative = entry.packagePath.slice(fromRoot.length).replace(/^\/+/, '');
+      const packagePath =
+        relative.length === 0 ? toRoot : `${toRoot}/${relative}`;
+      return { ...entry, packagePath };
+    });
+    if (!changed) return { ok: true };
+    return writeEntries(directory, entries);
+  });
+}
+
 
 export type DocumentSettingsBackupParse =
   | { ok: true; entries: DocumentSettingsEntry[] }

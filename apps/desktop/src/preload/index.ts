@@ -7,6 +7,7 @@ import type {
   CreateDocumentResult,
   CreateDraftResult,
   CreateLibraryInput,
+  CreateVaultFolderInput,
   DocumentSettingsRecoveryResult,
   DocumentSettingsSaveResult,
   DraftLibraryResult,
@@ -31,6 +32,7 @@ import type {
   MarkdownSaveResult,
   MaterializeDraftResult,
   MenuCommand,
+  MoveVaultEntryInput,
   NoteForestApi,
   OpenDocumentResult,
   ReloadDocumentResult,
@@ -46,6 +48,7 @@ import type {
   TextEditCommand,
   TrashDocumentResult,
   TrashPreflight,
+  VaultActionResult,
   WindowState,
 } from '../shared/api.js';
 import { normalizeFlushResult, normalizeMarkdownFlushResult } from '../shared/flush.js';
@@ -73,7 +76,15 @@ const api: NoteForestApi = {
     ipcRenderer.invoke('library:remove-recent', libraryPath),
   locateLibrary: (missingPath: string): Promise<LibraryActionResult> =>
     ipcRenderer.invoke('library:locate', missingPath),
-  refreshLibrary: (): Promise<LibraryView> => ipcRenderer.invoke('library:refresh'),
+  refreshLibrary: (): Promise<LibraryActionResult> => ipcRenderer.invoke('library:refresh'),
+  revealVaultEntry: (targetPath: string): Promise<RevealResult> =>
+    ipcRenderer.invoke('vault:reveal', targetPath),
+  createVaultFolder: (input: CreateVaultFolderInput): Promise<VaultActionResult> =>
+    ipcRenderer.invoke('vault:create-folder', input),
+  renameVaultFolder: (folderPath: string, name: string): Promise<VaultActionResult> =>
+    ipcRenderer.invoke('vault:rename-folder', folderPath, name),
+  moveVaultEntry: (input: MoveVaultEntryInput): Promise<VaultActionResult> =>
+    ipcRenderer.invoke('vault:move', input),
   openDocument: (packagePath: string): Promise<OpenDocumentResult> =>
     ipcRenderer.invoke('document:open', packagePath),
   openMarkdownFile: (): Promise<MarkdownOpenResult> => ipcRenderer.invoke('markdown:open'),

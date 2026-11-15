@@ -1,4 +1,4 @@
-import { Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
+import { Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, Folder, FolderPlus, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
 import {
   Button,
   Tree,
@@ -7,18 +7,21 @@ import {
   type Selection,
 } from 'react-aria-components';
 import { useMemo, useRef, useState } from 'react';
-import { useShell, type MenuEntry, type TabInfo } from '../state/shell';
+import { useShell, type MenuEntry } from '../state/shell';
 import { useRegistry, useRuntime } from '../state/registry';
 import {
   createChapter,
   createNewDocument,
   focusBlock,
+  libraryMutationsEnabled,
   locateLibrary,
   openBlockMenu,
   openChapterMenu,
   openLibrary,
   openLibraryMenu,
+  openNewFolderDialog,
   openPath,
+  openVaultFolderMenu,
   refreshLibrary,
   removeRecentLibrary,
   renameChapter,
@@ -38,7 +41,12 @@ import {
 import { recoveryStatusLabel } from '../lib/recovery';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import type { DocumentRuntime } from '../state/runtime';
-import type { SidebarTab } from '../../../shared/api';
+import type {
+  LibraryDocumentNode,
+  LibraryFolderNode,
+  LibraryTreeNode,
+  SidebarTab,
+} from '../../../shared/api';
 import { isMarkdownPath } from '../../../shared/markdown';
 
 const SIDEBAR_TABS: ReadonlyArray<{ id: SidebarTab; label: string }> = [
@@ -114,27 +122,260 @@ function libraryDisplayName(libraryPath: string | undefined): string {
   return libraryPath.split('/').filter((part) => part.length > 0).at(-1) ?? 'Library';
 }
 
+/**
+ * Filter the vault tree by name. A folder survives when it matches or any
+ * descendant does; a matching folder keeps all its children visible.
+ */
+function filterLibraryTree(nodes: LibraryTreeNode[], query: string): LibraryTreeNode[] {
+  const value = query.trim().toLowerCase();
+  if (value.length === 0) return nodes;
+  const filtered: LibraryTreeNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === 'folder') {
+      const children = filterLibraryTree(node.children, value);
+      if (node.name.toLowerCase().includes(value)) {
+        filtered.push(node);
+      } else if (children.length > 0) {
+        filtered.push({ ...node, children });
+      }
+      continue;
+    }
+    if (node.summary.title.toLowerCase().includes(value) || node.name.toLowerCase().includes(value)) {
+      filtered.push(node);
+    }
+  }
+  return filtered;
+}
+
+/** Every folder in the tree, for expansion during a filtered search. */
+function folderKeys(nodes: LibraryTreeNode[]): string[] {
+  const keys: string[] = [];
+  const walk = (list: LibraryTreeNode[]): void => {
+    for (const node of list) {
+      if (node.kind !== 'folder') continue;
+      keys.push(node.relativePath);
+      walk(node.children);
+    }
+  };
+  walk(nodes);
+  return keys;
+}
+
+function LibraryDocumentRow({
+  node,
+  depth,
+  isOpen,
+  isActive,
+}: {
+  node: LibraryDocumentNode;
+  depth: number;
+  isOpen: boolean;
+  isActive: boolean;
+}): JSX.Element {
+  const summary = node.summary;
+  return (
+    <div
+      role="treeitem"
+      aria-level={depth}
+      aria-label={summary.title}
+      aria-selected={isActive}
+      className="nf-library-row"
+      data-active={isActive}
+      data-vault-path={node.path}
+      style={{ paddingInlineStart: 6 + depth * 14 }}
+    >
+      <button
+        type="button"
+        className="nf-library-open"
+        data-library-document="true"
+        data-library-kind={node.kind}
+        data-doc-status={summary.status}
+        title={
+          summary.status === 'ok'
+            ? node.path
+            : `${node.path}\n${summary.reason ?? ''}`
+        }
+        onClick={() => void openPath(node.path)}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openLibraryMenu(node.path, { x: event.clientX, y: event.clientY });
+        }}
+      >
+        <span className="nf-library-chevron-spacer" aria-hidden="true" />
+        {summary.status === 'ok' ? (
+          node.kind === 'markdown' ? (
+            <FileText
+              size={13}
+              strokeWidth={1.5}
+              className="nf-library-file-icon"
+              aria-hidden="true"
+            />
+          ) : (
+            <FileText size={13} strokeWidth={1.5} aria-hidden="true" />
+          )
+        ) : (
+          <FileWarning
+            size={13}
+            strokeWidth={1.5}
+            className="nf-library-warning-icon"
+            aria-hidden="true"
+          />
+        )}
+        <span className="nf-library-copy">
+          <span className="nf-library-title">{summary.title}</span>
+          {summary.status === 'ok' ? null : (
+            <span className="nf-library-reason" data-doc-reason="true">
+              {summary.reason ?? 'The package could not be read.'}
+            </span>
+          )}
+        </span>
+        {summary.status === 'ok' ? null : (
+          <span className="nf-library-status" data-doc-status-label="true">
+            {recoveryStatusLabel(summary.status)}
+          </span>
+        )}
+        {isOpen ? <span className="nf-open-dot" aria-label="Open" /> : null}
+      </button>
+      <button
+        type="button"
+        className="nf-row-menu"
+        aria-label={`Actions for ${summary.title}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          const rect = event.currentTarget.getBoundingClientRect();
+          openLibraryMenu(node.path, {
+            x: rect.left - 140,
+            y: rect.bottom + 2,
+          });
+        }}
+      >
+        <MoreHorizontal size={14} strokeWidth={1.5} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+function LibraryFolderItem({
+  node,
+  depth,
+  expandedKeys,
+  onToggle,
+  isOpen,
+  activeTab,
+}: {
+  node: LibraryFolderNode;
+  depth: number;
+  expandedKeys: ReadonlySet<string>;
+  onToggle: (relativePath: string) => void;
+  isOpen: (path: string) => boolean;
+  activeTab: string | null;
+}): JSX.Element {
+  const expanded = expandedKeys.has(node.relativePath);
+  return (
+    <div
+      role="treeitem"
+      aria-level={depth}
+      aria-label={`${node.name} folder`}
+      aria-expanded={expanded}
+      className="nf-library-folder-item"
+      data-library-folder="true"
+      data-vault-path={node.path}
+      data-expanded={expanded}
+    >
+      <button
+        type="button"
+        className="nf-library-folder-row"
+        aria-label={node.name}
+        aria-expanded={expanded}
+        style={{ paddingInlineStart: 6 + depth * 14 }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openVaultFolderMenu(node.path, { x: event.clientX, y: event.clientY });
+        }}
+        onClick={() => onToggle(node.relativePath)}
+      >
+        <ChevronRight
+          size={12}
+          strokeWidth={1.5}
+          className={expanded ? 'nf-chevron-open nf-library-folder-chevron' : 'nf-library-folder-chevron'}
+          aria-hidden="true"
+        />
+        <Folder size={13} strokeWidth={1.5} className="nf-library-folder-icon" aria-hidden="true" />
+        <span className="nf-library-title" title={node.path}>
+          {node.name}
+        </span>
+        {node.warning === undefined ? null : (
+          <span
+            className="nf-library-warning-icon"
+            data-library-folder-warning="true"
+            title={node.warning}
+          >
+            <TriangleAlert size={11} strokeWidth={1.5} aria-hidden="true" />
+          </span>
+        )}
+        <span className="nf-row-menu-spacer" aria-hidden="true" />
+      </button>
+      {expanded ? (
+        <div role="group" className="nf-library-children">
+          {node.children.map((child) =>
+            child.kind === 'folder' ? (
+              <LibraryFolderItem
+                key={child.path}
+                node={child}
+                depth={depth + 1}
+                expandedKeys={expandedKeys}
+                onToggle={onToggle}
+                isOpen={isOpen}
+                activeTab={activeTab}
+              />
+            ) : (
+              <LibraryDocumentRow
+                key={child.path}
+                node={child}
+                depth={depth + 1}
+                isOpen={isOpen(child.path)}
+                isActive={activeTab === child.path}
+              />
+            ),
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function LibrarySection(): JSX.Element {
   const library = useShell((state) => state.library);
   const tabs = useShell((state) => state.tabs);
   const activeTab = useShell((state) => state.activeTab);
   const openDialog = useShell((state) => state.openDialog);
+  const expanded = useShell((state) => state.expandedLibraryFolders);
+  const toggleLibraryFolder = useShell((state) => state.toggleLibraryFolder);
+  const activeView = useShell((state) =>
+    state.activeTab === null ? undefined : state.viewByDoc[state.activeTab],
+  );
   const [query, setQuery] = useState('');
 
   const documents = library?.documents ?? [];
+  const tree = library?.tree ?? [];
   const libraryPath = library?.libraryPath ?? '';
   const libraryName = library?.libraryName ?? libraryDisplayName(libraryPath);
   const missing = library?.missing === true;
   const noLibrary = library !== null && libraryPath.length === 0;
+  const filtered = useMemo(() => filterLibraryTree(tree, query), [tree, query]);
+  const searching = query.trim().length > 0;
+  const expandedKeys = useMemo(
+    () => new Set(searching ? folderKeys(filtered) : expanded),
+    [searching, filtered, expanded],
+  );
+  // Vault mutations are refused while a note is open in Read mode (design §6).
+  const vaultEnabled = useMemo(
+    () => libraryMutationsEnabled(),
+    [activeTab, activeView],
+  );
 
-  const filtered = useMemo(() => {
-    const value = query.trim().toLowerCase();
-    if (value.length === 0) return documents;
-    return documents.filter((document) => document.title.toLowerCase().includes(value));
-  }, [documents, query]);
-
-  const tabFor = (packagePath: string): TabInfo | undefined =>
-    tabs.find((tab) => tab.packagePath === packagePath);
+  const openPaths = useMemo(() => new Set(tabs.map((tab) => tab.packagePath)), [tabs]);
+  const isOpen = (path: string): boolean => openPaths.has(path);
 
   const openSwitcher = (anchor: { x: number; y: number }): void => {
     const entries: MenuEntry[] = [];
@@ -158,6 +399,14 @@ function LibrarySection(): JSX.Element {
     }
     entries.push(
       { id: 'sep-library', label: '', separator: true },
+      {
+        id: 'library-new-folder',
+        label: 'New folder…',
+        disabled: missing || noLibrary || !vaultEnabled,
+        ...(vaultEnabled && !missing && !noLibrary
+          ? { onSelect: () => openNewFolderDialog(libraryPath) }
+          : {}),
+      },
       {
         id: 'library-open',
         label: 'Open Folder as Library…',
@@ -212,6 +461,23 @@ function LibrarySection(): JSX.Element {
           <span className="nf-section-count" data-library-count="true">
             {documents.length}
           </span>
+          <button
+            type="button"
+            className="nf-icon-button nf-section-add"
+            data-library-new-folder="true"
+            aria-label={vaultEnabled ? 'New folder' : `New folder — ${READ_MODE_TITLE}`}
+            title={
+              missing || noLibrary
+                ? 'Open a library before creating a folder'
+                : vaultEnabled
+                  ? 'New folder'
+                  : READ_MODE_TITLE
+            }
+            disabled={missing || noLibrary || !vaultEnabled}
+            onClick={() => openNewFolderDialog(libraryPath)}
+          >
+            <FolderPlus size={13} strokeWidth={1.6} aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="nf-icon-button nf-section-add"
@@ -292,91 +558,42 @@ function LibrarySection(): JSX.Element {
             <input
               type="search"
               value={query}
-              placeholder="Filter documents"
-              aria-label="Filter documents"
+              placeholder="Filter library"
+              aria-label="Filter library"
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <div className="nf-library-list" role="list">
+          <div className="nf-library-list" role="tree" aria-label="Library files">
             {filtered.length === 0 ? (
               <p className="nf-empty-line" data-library-empty="true">
-                {documents.length === 0 ? 'No documents yet.' : 'No matching documents.'}
+                {documents.length === 0 && tree.length === 0
+                  ? 'No notes yet. Use + to create one.'
+                  : searching
+                    ? 'No matching entries.'
+                    : 'This folder is empty.'}
               </p>
             ) : (
-              filtered.map((document) => {
-                const tab = tabFor(document.packagePath);
-                const isOpen = tab !== undefined;
-                const isActive = tab?.packagePath === activeTab;
-                return (
-                  <div
-                    key={document.packagePath}
-                    className="nf-library-row"
-                    role="listitem"
-                    data-active={isActive}
-                  >
-                    <button
-                      type="button"
-                      className="nf-library-open"
-                      data-library-document="true"
-                      data-library-kind={document.kind ?? 'note'}
-                      data-doc-status={document.status}
-                      title={
-                        document.status === 'ok'
-                          ? document.packagePath
-                          : `${document.packagePath}\n${document.reason ?? ''}`
-                      }
-                      onClick={() => void openPath(document.packagePath)}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        openLibraryMenu(document.packagePath, {
-                          x: event.clientX,
-                          y: event.clientY,
-                        });
-                      }}
-                    >
-                      {document.status === 'ok' ? (
-                        <FileText size={13} strokeWidth={1.5} aria-hidden="true" />
-                      ) : (
-                        <FileWarning
-                          size={13}
-                          strokeWidth={1.5}
-                          className="nf-library-warning-icon"
-                          aria-hidden="true"
-                        />
-                      )}
-                      <span className="nf-library-copy">
-                        <span className="nf-library-title">{document.title}</span>
-                        {document.status === 'ok' ? null : (
-                          <span className="nf-library-reason" data-doc-reason="true">
-                            {document.reason ?? 'The package could not be read.'}
-                          </span>
-                        )}
-                      </span>
-                      {document.status === 'ok' ? null : (
-                        <span className="nf-library-status" data-doc-status-label="true">
-                          {recoveryStatusLabel(document.status)}
-                        </span>
-                      )}
-                      {isOpen ? <span className="nf-open-dot" aria-label="Open" /> : null}
-                    </button>
-                    <button
-                      type="button"
-                      className="nf-row-menu"
-                      aria-label={`Actions for ${document.title}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        const rect = event.currentTarget.getBoundingClientRect();
-                        openLibraryMenu(document.packagePath, {
-                          x: rect.left - 140,
-                          y: rect.bottom + 2,
-                        });
-                      }}
-                    >
-                      <MoreHorizontal size={14} strokeWidth={1.5} aria-hidden="true" />
-                    </button>
-                  </div>
-                );
-              })
+              filtered.map((node) =>
+                node.kind === 'folder' ? (
+                  <LibraryFolderItem
+                    key={node.path}
+                    node={node}
+                    depth={1}
+                    expandedKeys={expandedKeys}
+                    onToggle={toggleLibraryFolder}
+                    isOpen={isOpen}
+                    activeTab={activeTab}
+                  />
+                ) : (
+                  <LibraryDocumentRow
+                    key={node.path}
+                    node={node}
+                    depth={1}
+                    isOpen={isOpen(node.path)}
+                    isActive={activeTab === node.path}
+                  />
+                ),
+              )
             )}
           </div>
         </>

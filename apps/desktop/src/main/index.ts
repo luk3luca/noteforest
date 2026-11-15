@@ -36,6 +36,7 @@ import {
   createDocument,
   createDraftSession,
   createLibraryRoot,
+  createVaultFolder,
   defaultRestoreDestination,
   dirtyDocuments,
   discardAllDraftSessions,
@@ -46,12 +47,15 @@ import {
   listBackups,
   locateLibraryRoot,
   materializeDraftSession,
+  moveVaultEntry,
   openDocument,
   openLibraryPath,
   readSettings,
+  refreshLibrary,
   reloadDocument,
   removeMissingDocument,
   removeRecentLibraryRoot,
+  renameVaultFolder,
   resetDocumentSettingsMap,
   resetSettings,
   restoreBackup,
@@ -427,7 +431,12 @@ function registerIpc(): void {
     else event.sender.paste();
   });
 
-  ipcMain.handle('library:scan', (_event, root?: string) => scanLibrary(root));
+  // The renderer asks for a scan only on an explicit action (bootstrap is
+  // separate, Refresh goes through `library:refresh`), so it never sees a
+  // cached title or tree from before its own mutation.
+  ipcMain.handle('library:scan', (_event, root?: string) =>
+    scanLibrary(root, { force: true }),
+  );
 
   ipcMain.handle('library:open', async () => {
     const folder = await chooseLibraryDirectory('Open folder as library', 'Open Library');
@@ -492,7 +501,51 @@ function registerIpc(): void {
     }
   });
 
-  ipcMain.handle('library:refresh', () => scanLibrary());
+  ipcMain.handle('library:refresh', () => refreshLibrary());
+
+  ipcMain.handle('vault:create-folder', (_event, input: unknown) => {
+    if (typeof input !== 'object' || input === null) {
+      return { ok: false as const, code: 'invalid-name' as const, message: 'Enter a folder name.' };
+    }
+    const candidate = input as { parentPath?: unknown; name?: unknown };
+    return createVaultFolder({
+      parentPath: typeof candidate.parentPath === 'string' ? candidate.parentPath : '',
+      name: typeof candidate.name === 'string' ? candidate.name : '',
+    });
+  });
+
+  ipcMain.handle('vault:rename-folder', (_event, folderPath: unknown, name: unknown) => {
+    if (typeof folderPath !== 'string' || folderPath.length === 0) {
+      return { ok: false as const, code: 'not-found' as const, message: 'No folder path was provided.' };
+    }
+    return renameVaultFolder(folderPath, typeof name === 'string' ? name : '');
+  });
+
+  ipcMain.handle('vault:move', (_event, input: unknown) => {
+    if (typeof input !== 'object' || input === null) {
+      return { ok: false as const, code: 'not-found' as const, message: 'No entry was chosen.' };
+    }
+    const candidate = input as { sourcePath?: unknown; targetFolderPath?: unknown };
+    return moveVaultEntry({
+      sourcePath: typeof candidate.sourcePath === 'string' ? candidate.sourcePath : '',
+      targetFolderPath:
+        typeof candidate.targetFolderPath === 'string' ? candidate.targetFolderPath : '',
+    });
+  });
+
+  ipcMain.handle(
+    'vault:reveal',
+    async (_event, target: unknown): Promise<RevealResult> => {
+      if (typeof target !== 'string' || target.length === 0) {
+        return { ok: false, message: 'No path was provided.' };
+      }
+      if (!(await isInsideKnownLibrary(target))) {
+        return { ok: false, message: 'That item is outside the known NoteForest libraries.' };
+      }
+      shell.showItemInFolder(target);
+      return { ok: true };
+    },
+  );
 
   ipcMain.handle('library:create', (_event, input: { title?: string }) =>
     createDocument(input ?? {}),
@@ -633,7 +686,7 @@ function registerIpc(): void {
       base,
       overwriteExternal: candidate.overwriteExternal === true,
     };
-    return saveMarkdownFile(saveInput);
+    return saveMarkdownFile(saveInput, { appSupportDir: appSupportDir() });
   });
 
   ipcMain.handle('markdown:resolve-image', (_event, filePath: unknown, source: unknown) => {

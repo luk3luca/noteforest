@@ -5,10 +5,11 @@
  * folder as the confined image root. Nothing here creates a NoteForest package,
  * lock, revision, recent entry, or Page setting.
  *
- * M2 owns the write path: an atomic temp→rename save, one `.md.bak` with the
- * previous bytes, and a re-stat conflict check against the fingerprint recorded
- * on open/after each save. A file that changed outside the app is never
- * overwritten without the explicit Overwrite choice.
+ * M2 owns the write path: an atomic temp→rename save, one previous copy in
+ * app support (`backups/markdown/<sha256(path)>/previous.md`), and a re-stat
+ * conflict check against the fingerprint recorded on open/after each save. A
+ * file that changed outside the app is never overwritten without the explicit
+ * Overwrite choice.
  *
  * This module has no Electron import so its size guard, path containment,
  * image resolution, and save rules can be unit-tested in plain Node.
@@ -17,6 +18,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { defaultAppSupportDir } from '@noteforest/core/node';
 import {
   MAX_MARKDOWN_BYTES,
   classifyMarkdownImageSource,
@@ -32,6 +34,7 @@ import type {
   MarkdownSaveResult,
 } from '../shared/api.js';
 import { imageMimeFromName, MAX_IMAGE_BYTES } from '../shared/images.js';
+import { writeMarkdownBackup } from './markdown-backup.js';
 import {
   markdownAssetUrl,
   type MarkdownAssetResolution,
@@ -252,14 +255,28 @@ async function writeMarkdownAtomic(
  * Steps, in order:
  * 1. canonicalize and stat; a missing file is `missing` and is never recreated;
  * 2. read the current bytes and compare size/hash/mtime with `base`;
- * 3. write one `.<name>.bak` (the exact previous bytes) atomically;
+ * 3. write the one previous copy in app support (never a `.md.bak` in the vault);
  * 4. write the new bytes to a temp file, fsync, re-stat, rename.
  *
  * A changed base (or a change detected just before rename) is a conflict; the
  * caller must ask Reload / Overwrite / Cancel. `overwriteExternal` is sent only
  * by the explicit Overwrite choice.
  */
-export async function saveMarkdownFile(input: MarkdownSaveInput): Promise<MarkdownSaveResult> {
+export interface MarkdownSaveOptions {
+  /** App-support root for the one previous copy; defaults to the app's own. */
+  appSupportDir?: string;
+  /** Injected ISO save time for deterministic tests. */
+  savedAt?: string;
+}
+
+function resolveMarkdownAppSupport(options: MarkdownSaveOptions): string {
+  return options.appSupportDir ?? process.env['NOTEFOREST_APP_SUPPORT'] ?? defaultAppSupportDir();
+}
+
+export async function saveMarkdownFile(
+  input: MarkdownSaveInput,
+  options: MarkdownSaveOptions = {},
+): Promise<MarkdownSaveResult> {
   if (!path.isAbsolute(input.path)) {
     return saveFailure('unknown', 'The Markdown path is not absolute.');
   }
@@ -315,11 +332,16 @@ export async function saveMarkdownFile(input: MarkdownSaveInput): Promise<Markdo
     return { ok: true, base: currentFingerprint, unchanged: true };
   }
 
-  // One backup with the exact previous bytes; no rotating history.
-  try {
-    await writeMarkdownAtomic(`${realPath}.bak`, current, stats.mode);
-  } catch (error) {
-    return mapWriteError(error);
+  // One previous copy in app support; the vault never gets a `.md.bak`.
+  const backup = await writeMarkdownBackup({
+    appSupportDir: resolveMarkdownAppSupport(options),
+    filePath: realPath,
+    bytes: current,
+    mtimeMs: stats.mtimeMs,
+    savedAt: options.savedAt ?? new Date().toISOString(),
+  });
+  if (!backup.ok) {
+    return saveFailure('unknown', backup.message);
   }
 
   try {

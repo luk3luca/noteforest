@@ -81,10 +81,16 @@ describe('library recovery statuses', () => {
     );
 
     const missingPath = path.join(library, 'missing-note');
-    await fs.mkdir(missingPath, { recursive: true });
+    // Phase 3: a missing package is only a folder that looks like a package
+    // (assets/ or a .noteforest marker) with no document.json. An arbitrary
+    // folder is a folder, never a MISSING note.
+    await fs.mkdir(path.join(missingPath, 'assets'), { recursive: true });
+    const plainFolderPath = path.join(library, 'plain-folder');
+    await fs.mkdir(plainFolderPath, { recursive: true });
 
     const view = await scanLibrary();
     const byPath = new Map(view.documents.map((document) => [document.packagePath, document]));
+    const folderNames = view.tree.map((node) => `${node.kind}:${node.name}`);
 
     expect(byPath.get(valid.packagePath)).toMatchObject({
       status: 'ok',
@@ -110,6 +116,8 @@ describe('library recovery statuses', () => {
       title: 'missing-note',
       reason: expect.stringMatching(/document\.json is missing/),
     });
+    expect(byPath.get(plainFolderPath)).toBeUndefined();
+    expect(folderNames).toContain('folder:plain-folder');
     expect(view.warnings).toEqual([]);
   });
 

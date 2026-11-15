@@ -353,8 +353,8 @@ export async function syncActiveLibraryForPath(packagePath: string): Promise<voi
     // Materialization adds a package the last scan did not see; activation of a
     // known row is a no-op.
     if (!library.documents.some((document) => document.packagePath === packagePath)) {
-      const scanned = await window.noteforest.refreshLibrary();
-      shell().setLibrary(scanned);
+      const refreshed = await window.noteforest.refreshLibrary();
+      if (refreshed.ok) await applyLibraryResult(refreshed);
     }
     return;
   }
@@ -426,8 +426,12 @@ export async function locateLibrary(missingPath: string): Promise<void> {
 }
 
 export async function refreshLibrary(): Promise<void> {
-  const library = await window.noteforest.refreshLibrary();
-  shell().setLibrary(library);
+  const result = await window.noteforest.refreshLibrary();
+  if (!result.ok) {
+    toast.error(result.message);
+    return;
+  }
+  await applyLibraryResult(result);
 }
 
 export async function revealLibraryPath(libraryPath?: string): Promise<void> {
@@ -890,6 +894,45 @@ export async function requestTrashDocument(packagePath: string): Promise<void> {
 /** Confirmed Move to Trash: flush first, then the main-process OS Trash move. */
 export async function confirmTrashDocument(preflight: TrashPreflight): Promise<void> {
   const packagePath = preflight.packagePath;
+  // A plain folder and a `.md` guest file have no package runtime of their own;
+  // every open tab underneath is saved and closed before the OS move.
+  if (preflight.kind === 'folder' || preflight.kind === 'markdown') {
+    const contained = (shell().library?.documents ?? []).filter((document) =>
+      isPathInside(packagePath, document.packagePath),
+    );
+    if (preflight.kind === 'folder') {
+      const closed = await closeTabsForVaultChange(packagePath);
+      if (closed === null) return;
+      const result = await window.noteforest.trashDocument(packagePath);
+      if (!result.ok) {
+        toast.error(result.message);
+        await reopenMovedTabs(closed, []);
+        return;
+      }
+      shell().setLibrary(result.library);
+      for (const document of contained) {
+        useSettingsStore
+          .getState()
+          .forgetDocumentSettings(
+            document.documentId,
+            document.packagePath,
+            sharedDocumentIdPaths(document.documentId, document.packagePath),
+          );
+      }
+    } else {
+      const result = await window.noteforest.trashDocument(packagePath);
+      if (!result.ok) {
+        toast.error(result.message);
+        return;
+      }
+      shell().setLibrary(result.library);
+      cancelMarkdownAutosave(packagePath);
+      useMarkdownFiles.getState().closeFile(packagePath);
+      shell().closeTab(packagePath);
+    }
+    toast.success(`Moved “${preflight.title}” to the Trash`);
+    return;
+  }
   const runtime = getRuntime(packagePath);
   if (runtime !== null) {
     // An open Page Edit is not in the runtime until it commits.
@@ -966,6 +1009,248 @@ export async function confirmRemoveMissingDocument(preflight: TrashPreflight): P
   if (getRuntime(preflight.packagePath) !== null) removeRuntime(preflight.packagePath);
   shell().closeTab(preflight.packagePath);
   toast.success(`Removed “${preflight.title}” from recents`);
+}
+
+/* ------------------------------------------------- vault entries (phase 3) */
+
+/**
+ * Vault mutations (folder create/rename/move/trash, note/Markdown move) are
+ * app-level actions, but the Library tree is a navigation surface in Read mode
+ * (design §6): while a note is open in Read they are refused with the shared
+ * reason. A Markdown guest tab and the no-document state never block them.
+ */
+export function libraryMutationsEnabled(): boolean {
+  const path = shell().activeTab;
+  if (path === null || isMarkdownPath(path)) return true;
+  const runtime = getRuntime(path);
+  if (runtime === null) return true;
+  return editingEnabledFor(runtime, shell().viewByDoc[path]);
+}
+
+function vaultMutationBlocked(): boolean {
+  if (libraryMutationsEnabled()) return false;
+  toast.info(READ_MODE_TOAST);
+  return true;
+}
+
+interface ClosedVaultTab {
+  path: string;
+  kind: 'note' | 'markdown';
+  active: boolean;
+}
+
+/**
+ * Flush and close every open note/guest tab at or under one path before a
+ * vault move or trash. Returns the closed tabs (to reopen when the operation is
+ * refused) or null when a save refused the change.
+ */
+async function closeTabsForVaultChange(targetPath: string): Promise<ClosedVaultTab[] | null> {
+  const affected = shell().tabs.filter((tab) => isPathInside(targetPath, tab.packagePath));
+  if (affected.length > 0) {
+    await flushPendingSettingsEdits();
+    const settings = await flushSettingsWrites();
+    if (!settings.ok) {
+      toast.error(settings.message);
+      return null;
+    }
+  }
+  const closed: ClosedVaultTab[] = [];
+  const activeBefore = shell().activeTab;
+  for (const tab of affected) {
+    const path = tab.packagePath;
+    if (isMarkdownPath(path)) {
+      cancelMarkdownAutosave(path);
+      const entry = markdownEntry(path);
+      if (entry !== null && entry.dirty) {
+        const outcome = await saveMarkdownNow(path, { manual: true });
+        if (outcome.status !== 'saved' && outcome.status !== 'clean') {
+          toast.error(
+            outcome.status === 'conflict'
+              ? 'This Markdown file changed outside NoteForest. Resolve it before moving the file.'
+              : outcome.status === 'missing'
+                ? 'This Markdown file is no longer on disk. Nothing was written.'
+                : outcome.message,
+          );
+          return null;
+        }
+      }
+      useMarkdownFiles.getState().closeFile(path);
+      shell().closeTab(path);
+      closed.push({ path, kind: 'markdown', active: activeBefore === path });
+      continue;
+    }
+    const runtime = getRuntime(path);
+    if (runtime !== null) {
+      // An open Page Edit is not in the runtime until it commits.
+      if (!(await commitPageEdit(path))) {
+        toast.error('Could not commit the Page Edit block before moving.');
+        return null;
+      }
+      await runtime.flush();
+      if (runtime.saveState === 'error') {
+        toast.error(runtime.saveError ?? 'Could not save before moving.');
+        return null;
+      }
+      await window.noteforest.closeDocument(path, { save: false });
+      removeRuntime(path);
+    }
+    shell().closeTab(path);
+    closed.push({ path, kind: 'note', active: activeBefore === path });
+  }
+  return closed;
+}
+
+/** Reopen the tabs a refused/finished vault change closed, at their new paths. */
+async function reopenMovedTabs(
+  closed: readonly ClosedVaultTab[],
+  moves: ReadonlyArray<{ from: string; to: string }>,
+): Promise<void> {
+  const mapping = new Map(moves.map((move) => [move.from, move.to]));
+  let active: string | null = null;
+  for (const tab of closed) {
+    const target = mapping.get(tab.path) ?? (moves.length === 0 ? tab.path : null);
+    if (target === null) continue;
+    if (tab.kind === 'markdown') await openMarkdownPath(target);
+    else await openPath(target);
+    if (tab.active) active = target;
+  }
+  if (active !== null) shell().setActiveTab(active);
+}
+
+export async function revealVaultPath(targetPath: string): Promise<void> {
+  const result = await window.noteforest.revealVaultEntry(targetPath);
+  if (!result.ok) toast.error(result.message ?? 'Could not reveal this item.');
+}
+
+export async function createVaultFolder(parentPath: string, name: string): Promise<boolean> {
+  if (vaultMutationBlocked()) return false;
+  const result = await window.noteforest.createVaultFolder({ parentPath, name });
+  if (!result.ok) {
+    toast.error(result.message);
+    return false;
+  }
+  shell().setLibrary(result.library);
+  return true;
+}
+
+export async function renameVaultFolder(folderPath: string, name: string): Promise<boolean> {
+  if (vaultMutationBlocked()) return false;
+  const closed = await closeTabsForVaultChange(folderPath);
+  if (closed === null) return false;
+  const result = await window.noteforest.renameVaultFolder(folderPath, name);
+  if (!result.ok) {
+    toast.error(result.message);
+    await reopenMovedTabs(closed, []);
+    return false;
+  }
+  shell().setLibrary(result.library);
+  await reopenMovedTabs(closed, result.moves);
+  return true;
+}
+
+export async function moveVaultEntryTo(
+  sourcePath: string,
+  targetFolderPath: string,
+): Promise<boolean> {
+  if (vaultMutationBlocked()) return false;
+  const closed = await closeTabsForVaultChange(sourcePath);
+  if (closed === null) return false;
+  const result = await window.noteforest.moveVaultEntry({ sourcePath, targetFolderPath });
+  if (!result.ok) {
+    toast.error(result.message);
+    await reopenMovedTabs(closed, []);
+    return false;
+  }
+  shell().setLibrary(result.library);
+  await reopenMovedTabs(closed, result.moves);
+  return true;
+}
+
+export function openNewFolderDialog(parentPath: string): void {
+  if (vaultMutationBlocked()) return;
+  shell().openDialog({ kind: 'new-folder', parentPath });
+}
+
+export function openRenameFolderDialog(folderPath: string, name: string): void {
+  if (vaultMutationBlocked()) return;
+  shell().openDialog({ kind: 'rename-folder', path: folderPath, name });
+}
+
+export function openMoveVaultEntryDialog(entry: {
+  path: string;
+  name: string;
+  entryKind: 'folder' | 'note' | 'markdown';
+}): void {
+  if (vaultMutationBlocked()) return;
+  shell().openDialog({
+    kind: 'move-vault-entry',
+    path: entry.path,
+    name: entry.name,
+    entryKind: entry.entryKind,
+  });
+}
+
+/**
+ * Folder row context menu (phase 3). Folder mutations are disabled in Read mode
+ * with the shared reason; Reveal stays available (navigation only).
+ */
+export function openVaultFolderMenu(
+  folderPath: string,
+  anchor: { x: number; y: number },
+): void {
+  const enabled = libraryMutationsEnabled();
+  const suffix = enabled ? '' : READ_MODE_SUFFIX;
+  shell().openContextMenu(anchor.x, anchor.y, [
+    {
+      id: 'vault-new-folder',
+      label: `New folder…${suffix}`,
+      disabled: !enabled,
+      ...(enabled
+        ? { onSelect: () => openNewFolderDialog(folderPath) }
+        : {}),
+    },
+    {
+      id: 'vault-rename-folder',
+      label: `Rename folder…${suffix}`,
+      disabled: !enabled,
+      ...(enabled
+        ? {
+            onSelect: () =>
+              openRenameFolderDialog(folderPath, folderPath.split('/').at(-1) ?? ''),
+          }
+        : {}),
+    },
+    {
+      id: 'vault-move-folder',
+      label: `Move to folder…${suffix}`,
+      disabled: !enabled,
+      ...(enabled
+        ? {
+            onSelect: () =>
+              openMoveVaultEntryDialog({
+                path: folderPath,
+                name: folderPath.split('/').at(-1) ?? '',
+                entryKind: 'folder',
+              }),
+          }
+        : {}),
+    },
+    { id: 'sep-vault', label: '', separator: true },
+    {
+      id: 'vault-reveal',
+      label: 'Reveal in Finder',
+      onSelect: () => void revealVaultPath(folderPath),
+    },
+    {
+      id: 'vault-trash-folder',
+      label: `Move to Trash…${suffix}`,
+      danger: true,
+      disabled: !enabled,
+      ...(enabled
+        ? { onSelect: () => void requestTrashDocument(folderPath) }
+        : {}),
+    },
+  ]);
 }
 
 export function focusBlock(packagePath: string, blockId: string): void {
@@ -1699,6 +1984,7 @@ export function openLibraryMenu(
   );
   if (entry?.kind === 'markdown') {
     const tab = shell().tabs.find((item) => item.packagePath === packagePath);
+    const vaultEnabled = libraryMutationsEnabled();
     shell().openContextMenu(anchor.x, anchor.y, [
       {
         id: 'open',
@@ -1713,6 +1999,21 @@ export function openLibraryMenu(
             if (!result.ok) toast.error(result.message ?? 'Could not reveal the Markdown file.');
           });
         },
+      },
+      {
+        id: 'move',
+        label: `Move to folder…${vaultEnabled ? '' : READ_MODE_SUFFIX}`,
+        disabled: !vaultEnabled,
+        ...(vaultEnabled
+          ? {
+              onSelect: () =>
+                openMoveVaultEntryDialog({
+                  path: packagePath,
+                  name: packagePath.split('/').at(-1) ?? '',
+                  entryKind: 'markdown',
+                }),
+            }
+          : {}),
       },
       ...(tab === undefined
         ? []
@@ -1732,6 +2033,7 @@ export function openLibraryMenu(
   const missing = entry?.status === 'missing';
   const runtime = getRuntime(packagePath);
   const renameEnabled = editable && (runtime === null || runtime.editable);
+  const vaultEnabled = libraryMutationsEnabled();
   shell().openContextMenu(anchor.x, anchor.y, [
     {
       id: 'open',
@@ -1769,6 +2071,25 @@ export function openLibraryMenu(
           },
         ]
       : []),
+    ...(missing
+      ? []
+      : [
+          {
+            id: 'move',
+            label: `Move to folder…${vaultEnabled ? '' : READ_MODE_SUFFIX}`,
+            disabled: !vaultEnabled,
+            ...(vaultEnabled
+              ? {
+                  onSelect: () =>
+                    openMoveVaultEntryDialog({
+                      path: packagePath,
+                      name: entry?.title ?? (packagePath.split('/').at(-1) ?? ''),
+                      entryKind: 'note',
+                    }),
+                }
+              : {}),
+          },
+        ]),
     { id: 'sep-document', label: '', separator: true },
     ...(missing
       ? [

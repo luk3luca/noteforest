@@ -34,6 +34,7 @@ import { coreError } from '../errors.js';
 import { parseDocumentJson } from '../serialize.js';
 import type { Document } from '../types.js';
 import { documentStats } from '../types.js';
+import { scanVaultTree, type VaultScan, type VaultScanOptions } from './vault.js';
 
 export type DocumentPackageStatus = 'ok' | 'missing' | 'unreadable' | 'newer-schema';
 
@@ -132,6 +133,12 @@ export interface DocumentRepository {
   ): Promise<RecoveryCandidate[]>;
   /** Validate and summarize every package folder in a library; never writes. */
   list(libraryDir: string): Promise<DocumentPackageList>;
+  /**
+   * Recursive vault scan: folders, note packages, and Markdown guest files in
+   * one deterministic tree. Read-only, never takes a lock, never follows a
+   * symlink.
+   */
+  scanVault(libraryDir: string, options?: VaultScanOptions): Promise<VaultScan>;
   /** The open store for a package, or null. */
   get(packagePath: string): DocumentStore | null;
   /** Release the lock and forget the store; optionally save first. */
@@ -429,6 +436,10 @@ export class NodeDocumentRepository implements DocumentRepository {
 
     documents.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
     return { libraryPath: directory, documents, warnings };
+  }
+
+  async scanVault(libraryDir: string, options: VaultScanOptions = {}): Promise<VaultScan> {
+    return scanVaultTree(libraryDir, options);
   }
 
   async close(packagePath: string, options: RepositoryCloseOptions = {}): Promise<void> {
