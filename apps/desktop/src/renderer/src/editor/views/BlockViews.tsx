@@ -1180,9 +1180,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
     return warnings;
   }, [bindings, blockId, runtimeVersion]);
 
-  // Reference chips are a DOM overlay, never an in-flow card footer. The card
-  // box is therefore identical with and without references, which keeps the
-  // layout-neutral invariant testable in the editor as well as in packages/layout.
+  // Reference chips read the canonical reference edges of this block.
   const referenceChips = useMemo<ReferenceChipGroups>(() => {
     if (bindings === null) return { seeAlso: [], referencedBy: [] };
     const runtimeDocument = bindings.runtime.document;
@@ -1216,6 +1214,13 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
 
   const referenceChipCount =
     referenceChips.seeAlso.length + referenceChips.referencedBy.length;
+
+  // Card chrome (S2.2, `docs/design/card-chrome.md`): one bottom row inside the
+  // card, present only when there is something to show. Order is the block's
+  // own anchor state first, then the reference chips; the row wraps. The
+  // previous chips were absolute overlays that floated over the card edge and
+  // the next card.
+  const chromeRow = anchorWarnings.length > 0 || referenceChipCount > 0;
 
   const focusReferenceChip = (chip: ReferenceChipInfo): void => {
     if (bindings === null) return;
@@ -1387,8 +1392,32 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
         </div>
       ) : null}
       <NodeViewContent className="nf-block-prose" />
-      {referenceChipCount > 0 ? (
-        <div className="nf-ref-chips" contentEditable={false} data-ref-chips={blockId}>
+      {chromeRow ? (
+        <div className="nf-block-chrome" contentEditable={false} data-block-chrome={blockId}>
+          {anchorWarnings.length > 0 ? (
+            <button
+              type="button"
+              className="nf-anchor-warning"
+              data-anchor-warning={anchorWarnings[0]?.anchorId ?? ''}
+              data-anchor-state={anchorWarnings[0]?.state ?? ''}
+              aria-label={`${anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}. Open document health to repair.`}
+              title={
+                anchorWarnings[0] === undefined
+                  ? 'Open document health'
+                  : `${anchorHealthReason(anchorWarnings[0].reason)} Open document health to repair; the branch and target stay.`
+              }
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const first = anchorWarnings[0];
+                if (first === undefined) return;
+                openDocumentHealth({ anchorId: first.anchorId });
+              }}
+            >
+              <TriangleAlert size={12} strokeWidth={1.5} aria-hidden="true" />
+              {anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}
+            </button>
+          ) : null}
           {referenceChips.seeAlso.map((chip) => (
             <button
               key={`see-${chip.branchId}`}
@@ -1445,31 +1474,6 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
             </button>
           ))}
         </div>
-      ) : null}
-      {anchorWarnings.length > 0 ? (
-        <button
-          type="button"
-          className="nf-anchor-warning"
-          contentEditable={false}
-          data-anchor-warning={anchorWarnings[0]?.anchorId ?? ''}
-          data-anchor-state={anchorWarnings[0]?.state ?? ''}
-          aria-label={`${anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}. Open document health to repair.`}
-          title={
-            anchorWarnings[0] === undefined
-              ? 'Open document health'
-              : `${anchorHealthReason(anchorWarnings[0].reason)} Open document health to repair; the branch and target stay.`
-          }
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const first = anchorWarnings[0];
-            if (first === undefined) return;
-            openDocumentHealth({ anchorId: first.anchorId });
-          }}
-        >
-          <TriangleAlert size={12} strokeWidth={1.5} aria-hidden="true" />
-          {anchorWarnings[0]?.state === 'ambiguous' ? 'Ambiguous anchor' : 'Lost anchor'}
-        </button>
       ) : null}
       {readOnly ? null : (
         <>

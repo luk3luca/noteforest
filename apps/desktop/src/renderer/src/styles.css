@@ -1590,7 +1590,7 @@ button:disabled {
   flex: 0 0 auto;
   padding: 0 4px;
   border: 1px solid var(--border-1);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   color: var(--text-3);
   font-size: calc(9.5px * var(--ui-scale));
   line-height: 1.5;
@@ -1611,14 +1611,17 @@ button:disabled {
 
 .nf-tree-shared {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
   padding: 0 5px;
   border: 1px dashed var(--border-2);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-3);
   font-family: var(--ui-font);
   font-size: calc(9.5px * var(--ui-scale));
-  line-height: 1.5;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -2194,12 +2197,16 @@ button:disabled {
 
 .nf-recovery-pill {
   flex: none;
-  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
   border: 1px solid var(--border-1);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: var(--surface-1);
   color: var(--warning);
   font-size: calc(10.5px * var(--ui-scale));
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -2787,23 +2794,36 @@ button:disabled {
   visibility: hidden;
 }
 
+/* Card chrome (S2.2, `docs/design/card-chrome.md` §1): one bottom row inside
+   the card. It is in flow, so a card with a state or a reference grows by one
+   row and nothing is absolutely positioned over the card edge or the next
+   card. Order is state first, then references; the row wraps. */
+.nf-block-chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 6px;
+}
+
 .nf-anchor-warning {
-  position: absolute;
-  right: 6px;
-  bottom: -10px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 5px;
+  flex: 0 1 auto;
+  max-width: 100%;
+  height: 20px;
+  padding: 0 6px;
   border: 1px solid var(--warning);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: var(--surface-2);
   color: var(--warning);
   font-family: var(--ui-font);
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 10.5px;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  z-index: 2;
 }
 
 .nf-anchor-warning:hover {
@@ -2815,35 +2835,23 @@ button:disabled {
   outline-offset: 1px;
 }
 
-/* Reference chips (M3d1). Absolutely positioned so adding or removing a
-   reference never changes a card rectangle: the layout-neutral invariant is
-   observable in the editor, not only in packages/layout. */
-.nf-ref-chips {
-  position: absolute;
-  right: 6px;
-  top: calc(100% + 2px);
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 3px;
-  max-width: calc(100% - 12px);
-  z-index: 3;
-  pointer-events: auto;
-}
-
+/* Reference chips (M3d1) live in the card's chrome row. See also keeps the
+   dashed border and Referenced by the solid one: a non-colour cue. */
 .nf-ref-chip {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 3px;
+  flex: 0 1 auto;
   max-width: 174px;
-  padding: 1px 5px;
+  height: 20px;
+  padding: 0 6px;
   border: 1px dashed var(--border-2);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: var(--surface-2);
   color: var(--text-2);
   font-family: var(--ui-font);
-  font-size: 9.5px;
-  line-height: 1.5;
+  font-size: 10.5px;
+  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   overflow: hidden;
@@ -3217,13 +3225,16 @@ button:disabled {
   position: absolute;
   top: 8px;
   left: 8px;
-  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
   border: 1px solid var(--border-2);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 10px;
-  line-height: 1.5;
+  line-height: 1;
   pointer-events: none;
 }
 
@@ -3274,13 +3285,16 @@ button:disabled {
 }
 
 .nf-image-action {
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
   border: 1px solid var(--border-1);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1;
 }
 
 .nf-image-action:hover {
@@ -3824,13 +3838,14 @@ body.nf-dragging-block .nf-gutter-handle {
   align-items: center;
   gap: 3px;
   flex: 0 0 auto;
-  padding: 0 5px;
+  height: 20px;
+  padding: 0 6px;
   border: 1px solid var(--warning);
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   color: var(--warning);
   font-family: var(--ui-font);
-  font-size: 10px;
-  line-height: 1.6;
+  font-size: 10.5px;
+  line-height: 1;
 }
 
 /* ------------------------------------------------------------------- edges */
@@ -7546,7 +7561,7 @@ body.nf-dragging-block .nf-gutter-handle {
   top: 2px;
   right: 2px;
   padding: 1px 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-control);
   font-size: var(--nf-page-marker-size);
   line-height: 1.3;
   pointer-events: none;

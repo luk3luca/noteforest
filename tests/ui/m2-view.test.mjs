@@ -338,7 +338,7 @@ describe('NoteForest M2 view controls', () => {
     assert.ok(geometry !== null);
     assert.deepEqual(geometry.vars, {
       canvasMax: '3200px',
-      canvasPadX: '8px',
+      canvasPadX: '24px',
       canvasPadTop: '6px',
       canvasPadBottom: '8px',
       chapterGap: '28px',
@@ -359,9 +359,10 @@ describe('NoteForest M2 view controls', () => {
     assert.deepEqual(geometry.canvas, {
       maxWidth: '3200px',
       paddingTop: '6px',
-      paddingRight: '8px',
+      // S2.2: the inset covers the 16 px gutter and the drag handle.
+      paddingRight: '24px',
       paddingBottom: '8px',
-      paddingLeft: '8px',
+      paddingLeft: '24px',
     });
     assert.equal(geometry.chapterGap, '28px', 'chapter gap comes from --nf-chapter-gap');
     assert.equal(geometry.groupGap, '24px', 'right group gap comes from --nf-child-gap');
@@ -442,9 +443,10 @@ describe('NoteForest M2 view controls', () => {
     });
     assert.deepEqual(narrow, {
       paddingTop: '6px',
-      paddingRight: '8px',
+      // 960 px wide is the medium step: 20 px lateral inset.
+      paddingRight: '20px',
       paddingBottom: '8px',
-      paddingLeft: '8px',
+      paddingLeft: '20px',
       mediumBottom: '8px',
       compactBottom: '8px',
       chapterGap: '28px',

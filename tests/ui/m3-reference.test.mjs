@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
-import { addTopLevelBlock, textDoc } from '../support/fixtures.mjs';
+import { addAnchor, addBranch, addTopLevelBlock, textDoc } from '../support/fixtures.mjs';
 
 const tempRoot = artifactsPath('m3d1-ui');
 const ui = createUiSession({ tempRoot });
@@ -36,10 +36,6 @@ function primarySnapshot(state) {
       .filter((branch) => branch.role === 'primary')
       .sort((left, right) => (left.id < right.id ? -1 : 1)),
   };
-}
-
-function cardsByWidth(snapshot) {
-  return new Map(snapshot.cards.map((card) => [card.id, card]));
 }
 
 async function fitWidthFromTopBar() {
@@ -162,6 +158,117 @@ function referenceBranchFrom(state, sourceId, targetId) {
   );
 }
 
+/** Card rectangles that intersect: nothing may float over another card. */
+function overlappingCards(cards) {
+  const overlaps = [];
+  for (let left = 0; left < cards.length; left += 1) {
+    for (let right = left + 1; right < cards.length; right += 1) {
+      const a = cards[left];
+      const b = cards[right];
+      const horizontal = a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5;
+      const vertical = a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5;
+      if (horizontal && vertical) overlaps.push(`${a.id} ∩ ${b.id}`);
+    }
+  }
+  return overlaps;
+}
+
+/** The in-flow height one card's chrome row contributes (row + its margin). */
+async function chromeRowHeights(ids) {
+  return page.evaluate((blockIds) => {
+    const heights = {};
+    for (const id of blockIds) {
+      const card = document.querySelector(
+        `.nf-editor[data-active="true"] [data-block-card="${id}"]`,
+      );
+      const row = card?.querySelector('[data-block-chrome]');
+      if (row === null || row === undefined) continue;
+      heights[id] =
+        row.getBoundingClientRect().height +
+        (Number.parseFloat(getComputedStyle(row).marginTop) || 0);
+    }
+    return heights;
+  }, ids);
+}
+
+/** Which cards currently render a chrome row. */
+async function cardsWithChrome(cards) {
+  return page.evaluate((ids) => {
+    const found = new Set();
+    for (const id of ids) {
+      const card = document.querySelector(
+        `.nf-editor[data-active="true"] [data-block-card="${id}"]`,
+      );
+      if (card !== null && card.querySelector('[data-block-chrome]') !== null) {
+        found.add(id);
+      }
+    }
+    return [...found];
+  }, cards.map((card) => card.id));
+}
+
+/**
+ * S2.2 chrome-row differential (`docs/design/card-chrome.md`).
+ *
+ * The reference chips are no longer an absolute overlay: they are one in-flow
+ * row inside the card, so a card that gains a row grows by exactly that row.
+ * Everything the old layout-neutral invariant protected still holds: the left
+ * edge never moves, a card without a row keeps its size, and no card rectangle
+ * intersects another (nothing floats over the next card).
+ */
+async function assertChromeRowGrowth(before, after, rowCards) {
+  assert.equal(after.cards.length, before.cards.length, 'no card is added or removed');
+  const beforeById = new Map(before.cards.map((card) => [card.id, card]));
+  const rowHeights = await chromeRowHeights(rowCards);
+  for (const id of rowCards) {
+    assert.ok(rowHeights[id] > 0, `${id} has a chrome row`);
+  }
+  for (const card of after.cards) {
+    const original = beforeById.get(card.id);
+    assert.ok(original !== undefined, `unexpected card ${card.id}`);
+    // Cards are content-driven: a row can widen the card to its chip width,
+    // but the left edge never moves and a plain card is untouched.
+    assert.equal(card.x, original.x, `${card.id} x`);
+    const growth = Math.round((card.height - original.height) * 10) / 10;
+    const rowHeight = rowHeights[card.id];
+    if (rowHeight === undefined) {
+      assert.equal(card.width, original.width, `${card.id} width unchanged`);
+      assert.ok(Math.abs(growth) <= 0.5, `${card.id} height unchanged (${growth})`);
+    } else {
+      assert.ok(card.width >= original.width - 0.5, `${card.id} width never shrinks`);
+      assert.ok(
+        Math.abs(growth - rowHeight) <= 1,
+        `${card.id} grows by its chrome row (${growth} vs ${rowHeight})`,
+      );
+    }
+  }
+  assert.deepEqual(overlappingCards(after.cards), [], 'no card floats over another card');
+}
+
+/**
+ * A second reference between two cards that already carry a row can wrap the
+ * row instead of adding a new one: widths and heights may only grow, a card
+ * without a row is untouched, and nothing overlaps.
+ */
+async function assertChromeOnlyGrows(before, after) {
+  assert.equal(after.cards.length, before.cards.length, 'no card is added or removed');
+  const beforeById = new Map(before.cards.map((card) => [card.id, card]));
+  const rowCards = new Set(await cardsWithChrome(after.cards));
+  for (const card of after.cards) {
+    const original = beforeById.get(card.id);
+    assert.ok(original !== undefined, `unexpected card ${card.id}`);
+    assert.equal(card.x, original.x, `${card.id} x`);
+    if (rowCards.has(card.id)) {
+      assert.ok(card.width >= original.width - 0.5, `${card.id} width never shrinks`);
+      assert.ok(card.height >= original.height - 0.5, `${card.id} height never shrinks`);
+    } else {
+      assert.equal(card.width, original.width, `${card.id} width unchanged`);
+      assert.equal(card.height, original.height, `${card.id} height unchanged`);
+    }
+  }
+  assert.deepEqual(overlappingCards(after.cards), [], 'no card floats over another card');
+}
+
 describe('NoteForest M3d1 reference edges', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -193,7 +300,6 @@ describe('NoteForest M3d1 reference edges', () => {
     const beforePrimary = primarySnapshot(beforeState);
     const beforeRows = await page.locator('.nf-tree-row[data-block-id]').count();
     const beforeArrows = await activePrimaryArrowCount();
-    const beforeCards = cardsByWidth(beforeLayout);
 
     await linkReference(SOURCE_ID, TARGET_ID);
     await waitForReference(TARGET_ID);
@@ -266,19 +372,14 @@ describe('NoteForest M3d1 reference edges', () => {
       1,
     );
 
-    // Layout-neutral differential: every card rectangle is unchanged by the
-    // reference. Chips are an overlay and the dashed edge is outside the flow.
+    // S2.2 chrome-row differential: the source and the target each gain one
+    // in-card row (See also / Referenced by); nothing else changes size, and
+    // no card is covered by another card.
     await h.waitLayout({ blocks: 9, arrows: beforeArrows });
+    await page.waitForSelector(`[data-block-chrome="${SOURCE_ID}"]`);
+    await page.waitForSelector(`[data-block-chrome="${TARGET_ID}"]`);
     const linkedLayout = await h.layoutSnapshot();
-    for (const card of linkedLayout.cards) {
-      const original = beforeCards.get(card.id);
-      assert.ok(original !== undefined, `unexpected card ${card.id}`);
-      assert.equal(card.x, original.x, `${card.id} x`);
-      assert.equal(card.y, original.y, `${card.id} y`);
-      assert.equal(card.width, original.width, `${card.id} width`);
-      assert.equal(card.height, original.height, `${card.id} height`);
-    }
-    assert.equal(linkedLayout.cards.length, beforeLayout.cards.length);
+    await assertChromeRowGrowth(beforeLayout, linkedLayout, [SOURCE_ID, TARGET_ID]);
 
     // Role-independent dedupe: the second request reuses the edge and focuses
     // the target; no duplicate edge is created.
@@ -313,12 +414,10 @@ describe('NoteForest M3d1 reference edges', () => {
     assert.deepEqual(primarySnapshot(cycle), beforePrimary);
     await h.waitLayout({ blocks: 9, arrows: beforeArrows });
     const cycleLayout = await h.layoutSnapshot();
-    for (const card of cycleLayout.cards) {
-      const original = beforeCards.get(card.id);
-      assert.ok(original !== undefined);
-      assert.equal(card.x, original.x, `${card.id} x after cycle`);
-      assert.equal(card.y, original.y, `${card.id} y after cycle`);
-    }
+    // The cycle adds a second chip to two rows that already exist, so the row
+    // may wrap: cards can only grow, the left edge never moves, and nothing is
+    // covered by another card.
+    await assertChromeOnlyGrows(linkedLayout, cycleLayout);
 
     // Screenshot evidence: use the seeded tree for a long right-hand dashed
     // reference between two visible cards, plus the shared-child chips.
@@ -480,15 +579,12 @@ describe('NoteForest M3d1 reference edges', () => {
     await waitForReferenceEdge(reference.id);
     assert.equal(await activePrimaryArrowCount(), 4);
     await h.waitLayout({ blocks: 9, arrows: 4 });
+    // The anchored reference adds one in-card row to the source and to the
+    // target; both grow by exactly that row and nothing else changes.
+    await page.waitForSelector(`[data-block-chrome="${sourceId}"]`);
+    await page.waitForSelector(`[data-block-chrome="${referenceTargetId}"]`);
     const afterLayout = await h.layoutSnapshot();
-    for (const card of afterLayout.cards) {
-      const original = beforeLayout.cards.find((candidate) => candidate.id === card.id);
-      assert.ok(original !== undefined);
-      assert.equal(card.x, original.x, `${card.id} x`);
-      assert.equal(card.y, original.y, `${card.id} y`);
-      assert.equal(card.width, original.width, `${card.id} width`);
-      assert.equal(card.height, original.height, `${card.id} height`);
-    }
+    await assertChromeRowGrowth(beforeLayout, afterLayout, [sourceId, referenceTargetId]);
 
     await openBlockMenu(sourceId);
     await chooseMenuItem(/^Remove reference to/);
@@ -851,6 +947,220 @@ describe('NoteForest M3d1 reference edges', () => {
       { timeout: 10000 },
     );
     assert.deepEqual(await structure(), beforeDelete, 'undo restores the exact graph');
+    await page.keyboard.press('Meta+s');
+    await h.waitSaved();
+  });
+
+  it('keeps one in-card chrome row: state first, then references, never over an edge', async () => {
+    const env = isolated('chrome-row');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+    await ui.showOutline();
+
+    const parentId = 's22-chrome-parent';
+    const calloutId = 's22-chrome-callout';
+    const plainId = 's22-chrome-plain';
+    const referenceTargetId = 's22-chrome-reference-target';
+    const anchorId = 's22-chrome-anchor';
+
+    // A parent with a broken anchor (state) and a See also reference, a direct
+    // child that becomes the callout, and a plain card with no chrome at all.
+    await addTopLevelBlock(ui, parentId, textDoc('Alpha omega beta'));
+    // Evidence: the same card before any state or reference exists, so the
+    // before/after pair shows the one in-card row and nothing else.
+    await page.locator(`[data-block-card="${parentId}"]`).waitFor();
+    await page
+      .locator(`[data-block-card="${parentId}"]`)
+      .screenshot({ path: artifactsPath('chrome', 'card-parent-without-chrome.png') });
+    await addAnchor(ui, {
+      anchorId,
+      blockId: parentId,
+      kind: 'text',
+      selector: { kind: 'text', quote: 'omega' },
+      binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 6, end: 11 }] },
+    });
+    await addTopLevelBlock(ui, calloutId, textDoc('Callout child'));
+    await addTopLevelBlock(ui, plainId, textDoc('Plain card'));
+    await addTopLevelBlock(ui, referenceTargetId, textDoc('Reference target'));
+    await addBranch(ui, {
+      sourceBlockId: parentId,
+      sourceAnchorId: anchorId,
+      targetBlockId: calloutId,
+    });
+    await applyCommand({
+      type: 'block.editContent',
+      blockId: parentId,
+      content: textDoc('Alpha beta'),
+    });
+    await page.waitForSelector(`[data-anchor-warning="${anchorId}"]`);
+
+    // No further commands: the two reference edges are applied directly.
+    const reference = await applyCommand({
+      type: 'branch.create',
+      sourceBlockId: parentId,
+      targetBlockId: referenceTargetId,
+      role: 'reference',
+    });
+    assert.equal(reference.ok, true);
+    const calloutReference = await applyCommand({
+      type: 'branch.create',
+      sourceBlockId: referenceTargetId,
+      targetBlockId: calloutId,
+      role: 'reference',
+    });
+    assert.equal(calloutReference.ok, true);
+    await page.waitForSelector(`[data-see-also-target="${referenceTargetId}"]`);
+    await page.waitForSelector(`[data-referenced-by-source="${referenceTargetId}"]`);
+
+    const geometry = await page.evaluate(
+      ({ parent, callout, plain }) => {
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const cardOf = (id) => scope?.querySelector(`[data-block-card="${id}"]`) ?? null;
+        const box = (element) => {
+          if (element === null) return null;
+          const rect = element.getBoundingClientRect();
+          return {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.bottom,
+            width: rect.width,
+            height: rect.height,
+          };
+        };
+        const chips = (root) =>
+          [...(root?.querySelectorAll('[data-anchor-warning], .nf-ref-chip') ?? [])].map(
+            (chip) => ({
+              warning: chip.hasAttribute('data-anchor-warning'),
+              text: chip.textContent?.trim() ?? '',
+              radius: getComputedStyle(chip).borderRadius,
+              height: getComputedStyle(chip).height,
+              borderWidth: getComputedStyle(chip).borderWidth,
+              position: getComputedStyle(chip).position,
+            }),
+          );
+        const card = (id) => cardOf(id);
+        const row = (id) => cardOf(id)?.querySelector('[data-block-chrome]') ?? null;
+        const parentCard = card(parent);
+        const parentRow = row(parent);
+        const calloutCard = card(callout);
+        const calloutRow = row(callout);
+        const plainCard = card(plain);
+        // The next top-level card after the parent, in document order.
+        const topLevelCards = [...(scope?.querySelectorAll('[data-block-card]') ?? [])].filter(
+          (candidate) => candidate.getAttribute('data-top-level') === 'true',
+        );
+        const nextTopLevel =
+          topLevelCards[topLevelCards.indexOf(parentCard) + 1] ?? null;
+        return {
+          parentCard: box(parentCard),
+          parentRow: box(parentRow),
+          parentRowPosition: parentRow === null ? null : getComputedStyle(parentRow).position,
+          parentChips: chips(parentCard),
+          calloutCard: box(calloutCard),
+          calloutRow: box(calloutRow),
+          calloutHead: box(calloutCard?.querySelector('.nf-callout-head') ?? null),
+          calloutQuote: box(calloutCard?.querySelector('.nf-callout-quote') ?? null),
+          calloutState: box(calloutCard?.querySelector('.nf-callout-state') ?? null),
+          calloutRowChips: chips(calloutRow),
+          calloutHeadRefChips:
+            calloutCard?.querySelectorAll('.nf-callout-head .nf-ref-chip').length ?? -1,
+          plainRowCount: plainCard?.querySelectorAll('[data-block-chrome]').length ?? -1,
+          nextTopLevel: box(nextTopLevel),
+          port: (() => {
+            const button = parentCard?.querySelector('.nf-branch-port');
+            if (button === null || button === undefined) return null;
+            const style = getComputedStyle(button);
+            return { radius: style.borderRadius, width: style.width, height: style.height };
+          })(),
+          addPorts: [
+            ...(parentCard?.querySelectorAll('.nf-add-edge') ?? []),
+          ].map((button) => getComputedStyle(button).borderRadius),
+        };
+      },
+      { parent: parentId, callout: calloutId, plain: plainId },
+    );
+
+    // One row, inside the card box: no negative offsets, no absolute chips.
+    assert.ok(geometry.parentRow !== null, 'the parent has a chrome row');
+    assert.equal(geometry.parentRowPosition, 'static');
+    assert.ok(
+      geometry.parentRow.top >= geometry.parentCard.top - 0.5,
+      'the row starts inside the card',
+    );
+    assert.ok(
+      geometry.parentRow.bottom <= geometry.parentCard.bottom + 0.5,
+      'the row ends inside the card',
+    );
+    assert.ok(
+      geometry.parentRow.left >= geometry.parentCard.left - 0.5 &&
+        geometry.parentRow.right <= geometry.parentCard.right + 0.5,
+      'the row never leaves the card laterally',
+    );
+
+    // State first, then references, and every chip is a rounded rectangle.
+    assert.equal(geometry.parentChips.length, 2);
+    assert.equal(geometry.parentChips[0].warning, true, 'state comes first');
+    assert.match(geometry.parentChips[0].text, /Lost anchor/);
+    assert.match(geometry.parentChips[1].text, /See also/);
+    for (const chip of geometry.parentChips) {
+      assert.equal(chip.radius, '3px', 'the chip uses the control radius');
+      assert.equal(chip.height, '20px', 'the chip is 20 px high');
+      assert.equal(chip.borderWidth, '1px');
+      assert.equal(chip.position, 'static', 'no chip is absolutely positioned');
+    }
+
+    // The row does not reach the next top-level card.
+    assert.ok(geometry.nextTopLevel !== null, 'a following top-level card exists');
+    assert.ok(
+      geometry.parentRow.bottom <= geometry.nextTopLevel.top,
+      'the row never reaches the next card',
+    );
+
+    // The callout keeps quote + its state on top and its references below.
+    assert.ok(geometry.calloutHead !== null && geometry.calloutQuote !== null);
+    assert.ok(geometry.calloutState !== null, 'the callout keeps its own state on top');
+    assert.equal(geometry.calloutHeadRefChips, 0, 'the head holds no reference chip');
+    assert.deepEqual(
+      geometry.calloutRowChips.map((chip) => /Referenced by/.test(chip.text)),
+      [true],
+      'the callout references live in the bottom row',
+    );
+    assert.ok(
+      geometry.calloutState.top >= geometry.calloutHead.top - 0.5 &&
+        geometry.calloutState.bottom <= geometry.calloutHead.bottom + 0.5,
+      'the state stays beside its quote on top',
+    );
+    assert.ok(
+      geometry.calloutRow.top >= geometry.calloutCard.top - 0.5 &&
+        geometry.calloutRow.bottom <= geometry.calloutCard.bottom + 0.5,
+      'the callout row is inside the callout card',
+    );
+    // The quote is above the row: quote first, references last.
+    assert.ok(geometry.calloutQuote.bottom <= geometry.calloutRow.top + 0.5);
+
+    // A plain card has no row at all.
+    assert.equal(geometry.plainRowCount, 0, 'a plain card has no chrome row');
+
+    // The circular icon ports are unchanged: the branch port stays a circle
+    // and the add buttons stay round icon controls.
+    assert.ok(geometry.port !== null);
+    assert.equal(geometry.port.radius, '999px');
+    assert.equal(geometry.port.width, geometry.port.height);
+    assert.deepEqual(geometry.addPorts, ['50%', '50%']);
+
+    await page.locator(`[data-block-card="${parentId}"]`).scrollIntoViewIfNeeded();
+    await page
+      .locator(`[data-block-card="${parentId}"]`)
+      .screenshot({ path: artifactsPath('chrome', 'card-parent-with-chrome.png') });
+    await page
+      .locator(`[data-block-card="${calloutId}"]`)
+      .screenshot({ path: artifactsPath('chrome', 'callout-top-quote-bottom-references.png') });
+    await page
+      .locator(`[data-block-card="${plainId}"]`)
+      .screenshot({ path: artifactsPath('chrome', 'card-plain-no-chrome.png') });
+
     await page.keyboard.press('Meta+s');
     await h.waitSaved();
   });

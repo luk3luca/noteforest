@@ -94,7 +94,7 @@ describe('Batch A UI rework', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('keeps one fixed 34 px canvas header outside the scroll with an 8 px content inset', async () => {
+  it('keeps one fixed 34 px canvas header outside the scroll with the S2.2 content inset', async () => {
     await launch('batch-a-header');
     await seedPerformance();
     await page.waitForSelector('.nf-editor[data-active="true"] [data-canvas-header]');
@@ -124,11 +124,12 @@ describe('Batch A UI rework', () => {
     const afterScroll = await box('.nf-canvas-header');
     assert.ok(Math.abs(afterScroll.top - header.top) < 0.5, 'the header does not scroll');
 
-    // Shell C insets: 6 px header padding, 8 px lateral canvas content, 8 px bottom.
+    // Shell C insets: 6 px header padding, 8 px bottom. S2.2 widens the lateral
+    // canvas inset to 24 px so the 16 px gutter and the drag handle fit.
     assert.equal(await css('.nf-canvas-header', 'padding-left'), '6px');
     assert.equal(await css('.nf-canvas-header', 'padding-right'), '6px');
-    assert.equal(await css('.nf-canvas', 'padding-left'), '8px');
-    assert.equal(await css('.nf-canvas', 'padding-right'), '8px');
+    assert.equal(await css('.nf-canvas', 'padding-left'), '24px');
+    assert.equal(await css('.nf-canvas', 'padding-right'), '24px');
     assert.equal(await css('.nf-canvas', 'padding-top'), '6px');
     assert.equal(await css('.nf-canvas', 'padding-bottom'), '8px');
 

@@ -84,19 +84,21 @@ export const DESIGN_TOKENS = Object.freeze({
   /** Wide finite canvas; placement uses its full logical content width. */
   canvasMaxWidth: DEFAULT_CONTINUOUS_SETTINGS.widths.canvasMax,
   /**
-   * Shell C canvas inset. Batch V adds an 8 px lateral content inset (6 px
-   * compact) so the chapter title is not flush with the panel edge; the canvas
-   * keeps a small top inset for the fixed header focus rings and an 8 px bottom
-   * inset. The header itself uses 6 px lateral padding.
+   * Continuous canvas inset (S2.2, `docs/design/card-chrome.md` §3). The card
+   * inset must cover the 16 px gutter that holds the drag handle to its left,
+   * so the handle is fully visible and clickable at every width: 24 px wide,
+   * 20 px medium, 16 px compact. The canvas keeps a small top inset for the
+   * fixed header focus rings and an 8 px bottom inset; the header itself uses
+   * 6 px lateral padding.
    */
-  editorPaddingX: 8,
+  editorPaddingX: 24,
   editorPaddingTop: 6,
   editorPaddingBottom: 8,
   /** Responsive canvas steps; both are token-bound so CSS never hard-codes them. */
-  editorPaddingXMedium: 8,
+  editorPaddingXMedium: 20,
   editorPaddingTopMedium: 6,
   editorPaddingBottomMedium: 8,
-  editorPaddingXCompact: 6,
+  editorPaddingXCompact: 16,
   editorPaddingTopCompact: 6,
   editorPaddingBottomCompact: 8,
   /** Shell C Page stage: 14 px top, 0 lateral, 8 px bottom. */

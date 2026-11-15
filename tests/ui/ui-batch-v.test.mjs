@@ -747,60 +747,110 @@ describe('Batch V visual refinement', () => {
     );
   });
 
-  it('starts the Continuous chapter title at the 8 px lateral inset', async () => {
+  it('keeps the 24/20/16 px canvas inset and the drag handle fully visible', async () => {
     await launch('batch-v-canvas');
     await ui.seedDemo();
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-chapter-title');
 
     const measure = async () =>
       page.evaluate(() => {
-        const canvas = document.querySelector('.nf-editor[data-active="true"] .nf-canvas');
+        const scope = document.querySelector('.nf-editor[data-active="true"]');
+        const canvas = scope?.querySelector('.nf-canvas');
         const title = canvas?.querySelector('.nf-chapter-title');
         const card = canvas?.querySelector('[data-block-card]');
-        if (canvas === null || title === null || card === null) return null;
+        const scroller = scope?.querySelector('.nf-editor-scroll');
+        const handle = card?.querySelector('[data-block-actions]');
+        if (
+          canvas === null ||
+          canvas === undefined ||
+          title === null ||
+          title === undefined ||
+          card === null ||
+          card === undefined ||
+          scroller === null ||
+          scroller === undefined ||
+          handle === null ||
+          handle === undefined
+        ) {
+          return null;
+        }
         const canvasBox = canvas.getBoundingClientRect();
+        const scrollerBox = scroller.getBoundingClientRect();
+        const handleBox = handle.getBoundingClientRect();
+        const noisy =
+          document.elementFromPoint(
+            handleBox.left + handleBox.width / 2,
+            handleBox.top + handleBox.height / 2,
+          ) ?? null;
         return {
           paddingLeft: getComputedStyle(canvas).paddingLeft,
           titleMarginLeft: getComputedStyle(title).marginLeft,
           titleInset: title.getBoundingClientRect().left - canvasBox.left,
           cardInset: card.getBoundingClientRect().left - canvasBox.left,
+          handleLeft: handleBox.left,
+          handleRight: handleBox.right,
+          handleWidth: handleBox.width,
+          scrollerLeft: scrollerBox.left,
+          scrollerRight: scrollerBox.right,
+          handleHit: noisy === handle || handle.contains(noisy),
         };
       });
 
-    const wide = await measure();
-    assert.ok(wide !== null);
-    assert.equal(wide.paddingLeft, '8px');
-    assert.equal(wide.titleMarginLeft, '0px');
-    assert.ok(
-      Math.abs(wide.titleInset - 8) <= 0.5,
-      `the chapter title starts at an 8 px inset (${wide.titleInset})`,
-    );
-    assert.ok(
-      Math.abs(wide.cardInset - 8) <= 0.5,
-      `the cards share the same canvas inset (${wide.cardInset})`,
-    );
-    await page.screenshot({ path: join(screenshotDir, 'canvas-chapter-inset.png') });
+    const assertGutter = (snapshot, expected, label) => {
+      assert.ok(snapshot !== null);
+      assert.equal(snapshot.paddingLeft, `${expected}px`, label);
+      assert.equal(snapshot.titleMarginLeft, '0px');
+      assert.ok(
+        Math.abs(snapshot.titleInset - expected) <= 0.5,
+        `${label}: the chapter title starts at the ${expected} px inset (${snapshot.titleInset})`,
+      );
+      assert.ok(
+        Math.abs(snapshot.cardInset - expected) <= 0.5,
+        `${label}: the cards share the same canvas inset (${snapshot.cardInset})`,
+      );
+      assert.ok(snapshot.handleWidth > 0, `${label}: the drag handle is laid out`);
+      assert.ok(
+        snapshot.handleLeft >= snapshot.scrollerLeft - 0.5,
+        `${label}: the gutter starts inside the visible area (${snapshot.handleLeft} >= ${snapshot.scrollerLeft})`,
+      );
+      assert.ok(
+        snapshot.handleRight <= snapshot.scrollerRight + 0.5,
+        `${label}: the gutter ends inside the visible area (${snapshot.handleRight} <= ${snapshot.scrollerRight})`,
+      );
+      assert.equal(snapshot.handleHit, true, `${label}: the drag handle is clickable`);
+    };
 
-    // The medium step keeps 8 px; the compact step drops to 6 px.
+    assertGutter(await measure(), 24, 'wide');
+    await page.screenshot({ path: join(screenshotDir, 'canvas-chapter-inset.png') });
+    // Evidence: hover the first card so the grab handle is at full opacity and
+    // sits fully inside the visible canvas edge.
+    await page.locator('.nf-editor[data-active="true"] [data-block-card]').first().hover();
+    await page.waitForFunction(
+      () =>
+        Number.parseFloat(
+          getComputedStyle(
+            document.querySelector('.nf-editor[data-active="true"] .nf-gutter'),
+          ).opacity,
+        ) === 1,
+      undefined,
+      { timeout: 5000 },
+    );
+    await h.screenshot(artifactsPath('chrome', 'canvas-left-edge-gutter-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Medium is 20 px, compact 16 px: the gutter plus the handle still fit.
     await h.setWindowSize(1050, 800);
     await page.waitForFunction(() => window.innerWidth <= 1100, undefined, {
       timeout: 5000,
     });
-    const medium = await measure();
-    assert.ok(medium !== null);
-    assert.equal(medium.paddingLeft, '8px');
-    assert.ok(Math.abs(medium.titleInset - 8) <= 0.5);
+    assertGutter(await measure(), 20, 'medium');
 
     await page.setViewportSize({ width: 880, height: 800 });
     await page.waitForFunction(() => window.innerWidth <= 900, undefined, {
       timeout: 5000,
     });
-    const compact = await measure();
-    assert.ok(compact !== null);
-    assert.equal(compact.paddingLeft, '6px');
-    assert.ok(
-      Math.abs(compact.titleInset - 6) <= 0.5,
-      `the compact step keeps the title at 6 px (${compact.titleInset})`,
-    );
+    assertGutter(await measure(), 16, 'compact');
   });
 });

@@ -54,6 +54,7 @@ import { PageChromeView } from './PageChromeView';
 import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
 import { corePageGeometry } from './adapter';
 import { clampPageNumber } from './model';
+import { fitZoomToSync } from './fit-sync';
 import { PageEdges } from './PageEdges';
 import { usePageSettings } from '../state/settings';
 import {
@@ -477,11 +478,17 @@ export function PageView({
 
   // Keep the stored manual zoom in sync with the effective fit zoom so a later
   // global ⌘+/⌘− starts from what the user sees, not from a stale 100%.
+  //
+  // The effect can still be pending when a newer fit lands (⇧2 followed by
+  // ⌘0 moves through fit → manual zoom). A passive effect from the previous
+  // commit then runs after the newer store write, so it must never write its
+  // own closure's fit back: the live fit is authoritative (`fitZoomToSync`).
   useEffect(() => {
-    if (pageFit === 'none' || !active) return;
-    const current = useShell.getState().viewByDoc[runtime.packagePath]?.pageZoom ?? 1;
-    if (Math.abs(current - effectiveZoom) > 0.001) {
-      useShell.getState().setDocumentPageZoom(runtime.packagePath, effectiveZoom);
+    if (!active) return;
+    const live = useShell.getState().viewByDoc[runtime.packagePath];
+    const target = fitZoomToSync(live, pageFit, effectiveZoom);
+    if (target !== null) {
+      useShell.getState().setDocumentPageZoom(runtime.packagePath, target);
     }
   }, [active, effectiveZoom, pageFit, runtime.packagePath]);
 
