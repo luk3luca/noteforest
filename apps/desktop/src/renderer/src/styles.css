@@ -7741,6 +7741,90 @@ body.nf-dragging-block .nf-gutter-handle {
   font-weight: 650;
 }
 
+
+/* The flat Markdown guest editor uses the same shell code roles. */
+/* A · Syntax colours (editor appearance phase 1). The same token roles reach
+   Continuous, Page Read/Edit, and print. `hljs-*` classes only exist on
+   highlighted code-block content, so tables, inline code, and prose never read
+   these rules. The paper uses its own fixed One Light roles; Continuous follows
+   the app theme (Monokai dark, One Light light). Font style/weight stay
+   Continuous-only: Page/PDF typography may not change. */
+.nf-markdown-editor .hljs-comment,
+.nf-markdown-editor .hljs-quote {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+
+
+.nf-markdown-editor .hljs-keyword,
+.nf-markdown-editor .hljs-selector-tag,
+.nf-markdown-editor .hljs-literal,
+.nf-markdown-editor .hljs-doctag {
+  color: var(--code-keyword);
+}
+
+
+
+.nf-markdown-editor .hljs-string,
+.nf-markdown-editor .hljs-regexp,
+.nf-markdown-editor .hljs-addition {
+  color: var(--code-string);
+}
+
+
+
+.nf-markdown-editor .hljs-number,
+.nf-markdown-editor .hljs-symbol,
+.nf-markdown-editor .hljs-bullet {
+  color: var(--code-number);
+}
+
+
+
+.nf-markdown-editor .hljs-title,
+.nf-markdown-editor .hljs-title.function_,
+.nf-markdown-editor .hljs-section {
+  color: var(--code-function);
+}
+
+
+
+.nf-markdown-editor .hljs-type,
+.nf-markdown-editor .hljs-built_in,
+.nf-markdown-editor .hljs-class .hljs-title {
+  color: var(--code-type);
+}
+
+
+
+.nf-markdown-editor .hljs-attr,
+.nf-markdown-editor .hljs-attribute,
+.nf-markdown-editor .hljs-variable,
+.nf-markdown-editor .hljs-template-variable {
+  color: var(--code-meta);
+}
+
+
+
+.nf-markdown-editor .hljs-tag,
+.nf-markdown-editor .hljs-name,
+.nf-markdown-editor .hljs-deletion {
+  color: var(--code-tag);
+}
+
+
+
+.nf-markdown-editor .hljs-emphasis {
+  font-style: italic;
+}
+
+
+
+.nf-markdown-editor .hljs-strong {
+  font-weight: 650;
+}
+
 /* C · Formula in-place source editor. */
 .nf-formula-node {
   position: relative;

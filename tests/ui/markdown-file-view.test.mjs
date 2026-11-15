@@ -291,6 +291,19 @@ describe('Markdown file view', () => {
       'false',
     );
     assert.match(await editor.locator('.nf-code-block').first().innerText(), /const answer/);
+    // The flat guest editor must use the same hljs token colours as Continuous:
+    // a highlighted keyword must exist and differ from the code block text.
+    const codeColours = await editor.locator('.nf-code-block').first().evaluate((block) => {
+      const keyword = block.querySelector('.hljs-keyword');
+      return keyword === null
+        ? null
+        : {
+            keyword: getComputedStyle(keyword).color,
+            text: getComputedStyle(block).color,
+          };
+    });
+    assert.ok(codeColours !== null, 'the Markdown code block is highlighted');
+    assert.notEqual(codeColours.keyword, codeColours.text, 'the keyword is coloured');
 
     // Local image loads; the remote image is a labelled placeholder.
     const localImage = editor.locator('img.nf-markdown-image-el');

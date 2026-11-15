@@ -6,8 +6,9 @@ import { describe, expect, it } from 'vitest';
  *
  * Dark editor = Monokai, light editor = One Light, and the fixed-light Page
  * paper = One Light in both app themes. The `hljs-*` selectors may only be
- * scoped to the Continuous surface and the Page surface, so tables, inline
- * code, and prose can never inherit a code token colour.
+ * scoped to the Continuous surface, the flat Markdown guest editor, and the
+ * Page surface, so tables, inline code, and prose can never inherit a code
+ * token colour.
  */
 
 const stylesSource = readFileSync(
@@ -172,13 +173,15 @@ describe('code palette contract', () => {
     expect(min(lightRatios)).toBe('--code-comment');
   });
 
-  it('scopes every hljs rule to the Continuous or Page surface', () => {
+  it('scopes every hljs rule to the Continuous, Markdown or Page surface', () => {
     const rules = collectRules(stylesSource).filter((rule) => rule.selector.includes('hljs-'));
     expect(rules.length).toBeGreaterThan(0);
     for (const rule of rules) {
       for (const part of rule.selector.split(',').map((value) => value.trim())) {
         expect(
-          part.startsWith('.nf-continuous-surface ') || part.startsWith('.nf-page-scope '),
+          part.startsWith('.nf-continuous-surface ') ||
+            part.startsWith('.nf-page-scope ') ||
+            part.startsWith('.nf-markdown-editor '),
           part,
         ).toBe(true);
       }
