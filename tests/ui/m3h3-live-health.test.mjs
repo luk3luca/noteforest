@@ -255,8 +255,8 @@ describe('M3h3 live anchor health and idle removal', () => {
     // keyboard path to All anchors.
     await page.keyboard.press('Meta+k');
     await page.waitForSelector('.nf-palette');
-    await page.locator('.nf-palette-input').fill('Anchor health');
-    await page.getByRole('option', { name: /Anchor health/ }).waitFor({ timeout: 10000 });
+    await page.locator('.nf-palette-input').fill('Check document health');
+    await page.getByRole('option', { name: /Check document health/ }).waitFor({ timeout: 10000 });
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await page.waitForSelector('[data-anchor-health="true"]');

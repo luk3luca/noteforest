@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
-import { resolveDocumentAnchors } from '@noteforest/core';
 import { TriangleAlert } from 'lucide-react';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
 import { currentWordCount } from '../actions';
 import { useMarkdownEntry } from '../state/markdown';
 import { isMarkdownPath } from '../../../shared/markdown';
+import { auditDocumentHealth } from '../lib/document-health';
 
 /**
  * Minimal status strip (V0): status only, no second toolbar.
@@ -24,17 +24,34 @@ export function StatusBar(): JSX.Element {
     activeTab !== null && isMarkdownPath(activeTab) ? activeTab : null,
   );
   const counts = useMemo(() => currentWordCount(), [runtime?.seq]);
-  const anchorHealth = useMemo(() => {
-    if (runtime === null) return { broken: 0, ambiguous: 0, total: 0 };
-    const resolved = resolveDocumentAnchors(runtime.document, {
-      assetAvailability: runtime.assetAvailability,
-    }).counts;
-    return {
-      broken: resolved.broken,
-      ambiguous: resolved.ambiguous,
-      total: resolved.broken + resolved.ambiguous,
-    };
+  // One audit feeds both indicators. `runtime.version` advances on collapse and
+  // content notifications; the collapsed set itself is view state and is read
+  // through that notification (it is mutated in place).
+  const health = useMemo(() => {
+    if (runtime === null) return null;
+    return auditDocumentHealth(runtime.document, {
+      ...(runtime.assetAvailability === undefined
+        ? {}
+        : { assetAvailability: runtime.assetAvailability }),
+      collapsedBlockIds: runtime.collapsed,
+    });
   }, [runtime, runtime?.document, runtime?.version, runtime?.assetAvailability]);
+  const anchorHealth = {
+    broken: health?.counts.broken ?? 0,
+    ambiguous: health?.counts.ambiguous ?? 0,
+    total: (health?.counts.broken ?? 0) + (health?.counts.ambiguous ?? 0),
+  };
+  const info = health?.info ?? { idle: 0, orphans: 0, structure: 0, hidden: 0 };
+  const infoParts: string[] = [];
+  if (info.idle > 0) infoParts.push(`${info.idle} idle`);
+  if (info.orphans > 0) {
+    infoParts.push(`${info.orphans} ${info.orphans === 1 ? 'orphan' : 'orphans'}`);
+  }
+  if (info.structure > 0) infoParts.push(`${info.structure} structure`);
+  const infoLabel = infoParts.join(' · ');
+  const infoFilter =
+    info.idle > 0 ? 'idle' : info.orphans > 0 ? 'orphans' : 'structure';
+  const infoTotal = info.idle + info.orphans + info.structure;
 
   if (markdown !== null) {
     const state = markdown.missing
@@ -151,6 +168,26 @@ export function StatusBar(): JSX.Element {
         {counts.blocks} {counts.blocks === 1 ? 'block' : 'blocks'}
       </span>
       <span className="nf-status-spacer" />
+      {infoTotal > 0 ? (
+        <button
+          type="button"
+          className="nf-status-item nf-status-health-info"
+          data-health-info-chip="true"
+          data-health-idle={info.idle}
+          data-health-orphans={info.orphans}
+          data-health-structure={info.structure}
+          aria-label={`Document health: ${infoLabel}. Open the health sheet.`}
+          title={`${infoLabel} · check document health`}
+          onClick={() =>
+            useShell.getState().openDialog({
+              kind: 'anchor-health',
+              filter: infoFilter,
+            })
+          }
+        >
+          {infoLabel}
+        </button>
+      ) : null}
       {anchorHealth.total > 0 ? (
         <button
           type="button"

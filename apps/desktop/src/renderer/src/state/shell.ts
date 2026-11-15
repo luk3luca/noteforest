@@ -8,6 +8,7 @@ import {
   SIDEBAR_SNAP_WIDTH,
 } from '../../../shared/shell';
 import type { SettingsPageId } from '../settings/settings-pages';
+import type { DocumentHealthFilter } from '../lib/document-health';
 import {
   DEFAULT_DOCUMENT_VIEW,
   clampContinuousZoom,
@@ -76,7 +77,7 @@ export type DialogState =
   | { kind: 'delete-branch'; blockId: string }
   | { kind: 'link-reference'; blockId: string; anchorId?: string }
   | { kind: 'image-alt'; blockId: string; path: number[]; assetId: string; alt: string }
-  | { kind: 'anchor-health'; anchorId?: string }
+  | { kind: 'anchor-health'; anchorId?: string; filter?: DocumentHealthFilter }
   | { kind: 'rename-document' }
   | { kind: 'rename-chapter'; chapterId: string }
   | { kind: 'rename-block'; blockId: string }

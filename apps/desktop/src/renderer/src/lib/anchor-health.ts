@@ -135,7 +135,8 @@ function selectorString(selector: JsonObject, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-function contextFields(anchor: Document['anchors'][string]): {
+/** Stored prefix/suffix window for an anchor, without the quote itself. */
+export function anchorHealthContextFields(anchor: Document['anchors'][string]): {
   prefix: string;
   suffix: string;
 } {
@@ -155,13 +156,16 @@ function contextFields(anchor: Document['anchors'][string]): {
   return { prefix: '', suffix: '' };
 }
 
-function branchList(
+/**
+ * Project a set of branch records into display views. Callers that already
+ * grouped the document's branches reuse this instead of rescanning per anchor.
+ */
+export function anchorHealthBranchViews(
   document: Document,
-  anchorId: string,
+  branches: readonly Branch[],
 ): AnchorHealthBranch[] {
   const roleRank = (role: BranchRole): number => (role === 'primary' ? 0 : 1);
-  return Object.values(document.branches)
-    .filter((branch) => branch.source.anchorId === anchorId)
+  return [...branches]
     .sort((left, right) => {
       const role = roleRank(left.role) - roleRank(right.role);
       if (role !== 0) return role;
@@ -178,14 +182,29 @@ function branchList(
     }));
 }
 
-function chapterTitleOf(document: Document, blockId: string): string {
+/** Outgoing branches of one anchor, primary first, then reference order. */
+export function anchorHealthBranches(
+  document: Document,
+  anchorId: string,
+): AnchorHealthBranch[] {
+  return anchorHealthBranchViews(
+    document,
+    Object.values(document.branches).filter(
+      (branch) => branch.source.anchorId === anchorId,
+    ),
+  );
+}
+
+/** Chapter title for a block, with the sheet's fallbacks. */
+export function anchorHealthChapterTitle(document: Document, blockId: string): string {
   const chapterId = chapterIdOf(document, blockId);
   if (chapterId === null) return 'No chapter';
   const chapter = document.chapters.find((candidate) => candidate.id === chapterId);
   return chapter?.title?.trim() || 'Untitled chapter';
 }
 
-function healthBlockTitle(
+/** Block title with kind-aware fallbacks for anchor rows. */
+export function anchorHealthBlockTitle(
   document: Document,
   blockId: string,
   kind: AnchorKind,
@@ -197,6 +216,9 @@ function healthBlockTitle(
   if (kind === 'image') return 'Image block';
   return title;
 }
+
+const chapterTitleOf = anchorHealthChapterTitle;
+const healthBlockTitle = anchorHealthBlockTitle;
 
 /**
  * List every broken, ambiguous, or idle anchor with its block, chapter, quote,
@@ -225,8 +247,8 @@ export function buildAnchorHealthRows(
       continue;
     }
     if (!isKnownAnchorKind(anchor.kind)) continue;
-    const context = contextFields(anchor);
-    const branches = branchList(document, anchorId);
+    const context = anchorHealthContextFields(anchor);
+    const branches = anchorHealthBranches(document, anchorId);
     rows.push({
       anchorId,
       blockId: anchor.blockId,
@@ -542,7 +564,7 @@ export function anchorRepairPreview(
     kind: anchor.kind,
     before: repairSide(anchor, anchor.selector),
     after: repairSide(anchor, command.selector, command.binding),
-    branches: branchList(document, anchorId),
+    branches: anchorHealthBranches(document, anchorId),
     command,
   };
 }

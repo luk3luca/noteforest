@@ -38,6 +38,7 @@ import {
   anchoredChildBranches,
   planBlockMerge,
   primaryParentBranch,
+  removeAnchorBinding,
   textAnchorSelectorForBinding,
 } from '@noteforest/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
@@ -1375,6 +1376,146 @@ export class DocumentRuntime {
     });
   }
 
+  /**
+   * Document health: remove one branch by ID, whatever its source port. Used by
+   * the missing-target row, where the branch cannot be reached through the
+   * anchor path because its target block is gone. A primary edge promotes the
+   * target when it exists; the core command rejects the invalid-document case
+   * and the sheet shows that reason. No block is deleted here.
+   */
+  async deleteHealthBranch(branchId: string): Promise<ApplyOutcome> {
+    return this.session.queue.run(async () => {
+      const branch = this.document.branches[branchId];
+      if (branch === undefined) {
+        return { ok: false, message: 'This branch no longer exists.' };
+      }
+      const result = await this.runCommandInternal({
+        type: 'branch.delete',
+        branchId,
+        ...(branch.role === 'primary'
+          ? { targetHandling: { kind: 'promote' as const } }
+          : {}),
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not delete the branch.' };
+      }
+      await this.acceptStructural(
+        result.document,
+        result.inverse,
+        this.document.blocks[branch.source.blockId] === undefined
+          ? null
+          : branch.source.blockId,
+      );
+      this.reconcileEditor(null);
+      return { ok: true, branchId };
+    });
+  }
+
+  /**
+   * Document health: strip an inert anchor ID from one block's content.
+   *
+   * Only an ID with no anchor record is accepted: a live record must go through
+   * `removeIdleAnchor`, `deleteAnchor`, or a repair, so this cleanup path can
+   * never silently detach a real anchor. One `block.editContent` command and
+   * one undo entry.
+   */
+  async stripOrphanAnchor(blockId: string, anchorId: string): Promise<ApplyOutcome> {
+    if (this.document.anchors[anchorId] !== undefined) {
+      return {
+        ok: false,
+        message: 'That anchor record exists; use a repair or delete action instead.',
+      };
+    }
+    const block = this.document.blocks[blockId];
+    if (block === undefined) {
+      return { ok: false, message: 'That block no longer exists.' };
+    }
+    const content = removeAnchorBinding(block.content, anchorId);
+    if (JSON.stringify(content) === JSON.stringify(block.content)) {
+      return {
+        ok: false,
+        message: 'That anchor ID is no longer bound in this block.',
+      };
+    }
+    // `applyStructural` owns the serial queue; this method must not wrap it in
+    // another queue task (the queue is not reentrant).
+    return this.applyStructural(
+      { type: 'block.editContent', blockId, content },
+      { focusBlockId: blockId },
+    );
+  }
+
+  /**
+   * Document health: recreate the missing anchor record for an inert binding
+   * from the editor selection. The stale ID is expected to be the selected
+   * range, so the existing binding becomes the record's binding; the core
+   * `anchor.create` command rejects a selection that would leave a second,
+   * disconnected binding behind. One typed command and one undo entry.
+   */
+  async recreateOrphanAnchor(blockId: string, anchorId: string): Promise<ApplyOutcome> {
+    return this.session.queue.run(async () => {
+      if (this.document.anchors[anchorId] !== undefined) {
+        return { ok: false, message: 'That anchor record already exists.' };
+      }
+      const block = this.document.blocks[blockId];
+      if (block === undefined) {
+        return { ok: false, message: 'That block no longer exists.' };
+      }
+      if (!this.editable) {
+        return { ok: false, message: 'This document is open read-only.' };
+      }
+      const committed = await this.commitContentInternal();
+      if (!committed) {
+        return {
+          ok: false,
+          message: this.saveError ?? 'Could not commit the pending edit.',
+        };
+      }
+      const editor = this.editor;
+      if (editor === null) {
+        return { ok: false, message: 'Open the editor before recreating an anchor.' };
+      }
+      const picked = branchSelectionAnchor(editor);
+      if (!picked.ok) return { ok: false, message: picked.message };
+      const selection = picked.selection;
+      if (selection.blockId !== blockId) {
+        return {
+          ok: false,
+          message: 'Select the orphaned range in its own block first.',
+        };
+      }
+      let selector: JsonObject;
+      if (selection.kind === 'text') {
+        const derived = textAnchorSelectorForBinding(block.content, selection.binding);
+        if (derived === null) {
+          return { ok: false, message: 'Select one continuous text range.' };
+        }
+        selector = derived;
+      } else {
+        selector = selection.selector;
+      }
+      const result = await this.runCommandInternal({
+        type: 'anchor.create',
+        anchorId,
+        blockId,
+        kind: selection.kind,
+        selector,
+        binding: selection.binding,
+      });
+      if (!result.ok || result.document === undefined) {
+        return {
+          ok: false,
+          message:
+            result.message ??
+            'Could not recreate the anchor. Select the orphaned range itself, or strip the ID first.',
+        };
+      }
+      await this.acceptStructural(result.document, result.inverse, blockId);
+      this.reconcileEditor(blockId);
+      return { ok: true, anchorId };
+    });
+  }
+
   /** Session-only dismissal. No command, no mutation, no export effect. */
   keepAnchorBroken(anchorId: string): void {
     if (this.keptBroken.has(anchorId)) return;
@@ -1497,6 +1638,37 @@ export class DocumentRuntime {
         ...(blockId === null ? {} : { blockId }),
         chapterId,
       };
+    });
+  }
+
+  /**
+   * Document health: delete one **empty** chapter. The core rejects a chapter
+   * that still has top-level blocks, so this path can never delete content by
+   * accident; one `chapter.delete` command and one undo entry.
+   */
+  async deleteEmptyChapter(chapterId: string): Promise<ApplyOutcome> {
+    return this.session.queue.run(async () => {
+      const chapter = this.document.chapters.find((item) => item.id === chapterId);
+      if (chapter === undefined) {
+        return { ok: false, message: 'This chapter no longer exists.' };
+      }
+      if (chapter.topLevelBlockIds.length > 0) {
+        return {
+          ok: false,
+          message: 'This chapter still has top-level blocks. Move or delete them first.',
+        };
+      }
+      const result = await this.runCommandInternal({
+        type: 'chapter.delete',
+        chapterId,
+        blockHandling: { kind: 'reject-if-not-empty' },
+      });
+      if (!result.ok || result.document === undefined) {
+        return { ok: false, message: result.message ?? 'Could not delete the chapter.' };
+      }
+      await this.acceptStructural(result.document, result.inverse, null);
+      this.reconcileEditor(null);
+      return { ok: true, chapterId };
     });
   }
 

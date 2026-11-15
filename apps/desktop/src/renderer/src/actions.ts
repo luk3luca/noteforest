@@ -2295,11 +2295,11 @@ export function paletteCommands(): MenuEntry[] {
         ? { onSelect: () => report(runtime?.outdent(selected)) }
         : {}),
     }),
-    withDocument({
+    {
       id: 'anchor-health',
-      label: 'Anchor health…',
+      label: 'Check document health…',
       onSelect: () => shell().openDialog({ kind: 'anchor-health' }),
-    }),
+    },
     gate({ id: 'block-text', label: 'Block type: Text', onSelect: () => applyBlockType(null) }),
     gate({ id: 'block-h1', label: 'Block type: Heading 1', onSelect: () => applyBlockType(1) }),
     gate({ id: 'block-h2', label: 'Block type: Heading 2', onSelect: () => applyBlockType(2) }),

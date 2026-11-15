@@ -4001,6 +4001,27 @@ body.nf-dragging-block .nf-gutter-handle {
   outline-offset: 1px;
 }
 
+/* Document health's informational roll-up (idle/orphans/structure). It is
+   deliberately muted: none of these needs repair. */
+.nf-status-health-info {
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  font-size: calc(10.5px * var(--ui-scale));
+}
+
+.nf-status-health-info:hover {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.nf-status-health-info:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
 .nf-status-dot {
   width: 5px;
   height: 5px;
@@ -4483,8 +4504,23 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-health-filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding-bottom: 2px;
+}
+
+.nf-health-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.nf-health-summary {
+  margin: 0;
+  color: var(--text-2);
+  font-size: calc(11.5px * var(--ui-scale));
 }
 
 .nf-health-filter {
@@ -4582,6 +4618,67 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--text-3);
 }
 
+/* Severity is the first column and the scanning key: S1 data-loss, S2 repair,
+   S3 information. Keep colour plus the literal label (non-colour cue). */
+.nf-health-severity {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  border: 1px solid var(--border-1);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: calc(9.5px * var(--ui-scale));
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.nf-health-severity-s1 {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.nf-health-severity-s2 {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.nf-health-severity-s3 {
+  border-color: var(--border-2);
+  color: var(--text-3);
+}
+
+/* Informational rows are quieter: they never need repair. */
+.nf-health-row-info .nf-health-row-main {
+  background: transparent;
+}
+
+.nf-health-row-info .nf-health-quote {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.nf-health-state-anchor-block-missing,
+.nf-health-state-branch-target-missing,
+.nf-health-state-duplicate-primary,
+.nf-health-state-cycle,
+.nf-health-state-orphan-reference {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.nf-health-state-orphan-record,
+.nf-health-state-orphan-block {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.nf-health-state-empty-chapter,
+.nf-health-state-hidden {
+  border-color: var(--border-2);
+  color: var(--text-3);
+}
+
 .nf-health-kind,
 .nf-health-branch-count {
   color: var(--text-3);
@@ -4635,9 +4732,21 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-health-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin: 4px 0;
   color: var(--text-3);
   font-size: calc(12px * var(--ui-scale));
+}
+
+.nf-health-empty p {
+  margin: 0;
+}
+
+.nf-health-empty-info {
+  color: var(--text-3);
+  font-size: calc(11px * var(--ui-scale));
 }
 
 .nf-health-detail {
