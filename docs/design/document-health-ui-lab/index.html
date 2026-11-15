@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Document health — sidebar first</title>
+    <title>Document health — sidebar + modal</title>
     <style>
       :root {
         --bg-page: #0b0c0e;
@@ -137,33 +137,13 @@
         line-height: 1.6;
       }
 
-      .pairs {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 14px;
-        margin-top: 14px;
-      }
-
-      .pairs-sidebars {
-        grid-template-columns: 264px 264px;
-        justify-content: start;
-      }
-
-      .pair-label {
-        margin: 0 0 6px;
-        color: var(--text-3);
-        font-family: var(--mono);
-        font-size: 10.5px;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-      }
-
       .stage {
         position: relative;
-        padding: 22px 12px 12px;
+        margin-top: 14px;
+        padding: 24px 12px 14px;
         border: 1px solid var(--border-1);
         border-radius: var(--r-panel);
-        background: var(--bg-app);
+        background: var(--bg-canvas);
       }
 
       .stage-label {
@@ -177,21 +157,18 @@
         text-transform: uppercase;
       }
 
-      .stage + .stage { margin-top: 12px; }
-
       /* ----------------------------------------------------------- sidebar */
       .sidebar {
         display: flex;
         flex-direction: column;
         width: 264px;
         height: 372px;
+        margin: 0 auto;
         border: 1px solid var(--border-1);
         border-radius: var(--r-panel);
         background: var(--bg-sidebar);
         overflow: hidden;
       }
-
-      .sidebar[data-width="min"] { width: 180px; }
 
       .sb-head {
         display: flex;
@@ -200,11 +177,7 @@
         padding: 11px 12px 9px;
       }
 
-      .sb-title {
-        font-size: 13px;
-        font-weight: 600;
-        letter-spacing: 0.01em;
-      }
+      .sb-title { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
 
       .sb-sum {
         margin-left: auto;
@@ -256,12 +229,7 @@
 
       .section-btn:hover { background: var(--surface-1); color: var(--text-1); }
 
-      .section-btn .chev {
-        flex: 0 0 auto;
-        color: var(--text-3);
-        transition: transform 120ms ease;
-      }
-
+      .section-btn .chev { flex: 0 0 auto; color: var(--text-3); }
       .section-btn[aria-expanded="true"] .chev { transform: rotate(90deg); }
 
       .section-btn .label {
@@ -331,111 +299,31 @@
         border-top: 1px solid var(--border-1);
       }
 
-      .sb-foot .btn { flex: 1; }
-
-      .sb-note {
-        margin: 0;
-        color: var(--text-3);
-        font-size: 10.5px;
-      }
-
-      /* ------------------------------------------------------------ window */
-      .window {
-        width: 664px;
+      /* ------------------------------------------------------------- modal */
+      .modal {
+        display: flex;
+        flex-direction: column;
+        width: 520px;
+        max-width: 100%;
         margin: 0 auto;
         border: 1px solid var(--border-1);
         border-radius: var(--r-panel);
-        background: var(--bg-app);
+        background: var(--surface-3);
+        box-shadow: 0 24px 64px rgb(0 0 0 / 0.55);
         overflow: hidden;
-        box-shadow: 0 20px 50px rgb(0 0 0 / 0.45);
       }
 
-      .titlebar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        height: 30px;
-        padding: 0 10px;
-        border-bottom: 1px solid var(--border-1);
-        background: var(--bg-app);
-      }
+      .modal[data-width="wide"] { width: 660px; }
 
-      .lights { display: flex; gap: 5px; }
-
-      .light {
-        width: 8px;
-        height: 8px;
-        border-radius: 2px;
-        background: #34383e;
-      }
-
-      .tab {
-        display: inline-flex;
-        align-items: center;
-        max-width: 300px;
-        height: 20px;
-        padding: 0 8px;
-        border: 1px solid var(--border-1);
-        border-radius: 3px;
-        background: var(--surface-1);
-        color: var(--text-2);
-        font-size: 10.5px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .mode {
-        margin-left: auto;
-        color: var(--text-3);
-        font-family: var(--mono);
-        font-size: 10px;
-        white-space: nowrap;
-      }
-
-      .window.wide { width: 664px; }
-
-      .host-body { display: flex; min-height: 396px; }
-
-      .host-list {
-        display: flex;
-        flex-direction: column;
-        flex: 0 0 264px;
-        min-width: 0;
-        border-right: 1px solid var(--border-1);
-        background: var(--bg-sidebar);
-      }
-
-      .host-list .sb-sections { flex: 1; }
-
-      .workspace { display: flex; min-height: 392px; }
-
-      .workspace .sidebar {
-        width: 264px;
-        height: auto;
-        border: 0;
-        border-radius: 0;
-        border-right: 1px solid var(--border-1);
-      }
-
-      /* ------------------------------------------------------------- panel */
-      .panel {
-        display: flex;
-        flex: 1;
-        min-width: 0;
-        flex-direction: column;
-        background: var(--bg-canvas);
-      }
-
-      .panel-head {
+      .modal-head {
         display: flex;
         align-items: flex-start;
-        gap: 10px;
-        padding: 12px 14px 10px;
+        gap: 12px;
+        padding: 13px 14px 11px;
         border-bottom: 1px solid var(--border-1);
       }
 
-      .panel-kicker {
+      .modal-kicker {
         margin: 0 0 2px;
         color: var(--text-3);
         font-size: 10px;
@@ -443,22 +331,20 @@
         text-transform: uppercase;
       }
 
-      .panel-title {
-        margin: 0;
-        font-size: 14px;
-        font-weight: 600;
+      .modal-title { margin: 0; font-size: 14px; font-weight: 600; }
+
+      .modal-sum {
+        margin: 3px 0 0;
+        color: var(--text-2);
+        font-size: 11.5px;
+        font-variant-numeric: tabular-nums;
       }
 
-      .panel-head-actions { display: flex; gap: 4px; margin-left: auto; }
+      .modal-head-actions { display: flex; gap: 4px; margin-left: auto; }
 
-      .panel-body {
-        flex: 1;
-        min-height: 0;
-        padding: 12px 14px;
-        overflow: hidden;
-      }
+      .modal-body { padding: 12px 14px; }
 
-      .panel-foot {
+      .modal-foot {
         display: flex;
         align-items: center;
         gap: 6px;
@@ -466,16 +352,33 @@
         border-top: 1px solid var(--border-1);
       }
 
-      .panel-foot .spacer { margin-left: auto; }
+      .modal-foot .spacer { margin-left: auto; }
+
+      .modal-split { display: flex; min-height: 344px; }
+
+      .split-list {
+        display: flex;
+        flex-direction: column;
+        flex: 0 0 240px;
+        min-width: 0;
+        border-right: 1px solid var(--border-1);
+        background: var(--bg-sidebar);
+      }
+
+      .split-list .sb-search { margin: 9px 10px 6px; }
+      .split-list .sb-sections { padding: 2px 6px 6px; }
+
+      .split-detail {
+        flex: 1;
+        min-width: 0;
+        padding: 12px 14px;
+        background: var(--bg-canvas);
+      }
 
       /* ---------------------------------------------------------- selection */
       .d-head { display: flex; align-items: center; gap: 8px; }
 
-      .d-cat {
-        color: var(--text-1);
-        font-size: 13.5px;
-        font-weight: 600;
-      }
+      .d-cat { color: var(--text-1); font-size: 13.5px; font-weight: 600; }
 
       .state {
         display: inline-flex;
@@ -490,34 +393,31 @@
       .state[data-state="repair"] { color: var(--warning); }
       .state[data-state="risk"] { color: var(--danger); }
 
-      .state svg { flex: 0 0 auto; }
+      .d-kind {
+        margin-left: auto;
+        color: var(--text-3);
+        font-family: var(--mono);
+        font-size: 10px;
+      }
 
       .d-quote {
-        margin: 9px 0 0;
+        margin: 8px 0 0;
         color: var(--text-1);
         font-size: 15px;
         font-weight: 550;
         line-height: 1.35;
       }
 
-      .d-meta {
-        margin: 5px 0 0;
-        color: var(--text-3);
-        font-size: 11px;
-      }
+      .d-meta { margin: 5px 0 0; color: var(--text-3); font-size: 11px; }
 
       .d-reason {
-        margin: 9px 0 0;
+        margin: 8px 0 0;
         color: var(--text-2);
         font-size: 12px;
         line-height: 1.55;
       }
 
-      .hr {
-        height: 1px;
-        margin: 12px 0 10px;
-        background: var(--border-1);
-      }
+      .hr { height: 1px; margin: 12px 0 10px; background: var(--border-1); }
 
       .d-section-title {
         display: flex;
@@ -582,11 +482,7 @@
         font-size: 11.5px;
       }
 
-      .branch .role {
-        color: var(--text-3);
-        font-family: var(--mono);
-        font-size: 9.5px;
-      }
+      .branch .role { color: var(--text-3); font-family: var(--mono); font-size: 9.5px; }
 
       .branch .name {
         min-width: 0;
@@ -595,12 +491,7 @@
         white-space: nowrap;
       }
 
-      .d-explain {
-        margin: 8px 0 0;
-        color: var(--text-3);
-        font-size: 10.5px;
-        line-height: 1.5;
-      }
+      .d-explain { margin: 8px 0 0; color: var(--text-3); font-size: 10.5px; line-height: 1.5; }
 
       /* ----------------------------------------------------------- confirm */
       .confirm {
@@ -610,12 +501,7 @@
         padding: 10px 11px;
       }
 
-      .confirm-title {
-        margin: 0 0 8px;
-        color: var(--text-1);
-        font-size: 12px;
-        font-weight: 600;
-      }
+      .confirm-title { margin: 0 0 8px; color: var(--text-1); font-size: 12px; font-weight: 600; }
 
       .ba {
         padding: 7px 8px;
@@ -648,20 +534,9 @@
         text-overflow: ellipsis;
       }
 
-      .ba-arrow {
-        display: block;
-        padding: 4px 0;
-        color: var(--text-3);
-        font-size: 11px;
-        text-align: center;
-      }
+      .ba-arrow { display: block; padding: 4px 0; color: var(--text-3); font-size: 11px; text-align: center; }
 
-      .confirm-note {
-        margin: 8px 0 0;
-        color: var(--text-3);
-        font-size: 10.5px;
-        line-height: 1.5;
-      }
+      .confirm-note { margin: 8px 0 0; color: var(--text-3); font-size: 10.5px; line-height: 1.5; }
 
       /* ---------------------------------------------------------- controls */
       .btn {
@@ -683,12 +558,7 @@
 
       .btn:hover { border-color: var(--border-2); background: var(--surface-2); color: var(--text-1); }
 
-      .btn-quiet {
-        border-color: transparent;
-        background: transparent;
-        color: var(--text-2);
-      }
-
+      .btn-quiet { border-color: transparent; background: transparent; color: var(--text-2); }
       .btn-quiet:hover { background: var(--surface-1); }
 
       .btn-primary {
@@ -738,108 +608,17 @@
         font-size: 10.5px;
       }
 
-      /* ---------------------------------------------------------- canvas */
-      .canvas-slice {
-        flex: 1;
-        min-width: 0;
-        padding: 16px;
-        background: var(--bg-canvas);
-      }
-
-      .canvas-head {
+      .arrow-hint {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 0 0;
         color: var(--text-3);
         font-size: 10.5px;
       }
 
-      .canvas-head .dot { width: 5px; height: 5px; border-radius: 1px; background: var(--border-2); }
-
-      .note-card {
-        padding: 11px 12px;
-        border-radius: 6px;
-        background: var(--note-surface);
-        color: var(--text-1);
-        font-size: 12.5px;
-        line-height: 1.55;
-      }
-
-      .note-card + .note-card { margin-top: 8px; }
-
-      .note-card p { margin: 0; }
-
-      .note-card .muted { color: var(--text-2); }
-
-      .anchor-bad { border-bottom: 1px dotted var(--danger); }
-
-      /* ------------------------------------------------------- wireframes */
-      .wire {
-        display: flex;
-        gap: 6px;
-        height: 74px;
-        padding: 8px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-control);
-        background: var(--bg-app);
-      }
-
-      .wire + .wire { margin-top: 10px; }
-
-      .wbox {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 3px;
-        color: var(--text-2);
-        font-size: 10px;
-        letter-spacing: 0.02em;
-      }
-
-      .w-rail { flex: 0 0 34px; background: #17181a; color: var(--text-3); }
-      .w-side { flex: 0 0 132px; background: var(--bg-sidebar); border: 1px solid var(--border-1); }
-      .w-detail { flex: 0 0 196px; background: var(--surface-1); border: 1px solid var(--border-2); }
-      .w-canvas { flex: 1; background: #1d1f22; color: var(--text-3); }
-      .w-overlay {
-        flex: 0 0 300px;
-        background: var(--surface-3);
-        border: 1px solid var(--border-2);
-        color: var(--text-1);
-      }
-      .w-inline { flex: 1; background: var(--surface-1); border: 1px solid var(--border-1); }
-      .w-host { flex: 0 0 400px; background: var(--surface-1); border: 1px solid var(--border-2); color: var(--text-1); }
-
-      .wire-row { display: flex; align-items: center; gap: 12px; }
-
-      .wire-row + .wire-row { margin-top: 10px; }
-
-      .wire-copy { flex: 1; min-width: 0; }
-
-      .wire-title {
-        margin: 0;
-        color: var(--text-1);
-        font-size: 12.5px;
-        font-weight: 600;
-      }
-
-      .wire-sub {
-        margin: 3px 0 0;
-        color: var(--text-2);
-        font-size: 11.5px;
-        line-height: 1.5;
-      }
-
-      .wire-flag {
-        flex: 0 0 auto;
-        color: var(--accent);
-        font-size: 10px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-
-      .wire-flag[data-tone="alt"] { color: var(--text-2); }
-      .wire-flag[data-tone="tight"] { color: var(--text-3); }
+      .arrow-hint .line { width: 28px; height: 1px; background: var(--border-2); }
 
       /* ------------------------------------------------------------ tables */
       .grid-2 {
@@ -856,19 +635,9 @@
         padding: 13px 14px;
       }
 
-      .panel-card h3 {
-        margin: 0 0 9px;
-        font-size: 13px;
-        font-weight: 600;
-      }
+      .panel-card h3 { margin: 0 0 9px; font-size: 13px; font-weight: 600; }
 
-      .panel-card p {
-        margin: 0 0 8px;
-        color: var(--text-2);
-        font-size: 12px;
-        line-height: 1.55;
-      }
-
+      .panel-card p { margin: 0 0 8px; color: var(--text-2); font-size: 12px; line-height: 1.55; }
       .panel-card p:last-child { margin-bottom: 0; }
 
       table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -893,8 +662,24 @@
 
       td:first-child { color: var(--text-3); font-family: var(--mono); font-size: 10.5px; }
       td:last-child { color: var(--text-1); }
-
       tr:last-child td { border-bottom: 0; }
+
+      .decisions {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .decision {
+        padding: 10px 11px;
+        border: 1px solid var(--border-1);
+        border-radius: var(--r-control);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .decision b { display: block; margin-bottom: 4px; color: var(--text-1); font-size: 11.5px; font-weight: 600; }
+      .decision span { color: var(--text-2); font-size: 11px; line-height: 1.5; }
 
       .footer {
         margin-top: 36px;
@@ -910,17 +695,16 @@
     <main class="lab">
       <header class="lab-head">
         <p class="eyebrow">Design lab · not coded</p>
-        <h1>Health lives in the sidebar</h1>
+        <h1>Health: sidebar report, modal repair</h1>
         <p class="lede">
-          The sidebar is the report: grouped sections, expandable, every error one click away. The
-          repair opens in the sidebar itself — the column widens by 400 px and the detail appears to
-          the right of the list. Nothing is duplicated and nothing shifts. No left stripes anywhere:
-          a state is an icon and a word, not a bar.
+          The sidebar holds the report: expandable sections, one row per issue. Clicking an issue
+          opens the repair in a modal in front. Confirm closes it and the sidebar updates — there is
+          nothing to reopen, because the report was never hidden. Two modal shapes to compare.
         </p>
         <ul class="rules">
-          <li><b>One list</b>Sections live in the sidebar. The panel never repeats them.</li>
-          <li><b>Section by section</b>Chevron, name, count. Expanding shows the errors themselves.</li>
-          <li><b>The sidebar widens</b>The list keeps its 264 px; the detail opens at its right.</li>
+          <li><b>Sidebar is the report</b>Sections expand; the error row is the selection.</li>
+          <li><b>Click opens the modal</b>One issue, its context, its choices.</li>
+          <li><b>Confirm closes</b>The row leaves the list, Undo in the toast. No next step.</li>
         </ul>
       </header>
 
@@ -928,164 +712,87 @@
       <section class="variant">
         <div class="v-head">
           <span class="v-index">1</span>
-          <h2>The sidebar is the report</h2>
-          <span class="v-tag">264 px · 180 px minimum</span>
+          <h2>The sidebar</h2>
+          <span class="v-tag">264 px · sections first</span>
         </div>
         <p class="v-sub">
-          Sections are the filter: no chip row, no toolbar. The summary stays one line, the count
-          sits at the right of each section, and an open section lists its errors as plain rows.
+          Four groups instead of the audit's categories: what to fix, what is unused, the document
+          structure, the hidden markers. Empty groups do not render. “Anchors to fix” is open by
+          default; the row carries the quote, nothing else.
         </p>
 
-        <div class="pairs pairs-sidebars">
-          <div>
-            <p class="pair-label">state a · overview</p>
-            <div class="sidebar">
-              <div class="sb-head">
-                <span class="sb-title">Health</span>
-                <span class="sb-sum">3 to fix · 7 issues</span>
-              </div>
-              <div class="sb-search">
-                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
-                  <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+        <div class="stage">
+          <span class="stage-label">sidebar · one row selected</span>
+          <div class="sidebar">
+            <div class="sb-head">
+              <span class="sb-title">Health</span>
+              <span class="sb-sum">3 to fix · 7</span>
+            </div>
+            <div class="sb-search">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
+                <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+              </svg>
+              <span>Search issues</span>
+            </div>
+            <div class="sb-sections">
+              <button class="section-btn" type="button" aria-expanded="true">
+                <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <span>Search issues</span>
-              </div>
-              <div class="sb-sections">
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Broken anchors</span>
-                  <span class="count">1</span>
-                </button>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Ambiguous anchors</span>
-                  <span class="count">1</span>
-                </button>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Unlinked marks</span>
-                  <span class="count">1</span>
-                </button>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Unused anchors</span>
-                  <span class="count">1</span>
-                </button>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Anchors with no branches</span>
-                  <span class="count">1</span>
-                </button>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Document structure</span>
-                  <span class="count">2</span>
-                </button>
-              </div>
-              <div class="sb-foot">
-                <button class="btn btn-quiet" type="button">Check again</button>
-              </div>
+                <span class="label">Anchors to fix</span>
+                <span class="count">3</span>
+              </button>
+              <ul class="issue-list">
+                <li>
+                  <button class="issue-btn" type="button" aria-current="true">
+                    <span class="quote">“testo che non esiste più”</span>
+                    <span class="meta">1</span>
+                  </button>
+                </li>
+                <li>
+                  <button class="issue-btn" type="button">
+                    <span class="quote">“ambigua”</span>
+                    <span class="meta">1</span>
+                  </button>
+                </li>
+                <li>
+                  <button class="issue-btn" type="button">
+                    <span class="quote">“reference orfana”</span>
+                    <span class="meta">0</span>
+                  </button>
+                </li>
+              </ul>
+              <button class="section-btn" type="button" aria-expanded="false">
+                <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="label">Unused anchors</span>
+                <span class="count">2</span>
+              </button>
+              <button class="section-btn" type="button" aria-expanded="false">
+                <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span class="label">Structure</span>
+                <span class="count">2</span>
+              </button>
+            </div>
+            <div class="sb-foot">
+              <button class="btn btn-quiet" type="button">Check again</button>
             </div>
           </div>
-
-          <div>
-            <p class="pair-label">state b · sections open, one selected</p>
-            <div class="sidebar">
-              <div class="sb-head">
-                <span class="sb-title">Health</span>
-                <span class="sb-sum">3 to fix · 7 issues</span>
-              </div>
-              <div class="sb-search">
-                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
-                  <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-                </svg>
-                <span>Search issues</span>
-              </div>
-              <div class="sb-sections">
-                <button class="section-btn" type="button" aria-expanded="true">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Broken anchors</span>
-                  <span class="count">1</span>
-                </button>
-                <ul class="issue-list">
-                  <li>
-                    <button class="issue-btn" type="button" aria-current="true">
-                      <span class="quote">“testo che non esiste più”</span>
-                      <span class="meta">1</span>
-                    </button>
-                  </li>
-                </ul>
-                <button class="section-btn" type="button" aria-expanded="true">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Ambiguous anchors</span>
-                  <span class="count">1</span>
-                </button>
-                <ul class="issue-list">
-                  <li>
-                    <button class="issue-btn" type="button">
-                      <span class="quote">“ambigua”</span>
-                      <span class="meta">1</span>
-                    </button>
-                  </li>
-                </ul>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Unlinked marks</span>
-                  <span class="count">1</span>
-                </button>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Unused anchors</span>
-                  <span class="count">1</span>
-                </button>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Anchors with no branches</span>
-                  <span class="count">1</span>
-                </button>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Document structure</span>
-                  <span class="count">2</span>
-                </button>
-              </div>
-              <div class="sb-foot">
-                <button class="btn btn-quiet" type="button">Check again</button>
-              </div>
-            </div>
+          <div class="arrow-hint">
+            <span>click a row</span>
+            <span class="line"></span>
+            <span>the modal opens on that issue</span>
           </div>
         </div>
 
         <p class="note">
-          <b>Row anatomy.</b> Section row: chevron, name, count. Error row: the quote only, indented,
-          with the branch count at the right when it matters. Selection is a filled row, not a
-          stripe. At 180 px the same structure works because there is no action inside the row.
+          <b>Sections.</b> A section with zero issues is not rendered (Hidden is not shown until it
+          has rows). The count is the number of rows, the summary is the needs-repair total. Open
+          sections are remembered per session; the selection survives closing the modal.
         </p>
       </section>
 
@@ -1093,310 +800,134 @@
       <section class="variant">
         <div class="v-head">
           <span class="v-index">2</span>
-          <h2>The sidebar widens into the repair</h2>
-          <span class="v-tag">264 → 664 · one surface</span>
+          <h2>Modal · one issue</h2>
+          <span class="v-tag">520 px · chosen</span>
         </div>
         <p class="v-sub">
-          Picking an error opens the repair at the right of the same column: the list keeps its
-          264 px and its place, the detail takes 400 px, the canvas gives them up. No second window
-          and no duplicated list.
+          The modal carries exactly the issue you picked: context, matching locations, branches and
+          the action bar. The list stays in the sidebar behind, so there is no second list to keep
+          in sync.
         </p>
 
         <div class="stage">
-          <span class="stage-label">state 1 · issue detail · sidebar 264 → 664</span>
-          <div class="window wide">
-            <div class="titlebar">
-              <div class="lights"><span class="light"></span><span class="light"></span><span class="light"></span></div>
-              <span class="tab">Salute del documento — casi di prova</span>
-              <span class="mode">Continuous · Edit</span>
-            </div>
-            <div class="host-body">
-              <div class="host-list">
-                <div class="sb-head">
-                  <span class="sb-title">Health</span>
-                  <span class="sb-sum">3 to fix · 7</span>
-                </div>
-                <div class="sb-search">
-<svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
-                    <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+          <span class="stage-label">detail · 520 px</span>
+          <div class="modal" role="dialog" aria-label="Broken anchor">
+            <div class="modal-head">
+              <div>
+                <p class="modal-kicker">Document health</p>
+                <h3 class="modal-title">Broken anchor</h3>
+              </div>
+              <div class="modal-head-actions">
+                <button class="icon-btn" type="button" aria-label="Close">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
                   </svg>
-<span>Search issues</span>
-                </div>
-                <div class="sb-sections">
-<button class="section-btn" type="button" aria-expanded="true">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Broken anchors</span>
-                  <span class="count">1</span>
                 </button>
-<ul class="issue-list">
-                  <li>
-                    <button class="issue-btn" type="button" aria-current="true">
-                      <span class="quote">“testo che non esiste più”</span>
-                      <span class="meta">1</span>
-                    </button>
-                  </li>
-                </ul>
-<button class="section-btn" type="button" aria-expanded="true">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Ambiguous anchors</span>
-                  <span class="count">1</span>
-                </button>
-<ul class="issue-list">
-                  <li>
-                    <button class="issue-btn" type="button">
-                      <span class="quote">“ambigua”</span>
-                      <span class="meta">1</span>
-                    </button>
-                  </li>
-                </ul>
-<button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Unlinked marks</span>
-                  <span class="count">1</span>
-                </button>
-<button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Unused anchors</span>
-                  <span class="count">1</span>
-                </button>
-<button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Anchors with no branches</span>
-                  <span class="count">1</span>
-                </button>
-<button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Document structure</span>
-                  <span class="count">2</span>
-                </button>
-</div>
-                <div class="sb-foot">
-                  <button class="btn btn-quiet" type="button">Check again</button>
-                </div>
               </div>
-              <div class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="panel-kicker">Repair</p>
-                    <h3 class="panel-title">Broken anchor</h3>
-                  </div>
-                  <div class="panel-head-actions">
-                    <button class="icon-btn" type="button" aria-label="Close the detail">
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+            </div>
 
-                <div class="panel-body">
-                  <div class="d-head">
-                    <span class="state" data-state="repair">
-                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M6 1.6l4.4 7.8H1.6L6 1.6z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
-                      </svg>
-                      Needs repair
-                    </span>
-                    <span class="d-meta" style="margin-left: auto;">Text anchor</span>
-                  </div>
-
-                  <p class="d-quote">“testo che non esiste più”</p>
-                  <p class="d-meta">Salute del documento — casi di prova · block 7 of 8</p>
-                  <p class="d-reason">
-                    The marked text is no longer in this block. The branch and its target are intact;
-                    choose where the anchor belongs now.
-                  </p>
-
-                  <div class="hr"></div>
-
-                  <h4 class="d-section-title">Matching locations <span class="count">2</span></h4>
-                  <button class="candidate" type="button" aria-pressed="true">
-                    <b>Paragraph 2 · “Il parent è un anchor che non esiste più”</b>
-                    <span>…ma il testo è cambiato</span>
-                  </button>
-                  <button class="candidate" type="button" aria-pressed="false">
-                    <b>Paragraph 1 · “un anchor che non esiste più”</b>
-                    <span>questa sezione è un banco di prova…</span>
-                  </button>
-
-                  <div class="hr"></div>
-
-                  <h4 class="d-section-title">Branches <span class="count">1</span></h4>
-                  <div class="branch">
-                    <span class="role">primary</span>
-                    <span class="name">Figlio di un anchor rotto</span>
-                  </div>
-                  <p class="d-explain">The branch keeps its target; only the anchor binding moves.</p>
-                </div>
-
-                <div class="panel-foot">
-                  <button class="btn btn-quiet" type="button">Show in note</button>
-                  <span class="spacer"></span>
-                  <button class="btn" type="button" aria-label="More actions">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
-                      <circle cx="2.5" cy="6" r="1" />
-                      <circle cx="6" cy="6" r="1" />
-                      <circle cx="9.5" cy="6" r="1" />
-                    </svg>
-                  </button>
-                  <button class="btn btn-primary" type="button">Preview repair</button>
-                </div>
+            <div class="modal-body">
+              <div class="d-head">
+                <span class="state" data-state="repair">
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M6 1.6l4.4 7.8H1.6L6 1.6z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
+                  </svg>
+                  Needs repair
+                </span>
+                <span class="d-kind">Text anchor</span>
               </div>
+
+              <p class="d-quote">“testo che non esiste più”</p>
+              <p class="d-meta">Salute del documento — casi di prova · block 7 of 8</p>
+              <p class="d-reason">
+                The marked text is no longer in this block. The branch and its target are intact;
+                choose where the anchor belongs now.
+              </p>
+
+              <div class="hr"></div>
+
+              <h4 class="d-section-title">Matching locations <span class="count">2</span></h4>
+              <button class="candidate" type="button" aria-pressed="true">
+                <b>Paragraph 2 · “Il parent è un anchor che non esiste più”</b>
+                <span>…ma il testo è cambiato</span>
+              </button>
+              <button class="candidate" type="button" aria-pressed="false">
+                <b>Paragraph 1 · “un anchor che non esiste più”</b>
+                <span>questa sezione è un banco di prova…</span>
+              </button>
+
+              <div class="hr"></div>
+
+              <h4 class="d-section-title">Branches <span class="count">1</span></h4>
+              <div class="branch">
+                <span class="role">primary</span>
+                <span class="name">Figlio di un anchor rotto</span>
+              </div>
+              <p class="d-explain">The branch keeps its target; only the anchor binding moves.</p>
+            </div>
+
+            <div class="modal-foot">
+              <button class="btn btn-quiet" type="button">Show in note</button>
+              <span class="spacer"></span>
+              <button class="btn" type="button">Close</button>
+              <button class="btn btn-primary" type="button">Preview repair</button>
             </div>
           </div>
         </div>
 
         <div class="stage">
-          <span class="stage-label">state 2 · confirm, same surface</span>
-          <div class="window wide">
-            <div class="titlebar">
-              <div class="lights"><span class="light"></span><span class="light"></span><span class="light"></span></div>
-              <span class="tab">Salute del documento — casi di prova</span>
-              <span class="mode">Continuous · Edit</span>
-            </div>
-            <div class="host-body">
-              <div class="host-list">
-                <div class="sb-head">
-                  <span class="sb-title">Health</span>
-                  <span class="sb-sum">3 to fix · 7</span>
-                </div>
-                <div class="sb-search">
-<svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
-                    <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+          <span class="stage-label">confirm · same modal</span>
+          <div class="modal" role="dialog" aria-label="Confirm repair">
+            <div class="modal-head">
+              <div>
+                <p class="modal-kicker">Document health</p>
+                <h3 class="modal-title">Broken anchor</h3>
+              </div>
+              <div class="modal-head-actions">
+                <button class="icon-btn" type="button" aria-label="Close">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
                   </svg>
-<span>Search issues</span>
-                </div>
-                <div class="sb-sections">
-<button class="section-btn" type="button" aria-expanded="true">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Broken anchors</span>
-                  <span class="count">1</span>
                 </button>
-<ul class="issue-list">
-                  <li>
-                    <button class="issue-btn" type="button" aria-current="true">
-                      <span class="quote">“testo che non esiste più”</span>
-                      <span class="meta">1</span>
-                    </button>
-                  </li>
-                </ul>
-<button class="section-btn" type="button" aria-expanded="true">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Ambiguous anchors</span>
-                  <span class="count">1</span>
-                </button>
-<ul class="issue-list">
-                  <li>
-                    <button class="issue-btn" type="button">
-                      <span class="quote">“ambigua”</span>
-                      <span class="meta">1</span>
-                    </button>
-                  </li>
-                </ul>
-<button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Unlinked marks</span>
-                  <span class="count">1</span>
-                </button>
-<button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Unused anchors</span>
-                  <span class="count">1</span>
-                </button>
-<button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Anchors with no branches</span>
-                  <span class="count">1</span>
-                </button>
-<button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                  <span class="label">Document structure</span>
-                  <span class="count">2</span>
-                </button>
-</div>
-                <div class="sb-foot">
-                  <button class="btn btn-quiet" type="button">Check again</button>
-                </div>
               </div>
-              <div class="panel">
-                <div class="panel-head">
-                  <div>
-                    <p class="panel-kicker">Repair</p>
-                    <h3 class="panel-title">Broken anchor</h3>
-                  </div>
-                  <div class="panel-head-actions">
-                    <button class="icon-btn" type="button" aria-label="Close the detail">
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                        <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+            </div>
 
-                <div class="panel-body">
-                  <p class="d-quote">“testo che non esiste più”</p>
-                  <p class="d-meta">Salute del documento — casi di prova · block 7 of 8</p>
+            <div class="modal-body">
+              <p class="d-quote">“testo che non esiste più”</p>
+              <p class="d-meta">Salute del documento — casi di prova · block 7 of 8</p>
 
-                  <div class="confirm" style="margin-top: 12px;">
-                    <h4 class="confirm-title">Confirm repair</h4>
-                    <div class="ba">
-                      <span class="ba-label">Before</span>
-                      <span class="ba-quote">“testo che non esiste più”</span>
-                      <span class="ba-context">not found in this block</span>
-                    </div>
-                    <span class="ba-arrow" aria-hidden="true">↓</span>
-                    <div class="ba" data-after="true">
-                      <span class="ba-label">After</span>
-                      <span class="ba-quote">“Il parent è un anchor che non esiste più”</span>
-                      <span class="ba-context">paragraph 2 · offset 18</span>
-                    </div>
-                    <p class="confirm-note">
-                      The anchor and its branch keep their IDs. One undo entry; nothing else changes.
-                    </p>
-                  </div>
+              <div class="confirm" style="margin-top: 12px;">
+                <h4 class="confirm-title">Confirm repair</h4>
+                <div class="ba">
+                  <span class="ba-label">Before</span>
+                  <span class="ba-quote">“testo che non esiste più”</span>
+                  <span class="ba-context">not found in this block</span>
                 </div>
-
-                <div class="panel-foot">
-                  <button class="btn" type="button">Back</button>
-                  <span class="spacer"></span>
-                  <button class="btn btn-primary" type="button">Confirm repair</button>
+                <span class="ba-arrow" aria-hidden="true">↓</span>
+                <div class="ba" data-after="true">
+                  <span class="ba-label">After</span>
+                  <span class="ba-quote">“Il parent è un anchor che non esiste più”</span>
+                  <span class="ba-context">paragraph 2 · offset 18</span>
                 </div>
+                <p class="confirm-note">
+                  The anchor and its branch keep their IDs. One undo entry; nothing else changes.
+                </p>
               </div>
+            </div>
+
+            <div class="modal-foot">
+              <button class="btn" type="button">Back</button>
+              <span class="spacer"></span>
+              <button class="btn btn-primary" type="button">Confirm repair</button>
             </div>
           </div>
         </div>
 
         <p class="note">
-          <b>Back and Escape.</b> Back returns to the issue, not to the list: the list was never
-          hidden. Escape closes the detail and the sidebar returns to 264 px with the row still
-          selected. On success the row leaves the list, the detail closes, and an Undo toast
-          appears — the report is still there, because the report is the sidebar.
+          <b>After Confirm the modal closes.</b> The row leaves the sidebar and the toast carries
+          Undo. No “next” inside the modal: closing is the exit, the sidebar is the report.
+          <span class="inline-code">Esc</span> from the confirm returns to the issue, from the issue
+          it closes; focus goes back to the row.
         </p>
       </section>
 
@@ -1404,112 +935,162 @@
       <section class="variant">
         <div class="v-head">
           <span class="v-index">3</span>
-          <h2>Where the panel lives</h2>
-          <span class="v-tag">one list, one surface</span>
+          <h2>Modal · list + detail</h2>
+          <span class="v-tag">660 px · parked</span>
         </div>
         <p class="v-sub">
-          The panel is the sidebar that widens. The list never moves, nothing is duplicated, and
-          there is only one surface to close.
+          The same functions in a single surface: the problems on the left, the repair on the
+          right. It repeats the sidebar list, so it pays off only when the sidebar is collapsed or
+          the window is narrow. On a normal window it is a second list of the same seven rows.
         </p>
 
-        <div class="wire-row">
-          <div class="wire-copy">
-            <p class="wire-title">Sidebar widens into one panel — chosen</p>
-            <p class="wire-sub">
-              The list column stays at 264 and 400 px open to its right. One surface, one list, no
-              second window; the canvas shrinks while the detail is open.
-            </p>
-          </div>
-          <span class="wire-flag">chosen</span>
-        </div>
-        <div class="wire">
-          <div class="wbox w-rail">rail</div>
-          <div class="wbox w-host">sidebar · list + detail</div>
-          <div class="wbox w-canvas">canvas</div>
-        </div>
-
-        <div class="wire-row" style="margin-top: 14px;">
-          <div class="wire-copy">
-            <p class="wire-title">Sidebar + a separate panel</p>
-            <p class="wire-sub">
-              Two surfaces to manage: the detail competes with the canvas and repeats the chrome.
-              Rejected: it adds a panel without adding room.
-            </p>
-          </div>
-          <span class="wire-flag" data-tone="alt">two surfaces</span>
-        </div>
-        <div class="wire">
-          <div class="wbox w-rail">rail</div>
-          <div class="wbox w-side">sidebar · list</div>
-          <div class="wbox w-detail">detail</div>
-          <div class="wbox w-canvas">canvas</div>
-        </div>
-
-        <div class="wire-row" style="margin-top: 14px;">
-          <div class="wire-copy">
-            <p class="wire-title">Sidebar only, everything inline</p>
-            <p class="wire-sub">
-              Cheapest, but candidates, before/after and branches do not fit in 180–264 px. The
-              mock below shows the squeeze.
-            </p>
-          </div>
-          <span class="wire-flag" data-tone="tight">too tight</span>
-        </div>
-
-        <div class="pairs" style="margin-top: 10px;">
-          <div>
-            <p class="pair-label">inline repair · 264 px</p>
-            <div class="sidebar" style="height: 300px;">
-              <div class="sb-head">
-                <span class="sb-title">Health</span>
-                <span class="sb-sum">3 to fix · 7</span>
+        <div class="stage">
+          <span class="stage-label">list + detail · 660 px</span>
+          <div class="modal" data-width="wide" role="dialog" aria-label="Document health">
+            <div class="modal-head">
+              <div>
+                <h3 class="modal-title">Document health</h3>
+                <p class="modal-sum">3 need repair · 4 information</p>
               </div>
-              <div class="sb-sections">
-                <button class="section-btn" type="button" aria-expanded="true">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+              <div class="modal-head-actions">
+                <button class="icon-btn" type="button" aria-label="Close">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
                   </svg>
-                  <span class="label">Broken anchors</span>
-                  <span class="count">1</span>
-                </button>
-                <div class="confirm" style="margin: 4px 6px 6px 14px; padding: 8px;">
-                  <p class="d-quote" style="font-size: 12px; margin: 0;">“testo che non esiste più”</p>
-                  <p class="confirm-note" style="margin-top: 5px;">
-                    Choose a location, then preview the repair. Two candidates and a confirm do not
-                    fit here without hiding the list.
-                  </p>
-                  <div style="display: flex; gap: 5px; margin-top: 7px;">
-                    <button class="btn" type="button" style="flex: 1; padding: 0 4px; font-size: 10.5px;">Choose…</button>
-                    <button class="btn" type="button" style="padding: 0 6px; font-size: 10.5px;">…</button>
-                  </div>
-                </div>
-                <button class="section-btn" type="button" aria-expanded="false">
-                  <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <span class="label">Ambiguous anchors</span>
-                  <span class="count">1</span>
                 </button>
               </div>
             </div>
-          </div>
-          <div>
-            <p class="pair-label">why it matters</p>
-            <p class="note" style="margin-top: 0;">
-              The repair needs room for a quoted candidate, a before/after and the branch list.
-              Inside 264 px those become accordions inside accordions, and the list of other issues
-              disappears exactly when you need it. Keep the sidebar for finding, the widened column
-              for deciding.
-            </p>
+
+            <div class="modal-split">
+              <div class="split-list">
+                <div class="sb-search">
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
+                    <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                  </svg>
+                  <span>Search issues</span>
+                </div>
+                <div class="sb-sections">
+                  <button class="section-btn" type="button" aria-expanded="true">
+                    <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span class="label">Anchors to fix</span>
+                    <span class="count">3</span>
+                  </button>
+                  <ul class="issue-list">
+                    <li>
+                      <button class="issue-btn" type="button" aria-current="true">
+                        <span class="quote">“testo che non esiste più”</span>
+                        <span class="meta">1</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button class="issue-btn" type="button">
+                        <span class="quote">“ambigua”</span>
+                        <span class="meta">1</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button class="issue-btn" type="button">
+                        <span class="quote">“reference orfana”</span>
+                        <span class="meta">0</span>
+                      </button>
+                    </li>
+                  </ul>
+                  <button class="section-btn" type="button" aria-expanded="true">
+                    <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span class="label">Unused anchors</span>
+                    <span class="count">2</span>
+                  </button>
+                  <ul class="issue-list">
+                    <li>
+                      <button class="issue-btn" type="button">
+                        <span class="quote">“record orfano”</span>
+                        <span class="meta">0</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button class="issue-btn" type="button">
+                        <span class="quote">“idle”</span>
+                        <span class="meta">0</span>
+                      </button>
+                    </li>
+                  </ul>
+                  <button class="section-btn" type="button" aria-expanded="false">
+                    <svg class="chev" width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span class="label">Structure</span>
+                    <span class="count">2</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="split-detail">
+                <div class="d-head">
+                  <span class="d-cat">Broken anchor</span>
+                  <span class="state" data-state="repair">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M6 1.6l4.4 7.8H1.6L6 1.6z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" />
+                    </svg>
+                    Needs repair
+                  </span>
+                  <span class="d-kind">Text anchor</span>
+                </div>
+
+                <p class="d-quote">“testo che non esiste più”</p>
+                <p class="d-meta">Salute del documento — casi di prova · block 7 of 8</p>
+                <p class="d-reason">
+                  The marked text is no longer in this block. The branch and its target are intact;
+                  choose where the anchor belongs now.
+                </p>
+
+                <div class="hr"></div>
+
+                <h4 class="d-section-title">Matching locations <span class="count">2</span></h4>
+                <button class="candidate" type="button" aria-pressed="true">
+                  <b>Paragraph 2 · “Il parent è un anchor che non esiste più”</b>
+                  <span>…ma il testo è cambiato</span>
+                </button>
+                <button class="candidate" type="button" aria-pressed="false">
+                  <b>Paragraph 1 · “un anchor che non esiste più”</b>
+                  <span>questa sezione è un banco di prova…</span>
+                </button>
+
+                <div class="hr"></div>
+
+                <h4 class="d-section-title">Branches <span class="count">1</span></h4>
+                <div class="branch">
+                  <span class="role">primary</span>
+                  <span class="name">Figlio di un anchor rotto</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-foot">
+              <button class="btn btn-quiet" type="button">Show in note</button>
+              <span class="spacer"></span>
+              <button class="btn" type="button">Close</button>
+              <button class="btn btn-primary" type="button">Preview repair</button>
+            </div>
           </div>
         </div>
+
+        <p class="note">
+          <b>Cost.</b> The same seven rows exist twice while the modal is open; selecting in one
+          list does not move the other. It only becomes worth it if the sidebar is collapsed or the
+          window is too narrow to show both — then the modal is the only list.
+        </p>
       </section>
 
       <!-- ================================================================= 4 -->
       <section class="variant">
         <div class="v-head">
           <span class="v-index">4</span>
-          <h2>Copy and geometry</h2>
+          <h2>Words and geometry</h2>
           <span class="v-tag">the part that is not a mock</span>
         </div>
 
@@ -1535,32 +1116,40 @@
             <div class="panel-card">
               <h3>Geometry</h3>
               <p>
-                Section row 30 px · error row 27 px · control 28 px · panel 400 px next to the
-                264 px sidebar. Radius 4 px on rows and controls, 8 px on the panel. No severity
-                stripe: an icon plus a word in the detail, the section name in the list.
+                Sidebar 264/180 · single modal 520 · split modal 660 · control 28 · section row 30 ·
+                error row 27. Radius 4 on rows and controls, 8 on the modal.
               </p>
             </div>
 
             <div class="panel-card" style="margin-top: 12px;">
               <h3>States to cover</h3>
               <p>
-                All clear · no document · Read mode (repair disabled, one line of why) · audit
-                running · rejected action (reason inside the panel) · section with one error ·
-                long quote · 180 px sidebar.
+                All clear · no document · Read mode (actions disabled, one line of why) · rejected
+                action (reason inside the modal) · long quote · 180 px sidebar.
               </p>
             </div>
           </div>
         </div>
 
-        <p class="note">
-          <b>Parked.</b> The reference labels and the remaining capsules (See also, Referenced by,
-          lost anchor) are a separate pass: this lab stops at health.
-        </p>
+        <div class="decisions">
+          <div class="decision">
+            <b>1 · Modal shape</b>
+            <span>One issue at 520 (chosen). List + detail parked: revisit only if repairing gets cramped.</span>
+          </div>
+          <div class="decision">
+            <b>2 · Exit</b>
+            <span>Confirm closes the modal, Undo in the toast. No next.</span>
+          </div>
+          <div class="decision">
+            <b>3 · Sidebar groups</b>
+            <span>Four groups, “Anchors to fix” open by default?</span>
+          </div>
+        </div>
       </section>
 
       <p class="footer">
-        Lab only: no application code, no tokens changed. Sidebar 264/180, panel 400, control
-        28 and radii 4/8 are the values already in the app.
+        Lab only: no application code, no tokens changed. Sidebar 264/180, control 28 and radii 4/8
+        are the values already in the app; no capsule anywhere.
       </p>
     </main>
   </body>

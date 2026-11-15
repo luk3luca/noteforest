@@ -1,39 +1,33 @@
-# Document health UI lab — sidebar first
+# Document health UI lab — sidebar report, modal repair
 
 Self-contained HTML mock for the Document health surface. Open `index.html` in a
 browser; nothing here is application code.
 
-## Direction
+## Model
 
-Health is a **sidebar view**, and the repair lives in the sidebar itself:
+- **The sidebar is the report.** Issues are grouped in expandable sections; an
+  error row carries the quote and the branch count, nothing else. Empty sections
+  do not render.
+- **Clicking an issue opens the repair in a modal in front.** The modal carries
+  the context (quote, block, reason), the choices (matching locations, branches)
+  and the action bar. The sidebar stays behind, so closing the modal never loses
+  the report.
+- **Confirm closes the modal.** The row leaves the sidebar, the toast carries
+  Undo. No “next” inside the modal.
 
-- the sidebar groups issues in **expandable sections** (chevron, name, count);
-- an error row is the quote only, indented; selection is a filled row, never a
-  left stripe;
-- picking an error **widens the sidebar** from 264 to 664 px: the list column
-  keeps its width and position, the repair opens in the 400 px to its right;
-- the panel closes back to 264, the row stays selected; the canvas gives up the
-  400 px only while the detail is open.
+## Two modal shapes in the lab
 
-No second surface, no duplicated list, no modal sheet. The list is the report.
+1. **One issue, 520 px (recommended).** No duplicated list: the sidebar behind is
+   the list. Smaller surface, less of the note covered.
+2. **List + detail, 660 px.** The same functions in one surface (problems left,
+   repair right). It repeats the sidebar list, so it only pays off when the
+   sidebar is collapsed or the window is narrow.
 
-## What the lab shows
+## Open decisions
 
-1. **Sidebar** in two states at 264 px (collapsed overview, open sections with a
-   selected error); the same structure at 180 px.
-2. **Widened sidebar**, state 1 (issue detail) and state 2 (before/after
-   confirm) in a 664 px window: 264 list + 400 detail.
-3. **Placements**: sidebar widens into one panel (chosen), sidebar + separate
-   panel (rejected: two surfaces), sidebar only inline (too tight, with a mock).
-4. **Copy and geometry**: severity words, user-facing action labels, 28 px
-   controls, 4/8 px radii.
-
-## Decisions recorded
-
-1. The repair panel **is the sidebar**, widened; the modal sheet is retired.
-2. The list keeps 264 px and does not move when the detail opens.
-3. On success the row leaves the list, the detail closes, the sidebar returns
-   to 264, and an Undo toast appears.
+1. Modal shape: one issue or list + detail.
+2. Sidebar groups: Anchors to fix / Unused anchors / Structure / Hidden, with
+   “Anchors to fix” open by default.
 
 ## Parked
 
