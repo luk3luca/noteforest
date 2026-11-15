@@ -1,7 +1,7 @@
 # Phase 3 — Document health v1
 
 **Role:** Implementer / Builder
-**Phase:** 3 (post-A–F)
+**Phase:** 4 (post-A–F; after the vault library)
 **Base:** `main` at delegation
 **Worktree:** created by the delegate; one commit; no merge or push
 **Design:** `docs/design/anchor-health.md` (product name **Document health**, approved 14 November 2026)

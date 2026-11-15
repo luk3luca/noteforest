@@ -1,7 +1,7 @@
 # Phase 4 — shell activity bar (S1 + S2)
 
 **Role:** Implementer / Builder
-**Phase:** 4 (post-A–F)
+**Phase:** 5 (post-A–F; after Document health)
 **Base:** `main` at delegation
 **Worktree:** created by the delegate; one commit per slice; no merge or push
 **Design:** `docs/design/shell-activity-bar.md` (decisions 14 November 2026)

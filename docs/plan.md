@@ -414,13 +414,15 @@ agent API, no MCP, no forest builder**; the only agent-adjacent feature is the M
 | **0** | Re-check C+A+D; list fixes (bullet markers, `1)` ordered lists) | current `main` | review verdict; list fixes green |
 | **1** | Editor appearance: Monokai/One Light, Page/PDF syntax colours; table-toolbar redesign (F8) | phase 0 | full verify; PDF colour/text check |
 | **2** | Markdown file view (barebone): parse/render/edit/save `.md` files, conflict check, copy/paste into notes | phase 1 | 1–2 batches; screenshots |
-| **3** | Document health v1 (anchors + structure) | phase 2 | sheet/status/palette; full verify |
-| **4** | Shell activity bar S1 + token pass; S2 Document health view | phase 3 | shell/health review; full verify |
-| **5** | Vault folders: nested folders for note packages and `.md` files | phase 4 | library tree, move/trash, full verify |
+| **3** | **Vault library**: recursive folders, note packages, `.md` guest files, asset/backup policy, move/trash/reconciliation | phase 2 | library tree + app-support Markdown backup; full verify |
+| **4** | Document health v1 (anchors + structure) | phase 3 | sheet/status/palette; full verify |
+| **5** | Shell activity bar S1 + token pass; S2 Document health view | phase 4 | shell/health review; full verify |
 | **6** | `⌘F` find bar only (UX F13) | phase 5 | find bar across both layouts |
 
-**Status (15 November 2026):** phases 0, 1 and 2 are done and integrated. The product owner paused the
-roadmap after phase 2; phases 3–6 are planned and not started. Resume only on an explicit go-ahead.
+**Status (15 November 2026):** phases 0, 1 and 2 are done and integrated. The product owner moved
+the **vault/library** ahead of Document health and the activity bar because the flat library is
+already mixing packages, `.md` files, images and backups. **Phase 3 (vault/library) is starting
+now.** Phases 4–6 are planned. No legacy files exist; the test vault may be rewritten.
 
 ### Phase 0 — close the integrated batch
 
@@ -449,7 +451,20 @@ Design: `docs/design/markdown-file-view.md`.
 - Copy/paste from the Markdown tab into a note is the primary acceptance path.
 - Library v1: `.md` at the root; vault folders later.
 
-### Phase 3 — Document health v1
+### Phase 3 — vault library
+
+Design: `docs/design/vault-library.md`.
+
+- Recursive tree: folders, note packages (folder with `document.json`) and `.md` guest files.
+- A folder without `document.json` is a folder, never a missing note; empty folders persist.
+- Ignore `assets/`, `*.assets/`, hidden entries, `.md.bak`, backups, images and other files;
+  never follow symlinks.
+- Sidebar tree with create/rename/move/trash; flush/lock on move; session/recents/settings follow
+  via document-id reconciliation (notes) and path (`.md`).
+- Markdown backups move to app-support: no `.md.bak` in the vault; one `previous.md` per path.
+- No legacy migration; the test vault can be rewritten.
+
+### Phase 4 — Document health v1
 
 Design: `docs/design/anchor-health.md` (product name Document health).
 
@@ -459,23 +474,15 @@ Design: `docs/design/anchor-health.md` (product name Document health).
 - Read-only audit; every action is a typed command with undo; no auto-fix.
 - v2: drift, duplicates, assets/cells, reference audit, library scan.
 
-### Phase 4 — activity bar
+### Phase 5 — activity bar
 
 Design: `docs/design/shell-activity-bar.md`.
 
 - S1: 48 px vertical bar with Library/Outline/Health and Settings at the bottom; remove the
   Library/Outline segmented header; collapse control; ARIA vertical tablist; token pass (radii 4/8,
   popover gaps 4/8/12; card padding 10 and Settings pane 536 stay documented, not changed).
-- S2: Document health compact view + badge + Locate + Open full health, after phase 3.
+- S2: Document health compact view + badge + Locate + Open full health, after phase 4.
 - No document tabs removed; the top segmented control is what goes away.
-
-### Phase 5 — vault folders
-
-- Library scans a recursive tree: folders, note packages (folder with `document.json`) and `.md`
-  leaves from phase 2.
-- Sidebar tree with create/rename/move/trash, empty folders, hidden/asset exclusion, symlink policy.
-- Flush/lock rules on move; session/recents path updates; document-id move reconciliation.
-- No virtual folders, tags, cross-library search or Markdown-native notes.
 
 ### Phase 6 — find bar
 
@@ -493,7 +500,7 @@ Design: `docs/design/shell-activity-bar.md`.
   fixes or reports integration findings directly.
 - Docs alignment (AGENTS/spec/UX/inventory) is the Orchestrator's work and may run while builders
   work.
-- Product-owner visual/VoiceOver pass after phase 1 and after phase 4.
+- Product-owner visual/VoiceOver pass after phase 1 and after phase 5.
 
 
 ## Future — manual resize (post-M4, not scheduled)
