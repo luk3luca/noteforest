@@ -74,11 +74,12 @@ max**, header **44**, collapsed rail **48**, icon buttons **28**, rows **28**, 4
 **S1 ships the bar entry only**: the Health icon opens the existing Document health sheet as a
 bridge (no badge yet). S2 replaces that bridge with the in-sidebar view.
 
-**S2 model (15 November 2026, supersedes the v1 sketch):** the repair lives in the sidebar, not in
-a modal. The view groups issues in **expandable sections** (chevron, name, count); picking an error
-widens the sidebar from 264 to 664 px — the list column keeps its width and position and the detail
-opens in the 400 px to its right. The list is the report; nothing is duplicated and nothing is
-hidden. The modal sheet is retired in S2. Design: `docs/design/document-health-ui-lab/`.
+**S2 model (15 November 2026, supersedes the v1 sketch):** the Health section is the report —
+issues in **expandable sections** (chevron, name, count), one row per issue. Clicking an issue opens
+a **520 px repair modal in front**; the sidebar stays behind, so closing the modal never loses the
+report. Confirm closes it, the row leaves the list and the toast carries Undo (no “next”). The v1
+modal sheet is retired; the list + detail modal (660 px) is parked. Design:
+`docs/design/document-health-sidebar.md`.
 
 ## 5. Accessibility and keyboard
 
@@ -126,9 +127,9 @@ hidden. The modal sheet is retired in S2. Design: `docs/design/document-health-u
   **global pill/token pass** (including reference chips) stays parked as its own batch. The
   Continuous card padding stays **10** and the Settings pane stays **536** (documented widths).
   No `⌥1/2/3` shortcuts in S1; the palette is the entry point.
-- **S2**: **Document health** in the sidebar: sections, selected error, the 264→664 detail,
-  confirm, copy, badge and Locate; the modal sheet is retired. Design:
-  `docs/design/document-health-ui-lab/`.
+- **S2**: **Document health** in the sidebar: sections, badge, search, Locate; the repair opens in
+  a 520 px modal and Confirm closes it. The v1 sheet is retired. Design:
+  `docs/design/document-health-sidebar.md`.
 - **S3**: future sections (Search, Topics, Data) as they become real.
 
 ## 10. Decisions
