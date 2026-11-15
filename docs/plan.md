@@ -421,8 +421,9 @@ agent API, no MCP, no forest builder**; the only agent-adjacent feature is the M
 
 **Status (15 November 2026):** phases 0, 1 and 2 are done and integrated. The product owner moved
 the **vault/library** ahead of Document health and the activity bar because the flat library is
-already mixing packages, `.md` files, images and backups. **Phase 3 (vault/library) is starting
-now.** Phases 4–6 are planned. No legacy files exist; the test vault may be rewritten.
+already mixing packages, `.md` files, images and backups. **Phase 3 (vault/library) is complete (15 November 2026)**, including the usability follow-up
+(app-level library actions in Read, New note here, `not-found` banner, bounded test cleanup).
+Phases 4–6 are planned. No legacy files exist; the test vault may be rewritten.
 
 ### Phase 0 — close the integrated batch
 

@@ -1,6 +1,6 @@
 # Vault library — folders, guest files, assets and backups
 
-**Status:** approved direction (15 November 2026). First implementation slice is phase 3.
+**Status:** implemented (phase 3, 15 November 2026), including the usability follow-up.
 **Scope:** make the library a recursive vault of folders, note packages and Markdown guest files,
 with a clear policy for assets and backups. No Markdown-native notes, no tags, no sync.
 **Related:** `docs/design/library-and-documents.md`, `docs/design/markdown-file-view.md`,
