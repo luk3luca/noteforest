@@ -1,6 +1,6 @@
 # Document health — sidebar report and repair modal
 
-**Status:** S2 merged at `f84a7fd`; S2.1 polish approved 15 November 2026, implementation pending.
+**Status:** S2 merged at `f84a7fd`; S2.1 polish merged at `5c4eb2c`. Product-owner visual pass pending.
 **Supersedes:** the modal sheet surface in `docs/design/anchor-health.md`; the audit and commands
 there still hold.
 **Lab:** `docs/design/document-health-ui-lab/` — section 3 is the approved simplified modal.
