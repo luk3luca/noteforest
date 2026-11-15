@@ -35,8 +35,10 @@ max**, header **44**, collapsed rail **48**, icon buttons **28**, rows **28**, 4
   180–264; it never shrinks. The canvas loses the bar width, which is expected.
 - **Collapsed** = bar only (48, was 48): the same width, so the canvas does not jump when collapsing.
   The icons keep their columns; the collapse control is the only new state.
-- **Icons 17 px** inside 28 px buttons with 8 px padding; active state = filled icon + 2 px accent
-  indicator on the bar's inner edge; tooltips; badges as small pills.
+- **Icons 17 px** inside 28 px buttons with 8 px padding; active state = filled icon + `surface-2`
+  background + `text-1`; **no accent stripe** (product-owner decision, 15 November 2026: the
+  shell has no left/edge accent indicators); tooltips; the Health badge is a small square
+  counter (radius 2, tabular number), **not a pill**.
 - **Vertical rhythm** 4/8: 8 px between icon buttons, 8 px top/bottom padding; Settings at the bottom.
 
 ## 3. Layout
@@ -59,19 +61,24 @@ max**, header **44**, collapsed rail **48**, icon buttons **28**, rows **28**, 4
 - Settings stays a **rail-bottom icon** (no “Settings” label); `⌘,` unchanged.
 - The collapse control: a chevron/panel icon at the top of the bar (or the active icon toggles the
   content). `⌘\` still toggles; the bar never collapses.
+- **Settings** keeps its divider above the gear in **both** states: expanded (the footer rule) and
+  collapsed (the rail rule). The gear is the bar's last item; the sidebar footer row is removed.
+- **Width**: `sidebarWidth` stays the **content** width (180–264). The rendered panel is
+  `48 + content` (228–312); collapsed is 48. A persisted 264 must produce a 264 content column,
+  never 216.
 - The top segmented Library/Outline control is removed; the sidebar tab state persists as the
   **active section** in the same session store.
 
 ## 4. Health view
 
-The activity icon switches the sidebar content to a **compact Health view** (not the modal):
+**S1 ships the bar entry only**: the Health icon opens the existing Document health sheet as a
+bridge (no badge yet). S2 replaces that bridge with the in-sidebar view.
 
-- summary: needs repair / idle / orphans / hidden counts;
-- filter chips (Needs repair, Idle, Orphans, Hidden);
-- a short list of rows (state, kind, block, quote); click = Locate;
-- **Open full health** opens the existing sheet for actions/repair.
-- Empty state: “All anchors are healthy.”
-- The sheet remains the only place with repair actions; the view is read-only navigation.
+**S2 model (15 November 2026, supersedes the v1 sketch):** the repair lives in the sidebar, not in
+a modal. The view groups issues in **expandable sections** (chevron, name, count); picking an error
+widens the sidebar from 264 to 664 px — the list column keeps its width and position and the detail
+opens in the 400 px to its right. The list is the report; nothing is duplicated and nothing is
+hidden. The modal sheet is retired in S2. Design: `docs/design/document-health-ui-lab/`.
 
 ## 5. Accessibility and keyboard
 
@@ -112,13 +119,16 @@ The activity icon switches the sidebar content to a **compact Health view** (not
 
 ## 9. Slices
 
-- **S1**: bar + Library/Outline + Settings; remove the top tabs; collapse; tests. Also the
-  **visual token pass** from `docs/design/value-audit.md`: radii 4/8, popover gaps 4/8/12, docs
-  180/640/264 alignment. The Continuous card padding stays **10** (documented as the note-surface
-  optical inset; no measurement change) and the Settings pane stays **536** (documented as a
-  deliberate readable width). No `⌥1/2/3` shortcuts in S1; the palette is the entry point.
-- **S2**: **Document health** view + badge + Locate + Open full health (after the Document health v1
-  sheet; the design is `docs/design/anchor-health.md`, renamed in product).
+- **S1**: bar + Library/Outline + Health (bridge to the sheet) + Settings; remove the top tabs;
+  collapse; tests. **Settings keeps its divider in both states.** **Library note vs `.md` icon
+  semantics**: note = `NotebookText`, `.md` = `FileText` plus a `.md` suffix in `text-3`, never
+  colour alone (`data-library-icon` for the test). The new chrome uses radii 4/8 only; the
+  **global pill/token pass** (including reference chips) stays parked as its own batch. The
+  Continuous card padding stays **10** and the Settings pane stays **536** (documented widths).
+  No `⌥1/2/3` shortcuts in S1; the palette is the entry point.
+- **S2**: **Document health** in the sidebar: sections, selected error, the 264→664 detail,
+  confirm, copy, badge and Locate; the modal sheet is retired. Design:
+  `docs/design/document-health-ui-lab/`.
 - **S3**: future sections (Search, Topics, Data) as they become real.
 
 ## 10. Decisions
@@ -130,4 +140,9 @@ Resolved with the product owner (14 November 2026):
 3. Collapse control: explicit chevron at the bar top.
 4. No `⌥1/2/3` shortcuts in S1; palette only.
 5. Keep **Library** and **Outline** as the names.
+6. No accent indicator on the active icon: filled icon + background (15 November 2026).
+7. The Health badge is a square counter, not a pill (15 November 2026).
+8. Settings keeps its divider in both expanded and collapsed states (15 November 2026).
+9. S2 retires the modal health sheet: the repair lives in the widened sidebar
+   (15 November 2026).
 
