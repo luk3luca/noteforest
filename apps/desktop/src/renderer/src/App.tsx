@@ -643,6 +643,7 @@ export function App(): JSX.Element {
           paletteOpen: state.paletteOpen,
           dialog: state.dialog,
           sidebarCollapsed: state.sidebarCollapsed,
+          sidebarWidth: state.sidebarWidth,
           sidebarTab: state.sidebarTab,
           markdownFiles: Object.values(useMarkdownFiles.getState().files).map((file) => ({
             path: file.path,

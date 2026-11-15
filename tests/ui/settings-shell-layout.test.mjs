@@ -368,18 +368,19 @@ describe('Settings & shell layout batch', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.waitForFunction(() => window.innerWidth > 920, undefined, { timeout: 5000 });
 
-    // E: the same icon centre and 15 px size in both sidebar states.
+    // E: the same icon centre and 17 px size in both sidebar states (S1: the
+    // activity bar renders in both, so nothing in it can move).
     await closeSettings();
-    const expandedCollapse = await iconCenter('[aria-label="Collapse sidebar"] svg');
-    const expandedSettings = await iconCenter('.nf-sidebar-settings svg');
+    const expandedCollapse = await iconCenter('[data-sidebar-toggle="true"] svg');
+    const expandedSettings = await iconCenter('[data-activity-settings="true"] svg');
     await page.screenshot({
       path: join(screenshotDir, 'sidebar-expanded-settings-icons.png'),
       scale: 'css',
     });
     await page.locator('[aria-label="Collapse sidebar"]').click();
     await page.waitForSelector('[data-sidebar-expand="true"]');
-    const railCollapse = await iconCenter('[data-sidebar-expand="true"] svg');
-    const railSettings = await iconCenter('[data-rail-settings="true"] svg');
+    const railCollapse = await iconCenter('[data-sidebar-toggle="true"] svg');
+    const railSettings = await iconCenter('[data-activity-settings="true"] svg');
     await page.screenshot({
       path: join(screenshotDir, 'sidebar-collapsed-settings-icons.png'),
       scale: 'css',
@@ -397,17 +398,26 @@ describe('Settings & shell layout batch', () => {
         `${name}: the icon centre y is stable (${expandedIcon.y} vs ${railIcon.y})`,
       );
       for (const icon of [expandedIcon, railIcon]) {
-        assert.equal(icon.width, 15, `${name}: the icon stays 15 px wide`);
-        assert.equal(icon.height, 15, `${name}: the icon stays 15 px tall`);
+        assert.equal(icon.width, 17, `${name}: the icon stays 17 px wide`);
+        assert.equal(icon.height, 17, `${name}: the icon stays 17 px tall`);
       }
     }
-    // 28 x 28 collapse and 30 x 30 gear boxes in both states.
+    // One 28 x 28 activity-bar button for both the chevron and the gear, and a
+    // divider above the Settings group in the collapsed state.
     const collapseBox = await rect('[data-sidebar-expand="true"]');
-    const gearBox = await rect('[data-rail-settings="true"]');
+    const gearBox = await rect('[data-activity-settings="true"]');
     assert.equal(collapseBox.width, 28);
     assert.equal(collapseBox.height, 28);
-    assert.equal(gearBox.width, 30);
-    assert.equal(gearBox.height, 30);
+    assert.equal(gearBox.width, 28);
+    assert.equal(gearBox.height, 28);
+    assert.equal(await page.locator('[data-activity-foot="true"]').count(), 1);
+    assert.equal(
+      await page
+        .locator('[data-activity-foot="true"]')
+        .evaluate((element) => getComputedStyle(element).borderTopWidth),
+      '1px',
+      'the Settings divider survives the collapse',
+    );
   });
 
   it('stacks page 1 and page 2 from the same page model inside the rail', async () => {

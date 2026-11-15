@@ -19,6 +19,8 @@ import { pageDocument, writePagePackage, textBlock } from '../support/page-fixtu
 
 const tempRoot = artifactsPath('vault-library-temp');
 const screenshotDir = artifactsPath('vault-library');
+// S1 evidence: the Library rows with a folder, a note, and a `.md` file.
+const activityArtifacts = artifactsPath('activity-bar');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
@@ -282,6 +284,46 @@ describe('Vault library tree', () => {
       { timeout: 15000 },
     );
     await page.screenshot({ path: join(screenshotDir, 'library-tree.png') });
+
+    // S1 icon semantics: a folder row, a note row, and a `.md` row differ by
+    // glyph (and the `.md` suffix), never by colour alone.
+    const noteRow = page.locator('[data-library-document][data-library-kind="note"]').first();
+    const mdRow = page.locator('[data-library-document][data-library-kind="markdown"]').first();
+    assert.equal(
+      await page.locator('[data-library-folder]').count() > 0,
+      true,
+      'the fixture has folder rows',
+    );
+    assert.equal(await noteRow.locator('[data-library-icon="note"]').count(), 1, 'a note uses the note glyph');
+    assert.equal(await mdRow.locator('[data-library-icon="markdown"]').count(), 1, 'a .md uses the file glyph');
+    assert.equal(await noteRow.locator('[data-library-icon="markdown"]').count(), 0);
+    assert.equal(await mdRow.locator('[data-library-icon="note"]').count(), 0);
+    assert.equal(
+      await page.locator('[role="treeitem"][aria-label="diario.md"]').count(),
+      1,
+      'the full file name stays the row label',
+    );
+    const suffix = mdRow.locator('[data-library-suffix="markdown"]');
+    assert.equal((await suffix.innerText()).trim(), '.md', 'the .md suffix follows the title');
+    assert.match(await mdRow.innerText(), /diario\.md/, 'title and suffix read as one name');
+    const colours = await mdRow.evaluate((element) => {
+      const suffixElement = element.querySelector('[data-library-suffix="markdown"]');
+      const titleElement = element.querySelector('.nf-library-title');
+      const mdIcon = element.querySelector('[data-library-icon="markdown"]');
+      return {
+        suffix: suffixElement === null ? null : getComputedStyle(suffixElement).color,
+        title: titleElement === null ? null : getComputedStyle(titleElement).color,
+        mdIcon: mdIcon === null ? null : getComputedStyle(mdIcon).color,
+      };
+    });
+    const noteIconColour = await noteRow
+      .locator('[data-library-icon="note"]')
+      .evaluate((element) => getComputedStyle(element).color);
+    assert.equal(colours.mdIcon, colours.suffix, 'the .md glyph and suffix share text-3');
+    assert.notEqual(noteIconColour, colours.mdIcon, 'note and .md glyphs differ in weight too');
+    assert.notEqual(colours.suffix, colours.title, 'the suffix is dimmer than the title');
+    await mkdir(activityArtifacts, { recursive: true });
+    await page.screenshot({ path: join(activityArtifacts, 'library-rows.png') });
   });
 
   it('creates, renames, and moves entries through the folder dialogs', { timeout: 90000 }, async () => {

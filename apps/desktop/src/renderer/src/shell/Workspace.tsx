@@ -2,9 +2,12 @@ import { Group, Panel, Separator, usePanelRef } from 'react-resizable-panels';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FilePlus2, Search } from 'lucide-react';
 import {
+  ACTIVITY_BAR_WIDTH,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_SNAP_WIDTH,
+  sidebarContentWidth,
+  sidebarPanelWidth,
   useShell,
 } from '../state/shell';
 import { getRuntime, useRegistry, useRuntime } from '../state/registry';
@@ -54,8 +57,12 @@ function useNarrowWindow(): boolean {
   return narrow;
 }
 
-/** Collapsed sidebar width; the rail is a real column, not a hidden panel. */
-const RAIL_WIDTH = 48;
+/**
+ * Collapsed sidebar width: the activity bar is the only surviving column. The
+ * expanded card is `ACTIVITY_BAR_WIDTH + sidebarWidth`, so the store keeps the
+ * **content** width (180–264–640) and collapse is exactly 48.
+ */
+const RAIL_WIDTH = ACTIVITY_BAR_WIDTH;
 /** A released drag this close to the default settles onto it. */
 const SNAP_TOLERANCE = 10;
 const SNAP_DELAY_MS = 140;
@@ -64,10 +71,13 @@ const SNAP_DELAY_MS = 140;
  * The workspace body (V0 visual): a persistent Sidebar panel and a main column
  * holding the 44 px Toolbar and the rounded Canvas panel.
  *
- * The Sidebar is a collapsible resizable panel that collapses to a 48 px rail.
- * The Group stays mounted, so the editor keeps its state and scroll across a
- * collapse. A narrow window auto-collapses to the rail without overwriting the
- * user's persisted preference; the rail expand is a temporary override there.
+ * The Sidebar is a collapsible resizable panel whose leading 48 px activity bar
+ * always stays. The store persists the **content** width, so the panel is sized
+ * `content + 48` and every drag is converted back before it is stored; collapse
+ * is 48 and restores the same content width. The Group stays mounted, so the
+ * editor keeps its state and scroll across a collapse. A narrow window
+ * auto-collapses to the bar without overwriting the user's persisted
+ * preference; the bar expand is a temporary override there.
  */
 export function Workspace(): JSX.Element {
   const narrow = useNarrowWindow();
@@ -96,19 +106,20 @@ export function Workspace(): JSX.Element {
   }, []);
 
   /**
-   * After a drag settles, a width within 10 px of the default snaps onto it.
-   * The timer is reset on every resize event, so only the release schedules it.
+   * After a drag settles, a content width within 10 px of the default snaps onto
+   * it. The timer is reset on every resize event, so only the release schedules
+   * it. All comparisons are content widths: the panel also carries the bar.
    */
   const scheduleSnap = useCallback(
-    (width: number) => {
+    (contentWidth: number) => {
       clearSnap();
       if (rail) return;
-      const distance = Math.abs(width - SIDEBAR_SNAP_WIDTH);
+      const distance = Math.abs(contentWidth - SIDEBAR_SNAP_WIDTH);
       if (distance <= 0.5 || distance > SNAP_TOLERANCE) return;
       snapTimer.current = setTimeout(() => {
         snapTimer.current = null;
         if (rail || panelRef.current === null) return;
-        panelRef.current.resize(SIDEBAR_SNAP_WIDTH);
+        panelRef.current.resize(sidebarPanelWidth(SIDEBAR_SNAP_WIDTH));
         setSidebarWidth(SIDEBAR_SNAP_WIDTH);
       }, SNAP_DELAY_MS);
     },
@@ -118,7 +129,7 @@ export function Workspace(): JSX.Element {
   const resetSidebarWidth = useCallback(() => {
     clearSnap();
     if (rail || panelRef.current === null) return;
-    panelRef.current.resize(SIDEBAR_SNAP_WIDTH);
+    panelRef.current.resize(sidebarPanelWidth(SIDEBAR_SNAP_WIDTH));
     setSidebarWidth(SIDEBAR_SNAP_WIDTH);
   }, [clearSnap, panelRef, rail, setSidebarWidth]);
 
@@ -139,12 +150,13 @@ export function Workspace(): JSX.Element {
       if (!dragging.current) return;
       if (!isSeparator(event.target) && event.type === 'pointercancel') return;
       dragging.current = false;
-      const width = panelRef.current?.getSize().inPixels ?? lastWidth.current;
-      if (width >= SIDEBAR_MIN_WIDTH) {
-        lastWidth.current = width;
-        setSidebarWidth(width);
+      const panelWidth = panelRef.current?.getSize().inPixels ?? lastWidth.current;
+      const contentWidth = sidebarContentWidth(panelWidth);
+      if (contentWidth >= SIDEBAR_MIN_WIDTH) {
+        lastWidth.current = contentWidth;
+        setSidebarWidth(contentWidth);
       }
-      scheduleSnap(width);
+      scheduleSnap(contentWidth);
     };
     const onDoubleClick = (event: MouseEvent): void => {
       if (!isSeparator(event.target)) return;
@@ -176,8 +188,9 @@ export function Workspace(): JSX.Element {
     } else if (panel.isCollapsed()) {
       panel.expand();
       // A panel collapsed before its first layout has no remembered expand
-      // size; the persisted width is the source of truth on every expand.
-      panel.resize(sidebarWidth);
+      // size; the persisted content width is the source of truth on every
+      // expand, plus the always-visible activity bar.
+      panel.resize(sidebarPanelWidth(sidebarWidth));
     }
   }, [rail, panelRef, sidebarWidth]);
 
@@ -185,7 +198,7 @@ export function Workspace(): JSX.Element {
     if (narrow) setNarrowExpanded(true);
     if (sidebarCollapsed) useShell.getState().setSidebarCollapsed(false);
     panelRef.current?.expand();
-    panelRef.current?.resize(sidebarWidth);
+    panelRef.current?.resize(sidebarPanelWidth(sidebarWidth));
   }, [narrow, panelRef, sidebarCollapsed, sidebarWidth]);
 
   const editor = (
@@ -246,23 +259,25 @@ export function Workspace(): JSX.Element {
         <Panel
           id="sidebar"
           className="nf-sidebar-panel"
-          defaultSize={sidebarWidth}
-          minSize={SIDEBAR_MIN_WIDTH}
-          maxSize={SIDEBAR_MAX_WIDTH}
+          defaultSize={sidebarPanelWidth(sidebarWidth)}
+          minSize={SIDEBAR_MIN_WIDTH + ACTIVITY_BAR_WIDTH}
+          maxSize={SIDEBAR_MAX_WIDTH + ACTIVITY_BAR_WIDTH}
           collapsible
           collapsedSize={RAIL_WIDTH}
           disabled={rail}
           panelRef={panelRef}
           onResize={(size) => {
-            // Collapse passes through the rail width; never persist it. During
-            // a drag the release handler persists once, so the panel is not
-            // re-rendered mid-gesture.
+            // Collapse passes through the bar width; never persist it. The
+            // panel also carries the 48 px bar, so the store keeps the content
+            // column. During a drag the release handler persists once, so the
+            // panel is not re-rendered mid-gesture.
             if (rail) return;
-            if (size.inPixels < SIDEBAR_MIN_WIDTH) return;
-            lastWidth.current = size.inPixels;
+            const contentWidth = sidebarContentWidth(size.inPixels);
+            if (contentWidth < SIDEBAR_MIN_WIDTH) return;
+            lastWidth.current = contentWidth;
             if (dragging.current) return;
-            setSidebarWidth(size.inPixels);
-            scheduleSnap(size.inPixels);
+            setSidebarWidth(contentWidth);
+            scheduleSnap(contentWidth);
           }}
         >
           <Sidebar collapsed={rail} onExpand={expandSidebar} />

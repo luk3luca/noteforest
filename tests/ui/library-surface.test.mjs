@@ -14,6 +14,8 @@ import { pageDocument, textBlock, writePagePackage } from '../support/page-fixtu
 
 const tempRoot = artifactsPath('library-surface-temp');
 const screenshotDir = artifactsPath('library-surface');
+// S1 activity-bar evidence (the same folder the vault suite writes to).
+const activityArtifacts = artifactsPath('activity-bar');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
@@ -87,17 +89,30 @@ describe('Library surface', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('shows Library by default with ARIA tabs, one New note, and a persisted Outline tab', async () => {
+  it('shows Library by default with a vertical section tablist, one New note, and a persisted Outline tab', async () => {
     const env = ui.isolated('tabs');
     await launch('tabs', env);
     await ui.seedDemo();
 
-    // Tab strip: tablist + two tabs, Library selected by default.
+    // Activity bar: a vertical tablist + two tabs, Library selected by default.
     assert.equal(await page.locator('[data-sidebar-tabs][role="tablist"]').count(), 1);
+    assert.equal(
+      await page.locator('[data-sidebar-tabs]').getAttribute('aria-orientation'),
+      'vertical',
+    );
     assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 2);
+    assert.equal(
+      await page.locator('.nf-sidebar-tabs').count(),
+      0,
+      'the header segmented control is gone',
+    );
     assert.equal(
       await page.locator('[data-sidebar-tab="library"]').getAttribute('aria-selected'),
       'true',
+    );
+    assert.equal(
+      await page.locator('[data-sidebar-tab="library"]').getAttribute('aria-label'),
+      'Library',
     );
     assert.equal(
       await page.locator('[data-sidebar-tab="outline"]').getAttribute('aria-selected'),
@@ -188,10 +203,12 @@ describe('Library surface', () => {
     assert.match(cardStyle.shadow, /0px 0px 0px 1px inset/, 'selection is the full-card ring');
     assert.doesNotMatch(cardStyle.shadow, /(?:2|3|4)px 0px/, 'selection has no left stripe');
     await page.screenshot({ path: join(screenshotDir, 'library-tab.png') });
+    await mkdir(activityArtifacts, { recursive: true });
+    await page.screenshot({ path: join(activityArtifacts, 'expanded-library.png') });
 
-    // Arrow keys move selection and focus together.
+    // Arrow keys move selection and focus together, automatically activating.
     await page.locator('[data-sidebar-tab="library"]').focus();
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowDown');
     await page.waitForFunction(
       () => document.querySelector('[data-sidebar-tab="outline"]')?.getAttribute('aria-selected') === 'true',
       undefined,
@@ -207,11 +224,65 @@ describe('Library surface', () => {
       'nf-sidebar-tab-outline',
     );
     assert.equal(await page.locator('[data-sidebar-panel="outline"]').count(), 1);
-    await page.keyboard.press('ArrowLeft');
+    assert.equal(
+      await page.locator('[data-sidebar-tab="library"]').getAttribute('tabindex'),
+      '-1',
+      'the roving tabindex leaves the inactive section out of the tab order',
+    );
+    assert.equal(
+      await page.locator('[data-sidebar-tab="outline"]').getAttribute('tabindex'),
+      '0',
+    );
+    const focusRing = await page
+      .locator('[data-sidebar-tab="outline"]')
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { width: style.outlineWidth, style: style.outlineStyle };
+      });
+    assert.equal(focusRing.width, '2px', 'the focused section has a visible ring');
+    assert.equal(focusRing.style, 'solid');
+    // Home/End reach both ends, and Up wraps to the last section.
+    await page.keyboard.press('Home');
     await page.waitForFunction(
       () => document.querySelector('[data-sidebar-tab="library"]')?.getAttribute('aria-selected') === 'true',
       undefined,
       { timeout: 5000 },
+    );
+    await page.keyboard.press('End');
+    await page.waitForFunction(
+      () => document.querySelector('[data-sidebar-tab="outline"]')?.getAttribute('aria-selected') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction(
+      () => document.querySelector('[data-sidebar-tab="library"]')?.getAttribute('aria-selected') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('ArrowUp');
+    await page.waitForFunction(
+      () => document.querySelector('[data-sidebar-tab="outline"]')?.getAttribute('aria-selected') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('ArrowUp');
+    await page.waitForFunction(
+      () => document.querySelector('[data-sidebar-tab="library"]')?.getAttribute('aria-selected') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.getAttribute('data-sidebar-tab')),
+      'library',
+      'the roving focus stays inside the tablist',
+    );
+    // Horizontal arrows are not part of a vertical tablist and change nothing.
+    await page.keyboard.press('ArrowRight');
+    assert.equal(
+      await page.locator('[data-sidebar-tab="outline"]').getAttribute('aria-selected'),
+      'false',
+      'ArrowRight does not switch the active section',
     );
 
     // Outline shows the active document tree; opening another document does
@@ -249,6 +320,7 @@ describe('Library surface', () => {
     assert.match(shadow, /0px 0px 0px 1px inset/, 'selection is the full-row ring');
     assert.doesNotMatch(shadow, /2px 0px/, 'selection has no left stripe');
     await page.screenshot({ path: join(screenshotDir, 'outline-tab.png') });
+    await page.screenshot({ path: join(activityArtifacts, 'expanded-outline.png') });
 
     await page.evaluate(() => window.__noteforestTest.seed('performance'));
     await page.waitForFunction(
@@ -281,11 +353,67 @@ describe('Library surface', () => {
     );
     await page.screenshot({ path: join(screenshotDir, 'outline-empty.png') });
 
+    // Health is a bridge in S1: it opens the sheet (or its no-document state)
+    // and leaves the active section unchanged.
+    await page.locator('[data-activity-health="true"]').click();
+    await page.waitForSelector('[data-anchor-health="true"]');
+    assert.equal(
+      await page.locator('[data-health-no-document="true"]').count(),
+      1,
+      'the sheet shows its no-document state',
+    );
+    assert.equal(
+      (await sidebarState()).sidebarTab,
+      'outline',
+      'the health action does not change the active section',
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    assert.equal(
+      await page.locator('[data-sidebar-tab="outline"]').getAttribute('aria-selected'),
+      'true',
+      'the Outline section is still active',
+    );
+
     // Collapse/expand keeps the rail contract and the selected tab.
     await page.keyboard.press('Meta+\\');
     await page.waitForSelector('.nf-sidebar-rail');
+    assert.equal(
+      await page.locator('.nf-sidebar-rail [data-activity-bar="true"]').count(),
+      1,
+      'the bar stays in the collapsed card',
+    );
+    assert.equal(
+      await page.locator('[data-sidebar-tab="outline"][aria-selected="true"]').count(),
+      1,
+      'the collapsed bar keeps the active section',
+    );
+    assert.equal(
+      await page.locator('.nf-sidebar-rail [data-activity-settings="true"]').count(),
+      1,
+    );
+    // Evidence: the collapsed rail keeps the bar, the divider, and the gear.
+    await mkdir(activityArtifacts, { recursive: true });
+    await page.screenshot({ path: join(activityArtifacts, 'collapsed-rail-settings-divider.png') });
+    // Clicking a section while collapsed expands the sidebar to that section.
+    await page.locator('[data-sidebar-tab="library"]').click();
+    await page.waitForSelector('[data-sidebar-panel="library"]');
+    assert.equal(
+      (await sidebarState()).sidebarCollapsed,
+      false,
+      'a section click expands the sidebar',
+    );
+    // Collapse again and expand from the chevron: the section chosen while
+    // collapsed is the one that comes back.
+    await page.locator('[aria-label="Collapse sidebar"]').click();
+    await page.waitForSelector('.nf-sidebar-rail');
     await page.locator('[data-sidebar-expand="true"]').click();
-    await page.waitForSelector('[data-sidebar-tab="outline"][aria-selected="true"]');
+    await page.waitForSelector('[data-sidebar-tab="library"][aria-selected="true"]');
+    assert.equal(
+      (await sidebarState()).sidebarTab,
+      'library',
+      'the section clicked while collapsed is the active one',
+    );
   });
 
   it('opens a folder as a library, switches recents, keeps tabs, and follows the active tab', async () => {
