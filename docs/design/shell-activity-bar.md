@@ -21,7 +21,8 @@ vertical activity bar:
 - makes the **collapsed state useful**: the bar stays visible, so a section can be opened with one
   click instead of expand-then-tab;
 - keeps the section icons at the **same x** in expanded and collapsed states, so nothing shifts;
-- lets the Settings gear move to the bar's bottom, where it no longer competes with the content footer.
+- keeps Settings at the bottom in both states: the bar's 48 px group when collapsed, the
+  full-width footer when expanded.
 
 ## 2. Sizing rationale (the numbers are derived, not magic)
 
@@ -45,13 +46,14 @@ max**, header **44**, collapsed rail **48**, icon buttons **28**, rows **28**, 4
 
 ```text
 ┌────┬──────────────────────────────────┐
-│ 🗂  │  Search (⌘K)          [collapse] │  44 header
-│ 🌳  │  ─────────────────────────────── │
-│ ⚠3 │  Library or Outline content      │
+│ ⬅  │  Search (⌘K)                      │  44 header
+│ 🗂  │  ─────────────────────────────── │
+│ 🌳  │  Library or Outline content      │
+│ ⚠3 │                                  │
 │    │                                  │
-│    │                                  │
-│ ⚙  │                                  │
-└────┴──────────────────────────────────┘
+├────┴──────────────────────────────────┤
+│ ⚙ Settings                            │
+└───────────────────────────────────────┘
  48px   content 180–264 (total 228–312)
 ```
 
@@ -61,8 +63,10 @@ max**, header **44**, collapsed rail **48**, icon buttons **28**, rows **28**, 4
 - Settings stays a **rail-bottom icon** (no “Settings” label); `⌘,` unchanged.
 - The collapse control: a chevron/panel icon at the top of the bar (or the active icon toggles the
   content). `⌘\` still toggles; the bar never collapses.
-- **Settings** keeps its divider above the gear in **both** states: expanded (the footer rule) and
-  collapsed (the rail rule). The gear is the bar's last item; the sidebar footer row is removed.
+- **Settings**: expanded, it lives in a **full-width footer row** at the bottom of the sidebar card
+  (1 px divider above, gear + `Settings` label), as before S1. Collapsed, it is the 48 px bar's last
+  item with the same divider and no label. One Settings button per state; the bar's foot group does
+  not render expanded. (Product-owner decision, 15 November 2026; S2 restores the footer.)
 - **Width**: `sidebarWidth` stays the **content** width (180–264). The rendered panel is
   `48 + content` (228–312); collapsed is 48. A persisted 264 must produce a 264 content column,
   never 216.
@@ -143,7 +147,8 @@ Resolved with the product owner (14 November 2026):
 5. Keep **Library** and **Outline** as the names.
 6. No accent indicator on the active icon: filled icon + background (15 November 2026).
 7. The Health badge is a square counter, not a pill (15 November 2026).
-8. Settings keeps its divider in both expanded and collapsed states (15 November 2026).
+8. Settings keeps its divider in both states: expanded it is the full-width footer row with the
+   label, collapsed the bar's 48 px group (15 November 2026; footer restored in S2).
 9. S2 retires the modal health sheet: the repair lives in the widened sidebar
    (15 November 2026).
 
