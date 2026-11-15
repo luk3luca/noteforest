@@ -68,6 +68,7 @@ export const FILES = [
   'editor-appearance.test.mjs',
   'markdown-file-view.test.mjs',
   'vault-library.test.mjs',
+  'find-bar.test.mjs',
 ];
 
 /**
@@ -104,6 +105,7 @@ export const GROUPS = {
     'list-fixes.test.mjs',
     'markdown-file-view.test.mjs',
     'vault-library.test.mjs',
+    'find-bar.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',
@@ -160,6 +162,9 @@ export const GROUPS = {
     'm4c3-packaged-export.test.mjs',
     'm4d2-export-ui.test.mjs',
     'editor-appearance.test.mjs',
+    // The bar spans both surfaces: it floats in Continuous and rings a block
+    // on the Page, so the Page group runs it too.
+    'find-bar.test.mjs',
   ],
 };
 

@@ -19,6 +19,7 @@ import { InlineCodeBacktick } from './inline-code';
 import { ParenOrderedListInput } from './lists';
 import { BlockFormulaNode, InlineFormulaNode } from './formulas';
 import { TableEditing, TableExtensions } from './tables';
+import { FindHighlightExtension } from './find-decorations';
 
 /**
  * M3c3b1: canonical image nodes carry `assetId`, not a display path. The
@@ -340,5 +341,6 @@ export function createEditorExtensions(options: EditorExtensionOptions = {}) {
     BlockBodyNode,
     BranchChildrenNode,
     CalloutLaneNode,
+    FindHighlightExtension,
   ];
 }

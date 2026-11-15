@@ -59,7 +59,7 @@ import {
   primaryParentBranch,
   subtreeBlockIds,
 } from '@noteforest/core';
-import type { Branch } from '@noteforest/core';
+import type { Branch, Document } from '@noteforest/core';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
@@ -78,6 +78,9 @@ import {
   READ_MODE_TOAST,
 } from './lib/editability';
 import { commitPageEdit } from './page/page-edit-state';
+import { extractBlockBodies } from './state/editor-projection';
+import { withBody } from './lib/adapter';
+import type { FindResult } from './lib/find';
 import { exportActiveDocument } from './export/export-flow';
 import { isDraftKey } from '../../shared/drafts';
 import { indentTarget, outdentTarget } from './lib/indent';
@@ -860,6 +863,142 @@ export function resetActivePageZoom(): void {
   if (path === null) return;
   state.setDocumentPageFit(path, 'none');
   state.setDocumentPageZoom(path, 1);
+}
+
+/**
+ * Find bar (`⌘F`, docs/design/find-bar.md).
+ *
+ * `⌘F` opens the one bar over the current note; Escape closes it and puts the
+ * block/anchor selection back where it was, with focus returned to the surface.
+ * Navigation is view state only: no document command, no history entry.
+ */
+let findRestorePoint: {
+  /** The note the bar was opened on: a tab switch never restores across notes. */
+  packagePath: string;
+  blockId: string | null;
+  anchor: { blockId: string; anchorId: string; branchId: string } | null;
+} | null = null;
+
+/** Narrow the stored anchor selection to the fields restore needs. */
+function findAnchorSnapshot(runtime: DocumentRuntime): {
+  blockId: string;
+  anchorId: string;
+  branchId: string;
+} | null {
+  const anchor = runtime.selectedAnchor;
+  if (anchor === null) return null;
+  return { blockId: anchor.blockId, anchorId: anchor.anchorId, branchId: anchor.branchId };
+}
+
+/**
+ * `⌘F`: open the bar and focus its query. With no note open (library, no tab)
+ * or a Markdown guest file it does nothing at all.
+ */
+export function openFind(): void {
+  if (activeTabIsMarkdown()) return;
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  const state = shell();
+  if (!state.findOpen) {
+    findRestorePoint = {
+      packagePath: runtime.packagePath,
+      blockId: runtime.selectedBlockId,
+      anchor: findAnchorSnapshot(runtime),
+    };
+  }
+  state.openFind();
+}
+
+function focusFindSurface(runtime: DocumentRuntime, layout: DocumentLayout): void {
+  if (layout === 'page') {
+    document
+      .querySelector<HTMLElement>('.nf-editor[data-active="true"] .nf-page-view')
+      ?.focus({ preventScroll: true });
+    return;
+  }
+  runtime.editor?.view.focus();
+}
+
+/**
+ * Escape/close: clear the highlight, restore the selection saved when the bar
+ * opened (not the last hit) and return focus to the editor or the page.
+ */
+export function closeFind(): void {
+  const state = shell();
+  if (!state.findOpen) return;
+  const runtime = activeRuntime();
+  const restore = findRestorePoint;
+  findRestorePoint = null;
+  state.closeFind();
+  if (runtime === null) return;
+  const restoreHere =
+    restore !== null &&
+    restore.packagePath === runtime.packagePath &&
+    (restore.blockId === null || runtime.document.blocks[restore.blockId] !== undefined);
+  if (restoreHere && restore !== null) {
+    runtime.selectBlock(restore.blockId);
+    if (restore.anchor !== null) {
+      runtime.selectAnchor(restore.anchor.blockId, restore.anchor.anchorId, restore.anchor.branchId);
+    }
+  }
+  const layout = shell().viewByDoc[runtime.packagePath]?.layout ?? 'continuous';
+  focusFindSurface(runtime, layout);
+}
+
+export function findNext(): void {
+  shell().nextFind();
+}
+
+export function findPrevious(): void {
+  shell().previousFind();
+}
+
+/**
+ * Move the view to one result. Page navigation and the block ring belong to
+ * `PageView`, which owns the derived page model; Continuous reveals the block,
+ * selects it and scrolls the card into view without stealing the bar's focus.
+ */
+export function navigateToFindResult(runtime: DocumentRuntime, result: FindResult): void {
+  if (result.blockId !== null) runtime.selectBlock(result.blockId);
+  const layout = shell().viewByDoc[runtime.packagePath]?.layout ?? 'continuous';
+  if (layout === 'page') return;
+  const target =
+    result.blockId ??
+    runtime.document.chapters
+      .find((chapter) => chapter.id === result.chapterId)
+      ?.topLevelBlockIds[0] ??
+    null;
+  if (target === null) return;
+  if (runtime.document.blocks[target] === undefined) return;
+  runtime.expandAncestors(target);
+  requestAnimationFrame(() => {
+    const scope = document.querySelector('.nf-editor[data-active="true"]');
+    const card = scope?.querySelector<HTMLElement>(
+      `[data-block-card="${CSS.escape(target)}"]`,
+    );
+    card?.scrollIntoView({ block: 'center', inline: 'nearest' });
+  });
+}
+
+/**
+ * The document a find query runs over: the editor buffer's bodies merged into
+ * the canonical blocks. Typed text reaches the search immediately instead of
+ * waiting for the idle content commit; the search itself stays a pure function.
+ */
+export function findSearchDocument(runtime: DocumentRuntime): Document {
+  const editor = runtime.editor;
+  if (editor === null) return runtime.document;
+  const bodies = extractBlockBodies(editor.state.doc);
+  if (bodies.size === 0) return runtime.document;
+  const blocks = { ...runtime.document.blocks };
+  let changed = false;
+  for (const [blockId, body] of bodies) {
+    const block = blocks[blockId];
+    if (block === undefined) continue;
+    blocks[blockId] = { ...block, content: withBody(block.content, body.content) };
+    changed = true;
+  }
+  return changed ? { ...runtime.document, blocks } : runtime.document;
 }
 
 /**

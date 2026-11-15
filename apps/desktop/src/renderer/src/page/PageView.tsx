@@ -42,7 +42,7 @@ import {
 } from '@noteforest/layout';
 import { openBlockInContinuous } from '../actions';
 import { useRuntime } from '../state/registry';
-import { useShell } from '../state/shell';
+import { useShell, currentFindResult } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
 import type { InteractionMode } from '../../../shared/view-state';
 import { blockTitle } from '../lib/tree';
@@ -127,6 +127,8 @@ interface PageFragmentViewProps {
   page: DerivedPage;
   segments: readonly PageRenderSegment[];
   selected: boolean;
+  /** Current find hit: Page rings the block, never highlights inside it. */
+  findCurrent: boolean;
   blocking: readonly LayoutDefect[];
   anchorWarnings: readonly AnchorAttachment[];
   editingEnabled: boolean;
@@ -141,6 +143,7 @@ function PageFragmentView({
   page,
   segments,
   selected,
+  findCurrent,
   blocking,
   anchorWarnings,
   editingEnabled,
@@ -200,6 +203,7 @@ function PageFragmentView({
       data-fragment-first={fragment.isFirst ? '1' : '0'}
       data-fragment-last={fragment.isLast ? '1' : '0'}
       data-selected={selected ? 'true' : 'false'}
+      data-find-current={findCurrent ? 'true' : undefined}
       data-fragment-defect={blocking.length > 0 ? 'true' : undefined}
       data-fragment-anchor-warning={anchorWarnings.length > 0 ? 'true' : undefined}
       role="group"
@@ -310,6 +314,12 @@ export function PageView({
   const pageFit = view?.pageFit ?? 'page';
   const pageZoom = view?.pageZoom ?? 1;
   const selectedBlockId = runtime.selectedBlockId;
+  // Find (`⌘F`): a block hit goes to the block's page and rings the block; the
+  // page keeps its zoom and the model never re-runs because of a search.
+  const findCurrent = useShell((state) => currentFindResult(state));
+  const findKey = findCurrent?.id ?? null;
+  const findBlockId = findCurrent?.blockId ?? null;
+  const findChapterId = findCurrent?.chapterId ?? null;
   const pageEditing = useShell((state) =>
     pageBlockEditingEnabledFor(runtime, state.viewByDoc[runtime.packagePath]),
   );
@@ -563,6 +573,39 @@ export function PageView({
     [],
   );
 
+  // Find navigation: move to the page that holds the current hit's fragment
+  // once per new hit. The key guard keeps a manual page change afterwards from
+  // snapping back; the page model is PageView's own, so this waits for `ready`.
+  const lastFindKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    if (findKey === null) {
+      lastFindKey.current = null;
+      return;
+    }
+    if (!model.ready || lastFindKey.current === findKey) return;
+    const index =
+      findBlockId !== null
+        ? model.pages.findIndex((candidate) =>
+            candidate.fragments.some((fragment) => fragment.blockId === findBlockId),
+          )
+        : model.pages.findIndex((candidate) => candidate.chapterId === findChapterId);
+    lastFindKey.current = findKey;
+    if (index < 0) return;
+    if (index + 1 !== pageNumber) {
+      useShell.getState().setDocumentPage(runtime.packagePath, index + 1);
+    }
+  }, [
+    active,
+    findKey,
+    findBlockId,
+    findChapterId,
+    model.ready,
+    model.pages,
+    pageNumber,
+    runtime.packagePath,
+  ]);
+
   // Focus the committed block after Esc, once the re-paginated page renders.
   // If the block moved to another page it is not present here; the next Enter
   // or page navigation keeps working and focus stays where the browser put it.
@@ -772,6 +815,9 @@ export function PageView({
                       page={page as DerivedPage}
                       segments={segmentsByBlock[fragment.blockId] ?? []}
                       selected={selectedBlockId === fragment.blockId}
+                      findCurrent={
+                        findBlockId !== null && findBlockId === fragment.blockId
+                      }
                       blocking={blocking.filter((defect) => defect.blockId === fragment.blockId)}
                       anchorWarnings={
                         fragment.isFirst ? anchorWarnings[fragment.blockId] ?? [] : []

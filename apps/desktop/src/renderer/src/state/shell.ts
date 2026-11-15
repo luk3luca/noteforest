@@ -8,6 +8,7 @@ import {
   DEFAULT_OPEN_HEALTH_SECTIONS,
   type DocumentHealthSectionId,
 } from '../lib/document-health-sections';
+import type { FindResult } from '../lib/find';
 import {
   DEFAULT_DOCUMENT_VIEW,
   clampContinuousZoom,
@@ -132,6 +133,19 @@ interface ShellState {
   healthOpenSections: DocumentHealthSectionId[];
   /** The issue row selected in the Health list; survives closing the modal. */
   healthSelectedRowId: string | null;
+  /**
+   * Find bar (`⌘F`). The bar is a transient shell surface: `findQuery` is the
+   * debounced query and survives closing (the session keeps the last query),
+   * while the result set and the current index are cleared on close.
+   */
+  findOpen: boolean;
+  findQuery: string;
+  findResults: FindResult[];
+  findTotal: number;
+  findTruncated: boolean;
+  findIndex: number;
+  /** Bumped by `openFind` so ⌘F re-focuses and selects the query. */
+  findFocusRequest: number;
   setReady: (ready: boolean) => void;
   setLibrary: (library: LibraryView) => void;
   setExpandedLibraryFolders: (paths: string[]) => void;
@@ -159,6 +173,15 @@ interface ShellState {
   setHealthSelectedRowId: (rowId: string | null) => void;
   setPaletteOpen: (open: boolean, options?: { documentsOnly?: boolean; query?: string }) => void;
   setPaletteQuery: (query: string) => void;
+  openFind: () => void;
+  closeFind: () => void;
+  setFindQuery: (query: string) => void;
+  setFindResults: (results: FindResult[], total: number, truncated: boolean) => void;
+  setFindIndex: (index: number) => void;
+  nextFind: () => void;
+  previousFind: () => void;
+  firstFind: () => void;
+  lastFind: () => void;
   openDialog: (dialog: DialogState) => void;
   closeDialog: () => void;
   openContextMenu: (x: number, y: number, items: MenuEntry[], options?: { onClose?: () => void }) => void;
@@ -195,6 +218,13 @@ export const useShell = create<ShellState>((set, get) => ({
   expandedLibraryFolders: [],
   healthOpenSections: [...DEFAULT_OPEN_HEALTH_SECTIONS],
   healthSelectedRowId: null,
+  findOpen: false,
+  findQuery: '',
+  findResults: [],
+  findTotal: 0,
+  findTruncated: false,
+  findIndex: -1,
+  findFocusRequest: 0,
 
   setReady: (ready) => set({ ready }),
   setLibrary: (library) => set({ library }),
@@ -353,6 +383,56 @@ export const useShell = create<ShellState>((set, get) => ({
     }),
   setPaletteQuery: (query) => set({ paletteQuery: query }),
 
+  openFind: () =>
+    set((state) => ({
+      findOpen: true,
+      findFocusRequest: state.findFocusRequest + 1,
+    })),
+  closeFind: () =>
+    set({
+      findOpen: false,
+      findResults: [],
+      findTotal: 0,
+      findTruncated: false,
+      findIndex: -1,
+    }),
+  setFindQuery: (query) => set({ findQuery: query }),
+  setFindResults: (results, total, truncated) =>
+    set({
+      findResults: results,
+      findTotal: total,
+      findTruncated: truncated,
+      findIndex: results.length === 0 ? -1 : 0,
+    }),
+  setFindIndex: (index) =>
+    set((state) => {
+      if (state.findResults.length === 0) return { findIndex: -1 };
+      const next = Math.min(Math.max(index, 0), state.findResults.length - 1);
+      return next === state.findIndex ? state : { findIndex: next };
+    }),
+  nextFind: () =>
+    set((state) => {
+      if (state.findResults.length === 0) return { findIndex: -1 };
+      const next = (Math.max(state.findIndex, -1) + 1) % state.findResults.length;
+      return { findIndex: next };
+    }),
+  previousFind: () =>
+    set((state) => {
+      if (state.findResults.length === 0) return { findIndex: -1 };
+      const current = state.findIndex < 0 ? 0 : state.findIndex;
+      const next =
+        (current - 1 + state.findResults.length) % state.findResults.length;
+      return { findIndex: next };
+    }),
+  firstFind: () =>
+    set((state) => ({
+      findIndex: state.findResults.length === 0 ? -1 : 0,
+    })),
+  lastFind: () =>
+    set((state) => ({
+      findIndex: state.findResults.length === 0 ? -1 : state.findResults.length - 1,
+    })),
+
   openDialog: (dialog) => set({ dialog }),
   closeDialog: () => set({ dialog: null }),
 
@@ -457,3 +537,18 @@ export const useShell = create<ShellState>((set, get) => ({
       return { viewByDoc: { ...state.viewByDoc, [packagePath]: { ...current, pageFit: next } } };
     }),
 }));
+
+/**
+ * The current find hit, or null when the bar is closed or nothing matches.
+ * The object is the one stored in `findResults`, so its identity is stable
+ * across unrelated store updates: selecting it never loops React.
+ */
+export function currentFindResult(state: ShellState): FindResult | null {
+  if (!state.findOpen || state.findIndex < 0) return null;
+  return state.findResults[state.findIndex] ?? null;
+}
+
+/** Subscribe to the current find hit. */
+export function useCurrentFindResult(): FindResult | null {
+  return useShell(currentFindResult);
+}
