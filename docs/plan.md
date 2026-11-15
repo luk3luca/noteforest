@@ -423,7 +423,7 @@ agent API, no MCP, no forest builder**; the only agent-adjacent feature is the M
 the **vault/library** ahead of Document health and the activity bar because the flat library is
 already mixing packages, `.md` files, images and backups. **Phase 3 (vault/library) is complete (15 November 2026)**, including the usability follow-up
 (app-level library actions in Read, New note here, `not-found` banner, bounded test cleanup).
-Phases 4–6 are planned. No legacy files exist; the test vault may be rewritten.
+**Phase 4 (Document health) is starting.** Phases 5–6 are planned. No legacy files exist; the test vault may be rewritten.
 
 ### Phase 0 — close the integrated batch
 
@@ -491,6 +491,14 @@ Design: `docs/design/shell-activity-bar.md`.
   chapter titles; case-insensitive, no regex v1; matches grouped by chapter/block; Return/Shift+Return
   cycle; Esc restores selection; `⌘G`/`⌘⇧G`; collapsed content expands; Page jumps to the page.
 - Not a global library search and not a query language.
+
+### Deferred — library/Markdown polish (not scheduled)
+
+- Drag/drop move for the vault tree (the v1 Move dialog remains the accessible path).
+- Note vs `.md` icon semantics: use a distinct icon/shape, not accent colour alone.
+- Folder row `…` action for “New note here” (currently context-menu only).
+- Failed “New note here” target: offer “Choose another folder”, not only Retry.
+- Copy an image from a `.md` into a note: copy the bytes into the destination asset store.
 
 ### Execution rules
 
