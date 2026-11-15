@@ -1,6 +1,6 @@
 # Document health — design proposal
 
-**Status:** Proposal for product-owner review. No implementation yet. The product owner named the
+**Status:** implemented as Document health v1 (15 November 2026). The product owner named the
 surface **Document health** on 14 November 2026 and asked it to hold the whole document audit, not
 only anchors. The file name `anchor-health.md` is retained for existing links.
 **Date:** 14 November 2026.
