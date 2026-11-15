@@ -121,7 +121,20 @@ app-support, like note backups:
 - Empty folders persist; missing folder shows the existing missing state; `.md` missing uses the
   guest-file missing banner.
 - No document tabs change; the activity bar is phase 5.
-- Read mode: tree navigation only; no structural mutation.
+- A folder context menu has **New note here**: one in-memory draft bound to the active library with
+  that folder as its target; it stays in memory until the first real edit and then materializes the
+  package **inside that folder**, not at the library root. The tab, session, recents, title rules and
+  lock behavior follow the normal draft path. The target is validated at creation **and** at
+  materialization: a normal folder at or under the library root, never a note package, an `assets/` or
+  `*.assets/` folder, a hidden/backup folder, a symlink, or a path outside the library. A missing or
+  invalid target refuses with a clear message and creates no package. The global New note stays
+  root-bound.
+- Library organization is **app-level**, exactly like New note and New library: creating folders,
+  creating a note in a folder, moving/renaming/trashing notes, folders and `.md` files stays available
+  while a note is in Read mode. No library action is disabled or suffixed by Read mode. Read mode gates
+  document **content** (blocks, branches, anchors, table/formula edits, structural commands); moving
+  an open note still flushes first and obeys a live lock. The real library gates are: no library,
+  missing library, live lock, and an unsaved/failed flush.
 
 ## 7. Move, lock and reconciliation
 
@@ -142,10 +155,12 @@ app-support, like note backups:
   hidden file, symlink, unreadable folder, deterministic order, depth.
 - Main: create/rename/move/trash folder; move note into/out of a folder; move `.md`; open tab,
   session, recents, per-document settings follow; live lock refuses; root protected; contained
-  cleanup.
+  cleanup; New note here materializes in the target folder (nested too), root New note unchanged, an
+  invalid or removed target is refused with no package.
 - Markdown: no `.md.bak` is created; app-support previous backup exists; save/restore path; library
   ignores the backup.
-- UI: tree expand/collapse, folder CRUD, drag/move, missing folder, `.md` row, read gating,
+- UI: tree expand/collapse, folder CRUD, drag/move, missing folder, `.md` row, folder New note
+  before/after materialization, library actions enabled in Read while document content stays gated,
   screenshots.
 - No fixed sleeps/native dialogs; no schema/settingsVersion/Page/PDF/export/showcase change.
 

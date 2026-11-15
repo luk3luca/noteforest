@@ -1,8 +1,8 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { artifactsPath } from '../support/harness.mjs';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { dirname, join, basename } from 'node:path';
+import { artifactsPath, killTestAppsUnder } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import { pageDocument, writePagePackage, textBlock } from '../support/page-fixtures.mjs';
 
@@ -11,9 +11,10 @@ import { pageDocument, writePagePackage, textBlock } from '../support/page-fixtu
  *
  * The library is a vault: folders expand/collapse, note packages and `.md` guest
  * files are rows, and everything else (assets, images, `.md.bak`, hidden files)
- * is ignored. Folder create/rename/move/trash and note/Markdown move are
- * app-level actions with dialogs; Read mode keeps the tree navigation-only.
- * `.md` rows open the Markdown guest view (no forest, Page, or PDF).
+ * is ignored. Folder create/rename/move/trash, note/Markdown move and
+ * "New note here" are app-level actions with dialogs: they stay available in
+ * Read mode, which only gates document content. `.md` rows open the Markdown
+ * guest view (no forest, Page, or PDF).
  */
 
 const tempRoot = artifactsPath('vault-library-temp');
@@ -95,6 +96,50 @@ async function openDocumentMenu(title) {
   await page.locator('.nf-menu').waitFor();
 }
 
+/** Current interaction mode of the active tab (Edit when it has no view state). */
+async function interactionMode() {
+  return page.evaluate(() => {
+    const active = window.__noteforestTest.state().activeTab;
+    return window.__noteforestTest.viewState()[active]?.interactionMode ?? 'edit';
+  });
+}
+
+/**
+ * Set Edit/Read through the real shortcut, but only when the mode differs: a
+ * vault move closes and reopens the tab, and the reopened view may reset.
+ */
+async function setInteractionMode(mode) {
+  if ((await interactionMode()) === mode) return;
+  await page.keyboard.press('Meta+e');
+  await page.waitForFunction(
+    (target) => {
+      const active = window.__noteforestTest.state().activeTab;
+      return window.__noteforestTest.viewState()[active]?.interactionMode === target;
+    },
+    mode,
+    { timeout: 10000 },
+  );
+}
+
+/** Visible library entries of one directory, hidden and temp files excluded. */
+async function directoryEntries(directory) {
+  return (await readdir(directory).catch(() => []))
+    .filter((name) => !name.startsWith('.'))
+    .sort();
+}
+
+/** Wait until the open draft tab is replaced by a real package inside `parent`. */
+async function waitMaterializedIn(draftKey, parent) {
+  await page.waitForFunction(
+    (key) => !window.__noteforestTest.state().tabs.some((tab) => tab.packagePath === key),
+    draftKey,
+    { timeout: 15000 },
+  );
+  const packagePath = (await state()).activeTab ?? '';
+  assert.equal(dirname(packagePath), parent, 'the package materialized inside the target folder');
+  return packagePath;
+}
+
 async function writeFixtures(env) {
   const library = env.NOTEFOREST_LIBRARY;
   await mkdir(join(library, 'Università', 'Analisi'), { recursive: true });
@@ -131,20 +176,29 @@ async function writeFixtures(env) {
 
 describe('Vault library tree', () => {
   before(async () => {
+    // A previous run can leave a test app alive with the suite's userData.
+    killTestAppsUnder(tempRoot);
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(tempRoot, { recursive: true });
     await mkdir(screenshotDir, { recursive: true });
   });
 
   afterEach(async () => {
-    await h.quit();
+    try {
+      await h.quit();
+    } finally {
+      // No test Electron may survive a failed or timed-out test: an orphan keeps
+      // the userData single-instance lock and every later launch hangs.
+      killTestAppsUnder(tempRoot);
+    }
   });
 
   after(async () => {
+    killTestAppsUnder(tempRoot);
     await rm(tempRoot, { recursive: true, force: true });
   });
 
-  it('shows folders, notes, and .md files only, expands folders, and opens a guest file', async () => {
+  it('shows folders, notes, and .md files only, expands folders, and opens a guest file', { timeout: 120000 }, async () => {
     const env = ui.isolated('tree');
     await writeFixtures(env);
     await launch(env);
@@ -230,7 +284,7 @@ describe('Vault library tree', () => {
     await page.screenshot({ path: join(screenshotDir, 'library-tree.png') });
   });
 
-  it('creates, renames, and moves entries through the folder dialogs', async () => {
+  it('creates, renames, and moves entries through the folder dialogs', { timeout: 90000 }, async () => {
     const env = ui.isolated('folders');
     await writeFixtures(env);
     await launch(env);
@@ -313,52 +367,88 @@ describe('Vault library tree', () => {
     );
   });
 
-  it('keeps the tree navigation-only in Read mode and moves a folder to the OS Trash', async () => {
-    const env = ui.isolated('read-trash');
+  it('keeps library organization available in Read mode and gates only document content', { timeout: 90000 }, async () => {
+    const env = ui.isolated('read-actions');
     await writeFixtures(env);
     await launch(env);
     const library = env.NOTEFOREST_LIBRARY;
 
-    // Open a note and switch to Read: vault mutations are disabled with the
-    // shared Read-mode reason; the tree still navigates.
+    // Open a note and switch to Read: library organization stays available.
     await page.locator('[data-library-document]', { hasText: 'Nota in radice' }).click();
     await page.waitForSelector('.nf-editor[data-active="true"]');
-    await page.keyboard.press('Meta+e');
-    await page.waitForFunction(
-      () => {
-        const active = window.__noteforestTest.state().activeTab;
-        return window.__noteforestTest.viewState()[active]?.interactionMode === 'read';
-      },
-      undefined,
-      { timeout: 10000 },
-    );
-    const addFolder = page.locator('[data-library-new-folder="true"]');
-    assert.equal(await addFolder.isDisabled(), true, 'New folder is gated in Read mode');
-    assert.match((await addFolder.getAttribute('title')) ?? '', /Read mode/);
-    await openFolderMenu(join(library, 'Personale'));
-    const newFolderItem = page.getByRole('menuitem', { name: /New folder/ });
-    assert.match(await newFolderItem.innerText(), /Read mode/);
-    await page.keyboard.press('Escape');
-    await page.screenshot({ path: join(screenshotDir, 'library-read-gating.png') });
+    await setInteractionMode('read');
 
-    // Back to Edit: folder trash names the contained notes and uses the OS Trash.
-    await page.keyboard.press('Meta+e');
+    const addFolder = page.locator('[data-library-new-folder="true"]');
+    assert.equal(await addFolder.isDisabled(), false, 'New folder stays available in Read');
+    assert.equal(await addFolder.getAttribute('aria-label'), 'New folder');
+    assert.doesNotMatch((await addFolder.getAttribute('title')) ?? '', /Read mode/);
+
+    // Every folder action is enabled and carries no Read-mode suffix.
+    await openFolderMenu(join(library, 'Personale'));
+    for (const id of [
+      'vault-new-note',
+      'vault-new-folder',
+      'vault-rename-folder',
+      'vault-move-folder',
+      'vault-trash-folder',
+    ]) {
+      const item = page.locator(`[data-menu-entry="${id}"]`);
+      assert.equal(await item.count(), 1, `the folder menu offers ${id}`);
+      assert.equal(await item.getAttribute('aria-disabled'), null, `${id} is enabled in Read`);
+      assert.doesNotMatch(await item.innerText(), /Read mode/, `${id} has no Read-mode suffix`);
+    }
+    await page.keyboard.press('Escape');
+
+    // Document content stays gated: adding a chapter is a content command and
+    // lives on the Outline tab.
+    await page.locator('[data-sidebar-tab="outline"]').click();
+    await page.waitForSelector('[data-sidebar-panel="outline"]');
+    const addChapter = page.getByRole('button', { name: /^Add chapter/ });
+    assert.equal(await addChapter.isDisabled(), true, 'content commands stay gated in Read');
+    assert.match((await addChapter.getAttribute('title')) ?? '', /Read mode/);
+    await page.locator('[data-sidebar-tab="library"]').click();
+    await page.waitForSelector('[data-sidebar-panel="library"]');
+    await page.screenshot({ path: join(screenshotDir, 'library-read-actions.png') });
+
+    // New folder works from Read.
+    const readFolder = join(library, 'Cartella lettura');
+    await addFolder.click();
+    await page.waitForSelector('[data-new-folder-dialog="true"]');
+    await page.locator('[data-new-folder-name]').fill('Cartella lettura');
+    await page.locator('[data-new-folder-create]').click();
+    await page.waitForSelector('[data-new-folder-dialog="true"]', { state: 'detached' });
+    await page.waitForSelector(`[data-library-folder][data-vault-path="${readFolder}"]`, {
+      timeout: 10000,
+    });
+    assert.equal((await stat(readFolder)).isDirectory(), true);
+
+    // Move the open note into it from Read: the file and the tab follow.
+    const rootNotePath = join(library, 'root-note');
+    const movedPath = join(readFolder, 'root-note');
+    await openDocumentMenu('Nota in radice');
+    await chooseMenuItem('Move to folder…');
+    await page.waitForSelector('[data-move-dialog="true"]');
+    await page.locator(`[data-move-target="${readFolder}"]`).click();
+    await page.locator('[data-move-confirm="true"]').click();
+    await page.waitForSelector('[data-move-dialog="true"]', { state: 'detached' });
+    assert.equal((await stat(movedPath)).isDirectory(), true);
+    await assert.rejects(stat(rootNotePath));
     await page.waitForFunction(
-      () => {
-        const active = window.__noteforestTest.state().activeTab;
-        return window.__noteforestTest.viewState()[active]?.interactionMode === 'edit';
-      },
-      undefined,
-      { timeout: 10000 },
+      (path) => window.__noteforestTest.state().tabs.some((tab) => tab.packagePath === path),
+      movedPath,
+      { timeout: 20000 },
     );
-    const folder = join(library, 'Università');
-    await openFolderMenu(folder);
+
+    // The reopened tab may reset its view; Read again before the trash step.
+    await setInteractionMode('read');
+    await openFolderMenu(join(library, 'Università'));
     await chooseMenuItem('Move to Trash…');
     await page.waitForSelector('[data-trash-dialog="true"]');
     assert.equal(await page.locator('[data-trash-dialog]').getAttribute('data-trash-kind'), 'folder');
     assert.match(await page.locator('[data-trash-contained]').innerText(), /1 note/);
     assert.match(await page.locator('[data-trash-contained]').innerText(), /0 Markdown/);
     await page.screenshot({ path: join(screenshotDir, 'folder-trash-dialog.png') });
+    const folder = join(library, 'Università');
     await page.locator('[data-trash-confirm="true"]').click();
     await page.waitForSelector('[data-trash-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
@@ -372,5 +462,149 @@ describe('Vault library tree', () => {
     await assert.rejects(stat(folder));
     assert.equal((await state()).tabs.some((tab) => tab.title === 'Serie uno'), false);
     await page.screenshot({ path: join(screenshotDir, 'library-after-folder-trash.png') });
+  });
+
+  it('creates a new note inside a folder and materializes the package there', { timeout: 90000 }, async () => {
+    const env = ui.isolated('folder-new-note');
+    await writeFixtures(env);
+    await launch(env);
+    const library = env.NOTEFOREST_LIBRARY;
+    const universita = join(library, 'Università');
+    const analisi = join(universita, 'Analisi');
+    await expandFolder(universita);
+    await expandFolder(analisi);
+
+    // Nested folder target: the draft writes nothing until the first edit.
+    await openFolderMenu(analisi);
+    await chooseMenuItem('New note here');
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 1);
+    const before = await state();
+    const draftKey = before.tabs[0]?.packagePath ?? '';
+    assert.match(draftKey, /^draft:/, 'New note here starts an in-memory draft');
+    assert.deepEqual(await directoryEntries(analisi), ['serie-1'], 'the draft writes nothing yet');
+    assert.deepEqual(
+      await directoryEntries(library),
+      ['Archive', 'Personale', 'Università', 'diario.assets', 'diario.md', 'diario.md.bak', 'photo.png', 'root-note'],
+      'the draft never appears at the library root',
+    );
+    await page.screenshot({ path: join(screenshotDir, 'folder-new-note-before.png') });
+
+    // The first real edit materializes the package inside the target folder.
+    await page.locator('.nf-editor[data-active="true"] .nf-block-prose').first().click();
+    await page.keyboard.type('Nota dentro Analisi');
+    const packagePath = await waitMaterializedIn(draftKey, analisi);
+    assert.deepEqual(await directoryEntries(analisi), ['serie-1', basename(packagePath)].sort());
+    assert.deepEqual(
+      await directoryEntries(library),
+      ['Archive', 'Personale', 'Università', 'diario.assets', 'diario.md', 'diario.md.bak', 'photo.png', 'root-note'],
+      'the folder note never lands at the root',
+    );
+
+    // The tree refreshes without a manual Refresh: the row is inside Analisi.
+    const nestedRow = page.locator(
+      `[data-library-folder][data-vault-path="${analisi}"] [data-library-document]`,
+      { hasText: 'Untitled' },
+    );
+    await nestedRow.waitFor({ timeout: 10000 });
+    assert.equal(
+      await page.locator('.nf-library-list > .nf-library-row', { hasText: 'Untitled' }).count(),
+      0,
+      'the folder note is not a root row',
+    );
+
+    // The typed text reached the package inside the folder.
+    await page.keyboard.press('Meta+s');
+    await page.waitForFunction(
+      () => {
+        const state = window.__noteforestTest.state();
+        const runtime = state.runtimes.find((item) => item.packagePath === state.activeTab);
+        return runtime !== undefined && runtime.saveState === 'saved';
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    const stored = await readFile(join(packagePath, 'document.json'), 'utf8');
+    assert.match(stored, /Nota dentro Analisi/);
+    await page.screenshot({ path: join(screenshotDir, 'folder-new-note-after.png') });
+
+    // The global New note stays root-bound.
+    const openRootNote = async () => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        if ((await state()).tabs.length >= 2) return;
+        await page.locator('[data-library-new="true"]').click();
+        try {
+          await page.waitForFunction(
+            () => window.__noteforestTest.state().tabs.length === 2,
+            undefined,
+            { timeout: 3000 },
+          );
+          return;
+        } catch {
+          // The first click can land before the shell's first renderer tick.
+        }
+      }
+      await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 2, undefined, {
+        timeout: 10000,
+      });
+    };
+    await openRootNote();
+    const rootDraft = (await state()).tabs.find((tab) => tab.packagePath.startsWith('draft:'));
+    assert.ok(rootDraft !== undefined, 'the header New note opens a draft');
+    await page.locator('.nf-editor[data-active="true"] .nf-block-prose').first().click();
+    await page.keyboard.type('Nota alla radice');
+    const rootPackage = await waitMaterializedIn(rootDraft.packagePath, library);
+    assert.deepEqual(await directoryEntries(library), [
+      'Archive',
+      'Personale',
+      'Università',
+      'diario.assets',
+      'diario.md',
+      'diario.md.bak',
+      'photo.png',
+      'root-note',
+      'untitled',
+    ]);
+    assert.equal(dirname(rootPackage), library, 'the global New note stays at the library root');
+  });
+
+  it('refuses a folder that disappeared before the first edit and creates no package', { timeout: 60000 }, async () => {
+    const env = ui.isolated('folder-gone');
+    await writeFixtures(env);
+    await launch(env);
+    const library = env.NOTEFOREST_LIBRARY;
+    const personale = join(library, 'Personale');
+
+    await openFolderMenu(personale);
+    await chooseMenuItem('New note here');
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 1);
+    const draftKey = (await state()).tabs[0]?.packagePath ?? '';
+    assert.match(draftKey, /^draft:/);
+
+    // The target folder disappears while the draft is still in memory.
+    await rm(personale, { recursive: true, force: true });
+    await page.locator('.nf-editor[data-active="true"] .nf-block-prose').first().click();
+    await page.keyboard.type('Senza cartella');
+
+    const banner = page.locator('[data-draft-materialize-error]');
+    await banner.waitFor({ timeout: 15000 });
+    const bannerCode = await banner.getAttribute('data-draft-materialize-error');
+    const bannerText = await page.locator('[data-draft-error-message]').innerText();
+    assert.equal(bannerCode, 'not-found');
+    assert.match(bannerText, /no longer exists/);
+    const afterFailure = await state();
+    assert.equal(afterFailure.tabs[0]?.packagePath, draftKey, 'the draft stays in memory');
+    assert.deepEqual(
+      await directoryEntries(library),
+      ['Archive', 'Università', 'diario.assets', 'diario.md', 'diario.md.bak', 'photo.png', 'root-note'],
+      'no package is created for a removed target folder',
+    );
+    await page.screenshot({ path: join(screenshotDir, 'folder-new-note-missing-target.png') });
+    // The draft cannot materialize; closing the tab discards it so the app can
+    // quit (the same user path as any unsaved draft). A test must never leave a
+    // dirty document that makes the app refuse to quit.
+    await page.evaluate(() =>
+      window.__noteforestTest.closePath(window.__noteforestTest.state().activeTab),
+    );
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 0);
   });
 });

@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react';
-import type { OpenDocumentSnapshot, SessionTabState } from '../../../shared/api';
+import type { LibraryView, OpenDocumentSnapshot, SessionTabState } from '../../../shared/api';
 import { createElectronDocumentGateway } from './electron-document-gateway';
 import { DocumentRuntime, type RestorePoint } from './runtime';
 import { rekeyScroll } from './scroll-store';
@@ -30,6 +30,7 @@ function handlePackagePathChange(
   runtime: DocumentRuntime,
   previous: string,
   next: string,
+  library?: LibraryView,
 ): void {
   if (runtimes.get(previous) === runtime) {
     runtimes.delete(previous);
@@ -37,6 +38,9 @@ function handlePackagePathChange(
   }
   rekeyScroll(previous, next);
   const documentId = runtime.document.id;
+  // Materialization can add a package inside a folder ("New note here"); the
+  // scan returned by the same IPC call is the tree the user must see now.
+  if (library !== undefined) useShell.getState().setLibrary(library);
   useShell.getState().rekeyDocument(previous, next, runtime.document.title);
   // Materialization does not change the document id: any per-document override
   // created while it was a draft follows the document to its package path.
@@ -57,8 +61,8 @@ export function registerRuntime(
       ? null
       : { scrollTop: tab.scrollTop, selectedBlockId: tab.selectedBlockId };
   const runtime = new DocumentRuntime(snapshot, collapsed, restore, documentGateway);
-  runtime.onPackagePathChange = (previous, next) => {
-    handlePackagePathChange(runtime, previous, next);
+  runtime.onPackagePathChange = (previous, next, _documentId, library) => {
+    handlePackagePathChange(runtime, previous, next, library);
   };
   runtimes.set(snapshot.packagePath, runtime);
   bump();

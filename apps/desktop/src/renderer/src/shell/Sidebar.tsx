@@ -351,9 +351,6 @@ function LibrarySection(): JSX.Element {
   const openDialog = useShell((state) => state.openDialog);
   const expanded = useShell((state) => state.expandedLibraryFolders);
   const toggleLibraryFolder = useShell((state) => state.toggleLibraryFolder);
-  const activeView = useShell((state) =>
-    state.activeTab === null ? undefined : state.viewByDoc[state.activeTab],
-  );
   const [query, setQuery] = useState('');
 
   const documents = library?.documents ?? [];
@@ -368,11 +365,8 @@ function LibrarySection(): JSX.Element {
     () => new Set(searching ? folderKeys(filtered) : expanded),
     [searching, filtered, expanded],
   );
-  // Vault mutations are refused while a note is open in Read mode (design §6).
-  const vaultEnabled = useMemo(
-    () => libraryMutationsEnabled(),
-    [activeTab, activeView],
-  );
+  // Library organization is app-level: Read mode never disables it (design §6).
+  const vaultEnabled = useMemo(() => libraryMutationsEnabled(), [library]);
 
   const openPaths = useMemo(() => new Set(tabs.map((tab) => tab.packagePath)), [tabs]);
   const isOpen = (path: string): boolean => openPaths.has(path);
@@ -465,13 +459,11 @@ function LibrarySection(): JSX.Element {
             type="button"
             className="nf-icon-button nf-section-add"
             data-library-new-folder="true"
-            aria-label={vaultEnabled ? 'New folder' : `New folder — ${READ_MODE_TITLE}`}
+            aria-label="New folder"
             title={
               missing || noLibrary
                 ? 'Open a library before creating a folder'
-                : vaultEnabled
-                  ? 'New folder'
-                  : READ_MODE_TITLE
+                : 'New folder'
             }
             disabled={missing || noLibrary || !vaultEnabled}
             onClick={() => openNewFolderDialog(libraryPath)}

@@ -34,6 +34,7 @@ import {
   readDocumentSettingsFile,
   writeDocumentSettingsFile,
 } from '../src/main/document-settings';
+import type { LibraryTreeNode } from '../src/shared/api';
 
 /**
  * L3 draft sessions and L4 document management at the main-process boundary:
@@ -359,6 +360,153 @@ describe('draft sessions', () => {
     const materialized = await materializeDraftSession(draftKey);
     expect(materialized.ok).toBe(true);
     if (materialized.ok) expect(materialized.packagePath).toBe(packagePath);
+  });
+});
+
+/**
+ * Flatten a library tree into document paths, so a test can assert the folder
+ * that contains a materialized package without walking IPC structures.
+ */
+function treeDocumentPaths(nodes: LibraryTreeNode[]): string[] {
+  const paths: string[] = [];
+  const walk = (list: LibraryTreeNode[]): void => {
+    for (const node of list) {
+      if (node.kind === 'folder') walk(node.children);
+      else paths.push(node.path);
+    }
+  };
+  walk(nodes);
+  return paths;
+}
+
+describe('New note in a folder (vault usability)', () => {
+  it('materializes the draft inside the target folder, nested folders included', async () => {
+    await activeLibraryPath();
+    const personale = path.join(library, 'Personale');
+    const studio = path.join(personale, 'Studio');
+    await fs.mkdir(studio, { recursive: true });
+
+    // The draft stays in memory and writes nothing, in the folder or at the root.
+    const created = await createDraftSession({ targetFolderPath: studio });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const { draft } = created;
+    expect(draft.targetFolderPath).toBe(path.resolve(studio));
+    expect(draft.libraryPath).toBe(path.resolve(library));
+    expect(await entries(studio)).toEqual([]);
+    expect(await entries(library)).toEqual(['Personale']);
+    expect(await recentPaths()).toEqual([]);
+
+    const draftKey = draft.snapshot.packagePath;
+    const blockId = Object.keys(draft.snapshot.document.blocks)[0] ?? '';
+    const applied = await applyCommand(draftKey, {
+      type: 'block.editContent',
+      blockId,
+      content: {
+        type: 'doc',
+        children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Inside Studio' }] }],
+      },
+    });
+    expect(applied.ok).toBe(true);
+    const packagePath = applied.packagePath ?? '';
+
+    // The package is a child of the nested folder, never of the library root.
+    expect(path.dirname(packagePath)).toBe(path.resolve(studio));
+    expect(await entries(studio)).toEqual([path.basename(packagePath)]);
+    expect(await entries(personale)).toEqual(['Studio']);
+    expect(await entries(library)).toEqual(['Personale']);
+    expect(await recentPaths()).toEqual([packagePath]);
+
+    // The scan the materialization returns already shows the note in the folder.
+    const materialized = await materializeDraftSession(draftKey);
+    expect(materialized.ok).toBe(true);
+    if (!materialized.ok) return;
+    expect(materialized.packagePath).toBe(packagePath);
+    expect(treeDocumentPaths(materialized.library.tree)).toContain(packagePath);
+    expect(materialized.library.documents.some((row) => row.packagePath === packagePath)).toBe(
+      true,
+    );
+  });
+
+  it('keeps the global New note at the library root', async () => {
+    await activeLibraryPath();
+    await fs.mkdir(path.join(library, 'Personale'), { recursive: true });
+
+    const created = await createDraftSession();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(created.draft.targetFolderPath).toBeNull();
+
+    const materialized = await materializeDraftSession(created.draft.snapshot.packagePath);
+    expect(materialized.ok).toBe(true);
+    if (!materialized.ok) return;
+    expect(path.dirname(materialized.packagePath)).toBe(path.resolve(library));
+    expect(await entries(library)).toEqual([
+      'Personale',
+      path.basename(materialized.packagePath),
+    ]);
+  });
+
+  it('refuses a note package, a Markdown file, an asset folder, a hidden folder, and an outside path', async () => {
+    await activeLibraryPath();
+    const notePackage = await createPackage('Existing note');
+    await fs.writeFile(path.join(library, 'diario.md'), '# Diario\n');
+    await fs.mkdir(path.join(library, 'assets'), { recursive: true });
+    await fs.mkdir(path.join(library, 'diario.assets'), { recursive: true });
+    await fs.mkdir(path.join(library, '.hidden'), { recursive: true });
+    const outside = path.join(root, 'Outside');
+    await fs.mkdir(outside, { recursive: true });
+
+    const refused: Array<[string, RegExp]> = [
+      [notePackage, /is a note, not a folder/],
+      [path.join(library, 'diario.md'), /Markdown/],
+      [path.join(library, 'assets'), /reserved for note assets or backups/],
+      [path.join(library, 'diario.assets'), /reserved for note assets or backups/],
+      [path.join(library, '.hidden'), /reserved for note assets or backups/],
+      [outside, /not inside the active library/],
+      [path.join(library, 'Gone'), /no longer exists/],
+    ];
+    for (const [target, message] of refused) {
+      const result = await createDraftSession({ targetFolderPath: target });
+      expect(result.ok, target).toBe(false);
+      if (result.ok) continue;
+      expect(result.message).toMatch(message);
+      // Nothing is left behind: no draft record and no new folder.
+      expect(draftSessionPaths()).toEqual([]);
+      expect(await entries(library)).toEqual([
+        '.hidden',
+        'assets',
+        'diario.assets',
+        'diario.md',
+        path.basename(notePackage),
+      ]);
+    }
+  });
+
+  it('refuses materialization when the target folder was removed and writes nothing', async () => {
+    await activeLibraryPath();
+    const effimera = path.join(library, 'Effimera');
+    await fs.mkdir(effimera, { recursive: true });
+    const created = await createDraftSession({ targetFolderPath: effimera });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const draftKey = created.draft.snapshot.packagePath;
+
+    await fs.rm(effimera, { recursive: true, force: true });
+    const failed = await materializeDraftSession(draftKey);
+    expect(failed.ok).toBe(false);
+    if (failed.ok) return;
+    expect(failed.code).toBe('not-found');
+    expect(failed.message).toMatch(/no longer exists/);
+
+    // No package at the root and no draft folder: the draft stays in memory.
+    expect(await entries(library)).toEqual([]);
+    expect(await recentPaths()).toEqual([]);
+    expect(draftSessionPaths()).toHaveLength(1);
+    expect(draftSessionPaths()[0]?.packagePath).toBeNull();
+    expect(draftSessionPaths()[0]?.targetFolderPath).toBe(
+      path.join(path.resolve(library), 'Effimera'),
+    );
   });
 });
 

@@ -44,6 +44,7 @@ import type { Node as ProseNode } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
 import type {
   ApplyResult,
+  LibraryView,
   LockInfoView,
   MaterializeDraftResult,
   OpenDocumentSnapshot,
@@ -147,10 +148,12 @@ export class DocumentRuntime {
   /**
    * Fires after a draft materializes, before the caller renders the new key.
    * The registry/actions use it to move the runtime and the shell tab from the
-   * draft key to the package path without remounting the editor.
+   * draft key to the package path without remounting the editor. The optional
+   * library view is the post-materialization scan, so the sidebar tree shows
+   * the new package (inside its target folder) immediately.
    */
   onPackagePathChange:
-    | ((previous: string, next: string, documentId: string) => void)
+    | ((previous: string, next: string, documentId: string, library?: LibraryView) => void)
     | null = null;
 
   /** Last draft materialization failure (library missing, lock, disk). */
@@ -289,14 +292,15 @@ export class DocumentRuntime {
   /**
    * Adopt the package path returned by materialization (or by a command/save
    * that materialized a draft). Content, revision, selection, and undo history
-   * are untouched: only the document key changes.
+   * are untouched: only the document key changes. A materialize call passes the
+   * fresh library scan so the sidebar tree updates without a manual Refresh.
    */
-  adoptPackagePath(next: string): void {
+  adoptPackagePath(next: string, options?: { library?: LibraryView }): void {
     if (next.length === 0 || next === this.currentPath) return;
     const previous = this.currentPath;
     this.currentPath = next;
     this.draftError = null;
-    this.onPackagePathChange?.(previous, next, this.document.id);
+    this.onPackagePathChange?.(previous, next, this.document.id, options?.library);
     this.notify();
   }
 
@@ -363,7 +367,7 @@ export class DocumentRuntime {
       this.notify();
       return result;
     }
-    this.adoptPackagePath(result.packagePath);
+    this.adoptPackagePath(result.packagePath, { library: result.library });
     return { ok: true };
   }
 
@@ -375,8 +379,11 @@ export class DocumentRuntime {
     if (this.isDraft && this.saves.dirty) {
       const prepared = await this.materializeLocked();
       if (!prepared.ok) {
+        // `not-found` covers a missing library and a target folder that was
+        // moved/removed after "New note here": both mean the destination is
+        // gone and nothing was written.
         const code: SaveFailureCode =
-          prepared.code === 'library-missing'
+          prepared.code === 'library-missing' || prepared.code === 'not-found'
             ? 'not-found'
             : prepared.code === 'locked'
               ? 'lock-lost'

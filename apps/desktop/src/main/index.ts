@@ -552,7 +552,21 @@ function registerIpc(): void {
   );
 
   // L3: a draft is in-memory only; nothing is written until materialization.
-  ipcMain.handle('draft:create', () => createDraftSession());
+  // A folder target only chooses where the first package appears.
+  ipcMain.handle('draft:create', (_event, input: unknown) => {
+    if (typeof input !== 'object' || input === null || !('targetFolderPath' in input)) {
+      return createDraftSession();
+    }
+    const { targetFolderPath } = input as { targetFolderPath?: unknown };
+    if (targetFolderPath === undefined) return createDraftSession();
+    if (typeof targetFolderPath !== 'string' || targetFolderPath.trim().length === 0) {
+      return {
+        ok: false as const,
+        message: 'Choose a folder inside the library for this note.',
+      };
+    }
+    return createDraftSession({ targetFolderPath });
+  });
 
   ipcMain.handle('draft:materialize', (_event, documentKey: unknown) => {
     if (typeof documentKey !== 'string' || documentKey.length === 0) {

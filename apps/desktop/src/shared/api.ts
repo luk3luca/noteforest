@@ -524,6 +524,19 @@ export interface CreateDocumentFailure {
 export type CreateDocumentResult = CreateDocumentSuccess | CreateDocumentFailure;
 
 /**
+ * Optional draft placement. Omitted (`undefined`) or without
+ * `targetFolderPath` the draft materializes at the active library root.
+ */
+export interface CreateDraftInput {
+  /**
+   * One existing folder inside the active library: the package materializes
+   * there instead of the library root. A note package, an asset folder, a
+   * Markdown file, a path outside the library, or a missing folder is refused.
+   */
+  targetFolderPath?: string;
+}
+
+/**
  * A draft created in the main process: an in-memory document with a stable
  * `draftId`, a bound library, and no package folder, lock, or recent entry.
  * The renderer mounts `snapshot` under the opaque `draft:<id>` key.
@@ -532,6 +545,8 @@ export interface DraftView {
   draftId: string;
   /** Library active at creation; switching libraries never retargets it. */
   libraryPath: string;
+  /** Target folder inside the library, or null for the library root. */
+  targetFolderPath: string | null;
   /** Snapshot mounted by the renderer; `packagePath` is the draft key. */
   snapshot: OpenDocumentSnapshot;
 }
@@ -867,8 +882,10 @@ export interface NoteForestApi {
   /**
    * Create an in-memory draft bound to the active library. No package folder,
    * lock, or recent entry exists until the first real mutation materializes it.
+   * A `targetFolderPath` places that first package inside one library folder;
+   * without it the package goes to the library root.
    */
-  createDraft(): Promise<CreateDraftResult>;
+  createDraft(input?: CreateDraftInput): Promise<CreateDraftResult>;
   /** Materialize one draft (idempotent) and return its new package path. */
   materializeDraft(packageKey: string): Promise<MaterializeDraftResult>;
   /** Rebind a draft whose creation library is missing to a chosen library. */

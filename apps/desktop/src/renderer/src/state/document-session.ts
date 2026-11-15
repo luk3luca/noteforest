@@ -256,10 +256,14 @@ export class DocumentSession {
         content: change.content,
       });
       if (!result.ok) {
-        this.ports.recordFailure(
-          result.code === 'read-only' ? 'read-only' : 'unknown',
-          result.message ?? 'Could not save the edit.',
-        );
+        // Keep the two codes a command can report with a real user meaning: a
+        // read-only open and a missing destination (a vanished library or a
+        // removed "New note here" target). Everything else stays generic.
+        const code: SaveFailureCode =
+          result.code === 'read-only' || result.code === 'not-found'
+            ? result.code
+            : 'unknown';
+        this.ports.recordFailure(code, result.message ?? 'Could not save the edit.');
         return false;
       }
       if (result.document !== undefined) {

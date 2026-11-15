@@ -60,7 +60,8 @@ const api: NoteForestApi = {
   scanLibrary: (root?: string): Promise<LibraryView> => ipcRenderer.invoke('library:scan', root),
   createDocument: (input): Promise<CreateDocumentResult> =>
     ipcRenderer.invoke('library:create', input),
-  createDraft: (): Promise<CreateDraftResult> => ipcRenderer.invoke('draft:create'),
+  createDraft: (input): Promise<CreateDraftResult> =>
+    ipcRenderer.invoke('draft:create', input),
   materializeDraft: (documentKey: string): Promise<MaterializeDraftResult> =>
     ipcRenderer.invoke('draft:materialize', documentKey),
   chooseDraftLibrary: (documentKey: string): Promise<DraftLibraryResult> =>

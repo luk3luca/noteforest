@@ -58,6 +58,7 @@ import {
 import type {
   ApplyResult,
   BackupCandidateView,
+  CreateDraftInput,
   CreateDraftResult,
   CreateLibraryInput,
   CreateVaultFolderInput,
@@ -783,6 +784,11 @@ interface DraftSession {
   document: Document;
   /** Library active at creation. A library switch never retargets it. */
   libraryPath: string;
+  /**
+   * Folder inside `libraryPath` where the package materializes; null for the
+   * library root. "New note here" sets it, the global New note leaves it null.
+   */
+  targetFolderPath: string | null;
   /** Real package path after materialization; null while still in memory. */
   materializedPath: string | null;
 }
@@ -806,8 +812,63 @@ function draftSnapshot(session: DraftSession): OpenDocumentSnapshot {
   };
 }
 
+/**
+ * Validate one "New note here" target: an existing normal folder at or under
+ * the library root. Note packages, Markdown guest files, asset/backup folders,
+ * hidden folders, symlinks, and anything outside the library are refused, so a
+ * draft can never materialize into a package's `assets/` or outside the vault.
+ */
+async function resolveDraftTargetFolder(
+  root: string,
+  candidate: unknown,
+): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
+  if (typeof candidate !== 'string' || candidate.trim().length === 0) {
+    return { ok: false, message: 'Choose a folder inside the library for this note.' };
+  }
+  const resolved = path.resolve(candidate);
+  const rootCanonical = await canonicalLibraryPath(root);
+  const resolvedCanonical = await canonicalLibraryPath(resolved);
+  if (resolvedCanonical !== rootCanonical && !isPathInside(rootCanonical, resolvedCanonical)) {
+    return {
+      ok: false,
+      message: `“${resolved}” is not inside the active library (${root}). Choose a folder in this library.`,
+    };
+  }
+  const relative = path.relative(rootCanonical, resolvedCanonical);
+  const reservedSegment = (relative === '' ? [] : relative.split(path.sep)).find(
+    (segment) => segment.startsWith('.') || isVaultAssetDirName(segment) || isVaultBackupName(segment),
+  );
+  if (reservedSegment !== undefined) {
+    return {
+      ok: false,
+      message: `“${reservedSegment}” is reserved for note assets or backups. Choose a normal folder.`,
+    };
+  }
+  const description = await describeVaultEntry(resolved);
+  if (description === null) {
+    return {
+      ok: false,
+      message: `That folder no longer exists: ${resolved}. Choose another folder for this note.`,
+    };
+  }
+  if (description.kind !== 'folder') {
+    return {
+      ok: false,
+      message:
+        description.kind === 'note'
+          ? `“${description.title}” is a note, not a folder. Choose a folder to create the note in.`
+          : 'New notes can only be created inside a folder, not next to Markdown files.',
+    };
+  }
+  // Keep the caller's path shape: the library scan builds rows from the library
+  // root as the user opened it, and the new package must match that row.
+  return { ok: true, path: resolved };
+}
+
 /** Open a new in-memory draft bound to the active library. Writes nothing. */
-export async function createDraftSession(): Promise<CreateDraftResult> {
+export async function createDraftSession(
+  input: CreateDraftInput = {},
+): Promise<CreateDraftResult> {
   const directory = await activeLibraryPath();
   if (directory === null || directory.length === 0) {
     return { ok: false, message: 'No library is open. Open a folder as a library first.' };
@@ -817,6 +878,14 @@ export async function createDraftSession(): Promise<CreateDraftResult> {
       ok: false,
       message: `The active library was not found: ${directory}. Locate it or open another library.`,
     };
+  }
+  // Global New note has no target and stays root-bound; "New note here" passes
+  // one folder and the first package appears inside it instead.
+  let targetFolderPath: string | null = null;
+  if (input.targetFolderPath !== undefined) {
+    const target = await resolveDraftTargetFolder(directory, input.targetFolderPath);
+    if (!target.ok) return { ok: false, message: target.message };
+    targetFolderPath = target.path;
   }
 
   let document = createCoreDocument({ title: 'Untitled', chapterTitle: 'Chapter 1' });
@@ -841,6 +910,7 @@ export async function createDraftSession(): Promise<CreateDraftResult> {
     draftId,
     document,
     libraryPath: directory,
+    targetFolderPath,
     materializedPath: null,
   };
   draftSessions.set(draftId, session);
@@ -849,6 +919,7 @@ export async function createDraftSession(): Promise<CreateDraftResult> {
     draft: {
       draftId,
       libraryPath: directory,
+      targetFolderPath,
       snapshot: draftSnapshot(session),
     },
   };
@@ -863,10 +934,11 @@ type DraftMaterializeFailure = {
 /**
  * Write one draft into a real package. Idempotent: a draft that already
  * materialized returns its path. The package folder is allocated by the
- * existing title rules, the lock is acquired with `breakStale: true` (the
- * folder was just created by this call, so only a stale/corrupt lock can exist
- * there; a live lock still fails), `document.json` is written atomically, and
- * the recent list is updated by the core writer.
+ * existing title rules inside the draft's target folder (or the library root),
+ * the lock is acquired with `breakStale: true` (the folder was just created by
+ * this call, so only a stale/corrupt lock can exist there; a live lock still
+ * fails), `document.json` is written atomically, and the recent list is updated
+ * by the core writer.
  */
 async function ensureDraftMaterialized(
   session: DraftSession,
@@ -881,7 +953,17 @@ async function ensureDraftMaterialized(
       message: `The library this note was created in is not available: ${session.libraryPath}. Reconnect it or choose another library, then retry.`,
     };
   }
-  const created = await materializeDocumentPackage(session.libraryPath, session.document, {
+  // A folder deleted or replaced after "New note here" fails here instead of
+  // silently writing the note somewhere else. Nothing is created.
+  let targetDirectory = session.libraryPath;
+  if (session.targetFolderPath !== null) {
+    const target = await resolveDraftTargetFolder(session.libraryPath, session.targetFolderPath);
+    if (!target.ok) {
+      return { ok: false, code: 'not-found', message: target.message };
+    }
+    targetDirectory = target.path;
+  }
+  const created = await materializeDocumentPackage(targetDirectory, session.document, {
     appSupportDir: appSupportDir(),
     registerRecent: true,
   });
@@ -954,6 +1036,9 @@ export async function chooseDraftLibrary(
     return { ok: false, message: validation.message ?? 'That folder cannot be a library.' };
   }
   session.libraryPath = validation.path;
+  // The old target folder belonged to the missing library; the note restarts at
+  // the chosen library's root rather than guessing a same-named folder.
+  session.targetFolderPath = null;
   const library = await activateLibraryPath(validation.path);
   return { ok: true, libraryPath: validation.path, library };
 }
@@ -985,12 +1070,14 @@ export function draftSessionPaths(): Array<{
   documentKey: string;
   packagePath: string | null;
   libraryPath: string;
+  targetFolderPath: string | null;
 }> {
   return [...draftSessions.values()].map((session) => ({
     draftId: session.draftId,
     documentKey: draftKey(session.draftId),
     packagePath: session.materializedPath,
     libraryPath: session.libraryPath,
+    targetFolderPath: session.targetFolderPath,
   }));
 }
 

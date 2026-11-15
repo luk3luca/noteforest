@@ -260,10 +260,13 @@ export async function openMarkdownDialog(): Promise<void> {
 /**
  * `+` creates an in-memory draft bound to the active library. Nothing is
  * written, locked, or added to the library list/recents until the first real
- * mutation materializes it.
+ * mutation materializes it. The global New note is root-bound; a folder's
+ * "New note here" passes the target folder and the package appears inside it.
  */
-export async function createNewDocument(): Promise<void> {
-  const result = await window.noteforest.createDraft();
+export async function createNewDocument(targetFolderPath?: string): Promise<void> {
+  const result = await window.noteforest.createDraft(
+    targetFolderPath === undefined ? undefined : { targetFolderPath },
+  );
   if (!result.ok) {
     toast.error(result.message);
     return;
@@ -1014,22 +1017,24 @@ export async function confirmRemoveMissingDocument(preflight: TrashPreflight): P
 /* ------------------------------------------------- vault entries (phase 3) */
 
 /**
- * Vault mutations (folder create/rename/move/trash, note/Markdown move) are
- * app-level actions, but the Library tree is a navigation surface in Read mode
- * (design §6): while a note is open in Read they are refused with the shared
- * reason. A Markdown guest tab and the no-document state never block them.
+ * Library organization (folder create/rename/move/trash, note/Markdown move,
+ * New note here) is app-level, exactly like New note and New library: it stays
+ * available while a note is open in Read mode. Read mode gates document
+ * **content** only (blocks, branches, anchors, table/formula edits).
+ *
+ * The renderer-side gate is the real one: there must be an open, present
+ * library. A live lock and an unsaved/failed flush are refused by the
+ * operation itself (`closeTabsForVaultChange` and the main-process guards), so
+ * they are never turned into a disabled button that hides the reason.
  */
 export function libraryMutationsEnabled(): boolean {
-  const path = shell().activeTab;
-  if (path === null || isMarkdownPath(path)) return true;
-  const runtime = getRuntime(path);
-  if (runtime === null) return true;
-  return editingEnabledFor(runtime, shell().viewByDoc[path]);
+  const library = shell().library;
+  return library !== null && library.libraryPath.length > 0 && !library.missing;
 }
 
 function vaultMutationBlocked(): boolean {
   if (libraryMutationsEnabled()) return false;
-  toast.info(READ_MODE_TOAST);
+  toast.info('Open a library before creating or changing files.');
   return true;
 }
 
@@ -1191,19 +1196,26 @@ export function openMoveVaultEntryDialog(entry: {
 }
 
 /**
- * Folder row context menu (phase 3). Folder mutations are disabled in Read mode
- * with the shared reason; Reveal stays available (navigation only).
+ * Folder row context menu (phase 3). Library organization is app-level: the
+ * entries stay available in Read mode (design §6). The order is create first,
+ * then rename/move, then Reveal, then the destructive action.
  */
 export function openVaultFolderMenu(
   folderPath: string,
   anchor: { x: number; y: number },
 ): void {
   const enabled = libraryMutationsEnabled();
-  const suffix = enabled ? '' : READ_MODE_SUFFIX;
   shell().openContextMenu(anchor.x, anchor.y, [
     {
+      id: 'vault-new-note',
+      label: 'New note here',
+      disabled: !enabled,
+      ...(enabled ? { onSelect: () => void createNewDocument(folderPath) } : {}),
+    },
+    { id: 'sep-vault-new-note', label: '', separator: true },
+    {
       id: 'vault-new-folder',
-      label: `New folder…${suffix}`,
+      label: 'New folder…',
       disabled: !enabled,
       ...(enabled
         ? { onSelect: () => openNewFolderDialog(folderPath) }
@@ -1211,7 +1223,7 @@ export function openVaultFolderMenu(
     },
     {
       id: 'vault-rename-folder',
-      label: `Rename folder…${suffix}`,
+      label: 'Rename folder…',
       disabled: !enabled,
       ...(enabled
         ? {
@@ -1222,7 +1234,7 @@ export function openVaultFolderMenu(
     },
     {
       id: 'vault-move-folder',
-      label: `Move to folder…${suffix}`,
+      label: 'Move to folder…',
       disabled: !enabled,
       ...(enabled
         ? {
@@ -1243,7 +1255,7 @@ export function openVaultFolderMenu(
     },
     {
       id: 'vault-trash-folder',
-      label: `Move to Trash…${suffix}`,
+      label: 'Move to Trash…',
       danger: true,
       disabled: !enabled,
       ...(enabled
@@ -2002,7 +2014,7 @@ export function openLibraryMenu(
       },
       {
         id: 'move',
-        label: `Move to folder…${vaultEnabled ? '' : READ_MODE_SUFFIX}`,
+        label: 'Move to folder…',
         disabled: !vaultEnabled,
         ...(vaultEnabled
           ? {
@@ -2076,7 +2088,7 @@ export function openLibraryMenu(
       : [
           {
             id: 'move',
-            label: `Move to folder…${vaultEnabled ? '' : READ_MODE_SUFFIX}`,
+            label: 'Move to folder…',
             disabled: !vaultEnabled,
             ...(vaultEnabled
               ? {

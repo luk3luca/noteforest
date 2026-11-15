@@ -114,25 +114,32 @@ export function createHarness({ tempRoot }) {
     } catch {
       // The app already quit (for example the quit-path test); the Playwright
       // connection is closed and there is no process handle left to inspect.
-      await current.close().catch(() => undefined);
+      await Promise.race([current.close().catch(() => undefined), delay(5000)]);
       return;
     }
     if (child.exitCode !== null || child.signalCode !== null) {
-      await current.close().catch(() => undefined);
+      await Promise.race([current.close().catch(() => undefined), delay(5000)]);
       return;
     }
     const closed = new Promise((resolveClose) => current.once('close', resolveClose));
     try {
-      await current.evaluate(({ app: electronApp }) => electronApp.quit());
+      // `evaluate` has no timeout: a main process blocked in a modal or a
+      // refused quit must not stall cleanup forever.
+      await Promise.race([
+        current
+          .evaluate(({ app: electronApp }) => electronApp.quit())
+          .catch(() => undefined),
+        delay(10000),
+      ]);
     } catch {
       // Already gone (for example the close-window-then-quit regression test).
     }
     await Promise.race([closed, delay(8000)]);
-    try {
-      await current.close();
-    } catch {
-      // Already closed by quit.
-    }
+    // A dirty draft that cannot materialize makes the main process refuse the
+    // quit (flush failure, window stays open). Playwright's close() then waits
+    // for an exit that never comes, so it is bounded here and the process is
+    // killed below.
+    await Promise.race([current.close().catch(() => undefined), delay(5000)]);
     // A wedged app can outlive the Playwright connection and keep its userData
     // single-instance lock. Kill the main process so the next suite launch of
     // the same isolated environment starts a real window instead of quitting
