@@ -46,7 +46,13 @@ Two presentations, one engine, one scope: the **open note**.
 Fields: block text, code text, LaTeX source (inline and block), anchor quotes, branch labels, chapter
 titles. Case-insensitive, literal text; no regex, no accent folding, no replace.
 
-- One result per **occurrence**; the count is occurrences.
+- One result per **occurrence**; the count is occurrences. A text match that falls inside an
+  anchor's range is reported as an **Anchor** hit with its anchor id; a stored quote that is no
+  longer in the content is an Anchor hit on the record. Chapter titles and branch labels are one
+  hit each and select their chapter/source.
+- Results follow the **document reading order**: chapters, top-level blocks, then children
+  depth-first with anchored children before direct children (the outline order), then the next
+  sibling. DFS pre-order, never BFS.
 - Snippet: one line around the match for the bar's count (no panel), two lines in the sidebar.
 - The result cap is 100 occurrences (`100+` in the count, “Refine the search” at the end of the
   sidebar list). The scan itself is linear.
@@ -93,8 +99,11 @@ searches. The bar searches the open note only.
 
 ## 10. Build order and open items
 
+**Confirmed (15 November 2026):** occurrences; cap 100; Markdown excluded; DFS/reading order;
+Continuous word highlight plus Page block ring; the bar first, the sidebar Search next. The toggles
+and the results panel are **not** in the design.
+
 - **Phase 6**: the floating bar (input, count, arrows, close; highlights; navigation).
 - **Next**: the sidebar Search section (the activity bar already lists “Search” as a future section),
   same engine, snippet list.
-- Open: the 100 cap; Markdown exclusion; Page exact-text highlight. The toggles and the results
-  panel are **not** in the design.
+- Follow-up: the exact-word highlight inside Page (CSS Custom Highlight API, no PDF change).
