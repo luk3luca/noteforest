@@ -460,6 +460,73 @@
       .paper .ph { color: #8b9097; font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase; }
       .paper .page-hit { background: #dbe6f1; box-shadow: 0 0 0 1px #9bb7d4; border-radius: 2px; }
 
+      /* ---------------------------------------------------- sidebar search */
+      .sidebar-stage { display: flex; gap: 12px; align-items: stretch; }
+
+      .sbar {
+        display: flex;
+        flex-direction: column;
+        flex: 0 0 264px;
+        height: 460px;
+        border: 1px solid var(--border-1);
+        border-radius: var(--r-panel);
+        background: #131416;
+        overflow: hidden;
+      }
+
+      .sbar-head { display: flex; align-items: center; gap: 4px; padding: 9px 8px 7px; }
+      .sbar-title { flex: 1; font-size: 13px; font-weight: 600; }
+      .sbar-count { color: var(--text-3); font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+      .sbar-field {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        margin: 0 8px 6px;
+        padding: 0 8px;
+        border: 1px solid var(--border-1);
+        border-radius: var(--r-control);
+        background: var(--surface-1);
+        color: var(--text-1);
+        font-size: 11.5px;
+      }
+
+      .sbar-field svg { color: var(--text-3); }
+      .sbar-field .clear { margin-left: auto; color: var(--text-3); }
+
+      .sbar-scroll { flex: 1; min-height: 0; padding: 0 4px 6px; overflow: hidden; }
+
+      .sbar-group {
+        padding: 7px 8px 3px;
+        color: var(--text-3);
+        font-size: 9.5px;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .sbar-row { padding: 6px 8px; border-radius: var(--r-control); }
+      .sbar-row[data-current="true"] { background: var(--surface-2); }
+      .sbar-row .l1 { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+      .sbar-type { flex: 0 0 auto; color: var(--text-3); font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+      .sbar-name { min-width: 0; overflow: hidden; color: var(--text-1); font-size: 11.5px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+      .sbar-snippet { display: block; margin-top: 2px; overflow: hidden; color: var(--text-3); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+      .sbar-snippet b { color: var(--text-1); font-weight: 550; background: var(--accent-soft); border-radius: 2px; }
+      .sbar-foot { padding: 7px 10px; border-top: 1px solid var(--border-1); color: var(--text-3); font-size: 10px; }
+
+      .mini-canvas {
+        flex: 1;
+        min-width: 0;
+        padding: 16px 18px;
+        border: 1px solid var(--border-1);
+        border-radius: var(--r-panel);
+        background: var(--bg-canvas);
+        overflow: hidden;
+      }
+      .mini-canvas .card { width: 100%; }
+      .mini-canvas .chapter-title { font-size: 17px; }
+
       .note {
         margin: 12px 0 0;
         padding: 10px 12px;
@@ -729,6 +796,94 @@
       <section class="variant">
         <div class="v-head">
           <span class="v-index">3</span>
+          <h2>Search in the sidebar</h2>
+          <span class="v-tag">264 px · persistent list</span>
+        </div>
+        <p class="v-sub">
+          The same matching engine, a different presentation: the results live in the sidebar while
+          the note stays uncovered. It is not the quick find bar; it is the document’s search view,
+          the “Search” section already listed as future in the activity bar.
+        </p>
+        <div class="pros">
+          <div><b>Good</b>No overlay; the note stays readable.</div>
+          <div><b>Good</b>Full-height list, persistent while browsing.</div>
+          <div><b>Cost</b>264 px truncates snippets; the outline is replaced; two panes to scan.</div>
+        </div>
+
+        <div class="stage">
+          <span class="stage-label">sidebar search + canvas</span>
+          <div class="sidebar-stage">
+            <div class="sbar">
+              <div class="sbar-head">
+                <span class="sbar-title">Search</span>
+                <span class="sbar-count">1 / 4</span>
+                <span class="icon-btn" aria-label="Previous match">‹</span>
+                <span class="icon-btn" aria-label="Next match">›</span>
+                <span class="icon-btn" aria-label="Close search">×</span>
+              </div>
+              <div class="sbar-field">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
+                  <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                </svg>
+                <span>eigen</span>
+                <span class="clear" aria-hidden="true">×</span>
+              </div>
+              <div class="sbar-scroll">
+                <div class="sbar-group">Chapter 1 · Eigenvalues</div>
+                <div class="sbar-row" data-current="true">
+                  <span class="l1"><span class="sbar-type">Text</span><span class="sbar-name">Eigenvalues</span></span>
+                  <span class="sbar-snippet">A scalar λ is an <b>eigenvalue</b> of A if…</span>
+                </div>
+                <div class="sbar-row">
+                  <span class="l1"><span class="sbar-type">Text</span><span class="sbar-name">Eigenvector</span></span>
+                  <span class="sbar-snippet">…is an <b>eigenvector</b> of A.</span>
+                </div>
+                <div class="sbar-row">
+                  <span class="l1"><span class="sbar-type">Formula</span><span class="sbar-name">Trace and determinant</span></span>
+                  <span class="sbar-snippet">det(A − λI) = 0</span>
+                </div>
+                <div class="sbar-group">Chapter 2 · Spectrum</div>
+                <div class="sbar-row">
+                  <span class="l1"><span class="sbar-type">Anchor</span><span class="sbar-name">Spectral theorem</span></span>
+                  <span class="sbar-snippet">Branch from “<b>eigenvector</b>”</span>
+                </div>
+              </div>
+              <div class="sbar-foot"><span class="kbd">↵</span> next · <span class="kbd">esc</span> close and return to Outline</div>
+            </div>
+
+            <div class="mini-canvas">
+              <p class="chapter">Chapter 1</p>
+              <h2 class="chapter-title">Eigenvalues</h2>
+              <div class="card" data-current="true">
+                <p>
+                  A scalar λ is an <span class="hit" data-current="true">eigenvalue</span> of A if there
+                  is a nonzero vector v with Av = λv.
+                </p>
+              </div>
+              <div class="card">
+                <p>
+                  A nonzero vector v that satisfies Av = λv for some λ is an
+                  <span class="hit">eigenvector</span> of A.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="note">
+          <b>Two roles, one engine.</b> The floating bar is the quick find: <span class="kbd">⌘F</span>,
+          find the word, jump, <span class="kbd">esc</span>. The sidebar search is the browsing view:
+          persistent, with the list always visible; it replaces the Outline while active and returns to
+          it on close. I would ship the bar in phase 6 and the sidebar search as the activity bar’s
+          future “Search” section, not mix them in the same batch.
+        </p>
+      </section>
+
+      <!-- ============================================================== 4 -->
+      <section class="variant">
+        <div class="v-head">
+          <span class="v-index">4</span>
           <h2>States</h2>
           <span class="v-tag">no matches · page · read</span>
         </div>
@@ -830,7 +985,7 @@
       <!-- ============================================================== 4 -->
       <section class="variant">
         <div class="v-head">
-          <span class="v-index">4</span>
+          <span class="v-index">5</span>
           <h2>Anatomy</h2>
           <span class="v-tag">what is searched and what is shown</span>
         </div>
