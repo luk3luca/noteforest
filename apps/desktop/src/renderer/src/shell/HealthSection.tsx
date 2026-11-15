@@ -11,6 +11,10 @@
  * manual re-check is the 28 px button next to the search and shows a check for
  * about two seconds, so the footer text button is gone.
  *
+ * S2.2: the all-clear keeps the same four sections with `0` under the
+ * “No issues found” line, so the list never changes shape between documents
+ * (design §2, decision 2).
+ *
  * The list is a `tree`: section headers are expandable nodes, rows are leaves.
  * Up/Down/Home/End move, Left/Right collapse/expand, Enter opens the row's
  * modal. Open sections live in the shell session store; the selected row
@@ -234,10 +238,13 @@ export function HealthSection(): JSX.Element {
             {documentHealthInfoText(report.info)}
           </p>
         </div>
-      ) : groups.length === 0 ? (
-        <p className="nf-empty-line" data-health-empty-search="true">
-          No issues match this search.
-        </p>
+      ) : null}
+      {groups.length === 0 ? (
+        searching ? (
+          <p className="nf-empty-line" data-health-empty-search="true">
+            No issues match this search.
+          </p>
+        ) : null
       ) : (
         <div
           className="nf-health-tree"

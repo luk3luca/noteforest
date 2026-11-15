@@ -96,8 +96,8 @@ describe('parent-relative placement', () => {
 
   it('clamps Fit width zoom and ignores invalid sizes', () => {
     expect(fitZoom(1175, 640)).toBe(1.5);
-    // 1175 / (1280 + 2 * 8 px lateral inset) rounds to 0.91.
-    expect(fitZoom(1175, 1280)).toBe(0.91);
+    // 1175 / (1280 + 2 * 24 px lateral inset) rounds to 0.88.
+    expect(fitZoom(1175, 1280)).toBe(0.88);
     expect(fitZoom(1175, 4000)).toBe(0.5);
     expect(fitZoom(0, 640)).toBe(1);
     expect(fitZoom(1175, 0)).toBe(1);

@@ -69,13 +69,13 @@ never repeats the literal.
 | Token | CSS variable | Value | Used for |
 |---|---|---:|---|
 | `canvasMaxWidth` | `--nf-canvas-max` | 3200 px | Finite wide canvas; placement uses the 3200 px cap minus the lateral inset |
-| `editorPaddingX` | `--nf-canvas-pad-x` | **8 px** | Canvas horizontal padding (chapter/card inset) |
+| `editorPaddingX` | `--nf-canvas-pad-x` | **24 px** | Canvas horizontal padding (chapter/card inset; covers the 16 px gutter and drag handle) |
 | `editorPaddingTop` | `--nf-canvas-pad-top` | 6 px | Canvas top inset below the fixed header |
 | `editorPaddingBottom` | `--nf-canvas-pad-bottom` | **8 px** | Canvas bottom inset (shell C) |
-| `editorPaddingXMedium` | `--nf-canvas-pad-x-medium` | **8 px** | Canvas padding at ≤1100 px |
+| `editorPaddingXMedium` | `--nf-canvas-pad-x-medium` | **20 px** | Canvas padding at ≤1100 px |
 | `editorPaddingTopMedium` | `--nf-canvas-pad-top-medium` | 6 px | Canvas padding at ≤1100 px |
 | `editorPaddingBottomMedium` | `--nf-canvas-pad-bottom-medium` | 8 px | Canvas padding at ≤1100 px |
-| `editorPaddingXCompact` | `--nf-canvas-pad-x-compact` | **6 px** | Canvas padding at ≤900 px |
+| `editorPaddingXCompact` | `--nf-canvas-pad-x-compact` | **16 px** | Canvas padding at ≤900 px |
 | `editorPaddingTopCompact` | `--nf-canvas-pad-top-compact` | 6 px | Canvas padding at ≤900 px |
 | `editorPaddingBottomCompact` | `--nf-canvas-pad-bottom-compact` | 8 px | Canvas padding at ≤900 px |
 | `pageStagePaddingX` | `--nf-page-stage-pad-x` | 0 px | Page stage lateral padding (frame only; Page sheet unchanged) |

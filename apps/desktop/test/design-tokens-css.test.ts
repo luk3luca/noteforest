@@ -62,9 +62,9 @@ const mappedVariables = Object.entries(DESIGN_TOKEN_CSS_VARIABLES);
 
 describe('design tokens are the single source for CSS geometry', () => {
   it('keeps the ratified shell and layout values', () => {
-    expect(DESIGN_TOKENS.editorPaddingX).toBe(8);
-    expect(DESIGN_TOKENS.editorPaddingXMedium).toBe(8);
-    expect(DESIGN_TOKENS.editorPaddingXCompact).toBe(6);
+    expect(DESIGN_TOKENS.editorPaddingX).toBe(24);
+    expect(DESIGN_TOKENS.editorPaddingXMedium).toBe(20);
+    expect(DESIGN_TOKENS.editorPaddingXCompact).toBe(16);
     expect(DESIGN_TOKENS.editorPaddingBottom).toBe(8);
     expect(DESIGN_TOKENS.chapterGap).toBe(28);
     expect(DESIGN_TOKENS.siblingGap).toBe(24);
@@ -84,13 +84,13 @@ describe('design tokens are the single source for CSS geometry', () => {
   it('publishes the documented CSS variables from the token module', () => {
     expect(DESIGN_TOKEN_CSS_VARIABLES).toMatchObject({
       '--nf-canvas-max': '3200px',
-      '--nf-canvas-pad-x': '8px',
+      '--nf-canvas-pad-x': '24px',
       '--nf-canvas-pad-top': '6px',
       '--nf-canvas-pad-bottom': '8px',
-      '--nf-canvas-pad-x-medium': '8px',
+      '--nf-canvas-pad-x-medium': '20px',
       '--nf-canvas-pad-top-medium': '6px',
       '--nf-canvas-pad-bottom-medium': '8px',
-      '--nf-canvas-pad-x-compact': '6px',
+      '--nf-canvas-pad-x-compact': '16px',
       '--nf-canvas-pad-top-compact': '6px',
       '--nf-canvas-pad-bottom-compact': '8px',
       '--nf-page-stage-pad-x': '0px',

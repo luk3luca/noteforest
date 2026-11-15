@@ -1085,7 +1085,32 @@ describe('Document health sidebar and repair modal', () => {
       await page.locator('[data-health-empty-info="true"]').innerText(),
       /0 idle · 0 orphans · 0 structure · 0 hidden/,
     );
+    // S2.2 (design §2): the all-clear keeps the four sections with `0` under
+    // the "No issues found" line and the information counts, so the list never
+    // changes shape between documents.
+    assert.deepEqual(
+      await page.locator('[role="treeitem"][data-health-section]').evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute('data-health-section')),
+      ),
+      ['anchors', 'unused', 'structure', 'hidden'],
+    );
+    assert.deepEqual(
+      await page
+        .locator('[role="treeitem"][data-health-section] [data-health-section-count]')
+        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-health-section-count'))),
+      ['0', '0', '0', '0'],
+    );
+    assert.equal(
+      (await page.locator('[data-health-group-empty="anchors"]').innerText()).trim(),
+      'No issues in this group',
+      'the open section is empty, not hidden',
+    );
+    assert.equal(await page.locator('[data-health-row]').count(), 0, 'no issue rows at zero');
     await h.screenshot(artifactsPath('document-health', 'all-clear-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await h.screenshot(artifactsPath('chrome', 'health-all-clear-1440x900.png'), {
       width: 1440,
       height: 900,
     });
@@ -1100,11 +1125,11 @@ describe('Document health sidebar and repair modal', () => {
     assert.equal(await page.locator('[data-sidebar-panel="health"]').count(), 1);
     assert.equal(await page.locator('[data-health-dialog="true"]').count(), 0);
     assert.equal(
-      await page.locator('[data-health-section-toggle="true"][data-health-section="anchors"]')
-        .count(),
-      0,
-      'an empty report is one message, not four empty groups',
+      await page.locator('[data-health-section-toggle="true"]').count(),
+      4,
+      'the palette entry lands on the same four-section all-clear report',
     );
+    assert.equal(await page.locator('[data-health-empty="true"]').count(), 1);
 
     // A broken anchor: the status chip opens its first repair row, the block chip
     // opens exactly that anchor.

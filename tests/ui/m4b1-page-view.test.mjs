@@ -983,6 +983,102 @@ describe('M4b1 page view core', () => {
     );
   });
 
+  it('ends a ⇧2 → ⌘0 sequence on fit actual at 100%, never on the stale fit', async () => {
+    const env = ui.isolated('m4b1-fit-race');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await ui.seedDemo();
+    const packagePath = (await h.state()).activeTab;
+    await showPageView();
+    await ui.ensureInteractionMode('read');
+
+    const fitState = () =>
+      page.evaluate(
+        (path) => {
+          const view = window.__noteforestTest.viewState()[path];
+          return {
+            pageFit: view?.pageFit ?? null,
+            pageZoom: view?.pageZoom ?? null,
+            control: document
+              .querySelector('[data-zoom-target="page"]')
+              ?.getAttribute('data-page-fit'),
+            label: document.querySelector('[data-zoom-value]')?.textContent?.trim() ?? null,
+          };
+        },
+        packagePath,
+      );
+
+    // The sequence guard: ⇧2 (fit width) then ⌘0 (actual) in one task, with
+    // only one microtask between them so the second key lands as early as the
+    // document can see it. The pure guard that makes the pending fit harmless
+    // is unit-tested in `apps/desktop/test/page-fit-sync.test.ts`; this test
+    // proves the product path ends on actual/100%.
+    await page.evaluate(() => {
+      const press = (init) =>
+        window.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            bubbles: true,
+            cancelable: true,
+            ...init,
+          }),
+        );
+      const run = async () => {
+        press({ code: 'Digit2', key: '2', shiftKey: true });
+        await Promise.resolve();
+        press({ code: 'Digit0', key: '0', metaKey: true });
+        await Promise.resolve();
+      };
+      return run();
+    });
+    await page.waitForFunction(
+      (path) => {
+        const view = window.__noteforestTest.viewState()[path];
+        return view?.pageFit === 'none' && Math.abs((view?.pageZoom ?? 0) - 1) < 0.001;
+      },
+      packagePath,
+      { timeout: 5000 },
+    );
+    let state = await fitState();
+    assert.equal(state.pageFit, 'none', 'the manual fit owns the store');
+    assert.equal(state.control, 'none', 'the Page control reads actual');
+    assert.equal(state.label, '100%', 'the zoom control reads 100%');
+    assert.ok(Math.abs(state.pageZoom - 1) < 0.001);
+
+    // The user path: real ⇧2 → ⌘0 presses, with no wait between them.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await page.keyboard.press('Shift+2');
+      await page.keyboard.press('Meta+0');
+    }
+    await page.waitForFunction(
+      (path) => {
+        const view = window.__noteforestTest.viewState()[path];
+        return view?.pageFit === 'none' && Math.abs((view?.pageZoom ?? 0) - 1) < 0.001;
+      },
+      packagePath,
+      { timeout: 5000 },
+    );
+    state = await fitState();
+    assert.equal(state.pageFit, 'none');
+    assert.equal(state.label, '100%');
+
+    // A manual zoom after the sequence still starts from the fit value the
+    // user sees, so the sync itself was not disabled.
+    await h.screenshot(artifactsPath('chrome', 'page-fit-actual-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // A manual zoom after the sequence still starts from the fit value the
+    // user sees, so the sync itself was not disabled.
+    await page.keyboard.press('Meta+=');
+    await page.waitForFunction(
+      (path) => (window.__noteforestTest.viewState()[path]?.pageZoom ?? 1) > 1,
+      packagePath,
+      { timeout: 5000 },
+    );
+    assert.equal((await fitState()).pageFit, 'none');
+  });
+
   it('restores layout, mode, page, zoom and fit from the session', async () => {
     const env = ui.isolated('m4b1a-session');
     await launch(env);

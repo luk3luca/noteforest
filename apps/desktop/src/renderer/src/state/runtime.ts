@@ -193,12 +193,6 @@ export class DocumentRuntime {
   readonly collapsed = new Set<string>();
 
   /**
-   * Anchors whose repair prompt was dismissed with "Keep broken" in this
-   * session. View-only: no document mutation, no export effect, marker stays.
-   */
-  readonly keptBroken = new Set<string>();
-
-  /**
    * Session image-asset availability. View-only: a missing file or SHA-256
    * mismatch marks the image and its anchors broken without changing canonical
    * content. Refreshed at open, reload, and when a command touches an asset.
@@ -1193,14 +1187,12 @@ export class DocumentRuntime {
     selector: JsonObject,
     binding: AnchorBinding,
   ): Promise<ApplyOutcome> {
-    const outcome = await this.applyStructural({
+    return this.applyStructural({
       type: 'anchor.repair',
       anchorId,
       selector,
       binding,
     });
-    if (outcome.ok) this.keptBroken.delete(anchorId);
-    return outcome;
   }
 
   /**
@@ -1289,12 +1281,10 @@ export class DocumentRuntime {
     if (anchor === undefined) {
       return { ok: false, message: 'This anchor no longer exists.' };
     }
-    const outcome = await this.applyStructural(
+    return this.applyStructural(
       { type: 'anchor.attachToBlock', anchorId },
       { focusBlockId: anchor.blockId },
     );
-    if (outcome.ok) this.keptBroken.delete(anchorId);
-    return outcome;
   }
 
   /**
@@ -1310,12 +1300,10 @@ export class DocumentRuntime {
     if (anchor === undefined) {
       return { ok: false, message: 'This anchor no longer exists.' };
     }
-    const outcome = await this.applyStructural(
+    return this.applyStructural(
       { type: 'anchor.delete', anchorId, branches },
       { focusBlockId: anchor.blockId },
     );
-    if (outcome.ok) this.keptBroken.delete(anchorId);
-    return outcome;
   }
 
   /**
@@ -1338,12 +1326,10 @@ export class DocumentRuntime {
         message: 'Only an idle anchor can be removed here. Repair or delete its branches first.',
       };
     }
-    const outcome = await this.applyStructural(
+    return this.applyStructural(
       { type: 'anchor.delete', anchorId },
       { focusBlockId: anchor.blockId },
     );
-    if (outcome.ok) this.keptBroken.delete(anchorId);
-    return outcome;
   }
 
   /**
@@ -1514,13 +1500,6 @@ export class DocumentRuntime {
       this.reconcileEditor(blockId);
       return { ok: true, anchorId };
     });
-  }
-
-  /** Session-only dismissal. No command, no mutation, no export effect. */
-  keepAnchorBroken(anchorId: string): void {
-    if (this.keptBroken.has(anchorId)) return;
-    this.keptBroken.add(anchorId);
-    this.notify();
   }
 
   /**
