@@ -266,9 +266,11 @@ describe('Batch A UI rework', () => {
     );
 
     // Narrowing shrinks the inactive tabs toward the 80 px floor; the tablist
-    // never scrolls and the active tab keeps its expanded priority width.
-    await h.setWindowSize(960, 768);
-    await page.waitForFunction(() => window.innerWidth <= 980, undefined, { timeout: 5000 });
+    // never scrolls and the active tab keeps its expanded priority width. S1
+    // narrows the strip by the 48 px activity bar, so the 1000 px window keeps
+    // all five tabs above the hide-at-floor threshold (tabFloorWidth = 506).
+    await h.setWindowSize(1000, 800);
+    await page.waitForFunction(() => window.innerWidth <= 1020, undefined, { timeout: 5000 });
     await page.waitForFunction(
       () => {
         const tabs = [...document.querySelectorAll('.nf-tab')];

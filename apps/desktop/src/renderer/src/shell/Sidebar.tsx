@@ -1,4 +1,4 @@
-import { Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, Folder, FolderPlus, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
+import { Activity, Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, Folder, FolderPlus, Library, ListTree, MoreHorizontal, NotebookText, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
 import {
   Button,
   Tree,
@@ -39,6 +39,7 @@ import {
   type BlockNode,
 } from '../lib/tree';
 import { recoveryStatusLabel } from '../lib/recovery';
+import { markdownTitleSuffix } from '../lib/library-rows';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import type { DocumentRuntime } from '../state/runtime';
 import type {
@@ -55,24 +56,46 @@ const SIDEBAR_TABS: ReadonlyArray<{ id: SidebarTab; label: string }> = [
 ];
 
 /**
- * Library/Outline tab strip (LD-01). Automatic activation on arrow keys matches
- * the design's keyboard model; focus moves with the selected tab. The footer
- * Settings entry is outside the tablist and the panel.
+ * The 48 px activity bar (S1). It is the sidebar card's leading column and is
+ * rendered in both states, so the section icons, the collapse control, the
+ * Health action, and the Settings gear never move across a collapse: only the
+ * content column is added or removed.
+ *
+ * Library/Outline are a vertical `tablist` (roving tabindex, Up/Down/Home/End,
+ * automatic activation) that keeps the `data-sidebar-tab` hooks and the
+ * `sidebarTab` store key. Health is an **action** in this slice: it opens the
+ * existing Document health sheet and never changes the active section. Settings
+ * is the bar's last item, behind a divider in both states.
  */
-function SidebarTabs(): JSX.Element {
+function ActivityBar({
+  collapsed,
+  onExpand,
+  onCollapse,
+}: {
+  collapsed: boolean;
+  onExpand: () => void;
+  onCollapse: () => void;
+}): JSX.Element {
   const sidebarTab = useShell((state) => state.sidebarTab);
   const setSidebarTab = useShell((state) => state.setSidebarTab);
+  const openDialog = useShell((state) => state.openDialog);
   const refs = useRef<Record<SidebarTab, HTMLButtonElement | null>>({
     library: null,
     outline: null,
   });
 
+  const activate = (id: SidebarTab): void => {
+    setSidebarTab(id);
+    // A section click is also how the collapsed bar opens its content.
+    if (collapsed) onExpand();
+  };
+
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     const index = SIDEBAR_TABS.findIndex((tab) => tab.id === sidebarTab);
     let next: SidebarTab | null = null;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    if (event.key === 'ArrowDown') {
       next = SIDEBAR_TABS[(index + 1) % SIDEBAR_TABS.length]?.id ?? null;
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    } else if (event.key === 'ArrowUp') {
       next =
         SIDEBAR_TABS[(index - 1 + SIDEBAR_TABS.length) % SIDEBAR_TABS.length]?.id ?? null;
     } else if (event.key === 'Home') {
@@ -88,31 +111,91 @@ function SidebarTabs(): JSX.Element {
 
   return (
     <div
-      className="nf-sidebar-tabs"
-      role="tablist"
-      aria-label="Sidebar views"
-      data-sidebar-tabs="true"
-      onKeyDown={onKeyDown}
+      className="nf-activity-bar"
+      data-activity-bar="true"
+      data-collapsed={collapsed}
     >
-      {SIDEBAR_TABS.map((tab) => (
+      <button
+        type="button"
+        className="nf-activity-button nf-activity-toggle"
+        data-sidebar-toggle="true"
+        {...(collapsed ? { 'data-sidebar-expand': 'true' } : {})}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!collapsed}
+        aria-controls="nf-sidebar"
+        title={`${collapsed ? 'Expand' : 'Collapse'} sidebar (⌘\\)`}
+        onClick={collapsed ? onExpand : onCollapse}
+      >
+        {collapsed ? (
+          <PanelLeftOpen size={17} strokeWidth={1.5} className="nf-activity-icon" aria-hidden="true" />
+        ) : (
+          <PanelLeftClose size={17} strokeWidth={1.5} className="nf-activity-icon" aria-hidden="true" />
+        )}
+      </button>
+      <div
+        className="nf-activity-sections"
+        role="tablist"
+        aria-label="Sidebar views"
+        aria-orientation="vertical"
+        data-sidebar-tabs="true"
+        onKeyDown={onKeyDown}
+      >
+        {SIDEBAR_TABS.map((tab) => {
+          const active = sidebarTab === tab.id;
+          const Icon = tab.id === 'library' ? Library : ListTree;
+          return (
+            <button
+              key={tab.id}
+              ref={(element) => {
+                refs.current[tab.id] = element;
+              }}
+              type="button"
+              role="tab"
+              id={`nf-sidebar-tab-${tab.id}`}
+              className="nf-activity-button nf-activity-section"
+              data-sidebar-tab={tab.id}
+              data-active={active}
+              aria-selected={active}
+              aria-controls="nf-sidebar-panel"
+              aria-label={tab.label}
+              title={tab.label}
+              tabIndex={active ? 0 : -1}
+              onClick={() => activate(tab.id)}
+            >
+              <Icon
+                size={17}
+                strokeWidth={active ? 1.9 : 1.5}
+                fill={active ? 'currentColor' : 'none'}
+                className="nf-activity-icon"
+                aria-hidden="true"
+              />
+            </button>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        className="nf-activity-button"
+        data-activity-health="true"
+        aria-label="Document health"
+        title="Document health"
+        onClick={() => openDialog({ kind: 'anchor-health' })}
+      >
+        <Activity size={17} strokeWidth={1.5} className="nf-activity-icon" aria-hidden="true" />
+      </button>
+      <div className="nf-activity-spacer" />
+      <div className="nf-activity-foot" data-activity-foot="true">
         <button
-          key={tab.id}
-          ref={(element) => {
-            refs.current[tab.id] = element;
-          }}
           type="button"
-          role="tab"
-          id={`nf-sidebar-tab-${tab.id}`}
-          className="nf-sidebar-tab"
-          data-sidebar-tab={tab.id}
-          aria-selected={sidebarTab === tab.id}
-          aria-controls="nf-sidebar-panel"
-          tabIndex={sidebarTab === tab.id ? 0 : -1}
-          onClick={() => setSidebarTab(tab.id)}
+          className="nf-activity-button nf-sidebar-settings"
+          data-activity-settings="true"
+          aria-label="Settings"
+          title="Settings (⌘,)"
+          onClick={() => openDialog({ kind: 'settings' })}
         >
-          {tab.label}
+          <Settings size={17} strokeWidth={1.5} className="nf-activity-icon" aria-hidden="true" />
         </button>
-      ))}
+      </div>
     </div>
   );
 }
@@ -173,6 +256,7 @@ function LibraryDocumentRow({
   isActive: boolean;
 }): JSX.Element {
   const summary = node.summary;
+  const markdown = node.kind === 'markdown' ? markdownTitleSuffix(summary.title) : null;
   return (
     <div
       role="treeitem"
@@ -203,15 +287,22 @@ function LibraryDocumentRow({
       >
         <span className="nf-library-chevron-spacer" aria-hidden="true" />
         {summary.status === 'ok' ? (
-          node.kind === 'markdown' ? (
+          markdown !== null ? (
             <FileText
               size={13}
               strokeWidth={1.5}
-              className="nf-library-file-icon"
+              className="nf-library-markdown-icon"
+              data-library-icon="markdown"
               aria-hidden="true"
             />
           ) : (
-            <FileText size={13} strokeWidth={1.5} aria-hidden="true" />
+            <NotebookText
+              size={13}
+              strokeWidth={1.5}
+              className="nf-library-note-icon"
+              data-library-icon="note"
+              aria-hidden="true"
+            />
           )
         ) : (
           <FileWarning
@@ -222,7 +313,18 @@ function LibraryDocumentRow({
           />
         )}
         <span className="nf-library-copy">
-          <span className="nf-library-title">{summary.title}</span>
+          <span className="nf-library-title">
+            {markdown === null ? (
+              summary.title
+            ) : (
+              <>
+                {markdown.base}
+                <span className="nf-library-suffix" data-library-suffix="markdown">
+                  {markdown.suffix}
+                </span>
+              </>
+            )}
+          </span>
           {summary.status === 'ok' ? null : (
             <span className="nf-library-reason" data-doc-reason="true">
               {summary.reason ?? 'The package could not be read.'}
@@ -1068,11 +1170,13 @@ function TopicSection(): JSX.Element {
 }
 
 /**
- * The Sidebar is a persistent column. Expanded it is a rounded panel with the
- * search/new/collapse header, Library and Topics, and a footer container whose
- * Settings entry is a button (not the whole footer). Collapsed it stays mounted
- * as a 48 px rail with expand at the top and Settings at the bottom; `⌘\`
- * toggles it and the Toolbar shifts with the rail.
+ * The Sidebar is a persistent column with a 48 px activity bar on its leading
+ * edge (S1). The bar renders in both states — the expand/collapse chevron, the
+ * Library/Outline tablist, the Document health action, and Settings above a
+ * divider — so nothing in it moves when the sidebar collapses. Collapsed, the
+ * card is exactly the bar (48 px); expanded, the bar is followed by the search
+ * header and the Library/Outline panel. `⌘\` toggles the content and the Toolbar
+ * shifts with it.
  */
 export function Sidebar({
   collapsed = false,
@@ -1081,7 +1185,6 @@ export function Sidebar({
   collapsed?: boolean;
   onExpand?: () => void;
 } = {}): JSX.Element {
-  const openDialog = useShell((state) => state.openDialog);
   const openPalette = useShell((state) => state.setPaletteOpen);
   const sidebarTab = useShell((state) => state.sidebarTab);
   const collapseSidebar = (): void => useShell.getState().setSidebarCollapsed(true);
@@ -1089,7 +1192,10 @@ export function Sidebar({
     if (onExpand !== undefined) onExpand();
     else useShell.getState().setSidebarCollapsed(false);
   };
-  const openSettings = (): void => openDialog({ kind: 'settings' });
+
+  const bar = (
+    <ActivityBar collapsed={collapsed} onExpand={expandSidebar} onCollapse={collapseSidebar} />
+  );
 
   if (collapsed) {
     return (
@@ -1099,81 +1205,31 @@ export function Sidebar({
         aria-label="Sidebar"
         data-collapsed="true"
       >
-        <div className="nf-rail-head">
-          <button
-            type="button"
-            className="nf-icon-button nf-rail-button"
-            data-sidebar-expand="true"
-            aria-label="Expand sidebar"
-            aria-expanded={false}
-            aria-controls="nf-sidebar"
-            title="Expand sidebar (⌘\\)"
-            onClick={expandSidebar}
-          >
-            <PanelLeftOpen size={15} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-        </div>
-        <div className="nf-rail-spacer" />
-        <div className="nf-rail-foot">
-          <button
-            type="button"
-            className="nf-icon-button nf-rail-button"
-            data-rail-settings="true"
-            aria-label="Settings"
-            title="Settings (⌘,)"
-            onClick={openSettings}
-          >
-            <Settings size={15} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-        </div>
+        {bar}
       </aside>
     );
   }
 
   return (
     <aside className="nf-sidebar" id="nf-sidebar" aria-label="Sidebar" data-collapsed="false">
-      <div className="nf-sidebar-head">
-        <button
-          type="button"
-          className="nf-icon-button nf-sidebar-collapse"
-          aria-label="Collapse sidebar"
-          aria-expanded={true}
-          aria-controls="nf-sidebar"
-          title="Collapse sidebar (⌘\\)"
-          onClick={collapseSidebar}
+      {bar}
+      <div className="nf-sidebar-content" data-sidebar-content="true">
+        <div className="nf-sidebar-head">
+          <button type="button" className="nf-sidebar-search" onClick={() => openPalette(true)}>
+            <Search size={13} strokeWidth={1.5} aria-hidden="true" />
+            <span>Search</span>
+            <kbd>⌘K</kbd>
+          </button>
+        </div>
+        <div
+          className="nf-sidebar-scroll"
+          id="nf-sidebar-panel"
+          role="tabpanel"
+          aria-labelledby={`nf-sidebar-tab-${sidebarTab}`}
+          data-sidebar-panel={sidebarTab}
         >
-          <PanelLeftClose size={15} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-        <button type="button" className="nf-sidebar-search" onClick={() => openPalette(true)}>
-          <Search size={13} strokeWidth={1.5} aria-hidden="true" />
-          <span>Search</span>
-          <kbd>⌘K</kbd>
-        </button>
-      </div>
-      <SidebarTabs />
-      <div
-        className="nf-sidebar-scroll"
-        id="nf-sidebar-panel"
-        role="tabpanel"
-        aria-labelledby={`nf-sidebar-tab-${sidebarTab}`}
-        data-sidebar-panel={sidebarTab}
-      >
-        {sidebarTab === 'library' ? <LibrarySection /> : <TopicSection />}
-      </div>
-      <div className="nf-sidebar-foot">
-        <button
-          type="button"
-          className="nf-sidebar-settings"
-          aria-label="Settings"
-          title="Settings (⌘,)"
-          onClick={openSettings}
-        >
-          <span className="nf-sidebar-settings-icon">
-            <Settings size={15} strokeWidth={1.5} aria-hidden="true" />
-          </span>
-          <span>Settings</span>
-        </button>
-        <span className="nf-sidebar-foot-spacer" aria-hidden="true" />
+          {sidebarTab === 'library' ? <LibrarySection /> : <TopicSection />}
+        </div>
       </div>
     </aside>
   );

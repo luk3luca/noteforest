@@ -778,7 +778,7 @@ button:disabled {
 
 .nf-sidebar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100%;
   min-width: 0;
   background: var(--bg-sidebar);
@@ -787,48 +787,92 @@ button:disabled {
   overflow: hidden;
 }
 
-/* Collapsed: a 48 px rail with expand at the top and Settings at the bottom.
-   The column stays mounted; only the expanded content is replaced. Head and
-   foot stay full width with the same 8 px inset as the expanded shell, so the
-   collapse/expand and Settings icons keep their exact centres and sizes. */
-.nf-sidebar-rail {
-  align-items: stretch;
+/* S1 activity bar: the card's leading 48 px column. It renders in both states,
+   so the chevron, the section tabs, the health action and the Settings gear keep
+   their x across a collapse; only the content column is added or removed. */
+.nf-activity-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 48px;
+  width: 48px;
+  padding: 8px 0;
 }
 
-.nf-rail-head {
+.nf-activity-sections {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  gap: 8px;
   flex: none;
   width: 100%;
-  height: 44px;
-  padding: 0 8px;
 }
 
-.nf-rail-spacer {
-  flex: 1;
-}
-
-.nf-rail-foot {
-  display: flex;
+/* One 28 x 28 box for the chevron, both sections, Health and Settings. The
+   active section is a filled icon on surface-2; there is no accent stripe and
+   no edge indicator (product-owner decision, 15 November 2026). The new chrome
+   uses the 4/8 px radii from the design, not the 3 px control radius. */
+.nf-activity-button {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   flex: none;
-  width: 100%;
-  padding: 6px 8px 8px;
-}
-
-.nf-icon-button.nf-rail-button {
   width: 28px;
   height: 28px;
-  color: var(--text-2);
+  border-radius: 4px;
+  color: var(--text-3);
 }
 
-/* The rail Settings button is the same 30 x 30 box as the expanded footer
-   button, so the gear does not move across the collapse transition. */
-.nf-icon-button.nf-rail-button[data-rail-settings='true'] {
-  width: 30px;
-  height: 30px;
+.nf-activity-button:hover {
+  background: var(--surface-1);
+  color: var(--text-1);
+}
+
+.nf-activity-button[aria-selected='true'] {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.nf-activity-button:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.nf-activity-icon {
+  flex: none;
+  width: 17px;
+  height: 17px;
+}
+
+.nf-activity-spacer {
+  flex: 1;
+  min-height: 8px;
+}
+
+/* The Settings divider is unconditional: it is visible expanded and collapsed. */
+.nf-activity-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  align-self: stretch;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-1);
+}
+
+.nf-sidebar-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Collapsed: the card is exactly the bar, so nothing shifts. */
+.nf-sidebar-rail {
+  align-items: stretch;
 }
 
 .nf-sidebar-head {
@@ -882,44 +926,8 @@ button:disabled {
   color: var(--text-2);
 }
 
-/* Library/Outline tab strip: the tab boundary replaces the old section rules. */
-.nf-sidebar-tabs {
-  display: flex;
-  gap: 2px;
-  flex: none;
-  height: 28px;
-  margin: 0 8px 6px;
-  padding: 2px;
-  background: var(--surface-1);
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-control);
-}
-
-.nf-sidebar-tab {
-  flex: 1;
-  min-width: 0;
-  height: 22px;
-  border-radius: calc(var(--radius-control) - 2px);
-  color: var(--text-3);
-  font-size: calc(11.5px * var(--ui-scale));
-  font-weight: 500;
-}
-
-.nf-sidebar-tab:hover {
-  color: var(--text-2);
-}
-
-.nf-sidebar-tab[aria-selected='true'] {
-  background: var(--surface-3);
-  color: var(--text-1);
-  box-shadow: inset 0 0 0 1px var(--border-2);
-}
-
-.nf-sidebar-tab:focus-visible {
-  outline: 2px solid var(--accent-ring);
-  outline-offset: 1px;
-}
-
+/* The activity bar replaces the old Library/Outline segmented control; the bar
+   column is the boundary above the scroll panel, not an inner strip. */
 .nf-sidebar-scroll {
   flex: 1;
   min-height: 0;
@@ -1280,9 +1288,20 @@ button:disabled {
   color: var(--text-3);
 }
 
-.nf-library-file-icon {
+.nf-library-note-icon {
   flex: 0 0 13px;
-  color: var(--accent);
+  color: var(--text-2);
+}
+
+.nf-library-markdown-icon {
+  flex: 0 0 13px;
+  color: var(--text-3);
+}
+
+/* The `.md` extension is a separate, dimmer suffix: the row kind never depends
+   on colour alone. */
+.nf-library-suffix {
+  color: var(--text-3);
 }
 
 .nf-library-folder-row .nf-library-title {
@@ -1333,47 +1352,6 @@ button:disabled {
   margin: 4px 8px;
   color: var(--text-3);
   font-size: calc(12px * var(--ui-scale));
-}
-
-/* Footer is a container with a Settings button, not a full-width button. */
-.nf-sidebar-foot {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
-  border-top: 1px solid var(--border-1);
-  padding: 6px 8px 8px;
-}
-
-.nf-sidebar-foot-spacer {
-  flex: 1;
-}
-
-.nf-sidebar-settings {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 8px 0 0;
-  border-radius: 6px;
-  color: var(--text-2);
-  font-size: calc(12px * var(--ui-scale));
-}
-
-/* The 30 x 30 icon slot is the same box as the collapsed rail gear, so the
-   gear centre does not move across the collapse transition. */
-.nf-sidebar-settings-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 30px;
-  height: 30px;
-}
-
-.nf-sidebar-settings:hover {
-  background: var(--surface-1);
-  color: var(--text-1);
 }
 
 /* ------------------------------------------------------------------ topics */

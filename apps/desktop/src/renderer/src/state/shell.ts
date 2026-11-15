@@ -2,11 +2,7 @@
 
 import { create } from 'zustand';
 import type { LibraryView, RecoveryStatus, SidebarTab, TrashPreflight } from '../../../shared/api';
-import {
-  SIDEBAR_MAX_WIDTH,
-  SIDEBAR_MIN_WIDTH,
-  SIDEBAR_SNAP_WIDTH,
-} from '../../../shared/shell';
+import { SIDEBAR_SNAP_WIDTH, clampSidebarContentWidth } from '../../../shared/shell';
 import type { SettingsPageId } from '../settings/settings-pages';
 import type { DocumentHealthFilter } from '../lib/document-health';
 import {
@@ -24,9 +20,13 @@ import {
 
 export type { DocumentLayout, DocumentViewState, InteractionMode, PageFit };
 export {
+  ACTIVITY_BAR_WIDTH,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_SNAP_WIDTH,
+  clampSidebarContentWidth,
+  sidebarContentWidth,
+  sidebarPanelWidth,
 } from '../../../shared/shell';
 
 /** Read-only package state shown by the recovery tab. */
@@ -308,13 +308,7 @@ export const useShell = create<ShellState>((set, get) => ({
     })),
 
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-  setSidebarWidth: (width) =>
-    set({
-      sidebarWidth: Math.max(
-        SIDEBAR_MIN_WIDTH,
-        Math.min(SIDEBAR_MAX_WIDTH, Math.round(width)),
-      ),
-    }),
+  setSidebarWidth: (width) => set({ sidebarWidth: clampSidebarContentWidth(width) }),
   setSidebarTab: (tab) => set({ sidebarTab: tab === 'outline' ? 'outline' : 'library' }),
 
   setPaletteOpen: (open, options = {}) =>

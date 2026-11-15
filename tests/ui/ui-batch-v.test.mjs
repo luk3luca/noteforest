@@ -541,6 +541,11 @@ describe('Batch V visual refinement', () => {
 
   it('expands tabs when space allows, shrinks inactive tabs first, then windows', async () => {
     await launch('batch-v-tabs');
+    // S1 adds the 48 px activity bar to the sidebar card, so the tab strip is
+    // 48 px narrower at the same window width. The contract measured here is
+    // tab geometry (four 220 px chips fit when space allows), not the default
+    // window width, so the scenario gets the space it describes.
+    await h.setWindowSize(1600, 900);
     await ui.seedDemo();
     await page.waitForSelector('.nf-tablist');
 
