@@ -7,12 +7,14 @@ import { addAnchor, addBranch, addTopLevelBlock, textDoc } from '../support/fixt
 import { multiPageBlocksDocument, writePagePackage } from '../support/page-fixtures.mjs';
 
 /**
- * S2 Document health: the sidebar report and the 520 px repair modal.
+ * S2.1 Document health: the sidebar report and the 560 px repair modal.
  *
- * The sidebar is the report (grouped sections, one row per issue); a row opens
- * the modal in front. Confirm closes it, the row leaves the list and the toast
- * carries Undo. The v1 sheet is retired, so every assertion here targets the
- * section + modal surface.
+ * The sidebar is the report (four sections, two-line rows, one manual re-check
+ * next to the search); a row opens the modal in front. The modal body is at
+ * most context + problem + decision and every action lives in a footer slot:
+ * Show in note · … · Close · primary. Confirm closes it, the row leaves the
+ * list and the toast carries Undo. Read mode keeps the body and disables every
+ * mutation.
  */
 
 const tempRoot = artifactsPath('document-health-ui');
@@ -46,6 +48,8 @@ function markedDoc(parts) {
     ],
   };
 }
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 async function openHealthFromPalette() {
   await page.keyboard.press('Meta+k');
@@ -120,6 +124,39 @@ async function ensureSection(id) {
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
 }
 
+/** The footer slots, left to right. */
+async function footerLabels() {
+  return page
+    .locator('[data-health-dialog="true"] .nf-dialog-actions button')
+    .evaluateAll((buttons) => buttons.map((button) => (button.textContent ?? '').trim()));
+}
+
+/** Open the footer `…` menu and return its entry ids. */
+async function openFooterMenu() {
+  await page.locator('[data-health-dialog="true"] [data-health-menu="true"]').click();
+  await page.waitForSelector('[data-health-menu-list="true"]');
+  return page
+    .locator('[data-health-menu-list="true"] [role="menuitem"]')
+    .evaluateAll((items) => items.map((item) => item.getAttribute('data-menu-entry')));
+}
+
+async function chooseFooterMenu(entry) {
+  await page.locator(`[data-health-menu-list="true"] [data-menu-entry="${entry}"]`).click();
+  await page.waitForSelector('[data-health-menu-list="true"]', { state: 'detached' });
+}
+
+async function waitForRefreshChecked(expected, { timeout = 10000 } = {}) {
+  await page.waitForFunction(
+    (value) => {
+      const button = document.querySelector('[data-health-refresh]');
+      if (button === null) return false;
+      return (button.getAttribute('data-checked') === 'true') === value;
+    },
+    expected,
+    { timeout },
+  );
+}
+
 describe('Document health sidebar and repair modal', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -134,7 +171,7 @@ describe('Document health sidebar and repair modal', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('groups a mixed document into sections, counts it, searches it, and keeps session state', async () => {
+  it('renders four sections with zero counts, two-line rows, a manual re-check and a search', async () => {
     await launch(isolated('mixed'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
@@ -149,7 +186,6 @@ describe('Document health sidebar and repair modal', () => {
       idleSource: 'dh-idle-source',
       idleAnchor: 'dh-idle-anchor',
       orphanSource: 'dh-orphan-source',
-      orphanBlock: 'dh-orphan-block',
       emptyChapter: 'dh-empty-chapter',
     };
 
@@ -255,14 +291,19 @@ describe('Document health sidebar and repair modal', () => {
     assert.equal(await summary.getAttribute('data-health-count-idle'), '1');
     assert.equal((await summary.innerText()).trim(), '3 to fix · 5 issues');
 
-    // Sections in the confirmed order; Hidden has no rows and must not render.
+    // S2.1 decision 2: all four sections render, Hidden with 0 included.
     assert.deepEqual(
       await page.locator('[role="treeitem"][data-health-section]').evaluateAll((nodes) =>
         nodes.map((node) => node.getAttribute('data-health-section')),
       ),
-      ['anchors', 'unused', 'structure'],
+      ['anchors', 'unused', 'structure', 'hidden'],
     );
-    assert.equal(await page.locator('[data-health-section="hidden"]').count(), 0);
+    assert.deepEqual(
+      await page
+        .locator('[role="treeitem"][data-health-section] [data-health-section-count]')
+        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-health-section-count'))),
+      ['3', '1', '1', '0'],
+    );
     assert.equal(
       await page.locator('[data-health-section-toggle="true"][data-health-section="anchors"]')
         .getAttribute('aria-expanded'),
@@ -279,44 +320,120 @@ describe('Document health sidebar and repair modal', () => {
       0,
       'collapsed sections render no rows',
     );
-    assert.equal(
-      await page
-        .locator('[data-health-section-toggle="true"][data-health-section="anchors"] [data-health-section-count]')
-        .getAttribute('data-health-section-count'),
-      '3',
-    );
-    await h.screenshot(artifactsPath('document-health', 'sections-1440x900.png'), {
+
+    // Section labels use the sidebar's label pattern: uppercase 9.5.
+    const labelStyle = await page
+      .locator('[data-health-section-toggle="true"][data-health-section="anchors"] .nf-health-section-name')
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          size: style.fontSize,
+          transform: style.textTransform,
+          spacing: style.letterSpacing,
+        };
+      });
+    assert.equal(labelStyle.size, '9.5px');
+    assert.equal(labelStyle.transform, 'uppercase');
+    assert.notEqual(labelStyle.spacing, 'normal');
+
+    await h.screenshot(artifactsPath('document-health', 'sidebar-zero-sections-1440x900.png'), {
       width: 1440,
       height: 900,
     });
 
-    // Open sections persist across a section switch within the session.
-    await page.locator('[data-health-section-toggle="true"][data-health-section="unused"]').click();
+    // An empty group says so once expanded, and the count stays 0.
+    await ensureSection('hidden');
     assert.equal(
-      await page.locator('[data-health-section="unused"] [data-health-row]').count(),
-      1,
+      (await page.locator('[data-health-group-empty="hidden"]').innerText()).trim(),
+      'No issues in this group',
     );
-    const idleRow = page.locator('[data-health-section="unused"] [data-health-row]');
+
+    // Row = two lines at 40 px: quote, then state · block · branches.
+    await ensureSection('unused');
+    const idleRow = page.locator(`[data-health-row="anchor:${ids.idleAnchor}"]`);
+    const idleButton = idleRow.locator('[data-health-row-button="true"]');
     assert.equal(await idleRow.getAttribute('data-health-state'), 'idle');
     assert.equal(await idleRow.getAttribute('data-health-info'), 'true');
     assert.equal(
-      await idleRow.locator('[data-health-row-button="true"]').innerText(),
+      (await idleButton.locator('.nf-health-row-quote').innerText()).trim(),
       '“Idle”',
-      'the row is the quote; a zero branch count is not rendered',
     );
-    await ui.showLibrary();
-    await ui.showHealth();
     assert.equal(
-      await page.locator('[data-health-section-toggle="true"][data-health-section="unused"]')
-        .getAttribute('aria-expanded'),
-      'true',
-      'the open section survived the tab switch',
+      (await idleButton.locator('.nf-health-row-state').innerText()).trim(),
+      'Anchor with no branches',
+      'the approved rename replaces Idle anchor',
+    );
+    assert.match(
+      (await idleButton.locator('.nf-health-row-block').innerText()).trim(),
+      /Idle anchor word/,
+      'the second line names the canvas block',
+    );
+    assert.equal(
+      await idleButton.locator('[data-health-branch-count]').count(),
+      0,
+      'a zero branch count is not rendered',
+    );
+    assert.equal(
+      await idleButton.evaluate((element) => Math.round(element.getBoundingClientRect().height)),
+      40,
+      'the row is 40 px tall',
+    );
+    const idleStyle = await idleButton.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        quote: getComputedStyle(element.querySelector('.nf-health-row-quote')).fontWeight,
+        borderLeft: style.borderLeftWidth,
+        radius: style.borderRadius,
+      };
+    });
+    assert.equal(idleStyle.borderLeft, '0px', 'no left accent stripe');
+    assert.equal(idleStyle.quote, '500', 'the quote is 12/500');
+    assert.equal(idleStyle.radius, '3px', 'a row radius, not a pill');
+
+    // A row with one branch says so, in words, at the right.
+    const brokenRow = page.locator(`[data-health-row="anchor:${ids.brokenAnchor}"]`);
+    assert.equal(
+      await brokenRow.locator('[data-health-branch-count]').getAttribute('data-health-branch-count'),
+      '1',
+    );
+    assert.equal(
+      (await brokenRow.locator('[data-health-branch-count]').innerText()).trim(),
+      '1 branch',
+      'the count keeps its word',
     );
 
-    // Check again re-runs the audit without touching the document.
-    await page.locator('[data-health-check-again="true"]').click();
-    assert.equal(await page.locator('[data-health-row]').count(), 4);
+    // Selection is a filled row, not a pill and not an accent stripe.
+    await clickHealthRow(`anchor:${ids.idleAnchor}`);
+    await closeModal();
+    const selectedStyle = await page
+      .locator(`[data-health-row="anchor:${ids.idleAnchor}"] [data-health-row-button="true"]`)
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { background: style.backgroundColor, selected: element.getAttribute('data-selected') };
+      });
+    assert.equal(selectedStyle.selected, 'true');
+    assert.notEqual(selectedStyle.background, 'rgba(0, 0, 0, 0)', 'the selected row is filled');
+
+    // The manual re-check is the icon next to the search, and it is feedback.
+    assert.equal(await page.locator('[data-health-check-again="true"]').count(), 0);
+    assert.equal(await page.locator('.nf-health-section .nf-section-foot').count(), 0);
+    const refresh = page.locator('[data-health-refresh="true"]');
+    assert.equal(await refresh.getAttribute('aria-label'), 'Check again');
+    assert.equal(await refresh.getAttribute('title'), 'Check again');
+    assert.equal(
+      await refresh.evaluate((element) => Math.round(element.getBoundingClientRect().width)),
+      28,
+    );
+    await refresh.click();
+    await waitForRefreshChecked(true);
+    assert.equal(
+      (await page.locator('[data-health-checked-status="true"]').textContent())?.trim(),
+      'Checked',
+      'the live region announces the re-check',
+    );
     assert.deepEqual(await structure(), before, 'Check again is read-only');
+    await waitForRefreshChecked(false);
+    assert.equal(await page.locator('[data-health-row]').count(), 4);
 
     // Search filters across sections and auto-expands the matches.
     await page.locator('[data-health-search="true"]').fill('omega');
@@ -325,40 +442,50 @@ describe('Document health sidebar and repair modal', () => {
       await page.locator('[data-health-section="anchors"] [data-health-row]').count(),
       1,
     );
+    assert.equal(
+      await page.locator('[data-health-section-label]').count(),
+      1,
+      'a search renders only the matching section',
+    );
     assert.equal(await page.locator('[data-health-section-toggle="true"]').count(), 0);
     await page.locator('[data-health-search="true"]').fill('no match at all');
     assert.equal(await page.locator('[data-health-empty-search="true"]').count(), 1);
     await page.locator('[data-health-search="true"]').fill('');
+    assert.equal(await page.locator('[data-health-section-toggle="true"]').count(), 4);
 
     // Tree keyboard: Up/Down move, Enter opens, Esc closes back onto the row.
-    await page.locator('[data-health-row="anchor:dh-broken-anchor"] [data-health-row-button="true"]').focus();
+    await ensureSection('anchors');
+    await page.locator(`[data-health-row="anchor:${ids.brokenAnchor}"] [data-health-row-button="true"]`).focus();
     await page.keyboard.press('ArrowDown');
     assert.equal(
       await page.evaluate(() => document.activeElement?.getAttribute('data-health-key')),
-      'anchor:dh-ambiguous-anchor',
+      `anchor:${ids.ambiguousAnchor}`,
     );
     await page.keyboard.press('Enter');
-    await page.waitForSelector('[data-health-dialog="true"][data-health-row="anchor:dh-ambiguous-anchor"]');
+    await page.waitForSelector(
+      `[data-health-dialog="true"][data-health-row="anchor:${ids.ambiguousAnchor}"]`,
+    );
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
-      () => document.activeElement?.getAttribute('data-health-key') === 'anchor:dh-ambiguous-anchor',
-      undefined,
+      (expected) => document.activeElement?.getAttribute('data-health-key') === expected,
+      `anchor:${ids.ambiguousAnchor}`,
       { timeout: 5000 },
     );
 
     // Selecting a row survives opening another section and reopening the modal.
-    await clickHealthRow('anchor:dh-broken-anchor');
+    await clickHealthRow(`anchor:${ids.brokenAnchor}`);
     await closeModal();
-    await page.locator('[data-health-section-toggle="true"][data-health-section="unused"]').click();
+    await ensureSection('unused');
     await page.waitForFunction(
-      () => document.querySelector('[data-health-row="anchor:dh-broken-anchor"] [data-selected="true"]') !== null,
-      undefined,
+      (rowId) =>
+        document.querySelector(`[data-health-row="${rowId}"] [data-selected="true"]`) !== null,
+      `anchor:${ids.brokenAnchor}`,
       { timeout: 5000 },
     );
   });
 
-  it('previews a candidate, confirms one undoable repair, closes, and keeps the selection valid', async () => {
+  it('repairs an ambiguous anchor from the footer: candidates, Preview repair, Back, Confirm repair', async () => {
     await launch(isolated('candidates'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
@@ -406,8 +533,8 @@ describe('Document health sidebar and repair modal', () => {
       await page.locator('.nf-dialog-modal-repair').evaluate((element) =>
         Math.round(element.getBoundingClientRect().width),
       ),
-      520,
-      'the repair modal is 520 px wide',
+      560,
+      'the repair modal is 560 px wide',
     );
     assert.equal(
       (await dialog.locator('.nf-health-kicker').textContent()).trim(),
@@ -421,24 +548,57 @@ describe('Document health sidebar and repair modal', () => {
       await dialog.locator('[data-health-severity-label]').getAttribute('data-health-severity-label'),
       'Needs repair',
     );
-    assert.match((await dialog.innerText()) ?? '', /Text anchor/);
-    assert.match((await dialog.innerText()) ?? '', /“dup”/);
-    assert.match((await dialog.innerText()) ?? '', /First target|Second target/);
+    const issueBody = (await dialog.locator('.nf-dialog-body').innerText()) ?? '';
+    assert.match(issueBody, /“dup”/);
+    assert.match(issueBody, /This text appears twice\./);
+    assert.match(issueBody, /First target|Second target/);
+    // Never in the body: internal data and the retired reference sections.
+    assert.doesNotMatch(issueBody, /Text anchor/);
+    assert.doesNotMatch(issueBody, /Stale bindings/);
+    assert.doesNotMatch(issueBody, /node \d/);
+    assert.doesNotMatch(issueBody, UUID);
+    assert.doesNotMatch(issueBody, new RegExp(ids.anchor));
+    // No action row in the body: every action is a footer slot. The one
+    // exception is the quiet per-branch removal on a branch row.
+    assert.equal(
+      await dialog
+        .locator('.nf-dialog-body button[data-health-action]:not(.nf-health-branch-remove)')
+        .count(),
+      0,
+      'the body carries no action buttons',
+    );
+    assert.equal(
+      await dialog.locator('.nf-dialog-body .nf-health-branch-remove').count(),
+      2,
+      'each branch row keeps its quiet removal',
+    );
+    assert.deepEqual(await footerLabels(), ['Show in note', '…', 'Close', 'Preview repair']);
     assert.equal(await dialog.locator('[data-health-candidate]').count(), 2);
     assert.equal(
       await dialog.locator('[data-health-action="preview-repair"]').isDisabled(),
       true,
       'a candidate must be chosen first',
     );
-    assert.equal(await dialog.locator('[data-health-action="relink"]').count(), 1);
-    assert.equal(await dialog.locator('[data-health-action="attach"]').count(), 1);
-    assert.equal(await dialog.locator('[data-health-action="keep"]').count(), 1);
-    assert.equal(await dialog.locator('[data-health-action="delete-anchor"]').count(), 1);
-    assert.equal(await dialog.locator('[data-health-action="show-in-note"]').count(), 1);
-    await h.screenshot(artifactsPath('document-health', 'modal-1440x900.png'), {
+    await h.screenshot(artifactsPath('document-health', 'modal-ambiguous-anchor-1440x900.png'), {
       width: 1440,
       height: 900,
     });
+
+    // The `…` menu holds the rare and destructive actions, and Esc closes the
+    // menu without closing the modal.
+    assert.deepEqual(await openFooterMenu(), [
+      'health-action-relink',
+      'health-action-attach',
+      'health-action-delete-anchor',
+    ]);
+    await h.screenshot(artifactsPath('document-health', 'modal-menu-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-health-menu-list="true"]', { state: 'detached' });
+    assert.equal(await dialog.count(), 1, 'the first Esc only closes the menu');
+    assert.deepEqual(await structure(), before, 'opening the menu mutates nothing');
 
     await dialog.locator('[data-health-candidate="1"]').click();
     assert.equal(
@@ -448,23 +608,22 @@ describe('Document health sidebar and repair modal', () => {
     assert.deepEqual(await structure(), before, 'choosing a candidate mutates nothing');
     await dialog.locator('[data-health-action="preview-repair"]').click();
     await page.waitForSelector('[data-health-preview="true"]');
-    const previewText = (await page.locator('[data-health-preview="true"]').textContent()) ?? '';
+    const preview = page.locator('[data-health-preview="true"]');
+    const previewText = (await preview.textContent()) ?? '';
     assert.match(previewText, /Before/);
     assert.match(previewText, /After/);
-    assert.match(previewText, /one undoable repair/);
     assert.match(previewText, /occurrence 2/);
-    assert.equal(
-      await page.locator('[data-health-preview-branch]').count(),
-      2,
-      'both branches are named in the preview',
+    assert.match(
+      previewText,
+      /What changes: the anchor binding\. What stays: the branch, its target, the block\. One undo entry\./,
     );
+    assert.doesNotMatch(previewText, UUID, 'the confirm stage carries no IDs');
+    assert.doesNotMatch(previewText, new RegExp(ids.anchor));
+    assert.deepEqual(await footerLabels(), ['Back', 'Confirm repair']);
     assert.equal(
-      await page.locator(`[data-health-preview-target="${ids.targetA}"]`).count(),
-      1,
-    );
-    assert.equal(
-      await page.locator(`[data-health-preview-target="${ids.targetB}"]`).count(),
-      1,
+      await dialog.locator('[data-health-action="show-in-note"]').count(),
+      0,
+      'the confirm step has no Show in note slot',
     );
     assert.deepEqual(await structure(), before, 'the preview mutates nothing');
     await h.screenshot(artifactsPath('document-health', 'confirm-1440x900.png'), {
@@ -496,6 +655,10 @@ describe('Document health sidebar and repair modal', () => {
     );
 
     // Confirm applies one undoable command, closes, removes the row, toasts Undo.
+    const branchIds = Object.keys(before.branches).filter(
+      (id) => before.branches[id].source.anchorId === ids.anchor,
+    );
+    assert.equal(branchIds.length, 2);
     await clickHealthRow(`anchor:${ids.anchor}`);
     await dialog.locator('[data-health-candidate="1"]').click();
     await dialog.locator('[data-health-action="preview-repair"]').click();
@@ -524,10 +687,13 @@ describe('Document health sidebar and repair modal', () => {
     );
     await waitForBadge(0);
     const repaired = await structure();
+    for (const branchId of branchIds) {
+      assert.ok(repaired.branches[branchId] !== undefined, `branch ${branchId} survives the repair`);
+    }
     const repairedBranch = Object.values(repaired.branches).find(
       (branch) => branch.source.anchorId === ids.anchor,
     );
-    assert.equal(repairedBranch?.targetBlockId, ids.targetA, 'the branch ID and target survive');
+    assert.equal(repairedBranch?.targetBlockId, ids.targetA, 'the branch target survives');
     assert.ok(repaired.blocks[ids.targetA] !== undefined);
     assert.ok(repaired.blocks[ids.targetB] !== undefined);
     const sidebarState = await page.evaluate(() => window.__noteforestTest.state());
@@ -556,7 +722,7 @@ describe('Document health sidebar and repair modal', () => {
     );
   });
 
-  it('keeps the v1 fixes for unused anchors, unlinked marks, and structure rows', async () => {
+  it('shows the four approved modals, the guidance line, and the danger-only footer', async () => {
     await launch(isolated('actions'));
     await h.setWindowSize(1440, 900);
     await ui.seedDemo();
@@ -565,7 +731,12 @@ describe('Document health sidebar and repair modal', () => {
       idleSource: 'dh-idle-source',
       idleTarget: 'dh-idle-target',
       idleAnchor: 'dh-idle-anchor',
+      brokenSource: 'dh-broken-source',
+      brokenTarget: 'dh-broken-target',
+      brokenAnchor: 'dh-broken-anchor',
       markSource: 'dh-mark-source',
+      unusedSource: 'dh-unused-source',
+      unusedAnchor: 'dh-unused-anchor',
       emptyChapter: 'dh-empty-chapter',
     };
     await addTopLevelBlock(ui, ids.idleSource, textDoc('Idle anchor text'));
@@ -577,92 +748,84 @@ describe('Document health sidebar and repair modal', () => {
       selector: { kind: 'text', quote: 'Idle' },
       binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 4 }] },
     });
+    await addTopLevelBlock(ui, ids.brokenSource, textDoc('Alpha omega beta'));
+    await addTopLevelBlock(ui, ids.brokenTarget, textDoc('Broken target'));
+    await addAnchor(ui, {
+      anchorId: ids.brokenAnchor,
+      blockId: ids.brokenSource,
+      kind: 'text',
+      selector: { kind: 'text', quote: 'missingword' },
+      binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 11 }] },
+    });
+    await addBranch(ui, {
+      sourceBlockId: ids.brokenSource,
+      sourceAnchorId: ids.brokenAnchor,
+      targetBlockId: ids.brokenTarget,
+    });
+    await applyCommand({
+      type: 'block.editContent',
+      blockId: ids.brokenSource,
+      content: textDoc('Alpha omega beta'),
+    });
     await addTopLevelBlock(
       ui,
       ids.markSource,
       markedDoc(['An ', { text: 'orphanword', anchorIds: ['dh-mark-reference'] }, ' here']),
     );
+    // An anchor record with no content binding and no branch is an unused
+    // anchor: rewriting the paragraph drops the mark, not the record.
+    await addTopLevelBlock(ui, ids.unusedSource, textDoc('Plain words only'));
+    await addAnchor(ui, {
+      anchorId: ids.unusedAnchor,
+      blockId: ids.unusedSource,
+      kind: 'text',
+      selector: { kind: 'text', quote: 'Plain' },
+      binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 5 }] },
+    });
+    await applyCommand({
+      type: 'block.editContent',
+      blockId: ids.unusedSource,
+      content: textDoc('Plain words only'),
+    });
     await applyCommand({
       type: 'chapter.create',
       chapterId: ids.emptyChapter,
       title: 'Empty chapter',
     });
-    await waitForInfoChip({ idle: 1, orphans: 1, structure: 1 });
-    await waitForBadge(1);
+    await waitForInfoChip({ idle: 1, orphans: 2, structure: 1 });
+    await waitForBadge(3);
 
-    // Unused anchor: add a branch (primary disabled until a target is chosen).
     await page.locator('[data-sidebar-tab="health"]').click();
     await page.waitForSelector('[data-sidebar-panel="health"]');
-    await page.locator('[data-health-section-toggle="true"][data-health-section="unused"]').click();
-    await clickHealthRow(`anchor:${ids.idleAnchor}`);
-    const dialog = page.locator('[data-health-dialog="true"]');
-    assert.equal(await dialog.locator('[data-health-action="add-branch"]').isDisabled(), true);
-    assert.equal(await dialog.locator('[data-health-action="remove-anchor"]').count(), 1);
-    assert.match((await dialog.innerText()) ?? '', /This anchor has no branches\./);
-    await dialog.locator('[data-health-branch-target="true"]').selectOption(ids.idleTarget);
-    await dialog.locator('[data-health-action="add-branch"]').click();
-    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
-    await page.waitForFunction(
-      (anchorId) => {
-        const current = window.__noteforestTest.structure();
-        return Object.values(current?.branches ?? {}).some(
-          (branch) => branch.source.anchorId === anchorId,
-        );
-      },
-      ids.idleAnchor,
-      { timeout: 10000 },
-    );
-    const withBranch = await structure();
-    const created = Object.values(withBranch.branches).find(
-      (branch) => branch.source.anchorId === ids.idleAnchor,
-    );
-    assert.equal(created?.role, 'reference');
-    assert.equal(created?.targetBlockId, ids.idleTarget);
-    await page.keyboard.press('Meta+z');
-    await page.waitForFunction(
-      (anchorId) => {
-        const current = window.__noteforestTest.structure();
-        return Object.values(current?.branches ?? {}).every(
-          (branch) => branch.source.anchorId !== anchorId,
-        );
-      },
-      ids.idleAnchor,
-      { timeout: 10000 },
-    );
 
-    // Remove the unused anchor itself: one command, target kept, one undo.
-    await ui.showHealth();
-    await ensureSection('unused');
-    await clickHealthRow(`anchor:${ids.idleAnchor}`);
-    await page.locator('[data-health-dialog="true"] [data-health-action="remove-anchor"]').click();
-    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
-    await page.waitForFunction(
-      (anchorId) => window.__noteforestTest.structure()?.anchors?.[anchorId] === undefined,
-      ids.idleAnchor,
-      { timeout: 10000 },
-    );
-    assert.ok((await structure()).blocks[ids.idleTarget] !== undefined, 'the target is kept');
-    await page.keyboard.press('Meta+z');
-    await page.waitForFunction(
-      (anchorId) => window.__noteforestTest.structure()?.anchors?.[anchorId] !== undefined,
-      ids.idleAnchor,
-      { timeout: 10000 },
-    );
-
-    // Unlinked mark: remove the mark, then recreate it from a real selection.
-    await ensureSection('anchors');
+    // 1 · Unlinked mark: problem + one guidance line, no `…`, one secondary slot.
     await clickHealthRow('orphan-reference:dh-mark-reference:dh-mark-source');
+    let body = (await page.locator('[data-health-dialog="true"] .nf-dialog-body').innerText()) ?? '';
     assert.equal(
-      await page.locator('[data-health-dialog="true"] [data-health-action="recreate-link"]').count(),
-      1,
+      (await page.locator('[data-health-dialog="true"] .nf-health-dialog-title').innerText()).trim(),
+      'Unlinked mark',
     );
+    assert.match(body, /The highlight has no anchor behind it\./);
+    assert.match(body, /Recreate the link from a selection, or remove the mark\./);
+    assert.doesNotMatch(body, /Text anchor/);
+    assert.doesNotMatch(body, /node \d/);
     assert.equal(
-      await page.locator('[data-health-dialog="true"] [data-health-action="remove-mark"]').count(),
-      1,
+      await page.locator('[data-health-dialog="true"] .nf-dialog-body [data-health-action]').count(),
+      0,
     );
-    // A rejected command keeps the modal open with the reason inside it: there is
-    // no editor selection in the anchor's block yet.
-    await page.locator('[data-health-dialog="true"] [data-health-action="recreate-link"]').click();
+    assert.deepEqual(await footerLabels(), [
+      'Show in note',
+      'Remove mark',
+      'Close',
+      'Recreate link from selection',
+    ]);
+    assert.equal(await page.locator('[data-health-menu="true"]').count(), 0, 'no `…` slot here');
+    await h.screenshot(artifactsPath('document-health', 'modal-unlinked-mark-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    // A rejected command keeps the modal open with the reason inside it.
+    await page.locator('[data-health-action="recreate-link"]').click();
     await page.waitForSelector('[data-health-dialog="true"] [data-health-error="true"]');
     assert.match(
       await page.locator('[data-health-dialog="true"] [data-health-error="true"]').innerText(),
@@ -673,91 +836,132 @@ describe('Document health sidebar and repair modal', () => {
       1,
       'the rejected command does not close the modal',
     );
-    await page.locator('[data-health-dialog="true"] [data-health-action="remove-mark"]').click();
-    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
-    await page.waitForFunction(
-      ({ blockId, anchorId }) => {
-        const current = window.__noteforestTest.structure();
-        return JSON.stringify(current?.blocks?.[blockId]?.content ?? {}).includes(anchorId) === false;
-      },
-      { blockId: ids.markSource, anchorId: 'dh-mark-reference' },
-      { timeout: 10000 },
-    );
-    await page.keyboard.press('Meta+z');
-    await page.waitForFunction(
-      ({ blockId, anchorId }) => {
-        const current = window.__noteforestTest.structure();
-        return JSON.stringify(current?.blocks?.[blockId]?.content ?? {}).includes(anchorId) === true;
-      },
-      { blockId: ids.markSource, anchorId: 'dh-mark-reference' },
-      { timeout: 10000 },
-    );
+    await closeModal();
 
-    const prose = page
-      .locator(`[data-block-card="${ids.markSource}"] .nf-block-prose p`)
-      .first();
-    await prose.click({ position: { x: 2, y: 8 } });
-    await page.keyboard.press('Home');
-    for (let index = 0; index < 3; index += 1) await page.keyboard.press('ArrowRight');
-    await page.keyboard.down('Shift');
-    for (let index = 0; index < 'orphanword'.length; index += 1) await page.keyboard.press('ArrowRight');
-    await page.keyboard.up('Shift');
-    assert.equal(await page.evaluate(() => window.getSelection()?.toString() ?? ''), 'orphanword');
-    await ui.showHealth();
-    await clickHealthRow('orphan-reference:dh-mark-reference:dh-mark-source');
-    await page.locator('[data-health-dialog="true"] [data-health-action="recreate-link"]').click();
-    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
-    await page.waitForFunction(
-      (anchorId) => window.__noteforestTest.structure()?.anchors?.[anchorId] !== undefined,
-      'dh-mark-reference',
-      { timeout: 10000 },
+    // 2 · Lost anchor, no candidates: the fallback becomes the primary.
+    await clickHealthRow(`anchor:${ids.brokenAnchor}`);
+    body = (await page.locator('[data-health-dialog="true"] .nf-dialog-body').innerText()) ?? '';
+    assert.match(body, /This text is no longer in the block\./);
+    assert.doesNotMatch(body, /More than one location matches/);
+    assert.match(body, /1 branch/, 'the branch line carries the count and its word');
+    assert.match(body, /Broken target/);
+    assert.deepEqual(await footerLabels(), [
+      'Show in note',
+      '…',
+      'Close',
+      'Link to current selection',
+    ]);
+    assert.equal(
+      await page.locator('[data-health-dialog="true"] [data-health-action="delete-branch"]').count(),
+      1,
+      'the branch row keeps its quiet removal',
     );
-    await page.keyboard.press('Meta+z');
-    await page.waitForFunction(
-      (anchorId) => window.__noteforestTest.structure()?.anchors?.[anchorId] === undefined,
-      'dh-mark-reference',
-      { timeout: 10000 },
-    );
+    await h.screenshot(artifactsPath('document-health', 'modal-lost-anchor-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    assert.deepEqual(await openFooterMenu(), [
+      'health-action-attach',
+      'health-action-delete-anchor',
+    ]);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-health-menu-list="true"]', { state: 'detached' });
+    await closeModal();
 
-    // Empty chapter: add a block, undo, then delete the chapter with its confirm.
-    await ui.showHealth();
+    // 3 · Anchor with no branches: renamed, problem + target select only.
+    // The where line shows the chapter only when it differs from the block
+    // (S2.1 §5): rename the chapter to the block title and check it once.
+    await applyCommand({
+      type: 'chapter.rename',
+      chapterId: (await structure()).chapters[0].id,
+      title: 'Idle anchor text',
+    });
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.nf-editor[data-active="true"] .nf-chapter-title')
+          ?.textContent?.includes('Idle anchor text') === true,
+      undefined,
+      { timeout: 10000 },
+    );
+    await ensureSection('unused');
+    await clickHealthRow(`anchor:${ids.idleAnchor}`);
+    const idleDialog = page.locator('[data-health-dialog="true"]');
+    assert.equal(
+      (await idleDialog.locator('.nf-health-dialog-title').innerText()).trim(),
+      'Anchor with no branches',
+      'the approved rename replaces Idle anchor',
+    );
+    body = (await idleDialog.locator('.nf-dialog-body').innerText()) ?? '';
+    assert.equal(
+      (await idleDialog.locator('[data-health-where="true"]').innerText()).trim(),
+      'Idle anchor text',
+      'the block · chapter line is not duplicated',
+    );
+    assert.match(body, /Nothing branches from this anchor\./);
+    assert.doesNotMatch(body, /This anchor has no branches\./);
+    assert.equal(await idleDialog.locator('[data-health-branch-target="true"]').count(), 1);
+    assert.deepEqual(await footerLabels(), ['Show in note', '…', 'Close', 'Add a branch…']);
+    assert.equal(await idleDialog.locator('[data-health-action="add-branch"]').isDisabled(), true);
+    await h.screenshot(
+      artifactsPath('document-health', 'modal-anchor-with-no-branches-1440x900.png'),
+      { width: 1440, height: 900 },
+    );
+    assert.deepEqual(await openFooterMenu(), ['health-action-remove-anchor']);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-health-menu-list="true"]', { state: 'detached' });
+    await closeModal();
+
+    // 4 · Unused anchor: the only fix is destructive and stays in the footer.
+    await clickHealthRow(`anchor:${ids.unusedAnchor}`);
+    const unusedDialog = page.locator('[data-health-dialog="true"]');
+    assert.equal(
+      (await unusedDialog.locator('.nf-health-dialog-title').innerText()).trim(),
+      'Unused anchor',
+    );
+    body = (await unusedDialog.locator('.nf-dialog-body').innerText()) ?? '';
+    assert.match(body, /This anchor is not attached to any text\./);
+    assert.deepEqual(await footerLabels(), ['Show in note', 'Close', 'Delete unused anchor']);
+    assert.equal(await page.locator('[data-health-menu="true"]').count(), 0);
+    assert.equal(
+      await unusedDialog
+        .locator('[data-health-action="delete-unused"]')
+        .evaluate((element) => element.classList.contains('nf-button-danger')),
+      true,
+      'a destructive primary keeps the danger style',
+    );
+    await h.screenshot(artifactsPath('document-health', 'modal-unused-anchor-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    // Confirm is Back + the action, and it never shows an ID.
+    await unusedDialog.locator('[data-health-action="delete-unused"]').click();
+    await page.waitForSelector('[data-health-confirm="delete-anchor"]');
+    const confirmBody =
+      (await page.locator('[data-health-dialog="true"] .nf-dialog-body').innerText()) ?? '';
+    assert.match(
+      confirmBody,
+      /What changes: the unused anchor\. What stays: every block and branch\. One undo entry\./,
+    );
+    assert.doesNotMatch(confirmBody, UUID);
+    assert.deepEqual(await footerLabels(), ['Back', 'Delete anchor']);
+    await page.locator('[data-health-stage-back="true"]').click();
+    await page.waitForSelector('[data-health-confirm="delete-anchor"]', { state: 'detached' });
+    assert.equal(await page.locator('[data-health-dialog="true"]').count(), 1, 'Back returns');
+    await closeModal();
+
+    // 5 · Empty chapter: input-free body, the destructive path behind `…`.
     await ensureSection('structure');
     await clickHealthRow(`chapter:${ids.emptyChapter}`);
     assert.equal(
-      await page.locator('[data-health-dialog="true"] [data-health-action="add-block"]').count(),
-      1,
+      (await page.locator('[data-health-dialog="true"] .nf-health-dialog-title').innerText()).trim(),
+      'Empty chapter',
     );
-    assert.equal(
-      await page.locator('[data-health-dialog="true"] [data-health-action="delete-chapter"]').count(),
-      1,
-    );
-    await page.locator('[data-health-dialog="true"] [data-health-action="add-block"]').click();
-    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
-    await page.waitForFunction(
-      (chapterId) => {
-        const state = window.__noteforestTest.state();
-        const runtime = state.runtimes.find((item) => item.packagePath === state.activeTab);
-        return runtime?.chapterList.find((chapter) => chapter.id === chapterId)?.blocks === 1;
-      },
-      ids.emptyChapter,
-      { timeout: 10000 },
-    );
-    await page.keyboard.press('Meta+z');
-    await page.waitForFunction(
-      (chapterId) => {
-        const state = window.__noteforestTest.state();
-        const runtime = state.runtimes.find((item) => item.packagePath === state.activeTab);
-        return runtime?.chapterList.find((chapter) => chapter.id === chapterId)?.blocks === 0;
-      },
-      ids.emptyChapter,
-      { timeout: 10000 },
-    );
-    await ui.showHealth();
-    await clickHealthRow(`chapter:${ids.emptyChapter}`);
-    await page
-      .locator('[data-health-dialog="true"] [data-health-action="delete-chapter"]')
-      .click();
+    assert.deepEqual(await footerLabels(), ['Show in note', '…', 'Close', 'Add block']);
+    assert.deepEqual(await openFooterMenu(), ['health-action-delete-chapter']);
+    await chooseFooterMenu('health-action-delete-chapter');
     await page.waitForSelector('[data-health-confirm="delete-chapter"]');
+    assert.deepEqual(await footerLabels(), ['Back', 'Delete chapter']);
     await page.locator('[data-health-confirm-action="delete-chapter"]').click();
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
@@ -769,6 +973,99 @@ describe('Document health sidebar and repair modal', () => {
       ids.emptyChapter,
       { timeout: 10000 },
     );
+  });
+
+  it('renders the no-action footer for a hidden anchor', async () => {
+    await launch(isolated('hidden'));
+    await h.setWindowSize(1440, 900);
+    await ui.seedDemo();
+
+    const ids = {
+      parent: 'dh-hidden-parent',
+      child: 'dh-hidden-child',
+      target: 'dh-hidden-target',
+      anchor: 'dh-hidden-anchor',
+    };
+    await addTopLevelBlock(ui, ids.parent, textDoc('Parent block'));
+    await addTopLevelBlock(ui, ids.child, textDoc('Hidden child'));
+    await addTopLevelBlock(ui, ids.target, textDoc('Hidden target'));
+    await addAnchor(ui, {
+      anchorId: ids.anchor,
+      blockId: ids.child,
+      kind: 'text',
+      selector: { kind: 'text', quote: 'Hidden' },
+      binding: { kind: 'text', ranges: [{ nodePath: [0, 0], start: 0, end: 6 }] },
+    });
+    await applyCommand({
+      type: 'branch.create',
+      sourceBlockId: ids.child,
+      sourceAnchorId: ids.anchor,
+      targetBlockId: ids.target,
+      role: 'primary',
+    });
+    await applyCommand({
+      type: 'branch.create',
+      sourceBlockId: ids.parent,
+      targetBlockId: ids.child,
+      role: 'primary',
+    });
+    await page.locator('[data-sidebar-tab="health"]').click();
+    await page.waitForSelector('[data-sidebar-panel="health"]');
+    // A resolved anchor with a live branch is healthy, so it is not listed.
+    assert.equal(
+      await page.locator(`[data-health-row="anchor:${ids.anchor}"]`).count(),
+      0,
+      'a healthy anchor is not an issue',
+    );
+
+    // Collapsing the parent hides the marker: the row moves to Hidden and its
+    // only repair frame is Show in note + Close.
+    await page.locator(`[data-branch-port="${ids.parent}"]`).click();
+    await page.waitForFunction(
+      (parentId) =>
+        document
+          .querySelector(`[data-block-card="${parentId}"]`)
+          ?.getAttribute('data-collapsed') === 'true',
+      ids.parent,
+      { timeout: 10000 },
+    );
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector(
+            '[data-health-section-toggle="true"][data-health-section="hidden"] [data-health-section-count]',
+          )
+          ?.getAttribute('data-health-section-count') === '1',
+      undefined,
+      { timeout: 10000 },
+    );
+    await ensureSection('hidden');
+    await page.waitForSelector(`[data-health-section="hidden"] [data-health-row="anchor:${ids.anchor}"]`);
+    await clickHealthRow(`anchor:${ids.anchor}`);
+    const dialog = page.locator('[data-health-dialog="true"]');
+    assert.equal(
+      (await dialog.locator('.nf-health-dialog-title').innerText()).trim(),
+      'Hidden anchor',
+    );
+    assert.equal(
+      await dialog.locator('[data-health-severity-label]').getAttribute('data-health-severity-label'),
+      'Information',
+    );
+    assert.match(
+      (await dialog.locator('.nf-dialog-body').innerText()) ?? '',
+      /Its marker is hidden because a parent block is closed\./,
+    );
+    assert.deepEqual(await footerLabels(), ['Show in note', 'Close']);
+    assert.equal(await page.locator('[data-health-menu="true"]').count(), 0);
+    assert.equal(
+      await dialog.locator('.nf-dialog-body button[data-health-action]').count(),
+      0,
+    );
+    await h.screenshot(artifactsPath('document-health', 'modal-no-action-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await closeModal();
   });
 
   it('shows all-clear and no-document states, hides the badge at zero, and opens from the palette', async () => {
@@ -806,7 +1103,7 @@ describe('Document health sidebar and repair modal', () => {
       await page.locator('[data-health-section-toggle="true"][data-health-section="anchors"]')
         .count(),
       0,
-      'an empty report has no sections',
+      'an empty report is one message, not four empty groups',
     );
 
     // A broken anchor: the status chip opens its first repair row, the block chip
@@ -936,19 +1233,24 @@ describe('Document health sidebar and repair modal', () => {
     await page.waitForSelector('[data-sidebar-panel="health"]');
     const before = await structure();
 
-    // Read mode keeps the modal visible and disables every mutation.
+    // Read mode keeps the modal visible, keeps Show in note and Close, and
+    // disables every mutation with one line of why.
     await ui.ensureInteractionMode('read');
     await clickHealthRow('anchor:dh-page-broken');
     assert.equal(await page.locator('[data-health-read-only="true"]').count(), 1);
-    assert.equal(await page.locator('[data-health-action="attach"]').isDisabled(), true);
-    assert.equal(await page.locator('[data-health-action="delete-anchor"]').isDisabled(), true);
-    assert.equal(await page.locator('[data-health-action="keep"]').isEnabled(), true);
+    assert.equal(await page.locator('[data-health-action="preview-repair"]').count(), 0);
+    assert.equal(await page.locator('[data-health-menu="true"]').isDisabled(), true);
     assert.equal(await page.locator('[data-health-action="show-in-note"]').isEnabled(), true);
-    assert.deepEqual(await structure(), before, 'Read mode opening and reviewing mutates nothing');
+    assert.equal(
+      await page.locator('[data-health-dialog="true"] [data-health-close="true"]').last().isEnabled(),
+      true,
+    );
+    assert.deepEqual(await footerLabels(), ['Show in note', '…', 'Close', 'Link to current selection']);
     await h.screenshot(artifactsPath('document-health', 'read-only-1440x900.png'), {
       width: 1440,
       height: 900,
     });
+    assert.deepEqual(await structure(), before, 'Read mode opening and reviewing mutates nothing');
     await page.locator('[data-health-action="show-in-note"]').click();
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await selectedBlock('b2');

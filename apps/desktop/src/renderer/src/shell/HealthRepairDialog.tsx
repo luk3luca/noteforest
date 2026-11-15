@@ -1,18 +1,22 @@
 /**
- * Document health repair modal (S2, 520 px).
+ * Document health repair modal (S2, S2.1).
  *
  * One issue per modal, opened from a row in the Health sidebar; the list stays
- * behind it, so closing never loses the report. The body carries the context,
- * the matching locations and the branches; the footer carries Show in note,
- * Close and the category's primary action. A chosen repair previews Before/After
- * in the same modal: Back returns to the issue, Esc follows the same stack, and
- * Confirm applies exactly what was previewed as one undoable command and closes
- * the modal. Read mode keeps Show in note and Close and disables every mutation
+ * behind it, so closing never loses the report.
+ *
+ * The body is at most three blocks — context, problem, decision — and never
+ * shows internal data (no stale bindings, node paths, anchor/branch/target IDs
+ * and no "Text anchor"). Every action lives in the footer in a fixed slot:
+ * `Show in note` on the left, then the rare/destructive `…` menu, `Close`, and
+ * the category's primary action. A chosen repair previews Before/After in the
+ * same modal; Back returns to the issue, Esc follows the same stack, and Confirm
+ * applies exactly what was previewed as one undoable command and closes the
+ * modal. Read mode keeps Show in note and Close and disables every mutation
  * with one line of why.
  */
 
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Info, TriangleAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AnchorKind } from '@noteforest/core';
@@ -21,18 +25,22 @@ import { useShell } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
 import {
   anchorCandidateViews,
-  anchorContextLine,
   anchorRepairPreview,
   repairCommandForCandidate,
   type AnchorRepairPreview,
 } from '../lib/anchor-health';
+import type { DocumentHealthRow } from '../lib/document-health';
 import {
-  DOCUMENT_HEALTH_CATEGORY_LABELS,
-  type DocumentHealthRow,
-} from '../lib/document-health';
-import {
+  DOCUMENT_HEALTH_CANDIDATE_NOTE,
+  DOCUMENT_HEALTH_IMAGE_NOTE,
+  DOCUMENT_HEALTH_MOVE_NOTE,
+  DOCUMENT_HEALTH_REPAIR_CONFIRM_NOTE,
   HEALTH_ACTIONS,
   documentHealthActionPlan,
+  documentHealthBranchCountText,
+  documentHealthGuidanceText,
+  documentHealthProblemLine,
+  documentHealthStateText,
   type HealthActionId,
 } from '../lib/document-health-actions';
 import { nextDocumentHealthRowId } from '../lib/document-health-sections';
@@ -51,6 +59,9 @@ const KIND_LABEL: Record<AnchorKind, string> = {
   image: 'Image',
 };
 
+/** The kind word is only useful where the anchor's medium is not obvious. */
+const KIND_VISIBLE: ReadonlySet<AnchorKind> = new Set(['formula', 'code', 'image']);
+
 const SEVERITY_LABEL: Record<DocumentHealthRow['severity'], string> = {
   S1: 'Data risk',
   S2: 'Needs repair',
@@ -58,17 +69,13 @@ const SEVERITY_LABEL: Record<DocumentHealthRow['severity'], string> = {
 };
 
 type HealthConfirm =
+  | { kind: 'repair'; preview: AnchorRepairPreview; origin: 'candidate' | 'selection' }
   | { kind: 'attach' }
   | { kind: 'delete-branch'; branchId: string; targetTitle: string }
   | { kind: 'delete-anchor' }
   | { kind: 'remove-branch'; branchId: string; targetTitle: string }
   | { kind: 'delete-orphan-block'; blockId: string; title: string }
   | { kind: 'delete-chapter'; chapterId: string; title: string };
-
-interface HealthRepairPreviewState {
-  preview: AnchorRepairPreview;
-  origin: 'candidate' | 'selection';
-}
 
 interface BlockChoice {
   id: string;
@@ -82,11 +89,15 @@ interface ChapterChoice {
 
 function rowLabel(row: DocumentHealthRow): string {
   if (row.quote.length > 0) return row.quote;
-  return DOCUMENT_HEALTH_CATEGORY_LABELS[row.category];
+  return documentHealthStateText(row.category);
 }
 
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`;
+/** The block, plus the chapter only when it says something different. */
+function whereLine(row: DocumentHealthRow): string {
+  if (row.chapterTitle.trim().length === 0 || row.chapterTitle === row.blockTitle) {
+    return row.blockTitle;
+  }
+  return `${row.blockTitle} · ${row.chapterTitle}`;
 }
 
 export function HealthRepairDialog({
@@ -108,13 +119,15 @@ export function HealthRepairDialog({
     () => (report === null ? null : nextDocumentHealthRowId(report.rows, rowId)),
     [report, rowId],
   );
-  const [preview, setPreview] = useState<HealthRepairPreviewState | null>(null);
-  const [candidateIndex, setCandidateIndex] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<HealthConfirm | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [branchTarget, setBranchTarget] = useState('');
   const [moveChapterId, setMoveChapterId] = useState('');
+  const [candidateIndex, setCandidateIndex] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const editingEnabled = useShell((state) =>
     editingEnabledFor(runtime, state.viewByDoc[runtime.packagePath]),
@@ -127,17 +140,20 @@ export function HealthRepairDialog({
     if (row === null) onClose();
   }, [row, onClose]);
 
-  // Esc is the modal's own stack: confirm → issue → close. A capture listener
-  // runs before the modal's dismiss handler, so one keypress moves one step.
+  // Esc is the modal's own stack: menu → confirm → issue → close. A capture
+  // listener runs before the modal's dismiss handler, so one keypress moves one
+  // step and an open footer menu never closes the modal.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (preview !== null) {
-        setPreview(null);
+      if (menuOpen) {
+        setMenuOpen(false);
+        menuTriggerRef.current?.focus();
         return;
       }
+      setMenuOpen(false);
       if (confirm !== null) {
         setConfirm(null);
         return;
@@ -147,7 +163,23 @@ export function HealthRepairDialog({
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [preview, confirm, onClose, row?.id]);
+  }, [menuOpen, confirm, onClose, row?.id]);
+
+  // The footer menu is a small disclosure inside the modal: focus the first
+  // item, and close it on any pointer down outside the trigger or the menu.
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (menuRef.current?.contains(target) === true) return;
+      if (menuTriggerRef.current?.contains(target) === true) return;
+      setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [menuOpen]);
 
   if (row === null) return null;
 
@@ -269,9 +301,8 @@ export function HealthRepairDialog({
       setError('That candidate cannot be previewed.');
       return;
     }
-    setConfirm(null);
     setError(null);
-    setPreview({ preview: next, origin: 'candidate' });
+    setConfirm({ kind: 'repair', preview: next, origin: 'candidate' });
   };
 
   const previewRelink = async (): Promise<void> => {
@@ -293,16 +324,15 @@ export function HealthRepairDialog({
       setError('The current selection cannot be previewed.');
       return;
     }
-    setConfirm(null);
-    setPreview({ preview: next, origin: 'selection' });
+    setError(null);
+    setConfirm({ kind: 'repair', preview: next, origin: 'selection' });
   };
 
-  const confirmRepair = (): void => {
-    if (preview === null) return;
-    const { command } = preview.preview;
+  const confirmRepair = (preview: AnchorRepairPreview, origin: 'candidate' | 'selection'): void => {
+    const { command } = preview;
     void perform(
       runtime.repairAnchor(command.anchorId, command.selector, command.binding),
-      preview.origin === 'candidate'
+      origin === 'candidate'
         ? 'Anchor candidate applied.'
         : 'Anchor relinked from the selection.',
     );
@@ -322,13 +352,6 @@ export function HealthRepairDialog({
       runtime.deleteAnchor(row.anchorId, 'delete'),
       'Anchor and branches deleted. Target blocks were kept.',
     );
-  };
-
-  const keepAsIs = (): void => {
-    if (row.anchorId === undefined) return;
-    runtime.keepAnchorBroken(row.anchorId);
-    toast.info('Kept as is for this session. Nothing was changed.');
-    closeWithFocus(row.id);
   };
 
   const removeAnchorRecord = (): void => {
@@ -419,101 +442,6 @@ export function HealthRepairDialog({
   // -----------------------------------------------------------------------
   const isLive = row.category === 'broken' || row.category === 'ambiguous';
   const showCandidates = isLive && row.kind !== 'image' && candidates.length > 0;
-  const showRelink = isLive && row.kind !== 'image';
-
-  const section = (
-    title: string,
-    body: React.ReactNode,
-    extra: Record<string, string> = {},
-  ): JSX.Element => (
-    <section className="nf-health-issue-section" {...extra}>
-      <h3 className="nf-health-issue-section-title">{title}</h3>
-      {body}
-    </section>
-  );
-
-  const renderCandidates = (): JSX.Element | null => {
-    if (!showCandidates) return null;
-    return section(
-      row.category === 'ambiguous' ? 'Choose a matching location' : 'Matching locations',
-      <>
-        <div className="nf-health-candidate-list">
-          {candidates.map((view) => (
-            <button
-              key={`${view.index}-${view.label}`}
-              type="button"
-              className="nf-health-candidate"
-              data-health-candidate={view.index}
-              aria-pressed={candidateIndex === view.index}
-              disabled={busy || !editingEnabled}
-              title={editingEnabled ? undefined : READ_ONLY_REASON}
-              onClick={() => {
-                setCandidateIndex(view.index);
-                setError(null);
-              }}
-            >
-              <span className="nf-health-candidate-label">{view.label}</span>
-              <span className="nf-health-candidate-context">{view.context}</span>
-            </button>
-          ))}
-        </div>
-        <p className="nf-dialog-note">
-          Choosing a match then Preview repair shows the exact before/after. Nothing changes
-          until Confirm; the anchor and branch IDs stay the same.
-        </p>
-      </>,
-      { 'data-health-candidates': 'true' },
-    );
-  };
-
-  const renderBranches = (): JSX.Element =>
-    section(
-      'Branches',
-      row.branches.length === 0 ? (
-        <p className="nf-dialog-note" data-health-idle-note="true">
-          {row.category === 'idle' || row.category === 'orphan-record'
-            ? 'This anchor has no branches.'
-            : 'No outgoing branches.'}
-        </p>
-      ) : (
-        <ul className="nf-health-branches">
-          {row.branches.map((branch) => (
-            <li
-              key={branch.id}
-              className="nf-health-branch"
-              data-health-branch={branch.id}
-              data-health-branch-role={branch.role}
-            >
-              <span className="nf-health-branch-role">{branch.role}</span>
-              <span className="nf-health-branch-target">
-                {branch.label === undefined
-                  ? branch.targetTitle
-                  : `${branch.targetTitle} · ${branch.label}`}
-              </span>
-              {row.anchorId === undefined ? null : (
-                <button
-                  type="button"
-                  className="nf-button nf-button-quiet nf-health-branch-delete"
-                  data-health-action="delete-branch"
-                  disabled={busy || !editingEnabled}
-                  title={editingEnabled ? undefined : READ_ONLY_REASON}
-                  onClick={() => {
-                    setPreview(null);
-                    setConfirm({
-                      kind: 'delete-branch',
-                      branchId: branch.id,
-                      targetTitle: branch.targetTitle,
-                    });
-                  }}
-                >
-                  Delete branch…
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      ),
-    );
 
   const plan = documentHealthActionPlan(row.category, {
     kind: row.kind,
@@ -525,21 +453,11 @@ export function HealthRepairDialog({
     relink: () => void previewRelink(),
     'recreate-link': () => void recreateLink(),
     'remove-mark': removeMark,
-    attach: () => {
-      setPreview(null);
-      setConfirm({ kind: 'attach' });
-    },
-    keep: keepAsIs,
-    'delete-anchor': () => {
-      setPreview(null);
-      setConfirm({ kind: 'delete-anchor' });
-    },
+    attach: () => setConfirm({ kind: 'attach' }),
+    'delete-anchor': () => setConfirm({ kind: 'delete-anchor' }),
     'add-branch': branchFromAnchor,
     'remove-anchor': removeAnchorRecord,
-    'delete-unused': () => {
-      setPreview(null);
-      setConfirm({ kind: 'delete-anchor' });
-    },
+    'delete-unused': () => setConfirm({ kind: 'delete-anchor' }),
     'remove-branch': () => {
       if (row.branchId === undefined) return;
       setConfirm({
@@ -575,335 +493,218 @@ export function HealthRepairDialog({
     return false;
   };
 
-  const renderAction = (
+  const runAction = (action: HealthActionId): void => {
+    actionHandlers[action]();
+  };
+
+  const footerAction = (
     action: HealthActionId,
-    emphasis: 'quiet' | 'primary',
+    slots: { primary?: boolean } = {},
   ): JSX.Element => {
     const definition = HEALTH_ACTIONS[action];
-    const disabled = busy || (emphasis === 'primary' ? !editingEnabled : false);
-    // `keep` changes no document content, so Read mode keeps it available.
-    const readOnly = !editingEnabled && action !== 'keep';
+    const primary = slots.primary === true;
     return (
       <button
         key={action}
         type="button"
-        className={`nf-button ${
-          emphasis === 'primary' ? 'nf-button-primary' : 'nf-button-quiet'
-        }${definition.danger && emphasis === 'quiet' ? ' nf-health-danger' : ''}`}
+        className={
+          primary
+            ? `nf-button ${definition.danger ? 'nf-button-danger' : 'nf-button-primary'}`
+            : 'nf-button'
+        }
         data-health-action={action}
-        disabled={disabled || readOnly || actionDisabled(action)}
-        title={readOnly ? READ_ONLY_REASON : undefined}
-        onClick={actionHandlers[action]}
+        disabled={busy || !editingEnabled || actionDisabled(action)}
+        title={editingEnabled ? undefined : READ_ONLY_REASON}
+        onClick={() => runAction(action)}
       >
         {definition.label}
       </button>
     );
   };
 
-  const renderActions = (): JSX.Element | null => {
-    if (plan.body.length === 0) return null;
+  const runConfirm = (): void => {
+    if (confirm === null) return;
+    switch (confirm.kind) {
+      case 'repair':
+        confirmRepair(confirm.preview, confirm.origin);
+        return;
+      case 'attach':
+        attachAnchor();
+        return;
+      case 'delete-branch':
+        deleteAnchorBranch(confirm.branchId);
+        return;
+      case 'delete-anchor':
+        if (row.category === 'orphan-record') removeAnchorRecord();
+        else deleteAnchorWithBranches();
+        return;
+      case 'remove-branch':
+        removeHealthBranch(confirm.branchId);
+        return;
+      case 'delete-orphan-block':
+        deleteBlock(confirm.blockId);
+        return;
+      case 'delete-chapter':
+        deleteChapter(confirm.chapterId);
+        return;
+    }
+  };
+
+  const confirmLabel = (): string => {
+    if (confirm === null) return '';
+    switch (confirm.kind) {
+      case 'repair':
+        return 'Confirm repair';
+      case 'attach':
+        return 'Remove anchor';
+      case 'delete-branch':
+        return 'Delete branch';
+      case 'delete-anchor':
+        return row.category === 'orphan-record' ? 'Delete anchor' : 'Delete anchor and branches';
+      case 'remove-branch':
+        return 'Remove branch';
+      case 'delete-orphan-block':
+        return 'Delete block';
+      case 'delete-chapter':
+        return 'Delete chapter';
+    }
+  };
+
+  /** One line: what changes, what stays, one undo entry. Never an ID. */
+  const confirmNote = (): string => {
+    if (confirm === null) return '';
+    switch (confirm.kind) {
+      case 'repair':
+        return DOCUMENT_HEALTH_REPAIR_CONFIRM_NOTE;
+      case 'attach':
+        return 'What changes: the anchor and its mark. What stays: the branches, their targets, the block. One undo entry.';
+      case 'delete-branch':
+        return `What changes: the branch to “${confirm.targetTitle}”. What stays: the target block and its subtree. One undo entry.`;
+      case 'delete-anchor':
+        return row.category === 'orphan-record'
+          ? 'What changes: the unused anchor. What stays: every block and branch. One undo entry.'
+          : 'What changes: the anchor and its branches. What stays: every target block. One undo entry.';
+      case 'remove-branch':
+        return `What changes: the dangling branch to “${confirm.targetTitle}”. What stays: every block and anchor. One undo entry.`;
+      case 'delete-orphan-block':
+        return `What changes: “${confirm.title}” and its unreachable subtree. What stays: every chapter. One undo entry.`;
+      case 'delete-chapter':
+        return `What changes: the empty chapter “${confirm.title}”. What stays: every block. One undo entry.`;
+    }
+  };
+
+  const confirmDanger = (): boolean =>
+    confirm !== null && confirm.kind !== 'repair' && confirm.kind !== 'attach';
+
+  const renderBranches = (): JSX.Element | null => {
+    // A hidden marker is repaired by expanding its parent: no branch action.
+    if (row.category === 'hidden' || row.branches.length === 0) return null;
     return (
-      <div className="nf-health-actions">
-        {plan.body.map((action) => renderAction(action, 'quiet'))}
-      </div>
-    );
-  };
-
-  const renderGuidance = (): JSX.Element | null => {
-    if (plan.guidance === 'missing-block') {
-      return (
-        <p className="nf-dialog-note" data-health-missing-block-note="true">
-          The anchor’s block no longer exists. NoteForest refuses this structure on open, so no
-          repair is applied here; a branch removal reports the exact reason if attempted.
-        </p>
-      );
-    }
-    if (plan.guidance === 'no-fix') {
-      return (
-        <p className="nf-dialog-note" data-health-no-fix={row.category}>
-          Document health never rewrites branch structure automatically and offers no destructive
-          bulk fix. Restore a backup copy, or repair the primary edges with the normal branch
-          commands.
-        </p>
-      );
-    }
-    if (plan.guidance === 'missing-target') {
-      return (
-        <p className="nf-dialog-note" data-health-missing-target-note="true">
-          The branch points at a block that no longer exists. Relinking a missing target is
-          planned for v2; removing the dangling branch is the safe v1 action.
-        </p>
-      );
-    }
-    if (plan.guidance === 'unlinked-mark') {
-      return (
-        <p className="nf-dialog-note" data-health-unlinked-mark-note="true">
-          Remove the stale ID, or select the orphaned range in the editor and recreate the anchor
-          record from that selection. Recreating at a different range is rejected so a second
-          binding can never appear.
-        </p>
-      );
-    }
-    return null;
-  };
-
-  const renderPrimary = (): JSX.Element | null =>
-    plan.primary === null ? null : renderAction(plan.primary, 'primary');
-
-  const renderInlineConfirm = (): JSX.Element | null => {
-    if (confirm === null) return null;
-    const box = (children: React.ReactNode): JSX.Element => (
-      <div
-        className="nf-health-confirm"
-        data-health-confirm={confirm.kind}
-        role="group"
-        aria-label="Confirm document health action"
-      >
-        {children}
-      </div>
-    );
-    const cancel = (
-      <button
-        type="button"
-        className="nf-button"
-        disabled={busy}
-        onClick={() => setConfirm(null)}
-      >
-        Cancel
-      </button>
-    );
-    if (confirm.kind === 'attach') {
-      return box(
-        <>
-          <p className="nf-dialog-text">
-            Keep {plural(row.branchCount, 'branch', 'branches')} and remove the anchor? Branch
-            IDs, labels and target blocks stay; one undo restores the anchored source.
-          </p>
-          <div className="nf-dialog-inline-actions">
-            {cancel}
-            <button
-              type="button"
-              className="nf-button nf-button-primary"
-              data-health-confirm-action="attach"
-              disabled={busy || !editingEnabled}
-              onClick={attachAnchor}
-            >
-              Remove anchor
-            </button>
-          </div>
-        </>,
-      );
-    }
-    if (confirm.kind === 'delete-branch') {
-      return box(
-        <>
-          <p className="nf-dialog-text">
-            Delete this branch to “{confirm.targetTitle}”? The target block and its subtree stay;
-            a primary target becomes a top-level block. Undo restores the branch.
-          </p>
-          <div className="nf-dialog-inline-actions">
-            {cancel}
-            <button
-              type="button"
-              className="nf-button nf-button-danger"
-              data-health-confirm-action="delete-branch"
-              disabled={busy || !editingEnabled}
-              onClick={() => deleteAnchorBranch(confirm.branchId)}
-            >
-              Delete branch
-            </button>
-          </div>
-        </>,
-      );
-    }
-    if (confirm.kind === 'delete-anchor') {
-      return box(
-        <>
-          <p className="nf-dialog-text">
-            Delete the anchor and its outgoing branches? Target blocks are never deleted; a
-            primary target becomes a top-level block. Undo restores the anchor and every branch.
-          </p>
-          <div className="nf-dialog-inline-actions">
-            {cancel}
-            <button
-              type="button"
-              className="nf-button nf-button-danger"
-              data-health-confirm-action="delete-anchor"
-              disabled={busy || !editingEnabled}
-              onClick={
-                row.category === 'orphan-record'
-                  ? removeAnchorRecord
-                  : deleteAnchorWithBranches
-              }
-            >
-              {row.category === 'orphan-record' ? 'Delete anchor' : 'Delete anchor and branches'}
-            </button>
-          </div>
-        </>,
-      );
-    }
-    if (confirm.kind === 'remove-branch') {
-      return box(
-        <>
-          <p className="nf-dialog-text">
-            Delete the dangling edge to “{confirm.targetTitle}”? No block or anchor is deleted.
-            The command layer refuses a document whose target is missing, so a rejection is shown
-            here instead of a partial change.
-          </p>
-          <div className="nf-dialog-inline-actions">
-            {cancel}
-            <button
-              type="button"
-              className="nf-button nf-button-danger"
-              data-health-confirm-action="remove-branch"
-              disabled={busy || !editingEnabled}
-              onClick={() => removeHealthBranch(confirm.branchId)}
-            >
-              Remove branch
-            </button>
-          </div>
-        </>,
-      );
-    }
-    if (confirm.kind === 'delete-orphan-block') {
-      return box(
-        <>
-          <p className="nf-dialog-text">
-            Delete “{confirm.title}” and its unreachable subtree? The block is not part of any
-            chapter, so it is invisible in the editor. Undo restores it.
-          </p>
-          <div className="nf-dialog-inline-actions">
-            {cancel}
-            <button
-              type="button"
-              className="nf-button nf-button-danger"
-              data-health-confirm-action="delete-orphan-block"
-              disabled={busy || !editingEnabled}
-              onClick={() => deleteBlock(confirm.blockId)}
-            >
-              Delete block
-            </button>
-          </div>
-        </>,
-      );
-    }
-    return box(
-      <>
-        <p className="nf-dialog-text">
-          Delete the empty chapter “{confirm.title}”? It has no top-level blocks, so no content is
-          removed. Undo restores the chapter.
-        </p>
-        <div className="nf-dialog-inline-actions">
-          {cancel}
-          <button
-            type="button"
-            className="nf-button nf-button-danger"
-            data-health-confirm-action="delete-chapter"
-            disabled={busy || !editingEnabled}
-            onClick={() => deleteChapter(confirm.chapterId)}
+      <ul className="nf-health-branches" data-health-branches="true">
+        {row.branches.map((branch) => (
+          <li
+            key={branch.id}
+            className="nf-health-branch"
+            data-health-branch={branch.id}
+            data-health-branch-role={branch.role}
           >
-            Delete chapter
-          </button>
-        </div>
-      </>,
+            <span className="nf-health-branch-label">
+              {row.branches.length === 1 ? documentHealthBranchCountText(1) : branch.role}
+            </span>
+            <span className="nf-health-branch-separator" aria-hidden="true">
+              ·
+            </span>
+            <span className="nf-health-branch-target">
+              {branch.label === undefined
+                ? branch.targetTitle
+                : `${branch.targetTitle} · ${branch.label}`}
+            </span>
+            {row.anchorId === undefined ? null : (
+              <button
+                type="button"
+                className="nf-health-branch-remove"
+                data-health-action="delete-branch"
+                disabled={busy || !editingEnabled}
+                title={editingEnabled ? undefined : READ_ONLY_REASON}
+                onClick={() =>
+                  setConfirm({
+                    kind: 'delete-branch',
+                    branchId: branch.id,
+                    targetTitle: branch.targetTitle,
+                  })
+                }
+              >
+                Delete branch…
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
     );
   };
 
-  const renderIssue = (): JSX.Element => (
-    <>
-      <div className="nf-health-issue-head">
-        <span
-          className={`nf-health-severity-word nf-health-severity-${row.severity.toLowerCase()}`}
-          data-health-severity-label={SEVERITY_LABEL[row.severity]}
-        >
-          {row.severity === 'S3' ? (
-            <Info size={12} strokeWidth={1.5} aria-hidden="true" />
-          ) : (
-            <TriangleAlert size={12} strokeWidth={1.5} aria-hidden="true" />
-          )}
-          {SEVERITY_LABEL[row.severity]}
-        </span>
-        <span className="nf-health-issue-kind" data-health-kind-label={row.kind ?? 'structure'}>
-          {row.kind === null ? 'Structure' : `${KIND_LABEL[row.kind]} anchor`}
-        </span>
-      </div>
-      <p className="nf-health-issue-quote">“{rowLabel(row)}”</p>
-      <p className="nf-health-issue-meta">
-        {row.blockTitle} · {row.chapterTitle}
-      </p>
-      {row.prefix.length > 0 || row.suffix.length > 0 ? (
-        <p className="nf-health-issue-context">
-          {anchorContextLine(row.prefix, row.quote, row.suffix)}
-        </p>
-      ) : null}
-      <p className="nf-health-issue-reason" data-health-reason={row.reason}>
-        {row.reasonLabel}
-      </p>
-
-      {renderGuidance()}
-
-      {row.kind === 'image' && isLive ? (
-        <p className="nf-dialog-note" data-health-image-repair-note="true">
-          Re-picking an image region is a follow-up. The branch, target, and alt text are kept:
-          keep the branches, delete the anchor, or keep it as it is.
-        </p>
-      ) : null}
-
-      {row.occurrences !== undefined && row.occurrences.length > 0
-        ? section(
-            'Stale bindings',
-            <ul className="nf-health-branches">
-              {row.occurrences.map((occurrence) => (
-                <li
-                  key={`${occurrence.blockId}:${occurrence.nodePath.join('.')}`}
-                  className="nf-health-branch"
-                  data-health-occurrence={occurrence.nodePath.join('.')}
-                >
-                  <span className="nf-health-branch-role">{occurrence.source}</span>
-                  <span className="nf-health-branch-target">
-                    {occurrence.nodeType} at node {occurrence.nodePath.join('.')}
-                  </span>
-                </li>
-              ))}
-            </ul>,
-            { 'data-health-occurrences': 'true' },
-          )
-        : null}
-
-      {renderCandidates()}
-      {renderBranches()}
-
-      {row.category === 'idle' ? (
-        <section className="nf-health-issue-section" data-health-branch-from-anchor="true">
-          <h3 className="nf-health-issue-section-title">Branch from anchor</h3>
-          {branchChoices.length === 0 ? (
-            <p className="nf-dialog-note">There is no other block to branch to.</p>
-          ) : (
-            <label className="nf-field">
-              <span className="nf-field-label">Target block</span>
-              <select
-                className="nf-input"
-                data-health-branch-target="true"
-                aria-label="Branch target block"
-                value={branchTarget}
+  const renderDecision = (): JSX.Element | null => {
+    if (showCandidates) {
+      return (
+        <div className="nf-health-decision" data-health-candidates="true">
+          <div className="nf-health-candidate-list">
+            {candidates.map((view) => (
+              <button
+                key={`${view.index}-${view.label}`}
+                type="button"
+                className="nf-health-candidate"
+                data-health-candidate={view.index}
+                aria-pressed={candidateIndex === view.index}
                 disabled={busy || !editingEnabled}
-                onChange={(event) => setBranchTarget(event.target.value)}
+                title={editingEnabled ? undefined : READ_ONLY_REASON}
+                onClick={() => {
+                  setCandidateIndex(view.index);
+                  setError(null);
+                }}
               >
-                <option value="">Choose a block…</option>
-                {branchChoices.map((choice) => (
-                  <option key={choice.id} value={choice.id}>
-                    {choice.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </section>
-      ) : null}
-
-      {row.category === 'orphan-block' ? (
-        <section className="nf-health-issue-section" data-health-move-orphan="true">
-          <h3 className="nf-health-issue-section-title">Move to chapter</h3>
+                <span className="nf-health-candidate-label">{view.label}</span>
+                <span className="nf-health-candidate-context">{view.context}</span>
+              </button>
+            ))}
+          </div>
+          <p className="nf-dialog-note">{DOCUMENT_HEALTH_CANDIDATE_NOTE}</p>
+        </div>
+      );
+    }
+    if (row.category === 'idle') {
+      if (branchChoices.length === 0) {
+        return (
+          <div className="nf-health-decision">
+            <p className="nf-dialog-note">There is no other block to branch to.</p>
+          </div>
+        );
+      }
+      return (
+        <div className="nf-health-decision">
+          <label className="nf-field">
+            <span className="nf-field-label">Target block</span>
+            <select
+              className="nf-input"
+              data-health-branch-target="true"
+              aria-label="Branch target block"
+              value={branchTarget}
+              disabled={busy || !editingEnabled}
+              onChange={(event) => setBranchTarget(event.target.value)}
+            >
+              <option value="">Choose a block…</option>
+              {branchChoices.map((choice) => (
+                <option key={choice.id} value={choice.id}>
+                  {choice.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      );
+    }
+    if (row.category === 'orphan-block') {
+      return (
+        <div className="nf-health-decision">
           <label className="nf-field">
             <span className="nf-field-label">Chapter</span>
             <select
@@ -922,119 +723,121 @@ export function HealthRepairDialog({
               ))}
             </select>
           </label>
-        </section>
-      ) : null}
+          <p className="nf-dialog-note">{DOCUMENT_HEALTH_MOVE_NOTE}</p>
+        </div>
+      );
+    }
+    return null;
+  };
 
-      {renderActions()}
-      {renderInlineConfirm()}
+  const renderContext = (): JSX.Element => (
+    <div className="nf-health-issue-head" data-health-context="true">
+      <span
+        className={`nf-health-severity-word nf-health-severity-${row.severity.toLowerCase()}`}
+        data-health-severity-label={SEVERITY_LABEL[row.severity]}
+      >
+        {row.severity === 'S3' ? (
+          <Info size={12} strokeWidth={1.5} aria-hidden="true" />
+        ) : (
+          <TriangleAlert size={12} strokeWidth={1.5} aria-hidden="true" />
+        )}
+        {SEVERITY_LABEL[row.severity]}
+      </span>
+      {row.kind !== null && KIND_VISIBLE.has(row.kind) ? (
+        <span className="nf-health-issue-kind" data-health-kind-label={row.kind}>
+          {KIND_LABEL[row.kind]}
+        </span>
+      ) : null}
+    </div>
+  );
+
+  const renderIssue = (): JSX.Element => (
+    <>
+      {renderContext()}
+      <p className="nf-health-issue-quote">“{rowLabel(row)}”</p>
+      <p className="nf-health-issue-meta" data-health-where="true">
+        {whereLine(row)}
+      </p>
+      <p className="nf-health-issue-reason" data-health-reason={row.reason}>
+        {documentHealthProblemLine(row)}
+      </p>
+      {plan.guidance === null ? null : (
+        <p className="nf-health-issue-guidance" data-health-guidance={plan.guidance}>
+          {documentHealthGuidanceText(plan.guidance)}
+        </p>
+      )}
+      {row.kind === 'image' && isLive ? (
+        <p className="nf-dialog-note" data-health-image-repair-note="true">
+          {DOCUMENT_HEALTH_IMAGE_NOTE}
+        </p>
+      ) : null}
+      {renderBranches()}
+      {renderDecision()}
     </>
   );
 
   const renderConfirmStage = (): JSX.Element | null => {
-    if (preview === null) return null;
+    if (confirm === null) return null;
     return (
       <>
         <p className="nf-health-issue-quote">“{rowLabel(row)}”</p>
-        <p className="nf-health-issue-meta">
-          {row.blockTitle} · {row.chapterTitle}
-        </p>
-        <section
-          className="nf-health-preview"
-          data-health-preview="true"
-          data-health-preview-origin={preview.origin}
-          data-health-preview-anchor={preview.preview.anchorId}
-          aria-label="Repair preview"
-        >
-          <h3 className="nf-health-issue-section-title">Confirm repair</h3>
-          <p className="nf-dialog-note">
-            Confirm applies one undoable repair; the anchor and branch IDs stay the same. Back or
-            Esc returns to the issue and changes nothing.
-          </p>
-          <div className="nf-health-preview-grid">
-            <div className="nf-health-preview-side" data-health-preview-side="before">
-              <span className="nf-health-preview-label">Before</span>
-              <span className="nf-health-preview-quote">“{preview.preview.before.quote}”</span>
-              <span className="nf-health-preview-context">
-                {preview.preview.before.context}
+        <p className="nf-health-issue-meta">{whereLine(row)}</p>
+        {confirm.kind === 'repair' ? (
+          <section
+            className="nf-health-preview"
+            data-health-preview="true"
+            data-health-preview-origin={confirm.origin}
+            aria-label="Repair preview"
+          >
+            <div className="nf-health-preview-grid">
+              <div className="nf-health-preview-side" data-health-preview-side="before">
+                <span className="nf-health-preview-label">Before</span>
+                <span className="nf-health-preview-quote">“{confirm.preview.before.quote}”</span>
+                <span className="nf-health-preview-context">
+                  {confirm.preview.before.context}
+                </span>
+                {confirm.preview.before.descriptors.map((descriptor) => (
+                  <span key={descriptor} className="nf-health-preview-descriptor">
+                    {descriptor}
+                  </span>
+                ))}
+              </div>
+              <span className="nf-health-preview-arrow" aria-hidden="true">
+                →
               </span>
-              {preview.preview.before.descriptors.map((descriptor) => (
-                <span key={descriptor} className="nf-health-preview-descriptor">
-                  {descriptor}
-                </span>
-              ))}
+              <div className="nf-health-preview-side" data-health-preview-side="after">
+                <span className="nf-health-preview-label">After</span>
+                <span className="nf-health-preview-quote">“{confirm.preview.after.quote}”</span>
+                <span className="nf-health-preview-context">{confirm.preview.after.context}</span>
+                {confirm.preview.after.descriptors.map((descriptor) => (
+                  <span key={descriptor} className="nf-health-preview-descriptor">
+                    {descriptor}
+                  </span>
+                ))}
+              </div>
             </div>
-            <span className="nf-health-preview-arrow" aria-hidden="true">
-              →
-            </span>
-            <div className="nf-health-preview-side" data-health-preview-side="after">
-              <span className="nf-health-preview-label">After</span>
-              <span className="nf-health-preview-quote">“{preview.preview.after.quote}”</span>
-              <span className="nf-health-preview-context">{preview.preview.after.context}</span>
-              {preview.preview.after.descriptors.map((descriptor) => (
-                <span key={descriptor} className="nf-health-preview-descriptor">
-                  {descriptor}
-                </span>
-              ))}
-            </div>
+            <p className="nf-dialog-note nf-health-preview-note">{confirmNote()}</p>
+          </section>
+        ) : (
+          <div
+            className="nf-health-confirm"
+            data-health-confirm={confirm.kind}
+            role="group"
+            aria-label="Confirm document health action"
+          >
+            <p className="nf-dialog-note">{confirmNote()}</p>
           </div>
-          <dl className="nf-health-preview-meta">
-            <div>
-              <dt>Anchor</dt>
-              <dd>{preview.preview.anchorId}</dd>
-            </div>
-            <div>
-              <dt>Block</dt>
-              <dd>
-                {preview.preview.blockTitle} · {preview.preview.chapterTitle}
-              </dd>
-            </div>
-            <div>
-              <dt>Branches</dt>
-              <dd>
-                {preview.preview.branches.length === 0
-                  ? 'No outgoing branches'
-                  : preview.preview.branches.map((branch) => (
-                      <span
-                        key={branch.id}
-                        className="nf-health-preview-branch"
-                        data-health-preview-branch={branch.id}
-                        data-health-preview-branch-role={branch.role}
-                      >
-                        {branch.role} → {branch.targetTitle} · {branch.id}
-                      </span>
-                    ))}
-              </dd>
-            </div>
-            <div>
-              <dt>Targets</dt>
-              <dd>
-                {preview.preview.branches.length === 0
-                  ? 'No target blocks'
-                  : [
-                      ...new Map(
-                        preview.preview.branches.map((branch) => [
-                          branch.targetBlockId,
-                          branch,
-                        ]),
-                      ).values(),
-                    ].map((branch) => (
-                      <span
-                        key={branch.targetBlockId}
-                        className="nf-health-preview-target"
-                        data-health-preview-target={branch.targetBlockId}
-                      >
-                        {branch.targetTitle}
-                      </span>
-                    ))}
-              </dd>
-            </div>
-          </dl>
-        </section>
+        )}
       </>
     );
   };
 
-  const primary = preview === null ? renderPrimary() : null;
+  const kindLabel =
+    row.kind === null ? 'structure' : row.kind;
+  const menuActions = plan.menu;
+  const menuDisabled = busy || !editingEnabled;
+  const confirmButtonLabel =
+    confirm !== null && confirm.kind === 'repair' ? 'Confirm repair' : confirmLabel();
 
   return (
     <ModalOverlay
@@ -1048,17 +851,18 @@ export function HealthRepairDialog({
       <Modal className="nf-dialog-modal nf-dialog-modal-repair">
         <Dialog
           className="nf-dialog nf-health-dialog"
-          aria-label={`Document health — ${DOCUMENT_HEALTH_CATEGORY_LABELS[row.category]}`}
+          aria-label={`Document health — ${documentHealthStateText(row.category)}`}
           data-health-dialog="true"
           data-health-row={row.id}
           data-health-state={row.category}
           data-health-severity={row.severity}
+          data-health-kind={kindLabel}
         >
           <header className="nf-health-dialog-head">
             <div className="nf-health-dialog-heading">
               <p className="nf-health-kicker">Document health</p>
               <h2 className="nf-dialog-title nf-health-dialog-title">
-                {DOCUMENT_HEALTH_CATEGORY_LABELS[row.category]}
+                {documentHealthStateText(row.category)}
               </h2>
             </div>
             <button
@@ -1077,24 +881,91 @@ export function HealthRepairDialog({
                 {READ_ONLY_REASON}
               </p>
             )}
-            {preview === null ? renderIssue() : renderConfirmStage()}
+            {confirm === null ? renderIssue() : renderConfirmStage()}
             {error === null ? null : (
               <p className="nf-dialog-text nf-dialog-error" role="alert" data-health-error="true">
                 {error}
               </p>
             )}
           </div>
-          <div className="nf-dialog-actions nf-health-dialog-actions">
-            <button
-              type="button"
-              className="nf-button nf-button-quiet"
-              data-health-action="show-in-note"
-              onClick={() => navigate(row)}
-            >
-              Show in note
-            </button>
-            <span className="nf-health-dialog-spacer" />
-            {preview === null ? (
+          {confirm === null ? (
+            <div className="nf-dialog-actions nf-health-dialog-actions">
+              <button
+                type="button"
+                className="nf-button nf-button-quiet nf-health-show-in-note"
+                data-health-action="show-in-note"
+                onClick={() => navigate(row)}
+              >
+                Show in note
+              </button>
+              <span className="nf-health-dialog-spacer" />
+              {plan.secondary === null ? null : footerAction(plan.secondary)}
+              {menuActions.length === 0 ? null : (
+                <div className="nf-health-menu-anchor">
+                  <button
+                    ref={menuTriggerRef}
+                    type="button"
+                    className="nf-button nf-health-menu-button"
+                    data-health-menu="true"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    aria-label="More actions"
+                    title={menuDisabled ? READ_ONLY_REASON : 'More actions'}
+                    disabled={menuDisabled}
+                    onClick={() => setMenuOpen((open) => !open)}
+                  >
+                    <span aria-hidden="true">…</span>
+                  </button>
+                  {menuOpen ? (
+                    <div
+                      ref={menuRef}
+                      className="nf-health-menu"
+                      role="menu"
+                      aria-label="More actions"
+                      data-health-menu-list="true"
+                      onKeyDown={(event) => {
+                        const items = [
+                          ...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ??
+                            []),
+                        ];
+                        const index = items.indexOf(document.activeElement as HTMLElement);
+                        if (event.key === 'ArrowDown') {
+                          event.preventDefault();
+                          items[(index + 1 + items.length) % items.length]?.focus();
+                          return;
+                        }
+                        if (event.key === 'ArrowUp') {
+                          event.preventDefault();
+                          items[(index - 1 + items.length) % items.length]?.focus();
+                          return;
+                        }
+                        if (event.key === 'Tab') {
+                          setMenuOpen(false);
+                          menuTriggerRef.current?.focus();
+                        }
+                      }}
+                    >
+                      {menuActions.map((action) => (
+                        <button
+                          key={action}
+                          type="button"
+                          role="menuitem"
+                          className={`nf-health-menu-item${
+                            HEALTH_ACTIONS[action].danger ? ' nf-health-menu-item-danger' : ''
+                          }`}
+                          data-menu-entry={`health-action-${action}`}
+                          onClick={() => {
+                            setMenuOpen(false);
+                            runAction(action);
+                          }}
+                        >
+                          {HEALTH_ACTIONS[action].label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
               <button
                 type="button"
                 className="nf-button"
@@ -1103,29 +974,37 @@ export function HealthRepairDialog({
               >
                 Close
               </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="nf-button"
-                  data-health-preview-back="true"
-                  onClick={() => setPreview(null)}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="nf-button nf-button-primary"
-                  data-health-preview-confirm="true"
-                  disabled={busy || !editingEnabled}
-                  onClick={confirmRepair}
-                >
-                  Confirm repair
-                </button>
-              </>
-            )}
-            {primary}
-          </div>
+              {plan.primary === null ? null : footerAction(plan.primary, { primary: true })}
+            </div>
+          ) : (
+            <div className="nf-dialog-actions nf-health-dialog-actions">
+              <button
+                type="button"
+                className="nf-button"
+                data-health-stage-back="true"
+                {...(confirm.kind === 'repair' ? { 'data-health-preview-back': 'true' } : {})}
+                onClick={() => setConfirm(null)}
+              >
+                Back
+              </button>
+              <span className="nf-health-dialog-spacer" />
+              <button
+                type="button"
+                className={`nf-button ${
+                  confirmDanger()
+                    ? 'nf-button-danger nf-health-primary-danger'
+                    : 'nf-button-primary'
+                }`}
+                {...(confirm.kind === 'repair'
+                  ? { 'data-health-preview-confirm': 'true' }
+                  : { 'data-health-confirm-action': confirm.kind })}
+                disabled={busy || !editingEnabled}
+                onClick={runConfirm}
+              >
+                {confirmButtonLabel}
+              </button>
+            </div>
+          )}
         </Dialog>
       </Modal>
     </ModalOverlay>

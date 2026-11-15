@@ -1,10 +1,15 @@
 /**
- * Document health in the sidebar (S2).
+ * Document health in the sidebar (S2, S2.1).
  *
  * The sidebar is the report: the audit's rows grouped in expandable sections,
- * one row per issue, and a 520 px repair modal in front. Confirm closes the
+ * one row per issue, and a 560 px repair modal in front. Confirm closes the
  * modal and the repaired row leaves this list; there is no second list to keep
  * in sync and no "next" step.
+ *
+ * S2.1: the four sections always render (`0` included) and only the search
+ * filters them; a row is two lines (quote, then state · block · branches); the
+ * manual re-check is the 28 px button next to the search and shows a check for
+ * about two seconds, so the footer text button is gone.
  *
  * The list is a `tree`: section headers are expandable nodes, rows are leaves.
  * Up/Down/Home/End move, Left/Right collapse/expand, Enter opens the row's
@@ -12,26 +17,32 @@
  * survives closing the modal.
  */
 
-import { ChevronRight, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Check, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRegistry, useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
 import {
   documentHealthInfoText,
   documentHealthSummaryText,
-  groupDocumentHealthRows,
+  visibleDocumentHealthGroups,
   type DocumentHealthSectionId,
 } from '../lib/document-health-sections';
 import {
-  DOCUMENT_HEALTH_CATEGORY_LABELS,
+  documentHealthBranchCountText,
+  documentHealthStateText,
+} from '../lib/document-health-actions';
+import {
   filterDocumentHealthRows,
   type DocumentHealthRow,
 } from '../lib/document-health';
 import { useDocumentHealthReport } from './useDocumentHealth';
 
+/** How long the refresh button keeps its check after a manual re-check. */
+const CHECKED_FEEDBACK_MS = 2000;
+
 function rowLabel(row: DocumentHealthRow): string {
   if (row.quote.length > 0) return row.quote;
-  return DOCUMENT_HEALTH_CATEGORY_LABELS[row.category];
+  return documentHealthStateText(row.category);
 }
 
 export function HealthSection(): JSX.Element {
@@ -45,15 +56,26 @@ export function HealthSection(): JSX.Element {
   const openDialog = useShell((state) => state.openDialog);
   const [query, setQuery] = useState('');
   const [checkToken, setCheckToken] = useState(0);
+  const [checked, setChecked] = useState(false);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const report = useDocumentHealthReport(runtime, checkToken);
+
+  // The check reads as feedback, not as a state: it returns by itself.
+  useEffect(() => {
+    if (!checked) return undefined;
+    const timer = window.setTimeout(() => setChecked(false), CHECKED_FEEDBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [checked]);
 
   const searching = query.trim().length > 0;
   const visibleRows = useMemo(
     () => (report === null ? [] : filterDocumentHealthRows(report.rows, 'all', query)),
     [report, query],
   );
-  const groups = useMemo(() => groupDocumentHealthRows(visibleRows), [visibleRows]);
+  const groups = useMemo(
+    () => visibleDocumentHealthGroups(visibleRows, searching),
+    [visibleRows, searching],
+  );
   const selectedVisible =
     selectedRowId !== null && visibleRows.some((row) => row.id === selectedRowId);
   const defaultKey =
@@ -129,6 +151,11 @@ export function HealthSection(): JSX.Element {
     openDialog({ kind: 'health-issue', rowId: row.id });
   };
 
+  const checkAgain = (): void => {
+    setCheckToken((value) => value + 1);
+    setChecked(true);
+  };
+
   if (runtime === null || report === null) {
     return (
       <section className="nf-sidebar-section nf-health-section" aria-label="Health">
@@ -163,16 +190,41 @@ export function HealthSection(): JSX.Element {
           </span>
         )}
       </div>
-      <div className="nf-health-search nf-library-search">
-        <Search size={13} strokeWidth={1.5} aria-hidden="true" />
-        <input
-          type="search"
-          value={query}
-          placeholder="Search issues"
-          aria-label="Search issues"
-          data-health-search="true"
-          onChange={(event) => setQuery(event.target.value)}
-        />
+      <div className="nf-health-search-row">
+        <div className="nf-health-search nf-library-search">
+          <Search size={13} strokeWidth={1.5} aria-hidden="true" />
+          <input
+            type="search"
+            value={query}
+            placeholder="Search issues"
+            aria-label="Search issues"
+            data-health-search="true"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+        <button
+          type="button"
+          className="nf-health-refresh"
+          data-health-refresh="true"
+          data-checked={checked ? 'true' : undefined}
+          aria-label="Check again"
+          title="Check again"
+          onClick={checkAgain}
+        >
+          {checked ? (
+            <Check size={13} strokeWidth={1.8} aria-hidden="true" />
+          ) : (
+            <RefreshCw size={13} strokeWidth={1.6} aria-hidden="true" />
+          )}
+        </button>
+        <span
+          className="nf-sr-only"
+          role="status"
+          aria-live="polite"
+          data-health-checked-status="true"
+        >
+          {checked ? 'Checked' : ''}
+        </span>
       </div>
 
       {report.counts.all === 0 ? (
@@ -251,10 +303,16 @@ export function HealthSection(): JSX.Element {
                 )}
                 {open ? (
                   <div role="group" className="nf-health-rows">
+                    {group.rows.length === 0 ? (
+                      <p className="nf-health-group-empty" data-health-group-empty={id}>
+                        No issues in this group
+                      </p>
+                    ) : null}
                     {group.rows.map((row) => {
                       const selected = selectedRowId === row.id;
                       const anchorRow =
                         row.anchorId !== undefined && row.category !== 'orphan-reference';
+                      const state = documentHealthStateText(row.category);
                       return (
                         <div
                           key={row.id}
@@ -277,21 +335,26 @@ export function HealthSection(): JSX.Element {
                             data-health-key={row.id}
                             data-selected={selected}
                             tabIndex={activeKey === row.id ? 0 : -1}
-                            title={row.reasonLabel}
+                            title={`${state} · ${row.blockTitle}`}
                             onFocus={() => setFocusKey(row.id)}
                             onClick={() => openRow(row)}
                           >
-                            <span className="nf-health-row-quote">
-                              “{rowLabel(row)}”
-                            </span>
-                            {row.branchCount > 0 ? (
-                              <span
-                                className="nf-health-row-count"
-                                data-health-branch-count={row.branchCount}
-                              >
-                                {row.branchCount}
+                            <span className="nf-health-row-quote">“{rowLabel(row)}”</span>
+                            <span className="nf-health-row-meta">
+                              <span className="nf-health-row-state">{state}</span>
+                              <span className="nf-health-row-separator" aria-hidden="true">
+                                ·
                               </span>
-                            ) : null}
+                              <span className="nf-health-row-block">{row.blockTitle}</span>
+                              {row.branchCount > 0 ? (
+                                <span
+                                  className="nf-health-row-count"
+                                  data-health-branch-count={row.branchCount}
+                                >
+                                  {documentHealthBranchCountText(row.branchCount)}
+                                </span>
+                              ) : null}
+                            </span>
                           </button>
                         </div>
                       );
@@ -303,17 +366,6 @@ export function HealthSection(): JSX.Element {
           })}
         </div>
       )}
-
-      <div className="nf-section-foot">
-        <button
-          type="button"
-          className="nf-text-button"
-          data-health-check-again="true"
-          onClick={() => setCheckToken((value) => value + 1)}
-        >
-          Check again
-        </button>
-      </div>
     </section>
   );
 }

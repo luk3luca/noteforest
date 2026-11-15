@@ -273,8 +273,17 @@ describe('M3h3 live anchor health and idle removal', () => {
     const idleRow = page.locator(`[data-health-row="anchor:${ids.idle.anchor}"]`);
     await idleRow.waitFor();
     assert.equal(await idleRow.getAttribute('data-health-state'), 'idle');
-    const idleText = (await idleRow.textContent()) ?? '';
-    assert.equal(idleText.trim(), '“Alpha”', 'the row is the quote only');
+    const idleButton = idleRow.locator('[data-health-row-button="true"]');
+    assert.equal(
+      (await idleButton.locator('.nf-health-row-quote').innerText()).trim(),
+      '“Alpha”',
+      'the first line is the quote',
+    );
+    assert.equal(
+      (await idleButton.locator('.nf-health-row-state').innerText()).trim(),
+      'Anchor with no branches',
+      'the second line names the state (S2.1 rename)',
+    );
     assert.equal(
       await idleRow.locator('[data-health-branch-count]').count(),
       0,
@@ -285,13 +294,22 @@ describe('M3h3 live anchor health and idle removal', () => {
       0,
       'a row carries no action of its own',
     );
-    await idleRow.locator('[data-health-row-button="true"]').click();
+    await idleButton.click();
     await page.waitForSelector('[data-health-dialog="true"]');
     const idleDialog = (await page.locator('[data-health-dialog="true"]').innerText()) ?? '';
-    assert.match(idleDialog, /Idle anchor/);
-    assert.match(idleDialog, /This anchor has no branches\./);
-    assert.equal(await page.locator('[data-health-action="remove-anchor"]').count(), 1);
+    assert.match(idleDialog, /Anchor with no branches/);
+    assert.match(idleDialog, /Nothing branches from this anchor\./);
+    // Remove anchor is a footer `…` action; Add a branch is the primary.
+    assert.equal(await page.locator('[data-health-action="remove-anchor"]').count(), 0);
     assert.equal(await page.locator('[data-health-action="add-branch"]').count(), 1);
+    await page.locator('[data-health-dialog="true"] [data-health-menu="true"]').click();
+    await page.waitForSelector('[data-health-menu-list="true"]');
+    assert.equal(
+      await page.locator('[data-menu-entry="health-action-remove-anchor"]').count(),
+      1,
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-health-menu-list="true"]', { state: 'detached' });
 
     await mkdir(artifactsPath('m3h3'), { recursive: true });
     await h.screenshot(artifactsPath('m3h3', 'idle-anchor-health-1440x900.png'), {
@@ -299,7 +317,17 @@ describe('M3h3 live anchor health and idle removal', () => {
       height: 900,
     });
 
-    await pressTabUntilDataAttribute('data-health-action', 'remove-anchor');
+    // The removal is keyboard-reachable through the footer `…` slot.
+    await pressTabUntilDataAttribute('data-health-menu', 'true');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('[data-health-menu-list="true"]');
+    await page.waitForFunction(
+      () =>
+        document.activeElement?.getAttribute('data-menu-entry') ===
+        'health-action-remove-anchor',
+      undefined,
+      { timeout: 5000 },
+    );
     await page.keyboard.press('Enter');
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
@@ -368,10 +396,17 @@ describe('M3h3 live anchor health and idle removal', () => {
       0,
       'a live anchor never offers the idle Remove path',
     );
-    assert.equal(
-      await page.locator('[data-health-dialog="true"] [data-health-action="delete-anchor"]').count(),
-      1,
+    await page.locator('[data-health-dialog="true"] [data-health-menu="true"]').click();
+    await page.waitForSelector('[data-health-menu-list="true"]');
+    assert.deepEqual(
+      await page
+        .locator('[data-health-menu-list="true"] [role="menuitem"]')
+        .evaluateAll((items) => items.map((item) => item.getAttribute('data-menu-entry'))),
+      ['health-action-attach', 'health-action-delete-anchor'],
+      'a live anchor keeps the branch and delete actions behind `…`',
     );
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-health-menu-list="true"]', { state: 'detached' });
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     const finalUnusedToggle = page.locator(
@@ -384,7 +419,14 @@ describe('M3h3 live anchor health and idle removal', () => {
       .locator(`[data-health-row="anchor:${ids.idle.anchor}"] [data-health-row-button="true"]`)
       .click();
     await page.waitForSelector('[data-health-dialog="true"]');
-    assert.equal(await page.locator('[data-health-action="remove-anchor"]').count(), 1);
+    await page.locator('[data-health-dialog="true"] [data-health-menu="true"]').click();
+    await page.waitForSelector('[data-health-menu-list="true"]');
+    assert.equal(
+      await page.locator('[data-menu-entry="health-action-remove-anchor"]').count(),
+      1,
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-health-menu-list="true"]', { state: 'detached' });
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
   });

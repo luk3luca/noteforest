@@ -1,5 +1,5 @@
 /**
- * The Health sidebar report's grouping (S2).
+ * The Health sidebar report's grouping (S2, S2.1).
  *
  * The audit (`./document-health.ts`) is the single source of truth for rows and
  * counts; this module only decides which section a row belongs to and how the
@@ -10,6 +10,11 @@
  * decision, 15 November 2026). `anchor-block-missing` (Missing block) is an
  * anchor-attention row and lives in Anchors to fix: the design table omitted it,
  * and dropping it would hide a v1 category with guidance but no in-place fix.
+ *
+ * S2.1 decision 2: the four sections always render, `0` included, so the list
+ * never changes shape between documents. A search renders only the matching
+ * sections (`visibleDocumentHealthGroups`). Empty groups add no rows, so the
+ * row order used for selection and neighbour logic is unchanged.
  */
 
 import type {
@@ -79,8 +84,9 @@ export function documentHealthSection(
 }
 
 /**
- * Ordered, non-empty groups. The audit already sorts rows by severity, category
- * and title, so grouping preserves that order inside every section.
+ * Ordered groups, one per section, empty groups included. The audit already
+ * sorts rows by severity, category and title, so grouping preserves that order
+ * inside every section.
  */
 export function groupDocumentHealthRows(
   rows: readonly DocumentHealthRow[],
@@ -92,11 +98,22 @@ export function groupDocumentHealthRows(
     list.push(row);
     byId.set(definition.id, list);
   }
-  return DOCUMENT_HEALTH_SECTIONS.flatMap((definition) => {
-    const list = byId.get(definition.id);
-    if (list === undefined || list.length === 0) return [];
-    return [{ definition, rows: list }];
-  });
+  return DOCUMENT_HEALTH_SECTIONS.map((definition) => ({
+    definition,
+    rows: byId.get(definition.id) ?? [],
+  }));
+}
+
+/**
+ * What the sidebar renders: all four sections in the report state, only the
+ * matching ones while a search is active (S2.1 decision 2).
+ */
+export function visibleDocumentHealthGroups(
+  rows: readonly DocumentHealthRow[],
+  searching: boolean,
+): DocumentHealthSectionGroup[] {
+  const groups = groupDocumentHealthRows(rows);
+  return searching ? groups.filter((group) => group.rows.length > 0) : groups;
 }
 
 /** Row order as the sidebar renders it, for selection and neighbour logic. */

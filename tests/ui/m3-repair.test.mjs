@@ -358,16 +358,9 @@ describe('M3e anchor repair and health', () => {
     assert.match(previewText, /Formula term · occurrence 1/);
     assert.match(previewText, /Formula term · occurrence 2/);
     assert.match(previewText, /Term binding · occurrence 2/);
-    assert.match(previewText, new RegExp(ids.formula.anchor));
-    assert.match(previewText, new RegExp(ids.formula.target));
-    assert.equal(
-      await page.locator(`[data-health-preview-branch="${formulaBranch}"]`).count(),
-      1,
-    );
-    assert.equal(
-      await page.locator(`[data-health-preview-target="${ids.formula.target}"]`).count(),
-      1,
-    );
+    assert.match(previewText, /What stays: the branch, its target, the block\./);
+    assert.doesNotMatch(previewText, new RegExp(ids.formula.anchor), 'no anchor ID in the confirm stage');
+    assert.doesNotMatch(previewText, new RegExp(ids.formula.target), 'no target ID in the confirm stage');
     assert.deepEqual(await structure(), before, 'candidate selection does not mutate');
     await mkdir(artifactsPath('m3-repair'), { recursive: true });
     await h.screenshot(artifactsPath('m3-repair', 'anchor-repair-preview-1440x900.png'), {
@@ -466,22 +459,27 @@ describe('M3e anchor repair and health', () => {
       );
     }
 
-    const beforeKeep = await structure();
+    // S2.1 retired Keep as is: reviewing a broken anchor and closing the modal
+    // changes nothing at all.
+    const beforeClose = await structure();
     await openHealthFromWarning(ids.brokenText.anchor);
-    await page.locator('[data-health-action="keep"]').click();
+    assert.equal(await page.locator('[data-health-action="keep"]').count(), 0);
+    await page.locator('[data-health-dialog="true"] [data-health-close="true"]').last().click();
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
-    assert.deepEqual(await structure(), beforeKeep, 'keep broken never mutates the document');
+    assert.deepEqual(await structure(), beforeClose, 'closing a broken issue never mutates the document');
     assert.equal(await page.locator('[data-anchor-health-chip]').count(), 1);
     assert.equal(
       await page
         .locator('[data-anchor-health-chip]')
         .getAttribute('data-health-broken'),
       '2',
-      'keep broken does not hide the warning or health count',
+      'closing the issue does not hide the warning or health count',
     );
 
     await openHealthFromWarning(ids.brokenCode.anchor);
-    await page.locator('[data-health-action="attach"]').click();
+    await page.locator('[data-health-dialog="true"] [data-health-menu="true"]').click();
+    await page.waitForSelector('[data-health-menu-list="true"]');
+    await page.locator('[data-menu-entry="health-action-attach"]').click();
     await page.waitForSelector('[data-health-confirm="attach"]');
     await page.locator('[data-health-confirm-action="attach"]').click();
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
@@ -593,11 +591,9 @@ describe('M3e anchor repair and health', () => {
     const relinkPreview = (await page.locator('[data-health-preview="true"]').textContent()) ?? '';
     assert.match(relinkPreview, /missingword/);
     assert.match(relinkPreview, /omega/);
-    assert.match(relinkPreview, new RegExp(ids.brokenText.anchor));
-    assert.equal(
-      await page.locator(`[data-health-preview-branch="${branchId}"]`).count(),
-      1,
-    );
+    assert.match(relinkPreview, /What stays: the branch, its target, the block\./);
+    assert.doesNotMatch(relinkPreview, new RegExp(ids.brokenText.anchor), 'no anchor ID');
+    assert.doesNotMatch(relinkPreview, new RegExp(branchId), 'no branch ID');
     assert.deepEqual(await structure(), beforeRelink, 'relink preview does not mutate');
     await page.locator('[data-health-preview-back="true"]').click();
     await page.waitForSelector('[data-health-preview="true"]', { state: 'detached' });
