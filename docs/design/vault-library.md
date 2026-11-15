@@ -121,12 +121,7 @@ app-support, like note backups:
 - Empty folders persist; missing folder shows the existing missing state; `.md` missing uses the
   guest-file missing banner.
 - No document tabs change; the activity bar is phase 5.
-- A folder context menu has **New note here**: the draft materializes inside that folder, not at the
-  library root.
-- Library organization is **app-level**: creating folders, moving/renaming/trashing notes, folders
-  and `.md` files stays available while a note is in Read mode. Read mode gates document **content**
-  (blocks, branches, anchors, table/formula edits); moving an open note still flushes and obeys a live
-  lock.
+- Read mode: tree navigation only; no structural mutation.
 
 ## 7. Move, lock and reconciliation
 
