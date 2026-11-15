@@ -5,6 +5,7 @@ import type {
 } from '../src/renderer/src/lib/document-health';
 import {
   DEFAULT_OPEN_HEALTH_SECTIONS,
+  DOCUMENT_HEALTH_SECTIONS,
   documentHealthBadgeLabel,
   documentHealthInfoText,
   documentHealthRowOrder,
@@ -13,6 +14,7 @@ import {
   firstRepairHealthRowId,
   groupDocumentHealthRows,
   nextDocumentHealthRowId,
+  visibleDocumentHealthGroups,
   type DocumentHealthSectionId,
 } from '../src/renderer/src/lib/document-health-sections';
 
@@ -77,7 +79,7 @@ describe('document health sidebar sections', () => {
     expect(seen.get('hidden')).toBe('hidden');
   });
 
-  it('renders only non-empty sections in the confirmed order', () => {
+  it('renders all four sections, in the confirmed order, empty groups included', () => {
     const rows = [
       row('h1', 'hidden', false),
       row('s1', 'empty-chapter', false),
@@ -98,6 +100,48 @@ describe('document health sidebar sections', () => {
       ['structure', ['s1']],
       ['hidden', ['h1']],
     ]);
+    // S2.1 decision 2: a document with one issue still shows the other three
+    // groups at zero, and the order never changes.
+    expect(groupIds([row('a1', 'ambiguous')])).toEqual([
+      ['anchors', ['a1']],
+      ['unused', []],
+      ['structure', []],
+      ['hidden', []],
+    ]);
+    expect(groupIds([])).toEqual([
+      ['anchors', []],
+      ['unused', []],
+      ['structure', []],
+      ['hidden', []],
+    ]);
+    expect(DOCUMENT_HEALTH_SECTIONS).toHaveLength(4);
+  });
+
+  it('hides empty groups only while a search is active', () => {
+    const rows = [row('a1', 'broken'), row('h1', 'hidden', false)];
+    expect(visibleDocumentHealthGroups(rows, false).map((group) => group.definition.id)).toEqual([
+      'anchors',
+      'unused',
+      'structure',
+      'hidden',
+    ]);
+    expect(visibleDocumentHealthGroups(rows, true).map((group) => group.definition.id)).toEqual([
+      'anchors',
+      'hidden',
+    ]);
+    expect(visibleDocumentHealthGroups(rows, true).map((group) => group.rows.length)).toEqual([
+      1, 1,
+    ]);
+  });
+
+  it('keeps the row order stable with empty groups in the list', () => {
+    const rows = [row('u1', 'idle', false), row('a1', 'broken')];
+    const ordered = documentHealthRowOrder(rows);
+    expect(ordered.map((entry) => entry.id)).toEqual(['a1', 'u1']);
+    // Selection neighbours never land on an empty group: it has no rows.
+    expect(nextDocumentHealthRowId(rows, 'a1')).toBe('u1');
+    expect(nextDocumentHealthRowId(rows, 'u1')).toBe('a1');
+    expect(firstRepairHealthRowId(rows)).toBe('a1');
   });
 
   it('keeps Anchors to fix as the only default-open section', () => {

@@ -529,9 +529,20 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
     );
     assert.equal(await page.locator('[data-health-action="relink"]').count(), 0);
     assert.equal(await page.locator('[data-health-image-repair-note="true"]').count(), 1);
-    assert.equal(await page.locator('[data-health-action="attach"]').count(), 1);
-    assert.equal(await page.locator('[data-health-action="keep"]').count(), 1);
-    assert.equal(await page.locator('[data-health-action="delete-anchor"]').count(), 1);
+    assert.equal(await page.locator('[data-health-action="keep"]').count(), 0);
+    // The image variant has no primary: both branch actions live behind `…`.
+    assert.equal(await page.locator('[data-health-action="attach"]').count(), 0);
+    assert.equal(await page.locator('[data-health-action="delete-anchor"]').count(), 0);
+    await page.locator('[data-health-dialog="true"] [data-health-menu="true"]').click();
+    await page.waitForSelector('[data-health-menu-list="true"]');
+    assert.deepEqual(
+      await page
+        .locator('[data-health-menu-list="true"] [role="menuitem"]')
+        .evaluateAll((items) => items.map((item) => item.getAttribute('data-menu-entry'))),
+      ['health-action-attach', 'health-action-delete-anchor'],
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-health-menu-list="true"]', { state: 'detached' });
     await h.screenshot(resolve(screenshotDir, 'image-anchor-asset-changed-health-1440x900.png'), {
       width: 1440,
       height: 900,
