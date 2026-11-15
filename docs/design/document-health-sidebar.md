@@ -1,6 +1,6 @@
 # Document health — sidebar report and repair modal (S2)
 
-**Status:** design for S2, after the S1 activity bar. No code.
+**Status:** implemented in S2 (merged `f84a7fd`); product-owner visual pass pending.
 **Date:** 15 November 2026.
 **Supersedes:** the modal sheet surface in `docs/design/anchor-health.md`; the audit, commands and
 copy rules there still hold.
@@ -104,6 +104,11 @@ stay as they are.
 - Reference chips, the lost-anchor capsule and the remaining `999px` capsules.
 - Audit v2 categories (drift, duplicates, assets/cells, reference audit, library scan).
 
-## 9. Open
+## 9. Implementation notes and open items
 
-- Confirm the four section names and the default open state.
+- The four sections and the default open state are confirmed and implemented.
+- **Missing block** (`anchor-block-missing`) sits in **Anchors to fix**: it needs attention and has
+  guidance but no in-place repair. Open: product owner may prefer Structure.
+- The confirm step currently renders internal anchor/branch IDs in its metadata; hide them (or
+  move them behind a “Details” disclosure) — product-owner review finding, follow-up.
+- Session-only: open sections and the selected row. Only `sidebarTab` persists.

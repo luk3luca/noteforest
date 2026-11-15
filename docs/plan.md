@@ -423,11 +423,13 @@ agent API, no MCP, no forest builder**; the only agent-adjacent feature is the M
 the **vault/library** ahead of Document health and the activity bar because the flat library is
 already mixing packages, `.md` files, images and backups. **Phase 3 (vault/library) is complete (15 November 2026)**, including the usability follow-up
 (app-level library actions in Read, New note here, `not-found` banner, bounded test cleanup).
-**Phase 4 (Document health) is complete (15 November 2026).** **Phase 5 S1 (activity bar) is
-merged at `fb64eb0`**: 48 px bar, vertical Library/Outline tablist, Health bridge, Settings with its
-divider in both states, Library note/`.md` icons; the product-owner visual pass is pending. S2
-(Document health in the sidebar + 520 px repair modal) is designed and next. Phase 6 (find bar) is
-planned. No legacy files exist; the test vault may be rewritten.
+**Phase 4 (Document health) is complete (15 November 2026).** **Phase 5 is merged**: S1 (activity
+bar) at `fb64eb0` and S2 (Document health in the sidebar + 520 px repair modal) at `f84a7fd`. S1
+brought the 48 px bar, the vertical Library/Outline tablist, the Health entry, the full-width
+Settings footer when expanded and the Library note/`.md` icons. S2 made Health a third tab with a
+square needs-repair counter, the four grouped sections, the 520 px repair modal and the retirement
+of the v1 sheet; the product-owner visual pass is pending. Phase 6 (find bar) is planned. No legacy
+files exist; the test vault may be rewritten.
 
 ### Phase 0 — close the integrated batch
 
@@ -486,9 +488,10 @@ Design: `docs/design/shell-activity-bar.md`.
 - S1: 48 px vertical bar with Library/Outline/Health and Settings at the bottom; remove the
   Library/Outline segmented header; collapse control; ARIA vertical tablist; token pass (radii 4/8,
   popover gaps 4/8/12; card padding 10 and Settings pane 536 stay documented, not changed).
-- S1 **merged at `fb64eb0`**; visual pass pending.
-- S2: Document health in the sidebar (sections, badge, search, Locate) with the repair in a 520 px
-  modal; Confirm closes it. Design: `docs/design/document-health-sidebar.md`.
+- S1 **merged at `fb64eb0`**, S2 **merged at `f84a7fd`**; visual pass pending.
+- S2 delivered: Health tab + square needs-repair counter, four grouped sections, search, Locate and
+  the 520 px repair modal (Confirm closes it); the v1 sheet is retired. Design:
+  `docs/design/document-health-sidebar.md`.
 - No document tabs removed; the top segmented control is what goes away.
 
 ### Phase 6 — find bar
