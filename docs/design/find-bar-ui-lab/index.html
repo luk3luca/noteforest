@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Find bar — design lab</title>
+    <title>Find bar — minimal bar + sidebar search</title>
     <style>
       :root {
         --bg-page: #0b0c0e;
@@ -20,8 +20,6 @@
         --border-2: #6e737a;
         --accent: #9bb7d4;
         --accent-soft: #26313c;
-        --accent-ring: #b9d0e6;
-        --warning: #e0bd88;
         --paper: #fbfaf7;
         --paper-ink: #23262a;
         --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
@@ -43,200 +41,50 @@
       body { padding: 20px 14px 56px; }
       .lab { max-width: 728px; margin: 0 auto; }
 
-      .eyebrow {
-        margin: 0 0 8px;
-        color: var(--text-3);
-        font-size: 11px;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-      }
-
+      .eyebrow { margin: 0 0 8px; color: var(--text-3); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
       h1 { margin: 0 0 10px; font-size: 25px; font-weight: 600; letter-spacing: -0.01em; }
-
       .lede { margin: 0; max-width: 64ch; color: var(--text-2); font-size: 14px; line-height: 1.6; }
 
-      .rules {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        margin: 18px 0 0;
-        padding: 0;
-        list-style: none;
-      }
-
-      .rules li {
-        padding: 10px 11px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-control);
-        background: rgba(255, 255, 255, 0.03);
-        color: var(--text-2);
-        font-size: 12px;
-        line-height: 1.45;
-      }
-
+      .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0 0; padding: 0; list-style: none; }
+      .rules li { padding: 10px 11px; border: 1px solid var(--border-1); border-radius: var(--r-control); background: rgba(255,255,255,0.03); color: var(--text-2); font-size: 12px; line-height: 1.45; }
       .rules b { display: block; margin-bottom: 3px; color: var(--text-1); font-size: 12.5px; font-weight: 600; }
 
       .variant { margin-top: 40px; }
-
       .v-head { display: flex; align-items: baseline; gap: 10px; }
-
-      .v-index {
-        flex: 0 0 auto;
-        width: 20px;
-        height: 20px;
-        border: 1px solid var(--border-2);
-        border-radius: 3px;
-        color: var(--text-2);
-        font-size: 11px;
-        font-weight: 600;
-        line-height: 18px;
-        text-align: center;
-      }
-
+      .v-index { flex: 0 0 auto; width: 20px; height: 20px; border: 1px solid var(--border-2); border-radius: 3px; color: var(--text-2); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
       .v-head h2 { flex: 1; margin: 0; font-size: 16px; font-weight: 600; }
       .v-tag { color: var(--text-3); font-family: var(--mono); font-size: 11px; }
-
       .v-sub { margin: 7px 0 0 30px; max-width: 66ch; color: var(--text-2); font-size: 13px; line-height: 1.6; }
 
-      .pros {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        margin: 12px 0 14px 30px;
-      }
+      .stage { position: relative; margin-top: 14px; padding: 26px 12px 14px; border: 1px solid var(--border-1); border-radius: var(--r-panel); background: var(--bg-canvas); }
+      .stage-label { position: absolute; top: 8px; left: 12px; color: var(--text-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
 
-      .pros div { padding: 8px 10px; border: 1px solid var(--border-1); border-radius: var(--r-control); color: var(--text-2); font-size: 11.5px; line-height: 1.5; }
-      .pros b { color: var(--text-1); font-weight: 600; }
-
-      .stage {
-        position: relative;
-        margin-top: 14px;
-        padding: 26px 12px 14px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-panel);
-        background: var(--bg-canvas);
-      }
-
-      .stage-label {
-        position: absolute;
-        top: 8px;
-        left: 12px;
-        color: var(--text-3);
-        font-family: var(--mono);
-        font-size: 10px;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-      }
-
-      /* ---------------------------------------------------------- surface */
-      .surface {
-        position: relative;
-        width: 100%;
-        height: 520px;
-        margin: 0 auto;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-panel);
-        background: var(--bg-app);
-        overflow: hidden;
-      }
-
-      .surface-bar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        height: 34px;
-        padding: 0 10px;
-        border-bottom: 1px solid var(--border-1);
-        background: var(--bg-app);
-      }
-
-      .tab {
-        display: inline-flex;
-        align-items: center;
-        height: 20px;
-        padding: 0 8px;
-        border: 1px solid var(--border-1);
-        border-radius: 3px;
-        background: var(--surface-1);
-        color: var(--text-2);
-        font-size: 10.5px;
-        white-space: nowrap;
-      }
-
+      .surface { position: relative; width: 100%; height: 430px; margin: 0 auto; border: 1px solid var(--border-1); border-radius: var(--r-panel); background: var(--bg-app); overflow: hidden; }
+      .surface-bar { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-bottom: 1px solid var(--border-1); background: var(--bg-app); }
+      .tab { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border: 1px solid var(--border-1); border-radius: 3px; background: var(--surface-1); color: var(--text-2); font-size: 10.5px; white-space: nowrap; }
       .mode { margin-left: auto; color: var(--text-3); font-family: var(--mono); font-size: 10px; }
       .mode b { color: var(--text-2); font-weight: 500; }
 
-      .canvas {
-        height: calc(100% - 34px);
-        padding: 18px 24px;
-        overflow: hidden;
-      }
-
-      .chapter {
-        margin: 0 0 12px;
-        color: var(--text-3);
-        font-size: 10px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-
+      .canvas { height: calc(100% - 34px); padding: 18px 24px; overflow: hidden; }
+      .chapter { margin: 0 0 12px; color: var(--text-3); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
       .chapter-title { margin: 0 0 14px; color: var(--text-1); font-size: 20px; font-weight: 600; }
-
-      .card {
-        width: 360px;
-        margin-bottom: 10px;
-        padding: 10px 12px;
-        border-radius: 6px;
-        background: var(--note);
-        color: var(--text-1);
-        font-size: 12.5px;
-        line-height: 1.55;
-      }
-
+      .card { width: 360px; margin-bottom: 10px; padding: 10px 12px; border-radius: 6px; background: var(--note); color: var(--text-1); font-size: 12.5px; line-height: 1.55; }
       .card p { margin: 0; }
       .card .muted { color: var(--text-2); }
-
       .card[data-current="true"] { box-shadow: inset 0 0 0 1px var(--accent); }
-
-      .hit {
-        border-radius: 2px;
-        background: var(--accent-soft);
-        box-shadow: 0 0 0 1px rgba(155, 183, 212, 0.35);
-      }
-
+      .hit { border-radius: 2px; background: var(--accent-soft); box-shadow: 0 0 0 1px rgba(155,183,212,0.35); }
       .hit[data-current="true"] { box-shadow: 0 0 0 1px var(--accent); }
+      .code { padding: 8px 10px; border-radius: 4px; background: #141619; color: #d7dae0; font-family: var(--mono); font-size: 11.5px; line-height: 1.5; }
 
-      .code {
-        padding: 8px 10px;
-        border-radius: 4px;
-        background: #141619;
-        color: #d7dae0;
-        font-family: var(--mono);
-        font-size: 11.5px;
-        line-height: 1.5;
-      }
-
-      .callout {
-        margin-top: 10px;
-        padding: 8px 10px;
-        border: 1px solid var(--border-1);
-        border-radius: 6px;
-        background: var(--surface-1);
-        color: var(--text-2);
-        font-size: 11.5px;
-      }
-
-      .callout .quote { color: var(--text-1); }
-
-      /* ----------------------------------------------------------- find bar */
-      .findbar {
+      /* ------------------------------------------------------------ find bar */
+      .bar {
         position: absolute;
         top: 44px;
         right: 10px;
         display: flex;
         align-items: center;
-        gap: 4px;
-        width: 420px;
+        gap: 2px;
+        width: 360px;
         height: 40px;
         padding: 0 6px;
         border: 1px solid var(--border-1);
@@ -246,10 +94,9 @@
         z-index: 4;
       }
 
-      .findbar .field {
+      .field {
         display: flex;
         align-items: center;
-        gap: 6px;
         flex: 1;
         min-width: 0;
         height: 28px;
@@ -261,301 +108,66 @@
         font-size: 12px;
       }
 
-      .findbar .field svg { flex: 0 0 auto; color: var(--text-3); }
-      .findbar .field .query { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .findbar .field .clear { margin-left: auto; color: var(--text-3); }
-
-      .count {
-        flex: 0 0 auto;
-        padding: 0 4px;
-        color: var(--text-3);
-        font-size: 10.5px;
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-      }
+      .field .query { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .count { flex: 0 0 auto; padding: 0 5px; color: var(--text-3); font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .count[data-empty="true"] { color: var(--text-3); }
 
       .icon-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 28px;
-        width: 28px;
-        height: 28px;
-        border: 1px solid transparent;
-        border-radius: var(--r-control);
-        background: transparent;
-        color: var(--text-3);
+        display: inline-flex; align-items: center; justify-content: center;
+        flex: 0 0 28px; width: 28px; height: 28px;
+        border: 1px solid transparent; border-radius: var(--r-control);
+        background: transparent; color: var(--text-3);
       }
-
       .icon-btn:hover { border-color: var(--border-1); background: var(--surface-1); color: var(--text-1); }
       .icon-btn[aria-disabled="true"] { opacity: 0.4; }
 
-      /* --------------------------------------------------------- find panel */
-      .findpanel {
-        position: absolute;
-        top: 88px;
-        right: 10px;
-        width: 420px;
-        max-height: 330px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-panel);
-        background: var(--surface-3);
-        box-shadow: 0 18px 44px rgb(0 0 0 / 0.5);
-        overflow: hidden;
-        z-index: 3;
-      }
+      /* ------------------------------------------------------ sidebar search */
+      .sidebar-stage { display: flex; gap: 12px; align-items: stretch; }
 
-      .fp-scroll { max-height: 288px; overflow: hidden; padding: 6px; }
+      .sbar { display: flex; flex-direction: column; flex: 0 0 264px; height: 470px; border: 1px solid var(--border-1); border-radius: var(--r-panel); background: #131416; overflow: hidden; }
+      .sbar-head { display: flex; align-items: center; gap: 6px; padding: 9px 8px 7px; }
+      .sbar-title { flex: 1; font-size: 13px; font-weight: 600; }
+      .sbar-count { color: var(--text-3); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+      .sbar-field { display: flex; align-items: center; height: 28px; margin: 0 8px 6px; padding: 0 8px; border: 1px solid var(--border-1); border-radius: var(--r-control); background: var(--surface-1); color: var(--text-1); font-size: 11.5px; }
+      .sbar-field svg { margin-right: 6px; color: var(--text-3); }
+      .sbar-scroll { flex: 1; min-height: 0; padding: 0 4px 6px; overflow: hidden; }
 
-      .fp-group {
-        padding: 6px 8px 4px;
-        color: var(--text-3);
-        font-size: 9.5px;
-        font-weight: 600;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-      }
+      .sbar-group { padding: 7px 8px 3px; color: var(--text-3); font-size: 9.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
+      .sbar-block { padding: 4px 8px 2px; color: var(--text-2); font-size: 10.5px; font-weight: 600; }
+      .sbar-row { padding: 5px 8px 6px 8px; border-radius: var(--r-control); }
+      .sbar-row[data-current="true"] { background: var(--surface-2); }
+      .sbar-snippet { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-2); font-size: 11px; line-height: 1.45; }
+      .sbar-snippet b { color: var(--text-1); font-weight: 600; background: var(--accent-soft); border-radius: 2px; }
+      .sbar-snippet .ell { color: var(--text-3); }
+      .sbar-foot { padding: 7px 10px; border-top: 1px solid var(--border-1); color: var(--text-3); font-size: 10px; }
 
-      .fp-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 7px 8px;
-        border-radius: var(--r-control);
-      }
-
-      .fp-row:hover { background: var(--surface-1); }
-
-      .fp-row[data-current="true"] {
-        background: var(--surface-1);
-        box-shadow: inset 0 0 0 1px var(--border-2);
-      }
-
-      .fp-type {
-        flex: 0 0 54px;
-        padding-top: 1px;
-        color: var(--text-3);
-        font-size: 9.5px;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-      }
-
-      .fp-main { flex: 1; min-width: 0; }
-
-      .fp-title {
-        display: block;
-        overflow: hidden;
-        color: var(--text-1);
-        font-size: 11.5px;
-        font-weight: 550;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .fp-snippet {
-        display: block;
-        margin-top: 2px;
-        overflow: hidden;
-        color: var(--text-3);
-        font-size: 10.5px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .fp-snippet b { color: var(--text-1); font-weight: 550; background: var(--accent-soft); border-radius: 2px; }
-
-      .fp-page {
-        flex: 0 0 auto;
-        color: var(--text-3);
-        font-family: var(--mono);
-        font-size: 9.5px;
-      }
-
-      .fp-hint {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 7px 10px;
-        border-top: 1px solid var(--border-1);
-        color: var(--text-3);
-        font-size: 10px;
-      }
-
-      .kbd {
-        padding: 0 4px;
-        border: 1px solid var(--border-1);
-        border-radius: 3px;
-        background: var(--surface-1);
-        color: var(--text-2);
-        font-family: var(--mono);
-        font-size: 9.5px;
-        line-height: 14px;
-      }
-
-      .fp-empty {
-        padding: 16px 12px 18px;
-        color: var(--text-2);
-        font-size: 12px;
-      }
-
-      .fp-empty span { color: var(--text-3); }
-
-      /* --------------------------------------------------------- docked variant */
-      .findstrip {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        height: 40px;
-        padding: 0 10px;
-        border-bottom: 1px solid var(--border-1);
-        background: var(--surface-2);
-      }
-
-      .findstrip .field {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex: 1;
-        height: 28px;
-        padding: 0 8px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-control);
-        background: var(--surface-1);
-        color: var(--text-1);
-        font-size: 12px;
-      }
-
-      .docked-panel {
-        position: absolute;
-        top: 84px;
-        left: 10px;
-        width: 420px;
-        max-height: 330px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-panel);
-        background: var(--surface-3);
-        box-shadow: 0 18px 44px rgb(0 0 0 / 0.5);
-        overflow: hidden;
-        z-index: 3;
-      }
-
-      .docked-surface .canvas { height: calc(100% - 74px); }
+      .mini-canvas { flex: 1; min-width: 0; padding: 16px 18px; border: 1px solid var(--border-1); border-radius: var(--r-panel); background: var(--bg-canvas); overflow: hidden; }
+      .mini-canvas .card { width: 100%; }
+      .mini-canvas .chapter-title { font-size: 17px; }
 
       /* -------------------------------------------------------------- page */
       .page-surface { background: #141518; }
       .page-wrap { display: flex; justify-content: flex-start; padding: 18px 0 0 18px; }
-      .paper {
-        width: 280px;
-        height: 380px;
-        padding: 28px 30px;
-        border-radius: 2px;
-        background: var(--paper);
-        color: var(--paper-ink);
-        box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
-        font-size: 10.5px;
-        line-height: 1.5;
-      }
-      .paper h2 { margin: 0 0 6px; font-size: 14px; }
-      .paper p { margin: 0 0 8px; }
+      .paper { width: 280px; height: 340px; padding: 24px 26px; border-radius: 2px; background: var(--paper); color: var(--paper-ink); box-shadow: 0 10px 30px rgb(0 0 0 / 0.4); font-size: 10px; line-height: 1.5; }
+      .paper h2 { margin: 0 0 6px; font-size: 13px; }
+      .paper p { margin: 0 0 7px; }
       .paper .ph { color: #8b9097; font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase; }
       .paper .page-hit { background: #dbe6f1; box-shadow: 0 0 0 1px #9bb7d4; border-radius: 2px; }
 
-      /* ---------------------------------------------------- sidebar search */
-      .sidebar-stage { display: flex; gap: 12px; align-items: stretch; }
-
-      .sbar {
-        display: flex;
-        flex-direction: column;
-        flex: 0 0 264px;
-        height: 460px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-panel);
-        background: #131416;
-        overflow: hidden;
-      }
-
-      .sbar-head { display: flex; align-items: center; gap: 4px; padding: 9px 8px 7px; }
-      .sbar-title { flex: 1; font-size: 13px; font-weight: 600; }
-      .sbar-count { color: var(--text-3); font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-      .sbar-field {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        height: 28px;
-        margin: 0 8px 6px;
-        padding: 0 8px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-control);
-        background: var(--surface-1);
-        color: var(--text-1);
-        font-size: 11.5px;
-      }
-
-      .sbar-field svg { color: var(--text-3); }
-      .sbar-field .clear { margin-left: auto; color: var(--text-3); }
-
-      .sbar-scroll { flex: 1; min-height: 0; padding: 0 4px 6px; overflow: hidden; }
-
-      .sbar-group {
-        padding: 7px 8px 3px;
-        color: var(--text-3);
-        font-size: 9.5px;
-        font-weight: 600;
-        letter-spacing: 0.09em;
-        text-transform: uppercase;
-      }
-
-      .sbar-row { padding: 6px 8px; border-radius: var(--r-control); }
-      .sbar-row[data-current="true"] { background: var(--surface-2); }
-      .sbar-row .l1 { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-      .sbar-type { flex: 0 0 auto; color: var(--text-3); font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; }
-      .sbar-name { min-width: 0; overflow: hidden; color: var(--text-1); font-size: 11.5px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
-      .sbar-snippet { display: block; margin-top: 2px; overflow: hidden; color: var(--text-3); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
-      .sbar-snippet b { color: var(--text-1); font-weight: 550; background: var(--accent-soft); border-radius: 2px; }
-      .sbar-foot { padding: 7px 10px; border-top: 1px solid var(--border-1); color: var(--text-3); font-size: 10px; }
-
-      .mini-canvas {
-        flex: 1;
-        min-width: 0;
-        padding: 16px 18px;
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-panel);
-        background: var(--bg-canvas);
-        overflow: hidden;
-      }
-      .mini-canvas .card { width: 100%; }
-      .mini-canvas .chapter-title { font-size: 17px; }
-
-      .note {
-        margin: 12px 0 0;
-        padding: 10px 12px;
-        border-radius: var(--r-control);
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--text-2);
-        font-size: 12px;
-        line-height: 1.6;
-      }
-
+      .note { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--r-control); background: rgba(255,255,255,0.04); color: var(--text-2); font-size: 12px; line-height: 1.6; }
       .note b { color: var(--text-1); font-weight: 600; }
+      .kbd { padding: 0 4px; border: 1px solid var(--border-1); border-radius: 3px; background: var(--surface-1); color: var(--text-2); font-family: var(--mono); font-size: 9.5px; line-height: 14px; }
 
       .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
-
-      .panel-card {
-        border: 1px solid var(--border-1);
-        border-radius: var(--r-panel);
-        background: rgba(255, 255, 255, 0.03);
-        padding: 13px 14px;
-      }
-
+      .panel-card { border: 1px solid var(--border-1); border-radius: var(--r-panel); background: rgba(255,255,255,0.03); padding: 13px 14px; }
       .panel-card h3 { margin: 0 0 9px; font-size: 13px; font-weight: 600; }
       .panel-card p { margin: 0 0 8px; color: var(--text-2); font-size: 12px; line-height: 1.55; }
       .panel-card p:last-child { margin-bottom: 0; }
 
       table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-      td { padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: var(--text-2); vertical-align: top; }
+      td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-2); vertical-align: top; }
       tr:last-child td { border-bottom: 0; }
-      td:first-child { width: 130px; color: var(--text-1); }
+      td:first-child { width: 120px; color: var(--text-1); }
       td:last-child { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
 
       .footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--border-1); color: var(--text-3); font-size: 11px; line-height: 1.6; }
@@ -565,16 +177,16 @@
     <main class="lab">
       <header>
         <p class="eyebrow">Design lab · not coded</p>
-        <h1>Find bar</h1>
+        <h1>Find bar, without the extras</h1>
         <p class="lede">
-          <span class="kbd">⌘F</span> opens a find bar over the current surface. It searches the open
-          note, groups results by chapter and block, and navigates — it is not a query language. Two
-          placements, then the states.
+          The floating bar is the VS Code widget minus the toggles: query, <em>1 of 4</em>, previous and
+          next, close. No case, whole-word, regex or menu. The sidebar is the browsing view: snippets of
+          the blocks where the word appears.
         </p>
         <ul class="rules">
-          <li><b>Navigation, not search</b>Return and ⇧Return move through blocks; Esc puts the selection back.</li>
-          <li><b>One result per block</b>The count is blocks, not every occurrence. The snippet shows the first hit.</li>
-          <li><b>No layout shift</b>The bar floats; Page keeps its zoom, Continuous keeps its flow.</li>
+          <li><b>Bar = find now</b>Type, see the count, move with the arrows, Esc.</li>
+          <li><b>Sidebar = browse</b>Every occurrence, with the phrase around it.</li>
+          <li><b>One engine</b>Case-insensitive, literal text, the open note only.</li>
         </ul>
       </header>
 
@@ -583,20 +195,15 @@
         <div class="v-head">
           <span class="v-index">1</span>
           <h2>Floating bar</h2>
-          <span class="v-tag">recommended · 420 px · top right</span>
+          <span class="v-tag">360 px · VS Code, minus the toggles</span>
         </div>
         <p class="v-sub">
-          A compact bar sits over the surface, 10 px from the top-right corner, with the results
-          panel attached below. Nothing moves: the note keeps its scroll, the page keeps its zoom.
+          Input, count, up/down, close. No results panel: the note is the result. All the matches are
+          highlighted; the current one is stronger, and the view moves to it.
         </p>
-        <div class="pros">
-          <div><b>Good</b>No reflow, no re-fit, no page jump.</div>
-          <div><b>Good</b>Close to the eye and to the scrollbar side.</div>
-          <div><b>Cost</b>It covers the note while open; Esc closes it.</div>
-        </div>
 
         <div class="stage">
-          <span class="stage-label">continuous · results</span>
+          <span class="stage-label">continuous · edit</span>
           <div class="surface">
             <div class="surface-bar">
               <span class="tab">Linear algebra</span>
@@ -605,106 +212,42 @@
             <div class="canvas">
               <p class="chapter">Chapter 1</p>
               <h2 class="chapter-title">Eigenvalues</h2>
-
               <div class="card" data-current="true">
                 <p>
                   A scalar λ is an <span class="hit" data-current="true">eigenvalue</span> of A if there
                   is a nonzero vector v with Av = λv.
                 </p>
               </div>
-
               <div class="card">
                 <p>
                   A nonzero vector v that satisfies Av = λv for some λ is an
                   <span class="hit">eigenvector</span> of A.
                 </p>
               </div>
-
               <div class="card">
                 <p class="muted">Trace and determinant</p>
                 <div class="code">det(A − λI) = 0</div>
               </div>
-
-              <div class="callout">
-                <span class="quote">“eigenvector”</span> · callout from the Eigenvector anchor
-              </div>
             </div>
 
-            <div class="findbar" role="search" aria-label="Find in note">
+            <div class="bar" role="search" aria-label="Find in note">
               <div class="field">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
-                  <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-                </svg>
                 <span class="query">eigen</span>
-                <span class="clear" aria-hidden="true">×</span>
               </div>
-              <span class="count">1 / 4</span>
-              <span class="icon-btn" aria-label="Previous match">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M7.5 2.5L4 6l3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </span>
-              <span class="icon-btn" aria-label="Next match">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M4.5 2.5L8 6l-3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </span>
-              <span class="icon-btn" aria-label="Close find">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-                </svg>
-              </span>
-            </div>
-
-            <div class="findpanel">
-              <div class="fp-scroll">
-                <div class="fp-group">Chapter 1 · Eigenvalues</div>
-                <div class="fp-row" data-current="true">
-                  <span class="fp-type">Text</span>
-                  <div class="fp-main">
-                    <span class="fp-title">Eigenvalues</span>
-                    <span class="fp-snippet">A scalar λ is an <b>eigenvalue</b> of A if there is a nonzero vector v…</span>
-                  </div>
-                </div>
-                <div class="fp-row">
-                  <span class="fp-type">Text</span>
-                  <div class="fp-main">
-                    <span class="fp-title">Eigenvector</span>
-                    <span class="fp-snippet">A nonzero vector v that satisfies Av = λv for some λ is an <b>eigenvector</b>…</span>
-                  </div>
-                </div>
-                <div class="fp-row">
-                  <span class="fp-type">Formula</span>
-                  <div class="fp-main">
-                    <span class="fp-title">Trace and determinant</span>
-                    <span class="fp-snippet">det(A − λI) = 0</span>
-                  </div>
-                </div>
-                <div class="fp-group">Chapter 2 · Spectrum</div>
-                <div class="fp-row">
-                  <span class="fp-type">Anchor</span>
-                  <div class="fp-main">
-                    <span class="fp-title">Spectral theorem</span>
-                    <span class="fp-snippet">Branch from the anchor “<b>eigenvector</b>”</span>
-                  </div>
-                </div>
-              </div>
-              <div class="fp-hint">
-                <span><span class="kbd">↵</span> next</span>
-                <span><span class="kbd">⇧↵</span> previous</span>
-                <span><span class="kbd">esc</span> close</span>
-                <span style="margin-left:auto;">Branches, quotes and chapter titles</span>
-              </div>
+              <span class="count" aria-live="polite">1 of 4</span>
+              <span class="icon-btn" aria-label="Previous match">↑</span>
+              <span class="icon-btn" aria-label="Next match">↓</span>
+              <span class="icon-btn" aria-label="Close find">×</span>
             </div>
           </div>
         </div>
 
         <p class="note">
-          <b>Navigation is explicit.</b> Typing fills the panel and marks the first hit in the note; it
-          does not scroll on every key. <span class="kbd">↵</span> or a click moves to the hit and keeps
-          the panel open. <span class="kbd">esc</span> closes and restores the selection that was active
-          before <span class="kbd">⌘F</span>.
+          <b>Nothing else.</b> No case-sensitive toggle, no whole-word, no regex, no options menu. The
+          count is the occurrences in the note; <span class="kbd">↑</span>/<span class="kbd">↓</span>
+          (or <span class="kbd">⇧↵</span>/<span class="kbd">↵</span>, <span class="kbd">⌘⇧G</span>/<span class="kbd">⌘G</span>)
+          move, <span class="kbd">esc</span> closes and restores the selection. With no match the count
+          reads “No results” and the arrows are disabled.
         </p>
       </section>
 
@@ -712,113 +255,22 @@
       <section class="variant">
         <div class="v-head">
           <span class="v-index">2</span>
-          <h2>Docked strip</h2>
-          <span class="v-tag">alternative · full width</span>
-        </div>
-        <p class="v-sub">
-          The bar becomes a strip under the surface toolbar. It never covers the note, but it takes
-          40 px from the surface: Continuous shifts, and Page re-fits because the available height
-          changed. The results panel hangs below, left-aligned.
-        </p>
-        <div class="pros">
-          <div><b>Good</b>Nothing is covered; the bar is always in the same place.</div>
-          <div><b>Good</b>Reads like a browser's find bar.</div>
-          <div><b>Cost</b>Layout shift, and the page zoom can change on open.</div>
-        </div>
-
-        <div class="stage">
-          <span class="stage-label">continuous · docked</span>
-          <div class="surface docked-surface">
-            <div class="surface-bar">
-              <span class="tab">Linear algebra</span>
-              <span class="mode">Continuous · <b>Edit</b></span>
-            </div>
-            <div class="findstrip">
-              <div class="field">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
-                  <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-                </svg>
-                <span class="query">eigen</span>
-                <span class="clear" aria-hidden="true">×</span>
-              </div>
-              <span class="count">1 / 4</span>
-              <span class="icon-btn" aria-label="Previous match">‹</span>
-              <span class="icon-btn" aria-label="Next match">›</span>
-              <span class="icon-btn" aria-label="Close find">×</span>
-            </div>
-            <div class="canvas">
-              <p class="chapter">Chapter 1</p>
-              <h2 class="chapter-title">Eigenvalues</h2>
-              <div class="card" data-current="true">
-                <p>
-                  A scalar λ is an <span class="hit" data-current="true">eigenvalue</span> of A if there
-                  is a nonzero vector v with Av = λv.
-                </p>
-              </div>
-              <div class="card">
-                <p>
-                  A nonzero vector v that satisfies Av = λv for some λ is an
-                  <span class="hit">eigenvector</span> of A.
-                </p>
-              </div>
-            </div>
-            <div class="docked-panel">
-              <div class="fp-scroll">
-                <div class="fp-group">Chapter 1 · Eigenvalues</div>
-                <div class="fp-row" data-current="true">
-                  <span class="fp-type">Text</span>
-                  <div class="fp-main">
-                    <span class="fp-title">Eigenvalues</span>
-                    <span class="fp-snippet">A scalar λ is an <b>eigenvalue</b> of A…</span>
-                  </div>
-                </div>
-                <div class="fp-row">
-                  <span class="fp-type">Text</span>
-                  <div class="fp-main">
-                    <span class="fp-title">Eigenvector</span>
-                    <span class="fp-snippet">…is an <b>eigenvector</b> of A.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p class="note">
-          <b>Not recommended.</b> The strip changes the surface height; in Page the fit can move, which
-          is exactly the kind of jump the app avoids. It also separates the input from the results
-          when the panel scrolls.
-        </p>
-      </section>
-
-      <!-- ============================================================== 3 -->
-      <section class="variant">
-        <div class="v-head">
-          <span class="v-index">3</span>
           <h2>Search in the sidebar</h2>
-          <span class="v-tag">264 px · persistent list</span>
+          <span class="v-tag">264 px · snippets, not titles</span>
         </div>
         <p class="v-sub">
-          The same matching engine, a different presentation: the results live in the sidebar while
-          the note stays uncovered. It is not the quick find bar; it is the document’s search view,
-          the “Search” section already listed as future in the activity bar.
+          The browsing view: chapter, block, and the phrase around each occurrence. The matched word is
+          emphasised inside the snippet; a block with two matches shows two phrases. Clicking a phrase
+          jumps there; the current one stays filled.
         </p>
-        <div class="pros">
-          <div><b>Good</b>No overlay; the note stays readable.</div>
-          <div><b>Good</b>Full-height list, persistent while browsing.</div>
-          <div><b>Cost</b>264 px truncates snippets; the outline is replaced; two panes to scan.</div>
-        </div>
 
         <div class="stage">
-          <span class="stage-label">sidebar search + canvas</span>
+          <span class="stage-label">search section + canvas</span>
           <div class="sidebar-stage">
             <div class="sbar">
               <div class="sbar-head">
                 <span class="sbar-title">Search</span>
-                <span class="sbar-count">1 / 4</span>
-                <span class="icon-btn" aria-label="Previous match">‹</span>
-                <span class="icon-btn" aria-label="Next match">›</span>
+                <span class="sbar-count">1 of 4</span>
                 <span class="icon-btn" aria-label="Close search">×</span>
               </div>
               <div class="sbar-field">
@@ -826,27 +278,25 @@
                   <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
                   <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
                 </svg>
-                <span>eigen</span>
-                <span class="clear" aria-hidden="true">×</span>
+                eigen
               </div>
               <div class="sbar-scroll">
                 <div class="sbar-group">Chapter 1 · Eigenvalues</div>
+                <div class="sbar-block">Eigenvalues</div>
                 <div class="sbar-row" data-current="true">
-                  <span class="l1"><span class="sbar-type">Text</span><span class="sbar-name">Eigenvalues</span></span>
-                  <span class="sbar-snippet">A scalar λ is an <b>eigenvalue</b> of A if…</span>
+                  <span class="sbar-snippet"><span class="ell">…</span>A scalar λ is an <b>eigenvalue</b> of A if there is a nonzero vector v…</span>
                 </div>
                 <div class="sbar-row">
-                  <span class="l1"><span class="sbar-type">Text</span><span class="sbar-name">Eigenvector</span></span>
-                  <span class="sbar-snippet">…is an <b>eigenvector</b> of A.</span>
+                  <span class="sbar-snippet"><span class="ell">…</span>the <b>eigenvalue</b> λ of the matrix is 1…</span>
                 </div>
+                <div class="sbar-block">Eigenvector</div>
                 <div class="sbar-row">
-                  <span class="l1"><span class="sbar-type">Formula</span><span class="sbar-name">Trace and determinant</span></span>
-                  <span class="sbar-snippet">det(A − λI) = 0</span>
+                  <span class="sbar-snippet"><span class="ell">…</span>a nonzero vector v is an <b>eigenvector</b> of A when Av = λv…</span>
                 </div>
                 <div class="sbar-group">Chapter 2 · Spectrum</div>
+                <div class="sbar-block">Spectral theorem</div>
                 <div class="sbar-row">
-                  <span class="l1"><span class="sbar-type">Anchor</span><span class="sbar-name">Spectral theorem</span></span>
-                  <span class="sbar-snippet">Branch from “<b>eigenvector</b>”</span>
+                  <span class="sbar-snippet"><span class="ell">…</span>branch from the anchor “<b>eigenvector</b>”…</span>
                 </div>
               </div>
               <div class="sbar-foot"><span class="kbd">↵</span> next · <span class="kbd">esc</span> close and return to Outline</div>
@@ -872,52 +322,45 @@
         </div>
 
         <p class="note">
-          <b>Two roles, one engine.</b> The floating bar is the quick find: <span class="kbd">⌘F</span>,
-          find the word, jump, <span class="kbd">esc</span>. The sidebar search is the browsing view:
-          persistent, with the list always visible; it replaces the Outline while active and returns to
-          it on close. I would ship the bar in phase 6 and the sidebar search as the activity bar’s
-          future “Search” section, not mix them in the same batch.
+          <b>Snippets, not labels.</b> Each row is two lines of context around the match (≈ 40 characters
+          before and after), with the block title once above its occurrences. At 264 the snippet clamps
+          to two lines; the count is the occurrences, not the blocks. The sidebar replaces the Outline
+          while the Search section is active and returns to it on close.
         </p>
       </section>
 
-      <!-- ============================================================== 4 -->
+      <!-- ============================================================== 3 -->
       <section class="variant">
         <div class="v-head">
-          <span class="v-index">4</span>
+          <span class="v-index">3</span>
           <h2>States</h2>
-          <span class="v-tag">no matches · page · read</span>
+          <span class="v-tag">no results · page</span>
         </div>
 
         <div class="stage">
-          <span class="stage-label">no matches</span>
-          <div class="surface" style="height: 320px;">
+          <span class="stage-label">no results</span>
+          <div class="surface" style="height: 260px;">
             <div class="surface-bar">
               <span class="tab">Linear algebra</span>
               <span class="mode">Continuous · <b>Edit</b></span>
             </div>
-            <div class="findbar" style="top: 44px;">
-              <div class="field">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
-                  <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-                </svg>
-                <span class="query">xyz</span>
-                <span class="clear" aria-hidden="true">×</span>
-              </div>
-              <span class="count">0</span>
-              <span class="icon-btn" aria-disabled="true" aria-label="Previous match">‹</span>
-              <span class="icon-btn" aria-disabled="true" aria-label="Next match">›</span>
-              <span class="icon-btn" aria-label="Close find">×</span>
+            <div class="canvas" style="height: calc(100% - 34px);">
+              <p class="chapter">Chapter 1</p>
+              <h2 class="chapter-title">Eigenvalues</h2>
             </div>
-            <div class="findpanel" style="top: 88px; max-height: 120px;">
-              <div class="fp-empty">No matches for “xyz”. <span>Try a shorter word.</span></div>
+            <div class="bar" style="top: 44px;">
+              <div class="field"><span class="query">xyz</span></div>
+              <span class="count" data-empty="true">No results</span>
+              <span class="icon-btn" aria-disabled="true" aria-label="Previous match">↑</span>
+              <span class="icon-btn" aria-disabled="true" aria-label="Next match">↓</span>
+              <span class="icon-btn" aria-label="Close find">×</span>
             </div>
           </div>
         </div>
 
         <div class="stage">
-          <span class="stage-label">page · the bar floats, the page stays visible</span>
-          <div class="surface page-surface" style="height: 520px;">
+          <span class="stage-label">page · the bar floats, the page stays</span>
+          <div class="surface page-surface" style="height: 440px;">
             <div class="surface-bar">
               <span class="tab">Linear algebra</span>
               <span class="mode">Page · <b>Read</b></span>
@@ -936,66 +379,37 @@
                 <p class="ph">4</p>
               </div>
             </div>
-            <div class="findbar" style="top: 44px;">
-              <div class="field">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
-                  <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-                </svg>
-                <span class="query">eigen</span>
-                <span class="clear" aria-hidden="true">×</span>
-              </div>
-              <span class="count">1 / 4</span>
-              <span class="icon-btn" aria-label="Previous match">‹</span>
-              <span class="icon-btn" aria-label="Next match">›</span>
+            <div class="bar" style="top: 44px;">
+              <div class="field"><span class="query">eigen</span></div>
+              <span class="count">1 of 4</span>
+              <span class="icon-btn" aria-label="Previous match">↑</span>
+              <span class="icon-btn" aria-label="Next match">↓</span>
               <span class="icon-btn" aria-label="Close find">×</span>
-            </div>
-            <div class="findpanel" style="top: 88px;">
-              <div class="fp-scroll">
-                <div class="fp-group">Chapter 1 · Eigenvalues</div>
-                <div class="fp-row" data-current="true">
-                  <span class="fp-type">Text</span>
-                  <div class="fp-main">
-                    <span class="fp-title">Eigenvalues</span>
-                    <span class="fp-snippet">A scalar λ is an <b>eigenvalue</b> of A…</span>
-                  </div>
-                  <span class="fp-page">p. 4</span>
-                </div>
-                <div class="fp-row">
-                  <span class="fp-type">Text</span>
-                  <div class="fp-main">
-                    <span class="fp-title">Eigenvector</span>
-                    <span class="fp-snippet">…is an <b>eigenvector</b> of A.</span>
-                  </div>
-                  <span class="fp-page">p. 4</span>
-                </div>
-              </div>
-              <div class="fp-hint"><span><span class="kbd">↵</span> next</span><span><span class="kbd">esc</span> close</span></div>
             </div>
           </div>
         </div>
 
         <p class="note">
-          <b>Read mode and Page.</b> The bar is navigation only; no editing chrome appears. In Page the
-          row shows the page, the hit scrolls to that page and the fragment is ringed. Collapsed blocks
-          in Continuous are searchable; jumping to them expands the ancestors.
+          <b>Read mode and Page.</b> The bar is navigation only. In Page it scrolls to the page that
+          holds the block and rings the block; the page keeps its zoom. Collapsed blocks in Continuous
+          are searchable and expand when jumped to.
         </p>
       </section>
 
       <!-- ============================================================== 4 -->
       <section class="variant">
         <div class="v-head">
-          <span class="v-index">5</span>
-          <h2>Anatomy</h2>
-          <span class="v-tag">what is searched and what is shown</span>
+          <span class="v-index">4</span>
+          <h2>Rules</h2>
+          <span class="v-tag">one engine, two presentations</span>
         </div>
 
         <div class="grid-2">
           <div class="panel-card">
-            <h3>Fields</h3>
+            <h3>What is searched</h3>
             <table>
               <tr><td>Block text</td><td>plain text</td></tr>
-              <tr><td>Code</td><td>code text, line by line</td></tr>
+              <tr><td>Code</td><td>code text</td></tr>
               <tr><td>LaTeX</td><td>source, inline and block</td></tr>
               <tr><td>Anchor quotes</td><td>the stored quote</td></tr>
               <tr><td>Branch labels</td><td>the label on the branch</td></tr>
@@ -1003,29 +417,31 @@
             </table>
           </div>
           <div class="panel-card">
-            <h3>Rules</h3>
+            <h3>How it behaves</h3>
             <p>
-              Case-insensitive, no regex, no replace, no library search. One result per block, snippet
-              from the first hit. The panel keeps the last 50 results and says how many are left; the
-              count is the total.
+              Case-insensitive, literal, no regex, no replace, open note only. One result per
+              occurrence; the sidebar groups them by chapter and block with a snippet; the bar counts
+              them and moves through them.
             </p>
             <p>
-              <span class="kbd">⌘F</span> open · <span class="kbd">↵</span> next ·
-              <span class="kbd">⇧↵</span> previous · <span class="kbd">⌘G</span> /
-              <span class="kbd">⌘⇧G</span> next/previous · <span class="kbd">esc</span> close and restore.
+              <span class="kbd">⌘F</span> open · <span class="kbd">↑↓</span> move ·
+              <span class="kbd">↵</span> / <span class="kbd">⇧↵</span> next/previous ·
+              <span class="kbd">⌘G</span> / <span class="kbd">⌘⇧G</span> ·
+              <span class="kbd">esc</span> close and restore.
             </p>
           </div>
         </div>
 
         <p class="note">
-          <b>Not in v1.</b> Replace, regex, filters, accent folding, results across documents, a
-          document-wide search palette. The bar searches the open note only.
+          <b>Build order.</b> The bar is phase 6. The sidebar Search is the activity bar’s future
+          “Search” section: same engine, a persistent list. This lab is the design for both; the code
+          slice can start with the bar.
         </p>
       </section>
 
       <p class="footer">
         Lab only: no application code. The bar is 40 px high with 28 px controls and the app's 4/8 px
-        radii; the results panel is 420 px wide.
+        radii; the sidebar snippets clamp to two lines at 264 px.
       </p>
     </main>
   </body>
