@@ -51,6 +51,18 @@ async function box(selector) {
   });
 }
 
+async function iconCenter(selector) {
+  return page.locator(selector).first().evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+      w: rect.width,
+      h: rect.height,
+    };
+  });
+}
+
 async function css(selector, property) {
   return page.locator(selector).first().evaluate((element, name) => {
     return getComputedStyle(element).getPropertyValue(name);
@@ -257,9 +269,14 @@ describe('V0 visual shell', () => {
       Math.abs(barBox.left - expandedCard.left) < 2,
       'the bar is the card leading column',
     );
+    const expandedFooter = await box('[data-sidebar-foot="true"]');
     assert.ok(
-      Math.abs(barBox.height - expandedCard.height) <= 2,
-      'the bar spans the card height (the card borders are the only inset)',
+      Math.abs(barBox.height + expandedFooter.height - expandedCard.height) <= 2,
+      'the bar and the full-width footer fill the card height',
+    );
+    assert.ok(
+      Math.abs(expandedFooter.width - expandedCard.width) <= 2,
+      'the footer spans the whole card, not the 48 px bar',
     );
     assert.equal(
       await page.locator('.nf-sidebar-tabs, .nf-sidebar-tab').count(),
@@ -275,11 +292,12 @@ describe('V0 visual shell', () => {
       'vertical',
       'the section tablist is vertical',
     );
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 2);
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 3);
     const sectionIcons = {};
     for (const [id, label] of [
       ['library', 'Library'],
       ['outline', 'Outline'],
+      ['health', 'Health'],
     ]) {
       const button = page.locator(`[data-sidebar-tab="${id}"]`);
       assert.equal(await button.getAttribute('aria-label'), label);
@@ -305,14 +323,15 @@ describe('V0 visual shell', () => {
       'the sections stack vertically',
     );
 
-    // Health is an action between the sections and Settings (S1 bridge).
-    const healthButton = page.locator('[data-activity-health="true"]');
-    assert.equal(await healthButton.count(), 1);
-    assert.equal(await healthButton.getAttribute('role'), null, 'Health is not a tab');
-    assert.equal(await healthButton.getAttribute('aria-selected'), null);
-    const healthBox = await box('[data-activity-health="true"]');
+    // Health is the third section tab (S2), below Outline and above nothing
+    // else in the bar; it carries the needs-repair badge only at non-zero.
+    assert.equal(
+      await page.locator('[data-sidebar-tab="health"]').getAttribute('role'),
+      'tab',
+    );
+    const healthBox = await box('[data-sidebar-tab="health"]');
     assert.ok(healthBox.top > (sectionIcons.outline?.top ?? 0), 'Health sits below the sections');
-    assert.ok(healthBox.top < (await box('[data-activity-foot="true"]')).top, 'Health sits above Settings');
+    assert.equal(await page.locator('[data-health-badge]').count(), 0, 'badge hidden at zero');
 
     // Library header: active library name, count, and the one New note `+`.
     const libraryHead = page.locator(
@@ -348,31 +367,34 @@ describe('V0 visual shell', () => {
       { timeout: 10000 },
     );
 
-    // Settings moved from the footer to the bar's bottom group: the footer row
-    // is gone and the gear is the bar's last item behind a 1 px divider.
-    assert.equal(await page.locator('.nf-sidebar-foot').count(), 0, 'the footer row is gone');
-    const settings = page.locator('[data-activity-settings="true"]');
+    // The expanded card restores the full-width Settings footer (S2 Part A):
+    // one gear + label behind a 1 px divider, and no bar foot group.
+    assert.equal(await page.locator('[data-activity-foot="true"]').count(), 0, 'no bar foot expanded');
+    const settings = page.locator('[data-sidebar-settings="true"]');
     assert.equal(await settings.count(), 1);
+    assert.equal(await settings.getAttribute('aria-label'), 'Settings');
+    assert.equal((await settings.innerText()).trim(), 'Settings', 'gear + label');
     assert.equal(
       await page.getByRole('button', { name: 'Settings', exact: true }).count(),
       1,
       'one visible Settings entry in the expanded shell',
     );
-    const footBox = await box('[data-activity-foot="true"]');
-    const settingsBox = await box('[data-activity-settings="true"]');
+    const footBox = await box('[data-sidebar-foot="true"]');
     assert.equal(
       await page
-        .locator('[data-activity-foot="true"]')
+        .locator('[data-sidebar-foot="true"]')
         .evaluate((element) => getComputedStyle(element).borderTopWidth),
       '1px',
       'the Settings divider is visible expanded',
     );
-    assert.ok(Math.abs(footBox.width - 48) < 1, `the divider spans the bar (${footBox.width})`);
-    assert.ok(settingsBox.top > footBox.top, 'the divider sits above the gear');
+    assert.ok(Math.abs(footBox.width - expandedCard.width) <= 2, `the divider spans the card (${footBox.width})`);
+    const footerGear = await iconCenter('[data-sidebar-settings="true"] svg');
+    assert.ok(footerGear.y > footBox.top, 'the gear sits below the divider');
+    assert.equal(footerGear.w, 17, 'the footer gear keeps the 17 px icon');
     const cardBox = await box('.nf-sidebar');
     assert.ok(
-      cardBox.bottom - settingsBox.bottom <= 12,
-      `the Settings group closes the bar (${cardBox.bottom - settingsBox.bottom} px from the bottom)`,
+      cardBox.bottom - footBox.bottom <= 14,
+      `the footer closes the card (${cardBox.bottom - footBox.bottom} px from the bottom)`,
     );
     await settings.click();
     await page.waitForSelector('[data-settings-dialog="true"]');
@@ -502,7 +524,7 @@ describe('V0 visual shell', () => {
         };
       });
     const expandedToggleIcon = await iconCenter('[data-sidebar-toggle="true"] svg');
-    const expandedSettingsIcon = await iconCenter('[data-activity-settings="true"] svg');
+    const expandedSettingsIcon = await iconCenter('[data-sidebar-settings="true"] svg');
     const expandedSectionIcon = await iconCenter('[data-sidebar-tab="library"] svg');
     const expandedBarBox = await box('[data-activity-bar="true"]');
 
@@ -525,10 +547,10 @@ describe('V0 visual shell', () => {
 
     // The bar never hides: the same buttons, the same column.
     assert.equal(await page.locator('[data-activity-bar="true"]').count(), 1);
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 2);
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 3);
     const expand = page.locator('[data-sidebar-expand="true"]');
     const railSettings = page.locator('[data-activity-settings="true"]');
-    const railHealth = page.locator('[data-activity-health="true"]');
+    const railHealth = page.locator('[data-sidebar-tab="health"]');
     await expand.waitFor();
     await railSettings.waitFor();
     assert.equal(await expand.getAttribute('aria-label'), 'Expand sidebar');
@@ -558,10 +580,10 @@ describe('V0 visual shell', () => {
       'the Settings divider is visible collapsed',
     );
     assert.ok(Math.abs(railFoot.width - 48) < 1, `the collapsed divider spans the bar (${railFoot.width})`);
-    assert.ok(railFoot.top > (await box('[data-activity-health="true"]')).bottom - 1);
+    assert.ok(railFoot.top > (await box('[data-sidebar-tab="health"]')).bottom - 1);
     assert.ok(railFoot.bottom <= rail.bottom);
 
-    // No shift: the chevron, both sections and the gear keep their centres and
+    // No shift: the chevron, the three sections and the gear keep their centres and
     // their 17 px icons across the rail transition.
     const railToggleIcon = await iconCenter('[data-sidebar-toggle="true"] svg');
     const railSettingsIcon = await iconCenter('[data-activity-settings="true"] svg');
@@ -768,9 +790,16 @@ describe('V0 visual shell', () => {
     assert.match(await health.innerText(), /1 anchor needs repair/);
     assert.equal(await health.getAttribute('data-health-broken'), '1');
     await health.click();
-    await page.waitForSelector('[data-anchor-health="true"]');
+    await page.waitForSelector(
+      '[data-health-dialog="true"][data-health-row="anchor:v0-health-anchor"]',
+    );
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().sidebarTab),
+      'health',
+      'the status chip opens the Health section',
+    );
     await page.keyboard.press('Escape');
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
 
     // Page: the shared fixed canvas header owns page navigation and Export.
     await showPage();
@@ -1023,10 +1052,10 @@ describe('V0 visual shell', () => {
           librarySearchBackground: background('.nf-library-search'),
           topSearchBackground: background('.nf-sidebar-search'),
           footBorderTop: getComputedStyle(
-            document.querySelector('[data-activity-foot="true"]'),
+            document.querySelector('[data-sidebar-foot="true"]'),
           ).borderTopWidth,
-          settings: box('[data-activity-settings="true"]'),
-          foot: box('[data-activity-foot="true"]'),
+          settings: box('[data-sidebar-settings="true"]'),
+          foot: box('[data-sidebar-foot="true"]'),
         };
         for (const [name, selector] of Object.entries(wanted)) {
           result[name] = box(selector);
@@ -1138,14 +1167,20 @@ describe('V0 visual shell', () => {
     close(outlineGrid.topicsAdd.right, outlineGrid.contentRight - 6, 'Outline add right edge');
     assert.ok(Math.abs((outlineGrid.topicsAddIcon?.width ?? 0) - 13) <= 0.5);
 
-    // Section separation and the bar's Settings group contract.
-    assert.equal(libraryGrid.footBorderTop, '1px', 'the Settings group has a top divider');
+    // Section separation and the expanded Settings footer contract.
+    assert.equal(libraryGrid.footBorderTop, '1px', 'the footer has a top divider');
     assert.ok(
-      libraryGrid.settings.width === 28 && libraryGrid.settings.height === 28,
-      'the Settings gear is the same 28 px bar button',
+      Math.abs(libraryGrid.foot.width - (await box('.nf-sidebar')).width) <= 2,
+      'the footer spans the whole card',
     );
-    assert.ok(libraryGrid.settings.left > libraryGrid.bar.left);
-    assert.ok(libraryGrid.settings.right < libraryGrid.bar.right);
+    const footerGear = await box('[data-sidebar-settings="true"] svg');
+    assert.ok(Math.abs(footerGear.width - 17) <= 0.5, 'the footer gear is 17 px');
+    assert.ok(Math.abs(footerGear.height - 17) <= 0.5, 'the footer gear is 17 px');
+    const footerGearCentre = await iconCenter('[data-sidebar-settings="true"] svg');
+    assert.ok(
+      Math.abs(footerGearCentre.x - (libraryGrid.bar.left + libraryGrid.bar.width / 2)) <= 0.5,
+      'the footer gear keeps the bar column centre',
+    );
     await h.screenshot(resolve(screenshotDir, 'sidebar-expanded-264-selected.png'), {
       width: 1440,
       height: 900,

@@ -2,15 +2,15 @@ import { useMemo } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
-import { currentWordCount } from '../actions';
+import { currentWordCount, openDocumentHealth } from '../actions';
 import { useMarkdownEntry } from '../state/markdown';
 import { isMarkdownPath } from '../../../shared/markdown';
-import { auditDocumentHealth } from '../lib/document-health';
+import { useDocumentHealthReport } from './useDocumentHealth';
 
 /**
  * Minimal status strip (V0): status only, no second toolbar.
  *
- * Save state, word/block counts, and anchor health live here. Layout, mode,
+ * Save state, word/block counts, and Document health live here. Layout, mode,
  * zoom, focus, path, and theme are not repeated: view controls live in the
  * Toolbar, focus is `⇧⌘F`/palette, Reveal in Finder is the tab menu/Settings.
  */
@@ -27,15 +27,7 @@ export function StatusBar(): JSX.Element {
   // One audit feeds both indicators. `runtime.version` advances on collapse and
   // content notifications; the collapsed set itself is view state and is read
   // through that notification (it is mutated in place).
-  const health = useMemo(() => {
-    if (runtime === null) return null;
-    return auditDocumentHealth(runtime.document, {
-      ...(runtime.assetAvailability === undefined
-        ? {}
-        : { assetAvailability: runtime.assetAvailability }),
-      collapsedBlockIds: runtime.collapsed,
-    });
-  }, [runtime, runtime?.document, runtime?.version, runtime?.assetAvailability]);
+  const health = useDocumentHealthReport(runtime);
   const anchorHealth = {
     broken: health?.counts.broken ?? 0,
     ambiguous: health?.counts.ambiguous ?? 0,
@@ -49,8 +41,6 @@ export function StatusBar(): JSX.Element {
   }
   if (info.structure > 0) infoParts.push(`${info.structure} structure`);
   const infoLabel = infoParts.join(' · ');
-  const infoFilter =
-    info.idle > 0 ? 'idle' : info.orphans > 0 ? 'orphans' : 'structure';
   const infoTotal = info.idle + info.orphans + info.structure;
 
   if (markdown !== null) {
@@ -176,14 +166,9 @@ export function StatusBar(): JSX.Element {
           data-health-idle={info.idle}
           data-health-orphans={info.orphans}
           data-health-structure={info.structure}
-          aria-label={`Document health: ${infoLabel}. Open the health sheet.`}
-          title={`${infoLabel} · check document health`}
-          onClick={() =>
-            useShell.getState().openDialog({
-              kind: 'anchor-health',
-              filter: infoFilter,
-            })
-          }
+          aria-label={`Document health: ${infoLabel}. Open the health section.`}
+          title={`${infoLabel} · open document health`}
+          onClick={() => openDocumentHealth()}
         >
           {infoLabel}
         </button>
@@ -199,7 +184,7 @@ export function StatusBar(): JSX.Element {
             anchorHealth.total === 1 ? 'anchor needs' : 'anchors need'
           } repair: ${anchorHealth.broken} broken, ${anchorHealth.ambiguous} ambiguous`}
           title={`${anchorHealth.broken} broken · ${anchorHealth.ambiguous} ambiguous`}
-          onClick={() => useShell.getState().openDialog({ kind: 'anchor-health' })}
+          onClick={() => openDocumentHealth({ openFirstRepair: true })}
         >
           <TriangleAlert size={11} strokeWidth={1.5} aria-hidden="true" />
           {anchorHealth.total} {anchorHealth.total === 1 ? 'anchor needs' : 'anchors need'} repair

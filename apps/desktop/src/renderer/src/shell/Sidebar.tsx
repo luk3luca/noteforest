@@ -41,6 +41,9 @@ import {
 import { recoveryStatusLabel } from '../lib/recovery';
 import { markdownTitleSuffix } from '../lib/library-rows';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
+import { documentHealthBadgeLabel } from '../lib/document-health-sections';
+import { useDocumentHealthReport } from './useDocumentHealth';
+import { HealthSection } from './HealthSection';
 import type { DocumentRuntime } from '../state/runtime';
 import type {
   LibraryDocumentNode,
@@ -53,19 +56,20 @@ import { isMarkdownPath } from '../../../shared/markdown';
 const SIDEBAR_TABS: ReadonlyArray<{ id: SidebarTab; label: string }> = [
   { id: 'library', label: 'Library' },
   { id: 'outline', label: 'Outline' },
+  { id: 'health', label: 'Health' },
 ];
 
 /**
  * The 48 px activity bar (S1). It is the sidebar card's leading column and is
- * rendered in both states, so the section icons, the collapse control, the
- * Health action, and the Settings gear never move across a collapse: only the
- * content column is added or removed.
+ * rendered in both states, so the section icons, the collapse control, and the
+ * Settings gear never move across a collapse: only the content column (and, in
+ * the expanded card, the full-width Settings footer) is added or removed.
  *
- * Library/Outline are a vertical `tablist` (roving tabindex, Up/Down/Home/End,
- * automatic activation) that keeps the `data-sidebar-tab` hooks and the
- * `sidebarTab` store key. Health is an **action** in this slice: it opens the
- * existing Document health sheet and never changes the active section. Settings
- * is the bar's last item, behind a divider in both states.
+ * Library/Outline/Health are a vertical `tablist` (roving tabindex,
+ * Up/Down/Home/End, automatic activation) that keeps the `data-sidebar-tab`
+ * hooks and the `sidebarTab` store key. Health is a **section** in S2: its icon
+ * carries the square needs-repair counter and the list lives in the sidebar.
+ * Settings is the bar's last item (collapsed) or the card footer (expanded).
  */
 function ActivityBar({
   collapsed,
@@ -79,9 +83,14 @@ function ActivityBar({
   const sidebarTab = useShell((state) => state.sidebarTab);
   const setSidebarTab = useShell((state) => state.setSidebarTab);
   const openDialog = useShell((state) => state.openDialog);
+  const activePath = useShell((state) => state.activeTab);
+  const { runtime } = useRuntime(activePath);
+  const health = useDocumentHealthReport(runtime);
+  const needsRepair = health?.counts.needsRepair ?? 0;
   const refs = useRef<Record<SidebarTab, HTMLButtonElement | null>>({
     library: null,
     outline: null,
+    health: null,
   });
 
   const activate = (id: SidebarTab): void => {
@@ -142,7 +151,7 @@ function ActivityBar({
       >
         {SIDEBAR_TABS.map((tab) => {
           const active = sidebarTab === tab.id;
-          const Icon = tab.id === 'library' ? Library : ListTree;
+          const Icon = tab.id === 'library' ? Library : tab.id === 'outline' ? ListTree : Activity;
           return (
             <button
               key={tab.id}
@@ -169,33 +178,37 @@ function ActivityBar({
                 className="nf-activity-icon"
                 aria-hidden="true"
               />
+              {tab.id === 'health' && needsRepair > 0 ? (
+                <span
+                  className="nf-activity-badge"
+                  data-health-badge={needsRepair}
+                  role="status"
+                  aria-label={documentHealthBadgeLabel(needsRepair)}
+                >
+                  {needsRepair}
+                </span>
+              ) : null}
             </button>
           );
         })}
       </div>
-      <button
-        type="button"
-        className="nf-activity-button"
-        data-activity-health="true"
-        aria-label="Document health"
-        title="Document health"
-        onClick={() => openDialog({ kind: 'anchor-health' })}
-      >
-        <Activity size={17} strokeWidth={1.5} className="nf-activity-icon" aria-hidden="true" />
-      </button>
       <div className="nf-activity-spacer" />
-      <div className="nf-activity-foot" data-activity-foot="true">
-        <button
-          type="button"
-          className="nf-activity-button nf-sidebar-settings"
-          data-activity-settings="true"
-          aria-label="Settings"
-          title="Settings (⌘,)"
-          onClick={() => openDialog({ kind: 'settings' })}
-        >
-          <Settings size={17} strokeWidth={1.5} className="nf-activity-icon" aria-hidden="true" />
-        </button>
-      </div>
+      {/* The bar's own Settings group exists only while collapsed (Part A): the
+          expanded card owns the full-width footer and must never show two. */}
+      {collapsed ? (
+        <div className="nf-activity-foot" data-activity-foot="true">
+          <button
+            type="button"
+            className="nf-activity-button"
+            data-activity-settings="true"
+            aria-label="Settings"
+            title="Settings (⌘,)"
+            onClick={() => openDialog({ kind: 'settings' })}
+          >
+            <Settings size={17} strokeWidth={1.5} className="nf-activity-icon" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1171,12 +1184,13 @@ function TopicSection(): JSX.Element {
 
 /**
  * The Sidebar is a persistent column with a 48 px activity bar on its leading
- * edge (S1). The bar renders in both states — the expand/collapse chevron, the
- * Library/Outline tablist, the Document health action, and Settings above a
- * divider — so nothing in it moves when the sidebar collapses. Collapsed, the
- * card is exactly the bar (48 px); expanded, the bar is followed by the search
- * header and the Library/Outline panel. `⌘\` toggles the content and the Toolbar
- * shifts with it.
+ * edge (S1). The bar renders in both states — the expand/collapse chevron and
+ * the Library/Outline/Health tablist — so nothing in it moves when the sidebar
+ * collapses. Collapsed, the card is exactly the bar (48 px) with its own
+ * Settings group behind a divider; expanded, the bar is followed by the search
+ * header and the active section, and the card closes with one **full-width**
+ * Settings footer (1 px divider, gear + label). `⌘\` toggles the content and the
+ * Toolbar shifts with it.
  */
 export function Sidebar({
   collapsed = false,
@@ -1186,6 +1200,7 @@ export function Sidebar({
   onExpand?: () => void;
 } = {}): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);
+  const openDialog = useShell((state) => state.openDialog);
   const sidebarTab = useShell((state) => state.sidebarTab);
   const collapseSidebar = (): void => useShell.getState().setSidebarCollapsed(true);
   const expandSidebar = (): void => {
@@ -1205,31 +1220,54 @@ export function Sidebar({
         aria-label="Sidebar"
         data-collapsed="true"
       >
-        {bar}
+        <div className="nf-sidebar-main">{bar}</div>
       </aside>
     );
   }
 
   return (
     <aside className="nf-sidebar" id="nf-sidebar" aria-label="Sidebar" data-collapsed="false">
-      {bar}
-      <div className="nf-sidebar-content" data-sidebar-content="true">
-        <div className="nf-sidebar-head">
-          <button type="button" className="nf-sidebar-search" onClick={() => openPalette(true)}>
-            <Search size={13} strokeWidth={1.5} aria-hidden="true" />
-            <span>Search</span>
-            <kbd>⌘K</kbd>
-          </button>
+      <div className="nf-sidebar-main">
+        {bar}
+        <div className="nf-sidebar-content" data-sidebar-content="true">
+          <div className="nf-sidebar-head">
+            <button type="button" className="nf-sidebar-search" onClick={() => openPalette(true)}>
+              <Search size={13} strokeWidth={1.5} aria-hidden="true" />
+              <span>Search</span>
+              <kbd>⌘K</kbd>
+            </button>
+          </div>
+          <div
+            className="nf-sidebar-scroll"
+            id="nf-sidebar-panel"
+            role="tabpanel"
+            aria-labelledby={`nf-sidebar-tab-${sidebarTab}`}
+            data-sidebar-panel={sidebarTab}
+          >
+            {sidebarTab === 'library' ? (
+              <LibrarySection />
+            ) : sidebarTab === 'outline' ? (
+              <TopicSection />
+            ) : (
+              <HealthSection />
+            )}
+          </div>
         </div>
-        <div
-          className="nf-sidebar-scroll"
-          id="nf-sidebar-panel"
-          role="tabpanel"
-          aria-labelledby={`nf-sidebar-tab-${sidebarTab}`}
-          data-sidebar-panel={sidebarTab}
+      </div>
+      <div className="nf-sidebar-foot" data-sidebar-foot="true">
+        <button
+          type="button"
+          className="nf-sidebar-settings"
+          data-sidebar-settings="true"
+          aria-label="Settings"
+          title="Settings (⌘,)"
+          onClick={() => openDialog({ kind: 'settings' })}
         >
-          {sidebarTab === 'library' ? <LibrarySection /> : <TopicSection />}
-        </div>
+          <span className="nf-sidebar-settings-icon">
+            <Settings size={17} strokeWidth={1.5} aria-hidden="true" />
+          </span>
+          <span>Settings</span>
+        </button>
       </div>
     </aside>
   );

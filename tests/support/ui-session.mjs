@@ -55,6 +55,12 @@ export function createUiSession({ tempRoot }) {
     await current().waitForSelector('[data-sidebar-panel="library"]');
   }
 
+  /** Switch the expanded sidebar to the Health section (S2). */
+  async function showHealth() {
+    await current().locator('[data-sidebar-tab="health"]').click();
+    await current().waitForSelector('[data-sidebar-panel="health"]');
+  }
+
   async function structure() {
     return current().evaluate(() => window.__noteforestTest.structure());
   }
@@ -284,14 +290,14 @@ export function createUiSession({ tempRoot }) {
     );
   }
 
-  async function openAnchorHealthFromChip() {
+  async function openHealthFromChip() {
     await current().locator('[data-anchor-health-chip]').click();
-    await current().waitForSelector('[data-anchor-health="true"]');
+    await current().waitForSelector('[data-health-dialog="true"]');
   }
 
-  async function openAnchorHealthFromWarning(anchorId) {
+  async function openHealthFromWarning(anchorId) {
     await current().locator(`[data-anchor-warning="${anchorId}"]`).click();
-    await current().waitForSelector(`[data-health-detail="${anchorId}"]`);
+    await current().waitForSelector(`[data-health-dialog="true"][data-health-row="anchor:${anchorId}"]`);
   }
 
   return {
@@ -304,6 +310,7 @@ export function createUiSession({ tempRoot }) {
     seedDemo,
     showOutline,
     showLibrary,
+    showHealth,
     openBlockMenu,
     openBlockMenuFromGutter,
     chooseMenuItem,
@@ -316,8 +323,8 @@ export function createUiSession({ tempRoot }) {
     openTermDialog,
     selectRange,
     waitForHealthChip,
-    openAnchorHealthFromChip,
-    openAnchorHealthFromWarning,
+    openHealthFromChip,
+    openHealthFromWarning,
     get page() {
       return page;
     },

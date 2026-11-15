@@ -138,22 +138,37 @@ describe('activity bar CSS contract', () => {
     }
   });
 
-  it('keeps the Settings divider in both states', () => {
-    // The foot renders in both branches of the bar, so an unconditional border
-    // is a divider in the expanded card and in the collapsed one.
+  it('keeps one Settings divider per state: bar group collapsed, footer expanded', () => {
+    // Collapsed: the bar's own group above a 1 px divider. Expanded: the
+    // full-width footer owns the divider and the bar's group is not rendered.
     expect(declaration('.nf-activity-foot', 'border-top')).toBe(
       '1px solid var(--border-1)',
     );
     expect(declaration('.nf-activity-foot', 'align-self')).toBe('stretch');
     expect(declaration('.nf-activity-foot', 'padding-top')).toBe('8px');
+    expect(declaration('.nf-sidebar-foot', 'border-top')).toBe(
+      '1px solid var(--border-1)',
+    );
+    // The footer row spans the card and puts the gear centre at x 24: 8 px
+    // inset + 2 px start margin + 14 px half of the 28 px box.
+    expect(declaration('.nf-sidebar-foot', 'padding')).toBe('6px 8px 8px');
+    expect(declaration('.nf-sidebar-settings', 'flex')).toBe('1');
+    expect(declaration('.nf-sidebar-settings-icon', 'width')).toBe('28px');
+    expect(declaration('.nf-sidebar-settings-icon', 'height')).toBe('28px');
+    expect(declaration('.nf-sidebar-settings-icon', 'margin-inline-start')).toBe('2px');
   });
 
-  it('removes the segmented control, the header collapse button and the footer', () => {
+  it('keeps the Health counter a square tabular badge, not a pill', () => {
+    expect(declaration('.nf-activity-badge', 'border-radius')).toBe('2px');
+    expect(declaration('.nf-activity-badge', 'font-variant-numeric')).toBe('tabular-nums');
+    expect(declaration('.nf-activity-badge', 'position')).toBe('absolute');
+    expect(declaration('.nf-activity-section', 'position')).toBe('relative');
+  });
+
+  it('removes the segmented control, the header collapse button and the old rail', () => {
     for (const selector of [
       '.nf-sidebar-tabs',
       '.nf-sidebar-tab',
-      '.nf-sidebar-foot',
-      '.nf-sidebar-settings-icon',
       '.nf-rail-head',
       '.nf-rail-foot',
       '.nf-library-file-icon',

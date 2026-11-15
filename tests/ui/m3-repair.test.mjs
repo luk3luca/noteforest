@@ -20,8 +20,8 @@ const {
   applyCommand,
   structure,
   waitForHealthChip,
-  openAnchorHealthFromChip,
-  openAnchorHealthFromWarning,
+  openHealthFromChip,
+  openHealthFromWarning,
 } = ui;
 let page;
 
@@ -56,6 +56,13 @@ const ids = {
     anchor: 'm3e-anchor-code-broken',
   },
 };
+
+async function openHealthRow(anchorId) {
+  await page.locator('[data-sidebar-tab="health"]').click();
+  await page.waitForSelector('[data-sidebar-panel="health"]');
+  await page.locator(`[data-health-row="anchor:${anchorId}"] [data-health-row-button="true"]`).click();
+  await page.waitForSelector(`[data-health-dialog="true"][data-health-row="anchor:${anchorId}"]`);
+}
 
 async function branchIdFor(anchorId) {
   const current = await structure();
@@ -266,34 +273,30 @@ describe('M3e anchor repair and health', () => {
     assert.equal(await chip.getAttribute('data-health-ambiguous'), '3');
     assert.match((await chip.textContent()) ?? '', /5 anchors need repair/);
 
-    await openAnchorHealthFromChip();
-    assert.equal(await page.locator('[data-health-anchor]').count(), 5);
+    await openHealthFromChip();
+    // The status chip opens the first repair row; the sidebar behind is the list.
+    assert.equal(await page.locator('[data-health-dialog="true"]').count(), 1);
+    await page.locator('[data-health-dialog="true"] [data-health-close="true"]').last().click();
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
 
-    const textRow = page.locator(`[data-health-anchor="${ids.text.anchor}"]`);
+    await page.locator('[data-health-section-toggle="true"][data-health-section="anchors"]')
+      .waitFor();
+    assert.equal(await page.locator('[data-health-row][data-health-anchor]').count(), 5);
+    assert.deepEqual(
+      await page.locator('[data-health-row][data-health-anchor]').evaluateAll((rows) =>
+        rows.map((row) => row.getAttribute('data-health-state')),
+      ),
+      ['broken', 'broken', 'ambiguous', 'ambiguous', 'ambiguous'],
+    );
+
+    const textRow = page.locator(`[data-health-row][data-health-anchor="${ids.text.anchor}"]`);
     const textRowText = (await textRow.textContent()) ?? '';
-    assert.match(textRowText, /Ambiguous anchor/);
     assert.match(textRowText, /eigenvalue/);
-    assert.match(textRowText, /Alpha eigenvalue beta eigenvalue gamma/);
-    assert.match(textRowText, /1 branch/);
-
-    await page.locator('[data-health-filter="broken"]').click();
-    assert.equal(await page.locator('[data-health-anchor]').count(), 2);
-    assert.deepEqual(
-      await page.locator('[data-health-anchor]').evaluateAll((rows) =>
-        rows.map((row) => row.getAttribute('data-health-state')),
-      ),
-      ['broken', 'broken'],
+    assert.equal(
+      await textRow.locator('[data-health-branch-count]').getAttribute('data-health-branch-count'),
+      '1',
+      'the branch count is the only number on the row',
     );
-    await page.locator('[data-health-filter="ambiguous"]').click();
-    assert.equal(await page.locator('[data-health-anchor]').count(), 3);
-    assert.deepEqual(
-      await page.locator('[data-health-anchor]').evaluateAll((rows) =>
-        rows.map((row) => row.getAttribute('data-health-state')),
-      ),
-      ['ambiguous', 'ambiguous', 'ambiguous'],
-    );
-    await page.locator('[data-health-filter="all"]').click();
-    assert.equal(await page.locator('[data-health-anchor]').count(), 5);
 
     await mkdir(artifactsPath('m3e'), { recursive: true });
     await h.screenshot(artifactsPath('m3e', 'anchor-health-1440x900.png'), {
@@ -301,8 +304,10 @@ describe('M3e anchor repair and health', () => {
       height: 900,
     });
 
-    await page.locator(`[data-health-navigate="${ids.text.anchor}"]`).click();
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.locator(`[data-health-row][data-health-anchor="${ids.text.anchor}"] [data-health-row-button="true"]`).click();
+    await page.waitForSelector('[data-health-dialog="true"]');
+    await page.locator('[data-health-action="show-in-note"]').click();
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
       ({ blockId, anchorId }) => {
         const current = window.__noteforestTest.state();
@@ -336,9 +341,7 @@ describe('M3e anchor repair and health', () => {
     assert.deepEqual(before.anchors[ids.formula.anchor].selector.latexStart, 0);
     assert.deepEqual(before.anchors[ids.code.anchor].selector.startOffset, 0);
 
-    await openAnchorHealthFromChip();
-    await page.locator(`[data-health-repair="${ids.formula.anchor}"]`).click();
-    await page.waitForSelector(`[data-health-detail="${ids.formula.anchor}"]`);
+    await openHealthRow(ids.formula.anchor);
     assert.equal(await page.locator('[data-health-candidate]').count(), 2);
     const candidateText = (await page.locator('[data-health-candidate="1"]').textContent()) ?? '';
     assert.match(candidateText, /occurrence 2/);
@@ -347,6 +350,7 @@ describe('M3e anchor repair and health', () => {
     // Selecting a candidate only previews the repair. The document is still
     // byte-identical until Confirm, and Cancel leaves it that way.
     await page.locator('[data-health-candidate="1"]').click();
+    await page.locator('[data-health-action="preview-repair"]').click();
     await page.waitForSelector('[data-health-preview="true"]');
     const previewText = (await page.locator('[data-health-preview="true"]').textContent()) ?? '';
     assert.match(previewText, /Before/);
@@ -370,15 +374,16 @@ describe('M3e anchor repair and health', () => {
       width: 1440,
       height: 900,
     });
-    await page.locator('[data-health-preview-cancel="true"]').click();
+    await page.locator('[data-health-preview-back="true"]').click();
     await page.waitForSelector('[data-health-preview="true"]', { state: 'detached' });
-    assert.deepEqual(await structure(), before, 'cancel does not mutate');
-    assert.equal(await page.locator('[data-health-detail]').count(), 1, 'detail stays open');
+    assert.deepEqual(await structure(), before, 'Back does not mutate');
+    assert.equal(await page.locator('[data-health-dialog="true"]').count(), 1, 'the issue stays open');
 
     await page.locator('[data-health-candidate="1"]').click();
+    await page.locator('[data-health-action="preview-repair"]').click();
     await page.waitForSelector('[data-health-preview="true"]');
     await page.locator('[data-health-preview-confirm="true"]').click();
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await waitAnchorSelector(ids.formula.anchor, { latexStart: 10 });
 
     const formulaRepaired = await structure();
@@ -393,18 +398,17 @@ describe('M3e anchor repair and health', () => {
     assert.deepEqual(formulaUndone.anchors[ids.formula.anchor].selector, before.anchors[ids.formula.anchor].selector);
     assert.deepEqual(formulaUndone.branches[formulaBranch], formulaBranchBefore);
 
-    await openAnchorHealthFromChip();
-    await page.locator(`[data-health-repair="${ids.code.anchor}"]`).click();
-    await page.waitForSelector(`[data-health-detail="${ids.code.anchor}"]`);
+    await openHealthRow(ids.code.anchor);
     assert.equal(await page.locator('[data-health-candidate]').count(), 2);
     const codeCandidate = (await page.locator('[data-health-candidate="1"]').textContent()) ?? '';
     assert.match(codeCandidate, /lines 1–1/);
     assert.match(codeCandidate, /eigvals/);
     await page.locator('[data-health-candidate="1"]').click();
+    await page.locator('[data-health-action="preview-repair"]').click();
     await page.waitForSelector('[data-health-preview="true"]');
     assert.equal(await page.locator('[data-health-preview-origin]').getAttribute('data-health-preview-origin'), 'candidate');
     await page.locator('[data-health-preview-confirm="true"]').click();
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await waitAnchorSelector(ids.code.anchor, { startOffset: 10 });
 
     const codeRepaired = await structure();
@@ -463,9 +467,9 @@ describe('M3e anchor repair and health', () => {
     }
 
     const beforeKeep = await structure();
-    await openAnchorHealthFromWarning(ids.brokenText.anchor);
-    await page.locator('[data-health-action="keep-broken"]').click();
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await openHealthFromWarning(ids.brokenText.anchor);
+    await page.locator('[data-health-action="keep"]').click();
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     assert.deepEqual(await structure(), beforeKeep, 'keep broken never mutates the document');
     assert.equal(await page.locator('[data-anchor-health-chip]').count(), 1);
     assert.equal(
@@ -476,11 +480,11 @@ describe('M3e anchor repair and health', () => {
       'keep broken does not hide the warning or health count',
     );
 
-    await openAnchorHealthFromWarning(ids.brokenCode.anchor);
+    await openHealthFromWarning(ids.brokenCode.anchor);
     await page.locator('[data-health-action="attach"]').click();
     await page.waitForSelector('[data-health-confirm="attach"]');
     await page.locator('[data-health-confirm-action="attach"]').click();
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
       ({ anchorId, targetId }) => {
         const current = window.__noteforestTest.structure();
@@ -517,11 +521,11 @@ describe('M3e anchor repair and health', () => {
     assert.ok(afterAttachUndo.blocks[ids.brokenCode.target] !== undefined);
 
     const branchBeforeDelete = await branchIdFor(ids.brokenText.anchor);
-    await openAnchorHealthFromWarning(ids.brokenText.anchor);
+    await openHealthFromWarning(ids.brokenText.anchor);
     await page.locator('[data-health-action="delete-branch"]').click();
     await page.waitForSelector('[data-health-confirm="delete-branch"]');
     await page.locator('[data-health-confirm-action="delete-branch"]').click();
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
       ({ branchId, targetId }) => {
         const current = window.__noteforestTest.structure();
@@ -578,7 +582,7 @@ describe('M3e anchor repair and health', () => {
       'omega',
     );
 
-    await openAnchorHealthFromWarning(ids.brokenText.anchor);
+    await openHealthFromWarning(ids.brokenText.anchor);
     const beforeRelink = await structure();
     await page.locator('[data-health-action="relink"]').click();
     await page.waitForSelector('[data-health-preview="true"]');
@@ -595,9 +599,9 @@ describe('M3e anchor repair and health', () => {
       1,
     );
     assert.deepEqual(await structure(), beforeRelink, 'relink preview does not mutate');
-    await page.locator('[data-health-preview-cancel="true"]').click();
+    await page.locator('[data-health-preview-back="true"]').click();
     await page.waitForSelector('[data-health-preview="true"]', { state: 'detached' });
-    assert.deepEqual(await structure(), beforeRelink, 'relink cancel does not mutate');
+    assert.deepEqual(await structure(), beforeRelink, 'relink Back does not mutate');
     assert.equal(
       (await structure()).anchors[ids.brokenText.anchor].selector.quote,
       'missingword',
@@ -606,7 +610,7 @@ describe('M3e anchor repair and health', () => {
     await page.locator('[data-health-action="relink"]').click();
     await page.waitForSelector('[data-health-preview="true"]');
     await page.locator('[data-health-preview-confirm="true"]').click();
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
       (anchorId) => {
         const current = window.__noteforestTest.structure();

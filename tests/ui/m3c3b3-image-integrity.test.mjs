@@ -271,14 +271,13 @@ describe('NoteForest M3c3b3 image integrity and legacy sources', () => {
     );
 
     await ui.waitForHealthChip(1, 0);
-    await ui.openAnchorHealthFromChip();
-    const row = page.locator(`[data-health-anchor="${anchor.id}"]`);
-    await row.waitFor({ state: 'visible' });
-    assert.match(await row.innerText(), /The image asset is missing\./);
-    await page.locator(`[data-health-repair="${anchor.id}"]`).click();
+    await ui.openHealthFromChip();
+    await page.waitForSelector(
+      `[data-health-dialog="true"][data-health-row="anchor:${anchor.id}"]`,
+    );
     assert.equal(
       await page
-        .locator(`[data-health-detail="${anchor.id}"] [data-health-reason="asset-missing"]`)
+        .locator('[data-health-dialog="true"] [data-health-reason="asset-missing"]')
         .count(),
       1,
     );
@@ -286,7 +285,7 @@ describe('NoteForest M3c3b3 image integrity and legacy sources', () => {
       width: 1440,
       height: 900,
     });
-    await page.locator('.nf-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await page.locator('[data-health-dialog="true"] [data-health-close="true"]').last().click();
 
     // The branch, target, alt, anchor selector, and asset record all survive.
     const after = await ui.structure();
@@ -380,14 +379,13 @@ describe('NoteForest M3c3b3 image integrity and legacy sources', () => {
     assert.equal(probe.loaded, false, 'the protocol did not serve the changed bytes');
 
     await ui.waitForHealthChip(1, 0);
-    await ui.openAnchorHealthFromChip();
-    const row = page.locator(`[data-health-anchor="${anchor.id}"]`);
-    await row.waitFor({ state: 'visible' });
-    assert.match(await row.innerText(), /The image asset changed\./);
-    await page.locator(`[data-health-repair="${anchor.id}"]`).click();
+    await ui.openHealthFromChip();
+    await page.waitForSelector(
+      `[data-health-dialog="true"][data-health-row="anchor:${anchor.id}"]`,
+    );
     assert.equal(
       await page
-        .locator(`[data-health-detail="${anchor.id}"] [data-health-reason="asset-changed"]`)
+        .locator('[data-health-dialog="true"] [data-health-reason="asset-changed"]')
         .count(),
       1,
     );
@@ -395,7 +393,7 @@ describe('NoteForest M3c3b3 image integrity and legacy sources', () => {
       width: 1440,
       height: 900,
     });
-    await page.locator('.nf-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await page.locator('[data-health-dialog="true"] [data-health-close="true"]').last().click();
 
     const after = await ui.structure();
     assert.equal(after.anchors[anchor.id]?.selector.assetId, assetId);

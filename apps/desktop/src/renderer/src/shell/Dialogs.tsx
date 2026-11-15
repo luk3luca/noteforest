@@ -40,7 +40,7 @@ import { backupMetadataLine } from '../lib/backup-restore';
 import type { BackupCandidateView, TrashPreflight } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
 import { Frame } from './DialogFrame';
-import { DocumentHealthDialog, DocumentHealthEmptyDialog } from './DocumentHealthDialog';
+import { HealthRepairDialog } from './HealthRepairDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { TableSizeDialog } from './TableSizeDialog';
 
@@ -632,17 +632,10 @@ export function Dialogs(): JSX.Element | null {
       </Frame>
     );
   }
-  if (dialog.kind === 'anchor-health') {
-    if (runtime === null) {
-      return <DocumentHealthEmptyDialog onClose={close} />;
-    }
+  if (dialog.kind === 'health-issue') {
+    if (runtime === null) return null;
     return (
-      <DocumentHealthDialog
-        runtime={runtime}
-        initialAnchorId={dialog.anchorId}
-        initialFilter={dialog.filter}
-        onClose={close}
-      />
+      <HealthRepairDialog runtime={runtime} rowId={dialog.rowId} onClose={close} />
     );
   }
 

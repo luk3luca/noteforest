@@ -14,8 +14,8 @@ const {
   structure,
   seedDemo,
   waitForHealthChip,
-  openAnchorHealthFromChip,
-  openAnchorHealthFromWarning,
+  openHealthFromChip,
+  openHealthFromWarning,
 } = ui;
 let page;
 
@@ -147,8 +147,9 @@ describe('M3h3 live anchor health and idle removal', () => {
       height: 900,
     });
 
-    await openAnchorHealthFromWarning(ids.live.anchor);
-    const detail = (await page.locator(`[data-health-detail="${ids.live.anchor}"]`).textContent()) ?? '';
+    await openHealthFromWarning(ids.live.anchor);
+    const detail =
+      (await page.locator('[data-health-dialog="true"]').textContent()) ?? '';
     assert.match(detail, /Lost anchor/);
     assert.match(detail, /symmetric/);
     assert.match(detail, /Live target/);
@@ -157,7 +158,7 @@ describe('M3h3 live anchor health and idle removal', () => {
       height: 900,
     });
     await page.keyboard.press('Escape');
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await waitForHealthChip(1, 0);
 
     await page.keyboard.press('Meta+z');
@@ -252,29 +253,45 @@ describe('M3h3 live anchor health and idle removal', () => {
     assert.equal(await page.locator('[data-anchor-health-chip]').count(), 0);
 
     // The chip is hidden when no anchor needs repair, so the palette is the
-    // keyboard path to All anchors.
+    // keyboard path to the Health section.
     await page.keyboard.press('Meta+k');
     await page.waitForSelector('.nf-palette');
-    await page.locator('.nf-palette-input').fill('Check document health');
-    await page.getByRole('option', { name: /Check document health/ }).waitFor({ timeout: 10000 });
+    await page.locator('.nf-palette-input').fill('Document health');
+    await page.getByRole('option', { name: /Document health/ }).first().waitFor({ timeout: 10000 });
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
-    await page.waitForSelector('[data-anchor-health="true"]');
-    await page.waitForFunction(
-      () => document.querySelector('[data-health-filter="all"]')?.textContent?.includes('1') === true,
-      undefined,
-      { timeout: 10000 },
-    );
+    await page.waitForSelector('[data-sidebar-panel="health"]');
 
-    const idleRow = page.locator(`[data-health-anchor="${ids.idle.anchor}"]`);
+    const unusedToggle = page.locator(
+      '[data-health-section-toggle="true"][data-health-section="unused"]',
+    );
+    await unusedToggle.waitFor();
+    if ((await unusedToggle.getAttribute('aria-expanded')) !== 'true') {
+      await unusedToggle.click();
+    }
+
+    const idleRow = page.locator(`[data-health-row="anchor:${ids.idle.anchor}"]`);
     await idleRow.waitFor();
     assert.equal(await idleRow.getAttribute('data-health-state'), 'idle');
     const idleText = (await idleRow.textContent()) ?? '';
-    assert.match(idleText, /Idle anchor/);
-    assert.match(idleText, /This anchor has no branches\./);
-    assert.match(idleText, /0 branches/);
-    assert.equal(await page.locator(`[data-health-repair="${ids.idle.anchor}"]`).count(), 0);
-    assert.equal(await page.locator(`[data-health-remove="${ids.idle.anchor}"]`).count(), 1);
+    assert.equal(idleText.trim(), '“Alpha”', 'the row is the quote only');
+    assert.equal(
+      await idleRow.locator('[data-health-branch-count]').count(),
+      0,
+      'a zero branch count is not rendered',
+    );
+    assert.equal(
+      await page.locator('[data-health-row] [data-health-action]').count(),
+      0,
+      'a row carries no action of its own',
+    );
+    await idleRow.locator('[data-health-row-button="true"]').click();
+    await page.waitForSelector('[data-health-dialog="true"]');
+    const idleDialog = (await page.locator('[data-health-dialog="true"]').innerText()) ?? '';
+    assert.match(idleDialog, /Idle anchor/);
+    assert.match(idleDialog, /This anchor has no branches\./);
+    assert.equal(await page.locator('[data-health-action="remove-anchor"]').count(), 1);
+    assert.equal(await page.locator('[data-health-action="add-branch"]').count(), 1);
 
     await mkdir(artifactsPath('m3h3'), { recursive: true });
     await h.screenshot(artifactsPath('m3h3', 'idle-anchor-health-1440x900.png'), {
@@ -282,9 +299,9 @@ describe('M3h3 live anchor health and idle removal', () => {
       height: 900,
     });
 
-    await pressTabUntilDataAttribute('data-health-remove', ids.idle.anchor);
+    await pressTabUntilDataAttribute('data-health-action', 'remove-anchor');
     await page.keyboard.press('Enter');
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
     await page.waitForFunction(
       (anchorId) => window.__noteforestTest.structure()?.anchors?.[anchorId] === undefined,
       ids.idle.anchor,
@@ -345,11 +362,30 @@ describe('M3h3 live anchor health and idle removal', () => {
       content: textDoc('Delta omega'),
     });
     await waitForHealthChip(1, 0);
-    await openAnchorHealthFromChip();
-    assert.equal(await page.locator(`[data-health-remove="${ids.broken.anchor}"]`).count(), 0);
-    assert.equal(await page.locator(`[data-health-repair="${ids.broken.anchor}"]`).count(), 1);
-    assert.equal(await page.locator(`[data-health-remove="${ids.idle.anchor}"]`).count(), 1);
+    await openHealthFromChip();
+    assert.equal(
+      await page.locator('[data-health-dialog="true"] [data-health-action="remove-anchor"]').count(),
+      0,
+      'a live anchor never offers the idle Remove path',
+    );
+    assert.equal(
+      await page.locator('[data-health-dialog="true"] [data-health-action="delete-anchor"]').count(),
+      1,
+    );
     await page.keyboard.press('Escape');
-    await page.waitForSelector('[data-anchor-health="true"]', { state: 'detached' });
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
+    const finalUnusedToggle = page.locator(
+      '[data-health-section-toggle="true"][data-health-section="unused"]',
+    );
+    if ((await finalUnusedToggle.getAttribute('aria-expanded')) === 'false') {
+      await finalUnusedToggle.click();
+    }
+    await page
+      .locator(`[data-health-row="anchor:${ids.idle.anchor}"] [data-health-row-button="true"]`)
+      .click();
+    await page.waitForSelector('[data-health-dialog="true"]');
+    assert.equal(await page.locator('[data-health-action="remove-anchor"]').count(), 1);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
   });
 });

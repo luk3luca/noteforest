@@ -517,25 +517,26 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
     assert.equal(replaced.blocks[oldTargetId] !== undefined, true);
     await ui.waitForHealthChip(1, 0);
 
-    await ui.openAnchorHealthFromChip();
-    const changedRow = page.locator(`[data-health-anchor="${oldAnchor.id}"]`);
-    await changedRow.waitFor({ state: 'visible' });
-    assert.match(await changedRow.innerText(), /The image asset changed\./);
-    await page.locator(`[data-health-repair="${oldAnchor.id}"]`).click();
+    await ui.openHealthFromChip();
+    await page.waitForSelector(
+      `[data-health-dialog="true"][data-health-row="anchor:${oldAnchor.id}"]`,
+    );
     assert.equal(
-      await page.locator(`[data-health-detail="${oldAnchor.id}"] [data-health-reason="asset-changed"]`).count(),
+      await page
+        .locator('[data-health-dialog="true"] [data-health-reason="asset-changed"]')
+        .count(),
       1,
     );
     assert.equal(await page.locator('[data-health-action="relink"]').count(), 0);
     assert.equal(await page.locator('[data-health-image-repair-note="true"]').count(), 1);
     assert.equal(await page.locator('[data-health-action="attach"]').count(), 1);
-    assert.equal(await page.locator('[data-health-action="keep-broken"]').count(), 1);
+    assert.equal(await page.locator('[data-health-action="keep"]').count(), 1);
     assert.equal(await page.locator('[data-health-action="delete-anchor"]').count(), 1);
     await h.screenshot(resolve(screenshotDir, 'image-anchor-asset-changed-health-1440x900.png'), {
       width: 1440,
       height: 900,
     });
-    await page.locator('.nf-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await page.locator('[data-health-dialog="true"] [data-health-close="true"]').last().click();
 
     // A fresh point on the replaced image proves a second anchor shares the new
     // asset. Deleting the asset record while any image node or image anchor still

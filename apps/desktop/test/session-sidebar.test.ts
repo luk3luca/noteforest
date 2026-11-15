@@ -69,10 +69,43 @@ describe('sidebar tab session state', () => {
     expect((await readSession()).sidebarTab).toBe('library');
   });
 
+  it('persists the Health section as a third sidebar tab', async () => {
+    await writeSession({
+      tabs: [],
+      activeTab: null,
+      sidebarCollapsed: false,
+      sidebarWidth: 264,
+      collapsedTopics: {},
+      sidebarTab: 'health',
+    });
+    expect((await readSession()).sidebarTab).toBe('health');
+    // The session reader is tolerant: a legacy value still opens Library.
+    await fs.writeFile(
+      sessionFile(),
+      JSON.stringify({
+        tabs: [],
+        activeTab: null,
+        sidebarCollapsed: false,
+        sidebarWidth: 264,
+        collapsedTopics: {},
+      }),
+    );
+    expect((await readSession()).sidebarTab).toBe('library');
+  });
+
   it('writes the shell tab into the session without touching document content', () => {
     useShell.setState({ sidebarTab: 'outline' });
     expect(buildSession().sidebarTab).toBe('outline');
+    useShell.setState({ sidebarTab: 'health' });
+    expect(buildSession().sidebarTab).toBe('health');
     useShell.setState({ sidebarTab: 'library' });
     expect(buildSession().sidebarTab).toBe('library');
+  });
+
+  it('accepts Health through the store and rejects unknown tabs', () => {
+    useShell.getState().setSidebarTab('health');
+    expect(useShell.getState().sidebarTab).toBe('health');
+    useShell.getState().setSidebarTab('files' as never);
+    expect(useShell.getState().sidebarTab).toBe('library');
   });
 });
