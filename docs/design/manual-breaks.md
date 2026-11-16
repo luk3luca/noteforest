@@ -147,11 +147,13 @@ happened to contain those ids. That field is a modelling wart.
 Not in scope: a Settings page, a `Remove all` action, drag reordering, a Continuous marker, any change
 to the paginator's algorithm, any schema or `settingsVersion` change.
 
-## 11. Open questions
+## 11. Resolved decisions (16 November 2026)
 
-1. **Row label in the list:** the block's own label when it has one, otherwise its first line — the
-   Outline rule. Accept?
-2. **Broken hints:** keep the row with `Can’t be honoured here.` (recommended, the intent survives) or
-   remove the hint automatically?
-3. **The fifth tab:** is `Breaks` in the activity bar acceptable, or do you prefer it inside the
-   Outline as a mode switch? The bar currently has four entries.
+1. **Row label:** the block's own label when it has one, otherwise its first line — the Outline rule.
+2. **Broken hints keep their row** with `Can’t be honoured here.` The intent survives a density change;
+   the paginator's message goes in the row's `title`.
+3. **`Breaks` is a fifth activity-bar entry.** A mode switch inside the Outline would hide the list, and
+   this is a map of the printed result, not a tree of blocks.
+4. **No Continuous marker.** The checked menu item and the list are the state; R2a's decision holds.
+
+**Lab:** `docs/design/manual-breaks-ui-lab/`.

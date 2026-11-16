@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manual breaks — the cut, the control, the list</title>
+    <style>
+      :root {
+        --bg-app: #101113;
+        --bg-sidebar: #131416;
+        --bg-canvas: #17181a;
+        --surface-1: #1b1d20;
+        --surface-2: #202329;
+        --text-1: #e7e8ea;
+        --text-2: #a6abb2;
+        --text-3: #949aa2;
+        --border-1: #2e3238;
+        --border-2: #6e737a;
+        --danger: #d98b8b;
+        --accent: #7fa6cf;
+        --accent-soft: #22303c;
+        --radius-control: 3px;
+        --radius-card: 4px;
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg-app); color: var(--text-1); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+      body { padding: 22px 16px 56px; }
+      .lab { max-width: 720px; margin: 0 auto; }
+      .eyebrow { margin: 0 0 8px; color: var(--text-3); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+      h1 { margin: 0 0 10px; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+      .lede { margin: 0; max-width: 68ch; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
+      h2 { margin: 38px 0 0; font-size: 16px; font-weight: 600; }
+      .v-sub { margin: 6px 0 12px; max-width: 68ch; color: var(--text-2); font-size: 13px; line-height: 1.6; }
+      .v-note { margin: 8px 0 0; color: var(--text-3); font-size: 11px; line-height: 1.5; }
+      .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .cap { margin: 0 0 6px; color: var(--text-3); font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .frame { border: 1px solid var(--border-1); border-radius: 6px; background: var(--bg-sidebar); padding: 12px; }
+      .frame.bad { outline: 1px dashed rgb(217 139 139 / 0.45); outline-offset: 2px; }
+
+      /* ---------------------------------------------------------- page sketch */
+      .page { position: relative; padding: 10px; border: 1px solid var(--border-1); border-radius: 4px; background: var(--bg-canvas); }
+      .prow { display: flex; gap: 8px; align-items: stretch; }
+      .pcard { flex: 0 0 auto; width: 96px; height: 30px; padding: 5px 7px; border: 1px solid var(--border-1); border-radius: 3px; background: var(--surface-1); color: var(--text-2); font-size: 9.5px; line-height: 1.2; }
+      .pcard.child { width: 74px; }
+      .prow + .prow { margin-top: 8px; }
+      .cut { position: relative; margin: 8px 0; border-top: 1px dashed var(--accent); }
+      .cut span { position: absolute; top: -7px; left: 0; padding: 0 4px; background: var(--bg-canvas); color: var(--accent); font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase; }
+      .cut.bad { border-top-color: var(--danger); }
+      .cut.bad span { color: var(--danger); }
+      .moved { opacity: 0.45; }
+      .disabled-veil { opacity: 0.35; }
+
+      /* ------------------------------------------------------------------ menu */
+      .menu { width: 232px; padding: 4px; border: 1px solid var(--border-1); border-radius: 6px; background: var(--surface-2); box-shadow: 0 8px 24px rgb(0 0 0 / 0.35); }
+      .mi { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 8px; border-radius: var(--radius-control); color: var(--text-2); font-size: 12px; }
+      .mi .check { width: 12px; color: var(--text-1); }
+      .mi:hover { background: var(--surface-1); color: var(--text-1); }
+      .mi[data-disabled="true"] { color: var(--text-3); }
+      .mi .note { display: block; font-size: 10.5px; color: var(--text-3); }
+      .mi.tall { height: auto; padding: 5px 8px; align-items: flex-start; }
+      .sep { height: 1px; margin: 4px 6px; background: var(--border-1); }
+
+      /* --------------------------------------------------------------- sidebar */
+      .sb { display: flex; height: 300px; border: 1px solid var(--border-1); border-radius: 8px; background: var(--bg-sidebar); overflow: hidden; }
+      .bar { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 0 48px; padding: 8px 0; }
+      .ab { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; color: var(--text-3); }
+      .ab[data-active="true"] { background: var(--surface-2); color: var(--text-1); }
+      .ab svg { width: 17px; height: 17px; }
+      .ab[data-active="true"] svg { stroke-width: 1.9; }
+      .dot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+      .col { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+      .scroll { flex: 1; min-height: 0; overflow: hidden; padding: 0 8px 8px; scrollbar-gutter: stable; }
+      .head { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 6px 4px; }
+      .head .title { flex: 1; font-size: 13px; font-weight: 600; }
+      .head .count { color: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+      .row { display: flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 6px; border-radius: var(--radius-control); color: var(--text-2); font-size: 12.5px; }
+      .row:hover { background: var(--surface-1); color: var(--text-1); }
+      .row.two { flex-direction: column; align-items: flex-start; justify-content: center; min-height: 40px; gap: 1px; }
+      .row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .row .sub { color: var(--text-3); font-size: 10.5px; }
+      .row .sub.bad { color: var(--danger); }
+      .row .x { color: var(--text-3); font-size: 12px; }
+      .group { border-top: 1px solid var(--border-1); padding: 8px 0; }
+      .group.first { border-top: 0; padding-top: 2px; }
+      .empty { padding: 6px; color: var(--text-3); font-size: 11px; line-height: 1.5; }
+
+      .panel { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border-1); border-radius: 6px; background: rgb(255 255 255 / 0.02); }
+      .panel p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.55; }
+      .panel p + p { margin-top: 8px; }
+      .panel b { color: var(--text-1); }
+      .footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border-1); color: var(--text-3); font-size: 11px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main class="lab">
+      <header>
+        <p class="eyebrow">Design lab · not coded</p>
+        <h1>Manual breaks — the cut, the control, the list</h1>
+        <p class="lede">
+          The paginator already honours a break and already warns when it cannot. What is missing is a
+          control that tells the truth, a list that makes breaks findable, and cleanup. A break is a
+          <strong>page boundary at the y of a block's row</strong>, not a property of a branch.
+        </p>
+      </header>
+
+      <h2>1 · What the cut does</h2>
+      <p class="v-sub">
+        On the left, a break on a top-level block: the row and everything below move down. On the right,
+        the same block is a child placed <em>beside</em> its parent — it shares the parent's y, so a
+        break there would cut before the parent. That is why the control is not offered there.
+      </p>
+      <div class="pair">
+        <div>
+          <p class="cap">row leader · offered</p>
+          <div class="frame">
+            <div class="page">
+              <div class="prow"><div class="pcard">Prova rapida</div></div>
+              <div class="prow"><div class="pcard">Metodo</div><div class="pcard child">eigenvalue</div></div>
+              <div class="cut"><span>page break here</span></div>
+              <div class="prow moved"><div class="pcard">Chapter 2</div></div>
+              <div class="prow moved"><div class="pcard">…and every sibling after it</div></div>
+            </div>
+          </div>
+          <p class="v-note">The block starts its row, so the cut is unambiguous: everything at or below this y moves.</p>
+        </div>
+        <div>
+          <p class="cap">beside its parent · not offered</p>
+          <div class="frame bad">
+            <div class="page">
+              <div class="prow"><div class="pcard disabled-veil">Prova rapida</div></div>
+              <div class="prow"><div class="pcard disabled-veil">Metodo</div><div class="pcard child">eigenvalue</div></div>
+              <div class="cut bad"><span>would cut here — before “Metodo”</span></div>
+              <div class="prow moved"><div class="pcard">Chapter 2</div></div>
+            </div>
+          </div>
+          <p class="v-note">The child has the parent's y. A hint “before the child” is really “before the parent”: it would take the whole row, which is not what the item says.</p>
+        </div>
+      </div>
+
+      <h2>2 · The menu item</h2>
+      <p class="v-sub">
+        One item in the block menu, in both layouts, with three states. A disabled item keeps the reason
+        on a second line: the rule is learnt once, instead of being ignored in silence.
+      </p>
+      <div class="pair">
+        <div>
+          <p class="cap">block that can start a page</p>
+          <div class="menu">
+            <div class="mi"><span class="check"></span>Indent</div>
+            <div class="mi"><span class="check"></span>Link as reference…</div>
+            <div class="sep"></div>
+            <div class="mi"><span class="check">✓</span>Start on a new page</div>
+            <div class="sep"></div>
+            <div class="mi"><span class="check"></span>Delete block…</div>
+          </div>
+          <p class="v-note">The check is the state. No toolbar button, no palette command.</p>
+        </div>
+        <div>
+          <p class="cap">disabled states</p>
+          <div class="menu">
+            <div class="mi tall" data-disabled="true">
+              <span class="check"></span>
+              <span>Start on a new page
+                <span class="note">Only the block that starts a row can begin a page.</span>
+              </span>
+            </div>
+            <div class="sep"></div>
+            <div class="mi tall" data-disabled="true">
+              <span class="check"></span>
+              <span>Start on a new page
+                <span class="note">A chapter always starts a new page.</span>
+              </span>
+            </div>
+            <div class="sep"></div>
+            <div class="mi tall" data-disabled="true">
+              <span class="check"></span>
+              <span>Start on a new page
+                <span class="note">The note already starts here.</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2>3 · The Breaks section</h2>
+      <p class="v-sub">
+        A fifth activity-bar entry in the sidebar rhythm: title, count, plain navigation rows — a break is
+        not a result, so no card. The page number is the current pagination, recomputed live.
+      </p>
+      <div class="pair">
+        <div>
+          <p class="cap">with breaks</p>
+          <div class="sb">
+            <div class="bar">
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4v16M10 4v16M15 4v16M20 7v13"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h6M4 12h6M4 18h6M14 6h6M14 12h6M14 18h6"/></svg></span>
+              <span class="ab"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L21 21"/></svg></span>
+              <span class="ab" data-active="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8h16M4 16h16"/><path d="M8 12h8"/></svg></span>
+            </div>
+            <div class="col">
+              <div class="scroll">
+                <div class="head"><span class="title">Breaks</span><span class="count">3</span></div>
+                <div class="group first">
+                  <div class="row two">
+                    <span class="lbl">Page 4 · Eigenvalues</span>
+                    <span class="sub">Starts a page</span>
+                  </div>
+                  <div class="row two">
+                    <span class="lbl">Page 9 · Prova rapida</span>
+                    <span class="sub">Starts a page</span>
+                  </div>
+                  <div class="row two" style="background: var(--surface-1)">
+                    <span class="lbl">Page 12 · reading-list</span>
+                    <span class="sub bad">Can’t be honoured here.</span>
+                  </div>
+                  <div class="row two">
+                    <span class="lbl">Page 15 · Metodo</span>
+                    <span class="sub">Starts a page</span>
+                    <span class="x">×</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="v-note">The broken hint keeps its row and says why in one line; the paginator's message is in the <code>title</code>. The <code>×</code> appears on hover and focus, disabled in Read.</p>
+        </div>
+        <div>
+          <p class="cap">empty</p>
+          <div class="sb" style="height: 300px">
+            <div class="bar">
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4v16M10 4v16M15 4v16M20 7v13"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h6M4 12h6M4 18h6M14 6h6M14 12h6M14 18h6"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L21 21"/></svg></span>
+              <span class="ab" data-active="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8h16M4 16h16"/><path d="M8 12h8"/></svg></span>
+            </div>
+            <div class="col">
+              <div class="scroll">
+                <div class="head"><span class="title">Breaks</span><span class="count">0</span></div>
+                <p class="empty">No manual breaks. Start a block on a new page from its menu.</p>
+              </div>
+            </div>
+          </div>
+          <p class="v-note">One line, no illustration, no second paragraph.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <p><b>Decisions taken.</b> The row label is the block's own label, else its first line (the
+        Outline rule). A hint that cannot be honoured keeps its row with <em>Can’t be honoured here.</em>
+        — the intent survives a density change. <code>Breaks</code> is the fifth activity-bar entry: a
+        mode inside the Outline would hide it, and this is a map of the printed result.</p>
+        <p><b>Not in this batch:</b> a Settings page (the global break list is a modelling wart and stays
+        empty by contract), <em>Remove all</em>, reordering, a marker in Continuous, any paginator change.</p>
+      </div>
+
+      <p class="footer">
+        Lab only, no application code. Sidebar rhythm from <code>docs/design/sidebar.md</code> (13/12.5/10.5/9.5,
+        28 px rows, 48 px bar, reserved gutter). Engine facts from <code>packages/layout/src/paginator.ts</code>.
+      </p>
+    </main>
+  </body>
+</html>
