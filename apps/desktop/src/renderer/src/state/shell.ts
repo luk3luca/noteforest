@@ -120,6 +120,12 @@ interface ShellState {
   sidebarCollapsed: boolean;
   sidebarWidth: number;
   sidebarTab: SidebarTab;
+  /**
+   * Section the sidebar showed before Search was activated. Closing the Search
+   * view returns there (Outline when Search was restored directly from a
+   * session and there is no previous section).
+   */
+  sidebarTabBeforeSearch: SidebarTab | null;
   paletteOpen: boolean;
   paletteQuery: string;
   paletteDocumentsOnly: boolean;
@@ -134,9 +140,10 @@ interface ShellState {
   /** The issue row selected in the Health list; survives closing the modal. */
   healthSelectedRowId: string | null;
   /**
-   * Find bar (`⌘F`). The bar is a transient shell surface: `findQuery` is the
-   * debounced query and survives closing (the session keeps the last query),
-   * while the result set and the current index are cleared on close.
+   * Find surface (phase 6). One engine, two presentations: the toolbar cluster
+   * (`findOpen`) and the sidebar Search section share `findQuery`, the result
+   * set and the current index. `findQuery` survives closing (the session keeps
+   * the last query); the results are cleared once no surface shows them.
    */
   findOpen: boolean;
   findQuery: string;
@@ -168,6 +175,8 @@ interface ShellState {
   setSidebarCollapsed: (collapsed: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setSidebarTab: (tab: SidebarTab) => void;
+  /** Close the Search view and return to the section it came from. */
+  closeSearchSection: () => void;
   setHealthSectionOpen: (section: DocumentHealthSectionId, open: boolean) => void;
   toggleHealthSection: (section: DocumentHealthSectionId) => void;
   setHealthSelectedRowId: (rowId: string | null) => void;
@@ -208,6 +217,7 @@ export const useShell = create<ShellState>((set, get) => ({
   sidebarCollapsed: false,
   sidebarWidth: SIDEBAR_SNAP_WIDTH,
   sidebarTab: 'library',
+  sidebarTabBeforeSearch: null,
   paletteOpen: false,
   paletteQuery: '',
   paletteDocumentsOnly: false,
@@ -352,9 +362,33 @@ export const useShell = create<ShellState>((set, get) => ({
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   setSidebarWidth: (width) => set({ sidebarWidth: clampSidebarContentWidth(width) }),
   setSidebarTab: (tab) =>
-    set({
-      sidebarTab:
-        tab === 'outline' || tab === 'health' ? tab : 'library',
+    set((state) => {
+      const next: SidebarTab =
+        tab === 'outline' || tab === 'health' || tab === 'search' ? tab : 'library';
+      // Opening Search remembers the section to return to; any other section
+      // clears the memory so a later Search starts from the current one.
+      const before =
+        next === 'search'
+          ? state.sidebarTab === 'search'
+            ? state.sidebarTabBeforeSearch
+            : state.sidebarTab
+          : null;
+      if (next === state.sidebarTab && before === state.sidebarTabBeforeSearch) return state;
+      return { sidebarTab: next, sidebarTabBeforeSearch: before };
+    }),
+  closeSearchSection: () =>
+    set((state) => {
+      const previous = state.sidebarTabBeforeSearch ?? 'outline';
+      const next: SidebarTab = previous === 'search' ? 'outline' : previous;
+      return {
+        sidebarTab: next,
+        sidebarTabBeforeSearch: null,
+        // The toolbar cluster may still be open; only the last surface clears
+        // the shared result set.
+        ...(state.findOpen
+          ? {}
+          : { findResults: [], findTotal: 0, findTruncated: false, findIndex: -1 }),
+      };
     }),
 
   setHealthSectionOpen: (section, open) =>
@@ -389,13 +423,14 @@ export const useShell = create<ShellState>((set, get) => ({
       findFocusRequest: state.findFocusRequest + 1,
     })),
   closeFind: () =>
-    set({
+    set((state) => ({
       findOpen: false,
-      findResults: [],
-      findTotal: 0,
-      findTruncated: false,
-      findIndex: -1,
-    }),
+      // The sidebar Search is the other presentation of the same result set:
+      // closing the cluster must not empty the browsing list.
+      ...(state.sidebarTab === 'search'
+        ? {}
+        : { findResults: [], findTotal: 0, findTruncated: false, findIndex: -1 }),
+    })),
   setFindQuery: (query) => set({ findQuery: query }),
   setFindResults: (results, total, truncated) =>
     set({
@@ -539,12 +574,21 @@ export const useShell = create<ShellState>((set, get) => ({
 }));
 
 /**
- * The current find hit, or null when the bar is closed or nothing matches.
+ * True while either presentation of the find surface is showing: the toolbar
+ * cluster or the sidebar Search view. Both read the same query and results.
+ */
+export function findSurfaceActive(state: ShellState): boolean {
+  return state.findOpen || state.sidebarTab === 'search';
+}
+
+/**
+ * The current find hit, or null when nothing matches. The result set is the
+ * shared one; the two presentations differ only in whether they render.
  * The object is the one stored in `findResults`, so its identity is stable
  * across unrelated store updates: selecting it never loops React.
  */
 export function currentFindResult(state: ShellState): FindResult | null {
-  if (!state.findOpen || state.findIndex < 0) return null;
+  if (state.findIndex < 0) return null;
   return state.findResults[state.findIndex] ?? null;
 }
 

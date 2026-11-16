@@ -292,12 +292,13 @@ describe('V0 visual shell', () => {
       'vertical',
       'the section tablist is vertical',
     );
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 3);
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 4);
     const sectionIcons = {};
     for (const [id, label] of [
       ['library', 'Library'],
       ['outline', 'Outline'],
       ['health', 'Health'],
+      ['search', 'Search'],
     ]) {
       const button = page.locator(`[data-sidebar-tab="${id}"]`);
       assert.equal(await button.getAttribute('aria-label'), label);
@@ -323,8 +324,9 @@ describe('V0 visual shell', () => {
       'the sections stack vertically',
     );
 
-    // Health is the third section tab (S2), below Outline and above nothing
-    // else in the bar; it carries the needs-repair badge only at non-zero.
+    // Health is the third section tab (S2) and Search the fourth (find
+    // surface v2): both stack in the same column, and Health carries the
+    // needs-repair badge only at non-zero.
     assert.equal(
       await page.locator('[data-sidebar-tab="health"]').getAttribute('role'),
       'tab',
@@ -332,6 +334,9 @@ describe('V0 visual shell', () => {
     const healthBox = await box('[data-sidebar-tab="health"]');
     assert.ok(healthBox.top > (sectionIcons.outline?.top ?? 0), 'Health sits below the sections');
     assert.equal(await page.locator('[data-health-badge]').count(), 0, 'badge hidden at zero');
+    const searchBox = await box('[data-sidebar-tab="search"]');
+    assert.ok(searchBox.top > healthBox.top, 'Search sits below Health');
+    assert.equal(Math.abs(searchBox.left - healthBox.left) < 1, true, 'Search shares the column');
 
     // Library header: active library name, count, and the one New note `+`.
     const libraryHead = page.locator(
@@ -547,7 +552,7 @@ describe('V0 visual shell', () => {
 
     // The bar never hides: the same buttons, the same column.
     assert.equal(await page.locator('[data-activity-bar="true"]').count(), 1);
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 3);
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 4);
     const expand = page.locator('[data-sidebar-expand="true"]');
     const railSettings = page.locator('[data-activity-settings="true"]');
     const railHealth = page.locator('[data-sidebar-tab="health"]');

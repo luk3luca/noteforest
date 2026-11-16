@@ -44,6 +44,7 @@ import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import { documentHealthBadgeLabel } from '../lib/document-health-sections';
 import { useDocumentHealthReport } from './useDocumentHealth';
 import { HealthSection } from './HealthSection';
+import { SearchSection } from './SearchSection';
 import type { DocumentRuntime } from '../state/runtime';
 import type {
   LibraryDocumentNode,
@@ -57,6 +58,7 @@ const SIDEBAR_TABS: ReadonlyArray<{ id: SidebarTab; label: string }> = [
   { id: 'library', label: 'Library' },
   { id: 'outline', label: 'Outline' },
   { id: 'health', label: 'Health' },
+  { id: 'search', label: 'Search' },
 ];
 
 /**
@@ -65,10 +67,12 @@ const SIDEBAR_TABS: ReadonlyArray<{ id: SidebarTab; label: string }> = [
  * Settings gear never move across a collapse: only the content column (and, in
  * the expanded card, the full-width Settings footer) is added or removed.
  *
- * Library/Outline/Health are a vertical `tablist` (roving tabindex,
+ * Library/Outline/Health/Search are a vertical `tablist` (roving tabindex,
  * Up/Down/Home/End, automatic activation) that keeps the `data-sidebar-tab`
  * hooks and the `sidebarTab` store key. Health is a **section** in S2: its icon
  * carries the square needs-repair counter and the list lives in the sidebar.
+ * Search is the find browsing view (fourth icon): it replaces the Outline while
+ * active and returns to the section it came from on close.
  * Settings is the bar's last item (collapsed) or the card footer (expanded).
  */
 function ActivityBar({
@@ -91,6 +95,7 @@ function ActivityBar({
     library: null,
     outline: null,
     health: null,
+    search: null,
   });
 
   const activate = (id: SidebarTab): void => {
@@ -151,7 +156,14 @@ function ActivityBar({
       >
         {SIDEBAR_TABS.map((tab) => {
           const active = sidebarTab === tab.id;
-          const Icon = tab.id === 'library' ? Library : tab.id === 'outline' ? ListTree : Activity;
+          const Icon =
+            tab.id === 'library'
+              ? Library
+              : tab.id === 'outline'
+                ? ListTree
+                : tab.id === 'search'
+                  ? Search
+                  : Activity;
           return (
             <button
               key={tab.id}
@@ -1248,6 +1260,8 @@ export function Sidebar({
               <LibrarySection />
             ) : sidebarTab === 'outline' ? (
               <TopicSection />
+            ) : sidebarTab === 'search' ? (
+              <SearchSection />
             ) : (
               <HealthSection />
             )}

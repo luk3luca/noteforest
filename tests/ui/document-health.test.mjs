@@ -254,7 +254,7 @@ describe('Document health sidebar and repair modal', () => {
     const before = await structure();
 
     // Health is the third section tab, not an action bridge.
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 3);
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 4);
     assert.equal(await page.locator('[data-activity-health="true"]').count(), 0);
     const badge = page.locator('[data-health-badge]');
     assert.equal(await badge.getAttribute('data-health-badge'), '3');
