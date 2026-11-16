@@ -114,3 +114,19 @@ suite plus `tests/ui/suites.mjs`), `docs/reports/find-result-ids.md`.
 
 Summary, root cause confirmed, files changed, checks with timings, pass/fail per criterion, risks, next
 step. One commit; do not merge.
+
+## Follow-up (same surface, after `c9dabd2`)
+
+The text-run collision is fixed; the **atomic** units are not. `code` and `formula` units carry
+`offset: 0`, so two code blocks (or two inline formulas) in the same block that match at the same
+relative offset still collapse to one id — `code:A:1:` twice. Same class of bug, same symptom: a
+duplicate React key can leave an orphan row when the result set shrinks.
+
+- Make the id include **node identity** for the atomic units (the unit's `nodePath`), e.g.
+  `${field}:${owner}:${nodePath.join('.')}:${start}:${suffix}` for `code`/`formula`, keeping the text
+  shape unchanged.
+- Chapter-title and branch-label results keep their own owner and need no change.
+- Tests: one block with two code blocks whose match sits at the same relative offset → two results,
+  two distinct ids; the same for two inline formulas; extend the existing uniqueness test with a
+  fixture that contains both.
+- Out of scope: anything else. Do not touch the offsets, the matching or the sidebar.
