@@ -107,6 +107,7 @@ const SIDEBAR_PREFIXES = [
   '.nf-health',
   '.nf-activity',
   '.nf-topics',
+  '.nf-breaks',
   '.nf-empty-line',
 ] as const;
 

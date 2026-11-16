@@ -793,11 +793,11 @@ describe('find bar (⌘F)', () => {
     await h.setWindowSize(1440, 900);
     await openPackage(env, 'Find search', findDocument());
 
-    // The activity bar lists Search fourth, after Health.
+    // The activity bar lists Search fourth, after Health; Breaks is fifth.
     const tabs = await page
       .locator('[data-sidebar-tab]')
       .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-sidebar-tab')));
-    assert.deepEqual(tabs, ['library', 'outline', 'health', 'search']);
+    assert.deepEqual(tabs, ['library', 'outline', 'health', 'search', 'breaks']);
 
     await openSearchSection();
     assert.equal(await page.evaluate(() => window.__noteforestTest.state().sidebarTab), 'search');
@@ -812,7 +812,7 @@ describe('find bar (⌘F)', () => {
     const iconFills = await page
       .locator('[data-sidebar-tab] svg')
       .evaluateAll((elements) => elements.map((element) => element.getAttribute('fill')));
-    assert.deepEqual(iconFills, ['none', 'none', 'none', 'none']);
+    assert.deepEqual(iconFills, ['none', 'none', 'none', 'none', 'none']);
     const activeStroke = await page
       .locator('[data-sidebar-tab="search"] svg')
       .getAttribute('stroke-width');

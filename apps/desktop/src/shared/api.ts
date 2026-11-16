@@ -482,7 +482,7 @@ export interface SessionTabState {
  * `search` is the find browsing view (phase 6 follow-up); it replaces the
  * Outline while active and remembers the section it came from.
  */
-export type SidebarTab = 'library' | 'outline' | 'health' | 'search';
+export type SidebarTab = 'library' | 'outline' | 'health' | 'search' | 'breaks';
 
 export interface SessionState {
   tabs: SessionTabState[];

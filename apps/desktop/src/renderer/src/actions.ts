@@ -27,6 +27,7 @@ import {
 import {
   flushPendingSettingsEdits,
   flushSettingsWrites,
+  pageOverrideFor,
   useSettingsStore,
 } from './state/settings';
 import { isPathInside } from './lib/paths';
@@ -75,10 +76,20 @@ import { beginImageAnchorAuthoring } from './lib/image-authoring';
 import { insertImageFromDialog, replaceImageFromDialog } from './lib/image-insert';
 import {
   editingEnabledFor,
+  pageSettingsAuthoringEnabled,
   READ_MODE_SUFFIX,
+  READ_MODE_TITLE,
   READ_MODE_TOAST,
 } from './lib/editability';
 import { commitPageEdit } from './page/page-edit-state';
+import { printPageModelSnapshot } from './page/print-model-registry';
+import {
+  continuousRowLeaderIds,
+  manualBreakMenuState,
+  MANUAL_BREAK_LABEL,
+  pageRowLeaderIds,
+  withManualBreakIds,
+} from './lib/manual-breaks';
 import { extractBlockBodies } from './state/editor-projection';
 import { withBody } from './lib/adapter';
 import type { FindResult } from './lib/find';
@@ -1540,6 +1551,9 @@ function readOnlySafeMenuEntry(entry: MenuEntry): boolean {
   return (
     entry.id === 'focus' ||
     entry.id === 'collapse' ||
+    // Page settings, not document content: the entry states its own Read gate
+    // and a " — Read mode" rewrite here would duplicate the reason.
+    entry.id === 'manual-break' ||
     entry.id === 'text-copy' ||
     entry.id === 'text-select-all' ||
     entry.id.startsWith('anchor-select-') ||
@@ -1746,6 +1760,145 @@ export function openImageMenu(
       editingEnabledFor(runtime, shell().viewByDoc[runtime.packagePath]),
     ),
   );
+}
+
+/**
+ * Manual breaks are **page settings**, not document content (`docs/design/
+ * manual-breaks.md` §4): the per-document override lives outside the document
+ * and is not an undo entry. `pageSettingsAuthoringEnabled` is the one gate: the
+ * same rule in both layouts, disabled in Read and read-only documents.
+ */
+function manualBreakAuthoringEnabled(runtime: DocumentRuntime): boolean {
+  return pageSettingsAuthoringEnabled(runtime, shell().viewByDoc[runtime.packagePath]);
+}
+
+/**
+ * The row-leader rule for the current layout (`docs/design/manual-breaks.md`
+ * §3). Page is exact from the mounted page model. Continuous has no page model
+ * by design (R2a), so it uses the measured right/below placement the renderer
+ * already owns; a callout is never offered there because Page can place it in
+ * the parent's right lane (mode A, F11).
+ */
+function isManualBreakRowLeader(runtime: DocumentRuntime, blockId: string): boolean {
+  const document = runtime.document;
+  const layout = shell().viewByDoc[runtime.packagePath]?.layout ?? 'continuous';
+  if (layout === 'page') {
+    const snapshot = printPageModelSnapshot(runtime.packagePath);
+    if (snapshot !== null && snapshot.layout.revision === document.revision) {
+      return pageRowLeaderIds(snapshot.layout).has(blockId);
+    }
+  }
+  const topLevelIds = new Set<string>();
+  for (const chapter of document.chapters) {
+    for (const id of chapter.topLevelBlockIds) topLevelIds.add(id);
+  }
+  const calloutIds = new Set<string>();
+  for (const id of Object.keys(document.blocks)) {
+    if (incomingBranch(document, id)?.source.anchorId !== undefined) calloutIds.add(id);
+  }
+  return continuousRowLeaderIds({
+    topLevelIds,
+    calloutIds,
+    belowIds: runtime.childPlacementBelowIds,
+  }).has(blockId);
+}
+
+/** The one `Start on a new page` entry, with its four states. */
+function manualBreakEntry(runtime: DocumentRuntime, blockId: string): MenuEntry {
+  const stored = useSettingsStore
+    .getState()
+    .resolvedPageSettings(runtime.packagePath, runtime.document.id).manualBreakBeforeBlockIds;
+  const state = manualBreakMenuState({
+    blockId,
+    document: runtime.document,
+    rowLeader: isManualBreakRowLeader(runtime, blockId),
+    stored,
+  });
+  const readOnly = !manualBreakAuthoringEnabled(runtime);
+  const disabled = readOnly || state.disabled;
+  const reason = readOnly ? READ_MODE_TITLE : state.reason;
+  return {
+    id: 'manual-break',
+    label: MANUAL_BREAK_LABEL,
+    checked: state.checked,
+    ...(disabled ? { disabled: true } : {}),
+    ...(reason === null ? {} : { description: reason }),
+    ...(disabled ? {} : { onSelect: () => setManualBreak(blockId, !state.checked) }),
+  };
+}
+
+/**
+ * Write the per-document `manualBreakBeforeBlockIds` override (deduped and
+ * normalized by the settings store). The global default stays `[]` by contract.
+ * The Page Edit overlay is committed first, exactly like every other Page
+ * settings write, so the toggle never paginates an uncommitted buffer.
+ */
+export function setManualBreak(blockId: string, enabled: boolean): void {
+  const runtime = activeRuntime();
+  if (runtime === null || !manualBreakAuthoringEnabled(runtime)) return;
+  const path = runtime.packagePath;
+  const documentId = runtime.document.id;
+  void commitPageEdit(path).then((committed) => {
+    if (!committed) return;
+    // The document may have closed while the commit awaited: never retarget the
+    // write to another active document (UI Sentinel F2 identity rule).
+    if (getRuntime(path) !== runtime) return;
+    if (runtime.document.blocks[blockId] === undefined) return;
+    const state = useSettingsStore.getState();
+    const current = state.resolvedPageSettings(path, documentId).manualBreakBeforeBlockIds;
+    const next = enabled
+      ? [...new Set([...current, blockId])]
+      : current.filter((id) => id !== blockId);
+    if (next.length === current.length && next.every((id, index) => id === current[index])) {
+      return;
+    }
+    state.setPageSettingsOverride(
+      path,
+      withManualBreakIds(pageOverrideFor(state, path, documentId), next),
+      documentId,
+    );
+  });
+}
+
+/**
+ * Reveal one stored break: Page turns to the page that holds the block,
+ * Continuous reveals the block through the same navigation find uses.
+ */
+export function navigateToManualBreak(blockId: string, pageNumber: number | null): void {
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  if (runtime.document.blocks[blockId] === undefined) return;
+  runtime.selectBlock(blockId);
+  const layout = shell().viewByDoc[runtime.packagePath]?.layout ?? 'continuous';
+  if (layout === 'page') {
+    if (pageNumber === null) return;
+    const path = runtime.packagePath;
+    void commitPageEdit(path).then((committed) => {
+      if (!committed || getRuntime(path) !== runtime) return;
+      shell().setDocumentPage(path, pageNumber);
+    });
+    return;
+  }
+  runtime.expandAncestors(blockId);
+  requestAnimationFrame(() => {
+    const scope = document.querySelector('.nf-editor[data-active="true"]');
+    const card = scope?.querySelector<HTMLElement>(
+      `[data-block-card="${CSS.escape(blockId)}"]`,
+    );
+    card?.scrollIntoView({ block: 'center', inline: 'nearest' });
+  });
+}
+
+/**
+ * The Page card menu. Shell-level block authoring is Continuous-only by design
+ * (`editingEnabledFor`), so the card menu carries the one page-settings item
+ * instead of a block menu whose every other row would be disabled.
+ */
+export function openPageCardMenu(blockId: string, anchor: { x: number; y: number }): void {
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  if (runtime.document.blocks[blockId] === undefined) return;
+  shell().openContextMenu(anchor.x, anchor.y, [manualBreakEntry(runtime, blockId)]);
 }
 
 export function openBlockMenu(
@@ -2016,6 +2169,8 @@ export function openBlockMenu(
             : []),
           ...referenceEntries,
         ]),
+    { id: 'sep-manual-break', label: '', separator: true },
+    manualBreakEntry(runtime, blockId),
     { id: 'sep-delete', label: '', separator: true },
     {
       id: 'delete',

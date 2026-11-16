@@ -40,7 +40,7 @@ import {
   buildPageEdgeModel,
   pageCssVariables,
 } from '@noteforest/layout';
-import { openBlockInContinuous } from '../actions';
+import { openBlockInContinuous, openPageCardMenu } from '../actions';
 import { useRuntime } from '../state/registry';
 import { useShell, currentFindResult } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
@@ -222,6 +222,12 @@ function PageFragmentView({
       onDoubleClick={() => {
         if (editingEnabled) onEdit(fragment.blockId);
         else onOpen(fragment.blockId);
+      }}
+      onContextMenu={(event) => {
+        // A page card's menu carries the page-settings item only: shell-level
+        // block authoring is Continuous-only by design (ADR-0007 slice).
+        event.preventDefault();
+        openPageCardMenu(fragment.blockId, { x: event.clientX, y: event.clientY });
       }}
       onKeyDown={onKeyDown}
     >

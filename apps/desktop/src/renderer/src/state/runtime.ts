@@ -82,6 +82,8 @@ import {
 } from '../lib/tree';
 import { indentTarget, outdentTarget } from '../lib/indent';
 import { reorderPairReason, reorderTarget } from '../lib/reorder';
+import { pruneManualBreakIds, withManualBreakIds } from '../lib/manual-breaks';
+import { pageOverrideFor, useSettingsStore } from './settings';
 import type { DocumentGateway } from './document-gateway';
 import { DocumentSession, type ContentChange } from './document-session';
 import { createElectronDocumentGateway } from './electron-document-gateway';
@@ -222,6 +224,13 @@ export class DocumentRuntime {
   private restorePoint: RestorePoint | null;
 
   private ensuredBlocks = false;
+
+  /**
+   * Direct primary children the Continuous renderer measured below their parent
+   * (`useBelowStackPlacement`). View-only placement data: the block menu reads
+   * it for the manual-break row-leader rule and nothing writes it to canonical.
+   */
+  private belowStackIds: ReadonlySet<string> = new Set();
 
   constructor(
     snapshot: OpenDocumentSnapshot,
@@ -742,6 +751,31 @@ export class DocumentRuntime {
     return result;
   }
 
+  /**
+   * Drop manual-break hints whose block no longer exists (`docs/design/
+   * manual-breaks.md` §7). The override is not part of the document history, so
+   * the prune is **recomputed from the current document** after every structural
+   * commit and is never replayed through undo. A hint whose block still exists
+   * but is no longer a row leader stays: the `Breaks` list warns instead.
+   *
+   * Public so the `Breaks` section can also clean up a stale id that an older
+   * build or an external edit left behind (no-op when the list is already
+   * clean).
+   */
+  pruneManualBreaks(): void {
+    const state = useSettingsStore.getState();
+    const override = pageOverrideFor(state, this.packagePath, this.document.id);
+    const ids = override?.manualBreakBeforeBlockIds;
+    if (ids === undefined || ids.length === 0) return;
+    const next = pruneManualBreakIds(ids, new Set(Object.keys(this.document.blocks)));
+    if (next.length === ids.length) return;
+    state.setPageSettingsOverride(
+      this.packagePath,
+      withManualBreakIds(override, next),
+      this.document.id,
+    );
+  }
+
   private async acceptStructural(
     document: Document,
     inverse: DocumentCommand | null | undefined,
@@ -753,6 +787,7 @@ export class DocumentRuntime {
     // structural redo, including the destructive commands whose inverse is
     // still phase 3b work.
     this.session.acceptStructural(document, inverse);
+    this.pruneManualBreaks();
     this.validateSelectedAnchor();
     if (options.rebuild !== false) {
       const target =
@@ -1811,7 +1846,13 @@ export class DocumentRuntime {
    * editor was idle.
    */
   applyChildPlacement(belowChildIds: ReadonlySet<string>): void {
+    this.belowStackIds = new Set(belowChildIds);
     this.projection.applyChildPlacement(belowChildIds);
+  }
+
+  /** The Continuous measured below stack, read-only (manual-break rule). */
+  get childPlacementBelowIds(): ReadonlySet<string> {
+    return this.belowStackIds;
   }
 
   /**
@@ -2554,6 +2595,7 @@ export class DocumentRuntime {
         return { ok: false, message: result.message ?? 'Undo failed.' };
       }
       this.session.acceptUndo(result.document, result.inverse);
+      this.pruneManualBreaks();
       const target = this.projection.resolveFocusContext(focus);
       this.rebuildEditor(target, { restore: focus, resetHistory: true });
       this.reconcileEditor(target);
@@ -2577,6 +2619,7 @@ export class DocumentRuntime {
         return { ok: false, message: result.message ?? 'Redo failed.' };
       }
       this.session.acceptRedo(result.document, result.inverse);
+      this.pruneManualBreaks();
       const target = this.projection.resolveFocusContext(focus);
       this.rebuildEditor(target, { restore: focus, resetHistory: true });
       this.reconcileEditor(target);

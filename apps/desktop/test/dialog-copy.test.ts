@@ -44,6 +44,7 @@ const COPY_MODULES = [
   'src/renderer/src/shell/RecoverySurface.tsx',
   'src/renderer/src/shell/DocumentStatusPanel.tsx',
   'src/renderer/src/shell/SearchSection.tsx',
+  'src/renderer/src/shell/BreaksSection.tsx',
   'src/renderer/src/shell/Sidebar.tsx',
   'src/renderer/src/shell/CanvasHeader.tsx',
   'src/renderer/src/shell/ViewControls.tsx',

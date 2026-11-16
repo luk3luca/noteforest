@@ -3788,7 +3788,8 @@ export async function readSessionWithOverrides(): Promise<SessionRead> {
         sidebarTab:
           raw.sidebarTab === 'outline' ||
           raw.sidebarTab === 'health' ||
-          raw.sidebarTab === 'search'
+          raw.sidebarTab === 'search' ||
+          raw.sidebarTab === 'breaks'
             ? raw.sidebarTab
             : 'library',
         ...(expandedLibraryFolders === undefined ? {} : { expandedLibraryFolders }),

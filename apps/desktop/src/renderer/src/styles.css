@@ -1495,6 +1495,83 @@ button:disabled {
   font-size: var(--sb-result);
 }
 
+/* ---------------------------------------------------------------- breaks */
+/*
+ * The `Breaks` list (`docs/design/manual-breaks.md` §6) is a plain navigation
+ * list in the sidebar rhythm: 28 px rows, no card, no reordering. A broken hint
+ * keeps its row and adds one 10.5 px reason line; the row is then 40 px, the
+ * two-line height the system already owns. The remove `×` is the library row
+ * pattern: 20 px, hover/focus only, disabled in Read but still visible so the
+ * state is explainable.
+ */
+.nf-breaks-section {
+  padding-bottom: 12px;
+}
+
+.nf-breaks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 0 0;
+}
+
+.nf-breaks-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--sb-row-height);
+  border-radius: var(--radius-control);
+}
+
+.nf-breaks-item:hover {
+  background: var(--surface-1);
+}
+
+.nf-breaks-open {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--sb-row-height);
+  padding: 0 6px;
+  border-radius: var(--radius-control);
+  color: var(--text-2);
+  font-size: var(--sb-row);
+  text-align: left;
+}
+
+.nf-breaks-open:hover {
+  color: var(--text-1);
+}
+
+.nf-breaks-item[data-break-broken="true"] .nf-breaks-open {
+  min-height: var(--sb-result-height);
+  padding-block: 4px;
+}
+
+.nf-breaks-line {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--sb-row);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-breaks-note {
+  color: var(--danger);
+  font-size: var(--sb-meta);
+}
+
+.nf-breaks-item:hover .nf-row-menu,
+.nf-breaks-item:focus-within .nf-row-menu {
+  opacity: 1;
+}
+
+.nf-breaks-remove {
+  font-size: var(--sb-row);
+}
+
 /* ------------------------------------------------------------------ topics */
 
 .nf-tree {
@@ -7013,6 +7090,18 @@ body.nf-dragging-block .nf-gutter-handle {
   font-size: calc(10.5px * var(--ui-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The manual-break reason is one full sentence that states the row rule
+   (`docs/design/manual-breaks.md` §4). It wraps to a second line instead of
+   truncating the rule; every other menu keeps the single ellipsized line. */
+.nf-menu-item[data-menu-entry="manual-break"] {
+  padding-block: 4px;
+}
+
+.nf-menu-item[data-menu-entry="manual-break"] .nf-menu-description {
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .nf-menu-item-focused {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ContentNode, NoteDocument } from '../src/index.js';
 import {
   createEstimatedMeasurement,
   layoutDocument,
@@ -166,5 +167,156 @@ describe('paginator', () => {
     expect(pages.pageCount).toBeGreaterThan(0);
     expect(pages.pages.every((page) => page.fragments.length > 0)).toBe(true);
     expect(assertSegmentsAtomic(pages, layout)).toEqual([]);
+  });
+});
+
+/**
+ * Manual break hints (`docs/design/manual-breaks.md`). The engine is not
+ * changed: these are the three cut-model facts the control depends on.
+ *
+ * The fixture is the F11 shape: a short top-level block with a **right**
+ * child, then a narrow-but-tall top-level block with its own right child.
+ * A right child shares its parent's y, so a hint "before the child" is really
+ * "before the parent" and the whole row moves.
+ */
+function manualBreakDocument(): NoteDocument {
+  const paragraph = (value: string): ContentNode => ({
+    type: 'doc',
+    children: [{ type: 'paragraph', children: [{ type: 'text', text: value }] }],
+  });
+  const code = (): ContentNode => ({
+    type: 'doc',
+    children: [
+      {
+        type: 'codeBlock',
+        attrs: {
+          language: 'ts',
+          text: Array.from({ length: 24 }, (_, index) => `x${index}`).join('\n'),
+        },
+      },
+    ],
+  });
+  return {
+    schemaVersion: 2,
+    id: 'manual-breaks',
+    title: 'Manual breaks',
+    blocks: {
+      root: { id: 'root', label: 'Root', content: paragraph('Root') },
+      beside: { id: 'beside', label: 'Beside', content: paragraph('Beside') },
+      tall: { id: 'tall', label: 'Tall', content: code() },
+      'tall-child': { id: 'tall-child', label: 'Child', content: paragraph('Child') },
+      tail: { id: 'tail', label: 'Tail', content: paragraph('Tail') },
+      second: { id: 'second', label: 'Second', content: paragraph('Second') },
+      'second-tall': { id: 'second-tall', label: 'Second tall', content: code() },
+      'second-child': {
+        id: 'second-child',
+        label: 'Second child',
+        content: paragraph('Second child'),
+      },
+    },
+    anchors: {},
+    branches: {
+      'root-beside': {
+        id: 'root-beside',
+        source: { blockId: 'root' },
+        targetBlockId: 'beside',
+        role: 'primary',
+        order: 'a',
+      },
+      'tall-child': {
+        id: 'tall-child',
+        source: { blockId: 'tall' },
+        targetBlockId: 'tall-child',
+        role: 'primary',
+        order: 'a',
+      },
+      'second-child': {
+        id: 'second-child',
+        source: { blockId: 'second-tall' },
+        targetBlockId: 'second-child',
+        role: 'primary',
+        order: 'a',
+      },
+    },
+    chapters: [
+      { id: 'chapter-1', title: 'One', topLevelBlockIds: ['root', 'tall', 'tail'] },
+      { id: 'chapter-2', title: 'Two', topLevelBlockIds: ['second', 'second-tall'] },
+    ],
+    assets: {},
+  } as NoteDocument;
+}
+
+function manualBreakRun(hints: string[] = []): {
+  layout: ReturnType<typeof layoutDocument>;
+  pages: ReturnType<typeof paginate>;
+} {
+  const document = manualBreakDocument();
+  const layout = layoutDocument(
+    document,
+    createEstimatedMeasurement(document),
+    {},
+    FIXTURE_PAGE_SETUP,
+  );
+  return {
+    layout,
+    pages: paginate(layout, document, { manualBreakBeforeBlockIds: hints }),
+  };
+}
+
+describe('manual break hints', () => {
+  it('cuts before the parent when the hint is on a child placed beside it', () => {
+    const base = manualBreakRun();
+    const tall = base.layout.blockById['tall']!;
+    const child = base.layout.blockById['tall-child']!;
+    expect(child.placement).toBe('right');
+    expect(child.y).toBeCloseTo(tall.y, 6);
+    const basePage = base.pages.pages.find((page) =>
+      page.fragments.some((fragment) => fragment.blockId === 'tall'),
+    )!;
+    expect(basePage.pageNumber).toBe(1);
+
+    const hinted = manualBreakRun(['tall-child']);
+    expect(hinted.pages.manualBreakWarnings).toEqual([]);
+    // Page 1 now ends at the hinted row: the parent moved with the child.
+    const first = hinted.pages.pages[0]!;
+    expect(first.fragments.map((fragment) => fragment.blockId).sort()).toEqual([
+      'beside',
+      'root',
+    ]);
+    expect(first.fragments.some((fragment) => fragment.blockId === 'tall')).toBe(false);
+    const second = hinted.pages.pages[1]!;
+    expect(second.yStart).toBeCloseTo(tall.y, 6);
+    const fragment = second.fragments.find((candidate) => candidate.blockId === 'tall')!;
+    expect(fragment.isFirst).toBe(true);
+    expect(hinted.pages.pages.some((page) => page.fragments.some((item) => item.blockId === 'tall-child'))).toBe(true);
+  });
+
+  it('accepts a hint at y = 0 without a page or a warning', () => {
+    const base = manualBreakRun();
+    const hinted = manualBreakRun(['root']);
+    expect(hinted.pages.pageCount).toBe(base.pages.pageCount);
+    expect(hinted.pages.pages.map((page) => page.yStart)).toEqual(
+      base.pages.pages.map((page) => page.yStart),
+    );
+    expect(hinted.pages.manualBreakWarnings).toEqual([]);
+    expect(hinted.pages.defects.some((defect) => defect.code === 'impossible-hint')).toBe(false);
+  });
+
+  it('ignores a hint owned by another chapter while paginating this one', () => {
+    const hinted = manualBreakRun(['second-child']);
+    const baseOnly = manualBreakRun();
+    // Chapter 1 is untouched by the foreign hint: no cut, no warning.
+    const chapterOne = (pages: ReturnType<typeof paginate>): number[] =>
+      pages.pages
+        .filter((page) => page.chapterId === 'chapter-1')
+        .map((page) => Math.round(page.yStart));
+    expect(chapterOne(hinted.pages)).toEqual(chapterOne(baseOnly.pages));
+    expect(hinted.pages.manualBreakWarnings).toEqual([]);
+    // The hint is honoured inside its own chapter, before the parent whose row
+    // the child shares; it never creates a page in chapter 1.
+    const secondTall = hinted.layout.blockById['second-tall']!;
+    const chapterTwo = hinted.pages.pages.filter((page) => page.chapterId === 'chapter-2');
+    expect(chapterTwo[0]!.yStart).toBe(0);
+    expect(chapterTwo.some((page) => Math.abs(page.yStart - secondTall.y) < 0.25)).toBe(true);
   });
 });

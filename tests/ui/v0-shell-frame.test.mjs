@@ -292,13 +292,15 @@ describe('V0 visual shell', () => {
       'vertical',
       'the section tablist is vertical',
     );
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 4);
+    // Five section entries: Library, Outline, Health, Search, Breaks.
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 5);
     const sectionIcons = {};
     for (const [id, label] of [
       ['library', 'Library'],
       ['outline', 'Outline'],
       ['health', 'Health'],
       ['search', 'Search'],
+      ['breaks', 'Breaks'],
     ]) {
       const button = page.locator(`[data-sidebar-tab="${id}"]`);
       assert.equal(await button.getAttribute('aria-label'), label);
@@ -586,7 +588,7 @@ describe('V0 visual shell', () => {
 
     // The bar never hides: the same buttons, the same column.
     assert.equal(await page.locator('[data-activity-bar="true"]').count(), 1);
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 4);
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 5);
     const expand = page.locator('[data-sidebar-expand="true"]');
     const railSettings = page.locator('[data-activity-settings="true"]');
     const railHealth = page.locator('[data-sidebar-tab="health"]');
