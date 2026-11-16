@@ -27,10 +27,13 @@
  * Offsets are Unicode code points. A text match reports **block-absolute**
  * offsets (`unit.offset + match.start`), so every occurrence in a block has its
  * own id even when separate text runs start with the same word; `snippetStart`
- * keeps the run-relative offset the snippet splitter needs. `occurrence` is the
- * 0-based index among the block's text-node matches and is what the Continuous
- * decoration uses to mark the current hit without a second model→editor
- * projection.
+ * keeps the run-relative offset the snippet splitter needs. Code and formula
+ * units are atomic and keep a node-relative offset, so their id also carries
+ * the unit's node path: two code blocks (or two inline formulas) in one block
+ * that match at the same relative offset still get distinct ids. `occurrence`
+ * is the 0-based index among the block's text-node matches and is what the
+ * Continuous decoration uses to mark the current hit without a second
+ * model→editor projection.
  *
  * The order is the outline order (D3): chapters, the chapter title, its
  * top-level blocks, then each block's children depth-first with anchored
@@ -64,7 +67,10 @@ export interface FindResult {
   /**
    * Stable per occurrence: field + owner + block-absolute offset (+ anchor or
    * branch id). A text match in a different run gets a different absolute
-   * offset, so the sidebar list can use the id as a React key.
+   * offset, so the sidebar list can use the id as a React key. Code and formula
+   * results insert their node path after the owner (`code:A:2.0:4:`) because
+   * those units report a node-relative offset: two of them in one block can
+   * share `start`, and node identity is what keeps the ids apart.
    */
   id: string;
   kind: FindKind;
@@ -627,6 +633,7 @@ interface ScanState {
 function pushResult(
   state: ScanState,
   result: Omit<FindResult, 'id'>,
+  scope = '',
 ): void {
   state.total += 1;
   if (state.results.length >= state.limit) return;
@@ -634,8 +641,22 @@ function pushResult(
   const suffix = result.anchorId ?? result.branchId ?? '';
   state.results.push({
     ...result,
-    id: `${result.field}:${owner}:${result.start}:${suffix}`,
+    id: `${result.field}:${owner}:${scope}${result.start}:${suffix}`,
   });
+}
+
+/**
+ * The id segment that gives an **atomic** unit node identity, or `''` for a
+ * text run. Code and formula units report a node-relative offset, so two of
+ * them in one block that match at the same relative offset agree on `start`;
+ * their node path keeps the ids apart. Text runs already get a unique id from
+ * the block-absolute offset, so their shape is unchanged.
+ *
+ * The segment ends with `:`, so the path sits between the owner and the offset:
+ * `code:A:2.0:4:` (field, owner, node path, offset, anchor/branch suffix).
+ */
+function unitIdScope(unit: FindSearchUnit): string {
+  return unit.kind === 'text' ? '' : `${unit.nodePath.join('.')}:`;
 }
 
 function scanBlock(
@@ -672,20 +693,25 @@ function scanBlock(
       // Only text and code have a text node the decoration can mark; an
       // anchor hit inside either still advances the block's occurrence count.
       const textNode = unit.kind === 'text' || unit.kind === 'code';
-      pushResult(state, {
-        kind: anchor === undefined ? unit.kind : 'anchor',
-        field: unit.kind,
-        blockId: block.id,
-        chapterId,
-        ...(anchor === undefined ? {} : { anchorId: anchor.anchorId }),
-        // Block-absolute for text (the projection offset makes the id unique
-        // across runs); code and formula units start at their own offset 0.
-        start: unit.offset + match.start,
-        end: unit.offset + match.end,
-        snippetStart: match.start,
-        occurrence: textNode ? occurrence : 0,
-        snippet: findSnippet(unit.text, match.start, match.end),
-      });
+      pushResult(
+        state,
+        {
+          kind: anchor === undefined ? unit.kind : 'anchor',
+          field: unit.kind,
+          blockId: block.id,
+          chapterId,
+          ...(anchor === undefined ? {} : { anchorId: anchor.anchorId }),
+          // Block-absolute for text (the projection offset makes the id unique
+          // across runs); code and formula units start at their own offset 0,
+          // so their id carries the node path instead (`unitIdScope`).
+          start: unit.offset + match.start,
+          end: unit.offset + match.end,
+          snippetStart: match.start,
+          occurrence: textNode ? occurrence : 0,
+          snippet: findSnippet(unit.text, match.start, match.end),
+        },
+        unitIdScope(unit),
+      );
       if (textNode) occurrence += 1;
     }
   }
