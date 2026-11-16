@@ -721,8 +721,8 @@ button:disabled {
 }
 
 .nf-canvas-panel {
-  /* Find bar host (phase 6): the bar floats at the canvas top-right and never
-     participates in the canvas flow or the Page zoom. */
+  /* The canvas card. The find cluster lives inside the canvas header, so it
+     never overlays the note or the Page zoom. */
   position: relative;
   display: flex;
   flex: 1;
@@ -4234,30 +4234,25 @@ body.nf-dragging-block .nf-gutter-handle {
 /* -------------------------------------------------------------------- find */
 
 /*
- * Floating find bar (phase 6, docs/design/find-bar.md §2). 360 × 40, 10 px from
- * the canvas top-right corner, 8 px radius, shadow. It floats over the note:
- * it is not in the canvas flow, it is not part of Page, and the PDF never sees
- * it. Anatomy is query + count + previous/next + close, nothing else.
+ * Toolbar find cluster (docs/design/find-bar.md §2). One 28 px cluster inside
+ * the 34 px canvas toolbar, between undo/redo and the layout/mode controls: no
+ * card, no shadow, no extra row, nothing overlays the note or the page. The
+ * input shrinks first at narrow widths; the count, arrows and close stay.
+ * Anatomy is query + count + previous/next + close, nothing else.
  */
 .nf-find-bar {
-  position: absolute;
-  top: 44px;
-  right: 10px;
-  z-index: 6;
   display: flex;
   align-items: center;
   gap: 2px;
-  width: 360px;
-  height: 40px;
-  padding: 0 6px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-panel);
-  background: var(--surface-3);
-  box-shadow: var(--shadow-toast);
+  flex: 0 1 360px;
+  min-width: 0;
+  max-width: 360px;
+  height: 28px;
+  padding: 0 1px;
 }
 
 .nf-find-input {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   height: 28px;
   padding: 0 8px;
@@ -4295,9 +4290,9 @@ body.nf-dragging-block .nf-gutter-handle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
@@ -4332,6 +4327,142 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-find-hit-current {
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+/*
+ * Sidebar Search (docs/design/find-bar.md §3). The browsing presentation: header
+ * (title, occurrence count, close), a 28 px field, then chapter → block →
+ * occurrence rows with a two-line snippet. The match is emphasised; code and
+ * LaTeX snippets use the mono face. The current row is filled.
+ */
+.nf-search-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 2px 6px 4px;
+}
+
+.nf-search-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-1);
+  font-size: calc(13px * var(--ui-scale));
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.nf-search-count {
+  color: var(--text-3);
+  font-size: calc(10.5px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.nf-search-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin: 0 0 6px;
+  padding: 0 6px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-3);
+}
+
+.nf-search-field:focus-within {
+  border-color: var(--border-2);
+}
+
+.nf-search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  outline: none;
+  color: var(--text-1);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.nf-search-field input::placeholder {
+  color: var(--text-3);
+}
+
+.nf-search-field input:disabled {
+  color: var(--text-3);
+}
+
+.nf-search-results {
+  padding: 0;
+}
+
+.nf-search-group-label {
+  padding: 7px 6px 3px;
+  color: var(--text-3);
+  font-size: calc(9.5px * var(--ui-scale));
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.nf-search-block-title {
+  padding: 4px 6px 2px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: calc(10.5px * var(--ui-scale));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-search-row {
+  display: block;
+  width: 100%;
+  padding: 5px 6px 6px;
+  border-radius: var(--radius-control);
+  color: var(--text-2);
+  text-align: start;
+}
+
+.nf-search-row:hover {
+  background: var(--surface-1);
+}
+
+.nf-search-row[data-search-current="true"] {
+  background: var(--surface-2);
+}
+
+.nf-search-row:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: -2px;
+}
+
+.nf-search-snippet {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: calc(11px * var(--ui-scale));
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.nf-search-snippet-mono {
+  font-family: var(--mono-font);
+}
+
+.nf-search-match {
+  border-radius: 2px;
+  background: var(--accent-soft);
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.nf-search-ell {
+  color: var(--text-3);
 }
 
 /* ---------------------------------------------------------------- overlays */

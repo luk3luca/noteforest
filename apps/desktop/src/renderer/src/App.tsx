@@ -13,7 +13,7 @@ import {
   exportFlowHistory,
   useExportUi,
 } from './export/export-flow';
-import { useShell, type TabInfo } from './state/shell';
+import { useShell, findSurfaceActive, type TabInfo } from './state/shell';
 import {
   dirtyMarkdownFiles,
   useAnyMarkdownDirty,
@@ -290,6 +290,11 @@ export function App(): JSX.Element {
         state.setSidebarCollapsed(data.session.sidebarCollapsed);
         state.setSidebarWidth(data.session.sidebarWidth);
         state.setSidebarTab(data.session.sidebarTab);
+        // A restored Search section has no previous section: closing it falls
+        // back to the Outline instead of the store's pre-restore default.
+        if (data.session.sidebarTab === 'search') {
+          useShell.setState({ sidebarTabBeforeSearch: null });
+        }
         state.setExpandedLibraryFolders(data.session.expandedLibraryFolders ?? []);
         for (const [packagePath, ids] of Object.entries(data.session.collapsedTopics)) {
           state.setCollapsedTopics(packagePath, ids);
@@ -518,9 +523,10 @@ export function App(): JSX.Element {
         return;
       }
       if (key === 'g' && !event.altKey) {
-        // ⌘G / ⇧⌘G move the current find hit; with the bar closed they do
-        // nothing (there is no search to move through).
-        if (!useShell.getState().findOpen) return;
+        // ⌘G / ⇧⌘G move the current find hit. Both presentations of the find
+        // surface own that hit; with neither showing there is no search to
+        // move through.
+        if (!findSurfaceActive(useShell.getState())) return;
         event.preventDefault();
         event.stopPropagation();
         if (event.shiftKey) findPrevious();

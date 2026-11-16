@@ -100,7 +100,7 @@ describe('Library surface', () => {
       await page.locator('[data-sidebar-tabs]').getAttribute('aria-orientation'),
       'vertical',
     );
-    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 3);
+    assert.equal(await page.locator('[data-sidebar-tabs] [role="tab"]').count(), 4);
     assert.equal(
       await page.locator('.nf-sidebar-tabs').count(),
       0,
@@ -241,7 +241,7 @@ describe('Library surface', () => {
       });
     assert.equal(focusRing.width, '2px', 'the focused section has a visible ring');
     assert.equal(focusRing.style, 'solid');
-    // Home/End reach both ends (Health is the third tab), and arrows wrap.
+    // Home/End reach both ends (Search is the fourth tab), and arrows wrap.
     await page.keyboard.press('Home');
     await page.waitForFunction(
       () => document.querySelector('[data-sidebar-tab="library"]')?.getAttribute('aria-selected') === 'true',
@@ -250,14 +250,20 @@ describe('Library surface', () => {
     );
     await page.keyboard.press('End');
     await page.waitForFunction(
-      () => document.querySelector('[data-sidebar-tab="health"]')?.getAttribute('aria-selected') === 'true',
+      () => document.querySelector('[data-sidebar-tab="search"]')?.getAttribute('aria-selected') === 'true',
       undefined,
       { timeout: 5000 },
     );
-    assert.equal(await page.locator('[data-sidebar-panel="health"]').count(), 1);
+    assert.equal(await page.locator('[data-sidebar-panel="search"]').count(), 1);
     await page.keyboard.press('ArrowDown');
     await page.waitForFunction(
       () => document.querySelector('[data-sidebar-tab="library"]')?.getAttribute('aria-selected') === 'true',
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('ArrowUp');
+    await page.waitForFunction(
+      () => document.querySelector('[data-sidebar-tab="search"]')?.getAttribute('aria-selected') === 'true',
       undefined,
       { timeout: 5000 },
     );

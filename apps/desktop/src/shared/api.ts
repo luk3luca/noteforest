@@ -463,8 +463,12 @@ export interface SessionTabState {
   zoom?: number;
 }
 
-/** Expanded-sidebar surface. The footer Settings entry is outside all of them. */
-export type SidebarTab = 'library' | 'outline' | 'health';
+/**
+ * Expanded-sidebar surface. The footer Settings entry is outside all of them.
+ * `search` is the find browsing view (phase 6 follow-up); it replaces the
+ * Outline while active and remembers the section it came from.
+ */
+export type SidebarTab = 'library' | 'outline' | 'health' | 'search';
 
 export interface SessionState {
   tabs: SessionTabState[];
@@ -472,7 +476,7 @@ export interface SessionState {
   sidebarCollapsed: boolean;
   sidebarWidth: number;
   collapsedTopics: Record<string, string[]>;
-  /** Persisted Library/Outline/Health section; legacy sessions open Library. */
+  /** Persisted Library/Outline/Health/Search section; legacy sessions open Library. */
   sidebarTab: SidebarTab;
   /**
    * Expanded Library tree folders, as root-relative paths. Additive: a legacy
