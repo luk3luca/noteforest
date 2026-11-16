@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sidebar — one rhythm</title>
+    <style>
+      :root {
+        --bg-app: #101113;
+        --bg-sidebar: #131416;
+        --surface-1: #1b1d20;
+        --surface-2: #202329;
+        --text-1: #e7e8ea;
+        --text-2: #a6abb2;
+        --text-3: #949aa2;
+        --border-1: #2e3238;
+        --border-2: #6e737a;
+        --danger: #d98b8b;
+        --accent: #7fa6cf;
+        --accent-soft: #22303c;
+        --accent-strong: #9bb7d4;
+        --radius-control: 3px;
+        --radius-card: 4px;
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg-app); color: var(--text-1); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+      body { padding: 22px 16px 60px; }
+      .lab { max-width: 700px; margin: 0 auto; }
+
+      .eyebrow { margin: 0 0 8px; color: var(--text-3); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+      h1 { margin: 0 0 10px; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+      .lede { margin: 0; max-width: 66ch; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
+      h2 { margin: 38px 0 0; font-size: 16px; font-weight: 600; }
+      .v-sub { margin: 6px 0 12px; max-width: 66ch; color: var(--text-2); font-size: 13px; line-height: 1.6; }
+      .v-note { margin: 8px 0 0; color: var(--text-3); font-size: 11px; line-height: 1.5; }
+
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 6px; }
+      .cap { margin: 0 0 6px; color: var(--text-3); font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+      /* ---------------------------------------------------------------- sidebar shell */
+      .sb { display: flex; height: 430px; border: 1px solid var(--border-1); border-radius: 8px; background: var(--bg-sidebar); overflow: hidden; }
+      .bar { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 0 48px; padding: 8px 0; }
+      .ab { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; color: var(--text-3); }
+      .ab[data-active="true"] { background: var(--surface-2); color: var(--text-1); }
+      .ab svg { width: 17px; height: 17px; }
+      .ab[data-active="true"] svg { stroke-width: 1.9; }
+      .dot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+      .badge { position: absolute; top: 1px; right: 1px; min-width: 13px; height: 13px; padding: 0 2px; border-radius: 2px; background: var(--danger); color: var(--bg-sidebar); font-size: 9px; font-weight: 600; line-height: 13px; text-align: center; font-variant-numeric: tabular-nums; }
+
+      .col { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+      .scroll { flex: 1; min-height: 0; overflow: hidden; padding: 0 8px 8px; }
+
+      /* section header: title 13/600 + count 11 + controls */
+      .head { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 6px 4px; }
+      .head .title { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text-1); }
+      .head .count { color: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .ctl { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: var(--radius-control); color: var(--text-3); }
+      .ctl:hover { background: var(--surface-1); color: var(--text-1); }
+      .switcher { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 4px; border-radius: var(--radius-control); color: var(--text-1); font-size: 13px; font-weight: 600; }
+
+      /* navigation row: 28 px, 12.5 */
+      .row { display: flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 6px; border-radius: var(--radius-control); color: var(--text-2); font-size: 12.5px; }
+      .row[data-active="true"] { background: var(--accent-soft); color: var(--text-1); box-shadow: inset 0 0 0 1px var(--accent); }
+      .row .ic { flex: 0 0 auto; display: inline-flex; color: var(--text-3); }
+      .row[data-active="true"] .ic { color: var(--text-1); }
+      .row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .row .sub { display: block; color: var(--text-3); font-size: 10.5px; }
+      .row.two { min-height: 40px; align-items: flex-start; padding: 5px 6px; flex-direction: column; justify-content: center; gap: 1px; }
+
+      /* group header: 9.5 uppercase + count, left chevron, 28 px */
+      .group { display: flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 6px 0 2px; color: var(--text-3); }
+      .group .chev { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; color: var(--text-3); }
+      .group .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
+      .group .n { color: var(--text-3); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+
+      /* divider owned by the group, symmetric padding */
+      .gblock { padding: 8px 0; border-top: 1px solid var(--border-1); }
+      .gblock.first { border-top: 0; padding-top: 2px; }
+
+      /* result card */
+      .card { display: block; width: 100%; text-align: left; padding: 7px 8px; border: 1px solid var(--border-1); border-radius: var(--radius-card); background: var(--surface-1); color: var(--text-2); font-family: inherit; font-size: 12px; line-height: 1.45; }
+      .card + .card { margin-top: 3px; }
+      .card:hover { border-color: var(--border-2); background: var(--surface-2); }
+      .card[data-current="true"] { border-color: var(--accent); background: var(--surface-2); box-shadow: 0 0 0 1px var(--accent); }
+      .card b { background: var(--accent-soft); color: var(--text-1); font-weight: 600; }
+      .card .q { color: var(--text-1); }
+      .card .meta { display: flex; gap: 5px; margin-top: 1px; color: var(--text-3); font-size: 10.5px; }
+      .indent { padding-left: 12px; }
+
+      .empty { padding: 6px; color: var(--text-3); font-size: 11px; }
+
+      .field { display: flex; align-items: center; gap: 6px; height: 28px; margin: 0 6px 6px; padding: 0 8px; border: 1px solid var(--border-1); border-radius: var(--radius-control); background: var(--surface-1); color: var(--text-3); font-size: 12px; }
+
+      /* ------------------------------------------------------------ before / after */
+      .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+      .frame { border: 1px solid var(--border-1); border-radius: 6px; background: var(--bg-sidebar); padding: 10px; }
+      .frame.bad { outline: 1px dashed rgb(217 139 139 / 0.5); outline-offset: 2px; }
+      .frame h3 { margin: 0 0 8px; color: var(--text-3); font-family: var(--mono); font-size: 9.5px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; }
+      .measure { position: relative; }
+      .measure::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 1px; background: rgb(127 166 207 / 0.45); }
+      .gutter { position: relative; }
+      .gutter::before { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 10px; background: rgb(148 154 162 / 0.10); }
+
+      .scroller { height: 168px; overflow-y: auto; overflow-x: hidden; }
+      .scroller.stable { scrollbar-gutter: stable; }
+      .scroller::-webkit-scrollbar { width: 10px; }
+      .scroller::-webkit-scrollbar-track { background: transparent; }
+      .scroller::-webkit-scrollbar-thumb { background: var(--border-1); border: 3px solid transparent; background-clip: content-box; border-radius: 6px; }
+
+      .table { width: 100%; margin-top: 14px; border-collapse: collapse; font-size: 12px; }
+      .table th { padding: 6px 8px; border-bottom: 1px solid var(--border-1); color: var(--text-3); font-size: 9.5px; font-weight: 500; letter-spacing: 0.06em; text-align: left; text-transform: uppercase; }
+      .table td { padding: 6px 8px; border-bottom: 1px solid rgb(255 255 255 / 0.05); color: var(--text-2); vertical-align: top; }
+      .table td:first-child { color: var(--text-1); font-family: var(--mono); font-size: 10.5px; }
+      .table tr:last-child td { border-bottom: 0; }
+
+      .panel { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border-1); border-radius: 6px; background: rgb(255 255 255 / 0.02); }
+      .panel p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.55; }
+      .panel p + p { margin-top: 8px; }
+      .panel b { color: var(--text-1); }
+
+      .footer { margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--border-1); color: var(--text-3); font-size: 11px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main class="lab">
+      <header>
+        <p class="eyebrow">Design lab · not coded</p>
+        <h1>Sidebar — one rhythm</h1>
+        <p class="lede">
+          The four sections at one scale: 13/600 title, 12.5 navigation rows, 12 result text, 10.5 meta,
+          9.5 uppercase labels. 28 px for navigation, 40 px for a two-line problem, cards only for
+          results. Group headers own their divider, the chevron sits on the left, the scroll gutter is
+          reserved, and the needs-repair counter is a dot.
+        </p>
+      </header>
+
+      <h2>1 · The four sections together</h2>
+      <p class="v-sub">
+        Same 48 px bar, same 8 px inset, same header, same ladder. Cards appear only where a row is a
+        <em>result</em>: below. Library documents and Outline nodes stay plain rows.
+      </p>
+
+      <div class="grid">
+        <div>
+          <p class="cap">Library · rows 28</p>
+          <div class="sb">
+            <div class="bar">
+              <span class="ab" data-active="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4v16M10 4v16M15 4v16M20 7v13"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h6M4 12h6M4 18h6M14 6h6M14 12h6M14 18h6"/></svg></span>
+              <span class="ab"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L21 21"/></svg></span>
+            </div>
+            <div class="col">
+              <div class="scroll">
+                <div class="head">
+                  <span class="switcher">Linear algebra <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+                  <span class="ctl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg></span>
+                </div>
+                <div class="row" data-active="true"><span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span><span class="lbl">Eigenvalues</span></div>
+                <div class="row"><span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span><span class="lbl">Diagonalisation</span></div>
+                <div class="row"><span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span><span class="lbl">Matrix notes</span></div>
+                <div class="row"><span class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></span><span class="lbl">reading-list.md</span></div>
+                <div class="row two">
+                  <span class="lbl">Broken package</span>
+                  <span class="sub">This note couldn’t be read.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="v-note">The switcher <em>is</em> the title: no second line above it. The reason line is 10.5 meta, not a second design.</p>
+        </div>
+
+        <div>
+          <p class="cap">Outline · rows 28, depth 12, cap 3</p>
+          <div class="sb">
+            <div class="bar">
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4v16M10 4v16M15 4v16M20 7v13"/></svg></span>
+              <span class="ab" data-active="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h6M4 12h6M4 18h6M14 6h6M14 12h6M14 18h6"/></svg></span>
+              <span class="ab"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L21 21"/></svg></span>
+            </div>
+            <div class="col">
+              <div class="scroll">
+                <div class="head"><span class="title">Outline</span><span class="count">12</span><span class="ctl"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L20 20"/></svg></span></div>
+                <div class="row" style="color: var(--text-1); font-weight: 500"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="lbl">1 · Prova rapida</span></div>
+                <div class="row" style="padding-left: 18px"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="lbl">A scalar λ is an eigenvalue</span></div>
+                <div class="row" style="padding-left: 30px"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="lbl">The identity σ(A) names the spectrum</span></div>
+                <div class="row" style="padding-left: 42px"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="lbl">An eigenvector satisfies Av = λv</span></div>
+                <div class="row" style="padding-left: 42px"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="lbl">Level 4 stops indenting</span></div>
+                <div class="row" style="color: var(--text-1); font-weight: 500"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="lbl">2 · Metodo</span></div>
+                <div class="row" style="padding-left: 18px"><span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="lbl">Come usare questa nota</span></div>
+              </div>
+            </div>
+          </div>
+          <p class="v-note">12.5 instead of the inherited 13 px — this is the change that stops the Outline reading as another app.</p>
+        </div>
+
+        <div>
+          <p class="cap">Health · 28 header, 40 problems, cards</p>
+          <div class="sb">
+            <div class="bar">
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4v16M10 4v16M15 4v16M20 7v13"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h6M4 12h6M4 18h6M14 6h6M14 12h6M14 18h6"/></svg></span>
+              <span class="ab" data-active="true"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L21 21"/></svg></span>
+            </div>
+            <div class="col">
+              <div class="scroll">
+                <div class="head"><span class="title">Health</span><span class="count">3</span></div>
+                <div class="field"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6" /><path d="M15.5 15.5L20 20"/></svg>Filter problems</div>
+                <div class="gblock">
+                  <div class="group"><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg></span><span class="name">Anchors to fix</span><span class="n">2</span></div>
+                  <div class="indent">
+                    <div class="card" data-current="true">
+                      <span class="q">“eigenvalue”</span>
+                      <div class="meta"><span>No branches</span><span>·</span><span>Eigenvalues</span></div>
+                    </div>
+                    <div class="card">
+                      <span class="q">“spectrum”</span>
+                      <div class="meta"><span>Ambiguous</span><span>·</span><span>Metodo</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gblock">
+                  <div class="group"><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="name">Structure</span><span class="n">1</span></div>
+                </div>
+                <div class="gblock">
+                  <div class="group"><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="name">References</span><span class="n">0</span></div>
+                </div>
+                <div class="gblock">
+                  <div class="group"><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="name">Unused images</span><span class="n">0</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="v-note">Cards in Health too, with the <em>selected</em> variant (surface + border-2, no accent ring). Closed groups keep their count. The dot replaces the number in the bar.</p>
+        </div>
+
+        <div>
+          <p class="cap">Search · cards, collapsible chapters</p>
+          <div class="sb">
+            <div class="bar">
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4v16M10 4v16M15 4v16M20 7v13"/></svg></span>
+              <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h6M4 12h6M4 18h6M14 6h6M14 12h6M14 18h6"/></svg></span>
+              <span class="ab"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+              <span class="ab" data-active="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L21 21"/></svg></span>
+            </div>
+            <div class="col">
+              <div class="scroll">
+                <div class="head"><span class="title">Search</span><span class="count">1 of 9</span><span class="ctl" style="text-decoration: underline">ab</span><span class="ctl">×</span></div>
+                <div class="field">come</div>
+                <div class="gblock first">
+                  <div class="group"><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg></span><span class="name">Chapter 1 · Prova rapida</span><span class="n">3</span></div>
+                  <div class="indent">
+                    <button class="card" data-current="true">…sci una tabella, usa la toolbar e Copia <b>come</b> Markdown.</button>
+                    <button class="card"><b>Come</b> usare questa nota</button>
+                    <button class="card">…il metodo <b>come</b> lo usi…</button>
+                  </div>
+                </div>
+                <div class="gblock">
+                  <div class="group"><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="name">Chapter 7 · Contenuto ricco</span><span class="n">2</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="v-note">Chapter rules belong to the group with symmetric padding, so the last card can never touch the next rule. A closed chapter still shows its count.</p>
+        </div>
+      </div>
+
+      <h2>2 · The distance between a card and the next rule</h2>
+      <p class="v-sub">
+        Today the divider is a <code>border-top</code> on the header that follows a group, and the group
+        has no tail — so the last card sits 0 px from the rule. The rule moves onto the group, which then
+        owns 8 px above and below.
+      </p>
+      <div class="pair">
+        <div class="frame bad">
+          <h3>today · touching</h3>
+          <div style="padding-bottom: 0">
+            <button class="card" style="margin-left: 12px">…il metodo <b>come</b> lo usi…</button>
+            <div class="group" style="border-top: 1px solid var(--border-1); margin-top: 0; padding-top: 6px"><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="name">Chapter 7</span><span class="n">2</span></div>
+          </div>
+        </div>
+        <div class="frame">
+          <h3>proposed · group owns it</h3>
+          <div class="gblock">
+            <button class="card" style="margin-left: 12px">…il metodo <b>come</b> lo usi…</button>
+          </div>
+          <div class="gblock">
+            <div class="group"><span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg></span><span class="name">Chapter 7</span><span class="n">2</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h2>3 · The scroll gutter</h2>
+      <p class="v-sub">
+        The app draws a 10 px classic scrollbar, so a section that starts to overflow loses 10 px of
+        content and everything shifts. With <code>scrollbar-gutter: stable</code> the 10 px are reserved
+        from the start: the thumb is invisible until it is needed, and the content box never changes.
+        Content at 264 is 264 − 8 − 8 − 10 = <strong>238 px</strong>.
+      </p>
+      <div class="pair">
+        <div class="frame bad">
+          <h3>today · 248 → 238 on overflow</h3>
+          <div class="scroller">
+            <div class="measure">
+              <div class="row"><span class="lbl">A row of text that fills the width exactly</span></div>
+              <div class="row"><span class="lbl">Another row, same width</span></div>
+              <div class="row"><span class="lbl">Third row</span></div>
+              <div class="row"><span class="lbl">Fourth row</span></div>
+              <div class="row"><span class="lbl">Fifth row</span></div>
+              <div class="row"><span class="lbl">Sixth row</span></div>
+              <div class="row"><span class="lbl">Seventh row</span></div>
+              <div class="row"><span class="lbl">Eighth row</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="frame">
+          <h3>proposed · 238 always</h3>
+          <div class="scroller stable">
+            <div class="measure">
+              <div class="row"><span class="lbl">A row of text that fills the width exactly</span></div>
+              <div class="row"><span class="lbl">Another row, same width</span></div>
+              <div class="row"><span class="lbl">Third row</span></div>
+              <div class="row"><span class="lbl">Fourth row</span></div>
+              <div class="row"><span class="lbl">Fifth row</span></div>
+              <div class="row"><span class="lbl">Sixth row</span></div>
+              <div class="row"><span class="lbl">Seventh row</span></div>
+              <div class="row"><span class="lbl">Eighth row</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="v-note">The blue line is the right edge of the content box. In the left frame it moves when the thumb appears; in the right frame it never moves.</p>
+
+      <h2>4 · The needs-repair indicator</h2>
+      <div class="pair">
+        <div class="frame bad">
+          <h3>today · number in a square</h3>
+          <div class="bar" style="flex-direction: row; gap: 10px; width: auto">
+            <span class="ab"><span class="badge">3</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+            <span class="ab"><span class="badge">12</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+            <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+          </div>
+        </div>
+        <div class="frame">
+          <h3>proposed · dot, count in the label</h3>
+          <div class="bar" style="flex-direction: row; gap: 10px; width: auto">
+            <span class="ab" data-active="true"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+            <span class="ab"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+            <span class="ab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-6 3 12 2-6h7"/></svg></span>
+          </div>
+        </div>
+      </div>
+      <p class="v-note">6 px, <code>--danger</code>, top-right at 4 px. Nothing at zero, no empty box. The count lives in <code>aria-label</code> and the tooltip; the Health header carries the exact number.</p>
+
+      <h2>5 · The scale</h2>
+      <table class="table">
+        <thead><tr><th>Token</th><th>Value</th><th>Used by</th></tr></thead>
+        <tbody>
+          <tr><td>--sb-title</td><td>13 / 600</td><td>section title, library switcher</td></tr>
+          <tr><td>--sb-row</td><td>12.5 / 400</td><td>Library document, Outline node</td></tr>
+          <tr><td>--sb-result</td><td>12 / 400 · 1.45</td><td>result card first line</td></tr>
+          <tr><td>--sb-meta</td><td>10.5 / 400</td><td>second line, counts, reasons</td></tr>
+          <tr><td>--sb-label</td><td>9.5 / 600 · 0.09em</td><td>chapter and Health group labels</td></tr>
+          <tr><td>heights</td><td>28 · 40 · auto</td><td>navigation · two-line problem · card</td></tr>
+          <tr><td>indents</td><td>0 · 12 · 24</td><td>section · under a group label · second level</td></tr>
+          <tr><td>radius</td><td>4 cards · control controls</td><td>no pill anywhere</td></tr>
+        </tbody>
+      </table>
+
+      <div class="panel">
+        <p><b>Decisions applied.</b> Result text 12 px; Outline depth 12 px capped at 3 levels; group
+        chevron on the left for both Health and Search; the library switcher stays in the title slot;
+        the needs-repair counter becomes a dot.</p>
+        <p><b>What this lab is not:</b> it does not restyle the activity bar, the titlebar or the canvas,
+        and it uses an approximation of the default accent. The row and header rules are the subject.</p>
+      </div>
+
+      <p class="footer">
+        Lab only, no application code. 48 px bar, 264 px content, 8 px inset, 238 px content box with the
+        reserved gutter. Numbers measured on <code>main</code> at 341fb53.
+      </p>
+    </main>
+  </body>
+</html>

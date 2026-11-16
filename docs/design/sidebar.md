@@ -1,7 +1,8 @@
 # Sidebar — one rhythm, one type scale, one scroll
 
-**Status:** design draft, 16 November 2026. No code until the open questions in §10 are answered.
-**Owner:** Orchestrator. The Builder brief is written after approval.
+**Status:** approved 16 November 2026; the four open questions are resolved (§10). No code yet.
+**Lab:** `docs/design/sidebar-ui-lab/`.
+**Owner:** Orchestrator. The Builder brief is written after the lab pass.
 **Inputs:** the product-owner review of find v3 (16 November 2026, five findings), `docs/design/find-bar.md`
 §3, `docs/design/document-health-sidebar.md`, `docs/design/library-and-documents.md`.
 **Scope:** the four sidebar sections (Library, Outline, Health, Search), their headers, their rows,
@@ -115,6 +116,9 @@ Health already does this (`.nf-health-section-row[aria-expanded]`); Search adopt
 - `scrollbar-gutter: stable` on it. The application styles a 10 px classic scrollbar globally, so any
   section that overflows currently loses 10 px of content width and everything shifts. With a
   permanent gutter the content box is fixed: 264 − 8 − 8 − 10 = 238 px at the default width, always.
+- The reserved gutter is **invisible**: only `::-webkit-scrollbar-thumb` is painted, the track is
+  transparent, and the thumb exists only while the content actually overflows. Nothing is drawn when
+  there is nothing to scroll; the space is simply reserved, so the content never moves.
 - The gutter is part of the measured content width (`sidebarContentWidth` in `shared/shell.ts` must
   account for it, or the panel keeps reporting 10 px more than it has).
 - No inner scroll containers. A long Health list scrolls the panel, not the section.
@@ -144,16 +148,15 @@ The needs-repair counter becomes a **dot**, not a number.
 
 No behaviour change except the collapse: every query, count, navigation and repair path stays as it is.
 
-## 10. Open questions (need the product owner)
+## 10. Resolved decisions (16 November 2026)
 
-1. **Result text at 12 px** (today Search is 11): clearer snippets, but about one fewer row visible in
-   a 264 px panel. Accept?
-2. **Outline depth step 12 px**, capped at 3 visible levels? Today the tree indents by its own rule and
-   a deep branch gets narrow. Cap and rely on the chevron, or keep uncapped?
-3. **Chevron side for the group header**: left (like Health's sections today) or right (like a file
-   tree)? One choice for both Health and Search.
-4. **Library switcher as the section title**: keep the switcher in the title slot (recommended), or
-   add a "Library" title above it and move the switcher to the control slot?
+1. **Result text is 12 px.** Clearer snippets and one scale with Health; about one fewer row visible in
+   a 264 px panel, accepted.
+2. **Outline depth step is 12 px, capped at 3 levels.** Level 4 and deeper render at the level-3
+   indent; the chevron carries the rest.
+3. **The group chevron is on the left**, one choice for Health and Search.
+4. **The library switcher stays in the title slot.** No "Library" title above it.
+5. **The needs-repair counter becomes a dot** (§8 is in scope for this batch, not a separate fix).
 
 ## 11. Out of scope
 
