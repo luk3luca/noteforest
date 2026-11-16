@@ -299,17 +299,14 @@ technical sentence.
 No test may assert a whole paragraph; assert the short line and the presence of the Details summary.
 A copy change without a matching assertion is a review finding.
 
-## 6. Open questions
+## 6. Decisions (confirmed 16 November 2026)
 
-1. **Toast and Details.** `copy-audit.md` §5 says the technical line goes to `Details`; §2 rule 10
-   caps a toast at one line. This doc resolves it as: toast = outcome, optional `Details` action
-   opens D25. Confirm that a one-click dialog is acceptable instead of an inline disclosure.
-   Recommendation: yes; an inline disclosure inside a 3-second toast is unreadable.
-2. **`…` menu in Frame dialogs.** Health has one; no other dialog needs one today. The frame ships
-   the slot but no dialog uses it. Recommendation: keep the slot in the spec, do not ship dead UI
-   until a dialog needs it.
-3. **Menu case.** The native menu is Title Case (`New Document`, `Fit Width`). Rule 11 says sentence
-   case. Recommendation: sentence case everywhere, including the macOS menu, for one voice.
-4. **`document` vs `note`.** Settled by `ui-shell-contents.md` S1-10 (note in the UI, document for
-   file/library concepts) plus the frozen health copy that keeps `Document health`. This doc follows
-   that split; if the product owner wants one noun, it is a separate sweep.
+1. **Toast and Details.** A toast stays one line; it carries one optional `Details` action that opens
+   D25 (one technical line, Copy, Close). No inline disclosure inside a toast.
+2. **`…` menu in Frame dialogs.** Not shipped empty; the slot exists in the spec and a dialog renders
+   it only when it has entries.
+3. **Menu case.** Sentence case everywhere, including the macOS menu (`New document`, `Fit width`).
+4. **`document` vs `note`.** Keep the split: `note` in the UI; `document` only in `Document health`,
+   `Document settings`, `Rename document` and file-name sentences. One noun is a separate sweep.
+5. **Export failure grouping.** Accepted: the 18 codes map to 12 short sentences; the code joins
+   Details.
