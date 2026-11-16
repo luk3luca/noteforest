@@ -133,13 +133,13 @@ describe('NoteForest M3h5 leaf delete disclosure', () => {
     assert.ok(rowText.includes(LEAF_TEXT), 'the deleted target is named');
     const sectionText = (await page.locator('[data-delete-references="true"]').textContent()) ?? '';
     assert.match(sectionText, /will be removed/);
-    assert.match(sectionText, /source blocks and their content stay/);
+    assert.match(sectionText, /The source blocks stay/);
     assert.equal(
       await page.locator('input[name="delete-mode"]').count(),
       0,
       'a leaf shows no descendant choice',
     );
-    assert.match((await dialog.textContent()) ?? '', /no descendants/);
+    assert.match((await dialog.textContent()) ?? '', /content are removed/);
     assert.deepEqual(await structure(), beforeDelete, 'opening the disclosure mutates nothing');
 
     await mkdir(artifactsPath('m3h5'), { recursive: true });
