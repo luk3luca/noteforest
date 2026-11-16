@@ -34,15 +34,15 @@ function heartbeatLabel(runtime: DocumentRuntime): string {
 function reasonLabel(reason: string | undefined): string {
   switch (reason) {
     case 'locked':
-      return 'another session holds the lock';
+      return 'open in another window';
     case 'newer-schema':
-      return 'written by a newer NoteForest version';
+      return 'from a newer NoteForest';
     case 'corrupt':
-      return 'the package could not be read';
+      return 'the file couldn’t be read';
     case 'invalid':
-      return 'the package is invalid';
+      return 'the file is invalid';
     case 'missing':
-      return 'the package is missing';
+      return 'the file is missing';
     default:
       return reason === undefined ? 'read-only' : reason.replace(/-/g, ' ');
   }
@@ -165,13 +165,8 @@ function SlimBar({
               <summary>Details</summary>
               <div className="nf-status-slim-details-popover">
                 <p>
-                  This document opened read-only. Your file is not being modified. If
-                  another NoteForest window is open, close it. If no other window is open,
-                  quit NoteForest completely and reopen: a lock from a previous run becomes
-                  stale and offers Take over.
-                  {runtime.readOnlyReason === undefined
-                    ? ''
-                    : ` Reason: ${reasonLabel(runtime.readOnlyReason)}.`}
+                  This note opened read-only and your file is not being modified. Close the
+                  other NoteForest window; if none is open, quit and reopen NoteForest.
                 </p>
                 <LockMetadata runtime={runtime} />
               </div>
@@ -230,7 +225,7 @@ export function DocumentStatusPanel({
     try {
       const result = await runtime.takeOverLock();
       if (!result.ok) {
-        setError(result.message ?? 'Could not take over the lock.');
+        setError(result.message ?? 'Couldn’t take over the lock.');
         return;
       }
       // Refresh the tab identity so the lock icon disappears with the panel.
@@ -238,7 +233,7 @@ export function DocumentStatusPanel({
         packagePath: runtime.packagePath,
         title: runtime.title,
       });
-      toast.success('Lock taken over. This document is now editable.');
+      toast.success('Lock taken over. You can edit now.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -252,14 +247,11 @@ export function DocumentStatusPanel({
     try {
       const result = await runtime.reloadFromDisk();
       if (!result.ok) {
-        toast.error(result.message ?? 'Could not reopen the document.');
+        toast.error(result.message ?? 'Couldn’t reopen the note.');
         return;
       }
       if (runtime.readOnlyReason === 'locked') {
-        toast.warning('Still read-only: another NoteForest session holds the lock.', {
-          description:
-            'Close the other NoteForest window, or quit NoteForest completely and reopen.',
-        });
+        toast.warning('Still read-only. Another window has it open.');
         return;
       }
       if (runtime.status === 'editable') {
@@ -268,9 +260,9 @@ export function DocumentStatusPanel({
           packagePath: runtime.packagePath,
           title: runtime.title,
         });
-        toast.success('Document reopened. This document is now editable.');
+        toast.success('Reopened. You can edit now.');
       } else {
-        toast.info('Rechecked the document. It is still read-only.');
+        toast.info('Still read-only.');
       }
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : String(cause));
@@ -328,11 +320,8 @@ export function DocumentStatusPanel({
       <div className="nf-status-copy">
         <strong className="nf-status-title">Read-only · stale lock</strong>
         <p className="nf-status-body">
-          Another NoteForest session left a lock on this document, but its heartbeat is
-          stale. Your file has not been modified. Take over only if you are sure no other
-          session is still writing it. If no other NoteForest window is open, quit
-          NoteForest completely and reopen; a lock from the previous run becomes stale and
-          offers Take over.
+          Another NoteForest window left this note open. Take over only if no other window is
+          using it.
         </p>
         <details className="nf-status-details" data-status-details="true">
           <summary>Lock details</summary>

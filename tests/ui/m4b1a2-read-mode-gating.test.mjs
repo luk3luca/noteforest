@@ -10,7 +10,7 @@ const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
 
-const READ_MODE_TITLE = 'Read mode — switch to Edit to add content';
+const READ_MODE_TITLE = 'Read mode — switch to Edit to make changes';
 
 async function launch(name) {
   page = await ui.launch(ui.isolated(name));

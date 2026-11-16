@@ -318,6 +318,26 @@ describe('save failure copy', () => {
     expect(saveFailureHeadline('permission')).not.toBe(saveFailureHeadline('unknown'));
     expect(saveFailureHeadline('disk-full')).not.toBe(saveFailureHeadline('unknown'));
   });
+
+  it('uses the C-02 copy rows verbatim', () => {
+    expect(saveFailureHeadline('read-only')).toBe('This note is open read-only.');
+    expect(saveFailureHeadline('permission')).toBe('NoteForest can’t write to this folder.');
+    expect(saveFailureHeadline('external-modification')).toBe('This file changed on disk.');
+    expect(saveFailureHeadline('lock-lost')).toBe(
+      'Another NoteForest window took over this note.',
+    );
+    expect(saveFailureHeadline('backup-failed')).toBe('The backup couldn’t be written.');
+    expect(saveFailureHeadline('invalid-document')).toBe(
+      'The note has a problem that stops the save.',
+    );
+    expect(saveFailureHeadline('not-found')).toBe('The note’s file is missing.');
+    expect(saveFailureHeadline('unknown')).toBe('The note couldn’t be saved.');
+    expect(saveFailureHint('read-only')).toBe('Reopen it read-write, or save a copy.');
+    expect(saveFailureHint('external-modification')).toBe(
+      'Nothing was written. Reload, overwrite, or save a copy.',
+    );
+    expect(saveFailureHint('lock-lost')).toBe('Reopen it, or save a copy.');
+  });
 });
 
 describe('core error to save-failure code', () => {

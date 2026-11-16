@@ -26,7 +26,7 @@ export function ViewControls(): JSX.Element {
   const layout = view?.layout ?? 'continuous';
   const mode = view?.interactionMode ?? (layout === 'page' ? 'read' : 'edit');
   const disabled = runtime === null;
-  const disabledReason = disabled ? 'Open a document to change the view' : undefined;
+  const disabledReason = disabled ? 'Open a note to change the view' : undefined;
 
   return (
     <div
@@ -119,7 +119,7 @@ export function ZoomControls(): JSX.Element {
       data-zoom-target={layout}
       data-zoom-commands={zoomCommands.join(' ')}
       data-page-fit={layout === 'page' ? pageFit : undefined}
-      title={disabled ? 'Open a document to change the view' : undefined}
+      title={disabled ? 'Open a note to change the view' : undefined}
     >
       <button
         type="button"

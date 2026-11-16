@@ -190,7 +190,10 @@ export interface MarkdownSaveSuccess {
 export interface MarkdownSaveFailure {
   ok: false;
   code: MarkdownSaveFailureCode;
+  /** Short outcome, safe for a toast or a banner line. */
   message: string;
+  /** Technical line, shown only in Details (dialogs.md §3.5). */
+  details?: string;
   /** Current on-disk fingerprint when it could be read (conflict detail). */
   base?: MarkdownFileFingerprint | null;
 }
@@ -211,7 +214,7 @@ export interface MarkdownOpenSuccess {
 
 export type MarkdownOpenResult =
   | MarkdownOpenSuccess
-  | { ok: false; canceled?: boolean; message?: string };
+  | { ok: false; canceled?: boolean; message?: string; details?: string };
 
 export interface MarkdownImageResolution {
   ok: boolean;
@@ -312,7 +315,10 @@ export interface LibraryActionSuccess {
 export interface LibraryActionFailure {
   ok: false;
   canceled?: boolean;
+  /** Short outcome, safe for a dialog or toast line. */
   message: string;
+  /** Technical line (a path or an OS error), shown only in Details. */
+  details?: string;
 }
 
 export type LibraryActionResult = LibraryActionSuccess | LibraryActionFailure;
@@ -362,7 +368,10 @@ export interface VaultActionSuccess {
 export interface VaultActionFailure {
   ok: false;
   code: VaultFailureCode;
+  /** Short outcome, safe for a dialog or toast line. */
   message: string;
+  /** Technical line (a path or an OS error), shown only in Details. */
+  details?: string;
 }
 
 export type VaultActionResult = VaultActionSuccess | VaultActionFailure;
@@ -399,7 +408,9 @@ export interface SettingsFileStatus {
   migrated?: boolean;
 }
 
-export type SettingsSaveResult = { ok: true } | { ok: false; message: string };
+export type SettingsSaveResult =
+  | { ok: true }
+  | { ok: false; message: string; details?: string };
 
 export interface DocumentSettingsSaveInput {
   /** Canonical document id; null keeps a path-only entry. */
@@ -436,7 +447,10 @@ export interface DocumentSettingsRecoverySuccess {
 
 export interface DocumentSettingsRecoveryFailure {
   ok: false;
+  /** Short outcome, safe for the Settings line. */
   message: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
 }
 
 export type DocumentSettingsRecoveryResult =
@@ -522,7 +536,10 @@ export interface CreateDocumentSuccess {
 
 export interface CreateDocumentFailure {
   ok: false;
+  /** Short outcome, safe for a toast line. */
   message: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
 }
 
 export type CreateDocumentResult = CreateDocumentSuccess | CreateDocumentFailure;
@@ -557,7 +574,7 @@ export interface DraftView {
 
 export type CreateDraftResult =
   | { ok: true; draft: DraftView }
-  | { ok: false; message: string };
+  | { ok: false; message: string; details?: string };
 
 export type MaterializeDraftCode = 'library-missing' | 'locked' | 'not-found' | 'unknown';
 
@@ -567,11 +584,11 @@ export type MaterializeDraftCode = 'library-missing' | 'locked' | 'not-found' | 
  */
 export type MaterializeDraftResult =
   | { ok: true; packagePath: string; library: LibraryView }
-  | { ok: false; code: MaterializeDraftCode; message: string };
+  | { ok: false; code: MaterializeDraftCode; message: string; details?: string };
 
 export type DraftLibraryResult =
   | { ok: true; libraryPath: string; library: LibraryView }
-  | { ok: false; canceled?: boolean; message: string };
+  | { ok: false; canceled?: boolean; message: string; details?: string };
 
 export type TrashDocumentStatus = 'ok' | 'missing' | 'newer-schema' | 'unreadable';
 
@@ -609,15 +626,18 @@ export type TrashFailureCode =
 
 export type TrashDocumentResult =
   | { ok: true; library: LibraryView }
-  | { ok: false; code: TrashFailureCode; message: string };
+  | { ok: false; code: TrashFailureCode; message: string; details?: string };
 
 export type RemoveMissingDocumentResult =
   | { ok: true; library: LibraryView }
-  | { ok: false; message: string };
+  | { ok: false; message: string; details?: string };
 
 export interface OpenDocumentFailure {
   ok: false;
+  /** Short outcome, safe for a toast line. */
   message: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
   packagePath: string;
 }
 
@@ -628,7 +648,10 @@ export type TakeOverLockResult =
   | { ok: true; snapshot: OpenDocumentSnapshot }
   | {
       ok: false;
+      /** Short outcome, safe for the status panel line. */
       message: string;
+      /** Technical line (an OS error or a path), shown only in Details. */
+      details?: string;
       code?: 'not-stale' | 'locked' | 'read-only' | 'not-found' | 'unknown';
     };
 
@@ -645,7 +668,10 @@ export interface ApplyResult {
    * renderer adopts this path without remounting the editor.
    */
   packagePath?: string;
+  /** Short outcome, safe for a toast line. */
   message?: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
   code?: string;
 }
 
@@ -706,6 +732,8 @@ export interface SaveCopyFailure {
   ok: false;
   canceled?: boolean;
   message?: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
 }
 
 export type SaveCopyResult = SaveCopySuccess | SaveCopyFailure;
@@ -717,7 +745,10 @@ export interface ReloadDocumentSuccess {
 
 export interface ReloadDocumentFailure {
   ok: false;
+  /** Short outcome, safe for a toast line. */
   message: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
 }
 
 export type ReloadDocumentResult = ReloadDocumentSuccess | ReloadDocumentFailure;
@@ -725,6 +756,8 @@ export type ReloadDocumentResult = ReloadDocumentSuccess | ReloadDocumentFailure
 export interface RevealResult {
   ok: boolean;
   message?: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
 }
 
 export type BackupKind = 'autosave' | 'daily' | 'pre-migration' | 'manual';
@@ -872,6 +905,8 @@ export interface ImportImageFailure {
   ok: false;
   canceled?: boolean;
   message: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
 }
 
 export type ImportImageResult = ImportImageSuccess | ImportImageFailure;

@@ -11,9 +11,10 @@ import type { ExportFailureCode } from '../src/shared/export';
 const root = resolve(import.meta.dirname, '..');
 
 /**
- * A/B copy-bearing modules (docs/tasks/dialog-copy-a-b.md item 9). The C/D
- * modules extend the same guard when their copy lands; the banned-word
- * allowlist stays empty.
+ * Copy-bearing modules (docs/tasks/dialog-copy-a-b.md item 9, extended by
+ * docs/tasks/copy-c-d.md item 7). Every string/template literal and plain JSX
+ * text node in these files is user copy, so the scan needs no exceptions; the
+ * banned-word allowlist stays empty.
  */
 const COPY_MODULES = [
   'src/renderer/src/shell/DialogFrame.tsx',
@@ -29,6 +30,31 @@ const COPY_MODULES = [
   'src/renderer/src/settings/PageAdvancedSettings.tsx',
   'src/renderer/src/settings/PageSettingsPreview.tsx',
   'src/renderer/src/lib/save-failure.ts',
+  // Batch C+D copy-bearing modules.
+  'src/renderer/src/lib/recovery.ts',
+  'src/renderer/src/lib/editability.ts',
+  'src/renderer/src/lib/toast-details.ts',
+  'src/renderer/src/export/export-flow.ts',
+  'src/renderer/src/markdown/markdown-save.ts',
+  'src/renderer/src/markdown/MarkdownFileEditor.tsx',
+  'src/renderer/src/markdown/MarkdownImageView.tsx',
+  'src/renderer/src/shell/StatusBar.tsx',
+  'src/renderer/src/shell/SaveFailureBanner.tsx',
+  'src/renderer/src/shell/DraftMaterializeBanner.tsx',
+  'src/renderer/src/shell/RecoverySurface.tsx',
+  'src/renderer/src/shell/DocumentStatusPanel.tsx',
+  'src/renderer/src/shell/SearchSection.tsx',
+  'src/renderer/src/shell/Sidebar.tsx',
+  'src/renderer/src/shell/CanvasHeader.tsx',
+  'src/renderer/src/shell/ViewControls.tsx',
+  'src/renderer/src/shell/Toolbar.tsx',
+  'src/renderer/src/shell/CommandPalette.tsx',
+  'src/renderer/src/editor/views/BlockViews.tsx',
+  'src/renderer/src/state/save-coordinator.ts',
+  'src/renderer/src/state/document-session.ts',
+  'src/renderer/src/lib/image-insert.ts',
+  'src/renderer/src/lib/image-authoring.ts',
+  'src/main/menu-template.ts',
 ];
 
 /** Confirmed banned words (copy-audit §2.3, dialogs.md §4). */
@@ -255,8 +281,13 @@ async function sourceFor(modulePath: string): Promise<string> {
   return readFile(resolve(root, modulePath), 'utf8');
 }
 
-/** The plan's B-01.31 KEEP label is not copy added by this batch. */
-const KEEP_LABELS = new Set(['Schema version']);
+/**
+ * Explicit `KEEP` labels that are technical by design and live inside Details
+ * only: B-01.31 `Schema version` (a settings-file term) and C-08.15
+ * `Heartbeat` (the lock record, shown under Lock details). They are the plan's
+ * own kept strings, not copy this batch adds.
+ */
+const KEEP_LABELS = new Set(['Schema version', 'Heartbeat']);
 
 /** Every string literal and template literal in the module. */
 function stringLiterals(source: string): string[] {
@@ -290,9 +321,12 @@ function jsxText(source: string): string[] {
   return found;
 }
 
-/** Identifiers, class names, and data values are not user copy. */
+/**
+ * Identifiers, selectors, class names, and data values are not user copy
+ * (`[data-anchor-marker-id]` is an attribute selector, not a sentence).
+ */
 function isIdentifierLike(value: string): boolean {
-  return !/\s/.test(value) && /^[a-z0-9_.$:{}<>/=-]+$/.test(value);
+  return !/\s/.test(value) && /^[a-z0-9_.$:{}<>/=\[\]-]+$/.test(value);
 }
 
 describe('A/B copy', () => {

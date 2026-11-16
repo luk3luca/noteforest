@@ -926,7 +926,7 @@ describe('Document lifecycle', () => {
     await page.waitForFunction(
       () =>
         [...document.querySelectorAll('[data-sonner-toast]')].some((element) =>
-          element.textContent?.includes('Another NoteForest session is writing this document'),
+          element.textContent?.includes('Another window is writing this note.'),
         ),
       undefined,
       { timeout: 10000 },

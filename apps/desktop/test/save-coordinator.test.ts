@@ -240,7 +240,7 @@ describe('SaveCoordinator failure, retry, and recovery', () => {
     let coordinator: SaveCoordinator | null = null;
     const h = harness({
       commit: async () => {
-        coordinator?.recordFailure('read-only', 'This document is open read-only.');
+        coordinator?.recordFailure('read-only', 'This note is open read-only.');
         return false;
       },
     });
@@ -253,10 +253,10 @@ describe('SaveCoordinator failure, retry, and recovery', () => {
     expect(h.coordinator.saveState).toBe('error');
     expect(h.coordinator.saveFailure).toEqual({
       code: 'read-only',
-      message: 'This document is open read-only.',
+      message: 'This note is open read-only.',
       attempt: 1,
     });
-    expect(h.coordinator.saveError).toBe('This document is open read-only.');
+    expect(h.coordinator.saveError).toBe('This note is open read-only.');
   });
 
   it('overwrites an external modification only and clears the failure', async () => {

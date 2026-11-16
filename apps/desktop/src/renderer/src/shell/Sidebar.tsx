@@ -351,7 +351,7 @@ function LibraryDocumentRow({
           </span>
           {summary.status === 'ok' ? null : (
             <span className="nf-library-reason" data-doc-reason="true">
-              {summary.reason ?? 'The package could not be read.'}
+              {summary.reason ?? 'This note couldn’t be read.'}
             </span>
           )}
         </span>
@@ -529,12 +529,12 @@ function LibrarySection(): JSX.Element {
       },
       {
         id: 'library-open',
-        label: 'Open Folder as Library…',
+        label: 'Open folder as library…',
         onSelect: () => void openLibrary(),
       },
       {
         id: 'library-new',
-        label: 'New Library…',
+        label: 'New library…',
         onSelect: () => openDialog({ kind: 'new-library' }),
       },
       {
@@ -632,7 +632,7 @@ function LibrarySection(): JSX.Element {
               data-library-remove="true"
               onClick={() => void removeRecentLibrary(libraryPath)}
             >
-              Remove from Recent
+              Remove from recents
             </button>
             <button
               type="button"
@@ -657,7 +657,7 @@ function LibrarySection(): JSX.Element {
               data-library-open-another="true"
               onClick={() => void openLibrary()}
             >
-              Open Folder as Library…
+              Open folder as library…
             </button>
             <button
               type="button"
@@ -665,7 +665,7 @@ function LibrarySection(): JSX.Element {
               data-library-new-library="true"
               onClick={() => openDialog({ kind: 'new-library' })}
             >
-              New Library…
+              New library…
             </button>
           </div>
         </div>
@@ -987,8 +987,8 @@ function TopicSection(): JSX.Element {
           {markdownActive
             ? 'A Markdown file has no outline.'
             : activePath === null
-              ? 'Open a document to see its outline.'
-              : 'Document unavailable.'}
+              ? 'Open a note to see its outline.'
+              : 'Note unavailable.'}
         </p>
       </section>
     );
@@ -1242,9 +1242,15 @@ export function Sidebar({
         {bar}
         <div className="nf-sidebar-content" data-sidebar-content="true">
           <div className="nf-sidebar-head">
-            <button type="button" className="nf-sidebar-search" onClick={() => openPalette(true)}>
+            <button
+              type="button"
+              className="nf-sidebar-search"
+              aria-label="Command palette (⌘K)"
+              title="Command palette (⌘K)"
+              onClick={() => openPalette(true)}
+            >
               <Search size={13} strokeWidth={1.5} aria-hidden="true" />
-              <span>Search</span>
+              <span className="nf-sidebar-palette-spacer" aria-hidden="true" />
               <kbd>⌘K</kbd>
             </button>
           </div>

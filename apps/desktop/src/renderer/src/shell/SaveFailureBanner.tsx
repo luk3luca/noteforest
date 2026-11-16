@@ -9,6 +9,8 @@ import {
   saveFailureHeadline,
   saveFailureHint,
 } from '../lib/save-failure';
+import { Details } from './Details';
+import { errorToast } from '../lib/toast-details';
 
 type BusyAction = 'retry' | 'copy' | 'reveal' | null;
 
@@ -52,7 +54,7 @@ export function SaveFailureBanner({
       const result = await runtime.saveCopy();
       if (!result.ok) {
         if (result.canceled !== true) {
-          toast.error(result.message ?? 'Could not save a copy.');
+          errorToast(result.message ?? 'Couldn’t save a copy.', result.details);
         }
         return;
       }
@@ -64,7 +66,7 @@ export function SaveFailureBanner({
           packagePath: result.snapshot.packagePath,
           title: result.snapshot.document.title,
         });
-        toast.success('Saved a copy and opened it.');
+        toast.success('Saved a copy.');
       } else {
         toast.success(`Saved a copy to ${result.packagePath}`);
       }
@@ -89,7 +91,7 @@ export function SaveFailureBanner({
     setBusy('reveal');
     try {
       const result = await window.noteforest.revealDocument(runtime.packagePath);
-      if (!result.ok) toast.error(result.message ?? 'Could not reveal the document.');
+      if (!result.ok) errorToast(result.message ?? 'Couldn’t reveal the note.', result.details);
     } finally {
       setBusy(null);
     }
@@ -100,6 +102,9 @@ export function SaveFailureBanner({
   // permission, lock, and integrity failures use the danger tone. Either way
   // the color stays on the icon/title, never on a stripe.
   const tone = failure.code === 'external-modification' ? 'warning' : 'danger';
+  // One Details per surface: the failure value and the package path join with
+  // ` · ` (dialogs.md §3.4).
+  const detailsValue = `${failure.message} · ${runtime.packagePath}`;
   return (
     <section
       className="nf-save-failure"
@@ -108,7 +113,6 @@ export function SaveFailureBanner({
       data-save-failure="true"
       data-save-failure-code={failure.code}
       data-save-failure-tone={tone}
-      title={runtime.packagePath}
     >
       <TriangleAlert
         size={16}
@@ -118,16 +122,9 @@ export function SaveFailureBanner({
       />
       <div className="nf-save-failure-copy">
         <strong className="nf-save-failure-title">{saveFailureHeadline(failure.code)}</strong>
-        <p className="nf-save-failure-hint">
-          {saveFailureHint(failure.code)} Autosave is paused.
-        </p>
-        <p className="nf-save-failure-message">{failure.message}</p>
-        <details className="nf-save-failure-details" data-save-failure-details="true">
-          <summary>Details</summary>
-          <code className="nf-save-failure-path" data-save-failure-path="true">
-            {runtime.packagePath}
-          </code>
-        </details>
+        <p className="nf-save-failure-hint">{saveFailureHint(failure.code)}</p>
+        <p className="nf-save-failure-paused">Autosave is paused.</p>
+        <Details value={detailsValue} />
       </div>
       <div className="nf-save-failure-actions">
         <button

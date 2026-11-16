@@ -382,10 +382,12 @@ describe('M4e1 settings platform', () => {
       'error',
       'a refused write is never reported as saved',
     );
-    assert.match(
-      await page.locator('[data-settings-save-error="true"]').innerText(),
-      /corrupt/i,
-      'the refusal explains that the file is corrupt',
+    assert.equal(
+      (
+        await page.locator('[data-settings-save-error="true"]').innerText()
+      ).trim(),
+      'Settings couldn’t be read. Reset them to the defaults.',
+      'the refusal says the settings cannot be read and what to do',
     );
     assert.equal(
       await page.locator('[data-settings-warning="corrupt"]').isVisible(),

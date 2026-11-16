@@ -71,8 +71,8 @@ export function isInsideMarkdownRoot(root: string, candidate: string): boolean {
   return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
 }
 
-function failure(message: string): { ok: false; message: string } {
-  return { ok: false, message };
+function failure(message: string, details?: string): { ok: false; message: string; details?: string } {
+  return details === undefined ? { ok: false, message } : { ok: false, message, details };
 }
 
 function messageOf(error: unknown): string {
@@ -120,13 +120,13 @@ export async function readMarkdownFile(inputPath: string): Promise<MarkdownOpenR
   try {
     realPath = await fs.realpath(inputPath);
   } catch (error) {
-    return failure(`Could not open the Markdown file: ${messageOf(error)}`);
+    return failure('Couldn’t open the file.', messageOf(error));
   }
   let stats;
   try {
     stats = await fs.stat(realPath);
   } catch (error) {
-    return failure(`Could not read the Markdown file: ${messageOf(error)}`);
+    return failure('Couldn’t read the file.', messageOf(error));
   }
   if (!stats.isFile()) return failure('The Markdown path is not a file.');
 
@@ -151,7 +151,7 @@ export async function readMarkdownFile(inputPath: string): Promise<MarkdownOpenR
   try {
     bytes = await fs.readFile(realPath);
   } catch (error) {
-    return failure(`Could not read the Markdown file: ${messageOf(error)}`);
+    return failure('Couldn’t read the file.', messageOf(error));
   }
   if (bytes.byteLength > MAX_MARKDOWN_BYTES) {
     // The file grew between the stat and the read; never parse a race winner.
@@ -186,22 +186,29 @@ function saveFailure(
   code: 'conflict' | 'missing' | 'read-only' | 'permission' | 'disk-full' | 'unknown',
   message: string,
   base?: MarkdownFileFingerprint | null,
+  details?: string,
 ): MarkdownSaveResult {
-  return base === undefined ? { ok: false, code, message } : { ok: false, code, message, base };
+  const failure = {
+    ok: false as const,
+    code,
+    message,
+    ...(details === undefined ? {} : { details }),
+  };
+  return base === undefined ? failure : { ...failure, base };
 }
 
 function mapWriteError(error: unknown): MarkdownSaveResult {
   const code = errorCode(error);
   if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
-    return saveFailure('permission', `Could not write the Markdown file: ${messageOf(error)}`);
+    return saveFailure('permission', 'Couldn’t save the file.', undefined, messageOf(error));
   }
   if (code === 'ENOSPC' || code === 'EDQUOT') {
-    return saveFailure('disk-full', `Could not write the Markdown file: ${messageOf(error)}`);
+    return saveFailure('disk-full', 'Couldn’t save the file.', undefined, messageOf(error));
   }
   if (code === 'ENOENT') {
-    return saveFailure('missing', 'The Markdown file is no longer on disk. Nothing was written.');
+    return saveFailure('missing', 'This file is no longer on disk. Nothing was written.');
   }
-  return saveFailure('unknown', `Could not save the Markdown file: ${messageOf(error)}`);
+  return saveFailure('unknown', 'Couldn’t save the file.', undefined, messageOf(error));
 }
 
 /**
@@ -288,7 +295,7 @@ export async function saveMarkdownFile(
     realPath = await fs.realpath(input.path);
   } catch (error) {
     return errorCode(error) === 'ENOENT'
-      ? saveFailure('missing', 'The Markdown file is no longer on disk. Nothing was written.')
+      ? saveFailure('missing', 'This file is no longer on disk. Nothing was written.')
       : mapWriteError(error);
   }
   let stats;
@@ -296,11 +303,11 @@ export async function saveMarkdownFile(
     stats = await fs.stat(realPath);
   } catch (error) {
     return errorCode(error) === 'ENOENT'
-      ? saveFailure('missing', 'The Markdown file is no longer on disk. Nothing was written.')
+      ? saveFailure('missing', 'This file is no longer on disk. Nothing was written.')
       : mapWriteError(error);
   }
   if (!stats.isFile()) {
-    return saveFailure('missing', 'The Markdown file is no longer on disk. Nothing was written.');
+    return saveFailure('missing', 'This file is no longer on disk. Nothing was written.');
   }
   if (stats.size > MAX_MARKDOWN_BYTES) {
     return saveFailure(

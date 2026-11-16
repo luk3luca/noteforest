@@ -12,11 +12,18 @@ import {
 } from '../lib/recovery';
 import { registerRuntime } from '../state/registry';
 import { useShell, type RecoveryTabInfo } from '../state/shell';
+import { Details } from './Details';
+
+/** One message plus, when present, its technical line for Details. */
+interface RecoveryFailure {
+  message: string;
+  details?: string;
+}
 
 type BackupListState =
   | { status: 'loading' }
   | { status: 'ready'; backups: BackupCandidateView[] }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; details?: string };
 
 type RecoveryAction = 'restore' | 'retry' | 'reveal' | null;
 
@@ -40,7 +47,7 @@ export function RecoverySurface({
   const [list, setList] = useState<BackupListState>({ status: 'loading' });
   const [reloadSeq, setReloadSeq] = useState(0);
   const [busy, setBusy] = useState<RecoveryAction>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<RecoveryFailure | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,7 +58,11 @@ export function RecoverySurface({
       .then((result) => {
         if (cancelled) return;
         if (!result.ok) {
-          setList({ status: 'error', message: result.message });
+          setList({
+            status: 'error',
+            message: result.message,
+            ...(result.details === undefined ? {} : { details: result.details }),
+          });
           return;
         }
         setList({ status: 'ready', backups: result.backups });
@@ -79,7 +90,10 @@ export function RecoverySurface({
       const result = await window.noteforest.restoreNewestBackup(packagePath);
       if (!result.ok) {
         if (result.canceled !== true) {
-          setError(result.message ?? 'Could not restore a backup.');
+          setError({
+            message: result.message ?? 'Couldn’t restore a backup.',
+            ...(result.details === undefined ? {} : { details: result.details }),
+          });
         }
         return;
       }
@@ -91,12 +105,12 @@ export function RecoverySurface({
           packagePath: result.snapshot.packagePath,
           title: result.snapshot.document.title,
         });
-        toast.success('Restored the newest backup as a new copy and opened it.');
+        toast.success('Restored the newest backup.');
       } else {
         toast.success(`Restored the newest backup to ${result.packagePath}`);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError({ message: cause instanceof Error ? cause.message : String(cause) });
     } finally {
       setBusy(null);
     }
@@ -112,15 +126,15 @@ export function RecoverySurface({
         .getState()
         .tabs.find((candidate) => candidate.packagePath === packagePath);
       if (tab?.recovery !== undefined) {
-        setError(`Still unavailable: ${tab.recovery.reason}`);
+        setError({ message: 'Still unavailable.', details: tab.recovery.reason });
       } else if (tab?.missing === true) {
-        setError('Still unavailable: the document folder is missing.');
+        setError({ message: 'Still unavailable. The folder is missing.' });
       } else {
-        setNote('The document opened.');
+        setNote('The note opened.');
       }
       setReloadSeq((value) => value + 1);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError({ message: cause instanceof Error ? cause.message : String(cause) });
     } finally {
       setBusy(null);
     }
@@ -131,7 +145,12 @@ export function RecoverySurface({
     setError(null);
     try {
       const result = await window.noteforest.revealDocument(packagePath);
-      if (!result.ok) setError(result.message ?? 'Could not reveal the document.');
+      if (!result.ok) {
+        setError({
+          message: result.message ?? 'Couldn’t reveal the note.',
+          ...(result.details === undefined ? {} : { details: result.details }),
+        });
+      }
     } finally {
       setBusy(null);
     }
@@ -204,24 +223,22 @@ export function RecoverySurface({
       <section className="nf-recovery-backups" aria-label="Backups">
         <div className="nf-recovery-section-head">
           <h2>Backups</h2>
-          <span>Newest first · restoring always creates a new copy</span>
+          <span>Newest first. Restoring makes a copy.</span>
         </div>
 
         {list.status === 'loading' ? <p className="nf-dialog-text">Reading backups…</p> : null}
 
         {list.status === 'error' ? (
-          <p className="nf-dialog-text nf-dialog-error" role="alert" data-recovery-backups-error="true">
-            {list.message}
-          </p>
+          <div className="nf-recovery-error" role="alert" data-recovery-backups-error="true">
+            <p className="nf-dialog-text nf-dialog-error">{list.message}</p>
+            {list.details === undefined ? null : <Details value={list.details} />}
+          </div>
         ) : null}
 
         {list.status === 'ready' && list.backups.length === 0 ? (
           <div className="nf-backup-empty" data-recovery-empty="true">
             <p className="nf-backup-empty-title">No usable backups</p>
-            <p className="nf-dialog-note">
-              NoteForest has no backup for this document yet. The original folder is unchanged;
-              restore it from another copy or a filesystem backup.
-            </p>
+            <p className="nf-dialog-note">No backup yet. Restore the note from another copy.</p>
           </div>
         ) : null}
 
@@ -230,9 +247,7 @@ export function RecoverySurface({
             {usable.length === 0 ? (
               <div className="nf-backup-empty" data-recovery-empty="true">
                 <p className="nf-backup-empty-title">No usable backups</p>
-                <p className="nf-dialog-note">
-                  Every backup listed below is invalid. The original folder is unchanged.
-                </p>
+                <p className="nf-dialog-note">No usable backup. Nothing on disk was changed.</p>
               </div>
             ) : null}
             {list.backups.map((backup) => (
@@ -267,13 +282,13 @@ export function RecoverySurface({
             disabled={disabled || usable.length === 0}
             title={
               usable.length === 0
-                ? 'There is no valid backup to restore.'
-                : 'Restore the newest valid backup as a new copy.'
+                ? 'No valid backup to restore.'
+                : 'Restores a copy.'
             }
             onClick={() => void restoreNewest()}
           >
             <RotateCcw size={13} strokeWidth={1.5} aria-hidden="true" />
-            {busy === 'restore' ? 'Restoring…' : 'Restore newest valid backup'}
+            {busy === 'restore' ? 'Restoring…' : 'Restore newest backup'}
           </button>
           {recovery.status === 'missing' ? (
             <>
@@ -292,7 +307,7 @@ export function RecoverySurface({
                 className="nf-button"
                 data-recovery-action="remove"
                 disabled={disabled}
-                title="Close this tab. The folder on disk is not deleted."
+                title="Close this tab. The folder is kept."
                 onClick={removeTab}
               >
                 <X size={13} strokeWidth={1.5} aria-hidden="true" />
@@ -327,9 +342,10 @@ export function RecoverySurface({
           </p>
         ) : null}
         {error !== null ? (
-          <p className="nf-dialog-text nf-dialog-error" role="alert" data-recovery-error="true">
-            {error}
-          </p>
+          <div className="nf-recovery-error" role="alert" data-recovery-error="true">
+            <p className="nf-dialog-text nf-dialog-error">{error.message}</p>
+            {error.details === undefined ? null : <Details value={error.details} />}
+          </div>
         ) : null}
       </section>
     </section>

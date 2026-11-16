@@ -144,7 +144,7 @@ describe('evaluatePreflight', () => {
       blockId: 'tall',
       blockTitle: 'A very tall block',
     });
-    expect(result.errors[0]!.message).toContain('A very tall block');
+    expect(result.errors[0]!.message).toBe('A block doesn’t fit the page.');
   });
 
   it('refuses an overflowing page', () => {
@@ -244,7 +244,7 @@ describe('evaluatePreflight', () => {
       }),
     );
     expect(result.errors[0]).toMatchObject({ code: 'settings-mismatch' });
-    expect(result.errors[0]!.message).toContain('PageTheme');
+    expect(result.errors[0]!.message).toBe('The print layout doesn’t match the page settings.');
   });
 });
 
@@ -313,7 +313,7 @@ describe('validateProducedPdf', () => {
       summary(),
     );
     expect(result.ok).toBe(false);
-    expect(result.errors[0]!.message).toContain('210.00 × 297.00 mm');
+    expect(result.errors[0]!.message).toBe('Page 1 has the wrong size.');
   });
 
   it('fails a truly blank produced page (S2-1) but accepts an image-only page', () => {
@@ -384,7 +384,7 @@ describe('validateProducedPdf', () => {
     );
     expect(result.ok).toBe(false);
     expect(result.errors[0]).toMatchObject({ code: 'blank-page', pageNumber: 2 });
-    expect(result.errors[0]!.message).toContain('empty page 2');
+    expect(result.errors[0]!.message).toBe('Page 2 came out blank, so the export stopped.');
   });
 
   it('blocks a model with lost segment coverage (S3-6)', () => {

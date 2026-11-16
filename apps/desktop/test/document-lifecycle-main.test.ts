@@ -460,10 +460,10 @@ describe('New note in a folder (vault usability)', () => {
     const refused: Array<[string, RegExp]> = [
       [notePackage, /is a note, not a folder/],
       [path.join(library, 'diario.md'), /Markdown/],
-      [path.join(library, 'assets'), /reserved for note assets or backups/],
-      [path.join(library, 'diario.assets'), /reserved for note assets or backups/],
-      [path.join(library, '.hidden'), /reserved for note assets or backups/],
-      [outside, /not inside the active library/],
+      [path.join(library, 'assets'), /That folder name is reserved/],
+      [path.join(library, 'diario.assets'), /That folder name is reserved/],
+      [path.join(library, '.hidden'), /That folder name is reserved/],
+      [outside, /That folder isn’t in this library/],
       [path.join(library, 'Gone'), /no longer exists/],
     ];
     for (const [target, message] of refused) {
@@ -821,7 +821,7 @@ describe('Move to Trash', () => {
 
     const preflight = await trashPreflight(packagePath);
     expect(preflight).toMatchObject({ liveLock: true, canTrash: false });
-    expect(preflight.reason).toMatch(/another NoteForest session/i);
+    expect(preflight.reason).toBe('Another window is writing this note.');
 
     let called = false;
     const result = await trashDocument(packagePath, async () => {
@@ -881,7 +881,8 @@ describe('Move to Trash', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe('trash-failed');
-      expect(result.message).toMatch(/os trash unavailable/);
+      expect(result.message).toBe('Couldn’t move “Survivor” to the Trash. Nothing was changed.');
+      expect(result.details).toMatch(/os trash unavailable/);
     }
     expect((await fs.stat(packagePath)).isDirectory()).toBe(true);
     expect(await recentPaths()).toEqual([packagePath]);

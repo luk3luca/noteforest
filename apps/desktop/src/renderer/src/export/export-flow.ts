@@ -219,7 +219,7 @@ async function openExportSheet(trigger: HTMLElement | null): Promise<void> {
   const shell = useShell.getState();
   const runtime = getRuntime(shell.activeTab);
   if (runtime === null) {
-    toast.error('Open a document before exporting a PDF.');
+    toast.error('Open a note before exporting a PDF.');
     return;
   }
   opening = true;
@@ -234,7 +234,7 @@ async function openExportSheet(trigger: HTMLElement | null): Promise<void> {
     if (!(await commitPageEdit(runtime.packagePath))) {
       fail({
         code: 'snapshot-failed',
-        message: 'Could not commit the Page Edit block before the PDF export.',
+        message: 'Page Edit wasn’t saved before the export.',
         details: [],
       });
       return;
@@ -341,7 +341,7 @@ export async function startExport(): Promise<void> {
     if (!(await commitPageEdit(packagePath))) {
       fail({
         code: 'snapshot-failed',
-        message: 'Could not commit the Page Edit block before the PDF export.',
+        message: 'Page Edit wasn’t saved before the export.',
         details: [],
       });
       return;
@@ -571,7 +571,7 @@ export async function revealExportedPdf(): Promise<void> {
   const state = useExportUi.getState();
   if (state.outputPath === null) return;
   const result = await window.noteforest.revealExport(state.outputPath);
-  if (!result.ok) toast.error(result.message ?? 'Could not reveal the PDF.');
+  if (!result.ok) toast.error(result.message ?? 'Couldn’t reveal the PDF.');
 }
 
 /** Open the produced PDF in the default OS application. */
@@ -579,5 +579,5 @@ export async function openExportedPdf(): Promise<void> {
   const state = useExportUi.getState();
   if (state.outputPath === null) return;
   const result = await window.noteforest.openExport(state.outputPath);
-  if (!result.ok) toast.error(result.message ?? 'Could not open the PDF.');
+  if (!result.ok) toast.error(result.message ?? 'Couldn’t open the PDF.');
 }

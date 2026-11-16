@@ -719,6 +719,8 @@ describe('Batch A UI rework', () => {
     await page.locator('.nf-palette-input').fill('Command palette');
     await page.waitForSelector('[data-palette-empty="true"]');
     await page.screenshot({ path: join(screenshotDir, 'palette-empty.png') });
+    // C+D evidence: the palette is unchanged by the copy batch.
+    await page.screenshot({ path: join(artifactsPath('copy-cd'), 'palette.png') });
 
     // Arrow + Enter opens the selected command; Esc restores focus.
     await page.locator('.nf-palette-input').fill('Settings');

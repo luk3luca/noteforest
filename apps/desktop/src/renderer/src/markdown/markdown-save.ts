@@ -15,6 +15,7 @@
  */
 
 import { toast } from 'sonner';
+import { errorToast } from '../lib/toast-details';
 import type {
   MarkdownFlushResult,
   MarkdownSaveResult,
@@ -35,7 +36,7 @@ export type MarkdownSaveOutcome =
   | { status: 'conflict' }
   | { status: 'missing' }
   | { status: 'blocked'; message: string }
-  | { status: 'failed'; message: string };
+  | { status: 'failed'; message: string; details?: string };
 
 interface SaveOptions {
   /** `⌘S` and the close/quit Save choice flush immediately. */
@@ -142,7 +143,11 @@ function failureOutcome(path: string, result: Extract<MarkdownSaveResult, { ok: 
     return { status: 'missing' };
   }
   useMarkdownFiles.getState().markSaveError(path, result.message);
-  return { status: 'failed', message: result.message };
+  return {
+    status: 'failed',
+    message: result.message,
+    ...(result.details === undefined ? {} : { details: result.details }),
+  };
 }
 
 /**
@@ -176,7 +181,7 @@ export function saveMarkdownNow(
     }
     const markdown = serializeCurrent(path);
     if (markdown === null) {
-      return { status: 'failed', message: 'The Markdown editor is not available.' };
+      return { status: 'failed', message: 'The editor isn’t available.' };
     }
     useMarkdownFiles.getState().setSaving(path);
     let result: MarkdownSaveResult;
@@ -198,10 +203,10 @@ export function saveMarkdownNow(
         openConflictDialog(path);
       }
       if (outcome.status === 'missing' && options.surfaceConflict !== false) {
-        toast.error('This Markdown file is no longer on disk. Nothing was written.');
+        toast.error('This file is no longer on disk. Nothing was written.');
       }
       if (outcome.status === 'failed' && options.surfaceConflict !== false) {
-        toast.error(outcome.message);
+        errorToast(outcome.message, outcome.details);
       }
       return outcome;
     }
@@ -253,7 +258,7 @@ export async function reloadMarkdownFromDisk(path: string): Promise<MarkdownSave
   const result = await window.noteforest.readMarkdownFile(path);
   if (!result.ok) {
     markMissing(path);
-    const message = result.message ?? 'Could not reload the Markdown file.';
+    const message = result.message ?? 'Couldn’t reload the file.';
     useMarkdownFiles.getState().markSaveError(path, message);
     return { status: 'failed', message };
   }

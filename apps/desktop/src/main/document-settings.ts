@@ -152,7 +152,11 @@ async function writeEntries(
     );
     return { ok: true };
   } catch (error) {
-    return { ok: false, message: `Could not save document settings: ${errorMessage(error)}` };
+    return {
+      ok: false,
+      message: 'Note settings weren’t saved.',
+      details: errorMessage(error),
+    };
   }
 }
 
@@ -285,7 +289,7 @@ export async function remapDocumentSettingsPaths(
 
 export type DocumentSettingsBackupParse =
   | { ok: true; entries: DocumentSettingsEntry[] }
-  | { ok: false; message: string };
+  | { ok: false; message: string; details?: string };
 
 /**
  * Parse and normalize one backup file. A backup is valid only when it is JSON
@@ -298,7 +302,11 @@ export function parseDocumentSettingsBackup(text: string): DocumentSettingsBacku
   try {
     parsed = JSON.parse(text) as unknown;
   } catch (error) {
-    return { ok: false, message: `The backup is not valid JSON: ${errorMessage(error)}` };
+    return {
+      ok: false,
+      message: 'That backup can’t be read.',
+      details: errorMessage(error),
+    };
   }
   const list = Array.isArray(parsed)
     ? parsed
@@ -306,7 +314,7 @@ export function parseDocumentSettingsBackup(text: string): DocumentSettingsBacku
       ? (parsed['entries'] as unknown[])
       : null;
   if (list === null) {
-    return { ok: false, message: 'The backup has no document settings entry list.' };
+    return { ok: false, message: 'That backup has no settings.' };
   }
   return { ok: true, entries: normalizeDocumentSettingsFile(parsed).entries };
 }
@@ -406,13 +414,17 @@ export async function restoreDocumentSettingsBackup(
   return enqueue(async () => {
     const candidate = await findNewestValidDocumentSettingsBackup(directory);
     if (candidate === null) {
-      return { ok: false, message: 'No valid document settings backup was found.' };
+      return { ok: false, message: 'No valid backup was found.' };
     }
     let text: string;
     try {
       text = await fs.readFile(candidate.path, 'utf8');
     } catch (error) {
-      return { ok: false, message: `Could not read the backup: ${errorMessage(error)}` };
+      return {
+        ok: false,
+        message: 'The backup couldn’t be read.',
+        details: errorMessage(error),
+      };
     }
     const parsed = parseDocumentSettingsBackup(text);
     if (!parsed.ok) {

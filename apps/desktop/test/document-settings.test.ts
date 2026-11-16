@@ -539,7 +539,7 @@ describe('document settings recovery (S3-13)', () => {
     const restored = await restoreDocumentSettingsBackup(support);
     expect(restored.ok).toBe(false);
     if (restored.ok) return;
-    expect(restored.message).toMatch(/No valid document settings backup/);
+    expect(restored.message).toBe('No valid backup was found.');
     // Nothing was replaced, invalidated, or deleted.
     expect(await fs.readFile(documentSettingsPath(support), 'utf8')).toBe('{broken');
     const names = await backupNames();

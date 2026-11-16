@@ -23,11 +23,6 @@ export interface PreflightResult {
   warnings: ExportWarning[];
 }
 
-function defectLabel(blockTitle: string | undefined, blockId: string | undefined): string {
-  if (blockTitle !== undefined && blockTitle.length > 0) return blockTitle;
-  return blockId ?? 'a block';
-}
-
 /**
  * Identity of the summary against the snapshot the renderer supplied. A print
  * run for another document/settings/revision is not printed.
@@ -41,7 +36,7 @@ export function identityErrors(
     errors.push({
       kind: 'layout-warning',
       code: 'document-mismatch',
-      message: `The print run measured document ${summary.documentId}, not ${snapshot.documentId}.`,
+      message: 'The PDF was built from a different note.',
     });
   }
   if (
@@ -52,7 +47,7 @@ export function identityErrors(
     errors.push({
       kind: 'layout-warning',
       code: 'document-mismatch',
-      message: `The print run measured revision ${summary.revision}, not the exported revision ${snapshot.revision}.`,
+      message: 'The PDF was built from an older version of the note.',
     });
   }
   if (summary.fingerprint !== snapshot.settingsFingerprint) {
@@ -67,7 +62,7 @@ export function identityErrors(
     errors.push({
       kind: 'validation',
       code: 'settings-mismatch',
-      message: `The print window type metrics do not match the resolved PageTheme (font ${summary.metrics.fontSizePx}px vs expected ${summary.metrics.expectedFontSizePx}px, line ratio ${summary.metrics.lineHeightRatio} vs ${summary.metrics.expectedLineHeightRatio}).`,
+      message: 'The print layout doesn’t match the page settings.',
     });
   }
   // S3-2: the main process computes the expected geometry itself. A summary
@@ -82,7 +77,7 @@ export function identityErrors(
     errors.push({
       kind: 'validation',
       code: 'settings-mismatch',
-      message: `The print run reports a ${summary.pageWidthMm} × ${summary.pageHeightMm} mm page; the resolved setup is ${expected.pageWidthMm.toFixed(2)} × ${expected.pageHeightMm.toFixed(2)} mm.`,
+      message: 'The PDF page size doesn’t match the page settings.',
     });
   }
   return errors;
@@ -97,7 +92,7 @@ export function blockingWarnings(summary: PrintRunSummary): ExportWarning[] {
     warnings.push({
       kind: 'blocking-defect',
       code: 'preflight-blocked',
-      message: `Block ${defectLabel(defect.blockTitle, defect.blockId)}: ${defect.message}`,
+      message: 'A block doesn’t fit the page.',
       ...(defect.blockId === undefined ? {} : { blockId: defect.blockId }),
       ...(defect.blockTitle === undefined ? {} : { blockTitle: defect.blockTitle }),
       ...(defect.pageNumber === undefined ? {} : { pageNumber: defect.pageNumber }),
@@ -108,7 +103,7 @@ export function blockingWarnings(summary: PrintRunSummary): ExportWarning[] {
     warnings.push({
       kind: 'page-overflow',
       code: 'preflight-blocked',
-      message: `Page ${pageNumber} overflows the resolved content area; printing would clip it.`,
+      message: `Page ${pageNumber} is too tall and would be cut.`,
       pageNumber,
     });
   }
@@ -119,7 +114,7 @@ export function blockingWarnings(summary: PrintRunSummary): ExportWarning[] {
     warnings.push({
       kind: 'page-overflow',
       code: 'preflight-blocked',
-      message: `Page ${pageNumber} overflows after rendering; printing would clip it.`,
+      message: `Page ${pageNumber} is too tall and would be cut.`,
       pageNumber,
     });
   }
@@ -143,7 +138,7 @@ export function preflightWarnings(summary: PrintRunSummary): ExportWarning[] {
     warnings.push({
       kind: 'anchor',
       code: 'anchor-warning',
-      message: `Block ${blockId} has a broken or ambiguous anchor; its branch is printed with the fallback marker.`,
+      message: 'A broken anchor prints with a marker.',
       blockId,
     });
   }
@@ -151,14 +146,14 @@ export function preflightWarnings(summary: PrintRunSummary): ExportWarning[] {
     warnings.push({
       kind: 'asset',
       code: 'failed-asset',
-      message: `Asset ${assetId} could not be decoded; the PDF shows the placeholder.`,
+      message: 'An image couldn’t be read; the PDF shows a placeholder.',
     });
   }
   for (const assetId of summary.missingAssetIds) {
     warnings.push({
       kind: 'asset',
       code: 'missing-asset',
-      message: `Asset ${assetId} is missing from the package; the PDF shows the placeholder.`,
+      message: 'An image is missing; the PDF shows a placeholder.',
     });
   }
   const covered = new Set([
@@ -209,14 +204,14 @@ export function preflightWarnings(summary: PrintRunSummary): ExportWarning[] {
     warnings.push({
       kind: 'render',
       code: 'console-error',
-      message: `The print window logged an error: ${message}`,
+      message: 'The print step reported an error.',
     });
   }
   for (const blockId of summary.modelChecks.unplacedBlockIds) {
     warnings.push({
       kind: 'validation',
       code: 'unplaced-block',
-      message: `Block ${blockId} is in the document but was not placed on any derived page.`,
+      message: 'A block is missing from the pages.',
       blockId,
     });
   }
@@ -236,7 +231,7 @@ export function evaluatePreflight(
     errors.push({
       kind: 'validation',
       code: 'model-error',
-      message: `The measured page model lost or duplicated content: ${summary.modelChecks.segmentCoverageIssues.join('; ')}`,
+      message: 'The pages lost or duplicated content.',
     });
   }
   return {
@@ -289,7 +284,7 @@ export function validateProducedPdf(
     errors.push({
       kind: 'validation',
       code: 'validation-failed',
-      message: `The produced PDF has ${inspection.pageCount} pages; the paginator derived ${summary.pageCount}.`,
+      message: `The PDF has ${inspection.pageCount} pages; the layout has ${summary.pageCount}.`,
     });
   }
   const modelPages = new Map(summary.pages.map((page) => [page.pageNumber, page]));
@@ -301,7 +296,7 @@ export function validateProducedPdf(
       errors.push({
         kind: 'validation',
         code: 'validation-failed',
-        message: `PDF page ${page.pageNumber} is ${page.widthMm.toFixed(2)} × ${page.heightMm.toFixed(2)} mm; the resolved page is ${summary.pageWidthMm.toFixed(2)} × ${summary.pageHeightMm.toFixed(2)} mm.`,
+        message: `Page ${page.pageNumber} has the wrong size.`,
         pageNumber: page.pageNumber,
       });
     }
@@ -310,7 +305,7 @@ export function validateProducedPdf(
       errors.push({
         kind: 'validation',
         code: 'blank-page',
-        message: `The paginator produced an empty page ${page.pageNumber} (no fragments, edges, trunks, or images); a blank page is an export failure.`,
+        message: `Page ${page.pageNumber} came out blank, so the export stopped.`,
         pageNumber: page.pageNumber,
       });
       continue;
@@ -324,7 +319,7 @@ export function validateProducedPdf(
       errors.push({
         kind: 'validation',
         code: 'blank-page',
-        message: `PDF page ${page.pageNumber} is blank (no text, image, or vector content); a blank page is an export failure.`,
+        message: `Page ${page.pageNumber} came out blank, so the export stopped.`,
         pageNumber: page.pageNumber,
       });
       continue;
@@ -334,7 +329,7 @@ export function validateProducedPdf(
       warnings.push({
         kind: 'validation',
         code: 'textless-page',
-        message: `PDF page ${page.pageNumber} has no extractable text; the model page has ${modelPage?.images ?? 0} image fragment(s).`,
+        message: `Page ${page.pageNumber} has no selectable text.`,
         pageNumber: page.pageNumber,
       });
     }
@@ -343,14 +338,14 @@ export function validateProducedPdf(
     errors.push({
       kind: 'validation',
       code: 'validation-failed',
-      message: 'The produced PDF has no extractable text.',
+      message: 'The PDF has no selectable text.',
     });
   }
   if (inspection.missingGlyphCount > 0) {
     warnings.push({
       kind: 'validation',
       code: 'missing-glyphs',
-      message: `The produced PDF contains ${inspection.missingGlyphCount} replacement glyph(s).`,
+      message: `The PDF has ${inspection.missingGlyphCount} missing characters.`,
     });
   }
   return { ok: errors.length === 0, errors, warnings };

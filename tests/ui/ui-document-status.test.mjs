@@ -247,7 +247,7 @@ describe('R3 document status panel', () => {
     const slim = () => page.locator('[data-status-slim="true"][data-status-kind="read-only"]');
     await slim().waitFor({ timeout: 10000 });
     assert.match(await slim().innerText(), /Read-only/);
-    assert.match(await slim().innerText(), /another session holds the lock/);
+    assert.match(await slim().innerText(), /open in another window/);
     assert.equal(
       await page.locator('[data-stale-lock-action="take-over"]').count(),
       0,
@@ -279,7 +279,7 @@ describe('R3 document status panel', () => {
     await slim().locator('[data-status-details] summary').click();
     const details = slim().locator('[data-status-details]');
     assert.match(await details.innerText(), /opened read-only/);
-    assert.match(await details.innerText(), /quit NoteForest completely and reopen/);
+    assert.match(await details.innerText(), /quit and reopen NoteForest/);
     assert.equal(await details.locator('[data-lock-pid="true"]').innerText(), '2147483647');
     assert.equal(await details.locator('[data-lock-host="true"]').innerText(), 'another-mac');
     assert.equal(await details.locator('[data-lock-session="true"]').innerText(), 'status-session');
@@ -555,8 +555,7 @@ describe('R3 document status panel', () => {
         .map((element) => element.textContent ?? '')
         .join(' '),
     );
-    assert.match(bannerText, /locked by another NoteForest session/);
-    assert.match(bannerText, /Close the other NoteForest window and try again/);
+    assert.match(bannerText, /Another window has this note open\. Close it there and try again\./);
     assert.doesNotMatch(bannerText, /\.lock/);
     assert.ok(
       !bannerText.includes(env.NOTEFOREST_APP_SUPPORT),
@@ -571,7 +570,7 @@ describe('R3 document status panel', () => {
         : { draftId: runtime.draftId, error: runtime.draftError };
     });
     assert.ok(keptDraft !== null && keptDraft.draftId !== null, 'the draft stays in memory');
-    assert.match(keptDraft.error?.message ?? '', /locked by another NoteForest session/);
+    assert.equal(keptDraft.error?.message, 'Another window has this note open. Close it there and try again.');
     assert.equal((await h.state()).tabs.length, tabsBefore + 1, 'the draft tab stays open');
     assert.equal((await readLock(liveLock)).token, 'create-live-token', 'the live lock is untouched');
     await assert.rejects(stat(livePath), 'a failed materialization leaves no folder');
@@ -636,8 +635,16 @@ describe('R3 document status panel', () => {
       assert.notEqual(geometry.borderRadius, '0px');
 
       const title = banner.locator('.nf-save-failure-title');
-      assert.match(await title.innerText(), /cannot write/i);
-      assert.match(await banner.locator('.nf-save-failure-message').innerText(), /permission|EACCES/i);
+      assert.equal(await title.innerText(), 'NoteForest can’t write to this folder.');
+      // C-03.1: the hint is one line and `Autosave is paused.` is its own line.
+      assert.equal(
+        (await banner.locator('.nf-save-failure-hint').innerText()).trim(),
+        'Check the folder permissions and Retry, or save a copy elsewhere.',
+      );
+      assert.equal(
+        (await banner.locator('.nf-save-failure-paused').innerText()).trim(),
+        'Autosave is paused.',
+      );
       for (const action of ['retry', 'restore-backup', 'save-copy', 'reload', 'reveal']) {
         assert.equal(
           await banner.locator(`[data-save-action="${action}"]`).count(),
@@ -650,17 +657,23 @@ describe('R3 document status panel', () => {
         0,
         'permission failures never offer overwrite',
       );
-      // The package path lives in a closed Details disclosure, not a primary
-      // monospace line.
-      assert.equal(await banner.locator('[data-save-failure-details] summary').innerText(), 'Details');
-      assert.equal(
-        await banner.locator('[data-save-failure-details]').getAttribute('open'),
-        null,
-      );
-      assert.equal(
-        await banner.locator('[data-save-failure-path]').textContent(),
-        packagePath,
-      );
+      // The raw failure and the package path live in the shared, closed
+      // Details disclosure (one value, joined with ` · `), never as a visible
+      // technical paragraph.
+      const details = banner.locator('[data-details="true"]');
+      assert.equal(await details.count(), 1, 'exactly one Details per surface');
+      assert.equal(await details.locator('summary').innerText(), 'Details');
+      assert.equal(await details.getAttribute('open'), null);
+      const detailsValue = await details.locator('[data-details-value]').textContent();
+      assert.ok(detailsValue.includes(packagePath), 'the path is in Details');
+      assert.match(detailsValue, /permission|EACCES/i);
+      assert.equal(await banner.locator('.nf-save-failure-message').count(), 0);
+      await details.locator('summary').click();
+      await page.screenshot({
+        path: join(screenshotDir, 'save-failure-details.png'),
+        scale: 'css',
+      });
+      await details.locator('summary').click();
 
       await page.screenshot({ path: join(screenshotDir, 'save-failure-dark.png') });
       await setTheme('light');

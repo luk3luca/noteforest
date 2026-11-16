@@ -124,10 +124,13 @@ describe('NoteForest M3f1 split/merge menu', () => {
       'true',
       'split is disabled when the caret is in another block',
     );
+    // D-02.1: the label is fixed; the disabled reason is one shared sentence
+    // instead of a glued `— {reason}` tail.
     assert.match(
       (await disabledSplit.textContent()) ?? '',
-      /caret is in a different block/,
+      /Place the caret in a text block\./,
     );
+    assert.doesNotMatch((await disabledSplit.textContent()) ?? '', /caret is in a different block/);
     await closeMenu();
 
     // Place the caret after "Alpha " and split from the block menu.

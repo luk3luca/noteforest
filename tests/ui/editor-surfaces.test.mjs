@@ -1060,7 +1060,7 @@ describe('Editor surfaces: contextual menu, Page formula, mode parity, indent', 
     await selectBlock(anchored.blockId);
     await page.keyboard.press('Shift+Tab');
     await page
-      .locator('[data-sonner-toast]', { hasText: 'Kept as reference from' })
+      .locator('[data-sonner-toast]', { hasText: 'Kept as a reference from' })
       .waitFor({ timeout: 10000 });
     await page.waitForFunction(
       ({ branchId, parentId }) => {

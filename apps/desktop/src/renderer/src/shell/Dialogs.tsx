@@ -40,6 +40,7 @@ import { backupMetadataLine } from '../lib/backup-restore';
 import type { BackupCandidateView, TrashPreflight } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
 import { Details, DetailsDialog } from './Details';
+import { errorToast } from '../lib/toast-details';
 import { Frame } from './DialogFrame';
 import { HealthRepairDialog } from './HealthRepairDialog';
 import { SettingsDialog } from './SettingsDialog';
@@ -618,9 +619,10 @@ export function Dialogs(): JSX.Element | null {
               onPress={() => {
                 close();
                 void overwriteMarkdownFile(dialog.path).then((outcome) => {
-                  if (outcome.status === 'failed') toast.error(outcome.message);
-                  else if (outcome.status === 'missing') {
-                    toast.error('This Markdown file is no longer on disk. Nothing was written.');
+                  if (outcome.status === 'failed') {
+                    errorToast(outcome.message, outcome.details);
+                  } else if (outcome.status === 'missing') {
+                    toast.error('This file is no longer on disk. Nothing was written.');
                   }
                 });
               }}
@@ -824,7 +826,9 @@ export function Dialogs(): JSX.Element | null {
               onPress={() => {
                 close();
                 void runtime.reloadFromDisk().then((outcome) => {
-                  if (!outcome.ok) toast.error(outcome.message ?? 'Could not reload the document.');
+                  if (!outcome.ok) {
+                    errorToast(outcome.message ?? 'Couldn’t reload the note.', outcome.details);
+                  }
                 });
               }}
             >
@@ -886,7 +890,7 @@ function OverwriteDialog({
               onClose();
               void runtime.overwriteExternal().then((outcome) => {
                 if (!outcome.ok) {
-                  toast.error(outcome.message ?? 'Could not overwrite the file on disk.');
+                  toast.error(outcome.message ?? 'Couldn’t overwrite the file on disk.');
                 }
               });
             }}
@@ -1132,7 +1136,7 @@ function LinkReferenceDialog({
       })
       .then((outcome) => {
         if (!outcome.ok) {
-          toast.error(outcome.message ?? 'Couldn’t add the link.');
+          errorToast(outcome.message ?? 'Couldn’t add the link.', outcome.details);
           return;
         }
         if (outcome.duplicate === true) {
@@ -1659,7 +1663,7 @@ function ImageAltDialog({
           onClose();
           return;
         }
-        toast.error(outcome.message ?? 'Couldn’t save the alt text.');
+        errorToast(outcome.message ?? 'Couldn’t save the alt text.', outcome.details);
         setSaving(false);
       })
       .catch((error: unknown) => {

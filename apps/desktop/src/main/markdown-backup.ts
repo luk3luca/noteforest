@@ -82,7 +82,7 @@ export interface MarkdownBackupInput {
 
 export type MarkdownBackupResult =
   | { ok: true; directory: string }
-  | { ok: false; message: string };
+  | { ok: false; message: string; details?: string };
 
 /**
  * Write the one previous copy and its metadata before the new bytes are
@@ -108,9 +108,9 @@ export async function writeMarkdownBackup(
   } catch (error) {
     return {
       ok: false,
-      message: `Could not write the Markdown backup: ${
-        error instanceof Error && error.message.length > 0 ? error.message : String(error)
-      }`,
+      message: 'The backup couldn’t be written.',
+      details:
+        error instanceof Error && error.message.length > 0 ? error.message : String(error),
     };
   }
 }
