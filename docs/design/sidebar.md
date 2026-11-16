@@ -69,7 +69,10 @@ One pattern for all four sections:
   (four sections with `0` is the approved all-clear) and Search (`No results`).
 - **Library exception:** its title slot is the library switcher (a 22 px control, 28 px row). The
   switcher is the title: no second title above it.
-- No section gets a second header row: a filter or a refresh joins the header's control slot, it does
+- **Health exception:** the refresh control stays **next to the filter field**, as approved in S2.1 —
+  it is a property of the filter row, not of the header. The header carries the title and the summary
+  count only.
+- No section gets a second header row: a filter or a refresh joins the existing control row, it does
   not push the content down.
 
 ## 5. Rows
@@ -119,8 +122,9 @@ Health already does this (`.nf-health-section-row[aria-expanded]`); Search adopt
 - The reserved gutter is **invisible**: only `::-webkit-scrollbar-thumb` is painted, the track is
   transparent, and the thumb exists only while the content actually overflows. Nothing is drawn when
   there is nothing to scroll; the space is simply reserved, so the content never moves.
-- The gutter is part of the measured content width (`sidebarContentWidth` in `shared/shell.ts` must
-  account for it, or the panel keeps reporting 10 px more than it has).
+- The gutter is **internal to the scroll container**. `sidebarContentWidth`/`sidebarPanelWidth` keep
+  their meaning (panel width ↔ content column), so no persisted width and no clamp changes; the 10 px
+  come out of the inner usable box, not out of the stored value.
 - No inner scroll containers. A long Health list scrolls the panel, not the section.
 
 ## 8. Activity-bar badge
@@ -138,9 +142,8 @@ The needs-repair counter becomes a **dot**, not a number.
 - `styles.css`: the `--sb-*` tokens, the `.nf-result-row` variants, the section header pattern, the
   divider rule moved from the header to the group, `scrollbar-gutter`, the badge dot, the Outline's
   inherited 13 px → `--sb-row`, Health's 3 px radius → 4 and its row padding onto the card.
-- `shared/shell.ts`: the gutter in the content-width model, plus its unit test.
 - `Sidebar.tsx`, `SearchSection.tsx`, `HealthSection.tsx`: the shared header, the Search tree, the
-  collapse state, the dot.
+  collapse state, the dot. `shared/shell.ts` is **not** in scope: the gutter is internal.
 - `docs/design/find-bar.md` §3 and `docs/design/document-health-sidebar.md` §2: the row and header
   rules point here instead of restating them.
 - Guard test: `tests/ui` or a CSS test asserting the sidebar selectors only use the `--sb-*` tokens
