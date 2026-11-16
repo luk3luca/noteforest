@@ -802,6 +802,10 @@ export function App(): JSX.Element {
         else if (type === 'warning') toast.warning(title, options);
         else toast.error(title, options);
       },
+      /** Test-only: open D25 without its toast host, which is batch C. */
+      openDetails: (value: string) => {
+        useShell.getState().openDialog({ kind: 'details', value });
+      },
       applyStructural: async (command) => {
         const state = useShell.getState();
         const runtime = allRuntimes().find(

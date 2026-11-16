@@ -282,14 +282,18 @@ describe('save failure copy', () => {
     }
   });
 
-  it('names the path and defaults the overwrite confirmation to Cancel', () => {
+  it('keeps the path out of the short description and defaults the overwrite confirmation to Cancel', () => {
     const confirm = overwriteConfirmation('/Users/luca/NoteForest/linear-algebra');
     expect(confirm.defaultAction).toBe('cancel');
     expect(confirm.confirmLabel).toBe('Overwrite');
     expect(confirm.confirmLabel).not.toBe(confirm.defaultAction);
     expect(confirm.title).toMatch(/overwrite/i);
-    expect(confirm.description).toContain('/Users/luca/NoteForest/linear-algebra');
+    expect(confirm.description).toBe(
+      'This replaces the file on disk; the external changes are lost. Reload instead to keep them.',
+    );
+    expect(confirm.description).not.toContain('/Users/luca/NoteForest/linear-algebra');
     expect(confirm.description).toMatch(/lost/i);
+    // The raw path stays on the record for the dialog's Details disclosure.
     expect(confirm.path).toBe('/Users/luca/NoteForest/linear-algebra');
   });
 

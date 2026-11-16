@@ -75,7 +75,7 @@ export function useContinuousSettingsController(): ContinuousSettingsController 
     const result = await flushSettingsWrites();
     if (sequence !== sequenceRef.current) return;
     setSaving(false);
-    setError(result.ok ? null : (result.message ?? 'Could not save settings.'));
+    setError(result.ok ? null : (result.message ?? 'Settings weren’t saved.'));
   }, []);
 
   const write = useCallback(

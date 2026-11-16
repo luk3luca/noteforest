@@ -11,7 +11,6 @@ import { useState, type ReactNode } from 'react';
 import {
   CONTINUOUS_ARROW_MAX,
   CONTINUOUS_ARROW_MIN,
-  CONTINUOUS_MIN_CORRIDOR,
   CONTINUOUS_SPACING_MAX,
   CONTINUOUS_SPACING_MIN,
   CONTINUOUS_STEP,
@@ -100,8 +99,7 @@ export function ContinuousSettingsPage({
     <>
       <h3 className="nf-settings-page-title">Continuous</h3>
       <p className="nf-settings-page-description" data-continuous-page-description="true">
-        Tune the canvas. These settings are global and apply to every document; Page and PDF do
-        not change.
+        Canvas spacing and arrows. Global; Page and PDF don’t change.
       </p>
 
       <Section title="Spacing">
@@ -135,9 +133,7 @@ export function ContinuousSettingsPage({
           step={CONTINUOUS_STEP.spacing}
           onChange={(value) => controller.setSpacing('childRowGap', value)}
         />
-        <p className="nf-settings-help">
-          Space between chapters, between a card and its children, and between stacked rows.
-        </p>
+        <p className="nf-settings-help">Gaps between chapters, cards, and rows.</p>
       </Section>
 
       <Section title="Arrows">
@@ -182,9 +178,7 @@ export function ContinuousSettingsPage({
           onChange={(value) => controller.setArrow('size', value)}
         />
         <p className="nf-settings-help" data-continuous-arrow-help="true">
-          Resting arrows use the resting width. Active width is kept at least the resting width;
-          the arrowhead is a fixed size and never scales with path length. Reference edges keep
-          their dashed style and resting width.
+          Resting and active arrow widths. The arrowhead is fixed; reference arrows stay dashed.
         </p>
       </Section>
 
@@ -222,28 +216,15 @@ export function ContinuousSettingsPage({
             onChange={(value) => controller.setWidth('childMax', value)}
           />
           <p className="nf-settings-help" data-continuous-width-help="true">
-            Canvas max is at least the top-level max + child max + sibling gap + the{' '}
-            {CONTINUOUS_MIN_CORRIDOR} px edge corridor:{' '}
-            {formatValue(controller.minimumCanvasMax)} px at the current values. Below that, the
-            canvas cap is raised automatically.
-          </p>
-          <p className="nf-settings-help">
-            Cards stay content-driven inside these caps. Routing, trunk, lane, and stem internals
-            are not settings.
+            The canvas widens automatically to fit the cards.
           </p>
         </div>
       </details>
 
-      <Section title="Preview">
-        <p className="nf-settings-help" data-continuous-preview-help="true">
-          The sample tree is in the right rail and follows every value on this page.
-        </p>
-      </Section>
-
       <section className="nf-settings-section" data-continuous-reset-section="true">
         {confirmReset ? (
           <div className="nf-settings-warning" role="group" aria-label="Confirm reset Continuous settings">
-            <p>Reset every Continuous setting to the defaults? Page and PDF are not affected.</p>
+            <p>Reset every Continuous setting? Page and PDF aren’t affected.</p>
             <div className="nf-dialog-inline-actions">
               <button
                 type="button"
@@ -282,11 +263,6 @@ export function ContinuousSettingsPage({
           </p>
         )}
       </section>
-
-      <p className="nf-settings-help" data-continuous-zoom-note="true">
-        Zoom is view state, not a setting: use the toolbar, the View menu, or the command palette
-        for the current document.
-      </p>
     </>
   );
 }

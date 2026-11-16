@@ -56,6 +56,7 @@ describe('UI suite list', () => {
       'm3-reference.test.mjs': 'm3-reference',
       'm3-repair.test.mjs': 'm3-repair',
       'list-fixes.test.mjs': 'list-fixes',
+      'ui-dialog-frame.test.mjs': 'copy-ab',
     } as const;
     const directories = Object.values(owners);
     expect(new Set(directories).size).toBe(directories.length);

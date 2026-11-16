@@ -51,7 +51,7 @@ export function ExportSettingsPage(): JSX.Element {
       });
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Could not choose an export folder.',
+        error instanceof Error ? error.message : 'Couldn’t choose an export folder.',
       );
     }
   };
@@ -61,14 +61,12 @@ export function ExportSettingsPage(): JSX.Element {
   };
 
   const exampleName = pdfFileNameForTitle(documentTitle);
-  const documentsLabel =
-    documentsPath === null ? 'Documents' : `Documents (${documentsPath})`;
 
   return (
     <>
       <h3 className="nf-settings-page-title">Export</h3>
       <p className="nf-settings-page-description" data-settings-export-description="true">
-        The PDF is always the Page layout, exported with the resolved page settings.
+        Exports the Page layout with these page settings.
       </p>
 
       <section className="nf-settings-section" data-settings-export-folder-section="true">
@@ -104,12 +102,8 @@ export function ExportSettingsPage(): JSX.Element {
         </div>
         <p className="nf-settings-help" data-settings-export-folder-help="true">
           {folder === null
-            ? `New exports start in ${documentsLabel}.`
-            : 'New exports start in this folder. Choose a folder for one export in the Export sheet without changing this default.'}
-        </p>
-        <p className="nf-settings-help">
-          A missing folder is reported; NoteForest never creates or substitutes a folder
-          silently.
+            ? 'New exports go here.'
+            : 'New exports go here. You can pick another folder when exporting.'}
         </p>
       </section>
 
@@ -124,17 +118,12 @@ export function ExportSettingsPage(): JSX.Element {
           </div>
         </div>
         <p className="nf-settings-help" data-settings-export-filename-help="true">
-          The document title is the file name, sanitized for the file system. No date or
-          filename pattern is added. The name can still be edited for a single export in the
-          Export sheet.
+          The file is named after the note. You can rename it when exporting.
         </p>
       </section>
 
       <section className="nf-settings-section" data-settings-export-action-section="true">
         <h4 className="nf-settings-section-title">Export</h4>
-        <p className="nf-settings-help">
-          Folder and replacement decisions stay in the sheet; there is no native save dialog.
-        </p>
         <button
           type="button"
           className="nf-button nf-button-primary"

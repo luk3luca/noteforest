@@ -381,7 +381,7 @@ function DocumentPreview({
       : state === 'loading'
         ? 'Measuring the page layout…'
         : state === 'error'
-          ? `Page preview failed: ${model.error ?? 'unknown error'}`
+          ? 'The preview couldn’t be built.'
           : summaryOf(settings, model.pages.length);
 
   if (state === 'empty') {
@@ -486,6 +486,7 @@ function DocumentPreview({
         className="nf-settings-preview-summary"
         data-page-preview-summary="true"
         aria-live="polite"
+        title={state === 'error' ? (model.error ?? 'unknown error') : undefined}
       >
         {summary}
       </p>

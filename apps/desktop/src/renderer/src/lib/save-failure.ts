@@ -131,7 +131,7 @@ export function saveFailureActions(code: SaveFailureCode): readonly SaveFailureA
 
 export interface OverwriteConfirmation {
   title: string;
-  /** Names the path and states that the external changes will be lost. */
+  /** States the loss in one sentence; the path lives in Details. */
   description: string;
   path: string;
   confirmLabel: string;
@@ -142,7 +142,8 @@ export interface OverwriteConfirmation {
 export function overwriteConfirmation(packagePath: string): OverwriteConfirmation {
   return {
     title: 'Overwrite file on disk?',
-    description: `The file at ${packagePath} changed on disk outside NoteForest. Overwriting replaces those external changes with this window’s content; they will be lost. This cannot be undone.`,
+    description:
+      'This replaces the file on disk; the external changes are lost. Reload instead to keep them.',
     path: packagePath,
     confirmLabel: 'Overwrite',
     defaultAction: 'cancel',

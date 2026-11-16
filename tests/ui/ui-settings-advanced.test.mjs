@@ -654,7 +654,7 @@ describe('Batch C Page advanced typography and layout', () => {
     await page.waitForSelector('[data-page-preset-warning="true"]', { timeout: 5000 });
     assert.match(
       await page.locator('[data-page-preset-warning="true"]').innerText(),
-      /replaces the custom typography and layout values/,
+      /Switch to Comfortable and replace the custom values in this layer\?/,
     );
     // Nothing changed while the warning is open.
     assert.equal((await settings()).app.page.theme.preset, 'custom');

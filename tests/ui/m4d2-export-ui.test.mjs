@@ -240,7 +240,7 @@ describe('Batch A export sheet', () => {
     assert.equal(await page.locator('[data-export-suffix]').innerText(), '.pdf');
     assert.match(
       await page.locator('[data-export-summary]').innerText(),
-      /Page layout will be exported/,
+      /^Page layout · /,
     );
     await page.screenshot({ path: resolve(screenshotDir, 'export-configure.png') });
 
@@ -461,13 +461,25 @@ describe('Batch A export sheet', () => {
     );
     const failed = page.locator('[data-export-status="failed"]');
     await failed.waitFor({ state: 'visible' });
-    const text = await failed.innerText();
-    assert.match(text, /preflight-blocked/);
-    assert.match(text, /Tall block/);
+    assert.equal(
+      await page.locator('[data-export-error-message]').innerText(),
+      'A layout problem would break the PDF.',
+      'the body is one short sentence',
+    );
+    assert.match(
+      await failed.innerText(),
+      /Tall block · Layout defects/,
+      'the row names the block and the group, never the message',
+    );
+    assert.doesNotMatch(await failed.innerText(), /Error: preflight-blocked/);
+    await failed.locator('summary').click();
+    const details = failed.locator('[data-details-value]');
+    assert.match(await details.innerText(), /preflight-blocked/, 'the code joins Details');
+    assert.match(await details.innerText(), /Tall block/, 'the raw message joins Details');
     const outputPath = resolve(folder, 'Blocked export.pdf');
     assert.equal(await fileExists(outputPath), false, 'no PDF for a blocked document');
     await assertNoPartials(folder);
-    await page.screenshot({ path: resolve(screenshotDir, 'export-failed.png') });
+    await page.screenshot({ path: resolve(screenshotDir, 'export-failed-details.png') });
     // Retry returns to Configure with the same destination.
     await page.locator('[data-export-retry]').click();
     await page.waitForSelector('[data-export-status="configure"]');
@@ -600,7 +612,7 @@ describe('Batch A export sheet', () => {
     record({ case: 'overwrite', explicit: state.overwrite, firstHash });
   });
 
-  it('renders every warning from the produced PDF grouped by source', async () => {
+  it('lists every warning by source and keeps every message in Details', async () => {
     const env = ui.isolated('m4d2-warnings');
     await launch('m4d2-warnings');
     const { document, assetFiles } = await m4c3GateDocument();
@@ -619,22 +631,35 @@ describe('Batch A export sheet', () => {
     await startExport();
     const state = await waitExportStatus('done');
     assert.ok(state.warnings.length >= 2, `the export carries warnings (${state.warnings.length})`);
-    const groups = page.locator('[data-export-warning-group]');
-    const groupCount = await groups.count();
+    const rows = page.locator('[data-export-warning-row]');
     assert.equal(
-      groupCount,
-      new Set(state.warnings.map((warning) => warning.kind)).size,
-      'one group per warning source',
+      await rows.count(),
+      state.warnings.length,
+      'one row per warning, grouped by source',
     );
-    const rendered = await page.locator('[data-export-warning-group]').allInnerTexts();
-    const text = rendered.join('\n');
+    const rendered = await rows.allInnerTexts();
+    for (const [index, warning] of state.warnings.entries()) {
+      const row = rendered[index];
+      if (warning.blockTitle !== undefined) {
+        assert.ok(row.includes(warning.blockTitle), `row names the block: ${row}`);
+      }
+      if (warning.pageNumber !== undefined) {
+        assert.ok(row.includes(`Page ${warning.pageNumber}`), `row names the page: ${row}`);
+      }
+      assert.equal(
+        row.includes(warning.message),
+        false,
+        `the row never carries the message: ${row}`,
+      );
+    }
+    const details = page.locator('[data-export-done] [data-details]');
+    assert.equal(await details.locator('summary').innerText(), 'Details');
+    const value = await details.locator('[data-details-value]').textContent();
     for (const warning of state.warnings) {
-      const label =
-        warning.blockTitle === undefined ? warning.message : `${warning.blockTitle}: ${warning.message}`;
-      assert.ok(text.includes(label), `warning rendered: ${label}`);
+      assert.ok(value.includes(warning.message), `message in Details: ${warning.message}`);
     }
     await page.screenshot({ path: resolve(screenshotDir, 'export-warnings.png') });
-    record({ case: 'warnings', warnings: state.warnings.length, groups: groupCount });
+    record({ case: 'warnings', warnings: state.warnings.length, rows: rendered.length });
   });
 
   it('starts at the global export default; Choose… changes only this export (R4)', async () => {

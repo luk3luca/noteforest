@@ -474,9 +474,9 @@ describe('Batch A UI rework', () => {
       true,
     );
     assert.equal(
-      await page.locator('[data-page-document-reason]').isVisible(),
-      true,
-      'no-document document scope explains why',
+      await page.locator('[data-page-scope-option="document"]').getAttribute('title'),
+      'Open a note to override Page settings.',
+      'the disabled document scope explains why in one line',
     );
     assert.equal(await page.locator('[data-page-density-slider]').isEnabled(), true);
     // Continuous is now a global page: it works with no document open and has

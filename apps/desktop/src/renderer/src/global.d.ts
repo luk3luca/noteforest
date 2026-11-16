@@ -34,6 +34,8 @@ declare global {
         title: string,
         description?: string,
       ) => void;
+      /** Test-only: open the D25 technical-line dialog (its toast host is C). */
+      openDetails?: (value: string) => void;
       flushSession: () => Promise<void>;
       /** Test-only: run the product save action without the menu throttle. */
       saveNow?: () => Promise<void>;

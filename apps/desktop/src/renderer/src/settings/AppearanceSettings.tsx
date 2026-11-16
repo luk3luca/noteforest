@@ -58,7 +58,7 @@ export function AppearanceSettingsPage(): JSX.Element {
     <>
       <h3 className="nf-settings-page-title">Appearance</h3>
       <p className="nf-settings-page-description" data-appearance-description="true">
-        The app around the document. Page and PDF keep the paper light.
+        The app around the note. Page and PDF keep their paper.
       </p>
 
       <section className="nf-settings-section" data-appearance-theme-section="true">
@@ -83,8 +83,7 @@ export function AppearanceSettingsPage(): JSX.Element {
           </div>
         </div>
         <p className="nf-settings-help" data-appearance-theme-help="true">
-          System follows the macOS appearance. Page and PDF keep the paper light; this changes the app
-          around the document.
+          Follows the macOS appearance. Page and PDF keep their paper.
         </p>
       </section>
 
@@ -131,8 +130,7 @@ export function AppearanceSettingsPage(): JSX.Element {
           </div>
         </div>
         <p className="nf-settings-help" data-appearance-accent-help="true">
-          Focus rings, selection, the active tab, and primary actions. Curated sets with checked
-          contrast; not Page/PDF.
+          Buttons, selection, and the active tab. Not Page or PDF.
         </p>
       </section>
 
@@ -218,18 +216,12 @@ export function AppearanceSettingsPage(): JSX.Element {
           </div>
         </div>
         <p className="nf-settings-help" data-appearance-type-help="true">
-          UI text size and UI font change the app chrome only (tabs, sidebar, toolbar, menus,
-          Settings, palette); Page and PDF body size do not change. The code font is the only
-          appearance value that reaches Page code and the exported PDF.
+          Affects the app only, not Page or PDF. Code font applies to code everywhere.
         </p>
       </section>
 
       <section className="nf-settings-section" data-appearance-preview-section="true">
         <h4 className="nf-settings-section-title">Preview</h4>
-        <p className="nf-settings-help" data-appearance-preview-help="true">
-          Theme, accent, and type are visible in the right rail while the controls stay in view.
-          Page and PDF keep the paper light.
-        </p>
         <div className="nf-settings-section-actions">
           <button
             type="button"
