@@ -56,6 +56,7 @@ beforeEach(async () => {
     sidebarTabBeforeSearch: null,
     findOpen: false,
     findQuery: '',
+    findWholeWord: false,
     findResults: [],
     findTotal: 0,
     findTruncated: false,
@@ -196,6 +197,27 @@ describe('shared find state', () => {
     expect(useShell.getState().findFocusRequest).toBe(before + 2);
     expect(useShell.getState().findOpen).toBe(true);
   });
+
+  it('keeps one shared whole-word mode across both surfaces', () => {
+    expect(useShell.getState().findWholeWord).toBe(false);
+    useShell.getState().setFindWholeWord(true);
+    expect(useShell.getState().findWholeWord).toBe(true);
+
+    useShell.getState().openFind();
+    useShell.getState().closeFind();
+    expect(
+      useShell.getState().findWholeWord,
+      'closing the toolbar keeps the shared mode',
+    ).toBe(true);
+
+    useShell.getState().setSidebarTab('search');
+    useShell.getState().setFindWholeWord(false);
+    useShell.getState().closeSearchSection();
+    expect(
+      useShell.getState().findWholeWord,
+      'closing the sidebar keeps the shared mode',
+    ).toBe(false);
+  });
 });
 
 describe('sidebar Search session value', () => {
@@ -255,5 +277,25 @@ describe('sidebar snippet split', () => {
     expect(parts.match).toBe('eigen');
     expect(parts.before).toBe('Anchored quote about ');
     expect(parts.after).toBe('values');
+  });
+
+  it('splits with the shared whitespace-loose query mode', () => {
+    const parts = snippetParts('…come  qui and more…', 'come   qui', 5);
+    expect(parts.lead).toBe(true);
+    expect(parts.trail).toBe(true);
+    expect(parts.match).toBe('come  qui');
+    expect(parts.before).toBe('');
+    expect(parts.after).toBe(' and more');
+  });
+
+  it('honours whole-word when splitting the snippet', () => {
+    const standalone = snippetParts('An eigenvalue about eigen.', 'eigen', 3, true);
+    expect(standalone.match).toBe('eigen');
+    expect(standalone.before).toBe('An eigenvalue about ');
+    expect(standalone.after).toBe('.');
+
+    const onlySubstring = snippetParts('eigenvalue', 'eigen', 0, true);
+    expect(onlySubstring.match).toBe('');
+    expect(onlySubstring.before).toBe('eigenvalue');
   });
 });

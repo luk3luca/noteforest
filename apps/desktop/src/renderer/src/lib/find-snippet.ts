@@ -16,7 +16,7 @@
  * hint pins the right one.
  */
 
-import { FIND_SNIPPET_CONTEXT, literalRanges } from './find';
+import { FIND_SNIPPET_CONTEXT, findRanges } from './find';
 
 const ELLIPSIS = '…';
 
@@ -36,6 +36,7 @@ export function snippetParts(
   snippet: string,
   query: string,
   start: number,
+  wholeWord = false,
   context = FIND_SNIPPET_CONTEXT,
 ): SnippetParts {
   const points = Array.from(snippet);
@@ -47,8 +48,9 @@ export function snippetParts(
   const plain: SnippetParts = { lead, before: body, match: '', after: '', trail };
   if (query.length === 0 || body.length === 0) return plain;
 
-  // Code-point offsets inside the whole snippet, from the engine's own matcher.
-  const inside = literalRanges(snippet, query).filter(
+  // Code-point offsets inside the whole snippet, from the shared find matcher:
+  // the same normalized, whitespace-loose query mode as the engine.
+  const inside = findRanges(snippet, query, wholeWord).filter(
     (range) => range.start >= from && range.end <= to,
   );
   if (inside.length === 0) return plain;

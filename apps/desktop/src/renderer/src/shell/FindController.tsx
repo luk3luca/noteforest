@@ -12,7 +12,7 @@
  */
 
 import { useEffect } from 'react';
-import { findInDocument } from '../lib/find';
+import { findInDocument, normalizeFindQuery } from '../lib/find';
 import { useRuntime } from '../state/registry';
 import { currentFindResult, findSurfaceActive, useShell } from '../state/shell';
 import { closeFind, findSearchDocument, navigateToFindResult } from '../actions';
@@ -24,6 +24,7 @@ export function FindController(): null {
   const activeTab = useShell((state) => state.activeTab);
   const active = useShell(findSurfaceActive);
   const query = useShell((state) => state.findQuery);
+  const wholeWord = useShell((state) => state.findWholeWord);
   const currentId = useShell((state) => currentFindResult(state)?.id ?? null);
   const layout = useShell((state) =>
     state.activeTab === null
@@ -44,19 +45,20 @@ export function FindController(): null {
   }, [active, runtime]);
 
   // One linear scan per settled query/revision while either surface shows. No
-  // index, no per-keystroke audit; the 100-occurrence cap bounds the DOM.
+  // index, no per-keystroke audit; the 100-occurrence cap bounds the DOM. The
+  // query is normalized only for matching: the input value is never rewritten.
   useEffect(() => {
     if (!active) return undefined;
-    if (query.length === 0 || runtime === null) {
+    if (normalizeFindQuery(query).length === 0 || runtime === null) {
       useShell.getState().setFindResults([], 0, false);
       return undefined;
     }
     const timer = window.setTimeout(() => {
-      const report = findInDocument(findSearchDocument(runtime), query);
+      const report = findInDocument(findSearchDocument(runtime), query, { wholeWord });
       useShell.getState().setFindResults(report.results, report.total, report.truncated);
     }, FIND_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [active, query, runtime, revision]);
+  }, [active, query, wholeWord, runtime, revision]);
 
   // Move the view to the current hit: Continuous reveals/selects the block and
   // Page turns to its page and rings it (`PageView` owns the page model). Both

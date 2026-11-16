@@ -148,6 +148,12 @@ interface ShellState {
    */
   findOpen: boolean;
   findQuery: string;
+  /**
+   * One shared whole-word mode for both find presentations (F3). Session-only:
+   * it survives closing the surfaces like `findQuery` and is never persisted to
+   * settings.
+   */
+  findWholeWord: boolean;
   findResults: FindResult[];
   findTotal: number;
   findTruncated: boolean;
@@ -186,6 +192,7 @@ interface ShellState {
   openFind: () => void;
   closeFind: () => void;
   setFindQuery: (query: string) => void;
+  setFindWholeWord: (wholeWord: boolean) => void;
   setFindResults: (results: FindResult[], total: number, truncated: boolean) => void;
   setFindIndex: (index: number) => void;
   nextFind: () => void;
@@ -231,6 +238,7 @@ export const useShell = create<ShellState>((set, get) => ({
   healthSelectedRowId: null,
   findOpen: false,
   findQuery: '',
+  findWholeWord: false,
   findResults: [],
   findTotal: 0,
   findTruncated: false,
@@ -433,6 +441,7 @@ export const useShell = create<ShellState>((set, get) => ({
         : { findResults: [], findTotal: 0, findTruncated: false, findIndex: -1 }),
     })),
   setFindQuery: (query) => set({ findQuery: query }),
+  setFindWholeWord: (wholeWord) => set({ findWholeWord: wholeWord }),
   setFindResults: (results, total, truncated) =>
     set({
       findResults: results,
