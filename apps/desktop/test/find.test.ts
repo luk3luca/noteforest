@@ -17,10 +17,12 @@ import { buildEditorDocument } from '../src/renderer/src/lib/adapter';
 import {
   FIND_RESULT_LIMIT,
   findInDocument,
+  findRanges,
   findReadingOrder,
   findSnippet,
   literalRanges,
   literalRangesUtf16,
+  normalizeFindQuery,
 } from '../src/renderer/src/lib/find';
 import { flattenBlocks } from '../src/renderer/src/lib/tree';
 
@@ -150,6 +152,130 @@ describe('literal case-insensitive matching', () => {
     expect(snippet.endsWith('…')).toBe(true);
     expect(snippet).toContain('needle');
     expect(snippet.split('\n')).toHaveLength(1);
+  });
+});
+
+describe('shared find query mode', () => {
+  it('collapses whitespace and trims without rewriting the caller value', () => {
+    expect(normalizeFindQuery('  come   qui  ')).toBe('come qui');
+    expect(normalizeFindQuery('\ncome\t\tqui\r\n')).toBe('come qui');
+    expect(normalizeFindQuery('   \n\t ')).toBe('');
+    // The normalizer is a pure string helper: the caller keeps what was typed.
+    const raw = 'come  ';
+    expect(normalizeFindQuery(raw)).toBe('come');
+    expect(raw).toBe('come  ');
+  });
+
+  it('matches with a single space across repeated spaces and line breaks', () => {
+    expect(findRanges('come  qui', 'come   qui')).toEqual([{ start: 0, end: 9 }]);
+    expect(findRanges('come\nqui', 'come qui')).toEqual([{ start: 0, end: 8 }]);
+    expect(findRanges('😀 come qui', 'come   qui')).toEqual([{ start: 2, end: 10 }]);
+  });
+
+  it('keeps code point offsets and is case-insensitive', () => {
+    expect(findRanges('😀 Eigen value, EIGEN again', 'eigen')).toEqual([
+      { start: 2, end: 7 },
+      { start: 15, end: 20 },
+    ]);
+  });
+
+  it('bounds matches to whole words only when asked', () => {
+    const text = 'eigenvalue eigenvector eigen mille';
+    expect(findRanges(text, 'eigen')).toEqual([
+      { start: 0, end: 5 },
+      { start: 11, end: 16 },
+      { start: 23, end: 28 },
+    ]);
+    expect(findRanges(text, 'eigen', true)).toEqual([{ start: 23, end: 28 }]);
+    expect(findRanges('mille', 'il')).toEqual([{ start: 1, end: 3 }]);
+    expect(findRanges('mille', 'il', true)).toEqual([]);
+    // Underscore and digits are word characters too.
+    expect(findRanges('eigen_value', 'eigen', true)).toEqual([]);
+    expect(findRanges('eigen2', 'eigen', true)).toEqual([]);
+  });
+
+  it('keeps the strict matcher strict for anchor and formula-term callers', () => {
+    // Anchors and formula terms call `literalRanges`; whitespace stays verbatim
+    // and substrings still match there (F3 isolation).
+    expect(literalRanges('come  qui', 'come   qui')).toEqual([]);
+    expect(literalRanges('come qui', 'come qui')).toEqual([{ start: 0, end: 8 }]);
+    expect(literalRanges('mille', 'il')).toEqual([{ start: 1, end: 3 }]);
+    expect(literalRanges('  come  ', 'come')).toEqual([{ start: 2, end: 6 }]);
+  });
+
+  it('normalizes the document scan and treats a blank query as empty', () => {
+    const document = baseDocument();
+    document.chapters = [{ id: 'c1', title: 'One', topLevelBlockIds: ['A'] }];
+    document.blocks = { A: block('A', doc(paragraph(text('come and come again')))) };
+    expect(findInDocument(document, 'come').total).toBe(2);
+    for (const query of ['come ', 'come   ', '  come  ']) {
+      expect(findInDocument(document, query).total).toBe(2);
+    }
+    expect(findInDocument(document, '   ')).toEqual({
+      results: [],
+      total: 0,
+      truncated: false,
+    });
+  });
+
+  it('finds a phrase across a paragraph break and a hard break', () => {
+    const document = baseDocument();
+    document.chapters = [{ id: 'c1', title: 'One', topLevelBlockIds: ['P', 'H'] }];
+    document.blocks = {
+      P: block('P', doc(paragraph(text('come')), paragraph(text('qui')))),
+      H: block(
+        'H',
+        doc(paragraph(text('come'), { type: 'hardBreak' }, text('qui'))),
+      ),
+    };
+    const report = findInDocument(document, 'come   qui');
+    expect(report.total).toBe(2);
+    expect(report.results.map((result) => result.blockId)).toEqual(['P', 'H']);
+    expect(report.results[0]).toMatchObject({ start: 0, end: 8, snippet: 'come qui' });
+    expect(report.results[1]).toMatchObject({ start: 0, end: 8, snippet: 'come qui' });
+    expect(findInDocument(document, 'come\nqui').total).toBe(2);
+  });
+
+  it('applies whole-word to every field the engine scans', () => {
+    const document = baseDocument();
+    document.chapters = [
+      { id: 'c1', title: 'eigenvalues chapter', topLevelBlockIds: ['A', 'B'] },
+    ];
+    document.blocks = {
+      A: block('A', doc(paragraph(text('plain body without the word')))),
+      B: block(
+        'B',
+        doc(
+          paragraph(text('code and formula follow')),
+          {
+            type: 'codeBlock',
+            attrs: { text: 'let eigenvalues = 1', language: 'ts' },
+            children: [text('let eigenvalues = 1')],
+          },
+          paragraph(text('inline '), { type: 'inlineMath', attrs: { latex: 'eigenvalues' } }),
+        ),
+      ),
+    };
+    document.anchors = {
+      stale: {
+        id: 'stale',
+        blockId: 'A',
+        kind: 'text',
+        selector: { kind: 'text', quote: 'eigenvalues note' },
+        quote: 'eigenvalues note',
+      },
+    };
+    document.branches = {
+      reference: branch('reference', 'A', 'B', {
+        role: 'reference',
+        label: 'eigenvalues bridge',
+      }),
+    };
+    expect(findInDocument(document, 'eigenvalue').total).toBe(5);
+    expect(findInDocument(document, 'eigenvalue', { wholeWord: true }).total).toBe(0);
+    // Substring mode still finds the word inside a longer token.
+    expect(findInDocument(document, 'eigen').total).toBe(5);
+    expect(findInDocument(document, 'eigen', { wholeWord: true }).total).toBe(0);
   });
 });
 
@@ -467,6 +593,70 @@ describe('Continuous find decoration', () => {
     expect(text).toBe('Eigen');
   });
 
+  it('normalizes the query and honours the shared whole-word mode', () => {
+    let state = stateFor(decorationFixture());
+    state = state.apply(
+      state.tr.setMeta(findHighlightKey, {
+        query: '  EIGEN  ',
+        wholeWord: false,
+        blockId: 'A',
+        occurrence: 0,
+      }),
+    );
+    expect(decorationSnapshot(state)).toHaveLength(4);
+
+    state = state.apply(
+      state.tr.setMeta(findHighlightKey, {
+        query: 'eigen',
+        wholeWord: true,
+        blockId: 'B',
+        occurrence: 0,
+      }),
+    );
+    const decorations = decorationSnapshot(state);
+    // eigenvalue, Eigenvalue and eigenvector are rejected; the code token stays.
+    expect(decorations).toHaveLength(1);
+    expect(
+      state.doc.textBetween(decorations[0]?.from ?? 0, decorations[0]?.to ?? 0),
+    ).toBe('eigen');
+    expect(decorations[0]?.current).toBe(true);
+  });
+
+  it('marks a phrase that spans a paragraph break on both lines', () => {
+    const document = baseDocument();
+    document.chapters = [{ id: 'c1', title: 'Lines', topLevelBlockIds: ['L'] }];
+    document.blocks = {
+      L: block(
+        'L',
+        doc(paragraph(text('come')), paragraph(text('qui')), paragraph(text('come qui'))),
+      ),
+    };
+    let state = stateFor(document);
+    state = state.apply(
+      state.tr.setMeta(findHighlightKey, {
+        query: 'come   qui',
+        blockId: 'L',
+        occurrence: 1,
+      }),
+    );
+    const decorations = decorationSnapshot(state);
+    expect(decorations).toHaveLength(3);
+    expect(decorations.map((decoration) => decoration.classes)).toEqual([
+      'nf-find-hit',
+      'nf-find-hit',
+      'nf-find-hit nf-find-hit-current',
+    ]);
+    expect(
+      state.doc.textBetween(decorations[0]?.from ?? 0, decorations[0]?.to ?? 0),
+    ).toBe('come');
+    expect(
+      state.doc.textBetween(decorations[1]?.from ?? 0, decorations[1]?.to ?? 0),
+    ).toBe('qui');
+    expect(
+      state.doc.textBetween(decorations[2]?.from ?? 0, decorations[2]?.to ?? 0),
+    ).toBe('come qui');
+  });
+
   it('clears the marks when the bar closes and rebuilds on a document edit', () => {
     let state = stateFor(decorationFixture());
     state = state.apply(
@@ -481,10 +671,20 @@ describe('Continuous find decoration', () => {
       state.tr.setMeta(findHighlightKey, { query: 'eigen', blockId: 'A', occurrence: 0 }),
     );
     const before = decorationSnapshot(state).length;
-    const editorDocument = state.doc;
-    const inserted = editorDocument.type.schema.text(' eigen');
-    const end = editorDocument.content.size - 1;
-    state = state.apply(state.tr.insert(end, inserted));
+    // Insert inside a real block body (the code token), the way an edit does:
+    // text appended outside any block carries no block id and is not find content.
+    let insertPosition = -1;
+    state.doc.descendants((node, position) => {
+      if (insertPosition >= 0) return false;
+      if (node.isText && node.text === 'let eigen = 1') {
+        insertPosition = position + (node.text?.length ?? 0);
+        return false;
+      }
+      return undefined;
+    });
+    expect(insertPosition).toBeGreaterThan(0);
+    const inserted = state.doc.type.schema.text(' eigen');
+    state = state.apply(state.tr.insert(insertPosition, inserted));
     // The highlight survives the edit and re-scans the new text.
     expect(decorationSnapshot(state).length).toBe(before + 1);
   });

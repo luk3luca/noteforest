@@ -186,7 +186,6 @@ function ActivityBar({
               <Icon
                 size={17}
                 strokeWidth={active ? 1.9 : 1.5}
-                fill={active ? 'currentColor' : 'none'}
                 className="nf-activity-icon"
                 aria-hidden="true"
               />

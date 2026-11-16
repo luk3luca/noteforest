@@ -823,9 +823,11 @@ button:disabled {
 }
 
 /* One 28 x 28 box for the chevron, both sections, Health and Settings. The
-   active section is a filled icon on surface-2; there is no accent stripe and
-   no edge indicator (product-owner decision, 15 November 2026). The new chrome
-   uses the 4/8 px radii from the design, not the 3 px control radius. */
+   active section is a stroked icon (never filled: Lucide is stroke-only, so a
+   fill turns the outline into a blob) on surface-2; the 1.9 stroke width carries
+   the active state. There is no accent stripe and no edge indicator
+   (product-owner decision, 15 November 2026, amended 16 November 2026). The new
+   chrome uses the 4/8 px radii from the design, not the 3 px control radius. */
 .nf-activity-button {
   display: inline-flex;
   align-items: center;
@@ -4310,6 +4312,46 @@ body.nf-dragging-block .nf-gutter-handle {
   cursor: default;
 }
 
+/* The one shared whole-word toggle (`ab`): 22 px inside either 28 px cluster,
+   underlined 9.5 px label. Both the toolbar cluster and the sidebar header use
+   this class, so on/off looks identical in both surfaces. Active is the soft
+   accent fill, never a different glyph. */
+.nf-whole-word {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  font-family: var(--ui-font);
+  font-size: calc(9.5px * var(--ui-scale));
+  line-height: 1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.nf-whole-word:hover {
+  border-color: var(--border-1);
+  background: var(--surface-1);
+  color: var(--text-1);
+}
+
+.nf-whole-word[aria-pressed='true'] {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--text-1);
+}
+
+.nf-whole-word:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
 /* Continuous: every match is marked; the current one is stronger. Plugin
    decorations only — no document change, no history entry. */
 .nf-find-hit {
@@ -4324,9 +4366,10 @@ body.nf-dragging-block .nf-gutter-handle {
 
 /*
  * Sidebar Search (docs/design/find-bar.md §3). The browsing presentation: header
- * (title, occurrence count, close), a 28 px field, then chapter → block →
- * occurrence rows with a two-line snippet. The match is emphasised; code and
- * LaTeX snippets use the mono face. The current row is filled.
+ * (title, occurrence count, shared `ab` toggle, close), a 28 px field, then
+ * chapter rule → optional real block label → occurrence cards with a two-line
+ * snippet. The match is emphasised; code and LaTeX snippets use the mono face.
+ * The current row keeps `aria-selected` and the accent card outline.
  */
 .nf-search-head {
   display: flex;
@@ -4392,17 +4435,44 @@ body.nf-dragging-block .nf-gutter-handle {
   padding: 0;
 }
 
-.nf-search-group-label {
+/* Chapter opener: a 1 px rule, the uppercase label and the chapter's occurrence
+   count at the right. Not focusable and not a button (F3). */
+.nf-search-chapter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   padding: 7px 6px 3px;
+  border-top: 1px solid var(--border-1);
+}
+
+.nf-search-group-label {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-3);
   font-size: calc(9.5px * var(--ui-scale));
   font-weight: 600;
   letter-spacing: 0.09em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nf-search-chapter-count {
+  flex: none;
+  color: var(--text-3);
+  font-size: calc(9.5px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+/* B2 chapter division and indent: the block label and its occurrence cards sit
+   12 px in from the panel edge. A block without a label adds no heading. */
+.nf-search-block {
+  padding-inline-start: 12px;
 }
 
 .nf-search-block-title {
-  padding: 4px 6px 2px;
+  padding: 6px 8px 3px;
   overflow: hidden;
   color: var(--text-2);
   font-size: calc(10.5px * var(--ui-scale));
@@ -4411,21 +4481,32 @@ body.nf-dragging-block .nf-gutter-handle {
   white-space: nowrap;
 }
 
-.nf-search-row {
+/* B3 card row, shared (`nf-result-row`) so Health can adopt it later without a
+   second copy. Cards are outlines, not pills and not accent bars. */
+.nf-result-row {
   display: block;
   width: 100%;
-  padding: 5px 6px 6px;
-  border-radius: var(--radius-control);
+  padding: 7px 8px;
+  border: 1px solid var(--border-1);
+  border-radius: 4px;
+  background: var(--surface-1);
   color: var(--text-2);
   text-align: start;
 }
 
-.nf-search-row:hover {
-  background: var(--surface-1);
+.nf-result-row:hover {
+  border-color: var(--border-2);
+  background: var(--surface-2);
 }
 
-.nf-search-row[data-search-current="true"] {
+.nf-result-row[aria-selected='true'] {
+  border-color: var(--accent);
   background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.nf-search-row + .nf-search-row {
+  margin-top: 3px;
 }
 
 .nf-search-row:focus-visible {

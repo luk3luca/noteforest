@@ -119,7 +119,7 @@ describe('activity bar CSS contract', () => {
     expect(declaration('.nf-activity-sections', 'gap')).toBe('8px');
   });
 
-  it('selects with surface-2 and a filled icon, never an accent stripe', () => {
+  it('selects with surface-2 and a stroked icon, never a filled icon or accent stripe', () => {
     const selected = '.nf-activity-button[aria-selected=\'true\']';
     expect(declaration(selected, 'background')).toBe('var(--surface-2)');
     expect(declaration(selected, 'color')).toBe('var(--text-1)');
@@ -135,6 +135,9 @@ describe('activity bar CSS contract', () => {
       expect(rule, 'no left accent on the activity bar').not.toMatch(
         /border-(inline-start|left)\s*:/,
       );
+      // Lucide is stroke-only: any fill paints the enclosed areas and turns
+      // the glyph into a blob, so no state may set one.
+      expect(rule, 'no activity icon fill in any state').not.toMatch(/\bfill\s*:/);
     }
   });
 

@@ -6,6 +6,7 @@ import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import {
   pageDocument,
+  paragraph,
   textBlock,
   writePagePackage,
 } from '../support/page-fixtures.mjs';
@@ -26,6 +27,7 @@ import {
 
 const tempRoot = artifactsPath('find-bar-ui');
 const screenshotDir = artifactsPath('find-surface-v2');
+const v3ScreenshotDir = artifactsPath('find-v3');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 const { isolated, applyCommand } = ui;
@@ -64,6 +66,21 @@ function findDocument() {
   const blocks = [
     textBlock('alpha', 'Alpha', 'A scalar λ is an eigenvalue of A.'),
     textBlock('beta', 'Beta', 'An eigenvector satisfies Av = λv for some λ.'),
+    // F3 hierarchy: one block without a label and one with a real label, both
+    // carrying the words the grouping and whole-word cases search.
+    {
+      id: 'plain',
+      content: {
+        type: 'doc',
+        children: [paragraph('An unlabelled block mentions mille and fine words.')],
+      },
+    },
+    textBlock('metodo', 'Metodo', 'A labelled block mentions fine words too.'),
+    {
+      id: 'lines',
+      label: 'Lines',
+      content: { type: 'doc', children: [paragraph('come'), paragraph('qui')] },
+    },
     {
       id: 'code',
       label: 'Code',
@@ -279,10 +296,40 @@ async function searchRows() {
   );
 }
 
+/** Card geometry and colours for one occurrence row. */
+async function rowCard(locator) {
+  return locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const results = document.querySelector('[data-search-results]');
+    if (results === null) return null;
+    const box = element.getBoundingClientRect();
+    const resultsBox = results.getBoundingClientRect();
+    return {
+      borderWidth: style.borderTopWidth,
+      borderColor: style.borderTopColor,
+      radius: style.borderTopLeftRadius,
+      background: style.backgroundColor,
+      boxShadow: style.boxShadow,
+      left: box.left - resultsBox.left,
+    };
+  });
+}
+
+/** Type in the toolbar input and wait for the shared query to settle (sync). */
+async function fillFind(query) {
+  await page.locator('.nf-find-input').fill(query);
+  await page.waitForFunction(
+    (expected) => window.__noteforestTest.state().findQuery === expected,
+    query,
+    { timeout: 10000 },
+  );
+}
+
 describe('find bar (⌘F)', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(screenshotDir, { recursive: true });
+    await mkdir(v3ScreenshotDir, { recursive: true });
   });
 
   afterEach(async () => {
@@ -309,13 +356,13 @@ describe('find bar (⌘F)', () => {
       'the query owns focus',
     );
 
-    // The bar is exactly query + count + previous/next + close.
+    // The bar is exactly query + whole-word toggle + count + previous/next + close.
     assert.equal(
       await page
         .locator('[data-find-bar="true"] input, [data-find-bar="true"] button')
         .count(),
-      4,
-      'one input and three buttons',
+      5,
+      'one input and four buttons',
     );
     assert.equal(await page.locator('[data-find-bar="true"] [role="menu"]').count(), 0);
     assert.equal(await page.locator('[data-find-bar="true"] input[type="checkbox"]').count(), 0);
@@ -503,8 +550,8 @@ describe('find bar (⌘F)', () => {
     await page.keyboard.press('Tab');
     assert.equal(
       await page.evaluate(() => document.activeElement?.className ?? ''),
-      'nf-find-button',
-      'Tab leaves the input',
+      'nf-whole-word',
+      'Tab leaves the input for the next cluster control',
     );
     assert.equal(await findBar().count(), 1, 'Tab does not close the bar');
   });
@@ -741,6 +788,22 @@ describe('find bar (⌘F)', () => {
       await page.locator('[data-sidebar-tab="search"]').getAttribute('aria-selected'),
       'true',
     );
+
+    // F3: no activity-bar icon is filled in any state. Lucide is stroke-only, so
+    // a fill turns the outline into a blob; the active state is the 1.9 stroke,
+    // surface-2 and text-1 instead.
+    const iconFills = await page
+      .locator('[data-sidebar-tab] svg')
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute('fill')));
+    assert.deepEqual(iconFills, ['none', 'none', 'none', 'none']);
+    const activeStroke = await page
+      .locator('[data-sidebar-tab="search"] svg')
+      .getAttribute('stroke-width');
+    assert.equal(activeStroke, '1.9', 'the active icon keeps the heavier stroke');
+    const inactiveStroke = await page
+      .locator('[data-sidebar-tab="library"] svg')
+      .getAttribute('stroke-width');
+    assert.equal(inactiveStroke, '1.5', 'an inactive icon keeps the resting stroke');
     assert.equal(
       (await page.locator('[data-sidebar-panel="search"] .nf-search-title').textContent())?.trim(),
       'Search',
@@ -895,6 +958,286 @@ describe('find bar (⌘F)', () => {
       { timeout: 10000 },
     );
     assert.equal((await hits()).length, 0, 'closing the last surface clears the decoration');
+  });
+
+  it('shows label-only headings, chapter rules and card rows', async () => {
+    const env = isolated('hierarchy');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await openPackage(env, 'Find hierarchy', findDocument());
+
+    await openSearchSection();
+    await typeInSearch('fine');
+    const state = await findState();
+    assert.equal(state.results.length, 2, 'one hit in the unlabelled block and one in Metodo');
+
+    // Only a real block label is a heading; the unlabelled block has none and
+    // its first content line lives only inside the snippet.
+    const titles = await page.locator('[data-search-block-title]').allTextContents();
+    assert.deepEqual(titles, ['Metodo']);
+    const plainBlock = page.locator('[data-search-block="plain"]');
+    assert.equal(await plainBlock.locator('[data-search-block-title]').count(), 0);
+    assert.equal(await plainBlock.getAttribute('role'), null, 'no group without a label');
+    assert.equal(await plainBlock.getAttribute('aria-label'), null);
+    const metodoBlock = page.locator('[data-search-block="metodo"]');
+    assert.equal(await metodoBlock.getAttribute('role'), 'group');
+    assert.equal(await metodoBlock.getAttribute('aria-label'), 'Metodo');
+
+    // The heading is not a button, not focusable, has no hover and does nothing.
+    const heading = page.locator('[data-search-block-title]').first();
+    assert.equal(await heading.evaluate((element) => element.tagName), 'DIV');
+    assert.equal(await heading.evaluate((element) => element.getAttribute('tabindex')), null);
+    const indexBeforeHeading = await page.evaluate(
+      () => window.__noteforestTest.state().findIndex,
+    );
+    await heading.click();
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().findIndex),
+      indexBeforeHeading,
+      'clicking the block label does nothing',
+    );
+
+    // Chapter opener: a 1 px rule, the chapter occurrence count at the right,
+    // and the same non-interactive contract.
+    const chapterHead = page.locator(
+      '[data-search-chapter="chapter-1"] .nf-search-chapter-head',
+    );
+    assert.equal(
+      await chapterHead.evaluate((element) => getComputedStyle(element).borderTopWidth),
+      '1px',
+    );
+    assert.equal(
+      (await page.locator('[data-search-chapter-count]').textContent())?.trim(),
+      '2',
+    );
+    assert.equal(await chapterHead.evaluate((element) => element.tagName), 'DIV');
+    assert.equal(await chapterHead.evaluate((element) => element.getAttribute('tabindex')), null);
+    const indexBeforeChapter = await page.evaluate(
+      () => window.__noteforestTest.state().findIndex,
+    );
+    await page.locator('[data-search-group-label]').click();
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().findIndex),
+      indexBeforeChapter,
+      'clicking the chapter rule does nothing',
+    );
+
+    // Cards: 12 px from the panel edge, 1 px outline, radius 4, a 3 px gap.
+    const rows = page.locator('[data-search-row]');
+    const resting = await rowCard(rows.nth(1));
+    assert.ok(resting !== null);
+    assert.equal(resting.borderWidth, '1px');
+    assert.equal(resting.radius, '4px');
+    assert.ok(
+      Math.abs(resting.left - 12) <= 0.5,
+      `the card is indented 12 px (got ${resting.left})`,
+    );
+
+    await h.screenshot(resolve(v3ScreenshotDir, 'sidebar-labelled-unlabelled.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Hover changes border and background; the current card adds the accent
+    // border plus the 1 px ring and keeps aria-selected.
+    await rows.nth(1).hover();
+    const hovered = await rowCard(rows.nth(1));
+    assert.ok(hovered !== null);
+    assert.notEqual(hovered.background, resting.background);
+    assert.notEqual(hovered.borderColor, resting.borderColor);
+
+    await rows.nth(1).click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findIndex === 1,
+      undefined,
+      { timeout: 10000 },
+    );
+    const currentRow = page.locator('[data-search-current="true"]');
+    assert.equal(await currentRow.count(), 1);
+    assert.equal(await currentRow.getAttribute('aria-selected'), 'true');
+    const current = await rowCard(currentRow);
+    assert.ok(current !== null);
+    assert.match(current.boxShadow, /rgb/);
+    assert.notEqual(current.background, resting.background);
+    assert.notEqual(current.borderColor, resting.borderColor);
+    await h.screenshot(resolve(v3ScreenshotDir, 'sidebar-current-card.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Two cards in one block keep a 3 px gap (the long block has two matches).
+    await searchInput().fill('eigen');
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        return current.findQuery === 'eigen' && current.findTotal >= 4;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    const sameBlockRows = page.locator('[data-search-block="long"] [data-search-row]');
+    assert.ok((await sameBlockRows.count()) >= 2);
+    const gap = await sameBlockRows.evaluateAll((elements) => {
+      const first = elements[0]?.getBoundingClientRect();
+      const second = elements[1]?.getBoundingClientRect();
+      return first === undefined || second === undefined ? null : second.top - first.bottom;
+    });
+    assert.ok(gap !== null && Math.abs(gap - 3) <= 0.5, `3 px between cards (got ${gap})`);
+  });
+
+  it('shares one normalized query mode and the ab toggle across both surfaces', async () => {
+    const env = isolated('query-mode');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await openPackage(env, 'Find query mode', findDocument());
+
+    await openSearchSection();
+    await typeInSearch('come');
+    assert.equal(await page.evaluate(() => window.__noteforestTest.state().findTotal), 1);
+
+    // The input keeps what the user typed, trailing spaces included; only the
+    // matching is normalized. A line break inside the block matches one space.
+    await searchInput().fill('come  ');
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findQuery === 'come  ',
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal(await searchInput().inputValue(), 'come  ');
+    assert.equal(await page.evaluate(() => window.__noteforestTest.state().findTotal), 1);
+
+    await searchInput().fill('come   qui');
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        return (
+          current.findQuery === 'come   qui' &&
+          current.findTotal === 1 &&
+          current.findResults[0]?.snippet === 'come qui'
+        );
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    const lineResult = await page.evaluate(
+      () => window.__noteforestTest.state().findResults[0],
+    );
+    assert.equal(lineResult.blockId, 'lines');
+    assert.equal(lineResult.snippet, 'come qui');
+    // One occurrence across two paragraphs: both lines are marked, and both
+    // carry the current marker because they are the same match.
+    assert.equal((await hits()).length, 2);
+    assert.equal((await hits()).filter((decoration) => decoration.current).length, 2);
+    assert.match(
+      await page.locator('[data-search-row="0"] .nf-search-snippet').textContent(),
+      /come\s+qui/,
+    );
+
+    // The toolbar cluster opens on the same query and shows the shared toggle
+    // whenever the bar is open, even before a query.
+    await page.keyboard.press('Meta+f');
+    await findBar().waitFor();
+    assert.equal(await page.locator('.nf-find-input').inputValue(), 'come   qui');
+    const toggle = page.locator('[data-find-whole-word="true"]');
+    assert.equal((await toggle.textContent())?.trim(), 'ab');
+    assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
+    assert.equal(await toggle.getAttribute('title'), 'Match whole words');
+    const toggleBox = await toggle.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    });
+    assert.equal(Math.round(toggleBox.width), 22);
+    assert.equal(Math.round(toggleBox.height), 22);
+
+    await fillFind('eigen');
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        return current.findQuery === 'eigen' && current.findTotal >= 4;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    const wideTotal = await page.evaluate(
+      () => window.__noteforestTest.state().findTotal,
+    );
+
+    // Toolbar on -> the sidebar toggle and count follow. Whole-word `eigen`
+    // keeps the code token and the `eigen bridge` label.
+    await toggle.click();
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        return current.findTotal === 2;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal(await toggle.getAttribute('aria-pressed'), 'true');
+    assert.equal(
+      await page.locator('[data-search-whole-word="true"]').getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(
+      (await page.locator('[data-search-count]').textContent())?.trim(),
+      '1 of 2',
+    );
+    await h.screenshot(resolve(v3ScreenshotDir, 'toggle-on.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Sidebar off -> the toolbar and the count follow.
+    await page.locator('[data-search-whole-word="true"]').click();
+    await page.waitForFunction(
+      (expected) => window.__noteforestTest.state().findTotal === expected,
+      wideTotal,
+      { timeout: 10000 },
+    );
+    assert.equal(await toggle.getAttribute('aria-pressed'), 'false');
+
+    await fillFind('il');
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        return current.findQuery === 'il' && current.findTotal === 1;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    await toggle.click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findTotal === 0,
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal(
+      (await page.locator('[data-search-count]').textContent())?.trim(),
+      '0',
+    );
+
+    // Esc, then ⌘F keeps both the query and the shared toggle.
+    await page.locator('.nf-find-input').focus();
+    await page.keyboard.press('Escape');
+    await findBar().waitFor({ state: 'detached' });
+    await page.keyboard.press('Meta+f');
+    await findBar().waitFor();
+    assert.equal(await page.locator('.nf-find-input').inputValue(), 'il');
+    assert.equal(
+      await page.locator('[data-find-whole-word="true"]').getAttribute('aria-pressed'),
+      'true',
+    );
+
+    await page.locator('[data-find-whole-word="true"]').click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findTotal === 1,
+      undefined,
+      { timeout: 10000 },
+    );
+    await h.screenshot(resolve(v3ScreenshotDir, 'toggle-off.png'), {
+      width: 1440,
+      height: 900,
+    });
   });
 
   it('jumps from a sidebar row in Page and in Continuous Read', async () => {

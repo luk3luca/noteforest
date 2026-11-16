@@ -524,6 +524,7 @@ function EditorSurface({
   // chapter title) clears the word marks but still selects the block.
   const findActive = useShell(findSurfaceActive);
   const findQuery = useShell((state) => state.findQuery);
+  const findWholeWord = useShell((state) => state.findWholeWord);
   const findCurrent = useShell((state) => currentFindResult(state));
   const findCurrentBlockId = findCurrent?.blockId ?? null;
   const findCurrentOccurrence =
@@ -537,12 +538,13 @@ function EditorSurface({
       findActive && findQuery.length > 0
         ? {
             query: findQuery,
+            wholeWord: findWholeWord,
             blockId: findCurrentBlockId,
             occurrence: findCurrentOccurrence,
           }
         : null;
     editor.view.dispatch(editor.state.tr.setMeta(findHighlightKey, highlight));
-  }, [editor, findActive, findQuery, findCurrentBlockId, findCurrentOccurrence]);
+  }, [editor, findActive, findQuery, findWholeWord, findCurrentBlockId, findCurrentOccurrence]);
 
   // The continuous editor is the authoring surface. Read mode keeps the same
   // ProseMirror state mounted and only flips editability: selection, scroll,

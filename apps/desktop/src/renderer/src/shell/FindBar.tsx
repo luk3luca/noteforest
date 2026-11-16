@@ -1,8 +1,10 @@
 /**
  * Toolbar find cluster (`⌘F`, docs/design/find-bar.md §2).
  *
- * The VS Code widget minus the toggles: query, `1 of 4`, previous/next, close.
- * No case switch, no whole-word, no regex, no options menu, no results panel.
+ * The VS Code widget minus the case/regex options: query, one shared `ab`
+ * whole-word toggle, `1 of 4`, previous/next, close. No case switch, no regex,
+ * no options menu, no results panel. Both presentations read and write the same
+ * toggle, so a change in either changes both counts.
  * It is one 28 px cluster inside the canvas toolbar, between undo/redo and the
  * layout/mode controls: no card, no shadow, no extra row, nothing overlays the
  * note or the page.
@@ -40,6 +42,8 @@ export function FindBar(): JSX.Element | null {
   const open = useShell((state) => state.findOpen);
   const query = useShell((state) => state.findQuery);
   const setFindQuery = useShell((state) => state.setFindQuery);
+  const wholeWord = useShell((state) => state.findWholeWord);
+  const setFindWholeWord = useShell((state) => state.setFindWholeWord);
   const results = useShell((state) => state.findResults);
   const truncated = useShell((state) => state.findTruncated);
   const focusRequest = useShell((state) => state.findFocusRequest);
@@ -113,6 +117,18 @@ export function FindBar(): JSX.Element | null {
         onChange={(event) => setFindQuery(event.target.value)}
         onKeyDown={onKeyDown}
       />
+      <button
+        type="button"
+        className="nf-whole-word"
+        aria-label="Match whole words"
+        aria-pressed={wholeWord}
+        title="Match whole words"
+        data-find-whole-word="true"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => setFindWholeWord(!wholeWord)}
+      >
+        ab
+      </button>
       <FindCount results={results} truncated={truncated} />
       <button
         type="button"

@@ -22,9 +22,8 @@ import { useRuntime } from '../state/registry';
 import { currentFindResult, useShell } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
 import { findNext, findPrevious, navigateToFindResult } from '../actions';
-import type { FindResult } from '../lib/find';
+import { normalizeFindQuery, type FindResult } from '../lib/find';
 import { snippetParts } from '../lib/find-snippet';
-import { blockTitle } from '../lib/tree';
 import { isMarkdownPath } from '../../../shared/markdown';
 
 interface SearchRow {
@@ -34,13 +33,16 @@ interface SearchRow {
 
 interface SearchBlockGroup {
   key: string;
-  title: string;
+  /** A real block label, or `Chapter title` for a chapter hit; null otherwise. */
+  title: string | null;
   rows: SearchRow[];
 }
 
 interface SearchChapterGroup {
   key: string;
   label: string;
+  /** Occurrences shown under this chapter rule. */
+  count: number;
   blocks: SearchBlockGroup[];
 }
 
@@ -56,7 +58,10 @@ function chapterLabel(chapter: Chapter | undefined, index: number): string {
 
 /**
  * Reading-order results grouped by chapter, then by block. Groups are built in
- * first-seen order, which is the engine's document order.
+ * first-seen order, which is the engine's document order. Only a **real** block
+ * label becomes a heading: the first content line is never promoted to a title
+ * (F3), so an unlabelled block shows its occurrence cards directly under the
+ * chapter rule.
  */
 function groupResults(document: Document, results: readonly FindResult[]): SearchChapterGroup[] {
   const chapters = new Map<string, SearchChapterGroup>();
@@ -70,17 +75,23 @@ function groupResults(document: Document, results: readonly FindResult[]): Searc
       chapter = {
         key: chapterKey,
         label: chapterLabel(document.chapters[position], position),
+        count: 0,
         blocks: [],
       };
       chapters.set(chapterKey, chapter);
     }
+    chapter.count += 1;
     const blockKey = result.blockId ?? `chapter-title:${chapterKey}`;
     let block = chapter.blocks.find((entry) => entry.key === blockKey);
     if (block === undefined) {
       const owner = result.blockId === null ? undefined : document.blocks[result.blockId];
+      const label =
+        typeof owner?.label === 'string' && owner.label.trim().length > 0
+          ? owner.label
+          : null;
       block = {
         key: blockKey,
-        title: result.blockId === null ? 'Chapter title' : blockTitle(owner),
+        title: result.blockId === null ? 'Chapter title' : label,
         rows: [],
       };
       chapter.blocks.push(block);
@@ -94,8 +105,16 @@ function snippetMono(result: FindResult): boolean {
   return result.field === 'code' || result.field === 'formula';
 }
 
-function Snippet({ result, query }: { result: FindResult; query: string }): JSX.Element {
-  const parts = snippetParts(result.snippet, query, result.start);
+function Snippet({
+  result,
+  query,
+  wholeWord,
+}: {
+  result: FindResult;
+  query: string;
+  wholeWord: boolean;
+}): JSX.Element {
+  const parts = snippetParts(result.snippet, query, result.start, wholeWord);
   return (
     <span
       className={
@@ -127,6 +146,8 @@ export function SearchSection(): JSX.Element {
   const { runtime } = useRuntime(activePath);
   const query = useShell((state) => state.findQuery);
   const setFindQuery = useShell((state) => state.setFindQuery);
+  const wholeWord = useShell((state) => state.findWholeWord);
+  const setFindWholeWord = useShell((state) => state.setFindWholeWord);
   const results = useShell((state) => state.findResults);
   const truncated = useShell((state) => state.findTruncated);
   const currentIndex = useShell((state) => state.findIndex);
@@ -135,7 +156,7 @@ export function SearchSection(): JSX.Element {
 
   const markdown = activePath !== null && isMarkdownPath(activePath);
   const searchable = runtime !== null;
-  const trimmed = query.trim();
+  const normalized = normalizeFindQuery(query);
   const groups = useMemo(
     () => (runtime === null ? [] : groupResults(runtime.document, results)),
     [runtime?.document, results],
@@ -204,6 +225,17 @@ export function SearchSection(): JSX.Element {
         </span>
         <button
           type="button"
+          className="nf-whole-word"
+          aria-label="Match whole words"
+          aria-pressed={wholeWord}
+          title="Match whole words"
+          data-search-whole-word="true"
+          onClick={() => setFindWholeWord(!wholeWord)}
+        >
+          ab
+        </button>
+        <button
+          type="button"
           className="nf-icon-button"
           data-search-close="true"
           aria-label="Close search"
@@ -241,12 +273,12 @@ export function SearchSection(): JSX.Element {
         </p>
       ) : (
         <>
-          {trimmed.length > 0 && results.length === 0 ? (
+          {normalized.length > 0 && results.length === 0 ? (
             <p className="nf-empty-line" data-search-empty="true">
               No results
             </p>
           ) : null}
-          {trimmed.length === 0 && results.length === 0 ? (
+          {normalized.length === 0 && results.length === 0 ? (
             <p className="nf-empty-line" data-search-idle="true">
               Type to search this note.
             </p>
@@ -266,25 +298,38 @@ export function SearchSection(): JSX.Element {
                 aria-label={chapter.label}
                 data-search-chapter={chapter.key}
               >
-                <div className="nf-search-group-label" data-search-group-label="true">
-                  {chapter.label}
+                <div className="nf-search-chapter-head">
+                  <span className="nf-search-group-label" data-search-group-label="true">
+                    {chapter.label}
+                  </span>
+                  <span
+                    className="nf-search-chapter-count"
+                    data-search-chapter-count={chapter.count}
+                  >
+                    {chapter.count}
+                  </span>
                 </div>
                 {chapter.blocks.map((block) => (
-                  <div key={block.key} className="nf-search-block" data-search-block={block.key}>
-                    <div
-                      className="nf-search-block-title"
-                      data-search-block-title="true"
-                      title={block.title}
-                    >
-                      {block.title}
-                    </div>
+                  <div
+                    key={block.key}
+                    className="nf-search-block"
+                    data-search-block={block.key}
+                    {...(block.title === null
+                      ? {}
+                      : { role: 'group', 'aria-label': block.title })}
+                  >
+                    {block.title === null ? null : (
+                      <div className="nf-search-block-title" data-search-block-title="true">
+                        {block.title}
+                      </div>
+                    )}
                     {block.rows.map((row) => (
                       <button
                         key={row.result.id}
                         type="button"
                         role="option"
                         id={`nf-search-row-${row.index}`}
-                        className="nf-search-row"
+                        className="nf-result-row nf-search-row"
                         aria-selected={row.result.id === current}
                         tabIndex={-1}
                         data-search-row={row.index}
@@ -296,7 +341,7 @@ export function SearchSection(): JSX.Element {
                           if (runtime !== null) jumpTo(runtime, row.result, row.index);
                         }}
                       >
-                        <Snippet result={row.result} query={query} />
+                        <Snippet result={row.result} query={query} wholeWord={wholeWord} />
                       </button>
                     ))}
                   </div>
