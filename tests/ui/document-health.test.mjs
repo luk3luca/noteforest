@@ -259,19 +259,22 @@ describe('Document health sidebar and repair modal', () => {
     const badge = page.locator('[data-health-badge]');
     assert.equal(await badge.getAttribute('data-health-badge'), '3');
     assert.equal(await badge.getAttribute('aria-label'), '3 anchors need repair');
+    // S1 (docs/design/sidebar.md §8): a 6 px status dot, not a counter. The
+    // number lives in the label and the tooltip; the dot carries no text.
+    assert.equal(await badge.getAttribute('title'), '3 anchors need repair');
+    assert.equal((await badge.textContent())?.trim(), '', 'the dot carries no text');
     const badgeStyle = await badge.evaluate((element) => {
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       return {
         radius: style.borderRadius,
-        numeric: style.fontVariantNumeric,
         width: Math.round(rect.width),
         height: Math.round(rect.height),
       };
     });
-    assert.equal(badgeStyle.radius, '2px', 'the counter is a square, not a pill');
-    assert.equal(badgeStyle.numeric, 'tabular-nums');
-    assert.equal(badgeStyle.width, badgeStyle.height, 'the counter is square');
+    assert.equal(badgeStyle.radius, '50%', 'the counter is a dot, not a square');
+    assert.equal(badgeStyle.width, 6, 'the dot is 6 px wide');
+    assert.equal(badgeStyle.height, 6, 'the dot is 6 px tall');
     await h.screenshot(artifactsPath('document-health', 'badge-nonzero-1440x900.png'), {
       width: 1440,
       height: 900,
@@ -373,22 +376,37 @@ describe('Document health sidebar and repair modal', () => {
       0,
       'a zero branch count is not rendered',
     );
-    assert.equal(
-      await idleButton.evaluate((element) => Math.round(element.getBoundingClientRect().height)),
-      40,
-      'the row is 40 px tall',
-    );
+    // S1: a problem is the shared result card — the same anatomy as a Search
+    // occurrence: 1 px outline on all four sides, radius 4, 7×8 padding, the
+    // 12 px result line and the 10.5 meta line.
     const idleStyle = await idleButton.evaluate((element) => {
       const style = getComputedStyle(element);
+      const quote = getComputedStyle(element.querySelector('.nf-health-row-quote'));
+      const meta = getComputedStyle(element.querySelector('.nf-health-row-meta'));
       return {
-        quote: getComputedStyle(element.querySelector('.nf-health-row-quote')).fontWeight,
+        height: Math.round(element.getBoundingClientRect().height),
+        card: element.classList.contains('nf-result-row'),
         borderLeft: style.borderLeftWidth,
-        radius: style.borderRadius,
+        borderTop: style.borderTopWidth,
+        radius: style.borderTopLeftRadius,
+        padding: `${style.paddingTop} ${style.paddingRight}`,
+        quote: quote.fontWeight,
+        quoteSize: quote.fontSize,
+        metaSize: meta.fontSize,
       };
     });
-    assert.equal(idleStyle.borderLeft, '0px', 'no left accent stripe');
-    assert.equal(idleStyle.quote, '500', 'the quote is 12/500');
-    assert.equal(idleStyle.radius, '3px', 'a row radius, not a pill');
+    assert.equal(idleStyle.card, true, 'Health uses the shared result card');
+    assert.equal(idleStyle.borderLeft, '1px', 'the card outline, not a left accent stripe');
+    assert.equal(idleStyle.borderTop, '1px');
+    assert.equal(idleStyle.radius, '4px', 'the card radius, not a row radius');
+    assert.equal(idleStyle.padding, '7px 8px', 'the shared card padding');
+    assert.equal(idleStyle.quote, '400', 'the quote is the 12 px result line');
+    assert.equal(idleStyle.quoteSize, '12px');
+    assert.equal(idleStyle.metaSize, '10.5px', 'the meta line is the 10.5 meta step');
+    assert.ok(
+      idleStyle.height >= 40,
+      `the two-line card keeps the 40 px result floor (${idleStyle.height})`,
+    );
 
     // A row with one branch says so, in words, at the right.
     const brokenRow = page.locator(`[data-health-row="anchor:${ids.brokenAnchor}"]`);
@@ -1076,7 +1094,11 @@ describe('Document health sidebar and repair modal', () => {
     await page.locator('[data-sidebar-tab="health"]').click();
     await page.waitForSelector('[data-sidebar-panel="health"]');
     assert.equal(await page.locator('[data-health-badge]').count(), 0, 'badge hidden at zero');
-    assert.equal(await page.locator('[data-health-summary]').count(), 0);
+    // S1 (design §4): Health always shows the summary count, all-clear included.
+    assert.equal(
+      (await page.locator('[data-health-summary]').innerText()).trim(),
+      '0 to fix · 0 issues',
+    );
     assert.equal(
       (await page.locator('[data-health-empty="true"] p').first().innerText()).trim(),
       'No issues found',

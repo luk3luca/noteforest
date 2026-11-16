@@ -161,11 +161,18 @@ describe('activity bar CSS contract', () => {
     expect(declaration('.nf-sidebar-settings-icon', 'margin-inline-start')).toBe('2px');
   });
 
-  it('keeps the Health counter a square tabular badge, not a pill', () => {
-    expect(declaration('.nf-activity-badge', 'border-radius')).toBe('2px');
-    expect(declaration('.nf-activity-badge', 'font-variant-numeric')).toBe('tabular-nums');
-    expect(declaration('.nf-activity-badge', 'position')).toBe('absolute');
+  it('shows the needs-repair count as a 6 px dot, not a counter', () => {
+    // S1 (docs/design/sidebar.md §8): the 13 px square counter is gone. The dot
+    // is a status indicator: no text, no ring, and nothing at zero.
+    expect(declaration('.nf-activity-dot', 'border-radius')).toBe('50%');
+    expect(declaration('.nf-activity-dot', 'width')).toBe('6px');
+    expect(declaration('.nf-activity-dot', 'height')).toBe('6px');
+    expect(declaration('.nf-activity-dot', 'background')).toBe('var(--danger)');
+    expect(declaration('.nf-activity-dot', 'top')).toBe('4px');
+    expect(declaration('.nf-activity-dot', 'right')).toBe('4px');
+    expect(declaration('.nf-activity-dot', 'position')).toBe('absolute');
     expect(declaration('.nf-activity-section', 'position')).toBe('relative');
+    expect(stylesSource).not.toContain('.nf-activity-badge');
   });
 
   it('removes the segmented control, the header collapse button and the old rail', () => {

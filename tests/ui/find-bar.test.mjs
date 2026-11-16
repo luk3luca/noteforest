@@ -178,6 +178,22 @@ function findDocument() {
   });
 }
 
+/** The same note with a second chapter: two collapsible groups, in order. */
+function twoChapterDocument() {
+  const document = findDocument();
+  document.chapters.push({
+    id: 'chapter-2',
+    title: 'Second chapter',
+    topLevelBlockIds: ['second'],
+  });
+  document.blocks['second'] = textBlock(
+    'second',
+    'Second',
+    'A quokka and one more eigenvalue in the second chapter.',
+  );
+  return document;
+}
+
 async function findState() {
   return page.evaluate(() => {
     const current = window.__noteforestTest.state();
@@ -330,6 +346,7 @@ describe('find bar (⌘F)', () => {
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(screenshotDir, { recursive: true });
     await mkdir(v3ScreenshotDir, { recursive: true });
+    await mkdir(artifactsPath('sidebar-system'), { recursive: true });
   });
 
   afterEach(async () => {
@@ -967,6 +984,145 @@ describe('find bar (⌘F)', () => {
     assert.equal((await hits()).length, 0, 'closing the last surface clears the decoration');
   });
 
+  it('collapses Search chapters with the left chevron and reopens them on navigation', async () => {
+    const env = isolated('collapse');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await openPackage(env, 'Find collapse', twoChapterDocument());
+    await openSearchSection();
+    await typeInSearch('eigen');
+
+    // Two chapters, both open by default, with their own counts.
+    const toggles = page.locator('[data-search-chapter-toggle]');
+    assert.equal(await toggles.count(), 2);
+    // A later group owns the 1 px divider, not its header.
+    assert.equal(
+      await page
+        .locator('[data-search-chapter="chapter-2"]')
+        .evaluate((element) => getComputedStyle(element).borderTopWidth),
+      '1px',
+      'a later group owns the divider',
+    );
+    assert.deepEqual(
+      await toggles.evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute('aria-expanded')),
+      ),
+      ['true', 'true'],
+      'chapters are open by default',
+    );
+    const counts = await page
+      .locator('[data-search-chapter-count]')
+      .evaluateAll((elements) => elements.map((element) => element.textContent.trim()));
+    assert.deepEqual(counts.length, 2);
+
+    // The chevron is a 16 px box on the left of the label.
+    const chevron = await page.evaluate(() => {
+      const toggle = document.querySelector('[data-search-chapter-toggle]');
+      const box = toggle?.querySelector('.nf-search-group-chevron');
+      const label = toggle?.querySelector('.nf-search-group-label');
+      if (toggle === null || box === null || label === null) return null;
+      const toggleBox = toggle.getBoundingClientRect();
+      const boxRect = box.getBoundingClientRect();
+      const labelRect = label.getBoundingClientRect();
+      return {
+        width: Math.round(boxRect.width),
+        height: Math.round(boxRect.height),
+        leftOfLabel: boxRect.right <= labelRect.left + 0.5,
+        inset: boxRect.left - toggleBox.left,
+        height28: Math.round(toggleBox.height),
+      };
+    });
+    assert.ok(chevron !== null);
+    assert.equal(chevron.width, 16, 'the chevron box is 16 px');
+    assert.equal(chevron.height, 16, 'the chevron box is 16 px');
+    assert.equal(chevron.height28, 28, 'the group row is 28 px');
+    assert.equal(chevron.leftOfLabel, true, 'the chevron is on the left');
+    assert.ok(chevron.inset <= 3, `the chevron starts at the row inset (${chevron.inset})`);
+
+    // Close the second chapter: the rows unmount, the count stays.
+    const secondToggle = page.locator('[data-search-chapter-toggle="chapter-2"]');
+    await secondToggle.click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-search-chapter="chapter-2"]')
+          ?.getAttribute('data-search-chapter-open') === 'false',
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal(
+      await page.locator('[data-search-chapter="chapter-2"] [data-search-row]').count(),
+      0,
+      'a closed chapter renders no rows',
+    );
+    assert.equal(
+      (await page.locator('[data-search-chapter-count]').nth(1).textContent())?.trim(),
+      counts[1],
+      'a closed chapter keeps its count',
+    );
+    await h.screenshot(resolve(v3ScreenshotDir, 'sidebar-collapsed-chapter.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await page.locator('.nf-sidebar').screenshot({
+      path: resolve(artifactsPath('sidebar-system'), 'collapsed-chapter.png'),
+      scale: 'css',
+    });
+
+    // Navigating into the closed chapter opens it: End goes to the last
+    // occurrence, which lives in chapter 2.
+    await searchInput().press('End');
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-search-chapter="chapter-2"]')
+          ?.getAttribute('data-search-chapter-open') === 'true',
+      undefined,
+      { timeout: 10000 },
+    );
+    const reopened = await page
+      .locator('[data-search-chapter-toggle="chapter-2"]')
+      .getAttribute('aria-expanded');
+    assert.equal(reopened, 'true', 'navigating into a closed chapter opens it');
+    const state = await findState();
+    assert.equal(state.index, state.results.length - 1, 'End is the last occurrence');
+    assert.equal(
+      await page
+        .locator(`[data-search-row="${state.index}"]`)
+        .getAttribute('data-search-current'),
+      'true',
+      'the reopened chapter shows the current row',
+    );
+
+    // A new query reopens everything: close chapter 1, then type.
+    await page.locator('[data-search-chapter-toggle="chapter-1"]').click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-search-chapter="chapter-1"]')
+          ?.getAttribute('data-search-chapter-open') === 'false',
+      undefined,
+      { timeout: 10000 },
+    );
+    await searchInput().fill('quokka');
+    await page.waitForFunction(
+      () => {
+        const current = window.__noteforestTest.state();
+        return current.findQuery === 'quokka' && current.findResults.length === 2;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.deepEqual(
+      await page
+        .locator('[data-search-chapter-toggle]')
+        .evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-expanded'))),
+      ['true', 'true'],
+      'a query change reopens every chapter',
+    );
+    assert.equal(await page.locator('[data-search-row]').count(), 2, 'both rows are back');
+  });
+
   it('shows label-only headings, chapter rules and card rows', async () => {
     const env = isolated('hierarchy');
     await launch(env);
@@ -1004,29 +1160,76 @@ describe('find bar (⌘F)', () => {
       'clicking the block label does nothing',
     );
 
-    // Chapter opener: a 1 px rule, the chapter occurrence count at the right,
-    // and the same non-interactive contract.
-    const chapterHead = page.locator(
-      '[data-search-chapter="chapter-1"] .nf-search-chapter-head',
+    // Chapter disclosure (S1): the 1 px rule belongs to the group, not to the
+    // header that follows it, and the opener is now the collapse control: a
+    // level-1 treeitem button with aria-expanded and the count at the right.
+    const chapterGroup = page.locator('[data-search-chapter="chapter-1"]');
+    assert.equal(
+      await chapterGroup.evaluate((element) => getComputedStyle(element).paddingBottom),
+      '8px',
+      'the group owns the spacing under its last card',
     );
     assert.equal(
-      await chapterHead.evaluate((element) => getComputedStyle(element).borderTopWidth),
-      '1px',
+      await chapterGroup.evaluate((element) => getComputedStyle(element).borderTopWidth),
+      '0px',
+      'the first group has no rule above it',
     );
     assert.equal(
       (await page.locator('[data-search-chapter-count]').textContent())?.trim(),
       '2',
     );
-    assert.equal(await chapterHead.evaluate((element) => element.tagName), 'DIV');
-    assert.equal(await chapterHead.evaluate((element) => element.getAttribute('tabindex')), null);
+    const chapterToggle = page.locator('[data-search-chapter-toggle="chapter-1"]');
+    assert.equal(await chapterToggle.evaluate((element) => element.tagName), 'BUTTON');
+    assert.equal(
+      await chapterToggle.evaluate((element) => getComputedStyle(element).borderTopWidth),
+      '0px',
+      'the control that follows a group never carries the rule',
+    );
+    assert.equal(await chapterToggle.getAttribute('role'), 'treeitem');
+    assert.equal(await chapterToggle.getAttribute('aria-level'), '1');
+    assert.equal(await chapterToggle.getAttribute('aria-expanded'), 'true');
+    assert.equal(
+      await page.locator('[data-search-results="true"]').getAttribute('role'),
+      'tree',
+    );
+    assert.equal(
+      await page.locator('[data-search-results="true"]').getAttribute('aria-label'),
+      'Search results',
+    );
+    assert.equal(await page.locator('[data-search-row]').first().getAttribute('role'), 'treeitem');
+    assert.equal(await page.locator('[data-search-row]').first().getAttribute('aria-level'), '2');
+    // Collapsing keeps the count and does not move the current occurrence.
     const indexBeforeChapter = await page.evaluate(
       () => window.__noteforestTest.state().findIndex,
     );
-    await page.locator('[data-search-group-label]').click();
+    await chapterToggle.click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-search-chapter-toggle="chapter-1"]')
+          ?.getAttribute('aria-expanded') === 'false',
+      undefined,
+      { timeout: 10000 },
+    );
+    assert.equal(await page.locator('[data-search-row]').count(), 0, 'a closed group hides its rows');
+    assert.equal(
+      (await page.locator('[data-search-chapter-count]').textContent())?.trim(),
+      '2',
+      'a closed group keeps its count',
+    );
     assert.equal(
       await page.evaluate(() => window.__noteforestTest.state().findIndex),
       indexBeforeChapter,
-      'clicking the chapter rule does nothing',
+      'collapsing a chapter does not navigate',
+    );
+    await chapterToggle.click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-search-chapter-toggle="chapter-1"]')
+          ?.getAttribute('aria-expanded') === 'true',
+      undefined,
+      { timeout: 10000 },
     );
 
     // Cards: 12 px from the panel edge, 1 px outline, radius 4, a 3 px gap.

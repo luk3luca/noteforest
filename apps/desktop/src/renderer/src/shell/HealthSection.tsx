@@ -163,8 +163,8 @@ export function HealthSection(): JSX.Element {
   if (runtime === null || report === null) {
     return (
       <section className="nf-sidebar-section nf-health-section" aria-label="Health">
-        <div className="nf-health-head">
-          <span className="nf-health-title">Health</span>
+        <div className="nf-section-head nf-health-head">
+          <span className="nf-section-title nf-health-title">Health</span>
         </div>
         <p className="nf-empty-line" data-health-no-document="true">
           Open a document to check its anchors.
@@ -175,24 +175,25 @@ export function HealthSection(): JSX.Element {
 
   return (
     <section className="nf-sidebar-section nf-health-section" aria-label="Health">
-      <div className="nf-health-head">
-        <span className="nf-health-title">Health</span>
-        {report.counts.all === 0 ? null : (
-          <span
-            className="nf-health-summary"
-            data-health-summary="true"
-            data-health-count-all={report.counts.all}
-            data-health-count-needs-repair={report.counts.needsRepair}
-            data-health-count-broken={report.counts.broken}
-            data-health-count-ambiguous={report.counts.ambiguous}
-            data-health-count-idle={report.counts.idle}
-            data-health-count-orphans={report.counts.orphans}
-            data-health-count-structure={report.counts.structure}
-            data-health-count-hidden={report.counts.hidden}
-          >
-            {documentHealthSummaryText(report.counts)}
-          </span>
-        )}
+      <div className="nf-section-head nf-health-head">
+        <span className="nf-section-title nf-health-title">Health</span>
+        {/* The header carries the title and the summary count only: the manual
+            re-check stays next to the filter field (S2.1). The count is always
+            shown, `0 to fix · 0 issues` included (design §4). */}
+        <span
+          className="nf-section-count nf-health-summary"
+          data-health-summary="true"
+          data-health-count-all={report.counts.all}
+          data-health-count-needs-repair={report.counts.needsRepair}
+          data-health-count-broken={report.counts.broken}
+          data-health-count-ambiguous={report.counts.ambiguous}
+          data-health-count-idle={report.counts.idle}
+          data-health-count-orphans={report.counts.orphans}
+          data-health-count-structure={report.counts.structure}
+          data-health-count-hidden={report.counts.hidden}
+        >
+          {documentHealthSummaryText(report.counts)}
+        </span>
       </div>
       <div className="nf-health-search-row">
         <div className="nf-health-search nf-library-search">
@@ -258,7 +259,11 @@ export function HealthSection(): JSX.Element {
             const open = searching || openSections.includes(id);
             const key = `section:${id}`;
             return (
-              <div key={id} className="nf-health-group" data-health-section={id}>
+              <div
+                key={id}
+                className="nf-sidebar-group nf-health-group"
+                data-health-section={id}
+              >
                 {searching ? (
                   <div
                     role="treeitem"
@@ -267,12 +272,9 @@ export function HealthSection(): JSX.Element {
                     className="nf-health-section-row"
                     data-health-section-label={id}
                   >
-                    <ChevronRight
-                      size={12}
-                      strokeWidth={1.5}
-                      className="nf-chevron-open"
-                      aria-hidden="true"
-                    />
+                    <span className="nf-health-section-chevron" aria-hidden="true">
+                      <ChevronRight size={12} strokeWidth={1.5} className="nf-chevron-open" />
+                    </span>
                     <span className="nf-health-section-name">{group.definition.label}</span>
                     <span className="nf-health-section-count" data-health-section-count={group.rows.length}>
                       {group.rows.length}
@@ -296,12 +298,13 @@ export function HealthSection(): JSX.Element {
                     onFocus={() => setFocusKey(key)}
                     onClick={() => toggleHealthSection(id)}
                   >
-                    <ChevronRight
-                      size={12}
-                      strokeWidth={1.5}
-                      className={open ? 'nf-chevron-open' : ''}
-                      aria-hidden="true"
-                    />
+                    <span className="nf-health-section-chevron" aria-hidden="true">
+                      <ChevronRight
+                        size={12}
+                        strokeWidth={1.5}
+                        className={open ? 'nf-chevron-open' : ''}
+                      />
+                    </span>
                     <span className="nf-health-section-name">{group.definition.label}</span>
                     <span className="nf-health-section-count" data-health-section-count={group.rows.length}>
                       {group.rows.length}
@@ -336,7 +339,7 @@ export function HealthSection(): JSX.Element {
                             role="treeitem"
                             aria-level={2}
                             aria-selected={selected}
-                            className="nf-health-row-button"
+                            className="nf-result-row nf-health-row-card"
                             data-health-row-button="true"
                             data-health-node="true"
                             data-health-key={row.id}
