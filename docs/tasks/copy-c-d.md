@@ -2,9 +2,22 @@
 
 **Role:** Builder
 **Milestone:** copy sweep C+D (the tail after A+B)
-**Base:** HEAD of `main` (the docs commit that adds this brief)
+**Base:** `f834ca4` (`main` after the copy A+B and find v3 merges).
 **Worktree:** provided by the orchestrator harness; work only there
 **Timebox:** 4 days
+
+## Base addendum (16 November 2026, before launch)
+
+A+B is merged at `552335c` and find v3 at `2692df0`. Two consequences for this brief:
+
+- **`Details` and D25 already exist** in `shell/Details.tsx` (`Details`, `DetailsDialog`). Use them:
+  do not re-create the component, do not change its markup, and do not redesign D25. This batch
+  only adds hosts (banners, panels, status) and the toast `Details` action that opens D25.
+- **The sidebar Search changed in find v3.** It now has a chapter rule with per-chapter counts,
+  label-only headings, occurrence cards in the shared `.nf-result-row`, and the shared `ab`
+  whole-word toggle in the header. Item 6 below is a **label alignment only**: the count/empty-state
+  wording and the header palette button. Do not touch the hierarchy, the card rows, the `ab` toggle,
+  the engine, or the shared state.
 
 ## Context
 
