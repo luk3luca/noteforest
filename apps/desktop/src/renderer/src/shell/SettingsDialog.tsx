@@ -4,8 +4,8 @@ import {
   ModalOverlay,
 } from 'react-aria-components';
 import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import {
-  pageDimensionsMm,
   PAGE_DENSITY_MAX,
   PAGE_DENSITY_MIN,
   PAGE_DENSITY_STEP,
@@ -16,6 +16,7 @@ import {
 } from '../state/settings';
 import { useRuntime } from '../state/registry';
 import { openLibrary, removeRecentLibrary, revealLibraryPath } from '../actions';
+import { Details } from './Details';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';
 import { useContinuousSettingsController } from '../settings/useContinuousSettingsController';
@@ -145,7 +146,7 @@ const SHORTCUTS: { group: string; rows: [string, string][] }[] = [
   {
     group: 'Page',
     rows: [
-      ['Previous / next page', 'PageUp / PageDown'],
+      ['Previous / next page', '⌥↑ / ⌥↓'],
       ['Fit page / Fit width', '⇧1 / ⇧2'],
       ['Actual size', '⌘0'],
       ['Commit Page Edit', 'Esc / ⌘⏎'],
@@ -177,11 +178,11 @@ function statusLabel(state: 'ok' | 'defaults' | 'corrupt' | 'unreadable' | 'newe
     case 'defaults':
       return 'Defaults (no file yet)';
     case 'corrupt':
-      return 'Corrupt — using defaults';
+      return 'Can’t read — using defaults';
     case 'unreadable':
-      return 'Unreadable — using defaults';
+      return 'Can’t read — using defaults';
     case 'newer':
-      return 'Newer schema (read-only warning)';
+      return 'From a newer version';
     default:
       return state;
   }
@@ -411,24 +412,10 @@ export function SettingsDialog({
     pageSettings.setAllSides(formatMm(next));
   };
 
-  const pageContentArea = ((): string => {
-    // Content size comes from the same pure geometry the model uses.
-    const margins = marginValidation.margins ?? pageSettings.layerSetup.margins;
-    const { widthMm, heightMm } = pageDimensionsMm(
-      pageSettings.size,
-      pageSettings.orientation,
-    );
-    return `${Math.max(0, widthMm - margins.left - margins.right).toFixed(1)} × ${Math.max(
-      0,
-      heightMm - margins.top - margins.bottom,
-    ).toFixed(1)} mm content`;
-  })();
-
   const globalPage = (
     <>
       <p className="nf-settings-help" data-page-lens-help="true">
-        Page Read, Page Edit, the Page preview, and PDF use one resolved Page lens. Setup is a
-        personal setting; it never changes the note content.
+        Page, Page Edit, the preview, and PDF share these settings.
       </p>
 
       <div
@@ -455,11 +442,10 @@ export function SettingsDialog({
             data-page-scope-option="document"
             aria-pressed={pageScope === 'document'}
             disabled={!documentAvailable}
-            aria-describedby={documentAvailable ? undefined : 'page-scope-document-reason'}
             title={
               documentAvailable
                 ? undefined
-                : 'Open a document to override Page settings.'
+                : 'Open a note to override Page settings.'
             }
             onClick={() => pageSettings.setScope('document')}
           >
@@ -467,16 +453,6 @@ export function SettingsDialog({
           </button>
         </div>
       </div>
-      {documentAvailable ? null : (
-        <p
-          id="page-scope-document-reason"
-          className="nf-settings-help"
-          data-page-document-reason="true"
-        >
-          Open a document to override Page settings. Global defaults apply to every document
-          without an override.
-        </p>
-      )}
 
       <section className="nf-settings-section" data-page-setup-section="true">
         <div className="nf-settings-section-head">
@@ -724,8 +700,7 @@ export function SettingsDialog({
             </p>
           )}
           <p className="nf-settings-help" data-page-margins-help="true">
-            0–100 mm per side. The content area must keep at least 20 mm on each axis.
-            {marginValidation.margins === null ? '' : ` ${pageContentArea}.`}
+            Up to 100 mm per side. The content needs at least 20 mm.
           </p>
         </div>
 
@@ -849,8 +824,8 @@ export function SettingsDialog({
         </div>
 
         <p className="nf-settings-help" data-page-chrome-help="true">
-          Header and footer text come from the document and chapter titles; there is no free
-          text, no page-1 exception, and the page number always sits at the bottom center.
+          The header and footer use the note and chapter titles. The page number stays
+          centered.
         </p>
       </section>
 
@@ -918,9 +893,8 @@ export function SettingsDialog({
             data-page-preset-warning="true"
           >
             <p>
-              Switching to {PRESET_LABELS[pageSettings.presetWarning]} replaces the custom
-              typography and layout values in this layer. Custom is the option that keeps the
-              current values.
+              Switch to {PRESET_LABELS[pageSettings.presetWarning]} and replace the custom
+              values in this layer?
             </p>
             <div className="nf-dialog-inline-actions">
               <button
@@ -1001,20 +975,13 @@ export function SettingsDialog({
         </div>
         <p className="nf-settings-help" data-page-density-note="true">
           {pageScope === 'document'
-            ? `Page Read, Page Edit, and PDF use ${pageSettings.densityPercent}% for this document${
-                pageSettings.isDensityOverridden ? ' (document override)' : ''
-              }.`
-            : `Global Page density is ${pageSettings.densityPercent}%. A document with its own density override keeps that value.`}{' '}
-          60–70% is the densest range; 80% and above keeps larger type.
+            ? `This note uses ${pageSettings.densityPercent}% for Page and PDF.`
+            : 'Density for notes without their own setting.'}
         </p>
-        <p className="nf-settings-help" data-page-density-topology-note="true">
-          Density can move a callout between the right lane and below; the tree order stays fixed.
+        <p className="nf-settings-help" data-page-density-tail="true">
+          60–70% is densest; 80% and up keeps larger type.
         </p>
         <AdvancedTypographyFields controller={pageSettings} />
-        <p className="nf-settings-help" data-page-advanced-hidden="true">
-          Page font, manual breaks, and engine values (packing, callout modes, trunk insets,
-          lane gate) are not available in Settings.
-        </p>
       </section>
 
       <PageLayoutSection controller={pageSettings} />
@@ -1037,10 +1004,11 @@ export function SettingsDialog({
             <button
               type="button"
               className="nf-icon-button"
-              aria-label="Close Settings"
+              aria-label="Close"
+              title="Close (Esc)"
               onClick={requestClose}
             >
-              ×
+              <X size={13} strokeWidth={1.5} aria-hidden="true" />
             </button>
           </header>
           <div className="nf-settings-body">
@@ -1077,13 +1045,11 @@ export function SettingsDialog({
                 >
                   <p>
                     {settingsStatus.state === 'newer'
-                      ? `settings.json was written by a newer NoteForest version (schema ${
-                          settingsStatus.version ?? '?'
-                        }). Unknown fields are preserved.`
-                      : 'settings.json could not be read. NoteForest is using the product defaults.'}
+                      ? 'These settings come from a newer NoteForest. They are used as they are.'
+                      : 'These settings couldn’t be read. The defaults are in use.'}
                   </p>
                   {settingsStatus.message === undefined ? null : (
-                    <p className="nf-settings-help">{settingsStatus.message}</p>
+                    <Details value={settingsStatus.message} />
                   )}
                   {settingsStatus.backupPath === undefined ? null : (
                     <p className="nf-settings-help">
@@ -1128,11 +1094,11 @@ export function SettingsDialog({
                   data-document-settings-warning={documentSettingsStatus.state}
                 >
                   <p>
-                    Per-document settings could not be read. Open documents use the global
-                    defaults until you reset or restore the map.
+                    Note settings couldn’t be read. The defaults are in use until you reset or
+                    restore them.
                   </p>
                   {documentSettingsStatus.message === undefined ? null : (
-                    <p className="nf-settings-help">{documentSettingsStatus.message}</p>
+                    <Details value={documentSettingsStatus.message} />
                   )}
                   <div className="nf-dialog-inline-actions">
                     {documentRecoveryAvailable ? (
@@ -1163,10 +1129,7 @@ export function SettingsDialog({
                   <h3 className="nf-settings-page-title">General</h3>
                   <section className="nf-settings-section">
                     <h4 className="nf-settings-section-title">Saving</h4>
-                    <p className="nf-settings-help">
-                      Autosave runs after 800 ms. ⌘S flushes immediately and commits an open Page
-                      Edit block first.
-                    </p>
+                    <p className="nf-settings-help">Saves automatically. ⌘S saves now.</p>
                   </section>
                   <section className="nf-settings-section">
                     <h4 className="nf-settings-section-title">Shortcuts</h4>
@@ -1181,7 +1144,6 @@ export function SettingsDialog({
                         Open shortcut list
                       </button>
                     </div>
-                    <p className="nf-settings-help">A searchable list lives on the Editor page.</p>
                   </section>
                   <section className="nf-settings-section">
                     <h4 className="nf-settings-section-title">About</h4>
@@ -1198,7 +1160,7 @@ export function SettingsDialog({
                 <>
                   <h3 className="nf-settings-page-title">Page</h3>
                   <p className="nf-settings-page-description">
-                    The Page lens for this document and the app-wide default.
+                    Page settings for this note and the app default.
                   </p>
                   {globalPage}
                 </>
@@ -1281,13 +1243,12 @@ export function SettingsDialog({
                       ))
                     )}
                     <p className="nf-settings-help" data-shortcuts-help="true">
-                      A read-only reference of the app shortcuts; it is not a configurable
-                      keymap.
+                      Shortcuts are fixed.
                     </p>
                   </section>
                   <section className="nf-settings-section">
                     <h4 className="nf-settings-section-title">Saving</h4>
-                    <p className="nf-settings-help">Autosave after 800 ms; ⌘S flushes immediately.</p>
+                    <p className="nf-settings-help">Saves automatically. ⌘S saves now.</p>
                   </section>
                 </>
               ) : null}
@@ -1329,8 +1290,7 @@ export function SettingsDialog({
                   <section className="nf-settings-section">
                     <h4 className="nf-settings-section-title">Libraries</h4>
                     <p className="nf-settings-help">
-                      One active library per window. Recent libraries are global; removing one never
-                      deletes files.
+                      One library per window. Removing one from the list never deletes files.
                     </p>
                     <div className="nf-library-settings-list" data-settings-library-list="true">
                       {(library?.libraries ?? []).length === 0 ? (
@@ -1373,7 +1333,7 @@ export function SettingsDialog({
                               title={
                                 recent.active
                                   ? 'Switch to another library before removing this one'
-                                  : 'Remove from Recent'
+                                  : 'Remove from recents'
                               }
                               onClick={() => void removeRecentLibrary(recent.path)}
                             >
@@ -1389,7 +1349,7 @@ export function SettingsDialog({
                       data-settings-library-open="true"
                       onClick={() => void openLibrary()}
                     >
-                      Open Library…
+                      Open library…
                     </button>
                   </section>
                   <section className="nf-settings-section">
@@ -1411,9 +1371,9 @@ export function SettingsDialog({
                       </div>
                     </dl>
                     {settingsStatus.message === undefined ? null : (
-                      <p className="nf-settings-help" data-settings-file-message="true">
-                        {settingsStatus.message}
-                      </p>
+                      <div data-settings-file-message="true">
+                        <Details value={settingsStatus.message} />
+                      </div>
                     )}
                     {settingsStatus.backupPath === undefined ? null : (
                       <p className="nf-settings-help" data-settings-backup-path="true">
@@ -1423,14 +1383,14 @@ export function SettingsDialog({
                     )}
                     {settingsStatus.migrated === true ? (
                       <p className="nf-settings-help" data-settings-migrated="true">
-                        Settings were upgraded to the current format. Existing values were kept.
+                        Settings were upgraded. Your values are kept.
                       </p>
                     ) : null}
                     {globalRecoveryAvailable ? (
                       <>
                         <p className="nf-settings-help">
-                          Reset replaces settings.json with the product defaults. The damaged
-                          copy above is kept; note content is not affected.
+                          Reset replaces these settings with the defaults. The note is not
+                          changed.
                         </p>
                         <button
                           type="button"
@@ -1463,16 +1423,13 @@ export function SettingsDialog({
                       </div>
                     </dl>
                     <p className="nf-settings-help">
-                      Per-document page overrides live in document-settings.json. Resetting or
-                      restoring this map never changes note content.
+                      Page overrides are stored per document. Resetting them never changes the
+                      note.
                     </p>
                     {documentSettingsStatus.message === undefined ? null : (
-                      <p
-                        className="nf-settings-help"
-                        data-document-settings-message="true"
-                      >
-                        {documentSettingsStatus.message}
-                      </p>
+                      <div data-document-settings-message="true">
+                        <Details value={documentSettingsStatus.message} />
+                      </div>
                     )}
                     {documentSettingsStatus.backupPath === undefined ? null : (
                       <p
@@ -1504,7 +1461,7 @@ export function SettingsDialog({
                             setDocumentRecoveryConfirm('reset');
                           }}
                         >
-                          Reset map
+                          Reset overrides
                         </button>
                       ) : null}
                       {documentSettingsBackup === null ? null : (
@@ -1528,15 +1485,15 @@ export function SettingsDialog({
                         role="group"
                         aria-label={
                           documentRecoveryConfirm === 'reset'
-                            ? 'Confirm reset map'
+                            ? 'Confirm reset overrides'
                             : 'Confirm restore backup'
                         }
                         data-document-settings-confirm-panel={documentRecoveryConfirm}
                       >
                         <p>
                           {documentRecoveryConfirm === 'reset'
-                            ? 'This removes all per-document page overrides. Note content is not affected.'
-                            : 'Restore the newest valid backup over the current document settings map? The current file is backed up first. Note content is not affected.'}
+                            ? 'This removes every Page override. The note is not changed.'
+                            : 'Restore the newest backup? The current file is saved as a backup first.'}
                         </p>
                         <div className="nf-dialog-inline-actions">
                           <button
@@ -1548,7 +1505,9 @@ export function SettingsDialog({
                               void runDocumentRecovery(documentRecoveryConfirm)
                             }
                           >
-                            {documentRecoveryConfirm === 'reset' ? 'Reset map' : 'Restore backup'}
+                            {documentRecoveryConfirm === 'reset'
+                              ? 'Reset overrides'
+                              : 'Restore backup'}
                           </button>
                           <button
                             type="button"

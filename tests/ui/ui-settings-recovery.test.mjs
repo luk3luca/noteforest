@@ -98,7 +98,7 @@ describe('settings data recovery', () => {
     await page.waitForSelector('[data-settings-warning="corrupt"]');
     assert.match(
       await page.locator('[data-settings-warning="corrupt"]').innerText(),
-      /could not be read/i,
+      /couldn’t be read/i,
     );
 
     // Dismiss hides the banner only; the status stays corrupt in the store.
@@ -114,8 +114,9 @@ describe('settings data recovery', () => {
       await page.locator('[data-settings-file-status]').getAttribute('data-settings-file-status'),
       'corrupt',
     );
+    await page.locator('[data-settings-file-message="true"] summary').click();
     assert.match(
-      await page.locator('[data-settings-file-message="true"]').innerText(),
+      await page.locator('[data-settings-file-message="true"] [data-details-value]').innerText(),
       /JSON|Unexpected|Unexpected token/i,
     );
     assert.match(
@@ -172,7 +173,7 @@ describe('settings data recovery', () => {
     await page.waitForSelector('[data-settings-warning="unreadable"]');
     assert.match(
       await page.locator('[data-settings-warning="unreadable"]').innerText(),
-      /could not be read/i,
+      /couldn’t be read/i,
     );
     await openDataPage();
     assert.equal(
@@ -298,7 +299,7 @@ describe('settings data recovery', () => {
     await page.waitForSelector('[data-document-settings-confirm-panel="reset"]');
     assert.match(
       await page.locator('[data-document-settings-confirm-panel="reset"]').innerText(),
-      /This removes all per-document page overrides\. Note content is not affected\./,
+      /This removes every Page override\. The note is not changed\./,
     );
     await h.screenshot(join(screenshotDir, 'document-map-reset-confirm.png'));
     await page.locator('[data-document-settings-confirm="reset"]').click();

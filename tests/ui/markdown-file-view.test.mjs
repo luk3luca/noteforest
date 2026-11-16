@@ -534,6 +534,25 @@ describe('Markdown file view', () => {
     await dispatch('save');
     await page.waitForSelector('[data-markdown-conflict-overwrite]', { timeout: 10000 });
     assert.match(await page.locator('.nf-dialog-title').innerText(), /changed on disk/);
+    assert.equal(
+      await page.locator('.nf-dialog-description').innerText(),
+      'Another app wrote this file. Nothing has been overwritten.',
+    );
+    assert.equal(
+      await page.locator('.nf-settings-help').innerText(),
+      'Reload discards your edits. Overwrite keeps a backup of the version on disk.',
+    );
+    assert.equal(
+      await page.locator('[data-details] summary').innerText(),
+      'Details',
+      'the path lives in one Details disclosure',
+    );
+    assert.equal(await page.locator('[data-details-value]').textContent(), mdPath);
+    assert.match(
+      await page.evaluate(() => document.activeElement?.textContent ?? ''),
+      /Cancel/,
+      'a danger primary never takes the default focus',
+    );
     assert.equal(await readFile(mdPath, 'utf8'), externalBytes);
     await page.screenshot({ path: join(screenshotDir, 'conflict.png') });
 

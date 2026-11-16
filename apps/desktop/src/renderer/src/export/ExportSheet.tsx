@@ -6,8 +6,15 @@
 
 import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
 import { useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import type { ExportWarning } from '../../../shared/export';
 import { exportFileName, joinExportPath, pdfBaseNameForTitle } from '../../../shared/export';
+import { Details } from '../shell/Details';
+import {
+  exportFailureMessage,
+  warningDetailsValue,
+  warningRowLabel,
+} from './export-copy';
 import {
   cancelActiveExport,
   cancelReplaceExport,
@@ -38,17 +45,6 @@ const PHASE_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
-const WARNING_GROUPS: Record<ExportWarning['kind'], string> = {
-  'blocking-defect': 'Layout defects',
-  'page-overflow': 'Page overflow',
-  'manual-break': 'Manual breaks',
-  anchor: 'Anchors',
-  asset: 'Images and assets',
-  'layout-warning': 'Layout warnings',
-  render: 'Rendering',
-  validation: 'Validation',
-};
-
 function phaseLabel(phase: string | null): string {
   if (phase === null) return 'Preparing…';
   return PHASE_LABELS[phase] ?? phase;
@@ -62,55 +58,20 @@ function pageSizeLabel(size: string): string {
   return size === 'Letter' ? 'Letter' : size;
 }
 
-function warningLabel(warning: ExportWarning): string {
-  if (warning.blockTitle !== undefined) return `${warning.blockTitle}: ${warning.message}`;
-  if (warning.pageNumber !== undefined) return `Page ${warning.pageNumber}: ${warning.message}`;
-  return warning.message;
-}
-
-function WarningList({
-  warnings,
-  grouped,
-}: {
-  warnings: readonly ExportWarning[];
-  grouped: boolean;
-}): JSX.Element | null {
+/**
+ * Warning rows name the source and the group only; every raw message lives in
+ * one Details block (A-22.11), so a body never carries a paragraph.
+ */
+function WarningRows({ warnings }: { warnings: readonly ExportWarning[] }): JSX.Element | null {
   if (warnings.length === 0) return null;
-  if (!grouped) {
-    return (
-      <ul className="nf-export-warning-list" data-export-warning-details="true">
-        {warnings.map((warning, index) => (
-          <li key={`${warning.kind}-${warning.code}-${index}`}>{warningLabel(warning)}</li>
-        ))}
-      </ul>
-    );
-  }
-  const groups = new Map<ExportWarning['kind'], ExportWarning[]>();
-  for (const warning of warnings) {
-    const list = groups.get(warning.kind) ?? [];
-    list.push(warning);
-    groups.set(warning.kind, list);
-  }
   return (
-    <div className="nf-export-warning-groups" data-export-warnings="true">
-      {[...groups.entries()].map(([kind, list]) => (
-        <details
-          key={kind}
-          className="nf-export-warning-group"
-          data-export-warning-group={kind}
-          open
-        >
-          <summary>
-            {WARNING_GROUPS[kind] ?? kind} ({list.length})
-          </summary>
-          <ul className="nf-export-warning-list">
-            {list.map((warning, index) => (
-              <li key={`${warning.code}-${index}`}>{warningLabel(warning)}</li>
-            ))}
-          </ul>
-        </details>
+    <ul className="nf-export-warning-list" data-export-warning-rows="true">
+      {warnings.map((warning, index) => (
+        <li key={`${warning.kind}-${warning.code}-${index}`} data-export-warning-row="true">
+          {warningRowLabel(warning)}
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -231,11 +192,12 @@ export function ExportSheet(): JSX.Element | null {
             <button
               type="button"
               className="nf-icon-button"
-              aria-label="Close export sheet"
+              aria-label="Close"
+              title="Close (Esc)"
               data-export-close="true"
               onClick={close}
             >
-              ×
+              <X size={13} strokeWidth={1.5} aria-hidden="true" />
             </button>
           </header>
 
@@ -281,7 +243,7 @@ export function ExportSheet(): JSX.Element | null {
                       </span>
                     ) : null}
                     <span className="nf-export-help" data-export-filename-note="true">
-                      The document title is the file name; no date or pattern is added.
+                      The file is named after the note.
                     </span>
                   </label>
                   <div className="nf-export-destination">
@@ -294,18 +256,15 @@ export function ExportSheet(): JSX.Element | null {
                   <h3 className="nf-export-section-title">What will be exported</h3>
                   <p className="nf-export-summary" data-export-summary="true">
                     {layout === 'continuous'
-                      ? 'Page layout will be exported'
+                      ? 'Page layout'
                       : `Page layout${documentTitle === null ? '' : ` · ${documentTitle}`}`}
                     {summary === null ? '' : ` · ${summary}`}
                     {densityPercent === null ? '' : ` · ${densityPercent}%`}
                   </p>
                   <p className="nf-export-help">
                     {pageCount === null
-                      ? 'Page count is calculated when the export starts · whole document'
+                      ? 'Page count is calculated at export · whole document'
                       : `${pageCount} ${pageCount === 1 ? 'page' : 'pages'} · whole document`}
-                  </p>
-                  <p className="nf-export-help" data-export-preflight="true">
-                    Preflight runs automatically when you export.
                   </p>
                 </section>
               </>
@@ -314,14 +273,12 @@ export function ExportSheet(): JSX.Element | null {
             {status === 'confirm-overwrite' ? (
               <section className="nf-export-section" data-export-overwrite="true">
                 <p className="nf-export-copy">
-                  A file already exists at this path. Replacing it cannot be undone.
+                  A file already exists there. Replacing it cannot be undone.
                 </p>
                 <code className="nf-export-output" data-export-output-path="true">
                   {outputPath}
                 </code>
-                <p className="nf-export-help">
-                  Cancel returns to Configure with the path intact; the existing file is untouched.
-                </p>
+                <p className="nf-export-help">Cancel keeps the existing file.</p>
               </section>
             ) : null}
 
@@ -394,20 +351,29 @@ export function ExportSheet(): JSX.Element | null {
                 <code className="nf-export-output" data-export-output-path="true">
                   {outputPath}
                 </code>
-                <WarningList warnings={warnings} grouped />
+                <WarningRows warnings={warnings} />
+                {warnings.length === 0 ? null : (
+                  <Details value={warningDetailsValue(warnings)} />
+                )}
               </section>
             ) : null}
 
             {status === 'failed' ? (
               <section className="nf-export-section" data-export-failed="true" role="alert">
                 <p className="nf-export-copy" data-export-error-message="true">
-                  {error?.message ?? 'The PDF export failed.'}
+                  {exportFailureMessage(error?.code)}
                 </p>
-                <p className="nf-export-help" data-export-code={error?.code ?? 'internal-error'}>
-                  Error: {error?.code ?? 'internal-error'}
-                </p>
-                <WarningList warnings={error?.details ?? []} grouped={false} />
-                <WarningList warnings={warnings} grouped />
+                <WarningRows warnings={[...(error?.details ?? []), ...warnings]} />
+                <div data-export-code={error?.code ?? 'internal-error'}>
+                  <Details
+                    value={[
+                      error?.message ?? 'The export stopped unexpectedly.',
+                      ...(error?.details ?? []).map((warning) => warning.message),
+                      ...warnings.map((warning) => warning.message),
+                      `Code: ${error?.code ?? 'internal-error'}`,
+                    ].join('\n')}
+                  />
+                </div>
               </section>
             ) : null}
 
@@ -424,7 +390,8 @@ export function ExportSheet(): JSX.Element | null {
             ) : null}
           </div>
 
-          <footer className="nf-export-actions">
+          <footer className="nf-export-actions nf-dialog-actions">
+            <span className="nf-dialog-spacer" />
             {status === 'configure' ? (
               <>
                 <button

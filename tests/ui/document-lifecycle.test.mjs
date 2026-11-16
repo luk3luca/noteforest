@@ -647,11 +647,20 @@ describe('Document lifecycle', () => {
     await page.waitForSelector('[data-trash-dialog="true"]');
     const dialog = await page.evaluate(() => ({
       text: document.querySelector('[data-trash-dialog]')?.textContent ?? '',
-      path: document.querySelector('[data-trash-path]')?.textContent ?? '',
+      detailsSummary: document.querySelector('[data-trash-dialog] [data-details] summary')
+        ?.textContent ?? '',
+      detailsValue:
+        document.querySelector('[data-trash-dialog] [data-details-value]')?.textContent ?? '',
       focused: document.activeElement?.textContent ?? '',
     }));
     assert.match(dialog.text, /Renamed note/);
-    assert.equal(dialog.path, secondPath);
+    assert.equal(dialog.detailsSummary, 'Details', 'the path moved into Details');
+    assert.equal(dialog.detailsValue, secondPath, 'the Details value is the exact path');
+    assert.equal(
+      await page.locator('[data-trash-dialog] [data-trash-path]').count(),
+      0,
+      'the path is no longer a paragraph',
+    );
     assert.match(dialog.focused, /Cancel/, 'Cancel is focused by default');
     await page.screenshot({ path: join(screenshotDir, 'trash-confirmation.png') });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -874,7 +883,7 @@ describe('Document lifecycle', () => {
     await openRowMenu('missing-note');
     await chooseRowMenu('Remove from recents');
     await page.waitForSelector('[data-trash-dialog="true"]');
-    assert.match(await page.getByRole('dialog').innerText(), /no file or folder is deleted/i);
+    assert.match(await page.getByRole('dialog').innerText(), /no files are deleted/i);
     const tabsBefore = (await state()).tabs.length;
     await page.locator('[data-trash-confirm="true"]').click();
     await page.waitForFunction(

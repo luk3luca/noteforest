@@ -193,7 +193,7 @@ export function AdvancedTypographyFields({
       title="Advanced typography"
       fields={ADVANCED_TYPOGRAPHY_KEYS}
       dataAttribute="typography"
-      help="Stored sizes are in points; line heights are unitless multipliers. The density lens applies once, so a preset-range value keeps its readability floor. Editing one value marks this layer Custom."
+      help="Sizes in points, line heights as a multiplier. Editing a value makes this layer Custom."
       useGlobalLabel="Use global typography"
       onUseGlobal={() => controller.useGlobalAdvancedTypography()}
       hasOverrides={controller.hasAdvancedTypographyOverrides}
@@ -213,7 +213,7 @@ export function AdvancedLayoutFields({
       title="Advanced layout"
       fields={ADVANCED_LAYOUT_KEYS}
       dataAttribute="layout"
-      help="Layout values are in pixels and are per level, not cumulative. Hidden engine values (packing, callout lane gate, trunk insets) are not exposed. Editing one value marks this layer Custom."
+      help="Values in pixels, per level. Editing a value makes this layer Custom."
       useGlobalLabel="Use global layout"
       onUseGlobal={() => controller.useGlobalAdvancedLayout()}
       hasOverrides={controller.hasAdvancedLayoutOverrides}
@@ -264,8 +264,7 @@ export function PageLayoutSection({
         </p>
       )}
       <p className="nf-settings-help" data-page-max-card-width-help="true">
-        120–2000 px. The 240–560 px preset band follows the density lens; a custom cap outside it
-        keeps its own scaling. Page cards and images use the same cap.
+        Card width limit. It follows density; images use the same limit.
       </p>
       <AdvancedLayoutFields controller={controller} />
     </section>

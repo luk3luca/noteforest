@@ -446,8 +446,42 @@ describe('V0 visual shell', () => {
     await page.getByRole('menuitem', { name: 'Rename document…' }).click();
     await page.waitForSelector('.nf-dialog');
     assert.equal(await page.locator('.nf-dialog-title').innerText(), 'Rename document');
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    // One labelled title, one header X (the same action as Cancel/Esc), the
+    // 480 frame, and the field receives focus in a single-field dialog.
+    assert.equal(await page.locator('.nf-dialog h2').count(), 1);
+    const labelledBy = await page.locator('.nf-dialog').getAttribute('aria-labelledby');
+    assert.equal(
+      await page.locator(`#${labelledBy}`).innerText(),
+      'Rename document',
+      'the title is the accessible name',
+    );
+    assert.equal(await page.locator('.nf-dialog').getAttribute('aria-label'), null);
+    const close = page.locator('.nf-dialog-close');
+    assert.equal(await close.getAttribute('aria-label'), 'Close');
+    assert.equal(await close.getAttribute('title'), 'Close (Esc)');
+    assert.equal(
+      Math.round(await page.locator('.nf-dialog-modal').evaluate((element) => element.getBoundingClientRect().width)),
+      480,
+      'the default frame is 480 px',
+    );
+    assert.deepEqual(
+      await page.locator('.nf-dialog-actions button').allInnerTexts(),
+      ['Cancel', 'Save'],
+      'secondary then primary',
+    );
+    await page.waitForFunction(
+      () => document.activeElement?.classList.contains('nf-input') === true,
+      undefined,
+      { timeout: 5000 },
+    );
+    await close.click();
     await page.waitForSelector('.nf-dialog', { state: 'detached' });
+    const afterClose = await page.evaluate(() => document.activeElement?.outerHTML ?? null);
+    assert.match(
+      afterClose ?? '',
+      /nf-tab/,
+      `focus returns to the tab that opened the menu (${afterClose})`,
+    );
 
     await h.screenshot(resolve(screenshotDir, 'expanded-shell-1440x900.png'), {
       width: 1440,

@@ -152,7 +152,8 @@ describe('Settings Editor shortcut list', () => {
     // The list stays a read-only kbd reference with the autosave copy and no
     // future/disabled controls.
     const paneText = await page.locator('.nf-settings-pane').innerText();
-    assert.match(paneText, /Autosave after 800 ms; ⌘S flushes immediately\./);
+    assert.match(paneText, /Saves automatically\. ⌘S saves now\./);
+    assert.match(paneText, /Shortcuts are fixed\./);
     assert.doesNotMatch(paneText, /single-key|autosave interval|coming soon/i);
     assert.equal(await page.locator('.nf-shortcut-row kbd').count(), ALL_ROWS);
     assert.equal(

@@ -234,7 +234,10 @@ describe('Batch B Page settings', () => {
     await openSettings();
 
     assert.equal(await page.locator('[data-page-scope-option="document"]').isDisabled(), true);
-    assert.equal(await page.locator('[data-page-document-reason="true"]').isVisible(), true);
+    assert.equal(
+      await page.locator('[data-page-scope-option="document"]').getAttribute('title'),
+      'Open a note to override Page settings.',
+    );
     assert.equal(await page.locator('[data-page-size-option="A4"]').isEnabled(), true);
     assert.equal(
       await page.locator('[data-page-preview="true"]').getAttribute('data-page-preview-state'),
@@ -729,7 +732,7 @@ describe('Batch B Page settings', () => {
       { timeout: 15000 },
     );
     assert.equal(await page.locator('[data-page-density-value]').innerText(), '100%');
-    assert.equal(await page.locator('[data-page-advanced-hidden="true"]').isVisible(), true);
+    assert.equal(await page.locator('[data-page-advanced-hidden]').count(), 0, 'the engine-words note is deleted');
     await closeSettings();
     await waitPageBody('9pt');
     assert.equal(
@@ -873,7 +876,7 @@ describe('Batch B Page settings', () => {
       })),
       { min: '60', max: '120', step: '5' },
     );
-    assert.equal(await page.locator('[data-page-advanced-hidden="true"]').isVisible(), true);
+    assert.equal(await page.locator('[data-page-advanced-hidden]').count(), 0, 'the engine-words note is deleted');
     assert.equal(await page.locator('[data-page-advanced-typography]').count(), 1);
     assert.equal(
       await page

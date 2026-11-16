@@ -327,9 +327,16 @@ describe('UI overlay command gate and write identity', () => {
       await page.locator('[data-export-failed] [data-export-code]').getAttribute('data-export-code'),
       'document-not-open',
     );
-    assert.match(
+    assert.equal(
       await page.locator('[data-export-error-message]').innerText(),
+      'The export didn’t start.',
+      'the body states the short outcome once',
+    );
+    await page.locator('[data-export-failed] summary').click();
+    assert.match(
+      await page.locator('[data-export-failed] [data-details-value]').innerText(),
       /no longer open/i,
+      'the raw reason stays in Details',
     );
     assert.deepEqual(await readdir(folder), [], 'no file was written for the closed document');
   });

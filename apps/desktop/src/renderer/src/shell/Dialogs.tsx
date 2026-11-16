@@ -39,6 +39,7 @@ import {
 import { backupMetadataLine } from '../lib/backup-restore';
 import type { BackupCandidateView, TrashPreflight } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
+import { Details, DetailsDialog } from './Details';
 import { Frame } from './DialogFrame';
 import { HealthRepairDialog } from './HealthRepairDialog';
 import { SettingsDialog } from './SettingsDialog';
@@ -65,13 +66,13 @@ function NewLibraryDialog({ onClose }: { onClose: () => void }): JSX.Element {
     const ok = await createLibrary(name, parentPath);
     setBusy(false);
     if (ok) onClose();
-    else setError('Could not create the library. Check the name and parent folder.');
+    else setError('Couldn’t create the library. Check the name and the parent folder.');
   };
 
   return (
     <Frame
-      title="New Library"
-      description="Create a folder for a new set of NoteForest notes."
+      title="New library"
+      description="Create a folder for a new set of notes."
       actions={
         <>
           <Button className="nf-button" onPress={onClose}>
@@ -83,7 +84,7 @@ function NewLibraryDialog({ onClose }: { onClose: () => void }): JSX.Element {
             isDisabled={busy || name.trim().length === 0 || parentPath.length === 0}
             onPress={() => void create()}
           >
-            Create Library
+            Create library
           </Button>
         </>
       }
@@ -150,19 +151,21 @@ function TrashDocumentDialog({
         ? 'Move file to Trash?'
         : 'Move to Trash?';
   const description = missing
-    ? 'The package folder has no document.json. This only forgets the document; no file or folder is deleted.'
+    ? 'This entry has no note folder. It is removed from the list; no files are deleted.'
     : folder
-      ? 'The folder and everything inside it move to the system Trash. You can recover it from the Trash; the library folder itself is never moved.'
+      ? 'The folder and everything inside it move to the Trash. You can restore them from there.'
       : markdown
-        ? 'The Markdown file moves to the system Trash. You can recover it from the Trash.'
-        : 'The note folder moves to the system Trash. You can recover it from the Trash.';
+        ? 'The file moves to the Trash. You can restore it from there.'
+        : 'The note moves to the Trash. You can restore it from there.';
   return (
     <Frame
       title={title}
       description={description}
+      size="records"
+      focusSecondary
       actions={
         <>
-          <Button className="nf-button" autoFocus onPress={onClose}>
+          <Button className="nf-button" data-dialog-secondary="true" onPress={onClose}>
             Cancel
           </Button>
           <Button
@@ -174,7 +177,7 @@ function TrashDocumentDialog({
               else void confirmTrashDocument(preflight);
             }}
           >
-            {missing ? 'Remove from recents' : 'Move to Trash'}
+            {missing ? 'Remove' : 'Move to Trash'}
           </Button>
         </>
       }
@@ -188,9 +191,6 @@ function TrashDocumentDialog({
         <p className="nf-dialog-text" data-trash-title="true">
           “{preflight.title}”
         </p>
-        <p className="nf-trash-path" data-trash-path="true">
-          {preflight.packagePath}
-        </p>
         {folder && contained !== undefined ? (
           <p className="nf-settings-help" data-trash-contained="true">
             {contained.notes} {contained.notes === 1 ? 'note' : 'notes'}, {contained.markdown}{' '}
@@ -200,21 +200,21 @@ function TrashDocumentDialog({
         ) : null}
         {preflight.status === 'newer-schema' ? (
           <p className="nf-field-error" data-trash-newer-schema="true" role="alert">
-            This note was written by a newer NoteForest version. Moving it to the Trash is safe,
-            but this app cannot read or recover its contents.
+            This note comes from a newer NoteForest. Trashing it is safe, but this version
+            can’t read it.
           </p>
         ) : null}
         {preflight.liveLock ? (
           <p className="nf-field-error" data-trash-live-lock="true" role="alert">
-            Another NoteForest session is writing this document. Close the other window and try
-            again; the live lock is never broken.
+            Another window is writing this note. Close it there and try again.
           </p>
         ) : null}
         {preflight.lock !== null ? (
           <p className="nf-settings-help" data-trash-stale-lock="true">
-            A stale lock from a previous session will be cleared before the move.
+            A lock from an earlier session is cleared first.
           </p>
         ) : null}
+        <Details value={preflight.packagePath} />
       </div>
     </Frame>
   );
@@ -242,7 +242,7 @@ function NewFolderDialog({
     const ok = await createVaultFolder(parentPath, name);
     setBusy(false);
     if (ok) onClose();
-    else setError('Could not create the folder. Check the name and try again.');
+    else setError('Couldn’t create the folder. Check the name and try again.');
   };
 
   return (
@@ -260,7 +260,7 @@ function NewFolderDialog({
             isDisabled={busy || name.trim().length === 0}
             onPress={() => void create()}
           >
-            Create Folder
+            Create folder
           </Button>
         </>
       }
@@ -316,7 +316,7 @@ function RenameFolderDialog({
     const ok = await renameVaultFolder(folderPath, name);
     setBusy(false);
     if (ok) onClose();
-    else setError('Could not rename the folder. Check the name and try again.');
+    else setError('Couldn’t rename the folder. Check the name and try again.');
   };
 
   return (
@@ -439,7 +439,7 @@ function MoveVaultEntryDialog({
     const ok = await moveVaultEntryTo(path, target);
     setBusy(false);
     if (ok) onClose();
-    else setError('Could not move the entry. Check the destination and try again.');
+    else setError('Couldn’t move the entry. Check the destination and try again.');
   };
 
   return (
@@ -510,6 +510,11 @@ export function Dialogs(): JSX.Element | null {
   if (dialog.kind === 'settings') {
     return <SettingsDialog onClose={close} initialPage={dialog.page} />;
   }
+  // D25: the one-line technical surface for a toast (opened by the toast host,
+  // batch C). It is a Frame dialog like every other.
+  if (dialog.kind === 'details') {
+    return <DetailsDialog value={dialog.value} onClose={close} />;
+  }
   // Library creation is app-level and works with no document open.
   if (dialog.kind === 'new-library') {
     return <NewLibraryDialog onClose={close} />;
@@ -549,13 +554,14 @@ export function Dialogs(): JSX.Element | null {
     const tab = useShell.getState().tabs.find((item) => item.packagePath === dialog.path);
     return (
       <Frame
-        title="Close Markdown file?"
-        description="This file has changes that have not been saved yet."
+        title="Close file?"
+        description="This file has unsaved changes."
+        focusSecondary
         actions={
           <>
-            <Button className="nf-button" onPress={close}>Cancel</Button>
+            <Button className="nf-button" data-dialog-secondary="true" onPress={close}>Cancel</Button>
             <Button
-              className="nf-button"
+              className="nf-button nf-button-danger"
               data-markdown-close-discard="true"
               onPress={() => {
                 close();
@@ -589,10 +595,11 @@ export function Dialogs(): JSX.Element | null {
     return (
       <Frame
         title="This file changed on disk"
-        description="Another app wrote this Markdown file. Nothing has been overwritten."
+        description="Another app wrote this file. Nothing has been overwritten."
+        focusSecondary
         actions={
           <>
-            <Button className="nf-button" onPress={close}>Cancel</Button>
+            <Button className="nf-button" data-dialog-secondary="true" onPress={close}>Cancel</Button>
             <Button
               className="nf-button"
               data-markdown-conflict-reload="true"
@@ -624,11 +631,10 @@ export function Dialogs(): JSX.Element | null {
         }
       >
         <p className="nf-dialog-text">{tab?.title ?? 'This Markdown file'}</p>
-        <p className="nf-dialog-text">{dialog.path}</p>
         <p className="nf-settings-help">
-          Reload replaces the editor with the version on disk. Overwrite writes the editor content
-          and keeps one previous copy in app support (never in your library).
+          Reload discards your edits. Overwrite keeps a backup of the version on disk.
         </p>
+        <Details value={dialog.path} />
       </Frame>
     );
   }
@@ -642,10 +648,10 @@ export function Dialogs(): JSX.Element | null {
   if (runtime === null) {
     return (
       <Frame
-        title="No document open"
+        title="No note open"
         actions={<Button className="nf-button" onPress={close}>Close</Button>}
       >
-        <p className="nf-dialog-text">Open a document before using this command.</p>
+        <p className="nf-dialog-text">Open a note first.</p>
       </Frame>
     );
   }
@@ -692,8 +698,8 @@ export function Dialogs(): JSX.Element | null {
   if (dialog.kind === 'delete-branch') {
     return (
       <Frame
-        title="Detach branch?"
-        description="The block becomes a top-level block in the same chapter. Its content and subtree are kept."
+        title="Detach from parent?"
+        description="The block becomes top-level in its chapter. Its content is kept."
         actions={
           <>
             <Button className="nf-button" onPress={close}>Cancel</Button>
@@ -704,13 +710,13 @@ export function Dialogs(): JSX.Element | null {
                 report(runtime.deleteBranch(dialog.blockId));
               }}
             >
-              Detach
+              Detach from parent
             </Button>
           </>
         }
       >
         <p className="nf-dialog-text">
-          “{blockTitle(document.blocks[dialog.blockId])}” will lose its incoming arrow.
+          “{blockTitle(document.blocks[dialog.blockId])}”
         </p>
       </Frame>
     );
@@ -770,12 +776,13 @@ export function Dialogs(): JSX.Element | null {
     return (
       <Frame
         title="Close tab?"
-        description="This tab has changes that have not been saved yet."
+        description="This tab has unsaved changes."
+        focusSecondary
         actions={
           <>
-            <Button className="nf-button" onPress={close}>Cancel</Button>
+            <Button className="nf-button" data-dialog-secondary="true" onPress={close}>Cancel</Button>
             <Button
-              className="nf-button"
+              className="nf-button nf-button-danger"
               onPress={() => {
                 close();
                 void closeTab(dialog.packagePath, { force: true, save: false });
@@ -795,7 +802,7 @@ export function Dialogs(): JSX.Element | null {
           </>
         }
       >
-        <p className="nf-dialog-text">{target?.title ?? 'This document'}</p>
+        <p className="nf-dialog-text">{target?.title ?? 'This note'}</p>
       </Frame>
     );
   }
@@ -807,10 +814,11 @@ export function Dialogs(): JSX.Element | null {
     return (
       <Frame
         title="Reload from disk?"
-        description="Unsaved changes in this window will be discarded. The file on disk is not modified."
+        description="Unsaved changes in this window are discarded. The file on disk is not changed."
+        focusSecondary
         actions={
           <>
-            <Button className="nf-button" onPress={close}>Cancel</Button>
+            <Button className="nf-button" data-dialog-secondary="true" onPress={close}>Cancel</Button>
             <Button
               className="nf-button nf-button-danger"
               onPress={() => {
@@ -825,10 +833,8 @@ export function Dialogs(): JSX.Element | null {
           </>
         }
       >
-        <p className="nf-dialog-text">
-          “{document.title}” will be reopened from <code>{runtime.packagePath}</code>. This cannot be
-          undone.
-        </p>
+        <p className="nf-dialog-text">“{document.title}”</p>
+        <Details value={runtime.packagePath} />
       </Frame>
     );
   }
@@ -863,21 +869,15 @@ function OverwriteDialog({
   runtime: DocumentRuntime;
   onClose: () => void;
 }): JSX.Element {
-  const cancelRef = useRef<HTMLButtonElement>(null);
   const confirm = overwriteConfirmation(runtime.packagePath);
-  // Overwrite is destructive and must never be the default. Focus Cancel
-  // explicitly instead of relying on dialog focus order.
-  useEffect(() => {
-    cancelRef.current?.focus();
-  }, []);
-
   return (
     <Frame
       title={confirm.title}
       description={confirm.description}
+      focusSecondary
       actions={
         <>
-          <Button ref={cancelRef} className="nf-button" onPress={onClose}>
+          <Button className="nf-button" data-dialog-secondary="true" onPress={onClose}>
             Cancel
           </Button>
           <Button
@@ -896,12 +896,8 @@ function OverwriteDialog({
         </>
       }
     >
-      <p className="nf-dialog-text">
-        “{runtime.document.title}” will replace <code>{runtime.packagePath}</code>.
-      </p>
-      <p className="nf-dialog-note">
-        The external changes will be lost. Reload from disk instead if you want to keep them.
-      </p>
+      <p className="nf-dialog-text">“{runtime.document.title}”</p>
+      <Details value={confirm.path} />
     </Frame>
   );
 }
@@ -918,7 +914,7 @@ function RestoreBackupDialog({
   type ListState =
     | { status: 'loading' }
     | { status: 'ready'; backups: BackupCandidateView[] }
-    | { status: 'error'; message: string };
+    | { status: 'error'; message: string; details?: string };
 
   const [state, setState] = useState<ListState>({ status: 'loading' });
   const [selected, setSelected] = useState<string | null>(null);
@@ -934,7 +930,7 @@ function RestoreBackupDialog({
       .then((result) => {
         if (cancelled) return;
         if (!result.ok) {
-          setState({ status: 'error', message: result.message });
+          setState({ status: 'error', message: result.message, details: result.details });
           return;
         }
         setState({ status: 'ready', backups: result.backups });
@@ -976,7 +972,7 @@ function RestoreBackupDialog({
           packagePath: result.snapshot.packagePath,
           title: result.snapshot.document.title,
         });
-        toast.success('Restored a backup and opened it.');
+        toast.success('Restored a backup.');
       } else {
         toast.success(`Restored a backup to ${result.packagePath}`);
       }
@@ -990,7 +986,8 @@ function RestoreBackupDialog({
   return (
     <Frame
       title="Restore backup"
-      description="Choose a backup to restore as a new copy. The current document and its file are not changed."
+      description="Restores a copy. The current file is not changed."
+      size="records"
       actions={
         <>
           <Button className="nf-button" onPress={onClose} isDisabled={busy}>
@@ -1013,17 +1010,19 @@ function RestoreBackupDialog({
       ) : null}
 
       {state.status === 'error' ? (
-        <p className="nf-dialog-text" role="alert" data-restore-error="true">
-          {state.message}
-        </p>
+        <>
+          <p className="nf-dialog-text" role="alert" data-restore-error="true">
+            {state.message}
+          </p>
+          {state.details === undefined ? null : <Details value={state.details} />}
+        </>
       ) : null}
 
       {state.status === 'ready' && usable.length === 0 ? (
         <div className="nf-backup-empty" data-backup-empty="true">
           <p className="nf-backup-empty-title">No usable backups</p>
           <p className="nf-dialog-note">
-            NoteForest has no valid backup for this document yet. Save a copy or fix the
-            original folder instead.
+            No backup yet. Save the note as a copy instead.
           </p>
         </div>
       ) : null}
@@ -1075,11 +1074,6 @@ function RestoreBackupDialog({
           {error}
         </p>
       ) : null}
-
-      <p className="nf-dialog-note">
-        The restored copy opens in a new tab. This window’s unsaved changes and the original
-        file are left untouched.
-      </p>
     </Frame>
   );
 }
@@ -1138,11 +1132,11 @@ function LinkReferenceDialog({
       })
       .then((outcome) => {
         if (!outcome.ok) {
-          toast.error(outcome.message ?? 'Could not link the block.');
+          toast.error(outcome.message ?? 'Couldn’t add the link.');
           return;
         }
         if (outcome.duplicate === true) {
-          toast.info('That link already exists; focused the linked block.');
+          toast.info('That link already exists.');
         }
       });
   };
@@ -1150,7 +1144,8 @@ function LinkReferenceDialog({
   return (
     <Frame
       title="Link as reference"
-      description="Link an existing block without changing its primary home, outline position, or layout. Reference links may form cycles."
+      description="The target keeps its place. This adds a reference link."
+      size="records"
       actions={
         <>
           <Button className="nf-button" onPress={onClose}>Cancel</Button>
@@ -1214,10 +1209,6 @@ function LinkReferenceDialog({
           ))}
         </ListBox>
       )}
-      <p className="nf-dialog-note">
-        The target stays once at its primary home. This only adds a “See also” link
-        here and a “Referenced by” chip there.
-      </p>
     </Frame>
   );
 }
@@ -1245,7 +1236,7 @@ function MoveDialog({
   return (
     <Frame
       title="Move to…"
-      description="Choose a new primary parent. Cycles and descendant moves are rejected."
+      description="Choose a new parent. A block can’t move inside itself."
       actions={
         <>
           <Button className="nf-button" onPress={onClose}>Cancel</Button>
@@ -1312,10 +1303,12 @@ function DeleteBlockDialog({
   return (
     <Frame
       title="Delete block"
-      description={children > 0 ? 'This block has descendants.' : 'This block has no descendants.'}
+      description="The block and its content are removed."
+      size="records"
+      focusSecondary
       actions={
         <>
-          <Button className="nf-button" onPress={onClose}>Cancel</Button>
+          <Button className="nf-button" data-dialog-secondary="true" onPress={onClose}>Cancel</Button>
           <Button
             className="nf-button nf-button-danger"
             onPress={() => {
@@ -1361,9 +1354,9 @@ function DeleteBlockDialog({
         >
           <h3 className="nf-delete-references-title">External references</h3>
           <p className="nf-dialog-text">
-            {references.length === 1 ? 'This reference link points at' : 'These reference links point at'}{' '}
-            {mode === 'delete-subtree' ? 'this subtree' : 'this block'} and will be removed.
-            The source blocks and their content stay.
+            {references.length === 1
+              ? 'This reference link will be removed with the block. The source blocks stay.'
+              : 'These reference links will be removed with the block. The source blocks stay.'}
           </p>
           <ul className="nf-delete-reference-list">
             {references.map((reference) => (
@@ -1549,13 +1542,13 @@ function MathDialog({
     const runtime = activeRuntime();
     const editor = runtime?.editor ?? null;
     if (runtime === null || editor === null) {
-      toast.error('Open a document before branching from a term.');
+      toast.error('Open a note before branching from a term.');
       onClose();
       return;
     }
     const location = formulaNodeAt(editor, pos);
     if (location === null) {
-      toast.error('The formula could not be found; close the dialog and try again.');
+      toast.error('The formula isn’t in the note any more. Close the dialog and try again.');
       onClose();
       return;
     }
@@ -1563,7 +1556,7 @@ function MathDialog({
     // apply it first so the selected term exists in the canonical formula.
     if (value !== location.latex) {
       if (!writeFormula(value)) {
-        toast.error('The formula could not be updated; check the LaTeX and try again.');
+        toast.error('The formula wasn’t updated. Check the LaTeX and try again.');
         return;
       }
     }
@@ -1584,7 +1577,7 @@ function MathDialog({
   return (
     <Frame
       title={pos === null ? 'Insert math' : 'Edit math'}
-      description="KaTeX renders the expression. LaTeX only; no remote content."
+      description="LaTeX only. Nothing is loaded from the web."
       actions={
         <>
           <Button className="nf-button" onPress={onClose}>Cancel</Button>
@@ -1666,11 +1659,11 @@ function ImageAltDialog({
           onClose();
           return;
         }
-        toast.error(outcome.message ?? 'Could not save the alt text.');
+        toast.error(outcome.message ?? 'Couldn’t save the alt text.');
         setSaving(false);
       })
       .catch((error: unknown) => {
-        toast.error(error instanceof Error ? error.message : 'Could not save the alt text.');
+        toast.error(error instanceof Error ? error.message : 'Couldn’t save the alt text.');
         setSaving(false);
       });
   };
@@ -1678,7 +1671,7 @@ function ImageAltDialog({
   return (
     <Frame
       title="Image alt text"
-      description="Describe the image for screen readers, search, and the exported PDF. Leave it empty for a decorative image."
+      description="Describe the image. Leave it empty if it is decorative."
       actions={
         <>
           <Button className="nf-button" onPress={onClose} isDisabled={saving}>

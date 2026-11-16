@@ -2118,7 +2118,8 @@ export async function listBackups(packagePath: string): Promise<ListBackupsResul
   } catch (error) {
     return {
       ok: false,
-      message: `Could not list backups: ${error instanceof Error ? error.message : String(error)}`,
+      message: 'Backups couldn’t be listed.',
+      details: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -2287,7 +2288,12 @@ export async function restoreNewestBackup(
   }
   const listing = await listBackups(resolved);
   if (!listing.ok) {
-    return { ok: false, code: 'unknown', message: listing.message };
+    return {
+      ok: false,
+      code: 'unknown',
+      message: listing.message,
+      ...(listing.details === undefined ? {} : { details: listing.details }),
+    };
   }
   const newest = listing.backups.find((backup) => backup.valid);
   if (newest === undefined) {

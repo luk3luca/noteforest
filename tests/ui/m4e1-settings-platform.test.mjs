@@ -183,9 +183,9 @@ describe('M4e1 settings platform', () => {
     const documentScope = page.locator('[data-page-scope-option="document"]');
     assert.equal(await documentScope.isDisabled(), true, 'document scope is disabled');
     assert.equal(
-      await page.locator('[data-page-document-reason="true"]').isVisible(),
-      true,
-      'the disabled document scope explains why',
+      await documentScope.getAttribute('title'),
+      'Open a note to override Page settings.',
+      'the disabled document scope explains why in one line',
     );
     assert.equal(
       await page.locator('[data-page-density-slider]').isEnabled(),
@@ -354,7 +354,7 @@ describe('M4e1 settings platform', () => {
     await openSettingsWithShortcut();
     await page.waitForSelector('[data-settings-warning="corrupt"]');
     const warning = await page.locator('[data-settings-warning="corrupt"]').innerText();
-    assert.match(warning, /could not be read/i);
+    assert.match(warning, /couldn’t be read/i);
     const entries = await import('node:fs/promises').then((fs) =>
       fs.readdir(env.NOTEFOREST_APP_SUPPORT),
     );

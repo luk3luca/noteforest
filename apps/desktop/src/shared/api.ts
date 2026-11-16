@@ -755,7 +755,10 @@ export interface ListBackupsSuccess {
 
 export interface ListBackupsFailure {
   ok: false;
+  /** Short outcome, safe for the dialog line. */
   message: string;
+  /** The raw OS error, shown only in Details (D17). */
+  details?: string;
 }
 
 export type ListBackupsResult = ListBackupsSuccess | ListBackupsFailure;
@@ -785,6 +788,8 @@ export interface RestoreBackupFailure {
   canceled?: boolean;
   code?: RestoreBackupFailureCode;
   message?: string;
+  /** The raw OS error, shown only in Details when the dialog has one. */
+  details?: string;
 }
 
 export type RestoreBackupResult = RestoreBackupSuccess | RestoreBackupFailure;

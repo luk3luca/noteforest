@@ -570,7 +570,7 @@ export function usePageSettingsController(
         return false;
       }
       if (outcome === 'commit-error') {
-        setCommitError('Page Edit could not be committed. Retry after fixing the block.');
+        setCommitError('Page Edit wasn’t saved. Fix the block and retry.');
         setSaving(false);
         return false;
       }
@@ -759,7 +759,7 @@ export function usePageSettingsController(
       return false;
     }
     if (outcome === 'commit-error') {
-      setCommitError('Page Edit could not be committed. Retry after fixing the block.');
+      setCommitError('Page Edit wasn’t saved. Fix the block and retry.');
       setSaving(false);
       return false;
     }

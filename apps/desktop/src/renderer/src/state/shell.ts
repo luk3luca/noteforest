@@ -99,6 +99,7 @@ export type DialogState =
   | { kind: 'new-folder'; parentPath: string }
   | { kind: 'rename-folder'; path: string; name: string }
   | { kind: 'move-vault-entry'; path: string; name: string; entryKind: 'folder' | 'note' | 'markdown' }
+  | { kind: 'details'; value: string }
   | { kind: 'settings'; page?: SettingsPageId };
 
 export interface ContextMenuState {
