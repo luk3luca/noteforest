@@ -429,8 +429,8 @@ polish) at `5c4eb2c` and S2.2 (card chrome + fixes) at `3a4ebd4`. **Phase 6 (fin
 Page ring, chip fix) and the find surface v2 at `eec39b4` (the cluster in the toolbar and the
 sidebar Search with snippets, shared state and session `search`). **Copy A+B is merged at
 `552335c`**: the one `DialogFrame`, the Settings and Export adoptions, every A/B row verbatim, and
-`Details`/D25 (`docs/design/dialogs.md`, `docs/design/copy-plan.md`). Next: C+D
-(errors/banners/toasts + editor/menu/palette). Find v3 is merged at `2692df0`: the chapter rule with
+`Details`/D25 (`docs/design/dialogs.md`, `docs/design/copy-plan.md`). **Copy C+D is merged at
+`7f265f9`** (errors, banners, editor, menus; the copy sweep is complete). Find v3 is merged at `2692df0`: the chapter rule with
 per-chapter counts, label-only headings, occurrence cards in the shared `.nf-result-row`, one
 normalized whitespace-loose query mode with the shared `ab` whole-word toggle, and stroke-only
 activity-bar icons. S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
