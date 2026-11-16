@@ -126,3 +126,66 @@ tests, critical e2e 16/16).
 Wire the atomic-unit id suffix (code/formula node identity) as a small
 follow-up, then the Sentinel re-check can close the "every id unique" goal
 across all fields. No product decision is needed for the reported text-run fix.
+
+## Follow-up FR1b — atomic units (16 November 2026)
+
+**Task:** `docs/tasks/find-result-ids.md`, § "Follow-up (same surface, after
+`c9dabd2`)".
+**Branch:** `t3/fr1b-unique-find-result-ids`.
+
+### Summary
+
+Code and formula units report `offset: 0`, so two of them in one block that
+match at the same node-relative offset agreed on `start` and collapsed to one
+id. Those two fields now insert the unit's node path between the owner and the
+offset — `${field}:${owner}:${nodePath.join('.')}:${start}:${suffix}` — while
+the text shape stays unchanged (`text:A:0:`). The offset, the matching, the
+snippets, the Continuous decoration and the sidebar are untouched, and no
+consumer parses the id: the sidebar uses it as a React key and compares it for
+the current row, `App.tsx` forwards it, and `find-decorations.ts` never reads a
+`FindResult`.
+
+### Before / after
+
+Fixture: one block with `code('let co = 1')`, `code('let co = 2')`, then a
+paragraph holding two `\cos` inline formulas. Query `co`:
+
+```
+before  code ids     [ 'code:A:4:', 'code:A:4:' ]          (2 results, 1 unique)
+        formula ids  [ 'formula:A:1:', 'formula:A:1:' ]    (2 results, 1 unique)
+after   code ids     [ 'code:A:0:4:', 'code:A:1:4:' ]      (2 results, 2 unique)
+        formula ids  [ 'formula:A:2.1:1:', 'formula:A:2.3:1:' ]
+```
+
+The pre-fix run fails three tests: `expected 1 to be 2` for the code pair and
+the formula pair, and `co: code:A:4: code:A:4: formula:A:1: formula:A:1:`
+(2 unique of 4) for the uniqueness fixture.
+
+### Files changed
+
+- `apps/desktop/src/renderer/src/lib/find.ts` — `pushResult` takes an optional
+  id `scope`; the new `unitIdScope` supplies `nodePath.join('.') + ':'` for
+  code and formula units and `''` for text runs. Offsets, matching and snippets
+  unchanged; the doc comments record the new shape.
+- `apps/desktop/test/find.test.ts` — new `atomicDocument` fixture, one test for
+  two code blocks and one for two inline formulas at the same relative offset
+  (exact ids plus distinctness), and the uniqueness test now runs over the
+  multi-run **and** the atomic fixture for `co`, `come`, `c`, `e`.
+
+### Checks
+
+| Check | Result |
+| --- | --- |
+| `npx vitest run apps/desktop/test/find.test.ts apps/desktop/test/find-surface.test.ts` | pass, 51 tests / 2 files (0.4 s) |
+| `npm run typecheck` | pass (desktop node + web, core, layout, pdf) |
+| `npm run verify:fast` | exit 0: boundaries (271 files, 1316 imports, 16 rules), typecheck, 157 unit files / 1581 tests, critical e2e 16/16 (47.1 s) |
+
+### Risks
+
+- The code and formula id shape changed; nothing parses it, and the text ids
+  the original report was about keep their old shape.
+- `start`/`end` for atomic units stay node-relative by design (the brief): the
+  node path in the id, not the offset, is what makes them unique.
+- Node paths are unique for `codeNodes` and `formulaNodes` within a block
+  (each node is walked once), and the field prefix keeps the two namespaces
+  apart, so the scope cannot itself collide.

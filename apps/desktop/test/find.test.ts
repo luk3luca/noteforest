@@ -542,6 +542,37 @@ function multiRunDocument(): Document {
   return document;
 }
 
+/**
+ * Two code blocks and two inline formulas in **one** block that each match `co`
+ * at the same node-relative offset. Code and formula units report `offset: 0`,
+ * so two of them in the same block can agree on `start`; only node identity
+ * keeps their ids apart (`code:A:4:` twice before the fix).
+ */
+function atomicDocument(): Document {
+  const code = (value: string): ContentNode => ({
+    type: 'codeBlock',
+    attrs: { text: value, language: 'ts' },
+    children: [text(value)],
+  });
+  const formula = (latex: string): ContentNode => ({
+    type: 'inlineMath',
+    attrs: { latex },
+  });
+  const document = baseDocument();
+  document.chapters = [{ id: 'c1', title: 'Atomic', topLevelBlockIds: ['A'] }];
+  document.blocks = {
+    A: block(
+      'A',
+      doc(
+        code('let co = 1'),
+        code('let co = 2'),
+        paragraph(text('Euler '), formula('\\cos x'), text(' and '), formula('\\cos y')),
+      ),
+    ),
+  };
+  return document;
+}
+
 describe('result identity and offsets', () => {
   it('keeps text offsets block-absolute and snippet offsets run-relative', () => {
     const report = findInDocument(multiRunDocument(), 'co');
@@ -571,17 +602,58 @@ describe('result identity and offsets', () => {
     );
   });
 
+  it('gives two code blocks in one block distinct ids at the same offset', () => {
+    const codeResults = findInDocument(atomicDocument(), 'co').results.filter(
+      (result) => result.field === 'code',
+    );
+    expect(codeResults).toHaveLength(2);
+    // The offsets are unchanged: both matches sit at node-relative 4.
+    expect(codeResults.map((result) => [result.start, result.end])).toEqual([
+      [4, 6],
+      [4, 6],
+    ]);
+    // Node paths 0 and 1 (the two doc children) are what keeps the ids apart;
+    // before the fix both read `code:A:4:`.
+    expect(codeResults.map((result) => result.id)).toEqual([
+      'code:A:0:4:',
+      'code:A:1:4:',
+    ]);
+    expect(new Set(codeResults.map((result) => result.id)).size).toBe(2);
+  });
+
+  it('gives two inline formulas in one block distinct ids at the same offset', () => {
+    const formulaResults = findInDocument(atomicDocument(), 'co').results.filter(
+      (result) => result.field === 'formula',
+    );
+    expect(formulaResults).toHaveLength(2);
+    // `\cos x` and `\cos y` both match at node-relative 1.
+    expect(formulaResults.map((result) => [result.start, result.end])).toEqual([
+      [1, 3],
+      [1, 3],
+    ]);
+    // Both formulas sit in the paragraph at doc child 2, at children 1 and 3;
+    // before the fix both read `formula:A:1:`.
+    expect(formulaResults.map((result) => result.id)).toEqual([
+      'formula:A:2.1:1:',
+      'formula:A:2.3:1:',
+    ]);
+    expect(new Set(formulaResults.map((result) => result.id)).size).toBe(2);
+  });
+
   it('keeps every id unique for co, come and a single-letter query', () => {
-    const document = multiRunDocument();
-    for (const query of ['co', 'come', 'c', 'e']) {
-      const report = findInDocument(document, query);
-      expect(report.total, query).toBe(report.results.length);
-      const ids = report.results.map((result) => result.id);
-      expect(new Set(ids).size, `${query}: ${ids.join(' ')}`).toBe(ids.length);
-      // Non-text fields keep their own field offset as both start and hint.
-      for (const result of report.results) {
-        if (result.field !== 'text') expect(result.snippetStart).toBe(result.start);
-        expect(result.snippetStart).toBeGreaterThanOrEqual(0);
+    // The multi-run fixture covers text runs; the atomic fixture covers two
+    // code blocks and two inline formulas that agree on the relative offset.
+    for (const document of [multiRunDocument(), atomicDocument()]) {
+      for (const query of ['co', 'come', 'c', 'e']) {
+        const report = findInDocument(document, query);
+        expect(report.total, query).toBe(report.results.length);
+        const ids = report.results.map((result) => result.id);
+        expect(new Set(ids).size, `${query}: ${ids.join(' ')}`).toBe(ids.length);
+        // Non-text fields keep their own field offset as both start and hint.
+        for (const result of report.results) {
+          if (result.field !== 'text') expect(result.snippetStart).toBe(result.start);
+          expect(result.snippetStart).toBeGreaterThanOrEqual(0);
+        }
       }
     }
   });
