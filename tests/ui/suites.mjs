@@ -71,6 +71,7 @@ export const FILES = [
   'vault-library.test.mjs',
   'find-bar.test.mjs',
   'sidebar-system.test.mjs',
+  'manual-breaks.test.mjs',
 ];
 
 /**
@@ -110,6 +111,7 @@ export const GROUPS = {
     'vault-library.test.mjs',
     'find-bar.test.mjs',
     'sidebar-system.test.mjs',
+    'manual-breaks.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',

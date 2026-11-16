@@ -59,3 +59,21 @@ export function pageBlockEditingEnabledFor(
   const interactionMode = view?.interactionMode ?? 'read';
   return layout === 'page' && interactionMode === 'edit';
 }
+
+/**
+ * True when the **per-document page settings** may be authored: either layout
+ * in Edit, on a writable document (`docs/design/manual-breaks.md` §4).
+ *
+ * Page settings are not document content (ADR-0008): a manual break, a margin,
+ * or a density is a personal lens over the note, so Page Edit can change them
+ * even though shell-level block authoring stays Continuous-only. Read still
+ * disables every one of them, and a read-only/locked document is writable by
+ * nobody.
+ */
+export function pageSettingsAuthoringEnabled(
+  runtime: EditabilityRuntime | null,
+  view: EditabilityView | undefined,
+): boolean {
+  if (runtime === null || !runtime.editable) return false;
+  return (view?.interactionMode ?? 'edit') === 'edit';
+}

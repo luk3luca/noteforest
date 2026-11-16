@@ -93,6 +93,22 @@ describe('sidebar tab session state', () => {
     expect((await readSession()).sidebarTab).toBe('library');
   });
 
+  it('persists the Breaks section as a fifth sidebar tab', async () => {
+    await writeSession({
+      tabs: [],
+      activeTab: null,
+      sidebarCollapsed: false,
+      sidebarWidth: 264,
+      collapsedTopics: {},
+      sidebarTab: 'breaks',
+    });
+    expect((await readSession()).sidebarTab).toBe('breaks');
+    useShell.getState().setSidebarTab('breaks');
+    expect(useShell.getState().sidebarTab).toBe('breaks');
+    expect(buildSession().sidebarTab).toBe('breaks');
+    useShell.getState().setSidebarTab('library');
+  });
+
   it('writes the shell tab into the session without touching document content', () => {
     useShell.setState({ sidebarTab: 'outline' });
     expect(buildSession().sidebarTab).toBe('outline');

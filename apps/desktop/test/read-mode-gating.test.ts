@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   editingEnabledFor,
   pageBlockEditingEnabledFor,
+  pageSettingsAuthoringEnabled,
   READ_MODE_SUFFIX,
   READ_MODE_TITLE,
   READ_MODE_TOAST,
@@ -45,6 +46,19 @@ describe('read-mode editability helper', () => {
     expect(pageBlockEditingEnabledFor(editable, continuousRead)).toBe(false);
     expect(pageBlockEditingEnabledFor(editable, undefined)).toBe(false);
     expect(pageBlockEditingEnabledFor(null, pageEdit)).toBe(false);
+  });
+
+  it('lets page settings be authored in both layouts but never in Read', () => {
+    // Manual breaks and every other per-document page setting (ADR-0008) are
+    // personal, not document content: Page Edit may change them even though
+    // shell-level block authoring stays Continuous-only.
+    expect(pageSettingsAuthoringEnabled(editable, continuousEdit)).toBe(true);
+    expect(pageSettingsAuthoringEnabled(editable, pageEdit)).toBe(true);
+    expect(pageSettingsAuthoringEnabled(editable, continuousRead)).toBe(false);
+    expect(pageSettingsAuthoringEnabled(editable, pageRead)).toBe(false);
+    expect(pageSettingsAuthoringEnabled(editable, undefined)).toBe(true);
+    expect(pageSettingsAuthoringEnabled(readOnly, pageEdit)).toBe(false);
+    expect(pageSettingsAuthoringEnabled(null, pageEdit)).toBe(false);
   });
 
   it('exposes one shared Read-mode reason for every surface', () => {

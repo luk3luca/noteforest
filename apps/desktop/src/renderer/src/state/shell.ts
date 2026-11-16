@@ -373,7 +373,9 @@ export const useShell = create<ShellState>((set, get) => ({
   setSidebarTab: (tab) =>
     set((state) => {
       const next: SidebarTab =
-        tab === 'outline' || tab === 'health' || tab === 'search' ? tab : 'library';
+        tab === 'outline' || tab === 'health' || tab === 'search' || tab === 'breaks'
+          ? tab
+          : 'library';
       // Opening Search remembers the section to return to; any other section
       // clears the memory so a later Search starts from the current one.
       const before =

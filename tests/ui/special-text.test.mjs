@@ -1485,6 +1485,7 @@ describe('NoteForest special text editing', () => {
       'move-down',
       'indent',
       'outdent',
+      'manual-break',
       'delete',
     ]);
     assert.equal(

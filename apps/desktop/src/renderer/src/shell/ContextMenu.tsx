@@ -144,6 +144,7 @@ export function ContextMenu(): JSX.Element | null {
                 key={entry.id}
                 id={entry.id}
                 data-menu-entry={entry.id}
+                data-menu-checked={entry.checked === true ? 'true' : undefined}
                 textValue={entry.label}
                 isDisabled={entry.disabled === true}
                 className={({ isFocused, isDisabled }) =>

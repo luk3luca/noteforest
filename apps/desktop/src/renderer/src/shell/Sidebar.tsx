@@ -1,4 +1,4 @@
-import { Activity, Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, Folder, FolderPlus, Library, ListTree, MoreHorizontal, NotebookText, PanelLeftClose, PanelLeftOpen, Plus, Search, Settings, TriangleAlert } from 'lucide-react';
+import { Activity, Anchor, BookOpen, ChevronDown, ChevronRight, FileText, FileWarning, Folder, FolderPlus, Library, ListTree, MoreHorizontal, NotebookText, PanelLeftClose, PanelLeftOpen, Plus, Search, SeparatorHorizontal, Settings, TriangleAlert } from 'lucide-react';
 import {
   Button,
   Tree,
@@ -46,6 +46,7 @@ import { sidebarDepthIndent } from '../lib/sidebar-rows';
 import { useDocumentHealthReport } from './useDocumentHealth';
 import { HealthSection } from './HealthSection';
 import { SearchSection } from './SearchSection';
+import { BreaksSection } from './BreaksSection';
 import type { DocumentRuntime } from '../state/runtime';
 import type {
   LibraryDocumentNode,
@@ -60,6 +61,7 @@ const SIDEBAR_TABS: ReadonlyArray<{ id: SidebarTab; label: string }> = [
   { id: 'outline', label: 'Outline' },
   { id: 'health', label: 'Health' },
   { id: 'search', label: 'Search' },
+  { id: 'breaks', label: 'Breaks' },
 ];
 
 /**
@@ -97,6 +99,7 @@ function ActivityBar({
     outline: null,
     health: null,
     search: null,
+    breaks: null,
   });
 
   const activate = (id: SidebarTab): void => {
@@ -164,7 +167,9 @@ function ActivityBar({
                 ? ListTree
                 : tab.id === 'search'
                   ? Search
-                  : Activity;
+                  : tab.id === 'breaks'
+                    ? SeparatorHorizontal
+                    : Activity;
           return (
             <button
               key={tab.id}
@@ -1272,6 +1277,8 @@ export function Sidebar({
               <TopicSection />
             ) : sidebarTab === 'search' ? (
               <SearchSection />
+            ) : sidebarTab === 'breaks' ? (
+              <BreaksSection />
             ) : (
               <HealthSection />
             )}
