@@ -427,9 +427,11 @@ already mixing packages, `.md` files, images and backups. **Phase 3 (vault/libra
 bar) at `fb64eb0`, S2 (Document health in the sidebar + repair modal) at `f84a7fd`, S2.1 (health
 polish) at `5c4eb2c` and S2.2 (card chrome + fixes) at `3a4ebd4`. **Phase 6 (find) is complete**: the bar v1 at `365ed15` (occurrences, DFS, Continuous highlights,
 Page ring, chip fix) and the find surface v2 at `eec39b4` (the cluster in the toolbar and the
-sidebar Search with snippets, shared state and session `search`). Next: the copy sweep — A+B
-(dialogs/frame + Settings + Details) with `docs/design/dialogs.md` and `docs/design/copy-plan.md`,
-then C+D (errors/banners/toasts + editor/menu/palette). S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
+sidebar Search with snippets, shared state and session `search`). **Copy A+B is merged at
+`552335c`**: the one `DialogFrame`, the Settings and Export adoptions, every A/B row verbatim, and
+`Details`/D25 (`docs/design/dialogs.md`, `docs/design/copy-plan.md`). Next: C+D
+(errors/banners/toasts + editor/menu/palette), then find v3 (`docs/tasks/find-v3.md`: label-only
+hierarchy, occurrence cards, one shared whole-word toggle, no activity-bar icon fill). S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
 entry, the full-width Settings footer when expanded and the Library note/`.md` icons. S2 made Health
 a third tab with a square needs-repair counter, the grouped sections, the repair modal and the
 retirement of the v1 sheet. S2.1 added the refresh next to the search, four sections always visible
