@@ -51,6 +51,7 @@ invent a size:
 | `--sb-result` | `calc(12px * var(--ui-scale))`, 400, line-height 1.45 | first line of a result card (snippet, problem quote) |
 | `--sb-meta` | `calc(10.5px * var(--ui-scale))`, 400 | second line: meta, reason, count |
 | `--sb-label` | `calc(9.5px * var(--ui-scale))`, 600, 0.09em, uppercase | group label (chapter, Health section) |
+| `--sb-count` | `calc(11px * var(--ui-scale))`, 400, tabular | header count (a header metric, not a row role) |
 
 Heights: `--sb-row-height` 28 px, `--sb-result-height` 40 px (two lines) and auto for cards.
 Indents: 0 (section content), 12 (a result card under its group label), 24 (second level).
@@ -66,7 +67,8 @@ One pattern for all four sections:
 
 - 28 px tall, `padding: 2px 6px 4px`, always the first element of a section.
 - The count is tabular, `--text-3`, hidden at zero in Library and Outline, **always shown** in Health
-  (four sections with `0` is the approved all-clear) and Search (`No results`).
+  (its summary reads `0 to fix · 0 issues` at all-clear, so the number never disappears with the
+  sections) and Search (`No results`).
 - **Library exception:** its title slot is the library switcher (a 22 px control, 28 px row). The
   switcher is the title: no second title above it.
 - **Health exception:** the refresh control stays **next to the filter field**, as approved in S2.1 —
@@ -118,7 +120,9 @@ Health already does this (`.nf-health-section-row[aria-expanded]`); Search adopt
 - `.nf-sidebar-scroll` is the only scroll owner: `overflow-y: auto`, `overflow-x: hidden`.
 - `scrollbar-gutter: stable` on it. The application styles a 10 px classic scrollbar globally, so any
   section that overflows currently loses 10 px of content width and everything shifts. With a
-  permanent gutter the content box is fixed: 264 − 8 − 8 − 10 = 238 px at the default width, always.
+  permanent gutter the content box is fixed: 262 − 8 − 8 − 10 = **236 px** at the default 264 width,
+  always. (264 is the content column; the 312 px card carries 1 px borders, so 262 is what the scroll
+  container sees. Both numbers are asserted.)
 - The reserved gutter is **invisible**: only `::-webkit-scrollbar-thumb` is painted, the track is
   transparent, and the thumb exists only while the content actually overflows. Nothing is drawn when
   there is nothing to scroll; the space is simply reserved, so the content never moves.

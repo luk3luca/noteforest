@@ -638,7 +638,7 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 
 | # | Batch | Contents | Depends on |
 |---|---|---|---|
-| 1 | **Sidebar and Health system** | `docs/design/sidebar.md`: one header, one row ladder, one five-value scale, one scroll owner with a reserved gutter, collapsible Search chapters, Health on `.nf-result-row`, needs-repair dot | — |
+| 1 | **Sidebar and Health system** | `docs/design/sidebar.md`: one header, one row ladder, one five-value scale, one scroll owner with a reserved gutter, collapsible Search chapters, Health on `.nf-result-row`, needs-repair dot. **Merged at `fa03152`** | — |
 | 2 | **Manual breaks** | A break is a **horizontal page cut at a block's y**, not a per-branch break; only blocks that start a row can honour one; `Breaks` sidebar section for navigation and removal; cleanup on delete/split/merge; no break offered before a mode A callout (F11) | 1 (the fifth activity-bar tab lives in `Sidebar.tsx`) |
 | 3 | **Data and recovery** | Asset GC on the `unused` surface (30-day grace, backup-referenced assets preserved, explicit cleanup), `core` command reasons mapped at the boundary, S3-5 guided relink, S3-6 replay fallback | 1 (Health rows and modal) |
 | 4 | **Find fidelity and highlighter** | Page word highlight, one range for cross-line matches, table-cell fixture; then the persistent highlighter on the same offset→DOM primitive | a spike on the model→page mapping |
