@@ -18,7 +18,7 @@ import type { FindResult } from '../src/renderer/src/lib/find';
  * sidebar Search section. These tests pin the store contract both read — query,
  * results, current occurrence, active surface — and the session value that lets
  * the Search section survive a restart. The two-line snippet split is pure
- * presentation over the engine's own `snippet`/`start`.
+ * presentation over the engine's own `snippet`/`snippetStart`.
  */
 
 function result(id: string, blockId: string, start: number, snippet: string): FindResult {
@@ -30,6 +30,7 @@ function result(id: string, blockId: string, start: number, snippet: string): Fi
     chapterId: 'chapter-1',
     start,
     end: start + 5,
+    snippetStart: start,
     occurrence: 0,
     snippet,
   };

@@ -24,9 +24,13 @@
  * `literalRanges`/`literalRangesUtf16` matchers stay untouched for anchor and
  * formula-term resolution, which must never become whitespace-loose.
  *
- * Offsets are Unicode code points; `occurrence` is the 0-based index among the
- * block's text-node matches and is what the Continuous decoration uses to mark
- * the current hit without a second model→editor projection.
+ * Offsets are Unicode code points. A text match reports **block-absolute**
+ * offsets (`unit.offset + match.start`), so every occurrence in a block has its
+ * own id even when separate text runs start with the same word; `snippetStart`
+ * keeps the run-relative offset the snippet splitter needs. `occurrence` is the
+ * 0-based index among the block's text-node matches and is what the Continuous
+ * decoration uses to mark the current hit without a second model→editor
+ * projection.
  *
  * The order is the outline order (D3): chapters, the chapter title, its
  * top-level blocks, then each block's children depth-first with anchored
@@ -57,7 +61,11 @@ export type FindKind = 'text' | 'code' | 'formula' | 'anchor' | 'label' | 'chapt
 export type FindField = 'text' | 'code' | 'formula' | 'quote' | 'label' | 'chapter';
 
 export interface FindResult {
-  /** Stable per occurrence: field + owner + offset (+ anchor/branch id). */
+  /**
+   * Stable per occurrence: field + owner + block-absolute offset (+ anchor or
+   * branch id). A text match in a different run gets a different absolute
+   * offset, so the sidebar list can use the id as a React key.
+   */
   id: string;
   kind: FindKind;
   field: FindField;
@@ -66,9 +74,20 @@ export interface FindResult {
   chapterId: string | null;
   anchorId?: string;
   branchId?: string;
-  /** Unicode code point offsets inside the field text. */
+  /**
+   * Unicode code point offsets. A text match is **block-absolute** (its
+   * `unit.offset + match.start` in the block projection); code, formula, quote,
+   * label and chapter fields are offsets inside their own field text (the code
+   * node, the formula node, the quote/label/title).
+   */
   start: number;
   end: number;
+  /**
+   * The match offset inside the field text the snippet was cut from: the
+   * run-relative offset for a text match, the field offset otherwise. The
+   * snippet splitter uses it to pick the right occurrence inside `snippet`.
+   */
+  snippetStart: number;
   /**
    * 0-based index among this block's text-node matches (text, code, and an
    * anchor hit inside either). Fields without a text node use 0.
@@ -390,7 +409,8 @@ export interface FindSearchUnit {
   text: string;
   /**
    * Projection offset of the unit's first code point. Anchor text ranges are
-   * projection offsets, so a text match is compared as `offset + start`.
+   * projection offsets, so a text match is compared as `offset + start`; the
+   * result reports that same sum as its block-absolute `start`.
    */
   offset: number;
   /** Text runs expose their text/hard-break parts so the decoration can map back. */
@@ -658,8 +678,11 @@ function scanBlock(
         blockId: block.id,
         chapterId,
         ...(anchor === undefined ? {} : { anchorId: anchor.anchorId }),
-        start: match.start,
-        end: match.end,
+        // Block-absolute for text (the projection offset makes the id unique
+        // across runs); code and formula units start at their own offset 0.
+        start: unit.offset + match.start,
+        end: unit.offset + match.end,
+        snippetStart: match.start,
         occurrence: textNode ? occurrence : 0,
         snippet: findSnippet(unit.text, match.start, match.end),
       });
@@ -682,6 +705,7 @@ function scanBlock(
         anchorId: anchor.id,
         start: match.start,
         end: match.end,
+        snippetStart: match.start,
         occurrence: 0,
         snippet: collapsed(quote),
       });
@@ -702,6 +726,7 @@ function scanBlock(
       branchId: branch.id,
       start: first.start,
       end: first.end,
+      snippetStart: first.start,
       occurrence: 0,
       snippet: collapsed(label),
     });
@@ -761,6 +786,7 @@ export function findInDocument(
         chapterId: chapter.id,
         start: first.start,
         end: first.end,
+        snippetStart: first.start,
         occurrence: 0,
         snippet: collapsed(title),
       });
