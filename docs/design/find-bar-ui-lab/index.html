@@ -121,6 +121,19 @@
       .icon-btn:hover { border-color: var(--border-1); background: var(--surface-1); color: var(--text-1); }
       .icon-btn[aria-disabled="true"] { opacity: 0.4; }
 
+      /* ------------------------------------------------------- toolbar find */
+      .tool-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; color: var(--text-3); }
+      .toolbar-find { display: flex; align-items: center; gap: 3px; width: 360px; height: 28px; padding: 0 3px 0 8px; border: 1px solid var(--border-1); border-radius: var(--r-control); background: var(--surface-1); }
+      .toolbar-find svg { flex: 0 0 auto; color: var(--text-3); }
+      .toolbar-find .q { flex: 1; min-width: 0; overflow: hidden; color: var(--text-1); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+      .toolbar-find .count { flex: 0 0 auto; color: var(--text-3); font-size: 10px; font-variant-numeric: tabular-nums; }
+      .tool-btn { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 22px; width: 22px; height: 22px; border-radius: 3px; color: var(--text-3); }
+      .tool-btn:hover { background: var(--surface-2); color: var(--text-1); }
+      .seg { display: inline-flex; height: 24px; padding: 2px; border: 1px solid var(--border-1); border-radius: 3px; background: var(--surface-1); }
+      .seg span { display: inline-flex; align-items: center; padding: 0 6px; border-radius: 2px; color: var(--text-3); font-size: 10px; }
+      .seg span[data-active="true"] { background: var(--surface-3); color: var(--text-1); }
+      .toolbar-spacer { flex: 1; }
+
       /* ------------------------------------------------------ sidebar search */
       .sidebar-stage { display: flex; gap: 12px; align-items: stretch; }
 
@@ -179,9 +192,9 @@
         <p class="eyebrow">Design lab · not coded</p>
         <h1>Find bar, without the extras</h1>
         <p class="lede">
-          The floating bar is the VS Code widget minus the toggles: query, <em>1 of 4</em>, previous and
-          next, close. No case, whole-word, regex or menu. The sidebar is the browsing view: snippets of
-          the blocks where the word appears.
+          Two placements for the same widget — the surface toolbar (recommended) and the floating bar
+          (current) — plus the sidebar browsing view. Query, <em>1 of 4</em>, previous and next, close:
+          no case, whole-word, regex or menu.
         </p>
         <ul class="rules">
           <li><b>Bar = find now</b>Type, see the count, move with the arrows, Esc.</li>
@@ -195,7 +208,7 @@
         <div class="v-head">
           <span class="v-index">1</span>
           <h2>Floating bar</h2>
-          <span class="v-tag">360 px · VS Code, minus the toggles</span>
+          <span class="v-tag">current · 360 px</span>
         </div>
         <p class="v-sub">
           Input, count, up/down, close. No results panel: the note is the result. All the matches are
@@ -255,6 +268,72 @@
       <section class="variant">
         <div class="v-head">
           <span class="v-index">2</span>
+          <h2>In the top bar</h2>
+          <span class="v-tag">recommended · 28 px cluster</span>
+        </div>
+        <p class="v-sub">
+          The surface toolbar already carries the layout and Edit/Read, and its centre is empty. The
+          find becomes one 28 px cluster there: field, count, arrows, close. No floating card, no
+          extra row, the note fully visible in Continuous and Page.
+        </p>
+        <div class="pros">
+          <div><b>Good</b>No overlay; the note and the page stay whole.</div>
+          <div><b>Good</b>One row, same height as the toolbar controls.</div>
+          <div><b>Cost</b>The toolbar is busier; narrow windows shrink the field.</div>
+        </div>
+
+        <div class="stage">
+          <span class="stage-label">continuous · find in the toolbar</span>
+          <div class="surface" style="height: 380px;">
+            <div class="surface-bar">
+              <span class="tool-icon" aria-label="Undo">↶</span>
+              <span class="tool-icon" aria-label="Redo">↷</span>
+              <span class="toolbar-spacer"></span>
+              <div class="toolbar-find" role="search" aria-label="Find in note">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <circle cx="5.2" cy="5.2" r="3.4" stroke="currentColor" stroke-width="1.2" />
+                  <path d="M8 8l2.4 2.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                </svg>
+                <span class="q">eigen</span>
+                <span class="count">1 of 6</span>
+                <span class="tool-btn" aria-label="Previous match">↑</span>
+                <span class="tool-btn" aria-label="Next match">↓</span>
+                <span class="tool-btn" aria-label="Close find">×</span>
+              </div>
+              <span class="toolbar-spacer"></span>
+              <span class="seg"><span data-active="true">Continuous</span><span>Page</span></span>
+              <span class="seg"><span data-active="true">Edit</span><span>Read</span></span>
+            </div>
+            <div class="canvas" style="height: calc(100% - 34px);">
+              <p class="chapter">Chapter 1</p>
+              <h2 class="chapter-title">Eigenvalues</h2>
+              <div class="card" data-current="true">
+                <p>
+                  A scalar λ is an <span class="hit" data-current="true">eigenvalue</span> of A if there
+                  is a nonzero vector v with Av = λv.
+                </p>
+              </div>
+              <div class="card">
+                <p>
+                  A nonzero vector v that satisfies Av = λv for some λ is an
+                  <span class="hit">eigenvector</span> of A.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="note">
+          <b>Same behaviour, one row.</b> The input flexes; at the minimum window the field shrinks
+          before the layout/Edit controls do. In Page the cluster is in the same place, above the
+          paper. Closing leaves the toolbar exactly as it is today.
+        </p>
+      </section>
+
+      <!-- ============================================================== 3 -->
+      <section class="variant">
+        <div class="v-head">
+          <span class="v-index">3</span>
           <h2>Search in the sidebar</h2>
           <span class="v-tag">264 px · snippets, not titles</span>
         </div>
@@ -332,7 +411,7 @@
       <!-- ============================================================== 3 -->
       <section class="variant">
         <div class="v-head">
-          <span class="v-index">3</span>
+          <span class="v-index">4</span>
           <h2>States</h2>
           <span class="v-tag">no results · page</span>
         </div>
@@ -399,7 +478,7 @@
       <!-- ============================================================== 4 -->
       <section class="variant">
         <div class="v-head">
-          <span class="v-index">4</span>
+          <span class="v-index">5</span>
           <h2>Rules</h2>
           <span class="v-tag">one engine, two presentations</span>
         </div>
@@ -440,8 +519,8 @@
       </section>
 
       <p class="footer">
-        Lab only: no application code. The bar is 40 px high with 28 px controls and the app's 4/8 px
-        radii; the sidebar snippets clamp to two lines at 264 px.
+        Lab only: no application code. The toolbar cluster is 28 px high inside the existing row; the
+        floating bar is 40 px with 28 px controls; the sidebar snippets clamp to two lines at 264 px.
       </p>
     </main>
   </body>
