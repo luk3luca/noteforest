@@ -1,6 +1,6 @@
 # Find bar (`⌘F`) and the sidebar Search view
 
-**Status:** the toolbar cluster and the sidebar Search are implemented and merged at `eec39b4` (16 November 2026); find v3 (label-only headings, card rows, one normalized query mode with the shared `ab` toggle, stroked-only activity icons) lands 16 November 2026. The Page word highlight and the copy alignment of the provisional labels are the follow-ups.
+**Status:** the toolbar cluster and the sidebar Search are implemented and merged at `eec39b4` (16 November 2026); find v3 (label-only headings, card rows, one normalized query mode with the shared `ab` toggle, stroked-only activity icons) is merged at `2692df0`. The Page word highlight and the copy alignment of the provisional labels are the follow-ups.
 **Lab:** `docs/design/find-bar-ui-lab/`.
 **Date:** 15 November 2026 (v3 amendment 16 November 2026).
 

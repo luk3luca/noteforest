@@ -430,8 +430,10 @@ Page ring, chip fix) and the find surface v2 at `eec39b4` (the cluster in the to
 sidebar Search with snippets, shared state and session `search`). **Copy A+B is merged at
 `552335c`**: the one `DialogFrame`, the Settings and Export adoptions, every A/B row verbatim, and
 `Details`/D25 (`docs/design/dialogs.md`, `docs/design/copy-plan.md`). Next: C+D
-(errors/banners/toasts + editor/menu/palette), then find v3 (`docs/tasks/find-v3.md`: label-only
-hierarchy, occurrence cards, one shared whole-word toggle, no activity-bar icon fill). S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
+(errors/banners/toasts + editor/menu/palette). Find v3 is merged at `2692df0`: the chapter rule with
+per-chapter counts, label-only headings, occurrence cards in the shared `.nf-result-row`, one
+normalized whitespace-loose query mode with the shared `ab` whole-word toggle, and stroke-only
+activity-bar icons. S1 brought the 48 px bar, the vertical Library/Outline tablist, the Health
 entry, the full-width Settings footer when expanded and the Library note/`.md` icons. S2 made Health
 a third tab with a square needs-repair counter, the grouped sections, the repair modal and the
 retirement of the v1 sheet. S2.1 added the refresh next to the search, four sections always visible
