@@ -122,7 +122,7 @@ function Snippet({
   query: string;
   wholeWord: boolean;
 }): JSX.Element {
-  const parts = snippetParts(result.snippet, query, result.start, wholeWord);
+  const parts = snippetParts(result.snippet, query, result.snippetStart, wholeWord);
   return (
     <span
       className={

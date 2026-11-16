@@ -194,6 +194,40 @@ function twoChapterDocument() {
   return document;
 }
 
+/**
+ * One block whose three paragraphs each start with `co`, separated by code
+ * blocks. The atomic blocks split the block into three text runs (F3), which is
+ * what made every result report `start: 0` and collapse to one React key.
+ */
+function duplicateIdDocument() {
+  const code = (value) => ({
+    type: 'codeBlock',
+    attrs: { text: value, language: 'ts' },
+    children: [{ type: 'text', text: value }],
+  });
+  return pageDocument({
+    id: 'find-result-ids',
+    title: 'Find result ids',
+    chapterTitle: 'Study notes',
+    blocks: [
+      {
+        id: 'guide',
+        label: 'Guide',
+        content: {
+          type: 'doc',
+          children: [
+            paragraph('Come usare questa nota'),
+            code('x = 1'),
+            paragraph('Cosa provare'),
+            code('y = 2'),
+            paragraph('Contenuto finale'),
+          ],
+        },
+      },
+    ],
+  });
+}
+
 async function findState() {
   return page.evaluate(() => {
     const current = window.__noteforestTest.state();
@@ -1448,6 +1482,62 @@ describe('find bar (⌘F)', () => {
       width: 1440,
       height: 900,
     });
+  });
+
+  it('keeps unique result ids when a query shrinks inside one block', async () => {
+    const env = isolated('result-ids');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await openPackage(env, 'Find result ids', duplicateIdDocument());
+    await openSearchSection();
+
+    // Three runs, three occurrences, three ids: the bug collapsed them to one.
+    await typeInSearch('co');
+    const wide = await findState();
+    assert.equal(wide.results.length, 3);
+    assert.deepEqual(
+      wide.results.map((result) => result.id),
+      ['text:guide:0:', 'text:guide:23:', 'text:guide:36:'],
+      'one id per run-absolute offset',
+    );
+    assert.equal(
+      new Set(wide.results.map((result) => result.id)).size,
+      3,
+      'the ids are unique',
+    );
+    assert.deepEqual(
+      wide.results.map((result) => result.snippetStart),
+      [0, 0, 0],
+      'the snippet hint stays run-relative',
+    );
+    assert.equal((await searchRows()).length, 3);
+
+    // Shrinking the query inside the same block group must remove every row
+    // that is not in the new result set; duplicate keys used to leave them.
+    const errorsBefore = h.pageErrors.length;
+    await typeInSearch('come');
+    const narrow = await findState();
+    assert.equal(narrow.results.length, 1);
+    await page.evaluate(
+      () =>
+        new Promise((done) => {
+          requestAnimationFrame(() => requestAnimationFrame(done));
+        }),
+    );
+    const rows = await searchRows();
+    assert.equal(rows.length, narrow.results.length, 'exactly one row remains');
+    assert.deepEqual(
+      rows.map((row) => row.index),
+      [0],
+      'no row keeps an index outside the current result set',
+    );
+    assert.match(rows[0].text, /Come usare questa nota/);
+    assert.doesNotMatch(rows[0].text, /Cosa|Contenuto/);
+    assert.deepEqual(
+      h.pageErrors.slice(errorsBefore),
+      [],
+      'no duplicate-key console error or renderer error',
+    );
   });
 
   it('jumps from a sidebar row in Page and in Continuous Read', async () => {

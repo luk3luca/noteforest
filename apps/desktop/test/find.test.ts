@@ -14,6 +14,7 @@ import {
   findHighlightPlugin,
 } from '../src/renderer/src/editor/find-decorations';
 import { buildEditorDocument } from '../src/renderer/src/lib/adapter';
+import { snippetParts } from '../src/renderer/src/lib/find-snippet';
 import {
   FIND_RESULT_LIMIT,
   findInDocument,
@@ -504,6 +505,99 @@ describe('find over the document model', () => {
       console.log(`find scan: ${count} blocks in ${median.toFixed(2)} ms (median of 5)`);
       expect(median).toBeLessThan(budget);
     }
+  });
+});
+
+/**
+ * Three paragraphs that each start with `co`, split into three **text runs** by
+ * an atomic block between them. A plain paragraph boundary joins one run (F3),
+ * so a run-relative offset only collides when a barrier separates the runs —
+ * exactly what the real `show-guide` note has.
+ */
+function multiRunDocument(): Document {
+  const code = (value: string): ContentNode => ({
+    type: 'codeBlock',
+    attrs: { text: value, language: 'ts' },
+    children: [text(value)],
+  });
+  const document = baseDocument();
+  document.chapters = [{ id: 'c1', title: 'Study', topLevelBlockIds: ['A', 'B'] }];
+  document.blocks = {
+    A: block(
+      'A',
+      doc(
+        paragraph(text('Come usare questa nota')),
+        code('x = 1'),
+        paragraph(text('Cosa provare')),
+        code('y = 2'),
+        paragraph(text('Contenuto finale')),
+      ),
+      'Guide',
+    ),
+    B: block('B', doc(paragraph(text('Another block with no matching word')))),
+  };
+  document.branches = {
+    'b-label': branch('b-label', 'A', 'B', { role: 'reference', label: 'co bridge' }),
+  };
+  return document;
+}
+
+describe('result identity and offsets', () => {
+  it('keeps text offsets block-absolute and snippet offsets run-relative', () => {
+    const report = findInDocument(multiRunDocument(), 'co');
+    const textResults = report.results.filter((result) => result.field === 'text');
+    // Runs 1–3 begin at projection offsets 0, 23 and 36 (an atomic barrier
+    // contributes its boundary newline, not its own text, to the projection).
+    expect(
+      textResults.map((result) => [result.start, result.end, result.snippetStart]),
+    ).toEqual([
+      [0, 2, 0],
+      [23, 25, 0],
+      [36, 38, 0],
+    ]);
+    expect(textResults.map((result) => result.snippet)).toEqual([
+      'Come usare questa nota',
+      'Cosa provare',
+      'Contenuto finale',
+    ]);
+    // The ids are the reported bug: three runs used to collapse to one id.
+    expect(textResults.map((result) => result.id)).toEqual([
+      'text:A:0:',
+      'text:A:23:',
+      'text:A:36:',
+    ]);
+    expect(new Set(report.results.map((result) => result.id)).size).toBe(
+      report.results.length,
+    );
+  });
+
+  it('keeps every id unique for co, come and a single-letter query', () => {
+    const document = multiRunDocument();
+    for (const query of ['co', 'come', 'c', 'e']) {
+      const report = findInDocument(document, query);
+      expect(report.total, query).toBe(report.results.length);
+      const ids = report.results.map((result) => result.id);
+      expect(new Set(ids).size, `${query}: ${ids.join(' ')}`).toBe(ids.length);
+      // Non-text fields keep their own field offset as both start and hint.
+      for (const result of report.results) {
+        if (result.field !== 'text') expect(result.snippetStart).toBe(result.start);
+        expect(result.snippetStart).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('emphasises the right occurrence for a match deep inside a long block', () => {
+    const long = `${'x'.repeat(120)} needle ahead ${'b'.repeat(10)}needle target tail`;
+    const start = long.indexOf('needle target');
+    expect(start).toBeGreaterThan(120);
+    const snippet = findSnippet(long, start, start + 6);
+    // The hint is the run-relative offset (large), not a block-absolute one:
+    // the splitter clamps it to the context window where the match really sits.
+    const parts = snippetParts(snippet, 'needle', start);
+    expect(parts.lead).toBe(true);
+    expect(parts.match).toBe('needle');
+    expect(parts.before.endsWith('bbbbbbbbbb')).toBe(true);
+    expect(parts.after.startsWith(' target')).toBe(true);
   });
 });
 

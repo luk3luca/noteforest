@@ -705,6 +705,7 @@ export function App(): JSX.Element {
             branchId: result.branchId ?? null,
             start: result.start,
             end: result.end,
+            snippetStart: result.snippetStart,
             occurrence: result.occurrence,
             snippet: result.snippet,
           })),

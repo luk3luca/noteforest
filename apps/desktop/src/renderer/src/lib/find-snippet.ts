@@ -8,12 +8,14 @@
  * *locates* the match inside the engine's own text — it never re-scans the
  * document and never decides what matches.
  *
- * The engine reports `start` (code point offset in the field text) and the
- * snippet starts at `max(0, start - context)`, so the match sits ≈ `min(start,
- * context)` code points into the body. Whitespace collapsing can shift that by
- * a few characters; the nearest occurrence wins, which is exact for every
- * single-occurrence snippet and still correct for a repeated word because the
- * hint pins the right one.
+ * The engine reports `snippetStart` (the match offset inside the field text the
+ * snippet was cut from) and the snippet starts at `max(0, snippetStart -
+ * context)`, so the match sits ≈ `min(snippetStart, context)` code points into
+ * the body. Whitespace collapsing can shift that by a few characters; the
+ * nearest occurrence wins, which is exact for every single-occurrence snippet
+ * and still correct for a repeated word because the hint pins the right one.
+ * Text matches carry the run-relative offset here, never the block-absolute
+ * `FindResult.start`.
  */
 
 import { FIND_SNIPPET_CONTEXT, findRanges } from './find';
@@ -35,7 +37,7 @@ export interface SnippetParts {
 export function snippetParts(
   snippet: string,
   query: string,
-  start: number,
+  snippetStart: number,
   wholeWord = false,
   context = FIND_SNIPPET_CONTEXT,
 ): SnippetParts {
@@ -55,7 +57,7 @@ export function snippetParts(
   );
   if (inside.length === 0) return plain;
 
-  const hint = from + Math.min(Math.max(start, 0), context);
+  const hint = from + Math.min(Math.max(snippetStart, 0), context);
   let chosen = inside[0];
   let distance = Math.abs((chosen?.start ?? 0) - hint);
   for (const range of inside) {
