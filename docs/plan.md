@@ -630,3 +630,34 @@ then the targeted Sentinel over `58a9b6a..head` with the settings-inventory delt
 Future pages stay
 empty in the lab and out of the product until a real control exists. Agent access is file-based
 Markdown import; there is no Settings API page.
+
+## Open queue (16 November 2026)
+
+Batches are defined by the **surface** they touch, not by their size: a fix that lands on a surface
+with an open batch goes into that batch. Nothing is scheduled as a one-off.
+
+| # | Batch | Contents | Depends on |
+|---|---|---|---|
+| 1 | **Sidebar and Health system** | `docs/design/sidebar.md`: one header, one row ladder, one five-value scale, one scroll owner with a reserved gutter, collapsible Search chapters, Health on `.nf-result-row`, needs-repair dot | — |
+| 2 | **Manual breaks** | A break is a **horizontal page cut at a block's y**, not a per-branch break; only blocks that start a row can honour one; `Breaks` sidebar section for navigation and removal; cleanup on delete/split/merge; no break offered before a mode A callout (F11) | 1 (the fifth activity-bar tab lives in `Sidebar.tsx`) |
+| 3 | **Data and recovery** | Asset GC on the `unused` surface (30-day grace, backup-referenced assets preserved, explicit cleanup), `core` command reasons mapped at the boundary, S3-5 guided relink, S3-6 replay fallback | 1 (Health rows and modal) |
+| 4 | **Find fidelity and highlighter** | Page word highlight, one range for cross-line matches, table-cell fixture; then the persistent highlighter on the same offset→DOM primitive | a spike on the model→page mapping |
+| 5 | **Code themes and Settings pages** | Code-theme registry (**verbatim themes only, no colour edits**), picker with the measured contrast per theme, screen only (the paper keeps `--nf-page-code-*`); manual-break defaults and library/backup in Data & About | 2 for the Settings pages it shares |
+| 6 | **Images** | Crop editor, region re-pick | product value unproven |
+
+### Decisions recorded for batch 4
+
+- The highlighter uses **4–5 tones**; deleting the highlighted text removes the highlight.
+- Highlights **export to PDF**.
+- The find highlight keeps the current border plus **one** find colour; when an occurrence is already
+  highlighted, **the find wins visually** while the search is open.
+- The highlighter is a ProseMirror **mark**, not a side entity: positions, undo, save and copy come from
+  ProseMirror. This is a v1 scope change (annotations were out of v1) and must be written as such.
+
+### Open product decisions
+
+- Code palette: the registry replaces the "AA or documented exception" question, but at least one
+  theme per polarity must pass 4.5:1 or the exception returns.
+- Manual break on a block the layout cannot honour: warning (current preflight category) or blocking error.
+- Manual-break feedback in Continuous: R2a removed the page chrome, so a new, minimal signal is needed
+  (a checked menu item is the cheapest honest answer).
