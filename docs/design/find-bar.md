@@ -1,6 +1,6 @@
 # Find bar (`⌘F`) and the sidebar Search view
 
-**Status:** the toolbar cluster and the sidebar Search are implemented and merged at `eec39b4` (16 November 2026); find v3 (label-only headings, card rows, one normalized query mode with the shared `ab` toggle, stroked-only activity icons) is merged at `2692df0`. The Page word highlight and the copy alignment of the provisional labels are the follow-ups.
+**Status:** the toolbar cluster and the sidebar Search are implemented and merged at `eec39b4` (16 November 2026); find v3 (label-only headings, card rows, one normalized query mode with the shared `ab` toggle, stroked-only activity icons) is merged at `2692df0`. **S1 moved the sidebar view onto the sidebar system** (`docs/design/sidebar.md`, 16 November 2026): shared header, `--sb-*` type scale, collapsible chapter groups with the left chevron, `tree`/`treeitem` results. The Page word highlight and the copy alignment of the provisional labels are the follow-ups.
 **Lab:** `docs/design/find-bar-ui-lab/`.
 **Date:** 15 November 2026 (v3 amendment 16 November 2026).
 
@@ -38,25 +38,34 @@ Two presentations, one engine, one scope: the **open note**.
 
 ## 3. Sidebar Search view
 
-- A `Search` section in the activity bar. 264 px wide; header `Search`, the count (`1 of 4`), the
-  same `ab` whole-word toggle (`data-search-whole-word`), close.
+**Header, row, card, divider and scroll rules are in `docs/design/sidebar.md`** (approved
+16 November 2026, S1). This section states only what is specific to Search; it does not restate the
+row ladder or the header pattern.
+
+- A `Search` section in the activity bar. The shared 28 px section header carries the title, the
+  occurrence count (`1 of 4`), the same `ab` whole-word toggle (`data-search-whole-word`) and close,
+  in that order; the body is the one `--sb-*` type scale.
 - Input 28 px, full width.
-- Results have three unmistakable levels (**B2's chapter division and indent with B3's card
-  outline**, chosen 16 November 2026):
-  - **Chapter rule**: uppercase 9.5 px `--text-3`, a 1 px `--border-1` rule above, and the chapter's
-    visible occurrence count at the right in `--text-3`, tabular. Not focusable and not a button.
+- Results have three unmistakable levels:
+  - **Chapter group**: a collapsible group (design §6) with the 16 px chevron on the left, the 9.5
+    uppercase label, the chapter's visible occurrence count at the right, and the 1 px divider on
+    the group itself. Default open; the count stays visible while closed; navigating into a closed
+    group opens it; a new query reopens them all. The state is component-local in `SearchSection`
+    and never persisted.
   - **Block label**: only a **real** `document.blocks[blockId].label` becomes a heading; the first
     content line is never promoted to a title, so an unlabelled block shows its occurrence cards
-    directly under the chapter rule with the first line only inside the snippet. A chapter-title
+    directly under the chapter group with the first line only inside the snippet. A chapter-title
     hit keeps the heading `Chapter title` because it names the source, not a block. The heading is a
     plain `div`: not focusable, no hover, no click. Labelled blocks wrap their rows in
     `role="group"` with the heading as `aria-label`; unlabelled blocks add no group.
-  - **Occurrence card**: one `<button role="option">` per occurrence, 12 px in from the panel edge,
-    two-line snippet, mono variant for code/formula. 1 px `--border-1` outline, `--surface-1`,
-    radius 4, `padding: 7px 8px`, 3 px gap between cards. Hover is `--border-2` + `--surface-2`;
-    the current card is the `--accent` border plus a 1 px `--accent` ring, `--surface-2` fill, and
-    keeps `aria-selected="true"`. The card/hover/current rules live in the shared `.nf-result-row`
-    class; `.nf-search-row` adds only the search metrics. Health keeps its current rows for now.
+  - **Occurrence card**: one card per occurrence, 12 px in from the panel edge, two-line snippet,
+    mono variant for code/formula. The card is the shared `.nf-result-row` (design §5); the current
+    occurrence is its `data-current` variant (accent border plus a 1 px accent ring) and keeps
+    `aria-selected="true"`. `.nf-search-row` adds only the search metrics.
+- **ARIA**: the results are a `tree` (`aria-label="Search results"`). A chapter is a level-1
+  `treeitem` with `aria-expanded`; an occurrence is a level-2 `treeitem`. The input stays the
+  combobox and moves `aria-activedescendant` between occurrences — valid for a tree popup, which is
+  why the chapter disclosure can live inside it (a disclosure button inside a `listbox` is invalid).
 - The snippet clamps to two lines at 264; code and LaTeX snippets use the mono face. Anchor quotes,
   branch labels and chapter titles use the same snippet shape (for a chapter title the snippet is the
   title itself).

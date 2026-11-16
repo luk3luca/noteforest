@@ -1,5 +1,5 @@
 /**
- * Sidebar Search (`docs/design/find-bar.md` §3).
+ * Sidebar Search (`docs/design/find-bar.md` §3, `docs/design/sidebar.md` §3–§6).
  *
  * The browsing presentation of the one find surface: the same query, result
  * set and current occurrence as the toolbar cluster, rendered as the blocks
@@ -13,10 +13,18 @@
  *
  * The section replaces the Outline while active and returns to the section it
  * came from when closed (`closeSearchSection`).
+ *
+ * S1: chapters collapse like the Health groups (left chevron, same 28 px row,
+ * count kept while closed) and the results are a `tree`: the chapter is a
+ * level-1 `treeitem` with `aria-expanded`, an occurrence is a level-2
+ * `treeitem`. The input stays the combobox that owns the focus and moves
+ * `aria-activedescendant` between occurrences. The collapse state is
+ * component-local: the section unmounts when the tab changes, a new query
+ * reopens everything, and nothing is persisted.
  */
 
-import { Search, X } from 'lucide-react';
-import { useEffect, useMemo, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { ChevronRight, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { Chapter, Document } from '@noteforest/core';
 import { useRuntime } from '../state/registry';
 import { currentFindResult, useShell } from '../state/shell';
@@ -141,6 +149,12 @@ function jumpTo(runtime: DocumentRuntime, result: FindResult, index: number): vo
   state.setFindIndex(index);
 }
 
+/** The chapter key an occurrence belongs to; the document group when it has none. */
+function chapterKeyOf(result: FindResult | undefined): string | null {
+  if (result === undefined) return null;
+  return result.chapterId ?? 'document';
+}
+
 export function SearchSection(): JSX.Element {
   const activePath = useShell((state) => state.activeTab);
   const { runtime } = useRuntime(activePath);
@@ -154,6 +168,10 @@ export function SearchSection(): JSX.Element {
   const current = useShell((state) => currentFindResult(state)?.id ?? null);
   const closeSearchSection = useShell((state) => state.closeSearchSection);
 
+  // Chapter collapse is per-session and component-local (design §6): the
+  // section unmounts when the tab changes, so nothing is stored or persisted.
+  const [closedChapters, setClosedChapters] = useState<ReadonlySet<string>>(() => new Set());
+
   const markdown = activePath !== null && isMarkdownPath(activePath);
   const searchable = runtime !== null;
   const normalized = normalizeFindQuery(query);
@@ -161,6 +179,27 @@ export function SearchSection(): JSX.Element {
     () => (runtime === null ? [] : groupResults(runtime.document, results)),
     [runtime?.document, results],
   );
+
+  // A query change reopens every chapter: results are transient.
+  const lastQuery = useRef(query);
+  useEffect(() => {
+    if (lastQuery.current === query) return;
+    lastQuery.current = query;
+    setClosedChapters((previous) => (previous.size === 0 ? previous : new Set()));
+  }, [query]);
+
+  // Navigating into a closed chapter opens it (the toolbar's ↵/arrows, ⌘G, or a
+  // row click), the same rule as the Continuous editor expanding a block.
+  const currentChapter = chapterKeyOf(results[currentIndex]);
+  useEffect(() => {
+    if (currentChapter === null) return;
+    setClosedChapters((previous) => {
+      if (!previous.has(currentChapter)) return previous;
+      const next = new Set(previous);
+      next.delete(currentChapter);
+      return next;
+    });
+  }, [currentChapter]);
 
   // The current occurrence can move from the toolbar cluster: keep the filled
   // row in view without touching focus.
@@ -171,6 +210,15 @@ export function SearchSection(): JSX.Element {
     );
     row?.scrollIntoView({ block: 'nearest' });
   }, [current]);
+
+  const toggleChapter = (key: string): void => {
+    setClosedChapters((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
     switch (event.key) {
@@ -212,12 +260,21 @@ export function SearchSection(): JSX.Element {
       ? 'No results'
       : `${currentIndex + 1} of ${results.length}${truncated ? '+' : ''}`;
 
+  // A closed chapter unmounts its rows, so the pointer must not name a row that
+  // is not in the DOM: the input keeps the query, the toggle reopens the group
+  // and the current occurrence becomes the active descendant again.
+  const currentHidden = currentChapter !== null && closedChapters.has(currentChapter);
+  const activeDescendant =
+    currentIndex < 0 || results.length === 0 || currentHidden
+      ? undefined
+      : `nf-search-row-${currentIndex}`;
+
   return (
     <section className="nf-sidebar-section nf-search-section" aria-label="Search">
-      <div className="nf-search-head">
-        <span className="nf-search-title">Search</span>
+      <div className="nf-section-head nf-search-head">
+        <span className="nf-section-title nf-search-title">Search</span>
         <span
-          className="nf-search-count"
+          className="nf-section-count nf-search-count"
           aria-live="polite"
           data-search-count={results.length}
           data-search-truncated={truncated ? 'true' : undefined}
@@ -258,9 +315,7 @@ export function SearchSection(): JSX.Element {
           aria-autocomplete="list"
           aria-expanded={searchable}
           aria-controls="nf-search-results"
-          aria-activedescendant={
-            currentIndex < 0 || results.length === 0 ? undefined : `nf-search-row-${currentIndex}`
-          }
+          aria-activedescendant={activeDescendant}
           autoComplete="off"
           spellCheck={false}
           disabled={!searchable}
@@ -282,68 +337,93 @@ export function SearchSection(): JSX.Element {
           <div
             className="nf-search-results"
             id="nf-search-results"
-            role="listbox"
+            role="tree"
             aria-label="Search results"
             data-search-results="true"
           >
-            {groups.map((chapter) => (
-              <div
-                key={chapter.key}
-                className="nf-search-group"
-                role="group"
-                aria-label={chapter.label}
-                data-search-chapter={chapter.key}
-              >
-                <div className="nf-search-chapter-head">
-                  <span className="nf-search-group-label" data-search-group-label="true">
-                    {chapter.label}
-                  </span>
-                  <span
-                    className="nf-search-chapter-count"
-                    data-search-chapter-count={chapter.count}
+            {groups.map((chapter) => {
+              const open = !closedChapters.has(chapter.key);
+              return (
+                <div
+                  key={chapter.key}
+                  className="nf-sidebar-group nf-search-group"
+                  role="none"
+                  data-search-chapter={chapter.key}
+                  data-search-chapter-open={open ? 'true' : 'false'}
+                >
+                  <button
+                    type="button"
+                    role="treeitem"
+                    aria-level={1}
+                    aria-expanded={open}
+                    className="nf-search-group-row"
+                    data-search-chapter-toggle={chapter.key}
+                    title={open ? `Collapse ${chapter.label}` : `Expand ${chapter.label}`}
+                    onClick={() => toggleChapter(chapter.key)}
                   >
-                    {chapter.count}
-                  </span>
+                    <span className="nf-search-group-chevron" aria-hidden="true">
+                      <ChevronRight
+                        size={12}
+                        strokeWidth={1.5}
+                        className={open ? 'nf-chevron-open' : ''}
+                      />
+                    </span>
+                    <span className="nf-search-group-label" data-search-group-label="true">
+                      {chapter.label}
+                    </span>
+                    <span
+                      className="nf-search-chapter-count"
+                      data-search-chapter-count={chapter.count}
+                    >
+                      {chapter.count}
+                    </span>
+                  </button>
+                  {open ? (
+                    <div role="group">
+                      {chapter.blocks.map((block) => (
+                        <div
+                          key={block.key}
+                          className="nf-search-block"
+                          data-search-block={block.key}
+                          {...(block.title === null
+                            ? {}
+                            : { role: 'group', 'aria-label': block.title })}
+                        >
+                          {block.title === null ? null : (
+                            <div className="nf-search-block-title" data-search-block-title="true">
+                              {block.title}
+                            </div>
+                          )}
+                          {block.rows.map((row) => (
+                            <button
+                              key={row.result.id}
+                              type="button"
+                              role="treeitem"
+                              aria-level={2}
+                              id={`nf-search-row-${row.index}`}
+                              className="nf-result-row nf-search-row"
+                              aria-selected={row.result.id === current}
+                              tabIndex={-1}
+                              data-search-row={row.index}
+                              data-search-current={row.result.id === current ? 'true' : undefined}
+                              data-current={row.result.id === current ? 'true' : undefined}
+                              data-search-kind={row.result.kind}
+                              data-search-field={row.result.field}
+                              title={row.result.snippet}
+                              onClick={() => {
+                                if (runtime !== null) jumpTo(runtime, row.result, row.index);
+                              }}
+                            >
+                              <Snippet result={row.result} query={query} wholeWord={wholeWord} />
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                {chapter.blocks.map((block) => (
-                  <div
-                    key={block.key}
-                    className="nf-search-block"
-                    data-search-block={block.key}
-                    {...(block.title === null
-                      ? {}
-                      : { role: 'group', 'aria-label': block.title })}
-                  >
-                    {block.title === null ? null : (
-                      <div className="nf-search-block-title" data-search-block-title="true">
-                        {block.title}
-                      </div>
-                    )}
-                    {block.rows.map((row) => (
-                      <button
-                        key={row.result.id}
-                        type="button"
-                        role="option"
-                        id={`nf-search-row-${row.index}`}
-                        className="nf-result-row nf-search-row"
-                        aria-selected={row.result.id === current}
-                        tabIndex={-1}
-                        data-search-row={row.index}
-                        data-search-current={row.result.id === current ? 'true' : undefined}
-                        data-search-kind={row.result.kind}
-                        data-search-field={row.result.field}
-                        title={row.result.snippet}
-                        onClick={() => {
-                          if (runtime !== null) jumpTo(runtime, row.result, row.index);
-                        }}
-                      >
-                        <Snippet result={row.result} query={query} wholeWord={wholeWord} />
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ))}
+              );
+            })}
           </div>
           {truncated ? (
             <p className="nf-empty-line" data-search-truncated-note="true">

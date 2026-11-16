@@ -1,6 +1,6 @@
 # Document health — sidebar report and repair modal
 
-**Status:** S2 merged at `f84a7fd`; S2.1 polish merged at `5c4eb2c`. Product-owner visual pass pending.
+**Status:** S2 merged at `f84a7fd`; S2.1 polish merged at `5c4eb2c`; S1 moved the sidebar report onto the sidebar system (`docs/design/sidebar.md`, 16 November 2026: shared header, `--sb-*` type scale, the shared result card, group-owned dividers). Product-owner visual pass pending.
 **Supersedes:** the modal sheet surface in `docs/design/anchor-health.md`; the audit and commands
 there still hold.
 **Lab:** `docs/design/document-health-ui-lab/` — section 3 is the approved simplified modal.
@@ -20,19 +20,23 @@ there still hold.
 
 ## 2. Sidebar
 
-Header: `Health`, summary `N to fix · M issues`. Then a row with the search field and the refresh
-button (28 px, next to the field, not in the footer).
+**Header, row, card, divider, scroll and collapse rules are in `docs/design/sidebar.md`** (approved
+16 November 2026, S1). This section states only what is specific to Health; it does not restate the
+row ladder, the header pattern or the group control.
 
+- **Header**: the shared 28 px section header, title `Health` and the summary `N to fix · M issues`
+  only, always shown (all-clear reads `0 to fix · 0 issues`). The refresh control is **not** in the
+  header.
+- **Filter row**: the search field and the refresh button, 28 px, on one row.
 - **Refresh**: icon button, `aria-label`/tooltip “Check again”; on click the icon becomes a check for
   about two seconds and an `aria-live="polite"` message says “Checked”. The audit also re-runs on
   document changes; this is the manual re-check.
-- **Sections**: all four are always visible, including `0`. During a search, only matching sections
-  render. `Anchors to fix` is open by default.
-- **Section label**: 9.5 px, uppercase, letter-spacing 0.09em, `text-3` (the existing sidebar label
-  pattern), chevron, name, count.
-- **Row**: two lines, 40 px. Line 1: the quote, 12/500, `text-1`. Line 2: the state word in the
-  severity colour, `·`, the block title, `text-3`; branch count with its word at the right when
-  above zero. Selection is a filled row; no pill, no left accent stripe.
+- **Groups**: all four are always visible, including `0`. During a search, only matching groups
+  render. `Anchors to fix` is open by default; a closed group keeps its count.
+- **Problem**: the shared `.nf-result-row` card, two lines. Line 1: the quote, the 12 px result line
+  in `text-1`. Line 2: the state word in the severity colour, `·`, the block title, `text-3`; the
+  branch count with its word at the right when above zero. Selection is the card's `data-selected`
+  variant (`surface-2` + `border-2`, no accent ring); no pill, no left accent stripe.
 - Empty group, when expanded: “No issues in this group”.
 - Search filters rows across sections and auto-expands matching sections.
 - Open sections and the selected row persist per session; only `sidebarTab` is written to the

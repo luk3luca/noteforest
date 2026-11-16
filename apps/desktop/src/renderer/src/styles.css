@@ -43,6 +43,21 @@
   --radius-chip: 7px;
   --radius-strip: 6px;
   --motion: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* Sidebar system (docs/design/sidebar.md §3): one row ladder and one type
+     scale for Library, Outline, Health and Search. Every sidebar rule reads
+     these, so a section cannot invent a size. The five row roles are title,
+     row, result, meta and label; `--sb-count` is the section-header count
+     metric from §4 (11 px, not a row role). The guard in
+     `test/sidebar-system-css.test.ts` rejects a literal font-size in a
+     sidebar selector. */
+  --sb-title: calc(13px * var(--ui-scale));
+  --sb-row: calc(12.5px * var(--ui-scale));
+  --sb-result: calc(12px * var(--ui-scale));
+  --sb-meta: calc(10.5px * var(--ui-scale));
+  --sb-label: calc(9.5px * var(--ui-scale));
+  --sb-count: calc(11px * var(--ui-scale));
+  --sb-row-height: 28px;
+  --sb-result-height: 40px;
 }
 
 html,
@@ -878,24 +893,18 @@ button:disabled {
   border-top: 1px solid var(--border-1);
 }
 
-/* The Health badge is a small square counter, not a pill (S1 decision, kept in
-   S2): radius 2, tabular number, hidden at zero. */
-.nf-activity-badge {
+/* The needs-repair indicator is a status dot, not a counter (design §8): a
+   6 px circle in --danger at the top-right of the 28 px button. Nothing at
+   zero — no empty box, no outline. The count moves to `aria-label`/`title`, so
+   VoiceOver and the tooltip keep it; the Health header carries the number. */
+.nf-activity-dot {
   position: absolute;
-  top: 1px;
-  right: 1px;
-  min-width: 13px;
-  height: 13px;
-  padding: 0 2px;
-  border-radius: 2px;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: var(--danger);
-  color: var(--bg-sidebar);
-  font-family: var(--ui-font);
-  font-size: calc(9px * var(--ui-scale));
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 13px;
-  text-align: center;
 }
 
 .nf-activity-section {
@@ -932,10 +941,10 @@ button:disabled {
   gap: 7px;
   flex: 1;
   min-width: 0;
-  height: 28px;
+  height: var(--sb-row-height);
   border-radius: 4px;
   color: var(--text-2);
-  font-size: calc(12px * var(--ui-scale));
+  font-size: var(--sb-row);
   text-align: left;
 }
 
@@ -974,13 +983,13 @@ button:disabled {
   gap: 6px;
   flex: 1;
   min-width: 0;
-  height: 28px;
+  height: var(--sb-row-height);
   padding: 0 8px;
   background: var(--surface-1);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-control);
   color: var(--text-3);
-  font-size: calc(12px * var(--ui-scale));
+  font-size: var(--sb-result);
   text-align: left;
 }
 
@@ -1001,7 +1010,12 @@ button:disabled {
   flex: 1;
 }
 
-.nf-sidebar-search kbd,
+.nf-sidebar-search kbd {
+  font-family: var(--ui-font);
+  font-size: var(--sb-meta);
+  color: var(--text-3);
+}
+
 .nf-palette-hint,
 .nf-menu-shortcut {
   font-family: var(--ui-font);
@@ -1023,6 +1037,14 @@ button:disabled {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  /* One scroll owner (design §7). The 10 px classic scrollbar is reserved from
+     the start, so a section that starts to overflow never shrinks the content
+     box or shifts it sideways. The gutter is internal to this box; the
+     persisted panel width is unchanged. At the 264 default the card is 312 px,
+     so the scroll box is 312 − 2 card borders − 48 bar = 262 px and the
+     content box is 262 − 8 − 8 − 10 = 236 px in every state (design §7's 238
+     is the same arithmetic without the card borders). */
+  scrollbar-gutter: stable;
   padding: 0 8px 8px;
 }
 
@@ -1033,35 +1055,65 @@ button:disabled {
   padding: 4px 0 0;
 }
 
+/* A group owns its divider and its spacing (design §4): the rule belongs to the
+   group, never to the header that follows it, so the last card of a group is
+   always 8 px above the next rule. No header carries a border-top. */
+.nf-sidebar-group {
+  min-width: 0;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-1);
+}
+
+.nf-sidebar-group:first-child {
+  padding-top: 2px;
+  border-top: 0;
+}
+
 .nf-library-section {
   padding-bottom: 12px;
 }
 
+/* One section header for all four sections (design §4): a 28 px row, the title
+   at 13/600 in the title slot, the count 11 px tabular at the right, then up to
+   two 22 px controls. Library puts its switcher in the title slot; Health keeps
+   its refresh next to the filter field and carries the title and the summary
+   count only; Search keeps its `ab` toggle and close after the count. */
 .nf-section-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 28px;
+  gap: 6px;
+  min-height: var(--sb-row-height);
   padding: 2px 6px 4px;
 }
 
-/* Library header: switcher name + count + one New note control (LD-02). */
-.nf-library-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  min-height: 28px;
-  padding: 2px 6px 4px;
+.nf-section-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: var(--sb-title);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-section-count {
+  flex: none;
+  color: var(--text-3);
+  font-size: var(--sb-count);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .nf-library-switcher {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+  flex: 0 1 auto;
   min-width: 0;
   height: 22px;
-  padding: 0 3px;
+  padding: 0 4px;
   border-radius: var(--radius-control);
   color: var(--text-1);
 }
@@ -1083,7 +1135,7 @@ button:disabled {
 .nf-library-missing-title {
   margin: 0;
   color: var(--text-1);
-  font-size: calc(12.5px * var(--ui-scale));
+  font-size: var(--sb-row);
   font-weight: 500;
 }
 
@@ -1091,7 +1143,7 @@ button:disabled {
   margin: 0;
   overflow: hidden;
   color: var(--text-3);
-  font-size: calc(10.5px * var(--ui-scale));
+  font-size: var(--sb-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1099,7 +1151,7 @@ button:disabled {
 .nf-library-missing-copy {
   margin: 0;
   color: var(--text-3);
-  font-size: calc(11.5px * var(--ui-scale));
+  font-size: var(--sb-result);
   line-height: 1.4;
 }
 
@@ -1110,33 +1162,22 @@ button:disabled {
   margin-top: 2px;
 }
 
+/* The switcher is the Library title (design §4): 13/600, no second line above. */
 .nf-library-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(12.5px * var(--ui-scale));
-  font-weight: 500;
-}
-
-.nf-section-label {
-  font-size: calc(9.5px * var(--ui-scale));
-  font-weight: 500;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-3);
+  font-size: var(--sb-title);
+  font-weight: 600;
 }
 
 .nf-section-tail {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-}
-
-.nf-section-count {
-  font-size: calc(9.5px * var(--ui-scale));
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
+  flex: none;
+  margin-inline-start: auto;
 }
 
 .nf-icon-button.nf-section-add {
@@ -1198,7 +1239,7 @@ button:disabled {
   background: transparent;
   border: 0;
   outline: none;
-  font-size: calc(12px * var(--ui-scale));
+  font-size: var(--sb-result);
   color: var(--text-1);
 }
 
@@ -1214,7 +1255,7 @@ button:disabled {
 .nf-library-row {
   display: flex;
   align-items: center;
-  min-height: 28px;
+  min-height: var(--sb-row-height);
   border-radius: var(--radius-control);
 }
 
@@ -1229,18 +1270,24 @@ button:disabled {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
+/* Navigation row (design §5): 28 px, --sb-row, hover surface-1 + text-1,
+   selection accent-soft with a 1 px inset accent ring. */
 .nf-library-open {
   display: flex;
   align-items: center;
   gap: 7px;
   flex: 1;
   min-width: 0;
-  height: 28px;
+  height: var(--sb-row-height);
   padding: 0 6px;
   color: var(--text-2);
-  font-size: calc(12.5px * var(--ui-scale));
+  font-size: var(--sb-row);
   text-align: left;
   border-radius: var(--radius-control);
+}
+
+.nf-library-open:hover {
+  color: var(--text-1);
 }
 
 .nf-library-row[data-active="true"] .nf-library-open {
@@ -1264,7 +1311,7 @@ button:disabled {
 .nf-library-reason {
   overflow: hidden;
   color: var(--text-3);
-  font-size: calc(10.5px * var(--ui-scale));
+  font-size: var(--sb-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1294,7 +1341,7 @@ button:disabled {
   flex: none;
   margin-left: auto;
   color: var(--warning);
-  font-size: calc(9.5px * var(--ui-scale));
+  font-size: var(--sb-label);
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1345,11 +1392,11 @@ button:disabled {
   align-items: center;
   gap: 7px;
   width: 100%;
-  min-height: 28px;
+  min-height: var(--sb-row-height);
   padding: 0 6px;
   border-radius: var(--radius-control);
   color: var(--text-2);
-  font-size: calc(12.5px * var(--ui-scale));
+  font-size: var(--sb-row);
   text-align: left;
 }
 
@@ -1445,7 +1492,7 @@ button:disabled {
 .nf-empty-line {
   margin: 4px 8px;
   color: var(--text-3);
-  font-size: calc(12px * var(--ui-scale));
+  font-size: var(--sb-result);
 }
 
 /* ------------------------------------------------------------------ topics */
@@ -1453,7 +1500,7 @@ button:disabled {
 .nf-tree {
   outline: none;
   padding: 0;
-  font-size: calc(12.5px * var(--ui-scale));
+  font-size: var(--sb-row);
 }
 
 .nf-topics-section {
@@ -1468,10 +1515,11 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 5px;
-  min-height: 28px;
+  min-height: var(--sb-row-height);
   padding-right: 6px;
   border-radius: var(--radius-control);
   color: var(--text-2);
+  font-size: var(--sb-row);
   position: relative;
 }
 
@@ -1557,7 +1605,7 @@ button:disabled {
 }
 
 .nf-tree-count {
-  font-size: calc(10.5px * var(--ui-scale));
+  font-size: var(--sb-meta);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
@@ -1578,7 +1626,7 @@ button:disabled {
   min-width: 0;
   max-width: 46%;
   color: var(--accent);
-  font-size: calc(11px * var(--ui-scale));
+  font-size: var(--sb-meta);
   line-height: 1.3;
 }
 
@@ -1603,7 +1651,7 @@ button:disabled {
   border: 1px solid var(--border-1);
   border-radius: var(--radius-control);
   color: var(--text-3);
-  font-size: calc(9.5px * var(--ui-scale));
+  font-size: var(--sb-label);
   line-height: 1.5;
 }
 
@@ -1613,7 +1661,7 @@ button:disabled {
   gap: 2px;
   flex: 0 0 auto;
   color: var(--warning);
-  font-size: calc(9.5px * var(--ui-scale));
+  font-size: var(--sb-label);
 }
 
 .nf-tree-anchor-branches {
@@ -1631,7 +1679,7 @@ button:disabled {
   background: transparent;
   color: var(--text-3);
   font-family: var(--ui-font);
-  font-size: calc(9.5px * var(--ui-scale));
+  font-size: var(--sb-label);
   line-height: 1;
   cursor: pointer;
 }
@@ -1654,7 +1702,7 @@ button:disabled {
   background: var(--surface-1);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-control);
-  font-size: calc(12.5px * var(--ui-scale));
+  font-size: var(--sb-row);
   color: var(--text-1);
   outline: none;
 }
@@ -4363,41 +4411,18 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 /*
- * Sidebar Search (docs/design/find-bar.md §3). The browsing presentation: header
- * (title, occurrence count, shared `ab` toggle, close), a 28 px field, then
- * chapter rule → optional real block label → occurrence cards with a two-line
- * snippet. The match is emphasised; code and LaTeX snippets use the mono face.
- * The current row keeps `aria-selected` and the accent card outline.
+ * Sidebar Search (docs/design/sidebar.md §3–§6). The browsing presentation: the
+ * shared section header (title, occurrence count, shared `ab` toggle, close), a
+ * 28 px field, then collapsible chapter groups → optional real block label →
+ * occurrence cards with a two-line snippet. The match is emphasised; code and
+ * LaTeX snippets use the mono face. The current card carries `data-current`
+ * (accent border + ring) and keeps `aria-selected`.
  */
-.nf-search-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 2px 6px 4px;
-}
-
-.nf-search-title {
-  flex: 1;
-  min-width: 0;
-  color: var(--text-1);
-  font-size: calc(13px * var(--ui-scale));
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.nf-search-count {
-  color: var(--text-3);
-  font-size: calc(10.5px * var(--ui-scale));
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 .nf-search-field {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
+  height: var(--sb-row-height);
   margin: 0 0 6px;
   padding: 0 6px;
   border: 1px solid var(--border-1);
@@ -4418,7 +4443,7 @@ body.nf-dragging-block .nf-gutter-handle {
   background: transparent;
   outline: none;
   color: var(--text-1);
-  font-size: calc(12px * var(--ui-scale));
+  font-size: var(--sb-result);
 }
 
 .nf-search-field input::placeholder {
@@ -4433,22 +4458,47 @@ body.nf-dragging-block .nf-gutter-handle {
   padding: 0;
 }
 
-/* Chapter opener: a 1 px rule, the uppercase label and the chapter's occurrence
-   count at the right. Not focusable and not a button (F3). */
-.nf-search-chapter-head {
+/* Chapter disclosure (design §6): the same control as a Health group — a 28 px
+   row, a 16 px chevron on the left, the 9.5 uppercase label and the
+   occurrence count at the right. The count stays visible when closed. */
+.nf-search-group-row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 7px 6px 3px;
-  border-top: 1px solid var(--border-1);
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: var(--sb-row-height);
+  padding: 0 6px 0 2px;
+  color: var(--text-2);
+  font-size: var(--sb-label);
+  text-align: left;
+}
+
+.nf-search-group-row:hover {
+  background: var(--surface-1);
+  color: var(--text-1);
+}
+
+.nf-search-group-row:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.nf-search-group-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
 }
 
 .nf-search-group-label {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   color: var(--text-3);
-  font-size: calc(9.5px * var(--ui-scale));
+  font-size: var(--sb-label);
   font-weight: 600;
   letter-spacing: 0.09em;
   text-overflow: ellipsis;
@@ -4459,12 +4509,12 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-search-chapter-count {
   flex: none;
   color: var(--text-3);
-  font-size: calc(9.5px * var(--ui-scale));
+  font-size: var(--sb-meta);
   font-variant-numeric: tabular-nums;
 }
 
-/* B2 chapter division and indent: the block label and its occurrence cards sit
-   12 px in from the panel edge. A block without a label adds no heading. */
+/* B2 indent: the block label and its occurrence cards sit 12 px in from the
+   panel edge. A block without a label adds no heading. */
 .nf-search-block {
   padding-inline-start: 12px;
 }
@@ -4473,14 +4523,16 @@ body.nf-dragging-block .nf-gutter-handle {
   padding: 6px 8px 3px;
   overflow: hidden;
   color: var(--text-2);
-  font-size: calc(10.5px * var(--ui-scale));
+  font-size: var(--sb-meta);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* B3 card row, shared (`nf-result-row`) so Health can adopt it later without a
-   second copy. Cards are outlines, not pills and not accent bars. */
+/* The one result card (design §5), shared with Health. Cards are outlines, not
+   pills and not accent bars: 1 px border, surface-1, radius 4, 7×8 padding.
+   Exactly two variants: `data-current` (Search, accent border + 1 px ring) and
+   `data-selected` (Health, surface-2 + border-2, no accent). */
 .nf-result-row {
   display: block;
   width: 100%;
@@ -4489,6 +4541,8 @@ body.nf-dragging-block .nf-gutter-handle {
   border-radius: 4px;
   background: var(--surface-1);
   color: var(--text-2);
+  font-size: var(--sb-result);
+  line-height: 1.45;
   text-align: start;
 }
 
@@ -4497,10 +4551,15 @@ body.nf-dragging-block .nf-gutter-handle {
   background: var(--surface-2);
 }
 
-.nf-result-row[aria-selected='true'] {
+.nf-result-row[data-current='true'] {
   border-color: var(--accent);
   background: var(--surface-2);
   box-shadow: 0 0 0 1px var(--accent);
+}
+
+.nf-result-row[data-selected='true'] {
+  border-color: var(--border-2);
+  background: var(--surface-2);
 }
 
 .nf-search-row + .nf-search-row {
@@ -4515,7 +4574,7 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-search-snippet {
   display: -webkit-box;
   overflow: hidden;
-  font-size: calc(11px * var(--ui-scale));
+  font-size: var(--sb-result);
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -4993,8 +5052,10 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 /* S2 Document health: the sidebar report and the 560 px repair modal.
-   No pills and no left accent stripes: the section is an uppercase label, the
-   row carries the quote plus state and block, and selection is a filled row. */
+   Sidebar rules follow docs/design/sidebar.md: the section header is the shared
+   28 px pattern (title + summary count), a group is the shared 28 px
+   disclosure row with the chevron on the left, and a problem is the shared
+   `.nf-result-row` card. No pills and no left accent stripes. */
 .nf-dialog-modal-repair {
   width: 560px;
 }
@@ -5003,30 +5064,9 @@ body.nf-dragging-block .nf-gutter-handle {
   padding-bottom: 12px;
 }
 
-.nf-health-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 2px 6px 4px;
-}
-
-.nf-health-title {
-  color: var(--text-1);
-  font-size: calc(13px * var(--ui-scale));
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.nf-health-summary {
-  margin-left: auto;
-  color: var(--text-3);
-  font-size: calc(11px * var(--ui-scale));
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 /* The manual re-check sits next to the search (S2.1 decision 1) and reads as a
-   control, not as a field: 28 px, one border, the same radius as the search. */
+   control, not as a field: 28 px, one border, the same radius as the search.
+   It is a property of the filter row, never of the header. */
 .nf-health-search-row {
   display: flex;
   align-items: center;
@@ -5072,18 +5112,21 @@ body.nf-dragging-block .nf-gutter-handle {
   min-width: 0;
 }
 
+/* A group disclosure (design §6): 28 px row, 16 px chevron on the left, the
+   9.5 uppercase label, the 10.5 tabular count at the right. Same control as
+   the Search chapter row. */
 .nf-health-section-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
-  height: 30px;
-  padding: 0 6px;
+  min-height: var(--sb-row-height);
+  padding: 0 6px 0 2px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-2);
-  font-size: calc(11.5px * var(--ui-scale));
+  font-size: var(--sb-label);
   text-align: left;
   cursor: pointer;
 }
@@ -5098,18 +5141,28 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-health-section-row:focus-visible,
-.nf-health-row-button:focus-visible {
+.nf-health-row-card:focus-visible {
   outline: 2px solid var(--accent-ring);
   outline-offset: 1px;
 }
 
-/* The sidebar's existing label pattern: a label, not a sentence. */
+.nf-health-section-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
+}
+
+/* The sidebar's label pattern: a label, not a sentence. */
 .nf-health-section-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   color: var(--text-3);
-  font-size: calc(9.5px * var(--ui-scale));
+  font-size: var(--sb-label);
   font-weight: 600;
   letter-spacing: 0.09em;
   text-overflow: ellipsis;
@@ -5120,50 +5173,46 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-health-section-count {
   flex: 0 0 auto;
   color: var(--text-3);
-  font-size: calc(10px * var(--ui-scale));
+  font-size: var(--sb-meta);
   font-variant-numeric: tabular-nums;
 }
 
+/* Cards sit 12 px in from the panel edge, like the Search occurrence cards. */
 .nf-health-rows {
   min-width: 0;
+  padding-inline-start: 12px;
 }
 
 .nf-health-row {
   min-width: 0;
 }
 
-/* Two lines at 40 px: the quote, then state · block · branches. */
-.nf-health-row-button {
+.nf-health-row + .nf-health-row {
+  margin-top: 3px;
+}
+
+/* The card adds only its own metrics: the two lines of a problem row. The
+   outline, padding, radius, hover and the selected variant come from
+   `.nf-result-row`, and the 40 px result height is the floor for the two-line
+   problem. */
+.nf-health-row-card {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
   gap: 1px;
-  width: 100%;
-  height: 40px;
-  padding: 4px 6px 4px 18px;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
+  min-height: var(--sb-result-height);
   text-align: left;
   cursor: pointer;
-}
-
-.nf-health-row-button:hover {
-  background: var(--surface-1);
-}
-
-.nf-health-row-button[data-selected='true'] {
-  background: var(--surface-2);
 }
 
 .nf-health-row-quote {
   min-width: 0;
   overflow: hidden;
   color: var(--text-1);
-  font-size: calc(12px * var(--ui-scale));
-  font-weight: 500;
-  line-height: 1.35;
+  font-size: var(--sb-result);
+  font-weight: 400;
+  line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5174,8 +5223,8 @@ body.nf-dragging-block .nf-gutter-handle {
   gap: 5px;
   min-width: 0;
   color: var(--text-3);
-  font-size: calc(10.5px * var(--ui-scale));
-  line-height: 1.3;
+  font-size: var(--sb-meta);
+  line-height: 1.45;
 }
 
 .nf-health-row-state {
@@ -5210,15 +5259,15 @@ body.nf-dragging-block .nf-gutter-handle {
   flex: 0 0 auto;
   margin-left: auto;
   color: var(--text-3);
-  font-size: calc(10px * var(--ui-scale));
+  font-size: var(--sb-meta);
   font-variant-numeric: tabular-nums;
 }
 
 .nf-health-group-empty {
   margin: 0;
-  padding: 2px 6px 6px 18px;
+  padding: 2px 6px 6px 0;
   color: var(--text-3);
-  font-size: calc(11px * var(--ui-scale));
+  font-size: var(--sb-result);
 }
 
 .nf-health-empty {
@@ -5227,7 +5276,7 @@ body.nf-dragging-block .nf-gutter-handle {
   gap: 2px;
   margin: 6px 6px 0;
   color: var(--text-2);
-  font-size: calc(12px * var(--ui-scale));
+  font-size: var(--sb-result);
 }
 
 .nf-health-empty p {
@@ -5236,7 +5285,7 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-health-empty-info {
   color: var(--text-3);
-  font-size: calc(11px * var(--ui-scale));
+  font-size: var(--sb-meta);
   font-variant-numeric: tabular-nums;
 }
 

@@ -70,6 +70,7 @@ export const FILES = [
   'markdown-file-view.test.mjs',
   'vault-library.test.mjs',
   'find-bar.test.mjs',
+  'sidebar-system.test.mjs',
 ];
 
 /**
@@ -108,6 +109,7 @@ export const GROUPS = {
     'markdown-file-view.test.mjs',
     'vault-library.test.mjs',
     'find-bar.test.mjs',
+    'sidebar-system.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',

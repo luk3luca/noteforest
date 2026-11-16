@@ -42,6 +42,7 @@ import { recoveryStatusLabel } from '../lib/recovery';
 import { markdownTitleSuffix } from '../lib/library-rows';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import { documentHealthBadgeLabel } from '../lib/document-health-sections';
+import { sidebarDepthIndent } from '../lib/sidebar-rows';
 import { useDocumentHealthReport } from './useDocumentHealth';
 import { HealthSection } from './HealthSection';
 import { SearchSection } from './SearchSection';
@@ -190,14 +191,15 @@ function ActivityBar({
                 aria-hidden="true"
               />
               {tab.id === 'health' && needsRepair > 0 ? (
+                // A status dot, not a counter (design §8): nothing at zero, and
+                // the count stays in the label and the tooltip.
                 <span
-                  className="nf-activity-badge"
+                  className="nf-activity-dot"
                   data-health-badge={needsRepair}
                   role="status"
                   aria-label={documentHealthBadgeLabel(needsRepair)}
-                >
-                  {needsRepair}
-                </span>
+                  title={documentHealthBadgeLabel(needsRepair)}
+                />
               ) : null}
             </button>
           );
@@ -561,7 +563,7 @@ function LibrarySection(): JSX.Element {
 
   return (
     <section className="nf-sidebar-section nf-library-section" aria-label="Library">
-      <div className="nf-library-head">
+      <div className="nf-section-head nf-library-head">
         <button
           type="button"
           className="nf-library-switcher"
@@ -578,9 +580,12 @@ function LibrarySection(): JSX.Element {
           <ChevronDown size={12} strokeWidth={1.5} aria-hidden="true" />
         </button>
         <span className="nf-section-tail">
-          <span className="nf-section-count" data-library-count="true">
-            {documents.length}
-          </span>
+          {/* Hidden at zero (design §4); the library name is the title. */}
+          {documents.length === 0 ? null : (
+            <span className="nf-section-count" data-library-count="true">
+              {documents.length}
+            </span>
+          )}
           <button
             type="button"
             className="nf-icon-button nf-section-add"
@@ -821,7 +826,7 @@ function BlockTreeItem({
                   'data-anchor-state': anchor.state,
                   'data-branch-id': node.branchId ?? '',
                 })}
-            style={{ paddingInlineStart: 6 + (level - 1) * 14 }}
+            style={{ paddingInlineStart: sidebarDepthIndent(level) }}
             onDoubleClick={(event) => {
               event.preventDefault();
               onRename({ kind: 'block', id: node.id, value: block?.label ?? '' });
@@ -981,7 +986,7 @@ function TopicSection(): JSX.Element {
     return (
       <section className="nf-sidebar-section nf-topics-section" aria-label="Outline">
         <div className="nf-section-head">
-          <span className="nf-section-label">Outline</span>
+          <span className="nf-section-title">Outline</span>
         </div>
         <p className="nf-empty-line" data-outline-empty="true">
           {markdownActive
@@ -1081,7 +1086,7 @@ function TopicSection(): JSX.Element {
   return (
     <section className="nf-sidebar-section nf-topics-section" aria-label="Outline">
       <div className="nf-section-head">
-        <span className="nf-section-label">Outline</span>
+        <span className="nf-section-title">Outline</span>
         <button
           type="button"
           className="nf-icon-button"
@@ -1113,7 +1118,7 @@ function TopicSection(): JSX.Element {
                 {({ level, hasChildItems, isExpanded }) => (
                   <div
                     className="nf-tree-row nf-tree-chapter-row"
-                    style={{ paddingInlineStart: 6 + (level - 1) * 14 }}
+                    style={{ paddingInlineStart: sidebarDepthIndent(level) }}
                     onDoubleClick={() =>
                       beginRename({ kind: 'chapter', id: chapter.id, value: chapter.title })
                     }

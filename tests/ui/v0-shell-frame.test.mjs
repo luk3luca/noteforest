@@ -1082,8 +1082,26 @@ describe('V0 visual shell', () => {
           return { width: rect.width, height: rect.height };
         };
         const result = {
-          contentLeft: scrollBox.left + Number.parseFloat(scrollStyle.paddingLeft),
-          contentRight: scrollBox.right - Number.parseFloat(scrollStyle.paddingRight),
+          // S1: the scroll container reserves a permanent 10 px scrollbar
+          // gutter (design §7), so the usable content box is its client box
+          // minus the padding. At the 264 default that is 238 px in every
+          // state, overflow or not.
+          contentLeft:
+            scrollBox.left +
+            Number.parseFloat(scrollStyle.borderLeftWidth) +
+            Number.parseFloat(scrollStyle.paddingLeft),
+          contentRight:
+            scrollBox.left +
+            Number.parseFloat(scrollStyle.borderLeftWidth) +
+            scroll.clientWidth -
+            Number.parseFloat(scrollStyle.paddingRight),
+          gutter:
+            scrollStyle.scrollbarGutter === 'stable'
+              ? scrollBox.width -
+                scroll.clientWidth -
+                Number.parseFloat(scrollStyle.borderLeftWidth) -
+                Number.parseFloat(scrollStyle.borderRightWidth)
+              : 0,
           search: box('.nf-sidebar-search'),
           bar: box('[data-activity-bar="true"]'),
           content: box('[data-sidebar-content="true"]'),
@@ -1143,6 +1161,15 @@ describe('V0 visual shell', () => {
       close(element.left, libraryGrid.contentLeft, `${name} left edge is the grid edge`);
     }
     close(libraryGrid.libraryRow.right, libraryGrid.contentRight, 'library row right edge');
+    // S1: one scroll owner with a reserved invisible gutter (design §7). The
+    // card is 312 px, so the scroll box is 312 − 2 (card borders) − 48 (bar) =
+    // 262 px and the usable box is 262 − 8 − 8 − 10 = 236 px in every state.
+    close(libraryGrid.gutter, 10, 'the reserved gutter is 10 px');
+    close(
+      libraryGrid.contentRight - libraryGrid.contentLeft,
+      236,
+      'the content box keeps the reserved gutter',
+    );
 
     // One row height: search, filter, library rows and tree rows are 28 px.
     assert.equal(libraryGrid.search.height, 28, 'top search is 28 px');
