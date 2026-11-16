@@ -297,8 +297,8 @@ Product-owner priority recorded on 5 November 2026. None of these is in M3; revi
     Report: `docs/reports/m3h4-token-single-source.md`.
   - **M3h5** — merged: leaf delete disclosure when external references exist; S3-8 closed.
     Report: `docs/reports/m3h5-leaf-delete.md`.
-  - **Tracked follow-ups (not M3 gate):** S3-5 relink selection UX, S3-6 replay fallback,
-    S3-7 formula-term edit fixture; they go to M3i slice 5 / M4 fixture follow-up.
+  - **Tracked follow-ups (not M3 gate):** S3-5 relink selection UX, S3-6 replay fallback;
+    S3-7 (formula-term edit fixture) is done: `fixtures/m3-formula-term-edit.json`.
 - **M3c3b Sentinel review (6 November 2026):** request changes; review `docs/reviews/m3c3b-review.md`. Decisions needed: legacy `src` policy, hash-verification policy, missing-file semantics, asset GC/backup interaction. M4 image/PDF remains blocked; scroll/page/PDF work must wait for the image guards.
 - **M3c3b3 (7 November 2026):** merged; policies: missing file/hash mismatch are broken, legacy src is dropped to placeholder, picker dimensions persist, region selection is outline-only, callout alignment stays left-edge/160-cap. Briefs: `docs/tasks/m3c3b3-image-integrity.md`, `docs/tasks/m3c3b4-image-ux-lifecycle.md`.
 - **M3c3b re-review (7 November 2026):** request changes; review `docs/reviews/m3c3b-re-review.md`. All seven original findings closed. New **S2-1** symlink escape fixed in **M3c3b5** (realpath confinement, symlinked `assets/` rejected, final symlinks rejected); **S3-2** corrupt dedupe fixed in the same slice. **M3c3b6** handles **S3-1** AVIF dimensions, **S4-1** stale `unavailable`, **S4-2** missing-asset action gating.
