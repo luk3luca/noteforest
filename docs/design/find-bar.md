@@ -1,6 +1,6 @@
 # Find bar (`⌘F`) and the sidebar Search view
 
-**Status:** the bar is implemented and merged at `365ed15` (15 November 2026); the sidebar Search and the Page word highlight are the follow-ups.
+**Status:** the toolbar cluster and the sidebar Search are implemented and merged at `eec39b4` (16 November 2026); the Page word highlight and the copy alignment of the provisional labels are the follow-ups.
 **Lab:** `docs/design/find-bar-ui-lab/`.
 **Date:** 15 November 2026.
 
@@ -18,8 +18,7 @@ Two presentations, one engine, one scope: the **open note**.
 
 - The bar lives **in the surface toolbar**, in the empty centre between undo/redo and the
   Continuous/Page + Edit/Read controls: one 28 px cluster, `[ query ] [ 1 of 4 ] [ ↑ ] [ ↓ ] [ × ]`.
-  The toolbar row height does not change; nothing overlays the note or the page. (The merged v1
-  floats at the top-right; moving it into the toolbar is the next small slice.)
+  The toolbar row height does not change; nothing overlays the note or the page.
 - Input 28 px; count tabular; 22 px icon buttons inside the cluster; `×` closes. No clear button
   inside the field (the query is selected on open). No card, no shadow.
 - With no match the count reads **“No results”** and the arrows are disabled.
@@ -107,7 +106,8 @@ searches. The bar searches the open note only.
 Continuous word highlight plus Page block ring; the bar first, the sidebar Search next. The toggles
 and the results panel are **not** in the design.
 
-- **Phase 6**: the floating bar (input, count, arrows, close; highlights; navigation).
-- **Next**: the sidebar Search section (the activity bar already lists “Search” as a future section),
-  same engine, snippet list.
-- Follow-up: the exact-word highlight inside Page (CSS Custom Highlight API, no PDF change).
+- **Phase 6a**: the toolbar cluster (input, count, arrows, close; highlights; navigation) — merged
+  at `eec39b4`.
+- **Phase 6b**: the sidebar Search section, same engine, snippet list — merged at `eec39b4`.
+- Follow-up: the exact-word highlight inside Page (CSS Custom Highlight API, no PDF change); the
+  copy sweep aligns the provisional sidebar labels and the palette “Search ⌘K” button.
