@@ -14,16 +14,20 @@ Two presentations, one engine, one scope: the **open note**.
 - **Sidebar Search**: the browsing view. The same matches as snippets of the blocks where they
   appear, grouped by chapter. It replaces the Outline while active and returns to it on close.
 
-## 2. Floating bar
+## 2. Placement and anatomy
 
-- 360 px wide, 40 px high, 10 px from the top-right corner of the surface; it floats over the note
-  and never reflows the canvas or re-fits the page.
-- Anatomy: `[ query ] [ 1 of 4 ] [ ↑ ] [ ↓ ] [ × ]`. Input 28 px; count tabular; 28 px icon buttons;
-  `×` closes. No clear button inside the field (the query is selected on open).
+- The bar lives **in the surface toolbar**, in the empty centre between undo/redo and the
+  Continuous/Page + Edit/Read controls: one 28 px cluster, `[ query ] [ 1 of 4 ] [ ↑ ] [ ↓ ] [ × ]`.
+  The toolbar row height does not change; nothing overlays the note or the page. (The merged v1
+  floats at the top-right; moving it into the toolbar is the next small slice.)
+- Input 28 px; count tabular; 22 px icon buttons inside the cluster; `×` closes. No clear button
+  inside the field (the query is selected on open). No card, no shadow.
 - With no match the count reads **“No results”** and the arrows are disabled.
 - The bar is not part of Page or the PDF.
 - While open, all matches are highlighted in the note; the current one is stronger and scrolled into
   view when the query changes. The bar keeps the last query per session and selects it on open.
+- At narrow widths the input shrinks before the layout/mode controls; the count, arrows and close
+  stay.
 
 ## 3. Sidebar Search view
 
@@ -64,8 +68,8 @@ titles. Case-insensitive, literal text; no regex, no accent folding, no replace.
 - Continuous: scroll to the block, select it, mark all matches and the current one strongly; a
   temporary decoration cleared on close. Collapsed blocks are searchable; jumping expands their
   ancestors.
-- Page: go to the page that contains the block and ring the block. The exact-text highlight inside
-  the page is a follow-up.
+- Page: the cluster is in the same toolbar; go to the page that contains the block and ring the
+  block. The exact-text highlight inside the page is a follow-up.
 - Read mode: navigation only; no editing chrome. Expanding a collapsed block is a view-state change
   and stays allowed.
 - `Esc` closes and restores the selection saved when the bar opened; not the last hit.

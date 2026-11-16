@@ -95,13 +95,16 @@ that makes every dialog feel like a different app.
 Batches A and B can ship together (design + copy). C needs the Details pattern first (a small
 component). D is the tail.
 
-## 5. What this needs before the sweep
+## 5. Decisions (confirmed 16 November 2026)
 
-- Confirm the rules above, in particular: **technical details behind “Details”**, or log-only?
-- Confirm that Settings stops explaining what it does not contain (delete those lines).
-- Confirm the tone: concise and neutral, no first person, product words (`anchor`, `branch`, `note`,
-  `page`) kept, engine words banned.
-- Confirm the length caps (body ≤ 2 lines, help ≤ 1 line).
+- **Technical details behind “Details”**: the short outcome stays in the dialog/toast; the technical
+  line opens in a small `Details` disclosure and is copyable. No telemetry.
+- **Settings stops explaining what it does not contain**: those lines are deleted; a disabled
+  control says why in one line.
+- **Tone**: concise and neutral, no first person, product words (`anchor`, `branch`, `note`, `page`,
+  `block`, `chapter`) kept, engine words banned.
+- **Length caps**: dialog body ≤ 2 lines at 560 px, help ≤ 1 line, toast ≤ 1 line, no paragraph over
+  two lines.
 
 ## 6. Tests
 
