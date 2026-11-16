@@ -452,7 +452,7 @@ describe('Batch A export sheet', () => {
     await startExport();
     const state = await waitExportStatus('failed');
     assert.equal(state.error.code, 'preflight-blocked');
-    assert.ok(state.error.message.includes('Tall block'), state.error.message);
+    assert.equal(state.error.message, 'Export blocked: A block doesn’t fit the page.');
     assert.ok(
       state.error.details.some(
         (detail) => detail.kind === 'blocking-defect' && detail.blockTitle === 'Tall block',
@@ -475,7 +475,9 @@ describe('Batch A export sheet', () => {
     await failed.locator('summary').click();
     const details = failed.locator('[data-details-value]');
     assert.match(await details.innerText(), /preflight-blocked/, 'the code joins Details');
-    assert.match(await details.innerText(), /Tall block/, 'the raw message joins Details');
+    // C-16.5: the Details line is the short sentence; the row already names the
+    // block and the group, so the title is not repeated here.
+    assert.match(await details.innerText(), /A block doesn’t fit the page\./);
     const outputPath = resolve(folder, 'Blocked export.pdf');
     assert.equal(await fileExists(outputPath), false, 'no PDF for a blocked document');
     await assertNoPartials(folder);
@@ -838,7 +840,7 @@ describe('Batch A export sheet', () => {
     assert.equal(await page.evaluate(() => window.__noteforestTest.state().activeTab), null);
     await invokeAppMenu('menu-export-pdf');
     await page
-      .locator('[data-sonner-toast]', { hasText: 'Open a document before exporting a PDF.' })
+      .locator('[data-sonner-toast]', { hasText: 'Open a note before exporting a PDF.' })
       .first()
       .waitFor({ timeout: 5000 });
     assert.equal((await exportState()).status, 'idle');

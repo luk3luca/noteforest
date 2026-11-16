@@ -60,23 +60,23 @@ export function saveStatusAfterWrite(input: {
 export function saveFailureHeadline(code: SaveFailureCode): string {
   switch (code) {
     case 'read-only':
-      return 'This document is open read-only.';
+      return 'This note is open read-only.';
     case 'permission':
-      return 'NoteForest cannot write to this folder.';
+      return 'NoteForest can’t write to this folder.';
     case 'disk-full':
       return 'The disk is full.';
     case 'external-modification':
-      return 'This file changed on disk outside NoteForest.';
+      return 'This file changed on disk.';
     case 'lock-lost':
-      return 'Another copy of NoteForest took over this document.';
+      return 'Another NoteForest window took over this note.';
     case 'backup-failed':
-      return 'The safety backup could not be written.';
+      return 'The backup couldn’t be written.';
     case 'invalid-document':
-      return 'The document did not pass validation.';
+      return 'The note has a problem that stops the save.';
     case 'not-found':
-      return 'The document file is missing.';
+      return 'The note’s file is missing.';
     default:
-      return 'The document could not be saved.';
+      return 'The note couldn’t be saved.';
   }
 }
 
@@ -84,15 +84,15 @@ export function saveFailureHeadline(code: SaveFailureCode): string {
 export function saveFailureHint(code: SaveFailureCode): string {
   switch (code) {
     case 'read-only':
-      return 'Reopen the document read-write, or save a copy somewhere else.';
+      return 'Reopen it read-write, or save a copy.';
     case 'permission':
       return 'Check the folder permissions and Retry, or save a copy elsewhere.';
     case 'disk-full':
       return 'Free some space and Retry, or save a copy to another disk.';
     case 'external-modification':
-      return 'Your changes were not written. Reload from disk, overwrite it with this version, or save a copy.';
+      return 'Nothing was written. Reload, overwrite, or save a copy.';
     case 'lock-lost':
-      return 'Reopen the document to take a fresh lock, or save a copy.';
+      return 'Reopen it, or save a copy.';
     case 'backup-failed':
       return 'Retry once the backup location is writable, or save a copy.';
     case 'invalid-document':

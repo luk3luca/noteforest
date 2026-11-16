@@ -48,10 +48,8 @@ describe('read-mode editability helper', () => {
   });
 
   it('exposes one shared Read-mode reason for every surface', () => {
-    expect(READ_MODE_TITLE).toBe('Read mode — switch to Edit to add content');
+    expect(READ_MODE_TITLE).toBe('Read mode — switch to Edit to make changes');
     expect(READ_MODE_SUFFIX).toBe(' — Read mode');
-    expect(READ_MODE_TOAST).toBe(
-      'Read mode — switch to Continuous Edit to make changes.',
-    );
+    expect(READ_MODE_TOAST).toBe('Read mode — switch to Edit to make changes.');
   });
 });

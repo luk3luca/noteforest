@@ -35,7 +35,7 @@ export function StatusBar(): JSX.Element {
   };
   const info = health?.info ?? { idle: 0, orphans: 0, structure: 0, hidden: 0 };
   const infoParts: string[] = [];
-  if (info.idle > 0) infoParts.push(`${info.idle} idle`);
+  if (info.idle > 0) infoParts.push(`${info.idle} unused`);
   if (info.orphans > 0) {
     infoParts.push(`${info.orphans} ${info.orphans === 1 ? 'orphan' : 'orphans'}`);
   }
@@ -75,7 +75,7 @@ export function StatusBar(): JSX.Element {
       : markdown.readOnly
         ? 'Large file · not written'
         : markdown.saving
-          ? 'Writing atomically…'
+          ? 'Saving…'
           : markdown.saveError !== null
             ? markdown.saveError
             : markdown.conflict
@@ -113,7 +113,7 @@ export function StatusBar(): JSX.Element {
           data-recovery-status={activeTabInfo?.recovery?.status}
         >
           {activeTabInfo?.recovery === undefined
-            ? 'No document open'
+            ? 'No note open'
             : `Recovery · ${activeTabInfo.recovery.status}`}
         </span>
         <span className="nf-status-spacer" />

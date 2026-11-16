@@ -16,21 +16,21 @@ export function recoveryStatusLabel(status: RecoveryStatus): string {
 export function recoveryHeadline(status: RecoveryStatus): string {
   switch (status) {
     case 'newer-schema':
-      return 'This document was saved by a newer NoteForest.';
+      return 'This note comes from a newer NoteForest.';
     case 'missing':
-      return 'This document is missing.';
+      return 'This note is missing.';
     case 'unreadable':
-      return 'This document could not be read.';
+      return 'This note couldn’t be read.';
   }
 }
 
 export function recoveryDescription(status: RecoveryStatus): string {
   switch (status) {
     case 'newer-schema':
-      return 'This version of NoteForest cannot open it. The file stays read-only: it will not be downgraded, edited, or overwritten. Open it in the newer version, or restore an older backup as a new copy.';
+      return 'Open it in the newer NoteForest. This version leaves the file unchanged.';
     case 'missing':
-      return 'The folder or its document.json is missing. It may have been moved or deleted. NoteForest has not changed anything on disk.';
+      return 'The folder is gone; it may have been moved or deleted. Nothing on disk was changed.';
     case 'unreadable':
-      return 'The file did not parse into a valid document and has not been changed. Inspect the reason below, or restore a valid backup as a new copy.';
+      return 'The file couldn’t be read and was not changed. Restore a backup, or check Details.';
   }
 }

@@ -206,7 +206,7 @@ export class SaveCoordinator {
   overwriteExternal(): Promise<{ ok: boolean; message?: string }> {
     return this.ports.queue.run(async () => {
       if (!this.ports.isEditable()) {
-        return { ok: false, message: 'This document is open read-only.' };
+        return { ok: false, message: 'This note is open read-only.' };
       }
       if (this.saveFailure?.code !== 'external-modification') {
         return { ok: false, message: 'There is no external modification to overwrite.' };

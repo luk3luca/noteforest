@@ -209,7 +209,7 @@ describe('active library roots', () => {
     await fs.mkdir(nested, { recursive: true });
     const nestedResult = await openLibraryPath(nested);
     expect(nestedResult.ok).toBe(false);
-    if (!nestedResult.ok) expect(nestedResult.message).toMatch(/inside the library/);
+    if (!nestedResult.ok) expect(nestedResult.message).toBe('That folder is inside a library. Choose another parent.');
 
     const nestedCreate = await createLibraryRoot({ name: 'Nested', parentPath: libraryA });
     expect(nestedCreate.ok).toBe(false);

@@ -188,8 +188,9 @@ describe('M2f phase 4a corrupt package recovery', () => {
       await surface.locator('[data-recovery-readonly="true"]').innerText(),
       /Read-only/,
     );
-    assert.match(await surface.innerText(), /could not be read/i);
+    assert.match(await surface.innerText(), /This note couldn’t be read\./);
     await surface.locator('[data-recovery-empty="true"]').waitFor({ timeout: 10000 });
+    await page.screenshot({ path: artifactsPath('copy-cd/recovery.png') });
 
     const state = await h.state();
     assert.equal(tabFor(state, packagePath)?.recovery, 'unreadable');
@@ -232,7 +233,10 @@ describe('M2f phase 4a corrupt package recovery', () => {
       await surface.locator('[data-recovery-reason="true"]').innerText(),
       /newer than this app supports/,
     );
-    assert.match(await surface.innerText(), /will not be downgraded, edited, or overwritten/);
+    assert.match(
+      await surface.innerText(),
+      /Open it in the newer NoteForest\. This version leaves the file unchanged\./,
+    );
     assert.equal(await surface.locator('[data-recovery-action="restore-newest"]').count(), 1);
     assert.equal(await surface.locator('[data-save-failure="true"]').count(), 0);
     await surface.locator('[data-recovery-empty="true"]').waitFor({ timeout: 10000 });

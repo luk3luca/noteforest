@@ -44,7 +44,7 @@ export async function insertImageFromDialog(
     return;
   }
   if (!runtime.editable) {
-    toast.error('This document is open read-only.');
+    toast.error('This note is open read-only.');
     return;
   }
   const toastId = beginCopy(1);
@@ -81,7 +81,7 @@ export async function replaceImageFromDialog(
   path: readonly number[],
 ): Promise<void> {
   if (!runtime.editable) {
-    toast.error('This document is open read-only.');
+    toast.error('This note is open read-only.');
     return;
   }
   const toastId = beginCopy(1);
@@ -154,7 +154,7 @@ export async function insertImagesFromFiles(
     return;
   }
   if (!runtime.editable) {
-    toast.error('This document is open read-only.');
+    toast.error('This note is open read-only.');
     return;
   }
   const images = files.filter((file) => mimeForImageFile(file) !== undefined);

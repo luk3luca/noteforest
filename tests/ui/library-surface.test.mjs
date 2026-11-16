@@ -362,7 +362,7 @@ describe('Library surface', () => {
     await page.waitForSelector('[data-outline-empty="true"]');
     assert.equal(
       (await page.locator('[data-outline-empty]').innerText()).trim(),
-      'Open a document to see its outline.',
+      'Open a note to see its outline.',
     );
     await page.screenshot({ path: join(screenshotDir, 'outline-empty.png') });
 
@@ -448,7 +448,7 @@ describe('Library surface', () => {
     );
 
     await openSwitcher();
-    assert.match(await page.locator('.nf-menu').innerText(), /Open Folder as Library/);
+    assert.match(await page.locator('.nf-menu').innerText(), /Open folder as library/);
     assert.equal(
       await page
         .locator(`[data-menu-entry="library-switch-${libraryA}"] .nf-menu-check svg`)
@@ -457,7 +457,7 @@ describe('Library surface', () => {
       'the active library has a check',
     );
     assert.equal(
-      await page.getByRole('menuitem', { name: 'Remove from Recent', exact: true }).count(),
+      await page.getByRole('menuitem', { name: 'Remove from recents', exact: true }).count(),
       0,
       'the dead switcher Remove from Recent item is gone (Data & About owns it)',
     );
@@ -470,12 +470,12 @@ describe('Library surface', () => {
     await page.locator('[data-settings-nav="data"]').click();
     assert.ok(
       (await page.locator('[data-settings-library-remove]').count()) > 0,
-      'Data & About still offers Remove from Recent',
+      'Data & About still offers Remove from recents',
     );
     await page.getByRole('button', { name: 'Done' }).click();
     await openSwitcher();
     await mockFolderDialog(libraryB);
-    await chooseMenu('Open Folder as Library…');
+    await chooseMenu('Open folder as library…');
     await waitLibraryPath(libraryB);
     await page.waitForFunction(
       () => window.__noteforestTest.state().library?.documents.some((document) => document.title === 'B note'),
@@ -535,7 +535,7 @@ describe('Library surface', () => {
     await mkdir(parent, { recursive: true });
 
     await openSwitcher();
-    await chooseMenu('New Library…');
+    await chooseMenu('New library…');
     await page.waitForSelector('[data-new-library-dialog]');
     assert.equal(await page.locator('[data-new-library-name]').inputValue(), 'NoteForest');
     assert.equal(await page.locator('[data-new-library-create]').isDisabled(), true);
@@ -562,7 +562,7 @@ describe('Library surface', () => {
     await writeFile(join(packageRoot, 'document.json'), '{}');
     await openSwitcher();
     await mockFolderDialog(packageRoot);
-    await chooseMenu('Open Folder as Library…');
+    await chooseMenu('Open folder as library…');
     await page.getByText(/This is a document, not a library/).waitFor({ timeout: 15000 });
     assert.equal((await sidebarState()).library.path, study);
 
@@ -571,8 +571,8 @@ describe('Library surface', () => {
     await mkdir(nested, { recursive: true });
     await openSwitcher();
     await mockFolderDialog(nested);
-    await chooseMenu('Open Folder as Library…');
-    await page.getByText(/inside the library/).waitFor({ timeout: 15000 });
+    await chooseMenu('Open folder as library…');
+    await page.getByText(/That folder is inside a library/).waitFor({ timeout: 15000 });
     assert.equal((await sidebarState()).library.path, study);
   });
 
@@ -594,7 +594,7 @@ describe('Library surface', () => {
 
     await openSwitcher();
     await mockFolderDialog(libraryB);
-    await chooseMenu('Open Folder as Library…');
+    await chooseMenu('Open folder as library…');
     await page.waitForFunction(
       () =>
         [...document.querySelectorAll('[data-sonner-toast]')].some((element) =>
@@ -663,7 +663,7 @@ describe('Library surface', () => {
 
     await openSwitcher();
     await mockFolderDialog(libraryB);
-    await chooseMenu('Open Folder as Library…');
+    await chooseMenu('Open folder as library…');
     await waitLibraryPath(libraryB);
     await openSwitcher();
     await chooseMenu('data-library');

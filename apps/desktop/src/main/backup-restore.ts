@@ -139,7 +139,7 @@ export function restoreDestinationProblem(input: {
   if (destination === source || isPathInside(source, destination)) {
     return {
       code: 'same-package',
-      message: 'Choose a new folder; a restored copy cannot replace the current document.',
+      message: 'Choose a new folder. A restore never replaces the current note.',
     };
   }
   if (path.dirname(destination) !== library) {
@@ -151,7 +151,7 @@ export function restoreDestinationProblem(input: {
   if (input.documentExists) {
     return {
       code: 'exists',
-      message: 'A document already exists at that location. Choose a new folder.',
+      message: 'A note already exists there. Choose a new folder.',
     };
   }
   return null;

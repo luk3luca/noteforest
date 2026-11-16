@@ -116,11 +116,11 @@ export function MarkdownFileEditor({ path, active }: MarkdownFileEditorProps): J
       : entry.error !== null
         ? entry.error
         : readOnly
-          ? entry.readOnlyReason ?? 'This Markdown file is open read-only.'
+          ? entry.readOnlyReason ?? 'This file is open read-only.'
           : missing
-            ? 'This Markdown file is no longer on disk. Copy what you need; saving is unavailable.'
+            ? 'This file is no longer on disk. Copy what you need; saving is off.'
             : tooLarge
-              ? entry.readOnlyReason ?? 'This Markdown file is too large to edit.'
+              ? entry.readOnlyReason ?? 'This file is too large to edit.'
               : null;
 
   useEffect(() => {
@@ -220,8 +220,8 @@ export function MarkdownFileEditor({ path, active }: MarkdownFileEditorProps): J
               aria-label="Markdown Edit mode"
               title={
                 editDisabledReason === null
-                  ? 'Edit this Markdown file (⌘E)'
-                  : `Edit unavailable: ${editDisabledReason}`
+                  ? 'Edit this file (⌘E)'
+                  : `Can’t edit: ${editDisabledReason}`
               }
               disabled={editDisabledReason !== null}
               onClick={() => useShell.getState().setDocumentInteractionMode(path, 'edit')}
@@ -269,7 +269,7 @@ export function MarkdownFileEditor({ path, active }: MarkdownFileEditorProps): J
               <span>
                 {entry.readOnly
                   ? entry.readOnlyReason
-                  : 'This file is no longer on disk. NoteForest will not recreate it; copy anything you still need.'}
+                  : 'This file is no longer on disk. Copy anything you still need.'}
               </span>
             </div>
           ) : null}

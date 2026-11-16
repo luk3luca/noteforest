@@ -386,7 +386,7 @@ describe('PdfExportManager', () => {
     const job = await waitTerminal(manager, 'job-1');
     expect(job.status).toBe('failed');
     expect(job.error?.code).toBe('preflight-blocked');
-    expect(job.error?.message).toContain('A very tall block');
+    expect(job.error?.message).toContain('A block doesn’t fit the page.');
     expect(job.error?.details[0]).toMatchObject({ blockId: 'tall', kind: 'blocking-defect' });
     expect(print).not.toHaveBeenCalled();
     expect(await readdir(dir)).toEqual([]);

@@ -630,7 +630,12 @@ describe('M4c3 PDF gate', () => {
     assert.equal(job.status, 'done', job.error?.message ?? 'the export still completes');
     const failed = job.warnings.find((warning) => warning.code === 'failed-asset');
     assert.ok(failed !== undefined, 'the deleted dimensioned asset is a job warning');
-    assert.ok(failed.message.includes(forestId), 'the warning names the failed asset');
+    // C-16.9: the line is the short outcome; the id stays on the record.
+    assert.equal(
+      failed.message,
+      'An image couldn’t be read; the PDF shows a placeholder.',
+      'the warning is the short line',
+    );
     const pdf = await inspect(outputPath);
     assertPageSizes(pdf, job);
     assert.ok(

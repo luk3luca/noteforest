@@ -67,6 +67,7 @@ import { clearPrintTestSurface, mountPrintTestSurface } from './print/test-surfa
 import { buildPrintModel } from '@noteforest/pdf';
 import { perfSnapshot, summarize } from './lib/perf';
 import { useAppearanceSync } from './shell/useAppearanceSync';
+import { openDetailsDialog, withDetailsOptions } from './lib/toast-details';
 
 type FlushTestMode = 'normal' | 'error' | 'hang';
 
@@ -163,7 +164,7 @@ async function flushOpenDocuments(): Promise<FlushResult> {
     if (!(await commitPageEdit(runtime.packagePath))) {
       return {
         status: 'error',
-        error: 'Could not commit a Page Edit block before quitting.',
+        error: 'Page Edit wasn’t saved before quitting.',
       };
     }
   }
@@ -322,14 +323,19 @@ export function App(): JSX.Element {
         state.setTabs(tabs, active);
         state.setReady(true);
         if (data.library.warnings.length > 0) {
-          toast.info(data.library.warnings[0] ?? 'Library warnings');
+          // One short line; the raw warnings are technical and live in Details.
+          toast.info(
+            'Some library folders couldn’t be read.',
+            withDetailsOptions(data.library.warnings.join(' · ')),
+          );
         }
         if (
           data.settingsStatus.state === 'corrupt' ||
           data.settingsStatus.state === 'unreadable'
         ) {
           toast.warning(
-            'Settings could not be read. NoteForest is using defaults; open Settings → Data & About to review the backup and reset.',
+            'Settings couldn’t be read. The defaults are in use.',
+            withDetailsOptions(data.settingsStatus.message),
           );
         }
         if (
@@ -337,7 +343,8 @@ export function App(): JSX.Element {
           data.documentSettingsStatus.state === 'unreadable'
         ) {
           toast.warning(
-            'Per-document settings could not be read. Open Settings → Data & About to reset or restore them.',
+            'Note settings couldn’t be read. The defaults are in use.',
+            withDetailsOptions(data.documentSettingsStatus.message),
           );
         }
       } catch (error) {
@@ -391,7 +398,7 @@ export function App(): JSX.Element {
       const runtime = allRuntimes().find((item) => item.packagePath === request.packagePath);
       if (runtime === undefined) return null;
       if (!(await commitPageEdit(runtime.packagePath))) {
-        return { error: 'Could not commit the Page Edit block before the PDF export.' };
+        return { error: 'Page Edit wasn’t saved before the export.' };
       }
       return createExportSnapshot(runtime);
     });
@@ -795,16 +802,19 @@ export function App(): JSX.Element {
        * Test-only visual probe for the tokenized toast. It calls the same
        * public toast helpers the product uses; it adds no toast API.
        */
-      showToast: (type, title, description) => {
-        const options = description === undefined ? undefined : { description };
+      showToast: (type, title, description, details) => {
+        // The same public helpers the product uses, plus the product
+        // `Details` action so a test can drive the toast → D25 path.
+        const base = description === undefined ? undefined : { description };
+        const options = withDetailsOptions(details, base);
         if (type === 'success') toast.success(title, options);
         else if (type === 'info') toast.info(title, options);
         else if (type === 'warning') toast.warning(title, options);
         else toast.error(title, options);
       },
-      /** Test-only: open D25 without its toast host, which is batch C. */
+      /** Test-only: open D25 without a toast. */
       openDetails: (value: string) => {
-        useShell.getState().openDialog({ kind: 'details', value });
+        openDetailsDialog(value);
       },
       applyStructural: async (command) => {
         const state = useShell.getState();

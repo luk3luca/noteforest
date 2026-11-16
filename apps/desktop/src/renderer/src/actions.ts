@@ -1,6 +1,7 @@
 /** Application actions shared by the shell, menus, palette, and editor. */
 
 import { toast } from 'sonner';
+import { errorToast } from './lib/toast-details';
 import type {
   LibraryActionSuccess,
   MarkdownFileView,
@@ -183,7 +184,7 @@ export function report(outcome: ApplyOutcome | Promise<ApplyOutcome | void> | vo
     void outcome.then((value) => {
       if (value === undefined || value === null) return;
       if (!value.ok) {
-        toast.error(value.message ?? 'The command was rejected.');
+        errorToast(value.message ?? 'That command isn’t available right now.', value.details);
         return;
       }
       if (value.notice !== undefined) toast.info(value.notice);
@@ -191,7 +192,7 @@ export function report(outcome: ApplyOutcome | Promise<ApplyOutcome | void> | vo
     return;
   }
   if (!outcome.ok) {
-    toast.error(outcome.message ?? 'The command was rejected.');
+    errorToast(outcome.message ?? 'That command isn’t available right now.', outcome.details);
     return;
   }
   if (outcome.notice !== undefined) toast.info(outcome.notice);
@@ -207,7 +208,7 @@ export async function openPath(packagePath: string): Promise<boolean> {
   }
   const result = await window.noteforest.openDocument(packagePath);
   if (isOpenFailure(result)) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return false;
   }
   await syncActiveLibraryForPath(packagePath);
@@ -241,7 +242,7 @@ export async function openPath(packagePath: string): Promise<boolean> {
     ...(result.status === 'read-only' ? { readOnlyReason: result.readOnlyReason } : {}),
   });
   if (result.status === 'read-only') {
-    toast.error('This document opened read-only. Your file was not modified.');
+    toast.error('This note opened read-only. Your file was not changed.');
   }
   void runtime;
   return true;
@@ -290,7 +291,7 @@ export async function openMarkdownPath(path: string): Promise<boolean> {
   const result = await window.noteforest.readMarkdownFile(path);
   if (!result.ok) {
     if (result.canceled !== true) {
-      toast.error(result.message ?? 'Could not open the Markdown file.');
+      errorToast(result.message ?? 'Couldn’t open the file.', result.details);
     }
     return false;
   }
@@ -303,7 +304,7 @@ export async function openMarkdownDialog(): Promise<void> {
   const result = await window.noteforest.openMarkdownFile();
   if (!result.ok) {
     if (result.canceled !== true) {
-      toast.error(result.message ?? 'Could not open the Markdown file.');
+      errorToast(result.message ?? 'Couldn’t open the file.', result.details);
     }
     return;
   }
@@ -322,7 +323,7 @@ export async function createNewDocument(targetFolderPath?: string): Promise<void
     targetFolderPath === undefined ? undefined : { targetFolderPath },
   );
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return;
   }
   const { snapshot } = result.draft;
@@ -338,7 +339,7 @@ export async function createNewDocument(targetFolderPath?: string): Promise<void
 export async function retryDraftMaterialization(runtime: DocumentRuntime): Promise<boolean> {
   const result = await runtime.ensureMaterialized();
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return false;
   }
   return true;
@@ -349,7 +350,7 @@ export async function chooseLibraryForDraft(runtime: DocumentRuntime): Promise<v
   if (!runtime.isDraft) return;
   const result = await window.noteforest.chooseDraftLibrary(runtime.packagePath);
   if (!result.ok) {
-    if (result.canceled !== true) toast.error(result.message);
+    if (result.canceled !== true) errorToast(result.message, result.details);
     return;
   }
   shell().setLibrary(result.library);
@@ -375,20 +376,20 @@ async function applyLibraryResult(result: LibraryActionSuccess): Promise<void> {
 async function flushBeforeLibrarySwitch(): Promise<boolean> {
   for (const runtime of allRuntimes()) {
     if (!(await commitPageEdit(runtime.packagePath))) {
-      toast.error('Could not commit a Page Edit block before switching libraries.');
+      toast.error('Page Edit wasn’t saved, so the library didn’t change.');
       return false;
     }
   }
   await flushPendingSettingsEdits();
   const settings = await flushSettingsWrites();
   if (!settings.ok) {
-    toast.error(settings.message);
+    errorToast(settings.message, settings.details);
     return false;
   }
   for (const runtime of allRuntimes()) {
     await runtime.flush();
     if (runtime.saveState === 'error') {
-      toast.error(runtime.saveError ?? 'Could not save before switching libraries.');
+      toast.error(runtime.saveError ?? 'The note wasn’t saved, so the library didn’t change.');
       return false;
     }
   }
@@ -419,7 +420,7 @@ export async function syncActiveLibraryForPath(packagePath: string): Promise<voi
   if (target === undefined || target.active) return;
   const result = await window.noteforest.switchLibrary(target.path);
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return;
   }
   await applyLibraryResult(result);
@@ -429,7 +430,7 @@ export async function openLibrary(): Promise<void> {
   if (!(await flushBeforeLibrarySwitch())) return;
   const result = await window.noteforest.openLibrary();
   if (!result.ok) {
-    if (result.canceled !== true) toast.error(result.message);
+    if (result.canceled !== true) errorToast(result.message, result.details);
     return;
   }
   await applyLibraryResult(result);
@@ -445,7 +446,7 @@ export async function createLibrary(name: string, parentPath: string): Promise<b
   if (!(await flushBeforeLibrarySwitch())) return false;
   const result = await window.noteforest.createLibrary({ name, parentPath });
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return false;
   }
   await applyLibraryResult(result);
@@ -456,7 +457,7 @@ export async function switchLibrary(libraryPath: string): Promise<void> {
   if (!(await flushBeforeLibrarySwitch())) return;
   const result = await window.noteforest.switchLibrary(libraryPath);
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return;
   }
   await applyLibraryResult(result);
@@ -466,7 +467,7 @@ export async function removeRecentLibrary(libraryPath: string): Promise<void> {
   if (!(await flushBeforeLibrarySwitch())) return;
   const result = await window.noteforest.removeRecentLibrary(libraryPath);
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return;
   }
   await applyLibraryResult(result);
@@ -476,7 +477,7 @@ export async function locateLibrary(missingPath: string): Promise<void> {
   if (!(await flushBeforeLibrarySwitch())) return;
   const result = await window.noteforest.locateLibrary(missingPath);
   if (!result.ok) {
-    if (result.canceled !== true) toast.error(result.message);
+    if (result.canceled !== true) errorToast(result.message, result.details);
     return;
   }
   await applyLibraryResult(result);
@@ -485,7 +486,7 @@ export async function locateLibrary(missingPath: string): Promise<void> {
 export async function refreshLibrary(): Promise<void> {
   const result = await window.noteforest.refreshLibrary();
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return;
   }
   await applyLibraryResult(result);
@@ -493,7 +494,7 @@ export async function refreshLibrary(): Promise<void> {
 
 export async function revealLibraryPath(libraryPath?: string): Promise<void> {
   const result = await window.noteforest.revealLibrary(libraryPath);
-  if (!result.ok) toast.error(result.message ?? 'Could not reveal the library.');
+  if (!result.ok) errorToast(result.message ?? 'Couldn’t reveal the library.', result.details);
 }
 
 export async function createChapter(): Promise<ApplyOutcome | null> {
@@ -508,13 +509,13 @@ export async function createChapter(): Promise<ApplyOutcome | null> {
   // chapter and its first block (see DocumentRuntime.createChapterWithFirstBlock).
   const created = await runtime.createChapterWithFirstBlock('New chapter', atIndex);
   if (!created.ok) {
-    toast.error(created.message ?? 'Could not create a chapter.');
+    errorToast(created.message ?? 'Couldn’t create a chapter.', created.details);
     return created;
   }
   const chapterId = created.chapterId;
   if (chapterId === undefined) {
-    toast.error('The chapter was created without an ID.');
-    return { ok: false, message: 'The chapter was created without an ID.' };
+    toast.error('The chapter wasn’t created.');
+    return { ok: false, message: 'The chapter wasn’t created.' };
   }
   await runtime.saveNow();
   if (runtime.editor !== null) {
@@ -573,7 +574,7 @@ export async function renameDocument(title: string): Promise<void> {
   }
   const outcome = await runtime.applyStructural({ type: 'document.rename', title: clean });
   if (!outcome.ok) {
-    toast.error(outcome.message ?? 'Could not rename the document.');
+    errorToast(outcome.message ?? 'Couldn’t rename the document.', outcome.details);
     return;
   }
   shell().updateTitle(runtime.packagePath, clean);
@@ -605,19 +606,19 @@ export async function saveActive(): Promise<void> {
     if (outcome.status === 'failed') toast.error(outcome.message);
     else if (outcome.status === 'blocked') toast.info(outcome.message);
     else if (outcome.status === 'missing') {
-      toast.error('This Markdown file is no longer on disk. Nothing was written.');
+      toast.error('This file is no longer on disk. Nothing was written.');
     }
     return;
   }
   const runtime = activeRuntime();
   if (runtime === null) return;
   if (!(await commitPageEdit(runtime.packagePath))) {
-    toast.error('Could not commit the Page Edit block.');
+    toast.error('Page Edit wasn’t saved.');
     return;
   }
   await runtime.saveNow();
   if (runtime.saveState === 'error') {
-    toast.error(runtime.saveError ?? 'Save failed.');
+    toast.error(runtime.saveError ?? 'The note wasn’t saved.');
   }
 }
 
@@ -650,7 +651,7 @@ export async function closeTab(
           outcome.status === 'blocked'
             ? outcome.message
             : outcome.status === 'missing'
-              ? 'This Markdown file is no longer on disk. Nothing was written.'
+              ? 'This file is no longer on disk. Nothing was written.'
               : outcome.message,
         );
         return;
@@ -676,13 +677,13 @@ export async function closeTab(
   }
   if (runtime !== null) {
     if (!(await commitPageEdit(packagePath))) {
-      toast.error('Could not commit the Page Edit block before closing the tab.');
+      toast.error('Page Edit wasn’t saved, so the tab stayed open.');
       return;
     }
     if (options.save !== false) {
       await runtime.flush();
       if (runtime.saveState === 'error') {
-        toast.error(runtime.saveError ?? 'Could not save before closing the tab.');
+        toast.error(runtime.saveError ?? 'The note wasn’t saved, so the tab stayed open.');
         return;
       }
     }
@@ -710,7 +711,7 @@ export async function reopenClosedTab(): Promise<void> {
   }
   const opened = await openPath(tab.packagePath);
   if (!opened) {
-    toast.error('That document is no longer available.');
+    toast.error('That note is no longer available.');
   }
 }
 
@@ -1050,7 +1051,7 @@ export function revealActive(): void {
   const path = shell().activeTab;
   if (path !== null && isMarkdownPath(path)) {
     void window.noteforest.revealMarkdownFile(path).then((result) => {
-      if (!result.ok) toast.error(result.message ?? 'Could not reveal the Markdown file.');
+      if (!result.ok) errorToast(result.message ?? 'Couldn’t reveal the file.', result.details);
     });
     return;
   }
@@ -1061,7 +1062,7 @@ export function revealActive(): void {
 
 export async function revealDocumentPath(packagePath: string): Promise<void> {
   const result = await window.noteforest.revealDocument(packagePath);
-  if (!result.ok) toast.error(result.message ?? 'Could not reveal the document.');
+  if (!result.ok) errorToast(result.message ?? 'Couldn’t reveal the note.', result.details);
 }
 
 /* --------------------------------------------------------- Move to Trash */
@@ -1098,7 +1099,7 @@ export async function confirmTrashDocument(preflight: TrashPreflight): Promise<v
       if (closed === null) return;
       const result = await window.noteforest.trashDocument(packagePath);
       if (!result.ok) {
-        toast.error(result.message);
+        errorToast(result.message, result.details);
         await reopenMovedTabs(closed, []);
         return;
       }
@@ -1115,7 +1116,7 @@ export async function confirmTrashDocument(preflight: TrashPreflight): Promise<v
     } else {
       const result = await window.noteforest.trashDocument(packagePath);
       if (!result.ok) {
-        toast.error(result.message);
+        errorToast(result.message, result.details);
         return;
       }
       shell().setLibrary(result.library);
@@ -1141,7 +1142,7 @@ export async function confirmTrashDocument(preflight: TrashPreflight): Promise<v
   }
   const result = await window.noteforest.trashDocument(packagePath);
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return;
   }
   shell().setLibrary(result.library);
@@ -1188,7 +1189,7 @@ export async function confirmRemoveMissingDocument(preflight: TrashPreflight): P
     preflight.documentId,
   );
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return;
   }
   shell().setLibrary(result.library);
@@ -1245,7 +1246,7 @@ async function closeTabsForVaultChange(targetPath: string): Promise<ClosedVaultT
     await flushPendingSettingsEdits();
     const settings = await flushSettingsWrites();
     if (!settings.ok) {
-      toast.error(settings.message);
+      errorToast(settings.message, settings.details);
       return null;
     }
   }
@@ -1263,7 +1264,7 @@ async function closeTabsForVaultChange(targetPath: string): Promise<ClosedVaultT
             outcome.status === 'conflict'
               ? 'This Markdown file changed outside NoteForest. Resolve it before moving the file.'
               : outcome.status === 'missing'
-                ? 'This Markdown file is no longer on disk. Nothing was written.'
+                ? 'This file is no longer on disk. Nothing was written.'
                 : outcome.message,
           );
           return null;
@@ -1314,14 +1315,14 @@ async function reopenMovedTabs(
 
 export async function revealVaultPath(targetPath: string): Promise<void> {
   const result = await window.noteforest.revealVaultEntry(targetPath);
-  if (!result.ok) toast.error(result.message ?? 'Could not reveal this item.');
+  if (!result.ok) errorToast(result.message ?? 'Couldn’t reveal this item.', result.details);
 }
 
 export async function createVaultFolder(parentPath: string, name: string): Promise<boolean> {
   if (vaultMutationBlocked()) return false;
   const result = await window.noteforest.createVaultFolder({ parentPath, name });
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     return false;
   }
   shell().setLibrary(result.library);
@@ -1334,7 +1335,7 @@ export async function renameVaultFolder(folderPath: string, name: string): Promi
   if (closed === null) return false;
   const result = await window.noteforest.renameVaultFolder(folderPath, name);
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     await reopenMovedTabs(closed, []);
     return false;
   }
@@ -1352,7 +1353,7 @@ export async function moveVaultEntryTo(
   if (closed === null) return false;
   const result = await window.noteforest.moveVaultEntry({ sourcePath, targetFolderPath });
   if (!result.ok) {
-    toast.error(result.message);
+    errorToast(result.message, result.details);
     await reopenMovedTabs(closed, []);
     return false;
   }
@@ -1919,7 +1920,8 @@ export function openBlockMenu(
     { id: 'sep-structure', label: '', separator: true },
     {
       id: 'split-at-caret',
-      label: splitCheck.ok ? 'Split at caret' : `Split at caret — ${splitCheck.reason}`,
+      label: 'Split at caret',
+      ...(splitCheck.ok ? {} : { description: 'Place the caret in a text block.' }),
       disabled: !splitCheck.ok,
       ...(splitCheck.ok
         ? { onSelect: () => report(runtime.splitAtCaret(blockId)) }
@@ -1927,9 +1929,10 @@ export function openBlockMenu(
     },
     {
       id: 'merge-previous',
-      label: mergeCheck.ok
-        ? 'Merge with previous'
-        : `Merge with previous — ${mergeCheck.reason}`,
+      label: 'Merge with previous',
+      ...(mergeCheck.ok
+        ? {}
+        : { description: 'The previous block must be in the same chapter.' }),
       disabled: !mergeCheck.ok,
       ...(mergeCheck.ok
         ? { onSelect: () => report(runtime.mergeBlock(blockId)) }
@@ -2132,7 +2135,7 @@ export function openTabMenu(
         label: 'Reveal in Finder',
         onSelect: () => {
           void window.noteforest.revealMarkdownFile(packagePath).then((result) => {
-            if (!result.ok) toast.error(result.message ?? 'Could not reveal the Markdown file.');
+            if (!result.ok) errorToast(result.message ?? 'Couldn’t reveal the file.', result.details);
           });
         },
       },
@@ -2198,7 +2201,7 @@ export function openLibraryMenu(
         label: 'Reveal in Finder',
         onSelect: () => {
           void window.noteforest.revealMarkdownFile(packagePath).then((result) => {
-            if (!result.ok) toast.error(result.message ?? 'Could not reveal the Markdown file.');
+            if (!result.ok) errorToast(result.message ?? 'Couldn’t reveal the file.', result.details);
           });
         },
       },
@@ -2262,7 +2265,7 @@ export function openLibraryMenu(
                       if (!opened) return;
                       const current = getRuntime(packagePath);
                       if (current === null || !current.editable) {
-                        toast.error('This document is open read-only and cannot be renamed.');
+                        toast.error('This note is open read-only.');
                         return;
                       }
                       shell().openDialog({ kind: 'rename-document' });

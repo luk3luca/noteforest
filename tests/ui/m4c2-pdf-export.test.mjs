@@ -565,7 +565,9 @@ describe('M4c2 PDF export orchestration', () => {
     const job = await exportPdf({ packagePath, outputPath });
     assert.equal(job.status, 'failed');
     assert.equal(job.error.code, 'preflight-blocked');
-    assert.ok(job.error.message.includes('Tall block'), job.error.message);
+    // C-16.5: the message is the short outcome; the warning record names the
+    // affected block (no id or engine word in the user-facing line).
+    assert.equal(job.error.message, 'Export blocked: A block doesn’t fit the page.');
     assert.ok(
       job.error.details.some(
         (detail) => detail.kind === 'blocking-defect' && detail.blockTitle === 'Tall block',

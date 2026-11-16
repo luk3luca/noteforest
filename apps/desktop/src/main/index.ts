@@ -236,8 +236,9 @@ async function showFlushFailure(win: BrowserWindow, result: FlushResult): Promis
   const response = await dialog.showMessageBox(win, {
     type: 'error',
     title: 'Changes not saved',
-    message: `NoteForest could not save your changes before ${quitting ? 'quitting' : 'closing'}.`,
-    detail: `${reason}\n\nThe window is still open. Retry the save, or cancel and keep working.`,
+    message: 'NoteForest couldn’t save your changes.',
+    // Outcome first, technical reason last (copy-plan C-15.2).
+    detail: `The window is still open. Retry, or cancel and keep working.\n\n${reason}`,
     buttons: ['Retry', 'Cancel'],
     defaultId: 0,
     cancelId: 1,
@@ -275,7 +276,7 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
         if (failures.length > 0) {
           await dialog.showMessageBox(win, {
             type: 'error',
-            message: 'Could not save your changes.',
+            message: 'Your changes weren’t saved.',
             detail: failures.join('\n'),
             buttons: ['Cancel'],
           });
@@ -285,10 +286,7 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
       } else {
         const response = await dialog.showMessageBox(win, {
           type: 'warning',
-          message:
-            dirtyTitles.length === 1
-              ? `Save changes to “${dirtyTitles[0] ?? 'this document'}” before closing?`
-              : `Save changes to ${dirtyTitles.length} documents before closing?`,
+          message: 'Save changes before closing?',
           detail: dirtyTitles.join('\n'),
           buttons: ['Save', 'Don’t Save', 'Cancel'],
           defaultId: 0,
@@ -306,7 +304,7 @@ async function attemptClose(win: BrowserWindow): Promise<void> {
           if (failures.length > 0) {
             await dialog.showMessageBox(win, {
               type: 'error',
-              message: 'Could not save your changes.',
+              message: 'Your changes weren’t saved.',
               detail: failures.join('\n'),
               buttons: ['Cancel'],
             });
@@ -900,7 +898,7 @@ function registerIpc(): void {
       record.documentId !== undefined &&
       typeof record.documentId !== 'string'
     ) {
-      return { ok: false as const, message: 'Invalid document id.' };
+      return { ok: false as const, message: 'Note settings weren’t saved.' };
     }
     return saveDocumentSettings({
       documentId:

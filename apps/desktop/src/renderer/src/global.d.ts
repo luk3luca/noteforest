@@ -33,8 +33,10 @@ declare global {
         type: 'success' | 'info' | 'warning' | 'error',
         title: string,
         description?: string,
+        /** Adds the product `Details` action that opens D25. */
+        details?: string,
       ) => void;
-      /** Test-only: open the D25 technical-line dialog (its toast host is C). */
+      /** Test-only: open the D25 technical-line dialog without a toast. */
       openDetails?: (value: string) => void;
       flushSession: () => Promise<void>;
       /** Test-only: run the product save action without the menu throttle. */

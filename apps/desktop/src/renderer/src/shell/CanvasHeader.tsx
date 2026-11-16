@@ -115,7 +115,7 @@ export function CanvasHeader({
               type="button"
               className="nf-header-export"
               data-page-export="true"
-              title="Export this document to PDF (⇧⌘E)"
+              title="Export to PDF (⇧⌘E)"
               aria-keyshortcuts="Shift+Meta+E"
               onClick={(event) => exportActiveDocument(event.currentTarget)}
             >

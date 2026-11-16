@@ -509,7 +509,7 @@ describe('global settings persistence', () => {
 
     const refused = await writeSettings({ page: { theme: { density: 0.95 } } });
     expect(refused.ok).toBe(false);
-    expect(refused.ok === false ? refused.message : '').toMatch(/corrupt/i);
+    expect(refused.ok === false ? refused.message : '').toBe('Settings couldn’t be read. Reset them to the defaults.');
     expect(await fs.readFile(settingsFile(), 'utf8')).toBe('{not json');
     const backupsAfter = (await fs.readdir(support)).filter((name) =>
       /^settings\.corrupt-.*\.json$/.test(name),
@@ -582,7 +582,7 @@ describe('global settings persistence', () => {
     const reset = await resetSettings();
     expect(reset.ok).toBe(false);
     if (reset.ok) return;
-    expect(reset.message).toMatch(/Could not reset settings/);
+    expect(reset.message).toBe('Settings weren’t reset.');
     expect((await fs.stat(settingsFile())).isDirectory()).toBe(true);
     expect((await readSettingsFile()).status.state).toBe('unreadable');
   });

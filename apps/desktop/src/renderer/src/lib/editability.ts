@@ -23,11 +23,11 @@ export interface EditabilityRuntime {
 }
 
 /** Disabled control title used by sidebar add buttons. */
-export const READ_MODE_TITLE = 'Read mode — switch to Edit to add content';
+export const READ_MODE_TITLE = 'Read mode — switch to Edit to make changes';
 /** Visible suffix on palette and context-menu entries disabled by Read mode. */
 export const READ_MODE_SUFFIX = ' — Read mode';
 /** Short status/toast reason for a native-menu command blocked by Read mode. */
-export const READ_MODE_TOAST = 'Read mode — switch to Continuous Edit to make changes.';
+export const READ_MODE_TOAST = 'Read mode — switch to Edit to make changes.';
 
 /**
  * True only for an active editable runtime in Continuous + Edit. A missing

@@ -281,7 +281,7 @@ describe('stale lock consent', () => {
     expect(taken.ok).toBe(false);
     if (!taken.ok) {
       expect(taken.code).toBe('locked');
-      expect(taken.message).toMatch(/lock is live/i);
+      expect(taken.message).toBe('Another window has this note open.');
     }
 
     const applied = created.store.apply({ type: 'document.rename', title: 'Still mine' });

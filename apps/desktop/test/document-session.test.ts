@@ -233,7 +233,7 @@ describe('DocumentSession command application', () => {
 
     expect(result).toEqual({
       ok: false,
-      message: 'This document is open read-only.',
+      message: 'This note is open read-only.',
       code: 'read-only',
     });
     expect(state.order).toEqual([]);

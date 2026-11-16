@@ -249,7 +249,7 @@ describe('Dialog frame and A+B copy', () => {
 
     // New library keeps the sentence-case title and the empty-error state.
     await openSwitcher();
-    await chooseMenuItem('New Library…');
+    await chooseMenuItem('New library…');
     await assertFrame({
       width: 480,
       title: 'New library',
@@ -547,8 +547,30 @@ describe('Dialog frame and A+B copy', () => {
     await ui.seedDemo();
     const detailsValue = '/Users/luca/NoteForest/linear-algebra/document.json';
 
-    // D25: Details, one code block, Copy … Close (the toast host is batch C).
-    await page.evaluate((value) => window.__noteforestTest.openDetails(value), detailsValue);
+    // Batch C: a toast stays one line and carries one `Details` action that
+    // opens D25 (dialogs.md §6.1). No inline disclosure inside the toast.
+    await page.evaluate(
+      (value) =>
+        window.__noteforestTest.showToast('error', 'The file couldn’t be written.', undefined, value),
+      detailsValue,
+    );
+    const toast = page.locator('[data-sonner-toast]').first();
+    await toast.waitFor({ state: 'visible' });
+    assert.equal(
+      await toast.locator('[data-details]').count(),
+      0,
+      'a toast has no inline Details disclosure',
+    );
+    assert.equal(await toast.locator('button').count(), 1, 'one Details action');
+    assert.equal((await toast.locator('button').innerText()).trim(), 'Details');
+    // The toast slides in from below; capture the element itself so the
+    // evidence never depends on the enter animation's position.
+    await toast.screenshot({ path: resolve(screenshotDir, 'toast-details-action.png') });
+    await toast.screenshot({ path: resolve(artifactsPath('copy-cd'), 'toast-details-action.png') });
+    await toast.locator('button').click();
+
+    // D25: Details, one code block, Copy … Close.
+
     const d25 = await assertFrame({
       width: 480,
       title: 'Details',
@@ -682,7 +704,10 @@ describe('Dialog frame and A+B copy', () => {
     await failedDetails.locator('summary').click();
     const failedValue = await failedDetails.locator('[data-details-value]').textContent();
     assert.match(failedValue, /preflight-blocked/);
-    assert.match(failedValue, /Tall block/);
+    // C-16.5: the row names the block; the Details line is the short sentence
+    // and no longer repeats the title or the defect id.
+    assert.match(failedValue, /A block doesn’t fit the page\./);
+    assert.doesNotMatch(failedValue, /Tall block/);
     await page.screenshot({
       path: resolve(screenshotDir, 'export-failed-details-560.png'),
       scale: 'css',

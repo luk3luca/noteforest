@@ -97,7 +97,10 @@ export interface RestorePoint {
 
 export interface ApplyOutcome {
   ok: boolean;
+  /** Short outcome, safe for a toast line. */
   message?: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
   blockId?: string;
   chapterId?: string;
   anchorId?: string;
@@ -305,7 +308,7 @@ export class DocumentRuntime {
    * so the first keystroke is included in the first package write.
    */
   ensureMaterialized(): Promise<
-    { ok: true } | { ok: false; code: string; message: string }
+    { ok: true } | { ok: false; code: string; message: string; details?: string }
   > {
     if (!this.isDraft) return Promise.resolve({ ok: true });
     if (this.draftMaterializing !== null) return this.draftMaterializing;
@@ -329,13 +332,13 @@ export class DocumentRuntime {
       return {
         ok: false,
         code: 'read-only',
-        message: 'This note is open read-only; it cannot be saved.',
+        message: 'This note is open read-only. It can’t be saved.',
       };
     }
     this.saves.clearPendingCommit();
     const committed = await this.commitContentInternal();
     if (!committed) {
-      const message = this.saveError ?? 'Could not commit the pending edit.';
+      const message = this.saveError ?? 'The pending edit wasn’t saved.';
       // The commit itself can fail because the lazy main-process materialization
       // failed (missing library, live lock); keep that visible on the draft too.
       this.draftError = {
@@ -549,14 +552,20 @@ export class DocumentRuntime {
    * The runtime keeps its package path, selection, and mounted editor; only
    * the writable state, canonical document, and lock metadata are replaced.
    */
-  async takeOverLock(): Promise<{ ok: boolean; message?: string }> {
+  async takeOverLock(): Promise<{ ok: boolean; message?: string; details?: string }> {
     if (this.readOnlyReason !== 'stale-lock') {
-      return { ok: false, message: 'This document is not waiting on a stale lock.' };
+      return { ok: false, message: 'This note isn’t waiting on a stale lock.' };
     }
     const result = await this.gateway.takeOverLock(this.packagePath);
-    if (!result.ok) return { ok: false, message: result.message };
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.message,
+        ...(result.details === undefined ? {} : { details: result.details }),
+      };
+    }
     if (result.snapshot.status !== 'editable') {
-      return { ok: false, message: 'The document reopened read-only; the lock was not taken over.' };
+      return { ok: false, message: 'The note reopened read-only. The lock wasn’t taken over.' };
     }
     this.applyReopenedSnapshot(result.snapshot);
     return { ok: true };
@@ -676,12 +685,18 @@ export class DocumentRuntime {
    * callers must confirm first. The store lock is released and reacquired in
    * the main process.
    */
-  async reloadFromDisk(): Promise<{ ok: boolean; message?: string }> {
+  async reloadFromDisk(): Promise<{ ok: boolean; message?: string; details?: string }> {
     return this.session.queue.run(async () => {
       this.saves.clearTimers();
       const wasEditable = this.editable;
       const result = await this.gateway.reloadDocument(this.packagePath);
-      if (!result.ok) return { ok: false, message: result.message };
+      if (!result.ok) {
+        return {
+          ok: false,
+          message: result.message,
+          ...(result.details === undefined ? {} : { details: result.details }),
+        };
+      }
       this.status = result.snapshot.status;
       this.readOnlyReason = result.snapshot.readOnlyReason;
       this.lock = result.snapshot.lock;
@@ -757,7 +772,11 @@ export class DocumentRuntime {
     return this.session.queue.run(async () => {
       const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The command was rejected.' };
+        return {
+          ok: false,
+          message: result.message ?? 'That command isn’t available right now.',
+          ...(result.details === undefined ? {} : { details: result.details }),
+        };
       }
       await this.acceptStructural(
         result.document,
@@ -787,20 +806,24 @@ export class DocumentRuntime {
    */
   async insertImage(blockId: string, asset: Asset): Promise<ApplyOutcome> {
     if (!this.editable) {
-      return { ok: false, message: 'This document is open read-only.' };
+      return { ok: false, message: 'This note is open read-only.' };
     }
     return this.session.queue.run(async () => {
       if (this.document.blocks[blockId] === undefined) {
-        return { ok: false, message: 'The block no longer exists.' };
+        return { ok: false, message: 'This block no longer exists.' };
       }
       const added = await this.runCommandInternal({ type: 'asset.add', asset });
       if (!added.ok || added.document === undefined) {
-        return { ok: false, message: added.message ?? 'Could not record the image asset.' };
+        return {
+          ok: false,
+          message: added.message ?? 'The image wasn’t added.',
+          ...(added.details === undefined ? {} : { details: added.details }),
+        };
       }
       await this.acceptStructural(added.document, null, blockId, { rebuild: false });
 
       const block = this.document.blocks[blockId];
-      if (block === undefined) return { ok: false, message: 'The block no longer exists.' };
+      if (block === undefined) return { ok: false, message: 'This block no longer exists.' };
       const alt = asset.alt ?? defaultImageAlt(asset.originalName);
       const image = imageNodeFor({
         assetId: asset.id,
@@ -814,7 +837,11 @@ export class DocumentRuntime {
         content: contentWithImage(block.content, image),
       });
       if (!edited.ok || edited.document === undefined) {
-        return { ok: false, message: edited.message ?? 'Could not insert the image.' };
+        return {
+          ok: false,
+          message: edited.message ?? 'The image wasn’t added.',
+          ...(edited.details === undefined ? {} : { details: edited.details }),
+        };
       }
       await this.acceptStructural(edited.document, edited.inverse, blockId);
       this.focusBlock(blockId);
@@ -831,12 +858,16 @@ export class DocumentRuntime {
    */
   async recordAsset(asset: Asset): Promise<ApplyOutcome> {
     if (!this.editable) {
-      return { ok: false, message: 'This document is open read-only.' };
+      return { ok: false, message: 'This note is open read-only.' };
     }
     return this.session.queue.run(async () => {
       const added = await this.runCommandInternal({ type: 'asset.add', asset });
       if (!added.ok || added.document === undefined) {
-        return { ok: false, message: added.message ?? 'Could not record the image asset.' };
+        return {
+          ok: false,
+          message: added.message ?? 'The image wasn’t added.',
+          ...(added.details === undefined ? {} : { details: added.details }),
+        };
       }
       await this.acceptStructural(added.document, null, this.selectedBlockId, {
         rebuild: false,
@@ -856,10 +887,10 @@ export class DocumentRuntime {
    */
   async editBlockContent(blockId: string, content: ContentNode): Promise<ApplyOutcome> {
     if (!this.editable) {
-      return { ok: false, message: 'This document is open read-only.' };
+      return { ok: false, message: 'This note is open read-only.' };
     }
     if (this.document.blocks[blockId] === undefined) {
-      return { ok: false, message: 'The block no longer exists.' };
+      return { ok: false, message: 'This block no longer exists.' };
     }
     return this.applyStructural(
       { type: 'block.editContent', blockId, content },
@@ -874,7 +905,7 @@ export class DocumentRuntime {
     alt: string,
   ): Promise<ApplyOutcome> {
     const block = this.document.blocks[blockId];
-    if (block === undefined) return { ok: false, message: 'The block no longer exists.' };
+    if (block === undefined) return { ok: false, message: 'This block no longer exists.' };
     const content = contentWithImageAlt(block.content, path, alt.trim());
     return this.applyStructural(
       { type: 'block.editContent', blockId, content },
@@ -896,24 +927,32 @@ export class DocumentRuntime {
     asset: Asset,
   ): Promise<ApplyOutcome> {
     if (!this.editable) {
-      return { ok: false, message: 'This document is open read-only.' };
+      return { ok: false, message: 'This note is open read-only.' };
     }
     return this.session.queue.run(async () => {
       const added = await this.runCommandInternal({ type: 'asset.add', asset });
       if (!added.ok || added.document === undefined) {
-        return { ok: false, message: added.message ?? 'Could not record the image asset.' };
+        return {
+          ok: false,
+          message: added.message ?? 'The image wasn’t added.',
+          ...(added.details === undefined ? {} : { details: added.details }),
+        };
       }
       await this.acceptStructural(added.document, null, blockId, { rebuild: false });
 
       const block = this.document.blocks[blockId];
-      if (block === undefined) return { ok: false, message: 'The block no longer exists.' };
+      if (block === undefined) return { ok: false, message: 'This block no longer exists.' };
       const edited = await this.runCommandInternal({
         type: 'block.editContent',
         blockId,
         content: contentWithImageAsset(block.content, path, asset),
       });
       if (!edited.ok || edited.document === undefined) {
-        return { ok: false, message: edited.message ?? 'Could not replace the image.' };
+        return {
+          ok: false,
+          message: edited.message ?? 'The image wasn’t replaced.',
+          ...(edited.details === undefined ? {} : { details: edited.details }),
+        };
       }
       await this.acceptStructural(edited.document, edited.inverse, blockId);
       this.focusBlock(blockId);
@@ -925,7 +964,7 @@ export class DocumentRuntime {
   private async createBlockNow(command: DocumentCommand): Promise<ApplyOutcome> {
     const result = await this.runCommandInternal(command);
     if (!result.ok || result.document === undefined) {
-      return { ok: false, message: result.message ?? 'Could not create the block.' };
+      return { ok: false, message: result.message ?? 'The block wasn’t created.' };
     }
     const createdId = result.created?.blockIds[0] ?? null;
     if (createdId === null) {
@@ -1006,7 +1045,7 @@ export class DocumentRuntime {
     return this.session.queue.run(async () => {
       const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not branch from the selection.' };
+        return { ok: false, message: result.message ?? 'The branch wasn’t created.' };
       }
       const blockId = result.created?.blockIds[0] ?? null;
       const anchorId = result.created?.anchorIds[0];
@@ -1050,11 +1089,11 @@ export class DocumentRuntime {
       if (caret === null) {
         return {
           ok: false,
-          message: 'Place the caret inside a text block, without a selection, first.',
+          message: 'Place the caret in a text block first.',
         };
       }
       if (caret.blockId !== blockId) {
-        return { ok: false, message: 'The caret is in a different block.' };
+        return { ok: false, message: 'The caret must be in the same block.' };
       }
       const result = await this.runCommandInternal({
         type: 'block.split',
@@ -1062,7 +1101,7 @@ export class DocumentRuntime {
         at: { nodePath: caret.nodePath, offset: caret.offset },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not split the block.' };
+        return { ok: false, message: result.message ?? 'The block wasn’t split.' };
       }
       const newBlockId = result.created?.blockIds[0] ?? null;
       await this.acceptStructural(result.document, result.inverse, newBlockId);
@@ -1094,7 +1133,7 @@ export class DocumentRuntime {
         intoBlockId: survivorId,
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not merge the block.' };
+        return { ok: false, message: result.message ?? 'The block wasn’t merged.' };
       }
       await this.acceptStructural(result.document, result.inverse, survivorId);
       this.reconcileEditor(survivorId);
@@ -1118,7 +1157,7 @@ export class DocumentRuntime {
   }): Promise<ApplyOutcome> {
     return this.session.queue.run(async () => {
       if (input.sourceBlockId === input.targetBlockId) {
-        return { ok: false, message: 'A block cannot link to itself.' };
+        return { ok: false, message: 'A block can’t link to itself.' };
       }
       const result = await this.runCommandInternal({
         type: 'branch.create',
@@ -1130,7 +1169,7 @@ export class DocumentRuntime {
         role: 'reference',
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not link the block.' };
+        return { ok: false, message: result.message ?? 'Couldn’t add the link.' };
       }
       const branch = Object.values(result.document.branches).find(
         (candidate) =>
@@ -1160,17 +1199,17 @@ export class DocumentRuntime {
     return this.session.queue.run(async () => {
       const branch = this.document.branches[branchId];
       if (branch === undefined) {
-        return { ok: false, message: 'This reference no longer exists.' };
+        return { ok: false, message: 'This reference is gone.' };
       }
       if (branch.role !== 'reference') {
-        return { ok: false, message: 'Only reference links can be removed here.' };
+        return { ok: false, message: 'Only a reference link can be removed here.' };
       }
       const result = await this.runCommandInternal({
         type: 'branch.delete',
         branchId,
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not remove the reference.' };
+        return { ok: false, message: result.message ?? 'The reference wasn’t removed.' };
       }
       await this.acceptStructural(result.document, result.inverse, null);
       this.reconcileEditor(this.selectedBlockId);
@@ -1209,22 +1248,22 @@ export class DocumentRuntime {
   > {
     return this.session.queue.run(async () => {
       if (!this.editable) {
-        return { ok: false, message: 'This document is open read-only.' };
+        return { ok: false, message: 'This note is open read-only.' };
       }
       const committed = await this.commitContentInternal();
       if (!committed) {
         return {
           ok: false,
-          message: this.saveError ?? 'Could not commit the pending edit.',
+          message: this.saveError ?? 'The pending edit wasn’t saved.',
         };
       }
       const anchor = this.document.anchors[anchorId];
       if (anchor === undefined) {
-        return { ok: false, message: 'This anchor no longer exists.' };
+        return { ok: false, message: 'This anchor is gone.' };
       }
       const editor = this.editor;
       if (editor === null) {
-        return { ok: false, message: 'Open the editor before relinking an anchor.' };
+        return { ok: false, message: 'Open the editor first.' };
       }
       const picked = branchSelectionAnchor(editor);
       if (!picked.ok) return { ok: false, message: picked.message };
@@ -1232,19 +1271,18 @@ export class DocumentRuntime {
       if (selection.blockId !== anchor.blockId) {
         return {
           ok: false,
-          message: 'Select the replacement range in the anchor’s own block.',
+          message: 'Select the new text in the anchor’s block.',
         };
       }
       if (selection.kind !== anchor.kind) {
         return {
           ok: false,
-          message: `Select ${
+          message:
             anchor.kind === 'text'
-              ? 'text'
+              ? 'Select the text first.'
               : anchor.kind === 'formula'
-                ? 'a formula'
-                : 'a code range'
-          } in the anchor’s block.`,
+                ? 'Select the formula first.'
+                : 'Select the code first.',
         };
       }
       let selector: JsonObject;
@@ -1255,7 +1293,7 @@ export class DocumentRuntime {
             ? null
             : textAnchorSelectorForBinding(block.content, selection.binding);
         if (derived === null) {
-          return { ok: false, message: 'Select one continuous text range.' };
+          return { ok: false, message: 'Select one continuous range.' };
         }
         selector = derived;
       } else {
@@ -1279,7 +1317,7 @@ export class DocumentRuntime {
   async attachAnchorToBlock(anchorId: string): Promise<ApplyOutcome> {
     const anchor = this.document.anchors[anchorId];
     if (anchor === undefined) {
-      return { ok: false, message: 'This anchor no longer exists.' };
+      return { ok: false, message: 'This anchor is gone.' };
     }
     return this.applyStructural(
       { type: 'anchor.attachToBlock', anchorId },
@@ -1298,7 +1336,7 @@ export class DocumentRuntime {
   ): Promise<ApplyOutcome> {
     const anchor = this.document.anchors[anchorId];
     if (anchor === undefined) {
-      return { ok: false, message: 'This anchor no longer exists.' };
+      return { ok: false, message: 'This anchor is gone.' };
     }
     return this.applyStructural(
       { type: 'anchor.delete', anchorId, branches },
@@ -1315,7 +1353,7 @@ export class DocumentRuntime {
   async removeIdleAnchor(anchorId: string): Promise<ApplyOutcome> {
     const anchor = this.document.anchors[anchorId];
     if (anchor === undefined) {
-      return { ok: false, message: 'This anchor no longer exists.' };
+      return { ok: false, message: 'This anchor is gone.' };
     }
     const hasOutgoing = Object.values(this.document.branches).some(
       (branch) => branch.source.anchorId === anchorId,
@@ -1323,7 +1361,7 @@ export class DocumentRuntime {
     if (hasOutgoing) {
       return {
         ok: false,
-        message: 'Only an idle anchor can be removed here. Repair or delete its branches first.',
+        message: 'This anchor has branches. Remove them first.',
       };
     }
     return this.applyStructural(
@@ -1341,10 +1379,10 @@ export class DocumentRuntime {
     return this.session.queue.run(async () => {
       const branch = this.document.branches[branchId];
       if (branch === undefined) {
-        return { ok: false, message: 'This branch no longer exists.' };
+        return { ok: false, message: 'This branch is gone.' };
       }
       if (branch.source.anchorId === undefined) {
-        return { ok: false, message: 'This branch is not anchored.' };
+        return { ok: false, message: 'This branch has no anchor.' };
       }
       const result = await this.runCommandInternal({
         type: 'branch.delete',
@@ -1354,7 +1392,7 @@ export class DocumentRuntime {
           : {}),
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not delete the branch.' };
+        return { ok: false, message: result.message ?? 'The branch wasn’t removed.' };
       }
       await this.acceptStructural(result.document, result.inverse, branch.source.blockId);
       this.reconcileEditor(branch.source.blockId);
@@ -1373,7 +1411,7 @@ export class DocumentRuntime {
     return this.session.queue.run(async () => {
       const branch = this.document.branches[branchId];
       if (branch === undefined) {
-        return { ok: false, message: 'This branch no longer exists.' };
+        return { ok: false, message: 'This branch is gone.' };
       }
       const result = await this.runCommandInternal({
         type: 'branch.delete',
@@ -1383,7 +1421,7 @@ export class DocumentRuntime {
           : {}),
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not delete the branch.' };
+        return { ok: false, message: result.message ?? 'The branch wasn’t removed.' };
       }
       await this.acceptStructural(
         result.document,
@@ -1409,18 +1447,18 @@ export class DocumentRuntime {
     if (this.document.anchors[anchorId] !== undefined) {
       return {
         ok: false,
-        message: 'That anchor record exists; use a repair or delete action instead.',
+        message: 'This anchor already exists. Repair or delete it instead.',
       };
     }
     const block = this.document.blocks[blockId];
     if (block === undefined) {
-      return { ok: false, message: 'That block no longer exists.' };
+      return { ok: false, message: 'This block no longer exists.' };
     }
     const content = removeAnchorBinding(block.content, anchorId);
     if (JSON.stringify(content) === JSON.stringify(block.content)) {
       return {
         ok: false,
-        message: 'That anchor ID is no longer bound in this block.',
+        message: 'This anchor isn’t bound in the block any more.',
       };
     }
     // `applyStructural` owns the serial queue; this method must not wrap it in
@@ -1441,25 +1479,25 @@ export class DocumentRuntime {
   async recreateOrphanAnchor(blockId: string, anchorId: string): Promise<ApplyOutcome> {
     return this.session.queue.run(async () => {
       if (this.document.anchors[anchorId] !== undefined) {
-        return { ok: false, message: 'That anchor record already exists.' };
+        return { ok: false, message: 'This anchor already exists.' };
       }
       const block = this.document.blocks[blockId];
       if (block === undefined) {
-        return { ok: false, message: 'That block no longer exists.' };
+        return { ok: false, message: 'This block no longer exists.' };
       }
       if (!this.editable) {
-        return { ok: false, message: 'This document is open read-only.' };
+        return { ok: false, message: 'This note is open read-only.' };
       }
       const committed = await this.commitContentInternal();
       if (!committed) {
         return {
           ok: false,
-          message: this.saveError ?? 'Could not commit the pending edit.',
+          message: this.saveError ?? 'The pending edit wasn’t saved.',
         };
       }
       const editor = this.editor;
       if (editor === null) {
-        return { ok: false, message: 'Open the editor before recreating an anchor.' };
+        return { ok: false, message: 'Open the editor first.' };
       }
       const picked = branchSelectionAnchor(editor);
       if (!picked.ok) return { ok: false, message: picked.message };
@@ -1467,14 +1505,14 @@ export class DocumentRuntime {
       if (selection.blockId !== blockId) {
         return {
           ok: false,
-          message: 'Select the orphaned range in its own block first.',
+          message: 'Select the unlinked range in its block first.',
         };
       }
       let selector: JsonObject;
       if (selection.kind === 'text') {
         const derived = textAnchorSelectorForBinding(block.content, selection.binding);
         if (derived === null) {
-          return { ok: false, message: 'Select one continuous text range.' };
+          return { ok: false, message: 'Select one continuous range.' };
         }
         selector = derived;
       } else {
@@ -1493,7 +1531,7 @@ export class DocumentRuntime {
           ok: false,
           message:
             result.message ??
-            'Could not recreate the anchor. Select the orphaned range itself, or strip the ID first.',
+            'The anchor wasn’t recreated. Select the unlinked range itself, or remove its link first.',
         };
       }
       await this.acceptStructural(result.document, result.inverse, blockId);
@@ -1511,7 +1549,7 @@ export class DocumentRuntime {
     return this.applyRoleTransition(
       branchId,
       { type: 'branch.makeHome', branchId },
-      'Could not make this reference the home.',
+      'This reference couldn’t become the home.',
     );
   }
 
@@ -1520,7 +1558,7 @@ export class DocumentRuntime {
     return this.applyRoleTransition(
       branchId,
       { type: 'branch.moveHere', branchId },
-      'Could not move the target here.',
+      'The target wasn’t moved here.',
     );
   }
 
@@ -1529,7 +1567,7 @@ export class DocumentRuntime {
     return this.applyRoleTransition(
       branchId,
       { type: 'branch.demote', branchId },
-      'Could not demote this branch to a reference.',
+      'The branch wasn’t turned into a reference.',
     );
   }
 
@@ -1545,7 +1583,7 @@ export class DocumentRuntime {
     return this.session.queue.run(async () => {
       const branch = this.document.branches[branchId];
       if (branch === undefined) {
-        return { ok: false, message: 'This branch no longer exists.' };
+        return { ok: false, message: 'This branch is gone.' };
       }
       const targetId = branch.targetBlockId;
       const result = await this.runCommandInternal(command);
@@ -1589,12 +1627,12 @@ export class DocumentRuntime {
       };
       const chapterResult = await this.runCommandInternal(chapterCommand);
       if (!chapterResult.ok || chapterResult.document === undefined) {
-        return { ok: false, message: chapterResult.message ?? 'Could not create a chapter.' };
+        return { ok: false, message: chapterResult.message ?? 'Couldn’t create a chapter.' };
       }
       const chapterId = chapterResult.created?.chapterIds[0];
       if (chapterId === undefined) {
         await this.acceptStructural(chapterResult.document, chapterResult.inverse, null);
-        return { ok: false, message: 'The chapter was created without an ID.' };
+        return { ok: false, message: 'The chapter wasn’t created.' };
       }
       const blockResult = await this.runCommandInternal({
         type: 'block.create',
@@ -1603,7 +1641,7 @@ export class DocumentRuntime {
       if (!blockResult.ok || blockResult.document === undefined) {
         // Keep the created chapter undoable even though its first block failed.
         await this.acceptStructural(chapterResult.document, chapterResult.inverse, null);
-        return { ok: false, message: blockResult.message ?? 'Could not add the first block.' };
+        return { ok: false, message: blockResult.message ?? 'The first block wasn’t added.' };
       }
       const blockId = blockResult.created?.blockIds[0] ?? null;
       await this.acceptStructural(
@@ -1629,12 +1667,12 @@ export class DocumentRuntime {
     return this.session.queue.run(async () => {
       const chapter = this.document.chapters.find((item) => item.id === chapterId);
       if (chapter === undefined) {
-        return { ok: false, message: 'This chapter no longer exists.' };
+        return { ok: false, message: 'This chapter is gone.' };
       }
       if (chapter.topLevelBlockIds.length > 0) {
         return {
           ok: false,
-          message: 'This chapter still has top-level blocks. Move or delete them first.',
+          message: 'This chapter still has blocks. Move or delete them first.',
         };
       }
       const result = await this.runCommandInternal({
@@ -1643,7 +1681,7 @@ export class DocumentRuntime {
         blockHandling: { kind: 'reject-if-not-empty' },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not delete the chapter.' };
+        return { ok: false, message: result.message ?? 'The chapter wasn’t deleted.' };
       }
       await this.acceptStructural(result.document, result.inverse, null);
       this.reconcileEditor(null);
@@ -2046,7 +2084,7 @@ export class DocumentRuntime {
     if (incoming === undefined || incoming.source.anchorId === undefined) return undefined;
     if (this.document.branches[incoming.id]?.role !== 'reference') return undefined;
     const sourceTitle = blockTitle(this.document.blocks[incoming.source.blockId]);
-    return `Kept as reference from “${sourceTitle}”.`;
+    return `Kept as a reference from “${sourceTitle}”.`;
   }
 
   async moveBlock(
@@ -2065,7 +2103,7 @@ export class DocumentRuntime {
             : { kind: 'top-level', chapterId: target.chapterId },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not move the block.' };
+        return { ok: false, message: result.message ?? 'The block wasn’t moved.' };
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
@@ -2094,7 +2132,7 @@ export class DocumentRuntime {
         to: { kind: 'child', parentBlockId: check.parentBlockId },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not indent the block.' };
+        return { ok: false, message: result.message ?? 'The block wasn’t indented.' };
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
@@ -2117,7 +2155,7 @@ export class DocumentRuntime {
         to: { kind: 'sibling', siblingBlockId: check.parentBlockId, after: true },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not outdent the block.' };
+        return { ok: false, message: result.message ?? 'The block wasn’t outdented.' };
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeToNewParent(blockId, check.parentBlockId)) {
@@ -2272,7 +2310,7 @@ export class DocumentRuntime {
         to: { kind: 'sibling', siblingBlockId: targetId, after },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not reorder the block.' };
+        return { ok: false, message: result.message ?? 'The block wasn’t reordered.' };
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeInEditor(blockId, targetId, after)) {
@@ -2328,7 +2366,7 @@ export class DocumentRuntime {
       const fallback = siblings[index - 1] ?? siblings[index + 1] ?? oldParent;
       const result = await this.runCommandInternal({ type: 'block.delete', blockId, children });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not delete the block.' };
+        return { ok: false, message: result.message ?? 'The block wasn’t deleted.' };
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.removeBlockNodeInEditor(blockId, oldParent, children)) {
@@ -2353,7 +2391,7 @@ export class DocumentRuntime {
   async deleteBranch(blockId: string): Promise<ApplyOutcome> {
     return this.session.queue.run(async () => {
       const branch = incomingBranch(this.document, blockId);
-      if (branch === undefined) return { ok: false, message: 'This block has no incoming branch.' };
+      if (branch === undefined) return { ok: false, message: 'This block has no parent branch.' };
       const oldParent = branch.source.blockId;
       const result = await this.runCommandInternal({
         type: 'branch.delete',
@@ -2361,7 +2399,7 @@ export class DocumentRuntime {
         targetHandling: { kind: 'promote' },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Could not detach the branch.' };
+        return { ok: false, message: result.message ?? 'The block wasn’t detached.' };
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
@@ -2513,7 +2551,7 @@ export class DocumentRuntime {
         // The error is reported by the caller; the next undo reaches the entry
         // below this one.
         this.notify();
-        return { ok: false, message: result.message ?? 'Could not undo.' };
+        return { ok: false, message: result.message ?? 'Undo failed.' };
       }
       this.session.acceptUndo(result.document, result.inverse);
       const target = this.projection.resolveFocusContext(focus);
@@ -2536,7 +2574,7 @@ export class DocumentRuntime {
         // Same rule as undo: a failed redo is dropped, reported, and never
         // retried forever at the top of the stack.
         this.notify();
-        return { ok: false, message: result.message ?? 'Could not redo.' };
+        return { ok: false, message: result.message ?? 'Redo failed.' };
       }
       this.session.acceptRedo(result.document, result.inverse);
       const target = this.projection.resolveFocusContext(focus);

@@ -123,7 +123,7 @@ describe('document health runtime actions', () => {
 
     const liveAttempt = await runtime.stripOrphanAnchor('source', 'live-anchor');
     expect(liveAttempt.ok).toBe(false);
-    expect(liveAttempt.message).toMatch(/record exists/);
+    expect(liveAttempt.message).toBe('This anchor already exists. Repair or delete it instead.');
     expect(runtime.document).toEqual(before);
     expect(bridge.current()).toEqual(before);
 
@@ -150,7 +150,7 @@ describe('document health runtime actions', () => {
 
     const rejected = await runtime.deleteEmptyChapter('chapter-one');
     expect(rejected.ok).toBe(false);
-    expect(rejected.message).toMatch(/still has top-level blocks/);
+    expect(rejected.message).toBe('This chapter still has blocks. Move or delete them first.');
 
     const deleted = await runtime.deleteEmptyChapter('empty-chapter');
     expect(deleted.ok).toBe(true);

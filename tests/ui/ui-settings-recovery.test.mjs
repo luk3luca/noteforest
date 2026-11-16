@@ -213,7 +213,7 @@ describe('settings data recovery', () => {
     });
     assert.match(
       await page.locator('[data-settings-file-recovery-error="true"]').innerText(),
-      /Could not reset settings/,
+      /Settings weren’t reset\./,
     );
     // Not a false success: status, banner, and file are unchanged.
     assert.equal(

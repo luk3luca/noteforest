@@ -133,7 +133,7 @@ export class DocumentSession {
    */
   async execute(command: DocumentCommand): Promise<ApplyResult> {
     if (!this.ports.isEditable()) {
-      return { ok: false, message: 'This document is open read-only.', code: 'read-only' };
+      return { ok: false, message: 'This note is open read-only.', code: 'read-only' };
     }
     const committed = await this.ports.commitEditor();
     if (!committed) {

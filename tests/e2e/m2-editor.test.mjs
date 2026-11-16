@@ -2130,7 +2130,7 @@ describe('NoteForest M2 editor shell', () => {
     await closeMainWindow();
     const dialog = await waitCloseDialog();
     assert.deepEqual(dialog.buttons, ['Retry', 'Cancel']);
-    assert.match(dialog.message, /could not save your changes before closing/i);
+    assert.equal(dialog.message, 'NoteForest couldn’t save your changes.');
     assert.match(dialog.detail, /did not confirm the save within 400 ms/);
     await waitWindowCount(1);
     await page.evaluate(() => window.__noteforestTest.setFlushMode('normal'));
@@ -2147,7 +2147,7 @@ describe('NoteForest M2 editor shell', () => {
     });
     const dialog = await waitCloseDialog();
     assert.deepEqual(dialog.buttons, ['Retry', 'Cancel']);
-    assert.match(dialog.message, /could not save your changes before quitting/i);
+    assert.equal(dialog.message, 'NoteForest couldn’t save your changes.');
     assert.match(dialog.detail, /Forced flush failure \(test\)/);
     await waitWindowCount(1);
     await answerCloseDialog(1);
@@ -2206,8 +2206,15 @@ describe('NoteForest M2 editor shell', () => {
 
       const banner = page.locator('[data-save-failure="true"]');
       await banner.waitFor();
-      assert.match(await banner.locator('.nf-save-failure-title').innerText(), /cannot write/i);
-      assert.match(await banner.locator('.nf-save-failure-message').innerText(), /permission|EACCES/i);
+      assert.equal(
+        await banner.locator('.nf-save-failure-title').innerText(),
+        'NoteForest can’t write to this folder.',
+      );
+      // The raw OS error lives in the shared Details disclosure, not in a
+      // visible technical paragraph.
+      assert.equal(await banner.locator('.nf-save-failure-message').count(), 0);
+      const detailsValue = await banner.locator('[data-details-value]').textContent();
+      assert.match(detailsValue, /permission|EACCES/i);
       for (const action of ['retry', 'save-copy', 'reload', 'reveal']) {
         assert.equal(
           await banner.locator(`[data-save-action="${action}"]`).count(),

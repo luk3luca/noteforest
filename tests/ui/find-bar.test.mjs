@@ -817,7 +817,7 @@ describe('find bar (⌘F)', () => {
       ),
       28,
     );
-    assert.equal((await page.locator('[data-search-count]').textContent())?.trim(), '0');
+    assert.equal((await page.locator('[data-search-count]').textContent())?.trim(), 'No results');
     assert.equal(await page.locator('[data-search-idle="true"]').count(), 1);
     // The view replaces the Outline while it is active.
     assert.equal(await page.locator('[data-sidebar-panel="search"] .nf-tree').count(), 0);
@@ -894,6 +894,13 @@ describe('find bar (⌘F)', () => {
     await h.screenshot(resolve(screenshotDir, 'sidebar-search.png'), {
       width: 1440,
       height: 900,
+    });
+    // C+D evidence: the aligned count (`1 of N`) and the palette header button
+    // (icon + ⌘K, no `Search` word) on the same surface.
+    const copyCd = artifactsPath('copy-cd');
+    await page.screenshot({
+      path: resolve(copyCd, 'sidebar-search.png'),
+      scale: 'css',
     });
 
     // Clicking a later occurrence makes it current and moves the note there.
@@ -1213,7 +1220,7 @@ describe('find bar (⌘F)', () => {
     );
     assert.equal(
       (await page.locator('[data-search-count]').textContent())?.trim(),
-      '0',
+      'No results',
     );
 
     // Esc, then ⌘F keeps both the query and the shared toggle.
@@ -1380,7 +1387,7 @@ describe('find bar (⌘F)', () => {
       'Open a note to search.',
     );
     assert.equal(await searchInput().isDisabled(), true);
-    assert.equal((await page.locator('[data-search-count]').textContent())?.trim(), '0');
+    assert.equal((await page.locator('[data-search-count]').textContent())?.trim(), 'No results');
     assert.equal(await page.locator('[data-search-row]').count(), 0);
     // ⌘F does nothing without a note.
     await page.keyboard.press('Meta+f');

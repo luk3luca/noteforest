@@ -206,9 +206,10 @@ export function SearchSection(): JSX.Element {
     }
   };
 
+  // Zero already says `No results`; the empty-state line below would repeat it.
   const countLabel =
     results.length === 0
-      ? '0'
+      ? 'No results'
       : `${currentIndex + 1} of ${results.length}${truncated ? '+' : ''}`;
 
   return (
@@ -273,11 +274,6 @@ export function SearchSection(): JSX.Element {
         </p>
       ) : (
         <>
-          {normalized.length > 0 && results.length === 0 ? (
-            <p className="nf-empty-line" data-search-empty="true">
-              No results
-            </p>
-          ) : null}
           {normalized.length === 0 && results.length === 0 ? (
             <p className="nf-empty-line" data-search-idle="true">
               Type to search this note.

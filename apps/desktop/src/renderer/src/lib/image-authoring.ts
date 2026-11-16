@@ -23,7 +23,7 @@ export function beginImageAnchorAuthoring(
   mode: ImageAuthoringMode,
 ): boolean {
   if (!runtime.editable) {
-    toast.error('This document is open read-only.');
+    toast.error('This note is open read-only.');
     return false;
   }
   const block = runtime.document.blocks[blockId];

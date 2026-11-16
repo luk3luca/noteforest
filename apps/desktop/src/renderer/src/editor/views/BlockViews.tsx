@@ -24,7 +24,6 @@ import { clearEditorChapterFocus, useEditorUi } from '../editor-ui';
 import { openDocumentHealth } from '../../actions';
 import { useSettingsStore } from '../../state/settings';
 import { calloutLaneWidth, placeCallout, GEOMETRY } from '../../lib/geometry';
-import { anchorHealthReason } from '../../lib/anchor-health';
 import {
   anchorVisualTargets,
   elementScale,
@@ -1404,7 +1403,7 @@ export function BlockBodyView({ node, editor }: NodeViewProps): JSX.Element {
               title={
                 anchorWarnings[0] === undefined
                   ? 'Open document health'
-                  : `${anchorHealthReason(anchorWarnings[0].reason)} Open document health to repair; the branch and target stay.`
+                  : 'Open document health to repair.'
               }
               onClick={(event) => {
                 event.preventDefault();

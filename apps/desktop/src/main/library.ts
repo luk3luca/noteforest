@@ -438,7 +438,10 @@ async function activateLibraryPath(next: string): Promise<LibraryView> {
 interface LibraryValidation {
   ok: boolean;
   path?: string;
+  /** Short outcome, safe for the dialog line. */
   message?: string;
+  /** Technical line (a path or an OS error), shown only in Details. */
+  details?: string;
 }
 
 /**
@@ -455,15 +458,12 @@ async function validateLibraryRoot(
   }
   const resolved = normalizeLibraryPath(candidate);
   if (!(await pathIsDirectory(resolved))) {
-    return {
-      ok: false,
-      message: `That folder does not exist or is not a directory: ${resolved}`,
-    };
+    return { ok: false, message: 'That folder doesn’t exist.', details: resolved };
   }
   try {
     await fs.access(resolved, fsConstants.R_OK);
   } catch {
-    return { ok: false, message: `The folder is not readable: ${resolved}` };
+    return { ok: false, message: 'That folder can’t be opened.', details: resolved };
   }
   if (await pathExists(documentJsonPath(resolved))) {
     return {
@@ -480,15 +480,12 @@ async function validateLibraryRoot(
     const rootCanonical = await canonicalLibraryPath(root);
     if (rootCanonical === canonical || rootCanonical === ignoreCanonical) continue;
     if (isPathInside(rootCanonical, canonical)) {
-      return {
-        ok: false,
-        message: `That folder is inside the library “${libraryBasename(root)}”. Choose a folder outside it.`,
-      };
+      return { ok: false, message: 'That folder is inside a library. Choose another parent.' };
     }
     if (isPathInside(canonical, rootCanonical)) {
       return {
         ok: false,
-        message: `“${libraryBasename(root)}” is already a library inside that folder. Choose a folder that does not contain another library.`,
+        message: 'A library already exists in that folder. Choose another parent.',
       };
     }
   }
@@ -510,15 +507,12 @@ async function validateNewLibraryTarget(target: string): Promise<LibraryValidati
   for (const root of await knownLibraryPaths()) {
     const rootCanonical = await canonicalLibraryPath(root);
     if (isPathInside(rootCanonical, canonical)) {
-      return {
-        ok: false,
-        message: `That folder would be inside the library “${libraryBasename(root)}”. Choose a parent outside it.`,
-      };
+      return { ok: false, message: 'That folder is inside a library. Choose another parent.' };
     }
     if (isPathInside(canonical, rootCanonical)) {
       return {
         ok: false,
-        message: `“${libraryBasename(root)}” is already a library inside that parent. Choose another parent.`,
+        message: 'A library already exists in that parent. Choose another.',
       };
     }
   }
@@ -528,7 +522,11 @@ async function validateNewLibraryTarget(target: string): Promise<LibraryValidati
 export async function openLibraryPath(candidate: string): Promise<LibraryActionResult> {
   const validation = await validateLibraryRoot(candidate);
   if (!validation.ok || validation.path === undefined) {
-    return { ok: false, message: validation.message ?? 'That folder cannot be a library.' };
+    return {
+      ok: false,
+      message: validation.message ?? 'That folder cannot be a library.',
+      ...(validation.details === undefined ? {} : { details: validation.details }),
+    };
   }
   const library = await activateLibraryPath(validation.path);
   const reconciliation = library.missing
@@ -556,12 +554,20 @@ export async function createLibraryRoot(
   const target = path.join(normalizeLibraryPath(input.parentPath), name);
   const validation = await validateNewLibraryTarget(target);
   if (!validation.ok || validation.path === undefined) {
-    return { ok: false, message: validation.message ?? 'That library cannot be created.' };
+    return {
+      ok: false,
+      message: validation.message ?? 'That library cannot be created.',
+      ...(validation.details === undefined ? {} : { details: validation.details }),
+    };
   }
   try {
     await fs.mkdir(validation.path);
   } catch (error) {
-    return { ok: false, message: `Could not create the library: ${errorMessage(error)}` };
+    return {
+      ok: false,
+      message: 'Couldn’t create the library.',
+      details: errorMessage(error),
+    };
   }
   const library = await activateLibraryPath(validation.path);
   return { ok: true, library };
@@ -821,7 +827,7 @@ function draftSnapshot(session: DraftSession): OpenDocumentSnapshot {
 async function resolveDraftTargetFolder(
   root: string,
   candidate: unknown,
-): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
+): Promise<{ ok: true; path: string } | { ok: false; message: string; details?: string }> {
   if (typeof candidate !== 'string' || candidate.trim().length === 0) {
     return { ok: false, message: 'Choose a folder inside the library for this note.' };
   }
@@ -831,7 +837,8 @@ async function resolveDraftTargetFolder(
   if (resolvedCanonical !== rootCanonical && !isPathInside(rootCanonical, resolvedCanonical)) {
     return {
       ok: false,
-      message: `“${resolved}” is not inside the active library (${root}). Choose a folder in this library.`,
+      message: 'That folder isn’t in this library. Choose a folder inside it.',
+      details: `${resolved} · ${root}`,
     };
   }
   const relative = path.relative(rootCanonical, resolvedCanonical);
@@ -841,14 +848,16 @@ async function resolveDraftTargetFolder(
   if (reservedSegment !== undefined) {
     return {
       ok: false,
-      message: `“${reservedSegment}” is reserved for note assets or backups. Choose a normal folder.`,
+      message: 'That folder name is reserved. Choose another name.',
+      details: reservedSegment,
     };
   }
   const description = await describeVaultEntry(resolved);
   if (description === null) {
     return {
       ok: false,
-      message: `That folder no longer exists: ${resolved}. Choose another folder for this note.`,
+      message: 'That folder no longer exists. Choose another one.',
+      details: resolved,
     };
   }
   if (description.kind !== 'folder') {
@@ -876,7 +885,8 @@ export async function createDraftSession(
   if (!(await pathIsDirectory(directory))) {
     return {
       ok: false,
-      message: `The active library was not found: ${directory}. Locate it or open another library.`,
+      message: 'The library isn’t there any more. Locate it or open another.',
+      details: directory,
     };
   }
   // Global New note has no target and stays root-bound; "New note here" passes
@@ -884,7 +894,13 @@ export async function createDraftSession(
   let targetFolderPath: string | null = null;
   if (input.targetFolderPath !== undefined) {
     const target = await resolveDraftTargetFolder(directory, input.targetFolderPath);
-    if (!target.ok) return { ok: false, message: target.message };
+    if (!target.ok) {
+      return {
+        ok: false,
+        message: target.message,
+        ...(target.details === undefined ? {} : { details: target.details }),
+      };
+    }
     targetFolderPath = target.path;
   }
 
@@ -900,7 +916,11 @@ export async function createDraftSession(
       placement: { kind: 'top-level', chapterId },
     });
     if (!block.ok) {
-      return { ok: false, message: `Could not create the draft: ${block.message}` };
+      return {
+        ok: false,
+        message: 'Couldn’t create the note.',
+        details: block.message,
+      };
     }
     document = block.document;
   }
@@ -929,6 +949,7 @@ type DraftMaterializeFailure = {
   ok: false;
   code: 'library-missing' | 'locked' | 'not-found' | 'unknown';
   message: string;
+  details?: string;
 };
 
 /**
@@ -950,7 +971,8 @@ async function ensureDraftMaterialized(
     return {
       ok: false,
       code: 'library-missing',
-      message: `The library this note was created in is not available: ${session.libraryPath}. Reconnect it or choose another library, then retry.`,
+      message: 'The note’s library is offline.',
+      details: session.libraryPath,
     };
   }
   // A folder deleted or replaced after "New note here" fails here instead of
@@ -959,7 +981,12 @@ async function ensureDraftMaterialized(
   if (session.targetFolderPath !== null) {
     const target = await resolveDraftTargetFolder(session.libraryPath, session.targetFolderPath);
     if (!target.ok) {
-      return { ok: false, code: 'not-found', message: target.message };
+      return {
+        ok: false,
+        code: 'not-found',
+        message: target.message,
+        ...(target.details === undefined ? {} : { details: target.details }),
+      };
     }
     targetDirectory = target.path;
   }
@@ -975,11 +1002,15 @@ async function ensureDraftMaterialized(
       return {
         ok: false,
         code: 'locked',
-        message:
-          'The note folder is locked by another NoteForest session. Close the other NoteForest window and try again.',
+        message: 'Another window has this note open. Close it there and try again.',
       };
     }
-    return { ok: false, code: 'unknown', message: created.error.message };
+    return {
+      ok: false,
+      code: 'unknown',
+      message: 'The note couldn’t be saved.',
+      details: created.error.message,
+    };
   }
   repository.adopt(created.store);
   session.materializedPath = created.packagePath;
@@ -996,7 +1027,7 @@ export async function materializeDraftSession(
     return {
       ok: false,
       code: 'not-found',
-      message: 'This draft is no longer open. Create a new note and try again.',
+      message: 'This note isn’t open any more. Create a new one.',
     };
   }
   const target = await ensureDraftMaterialized(session);
@@ -1011,11 +1042,17 @@ export async function materializeDraftSession(
 /** Materialize a draft before an operation that needs real package bytes. */
 async function materializedTargetPath(
   documentKey: string,
-): Promise<{ ok: true; packagePath: string } | { ok: false; message: string }> {
+): Promise<{ ok: true; packagePath: string } | { ok: false; message: string; details?: string }> {
   const draft = draftSessionForPath(documentKey);
   if (draft === null) return { ok: true, packagePath: documentKey };
   const target = await ensureDraftMaterialized(draft);
-  return target.ok ? { ok: true, packagePath: target.packagePath } : { ok: false, message: target.message };
+  return target.ok
+    ? { ok: true, packagePath: target.packagePath }
+    : {
+        ok: false,
+        message: target.message,
+        ...(target.details === undefined ? {} : { details: target.details }),
+      };
 }
 
 /**
@@ -1029,11 +1066,15 @@ export async function chooseDraftLibrary(
 ): Promise<DraftLibraryResult> {
   const session = draftSessionForPath(documentKey);
   if (session === null) {
-    return { ok: false, message: 'This draft is no longer open.' };
+    return { ok: false, message: 'This note isn’t open any more.' };
   }
   const validation = await validateLibraryRoot(chosenPath);
   if (!validation.ok || validation.path === undefined) {
-    return { ok: false, message: validation.message ?? 'That folder cannot be a library.' };
+    return {
+      ok: false,
+      message: validation.message ?? 'That folder cannot be a library.',
+      ...(validation.details === undefined ? {} : { details: validation.details }),
+    };
   }
   session.libraryPath = validation.path;
   // The old target folder belonged to the missing library; the note restarts at
@@ -1354,8 +1395,8 @@ async function recoveryViewFromOpen(
   const reason =
     result.errors[0]?.message ??
     (status === 'missing'
-      ? 'This folder has no document.json.'
-      : 'The document could not be opened.');
+      ? 'The folder is missing.'
+      : 'The note couldn’t be opened.');
   return {
     recovery: true,
     packagePath: result.packagePath,
@@ -1382,7 +1423,7 @@ function recoveryViewForError(packagePath: string, message: string): RecoveryDoc
 export async function openStore(packagePath: string): Promise<OpenStoreResult> {
   if (isDraftKey(packagePath)) {
     const draft = draftSessionForPath(packagePath);
-    if (draft === null) return { error: 'This draft is no longer open.' };
+    if (draft === null) return { error: 'This note isn’t open any more.' };
     // A draft has no package to open; callers that need a real store must
     // materialize first (apply/save/import do this themselves).
     return { error: 'The note is still a draft and has no package folder yet.' };
@@ -1449,8 +1490,7 @@ export async function takeOverStaleLock(
       return {
         ok: false,
         code: 'locked',
-        message:
-          'The lock is live: another NoteForest session is writing this document. Taking over is not allowed while its heartbeat is current.',
+        message: 'Another window has this note open.',
       };
     }
     if (broken.reason === 'io-error') {
@@ -1491,7 +1531,7 @@ export async function createDocument(input: { title?: string }): Promise<{
   ok: true;
   snapshot: OpenDocumentSnapshot;
   library: LibraryView;
-} | { ok: false; message: string }> {
+} | { ok: false; message: string; details?: string }> {
   const directory = await activeLibraryPath();
   if (directory === null || directory.length === 0) {
     return {
@@ -1502,7 +1542,8 @@ export async function createDocument(input: { title?: string }): Promise<{
   if (!(await pathIsDirectory(directory))) {
     return {
       ok: false,
-      message: `The active library was not found: ${directory}. Locate it or open another library.`,
+      message: 'The library isn’t there any more. Locate it or open another.',
+      details: directory,
     };
   }
   const title = input.title?.trim() || 'Untitled';
@@ -1516,8 +1557,7 @@ export async function createDocument(input: { title?: string }): Promise<{
     ) {
       return {
         ok: false,
-        message:
-          'The note folder is locked by another NoteForest session. Close the other NoteForest window and try again.',
+        message: 'Another window has this note open. Close it there and try again.',
       };
     }
     return { ok: false, message: created.error.message };
@@ -1530,12 +1570,16 @@ export async function createDocument(input: { title?: string }): Promise<{
     });
     if (!block.ok) {
       await repository.close(created.packagePath);
-      return { ok: false, message: `Could not create the first block: ${block.message}` };
+      return {
+        ok: false,
+        message: 'The first block wasn’t created.',
+        details: block.message,
+      };
     }
     await repository.save(created.packagePath);
   }
   const current = await snapshot(created.store);
-  if (current === null) return { ok: false, message: 'The new document could not be opened.' };
+  if (current === null) return { ok: false, message: 'The note couldn’t be opened.' };
   return { ok: true, snapshot: current, library: await scanLibraryAfterChange() };
 }
 
@@ -1617,7 +1661,7 @@ export async function importImageFile(
   const store = opened.store;
   if (store.document === null) return { ok: false, message: 'The document is not open.' };
   if (store.readOnly) {
-    return { ok: false, message: 'This document is open read-only; the image was not copied.' };
+    return { ok: false, message: 'This note is open read-only; the image wasn’t added.' };
   }
 
   const mime = imageMimeFromName(filePath);
@@ -1630,7 +1674,8 @@ export async function importImageFile(
   } catch (error) {
     return {
       ok: false,
-      message: `Could not read the image: ${error instanceof Error ? error.message : String(error)}`,
+      message: 'The image couldn’t be read.',
+      details: error instanceof Error ? error.message : String(error),
     };
   }
   if (!stat.isFile()) return { ok: false, message: 'The selected path is not a file.' };
@@ -1648,7 +1693,8 @@ export async function importImageFile(
   } catch (error) {
     return {
       ok: false,
-      message: `Could not read the image: ${error instanceof Error ? error.message : String(error)}`,
+      message: 'The image couldn’t be read.',
+      details: error instanceof Error ? error.message : String(error),
     };
   }
   const inserted = await store.assets.insert({
@@ -1680,7 +1726,7 @@ export async function importImageBytes(
   const store = opened.store;
   if (store.document === null) return { ok: false, message: 'The document is not open.' };
   if (store.readOnly) {
-    return { ok: false, message: 'This document is open read-only; the image was not copied.' };
+    return { ok: false, message: 'This note is open read-only; the image wasn’t added.' };
   }
 
   const rawBytes: unknown = input?.bytes;
@@ -1749,10 +1795,16 @@ export async function copyImageAsset(
   assetId: string,
 ): Promise<ImportImageResult> {
   if (!/^[0-9a-f]{64}$/.test(assetId)) {
-    return { ok: false, message: 'The copied image asset id is malformed.' };
+    return { ok: false, message: 'That image can’t be copied.' };
   }
   const materialized = await materializedTargetPath(targetPackagePath);
-  if (!materialized.ok) return { ok: false, message: materialized.message };
+  if (!materialized.ok) {
+    return {
+      ok: false,
+      message: materialized.message,
+      ...(materialized.details === undefined ? {} : { details: materialized.details }),
+    };
+  }
   targetPackagePath = materialized.packagePath;
   const source = path.resolve(sourcePackagePath);
   if (!(await isInsideKnownLibrary(source)) || isDraftKey(sourcePackagePath)) {
@@ -1771,9 +1823,8 @@ export async function copyImageAsset(
     if (!validated.ok || validated.document === undefined) {
       return {
         ok: false,
-        message: `The source document could not be read: ${
-          validated.ok ? 'no document' : validated.error.message
-        }`,
+        message: 'The source note couldn’t be read.',
+        details: validated.ok ? 'no document' : validated.error.message,
       };
     }
     sourceDocument = validated.document;
@@ -1792,7 +1843,7 @@ export async function copyImageAsset(
   const target = opened.store;
   if (target.document === null) return { ok: false, message: 'The document is not open.' };
   if (target.readOnly) {
-    return { ok: false, message: 'This document is open read-only; the image was not copied.' };
+    return { ok: false, message: 'This note is open read-only; the image wasn’t added.' };
   }
 
   const sourceAssets = new NodeAssetStore({
@@ -2063,7 +2114,7 @@ export async function saveDocumentCopy(
   if ('recovery' in opened) return { ok: false, message: opened.recovery.reason };
   const document = opened.store.document;
   if (document === null) {
-    return { ok: false, message: 'There is no document to copy.' };
+    return { ok: false, message: 'There is no note to copy.' };
   }
 
   const target = path.resolve(destination);
@@ -2216,7 +2267,8 @@ export async function restoreBackup(
       return {
         ok: false,
         code: 'restore-failed',
-        message: `Could not inspect the restore location: ${error instanceof Error ? error.message : String(error)}`,
+        message: 'That folder can’t be checked.',
+        details: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -2224,7 +2276,7 @@ export async function restoreBackup(
     return {
       ok: false,
       code: 'exists',
-      message: 'A document already exists at that location. Choose a new folder.',
+      message: 'A note already exists there. Choose a new folder.',
     };
   }
 
@@ -2235,7 +2287,8 @@ export async function restoreBackup(
     return {
       ok: false,
       code: 'not-writable',
-      message: `The chosen folder is not writable: ${error instanceof Error ? error.message : String(error)}`,
+      message: 'That folder isn’t writable.',
+      details: error instanceof Error ? error.message : String(error),
     };
   }
 
@@ -2300,7 +2353,7 @@ export async function restoreNewestBackup(
     return {
       ok: false,
       code: 'no-backup',
-      message: 'NoteForest has no valid backup for this document.',
+      message: 'There is no valid backup for this note.',
     };
   }
   const destination = await defaultRestoreDestination(resolved);
@@ -2435,8 +2488,7 @@ export async function trashPreflight(packagePath: string): Promise<TrashPrefligh
       },
       ...(liveLock
         ? {
-            reason:
-              'Another NoteForest session is writing a note inside this folder. Close the other window and try again; the live lock is never broken.',
+            reason: 'Another window is writing a note in this folder.',
           }
         : {}),
     };
@@ -2502,9 +2554,9 @@ export async function trashPreflight(packagePath: string): Promise<TrashPrefligh
   const canTrash = status !== 'missing' && !liveLock;
   const reason =
     status === 'missing'
-      ? 'The package folder has no document.json. Remove it from recents instead.'
+      ? 'This entry has no note folder.'
       : liveLock
-        ? 'Another NoteForest session is writing this document. Close the other window and try again; the live lock is never broken.'
+        ? 'Another window is writing this note.'
         : undefined;
   return {
     packagePath: resolved,
@@ -2578,7 +2630,7 @@ async function trashVaultFolder(
         ok: false,
         code: 'locked',
         message:
-          'Another NoteForest session is writing a note inside this folder. It was not moved.',
+          'Another window is writing a note in this folder. Nothing was moved.',
       };
     }
   }
@@ -2597,7 +2649,8 @@ async function trashVaultFolder(
     return {
       ok: false,
       code: 'trash-failed',
-      message: `Could not move “${preflight.title}” to the Trash: ${errorMessage(error)}. The folder was not changed.`,
+      message: `Couldn’t move “${preflight.title}” to the Trash. Nothing was changed.`,
+      details: errorMessage(error),
     };
   }
 
@@ -2668,7 +2721,8 @@ export async function trashDocument(
       return {
         ok: false,
         code: 'trash-failed',
-        message: `Could not move “${preflight.title}” to the Trash: ${errorMessage(error)}. The file was not changed.`,
+        message: `Couldn’t move “${preflight.title}” to the Trash. Nothing was changed.`,
+      details: errorMessage(error),
       };
     }
     await removeSessionPathsUnder(resolved);
@@ -2695,15 +2749,15 @@ export async function trashDocument(
     return {
       ok: false,
       code: 'locked',
-      message:
-        'Another NoteForest session is writing this document. It was not moved.',
+      message: 'Another window is writing this note. Nothing was moved.',
     };
   }
   if (!broken.ok && broken.reason === 'io-error') {
     return {
       ok: false,
       code: 'trash-failed',
-      message: `Could not release the document lock: ${broken.message ?? 'filesystem error'}. It was not moved.`,
+      message: 'The note is still locked. Nothing was moved.',
+      details: broken.message ?? 'filesystem error',
     };
   }
 
@@ -2713,9 +2767,9 @@ export async function trashDocument(
     return {
       ok: false,
       code: 'trash-failed',
-      message: `Could not move “${preflight.title}” to the Trash: ${
-        error instanceof Error && error.message.length > 0 ? error.message : String(error)
-      }. The folder was not changed.`,
+      message: `Couldn’t move “${preflight.title}” to the Trash. Nothing was changed.`,
+      details:
+        error instanceof Error && error.message.length > 0 ? error.message : String(error),
     };
   }
 
@@ -3486,7 +3540,7 @@ export async function readSettings(): Promise<AppSettings> {
  */
 type SettingsRawForWrite =
   | { ok: true; raw: Record<string, unknown> }
-  | { ok: false; message: string };
+  | { ok: false; message: string; details?: string };
 
 async function readSettingsRawForWrite(): Promise<SettingsRawForWrite> {
   let text: string;
@@ -3496,7 +3550,8 @@ async function readSettingsRawForWrite(): Promise<SettingsRawForWrite> {
     if (isMissingFile(error)) return { ok: true, raw: {} };
     return {
       ok: false,
-      message: `settings.json could not be read; nothing was written: ${settingsErrorMessage(error)}`,
+      message: 'Settings couldn’t be read. Nothing was written.',
+      details: settingsErrorMessage(error),
     };
   }
   let parsed: unknown;
@@ -3505,9 +3560,8 @@ async function readSettingsRawForWrite(): Promise<SettingsRawForWrite> {
   } catch (error) {
     return {
       ok: false,
-      message: `settings.json is corrupt and was not overwritten: ${settingsErrorMessage(
-        error,
-      )}. Use Reset settings to replace it with the product defaults.`,
+      message: 'Settings couldn’t be read. Reset them to the defaults.',
+      details: settingsErrorMessage(error),
     };
   }
   return { ok: true, raw: isRecord(parsed) ? parsed : lastSettingsRaw };
@@ -3540,7 +3594,13 @@ export async function writeSettings(input: unknown): Promise<SettingsSaveResult>
       input as Parameters<typeof normalizeAppSettings>[0],
     );
     const read = await readSettingsRawForWrite();
-    if (!read.ok) return { ok: false, message: read.message };
+    if (!read.ok) {
+      return {
+        ok: false,
+        message: read.message,
+        ...(read.details === undefined ? {} : { details: read.details }),
+      };
+    }
     const document = settingsDocumentForWrite(read.raw, settings);
     try {
       await fs.mkdir(appSupportDir(), { recursive: true });
@@ -3550,7 +3610,8 @@ export async function writeSettings(input: unknown): Promise<SettingsSaveResult>
     } catch (error) {
       return {
         ok: false,
-        message: `Could not save settings: ${settingsErrorMessage(error)}`,
+        message: 'Settings weren’t saved.',
+        details: settingsErrorMessage(error),
       };
     }
   });
@@ -3576,7 +3637,8 @@ export async function resetSettings(): Promise<SettingsSaveResult> {
     } catch (error) {
       return {
         ok: false,
-        message: `Could not reset settings: ${settingsErrorMessage(error)}`,
+        message: 'Settings weren’t reset.',
+        details: settingsErrorMessage(error),
       };
     }
   });
@@ -3882,7 +3944,7 @@ async function writeSeedDocument(title: string, document: Document): Promise<str
     throw new Error('No library is open.');
   }
   if (!(await pathIsDirectory(directory))) {
-    throw new Error(`The active library was not found: ${directory}`);
+    throw new Error('The library isn’t there any more.');
   }
   const report = validateDocument(document);
   if (!report.ok) {
