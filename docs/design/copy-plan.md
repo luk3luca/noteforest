@@ -621,7 +621,7 @@ moves to Details.
 | ID | Element | Current | New |
 |---|---|---|---|
 | D-02.1 | Split item label | `Split at caret — {check.reason}` | `Split at caret` (drop the glue), disabled; a fixed description `Place the caret in a text block.` |
-| D-02.2 | Merge item label | `Merge with next block — {check.reason}` | `Merge with next block`; disabled description `The next block must be in the same chapter.` |
+| D-02.2 | Merge item label | `Merge with next block — {check.reason}` | `Merge with previous`; disabled description `The previous block must be in the same chapter.` (the command merges into the previous sibling, so the plan's original label named the wrong direction; corrected 16 November 2026) |
 | D-02.3 | Detach item | `Detach from parent` | `KEEP` (matches A-09.1) |
 | D-02.4 | Block menu labels | `Edit block`, `Insert image…`, `Insert table…`, `Add child block`, `Add sibling block`, `Link as reference…`, `Demote to reference`, `Move to…`, `Move up`, `Move down`, `Indent`, `Outdent`, `Expand branch`, `Collapse branch`, `Delete block…` | `KEEP` |
 | D-02.5 | Chapter menu | `Rename chapter…`, `Add block` | `KEEP` |

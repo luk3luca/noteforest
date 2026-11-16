@@ -408,7 +408,7 @@ describe('M2f backup restore and destination refusal', () => {
         try {
           await mockRestoreDialog(readOnly);
           await dialog.getByRole('button', { name: 'Restore copy…' }).click();
-          await waitRestoreError(dialog, /not writable/i);
+          await waitRestoreError(dialog, /That folder isn’t writable\./);
           assert.equal((await h.state()).tabs.length, 1);
           await assert.rejects(readFile(resolve(readOnly, 'document.json')));
         } finally {
