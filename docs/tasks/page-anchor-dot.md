@@ -1,5 +1,8 @@
 # P1 — the Page anchor dot, and no anchor marker on paper
 
+**Superseded:** folded into **B1** (`docs/tasks/b1-v1-defects.md`, Part A) so one builder does the Page
+defects and the shortcut catalogue together. This file stays as the detailed design of the dot.
+
 **Role:** Builder
 **Milestone:** Page chrome
 **Base:** `main` at launch, after F4b has merged.
