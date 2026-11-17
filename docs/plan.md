@@ -696,7 +696,12 @@ token), resting width 1.25 → 1.5, and an arrowhead that scales with the stroke
   Light+ (4.59) pass per polarity; Monokai and One Light stay selectable and labelled.
 - Manual break on a block the layout cannot honour: warning (current preflight category) or blocking error.
 - Manual-break feedback in Continuous: R2a removed the page chrome, so a new, minimal signal is needed
-  (a checked menu item is the cheapest honest answer).
+  (a checked menu item is the cheapest honest answer; the shipped block-menu item + Breaks section already
+  cover it — confirm and close).
+- **Page Edit → Continuous (decided 17 November 2026): A + B.** The Page card menu gains one navigation
+  item, `Open in Continuous`, and `⌘2` carries the selected block into Continuous (select, switch, focus,
+  scroll). Page Read keeps single-click selection and double-click/Enter → Continuous; Page Edit keeps
+  double-click/Enter → the page overlay. Ships in the visual-fixes batch.
 
 ## Known issues and follow-ups (17 November 2026)
 
