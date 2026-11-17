@@ -255,6 +255,22 @@ The variables are `--nf-page-highlight-{tone}` on the fixed Page skin in `styles
 `.nf-page-scope .nf-highlight[data-highlight-tone]` rule sets `background-color` only, and the same
 rule reaches Page Read/Edit, the measurement host, and the print compositor.
 
+## Paper colours: find matches (transient)
+
+Find is a transient layer, not content: matches are painted with the CSS Custom Highlight API
+(`nf-find`, and `nf-find-current` for the current occurrence), so no wrapper span ever enters the
+measured DOM. The two names are scoped to `.nf-page-view`; the print compositor registers nothing,
+so the PDF never carries a find tint.
+
+| Token | Value | Use |
+|---|---|---|
+| `--nf-page-find-bg` | `#f7edc7` | every match |
+| `--nf-page-find-current-bg` | `#efd07f` | the current occurrence (stronger tint) |
+| `--nf-page-find-current-line` | `#9a5b00` | the current occurrence's underline |
+
+The text colour never changes. The colours are paper-fixed, not `PageTheme`/density values: a find
+tint is a reading aid on the sheet, and it must look the same under any shell theme.
+
 ## Layout engine defaults (`DEFAULT_LAYOUT_OPTIONS`)
 
 These are DOM-free engine defaults, not a Page or Continuous user setting. Page production overrides

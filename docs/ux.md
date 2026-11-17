@@ -154,8 +154,8 @@ Luca opens a six-month-old document. He half-remembers a term but not where it l
 | T1 | Capture a topic and 5–15 branches in a chapter | P1 | Daily | < 5 min | `⌘N`, type, `Return`, `Tab` |
 | T2 | Branch from a word, formula term or code token | P1 | Daily | < 5 s from selection to typing | Select, `⌘⇧Return` |
 | T3 | Reorder and reparent structure | P1, P2 | Daily | No dialog, one gesture or key | `Tab` / `⇧Tab`, drag, `⌘⇧↑↓` |
-| T4 | Read continuously and check the paginated result | P2 | Weekly | < 10 min | `⌘2` Continuous, `⌘E` Read, `⌘3` Page, `⌥↑↓` |
-| T5 | Export all pages as a PDF for external annotation | P2 | Weekly | < 30 s | `⌘⇧E` or `⌘P` |
+| T4 | Read continuously and check the paginated result | P2 | Weekly | < 10 min | `⌘2` Continuous, `⌘E` Read, `⌘3` Page, `⌘↑↓` |
+| T5 | Export all pages as a PDF for external annotation | P2 | Weekly | < 30 s | `⌘P` |
 | T6 | Find a block and understand its chapter and page | P3 | Weekly | < 1 min | `⌘F`, breadcrumbs, `⌘[` / `⌘]` |
 | T7 | Recover from a lost anchor, an unbreakable overflow, or a save conflict | P3 | Rare | < 2 min, no data loss | Status chip, element banner, conflict sheet |
 | T8 | Start a new chapter and move blocks into it | P1 | Occasional | < 1 min | Chapter menu, drag across chapter divider |
@@ -170,12 +170,11 @@ Luca opens a six-month-old document. He half-remembers a term but not where it l
 | New child by indenting | 2 keys | `Return`, `Tab` |
 | Branch from the current block | 1 key | `⌘Return` |
 | Branch from a word | selection + 1 key | Select with keyboard or mouse, `⌘⇧Return` |
-| Switch layout | 1 key | `⌘2` Continuous / `⌘3` Page (`⌘1` Outline) |
+| Switch layout | 1 key | `⌘2` Continuous / `⌘3` Page |
 | Toggle Edit/Read | 1 key | `⌘E` (Page Edit opt-in) |
-| Previous / next page | 1 key | `⌥↑` / `⌥↓` |
-| Fit view (Continuous: width; Page: page) | 1 key | `⇧1` |
+| Previous / next page | 1 key | `⌘↑` / `⌘↓` |
+| Reset zoom / fit width | 1 key | `⌘0` / `⇧⌘0` (fit page: View → Fit page, no key) |
 | Export all pages | 1 key | `⌘P` |
-| Export with preview | 1 key | `⌘⇧E` |
 | Manual page break before a block | 1 key | `⌘⌥B` |
 
 If any of these needs a dialog, an inspector visit, or a mouse, the design has failed.
@@ -184,7 +183,7 @@ If any of these needs a dialog, an inspector visit, or a mouse, the design has f
 
 **A. Capturing a lecture (P1).** Luca hits `⌘N`, types "Eigenvalues and eigenvectors" as the first top-level block in Chapter 1, presses `Return` for a sibling and `Tab` to make it a child, types the definition, selects "λ" and presses `⌘⇧Return`, types one sentence about the stretch factor, then `Esc`, `⌘Return` on the top-level block for the next branch. He starts Chapter 2 for the algorithm with `⌘⌥C`. He never opens the inspector. The Continuous layout is laying out in the background; derived page-break markers appear where the paginator breaks. He will switch to Page Read later to check the print.
 
-**B. Studying before an exam (P2).** Luca opens the same document, presses `⌘2` for Continuous and `⌘E` for Read, follows chapter 1 to the `det(A − λI)` anchor, reads the expansion in the callout below it, presses `⌘⇧F` to focus that subtree, `Esc`, then `⌘3` to check Page Read: chapter 2 starts on page 2, and a ghost parent with a continuation marker shows where chapter 1's last branch resumes. He presses `⌘⇧E`, exports all pages, and AirDrops the PDF to the iPad for annotation in an external app.
+**B. Studying before an exam (P2).** Luca opens the same document, presses `⌘2` for Continuous and `⌘E` for Read, follows chapter 1 to the `det(A − λI)` anchor, reads the expansion in the callout below it, presses `⌘⇧F` to focus that subtree, `Esc`, then `⌘3` to check Page Read: chapter 2 starts on page 2, and a ghost parent with a continuation marker shows where chapter 1's last branch resumes. He presses `⌘P`, exports all pages, and AirDrops the PDF to the iPad for annotation in an external app.
 
 ---
 
@@ -372,13 +371,13 @@ The model is hybrid: incremental reflow while authoring, full reflow on request 
 | Focused subtree | `⌘⇧F`, or `F` in Continuous/Page | Outline: hoisted; Continuous: dimmed/zoomed; Page: zoomed | `Esc` exits |
 | Anchor selected | Click an anchor dot / chip | Anchor span and its branch highlighted | Inspector shows the anchor |
 | Branch selected | Click a branch or a branch row in the inspector | Branch and both endpoints highlighted | `⌫` removes per branch rules |
-| Page focused | Scroll, `⌥↑↓`, or the page indicator | Toolbar shows "Page N of M" | Page context only |
+| Page focused | Scroll, `⌘↑↓`, or the page pager | Toolbar shows the page position | Page context only |
 
 Navigation rules:
 
 - **Breadcrumbs** show `Document › Chapter › Top-level › … › Current`. Deep chains truncate in the middle, never at the end. Clicking a crumb scrolls to it and selects it.
 - **History** records focus and chapter changes (not every keystroke). `⌘[` goes back, `⌘]` forward, up to 50 entries.
-- **Page navigation** is `⌥↑` / `⌥↓`, the toolbar prev/next, the page indicator menu, or scrolling. In Continuous it jumps to the previous/next derived page-break marker; in Page it goes to the previous/next exact page; in Outline it jumps to the previous/next page-break marker row.
+- **Page navigation** is `⌘↑` / `⌘↓`, the pager arrows, the page field, or scrolling. It changes pages only in Page; in Continuous the same keys move to the previous/next block.
 - Switching layouts or modes preserves selection and focus. Continuous scrolls to the block's layout position; Page scrolls to the page containing it; Outline scrolls to the row.
 
 ### 4.6 Inspector
@@ -504,12 +503,12 @@ Dismissing a coach mark hides it permanently; they never block clicks.
 
 1. Open the sample. It opens in **Continuous + Edit**, scrolled to Chapter 1.
 2. Click the anchor dot on the `det(A − λI)` formula in B3. B4 highlights; the anchor health sheet / block menu shows "Branch from det(A − λI)".
-3. Press `⌘1`. The outline opens with Chapter 1, B3 and B4 visible; B4 carries the chip `↳ “det(A − λI)”`. Selection is unchanged.
-4. Press `⌘2`, then scroll or `⌥↓` to the derived page-break marker. The marker reads "Page 2 · Chapter 2 starts here".
+3. Open the sidebar's Outline tab. Chapter 1, B3 and B4 are visible; B4 carries the chip `↳ “det(A − λI)”`. Selection is unchanged.
+4. Press `⌘2` to return to Continuous Edit.
 5. Press `⌘3`. Page Read opens on page 2; the chapter heading is at the top, and the footer reads "Page 2 of 2". `⌘E` is disabled with "Page editing is not available yet."
 6. Click B8. Its **See also** list shows the reference link "bound → Spectral radius (Chapter 1, page 1)". Clicking it jumps to B6 in Continuous or page 1 in Page Read.
 7. Press `⌘2` to return to Continuous Edit, double-click B7, select `A @ v`, press `⌘⇧Return`, type "why normalization matters". A new block appears below the anchor. The Continuous layout reflows; its derived markers update. Press `⌘3` to see the exact Page Read result; if the new block moves to another page, the page indicator updates and the preview shows the new pagination.
-8. Press `⌘⇧E`. The preview shows 2 A4 pages. Export all pages.
+8. Press `⌘P`. The export sheet shows 2 A4 pages. Export all pages.
 9. Open the PDF. Text is selectable; page 2 matches Page Read; the anchored branch appears in place below the code block.
 
 If any step requires a mouse, a dialog, or a layout/mode switch to complete, it is a defect. The only exception is the export sheet, which is a deliberate confirmation surface.
@@ -861,10 +860,10 @@ Rules:
 
 ### F10 — Switch layouts and modes
 
-1. `⌘1` Outline, `⌘2` Continuous, `⌘3` Page.
+1. The sidebar's Outline tab, `⌘2` Continuous, `⌘3` Page.
 2. `⌘E` toggles Edit/Read inside the active layout. In Page, `⌘E` toggles Page Read/Page Edit.
 3. If an editor is open, the edit is committed first. A layout/mode switch creates no undo entry.
-4. Selection, focus, breadcrumbs, chapter, focus mode, and layout freeze carry over.
+4. Selection and focus carry over; the layout switch preserves Edit/Read.
 5. Continuous scrolls to the block's layout position; Page scrolls to the block's page; Outline scrolls to the row.
 6. If a block is hidden by a collapsed ancestor in the outline/Continuous layout, expand it. Page does not need expansion because it always shows the full document. If the block is in another chapter, scroll to that chapter.
 7. With no selection, each surface restores its last focus or the top of the document.
@@ -908,7 +907,7 @@ Redo is cleared by any new action. Undo history is per window session; it is not
 
 v1 has one export: all pages, generated by the same paginator as the Page layout, with real text. It is the Page layout in Read mode; there is no separate reader/outline export.
 
-**Entry points:** `⌘⇧E` (sheet), `⌘P` (quick export with last settings), toolbar **Export**, File → Export.
+**Entry points:** `⌘P`, the canvas header **Export PDF**, File → Export PDF…, the command palette. One sheet, one flow.
 
 **Step 1 — Preview.** The sheet shows page thumbnails, the page count, and the page size/orientation/margins from Page Setup. The preview is Page Read, not a different layout.
 
@@ -1019,8 +1018,7 @@ Page/PDF always show the full document. Collapse is an outline/Continuous naviga
 | `Space`+drag, middle-drag | Pan the viewport | Hand cursor |
 | `⌘+` / `⌘−` | Zoom in/out | Step |
 | `⌘0` | 100% | |
-| `⇧1` | Fit width | 200 ms ease |
-| `⌥↑` / `⌥↓` | Jump to previous/next derived page-break marker | Marker highlights; page indicator updates |
+| `⌘0` / `⇧⌘0` | Reset zoom / fit width | 200 ms ease |
 | `⌘E` | Toggle Edit/Read | Status shows Edit or Read; no undo entry |
 | Click a ghost parent | Jump to the real parent | Scrolls; selects the parent |
 | Click a block | Select | Ring |
@@ -1061,9 +1059,9 @@ Continuous rules:
 | Pinch / `⌘`+scroll | Zoom | Live |
 | `Space`+drag | Pan | Hand cursor |
 | `⌘+` / `⌘−` / `⌘0` | Zoom / 100% | |
-| `⇧1` | Fit page | 200 ms |
-| `⇧2` | Fit width | 200 ms |
-| `⌥↑` / `⌥↓` | Previous/next page | Page indicator |
+| `⌘0` | Reset zoom (the fit-width baseline) | 200 ms |
+| View → Fit page | Fit the whole page | 200 ms |
+| `⌘↑` / `⌘↓` | Previous/next page | Page position |
 | `⌘E` | Toggle Edit/Read in Page | Page Edit is an opt-in single-block overlay |
 | Click a ghost parent | Jump to the real parent | Scrolls to its page; selects it |
 | Click block | Select for inspection | Ring |
@@ -1084,7 +1082,7 @@ Page rules:
 - After an edit in Continuous Edit or Outline, Page Read shows the new pagination when you switch to it. Page numbers and the footer update.
 - Page Read shows the full document regardless of the Continuous collapse state.
 - Focus zooms to the selected subtree within the page; it does not dim the rest (the page is the context).
-- Page navigation is page by page; `⌥↑/↓` and the page indicator.
+- Page navigation is page by page; `⌘↑/↓` and the pager.
 
 ### 7.4 Drag and reflow in Continuous Edit
 
@@ -1192,7 +1190,6 @@ Menu items are the accessible version of every gesture. Anything in a context me
 | `⌘⇧F` | Focus selected subtree (hoist) | Any |
 | `⌘⇧L` | Link to an existing block | Any |
 | `⌘⇧Return` | Branch from selection (anchor + branch), or from the block | Any |
-| `⌥↑` / `⌥↓` | Previous/next page-break marker | Any |
 
 Rules:
 
@@ -1252,7 +1249,7 @@ Rules:
 
 Legend: `⌘` Command · `⇧` Shift · `⌥` Option · `⌃` Control · `↵` Return · `⌫` Delete · `⎋` Escape · `↑↓←→` arrows.
 
-All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. Shortcuts respect system combinations.
+All shipped shortcuts are fixed: the catalogue (`lib/shortcuts.ts`) is the source, the Settings list is rendered from it, and the native menus carry the same accelerators where a menu item exists. Shortcuts respect system combinations.
 
 ### 9.1 Global and document
 
@@ -1341,12 +1338,12 @@ Page Edit is opt-in; Page Read is exact and read-only. The page canvas keeps `�
 - **`⌘E` is mode.** Inline code is the backtick toggle, not a chord.
 - **`Tab` changes meaning only on a selected block**; inside lists, code, tables and quotes it is native.
 - **`Esc` never cancels Page Edit**; it commits and leaves. `⌘Z` is the way back.
-- **`⌥↑`/`⌥↓`** move blocks in Continuous and change pages on the Page canvas; `⌘↑`/`⌘↓` are the page step
-  when the canvas has focus and previous/next block with the caret in a block.
+- **`⌥↑`/`⌥↓`** move blocks in Continuous; **`⌘↑`/`⌘↓`** are previous/next page in Page and previous/next
+  block in Continuous.
 - **No page-management or pin/nudge shortcuts.** Pages are derived.
 - **`⌃`** is used for tab cycling and the system full-screen role only.
 - **Not in v1** (kept here as the earlier design record): `⌘⇧S` Save As; `⌘1` Outline; `⌘[`/`⌘]` history;
-  `⌘⌥C` New chapter; `⌘⌥B` manual break; `⌘⌥L`/`⌘⌥R` freeze/reflow; `⌘⌥P` Page Setup; `⌘P` quick export;
+  `⌘⌥C` New chapter; `⌘⌥B` manual break; `⌘⌥L`/`⌘⌥R` freeze/reflow; `⌘⌥P` Page Setup;
   `⌘⌥I` inspector; `⌘⇧/` shortcut sheet; the Outline authoring keys (`⌘⌥↵`, `⌘⇧↑/↓`, `⌘⌥[/]`, `⇧↑/↓`,
   `⌘A` blocks, `⌘⇧⌫`, `⌘[/]`); `⌘⇧X`/`⌘⇧C` text marks; `⌘K` for a web link (it is the palette).
 
@@ -1684,7 +1681,7 @@ Motion is never the only signal.
 - Outline: single Tab stop; arrows move; `Tab`/`⇧Tab` change structure; `⌃Tab` leaves.
 - Continuous: single Tab stop; `Tab` enters at the focused block; arrows move spatially; `Return` edits in Edit mode; `Esc` steps out; `⌃Tab` leaves. In Read mode `Return` opens the focused block's links/actions, not an editor.
 - Page: single Tab stop; `Tab` enters at the focused block; arrows move; `Return` or double-click opens the block in Continuous Edit; `Esc` steps out; `⌃Tab` leaves. Page Edit is opt-in.
-- Page navigation `⌥↑/↓`; announced as "Page 2 of 5".
+- Page navigation `⌘↑/↓`; announced as "Page 2 of 5".
 - Focus restored after layout/mode switches, undo, dialogs, export.
 - Dialogs trap focus and return it.
 
@@ -1705,14 +1702,14 @@ Motion is never the only signal.
 | Task | Path |
 |---|---|
 | Create a document and three blocks | `⌘N`, type, `↵`, type, `↵`, type |
-| Branch from a word | From Outline or Continuous Edit: select block, `↵`, move caret, `⇧⌥→`, `⌘⇧↵` |
-| Reparent a block | From Outline or Continuous Edit: select, `Tab` / `⇧Tab`, or Block → Move Under… |
-| Create a reference link | From Outline or Continuous Edit: select source, `⌘⇧L`, filter, `↵` |
-| Create a chapter | From Outline or Continuous Edit: `⌘⌥C`, type the title, `↵` to move to the first block |
-| Insert a manual break | From Outline or Continuous Edit: select block, `⌘⌥B` |
-| Go to next page | `⌥↓` |
-| Reattach a lost anchor | From Continuous Edit or Outline: `⌘⌥I` / status chip, choose anchor, **Reattach…**, pick, `↵` |
-| Export | `⌘P` (quick export), or `⌘⇧E`, review the preview, **Export** |
+| Branch from a word | Select the text in Continuous Edit, `⇧⌘⏎` |
+| Reparent a block | Select the block, `Tab` / `⇧Tab`, or the block menu's Move to… |
+| Create a reference link | Select the block, `⇧⌘L`, pick the target, **Link** |
+| Create a chapter | `⇧⌘N` |
+| Insert a manual break | Select the block, the block menu's `Start on a new page` |
+| Go to next page | `⌘↓` |
+| Reattach a lost anchor | The anchor dot on a Page card, the status bar, or the palette's Document health |
+| Export | `⌘P`, review the sheet, **Export** |
 
 ### 12.5 Motion, contrast, display
 
@@ -1724,11 +1721,11 @@ Motion is never the only signal.
 
 ### 12.6 Shortcuts and assistive tech
 
-- All shortcuts remappable; conflicts explained.
-- Single-key Continuous/Page shortcuts can be disabled.
+- All shortcuts are fixed and documented; the catalogue resolves conflicts by surface scope.
+- There is no shortcut remapping or disabling in v1.
 - Voice Control labels for icon-only controls (branch handle, anchor dot, page arrows, collapse).
 - Agent import is a local file action; no status indicator or API settings.
-- Shortcuts sheet searchable.
+- Settings → Editor → Shortcuts is searchable.
 
 ---
 
