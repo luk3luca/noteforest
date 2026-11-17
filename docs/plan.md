@@ -648,6 +648,10 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** — the
 muted state at 1.35:1, the light reference at ≈3.0, the arrowhead — as one measured contrast table per
 polarity and one visual pass | B1 |
+| 6b | **P2 — release polish** (in flight, parallel with B2) | `docs/tasks/p2-polish.md`: the selection
+bubble behind a modal, the shifted-bracket tab keys by `event.code`, Export PDF on `⌘P`, the
+`Edit → Find` menu group, the rich-cell note listed as unreadable, `⇧Esc` closing the find, and the two
+intermittent UI suites made deterministic | B1 |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
 | 8 | **v1 hardening** | **Merged at `decd36b`**: the page controls in the canvas header and the rich-cell load guard (`docs/tasks/v1-hardening.md`) | — |
 
