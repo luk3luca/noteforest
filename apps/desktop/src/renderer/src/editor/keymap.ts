@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 import type { ResolvedPos } from '@tiptap/pm/model';
 import { getEditorBindings } from './bindings';
+import { toggleLastHighlight } from './highlight-mark';
 import { backspaceAction } from '../lib/backspace';
 import { arrowBoundaryAction, type ArrowBoundaryKey } from '../lib/arrow-boundary';
 import { indentTarget, outdentTarget } from '../lib/indent';
@@ -321,6 +322,14 @@ export const BranchKeymap = Extension.create({
         if (!canEdit()) return false;
         bindings()?.openLinkDialog();
         return true;
+      },
+
+      // ⌘⇧H is the highlighter's only chord: apply the session's last tone, or
+      // remove it when the whole selection already carries it. It never runs in
+      // Read mode (the keymap is gated by `canEdit`), and a caret is a no-op.
+      'Mod-Shift-h': () => {
+        if (!canEdit()) return false;
+        return toggleLastHighlight(this.editor);
       },
 
       Escape: () => {

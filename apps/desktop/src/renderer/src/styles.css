@@ -174,6 +174,19 @@ html[data-theme="light"] {
   --focus-ring: var(--accent-ring);
 }
 
+/*
+ * Continuous text highlights (F4b, docs/design/highlight.md §3). A flat tint of
+ * the current role at the ratified strengths; the text keeps its own colour, so
+ * a highlight never changes contrast. The Page/PDF paper overrides these with
+ * its own fixed light tones below: the paper never reads a shell role.
+ */
+:root {
+  --nf-highlight-blue: color-mix(in srgb, var(--accent) 20%, transparent);
+  --nf-highlight-green: color-mix(in srgb, var(--success) 20%, transparent);
+  --nf-highlight-amber: color-mix(in srgb, var(--warning) 22%, transparent);
+  --nf-highlight-rose: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -4130,6 +4143,55 @@ body.nf-dragging-block .nf-gutter-handle {
   color: var(--accent);
 }
 
+/* The highlighter row: four tone swatches, plus a remove control when the
+   selection already carries a tone. One row, no menu. */
+.nf-bubble-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--border-1);
+}
+
+.nf-bubble-highlights {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nf-bubble-swatch {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-2);
+  border-radius: 50%;
+}
+
+.nf-bubble-swatch[data-highlight-swatch="blue"] {
+  background: var(--nf-highlight-blue);
+}
+
+.nf-bubble-swatch[data-highlight-swatch="green"] {
+  background: var(--nf-highlight-green);
+}
+
+.nf-bubble-swatch[data-highlight-swatch="amber"] {
+  background: var(--nf-highlight-amber);
+}
+
+.nf-bubble-swatch[data-highlight-swatch="rose"] {
+  background: var(--nf-highlight-rose);
+}
+
+/* Pressed is a neutral ring, not a second colour: the state must not rely on
+   hue alone against a hue-tinted swatch. */
+.nf-bubble-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--surface-3), 0 0 0 3px var(--text-1);
+}
+
+.nf-bubble-swatch:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
 .nf-bubble-link {
   display: flex;
   align-items: center;
@@ -4491,6 +4553,34 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-find-hit-current {
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+/*
+ * Stored text highlight (F4b, docs/design/highlight.md §2–§5). The highlight is
+ * a content mark rendered as a real span: a background tint and nothing else —
+ * no padding, border, weight, or effect, so it can never move text or a
+ * measured page. The text colour is inherited, never changed. The find is a
+ * transient layer above it: in Continuous the find decoration span sits inside
+ * the mark span, so the find tint wins without a second document path.
+ */
+.nf-continuous-surface .nf-highlight {
+  color: inherit;
+}
+
+.nf-continuous-surface .nf-highlight[data-highlight-tone="blue"] {
+  background-color: var(--nf-highlight-blue);
+}
+
+.nf-continuous-surface .nf-highlight[data-highlight-tone="green"] {
+  background-color: var(--nf-highlight-green);
+}
+
+.nf-continuous-surface .nf-highlight[data-highlight-tone="amber"] {
+  background-color: var(--nf-highlight-amber);
+}
+
+.nf-continuous-surface .nf-highlight[data-highlight-tone="rose"] {
+  background-color: var(--nf-highlight-rose);
 }
 
 /*
@@ -7648,6 +7738,13 @@ body.nf-dragging-block .nf-gutter-handle {
   --nf-page-find-bg: #f7edc7;
   --nf-page-find-current-bg: #efd07f;
   --nf-page-find-current-line: #9a5b00;
+  /* Stored highlights (F4b): the paper is always light, so a tone prints the
+     light-theme role at 28 % over white — never a dark-mode artefact, and never
+     the live shell accent (Page/print isolate from the accent registry). */
+  --nf-page-highlight-blue: #c5d2de;
+  --nf-page-highlight-green: #c5d6ce;
+  --nf-page-highlight-amber: #ded1b8;
+  --nf-page-highlight-rose: #e5c8c6;
   /* One Light syntax roles for the fixed-light paper. Page Read/Edit and the
      print compositor read these, never the shell `--code-*` theme roles, so the
      PDF keeps One Light in a dark app theme. */
@@ -7683,6 +7780,30 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-page-scope .nf-block-content {
   font-size: var(--nf-page-body-size);
   line-height: var(--nf-page-body-line);
+}
+
+/* Stored text highlight on paper (F4b): the same mark class as Continuous, a
+   background tint only — no padding, border, or weight, so the measured card
+   and the page count cannot move. Page Read/Edit, the measurement host, and the
+   print compositor share this rule. */
+.nf-page-scope .nf-highlight {
+  color: inherit;
+}
+
+.nf-page-scope .nf-highlight[data-highlight-tone="blue"] {
+  background-color: var(--nf-page-highlight-blue);
+}
+
+.nf-page-scope .nf-highlight[data-highlight-tone="green"] {
+  background-color: var(--nf-page-highlight-green);
+}
+
+.nf-page-scope .nf-highlight[data-highlight-tone="amber"] {
+  background-color: var(--nf-page-highlight-amber);
+}
+
+.nf-page-scope .nf-highlight[data-highlight-tone="rose"] {
+  background-color: var(--nf-page-highlight-rose);
 }
 
 .nf-page-scope .nf-seg {

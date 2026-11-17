@@ -1,9 +1,13 @@
-import { Bold, Code, GitBranch, Italic, Link2, Sigma } from 'lucide-react';
+import { Bold, Code, Eraser, GitBranch, Italic, Link2, Sigma } from 'lucide-react';
+import { useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
+import { HIGHLIGHT_TONES, type HighlightTone } from '@noteforest/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEditorBindings } from './bindings';
+import { highlightAttrs } from './highlight-mark';
+import { HIGHLIGHT_TONE_LABELS, lastHighlightTone, rememberHighlightTone } from '../lib/highlight';
 import { useShell } from '../state/shell';
 
 interface ToolbarProps {
@@ -52,6 +56,25 @@ export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): 
       editor.chain().focus().extendMarkRange('link').setLink({ href: value }).run();
     }
     setLinkOpen(false);
+  };
+
+  // The tone the whole selection already carries (TipTap's `isActive` with
+  // attributes is `rangeHasMark` for a range). Mixed or absent → none pressed.
+  // A selector subscription is required: TipTap v3 does not re-render on every
+  // transaction, so a stored mark change would otherwise leave a stale row.
+  const activeTone = useEditorState({
+    editor,
+    selector: ({ editor: current }): HighlightTone | null =>
+      HIGHLIGHT_TONES.find((tone) => current.isActive('highlight', highlightAttrs(tone))) ?? null,
+  });
+
+  const applyHighlight = (tone: HighlightTone): void => {
+    rememberHighlightTone(tone);
+    editor.chain().focus().setMark('highlight', highlightAttrs(tone)).run();
+  };
+
+  const removeHighlight = (): void => {
+    editor.chain().focus().unsetMark('highlight').run();
   };
 
   return (
@@ -167,6 +190,49 @@ export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): 
             >
               <Sigma size={14} strokeWidth={1.5} aria-hidden="true" />
             </button>
+          )}
+          {variant === 'markdown' ? null : (
+            <>
+              <span className="nf-bubble-divider" aria-hidden="true" />
+              <div
+                className="nf-bubble-highlights"
+                role="group"
+                aria-label="Highlight"
+                data-highlight-swatches="true"
+              >
+                {activeTone === null ? null : (
+                  <button
+                    type="button"
+                    className="nf-bubble-button"
+                    aria-label="Remove highlight"
+                    title="Remove highlight"
+                    data-highlight-remove="true"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={removeHighlight}
+                  >
+                    <Eraser size={14} strokeWidth={1.5} aria-hidden="true" />
+                  </button>
+                )}
+                {HIGHLIGHT_TONES.map((tone) => {
+                  const label = HIGHLIGHT_TONE_LABELS[tone];
+                  const isLast = tone === lastHighlightTone();
+                  return (
+                    <button
+                      key={tone}
+                      type="button"
+                      className="nf-bubble-swatch"
+                      data-highlight-swatch={tone}
+                      aria-label={`${label} highlight`}
+                      aria-pressed={activeTone === tone}
+                      aria-keyshortcuts={isLast ? 'Meta+Shift+H' : undefined}
+                      title={isLast ? `${label} highlight (⌘⇧H)` : `${label} highlight`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => applyHighlight(tone)}
+                    />
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}

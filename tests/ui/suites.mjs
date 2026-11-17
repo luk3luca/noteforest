@@ -72,6 +72,7 @@ export const FILES = [
   'markdown-file-view.test.mjs',
   'vault-library.test.mjs',
   'find-bar.test.mjs',
+  'highlighter.test.mjs',
   'sidebar-system.test.mjs',
   'manual-breaks.test.mjs',
   'unused-images.test.mjs',
@@ -90,6 +91,9 @@ export const SERIAL_FILES = new Set([
   // clipboard in the pool, so running both at once pastes the other suite's
   // formula and fails a correct app (reproduced on 17 November 2026).
   'markdown-file-view.test.mjs',
+  // The highlighter copy/paste scenarios write the OS clipboard too (copy a
+  // highlighted phrase between blocks and between documents).
+  'highlighter.test.mjs',
 ]);
 
 function unique(values) {
@@ -182,6 +186,9 @@ export const GROUPS = {
     // The bar spans both surfaces: it floats in Continuous and rings a block
     // on the Page, so the Page group runs it too.
     'find-bar.test.mjs',
+    // A stored mark renders in both surfaces and prints: the Page group owns
+    // the Page/PDF evidence.
+    'highlighter.test.mjs',
   ],
 };
 
