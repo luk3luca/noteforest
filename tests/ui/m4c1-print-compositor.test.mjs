@@ -654,6 +654,82 @@ describe('M4c1 print compositor parity', () => {
       height: 900,
     });
 
+    // S3-3: both dot states clear the 3:1 non-text bar on paper. The unit test
+    // computes the ratios from `styles.css`; this reads the rendered colours.
+    const contrast = (first, second) => {
+      const luminance = (value) => {
+        const channels = (value.match(/[0-9.]+/g) ?? []).slice(0, 3).map(Number);
+        const [r, g, b] = channels.map((channel) => {
+          const unit = channel / 255;
+          return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const [high, low] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+      return (high + 0.05) / (low + 0.05);
+    };
+    const shapeColour = () =>
+      dot
+        .locator('.nf-page-anchor-dot-shape')
+        .evaluate((element) => getComputedStyle(element).backgroundColor);
+    await page.mouse.move(0, 0);
+    const restingColour = await shapeColour();
+    assert.equal(restingColour, 'rgb(122, 75, 0)', 'resting ink is unchanged');
+    assert.ok(contrast(restingColour, 'rgb(255, 255, 255)') >= 4.5, 'resting clears 4.5:1');
+    await dot.hover();
+    await page.waitForFunction(
+      () =>
+        getComputedStyle(
+          document.querySelector('[data-page-anchor-warning] .nf-page-anchor-dot-shape'),
+        ).backgroundColor === 'rgb(168, 106, 0)',
+      undefined,
+      { timeout: 5000 },
+    );
+    const hoverColour = await shapeColour();
+    assert.ok(
+      contrast(hoverColour, 'rgb(255, 255, 255)') >= 3,
+      `hover clears 3:1 on paper (${contrast(hoverColour, 'rgb(255, 255, 255)').toFixed(2)}:1)`,
+    );
+    assert.notEqual(hoverColour, restingColour, 'the hover state is visible');
+    // 200 % evidence: the 6 px dot is 12 CSS px and readable in a crop.
+    for (let index = 0; index < 10; index += 1) {
+      await page.locator('[data-zoom-action="in"]').click();
+    }
+    await page.waitForFunction(
+      () =>
+        Number(
+          document
+            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+            ?.getAttribute('data-page-zoom'),
+        ) === 200,
+      undefined,
+      { timeout: 10000 },
+    );
+    const hoverBox = await dot.boundingBox();
+    assert.ok(hoverBox !== null, 'the dot has a screen box at 200 %');
+    await dot.hover();
+    await page.screenshot({
+      path: artifactsPath('vf-release-fixes', 'anchor-dot-hover.png'),
+      clip: {
+        x: Math.max(0, hoverBox.x + hoverBox.width / 2 - 40),
+        y: Math.max(0, hoverBox.y + hoverBox.height / 2 - 30),
+        width: 80,
+        height: 60,
+      },
+      scale: 'css',
+    });
+    await page.keyboard.press('Meta+0');
+    await page.waitForFunction(
+      () =>
+        Number(
+          document
+            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+            ?.getAttribute('data-page-zoom'),
+        ) === 100,
+      undefined,
+      { timeout: 10000 },
+    );
+
     // Page Read and print are identical except the dot: no flag, no marker, no
     // text — every other parity record (boxes, cards, edges, chrome) is equal.
     const { read } = await assertPrintParity(

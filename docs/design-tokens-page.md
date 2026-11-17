@@ -271,6 +271,21 @@ so the PDF never carries a find tint.
 The text colour never changes. The colours are paper-fixed, not `PageTheme`/density values: a find
 tint is a reading aid on the sheet, and it must look the same under any shell theme.
 
+## Paper colours: the anchor status dot
+
+A card whose anchor is broken or ambiguous carries a 6 px status dot in its top-right corner (B1).
+It is Page-only chrome: the print compositor renders no dot, so nothing here reaches the PDF.
+
+| State | Token | Value | Contrast on white |
+|---|---|---|---|
+| Resting | `--nf-page-warning-ink` | `#7a4b00` | 7.41:1 |
+| Hover | `--nf-page-anchor-dot-hover` | `#a86a00` | 4.44:1 |
+
+Both states clear the 3:1 non-text bar B2 set for every meaningful state. The hover lightens the
+dot so the change is visible, but not to the pale `--nf-page-warning-line` (`#e2b766`, 1.88:1),
+which is a rule/background tint and never a foreground indicator. The unit test in
+`page-token-guards.test.ts` recomputes both ratios from `styles.css`.
+
 ## Layout engine defaults (`DEFAULT_LAYOUT_OPTIONS`)
 
 These are DOM-free engine defaults, not a Page or Continuous user setting. Page production overrides

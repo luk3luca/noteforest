@@ -990,4 +990,261 @@ describe('M4b1b1 Page Edit content overlay', () => {
       `M4b1b1 300-block page model: seed ${Date.now() - started - readyMs} ms, page ready ${readyMs} ms, run ${initial.ms} ms, compute ${initial.computeMs} ms, ${initial.calls} calls, ${initial.pageCount} pages; overlay typing ${typingMs} ms (no model run); commit run ${after.ms} ms / compute ${after.computeMs} ms`,
     );
   });
+
+  it('commits on Esc without closing an open find, and closes the find from the page (S3-2)', async () => {
+    await launch('vf-page-edit-find');
+    await ui.seedDemo();
+    const blockId = (await h.state()).runtimes[0].blockIds[0];
+    await showPageRead();
+    await enterPageEdit();
+
+    // The find is a background surface: open it with a real query and results.
+    await page.keyboard.press('Meta+f');
+    const findBar = page.locator('[data-find-bar="true"]');
+    await findBar.waitFor({ timeout: 10000 });
+    await page.locator('.nf-find-input').fill('symmetric');
+    await page.waitForFunction(
+      () => {
+        const state = window.__noteforestTest.state();
+        return state.findOpen && state.findQuery === 'symmetric' && state.findResults.length > 0;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
+
+    const originalContent = JSON.stringify(await runtimeContent(blockId));
+    await openOverlay(blockId);
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().findOpen),
+      true,
+      'opening the overlay leaves the find open',
+    );
+    await typeInOverlay(' Find survives Esc.');
+
+    // Esc belongs to the overlay: it commits, and the find must not react.
+    await page.keyboard.press('Escape');
+    await waitOverlayClosed();
+    await findBar.waitFor({ timeout: 10000 });
+    const afterEscape = await page.evaluate(() => window.__noteforestTest.state());
+    assert.equal(afterEscape.findOpen, true, 'the find stays open');
+    assert.equal(afterEscape.findQuery, 'symmetric', 'the query survives');
+    assert.ok(afterEscape.findResults.length > 0, 'the results survive');
+    const afterCommit = (await h.state()).runtimes[0];
+    assert.equal(afterCommit.lastHistoryOperation, 'structural', 'the overlay committed structurally');
+    await page.waitForFunction(
+      (id) => JSON.stringify(window.__noteforestTest.structure()?.blocks?.[id]?.content).includes('Find survives Esc.'),
+      blockId,
+      { timeout: 10000 },
+    );
+    assert.notEqual(
+      JSON.stringify(await runtimeContent(blockId)),
+      originalContent,
+      'the commit reached the canonical document',
+    );
+
+    // The same Esc from the page (the overlay is gone) still closes the find.
+    await page.waitForFunction(
+      (id) => document.activeElement?.getAttribute('data-fragment-block') === id,
+      blockId,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findOpen === false,
+      undefined,
+      { timeout: 10000 },
+    );
+    await findBar.waitFor({ state: 'detached', timeout: 10000 });
+  });
+
+  it('carries the selected block into Continuous from the card menu, ⌘2, and the segment (item 6)', async () => {
+    await launch('vf-page-to-continuous');
+    await ui.seedDemo();
+    const path = (await h.state()).activeTab;
+    const blockIds = (await h.state()).runtimes[0].blockIds;
+    const target = blockIds[1];
+
+    const viewFor = async () => (await page.evaluate(() => window.__noteforestTest.viewState()))[path] ?? {};
+
+    await showPageRead();
+
+    // A — the Page card menu carries one navigation item plus the page setting.
+    await fragmentFor(target).first().click({ button: 'right' });
+    await page.locator('.nf-menu').waitFor({ timeout: 10000 });
+    const entries = await page
+      .locator('[data-menu-entry]')
+      .evaluateAll((elements) =>
+        elements.map((element) => ({
+          id: element.getAttribute('data-menu-entry'),
+          label: (element.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        })),
+      );
+    assert.deepEqual(
+      entries.map((entry) => entry.id),
+      ['open-in-continuous', 'manual-break'],
+      'the card menu is the navigation item and the page setting',
+    );
+    assert.match(entries[0]?.label ?? '', /^Open in Continuous/);
+    await h.screenshot(artifactsPath('vf-release-fixes', 'page-card-menu.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await page.getByRole('menuitem', { name: 'Open in Continuous', exact: true }).click();
+    await page.locator('.nf-menu').waitFor({ state: 'detached' });
+    await page.waitForFunction(
+      (docPath) => {
+        const view = window.__noteforestTest.viewState()[docPath];
+        return view?.layout === 'continuous' && view?.interactionMode === 'edit';
+      },
+      path,
+      { timeout: 10000 },
+    );
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().runtimes[0].selectedBlockId),
+      target,
+      'the menu item selects the block it was opened on',
+    );
+    // Focus: the Continuous caret sits inside the carried block's card.
+    await page.waitForFunction(
+      (id) => {
+        const selection = window.getSelection();
+        const node = selection?.anchorNode ?? null;
+        const element =
+          node === null ? null : node instanceof Element ? node : node.parentElement;
+        return element?.closest('[data-block-card]')?.getAttribute('data-block-card') === id;
+      },
+      target,
+      { timeout: 10000 },
+    );
+
+    // B — ⌘2 from Page Read carries the selection and keeps Read.
+    await showPageRead();
+    await fragmentFor(target).first().click();
+    await page.waitForFunction(
+      (id) => window.__noteforestTest.state().runtimes[0].selectedBlockId === id,
+      target,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+2');
+    await page.waitForFunction(
+      (docPath) => window.__noteforestTest.viewState()[docPath]?.layout === 'continuous',
+      path,
+      { timeout: 10000 },
+    );
+    const readView = await viewFor();
+    assert.equal(readView.interactionMode, 'read', '⌘2 preserves Read');
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().runtimes[0].selectedBlockId),
+      target,
+      'the selected block is carried into Continuous',
+    );
+    // Revealed: the block card is inside the editor's scroll viewport.
+    const revealed = await page.evaluate((id) => {
+      const card = document.querySelector(
+        `.nf-editor[data-active="true"] [data-block-card="${id}"]`,
+      );
+      const scroller = document.querySelector('.nf-editor[data-active="true"] .nf-editor-scroll');
+      if (card === null || scroller === null) return null;
+      const cardBox = card.getBoundingClientRect();
+      const viewBox = scroller.getBoundingClientRect();
+      return cardBox.bottom > viewBox.top && cardBox.top < viewBox.bottom;
+    }, target);
+    assert.equal(revealed, true, 'the carried block is scrolled into view');
+    // Evidence: ⌘2 carried the selected block from Page Read into Continuous.
+    await h.screenshot(artifactsPath('vf-release-fixes', 'command-2-jump.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // No selection: ⌘2 is the plain layout switch — no block is selected for
+    // the user and no caret is placed.
+    await page.keyboard.press('Meta+3');
+    await page.waitForFunction(
+      (docPath) => window.__noteforestTest.viewState()[docPath]?.layout === 'page',
+      path,
+      { timeout: 10000 },
+    );
+    // Clear the selection from the page itself (the page canvas owns Escape).
+    await fragmentFor(target).first().click();
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().runtimes[0].selectedBlockId === null,
+      undefined,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+2');
+    await page.waitForFunction(
+      (docPath) => window.__noteforestTest.viewState()[docPath]?.layout === 'continuous',
+      path,
+      { timeout: 10000 },
+    );
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().runtimes[0].selectedBlockId),
+      null,
+      'no selection: nothing is selected',
+    );
+    assert.equal(
+      await page.evaluate(() => {
+        const selection = window.getSelection();
+        const node = selection?.anchorNode ?? null;
+        const element =
+          node === null ? null : node instanceof Element ? node : node.parentElement;
+        return element?.closest('[data-block-card]')?.getAttribute('data-block-card') ?? null;
+      }),
+      null,
+      'no selection: no block takes the caret',
+    );
+
+    // The segment is the same verb: from Page, it carries the selection too.
+    await page.keyboard.press('Meta+3');
+    await page.waitForFunction(
+      (docPath) => window.__noteforestTest.viewState()[docPath]?.layout === 'page',
+      path,
+      { timeout: 10000 },
+    );
+    await fragmentFor(target).first().click();
+    await page.waitForFunction(
+      (id) => window.__noteforestTest.state().runtimes[0].selectedBlockId === id,
+      target,
+      { timeout: 5000 },
+    );
+    await page.locator('[data-view-layout="continuous"]').click();
+    await page.waitForFunction(
+      (docPath) => window.__noteforestTest.viewState()[docPath]?.layout === 'continuous',
+      path,
+      { timeout: 10000 },
+    );
+    assert.equal(
+      await page.evaluate(() => window.__noteforestTest.state().runtimes[0].selectedBlockId),
+      target,
+      'the segment carries the same block',
+    );
+
+    // A rejected commit wins over the jump: overlay and layout stay on Page.
+    await showPageRead();
+    await enterPageEdit();
+    await openOverlay(target);
+    await page.keyboard.type(' Rejected jump text.');
+    await page.waitForFunction(
+      () => document.querySelector('[data-page-edit-overlay]')?.textContent?.includes('Rejected jump text.'),
+      undefined,
+      { timeout: 5000 },
+    );
+    await ui.applyCommand({ type: 'block.delete', blockId: target, children: 'promote' });
+    await page.waitForFunction(
+      (id) => !window.__noteforestTest.structure().blocks[id],
+      target,
+      { timeout: 10000 },
+    );
+    await overlay().locator('[data-page-edit-scroll]').click();
+    await page.keyboard.press('Meta+2');
+    await overlay().locator('[data-page-edit-error]').waitFor({ timeout: 10000 });
+    assert.equal(await overlay().count(), 1, 'a rejected commit keeps the overlay');
+    assert.match(await overlay().textContent(), /Rejected jump text\./);
+    assert.equal(
+      (await viewFor()).layout,
+      'page',
+      'a rejected commit keeps the Page layout',
+    );
+  });
 });

@@ -10,6 +10,7 @@ import {
   routeIntersectsRect,
   roundedPath,
   routePageEdge,
+  shortenPathEnd,
   simplifyPath,
   type ContinuousLayout,
   type DerivedPage,
@@ -195,6 +196,52 @@ describe('page route primitives', () => {
         { x: 10, y: 10 },
       ]),
     ).toEqual({ x: 10, y: 0 });
+  });
+
+  it('shortens the rendered primary shaft to the arrow base (VF item 4)', () => {
+    // A parent → child route: the shaft must stop `arrowLength` before the tip,
+    // so the translucent head covers paper instead of a darker line.
+    const points = [
+      { x: 100, y: 100 },
+      { x: 150, y: 100 },
+      { x: 150, y: 140 },
+      { x: 180, y: 140 },
+    ];
+    const tip = points[points.length - 1] as { x: number; y: number };
+    const shortened = shortenPathEnd(points, PAGE_EDGE_STYLE.arrowLength);
+    const end = shortened[shortened.length - 1] as { x: number; y: number };
+    expect(end).toEqual({ x: tip.x - PAGE_EDGE_STYLE.arrowLength, y: tip.y });
+    expect(Math.hypot(tip.x - end.x, tip.y - end.y)).toBeCloseTo(
+      PAGE_EDGE_STYLE.arrowLength,
+      6,
+    );
+    // The model route is untouched: this is a render-time shortening only.
+    expect(points[points.length - 1]).toEqual(tip);
+    // The rendered path ends at the base and still has its rounded corner.
+    const path = roundedPath(shortened, PAGE_EDGE_STYLE.radius);
+    expect(path.endsWith(`L ${tip.x - PAGE_EDGE_STYLE.arrowLength} ${tip.y}`)).toBe(true);
+    expect(path).toContain('Q');
+  });
+
+  it('eats into the previous segment when the last run is shorter than the head', () => {
+    const shortened = shortenPathEnd(
+      [
+        { x: 100, y: 100 },
+        { x: 130, y: 100 },
+        { x: 130, y: 104 },
+      ],
+      PAGE_EDGE_STYLE.arrowLength,
+    );
+    // 4 px of the last run, then 2 px back along the horizontal one.
+    expect(shortened).toEqual([
+      { x: 100, y: 100 },
+      { x: 128, y: 100 },
+    ]);
+    // A path shorter than the head keeps one point and draws nothing: the head
+    // already covers the whole shaft.
+    expect(shortenPathEnd([{ x: 0, y: 0 }, { x: 2, y: 0 }], 6)).toHaveLength(1);
+    expect(shortenPathEnd([{ x: 3, y: 3 }], 6)).toEqual([{ x: 3, y: 3 }]);
+    expect(shortenPathEnd([], 6)).toEqual([]);
   });
 });
 

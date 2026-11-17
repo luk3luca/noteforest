@@ -65,6 +65,38 @@ function pointTowards(from: EdgePoint, towards: EdgePoint, distance: number): Ed
   };
 }
 
+/**
+ * The polyline shortened at its end by `distance`, measured along the path.
+ *
+ * Page Read/Edit and the print compositor render the primary shaft through this
+ * helper, ending it at the arrow base (`tip − direction × arrowLength`): the
+ * head is translucent, so a shaft drawn all the way to the tip shows through it
+ * as a darker band that reads as a double arrowhead (VF item 4). The model route
+ * and `data-page-edge-route` keep every point; only the rendered shaft changes.
+ * A path shorter than `distance` keeps its first point and draws nothing, which
+ * is the honest result when the head already covers the whole shaft.
+ */
+export function shortenPathEnd(points: readonly EdgePoint[], distance: number): EdgePoint[] {
+  const result = points.map((point) => ({ x: point.x, y: point.y }));
+  let remaining = Math.max(0, distance);
+  while (remaining > 0 && result.length > 1) {
+    const last = result[result.length - 1] as EdgePoint;
+    const previous = result[result.length - 2] as EdgePoint;
+    const length = Math.hypot(last.x - previous.x, last.y - previous.y);
+    if (length >= remaining) {
+      const ratio = length === 0 ? 0 : (length - remaining) / length;
+      result[result.length - 1] = {
+        x: previous.x + (last.x - previous.x) * ratio,
+        y: previous.y + (last.y - previous.y) * ratio,
+      };
+      return result;
+    }
+    remaining -= length;
+    result.pop();
+  }
+  return result;
+}
+
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }

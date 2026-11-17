@@ -1542,6 +1542,20 @@ export async function takeOverStaleLock(
     await repository.close(resolved);
   }
 
+  // The same judgement `openStore` makes before `repository.open`: a package
+  // with a rich (block-content) table cell is unrepresentable and must never
+  // become an editable store, not even through the explicit takeover (S4-2).
+  // It runs before the lock is broken, so a refused takeover touches nothing.
+  const refused = await refuseUnrepresentableTableCells(resolved);
+  if (refused !== null) {
+    return {
+      ok: false,
+      code: 'read-only',
+      message: refused.reason,
+      ...(refused.reasonDetails === undefined ? {} : { details: refused.reasonDetails }),
+    };
+  }
+
   const broken = await breakStaleLock(resolved, { appSupportDir: appSupportDir() });
   if (!broken.ok && broken.reason !== 'missing') {
     if (broken.reason === 'locked') {

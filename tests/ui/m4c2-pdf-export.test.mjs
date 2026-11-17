@@ -6,12 +6,14 @@ import { artifactsPath, waitUntil } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import {
   multiPageBlocksDocument,
+  pageArrowsDocument,
   pageCalloutModesDocument,
   pageDocument,
   textBlock,
   writePagePackage,
 } from '../support/page-fixtures.mjs';
 import { inspectPdfFile, textContains } from '../../scripts/lib/pdf.mjs';
+import { renderPdfPage } from '../../scripts/lib/pdf-raster.mjs';
 
 /**
  * M4c2 PDF export orchestration.
@@ -618,5 +620,128 @@ describe('M4c2 PDF export orchestration', () => {
     const pdf = await inspect(outputPath);
     assertPageSizes(pdf, job);
     record({ case: 'missing asset', warnings: job.warnings });
+  });
+
+  it('exports the primary arrow with its shaft ending at the head base (VF item 4)', async () => {
+    const env = ui.isolated('vf-arrow-pdf');
+    await launch('vf-arrow-pdf');
+    const packagePath = await openPackage(env, 'VF arrow PDF', pageArrowsDocument());
+
+    // Read the arrow's page-local position from the real Page surface, then
+    // export from Continuous. The ratio contentPx → paper mm is uniform, so the
+    // PDF raster can be probed at the same point.
+    await page.keyboard.press('Meta+3');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+          ?.getAttribute('data-ready') === 'true',
+      undefined,
+      { timeout: 30000 },
+    );
+    const pageArrow = await page.evaluate(() => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      const edge = view?.querySelector('[data-page-edge-id="branch-direct"]');
+      const content = view?.querySelector('.nf-page-sheet[data-page-current="true"] [data-page-content]');
+      if (edge === null || edge === undefined || content === null || content === undefined) {
+        return null;
+      }
+      const [x, y] = (edge.getAttribute('data-page-edge-tip') ?? '').split(',').map(Number);
+      return {
+        tip: { x, y },
+        content: {
+          width: Number.parseFloat(content.style.width),
+          height: Number.parseFloat(content.style.height),
+        },
+        arrow: edge.getAttribute('data-page-edge-arrow') ?? '',
+        pathD: edge.querySelector('.nf-page-edge-path')?.getAttribute('d') ?? '',
+      };
+    });
+    assert.ok(pageArrow !== null, 'Page Read renders the primary arrow');
+    assert.equal(pageArrow.arrow, 'right', 'the arrow enters the child from the left');
+    // The rendered shaft ends one arrow length before the tip.
+    const endMatch = pageArrow.pathD.match(/(?:L|M) (-?[\d.]+) (-?[\d.]+)\s*$/);
+    assert.ok(endMatch !== null, 'the shaft path ends with a line command');
+    assert.ok(
+      Math.abs(Number(endMatch[1]) - (pageArrow.tip.x - 6)) <= 0.02,
+      'the Page Read shaft ends at the arrow base',
+    );
+    await page.keyboard.press('Meta+2');
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+
+    const outputPath = resolve(outputRoot, 'vf-arrow.pdf');
+    const job = await exportPdf({ packagePath, outputPath });
+    assert.equal(job.status, 'done', job.error?.message ?? 'arrow export succeeds');
+    const pdf = await inspect(outputPath);
+    assertPageSizes(pdf, job);
+
+    const { margins } = job.pageSetup;
+    const contentWidthMm = job.pageWidthMm - margins.left - margins.right;
+    const contentHeightMm = job.pageHeightMm - margins.top - margins.bottom;
+    const mmPerContentPx = contentWidthMm / pageArrow.content.width;
+    assert.ok(
+      Math.abs(pageArrow.content.height * mmPerContentPx - contentHeightMm) < 0.01,
+      'the page content box maps uniformly to the paper',
+    );
+
+    const raster = await renderPdfPage(outputPath, 1, 400);
+    const px = (contentPx) => contentPx * mmPerContentPx * raster.pixelsPerMm;
+    const tip = {
+      x: (margins.left + pageArrow.tip.x * mmPerContentPx) * raster.pixelsPerMm,
+      y: (margins.top + pageArrow.tip.y * mmPerContentPx) * raster.pixelsPerMm,
+    };
+    // The 6 x 6 content-px head, plus the shaft run just before it.
+    const box = {
+      x: tip.x - px(8),
+      y: tip.y - px(3.4),
+      width: px(8),
+      height: px(6.8),
+    };
+    // The head's own fill level: the most common ink value in the box (paper
+    // and the antialiased rim are excluded, so a mis-mapped point finds no ink).
+    const histogram = new Map();
+    let ink = 0;
+    for (let x = Math.round(box.x); x <= Math.round(box.x + box.width); x += 1) {
+      for (let y = Math.round(box.y); y <= Math.round(box.y + box.height); y += 1) {
+        const { r } = raster.pixel(x, y);
+        if (r > 200) continue;
+        ink += 1;
+        const bucket = Math.round(r / 4) * 4;
+        histogram.set(bucket, (histogram.get(bucket) ?? 0) + 1);
+      }
+    }
+    const fillLevel = [...histogram.entries()].sort((left, right) => right[1] - left[1])[0];
+    assert.ok(fillLevel !== undefined && ink > 100, `the head box holds ink (${ink} px)`);
+    assert.ok(
+      fillLevel[0] < 120,
+      `the head fill is a dark grey (level ${fillLevel?.[0]})`,
+    );
+    let deepest = Number.NEGATIVE_INFINITY;
+    // Any pixel darker than the head fill is shaft ink showing through the
+    // translucent head (0.88 over 0.95). It may exist only at the base: the
+    // round cap is 0.625 px, so nothing darker may appear inside the head.
+    for (let x = Math.round(box.x); x <= Math.round(box.x + box.width); x += 1) {
+      for (let y = Math.round(box.y); y <= Math.round(box.y + box.height); y += 1) {
+        if (raster.pixel(x, y).r <= fillLevel[0] - 6) deepest = Math.max(deepest, x);
+      }
+    }
+    assert.ok(
+      deepest === Number.NEGATIVE_INFINITY || tip.x - deepest >= px(5.5),
+      `no darker band inside the head (deepest darker pixel ${(tip.x - deepest).toFixed(1)} px before the tip, base is ${px(6).toFixed(1)} px)`,
+    );
+    await raster.cropPng(artifactsPath('vf-release-fixes', 'arrow-pdf-200.png'), {
+      x: tip.x - px(26),
+      y: tip.y - px(14),
+      width: px(34),
+      height: px(28),
+    });
+    record({
+      case: 'arrow shaft',
+      tip: pageArrow.tip,
+      headFillLevel: fillLevel?.[0] ?? null,
+      deepestDarkerPxBeforeTip: Number.isFinite(deepest) ? Number((tip.x - deepest).toFixed(1)) : null,
+      basePx: Number(px(6).toFixed(1)),
+    });
   });
 });
