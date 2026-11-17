@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NoteForest — icon lab</title>
+    <style>
+      :root {
+        --bg: #0e0f11;
+        --panel: #16181b;
+        --text-1: #e7e8ea;
+        --text-2: #a6abb2;
+        --text-3: #8d939b;
+        --border: #2a2d33;
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--text-1); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+      body { padding: 26px 18px 70px; }
+      main { max-width: 1080px; margin: 0 auto; }
+      h1 { margin: 0 0 6px; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+      .lede { margin: 0 0 4px; color: var(--text-2); font-size: 13px; line-height: 1.55; }
+      .rule { margin: 0; color: var(--text-3); font-size: 11.5px; }
+      h2 { margin: 34px 0 14px; font-size: 14px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-3); }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 18px; }
+      .tile { margin: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+      .icon svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.35)); }
+      .name { margin: 0 0 3px; font-size: 12.5px; font-weight: 600; }
+      .id { display: inline-block; margin-right: 6px; padding: 1px 4px; border-radius: 3px; background: #22262b; color: var(--text-3); font-family: var(--mono); font-size: 10px; font-weight: 400; }
+      .note { margin: 0 0 8px; color: var(--text-3); font-size: 11px; line-height: 1.45; }
+      .strip { display: flex; gap: 12px; align-items: flex-end; }
+      .s { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+      .s em { color: var(--text-3); font-family: var(--mono); font-size: 9px; font-style: normal; }
+      .append { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 11px; line-height: 1.6; }
+      code { font-family: var(--mono); font-size: 10.5px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>NoteForest — icon lab</h1>
+      <p class="lede">Two rounds, 24 proposals, drawn elsewhere and kept verbatim. Each tile shows the mark large, then at 32 and 16.</p>
+      <p class="rule">Rounds are appended below. Ids are permanent: <code>01–15</code> for round 1, <code>R2-A…I</code> for round 2, <code>R3-…</code> next.</p>
+
+      <h2>Round 1 · fifteen directions</h2>
+      <div class="grid">
+      <figure class="tile" id="01">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#12301f"></rect><path d="M30 48H49M22 58V73H49" fill="none" stroke="#7ee0a5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path><g fill="#7ee0a5"><rect x="14" y="38" width="16" height="20" rx="4"></rect><rect x="54" y="38" width="22" height="20" rx="4"></rect><rect x="54" y="66" width="22" height="14" rx="4"></rect><path d="M54 48l-6-3.5v7zM54 73l-6-3.5v7z"></path></g></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">01</span>Blocchi e frecce</p>
+          <p class="note">Letterale: figlio a destra e sotto</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#12301f"></rect><path d="M30 48H49M22 58V73H49" fill="none" stroke="#7ee0a5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path><g fill="#7ee0a5"><rect x="14" y="38" width="16" height="20" rx="4"></rect><rect x="54" y="38" width="22" height="20" rx="4"></rect><rect x="54" y="66" width="22" height="14" rx="4"></rect><path d="M54 48l-6-3.5v7zM54 73l-6-3.5v7z"></path></g></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#12301f"></rect><path d="M30 48H49M22 58V73H49" fill="none" stroke="#7ee0a5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path><g fill="#7ee0a5"><rect x="14" y="38" width="16" height="20" rx="4"></rect><rect x="54" y="38" width="22" height="20" rx="4"></rect><rect x="54" y="66" width="22" height="14" rx="4"></rect><path d="M54 48l-6-3.5v7zM54 73l-6-3.5v7z"></path></g></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="02">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f4efe3"></rect><circle cx="28" cy="50" r="8" fill="#1f5c3a"></circle><path d="M42 50H60" stroke="#1f5c3a" stroke-width="4" stroke-linecap="round"></path><path d="M64 50l-8-5.5v11z" fill="#1f5c3a"></path><rect x="70" y="38" width="14" height="24" rx="5" fill="none" stroke="#1f5c3a" stroke-width="4"></rect></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">02</span>Punto, freccia, blocco</p>
+          <p class="note">Quasi niente</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f4efe3"></rect><circle cx="28" cy="50" r="8" fill="#1f5c3a"></circle><path d="M42 50H60" stroke="#1f5c3a" stroke-width="4" stroke-linecap="round"></path><path d="M64 50l-8-5.5v11z" fill="#1f5c3a"></path><rect x="70" y="38" width="14" height="24" rx="5" fill="none" stroke="#1f5c3a" stroke-width="4"></rect></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f4efe3"></rect><circle cx="28" cy="50" r="8" fill="#1f5c3a"></circle><path d="M42 50H60" stroke="#1f5c3a" stroke-width="4" stroke-linecap="round"></path><path d="M64 50l-8-5.5v11z" fill="#1f5c3a"></path><rect x="70" y="38" width="14" height="24" rx="5" fill="none" stroke="#1f5c3a" stroke-width="4"></rect></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="03">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1b1b1f"></rect><path d="M28 74V26L72 74V26" fill="none" stroke="#7ee0a5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="28" cy="26" r="6" fill="#ffb454"></circle><circle cx="72" cy="26" r="6" fill="#ffb454"></circle></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">03</span>N-ramo</p>
+          <p class="note">Monogramma con nodi</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1b1b1f"></rect><path d="M28 74V26L72 74V26" fill="none" stroke="#7ee0a5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="28" cy="26" r="6" fill="#ffb454"></circle><circle cx="72" cy="26" r="6" fill="#ffb454"></circle></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1b1b1f"></rect><path d="M28 74V26L72 74V26" fill="none" stroke="#7ee0a5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="28" cy="26" r="6" fill="#ffb454"></circle><circle cx="72" cy="26" r="6" fill="#ffb454"></circle></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="04">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#173f2c"></rect><g fill="none" stroke="#9af0b8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 26L42 50L22 74"></path><path d="M44 34L58 50L44 66"></path><path d="M62 42L72 50L62 58"></path></g><circle cx="83" cy="50" r="4" fill="#ffb454"></circle></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">04</span>Pino di chevron</p>
+          <p class="note">Le frecce diventano conifera</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#173f2c"></rect><g fill="none" stroke="#9af0b8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 26L42 50L22 74"></path><path d="M44 34L58 50L44 66"></path><path d="M62 42L72 50L62 58"></path></g><circle cx="83" cy="50" r="4" fill="#ffb454"></circle></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#173f2c"></rect><g fill="none" stroke="#9af0b8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 26L42 50L22 74"></path><path d="M44 34L58 50L44 66"></path><path d="M62 42L72 50L62 58"></path></g><circle cx="83" cy="50" r="4" fill="#ffb454"></circle></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="05">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M28 16H58L74 32V84H28Z" fill="#fffdf5"></path><path d="M58 16V32H74Z" fill="#cfe8d8"></path><path d="M44 44H54M39 48V74M39 62H54M39 74H54" fill="none" stroke="#2f8f5b" stroke-width="2.5" stroke-linecap="round"></path><g fill="#2f8f5b"><rect x="33" y="40" width="11" height="8" rx="2"></rect><rect x="54" y="40" width="12" height="8" rx="2"></rect><rect x="54" y="58" width="12" height="8" rx="2"></rect><rect x="54" y="70" width="12" height="8" rx="2"></rect></g></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">05</span>Foglio-bosco</p>
+          <p class="note">Pagina con mini-albero</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M28 16H58L74 32V84H28Z" fill="#fffdf5"></path><path d="M58 16V32H74Z" fill="#cfe8d8"></path><path d="M44 44H54M39 48V74M39 62H54M39 74H54" fill="none" stroke="#2f8f5b" stroke-width="2.5" stroke-linecap="round"></path><g fill="#2f8f5b"><rect x="33" y="40" width="11" height="8" rx="2"></rect><rect x="54" y="40" width="12" height="8" rx="2"></rect><rect x="54" y="58" width="12" height="8" rx="2"></rect><rect x="54" y="70" width="12" height="8" rx="2"></rect></g></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M28 16H58L74 32V84H28Z" fill="#fffdf5"></path><path d="M58 16V32H74Z" fill="#cfe8d8"></path><path d="M44 44H54M39 48V74M39 62H54M39 74H54" fill="none" stroke="#2f8f5b" stroke-width="2.5" stroke-linecap="round"></path><g fill="#2f8f5b"><rect x="33" y="40" width="11" height="8" rx="2"></rect><rect x="54" y="40" width="12" height="8" rx="2"></rect><rect x="54" y="58" width="12" height="8" rx="2"></rect><rect x="54" y="70" width="12" height="8" rx="2"></rect></g></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="06">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#fff3dc"></rect><g fill="none" stroke="#2a5d3a" stroke-width="4" stroke-linecap="round"><path d="M24 80V46M24 56H36M24 68H34"></path><path d="M46 80V22M46 34H60M46 48H56M46 62H62"></path><path d="M70 80V50M70 60H80M70 72H78"></path><path d="M14 85H86" stroke-width="3"></path></g><g fill="#e07a2f"><circle cx="36" cy="56" r="3.5"></circle><circle cx="34" cy="68" r="3.5"></circle><circle cx="60" cy="34" r="3.5"></circle><circle cx="56" cy="48" r="3.5"></circle><circle cx="62" cy="62" r="3.5"></circle><circle cx="80" cy="60" r="3.5"></circle><circle cx="78" cy="72" r="3.5"></circle></g></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">06</span>Boschetto</p>
+          <p class="note">Tre alberi a bastoncino</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#fff3dc"></rect><g fill="none" stroke="#2a5d3a" stroke-width="4" stroke-linecap="round"><path d="M24 80V46M24 56H36M24 68H34"></path><path d="M46 80V22M46 34H60M46 48H56M46 62H62"></path><path d="M70 80V50M70 60H80M70 72H78"></path><path d="M14 85H86" stroke-width="3"></path></g><g fill="#e07a2f"><circle cx="36" cy="56" r="3.5"></circle><circle cx="34" cy="68" r="3.5"></circle><circle cx="60" cy="34" r="3.5"></circle><circle cx="56" cy="48" r="3.5"></circle><circle cx="62" cy="62" r="3.5"></circle><circle cx="80" cy="60" r="3.5"></circle><circle cx="78" cy="72" r="3.5"></circle></g></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#fff3dc"></rect><g fill="none" stroke="#2a5d3a" stroke-width="4" stroke-linecap="round"><path d="M24 80V46M24 56H36M24 68H34"></path><path d="M46 80V22M46 34H60M46 48H56M46 62H62"></path><path d="M70 80V50M70 60H80M70 72H78"></path><path d="M14 85H86" stroke-width="3"></path></g><g fill="#e07a2f"><circle cx="36" cy="56" r="3.5"></circle><circle cx="34" cy="68" r="3.5"></circle><circle cx="60" cy="34" r="3.5"></circle><circle cx="56" cy="48" r="3.5"></circle><circle cx="62" cy="62" r="3.5"></circle><circle cx="80" cy="60" r="3.5"></circle><circle cx="78" cy="72" r="3.5"></circle></g></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="07">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14161a"></rect><path d="M25 31V80M39 57V67" stroke="#3a4a42" stroke-width="2" stroke-linecap="round"></path><rect x="18" y="24" width="34" height="7" rx="3.5" fill="#f4efe3"></rect><g fill="#7ee0a5"><rect x="32" y="37" width="42" height="7" rx="3.5"></rect><rect x="32" y="50" width="30" height="7" rx="3.5"></rect><rect x="46" y="63" width="30" height="7" rx="3.5"></rect></g><rect x="32" y="76" width="38" height="7" rx="3.5" fill="#ffb454"></rect></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">07</span>Outline</p>
+          <p class="note">Il rientro è il ramo</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14161a"></rect><path d="M25 31V80M39 57V67" stroke="#3a4a42" stroke-width="2" stroke-linecap="round"></path><rect x="18" y="24" width="34" height="7" rx="3.5" fill="#f4efe3"></rect><g fill="#7ee0a5"><rect x="32" y="37" width="42" height="7" rx="3.5"></rect><rect x="32" y="50" width="30" height="7" rx="3.5"></rect><rect x="46" y="63" width="30" height="7" rx="3.5"></rect></g><rect x="32" y="76" width="38" height="7" rx="3.5" fill="#ffb454"></rect></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14161a"></rect><path d="M25 31V80M39 57V67" stroke="#3a4a42" stroke-width="2" stroke-linecap="round"></path><rect x="18" y="24" width="34" height="7" rx="3.5" fill="#f4efe3"></rect><g fill="#7ee0a5"><rect x="32" y="37" width="42" height="7" rx="3.5"></rect><rect x="32" y="50" width="30" height="7" rx="3.5"></rect><rect x="46" y="63" width="30" height="7" rx="3.5"></rect></g><rect x="32" y="76" width="38" height="7" rx="3.5" fill="#ffb454"></rect></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="08">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f2e3c6"></rect><g fill="none" stroke="#7a4a21" stroke-width="4"><circle cx="60" cy="50" r="8"></circle><circle cx="60" cy="50" r="18"></circle><circle cx="60" cy="50" r="28"></circle></g><path d="M10 50H40" stroke="#d9622b" stroke-width="4" stroke-linecap="round"></path><path d="M52 50l-10-6.5v13z" fill="#d9622b"></path></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">08</span>Anelli</p>
+          <p class="note">Sezione di tronco, freccia che entra</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f2e3c6"></rect><g fill="none" stroke="#7a4a21" stroke-width="4"><circle cx="60" cy="50" r="8"></circle><circle cx="60" cy="50" r="18"></circle><circle cx="60" cy="50" r="28"></circle></g><path d="M10 50H40" stroke="#d9622b" stroke-width="4" stroke-linecap="round"></path><path d="M52 50l-10-6.5v13z" fill="#d9622b"></path></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f2e3c6"></rect><g fill="none" stroke="#7a4a21" stroke-width="4"><circle cx="60" cy="50" r="8"></circle><circle cx="60" cy="50" r="18"></circle><circle cx="60" cy="50" r="28"></circle></g><path d="M10 50H40" stroke="#d9622b" stroke-width="4" stroke-linecap="round"></path><path d="M52 50l-10-6.5v13z" fill="#d9622b"></path></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="09">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#0c1b14"></rect><g fill="none" stroke="#5ad17f" stroke-width="7" stroke-dasharray="7 5"><path d="M24 22.5V77.5"></path><path d="M36 28.5V71.5"></path><path d="M48 34.5V65.5"></path><path d="M60 40.5V59.5"></path><path d="M72 46.5V53.5" stroke="#ffb454"></path></g></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">09</span>Pixel pine</p>
+          <p class="note">8-bit, punta a destra</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#0c1b14"></rect><g fill="none" stroke="#5ad17f" stroke-width="7" stroke-dasharray="7 5"><path d="M24 22.5V77.5"></path><path d="M36 28.5V71.5"></path><path d="M48 34.5V65.5"></path><path d="M60 40.5V59.5"></path><path d="M72 46.5V53.5" stroke="#ffb454"></path></g></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#0c1b14"></rect><g fill="none" stroke="#5ad17f" stroke-width="7" stroke-dasharray="7 5"><path d="M24 22.5V77.5"></path><path d="M36 28.5V71.5"></path><path d="M48 34.5V65.5"></path><path d="M60 40.5V59.5"></path><path d="M72 46.5V53.5" stroke="#ffb454"></path></g></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="10">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#fbfaf6"></rect><g fill="none" stroke="#1f5c3a" stroke-width="2.5" stroke-linecap="round"><path d="M28 50H34M34 24V76M34 24H36M34 50H36M34 76H36"></path><path d="M64 24H69M64 76H69"></path></g><g fill="#1f5c3a"><path d="M40 24l-5-3v6zM40 50l-5-3v6zM40 76l-5-3v6zM72 24l-5-3v6zM72 76l-5-3v6z"></path></g><rect x="8" y="38" width="20" height="24" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M12 45H24M12 50H21M12 55H23" stroke="#1f5c3a" stroke-width="1.5" stroke-linecap="round"></path><rect x="40" y="14" width="24" height="20" rx="4" fill="#1e2a24"></rect><text x="52" y="28" text-anchor="middle" font-size="9" font-family="monospace" fill="#7ee0a5">&lt;/&gt;</text><rect x="40" y="40" width="24" height="20" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><text x="52" y="55" text-anchor="middle" font-size="13" font-family="serif" fill="#1f5c3a">Σ</text><rect x="40" y="66" width="24" height="20" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M40 76H64M52 66V86" stroke="#1f5c3a" stroke-width="1.5"></path><rect x="72" y="16" width="20" height="16" rx="3" fill="#ffd9b8"></rect><path d="M72 32L79 22L84 28L87 24L92 32Z" fill="#e8743b"></path><rect x="72" y="68" width="20" height="16" rx="3" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M76 74H88M76 79H84" stroke="#1f5c3a" stroke-width="1.5" stroke-linecap="round"></path></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">10</span>Mappa completa</p>
+          <p class="note">Ricco: md, codice, formula, tabella, immagine</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#fbfaf6"></rect><g fill="none" stroke="#1f5c3a" stroke-width="2.5" stroke-linecap="round"><path d="M28 50H34M34 24V76M34 24H36M34 50H36M34 76H36"></path><path d="M64 24H69M64 76H69"></path></g><g fill="#1f5c3a"><path d="M40 24l-5-3v6zM40 50l-5-3v6zM40 76l-5-3v6zM72 24l-5-3v6zM72 76l-5-3v6z"></path></g><rect x="8" y="38" width="20" height="24" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M12 45H24M12 50H21M12 55H23" stroke="#1f5c3a" stroke-width="1.5" stroke-linecap="round"></path><rect x="40" y="14" width="24" height="20" rx="4" fill="#1e2a24"></rect><text x="52" y="28" text-anchor="middle" font-size="9" font-family="monospace" fill="#7ee0a5">&lt;/&gt;</text><rect x="40" y="40" width="24" height="20" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><text x="52" y="55" text-anchor="middle" font-size="13" font-family="serif" fill="#1f5c3a">Σ</text><rect x="40" y="66" width="24" height="20" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M40 76H64M52 66V86" stroke="#1f5c3a" stroke-width="1.5"></path><rect x="72" y="16" width="20" height="16" rx="3" fill="#ffd9b8"></rect><path d="M72 32L79 22L84 28L87 24L92 32Z" fill="#e8743b"></path><rect x="72" y="68" width="20" height="16" rx="3" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M76 74H88M76 79H84" stroke="#1f5c3a" stroke-width="1.5" stroke-linecap="round"></path></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#fbfaf6"></rect><g fill="none" stroke="#1f5c3a" stroke-width="2.5" stroke-linecap="round"><path d="M28 50H34M34 24V76M34 24H36M34 50H36M34 76H36"></path><path d="M64 24H69M64 76H69"></path></g><g fill="#1f5c3a"><path d="M40 24l-5-3v6zM40 50l-5-3v6zM40 76l-5-3v6zM72 24l-5-3v6zM72 76l-5-3v6z"></path></g><rect x="8" y="38" width="20" height="24" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M12 45H24M12 50H21M12 55H23" stroke="#1f5c3a" stroke-width="1.5" stroke-linecap="round"></path><rect x="40" y="14" width="24" height="20" rx="4" fill="#1e2a24"></rect><text x="52" y="28" text-anchor="middle" font-size="9" font-family="monospace" fill="#7ee0a5">&lt;/&gt;</text><rect x="40" y="40" width="24" height="20" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><text x="52" y="55" text-anchor="middle" font-size="13" font-family="serif" fill="#1f5c3a">Σ</text><rect x="40" y="66" width="24" height="20" rx="4" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M40 76H64M52 66V86" stroke="#1f5c3a" stroke-width="1.5"></path><rect x="72" y="16" width="20" height="16" rx="3" fill="#ffd9b8"></rect><path d="M72 32L79 22L84 28L87 24L92 32Z" fill="#e8743b"></path><rect x="72" y="68" width="20" height="16" rx="3" fill="#fff" stroke="#1f5c3a" stroke-width="2"></rect><path d="M76 74H88M76 79H84" stroke="#1f5c3a" stroke-width="1.5" stroke-linecap="round"></path></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="11">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f7f1e1"></rect><path d="M16 80C30 80 40 60 58 50" fill="none" stroke="#1f5c3a" stroke-width="5" stroke-linecap="round"></path><path d="M54 52C54 32 68 20 86 16C88 36 78 54 54 52Z" fill="#e8743b"></path><path d="M60 46L80 24" stroke="#f7f1e1" stroke-width="2" stroke-linecap="round"></path></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">11</span>Freccia-foglia</p>
+          <p class="note">Un solo tratto</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f7f1e1"></rect><path d="M16 80C30 80 40 60 58 50" fill="none" stroke="#1f5c3a" stroke-width="5" stroke-linecap="round"></path><path d="M54 52C54 32 68 20 86 16C88 36 78 54 54 52Z" fill="#e8743b"></path><path d="M60 46L80 24" stroke="#f7f1e1" stroke-width="2" stroke-linecap="round"></path></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f7f1e1"></rect><path d="M16 80C30 80 40 60 58 50" fill="none" stroke="#1f5c3a" stroke-width="5" stroke-linecap="round"></path><path d="M54 52C54 32 68 20 86 16C88 36 78 54 54 52Z" fill="#e8743b"></path><path d="M60 46L80 24" stroke="#f7f1e1" stroke-width="2" stroke-linecap="round"></path></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="12">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1d3b2f"></rect><rect x="14" y="16" width="38" height="26" rx="6" fill="#2f8f5b"></rect><rect x="30" y="38" width="38" height="26" rx="6" fill="#5ccf8b" stroke="#1d3b2f" stroke-width="3"></rect><rect x="46" y="60" width="38" height="26" rx="6" fill="#c9f5d9" stroke="#1d3b2f" stroke-width="3"></rect><path d="M52 70H72M52 76H66" stroke="#1d3b2f" stroke-width="3" stroke-linecap="round"></path></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">12</span>Carte a cascata</p>
+          <p class="note">Blocchi che scendono a destra</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1d3b2f"></rect><rect x="14" y="16" width="38" height="26" rx="6" fill="#2f8f5b"></rect><rect x="30" y="38" width="38" height="26" rx="6" fill="#5ccf8b" stroke="#1d3b2f" stroke-width="3"></rect><rect x="46" y="60" width="38" height="26" rx="6" fill="#c9f5d9" stroke="#1d3b2f" stroke-width="3"></rect><path d="M52 70H72M52 76H66" stroke="#1d3b2f" stroke-width="3" stroke-linecap="round"></path></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1d3b2f"></rect><rect x="14" y="16" width="38" height="26" rx="6" fill="#2f8f5b"></rect><rect x="30" y="38" width="38" height="26" rx="6" fill="#5ccf8b" stroke="#1d3b2f" stroke-width="3"></rect><rect x="46" y="60" width="38" height="26" rx="6" fill="#c9f5d9" stroke="#1d3b2f" stroke-width="3"></rect><path d="M52 70H72M52 76H66" stroke="#1d3b2f" stroke-width="3" stroke-linecap="round"></path></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="13">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#dff0e0"></rect><path d="M12 50C28 18 66 18 90 50C66 82 28 82 12 50Z" fill="#1f5c3a"></path><path d="M20 50H80M36 50V38H48M36 50V62H48M56 50V43H66M56 50V57H66" fill="none" stroke="#dff0e0" stroke-width="2.5" stroke-linecap="round"></path></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">13</span>Foglia-albero</p>
+          <p class="note">Le nervature sono diramazioni</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#dff0e0"></rect><path d="M12 50C28 18 66 18 90 50C66 82 28 82 12 50Z" fill="#1f5c3a"></path><path d="M20 50H80M36 50V38H48M36 50V62H48M56 50V43H66M56 50V57H66" fill="none" stroke="#dff0e0" stroke-width="2.5" stroke-linecap="round"></path></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#dff0e0"></rect><path d="M12 50C28 18 66 18 90 50C66 82 28 82 12 50Z" fill="#1f5c3a"></path><path d="M20 50H80M36 50V38H48M36 50V62H48M56 50V43H66M56 50V57H66" fill="none" stroke="#dff0e0" stroke-width="2.5" stroke-linecap="round"></path></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="14">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1f5c3a"></rect><circle cx="28" cy="26" r="8" fill="#ffb454"></circle><path d="M28 36V68H72M62 57L74 68L62 79" fill="none" stroke="#f4efe3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">14</span>Rientro</p>
+          <p class="note">Segno tipografico minimo</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1f5c3a"></rect><circle cx="28" cy="26" r="8" fill="#ffb454"></circle><path d="M28 36V68H72M62 57L74 68L62 79" fill="none" stroke="#f4efe3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1f5c3a"></rect><circle cx="28" cy="26" r="8" fill="#ffb454"></circle><path d="M28 36V68H72M62 57L74 68L62 79" fill="none" stroke="#f4efe3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></path></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="15">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f3efe6"></rect><rect x="12" y="12" width="34" height="76" rx="4" fill="#1f5c3a"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill="#7ee0a5"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill="#e8743b"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill="#2f8f5b"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill="#ffd9a8"></rect></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">15</span>Mondrian</p>
+          <p class="note">Astratto: pura griglia di blocchi</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f3efe6"></rect><rect x="12" y="12" width="34" height="76" rx="4" fill="#1f5c3a"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill="#7ee0a5"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill="#e8743b"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill="#2f8f5b"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill="#ffd9a8"></rect></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f3efe6"></rect><rect x="12" y="12" width="34" height="76" rx="4" fill="#1f5c3a"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill="#7ee0a5"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill="#e8743b"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill="#2f8f5b"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill="#ffd9a8"></rect></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+      </div>
+
+      <h2>Round 2 · nine reworks</h2>
+      <div class="grid">
+      <figure class="tile" id="R2-A">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#10241a"></rect><path d="M23 17h10M45 17h10M67 17h10M45 39h10M67 39h10M67 61h10M39 23v10M61 23v10M83 23v10M61 45v10M83 45v10M83 67v10" fill="none" stroke="#5ccf8b" stroke-width="2.5" stroke-linecap="round"></path><g fill="#7ee0a5"><rect x="33" y="11" width="12" height="12" rx="3"></rect><rect x="55" y="11" width="12" height="12" rx="3"></rect><rect x="77" y="11" width="12" height="12" rx="3"></rect><rect x="33" y="33" width="12" height="12" rx="3"></rect><rect x="55" y="33" width="12" height="12" rx="3"></rect><rect x="77" y="33" width="12" height="12" rx="3"></rect><rect x="55" y="55" width="12" height="12" rx="3"></rect><rect x="77" y="55" width="12" height="12" rx="3"></rect><rect x="77" y="77" width="12" height="12" rx="3"></rect></g><rect x="11" y="11" width="12" height="12" rx="3" fill="#ffb454"></rect></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-A</span>Triangolo di blocchi</p>
+          <p class="note">Da 9: radice in alto a sinistra, metà bassa vuota</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#10241a"></rect><path d="M23 17h10M45 17h10M67 17h10M45 39h10M67 39h10M67 61h10M39 23v10M61 23v10M83 23v10M61 45v10M83 45v10M83 67v10" fill="none" stroke="#5ccf8b" stroke-width="2.5" stroke-linecap="round"></path><g fill="#7ee0a5"><rect x="33" y="11" width="12" height="12" rx="3"></rect><rect x="55" y="11" width="12" height="12" rx="3"></rect><rect x="77" y="11" width="12" height="12" rx="3"></rect><rect x="33" y="33" width="12" height="12" rx="3"></rect><rect x="55" y="33" width="12" height="12" rx="3"></rect><rect x="77" y="33" width="12" height="12" rx="3"></rect><rect x="55" y="55" width="12" height="12" rx="3"></rect><rect x="77" y="55" width="12" height="12" rx="3"></rect><rect x="77" y="77" width="12" height="12" rx="3"></rect></g><rect x="11" y="11" width="12" height="12" rx="3" fill="#ffb454"></rect></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#10241a"></rect><path d="M23 17h10M45 17h10M67 17h10M45 39h10M67 39h10M67 61h10M39 23v10M61 23v10M83 23v10M61 45v10M83 45v10M83 67v10" fill="none" stroke="#5ccf8b" stroke-width="2.5" stroke-linecap="round"></path><g fill="#7ee0a5"><rect x="33" y="11" width="12" height="12" rx="3"></rect><rect x="55" y="11" width="12" height="12" rx="3"></rect><rect x="77" y="11" width="12" height="12" rx="3"></rect><rect x="33" y="33" width="12" height="12" rx="3"></rect><rect x="55" y="33" width="12" height="12" rx="3"></rect><rect x="77" y="33" width="12" height="12" rx="3"></rect><rect x="55" y="55" width="12" height="12" rx="3"></rect><rect x="77" y="55" width="12" height="12" rx="3"></rect><rect x="77" y="77" width="12" height="12" rx="3"></rect></g><rect x="11" y="11" width="12" height="12" rx="3" fill="#ffb454"></rect></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="R2-B">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#10241a"></rect><rect x="10" y="10" width="17" height="17" rx="4" fill="#ffb454"></rect><rect x="31" y="10" width="17" height="17" rx="4" fill="#b8f5cd"></rect><rect x="52" y="10" width="17" height="17" rx="4" fill="#8de8ad"></rect><rect x="73" y="10" width="17" height="17" rx="4" fill="#5ccf8b"></rect><rect x="31" y="31" width="17" height="17" rx="4" fill="#8de8ad"></rect><rect x="52" y="31" width="17" height="17" rx="4" fill="#5ccf8b"></rect><rect x="73" y="31" width="17" height="17" rx="4" fill="#3fae72"></rect><rect x="52" y="52" width="17" height="17" rx="4" fill="#3fae72"></rect><rect x="73" y="52" width="17" height="17" rx="4" fill="#2f8f5b"></rect><rect x="73" y="73" width="17" height="17" rx="4" fill="#25744a"></rect></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-B</span>Triangolo pieno</p>
+          <p class="note">Da 9 + 15: colore per profondità</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#10241a"></rect><rect x="10" y="10" width="17" height="17" rx="4" fill="#ffb454"></rect><rect x="31" y="10" width="17" height="17" rx="4" fill="#b8f5cd"></rect><rect x="52" y="10" width="17" height="17" rx="4" fill="#8de8ad"></rect><rect x="73" y="10" width="17" height="17" rx="4" fill="#5ccf8b"></rect><rect x="31" y="31" width="17" height="17" rx="4" fill="#8de8ad"></rect><rect x="52" y="31" width="17" height="17" rx="4" fill="#5ccf8b"></rect><rect x="73" y="31" width="17" height="17" rx="4" fill="#3fae72"></rect><rect x="52" y="52" width="17" height="17" rx="4" fill="#3fae72"></rect><rect x="73" y="52" width="17" height="17" rx="4" fill="#2f8f5b"></rect><rect x="73" y="73" width="17" height="17" rx="4" fill="#25744a"></rect></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#10241a"></rect><rect x="10" y="10" width="17" height="17" rx="4" fill="#ffb454"></rect><rect x="31" y="10" width="17" height="17" rx="4" fill="#b8f5cd"></rect><rect x="52" y="10" width="17" height="17" rx="4" fill="#8de8ad"></rect><rect x="73" y="10" width="17" height="17" rx="4" fill="#5ccf8b"></rect><rect x="31" y="31" width="17" height="17" rx="4" fill="#8de8ad"></rect><rect x="52" y="31" width="17" height="17" rx="4" fill="#5ccf8b"></rect><rect x="73" y="31" width="17" height="17" rx="4" fill="#3fae72"></rect><rect x="52" y="52" width="17" height="17" rx="4" fill="#3fae72"></rect><rect x="73" y="52" width="17" height="17" rx="4" fill="#2f8f5b"></rect><rect x="73" y="73" width="17" height="17" rx="4" fill="#25744a"></rect></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="R2-C">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f4efe3"></rect><path d="M34 23h6M62 23h6M62 51h6M51 34v6M79 34v6M79 62v6" fill="none" stroke="#1f5c3a" stroke-width="3" stroke-linecap="round"></path><g fill="#1f5c3a"><rect x="40" y="12" width="22" height="22" rx="5"></rect><rect x="68" y="12" width="22" height="22" rx="5"></rect><rect x="40" y="40" width="22" height="22" rx="5"></rect><rect x="68" y="40" width="22" height="22" rx="5"></rect><rect x="68" y="68" width="22" height="22" rx="5"></rect></g><rect x="12" y="12" width="22" height="22" rx="5" fill="#e8743b"></rect></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-C</span>Tre livelli</p>
+          <p class="note">Da 9: più grosso, regge a piccolo</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f4efe3"></rect><path d="M34 23h6M62 23h6M62 51h6M51 34v6M79 34v6M79 62v6" fill="none" stroke="#1f5c3a" stroke-width="3" stroke-linecap="round"></path><g fill="#1f5c3a"><rect x="40" y="12" width="22" height="22" rx="5"></rect><rect x="68" y="12" width="22" height="22" rx="5"></rect><rect x="40" y="40" width="22" height="22" rx="5"></rect><rect x="68" y="40" width="22" height="22" rx="5"></rect><rect x="68" y="68" width="22" height="22" rx="5"></rect></g><rect x="12" y="12" width="22" height="22" rx="5" fill="#e8743b"></rect></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f4efe3"></rect><path d="M34 23h6M62 23h6M62 51h6M51 34v6M79 34v6M79 62v6" fill="none" stroke="#1f5c3a" stroke-width="3" stroke-linecap="round"></path><g fill="#1f5c3a"><rect x="40" y="12" width="22" height="22" rx="5"></rect><rect x="68" y="12" width="22" height="22" rx="5"></rect><rect x="40" y="40" width="22" height="22" rx="5"></rect><rect x="68" y="40" width="22" height="22" rx="5"></rect><rect x="68" y="68" width="22" height="22" rx="5"></rect></g><rect x="12" y="12" width="22" height="22" rx="5" fill="#e8743b"></rect></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="R2-D">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M38 14H78V86H22V30Z" fill="#fffdf5"></path><path d="M22 30H38V14Z" fill="#cfe8d8"></path><path d="M44 51H50M37 58V71H50" fill="none" stroke="#2f8f5b" stroke-width="3" stroke-linecap="round"></path><g fill="#2f8f5b"><rect x="30" y="44" width="14" height="14" rx="3"></rect><rect x="54" y="44" width="16" height="14" rx="3"></rect><rect x="54" y="66" width="16" height="10" rx="3"></rect><path d="M54 51l-5-3.5v7zM54 71l-5-3.5v7z"></path></g></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-D</span>Foglio piegato</p>
+          <p class="note">Da 5: meno dettagli, più leggibile</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M38 14H78V86H22V30Z" fill="#fffdf5"></path><path d="M22 30H38V14Z" fill="#cfe8d8"></path><path d="M44 51H50M37 58V71H50" fill="none" stroke="#2f8f5b" stroke-width="3" stroke-linecap="round"></path><g fill="#2f8f5b"><rect x="30" y="44" width="14" height="14" rx="3"></rect><rect x="54" y="44" width="16" height="14" rx="3"></rect><rect x="54" y="66" width="16" height="10" rx="3"></rect><path d="M54 51l-5-3.5v7zM54 71l-5-3.5v7z"></path></g></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M38 14H78V86H22V30Z" fill="#fffdf5"></path><path d="M22 30H38V14Z" fill="#cfe8d8"></path><path d="M44 51H50M37 58V71H50" fill="none" stroke="#2f8f5b" stroke-width="3" stroke-linecap="round"></path><g fill="#2f8f5b"><rect x="30" y="44" width="14" height="14" rx="3"></rect><rect x="54" y="44" width="16" height="14" rx="3"></rect><rect x="54" y="66" width="16" height="10" rx="3"></rect><path d="M54 51l-5-3.5v7zM54 71l-5-3.5v7z"></path></g></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="R2-E">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M38 14H78V86H22V30Z" fill="#fffdf5"></path><path d="M22 30H38V14Z" fill="#cfe8d8"></path><rect x="30" y="40" width="16" height="40" rx="3" fill="#1f5c3a"></rect><rect x="50" y="40" width="20" height="18" rx="3" fill="#7ee0a5"></rect><rect x="50" y="62" width="9" height="18" rx="3" fill="#e8743b"></rect><rect x="62" y="62" width="8" height="18" rx="3" fill="#ffd9a8"></rect></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-E</span>Foglio + Mondrian</p>
+          <p class="note">Unione 5 e 15</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M38 14H78V86H22V30Z" fill="#fffdf5"></path><path d="M22 30H38V14Z" fill="#cfe8d8"></path><rect x="30" y="40" width="16" height="40" rx="3" fill="#1f5c3a"></rect><rect x="50" y="40" width="20" height="18" rx="3" fill="#7ee0a5"></rect><rect x="50" y="62" width="9" height="18" rx="3" fill="#e8743b"></rect><rect x="62" y="62" width="8" height="18" rx="3" fill="#ffd9a8"></rect></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#2f8f5b"></rect><path d="M38 14H78V86H22V30Z" fill="#fffdf5"></path><path d="M22 30H38V14Z" fill="#cfe8d8"></path><rect x="30" y="40" width="16" height="40" rx="3" fill="#1f5c3a"></rect><rect x="50" y="40" width="20" height="18" rx="3" fill="#7ee0a5"></rect><rect x="50" y="62" width="9" height="18" rx="3" fill="#e8743b"></rect><rect x="62" y="62" width="8" height="18" rx="3" fill="#ffd9a8"></rect></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="R2-F">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14161a"></rect><path d="M20.5 29V38.5H28M20.5 38.5V52.5H28M34.5 57V66.5H42M20.5 52.5V80.5H28" fill="none" stroke="#3f6b55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><rect x="16" y="20" width="9" height="9" rx="2" fill="#f4efe3"></rect><rect x="30" y="34" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="30" y="48" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="44" y="62" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="30" y="76" width="9" height="9" rx="2" fill="#ffb454"></rect><g fill="#7ee0a5" opacity=".75"><rect x="28" y="22" width="46" height="5" rx="2.5" fill="#f4efe3"></rect><rect x="42" y="36" width="34" height="5" rx="2.5"></rect><rect x="42" y="50" width="26" height="5" rx="2.5"></rect><rect x="56" y="64" width="28" height="5" rx="2.5"></rect><rect x="42" y="78" width="30" height="5" rx="2.5" fill="#ffb454"></rect></g></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-F</span>Outline con raccordi</p>
+          <p class="note">Da 7: i quadratini sono i blocchi</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14161a"></rect><path d="M20.5 29V38.5H28M20.5 38.5V52.5H28M34.5 57V66.5H42M20.5 52.5V80.5H28" fill="none" stroke="#3f6b55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><rect x="16" y="20" width="9" height="9" rx="2" fill="#f4efe3"></rect><rect x="30" y="34" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="30" y="48" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="44" y="62" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="30" y="76" width="9" height="9" rx="2" fill="#ffb454"></rect><g fill="#7ee0a5" opacity=".75"><rect x="28" y="22" width="46" height="5" rx="2.5" fill="#f4efe3"></rect><rect x="42" y="36" width="34" height="5" rx="2.5"></rect><rect x="42" y="50" width="26" height="5" rx="2.5"></rect><rect x="56" y="64" width="28" height="5" rx="2.5"></rect><rect x="42" y="78" width="30" height="5" rx="2.5" fill="#ffb454"></rect></g></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14161a"></rect><path d="M20.5 29V38.5H28M20.5 38.5V52.5H28M34.5 57V66.5H42M20.5 52.5V80.5H28" fill="none" stroke="#3f6b55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><rect x="16" y="20" width="9" height="9" rx="2" fill="#f4efe3"></rect><rect x="30" y="34" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="30" y="48" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="44" y="62" width="9" height="9" rx="2" fill="#7ee0a5"></rect><rect x="30" y="76" width="9" height="9" rx="2" fill="#ffb454"></rect><g fill="#7ee0a5" opacity=".75"><rect x="28" y="22" width="46" height="5" rx="2.5" fill="#f4efe3"></rect><rect x="42" y="36" width="34" height="5" rx="2.5"></rect><rect x="42" y="50" width="26" height="5" rx="2.5"></rect><rect x="56" y="64" width="28" height="5" rx="2.5"></rect><rect x="42" y="78" width="30" height="5" rx="2.5" fill="#ffb454"></rect></g></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="R2-G">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1d3b2f"></rect><path d="M22 42V51H24M38 64V73H40" fill="none" stroke="#ffb454" stroke-width="2.5" stroke-linecap="round"></path><rect x="14" y="16" width="38" height="26" rx="6" fill="#2f8f5b"></rect><rect x="30" y="38" width="38" height="26" rx="6" fill="#5ccf8b" stroke="#1d3b2f" stroke-width="3"></rect><rect x="46" y="60" width="38" height="26" rx="6" fill="#c9f5d9" stroke="#1d3b2f" stroke-width="3"></rect><path d="M30 51l-6-3.5v7zM46 73l-6-3.5v7z" fill="#ffb454"></path></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-G</span>Cascata con frecce</p>
+          <p class="note">Da 12: più rappresentativa</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1d3b2f"></rect><path d="M22 42V51H24M38 64V73H40" fill="none" stroke="#ffb454" stroke-width="2.5" stroke-linecap="round"></path><rect x="14" y="16" width="38" height="26" rx="6" fill="#2f8f5b"></rect><rect x="30" y="38" width="38" height="26" rx="6" fill="#5ccf8b" stroke="#1d3b2f" stroke-width="3"></rect><rect x="46" y="60" width="38" height="26" rx="6" fill="#c9f5d9" stroke="#1d3b2f" stroke-width="3"></rect><path d="M30 51l-6-3.5v7zM46 73l-6-3.5v7z" fill="#ffb454"></path></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#1d3b2f"></rect><path d="M22 42V51H24M38 64V73H40" fill="none" stroke="#ffb454" stroke-width="2.5" stroke-linecap="round"></path><rect x="14" y="16" width="38" height="26" rx="6" fill="#2f8f5b"></rect><rect x="30" y="38" width="38" height="26" rx="6" fill="#5ccf8b" stroke="#1d3b2f" stroke-width="3"></rect><rect x="46" y="60" width="38" height="26" rx="6" fill="#c9f5d9" stroke="#1d3b2f" stroke-width="3"></rect><path d="M30 51l-6-3.5v7zM46 73l-6-3.5v7z" fill="#ffb454"></path></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="R2-H">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14201a"></rect><rect x="12" y="12" width="34" height="76" rx="4" fill="#2f8f5b"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill="#7ee0a5"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill="#ffb454"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill="#5ccf8b"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill="#f4efe3"></rect></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-H</span>15 scuro</p>
+          <p class="note">Stessa griglia, modalità scura</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14201a"></rect><rect x="12" y="12" width="34" height="76" rx="4" fill="#2f8f5b"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill="#7ee0a5"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill="#ffb454"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill="#5ccf8b"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill="#f4efe3"></rect></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14201a"></rect><rect x="12" y="12" width="34" height="76" rx="4" fill="#2f8f5b"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill="#7ee0a5"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill="#ffb454"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill="#5ccf8b"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill="#f4efe3"></rect></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+
+      <figure class="tile" id="R2-I">
+        <div class="icon"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f3efe6"></rect><g fill="#1f5c3a"><rect x="12" y="12" width="34" height="76" rx="4"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill-opacity=".7"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill-opacity=".5"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill-opacity=".35"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill-opacity=".2"></rect></g></svg></div>
+        <figcaption>
+          <p class="name"><span class="id">R2-I</span>15 monocromo</p>
+          <p class="note">Un solo verde, sfumature per livello</p>
+          <div class="strip">
+            <span class="s"><svg width="32" height="32" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f3efe6"></rect><g fill="#1f5c3a"><rect x="12" y="12" width="34" height="76" rx="4"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill-opacity=".7"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill-opacity=".5"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill-opacity=".35"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill-opacity=".2"></rect></g></svg><em>32</em></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#f3efe6"></rect><g fill="#1f5c3a"><rect x="12" y="12" width="34" height="76" rx="4"></rect><rect x="52" y="12" width="36" height="34" rx="3" fill-opacity=".7"></rect><rect x="52" y="52" width="18" height="36" rx="3" fill-opacity=".5"></rect><rect x="74" y="52" width="14" height="16" rx="3" fill-opacity=".35"></rect><rect x="74" y="72" width="14" height="16" rx="3" fill-opacity=".2"></rect></g></svg><em>16</em></span>
+          </div>
+        </figcaption>
+      </figure>
+      </div>
+
+      <p class="append">
+        Append the next round here, above this line, as <code>&lt;h2&gt;Round 3 · …&lt;/h2&gt;</code> plus a
+        <code>.grid</code>. Never renumber an existing tile and never redraw one in place: a revision is a new id,
+        so the history stays readable.
+      </p>
+    </main>
+  </body>
+</html>
