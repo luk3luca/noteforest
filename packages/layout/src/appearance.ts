@@ -24,6 +24,18 @@ export type CodeFontId = 'jetbrains' | 'system-mono';
 /** Resolved mode after `system` is matched against the OS preference. */
 export type ResolvedTheme = 'dark' | 'light';
 
+/**
+ * Code themes (B2). The settings schema validates the ids; the colour values
+ * live in the renderer registry (`lib/code-themes.ts`), which is the product
+ * source for every role, surface, and computed contrast label. Keeping the id
+ * list here lets normalization reject an unknown theme without importing the
+ * renderer.
+ */
+export type CodeThemeId = 'monokai' | 'one-light' | 'dark-plus' | 'light-plus';
+
+/** The stored code-theme choice: `auto` follows the app theme. */
+export type CodeThemeSetting = 'auto' | CodeThemeId;
+
 /** Accent values for one theme. */
 export interface AccentValues {
   /** Primary fill. */
@@ -62,6 +74,12 @@ export interface AppearanceSettings {
   uiScale: UiScale;
   uiFont: UiFontId;
   codeFont: CodeFontId;
+  /**
+   * Code theme for the shell code blocks (B2). App-level, never per document;
+   * `auto` resolves to Dark+ in the dark theme and Light+ in light. Page and
+   * print keep their own fixed One Light roles.
+   */
+  codeTheme: CodeThemeSetting;
 }
 
 /**
@@ -253,6 +271,16 @@ export const CODE_FONTS: readonly CodeFontId[] = Object.freeze([
   'system-mono',
 ]);
 
+/** The four registry ids, in picker order (dark, light, classic dark, classic light). */
+export const CODE_THEME_IDS: readonly CodeThemeId[] = Object.freeze([
+  'dark-plus',
+  'light-plus',
+  'monokai',
+  'one-light',
+]);
+
+export const DEFAULT_CODE_THEME: CodeThemeSetting = 'auto';
+
 /**
  * Shell UI font stacks. System fonts only; a bundled UI font would be a
  * dependency decision. Page/PDF never read this value.
@@ -278,6 +306,7 @@ export const DEFAULT_APPEARANCE: Readonly<AppearanceSettings> = Object.freeze({
   uiScale: 1,
   uiFont: 'system',
   codeFont: 'jetbrains',
+  codeTheme: DEFAULT_CODE_THEME,
 });
 
 export const DEFAULT_CODE_FONT: CodeFontId = 'jetbrains';
@@ -296,6 +325,15 @@ export function isUiFont(value: unknown): value is UiFontId {
 
 export function isCodeFont(value: unknown): value is CodeFontId {
   return value === 'jetbrains' || value === 'system-mono';
+}
+
+export function isCodeThemeId(value: unknown): value is CodeThemeId {
+  return CODE_THEME_IDS.some((id) => id === value);
+}
+
+/** `auto` or one registry id; anything else normalizes to `auto`. */
+export function isCodeThemeSetting(value: unknown): value is CodeThemeSetting {
+  return value === 'auto' || isCodeThemeId(value);
 }
 
 /** The registry entry for an id; unknown ids fall back to the default accent. */
@@ -337,8 +375,9 @@ export function uiFontStack(id: string | null | undefined): string {
  * Normalize one stored appearance object.
  *
  * Missing or invalid fields become the product defaults (dark, blue, 1,
- * system, jetbrains). Unknown accent ids fall back to the default accent. The
- * result is a complete object; there is no partial appearance state.
+ * system, jetbrains, auto). Unknown accent ids fall back to the default accent,
+ * an unknown code theme falls back to `auto`. The result is a complete object;
+ * there is no partial appearance state.
  */
 export function normalizeAppearance(input?: unknown): AppearanceSettings {
   const record =
@@ -357,6 +396,9 @@ export function normalizeAppearance(input?: unknown): AppearanceSettings {
     codeFont: isCodeFont(record['codeFont'])
       ? record['codeFont']
       : DEFAULT_APPEARANCE.codeFont,
+    codeTheme: isCodeThemeSetting(record['codeTheme'])
+      ? record['codeTheme']
+      : DEFAULT_CODE_THEME,
   };
 }
 

@@ -56,6 +56,27 @@ const ONE_LIGHT = {
   function: 'rgb(64, 120, 242)',
 };
 
+/**
+ * B2: the default code theme is `auto`, which follows the app theme
+ * (dark → Dark+, light → Light+), each on its own code surface. The classics
+ * above stay in the registry and on the paper (One Light).
+ */
+const DARK_PLUS = {
+  keyword: 'rgb(86, 156, 214)',
+  string: 'rgb(206, 145, 120)',
+  comment: 'rgb(106, 153, 85)',
+  number: 'rgb(181, 206, 168)',
+  function: 'rgb(220, 220, 170)',
+};
+
+const LIGHT_PLUS = {
+  keyword: 'rgb(0, 0, 255)',
+  string: 'rgb(163, 21, 21)',
+  comment: 'rgb(0, 128, 0)',
+  number: 'rgb(9, 134, 88)',
+  function: 'rgb(121, 94, 38)',
+};
+
 async function launch(name, overrides = {}) {
   page = await ui.launch({ ...ui.isolated(name), ...overrides });
   await h.setWindowSize(1440, 900);
@@ -477,22 +498,23 @@ describe('editor appearance phase 1', () => {
     assert.deepEqual(h.pageErrors, [], `renderer errors: ${h.pageErrors.join('; ')}`);
   });
 
-  it('keeps Monokai, One Light, and the table toolbar contracted end to end', async () => {
+  it('keeps the code theme, the One Light paper, and the table toolbar contracted end to end', async () => {
     const env = ui.isolated('editor-appearance');
     await launch('editor-appearance');
     await openPackage(env, 'Editor appearance', appearanceDocument());
     await waitContinuousCode();
 
-    // Dark Continuous: Monokai roles and no code colour on table text.
+    // Dark Continuous: the auto theme is Dark+ on its own surface, and no code
+    // colour reaches table text.
     const dark = await tokenColors('.nf-editor[data-active="true"]');
-    assert.deepEqual(dark, MONOKAI);
+    assert.deepEqual(dark, DARK_PLUS);
     const tableTextColor = await page.evaluate(() => {
       const cellElement = document.querySelector(
         '.nf-editor[data-active="true"] .nf-block-prose table th',
       );
       return cellElement === null ? null : getComputedStyle(cellElement).color;
     });
-    for (const color of Object.values(MONOKAI)) {
+    for (const color of [...Object.values(MONOKAI), ...Object.values(DARK_PLUS)]) {
       assert.notEqual(tableTextColor, color, 'table text never reads a syntax role');
     }
     await h.screenshot(resolve(screenshotDir, 'continuous-dark.png'), {
@@ -585,13 +607,13 @@ describe('editor appearance phase 1', () => {
     await page.locator('[data-testid="table-toolbar"] [data-action="toggle-source"]').click();
     await page.waitForSelector('[data-table-source]', { state: 'detached' });
 
-    // Light Continuous: One Light roles.
+    // Light Continuous: the auto theme is Light+ on its own white surface.
     await openSettings();
     await chooseTheme('light');
     await closeSettings();
     await waitContinuousCode();
     const light = await tokenColors('.nf-editor[data-active="true"]');
-    assert.deepEqual(light, ONE_LIGHT);
+    assert.deepEqual(light, LIGHT_PLUS);
     await h.screenshot(resolve(screenshotDir, 'continuous-light.png'), {
       width: 1440,
       height: 900,

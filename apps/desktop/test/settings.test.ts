@@ -146,6 +146,7 @@ describe('global settings persistence', () => {
       uiScale: 1,
       uiFont: 'system',
       codeFont: 'jetbrains',
+      codeTheme: 'auto',
     });
 
     expect(await writeSettings(read.settings)).toEqual({ ok: true });
@@ -157,6 +158,7 @@ describe('global settings persistence', () => {
       uiScale: 1,
       uiFont: 'system',
       codeFont: 'jetbrains',
+      codeTheme: 'auto',
     });
     expect(stored['page']).toMatchObject({
       setup: { size: 'A4', orientation: 'landscape' },
@@ -179,6 +181,7 @@ describe('global settings persistence', () => {
         uiScale: 1.1,
         uiFont: 'serif',
         codeFont: 'system-mono',
+        codeTheme: 'one-light',
       },
     });
     const stored = await readRaw();
@@ -190,6 +193,7 @@ describe('global settings persistence', () => {
       uiScale: 1.1,
       uiFont: 'serif',
       codeFont: 'system-mono',
+      codeTheme: 'one-light',
     });
     const reread = await readSettings();
     expect(reread.appearance).toEqual({
@@ -198,10 +202,11 @@ describe('global settings persistence', () => {
       uiScale: 1.1,
       uiFont: 'serif',
       codeFont: 'system-mono',
+      codeTheme: 'one-light',
     });
   });
 
-  it('normalizes an unknown appearance accent, theme, scale, or font to the defaults', async () => {
+  it('normalizes an unknown appearance accent, theme, scale, font, or code theme to the defaults', async () => {
     await writeRaw({
       settingsVersion: 3,
       appearance: {
@@ -210,6 +215,7 @@ describe('global settings persistence', () => {
         uiScale: 1.4,
         uiFont: 'comic',
         codeFont: 'papyrus',
+        codeTheme: 'solarized',
       },
     });
     const read = await readSettings();
@@ -219,7 +225,30 @@ describe('global settings persistence', () => {
       uiScale: 1,
       uiFont: 'system',
       codeFont: 'jetbrains',
+      codeTheme: 'auto',
     });
+  });
+
+  it('B2: a file without codeTheme loads as auto without a schema bump', async () => {
+    await writeRaw({
+      settingsVersion: 5,
+      appearance: {
+        theme: 'light',
+        accent: 'teal',
+        uiScale: 1,
+        uiFont: 'system',
+        codeFont: 'jetbrains',
+      },
+    });
+    const read = await readSettingsFile();
+    expect(read.status).toEqual({ state: 'ok' });
+    expect(read.raw['settingsVersion']).toBe(5);
+    expect(read.settings.appearance.codeTheme).toBe('auto');
+
+    expect(await writeSettings(read.settings)).toEqual({ ok: true });
+    const stored = await readRaw();
+    expect(stored['settingsVersion']).toBe(5);
+    expect((stored['appearance'] as Record<string, unknown>)['codeTheme']).toBe('auto');
   });
 
   it('migrates a v3 file to schema v5 with the R4/R6 namespaces and preserves page/appearance', async () => {

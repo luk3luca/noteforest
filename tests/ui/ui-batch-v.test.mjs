@@ -357,7 +357,8 @@ describe('Batch V visual refinement', () => {
 
     await showSettingsPage('appearance');
     const appearanceControls = await controlGeometry();
-    assert.equal(appearanceControls.selects.length, 2, 'UI font and code font selects');
+    // UI font, code font, and code theme (B2) share the one select geometry.
+    assert.equal(appearanceControls.selects.length, 3, 'UI font, code font, and code theme selects');
     for (const select of appearanceControls.selects) {
       assert.ok(Math.abs(select.width - 320) <= 0.5, `select width 320 (${select.width})`);
       assert.equal(select.height, 28, 'select height 28');

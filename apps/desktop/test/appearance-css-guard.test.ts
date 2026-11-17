@@ -59,6 +59,7 @@ function isColorCarrier(selector: string): boolean {
       part === 'html' ||
       part === 'html[data-theme="dark"]' ||
       part === 'html[data-theme="light"]' ||
+      /^html\[data-code-theme="[a-z-]+"\]$/.test(part) ||
       part === ':root' ||
       part.includes('nf-page'),
   );
@@ -314,7 +315,7 @@ describe('Continuous note surface and resting edges', () => {
       note: '#1b1d20',
       hover: '#202329',
       edgeReference: '#7b858f',
-      edgeMuted: '#565f68',
+      edgeMuted: '#6a737c',
       text3: '#949aa2',
       border2: '#6e737a',
     },
@@ -323,7 +324,7 @@ describe('Continuous note surface and resting edges', () => {
       note: '#f2f6f9',
       hover: '#e9f0f5',
       edgeReference: '#6c7882',
-      edgeMuted: '#9aa5ad',
+      edgeMuted: '#7c868f',
       text3: '#5b6771',
       border2: '#82888c',
     },
@@ -424,10 +425,12 @@ describe('Continuous note surface and resting edges', () => {
         contrast(theme.edgeReference, declarations.get('--bg-canvas') as string),
         `${theme.selector} reference edge vs canvas`,
       ).toBeGreaterThanOrEqual(3);
+      // B2: the muted state clears the same 3:1 non-text bar at full opacity and
+      // stays quieter than the reference, so the two greys never swap weight.
       expect(
         contrast(theme.edgeMuted, declarations.get('--bg-canvas') as string),
         `${theme.selector} muted edge vs canvas`,
-      ).toBeGreaterThanOrEqual(2);
+      ).toBeGreaterThanOrEqual(3);
       expect(
         contrast(theme.edgeMuted, declarations.get('--bg-canvas') as string),
       ).toBeLessThan(contrast(theme.edgeReference, declarations.get('--bg-canvas') as string));
@@ -455,6 +458,42 @@ describe('Continuous note surface and resting edges', () => {
     // A selected reference stays the accent; reference strokes never turn red.
     expect(declarationsOf(rule('.nf-edge-reference.nf-edge-reference-active').body).get('stroke')).toBe(
       'var(--edge-active)',
+    );
+  });
+
+  it('carries no edge state by fading (B2)', () => {
+    // The muted and reference states were 0.35 / 0.78 opaque over the canvas;
+    // both stay at full opacity now and are distinguished by hue, dash, and the
+    // user's widths (R6 owns the widths, never this batch).
+    for (const selector of [
+      '.nf-edge-muted',
+      '.nf-edge-arrow.nf-edge-muted',
+      '.nf-edge-reference',
+      '.nf-edge-reference-arrow',
+    ]) {
+      const body = declarationsOf(rule(selector).body);
+      expect(body.has('opacity'), `${selector} has no opacity`).toBe(false);
+      expect(body.get('transition') ?? '', `${selector} transition`).not.toContain(
+        'opacity',
+      );
+    }
+    for (const selector of [
+      '.nf-edge-reference.nf-edge-reference-active',
+      '.nf-edge-reference-arrow.nf-edge-reference-active',
+    ]) {
+      expect(declarationsOf(rule(selector).body).has('opacity'), selector).toBe(false);
+    }
+    // The reference keeps its dash and its open chevron; the arrowhead keeps
+    // the same token and the fixed geometry.
+    expect(declarationsOf(rule('.nf-edge-reference').body).get('stroke-dasharray')).toBe('5 4');
+    expect(declarationsOf(rule('.nf-edge-arrow.nf-edge-muted').body).get('fill')).toBe(
+      'var(--edge-muted)',
+    );
+    expect(declarationsOf(rule('.nf-edge-reference').body).get('stroke-width')).toBe(
+      'var(--nf-edge-width)',
+    );
+    expect(declarationsOf(rule('.nf-edge-muted').body).get('stroke-width')).toBe(
+      'var(--nf-edge-width-muted)',
     );
   });
 

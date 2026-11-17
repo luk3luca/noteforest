@@ -1085,7 +1085,7 @@ describe('V0 visual shell', () => {
         const muted = [...document.querySelectorAll('.nf-edge-path.nf-edge-muted')];
         return (
           muted.length > 0 &&
-          muted.every((path) => getComputedStyle(path).opacity === '0.35')
+          muted.every((path) => getComputedStyle(path).opacity === '1')
         );
       },
       undefined,
@@ -1099,7 +1099,7 @@ describe('V0 visual shell', () => {
     await h.screenshot(resolve(screenshotDir, 'edges-light-selected.png'), { width: 1440, height: 900 });
 
     // Selecting a descendant keeps its path active at 1.75 px while the other
-    // branches are muted at 1 px / 0.35 opacity.
+    // branches are muted at 1 px. B2: full opacity, quieter grey.
     const spectrum = h
       .activeEditor()
       .locator('[data-block-card]', { hasText: 'Spectrum' })
@@ -1132,7 +1132,7 @@ describe('V0 visual shell', () => {
     });
     assert.equal(selectedLight.activeStroke, light.accentStrong);
     assert.equal(selectedLight.mutedStroke, light.muted);
-    assert.equal(selectedLight.mutedOpacity, '0.35');
+    assert.equal(selectedLight.mutedOpacity, '1');
 
     await setTheme('dark');
     await h.screenshot(resolve(screenshotDir, 'edges-dark-selected.png'), { width: 1440, height: 900 });
