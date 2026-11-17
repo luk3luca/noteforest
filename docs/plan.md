@@ -720,9 +720,10 @@ does not have to rediscover it.
 
 ### Order decided 17 November 2026
 
-The release comes **last**: v1 hardening → find/highlighter → themes, edges and the
+The release comes **last**: v1 hardening → find/highlighter → **K1 shortcuts** → themes, edges and the
 Settings pages → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
-`npm run release`). The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
+`npm run release`). K1 waits for the find fixes on purpose: same shell files, and the Page find field is
+where the `⇧1`/`⇧2` defect shows. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
 stays in that file as the record.
 
 ### Shortcuts: what exists and what does not (17 November 2026)
@@ -737,5 +738,8 @@ Full audit, every binding, the defects and the proposed catalogue: `docs/design/
   hand-written matcher, the TipTap keymap and the native menu. Nothing proves a row still exists, and the
   list omits 18 real bindings. **K1** is the fix: one catalogue module that the handlers *ask* (not just a
   rendered table), the menu accelerators asserted against it, and the list rendered from it.
+- **Rules (product owner, 17 November 2026):** no bare-Shift chord in a writing app, so `⇧1`/`⇧2` are
+  removed, not guarded; not every binding needs a shortcut, so K1 adds none; use the standard where one
+  exists. The pass is subtractive — see `docs/design/shortcuts.md` §0 and §4.
 - **Not shipped, and bigger:** MS-9, configurable or disableable shortcuts. That is a product decision, not
   a cleanup.

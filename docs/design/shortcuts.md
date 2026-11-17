@@ -4,6 +4,16 @@
 **Why now:** the release is close, the Settings list is the only place a user can discover a shortcut, and
 nothing in the repository proves that list still matches a key that works.
 
+## 0. Product rules (17 November 2026)
+
+1. **No bare-Shift chord.** A writing app must never take a key a writer needs. `⇧` plus a printable key
+   (`⇧1`, `⇧2`) is out; `⇧` as an *extra* modifier on a `⌘`/`⌃` chord stays (`⇧⌘Z`, `⇧⌘E`, `⇧⌘T`), and
+   `⇧Tab` stays as outdent on a selected block because it never types.
+2. **Not everything gets a shortcut.** A shortcut is for a verb used often or needed without a menu; the
+   menu, the toolbar and the palette cover the rest. K1 adds nothing new: it removes, corrects and records.
+3. **Prefer the existing convention.** Where a design convention exists, use it even when another key would
+   be prettier. Where none exists (the block tree), invent as little as possible and keep it mnemonic.
+
 ## 1. Four copies, no shared truth
 
 | Where | What it declares | Used by |
@@ -111,10 +121,9 @@ sequence reads `a!b`. The Page find bar cannot search a word containing `!`, `"`
 shifted digit on an IT/UK/US layout. `PageView`’s own copy of `⇧1`/`⇧2` returns early for a contenteditable
 but not for an input, so the guard exists nowhere.
 
-Fix, when taken: one owner for `⇧1`/`⇧2`, and it bails on
-`input, textarea, select, [contenteditable="true"]`. The global handler is the better owner because it also
-works from the canvas header (the pager moves focus into the toolbar), which is why the duplicate should go,
-not the global branch.
+Per rule 0 above the fix is **deletion, not a guard**: both `⇧1`/`⇧2` branches go (the global one and the
+`PageView` one). Fit width is already `⌘0` in Page (100 % is fit width); fit page becomes a View menu item
+with no accelerator, so the mode stays reachable without stealing a printable key.
 
 ### S2-2 — the Page group names the wrong key
 
@@ -176,10 +185,15 @@ The list mixes `⇧⌘F` with `⌘⇧L`/`⌘⇧K`, and writes `⌘⇧Enter` wher
 is `⌃⌥⇧⌘` + key, which the majority of the app already uses (`⇧⌘E`, `⇧⌘N`, `⇧⌘O`, `⇧⌘T`, `⇧⌘W`, `⇧⌘F`).
 One order, one spelling of Enter.
 
-## 4. Proposal — one catalogue, and the list rendered from it
+## 4. K1 — the catalogue, and a subtractive pass
 
-A pure module `renderer/src/lib/shortcuts.ts` (importable by `App`, `PageView`, `FindBar`; the menu keeps its
-own Electron strings but a unit test asserts each `menu` entry equals the catalogue’s accelerator):
+K1 runs **after the find fixes** (F4a/F4b). It is one batch: one module, one pass of removals, the list
+rebuilt from it. No document, layout, pagination or print code.
+
+### 4.1 The module
+
+`renderer/src/lib/shortcuts.ts` (importable by `App`, `PageView`, `FindBar`; the main-process menu keeps its
+Electron strings but a unit test asserts each `menu` entry equals the catalogue’s accelerator):
 
 ```ts
 type Scope = 'global' | 'editor' | 'page' | 'find';
@@ -195,60 +209,80 @@ interface Shortcut {
 }
 ```
 
-- `display(chord)` → `⇧⌘Z` (one order, `⌃⌥⇧⌘` + key).
-- `matches(event, id)` → boolean; `App`, `PageView` and `FindBar` stop comparing `event.key` by hand and ask
-  the catalogue. This is the part that makes drift impossible, not the list.
-- `tipTapKeys(shortcut)` → `['Mod-Shift-k']` for the editor entries, generated from the same data so the
-  keymap cannot disagree with the list.
-- The Settings pane renders `shortcutsForGroup()`; the palette reads `label` + `display()`; the menu reads
-  `menu`.
+- `display(chord)` → `⇧⌘Z` (Apple order `⌃⌥⇧⌘` + key).
+- `matches(event, id)` → the handlers stop comparing `event.key` by hand and ask the catalogue. This is the
+  part that makes drift impossible; the rendered list is a consequence, not the goal.
+- `tipTapKeys(shortcut)` → `['Mod-Shift-k']` for the editor entries, generated from the same data.
 
-Tests that make it real:
+Tests: every chord matches itself and rejects a near miss; no chord repeats inside a scope; the menu
+accelerators equal the catalogue; `tipTapKeys` round-trips; the Settings rows equal the catalogue.
 
-1. unit — every `scope: 'global'` entry matches its chord and rejects near misses (extra shift, ctrl vs
-   meta); no chord appears twice in the same scope; `display()` is stable.
-2. unit — the menu template’s accelerators are exactly the catalogue’s `menu` values.
-3. unit — `tipTapKeys` round-trips every editor entry.
-4. UI — the rendered rows equal the catalogue (`count` and labels), the `⇧1`-in-the-find-field repro is a
-   regression test, and a representative subset is pressed end-to-end (save, palette, find, layout, mode,
-   sidebar, undo, tab switch).
+### 4.2 The subtractive pass (the only behaviour changes)
 
-Size: one batch (K1), roughly 5–6 h. It changes the handler shape in four files plus the list; no document,
-layout, pagination or print code.
+| Today | Change | Why |
+|---|---|---|
+| `⇧1` / `⇧2` fit page / fit width (global **and** `PageView`) | **removed**, both handlers | bare-Shift printable keys; they swallow `!`, `"`, `%`… in the Page find field |
+| `⌥↑` / `⌥↓` previous / next page on the Page canvas | **removed** | a second page-navigation pair; `⌘↑`/`⌘↓` already work from the header and the pager |
+| `⌘1…⌘9` switch to tab N | **removed** | collides with `⌘2`/`⌘3`: tab 2 and 3 were unreachable and `⌘2` did something else. Tabs keep `⌃Tab`/`⇧⌃Tab` and the strip |
+| `Actual size` for `⌘0` | **`Reset zoom`** | 100 % is fit width in Page, so “actual size” was false there |
+| `⌘⇧L`, `⌘⇧K`, `⌘⇧Enter` | **`⇧⌘L`, `⇧⌘K`, `⇧⌘⏎`** | one glyph order, Apple’s |
 
-## 5. The list, proposed
+Fit page and fit width move to `View` as menu items **without** accelerators; the zoom stepper and the
+palette stay as they are.
 
-Four groups, ~38 rows, one row per action (two chords joined where a pair is genuinely one verb):
+### 4.3 What we do not add
 
-- **Shell** — New note `⌘N`; New chapter `⇧⌘N`; Open note… `⌘O`; Open Markdown… `⇧⌘O`; Save `⌘S`;
-  Export PDF… `⇧⌘E`; Close tab `⌘W`; Close window `⇧⌘W`; Reopen closed tab `⇧⌘T`; Previous / next tab
-  `⇧⌘[ / ⇧⌘]`; Switch to tab `⌘1…⌘9` (`⌘2`/`⌘3` switch layout); Command palette `⌘K`; Settings `⌘,`;
-  Toggle sidebar `⌘\`; Undo / Redo `⌘Z / ⇧⌘Z`.
-- **View** — Continuous / Page `⌘2 / ⌘3`; Edit / Read `⌘E`; Zoom in / out `⌘+ / ⌘−`; Reset zoom / Fit width
-  `⌘0 / ⇧⌘0`.
+Fit-page and fit-width keys, `F3`/`⇧F3`, per-tone highlighter keys (`⇧⌘H` is already one key, no tones),
+digits for tabs, a manual-break key, an inspector key (no inspector), a key for every menu item, a key for
+every palette entry. If a verb needs a key later, it comes back here with a convention behind it.
+
+### 4.4 The convention audit
+
+| Keys | Convention | Verdict |
+|---|---|---|
+| `⌘N`, `⌘O`, `⌘S`, `⌘,`, `⌘W`, `⇧⌘W`, `⇧⌘T`, `⌘Z`/`⇧⌘Z`, `⌘F`, `⌘G`/`⇧⌘G`, `⌘+`/`⌘−`/`⌘0` | macOS and browser standard | keep |
+| `⌃Tab` / `⇧⌃Tab` | browser and macOS “next tab” | keep |
+| `⌃⇧Tab` | the reverse of a standard chord, not a bare Shift | keep |
+| `⇧⌘[` / `⇧⌘]` | older browser tab cycling | keep |
+| `⌘K` | modern app convention for the palette (Slack, Linear, Notion) | keep |
+| `⌘\` | VS Code sidebar | keep |
+| `⌘E` | Obsidian’s edit/preview toggle | keep |
+| `⌥↑` / `⌥↓` | VS Code “move line up/down”, here “move block” | keep |
+| `⌘2` / `⌘3` | ours (VS Code groups, Obsidian panes); reserved over tab digits | keep |
+| `⌘.` | ours; weakly collides with the legacy macOS “cancel” | keep, note it |
+| `⇧⌘F` | VS Code’s search-in-files; unused here | keep, note it |
+| `⌃⏎`, `⌥⏎`, `⇧⌘⏎`, `⌘⌫`, `⇥`/`⇧⇥` | ours; no standard for a block tree | keep |
+| `⌘P` | the universal “produce a document” key | **open**: use it for Export PDF in place of `⇧⌘E`? |
+
+## 5. The list, after the pass
+
+One row per verb, five groups, ~34 rows — closer to today’s 26 than to the 44 the shipped bindings would
+need. A row exists because a user may need the key without the menu open, not because a key exists.
+
+- **Shell** — New note `⌘N`; New chapter `⇧⌘N`; Open note… `⌘O`; Save `⌘S`; Export PDF… `⌘P` (or `⇧⌘E`);
+  Close tab `⌘W`; Close window `⇧⌘W`; Reopen closed tab `⇧⌘T`; Next / previous tab `⌃Tab / ⇧⌃Tab`;
+  Command palette `⌘K`; Settings `⌘,`; Toggle sidebar `⌘\`; Undo / Redo `⌘Z / ⇧⌘Z`.
+- **View** — Continuous / Page `⌘2 / ⌘3`; Edit / Read `⌘E`; Zoom in / out `⌘+ / ⌘−`; Reset zoom `⌘0`.
 - **Editor** — Add child `⌃⏎`; Add sibling `⌥⏎`; Branch from selection `⇧⌘⏎`; Indent / outdent `⇥ / ⇧⇥`;
   Delete block `⌘⌫` (or `⌫` on a selected block); Collapse / expand `⌘.`; Focus branch `⇧⌘F`; Link `⇧⌘K`;
   Link as reference `⇧⌘L`; Previous / next block `⌘↑ / ⌘↓` *(Continuous, caret in a block)*; Move block
   `⌥↑ / ⌥↓` *(Continuous, editor focused)*.
-- **Page** — Previous / next page `⌘↑ / ⌘↓` *(works from the header and the pager)*; Previous / next page on
-  the canvas `⌥↑ / ⌥↓`; Fit page / fit width `⇧1 / ⇧2`; Open / edit the selected block `↵`; Clear selection
-  `Esc`; Commit Page Edit `Esc / ⌘⏎`.
-- **Find** — Find in note `⌘F`; Next / previous match `⌘G / ⇧⌘G`; Next / previous in the field `↵ / ⇧↵`;
-  First / last match `Home / End`.
+- **Page** — Previous / next page `⌘↑ / ⌘↓` *(works from the header and the pager)*; Open / edit the
+  selected block `↵`; Clear selection `Esc`; Commit Page Edit `Esc / ⌘⏎`.
+- **Find** — Find in note `⌘F`; Next / previous match `⌘G / ⇧⌘G`. The five keys inside the field stay
+  undocumented: they are in the field’s own tooltips.
 
-Two labels change: `Actual size` → `Reset zoom` (100 % in Continuous, fit width in Page — stated in the row’s
-secondary text, not in the key column), and `⌘⇧L`/`⌘⇧K`/`⌘⇧Enter` → `⇧⌘L`/`⇧⌘K`/`⇧⌘⏎`.
+## 6. Decisions
 
-## 6. Decisions for the product owner
+Decided by the product owner (17 November 2026): no bare-Shift chords; not every binding gets a shortcut;
+prefer the standard. K1 is scheduled after the find fixes.
 
-1. **Fix S2-1 now or in K1?** It is a three-line guard plus a regression test. In K1 it rides the catalogue;
-   now it would be a standalone mini-batch, against the one-batch-one-surface rule.
-2. **K1 shape:** full catalogue + handlers ask it (recommended, drift becomes impossible), or list-only with
-   a test that every listed chord exists somewhere (cheaper, still two copies).
-3. **Native menu:** add Edit → Find…/Find Next/Find Previous and View → Continuous/Page/Edit/Read? (All
-   renderer-owned accelerators, no behaviour change.)
-4. **`⌘0` copy:** `Reset zoom` everywhere (recommended) or keep `Actual size` and accept that Page means fit
-   width?
-5. **Docs:** rewrite `docs/ux.md` §9 from the new list and fix the two `docs/ux-shell.md` rows in K1?
-6. **Scope of the list:** all ~38 rows (recommended — the list is the only discovery surface for tab and page
-   keys), or a curated subset with the rest left to the menu and the palette?
+Still open, and cheap to answer when K1 starts:
+
+1. **Tabs:** drop `⌘1…⌘9` (recommended — the `⌘2`/`⌘3` collision disappears), or keep the digits and the
+   reservation?
+2. **Export PDF:** `⌘P` (recommended — the universal “produce a document”) in place of `⇧⌘E`, or keep
+   `⇧⌘E`?
+3. **Fit page / fit width:** menu items with no accelerator (recommended), or keep one chord on `⌘`?
+4. **Menu:** add `Edit → Find… / Find Next / Find Previous` with the standard accelerators (recommended),
+   and leave layout/mode in the toolbar and palette only?
