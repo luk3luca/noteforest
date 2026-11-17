@@ -1321,6 +1321,7 @@ The find field has its own keys: `↵`/`⇧↵` next/previous, `↑`/`↓` previ
 | Shortcut | Action |
 |---|---|
 | `⌘↑` / `⌘↓` | Previous / next page start (works from the canvas header and the pager) |
+| `⌘2` | Go to Continuous; from Page it carries the selected block (select, switch, focus, scroll) |
 | `↵` | Open or edit the selected block |
 | `⎋` | Clear the block selection |
 | `⎋` or `⌘⏎` | Commit Page Edit |
@@ -1336,6 +1337,9 @@ Page Edit is opt-in; Page Read is exact and read-only. The page canvas keeps `�
 - **No bare-Shift chord.** `⇧` only ever rides a `⌘`/`⌃` chord (`⇧⌘Z`, `⇧⌘T`); `⇧Tab` is outdent on a
   selected block, never typing.
 - **`⌘E` is mode.** Inline code is the backtick toggle, not a chord.
+- **`⌘2` from Page carries the selected block** into Continuous; the Page card menu's `Open in Continuous`
+  does the same for a specific card. Page Read's double-click/`↵` jump is unchanged, and Page Edit's
+  double-click/`↵` still open the page overlay.
 - **`Tab` changes meaning only on a selected block**; inside lists, code, tables and quotes it is native.
 - **`Esc` never cancels Page Edit**; it commits and leaves. `⌘Z` is the way back.
 - **`⌥↑`/`⌥↓`** move blocks in Continuous; **`⌘↑`/`⌘↓`** are previous/next page in Page and previous/next

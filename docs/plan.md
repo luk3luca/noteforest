@@ -652,7 +652,7 @@ polarity and one visual pass | B1 |
 bubble behind a modal, the shifted-bracket tab keys by `event.code`, Export PDF on `⌘P`, the
 `Edit → Find` menu group, the rich-cell note listed as unreadable, `⇧Esc` closing the find, and the two
 intermittent UI suites made deterministic | B1 |
-| 6c | **VF — release fixes** (in flight) | `docs/tasks/vf-release-fixes.md`: Sentinel S3-1 (Page Edit keys
+| 6c | **VF — release fixes** | **Merged at `69daaaf`** (`docs/tasks/vf-release-fixes.md`): Sentinel S3-1 (Page Edit keys
 through the catalogue), S3-2 (Esc in Page Edit must not close the find), S3-3 (anchor dot hover ≥3:1),
 the arrowhead band, the Library indent ladder, Page Edit → Continuous (A+B), S4-2 if trivial | Sentinel |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
@@ -789,12 +789,20 @@ does not have to rediscover it.
    `unreadable`, but it takes the corrupt-row shape (null `documentId`, zero counts), so moving such a
    package does not update the session/settings recents — the same behaviour a corrupt note has. No file
    the app can produce reaches this state; leave it unless that changes.
+5. **A Page Edit commit can add a second structural undo entry (pre-existing, found in VF 17 November 2026).**
+   `DocumentSession.execute()` commits the continuous editor's buffer first, so when that buffer is dirty with
+   a normalization of the demo's code/table block, one Page Edit commit leaves two history entries. The
+   bold/list case is one entry. Not introduced by VF; it matters only for demo content that normalizes on
+   commit, and the honest fix is to fold the normalization into the same entry.
+6. **`⇧Esc` inside the Page Edit overlay is inert (VF, 17 November 2026).** With the S3-2 fix, an Escape that
+   originates inside the overlay never reaches the find; the shifted Escape matches no chord. `Esc` and `⌘⏎`
+   commit, `Esc` from the page closes the find. Recorded so nobody "restores" a second chord.
 
 ### Order decided 17 November 2026
 
 The release comes **last**: v1 hardening → find/highlighter → **B1 v1 defects** (Page dot, print-free
 page, shortcut catalogue) → **B2 contrast** (code themes + Continuous edges) → **P2 release polish** →
-**full Sentinel** (`bb5d492`, accept with findings) → **VF release fixes** → `test:perf` + `test:visual` →
+**full Sentinel** (`bb5d492`, accept with findings) → **VF release fixes** (`69daaaf`) → `test:perf` + `test:visual` (green) →
 release mechanics → the owner's visual/VoiceOver/PDF pass → tag (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
 `npm run release`). B1 waited for the find fixes on purpose: same shell files, and the Page find field is
 where the `⇧1`/`⇧2` defect showed. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
