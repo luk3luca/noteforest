@@ -519,7 +519,7 @@ function EditorSurface({
 
   // Find: the shared query and current hit are pushed into the editor as plugin
   // state (decorations only). Either presentation of the find surface keeps the
-  // marks — the toolbar cluster or the sidebar Search view — and closing the
+  // marks — the canvas-header cluster or the sidebar Search view — and closing the
   // last one clears them. A hit with no text node (a stored quote, a label, a
   // chapter title) clears the word marks but still selects the block.
   const findActive = useShell(findSurfaceActive);

@@ -13,10 +13,10 @@ import {
 } from '../support/page-fixtures.mjs';
 
 /**
- * PG1 — Page as a scroll of pages (PP1: toolbar pager).
+ * PG1 — Page as a scroll of pages (PP1: canvas-header pager).
  *
  * The surface is one vertical column of touching pages with a 1 px seam, free
- * scroll, and no paging state. The toolbar pager names the page under the
+ * scroll, and no paging state. The canvas-header pager names the page under the
  * centre of the viewport, moves with its arrows, and takes a typed page; only
  * the visible window ±2 is mounted over exact-size placeholders. Zoom is
  * fit-relative: 100 % fills the width, 200 % scrolls horizontally, 50 % leaves
@@ -128,7 +128,7 @@ async function surface() {
       clientHeight: scroller.clientHeight,
       snap: getComputedStyle(scroller).scrollSnapType,
       pager: (() => {
-        const root = document.querySelector('.nf-toolbar [data-page-position]');
+        const root = document.querySelector('.nf-canvas-header [data-page-position]');
         if (root === null) return null;
         const input = root.querySelector('[data-page-position-input]');
         const total = root.querySelector('[data-page-position-total]');
@@ -144,10 +144,10 @@ async function surface() {
   });
 }
 
-/** The toolbar pager as the shell exposes it (PP1). */
+/** The canvas-header pager as the shell exposes it (PP1). */
 async function pagerState() {
   return page.evaluate(() => {
-    const root = document.querySelector('.nf-toolbar [data-page-position]');
+    const root = document.querySelector('.nf-canvas-header [data-page-position]');
     const input = root?.querySelector('[data-page-position-input]');
     return {
       value: input?.value ?? '',
@@ -170,7 +170,7 @@ async function pagerState() {
 async function waitPagerValue(expected, { timeout = 10000 } = {}) {
   await page.waitForFunction(
     (value) => {
-      const input = document.querySelector('.nf-toolbar [data-page-position-input]');
+      const input = document.querySelector('.nf-canvas-header [data-page-position-input]');
       return input !== null && input.value === String(value);
     },
     expected,
@@ -426,7 +426,7 @@ describe('PG1 Page as a scroll of pages', () => {
     });
 
     // Clicking the field selects its content.
-    const input = page.locator('.nf-toolbar [data-page-position-input]');
+    const input = page.locator('.nf-canvas-header [data-page-position-input]');
     await input.click();
     const focused = await pagerState();
     assert.equal(focused.focused, true, 'the field takes focus');

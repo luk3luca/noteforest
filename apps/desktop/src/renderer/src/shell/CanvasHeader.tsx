@@ -5,7 +5,8 @@ import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import { redoActive, undoActive } from '../actions';
 import { exportActiveDocument } from '../export/export-flow';
 import { FindBar } from './FindBar';
-import { ViewControls } from './ViewControls';
+import { PagePosition } from './PagePosition';
+import { ViewControls, ZoomControls } from './ViewControls';
 
 export interface CanvasPageControls {
   /** The page model is re-measuring; the page indicator stays truthful. */
@@ -18,9 +19,10 @@ export interface CanvasPageControls {
  * It is a sibling of the scroll container, never a child, so the canvas can
  * scroll while the controls stay put. Undo/redo are on the left; Page adds
  * Export after a divider; the find cluster sits in the empty centre (it shrinks
- * its input before the layout/mode controls); the icon-only layout/mode
- * segments sit on the right. The Toolbar keeps only tabs, `+`, overflow, the
- * page indicator next to the zoom, and palette.
+ * its input before any other control); then the canvas tools, in order: the
+ * page position pager (Page only), the layout-aware zoom stepper, and the
+ * icon-only layout/mode segments on the right. The 44 px Toolbar keeps only
+ * tabs, `+`, overflow, and palette — it carries no canvas control (VH1).
  */
 export function CanvasHeader({
   page,
@@ -100,6 +102,8 @@ export function CanvasHeader({
       <div className="nf-header-spacer" />
       <FindBar />
       <div className="nf-header-spacer" />
+      <PagePosition />
+      <ZoomControls />
       <ViewControls />
     </div>
   );

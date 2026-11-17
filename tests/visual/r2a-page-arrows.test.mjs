@@ -152,8 +152,8 @@ describe('R2a page arrows visual evidence', () => {
     await page.waitForTimeout(150);
     await shot('page-read-cross-page-out-1440x900.png', 1440, 900);
 
-    await page.locator('.nf-toolbar [data-page-position-input]').fill('2');
-    await page.locator('.nf-toolbar [data-page-position-input]').press('Enter');
+    await page.locator('.nf-canvas-header [data-page-position-input]').fill('2');
+    await page.locator('.nf-canvas-header [data-page-position-input]').press('Enter');
     await page.waitForFunction(
       () =>
         Number(

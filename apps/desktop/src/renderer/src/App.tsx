@@ -498,10 +498,10 @@ export function App(): JSX.Element {
         return;
       }
       // `⌘↑`/`⌘↓` move to the previous/next page start in Page. The movement is
-      // global to the surface: it keeps working from the toolbar pager — the
-      // page field included, since that field only ever holds a page number —
-      // but never inside another text field or the Page Edit overlay: there the
-      // arrows belong to the caret.
+      // global to the surface: it keeps working from the canvas-header pager —
+      // the page field included, since that field only ever holds a page
+      // number — but never inside another text field or the Page Edit overlay:
+      // there the arrows belong to the caret.
       if (
         layout === 'page' &&
         event.metaKey &&

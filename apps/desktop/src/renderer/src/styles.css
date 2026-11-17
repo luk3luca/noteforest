@@ -4357,11 +4357,12 @@ body.nf-dragging-block .nf-gutter-handle {
 /* -------------------------------------------------------------------- find */
 
 /*
- * Toolbar find cluster (docs/design/find-bar.md §2). One 28 px cluster inside
- * the 34 px canvas toolbar, between undo/redo and the layout/mode controls: no
- * card, no shadow, no extra row, nothing overlays the note or the page. The
- * input shrinks first at narrow widths; the count, arrows and close stay.
- * Anatomy is query + count + previous/next + close, nothing else.
+ * Canvas header find cluster (docs/design/find-bar.md §2). One 28 px cluster
+ * inside the 34 px canvas header, in the empty centre between the left tools
+ * and the page/zoom/layout controls: no card, no shadow, no extra row, nothing
+ * overlays the note or the page. The input shrinks first at narrow widths; the
+ * count, arrows and close stay. Anatomy is query + count + previous/next +
+ * close, nothing else.
  */
 .nf-find-bar {
   display: flex;
@@ -4441,7 +4442,7 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 /* The one shared whole-word toggle (`ab`): 22 px inside either 28 px cluster,
-   underlined 9.5 px label. Both the toolbar cluster and the sidebar header use
+   underlined 9.5 px label. Both the canvas-header cluster and the sidebar header use
    this class, so on/off looks identical in both surfaces. Active is the soft
    accent fill, never a different glyph. */
 .nf-whole-word {
@@ -7936,9 +7937,10 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 /*
- * Page position pager (PP1): `[↑] [↓] [ 3 ] / 61` next to the zoom. It names
- * the page under the centre of the viewport and moves to a page start; the
- * number in the seam is gone. Not a Continuous token: only Page has pages.
+ * Page position pager (PP1) in the canvas header: `[↑] [↓] [ 3 ] / 61` next to
+ * the zoom. It names the page under the centre of the viewport and moves to a
+ * page start; the number in the seam is gone. Not a Continuous token: only Page
+ * has pages.
  *
  * One cluster with no dividers, the same way the find cluster has none. The
  * arrows are plain 22 px icon buttons; only the number field is bordered. All

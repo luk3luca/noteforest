@@ -2,7 +2,7 @@
  * Sidebar Search (`docs/design/find-bar.md` §3, `docs/design/sidebar.md` §3–§6).
  *
  * The browsing presentation of the one find surface: the same query, result
- * set and current occurrence as the toolbar cluster, rendered as the blocks
+ * set and current occurrence as the canvas-header cluster, rendered as the blocks
  * where the word appears. Results follow the document reading order and group
  * by chapter, then block; every row is one **occurrence** with a two-line
  * snippet around the match, so a block with three matches shows three rows.
@@ -201,7 +201,7 @@ export function SearchSection(): JSX.Element {
     });
   }, [currentChapter]);
 
-  // The current occurrence can move from the toolbar cluster: keep the filled
+  // The current occurrence can move from the canvas-header cluster: keep the filled
   // row in view without touching focus.
   useEffect(() => {
     if (current === null) return;

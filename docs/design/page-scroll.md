@@ -38,7 +38,7 @@ The page is one column; the zoom decides how much of it you see.
 | **Zoom in** (> fit) | A reading aid, not a mode: the page becomes wider than the viewport and a horizontal scrollbar appears. Vertical scroll continues across pages. |
 | **Zoom out** (< fit) | The page is smaller with margins on both sides; still one column, never two. |
 
-The toolbar keeps the existing zoom control and its percentage. The zoom is a **scale**, not a layout:
+The canvas header keeps the existing zoom control and its percentage. The zoom is a **scale**, not a layout:
 the page model, the page count and the PDF are untouched.
 
 ## 4. The current page
@@ -99,7 +99,7 @@ rule *is* the message, and a line crossing it would suggest a continuity the pap
 
 1. **Seam:** pages touch, a 1 px hairline in the page scope's existing rule colour (no new token), no
    gap and no number in the seam. The "printed document" reading wins.
-2. **Indicator:** in the toolbar next to the zoom, not floating over the paper.
+2. **Indicator:** in the canvas header next to the zoom, not floating over the paper.
 3. **Zoom ceiling:** **200 %**, as today. `100 %` is fit width; below it the page shrinks with margins,
    above it a horizontal scrollbar appears.
 

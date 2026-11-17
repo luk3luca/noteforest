@@ -269,7 +269,8 @@ describe('Vault library tree', () => {
     assert.equal(await guest.locator('[data-block-card]').count(), 0);
     assert.equal(await guest.locator('[data-chapter-id]').count(), 0);
     assert.equal(await guest.locator('[data-page-counter]').count(), 0);
-    assert.equal(await page.locator('.nf-toolbar [data-page-position]').count(), 0);
+    assert.equal(await page.locator('[data-page-position]').count(), 0);
+    assert.equal(await page.locator('[data-zoom-value]').count(), 0);
     assert.equal(await guest.locator('[data-page-export]').count(), 0);
     assert.equal(await guest.locator('[data-view-layout="page"]').count(), 0);
     assert.equal(await guest.locator('h1').innerText(), 'Diario');

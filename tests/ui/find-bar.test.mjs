@@ -12,7 +12,7 @@ import {
 } from '../support/page-fixtures.mjs';
 
 /**
- * Find surface (docs/design/find-bar.md): the toolbar cluster (`⌘F`) and the
+ * Find surface (docs/design/find-bar.md): the canvas-header cluster (`⌘F`) and the
  * sidebar Search view.
  *
  * Both are the same VS Code widget minus the toggles: query, count (`1 of 4` /
@@ -422,7 +422,7 @@ describe('find bar (⌘F)', () => {
       'polite',
     );
 
-    // Geometry: one 28 px cluster inside the 34 px canvas toolbar, after the
+    // Geometry: one 28 px cluster inside the 34 px canvas header, after the
     // history group and before the layout/mode controls. No card, no shadow,
     // no absolute overlay: the toolbar row height does not change.
     const geometry = await page.evaluate(() => {
@@ -937,7 +937,7 @@ describe('find bar (⌘F)', () => {
     assert.notEqual(codeFont, shape.font, 'code snippets use the mono face');
     assert.match(codeFont, /JetBrains Mono|ui-monospace/);
 
-    // The count is the occurrences, shared with the toolbar cluster.
+    // The count is the occurrences, shared with the canvas-header cluster.
     assert.equal(
       (await page.locator('[data-search-count]').textContent())?.trim(),
       `1 of ${state.results.length}`,
@@ -973,7 +973,7 @@ describe('find bar (⌘F)', () => {
       'the clicked occurrence is the one strong mark',
     );
 
-    // ⌘F opens the toolbar cluster on the same query and count.
+    // ⌘F opens the canvas-header cluster on the same query and count.
     await page.keyboard.press('Meta+f');
     await findBar().waitFor();
     assert.equal(await page.locator('.nf-find-input').inputValue(), 'eigen');
@@ -1377,7 +1377,7 @@ describe('find bar (⌘F)', () => {
       /come\s+qui/,
     );
 
-    // The toolbar cluster opens on the same query and shows the shared toggle
+    // The canvas-header cluster opens on the same query and shows the shared toggle
     // whenever the bar is open, even before a query.
     await page.keyboard.press('Meta+f');
     await findBar().waitFor();
@@ -1630,13 +1630,27 @@ describe('find bar (⌘F)', () => {
       const input = document.querySelector('.nf-find-input');
       const controls = [
         ...document.querySelectorAll(
-          '[data-canvas-header="true"] [data-header-undo], [data-canvas-header="true"] [data-header-redo], [data-canvas-header="true"] [data-find-count], [data-canvas-header="true"] [data-find-previous], [data-canvas-header="true"] [data-find-next], [data-canvas-header="true"] [data-find-close], [data-canvas-header="true"] [data-view-layout], [data-canvas-header="true"] [data-view-interaction]',
+          '[data-canvas-header="true"] [data-header-undo], [data-canvas-header="true"] [data-header-redo], [data-canvas-header="true"] [data-find-count], [data-canvas-header="true"] [data-find-previous], [data-canvas-header="true"] [data-find-next], [data-canvas-header="true"] [data-find-close], [data-canvas-header="true"] [data-page-position-prev], [data-canvas-header="true"] [data-page-position-next], [data-canvas-header="true"] [data-page-position-input], [data-canvas-header="true"] [data-page-position-total], [data-canvas-header="true"] [data-zoom-action="out"], [data-canvas-header="true"] [data-zoom-value], [data-canvas-header="true"] [data-zoom-action="in"], [data-canvas-header="true"] [data-view-layout], [data-canvas-header="true"] [data-view-interaction]',
         ),
       ];
       if (header === null || bar === null || input === null) return null;
       const headerBox = header.getBoundingClientRect();
+      const toolbarBox = document.querySelector('[data-toolbar="true"]')?.getBoundingClientRect();
+      const order = [
+        ['find', bar],
+        ['pager', document.querySelector('[data-canvas-header="true"] [data-page-position]')],
+        ['zoom', document.querySelector('[data-canvas-header="true"] [data-zoom-target]')],
+        ['view', document.querySelector('[data-canvas-header="true"] [data-view-controls="true"]')],
+      ]
+        .filter(([, element]) => element !== null)
+        .map(([name, element]) => ({ name, left: element.getBoundingClientRect().left }));
       return {
         headerHeight: headerBox.height,
+        toolbarHeight: toolbarBox?.height ?? null,
+        toolbarCanvasControls: document.querySelectorAll(
+          '[data-toolbar="true"] [data-page-position], [data-toolbar="true"] [data-zoom-target], [data-toolbar="true"] [data-zoom-action]',
+        ).length,
+        order,
         overflow: header.scrollWidth - header.clientWidth,
         inputWidth: input.getBoundingClientRect().width,
         barWidth: bar.getBoundingClientRect().width,
@@ -1654,11 +1668,26 @@ describe('find bar (⌘F)', () => {
       };
     });
     assert.ok(layout !== null);
-    assert.equal(Math.round(layout.headerHeight), 34, 'the row height never changes');
-    // Undo/redo (2), find cluster (5), view layout (2), view mode (1 active
-    // segment? no: both), Page export: the pager arrows are gone (PG1 is a
-    // scroll), so the fixed count moved from 12 to 10.
-    assert.equal(layout.controlCount, 10, 'all header controls are mounted');
+    assert.equal(Math.round(layout.headerHeight), 34, 'the canvas header row height never changes');
+    assert.equal(Math.round(layout.toolbarHeight), 44, 'the top bar height never changes');
+    assert.equal(layout.toolbarCanvasControls, 0, 'the top bar carries no pager and no zoom');
+    // The canvas tools sit in the designed order after the find cluster: pager,
+    // zoom, then the layout/mode segments. None of them wraps to a second row.
+    assert.deepEqual(
+      layout.order.map((entry) => entry.name),
+      ['find', 'pager', 'zoom', 'view'],
+      'the canvas header keeps the find → pager → zoom → layout/mode order',
+    );
+    for (let index = 1; index < layout.order.length; index += 1) {
+      assert.ok(
+        layout.order[index - 1].left <= layout.order[index].left,
+        `${layout.order[index - 1].name} sits left of ${layout.order[index].name}`,
+      );
+    }
+    // Undo/redo (2), find cluster (4), pager (4), zoom (3), view layout (2),
+    // view mode (2): everything the header owns is mounted, including the two
+    // canvas tools VH1 moved here from the top bar.
+    assert.equal(layout.controlCount, 17, 'all header controls are mounted');
     assert.deepEqual(layout.hidden, [], 'no header control is clipped or hidden');
     assert.equal(layout.overflow <= 1, true, `header overflows by ${layout.overflow} px`);
     // PG1 removed the pager arrows, so at the app minimum the cluster now fits
@@ -1680,10 +1709,28 @@ describe('find bar (⌘F)', () => {
       basis: 'auto',
       minWidth: '0px',
     });
+    // VH1: the pager and the zoom moved into this header, and the sidebar rails
+    // at ≤1120 px, so the Page header at the 960 px minimum keeps the find floor
+    // (measured: header 886 px, find cluster 336 px, input ~198 px).
+    assert.equal(
+      Math.round(
+        await page
+          .locator('.nf-sidebar')
+          .evaluate((element) => element.getBoundingClientRect().width),
+      ),
+      48,
+      'the sidebar is a 48 px rail at the app minimum width',
+    );
     assert.ok(layout.inputWidth >= 160, `the input keeps a usable width (${layout.inputWidth})`);
     assert.ok(layout.inputWidth <= wideInput, 'the narrow window never grows the input');
     assert.ok(layout.barWidth <= 360, 'the cluster never exceeds its 360 px cap');
     await h.screenshot(resolve(screenshotDir, 'narrow-toolbar.png'), {
+      width: 960,
+      height: 640,
+    });
+    // VH1 evidence: the canvas header at the app minimum width, with the pager,
+    // the zoom and the layout/mode segments all mounted.
+    await h.screenshot(artifactsPath('v1-hardening', 'canvas-header-min-width.png'), {
       width: 960,
       height: 640,
     });

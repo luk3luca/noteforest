@@ -46,10 +46,19 @@ function EmptyState(): JSX.Element {
   );
 }
 
+/**
+ * The rail breakpoint (VH1). A window this narrow shows the 48 px activity bar
+ * instead of the sidebar panel, so the canvas — and the canvas header — keeps
+ * its room. 1120 px is the width where the expanded sidebar would leave the
+ * 34 px Page header too little room for the pager, the zoom, the layout/mode
+ * segments and a usable find input (`find-bar.test.mjs` pins the numbers).
+ */
+const NARROW_WINDOW_MAX = 1120;
+
 function useNarrowWindow(): boolean {
-  const [narrow, setNarrow] = useState(() => window.innerWidth < 820);
+  const [narrow, setNarrow] = useState(() => window.innerWidth <= NARROW_WINDOW_MAX);
   useEffect(() => {
-    const query = window.matchMedia('(max-width: 820px)');
+    const query = window.matchMedia(`(max-width: ${NARROW_WINDOW_MAX}px)`);
     const onChange = (): void => setNarrow(query.matches);
     query.addEventListener('change', onChange);
     onChange();

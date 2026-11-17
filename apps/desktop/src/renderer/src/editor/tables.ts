@@ -1,9 +1,9 @@
 /**
  * Table extension set (special-text editing, area D).
  *
- * - Cells are inline-only: exactly one paragraph of inline content. Legacy
- *   rich cells are flattened by the adapter on load (`normalizeTableCellChildren`)
- *   without a schema version bump.
+ * - Cells are inline-only: exactly one paragraph of inline content. A canonical
+ *   document whose cell holds block content is refused at load by the table-cell
+ *   guard (VH1), never flattened.
  * - Keyboard: Tab/Shift+Tab move cells, Tab on the last cell appends a row,
  *   Enter is a hard break, arrows stay inside the cell.
  * - Typed GFM table conversion on a blank paragraph or Mod-Enter, and GFM

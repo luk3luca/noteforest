@@ -155,12 +155,16 @@ describe('Batch A UI rework', () => {
       'icon-only controls keep labels',
     );
 
-    // Toolbar: tabs, +, overflow, zoom, palette. No view controls, no global close.
+    // Toolbar: tabs, +, overflow, palette. No view controls, no global close,
+    // and no canvas tools (VH1: zoom and pager live in the canvas header).
     assert.equal(await page.locator('.nf-toolbar [data-view-controls]').count(), 0);
-    assert.equal(await page.locator('.nf-toolbar [data-zoom-value]').count(), 1);
-    assert.equal(await page.locator('.nf-toolbar [data-zoom-action="out"]').count(), 1);
-    assert.equal(await page.locator('.nf-toolbar [data-zoom-action="in"]').count(), 1);
-    assert.equal(await page.locator('.nf-toolbar [data-zoom-menu]').count(), 0);
+    assert.equal(await page.locator('.nf-toolbar [data-zoom-value]').count(), 0);
+    assert.equal(await page.locator('.nf-toolbar [data-zoom-action]').count(), 0);
+    assert.equal(await page.locator('.nf-toolbar [data-page-position]').count(), 0);
+    assert.equal(await page.locator('.nf-canvas-header [data-zoom-value]').count(), 1);
+    assert.equal(await page.locator('.nf-canvas-header [data-zoom-action="out"]').count(), 1);
+    assert.equal(await page.locator('.nf-canvas-header [data-zoom-action="in"]').count(), 1);
+    assert.equal(await page.locator('[data-zoom-menu]').count(), 0);
     assert.equal(await page.locator('.nf-toolbar [data-toolbar-new]').count(), 1);
     assert.equal(await page.locator('.nf-toolbar [aria-label="All open tabs"]').count(), 1);
     assert.equal(await page.locator('.nf-toolbar [aria-label="Command palette"]').count(), 1);
@@ -188,7 +192,7 @@ describe('Batch A UI rework', () => {
     );
 
     // Page: the header carries Export and the updating status; page
-    // navigation moved to the scroll surface and the Toolbar pager (PG1/PP1),
+    // navigation moved to the scroll surface and the canvas-header pager (PG1/PP1),
     // the old PageToolbar is gone and the stage is 14/0/8.
     await page.keyboard.press('Meta+3');
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
@@ -200,7 +204,7 @@ describe('Batch A UI rework', () => {
     assert.equal(await page.locator('.nf-page-toolbar').count(), 0);
     assert.equal(await page.locator('.nf-canvas-header [data-page-nav]').count(), 0, 'no pager arrows');
     assert.equal(await page.locator('.nf-canvas-header [data-page-counter]').count(), 0, 'no page badge in the header');
-    const pager = page.locator('.nf-toolbar [data-page-position]');
+    const pager = page.locator('.nf-canvas-header [data-page-position]');
     const pagerPage = await pager.getAttribute('data-page-position-page');
     assert.match(pagerPage ?? '', /^\d+$/, 'the pager names the page under the viewport centre');
     assert.equal(
@@ -279,16 +283,31 @@ describe('Batch A UI rework', () => {
       `the active tab expands (${activeTabWidth})`,
     );
 
+    // VH1 moved the pager and the zoom out of this bar, and the sidebar rails
+    // at ≤1120 px, so the top bar has ~200 px more room at the app minimum. The
+    // floor behaviour is unchanged; reach it with three more tabs rather than a
+    // narrower window (960 is the app minimum) and keep every assertion.
+    for (let index = 0; index < 3; index += 1) {
+      await page.locator('[data-toolbar-new="true"]').click();
+      await page.waitForFunction(
+        (count) => window.__noteforestTest.state().tabs.length === count + 1,
+        5 + index,
+        { timeout: 10000 },
+      );
+    }
+    await h.waitSaved();
+    assert.equal(await page.locator('.nf-tab').count(), 8, 'eight tabs fill the strip');
+
     // Narrowing shrinks the inactive tabs toward the 80 px floor; the tablist
-    // never scrolls and the active tab keeps its expanded priority width. S1
-    // narrows the strip by the 48 px activity bar, so the 1000 px window keeps
-    // all five tabs above the hide-at-floor threshold (tabFloorWidth = 506).
-    await h.setWindowSize(1000, 800);
-    await page.waitForFunction(() => window.innerWidth <= 1020, undefined, { timeout: 5000 });
+    // never scrolls and the active tab keeps its expanded priority width. Eight
+    // tabs at 960 px exceed the floor budget (tabFloorWidth(8) = 758 px), so the
+    // inactives sit on the floor and the visible window still shows them all.
+    await h.setWindowSize(960, 800);
+    await page.waitForFunction(() => window.innerWidth <= 980, undefined, { timeout: 5000 });
     await page.waitForFunction(
       () => {
         const tabs = [...document.querySelectorAll('.nf-tab')];
-        return tabs.length === 5 && tabs.every((tab) => tab.getBoundingClientRect().width <= 220.5);
+        return tabs.length === 8 && tabs.every((tab) => tab.getBoundingClientRect().width <= 220.5);
       },
       undefined,
       { timeout: 10000 },

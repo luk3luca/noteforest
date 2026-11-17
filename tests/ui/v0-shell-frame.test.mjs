@@ -190,7 +190,7 @@ describe('V0 visual shell', () => {
     );
     assert.equal(await page.locator('[data-sidebar-reveal="true"]').count(), 0);
 
-    // Toolbar: the main-column rail with tabs, new, view controls, palette.
+    // Toolbar: the main-column rail with tabs, new, overflow and palette only.
     assert.equal(await page.locator('.nf-toolbar').count(), 1, 'one Toolbar');
     assert.equal(
       await page.locator('.nf-app > .nf-toolbar').count(),
@@ -215,6 +215,24 @@ describe('V0 visual shell', () => {
     assert.equal(await page.locator('.nf-toolbar [data-toolbar-new="true"]').count(), 1);
     assert.equal(await page.locator('.nf-toolbar [aria-label="Command palette"]').count(), 1);
     assert.equal(await page.locator('.nf-toolbar [aria-label="Settings"]').count(), 0);
+    // VH1: the top bar carries no canvas tool. The page position pager and the
+    // zoom stepper belong to the 34 px canvas header and cannot drift back.
+    assert.equal(
+      await page.locator('.nf-toolbar [data-page-position]').count(),
+      0,
+      'the top bar has no page position pager',
+    );
+    assert.equal(
+      await page.locator('.nf-toolbar [data-zoom-value]').count(),
+      0,
+      'the top bar has no zoom stepper',
+    );
+    assert.equal(await page.locator('.nf-toolbar [data-zoom-action]').count(), 0);
+    assert.equal(
+      await page.locator('.nf-canvas-header [data-zoom-value]').count(),
+      1,
+      'the canvas header owns the zoom stepper',
+    );
 
     // Tabs start after the sidebar, not over it.
     const sidebar = await box('.nf-sidebar');
@@ -852,7 +870,7 @@ describe('V0 visual shell', () => {
     assert.equal(await header.locator('[data-header-redo="true"]').count(), 1);
     assert.equal(await header.locator('[data-page-nav]').count(), 0, 'no pager arrows (PG1)');
     assert.equal(await header.locator('[data-page-counter]').count(), 0, 'no page badge (PG1)');
-    const pager = page.locator('.nf-toolbar [data-page-position]');
+    const pager = header.locator('[data-page-position]');
     assert.equal(
       await pager.locator('[data-page-position-input]').inputValue(),
       '1',
@@ -863,13 +881,55 @@ describe('V0 visual shell', () => {
       /^\/ \d+$/,
       'the label after the field names the total',
     );
-    assert.equal(await header.locator('[data-page-export="true"]').count(), 1);
-    assert.equal(await header.locator('[data-page-fit]').count(), 0, 'no page fit in the header');
-    assert.equal(await header.locator('[data-page-zoom]').count(), 0, 'no page zoom in the header');
+    // VH1: the pager and the zoom are canvas controls; the top bar keeps tabs.
     assert.equal(
-      await page.locator('.nf-page-view').getByRole('button', { name: 'Zoom in' }).count(),
+      await page.locator('.nf-toolbar [data-page-position]').count(),
       0,
-      'the Page surface has no zoom buttons',
+      'the top bar has no pager in Page either',
+    );
+    assert.equal(await header.locator('[data-zoom-value]').count(), 1);
+    assert.equal(await header.locator('[data-zoom-action="in"]').count(), 1);
+    assert.equal(await header.locator('[data-zoom-action="out"]').count(), 1);
+    assert.equal(await page.locator('.nf-toolbar [data-zoom-value]').count(), 0);
+    // The canvas tools are ordered left to right: history, pager, zoom,
+    // layout/mode segments. (The find cluster between history and the pager is
+    // measured in its own suite, where it is open.)
+    const order = await header.evaluate((element) => {
+      const positions = (selector) => {
+        const found = element.querySelector(selector);
+        return found === null ? -1 : found.getBoundingClientRect().left;
+      };
+      return {
+        undo: positions('[data-header-undo="true"]'),
+        pager: positions('[data-page-position]'),
+        zoom: positions('[data-zoom-target]'),
+        view: positions('[data-view-controls="true"]'),
+      };
+    });
+    assert.ok(order.undo < order.pager, `the pager sits right of undo/redo (${order.undo} < ${order.pager})`);
+    assert.ok(order.pager < order.zoom, `the zoom sits right of the pager (${order.pager} < ${order.zoom})`);
+    assert.ok(order.zoom < order.view, `the layout/mode segments sit right of the zoom (${order.zoom} < ${order.view})`);
+    // VH1 evidence: the canvas header owns the pager and the zoom; the 44 px top
+    // bar keeps only the tab strip and the palette.
+    const hardeningDir = artifactsPath('v1-hardening');
+    await mkdir(hardeningDir, { recursive: true });
+    await header.screenshot({ path: join(hardeningDir, 'canvas-header-page-controls.png') });
+    await page.locator('.nf-toolbar').screenshot({ path: join(hardeningDir, 'top-bar-no-page-controls.png') });
+    assert.equal(await header.locator('[data-page-export="true"]').count(), 1);
+    // The old Page fit/zoom controls are gone. `data-page-fit` is now the zoom
+    // group's own state attribute (VH1 moved the stepper into this header), so
+    // the absence check is about the control, not the attribute.
+    assert.equal(
+      await header.locator('[aria-label="Fit page"], [aria-label="Fit width"], [data-page-fit-action]').count(),
+      0,
+      'no page fit control in the header',
+    );
+    assert.equal(await header.locator('[data-page-zoom]').count(), 0, 'no page zoom in the header');
+    assert.equal(await header.locator('[data-zoom-value]').count(), 1, 'the shared zoom stepper lives here');
+    assert.equal(
+      await page.locator('.nf-page-scroll').getByRole('button', { name: 'Zoom in' }).count(),
+      0,
+      'the Page paper has no zoom buttons',
     );
     // Page card geometry is unchanged by the Continuous note radius.
     const pageCardRadius = await page
