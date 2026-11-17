@@ -688,3 +688,23 @@ token), resting width 1.25 → 1.5, and an arrowhead that scales with the stroke
 - Manual break on a block the layout cannot honour: warning (current preflight category) or blocking error.
 - Manual-break feedback in Continuous: R2a removed the page chrome, so a new, minimal signal is needed
   (a checked menu item is the cheapest honest answer).
+
+## Known issues and follow-ups (17 November 2026)
+
+Recorded, not scheduled. Each one is a defect we know about, with the fix sketched so the next person
+does not have to rediscover it.
+
+1. **`document-lifecycle` lock race (test, intermittent).** The "materializes on the first keystroke"
+   subtest writes a live lock, removes it and clicks Retry; the save then fails with `saveState: 'error'`
+   and the shell's "The note couldn't be saved." line. Raised `waitSaved` from 10 s to 30 s does not fix
+   it, so it is not a timeout: the app still sees the lock. Fix: after `rm(liveLock)`, wait until the app
+   no longer reports the draft as blocked (poll the runtime/draft state) before clicking Retry. Fails
+   roughly one run in two to three; passes standalone.
+2. **Page position control is incomplete (UI).** `‹ 3 / 61 ›` with a typable number, arrows disabled at
+   the ends, `⌘↑`/`⌘↓` unchanged, `PageUp`/`PageDown` scrolling a viewport: the design says this, the
+   shipped build has a plain indicator that opens a dialog instead. Fix in the Page batch's follow-up.
+3. **Find/highlighter offset→page mapping** needs the spike before the batch can be designed.
+4. **Code palette contrast**: the theme registry (verbatim themes, one AA per polarity) is the answer;
+   the classic palettes stay unedited.
+5. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
+   only if it is felt.

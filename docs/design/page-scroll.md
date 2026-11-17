@@ -48,8 +48,11 @@ the page model, the page count and the PDF are untouched.
   almost never entirely visible, so a majority rule would stay stuck.
 - If the centre lands exactly on a seam, the indicator **keeps the current page**: it must not flicker
   while you scroll across a boundary.
-- The indicator is also the jump: click it for a page list, type a number, or use `⌘↑` / `⌘↓` to move
-  to the previous/next page start. Those are movements, not modes.
+- The indicator is a **control, not a label** (corrected 17 November 2026): `‹ 3 / 61 ›` — a previous
+  and a next button around a **number you can click and type into**. Enter jumps, Escape cancels, and the
+  arrows are disabled at the first and last page. `⌘↑` / `⌘↓` do the same from the keyboard, while
+  `PageUp` / `PageDown` keep their ordinary meaning: scroll one viewport. These are movements, not modes.
+  No dialog: the jump happens in the control that already shows where you are.
 - Page Edit: the overlay stays where it is and scrolls with its page.
 
 ## 5. Find and navigation
