@@ -706,6 +706,28 @@ token), resting width 1.25 → 1.5, and an arrowhead that scales with the stroke
   scroll). Page Read keeps single-click selection and double-click/Enter → Continuous; Page Edit keeps
   double-click/Enter → the page overlay. Ships in the visual-fixes batch.
 
+## V2 input recorded (17 November 2026)
+
+Not a roadmap; the product owner's first pass over the post-v1 backlog.
+
+**Picked as useful:** image crop editor + region re-pick; the math symbol/template palette; **Markdown
+export**; **manual resize**, and with it an **automatic row fill** — when width remains, children/top-level
+cards widen to use it (this is the original "siblings together fill the page" rule, never implemented;
+Continuous only, and it needs a layout lab because a wider sibling changes the wrap decisions);
+the five Library/Markdown deferrals; **drag a block onto another to indent/outdent** (today drag only
+reorders before/after); **drag files in the Library tree** (today the Move dialog is the only path).
+
+**Skeptical, deferred:** iPad + Apple Pencil and in-app ink annotations — "last resort if it is really
+missing while using it". No sync service exists; the document is a folder package in the user library, so
+cross-device work is a synced folder with conflicts, and an iPad editor would be a second app (the renderer
+is Electron). The cheap path, if the study loop needs it, is the existing PDF handoff for external
+annotation, not an iPad editor.
+
+**Added by the Orchestrator as candidates:** find & replace inside a note (the find engine exists);
+library-wide content search (only a name filter exists today); multi-select blocks for bulk indent / move /
+delete (promised in the UX spec, never built); export range (chapter or page range in the export sheet);
+performance at 1,000 blocks and in large libraries.
+
 ## Known issues and follow-ups (17 November 2026)
 
 Recorded, not scheduled. Each one is a defect we know about, with the fix sketched so the next person
