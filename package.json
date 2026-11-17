@@ -1,6 +1,6 @@
 {
   "name": "noteforest",
-  "version": "0.0.0-m2.2",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "NoteForest \u2014 spatial note-taking app (M2 editor shell and branch editor)",
@@ -43,7 +43,11 @@
     "test:ui:settings": "npm run build && node tests/ui/run.mjs --group settings",
     "test:ui:page": "npm run build && node tests/ui/run.mjs --group page",
     "test:ui:anchors": "npm run build && node tests/ui/run.mjs --group anchors",
-    "test:ui:images": "npm run build && node tests/ui/run.mjs --group images"
+    "test:ui:images": "npm run build && node tests/ui/run.mjs --group images",
+    "stage:pdfjs": "node scripts/stage-pdfjs.mjs",
+    "dist": "npm run stage:pdfjs && npm run build -w @noteforest/desktop && electron-builder --projectDir apps/desktop --mac dmg",
+    "install:local": "node scripts/install-local.mjs",
+    "update:local": "node scripts/update-local.mjs"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -53,6 +57,7 @@
     "@types/node": "24.10.1",
     "axe-core": "^4.11.0",
     "electron": "45.2.1",
+    "electron-builder": "^26.18.0",
     "electron-vite": "6.0.0",
     "pdfjs-dist": "6.5.438",
     "playwright": "1.64.1",

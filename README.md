@@ -10,8 +10,8 @@ MIT licensed (see [LICENSE](LICENSE)).
 
 ## Status
 
-**v1.0 feature-complete.** The first release is `0.1.0`, tagged when the dmg is built (`docs/plan.md` has the
-milestone history). The app is macOS-only and Apple-silicon-first.
+**Released 0.1.0 (18 November 2026).** v1 is feature-complete; `docs/plan.md` has the milestone history and the
+v2 backlog. The app is macOS-only and Apple-silicon-first.
 
 ## Screenshots
 
@@ -30,8 +30,8 @@ The exported PDF keeps the page layout, with real text:
 ## Install (macOS)
 
 There is no App Store build and no notarized distribution. The app is built locally and is **not code-signed**.
-`npm run dist` and `npm run install:local` land with the `0.1.0` release; until then the app runs from source
-(`npm run dev`).
+`npm run dist` writes `dist/NoteForest-0.1.0-arm64.dmg` and the `.app` next to it; `npm run install:local`
+copies it to `/Applications`.
 
 ```bash
 git clone https://github.com/luk3luca/noteforest.git
@@ -47,14 +47,20 @@ without Gatekeeper warnings; a downloaded copy would ask for **right-click → O
 ## Updating
 
 **There is no auto-update.** The installed app is a copy built from a tag; pushes to `main` do not change it.
-You update by pulling, rebuilding and replacing the app — the repository is never re-cloned:
+You update by pulling, rebuilding and replacing the app — the repository is never re-cloned. The one-command
+check is `update:local`: it fetches the tags, says whether a newer release exists, and with `--yes` pulls,
+rebuilds and installs.
 
 ```bash
 cd noteforest
-git pull --tags          # or: git fetch --tags && git checkout v0.2.0
-npm install              # only needed when dependencies changed
+npm run update:local            # check only
+npm run update:local -- --yes   # pull, dist, install (quit NoteForest first)
+
+# or by hand:
+git pull --tags
+npm install                     # only when dependencies changed
 npm run dist
-npm run install:local    # quit NoteForest first
+npm run install:local
 ```
 
 - A release is a **tag** (`v0.1.0`, `v0.2.0`, …). `main` can move many times without a release.
