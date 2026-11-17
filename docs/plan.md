@@ -713,10 +713,24 @@ Not a roadmap; the product owner's first pass over the post-v1 backlog.
 **Picked as useful:** image crop editor + region re-pick; the math symbol/template palette; **Markdown
 export**; **width fill / manual resize**, corrected by the product owner on the same day — the need is
 **Page first**, not Continuous: in Page the fill is what avoids "infinite narrow columns" and unused page
-width; in Continuous it matters only for large tables. This is the original "siblings together fill the
-page" rule, never implemented, and it is a **layout-lab** item because it changes pagination, the PDF gate
-baseline and the wrap decisions (a wider card can push a sibling below). Manual resize as a stored override
-is a separate, larger question (widths are derived today).
+width; in Continuous it matters only for large tables. Manual resize as a stored override is a separate,
+larger question (widths are derived today).
+
+**Page width fill — the owner's rules (17 November 2026).** A **post-placement fill pass**, never a change
+to packing: the tree is placed as today (content widths, wrap when needed), then cards grow only into width
+that is already unused, and **a fill must never force a wrap** — nothing moves to a new line because of it.
+
+- Start from the **children/grandchildren**, not the top level. If a grandchild wraps below, the child can
+  take the width the grandchild no longer uses.
+- A **lone top-level** may take the whole sheet, half, or three quarters — the exact rule is still to
+  choose (a max share avoids a one-word card spanning the page).
+- A **top-level plus one child** can split half and half.
+- A **top-level with two children**, one of which has a grandchild: the child without descendants may widen;
+  the one with a subtree either follows the rule above, or they split the remaining space — **weighted by
+  text amount** (a card with a few words has no right to grow; more text earns more width).
+- The fill is a pre-pagination phase, so it can change the page count (wider cards reflow shorter). The lab
+  measures the showcase and the PDF gate baseline before/after.
+- Continuous stays content-driven except for **large table blocks**, which may take more width.
 The five Library/Markdown deferrals; **drag a block onto another to indent/outdent** (today drag only
 reorders before/after); **drag files in the Library tree** (today the Move dialog is the only path).
 **Find & replace** belongs to the **sidebar Search** surface only, not the canvas toolbar (owner, same day):
@@ -733,13 +747,23 @@ Search only); library-wide content search (only a name filter exists today); mul
 indent / move / delete (promised in the UX spec, never built); export range (chapter or page range in the
 export sheet); performance at 1,000 blocks and in large libraries.
 
-**Agent API — clarifying the ratified decision (owner asked, 17 November 2026).** ADR-0003 (External API)
-is **withdrawn**; external agents get no server, tokens, live command API or forest builder. The app opens a
-`.md` file as a flat guest file, and the agent's own prompt decides any restructuring; there is no automatic
-Markdown→forest import and no in-app agent panel. If the owner's goal is "an agent creates structured
-notes", the realistic options are: (a) a **Markdown importer** that builds blocks (lossy, post-v1 in the
-spec); (b) a **CLI/file import** for packages; (c) reopening a local API/MCP surface, which is a much
-larger decision (permissions, concurrency, live editing) and contradicts the current ADR. No decision yet.
+**Agent API — the owner's clarification revises the record (17 November 2026).** The recorded decision is
+the **14 November 2026** "Agent-friendly authoring" note plus **ADR-0003 withdrawn**: external agents get no
+server, tokens, **live command API** or forest builder; a `.md` file opens as a flat guest file, and there is
+no automatic Markdown→forest import and no in-app agent panel. The owner's recollection is different and is
+now the direction: **no server, no tokens, but yes to structured commands** — create node, create anchor,
+create chapter — so an agent that understands the text and the commands can build the forest itself (there
+is no parser and no deterministic split; the agent is the only other author).
+
+This is a **v2 ADR decision**, not a v1 change. The shapes that keep "no server, no tokens":
+- a **command file / inbox queue** in the library (the agent writes validated operations; the app applies
+  them through the normal command layer, with undo, locks and conflict handling);
+- a **CLI** (`noteforest apply plan.json`) over the same operation schema;
+- an **MCP-over-stdio** wrapper around the same operations (still no server, no token).
+
+Boundaries to settle before any of them: the operation schema (which commands, ids, anchors), atomicity,
+what happens if the app is open (live lock), whether delete is allowed, and how the result is reported back
+to the agent. The Markdown importer becomes a fallback, not the main path.
 
 ## Known issues and follow-ups (17 November 2026)
 
