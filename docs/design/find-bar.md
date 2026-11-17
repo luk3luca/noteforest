@@ -1,6 +1,6 @@
 # Find bar (`⌘F`) and the sidebar Search view
 
-**Status:** the toolbar cluster and the sidebar Search are implemented and merged at `eec39b4` (16 November 2026); find v3 (label-only headings, card rows, one normalized query mode with the shared `ab` toggle, stroked-only activity icons) is merged at `2692df0`. **S1 moved the sidebar view onto the sidebar system** (`docs/design/sidebar.md`, 16 November 2026): shared header, `--sb-*` type scale, collapsible chapter groups with the left chevron, `tree`/`treeitem` results. The Page word highlight and the copy alignment of the provisional labels are the follow-ups.
+**Status:** the toolbar cluster and the sidebar Search are implemented and merged at `eec39b4` (16 November 2026); find v3 (label-only headings, card rows, one normalized query mode with the shared `ab` toggle, stroked-only activity icons) is merged at `2692df0`. **S1 moved the sidebar view onto the sidebar system** (`docs/design/sidebar.md`, 16 November 2026): shared header, `--sb-*` type scale, collapsible chapter groups with the left chevron, `tree`/`treeitem` results. **Find in Page (F4a) is merged at `cee3577`**: every match is painted inside the page with the CSS Custom Highlight API, without touching the measured DOM. The copy alignment of the provisional labels remains.
 **Lab:** `docs/design/find-bar-ui-lab/`.
 **Date:** 15 November 2026 (v3 amendment 16 November 2026).
 
@@ -113,8 +113,10 @@ titles. Case-insensitive, literal text; no regex, no accent folding, no replace.
 - Continuous: scroll to the block, select it, mark all matches and the current one strongly; a
   temporary decoration cleared on close. Collapsed blocks are searchable; jumping expands their
   ancestors.
-- Page: the cluster is in the same toolbar; go to the page that contains the block and ring the
-  block. The exact-text highlight inside the page is a follow-up.
+- Page: the cluster is in the same toolbar; go to the page that contains the block, ring the block and
+  paint every match with the CSS Custom Highlight API (`nf-find`, plus `nf-find-current` for the current
+  occurrence, all of its ranges). A match with no page text (a chapter title, a stored quote, a branch
+  label) keeps the ring only. The print compositor registers nothing; the PDF carries no find paint.
 - Read mode: navigation only; no editing chrome. Expanding a collapsed block is a view-state change
   and stays allowed.
 - `Esc` closes and restores the selection saved when the bar opened; not the last hit.
@@ -158,5 +160,7 @@ was added on 16 November 2026 (v3).
 - **Phase 6b**: the sidebar Search section, same engine, snippet list — merged at `eec39b4`.
 - **Find v3**: label-only headings, card rows with the shared `.nf-result-row`, one normalized query
   mode with the shared `ab` toggle, and stroked-only activity icons — this change.
-- Follow-up: the exact-word highlight inside Page (CSS Custom Highlight API, no PDF change); the
-  copy sweep aligns the provisional sidebar labels and the palette “Search ⌘K” button.
+- **Find in Page (F4a)**: merged at `cee3577` — `data-node-path` on every segment, one pure
+  offset→segment mapping (`page/find-page-ranges.ts`), the registry paint (`page/find-highlight.ts`),
+  repaint on the mounted window, and the print-free assertion.
+- Follow-up: the copy sweep aligns the provisional sidebar labels and the palette “Search ⌘K” button.
