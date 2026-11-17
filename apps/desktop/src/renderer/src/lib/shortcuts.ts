@@ -33,9 +33,16 @@ export interface Chord {
   /**
    * The `KeyboardEvent.key` value, case-insensitive for letters. A digit is
    * matched by `KeyboardEvent.code` (`Digit1`), so a shifted digit is the same
-   * physical key.
+   * physical key. The display always comes from this value.
    */
   key: string;
+  /**
+   * The physical key, when the produced character is not the key the user
+   * presses: `⇧⌘]` types `}` on a US layout, so `tab-next-bracket` declares
+   * `BracketRight`. A chord with `code` compares `KeyboardEvent.code` only and
+   * is therefore layout-independent.
+   */
+  code?: string;
   /**
    * The primary modifier: `⌘`, or `⌃` where the platform uses it. The shipped
    * handlers accept either, so `mod` means "the platform's command key".
@@ -115,7 +122,11 @@ export function display(chord: Chord): string {
   return `${text}${glyph}`;
 }
 
-function keyMatches(event: KeyEventLike, key: string): boolean {
+function keyMatches(event: KeyEventLike, chord: Chord): boolean {
+  // A declared physical key wins: the character it produces depends on the
+  // layout and on Shift (`⇧]` is `}` on a US layout).
+  if (chord.code !== undefined) return event.code === chord.code;
+  const key = chord.key;
   if (/^[0-9]$/.test(key)) return event.code === `Digit${key}`;
   const produced = event.key.toLowerCase();
   if (produced === key.toLowerCase()) return true;
@@ -137,7 +148,7 @@ function modifiersMatch(event: KeyEventLike, chord: Chord): boolean {
 }
 
 function chordMatches(event: KeyEventLike, chord: Chord): boolean {
-  return keyMatches(event, chord.key) && modifiersMatch(event, chord);
+  return keyMatches(event, chord) && modifiersMatch(event, chord);
 }
 
 const BY_ID = new Map<string, Shortcut>();
@@ -202,8 +213,10 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Export PDF…',
     group: 'Shell',
     scope: 'global',
-    chords: [cmdShift('e')],
-    menu: 'CmdOrCtrl+Shift+E',
+    // `⌘P` is the universal "produce a document" key (P2). v1 is unreleased,
+    // so it replaces the old `⇧⌘E` instead of aliasing it.
+    chords: [cmd('p')],
+    menu: 'CmdOrCtrl+P',
   },
   {
     id: 'close-tab',
@@ -248,13 +261,14 @@ export const SHORTCUTS: readonly Shortcut[] = [
     row: 'tab-cycle',
   },
   {
-    // Older browser tab cycling. It matches only where a shifted bracket still
-    // reports `[`; the list keeps the two discoverable pairs instead.
+    // Older browser tab cycling, matched by physical key: with Shift held a US
+    // layout reports `{`/`}` as the character, so only `KeyboardEvent.code`
+    // identifies the bracket. The list keeps the two discoverable pairs.
     id: 'tab-previous-bracket',
     label: 'Previous tab',
     group: 'Shell',
     scope: 'global',
-    chords: [cmdShift('[')],
+    chords: [cmdShift('[', { code: 'BracketLeft' })],
     list: false,
   },
   {
@@ -262,7 +276,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'Next tab',
     group: 'Shell',
     scope: 'global',
-    chords: [cmdShift(']')],
+    chords: [cmdShift(']', { code: 'BracketRight' })],
     list: false,
   },
   {
@@ -279,6 +293,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     group: 'Shell',
     scope: 'global',
     chords: [cmd('f')],
+    menu: 'CmdOrCtrl+F',
   },
   {
     id: 'find-next',
@@ -286,6 +301,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     group: 'Shell',
     scope: 'global',
     chords: [cmd('g')],
+    menu: 'CmdOrCtrl+G',
     row: 'find-step',
     rowLabel: 'Next / previous match',
   },
@@ -295,15 +311,18 @@ export const SHORTCUTS: readonly Shortcut[] = [
     group: 'Shell',
     scope: 'global',
     chords: [cmdShift('g')],
+    menu: 'CmdOrCtrl+Shift+G',
     row: 'find-step',
   },
   {
-    // Escape closes the find bar and restores the selection it saved.
+    // Escape closes the find bar and restores the selection it saved. `⇧Esc`
+    // is the second chord B1 dropped when Escape became an unmodified chord;
+    // it is restored here on this entry only, never by loosening every Escape.
     id: 'close-find',
     label: 'Close find',
     group: 'Shell',
     scope: 'global',
-    chords: [{ key: 'Escape' }],
+    chords: [{ key: 'Escape' }, { key: 'Escape', shift: true }],
     list: false,
   },
   {

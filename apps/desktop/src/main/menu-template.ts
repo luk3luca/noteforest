@@ -77,7 +77,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuItemConstru
       {
         id: 'menu-export-pdf',
         label: 'Export PDF…',
-        accelerator: 'CmdOrCtrl+Shift+E',
+        accelerator: 'CmdOrCtrl+P',
         click: () => send('export-pdf'),
       },
       { type: 'separator' },
@@ -118,6 +118,30 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuItemConstru
         accelerator: 'CmdOrCtrl+Shift+Z',
         registerAccelerator: false,
         click: () => send('redo'),
+      },
+      { type: 'separator' },
+      // The find is renderer-owned: the menu shows the standard accelerators
+      // and a click sends the same command the keys send.
+      {
+        id: 'menu-find',
+        label: 'Find…',
+        accelerator: 'CmdOrCtrl+F',
+        registerAccelerator: false,
+        click: () => send('find-open'),
+      },
+      {
+        id: 'menu-find-next',
+        label: 'Find Next',
+        accelerator: 'CmdOrCtrl+G',
+        registerAccelerator: false,
+        click: () => send('find-next'),
+      },
+      {
+        id: 'menu-find-previous',
+        label: 'Find Previous',
+        accelerator: 'CmdOrCtrl+Shift+G',
+        registerAccelerator: false,
+        click: () => send('find-previous'),
       },
       { type: 'separator' },
       { role: 'cut' },

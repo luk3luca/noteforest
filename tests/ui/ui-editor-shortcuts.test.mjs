@@ -1,6 +1,6 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
@@ -256,6 +256,21 @@ describe('Settings Editor shortcut list', () => {
       'a scoped row states its scope',
     );
 
+    // P2: Export PDF reads ⌘P in the same list, and no row keeps ⇧⌘E.
+    assert.equal(
+      await page.locator('[data-shortcut-id="export-pdf"] dt').innerText(),
+      'Export PDF…',
+    );
+    assert.equal(await page.locator('[data-shortcut-id="export-pdf"] kbd').innerText(), '⌘P');
+    assert.ok(!(await page.locator('.nf-shortcut-row kbd').allInnerTexts()).includes('⇧⌘E'));
+    // The row is `display: contents`, so the evidence is a page shot with the
+    // row scrolled into view.
+    await page.locator('[data-shortcut-id="export-pdf"] dt').scrollIntoViewIfNeeded();
+    await mkdir(join(artifactsPath('p2-polish'), 'settings'), { recursive: true });
+    await page.screenshot({
+      path: join(artifactsPath('p2-polish', 'settings'), 'export-row.png'),
+    });
+
     await page.screenshot({ path: join(screenshotDir, 'editor-shortcuts.png') });
     await mkdir(join(screenshotDir, '..', 'b1-defects'), { recursive: true });
     await page.screenshot({ path: artifactsPath('b1-defects', 'settings-shortcuts.png') });
@@ -366,6 +381,8 @@ describe('Settings Editor shortcut list', () => {
     assert.equal(await hintFor('Reset zoom', 'zoom-reset'), '⌘0');
     assert.equal(await hintFor('Fit width', 'fit-width'), '⇧⌘0');
     assert.equal(await hintFor('Fit page', 'fit-page'), null, 'Fit page has no key');
+    // P2: one verb, one key. ⌘P replaced ⇧⌘E, which is no longer an alias.
+    assert.equal(await hintFor('Export PDF', 'export-pdf'), '⌘P');
 
     // Every rendered hint is Apple-ordered and none names a removed key.
     await input.fill('');
@@ -413,5 +430,180 @@ describe('Settings Editor shortcut list', () => {
     // Escape on the empty field keeps the normal dismiss behavior.
     await shortcutSearch().press('Escape');
     await waitSettingsClosed();
+  });
+
+  it('cycles tabs with the shifted brackets by physical key and keeps Control+Tab (P2)', async () => {
+    await launch('editor-shortcuts-brackets');
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 1);
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 2);
+
+    const tabs = (await page.evaluate(() => window.__noteforestTest.state())).tabs.map(
+      (tab) => tab.packagePath,
+    );
+    assert.equal(tabs.length, 2);
+    const [firstTab, secondTab] = tabs;
+    const activeTab = async () => page.evaluate(() => window.__noteforestTest.state().activeTab);
+    assert.equal(await activeTab(), secondTab, 'the second seeded note is active');
+
+    // `⇧⌘]` on a US layout reports `}` as the character; the catalogue matches
+    // the physical `BracketRight`.
+    await page.keyboard.press('Meta+Shift+BracketRight');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.state().activeTab === path,
+      firstTab,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Meta+Shift+BracketLeft');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.state().activeTab === path,
+      secondTab,
+      { timeout: 5000 },
+    );
+
+    // The discoverable pair still works.
+    await page.keyboard.press('Control+Tab');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.state().activeTab === path,
+      firstTab,
+      { timeout: 5000 },
+    );
+    await page.keyboard.press('Control+Shift+Tab');
+    await page.waitForFunction(
+      (path) => window.__noteforestTest.state().activeTab === path,
+      secondTab,
+      { timeout: 5000 },
+    );
+  });
+
+  it('opens Export PDF with ⌘P and no longer with ⇧⌘E (P2)', async () => {
+    await launch('editor-shortcuts-export');
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+
+    // The canvas header names the same key as the catalogue (Page only).
+    await page.keyboard.press('Meta+3');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
+    const header = page.locator('[data-page-export]');
+    await header.waitFor();
+    assert.match(await header.getAttribute('title'), /⌘P/);
+    assert.equal(await header.getAttribute('aria-keyshortcuts'), 'Meta+P');
+    await mkdir(join(artifactsPath('p2-polish'), 'page'), { recursive: true });
+    await header.screenshot({
+      path: join(artifactsPath('p2-polish', 'page'), 'export-header.png'),
+    });
+    await page.keyboard.press('Meta+2');
+    await page.waitForFunction(
+      () =>
+        window.__noteforestTest.viewState()[window.__noteforestTest.state().activeTab]?.layout ===
+        'continuous',
+      undefined,
+      { timeout: 5000 },
+    );
+
+    // The old key is gone: one verb, one key.
+    await page.keyboard.press('Meta+Shift+E');
+    await settle();
+    assert.equal(
+      await page.locator('[data-export-sheet="true"]').count(),
+      0,
+      '⇧⌘E no longer opens the export sheet',
+    );
+
+    await page.keyboard.press('Meta+P');
+    await page.waitForSelector('[data-export-status="configure"]', { timeout: 20000 });
+    assert.equal(await page.evaluate(() => window.__noteforestTest.overlayOwner()), 'export');
+    await page.locator('[data-export-close]').click();
+    await page.waitForSelector('[data-export-sheet="true"]', { state: 'detached' });
+  });
+
+  it('runs Edit → Find, Find Next, and Find Previous from the native menu (P2)', async () => {
+    await launch('editor-shortcuts-find-menu');
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+
+    const editMenu = await h.app.evaluate(({ Menu }) => {
+      const edit = Menu.getApplicationMenu()?.items.find((item) => item.label === 'Edit');
+      return (edit?.submenu?.items ?? []).map((item) => ({
+        id: item.id,
+        label: item.label,
+        accelerator: item.accelerator,
+      }));
+    });
+    assert.deepEqual(
+      editMenu.filter((item) => typeof item.id === 'string' && item.id.startsWith('menu-find')),
+      [
+        { id: 'menu-find', label: 'Find…', accelerator: 'CmdOrCtrl+F' },
+        { id: 'menu-find-next', label: 'Find Next', accelerator: 'CmdOrCtrl+G' },
+        { id: 'menu-find-previous', label: 'Find Previous', accelerator: 'CmdOrCtrl+Shift+G' },
+      ],
+      'the Edit menu carries the three standard Find items',
+    );
+    // A native macOS menu is OS-rendered, not DOM: the harness cannot
+    // screenshot it. The menu structure is the evidence artifact instead.
+    await mkdir(artifactsPath('p2-polish'), { recursive: true });
+    await writeFile(
+      join(artifactsPath('p2-polish'), 'edit-menu.json'),
+      `${JSON.stringify(editMenu, null, 2)}\n`,
+      'utf8',
+    );
+
+    await invokeAppMenu('menu-find');
+    await page.locator('.nf-find-input').waitFor();
+    await page.locator('.nf-find-input').fill('eigenvalue');
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findTotal > 1,
+      undefined,
+      { timeout: 15000 },
+    );
+    const findIndex = async () => page.evaluate(() => window.__noteforestTest.state().findIndex);
+    const start = await findIndex();
+
+    await invokeAppMenu('menu-find-next');
+    await page.waitForFunction(
+      (index) => window.__noteforestTest.state().findIndex !== index,
+      start,
+      { timeout: 10000 },
+    );
+    const moved = await findIndex();
+
+    await invokeAppMenu('menu-find-previous');
+    await page.waitForFunction(
+      (index) => window.__noteforestTest.state().findIndex !== index,
+      moved,
+      { timeout: 10000 },
+    );
+    assert.equal(await findIndex(), start, 'Find Previous returns to the same hit');
+    assert.equal(await page.evaluate(() => window.__noteforestTest.state().findOpen), true);
+  });
+
+  it('closes the find with Shift+Escape as well as Escape (P2)', async () => {
+    await launch('editor-shortcuts-find-escape');
+    await page.evaluate(() => window.__noteforestTest.seed('demo'));
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await h.waitSaved();
+
+    await page.keyboard.press('Meta+f');
+    await page.locator('.nf-find-input').waitFor();
+    await page.locator('.nf-find-input').fill('eigenvalue');
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findTotal > 0,
+      undefined,
+      { timeout: 15000 },
+    );
+    await page.keyboard.press('Shift+Escape');
+    await page.waitForSelector('.nf-find-bar', { state: 'detached' });
+    assert.equal(await page.evaluate(() => window.__noteforestTest.state().findOpen), false);
+
+    await page.keyboard.press('Meta+f');
+    await page.locator('.nf-find-input').waitFor();
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.nf-find-bar', { state: 'detached' });
+    assert.equal(await page.evaluate(() => window.__noteforestTest.state().findOpen), false);
   });
 });

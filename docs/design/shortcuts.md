@@ -3,6 +3,12 @@
 **Status:** audit, 17 November 2026; **implemented in B1** (`d1de7ac`, merged `e48e862`). This file stays as
 the record of the audit and the product rules; the shipped list has 34 rows in four groups and is rendered
 from `lib/shortcuts.ts`.
+
+**P2 update (17 November 2026):** the three open items in §6 are closed. `Export PDF…` is `⌘P` (`⇧⌘E` is
+gone, not aliased), the native `Edit` menu carries `Find…` / `Find Next` / `Find Previous`
+(`⌘F` / `⌘G` / `⇧⌘G`, renderer-owned), `⇧Esc` closes the find again as a second chord on `close-find`, and
+`⇧⌘[` / `⇧⌘]` now match `KeyboardEvent.code` (`BracketLeft` / `BracketRight`), so they fire on a US
+layout. `Chord` gained the optional `code` for exactly this case.
 **Why now:** the release is close, the Settings list is the only place a user can discover a shortcut, and
 nothing in the repository proves that list still matches a key that works.
 
@@ -47,7 +53,7 @@ Key: **C** = the Settings list today (✅ listed, ⚠ listed but wrong or ambigu
 | `⌘O` | Open note… | menu only | ❌ | ✅ |
 | `⇧⌘O` | Open Markdown… | menu only (palette shows it) | ❌ | ✅ |
 | `⌘S` | Save | App + menu | ✅ | ✅ |
-| `⇧⌘E` | Export PDF… | menu only | ✅ | ✅ |
+| `⌘P` | Export PDF… | menu + renderer | ✅ | ✅ |
 | `⌘W` | Close tab | App + menu | ❌ | ✅ |
 | `⇧⌘W` | Close window | App + menu | ❌ | ✅ |
 | `⇧⌘T` | Reopen closed tab | App + menu | ❌ | ✅ |
@@ -101,9 +107,9 @@ Key: **C** = the Settings list today (✅ listed, ⚠ listed but wrong or ambigu
 
 | Keys | Action | Handled in | C | M |
 |---|---|---|---|---|
-| `⌘F` | Find in note (no-op in a Markdown guest file) | App | ✅ | ❌ |
-| `⌘G` / `⇧⌘G` | Next / previous match | App | ✅ | ❌ |
-| `Esc` | Close the find and restore the selection | App | ❌ | ❌ |
+| `⌘F` | Find in note (no-op in a Markdown guest file) | App + menu (renderer-owned) | ✅ | ✅ |
+| `⌘G` / `⇧⌘G` | Next / previous match | App + menu (renderer-owned) | ✅ | ✅ |
+| `Esc` / `⇧Esc` | Close the find and restore the selection | App | ❌ | ❌ |
 | `↵` / `⇧↵` | Next / previous match in the field | `FindBar` input | ❌ | ❌ |
 | `↑` / `↓`, `Home` / `End` | Previous / next, first / last match in the field | `FindBar` input | ❌ | ❌ |
 
@@ -254,14 +260,14 @@ every palette entry. If a verb needs a key later, it comes back here with a conv
 | `⌘.` | ours; weakly collides with the legacy macOS “cancel” | keep, note it |
 | `⇧⌘F` | VS Code’s search-in-files; unused here | keep, note it |
 | `⌃⏎`, `⌥⏎`, `⇧⌘⏎`, `⌘⌫`, `⇥`/`⇧⇥` | ours; no standard for a block tree | keep |
-| `⌘P` | the universal “produce a document” key | **open**: use it for Export PDF in place of `⇧⌘E`? |
+| `⌘P` | the universal “produce a document” key | **decided in P2**: Export PDF uses it; `⇧⌘E` is gone |
 
 ## 5. The list, after the pass
 
 One row per verb, five groups, ~34 rows — closer to today’s 26 than to the 44 the shipped bindings would
 need. A row exists because a user may need the key without the menu open, not because a key exists.
 
-- **Shell** — New note `⌘N`; New chapter `⇧⌘N`; Open note… `⌘O`; Save `⌘S`; Export PDF… `⌘P` (or `⇧⌘E`);
+- **Shell** — New note `⌘N`; New chapter `⇧⌘N`; Open note… `⌘O`; Save `⌘S`; Export PDF… `⌘P`;
   Close tab `⌘W`; Close window `⇧⌘W`; Reopen closed tab `⇧⌘T`; Next / previous tab `⌃Tab / ⇧⌃Tab`;
   Command palette `⌘K`; Settings `⌘,`; Toggle sidebar `⌘\`; Undo / Redo `⌘Z / ⇧⌘Z`.
 - **View** — Continuous / Page `⌘2 / ⌘3`; Edit / Read `⌘E`; Zoom in / out `⌘+ / ⌘−`; Reset zoom `⌘0`.
@@ -285,7 +291,7 @@ Resolved by B1:
 2. **Fit page:** a `View` item with no accelerator, plus a palette row; fit width keeps `⇧⌘0`.
 3. **List:** 34 rows in `Shell`, `View`, `Editor`, `Page`; the find-field keys stay in the field's tooltips.
 
-Still open, and deliberately not in B1:
+Still open, and deliberately not in B1 — **all three closed by P2 (see the status note at the top)**:
 
 - **Export PDF:** `⌘P` (the universal “produce a document”) in place of `⇧⌘E`, or keep `⇧⌘E`.
 - **Menu:** an `Edit → Find… / Find Next / Find Previous` group with the standard accelerators.

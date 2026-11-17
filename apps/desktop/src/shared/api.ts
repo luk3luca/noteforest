@@ -889,7 +889,10 @@ export type MenuCommand =
   | 'zoom-reset'
   | 'fit-width'
   | 'fit-page'
-  | 'focus-branch';
+  | 'focus-branch'
+  | 'find-open'
+  | 'find-next'
+  | 'find-previous';
 
 export interface SeedResult {
   snapshot: OpenDocumentSnapshot;

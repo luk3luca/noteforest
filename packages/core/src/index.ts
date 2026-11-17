@@ -22,3 +22,4 @@ export * from './commands.js';
 export * from './duplicate.js';
 export * from './export-plan.js';
 export * from './markdown.js';
+export * from './table-cells.js';

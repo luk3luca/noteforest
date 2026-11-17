@@ -10,6 +10,7 @@ import { highlightAttrs } from './highlight-mark';
 import { HIGHLIGHT_TONE_LABELS, lastHighlightTone, rememberHighlightTone } from '../lib/highlight';
 import { shortcutHint } from '../lib/shortcuts';
 import { useShell } from '../state/shell';
+import { overlayOwnsCommands, useOverlayOwnsCommands } from '../shell/overlay-owner';
 
 interface ToolbarProps {
   editor: Editor;
@@ -24,9 +25,14 @@ interface ToolbarProps {
 /** Formula atoms own their actions in the source-editor row, not here. */
 const FORMULA_NODE_TYPES = new Set(['inlineMath', 'blockMath', 'mathBlock']);
 
-export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): JSX.Element {
+export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): JSX.Element | null {
   const [linkOpen, setLinkOpen] = useState(false);
   const [href, setHref] = useState('');
+  // A modal surface owns the command channel (Settings/dialog, palette, Export
+  // sheet). Subscribing here is what re-renders the bubble when that changes:
+  // the check in `shouldShow` runs on an editor transaction, and opening a
+  // dialog dispatches none.
+  const overlayOpen = useOverlayOwnsCommands();
 
   const resetLink = useCallback((): void => {
     setLinkOpen(false);
@@ -78,6 +84,13 @@ export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): 
     editor.chain().focus().unsetMark('highlight').run();
   };
 
+  // Behind a modal the bubble is not a surface the user can reach: its buttons
+  // would stay in the tree, invisible and still reachable by VoiceOver and by a
+  // strict locator. Leaving the tree (not just hiding) is what the store
+  // subscription above buys; the live check in `shouldShow` covers any
+  // evaluation that arrives before this render.
+  if (overlayOpen) return null;
+
   return (
     <BubbleMenu
       editor={editor}
@@ -89,6 +102,7 @@ export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): 
       // A formula NodeSelection is owned by the formula action row, and an open
       // formula source editor must keep the textarea focus and its caret.
       shouldShow={({ editor: current, state }) => {
+        if (overlayOwnsCommands()) return false;
         if (!current.isEditable || state.selection.empty) return false;
         const selection = state.selection;
         if (selection instanceof NodeSelection && FORMULA_NODE_TYPES.has(selection.node.type.name)) {

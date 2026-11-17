@@ -30,3 +30,15 @@ export function activeOverlayOwner(): OverlayOwner | null {
 export function overlayOwnsCommands(): boolean {
   return activeOverlayOwner() !== null;
 }
+
+/**
+ * Reactive form of `overlayOwnsCommands`, for a surface that must *leave the
+ * tree* while a modal is open (the selection bubble): a store subscription is
+ * what re-renders that surface, because opening a dialog dispatches no editor
+ * transaction for `shouldShow` to run on.
+ */
+export function useOverlayOwnsCommands(): boolean {
+  const dialogOpen = useShell((state) => state.dialog !== null || state.paletteOpen);
+  const exportOpen = useExportUi((state) => state.status !== 'idle');
+  return dialogOpen || exportOpen;
+}

@@ -1,6 +1,7 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import { addAnchor, addBranch, addTopLevelBlock, textDoc } from '../support/fixtures.mjs';
@@ -954,6 +955,79 @@ describe('NoteForest M3d1 reference edges', () => {
     assert.deepEqual(await structure(), beforeDelete, 'undo restores the exact graph');
     await page.keyboard.press('Meta+s');
     await h.waitSaved();
+  });
+
+  it('keeps the selection bubble out of the tree while a dialog owns the channel (P2)', async () => {
+    const env = isolated('reference-bubble-modal');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await seedDemo();
+    const blockId = 'p2-bubble-source';
+    const text = 'Alpha bubble phrase beta';
+    await addTopLevelBlock(ui, blockId, textDoc(text));
+    await page.waitForSelector(`[data-block-card="${blockId}"]`);
+
+    const bubble = page.locator('[data-testid="selection-toolbar"]');
+    const prose = page
+      .locator(`.nf-editor[data-active="true"] [data-block-card="${blockId}"] .nf-block-prose p`)
+      .first();
+    await prose.scrollIntoViewIfNeeded();
+    await prose.click();
+    await page.waitForFunction(
+      (id) => {
+        const state = window.__noteforestTest.state();
+        const runtime = state.runtimes.find((item) => item.packagePath === state.activeTab);
+        return runtime?.selectedBlockId === id;
+      },
+      blockId,
+      { timeout: 5000 },
+    );
+
+    // Select "bubble" by walking back from the paragraph end.
+    const phrase = 'bubble';
+    const end = text.indexOf(phrase) + phrase.length;
+    await page.keyboard.press('Meta+ArrowRight');
+    for (let index = 0; index < text.length - end; index += 1) {
+      await page.keyboard.press('ArrowLeft');
+    }
+    for (let index = 0; index < phrase.length; index += 1) {
+      await page.keyboard.press('Shift+ArrowLeft');
+    }
+    await bubble.waitFor({ state: 'visible', timeout: 5000 });
+    assert.equal(
+      await page.locator('[data-testid="selection-toolbar"] [aria-label="Bold"]').count(),
+      1,
+      'the bubble and its controls are reachable with a live selection',
+    );
+
+    // ⇧⌘L opens the dialog without clearing the editor selection.
+    await page.keyboard.press('Meta+Shift+L');
+    await page.getByRole('dialog', { name: 'Link as reference' }).waitFor();
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-testid="selection-toolbar"]').length === 0,
+      undefined,
+      { timeout: 5000 },
+    );
+    assert.equal(await bubble.count(), 0, 'the bubble is gone from the tree behind the dialog');
+    assert.equal(
+      await page.locator('[data-testid="selection-toolbar"] [aria-label="Bold"]').count(),
+      0,
+      'no bubble control is reachable while the dialog is open',
+    );
+    await mkdir(artifactsPath('p2-polish'), { recursive: true });
+    await page.screenshot({
+      path: join(artifactsPath('p2-polish'), 'bubble-hidden-behind-dialog.png'),
+    });
+
+    // Closing restores it: the dialog never cleared the selection.
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog', { name: 'Link as reference' }).waitFor({ state: 'detached' });
+    await bubble.waitFor({ state: 'visible', timeout: 5000 });
+    assert.equal(
+      await page.locator('[data-testid="selection-toolbar"] [aria-label="Bold"]').count(),
+      1,
+      'the bubble comes back on close',
+    );
   });
 
   it('keeps one in-card chrome row: state first, then references, never over an edge', async () => {

@@ -779,7 +779,13 @@ describe('native menu labels', () => {
       'Zoom in',
       'Zoom out',
     ]);
-    expect(labels('Edit')).toEqual(['Undo', 'Redo']);
+    expect(labels('Edit')).toEqual([
+      'Undo',
+      'Redo',
+      'Find…',
+      'Find Next',
+      'Find Previous',
+    ]);
     expect(labels('Help')).toEqual(['Keyboard shortcuts']);
   });
 
@@ -793,7 +799,7 @@ describe('native menu labels', () => {
         .map((entry) => [entry.accelerator, entry.label ?? entry.role]),
     );
     expect(accelerators.get('CmdOrCtrl+N')).toBe('New note');
-    expect(accelerators.get('CmdOrCtrl+Shift+E')).toBe('Export PDF…');
+    expect(accelerators.get('CmdOrCtrl+P')).toBe('Export PDF…');
     expect(accelerators.get('CmdOrCtrl+W')).toBe('Close tab');
     expect(accelerators.get('CmdOrCtrl+Shift+T')).toBe('Reopen closed tab');
     expect(accelerators.get('CmdOrCtrl+K')).toBe('Command palette…');
@@ -803,6 +809,9 @@ describe('native menu labels', () => {
       'menu-export-pdf',
       'menu-undo',
       'menu-redo',
+      'menu-find',
+      'menu-find-next',
+      'menu-find-previous',
       'menu-fit-page',
       'menu-keyboard-shortcuts',
     ]);

@@ -33,6 +33,7 @@ import {
 import { isPathInside } from './lib/paths';
 import {
   useShell,
+  findSurfaceActive,
   type DocumentLayout,
   type InteractionMode,
   type MenuEntry,
@@ -2825,6 +2826,20 @@ export function runMenuCommand(command: MenuCommand): void {
       break;
     case 'focus-branch':
       toggleFocusBranch();
+      break;
+    case 'find-open':
+      // The renderer owns the find (Edit → Find… is `registerAccelerator:
+      // false`). With no note open or a Markdown guest file this is a no-op,
+      // exactly like `⌘F`.
+      openFind();
+      break;
+    case 'find-next':
+      // Both find presentations own the current hit; with neither showing
+      // there is no search to move through, exactly like `⌘G`.
+      if (findSurfaceActive(shell())) findNext();
+      break;
+    case 'find-previous':
+      if (findSurfaceActive(shell())) findPrevious();
       break;
     case 'flush':
       for (const runtime of allRuntimes()) void runtime.flush();

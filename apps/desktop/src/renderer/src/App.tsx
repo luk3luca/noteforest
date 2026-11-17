@@ -568,6 +568,14 @@ export function App(): JSX.Element {
         dispatch('save');
         return;
       }
+      if (matches(event, 'export-pdf')) {
+        // ⌘P: the native menu mirrors the accelerator and the renderer also
+        // matches it, so the key works without the menu. `dispatch` drops the
+        // second delivery inside its dedupe window.
+        event.preventDefault();
+        dispatch('export-pdf');
+        return;
+      }
       if (matches(event, 'new-chapter')) {
         event.preventDefault();
         dispatch('new-chapter');

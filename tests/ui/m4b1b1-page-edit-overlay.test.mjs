@@ -120,11 +120,14 @@ async function openOverlay(blockId) {
   const fragment = fragmentFor(blockId).first();
   await fragment.waitFor();
   await fragment.dblclick();
-  await overlay().waitFor({ timeout: 5000 });
+  // The overlay mounts a ProseMirror editor and takes focus. Both are
+  // conditions, not a frame budget: a loaded pool may take seconds longer than
+  // an idle machine for the same work.
+  await overlay().waitFor({ timeout: 15000 });
   await page.waitForFunction(
     () => document.activeElement?.closest('[data-page-edit-overlay]') !== null,
     undefined,
-    { timeout: 5000 },
+    { timeout: 15000 },
   );
 }
 
@@ -132,10 +135,19 @@ async function typeInOverlay(text) {
   await overlay().locator('.nf-page-edit-prose').click();
   await page.keyboard.press('End');
   await page.keyboard.type(text);
+  await waitOverlayText(text);
+}
+
+/**
+ * Wait for the overlay body to contain `text`. Every raw `keyboard.type` in
+ * this suite is followed by this condition: a keystroke the renderer never
+ * processed fails here, instead of looking like a commit that dropped it.
+ */
+async function waitOverlayText(text) {
   await page.waitForFunction(
     (expected) => document.querySelector('[data-page-edit-overlay]')?.textContent?.includes(expected),
     text,
-    { timeout: 5000 },
+    { timeout: 15000 },
   );
 }
 
@@ -246,7 +258,8 @@ describe('M4b1b1 Page Edit content overlay', () => {
     // Typing never touches the canonical document or the page model. A
     // shifted digit must reach the editor instead of triggering a fit key.
     await page.keyboard.type(' Page overlay edit. @');
-    await page.waitForTimeout(200);
+    // Condition, not a 200 ms budget: the renderer has to have the keystrokes.
+    await waitOverlayText('Page overlay edit. @');
     assert.match(await overlay().textContent(), /Page overlay edit\. @/);
     assert.equal((await viewState()).pageFit, 'page', 'page shortcuts do not steal typing');
     assert.equal((await pageModelState()).runs, modelBefore.runs, 'typing does not re-paginate');
@@ -264,7 +277,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
     // Local text undo stays inside the overlay and creates no history entry.
     const revisionBeforeUndo = (await h.state()).runtimes[0].revision;
     await page.keyboard.type(' LOCAL');
-    assert.match(await overlay().textContent(), /LOCAL/);
+    await waitOverlayText('LOCAL');
     await page.keyboard.press('Meta+z');
     await page.waitForFunction(
       () => !document.querySelector('[data-page-edit-overlay]')?.textContent?.includes('LOCAL'),
@@ -281,7 +294,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
     // Local undo may undo the whole adjacent typing group; type a fresh marker
     // that the commit assertion owns.
     await page.keyboard.type(' Page overlay edit.');
-    assert.match(await overlay().textContent(), /Page overlay edit\./);
+    await waitOverlayText('Page overlay edit.');
 
     // Click outside commits, then the shared model re-paginates.
     await activePageView().locator('.nf-page-footer').first().click();
@@ -968,7 +981,10 @@ describe('M4b1b1 Page Edit content overlay', () => {
       { timeout: 30000 },
     );
     const after = await pageModelState();
-    assert.ok(typingMs < 5000, `typing through the page model stayed responsive (${typingMs} ms)`);
+    // The hard responsiveness gate is `tests/perf` (300 blocks, own budget).
+    // This suite asserts the model did not re-run while typing; the wall-clock
+    // bound only catches a hang, so it is loose enough for a loaded UI pool.
+    assert.ok(typingMs < 15000, `typing through the page model stayed responsive (${typingMs} ms)`);
     assert.equal(after.runs, initial.runs + 1, 'one commit produces one model run');
     console.log(
       `M4b1b1 300-block page model: seed ${Date.now() - started - readyMs} ms, page ready ${readyMs} ms, run ${initial.ms} ms, compute ${initial.computeMs} ms, ${initial.calls} calls, ${initial.pageCount} pages; overlay typing ${typingMs} ms (no model run); commit run ${after.ms} ms / compute ${after.computeMs} ms`,
