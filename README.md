@@ -13,8 +13,19 @@ MIT licensed (see [LICENSE](LICENSE)).
 **v1.0 feature-complete.** The first release is `0.1.0`, tagged when the dmg is built (`docs/plan.md` has the
 milestone history). The app is macOS-only and Apple-silicon-first.
 
-This is a personal project, published for reading and building. It is **not affiliated** with the
-`noteforest.com` link-saving service or with the former App Store app of the same name (now "MemorGo").
+## Screenshots
+
+Continuous, the writing canvas — a branch anchored to a code token:
+
+![Continuous layout](docs/media/continuous.png)
+
+Page, the same content as exact A4 pages with arrows and callouts:
+
+![Page layout](docs/media/page.png)
+
+The exported PDF keeps the page layout, with real text:
+
+![Exported PDF page](docs/media/pdf.png)
 
 ## Install (macOS)
 

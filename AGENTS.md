@@ -107,7 +107,7 @@ These override any conflicting research input.
 - **File format**: single JSON document + assets folder; schema versioned; model and storage separated. Notes are standard files in a user-chosen folder, not in git. Orientation is document-wide; page size/margins and optional manual break hints are document settings; pages themselves are derived.
 - **Git**: code and project docs only. User note documents are not in git.
 - **Visual**: clean, Obsidian-like, minimal. Dark mode is the default.
-- **Name**: **NoteForest** (working title). Scout found an existing NoteForest study/spaced-repetition app; **re-checked 17 November 2026: that App Store app now ships as "MemorGo" (renamed), while `noteforest.com` is still live as a link-saving app** — the name is free on the store, the `.com` is not. Public-release clearance or a rename remains a decision before distributing binaries.
+- **Name**: **NoteForest** (working title).
 
 ### Stack and PDF (closed)
 

@@ -208,7 +208,7 @@ Caveat recorded, not a finding: `m4b1b1`'s 300-block wall-clock bound moved 5 s 
 | 12 | Product-owner visual + VoiceOver pass: R3, shell polish, palette, sidebar, edges, status bars, Page/Settings, the anchor dot (hover/focus/60 % density, S3-3), the four code themes, the Edit menu, the Settings list glyphs | **Not-run** | Product owner |
 | 13 | Product-owner PDF visual check | **Not-run** | Product owner |
 | 14 | Native guest-file Save / Don't Save prompt manual check (recorded open decision since VH1) | **Not-run** | Product owner |
-| 15 | Public-release name clearance or rename (an existing NoteForest app is known) | **Not-run** | Product owner |
+| 15 | Public-release name — **decided: the name stays** | **Pass** | Product owner |
 | 16 | Decide v1 distribution scope (macOS only) and say so in the Release notes | **Not-run** | Product owner |
 | 17 | Manual-break semantics before a mode-A callout (open product decision; no code blocker) | **Open decision** | Product owner |
 | 18 | Close Window stays native like Quit (documented, not gated) | **Accepted** (already documented) | Orchestrator |

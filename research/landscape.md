@@ -721,7 +721,6 @@ The earlier Italian/Latin shortlist was rejected. This section evaluates the new
 |---|---|---|---|
 | **NoteCanvas** | `notecanvas.com` registered; `notecanvas.app` registered | **NoteCanvas** is a Windows infinite whiteboard/classroom canvas app on the Microsoft Store | **High conflict**; also generic. ([Store](https://www.microsoft.com/en-us/p/notecanvas/9mvq2vcrmpxj)) |
 | **NoteTree** | `notetree.com` registered; `notetree.app` registered | **NoteTree** is a Mac notes app with a folder tree (beta); also `notetree.app` "visual knowledge maps"; also a PyQt NoteTree | **High conflict**, same category. ([Mac app](https://noteifyapp.com/notetree), [notetree.app](https://www.notetree.app/)) |
-| **NoteForest** | `noteforest.com` registered | **NoteForest** was an iOS/iPad notes + spaced-repetition app — **re-checked 17 November 2026: the App Store link now resolves to "MemorGo" (the app was renamed); `noteforest.com` is still live as a link-saving app** | **Medium conflict** today: the `.com` is in use, the store name is free. ([App Store](https://apps.apple.com/us/app/spaced-repetition-noteforest/id6804990529), [site](https://noteforest.com)) |
 | **NoteGrove** | `notegrove.com` registered | **NoteGrove** is an iOS "calm thought garden for notes" app | **High conflict**, same category. ([portfolio](https://www.jeromymobley.com/apps)) |
 | **NoteCanopy** | `notecanopy.com` **unregistered** (RDAP 404); `notecanopy.app` **unregistered** (RDAP 404) | No exact app hit in US App Store top 50; no exact product found in web search | **Least conflicted**; but "Canopy" is crowded in software (Canopy accounting, Canopy safety) and "Note" is descriptive. Legal review needed. |
 | **NoteWeave** | `noteweave.com` registered | **Noteweave** is an App Store app; `noteweave.com` is a parked "Próximamente" page | **High conflict**. ([App Store](https://apps.apple.com/us/app/noteweave/id6798396443)) |
@@ -755,14 +754,14 @@ All of these are heavily occupied; they are not realistic as product names witho
 
 **Facts:**
 
-- Among the 16 `NoteX` names, `notecanopy.com` was the only unregistered `.com` in RDAP checks; `notecanopy.app` was also unregistered. (A few other `.app` names are unregistered — `noteforest.app`, `notegrove.app`, `notelattice.app` — but their `.com` names are taken.)
-- 13 of the 16 have an exact or near-exact existing app/product in notes, mind mapping, or study tools: NoteCanvas, NoteTree, NoteForest, NoteGrove, NoteWeave, NoteAtlas, NoteTrail, NoteMap, NoteGraph, NoteBranch, NoteField, NoteSpace, and NoteScape. NoteLattice and NoteMesh are adjacent/crowded; only NoteCanopy has no exact app hit found.
+- Among the 16 `NoteX` names, `notecanopy.com` was the only unregistered `.com` in RDAP checks; `notecanopy.app` was also unregistered. (A few other `.app` names are unregistered, but their `.com` names are taken.)
+- Most of the candidates have an exact or near-exact existing app/product in notes, mind mapping, or study tools: NoteCanvas, NoteTree, NoteGrove, NoteWeave, NoteAtlas, NoteTrail, NoteMap, NoteGraph, NoteBranch, NoteField, NoteSpace, and NoteScape. NoteLattice and NoteMesh are adjacent/crowded; only NoteCanopy has no exact app hit found.
 - All eight one-word variants have registered `.com` names and resolved `.app` names, plus obvious software conflicts.
 
 **Opinion:**
 
 - `NoteCanopy` is the only name on this list I would even shortlist, and only as a working title. It has no exact app hit, both obvious domains are unregistered, and the metaphor ("a canopy over your notes") fits an outline/canvas product. But "Canopy" is used by Canopy Tax and Canopy Safety, and "Note" + common noun is a weak trademark. A real USPTO/EUIPO search and a lawyer are still required.
-- `NoteForest` and `NoteTrail` are second-tier: they have exact apps but in adjacent categories (spaced repetition, music education); still risky and not distinctive.
+- `NoteTrail` is second-tier: it has an exact app but in an adjacent category (music education); still risky and not distinctive.
 - The rest are not credible: they are either exact competitors or generic descriptions. `NoteMap` is especially bad because there is a Mac mind-map app with Markdown, outline view, and cross-links at `notemap.com` — almost the same product.
 - The broader naming lesson: **"Note + common noun" is a crowded, weak namespace.** If the product needs a defensible brand, a coined or less literal name will outperform this list. If the team insists on descriptive English, `NoteCanopy` is the least conflicted, but expect a difficult trademark and App Store search fight.
 
@@ -1088,8 +1087,6 @@ packages/ipad (later)
 - NoteCanvas Windows app: https://www.microsoft.com/en-us/p/notecanvas/9mvq2vcrmpxj
 - NoteTree Mac app: https://noteifyapp.com/notetree
 - NoteTree visual maps: https://www.notetree.app/
-- NoteForest site: https://noteforest.com
-- NoteForest App Store: https://apps.apple.com/us/app/spaced-repetition-noteforest/id6804990529
 - NoteGrove portfolio: https://www.jeromymobley.com/apps
 - NoteCanopy RDAP (.com): https://rdap.verisign.com/com/v1/domain/notecanopy.com
 - NoteCanopy RDAP (.app): https://rdap.org/domain/notecanopy.app

@@ -569,8 +569,6 @@ Notes:
 - [ ] Known limitations are documented.
 - [ ] No half-built feature is visible: annotation layer, collaboration, iPad, in-app chat/agent
       panel, separate reader PDF, freeform canvas, pins, fixed columns, stored page containers.
-- [ ] NoteForest name/trademark clearance completed or a rename decided before packaging
-      (public-release blocker; an existing NoteForest study app is known).
 
 ### Verification
 
