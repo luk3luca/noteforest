@@ -578,9 +578,11 @@ describe('NoteForest M3c3b2 image region and point anchors', () => {
       chartAssetId,
     );
     assert.equal(refused.ok, false);
-    assert.match(refused.message, /still referenced by/);
-    assert.match(refused.message, /image node/);
-    assert.match(refused.message, /image anchor/);
+    // The short line is the message; the core sentence (which names what
+    // references the asset) lives in Details (copy-plan C-14.40).
+    assert.match(refused.message, /This image is still in use\./);
+    assert.match(refused.details ?? '', /image node/);
+    assert.match(refused.details ?? '', /image anchor/);
     const afterRefusal = await ui.structure();
     const afterState = await h.state();
     const afterRevision = afterState.runtimes.find(

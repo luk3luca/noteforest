@@ -274,7 +274,8 @@ describe('NoteForest M3c3b4 image UX and asset lifecycle', () => {
       return window.__noteforestTest.applyStructural({ type: 'asset.remove', assetId });
     }, firstAsset);
     assert.equal(removal.ok, false);
-    assert.match(removal.message, /still referenced by/);
+    assert.match(removal.message, /This image is still in use\./);
+    assert.match(removal.details ?? '', /still referenced by/);
     await waitForImage(blockId, 0);
 
     await page

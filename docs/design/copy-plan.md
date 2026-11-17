@@ -602,6 +602,8 @@ moves to Details.
 
 ---
 
+| C-14.38 | `asset “{id}” is still referenced by {parts}{where}; replace or remove those images first` (core) | `SHORT + DETAILS` — `This image is still in use.`; `DETAILS: the core sentence` |
+
 ## D. Editor labels, menus, palette, tooltips
 
 ### D.1 `apps/desktop/src/renderer/src/editor/views/BlockViews.tsx`
