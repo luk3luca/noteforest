@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page — a scroll of pages</title>
+    <style>
+      :root {
+        --bg-app: #101113;
+        --bg-canvas: #17181a;
+        --surface-1: #1b1d20;
+        --surface-2: #202329;
+        --text-1: #e7e8ea;
+        --text-2: #a6abb2;
+        --text-3: #949aa2;
+        --border-1: #2e3238;
+        --border-2: #6e737a;
+        --accent: #7fa6cf;
+        --accent-soft: #22303c;
+        --paper: #fbfbf9;
+        --paper-ink: #1a1f23;
+        --paper-ink-2: #5b6771;
+        --paper-rule: #d8dde2;
+        --radius-control: 3px;
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg-app); color: var(--text-1); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+      body { padding: 22px 16px 60px; }
+      .lab { max-width: 760px; margin: 0 auto; }
+      .eyebrow { margin: 0 0 8px; color: var(--text-3); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+      h1 { margin: 0 0 10px; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+      .lede { margin: 0; max-width: 70ch; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
+      h2 { margin: 36px 0 0; font-size: 16px; font-weight: 600; }
+      .v-sub { margin: 6px 0 12px; max-width: 70ch; color: var(--text-2); font-size: 13px; line-height: 1.6; }
+      .v-note { margin: 8px 0 0; color: var(--text-3); font-size: 11px; line-height: 1.5; }
+      .cap { margin: 0 0 6px; color: var(--text-3); font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+      /* -------------------------------------------------------------- surface */
+      .surface { border: 1px solid var(--border-1); border-radius: 8px; background: var(--bg-canvas); overflow: hidden; }
+      .toolbar { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; border-bottom: 1px solid var(--border-1); background: var(--bg-app); }
+      .toolbar .spacer { flex: 1; }
+      .pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 7px; border: 1px solid var(--border-1); border-radius: var(--radius-control); color: var(--text-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+      .pill b { color: var(--text-1); font-weight: 600; }
+      .seg { display: inline-flex; height: 24px; padding: 2px; border: 1px solid var(--border-1); border-radius: 3px; background: var(--surface-1); }
+      .seg span { display: inline-flex; align-items: center; padding: 0 7px; border-radius: 2px; color: var(--text-3); font-size: 10px; }
+      .seg span[data-active="true"] { background: var(--surface-2); color: var(--text-1); }
+      .ib { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; color: var(--text-3); }
+
+      /* ---------------------------------------------------------------- pages */
+      .viewport { height: 430px; overflow: auto; background: #0c0d0f; scrollbar-gutter: stable; }
+      .column { display: flex; flex-direction: column; align-items: center; background: #0c0d0f; }
+      .paper { width: 100%; max-width: 430px; background: var(--paper); color: var(--paper-ink); border: 0; }
+      .paper + .paper { border-top: 1px solid var(--paper-rule); }
+      .paper-inner { padding: 22px 26px 18px; }
+      .page-head { display: flex; justify-content: space-between; color: var(--paper-ink-2); font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px; }
+      .page-foot { display: flex; justify-content: center; margin-top: 16px; color: var(--paper-ink-2); font-size: 9px; font-variant-numeric: tabular-nums; }
+      .page-body { font-size: 11px; line-height: 1.55; }
+      .block { padding: 5px 0; }
+      .block b { font-weight: 600; }
+      .quote { margin: 6px 0 0; padding-left: 8px; border-left: 2px solid var(--paper-rule); color: var(--paper-ink-2); font-size: 10px; }
+      .blank { height: 60px; }
+      .seam-note { color: var(--paper-ink-2); font-size: 8.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+      /* --------------------------------------------------------------- states */
+      .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+      .zoombox { position: relative; height: 220px; overflow: hidden; background: #0c0d0f; border-top: 1px solid var(--border-1); }
+      .zoombox .paper { width: 100%; }
+      .zoom-in { overflow: auto; }
+      .zoom-in .paper { width: 640px; max-width: none; }
+      .zoom-out { display: flex; justify-content: center; }
+      .zoom-out .paper { width: 300px; }
+      .hscroll { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; background: rgb(148 154 162 / 0.14); }
+      .hscroll::after { content: ""; position: absolute; left: 10px; width: 55%; height: 8px; background: var(--border-2); border-radius: 4px; opacity: 0.55; }
+
+      .panel { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border-1); border-radius: 6px; background: rgb(255 255 255 / 0.02); }
+      .panel p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.55; }
+      .panel p + p { margin-top: 8px; }
+      .panel b { color: var(--text-1); }
+      table { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 12px; }
+      th { padding: 6px 8px; border-bottom: 1px solid var(--border-1); color: var(--text-3); font-size: 9.5px; font-weight: 500; letter-spacing: 0.06em; text-align: left; text-transform: uppercase; }
+      td { padding: 6px 8px; border-bottom: 1px solid rgb(255 255 255 / 0.05); color: var(--text-2); vertical-align: top; }
+      td:first-child { color: var(--text-1); }
+      tr:last-child td { border-bottom: 0; }
+      .footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--border-1); color: var(--text-3); font-size: 11px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main class="lab">
+      <header>
+        <p class="eyebrow">Design lab · not coded</p>
+        <h1>Page — a scroll of pages</h1>
+        <p class="lede">
+          One column, page wide, free scroll. Pages touch and a 1 px rule is the seam. No snapping, no
+          spread, no page badge in the gap: the page number lives in the toolbar indicator, which tracks
+          the page under the centre of the viewport. Fit width is the rest state; zoom in is a reading
+          aid, not a mode.
+        </p>
+      </header>
+
+      <h2>1 · Scrolled to the seam</h2>
+      <p class="v-sub">
+        This is the case that matters: the bottom half of one page and the top half of the next, with the
+        seam between them. The indicator reads the page whose area contains the centre of the viewport.
+        Try scrolling inside the frame.
+      </p>
+
+      <div class="surface">
+        <div class="toolbar">
+          <span class="ib">↶</span><span class="ib">↷</span>
+          <span class="spacer"></span>
+          <span class="pill"><b id="indicator">2</b>&nbsp;/ 61</span>
+          <span class="seg"><span data-active="true">Page</span><span>Continuous</span></span>
+          <span class="seg"><span data-active="true">Read</span><span>Edit</span></span>
+          <span class="pill">−&nbsp;&nbsp;100%&nbsp;&nbsp;+</span>
+        </div>
+        <div class="viewport" id="viewport">
+          <div class="column" id="column"></div>
+        </div>
+      </div>
+      <p class="v-note">The indicator flips when the seam crosses the vertical centre of the frame — not when a page becomes fully visible.</p>
+
+      <h2>2 · The zoom states</h2>
+      <p class="v-sub">
+        Fit width is the rest state. Zooming in makes the page wider than the viewport, so a horizontal
+        scrollbar appears — a temporary magnifier for a compact density. Zooming out only ever adds
+        margins: one column, never two pages side by side.
+      </p>
+      <div class="row">
+        <div>
+          <p class="cap">fit width · rest</p>
+          <div class="zoombox">
+            <div class="paper"><div class="paper-inner"><div class="page-head"><span>00 · Prova rapida</span><span>1</span></div><div class="page-body">A scalar λ is an eigenvalue of A when Av = λv. The identity σ(A) names the spectrum.</div><div class="page-foot">1</div></div></div>
+          </div>
+        </div>
+        <div>
+          <p class="cap">zoom in · reading aid</p>
+          <div class="zoombox zoom-in">
+            <div class="paper"><div class="paper-inner"><div class="page-head"><span>00 · Prova rapida</span><span>1</span></div><div class="page-body">A scalar λ is an eigenvalue of A when Av = λv. The identity σ(A) names the spectrum.</div><div class="page-foot">1</div></div></div>
+            <div class="hscroll"></div>
+          </div>
+        </div>
+        <div>
+          <p class="cap">zoom out · margins</p>
+          <div class="zoombox zoom-out">
+            <div class="paper"><div class="paper-inner"><div class="page-head"><span>00</span><span>1</span></div><div class="page-body">A scalar λ is an eigenvalue of A.</div><div class="page-foot">1</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <h2>3 · The rules</h2>
+      <table>
+        <thead><tr><th>Rule</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Column</td><td>One page wide, never two. Works for portrait and landscape.</td></tr>
+          <tr><td>Scroll</td><td>Free, no snapping. Half a page above and below is a normal state.</td></tr>
+          <tr><td>Seam</td><td>Pages touch, 1 px <code>--paper-rule</code> line. No gap, no shadow, no number.</td></tr>
+          <tr><td>Indicator</td><td><code>3 / 61</code> in the toolbar, the page under the viewport centre; a tie keeps the current page.</td></tr>
+          <tr><td>Zoom</td><td>Fit width is rest; zoom in shows a horizontal scrollbar; zoom out adds margins.</td></tr>
+          <tr><td>Edges</td><td>Trunks stop at the seam and resume on the next page. The rule is the cut.</td></tr>
+          <tr><td>Mounting</td><td>Visible pages ±2; the rest are placeholders of the page size, so the scrollbar stays truthful.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="panel">
+        <p><b>What this fixes.</b> A manual break becomes visible in its cause: you see the blank tail it
+        leaves on the previous page and the shift it causes below, without pressing anything.</p>
+        <p><b>What it is not.</b> Not a change to <code>paginate</code>, the page model, the page chrome or
+        the PDF; not a two-page spread; not a change to Continuous, which stays the canvas with arrows and
+        no page chrome.</p>
+      </div>
+
+      <p class="footer">
+        Lab only, no application code. Paper is the app's light Page surface. Page heights are schematic:
+        the real one is A4 at the effective theme, from the shared page model.
+      </p>
+    </main>
+
+    <script>
+      const column = document.getElementById('column');
+      const PAGE_TEXT = [
+        ['Prova in 60 secondi', 'Cosa provare', 'Contenuto ricco', 'Anchor e reference'],
+        ['Layout e modalità', 'L’editor', 'Export PDF', 'Design e roadmap'],
+        ['Salute del documento', 'Note', 'Backup', 'Fine'],
+      ];
+      for (let page = 0; page < 3; page += 1) {
+        const paper = document.createElement('div');
+        paper.className = 'paper';
+        const blocks = PAGE_TEXT[page]
+          .map(
+            (title, index) =>
+              `<div class="block"><b>${title}</b><div class="quote">A scalar λ is an eigenvalue of A when Av = λv for some non-zero v.</div>${index === 2 ? '<div class="blank"></div>' : ''}</div>`,
+          )
+          .join('');
+        paper.innerHTML = `<div class="paper-inner">
+          <div class="page-head"><span>Chapter ${page + 1}</span><span>${page + 1}</span></div>
+          <div class="page-body">${blocks}</div>
+          <div class="page-foot">${page + 1}</div>
+        </div>`;
+        column.appendChild(paper);
+      }
+
+      const viewport = document.getElementById('viewport');
+      const indicator = document.getElementById('indicator');
+      const papers = [...document.querySelectorAll('.paper')];
+
+      function updateIndicator() {
+        const centre = viewport.scrollTop + viewport.clientHeight / 2;
+        let current = 1;
+        papers.forEach((paper, index) => {
+          const top = paper.offsetTop;
+          const bottom = top + paper.offsetHeight;
+          if (centre > top && centre < bottom) current = index + 1;
+        });
+        indicator.textContent = String(current);
+      }
+
+      viewport.addEventListener('scroll', updateIndicator);
+      requestAnimationFrame(() => {
+        const second = papers[1];
+        viewport.scrollTop = second.offsetTop - 150;
+        updateIndicator();
+      });
+    </script>
+  </body>
+</html>
