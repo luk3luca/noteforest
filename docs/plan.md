@@ -652,6 +652,9 @@ polarity and one visual pass | B1 |
 bubble behind a modal, the shifted-bracket tab keys by `event.code`, Export PDF on `⌘P`, the
 `Edit → Find` menu group, the rich-cell note listed as unreadable, `⇧Esc` closing the find, and the two
 intermittent UI suites made deterministic | B1 |
+| 6c | **VF — release fixes** (in flight) | `docs/tasks/vf-release-fixes.md`: Sentinel S3-1 (Page Edit keys
+through the catalogue), S3-2 (Esc in Page Edit must not close the find), S3-3 (anchor dot hover ≥3:1),
+the arrowhead band, the Library indent ladder, Page Edit → Continuous (A+B), S4-2 if trivial | Sentinel |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
 | 8 | **v1 hardening** | **Merged at `decd36b`**: the page controls in the canvas header and the rich-cell load guard (`docs/tasks/v1-hardening.md`) | — |
 
@@ -728,7 +731,8 @@ does not have to rediscover it.
 
 The release comes **last**: v1 hardening → find/highlighter → **B1 v1 defects** (Page dot, print-free
 page, shortcut catalogue) → **B2 contrast** (code themes + Continuous edges) → **P2 release polish** →
-**full Sentinel** (in flight, `docs/tasks/v1-sentinel.md`) → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
+**full Sentinel** (`bb5d492`, accept with findings) → **VF release fixes** → `test:perf` + `test:visual` →
+release mechanics → the owner's visual/VoiceOver/PDF pass → tag (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
 `npm run release`). B1 waited for the find fixes on purpose: same shell files, and the Page find field is
 where the `⇧1`/`⇧2` defect showed. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
 stays in that file as the record.
