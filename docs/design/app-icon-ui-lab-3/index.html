@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>App icon — round 3, the I family</title>
+    <style>
+      :root {
+        --bg: #101113;
+        --panel: #17181a;
+        --text-1: #e7e8ea;
+        --text-2: #a6abb2;
+        --text-3: #949aa2;
+        --border: #2e3238;
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--text-1); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+      body { padding: 24px 16px 64px; }
+      .lab { max-width: 840px; margin: 0 auto; }
+      .eyebrow { margin: 0 0 8px; color: var(--text-3); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+      h1 { margin: 0 0 10px; font-size: 25px; font-weight: 600; letter-spacing: -0.01em; }
+      .lede { margin: 0; max-width: 68ch; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
+      h2 { margin: 34px 0 12px; font-size: 15px; font-weight: 600; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .card { display: flex; gap: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+      .icon-frame { flex: 0 0 auto; width: 132px; height: 132px; }
+      .icon-frame svg { width: 132px; height: 132px; display: block; filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.4)); }
+      .meta { min-width: 0; }
+      .name { margin: 0 0 3px; font-size: 13px; font-weight: 600; }
+      .tag { display: inline-block; margin-bottom: 7px; color: var(--text-3); font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .why { margin: 0 0 6px; color: var(--text-2); font-size: 12px; line-height: 1.5; }
+      .small { margin: 0; color: var(--text-3); font-size: 11px; line-height: 1.45; }
+      .strip { display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; }
+      .strip .s { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-3); font-size: 9px; }
+      .dock { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; }
+      .dock.dark { background: rgb(40 40 44 / 0.9); border: 1px solid #3a3a3f; }
+      .dock.light { background: rgb(245 245 247 / 0.95); border: 1px solid #d8d8dd; }
+      .dock svg { width: 55px; height: 55px; display: block; filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.25)); }
+      .fake { width: 55px; height: 55px; border-radius: 13px; background: linear-gradient(180deg, #5b6b7a, #3d4a56); opacity: 0.45; }
+      .rule { color: var(--text-2); font-size: 12.5px; line-height: 1.6; margin: 10px 0 0; }
+      .panel { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: rgb(255 255 255 / 0.02); }
+      .panel p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.55; }
+      .panel p + p { margin-top: 8px; }
+      .panel b { color: var(--text-1); }
+      .footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 11px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main class="lab">
+      <header>
+        <p class="eyebrow">Design lab · round 3 · not coded</p>
+        <h1>App icon — the I family</h1>
+        <p class="lede">
+          The I structure kept: one block beside its parent, one below it through the trunk, arrows entering
+          from the left. The lines are back — but only inside the <em>parent</em>, so the glyph reads as a note
+          that branches instead of as a page of text.
+        </p>
+      </header>
+
+      <h2>1 · Four ways to draw the same idea</h2>
+      <div class="grid">
+        <!-- I1 -->
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="Parent note with a right child and a below child">
+              <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e2023"/><stop offset="1" stop-color="#0f1012"/></linearGradient></defs>
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <rect x="140" y="150" width="360" height="320" rx="34" fill="#fbfbf9"/>
+              <rect x="190" y="218" width="230" height="26" rx="13" fill="#cfd6db"/>
+              <rect x="190" y="288" width="260" height="26" rx="13" fill="#e0e5e9"/>
+              <rect x="190" y="358" width="170" height="26" rx="13" fill="#e0e5e9"/>
+              <path d="M500 262 H 596" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round"/>
+              <path d="M596 226 L 656 262 L 596 298 Z" fill="#7fa6cf"/>
+              <rect x="668" y="178" width="232" height="168" rx="30" fill="#f2f6f9"/>
+              <path d="M320 470 V 706 H 596" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M596 670 L 656 706 L 596 742 Z" fill="#7fa6cf"/>
+              <rect x="668" y="622" width="232" height="168" rx="30" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">I1 · recommended</p>
+            <p class="name">Note, right child, below child</p>
+            <p class="why">Three shapes and two connectors: the note with its lines, the sibling beside it, the child that wrapped below through the trunk. The packing rule, readable.</p>
+            <p class="small">At 16 px the arrows go: what stays is a lined block, a block to its right and one under it. That is still the idea.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="150" width="360" height="320" rx="34" fill="#fbfbf9"/><rect x="190" y="218" width="230" height="26" rx="13" fill="#cfd6db"/><rect x="190" y="288" width="260" height="26" rx="13" fill="#e0e5e9"/><rect x="190" y="358" width="170" height="26" rx="13" fill="#e0e5e9"/><path d="M500 262 H 596" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round"/><path d="M590 220 L 660 262 L 590 304 Z" fill="#7fa6cf"/><rect x="668" y="178" width="232" height="168" rx="30" fill="#f2f6f9"/><path d="M320 470 V 706 H 596" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M590 664 L 660 706 L 590 748 Z" fill="#7fa6cf"/><rect x="668" y="622" width="232" height="168" rx="30" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="150" width="360" height="320" rx="34" fill="#fbfbf9"/><rect x="190" y="226" width="240" height="34" rx="17" fill="#cfd6db"/><rect x="190" y="300" width="260" height="34" rx="17" fill="#e0e5e9"/><path d="M500 262 H 600" stroke="#7fa6cf" stroke-width="74" fill="none" stroke-linecap="round"/><rect x="668" y="178" width="232" height="168" rx="30" fill="#f2f6f9"/><path d="M320 470 V 706 H 600" stroke="#7fa6cf" stroke-width="74" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="668" y="622" width="232" height="168" rx="30" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="150" width="360" height="320" rx="34" fill="#fbfbf9"/><rect x="190" y="230" width="250" height="44" rx="22" fill="#cfd6db"/><rect x="190" y="320" width="250" height="44" rx="22" fill="#e0e5e9"/><path d="M500 262 H 600" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round"/><rect x="660" y="180" width="240" height="164" rx="30" fill="#f2f6f9"/><path d="M320 470 V 706 H 600" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="660" y="626" width="240" height="164" rx="30" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- I2 -->
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="Parent note with children flush to the right edge">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <rect x="132" y="132" width="392" height="300" rx="34" fill="#fbfbf9"/>
+              <rect x="188" y="200" width="250" height="26" rx="13" fill="#cfd6db"/>
+              <rect x="188" y="268" width="280" height="26" rx="13" fill="#e0e5e9"/>
+              <rect x="188" y="336" width="180" height="26" rx="13" fill="#e0e5e9"/>
+              <path d="M524 250 H 640" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round"/>
+              <path d="M640 214 L 700 250 L 640 286 Z" fill="#7fa6cf"/>
+              <rect x="712" y="166" width="188" height="168" rx="30" fill="#f2f6f9"/>
+              <path d="M328 432 V 744 H 640" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M640 708 L 700 744 L 640 780 Z" fill="#7fa6cf"/>
+              <rect x="712" y="660" width="188" height="168" rx="30" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">I2 · tighter</p>
+            <p class="name">Children flush right</p>
+            <p class="why">The same three blocks, but the children share one right edge and the trunk runs longer. More orderly, less organic.</p>
+            <p class="small">At 16 px: a clear left column and a clear right column — the strongest silhouette of the four.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="132" y="132" width="392" height="300" rx="34" fill="#fbfbf9"/><rect x="188" y="200" width="250" height="26" rx="13" fill="#cfd6db"/><rect x="188" y="268" width="280" height="26" rx="13" fill="#e0e5e9"/><rect x="188" y="336" width="180" height="26" rx="13" fill="#e0e5e9"/><path d="M524 250 H 640" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round"/><path d="M630 210 L 704 250 L 630 290 Z" fill="#7fa6cf"/><rect x="712" y="166" width="188" height="168" rx="30" fill="#f2f6f9"/><path d="M328 432 V 744 H 640" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M630 704 L 704 744 L 630 784 Z" fill="#7fa6cf"/><rect x="712" y="660" width="188" height="168" rx="30" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="132" y="132" width="392" height="300" rx="34" fill="#fbfbf9"/><rect x="188" y="206" width="256" height="36" rx="18" fill="#cfd6db"/><rect x="188" y="286" width="280" height="36" rx="18" fill="#e0e5e9"/><path d="M524 250 H 644" stroke="#7fa6cf" stroke-width="74" fill="none" stroke-linecap="round"/><rect x="712" y="166" width="188" height="168" rx="30" fill="#f2f6f9"/><path d="M328 432 V 744 H 644" stroke="#7fa6cf" stroke-width="74" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="712" y="660" width="188" height="168" rx="30" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="132" y="132" width="392" height="300" rx="34" fill="#fbfbf9"/><rect x="188" y="212" width="260" height="46" rx="23" fill="#cfd6db"/><rect x="188" y="300" width="260" height="46" rx="23" fill="#e0e5e9"/><path d="M524 250 H 648" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round"/><rect x="704" y="166" width="196" height="168" rx="30" fill="#f2f6f9"/><path d="M328 432 V 744 H 648" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="704" y="660" width="196" height="168" rx="30" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- I3 -->
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="Parent note with one child below">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <rect x="168" y="168" width="420" height="330" rx="36" fill="#fbfbf9"/>
+              <rect x="228" y="240" width="270" height="28" rx="14" fill="#cfd6db"/>
+              <rect x="228" y="312" width="300" height="28" rx="14" fill="#e0e5e9"/>
+              <rect x="228" y="384" width="190" height="28" rx="14" fill="#e0e5e9"/>
+              <path d="M378 498 V 690 H 616" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M616 652 L 680 690 L 616 728 Z" fill="#7fa6cf"/>
+              <rect x="694" y="600" width="220" height="180" rx="32" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">I3 · two shapes</p>
+            <p class="name">Note and one child below</p>
+            <p class="why">Drop the right child: one note, one branch that leaves the bottom and turns right. The cleanest at small sizes.</p>
+            <p class="small">At 16 px: a lined block and a block under it, joined from below. Nothing to lose.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="168" y="168" width="420" height="330" rx="36" fill="#fbfbf9"/><rect x="228" y="240" width="270" height="28" rx="14" fill="#cfd6db"/><rect x="228" y="312" width="300" height="28" rx="14" fill="#e0e5e9"/><rect x="228" y="384" width="190" height="28" rx="14" fill="#e0e5e9"/><path d="M378 498 V 690 H 616" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M610 648 L 684 690 L 610 732 Z" fill="#7fa6cf"/><rect x="694" y="600" width="220" height="180" rx="32" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="168" y="168" width="420" height="330" rx="36" fill="#fbfbf9"/><rect x="228" y="246" width="280" height="36" rx="18" fill="#cfd6db"/><rect x="228" y="326" width="290" height="36" rx="18" fill="#e0e5e9"/><path d="M378 498 V 690 H 616" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="694" y="600" width="220" height="180" rx="32" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="168" y="168" width="420" height="330" rx="36" fill="#fbfbf9"/><rect x="228" y="252" width="290" height="48" rx="24" fill="#cfd6db"/><rect x="228" y="342" width="290" height="48" rx="24" fill="#e0e5e9"/><path d="M378 498 V 690 H 616" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="690" y="604" width="224" height="176" rx="32" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- I4 -->
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="Parent note with a stack of two thin children on the right">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <rect x="140" y="190" width="372" height="330" rx="36" fill="#fbfbf9"/>
+              <rect x="198" y="262" width="240" height="28" rx="14" fill="#cfd6db"/>
+              <rect x="198" y="334" width="268" height="28" rx="14" fill="#e0e5e9"/>
+              <rect x="198" y="406" width="168" height="28" rx="14" fill="#e0e5e9"/>
+              <path d="M512 262 H 600" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round"/>
+              <path d="M600 226 L 660 262 L 600 298 Z" fill="#7fa6cf"/>
+              <rect x="672" y="228" width="212" height="68" rx="22" fill="#f2f6f9"/>
+              <path d="M512 452 H 600" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round"/>
+              <path d="M600 416 L 660 452 L 600 488 Z" fill="#7fa6cf"/>
+              <rect x="672" y="418" width="212" height="68" rx="22" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">I4 · outline</p>
+            <p class="name">Note and two outline rows</p>
+            <p class="why">The children become thin rows: the note plus its outline. The most "this is a note app" and the least "tree".</p>
+            <p class="small">At 16 px: a lined block with two small bars to the right — reads as a list, not as a structure.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="190" width="372" height="330" rx="36" fill="#fbfbf9"/><rect x="198" y="262" width="240" height="28" rx="14" fill="#cfd6db"/><rect x="198" y="334" width="268" height="28" rx="14" fill="#e0e5e9"/><rect x="198" y="406" width="168" height="28" rx="14" fill="#e0e5e9"/><path d="M512 262 H 600" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round"/><path d="M596 222 L 664 262 L 596 302 Z" fill="#7fa6cf"/><rect x="672" y="228" width="212" height="68" rx="22" fill="#f2f6f9"/><path d="M512 452 H 600" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round"/><path d="M596 412 L 664 452 L 596 492 Z" fill="#7fa6cf"/><rect x="672" y="418" width="212" height="68" rx="22" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="190" width="372" height="330" rx="36" fill="#fbfbf9"/><rect x="198" y="268" width="250" height="36" rx="18" fill="#cfd6db"/><rect x="198" y="348" width="268" height="36" rx="18" fill="#e0e5e9"/><path d="M512 262 H 604" stroke="#7fa6cf" stroke-width="74" fill="none" stroke-linecap="round"/><rect x="672" y="226" width="212" height="72" rx="22" fill="#f2f6f9"/><path d="M512 452 H 604" stroke="#7fa6cf" stroke-width="74" fill="none" stroke-linecap="round"/><rect x="672" y="416" width="212" height="72" rx="22" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="190" width="372" height="330" rx="36" fill="#fbfbf9"/><rect x="198" y="276" width="260" height="46" rx="23" fill="#cfd6db"/><rect x="198" y="364" width="260" height="46" rx="23" fill="#e0e5e9"/><path d="M512 262 H 610" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round"/><rect x="664" y="222" width="220" height="80" rx="24" fill="#f2f6f9"/><path d="M512 452 H 610" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round"/><rect x="664" y="412" width="220" height="80" rx="24" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2>2 · In the Dock</h2>
+      <div class="dock dark">
+        <span class="fake"></span>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="140" y="150" width="360" height="320" rx="34" fill="#fbfbf9"/><rect x="190" y="218" width="230" height="26" rx="13" fill="#cfd6db"/><rect x="190" y="288" width="260" height="26" rx="13" fill="#e0e5e9"/><rect x="190" y="358" width="170" height="26" rx="13" fill="#e0e5e9"/><path d="M500 262 H 596" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round"/><path d="M596 226 L 656 262 L 596 298 Z" fill="#7fa6cf"/><rect x="668" y="178" width="232" height="168" rx="30" fill="#f2f6f9"/><path d="M320 470 V 706 H 596" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M596 670 L 656 706 L 596 742 Z" fill="#7fa6cf"/><rect x="668" y="622" width="232" height="168" rx="30" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="132" y="132" width="392" height="300" rx="34" fill="#fbfbf9"/><rect x="188" y="200" width="250" height="26" rx="13" fill="#cfd6db"/><rect x="188" y="268" width="280" height="26" rx="13" fill="#e0e5e9"/><rect x="188" y="336" width="180" height="26" rx="13" fill="#e0e5e9"/><path d="M524 250 H 640" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round"/><path d="M640 214 L 700 250 L 640 286 Z" fill="#7fa6cf"/><rect x="712" y="166" width="188" height="168" rx="30" fill="#f2f6f9"/><path d="M328 432 V 744 H 640" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M640 708 L 700 744 L 640 780 Z" fill="#7fa6cf"/><rect x="712" y="660" width="188" height="168" rx="30" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="168" y="168" width="420" height="330" rx="36" fill="#fbfbf9"/><rect x="228" y="240" width="270" height="28" rx="14" fill="#cfd6db"/><rect x="228" y="312" width="300" height="28" rx="14" fill="#e0e5e9"/><rect x="228" y="384" width="190" height="28" rx="14" fill="#e0e5e9"/><path d="M378 498 V 690 H 616" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M616 652 L 680 690 L 616 728 Z" fill="#7fa6cf"/><rect x="694" y="600" width="220" height="180" rx="32" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="140" y="190" width="372" height="330" rx="36" fill="#fbfbf9"/><rect x="198" y="262" width="240" height="28" rx="14" fill="#cfd6db"/><rect x="198" y="334" width="268" height="28" rx="14" fill="#e0e5e9"/><rect x="198" y="406" width="168" height="28" rx="14" fill="#e0e5e9"/><path d="M512 262 H 600" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round"/><path d="M600 226 L 660 262 L 600 298 Z" fill="#7fa6cf"/><rect x="672" y="228" width="212" height="68" rx="22" fill="#f2f6f9"/><path d="M512 452 H 600" stroke="#7fa6cf" stroke-width="42" fill="none" stroke-linecap="round"/><path d="M600 416 L 660 452 L 600 488 Z" fill="#7fa6cf"/><rect x="672" y="418" width="212" height="68" rx="22" fill="#f2f6f9"/></svg>
+      </div>
+      <p class="rule">Order: I1 · I2 · I3 · I4. The fake icon on the left is only a neighbour for the eye.</p>
+
+      <h2>3 · What the small sizes keep</h2>
+      <div class="panel">
+        <p><b>16 px</b> holds two blocks and one connector at most. The 16 variants in this lab already drop the
+        arrowheads and thicken the strokes; below that, the lines inside the note become one bar, not three.</p>
+        <p><b>Where to iterate:</b> I1 is the only one that tells both halves of the story (a sibling to the right,
+        a child below). If it feels crowded, the next step is not a new shape — it is spacing: widen the gap
+        between the note and its children and shorten the trunk.</p>
+      </div>
+
+      <p class="footer">Lab only, no application code. Chosen SVG → 1024 + small-size variants → iconset → .icns.</p>
+    </main>
+  </body>
+</html>
