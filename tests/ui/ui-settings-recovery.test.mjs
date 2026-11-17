@@ -193,6 +193,9 @@ describe('settings data recovery', () => {
       uiScale: 1,
       uiFont: 'system',
       codeFont: 'jetbrains',
+      // B2: the code theme is part of the appearance namespace and the reset
+      // writes the product default (`auto`).
+      codeTheme: 'auto',
     });
   });
 
