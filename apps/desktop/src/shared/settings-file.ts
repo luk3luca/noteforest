@@ -29,6 +29,11 @@
  * canvas. Unknown top-level and nested `continuous` keys survive a write; the
  * v1 -> v2 legacy-zoom removal stays first in the chain. The migration is pure:
  * the next ordinary write stamps v5.
+ *
+ * B2 adds one field to the existing `appearance` namespace: `codeTheme`
+ * (`auto` | a registry id). It is additive inside v5 — no version bump, a file
+ * without the key loads as `auto`, an unknown value normalizes to `auto`, and
+ * an unknown future appearance key still survives a write.
  */
 
 import {
@@ -149,6 +154,7 @@ export function settingsDocumentForWrite(
     uiScale: settings.appearance.uiScale,
     uiFont: settings.appearance.uiFont,
     codeFont: settings.appearance.codeFont,
+    codeTheme: settings.appearance.codeTheme,
   };
   // R4 export defaults are global and additive: a v3 file gains
   // `export.folder: null`, and unknown future export keys survive.

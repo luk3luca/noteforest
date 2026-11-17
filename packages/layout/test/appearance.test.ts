@@ -3,9 +3,11 @@ import {
   ACCENTS,
   ACCENT_GROUPS,
   CODE_FONTS,
+  CODE_THEME_IDS,
   DEFAULT_APPEARANCE,
   DEFAULT_ACCENT_ID,
   DEFAULT_CODE_FONT,
+  DEFAULT_CODE_THEME,
   UI_FONTS,
   UI_FONT_STACKS,
   UI_SCALES,
@@ -14,6 +16,7 @@ import {
   accentsInGroup,
   appearanceCssVariables,
   codeFontStack,
+  isCodeThemeSetting,
   normalizeAppearance,
   resolveTheme,
   uiFontStack,
@@ -273,6 +276,7 @@ describe('appearance normalization', () => {
       uiScale: 1,
       uiFont: 'system',
       codeFont: 'jetbrains',
+      codeTheme: 'auto',
     });
     expect(normalizeAppearance(undefined)).toEqual(DEFAULT_APPEARANCE);
     expect(normalizeAppearance(null)).toEqual(DEFAULT_APPEARANCE);
@@ -289,6 +293,7 @@ describe('appearance normalization', () => {
         uiScale: 0.9,
         uiFont: 'serif',
         codeFont: 'system-mono',
+        codeTheme: 'dark-plus',
       }),
     ).toEqual({
       theme: 'system',
@@ -296,6 +301,7 @@ describe('appearance normalization', () => {
       uiScale: 0.9,
       uiFont: 'serif',
       codeFont: 'system-mono',
+      codeTheme: 'dark-plus',
     });
     expect(
       normalizeAppearance({
@@ -304,9 +310,28 @@ describe('appearance normalization', () => {
         uiScale: 1.25,
         uiFont: 'mono',
         codeFont: 'fira',
+        codeTheme: 'solarized',
         futureField: 'keep-me',
       }),
     ).toEqual({ ...DEFAULT_APPEARANCE, accent: 'teal' });
+  });
+
+  it('B2: keeps a stored code theme and falls back to auto for anything else', () => {
+    expect(CODE_THEME_IDS).toEqual(['dark-plus', 'light-plus', 'monokai', 'one-light']);
+    expect(DEFAULT_CODE_THEME).toBe('auto');
+    for (const id of CODE_THEME_IDS) {
+      expect(isCodeThemeSetting(id), id).toBe(true);
+      expect(normalizeAppearance({ codeTheme: id }).codeTheme).toBe(id);
+    }
+    expect(isCodeThemeSetting('auto')).toBe(true);
+    for (const value of ['solarized', '', 'Dark+', null, 42, {}, undefined]) {
+      expect(isCodeThemeSetting(value), String(value)).toBe(false);
+      expect(normalizeAppearance({ codeTheme: value }).codeTheme).toBe('auto');
+    }
+    // A file without the key loads as auto; the other appearance fields stay.
+    expect(
+      normalizeAppearance({ theme: 'light', accent: 'teal', uiFont: 'serif' }),
+    ).toEqual({ ...DEFAULT_APPEARANCE, theme: 'light', accent: 'teal', uiFont: 'serif' });
   });
 
   it('is idempotent', () => {

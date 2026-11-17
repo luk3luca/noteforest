@@ -41,6 +41,9 @@ describe('applyAppearance', () => {
     });
     expect(resolved).toBe('dark');
     expect(root.dataset['theme']).toBe('dark');
+    // B2: `auto` resolves by the app theme, so the root always carries a
+    // concrete code theme for the stylesheet blocks.
+    expect(root.dataset['codeTheme']).toBe('dark-plus');
     expect(root.applied.get('--accent')).toBe('#9bb7d4');
     expect(root.applied.get('--accent-strong')).toBe('#b9d0e6');
     expect(root.applied.get('--accent-soft')).toBe('#26313c');
@@ -57,6 +60,8 @@ describe('applyAppearance', () => {
       target: light,
     })).toBe('light');
     expect(light.dataset['theme']).toBe('light');
+    // `auto` follows the resolved theme, not the stored `system` value.
+    expect(light.dataset['codeTheme']).toBe('light-plus');
 
     const dark = fakeRoot();
     expect(applyAppearance(appearance({ theme: 'system' }), {
@@ -64,6 +69,33 @@ describe('applyAppearance', () => {
       target: dark,
     })).toBe('dark');
     expect(dark.dataset['theme']).toBe('dark');
+    expect(dark.dataset['codeTheme']).toBe('dark-plus');
+  });
+
+  it('keeps an explicit code theme regardless of the app theme (B2)', () => {
+    const root = fakeRoot();
+    applyAppearance(appearance({ theme: 'light', codeTheme: 'monokai' }), {
+      prefersDark: false,
+      target: root,
+    });
+    expect(root.dataset['theme']).toBe('light');
+    expect(root.dataset['codeTheme']).toBe('monokai');
+
+    const dark = fakeRoot();
+    applyAppearance(appearance({ theme: 'dark', codeTheme: 'one-light' }), {
+      prefersDark: true,
+      target: dark,
+    });
+    expect(dark.dataset['codeTheme']).toBe('one-light');
+
+    // An unknown stored value normalizes to auto instead of leaving the
+    // attribute unset (the stylesheet has no fallback palette).
+    const unknown = fakeRoot();
+    applyAppearance(
+      { ...DEFAULT_APPEARANCE, codeTheme: 'solarized' } as unknown as AppearanceSettings,
+      { prefersDark: true, target: unknown },
+    );
+    expect(unknown.dataset['codeTheme']).toBe('dark-plus');
   });
 
   it('applies the light accent set when the theme resolves to light', () => {
@@ -73,6 +105,7 @@ describe('applyAppearance', () => {
       target: root,
     });
     expect(root.dataset['theme']).toBe('light');
+    expect(root.dataset['codeTheme']).toBe('light-plus');
     expect(root.applied.get('--accent')).toBe('#9b3f55');
     expect(root.applied.get('--accent-contrast')).toBe('#ffffff');
   });

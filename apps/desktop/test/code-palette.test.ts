@@ -1,14 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { CODE_THEMES, contrastRatio } from '../src/renderer/src/lib/code-themes';
 
 /**
- * Code palette contract (editor appearance phase 1, design: code-palette.md).
+ * Code palette contract (editor appearance phase 1 → B2 registry, design:
+ * code-palette.md, code-themes.md).
  *
- * Dark editor = Monokai, light editor = One Light, and the fixed-light Page
- * paper = One Light in both app themes. The `hljs-*` selectors may only be
- * scoped to the Continuous surface, the flat Markdown guest editor, and the
- * Page surface, so tables, inline code, and prose can never inherit a code
- * token colour.
+ * Monokai and One Light are the shipped classic palettes and stay available in
+ * the code-theme registry with the values this document pins. The fixed-light
+ * Page paper keeps One Light in both app themes, so it never reads a shell
+ * `--code-*` role; the `hljs-*` selectors stay scoped to the Continuous
+ * surface, the flat Markdown guest editor, and the Page surface.
+ *
+ * The registry ↔ stylesheet equality and the computed worst role are guarded by
+ * `code-themes.test.ts`; this file owns the classic values, the paper roles, and
+ * the selector scoping that protects tables, inline code, and prose.
  */
 
 const stylesSource = readFileSync(
@@ -21,25 +27,25 @@ const css = stylesSource
   .trim();
 
 const MONOKAI = {
-  '--code-keyword': '#f92672',
-  '--code-string': '#e6db74',
-  '--code-number': '#ae81ff',
-  '--code-comment': '#75715e',
-  '--code-function': '#a6e22e',
-  '--code-type': '#66d9ef',
-  '--code-tag': '#f92672',
-  '--code-meta': '#fd971f',
+  keyword: '#f92672',
+  string: '#e6db74',
+  number: '#ae81ff',
+  comment: '#75715e',
+  function: '#a6e22e',
+  type: '#66d9ef',
+  tag: '#f92672',
+  meta: '#fd971f',
 } as const;
 
 const ONE_LIGHT = {
-  '--code-keyword': '#a626a4',
-  '--code-string': '#50a14f',
-  '--code-number': '#986801',
-  '--code-comment': '#a0a1a7',
-  '--code-function': '#4078f2',
-  '--code-type': '#c18401',
-  '--code-tag': '#e45649',
-  '--code-meta': '#986801',
+  keyword: '#a626a4',
+  string: '#50a14f',
+  number: '#986801',
+  comment: '#a0a1a7',
+  function: '#4078f2',
+  type: '#c18401',
+  tag: '#e45649',
+  meta: '#986801',
 } as const;
 
 const PAGE_ONE_LIGHT = {
@@ -109,68 +115,59 @@ function collectRules(source: string): CssRule[] {
   return rules;
 }
 
-function hexToRgb(hex: string): [number, number, number] {
-  const match = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (match === null || match[1] === undefined) throw new Error(`not a hex color: ${hex}`);
-  return [
-    Number.parseInt(match[1].slice(0, 2), 16),
-    Number.parseInt(match[1].slice(2, 4), 16),
-    Number.parseInt(match[1].slice(4, 6), 16),
-  ];
-}
-
-function luminance(hex: string): number {
-  const channels = hexToRgb(hex).map((value) => {
-    const channel = value / 255;
-    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+describe('classic code palettes', () => {
+  it('keeps Monokai and One Light in the registry with the documented values', () => {
+    const monokai = CODE_THEMES.find((theme) => theme.id === 'monokai');
+    const oneLight = CODE_THEMES.find((theme) => theme.id === 'one-light');
+    expect(monokai).toBeDefined();
+    expect(oneLight).toBeDefined();
+    expect(monokai?.roles).toEqual(MONOKAI);
+    expect(oneLight?.roles).toEqual(ONE_LIGHT);
+    expect(monokai?.polarity).toBe('dark');
+    expect(oneLight?.polarity).toBe('light');
+    // A theme brings its own surface; the classic palettes are not recoloured.
+    expect(monokai?.surface).toMatch(/^#[0-9a-f]{6}$/);
+    expect(oneLight?.surface).toMatch(/^#[0-9a-f]{6}$/);
   });
-  return 0.2126 * (channels[0] ?? 0) + 0.7152 * (channels[1] ?? 0) + 0.0722 * (channels[2] ?? 0);
-}
 
-function contrast(foreground: string, background: string): number {
-  const a = luminance(foreground);
-  const b = luminance(background);
-  const high = Math.max(a, b);
-  const low = Math.min(a, b);
-  return (high + 0.05) / (low + 0.05);
-}
-
-describe('code palette contract', () => {
-  it('uses Monokai in the dark theme', () => {
-    const dark = declarations(blockAt(css, 'html, html[data-theme="dark"]'));
-    for (const [token, value] of Object.entries(MONOKAI)) {
-      expect(dark.get(token), token).toBe(value);
+  it('keeps comments quieter than code in both classic themes', () => {
+    for (const id of ['monokai', 'one-light'] as const) {
+      const theme = CODE_THEMES.find((entry) => entry.id === id);
+      expect(theme).toBeDefined();
+      const ratios = Object.entries(theme?.roles ?? {}).map(
+        ([role, value]) => [role, contrastRatio(value, theme?.surface ?? '#000000')] as const,
+      );
+      for (const [role, ratio] of ratios) {
+        expect(ratio, `${id} ${role}`).toBeGreaterThanOrEqual(2.3);
+      }
+      const lowest = ratios.reduce((low, entry) => (entry[1] < low[1] ? entry : low));
+      expect(lowest[0], `${id} quietest role`).toBe('comment');
     }
   });
 
-  it('uses One Light in the light theme', () => {
-    const light = declarations(blockAt(css, 'html[data-theme="light"]'));
-    for (const [token, value] of Object.entries(ONE_LIGHT)) {
-      expect(light.get(token), token).toBe(value);
+  it('leaves the app-theme blocks without syntax roles', () => {
+    // The root always carries data-code-theme (B2), so no shell theme block
+    // owns a code role any more.
+    for (const marker of ['html, html[data-theme="dark"]', 'html[data-theme="light"]']) {
+      const block = declarations(blockAt(css, marker));
+      for (const token of [
+        '--code-surface',
+        '--code-text',
+        '--code-keyword',
+        '--code-comment',
+      ]) {
+        expect(block.has(token), `${marker} ${token}`).toBe(false);
+      }
     }
   });
+});
 
+describe('page code palette', () => {
   it('gives the fixed-light Page paper its own One Light roles', () => {
     const page = declarations(blockAt(css, ':root', '--nf-page-ink'));
     for (const [token, value] of Object.entries(PAGE_ONE_LIGHT)) {
       expect(page.get(token), token).toBe(value);
     }
-  });
-
-  it('keeps comments readable but quieter than code in both themes', () => {
-    const darkRatios = Object.entries(MONOKAI).map(
-      ([token, value]) => [token, contrast(value, '#202329')] as const,
-    );
-    const lightRatios = Object.entries(ONE_LIGHT).map(
-      ([token, value]) => [token, contrast(value, '#f5f7f9')] as const,
-    );
-    for (const [token, ratio] of [...darkRatios, ...lightRatios]) {
-      expect(ratio, token).toBeGreaterThanOrEqual(2.3);
-    }
-    const min = (ratios: ReadonlyArray<readonly [string, number]>): string =>
-      ratios.reduce((lowest, entry) => (entry[1] < lowest[1] ? entry : lowest))[0];
-    expect(min(darkRatios)).toBe('--code-comment');
-    expect(min(lightRatios)).toBe('--code-comment');
   });
 
   it('scopes every hljs rule to the Continuous, Markdown or Page surface', () => {

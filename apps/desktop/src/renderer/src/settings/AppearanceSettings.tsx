@@ -1,13 +1,15 @@
 /**
- * Appearance settings page (R3).
+ * Appearance settings page (R3, B2).
  *
- * The shell's look and typography: theme, accent, UI text size/font, and the
- * code font. Every control is real and writes through the existing instant-save
- * settings path. Appearance is global and works with zero documents: there is
- * no document scope and no read-only scope.
+ * The shell's look and typography: theme, accent, UI text size/font, code font,
+ * and the code theme. Every control is real and writes through the existing
+ * instant-save settings path. Appearance is global and works with zero
+ * documents: there is no document scope and no read-only scope.
  *
  * Page/PDF keep their paper: this page never changes the Page lens. The only
- * value that reaches the paper is the code font, and the preview strip says so.
+ * value that reaches the paper is the code font, and the preview strip says so;
+ * the code theme and its own surfaces are shell-only, so the caption states
+ * that the page and the PDF keep One Light.
  */
 
 import { ChevronDown, RotateCcw } from 'lucide-react';
@@ -18,11 +20,21 @@ import {
   type AppearanceSettings,
   type AppearanceTheme,
   type CodeFontId,
+  type CodeThemeSetting,
   type UiFontId,
   type UiScale,
 } from '@noteforest/layout';
 import { useSettingsStore } from '../state/settings';
 import { useResolvedTheme } from '../shell/useAppearanceSync';
+import { CODE_THEMES, codeThemeOptionLabel } from '../lib/code-themes';
+
+const CODE_THEME_OPTIONS: { value: CodeThemeSetting; label: string }[] = [
+  { value: 'auto', label: 'Match app theme' },
+  ...CODE_THEMES.map((theme) => ({
+    value: theme.id,
+    label: codeThemeOptionLabel(theme),
+  })),
+];
 
 const THEME_OPTIONS: { value: AppearanceTheme; label: string }[] = [
   { value: 'dark', label: 'Dark' },
@@ -220,6 +232,48 @@ export function AppearanceSettingsPage(): JSX.Element {
         </p>
       </section>
 
+      <section className="nf-settings-section" data-appearance-code-section="true">
+        <h4 className="nf-settings-section-title">Code</h4>
+        <div className="nf-settings-row">
+          <label className="nf-settings-row-label" htmlFor="appearance-code-theme">
+            Code theme
+          </label>
+          <div className="nf-settings-control">
+            <span className="nf-select-wrap">
+              <select
+                id="appearance-code-theme"
+                className="nf-select"
+                data-code-theme-select="true"
+                value={appearance.codeTheme}
+                onChange={(event) =>
+                  patchAppearance({
+                    codeTheme: event.target.value as CodeThemeSetting,
+                  })
+                }
+              >
+                {CODE_THEME_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="nf-select-chevron"
+                size={14}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+            </span>
+          </div>
+        </div>
+        <p className="nf-settings-help" data-appearance-code-help="true">
+          Worst colour contrast on the theme’s own background; AA is 4.5:1.
+        </p>
+        <p className="nf-settings-help" data-appearance-code-paper="true">
+          Page and PDF keep One Light.
+        </p>
+      </section>
+
       <section className="nf-settings-section" data-appearance-preview-section="true">
         <h4 className="nf-settings-section-title">Preview</h4>
         <div className="nf-settings-section-actions">
@@ -234,6 +288,7 @@ export function AppearanceSettingsPage(): JSX.Element {
                 uiScale: 1,
                 uiFont: 'system',
                 codeFont: 'jetbrains',
+                codeTheme: 'auto',
               })
             }
           >

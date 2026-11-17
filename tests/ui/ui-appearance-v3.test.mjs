@@ -396,6 +396,7 @@ describe('R3 appearance v3', () => {
         scales: pressed('data-ui-scale-option'),
         uiFont: document.querySelector('[data-ui-font-select]')?.value ?? null,
         codeFont: document.querySelector('[data-code-font-select]')?.value ?? null,
+        codeTheme: document.querySelector('[data-code-theme-select]')?.value ?? null,
         themeCount: document.querySelectorAll('[data-appearance-theme-option]').length,
         pastel: group('pastel'),
         vivid: group('vivid'),
@@ -415,6 +416,7 @@ describe('R3 appearance v3', () => {
     assert.deepEqual(controls.scales, ['1'], 'Default UI text size');
     assert.equal(controls.uiFont, 'system');
     assert.equal(controls.codeFont, 'jetbrains');
+    assert.equal(controls.codeTheme, 'auto', 'the code theme defaults to the app theme');
     assert.equal(controls.themeCount, 3, 'Dark / Light / System are real options');
     await page.screenshot({ path: join(screenshotDir, 'appearance-dark-blue.png') });
 
@@ -526,6 +528,7 @@ describe('R3 appearance v3', () => {
       uiScale: 1,
       uiFont: 'system',
       codeFont: 'jetbrains',
+      codeTheme: 'auto',
     });
     await waitTheme('dark');
     assert.equal(await roleColor('--accent'), 'rgb(155, 183, 212)');
@@ -543,6 +546,7 @@ describe('R3 appearance v3', () => {
       uiScale: 1,
       uiFont: 'system',
       codeFont: 'jetbrains',
+      codeTheme: 'auto',
     });
 
     // Persistence survives quit/reopen.
@@ -568,6 +572,7 @@ describe('R3 appearance v3', () => {
       '[data-ui-scale-option]',
       '[data-ui-font-select]',
       '[data-code-font-select]',
+      '[data-code-theme-select]',
     ]) {
       const control = page.locator(selector).first();
       assert.equal(await control.isVisible(), true, `${selector} is visible`);
@@ -733,7 +738,8 @@ describe('R3 appearance v3', () => {
     await page.screenshot({ path: join(screenshotDir, 'continuous-note-surface-dark.png') });
 
     // Selection still changes the edge presentation: the selected path keeps
-    // the accent at 1.75 px while every other branch is muted at 1 px / 0.35.
+    // the accent at 1.75 px while every other branch is muted at 1 px. B2: the
+    // muted state is a full-opacity colour (no fade).
     await page.locator(childCard).locator('.nf-block-prose').click();
     await h.waitSelected('surface-child');
     await page.waitForFunction(
@@ -750,8 +756,12 @@ describe('R3 appearance v3', () => {
       { timeout: 5000 },
     );
     assert.equal(await computed('.nf-edge-path.nf-edge-active', 'stroke'), darkStrong);
-    assert.equal(await computed('.nf-edge-path.nf-edge-muted', 'stroke'), 'rgb(86, 95, 104)');
-    assert.equal(await computed('.nf-edge-path.nf-edge-muted', 'opacity'), '0.35');
+    assert.equal(await computed('.nf-edge-path.nf-edge-muted', 'stroke'), 'rgb(106, 115, 124)');
+    assert.equal(
+      await computed('.nf-edge-path.nf-edge-muted', 'opacity'),
+      '1',
+      'B2: no edge state is carried by a fade',
+    );
     await page.screenshot({ path: join(screenshotDir, 'continuous-edges-dark-selected.png') });
 
     // Hover uses the note-surface-hover role, including a top-level card.
@@ -989,6 +999,7 @@ async function chooseThemePersisted(env) {
     uiScale: 1,
     uiFont: 'system',
     codeFont: 'jetbrains',
+    codeTheme: 'auto',
   });
   assert.equal(await roleColor('--accent'), 'rgb(155, 183, 212)');
   await openSettings('appearance');

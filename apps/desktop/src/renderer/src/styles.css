@@ -79,11 +79,13 @@ html[data-theme="dark"] {
   --text-3: #949aa2;
   --border-1: #2e3238;
   --border-2: #6e737a;
-  /* Reference edges keep their neutral, lower-emphasis stroke. Primary edges
-     are the accent-strong alias below (selected and resting share one color;
-     width and the muted branches carry selection). */
+  /* Edge states (B2) are legible at full opacity: nothing is carried by a fade.
+     Resting primary edges are the accent-strong alias below (selected and
+     resting share one colour; width carries selection), reference stays the
+     dashed neutral, and the solid muted grey stays quieter than the reference
+     while still clearing 3:1 on --bg-canvas (reference 4.73, muted 3.69). */
   --edge-reference: #7b858f;
-  --edge-muted: #565f68;
+  --edge-muted: #6a737c;
   --danger: #d98b8b;
   --danger-soft: #351f22;
   --danger-border: #6a3a3d;
@@ -92,16 +94,9 @@ html[data-theme="dark"] {
   --warning: #d6b17a;
   --warning-soft: #352c1e;
   --warning-border: #6a5536;
-  /* Syntax colours: Monokai for the dark editor (design: code-palette.md).
-     The Page paper is always light and reads its own One Light roles. */
-  --code-keyword: #f92672;
-  --code-string: #e6db74;
-  --code-number: #ae81ff;
-  --code-comment: #75715e;
-  --code-function: #a6e22e;
-  --code-type: #66d9ef;
-  --code-tag: #f92672;
-  --code-meta: #fd971f;
+  /* Syntax colours are code-theme data, not app-theme data: the root carries
+     `data-code-theme` and the blocks after the theme blocks declare the eight
+     roles plus the theme's own surface (B2). */
   --overlay: rgb(0 0 0 / 0.4);
   --shadow-panel: 0 8px 24px rgb(0 0 0 / 0.35);
   --shadow-overlay: 0 24px 64px rgb(0 0 0 / 0.55);
@@ -127,8 +122,12 @@ html[data-theme="light"] {
   --text-3: #5b6771;
   --border-1: #d7dee4;
   --border-2: #82888c;
+  /* Light edge states (B2): with the 0.78 fade gone the reference token already
+     clears 3:1 at full opacity (4.52), so the muted grey is the only colour
+     change — 2.51 at full opacity becomes 3.71, still quieter than the
+     reference. */
   --edge-reference: #6c7882;
-  --edge-muted: #9aa5ad;
+  --edge-muted: #7c868f;
   --danger: #a23b32;
   --danger-soft: #fbeae7;
   --danger-border: #e0b3ac;
@@ -137,7 +136,67 @@ html[data-theme="light"] {
   --warning: #8a5a00;
   --warning-soft: #fff4dc;
   --warning-border: #e6c98a;
-  /* Syntax colours: One Light for the light editor (design: code-palette.md). */
+  --overlay: rgb(16 20 24 / 0.38);
+  --shadow-panel: 0 8px 24px rgb(16 20 24 / 0.12);
+  --shadow-overlay: 0 24px 64px rgb(16 20 24 / 0.2);
+  --shadow-toast: 0 12px 32px rgb(16 20 24 / 0.18);
+}
+
+/*
+ * Code themes (B2, design: code-themes.md). One block per theme: the eight
+ * syntax roles, the theme's own code surface, and its own ink for text the
+ * grammar does not classify. Values are the themes' documented colours,
+ * verbatim; `apps/desktop/src/renderer/src/lib/code-themes.ts` is the product
+ * source and a unit test proves these blocks equal the registry.
+ *
+ * The root always carries `data-code-theme` for the resolved theme (`auto` is
+ * Dark+ in the dark theme, Light+ in light), so the attribute is the only
+ * switch and no `--code-*` role lives on `html` or on a `data-theme` block.
+ * Page Read/Edit and print never read these: the paper keeps its own fixed
+ * One Light roles in `--nf-page-code-*`.
+ */
+html[data-code-theme="dark-plus"] {
+  --code-surface: #1e1e1e;
+  --code-text: #d4d4d4;
+  --code-keyword: #569cd6;
+  --code-string: #ce9178;
+  --code-number: #b5cea8;
+  --code-comment: #6a9955;
+  --code-function: #dcdcaa;
+  --code-type: #4ec9b0;
+  --code-tag: #569cd6;
+  --code-meta: #569cd6;
+}
+
+html[data-code-theme="light-plus"] {
+  --code-surface: #ffffff;
+  --code-text: #000000;
+  --code-keyword: #0000ff;
+  --code-string: #a31515;
+  --code-number: #098658;
+  --code-comment: #008000;
+  --code-function: #795e26;
+  --code-type: #267f99;
+  --code-tag: #800000;
+  --code-meta: #0000ff;
+}
+
+html[data-code-theme="monokai"] {
+  --code-surface: #272822;
+  --code-text: #f8f8f2;
+  --code-keyword: #f92672;
+  --code-string: #e6db74;
+  --code-number: #ae81ff;
+  --code-comment: #75715e;
+  --code-function: #a6e22e;
+  --code-type: #66d9ef;
+  --code-tag: #f92672;
+  --code-meta: #fd971f;
+}
+
+html[data-code-theme="one-light"] {
+  --code-surface: #fafafa;
+  --code-text: #383a42;
   --code-keyword: #a626a4;
   --code-string: #50a14f;
   --code-number: #986801;
@@ -146,10 +205,6 @@ html[data-theme="light"] {
   --code-type: #c18401;
   --code-tag: #e45649;
   --code-meta: #986801;
-  --overlay: rgb(16 20 24 / 0.38);
-  --shadow-panel: 0 8px 24px rgb(16 20 24 / 0.12);
-  --shadow-overlay: 0 24px 64px rgb(16 20 24 / 0.2);
-  --shadow-toast: 0 12px 32px rgb(16 20 24 / 0.18);
 }
 
 /*
@@ -4027,7 +4082,6 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-edge-muted {
   stroke: var(--edge-muted);
   stroke-width: var(--nf-edge-width-muted);
-  opacity: 0.35;
 }
 
 .nf-edge-defect {
@@ -4051,7 +4105,6 @@ body.nf-dragging-block .nf-gutter-handle {
 .nf-edge-arrow.nf-edge-muted {
   fill: var(--edge-muted);
   stroke: none;
-  opacity: 0.35;
 }
 
 .nf-edge-arrow.nf-edge-defect {
@@ -4060,20 +4113,21 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 /* Reference edges (M3d1): dashed, thin, open chevron. They never share the
-   primary trunk and are routed only after cards are placed. */
+   primary trunk and are routed only after cards are placed. B2: no state is
+   carried by a fade — the neutral stroke is legible at full opacity on the
+   canvas in both polarities (`--edge-reference`), and the dash pattern plus
+   the open chevron keep it distinct from the solid muted branches. */
 .nf-edge-reference {
   stroke: var(--edge-reference);
   stroke-width: var(--nf-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 5 4;
-  opacity: 0.78;
-  transition: stroke 120ms var(--motion), opacity 120ms var(--motion);
+  transition: stroke 120ms var(--motion);
 }
 
 .nf-edge-reference.nf-edge-reference-active {
   stroke: var(--edge-active);
-  opacity: 1;
 }
 
 .nf-edge-reference-arrow {
@@ -4081,12 +4135,10 @@ body.nf-dragging-block .nf-gutter-handle {
   stroke-width: var(--nf-edge-width);
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.78;
 }
 
 .nf-edge-reference-arrow.nf-edge-reference-active {
   stroke: var(--edge-active);
-  opacity: 1;
 }
 
 .nf-edge-reference-hit {
@@ -7214,8 +7266,9 @@ body.nf-dragging-block .nf-gutter-handle {
   grid-column: 1 / -1;
   padding: 8px 10px;
   border-radius: var(--radius-control);
-  background: var(--surface-1);
-  color: var(--text-1);
+  /* The rail sample follows the code theme, like a real code block (B2). */
+  background: var(--code-surface);
+  color: var(--code-text);
   font-family: var(--mono-font);
   font-size: calc(11.5px * var(--ui-scale));
 }
@@ -8874,7 +8927,17 @@ body.nf-dragging-block .nf-gutter-handle {
   margin: 8px 0;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-control);
-  background: var(--surface-2);
+}
+
+/* The code block takes the active code theme's own surface and ink (B2): a
+   theme is a surface, not a set of colours painted on our note card. Continuous
+   and the flat Markdown guest editor are the two shell code surfaces; inline
+   code, tables, and prose never read `--code-surface`. The border stays the
+   shell hairline. */
+.nf-continuous-surface .nf-code-block,
+.nf-markdown-document .nf-code-block {
+  background: var(--code-surface);
+  color: var(--code-text);
 }
 
 .nf-continuous-surface .nf-code-block .nf-code-pre {
@@ -8903,7 +8966,11 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-code-label {
-  color: var(--text-3);
+  /* The language label sits on the code surface, so it follows the theme ink
+     (B2): on a white Light+ block a shell --text-3 label would vanish. It is
+     meta text, so it reads at 60 %. */
+  color: var(--code-text);
+  opacity: 0.6;
   font-family: var(--mono-font);
   font-size: 10.5px;
   letter-spacing: 0.04em;
