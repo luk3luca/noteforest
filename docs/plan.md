@@ -805,7 +805,9 @@ does not have to rediscover it.
 The release comes **last**: v1 hardening → find/highlighter → **B1 v1 defects** (Page dot, print-free
 page, shortcut catalogue) → **B2 contrast** (code themes + Continuous edges) → **P2 release polish** →
 **full Sentinel** (`bb5d492`, accept with findings) → **VF release fixes** (`69daaaf`) → `test:perf` + `test:visual` (green) →
-release mechanics → the owner's visual/VoiceOver/PDF pass → tag (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
+release mechanics → **0.1.0 released 18 November 2026** (tag `v0.1.0`, dmg `dist/NoteForest-0.1.0-arm64.dmg`,
+installed in `/Applications`, unsigned local build, packaged smoke green; the owner's visual/VoiceOver/PDF pass
+remains open on the installed app) (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
 `npm run release`). B1 waited for the find fixes on purpose: same shell files, and the Page find field is
 where the `⇧1`/`⇧2` defect showed. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
 stays in that file as the record.
