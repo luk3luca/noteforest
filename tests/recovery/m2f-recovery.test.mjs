@@ -174,14 +174,23 @@ describe('M2f phase 4a corrupt package recovery', () => {
     const rowText = await row.innerText();
     assert.match(rowText, /truncated-note/, 'folder-name title fallback is visible');
     assert.match(rowText, /unreadable/i);
-    assert.match(rowText, /not valid JSON/);
+    // Copy-plan §E: the row keeps a short line; the parse sentence is in the
+    // row tooltip, never in the list line.
+    assert.match(rowText, /This note couldn’t be read\./);
+    assert.doesNotMatch(rowText, /not valid JSON/);
+    assert.match((await row.getAttribute('title')) ?? '', /not valid JSON/);
 
     await openLibraryDocument('unreadable');
     const surface = page.locator('[data-recovery-surface="true"]');
     assert.equal(await surface.getAttribute('data-recovery-status'), 'unreadable');
     assert.equal(await surface.locator('[data-recovery-path="true"]').innerText(), packagePath);
+    const reasonCell = surface.locator('[data-recovery-reason="true"]');
+    assert.match(await reasonCell.innerText(), /The file isn’t valid NoteForest data\./);
+    assert.doesNotMatch(await reasonCell.innerText(), /not valid JSON/);
+    // The raw core sentence opens under Details.
+    await reasonCell.locator('details[data-details="true"] summary').click();
     assert.match(
-      await surface.locator('[data-recovery-reason="true"]').innerText(),
+      await reasonCell.locator('[data-details-value="true"]').innerText(),
       /not valid JSON/,
     );
     assert.match(
@@ -224,13 +233,18 @@ describe('M2f phase 4a corrupt package recovery', () => {
     const rowText = await row.innerText();
     assert.match(rowText, /From the future/);
     assert.match(rowText, /newer version/i);
-    assert.match(rowText, /newer than this app supports/);
+    assert.match(rowText, /A newer NoteForest wrote this note\./);
+    assert.doesNotMatch(rowText, /newer than this app supports/);
+    assert.match((await row.getAttribute('title')) ?? '', /newer than this app supports/);
 
     await openLibraryDocument('newer-schema');
     const surface = page.locator('[data-recovery-surface="true"]');
     assert.equal(await surface.getAttribute('data-recovery-status'), 'newer-schema');
+    const reasonCell = surface.locator('[data-recovery-reason="true"]');
+    assert.match(await reasonCell.innerText(), /A newer NoteForest wrote the file\./);
+    await reasonCell.locator('details[data-details="true"] summary').click();
     assert.match(
-      await surface.locator('[data-recovery-reason="true"]').innerText(),
+      await reasonCell.locator('[data-details-value="true"]').innerText(),
       /newer than this app supports/,
     );
     assert.match(
@@ -767,8 +781,11 @@ describe('M2f phase 4b empty chapters and stale locks', () => {
       { blockId: secondBlockId, chapterId: firstChapterId },
     );
     assert.equal(moveOut.ok, false);
-    assert.match(moveOut.message, /Cannot move the last top-level block/);
-    assert.match(moveOut.message, /"Second"/);
+    // Copy-plan §E: one short line; the core sentence (which names the chapter
+    // and says what to do) is the Details value.
+    assert.equal(moveOut.message, 'A chapter needs at least one block.');
+    assert.match(moveOut.details, /Cannot move the last top-level block/);
+    assert.match(moveOut.details, /"Second"/);
 
     const branchOut = await page.evaluate(
       ({ sourceBlockId, targetBlockId }) =>
@@ -780,7 +797,8 @@ describe('M2f phase 4b empty chapters and stale locks', () => {
       { sourceBlockId: firstBlockId, targetBlockId: secondBlockId },
     );
     assert.equal(branchOut.ok, false);
-    assert.match(branchOut.message, /Cannot branch the last top-level block/);
+    assert.equal(branchOut.message, 'A chapter needs at least one block.');
+    assert.match(branchOut.details, /Cannot branch the last top-level block/);
 
     const deleteLast = await page.evaluate(
       (blockId) =>
@@ -792,7 +810,8 @@ describe('M2f phase 4b empty chapters and stale locks', () => {
       secondBlockId,
     );
     assert.equal(deleteLast.ok, false);
-    assert.match(deleteLast.message, /Cannot delete the last top-level block of chapter "Second"/);
+    assert.equal(deleteLast.message, 'A chapter needs at least one block.');
+    assert.match(deleteLast.details, /Cannot delete the last top-level block of chapter "Second"/);
 
     const stillThere = await h.state();
     assert.equal(

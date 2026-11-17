@@ -36,7 +36,10 @@ export {
 /** Read-only package state shown by the recovery tab. */
 export interface RecoveryTabInfo {
   status: RecoveryStatus;
+  /** Short reason the package cannot open. */
   reason: string;
+  /** The raw reason, shown only under `Details`. */
+  reasonDetails?: string;
   details: string[];
   warnings: string[];
 }

@@ -77,8 +77,14 @@ export interface DocumentSummary {
   title: string;
   kind?: LibraryDocumentKind;
   status: LibraryDocumentStatus;
-  /** Human reason for a non-ok status; absent for ok rows. */
+  /** Short human reason for a non-ok status; absent for ok rows. */
   reason?: string;
+  /**
+   * Raw reason a non-ok row carries, for the row's tooltip only. The visible
+   * line is `reason`: a core sentence never reaches a list row verbatim
+   * (`docs/design/dialogs.md` §3).
+   */
+  reasonDetails?: string;
   documentId: string | null;
   revision: number | null;
   updatedAt: string;
@@ -269,8 +275,10 @@ export interface RecoveryDocumentView {
   packagePath: string;
   title: string;
   status: RecoveryStatus;
-  /** Primary parse/validation/missing reason. */
+  /** Short reason the package cannot open; never the raw core sentence. */
   reason: string;
+  /** The raw reason, shown only under `Details` on the recovery surface. */
+  reasonDetails?: string;
   /** Validation issues, when the parser produced them. */
   details: string[];
   warnings: string[];

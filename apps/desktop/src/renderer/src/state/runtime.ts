@@ -144,6 +144,22 @@ function withBlockLevel(node: ProseNode, topLevel: boolean, depth: number): Pros
   );
 }
 
+/**
+ * A failed `ApplyResult` as an outcome: the platform already mapped a core
+ * rejection to a short line and put the raw sentence in `details` (copy-plan
+ * §E), so the outcome forwards both instead of dropping the technical line.
+ */
+function failedOutcome(
+  result: { message?: string; details?: string },
+  fallback: string,
+): ApplyOutcome {
+  return {
+    ok: false,
+    message: result.message ?? fallback,
+    ...(result.details === undefined ? {} : { details: result.details }),
+  };
+}
+
 export class DocumentRuntime {
   /**
    * Document key at call time: a real package path, or `draft:<id>` until the
@@ -999,7 +1015,7 @@ export class DocumentRuntime {
   private async createBlockNow(command: DocumentCommand): Promise<ApplyOutcome> {
     const result = await this.runCommandInternal(command);
     if (!result.ok || result.document === undefined) {
-      return { ok: false, message: result.message ?? 'The block wasn’t created.' };
+      return failedOutcome(result, 'The block wasn’t created.');
     }
     const createdId = result.created?.blockIds[0] ?? null;
     if (createdId === null) {
@@ -1080,7 +1096,7 @@ export class DocumentRuntime {
     return this.session.queue.run(async () => {
       const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The branch wasn’t created.' };
+        return failedOutcome(result, 'The branch wasn’t created.');
       }
       const blockId = result.created?.blockIds[0] ?? null;
       const anchorId = result.created?.anchorIds[0];
@@ -1136,7 +1152,7 @@ export class DocumentRuntime {
         at: { nodePath: caret.nodePath, offset: caret.offset },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The block wasn’t split.' };
+        return failedOutcome(result, 'The block wasn’t split.');
       }
       const newBlockId = result.created?.blockIds[0] ?? null;
       await this.acceptStructural(result.document, result.inverse, newBlockId);
@@ -1160,7 +1176,11 @@ export class DocumentRuntime {
   async mergeBlock(blockId: string): Promise<ApplyOutcome> {
     return this.session.queue.run(async () => {
       const check = planBlockMerge(this.document, blockId);
-      if (!check.ok) return { ok: false, message: check.reason };
+      if (!check.ok) {
+        // `planBlockMerge` speaks in engine terms ("both blocks must share the
+        // same parent port…"): one short line, the plan reason in Details.
+        return { ok: false, message: 'These blocks can’t be merged.', details: check.reason };
+      }
       const survivorId = check.plan.intoBlockId;
       const result = await this.runCommandInternal({
         type: 'block.merge',
@@ -1168,7 +1188,7 @@ export class DocumentRuntime {
         intoBlockId: survivorId,
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The block wasn’t merged.' };
+        return failedOutcome(result, 'The block wasn’t merged.');
       }
       await this.acceptStructural(result.document, result.inverse, survivorId);
       this.reconcileEditor(survivorId);
@@ -1204,7 +1224,7 @@ export class DocumentRuntime {
         role: 'reference',
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'Couldn’t add the link.' };
+        return failedOutcome(result, 'Couldn’t add the link.');
       }
       const branch = Object.values(result.document.branches).find(
         (candidate) =>
@@ -1244,7 +1264,7 @@ export class DocumentRuntime {
         branchId,
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The reference wasn’t removed.' };
+        return failedOutcome(result, 'The reference wasn’t removed.');
       }
       await this.acceptStructural(result.document, result.inverse, null);
       this.reconcileEditor(this.selectedBlockId);
@@ -1427,7 +1447,7 @@ export class DocumentRuntime {
           : {}),
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The branch wasn’t removed.' };
+        return failedOutcome(result, 'The branch wasn’t removed.');
       }
       await this.acceptStructural(result.document, result.inverse, branch.source.blockId);
       this.reconcileEditor(branch.source.blockId);
@@ -1456,7 +1476,7 @@ export class DocumentRuntime {
           : {}),
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The branch wasn’t removed.' };
+        return failedOutcome(result, 'The branch wasn’t removed.');
       }
       await this.acceptStructural(
         result.document,
@@ -1562,12 +1582,10 @@ export class DocumentRuntime {
         binding: selection.binding,
       });
       if (!result.ok || result.document === undefined) {
-        return {
-          ok: false,
-          message:
-            result.message ??
-            'The anchor wasn’t recreated. Select the unlinked range itself, or remove its link first.',
-        };
+        return failedOutcome(
+          result,
+          'The anchor wasn’t recreated. Select the unlinked range itself, or remove its link first.',
+        );
       }
       await this.acceptStructural(result.document, result.inverse, blockId);
       this.reconcileEditor(blockId);
@@ -1623,7 +1641,7 @@ export class DocumentRuntime {
       const targetId = branch.targetBlockId;
       const result = await this.runCommandInternal(command);
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? failureMessage };
+        return failedOutcome(result, failureMessage);
       }
       await this.acceptStructural(result.document, result.inverse, targetId);
       this.reconcileEditor(targetId);
@@ -1716,7 +1734,7 @@ export class DocumentRuntime {
         blockHandling: { kind: 'reject-if-not-empty' },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The chapter wasn’t deleted.' };
+        return failedOutcome(result, 'The chapter wasn’t deleted.');
       }
       await this.acceptStructural(result.document, result.inverse, null);
       this.reconcileEditor(null);
@@ -2144,7 +2162,7 @@ export class DocumentRuntime {
             : { kind: 'top-level', chapterId: target.chapterId },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The block wasn’t moved.' };
+        return failedOutcome(result, 'The block wasn’t moved.');
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
@@ -2173,7 +2191,7 @@ export class DocumentRuntime {
         to: { kind: 'child', parentBlockId: check.parentBlockId },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The block wasn’t indented.' };
+        return failedOutcome(result, 'The block wasn’t indented.');
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
@@ -2196,7 +2214,7 @@ export class DocumentRuntime {
         to: { kind: 'sibling', siblingBlockId: check.parentBlockId, after: true },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The block wasn’t outdented.' };
+        return failedOutcome(result, 'The block wasn’t outdented.');
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeToNewParent(blockId, check.parentBlockId)) {
@@ -2351,7 +2369,7 @@ export class DocumentRuntime {
         to: { kind: 'sibling', siblingBlockId: targetId, after },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The block wasn’t reordered.' };
+        return failedOutcome(result, 'The block wasn’t reordered.');
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeInEditor(blockId, targetId, after)) {
@@ -2407,7 +2425,7 @@ export class DocumentRuntime {
       const fallback = siblings[index - 1] ?? siblings[index + 1] ?? oldParent;
       const result = await this.runCommandInternal({ type: 'block.delete', blockId, children });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The block wasn’t deleted.' };
+        return failedOutcome(result, 'The block wasn’t deleted.');
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.removeBlockNodeInEditor(blockId, oldParent, children)) {
@@ -2440,7 +2458,7 @@ export class DocumentRuntime {
         targetHandling: { kind: 'promote' },
       });
       if (!result.ok || result.document === undefined) {
-        return { ok: false, message: result.message ?? 'The block wasn’t detached.' };
+        return failedOutcome(result, 'The block wasn’t detached.');
       }
       await this.acceptStructural(result.document, result.inverse, null, { rebuild: false });
       if (!this.moveBlockNodeToNewParent(blockId, oldParent)) {
@@ -2592,7 +2610,7 @@ export class DocumentRuntime {
         // The error is reported by the caller; the next undo reaches the entry
         // below this one.
         this.notify();
-        return { ok: false, message: result.message ?? 'Undo failed.' };
+        return failedOutcome(result, 'Undo failed.');
       }
       this.session.acceptUndo(result.document, result.inverse);
       this.pruneManualBreaks();
@@ -2616,7 +2634,7 @@ export class DocumentRuntime {
         // Same rule as undo: a failed redo is dropped, reported, and never
         // retried forever at the top of the stack.
         this.notify();
-        return { ok: false, message: result.message ?? 'Redo failed.' };
+        return failedOutcome(result, 'Redo failed.');
       }
       this.session.acceptRedo(result.document, result.inverse);
       this.pruneManualBreaks();

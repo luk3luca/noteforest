@@ -231,6 +231,9 @@ export async function openPath(packagePath: string): Promise<boolean> {
       recovery: {
         status: result.status,
         reason: result.reason,
+        ...(result.reasonDetails === undefined
+          ? {}
+          : { reasonDetails: result.reasonDetails }),
         details: result.details,
         warnings: result.warnings,
       },

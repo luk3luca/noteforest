@@ -308,7 +308,7 @@ function LibraryDocumentRow({
         title={
           summary.status === 'ok'
             ? node.path
-            : `${node.path}\n${summary.reason ?? ''}`
+            : `${node.path}\n${summary.reasonDetails ?? summary.reason ?? ''}`
         }
         onClick={() => void openPath(node.path)}
         onContextMenu={(event) => {

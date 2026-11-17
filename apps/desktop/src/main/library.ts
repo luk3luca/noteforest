@@ -118,6 +118,11 @@ import {
   migrateSettingsDocument,
   settingsDocumentForWrite,
 } from '../shared/settings-file.js';
+import {
+  commandRejection,
+  libraryRowReasonText,
+  recoveryReasonText,
+} from './core-reasons.js';
 import type { LegacySessionOverride } from '../shared/document-settings.js';
 import {
   findNewestValidDocumentSettingsBackup,
@@ -1180,12 +1185,18 @@ async function snapshot(store: DocumentStore): Promise<OpenDocumentSnapshot | nu
  * fake block or chapter count, and a missing package keeps its missing status.
  */
 function documentSummaryFromRow(row: VaultDocumentRow): DocumentSummary {
+  const rawReason = row.reason;
+  // A list row keeps one short line; the core sentence stays in the tooltip.
+  const reason = row.status === 'ok' ? undefined : libraryRowReasonText(row.status, row.kind);
   return {
     packagePath: row.path,
     title: row.title,
     kind: row.kind,
     status: row.status,
-    ...(row.reason === undefined ? {} : { reason: row.reason }),
+    ...(reason === undefined ? {} : { reason }),
+    ...(reason === undefined || rawReason === undefined || rawReason.length === 0
+      ? {}
+      : { reasonDetails: rawReason }),
     documentId: row.documentId,
     revision: row.revision,
     updatedAt: row.updatedAt,
@@ -1392,17 +1403,16 @@ async function recoveryViewFromOpen(
   } catch {
     // Missing/unreadable file: the folder-name fallback is the title.
   }
-  const reason =
-    result.errors[0]?.message ??
-    (status === 'missing'
-      ? 'The folder is missing.'
-      : 'The note couldn’t be opened.');
+  const raw = result.errors[0]?.message;
   return {
     recovery: true,
     packagePath: result.packagePath,
     title: recoveryTitle(result.packagePath, rawText),
     status,
-    reason,
+    // The row says why the package cannot open; the core sentence is technical
+    // and opens under Details only (copy-plan §E).
+    reason: recoveryReasonText(status),
+    ...(raw === undefined || raw.length === 0 ? {} : { reasonDetails: raw }),
     details: recoveryDetails(result.errors),
     warnings: result.warnings.map((warning) => warning.message),
   };
@@ -1414,7 +1424,8 @@ function recoveryViewForError(packagePath: string, message: string): RecoveryDoc
     packagePath,
     title: recoveryTitle(packagePath, null),
     status: 'unreadable',
-    reason: message,
+    reason: recoveryReasonText('unreadable'),
+    reasonDetails: message,
     details: [message],
     warnings: [],
   };
@@ -1602,11 +1613,29 @@ export async function applyCommand(
   const opened = await openStore(packagePath);
   if ('error' in opened) return { ok: false, message: opened.error, code: 'not-found' };
   if ('recovery' in opened) {
-    return { ok: false, message: opened.recovery.reason, code: 'read-only' };
+    // The package cannot open at all: the short recovery line explains why the
+    // command was refused, and the raw parse reason opens under Details.
+    return {
+      ok: false,
+      message: opened.recovery.reason,
+      ...(opened.recovery.reasonDetails === undefined
+        ? {}
+        : { details: opened.recovery.reasonDetails }),
+      code: 'read-only',
+    };
   }
   const result = opened.store.apply(command);
   if (!result.ok) {
-    return { ok: false, message: result.message, code: result.code };
+    // A core rejection (`block "b1" does not exist`, `the selection is already
+    // bound …`) is a log sentence: the code selects one short line and the raw
+    // sentence goes to Details (copy-plan §E).
+    const mapped = commandRejection(result.code, result.message);
+    return {
+      ok: false,
+      message: mapped.message,
+      ...(mapped.details === undefined ? {} : { details: mapped.details }),
+      code: result.code,
+    };
   }
   const affectedAssetIds = result.affected.assetIds;
   // A command that adds/removes a record invalidates the cached availability
