@@ -658,13 +658,12 @@ the arrowhead band, the Library indent ladder, Page Edit → Continuous (A+B), S
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
 | 8 | **v1 hardening** | **Merged at `decd36b`**: the page controls in the canvas header and the rich-cell load guard (`docs/tasks/v1-hardening.md`) | — |
 
-**Not v1 work (recorded 17 November 2026; signing/distribution is PROVISIONAL — the Orchestrator wrote it,
-the owner has not chosen):** the name stays **NoteForest** *if* distribution stays personal — personal use,
-GitHub only, no public distribution, so no clearance and no notarization. The owner asked for the options
-before this is decided: (a) **local build, unsigned** — 0 €, runs on the machine that built it, macOS warns on
-a downloaded copy, no auto-update; (b) **Developer ID + notarization** — 99 €/year, runs cleanly anywhere,
-required for auto-update; (c) **Mac App Store** — same membership, sandbox and review, conflicts with
-user-chosen libraries. The manual VoiceOver sweep is the product owner's own gate, not a batch; the 300/1,000 figures are design targets from the plan, not a promise, so
+**Not v1 work (decided 17 November 2026):** the repo stays **public on GitHub**, the name stays **NoteForest**
+— the App Store app once called NoteForest now ships as "MemorGo"; `noteforest.com` is live as a link-saving
+app, which is a naming conflict only if binaries are ever distributed. The code is **MIT** (`LICENSE`).
+Distribution is a **local unsigned build** (option A): 0 €, runs on the Mac that built it; a downloaded dmg
+would need right-click → Open; **no auto-update** (Squirrel.Mac needs a signed app, option B, 99 €/year, only
+if published binaries or auto-update are ever wanted). The manual VoiceOver sweep is the product owner's own gate, not a batch; the 300/1,000 figures are design targets from the plan, not a promise, so
 they are measured once in batch 4 and acted on only if the number is bad. **Accessibility is not a v1
 gate** (17 November 2026): the automated axe pass stays as a cheap guard, the manual VoiceOver sweep is
 not required. The name stays as is; the repository is public on the owner's GitHub and that is the whole
