@@ -3,13 +3,15 @@
 **Status:** Draft v1.5 — editor layouts and modes (ADR-0007), 7 November 2026  
 **Owner:** UX / Product  
 **Date:** 7 November 2026  
-**Working title:** NoteForest (clearance or rename required before packaging)  
+**Working title:** NoteForest (personal use and GitHub only — no clearance or notarization required; decided 17 November 2026)  
 **Stack:** Electron + React + TypeScript (ADR-0001). This document defines UX behavior and avoids Electron-specific behavior where platform neutrality is cheap, but Electron APIs are allowed where they are the decided implementation (for example PDF export).  
 **Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` v0.5, `docs/plan.md`, `docs/ux-shell.md`, `docs/adr/0005-anchor-binding-and-identity.md`, `docs/adr/0007-editor-layouts-and-modes.md`
 
 This document defines how NoteForest behaves for a person at a Mac: interaction flows, the keyboard model, states, feedback, edge cases, and accessibility. The stack is decided (Electron, ADR-0001); this document does not make stack, content-model, or file-format decisions; those live in `AGENTS.md`, the spec, and the ADRs.
 
-**Revision note (v1.5).** Adopts ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**. **Continuous + Edit** is the default; **Page Read** is exact and read-only; **Page Edit** is available as an opt-in overlay; **PDF** exports Page Read. Continuous page-break markers are derived hints from the same paginator, not WYSIWYG; Page/PDF are the exact geometry and always show the full document. Collapse stays an outline/Continuous navigation aid. `⌘2` is Continuous, `⌘3` is Page, `⌘E` toggles Edit/Read; inline code moves to `⌘⇧C` to free `⌘E`. "Reader" is retired as a view name except in historical notes.
+**Revision note (v1.5).** Adopts ADR-0007: layouts **Continuous | Page** × modes **Edit | Read**. **Continuous + Edit** is the default; **Page Read** is exact and read-only; **Page Edit** is available as an opt-in overlay; **PDF** exports Page Read. Continuous page-break markers are derived hints from the same paginator, not WYSIWYG; Page/PDF are the exact geometry and always show the full document. Collapse stays an outline/Continuous navigation aid. `⌘2` is Continuous, `⌘3` is Page, `⌘E` toggles Edit/Read; inline code is the backtick toggle (it has no chord, so `⌘E` stays the only mode key). "Reader" is retired as a view name except in historical notes.
+
+**Revision note (as shipped, 17 November 2026).** §9 and the screen inventory now describe v1.0: the shortcut catalogue (`apps/desktop/src/renderer/src/lib/shortcuts.ts`) is the source of truth, the Settings list is rendered from it, and the earlier prototype keys that v1 does not ship are listed in §9.5. The Welcome screen, the inspector and the branch-role popover are marked "not in v1".
 
 **Revision note (v1.4).** The product owner revised the below-stack rendering: direct children stay
 to the right while they fit and join the below stack only when they wrap; anchored callouts always
@@ -407,21 +409,21 @@ Rules:
 
 | ID | Screen / surface | Purpose | Entry |
 |---|---|---|---|
-| W1 | Welcome | New, open, sample, recents | App launch with no restored windows |
-| W2 | Document — Outline | Structural authoring, chapter and page-break markers | `⌘N`, `⌘O`, `⌘1` |
+| W1 | Welcome | New, open, sample, recents | **not in v1** — the Library empty state covers the first run |
+| W2 | Document — Outline | Structural authoring, chapter and page-break markers | `⌘N`, `⌘O`, the sidebar's Outline tab |
 | W3 | Document — Continuous | Continuous spatial reading/authoring (Edit/Read) | `⌘2` |
-| W4 | Document — Page | Exact A4 reading (Read now; Edit planned) | `⌘3` |
-| I1 | Inspector | Contextual details and actions | `⌘⌥I`, toolbar |
-| A1 | Lost anchors panel | Repair broken anchors | Status chip, inspector section |
-| G1 | Page Setup | Size, orientation, margins, chapter start, header/footer | `⌘⌥P`, Page menu |
-| G2 | Pagination panel | Manual breaks, page count, overflow | Context bar, inspector |
-| S1 | Export sheet | All pages, preview, preflight | `⌘⇧E`, toolbar |
+| W4 | Document — Page | Exact A4 reading and editing (Read and opt-in Edit) | `⌘3` |
+| I1 | Inspector | Contextual details and actions | **not in v1** — the context menus and the palette carry the actions |
+| A1 | Document health | Repair anchors and structure | Status bar, the sidebar's Health tab, the palette |
+| G1 | Page settings | Size, orientation, margins, chapter start, header/footer | Settings → Page |
+| G2 | Breaks | Manual breaks, page numbers | The sidebar's Breaks section and the block menu's `Start on a new page` |
+| S1 | Export sheet | All pages, preview, preflight | `⇧⌘E`, the canvas header, the palette |
 | X1 | External change / save conflict | Protect user work | Detected on file change |
-| X2 | Branch role popover | Choose structural vs reference, or move vs link | Drop on an occupied target |
+| X2 | Branch role commands | Choose structural vs reference, or move vs link | **not in v1** — the block menu commands (Make home, Move here, Demote) cover it |
 | X3 | Link picker | Choose an existing block for a reference link | `⌘⇧L`, menu |
-| X4 | Keyboard shortcuts | Discoverability | Help menu, `⌘⇧/` |
+| X4 | Keyboard shortcuts | Discoverability | Help → Keyboard shortcuts (Settings → Editor) |
 | X5 | Settings | Appearance, editor, export defaults, shortcuts | `⌘,` |
-| X6 | Delete confirmation | Large subtrees, chapters | `⌘⇧⌫`, Chapter menu |
+| X6 | Delete confirmation | Large subtrees, chapters | `⌘⌫` or the block menu; chapters from their own menu |
 
 ---
 
@@ -429,7 +431,7 @@ Rules:
 
 ### 5.1 First run
 
-The first launch opens **W1 Welcome**:
+The first launch opens the **Library empty state** (the Welcome screen below is the earlier design, not in v1):
 
 - Product name and one line: "Notes that branch from a word."
 - Primary actions: **New Document**, **Open…**, **Open the Sample**.
@@ -1256,123 +1258,97 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 
 | Shortcut | Action |
 |---|---|
-| `⌘N` | New document |
-| `⌘O` | Open… |
+| `⌘N` | New note |
+| `⇧⌘N` | New chapter |
+| `⌘O` | Open note… |
 | `⌘S` | Save now |
-| `⌘⇧S` | Save As… |
-| `⌘W` | Close window |
-| `⌘Z` | Undo |
-| `⌘⇧Z` | Redo |
-| `⌘F` | Find in document |
-| `⌘G` / `⌘⇧G` | Next / previous match |
-| `⌘1` | Outline |
-| `⌘2` | Continuous layout |
-| `⌘3` | Page layout |
-| `⌘E` | Toggle Edit/Read in Continuous; disabled in Outline and in Page until Page Edit ships |
-| `⌘[` / `⌘]` | Back / forward in focus history |
-| `⌥↑` / `⌥↓` | Previous / next page |
-| `⌘⌥C` | New chapter |
-| `⌘⌥B` | Insert/remove manual page break before block |
-| `⌘⌥L` | Freeze / unfreeze layout |
-| `⌘⌥R` | Reflow now |
-| `⌘⌥P` | Page Setup… |
-| `⌘⇧E` | Export… |
-| `⌘P` | Quick export (all pages, last settings) |
-| `⌘⌥I` | Show/hide inspector |
-| `⌃Tab` / `⌃⇧Tab` | Leave / enter the main view (keyboard-trap escape) |
+| `⇧⌘E` | Export PDF… |
+| `⌘W` | Close tab |
+| `⇧⌘W` | Close window |
+| `⇧⌘T` | Reopen closed tab |
+| `⌃Tab` / `⌃⇧Tab` | Next / previous tab |
+| `⌘K` | Command palette |
+| `⌘F` | Find in note |
+| `⌘G` / `⇧⌘G` | Next / previous match |
 | `⌘,` | Settings |
-| `⌘⇧/` | Keyboard shortcuts sheet |
-| `⎋` | Leave editing → exit focus → clear selection |
-| `⌃⌘F` | Toggle full screen (system) |
-
-### 9.2 Outline authoring
-
-| Shortcut | Action |
-|---|---|
-| `↵` | New sibling below (split at caret) |
-| `⇧↵` | Line break inside the block |
-| `⌘↵` | New child (branch from block) |
-| `⌘⌥↵` | New top-level block in the current chapter |
-| `⌘⌥C` | New chapter |
-| `⌘⌥B` | Manual page break before block |
-| `Tab` / `⇧Tab` | Indent / outdent block |
-| `⌘]` / `⌘[` | Indent / outdent list item |
-| `⌘⇧↑` / `⌘⇧↓` | Move block and subtree up/down |
-| `⌘⇧[` / `⌘⇧]` | Collapse / expand block |
-| `⌘⌥[` / `⌘⌥]` | Collapse all / expand all |
-| `⌘⇧F` | Focus on selected subtree |
-| `⇧↑` / `⇧↓` | Extend block selection (not editing) |
-| `⌘A` | Select all blocks (not editing) |
-| `⌘⇧⌫` | Delete selected block(s) |
-| `⌘⇧L` | Link to an existing block (reference) |
-
-### 9.3 Editing and branches
-
-| Shortcut | Action |
-|---|---|
-| `⌘B` / `⌘I` | Bold / italic |
-| `⌘⇧X` | Strikethrough |
-| `⌘⇧C` | Inline code |
-| `⌘K` | Add/edit web link |
-| `⌘⇧H` | Highlight (non-structural) |
-| `⌘⇧↵` | Anchor + branch from selection; if none, from the block |
-| `/` at block start | Block type menu |
-| `$$` + `Space` | Convert to formula block |
-| Triple backticks + `Space` | Convert to code block |
-| `⌘⇧L` | Link to an existing block |
-| `Tab` | Indent block; in code, insert indentation; lists use `⌘]` / `⌘[` |
-
-### 9.4 Continuous and Page
-
-**Shared navigation (Continuous and Page; Page Read is read-only; Page Edit planned)**
-
-| Shortcut | Action |
-|---|---|
+| `⌘\` | Toggle sidebar |
+| `⌘Z` / `⇧⌘Z` | Undo / Redo |
 | `⌘2` / `⌘3` | Continuous / Page |
-| `⌘E` | Edit/Read in Continuous; disabled in Page until Page Edit ships |
-| `Space`+drag / middle-drag | Pan the viewport |
+| `⌘E` | Edit / Read, in either layout |
 | `⌘+` / `⌘−` | Zoom in / out |
-| `⌘0` | Reset zoom to 100% |
-| `⇧1` | Fit view: fit width in Continuous, fit page in Page |
-| `⇧2` | Fit width (Page only; no-op in Continuous) |
-| `⌥↑` / `⌥↓` | Previous / next page (Continuous: derived marker; Page: exact page) |
-| `F` / `⌘⇧F` | Focus: Continuous dims/zooms; Page zooms |
-| `↑↓←→` | Move selection to nearest block |
-| `⇧`+arrow | Add nearest block to selection |
-| `⎋` | Leave editing (Continuous Edit) → exit focus → clear selection |
+| `⌘0` | Reset zoom to 100 % (Page: the fit-width baseline) |
+| `⇧⌘0` | Fit width |
+| `View → Fit page` | Fit the whole page (no accelerator) |
+| `⌃⌘F` | Toggle full screen (system menu role) |
 
-**Continuous authoring (Edit mode, no editor open)**
+### 9.2 Blocks (Continuous)
 
 | Shortcut | Action |
 |---|---|
-| `↵` | Edit selected block |
-| `⌘↵` | Add child |
-| `⌘⇧↑` / `⌘⇧↓` | Move block/subtree among siblings |
-| `Tab` / `⇧Tab` | Indent/outdent selected block |
-| `⌘⇧[` / `⌘⇧]` | Collapse / expand focused block |
-| `⌘⌥[` / `⌘⌥]` | Collapse all / expand all |
-| `⌫` | Delete selection |
-| `⇧`-drop | Reparent onto a block |
-| `⌥`-drop | Reference link to a block |
+| `⌃⏎` | Add child |
+| `⌥⏎` | Add sibling |
+| `⇧⌘⏎` | Branch from the selection; with no selection, add a child |
+| `⇥` / `⇧⇥` | Indent / outdent the selected block (native inside lists, code, tables and quotes) |
+| `⌘⌫` | Delete block, with confirmation when it has children |
+| `⌫` / `Del` on a selected block | Delete block |
+| `⌘.` | Collapse / expand the branch |
+| `⇧⌘F` | Focus branch |
+| `⇧⌘K` | Link |
+| `⇧⌘L` | Link as reference |
+| `⇧⌘H` | Highlight with the last used tone (toggles it off when the selection is uniformly that tone) |
+| `⌘↑` / `⌘↓` | Previous / next block (Continuous) |
+| `⌥↑` / `⌥↓` | Move block up / down (Continuous) |
 
-**Page Read (read-only)**
+### 9.3 Text inside a block
 
-Page Read has no editing shortcuts. `Return` or double-click opens the selected block in Continuous Edit; add, edit, delete, indent, and drag commands are disabled. Page Edit is opt-in and reuses the Continuous authoring shortcuts with one active block editor.
+| Shortcut | Action |
+|---|---|
+| `↵` | Split the paragraph (at the end of a heading: a normal paragraph) |
+| `⇧↵` | Hard line break |
+| `⌫` at the block start | Stays in the block; blocks never merge with Backspace |
+| `⌘B` / `⌘I` | Bold / italic |
+| `` ` `` | Wrap/unwrap the selection as inline code |
+| `⇧⌘K` | Add or edit a link |
+| `⇧⌘H` | Highlight |
+| `$$` + `↵` | Formula block |
+| ` ``` ` + `↵` | Code block (with auto-closing fences) |
+| `⇥` / `⇧⇥` in a table | Next / previous cell; Tab at the last cell appends a row |
+| `⌘⏎` in a code block | Leave the block from its end |
+| `⎋` | Blur the editor (in the find field: close the find) |
 
-### 9.5 Shortcut rules
+The find field has its own keys: `↵`/`⇧↵` next/previous, `↑`/`↓` previous/next, `Home`/`End` first/last,
+`⎋` close.
 
-- **Single-key shortcuts** (`F`, `⇧1`, `⇧2`, arrows) work in Continuous with no editor open and in Page (Read-only now). They can be disabled in Settings.
-- **Page Read is read-only.** Content and structure commands are disabled in Page Read, including New Chapter, New Block, Insert/Remove Manual Break, Delete, indent/outdent, and drag/drop. `Return` or double-click opens the block in Continuous Edit. Undo/redo remain global; the preview updates. Page Edit is available as an opt-in overlay.
-- **`⌘E` is mode, not inline code.** Inline code is `⌘⇧C` so Edit/Read has one unambiguous global meaning.
-- **`Tab` is the only structural key that changes meaning inside code blocks.**
-- **`Esc` never cancels editing.** It commits and leaves. `⌘Z` is the way back.
-- **`⌘P`** is quick export, not system print. Native printing is out of scope; the user prints the exported PDF.
-- **`⌥↑` / `⌥↓`** are page navigation in all layouts and modes; disabled while editing in a text field.
-- **Freeze/Reflow are view-state commands.** `⌘⌥L` freezes layout and pagination; `⌘⌥R` reflows now. They are not undoable and do not change the document.
-- **No page-management commands or shortcuts.** There is no New Page, Duplicate Page, Delete Page, Split Page, or Move to Page. Pages are derived.
-- **No pin/nudge shortcuts.** There is no free positioning.
-- **`⌃`** is used only for the system full-screen toggle and `⌃Tab` to leave the main view.
-- **Menu bar parity:** every shortcut is a menu item, and every menu item has a shortcut or a documented reason not to.
+### 9.4 Page
+
+| Shortcut | Action |
+|---|---|
+| `⌘↑` / `⌘↓` | Previous / next page start (works from the canvas header and the pager) |
+| `↵` | Open or edit the selected block |
+| `⎋` | Clear the block selection |
+| `⎋` or `⌘⏎` | Commit Page Edit |
+| `⌘S` | Commit Page Edit, then save |
+
+Page Edit is opt-in; Page Read is exact and read-only. The page canvas keeps `⌘+/⌘−/⌘0` for the Page zoom.
+
+### 9.5 Rules
+
+- **One catalogue.** `apps/desktop/src/renderer/src/lib/shortcuts.ts` is the source; the Settings list, the
+  menu accelerators, the palette hints and the handlers all read it. A binding that is not in the catalogue
+  does not exist.
+- **No bare-Shift chord.** `⇧` only ever rides a `⌘`/`⌃` chord (`⇧⌘E`, `⇧⌘Z`); `⇧Tab` is outdent on a
+  selected block, never typing.
+- **`⌘E` is mode.** Inline code is the backtick toggle, not a chord.
+- **`Tab` changes meaning only on a selected block**; inside lists, code, tables and quotes it is native.
+- **`Esc` never cancels Page Edit**; it commits and leaves. `⌘Z` is the way back.
+- **`⌥↑`/`⌥↓`** move blocks in Continuous and change pages on the Page canvas; `⌘↑`/`⌘↓` are the page step
+  when the canvas has focus and previous/next block with the caret in a block.
+- **No page-management or pin/nudge shortcuts.** Pages are derived.
+- **`⌃`** is used for tab cycling and the system full-screen role only.
+- **Not in v1** (kept here as the earlier design record): `⌘⇧S` Save As; `⌘1` Outline; `⌘[`/`⌘]` history;
+  `⌘⌥C` New chapter; `⌘⌥B` manual break; `⌘⌥L`/`⌘⌥R` freeze/reflow; `⌘⌥P` Page Setup; `⌘P` quick export;
+  `⌘⌥I` inspector; `⌘⇧/` shortcut sheet; the Outline authoring keys (`⌘⌥↵`, `⌘⇧↑/↓`, `⌘⌥[/]`, `⇧↑/↓`,
+  `⌘A` blocks, `⌘⇧⌫`, `⌘[/]`); `⌘⇧X`/`⌘⇧C` text marks; `⌘K` for a web link (it is the palette).
 
 ---
 

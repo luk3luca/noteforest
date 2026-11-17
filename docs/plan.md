@@ -649,7 +649,7 @@ contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuo
 muted state at 1.35:1, the light reference at ≈3.0, the arrowhead — as one measured contrast table per
 polarity and one visual pass | B1 |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
-| 8 | **v1 hardening** | The page controls into the canvas header, and the rich-cell guard. **In flight at `941046a`'s brief** (`docs/tasks/v1-hardening.md`) | — |
+| 8 | **v1 hardening** | **Merged at `decd36b`**: the page controls in the canvas header and the rich-cell load guard (`docs/tasks/v1-hardening.md`) | — |
 
 **Not v1 work (decided 17 November 2026):** the name stays **NoteForest** — personal use, GitHub only, no
 public distribution, so no clearance and no notarization; the manual VoiceOver sweep is the product
@@ -712,22 +712,20 @@ does not have to rediscover it.
    surface. Not urgent; it is an accessibility and test-hygiene defect, not a behaviour one.
 4. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
    only if it is felt.
-5. **Page swallows `⇧1`/`⇧2` in any text field (reproduced 17 November 2026).** `App.tsx` handles the two
-   fit keys in Page before any target check, so the find field cannot receive `!`, `"`, `£`, `%`, `/` or
-   `(`: `⌘F`, `a`, `⇧1`, `b` reads `ab` in Page and `a!b` in Continuous. Fix is one input/textarea/
-   contenteditable guard and one owner for the key (the duplicate in `PageView` goes). Audit and repro in
-   `docs/design/shortcuts.md`.
-6. **The shortcut list names the wrong page keys (found 17 November 2026).** Settings says Previous /
-   next page is `⌥↑/⌥↓`, which only works while the page canvas has focus; the shipped page step is
-   `⌘↑/⌘↓` (the pager's own tooltips and `aria-keyshortcuts`). The Editor row `⌘↑/⌘↓` carries no scope and
-   means something else in Page. Both rows are fixed by K1 below.
+5. **`⇧Esc` no longer closes the find (B1 deviation, 17 November 2026).** The catalogue's Escape chord
+   requires an unmodified `Esc`; the old handler accepted Shift by accident. `Esc` alone still closes and
+   restores the selection. No action planned; recorded so nobody "fixes" it into a second chord.
+6. **The shifted-bracket tab bindings are dead on a US layout (B1, 17 November 2026).** `⌘⇧[`/`⌘⇧]` are
+   still matched in code but `list: false`: on US the shifted key reports `{`/`}`, so they never fire. The
+   discoverable tab pairs are `⌃Tab` / `⌃⇧Tab`. Remove them from the code or match `event.code` if they are
+   ever wanted.
 
 ### Order decided 17 November 2026
 
 The release comes **last**: v1 hardening → find/highlighter → **B1 v1 defects** (Page dot, print-free
 page, shortcut catalogue) → **B2 contrast** (code themes + Continuous edges) → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
-`npm run release`). K1 waits for the find fixes on purpose: same shell files, and the Page find field is
-where the `⇧1`/`⇧2` defect shows. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
+`npm run release`). B1 waited for the find fixes on purpose: same shell files, and the Page find field is
+where the `⇧1`/`⇧2` defect showed. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
 stays in that file as the record.
 
 ### Shortcuts: what exists and what does not (17 November 2026)

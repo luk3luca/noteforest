@@ -57,7 +57,7 @@ The next slice is therefore the **editable shell with the distinguishing feature
 - Close button on hover/focus; middle-click closes; `⌘W` closes the active tab.
 - Overflow: horizontal scroll with a subtle fade, not a dropdown; a `+` button opens a recent/new menu.
 - Tab reorder by drag; the active tab is visually distinct with the editor background, not a colored pill.
-- `⌘1`, `⌘4…9` switch to tab N; `⌘2`/`⌘3` are reserved for Continuous/Page; `⌘⇧[` / `⌘⇧]` previous/next.
+- `⌃Tab` / `⌃⇧Tab` cycle tabs; `⌘2`/`⌘3` are Continuous/Page; there are no digit tab keys (B1 removed them).
 - No nested tabs, no split view, no pinned tabs in M2.
 
 ### Sidebar (left, 264 px default, resizable 180–640 px)
@@ -123,20 +123,22 @@ The next slice is therefore the **editable shell with the distinguishing feature
 | Close tab | `⌘W`; prompt if dirty |
 | Close window | `⌘⇧W` |
 | Reopen closed tab | `⌘⇧T` |
-| Switch tab | `⌘1`, `⌘4…9`, `⌘⇧[` / `⌘⇧]` (`⌘2`/`⌘3` are Continuous/Page) |
+| Switch tab | `⌃Tab` / `⌃⇧Tab`, the tab strip, the palette (`⌘2`/`⌘3` are Continuous/Page) |
 | New line in block | `Enter` |
 | Hard line break | `⇧Enter` |
 | New sibling block | `⌥Enter` |
 | New child block | `⌃Enter` |
 | Make child (selected block only) | `Tab`; in lists/code `Tab` is indent |
-| Outdent | `⇧Tab` on a selected block; `⌘[`/`⌘]` alternative |
-| Merge with previous | `Backspace` at start of a non-empty block; on an empty block, `Backspace` moves the caret without deleting. Delete only with `⌘Backspace`/`Delete` on a selected block (confirm if it has children). |
-| Focus previous/next block | `⌘↑` / `⌘↓` |
+| Outdent | `⇧Tab` on a selected block |
+| Delete a block | `⌘Backspace` or `Delete` on a selected block (confirm when it has children). Plain `Backspace` never crosses the block boundary: at the start it stays, inside the block it edits. |
+| Focus previous/next block | `⌘↑` / `⌘↓` (Continuous) |
 | Collapse/expand block | `⌘.` or chevron |
 | Select/delete branch | Click the arrow; `Delete` or the inline action; target becomes top-level |
-| Insert link | `⌘⇧K` (frees `⌘K` for the palette) |
+| Insert link | `⇧⌘K` (frees `⌘K` for the palette) |
+| Link as reference | `⇧⌘L` |
+| Highlight | `⇧⌘H` (last tone) or the four swatches |
+| Move block up/down | `⌥↑` / `⌥↓` (Continuous) |
 | Rename document | double-click title in tab/sidebar |
-| Delete block | `⌘⌫` with promote/subtree choice if it has children |
 
 Structural commands are application commands, not raw editor behavior. Undo is one visible stack; text edits and structural commands must not fight.
 
