@@ -643,7 +643,7 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 | 3 | **Data and recovery** | `core` command reasons mapped at the boundary — **merged at `646f343`**. `Unused images` in Health **merged at `2b5c582`**: previewed cleanup, bytes to the **OS Trash**, only when non-empty, backup-referenced assets kept. Follow-up: backup retention is now a **content reference** (`2e99e2d`): an image returns reclaimable when the backups that show it rotate out (floor 10, default 20 autosaves) — that is the grace period, and it is the honest one. **Batch 3 complete.** | 1 (Health rows and modal) |
 | 4 | **Page as a scroll of pages** | `docs/design/page-scroll.md`: one column, touching pages with a 1 px seam, free scroll, `N / M` from the viewport centre, zoom 50–200 % with 100 % as fit, mount visible ±2; harness `waitSaved` 30 s and `markdown-file-view` serial; 1,000-block measurement (53 pages, 520 ms mount, scroll p95 33.4 ms). **Merged at `5a8dfac`** | 3 (`styles.css`) |
 | 5 | **Find fidelity and highlighter** | `docs/design/highlight.md`. **F4a** (`docs/tasks/find-page.md`): `data-node-path` tags, the offset→page mapping, `CSS.highlights` for find, one current across ranges, print carries nothing. **F4b** (`docs/tasks/highlighter.md`): the `highlight` mark with four tones, the bubble swatches and `⌘⇧H`, Continuous and Page rendering, the print tones, additive (no `schemaVersion` bump) | the spike (done: `docs/design/find-page-highlight.md`); F4b after F4a |
-| 6 | **Code themes, edge legibility, Settings pages** | Code-theme registry (**verbatim themes only, no colour edits**), picker with the measured contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** (see below); manual-break defaults and library/backup in Data & About | 2 for the Settings pages it shares |
+| 6 | **Code themes, edge legibility, Settings pages, shortcut catalogue** | Code-theme registry (**verbatim themes only, no colour edits**), picker with the measured contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** (see below); manual-break defaults and library/backup in Data & About; **shortcut catalogue**: the list in `SettingsDialog.tsx` is a hand-written array while the real bindings live in the handlers, so it can drift — one module becomes the single source, the page renders from it, and a test asserts every row is a real binding | 2 for the Settings pages it shares |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
 | 8 | **v1 hardening** | The page controls into the canvas header, and the rich-cell guard. **In flight at `941046a`'s brief** (`docs/tasks/v1-hardening.md`) | — |
 
@@ -721,3 +721,15 @@ The release comes **last**: v1 hardening → find/highlighter → themes, edges 
 Settings pages → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
 `npm run release`). The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
 stays in that file as the record.
+
+### Shortcuts: what exists and what does not (17 November 2026)
+
+- **Shipped:** `Help → Keyboard shortcuts` and `Settings → Editor → Shortcuts`, searchable
+  (`filterShortcuts` in `SettingsDialog.tsx`), merged with R5 at `4a87ae8`.
+- **Shipped:** the settings inventory (`docs/reviews/settings-inventory.md`), frozen for design, with its S2
+  findings fixed.
+- **Not shipped:** the list and the bindings are **two copies** — `SHORTCUTS` is a literal array in
+  `SettingsDialog.tsx`, the handlers are elsewhere. Nothing proves a row still exists. Fix is a single
+  catalogue module plus a test; it belongs to the settings batch.
+- **Not shipped, and bigger:** MS-9, configurable or disableable shortcuts. That is a product decision, not
+  a cleanup.
