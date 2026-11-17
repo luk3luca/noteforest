@@ -48,7 +48,7 @@ import {
   buildPageEdgeModel,
   pageCssVariables,
 } from '@noteforest/layout';
-import { goToActivePage, openBlockInContinuous, openPageCardMenu } from '../actions';
+import { openBlockInContinuous, openDocumentHealth, openPageCardMenu } from '../actions';
 import { useRuntime } from '../state/registry';
 import { useShell, currentFindResult } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
@@ -63,6 +63,7 @@ import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
 import { corePageGeometry } from './adapter';
 import { clampPageNumber } from './model';
 import { PageEdges } from './PageEdges';
+import { matches } from '../lib/shortcuts';
 import { clearPageFindHighlights, paintPageFind } from './find-highlight';
 import { clearPageStatus, publishPageStatus } from './page-status';
 import { usePageSettings } from '../state/settings';
@@ -117,18 +118,35 @@ function DefectBadge({ defects, label = 'Layout defect' }: {
   );
 }
 
-function AnchorWarningBadge({ warnings }: { warnings: readonly AnchorAttachment[] }): JSX.Element {
-  const title = warnings
-    .map((warning) => `Anchor ${warning.anchorId}: ${warning.state}`)
-    .join('\n');
+/**
+ * A broken or ambiguous anchor is a status dot, not a text chip (B1, product
+ * decision 17 November 2026). The 6 px visual covers no word; the 24 px hit area
+ * is the button, so the tooltip opens and a click can repair the anchor without
+ * moving anything that the paginator measured.
+ */
+function AnchorWarningDot({ warnings }: { warnings: readonly AnchorAttachment[] }): JSX.Element {
+  const first = warnings[0];
+  const label =
+    first?.state === 'ambiguous'
+      ? 'Ambiguous anchor. Open document health to repair.'
+      : 'Lost anchor. Open document health to repair.';
   return (
-    <span
-      className="nf-page-badge nf-page-anchor-badge"
-      title={title}
+    <button
+      type="button"
+      className="nf-page-anchor-dot"
       data-page-anchor-warning="true"
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        // The card behind selects on click and opens its editor on double
+        // click; neither may happen behind the Health dialog.
+        event.stopPropagation();
+        if (first !== undefined) openDocumentHealth({ anchorId: first.anchorId });
+      }}
+      onDoubleClick={(event) => event.stopPropagation()}
     >
-      ⚠ anchor
-    </span>
+      <span className="nf-page-anchor-dot-shape" aria-hidden="true" />
+    </button>
   );
 }
 
@@ -188,6 +206,9 @@ function PageFragmentView({
   )}`;
   const title = titleOf(runtime, fragment.blockId);
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    // A focused control inside the card (the anchor dot) owns its own keys;
+    // Enter on that button must open its repair, not the block.
+    if (event.target !== event.currentTarget) return;
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     event.stopPropagation();
@@ -248,7 +269,7 @@ function PageFragmentView({
         dangerouslySetInnerHTML={{ __html: html }}
       />
       {blocking.length > 0 ? <DefectBadge defects={blocking} label="Block defect" /> : null}
-      {anchorWarnings.length > 0 ? <AnchorWarningBadge warnings={anchorWarnings} /> : null}
+      {anchorWarnings.length > 0 ? <AnchorWarningDot warnings={anchorWarnings} /> : null}
     </div>
   );
 }
@@ -584,7 +605,7 @@ export function PageView({
   useEffect(() => {
     if (!active) return undefined;
     // The scroll region is the keyboard target: arrows/PageDown scroll the
-    // pages natively and the page-level keys (⌥↑/↓, Escape, Enter) are handled
+    // pages natively and the page-level keys (Escape, Enter) are handled
     // on the same element.
     const element = scrollRef.current;
     if (element === null) return undefined;
@@ -615,21 +636,6 @@ export function PageView({
       window.removeEventListener('resize', update);
     };
   }, [active]);
-
-  const goToPage = useCallback(
-    (next: number) => {
-      if (pageCount <= 0) return;
-      goToActivePage(clampPageNumber(next, pageCount));
-    },
-    [pageCount],
-  );
-
-  const setFit = useCallback(
-    (fit: 'page' | 'width' | 'none') => {
-      useShell.getState().setDocumentPageFit(runtime.packagePath, fit);
-    },
-    [runtime.packagePath],
-  );
 
   const selectBlock = useCallback(
     (blockId: string) => {
@@ -769,45 +775,20 @@ export function PageView({
     const interactive = target.closest(
       'button, a, input, textarea, select, [contenteditable="true"]',
     );
-    // The Page Edit overlay is a real text editor. Page-level single-key
-    // shortcuts (⇧1/⇧2, ⌥↑/↓, ⌘↑/↓) must not swallow punctuation or word
-    // navigation while the caret is inside it; the toolbar buttons remain
-    // the page-navigation path and they commit the overlay first.
+    // The Page Edit overlay is a real text editor: its own editor-local keys
+    // (Escape, ⌘⏎) must not be swallowed by the page canvas, and the toolbar
+    // remains the page-navigation path (it commits the overlay first).
     if (target.closest('[contenteditable="true"]') !== null) return;
     // `⌘↑`/`⌘↓` live in the global shell channel (App), so they keep working
     // after the jump moved focus to the toolbar indicator.
-    if (event.altKey && !event.metaKey && !event.ctrlKey) {
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        goToPage(pageNumber - 1);
-        return;
-      }
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        goToPage(pageNumber + 1);
-        return;
-      }
-    }
-    if (event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
-      if (event.code === 'Digit1') {
-        event.preventDefault();
-        setFit('page');
-        return;
-      }
-      if (event.code === 'Digit2') {
-        event.preventDefault();
-        setFit('width');
-        return;
-      }
-    }
-    if (event.key === 'Escape') {
+    if (matches(event, 'page-clear-selection')) {
       if (selectedBlockId !== null) {
         event.preventDefault();
         runtime.selectBlock(null);
       }
       return;
     }
-    if (event.key === 'Enter' && interactive === null && selectedBlockId !== null) {
+    if (matches(event, 'page-open-block') && interactive === null && selectedBlockId !== null) {
       event.preventDefault();
       if (pageEditing) editBlock(selectedBlockId, pageNumber);
       else openBlockInContinuous(selectedBlockId);
@@ -881,7 +862,7 @@ export function PageView({
   const fragmentCount = page?.fragments.length ?? 0;
 
   // The region itself is a focus target so the page-level keys (Escape,
-  // ⌥↑/↓, Enter) work from the header too; the scroll region inside it is a
+  // Enter) work from the header too; the scroll region inside it is a
   // second, native scroll target for arrows, PageUp/PageDown, Home/End.
   return (
     <div

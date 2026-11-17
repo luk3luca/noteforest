@@ -1,7 +1,7 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { artifactsPath } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 
@@ -25,8 +25,8 @@ const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
 
-const ALL_GROUPS = ['Shell', 'Editor', 'Page'];
-const ALL_ROWS = 27;
+const ALL_GROUPS = ['Shell', 'View', 'Editor', 'Page'];
+const ALL_ROWS = 34;
 
 async function launch(name) {
   page = await ui.launch({ ...ui.isolated(name), NOTEFOREST_E2E_HIDDEN: '1' });
@@ -85,6 +85,22 @@ async function rowLabels() {
   return page.locator('.nf-shortcut-row dt').allInnerTexts();
 }
 
+/** The catalogue the renderer renders from (test bridge, never a copy). */
+async function catalogue() {
+  return page.evaluate(() => window.__noteforestTest.shortcuts());
+}
+
+/** The rendered rows, exactly as a user reads them. */
+async function renderedRows() {
+  return page.locator('.nf-shortcut-row').evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      label: node.querySelector('dt')?.textContent ?? '',
+      keys: node.querySelector('kbd')?.textContent ?? '',
+      note: node.querySelector('.nf-shortcut-note')?.textContent ?? null,
+    })),
+  );
+}
+
 async function waitRows(count) {
   await page.waitForFunction(
     (expected) => document.querySelectorAll('.nf-shortcut-row').length === expected,
@@ -97,6 +113,44 @@ async function filterShortcuts(value, expectedRows) {
   await shortcutSearch().fill(value);
   await waitRows(expectedRows);
 }
+
+const RENDERER_SRC = resolve(
+  import.meta.dirname,
+  '..',
+  '..',
+  'apps/desktop/src/renderer/src',
+);
+
+/** Every renderer source file, so the glyph guard cannot miss one. */
+async function rendererSources(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) files.push(...(await rendererSources(path)));
+    else if (/\.(ts|tsx|css)$/.test(entry.name)) files.push(path);
+  }
+  return files;
+}
+
+/**
+ * One glyph order (K1): Apple's `⌃⌥⇧⌘`. A `⌘⇧` literal is the old order and
+ * must not come back anywhere in the renderer, comments included. The same
+ * guard runs in `apps/desktop/test/shortcuts.test.ts`, so `verify:fast` fails
+ * too, not only the UI gate.
+ */
+describe('keyboard glyph guard', () => {
+  it('keeps the Apple order in every renderer source file', async () => {
+    const files = await rendererSources(RENDERER_SRC);
+    assert.ok(files.length > 50, `scanned ${files.length} renderer files`);
+    const violations = [];
+    for (const file of files) {
+      const source = await readFile(file, 'utf8');
+      if (source.includes('⌘⇧')) violations.push(file.slice(RENDERER_SRC.length + 1));
+    }
+    assert.deepEqual(violations, []);
+  });
+});
 
 describe('Settings Editor shortcut list', () => {
   before(async () => {
@@ -165,7 +219,46 @@ describe('Settings Editor shortcut list', () => {
     );
     assert.equal(await page.locator('[data-shortcut-clear]').count(), 0, 'no clear action when empty');
 
+    // The rendered list is the catalogue: same groups, same order, same labels,
+    // same keys, same scope notes. A renamed binding fails the unit test; a
+    // list that stops reading the catalogue fails here.
+    const groups = await catalogue();
+    assert.deepEqual(groups.map((group) => group.group), ALL_GROUPS);
+    const expectedRows = groups.flatMap((group) =>
+      group.rows.map((row) => ({
+        label: row.label,
+        keys: row.keys,
+        note: row.note ?? null,
+      })),
+    );
+    assert.equal(expectedRows.length, ALL_ROWS);
+    assert.deepEqual(await renderedRows(), expectedRows, 'the list equals the catalogue');
+    assert.deepEqual(await groupNames(), ALL_GROUPS);
+
+    // No row displays the old `⌘⇧` order, and no row names a removed key.
+    const keys = await page.locator('.nf-shortcut-row kbd').allInnerTexts();
+    for (const value of keys) assert.ok(!value.includes('⌘⇧'), `${value} uses Apple order`);
+    const listText = keys.join(' ');
+    assert.ok(!listText.includes('⇧1') && !listText.includes('⇧2'), 'no bare-Shift fit keys');
+    assert.ok(!listText.includes('⌘1') && !listText.includes('⌘9'), 'no tab digits');
+    assert.ok(listText.includes('⌘0'), 'reset zoom keeps its key');
+    assert.ok(
+      (await page.locator('[data-shortcut-id="reset-zoom"] dt').innerText()) === 'Reset zoom',
+      '⌘0 reads Reset zoom',
+    );
+    assert.ok(
+      (await page.locator('[data-shortcut-id="page-step"] kbd').innerText()) === '⌘↑ / ⌘↓',
+      'the Page row names the page pair that works',
+    );
+    assert.equal(
+      await page.locator('[data-shortcut-id="block-step"] .nf-shortcut-note').innerText(),
+      'Continuous, caret in a block',
+      'a scoped row states its scope',
+    );
+
     await page.screenshot({ path: join(screenshotDir, 'editor-shortcuts.png') });
+    await mkdir(join(screenshotDir, '..', 'b1-defects'), { recursive: true });
+    await page.screenshot({ path: artifactsPath('b1-defects', 'settings-shortcuts.png') });
   });
 
   it('opens the default Settings entry on General and gates the shortcut command behind the modal', async () => {
@@ -220,9 +313,9 @@ describe('Settings Editor shortcut list', () => {
     );
 
     // Label filtering is case-insensitive and hides groups with no match.
-    await filterShortcuts('focus', 2);
+    await filterShortcuts('focus', 1);
     assert.deepEqual(await groupNames(), ['Editor']);
-    assert.deepEqual(await rowLabels(), ['Focus branch', 'Focus previous / next block']);
+    assert.deepEqual(await rowLabels(), ['Focus branch']);
 
     // Key filtering matches the rendered combination text.
     await filterShortcuts('⌘s', 1);
@@ -230,14 +323,17 @@ describe('Settings Editor shortcut list', () => {
     assert.deepEqual(await rowLabels(), ['Save']);
 
     // Upper-case label query matches across more than one group.
-    await filterShortcuts('PAGE', 4);
-    assert.deepEqual(await groupNames(), ['Shell', 'Page']);
+    await filterShortcuts('PAGE', 3);
+    assert.deepEqual(await groupNames(), ['View', 'Page']);
     assert.deepEqual(await rowLabels(), [
       'Continuous / Page',
       'Previous / next page',
-      'Fit page / Fit width',
       'Commit Page Edit',
     ]);
+
+    // The scope note is searchable too (`pager` only exists in the note).
+    await filterShortcuts('pager', 1);
+    assert.deepEqual(await rowLabels(), ['Previous / next page']);
 
     // The explicit clear action restores the whole grouped list.
     await page.locator('[data-shortcut-clear]').click();
@@ -245,6 +341,42 @@ describe('Settings Editor shortcut list', () => {
     assert.equal(await shortcutSearch().inputValue(), '');
     assert.deepEqual(await groupNames(), ALL_GROUPS);
     assert.equal(await page.locator('[data-shortcut-clear]').count(), 0);
+  });
+
+  it('prints the catalogue hints in the palette, never a hand-typed chord (K1)', async () => {
+    await launch('editor-shortcuts-palette');
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    const input = page.locator('.nf-palette-input');
+
+    const hintFor = async (query, id) => {
+      await input.fill(query);
+      const row = page.locator(`[data-palette-item="cmd-${id}"]`);
+      await row.waitFor();
+      const hints = row.locator('.nf-palette-hint');
+      return (await hints.count()) === 0 ? null : hints.innerText();
+    };
+
+    assert.equal(await hintFor('Save', 'save'), '⌘S');
+    assert.equal(await hintFor('Undo', 'undo'), '⌘Z');
+    assert.equal(await hintFor('Redo', 'redo'), '⇧⌘Z');
+    assert.equal(await hintFor('Link as reference', 'link-reference'), '⇧⌘L');
+    assert.equal(await hintFor('Continuous', 'continuous-layout'), '⌘2');
+    assert.equal(await hintFor('Switch to Page', 'page-layout'), '⌘3');
+    assert.equal(await hintFor('Reset zoom', 'zoom-reset'), '⌘0');
+    assert.equal(await hintFor('Fit width', 'fit-width'), '⇧⌘0');
+    assert.equal(await hintFor('Fit page', 'fit-page'), null, 'Fit page has no key');
+
+    // Every rendered hint is Apple-ordered and none names a removed key.
+    await input.fill('');
+    const hints = await page.locator('.nf-palette-hint').allInnerTexts();
+    assert.ok(hints.length > 5);
+    for (const value of hints) {
+      assert.ok(!value.includes('⌘⇧'), `${value} uses the Apple order`);
+      assert.ok(!value.includes('⇧1') && !value.includes('⇧2'), `${value} is not a fit key`);
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.nf-palette', { state: 'detached' });
   });
 
   it('shows the empty state with the query and clears with the button and Escape', async () => {
@@ -267,7 +399,7 @@ describe('Settings Editor shortcut list', () => {
     assert.equal(await page.locator('[data-shortcuts-empty]').count(), 0);
 
     // Escape clears a non-empty query and keeps Settings open.
-    await filterShortcuts('focus', 2);
+    await filterShortcuts('focus', 1);
     await page.screenshot({ path: join(screenshotDir, 'editor-shortcuts-filtered.png') });
     await shortcutSearch().press('Escape');
     await waitRows(ALL_ROWS);

@@ -157,13 +157,20 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuItemConstru
         click: () => send('fit-width'),
       },
       {
+        // No accelerator: the bare-Shift `⇧1` that used to fit the page was
+        // removed (it swallowed `!` and `"` in the Page find field).
+        id: 'menu-fit-page',
+        label: 'Fit page',
+        click: () => send('fit-page'),
+      },
+      {
         label: 'Focus branch',
         accelerator: 'CmdOrCtrl+Shift+F',
         registerAccelerator: false,
         click: () => send('focus-branch'),
       },
       {
-        label: 'Actual size',
+        label: 'Reset zoom',
         accelerator: 'CmdOrCtrl+0',
         registerAccelerator: false,
         click: () => send('zoom-reset'),

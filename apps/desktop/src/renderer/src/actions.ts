@@ -99,6 +99,7 @@ import { exportActiveDocument } from './export/export-flow';
 import { isDraftKey } from '../../shared/drafts';
 import { indentTarget, outdentTarget } from './lib/indent';
 import { reorderTarget } from './lib/reorder';
+import { shortcutHint } from './lib/shortcuts';
 import { documentHealthReport } from './shell/useDocumentHealth';
 import {
   documentHealthSection,
@@ -2114,13 +2115,13 @@ export function openBlockMenu(
     {
       id: 'add-child',
       label: 'Add child block',
-      shortcut: '⌃⏎',
+      shortcut: shortcutHint('add-child'),
       onSelect: () => report(runtime.addChild(blockId)),
     },
     {
       id: 'add-sibling',
       label: 'Add sibling block',
-      shortcut: '⌥⏎',
+      shortcut: shortcutHint('add-sibling'),
       onSelect: () => report(runtime.addSibling(blockId)),
     },
     { id: 'sep-structure', label: '', separator: true },
@@ -2147,7 +2148,7 @@ export function openBlockMenu(
     {
       id: 'link-reference',
       label: 'Link as reference…',
-      shortcut: '⌘⇧L',
+      shortcut: shortcutHint('link-reference'),
       onSelect: () => shell().openDialog({ kind: 'link-reference', blockId }),
     },
     ...(branch === undefined
@@ -2174,7 +2175,7 @@ export function openBlockMenu(
       id: 'move-up',
       label: 'Move up',
       description: moveUp.ok ? undefined : moveUp.reason,
-      shortcut: '⌥↑',
+      shortcut: shortcutHint('block-move-up'),
       disabled: !moveUp.ok,
       ...(moveUp.ok ? { onSelect: () => report(runtime.reorderSibling(blockId, -1)) } : {}),
     },
@@ -2182,7 +2183,7 @@ export function openBlockMenu(
       id: 'move-down',
       label: 'Move down',
       description: moveDown.ok ? undefined : moveDown.reason,
-      shortcut: '⌥↓',
+      shortcut: shortcutHint('block-move-down'),
       disabled: !moveDown.ok,
       ...(moveDown.ok ? { onSelect: () => report(runtime.reorderSibling(blockId, 1)) } : {}),
     },
@@ -2190,7 +2191,7 @@ export function openBlockMenu(
       id: 'indent',
       label: 'Indent',
       description: indent.ok ? undefined : indent.reason,
-      shortcut: '⇥',
+      shortcut: shortcutHint('indent'),
       disabled: !indent.ok,
       ...(indent.ok ? { onSelect: () => report(runtime.indent(blockId)) } : {}),
     },
@@ -2198,7 +2199,7 @@ export function openBlockMenu(
       id: 'outdent',
       label: 'Outdent',
       description: outdent.ok ? undefined : outdent.reason,
-      shortcut: '⇧⇥',
+      shortcut: shortcutHint('outdent'),
       disabled: !outdent.ok,
       ...(outdent.ok ? { onSelect: () => report(runtime.outdent(blockId)) } : {}),
     },
@@ -2207,7 +2208,7 @@ export function openBlockMenu(
           {
             id: 'collapse',
             label: collapsed ? 'Expand branch' : 'Collapse branch',
-            shortcut: '⌘.',
+            shortcut: shortcutHint('collapse'),
             onSelect: () => report(runtime.toggleCollapse(blockId)),
           },
         ]
@@ -2351,7 +2352,7 @@ export function openTabMenu(
       {
         id: 'close',
         label: 'Close tab',
-        shortcut: '⌘W',
+        shortcut: shortcutHint('close-tab'),
         onSelect: () => void closeTab(packagePath),
       },
     ]);
@@ -2382,7 +2383,7 @@ export function openTabMenu(
     {
       id: 'close',
       label: draft ? 'Discard draft' : 'Close tab',
-      shortcut: '⌘W',
+      shortcut: shortcutHint('close-tab'),
       onSelect: () => void closeTab(packagePath),
     },
   ]);
@@ -2435,7 +2436,7 @@ export function openLibraryMenu(
             {
               id: 'close',
               label: 'Close tab',
-              shortcut: '⌘W',
+              shortcut: shortcutHint('close-tab'),
               onSelect: () => void closeTab(packagePath),
             },
           ]),
@@ -2541,22 +2542,22 @@ export function paletteCommands(): MenuEntry[] {
       {
         id: 'open-markdown',
         label: 'Open Markdown…',
-        shortcut: '⇧⌘O',
+        shortcut: shortcutHint('open-markdown'),
         onSelect: () => void openMarkdownDialog(),
       },
       {
         id: 'toggle-interaction-mode',
         label: mode === 'edit' ? 'Switch to Read mode' : 'Switch to Edit mode',
-        shortcut: '⌘E',
+        shortcut: shortcutHint('toggle-mode'),
         onSelect: toggleActiveInteractionMode,
       },
       { id: 'reveal', label: 'Reveal Markdown file in Finder', onSelect: revealActive },
-      { id: 'close-tab', label: 'Close tab', shortcut: '⌘W', onSelect: () => void closeActiveTab() },
-      { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘\\', onSelect: toggleSidebar },
+      { id: 'close-tab', label: 'Close tab', shortcut: shortcutHint('close-tab'), onSelect: () => void closeActiveTab() },
+      { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: shortcutHint('toggle-sidebar'), onSelect: toggleSidebar },
       {
         id: 'settings',
         label: 'Settings…',
-        shortcut: '⌘,',
+        shortcut: shortcutHint('settings'),
         onSelect: () => shell().openDialog({ kind: 'settings' }),
       },
     ];
@@ -2601,36 +2602,37 @@ export function paletteCommands(): MenuEntry[] {
       ? { ok: false as const, reason: 'Select a block first.' }
       : outdentTarget(runtime.document, selected);
   return [
-    { id: 'new-document', label: 'New note', shortcut: '⌘N', onSelect: () => void createNewDocument() },
+    { id: 'new-document', label: 'New note', shortcut: shortcutHint('new-note'), onSelect: () => void createNewDocument() },
     {
       id: 'open-markdown',
       label: 'Open Markdown…',
-      shortcut: '⇧⌘O',
+      shortcut: shortcutHint('open-markdown'),
       onSelect: () => void openMarkdownDialog(),
     },
-    gate({ id: 'new-chapter', label: 'New chapter', shortcut: '⇧⌘N', onSelect: () => void createChapter() }),
-    withDocument({ id: 'save', label: 'Save', shortcut: '⌘S', onSelect: () => void saveActive() }),
+    gate({ id: 'new-chapter', label: 'New chapter', shortcut: shortcutHint('new-chapter'), onSelect: () => void createChapter() }),
+    withDocument({ id: 'save', label: 'Save', shortcut: shortcutHint('save'), onSelect: () => void saveActive() }),
     withDocument({
       id: 'export-pdf',
       label: 'Export PDF…',
-      shortcut: '⇧⌘E',
+      shortcut: shortcutHint('export-pdf'),
       onSelect: exportActiveDocument,
     }),
-    { id: 'close-tab', label: 'Close tab', shortcut: '⌘W', onSelect: () => void closeActiveTab() },
-    { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: '⌘\\', onSelect: toggleSidebar },
-    withDocument({ id: 'zoom-in', label: 'Zoom in', shortcut: '⌘+', onSelect: () => adjustActiveLayoutZoom(0.1) }),
-    withDocument({ id: 'zoom-out', label: 'Zoom out', shortcut: '⌘−', onSelect: () => adjustActiveLayoutZoom(-0.1) }),
-    withDocument({ id: 'zoom-reset', label: 'Actual size', shortcut: '⌘0', onSelect: resetActiveLayoutZoom }),
-    withDocument({ id: 'fit-width', label: 'Fit width', shortcut: '⇧⌘0', onSelect: () => fitActiveLayout('fit-width') }),
-    withDocument({ id: 'continuous-layout', label: 'Switch to Continuous', shortcut: '⌘2', onSelect: () => setActiveDocumentLayout('continuous') }),
-    withDocument({ id: 'page-layout', label: 'Switch to Page', shortcut: '⌘3', onSelect: () => setActiveDocumentLayout('page') }),
+    { id: 'close-tab', label: 'Close tab', shortcut: shortcutHint('close-tab'), onSelect: () => void closeActiveTab() },
+    { id: 'toggle-sidebar', label: 'Toggle sidebar', shortcut: shortcutHint('toggle-sidebar'), onSelect: toggleSidebar },
+    withDocument({ id: 'zoom-in', label: 'Zoom in', shortcut: shortcutHint('zoom-in'), onSelect: () => adjustActiveLayoutZoom(0.1) }),
+    withDocument({ id: 'zoom-out', label: 'Zoom out', shortcut: shortcutHint('zoom-out'), onSelect: () => adjustActiveLayoutZoom(-0.1) }),
+    withDocument({ id: 'zoom-reset', label: 'Reset zoom', shortcut: shortcutHint('reset-zoom'), onSelect: resetActiveLayoutZoom }),
+    withDocument({ id: 'fit-width', label: 'Fit width', shortcut: shortcutHint('fit-width'), onSelect: () => fitActiveLayout('fit-width') }),
+    withDocument({ id: 'fit-page', label: 'Fit page', shortcut: shortcutHint('fit-page'), onSelect: () => fitActiveLayout('fit-page') }),
+    withDocument({ id: 'continuous-layout', label: 'Switch to Continuous', shortcut: shortcutHint('continuous-layout'), onSelect: () => setActiveDocumentLayout('continuous') }),
+    withDocument({ id: 'page-layout', label: 'Switch to Page', shortcut: shortcutHint('page-layout'), onSelect: () => setActiveDocumentLayout('page') }),
     withDocument({
       id: 'toggle-interaction-mode',
       label: activeInteractionMode() === 'edit' ? 'Switch to Read mode' : 'Switch to Edit mode',
-      shortcut: '⌘E',
+      shortcut: shortcutHint('toggle-mode'),
       onSelect: toggleActiveInteractionMode,
     }),
-    withDocument({ id: 'focus-branch', label: 'Focus branch', shortcut: '⇧⌘F', onSelect: toggleFocusBranch }),
+    withDocument({ id: 'focus-branch', label: 'Focus branch', shortcut: shortcutHint('focus-branch'), onSelect: toggleFocusBranch }),
     withDocument({
       id: 'rename-document',
       label: 'Rename document…',
@@ -2652,7 +2654,7 @@ export function paletteCommands(): MenuEntry[] {
     gate({
       id: 'add-child',
       label: 'Add child block',
-      shortcut: '⌃⏎',
+      shortcut: shortcutHint('add-child'),
       onSelect: () => {
         if (runtime === null || selected === null) return;
         report(runtime.addChild(selected));
@@ -2661,7 +2663,7 @@ export function paletteCommands(): MenuEntry[] {
     gate({
       id: 'add-sibling',
       label: 'Add sibling block',
-      shortcut: '⌥⏎',
+      shortcut: shortcutHint('add-sibling'),
       onSelect: () => {
         if (runtime === null || selected === null) return;
         report(runtime.addSibling(selected));
@@ -2670,7 +2672,7 @@ export function paletteCommands(): MenuEntry[] {
     gate({
       id: 'link-reference',
       label: 'Link as reference…',
-      shortcut: '⌘⇧L',
+      shortcut: shortcutHint('link-reference'),
       onSelect: () => {
         if (selected === null) return;
         shell().openDialog({ kind: 'link-reference', blockId: selected });
@@ -2679,7 +2681,7 @@ export function paletteCommands(): MenuEntry[] {
     gate({
       id: 'indent-block',
       label: 'Indent block',
-      shortcut: '⇥',
+      shortcut: shortcutHint('indent'),
       disabled: indentCheck.ok !== true,
       ...(indentCheck.ok ? {} : { reason: indentCheck.reason }),
       ...(indentCheck.ok && selected !== null
@@ -2689,7 +2691,7 @@ export function paletteCommands(): MenuEntry[] {
     gate({
       id: 'outdent-block',
       label: 'Outdent block',
-      shortcut: '⇧⇥',
+      shortcut: shortcutHint('outdent'),
       disabled: outdentCheck.ok !== true,
       ...(outdentCheck.ok ? {} : { reason: outdentCheck.reason }),
       ...(outdentCheck.ok && selected !== null
@@ -2708,19 +2710,19 @@ export function paletteCommands(): MenuEntry[] {
     gate({
       id: 'undo',
       label: 'Undo',
-      shortcut: '⌘Z',
+      shortcut: shortcutHint('undo'),
       onSelect: undoActive,
     }),
     gate({
       id: 'redo',
       label: 'Redo',
-      shortcut: '⇧⌘Z',
+      shortcut: shortcutHint('redo'),
       onSelect: redoActive,
     }),
     {
       id: 'settings',
       label: 'Settings…',
-      shortcut: '⌘,',
+      shortcut: shortcutHint('settings'),
       onSelect: () => shell().openDialog({ kind: 'settings' }),
     },
     gate({
@@ -2817,6 +2819,9 @@ export function runMenuCommand(command: MenuCommand): void {
       break;
     case 'fit-width':
       fitActiveLayout('fit-width');
+      break;
+    case 'fit-page':
+      fitActiveLayout('fit-page');
       break;
     case 'focus-branch':
       toggleFocusBranch();

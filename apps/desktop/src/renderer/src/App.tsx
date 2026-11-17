@@ -45,7 +45,6 @@ import {
   runMenuCommand,
   saveActive,
   setActiveDocumentLayout,
-  setActivePageFit,
   stepActivePage,
   syncActiveLibraryForPath,
   toggleActiveInteractionMode,
@@ -59,6 +58,7 @@ import {
   useSettingsStore,
 } from './state/settings';
 import { READ_MODE_TOAST } from './lib/editability';
+import { matches, shortcutsForList } from './lib/shortcuts';
 import { normalizeDocumentViewState } from '../../shared/view-state';
 import { flushDocuments } from './lib/flush';
 import { commitPageEdit } from './page/page-edit-state';
@@ -419,44 +419,26 @@ export function App(): JSX.Element {
       // the one app command that belongs to the surface that owns the channel.
       if (overlayOwnsCommands()) {
         const paletteToggle =
-          activeOverlayOwner() === 'palette' &&
-          (event.metaKey || event.ctrlKey) &&
-          !event.shiftKey &&
-          !event.altKey &&
-          event.key.toLowerCase() === 'k';
+          activeOverlayOwner() === 'palette' && matches(event, 'command-palette');
         if (!paletteToggle) return;
       }
       // Control+Tab is not a focus-traversal key (plain Tab is), so it can
       // safely cycle documents. This branch must run before the mod check:
       // `ctrlKey` makes `mod` true and used to make it unreachable.
-      if (event.ctrlKey && !event.metaKey && event.key === 'Tab') {
+      if (matches(event, 'tab-next')) {
         event.preventDefault();
-        cycleActiveTab(event.shiftKey ? -1 : 1);
+        cycleActiveTab(1);
         return;
       }
-      const layout = activeDocumentLayout();
-      if (
-        layout === 'page' &&
-        event.shiftKey &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        !event.altKey
-      ) {
-        if (event.code === 'Digit1') {
-          event.preventDefault();
-          setActivePageFit('page');
-          return;
-        }
-        if (event.code === 'Digit2') {
-          event.preventDefault();
-          setActivePageFit('width');
-          return;
-        }
+      if (matches(event, 'tab-previous')) {
+        event.preventDefault();
+        cycleActiveTab(-1);
+        return;
       }
       // Escape closes the find bar and restores the selection the bar saved on
       // open. The bar is not a modal owner (⌘G must keep working while typing),
       // so this lives in the global channel; a dialog above it returned already.
-      if (event.key === 'Escape' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (matches(event, 'close-find')) {
         if (!useShell.getState().findOpen) return;
         event.preventDefault();
         closeFind();
@@ -464,7 +446,6 @@ export function App(): JSX.Element {
       }
       const mod = event.metaKey || event.ctrlKey;
       if (!mod) return;
-      const key = event.key.toLowerCase();
       // The Page Edit overlay owns a real local ProseMirror history. Global
       // undo/redo must not intercept it while that editor has focus; the
       // overlay's history handles text undo until the commit creates the one
@@ -473,13 +454,13 @@ export function App(): JSX.Element {
       const target = event.target;
       const insidePageEdit =
         target instanceof Element && target.closest('[data-page-edit-overlay]') !== null;
-      if (insidePageEdit && key === 'z') return;
-      if (insidePageEdit && key === 's') {
+      if (insidePageEdit && (matches(event, 'undo') || matches(event, 'redo'))) return;
+      if (insidePageEdit && matches(event, 'save')) {
         event.preventDefault();
         window.dispatchEvent(new CustomEvent('nf:page-edit-commit'));
         return;
       }
-      if (key === ',' && !event.shiftKey && !event.altKey) {
+      if (matches(event, 'settings')) {
         // ⌘, opens Settings even with zero documents. The native menu owns the
         // same accelerator on macOS; this is the renderer fallback and the path
         // the UI suite can exercise.
@@ -487,12 +468,12 @@ export function App(): JSX.Element {
         dispatch('settings');
         return;
       }
-      if (key === '2' && !event.shiftKey && !event.altKey) {
+      if (matches(event, 'continuous-layout')) {
         event.preventDefault();
         setActiveDocumentLayout('continuous');
         return;
       }
-      if (key === '3' && !event.shiftKey && !event.altKey) {
+      if (matches(event, 'page-layout')) {
         event.preventDefault();
         setActiveDocumentLayout('page');
         return;
@@ -502,15 +483,8 @@ export function App(): JSX.Element {
       // the page field included, since that field only ever holds a page
       // number — but never inside another text field or the Page Edit overlay:
       // there the arrows belong to the caret.
-      if (
-        layout === 'page' &&
-        event.metaKey &&
-        !event.ctrlKey &&
-        !event.shiftKey &&
-        !event.altKey &&
-        (event.key === 'ArrowUp' || event.key === 'ArrowDown')
-      ) {
-        const target = event.target;
+      const layout = activeDocumentLayout();
+      if (layout === 'page' && (matches(event, 'page-previous') || matches(event, 'page-next'))) {
         const inPager =
           target instanceof Element && target.closest('[data-page-position-input]') !== null;
         if (
@@ -521,142 +495,140 @@ export function App(): JSX.Element {
           return;
         }
         event.preventDefault();
-        stepActivePage(event.key === 'ArrowUp' ? -1 : 1);
+        stepActivePage(matches(event, 'page-previous') ? -1 : 1);
         return;
       }
-      if (
-        event.metaKey &&
-        !event.ctrlKey &&
-        key === 'e' &&
-        !event.shiftKey &&
-        !event.altKey
-      ) {
+      if (matches(event, 'toggle-mode')) {
         // Command+E only: Control+E is the editor's native end-of-line key and
         // must stay with ProseMirror.
         event.preventDefault();
         toggleActiveInteractionMode();
         return;
       }
-      if (key === '=' || key === '+') {
+      if (matches(event, 'zoom-in')) {
         event.preventDefault();
         adjustActiveLayoutZoom(0.1);
         return;
       }
-      if (key === '-') {
+      if (matches(event, 'zoom-out')) {
         event.preventDefault();
         adjustActiveLayoutZoom(-0.1);
         return;
       }
-      if (event.code === 'Digit0') {
+      if (matches(event, 'fit-width')) {
         event.preventDefault();
-        if (event.shiftKey) fitActiveLayout('fit-width');
-        else fitActiveLayout('actual');
+        fitActiveLayout('fit-width');
         return;
       }
-      if (key === 'f' && !event.shiftKey && !event.altKey) {
+      if (matches(event, 'reset-zoom')) {
+        event.preventDefault();
+        fitActiveLayout('actual');
+        return;
+      }
+      if (matches(event, 'find')) {
         // ⌘F: no native menu accelerator owns it (see the custom menu) and
         // Electron has no built-in find UI, so the renderer is the only path.
         event.preventDefault();
         openFind();
         return;
       }
-      if (key === 'g' && !event.altKey) {
+      if (matches(event, 'find-next') || matches(event, 'find-previous')) {
         // ⌘G / ⇧⌘G move the current find hit. Both presentations of the find
         // surface own that hit; with neither showing there is no search to
         // move through.
         if (!findSurfaceActive(useShell.getState())) return;
         event.preventDefault();
         event.stopPropagation();
-        if (event.shiftKey) findPrevious();
+        if (matches(event, 'find-previous')) findPrevious();
         else findNext();
         return;
       }
-      if (key === 'f' && event.shiftKey) {
+      if (matches(event, 'focus-branch')) {
         event.preventDefault();
         toggleFocusBranch();
         return;
       }
-      if (key >= '1' && key <= '9') {
-        // 2 and 3 are the layout shortcuts (ADR-0007); the remaining digits
-        // keep the direct tab shortcuts.
-        if (key === '2' || key === '3') return;
+      if (matches(event, 'command-palette')) {
         event.preventDefault();
-        const state = useShell.getState();
-        const tab = state.tabs[Number(key) - 1];
-        if (tab !== undefined) state.setActiveTab(tab.packagePath);
+        dispatch('command-palette');
         return;
       }
-      switch (key) {
-        case 'k':
+      if (matches(event, 'close-window')) {
+        event.preventDefault();
+        window.close();
+        return;
+      }
+      if (matches(event, 'close-tab')) {
+        event.preventDefault();
+        dispatch('close-tab');
+        return;
+      }
+      if (matches(event, 'save')) {
+        event.preventDefault();
+        dispatch('save');
+        return;
+      }
+      if (matches(event, 'new-chapter')) {
+        event.preventDefault();
+        dispatch('new-chapter');
+        return;
+      }
+      if (matches(event, 'new-note')) {
+        event.preventDefault();
+        dispatch('new-document');
+        return;
+      }
+      if (matches(event, 'toggle-sidebar')) {
+        event.preventDefault();
+        dispatch('toggle-sidebar');
+        return;
+      }
+      if (matches(event, 'reopen-tab')) {
+        event.preventDefault();
+        dispatch('reopen-tab');
+        return;
+      }
+      if (matches(event, 'link-reference')) {
+        // The link-reference dialog is a NoteForest block command; a Markdown
+        // guest file has no branches or references.
+        if (activeTabIsMarkdown()) return;
+        // The link-reference dialog is a mutating shell path and follows the
+        // same gate as the palette and block menu.
+        if (!activeEditingEnabled()) {
           event.preventDefault();
-          dispatch('command-palette');
-          break;
-        case 'w':
-          event.preventDefault();
-          if (event.shiftKey) window.close();
-          else dispatch('close-tab');
-          break;
-        case 's':
-          event.preventDefault();
-          dispatch('save');
-          break;
-        case 'n':
-          event.preventDefault();
-          dispatch(event.shiftKey ? 'new-chapter' : 'new-document');
-          break;
-        case '\\':
-          event.preventDefault();
-          dispatch('toggle-sidebar');
-          break;
-        case 't':
-          if (event.shiftKey) {
-            event.preventDefault();
-            dispatch('reopen-tab');
-          }
-          break;
-        case 'l': {
-          if (!event.shiftKey) break;
-          // The link-reference dialog is a NoteForest block command; a Markdown
-          // guest file has no branches or references.
-          if (activeTabIsMarkdown()) break;
-          // The link-reference dialog is a mutating shell path and follows the
-          // same gate as the palette and block menu.
-          if (!activeEditingEnabled()) {
-            event.preventDefault();
-            event.stopPropagation();
-            toast.info(READ_MODE_TOAST);
-            break;
-          }
-          const current = activeRuntime();
-          const blockId = current?.selectedBlockId ?? null;
-          if (blockId === null) break;
-          event.preventDefault();
-          useShell.getState().openDialog({ kind: 'link-reference', blockId });
-          break;
-        }
-        case '[':
-        case ']': {
-          if (!event.shiftKey) break;
-          event.preventDefault();
-          cycleActiveTab(key === ']' ? 1 : -1);
-          break;
-        }
-        case 'z': {
-          const element = document.activeElement;
-          const isPlainTextInput =
-            element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
-          if (isPlainTextInput) return;
-          event.preventDefault();
-          // The renderer is the single delivery path for document history.
-          // Do not let ProseMirror's own history keymap also handle the event:
-          // in Read (or while the Page layout hides the continuous editor) a
-          // blocked undo must not mutate the hidden buffer.
           event.stopPropagation();
-          dispatch(event.shiftKey ? 'redo' : 'undo');
-          break;
+          toast.info(READ_MODE_TOAST);
+          return;
         }
-        default:
-          break;
+        const current = activeRuntime();
+        const blockId = current?.selectedBlockId ?? null;
+        if (blockId === null) return;
+        event.preventDefault();
+        useShell.getState().openDialog({ kind: 'link-reference', blockId });
+        return;
+      }
+      if (matches(event, 'tab-next-bracket')) {
+        event.preventDefault();
+        cycleActiveTab(1);
+        return;
+      }
+      if (matches(event, 'tab-previous-bracket')) {
+        event.preventDefault();
+        cycleActiveTab(-1);
+        return;
+      }
+      if (matches(event, 'undo') || matches(event, 'redo')) {
+        const element = document.activeElement;
+        const isPlainTextInput =
+          element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
+        if (isPlainTextInput) return;
+        event.preventDefault();
+        // The renderer is the single delivery path for document history.
+        // Do not let ProseMirror's own history keymap also handle the event:
+        // in Read (or while the Page layout hides the continuous editor) a
+        // blocked undo must not mutate the hidden buffer.
+        event.stopPropagation();
+        dispatch(matches(event, 'redo') ? 'redo' : 'undo');
       }
     };
     window.addEventListener('keydown', onKeyDown, true);
@@ -827,6 +799,8 @@ export function App(): JSX.Element {
         closeTab(packagePath, { force: true, save: false }),
       /** Test-only: dispatch a MenuCommand through the native-menu path. */
       dispatchMenuCommand: (command: MenuCommand) => dispatch(command),
+      /** Test-only: the curated shortcut rows the Settings list renders. */
+      shortcuts: () => structuredClone(shortcutsForList()),
       /** Test-only: which surface currently owns the global command channel. */
       overlayOwner: () => activeOverlayOwner(),
       viewState: () => structuredClone(useShell.getState().viewByDoc),

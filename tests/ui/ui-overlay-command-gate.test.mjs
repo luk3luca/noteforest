@@ -249,7 +249,7 @@ describe('UI overlay command gate and write identity', () => {
     assert.equal(await overlayOwner(), 'export');
 
     let before = await commandSnapshot();
-    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+1'), '⌘1');
+    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+2'), '⌘2');
     await assertCommandsIgnored(before, () => page.keyboard.press('Control+Tab'), 'Control+Tab');
     await assertCommandsIgnored(before, () => dispatchMenuCommand('close-tab'), 'native close-tab');
     await assertCommandsIgnored(before, () => dispatchMenuCommand('new-document'), 'native new-document');
@@ -289,7 +289,7 @@ describe('UI overlay command gate and write identity', () => {
     await page.locator('[data-export-close]').click();
     await page.waitForSelector('[data-export-sheet="true"]', { state: 'detached' });
     assert.equal(await overlayOwner(), null);
-    await page.keyboard.press('Meta+1');
+    await page.keyboard.press('Control+Tab');
     await page.waitForFunction(
       (path) => window.__noteforestTest.state().activeTab === path,
       alphaPath,
@@ -351,7 +351,6 @@ describe('UI overlay command gate and write identity', () => {
     assert.equal(await overlayOwner(), 'dialog');
 
     const before = await commandSnapshot();
-    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+1'), '⌘1');
     await assertCommandsIgnored(before, () => page.keyboard.press('Meta+2'), '⌘2');
     await assertCommandsIgnored(before, () => page.keyboard.press('Meta+3'), '⌘3');
     await assertCommandsIgnored(before, () => page.keyboard.press('Meta+e'), '⌘E');
@@ -409,7 +408,7 @@ describe('UI overlay command gate and write identity', () => {
     await page.keyboard.press('Escape');
     await page.waitForSelector('[data-settings-dialog="true"]', { state: 'detached' });
     assert.equal(await overlayOwner(), null);
-    await page.keyboard.press('Meta+1');
+    await page.keyboard.press('Control+Tab');
     await page.waitForFunction(
       (path) => window.__noteforestTest.state().activeTab === path,
       alphaPath,
@@ -428,7 +427,7 @@ describe('UI overlay command gate and write identity', () => {
     assert.equal(await overlayOwner(), 'palette');
 
     const before = await commandSnapshot();
-    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+1'), '⌘1');
+    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+w'), '⌘W');
     await assertCommandsIgnored(before, () => page.keyboard.press('Meta+2'), '⌘2');
     await assertCommandsIgnored(before, () => dispatchMenuCommand('close-tab'), 'native close-tab');
 
@@ -485,7 +484,7 @@ describe('UI overlay command gate and write identity', () => {
     await page.screenshot({ path: join(screenshotDir, 'settings-export-nested.png') });
 
     const before = await commandSnapshot();
-    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+1'), '⌘1');
+    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+2'), '⌘2');
     await assertCommandsIgnored(before, () => dispatchMenuCommand('close-tab'), 'native close-tab');
 
     await page.locator('[data-export-close]').click();
@@ -498,7 +497,7 @@ describe('UI overlay command gate and write identity', () => {
     assert.equal(await overlayOwner(), 'dialog');
     const afterExport = await commandSnapshot();
     assert.equal(afterExport.activeTab, betaPath);
-    await assertCommandsIgnored(afterExport, () => page.keyboard.press('Meta+1'), '⌘1 after Export');
+    await assertCommandsIgnored(afterExport, () => page.keyboard.press('Meta+2'), '⌘2 after Export');
 
     // Settings is still usable and still gated.
     await page.locator('[data-settings-nav="page"]').click();

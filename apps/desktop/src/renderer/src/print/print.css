@@ -96,9 +96,3 @@ html.nf-print-document body {
   background: #ffffff;
   border-color: #a46a62;
 }
-
-.nf-print-root .nf-page-anchor-badge {
-  color: #4d3600;
-  background: #ffffff;
-  border-color: #b09355;
-}

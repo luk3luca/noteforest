@@ -1,5 +1,6 @@
 import { Command } from 'lucide-react';
 import { useShell } from '../state/shell';
+import { shortcutHint } from '../lib/shortcuts';
 import { TabStrip } from './TabBar';
 
 /**
@@ -21,7 +22,7 @@ export function Toolbar(): JSX.Element {
         type="button"
         className="nf-toolbar-button nf-palette-button"
         onClick={() => openPalette(true)}
-        title="Command palette (⌘K)"
+        title={`Command palette (${shortcutHint('command-palette')})`}
         aria-label="Command palette"
         aria-keyshortcuts="Meta+K"
       >

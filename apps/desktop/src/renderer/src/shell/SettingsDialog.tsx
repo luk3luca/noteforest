@@ -16,6 +16,7 @@ import {
 } from '../state/settings';
 import { useRuntime } from '../state/registry';
 import { openLibrary, removeRecentLibrary, revealLibraryPath } from '../actions';
+import { shortcutsForList, type ShortcutListGroup } from '../lib/shortcuts';
 import { Details } from './Details';
 import { SETTINGS_SCHEMA_VERSION } from '../../../shared/settings-file';
 import { usePageSettingsController } from '../settings/usePageSettingsController';
@@ -110,64 +111,22 @@ const MARGIN_RANGE = {
   step: 1,
 };
 
-const SHORTCUTS: { group: string; rows: [string, string][] }[] = [
-  {
-    group: 'Shell',
-    rows: [
-      ['New note', '⌘N'],
-      ['New chapter', '⇧⌘N'],
-      ['Save', '⌘S'],
-      ['Export PDF…', '⇧⌘E'],
-      ['Command palette', '⌘K'],
-      ['Find in note', '⌘F'],
-      ['Next / previous match', '⌘G / ⇧⌘G'],
-      ['Settings', '⌘,'],
-      ['Toggle sidebar', '⌘\\'],
-      ['Continuous / Page', '⌘2 / ⌘3'],
-      ['Edit / Read', '⌘E'],
-      ['Undo / Redo', '⌘Z / ⇧⌘Z'],
-    ],
-  },
-  {
-    group: 'Editor',
-    rows: [
-      ['Add child', '⌃⏎'],
-      ['Add sibling', '⌥⏎'],
-      ['Branch from selection', '⌘⇧Enter'],
-      ['Delete block', '⌘⌫'],
-      ['Collapse branch', '⌘.'],
-      ['Focus branch', '⇧⌘F'],
-      ['Link', '⌘⇧K'],
-      ['Link as reference', '⌘⇧L'],
-      ['Highlight', '⌘⇧H'],
-      ['Focus previous / next block', '⌘↑ / ⌘↓'],
-      ['Reorder sibling', '⌥↑ / ⌥↓'],
-    ],
-  },
-  {
-    group: 'Page',
-    rows: [
-      ['Previous / next page', '⌥↑ / ⌥↓'],
-      ['Fit page / Fit width', '⇧1 / ⇧2'],
-      ['Actual size', '⌘0'],
-      ['Commit Page Edit', 'Esc / ⌘⏎'],
-    ],
-  },
-];
+const SHORTCUT_GROUPS = shortcutsForList();
 
 /**
- * Case-insensitive filter over the rendered shortcut rows. Matches the row
- * label and the displayed key combination; groups with no match disappear.
+ * Case-insensitive filter over the catalogue's rows. Matches the row label, the
+ * displayed keys and the scope note; groups with no match disappear.
  */
-function filterShortcuts(query: string): { group: string; rows: [string, string][] }[] {
+function filterShortcuts(query: string): ShortcutListGroup[] {
   const normalized = query.trim().toLowerCase();
-  return SHORTCUTS.map((group) => ({
+  return SHORTCUT_GROUPS.map((group) => ({
     group: group.group,
     rows: group.rows.filter(
-      ([label, shortcut]) =>
+      (row) =>
         normalized.length === 0 ||
-        label.toLowerCase().includes(normalized) ||
-        shortcut.toLowerCase().includes(normalized),
+        row.label.toLowerCase().includes(normalized) ||
+        row.keys.toLowerCase().includes(normalized) ||
+        (row.note ?? '').toLowerCase().includes(normalized),
     ),
   })).filter((group) => group.rows.length > 0);
 }
@@ -1227,15 +1186,19 @@ export function SettingsDialog({
                         >
                           <h5 className="nf-shortcut-group-title">{group.group}</h5>
                           <dl className="nf-shortcut-list">
-                            {group.rows.map(([label, shortcut]) => (
+                            {group.rows.map((row) => (
                               <div
-                                key={`${group.group}-${label}`}
+                                key={`${group.group}-${row.id}`}
                                 className="nf-shortcut-row"
                                 data-shortcut-row="true"
+                                data-shortcut-id={row.id}
                               >
-                                <dt>{label}</dt>
+                                <dt>{row.label}</dt>
                                 <dd>
-                                  <kbd>{shortcut}</kbd>
+                                  <kbd>{row.keys}</kbd>
+                                  {row.note === undefined ? null : (
+                                    <span className="nf-shortcut-note">{row.note}</span>
+                                  )}
                                 </dd>
                               </div>
                             ))}

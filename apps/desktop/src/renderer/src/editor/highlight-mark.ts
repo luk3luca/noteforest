@@ -57,7 +57,7 @@ export const HighlightMark = Mark.create({
 /**
  * True when every text node of the selection carries a highlight with `tone`.
  * A caret, an empty range and a selection with unmarked text are all `false`,
- * so `⌘⇧H` only ever removes a highlight the user has actually selected.
+ * so `⇧⌘H` only ever removes a highlight the user has actually selected.
  */
 export function selectionHasUniformTone(editor: Editor, tone: HighlightTone): boolean {
   const type = editor.schema.marks[HIGHLIGHT_MARK_TYPE];
@@ -83,7 +83,7 @@ export function highlightAttrs(tone: HighlightTone): { tone: HighlightTone } {
 }
 
 /**
- * `⌘⇧H`: apply the session's last tone to the selection, or remove it when the
+ * `⇧⌘H`: apply the session's last tone to the selection, or remove it when the
  * whole selection already carries that tone. Returns false (never consumes the
  * key) without a text selection or in Read mode.
  */

@@ -25,6 +25,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useShell } from '../state/shell';
 import { usePageStatus } from '../page/use-page-status';
 import { clampPageNumber } from '../page/model';
+import { shortcutHint } from '../lib/shortcuts';
 import { goToActivePage } from '../actions';
 
 export function PagePosition(): JSX.Element | null {
@@ -117,7 +118,7 @@ export function PagePosition(): JSX.Element | null {
         className="nf-page-position-arrow"
         data-page-position-prev="true"
         aria-label="Previous page"
-        title="Previous page (⌘↑)"
+        title={`Previous page (${shortcutHint('page-previous')})`}
         disabled={!ready || page <= 1}
         onClick={() => step(-1)}
       >
@@ -128,7 +129,7 @@ export function PagePosition(): JSX.Element | null {
         className="nf-page-position-arrow"
         data-page-position-next="true"
         aria-label="Next page"
-        title="Next page (⌘↓)"
+        title={`Next page (${shortcutHint('page-next')})`}
         disabled={!ready || page >= pageCount}
         onClick={() => step(1)}
       >

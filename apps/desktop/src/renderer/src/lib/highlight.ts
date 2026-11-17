@@ -1,5 +1,5 @@
 /**
- * Highlighter session state and the `⌘⇧H` decision (F4b).
+ * Highlighter session state and the `⇧⌘H` decision (F4b).
  *
  * The last used tone is session state, not a setting: it lives in renderer
  * module scope, survives tab switches and documents, and is gone on reload.
@@ -14,7 +14,7 @@ import {
 
 let lastTone: HighlightTone = DEFAULT_HIGHLIGHT_TONE;
 
-/** The tone `⌘⇧H` applies (and toggles) right now. */
+/** The tone `⇧⌘H` applies (and toggles) right now. */
 export function lastHighlightTone(): HighlightTone {
   return lastTone;
 }
@@ -41,7 +41,7 @@ export const HIGHLIGHT_TONE_LABELS: Record<HighlightTone, string> = {
 export type HighlightToggleAction = 'apply' | 'remove';
 
 /**
- * What `⌘⇧H` does for the current selection. The selection is uniformly the
+ * What `⇧⌘H` does for the current selection. The selection is uniformly the
  * last tone → remove; every other case (no highlight, another tone, mixed
  * tones) applies it. Pure so the rule is pinned without an editor.
  */

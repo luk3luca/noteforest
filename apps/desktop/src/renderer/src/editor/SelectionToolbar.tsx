@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getEditorBindings } from './bindings';
 import { highlightAttrs } from './highlight-mark';
 import { HIGHLIGHT_TONE_LABELS, lastHighlightTone, rememberHighlightTone } from '../lib/highlight';
+import { shortcutHint } from '../lib/shortcuts';
 import { useShell } from '../state/shell';
 
 interface ToolbarProps {
@@ -130,7 +131,7 @@ export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): 
               type="button"
               className="nf-bubble-button nf-bubble-branch"
               aria-label="Branch from selection"
-              title="Branch from selection (⌘⇧Return)"
+              title={`Branch from selection (${shortcutHint('branch-from-selection')})`}
               data-action="branch-from-selection"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => getEditorBindings(editor)?.branchFromSelection()}
@@ -225,7 +226,7 @@ export function SelectionToolbar({ editor, variant = 'forest' }: ToolbarProps): 
                       aria-label={`${label} highlight`}
                       aria-pressed={activeTone === tone}
                       aria-keyshortcuts={isLast ? 'Meta+Shift+H' : undefined}
-                      title={isLast ? `${label} highlight (⌘⇧H)` : `${label} highlight`}
+                      title={isLast ? `${label} highlight (${shortcutHint('highlight')})` : `${label} highlight`}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => applyHighlight(tone)}
                     />

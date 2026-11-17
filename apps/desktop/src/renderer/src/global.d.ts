@@ -26,6 +26,8 @@ declare global {
       closePath?: (packagePath: string) => Promise<void>;
       /** Test-only: dispatch a MenuCommand through the native-menu path. */
       dispatchMenuCommand?: (command: MenuCommand) => void;
+      /** Test-only: the curated shortcut rows the Settings list renders. */
+      shortcuts?: () => unknown;
       /** Test-only: which surface owns the global command channel right now. */
       overlayOwner?: () => 'dialog' | 'palette' | 'export' | null;
       /** Test-only: show one tokenized toast without adding a toast API. */

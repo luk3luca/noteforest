@@ -39,6 +39,7 @@ import {
   type BlockNode,
 } from '../lib/tree';
 import { recoveryStatusLabel } from '../lib/recovery';
+import { shortcutHint } from '../lib/shortcuts';
 import { markdownTitleSuffix } from '../lib/library-rows';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import { documentHealthBadgeLabel } from '../lib/document-health-sections';
@@ -141,7 +142,7 @@ function ActivityBar({
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         aria-expanded={!collapsed}
         aria-controls="nf-sidebar"
-        title={`${collapsed ? 'Expand' : 'Collapse'} sidebar (⌘\\)`}
+        title={`${collapsed ? 'Expand' : 'Collapse'} sidebar (${shortcutHint('toggle-sidebar')})`}
         onClick={collapsed ? onExpand : onCollapse}
       >
         {collapsed ? (
@@ -220,7 +221,7 @@ function ActivityBar({
             className="nf-activity-button"
             data-activity-settings="true"
             aria-label="Settings"
-            title="Settings (⌘,)"
+            title={`Settings (${shortcutHint('settings')})`}
             onClick={() => openDialog({ kind: 'settings' })}
           >
             <Settings size={17} strokeWidth={1.5} className="nf-activity-icon" aria-hidden="true" />
@@ -612,7 +613,9 @@ function LibrarySection(): JSX.Element {
             data-library-new="true"
             aria-label="New note"
             title={
-              missing || noLibrary ? 'Open a library before creating a note' : 'New note (⌘N)'
+              missing || noLibrary
+                ? 'Open a library before creating a note'
+                : `New note (${shortcutHint('new-note')})`
             }
             disabled={missing || noLibrary}
             onClick={() => void createNewDocument()}
@@ -1255,13 +1258,13 @@ export function Sidebar({
             <button
               type="button"
               className="nf-sidebar-search"
-              aria-label="Command palette (⌘K)"
-              title="Command palette (⌘K)"
+              aria-label={`Command palette (${shortcutHint('command-palette')})`}
+              title={`Command palette (${shortcutHint('command-palette')})`}
               onClick={() => openPalette(true)}
             >
               <Search size={13} strokeWidth={1.5} aria-hidden="true" />
               <span className="nf-sidebar-palette-spacer" aria-hidden="true" />
-              <kbd>⌘K</kbd>
+              <kbd>{shortcutHint('command-palette')}</kbd>
             </button>
           </div>
           <div
@@ -1291,7 +1294,7 @@ export function Sidebar({
           className="nf-sidebar-settings"
           data-sidebar-settings="true"
           aria-label="Settings"
-          title="Settings (⌘,)"
+          title={`Settings (${shortcutHint('settings')})`}
           onClick={() => openDialog({ kind: 'settings' })}
         >
           <span className="nf-sidebar-settings-icon">

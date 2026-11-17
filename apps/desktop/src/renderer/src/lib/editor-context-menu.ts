@@ -25,6 +25,7 @@ import {
   type TableAlign,
 } from '../editor/table-commands';
 import { writeClipboardText } from './clipboard';
+import { shortcutHint } from './shortcuts';
 
 export type EditorContextSurface =
   | 'prose'
@@ -279,13 +280,21 @@ export function textMenuEntries(
   snapshot: TextTargetSnapshot,
   options: { readOnly: boolean },
 ): MenuEntry[] {
-  const copy = textEntry('text-copy', 'Copy', '⌘C', snapshot, 'copy');
-  const selectAll = textEntry('text-select-all', 'Select All', '⌘A', snapshot, 'selectAll');
+  // The OS Edit roles own these keys; the hints come from the catalogue so the
+  // menu and every other surface spell them once (K1).
+  const copy = textEntry('text-copy', 'Copy', shortcutHint('text-copy'), snapshot, 'copy');
+  const selectAll = textEntry(
+    'text-select-all',
+    'Select All',
+    shortcutHint('text-select-all'),
+    snapshot,
+    'selectAll',
+  );
   if (options.readOnly || !snapshot.editable) return [copy, selectAll];
   return [
-    textEntry('text-cut', 'Cut', '⌘X', snapshot, 'cut'),
+    textEntry('text-cut', 'Cut', shortcutHint('text-cut'), snapshot, 'cut'),
     copy,
-    textEntry('text-paste', 'Paste', '⌘V', snapshot, 'paste'),
+    textEntry('text-paste', 'Paste', shortcutHint('text-paste'), snapshot, 'paste'),
     selectAll,
   ];
 }

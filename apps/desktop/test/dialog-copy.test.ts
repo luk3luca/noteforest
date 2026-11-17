@@ -164,7 +164,6 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
     'Restore the newest backup? The current file is saved as a backup first.',
     'Open library…',
     'Remove from recents',
-    '⌥↑ / ⌥↓',
   ],
   'src/renderer/src/settings/AppearanceSettings.tsx': [
     'The app around the note. Page and PDF keep their paper.',
@@ -235,6 +234,11 @@ const DELETED_COPY: Record<string, readonly string[]> = {
     'app support',
   ],
   'src/renderer/src/shell/SettingsDialog.tsx': [
+    // B1: the Page row named the wrong page-navigation pair and the removed
+    // bare-Shift fit keys; the list is rendered from the shortcut catalogue now.
+    '⌥↑ / ⌥↓',
+    '⇧1 / ⇧2',
+    'Actual size',
     'page-1 exception',
     'engine values',
     'right lane and below',

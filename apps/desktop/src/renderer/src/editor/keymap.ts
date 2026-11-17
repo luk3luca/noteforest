@@ -7,6 +7,20 @@ import { toggleLastHighlight } from './highlight-mark';
 import { backspaceAction } from '../lib/backspace';
 import { arrowBoundaryAction, type ArrowBoundaryKey } from '../lib/arrow-boundary';
 import { indentTarget, outdentTarget } from '../lib/indent';
+import { tiptapKeys } from '../lib/shortcuts';
+
+/**
+ * The TipTap spellings come from the shortcut catalogue, never from a literal:
+ * a renamed binding fails the catalogue tests instead of drifting away from the
+ * displayed list. Plain text keys (arrows, Backspace, Shift-Enter, Escape) stay
+ * literal here on purpose: they are editor behaviour, not application verbs.
+ */
+function tipTapKey(id: string): string {
+  const keys = tiptapKeys(id);
+  const key = keys[0];
+  if (key === undefined) throw new Error(`Shortcut ${id} has no TipTap key.`);
+  return key;
+}
 
 function blockIdAt($pos: ResolvedPos): string | null {
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
@@ -190,10 +204,10 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      // ⌘⇧Return branches from the selected text (M3). With no text selection
+      // ⇧⌘Return branches from the selected text (M3). With no text selection
       // it keeps the block-child path; Control+Enter stays the explicit child
       // shortcut and never changes.
-      'Mod-Shift-Enter': () => {
+      [tipTapKey('branch-from-selection')]: () => {
         if (!canEdit()) return false;
         const editor = this.editor;
         const current = bindings();
@@ -219,7 +233,7 @@ export const BranchKeymap = Extension.create({
       },
 
       // Option+Enter creates a sibling block.
-      'Alt-Enter': () => {
+      [tipTapKey('add-sibling')]: () => {
         if (!canEdit()) return false;
         const id = currentBlockId(this.editor);
         const current = bindings();
@@ -229,7 +243,7 @@ export const BranchKeymap = Extension.create({
       },
 
       // Control+Enter creates a child block.
-      'Ctrl-Enter': () => {
+      [tipTapKey('add-child')]: () => {
         if (!canEdit()) return false;
         const id = currentBlockId(this.editor);
         const current = bindings();
@@ -243,7 +257,7 @@ export const BranchKeymap = Extension.create({
       // previous primary sibling (the same block.move path as the menu and
       // palette). Every other case returns false so the browser moves focus out
       // of the editor instead of trapping keyboard users inside the body.
-      Tab: () => {
+      [tipTapKey('indent')]: () => {
         if (!canEdit()) return false;
         const editor = this.editor;
         if (inAtomicContext(editor)) return false;
@@ -261,7 +275,7 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      'Shift-Tab': () => {
+      [tipTapKey('outdent')]: () => {
         if (!canEdit()) return false;
         const editor = this.editor;
         if (inAtomicContext(editor)) return false;
@@ -299,10 +313,10 @@ export const BranchKeymap = Extension.create({
 
       // ⌘Backspace deletes the active block (confirmation when it has
       // children). It is the only keyboard path to block deletion.
-      'Mod-Backspace': () => requestDelete(currentBlockId(this.editor)),
+      [tipTapKey('delete-block')]: () => requestDelete(currentBlockId(this.editor)),
 
       // Delete only acts on a selected block node, never while editing text.
-      Delete: () => {
+      [tipTapKey('delete-block-selected')]: () => {
         const selection = selectedBlock(this.editor);
         if (selection === null) return false;
         const id =
@@ -310,7 +324,7 @@ export const BranchKeymap = Extension.create({
         return requestDelete(id);
       },
 
-      'Mod-.': () => {
+      [tipTapKey('collapse')]: () => {
         const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;
@@ -318,16 +332,16 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      'Mod-Shift-k': () => {
+      [tipTapKey('link')]: () => {
         if (!canEdit()) return false;
         bindings()?.openLinkDialog();
         return true;
       },
 
-      // ⌘⇧H is the highlighter's only chord: apply the session's last tone, or
+      // ⇧⌘H is the highlighter's only chord: apply the session's last tone, or
       // remove it when the whole selection already carries it. It never runs in
       // Read mode (the keymap is gated by `canEdit`), and a caret is a no-op.
-      'Mod-Shift-h': () => {
+      [tipTapKey('highlight')]: () => {
         if (!canEdit()) return false;
         return toggleLastHighlight(this.editor);
       },
@@ -337,7 +351,7 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      'Mod-ArrowUp': () => {
+      [tipTapKey('block-previous')]: () => {
         const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;
@@ -345,7 +359,7 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      'Mod-ArrowDown': () => {
+      [tipTapKey('block-next')]: () => {
         const id = currentBlockId(this.editor);
         const current = bindings();
         if (id === null || current === null) return false;
@@ -353,7 +367,7 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      'Alt-ArrowUp': () => {
+      [tipTapKey('block-move-up')]: () => {
         if (!canEdit()) return false;
         const id = currentBlockId(this.editor);
         const current = bindings();
@@ -362,7 +376,7 @@ export const BranchKeymap = Extension.create({
         return true;
       },
 
-      'Alt-ArrowDown': () => {
+      [tipTapKey('block-move-down')]: () => {
         if (!canEdit()) return false;
         const id = currentBlockId(this.editor);
         const current = bindings();

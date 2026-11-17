@@ -306,8 +306,9 @@ describe('Library surface', () => {
     );
 
     // Outline shows the active document tree; opening another document does
-    // not force a tab switch.
-    await page.keyboard.press('Meta+1');
+    // not force a tab switch. B1 removed the `⌘1…⌘9` tab digits (they collided
+    // with `⌘2`/`⌘3`), so the tab strip is the user path to the first tab.
+    await page.locator('.nf-tab').first().click();
     await page.waitForFunction(
       () => window.__noteforestTest.state().activeTab === window.__noteforestTest.state().tabs[0]?.packagePath,
       undefined,
