@@ -888,6 +888,7 @@ export type MenuCommand =
   | 'zoom-out'
   | 'zoom-reset'
   | 'fit-width'
+  | 'fit-page'
   | 'focus-branch';
 
 export interface SeedResult {

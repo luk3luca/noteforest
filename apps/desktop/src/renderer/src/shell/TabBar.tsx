@@ -7,6 +7,7 @@ import { useShell, type TabInfo } from '../state/shell';
 import { useRuntime } from '../state/registry';
 import { useMarkdownEntry } from '../state/markdown';
 import { closeTab, createNewDocument, openPath, openTabMenu } from '../actions';
+import { shortcutHint } from '../lib/shortcuts';
 import { tabElementId, tabPanelElementId } from '../lib/tab-ids';
 import { TAB_GAP, TAB_MAX_WIDTH, visibleTabWindow } from '../lib/tab-policy';
 
@@ -101,7 +102,7 @@ function SortableTab({ tab }: { tab: TabInfo }): JSX.Element {
         // Delete handler plus ⌘W; the chip button stays a pointer affordance.
         aria-hidden="true"
         tabIndex={-1}
-        title={`Close ${tab.title} (⌘W)`}
+        title={`Close ${tab.title} (${shortcutHint('close-tab')})`}
         onClick={(event) => {
           event.stopPropagation();
           void closeTab(tab.packagePath);
@@ -166,7 +167,12 @@ export function TabStrip(): JSX.Element {
   const openOverflow = (event: React.MouseEvent<HTMLButtonElement>): void => {
     const rect = event.currentTarget.getBoundingClientRect();
     openContextMenu(rect.left - 120, rect.bottom + 4, [
-      { id: 'new', label: 'New note', shortcut: '⌘N', onSelect: () => void createNewDocument() },
+      {
+        id: 'new',
+        label: 'New note',
+        shortcut: shortcutHint('new-note'),
+        onSelect: () => void createNewDocument(),
+      },
       ...(tabs.length === 0
         ? []
         : [{ id: 'sep', label: '', separator: true } as const]),
@@ -242,7 +248,7 @@ export function TabStrip(): JSX.Element {
           type="button"
           className="nf-toolbar-button"
           aria-label="New note"
-          title="New note (⌘N)"
+          title={`New note (${shortcutHint('new-note')})`}
           data-toolbar-new="true"
           onClick={() => void createNewDocument()}
         >

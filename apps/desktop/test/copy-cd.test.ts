@@ -296,8 +296,9 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
     'Command palette…',
     'Toggle sidebar',
     'Fit width',
+    'Fit page',
     'Focus branch',
-    'Actual size',
+    'Reset zoom',
     'Zoom in',
     'Zoom out',
     'Open Markdown…',
@@ -306,7 +307,7 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
   ],
   'src/renderer/src/shell/SearchSection.tsx': ['No results', 'Refine the search'],
   'src/renderer/src/shell/Sidebar.tsx': [
-    'Command palette (⌘K)',
+    'Command palette (',
     'Open folder as library…',
     'New library…',
     'Remove from recents',
@@ -314,7 +315,7 @@ const APPLIED_COPY: Record<string, readonly string[]> = {
     'Note unavailable.',
     'This note couldn’t be read.',
   ],
-  'src/renderer/src/shell/CanvasHeader.tsx': ['Export to PDF (⇧⌘E)'],
+  'src/renderer/src/shell/CanvasHeader.tsx': ['Export to PDF ('],
   'src/renderer/src/shell/ViewControls.tsx': ['Open a note to change the view'],
   'src/renderer/src/editor/views/BlockViews.tsx': ['Open document health to repair.'],
 };
@@ -615,8 +616,10 @@ describe('C/D copy', () => {
 
   it('keeps the sidebar palette button an icon plus ⌘K with the new label', async () => {
     const source = await sourceFor('src/renderer/src/shell/Sidebar.tsx');
-    expect(source).toContain('aria-label="Command palette (⌘K)"');
-    expect(source).toContain('title="Command palette (⌘K)"');
+    // The chord itself is never written here: it comes from the shortcut
+    // catalogue (B1), which is what the label prints.
+    expect(source).toContain('aria-label={`Command palette (${shortcutHint(\'command-palette\')})`}');
+    expect(source).toContain('title={`Command palette (${shortcutHint(\'command-palette\')})`}');
     expect(source).not.toContain('<span>Search</span>');
   });
 });
@@ -770,8 +773,9 @@ describe('native menu labels', () => {
       'Command palette…',
       'Toggle sidebar',
       'Fit width',
+      'Fit page',
       'Focus branch',
-      'Actual size',
+      'Reset zoom',
       'Zoom in',
       'Zoom out',
     ]);
@@ -799,8 +803,14 @@ describe('native menu labels', () => {
       'menu-export-pdf',
       'menu-undo',
       'menu-redo',
+      'menu-fit-page',
       'menu-keyboard-shortcuts',
     ]);
+    // Fit page is the menu-only fit: no accelerator at all.
+    expect(accelerators.has('CmdOrCtrl+Shift+0')).toBe(true);
+    const allItems = all;
+    const fitPage = allItems.find((entry) => entry.id === 'menu-fit-page');
+    expect(fitPage?.accelerator).toBeUndefined();
   });
 });
 

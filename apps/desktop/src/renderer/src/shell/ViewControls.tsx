@@ -8,6 +8,7 @@ import {
   setActiveInteractionMode,
 } from '../actions';
 import { resolveActiveZoom, zoomCommandsForLayout } from '../lib/view-zoom';
+import { shortcutHint } from '../lib/shortcuts';
 import { usePageStatus } from '../page/use-page-status';
 
 /**
@@ -45,7 +46,7 @@ export function ViewControls(): JSX.Element {
           data-view-layout="continuous"
           aria-pressed={layout === 'continuous'}
           aria-label="Continuous layout"
-          title={disabledReason ?? 'Continuous layout (⌘2)'}
+          title={disabledReason ?? `Continuous layout (${shortcutHint('continuous-layout')})`}
           disabled={disabled}
           onClick={() => setActiveDocumentLayout('continuous')}
         >
@@ -57,7 +58,7 @@ export function ViewControls(): JSX.Element {
           data-view-layout="page"
           aria-pressed={layout === 'page'}
           aria-label="Page layout"
-          title={disabledReason ?? 'Page layout (⌘3)'}
+          title={disabledReason ?? `Page layout (${shortcutHint('page-layout')})`}
           disabled={disabled}
           onClick={() => setActiveDocumentLayout('page')}
         >
@@ -71,7 +72,12 @@ export function ViewControls(): JSX.Element {
           data-view-interaction="edit"
           aria-pressed={mode === 'edit'}
           aria-label={layout === 'page' ? 'Page Edit mode' : 'Edit mode'}
-          title={disabledReason ?? (layout === 'page' ? 'Page Edit mode (⌘E)' : 'Edit mode (⌘E)')}
+          title={
+            disabledReason ??
+            (layout === 'page'
+              ? `Page Edit mode (${shortcutHint('toggle-mode')})`
+              : `Edit mode (${shortcutHint('toggle-mode')})`)
+          }
           disabled={disabled}
           onClick={() => setActiveInteractionMode('edit')}
         >
@@ -84,7 +90,10 @@ export function ViewControls(): JSX.Element {
           aria-pressed={mode === 'read'}
           aria-label={layout === 'page' ? 'Page Read mode' : 'Read mode'}
           title={
-            disabledReason ?? (layout === 'page' ? 'Page Read — exact preview (⌘E)' : 'Read mode (⌘E)')
+            disabledReason ??
+            (layout === 'page'
+              ? `Page Read — exact preview (${shortcutHint('toggle-mode')})`
+              : `Read mode (${shortcutHint('toggle-mode')})`)
           }
           disabled={disabled}
           onClick={() => setActiveInteractionMode('read')}
@@ -134,7 +143,7 @@ export function ZoomControls(): JSX.Element {
         className="nf-zoom-button"
         data-zoom-action="out"
         aria-label="Zoom out"
-        title="Zoom out (⌘−)"
+        title={`Zoom out (${shortcutHint('zoom-out')})`}
         disabled={disabled}
         onClick={() => adjustActiveLayoutZoom(-0.1)}
       >
@@ -145,7 +154,7 @@ export function ZoomControls(): JSX.Element {
         className="nf-zoom-value"
         data-zoom-value="true"
         aria-label={`Current zoom ${Math.round(zoom * 100)} percent. Reset to 100 percent`}
-        title="Reset zoom to 100% (⌘0)"
+        title={`Reset zoom (${shortcutHint('reset-zoom')})`}
         disabled={disabled}
         onClick={() => fitActiveLayout('actual')}
       >
@@ -156,7 +165,7 @@ export function ZoomControls(): JSX.Element {
         className="nf-zoom-button"
         data-zoom-action="in"
         aria-label="Zoom in"
-        title="Zoom in (⌘+)"
+        title={`Zoom in (${shortcutHint('zoom-in')})`}
         disabled={disabled}
         onClick={() => adjustActiveLayoutZoom(0.1)}
       >

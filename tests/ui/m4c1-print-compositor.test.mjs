@@ -1,9 +1,10 @@
 import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm } from 'node:fs/promises';
-import { artifactsPath } from '../support/harness.mjs';
+import { artifactsPath, waitUntil } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
 import { pageArrowsDocument, pageCalloutModesDocument, pageDocument, textBlock, imageBlock, writePagePackage } from '../support/page-fixtures.mjs';
+import { inspectPdfFile, textContains } from '../../scripts/lib/pdf.mjs';
 
 /**
  * M4c1 print compositor parity.
@@ -230,6 +231,19 @@ async function snapshotSheet(sheet) {
   };
 }
 
+/**
+ * Print parity compares the anchor marker separately (B1): paper carries no dot,
+ * no flag and no marker text, while Page Read keeps them. Everything else — the
+ * fragment box, the card HTML, the foot/role/depth attributes — must still be
+ * identical, so this strips only the one flag before the deep comparison.
+ */
+function withoutAnchor(fragment) {
+  const { anchor, attributes, ...rest } = fragment;
+  const kept = { ...attributes };
+  delete kept['data-fragment-anchor-warning'];
+  return { ...rest, attributes: kept };
+}
+
 async function readSnapshots(pageCount) {
   const view = activePageView();
   const snapshots = [];
@@ -337,7 +351,20 @@ async function assertPrintParity(pageCount, label, printScreenshotPath = null) {
     const actual = print[index];
     assert.deepEqual(actual.sheet, expected.sheet, `${label}: page ${index + 1} sheet attributes`);
     assert.deepEqual(actual.content, expected.content, `${label}: page ${index + 1} content box`);
-    assert.deepEqual(actual.fragments, expected.fragments, `${label}: page ${index + 1} fragments/cards`);
+    // Page equals print on everything except the anchor marker (B1).
+    assert.deepEqual(
+      actual.fragments.map(withoutAnchor),
+      expected.fragments.map(withoutAnchor),
+      `${label}: page ${index + 1} fragments/cards`,
+    );
+    for (const fragment of actual.fragments) {
+      assert.equal(fragment.anchor, null, `${label}: print carries no anchor dot`);
+      assert.equal(
+        fragment.attributes['data-fragment-anchor-warning'],
+        undefined,
+        `${label}: print carries no anchor flag`,
+      );
+    }
     assert.deepEqual(actual.edgeSvg, expected.edgeSvg, `${label}: page ${index + 1} edges/trunks`);
     assert.deepEqual(actual.edgeLabels, expected.edgeLabels, `${label}: page ${index + 1} edge labels`);
     assert.deepEqual(actual.header, expected.header, `${label}: page ${index + 1} header`);
@@ -373,6 +400,7 @@ describe('M4c1 print compositor parity', () => {
     await rm(tempRoot, { recursive: true, force: true });
     await rm(outputDir, { recursive: true, force: true });
     await mkdir(outputDir, { recursive: true });
+    await mkdir(artifactsPath('b1-defects'), { recursive: true });
   });
 
   afterEach(async () => {
@@ -506,7 +534,7 @@ describe('M4c1 print compositor parity', () => {
     assert.ok(Math.abs(height - (215.9 * 96) / 25.4) < 0.05, 'Letter height px');
   });
 
-  it('prints broken-anchor and missing-asset markers exactly like Page Read', async () => {
+  it('prints the page without the anchor dot, Page Read keeps it', async () => {
     const env = ui.isolated('m4c1-markers');
     await launch('m4c1-markers');
     const document = pageDocument({
@@ -516,7 +544,9 @@ describe('M4c1 print compositor parity', () => {
       blocks: [
         textBlock('intro', 'Intro', 'Parent text that does not contain the stale quote.'),
         imageBlock('missing-image', 'Lost figure', 'missing-asset-id', 'Lost diagram'),
-        textBlock('child', 'Broken callout', 'The branch survives the broken anchor.'),
+        // The marker word is nowhere in the note text, so "no marker text" is
+        // a real assertion rather than a coincidence of the fixture.
+        textBlock('child', 'Broken callout', 'The branch survives the stale quote.'),
       ],
       anchors: [
         {
@@ -537,19 +567,233 @@ describe('M4c1 print compositor parity', () => {
         },
       ],
     });
-    await openPackage(env, 'Print compositor markers', document);
+    const packagePath = await openPackage(env, 'Print compositor markers', document);
     await showPageRead();
     const pageCount = Number(await activePageView().getAttribute('data-page-count'));
-    const { read } = await assertPrintParity(pageCount, 'markers');
-    const readBadges = read.reduce(
+
+    // Page Read: one dot for the warned block, 6 px inside a ≥ 24 px hit area.
+    const view = activePageView();
+    const dots = view.locator('[data-page-anchor-warning]');
+    assert.equal(await dots.count(), 1, 'Page Read renders one dot for the warned block');
+    const dot = dots.first();
+    const dotBox = await dot.evaluate((element) => ({
+      tag: element.tagName,
+      position: getComputedStyle(element).position,
+      hitWidth: element.offsetWidth,
+      hitHeight: element.offsetHeight,
+      shapeWidth: element.firstElementChild?.offsetWidth ?? 0,
+      shapeHeight: element.firstElementChild?.offsetHeight ?? 0,
+      label: element.getAttribute('aria-label'),
+      title: element.getAttribute('title'),
+      text: element.textContent,
+    }));
+    assert.equal(dotBox.tag, 'BUTTON', 'the dot is a real button');
+    assert.equal(dotBox.position, 'absolute', 'the dot cannot move the card');
+    assert.equal(dotBox.shapeWidth, 6, 'the visual is 6 px wide');
+    assert.equal(dotBox.shapeHeight, 6, 'the visual is 6 px tall');
+    assert.ok(dotBox.hitWidth >= 24 && dotBox.hitHeight >= 24, 'the hit area is ≥ 24 px');
+    assert.equal(dotBox.label, 'Lost anchor. Open document health to repair.');
+    assert.equal(dotBox.title, dotBox.label, 'the tooltip is the same short sentence');
+    assert.equal(dotBox.text, '', 'the dot carries no marker text');
+
+    // The card is exactly the measured fragment; the dot is outside the flow.
+    const intro = view.locator('[data-fragment-block="intro"]');
+    const boxes = await intro.evaluate((element) => {
+      const card = element.querySelector('.nf-page-fragment-card');
+      const fragmentBox = element.getBoundingClientRect();
+      const cardBox = card?.getBoundingClientRect();
+      return {
+        fragment: { width: fragmentBox.width, height: fragmentBox.height },
+        card: { width: cardBox?.width ?? 0, height: cardBox?.height ?? 0 },
+      };
+    });
+    assert.ok(Math.abs(boxes.card.width - boxes.fragment.width) < 0.5, 'card width is unchanged');
+    assert.ok(Math.abs(boxes.card.height - boxes.fragment.height) < 0.5, 'card height is unchanged');
+
+    // No ⚠ anchor chip and no marker text anywhere on the page.
+    const pageText = await view.innerText();
+    assert.ok(!pageText.includes('anchor'), 'no anchor text on the page');
+    assert.ok(!pageText.includes('⚠'), 'no warning glyph on the page');
+
+    // Clicking the dot opens Document health on that anchor, without selecting
+    // or opening the block behind it.
+    const selectedBefore = await page.evaluate(
+      () => window.__noteforestTest.state().runtimes[0]?.selectedBlockId ?? null,
+    );
+    await dot.click();
+    await page.waitForSelector('[data-health-dialog="true"]', { timeout: 15000 });
+    assert.equal(
+      await page.locator('[data-health-dialog="true"]').getAttribute('data-health-row'),
+      'anchor:broken-anchor',
+      'Health opens on the anchor that owns the dot',
+    );
+    assert.equal(
+      await page.evaluate(
+        () => window.__noteforestTest.state().runtimes[0]?.selectedBlockId ?? null,
+      ),
+      selectedBefore,
+      'the click does not select the block behind',
+    );
+    await page.locator('[data-health-dialog="true"] [data-health-close="true"]').last().click();
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
+
+    // Keyboard: the dot is a button, so Enter opens the same repair.
+    await dot.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('[data-health-dialog="true"]', { timeout: 15000 });
+    assert.equal(
+      await page.locator('[data-health-dialog="true"]').getAttribute('data-health-row'),
+      'anchor:broken-anchor',
+      'Enter opens the same anchor repair',
+    );
+    await page.locator('[data-health-dialog="true"] [data-health-close="true"]').last().click();
+    await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
+    await ui.ensureInteractionMode('read');
+    await h.screenshot(artifactsPath('b1-defects', 'page-anchor-dot.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Page Read and print are identical except the dot: no flag, no marker, no
+    // text — every other parity record (boxes, cards, edges, chrome) is equal.
+    const { read } = await assertPrintParity(
+      pageCount,
+      'markers',
+      artifactsPath('b1-defects', 'printed-sheet-without-anchor.png'),
+    );
+    const readDots = read.reduce(
       (total, snapshot) =>
         total + snapshot.fragments.filter((fragment) => fragment.anchor !== null).length,
       0,
     );
-    assert.ok(readBadges > 0, 'Page Read shows the broken-anchor badge');
+    assert.ok(readDots > 0, 'Page Read keeps the dot');
     const readMissing = read.some((snapshot) =>
       snapshot.fragments.some((fragment) => (fragment.card ?? '').includes('data-missing-asset')),
     );
     assert.ok(readMissing, 'Page Read renders the missing-asset placeholder');
+
+    // The print host carries nothing about anchors; the missing-image
+    // placeholder and the defect badge stay exactly as they were.
+    const printHost = await page.evaluate(() => {
+      const result = window.__noteforestTest.renderPrint();
+      return result.ok;
+    });
+    assert.equal(printHost, true, 'print model builds again');
+    await page.waitForSelector('[data-print-test-host] [data-print-page="1"]', { timeout: 20000 });
+    const hostAudit = await page.locator('[data-print-test-host]').evaluate((host) => ({
+      dots: host.querySelectorAll('[data-page-anchor-warning]').length,
+      flags: host.querySelectorAll('[data-fragment-anchor-warning]').length,
+      text: host.textContent ?? '',
+    }));
+    assert.equal(hostAudit.dots, 0, 'the print host has no anchor dot');
+    assert.equal(hostAudit.flags, 0, 'the print host has no anchor flag');
+    assert.ok(!hostAudit.text.includes('anchor'), 'the print host has no marker text');
+    assert.ok(!hostAudit.text.includes('⚠'), 'the print host has no warning glyph');
+    await page.evaluate(() => window.__noteforestTest.clearPrint());
+    await page.waitForSelector('[data-print-test-host]', { state: 'detached', timeout: 5000 });
+
+    // The produced PDF carries no marker either. It is the same print model the
+    // parity assertions just compared, printed by the real export path.
+    const outputPath = artifactsPath('b1-defects', 'print-markers.pdf');
+    const started = await page.evaluate(
+      (input) => window.noteforest.exportPdf(input),
+      { packagePath, outputPath, overwrite: true },
+    );
+    assert.equal(started.ok, true, started.message);
+    const job = await waitUntil(
+      async () => {
+        const current = await page.evaluate(
+          (id) => window.noteforest.getExportJob(id),
+          started.jobId,
+        );
+        return current !== null && current.status !== 'running' ? current : false;
+      },
+      `export ${started.jobId}`,
+      120000,
+    );
+    assert.equal(job.status, 'done', job.error?.message ?? 'the export succeeds');
+    const pdf = await inspectPdfFile(outputPath);
+    assert.equal(pdf.pageCount, pageCount, 'the PDF has the Page Read page count');
+    assert.ok(pdf.text.trim().length > 0, 'the PDF has real text');
+    assert.ok(!pdf.text.includes('anchor'), 'the PDF text has no marker');
+    assert.ok(!pdf.text.includes('⚠'), 'the PDF text has no warning glyph');
+    assert.ok(textContains(pdf.text, 'Broken callout'), 'the note text is still in the PDF');
+  });
+
+  it('keeps the dot and the defect chip on one card without overlap', async () => {
+    const env = ui.isolated('m4c1-defect-dot');
+    await launch('m4c1-defect-dot');
+    const wideLine =
+      'const aVeryLongUnbreakableCodeLineThatCannotFitOnANarrowPageAtAll = computeEverything();';
+    const document = pageDocument({
+      id: 'defect-and-dot',
+      title: 'Defect and dot',
+      chapterTitle: 'Diagnostics',
+      blocks: [
+        {
+          id: 'wide-code',
+          label: 'Wide code',
+          content: {
+            type: 'doc',
+            children: [
+              { type: 'codeBlock', attrs: { text: wideLine, language: 'ts' } },
+            ],
+          },
+        },
+        textBlock('defect-child', 'Broken callout', 'The branch survives the broken anchor.'),
+      ],
+      anchors: [
+        {
+          id: 'wide-anchor',
+          blockId: 'wide-code',
+          kind: 'text',
+          selector: { kind: 'text', quote: 'not present' },
+          quote: 'not present',
+        },
+      ],
+      branches: [
+        {
+          id: 'branch-wide',
+          sourceBlockId: 'wide-code',
+          sourceAnchorId: 'wide-anchor',
+          targetBlockId: 'defect-child',
+          role: 'primary',
+        },
+      ],
+    });
+    const packagePath = await openPackage(env, 'Print compositor defect and dot', document);
+    await showPageRead();
+    // A narrow content box makes the unbreakable code line a blocking defect.
+    await setPageSettingsOverride(packagePath, { setup: A5_PORTRAIT_STACKED });
+    const view = activePageView();
+    const fragment = view.locator('[data-fragment-block="wide-code"]');
+    await fragment.waitFor();
+    assert.equal(
+      await fragment.getAttribute('data-fragment-defect'),
+      'true',
+      'the wide code block carries a blocking defect',
+    );
+    assert.equal(
+      await fragment.getAttribute('data-fragment-anchor-warning'),
+      'true',
+      'the same block carries the anchor dot',
+    );
+    const geometry = await fragment.evaluate((element) => {
+      const defect = element.querySelector('[data-page-defect]')?.getBoundingClientRect();
+      const dot = element.querySelector('[data-page-anchor-warning]')?.getBoundingClientRect();
+      return {
+        defect: defect === undefined ? null : { left: defect.left, right: defect.right },
+        dot: dot === undefined ? null : { left: dot.left, right: dot.right },
+      };
+    });
+    assert.ok(geometry.defect !== null && geometry.dot !== null, 'both markers render');
+    assert.ok(
+      geometry.defect.right <= geometry.dot.left + 0.5,
+      'the defect chip steps left of the dot',
+    );
+    await h.screenshot(artifactsPath('b1-defects', 'page-defect-and-dot.png'), {
+      width: 1440,
+      height: 900,
+    });
   });
 });

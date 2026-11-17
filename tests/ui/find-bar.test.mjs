@@ -917,6 +917,63 @@ describe('find bar (⌘F)', () => {
     );
   });
 
+  it('accepts shifted digit characters in the field on both surfaces (B1)', async () => {
+    const env = isolated('field-digits');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await openPackage(env, 'Find field digits', findDocument());
+
+    // `press('!')` sends the real shifted event: key `!`, code `Digit1`,
+    // shiftKey true — the exact event the removed `⇧1` handler swallowed.
+    const typeShiftedCharacter = async (character) => {
+      await page.keyboard.type('a');
+      await page.keyboard.press(character);
+      await page.keyboard.type('b');
+    };
+
+    // Continuous: the field always took the characters.
+    await page.keyboard.press('Meta+f');
+    await findBar().waitFor({ timeout: 10000 });
+    const input = page.locator('.nf-find-input');
+    await input.click();
+    await typeShiftedCharacter('!');
+    assert.equal(await input.inputValue(), 'a!b', 'Continuous types the shifted digit');
+
+    // Page: the removed bare-Shift fit keys used to swallow `!` and `"` before
+    // any target check. The field now receives every shifted digit, and the
+    // page fit is untouched by them.
+    await page.keyboard.press('Escape');
+    await findBar().waitFor({ state: 'detached' });
+    await page.keyboard.press('Meta+3');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view[data-ready="true"]');
+    await page.keyboard.press('Meta+f');
+    await findBar().waitFor({ timeout: 10000 });
+    // The query is shared between the surfaces; start the Page case empty.
+    await input.fill('');
+    await input.click();
+    await typeShiftedCharacter('!');
+    assert.equal(await input.inputValue(), 'a!b', 'Page types the shifted digit');
+    await h.screenshot(artifactsPath('b1-defects', 'page-find-shifted-digit.png'), {
+      width: 1440,
+      height: 900,
+    });
+    await input.fill('');
+    await input.click();
+    await typeShiftedCharacter('@');
+    assert.equal(await input.inputValue(), 'a@b', 'Page types the other shifted digit');
+    await input.fill('');
+    await input.click();
+    await typeShiftedCharacter('"');
+    assert.equal(await input.inputValue(), 'a"b', 'Page types a double quote');
+    const view = await page.evaluate(() => {
+      const state = window.__noteforestTest.state();
+      return window.__noteforestTest.viewState()[state.activeTab]?.pageFit ?? null;
+    });
+    assert.equal(view, 'width', 'the shifted digits never changed the page fit');
+    await page.keyboard.press('Escape');
+    await findBar().waitFor({ state: 'detached' });
+  });
+
   it('paints the matches inside the page and strengthens the current one', async () => {
     const env = isolated('page-paint');
     await launch(env);

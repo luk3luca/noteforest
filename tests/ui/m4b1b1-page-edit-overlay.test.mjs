@@ -205,8 +205,9 @@ describe('M4b1b1 Page Edit content overlay', () => {
     );
 
     // The typing guard is strong only when the page fit is not the default:
-    // give the surface Fit page now, so a stolen ⇧2 would flip it to width.
-    await page.keyboard.press('Shift+1');
+    // give the surface Fit page now, so a stolen fit key would flip it to width.
+    // `View → Fit page` (no accelerator) replaced the removed bare-Shift `⇧1`.
+    await page.evaluate(() => window.__noteforestTest.dispatchMenuCommand('fit-page'));
     await page.waitForFunction(
       () =>
         window.__noteforestTest.viewState()[window.__noteforestTest.state().activeTab]
@@ -243,7 +244,7 @@ describe('M4b1b1 Page Edit content overlay', () => {
     );
 
     // Typing never touches the canonical document or the page model. A
-    // Shift+2 character must reach the editor instead of triggering Fit width.
+    // shifted digit must reach the editor instead of triggering a fit key.
     await page.keyboard.type(' Page overlay edit. @');
     await page.waitForTimeout(200);
     assert.match(await overlay().textContent(), /Page overlay edit\. @/);
@@ -793,7 +794,10 @@ describe('M4b1b1 Page Edit content overlay', () => {
     await showPageRead();
     await enterPageEdit();
     await openOverlay('parent');
-    await page.keyboard.type(' Reload keeps this sentence.');
+    // The shared helper asserts the text landed in the overlay, so a lost
+    // keystroke under a loaded pool fails here instead of looking like a
+    // commit that silently dropped it.
+    await typeInOverlay(' Reload keeps this sentence.');
     // ⌘S commits the overlay before writing, so the file cannot omit it.
     await page.keyboard.press('Meta+s');
     await waitOverlayClosed();

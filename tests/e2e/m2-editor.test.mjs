@@ -632,7 +632,9 @@ describe('NoteForest M2 editor shell', () => {
       'native dirty state clears after save',
     );
 
-    await page.keyboard.press('Meta+1');
+    // B1 removed the `⌘1…⌘9` tab digits (they collided with `⌘2`/`⌘3`); the
+    // tab strip is the user path to the first tab.
+    await page.locator('.nf-tab').first().click();
     await waitActiveTab(firstPath);
     assert.equal((await h.state()).activeTab, firstPath);
     assert.match(await h.activeEditor().locator('.nf-block-prose').first().innerText(), /Root block/);
@@ -652,7 +654,7 @@ describe('NoteForest M2 editor shell', () => {
     await page.keyboard.press('Meta+Shift+t');
     await waitTabCount(2);
     assert.equal((await h.state()).tabs.length, 2, 'reopen closed tab');
-    await page.keyboard.press('Meta+1');
+    await page.locator('.nf-tab').first().click();
     await waitActiveTab(firstPath);
 
     await h.flushSession();
@@ -1171,7 +1173,7 @@ describe('NoteForest M2 editor shell', () => {
     // A second document and a tab round-trip do not resurrect a phantom block.
     await page.keyboard.press('Meta+n');
     await waitTabCount(2);
-    await page.keyboard.press('Meta+1');
+    await page.locator('.nf-tab').first().click();
     await waitActiveTab(firstPath);
     const returned = await h.parity();
     assert.equal(returned.canvas, 3);

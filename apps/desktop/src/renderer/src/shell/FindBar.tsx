@@ -17,6 +17,7 @@
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { FindResult } from '../lib/find';
+import { matches, shortcutHint } from '../lib/shortcuts';
 import { useShell } from '../state/shell';
 import { closeFind, findNext, findPrevious } from '../actions';
 
@@ -63,36 +64,44 @@ export function FindBar(): JSX.Element | null {
   if (!open) return null;
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
-    switch (event.key) {
-      case 'Escape':
-        event.preventDefault();
-        event.stopPropagation();
-        closeFind();
-        return;
-      case 'Enter':
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.shiftKey) findPrevious();
-        else findNext();
-        return;
-      case 'ArrowDown':
-        event.preventDefault();
-        findNext();
-        return;
-      case 'ArrowUp':
-        event.preventDefault();
-        findPrevious();
-        return;
-      case 'Home':
-        event.preventDefault();
-        useShell.getState().firstFind();
-        return;
-      case 'End':
-        event.preventDefault();
-        useShell.getState().lastFind();
-        return;
-      default:
-        return;
+    // The field's own keys are catalogue entries with `list: false`: they are
+    // in the field's tooltips, not in the app-wide list.
+    if (matches(event, 'find-field-close')) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeFind();
+      return;
+    }
+    if (matches(event, 'find-field-previous')) {
+      event.preventDefault();
+      event.stopPropagation();
+      findPrevious();
+      return;
+    }
+    if (matches(event, 'find-field-next')) {
+      event.preventDefault();
+      event.stopPropagation();
+      findNext();
+      return;
+    }
+    if (matches(event, 'find-field-down')) {
+      event.preventDefault();
+      findNext();
+      return;
+    }
+    if (matches(event, 'find-field-up')) {
+      event.preventDefault();
+      findPrevious();
+      return;
+    }
+    if (matches(event, 'find-field-first')) {
+      event.preventDefault();
+      useShell.getState().firstFind();
+      return;
+    }
+    if (matches(event, 'find-field-last')) {
+      event.preventDefault();
+      useShell.getState().lastFind();
     }
   };
 
@@ -134,7 +143,7 @@ export function FindBar(): JSX.Element | null {
         type="button"
         className="nf-find-button"
         aria-label="Previous match"
-        title="Previous match (⇧↵)"
+        title={`Previous match (${shortcutHint('find-field-previous')})`}
         disabled={empty}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => findPrevious()}
@@ -146,7 +155,7 @@ export function FindBar(): JSX.Element | null {
         type="button"
         className="nf-find-button"
         aria-label="Next match"
-        title="Next match (↵)"
+        title={`Next match (${shortcutHint('find-field-next')})`}
         disabled={empty}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => findNext()}
@@ -158,7 +167,7 @@ export function FindBar(): JSX.Element | null {
         type="button"
         className="nf-find-button"
         aria-label="Close find"
-        title="Close find (Esc)"
+        title={`Close find (${shortcutHint('find-field-close')})`}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => closeFind()}
         data-find-close="true"

@@ -2,6 +2,7 @@ import { FileDown, Redo2, Undo2 } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { useRuntime } from '../state/registry';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
+import { shortcutHint } from '../lib/shortcuts';
 import { redoActive, undoActive } from '../actions';
 import { exportActiveDocument } from '../export/export-flow';
 import { FindBar } from './FindBar';
@@ -41,12 +42,12 @@ export function CanvasHeader({
   const undoTitle = !editingEnabled
     ? `Undo — ${READ_MODE_TITLE}`
     : canUndo
-      ? 'Undo (⌘Z)'
+      ? `Undo (${shortcutHint('undo')})`
       : 'Nothing to undo';
   const redoTitle = !editingEnabled
     ? `Redo — ${READ_MODE_TITLE}`
     : canRedo
-      ? 'Redo (⇧⌘Z)'
+      ? `Redo (${shortcutHint('redo')})`
       : 'Nothing to redo';
 
   return (
@@ -89,8 +90,8 @@ export function CanvasHeader({
               type="button"
               className="nf-header-export"
               data-page-export="true"
-              title="Export to PDF (⇧⌘E)"
-              aria-keyshortcuts="Shift+Meta+E"
+              title={`Export to PDF (${shortcutHint('export-pdf')})`}
+              aria-keyshortcuts="Meta+Shift+E"
               onClick={(event) => exportActiveDocument(event.currentTarget)}
             >
               <FileDown size={13} strokeWidth={1.6} aria-hidden="true" />

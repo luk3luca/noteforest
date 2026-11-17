@@ -7049,6 +7049,14 @@ body.nf-dragging-block .nf-gutter-handle {
   line-height: calc(16px * var(--ui-scale));
 }
 
+/* A row's scope qualifier (`Continuous`, `works from the header and the pager`):
+   the key alone would be false in the other surface (K1). */
+.nf-shortcut-note {
+  margin-left: 6px;
+  color: var(--text-4, var(--text-3));
+  font-size: calc(10.5px * var(--ui-scale));
+}
+
 /* ----------------------------------------------------- appearance settings */
 
 /* Real select for UI/code font. Same geometry as the segmented groups; the
@@ -8516,12 +8524,51 @@ body.nf-dragging-block .nf-gutter-handle {
   border: 1px solid #d99890;
 }
 
-.nf-page-anchor-badge {
-  top: auto;
-  bottom: 2px;
-  color: var(--nf-page-warning-ink);
-  background: var(--nf-page-warning-bg);
-  border: 1px solid var(--nf-page-warning-line);
+/* A broken or ambiguous anchor is a 6 px status dot in the card's top-right
+   corner (B1), the same shape as the sidebar needs-repair dot. The dot's centre
+   sits 4 px inside the corner; the button around it is the 24 px hit area, so
+   the tooltip opens and a click repairs the anchor. Both are absolutely
+   positioned: nothing here can move the measured card. The hit box overflows
+   the card by 8 px into the 18 px sibling gap, so it never reaches a
+   neighbouring card. */
+.nf-page-anchor-dot {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.nf-page-anchor-dot-shape {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--nf-page-warning-ink);
+}
+
+.nf-page-anchor-dot:hover .nf-page-anchor-dot-shape {
+  background: var(--nf-page-warning-line);
+}
+
+.nf-page-anchor-dot:focus-visible {
+  outline: 2px solid var(--nf-page-focus);
+  outline-offset: -4px;
+  border-radius: var(--radius-control);
+}
+
+/* The dot owns the corner: a block defect chip on the same card steps left so
+   both are visible. The print compositor has no anchor flag, so paper keeps the
+   chip where it always was. */
+.nf-page-fragment[data-fragment-anchor-warning="true"] > .nf-page-defect-badge {
+  right: 26px;
 }
 
 .nf-page-placeholder {

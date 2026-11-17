@@ -97,7 +97,7 @@ describe('NoteForest M2 visual evidence', () => {
     await h.waitSaved();
     await page.keyboard.type('A second note with its own blocks.');
     await h.waitSaved();
-    await page.keyboard.press('Meta+1');
+    await page.locator('.nf-tab').first().click();
     await page.waitForFunction(
       (expected) => window.__noteforestTest.state().activeTab === expected,
       firstPath,
@@ -136,7 +136,7 @@ describe('NoteForest M2 visual evidence', () => {
     await shot('two-tabs-1440x900.png', 1440, 900);
 
     // Return to the document and align the horizontal scroll for the 1024 shot.
-    await page.keyboard.press('Meta+1');
+    await page.locator('.nf-tab').first().click();
     await page.waitForFunction(
       (expected) => window.__noteforestTest.state().activeTab === expected,
       firstPath,

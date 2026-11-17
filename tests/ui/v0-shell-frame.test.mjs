@@ -30,6 +30,23 @@ async function launch(name) {
   await h.setWindowSize(1440, 900);
 }
 
+/**
+ * Click a native menu item by id, exactly as a user would. Fit page is
+ * menu-only (no accelerator) since B1 removed the bare-Shift `⇧1`.
+ */
+async function invokeAppMenu(id) {
+  await h.app.evaluate(
+    ({ Menu, BrowserWindow }, menuId) => {
+      const item = Menu.getApplicationMenu()?.getMenuItemById(menuId);
+      if (item === null || item === undefined) {
+        throw new Error(`missing menu item ${menuId}`);
+      }
+      item.click(item, BrowserWindow.getAllWindows()[0], undefined);
+    },
+    id,
+  );
+}
+
 async function viewState(packagePath) {
   return page.evaluate(
     (path) => window.__noteforestTest.viewState()[path] ?? null,
@@ -385,7 +402,8 @@ describe('V0 visual shell', () => {
       () => window.__noteforestTest.state().tabs.at(-1)?.packagePath ?? null,
     );
     assert.ok(openedByLibrary !== null, 'the Library + opens a note');
-    await page.keyboard.press('Meta+1');
+    // The tab strip is the user path to the first tab (B1 removed the tab digits).
+    await page.locator('.nf-tab').first().click();
     await page.waitForFunction(
       () => window.__noteforestTest.state().tabs[0]?.packagePath === window.__noteforestTest.state().activeTab,
       undefined,
@@ -1562,15 +1580,18 @@ describe('V0 visual shell', () => {
       `${Math.round(pageZoomed.pageZoom * 100)}%`,
     );
 
-    // Fit page / Fit width / Actual size are Page view state, delivered by the
-    // layout-aware keys (the old zoom dropdown is gone).
+    // Fit page / Fit width / Reset zoom are Page view state, delivered by the
+    // layout-aware commands (the old zoom dropdown is gone). The bare-Shift
+    // `⇧1`/`⇧2` fit keys were removed (B1): they swallowed `!` and `"` in the
+    // Page find field. Fit page is the View menu item with no accelerator, and
+    // both fits stay in the palette.
     //
-    // Actual size first, through the percentage control, while the Page fit is
+    // Reset zoom first, through the percentage control, while the Page fit is
     // the settled default: the Page surface writes the effective fit back into
     // `pageZoom` one paint after a fit change, so a reset issued immediately
-    // after ⇧1/⇧2 can lose to that late write (open risk in the S1 report; the
-    // Page surface is out of this slice). The ⌘0 keyboard reset of the same
-    // command stays covered by the page-view suite.
+    // after a fit command can lose to that late write (open risk in the S1
+    // report; the Page surface is out of this slice). The ⌘0 keyboard reset of
+    // the same command stays covered by the page-view suite.
     await page.locator('[data-zoom-value]').click();
     await page.waitForFunction(
       (path) => {
@@ -1584,14 +1605,16 @@ describe('V0 visual shell', () => {
     const afterActual = await viewState(packagePath);
     assert.equal(afterActual.zoom, 1, 'Actual size never changed the Continuous zoom');
 
-    await page.keyboard.press('Shift+1');
+    // Fit page from the native menu item (no accelerator since B1).
+    await invokeAppMenu('menu-fit-page');
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.pageFit === 'page',
       packagePath,
       { timeout: 10000 },
     );
     assert.equal(await page.locator('[data-zoom-target="page"]').getAttribute('data-page-fit'), 'page');
-    await page.keyboard.press('Shift+2');
+    // Fit width keeps ⇧⌘0.
+    await page.keyboard.press('Meta+Shift+0');
     await page.waitForFunction(
       (path) => window.__noteforestTest.viewState()[path]?.pageFit === 'width',
       packagePath,

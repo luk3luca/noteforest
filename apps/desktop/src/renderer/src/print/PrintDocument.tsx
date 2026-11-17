@@ -14,7 +14,7 @@
 
 import { useMemo, type CSSProperties } from 'react';
 import type { PrintModel, PrintPage } from '@noteforest/pdf';
-import type { AnchorAttachment, LayoutDefect, PageFragment } from '@noteforest/layout';
+import type { LayoutDefect, PageFragment } from '@noteforest/layout';
 import { codeFontStack, contentBlockTitle } from '@noteforest/layout';
 import { PageEdges } from '../page/PageEdges';
 import { PageChromeView } from '../page/PageChromeView';
@@ -42,25 +42,6 @@ function DefectBadge({
   return (
     <span className="nf-page-badge nf-page-defect-badge" title={title} data-page-defect="true">
       {label}
-    </span>
-  );
-}
-
-function AnchorWarningBadge({
-  warnings,
-}: {
-  warnings: readonly AnchorAttachment[];
-}): JSX.Element {
-  const title = warnings
-    .map((warning) => `Anchor ${warning.anchorId}: ${warning.state}`)
-    .join('\n');
-  return (
-    <span
-      className="nf-page-badge nf-page-anchor-badge"
-      title={title}
-      data-page-anchor-warning="true"
-    >
-      ⚠ anchor
     </span>
   );
 }
@@ -100,9 +81,8 @@ function PrintFragment({ model, page, projected, fragment }: PrintFragmentProps)
     end,
   )}`;
   const blocking = model.blockingDefects.filter((defect) => defect.blockId === fragment.blockId);
-  const anchorWarnings = fragment.isFirst
-    ? projected?.anchorWarningsByBlock[fragment.blockId] ?? []
-    : [];
+  // Paper carries nothing about anchors (B1): no dot, no flag, no marker text.
+  // Every other page↔print parity record comes from the same projection.
   return (
     <div
       className="nf-page-fragment nf-print-fragment"
@@ -121,7 +101,6 @@ function PrintFragment({ model, page, projected, fragment }: PrintFragmentProps)
       data-fragment-first={fragment.isFirst ? '1' : '0'}
       data-fragment-last={fragment.isLast ? '1' : '0'}
       data-fragment-defect={blocking.length > 0 ? 'true' : undefined}
-      data-fragment-anchor-warning={anchorWarnings.length > 0 ? 'true' : undefined}
       data-print-fragment="true"
       role="group"
       aria-label={`${contentBlockTitle(block)}, page ${page.pageNumber}`}
@@ -132,7 +111,6 @@ function PrintFragment({ model, page, projected, fragment }: PrintFragmentProps)
         dangerouslySetInnerHTML={{ __html: html }}
       />
       {blocking.length > 0 ? <DefectBadge defects={blocking} label="Block defect" /> : null}
-      {anchorWarnings.length > 0 ? <AnchorWarningBadge warnings={anchorWarnings} /> : null}
     </div>
   );
 }

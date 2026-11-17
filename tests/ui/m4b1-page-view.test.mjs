@@ -114,6 +114,15 @@ async function selectedBlockId() {
   return runtime?.selectedBlockId ?? null;
 }
 
+/**
+ * Fit through the native-menu command path: the bare-Shift `⇧1`/`⇧2` keys were
+ * removed because they swallowed `!` and `"` in the Page find field (B1).
+ * `View → Fit page` has no accelerator now; the palette still exposes both.
+ */
+async function fitFromMenu(command) {
+  await page.evaluate((value) => window.__noteforestTest.dispatchMenuCommand(value), command);
+}
+
 describe('M4b1 page view core', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
@@ -215,7 +224,7 @@ describe('M4b1 page view core', () => {
     );
 
     // Zoom/fit are navigation only: the sheet geometry attributes stay A4.
-    await page.keyboard.press('Shift+2');
+    await fitFromMenu('fit-width');
     await page.waitForFunction(
       () => document.querySelector('[data-zoom-target="page"]')?.getAttribute('data-page-fit') === 'width',
       undefined,
@@ -233,7 +242,7 @@ describe('M4b1 page view core', () => {
       Math.abs(Number(await sheet.getAttribute('data-page-width-px')) - 1122.52) < 0.05,
       'fit/zoom never changes the A4 geometry',
     );
-    await page.keyboard.press('Shift+1');
+    await fitFromMenu('fit-page');
     await page.waitForFunction(
       () => document.querySelector('[data-zoom-target="page"]')?.getAttribute('data-page-fit') === 'page',
       undefined,
@@ -989,7 +998,7 @@ describe('M4b1 page view core', () => {
     );
   });
 
-  it('ends a ⇧2 → ⌘0 sequence on fit width at 100%, never on a stale fit', async () => {
+  it('ends a fit-width → ⌘0 sequence on fit width at 100%, never on a stale fit', async () => {
     const env = ui.isolated('m4b1-fit-race');
     await launch(env);
     await h.setWindowSize(1440, 900);
@@ -1016,7 +1025,9 @@ describe('M4b1 page view core', () => {
 
     // The race the old surface had (a pending fit write landing over a newer
     // manual zoom) is gone: the fit no longer writes a derived zoom, and ⌘0
-    // lands on the same rest state as ⇧2. One task, one microtask apart.
+    // lands on the same rest state as fit width. The fit command is the same
+    // one `⇧2` used to run (B1 removed that bare-Shift key); one task, one
+    // microtask apart.
     await page.evaluate(() => {
       const press = (init) =>
         window.dispatchEvent(
@@ -1027,7 +1038,7 @@ describe('M4b1 page view core', () => {
           }),
         );
       const run = async () => {
-        press({ code: 'Digit2', key: '2', shiftKey: true });
+        window.__noteforestTest.dispatchMenuCommand('fit-width');
         await Promise.resolve();
         press({ code: 'Digit0', key: '0', metaKey: true });
         await Promise.resolve();
@@ -1048,9 +1059,9 @@ describe('M4b1 page view core', () => {
     assert.equal(state.label, '100%', 'the zoom control reads 100%');
     assert.ok(Math.abs(state.pageZoom - 1) < 0.001);
 
-    // The user path: real ⇧2 → ⌘0 presses, with no wait between them.
+    // The user path: fit width, then a real ⌘0 press, with no wait between them.
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      await page.keyboard.press('Shift+2');
+      await fitFromMenu('fit-width');
       await page.keyboard.press('Meta+0');
     }
     await page.waitForFunction(
@@ -1081,6 +1092,75 @@ describe('M4b1 page view core', () => {
     assert.equal(zoomed.pageFit, 'none');
     assert.equal(zoomed.pageZoom, 1.1, 'the manual zoom starts from the visible 100 %');
     assert.equal(zoomed.label, '110%');
+  });
+
+  it('reaches both fits without a key: the palette, and the View menu item', async () => {
+    const env = ui.isolated('m4b1-fit-reachable');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await ui.seedDemo();
+    const packagePath = (await h.state()).activeTab;
+    await showPageView();
+    await ui.ensureInteractionMode('read');
+
+    const pageFit = () =>
+      page.evaluate(
+        (path) => window.__noteforestTest.viewState()[path]?.pageFit ?? null,
+        packagePath,
+      );
+    const waitFit = (expected) =>
+      page.waitForFunction(
+        ({ path, fit }) => window.__noteforestTest.viewState()[path]?.pageFit === fit,
+        { path: packagePath, fit: expected },
+        { timeout: 10000 },
+      );
+
+    assert.equal(await pageFit(), 'width', 'fit width is the rest state');
+
+    // The palette exposes both fits; Fit page advertises no key (B1 removed the
+    // bare-Shift `⇧1` that used to fit it).
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    await page.locator('.nf-palette-input').fill('Fit page');
+    const fitPageRow = page.locator('[data-palette-item="cmd-fit-page"]');
+    await fitPageRow.waitFor();
+    assert.equal(
+      await fitPageRow.locator('.nf-palette-hint').count(),
+      0,
+      'Fit page has no shortcut hint',
+    );
+    await fitPageRow.click();
+    await page.waitForSelector('.nf-palette', { state: 'detached' });
+    await waitFit('page');
+
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    await page.locator('.nf-palette-input').fill('Fit width');
+    const fitWidthRow = page.locator('[data-palette-item="cmd-fit-width"]');
+    await fitWidthRow.waitFor();
+    assert.equal(
+      await fitWidthRow.locator('.nf-palette-hint').innerText(),
+      '⇧⌘0',
+      'Fit width keeps its key in the palette',
+    );
+    await fitWidthRow.click();
+    await page.waitForSelector('.nf-palette', { state: 'detached' });
+    await waitFit('width');
+
+    // ⌘0 reads Reset zoom everywhere, and the palette row says so.
+    await page.keyboard.press('Meta+k');
+    await page.waitForSelector('.nf-palette');
+    await page.locator('.nf-palette-input').fill('Reset zoom');
+    const resetRow = page.locator('[data-palette-item="cmd-zoom-reset"]');
+    await resetRow.waitFor();
+    assert.equal(await resetRow.locator('.nf-palette-label').innerText(), 'Reset zoom');
+    assert.equal(await resetRow.locator('.nf-palette-hint').innerText(), '⌘0');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.nf-palette', { state: 'detached' });
+
+    // The View menu item reaches fit page with no accelerator at all.
+    await fitFromMenu('fit-page');
+    await waitFit('page');
   });
 
   it('restores layout, mode, page, zoom and fit from the session', async () => {

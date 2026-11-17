@@ -12,6 +12,7 @@ import {
 } from '../state/shell';
 import { getRuntime, useRegistry, useRuntime } from '../state/registry';
 import { createNewDocument } from '../actions';
+import { shortcutHint } from '../lib/shortcuts';
 import { DocumentEditor } from '../editor/DocumentEditor';
 import { MarkdownFileEditor } from '../markdown/MarkdownFileEditor';
 import { isMarkdownPath } from '../../../shared/markdown';
@@ -40,7 +41,10 @@ function EmptyState(): JSX.Element {
             Open document
           </button>
         </div>
-        <p className="nf-empty-hint">⌘N new · ⌘K search · ⌘\ sidebar</p>
+        <p className="nf-empty-hint">
+          {shortcutHint('new-note')} new · {shortcutHint('command-palette')} search ·{' '}
+          {shortcutHint('toggle-sidebar')} sidebar
+        </p>
       </div>
     </div>
   );
