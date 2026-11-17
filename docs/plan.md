@@ -723,7 +723,7 @@ does not have to rediscover it.
 
 The release comes **last**: v1 hardening → find/highlighter → **B1 v1 defects** (Page dot, print-free
 page, shortcut catalogue) → **B2 contrast** (code themes + Continuous edges) → **P2 release polish** →
-**full Sentinel** → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
+**full Sentinel** (in flight, `docs/tasks/v1-sentinel.md`) → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
 `npm run release`). B1 waited for the find fixes on purpose: same shell files, and the Page find field is
 where the `⇧1`/`⇧2` defect showed. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
 stays in that file as the record.
