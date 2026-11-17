@@ -711,11 +711,16 @@ token), resting width 1.25 → 1.5, and an arrowhead that scales with the stroke
 Not a roadmap; the product owner's first pass over the post-v1 backlog.
 
 **Picked as useful:** image crop editor + region re-pick; the math symbol/template palette; **Markdown
-export**; **manual resize**, and with it an **automatic row fill** — when width remains, children/top-level
-cards widen to use it (this is the original "siblings together fill the page" rule, never implemented;
-Continuous only, and it needs a layout lab because a wider sibling changes the wrap decisions);
-the five Library/Markdown deferrals; **drag a block onto another to indent/outdent** (today drag only
+export**; **width fill / manual resize**, corrected by the product owner on the same day — the need is
+**Page first**, not Continuous: in Page the fill is what avoids "infinite narrow columns" and unused page
+width; in Continuous it matters only for large tables. This is the original "siblings together fill the
+page" rule, never implemented, and it is a **layout-lab** item because it changes pagination, the PDF gate
+baseline and the wrap decisions (a wider card can push a sibling below). Manual resize as a stored override
+is a separate, larger question (widths are derived today).
+The five Library/Markdown deferrals; **drag a block onto another to indent/outdent** (today drag only
 reorders before/after); **drag files in the Library tree** (today the Move dialog is the only path).
+**Find & replace** belongs to the **sidebar Search** surface only, not the canvas toolbar (owner, same day):
+the 28 px header cluster stays as it is.
 
 **Skeptical, deferred:** iPad + Apple Pencil and in-app ink annotations — "last resort if it is really
 missing while using it". No sync service exists; the document is a folder package in the user library, so
@@ -723,10 +728,18 @@ cross-device work is a synced folder with conflicts, and an iPad editor would be
 is Electron). The cheap path, if the study loop needs it, is the existing PDF handoff for external
 annotation, not an iPad editor.
 
-**Added by the Orchestrator as candidates:** find & replace inside a note (the find engine exists);
-library-wide content search (only a name filter exists today); multi-select blocks for bulk indent / move /
-delete (promised in the UX spec, never built); export range (chapter or page range in the export sheet);
-performance at 1,000 blocks and in large libraries.
+**Added by the Orchestrator as candidates:** find & replace inside a note (the find engine exists; sidebar
+Search only); library-wide content search (only a name filter exists today); multi-select blocks for bulk
+indent / move / delete (promised in the UX spec, never built); export range (chapter or page range in the
+export sheet); performance at 1,000 blocks and in large libraries.
+
+**Agent API — clarifying the ratified decision (owner asked, 17 November 2026).** ADR-0003 (External API)
+is **withdrawn**; external agents get no server, tokens, live command API or forest builder. The app opens a
+`.md` file as a flat guest file, and the agent's own prompt decides any restructuring; there is no automatic
+Markdown→forest import and no in-app agent panel. If the owner's goal is "an agent creates structured
+notes", the realistic options are: (a) a **Markdown importer** that builds blocks (lossy, post-v1 in the
+spec); (b) a **CLI/file import** for packages; (c) reopening a local API/MCP surface, which is a much
+larger decision (permissions, concurrency, live editing) and contradicts the current ADR. No decision yet.
 
 ## Known issues and follow-ups (17 November 2026)
 
