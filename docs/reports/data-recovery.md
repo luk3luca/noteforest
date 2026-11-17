@@ -409,3 +409,47 @@ Screenshots (`artifacts/data-recovery/`, git-ignored evidence):
    content-reference change).
 2. The product-owner visual/VoiceOver pass over the section, the confirm, Read mode, and the
    save-failure banner's `Details` (screenshots in `artifacts/data-recovery/`).
+
+## DR1c — backup retention by content reference (17 November 2026)
+
+`backupAssetReferences` now retains an asset id only when a retained backup's **document references** it —
+an image node's `assetId` or an image anchor's selector — and never because the backup's asset record
+table (`documents.assets`) still lists it. The scan already parses every backup, so the change is one rule
+inside that loop in `packages/core/src/node/recovery.ts`: the record-table union is gone, and the existing
+`referencedAssetIds` walk (the same walk `planAssetGc` uses) is the only source. **That content reference
+is the grace period**, and it is the honest one: an image deleted today becomes reclaimable when the
+autosaves that still show it in their content have rotated out under the unchanged policy (floor 10,
+default 20 autosaves), with no mtime and no invented window. Nothing else moved: the rotation policy,
+cadence and floor, the 50-backup scan cap, the Health section and its copy (it never stated a window, so
+no line was needed), the trash path, `planAssetGc`, and `asset.remove` are untouched. The old flaw is
+closed by construction — the save after “remove the image from the block” still retains the id, but
+through the image node that snapshot shows, so it releases the id when that snapshot rotates out instead
+of keeping it forever.
+
+**Tests.** `packages/core/test/asset-gc.test.ts` adds three: a backup whose record table holds an id its
+content never names retains nothing (`does not retain an id that a backup only records but never
+references`); a backup that names the id only through an image anchor does retain it; and the ordinary
+delete → autosave → rotate sequence, driven through a real `DocumentStore` with `autosaveMax: 10`, retains
+the id at first and makes it reclaimable after ten further saves rotate the referencing snapshot out
+(asserted with the ten-autosave floor and the `retained-backup` plan reason on both sides).
+`apps/desktop/test/unused-images-main.test.ts` now pins the boundary rule — a backup that references two
+ids and only records a third returns the two — and `tests/ui/unused-images.test.mjs` writes a backup whose
+content still shows the image it retains, so the UI case is the real previous revision instead of a
+record-only snapshot. No assertion was relaxed.
+
+**Checks.** Targeted `npx vitest run` over `asset-gc`, `asset-store`, `asset-contract`, `unused-images`
+and `unused-images-main`: 5 files / 54 tests pass. UI `node tests/ui/run.mjs --group shell,images
+--concurrency 2`: 27/27 (259.8 s). The first invocation of that command reported two `m2-shell` subtest
+failures; a serial `--group shell` run (23/23) and an immediate repeat of the same concurrent command
+(27/27) were both green and neither touches backups or assets, so it is recorded as a runner flake.
+`npm run verify:fast`: exit 0 (162 unit files / 1649 tests, e2e 16/16).
+
+**Risks.** Restoring a backup older than the retained ones can still show a placeholder if its asset was
+cleaned up earlier — recorded for DR1b and unchanged. The list can be one save stale, because the scan
+runs on section mount/re-check and at the start of a cleanup pass; a `retained-backup` reason therefore
+lags until the next refresh, and the action re-plans and the main process re-checks the guard, so a stale
+row is safe. The earlier DR1b risk entry and `docs/reports/m3c3b4-image-ux-lifecycle.md` describe the
+record-presence rule as history and are not rewritten.
+
+**Next step.** The product-owner visual/VoiceOver pass over the section, unchanged screenshots because no
+copy changed.

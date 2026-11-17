@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { planAssetGc, referencedAssetIds, imageAssetReferences } from '../src/assets.js';
 import { BackupManager } from '../src/node/backups.js';
 import { backupAssetReferences } from '../src/node/recovery.js';
+import { createDocumentPackage } from '../src/node/store.js';
 import { stringifyDocument } from '../src/serialize.js';
 import type { ContentNode, Document } from '../src/types.js';
 import { deterministicContext, makeTempDir, newDocument, removeDir, run, tryRun } from './helpers.js';
@@ -252,6 +253,152 @@ describe('backup references keep GC restore-safe', () => {
     expect(
       planAssetGc(live, { retainedAssetIds: afterRotation.assetIds }).reclaimable,
     ).toEqual([FREE_ID, BACKUP_ONLY_ID].sort());
+  });
+
+  it('does not retain an id that a backup only records but never references', async () => {
+    const packagePath = path.join(root, 'document');
+    const backupsDir = path.join(root, 'backups');
+    await fs.mkdir(packagePath, { recursive: true });
+    const { document } = documentWithImages([USED_ID]);
+    // The autosave a delete leaves behind: the previous revision's record table
+    // still lists the image, but no content names it any more.
+    const backupDocument: Document = {
+      ...document,
+      assets: {
+        [USED_ID]: asset(USED_ID, 'used.png'),
+        [BACKUP_ONLY_ID]: asset(BACKUP_ONLY_ID, 'old.png'),
+      },
+    };
+    const manager = new BackupManager(backupsDir);
+    const backup = await manager.create(stringifyDocument(backupDocument), {
+      kind: 'autosave',
+      revision: document.revision,
+      now: new Date('2026-11-17T10:00:00.000Z'),
+    });
+
+    const references = await backupAssetReferences(packagePath, { backupsDir });
+
+    expect(references.backupPaths).toEqual([backup.path]);
+    expect(references.assetIds).toEqual([USED_ID]);
+    expect(planAssetGc(document, { retainedAssetIds: references.assetIds }).reclaimable).toEqual([
+      FREE_ID,
+    ]);
+  });
+
+  it('retains an id named only by an image anchor inside a backup', async () => {
+    const packagePath = path.join(root, 'document');
+    const backupsDir = path.join(root, 'backups');
+    await fs.mkdir(packagePath, { recursive: true });
+    const { context, document: withImage, blockId } = documentWithImages([USED_ID]);
+    const branched = createImageAnchor(withImage, context, blockId);
+    // The node is gone from the content, but the anchor selector still names
+    // the asset: restoring this backup would show a broken anchor without it.
+    const detached = run(
+      branched.document,
+      {
+        type: 'block.editContent',
+        blockId,
+        content: { type: 'doc', children: [{ type: 'paragraph' }] },
+      },
+      context,
+    );
+    const backupDocument: Document = {
+      ...detached.document,
+      assets: {
+        [USED_ID]: asset(USED_ID, 'used.png'),
+        [FREE_ID]: asset(FREE_ID, 'free.png'),
+        [BACKUP_ONLY_ID]: asset(BACKUP_ONLY_ID, 'old.png'),
+      },
+    };
+    await new BackupManager(backupsDir).create(stringifyDocument(backupDocument), {
+      kind: 'daily',
+      revision: detached.document.revision,
+      now: new Date('2026-11-17T10:00:00.000Z'),
+    });
+
+    const references = await backupAssetReferences(packagePath, { backupsDir });
+
+    expect(references.assetIds).toEqual([USED_ID]);
+  });
+
+  it('makes a deleted image reclaimable once the autosave that referenced it rotates out', async () => {
+    const clock = new Date('2026-11-17T10:00:00.000Z');
+    const created = await createDocumentPackage(
+      path.join(root, 'library'),
+      { title: 'Retention' },
+      {
+        appSupportDir: path.join(root, 'app-support'),
+        registerRecent: false,
+        heartbeatIntervalMs: 0,
+        backupRetention: { autosaveMax: 10 },
+        now: () => clock,
+      },
+    );
+    if (!created.ok) throw new Error(created.error.message);
+    try {
+      const currentDocument = (): Document => {
+        const document = created.store.document;
+        if (document === null) throw new Error('store has no document');
+        return document;
+      };
+      const chapterId = currentDocument().chapters[0]?.id ?? '';
+      expect(created.store.apply({ type: 'asset.add', asset: asset(USED_ID, 'used.png') }).ok).toBe(true);
+      expect(
+        created.store.apply({
+          type: 'block.create',
+          blockId: 'image-block',
+          content: imageContent(USED_ID),
+          placement: { kind: 'top-level', chapterId },
+        }).ok,
+      ).toBe(true);
+      expect((await created.store.save()).ok).toBe(true);
+
+      // The ordinary delete: the image leaves the block, its record stays until
+      // the Health cleanup removes it. The save writes the previous revision —
+      // the one that still references the image — as an autosave.
+      expect(
+        created.store.apply({
+          type: 'block.editContent',
+          blockId: 'image-block',
+          content: { type: 'doc', children: [{ type: 'paragraph' }] },
+        }).ok,
+      ).toBe(true);
+      expect((await created.store.save()).ok).toBe(true);
+
+      const retained = await backupAssetReferences(created.packagePath, {
+        appSupportDir: path.join(root, 'app-support'),
+      });
+      expect(retained.assetIds).toEqual([USED_ID]);
+      expect(
+        planAssetGc(currentDocument(), { retainedAssetIds: retained.assetIds }).retained,
+      ).toContainEqual({ id: USED_ID, reasons: ['retained-backup'] });
+      expect(
+        planAssetGc(currentDocument(), { retainedAssetIds: retained.assetIds }).reclaimable,
+      ).not.toContain(USED_ID);
+
+      // Ten more ordinary saves push that referencing autosave under the
+      // ten-snapshot floor, so the store's own rotation drops it.
+      for (let index = 0; index < 10; index += 1) {
+        expect(
+          created.store.apply({ type: 'document.rename', title: `Retention ${index + 1}` }).ok,
+        ).toBe(true);
+        expect((await created.store.save()).ok).toBe(true);
+      }
+
+      const rotated = await backupAssetReferences(created.packagePath, {
+        appSupportDir: path.join(root, 'app-support'),
+      });
+      const autosaves = (await created.store.listBackups()).filter(
+        (backup) => backup.kind === 'autosave',
+      );
+      expect(autosaves).toHaveLength(10);
+      expect(rotated.assetIds).toEqual([]);
+      expect(
+        planAssetGc(currentDocument(), { retainedAssetIds: rotated.assetIds }).reclaimable,
+      ).toContain(USED_ID);
+    } finally {
+      await created.store.close();
+    }
   });
 
   it('ignores invalid backups that could not be restored', async () => {

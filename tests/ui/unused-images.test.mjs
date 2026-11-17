@@ -17,7 +17,9 @@ import { imageBlock, pageDocument, writePagePackage } from '../support/page-fixt
  * before the record is removed. Read mode lists but does not allow the action.
  *
  * The scan reads this note's backups in app support, so the fixtures write a
- * real backup file naming one asset. A backup keeps an id, never the bytes.
+ * real backup whose content references one asset. A backup keeps an id, never
+ * the bytes, and only a content reference counts (DR1c): a record alone is the
+ * autosave a delete leaves behind.
  */
 
 const tempRoot = artifactsPath('unused-images-temp');
@@ -48,7 +50,15 @@ async function writeBackupNaming(env, packagePath, ids) {
     createHash('sha256').update(resolve(packagePath)).digest('hex').slice(0, 32),
   );
   await mkdir(directory, { recursive: true });
-  const backup = pageDocument({ id: 'unused-images-note', title: 'Unused images', blocks: [] });
+  const backup = pageDocument({
+    id: 'unused-images-note',
+    title: 'Unused images',
+    // The previous revision: its content still shows the image that was removed
+    // from the live note. The reference, not the record, is what retains the id.
+    blocks: ids.map((id, index) =>
+      imageBlock(`backup-image-${index}`, 'Old image', id, 'only in backup'),
+    ),
+  });
   backup.assets = Object.fromEntries(
     ids.map((id) => [id, assetRecord(id, 'only-in-backup.png', 12)]),
   );
@@ -178,8 +188,8 @@ describe('unused images on Health', () => {
     // No all-clear while there is something to clean up.
     assert.equal(await page.locator('[data-health-empty="true"]').count(), 0);
 
-    // The spare record is the only row: a used image and a backup-only asset
-    // are never listed.
+    // The spare record is the only row: a used image and a backup-referenced
+    // asset are never listed.
     assert.equal(await page.locator(`[data-health-unused-image="${ids.spareId}"]`).count(), 1);
     assert.equal(await page.locator(`[data-health-unused-image="${ids.usedId}"]`).count(), 0);
     assert.equal(

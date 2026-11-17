@@ -172,15 +172,24 @@ export async function inspectRecoveryCandidates(
 }
 
 /**
- * Asset ids named by every retained backup document for one package.
+ * Asset ids that every retained backup document actually references.
  *
  * Backups contain `document.json` only; assets are content-addressed and shared
  * with the live package. An asset GC pass must treat this set like a live
  * reference, otherwise restoring an older snapshot would resurrect an image
- * node or asset record whose bytes were reclaimed.
+ * node whose bytes were reclaimed.
  *
- * Unreadable or invalid backups are skipped: they cannot be restored, so they
- * do not retain anything. The returned ids are sorted for deterministic plans.
+ * Retention is by **content reference**, not by record presence: an id is
+ * retained only when the backup document names it — an image node's `assetId`
+ * or an image anchor's selector — through the same walk the GC plan uses
+ * (`referencedAssetIds`). An asset record that no content names is exactly what
+ * the autosave written by a delete still holds, so keeping every record would
+ * keep a just-deleted image alive forever.
+ *
+ * This is the grace period: an image deleted today becomes reclaimable when the
+ * backups that still reference it have rotated out. Unreadable or invalid
+ * backups are skipped: they cannot be restored, so they do not retain anything.
+ * The returned ids are sorted for deterministic plans.
  */
 export async function backupAssetReferences(
   packagePath: string,
@@ -210,7 +219,6 @@ export async function backupAssetReferences(
     const parsed = parseDocumentJson(text);
     if (!parsed.ok) continue;
     backupPaths.push(backup.path);
-    for (const id of Object.keys(parsed.document.assets)) ids.add(id);
     for (const id of referencedAssetIds(parsed.document)) ids.add(id);
   }
   return { assetIds: [...ids].sort(), backupPaths: backupPaths.sort() };

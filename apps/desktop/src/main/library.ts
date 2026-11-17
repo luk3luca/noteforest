@@ -1910,12 +1910,16 @@ export async function copyImageAsset(
 }
 
 /**
- * Asset ids that this note's valid backups still name (DR1b).
+ * Asset ids that this note's valid backups still reference in their content
+ * (DR1b, DR1c).
  *
  * `backupAssetReferences` reads `<appSupport>/backups/<note>` and parses up to
  * 50 `document.json` snapshots; it is off the save path and only runs on the
- * Health report refresh and once per cleanup pass. Unreadable or invalid
- * backups retain nothing because they cannot be restored.
+ * Health report refresh and once per cleanup pass. Retention is by content
+ * reference — an image node or an image anchor, never an asset record alone —
+ * so an image becomes reclaimable when the backups that reference it rotate
+ * out. Unreadable or invalid backups retain nothing because they cannot be
+ * restored.
  */
 export async function assetIdsInBackups(packagePath: string): Promise<BackupAssetIdsResult> {
   if (typeof packagePath !== 'string' || packagePath.length === 0) {
