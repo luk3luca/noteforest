@@ -28,6 +28,7 @@ import {
 const tempRoot = artifactsPath('find-bar-ui');
 const screenshotDir = artifactsPath('find-surface-v2');
 const v3ScreenshotDir = artifactsPath('find-v3');
+const findPageScreenshotDir = artifactsPath('find-page');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 const { isolated, applyCommand } = ui;
@@ -303,6 +304,169 @@ async function activePage() {
     .evaluate((element) => Number(element.getAttribute('data-current-page') ?? '0'));
 }
 
+/**
+ * What the CSS Custom Highlight API currently paints, per registry name.
+ *
+ * Find in Page never wraps text: the only observable is the registry. Each
+ * range reports the text it covers, whether its node is still connected, and
+ * which page fragment (block) owns it — a range that survived a scroll would
+ * show a detached or unmounted owner here.
+ */
+async function paintedHighlights() {
+  return page.evaluate(() => {
+    const view = document.querySelector('.nf-page-view');
+    const read = (name) => {
+      const highlight = CSS.highlights.get(name);
+      if (highlight === undefined) return null;
+      return [...highlight].map((range) => {
+        const container = range.startContainer;
+        const element =
+          container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+        const fragment = element?.closest('[data-fragment-block]');
+        return {
+          text: range.toString(),
+          connected: container.isConnected,
+          inPage: view !== null && view.contains(container),
+          block: fragment?.getAttribute('data-fragment-block') ?? null,
+        };
+      });
+    };
+    return {
+      supported: typeof CSS !== 'undefined' && CSS.highlights !== undefined,
+      names: [...CSS.highlights.keys()],
+      all: read('nf-find'),
+      current: read('nf-find-current'),
+    };
+  });
+}
+
+/** Poll until the Page registry paints something (or exactly `count` ranges). */
+async function waitForPaint(name, count) {
+  await page.waitForFunction(
+    ({ highlightName, expected }) => {
+      if (typeof CSS === 'undefined' || CSS.highlights === undefined) return false;
+      const highlight = CSS.highlights.get(highlightName);
+      const size = highlight === undefined ? 0 : [...highlight].length;
+      return expected === null ? size > 0 : size === expected;
+    },
+    { highlightName: name, expected: count ?? null },
+    { timeout: 10000 },
+  );
+}
+
+/** Two frames: a paint effect runs inside the commit, the pixels after it. */
+async function settleFrames() {
+  await page.evaluate(
+    () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+  );
+}
+
+/**
+ * The measured page geometry and the mount window: a find query may paint and
+ * scroll, but it may never add a segment, change a page count or move a card.
+ */
+async function pagePaintGeometry() {
+  return page.evaluate(() => {
+    const view = document.querySelector('.nf-page-view');
+    if (view === null) return null;
+    const card = document
+      .querySelector('[data-fragment-block="alpha"]')
+      ?.querySelector('.nf-page-fragment-card');
+    const box = card?.getBoundingClientRect();
+    return {
+      pageCount: view.getAttribute('data-page-count'),
+      modelRuns: view.getAttribute('data-model-runs'),
+      measurementCalls: view.getAttribute('data-measurement-calls'),
+      fragmentCount: view.getAttribute('data-fragment-count'),
+      mountedPages: view.getAttribute('data-mounted-page-count'),
+      currentPage: view.getAttribute('data-current-page'),
+      segments: document.querySelectorAll('.nf-page-view .nf-seg').length,
+      alphaPaths: [...document.querySelectorAll('[data-fragment-block="alpha"] .nf-seg')].map(
+        (element) => element.getAttribute('data-node-path'),
+      ),
+      card:
+        box === undefined
+          ? null
+          : { x: box.x, y: box.y, width: box.width, height: box.height },
+    };
+  });
+}
+
+/** The blocks whose page is mounted right now (visible pages ±2). */
+async function mountedBlocks() {
+  return page.evaluate(() => [
+    ...new Set(
+      [
+        ...document.querySelectorAll(
+          '.nf-page-view [data-page-slot-mounted="true"] [data-fragment-block]',
+        ),
+      ].map((element) => element.getAttribute('data-fragment-block')),
+    ),
+  ]);
+}
+
+/** Poll until neither registry name is registered any more. */
+async function waitForNoPaint() {
+  await page.waitForFunction(
+    () => {
+      if (typeof CSS === 'undefined' || CSS.highlights === undefined) return true;
+      return (
+        CSS.highlights.get('nf-find') === undefined &&
+        CSS.highlights.get('nf-find-current') === undefined
+      );
+    },
+    undefined,
+    { timeout: 10000 },
+  );
+}
+
+/** Poll until every current range belongs to `blockId`. */
+async function waitForCurrentBlock(blockId) {
+  await page.waitForFunction(
+    (expected) => {
+      if (typeof CSS === 'undefined' || CSS.highlights === undefined) return false;
+      const highlight = CSS.highlights.get('nf-find-current');
+      if (highlight === undefined) return false;
+      const ranges = [...highlight];
+      return (
+        ranges.length > 0 &&
+        ranges.every((range) => {
+          const node = range.startContainer;
+          const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+          return (
+            element?.closest('[data-fragment-block]')?.getAttribute('data-fragment-block') ===
+            expected
+          );
+        })
+      );
+    },
+    blockId,
+    { timeout: 10000 },
+  );
+}
+
+/** Poll until the current name is unregistered (a hit with no page text). */
+async function waitForNoCurrentPaint() {
+  await page.waitForFunction(
+    () => {
+      if (typeof CSS === 'undefined' || CSS.highlights === undefined) return true;
+      return CSS.highlights.get('nf-find-current') === undefined;
+    },
+    undefined,
+    { timeout: 10000 },
+  );
+}
+
+/** Move the shared current index to `index` with the real arrow keys. */
+async function moveTo(index) {
+  const from = await page.evaluate(() => window.__noteforestTest.state().findIndex);
+  const delta = index - from;
+  for (let step = 0; step < Math.abs(delta); step += 1) {
+    await page.locator('.nf-find-input').press(delta > 0 ? 'ArrowDown' : 'ArrowUp');
+  }
+  await waitForIndex(index);
+}
+
 /** The sidebar Search section: tab → panel → field. */
 async function openSearchSection() {
   await page.locator('[data-sidebar-tab="outline"]').click();
@@ -363,6 +527,25 @@ async function rowCard(locator) {
       left: box.left - resultsBox.left,
     };
   });
+}
+
+/**
+ * Type a new query in the bar and wait for the debounced scan that belongs to
+ * it: `findResults.length > 0` alone is satisfied by the previous query's set.
+ */
+async function typeInBar(query) {
+  const before = await page.evaluate(() => window.__noteforestTest.state().findTotal);
+  await page.locator('.nf-find-input').fill(query);
+  await page.waitForFunction(
+    ({ expected, previous }) => {
+      const state = window.__noteforestTest.state();
+      if (state.findQuery !== expected) return false;
+      if (expected.length === 0) return state.findResults.length === 0;
+      return state.findResults.length > 0 && state.findTotal !== previous;
+    },
+    { expected: query, previous: before },
+    { timeout: 10000 },
+  );
 }
 
 /** Type in the toolbar input and wait for the shared query to settle (sync). */
@@ -732,6 +915,375 @@ describe('find bar (⌘F)', () => {
       undefined,
       { timeout: 10000 },
     );
+  });
+
+  it('paints the matches inside the page and strengthens the current one', async () => {
+    const env = isolated('page-paint');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await openPackage(env, 'Find page paint', findDocument());
+    await page.keyboard.press('Meta+3');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view[data-ready="true"]');
+    await page.waitForFunction(
+      () => document.querySelectorAll('.nf-page-view .nf-seg').length > 0,
+      undefined,
+      { timeout: 10000 },
+    );
+
+    // F4a paints with the CSS Custom Highlight API and has no DOM fallback on
+    // purpose (a wrapper span would change what the paginator measured), so the
+    // built Electron is the runtime that must provide it.
+    assert.equal(
+      await page.evaluate(() => typeof CSS !== 'undefined' && CSS.highlights !== undefined),
+      true,
+      'the CSS Custom Highlight API is available',
+    );
+
+    // Geometry baseline: no query yet.
+    const before = await pagePaintGeometry();
+    assert.ok(before !== null, 'the page surface is mounted');
+    assert.ok(before.card !== null, 'the alpha card is measured');
+    assert.ok((before.alphaPaths ?? []).length > 0, 'the segments carry their node path');
+
+    await openAndType('eigen');
+    const state = await findState();
+    const paintable = state.results.filter(
+      (result) => result.field === 'text' || result.field === 'code',
+    );
+    assert.ok(paintable.length >= 3, 'the fixture has several text/code matches');
+    await waitForPaint('nf-find', null);
+    const mounted = await mountedBlocks();
+    const expected = paintable.filter((result) => mounted.includes(result.blockId));
+    assert.ok(expected.length > 0, 'at least one match sits on a mounted page');
+
+    const painted = await paintedHighlights();
+    assert.ok(painted.supported, 'the registry is available');
+    assert.deepEqual(painted.names.sort(), ['nf-find'], 'only the resting name before a text hit');
+    // One occurrence, one range here: no `eigen` match crosses a segment.
+    assert.equal(painted.all.length, expected.length, 'every mounted match is painted');
+    assert.equal(
+      painted.all.every((range) => /^eigen/i.test(range.text)),
+      true,
+      `every range covers its match (${JSON.stringify(painted.all.map((range) => range.text))})`,
+    );
+    assert.equal(
+      painted.all.every((range) => range.inPage && range.connected),
+      true,
+      'every range points at live text inside the page',
+    );
+    // The first result is the chapter title: it has no page text, so no current
+    // range is registered (same rule as the Continuous decoration).
+    assert.equal(state.index, 0);
+    assert.equal(painted.current, null, 'a chapter hit has no word to strengthen');
+
+    // The geometry never moves: same page count, same segments, same card box.
+    const during = await pagePaintGeometry();
+    assert.deepEqual(during, before, 'the measured page does not move while find paints');
+
+    await h.screenshot(resolve(findPageScreenshotDir, 'matches-painted.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // ↵ moves to the first text hit: exactly its ranges become current.
+    const firstText = state.results.findIndex(
+      (result, index) =>
+        index > 0 &&
+        (result.field === 'text' || result.field === 'code') &&
+        mounted.includes(result.blockId),
+    );
+    assert.equal(firstText, 1, 'the first text hit follows the chapter title');
+    await page.locator('.nf-find-input').press('Enter');
+    await waitForIndex(firstText);
+    await waitForCurrentBlock(state.results[firstText].blockId);
+    const current = await paintedHighlights();
+    assert.equal(current.current.length, 1);
+    assert.equal(current.current[0].block, 'alpha', 'the current range is the alpha match');
+    assert.match(current.current[0].text, /^eigen/i);
+    assert.equal(current.current[0].inPage, true);
+    assert.equal(current.all.length, expected.length, 'the resting paint is unchanged');
+
+    await h.screenshot(resolve(findPageScreenshotDir, 'current.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // A stored-quote hit has no page text: the block keeps its ring, but no
+    // current range exists — the same rule as a chapter title.
+    const quoteIndex = state.results.findIndex(
+      (result) => result.field === 'quote' && result.blockId !== null && mounted.includes(result.blockId),
+    );
+    assert.ok(quoteIndex > firstText, 'the fixture has a stored-quote hit on a mounted page');
+    await moveTo(quoteIndex);
+    await waitForNoCurrentPaint();
+    assert.equal((await paintedHighlights()).current, null);
+
+    // The arrows put the current range back on the next text hit and back again.
+    const secondText = state.results.findIndex(
+      (result, index) =>
+        index > firstText &&
+        (result.field === 'text' || result.field === 'code') &&
+        mounted.includes(result.blockId),
+    );
+    assert.ok(secondText > firstText);
+    await moveTo(secondText);
+    await waitForCurrentBlock(state.results[secondText].blockId);
+    assert.deepEqual(
+      (await paintedHighlights()).current.map((range) => range.block),
+      [state.results[secondText].blockId],
+      'ArrowDown follows the next occurrence',
+    );
+    await moveTo(firstText);
+    await waitForCurrentBlock(state.results[firstText].blockId);
+    assert.deepEqual(
+      (await paintedHighlights()).current.map((range) => range.block),
+      ['alpha'],
+      'ArrowUp returns to the first occurrence',
+    );
+
+    // The shared `ab` toggle repaints both names: whole-word `eigen` keeps the
+    // code token and drops every `eigen` inside a longer word.
+    await page.locator('[data-find-whole-word="true"]').click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findTotal === 2,
+      undefined,
+      { timeout: 10000 },
+    );
+    await waitForPaint('nf-find', 1);
+    const wholeWord = await paintedHighlights();
+    assert.deepEqual(
+      wholeWord.all.map((range) => range.block),
+      ['code'],
+      'only the code occurrence is painted under whole-word matching',
+    );
+    assert.equal(wholeWord.all[0].text, 'eigen');
+    // The first whole-word hit is the branch label: no page text, so no current
+    // range is registered, exactly like a chapter title.
+    assert.equal(wholeWord.current, null);
+    await page.locator('.nf-find-input').press('Enter');
+    await waitForIndex(1);
+    await waitForPaint('nf-find-current', 1);
+    assert.deepEqual(
+      (await paintedHighlights()).current.map((range) => range.block),
+      ['code'],
+      'the current occurrence follows the toggle',
+    );
+    await page.locator('[data-find-whole-word="true"]').click();
+    await page.waitForFunction(
+      () => window.__noteforestTest.state().findTotal > 2,
+      undefined,
+      { timeout: 10000 },
+    );
+
+    // Closing clears both names; reopening repaints the same covers.
+    await page.locator('[data-find-close="true"]').click();
+    await findBar().waitFor({ state: 'detached' });
+    await waitForNoPaint();
+    await page.keyboard.press('Meta+f');
+    await findBar().waitFor();
+    await waitForPaint('nf-find', null);
+    const reopened = await paintedHighlights();
+    assert.deepEqual(
+      reopened.all.map((range) => range.text),
+      painted.all.map((range) => range.text),
+      'reopening repaints the same occurrences',
+    );
+    assert.equal(
+      await page.locator('.nf-page-view .nf-find-hit').count(),
+      0,
+      'no wrapper span ever enters the page',
+    );
+  });
+
+  it('paints one occurrence as many ranges, follows the scroll and never reaches print', async () => {
+    const env = isolated('page-ranges');
+    await launch(env);
+    await h.setWindowSize(1440, 900);
+    await openPackage(env, 'Find page ranges', findDocument());
+    await page.keyboard.press('Meta+3');
+    await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view[data-ready="true"]');
+    await page.waitForFunction(
+      () => document.querySelectorAll('.nf-page-view .nf-seg').length > 0,
+      undefined,
+      { timeout: 10000 },
+    );
+
+    // `come   qui` is one occurrence over two paragraphs: two ranges, both
+    // current, on the same page.
+    await openAndType('come   qui');
+    await waitForPaint('nf-find-current', 2);
+    const split = await paintedHighlights();
+    assert.equal(split.all.length, 2, 'one occurrence, two ranges');
+    assert.deepEqual(split.all.map((range) => range.text), ['come', 'qui']);
+    assert.deepEqual(split.current.map((range) => range.text), ['come', 'qui']);
+    assert.deepEqual(
+      split.current.map((range) => range.block),
+      ['lines', 'lines'],
+      'both ranges of the occurrence are current',
+    );
+    await h.screenshot(resolve(findPageScreenshotDir, 'boundary.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // A second query with matches on the first pages: the paint follows the
+    // mounted window, so a scroll to the end must drop ranges for unmounted
+    // pages and a scroll back must repaint them.
+    await typeInBar('eigen');
+    await waitForPaint('nf-find', null);
+    const onFirstPages = await paintedHighlights();
+    assert.ok(onFirstPages.all.length >= 4, 'several occurrences on the first pages');
+    assert.equal(
+      onFirstPages.all.some((range) => range.block === 'alpha'),
+      true,
+      'the first page is painted before the scroll',
+    );
+    const firstMounted = await mountedBlocks();
+    assert.equal(
+      onFirstPages.all.every((range) => range.connected && firstMounted.includes(range.block)),
+      true,
+      'every range belongs to a mounted page',
+    );
+
+    await page
+      .locator('.nf-page-scroll')
+      .evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+    await page.waitForFunction(
+      () => Number(document.querySelector('.nf-page-view')?.getAttribute('data-current-page')) > 1,
+      undefined,
+      { timeout: 10000 },
+    );
+    // The mount window moved: every painted range must still belong to a page
+    // that is mounted, which is false for as long as a stale range survives.
+    await page.waitForFunction(() => {
+      const view = document.querySelector('.nf-page-view');
+      if (view === null) return false;
+      const mounted = new Set(
+        [...view.querySelectorAll('[data-page-slot-mounted="true"] [data-fragment-block]')].map(
+          (element) => element.getAttribute('data-fragment-block'),
+        ),
+      );
+      const ranges = [...(CSS.highlights.get('nf-find') ?? [])];
+      return ranges.every((range) => {
+        const node = range.startContainer;
+        const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        const block =
+          element?.closest('[data-fragment-block]')?.getAttribute('data-fragment-block') ?? null;
+        return block !== null && mounted.has(block);
+      });
+    }, undefined, { timeout: 10000 });
+    await settleFrames();
+    const lastMount = await mountedBlocks();
+    const afterScroll = await paintedHighlights();
+    assert.equal(lastMount.includes('alpha'), false, 'the first pages really unmounted');
+    assert.equal(
+      (afterScroll.all ?? []).some(
+        (range) => range.block === 'alpha' || range.block === 'beta',
+      ),
+      false,
+      'no range survives for a page that is no longer mounted',
+    );
+    assert.equal(
+      (afterScroll.all ?? []).every(
+        (range) => range.connected && lastMount.includes(range.block),
+      ),
+      true,
+      'every remaining range covers a mounted page',
+    );
+
+    await page
+      .locator('.nf-page-scroll')
+      .evaluate((element) => {
+        element.scrollTop = 0;
+      });
+    await page.waitForFunction(
+      () => Number(document.querySelector('.nf-page-view')?.getAttribute('data-current-page')) === 1,
+      undefined,
+      { timeout: 10000 },
+    );
+    await waitForPaint('nf-find', onFirstPages.all.length);
+    const back = await paintedHighlights();
+    assert.deepEqual(
+      back.all.map((range) => range.text),
+      onFirstPages.all.map((range) => range.text),
+      'scrolling back repaints exactly the visible page again',
+    );
+    assert.equal(await page.locator('.nf-page-view .nf-find-hit').count(), 0);
+
+    // A sidebar Search row sets the same current occurrence and moves the page;
+    // the current range follows it, and closing the section keeps the paint.
+    const rangeState = await findState();
+    const rowTarget = rangeState.results.findIndex(
+      (result, index) =>
+        index > 0 &&
+        (result.field === 'text' || result.field === 'code') &&
+        firstMounted.includes(result.blockId),
+    );
+    assert.ok(rowTarget > 0);
+    await openSearchSection();
+    await page.locator(`[data-search-row="${rowTarget}"]`).click();
+    await waitForIndex(rowTarget);
+    await waitForCurrentBlock(rangeState.results[rowTarget].blockId);
+    assert.deepEqual(
+      (await paintedHighlights()).current.map((range) => range.block),
+      [rangeState.results[rowTarget].blockId],
+      'the sidebar row owns the current range',
+    );
+    await page.locator('[data-search-close="true"]').click();
+    await page.waitForSelector('[data-sidebar-panel="outline"]');
+    assert.equal(
+      (await paintedHighlights()).current.length,
+      1,
+      'closing the sidebar keeps the bar paint',
+    );
+
+    // Print: the compositor builds its own DOM from the print model, so a find
+    // highlight can never reach the paper.
+    await typeInBar('quokka');
+    await waitForPaint('nf-find', 1);
+    const printed = await page.evaluate(() => window.__noteforestTest.renderPrint());
+    assert.equal(printed.ok, true, 'the print model builds from the Page run');
+    await page.waitForSelector('[data-print-test-host] .nf-print-sheet');
+    const printState = await page.evaluate(() => {
+      const host = document.querySelector('[data-print-test-host]');
+      const page = document.querySelector('.nf-page-view');
+      const ranges = ['nf-find', 'nf-find-current'].flatMap((name) => [
+        ...(CSS.highlights.get(name) ?? []),
+      ]);
+      return {
+        html: host?.innerHTML ?? '',
+        text: host?.textContent ?? '',
+        pageCount: document.querySelectorAll('[data-print-test-host] .nf-print-sheet').length,
+        viewPages: Number(page?.getAttribute('data-page-count') ?? '0'),
+        rangesOutsidePage: ranges.filter((range) => page?.contains(range.startContainer) !== true)
+          .length,
+        rangesInPrint: ranges.filter(
+          (range) => host?.contains(range.startContainer) === true,
+        ).length,
+      };
+    });
+    assert.equal(printState.pageCount, printState.viewPages, 'print uses the same page model');
+    assert.match(printState.text, /quokka/, 'the printed page carries the match text');
+    assert.doesNotMatch(printState.html, /nf-find|data-find/, 'no find markup on paper');
+    assert.equal(printState.rangesInPrint, 0, 'no range points into the print DOM');
+    assert.equal(printState.rangesOutsidePage, 0, 'every range stays inside the page view');
+    await page.evaluate(() => window.__noteforestTest.clearPrint());
+
+    // The print model itself is find-free: the same Page run with the bar
+    // closed builds the same identity (page count and fingerprint).
+    await page.locator('.nf-find-input').press('Escape');
+    await findBar().waitFor({ state: 'detached' });
+    await waitForNoPaint();
+    const withoutFind = await page.evaluate(() => window.__noteforestTest.renderPrint());
+    assert.equal(withoutFind.ok, true);
+    assert.deepEqual(
+      { pageCount: withoutFind.pageCount, fingerprint: withoutFind.fingerprint },
+      { pageCount: printed.pageCount, fingerprint: printed.fingerprint },
+      'the print model is identical with the find open and closed',
+    );
+    await page.evaluate(() => window.__noteforestTest.clearPrint());
   });
 
   it('works in Read mode as navigation only', async () => {

@@ -63,6 +63,7 @@ import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
 import { corePageGeometry } from './adapter';
 import { clampPageNumber } from './model';
 import { PageEdges } from './PageEdges';
+import { clearPageFindHighlights, paintPageFind } from './find-highlight';
 import { clearPageStatus, publishPageStatus } from './page-status';
 import { usePageSettings } from '../state/settings';
 import {
@@ -337,6 +338,7 @@ export function PageView({
   // Find (`⌘F`): a block hit goes to the block's page and rings the block; the
   // page keeps its zoom and the model never re-runs because of a search.
   const findCurrent = useShell((state) => currentFindResult(state));
+  const findResults = useShell((state) => state.findResults);
   const findKey = findCurrent?.id ?? null;
   const findBlockId = findCurrent?.blockId ?? null;
   const findChapterId = findCurrent?.chapterId ?? null;
@@ -711,6 +713,41 @@ export function PageView({
     model.pages,
     pageNumber,
     runtime.packagePath,
+  ]);
+
+  // Find in Page (F4a): paint the matches inside the mounted pages with the CSS
+  // Custom Highlight API — never a wrapper span, because the page is measured
+  // and the highlight may not touch the DOM. The effect repaints whenever the
+  // result set, the current hit, the page model or the mounted window changes:
+  // only the visible pages ±2 are mounted, so a scroll or a jump must repaint or
+  // the ranges would describe a page that is gone. The query mode is read from
+  // the store rather than subscribed: a keystroke alone repaints nothing until
+  // the debounced scan settles with the results that belong to it.
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!active || root === null) {
+      clearPageFindHighlights(root ?? undefined);
+      return undefined;
+    }
+    const state = useShell.getState();
+    paintPageFind({
+      root,
+      pages: projection.pages,
+      contentBlocks: runtime.document.blocks,
+      results: findResults,
+      currentId: findKey,
+      query: state.findQuery,
+      wholeWord: state.findWholeWord,
+    });
+    return () => clearPageFindHighlights(root);
+  }, [
+    active,
+    findResults,
+    findKey,
+    projection,
+    range.first,
+    range.last,
+    runtime.document.blocks,
   ]);
 
   // Focus the committed block after Esc, once the re-paginated page renders.

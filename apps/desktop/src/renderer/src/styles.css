@@ -7642,6 +7642,12 @@ body.nf-dragging-block .nf-gutter-handle {
   --nf-page-focus: #9bb7d4;
   --nf-page-defect: #d98b8b;
   --nf-page-edge-blocked: #d6b17a;
+  /* Find in Page (F4a): a transient paper tint painted with the CSS Custom
+     Highlight API. Two strengths; the text colour never changes, so a match can
+     never change contrast. */
+  --nf-page-find-bg: #f7edc7;
+  --nf-page-find-current-bg: #efd07f;
+  --nf-page-find-current-line: #9a5b00;
   /* One Light syntax roles for the fixed-light paper. Page Read/Edit and the
      print compositor read these, never the shell `--code-*` theme roles, so the
      PDF keeps One Light in a dark app theme. */
@@ -8331,15 +8337,33 @@ body.nf-dragging-block .nf-gutter-handle {
   z-index: 2;
 }
 
-/* Find (`⌘F`) on the page: the bar scrolls to the page that holds the block and
-   rings it. The dashed Page-local ring sits outside the solid selection outline
-   (a find hit also selects its block), so the current hit reads apart from a
-   plain selection. The exact-word highlight inside the page is a follow-up
-   (CSS Custom Highlight API); the print model never sees this attribute. */
+/* Find (`⌘F`) on the page: the bar scrolls to the page that holds the block,
+   rings it, and paints its matches (`docs/design/highlight.md` §6). The dashed
+   Page-local ring sits outside the solid selection outline (a find hit also
+   selects its block), so the current hit reads apart from a plain selection.
+   The print model never sees this attribute. */
 .nf-page-fragment[data-find-current="true"] {
   outline: 2px dashed var(--nf-page-focus);
   outline-offset: 3px;
   z-index: 2;
+}
+
+/*
+ * Find in Page (F4a): matches are painted with the CSS Custom Highlight API, so
+ * no wrapper span ever enters the measured DOM and the pagination cannot move.
+ * Two names: every match, then the current occurrence on top (stronger tint and
+ * an underline). Both rules are scoped to the live Page surface: the print
+ * compositor registers nothing and its sheets are outside `.nf-page-view`.
+ */
+.nf-page-view ::highlight(nf-find) {
+  background-color: var(--nf-page-find-bg);
+}
+
+.nf-page-view ::highlight(nf-find-current) {
+  background-color: var(--nf-page-find-current-bg);
+  text-decoration-line: underline;
+  text-decoration-color: var(--nf-page-find-current-line);
+  text-decoration-thickness: 1.5px;
 }
 
 .nf-page-fragment:focus-visible {

@@ -807,7 +807,12 @@ export function segmentWrapperHtml(segment: PageRenderSegment): string {
       : ` data-table-key=${attr(segment.tableKey)}${
           segment.rowIndex === undefined ? '' : ` data-table-row=${attr(String(segment.rowIndex))}`
         }`;
-  return `<div class="${classes}" data-seg=${attr(String(segment.index))}${table}>${segment.html}</div>`;
+  // `data-node-path` is the content path the page model already carries. Find
+  // in Page (F4a) addresses rendered text by it; it is an inert attribute, so it
+  // cannot change what the paginator measures.
+  return `<div class="${classes}" data-seg=${attr(String(segment.index))} data-node-path=${attr(
+    segment.nodePath.join('.'),
+  )}${table}>${segment.html}</div>`;
 }
 
 export function segmentsHtml(
