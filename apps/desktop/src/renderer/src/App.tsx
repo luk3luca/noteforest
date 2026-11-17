@@ -271,6 +271,9 @@ export function App(): JSX.Element {
               recovery: {
                 status: recovery.status,
                 reason: recovery.reason,
+                ...(recovery.reasonDetails === undefined
+                  ? {}
+                  : { reasonDetails: recovery.reasonDetails }),
                 details: recovery.details,
                 warnings: recovery.warnings,
               },

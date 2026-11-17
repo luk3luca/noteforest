@@ -2369,6 +2369,11 @@ button:disabled {
   color: var(--text-3);
 }
 
+/* The Reason row keeps the short line; the raw core sentence is its Details. */
+.nf-recovery-meta dd .nf-details {
+  margin-top: 4px;
+}
+
 .nf-recovery-details {
   max-width: 860px;
   margin-top: 14px;

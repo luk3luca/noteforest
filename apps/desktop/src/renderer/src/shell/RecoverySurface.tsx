@@ -126,7 +126,10 @@ export function RecoverySurface({
         .getState()
         .tabs.find((candidate) => candidate.packagePath === packagePath);
       if (tab?.recovery !== undefined) {
-        setError({ message: 'Still unavailable.', details: tab.recovery.reason });
+        setError({
+          message: 'Still unavailable.',
+          details: tab.recovery.reasonDetails ?? tab.recovery.reason,
+        });
       } else if (tab?.missing === true) {
         setError({ message: 'Still unavailable. The folder is missing.' });
       } else {
@@ -194,7 +197,14 @@ export function RecoverySurface({
         </div>
         <div className="nf-recovery-meta-wide">
           <dt>Reason</dt>
-          <dd data-recovery-reason="true">{recovery.reason}</dd>
+          <dd data-recovery-reason="true">
+            {recovery.reason}
+            {/* The core sentence is technical: the row keeps the short line and
+                Details carries the raw text (copy-plan §E, dialogs.md §3). */}
+            {recovery.reasonDetails === undefined ? null : (
+              <Details value={recovery.reasonDetails} />
+            )}
+          </dd>
         </div>
       </dl>
 

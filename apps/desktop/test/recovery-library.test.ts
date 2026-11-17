@@ -104,17 +104,20 @@ describe('library recovery statuses', () => {
       status: 'unreadable',
       title: 'broken-note',
       documentId: null,
-      reason: expect.stringMatching(/not valid JSON/),
+      reason: 'This note couldn’t be read.',
+      reasonDetails: expect.stringMatching(/not valid JSON/),
     });
     expect(byPath.get(newerPath)).toMatchObject({
       status: 'newer-schema',
       title: 'From the future',
-      reason: expect.stringMatching(/newer than this app supports/),
+      reason: 'A newer NoteForest wrote this note.',
+      reasonDetails: expect.stringMatching(/newer than this app supports/),
     });
     expect(byPath.get(missingPath)).toMatchObject({
       status: 'missing',
       title: 'missing-note',
-      reason: expect.stringMatching(/document\.json is missing/),
+      reason: 'This note’s file is missing.',
+      reasonDetails: expect.stringMatching(/document\.json is missing/),
     });
     expect(byPath.get(plainFolderPath)).toBeUndefined();
     expect(folderNames).toContain('folder:plain-folder');
@@ -146,22 +149,65 @@ describe('library recovery statuses', () => {
       recovery: true,
       status: 'unreadable',
       packagePath: brokenPath,
-      reason: expect.stringMatching(/not valid JSON/),
+      // A core sentence never reaches the row: the short line is the copy, the
+      // raw parse reason opens under Details (copy-plan §E).
+      reason: 'The file isn’t valid NoteForest data.',
+      reasonDetails: expect.stringMatching(/not valid JSON/),
     });
     await expect(openDocument(newerPath)).resolves.toMatchObject({
       recovery: true,
       status: 'newer-schema',
-      reason: expect.stringMatching(/newer than this app supports/),
+      reason: 'A newer NoteForest wrote the file.',
+      reasonDetails: expect.stringMatching(/newer than this app supports/),
     });
     await expect(openDocument(missingPath)).resolves.toMatchObject({
       recovery: true,
       status: 'missing',
-      reason: expect.stringMatching(/does not exist|missing/),
+      reason: 'The folder or the file is missing.',
     });
 
     expect((await fs.readFile(path.join(brokenPath, 'document.json'))).equals(brokenBytes)).toBe(
       true,
     );
+  });
+
+  it('maps a core command rejection to a short line with the raw reason in details', async () => {
+    const valid = await createValidPackage('Mapping note');
+    const opened = await openDocument(valid.packagePath);
+    if (!('document' in opened)) throw new Error('expected an editable snapshot');
+    const chapterId = opened.document.chapters[0]?.id;
+    expect(chapterId).toBeDefined();
+
+    const rejected = await applyCommand(valid.packagePath, {
+      type: 'chapter.delete',
+      chapterId: chapterId as string,
+    });
+    expect(rejected).toMatchObject({
+      ok: false,
+      code: 'last-chapter',
+      // The core sentence ("a document must keep at least one chapter") never
+      // reaches the toast line; it is the Details value.
+      message: 'A note needs at least one chapter.',
+      details: expect.stringMatching(/at least one chapter/),
+    });
+  });
+
+  it('refuses a command on a damaged package with the short recovery line', async () => {
+    const valid = await createValidPackage('Damaged note');
+    const brokenPath = path.join(library, 'damaged-copy');
+    await fs.cp(valid.packagePath, brokenPath, { recursive: true });
+    await fs.writeFile(path.join(brokenPath, 'document.json'), '{ "schemaVersion": 2,');
+
+    const rejected = await applyCommand(brokenPath, {
+      type: 'document.rename',
+      title: 'Renamed',
+    });
+    expect(rejected).toMatchObject({
+      ok: false,
+      code: 'read-only',
+      message: 'The file isn’t valid NoteForest data.',
+      details: expect.stringMatching(/not valid JSON/),
+    });
   });
 });
 
