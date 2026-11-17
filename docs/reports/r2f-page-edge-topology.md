@@ -7,7 +7,7 @@
 > contract described below is unchanged.
 
 **Role:** Builder / Implementer  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-01a2f1de`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/r2f-page-edge-topology`  
 **Base:** `6407dc2` (WIP preservation commit; documented below)  
 **Date:** 8 November 2026

@@ -2,7 +2,7 @@
 
 **Status:** Builder report for Orchestrator + Sentinel review  
 **Date:** 3 November 2026  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-a99bc301`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/spike-01-layout-paginator-pdf`  
 **Gate-run code commit:** `fc93058` (`test(spike-01): Playwright e2e, PDF verification, and automated gate harness`)  
 **Brief:** `docs/spike-01-layout-paginator-pdf.md`  

@@ -3,7 +3,7 @@
 - **Reviewer:** Reviewer / Sentinel (independent)
 - **Date:** 9 November 2026
 - **Reviewed base:** `main` at `7f8b4a6` (R2j1 fix `39ec17e` plus the review brief)
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f13b3bfb-98dc06cea212591d`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/r2-page-pdf-seam-review`
 - **Environment:** macOS 26.5.2 (Darwin 25.5.0, arm64), Node 22.23.1, Electron 45.2.1, production build (`npm run build`)
 - **Stack/PDF:** Electron + shared paginator + `printToPDF` (ADR-0001, ADR-0002)
@@ -96,7 +96,7 @@ that is already on `main`.
 | **F9** | S3 | Remaining Page literals/shared design values | `packages/layout/src/layout.ts:149` (`CALLOUT_ROW_INDENT = 26`), `:755`, `:1432` (`144`), `:902`, `:1546` (`16`); `packages/layout/src/page-edges.ts:385-401`, `:570`; `docs/design-tokens.md:74-91` | The legacy beside lane still hardcodes a 26 px row indent, a 144 px readability floor, and 16 px fallback points; Page layout/edges read `EDGE_STYLE.stemMin`/`trunkInset`/`trunkGap`/`laneMin`/`laneMax`, not PageTheme. The page-wrap plan wanted Page-owned `pageStemMin`/`pageTrunkGap`; `PageTheme` has no `stemMin`/`trunkGap`/mode-preference field. | No Page-only literal in `layout.ts`/`page-edges.ts`; Page design values are in `PageTheme`/`LayoutOptions`, with shared edge primitives only as explicitly shared constants. | Default compact/comfortable values are consistent, so no visible defect today; the Settings inventory would expose the gap and the Page print skin cannot tune the stem/trunk independently. | P0 token/doc split before Settings: add Page stem/trunk-gap/row-indent tokens where they are user-visible or document why the shared value is intentional; replace the legacy literals. |
 | **F10** | S3 | Mode A vs anchor rule | `packages/layout/src/layout.ts:820-849`; `packages/layout/src/page-edges.ts:384-392`; `apps/desktop/src/renderer/src/page/PageEdges.tsx:209-211`; `docs/review-checklist.md` §4.1/§4.3 before this review's edit | Mode A places anchored callouts at the parent's **top y**, to the right; the primary leader leaves the parent's right port. Before this review the checklist said “an anchored callout starts below its anchor” and “begins at the anchor, not at the block edge”; `data-page-edge-anchor-start` is true even though the route begins at the parent port. | The Page-specific exception is explicit, and the product-owner visual check confirms the anchor/callout association. | The implementation follows the R2j plan; this review adds the checklist exception, but the spec/UX sweep still needs it and the PO visual check is pending. | Keep the checklist/spec exception; confirm the anchor association in the PO visual check. No code change from this review. |
 | **F11** | S3 | Manual break before a mode A callout | `packages/layout/src/paginator.ts:166`, `:451-470`; `packages/layout/src/layout.ts:823-826`; R2j report risk 4 | A hint before a mode A callout names the callout y, which equals the parent y: at y>0 it breaks before the **parent**, not only the callout; at y=0 it is silently ignored (no warning). | A manual break either isolates the callout where safe or is reported as unhonorable with the actual semantics. | No data loss and no unsafe split, but the hint cannot express “callout on its own page”; the silent y=0 case is invisible. | Document the semantics; the future manual-break UI should not offer a break before a mode A callout (or should map it to the parent with a notice); add a paginator test for both cases. |
-| **F12** | S3 | Lab/evidence quality | `packages/layout/test/r2i-lab.test.ts:123-130`, `packages/layout/test/r2j-lab.test.ts:209-217`, `:317-322`; no DOM perf run | The showcase rows depend on a hard-coded machine path (`/Users/luca/Documents/...`) and are silently skipped when absent; the R2j lab keeps a `console.error` debug dump behind a condition; the labs write JSON but the R2i lab has no assertions; no DOM page-layout timing at 300/1,000 blocks. | Labs are reproducible or marked optional; no debug output; the 300/1,000 DOM path has a measured budget note. | The synthetic/fixture rows are reproducible; the showcase numbers are machine-local; the labs are evidence generators, not gates; performance is unmeasured for the new recursion. | Commit a showcase fixture or mark the row conditional in the report; remove the debug block; add a perf note (or defer to M4c3's 300-block PDF gate, explicitly). |
+| **F12** | S3 | Lab/evidence quality | `packages/layout/test/r2i-lab.test.ts:123-130`, `packages/layout/test/r2j-lab.test.ts:209-217`, `:317-322`; no DOM perf run | The showcase rows depend on a hard-coded machine path (`~/Documents/...`) and are silently skipped when absent; the R2j lab keeps a `console.error` debug dump behind a condition; the labs write JSON but the R2i lab has no assertions; no DOM page-layout timing at 300/1,000 blocks. | Labs are reproducible or marked optional; no debug output; the 300/1,000 DOM path has a measured budget note. | The synthetic/fixture rows are reproducible; the showcase numbers are machine-local; the labs are evidence generators, not gates; performance is unmeasured for the new recursion. | Commit a showcase fixture or mark the row conditional in the report; remove the debug block; add a perf note (or defer to M4c3's 300-block PDF gate, explicitly). |
 | **F13** | S4 | Test/comment nits | `packages/layout/test/page-callout-modes.test.ts:325-335`; `packages/pdf/src/printModel.ts:47-51`; `packages/layout/src/types.ts:458-460` | “No viewport/zoom” only asserts the options object lacks those keys; `document` is unused; `types.ts` still says “compaction for compact”. | Assertions state the geometry invariant; no dead parameters/comments. | Weak/duplicated evidence; harmless. | Reword the unit test toward the UI viewport check; remove/use `document`; correct the comment. |
 
 ## Answers to the eight brief questions
@@ -306,7 +306,7 @@ worktree was clean before writing this report.
 - 300/1,000-block DOM page-layout timing; only the DOM-free lab and the small UI fixtures were run.
 - Continuous runtime behavior; the static audit found no Continuous `layoutDocument` consumer, and
   the base full verify was green.
-- The showcase lab row is machine-local (`/Users/luca/Documents/NoteForest/...`); it was present in
+- The showcase lab row is machine-local (`~/Documents/NoteForest/...`); it was present in
   this run but is not a committed CI fixture.
 
 ## Open questions / risks
@@ -341,7 +341,7 @@ report and the checklist lines.
 
 ## Handback
 
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f13b3bfb-98dc06cea212591d`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/r2-page-pdf-seam-review`
 - **Reviewed head:** `7f8b4a6926d313d5cf14ba7994b60972ec1e5255` (`7f8b4a6`, `main` at the brief)
 - **Review commit:** the docs commit containing this report and the checklist lines; see the handback

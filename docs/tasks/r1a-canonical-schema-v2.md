@@ -130,7 +130,7 @@ Update:
 
 - Do not implement Page arrows, continuous marker removal, density UI, settings persistence, or
   manual-break UI. Those are R1b/R2/R3.
-- Do not edit user showcase or `/Users/luca/Documents`.
+- Do not edit user showcase or `~/Documents`.
 - Do not edit spec/UX/plan; report.
 - Do not add a new external dependency.
 

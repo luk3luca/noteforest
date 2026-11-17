@@ -1,7 +1,7 @@
 # M2c — Interaction polish + desync fix (report)
 
 **Date:** 4 November 2026  
-**Builder worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-918bde08`  
+**Builder worktree:** `a builder worktree`  
 **Branch:** `t3/918bde08`  
 **Status:** Complete for M2c scope. Product-owner visual review and the VoiceOver pass remain human gates. Integration and merge belong to the Orchestrator.
 

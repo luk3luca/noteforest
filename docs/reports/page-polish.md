@@ -3,7 +3,7 @@
 **Task:** `docs/tasks/page-polish.md`
 **Design:** `docs/design/page-scroll.md` §4 (the approved pager shape)
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-fbc4ae21-913f829c59b954b2`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/page-position-pager-lock-race` (from `main` at `e2398e5`, the brief commit)
 **Head:** the single commit on this branch; its SHA is in the handoff message (a report cannot
 contain the hash of the commit that introduces it)

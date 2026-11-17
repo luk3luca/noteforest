@@ -3,7 +3,7 @@
 **Status:** Complete (4 November 2026)  
 **Owner:** Builder  
 **Source:** `docs/tasks/m2f-phase3b1-destructive-undo.md`; `docs/reviews/m2-review.md` F2; `docs/tasks/m2f-stability-fixes.md` phase 3  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-a9091cd1`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/phase3b1-destructive-undo`  
 **Base:** `7dd2add` (`main`: docs: start M2f phase 3b1 destructive undo)  
 **Commits:** `36439cb` (core + unit tests), `01a816f` (E2E)

@@ -5,7 +5,7 @@
 **Design:** `docs/design/vault-library.md` (approved 15 November 2026)
 **Related design:** `docs/design/markdown-file-view.md`
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-9d8294c4-84ac95d1cf9024c3`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/vault-library-s1-s3`
 **Base:** `071fc93` (`main` head at delegation; the brief and design are in this base)
 **Head:** the single commit on this branch; its SHA is reported in the handoff message (a report

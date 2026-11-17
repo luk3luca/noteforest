@@ -5,7 +5,7 @@
 **Brief:** `docs/tasks/find-page.md`
 **Design:** `docs/design/highlight.md` §6, `docs/design/find-page-highlight.md`, `docs/design/find-bar.md`,
 `docs/design/page-scroll.md`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-9cca420c-d3a0124312684b08`
+**Worktree:** `a builder worktree`
 **Base:** `a58cc58` (`docs: VH1 merged; the rail breakpoint is 1120 everywhere`)
 **Commit:** one worktree commit — `feat(page): paint find matches inside Page with the CSS Custom
 Highlight API` (not merged, not pushed; the SHA is HEAD of the branch `t3/find-page`)

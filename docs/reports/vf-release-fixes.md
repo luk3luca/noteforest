@@ -2,7 +2,7 @@
 
 - **Role:** Builder / Implementer
 - **Brief:** `docs/tasks/vf-release-fixes.md` (review: `docs/reviews/v1-candidate-review.md`)
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-ac6c28f5-90d59894bb1e377e`, branch `t3/vf-release-fixes`
+- **Worktree:** `a builder worktree`, branch `t3/vf-release-fixes`
 - **Date:** 17 November 2026
 - **Scope:** seven small items, one commit. No paginator, page-model, print-model, document-schema or
   settings-schema change; `settingsVersion` stays 5 and `schemaVersion` stays 2.

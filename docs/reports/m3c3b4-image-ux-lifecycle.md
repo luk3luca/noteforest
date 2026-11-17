@@ -2,7 +2,7 @@
 
 **Role:** Implementer / Builder  
 **Milestone:** M3c3b  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f4673acc`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/image-ux-lifecycle-asset-gc`  
 **Base:** `c82f5d9` (`docs: launch M3c3b4 image UX/lifecycle`)  
 **Commit:** branch HEAD, `fix: image UX and asset lifecycle (M3c3b4)`  

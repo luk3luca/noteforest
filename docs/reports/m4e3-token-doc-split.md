@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder  
 **Task:** `docs/tasks/m4e3-token-doc-split.md`  
 **Base:** `main` at `cc073b2` (M4e1/M4e2 merged)  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-7962f0f0-9c3c938ff07c157a`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4e3-page-continuous-token-docs-split`  
 **Head at report time:** see the commit containing this report (`git rev-parse HEAD`).
 
@@ -177,7 +177,7 @@ The baseline was 101 files / 1010 tests; this task adds one guard file with 12 t
 
 ## Worktree and head
 
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-7962f0f0-9c3c938ff07c157a`
+- Worktree: `a builder worktree`
 - Branch: `t3/m4e3-page-continuous-token-docs-split`
 - Head: commit containing this report; run `git rev-parse HEAD` in the worktree for the exact SHA.
 

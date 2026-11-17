@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Reviewer:** Sentinel (independent review)  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-edd1ad48`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2-review-and-test-cleanup`  
 **Base:** `4e54409` (`main`: docs: mark M2e merged and in product-owner review)  
 **Scope:** M2a–M2e code and tests; docs consistency; test inventory; cleanup backlog.  

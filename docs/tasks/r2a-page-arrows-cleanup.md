@@ -63,7 +63,7 @@ Two product-owner blockers remain:
 - Do not implement two-column/width packing (R2b), Settings UI, manual-break UI/cleanup, or PDF print
   compositor.
 - Do not change page density/theme values.
-- Do not touch `/Users/luca/Documents` or the showcase.
+- Do not touch `~/Documents` or the showcase.
 - Do not edit spec/UX/plan; report.
 - No new external dependency unless the shared edge module requires a workspace import.
 

@@ -1,7 +1,7 @@
 # Showcase refresh — plan (post special-text)
 
 **Role:** Orchestrator (data edit; not product code)
-**Target:** `/Users/luca/Documents/NoteForest/note-forest-showcase/document.json`
+**Target:** `~/Documents/NoteForest/note-forest-showcase/document.json`
 **Run after:** the special-text batch is merged and verified (the tutorial must describe the shipped
 behaviour, not the design).
 **Constraint:** user data, schema v2, no new document features; back up first; validate before writing.

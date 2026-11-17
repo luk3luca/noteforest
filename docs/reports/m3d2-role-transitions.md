@@ -2,7 +2,7 @@
 
 **Role:** Builder  
 **Date:** 5 November 2026  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f2162876`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/f2162876`  
 **Feature commit:** `f41e118` (`feat(references): add make home, move here, and demote (M3d2)`)  
 **Base:** `main` at `673746e` (M3d1 merged; M3e on hold)

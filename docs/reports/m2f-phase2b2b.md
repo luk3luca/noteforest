@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-818b2e58`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-restore-backup-surface`  
 **Base:** `fcf4110` (`main`: docs: start M2f phase 2b2b backup restore), merged with
 `77b864c` (`main`: E2E dialog guard) at `0465ea4`  

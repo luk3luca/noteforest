@@ -3,7 +3,7 @@
 **Task:** `docs/tasks/document-health.md`
 **Design:** `docs/design/anchor-health.md` (product name **Document health**, approved 14 November 2026)
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-3686c1b9-57fac57485bbbfea`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/document-health-v1`
 **Base:** `9ba0ac1` (`main` head at delegation; the brief and design are in this base)
 **Head:** the single commit on this branch; its SHA is reported in the handoff message (a report

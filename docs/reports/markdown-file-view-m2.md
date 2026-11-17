@@ -4,7 +4,7 @@
 **Design:** `docs/design/markdown-file-view.md` (approved 14 November 2026)
 **Frontmatter decision:** product owner, 14 November 2026 (verbatim, read-only prefix)
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f0222b39-63352c0e9dcee0f9`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/markdown-file-view-m2-save-conflict`
 **Base:** `b5f306e` (`main` head at delegation; M1 is in this base)
 **Head:** the single commit on this branch; its SHA is reported in the handoff message (a report cannot contain the hash of the commit that introduces it)

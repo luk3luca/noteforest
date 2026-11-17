@@ -5,7 +5,7 @@
 > the record of the M2d iteration and its tests, not as current behavior.
 
 **Date:** 4 November 2026  
-**Builder worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-d1ad0c14`  
+**Builder worktree:** `a builder worktree`  
 **Branch:** `t3/d1ad0c14`  
 **Base:** `17c406d` (`main`: docs: approve M2d depth columns and M2 polish)  
 **Status:** Complete for M2d scope. Integration and merge belong to the Orchestrator. Product-owner visual judgement and VoiceOver remain human gates.
@@ -262,7 +262,7 @@ npm test
 npm run build
 npm run e2e
 node --test --test-name-pattern="<name>" tests/e2e/m2-editor.test.mjs
-# same-machine M2c baseline, in /Users/luca/.t3/worktrees/noteforest/t3-918bde08:
+# same-machine M2c baseline, in /Users/example/.t3/worktrees/noteforest/t3-918bde08:
 npm run build
 node --test --test-name-pattern="measures the 300-block" tests/e2e/m2-editor.test.mjs
 ```

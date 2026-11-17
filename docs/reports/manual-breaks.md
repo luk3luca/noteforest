@@ -2,7 +2,7 @@
 
 **Builder:** implementation sub-agent
 **Date:** 16 November 2026
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-2fae3384-a46238e68cef9e9f`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/manual-breaks-control-list-cleanup`
 **Base:** `f015d08` (`main`, the docs commit that adds the brief)
 **Scope:** MB1 — the `Start on a new page` control, the `Breaks` sidebar section, the cleanup, and

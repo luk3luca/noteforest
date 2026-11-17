@@ -3,7 +3,7 @@
 **Status:** Complete (4 November 2026)  
 **Owner:** Builder  
 **Source:** `docs/tasks/m2f-phase3a-undo-routing.md`; `docs/reviews/m2-review.md` F2; `docs/tasks/m2f-stability-fixes.md` phase 3  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-4cc6c157`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-phase3a-undo-routing`
 
 ## What changed

@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-c2eb538d`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-phase5a-keyboard-a11y`  
 **Base:** `034441b` (`main`: docs: start M2f phase 5a keyboard and accessibility)  
 **Scope:** F5 and F16 only. No cleanup/dead code (5b), undo, M3, page view, or PDF.

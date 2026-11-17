@@ -175,7 +175,7 @@ describe('image editor projection', () => {
   it('projects a src-only legacy image as a labeled placeholder and never exposes its path', () => {
     const projected = contentToPM({
       type: 'image',
-      attrs: { src: 'file:///Users/luca/secret/forest.png', alt: 'Legacy local' },
+      attrs: { src: 'file:///Users/example/secret/forest.png', alt: 'Legacy local' },
     });
     expect(projected.attrs?.['src']).toBeUndefined();
     expect(projected.attrs?.['missing']).toBe(true);

@@ -4,7 +4,7 @@
 - Date: 11 November 2026
 - Reviewed base: `main` at `45c9b21` (fix batch `38daf71` + correction `58a9b6a`, docs/brief
   `45c9b21`); pre-fix head `fd28c3c`
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-bad4a975-333b85b52c553f07`
+- Worktree: `a builder worktree`
 - Branch: `t3/ui-sentinel-fixes-recheck`
 - Environment: macOS 26.5.2 (25F84), Apple M5 (10 cores), Node 22.23.1, npm 10.9.8; production
   Electron build from `npm run verify`; E2E hidden mode; default UI pool concurrency 8.

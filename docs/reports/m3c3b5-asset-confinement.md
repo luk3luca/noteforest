@@ -4,7 +4,7 @@
 **Branch:** `t3/builder/m3c3b5-asset-confinement`
 **Base:** `dc3ba4e` (`docs: launch M3c3b5 asset confinement`)
 **Implementation commit:** `8696e32` (`fix: confine asset store reads and writes (M3c3b5)`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-da2ed6f5`
+**Worktree:** `a builder worktree`
 
 ## Summary
 

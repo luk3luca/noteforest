@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder
 **Base:** `main` at `4b329d6` (M4c1 print compositor + Sentinel review + M4c2 brief)
 **Date:** 9 November 2026
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-7de5dbf8-fcad61f476dadaf1`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/m4c2-pdf-export-orchestration`
 **Head:** the tip of `t3/m4c2-pdf-export-orchestration` (SHA in the handback message)
 

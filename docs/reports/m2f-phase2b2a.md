@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-453c9f13`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/453c9f13`  
 **Base:** `d61ac27` (`main`: docs: start M2f phase 2b2a external modification)  
 **Scope:** external-modification state only. No backup restore (2b2b), corrupt/missing/newer

@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-da994266`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3a1-anchor-model-binding`  
 **Base:** `390ad63` (`main`: docs: align spec v0.4.5 and start M3a1)  
 **Scope:** pure `packages/core` anchor model only. No commands, UI, TipTap, adapter, e2e, page/PDF, reference

@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-042e50e5`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-quit-lifecycle-test-infra`  
 **Base:** `8d78529` (`main`: docs: start M2f phase 1)  
 **Scope:** F1 (S1 quit) and F8 (test inventory/speed) only. No M3, page view, PDF, undo, save

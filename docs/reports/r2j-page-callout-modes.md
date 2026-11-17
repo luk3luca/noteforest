@@ -1,7 +1,7 @@
 # R2j — Page callout modes A + B2
 
 **Role:** Builder / Implementer  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-d3c0c3af-e22965092d307189`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/page-callout-modes-a-b2`  
 **Base:** `97127cf` (`main`, after R2i)  
 **Implementation commit:** `8b7132c0f56daa6f6df84f56b34f03bd3695fd65`  

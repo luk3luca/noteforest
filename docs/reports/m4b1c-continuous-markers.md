@@ -1,7 +1,7 @@
 # M4b1c — continuous page-break markers
 
 **Role:** Implementer / Builder  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-8927b71a`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4b1c-continuous-page-break-markers`  
 **Base:** `e481d7c` (`docs: launch M4b1c continuous markers`)  
 **Implementation commit:** `5730768ad181685b6b951f4f4c32010c4e3a014e`  

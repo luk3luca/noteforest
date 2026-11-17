@@ -4,7 +4,7 @@
 **Branch:** `t3/image-integrity-hardening`
 **Base:** `e5c67d9` (`docs: sequence M3c3b3 before M3c3b4`)
 **Implementation commit:** `8fc9fd3` (`fix: harden image asset integrity and legacy sources`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-03faa989`
+**Worktree:** `a builder worktree`
 
 ## Summary
 

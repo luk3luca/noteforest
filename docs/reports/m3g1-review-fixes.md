@@ -2,7 +2,7 @@
 
 **Date:** 6 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-bac8778b`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3g1-below-stack-idle-anchor`  
 **Base:** `9d92f99` (`main`: docs: start M3g1 product-owner review fixes)  
 **Scope:** the two product-owner review bugs only. No image anchors, paste/duplicate UI,

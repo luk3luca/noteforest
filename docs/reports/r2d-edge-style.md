@@ -1,7 +1,7 @@
 # R2d — unify Page/PDF edge style with Continuous
 
 - **Role:** Implementer / Builder
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-436a81f9`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/r2d-orthogonal-page-edge-routing`
 - **Base:** `40331bf` — `docs: merge R2c and launch R2d edge router`
 - **Implementation commit:** `99a1dc7` — `feat: unify page edge style with orthogonal routing`
@@ -24,7 +24,7 @@ The routed-path hidden-segment heuristic is **0 / 0** on both corpora, and every
 blocked routes. Earlier sibling cards are never crossed.
 
 No Settings UI, manual-break UI, packing/typography change, PDF compositor, showcase edit,
-`/Users/luca/Documents` write, spec/UX/plan edit, or new external dependency was added.
+`~/Documents` write, spec/UX/plan edit, or new external dependency was added.
 
 ## One visual language
 
@@ -197,5 +197,5 @@ New coverage:
   shared-trunk detours; this is the product-owner checkpoint.
 - Real `printToPDF` output and PDF rendering (M4c).
 - The on-demand perf suite; the ≈12 ms route-only bench is not a UI long-task measurement.
-- The showcase and `/Users/luca/Documents` were not modified. The lab copied the showcase read-only;
+- The showcase and `~/Documents` were not modified. The lab copied the showcase read-only;
   `fixtures/scale-300.json` is the committed second corpus.

@@ -26,8 +26,8 @@ const h = ui.harness;
 let page;
 
 const FIXTURES = resolve(import.meta.dirname, '../../fixtures');
-const SHOWCASE_PACKAGE = '/Users/luca/Documents/NoteForest/note-forest-showcase';
-const STRESS_PACKAGE = '/Users/luca/Documents/NoteForest/note-forest-stress-test';
+const SHOWCASE_PACKAGE = '~/Documents/NoteForest/note-forest-showcase';
+const STRESS_PACKAGE = '~/Documents/NoteForest/note-forest-stress-test';
 const DENSITIES = [0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2];
 
 async function launch(name) {

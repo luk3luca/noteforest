@@ -3,7 +3,7 @@
 **Status:** Complete (4 November 2026)  
 **Owner:** Builder  
 **Source:** `docs/tasks/m2f-phase3b2-move-identity.md`; `docs/reviews/m2-review.md` F2; `docs/tasks/m2f-stability-fixes.md` phase 3  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-5ade1bbb`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-3b2-move-undo-identity`  
 **Base:** `8aa9904` (`main`: docs: start M2f phase 3b2 move identity)  
 **Commits:** `8872133` (core + unit tests), `21b4c21` (desktop hooks + E2E), `de20c90` (snapshot hardening), plus this report

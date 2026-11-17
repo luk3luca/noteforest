@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder  
 **Base:** `main` at the M4c1 brief (`ac730ce`; Page checkpoint/F5/F6 code at `6147cf3`)  
 **Date:** 9 November 2026  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-10563719-a462a37f908563cc`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4c1-page-print-compositor`
 
 ## Summary and scope

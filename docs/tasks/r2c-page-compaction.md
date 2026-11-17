@@ -78,7 +78,7 @@ but callouts and other components still stack and the row is not filled.
    - Do not change typography/compact values.
    - Do not implement edge-style unification, Settings UI, manual-break UI/cleanup, or PDF
      compositor.
-   - Do not touch `/Users/luca/Documents` or the showcase.
+   - Do not touch `~/Documents` or the showcase.
    - Do not edit spec/UX/plan; report.
 
 ## Deliverable

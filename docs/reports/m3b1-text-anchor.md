@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-28bfcb75`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3b1-text-anchor-branch`  
 **Base:** `2a14cdf` (`main`: docs: merge M3a2 and start M3b1)  
 **Scope:** text selection → anchored primary child → marker → one structural inverse → reload. No

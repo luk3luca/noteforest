@@ -1,7 +1,7 @@
 # M2b — Editor shell + branch editor (report)
 
 **Date:** 3 November 2026  
-**Builder worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-c665c866`  
+**Builder worktree:** `a builder worktree`  
 **Branch:** `t3/m2-editor-shell`  
 **Status:** Complete for M2b scope; product-owner visual review and VoiceOver pass are the remaining human gates. Integration and merge belong to the Orchestrator.
 

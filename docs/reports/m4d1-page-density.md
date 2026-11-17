@@ -4,7 +4,7 @@
 **Role:** Builder / Implementer  
 **Date:** 9 November 2026  
 **Base:** `main` at `bceeeed` (after M4c3 `1a3eb62`)  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-3c82c451-b217843a8fb7a226`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4d1-page-density`  
 **Code commit:** `e698dd3835ba7f09f3bae4433e79ba8080d51b9d`
 

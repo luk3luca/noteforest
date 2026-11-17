@@ -13,9 +13,14 @@ MIT licensed (see [LICENSE](LICENSE)).
 **v1.0 feature-complete.** The first release is `0.1.0`, tagged when the dmg is built (`docs/plan.md` has the
 milestone history). The app is macOS-only and Apple-silicon-first.
 
+This is a personal project, published for reading and building. It is **not affiliated** with the
+`noteforest.com` link-saving service or with the former App Store app of the same name (now "MemorGo").
+
 ## Install (macOS)
 
-There is no App Store build and no notarized distribution. The app is built locally and is **not code-signed**:
+There is no App Store build and no notarized distribution. The app is built locally and is **not code-signed**.
+`npm run dist` and `npm run install:local` land with the `0.1.0` release; until then the app runs from source
+(`npm run dev`).
 
 ```bash
 git clone https://github.com/luk3luca/noteforest.git

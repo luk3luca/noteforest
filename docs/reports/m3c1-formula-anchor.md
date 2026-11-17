@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-bc6e9957`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3c1-whole-formula-anchors`  
 **Base:** `90fd30d` (`main`: docs: merge M3b2b and start M3c1)  
 **Scope:** whole-formula anchors only; atomic `attrs.anchorIds` binding, formula marker,

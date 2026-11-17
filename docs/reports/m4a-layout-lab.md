@@ -1,7 +1,7 @@
 # M4a — layout lab and group-level left-origin wrap
 
 **Role:** Implementer / Builder  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-7fe06bf9`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4a-group-left-origin-wrap`  
 **Base:** `bf3893e` (`docs: merge M3c3b4 and launch M4a`)  
 **Implementation commit:** `bab03dc31c2951e2ac79fd525bdd87a0af7fb62d`  
@@ -57,7 +57,7 @@ Committed lab module and test:
   `npx vitest run packages/layout/test/layout-lab.test.ts --reporter=verbose`
 
 Fixtures: `scale-300.json`, `deep-chain.json`, `wide-fan.json`. The product-owner showcase at
-`/Users/luca/Documents/NoteForest/note-forest-showcase/document.json` is read-only and included when
+`~/Documents/NoteForest/note-forest-showcase/document.json` is read-only and included when
 present; no copy was added to the repository and the showcase was not modified. The committed test
 logs the committed fixtures on every machine and adds the showcase only when that absolute path is
 readable.
@@ -243,7 +243,7 @@ Targeted layout files: `layout.test.ts`, `pagination.test.ts`, `group-wrap.test.
    to width/readability, but this needs real-document measurement.
 4. **Showcase has pre-existing defects.** 13 broken anchors, 2 content-too-wide, 2 layout-overflow,
    and 1 missing asset make it unsuitable for a clean visual gate. It was read-only and not copied.
-5. **Optional showcase path.** CI without `/Users/luca/Documents/NoteForest/note-forest-showcase`
+5. **Optional showcase path.** CI without `~/Documents/NoteForest/note-forest-showcase`
    exercises only the three committed fixtures; the report numbers for the showcase are local.
 6. **`right-first-per-child` remains in the production type.** It is not the default, but external
    callers could select it. It exists to keep the regression oracle and should stay test-only by

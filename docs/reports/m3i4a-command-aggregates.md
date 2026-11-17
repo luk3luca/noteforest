@@ -2,7 +2,7 @@
 
 **Date:** 6 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-531e8031`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/split-command-aggregates`  
 **Base:** `51754a6` (docs: merge M3i2c and start M3i4a/M3i4b; code base `c6b3f6e`)  
 **Commits:** `9fa2544` — `refactor: split command aggregates and add invariant harness`;

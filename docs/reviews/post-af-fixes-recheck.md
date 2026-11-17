@@ -4,7 +4,7 @@
 - Date: 14 November 2026
 - Reviewed base: `main` at `9be5f20` (contains C `fd4fed9`, A+D `f081cb0`, test fixes `bd3884c`
   and `c1b522c`); reviewed diff `70a6144..c1b522c`
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-01fe79ec-42bcfebbe0a8be39`
+- Worktree: `a builder worktree`
 - Branch: `t3/post-af-fixes-recheck`
 - Head: `9be5f20` plus this review commit (docs only)
 - Environment: macOS 26.5.2 (25F84), Apple M5 (10 cores), Node 22.23.1, npm 10.9.8; production

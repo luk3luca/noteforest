@@ -2,7 +2,7 @@
 
 **Date:** 6 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-8aab03c7`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3g2-lane-width-edge-radius`  
 **Base:** `f4e4f0c` (`main`: docs: start M3g2 lane width, push, and edge radius)  
 **Scope:** lane width/push, callout/trunk indentation, and 2 px edge elbows only. No unified-flow

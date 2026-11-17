@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-838060c5`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3b2c-below-stack-routing`  
 **Base:** `2486b9a` (`main`: docs: backlog code block chrome and start remaining M3)  
 **Scope:** below-stack projection/placement and routing only. No M3c2 terms, M3c3 code/image, M3d

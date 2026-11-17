@@ -3,7 +3,7 @@
 - **Reviewer:** Reviewer / Sentinel (independent; no product code changed)
 - **Date:** 14 November 2026
 - **Base:** `58a9b6a` (last accepted UI re-check) → code head `2988d2b`; worktree head `b747d5d` (adds the brief only)
-- **Branch / worktree:** `t3/post-settings-special-text-sentinel-review` — `/Users/luca/.t3/worktrees/noteforest/t3-2b348e83-a5e69866951fe9af` (deliverable: this report + `docs/reviews/settings-inventory-delta.md`)
+- **Branch / worktree:** `t3/post-settings-special-text-sentinel-review` — `a builder worktree` (deliverable: this report + `docs/reviews/settings-inventory-delta.md`)
 - **Environment:** macOS (darwin), Node 22.23.1, Electron 45.2.1, 10 logical cores, hidden E2E windows, dark shell theme; unit + UI run from the worktree after `npm ci` from the lockfile.
 - **Stack / PDF:** Electron + shared paginator + `printToPDF` (ADR-0001, ADR-0002); the PDF gate was not re-run (no print/layout change in this delta).
 - **Theme / page settings:** dark default; A4 portrait, default margins, compact density (unchanged defaults); Page/PDF isolation checked by code + unit test, not by a new render.

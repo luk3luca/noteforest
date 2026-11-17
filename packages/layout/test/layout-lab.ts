@@ -18,7 +18,7 @@ import {
 import { FIXTURES, FIXTURE_PAGE_SETUP } from './helpers.js';
 import { resolve } from 'node:path';
 
-export const SHOWCASE_PATH = '/Users/luca/Documents/NoteForest/note-forest-showcase/document.json';
+export const SHOWCASE_PATH = '~/Documents/NoteForest/note-forest-showcase/document.json';
 export const LAB_POLICIES: readonly WrapPolicy[] = [
   'right-first-per-child',
   'group-left-origin',

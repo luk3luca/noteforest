@@ -2,7 +2,7 @@
 
 - **Reviewer:** Sentinel (independent)
 - **Date:** 6 November 2026
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-d107a980` (branch `t3/m3h-sentinel-rereview`; base `83af327`; no commits, no merges)
+- **Worktree:** `a builder worktree` (branch `t3/m3h-sentinel-rereview`; base `83af327`; no commits, no merges)
 - **Base:** `83af327` (`docs: merge M3h3 and start Sentinel re-review`), after M3h1/M3h2/M3h3
 - **Scope:** closure of S2-1–S2-4, S3-1, S3-2, the S3-3/M3h4 token deferral, the AC-21 deferral, and regressions in the M2/M3 critical flows; no product code, tests, spec, UX, ADR, or plan changes.
 - **Environment:** Apple M5, 24 GB, macOS 26.5.2 (25F84), Node 22.23.1, npm 10.9.8, Electron 45.2.1, Playwright 1.64.1, Vitest 5.1.0. Electron windows hidden for all automated runs.

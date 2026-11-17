@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-df577bef`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-phase5b-cleanup`  
 **Base:** `2b0671a` (`main`: docs: start M2f phase 5b cleanup)  
 **Scope:** F12–F15/F19 cleanup only. No behavior change, no M3/page/PDF, no new native dialogs.

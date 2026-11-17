@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-bb6dd8ec`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/fix-flush-close-handshake`  
 **Base:** `ce42f74` (`main`: docs: start M2f phase 2a flush/close contract)  
 **Scope:** F4 flush/close handshake only. No save-failure/external-modification recovery UI (phase

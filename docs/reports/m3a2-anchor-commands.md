@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-20fb6031`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3a2-anchor-commands`  
 **Base:** `155fdac` (`main`: docs: merge M3a1 and start M3a2)  
 **Scope:** pure `packages/core` command layer plus anchored traversal. No UI, TipTap, adapter, callout,

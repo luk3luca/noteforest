@@ -34,8 +34,8 @@ The product-owner model is explicit:
 
 Reference screenshots (local, do not commit):
 
-- `/Users/luca/.t3/userdata/attachments/7b9d51bf-80d3-4fbe-add5-2af15c69904a-5c1c98bb-0145-4f96-a772-3bea01de5943.png`
-- `/Users/luca/.t3/userdata/attachments/7b9d51bf-80d3-4fbe-add5-2af15c69904a-671fbfa3-889b-4c2f-9f2b-24fb2fbc6402.png`
+- `/Users/example/.t3/userdata/attachments/7b9d51bf-80d3-4fbe-add5-2af15c69904a-5c1c98bb-0145-4f96-a772-3bea01de5943.png`
+- `/Users/example/.t3/userdata/attachments/7b9d51bf-80d3-4fbe-add5-2af15c69904a-671fbfa3-889b-4c2f-9f2b-24fb2fbc6402.png`
 
 Relevant docs:
 

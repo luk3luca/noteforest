@@ -4,7 +4,7 @@
 **Role:** Implementer / Builder
 **Task:** `docs/tasks/ui-settings-advanced.md`
 **Branch:** `t3/ui-settings-advanced-batch-c`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f444556c-4f564fa17b6ab846`
+**Worktree:** `a builder worktree`
 **Base:** `7eb9f40` (`design/ui-map` head containing the Batch C brief)
 **Date:** 11 November 2026
 
@@ -177,7 +177,7 @@ changed for that test. The Batch B Custom→Compact path now exercises the new w
 
 ## Worktree, branch, head
 
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-f444556c-4f564fa17b6ab846`
+- Worktree: `a builder worktree`
 - Branch: `t3/ui-settings-advanced-batch-c`
 - Base: `7eb9f40`
 - Head at handback: this report commit on top of `712fdc8`

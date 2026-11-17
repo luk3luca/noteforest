@@ -2,7 +2,7 @@
 
 **Date:** 6 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-595adc25`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3i2a-document-gateway-save-coordinator`  
 **Base:** `35d582f` (docs: start M3i pre-M4 stabilization; M3 acceptance is `60923a0`)  
 **Commit:** `78e2731` — `refactor: extract document gateway and save coordinator`  

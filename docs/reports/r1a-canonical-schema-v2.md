@@ -1,7 +1,7 @@
 # R1a — canonical schema v2 and page-settings foundation
 
 - **Role:** Implementer / Builder
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-fe6849ba`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/r1a-canonical-schema-v2`
 - **Base:** `e0c2968` — `docs: adopt personal page settings and schema v2`
 - **Implementation commit:** `b5c3101` — `feat: canonical schema v2 and page-settings foundation`

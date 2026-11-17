@@ -3,7 +3,7 @@
 - **Builder:** Implementer / Builder
 - **Date:** 14 November 2026
 - **Base:** `f053245` (`main` head with this brief; includes the re-check `a3a6aa4` and the list fixes `c26c2ad`)
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-9986f908-327a5af8b6cf1695`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/post-af-recheck-followups`
 - **Commit:** one commit in this worktree (SHA in the handoff; not merged or pushed)
 - **Brief:** `docs/tasks/post-af-followups.md`

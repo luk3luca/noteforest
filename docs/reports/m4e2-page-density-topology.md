@@ -4,7 +4,7 @@
 **Role:** Builder / Implementer
 **Date:** 9 November 2026
 **Base:** `main` at `70b6a19` (M4e1/M4e2 briefs)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-8d02f801-4c6701e62a26c1c6`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/m4e2-page-density-topology`
 **Code commit:** `a9f44cf` (this report is the follow-up commit)
 
@@ -293,7 +293,7 @@ type metrics at both ends, no settings mismatch.
    move from the right lane to below. The checklist/spec must stop claiming
    otherwise (see the rule-change list above), and the later UI may want a note
    if this surprises users.
-7. **Lab locality.** showcase/stress rows depend on `/Users/luca/Documents/
+7. **Lab locality.** showcase/stress rows depend on `~/Documents/
    NoteForest/...`; scale-300 is committed. The UI suite skips missing packages,
    so CI still runs the committed row and the seven-step invariants.
 8. **M4e1 coordination.** No persistence/session/no-doc/Continuous changes were
@@ -309,7 +309,7 @@ type metrics at both ends, no settings mismatch.
 ## Handback
 
 - No merge, no push, no PR, no parent-checkout edits.
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-8d02f801-4c6701e62a26c1c6`
+- Worktree: `a builder worktree`
 - Branch: `t3/m4e2-page-density-topology`
 - Head SHA: the commit containing this report (reported in the handback message).
 - Screenshots: `artifacts/m4e2/page-read-60.png`, `artifacts/m4e2/page-read-120.png`

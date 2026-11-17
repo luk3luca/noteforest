@@ -1,7 +1,7 @@
 # M4b1c1 — page measurement image preload regression
 
 **Role:** Implementer / Builder  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-2c6a9337`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4b1c1-page-image-preload`  
 **Base:** `354c3e3` (`docs: fix page measurement image preload 404`, on `cdd7d95` M4b1c merge)  
 **Implementation commit:** `e2aeb41`  

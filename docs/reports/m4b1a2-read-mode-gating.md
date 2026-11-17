@@ -1,7 +1,7 @@
 # M4b1a2 — Read mode global gating
 
 **Role:** Implementer / Builder  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-269801d1`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4b1a2-read-mode-gating`  
 **Base:** `b7f5a52` (`docs: launch M4b1a2 read-mode gating`)  
 **Implementation commits:** `515bab7545d4` (global gate), `35af3cacb699` (anchor health)  

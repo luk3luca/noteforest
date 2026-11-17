@@ -1,7 +1,7 @@
 # M4b1a — editor layouts and modes
 
 **Role:** Implementer / Builder  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f59b997c`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/editor-layouts-and-modes`  
 **Base:** `75c75eb` (`docs: adopt editor layouts and modes (ADR-0007)`)  
 **Implementation commit:** `98ef306823491900366565a4b09d8bfd8e8b1c64`  

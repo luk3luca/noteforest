@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Role:** Planner / Architect (scoped specialist)  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-8c581762`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3-spec-delta-docs`  
 **Base:** `main` at `c34f928` (docs: approve M3 design and start spec/UX/ADR delta)  
 **Commits:** `b988668` (docs delta), `235f8b2` (report), `ca45b89` (OD-4 citation), `0498675`

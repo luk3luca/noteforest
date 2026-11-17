@@ -2,7 +2,7 @@
 
 **Role:** Builder
 **Milestone:** M3h — Sentinel re-review fixes
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-65fa18fa`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/m3h5-leaf-delete-disclosure`
 **Base:** `e63644c`
 **Scope:** S3-8 only. No token, placement/undo, repair-preview, idle-anchor, image, or API changes.

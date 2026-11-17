@@ -1,7 +1,7 @@
 # R2i — Page subtree-aware wrap
 
 **Role:** Builder / Implementer  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-b1941714-94384814826713bc`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/r2i-page-subtree-wrap`  
 **Base:** `693ae0e` (`main`, after the Page checkpoint and R2f/R2g/R2h)  
 **Implementation commit:** `5e7230ec4be12b480848c6c79b2ef108f240a53f`  

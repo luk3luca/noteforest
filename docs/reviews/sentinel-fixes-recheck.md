@@ -4,7 +4,7 @@
 - **Date:** 14 November 2026
 - **Base:** `48baac3` (`main` head; the fix under review is `4257154`, its parent is `0917965`)
 - **Reviewed diff:** `0917965..4257154` — 25 files, +1,431 / −69, plus the control docs
-- **Worktree / branch:** `/Users/luca/.t3/worktrees/noteforest/t3-4ce5710f-5e70fdd765edf020` — `t3/sentinel-fixes-recheck` (one review commit, no merge/push)
+- **Worktree / branch:** `a builder worktree` — `t3/sentinel-fixes-recheck` (one review commit, no merge/push)
 - **Environment:** macOS (darwin), Node 22.23.1, npm 10.9.8, Electron 45.2.1, 10 logical cores, hidden E2E windows, dark shell theme; `npm ci` from the lockfile in this fresh worktree
 - **Source review:** `docs/reviews/post-settings-library-special-text-review.md` (F1–F10); briefs `docs/tasks/sentinel-fixes.md`, `docs/tasks/sentinel-fixes-recheck.md`; builder report `docs/reports/sentinel-fixes.md`
 - **Verdict: accept with findings.** No S1/S2. **F1, F5, F6, F10 are closed; F7 is closed in the runner; F3 and F4 are closed for the reported scenarios but each leaves one S3 residual; F9's primary path is closed with one S4 Page Edit residual.** F2 stayed untouched as agreed. The two S3 residuals are pre-existing edge interleavings in touched code, not new common-case regressions, and are small follow-ups.

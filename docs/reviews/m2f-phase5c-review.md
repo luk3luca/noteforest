@@ -2,7 +2,7 @@
 
 - **Reviewer:** Sentinel (independent re-review)
 - **Date:** 5 November 2026
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f0c711e0`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/sentinel-review-m2f-phase5c`
 - **Base:** `e5f37f9` (`main`: merge of M2f phase 5c)
 - **Scope:** close N1/N2/N3/N5/N6 from `docs/reviews/m2f-review.md`; audit the phase 5c

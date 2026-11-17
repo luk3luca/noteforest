@@ -2,7 +2,7 @@
 
 **Role:** Implementer / Builder  
 **Base:** `main` at `70b6a19` (M4e1/M4e2 briefs)  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-9fe348a5-e27f1c8e707763f5`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4e1-settings-platform-fixes`  
 **Head (implementation):** `bdbbdc710cf47c23ec0746dd8ac3119e2a2e93c0`; the final
 branch head adds this report.
@@ -211,7 +211,7 @@ No `pageErrors` in the new or re-run UI suites.
 
 ## 7. Handoff
 
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-9fe348a5-e27f1c8e707763f5`
+- Worktree: `a builder worktree`
 - Branch: `t3/m4e1-settings-platform-fixes`
 - Head SHA: recorded in the final message and by `git log -1` in the worktree.
 - Next suggested step: targeted Sentinel review of M4e1, then the M4e2 density/

@@ -2,7 +2,7 @@
 
 **Date:** 6 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-4b6ef29a`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3i2c-document-session`  
 **Base:** `d56d2ab` (docs: merge M3i2b/M3i3 and start M3i2c)  
 **Commit:** `71ab5a3` — `refactor: extract the canonical document session from the runtime`  

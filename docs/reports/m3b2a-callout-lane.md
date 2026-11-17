@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-512bb953`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/512bb953`  
 **Base:** `ab15c52` (`main`: docs: merge M3b1 and start M3b2a)  
 **Scope:** the editor callout lane only. No schema/canonical change, no outline anchored rows or marker

@@ -1,7 +1,7 @@
 # M2a — Document core + local persistence (report)
 
 **Date:** 3 November 2026  
-**Builder worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-a7829c9f`  
+**Builder worktree:** `a builder worktree`  
 **Branch:** `t3/a7829c9f`  
 **Status:** Complete; all gates pass. Integration and merge belong to the Orchestrator.
 

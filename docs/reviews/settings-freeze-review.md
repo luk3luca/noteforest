@@ -3,7 +3,7 @@
 - **Reviewer:** Reviewer / Sentinel (independent)
 - **Date:** 9 November 2026
 - **Base:** `main` at `ca59fc5` (M4e3 docs; brief commit `ca59fc5`)
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-48b6f83b-68c1a806ce38a4ea`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/settings-freeze-sentinel-recheck`
 - **Head at review:** `ca59fc5` (docs); product code unchanged since `3280422` / integration `4ad695e`
 - **Stack/PDF:** Electron + shared paginator + `printToPDF` (ADR-0001, ADR-0002)
@@ -328,7 +328,7 @@ I did not edit product code, tests, spec, UX, ADR, plan, or AGENTS.
   above.
 - **Deliverables:** this review, `docs/reviews/settings-inventory.md` (frozen), and the
   checklist/DoD rule updates.
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-48b6f83b-68c1a806ce38a4ea`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/settings-freeze-sentinel-recheck`
 - **Head at handback:** the commit containing this report and the inventory (base `ca59fc5`).
 - **Not done:** no product-code/test/spec/UX/ADR/plan edits, no merge, no push, no PR, no full verify

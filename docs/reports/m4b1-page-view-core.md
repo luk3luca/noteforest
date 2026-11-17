@@ -1,7 +1,7 @@
 # M4b1 — page view core (shared layout, read-only preview)
 
 **Role:** Implementer / Builder  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-c6940b09`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4b1-page-view-core`  
 **Base:** `c71f6e9` (`docs: split M4b and launch page view core`)  
 **Implementation commit:** `686004c34360398042ece024d799bcb1e2e82fa8`  

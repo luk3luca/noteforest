@@ -3,7 +3,7 @@
 - **Reviewer:** Reviewer / Sentinel (independent)
 - **Date:** 9 November 2026
 - **Reviewed base:** `main` at `9859a18` (M4c2 integration `322d132` plus the review brief/docs)
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-d761e672-9444ebe5517e1f81`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/review-m4c2-pdf-export-orchestration`
 - **Environment:** macOS 26.5.2 (Darwin 25.5.0, arm64), Node 22.23.1, Electron 45.2.1,
   production build (`npm run build`)
@@ -394,7 +394,7 @@ No product code, test, spec, UX, ADR, or plan was changed. No merge, push, or PR
 
 ## Handback
 
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-d761e672-9444ebe5517e1f81`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/review-m4c2-pdf-export-orchestration`
 - **Reviewed head:** `9859a188cd935a549648c0770b157ebb7993c091` (`9859a18`)
 - **Review commit:** the docs commit containing this report and the

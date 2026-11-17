@@ -3,7 +3,7 @@
 **Status:** Builder complete in worktree; not merged or pushed.
 **Branch:** `t3/m3c3b1-image-pipeline-rendering`
 **Base:** `902d185` (`docs: close M3i and start M3c3b1 image pipeline`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-3c62c688`
+**Worktree:** `a builder worktree`
 
 ## Summary
 

@@ -40,11 +40,11 @@ describe('export PDF filename', () => {
   });
 
   it('joins a folder and a filename without doubling separators', () => {
-    expect(joinExportPath('/Users/luca/Documents', 'Note.pdf')).toBe(
-      '/Users/luca/Documents/Note.pdf',
+    expect(joinExportPath('~/Documents', 'Note.pdf')).toBe(
+      '~/Documents/Note.pdf',
     );
-    expect(joinExportPath('/Users/luca/Documents/', 'Note.pdf')).toBe(
-      '/Users/luca/Documents/Note.pdf',
+    expect(joinExportPath('~/Documents/', 'Note.pdf')).toBe(
+      '~/Documents/Note.pdf',
     );
   });
 });

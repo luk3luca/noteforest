@@ -2,7 +2,7 @@
 
 **Role:** Builder
 **Brief:** `docs/tasks/data-recovery.md`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-1be17cac-877c9b0f17bfdea6`
+**Worktree:** `a builder worktree`
 **Base:** `main` at `895f149` (the docs commit that adds the brief)
 **Status:** **part 2 delivered; part 1 stopped at the brief's stop-and-ask** (asset-byte deletion
 is not implemented anywhere, and adding it is a new destructive capability).

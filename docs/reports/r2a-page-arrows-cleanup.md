@@ -1,7 +1,7 @@
 # R2a — Page arrows and Continuous page-chrome removal
 
 - **Role:** Implementer / Builder
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-89013e46`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/page-arrows-continuous-cleanup`
 - **Base:** `0f7be24` — `docs: launch R2a Page arrows and continuous cleanup`
 - **Implementation commit:** `6f98b1c` — `feat: page arrows and remove continuous page chrome`
@@ -20,7 +20,7 @@ The arrow layer reuses the one page-edge mapper that already fed the PDF print m
 There is no second page-edge router.
 
 No R2b packing/two-column work, Settings UI, manual-break UI/cleanup, PDF compositor,
-density change, showcase edit, or `/Users/luca/Documents` access was done.
+density change, showcase edit, or `~/Documents` access was done.
 
 ## Edge mapper reuse
 
@@ -162,4 +162,4 @@ model.
   `test:visual:r1b` were not rerun in this slice.
 - Real `printToPDF` output and PDF arrow rendering (M4c work).
 - Human visual/VoiceOver judgement of the arrows, labels, and Page Edit stacking.
-- The showcase and `/Users/luca/Documents` were not touched.
+- The showcase and `~/Documents` were not touched.

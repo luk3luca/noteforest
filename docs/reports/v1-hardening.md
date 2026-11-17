@@ -1,7 +1,7 @@
 # VH1 — v1 hardening report (page controls in the canvas header, table-cell guard)
 
 **Role:** Builder
-**Branch:** `t3/v1-hardening` (worktree `/Users/luca/.local/share/opencode/worktree/7b776c/v1-hardening`)
+**Branch:** `t3/v1-hardening` (worktree `a builder worktree`)
 **Base:** `main` at `941046a` (the docs commit that adds the brief)
 **Brief:** `docs/tasks/v1-hardening.md` (+ `docs/tasks/table-cell-guard.md` for part B)
 **Status:** implemented, targeted and fast checks green, **one product decision was needed and is

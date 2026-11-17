@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-cef1640f`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-phase4a-corrupt-recovery`  
 **Base:** `9fffbb8` (`main`: docs: start M2f phase 4a corrupt recovery)  
 **Scope:** F3 only — damaged/missing/newer packages in the library, a read-only recovery

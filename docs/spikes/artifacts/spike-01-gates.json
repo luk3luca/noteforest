@@ -23,8 +23,8 @@
         "rendererErrors": 0
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader.png",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-01.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader.png",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-01.png"
       ]
     },
     "G2": {
@@ -64,7 +64,7 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader-chapter.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader-chapter.png"
       ]
     },
     "G3": {
@@ -82,7 +82,7 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-02-continuation.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-02-continuation.png"
       ]
     },
     "G4-F1": {
@@ -126,8 +126,8 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png"
       ]
     },
     "G4-landscape": {
@@ -155,7 +155,7 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-landscape-golden.pdf"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-landscape-golden.pdf"
       ]
     },
     "G3-F2": {
@@ -229,8 +229,8 @@
         "bytes": 686572
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F2-page-01.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F2-page-01.png"
       ]
     },
     "G4": {
@@ -317,10 +317,10 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F2-003.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F2-003.png"
       ]
     },
     "G2-F3": {
@@ -367,7 +367,7 @@
         ]
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F3-reader-fan.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F3-reader-fan.png"
       ]
     },
     "G2-F4": {
@@ -411,7 +411,7 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F4-reader-deep-chain.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F4-reader-deep-chain.png"
       ]
     },
     "G2-F5": {
@@ -431,7 +431,7 @@
         "blockCount": 4
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-shared-child.pdf"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-shared-child.pdf"
       ]
     },
     "G3-F6": {
@@ -479,7 +479,7 @@
         "pageCount": 4
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F6-page-03-too-tall-row.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F6-page-03-too-tall-row.png"
       ]
     },
     "G2-F7": {
@@ -539,7 +539,7 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F7-page-01.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F7-page-01.png"
       ]
     },
     "G5": {
@@ -611,7 +611,7 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-scale-300.pdf"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-scale-300.pdf"
       ]
     },
     "G6": {
@@ -715,7 +715,7 @@
         "partialFileExists": false
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F8-page-01-defects.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F8-page-01-defects.png"
       ]
     },
     "G3-F9": {
@@ -734,8 +734,8 @@
         }
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F9-page-01-anchor-warnings.png",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-broken-anchor.pdf"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F9-page-01-anchor-warnings.png",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-broken-anchor.pdf"
       ]
     },
     "G6-determinism": {
@@ -767,7 +767,7 @@
         "tempFiles": []
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf"
       ]
     },
     "G8": {
@@ -779,9 +779,9 @@
         "rasters": 6
       },
       "evidence": [
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader.png",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-02-continuation.png",
-        "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png"
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-reader.png",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/F1-page-02-continuation.png",
+        "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/rasters/F1-001.png"
       ]
     }
   },
@@ -851,7 +851,7 @@
       },
       "export": {
         "ok": true,
-        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
+        "path": "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-golden-eigenvalues.pdf",
         "expectedPageCount": 3,
         "pdfPageCount": 3,
         "bytes": 144455,
@@ -951,7 +951,7 @@
       },
       "export": {
         "ok": true,
-        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-landscape-golden.pdf",
+        "path": "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-landscape-golden.pdf",
         "expectedPageCount": 3,
         "pdfPageCount": 3,
         "bytes": 148050,
@@ -1065,7 +1065,7 @@
       },
       "export": {
         "ok": true,
-        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
+        "path": "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-long-50-pages.pdf",
         "expectedPageCount": 53,
         "pdfPageCount": 53,
         "bytes": 686572,
@@ -1183,7 +1183,7 @@
       },
       "export": {
         "ok": true,
-        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-wide-fan.pdf",
+        "path": "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-wide-fan.pdf",
         "expectedPageCount": 2,
         "pdfPageCount": 2,
         "bytes": 117238,
@@ -1286,7 +1286,7 @@
       },
       "export": {
         "ok": true,
-        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-deep-chain.pdf",
+        "path": "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-deep-chain.pdf",
         "expectedPageCount": 2,
         "pdfPageCount": 2,
         "bytes": 125037,
@@ -1379,7 +1379,7 @@
       },
       "export": {
         "ok": true,
-        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-shared-child.pdf",
+        "path": "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-shared-child.pdf",
         "expectedPageCount": 1,
         "pdfPageCount": 1,
         "bytes": 81719,
@@ -1541,7 +1541,7 @@
       },
       "export": {
         "ok": true,
-        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-scale-300.pdf",
+        "path": "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-scale-300.pdf",
         "expectedPageCount": 39,
         "pdfPageCount": 39,
         "bytes": 383453,
@@ -1764,7 +1764,7 @@
       },
       "export": {
         "ok": true,
-        "path": "/Users/luca/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-broken-anchor.pdf",
+        "path": "/Users/example/.t3/worktrees/noteforest/t3-a99bc301/artifacts/spike-01/spike-01-broken-anchor.pdf",
         "expectedPageCount": 1,
         "pdfPageCount": 1,
         "bytes": 82596,

@@ -74,7 +74,7 @@ Add a deterministic lab (test or small script) comparing the three policies on:
 - `fixtures/scale-300.json`
 - `fixtures/deep-chain.json`
 - `fixtures/wide-fan.json`
-- the product-owner showcase document at `/Users/luca/Documents/NoteForest/note-forest-showcase`
+- the product-owner showcase document at `~/Documents/NoteForest/note-forest-showcase`
   if readable; otherwise copy it into a fixture only if the product owner approves. Do not modify
   the showcase.
 
@@ -120,7 +120,7 @@ alone as the decision criterion; width/readability comes first, but call out pat
 - No page view, reader DOM, CSS, print/PDF, image, or anchor changes.
 - Do not change spec/UX/ADR/plan or `docs/plan.md`; propose token values in the report and the
   orchestrator records them.
-- Do not touch `/Users/luca/Documents/NoteForest/note-forest-showcase`.
+- Do not touch `~/Documents/NoteForest/note-forest-showcase`.
 - Do not merge or push.
 
 ## Deliverable

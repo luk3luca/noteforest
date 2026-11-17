@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-74667800`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3b2b-anchor-outline-markers`  
 **Base:** `7b060c4` (`main`: docs: merge M3b2a and start M3b2b)  
 **Scope:** outline anchored rows, source-row anchor chips, marker/quote selection and cycling,

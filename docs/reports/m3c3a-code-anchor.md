@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-959b29cc`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3c3a-code-range-anchors`  
 **Base:** `096a15e` (`main`: docs: merge M3c2b and start M3c3a)  
 **Scope:** code range/token anchors only. No image anchors, candidate chooser/repair/health,

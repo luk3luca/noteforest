@@ -2,7 +2,7 @@
 
 **Builder:** implementation sub-agent
 **Date:** 14 November 2026
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f002eae1-4fac5153a3bbf31c`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/special-text-editing`
 **Base:** `bb03630` (`main` head when the brief landed)
 **Head after this batch:** the single commit on this branch (one worktree, one commit)

@@ -298,14 +298,14 @@ describe('renderer personal settings resolution', () => {
   it('patches the global export folder and resets it to Documents (R4)', () => {
     const store = useSettingsStore.getState();
     expect(store.app.export).toEqual({ folder: null });
-    store.updateAppSettings({ export: { folder: '/Users/luca/Exports' } });
+    store.updateAppSettings({ export: { folder: '/Users/example/Exports' } });
     expect(useSettingsStore.getState().app.export).toEqual({
-      folder: '/Users/luca/Exports',
+      folder: '/Users/example/Exports',
     });
     // A page patch keeps the export default.
     useSettingsStore.getState().updateAppSettings({ page: { theme: { density: 0.9 } } });
     expect(useSettingsStore.getState().app.export).toEqual({
-      folder: '/Users/luca/Exports',
+      folder: '/Users/example/Exports',
     });
     // An explicit null resets to the OS Documents folder.
     useSettingsStore.getState().updateAppSettings({ export: { folder: null } });

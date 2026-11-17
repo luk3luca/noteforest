@@ -4,7 +4,7 @@
 **Phase:** 0b (post-A–F editor fixes)
 **Branch:** `t3/list-markers-and-ordered-input-rule`
 **Base:** `9be5f20` (`main`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-16cb5c2f-c14e2fcefce36a32`
+**Worktree:** `a builder worktree`
 **Date:** 14 November 2026
 
 ---

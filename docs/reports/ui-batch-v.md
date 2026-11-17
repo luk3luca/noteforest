@@ -4,7 +4,7 @@
 **Role:** Implementer / Builder
 **Task:** `docs/tasks/ui-batch-v.md`
 **Branch:** `t3/ui-batch-v-visual-refinements`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-ae1b2f9f-2ba8efa920112d04`
+**Worktree:** `a builder worktree`
 **Base:** `82917fa` (`design/ui-map` head containing the Batch V brief)
 **Date:** 11 November 2026
 
@@ -165,7 +165,7 @@ integration, per the brief).
 
 ## Worktree, branch, head
 
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-ae1b2f9f-2ba8efa920112d04`
+- Worktree: `a builder worktree`
 - Branch: `t3/ui-batch-v-visual-refinements`
 - Base: `82917fa`
 - Head at handback: this report commit on top of `51bd1cc`

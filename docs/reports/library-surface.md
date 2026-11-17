@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder
 **Task:** `docs/tasks/library-surface.md`
 **Design:** `docs/design/library-and-documents.md` (LD-01…LD-12)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f4c93b3c-f67fa0c2775276d4`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/library-sidebar-tabs-roots`
 **Commits:** L1 `f2883be` (sidebar tabs), L2 (this commit; library roots)
 **Base:** `2e46d2b` (`main` head after the UI-shell fix batch)

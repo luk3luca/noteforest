@@ -7,7 +7,7 @@
 > beside contract below is unchanged.
 
 - **Role:** Implementer / Builder
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-0c595694`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/r2b-page-packing`
 - **Base:** `71fbb40` — `docs: launch R2b page packing`
 - **Implementation commit:** `0ca2098` — `feat: page packing stacked and beside`
@@ -39,7 +39,7 @@ prose line to 75.7–77.0 ch and scale-300 to 77.0–77.2 ch, above the 70–75 
 the width lever was not chosen.
 
 No Settings UI, manual-break UI/cleanup, PDF compositor, spec/UX/plan edit, showcase
-edit, or `/Users/luca/Documents` write was done.
+edit, or `~/Documents` write was done.
 
 ## Packing rule
 
@@ -252,5 +252,5 @@ The 960×720 shots are fit-to-page evidence of geometry, not full-size readabili
 - Real `printToPDF` output and PDF page rendering (M4c). No PDF export entry point exists
   in the current app.
 - Human visual/VoiceOver judgement of the beside pages (product-owner pass).
-- The showcase and `/Users/luca/Documents` were not modified. The lab copied the showcase
+- The showcase and `~/Documents` were not modified. The lab copied the showcase
   read-only into an isolated test library.

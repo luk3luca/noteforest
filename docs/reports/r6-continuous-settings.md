@@ -2,7 +2,7 @@
 
 **Role:** Implementer / Builder  
 **Date:** 13 November 2026  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-4c9107b7-c4b8c62a28124e8d`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/r6-continuous-settings`  
 **Base:** `5d72b97` (`main` head at delegation; brief commit on top of `77a50cc`)  
 **Brief:** `docs/tasks/r6-continuous-settings.md`  

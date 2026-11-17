@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-7192878c`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-phase5c-review-fixes`  
 **Base:** `e087953` (`main`: docs: start M2f phase 5c re-review fixes)  
 **Scope:** N1/N2 S2 regressions plus N3/N5/N6 docs and cleanup. No M3, page view, PDF, or new

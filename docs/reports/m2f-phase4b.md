@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-5e11521e`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-phase4b-empty-chapters-locks`  
 **Base:** `a337a99` (`main`: docs: start M2f phase 4b empty chapters and stale locks)  
 **Scope:** F6 and F7 only. No F5 keyboard/focus, cleanup, undo, M3, page view, or PDF.

@@ -2,7 +2,7 @@
 
 **Role:** Implementer / Builder
 **Date:** 13 November 2026
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-4eb41fed-34f88f13d4bbe0a3`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/document-lifecycle-draft-trash`
 **Base:** `ea47e99` (`main` head after L1+L2)
 **Commits:**

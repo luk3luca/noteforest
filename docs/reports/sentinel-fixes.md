@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder
 **Date:** 14 November 2026
 **Base:** `0917965` (`main` head, adds `docs/tasks/sentinel-fixes.md`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-2a95ef38-f0ea9e5dbe87c2b6`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/sentinel-fixes-settings-readonly`
 **Deliverable:** one worktree, one commit, no merge/push
 **Source review:** `docs/reviews/post-settings-library-special-text-review.md` (F1–F9) plus the

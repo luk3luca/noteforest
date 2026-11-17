@@ -2,7 +2,7 @@
 
 **Task:** `docs/tasks/ui-palette-page-anchor.md`
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-b1097725-e416bd827ee6a0af`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/ui-palette-page-anchor`
 **Base:** `01a92f5` (main head)
 **Head:** `t3/ui-palette-page-anchor`, three commits from base `01a92f5` (this report is in the

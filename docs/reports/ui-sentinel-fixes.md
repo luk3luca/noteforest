@@ -3,7 +3,7 @@
 - Role: Implementer / Builder
 - Date: 11 November 2026
 - Base: `main` at `dd22969` (UI Batches A/B/C/V at `a44a257`, review `1a8c1af`)
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-19bfe10f-e087c17c96db4ff0`
+- Worktree: `a builder worktree`
 - Branch: `t3/ui-sentinel-fixes`
 - Brief: `docs/tasks/ui-sentinel-fixes.md`; review: `docs/reviews/ui-post-merge-review.md` (F1–F3, F4, F7)
 - Heads: first batch `38daf71`; correction `58a9b6a` (immediate-write target captured before the

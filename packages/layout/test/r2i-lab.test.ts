@@ -123,7 +123,7 @@ function loadFixture(name: string): NoteDocument {
 function loadShowcase(): NoteDocument | null {
   try {
     return JSON.parse(
-      readFileSync('/Users/luca/Documents/NoteForest/note-forest-showcase/document.json', 'utf8'),
+      readFileSync('~/Documents/NoteForest/note-forest-showcase/document.json', 'utf8'),
     ) as NoteDocument;
   } catch {
     return null;

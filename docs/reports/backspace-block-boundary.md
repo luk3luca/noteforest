@@ -1,7 +1,7 @@
 # Backspace stops at the block boundary — Builder report
 
 **Task:** `docs/tasks/backspace-block-boundary.md`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-ad91d8d2-7cec2809023cb259`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/backspace-block-boundary`
 **Base:** `7f7264f` (main head at delegation)
 **Date:** 13 November 2026

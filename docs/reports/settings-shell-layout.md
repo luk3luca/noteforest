@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder
 **Date:** 13 November 2026
 **Brief:** `docs/tasks/settings-shell-layout.md`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-94091194-8df2b3f7d0c49d97`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/settings-shell-layout`
 **Base:** `79afbb1` (`main` head at delegation, includes the brief)
 **Commit:** one worktree commit — this report commit on top of `79afbb1`; not merged, not pushed

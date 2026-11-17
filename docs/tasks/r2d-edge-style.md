@@ -57,7 +57,7 @@ Continuous.
 ## Do not
 
 - Do not change Page placement/density or Continuous layout.
-- Do not touch `/Users/luca/Documents` or the showcase.
+- Do not touch `~/Documents` or the showcase.
 - Do not edit spec/UX/plan; report.
 - No new external dependency.
 

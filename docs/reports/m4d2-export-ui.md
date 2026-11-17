@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder
 **Base:** `main` at `bceeeed` (M4c3 integration `1a3eb62` + M4d1/M4d2 briefs)
 **Date:** 9 November 2026
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-c1f3b2d2-9481dfad96e836a5`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/c1f3b2d2`
 **Head:** the tip of `t3/c1f3b2d2` (full SHA in the handback message)
 

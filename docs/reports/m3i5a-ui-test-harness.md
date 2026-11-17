@@ -2,7 +2,7 @@
 
 **Role:** Builder
 **Milestone:** M3i — Core stabilization
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-58246bcf`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/m3i5a-ui-test-harness`
 **Base:** `35d582f` (`docs: start M3i pre-M4 stabilization`)
 **Code commit:** `c97b1ba` — `refactor: share the UI test harness and split callout tests`

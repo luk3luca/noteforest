@@ -3,7 +3,7 @@
 **Task:** `docs/tasks/page-scroll.md`
 **Design:** `docs/design/page-scroll.md` (17 November 2026), lab `docs/design/page-scroll-ui-lab/`
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-608064cc-e57be3eac91780af`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/608064cc` (the Orchestrator-created worktree branch from `main` at `aa5c7ac`)
 **Head:** the single commit on this branch; its SHA is in the handoff message (a report cannot contain the
 hash of the commit that introduces it)

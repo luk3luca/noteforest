@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-7e5fbd4a`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m2f-collapse-port-alignment`  
 **Base:** `76e0bd1` (`main`: docs: accept M2f and start M3 design)  
 **Scope:** CSS-only branch-port box fix plus one UI alignment assertion. No M3, page view, PDF,

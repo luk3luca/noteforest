@@ -4,7 +4,7 @@
 **Branch:** `t3/m3c3b6-image-followups`
 **Base:** `9904efe` (`docs: launch M4b2 and M3c3b6`)
 **Implementation commit:** `42d23d3` (`fix: decode AVIF dimensions and gate image authoring (M3c3b6)`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-09552f3d`
+**Worktree:** `a builder worktree`
 
 ## Summary
 

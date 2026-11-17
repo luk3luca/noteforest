@@ -3,7 +3,7 @@
 - Reviewer: Reviewer / Sentinel (independent)
 - Date: 11 November 2026
 - Reviewed range: `94d07b3..fc55d40` (`main` head at review start)
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-748a3e75-f845418a9e316b3a`
+- Worktree: `a builder worktree`
 - Branch: `t3/ui-post-merge-sentinel-review`
 - Environment: macOS 26.5.2 (25F84), Apple M5 (10 cores), Node 22.23.1, npm 10.9.8; production
   Electron build from `npm run verify`; E2E hidden mode and `force-device-scale-factor=1`.
@@ -24,7 +24,7 @@
   `verify` was 98.2 s), one temporary failure injection, one timeout injection, and three focused
   reproduction scripts for the findings below. The temporary edits were reverted; `git status` was
   clean before this file was added.
-- Viewed the builder screenshots in `/Users/luca/Coding/Personal/noteforest/artifacts/ui-batch-a`,
+- Viewed the builder screenshots in `/Users/example/Coding/Personal/noteforest/artifacts/ui-batch-a`,
   `ui-batch-b`, `ui-batch-v`, and `ui-settings-advanced` as **builder evidence**, not as my own
   reproduction.
 

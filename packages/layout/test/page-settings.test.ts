@@ -227,8 +227,8 @@ describe('settings normalization and merge', () => {
     expect(normalizeAppSettings({ export: 'nope' }).export).toEqual({ folder: null });
     expect(normalizeAppSettings({ export: { folder: 7 } }).export).toEqual({ folder: null });
     expect(normalizeAppSettings({ export: { folder: '   ' } }).export).toEqual({ folder: null });
-    expect(normalizeAppSettings({ export: { folder: '  /Users/luca/Exports ' } }).export).toEqual({
-      folder: '/Users/luca/Exports',
+    expect(normalizeAppSettings({ export: { folder: '  /Users/example/Exports ' } }).export).toEqual({
+      folder: '/Users/example/Exports',
     });
     // Unknown export keys are dropped from the in-memory type; the file write
     // path preserves them separately (`settingsDocumentForWrite`).

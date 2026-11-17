@@ -1,7 +1,7 @@
 # R1b — settings store and PageTheme/density wiring
 
 - **Role:** Implementer / Builder
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-815ddc7f`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/r1b-settings-page-theme-density`
 - **Base:** `bf4d0cd` — `docs: launch R1b settings store and page theme density`
 - **Implementation commit:** `10c4067` — `feat: personal page settings store and compact page theme`
@@ -25,7 +25,7 @@ existing only in the model. The temporary `PAGE_LAYOUT_OPTIONS` and partial
 `PAGE_CSS_VARIABLES` defaults are gone.
 
 No Settings UI, Page arrows, Continuous marker removal, manual-break UI, or PDF
-print compositor was added. The showcase and `/Users/luca/Documents` were not
+print compositor was added. The showcase and `~/Documents` were not
 modified.
 
 ## Settings and session schema

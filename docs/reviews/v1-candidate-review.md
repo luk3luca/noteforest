@@ -3,7 +3,7 @@
 - **Reviewer:** Reviewer / Sentinel (independent; no product code written)
 - **Date:** 17 November 2026
 - **Target:** `main` at `6aa8d04` (F4a, F4b, B1, B2, P2 merged; full verify green)
-- **Worktree / branch:** `/Users/luca/.t3/worktrees/noteforest/t3-8f7dea3b-098beaef1e7b4f70`, `t3/8f7dea3b`, one commit (this report + two checklist lines)
+- **Worktree / branch:** `a builder worktree`, `t3/8f7dea3b`, one commit (this report + two checklist lines)
 - **Environment:** macOS (darwin), Electron 45.2.1 runtime, `electron-vite build` at HEAD; UI probes ran against that build. `node_modules` was APFS-cloned (`cp -cR`) from a sibling worktree at the same lockfile state; all `@noteforest/*` workspace symlinks therefore resolve to **this** worktree.
 - **Ground truth for the suite:** the Orchestrator's run — `npm run verify` at UI concurrency 4, exit 0, 170 unit files / 1743 tests, e2e 16, recovery 14, UI 69/69 (353.8 s). **Not re-run** (brief). Every suite quoted below was run by me at HEAD, standalone/idle.
 - **Brief:** `docs/tasks/v1-sentinel.md`.
@@ -251,7 +251,7 @@ PROBE settings rows [{"id":"export-pdf","label":"Export PDF…","keys":"⌘P"},
  {"id":"page-commit","label":"Commit Page Edit","keys":"Esc / ⌘⏎"}]
 PROBE settings total 34
 PROBE shiftE  {"status":"idle", …}
-PROBE metaP   {"status":"configure","documentTitle":"Linear algebra","outputPath":"/Users/luca/Documents/Linear algebra.pdf", …}
+PROBE metaP   {"status":"configure","documentTitle":"Linear algebra","outputPath":"~/Documents/Linear algebra.pdf", …}
 PROBE shiftEsc {"findOpen":false,"bar":0}
 
 # 3. Page Edit keeps the F4b mark (F4b)

@@ -3,7 +3,7 @@
 > **Superseded (8 November 2026).** The product owner rejected row-fill siblings: the tree model requires siblings in one level column, with the next sibling below the previous subtree and a group wrap below its own parent. `compaction` is now a density-lab oracle; the compact page default is `beside`. See `docs/tasks/refactor-personal-page-settings.md` and `tests/ui/r2e-page-tree.test.mjs`.
 
 - **Role:** Implementer / Builder
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-546aeb3c`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/r2c-page-compaction`
 - **Base:** `470a3a4` — `docs: merge R2b and launch Page compaction`
 - **Implementation commit:** `cc7276d` — `feat: page compaction placement`
@@ -42,7 +42,7 @@ must land before the final product-owner visual pass. No edge-style work was
 done here.
 
 No Continuous placement change, typography/compact value change, Settings UI,
-manual-break UI/cleanup, PDF compositor, showcase edit, `/Users/luca/Documents`
+manual-break UI/cleanup, PDF compositor, showcase edit, `~/Documents`
 write, spec/UX/plan edit, or new external dependency was done. Two-column
 top-level packing is still the pending R2b lever and was not implemented; it
 needs a product-owner decision.
@@ -326,5 +326,5 @@ New coverage:
 - Real `printToPDF` output and PDF page rendering (M4c).
 - Two-column top-level packing, manual breaks, Settings UI, and edge-style
   unification (explicit non-goals / later slices).
-- The showcase and `/Users/luca/Documents` were not modified. The lab copied the
+- The showcase and `~/Documents` were not modified. The lab copied the
   showcase read-only into an isolated test library.

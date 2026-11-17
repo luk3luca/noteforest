@@ -3,7 +3,7 @@
 - **Reviewer:** Reviewer / Sentinel (independent)
 - **Date:** 9 November 2026
 - **Base:** `main` at M4d1/M4d2 integration (`53c7e49`; brief commit `1a83f2f`)
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-e621b03c-7f3e61e4c89ae052`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/e621b03c`
 - **Head at review:** `1a83f2f` (docs brief); product code unchanged through `53c7e49`
 - **Stack/PDF:** Electron + shared paginator + `printToPDF` (ADR-0001, ADR-0002)
@@ -506,7 +506,7 @@ The full control catalog is `docs/reviews/settings-inventory.md` §15. The essen
 
 - **Verdict:** Request changes before the Settings/UI rework; no S1. The merged PDF/density/export slice is accepted as shipped evidence.
 - **Deliverables:** this review and `docs/reviews/settings-inventory.md`.
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-e621b03c-7f3e61e4c89ae052`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/e621b03c`
 - **Head at handback:** the commit containing these two docs (base `1a83f2f`; product code at `53c7e49`).
 - **Not done:** no product-code/test/spec/UX/ADR/plan edits, no merge/push, no UI rework, no full verify re-run.

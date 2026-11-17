@@ -4,7 +4,7 @@
 **Milestone:** UI rework V0
 **Branch:** `t3/v0-merged-shell-frame`
 **Base:** `design/ui-map` head `f11b293` (the commit containing `docs/tasks/v0-shell-frame.md`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-11831095-ce349b7b0d7fc12c`
+**Worktree:** `a builder worktree`
 **Date:** 10 November 2026
 
 ---

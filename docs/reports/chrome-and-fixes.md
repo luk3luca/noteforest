@@ -2,7 +2,7 @@
 
 **Role:** Builder
 **Milestone:** S2.2 chrome pass (post health polish)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-55eeceeb-30940c502d0117d9`
+**Worktree:** `a builder worktree`
 **Base:** `2273444` (docs: card chrome rule and chrome/fixes brief)
 **Result:** all four parts delivered, one commit, not merged.
 

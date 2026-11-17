@@ -2,7 +2,7 @@
 
 **Date:** 6 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-576b36a8`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/576b36a8`  
 **Base:** `9e20789` (`main`: docs: start M3g3 callout safe zone)  
 **Scope:** callout safe-zone geometry, 160 px anchor-offset cap, and direct-child wrap fallback only. No

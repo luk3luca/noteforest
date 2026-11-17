@@ -546,7 +546,7 @@ describe('Dialog frame and A+B copy', () => {
     const env = ui.isolated('frame-shell');
     await launch(env);
     await ui.seedDemo();
-    const detailsValue = '/Users/luca/NoteForest/linear-algebra/document.json';
+    const detailsValue = '/Users/example/NoteForest/linear-algebra/document.json';
 
     // Batch C: a toast stays one line and carries one `Details` action that
     // opens D25 (dialogs.md §6.1). No inline disclosure inside the toast.

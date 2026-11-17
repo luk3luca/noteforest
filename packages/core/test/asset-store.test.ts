@@ -500,7 +500,7 @@ describe('asset commands', () => {
     const context = deterministicContext();
     const document = newDocument(context);
     for (const candidate of [
-      '/Users/luca/secret.png',
+      '/Users/example/secret.png',
       '../outside.png',
       'assets/../../outside.png',
       'https://example.com/x.png',

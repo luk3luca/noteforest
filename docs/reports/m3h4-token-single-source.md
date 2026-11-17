@@ -2,7 +2,7 @@
 
 **Date:** 6 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-aad42bbb`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/token-single-source`  
 **Base:** `e63644c` (docs: approve S3-8 and launch M3h4/M3h5; code base after `362d41d`)  
 **Commit:** `954580b` — `refactor: make design tokens the single source for editor CSS`  

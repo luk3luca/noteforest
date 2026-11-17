@@ -5,7 +5,7 @@
 **Brief:** `docs/tasks/ui-appearance-v3.md`; design contract `docs/design/color-system.md` (approved 12 November 2026)
 **Branch:** `t3/ui-appearance-v3`
 **Base:** `94ea3bd` (`main` head)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-3132a878-067529851ca7188e`
+**Worktree:** `a builder worktree`
 **Date:** 12 November 2026
 
 ---

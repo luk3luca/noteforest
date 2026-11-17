@@ -297,13 +297,13 @@ describe('global settings persistence', () => {
   it('round-trips a v4 export folder, migrates to v5 continuous defaults, and preserves unknown keys (R4/R6)', async () => {
     await writeRaw({
       settingsVersion: 4,
-      export: { folder: '/Users/luca/Exports', futureExport: 'keep' },
+      export: { folder: '/Users/example/Exports', futureExport: 'keep' },
       futureTop: { enabled: true },
     });
     const read = await readSettingsFile();
     // v4 -> v5 is a pure in-memory migration: no write on read.
     expect(read.status).toEqual({ state: 'ok', migrated: true });
-    expect(read.settings.export).toEqual({ folder: '/Users/luca/Exports' });
+    expect(read.settings.export).toEqual({ folder: '/Users/example/Exports' });
     expect(read.settings.continuous).toEqual(DEFAULT_APP_SETTINGS.continuous);
 
     await writeSettings(read.settings);
@@ -312,11 +312,11 @@ describe('global settings persistence', () => {
     expect(stored['continuous']).toEqual(DEFAULT_APP_SETTINGS.continuous);
     expect(stored['export']).toEqual({
       futureExport: 'keep',
-      folder: '/Users/luca/Exports',
+      folder: '/Users/example/Exports',
     });
     expect(stored['futureTop']).toEqual({ enabled: true });
     expect(await readSettings()).toMatchObject({
-      export: { folder: '/Users/luca/Exports' },
+      export: { folder: '/Users/example/Exports' },
     });
   });
 
@@ -331,9 +331,9 @@ describe('global settings persistence', () => {
       const read = await readSettings();
       expect(read.export).toEqual({ folder: null });
     }
-    await writeSettings({ export: { folder: '  /Users/luca/Exports  ' } });
+    await writeSettings({ export: { folder: '  /Users/example/Exports  ' } });
     expect(await readSettings()).toMatchObject({
-      export: { folder: '/Users/luca/Exports' },
+      export: { folder: '/Users/example/Exports' },
     });
   });
 

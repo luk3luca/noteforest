@@ -1,7 +1,7 @@
 # M4b1b1 — Page Edit content overlay
 
 **Role:** Implementer / Builder  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-db986e3e`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m4b1b1-page-edit-overlay`  
 **Base:** `ceb20d2` (`docs: launch Page Edit content overlay`)  
 **Implementation commit:** `fff181ee8286dfdbeb9aea8ab2902654aea43664`  

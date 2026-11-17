@@ -4,7 +4,7 @@
 **Milestone:** UI rework V0 visual pass (browser-lab port)
 **Branch:** `t3/2e58f811`
 **Base:** `design/ui-map` head `429cb0f` (the commit containing `docs/tasks/v0-shell-visual.md`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-2e58f811-9558efb4b5b92f8b`
+**Worktree:** `a builder worktree`
 **Date:** 10 November 2026
 
 ---

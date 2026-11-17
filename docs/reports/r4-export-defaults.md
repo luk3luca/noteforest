@@ -2,7 +2,7 @@
 
 **Role:** Implementer / Builder  
 **Date:** 13 November 2026  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-667c35c1-bf5901c8838e1d15` (fresh from `main` at `43154e8`)  
+**Worktree:** `a builder worktree` (fresh from `main` at `43154e8`)  
 **Branch:** `t3/667c35c1` (fresh from `main` at `43154e8`)  
 **Commit:** one worktree commit (not merged, not pushed).  
 **Brief:** `docs/tasks/r4-export-defaults.md`

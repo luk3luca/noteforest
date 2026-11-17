@@ -4,7 +4,7 @@
 inside a folder)
 **Design:** `docs/design/vault-library.md` §6 (updated)
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-bfbdb245-876232adb1e04d03`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/vault-usability-followup`
 **Base:** `8cfd49f` (`main` head at delegation; the brief and design update are in this base)
 **Head:** the single commit on this branch; its SHA is reported in the handoff message (a report

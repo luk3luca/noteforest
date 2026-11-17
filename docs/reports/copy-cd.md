@@ -6,7 +6,7 @@
 **Design:** `docs/design/copy-plan.md` rows C and D, `docs/design/dialogs.md` §3/§6,
 `docs/design/copy-audit.md` §2/§5
 **Base:** `9d40dc2` (`main` after A+B, find v3, and the C+D base addendum)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-8104ab5b-38262862e1cda1d6`
+**Worktree:** `a builder worktree`
 **Commit:** one worktree commit on top of `9d40dc2`; not merged, not pushed
 
 ## Summary

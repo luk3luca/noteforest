@@ -2,7 +2,7 @@
 
 **Task:** `docs/tasks/health-polish.md`
 **Design:** `docs/design/document-health-sidebar.md` §2–§6, lab section 3
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-ddfd85c8-5687f15e01e57575`
+**Worktree:** `a builder worktree`
 **Date:** 15 November 2026
 
 ## Summary

@@ -38,3 +38,15 @@ playwright-report/
 test-results/
 blob-report/
 /artifacts/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Signing and notarization material (never commit)
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.key
+*.pem
+notarization-*.json

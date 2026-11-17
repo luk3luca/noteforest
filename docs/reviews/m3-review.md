@@ -2,7 +2,7 @@
 
 - **Reviewer:** Sentinel (independent)
 - **Date:** 6 November 2026
-- **Worktree:** `/Users/luca/.local/share/opencode/worktree/7b776c/m3-sentinel-review`
+- **Worktree:** `a builder worktree`
 - **Branch:** `main` at `bfea350` (detached review worktree; no commits, no merges)
 - **Base:** `bfea350` (`merge: M3g6 active shared lead/trunk`)
 - **Scope:** M3 acceptance (AC-03–07, 10, 12, 15–22, 54–58), the six product-owner review fixes

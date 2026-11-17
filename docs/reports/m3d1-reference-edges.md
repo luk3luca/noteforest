@@ -2,7 +2,7 @@
 
 **Role:** Builder  
 **Date:** 5 November 2026  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-26b6f0ae`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3d1-reference-edges`  
 **Feature commit:** `05ab436` (`feat(references): add reference edges, chips, and shared child (M3d1)`)  
 **Base:** `main` at `39b7a66` (M3c3a merged; M3c3b image anchors blocked)

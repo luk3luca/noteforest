@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-22820da1`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/formula-term-anchors`  
 **Base:** `f8d8ff4` (`main`: docs: merge M3b2c and start M3c2a)  
 **Scope:** formula-term anchors created from a selected LaTeX substring only. No precise KaTeX

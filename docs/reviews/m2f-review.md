@@ -2,7 +2,7 @@
 
 - **Reviewer:** Sentinel (independent re-review)
 - **Date:** 4 November 2026
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-0e981c45`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/m2f-sentinel-review`
 - **Base:** `81cdb12` (`main`: docs: finalize M2f status and lockfile)
 - **Scope:** F1–F8 from `docs/reviews/m2-review.md`, the F12/F13/F15/F19 cleanup, test hygiene, and regressions introduced by M2f. No product code, tests, spec, UX, ADR, or plan changes.

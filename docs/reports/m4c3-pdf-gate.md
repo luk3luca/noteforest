@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder
 **Base:** `main` at `911695e` (M4c2 integration `322d132`, M4c2 Sentinel review, M4c3 brief)
 **Date:** 9 November 2026
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-e9c9538d-7ea07b043bba15ae`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/m4c3-pdf-gate`
 **Head:** the tip of `t3/m4c3-pdf-gate` (SHA in the handback message).
 

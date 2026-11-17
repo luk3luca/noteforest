@@ -2,7 +2,7 @@
 
 **Builder:** implementation sub-agent
 **Date:** 13 November 2026
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-dfbf4a96-4b2c18a747517687`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/ui-shell-fixes`
 **Base:** `040f55f` (`main` head when the brief landed)
 **Head after this batch:** the five fix commits end at `bff0db9`; this report is the final docs commit on the same branch.

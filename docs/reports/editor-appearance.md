@@ -4,7 +4,7 @@
 **Phase:** 1 (post-A–F editor appearance)
 **Branch:** `t3/editor-appearance-monokai-toolbar`
 **Base:** `1b65e79` (`main`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-f94fdb81-18cb3a0d7d91a8d3`
+**Worktree:** `a builder worktree`
 **Date:** 14 November 2026
 
 ---

@@ -104,8 +104,8 @@ describe('libraries.json', () => {
   });
 
   it('marks duplicate basenames so the UI can show the parent path', () => {
-    const a = { path: '/Users/luca/Study', lastOpenedAt: '2026-11-13T08:00:00.000Z' };
-    const b = { path: '/Users/luca/Archive/Study', lastOpenedAt: '2026-11-13T09:00:00.000Z' };
+    const a = { path: '/Users/example/Study', lastOpenedAt: '2026-11-13T08:00:00.000Z' };
+    const b = { path: '/Users/example/Archive/Study', lastOpenedAt: '2026-11-13T09:00:00.000Z' };
     const duplicates = duplicateLibraryBasenames([a, b, entry('Unique', '2026-11-13T10:00:00.000Z')]);
     expect([...duplicates]).toEqual(['Study']);
   });

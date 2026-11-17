@@ -3,7 +3,7 @@
 **Task:** `docs/tasks/activity-bar.md`
 **Design:** `docs/design/shell-activity-bar.md` (15 November 2026 decisions included)
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-43d1a4a4-7fc26289acb82a60`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/shell-activity-bar`
 **Base:** `9a8158e` (the docs commit that adds the brief and the design)
 **Head:** the single commit on this branch; its SHA is reported in the handoff message (a report

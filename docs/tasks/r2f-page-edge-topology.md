@@ -11,7 +11,7 @@
 Page Read/Edit and the PDF print model use `buildPageEdges` + `page-routing`. Continuous uses a separate edge layer that already knows each target's placement group and draws one shared trunk with left entry. The Page mapper infers placement from geometry (mostly `y`), so a right-column sibling that is vertically below another sibling is misclassified as a below-stack child; callouts and indented grandchildren then get top or right entries. The product-owner rule is: **siblings in the same placement group share one trunk; every tree edge enters from the left; callouts and wrapped children below use the below trunk.** Page must use the same semantic placement model as Continuous, not a second topology.
 
 Reference screenshot (local, do not commit):
-`/Users/luca/.t3/userdata/attachments/7b9d51bf-80d3-4fbe-add5-2af15c69904a-f2febd1c-ca30-47ad-a85b-9f6d9aa02d24.png`
+`/Users/example/.t3/userdata/attachments/7b9d51bf-80d3-4fbe-add5-2af15c69904a-f2febd1c-ca30-47ad-a85b-9f6d9aa02d24.png`
 
 It shows: direct child 1 at the parent's right; a grandchild indented under child 1; two callouts below the parent; direct child 2 in the same right column as child 1 but lower. Child 1 is correct. The grandchild and both callouts currently enter from the top; child 2 currently shares the callout below trunk instead of child 1's right trunk.
 

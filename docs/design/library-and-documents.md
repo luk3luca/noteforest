@@ -92,7 +92,7 @@ product-owner review of 13 November 2026.
 {
   "version": 1,
   "libraries": [
-    { "path": "/Users/luca/Documents/NoteForest", "lastOpenedAt": "2026-11-13T08:00:00.000Z" }
+    { "path": "/Users/example/Documents/NoteForest", "lastOpenedAt": "2026-11-13T08:00:00.000Z" }
   ]
 }
 ```

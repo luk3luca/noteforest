@@ -11,7 +11,7 @@
 > the R2g checkpoint state before R2h.
 
 **Role:** Builder / Implementer  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-5b0313dc`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/r2g-page-trunk-continuity`  
 **Base:** `de3d910` (`wip/page-edge-topology-base`; R2f merged)  
 **Implementation commit:** `c8cf9405bbb2df428a6c0862ed92a65f6f20ed23`  

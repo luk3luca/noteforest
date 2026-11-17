@@ -3,7 +3,7 @@
 **Task:** `docs/tasks/markdown-file-view.md`, slice **M1 — parse, render, open**
 **Design:** `docs/design/markdown-file-view.md` (approved 14 November 2026)
 **Role:** Implementer / Builder
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-02e83bf7-85b8acb3f20351f5`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/markdown-file-view-m1`
 **Base:** `560c47b` (`main` head at delegation)
 **Head:** one commit on this branch; the SHA is reported in the handoff message (a report cannot contain the hash of the commit that introduces it)

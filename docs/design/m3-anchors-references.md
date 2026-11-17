@@ -4,7 +4,7 @@
 **Milestone:** M3  
 **Status:** **Approved 5 November 2026.** C1–C9 and OD-1–OD-12 approved as recommended; applied to `docs/spec.md` v0.4.5, `docs/ux.md` v1.3, and ADR-0005. This document is retained as the design record; the body is not rewritten.  
 **Base:** `main` after M2f acceptance (`76e0bd1`, 5 November 2026)  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-a2e5cb6f`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3-anchors-references-design`  
 **Spec basis:** `docs/spec.md` v0.4.4 at design time; applied at v0.4.5  
 **Scope:** one design package for M3. No code, tests, schema changes, or plan edits.

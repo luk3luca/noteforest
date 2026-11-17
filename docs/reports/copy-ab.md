@@ -5,7 +5,7 @@
 **Brief:** `docs/tasks/dialog-copy-a-b.md`
 **Design:** `docs/design/dialogs.md`, `docs/design/copy-plan.md` rows A and B,
 `docs/design/copy-audit.md` §2/§5
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-d6f023da-10f1bd9aa76d62ee`
+**Worktree:** `a builder worktree`
 **Base:** `0574ede` (the docs commit that adds the brief and the C+D brief)
 **Commit:** one worktree commit — this report commit on top of `0574ede`; not merged, not pushed
 

@@ -4,7 +4,7 @@
 **Brief:** `docs/tasks/ui-continuous-shell-polish.md`
 **Base:** `1a53f80` (`main` head + the brief)
 **Branch:** `t3/ui-continuous-shell-polish`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-08fa8615-ddf80bdb10bccfd5`
+**Worktree:** `a builder worktree`
 **Date:** 12 November 2026
 
 ## 1. Summary

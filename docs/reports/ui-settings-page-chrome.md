@@ -1,7 +1,7 @@
 # R2 — Page chrome settings (header, footer, page number)
 
 - **Role:** Implementer / Builder
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-424675ac-2403326d5a9af48c`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/page-chrome-settings`
 - **Base:** `25e71d8` — `docs: add the R2 Page chrome brief`
 - **Implementation commit:** `311f7f9` — `feat: page chrome settings (R2)`

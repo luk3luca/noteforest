@@ -30,7 +30,7 @@ import { artifactsPath, createHarness, root } from '../support/harness.mjs';
 const tempRoot = artifactsPath('r2c-density-tmp');
 const outputDir = artifactsPath('r2c');
 const supportRoot = resolve(root, 'fixtures');
-const showcasePath = '/Users/luca/Documents/NoteForest/note-forest-showcase';
+const showcasePath = '~/Documents/NoteForest/note-forest-showcase';
 
 /** The packing this lab must justify for the compact page default. */
 const SELECTED_PACKING = 'compaction';
@@ -717,7 +717,7 @@ describe('R2c page compaction lab', () => {
       await showPageRead();
       lab.push(...(await measureDocument('showcase')));
     } else {
-      console.log('DENSITY showcase skipped: /Users/luca/Documents showcase not present');
+      console.log('DENSITY showcase skipped: ~/Documents showcase not present');
     }
 
     const scale = await copyScale300(env);

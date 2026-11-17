@@ -2,7 +2,7 @@
 
 - **Reviewer:** Sentinel (independent)
 - **Date:** 7 November 2026
-- **Worktree / branch / base:** `/Users/luca/.t3/worktrees/noteforest/t3-66928f79`, `t3/m3c3b-sentinel-re-review`, base `main` / `bf3893e` (`a docs: merge M3c3b4 and launch M4a`)
+- **Worktree / branch / base:** `a builder worktree`, `t3/m3c3b-sentinel-re-review`, base `main` / `bf3893e` (`a docs: merge M3c3b4 and launch M4a`)
 - **Reviewed commits:** M3c3b3 `8fc9fd3` (`fix: harden image asset integrity and legacy sources`) and M3c3b4 `2c65c4e` (`fix: image UX and asset lifecycle (M3c3b4)`), merged through `e8bd5b5` / `bf3893e`
 - **Environment:** macOS (Darwin), Node 22.23.1, Electron 45.2.1, Chromium bundled with Electron, dark theme, window 1440×900; production build via `npm run build`
 - **Verdict:** **Request changes** — all seven original findings are closed, but one new **S2** package-confinement finding remains, plus two S3 and two S4 follow-ups.

@@ -2,7 +2,7 @@
 
 **Date:** 5 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-01985af7`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3c2b-formula-term-geometry`  
 **Base:** `d416cae` (`main`: docs: merge M3c2a and start M3c2b)  
 **Scope:** best-effort formula-term geometry/highlight with the M3c2a formula-rectangle

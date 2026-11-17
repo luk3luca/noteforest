@@ -3,7 +3,7 @@
 **Role:** Implementer / Builder
 **Date:** 14 November 2026
 **Base:** `70a6144` (`main` head, contains `docs/tasks/identity-followups.md` and ADR-0009)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-1f831b1c-1d647cc600416dfe`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/document-identity-followups`
 **Deliverable:** one worktree, one commit, no merge/push
 **Source:** `docs/reviews/sentinel-fixes-recheck.md` (R1, R2, R3, S4 nits), `docs/adr/0009-copy-mints-new-document-id.md`

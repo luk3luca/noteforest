@@ -36,7 +36,7 @@ import { loadLabDocument } from './layout-lab.js';
  */
 
 export const STRESS_PATH =
-  '/Users/luca/Documents/NoteForest/note-forest-stress-test/document.json';
+  '~/Documents/NoteForest/note-forest-stress-test/document.json';
 export const DENSITY_STEPS = [0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2] as const;
 
 export type DensityFixture = 'showcase' | 'stress' | 'scale-300';

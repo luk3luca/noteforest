@@ -4,7 +4,7 @@
 **Date:** 15 November 2026
 **Brief:** `docs/tasks/find-bar.md`
 **Design:** `docs/design/find-bar.md`, lab `docs/design/find-bar-ui-lab/index.html`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-833dabf3-a78c7810fe4373a9`
+**Worktree:** `a builder worktree`
 **Base:** `349fb2d` (`docs: find bar v1 brief and decisions`)
 **Commit:** `2d4be58` — one worktree commit (not merged, not pushed)
 

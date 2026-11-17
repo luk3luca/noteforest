@@ -2,7 +2,7 @@
 
 **Role:** Builder
 **Milestone:** M3i — core stabilization
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-eb5c8230`
+**Worktree:** `a builder worktree`
 **Branch:** `t3/e2e-trim-coverage-matrix`
 **Base:** `6b14a6e` (`docs: merge M3i4 and start M3i5b`), parent merge `1d1ed65`
 **Code commit:** `d01cb37` — `test: trim duplicate e2e coverage and add formula-term edit fixture`

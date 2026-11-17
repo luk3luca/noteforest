@@ -8,13 +8,13 @@ import { resolveExportDefaultFolder } from '../src/shared/export';
  */
 describe('export default folder resolution', () => {
   it('uses the OS Documents folder when the setting is null or missing', () => {
-    const documents = '/Users/luca/Documents';
+    const documents = '~/Documents';
     expect(resolveExportDefaultFolder(null, documents)).toBe(documents);
     expect(resolveExportDefaultFolder(undefined, documents)).toBe(documents);
   });
 
   it('uses the saved custom folder verbatim', () => {
-    expect(resolveExportDefaultFolder('/Volumes/Study/Exports', '/Users/luca/Documents')).toBe(
+    expect(resolveExportDefaultFolder('/Volumes/Study/Exports', '~/Documents')).toBe(
       '/Volumes/Study/Exports',
     );
   });

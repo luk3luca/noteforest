@@ -1,7 +1,7 @@
 # M2e — Parent-relative layout, routing, zoom and focus (report)
 
 **Date:** 4 November 2026  
-**Builder worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-022931e9`  
+**Builder worktree:** `a builder worktree`  
 **Branch:** `t3/m2e-parent-relative-routing`  
 **Base:** `db2017c` (`main`: docs: approve M2e parent-relative layout and routing lab)  
 **Status:** Complete for M2e scope. Integration and merge belong to the Orchestrator.
@@ -261,7 +261,7 @@ npm test
 npm run build
 npm run e2e
 node --test --test-name-pattern="<name>" tests/e2e/m2-editor.test.mjs
-# same-machine M2d baseline, in /Users/luca/.t3/worktrees/noteforest/t3-d1ad0c14:
+# same-machine M2d baseline, in /Users/example/.t3/worktrees/noteforest/t3-d1ad0c14:
 npm run build
 node --test --test-name-pattern="measures the 300-block" tests/e2e/m2-editor.test.mjs
 ```

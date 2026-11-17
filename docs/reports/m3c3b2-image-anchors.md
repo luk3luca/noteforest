@@ -3,7 +3,7 @@
 **Status:** Builder complete in worktree; not merged or pushed.
 **Branch:** `t3/m3c3b2-image-region-anchors`
 **Base:** `5434877` (`docs: start M3c3b2 image anchors`, after M3c3b1 `b13d97c` / merge `6e50141`)
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-54a602ea`
+**Worktree:** `a builder worktree`
 
 ## Summary
 

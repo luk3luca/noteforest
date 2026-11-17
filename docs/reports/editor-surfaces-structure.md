@@ -3,7 +3,7 @@
 - **Builder:** Implementer / Builder
 - **Date:** 14 November 2026
 - **Base:** `70a6144` (`main` head with this brief)
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-bb050cfe-7ebfa07b9841c002`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/editor-surfaces-context-menu`
 - **Commit:** one commit in this worktree (SHA in the handoff; not merged or pushed)
 - **Brief:** `docs/tasks/editor-surfaces-structure.md`

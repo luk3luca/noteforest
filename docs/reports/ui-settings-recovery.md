@@ -3,7 +3,7 @@
 - Role: Implementer / Builder
 - Date: 11 November 2026
 - Base: `main` at `b63a78e` (R1), rebased onto `main` at `f5c9f69` (R5)
-- Worktree: `/Users/luca/.t3/worktrees/noteforest/t3-a90b1690-bcd4fccd84cce5d8`
+- Worktree: `a builder worktree`
 - Branch: `t3/settings-data-recovery`
 - Rebased head: `ac48cc7` on `f5c9f69`; the branch head adds this rebase note
   (`git log -1 --oneline` in the worktree)

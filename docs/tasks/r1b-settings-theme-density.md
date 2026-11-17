@@ -106,7 +106,7 @@ Replace the temporary static page values:
 
 - Do not implement Page arrows, continuous marker removal, Settings UI, manual-break UI/cleanup, or
   PDF print compositor.
-- Do not touch `/Users/luca/Documents` or the showcase.
+- Do not touch `~/Documents` or the showcase.
 - Do not edit spec/UX/plan; report.
 - No new external dependency.
 

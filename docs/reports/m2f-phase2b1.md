@@ -2,7 +2,7 @@
 
 **Date:** 4 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-85d6216e`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/85d6216e`  
 **Base:** `d8faae1` (`main`: docs: start M2f phase 2b1 save-failure recovery)  
 **Scope:** F4 save failure only. No external-modification overwrite/backup (2b2), corrupt/missing/newer

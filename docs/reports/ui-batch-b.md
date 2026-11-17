@@ -4,7 +4,7 @@
 **Role:** Implementer / Builder
 **Task:** `docs/tasks/ui-batch-b.md`
 **Branch:** `t3/page-settings-batch-b`
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-692803a4-2476819d5b85e55e`
+**Worktree:** `a builder worktree`
 **Base:** `786a1c0` (`design/ui-map` head at delegation)
 **Date:** 10 November 2026
 

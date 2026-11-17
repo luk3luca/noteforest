@@ -2,7 +2,7 @@
 
 **Date:** 6 November 2026  
 **Builder:** implementation sub-agent  
-**Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-a5fceaf6`  
+**Worktree:** `a builder worktree`  
 **Branch:** `t3/m3i2b-editor-projection-extraction`  
 **Base:** `343d676` (docs: merge M3i2a/M3i5a and start M3i2b/M3i3)  
 **Commit:** `f3da144` — `refactor: extract the editor projection from the document runtime`  

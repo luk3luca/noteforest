@@ -66,7 +66,7 @@ horizontal half.
   help and you stop to ask.
 - Do not change typography/compact values.
 - Do not implement Settings UI, manual-break UI/cleanup, or PDF print compositor.
-- Do not touch `/Users/luca/Documents` or the showcase.
+- Do not touch `~/Documents` or the showcase.
 - Do not edit spec/UX/plan; report.
 
 ## Deliverable

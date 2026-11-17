@@ -3,7 +3,7 @@
 - **Reviewer:** Reviewer / Sentinel (independent)
 - **Date:** 9 November 2026
 - **Reviewed base:** `main` at `8286149` (M4c1 integration `bc50790` plus the review brief)
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-0ac27256-3526209a824c5712`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/m4c1-print-compositor-sentinel-review`
 - **Environment:** macOS 26.5.2 (Darwin 25.5.0, arm64), Node 22.23.1, Electron 45.2.1,
   production build (`npm run build`)
@@ -319,7 +319,7 @@ No product code, test, spec, UX, or ADR was changed.
 
 ## Handback
 
-- **Worktree:** `/Users/luca/.t3/worktrees/noteforest/t3-0ac27256-3526209a824c5712`
+- **Worktree:** `a builder worktree`
 - **Branch:** `t3/m4c1-print-compositor-sentinel-review`
 - **Reviewed head:** `8286149a8d2c2dd62ad19e49e0e1a3c0461eb449` (`8286149`)
 - **Review commit:** the docs commit containing this report and the checklist/DoD lines; see the
