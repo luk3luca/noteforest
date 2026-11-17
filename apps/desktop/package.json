@@ -9,7 +9,7 @@
     "productName": "NoteForest",
     "copyright": "Copyright \u00a9 2026 Luca Martinelli",
     "directories": {
-      "buildResources": "build",
+      "buildResources": "resources",
       "output": "../../dist"
     },
     "files": [
@@ -26,12 +26,13 @@
       "target": [
         "dmg"
       ],
-      "icon": "build/icon.icns",
+      "icon": "resources/icon.icns",
       "darkModeSupport": true
     },
     "dmg": {
       "title": "NoteForest ${version}"
-    }
+    },
+    "afterPack": "apps/desktop/resources/adhoc-sign.cjs"
   },
   "scripts": {
     "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",

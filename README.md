@@ -29,7 +29,7 @@ The exported PDF keeps the page layout, with real text:
 
 ## Install (macOS)
 
-There is no App Store build and no notarized distribution. The app is built locally and is **not code-signed**.
+There is no App Store build and no notarized distribution. The app is built locally and is **not signed with a Developer ID**; the build carries an ad-hoc signature so the bundle is internally consistent.
 `npm run dist` writes `dist/NoteForest-0.1.0-arm64.dmg` and the `.app` next to it; `npm run install:local`
 copies it to `/Applications`.
 
