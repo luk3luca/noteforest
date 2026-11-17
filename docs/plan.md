@@ -712,7 +712,12 @@ does not have to rediscover it.
    its content-driven width collapses and only the drag handle and the branch ports remain — you cannot
    find the block you just created. The fix, when it is decided, is a **minimum card width** on an empty
    block in Continuous, scoped so the Page measurement and print never move. Owner's call: not now.
-6. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
+6. **The selection bubble stays in the tree behind an open dialog (found 17 November 2026).** Its
+   `shouldShow` looks only at the editor selection, so with text selected and a modal open the bubble's
+   buttons are still reachable — invisible to the eye, present for VoiceOver and for any strict locator
+   (`m3-reference` hit exactly that). It should consult the overlay owner like every other floating
+   surface. Not urgent; it is an accessibility and test-hygiene defect, not a behaviour one.
+7. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
    only if it is felt.
 
 ### Order decided 17 November 2026

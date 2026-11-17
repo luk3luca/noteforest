@@ -546,7 +546,12 @@ describe('NoteForest M3d1 reference edges', () => {
       'the picker shows the anchored origin',
     );
     await page.locator(`[data-link-target="${referenceTargetId}"]`).click();
-    await page.getByRole('button', { name: 'Link', exact: true }).click();
+    // Scope to the dialog: the selection bubble also carries a "Link" control and must
+    // never win this click (it sits behind the modal).
+    await page
+      .getByRole('dialog', { name: 'Link as reference' })
+      .getByRole('button', { name: 'Link', exact: true })
+      .click();
     await page.getByRole('dialog', { name: 'Link as reference' }).waitFor({ state: 'detached' });
     await waitForReference(referenceTargetId);
 
