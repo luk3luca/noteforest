@@ -648,7 +648,7 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** — the
 muted state at 1.35:1, the light reference at ≈3.0, the arrowhead — as one measured contrast table per
 polarity and one visual pass | B1 |
-| 6b | **P2 — release polish** (in flight, parallel with B2) | `docs/tasks/p2-polish.md`: the selection
+| 6b | **P2 — release polish** | **Merged at `c038c3a`** (`docs/tasks/p2-polish.md`): the selection
 bubble behind a modal, the shifted-bracket tab keys by `event.code`, Export PDF on `⌘P`, the
 `Edit → Find` menu group, the rich-cell note listed as unreadable, `⇧Esc` closing the find, and the two
 intermittent UI suites made deterministic | B1 |
@@ -703,32 +703,27 @@ token), resting width 1.25 → 1.5, and an arrowhead that scales with the stroke
 Recorded, not scheduled. Each one is a defect we know about, with the fix sketched so the next person
 does not have to rediscover it.
 
-1. **Code palette contrast**: the theme registry (verbatim themes, one AA per polarity) is the answer;
-   the classic palettes stay unedited.
-2. **Empty child block has no floor (deferred by the product owner, 17 November 2026).** An empty
+1. **Empty child block has no floor (deferred by the product owner, 17 November 2026).** An empty
    top-level block has a row to sit in, so it reads fine; an **empty child** has no content at all, so
    its content-driven width collapses and only the drag handle and the branch ports remain — you cannot
    find the block you just created. The fix, when it is decided, is a **minimum card width** on an empty
    block in Continuous, scoped so the Page measurement and print never move. Owner's call: not now.
-3. **The selection bubble stays in the tree behind an open dialog (found 17 November 2026).** Its
-   `shouldShow` looks only at the editor selection, so with text selected and a modal open the bubble's
-   buttons are still reachable — invisible to the eye, present for VoiceOver and for any strict locator
-   (`m3-reference` hit exactly that). It should consult the overlay owner like every other floating
-   surface. Not urgent; it is an accessibility and test-hygiene defect, not a behaviour one.
-4. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
+2. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
    only if it is felt.
-5. **`⇧Esc` no longer closes the find (B1 deviation, 17 November 2026).** The catalogue's Escape chord
-   requires an unmodified `Esc`; the old handler accepted Shift by accident. `Esc` alone still closes and
-   restores the selection. No action planned; recorded so nobody "fixes" it into a second chord.
-6. **The shifted-bracket tab bindings are dead on a US layout (B1, 17 November 2026).** `⌘⇧[`/`⌘⇧]` are
-   still matched in code but `list: false`: on US the shifted key reports `{`/`}`, so they never fire. The
-   discoverable tab pairs are `⌃Tab` / `⌃⇧Tab`. Remove them from the code or match `event.code` if they are
-   ever wanted.
+3. **Mixed-polarity code theme chrome (B2, 17 November 2026).** Choosing `Light+` in a dark app paints the
+   code block on its own white surface but leaves the shell's dark fence/copy chip around it; the reverse
+   happens with `Monokai` in a light app. Cosmetic; one rule on the fence when
+   `[data-code-theme]`'s polarity differs from `[data-theme]`, or filter the picker by polarity.
+4. **A rich-cell package that moves is not reconciled (P2, 17 November 2026).** The Library row now says
+   `unreadable`, but it takes the corrupt-row shape (null `documentId`, zero counts), so moving such a
+   package does not update the session/settings recents — the same behaviour a corrupt note has. No file
+   the app can produce reaches this state; leave it unless that changes.
 
 ### Order decided 17 November 2026
 
 The release comes **last**: v1 hardening → find/highlighter → **B1 v1 defects** (Page dot, print-free
-page, shortcut catalogue) → **B2 contrast** (code themes + Continuous edges) → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
+page, shortcut catalogue) → **B2 contrast** (code themes + Continuous edges) → **P2 release polish** →
+**full Sentinel** → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
 `npm run release`). B1 waited for the find fixes on purpose: same shell files, and the Page find field is
 where the `⇧1`/`⇧2` defect showed. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
 stays in that file as the record.
@@ -745,7 +740,9 @@ Full audit, every binding, the defects and the proposed catalogue: `docs/design/
   hand-written matcher, the TipTap keymap and the native menu. Nothing proves a row still exists, and the
   list omits 18 real bindings. **B1 Part B shipped at `d1de7ac` (merged `e48e862`)**: one catalogue module
   that the handlers *ask*, the menu accelerators asserted against it, and the list rendered from it (34 rows,
-  4 groups). Remaining decisions, not in B1: `⌘P` for Export PDF and an `Edit → Find` group.
+  4 groups). **P2 (merged `c038c3a`) closed the rest**: Export PDF is `⌘P`, `Edit` carries
+  Find… / Find Next / Find Previous, `⇧Esc` closes the find again, and `⇧⌘[` / `⇧⌘]` match
+  `KeyboardEvent.code` so they fire on a US layout. No open shortcut decisions remain.
 - **Rules (product owner, 17 November 2026):** no bare-Shift chord in a writing app, so `⇧1`/`⇧2` are
   removed, not guarded; not every binding needs a shortcut, so K1 adds none; use the standard where one
   exists. The pass is subtractive — see `docs/design/shortcuts.md` §0 and §4.

@@ -417,7 +417,7 @@ Rules:
 | A1 | Document health | Repair anchors and structure | Status bar, the sidebar's Health tab, the palette |
 | G1 | Page settings | Size, orientation, margins, chapter start, header/footer | Settings → Page |
 | G2 | Breaks | Manual breaks, page numbers | The sidebar's Breaks section and the block menu's `Start on a new page` |
-| S1 | Export sheet | All pages, preview, preflight | `⇧⌘E`, the canvas header, the palette |
+| S1 | Export sheet | All pages, preview, preflight | `⌘P`, the canvas header, the palette |
 | X1 | External change / save conflict | Protect user work | Detected on file change |
 | X2 | Branch role commands | Choose structural vs reference, or move vs link | **not in v1** — the block menu commands (Make home, Move here, Demote) cover it |
 | X3 | Link picker | Choose an existing block for a reference link | `⌘⇧L`, menu |
@@ -1262,7 +1262,7 @@ All shortcuts appear in the menu bar or the shortcuts sheet and are remappable. 
 | `⇧⌘N` | New chapter |
 | `⌘O` | Open note… |
 | `⌘S` | Save now |
-| `⇧⌘E` | Export PDF… |
+| `⌘P` | Export PDF… |
 | `⌘W` | Close tab |
 | `⇧⌘W` | Close window |
 | `⇧⌘T` | Reopen closed tab |
@@ -1336,7 +1336,7 @@ Page Edit is opt-in; Page Read is exact and read-only. The page canvas keeps `�
 - **One catalogue.** `apps/desktop/src/renderer/src/lib/shortcuts.ts` is the source; the Settings list, the
   menu accelerators, the palette hints and the handlers all read it. A binding that is not in the catalogue
   does not exist.
-- **No bare-Shift chord.** `⇧` only ever rides a `⌘`/`⌃` chord (`⇧⌘E`, `⇧⌘Z`); `⇧Tab` is outdent on a
+- **No bare-Shift chord.** `⇧` only ever rides a `⌘`/`⌃` chord (`⇧⌘Z`, `⇧⌘T`); `⇧Tab` is outdent on a
   selected block, never typing.
 - **`⌘E` is mode.** Inline code is the backtick toggle, not a chord.
 - **`Tab` changes meaning only on a selected block**; inside lists, code, tables and quotes it is native.
