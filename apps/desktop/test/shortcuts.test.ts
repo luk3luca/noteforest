@@ -19,9 +19,10 @@ const RENDERER_SRC = resolve(root, 'src/renderer/src');
 
 /** A keyboard event that fires exactly one chord, as the handler would see it. */
 function eventFor(chord: Chord): KeyEventLike {
+  const code = chord.code ?? (/^[0-9]$/.test(chord.key) ? `Digit${chord.key}` : undefined);
   return {
     key: chord.key,
-    ...(/^[0-9]$/.test(chord.key) ? { code: `Digit${chord.key}` } : {}),
+    ...(code === undefined ? {} : { code }),
     metaKey: chord.mod === true && chord.ctrl !== true,
     ctrlKey: chord.ctrl === true,
     shiftKey: chord.shift === true,
@@ -30,9 +31,9 @@ function eventFor(chord: Chord): KeyEventLike {
 }
 
 function chordLabel(chord: Chord): string {
-  return `${chord.key} mod=${chord.mod === true} ctrl=${chord.ctrl === true} shift=${
-    chord.shift === true
-  } alt=${chord.alt === true}`;
+  return `${chord.key}${chord.code === undefined ? '' : `/${chord.code}`} mod=${
+    chord.mod === true
+  } ctrl=${chord.ctrl === true} shift=${chord.shift === true} alt=${chord.alt === true}`;
 }
 
 describe('shortcut catalogue', () => {
@@ -57,8 +58,10 @@ describe('shortcut catalogue', () => {
         const event = eventFor(chord);
         // A stray Shift is a different chord. `⌘+` is exempt: the plus *is* the
         // shifted character on most layouts, so its shift state is not a
-        // modifier (the shipped ⌘= / ⌘+ both zoom in).
-        if (chord.key !== '+') {
+        // modifier (the shipped ⌘= / ⌘+ both zoom in). A verb that declares the
+        // shifted key as its second chord (`⇧Esc` closes the find) is exempt
+        // for the same reason: the flip is a declared binding, not a stray one.
+        if (chord.key !== '+' && shortcut.chords.length === 1) {
           expect(
             matches({ ...event, shiftKey: !event.shiftKey }, shortcut.id),
             `${shortcut.id} must not match a flipped Shift`,
@@ -92,6 +95,112 @@ describe('shortcut catalogue', () => {
     expect(matches(equals, 'zoom-out')).toBe(false);
   });
 
+  it('matches the shifted brackets by physical key on a US layout (P2)', () => {
+    // `⇧]` types `}` on a US layout: only `KeyboardEvent.code` identifies it.
+    const next = {
+      key: '}',
+      code: 'BracketRight',
+      metaKey: true,
+      ctrlKey: false,
+      shiftKey: true,
+      altKey: false,
+    };
+    expect(matches(next, 'tab-next-bracket')).toBe(true);
+    expect(
+      matches(
+        { key: '{', code: 'BracketLeft', metaKey: true, ctrlKey: false, shiftKey: true, altKey: false },
+        'tab-previous-bracket',
+      ),
+    ).toBe(true);
+    // The same physical key without Shift is not the chord.
+    expect(matches({ ...next, key: ']', shiftKey: false }, 'tab-next-bracket')).toBe(false);
+    // Neither is the same character produced by another key.
+    expect(matches({ ...next, code: 'NumpadAdd' }, 'tab-next-bracket')).toBe(false);
+    // The display still comes from the chord's own key.
+    expect(shortcutHint('tab-next-bracket')).toBe('⇧⌘]');
+    expect(shortcutHint('tab-previous-bracket')).toBe('⇧⌘[');
+    // Both stay off the Settings list: the tab row already names the pair.
+    expect(SHORTCUTS.find((shortcut) => shortcut.id === 'tab-next-bracket')?.list).toBe(false);
+    expect(SHORTCUTS.find((shortcut) => shortcut.id === 'tab-previous-bracket')?.list).toBe(false);
+  });
+
+  it('binds Export PDF to ⌘P and leaves ⇧⌘E unbound (P2)', () => {
+    const press = (key: string, extra: Partial<KeyEventLike> = {}): KeyEventLike => ({
+      key,
+      metaKey: true,
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      ...extra,
+    });
+    expect(matches(press('p'), 'export-pdf')).toBe(true);
+    expect(matches(press('p', { shiftKey: true }), 'export-pdf')).toBe(false);
+    // The old key is not an alias: one verb, one key.
+    expect(matches(press('e', { shiftKey: true }), 'export-pdf')).toBe(false);
+    expect(shortcutHint('export-pdf')).toBe('⌘P');
+    expect(SHORTCUTS.find((shortcut) => shortcut.id === 'export-pdf')?.menu).toBe('CmdOrCtrl+P');
+  });
+
+  it('closes the find with Esc and ⇧Esc, and advertises neither (P2)', () => {
+    const escape = { key: 'Escape', metaKey: false, ctrlKey: false, shiftKey: false, altKey: false };
+    expect(matches(escape, 'close-find')).toBe(true);
+    expect(matches({ ...escape, shiftKey: true }, 'close-find')).toBe(true);
+    // The second chord is on the find-close entry only: no other Escape grows
+    // a Shift variant.
+    for (const shortcut of SHORTCUTS) {
+      if (shortcut.id === 'close-find') continue;
+      for (const chord of shortcut.chords) {
+        if (chord.key !== 'Escape') continue;
+        expect(chord.shift === true, `${shortcut.id} must not take ⇧Esc`).toBe(false);
+      }
+    }
+    expect(SHORTCUTS.find((shortcut) => shortcut.id === 'close-find')?.list).toBe(false);
+  });
+
+  it('mirrors the Find menu items and their renderer-owned accelerators', () => {
+    const sent: string[] = [];
+    const template = buildMenuTemplate({
+      isMac: true,
+      send: (command) => sent.push(command),
+      getWindow: () => null,
+    });
+    const edit = (template.find((entry) => entry.label === 'Edit')?.submenu ??
+      []) as Array<{
+      id?: string;
+      label?: string;
+      accelerator?: string;
+      registerAccelerator?: boolean;
+      click?: () => void;
+    }>;
+    const find = ['menu-find', 'menu-find-next', 'menu-find-previous'].map((id) =>
+      edit.find((entry) => entry.id === id),
+    );
+    expect(find.map((entry) => entry?.label)).toEqual(['Find…', 'Find Next', 'Find Previous']);
+    expect(find.map((entry) => entry?.accelerator)).toEqual([
+      'CmdOrCtrl+F',
+      'CmdOrCtrl+G',
+      'CmdOrCtrl+Shift+G',
+    ]);
+    // The renderer owns the keys, exactly like the palette and undo/redo.
+    expect(find.map((entry) => entry.registerAccelerator)).toEqual([false, false, false]);
+    for (const entry of find) entry?.click?.();
+    expect(sent).toEqual(['find-open', 'find-next', 'find-previous']);
+    // The items sit after Undo/Redo and before the clipboard roles.
+    const ids = edit.map((entry) => entry.id ?? entry.label ?? 'role');
+    expect(ids.indexOf('menu-find')).toBeGreaterThan(ids.indexOf('menu-redo'));
+    const cutAt = edit.findIndex((entry) => (entry as { role?: string }).role === 'cut');
+    expect(ids.indexOf('menu-find-previous')).toBeLessThan(cutAt);
+    // Export keeps one accelerator, now ⌘P.
+    const file = (template.find((entry) => entry.label === 'File')?.submenu ?? []) as Array<{
+      id?: string;
+      accelerator?: string;
+      registerAccelerator?: boolean;
+    }>;
+    const exportItem = file.find((entry) => entry.id === 'menu-export-pdf');
+    expect(exportItem?.accelerator).toBe('CmdOrCtrl+P');
+    expect(exportItem?.registerAccelerator).toBeUndefined();
+  });
+
   it('never repeats a chord inside a scope', () => {
     const seen = new Map<string, string>();
     for (const shortcut of SHORTCUTS) {
@@ -99,6 +208,7 @@ describe('shortcut catalogue', () => {
         const signature = [
           shortcut.scope,
           chord.key.toLowerCase(),
+          chord.code ?? '',
           chord.mod === true,
           chord.ctrl === undefined ? 'any' : chord.ctrl,
           chord.shift === true,

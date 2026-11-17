@@ -187,17 +187,78 @@ async function setScroll({ top, left }) {
     },
     { nextTop: top, nextLeft: left },
   );
-  // The scroll handler is synchronous; one frame lets the store write land.
+  // The offset is the precondition of every assertion that follows: wait for
+  // the scroller to hold it (or to clamp at the end of the column) instead of
+  // assuming the write landed.
+  await page.waitForFunction(
+    ({ nextTop, nextLeft }) => {
+      const scroller = document.querySelector('.nf-editor[data-active="true"] .nf-page-scroll');
+      if (scroller === null) return false;
+      const topOk =
+        nextTop === undefined ||
+        Math.abs(scroller.scrollTop - nextTop) <= 1 ||
+        scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 1;
+      const leftOk =
+        nextLeft === undefined ||
+        Math.abs(scroller.scrollLeft - nextLeft) <= 1 ||
+        scroller.scrollLeft >= scroller.scrollWidth - scroller.clientWidth - 1;
+      return topOk && leftOk;
+    },
+    { nextTop: top, nextLeft: left },
+    { timeout: 10000 },
+  );
+  // The scroll handler is synchronous; the frame pair lets the store write and
+  // its render land before the test reads the indicator.
   await page.evaluate(
     () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
   );
 }
 
-async function setZoom(clicks, direction = 'in') {
+async function setZoom(clicks, direction, expectedPercent) {
   for (let index = 0; index < clicks; index += 1) {
     await page.locator(`[data-zoom-action="${direction}"]`).click();
   }
-  await page.waitForTimeout(80);
+  // Every click writes the store and re-renders the surface. Wait for the
+  // surface to report the final step instead of a fixed delay: a loaded pool
+  // outruns any constant, and the old 80 ms wait was the suite's one fixed
+  // frame budget (P2 item 7).
+  await page.waitForFunction(
+    (percent) =>
+      Number(
+        document
+          .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+          ?.getAttribute('data-page-zoom'),
+      ) === percent,
+    expectedPercent,
+    { timeout: 10000 },
+  );
+}
+
+/** Current Page scroll offset, read from the real scroller. */
+async function scrollTop() {
+  return page.evaluate(
+    () => document.querySelector('.nf-editor[data-active="true"] .nf-page-scroll')?.scrollTop ?? 0,
+  );
+}
+
+/**
+ * Wait until the scroller has moved at least `amount` px in `direction`.
+ *
+ * Chromium animates PageUp/PageDown (and a line step in a loaded renderer)
+ * over several frames, so "it moved a little" is not the condition the
+ * assertions need: they need the scroll to have *arrived*. A fixed wait after
+ * the key press was the old race (P2 item 7).
+ */
+async function waitScrollBy(before, amount, direction) {
+  await page.waitForFunction(
+    ({ from, delta, sign }) => {
+      const scroller = document.querySelector('.nf-editor[data-active="true"] .nf-page-scroll');
+      if (scroller === null) return false;
+      return sign > 0 ? scroller.scrollTop >= from + delta : scroller.scrollTop <= from - delta;
+    },
+    { from: before, delta: amount, sign: direction === 'down' ? 1 : -1 },
+    { timeout: 15000 },
+  );
 }
 
 describe('PG1 Page as a scroll of pages', () => {
@@ -268,6 +329,9 @@ describe('PG1 Page as a scroll of pages', () => {
     // Free scroll: stop with half a page above and half below.
     const third = await sheetBox(3);
     await setScroll({ top: third.top - 220 });
+    // The centre lands inside page 3: wait for the indicator to name it, then
+    // read the whole surface state.
+    await ui.waitCurrentPage(3);
     const stopped = await surface();
     const pageTwo = await sheetBox(2);
     const pageThree = await sheetBox(3);
@@ -381,18 +445,20 @@ describe('PG1 Page as a scroll of pages', () => {
     await ui.gotoPage(2);
     await page.locator('.nf-editor[data-active="true"] .nf-page-scroll').focus();
     const beforeKey = (await surface()).scrollTop;
+    const viewport = (await surface()).clientHeight;
     await page.keyboard.press('PageDown');
-    await page.waitForTimeout(120);
-    const afterKey = (await surface()).scrollTop;
+    // PageDown moves a viewport; wait for that distance, not for "it moved".
+    await waitScrollBy(beforeKey, viewport / 2, 'down');
+    const afterKey = await scrollTop();
     assert.ok(afterKey > beforeKey, `PageDown scrolls the pages (${beforeKey} -> ${afterKey})`);
     await page.keyboard.press('ArrowDown');
-    await page.waitForTimeout(80);
-    const arrowKey = (await surface()).scrollTop;
+    await waitScrollBy(afterKey, 1, 'down');
+    const arrowKey = await scrollTop();
     assert.ok(arrowKey > afterKey, 'the arrow key keeps scrolling inside the region');
     await page.keyboard.press('PageUp');
-    await page.waitForTimeout(120);
+    await waitScrollBy(arrowKey, viewport / 2, 'up');
     assert.ok(
-      (await surface()).scrollTop < arrowKey,
+      (await scrollTop()) < arrowKey,
       'PageUp scrolls one viewport back; the keys are never paging commands',
     );
   });
@@ -555,7 +621,7 @@ describe('PG1 Page as a scroll of pages', () => {
     assert.ok(Math.abs(restSheet.width - rest.clientWidth) <= 1);
 
     // 200 %: the paper is twice the viewport width and scrolls sideways.
-    await setZoom(10, 'in');
+    await setZoom(10, 'in', 200);
     const zoomed = await surface();
     assert.equal(zoomed.percent, 200);
     assert.equal(zoomed.zoomLabel, '200%');
@@ -576,7 +642,7 @@ describe('PG1 Page as a scroll of pages', () => {
     });
 
     // 50 %: one column, smaller than the viewport, centered with margins.
-    await setZoom(15, 'out');
+    await setZoom(15, 'out', 50);
     const shrunk = await surface();
     assert.equal(shrunk.percent, 50);
     assert.equal(shrunk.zoomLabel, '50%');
@@ -665,6 +731,18 @@ describe('PG1 Page as a scroll of pages', () => {
     );
 
     await setScroll({ top: state.scrollHeight });
+    await page.waitForFunction(
+      () => {
+        const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+        return (
+          view !== null &&
+          Number(view.getAttribute('data-current-page')) ===
+            Number(view.getAttribute('data-page-count'))
+        );
+      },
+      undefined,
+      { timeout: 10000 },
+    );
     const atEnd = await surface();
     assert.ok(
       Math.abs(atEnd.scrollTop + atEnd.clientHeight - atEnd.scrollHeight) <= 1,
@@ -693,6 +771,7 @@ describe('PG1 Page as a scroll of pages', () => {
     });
 
     await setScroll({ top: 0 });
+    await ui.waitCurrentPage(1);
     const back = await surface();
     assert.equal(back.current, 1);
     assert.ok(back.sheets.includes(1), 'page 1 remounts at the start');

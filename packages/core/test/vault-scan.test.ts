@@ -4,6 +4,12 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDocumentPackage } from '@noteforest/core/node';
 import {
+  stringifyDocument,
+  type ContentBlock,
+  type ContentNode,
+  type Document,
+} from '@noteforest/core';
+import {
   compareVaultNodes,
   isVaultAssetDirName,
   isVaultBackupName,
@@ -48,6 +54,49 @@ async function note(folder: string, title = folder): Promise<string> {
 
 function kinds(nodes: VaultNode[]): string[] {
   return nodes.map((node) => `${node.kind}:${node.name}`);
+}
+
+/** Rewrite one package's `document.json` through the canonical serializer. */
+async function rewriteNote(
+  target: string,
+  mutate: (document: Document) => void,
+): Promise<void> {
+  const file = path.join(target, 'document.json');
+  const document = JSON.parse(await fs.readFile(file, 'utf8')) as Document;
+  mutate(document);
+  await fs.writeFile(file, stringifyDocument(document));
+}
+
+/** A one-row table; `rich` gives the second cell two paragraphs (P2 item 5). */
+function cellTable(rich: boolean): ContentNode {
+  const cell = (text: string): ContentNode => ({
+    type: 'paragraph',
+    children: [{ type: 'text', text }],
+  });
+  return {
+    type: 'table',
+    children: [
+      {
+        type: 'tableRow',
+        children: [
+          { type: 'tableHeader', children: [cell('Term')] },
+          {
+            type: 'tableCell',
+            children: rich ? [cell('one'), cell('two')] : [cell('one')],
+          },
+        ],
+      },
+    ],
+  } as ContentNode;
+}
+
+function addTableBlock(document: Document, blockId: string, rich: boolean): void {
+  const block: ContentBlock = {
+    id: blockId,
+    content: { type: 'doc', children: [cellTable(rich)] },
+  };
+  document.blocks[blockId] = block;
+  document.chapters[0]?.topLevelBlockIds.push(blockId);
 }
 
 function folder(nodes: VaultNode[], name: string): VaultFolderNode {
@@ -130,6 +179,32 @@ describe('vault node detection', () => {
       chapterCount: 0,
     });
     expect(node.row.reason).toMatch(/document\.json is missing/);
+  });
+
+  it('marks a rich table cell unreadable and leaves an inline cell ok (P2)', async () => {
+    const rich = await note('rich-cell', 'Rich cell');
+    const inline = await note('inline-cell', 'Inline cell');
+    await rewriteNote(rich, (document) => addTableBlock(document, 'rich-table', true));
+    await rewriteNote(inline, (document) => addTableBlock(document, 'inline-table', false));
+
+    const scan = await scanVaultTree(library);
+    const richRow = scan.documents.find((row) => row.path === rich);
+    expect(richRow).toMatchObject({
+      kind: 'note',
+      status: 'unreadable',
+      documentId: null,
+      revision: null,
+      blockCount: 0,
+      chapterCount: 0,
+    });
+    // The row carries the same sentence the loader refuses with; the caller
+    // keeps it under Details.
+    expect(richRow?.reason).toMatch(/table cell holds one paragraph of inline content/);
+    expect(richRow?.reason).toMatch(/blocks\.rich-table\.content/);
+
+    const inlineRow = scan.documents.find((row) => row.path === inline);
+    expect(inlineRow?.status).toBe('ok');
+    expect(inlineRow?.documentId).toBeTruthy();
   });
 });
 

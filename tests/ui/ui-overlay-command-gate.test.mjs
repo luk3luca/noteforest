@@ -198,6 +198,8 @@ async function commandSnapshot() {
     tabPaths: state.tabs.map((tab) => tab.packagePath),
     paletteOpen: state.paletteOpen,
     sidebarCollapsed: state.sidebarCollapsed,
+    findOpen: state.findOpen,
+    findQuery: state.findQuery,
     layout: view.layout ?? null,
     interactionMode: view.interactionMode ?? null,
     zoom: view.zoom ?? null,
@@ -362,7 +364,17 @@ describe('UI overlay command gate and write identity', () => {
     await assertCommandsIgnored(before, () => page.keyboard.press('Meta+-'), 'zoom out');
     await assertCommandsIgnored(before, () => page.keyboard.press('Meta+0'), 'actual size');
     await assertCommandsIgnored(before, () => page.keyboard.press('Meta+Shift+F'), 'focus branch');
-    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+Shift+E'), 'native export');
+    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+P'), 'native export');
+    await assertCommandsIgnored(before, () => page.keyboard.press('Meta+f'), '⌘F');
+    // The three native Find items are renderer-owned commands like every other
+    // menu item: a click behind the modal changes nothing.
+    await assertCommandsIgnored(before, () => dispatchMenuCommand('find-open'), 'native find');
+    await assertCommandsIgnored(before, () => dispatchMenuCommand('find-next'), 'native find next');
+    await assertCommandsIgnored(
+      before,
+      () => dispatchMenuCommand('find-previous'),
+      'native find previous',
+    );
     await assertCommandsIgnored(before, () => dispatchMenuCommand('close-tab'), 'native close-tab');
     await assertCommandsIgnored(before, () => dispatchMenuCommand('new-document'), 'native new-document');
     await assertCommandsIgnored(before, () => dispatchMenuCommand('reopen-tab'), 'native reopen-tab');

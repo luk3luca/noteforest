@@ -28,6 +28,7 @@ import { documentJsonPath, packageTitle } from './paths.js';
 import { parseDocumentJson } from '../serialize.js';
 import { documentStats } from '../types.js';
 import { isMarkdownFileName } from '../markdown.js';
+import { mentionsTableCells, unrepresentableTableCells } from '../table-cells.js';
 
 /** Maximum folder nesting below the library root (depth 1 = root child). */
 export const VAULT_DEFAULT_MAX_DEPTH = 8;
@@ -211,6 +212,26 @@ async function noteRow(packagePath: string): Promise<VaultDocumentRow | null> {
     };
   }
   const stats = documentStats(parsed.document);
+  // The VH1 rich-cell guard is the same judgement the loader refuses on: a row
+  // must say what opening says. The document is already parsed here, so this
+  // costs one content walk, never a second read of `document.json`.
+  const refusal = mentionsTableCells(text)
+    ? unrepresentableTableCells(parsed.document)[0]
+    : undefined;
+  if (refusal !== undefined) {
+    return {
+      path: packagePath,
+      title: parsed.document.title,
+      kind: 'note',
+      status: 'unreadable',
+      reason: refusal.message,
+      documentId: null,
+      revision: null,
+      updatedAt,
+      blockCount: 0,
+      chapterCount: 0,
+    };
+  }
   return {
     path: packagePath,
     title: parsed.document.title,

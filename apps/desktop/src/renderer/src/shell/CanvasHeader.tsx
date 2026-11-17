@@ -91,7 +91,7 @@ export function CanvasHeader({
               className="nf-header-export"
               data-page-export="true"
               title={`Export to PDF (${shortcutHint('export-pdf')})`}
-              aria-keyshortcuts="Meta+Shift+E"
+              aria-keyshortcuts="Meta+P"
               onClick={(event) => exportActiveDocument(event.currentTarget)}
             >
               <FileDown size={13} strokeWidth={1.6} aria-hidden="true" />

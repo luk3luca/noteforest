@@ -308,6 +308,25 @@ describe('table cell guard (VH1)', () => {
     const before = await readFile(documentPath);
 
     await launch(env);
+    await page.waitForSelector('[data-sidebar-panel="library"] [role="tree"]');
+
+    // P2: the Library says what opening says. The row carries the same
+    // unreadable state and short line as a corrupt note, not a normal row.
+    const richRow = row(packagePath);
+    await richRow.waitFor({ timeout: 15000 });
+    assert.equal(await richRow.getAttribute('data-doc-status'), 'unreadable');
+    assert.equal((await rowReason(packagePath)).trim(), 'This note couldn’t be read.');
+    assert.match(
+      (await richRow.locator('[data-doc-status-label="true"]').innerText()).trim(),
+      /^unreadable$/i,
+    );
+    assert.match((await richRow.getAttribute('title')) ?? '', /table cell holds 2 blocks/);
+    await widenSidebar();
+    await mkdir(artifactsPath('p2-polish'), { recursive: true });
+    await page.screenshot({
+      path: join(artifactsPath('p2-polish'), 'library-rich-cell-row.png'),
+    });
+
     await openFromLibrary(packagePath);
     await page.waitForSelector('[data-recovery-surface="true"]', { timeout: 20000 });
 
@@ -353,6 +372,10 @@ describe('table cell guard (VH1)', () => {
       }),
     );
     await launch(env);
+    await page.waitForSelector('[data-sidebar-panel="library"] [role="tree"]');
+    // An inline-only table is a normal note: no unreadable state on its row.
+    assert.equal(await row(packagePath).getAttribute('data-doc-status'), 'ok');
+    assert.equal(await row(packagePath).locator('[data-doc-reason="true"]').count(), 0);
     await openFromLibrary(packagePath);
 
     const table = page.locator('.nf-editor[data-active="true"] .nf-block-prose table').first();
