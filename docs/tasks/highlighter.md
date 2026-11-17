@@ -2,7 +2,7 @@
 
 **Role:** Builder
 **Milestone:** highlighter (last v1 feature)
-**Base:** `main` at launch, after F4a has merged (it reuses F4a's mapping).
+**Base:** `main` at launch, after F4a has merged (F4a is the transient layer and stays out of this work).
 **Worktree:** created by the Orchestrator, branch `t3/highlighter`.
 **Timebox:** 5 hours.
 
@@ -12,6 +12,12 @@ The find paints a transient layer; this batch adds the permanent one. The design
 `docs/design/highlight.md` §2–§5. The product owner has decided: **four tones**, deleting the highlighted
 text removes the highlight, it **exports to PDF**, and when a highlighted word is also a find match the
 **find wins visually**.
+
+F4a is merged (`cee3577`): `page/segments.ts` tags every segment with `data-node-path` and `page/find-page-ranges.ts`
+maps a transient result onto it. **You do not need that mapping**: a stored mark is content, so both surfaces
+render it from the model through `applyMarks` (`page/segments.ts`) and the editor schema. Do not add a second
+offset path, and do not use `CSS.highlights` for a mark — a mark is a real inline span with a background and
+no box effect.
 
 ## Goal
 
@@ -27,7 +33,8 @@ moving a single page.
 2. **Colours** per `highlight.md` §3: a background tint only, in both fields; the text colour never
    changes; on paper the light tones are used because the paper is always light.
 3. **Applying and removing.** The selection bubble gains four swatches; when the selection already carries
-   a tone the row shows the active one pressed plus a remove control. `⌘⇧H` applies the last used tone and
+   a tone the row shows the active one pressed plus a remove control. No per-tone key: `⌘⇧H` is the only
+   chord (a `⌘` chord with Shift, not a bare-Shift key), applies the last used tone and
    toggles it off when the selection is uniformly that tone; the last tone is session state.
    Read mode: visible, not editable.
 4. **Rendering.** Continuous: a span with `data-highlight-tone` from the mark. Page: one more case in

@@ -643,6 +643,11 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 | 3 | **Data and recovery** | `core` command reasons mapped at the boundary — **merged at `646f343`**. `Unused images` in Health **merged at `2b5c582`**: previewed cleanup, bytes to the **OS Trash**, only when non-empty, backup-referenced assets kept. Follow-up: backup retention is now a **content reference** (`2e99e2d`): an image returns reclaimable when the backups that show it rotate out (floor 10, default 20 autosaves) — that is the grace period, and it is the honest one. **Batch 3 complete.** | 1 (Health rows and modal) |
 | 4 | **Page as a scroll of pages** | `docs/design/page-scroll.md`: one column, touching pages with a 1 px seam, free scroll, `N / M` from the viewport centre, zoom 50–200 % with 100 % as fit, mount visible ±2; harness `waitSaved` 30 s and `markdown-file-view` serial; 1,000-block measurement (53 pages, 520 ms mount, scroll p95 33.4 ms). **Merged at `5a8dfac`** | 3 (`styles.css`) |
 | 5 | **Find fidelity and highlighter** | `docs/design/highlight.md`. **F4a merged at `cee3577`** (paint over the mounted pages, repaint on the mount window, print-free). **F4b** (`docs/tasks/highlighter.md`): the `highlight` mark with four tones, the bubble swatches and `⌘⇧H`, Continuous and Page rendering, the print tones, additive (no `schemaVersion` bump) | the spike (done: `docs/design/find-page-highlight.md`); F4b after F4a |
+| 5b | **Page anchor dot** | `docs/tasks/page-anchor-dot.md` (after F4b): the `⚠ anchor` chip covers the card text, its
+`title` is dead (`pointer-events: none`) and it prints into the PDF. Replace it with a 6 px status dot in the
+card's top-right (24 px hit area), a real tooltip, a click that opens Document health on that anchor, the
+defect-chip collision rule, and **no anchor marker in the print DOM or the PDF** (print parity updated
+everywhere else) | F4b |
 | 6 | **Code themes, edge legibility, Settings pages, shortcut catalogue** | Code-theme registry (**verbatim themes only, no colour edits**), picker with the measured contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** (see below); manual-break defaults and library/backup in Data & About; **shortcut catalogue**: the list in `SettingsDialog.tsx` is a hand-written array while the real bindings live in the handlers, so it can drift — one module becomes the single source, the page renders from it, and a test asserts every row is a real binding | 2 for the Settings pages it shares |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
 | 8 | **v1 hardening** | The page controls into the canvas header, and the rich-cell guard. **In flight at `941046a`'s brief** (`docs/tasks/v1-hardening.md`) | — |
@@ -720,8 +725,8 @@ does not have to rediscover it.
 
 ### Order decided 17 November 2026
 
-The release comes **last**: v1 hardening → find/highlighter → **K1 shortcuts** → themes, edges and the
-Settings pages → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
+The release comes **last**: v1 hardening → find/highlighter → **P1 Page anchor dot** → **K1 shortcuts** →
+themes, edges and the Settings pages → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
 `npm run release`). K1 waits for the find fixes on purpose: same shell files, and the Page find field is
 where the `⇧1`/`⇧2` defect shows. The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
 stays in that file as the record.
