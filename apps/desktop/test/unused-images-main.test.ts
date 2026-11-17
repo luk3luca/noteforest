@@ -306,17 +306,25 @@ describe('trashUnusedAsset store guards', () => {
 });
 
 describe('assetIdsInBackups', () => {
-  it('returns the ids a valid backup names, and nothing from an invalid one', async () => {
+  it('returns the ids a valid backup references, not every record it holds', async () => {
     const packagePath = await packageWithAsset('Backed up');
     const document = await readDocument(packagePath);
+    const orphanId = createHash('sha256').update(new Uint8Array([4, 5, 6])).digest('hex');
     const backedUp: Document = {
       ...document,
       assets: {
         ...document.assets,
         [OTHER_ID]: record(OTHER_ID, { originalName: 'old.png' }),
+        [orphanId]: record(orphanId, { originalName: 'gone.png' }),
       },
-      blocks: {},
     };
+    addBlock(backedUp, 'image-block', {
+      type: 'doc',
+      children: [
+        { type: 'image', attrs: { assetId: ID, alt: 'diagram' } },
+        { type: 'image', attrs: { assetId: OTHER_ID, alt: 'older diagram' } },
+      ],
+    });
     const manager = new BackupManager(backupsDirForPackage(support, packagePath));
     await manager.create(stringifyDocument(backedUp), {
       kind: 'manual',
@@ -327,6 +335,8 @@ describe('assetIdsInBackups', () => {
 
     const result = await assetIdsInBackups(packagePath);
 
+    // `orphanId` has a record and no content reference — exactly the autosave a
+    // delete leaves behind — so it does not keep its bytes alive.
     expect(result).toEqual({ ok: true, assetIds: [ID, OTHER_ID].sort() });
   });
 
