@@ -14,6 +14,12 @@ export const SAVE_BACKOFF_MS: readonly number[] = [2000, 5000, 15000];
 export interface SaveFailure {
   code: SaveFailureCode;
   message: string;
+  /**
+   * Technical line for `Details` (dialogs.md §3): the raw `core` sentence when
+   * the short line is a mapped recovery reason. Absent for a plain write error,
+   * where the message is already the technical value.
+   */
+  details?: string;
   /** Consecutive automatic failures since the last explicit Retry. */
   attempt: number;
 }
@@ -32,10 +38,11 @@ export function nextSaveFailure(
   previous: SaveFailure | null,
   code: SaveFailureCode,
   message: string,
+  details?: string,
 ): SaveFailureTransition {
   const attempt = (previous?.attempt ?? 0) + 1;
   return {
-    failure: { code, message, attempt },
+    failure: { code, message, ...(details === undefined ? {} : { details }), attempt },
     retryInMs: SAVE_BACKOFF_MS[attempt - 1] ?? null,
   };
 }

@@ -715,6 +715,11 @@ export interface SaveFailure {
   /** Original `CoreErrorCode`, kept for diagnostics and support. */
   coreCode?: string;
   error: string;
+  /**
+   * Technical line for `Details` (dialogs.md §3). The damaged-package path puts
+   * the `core` parse sentence here so the short recovery line stays in `error`.
+   */
+  details?: string;
 }
 
 export type SaveResult = SaveSuccess | SaveFailure;
@@ -919,6 +924,52 @@ export interface ImportImageFailure {
 
 export type ImportImageResult = ImportImageSuccess | ImportImageFailure;
 
+/**
+ * Asset ids named by this note's retained backups (DR1b).
+ *
+ * Backups hold `document.json` only, so the unused-image plan keeps an id that
+ * any backup still names; restoring that snapshot must never resurrect a record
+ * whose bytes were reclaimed.
+ */
+export interface BackupAssetIdsSuccess {
+  ok: true;
+  assetIds: string[];
+}
+
+export interface BackupAssetIdsFailure {
+  ok: false;
+  message: string;
+  /** Technical line (an OS error or a path), shown only in Details. */
+  details?: string;
+}
+
+export type BackupAssetIdsResult = BackupAssetIdsSuccess | BackupAssetIdsFailure;
+
+export type TrashUnusedImageFailureCode =
+  | 'not-open'
+  | 'not-found'
+  | 'asset-in-use'
+  | 'outside-assets'
+  | 'read-only'
+  | 'trash-failed';
+
+/**
+ * Move one unused image file to the OS Trash, before its record is removed.
+ *
+ * `trashed: false` means the file was already missing (nothing to move); the
+ * caller may still remove the unreferenced record. A failure leaves the file
+ * and the record exactly as they were.
+ */
+export type TrashUnusedImageResult =
+  | { ok: true; trashed: boolean }
+  | {
+      ok: false;
+      code: TrashUnusedImageFailureCode;
+      message: string;
+      /** Technical line (an OS error or a path), shown only in Details. */
+      details?: string;
+    };
+
 export interface NoteForestApi {
   bootstrap(): Promise<BootstrapResult>;
   /**
@@ -1072,6 +1123,20 @@ export interface NoteForestApi {
     targetPackagePath: string,
     assetId: string,
   ): Promise<ImportImageResult>;
+  /**
+   * Asset ids named by this note's valid backups. Read-only scan of the
+   * app-support backup folder; the renderer never reads a backup itself.
+   */
+  backupAssetIds(packagePath: string): Promise<BackupAssetIdsResult>;
+  /**
+   * Move one unused image file to the OS Trash (never an unlink) before the
+   * renderer removes its record. Re-checks the reference guard and confines the
+   * path to the package's `assets/` directory.
+   */
+  trashUnusedImage(
+    packagePath: string,
+    assetId: string,
+  ): Promise<TrashUnusedImageResult>;
   getSystemInfo(): Promise<{ electron: string; chrome: string; appVersion: string; platform: string }>;
   /**
    * Start a Page PDF export job for an open document. The renderer is asked for

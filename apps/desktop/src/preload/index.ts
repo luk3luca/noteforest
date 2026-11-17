@@ -3,6 +3,7 @@ import type { AppSettings } from '@noteforest/layout';
 import type {
   ApplyResult,
   BootstrapResult,
+  BackupAssetIdsResult,
   ChooseExportFolderResult,
   CreateDocumentResult,
   CreateDraftResult,
@@ -48,6 +49,7 @@ import type {
   TextEditCommand,
   TrashDocumentResult,
   TrashPreflight,
+  TrashUnusedImageResult,
   VaultActionResult,
   WindowState,
 } from '../shared/api.js';
@@ -210,6 +212,13 @@ const api: NoteForestApi = {
       targetPackagePath,
       assetId,
     ),
+  backupAssetIds: (packagePath: string): Promise<BackupAssetIdsResult> =>
+    ipcRenderer.invoke('document:backup-asset-ids', packagePath),
+  trashUnusedImage: (
+    packagePath: string,
+    assetId: string,
+  ): Promise<TrashUnusedImageResult> =>
+    ipcRenderer.invoke('document:trash-unused-image', packagePath, assetId),
   getSystemInfo: (): Promise<{
     electron: string;
     chrome: string;

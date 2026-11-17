@@ -5371,6 +5371,60 @@ body.nf-dragging-block .nf-gutter-handle {
   font-variant-numeric: tabular-nums;
 }
 
+/* Unused images (DR1b) is a task section, not an audit category: it renders
+   only while the plan is non-empty. The header is the shared 28 px label/count
+   row without a disclosure (the action lives inside), and its rows are the
+   result card in its resting state: a file list, not a navigable issue. */
+.nf-health-unused-head {
+  cursor: default;
+}
+
+.nf-health-unused-head:hover {
+  background: transparent;
+}
+
+.nf-health-unused-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nf-health-unused-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-height: var(--sb-result-height);
+}
+
+.nf-health-unused-row:hover {
+  border-color: var(--border-1);
+  background: var(--surface-1);
+}
+
+.nf-health-unused-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: var(--sb-result);
+  font-weight: 400;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-health-unused-action {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.nf-health-unused-action:disabled {
+  opacity: 0.5;
+}
+
 /* --------------------------------------------------------------- modal */
 
 .nf-health-dialog-head {
@@ -5807,6 +5861,44 @@ body.nf-dragging-block .nf-gutter-handle {
 
 .nf-delete-reference-meta,
 .nf-delete-reference-target {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: calc(10.5px * var(--ui-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Unused images confirm (DR1b): the same row as the delete-block reference
+   list, two lines of metadata, no controls inside the row. */
+.nf-unused-images-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nf-unused-images-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 7px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+}
+
+.nf-unused-images-name {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: calc(11.5px * var(--ui-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nf-unused-images-meta {
   overflow: hidden;
   color: var(--text-3);
   font-size: calc(10.5px * var(--ui-scale));

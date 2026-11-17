@@ -273,7 +273,8 @@ export class DocumentRuntime {
       notify: () => this.notify(),
       markContentCommitted: () => this.saves.markContentCommitted(),
       noteStructuralChange: () => this.saves.noteStructuralChange(),
-      recordFailure: (code, message) => this.saves.recordFailure(code, message),
+      recordFailure: (code, message, details) =>
+        this.saves.recordFailure(code, message, details),
       saveError: () => this.saves.saveError,
     });
     this.projection = new EditorProjection({
@@ -924,6 +925,31 @@ export class DocumentRuntime {
         rebuild: false,
       });
       return { ok: true, assetId: asset.id };
+    });
+  }
+
+  /**
+   * Remove one unused asset record after its bytes reached the OS Trash (DR1b).
+   *
+   * `asset.remove` is the existing guarded path: it refuses a record that an
+   * image node or an image anchor still names, so a cleanup race loses nothing.
+   * There is deliberately no undo entry: the bytes are in the Trash and an
+   * inverse `asset.add` would restore a record pointing at a missing file. The
+   * Trash is the recovery path.
+   */
+  async removeUnusedAsset(assetId: string): Promise<ApplyOutcome> {
+    if (!this.editable) {
+      return { ok: false, message: 'This note is open read-only.' };
+    }
+    return this.session.queue.run(async () => {
+      const result = await this.runCommandInternal({ type: 'asset.remove', assetId });
+      if (!result.ok || result.document === undefined) {
+        return failedOutcome(result, 'The image couldn’t be removed.');
+      }
+      await this.acceptStructural(result.document, null, this.selectedBlockId, {
+        rebuild: false,
+      });
+      return { ok: true, assetId };
     });
   }
 

@@ -634,6 +634,7 @@ const SENTENCE_MODULES = [
   'src/main/markdown-file.ts',
   'src/main/backup-restore.ts',
   'src/main/core-reasons.ts',
+  'src/main/unused-images.ts',
   'src/main/document-settings.ts',
   'src/main/markdown-backup.ts',
   'src/renderer/src/state/runtime.ts',

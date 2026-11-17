@@ -174,8 +174,8 @@ export class SaveCoordinator {
   }
 
   /** Record one failed write: typed code/message verbatim, then backoff. */
-  recordFailure(code: SaveFailureCode, message: string): void {
-    const transition = nextSaveFailure(this.saveFailure, code, message);
+  recordFailure(code: SaveFailureCode, message: string, details?: string): void {
+    const transition = nextSaveFailure(this.saveFailure, code, message, details);
     this.setPhase({ status: 'error', dirty: true, failure: transition.failure });
     // A repeated failure must keep its recovery surface mounted, so notify even
     // when the visible message did not change (the attempt counter did).
@@ -222,7 +222,7 @@ export class SaveCoordinator {
       const result = await this.ports.write({ overwriteExternal: true });
       if (this.disposed) return { ok: false, message: 'The document was closed.' };
       if (!result.ok) {
-        this.recordFailure(result.code, result.error);
+        this.recordFailure(result.code, result.error, result.details);
         return { ok: false, message: result.error };
       }
       this.applyWriteSuccess(result.revision, epochAtStart);
@@ -313,7 +313,7 @@ export class SaveCoordinator {
     const result = await this.ports.write();
     if (this.disposed) return;
     if (!result.ok) {
-      this.recordFailure(result.code, result.error);
+      this.recordFailure(result.code, result.error, result.details);
       return;
     }
     this.applyWriteSuccess(result.revision, epochAtStart);
