@@ -19,12 +19,13 @@ describe('layout-aware zoom target', () => {
       resolveActiveZoom(
         view({ layout: 'continuous', zoom: 1.3, pageZoom: 0.4, pageFit: 'width' }),
       ),
-    ).toEqual({ layout: 'continuous', zoom: 1.3, pageFit: 'page' });
-    // Fit page is not a Continuous state; the control still reports a value.
+    ).toEqual({ layout: 'continuous', zoom: 1.3, pageFit: 'width' });
+    // Fit page is not a Continuous state; the control still reports the
+    // document default (Page opens at fit width).
     expect(resolveActiveZoom(null)).toEqual({
       layout: 'continuous',
       zoom: 1,
-      pageFit: 'page',
+      pageFit: 'width',
     });
   });
 

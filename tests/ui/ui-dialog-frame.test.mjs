@@ -405,7 +405,8 @@ describe('Dialog frame and A+B copy', () => {
         );
       },
       undefined,
-      { timeout: 10000 },
+      // A save-completion wait, not a behavioural deadline (PG1 harness hardening).
+      { timeout: 30000 },
     );
 
     // Reload from disk: 480, short description, path in Details, Cancel first.

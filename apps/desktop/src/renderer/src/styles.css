@@ -7935,13 +7935,41 @@ body.nf-dragging-block .nf-gutter-handle {
   outline: none;
 }
 
-.nf-page-counter {
-  min-width: 64px;
-  text-align: center;
+/*
+ * Page indicator (PG1): `N / M` next to the zoom. It names the page under the
+ * centre of the viewport and opens the page jump; the number in the seam is
+ * gone. Not a Continuous token: only Page has pages.
+ */
+.nf-page-position {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 52px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-control);
+  color: var(--text-2);
+  /* Shell chrome, but a fixed 11 px: a `nf-page-*` rule may never read the
+     shell UI scale (paper isolation). */
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-2);
   white-space: nowrap;
+}
+
+.nf-page-position[data-page-position-ready="true"] {
+  color: var(--text-1);
+}
+
+.nf-page-position:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-2);
+}
+
+.nf-page-position:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .nf-page-status {
@@ -7967,21 +7995,71 @@ body.nf-dragging-block .nf-gutter-handle {
   background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
 
+/*
+ * PG1 — Page is one vertical scroll of a single column of pages.
+ *
+ * Free scroll, no snapping, no paging state. The column is exactly as wide as
+ * the paper: at 100 % it fills the viewport, below it the stage padding centers
+ * it, above it the stage is wider than the viewport and scrolls horizontally.
+ * The gutter is reserved so fit width never depends on whether the vertical
+ * scrollbar is showing.
+ */
 .nf-page-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   background: var(--bg-canvas);
+  scroll-snap-type: none;
+}
+
+/* The scroll region is a keyboard target (arrows, PageUp/PageDown, Home/End);
+   the focus ring belongs to the fragments and controls inside it, not to the
+   whole column. */
+.nf-page-scroll:focus,
+.nf-page-scroll:focus-visible {
+  outline: none;
 }
 
 .nf-page-stage {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  min-width: max-content;
+  box-sizing: border-box;
+  min-width: 100%;
   padding: var(--nf-page-stage-pad-top) var(--nf-page-stage-pad-x)
     var(--nf-page-stage-pad-bottom);
+}
+
+.nf-page-column {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.nf-page-slot {
+  position: relative;
+  flex: none;
+  width: 100%;
+}
+
+/*
+ * The seam: pages touch, a 1 px hairline in the Page rule colour. It is drawn
+ * in the gap the next slot reserves, so no page loses a pixel and no new token
+ * is introduced. A trunk stops at the page edge and resumes on the next page;
+ * nothing is drawn across the rule.
+ */
+.nf-page-slot + .nf-page-slot {
+  margin-top: 1px;
+}
+
+.nf-page-slot + .nf-page-slot::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 1px;
+  background: var(--nf-page-rule);
+  pointer-events: none;
 }
 
 .nf-page-sheet-wrap {
@@ -7994,7 +8072,12 @@ body.nf-dragging-block .nf-gutter-handle {
   flex: none;
   background: #ffffff;
   color: var(--nf-page-ink);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+/* An unmounted page keeps its exact size and the paper colour, so scrolling
+   over it never shows a hole and the scrollbar stays truthful. */
+.nf-page-sheet-placeholder {
+  background: #ffffff;
 }
 
 .nf-page-sheet[data-overflow="1"] {

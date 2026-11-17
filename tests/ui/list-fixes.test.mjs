@@ -172,23 +172,17 @@ async function showPageRead() {
   await ui.ensureInteractionMode('read');
 }
 
-/** Navigate to one page through the page toolbar and wait for it to settle. */
+/** Scroll to one page start through the jump surface and wait for it to settle. */
 async function goToPage(index) {
-  for (let guard = 0; guard < 40; guard += 1) {
-    const current = Number(await pageView().getAttribute('data-current-page'));
-    if (current === index) return;
-    await page
-      .locator(`[aria-label="${current < index ? 'Next' : 'Previous'} page"]`)
-      .click();
-    await waitCurrentPage(current < index ? current + 1 : current - 1);
-  }
-  throw new Error(`could not reach page ${index}`);
+  await ui.gotoPage(index);
+  await waitCurrentPage(index);
 }
 
 /**
  * Walk every derived page from page 1 and record the explicit `.nf-li-marker`
  * glyphs of one block's fragments. The list block may continue on the next
- * page, and the page view renders one page at a time.
+ * page; Page mounts the visible page window, so each step reads the sheet of
+ * the page the indicator names.
  */
 async function blockMarkersByPage(blockId) {
   await goToPage(1);
@@ -196,7 +190,9 @@ async function blockMarkersByPage(blockId) {
   const pages = [];
   for (let index = 1; index <= pageCount; index += 1) {
     const markers = await pageView()
-      .locator(`.nf-page-fragment[data-fragment-block="${blockId}"] .nf-li-marker`)
+      .locator(
+        `.nf-page-sheet[data-page-number="${index}"] .nf-page-fragment[data-fragment-block="${blockId}"] .nf-li-marker`,
+      )
       .evaluateAll((elements) => elements.map((element) => element.textContent));
     pages.push({ page: index, markers });
     await goToPage(Math.min(index + 1, pageCount));

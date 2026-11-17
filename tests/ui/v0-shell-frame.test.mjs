@@ -850,9 +850,13 @@ describe('V0 visual shell', () => {
     assert.equal(await page.locator('.nf-page-toolbar').count(), 0, 'the old PageToolbar is gone');
     assert.equal(await header.locator('[data-header-undo="true"]').count(), 1);
     assert.equal(await header.locator('[data-header-redo="true"]').count(), 1);
-    assert.equal(await header.locator('[data-page-nav="prev"]').count(), 1);
-    assert.equal(await header.locator('[data-page-nav="next"]').count(), 1);
-    assert.match(await header.locator('[data-page-counter]').innerText(), /Page 1 of \d+/);
+    assert.equal(await header.locator('[data-page-nav]').count(), 0, 'no pager arrows (PG1)');
+    assert.equal(await header.locator('[data-page-counter]').count(), 0, 'no page badge (PG1)');
+    assert.match(
+      await page.locator('.nf-toolbar [data-page-position]').innerText(),
+      /^1 \/ \d+$/,
+      'the Toolbar indicator reads the page under the viewport centre',
+    );
     assert.equal(await header.locator('[data-page-export="true"]').count(), 1);
     assert.equal(await header.locator('[data-page-fit]').count(), 0, 'no page fit in the header');
     assert.equal(await header.locator('[data-page-zoom]').count(), 0, 'no page zoom in the header');
@@ -1425,7 +1429,7 @@ describe('V0 visual shell', () => {
     assert.equal(initial.layout, 'continuous');
     assert.equal(initial.zoom, 1);
     assert.equal(initial.pageZoom, 1);
-    assert.equal(initial.pageFit, 'page');
+    assert.equal(initial.pageFit, 'width', 'Page opens at fit width, 100 %');
     assert.equal(await page.locator('[data-zoom-target]').getAttribute('data-zoom-target'), 'continuous');
     assert.deepEqual(
       (await page.locator('[data-zoom-target]').getAttribute('data-zoom-commands')).split(' '),
@@ -1505,7 +1509,7 @@ describe('V0 visual shell', () => {
     await page.waitForFunction(
       (path) => {
         const view = window.__noteforestTest.viewState()[path];
-        return view?.pageFit === 'none' && Math.abs(view?.pageZoom - 1) < 0.001;
+        return view?.pageFit === 'width' && Math.abs(view?.pageZoom - 1) < 0.001;
       },
       packagePath,
       { timeout: 10000 },

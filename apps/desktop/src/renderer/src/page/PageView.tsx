@@ -1,14 +1,22 @@
 /**
- * Paginated A4 page layout (ADR-0007).
+ * Paginated A4 page layout (ADR-0007), presented as one scroll of pages (PG1).
  *
  * Pages come from the shared layout engine and paginator; this component only
  * positions derived fragments and renders the static segment markup. It never
  * measures content, never re-paginates with CSS, and never changes page geometry
  * while an edit is open. Fit/zoom and navigation are view state only.
  *
+ * The surface is one vertical column of touching pages with a 1 px seam, free
+ * scroll, and no per-page paging state. Only the pages around the viewport are
+ * mounted (`PAGE_OVERSCAN` on each side); the rest are exact-size placeholders
+ * so the scrollbar stays truthful and the page model keeps every page. The
+ * toolbar indicator reads the page under the centre of the viewport.
+ *
  * Page Read is the exact read-only proof. Page Edit adds one active block
  * overlay (`PageBlockEditor`) anchored to a fragment; the page behind stays the
- * same A4 layout until the block commit re-paginates from the page model.
+ * same A4 layout until the block commit re-paginates from the page model. The
+ * overlay's page stays mounted while the overlay is open, so scrolling never
+ * remounts it.
  *
  * The page model lives here, not in `DocumentEditor`: Continuous has no pages
  * and must not measure anything. Switching to Page mounts this component and
@@ -40,7 +48,7 @@ import {
   buildPageEdgeModel,
   pageCssVariables,
 } from '@noteforest/layout';
-import { openBlockInContinuous, openPageCardMenu } from '../actions';
+import { goToActivePage, openBlockInContinuous, openPageCardMenu } from '../actions';
 import { useRuntime } from '../state/registry';
 import { useShell, currentFindResult } from '../state/shell';
 import type { DocumentRuntime } from '../state/runtime';
@@ -54,8 +62,8 @@ import { PageChromeView } from './PageChromeView';
 import { commitPageEdit, type PageEditCommitReason } from './page-edit-state';
 import { corePageGeometry } from './adapter';
 import { clampPageNumber } from './model';
-import { fitZoomToSync } from './fit-sync';
 import { PageEdges } from './PageEdges';
+import { clearPageStatus, publishPageStatus } from './page-status';
 import { usePageSettings } from '../state/settings';
 import {
   contentWrapperHtml,
@@ -70,6 +78,15 @@ import {
 } from './projection';
 import { registerPrintPageModel, unregisterPrintPageModel } from './print-model-registry';
 import { usePageModel } from './usePageModel';
+import {
+  PAGE_OVERSCAN,
+  clampScrollTop,
+  pageAtCentre,
+  pageStartOffset,
+  pageStepPx,
+  pageSurfaceMetrics,
+  visiblePageRange,
+} from './scroll';
 
 interface PageViewProps {
   runtime: DocumentRuntime;
@@ -79,16 +96,9 @@ interface PageViewProps {
 }
 
 /** Matches `.nf-page-stage` padding (shell C: 14 px top, 0 lateral, 8 px bottom). */
-const STAGE_PADDING_X = GEOMETRY.pageStagePaddingX;
 const STAGE_PADDING_Y =
   GEOMETRY.pageStagePaddingTop + GEOMETRY.pageStagePaddingBottom;
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 2.5;
-
-function clampZoom(value: number): number {
-  if (!Number.isFinite(value)) return 1;
-  return Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)) * 100) / 100;
-}
+const STAGE_PADDING_TOP = GEOMETRY.pageStagePaddingTop;
 
 function titleOf(runtime: DocumentRuntime, blockId: string): string {
   return blockTitle(runtime.document.blocks[blockId]);
@@ -133,7 +143,7 @@ interface PageFragmentViewProps {
   anchorWarnings: readonly AnchorAttachment[];
   editingEnabled: boolean;
   onSelect: (blockId: string) => void;
-  onEdit: (blockId: string) => void;
+  onEdit: (blockId: string, pageNumber: number) => void;
   onOpen: (blockId: string) => void;
 }
 
@@ -182,7 +192,7 @@ function PageFragmentView({
     event.stopPropagation();
     onSelect(fragment.blockId);
     if (event.key !== 'Enter') return;
-    if (editingEnabled) onEdit(fragment.blockId);
+    if (editingEnabled) onEdit(fragment.blockId, page.pageNumber);
     else onOpen(fragment.blockId);
   };
   return (
@@ -220,7 +230,7 @@ function PageFragmentView({
         onSelect(fragment.blockId);
       }}
       onDoubleClick={() => {
-        if (editingEnabled) onEdit(fragment.blockId);
+        if (editingEnabled) onEdit(fragment.blockId, page.pageNumber);
         else onOpen(fragment.blockId);
       }}
       onContextMenu={(event) => {
@@ -246,6 +256,8 @@ interface PageSurfaceProps {
   page: DerivedPage | null;
   pageNumber: number;
   pageCount: number;
+  /** The page under the viewport centre: the sheet the toolbar names. */
+  current?: boolean;
   chrome: ProjectedPageChrome;
   geometry: PageGeometry;
   blocking: readonly LayoutDefect[];
@@ -258,6 +270,7 @@ export function PageSurface({
   page,
   pageNumber,
   pageCount,
+  current = false,
   chrome,
   geometry,
   blocking,
@@ -277,6 +290,7 @@ export function PageSurface({
       aria-label={`Page ${pageNumber} of ${pageCount}`}
       data-page-number={pageNumber}
       data-page-count={pageCount}
+      data-page-current={current ? 'true' : 'false'}
       data-chapter-id={page?.chapterId ?? 'empty'}
       data-overflow={page?.overflow === true ? '1' : '0'}
       data-page-width-px={geometry.pageWidthPx.toFixed(3)}
@@ -317,7 +331,7 @@ export function PageView({
   const model = usePageModel(runtime, active, settings);
   const view = useShell((state) => state.viewByDoc[runtime.packagePath]);
   const currentPage = view?.currentPage ?? 1;
-  const pageFit = view?.pageFit ?? 'page';
+  const pageFit = view?.pageFit ?? 'width';
   const pageZoom = view?.pageZoom ?? 1;
   const selectedBlockId = runtime.selectedBlockId;
   // Find (`⌘F`): a block hit goes to the block's page and rings the block; the
@@ -335,6 +349,7 @@ export function PageView({
   /** One active overlay: block + the fragment/page box that anchored it. */
   const [editSession, setEditSession] = useState<{
     blockId: string;
+    pageNumber: number;
     fragment: PageFragment;
   } | null>(null);
   const editingBlockIdRef = useRef<string | null>(null);
@@ -376,9 +391,9 @@ export function PageView({
     });
   }, [model.document, model.layout, model.pages, model.defects, settings, geometry, displayAssets, runtime.document]);
   const projectedPage = projection.pages[pageNumber - 1] ?? null;
-  // The shared page-edge mapper, not a Page-local router. Only the current
-  // page's slice is handed to the SVG; group trunks also expose pass-through
-  // segments for pages with no child of that parent.
+  // The shared page-edge mapper, not a Page-local router. Every mounted page
+  // gets its own slice; group trunks also expose pass-through segments for
+  // pages with no child of that parent.
   const pageEdgeModel = useMemo<PageEdgeModel>(() => {
     if (model.layout === null) return { edges: [], trunks: [] };
     return buildPageEdgeModel(model.layout, model.pages);
@@ -389,6 +404,109 @@ export function PageView({
   const pageBlocking = projectedPage?.blocking ?? [];
   const segmentsByBlock = projectedPage?.segmentsByBlock ?? {};
   const anchorWarnings = projectedPage?.anchorWarningsByBlock ?? {};
+
+  // One scale for the column: 100 % is fit width (the rest state), `page`
+  // fits the whole sheet, and a manual zoom stays in the 50–200 % range.
+  const metrics = useMemo(
+    () =>
+      pageSurfaceMetrics({
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        pageWidthPx: geometry.pageWidthPx,
+        pageHeightPx: geometry.pageHeightPx,
+        fit: pageFit,
+        zoom: pageZoom,
+        padTop: STAGE_PADDING_TOP,
+        padBottom: STAGE_PADDING_Y - STAGE_PADDING_TOP,
+      }),
+    [viewport, geometry, pageFit, pageZoom],
+  );
+  const stepPx = pageStepPx(metrics.scale, geometry.pageHeightPx);
+  const paperWidth = geometry.pageWidthPx * metrics.scale;
+  // The scroll content is the paper column plus its symmetric margins: a paper
+  // narrower than the viewport is centered, a wider one starts at the origin so
+  // its left edge stays reachable.
+  const stageWidth = Math.max(viewport.width, paperWidth + 2 * metrics.gutter);
+
+  /** 0-based window of mounted pages; the rest are exact-size placeholders. */
+  const [range, setRange] = useState({ first: 0, last: PAGE_OVERSCAN });
+
+  const syncRange = useCallback(
+    (element: HTMLDivElement) => {
+      const next = visiblePageRange({
+        scrollTop: element.scrollTop,
+        viewportHeight: element.clientHeight,
+        stepPx,
+        pageCount,
+        padTop: STAGE_PADDING_TOP,
+      });
+      setRange((previous) =>
+        previous.first === next.first && previous.last === next.last ? previous : next,
+      );
+    },
+    [stepPx, pageCount],
+  );
+
+  const pageNumberRef = useRef(pageNumber);
+  pageNumberRef.current = pageNumber;
+
+  const onScroll = (): void => {
+    const element = scrollRef.current;
+    if (element === null) return;
+    const next = pageAtCentre({
+      scrollTop: element.scrollTop,
+      viewportHeight: element.clientHeight,
+      stepPx,
+      pageCount,
+      padTop: STAGE_PADDING_TOP,
+      current: pageNumberRef.current,
+    });
+    syncRange(element);
+    if (next !== pageNumberRef.current) {
+      // A scroll is a movement, not an edit: never commit here. The indicator
+      // follows the same page the store keeps, so the re-anchor effect below
+      // is a no-op after this write.
+      pageNumberRef.current = next;
+      useShell.getState().setDocumentPage(runtime.packagePath, next);
+    }
+  };
+
+  /**
+   * Put one page start at the top of the viewport when the store asks for a
+   * page the centre does not already show (jump, `⌘↑`/`⌘↓`, find, Breaks,
+   * Health, session restore, zoom change). Re-reading the centre first keeps
+   * the effect idempotent: a scroll-derived store write never scrolls again.
+   */
+  const anchorToPage = useCallback(
+    (element: HTMLDivElement, target: number) => {
+      const centre = pageAtCentre({
+        scrollTop: element.scrollTop,
+        viewportHeight: element.clientHeight,
+        stepPx,
+        pageCount,
+        padTop: STAGE_PADDING_TOP,
+        current: target,
+      });
+      if (centre === target) return;
+      const top = clampScrollTop(
+        pageStartOffset(target - 1, stepPx, STAGE_PADDING_TOP),
+        element.scrollHeight,
+        element.clientHeight,
+      );
+      if (Math.abs(element.scrollTop - top) < 0.5) return;
+      element.scrollTop = top;
+    },
+    [stepPx, pageCount],
+  );
+  useLayoutEffect(() => {
+    if (!active) return;
+    const element = scrollRef.current;
+    if (element === null) return;
+    // The first ready pass restores the stored page; later passes follow the
+    // store only when the centre disagrees with it.
+    anchorToPage(element, pageNumber);
+    syncRange(element);
+  }, [active, anchorToPage, pageNumber, pageCount, syncRange, stepPx]);
 
   // Derived model may shrink the page count; keep the shell page in range.
   // Wait for the first derived model: clamping against the loading state would
@@ -440,9 +558,33 @@ export function PageView({
     settings,
   ]);
 
+  // The toolbar is a sibling of the canvas: publish the two derived values it
+  // cannot measure itself (page count and the fit-relative zoom).
+  useLayoutEffect(() => {
+    if (!active) return undefined;
+    publishPageStatus({
+      packagePath: runtime.packagePath,
+      pageCount,
+      percent: metrics.percent,
+      ready: model.ready,
+      updating: model.updating,
+    });
+    return () => clearPageStatus(runtime.packagePath);
+  }, [
+    active,
+    runtime.packagePath,
+    pageCount,
+    metrics.percent,
+    model.ready,
+    model.updating,
+  ]);
+
   useEffect(() => {
     if (!active) return undefined;
-    const element = rootRef.current;
+    // The scroll region is the keyboard target: arrows/PageDown scroll the
+    // pages natively and the page-level keys (⌥↑/↓, Escape, Enter) are handled
+    // on the same element.
+    const element = scrollRef.current;
     if (element === null) return undefined;
     element.focus({ preventScroll: true });
     return undefined;
@@ -472,53 +614,12 @@ export function PageView({
     };
   }, [active]);
 
-  useEffect(() => {
-    if (!active) return;
-    const element = scrollRef.current;
-    if (element === null) return;
-    element.scrollTop = 0;
-    element.scrollLeft = 0;
-  }, [active, pageNumber]);
-
-  const effectiveZoom = useMemo(() => {
-    if (pageFit === 'page') {
-      const byWidth = (viewport.width - 2 * STAGE_PADDING_X) / geometry.pageWidthPx;
-      const byHeight = (viewport.height - STAGE_PADDING_Y) / geometry.pageHeightPx;
-      return clampZoom(Math.min(byWidth, byHeight, 1));
-    }
-    if (pageFit === 'width') {
-      return clampZoom((viewport.width - 2 * STAGE_PADDING_X) / geometry.pageWidthPx);
-    }
-    return clampZoom(pageZoom);
-  }, [pageFit, pageZoom, viewport, geometry.pageWidthPx, geometry.pageHeightPx]);
-
-  // Keep the stored manual zoom in sync with the effective fit zoom so a later
-  // global ⌘+/⌘− starts from what the user sees, not from a stale 100%.
-  //
-  // The effect can still be pending when a newer fit lands (⇧2 followed by
-  // ⌘0 moves through fit → manual zoom). A passive effect from the previous
-  // commit then runs after the newer store write, so it must never write its
-  // own closure's fit back: the live fit is authoritative (`fitZoomToSync`).
-  useEffect(() => {
-    if (!active) return;
-    const live = useShell.getState().viewByDoc[runtime.packagePath];
-    const target = fitZoomToSync(live, pageFit, effectiveZoom);
-    if (target !== null) {
-      useShell.getState().setDocumentPageZoom(runtime.packagePath, target);
-    }
-  }, [active, effectiveZoom, pageFit, runtime.packagePath]);
-
   const goToPage = useCallback(
     (next: number) => {
       if (pageCount <= 0) return;
-      void commitPageEdit(runtime.packagePath).then((committed) => {
-        if (!committed) return;
-        useShell
-          .getState()
-          .setDocumentPage(runtime.packagePath, clampPageNumber(next, pageCount));
-      });
+      goToActivePage(clampPageNumber(next, pageCount));
     },
-    [pageCount, runtime.packagePath],
+    [pageCount],
   );
 
   const setFit = useCallback(
@@ -537,7 +638,7 @@ export function PageView({
 
   /** Open the one active block overlay; commit the previous block first. */
   const editBlock = useCallback(
-    (blockId: string) => {
+    (blockId: string, pageOfBlock: number) => {
       if (!pageEditing) {
         openBlockInContinuous(blockId);
         return;
@@ -553,19 +654,19 @@ export function PageView({
         ) {
           return;
         }
-        // Re-read the current page after the commit: an earlier edit may have
+        // Re-read the page after the commit: an earlier edit may have
         // re-paginated the model between the click and this continuation.
-        const currentPage = pageRef.current;
-        const fragment = currentPage?.fragments.find((item) => item.blockId === blockId);
+        const target = model.pages[pageOfBlock - 1] ?? pageRef.current;
+        const fragment = target?.fragments.find((item) => item.blockId === blockId);
         if (fragment === undefined) {
           openBlockInContinuous(blockId);
           return;
         }
         runtime.selectBlock(blockId);
-        setEditSession({ blockId, fragment });
+        setEditSession({ blockId, pageNumber: pageOfBlock, fragment });
       })();
     },
-    [pageEditing, runtime],
+    [model.pages, pageEditing, runtime],
   );
 
   const committed = useCallback(
@@ -632,10 +733,12 @@ export function PageView({
       'button, a, input, textarea, select, [contenteditable="true"]',
     );
     // The Page Edit overlay is a real text editor. Page-level single-key
-    // shortcuts (⇧1/⇧2, ⌥↑/↓, PageUp/PageDown) must not swallow punctuation or
-    // word navigation while the caret is inside it; the toolbar buttons remain
+    // shortcuts (⇧1/⇧2, ⌥↑/↓, ⌘↑/↓) must not swallow punctuation or word
+    // navigation while the caret is inside it; the toolbar buttons remain
     // the page-navigation path and they commit the overlay first.
     if (target.closest('[contenteditable="true"]') !== null) return;
+    // `⌘↑`/`⌘↓` live in the global shell channel (App), so they keep working
+    // after the jump moved focus to the toolbar indicator.
     if (event.altKey && !event.metaKey && !event.ctrlKey) {
       if (event.key === 'ArrowUp') {
         event.preventDefault();
@@ -647,16 +750,6 @@ export function PageView({
         goToPage(pageNumber + 1);
         return;
       }
-    }
-    if (event.key === 'PageUp') {
-      event.preventDefault();
-      goToPage(pageNumber - 1);
-      return;
-    }
-    if (event.key === 'PageDown') {
-      event.preventDefault();
-      goToPage(pageNumber + 1);
-      return;
     }
     if (event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
       if (event.code === 'Digit1') {
@@ -679,7 +772,7 @@ export function PageView({
     }
     if (event.key === 'Enter' && interactive === null && selectedBlockId !== null) {
       event.preventDefault();
-      if (pageEditing) editBlock(selectedBlockId);
+      if (pageEditing) editBlock(selectedBlockId, pageNumber);
       else openBlockInContinuous(selectedBlockId);
     }
   };
@@ -738,7 +831,21 @@ export function PageView({
 
   const placeholderSurface = model.ready && model.error === null && page === null;
   const showPlaceholder = placeholderSurface || !model.ready || model.error !== null;
+  // The overlay's page stays mounted, so scrolling can never remount it.
+  const editPageNumber = editSession === null ? null : editSession.pageNumber;
+  // Every page owns a slot: the mounted window renders the paper, the rest are
+  // exact-size placeholders, so the scrollbar and the indicator stay truthful
+  // at both ends of the note. An open overlay pins its page into the window.
+  const slots: number[] = [];
+  for (let index = 0; index < pageCount; index += 1) slots.push(index);
+  const isMounted = (index: number): boolean =>
+    (index >= range.first && index <= range.last) || index === (editPageNumber ?? -1) - 1;
+  const mountedCount = slots.reduce((total, index) => total + (isMounted(index) ? 1 : 0), 0);
+  const fragmentCount = page?.fragments.length ?? 0;
 
+  // The region itself is a focus target so the page-level keys (Escape,
+  // ⌥↑/↓, Enter) work from the header too; the scroll region inside it is a
+  // second, native scroll target for arrows, PageUp/PageDown, Home/End.
   return (
     <div
       className="nf-page-view"
@@ -762,25 +869,19 @@ export function PageView({
       data-model-compute-ms={
         model.lastComputeMs === null ? undefined : Math.round(model.lastComputeMs)
       }
-      data-fragment-count={page?.fragments.length ?? 0}
+      data-fragment-count={fragmentCount}
       data-continuation-out={page?.continuationOut.length ?? 0}
       data-continuation-in={page?.continuationIn.length ?? 0}
       data-page-edge-count={pageEdges.length}
       data-page-trunk-count={pageTrunks.length}
+      data-page-fit={pageFit}
+      data-page-scale={metrics.scale}
+      data-page-zoom={metrics.percent}
+      data-mounted-page-count={showPlaceholder ? 1 : mountedCount}
       data-error={model.error !== null ? 'true' : undefined}
       data-empty={placeholderSurface ? 'true' : undefined}
     >
-      {active ? (
-        <CanvasHeader
-          page={{
-            pageNumber,
-            pageCount,
-            updating: model.updating,
-            onPrevious: () => goToPage(pageNumber - 1),
-            onNext: () => goToPage(pageNumber + 1),
-          }}
-        />
-      ) : null}
+      {active ? <CanvasHeader page={{ updating: model.updating }} /> : null}
       {model.error !== null ? (
         <div className="nf-page-banner nf-page-banner-error" role="status">
           Page layout error: {model.error}
@@ -792,63 +893,130 @@ export function PageView({
           {blocking[0]?.message}
         </div>
       ) : null}
-      <div className="nf-page-scroll" ref={scrollRef} data-page-scroll="true">
-        <div className="nf-page-stage" data-page-stage="true">
-          <div
-            className="nf-page-sheet-wrap"
-            style={{ zoom: effectiveZoom }}
-            data-page-zoom={Math.round(effectiveZoom * 100)}
-          >
-            <PageSurface
-              page={showPlaceholder ? null : page}
-              pageNumber={showPlaceholder ? 1 : pageNumber}
-              pageCount={showPlaceholder ? 1 : pageCount}
-              chrome={pageChrome}
-              geometry={geometry}
-              blocking={showPlaceholder ? [] : pageBlocking}
-              edges={showPlaceholder ? [] : pageEdges}
-              trunks={showPlaceholder ? [] : pageTrunks}
+      <div
+        className="nf-page-scroll"
+        ref={scrollRef}
+        data-page-scroll="true"
+        role="region"
+        aria-label="Pages"
+        tabIndex={0}
+        onScroll={showPlaceholder ? undefined : onScroll}
+      >
+        <div
+          className="nf-page-stage"
+          data-page-stage="true"
+          style={{ width: `${stageWidth}px`, paddingLeft: `${metrics.gutter}px`, paddingRight: `${metrics.gutter}px` }}
+        >
+          {showPlaceholder ? (
+            <div
+              className="nf-page-sheet-wrap"
+              style={{ zoom: metrics.scale }}
+              data-page-zoom={metrics.percent}
+              data-page-scale={metrics.scale}
             >
-              {showPlaceholder ? (
-                placeholder
-              ) : (
-                <>
-                  {(page?.fragments ?? []).map((fragment) => (
-                    <PageFragmentView
-                      key={`${fragment.blockId}-${fragment.startSegment}-${fragment.page.y.toFixed(2)}`}
-                      runtime={runtime}
-                      fragment={fragment}
-                      page={page as DerivedPage}
-                      segments={segmentsByBlock[fragment.blockId] ?? []}
-                      selected={selectedBlockId === fragment.blockId}
-                      findCurrent={
-                        findBlockId !== null && findBlockId === fragment.blockId
-                      }
-                      blocking={blocking.filter((defect) => defect.blockId === fragment.blockId)}
-                      anchorWarnings={
-                        fragment.isFirst ? anchorWarnings[fragment.blockId] ?? [] : []
-                      }
-                      editingEnabled={pageEditing}
-                      onSelect={selectBlock}
-                      onEdit={editBlock}
-                      onOpen={openBlockInContinuous}
-                    />
-                  ))}
-                </>
-              )}
-            </PageSurface>
-            {editSession !== null && pageEditing ? (
-              <PageBlockEditor
-                key={`${editSession.blockId}:${editSession.fragment.page.y.toFixed(2)}`}
-                runtime={runtime}
-                blockId={editSession.blockId}
-                fragment={editSession.fragment}
+              <PageSurface
+                page={null}
+                pageNumber={1}
+                pageCount={1}
+                current
+                chrome={pageChrome}
                 geometry={geometry}
-                settings={settings}
-                onCommitted={(reason) => committed(editSession.blockId, reason)}
-              />
-            ) : null}
-          </div>
+                blocking={[]}
+                edges={[]}
+                trunks={[]}
+              >
+                {placeholder}
+              </PageSurface>
+            </div>
+          ) : (
+            <div className="nf-page-column" data-page-column="true">
+              {slots.map((index) => {
+                const slotPage = model.pages[index];
+                if (slotPage === undefined) return null;
+                const slotNumber = index + 1;
+                const projected = projection.pages[index] ?? null;
+                const isEditing = editPageNumber === slotNumber;
+                return (
+                  <div
+                    className="nf-page-slot"
+                    key={`page-${slotNumber}`}
+                    data-page-slot={slotNumber}
+                    data-page-slot-mounted={isMounted(index) ? 'true' : 'false'}
+                    data-page-slot-current={slotNumber === pageNumber ? 'true' : undefined}
+                  >
+                    {isMounted(index) ? (
+                      <div
+                        className="nf-page-sheet-wrap"
+                        style={{ zoom: metrics.scale }}
+                        data-page-zoom={metrics.percent}
+                        data-page-scale={metrics.scale}
+                      >
+                        <PageSurface
+                          page={slotPage}
+                          pageNumber={slotNumber}
+                          pageCount={pageCount}
+                          current={slotNumber === pageNumber}
+                          chrome={projected?.chrome ?? pageChrome}
+                          geometry={geometry}
+                          blocking={projected?.blocking ?? []}
+                          edges={pageEdgeModel.edges[index] ?? []}
+                          trunks={pageEdgeModel.trunks[index] ?? []}
+                        >
+                          {slotPage.fragments.map((fragment) => (
+                            <PageFragmentView
+                              key={`${fragment.blockId}-${fragment.startSegment}-${fragment.page.y.toFixed(2)}`}
+                              runtime={runtime}
+                              fragment={fragment}
+                              page={slotPage}
+                              segments={projected?.segmentsByBlock[fragment.blockId] ?? []}
+                              selected={selectedBlockId === fragment.blockId}
+                              findCurrent={
+                                findBlockId !== null && findBlockId === fragment.blockId
+                              }
+                              blocking={blocking.filter(
+                                (defect) => defect.blockId === fragment.blockId,
+                              )}
+                              anchorWarnings={
+                                fragment.isFirst
+                                  ? projected?.anchorWarningsByBlock[fragment.blockId] ?? []
+                                  : []
+                              }
+                              editingEnabled={pageEditing}
+                              onSelect={selectBlock}
+                              onEdit={editBlock}
+                              onOpen={openBlockInContinuous}
+                            />
+                          ))}
+                        </PageSurface>
+                        {isEditing && editSession !== null && pageEditing ? (
+                          <PageBlockEditor
+                            key={`${editSession.blockId}:${editSession.fragment.page.y.toFixed(2)}`}
+                            runtime={runtime}
+                            blockId={editSession.blockId}
+                            fragment={editSession.fragment}
+                            geometry={geometry}
+                            settings={settings}
+                            onCommitted={(reason) => committed(editSession.blockId, reason)}
+                          />
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div
+                        className="nf-page-sheet-placeholder"
+                        style={{
+                          width: `${geometry.pageWidthPx}px`,
+                          height: `${geometry.pageHeightPx}px`,
+                          zoom: metrics.scale,
+                        }}
+                        aria-hidden="true"
+                        data-page-placeholder={slotNumber}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

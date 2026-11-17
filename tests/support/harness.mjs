@@ -179,6 +179,13 @@ export function createHarness({ tempRoot }) {
     );
   }
 
+  /**
+   * Every runtime reports `saved`. The assertion (all runtimes, not just the
+   * active one) is the point; the wait is generous because a loaded machine can
+   * spend a while in a build or a parallel suite before the main process writes
+   * the package. A correct app must not fail here, and a real save failure still
+   * never reaches `saved`.
+   */
   async function waitSaved() {
     await page.waitForFunction(
       () => {
@@ -189,7 +196,7 @@ export function createHarness({ tempRoot }) {
         );
       },
       undefined,
-      { timeout: 10000 },
+      { timeout: 30000 },
     );
   }
 

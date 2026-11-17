@@ -65,6 +65,8 @@ import type { Branch, Document } from '@noteforest/core';
 import { setEditorChapterFocus } from './editor/editor-ui';
 import { chapterInsertIndex } from './lib/chapters';
 import { chooseHistoryRoute, type HistoryAction } from './lib/history-routing';
+import { clampPageNumber } from './page/model';
+import { pageStatusFor, stepPageZoom } from './page/page-status';
 import {
   imageActionLabel,
   imageAnchorAuthoringGate,
@@ -863,21 +865,69 @@ export function setActivePageFit(fit: PageFit): void {
   shell().setDocumentPageFit(path, fit);
 }
 
+/**
+ * The page the toolbar currently names: the store's page, which the Page
+ * surface keeps equal to the page under the centre of the viewport.
+ */
+function activePagePosition(path: string): { page: number; pageCount: number; percent: number } {
+  const view = shell().viewByDoc[path];
+  const status = pageStatusFor(path);
+  const pageCount = status?.pageCount ?? 0;
+  const page = clampPageNumber(view?.currentPage ?? 1, pageCount);
+  const percent = status?.percent ?? Math.round((view?.pageZoom ?? 1) * 100);
+  return { page, pageCount, percent };
+}
+
+/**
+ * Move the surface to one page start. The indicator jump, `⌘↑`/`⌘↓`, the
+ * `Breaks` list, find and Health all go through the same view-state write; the
+ * Page surface scrolls to the page, it never re-paginates. An open Page Edit
+ * overlay commits first, and a rejected commit keeps the overlay and the
+ * scroll position instead of dropping the text.
+ */
+export function goToActivePage(pageNumber: number): void {
+  const runtime = activeRuntime();
+  if (runtime === null) return;
+  const path = runtime.packagePath;
+  const target = Math.max(1, Math.round(pageNumber));
+  void commitPageEdit(path).then((committed) => {
+    if (!committed || getRuntime(path) !== runtime) return;
+    shell().setDocumentPage(path, target);
+  });
+}
+
+/** `⌘↑` / `⌘↓`: the previous or next page start. */
+export function stepActivePage(delta: number): void {
+  const path = shell().activeTab;
+  if (path === null) return;
+  const { page, pageCount } = activePagePosition(path);
+  if (pageCount <= 0) return;
+  const target = page + (delta < 0 ? -1 : 1);
+  if (target < 1 || target > pageCount) return;
+  goToActivePage(target);
+}
+
+/**
+ * The zoom stepper in Page. 100 % is fit width; a step from a fit mode starts
+ * from the percentage the user actually sees (the Page surface publishes it),
+ * then owns the manual value.
+ */
 export function adjustActivePageZoom(delta: number): void {
   const state = shell();
   const path = state.activeTab;
   if (path === null) return;
-  const view = state.viewByDoc[path];
+  const { percent } = activePagePosition(path);
   state.setDocumentPageFit(path, 'none');
-  state.setDocumentPageZoom(path, (view?.pageZoom ?? 1) + delta);
+  state.setDocumentPageZoom(path, stepPageZoom(percent, delta * 100));
 }
 
+/** Reset Page to the rest state: fit width at 100 %. */
 export function resetActivePageZoom(): void {
   const state = shell();
   const path = state.activeTab;
   if (path === null) return;
-  state.setDocumentPageFit(path, 'none');
   state.setDocumentPageZoom(path, 1);
+  state.setDocumentPageFit(path, 'width');
 }
 
 /**

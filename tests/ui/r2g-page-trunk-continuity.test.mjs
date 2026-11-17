@@ -73,6 +73,11 @@ async function showPageRead() {
   await ui.ensureInteractionMode('read');
 }
 
+/** The sheet the toolbar indicator names: page-local queries read this one. */
+function currentSheet() {
+  return activePageView().locator('.nf-page-sheet[data-page-current="true"]');
+}
+
 async function pageCount() {
   return Number(await activePageView().getAttribute('data-page-count'));
 }
@@ -81,32 +86,26 @@ async function currentPage() {
   return Number(await activePageView().getAttribute('data-current-page'));
 }
 
+/** Scroll to a page start (the jump surface) and wait for the settled page. */
 async function goToPage(target) {
-  let current = await currentPage();
-  while (current !== target) {
-    const from = current;
-    await activePageView()
-      .locator(`[data-page-nav="${target > current ? 'next' : 'prev'}"]`)
-      .click();
-    current = target > current ? from + 1 : from - 1;
-    await page.waitForFunction(
-      (expected) => {
-        const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
-        return (
-          view !== null &&
-          Number(view.getAttribute('data-current-page')) === expected &&
-          view.getAttribute('data-ready') === 'true' &&
-          view.getAttribute('data-updating') === 'false'
-        );
-      },
-      current,
-      { timeout: 10000 },
-    );
-  }
+  await ui.gotoPage(target);
+  await page.waitForFunction(
+    (expected) => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      return (
+        view !== null &&
+        Number(view.getAttribute('data-current-page')) === expected &&
+        view.getAttribute('data-ready') === 'true' &&
+        view.getAttribute('data-updating') === 'false'
+      );
+    },
+    target,
+    { timeout: 10000 },
+  );
 }
 
 async function fragmentBoxes() {
-  return activePageView()
+  return currentSheet()
     .locator('.nf-page-fragment')
     .evaluateAll((elements) =>
       elements.map((element) => ({
@@ -127,7 +126,7 @@ function fragmentOf(boxes, blockId) {
 }
 
 async function contentBox() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-content]')
     .evaluate((element) => ({
       width: Number.parseFloat(element.style.width),
@@ -201,7 +200,7 @@ function routeHitsRect(points, rect, tolerance = 1) {
 }
 
 async function readEdges() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-edge-id]')
     .evaluateAll((elements) =>
       elements.map((element) => {
@@ -238,7 +237,7 @@ async function readEdges() {
 }
 
 async function readTrunks() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-trunk-id]')
     .evaluateAll((elements) =>
       elements.map((element) => {
@@ -409,7 +408,7 @@ describe('R2g Page trunk continuity', () => {
     assert.equal(page1Edges.length, 1, 'only the same-page child 1 arm is on page 1');
     assert.equal(page1Trunks.length, 2, 'root and nested below trunks are independent');
     assert.equal(
-      await activePageView().locator('[data-page-edge-label]').count(),
+      await currentSheet().locator('[data-page-edge-label]').count(),
       0,
       'no p.N indicator is drawn for a tree edge',
     );
@@ -495,7 +494,7 @@ describe('R2g Page trunk continuity', () => {
     assert.equal(page2Edges.length, 2, 'the nested arm and the great-grandchild arm are on page 2');
     assert.equal(page2Trunks.length, 3, 'the root trunk passes through this page');
     assert.equal(
-      await activePageView().locator('[data-page-edge-label]').count(),
+      await currentSheet().locator('[data-page-edge-label]').count(),
       0,
       'a pass-through trunk has no page chip',
     );
@@ -567,7 +566,7 @@ describe('R2g Page trunk continuity', () => {
     assert.equal(page3Edges.length, 1);
     assert.equal(page3Trunks.length, 1, 'the nested trunk does not continue past its last arm');
     assert.equal(
-      await activePageView().locator('[data-page-edge-label]').count(),
+      await currentSheet().locator('[data-page-edge-label]').count(),
       0,
       'the last tree arm has no page chip',
     );
@@ -669,7 +668,7 @@ describe('R2g Page trunk continuity', () => {
     await goToPage(1);
     await setEditMode(packagePath);
     assert.equal(
-      await activePageView().locator('.nf-page-edges').count(),
+      await currentSheet().locator('.nf-page-edges').count(),
       1,
       'Page Edit keeps the one edge layer',
     );

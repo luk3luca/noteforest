@@ -69,8 +69,16 @@ function pageZoomGroup() {
   return page.locator('[data-zoom-target="page"]');
 }
 
+/** Page mounts the visible window ±2; read the sheet of one page explicitly. */
+function sheetFor(pageNumber) {
+  return activePageView().locator(
+    `.nf-page-sheet[data-page-number="${pageNumber}"]`,
+  );
+}
+
+/** The sheet the toolbar indicator names (the page under the viewport centre). */
 function activeSheet() {
-  return activePageView().locator('.nf-page-sheet').first();
+  return activePageView().locator('.nf-page-sheet[data-page-current="true"]');
 }
 
 async function waitPageReady(expectedCount) {
@@ -299,37 +307,39 @@ describe('M4b1 page view core', () => {
     );
     assert.equal(await currentPageNumber(), 1);
 
-    await activePageView().locator('[data-page-continues-on]').waitFor();
-    assert.match(await activePageView().locator('[data-page-continues-list]').innerText(), /continues on page 2/);
-
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
-      undefined,
-      { timeout: 5000 },
-    );
-    await activePageView().locator('[data-page-continued-from]').waitFor();
+    await sheetFor(1).locator('[data-page-continues-on]').waitFor();
     assert.match(
-      await activePageView().locator('[data-page-ghost-list]').innerText(),
+      await sheetFor(1).locator('[data-page-continues-list]').innerText(),
+      /continues on page 2/,
+    );
+
+    // The jump is a scroll: page 2's start sits at the top of the viewport and
+    // the toolbar indicator names the page under the centre.
+    await ui.gotoPage(2);
+    await ui.waitCurrentPage(2);
+    await sheetFor(2).locator('[data-page-continued-from]').waitFor();
+    assert.match(
+      await sheetFor(2).locator('[data-page-ghost-list]').innerText(),
       /continued from page 1/,
     );
 
-    await page.keyboard.press('Alt+ArrowDown');
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) >= 3,
-      undefined,
-      { timeout: 5000 },
+    // ⌘↓ / ⌘↑ move to the next/previous page start, not to a "mode".
+    await activePageView().focus();
+    await page.keyboard.press('Meta+ArrowDown');
+    await ui.waitCurrentPage(3);
+    await page.keyboard.press('Meta+ArrowUp');
+    await ui.waitCurrentPage(2);
+    const scrollAtPageTwo = await ui.pageScrollState();
+    assert.ok(
+      scrollAtPageTwo.scrollTop > 0,
+      'the surface is scrolled into the document, not paged',
     );
-    await page.keyboard.press('Alt+ArrowUp');
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
-      undefined,
-      { timeout: 5000 },
-    );
-    assert.equal(
-      await page.locator('[data-canvas-header] [data-page-nav="prev"]').isDisabled(),
-      false,
-      'previous page is available after the first page',
+    assert.ok(
+      await sheetFor(2).evaluate((element) => {
+        const scroller = element.closest('.nf-page-scroll');
+        return Math.abs(element.getBoundingClientRect().top - scroller.getBoundingClientRect().top) <= 2;
+      }),
+      'page 2 starts at the top of the viewport',
     );
 
     // Deleting the long continuation while page 2 is current must clamp the
@@ -372,13 +382,9 @@ describe('M4b1 page view core', () => {
     assert.doesNotMatch(await first.innerText(), /Second chapter body/);
     assert.equal(await first.locator('[data-fragment-block="chapter-2-block"]').count(), 0);
 
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
-      undefined,
-      { timeout: 5000 },
-    );
-    const second = activeSheet();
+    await ui.gotoPage(2);
+    await ui.waitCurrentPage(2);
+    const second = sheetFor(2);
     assert.equal(await second.getAttribute('data-chapter-id'), 'chapter-2');
     assert.match(await second.innerText(), /Chapter 2/);
     assert.match(await second.innerText(), /Page 2 of 2/);
@@ -638,7 +644,7 @@ describe('M4b1 page view core', () => {
     // theme max width (420 + 18 chrome) and the 640 px asset scales inside it.
     const geometry = await activePageView().evaluate(() => {
       const wrap = document.querySelector('.nf-page-sheet-wrap');
-      const zoom = Number(wrap?.getAttribute('data-page-zoom') ?? '100') / 100;
+      const zoom = Number(wrap?.getAttribute('data-page-scale') ?? '1');
       const card = document.querySelector(
         '[data-fragment-block="image"] .nf-page-card',
       );
@@ -983,7 +989,7 @@ describe('M4b1 page view core', () => {
     );
   });
 
-  it('ends a ⇧2 → ⌘0 sequence on fit actual at 100%, never on the stale fit', async () => {
+  it('ends a ⇧2 → ⌘0 sequence on fit width at 100%, never on a stale fit', async () => {
     const env = ui.isolated('m4b1-fit-race');
     await launch(env);
     await h.setWindowSize(1440, 900);
@@ -1008,11 +1014,9 @@ describe('M4b1 page view core', () => {
         packagePath,
       );
 
-    // The sequence guard: ⇧2 (fit width) then ⌘0 (actual) in one task, with
-    // only one microtask between them so the second key lands as early as the
-    // document can see it. The pure guard that makes the pending fit harmless
-    // is unit-tested in `apps/desktop/test/page-fit-sync.test.ts`; this test
-    // proves the product path ends on actual/100%.
+    // The race the old surface had (a pending fit write landing over a newer
+    // manual zoom) is gone: the fit no longer writes a derived zoom, and ⌘0
+    // lands on the same rest state as ⇧2. One task, one microtask apart.
     await page.evaluate(() => {
       const press = (init) =>
         window.dispatchEvent(
@@ -1033,14 +1037,14 @@ describe('M4b1 page view core', () => {
     await page.waitForFunction(
       (path) => {
         const view = window.__noteforestTest.viewState()[path];
-        return view?.pageFit === 'none' && Math.abs((view?.pageZoom ?? 0) - 1) < 0.001;
+        return view?.pageFit === 'width' && Math.abs((view?.pageZoom ?? 0) - 1) < 0.001;
       },
       packagePath,
       { timeout: 5000 },
     );
     let state = await fitState();
-    assert.equal(state.pageFit, 'none', 'the manual fit owns the store');
-    assert.equal(state.control, 'none', 'the Page control reads actual');
+    assert.equal(state.pageFit, 'width', 'fit width is the rest state');
+    assert.equal(state.control, 'width', 'the Page control reads fit width');
     assert.equal(state.label, '100%', 'the zoom control reads 100%');
     assert.ok(Math.abs(state.pageZoom - 1) < 0.001);
 
@@ -1052,31 +1056,31 @@ describe('M4b1 page view core', () => {
     await page.waitForFunction(
       (path) => {
         const view = window.__noteforestTest.viewState()[path];
-        return view?.pageFit === 'none' && Math.abs((view?.pageZoom ?? 0) - 1) < 0.001;
+        return view?.pageFit === 'width' && Math.abs((view?.pageZoom ?? 0) - 1) < 0.001;
       },
       packagePath,
       { timeout: 5000 },
     );
     state = await fitState();
-    assert.equal(state.pageFit, 'none');
+    assert.equal(state.pageFit, 'width');
     assert.equal(state.label, '100%');
-
-    // A manual zoom after the sequence still starts from the fit value the
-    // user sees, so the sync itself was not disabled.
     await h.screenshot(artifactsPath('chrome', 'page-fit-actual-1440x900.png'), {
       width: 1440,
       height: 900,
     });
 
-    // A manual zoom after the sequence still starts from the fit value the
-    // user sees, so the sync itself was not disabled.
+    // A manual zoom after the sequence starts from the percentage the user
+    // sees: the stepper publishes the fit value, so ⌘+ lands on 110 %.
     await page.keyboard.press('Meta+=');
     await page.waitForFunction(
       (path) => (window.__noteforestTest.viewState()[path]?.pageZoom ?? 1) > 1,
       packagePath,
       { timeout: 5000 },
     );
-    assert.equal((await fitState()).pageFit, 'none');
+    const zoomed = await fitState();
+    assert.equal(zoomed.pageFit, 'none');
+    assert.equal(zoomed.pageZoom, 1.1, 'the manual zoom starts from the visible 100 %');
+    assert.equal(zoomed.label, '110%');
   });
 
   it('restores layout, mode, page, zoom and fit from the session', async () => {
@@ -1096,12 +1100,8 @@ describe('M4b1 page view core', () => {
 
     await showPageView();
     await ui.ensureInteractionMode('read');
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
-      undefined,
-      { timeout: 5000 },
-    );
+    await ui.gotoPage(2);
+    await ui.waitCurrentPage(2);
     await page.keyboard.press('Meta+0');
     await waitZoomValue('100%');
     await page.locator('[data-zoom-action="in"]').click();

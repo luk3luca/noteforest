@@ -187,8 +187,9 @@ describe('Batch A UI rework', () => {
       { timeout: 10000 },
     );
 
-    // Page: the same header carries page navigation and Export; the old
-    // PageToolbar is gone and the stage is 14/0/8.
+    // Page: the header carries Export and the updating status; page
+    // navigation moved to the scroll surface and the Toolbar indicator (PG1),
+    // the old PageToolbar is gone and the stage is 14/0/8.
     await page.keyboard.press('Meta+3');
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
     await page.waitForFunction(
@@ -197,9 +198,13 @@ describe('Batch A UI rework', () => {
       { timeout: 30000 },
     );
     assert.equal(await page.locator('.nf-page-toolbar').count(), 0);
-    assert.equal(await page.locator('.nf-canvas-header [data-page-nav="prev"]').count(), 1);
-    assert.equal(await page.locator('.nf-canvas-header [data-page-nav="next"]').count(), 1);
-    assert.match(await page.locator('.nf-canvas-header [data-page-counter]').innerText(), /Page \d+ of \d+/);
+    assert.equal(await page.locator('.nf-canvas-header [data-page-nav]').count(), 0, 'no pager arrows');
+    assert.equal(await page.locator('.nf-canvas-header [data-page-counter]').count(), 0, 'no page badge in the header');
+    assert.match(
+      await page.locator('.nf-toolbar [data-page-position]').innerText(),
+      /^\d+ \/ \d+$/,
+      'the Toolbar indicator names the page under the viewport centre',
+    );
     assert.equal(await page.locator('.nf-canvas-header [data-page-export="true"]').count(), 1);
     assert.equal(await css('.nf-page-stage', 'padding-top'), '14px');
     assert.equal(await css('.nf-page-stage', 'padding-left'), '0px');

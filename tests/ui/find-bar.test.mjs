@@ -678,7 +678,7 @@ describe('find bar (⌘F)', () => {
     const firstPage = await activePage();
     assert.equal(firstPage, 1);
     const zoomBefore = await page
-      .locator('.nf-editor[data-active="true"] .nf-page-sheet-wrap')
+      .locator('.nf-editor[data-active="true"] .nf-page-view')
       .getAttribute('data-page-zoom');
 
     await openAndType('quokka');
@@ -713,7 +713,7 @@ describe('find bar (⌘F)', () => {
     assert.equal((await findState()).selected, 'late');
     assert.equal(
       await page
-        .locator('.nf-editor[data-active="true"] .nf-page-sheet-wrap')
+        .locator('.nf-editor[data-active="true"] .nf-page-view')
         .getAttribute('data-page-zoom'),
       zoomBefore,
       'the page keeps its zoom',
@@ -1630,7 +1630,7 @@ describe('find bar (⌘F)', () => {
       const input = document.querySelector('.nf-find-input');
       const controls = [
         ...document.querySelectorAll(
-          '[data-canvas-header="true"] [data-header-undo], [data-canvas-header="true"] [data-header-redo], [data-canvas-header="true"] [data-find-count], [data-canvas-header="true"] [data-find-previous], [data-canvas-header="true"] [data-find-next], [data-canvas-header="true"] [data-find-close], [data-canvas-header="true"] [data-view-layout], [data-canvas-header="true"] [data-view-interaction], [data-canvas-header="true"] [data-page-nav]',
+          '[data-canvas-header="true"] [data-header-undo], [data-canvas-header="true"] [data-header-redo], [data-canvas-header="true"] [data-find-count], [data-canvas-header="true"] [data-find-previous], [data-canvas-header="true"] [data-find-next], [data-canvas-header="true"] [data-find-close], [data-canvas-header="true"] [data-view-layout], [data-canvas-header="true"] [data-view-interaction]',
         ),
       ];
       if (header === null || bar === null || input === null) return null;
@@ -1655,14 +1655,34 @@ describe('find bar (⌘F)', () => {
     });
     assert.ok(layout !== null);
     assert.equal(Math.round(layout.headerHeight), 34, 'the row height never changes');
-    assert.equal(layout.controlCount, 12, 'all header controls are mounted');
+    // Undo/redo (2), find cluster (5), view layout (2), view mode (1 active
+    // segment? no: both), Page export: the pager arrows are gone (PG1 is a
+    // scroll), so the fixed count moved from 12 to 10.
+    assert.equal(layout.controlCount, 10, 'all header controls are mounted');
     assert.deepEqual(layout.hidden, [], 'no header control is clipped or hidden');
     assert.equal(layout.overflow <= 1, true, `header overflows by ${layout.overflow} px`);
-    assert.ok(
-      layout.inputWidth < wideInput,
-      `the input shrank (${layout.inputWidth} < ${wideInput}) before the controls`,
-    );
-    assert.ok(layout.barWidth < 360, 'the cluster shrank with the input');
+    // PG1 removed the pager arrows, so at the app minimum the cluster now fits
+    // without shrinking. The requirement it protected is structural and still
+    // checked: the input is the one flexible child (grow 1, shrink 1, basis
+    // auto, min-width 0), so it yields before any control can be clipped.
+    const inputFlex = await page.locator('.nf-find-input').evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        grow: style.flexGrow,
+        shrink: style.flexShrink,
+        basis: style.flexBasis,
+        minWidth: style.minWidth,
+      };
+    });
+    assert.deepEqual(inputFlex, {
+      grow: '1',
+      shrink: '1',
+      basis: 'auto',
+      minWidth: '0px',
+    });
+    assert.ok(layout.inputWidth >= 160, `the input keeps a usable width (${layout.inputWidth})`);
+    assert.ok(layout.inputWidth <= wideInput, 'the narrow window never grows the input');
+    assert.ok(layout.barWidth <= 360, 'the cluster never exceeds its 360 px cap');
     await h.screenshot(resolve(screenshotDir, 'narrow-toolbar.png'), {
       width: 960,
       height: 640,

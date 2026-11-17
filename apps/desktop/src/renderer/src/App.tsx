@@ -46,6 +46,7 @@ import {
   saveActive,
   setActiveDocumentLayout,
   setActivePageFit,
+  stepActivePage,
   syncActiveLibraryForPath,
   toggleActiveInteractionMode,
   toggleFocusBranch,
@@ -494,6 +495,29 @@ export function App(): JSX.Element {
       if (key === '3' && !event.shiftKey && !event.altKey) {
         event.preventDefault();
         setActiveDocumentLayout('page');
+        return;
+      }
+      // `⌘↑`/`⌘↓` move to the previous/next page start in Page. The movement is
+      // global to the surface (it keeps working after the page jump moved focus
+      // to the indicator), but never inside a text field or the Page Edit
+      // overlay: there the arrows belong to the caret.
+      if (
+        layout === 'page' &&
+        event.metaKey &&
+        !event.ctrlKey &&
+        !event.shiftKey &&
+        !event.altKey &&
+        (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+      ) {
+        const target = event.target;
+        if (
+          target instanceof Element &&
+          target.closest('input, textarea, [contenteditable="true"]') !== null
+        ) {
+          return;
+        }
+        event.preventDefault();
+        stepActivePage(event.key === 'ArrowUp' ? -1 : 1);
         return;
       }
       if (

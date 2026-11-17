@@ -71,6 +71,14 @@ async function openPackage(env, name, document) {
   return packagePath;
 }
 
+function currentSheet() {
+  return activePageView().locator('.nf-page-sheet[data-page-current="true"]');
+}
+
+function currentSlot() {
+  return activePageView().locator('[data-page-slot-current="true"]');
+}
+
 function activePageView() {
   return page.locator('.nf-editor[data-active="true"] .nf-page-view');
 }
@@ -109,39 +117,25 @@ async function currentPage() {
   return Number(await activePageView().getAttribute('data-current-page'));
 }
 
+/** Scroll to one page start through the jump surface, then settle. */
 async function gotoPage(number) {
-  let current = await currentPage();
-  while (current < number) {
-    const next = current + 1;
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      (expected) => {
-        const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
-        return Number(view?.getAttribute('data-current-page')) === expected;
-      },
-      next,
-      { timeout: 10000 },
-    );
-    current = next;
-  }
-  while (current > number) {
-    const previous = current - 1;
-    await page.locator('[data-canvas-header] [data-page-nav="prev"]').click();
-    await page.waitForFunction(
-      (expected) => {
-        const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
-        return Number(view?.getAttribute('data-current-page')) === expected;
-      },
-      previous,
-      { timeout: 10000 },
-    );
-    current = previous;
-  }
+  await ui.gotoPage(number);
+  await page.waitForFunction(
+    (expected) => {
+      const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+      return (
+        Number(view?.getAttribute('data-current-page')) === expected &&
+        view?.getAttribute('data-updating') === 'false'
+      );
+    },
+    number,
+    { timeout: 10000 },
+  );
 }
 
 async function fragmentBox(blockId) {
-  return page
-    .locator(`.nf-editor[data-active="true"] [data-fragment-block="${blockId}"]`)
+  return currentSheet()
+    .locator(`[data-fragment-block="${blockId}"]`)
     .evaluate((element) => ({
       blockId: element.getAttribute('data-fragment-block') ?? '',
       role: element.getAttribute('data-fragment-role'),
@@ -153,7 +147,7 @@ async function fragmentBox(blockId) {
 }
 
 async function allFragmentBoxes() {
-  return activePageView()
+  return currentSheet()
     .locator('.nf-page-fragment')
     .evaluateAll((elements) =>
       elements.map((element) => ({
@@ -168,7 +162,7 @@ async function allFragmentBoxes() {
 }
 
 async function contentBox() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-content]')
     .evaluate((element) => ({
       width: Number.parseFloat(element.style.width),
@@ -177,13 +171,13 @@ async function contentBox() {
 }
 
 async function anchorBox(anchorId) {
-  return page
-    .locator(`.nf-editor[data-active="true"] .nf-anchor[data-anchor-id="${anchorId}"]`)
+  return currentSheet()
+    .locator(`.nf-anchor[data-anchor-id="${anchorId}"]`)
     .evaluate((element) => {
       const view = element.closest('.nf-page-view');
       const content = view.querySelector('.nf-page-content');
       const wrap = view.querySelector('.nf-page-sheet-wrap');
-      const zoom = Number(wrap?.getAttribute('data-page-zoom') ?? '100') / 100;
+      const zoom = Number(wrap?.getAttribute('data-page-scale') ?? '1');
       const rect = element.getBoundingClientRect();
       const contentRect = content.getBoundingClientRect();
       return {
@@ -196,7 +190,7 @@ async function anchorBox(anchorId) {
 }
 
 async function readEdges() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-edge-id]')
     .evaluateAll((elements) =>
       elements.map((element) => ({
@@ -222,7 +216,7 @@ async function readEdges() {
 }
 
 async function readTrunks() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-trunk-id]')
     .evaluateAll((elements) =>
       elements.map((element) => ({
@@ -840,8 +834,8 @@ describe('R2j Page callout modes', () => {
       'Page Edit uses the same A routes and trunks',
     );
 
-    await activePageView().locator('[data-fragment-block="cm-child"]').dblclick();
-    const overlay = activePageView().locator('[data-page-edit-overlay="true"]');
+    await currentSheet().locator('[data-fragment-block="cm-child"]').dblclick();
+    const overlay = currentSlot().locator('[data-page-edit-overlay="true"]');
     await overlay.waitFor({ timeout: 10000 });
     assert.equal(await activePageView().locator('[contenteditable="true"]').count(), 1);
     await page.keyboard.press('Escape');

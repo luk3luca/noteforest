@@ -33,6 +33,7 @@ export const FILES = [
   'm3c3b3-image-integrity.test.mjs',
   'm3c3b4-image-lifecycle.test.mjs',
   'm4b1-page-view.test.mjs',
+  'page-scroll.test.mjs',
   'm4b1a2-read-mode-gating.test.mjs',
   'm4b1b1-page-edit-overlay.test.mjs',
   'r1b-page-settings.test.mjs',
@@ -85,6 +86,10 @@ export const SERIAL_FILES = new Set([
   'document-lifecycle.test.mjs',
   // Real OS Trash moves plus several app lifecycles: keep it off the pool.
   'vault-library.test.mjs',
+  // Copy-as-rich-text owns the OS clipboard. `special-text` writes the same
+  // clipboard in the pool, so running both at once pastes the other suite's
+  // formula and fails a correct app (reproduced on 17 November 2026).
+  'markdown-file-view.test.mjs',
 ]);
 
 function unique(values) {
@@ -157,6 +162,7 @@ export const GROUPS = {
   markdown: ['markdown-file-view.test.mjs'],
   page: [
     'm4b1-page-view.test.mjs',
+    'page-scroll.test.mjs',
     'm4b1a2-read-mode-gating.test.mjs',
     'm4b1b1-page-edit-overlay.test.mjs',
     'r2a-page-arrows-cleanup.test.mjs',

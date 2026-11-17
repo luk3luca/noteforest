@@ -300,6 +300,109 @@ export function createUiSession({ tempRoot }) {
     await current().waitForSelector(`[data-health-dialog="true"][data-health-row="anchor:${anchorId}"]`);
   }
 
+  /* ------------------------------------------------------------- Page (PG1) */
+
+  /** The Page surface of the active editor (Page layout only). */
+  function pageView() {
+    return current().locator('.nf-editor[data-active="true"] .nf-page-view');
+  }
+
+  /** The page the toolbar indicator names (the page under the viewport centre). */
+  async function currentPage() {
+    return current().evaluate(() =>
+      Number(
+        document
+          .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+          ?.getAttribute('data-current-page') ?? '0',
+      ),
+    );
+  }
+
+  /**
+   * The mounted sheet for one page. Page mounts only the visible window ±2;
+   * every other page is an exact-size placeholder with no `.nf-page-sheet`.
+   */
+  function pageSheet(pageNumber) {
+    return current().locator(
+      `.nf-editor[data-active="true"] .nf-page-sheet[data-page-number="${pageNumber}"]`,
+    );
+  }
+
+  /** The sheet the indicator names (`data-page-current`). */
+  function currentPageSheet() {
+    return current().locator(
+      '.nf-editor[data-active="true"] .nf-page-sheet[data-page-current="true"]',
+    );
+  }
+
+  /** Scroll offset of the Page surface. */
+  async function pageScrollState() {
+    return current().evaluate(() => {
+      const scroller = document.querySelector('.nf-editor[data-active="true"] .nf-page-scroll');
+      if (scroller === null) return null;
+      return {
+        scrollTop: scroller.scrollTop,
+        scrollLeft: scroller.scrollLeft,
+        scrollHeight: scroller.scrollHeight,
+        clientHeight: scroller.clientHeight,
+        clientWidth: scroller.clientWidth,
+        scrollWidth: scroller.scrollWidth,
+      };
+    });
+  }
+
+  /**
+   * Scroll to one page start through the product path: the toolbar indicator
+   * opens the page jump. Waits until the page is mounted and its top sits at
+   * the top of the viewport (or the scroll is clamped at the end of the note).
+   */
+  async function gotoPage(pageNumber, { timeout = 15000 } = {}) {
+    const indicator = current().locator(
+      '.nf-toolbar [data-page-position][data-page-position-ready="true"]',
+    );
+    await indicator.waitFor({ state: 'visible' });
+    await indicator.click();
+    const input = current().locator('[data-page-jump-input]');
+    await input.waitFor({ state: 'visible', timeout });
+    await input.fill(String(pageNumber));
+    await input.press('Enter');
+    await current().waitForFunction(
+      (expected) => {
+        const scroller = document.querySelector('.nf-editor[data-active="true"] .nf-page-scroll');
+        const sheet = document.querySelector(
+          `.nf-editor[data-active="true"] .nf-page-sheet[data-page-number="${expected}"]`,
+        );
+        if (scroller === null || sheet === null) return false;
+        const scrollerRect = scroller.getBoundingClientRect();
+        const sheetRect = sheet.getBoundingClientRect();
+        // The page start sits at the viewport top (the stage padding is part of
+        // the column). Page 1 is also at its start when the surface rests at
+        // scrollTop 0 with the 14 px stage padding visible. A clamped end is a
+        // valid landing for the last page.
+        const atStart =
+          Math.abs(sheetRect.top - scrollerRect.top) <= 2 ||
+          (expected === 1 && scroller.scrollTop <= 0.5);
+        const atEnd =
+          scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 1;
+        return atStart || atEnd;
+      },
+      pageNumber,
+      { timeout },
+    );
+  }
+
+  /** Wait for the indicator to name one page (the page under the centre). */
+  async function waitCurrentPage(pageNumber, { timeout = 15000 } = {}) {
+    await current().waitForFunction(
+      (expected) => {
+        const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+        return Number(view?.getAttribute('data-current-page')) === expected;
+      },
+      pageNumber,
+      { timeout },
+    );
+  }
+
   return {
     harness,
     isolated,
@@ -325,6 +428,13 @@ export function createUiSession({ tempRoot }) {
     waitForHealthChip,
     openHealthFromChip,
     openHealthFromWarning,
+    pageView,
+    currentPage,
+    pageSheet,
+    currentPageSheet,
+    pageScrollState,
+    gotoPage,
+    waitCurrentPage,
     get page() {
       return page;
     },

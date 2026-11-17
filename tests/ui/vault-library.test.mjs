@@ -269,6 +269,7 @@ describe('Vault library tree', () => {
     assert.equal(await guest.locator('[data-block-card]').count(), 0);
     assert.equal(await guest.locator('[data-chapter-id]').count(), 0);
     assert.equal(await guest.locator('[data-page-counter]').count(), 0);
+    assert.equal(await page.locator('.nf-toolbar [data-page-position]').count(), 0);
     assert.equal(await guest.locator('[data-page-export]').count(), 0);
     assert.equal(await guest.locator('[data-view-layout="page"]').count(), 0);
     assert.equal(await guest.locator('h1').innerText(), 'Diario');
@@ -563,7 +564,9 @@ describe('Vault library tree', () => {
         return runtime !== undefined && runtime.saveState === 'saved';
       },
       undefined,
-      { timeout: 10000 },
+      // Autosave on a loaded machine, not a missing write: keep the assertion,
+      // give the save coordinator room (PG1 harness hardening).
+      { timeout: 30000 },
     );
     const stored = await readFile(join(packagePath, 'document.json'), 'utf8');
     assert.match(stored, /Nota dentro Analisi/);

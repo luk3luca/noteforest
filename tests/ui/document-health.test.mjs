@@ -1320,16 +1320,29 @@ describe('Document health sidebar and repair modal', () => {
     await clickHealthRow('anchor:dh-page-anchor');
     await page.locator('[data-health-action="show-in-note"]').click();
     await page.waitForSelector('[data-health-dialog="true"]', { state: 'detached' });
+    // Page mounts the visible window ±2, so b16's presence is not the signal
+    // (a neighbour page can carry it at rest). The indicator is: it names the
+    // page under the viewport centre after the scroll.
     await page.waitForFunction(
-      () =>
-        document.querySelector(
-          '.nf-editor[data-active="true"] .nf-page-view [data-fragment-block="b16"]',
-        ) !== null,
+      () => {
+        const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
+        return Number(view?.getAttribute('data-current-page') ?? '1') > 1;
+      },
       undefined,
       { timeout: 20000 },
     );
     const containingPage = await activePageNumber();
     assert.ok(containingPage > 1, `Show in note jumped to page ${containingPage}`);
+    assert.ok(
+      await page.evaluate(
+        (number) =>
+          document.querySelector(
+            `.nf-editor[data-active="true"] .nf-page-sheet[data-page-number="${number}"] [data-fragment-block="b16"]`,
+          ) !== null,
+        containingPage,
+      ),
+      'the containing page is mounted with the block',
+    );
     const view = await page.evaluate(
       (path) => window.__noteforestTest.viewState()[path],
       packagePath,

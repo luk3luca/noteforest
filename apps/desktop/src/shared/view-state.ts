@@ -16,7 +16,11 @@ export type DocumentLayout = 'continuous' | 'page';
 /** Editable or read-only interaction within the current layout. */
 export type InteractionMode = 'edit' | 'read';
 
-/** Page navigation fit mode; `none` uses the manual page zoom. */
+/**
+ * Page presentation fit. `width` is fit width and reads 100 % (the rest state
+ * and the state Page opens in); `page` fits the whole sheet; `none` uses the
+ * manual page zoom.
+ */
 export type PageFit = 'page' | 'width' | 'none';
 
 /** Navigation-only view state. Never written to the document. */
@@ -31,7 +35,10 @@ export interface DocumentViewState {
   interactionMode: InteractionMode;
   /** Current derived page, 1-based. Clamped when the page count changes. */
   currentPage: number;
-  /** Manual page zoom. 1 = 100%; fit modes override it. */
+  /**
+   * Manual page zoom as a fit-relative scale: 1 = 100 % = fit width. Fit modes
+   * override it; the ratified range is 50 %–200 %.
+   */
   pageZoom: number;
   /** Page fit mode; `none` uses `pageZoom`. */
   pageFit: PageFit;
@@ -44,7 +51,7 @@ export const DEFAULT_DOCUMENT_VIEW: Readonly<DocumentViewState> = Object.freeze(
   interactionMode: 'edit',
   currentPage: 1,
   pageZoom: 1,
-  pageFit: 'page',
+  pageFit: 'width',
 });
 
 export function clampContinuousZoom(value: unknown): number {
@@ -53,10 +60,11 @@ export function clampContinuousZoom(value: unknown): number {
   return Math.round(Math.min(2, Math.max(0.5, number)) * 100) / 100;
 }
 
+/** Manual Page zoom in the ratified 50 %–200 % range, rounded to 1 %. */
 export function clampPageZoom(value: unknown): number {
   const number = Number(value);
   if (!Number.isFinite(number)) return DEFAULT_DOCUMENT_VIEW.pageZoom;
-  return Math.round(Math.min(2.5, Math.max(0.1, number)) * 100) / 100;
+  return Math.round(Math.min(2, Math.max(0.5, number)) * 100) / 100;
 }
 
 export function clampPageNumber(value: unknown): number {
@@ -71,7 +79,9 @@ export function normalizeLayout(value: unknown): DocumentLayout {
 }
 
 export function normalizePageFit(value: unknown): PageFit {
-  return value === 'width' || value === 'none' ? value : 'page';
+  // A stored fit survives; a missing or corrupt value is the rest state (fit
+  // width at 100 %), not the old fit-page default.
+  return value === 'page' || value === 'none' || value === 'width' ? value : 'width';
 }
 
 /**
