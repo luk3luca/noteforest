@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>App icon — reset</title>
+    <style>
+      :root {
+        --bg: #0e0f11;
+        --panel: #16181b;
+        --text-1: #e7e8ea;
+        --text-2: #a6abb2;
+        --text-3: #8d939b;
+        --border: #2a2d33;
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--text-1); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+      body { padding: 26px 16px 64px; }
+      .lab { max-width: 860px; margin: 0 auto; }
+      .eyebrow { margin: 0 0 8px; color: var(--text-3); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+      h1 { margin: 0 0 10px; font-size: 25px; font-weight: 600; letter-spacing: -0.01em; }
+      .lede { margin: 0; max-width: 68ch; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
+      h2 { margin: 36px 0 14px; font-size: 15px; font-weight: 600; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      .card { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+      .hero { display: flex; justify-content: center; padding: 6px 0 14px; }
+      .hero svg { width: 168px; height: 168px; display: block; filter: drop-shadow(0 14px 30px rgb(0 0 0 / 0.55)); }
+      .name { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+      .tag { display: inline-block; margin-bottom: 6px; color: var(--text-3); font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .why { margin: 0 0 6px; color: var(--text-2); font-size: 12px; line-height: 1.55; }
+      .small { margin: 0; color: var(--text-3); font-size: 11px; line-height: 1.5; }
+      .strip { display: flex; align-items: flex-end; gap: 12px; justify-content: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+      .strip .s { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-3); font-size: 9px; }
+      .dock { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 16px; }
+      .dock.dark { background: rgb(38 38 42 / 0.92); border: 1px solid #3a3a3f; }
+      .dock.light { background: rgb(246 246 248 / 0.96); border: 1px solid #d9d9de; }
+      .dock svg { width: 56px; height: 56px; display: block; filter: drop-shadow(0 3px 7px rgb(0 0 0 / 0.3)); }
+      .fake { width: 56px; height: 56px; border-radius: 13px; background: linear-gradient(180deg, #5b6b7a, #3d4a56); opacity: 0.4; }
+      .panel { margin-top: 16px; padding: 13px 15px; border: 1px solid var(--border); border-radius: 10px; background: rgb(255 255 255 / 0.02); }
+      .panel p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.6; }
+      .panel p + p { margin-top: 9px; }
+      .panel b { color: var(--text-1); }
+      .footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 11px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main class="lab">
+      <header>
+        <p class="eyebrow">Design lab · reset · not coded</p>
+        <h1>NoteForest — from the name, not from the diagram</h1>
+        <p class="lede">
+          Everything before this was the layout drawn small: blocks, connectors, arrows. That is a screenshot,
+          not a mark. This round starts from the two words — <strong>note</strong> and <strong>forest</strong> — and from
+          the app's material: paper on a dark field, calm, no decoration.
+        </p>
+      </header>
+
+      <div class="grid">
+        <!-- R1 -->
+        <div class="card">
+          <div class="hero">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="Grove">
+              <defs>
+                <linearGradient id="r1bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1e22"/><stop offset="1" stop-color="#0b0c0e"/></linearGradient>
+                <radialGradient id="r1light" cx="0.5" cy="0.12" r="0.75"><stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+                <linearGradient id="r1paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe3e7"/></linearGradient>
+                <filter id="r1shadow" x="-30%" y="-20%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="26" flood-color="#000000" flood-opacity="0.45"/></filter>
+              </defs>
+              <rect width="1024" height="1024" rx="229" fill="url(#r1bg)"/>
+              <rect width="1024" height="1024" rx="229" fill="url(#r1light)"/>
+              <g filter="url(#r1shadow)">
+                <rect x="212" y="392" width="150" height="420" rx="52" fill="url(#r1paper)" opacity="0.92"/>
+                <rect x="437" y="248" width="150" height="564" rx="52" fill="url(#r1paper)"/>
+                <rect x="662" y="444" width="150" height="368" rx="52" fill="url(#r1paper)" opacity="0.78"/>
+              </g>
+            </svg>
+          </div>
+          <p class="tag">R1 · the grove</p>
+          <p class="name">Three pages standing</p>
+          <p class="why">A forest is vertical, and so is a page. Three paper columns of different heights: a grove seen from the front, made of the app's own surface. No arrows, nothing to decode.</p>
+          <p class="small">At 16 px: three light bars. Reads instantly, and it is the only shape in every round that could not belong to another app.</p>
+          <div class="strip">
+            <span class="s"><svg width="56" height="56" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><rect x="212" y="392" width="150" height="420" rx="52" fill="#f2f4f6" opacity="0.92"/><rect x="437" y="248" width="150" height="564" rx="52" fill="#ffffff"/><rect x="662" y="444" width="150" height="368" rx="52" fill="#f2f4f6" opacity="0.78"/></svg><span>56</span></span>
+            <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><rect x="200" y="392" width="170" height="420" rx="56" fill="#f2f4f6"/><rect x="428" y="240" width="170" height="572" rx="56" fill="#ffffff"/><rect x="656" y="444" width="170" height="368" rx="56" fill="#f2f4f6"/></svg><span>32</span></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><rect x="188" y="400" width="190" height="410" rx="60" fill="#f2f4f6"/><rect x="416" y="236" width="192" height="574" rx="60" fill="#ffffff"/><rect x="646" y="452" width="190" height="358" rx="60" fill="#f2f4f6"/></svg><span>16</span></span>
+          </div>
+        </div>
+
+        <!-- R2 -->
+        <div class="card">
+          <div class="hero">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="Stack">
+              <defs>
+                <linearGradient id="r2bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1e22"/><stop offset="1" stop-color="#0b0c0e"/></linearGradient>
+                <radialGradient id="r2light" cx="0.5" cy="0.1" r="0.8"><stop offset="0" stop-color="#ffffff" stop-opacity="0.14"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+                <linearGradient id="r2paper" x1="0" y1="0" x2="0.2" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dde1e5"/></linearGradient>
+                <filter id="r2shadow" x="-30%" y="-20%" width="160%" height="160%"><feDropShadow dx="0" dy="22" stdDeviation="30" flood-color="#000000" flood-opacity="0.5"/></filter>
+              </defs>
+              <rect width="1024" height="1024" rx="229" fill="url(#r2bg)"/>
+              <rect width="1024" height="1024" rx="229" fill="url(#r2light)"/>
+              <rect x="318" y="196" width="420" height="520" rx="44" fill="#e9edf0" opacity="0.45" transform="rotate(6 528 456)"/>
+              <g filter="url(#r2shadow)">
+                <rect x="268" y="300" width="470" height="540" rx="46" fill="url(#r2paper)"/>
+              </g>
+              <rect x="330" y="392" width="230" height="26" rx="13" fill="#c6cdd4"/>
+              <rect x="330" y="452" width="330" height="26" rx="13" fill="#d7dde2"/>
+              <rect x="330" y="512" width="270" height="26" rx="13" fill="#d7dde2"/>
+            </svg>
+          </div>
+          <p class="tag">R2 · the note</p>
+          <p class="name">One page, one shadow</p>
+          <p class="why">The most honest object: a single sheet of paper with its own weight, and a second sheet behind it. Material honesty instead of a diagram.</p>
+          <p class="small">At 16 px: a white card. Perfectly legible, and perfectly generic — every notes app has this icon.</p>
+          <div class="strip">
+            <span class="s"><svg width="56" height="56" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><rect x="318" y="196" width="420" height="520" rx="44" fill="#e9edf0" opacity="0.45" transform="rotate(6 528 456)"/><rect x="268" y="300" width="470" height="540" rx="46" fill="#fbfcfd"/><rect x="330" y="392" width="230" height="26" rx="13" fill="#c6cdd4"/><rect x="330" y="452" width="330" height="26" rx="13" fill="#d7dde2"/><rect x="330" y="512" width="270" height="26" rx="13" fill="#d7dde2"/></svg><span>56</span></span>
+            <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><rect x="268" y="300" width="470" height="540" rx="46" fill="#fbfcfd"/><rect x="330" y="400" width="250" height="30" rx="15" fill="#c6cdd4"/><rect x="330" y="466" width="330" height="30" rx="15" fill="#d7dde2"/></svg><span>32</span></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><rect x="252" y="290" width="500" height="560" rx="52" fill="#fbfcfd"/><rect x="320" y="404" width="260" height="40" rx="20" fill="#c6cdd4"/><rect x="320" y="486" width="330" height="40" rx="20" fill="#d7dde2"/></svg><span>16</span></span>
+          </div>
+        </div>
+
+        <!-- R3 -->
+        <div class="card">
+          <div class="hero">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="Fold">
+              <defs>
+                <linearGradient id="r3bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1e22"/><stop offset="1" stop-color="#0b0c0e"/></linearGradient>
+                <radialGradient id="r3light" cx="0.5" cy="0.1" r="0.8"><stop offset="0" stop-color="#ffffff" stop-opacity="0.13"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+                <linearGradient id="r3paper" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe3e7"/></linearGradient>
+                <filter id="r3shadow" x="-30%" y="-20%" width="160%" height="160%"><feDropShadow dx="0" dy="20" stdDeviation="28" flood-color="#000000" flood-opacity="0.5"/></filter>
+              </defs>
+              <rect width="1024" height="1024" rx="229" fill="url(#r3bg)"/>
+              <rect width="1024" height="1024" rx="229" fill="url(#r3light)"/>
+              <g filter="url(#r3shadow)">
+                <path d="M256 250 H 690 L 768 328 V 774 H 256 Z" fill="url(#r3paper)"/>
+              </g>
+              <path d="M690 250 L 768 328 H 690 Z" fill="#9fb8ce"/>
+              <rect x="330" y="392" width="250" height="26" rx="13" fill="#c6cdd4"/>
+              <rect x="330" y="452" width="330" height="26" rx="13" fill="#d7dde2"/>
+              <rect x="330" y="512" width="210" height="26" rx="13" fill="#d7dde2"/>
+            </svg>
+          </div>
+          <p class="tag">R3 · the fold</p>
+          <p class="name">Page with a folded corner</p>
+          <p class="why">One gesture, one meaning: paper that has been handled. The folded corner is the only coloured surface, and it reads as a leaf.</p>
+          <p class="small">At 16 px: a page with a cut corner. Quietly specific, and it survives because the fold is a silhouette change.</p>
+          <div class="strip">
+            <span class="s"><svg width="56" height="56" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><path d="M256 250 H 690 L 768 328 V 774 H 256 Z" fill="#fbfcfd"/><path d="M690 250 L 768 328 H 690 Z" fill="#9fb8ce"/><rect x="330" y="392" width="250" height="26" rx="13" fill="#c6cdd4"/><rect x="330" y="452" width="330" height="26" rx="13" fill="#d7dde2"/><rect x="330" y="512" width="210" height="26" rx="13" fill="#d7dde2"/></svg><span>56</span></span>
+            <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><path d="M236 230 H 700 L 788 318 V 794 H 236 Z" fill="#fbfcfd"/><path d="M700 230 L 788 318 H 700 Z" fill="#9fb8ce"/><rect x="320" y="400" width="260" height="32" rx="16" fill="#c6cdd4"/><rect x="320" y="470" width="330" height="32" rx="16" fill="#d7dde2"/></svg><span>32</span></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#14161a"/><path d="M216 214 H 712 L 806 310 V 810 H 216 Z" fill="#fbfcfd"/><path d="M712 214 L 806 310 H 712 Z" fill="#9fb8ce"/><rect x="300" y="400" width="290" height="44" rx="22" fill="#c6cdd4"/><rect x="300" y="486" width="340" height="44" rx="22" fill="#d7dde2"/></svg><span>16</span></span>
+          </div>
+        </div>
+
+        <!-- R4 -->
+        <div class="card">
+          <div class="hero">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="Inverted grove">
+              <defs>
+                <linearGradient id="r4bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6eaee"/></linearGradient>
+              </defs>
+              <rect width="1024" height="1024" rx="229" fill="url(#r4bg)"/>
+              <rect x="222" y="392" width="140" height="420" rx="70" fill="#171a1d" opacity="0.85"/>
+              <rect x="442" y="246" width="140" height="566" rx="70" fill="#171a1d"/>
+              <rect x="662" y="444" width="140" height="368" rx="70" fill="#171a1d" opacity="0.6"/>
+            </svg>
+          </div>
+          <p class="tag">R4 · inverted grove</p>
+          <p class="name">Paper field, dark grove</p>
+          <p class="why">The same forest, inverted: a paper square with the trees cut out in ink. In a Dock full of dark squares it is the one that is found without looking.</p>
+          <p class="small">At 16 px: three dark bars on white. The boldest of the four, and the least "dark mode app".</p>
+          <div class="strip">
+            <span class="s"><svg width="56" height="56" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#f5f7f9"/><rect x="222" y="392" width="140" height="420" rx="70" fill="#171a1d" opacity="0.85"/><rect x="442" y="246" width="140" height="566" rx="70" fill="#171a1d"/><rect x="662" y="444" width="140" height="368" rx="70" fill="#171a1d" opacity="0.6"/></svg><span>56</span></span>
+            <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#f5f7f9"/><rect x="210" y="392" width="160" height="420" rx="80" fill="#171a1d" opacity="0.85"/><rect x="432" y="240" width="160" height="572" rx="80" fill="#171a1d"/><rect x="654" y="444" width="160" height="368" rx="80" fill="#171a1d" opacity="0.6"/></svg><span>32</span></span>
+            <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#f5f7f9"/><rect x="196" y="400" width="180" height="410" rx="90" fill="#171a1d"/><rect x="422" y="236" width="180" height="574" rx="90" fill="#171a1d"/><rect x="648" y="452" width="180" height="358" rx="90" fill="#171a1d"/></svg><span>16</span></span>
+          </div>
+        </div>
+      </div>
+
+      <h2>In the Dock</h2>
+      <div class="dock dark" style="margin-top: 12px">
+        <span class="fake"></span>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#16181b"/><rect x="212" y="392" width="150" height="420" rx="52" fill="#eef1f3" opacity="0.92"/><rect x="437" y="248" width="150" height="564" rx="52" fill="#ffffff"/><rect x="662" y="444" width="150" height="368" rx="52" fill="#eef1f3" opacity="0.78"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#16181b"/><rect x="318" y="196" width="420" height="520" rx="44" fill="#e9edf0" opacity="0.4" transform="rotate(6 528 456)"/><rect x="268" y="300" width="470" height="540" rx="46" fill="#fbfcfd"/><rect x="330" y="392" width="230" height="26" rx="13" fill="#c6cdd4"/><rect x="330" y="452" width="330" height="26" rx="13" fill="#d7dde2"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#16181b"/><path d="M256 250 H 690 L 768 328 V 774 H 256 Z" fill="#fbfcfd"/><path d="M690 250 L 768 328 H 690 Z" fill="#9fb8ce"/><rect x="330" y="392" width="250" height="26" rx="13" fill="#c6cdd4"/><rect x="330" y="452" width="330" height="26" rx="13" fill="#d7dde2"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#f5f7f9"/><rect x="222" y="392" width="140" height="420" rx="70" fill="#171a1d" opacity="0.85"/><rect x="442" y="246" width="140" height="566" rx="70" fill="#171a1d"/><rect x="662" y="444" width="140" height="368" rx="70" fill="#171a1d" opacity="0.6"/></svg>
+      </div>
+
+      <div class="panel">
+        <p><b>What changed.</b> No connectors, no arrows, no blocks-as-UI. One metaphor per icon, at most three
+        shapes, and real material: a dark field with a soft top light, paper with a shadow, one accent surface.</p>
+        <p><b>My pick: R1.</b> It is the only one where "note" and "forest" live in the same gesture — a grove of
+        pages — and the only one that a screenshot at 16 px cannot confuse with another app. R3 is the
+        sophisticated fallback; R4 is the loud one; R2 is beautiful but generic.</p>
+      </div>
+
+      <p class="footer">Lab only, no application code. Chosen SVG → 1024 + small-size variants → iconset → .icns.</p>
+    </main>
+  </body>
+</html>
