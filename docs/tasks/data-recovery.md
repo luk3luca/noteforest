@@ -105,3 +105,21 @@ the reason-mapping module and its call sites, `styles.css` (section only), the t
 
 Summary, files changed, checks with timings, pass/fail per criterion, risks, next step. One commit; do
 not merge.
+
+## Decision (17 November 2026) — the bytes go to the OS Trash
+
+Part 2 (core reasons) is merged at `646f343`. The stop condition on part 1 is lifted with this
+decision, which replaces "delete the bytes" in §1:
+
+- **Move the file to the OS Trash**, exactly like Move to Trash for a note. Never `unlink`. That is the
+  app's existing policy for destructive actions, and it gives an accidental-recovery path without a
+  grace window.
+- Order per asset: **re-plan immediately before acting** → re-check that the id is still reclaimable (no
+  image, no image anchor, no backup) → move `assets/<id>` to the Trash, with the path confined to the
+  package's `assets/` directory → remove the record.
+- If the record write fails after the move, the existing missing-asset state is the accepted end state
+  (placeholder + broken anchor), never a silent record-only delete.
+- Abort on the first failure and report which assets were handled.
+- **No store-level `remove` API**, no change to `planAssetGc`, no automatic scheduling, no grace window.
+- Also: the boundary mapping dropped the raw sentence from `SaveResult.error`; keep the short line in
+  the message **and** the core sentence in `details` for the damaged-package path.
