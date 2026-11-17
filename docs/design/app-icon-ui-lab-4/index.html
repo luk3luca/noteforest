@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>App icon — round 4, four roads</title>
+    <style>
+      :root {
+        --bg: #101113;
+        --panel: #17181a;
+        --text-1: #e7e8ea;
+        --text-2: #a6abb2;
+        --text-3: #949aa2;
+        --border: #2e3238;
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--text-1); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+      body { padding: 24px 16px 64px; }
+      .lab { max-width: 860px; margin: 0 auto; }
+      .eyebrow { margin: 0 0 8px; color: var(--text-3); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+      h1 { margin: 0 0 10px; font-size: 25px; font-weight: 600; letter-spacing: -0.01em; }
+      .lede { margin: 0; max-width: 70ch; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
+      h2 { margin: 36px 0 6px; font-size: 15px; font-weight: 600; }
+      .fam { margin: 0 0 12px; max-width: 70ch; color: var(--text-3); font-size: 12px; line-height: 1.55; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .card { display: flex; gap: 14px; padding: 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+      .icon-frame { flex: 0 0 auto; width: 124px; height: 124px; }
+      .icon-frame svg { width: 124px; height: 124px; display: block; filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.4)); }
+      .meta { min-width: 0; }
+      .name { margin: 0 0 3px; font-size: 12.5px; font-weight: 600; }
+      .tag { display: inline-block; margin-bottom: 6px; color: var(--text-3); font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .why { margin: 0 0 5px; color: var(--text-2); font-size: 11.5px; line-height: 1.5; }
+      .small { margin: 0; color: var(--text-3); font-size: 10.5px; line-height: 1.45; }
+      .strip { display: flex; align-items: flex-end; gap: 9px; margin-top: 9px; }
+      .strip .s { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-3); font-size: 9px; }
+      .dock { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; }
+      .dock.dark { background: rgb(40 40 44 / 0.9); border: 1px solid #3a3a3f; }
+      .dock.light { background: rgb(245 245 247 / 0.95); border: 1px solid #d8d8dd; }
+      .dock svg { width: 55px; height: 55px; display: block; filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.25)); }
+      .fake { width: 55px; height: 55px; border-radius: 13px; background: linear-gradient(180deg, #5b6b7a, #3d4a56); opacity: 0.45; }
+      .rule { color: var(--text-2); font-size: 12.5px; line-height: 1.6; margin: 10px 0 0; }
+      .panel { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: rgb(255 255 255 / 0.02); }
+      .panel p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.55; }
+      .panel p + p { margin-top: 8px; }
+      .panel b { color: var(--text-1); }
+      .footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 11px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main class="lab">
+      <header>
+        <p class="eyebrow">Design lab · round 4 · not coded</p>
+        <h1>App icon — four roads</h1>
+        <p class="lede">
+          Connectors now leave the card <strong>12 px outside</strong> its edge and the head touches the child without
+          entering it. Twelve proposals in four families: the fixed structural one, two letterforms that are also
+          the app's grammar, abstract marks, and four deliberately strange ones.
+        </p>
+      </header>
+
+      <h2>A · Structure, with the connector fixed</h2>
+      <p class="fam">The I family from round 3, minus the overlap. Same story: a note, a sibling beside it, a child below.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="A1">
+              <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e2023"/><stop offset="1" stop-color="#0f1012"/></linearGradient></defs>
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <rect x="140" y="170" width="340" height="290" rx="32" fill="#fbfbf9"/>
+              <rect x="186" y="232" width="216" height="24" rx="12" fill="#cfd6db"/>
+              <rect x="186" y="296" width="244" height="24" rx="12" fill="#e0e5e9"/>
+              <rect x="186" y="360" width="160" height="24" rx="12" fill="#e0e5e9"/>
+              <path d="M492 250 H 630" stroke="#7fa6cf" stroke-width="40" fill="none" stroke-linecap="round"/>
+              <path d="M620 216 L 672 250 L 620 284 Z" fill="#7fa6cf"/>
+              <rect x="684" y="170" width="200" height="160" rx="28" fill="#f2f6f9"/>
+              <path d="M310 472 V 700 H 630" stroke="#7fa6cf" stroke-width="40" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M620 666 L 672 700 L 620 734 Z" fill="#7fa6cf"/>
+              <rect x="684" y="620" width="200" height="160" rx="28" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">A1</p><p class="name">Note, sibling, child below</p>
+            <p class="why">The fixed I: a 12 px gap at each departure, the head stops on the child's edge.</p>
+            <p class="small">At 16 px: a lined block, a block to its right, one below.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="170" width="340" height="290" rx="32" fill="#fbfbf9"/><rect x="186" y="232" width="216" height="24" rx="12" fill="#cfd6db"/><rect x="186" y="296" width="244" height="24" rx="12" fill="#e0e5e9"/><rect x="186" y="360" width="160" height="24" rx="12" fill="#e0e5e9"/><path d="M492 250 H 630" stroke="#7fa6cf" stroke-width="52" fill="none" stroke-linecap="round"/><path d="M616 210 L 676 250 L 616 290 Z" fill="#7fa6cf"/><rect x="684" y="170" width="200" height="160" rx="28" fill="#f2f6f9"/><path d="M310 472 V 700 H 630" stroke="#7fa6cf" stroke-width="52" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M616 660 L 676 700 L 616 740 Z" fill="#7fa6cf"/><rect x="684" y="620" width="200" height="160" rx="28" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="170" width="340" height="290" rx="32" fill="#fbfbf9"/><rect x="186" y="240" width="228" height="32" rx="16" fill="#cfd6db"/><rect x="186" y="312" width="244" height="32" rx="16" fill="#e0e5e9"/><path d="M492 250 H 636" stroke="#7fa6cf" stroke-width="72" fill="none" stroke-linecap="round"/><rect x="684" y="170" width="200" height="160" rx="28" fill="#f2f6f9"/><path d="M310 472 V 700 H 636" stroke="#7fa6cf" stroke-width="72" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="684" y="620" width="200" height="160" rx="28" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="140" y="170" width="340" height="290" rx="32" fill="#fbfbf9"/><rect x="186" y="246" width="240" height="44" rx="22" fill="#cfd6db"/><rect x="186" y="330" width="240" height="44" rx="22" fill="#e0e5e9"/><path d="M492 250 H 644" stroke="#7fa6cf" stroke-width="104" fill="none" stroke-linecap="round"/><rect x="676" y="176" width="208" height="148" rx="28" fill="#f2f6f9"/><path d="M310 472 V 700 H 644" stroke="#7fa6cf" stroke-width="104" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="676" y="626" width="208" height="148" rx="28" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="A2">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <rect x="150" y="190" width="330" height="300" rx="32" fill="#fbfbf9"/>
+              <rect x="196" y="252" width="210" height="24" rx="12" fill="#cfd6db"/>
+              <rect x="196" y="316" width="238" height="24" rx="12" fill="#e0e5e9"/>
+              <rect x="196" y="380" width="154" height="24" rx="12" fill="#e0e5e9"/>
+              <path d="M492 268 H 620" stroke="#8fbf9f" stroke-width="40" fill="none" stroke-linecap="round"/>
+              <path d="M610 234 L 662 268 L 610 302 Z" fill="#8fbf9f"/>
+              <rect x="674" y="188" width="200" height="160" rx="28" fill="#f2f6f9"/>
+              <path d="M316 502 V 720 H 620" stroke="#8fbf9f" stroke-width="40" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M610 686 L 662 720 L 610 754 Z" fill="#8fbf9f"/>
+              <rect x="674" y="640" width="200" height="160" rx="28" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">A2 · green</p><p class="name">The same, in the forest tone</p>
+            <p class="why">Identical structure with the app's soft green. It is the only green the interface already uses, so it does not invent a colour.</p>
+            <p class="small">At 16 px: same silhouette; the green reads a touch softer than blue on a dark Dock.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="150" y="190" width="330" height="300" rx="32" fill="#fbfbf9"/><rect x="196" y="252" width="210" height="24" rx="12" fill="#cfd6db"/><rect x="196" y="316" width="238" height="24" rx="12" fill="#e0e5e9"/><rect x="196" y="380" width="154" height="24" rx="12" fill="#e0e5e9"/><path d="M492 268 H 620" stroke="#8fbf9f" stroke-width="52" fill="none" stroke-linecap="round"/><path d="M606 228 L 666 268 L 606 308 Z" fill="#8fbf9f"/><rect x="674" y="188" width="200" height="160" rx="28" fill="#f2f6f9"/><path d="M316 502 V 720 H 620" stroke="#8fbf9f" stroke-width="52" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M606 680 L 666 720 L 606 760 Z" fill="#8fbf9f"/><rect x="674" y="640" width="200" height="160" rx="28" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="150" y="190" width="330" height="300" rx="32" fill="#fbfbf9"/><rect x="196" y="258" width="222" height="32" rx="16" fill="#cfd6db"/><rect x="196" y="334" width="238" height="32" rx="16" fill="#e0e5e9"/><path d="M492 268 H 626" stroke="#8fbf9f" stroke-width="72" fill="none" stroke-linecap="round"/><rect x="674" y="188" width="200" height="160" rx="28" fill="#f2f6f9"/><path d="M316 502 V 720 H 626" stroke="#8fbf9f" stroke-width="72" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="674" y="640" width="200" height="160" rx="28" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="150" y="190" width="330" height="300" rx="32" fill="#fbfbf9"/><rect x="196" y="264" width="232" height="44" rx="22" fill="#cfd6db"/><rect x="196" y="350" width="232" height="44" rx="22" fill="#e0e5e9"/><path d="M492 268 H 636" stroke="#8fbf9f" stroke-width="104" fill="none" stroke-linecap="round"/><rect x="666" y="194" width="208" height="148" rx="28" fill="#f2f6f9"/><path d="M316 502 V 720 H 636" stroke="#8fbf9f" stroke-width="104" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="666" y="646" width="208" height="148" rx="28" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2>B · Letterforms that are the grammar</h2>
+      <p class="fam">If the mark has to be read at a glance, a letter is the strongest at 16 px — provided the letter is drawn with the app's own strokes.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="B1">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <path d="M300 812 V 268" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round"/>
+              <path d="M300 300 H 700" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round"/>
+              <path d="M300 494 H 620" stroke="#7fa6cf" stroke-width="70" fill="none" stroke-linecap="round"/>
+              <path d="M610 452 L 676 494 L 610 536 Z" fill="#7fa6cf"/>
+              <rect x="690" y="420" width="170" height="148" rx="26" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">B1 · the letter F</p><p class="name">F for Forest</p>
+            <p class="why">A trunk and a top branch make the F; the lower branch is the app's arrow with a block at its end. The letter and the grammar are the same drawing.</p>
+            <p class="small">At 16 px: an F. Unmistakable, and it carries the name.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M300 812 V 268" stroke="#fbfbf9" stroke-width="106" fill="none" stroke-linecap="round"/><path d="M300 300 H 700" stroke="#fbfbf9" stroke-width="106" fill="none" stroke-linecap="round"/><path d="M300 494 H 620" stroke="#7fa6cf" stroke-width="80" fill="none" stroke-linecap="round"/><path d="M606 448 L 678 494 L 606 540 Z" fill="#7fa6cf"/><rect x="690" y="420" width="170" height="148" rx="26" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M310 812 V 268" stroke="#fbfbf9" stroke-width="130" fill="none" stroke-linecap="round"/><path d="M310 300 H 690" stroke="#fbfbf9" stroke-width="130" fill="none" stroke-linecap="round"/><path d="M310 500 H 620" stroke="#7fa6cf" stroke-width="100" fill="none" stroke-linecap="round"/><rect x="676" y="424" width="184" height="152" rx="26" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M320 812 V 268" stroke="#fbfbf9" stroke-width="160" fill="none" stroke-linecap="round"/><path d="M320 300 H 680" stroke="#fbfbf9" stroke-width="160" fill="none" stroke-linecap="round"/><path d="M320 506 H 620" stroke="#7fa6cf" stroke-width="130" fill="none" stroke-linecap="round"/><rect x="640" y="430" width="220" height="150" rx="26" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="B2">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <path d="M232 790 V 234" stroke="#fbfbf9" stroke-width="92" fill="none" stroke-linecap="round"/>
+              <path d="M232 234 L 792 790" stroke="#7fa6cf" stroke-width="92" fill="none" stroke-linecap="round"/>
+              <path d="M792 790 V 234" stroke="#fbfbf9" stroke-width="92" fill="none" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">B2 · the letter N</p><p class="name">N as two trunks and a bridge</p>
+            <p class="why">Two verticals are two trunks; the diagonal is the branch that joins them. It also reads as the initial.</p>
+            <p class="small">At 16 px: a clear N. The diagonal is the only "up" stroke in the whole set — a letter, not an arrow.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M232 790 V 234" stroke="#fbfbf9" stroke-width="100" fill="none" stroke-linecap="round"/><path d="M232 234 L 792 790" stroke="#7fa6cf" stroke-width="100" fill="none" stroke-linecap="round"/><path d="M792 790 V 234" stroke="#fbfbf9" stroke-width="100" fill="none" stroke-linecap="round"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M240 790 V 234" stroke="#fbfbf9" stroke-width="130" fill="none" stroke-linecap="round"/><path d="M240 234 L 784 790" stroke="#7fa6cf" stroke-width="130" fill="none" stroke-linecap="round"/><path d="M784 790 V 234" stroke="#fbfbf9" stroke-width="130" fill="none" stroke-linecap="round"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M250 790 V 234" stroke="#fbfbf9" stroke-width="170" fill="none" stroke-linecap="round"/><path d="M250 234 L 774 790" stroke="#7fa6cf" stroke-width="170" fill="none" stroke-linecap="round"/><path d="M774 790 V 234" stroke="#fbfbf9" stroke-width="170" fill="none" stroke-linecap="round"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="B3">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <path d="M268 200 V 824" stroke="#fbfbf9" stroke-width="86" fill="none" stroke-linecap="round"/>
+              <path d="M268 336 H 756" stroke="#fbfbf9" stroke-width="86" fill="none" stroke-linecap="round"/>
+              <path d="M268 688 H 588" stroke="#7fa6cf" stroke-width="86" fill="none" stroke-linecap="round"/>
+              <path d="M576 646 L 650 688 L 576 730 Z" fill="#7fa6cf"/>
+              <rect x="268" y="466" width="120" height="86" rx="20" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">B3 · abstract E</p><p class="name">Trunk, three arms, one arrow</p>
+            <p class="why">The purest structure: a trunk with three horizontal arms, the last one an arrow. Less letter, more diagram.</p>
+            <p class="small">At 16 px: a stem with bars — reads as "outline" more than "tree".</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M268 200 V 824" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round"/><path d="M268 336 H 756" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round"/><path d="M268 688 H 588" stroke="#7fa6cf" stroke-width="96" fill="none" stroke-linecap="round"/><path d="M572 642 L 652 688 L 572 734 Z" fill="#7fa6cf"/><rect x="268" y="466" width="120" height="86" rx="20" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M268 200 V 824" stroke="#fbfbf9" stroke-width="130" fill="none" stroke-linecap="round"/><path d="M268 336 H 756" stroke="#fbfbf9" stroke-width="130" fill="none" stroke-linecap="round"/><path d="M268 688 H 600" stroke="#7fa6cf" stroke-width="130" fill="none" stroke-linecap="round"/><rect x="268" y="466" width="130" height="86" rx="20" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M280 200 V 824" stroke="#fbfbf9" stroke-width="170" fill="none" stroke-linecap="round"/><path d="M280 336 H 744" stroke="#fbfbf9" stroke-width="170" fill="none" stroke-linecap="round"/><path d="M280 688 H 620" stroke="#7fa6cf" stroke-width="170" fill="none" stroke-linecap="round"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="C1">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <circle cx="322" cy="512" r="104" fill="#fbfbf9"/>
+              <path d="M438 512 H 622" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round"/>
+              <circle cx="686" cy="330" r="76" fill="#f2f6f9"/>
+              <circle cx="686" cy="694" r="76" fill="#f2f6f9"/>
+              <path d="M622 512 V 330 H 600" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M622 512 V 694 H 600" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">C1 · abstract</p><p class="name">Dot, branch, two dots</p>
+            <p class="why">Nothing but nodes and connectors: no paper, no card, no letter. The most "system" and the most neutral.</p>
+            <p class="small">At 16 px: three dots and a fork. Clean, but it could be any graph tool.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><circle cx="322" cy="512" r="104" fill="#fbfbf9"/><path d="M438 512 H 622" stroke="#7fa6cf" stroke-width="60" fill="none" stroke-linecap="round"/><circle cx="686" cy="330" r="76" fill="#f2f6f9"/><circle cx="686" cy="694" r="76" fill="#f2f6f9"/><path d="M622 512 V 330 H 600" stroke="#7fa6cf" stroke-width="60" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M622 512 V 694 H 600" stroke="#7fa6cf" stroke-width="60" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><circle cx="322" cy="512" r="118" fill="#fbfbf9"/><path d="M438 512 H 622" stroke="#7fa6cf" stroke-width="84" fill="none" stroke-linecap="round"/><circle cx="686" cy="330" r="84" fill="#f2f6f9"/><circle cx="686" cy="694" r="84" fill="#f2f6f9"/><path d="M622 512 V 330 H 596" stroke="#7fa6cf" stroke-width="84" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M622 512 V 694 H 596" stroke="#7fa6cf" stroke-width="84" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><circle cx="322" cy="512" r="130" fill="#fbfbf9"/><path d="M438 512 H 622" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round"/><circle cx="686" cy="330" r="96" fill="#f2f6f9"/><circle cx="686" cy="694" r="96" fill="#f2f6f9"/><path d="M622 512 V 330 H 590" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M622 512 V 694 H 590" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2>C · Abstract, no paper at all</h2>
+      <p class="fam">Marks made of geometry only. They win at small sizes and lose the "note" half of the name.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="C2">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <path d="M262 262 H 762 M 262 262 V 762" stroke="#7fa6cf" stroke-width="96" fill="none" stroke-linecap="round"/>
+              <rect x="392" y="392" width="290" height="290" rx="60" fill="#fbfbf9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">C2 · the bracket</p><p class="name">Corner and a block</p>
+            <p class="why">A heavy corner is the parent's two edges; the block inside is the note. Two elements, maximum legibility.</p>
+            <p class="small">At 16 px: a square in a corner. Bold and quiet at once.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M262 262 H 762 M 262 262 V 762" stroke="#7fa6cf" stroke-width="106" fill="none" stroke-linecap="round"/><rect x="392" y="392" width="290" height="290" rx="60" fill="#fbfbf9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M262 262 H 762 M 262 262 V 762" stroke="#7fa6cf" stroke-width="130" fill="none" stroke-linecap="round"/><rect x="392" y="392" width="290" height="290" rx="60" fill="#fbfbf9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M250 250 H 774 M 250 250 V 774" stroke="#7fa6cf" stroke-width="170" fill="none" stroke-linecap="round"/><rect x="380" y="380" width="310" height="310" rx="70" fill="#fbfbf9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="C3">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <path d="M300 240 V 700 H 724" stroke="#fbfbf9" stroke-width="84" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M470 400 V 560 H 640" stroke="#7fa6cf" stroke-width="84" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M628 520 L 692 560 L 628 600 Z" fill="#7fa6cf"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">C3 · interlocking</p><p class="name">Two nested branches</p>
+            <p class="why">Two Ls, one paper one accent, nested: the branch inside the branch. Abstract, no repetition of shapes.</p>
+            <p class="small">At 16 px: two corners, one blue. Distinctive, but it stops saying "note".</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M300 240 V 700 H 724" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M470 400 V 560 H 640" stroke="#7fa6cf" stroke-width="96" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M624 516 L 694 560 L 624 604 Z" fill="#7fa6cf"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M300 240 V 700 H 724" stroke="#fbfbf9" stroke-width="126" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M470 400 V 560 H 640" stroke="#7fa6cf" stroke-width="126" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M300 250 V 694 H 730" stroke="#fbfbf9" stroke-width="160" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M470 410 V 556 H 650" stroke="#7fa6cf" stroke-width="160" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="C4">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <rect x="222" y="222" width="580" height="580" rx="120" fill="none" stroke="#fbfbf9" stroke-width="88"/>
+              <path d="M222 512 H 802" stroke="#7fa6cf" stroke-width="88" fill="none"/>
+              <path d="M802 468 V 556" stroke="#7fa6cf" stroke-width="88" fill="none" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">C4 · cut</p><p class="name">Frame with a cut</p>
+            <p class="why">A block outline cut by one horizontal branch: the sheet and the seam, as a single gesture. The most "system" of the four.</p>
+            <p class="small">At 16 px: a square cut in half. Extremely legible, and slightly cold.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="222" y="222" width="580" height="580" rx="120" fill="none" stroke="#fbfbf9" stroke-width="96"/><path d="M222 512 H 802" stroke="#7fa6cf" stroke-width="96" fill="none"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="222" y="222" width="580" height="580" rx="120" fill="none" stroke="#fbfbf9" stroke-width="120"/><path d="M222 512 H 802" stroke="#7fa6cf" stroke-width="120" fill="none"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="222" y="222" width="580" height="580" rx="120" fill="none" stroke="#fbfbf9" stroke-width="150"/><path d="M222 512 H 802" stroke="#7fa6cf" stroke-width="150" fill="none"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="D1">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <g transform="rotate(-8 512 380)">
+                <rect x="170" y="230" width="330" height="230" rx="30" fill="#fbfbf9" opacity="0.55"/>
+                <rect x="240" y="190" width="330" height="230" rx="30" fill="#fbfbf9" opacity="0.8"/>
+                <rect x="310" y="150" width="330" height="230" rx="30" fill="#fbfbf9"/>
+              </g>
+              <path d="M475 430 V 760 H 690" stroke="#7fa6cf" stroke-width="54" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M676 716 L 744 760 L 676 804 Z" fill="#7fa6cf"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">D1 · extravagant</p><p class="name">A deck of notes</p>
+            <p class="why">Three offset sheets, slightly tilted, and one branch leaving the pile. It says "many notes" instead of one.</p>
+            <p class="small">At 16 px: a light mass with a blue tail — the tilt becomes noise. This is why it stays a lab.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><g transform="rotate(-8 512 380)"><rect x="170" y="230" width="330" height="230" rx="30" fill="#fbfbf9" opacity="0.55"/><rect x="240" y="190" width="330" height="230" rx="30" fill="#fbfbf9" opacity="0.8"/><rect x="310" y="150" width="330" height="230" rx="30" fill="#fbfbf9"/></g><path d="M475 430 V 760 H 690" stroke="#7fa6cf" stroke-width="60" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M672 712 L 746 760 L 672 808 Z" fill="#7fa6cf"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><g transform="rotate(-8 512 380)"><rect x="170" y="230" width="330" height="230" rx="30" fill="#fbfbf9" opacity="0.55"/><rect x="240" y="190" width="330" height="230" rx="30" fill="#fbfbf9" opacity="0.8"/><rect x="310" y="150" width="330" height="230" rx="30" fill="#fbfbf9"/></g><path d="M475 430 V 760 H 690" stroke="#7fa6cf" stroke-width="80" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><g transform="rotate(-8 512 380)"><rect x="200" y="220" width="330" height="240" rx="30" fill="#fbfbf9" opacity="0.6"/><rect x="290" y="170" width="330" height="240" rx="30" fill="#fbfbf9"/></g><path d="M480 420 V 750 H 700" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2>D · Strange on purpose</h2>
+      <p class="fam">Proposals that break the rules to see whether one of them points somewhere. A light icon in a dark Dock, a shape that is only negative space, a single inverted stroke.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="D2">
+              <rect width="1024" height="1024" rx="229" fill="#fbfbf9"/>
+              <rect x="150" y="196" width="330" height="280" rx="30" fill="#eceff2"/>
+              <rect x="196" y="256" width="200" height="22" rx="11" fill="#c9d0d6"/>
+              <rect x="196" y="316" width="230" height="22" rx="11" fill="#d8dde2"/>
+              <path d="M492 262 H 626" stroke="#2f5f8a" stroke-width="46" fill="none" stroke-linecap="round"/>
+              <path d="M614 222 L 678 262 L 614 302 Z" fill="#2f5f8a"/>
+              <rect x="690" y="182" width="196" height="160" rx="28" fill="#eceff2"/>
+              <path d="M316 476 V 700 H 626" stroke="#2f5f8a" stroke-width="46" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M614 660 L 678 700 L 614 740 Z" fill="#2f5f8a"/>
+              <rect x="690" y="620" width="196" height="160" rx="28" fill="#eceff2"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">D2 · inverted</p><p class="name">Paper icon, ink branch</p>
+            <p class="why">The icon is paper, the branch is ink. In a dark Dock a light square is immediately findable, and the paper tone is the app's own surface.</p>
+            <p class="small">At 16 px: a bright tile with a dark blue corner — the most visible of the whole set.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#fbfbf9"/><rect x="150" y="196" width="330" height="280" rx="30" fill="#eceff2"/><rect x="196" y="256" width="200" height="22" rx="11" fill="#c9d0d6"/><rect x="196" y="316" width="230" height="22" rx="11" fill="#d8dde2"/><path d="M492 262 H 626" stroke="#2f5f8a" stroke-width="58" fill="none" stroke-linecap="round"/><path d="M610 218 L 680 262 L 610 306 Z" fill="#2f5f8a"/><rect x="690" y="182" width="196" height="160" rx="28" fill="#eceff2"/><path d="M316 476 V 700 H 626" stroke="#2f5f8a" stroke-width="58" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M610 656 L 680 700 L 610 744 Z" fill="#2f5f8a"/><rect x="690" y="620" width="196" height="160" rx="28" fill="#eceff2"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#fbfbf9"/><rect x="150" y="196" width="330" height="280" rx="30" fill="#eceff2"/><rect x="196" y="264" width="214" height="30" rx="15" fill="#c9d0d6"/><rect x="196" y="330" width="230" height="30" rx="15" fill="#d8dde2"/><path d="M492 262 H 632" stroke="#2f5f8a" stroke-width="80" fill="none" stroke-linecap="round"/><rect x="690" y="182" width="196" height="160" rx="28" fill="#eceff2"/><path d="M316 476 V 700 H 632" stroke="#2f5f8a" stroke-width="80" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="690" y="620" width="196" height="160" rx="28" fill="#eceff2"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#fbfbf9"/><rect x="150" y="196" width="330" height="280" rx="30" fill="#e4e8ec"/><rect x="196" y="272" width="230" height="42" rx="21" fill="#c9d0d6"/><path d="M492 262 H 640" stroke="#2f5f8a" stroke-width="110" fill="none" stroke-linecap="round"/><rect x="680" y="188" width="206" height="154" rx="28" fill="#e4e8ec"/><path d="M316 476 V 700 H 640" stroke="#2f5f8a" stroke-width="110" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="680" y="626" width="206" height="154" rx="28" fill="#e4e8ec"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="D3">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <path d="M256 828 V 196 M 256 330 H 768 M 256 660 H 512" stroke="#7fa6cf" stroke-width="118" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="700" cy="660" r="96" fill="#fbfbf9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">D3 · one weight</p><p class="name">Monoline trunk and dot</p>
+            <p class="why">One stroke weight for everything, one dot as the only filled shape. Almost a pictogram, very calm.</p>
+            <p class="small">At 16 px: a bracket and a dot. Distinct, though it reads more "settings" than "notes".</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M256 828 V 196 M 256 330 H 768 M 256 660 H 512" stroke="#7fa6cf" stroke-width="118" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="700" cy="660" r="96" fill="#fbfbf9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M256 828 V 196 M 256 330 H 768 M 256 660 H 512" stroke="#7fa6cf" stroke-width="150" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="700" cy="660" r="110" fill="#fbfbf9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M256 828 V 196 M 256 330 H 768 M 256 660 H 512" stroke="#7fa6cf" stroke-width="190" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="700" cy="660" r="130" fill="#fbfbf9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="D4">
+              <rect width="1024" height="1024" rx="229" fill="url(#bg)"/>
+              <path d="M512 180 L 812 512 L 512 844 L 212 512 Z" fill="#fbfbf9"/>
+              <path d="M512 300 V 512 H 700" stroke="#1e2023" stroke-width="64" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M676 452 L 744 512 L 676 572 Z" fill="#1e2023"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">D4 · the odd one</p><p class="name">Diamond note</p>
+            <p class="why">The note is a diamond, the branch cuts into it. No paper shape, no rectangle — and it is unmistakable in a Dock.</p>
+            <p class="small">At 16 px: a bright diamond. Memorable, but it says nothing about notes or trees. Included as a boundary test.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M512 180 L 812 512 L 512 844 L 212 512 Z" fill="#fbfbf9"/><path d="M512 300 V 512 H 700" stroke="#1e2023" stroke-width="76" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M672 446 L 748 512 L 672 578 Z" fill="#1e2023"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M512 170 L 822 512 L 512 854 L 202 512 Z" fill="#fbfbf9"/><path d="M512 300 V 512 H 700" stroke="#1e2023" stroke-width="96" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><path d="M512 160 L 832 512 L 512 864 L 192 512 Z" fill="#fbfbf9"/><path d="M512 310 V 512 H 710" stroke="#1e2023" stroke-width="130" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2>E · In the Dock, the four most distinct</h2>
+      <div class="dock dark">
+        <span class="fake"></span>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="140" y="170" width="340" height="290" rx="32" fill="#fbfbf9"/><rect x="186" y="232" width="216" height="24" rx="12" fill="#cfd6db"/><rect x="186" y="296" width="244" height="24" rx="12" fill="#e0e5e9"/><rect x="186" y="360" width="160" height="24" rx="12" fill="#e0e5e9"/><path d="M492 250 H 630" stroke="#7fa6cf" stroke-width="40" fill="none" stroke-linecap="round"/><path d="M620 216 L 672 250 L 620 284 Z" fill="#7fa6cf"/><rect x="684" y="170" width="200" height="160" rx="28" fill="#f2f6f9"/><path d="M310 472 V 700 H 630" stroke="#7fa6cf" stroke-width="40" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M620 666 L 672 700 L 620 734 Z" fill="#7fa6cf"/><rect x="684" y="620" width="200" height="160" rx="28" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><path d="M300 812 V 268" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round"/><path d="M300 300 H 700" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round"/><path d="M300 494 H 620" stroke="#7fa6cf" stroke-width="70" fill="none" stroke-linecap="round"/><path d="M610 452 L 676 494 L 610 536 Z" fill="#7fa6cf"/><rect x="690" y="420" width="170" height="148" rx="26" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><path d="M262 262 H 762 M 262 262 V 762" stroke="#7fa6cf" stroke-width="96" fill="none" stroke-linecap="round"/><rect x="392" y="392" width="290" height="290" rx="60" fill="#fbfbf9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#fbfbf9"/><rect x="150" y="196" width="330" height="280" rx="30" fill="#eceff2"/><rect x="196" y="256" width="200" height="22" rx="11" fill="#c9d0d6"/><rect x="196" y="316" width="230" height="22" rx="11" fill="#d8dde2"/><path d="M492 262 H 626" stroke="#2f5f8a" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M614 222 L 678 262 L 614 302 Z" fill="#2f5f8a"/><rect x="690" y="182" width="196" height="160" rx="28" fill="#eceff2"/><path d="M316 476 V 700 H 626" stroke="#2f5f8a" stroke-width="46" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M614 660 L 678 700 L 614 740 Z" fill="#2f5f8a"/><rect x="690" y="620" width="196" height="160" rx="28" fill="#eceff2"/></svg>
+      </div>
+      <div class="dock light" style="margin-top: 10px">
+        <span class="fake"></span>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="140" y="170" width="340" height="290" rx="32" fill="#fbfbf9"/><rect x="186" y="232" width="216" height="24" rx="12" fill="#cfd6db"/><rect x="186" y="296" width="244" height="24" rx="12" fill="#e0e5e9"/><rect x="186" y="360" width="160" height="24" rx="12" fill="#e0e5e9"/><path d="M492 250 H 630" stroke="#7fa6cf" stroke-width="40" fill="none" stroke-linecap="round"/><path d="M620 216 L 672 250 L 620 284 Z" fill="#7fa6cf"/><rect x="684" y="170" width="200" height="160" rx="28" fill="#f2f6f9"/><path d="M310 472 V 700 H 630" stroke="#7fa6cf" stroke-width="40" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M620 666 L 672 700 L 620 734 Z" fill="#7fa6cf"/><rect x="684" y="620" width="200" height="160" rx="28" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><path d="M300 812 V 268" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round"/><path d="M300 300 H 700" stroke="#fbfbf9" stroke-width="96" fill="none" stroke-linecap="round"/><path d="M300 494 H 620" stroke="#7fa6cf" stroke-width="70" fill="none" stroke-linecap="round"/><path d="M610 452 L 676 494 L 610 536 Z" fill="#7fa6cf"/><rect x="690" y="420" width="170" height="148" rx="26" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><path d="M262 262 H 762 M 262 262 V 762" stroke="#7fa6cf" stroke-width="96" fill="none" stroke-linecap="round"/><rect x="392" y="392" width="290" height="290" rx="60" fill="#fbfbf9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#fbfbf9"/><rect x="150" y="196" width="330" height="280" rx="30" fill="#eceff2"/><rect x="196" y="256" width="200" height="22" rx="11" fill="#c9d0d6"/><rect x="196" y="316" width="230" height="22" rx="11" fill="#d8dde2"/><path d="M492 262 H 626" stroke="#2f5f8a" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M614 222 L 678 262 L 614 302 Z" fill="#2f5f8a"/><rect x="690" y="182" width="196" height="160" rx="28" fill="#eceff2"/><path d="M316 476 V 700 H 626" stroke="#2f5f8a" stroke-width="46" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M614 660 L 678 700 L 614 740 Z" fill="#2f5f8a"/><rect x="690" y="620" width="196" height="160" rx="28" fill="#eceff2"/></svg>
+      </div>
+      <p class="rule">A1 · B1 · C2 · D2. The fake icon on the left is only a neighbour.</p>
+
+      <div class="panel">
+        <p><b>Fixed in this round:</b> every connector starts 12 px outside the card, so the round cap no longer eats into the paper; the arrowhead stops on the child's edge.</p>
+        <p><b>Where I would go next:</b> B1 is the only one that carries the name and the structure at once. If the letter feels too explicit, A1 is the honest fallback; if the icon has to be recognisable in a crowded Dock, D2 (light paper) wins on sight.</p>
+      </div>
+
+      <p class="footer">Lab only, no application code. Chosen SVG → 1024 + small-size variants → iconset → .icns.</p>
+    </main>
+  </body>
+</html>
