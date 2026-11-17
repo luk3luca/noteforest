@@ -52,11 +52,13 @@ the page model, the page count and the PDF are untouched.
   cluster reads
 
   ```
-  ↑ │ ↓  [ 3 ]  of 61
+  [↑] [↓]  [ 3 ] / 61
   ```
 
-  **up and down arrows**, one hairline divider between them, then a **bordered input holding the current
-  page** and the label `of 61`. Up and down, not left and right, because the surface scrolls vertically.
+  **Up and down arrows** as two plain 22 px icon buttons — no divider between them, the same way the find
+  cluster has none — then a **bordered input holding the current page** and the label `/ 61`. Up and down,
+  not left and right, because the surface scrolls vertically. The slash matches the app's existing page
+  notation; `of` belongs to the find count, not here.
   - Click the input, type a number, `↵` jumps, `Esc` restores the current page.
   - The arrows move to the previous/next page start and are **disabled at the first and last page**.
   - `⌘↑` / `⌘↓` do the same from the keyboard; `PageUp` / `PageDown` keep their ordinary meaning: scroll
