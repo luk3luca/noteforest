@@ -3,7 +3,7 @@
 **Status:** Draft v1.5 — editor layouts and modes (ADR-0007), 7 November 2026  
 **Owner:** UX / Product  
 **Date:** 7 November 2026  
-**Working title:** NoteForest (personal use and GitHub only — no clearance or notarization required; decided 17 November 2026)  
+**Working title:** NoteForest (distribution and signing are provisional — local unsigned build, Developer ID, or Mac App Store; see `docs/plan.md`)  
 **Stack:** Electron + React + TypeScript (ADR-0001). This document defines UX behavior and avoids Electron-specific behavior where platform neutrality is cheap, but Electron APIs are allowed where they are the decided implementation (for example PDF export).  
 **Related:** `AGENTS.md`, `research/landscape.md`, `docs/spec.md` v0.5, `docs/plan.md`, `docs/ux-shell.md`, `docs/adr/0005-anchor-binding-and-identity.md`, `docs/adr/0007-editor-layouts-and-modes.md`
 
