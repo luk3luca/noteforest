@@ -32,7 +32,7 @@ follow in the next slices.
   reason in the tooltip or in the adjacent note.
 - **No fake controls:** no static labels that look interactive, no “coming soon” toggles.
 - **Responsive thresholds (proposal):** ≥1200 px full labels; 900–1199 icon+text; <900 icon-only
-  and overflow; <760 sidebar auto-collapsed; <680 tabs overflow aggressively.
+  and overflow; ≤1120 the sidebar collapses to the 48 px rail (17 November 2026, so the canvas header keeps a usable find input); <680 tabs overflow aggressively.
 
 ---
 
@@ -220,7 +220,7 @@ different commands.
 - **Collapsed (accepted 10 Nov): hidden + reveal.** The sidebar disappears; a `SidebarReveal`
   button appears at the left of the TopBar/canvas; `⌘\` toggles. No icon rail, so there is no
   second icon vocabulary.
-- Collapsed state and width persist in the session; narrow windows (<760 px) auto-collapse but do
+- Collapsed state and width persist in the session; narrow windows (≤1120 px) auto-collapse but do
   not overwrite the user's preference.
 - Focus order: TopBar → Sidebar header → Library → Topics → Footer → Canvas.
 
