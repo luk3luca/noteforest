@@ -28,6 +28,7 @@ import {
   activeLibraryPath,
   applyCommand,
   appSupportDir,
+  assetIdsInBackups,
   bootstrap,
   chooseDraftLibrary,
   closeAllStores,
@@ -71,6 +72,7 @@ import {
   takeOverStaleLock,
   trashDocument,
   trashPreflight,
+  trashUnusedImage,
   writeSession,
   writeSettings,
 } from './library.js';
@@ -971,6 +973,32 @@ function registerIpc(): void {
         return { ok: false as const, message: 'No image asset was provided.' };
       }
       return copyImageAsset(sourcePackagePath, targetPackagePath, assetId);
+    },
+  );
+
+  // Unused-image cleanup (DR1b). The scan is read-only; the trash is the only
+  // destructive step and it always goes through the OS Trash, never `unlink`.
+  ipcMain.handle('document:backup-asset-ids', (_event, packagePath: unknown) => {
+    if (typeof packagePath !== 'string' || packagePath.length === 0) {
+      return { ok: false as const, message: 'No note was provided.' };
+    }
+    return assetIdsInBackups(packagePath);
+  });
+
+  ipcMain.handle(
+    'document:trash-unused-image',
+    (_event, packagePath: unknown, assetId: unknown) => {
+      if (typeof packagePath !== 'string' || packagePath.length === 0) {
+        return { ok: false as const, code: 'not-open' as const, message: 'No note was provided.' };
+      }
+      if (typeof assetId !== 'string' || assetId.length === 0) {
+        return {
+          ok: false as const,
+          code: 'not-found' as const,
+          message: 'No image was provided.',
+        };
+      }
+      return trashUnusedImage(packagePath, assetId, (target) => shell.trashItem(target));
     },
   );
 

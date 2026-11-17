@@ -21,7 +21,7 @@
  * survives closing the modal.
  */
 
-import { Check, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { Check, ChevronRight, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRegistry, useRuntime } from '../state/registry';
 import { useShell } from '../state/shell';
@@ -39,7 +39,13 @@ import {
   filterDocumentHealthRows,
   type DocumentHealthRow,
 } from '../lib/document-health';
+import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
+import {
+  UNUSED_IMAGES_SECTION_TITLE,
+  unusedImagesActionLabel,
+} from '../lib/unused-images';
 import { useDocumentHealthReport } from './useDocumentHealth';
+import { useUnusedImages } from './useUnusedImages';
 
 /** How long the refresh button keeps its check after a manual re-check. */
 const CHECKED_FEEDBACK_MS = 2000;
@@ -58,11 +64,18 @@ export function HealthSection(): JSX.Element {
   const selectedRowId = useShell((state) => state.healthSelectedRowId);
   const setSelectedRowId = useShell((state) => state.setHealthSelectedRowId);
   const openDialog = useShell((state) => state.openDialog);
+  const view = useShell((state) =>
+    activePath === null ? undefined : state.viewByDoc[activePath],
+  );
   const [query, setQuery] = useState('');
   const [checkToken, setCheckToken] = useState(0);
   const [checked, setChecked] = useState(false);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const report = useDocumentHealthReport(runtime, checkToken);
+  const unused = useUnusedImages(runtime, checkToken);
+  // The cleanup is a document mutation: Read mode (and Page, which owns its own
+  // one-block overlay) disables it, while the section keeps listing.
+  const cleanupEnabled = editingEnabledFor(runtime, view);
 
   // The check reads as feedback, not as a state: it returns by itself.
   useEffect(() => {
@@ -174,7 +187,13 @@ export function HealthSection(): JSX.Element {
   }
 
   return (
-    <section className="nf-sidebar-section nf-health-section" aria-label="Health">
+    <section
+      className="nf-sidebar-section nf-health-section"
+      aria-label="Health"
+      // The backup scan is async; the plan is empty until it answers for this
+      // note (never "no backups"). The flag lets a test wait for the answer.
+      data-health-unused-ready={unused.ready ? 'true' : 'false'}
+    >
       <div className="nf-section-head nf-health-head">
         <span className="nf-section-title nf-health-title">Health</span>
         {/* The header carries the title and the summary count only: the manual
@@ -232,7 +251,7 @@ export function HealthSection(): JSX.Element {
         </span>
       </div>
 
-      {report.counts.all === 0 ? (
+      {report.counts.all === 0 && unused.items.length === 0 ? (
         <div className="nf-health-empty" data-health-empty="true">
           <p>No issues found</p>
           <p className="nf-health-empty-info" data-health-empty-info="true">
@@ -376,6 +395,75 @@ export function HealthSection(): JSX.Element {
           })}
         </div>
       )}
+
+      {/* Unused images (DR1b). The four audit sections above always render their
+          `0`; this one is a surprise, so it exists only when the plan is
+          non-empty and hides while a search filters the audit. Its header is the
+          same 28 px label/count pattern; the rows are the shared result card.
+          A search never shows it: asset files are not issues. */}
+      {!searching && unused.items.length > 0 ? (
+        <section
+          className="nf-sidebar-group nf-health-group nf-health-unused"
+          aria-label={`${UNUSED_IMAGES_SECTION_TITLE}, ${unused.items.length}`}
+          data-health-unused="true"
+          data-health-unused-count={unused.items.length}
+          data-health-unused-bytes={unused.totalBytes}
+        >
+          <div className="nf-health-section-row nf-health-unused-head" aria-hidden="true">
+            <span className="nf-health-section-chevron" />
+            <span className="nf-health-section-name">{UNUSED_IMAGES_SECTION_TITLE}</span>
+            <span className="nf-health-section-count" data-health-unused-count-label="true">
+              {unused.items.length}
+            </span>
+          </div>
+          <div className="nf-health-rows nf-health-unused-rows">
+            <ul className="nf-health-unused-list">
+              {unused.items.map((item) => (
+                <li
+                  key={item.id}
+                  className="nf-result-row nf-health-unused-row"
+                  data-health-unused-image={item.id}
+                  title={
+                    item.size.length === 0
+                      ? `${item.name} · ${item.mime}`
+                      : `${item.name} · ${item.size} · ${item.mime}`
+                  }
+                >
+                  <span className="nf-health-unused-name">{item.name}</span>
+                  <span className="nf-health-row-meta">
+                    {item.size.length === 0 ? null : (
+                      <>
+                        <span>{item.size}</span>
+                        <span className="nf-health-row-separator" aria-hidden="true">
+                          ·
+                        </span>
+                      </>
+                    )}
+                    <span className="nf-health-row-block">{item.mime}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="nf-button nf-health-unused-action"
+              data-health-unused-action="true"
+              disabled={!cleanupEnabled}
+              title={cleanupEnabled ? undefined : READ_MODE_TITLE}
+              onClick={() =>
+                openDialog({
+                  kind: 'unused-images',
+                  packagePath: runtime.packagePath,
+                  assetIds: unused.items.map((item) => item.id),
+                })
+              }
+            >
+              <Trash2 size={13} strokeWidth={1.5} aria-hidden="true" />
+              {unusedImagesActionLabel(unused.items.length)}
+            </button>
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }

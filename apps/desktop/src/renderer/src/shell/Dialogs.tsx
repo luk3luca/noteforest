@@ -37,6 +37,15 @@ import {
   overwriteMarkdownFile,
 } from '../markdown/markdown-save';
 import { backupMetadataLine } from '../lib/backup-restore';
+import {
+  UNUSED_IMAGES_CONFIRM_LIMIT,
+  unusedImageViews,
+  unusedImagesMoreLine,
+  unusedImagesSummaryLine,
+  unusedImagesTotalBytes,
+  type UnusedImageView,
+} from '../lib/unused-images';
+import { cleanUnusedImages } from '../lib/unused-images-cleanup';
 import type { BackupCandidateView, TrashPreflight } from '../../../shared/api';
 import type { DocumentRuntime } from '../state/runtime';
 import { Details, DetailsDialog } from './Details';
@@ -217,6 +226,187 @@ function TrashDocumentDialog({
         ) : null}
         <Details value={preflight.packagePath} />
       </div>
+    </Frame>
+  );
+}
+
+/**
+ * Unused images (DR1b): one confirm that moves the bytes to the OS Trash.
+ *
+ * The dialog is the preview: it re-reads the backup scan and re-plans on open,
+ * so the count and the total it states are current. `Remove` moves the files
+ * first and removes each record after it; a failure stops the pass and the
+ * toast names how many images were handled. The files are recoverable from the
+ * Trash, which is why the button is outlined danger and Cancel has focus.
+ */
+function UnusedImagesDialog({
+  runtime,
+  packagePath,
+  assetIds,
+  onClose,
+}: {
+  runtime: DocumentRuntime;
+  packagePath: string;
+  assetIds: string[];
+  onClose: () => void;
+}): JSX.Element {
+  type PlanState =
+    | { status: 'loading' }
+    | { status: 'ready'; items: UnusedImageView[]; totalBytes: number }
+    | { status: 'error'; message: string; details?: string };
+
+  const [state, setState] = useState<PlanState>({ status: 'loading' });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ status: 'loading' });
+    const load = async (): Promise<void> => {
+      const scan = await window.noteforest.backupAssetIds(packagePath);
+      if (cancelled) return;
+      if (!scan.ok) {
+        setState({ status: 'error', message: scan.message, details: scan.details });
+        return;
+      }
+      const requested = new Set(assetIds);
+      const items = unusedImageViews(runtime.document, scan.assetIds).filter((item) =>
+        requested.has(item.id),
+      );
+      setState({ status: 'ready', items, totalBytes: unusedImagesTotalBytes(items) });
+    };
+    void load().catch(() => {
+      if (!cancelled) {
+        setState({
+          status: 'error',
+          message: 'Couldn’t read the list of unused images.',
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [packagePath, assetIds, runtime]);
+
+  const remove = async (): Promise<void> => {
+    if (state.status !== 'ready' || state.items.length === 0 || busy) return;
+    setBusy(true);
+    try {
+      const result = await cleanUnusedImages(
+        state.items.map((item) => item.id),
+        {
+          backupAssetIds: () => window.noteforest.backupAssetIds(packagePath),
+          document: () => runtime.document,
+          trash: (assetId) => window.noteforest.trashUnusedImage(packagePath, assetId),
+          removeRecord: (assetId) => runtime.removeUnusedAsset(assetId),
+        },
+      );
+      // Persist the record removals now: the section is derived from the saved
+      // document after a reload, and a slow autosave would leave it stale.
+      if (result.moved.length > 0) await runtime.flush();
+      onClose();
+      if (result.ok) {
+        if (result.message.length > 0) {
+          if (result.moved.length > 0) toast.success(result.message);
+          else toast.info(result.message);
+        }
+        return;
+      }
+      errorToast(result.message, result.details);
+    } catch {
+      // A rejected platform call after a partial pass: the handled count is in
+      // the section, which re-plans from the canonical document.
+      onClose();
+      errorToast('The unused images couldn’t be cleaned up.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removable = state.status === 'ready' && state.items.length > 0;
+  const listed = state.status === 'ready' ? state.items.slice(0, UNUSED_IMAGES_CONFIRM_LIMIT) : [];
+  const hidden = state.status === 'ready' ? state.items.length - listed.length : 0;
+  const more = unusedImagesMoreLine(hidden);
+
+  return (
+    <Frame
+      title="Clean up unused images?"
+      description="The files move to the Trash. You can restore them from there."
+      size="records"
+      focusSecondary
+      actions={
+        <>
+          {/* The safe exit is always the same DOM node, so the frame's
+              secondary focus survives the scan and the footer never reorders. */}
+          <Button
+            className="nf-button"
+            data-dialog-secondary="true"
+            isDisabled={busy}
+            onPress={onClose}
+          >
+            {removable || busy ? 'Cancel' : 'Close'}
+          </Button>
+          {removable || busy ? (
+            <Button
+              className="nf-button nf-button-danger"
+              data-unused-images-confirm="true"
+              isDisabled={busy}
+              onPress={() => void remove()}
+            >
+              {busy ? 'Removing…' : 'Remove'}
+            </Button>
+          ) : null}
+        </>
+      }
+    >
+      {state.status === 'loading' ? (
+        <p className="nf-dialog-text" data-unused-images-loading="true">
+          Checking unused images…
+        </p>
+      ) : null}
+
+      {state.status === 'error' ? (
+        <>
+          <p className="nf-dialog-text nf-dialog-error" role="alert" data-unused-images-error="true">
+            {state.message}
+          </p>
+          {state.details === undefined ? null : <Details value={state.details} />}
+        </>
+      ) : null}
+
+      {state.status === 'ready' && !removable ? (
+        <p className="nf-dialog-text" data-unused-images-empty="true">
+          These images are in use again. Nothing was removed.
+        </p>
+      ) : null}
+
+      {state.status === 'ready' && removable ? (
+        <>
+          <p className="nf-dialog-text" data-unused-images-summary="true">
+            {unusedImagesSummaryLine(state.items.length, state.totalBytes)}
+          </p>
+          <ul className="nf-unused-images-list">
+            {listed.map((item) => (
+              <li
+                key={item.id}
+                className="nf-unused-images-item"
+                data-unused-images-item={item.id}
+              >
+                <span className="nf-unused-images-name" title={item.name}>
+                  {item.name}
+                </span>
+                <span className="nf-unused-images-meta">
+                  {item.size.length === 0 ? item.mime : `${item.size} · ${item.mime}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {more.length === 0 ? null : (
+            <p className="nf-dialog-note" data-unused-images-more="true">
+              {more}
+            </p>
+          )}
+        </>
+      ) : null}
     </Frame>
   );
 }
@@ -644,6 +834,18 @@ export function Dialogs(): JSX.Element | null {
     if (runtime === null) return null;
     return (
       <HealthRepairDialog runtime={runtime} rowId={dialog.rowId} onClose={close} />
+    );
+  }
+
+  if (dialog.kind === 'unused-images') {
+    if (runtime === null) return null;
+    return (
+      <UnusedImagesDialog
+        runtime={runtime}
+        packagePath={dialog.packagePath}
+        assetIds={dialog.assetIds}
+        onClose={close}
+      />
     );
   }
 

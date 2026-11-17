@@ -209,6 +209,24 @@ describe('library recovery statuses', () => {
       details: expect.stringMatching(/not valid JSON/),
     });
   });
+
+  it('keeps the core parse sentence in SaveResult details for a damaged package', async () => {
+    // DR1b: the save-failure banner shows the short recovery line and puts the
+    // raw store sentence under Details; the short line must never be the only
+    // value the renderer receives.
+    const valid = await createValidPackage('Parse sentence');
+    const brokenPath = path.join(library, 'damaged-save');
+    await fs.cp(valid.packagePath, brokenPath, { recursive: true });
+    await fs.writeFile(path.join(brokenPath, 'document.json'), '{ "schemaVersion": 2,');
+
+    const saved = await saveDocument(brokenPath);
+    expect(saved).toMatchObject({
+      ok: false,
+      code: 'not-found',
+      error: 'The file isn’t valid NoteForest data.',
+      details: expect.stringMatching(/not valid JSON/),
+    });
+  });
 });
 
 async function writeStaleLock(packagePath: string, token = 'dead-token'): Promise<string> {

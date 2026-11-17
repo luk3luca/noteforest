@@ -84,6 +84,7 @@ export type DialogState =
   | { kind: 'delete-branch'; blockId: string }
   | { kind: 'link-reference'; blockId: string; anchorId?: string }
   | { kind: 'image-alt'; blockId: string; path: number[]; assetId: string; alt: string }
+  | { kind: 'unused-images'; packagePath: string; assetIds: string[] }
   | { kind: 'health-issue'; rowId: string }
   | { kind: 'rename-document' }
   | { kind: 'rename-chapter'; chapterId: string }

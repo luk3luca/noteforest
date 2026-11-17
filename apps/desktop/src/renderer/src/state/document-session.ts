@@ -68,7 +68,7 @@ export interface DocumentSessionPorts {
   /** Save lifecycle: a structural command changed the canonical document. */
   noteStructuralChange(): void;
   /** Save lifecycle: record one failed command/write with its typed code. */
-  recordFailure(code: SaveFailureCode, message: string): void;
+  recordFailure(code: SaveFailureCode, message: string, details?: string): void;
   /** Message of the current save failure, or null. */
   saveError(): string | null;
 }
@@ -263,7 +263,11 @@ export class DocumentSession {
           result.code === 'read-only' || result.code === 'not-found'
             ? result.code
             : 'unknown';
-        this.ports.recordFailure(code, result.message ?? 'Could not save the edit.');
+        this.ports.recordFailure(
+          code,
+          result.message ?? 'Could not save the edit.',
+          result.details,
+        );
         return false;
       }
       if (result.document !== undefined) {

@@ -102,9 +102,10 @@ export function SaveFailureBanner({
   // permission, lock, and integrity failures use the danger tone. Either way
   // the color stays on the icon/title, never on a stripe.
   const tone = failure.code === 'external-modification' ? 'warning' : 'danger';
-  // One Details per surface: the failure value and the package path join with
-  // ` · ` (dialogs.md §3.4).
-  const detailsValue = `${failure.message} · ${runtime.packagePath}`;
+  // One Details per surface: the technical line when the failure carries one
+  // (a mapped recovery reason keeps the raw sentence there), the failure value
+  // otherwise, then the package path (dialogs.md §3.4).
+  const detailsValue = `${failure.details ?? failure.message} · ${runtime.packagePath}`;
   return (
     <section
       className="nf-save-failure"

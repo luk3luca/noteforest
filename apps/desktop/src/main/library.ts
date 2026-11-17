@@ -26,6 +26,7 @@ import {
 } from '@noteforest/core';
 import {
   backupsDirForPackage,
+  backupAssetReferences,
   breakStaleLock,
   createUniquePackageDir,
   defaultAppSupportDir,
@@ -57,6 +58,7 @@ import {
 } from '@noteforest/core/node';
 import type {
   ApplyResult,
+  BackupAssetIdsResult,
   BackupCandidateView,
   CreateDraftInput,
   CreateDraftResult,
@@ -97,6 +99,7 @@ import type {
   TrashDocumentResult,
   TrashDocumentStatus,
   TrashPreflight,
+  TrashUnusedImageResult,
   VaultActionResult,
   VaultEntryKind,
   VaultMoveView,
@@ -137,6 +140,7 @@ import {
   writeDocumentSettingsFile,
 } from './document-settings.js';
 import { saveFailureCode } from './save-error.js';
+import { trashUnusedAsset } from './unused-images.js';
 import { normalizeDocumentViewState } from '../shared/view-state.js';
 import { isMarkdownPath, isMarkdownFileName, markdownFileTitle } from '../shared/markdown.js';
 import { readMarkdownFile } from './markdown-file.js';
@@ -1905,6 +1909,71 @@ export async function copyImageAsset(
   return { ok: true, asset: inserted.asset };
 }
 
+/**
+ * Asset ids that this note's valid backups still name (DR1b).
+ *
+ * `backupAssetReferences` reads `<appSupport>/backups/<note>` and parses up to
+ * 50 `document.json` snapshots; it is off the save path and only runs on the
+ * Health report refresh and once per cleanup pass. Unreadable or invalid
+ * backups retain nothing because they cannot be restored.
+ */
+export async function assetIdsInBackups(packagePath: string): Promise<BackupAssetIdsResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, message: 'No note was provided.' };
+  }
+  try {
+    const references = await backupAssetReferences(packagePath, {
+      appSupportDir: appSupportDir(),
+    });
+    return { ok: true, assetIds: references.assetIds };
+  } catch (error) {
+    return {
+      ok: false,
+      message: 'The backups couldn’t be checked.',
+      details: errorMessage(error),
+    };
+  }
+}
+
+/**
+ * Move one unused image file to the OS Trash, before its record is removed with
+ * the guarded `asset.remove` command. The record must be unreferenced and the
+ * file must be the content address inside this package's real `assets/`.
+ */
+export async function trashUnusedImage(
+  packagePath: string,
+  assetId: string,
+  trashItem: TrashItem,
+): Promise<TrashUnusedImageResult> {
+  if (typeof packagePath !== 'string' || packagePath.length === 0) {
+    return { ok: false, code: 'not-open', message: 'No note was provided.' };
+  }
+  const opened = await openStore(packagePath);
+  if ('error' in opened) {
+    return { ok: false, code: 'not-open', message: opened.error };
+  }
+  if ('recovery' in opened) {
+    return {
+      ok: false,
+      code: 'not-open',
+      message: 'This note can’t be opened, so its images can’t be cleaned up.',
+      ...(opened.recovery.reasonDetails === undefined
+        ? {}
+        : { details: opened.recovery.reasonDetails }),
+    };
+  }
+  return trashUnusedAsset(
+    {
+      packagePath: opened.store.packagePath,
+      assetsPath: opened.store.assetsPath,
+      document: opened.store.document,
+      readOnly: opened.store.readOnly,
+    },
+    assetId,
+    trashItem,
+  );
+}
+
 export type OpenAssetFailureReason = 'asset-missing' | 'asset-changed' | 'asset-unsupported';
 
 export type OpenAssetResolution =
@@ -2075,7 +2144,12 @@ export async function saveDocument(
       changed: false,
       revision: 0,
       code: opened.recovery.status === 'newer-schema' ? 'read-only' : 'not-found',
+      // The short recovery line stays the message; the core parse sentence is
+      // the technical value the save-failure banner shows under Details.
       error: opened.recovery.reason,
+      ...(opened.recovery.reasonDetails === undefined
+        ? {}
+        : { details: opened.recovery.reasonDetails }),
     };
   }
   if ('error' in opened) {

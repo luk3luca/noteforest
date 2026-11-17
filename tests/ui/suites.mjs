@@ -73,6 +73,7 @@ export const FILES = [
   'find-bar.test.mjs',
   'sidebar-system.test.mjs',
   'manual-breaks.test.mjs',
+  'unused-images.test.mjs',
 ];
 
 /**
@@ -114,6 +115,7 @@ export const GROUPS = {
     'find-bar.test.mjs',
     'sidebar-system.test.mjs',
     'manual-breaks.test.mjs',
+    'unused-images.test.mjs',
   ],
   settings: [
     'm4e1-settings-platform.test.mjs',
@@ -150,6 +152,7 @@ export const GROUPS = {
     'm3c3b2-image-anchors.test.mjs',
     'm3c3b3-image-integrity.test.mjs',
     'm3c3b4-image-lifecycle.test.mjs',
+    'unused-images.test.mjs',
   ],
   markdown: ['markdown-file-view.test.mjs'],
   page: [

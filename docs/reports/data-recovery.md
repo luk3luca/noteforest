@@ -225,3 +225,187 @@ differs from the raw), the boundary tests in `recovery-library.test.ts`, and the
    → `Unused images` section (rows + footer action + confirm on the shared `Frame`) → cleanup →
    report refresh, with the four Read-mode and reference cases as tests.
 3. Nothing else is needed for part 2; it can merge independently.
+
+## DR1b — Unused images in Health, bytes to the OS Trash (part 1, delivered)
+
+**Status:** delivered; part 2 above is unchanged.
+**Brief:** `docs/tasks/data-recovery.md`, §1 as replaced by “Decision (17 November 2026) — the bytes
+go to the OS Trash”.
+
+### Summary
+
+The second half of the batch is implemented on top of the merged part 2 (`646f343`): Health lists the
+images that no image node, no image anchor, and no retained backup names, and an explicit confirm moves
+each file to the **OS Trash** before its record is removed. Nothing is ever unlinked, nothing is
+scheduled, and `planAssetGc`, the `asset.remove` guard, the backup scan, and the asset store are
+untouched.
+
+### The section
+
+`Unused images` is the fifth Health group and the only one that disappears at zero: the four audit
+sections keep their always-visible `0` (design §4). It renders the shared result card (§5) — line one is
+the asset `originalName`, or the recorded path's last segment; line two is `size · mime` in
+`--sb-meta` — under the same 28 px label/count row as the other groups (the group count keeps the
+shared `.nf-health-section-count` metric, `--sb-meta`; the top-level Health header keeps its
+`--sb-count` summary), with a footer action `Clean up N unused images…`. The section is hidden while a
+Health search filters the audit (asset files are not issues) and the all-clear line is suppressed while
+it is visible, so “No issues found” never sits above a list of files to remove. In Read mode the section
+lists and the action is disabled (`editingEnabledFor`, the one shell-wide rule).
+
+The plan is the core planner and nothing else:
+
+- `planAssetGc(runtime.document, { retainedAssetIds })` — the renderer's canonical document;
+- `retainedAssetIds` comes from `backupAssetReferences` (core/node) through a read-only main IPC,
+  `document:backup-asset-ids`, run once per note and once more at the start of a cleanup pass;
+- until that scan answers for the current note, the plan is empty. A pending or failed scan is never
+  treated as “no backups”, because a backup-named id would then be offered for cleanup.
+
+### The cleanup
+
+Order per asset, exactly as the decision lists it:
+
+1. **Re-plan and re-check** immediately before acting: `planAssetGc` with the fresh retained set and
+   `imageAssetReferences` on the live canonical document. A record that became referenced is skipped,
+   never an error.
+2. **Move the file to the OS Trash** in the main process (`document:trash-unused-image` →
+   `trashUnusedImage` → `trashUnusedAsset`): the record must exist, no image node and no image anchor
+   may name it, the store must be writable, and the target is the content address `assets/<id>` after
+   both the package root and the `assets/` root are resolved with `realpath`. A crafted record path, a
+   symlinked file, and a symlinked `assets/` all refuse with `outside-assets`; a missing file is
+   `{ ok: true, trashed: false }` (there are no bytes to preserve, so the dead record may still go).
+   The bytes go through Electron's `shell.trashItem` — the same helper as Move to Trash for a note.
+3. **Remove the record** with the ordinary guarded `asset.remove` command on the session queue. The
+   guard is the second line of defence behind the fresh plan. There is no undo entry
+   (`acceptStructural(…, null)`): the bytes are in the Trash and an inverse `asset.add` would restore a
+   record pointing at a missing file. The Trash is the recovery path.
+
+The pass aborts on the first failure and reports what it handled: the toast carries
+`Moved N of M unused images to the Trash. The rest stay in the note.` (or `Nothing was removed. These
+images are in use again.` when every candidate went stale), and the technical line (an OS error or a
+path) goes to `Details`. A record write that fails after the move leaves the accepted missing-asset
+state (placeholder + broken anchor); there is never a record-only delete. The dialog also flushes at
+the end, so the record removal is on disk before the section is read again.
+
+The confirm is the shared `Frame` at 560: title `Clean up unused images?`, description `The files move
+to the Trash. You can restore them from there.`, body `N images · size` then up to 20 rows and
+`and N more`, footer `Cancel` (focused) then the outlined danger `Remove`. It re-reads the scan and
+re-plans on open, so the count and the total are current; when nothing is left it says `These images
+are in use again. Nothing was removed.` and offers only `Close`.
+
+### `SaveResult.details` for the damaged-package path
+
+The decision also asked for the core sentence back under `Details` while the message keeps the short
+line. `SaveFailure` gains an optional `details` (IPC type, additive), `saveDocument`'s recovery branch
+fills it from `opened.recovery.reasonDetails`, the save coordinator carries it through
+(`nextSaveFailure(…, details)`), and `SaveFailureBanner` renders `details ?? message` plus the package
+path in its one `Details` value. A plain write error has no `details`, so its Details value is unchanged.
+
+### Files changed
+
+- `apps/desktop/src/main/unused-images.ts` — **new**: the byte boundary (`trashUnusedAsset`) with the
+  record, reference, realpath, and content-address checks.
+- `apps/desktop/src/main/library.ts` — `assetIdsInBackups` and `trashUnusedImage` wrappers;
+  `saveDocument`'s damaged-package `details`.
+- `apps/desktop/src/main/index.ts` — `document:backup-asset-ids` and `document:trash-unused-image`,
+  with `shell.trashItem` injected at the composition layer.
+- `apps/desktop/src/shared/api.ts` — additive `BackupAssetIdsResult`, `TrashUnusedImageResult`, the two
+  API methods, and `SaveFailure.details`.
+- `apps/desktop/src/preload/index.ts` — the two methods.
+- `apps/desktop/src/renderer/src/lib/unused-images.ts` — **new**: plan → rows, the size format, and the
+  section/dialog/toast copy.
+- `apps/desktop/src/renderer/src/lib/unused-images-cleanup.ts` — **new**: the pass, with injected ports.
+- `apps/desktop/src/renderer/src/shell/useUnusedImages.ts` — **new**: one backup scan per note and
+  refresh token; empty until it answers.
+- `apps/desktop/src/renderer/src/shell/HealthSection.tsx` — the fifth group, its rows and action.
+- `apps/desktop/src/renderer/src/shell/Dialogs.tsx` — `UnusedImagesDialog` and the `unused-images`
+  dialog state; `shell.ts` gains that state kind.
+- `apps/desktop/src/renderer/src/state/runtime.ts` — `removeUnusedAsset`.
+- `apps/desktop/src/renderer/src/lib/save-failure.ts`, `state/save-coordinator.ts`,
+  `state/document-session.ts`, `shell/SaveFailureBanner.tsx` — the optional `details` path.
+- `apps/desktop/src/renderer/src/styles.css` — the section rows/action and the confirm list.
+- `apps/desktop/test/unused-images.test.ts` — **new**: rows, copy, and the cleanup order (backup skip,
+  stale-list skip, abort, record failure after the move, scan failure).
+- `apps/desktop/test/unused-images-main.test.ts` — **new**: OS-Trash move, node/anchor/path/symlink
+  refusals, missing file, Trash failure, read-only, and the backup id scan.
+- `apps/desktop/test/unused-images-runtime.test.ts` — **new**: the guarded record removal, no undo
+  entry, read-only refusal.
+- `apps/desktop/test/recovery-library.test.ts` — a save on a damaged package keeps the parse sentence
+  in `SaveResult.details`.
+- `apps/desktop/test/copy-cd.test.ts` — the new main module joins the banned-word guard.
+- `apps/desktop/test/list-markers.test.ts` — the two shell list resets join the documented allowlist
+  (sidebar file list and confirm list; neither is note content).
+- `tests/ui/unused-images.test.mjs` — **new** suite (registered in `shell` and `images`): section,
+  confirm, cleanup, reopen, image-anchor and backup exclusions, Read mode.
+- `docs/reports/data-recovery.md` — this section (part 2's section is not rewritten).
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `npm run check:boundaries` | pass — 278 files, 1352 imports, 16 rules |
+| `npm run typecheck` (all workspaces) | pass |
+| `npx vitest run` | pass — 162 files / 1646 tests (7.1 s) |
+| `npm run test:recovery:run` | pass — 14/14 (21.0 s); run because `SaveResult.details` is an IPC change |
+| `node tests/ui/run.mjs --group shell,anchors,images --concurrency 2` | pass — 41/41, 360.1 s, exit 0 (includes the new `unused-images` suite in `shell` and `images`) |
+| `npm run verify:fast` | pass — exit 0 (boundaries + typecheck + 162 unit files / 1646 tests + e2e 16/16, 45.6 s) |
+
+`npm run verify` was not run, per the brief.
+
+Screenshots (`artifacts/data-recovery/`, git-ignored evidence):
+
+- `unused-images-section.png` — Health at 1440×900: the four audit groups at `0` and the
+  `Unused images` group with `1`, one result card (`spare-chart.png`, `12 kB · image/png`) and
+  `Clean up 1 unused image…`.
+- `unused-images-confirm.png` — the 560 confirm: `Clean up unused images?`, `1 image · 12 kB`, the row,
+  `Cancel` focused and the outlined danger `Remove`.
+- `unused-images-cleanup.png` — after `Remove`: the section is gone, the all-clear line is back, and the
+  used image is untouched.
+- `unused-images-read.png` — Read mode: the row is listed and the action is dimmed/disabled.
+- Part 2's `library-row-reason.png` and `recovery-reason-details.png` are regenerated by the existing
+  `data-recovery` suite; the save-failure banner's new `details` is unit-tested (the banner already had
+  its `Details` surface).
+
+### Acceptance criteria (DR1b)
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | `Unused images` with the count only when the plan is non-empty; absent at zero | pass — unit rows + UI section/disappear/reopen; the four audit sections keep `0` |
+| 2 | Confirm lists count/size; Cancel changes nothing; Remove moves the bytes and removes the records; the section disappears | pass — unit ordering + UI (file gone from `assets/`, record gone, section gone, persists after reopen) |
+| 3 | A backup-, node-, or anchor-referenced asset is never listed or deleted | pass — unit (plan + skip at action time) and UI (backup-only and anchored ids absent; files untouched); main refuses `asset-in-use` |
+| 4 | Read lists, action disabled | pass — UI |
+| 5 | No raw `core` reason in a message; raw text in `Details`; the guard covers the mapping | pass — unchanged from part 2, plus the damaged-package `SaveResult.details` restore (unit) |
+| 6 | No regression: four Health sections, repair modal, find, Page/PDF, library | pass — full unit suite and the `shell,anchors,images` UI run |
+
+### Risks
+
+- **Backup retention is record-presence, not content-reference.** `backupAssetReferences` retains every
+  id in a backup's `documents.assets`, not only the ids that backup's content references. Every save
+  writes an autosave backup of the previous revision, so the save that follows “remove this image from
+  the block” writes a backup that still contains the now-unused **record**. From then on the plan
+  retains the asset, and every later save writes another backup that contains the record again, so the
+  id never rotates out. The section therefore appears only when the record became unused *after* the
+  last backup (a failed save, a kept unsaved record, a document written by another tool) — which the
+  UI suite exercises — and it would disappear again after the next autosave.
+  This is not changed here: the brief freezes `planAssetGc`, the guard, and the backup scan, and the
+  scanned function has a core test for its current contract. If the product owner wants the section
+  after an ordinary delete + autosave, the minimal change is one rule in
+  `packages/core/src/node/recovery.ts`: retain only `referencedAssetIds(parsed.document)`, not
+  `Object.keys(parsed.document.assets)`. That gives the backup written by the delete-save a natural
+  ~20-autosave life before it rotates out, and needs one core test updated.
+- **The list can be one save stale.** The section re-scans on open, on the manual re-check, and at the
+  start of a cleanup pass, not on every keystroke (up to 50 backup JSON reads). A stale row is safe: the
+  action re-plans and the main process re-checks the guard, so a newly referenced asset is skipped.
+- **Restoring a backup that named a cleaned-up asset shows the placeholder.** The record is gone by
+  design; the guard contract is unchanged and the bytes are recoverable only from the OS Trash.
+- **Scan cost.** One `backupAssetReferences` call per section mount/re-check and one per cleanup pass;
+  it reads and parses up to 50 `document.json` snapshots. It is off the save path and was not measured
+  as a bottleneck on this machine.
+- **The action label is a sentence with the count**, so the section footer changes width with the
+  number; it is a full-width 28 px button and never wraps in the 236 px content column.
+
+### Next step
+
+1. Product-owner decision on the backup-retention finding above (leave as specified, or the one-rule
+   content-reference change).
+2. The product-owner visual/VoiceOver pass over the section, the confirm, Read mode, and the
+   save-failure banner's `Details` (screenshots in `artifacts/data-recovery/`).

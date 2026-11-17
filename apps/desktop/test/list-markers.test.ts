@@ -126,6 +126,10 @@ describe('list markers', () => {
     const shellResets = new Set([
       '.nf-health-list',
       '.nf-health-branches',
+      // Unused images (DR1b): a sidebar file list and the confirm's record list
+      // are shell UI, not note content; neither may restore markers.
+      '.nf-health-unused-list',
+      '.nf-unused-images-list',
       '.nf-delete-reference-list',
       '.nf-settings-advanced-summary',
     ]);
