@@ -700,9 +700,10 @@ does not have to rediscover it.
    it, so it is not a timeout: the app still sees the lock. Fix: after `rm(liveLock)`, wait until the app
    no longer reports the draft as blocked (poll the runtime/draft state) before clicking Retry. Fails
    roughly one run in two to three; passes standalone.
-2. **Page position control is incomplete (UI).** `‹ 3 / 61 ›` with a typable number, arrows disabled at
-   the ends, `⌘↑`/`⌘↓` unchanged, `PageUp`/`PageDown` scrolling a viewport: the design says this, the
-   shipped build has a plain indicator that opens a dialog instead. Fix in the Page batch's follow-up.
+2. **Page position control is incomplete (UI).** The shipped build has a plain indicator that opens a
+   dialog. The approved control is `↑ │ ↓ [ 3 ] of 61` — up/down arrows (the surface scrolls vertically), a
+   typable bordered number, `of N` as a label, arrows disabled at the ends, `↵` jumps, `Esc` restores,
+   `⌘↑`/`⌘↓` from the keyboard, `PageUp`/`PageDown` scrolling a viewport. Fix in the Page polish batch.
 3. **Find/highlighter offset→page mapping** needs the spike before the batch can be designed.
 4. **Code palette contrast**: the theme registry (verbatim themes, one AA per polarity) is the answer;
    the classic palettes stay unedited.
