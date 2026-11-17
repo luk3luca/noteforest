@@ -643,8 +643,25 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 | 3 | **Data and recovery** | `Unused images` in Health (only when non-empty, manual previewed cleanup, no grace window, backup-referenced assets kept) and `core` command reasons mapped at the boundary. **In flight** (`docs/tasks/data-recovery.md`) | 1 (Health rows and modal) |
 | 4 | **Page as a scroll of pages** | `docs/design/page-scroll.md`: one column, touching pages with a 1 px seam, free scroll, `N / M` from the viewport centre, zoom 50–200 % with 100 % as fit, mount visible ±2 | 3 (`styles.css`) |
 | 5 | **Find fidelity and highlighter** | Page word highlight, one range for cross-line matches, table-cell fixture; then the persistent highlighter on the same offset→DOM primitive | a spike on the model→page mapping |
-| 6 | **Code themes and Settings pages** | Code-theme registry (**verbatim themes only, no colour edits**), picker with the measured contrast per theme, screen only (the paper keeps `--nf-page-code-*`); manual-break defaults and library/backup in Data & About | 2 for the Settings pages it shares |
+| 6 | **Code themes, edge legibility, Settings pages** | Code-theme registry (**verbatim themes only, no colour edits**), picker with the measured contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** (see below); manual-break defaults and library/backup in Data & About | 2 for the Settings pages it shares |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
+
+### Continuous edge legibility (17 November 2026, product-owner report)
+
+Measured against the canvas (`#17181a` dark, `#ffffff` light):
+
+| State | Dark | Light |
+|---|---|---|
+| resting (`--accent-strong`, blue) | 11.19 | 9.30 |
+| reference (`--edge-reference`) | 4.73 | **2.51** |
+| muted (`--edge-muted` at 0.35) | **1.35** | **1.33** |
+| muted at full opacity | **2.73** | **2.51** |
+
+The resting accent edge is fine; what disappears is the **muted** state — a 1.25 px line at 35 % opacity —
+and in light even the reference token is under 3:1. Proposal for the batch: every edge state ≥ 3:1
+(non-text contrast), distinction carried by colour temperature and width instead of by fading; a darker
+`--edge-reference` in light, a lighter `--edge-muted` in dark, no 0.35 opacity (or ≥ 0.75 on the new
+token), resting width 1.25 → 1.5, and an arrowhead that scales with the stroke.
 
 ### Decisions recorded for the find + highlighter batch
 
