@@ -123,3 +123,28 @@ decision, which replaces "delete the bytes" in §1:
 - **No store-level `remove` API**, no change to `planAssetGc`, no automatic scheduling, no grace window.
 - Also: the boundary mapping dropped the raw sentence from `SaveResult.error`; keep the short line in
   the message **and** the core sentence in `details` for the damaged-package path.
+
+## Follow-up (17 November 2026) — backup retention must be a content reference
+
+Part 1 is merged at `2b5c582`, and its report found the flaw that makes the feature nearly useless in
+normal use: `backupAssetReferences` retains every id that appears in a backup's **asset record table**
+(`documents.assets`). Every save writes an autosave backup of the previous revision, so the save that
+follows "remove the image from the block" writes a backup that still holds the now-unused **record** —
+and the id is retained forever, so the group never appears.
+
+The freeze on the backup scan is lifted for exactly this rule:
+
+- **Retain by content reference, not by record presence.** Inside a backup document, retain an id only
+  when the document actually references it: an image node naming it, or an image anchor whose selector
+  names it. An asset record with no reference is not a reason to keep the bytes.
+- Implement it in `packages/core/src/node/recovery.ts` where the scan already parses each backup; reuse
+  the existing reference walk (`imageAssetReferences` / the same shape `planAssetGc` uses) rather than a
+  second traversal with its own bugs.
+- **This is the grace period**, and it is the honest one: an image deleted today becomes reclaimable when
+  the backups that still reference it have rotated out. Say so in the report and in the Health copy if a
+  line is needed — no mtime, no invented window.
+- Tests: a backup whose document holds the **record but no reference** does not retain; a backup that
+  **references** it does; and the normal delete → autosave → rotate sequence makes an id reclaimable.
+
+Out of scope: changing the backup rotation policy or its cadence, the scan cap, the Health section, the
+trash path, `planAssetGc`.
