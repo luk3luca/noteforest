@@ -694,31 +694,29 @@ token), resting width 1.25 → 1.5, and an arrowhead that scales with the stroke
 Recorded, not scheduled. Each one is a defect we know about, with the fix sketched so the next person
 does not have to rediscover it.
 
-1. **`document-lifecycle` lock race (test, intermittent).** The "materializes on the first keystroke"
-   subtest writes a live lock, removes it and clicks Retry; the save then fails with `saveState: 'error'`
-   and the shell's "The note couldn't be saved." line. Raised `waitSaved` from 10 s to 30 s does not fix
-   it, so it is not a timeout: the app still sees the lock. Fix: after `rm(liveLock)`, wait until the app
-   no longer reports the draft as blocked (poll the runtime/draft state) before clicking Retry. Fails
-   roughly one run in two to three; passes standalone.
-2. **Page position control is incomplete (UI).** The shipped build has a plain indicator that opens a
-   dialog. The approved control is `↑ │ ↓ [ 3 ] of 61` — up/down arrows (the surface scrolls vertically), a
-   typable bordered number, `of N` as a label, arrows disabled at the ends, `↵` jumps, `Esc` restores,
-   `⌘↑`/`⌘↓` from the keyboard, `PageUp`/`PageDown` scrolling a viewport. Fix in the Page polish batch.
-3. **Find/highlighter offset→page mapping** needs the spike before the batch can be designed.
-4. **Code palette contrast**: the theme registry (verbatim themes, one AA per polarity) is the answer;
+1. **Code palette contrast**: the theme registry (verbatim themes, one AA per polarity) is the answer;
    the classic palettes stay unedited.
-5. **Empty child block has no floor (deferred by the product owner, 17 November 2026).** An empty
+2. **Empty child block has no floor (deferred by the product owner, 17 November 2026).** An empty
    top-level block has a row to sit in, so it reads fine; an **empty child** has no content at all, so
    its content-driven width collapses and only the drag handle and the branch ports remain — you cannot
    find the block you just created. The fix, when it is decided, is a **minimum card width** on an empty
    block in Continuous, scoped so the Page measurement and print never move. Owner's call: not now.
-6. **The selection bubble stays in the tree behind an open dialog (found 17 November 2026).** Its
+3. **The selection bubble stays in the tree behind an open dialog (found 17 November 2026).** Its
    `shouldShow` looks only at the editor selection, so with text selected and a modal open the bubble's
    buttons are still reachable — invisible to the eye, present for VoiceOver and for any strict locator
    (`m3-reference` hit exactly that). It should consult the overlay owner like every other floating
    surface. Not urgent; it is an accessibility and test-hygiene defect, not a behaviour one.
-7. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
+4. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
    only if it is felt.
+5. **Page swallows `⇧1`/`⇧2` in any text field (reproduced 17 November 2026).** `App.tsx` handles the two
+   fit keys in Page before any target check, so the find field cannot receive `!`, `"`, `£`, `%`, `/` or
+   `(`: `⌘F`, `a`, `⇧1`, `b` reads `ab` in Page and `a!b` in Continuous. Fix is one input/textarea/
+   contenteditable guard and one owner for the key (the duplicate in `PageView` goes). Audit and repro in
+   `docs/design/shortcuts.md`.
+6. **The shortcut list names the wrong page keys (found 17 November 2026).** Settings says Previous /
+   next page is `⌥↑/⌥↓`, which only works while the page canvas has focus; the shipped page step is
+   `⌘↑/⌘↓` (the pager's own tooltips and `aria-keyshortcuts`). The Editor row `⌘↑/⌘↓` carries no scope and
+   means something else in Page. Both rows are fixed by K1 below.
 
 ### Order decided 17 November 2026
 
@@ -729,12 +727,15 @@ stays in that file as the record.
 
 ### Shortcuts: what exists and what does not (17 November 2026)
 
+Full audit, every binding, the defects and the proposed catalogue: `docs/design/shortcuts.md`.
+
 - **Shipped:** `Help → Keyboard shortcuts` and `Settings → Editor → Shortcuts`, searchable
   (`filterShortcuts` in `SettingsDialog.tsx`), merged with R5 at `4a87ae8`.
 - **Shipped:** the settings inventory (`docs/reviews/settings-inventory.md`), frozen for design, with its S2
   findings fixed.
-- **Not shipped:** the list and the bindings are **two copies** — `SHORTCUTS` is a literal array in
-  `SettingsDialog.tsx`, the handlers are elsewhere. Nothing proves a row still exists. Fix is a single
-  catalogue module plus a test; it belongs to the settings batch.
+- **Not shipped:** the list and the bindings are **four copies** — the `SHORTCUTS` literal, `App.tsx`'s
+  hand-written matcher, the TipTap keymap and the native menu. Nothing proves a row still exists, and the
+  list omits 18 real bindings. **K1** is the fix: one catalogue module that the handlers *ask* (not just a
+  rendered table), the menu accelerators asserted against it, and the list rendered from it.
 - **Not shipped, and bigger:** MS-9, configurable or disableable shortcuts. That is a product decision, not
   a cleanup.
