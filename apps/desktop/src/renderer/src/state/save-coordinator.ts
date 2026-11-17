@@ -230,6 +230,20 @@ export class SaveCoordinator {
     });
   }
 
+  /**
+   * A draft materialized: the package now exists on disk with the canonical
+   * content, so a failure recorded against the draft target (a live lock, a
+   * missing library) no longer describes the document. Only the stale verdict
+   * is dropped; pending edits stay dirty and keep their autosave, so the shell
+   * never keeps a save-failure banner for a note that was just written.
+   */
+  materializationSucceeded(): void {
+    this.clearRetryTimer();
+    if (!this.dirty) return;
+    if (this.saveFailure !== null) this.setPhase({ status: 'unsaved', dirty: true });
+    this.scheduleSave();
+  }
+
   /** Explicit Retry from the recovery surface: restart the backoff sequence. */
   async retrySave(): Promise<void> {
     if (!this.ports.isEditable()) return;

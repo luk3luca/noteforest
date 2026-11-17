@@ -339,9 +339,18 @@ export class DocumentRuntime {
     if (!this.isDraft) return Promise.resolve({ ok: true });
     if (this.draftMaterializing !== null) return this.draftMaterializing;
     const run = this.session.queue.run(() => this.materializeLocked());
-    this.draftMaterializing = run.finally(() => {
-      this.draftMaterializing = null;
-    });
+    this.draftMaterializing = run
+      .then((result) => {
+        // The package now exists with the canonical content. A failure the
+        // coordinator recorded against the draft target (a live lock, a
+        // missing library) is stale at that point and must not outlive the
+        // package: the shell would show “not saved” for a written note.
+        if (result.ok) this.saves.materializationSucceeded();
+        return result;
+      })
+      .finally(() => {
+        this.draftMaterializing = null;
+      });
     return this.draftMaterializing;
   }
 

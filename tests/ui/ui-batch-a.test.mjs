@@ -188,7 +188,7 @@ describe('Batch A UI rework', () => {
     );
 
     // Page: the header carries Export and the updating status; page
-    // navigation moved to the scroll surface and the Toolbar indicator (PG1),
+    // navigation moved to the scroll surface and the Toolbar pager (PG1/PP1),
     // the old PageToolbar is gone and the stage is 14/0/8.
     await page.keyboard.press('Meta+3');
     await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
@@ -200,10 +200,18 @@ describe('Batch A UI rework', () => {
     assert.equal(await page.locator('.nf-page-toolbar').count(), 0);
     assert.equal(await page.locator('.nf-canvas-header [data-page-nav]').count(), 0, 'no pager arrows');
     assert.equal(await page.locator('.nf-canvas-header [data-page-counter]').count(), 0, 'no page badge in the header');
+    const pager = page.locator('.nf-toolbar [data-page-position]');
+    const pagerPage = await pager.getAttribute('data-page-position-page');
+    assert.match(pagerPage ?? '', /^\d+$/, 'the pager names the page under the viewport centre');
+    assert.equal(
+      await pager.locator('[data-page-position-input]').inputValue(),
+      pagerPage,
+      'the field holds that page',
+    );
     assert.match(
-      await page.locator('.nf-toolbar [data-page-position]').innerText(),
-      /^\d+ \/ \d+$/,
-      'the Toolbar indicator names the page under the viewport centre',
+      await pager.locator('[data-page-position-total]').innerText(),
+      /^\/ \d+$/,
+      'the label after the field names the total',
     );
     assert.equal(await page.locator('.nf-canvas-header [data-page-export="true"]').count(), 1);
     assert.equal(await css('.nf-page-stage', 'padding-top'), '14px');

@@ -96,6 +96,30 @@ async function waitTabPathChange(draftKey) {
   return tab.packagePath;
 }
 
+/**
+ * Wait until the app has taken a verdict on the current lock state: the draft
+ * is gone, the retry affordance is unmounted, and the tab holds a real package.
+ * The banner's Retry can be clicked while the previous materialize attempt is
+ * still in flight, so the subtest waits for what the app reports instead of for
+ * a duration.
+ */
+async function waitDraftMaterialized({ timeout = 15000 } = {}) {
+  await page.waitForFunction(
+    () => {
+      const current = window.__noteforestTest.state();
+      const runtime = current.runtimes[0];
+      return (
+        runtime !== undefined &&
+        runtime.draftId === null &&
+        runtime.draftError === null &&
+        current.tabs.every((tab) => !String(tab.packagePath).startsWith('draft:'))
+      );
+    },
+    undefined,
+    { timeout },
+  );
+}
+
 async function writeLock(env, packagePath, record) {
   const file = join(
     env.NOTEFOREST_APP_SUPPORT,
@@ -552,6 +576,15 @@ describe('Document lifecycle', () => {
 
     await rm(liveLock);
     await page.locator('[data-draft-retry="true"]').click();
+    // The app can still hold the lock verdict it took while the file existed.
+    // Wait for the materialization it reports, not for a duration, before
+    // asking the save state to settle.
+    await waitDraftMaterialized();
+    assert.equal(
+      await page.locator('[data-draft-retry="true"]').count(),
+      0,
+      'the retry affordance is gone once the package exists',
+    );
     const packagePath = await waitTabPathChange(draftKey);
     await h.waitSaved();
     const after = await page.evaluate(() => {

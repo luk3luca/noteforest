@@ -128,6 +128,37 @@ describe('draft materialization', () => {
     runtime.dispose();
   });
 
+  it('clears a failure recorded against the draft once the package exists', async () => {
+    const { runtime, memory } = draftRuntime();
+    const locked: MaterializeDraftResult = {
+      ok: false,
+      code: 'locked',
+      message: 'Another window has this note open. Close it there and try again.',
+    };
+    // The first keystroke and the save behind it both hit the live lock.
+    memory.queueMaterializeDraft(locked);
+    memory.queueMaterializeDraft(locked);
+    runtime.noteEditorUpdate();
+    await runtime.saveNow();
+    expect(runtime.isDraft).toBe(true);
+    expect(runtime.saveState).toBe('error');
+    expect(runtime.saveFailure?.code).toBe('lock-lost');
+
+    // The lock is gone: the retry materializes the package. The failure taken
+    // against the draft target is stale and must not outlive the write.
+    const retried = await runtime.ensureMaterialized();
+    expect(retried.ok).toBe(true);
+    expect(runtime.isDraft).toBe(false);
+    expect(runtime.draftError).toBeNull();
+    expect(runtime.saveFailure).toBeNull();
+    expect(runtime.saveState).toBe('unsaved');
+
+    await runtime.saveNow();
+    expect(runtime.saveState).toBe('saved');
+    expect(runtime.saveFailure).toBeNull();
+    runtime.dispose();
+  });
+
   it('adopts a package path reported by a command (lazy materialization)', async () => {
     const { runtime, memory, changes } = draftRuntime();
     // Model the main-process lazy path: the apply result carries the new path.
