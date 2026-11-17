@@ -374,6 +374,11 @@ Run with a fresh profile and a named fixture; record the session.
       cannot switch tabs, change layout/mode, create or close documents, or run authoring commands
       behind it; the overlay owns the command surface until it closes.
 - [ ] Shortcuts do not fire while typing in text, code, or math; Cmd+Z scope is unambiguous.
+- [ ] Every **application** chord is matched through `lib/shortcuts.ts` (`matches`/`tiptapKeys`), including
+      overlay verbs such as Page Edit's commit; a raw `event.key`/modifier comparison for an application
+      verb (as opposed to an editor-local, field-local, or widget-local key) is a second chord writer and
+      a finding even when the two agree today. One chord has one meaning on one surface: verify that an
+      `Esc`/`↵` that belongs to a surface cannot also fire a global handler.
 - [ ] **Read mode is non-editable for every control, including in-place node-view chrome** (code
       fences, formula source editors, table toolbars, nested text inputs). Entering Read closes or
       hides any open in-place editor, and no DOM control can dispatch a document transaction or a
@@ -452,6 +457,9 @@ Run with a fresh profile and a named fixture; record the session.
 ### 3.6 Accessibility and visual quality
 
 - [ ] Contrast meets WCAG AA for text and meaningful graphics in dark mode (default) and light mode.
+- [ ] A new status indicator clears 3:1 against its surface in **every** state — resting, hover, focus,
+      selected — not only at rest; a hover that fades a warning below 3:1 is a finding unless it is
+      recorded as a documented exception next to the existing `border-1` exception.
 - [ ] Dark mode keeps images, math, and code readable without inversion artifacts; PDF output stays
       light.
 - [ ] Information is not conveyed by color alone (edge role, selection, error).
