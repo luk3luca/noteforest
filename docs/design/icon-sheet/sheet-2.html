@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Icon sheet 2 — Nature · NoteForest</title>
+<style>
+  :root{
+    --bg:#0d0e10; --panel:#15171a; --panel2:#191c20; --line:#25292e; --line2:#32373d;
+    --t1:#e9e9e6; --t2:#a5aab0; --t3:#6f767e; --accent:#8fb0cd; --green:#8fbf9f;
+    --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--t1);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  body{padding:0 20px 80px}
+  .wrap{max-width:1360px;margin:0 auto}
+  a{color:inherit}
+  .top{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+       padding:12px 0;margin-bottom:8px;background:linear-gradient(180deg,var(--bg) 72%,transparent);border-bottom:1px solid var(--line)}
+  .top .brand{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .top .brand em{font-style:normal;color:var(--t3);font-weight:400}
+  .top nav{display:flex;gap:4px;flex-wrap:wrap}
+  .top nav a{padding:4px 9px;border:1px solid transparent;border-radius:6px;color:var(--t2);font-size:11.5px;text-decoration:none}
+  .top nav a:hover{border-color:var(--line2);color:var(--t1)}
+  .top nav a.on{border-color:var(--line2);background:var(--panel2);color:var(--t1)}
+  .top .count{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+
+  header.sheet{padding:26px 0 6px}
+  .eyebrow{margin:0 0 8px;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+  h1{margin:0 0 12px;font-size:27px;font-weight:600;letter-spacing:-.015em}
+  .lede{margin:0;max-width:76ch;color:var(--t2);font-size:13.5px;line-height:1.62}
+  .lede b{color:var(--t1);font-weight:600}
+  .rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px}
+  .rules span{padding:5px 9px;border:1px solid var(--line);border-radius:5px;color:var(--t3);font:10px/1.4 var(--mono);letter-spacing:.03em}
+
+  .famnav{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0}
+  .famnav a{padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--t2);font-size:11px;text-decoration:none}
+  .famnav a:hover{border-color:var(--line2);color:var(--t1)}
+
+  section{padding-top:44px}
+  .sechead{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:6px}
+  .sechead h2{margin:0;font-size:15px;font-weight:600;letter-spacing:-.005em}
+  .sechead .n{color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+  .sechead .v{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.06em}
+  .fam{margin:8px 0 18px;max-width:84ch;color:var(--t3);font-size:12px;line-height:1.55}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(302px,1fr));gap:10px}
+  .tile{margin:0;padding:14px 14px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+        display:flex;flex-direction:column;gap:11px}
+  .tile:hover{border-color:var(--line2)}
+  .pair{display:flex;align-items:center;gap:18px;min-height:100px}
+  .slot{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .slot svg{display:block}
+  .slot b{font:9px/1 var(--mono);font-weight:400;color:var(--t3);letter-spacing:.08em}
+  .meta{margin:0;display:flex;align-items:baseline;gap:8px}
+  .id{font:10px/1 var(--mono);color:var(--green);letter-spacing:.07em}
+  .nm{font-size:12.5px;font-weight:600;letter-spacing:-.005em}
+  .idea{margin:0;color:var(--t2);font-size:11.5px;line-height:1.5}
+
+  .foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--t3);font-size:11px;line-height:1.6}
+  .foot a{color:var(--t2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <span class="brand">NoteForest <em>· icon sheet</em></span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="sheet-1.html">1 · Object</a>
+    <a class="on" href="sheet-2.html">2 · Nature</a>
+    <a href="sheet-3.html">3 · Geometric</a>
+    <a href="sheet-4.html">4 · Material</a>
+    <a href="sheet-5.html">5 · Structure</a>
+  </nav>
+  <span class="count">50 / 250</span>
+</div>
+
+<header class="sheet">
+  <p class="eyebrow">Sheet 2 of 5 · N01–N50</p>
+  <h1>Nature</h1>
+  <p class="lede">
+    The name says forest, so this sheet has to answer it — but abstracted until it stops being a drawing of a tree.
+    The rule inside the sheet: <b>one gesture, no ground lines, no branch drawing, no cute</b>. A leaf is a closed
+    shape with a fold, a canopy is a mass with one bite out of it, a trunk is a taper. Where a shape could come from
+    a stock pack, it is in the sheet on purpose, as the control.
+  </p>
+  <div class="rules">
+    <span>canvas 1024</span><span>squircle 824 × 824 · r 185</span><span>art inset 64–120</span>
+    <span>shown at 96 and 16</span><span>no text</span>
+  </div>
+  <div class="famnav">
+    <a href="#f1">Leaves</a>
+    <a href="#f2">Canopy</a>
+    <a href="#f3">Trunks</a>
+    <a href="#f4">Groves</a>
+    <a href="#f5">Seeds and roots</a>
+    <a href="#f6">Rings and bark</a>
+  </div>
+</header>
+
+<section id="f1">
+  <div class="sechead"><span class="n">01</span><h2>Leaves</h2><span class="v">N01–N10</span></div>
+  <p class="fam">The most dangerous family: a leaf is one step from clip art. The variants are cut, fold, half,
+    outline, and proportion. N08 is the one that stops being a leaf.</p>
+  <div class="grid">
+
+    <figure class="tile" id="N01">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Leaf">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 190 C700 340 762 540 512 820 C262 540 324 340 512 190 Z" fill="#f4f3ee"/>
+<rect x="500" y="300" width="24" height="420" rx="12" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Leaf, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 184 C706 336 768 544 512 828 C256 544 318 336 512 184 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N01</span><span class="nm">Leaf</span></p>
+      <p class="idea">One closed almond and one vein. At 16 the vein is gone and only the outline remains.</p>
+    </figure>
+
+    <figure class="tile" id="N02">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Folded leaf">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 190 C262 340 324 540 512 820 Z" fill="#f4f3ee"/>
+<path d="M512 190 C700 340 762 540 512 820 Z" fill="#c9c8c1"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Folded leaf, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 184 C256 336 318 544 512 828 Z" fill="#f4f3ee"/>
+<path d="M512 184 C706 336 768 544 512 828 Z" fill="#c9c8c1"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N02</span><span class="nm">Folded leaf</span></p>
+      <p class="idea">The leaf folded along its vein: two tones, one vertical edge, no outline.</p>
+    </figure>
+
+    <figure class="tile" id="N03">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Blade">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M470 840 C360 620 400 380 650 190 C700 430 640 690 470 840 Z" fill="#8fbf9f"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Blade, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M462 846 C348 618 392 372 656 182 C706 428 644 694 462 846 Z" fill="#8fbf9f"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N03</span><span class="nm">Blade</span></p>
+      <p class="idea">A single curved wedge in green: the only icon on the sheet with no vertical axis.</p>
+    </figure>
+
+    <figure class="tile" id="N04">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Two leaves">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 824 C400 660 386 440 470 214 C570 420 578 650 512 824 Z" fill="#f4f3ee" transform="rotate(-17 512 824)"/>
+<path d="M512 824 C624 660 638 440 554 214 C454 420 446 650 512 824 Z" fill="#8fbf9f" transform="rotate(17 512 824)"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Two leaves, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 830 C394 662 380 436 468 206 C572 418 580 652 512 830 Z" fill="#f4f3ee" transform="rotate(-18 512 830)"/>
+<path d="M512 830 C630 662 644 436 556 206 C452 418 444 652 512 830 Z" fill="#8fbf9f" transform="rotate(18 512 830)"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N04</span><span class="nm">Two leaves</span></p>
+      <p class="idea">A paper leaf and a green one sharing a base: a pair, a page, and a direction.</p>
+    </figure>
+
+    <figure class="tile" id="N05">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Leaf on a stem">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M420 240 C540 300 566 440 470 552 C368 452 356 320 420 240 Z" fill="#f4f3ee"/>
+<path d="M470 540 H540 V648 H800 V720 H470 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Leaf on a stem, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M414 232 C544 296 574 442 470 562 C360 456 348 318 414 232 Z" fill="#f4f3ee"/>
+<path d="M470 540 H560 V646 H806 V738 H470 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N05</span><span class="nm">Leaf and stem</span></p>
+      <p class="idea">The stem leaves the leaf and turns down and right — a branch, borrowed from a plant.</p>
+    </figure>
+
+    <figure class="tile" id="N06">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Notched leaf">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 190 C700 340 762 540 512 820 C262 540 324 340 512 190 Z" fill="#f4f3ee"/>
+<path d="M700 470 L560 530 L700 590 Z" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Notched leaf, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 184 C706 336 768 544 512 828 C256 544 318 336 512 184 Z" fill="#f4f3ee"/>
+<path d="M706 462 L548 530 L706 598 Z" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N06</span><span class="nm">Notched leaf</span></p>
+      <p class="idea">A wedge bitten out of the right edge: the leaf with the same surgery as the block in S08.</p>
+    </figure>
+
+    <figure class="tile" id="N07">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Leaf outline">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 190 C700 340 762 540 512 820 C262 540 324 340 512 190 Z" fill="none" stroke="#f4f3ee" stroke-width="88"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Leaf outline, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 184 C706 336 768 544 512 828 C256 544 318 336 512 184 Z" fill="none" stroke="#f4f3ee" stroke-width="108"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N07</span><span class="nm">Leaf, outline</span></p>
+      <p class="idea">Hollow, with a stroke thick enough to survive: the leaf reduced to a contour.</p>
+    </figure>
+
+    <figure class="tile" id="N08">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Half leaf">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 190 C324 340 262 540 512 820 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Half leaf, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 182 C318 334 256 542 512 828 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N08</span><span class="nm">Half leaf</span></p>
+      <p class="idea">Only the left half exists. It stops being a leaf and becomes a blade with a straight edge.</p>
+    </figure>
+
+    <figure class="tile" id="N09">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Leaf fan">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g>
+<path d="M512 790 C430 640 420 470 480 300 C560 460 566 640 512 790 Z" fill="#f4f3ee"/>
+<path d="M512 790 C430 640 420 470 480 300 C560 460 566 640 512 790 Z" fill="#f4f3ee" transform="rotate(-34 512 800)"/>
+<path d="M512 790 C430 640 420 470 480 300 C560 460 566 640 512 790 Z" fill="#f4f3ee" transform="rotate(34 512 800)"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Leaf fan, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g>
+<path d="M512 800 C424 644 414 464 478 286 C562 456 570 646 512 800 Z" fill="#f4f3ee"/>
+<path d="M512 800 C424 644 414 464 478 286 C562 456 570 646 512 800 Z" fill="#f4f3ee" transform="rotate(-36 512 810)"/>
+<path d="M512 800 C424 644 414 464 478 286 C562 456 570 646 512 800 Z" fill="#f4f3ee" transform="rotate(36 512 810)"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N09</span><span class="nm">Fan</span></p>
+      <p class="idea">Three leaves from one point: botanical, and the riskiest shape in the sheet.</p>
+    </figure>
+
+    <figure class="tile" id="N10">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Floating leaf">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 190 C700 340 762 540 512 820 C262 540 324 340 512 190 Z" fill="#f4f3ee" transform="rotate(38 512 512) translate(0 40)"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Floating leaf, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 184 C706 336 768 544 512 828 C256 544 318 336 512 184 Z" fill="#f4f3ee" transform="rotate(38 512 512) translate(0 40)"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N10</span><span class="nm">Falling</span></p>
+      <p class="idea">The same leaf at 38°, filling the diagonal instead of the vertical.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f2">
+  <div class="sechead"><span class="n">02</span><h2>Canopy</h2><span class="v">N11–N20</span></div>
+  <p class="fam">A tree seen as a mass, not as a symbol. The silhouette varies by the canopy's shape — dome, bar,
+    stepped, half-disc, blob, crescent, ring — while the trunk stays one vertical, because the trunk is the page.</p>
+  <div class="grid">
+
+    <figure class="tile" id="N11">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Canopy and trunk">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M212 560 C212 340 340 200 512 200 C684 200 812 340 812 560 Z" fill="#f4f3ee"/>
+<rect x="462" y="540" width="100" height="300" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Canopy and trunk, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M206 556 C206 330 338 194 512 194 C686 194 818 330 818 556 Z" fill="#f4f3ee"/>
+<rect x="456" y="540" width="112" height="306" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N11</span><span class="nm">Dome</span></p>
+      <p class="idea">A dome on a stem: the most literal tree here, kept as the reference point.</p>
+    </figure>
+
+    <figure class="tile" id="N12">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Flat canopy">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="240" width="640" height="240" rx="120" fill="#f4f3ee"/>
+<rect x="462" y="460" width="100" height="380" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Flat canopy, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="234" width="652" height="252" rx="126" fill="#f4f3ee"/>
+<rect x="456" y="460" width="112" height="386" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N12</span><span class="nm">Flat canopy</span></p>
+      <p class="idea">The canopy as a bar: a tree reduced to a T, which is nearly a mark already.</p>
+    </figure>
+
+    <figure class="tile" id="N13">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Stepped pine">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="232" y="220" width="560" height="140" rx="70" fill="#f4f3ee"/>
+<rect x="302" y="390" width="420" height="140" rx="70" fill="#f4f3ee"/>
+<rect x="372" y="560" width="280" height="140" rx="70" fill="#f4f3ee"/>
+<rect x="467" y="690" width="90" height="150" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Stepped pine, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="222" y="214" width="580" height="152" rx="76" fill="#f4f3ee"/>
+<rect x="296" y="388" width="432" height="152" rx="76" fill="#f4f3ee"/>
+<rect x="370" y="562" width="284" height="152" rx="76" fill="#f4f3ee"/>
+<rect x="460" y="690" width="104" height="150" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N13</span><span class="nm">Stepped pine</span></p>
+      <p class="idea">A pine as three stacked bars: no triangles, no zigzag, no clip art.</p>
+    </figure>
+
+    <figure class="tile" id="N14">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Umbrella">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M192 560 A320 360 0 0 1 832 560 Z" fill="#f4f3ee"/>
+<rect x="472" y="540" width="80" height="300" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Umbrella, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M186 556 A326 366 0 0 1 838 556 Z" fill="#f4f3ee"/>
+<rect x="466" y="538" width="92" height="306" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N14</span><span class="nm">Umbrella</span></p>
+      <p class="idea">A half-disc, no lobes: the canopy as a single arc, which reads at any size.</p>
+    </figure>
+
+    <figure class="tile" id="N15">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Canopy blob">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 600 C200 380 330 210 520 200 C710 190 830 350 812 570 C794 760 650 830 500 830 C350 830 264 760 232 600 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Canopy blob, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M226 600 C192 372 328 200 520 190 C712 180 836 348 818 572 C800 766 652 838 500 838 C348 838 260 766 226 600 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N15</span><span class="nm">Crown</span></p>
+      <p class="idea">One organic mass with no trunk: a crown seen from below, almost a cloud.</p>
+    </figure>
+
+    <figure class="tile" id="N16">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Canopy with branch">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 540 C200 340 330 190 520 180 C710 170 830 320 812 520 Z" fill="#f4f3ee"/>
+<rect x="432" y="500" width="100" height="340" fill="#f4f3ee"/>
+<rect x="432" y="680" width="330" height="80" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Canopy with branch, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M226 536 C192 330 328 184 520 174 C712 164 836 314 818 516 Z" fill="#f4f3ee"/>
+<rect x="426" y="498" width="112" height="342" fill="#f4f3ee"/>
+<rect x="426" y="676" width="340" height="92" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N16</span><span class="nm">Branching crown</span></p>
+      <p class="idea">The tree grows one branch to the right: the forest borrowing the app's grammar.</p>
+    </figure>
+
+    <figure class="tile" id="N17">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Two trees">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M200 460 C200 310 268 210 370 210 C472 210 540 310 540 460 Z" fill="#f4f3ee"/>
+<rect x="340" y="440" width="64" height="270" fill="#f4f3ee"/>
+<path d="M500 600 C500 470 570 390 670 390 C770 390 840 470 840 600 Z" fill="#c9c8c1"/>
+<rect x="638" y="580" width="64" height="240" fill="#c9c8c1"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Two trees, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M192 456 C192 302 262 200 366 200 C470 200 540 302 540 456 Z" fill="#f4f3ee"/>
+<rect x="334" y="436" width="74" height="280" fill="#f4f3ee"/>
+<path d="M496 604 C496 470 568 386 672 386 C776 386 848 470 848 604 Z" fill="#c9c8c1"/>
+<rect x="634" y="584" width="74" height="246" fill="#c9c8c1"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N17</span><span class="nm">Two trees</span></p>
+      <p class="idea">Two crowns at different heights and two tones: a pair, not a forest.</p>
+    </figure>
+
+    <figure class="tile" id="N18">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Crescent canopy">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 600 C200 380 330 210 520 200 C710 190 830 350 812 570 C794 760 650 830 500 830 C350 830 264 760 232 600 Z" fill="#f4f3ee"/>
+<circle cx="752" cy="300" r="160" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Crescent canopy, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M226 600 C192 372 328 200 520 190 C712 180 836 348 818 572 C800 766 652 838 500 838 C348 838 260 766 226 600 Z" fill="#f4f3ee"/>
+<circle cx="756" cy="296" r="168" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N18</span><span class="nm">Crescent</span></p>
+      <p class="idea">A bite out of the crown turns a blob into a crescent — the same trick as the notched block.</p>
+    </figure>
+
+    <figure class="tile" id="N19">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Ring canopy">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="420" r="230" fill="none" stroke="#8fbf9f" stroke-width="120"/>
+<rect x="466" y="640" width="92" height="200" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Ring canopy, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="416" r="234" fill="none" stroke="#8fbf9f" stroke-width="136"/>
+<rect x="458" y="640" width="108" height="200" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N19</span><span class="nm">Ring crown</span></p>
+      <p class="idea">A hollow crown in green on a paper trunk: a tree and a ring at the same time.</p>
+    </figure>
+
+    <figure class="tile" id="N20">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Block canopy">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="232" y="180" width="560" height="400" rx="100" fill="#f4f3ee"/>
+<rect x="462" y="560" width="100" height="280" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Block canopy, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="226" y="174" width="572" height="412" rx="104" fill="#f4f3ee"/>
+<rect x="456" y="556" width="112" height="286" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N20</span><span class="nm">Block crown</span></p>
+      <p class="idea">A rounded square canopy: the tree drawn with the card's own corner radius.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f3">
+  <div class="sechead"><span class="n">03</span><h2>Trunks</h2><span class="v">N21–N28</span></div>
+  <p class="fam">No canopy at all. The trunk alone is a taper, a fork, an elbow, a slot. This is the family that
+    survives 16 px best, because a thick vertical is the easiest shape to see at one pixel.</p>
+  <div class="grid">
+
+    <figure class="tile" id="N21">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Trunk">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M412 844 L442 220 H582 L612 844 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Trunk, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M406 850 L438 210 H586 L618 850 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N21</span><span class="nm">Taper</span></p>
+      <p class="idea">A single tapered column: a trunk, and also a bookmark standing up.</p>
+    </figure>
+
+    <figure class="tile" id="N22">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Fork">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="452" y="520" width="120" height="324" fill="#f4f3ee"/>
+<rect x="452" y="270" width="120" height="300" fill="#f4f3ee" transform="rotate(-26 512 560)"/>
+<rect x="452" y="270" width="120" height="300" fill="#f4f3ee" transform="rotate(26 512 560)"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Fork, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="446" y="520" width="132" height="330" fill="#f4f3ee"/>
+<rect x="446" y="262" width="132" height="306" fill="#f4f3ee" transform="rotate(-27 512 560)"/>
+<rect x="446" y="262" width="132" height="306" fill="#f4f3ee" transform="rotate(27 512 560)"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N22</span><span class="nm">Fork</span></p>
+      <p class="idea">Two limbs from one stem: the Y that a hierarchy would draw, without a single arrow.</p>
+    </figure>
+
+    <figure class="tile" id="N23">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Elbow trunk">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M402 200 H522 V600 H790 V720 H402 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Elbow trunk, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M396 194 H528 V596 H800 V726 H396 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N23</span><span class="nm">Elbow</span></p>
+      <p class="idea">A trunk that turns right: the L is both a limb and the app's own gesture.</p>
+    </figure>
+
+    <figure class="tile" id="N24">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Diagonal limb">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="400" y="200" width="120" height="480" fill="#f4f3ee"/>
+<rect x="430" y="620" width="120" height="260" fill="#f4f3ee" transform="rotate(-42 490 620)"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Diagonal limb, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="394" y="194" width="132" height="480" fill="#f4f3ee"/>
+<rect x="424" y="620" width="132" height="260" fill="#f4f3ee" transform="rotate(-42 490 620)"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N24</span><span class="nm">Diagonal limb</span></p>
+      <p class="idea">One diagonal branch, down and right. The only non-orthogonal branch in the whole set.</p>
+    </figure>
+
+    <figure class="tile" id="N25">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Three trunks">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="228" y="220" width="110" height="620" rx="30" fill="#f4f3ee"/>
+<rect x="460" y="380" width="110" height="460" rx="30" fill="#c9c8c1"/>
+<rect x="692" y="300" width="110" height="540" rx="30" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Three trunks, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="222" y="214" width="124" height="632" rx="30" fill="#f4f3ee"/>
+<rect x="454" y="374" width="124" height="472" rx="30" fill="#c9c8c1"/>
+<rect x="686" y="294" width="124" height="552" rx="30" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N25</span><span class="nm">Three trunks</span></p>
+      <p class="idea">A grove without a canopy: three columns, one of them grey, bottoms aligned.</p>
+    </figure>
+
+    <figure class="tile" id="N26">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Hollow trunk">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M392 200 H632 V844 H392 Z" fill="#f4f3ee"/>
+<rect x="482" y="380" width="60" height="320" rx="30" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Hollow trunk, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M386 194 H638 V850 H386 Z" fill="#f4f3ee"/>
+<rect x="474" y="380" width="76" height="320" rx="38" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N26</span><span class="nm">Hollow</span></p>
+      <p class="idea">A trunk with a slot cut out: a column and a page gutter in one shape.</p>
+    </figure>
+
+    <figure class="tile" id="N27">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Leaning trunk">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="440" y="210" width="120" height="620" rx="24" fill="#f4f3ee" transform="rotate(-9 500 830)"/>
+<rect x="520" y="470" width="270" height="90" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Leaning trunk, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="434" y="204" width="132" height="632" rx="24" fill="#f4f3ee" transform="rotate(-9 500 830)"/>
+<rect x="520" y="466" width="280" height="96" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N27</span><span class="nm">Leaning</span></p>
+      <p class="idea">A 9° lean and one branch: enough to break the symmetry without a diagonal mess.</p>
+    </figure>
+
+    <figure class="tile" id="N28">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Stem and node">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="300" y="190" width="90" height="640" fill="#f4f3ee"/>
+<rect x="300" y="462" width="160" height="160" fill="#8fbf9f"/>
+<rect x="460" y="502" width="300" height="80" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Stem and node, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="292" y="184" width="104" height="652" fill="#f4f3ee"/>
+<rect x="292" y="458" width="176" height="176" fill="#8fbf9f"/>
+<rect x="468" y="500" width="300" height="92" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N28</span><span class="nm">Node</span></p>
+      <p class="idea">A green node on a stem with a branch right: the most structural shape in this sheet.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f4">
+  <div class="sechead"><span class="n">04</span><h2>Groves</h2><span class="v">N29–N36</span></div>
+  <p class="fam">Three or four bars are the whole idea of a forest, and the family that failed once before as "three
+    vertical bars". The difference here is height rhythm, tone and cropping — the bars are not equal, and the field
+    between them is part of the drawing.</p>
+  <div class="grid">
+
+    <figure class="tile" id="N29">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Grove three">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="240" y="420" width="150" height="400" rx="60" fill="#f4f3ee"/>
+<rect x="437" y="220" width="150" height="600" rx="60" fill="#f4f3ee"/>
+<rect x="634" y="360" width="150" height="460" rx="60" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Grove three, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="232" y="414" width="160" height="412" rx="64" fill="#f4f3ee"/>
+<rect x="432" y="208" width="160" height="618" rx="64" fill="#f4f3ee"/>
+<rect x="632" y="352" width="160" height="474" rx="64" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N29</span><span class="nm">Grove</span></p>
+      <p class="idea">Three rounded columns, three heights, one baseline: the canonical grove, done once.</p>
+    </figure>
+
+    <figure class="tile" id="N30">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Grove four">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="220" y="400" width="110" height="420" rx="50" fill="#f4f3ee"/>
+<rect x="380" y="260" width="110" height="560" rx="50" fill="#f4f3ee"/>
+<rect x="540" y="340" width="110" height="480" rx="50" fill="#f4f3ee"/>
+<rect x="700" y="200" width="110" height="620" rx="50" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Grove four, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="214" y="394" width="122" height="432" rx="56" fill="#f4f3ee"/>
+<rect x="374" y="254" width="122" height="572" rx="56" fill="#f4f3ee"/>
+<rect x="534" y="334" width="122" height="492" rx="56" fill="#f4f3ee"/>
+<rect x="694" y="194" width="122" height="632" rx="56" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N30</span><span class="nm">Grove, four</span></p>
+      <p class="idea">Four thinner columns with a rising rhythm: denser, and it holds at 16 as a texture.</p>
+    </figure>
+
+    <figure class="tile" id="N31">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Grove with accent">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="240" y="440" width="150" height="380" rx="60" fill="#c9c8c1"/>
+<rect x="437" y="220" width="150" height="600" rx="60" fill="#8fbf9f"/>
+<rect x="634" y="380" width="150" height="440" rx="60" fill="#c9c8c1"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Grove with accent, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="232" y="434" width="160" height="392" rx="64" fill="#c9c8c1"/>
+<rect x="432" y="208" width="160" height="618" rx="64" fill="#8fbf9f"/>
+<rect x="632" y="374" width="160" height="452" rx="64" fill="#c9c8c1"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N31</span><span class="nm">Grove, one green</span></p>
+      <p class="idea">The tallest column is green and the others are grey: hierarchy with no outline.</p>
+    </figure>
+
+    <figure class="tile" id="N32">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Staggered grove">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="240" y="300" width="150" height="420" rx="60" fill="#f4f3ee"/>
+<rect x="437" y="180" width="150" height="380" rx="60" fill="#f4f3ee"/>
+<rect x="634" y="420" width="150" height="400" rx="60" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Staggered grove, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="232" y="294" width="160" height="432" rx="64" fill="#f4f3ee"/>
+<rect x="432" y="174" width="160" height="392" rx="64" fill="#f4f3ee"/>
+<rect x="632" y="414" width="160" height="412" rx="64" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N32</span><span class="nm">Grove, floating</span></p>
+      <p class="idea">No shared baseline: the columns hang at different heights, and the grove starts to drift.</p>
+    </figure>
+
+    <figure class="tile" id="N33">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Inverted grove">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="240" y="420" width="150" height="400" rx="60" fill="#15171a"/>
+<rect x="437" y="220" width="150" height="600" rx="60" fill="#15171a"/>
+<rect x="634" y="360" width="150" height="460" rx="60" fill="#15171a"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Inverted grove, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="232" y="414" width="160" height="412" rx="64" fill="#15171a"/>
+<rect x="432" y="208" width="160" height="618" rx="64" fill="#15171a"/>
+<rect x="632" y="352" width="160" height="474" rx="64" fill="#15171a"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N33</span><span class="nm">Grove, inverted</span></p>
+      <p class="idea">Paper field, ink grove. Loud in a dark Dock and quiet on a light desktop.</p>
+    </figure>
+
+    <figure class="tile" id="N34">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Grove lines">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="250" y="380" width="44" height="440" fill="#f4f3ee"/>
+<rect x="362" y="250" width="44" height="570" fill="#f4f3ee"/>
+<rect x="474" y="330" width="44" height="490" fill="#f4f3ee"/>
+<rect x="586" y="210" width="44" height="610" fill="#f4f3ee"/>
+<rect x="698" y="400" width="44" height="420" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Grove lines, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="240" y="374" width="76" height="452" fill="#f4f3ee"/>
+<rect x="400" y="220" width="76" height="606" fill="#f4f3ee"/>
+<rect x="560" y="318" width="76" height="508" fill="#f4f3ee"/>
+<rect x="720" y="392" width="76" height="434" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N34</span><span class="nm">Grove, lines</span></p>
+      <p class="idea">Five thin lines: a book's fore-edge and a forest at once. The 16 px version is a deliberate compromise.</p>
+    </figure>
+
+    <figure class="tile" id="N35">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Cropped grove">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="240" y="164" width="150" height="696" rx="60" fill="#f4f3ee"/>
+<rect x="437" y="164" width="150" height="696" rx="60" fill="#f4f3ee"/>
+<rect x="634" y="164" width="150" height="696" rx="60" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Cropped grove, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="232" y="164" width="160" height="696" rx="64" fill="#f4f3ee"/>
+<rect x="432" y="164" width="160" height="696" rx="64" fill="#f4f3ee"/>
+<rect x="632" y="164" width="160" height="696" rx="64" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N35</span><span class="nm">Grove, cropped</span></p>
+      <p class="idea">The bars run past the inset at both ends: a fragment of forest that continues off-canvas.</p>
+    </figure>
+
+    <figure class="tile" id="N36">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Grove two masses">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="200" y="260" width="220" height="560" rx="80" fill="#f4f3ee"/>
+<rect x="400" y="340" width="220" height="480" rx="80" fill="#c9c8c1"/>
+<rect x="640" y="220" width="90" height="600" rx="45" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Grove two masses, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="254" width="234" height="572" rx="84" fill="#f4f3ee"/>
+<rect x="396" y="334" width="234" height="492" rx="84" fill="#c9c8c1"/>
+<rect x="642" y="214" width="104" height="612" rx="52" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N36</span><span class="nm">Grove, two masses</span></p>
+      <p class="idea">Two wide masses overlapping and one thin bar: depth by occlusion, not by number.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f5">
+  <div class="sechead"><span class="n">05</span><h2>Seeds and roots</h2><span class="v">N37–N44</span></div>
+  <p class="fam">Where a forest starts and where it holds. Seeds are single closed shapes; roots are the only family
+    allowed to be intricate, because a root system is legible as a texture even when the branches are not.</p>
+  <div class="grid">
+
+    <figure class="tile" id="N37">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Seed">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 200 C720 420 700 720 512 820 C324 720 304 420 512 200 Z" fill="#8fbf9f"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Seed, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 190 C728 418 708 728 512 832 C316 728 296 418 512 190 Z" fill="#8fbf9f"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N37</span><span class="nm">Seed</span></p>
+      <p class="idea">One teardrop, point up, in green: the smallest closed shape that still means the forest.</p>
+    </figure>
+
+    <figure class="tile" id="N38">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Sprout">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="690" r="120" fill="#f4f3ee"/>
+<rect x="484" y="360" width="56" height="240" fill="#f4f3ee"/>
+<path d="M540 400 C640 400 700 440 700 520 C600 520 540 480 540 400 Z" fill="#8fbf9f"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Sprout, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="694" r="132" fill="#f4f3ee"/>
+<rect x="478" y="356" width="68" height="250" fill="#f4f3ee"/>
+<path d="M540 392 C648 392 712 436 712 522 C604 522 540 478 540 392 Z" fill="#8fbf9f"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N38</span><span class="nm">Sprout</span></p>
+      <p class="idea">A round seed, a stem and one leaf right: three shapes, one story.</p>
+    </figure>
+
+    <figure class="tile" id="N39">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Two seeds">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M400 300 C540 440 528 620 400 700 C272 620 260 440 400 300 Z" fill="#f4f3ee"/>
+<circle cx="640" cy="600" r="150" fill="#8fbf9f"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Two seeds, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M394 292 C540 436 528 626 394 708 C260 626 248 436 394 292 Z" fill="#f4f3ee"/>
+<circle cx="644" cy="604" r="160" fill="#8fbf9f"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N39</span><span class="nm">Two seeds</span></p>
+      <p class="idea">A seed and a seed: different shapes, different tones, an offset diagonal.</p>
+    </figure>
+
+    <figure class="tile" id="N40">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Roots">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="472" y="180" width="80" height="240" fill="#f4f3ee"/>
+<g stroke="#f4f3ee" stroke-width="48" fill="none" stroke-linecap="square">
+<path d="M512 420 V560"/>
+<path d="M512 500 L392 620 M512 500 L632 620"/>
+<path d="M392 620 V720 M392 660 L322 740 M632 620 V700 M632 660 L702 750"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Roots, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="464" y="180" width="96" height="240" fill="#f4f3ee"/>
+<g stroke="#f4f3ee" stroke-width="70" fill="none" stroke-linecap="square">
+<path d="M512 420 V560"/>
+<path d="M512 500 L392 620 M512 500 L632 620"/>
+<path d="M392 620 V730 M632 620 V730"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N40</span><span class="nm">Roots</span></p>
+      <p class="idea">A trunk upside down: the branch grammar applied below the line, three levels deep.</p>
+    </figure>
+
+    <figure class="tile" id="N41">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Taproot">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M422 260 H602 C602 520 560 720 512 844 C464 720 422 520 422 260 Z" fill="#f4f3ee"/>
+<path d="M470 560 L360 680" stroke="#f4f3ee" stroke-width="60" fill="none"/>
+<path d="M554 620 L660 720" stroke="#f4f3ee" stroke-width="60" fill="none"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Taproot, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M414 254 H610 C610 520 564 726 512 850 C460 726 414 520 414 254 Z" fill="#f4f3ee"/>
+<path d="M470 560 L354 686 M554 620 L668 726" stroke="#f4f3ee" stroke-width="76" fill="none"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N41</span><span class="nm">Taproot</span></p>
+      <p class="idea">A tapering root with two side roots: a seed, a trunk and a drop at once.</p>
+    </figure>
+
+    <figure class="tile" id="N42">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Rhizome">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="430" width="600" height="80" rx="40" fill="#f4f3ee"/>
+<circle cx="330" cy="640" r="80" fill="#8fbf9f"/>
+<circle cx="512" cy="700" r="58" fill="#c9c8c1"/>
+<circle cx="700" cy="640" r="80" fill="#8fbf9f"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Rhizome, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="424" width="612" height="96" rx="48" fill="#f4f3ee"/>
+<circle cx="330" cy="646" r="92" fill="#8fbf9f"/>
+<circle cx="700" cy="646" r="92" fill="#8fbf9f"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N42</span><span class="nm">Rhizome</span></p>
+      <p class="idea">A horizontal runner with three nodes below: a root that reads as a rule with dots.</p>
+    </figure>
+
+    <figure class="tile" id="N43">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Acorn">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="312" y="320" width="400" height="130" rx="65" fill="#c9c8c1"/>
+<path d="M352 430 H672 V620 C672 748 600 820 512 820 C424 820 352 748 352 620 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Acorn, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="304" y="312" width="416" height="140" rx="70" fill="#c9c8c1"/>
+<path d="M346 430 H678 V620 C678 752 604 826 512 826 C420 826 346 752 346 620 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N43</span><span class="nm">Acorn</span></p>
+      <p class="idea">Cap and body, two shapes, no texture: the seed reduced to its silhouette.</p>
+    </figure>
+
+    <figure class="tile" id="N44">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Pinecone">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="none" stroke="#f4f3ee" stroke-width="90" stroke-linecap="square">
+<path d="M292 340 L512 220 L732 340"/>
+<path d="M342 470 L512 380 L682 470"/>
+<path d="M392 600 L512 540 L632 600"/>
+<path d="M442 730 L512 700 L582 730"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Pinecone, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="none" stroke="#f4f3ee" stroke-width="110" stroke-linecap="square">
+<path d="M282 340 L512 208 L742 340"/>
+<path d="M382 540 L512 470 L642 540"/>
+<path d="M442 730 L512 696 L582 730"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N44</span><span class="nm">Pinecone</span></p>
+      <p class="idea">Four chevrons, no outline: an abstracted pinecone that is almost a woven ornament.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f6">
+  <div class="sechead"><span class="n">06</span><h2>Rings and bark</h2><span class="v">N45–N50</span></div>
+  <p class="fam">Wood as a material and time as a pattern. Rings are the one place where circles belong on this sheet;
+    bark is the only place where a texture is allowed to be a texture.</p>
+  <div class="grid">
+
+    <figure class="tile" id="N45">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Ring">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="280" fill="none" stroke="#8fb0cd" stroke-width="96"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Ring, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="278" fill="none" stroke="#8fb0cd" stroke-width="120"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N45</span><span class="nm">Ring</span></p>
+      <p class="idea">One growth ring, in the accent: the forest seen from a stump, not from a tree.</p>
+    </figure>
+
+    <figure class="tile" id="N46">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Three rings">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="300" fill="none" stroke="#f4f3ee" stroke-width="56"/>
+<circle cx="512" cy="512" r="210" fill="none" stroke="#f4f3ee" stroke-width="56"/>
+<circle cx="512" cy="512" r="120" fill="none" stroke="#8fbf9f" stroke-width="56"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Three rings, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="300" fill="none" stroke="#f4f3ee" stroke-width="84"/>
+<circle cx="512" cy="512" r="170" fill="none" stroke="#f4f3ee" stroke-width="84"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N46</span><span class="nm">Growth rings</span></p>
+      <p class="idea">Three rings, the innermost green: at 16 it collapses to a target, which is fine.</p>
+    </figure>
+
+    <figure class="tile" id="N47">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Broken ring">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M754 372 A280 280 0 1 0 754 652" fill="none" stroke="#f4f3ee" stroke-width="96" stroke-linecap="butt"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Broken ring, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M762 366 A284 284 0 1 0 762 658" fill="none" stroke="#f4f3ee" stroke-width="116"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N47</span><span class="nm">Broken ring</span></p>
+      <p class="idea">A ring with a wedge missing on the right: an opening, and the only place a branch could leave.</p>
+    </figure>
+
+    <figure class="tile" id="N48">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Bark">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="none" stroke="#f4f3ee" stroke-width="40" stroke-linecap="round">
+<path d="M250 230 C290 400 210 560 250 800"/>
+<path d="M370 210 C410 420 330 600 370 810"/>
+<path d="M490 240 C530 400 450 580 490 790"/>
+<path d="M610 210 C650 410 570 590 610 810"/>
+<path d="M730 240 C770 400 690 560 730 800"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Bark, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="none" stroke="#f4f3ee" stroke-width="64" stroke-linecap="round">
+<path d="M262 220 C302 420 222 600 262 810"/>
+<path d="M512 220 C552 420 472 600 512 810"/>
+<path d="M762 220 C802 420 722 600 762 810"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N48</span><span class="nm">Bark</span></p>
+      <p class="idea">Five wavy lines: the only icon in the set that is purely a rhythm, with no object at all.</p>
+    </figure>
+
+    <figure class="tile" id="N49">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Bark bands">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="220" y="260" width="584" height="60" rx="30" fill="#f4f3ee"/>
+<rect x="300" y="380" width="504" height="60" rx="30" fill="#c9c8c1"/>
+<rect x="180" y="500" width="664" height="60" rx="30" fill="#f4f3ee"/>
+<rect x="340" y="620" width="424" height="60" rx="30" fill="#c9c8c1"/>
+<rect x="240" y="740" width="544" height="60" rx="30" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Bark bands, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="260" width="600" height="84" rx="42" fill="#f4f3ee"/>
+<rect x="212" y="420" width="600" height="84" rx="42" fill="#c9c8c1"/>
+<rect x="212" y="580" width="600" height="84" rx="42" fill="#f4f3ee"/>
+<rect x="212" y="740" width="600" height="84" rx="42" fill="#c9c8c1"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N49</span><span class="nm">Bark bands</span></p>
+      <p class="idea">Horizontal bands of unequal width: a texture that is also a stack of pages.</p>
+    </figure>
+
+    <figure class="tile" id="N50">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Stump">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="332" y="520" width="360" height="300" fill="#f4f3ee"/>
+<ellipse cx="512" cy="520" rx="180" ry="66" fill="#c9c8c1"/>
+<ellipse cx="512" cy="520" rx="112" ry="40" fill="none" stroke="#111318" stroke-width="26"/>
+<ellipse cx="512" cy="520" rx="50" ry="18" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Stump, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="322" y="516" width="380" height="306" fill="#f4f3ee"/>
+<ellipse cx="512" cy="516" rx="190" ry="72" fill="#c9c8c1"/>
+<ellipse cx="512" cy="516" rx="96" ry="36" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">N50</span><span class="nm">Stump</span></p>
+      <p class="idea">A cut trunk with two rings on top: the forest as an object seen from above and the side.</p>
+    </figure>
+
+  </div>
+</section>
+
+<p class="foot">
+  Sheet 2 of 5 · 50 icons (N01–N50). Shown at 96 px and at 16 px from the same 1024 viewBox.
+  Most of these are too literal to ship; the point of the sheet is to find the three or four that are not.
+  → <a href="sheet-3.html">Sheet 3, Geometric</a> · <a href="index.html">Index and shortlist</a>
+</p>
+
+</div>
+</body>
+</html>

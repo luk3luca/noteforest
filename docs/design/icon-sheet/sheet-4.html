@@ -1,0 +1,1120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Icon sheet 4 — Material and strange · NoteForest</title>
+<style>
+  :root{
+    --bg:#0d0e10; --panel:#15171a; --panel2:#191c20; --line:#25292e; --line2:#32373d;
+    --t1:#e9e9e6; --t2:#a5aab0; --t3:#6f767e; --accent:#8fb0cd; --green:#8fbf9f;
+    --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--t1);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  body{padding:0 20px 80px}
+  .wrap{max-width:1360px;margin:0 auto}
+  a{color:inherit}
+  .top{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+       padding:12px 0;margin-bottom:8px;background:linear-gradient(180deg,var(--bg) 72%,transparent);border-bottom:1px solid var(--line)}
+  .top .brand{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .top .brand em{font-style:normal;color:var(--t3);font-weight:400}
+  .top nav{display:flex;gap:4px;flex-wrap:wrap}
+  .top nav a{padding:4px 9px;border:1px solid transparent;border-radius:6px;color:var(--t2);font-size:11.5px;text-decoration:none}
+  .top nav a:hover{border-color:var(--line2);color:var(--t1)}
+  .top nav a.on{border-color:var(--line2);background:var(--panel2);color:var(--t1)}
+  .top .count{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+
+  header.sheet{padding:26px 0 6px}
+  .eyebrow{margin:0 0 8px;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+  h1{margin:0 0 12px;font-size:27px;font-weight:600;letter-spacing:-.015em}
+  .lede{margin:0;max-width:76ch;color:var(--t2);font-size:13.5px;line-height:1.62}
+  .lede b{color:var(--t1);font-weight:600}
+  .rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px}
+  .rules span{padding:5px 9px;border:1px solid var(--line);border-radius:5px;color:var(--t3);font:10px/1.4 var(--mono);letter-spacing:.03em}
+
+  .famnav{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0}
+  .famnav a{padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--t2);font-size:11px;text-decoration:none}
+  .famnav a:hover{border-color:var(--line2);color:var(--t1)}
+
+  section{padding-top:44px}
+  .sechead{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:6px}
+  .sechead h2{margin:0;font-size:15px;font-weight:600;letter-spacing:-.005em}
+  .sechead .n{color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+  .sechead .v{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.06em}
+  .fam{margin:8px 0 18px;max-width:84ch;color:var(--t3);font-size:12px;line-height:1.55}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(302px,1fr));gap:10px}
+  .tile{margin:0;padding:14px 14px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+        display:flex;flex-direction:column;gap:11px}
+  .tile:hover{border-color:var(--line2)}
+  .pair{display:flex;align-items:center;gap:18px;min-height:100px}
+  .slot{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .slot svg{display:block}
+  .slot b{font:9px/1 var(--mono);font-weight:400;color:var(--t3);letter-spacing:.08em}
+  .meta{margin:0;display:flex;align-items:baseline;gap:8px}
+  .id{font:10px/1 var(--mono);color:var(--accent);letter-spacing:.07em}
+  .nm{font-size:12.5px;font-weight:600;letter-spacing:-.005em}
+  .idea{margin:0;color:var(--t2);font-size:11.5px;line-height:1.5}
+
+  .foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--t3);font-size:11px;line-height:1.6}
+  .foot a{color:var(--t2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <span class="brand">NoteForest <em>· icon sheet</em></span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="sheet-1.html">1 · Object</a>
+    <a href="sheet-2.html">2 · Nature</a>
+    <a href="sheet-3.html">3 · Geometric</a>
+    <a class="on" href="sheet-4.html">4 · Material</a>
+    <a href="sheet-5.html">5 · Structure</a>
+  </nav>
+  <span class="count">50 / 250</span>
+</div>
+
+<header class="sheet">
+  <p class="eyebrow">Sheet 4 of 5 · M01–M50</p>
+  <h1>Material and strange</h1>
+  <p class="lede">
+    Not a shape but a surface: translucent paper, embossed card, glass, duotone, ink on a paper field, near-black
+    on black. Half of this sheet is deliberately extreme — one shape with nothing else, or so much detail that it
+    dies at 16 px. The extremes are here to find the boundaries, and several tiles are expected to fail.
+  </p>
+  <div class="rules">
+    <span>canvas 1024</span><span>squircle 824 × 824 · r 185</span><span>art inset 64–120</span>
+    <span>shown at 96 and 16</span><span>no text</span><span>opacity only, no filters</span>
+  </div>
+  <div class="famnav">
+    <a href="#f1">Translucency</a>
+    <a href="#f2">Embossed paper</a>
+    <a href="#f3">Glass and duotone</a>
+    <a href="#f4">Inverted light</a>
+    <a href="#f5">Near-black</a>
+    <a href="#f6">One shape</a>
+    <a href="#f7">Deliberately intricate</a>
+  </div>
+</header>
+
+<section id="f1">
+  <div class="sechead"><span class="n">01</span><h2>Translucency</h2><span class="v">M01–M08</span></div>
+  <p class="fam">Layers that show each other. Only opacity, no blur and no gradient: on the dark field a translucent
+    sheet is a blue-grey pane, and the overlap becomes the brightest part of the icon.</p>
+  <div class="grid">
+
+    <figure class="tile" id="M01">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Three translucent sheets">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="222" y="222" width="460" height="460" rx="20" fill="#f4f3ee" opacity="0.32"/>
+<rect x="302" y="302" width="460" height="460" rx="20" fill="#f4f3ee" opacity="0.55"/>
+<rect x="382" y="382" width="460" height="460" rx="20" fill="#f4f3ee" opacity="0.88"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Three translucent sheets, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="216" y="216" width="466" height="466" rx="20" fill="#f4f3ee" opacity="0.34"/>
+<rect x="304" y="304" width="466" height="466" rx="20" fill="#f4f3ee" opacity="0.58"/>
+<rect x="392" y="392" width="466" height="466" rx="20" fill="#f4f3ee" opacity="0.92"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M01</span><span class="nm">Three panes</span></p>
+      <p class="idea">Three sheets at 32/55/88%: the overlap is the mark, and it needs no outline.</p>
+    </figure>
+
+    <figure class="tile" id="M02">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Two translucent discs">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="420" cy="512" r="240" fill="#f4f3ee" opacity="0.42"/>
+<circle cx="620" cy="512" r="240" fill="#f4f3ee" opacity="0.42"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Two translucent discs, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="414" cy="512" r="250" fill="#f4f3ee" opacity="0.46"/>
+<circle cx="620" cy="512" r="250" fill="#f4f3ee" opacity="0.46"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M02</span><span class="nm">Overlap</span></p>
+      <p class="idea">Two discs at 42%: the lens in the middle is the only solid-looking area.</p>
+    </figure>
+
+    <figure class="tile" id="M03">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Veil">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="480" height="480" rx="24" fill="#8fb0cd"/>
+<rect x="332" y="332" width="480" height="480" rx="24" fill="#f4f3ee" opacity="0.38"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Veil, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="490" height="490" rx="24" fill="#8fb0cd"/>
+<rect x="328" y="328" width="490" height="490" rx="24" fill="#f4f3ee" opacity="0.4"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M03</span><span class="nm">Veil</span></p>
+      <p class="idea">A translucent pane over an accent block: the overlap turns pale blue and the corners stay hard.</p>
+    </figure>
+
+    <figure class="tile" id="M04">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Stack fade">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="222" y="222" width="440" height="440" rx="18" fill="#f4f3ee" opacity="0.16"/>
+<rect x="262" y="262" width="440" height="440" rx="18" fill="#f4f3ee" opacity="0.34"/>
+<rect x="302" y="302" width="440" height="440" rx="18" fill="#f4f3ee" opacity="0.54"/>
+<rect x="342" y="342" width="440" height="440" rx="18" fill="#f4f3ee" opacity="0.76"/>
+<rect x="382" y="382" width="440" height="440" rx="18" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" role="img" aria-label="Stack fade, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="216" y="216" width="450" height="450" rx="18" fill="#f4f3ee" opacity="0.24"/>
+<rect x="296" y="296" width="450" height="450" rx="18" fill="#f4f3ee" opacity="0.6"/>
+<rect x="376" y="376" width="450" height="450" rx="18" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M04</span><span class="nm">Depth fade</span></p>
+      <p class="idea">Five sheets fading into the field: depth without a shadow, and the stack still reads at 16.</p>
+    </figure>
+
+    <figure class="tile" id="M05">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Glass pane">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="600" height="600" rx="24" fill="#f4f3ee" opacity="0.16"/>
+<rect x="212" y="212" width="600" height="30" fill="#f4f3ee" opacity="0.5"/>
+<rect x="212" y="212" width="30" height="600" fill="#f4f3ee" opacity="0.34"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Glass pane, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="612" height="612" rx="24" fill="#f4f3ee" opacity="0.18"/>
+<rect x="206" y="206" width="612" height="38" fill="#f4f3ee" opacity="0.56"/>
+<rect x="206" y="206" width="38" height="612" fill="#f4f3ee" opacity="0.38"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M05</span><span class="nm">Glass</span></p>
+      <p class="idea">A pane with two lit edges: glass drawn with a rim and nothing else.</p>
+    </figure>
+
+    <figure class="tile" id="M06">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Frost">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="302" cy="302" r="56"/><circle cx="472" cy="302" r="56"/><circle cx="642" cy="302" r="56"/><circle cx="752" cy="392" r="56"/>
+<circle cx="302" cy="472" r="56"/><circle cx="472" cy="472" r="56"/><circle cx="642" cy="472" r="56"/><circle cx="752" cy="562" r="56"/>
+<circle cx="302" cy="642" r="56"/><circle cx="472" cy="642" r="56"/><circle cx="642" cy="642" r="56"/><circle cx="752" cy="732" r="56"/>
+</g>
+<rect x="212" y="212" width="600" height="600" rx="24" fill="#111318" opacity="0.55"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Frost, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="302" cy="302" r="70"/><circle cx="512" cy="302" r="70"/><circle cx="722" cy="302" r="70"/>
+<circle cx="302" cy="512" r="70"/><circle cx="722" cy="512" r="70"/>
+<circle cx="302" cy="722" r="70"/><circle cx="512" cy="722" r="70"/><circle cx="722" cy="722" r="70"/>
+</g>
+<rect x="206" y="206" width="612" height="612" rx="24" fill="#111318" opacity="0.6"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M06</span><span class="nm">Frost</span></p>
+      <p class="idea">Dots behind a dark veil: a frosted square, built with one opacity and no blur.</p>
+    </figure>
+
+    <figure class="tile" id="M07">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Descending panes">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="480" height="480" rx="20" fill="#f4f3ee" opacity="0.26"/>
+<rect x="292" y="292" width="380" height="380" rx="20" fill="#f4f3ee" opacity="0.46"/>
+<rect x="372" y="372" width="280" height="280" rx="20" fill="#f4f3ee" opacity="0.7"/>
+<rect x="452" y="452" width="180" height="180" rx="20" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" role="img" aria-label="Descending panes, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="490" height="490" rx="20" fill="#f4f3ee" opacity="0.3"/>
+<rect x="290" y="290" width="382" height="382" rx="20" fill="#f4f3ee" opacity="0.56"/>
+<rect x="374" y="374" width="274" height="274" rx="20" fill="#f4f3ee" opacity="0.82"/>
+<rect x="458" y="458" width="166" height="166" rx="20" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M07</span><span class="nm">Descending</span></p>
+      <p class="idea">Four panes stepping down and right, each more solid: a zoom into the same sheet.</p>
+    </figure>
+
+    <figure class="tile" id="M08">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Core">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" rx="24" fill="#f4f3ee" opacity="0.2"/>
+<rect x="422" y="422" width="260" height="260" rx="16" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Core, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" rx="24" fill="#f4f3ee" opacity="0.22"/>
+<rect x="412" y="412" width="280" height="280" rx="16" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M08</span><span class="nm">Core</span></p>
+      <p class="idea">A faint field and a solid core: the note inside the note, which is the product in one image.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f2">
+  <div class="sechead"><span class="n">02</span><h2>Embossed paper</h2><span class="v">M09–M16</span></div>
+  <p class="fam">Depth from two lit edges, never from a filter. One light from the top-left, one shadow from the
+    bottom-right, and the material appears. This is the most likely family to survive a "no gradients" rule.</p>
+  <div class="grid">
+
+    <figure class="tile" id="M09">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Deboss">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" rx="24" fill="#1b1e23"/>
+<rect x="192" y="192" width="640" height="26" rx="8" fill="#f4f3ee" opacity="0.12"/>
+<rect x="192" y="192" width="26" height="640" rx="8" fill="#f4f3ee" opacity="0.09"/>
+<rect x="192" y="806" width="640" height="26" rx="8" fill="#000000" opacity="0.55"/>
+<rect x="806" y="192" width="26" height="640" rx="8" fill="#000000" opacity="0.55"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Deboss, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" rx="24" fill="#1b1e23"/>
+<rect x="186" y="186" width="652" height="38" rx="8" fill="#f4f3ee" opacity="0.14"/>
+<rect x="186" y="800" width="652" height="38" rx="8" fill="#000000" opacity="0.6"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M09</span><span class="nm">Deboss</span></p>
+      <p class="idea">A square pressed into the field: two lit edges, no shadow, no gradient.</p>
+    </figure>
+
+    <figure class="tile" id="M10">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Raised card">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="600" height="600" rx="24" fill="#e8e7e2"/>
+<rect x="212" y="212" width="600" height="28" rx="8" fill="#fdfefd"/>
+<rect x="212" y="784" width="600" height="28" rx="8" fill="#b9b7ae"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Raised card, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="612" height="612" rx="24" fill="#e8e7e2"/>
+<rect x="206" y="206" width="612" height="40" rx="8" fill="#fdfefd"/>
+<rect x="206" y="778" width="612" height="40" rx="8" fill="#b9b7ae"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M10</span><span class="nm">Raised card</span></p>
+      <p class="idea">A card with a lit top edge and a shaded foot: a sheet with real thickness.</p>
+    </figure>
+
+    <figure class="tile" id="M11">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Crease">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" rx="24" fill="#f4f3ee"/>
+<rect x="482" y="192" width="24" height="640" fill="#d6d5ce"/>
+<rect x="506" y="192" width="24" height="640" fill="#fdfefd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Crease, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" rx="24" fill="#f4f3ee"/>
+<rect x="478" y="186" width="34" height="652" fill="#d6d5ce"/>
+<rect x="512" y="186" width="34" height="652" fill="#fdfefd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M11</span><span class="nm">Crease</span></p>
+      <p class="idea">One vertical crease, half shadow and half light: a fold you can see at 16 px.</p>
+    </figure>
+
+    <figure class="tile" id="M12">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Blind ring">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" rx="24" fill="#1b1e23"/>
+<circle cx="512" cy="512" r="220" fill="none" stroke="#f4f3ee" stroke-width="34" opacity="0.14"/>
+<circle cx="512" cy="512" r="220" fill="none" stroke="#000000" stroke-width="20" opacity="0.5" stroke-dasharray="0" transform="translate(10 10)"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Blind ring, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" rx="24" fill="#1b1e23"/>
+<circle cx="512" cy="512" r="220" fill="none" stroke="#f4f3ee" stroke-width="52" opacity="0.16"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M12</span><span class="nm">Blind ring</span></p>
+      <p class="idea">A ring with no colour, only a light edge: a watermark pressed into the paper.</p>
+    </figure>
+
+    <figure class="tile" id="M13">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Letterpress bar">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" rx="24" fill="#1b1e23"/>
+<rect x="302" y="452" width="420" height="120" rx="16" fill="#2c3138"/>
+<rect x="302" y="452" width="420" height="22" rx="8" fill="#f4f3ee" opacity="0.22"/>
+<rect x="302" y="550" width="420" height="22" rx="8" fill="#000000" opacity="0.6"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Letterpress bar, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" rx="24" fill="#1b1e23"/>
+<rect x="292" y="448" width="440" height="128" rx="16" fill="#2c3138"/>
+<rect x="292" y="448" width="440" height="30" rx="8" fill="#f4f3ee" opacity="0.24"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M13</span><span class="nm">Letterpress</span></p>
+      <p class="idea">A bar embossed out of the field: the icon is a single raised area, at 96 and at 16.</p>
+    </figure>
+
+    <figure class="tile" id="M14">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Embossed grid">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" rx="24" fill="#1b1e23"/>
+<g fill="#2c3138">
+<rect x="252" y="252" width="160" height="160" rx="14"/><rect x="432" y="252" width="160" height="160" rx="14"/><rect x="612" y="252" width="160" height="160" rx="14"/>
+<rect x="252" y="432" width="160" height="160" rx="14"/><rect x="432" y="432" width="160" height="160" rx="14"/><rect x="612" y="432" width="160" height="160" rx="14"/>
+<rect x="252" y="612" width="160" height="160" rx="14"/><rect x="432" y="612" width="160" height="160" rx="14"/><rect x="612" y="612" width="160" height="160" rx="14"/>
+</g>
+<g fill="#f4f3ee" opacity="0.16">
+<rect x="252" y="252" width="160" height="14" rx="6"/><rect x="432" y="252" width="160" height="14" rx="6"/><rect x="612" y="252" width="160" height="14" rx="6"/>
+<rect x="252" y="432" width="160" height="14" rx="6"/><rect x="432" y="432" width="160" height="14" rx="6"/><rect x="612" y="432" width="160" height="14" rx="6"/>
+<rect x="252" y="612" width="160" height="14" rx="6"/><rect x="432" y="612" width="160" height="14" rx="6"/><rect x="612" y="612" width="160" height="14" rx="6"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Embossed grid, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" rx="24" fill="#1b1e23"/>
+<g fill="#2c3138">
+<rect x="250" y="250" width="170" height="170" rx="14"/><rect x="430" y="250" width="170" height="170" rx="14"/><rect x="610" y="250" width="170" height="170" rx="14"/>
+<rect x="250" y="430" width="170" height="170" rx="14"/><rect x="430" y="430" width="170" height="170" rx="14"/><rect x="610" y="430" width="170" height="170" rx="14"/>
+<rect x="250" y="610" width="170" height="170" rx="14"/><rect x="430" y="610" width="170" height="170" rx="14"/><rect x="610" y="610" width="170" height="170" rx="14"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M14</span><span class="nm">Emboss grid</span></p>
+      <p class="idea">Nine raised tiles on a dark card: structure as a surface, with no fill difference at 16.</p>
+    </figure>
+
+    <figure class="tile" id="M15">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Pillow">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="600" height="600" rx="150" fill="#2c3138"/>
+<rect x="212" y="212" width="600" height="600" rx="150" fill="none" stroke="#f4f3ee" stroke-width="26" opacity="0.22"/>
+<rect x="292" y="742" width="440" height="70" rx="35" fill="#000000" opacity="0.45"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Pillow, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="612" height="612" rx="154" fill="#2c3138"/>
+<rect x="206" y="206" width="612" height="612" rx="154" fill="none" stroke="#f4f3ee" stroke-width="40" opacity="0.26"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M15</span><span class="nm">Pillow</span></p>
+      <p class="idea">A soft rounded slab with a lit rim: the only icon with a "soft" material, kept abstract.</p>
+    </figure>
+
+    <figure class="tile" id="M16">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Engraved">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" rx="24" fill="#1b1e23"/>
+<path d="M832 372 L372 832" stroke="#000000" stroke-width="26" opacity="0.65"/>
+<path d="M832 348 L348 832" stroke="#f4f3ee" stroke-width="26" opacity="0.18"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Engraved, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" rx="24" fill="#1b1e23"/>
+<path d="M838 366 L366 838" stroke="#000000" stroke-width="40" opacity="0.7"/>
+<path d="M838 336 L336 838" stroke="#f4f3ee" stroke-width="40" opacity="0.2"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M16</span><span class="nm">Engraved</span></p>
+      <p class="idea">A groove cut across the corner: dark on one side, light on the other, and nothing else.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f3">
+  <div class="sechead"><span class="n">03</span><h2>Glass and duotone</h2><span class="v">M17–M24</span></div>
+  <p class="fam">Two colours and one surface. Duotone is the safest thing in this sheet; glass is the riskiest,
+    because a translucent pane over a dark field is almost nothing.</p>
+  <div class="grid">
+
+    <figure class="tile" id="M17">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Glass slab">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="560" height="560" rx="24" fill="#8fb0cd"/>
+<rect x="332" y="332" width="528" height="528" rx="24" fill="#f4f3ee" opacity="0.3"/>
+<rect x="332" y="332" width="528" height="26" rx="8" fill="#f4f3ee" opacity="0.55"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Glass slab, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="570" height="570" rx="24" fill="#8fb0cd"/>
+<rect x="328" y="328" width="532" height="532" rx="24" fill="#f4f3ee" opacity="0.32"/>
+<rect x="328" y="328" width="532" height="36" rx="8" fill="#f4f3ee" opacity="0.6"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M17</span><span class="nm">Glass slab</span></p>
+      <p class="idea">A translucent slab over an accent sheet: two materials, two depths, one lit edge.</p>
+    </figure>
+
+    <figure class="tile" id="M18">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Split disc">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="300" fill="#f4f3ee"/>
+<path d="M512 212 A300 300 0 0 1 512 812 Z" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Split disc, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="308" fill="#f4f3ee"/>
+<path d="M512 204 A308 308 0 0 1 512 820 Z" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M18</span><span class="nm">Split disc</span></p>
+      <p class="idea">A disc cut in half, paper and accent: a moon, a phase, or just a two-tone circle.</p>
+    </figure>
+
+    <figure class="tile" id="M19">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Duotone card">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="600" height="600" rx="24" fill="#f4f3ee"/>
+<rect x="662" y="212" width="150" height="600" fill="#8fb0cd"/>
+<rect x="662" y="212" width="40" height="600" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Duotone card, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="612" height="612" rx="24" fill="#f4f3ee"/>
+<rect x="662" y="206" width="156" height="612" fill="#8fb0cd"/>
+<rect x="662" y="206" width="46" height="612" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M19</span><span class="nm">Edge band</span></p>
+      <p class="idea">A card with an accent band on the right: a note with a coloured edge, like a tab.</p>
+    </figure>
+
+    <figure class="tile" id="M20">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Duotone diagonal">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" fill="#f4f3ee"/>
+<path d="M832 192 V832 L192 192 Z" fill="#8fbf9f"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Duotone diagonal, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" fill="#f4f3ee"/>
+<path d="M838 186 V838 L186 186 Z" fill="#8fbf9f"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M20</span><span class="nm">Paper and green</span></p>
+      <p class="idea">Paper cut by green on the diagonal: the secondary tone used as a material, not as a hint.</p>
+    </figure>
+
+    <figure class="tile" id="M21">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Glass rim">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="612" height="612" rx="30" fill="#f4f3ee" opacity="0.14"/>
+<rect x="206" y="206" width="612" height="612" rx="30" fill="none" stroke="#f4f3ee" stroke-width="40" opacity="0.45"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Glass rim, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="200" y="200" width="624" height="624" rx="30" fill="#f4f3ee" opacity="0.16"/>
+<rect x="200" y="200" width="624" height="624" rx="30" fill="none" stroke="#f4f3ee" stroke-width="56" opacity="0.5"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M21</span><span class="nm">Rim</span></p>
+      <p class="idea">A pane that is only a rim and a tint: the emptiest icon in the set, on purpose.</p>
+    </figure>
+
+    <figure class="tile" id="M22">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Duo stack">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="252" width="520" height="520" rx="24" fill="#8fb0cd"/>
+<rect x="292" y="332" width="520" height="520" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Duo stack, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="246" width="530" height="530" rx="24" fill="#8fb0cd"/>
+<rect x="288" y="328" width="530" height="530" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M22</span><span class="nm">Two cards</span></p>
+      <p class="idea">An accent card behind a paper one: two sheets, two colours, one offset.</p>
+    </figure>
+
+    <figure class="tile" id="M23">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Half dome">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M212 780 A300 300 0 0 1 512 480 V780 Z" fill="#f4f3ee"/>
+<path d="M512 480 A300 300 0 0 1 812 780 L512 780 Z" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Half dome, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M204 788 A308 308 0 0 1 512 480 V788 Z" fill="#f4f3ee"/>
+<path d="M512 480 A308 308 0 0 1 820 788 L512 788 Z" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M23</span><span class="nm">Half dome</span></p>
+      <p class="idea">A half disc split in two tones, flat side down: a horizon, a hill, a paperweight.</p>
+    </figure>
+
+    <figure class="tile" id="M24">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Four bars">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="222" y="302" width="120" height="520" fill="#f4f3ee"/>
+<rect x="342" y="222" width="120" height="600" fill="#8fb0cd"/>
+<rect x="462" y="382" width="120" height="440" fill="#f4f3ee"/>
+<rect x="582" y="262" width="120" height="560" fill="#c9c8c1"/>
+<rect x="702" y="342" width="120" height="480" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Four bars, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="296" width="136" height="532" fill="#f4f3ee"/>
+<rect x="348" y="212" width="136" height="616" fill="#8fb0cd"/>
+<rect x="484" y="380" width="136" height="448" fill="#f4f3ee"/>
+<rect x="620" y="256" width="136" height="572" fill="#c9c8c1"/>
+<rect x="756" y="338" width="74" height="490" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M24</span><span class="nm">Bars</span></p>
+      <p class="idea">Five bars where one is the accent: a grove, a chart, and an outline in one shape.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f4">
+  <div class="sechead"><span class="n">04</span><h2>Inverted light</h2><span class="v">M25–M32</span></div>
+  <p class="fam">Paper field, ink artwork. In a Dock full of dark squares these are the icons that are found without
+    looking — and the ones that look wrong on a dark desktop. Both facts are useful.</p>
+  <div class="grid">
+
+    <figure class="tile" id="M25">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Ink mark">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="302" y="302" width="420" height="420" rx="20" fill="#15171a"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Ink mark, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="294" y="294" width="436" height="436" rx="20" fill="#15171a"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M25</span><span class="nm">Ink block</span></p>
+      <p class="idea">One dark square on paper: the most reduced version of "a note on a page".</p>
+    </figure>
+
+    <figure class="tile" id="M26">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Ink sheet">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<path d="M252 202 H672 L792 322 V822 H252 Z" fill="#15171a"/>
+<path d="M672 202 L792 322 H672 Z" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Ink sheet, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<path d="M246 196 H678 L798 316 V828 H246 Z" fill="#15171a"/>
+<path d="M678 196 L798 316 H678 Z" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M26</span><span class="nm">Ink sheet</span></p>
+      <p class="idea">A dark page with a fold: the app's own object, inverted. At 16 the fold is gone and a dark page on paper remains.</p>
+    </figure>
+
+    <figure class="tile" id="M27">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Ink grove">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="252" y="422" width="140" height="398" rx="56" fill="#15171a"/>
+<rect x="440" y="222" width="140" height="598" rx="56" fill="#15171a"/>
+<rect x="628" y="362" width="140" height="458" rx="56" fill="#15171a"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Ink grove, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="244" y="416" width="152" height="410" rx="60" fill="#15171a"/>
+<rect x="436" y="210" width="152" height="616" rx="60" fill="#15171a"/>
+<rect x="628" y="356" width="152" height="470" rx="60" fill="#15171a"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M27</span><span class="nm">Ink grove</span></p>
+      <p class="idea">The grove inverted: ink bars on paper. Loud, and the least "dark mode app" of the set.</p>
+    </figure>
+
+    <figure class="tile" id="M28">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Ink dots">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<g fill="#15171a">
+<circle cx="302" cy="302" r="52"/><circle cx="472" cy="302" r="52"/><circle cx="642" cy="302" r="52"/><circle cx="782" cy="302" r="52"/>
+<circle cx="302" cy="472" r="52"/><circle cx="472" cy="472" r="52"/><circle cx="642" cy="472" r="52"/><circle cx="782" cy="472" r="52"/>
+<circle cx="302" cy="642" r="52"/><circle cx="472" cy="642" r="52"/><circle cx="642" cy="642" r="52"/><circle cx="782" cy="642" r="52"/>
+<circle cx="302" cy="782" r="52"/><circle cx="472" cy="782" r="52"/><circle cx="642" cy="782" r="52"/><circle cx="782" cy="782" r="52"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Ink dots, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<g fill="#15171a">
+<circle cx="290" cy="290" r="66"/><circle cx="462" cy="290" r="66"/><circle cx="634" cy="290" r="66"/><circle cx="806" cy="290" r="66"/>
+<circle cx="290" cy="462" r="66"/><circle cx="462" cy="462" r="66"/><circle cx="634" cy="462" r="66"/><circle cx="806" cy="462" r="66"/>
+<circle cx="290" cy="634" r="66"/><circle cx="462" cy="634" r="66"/><circle cx="634" cy="634" r="66"/><circle cx="806" cy="634" r="66"/>
+<circle cx="290" cy="806" r="66"/><circle cx="462" cy="806" r="66"/><circle cx="634" cy="806" r="66"/><circle cx="806" cy="806" r="66"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M28</span><span class="nm">Ink dots</span></p>
+      <p class="idea">A dot matrix in ink on paper: a halftone, a page of bullets, a texture.</p>
+    </figure>
+
+    <figure class="tile" id="M29">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Ink cut">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="212" y="212" width="600" height="600" rx="24" fill="#15171a"/>
+<rect x="392" y="392" width="240" height="240" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Ink cut, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="206" y="206" width="612" height="612" rx="24" fill="#15171a"/>
+<rect x="386" y="386" width="252" height="252" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M29</span><span class="nm">Ink window</span></p>
+      <p class="idea">A dark card with a paper window: a hole is the one thing that reads at any size.</p>
+    </figure>
+
+    <figure class="tile" id="M30">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Accent sheet on paper">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<path d="M252 202 H672 L792 322 V822 H252 Z" fill="#8fb0cd"/>
+<path d="M672 202 L792 322 H672 Z" fill="#6f93b4"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Accent sheet on paper, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<path d="M246 196 H678 L798 316 V828 H246 Z" fill="#8fb0cd"/>
+<path d="M678 196 L798 316 H678 Z" fill="#6f93b4"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M30</span><span class="nm">Paper, accent</span></p>
+      <p class="idea">A paper field with one accent sheet: two tones, no outline, and the fold carries the material.</p>
+    </figure>
+
+    <figure class="tile" id="M31">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Ink ring">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<circle cx="512" cy="512" r="280" fill="none" stroke="#15171a" stroke-width="110"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Ink ring, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<circle cx="512" cy="512" r="276" fill="none" stroke="#15171a" stroke-width="132"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M31</span><span class="nm">Ink ring</span></p>
+      <p class="idea">A single heavy ring on paper: the most "print" object in the whole set.</p>
+    </figure>
+
+    <figure class="tile" id="M32">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Paper on paper">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#e4e1d8"/>
+<rect x="212" y="212" width="580" height="580" rx="20" fill="#fdfefd"/>
+<rect x="212" y="212" width="580" height="580" rx="20" fill="none" stroke="#c9c8c1" stroke-width="18"/>
+<rect x="212" y="760" width="580" height="32" fill="#d6d5ce"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Paper on paper, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#e4e1d8"/>
+<rect x="206" y="206" width="592" height="592" rx="20" fill="#fdfefd"/>
+<rect x="206" y="746" width="592" height="52" fill="#d6d5ce"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M32</span><span class="nm">White on white</span></p>
+      <p class="idea">A white card on a warm paper field: almost no contrast, and the edge does all the work.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f5">
+  <div class="sechead"><span class="n">05</span><h2>Near-black</h2><span class="v">M33–M38</span></div>
+  <p class="fam">The dark end of the range, deliberately pushed too far. These are the tiles that answer the
+    question "how dark can the icon be and still exist in a dark Dock". Most of them fail, which is the finding.</p>
+  <div class="grid">
+
+    <figure class="tile" id="M33">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Dark card">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="212" y="212" width="600" height="600" rx="24" fill="#191d23"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Dark card, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="206" y="206" width="612" height="612" rx="24" fill="#191d23"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M33</span><span class="nm">Dark card</span></p>
+      <p class="idea">A near-black card on a near-black field: correct for the app, and nearly invisible here.</p>
+    </figure>
+
+    <figure class="tile" id="M34">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Black square">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="222" y="222" width="580" height="580" fill="#08090b"/>
+<rect x="222" y="222" width="580" height="580" fill="none" stroke="#2c323a" stroke-width="24"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Black square, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="214" y="214" width="596" height="596" fill="#08090b"/>
+<rect x="214" y="214" width="596" height="596" fill="none" stroke="#343b44" stroke-width="36"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M34</span><span class="nm">Black square</span></p>
+      <p class="idea">A black square with a hairline: it exists only because of the outline, and that is the point.</p>
+    </figure>
+
+    <figure class="tile" id="M35">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Hairline">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="499" y="212" width="26" height="600" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Hairline, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="478" y="206" width="68" height="612" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M35</span><span class="nm">Hairline</span></p>
+      <p class="idea">One accent rule, 26 px. At 96 it is a line; at 16 it is a rumour.</p>
+    </figure>
+
+    <figure class="tile" id="M36">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One dot">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<circle cx="512" cy="512" r="150" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One dot, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<circle cx="512" cy="512" r="166" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M36</span><span class="nm">One dot</span></p>
+      <p class="idea">A single accent dot on black: a bullet, a seed, a node. Nothing to misunderstand.</p>
+    </figure>
+
+    <figure class="tile" id="M37">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Lit rim">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="212" y="212" width="600" height="600" rx="30" fill="#101216"/>
+<rect x="212" y="212" width="600" height="600" rx="30" fill="none" stroke="#f4f3ee" stroke-width="24"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Lit rim, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="204" y="204" width="616" height="616" rx="30" fill="#101216"/>
+<rect x="204" y="204" width="616" height="616" rx="30" fill="none" stroke="#f4f3ee" stroke-width="44"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M37</span><span class="nm">Rim</span></p>
+      <p class="idea">A black square with a paper rim: the shape is drawn entirely by its edge.</p>
+    </figure>
+
+    <figure class="tile" id="M38">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Dark stack">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="222" y="242" width="460" height="460" rx="20" fill="#14171b"/>
+<rect x="300" y="320" width="460" height="460" rx="20" fill="#1a1e23"/>
+<rect x="378" y="398" width="460" height="460" rx="20" fill="#22272e"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Dark stack, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#0b0c0e"/>
+<rect x="216" y="236" width="490" height="490" rx="20" fill="#171b1f"/>
+<rect x="298" y="318" width="490" height="490" rx="20" fill="#242930"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M38</span><span class="nm">Dark stack</span></p>
+      <p class="idea">Three near-black sheets, separated only by a slight lift: the quietest possible stack.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f6">
+  <div class="sechead"><span class="n">06</span><h2>One shape</h2><span class="v">M39–M44</span></div>
+  <p class="fam">The floor of the exercise: a single geometric figure, no second idea. If one of these works, it
+    works because of scale and proportion alone — and at 16 px it is indistinguishable from a system icon.</p>
+  <div class="grid">
+
+    <figure class="tile" id="M39">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One circle">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="290" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One circle, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="296" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M39</span><span class="nm">Circle</span></p>
+      <p class="idea">One disc, 296 from the inset. Nothing else; the icon is the margin.</p>
+    </figure>
+
+    <figure class="tile" id="M40">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One square">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="222" y="222" width="580" height="580" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One square, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="216" y="216" width="592" height="592" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M40</span><span class="nm">Square</span></p>
+      <p class="idea">A square inside a squircle: the same shape twice, at two radii. Almost a logo.</p>
+    </figure>
+
+    <figure class="tile" id="M41">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One bar">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="392" y="202" width="240" height="620" rx="30" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One bar, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="384" y="196" width="256" height="632" rx="30" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M41</span><span class="nm">Bar</span></p>
+      <p class="idea">A single vertical bar: a page seen edge-on, or a trunk, or nothing. The most ambiguous one.</p>
+    </figure>
+
+    <figure class="tile" id="M42">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One diagonal">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="452" y="202" width="120" height="620" rx="20" fill="#f4f3ee" transform="rotate(45 512 512)"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One diagonal, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="442" y="192" width="140" height="640" rx="24" fill="#f4f3ee" transform="rotate(45 512 512)"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M42</span><span class="nm">Diagonal</span></p>
+      <p class="idea">One bar at 45°: a slash, a stroke, a mark. No noun attached, which is either the point or the problem.</p>
+    </figure>
+
+    <figure class="tile" id="M43">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One rounded">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="600" height="600" rx="150" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One rounded, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="612" height="612" rx="152" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M43</span><span class="nm">Rounded</span></p>
+      <p class="idea">A rounded square that echoes the macOS grid: the safest possible icon, and the emptiest.</p>
+    </figure>
+
+    <figure class="tile" id="M44">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One small dot">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="210" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One small dot, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="220" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M44</span><span class="nm">Dot</span></p>
+      <p class="idea">A dot at 41% of the squircle: the "small object in a big field" failure, kept as evidence.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f7">
+  <div class="sechead"><span class="n">07</span><h2>Deliberately intricate</h2><span class="v">M45–M50</span></div>
+  <p class="fam">Too much detail, on purpose. Every icon here will lose most of its information at 16 px; the
+    question is whether the silhouette that remains is still worth shipping. Predictions are in the captions.</p>
+  <div class="grid">
+
+    <figure class="tile" id="M45">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Dense grove">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<rect x="212" y="402" width="54" height="430" rx="24"/>
+<rect x="288" y="262" width="54" height="570" rx="24"/>
+<rect x="364" y="342" width="54" height="490" rx="24"/>
+<rect x="440" y="212" width="54" height="620" rx="24"/>
+<rect x="516" y="382" width="54" height="450" rx="24"/>
+<rect x="592" y="292" width="54" height="540" rx="24"/>
+<rect x="668" y="442" width="54" height="390" rx="24"/>
+<rect x="744" y="322" width="54" height="510" rx="24"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Dense grove, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<rect x="206" y="396" width="76" height="440" rx="30"/>
+<rect x="318" y="246" width="76" height="590" rx="30"/>
+<rect x="430" y="330" width="76" height="506" rx="30"/>
+<rect x="542" y="204" width="76" height="632" rx="30"/>
+<rect x="654" y="372" width="76" height="464" rx="30"/>
+<rect x="766" y="300" width="76" height="536" rx="30"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M45</span><span class="nm">Nine trunks</span></p>
+      <p class="idea">Nine thin bars: at 96 a forest, at 16 a barcode. The 16 drawing drops to six and thickens.</p>
+    </figure>
+
+    <figure class="tile" id="M46">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Many rings">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="none" stroke="#f4f3ee" stroke-width="32">
+<circle cx="512" cy="512" r="322"/><circle cx="512" cy="512" r="280"/><circle cx="512" cy="512" r="238"/><circle cx="512" cy="512" r="196"/><circle cx="512" cy="512" r="154"/><circle cx="512" cy="512" r="112"/><circle cx="512" cy="512" r="70"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Many rings, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="none" stroke="#f4f3ee" stroke-width="62">
+<circle cx="512" cy="512" r="320"/><circle cx="512" cy="512" r="192"/><circle cx="512" cy="512" r="64"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M46</span><span class="nm">Seven rings</span></p>
+      <p class="idea">A stump cross-section: at 96 it is wood, at 16 it is a bullseye. Legible only because of the count.</p>
+    </figure>
+
+    <figure class="tile" id="M47">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Full page">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M242 182 H662 L782 302 V842 H242 Z" fill="#f4f3ee"/>
+<path d="M662 182 L782 302 H662 Z" fill="#8fb0cd"/>
+<rect x="672" y="600" width="110" height="200" rx="12" fill="#8fb0cd"/>
+<g fill="#c9c8c1">
+<rect x="312" y="360" width="290" height="34"/><rect x="312" y="432" width="360" height="34"/><rect x="312" y="504" width="330" height="34"/><rect x="312" y="576" width="380" height="34"/><rect x="312" y="648" width="250" height="34"/><rect x="312" y="720" width="340" height="34"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Full page, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M236 176 H668 L790 298 V848 H236 Z" fill="#f4f3ee"/>
+<path d="M668 176 L790 298 H668 Z" fill="#8fb0cd"/>
+<rect x="300" y="380" width="360" height="60" fill="#c9c8c1"/>
+<rect x="300" y="490" width="420" height="60" fill="#c9c8c1"/>
+<rect x="300" y="600" width="300" height="60" fill="#c9c8c1"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M47</span><span class="nm">Full page</span></p>
+      <p class="idea">Fold, six lines, an index tab: a whole notes app in one tile, and most of it survives at 16.</p>
+    </figure>
+
+    <figure class="tile" id="M48">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Dot matrix">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="252" cy="252" r="30"/><circle cx="342" cy="252" r="30"/><circle cx="432" cy="252" r="30"/><circle cx="522" cy="252" r="30"/><circle cx="612" cy="252" r="30"/><circle cx="702" cy="252" r="30"/><circle cx="792" cy="252" r="30"/>
+<circle cx="252" cy="342" r="30"/><circle cx="342" cy="342" r="30"/><circle cx="432" cy="342" r="30"/><circle cx="522" cy="342" r="30"/><circle cx="612" cy="342" r="30"/><circle cx="702" cy="342" r="30"/><circle cx="792" cy="342" r="30"/>
+<circle cx="252" cy="432" r="30"/><circle cx="342" cy="432" r="30"/><circle cx="432" cy="432" r="30"/><circle cx="522" cy="432" r="30"/><circle cx="612" cy="432" r="30"/><circle cx="702" cy="432" r="30"/><circle cx="792" cy="432" r="30"/>
+<circle cx="252" cy="522" r="30"/><circle cx="342" cy="522" r="30"/><circle cx="432" cy="522" r="30"/><circle cx="522" cy="522" r="30"/><circle cx="612" cy="522" r="30"/><circle cx="702" cy="522" r="30"/><circle cx="792" cy="522" r="30"/>
+<circle cx="252" cy="612" r="30"/><circle cx="342" cy="612" r="30"/><circle cx="432" cy="612" r="30"/><circle cx="522" cy="612" r="30"/><circle cx="612" cy="612" r="30"/><circle cx="702" cy="612" r="30"/><circle cx="792" cy="612" r="30"/>
+<circle cx="252" cy="702" r="30"/><circle cx="342" cy="702" r="30"/><circle cx="432" cy="702" r="30"/><circle cx="522" cy="702" r="30"/><circle cx="612" cy="702" r="30"/><circle cx="702" cy="702" r="30"/><circle cx="792" cy="702" r="30"/>
+<circle cx="252" cy="792" r="30"/><circle cx="342" cy="792" r="30"/><circle cx="432" cy="792" r="30"/><circle cx="522" cy="792" r="30"/><circle cx="612" cy="792" r="30"/><circle cx="702" cy="792" r="30"/><circle cx="792" cy="792" r="30"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Dot matrix, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="242" cy="242" r="40"/><circle cx="348" cy="242" r="40"/><circle cx="454" cy="242" r="40"/><circle cx="560" cy="242" r="40"/><circle cx="666" cy="242" r="40"/><circle cx="772" cy="242" r="40"/>
+<circle cx="242" cy="348" r="40"/><circle cx="348" cy="348" r="40"/><circle cx="454" cy="348" r="40"/><circle cx="560" cy="348" r="40"/><circle cx="666" cy="348" r="40"/><circle cx="772" cy="348" r="40"/>
+<circle cx="242" cy="454" r="40"/><circle cx="348" cy="454" r="40"/><circle cx="454" cy="454" r="40"/><circle cx="560" cy="454" r="40"/><circle cx="666" cy="454" r="40"/><circle cx="772" cy="454" r="40"/>
+<circle cx="242" cy="560" r="40"/><circle cx="348" cy="560" r="40"/><circle cx="454" cy="560" r="40"/><circle cx="560" cy="560" r="40"/><circle cx="666" cy="560" r="40"/><circle cx="772" cy="560" r="40"/>
+<circle cx="242" cy="666" r="40"/><circle cx="348" cy="666" r="40"/><circle cx="454" cy="666" r="40"/><circle cx="560" cy="666" r="40"/><circle cx="666" cy="666" r="40"/><circle cx="772" cy="666" r="40"/>
+<circle cx="242" cy="772" r="40"/><circle cx="348" cy="772" r="40"/><circle cx="454" cy="772" r="40"/><circle cx="560" cy="772" r="40"/><circle cx="666" cy="772" r="40"/><circle cx="772" cy="772" r="40"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M48</span><span class="nm">Dot matrix</span></p>
+      <p class="idea">49 dots: a halftone at 96, a solid texture at 16. Detail that turns into tone.</p>
+    </figure>
+
+    <figure class="tile" id="M49">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Hatch">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="202" y="202" width="620" height="620" fill="#f4f3ee"/>
+<g stroke="#111318" stroke-width="30">
+<path d="M232 202 L202 232"/><path d="M292 202 L202 292"/><path d="M352 202 L202 352"/><path d="M412 202 L202 412"/><path d="M472 202 L202 472"/><path d="M532 202 L202 532"/><path d="M592 202 L202 592"/><path d="M652 202 L202 652"/><path d="M712 202 L202 712"/><path d="M772 202 L202 772"/><path d="M822 212 L212 822"/><path d="M822 272 L272 822"/><path d="M822 332 L332 822"/><path d="M822 392 L392 822"/><path d="M822 452 L452 822"/><path d="M822 512 L512 822"/><path d="M822 572 L572 822"/><path d="M822 632 L632 822"/><path d="M822 692 L692 822"/><path d="M822 752 L752 822"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Hatch, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="196" y="196" width="632" height="632" fill="#f4f3ee"/>
+<g stroke="#111318" stroke-width="54">
+<path d="M320 196 L196 320"/><path d="M444 196 L196 444"/><path d="M568 196 L196 568"/><path d="M692 196 L196 692"/><path d="M816 208 L208 816"/><path d="M828 332 L332 828"/><path d="M828 456 L456 828"/><path d="M828 580 L580 828"/><path d="M828 704 L704 828"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M49</span><span class="nm">Hatch</span></p>
+      <p class="idea">Twenty hairlines across a sheet: a texture, not a shape. At 16 it becomes a grey field.</p>
+    </figure>
+
+    <figure class="tile" id="M50">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Seven layers">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="202" y="202" width="440" height="440" rx="18" fill="#3f464e"/>
+<rect x="230" y="230" width="440" height="440" rx="18" fill="#4f575f"/>
+<rect x="258" y="258" width="440" height="440" rx="18" fill="#616a72"/>
+<rect x="286" y="286" width="440" height="440" rx="18" fill="#7a838b"/>
+<rect x="314" y="314" width="440" height="440" rx="18" fill="#969ea5"/>
+<rect x="342" y="342" width="440" height="440" rx="18" fill="#c0c4c7"/>
+<rect x="370" y="370" width="440" height="440" rx="18" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Seven layers, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="196" y="196" width="450" height="450" rx="18" fill="#4a5158"/>
+<rect x="252" y="252" width="450" height="450" rx="18" fill="#7a838b"/>
+<rect x="308" y="308" width="450" height="450" rx="18" fill="#b3b8bd"/>
+<rect x="364" y="364" width="450" height="450" rx="18" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">M50</span><span class="nm">Seven layers</span></p>
+      <p class="idea">A stack deep enough to become a gradient: seven sheets, six visible steps, no transparency.</p>
+    </figure>
+
+  </div>
+</section>
+
+<p class="foot">
+  Sheet 4 of 5 · 50 icons (M01–M50). Shown at 96 px and at 16 px from the same 1024 viewBox.
+  M33–M38 and M44 are included as negative evidence, not as proposals.
+  → <a href="sheet-5.html">Sheet 5, Structure</a> · <a href="index.html">Index and shortlist</a>
+</p>
+
+</div>
+</body>
+</html>

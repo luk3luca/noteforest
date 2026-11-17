@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NoteForest — 250 icon proposals</title>
+<style>
+  :root{
+    --bg:#0d0e10; --panel:#15171a; --panel2:#191c20; --line:#25292e; --line2:#32373d;
+    --t1:#e9e9e6; --t2:#a5aab0; --t3:#6f767e; --accent:#8fb0cd; --green:#8fbf9f;
+    --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--t1);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  body{padding:0 20px 80px}
+  .wrap{max-width:1120px;margin:0 auto}
+  a{color:inherit}
+  .top{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+       padding:12px 0;margin-bottom:8px;background:linear-gradient(180deg,var(--bg) 72%,transparent);border-bottom:1px solid var(--line)}
+  .top .brand{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .top .brand em{font-style:normal;color:var(--t3);font-weight:400}
+  .top nav{display:flex;gap:4px;flex-wrap:wrap}
+  .top nav a{padding:4px 9px;border:1px solid transparent;border-radius:6px;color:var(--t2);font-size:11.5px;text-decoration:none}
+  .top nav a:hover{border-color:var(--line2);color:var(--t1)}
+  .top nav a.on{border-color:var(--line2);background:var(--panel2);color:var(--t1)}
+  .top .count{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+
+  header{padding:34px 0 8px}
+  .eyebrow{margin:0 0 10px;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+  h1{margin:0 0 14px;font-size:34px;font-weight:600;letter-spacing:-.02em}
+  .lede{margin:0 0 10px;max-width:74ch;color:var(--t2);font-size:14px;line-height:1.65}
+  .lede b{color:var(--t1);font-weight:600}
+  .lede.small{font-size:12.5px;color:var(--t3)}
+
+  h2{margin:52px 0 10px;font-size:16px;font-weight:600;letter-spacing:-.005em}
+  .sub{margin:0 0 18px;max-width:80ch;color:var(--t3);font-size:12.5px;line-height:1.6}
+
+  .notice{margin:26px 0 0;padding:16px 18px;border:1px solid #2f3d4a;border-radius:12px;background:#141a20}
+  .notice p{margin:0;max-width:80ch;color:var(--t2);font-size:12.5px;line-height:1.62}
+  .notice p + p{margin-top:10px}
+  .notice b{color:var(--t1)}
+  .notice .tag{display:inline-block;margin-bottom:8px;color:var(--accent);font:10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+
+  .geo{display:grid;grid-template-columns:340px 1fr;gap:28px;align-items:start;margin-top:6px}
+  @media (max-width:760px){.geo{grid-template-columns:1fr}}
+  .geo svg{width:100%;height:auto;display:block}
+  .geo .legend{margin:0;padding:0;list-style:none}
+  .geo .legend li{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px;line-height:1.5;color:var(--t2)}
+  .geo .legend li:first-child{padding-top:0}
+  .geo .legend .sw{width:22px;height:2px;margin-top:9px;border-radius:2px}
+  .geo .legend b{color:var(--t1);font-weight:600}
+  .geo .legend code{font-family:var(--mono);font-size:10.5px;color:var(--t3)}
+
+  .sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;margin-top:6px}
+  .card{display:flex;gap:16px;align-items:center;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none}
+  .card:hover{border-color:var(--line2);background:var(--panel2)}
+  .card .ic{flex:0 0 auto}
+  .card .tx{min-width:0}
+  .card .n{display:block;font:10px/1 var(--mono);color:var(--t3);letter-spacing:.09em;margin-bottom:5px}
+  .card .t{display:block;font-size:14px;font-weight:600;margin-bottom:4px}
+  .card .d{display:block;font-size:11.5px;line-height:1.5;color:var(--t3)}
+
+  .pal{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+  .pal div{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;font:11px/1 var(--mono);color:var(--t3)}
+  .pal i{display:block;width:18px;height:18px;border-radius:4px;border:1px solid rgb(255 255 255 / .12)}
+
+  .short{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+  .pick{display:grid;grid-template-columns:96px 1fr;gap:18px;align-items:start;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+  .pick:hover{border-color:var(--line2)}
+  .pick .id{font:10px/1 var(--mono);color:var(--accent);letter-spacing:.08em;margin:0 0 4px}
+  .pick .nm{margin:0 0 7px;font-size:14px;font-weight:600;letter-spacing:-.01em}
+  .pick .nm a{text-decoration:none;border-bottom:1px solid #3a4650}
+  .pick .nm a:hover{border-color:var(--accent)}
+  .pick p.line{margin:0;color:var(--t2);font-size:12px;line-height:1.55}
+  .pick p.line + p.line{margin-top:5px}
+  .pick .from{display:inline-block;margin-top:8px;font:10px/1 var(--mono);color:var(--t3);letter-spacing:.06em}
+
+  .nots{margin:0;padding-left:18px;color:var(--t2);font-size:12.5px;line-height:1.7;max-width:84ch}
+  .nots li{margin-bottom:6px}
+  .nots b{color:var(--t1)}
+
+  .foot{margin-top:64px;padding-top:16px;border-top:1px solid var(--line);color:var(--t3);font-size:11px;line-height:1.7}
+  .foot a{color:var(--t2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <span class="brand">NoteForest <em>· icon sheet</em></span>
+  <nav>
+    <a class="on" href="index.html">Index</a>
+    <a href="sheet-1.html">1 · Object</a>
+    <a href="sheet-2.html">2 · Nature</a>
+    <a href="sheet-3.html">3 · Geometric</a>
+    <a href="sheet-4.html">4 · Material</a>
+    <a href="sheet-5.html">5 · Structure</a>
+  </nav>
+  <span class="count">250 icons · 5 sheets</span>
+</div>
+
+<header>
+  <p class="eyebrow">Design exploration · not coded · 17 November 2026</p>
+  <h1>250 icon proposals, and the ten that survive a second look</h1>
+  <p class="lede">
+    Five contact sheets of fifty icons each, all drawn on the same geometry and shown at <b>96 px</b> and at
+    <b>16 px</b>. This is a search space, not a shortlist: most of the 250 are mediocre, and a fair number are here
+    only to mark where a family stops working. The point was to move fast across genuinely different silhouettes
+    and then pick the few that still mean something at Dock size.
+  </p>
+  <p class="lede small">
+    Everything is hand-written SVG in a single HTML file per sheet. No dependencies, no build step, no external
+    assets, no network, no filters, no baked text.
+  </p>
+
+  <div class="notice">
+    <span class="tag">Correction applied</span>
+    <p><b>Structure is in, and it has its own sheet.</b> The first brief banned blocks-and-branches as too diagrammatic.
+    That was wrong: the tree of blocks is the product's one distinctive idea, and an icon that avoids it is an icon
+    of a generic notes app. Sheet 5 explores it as <b>mass</b>, under three hard rules — at most four shapes, edges at
+    least a third of a block's weight, and a silhouette that reads at 16 px.</p>
+    <p>The earlier "no page with text lines" rule is also relaxed. The real problem was margins and emptiness, which
+    the inset rule already fixes; pages with lines now appear at the correct scale in sheet 1.</p>
+  </div>
+</header>
+
+<h2>Geometry, once</h2>
+<p class="sub">Every icon uses the same three boxes. The 100 px ring is air; the artwork lives between 64 and 120 px
+  inside the squircle, so all four sides keep a visible border without the object floating in the dark.</p>
+
+<div class="geo">
+  <svg viewBox="0 0 1024 1024" role="img" aria-label="Geometry diagram: 1024 canvas, 824 squircle at 100,100 radius 185, and the two inset boxes at 64 and 120">
+    <rect x="0" y="0" width="1024" height="1024" fill="#0d0e10"/>
+    <rect x="1" y="1" width="1022" height="1022" fill="none" stroke="#2a2f36" stroke-width="2" stroke-dasharray="14 12"/>
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="#14171b" stroke="#8fb0cd" stroke-width="4" stroke-dasharray="18 12"/>
+    <rect x="164" y="164" width="696" height="696" fill="none" stroke="#4c5a66" stroke-width="3" stroke-dasharray="10 10"/>
+    <rect x="220" y="220" width="584" height="584" fill="none" stroke="#3a4650" stroke-width="3" stroke-dasharray="6 12"/>
+    <rect x="220" y="220" width="584" height="584" rx="24" fill="#f4f3ee"/>
+    <rect x="220" y="740" width="584" height="52" fill="#8fb0cd"/>
+  </svg>
+  <ul class="legend">
+    <li><span class="sw" style="background:#2a2f36"></span><span><b>Canvas 1024 × 1024</b><br /><code>0 0 1024 1024</code> — everything is drawn here, at any display size.</span></li>
+    <li><span class="sw" style="background:#8fb0cd"></span><span><b>macOS squircle 824 × 824 at (100, 100)</b><br />corner radius <code>185</code>. The 100 px ring is air and is never drawn in.</span></li>
+    <li><span class="sw" style="background:#4c5a66"></span><span><b>Art box, inset 64</b><br /><code>164 … 860</code>. The largest an object may be; used by the bars and the bleeding grove.</span></li>
+    <li><span class="sw" style="background:#3a4650"></span><span><b>Art box, inset 120</b><br /><code>220 … 804</code>. The quietest; used by single sheets and small discs.</span></li>
+    <li><span class="sw" style="background:#f4f3ee"></span><span><b>Paper</b><br /><code>#f4f3ee</code> with <code>#fdfefd</code> highlights and <code>#c9c8c1</code> shade. The accent is <code>#8fb0cd</code>, the secondary tone <code>#8fbf9f</code>. The sample above sits exactly on the 120 px inset, the smallest an object may be.</span></li>
+  </ul>
+</div>
+
+<h2>The five sheets</h2>
+<p class="sub">Each sheet is one hypothesis about what the mark should be. They are meant to be read against each
+  other: the winner is unlikely to be the best drawing in one sheet, and more likely to be the best idea across two.</p>
+
+<div class="sheets">
+  <a class="card" href="sheet-1.html">
+    <span class="ic"><svg width="64" height="64" viewBox="0 0 1024 1024" aria-label="Sheet 1 sample">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M200 200 H824 V660 L660 824 H200 Z" fill="#f4f3ee"/>
+<path d="M824 660 L660 824 L660 660 Z" fill="#c9c8c1"/>
+</svg></span>
+    <span class="tx"><span class="n">SHEET 1 · O01–O50</span><span class="t">Object</span>
+    <span class="d">Paper as a physical thing: sheets, stacks, folds, tickets, tags, notebooks, envelopes, weights.
+    The bet: one object with a real silhouette can carry the product.</span></span>
+  </a>
+
+  <a class="card" href="sheet-2.html">
+    <span class="ic"><svg width="64" height="64" viewBox="0 0 1024 1024" aria-label="Sheet 2 sample">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M470 840 C360 620 400 380 650 190 C700 430 640 690 470 840 Z" fill="#8fbf9f"/>
+</svg></span>
+    <span class="tx"><span class="n">SHEET 2 · N01–N50</span><span class="t">Nature</span>
+    <span class="d">Leaves, canopy, trunks, groves, seeds, roots, rings, bark. The name says forest, so the sheet has
+    to answer it — abstracted until it stops being a drawing of a tree.</span></span>
+  </a>
+
+  <a class="card" href="sheet-3.html">
+    <span class="ic"><svg width="64" height="64" viewBox="0 0 1024 1024" aria-label="Sheet 3 sample">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" fill="#f4f3ee"/>
+<rect x="282" y="262" width="90" height="500" fill="#111318"/>
+<path d="M282 262 H372 L742 762 H652 Z" fill="#111318"/>
+<rect x="652" y="262" width="90" height="500" fill="#111318"/>
+</svg></span>
+    <span class="tx"><span class="n">SHEET 3 · G01–G50</span><span class="t">Geometric</span>
+    <span class="d">Monograms, single strokes, negative space, lattices, concentric shapes, cuts, one-line marks.
+    No object and no tree: pure form, and the only place where letters are allowed.</span></span>
+  </a>
+
+  <a class="card" href="sheet-4.html">
+    <span class="ic"><svg width="64" height="64" viewBox="0 0 1024 1024" aria-label="Sheet 4 sample">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="252" y="422" width="140" height="398" rx="56" fill="#15171a"/>
+<rect x="440" y="222" width="140" height="598" rx="56" fill="#15171a"/>
+<rect x="628" y="362" width="140" height="458" rx="56" fill="#15171a"/>
+</svg></span>
+    <span class="tx"><span class="n">SHEET 4 · M01–M50</span><span class="t">Material and strange</span>
+    <span class="d">Translucency, embossed paper, glass, duotone, inverted light, near-black, one shape, deliberate
+    detail. The extremes are here to find the boundaries, and several are expected to fail.</span></span>
+  </a>
+
+  <a class="card" href="sheet-5.html" style="border-color:#2f3d4a">
+    <span class="ic"><svg width="64" height="64" viewBox="0 0 1024 1024" aria-label="Sheet 5 sample">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M224 196 H476 V286 H596 V382 H476 V476 H224 A28 28 0 0 1 196 448 V224 A28 28 0 0 1 224 196 Z" fill="#f4f3ee"/>
+<rect x="596" y="236" width="230" height="200" rx="28" fill="#f4f3ee"/>
+<rect x="316" y="476" width="110" height="140" fill="#f4f3ee"/>
+<rect x="316" y="616" width="330" height="200" rx="28" fill="#f4f3ee"/>
+</svg></span>
+    <span class="tx"><span class="n">SHEET 5 · S01–S50</span><span class="t">Structure</span>
+    <span class="d">Blocks and branches as icon material, not as a screenshot of the UI. Four shapes maximum per
+    icon, fat edges, no head where a head would smear, nothing pointing up.</span></span>
+  </a>
+</div>
+
+<h2>How to read a tile</h2>
+<p class="sub">
+  Every tile is the same drawing at two sizes: <b>96 px</b> on the left, <b>16 px</b> beside it. Nothing is scaled by
+  the browser — both come from <code>viewBox="0 0 1024 1024"</code> with a different <code>width</code>, and the two
+  variants are written separately, so the small one can drop a vein, a stitch, an arrowhead or a fold that would turn
+  into grey mush. The small drawing may lose detail; it never changes the silhouette. The id above each name
+  (<code>O01</code> … <code>S50</code>) is stable and is what the shortlist refers to.
+</p>
+
+<div class="pal">
+  <div><i style="background:#f4f3ee"></i>paper #f4f3ee</div>
+  <div><i style="background:#fdfefd"></i>highlight #fdfefd</div>
+  <div><i style="background:#c9c8c1"></i>shade #c9c8c1</div>
+  <div><i style="background:#8fb0cd"></i>accent #8fb0cd</div>
+  <div><i style="background:#8fbf9f"></i>green #8fbf9f</div>
+  <div><i style="background:#111318"></i>field #111318</div>
+  <div><i style="background:#0b0c0e"></i>near-black #0b0c0e</div>
+</div>
+
+<h2>The shortlist</h2>
+<p class="sub">
+  Ten out of 250, weighted toward structure because that is where the product's identity is. Each entry has two
+  lines: what it is, and why it might hold — including the risk, because the risk is the useful part.
+</p>
+
+<div class="short">
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="S08 Notch">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 202 H792 A30 30 0 0 1 822 232 V438 H702 V592 H822 V792 A30 30 0 0 1 792 822 H232 A30 30 0 0 1 202 792 V232 A30 30 0 0 1 232 202 Z" fill="#f4f3ee"/>
+</svg>
+    <div>
+      <p class="id">S08</p>
+      <p class="nm"><a href="sheet-5.html#S08">Notch</a></p>
+      <p class="line">One shape: a block with a branch-shaped cut in its right edge. It is the only icon that says
+        "a branch leaves here" without drawing the branch.</p>
+      <p class="line">At 16 the notch is still two pixels deep, so it survives — the risk is that it reads as a
+        battery or a C before it reads as a note.</p>
+      <span class="from">Sheet 5 · Structure</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="S09 Stub">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 302 H602 V432 H742 V528 H602 V702 H232 A30 30 0 0 1 202 672 V332 A30 30 0 0 1 232 302 Z" fill="#f4f3ee"/>
+</svg>
+    <div>
+      <p class="id">S09</p>
+      <p class="nm"><a href="sheet-5.html#S09">Stub</a></p>
+      <p class="line">Also one shape: a note whose branch leaves and goes nowhere yet. An open thread, which is
+        what most notes actually are.</p>
+      <p class="line">The most minimal mark in the set that still has a direction; the risk is that a lone arm can
+        read as a key or a switch.</p>
+      <span class="from">Sheet 5 · Structure</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="S03 One of each">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M224 196 H476 V286 H596 V382 H476 V476 H224 A28 28 0 0 1 196 448 V224 A28 28 0 0 1 224 196 Z" fill="#f4f3ee"/>
+<rect x="596" y="236" width="230" height="200" rx="28" fill="#f4f3ee"/>
+<rect x="316" y="476" width="110" height="140" fill="#f4f3ee"/>
+<rect x="316" y="616" width="330" height="200" rx="28" fill="#f4f3ee"/>
+</svg>
+    <div>
+      <p class="id">S03</p>
+      <p class="nm"><a href="sheet-5.html#S03">One of each</a></p>
+      <p class="line">The whole grammar in four shapes: one child to the right, one below, and a parent that carries
+        its own prong so the budget holds.</p>
+      <p class="line">It is the most literal possible statement of the product and it still reads at 16; the risk
+        is that four masses become a blob in a Dock at 32 px.</p>
+      <span class="from">Sheet 5 · Structure</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="S41 L">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M200 200 H400 V300 H500 V640 H390 V410 H200 Z" fill="#f4f3ee"/>
+<rect x="330" y="640" width="440" height="180" rx="26" fill="#f4f3ee"/>
+</svg>
+    <div>
+      <p class="id">S41</p>
+      <p class="nm"><a href="sheet-5.html#S41">L</a></p>
+      <p class="line">Two shapes and the letter is free: a tall parent, an elbow, a wide child underneath. The
+        structure drawn as one continuous mass.</p>
+      <p class="line">It fills the square better than any other structure icon and never turns to mush; the risk is
+        that an L is also a corner bracket, which says nothing.</p>
+      <span class="from">Sheet 5 · Structure</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="S48 Shared child">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="220" width="230" height="170" rx="26" fill="#f4f3ee"/>
+<rect x="420" y="270" width="120" height="80" fill="#f4f3ee"/>
+<rect x="190" y="560" width="230" height="170" rx="26" fill="#c9c8c1"/>
+<rect x="420" y="610" width="120" height="80" fill="#c9c8c1"/>
+<rect x="540" y="270" width="88" height="420" fill="#f4f3ee"/>
+<rect x="628" y="380" width="200" height="220" rx="28" fill="#f4f3ee"/>
+</svg>
+    <div>
+      <p class="id">S48</p>
+      <p class="nm"><a href="sheet-5.html#S48">Shared child</a></p>
+      <p class="line">Two parents, one child: the DAG, with the second parent in grey as a reference edge. No other
+        notes app can draw this shape.</p>
+      <p class="line">The grey parent is what makes it legible at 16, and also what makes it fragile — a grey on a
+        dark Dock is the first thing to disappear.</p>
+      <span class="from">Sheet 5 · Structure</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="G02 N cut">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" fill="#f4f3ee"/>
+<rect x="282" y="262" width="90" height="500" fill="#111318"/>
+<path d="M282 262 H372 L742 762 H652 Z" fill="#111318"/>
+<rect x="652" y="262" width="90" height="500" fill="#111318"/>
+</svg>
+    <div>
+      <p class="id">G02</p>
+      <p class="nm"><a href="sheet-3.html#G02">N, cut</a></p>
+      <p class="line">The letter cut out of a paper square: a letterpress block where the ink is the field and the
+        paper is the plate.</p>
+      <p class="line">The strongest monogram and one of the few that is unmistakable at 16; the risk is that an N in
+        a square is a very common app-icon pattern.</p>
+      <span class="from">Sheet 3 · Geometric</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="G43 Chevron">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M252 222 L752 512 L252 802 V622 L482 512 L252 402 Z" fill="#f4f3ee"/>
+</svg>
+    <div>
+      <p class="id">G43</p>
+      <p class="nm"><a href="sheet-3.html#G43">Chevron</a></p>
+      <p class="line">A solid chevron pointing right: the direction of every branch in the product, with mass
+        instead of a stroke and no arrowhead to smear.</p>
+      <p class="line">The most legible mark in the whole set at 16 px; the risk is that it is also the most generic
+        — it could belong to a video player.</p>
+      <span class="from">Sheet 3 · Geometric</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="M29 Ink window">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="212" y="212" width="600" height="600" rx="24" fill="#15171a"/>
+<rect x="392" y="392" width="240" height="240" fill="#f4f3ee"/>
+</svg>
+    <div>
+      <p class="id">M29</p>
+      <p class="nm"><a href="sheet-4.html#M29">Ink window</a></p>
+      <p class="line">A dark card with a paper window, on a paper field. The material inverted, and a hole where the
+        content would be.</p>
+      <p class="line">It is the only inverted icon that survives every size, because a hole reads at any resolution;
+        the risk is that it reads as a socket or a stop sign.</p>
+      <span class="from">Sheet 4 · Material</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="O19 Ribbon">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M402 182 H622 V842 L512 722 L402 842 Z" fill="#8fb0cd"/>
+</svg>
+    <div>
+      <p class="id">O19</p>
+      <p class="nm"><a href="sheet-1.html#O19">Ribbon</a></p>
+      <p class="line">One accent band with a notched foot — the only icon in the set made of a single accent
+        silhouette and no paper at all.</p>
+      <p class="line">It is the safest mark on this list and the most generic: a bookmark is every reading app's
+        icon, which is exactly why it is here as the control.</p>
+      <span class="from">Sheet 1 · Object</span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <svg width="96" height="96" viewBox="0 0 1024 1024" aria-label="N08 Half leaf">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 190 C324 340 262 540 512 820 Z" fill="#f4f3ee"/>
+</svg>
+    <div>
+      <p class="id">N08</p>
+      <p class="nm"><a href="sheet-2.html#N08">Half leaf</a></p>
+      <p class="line">Only the left half of a leaf exists: a blade with one straight edge. It is the one shape in
+        the Nature sheet that stops being a leaf.</p>
+      <p class="line">It is also the riskiest of the ten — a sliver with a straight side can read as a broken shape,
+        which is either the idea or the failure.</p>
+      <span class="from">Sheet 2 · Nature</span>
+    </div>
+  </div>
+
+</div>
+
+<h2>What is deliberately left out</h2>
+<ul class="nots">
+  <li><b>Arrows pointing up, and branches entering a block from below or from the right.</b> Not a taste call: in
+    this product a branch leaves right or down and enters the child on its left. Sheet 5 is drawn under that rule.</li>
+  <li><b>Interface screenshots as icons.</b> Blocks connected by hairlines with arrowheads were the failure of the
+    earlier rounds and are still absent; structure appears only when it is a mass with a silhouette.</li>
+  <li><b>Freeform canvas, pins, arbitrary drag.</b> The layout is a fixed logical tree with adaptive geometry;
+    nothing in the set suggests a whiteboard.</li>
+  <li><b>3D clay / glossy Big Sur renders, gradients as ornament, drop shadows beyond a single flat offset.</b>
+    Wrong material for a calm, flat, paper-on-ink product.</li>
+  <li><b>The generic app-icon vocabulary:</b> magnifiers, sparkles, gears, clouds, speech bubbles, pencils,
+    checkmarks, interlocking rings. They would make the app unidentifiable in a Dock.</li>
+  <li><b>Text, letters as labels, emoji, external images, non-system fonts.</b> The only letters are the monograms
+    in sheet 3 and the NF ligature, where the letter is the mark itself.</li>
+  <li><b>iPad / Apple Pencil motifs.</b> A later phase at most; nothing in v1 should promise it.</li>
+  <li><b>A single winner.</b> The set is evidence, not a decision. The next step is to redraw the ten shortlisted
+    shapes as a real iconset and look at them in the Dock, at 16 px, on light and dark desktops.</li>
+</ul>
+
+<p class="foot">
+  NoteForest icon exploration · 250 icons · 5 sheets · 17 November 2026 · no application code, no dependencies,
+  no build step. Every SVG is self-contained at <code>viewBox="0 0 1024 1024"</code>.
+  → <a href="sheet-1.html">1 Object</a> · <a href="sheet-2.html">2 Nature</a> · <a href="sheet-3.html">3 Geometric</a> ·
+  <a href="sheet-4.html">4 Material</a> · <a href="sheet-5.html">5 Structure</a>
+</p>
+
+</div>
+</body>
+</html>

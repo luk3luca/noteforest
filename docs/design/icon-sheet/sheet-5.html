@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Icon sheet 5 — Structure · NoteForest</title>
+<style>
+  :root{
+    --bg:#0d0e10; --panel:#15171a; --panel2:#191c20; --line:#25292e; --line2:#32373d;
+    --t1:#e9e9e6; --t2:#a5aab0; --t3:#6f767e; --accent:#8fb0cd; --green:#8fbf9f;
+    --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--t1);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  body{padding:0 20px 80px}
+  .wrap{max-width:1360px;margin:0 auto}
+  a{color:inherit}
+  .top{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+       padding:12px 0;margin-bottom:8px;background:linear-gradient(180deg,var(--bg) 72%,transparent);border-bottom:1px solid var(--line)}
+  .top .brand{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .top .brand em{font-style:normal;color:var(--t3);font-weight:400}
+  .top nav{display:flex;gap:4px;flex-wrap:wrap}
+  .top nav a{padding:4px 9px;border:1px solid transparent;border-radius:6px;color:var(--t2);font-size:11.5px;text-decoration:none}
+  .top nav a:hover{border-color:var(--line2);color:var(--t1)}
+  .top nav a.on{border-color:var(--line2);background:var(--panel2);color:var(--t1)}
+  .top .count{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+
+  header.sheet{padding:26px 0 6px}
+  .eyebrow{margin:0 0 8px;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+  h1{margin:0 0 12px;font-size:27px;font-weight:600;letter-spacing:-.015em}
+  .lede{margin:0;max-width:76ch;color:var(--t2);font-size:13.5px;line-height:1.62}
+  .lede b{color:var(--t1);font-weight:600}
+  .rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px}
+  .rules span{padding:5px 9px;border:1px solid var(--line);border-radius:5px;color:var(--t3);font:10px/1.4 var(--mono);letter-spacing:.03em}
+  .rules span.hi{border-color:#2f3d4a;color:var(--accent)}
+
+  .famnav{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0}
+  .famnav a{padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--t2);font-size:11px;text-decoration:none}
+  .famnav a:hover{border-color:var(--line2);color:var(--t1)}
+
+  section{padding-top:44px}
+  .sechead{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:6px}
+  .sechead h2{margin:0;font-size:15px;font-weight:600;letter-spacing:-.005em}
+  .sechead .n{color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+  .sechead .v{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.06em}
+  .fam{margin:8px 0 18px;max-width:84ch;color:var(--t3);font-size:12px;line-height:1.55}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(302px,1fr));gap:10px}
+  .tile{margin:0;padding:14px 14px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+        display:flex;flex-direction:column;gap:11px}
+  .tile:hover{border-color:var(--line2)}
+  .tile.key{border-color:#2f3d4a;background:#161b20}
+  .pair{display:flex;align-items:center;gap:18px;min-height:100px}
+  .slot{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .slot svg{display:block}
+  .slot b{font:9px/1 var(--mono);font-weight:400;color:var(--t3);letter-spacing:.08em}
+  .meta{margin:0;display:flex;align-items:baseline;gap:8px}
+  .id{font:10px/1 var(--mono);color:var(--accent);letter-spacing:.07em}
+  .nm{font-size:12.5px;font-weight:600;letter-spacing:-.005em}
+  .idea{margin:0;color:var(--t2);font-size:11.5px;line-height:1.5}
+
+  .foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--t3);font-size:11px;line-height:1.6}
+  .foot a{color:var(--t2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <span class="brand">NoteForest <em>· icon sheet</em></span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="sheet-1.html">1 · Object</a>
+    <a href="sheet-2.html">2 · Nature</a>
+    <a href="sheet-3.html">3 · Geometric</a>
+    <a href="sheet-4.html">4 · Material</a>
+    <a class="on" href="sheet-5.html">5 · Structure</a>
+  </nav>
+  <span class="count">50 / 250</span>
+</div>
+
+<header class="sheet">
+  <p class="eyebrow">Sheet 5 of 5 · added after the correction · S01–S50</p>
+  <h1>Structure</h1>
+  <p class="lede">
+    Blocks and branches, treated as <b>mass</b> rather than as a diagram. This sheet exists because the structure
+    is the product: a note that grows right and down is the one thing no other notes app has, and an icon that
+    avoids it is an icon of a generic notes app. The rules below are the difference between a mark and a screenshot
+    of the interface — a branch is drawn as a slab, never as a hairline with an arrowhead.
+  </p>
+  <div class="rules">
+    <span class="hi">max 4 shapes per icon</span>
+    <span class="hi">edge ≥ ⅓ of the block</span>
+    <span class="hi">silhouette at 16, not a small picture</span>
+    <span>leaves right or down</span>
+    <span>never enters from below or right</span>
+    <span>arrowheads optional</span>
+  </div>
+  <div class="famnav">
+    <a href="#f1">One branch</a>
+    <a href="#f2">Weight</a>
+    <a href="#f3">Fill and form</a>
+    <a href="#f4">Ends</a>
+    <a href="#f5">Letters and directions</a>
+    <a href="#f6">Edge cases</a>
+  </div>
+</header>
+
+<section id="f1">
+  <div class="sechead"><span class="n">01</span><h2>One branch</h2><span class="v">S01–S14</span></div>
+  <p class="fam">The sentence the app is built on: a block, a branch, another block. The variants are position
+    and count — right, below, both, high, low, chained. These are the icons that would go on the box.</p>
+  <div class="grid">
+
+    <figure class="tile key" id="S01">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Child right">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="280" height="320" rx="28" fill="#f4f3ee"/>
+<rect x="470" y="464" width="146" height="96" fill="#f4f3ee"/>
+<rect x="616" y="402" width="220" height="220" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Child right, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="292" height="332" rx="28" fill="#f4f3ee"/>
+<rect x="476" y="462" width="140" height="100" fill="#f4f3ee"/>
+<rect x="616" y="402" width="226" height="220" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S01</span><span class="nm">Child right</span></p>
+      <p class="idea">Three shapes: a tall block, a slab, a smaller block. The minimum sentence.</p>
+    </figure>
+
+    <figure class="tile" id="S02">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Child below">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="340" y="188" width="300" height="220" rx="28" fill="#f4f3ee"/>
+<path d="M370 408 H480 V650 H590 V760 H480 V708 H370 Z" fill="#f4f3ee"/>
+<rect x="590" y="610" width="260" height="200" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Child below, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="334" y="182" width="312" height="232" rx="28" fill="#f4f3ee"/>
+<path d="M364 408 H486 V652 H596 V764 H486 V710 H364 Z" fill="#f4f3ee"/>
+<rect x="596" y="608" width="266" height="206" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S02</span><span class="nm">Child below</span></p>
+      <p class="idea">The trunk drops from the parent's left and turns into the child's left edge, indented.</p>
+    </figure>
+
+    <figure class="tile key" id="S03">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One of each">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M224 196 H476 V286 H596 V382 H476 V476 H224 A28 28 0 0 1 196 448 V224 A28 28 0 0 1 224 196 Z" fill="#f4f3ee"/>
+<rect x="596" y="236" width="230" height="200" rx="28" fill="#f4f3ee"/>
+<rect x="316" y="476" width="110" height="140" fill="#f4f3ee"/>
+<rect x="316" y="616" width="330" height="200" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One of each, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M220 190 H474 V286 H600 V386 H474 V480 H220 A30 30 0 0 1 190 450 V220 A30 30 0 0 1 220 190 Z" fill="#f4f3ee"/>
+<rect x="600" y="232" width="232" height="206" rx="28" fill="#f4f3ee"/>
+<rect x="312" y="480" width="120" height="140" fill="#f4f3ee"/>
+<rect x="312" y="620" width="336" height="200" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S03</span><span class="nm">One of each</span></p>
+      <p class="idea">Four shapes: the parent carries its right edge as a prong, so both directions fit the budget.</p>
+    </figure>
+
+    <figure class="tile" id="S04">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Row of two">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="210" y="362" width="240" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="550" y="362" width="240" height="300" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Row of two, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="204" y="356" width="250" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="544" y="356" width="250" height="312" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S04</span><span class="nm">Row of two</span></p>
+      <p class="idea">No branch drawn: the gap is the branch. Two masses and 100 px of field.</p>
+    </figure>
+
+    <figure class="tile" id="S05">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Row of three">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="380" width="150" height="280" rx="24" fill="#f4f3ee"/>
+<rect x="440" y="320" width="150" height="340" rx="24" fill="#f4f3ee"/>
+<rect x="690" y="420" width="150" height="240" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Row of three, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="374" width="160" height="292" rx="24" fill="#f4f3ee"/>
+<rect x="434" y="314" width="160" height="352" rx="24" fill="#f4f3ee"/>
+<rect x="684" y="414" width="160" height="252" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S05</span><span class="nm">Row of three</span></p>
+      <p class="idea">Three siblings of different heights, bottoms aligned: a row, not a chart.</p>
+    </figure>
+
+    <figure class="tile" id="S06">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Corner chain">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="188" y="188" width="200" height="200" fill="#f4f3ee"/>
+<rect x="388" y="388" width="200" height="200" fill="#f4f3ee"/>
+<rect x="588" y="588" width="200" height="200" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Corner chain, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="182" y="182" width="212" height="212" fill="#f4f3ee"/>
+<rect x="394" y="394" width="212" height="212" fill="#f4f3ee"/>
+<rect x="606" y="606" width="212" height="212" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S06</span><span class="nm">Corner chain</span></p>
+      <p class="idea">Three blocks touching only at their corners: a diagonal that needs no connector at all.</p>
+    </figure>
+
+    <figure class="tile" id="S07">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Fork">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M228 240 H500 V300 H640 V400 H500 V520 H640 V620 H500 V680 H228 A28 28 0 0 1 200 652 V268 A28 28 0 0 1 228 240 Z" fill="#f4f3ee"/>
+<rect x="640" y="270" width="180" height="150" rx="26" fill="#f4f3ee"/>
+<rect x="640" y="495" width="180" height="150" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Fork, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M224 234 H500 V296 H648 V404 H500 V518 H648 V626 H500 V686 H224 A30 30 0 0 1 194 656 V264 A30 30 0 0 1 224 234 Z" fill="#f4f3ee"/>
+<rect x="648" y="266" width="182" height="158" rx="26" fill="#f4f3ee"/>
+<rect x="648" y="492" width="182" height="158" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S07</span><span class="nm">Fork</span></p>
+      <p class="idea">Three shapes: the parent grows two prongs and both children hang off its right edge.</p>
+    </figure>
+
+    <figure class="tile key" id="S08">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Notch block">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 202 H792 A30 30 0 0 1 822 232 V438 H702 V592 H822 V792 A30 30 0 0 1 792 822 H232 A30 30 0 0 1 202 792 V232 A30 30 0 0 1 232 202 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Notch block, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 202 H792 A30 30 0 0 1 822 232 V434 H694 V596 H822 V792 A30 30 0 0 1 792 822 H232 A30 30 0 0 1 202 792 V232 A30 30 0 0 1 232 202 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S08</span><span class="nm">Notch</span></p>
+      <p class="idea">One shape. The branch is only implied by the cut in the block's right edge.</p>
+    </figure>
+
+    <figure class="tile key" id="S09">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Stub">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 302 H602 V432 H742 V528 H602 V702 H232 A30 30 0 0 1 202 672 V332 A30 30 0 0 1 232 302 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Stub, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 296 H610 V426 H754 V534 H610 V708 H232 A30 30 0 0 1 202 678 V326 A30 30 0 0 1 232 296 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S09</span><span class="nm">Stub</span></p>
+      <p class="idea">One shape: a block whose branch leaves and goes nowhere. A note with an open thread.</p>
+    </figure>
+
+    <figure class="tile key" id="S10">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Wrap below">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M240 190 H520 V270 H650 V560 H540 V380 H240 Z" fill="#f4f3ee"/>
+<rect x="380" y="560" width="330" height="250" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Wrap below, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M234 184 H520 V266 H656 V562 H540 V376 H234 Z" fill="#f4f3ee"/>
+<rect x="374" y="562" width="340" height="258" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S10</span><span class="nm">Wrap below</span></p>
+      <p class="idea">Two shapes: the parent turns an elbow and hands over to a wide child underneath.</p>
+    </figure>
+
+    <figure class="tile" id="S11">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Child high">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="280" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="470" y="372" width="170" height="90" fill="#f4f3ee"/>
+<rect x="640" y="312" width="190" height="200" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Child high, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="292" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="476" y="368" width="164" height="96" fill="#f4f3ee"/>
+<rect x="640" y="306" width="196" height="206" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S11</span><span class="nm">Child high</span></p>
+      <p class="idea">The branch leaves at the parent's shoulder: asymmetry without a diagonal.</p>
+    </figure>
+
+    <figure class="tile" id="S12">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Child low">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="372" width="280" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="470" y="542" width="170" height="90" fill="#f4f3ee"/>
+<rect x="640" y="552" width="190" height="200" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Child low, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="366" width="292" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="476" y="538" width="164" height="96" fill="#f4f3ee"/>
+<rect x="640" y="548" width="196" height="206" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S12</span><span class="nm">Child low</span></p>
+      <p class="idea">The mirror of S11, and the heavier of the two: the child sinks toward the baseline.</p>
+    </figure>
+
+    <figure class="tile" id="S13">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Two children right">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="332" width="280" height="280" rx="28" fill="#f4f3ee"/>
+<path d="M470 433 H548 V300 H636 V688 H548 V511 H470 Z" fill="#f4f3ee"/>
+<rect x="636" y="300" width="190" height="180" rx="26" fill="#f4f3ee"/>
+<rect x="636" y="508" width="190" height="180" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Two children right, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="326" width="292" height="292" rx="28" fill="#f4f3ee"/>
+<path d="M476 430 H548 V294 H642 V694 H548 V514 H476 Z" fill="#f4f3ee"/>
+<rect x="642" y="294" width="190" height="186" rx="26" fill="#f4f3ee"/>
+<rect x="642" y="508" width="190" height="186" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S13</span><span class="nm">Shared trunk</span></p>
+      <p class="idea">Four shapes, one trunk: two children share the same vertical, as the app actually draws them.</p>
+    </figure>
+
+    <figure class="tile" id="S14">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Two children below">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="300" y="180" width="280" height="200" rx="28" fill="#f4f3ee"/>
+<path d="M320 380 H430 V495 H540 V585 H430 V660 H540 V750 H430 V725 H320 Z" fill="#f4f3ee"/>
+<rect x="540" y="450" width="250" height="150" rx="24" fill="#f4f3ee"/>
+<rect x="540" y="660" width="250" height="150" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Two children below, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="294" y="174" width="292" height="212" rx="28" fill="#f4f3ee"/>
+<path d="M314 380 H432 V492 H548 V588 H432 V658 H548 V756 H432 V722 H314 Z" fill="#f4f3ee"/>
+<rect x="548" y="446" width="256" height="158" rx="24" fill="#f4f3ee"/>
+<rect x="548" y="660" width="256" height="158" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S14</span><span class="nm">Stacked below</span></p>
+      <p class="idea">Two children below, both indented off one trunk; the second one is a step deeper.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f2">
+  <div class="sechead"><span class="n">02</span><h2>Weight and proportion</h2><span class="v">S15–S24</span></div>
+  <p class="fam">The branch is a slab with a variable thickness, and the blocks have variable proportions.
+    This is the family that decides whether the mark survives at 16 px: a thin edge becomes grey mush, a full-height
+    edge becomes a second bar.</p>
+  <div class="grid">
+
+    <figure class="tile" id="S15">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Full-height edge">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="196" y="340" width="260" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="456" y="340" width="150" height="300" fill="#f4f3ee"/>
+<rect x="606" y="370" width="220" height="240" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Full-height edge, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="334" width="272" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="462" y="334" width="140" height="312" fill="#f4f3ee"/>
+<rect x="602" y="366" width="228" height="248" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S15</span><span class="nm">Edge full height</span></p>
+      <p class="idea">The branch is as tall as the block: parent and edge read as one bar broken by a gap.</p>
+    </figure>
+
+    <figure class="tile" id="S16">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Half-height edge">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="196" y="340" width="260" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="456" y="415" width="150" height="150" fill="#f4f3ee"/>
+<rect x="606" y="370" width="220" height="240" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Half-height edge, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="334" width="272" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="462" y="410" width="140" height="160" fill="#f4f3ee"/>
+<rect x="602" y="366" width="228" height="248" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S16</span><span class="nm">Edge half height</span></p>
+      <p class="idea">Half the block's height: still 2.3 px at 16, and the most balanced of the weights.</p>
+    </figure>
+
+    <figure class="tile" id="S17">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Edge equals stroke">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="240" y="380" width="220" height="260" rx="20" fill="none" stroke="#f4f3ee" stroke-width="80"/>
+<rect x="460" y="472" width="120" height="80" fill="#f4f3ee"/>
+<rect x="620" y="410" width="180" height="220" rx="20" fill="none" stroke="#f4f3ee" stroke-width="80"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Edge equals stroke, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="234" y="374" width="230" height="270" rx="20" fill="none" stroke="#f4f3ee" stroke-width="90"/>
+<rect x="462" y="470" width="120" height="88" fill="#f4f3ee"/>
+<rect x="620" y="404" width="190" height="232" rx="20" fill="none" stroke="#f4f3ee" stroke-width="90"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S17</span><span class="nm">Edge = stroke</span></p>
+      <p class="idea">Hollow cards and an edge of the same weight: one line system, at the edge of legibility.</p>
+    </figure>
+
+    <figure class="tile" id="S18">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Sliver parent">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="230" y="300" width="90" height="420" rx="24" fill="#f4f3ee"/>
+<rect x="320" y="462" width="150" height="90" fill="#f4f3ee"/>
+<rect x="470" y="362" width="300" height="300" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Sliver parent, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="222" y="294" width="104" height="432" rx="24" fill="#f4f3ee"/>
+<rect x="320" y="458" width="150" height="100" fill="#f4f3ee"/>
+<rect x="470" y="356" width="312" height="312" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S18</span><span class="nm">Sliver parent</span></p>
+      <p class="idea">The parent is a vertical sliver: a note that is a phrase, with a whole child beside it.</p>
+    </figure>
+
+    <figure class="tile" id="S19">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Sliver child">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="362" width="300" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="490" y="462" width="150" height="90" fill="#f4f3ee"/>
+<rect x="640" y="300" width="90" height="420" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Sliver child, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="356" width="312" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="494" y="458" width="146" height="100" fill="#f4f3ee"/>
+<rect x="640" y="294" width="104" height="432" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S19</span><span class="nm">Sliver child</span></p>
+      <p class="idea">The child is the sliver: a big block spawning a thin one, which is what an outline looks like.</p>
+    </figure>
+
+    <figure class="tile" id="S20">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Bar parent">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="196" y="300" width="610" height="140" rx="24" fill="#f4f3ee"/>
+<rect x="700" y="440" width="90" height="200" fill="#f4f3ee"/>
+<rect x="600" y="640" width="220" height="180" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Bar parent, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="294" width="622" height="152" rx="24" fill="#f4f3ee"/>
+<rect x="702" y="440" width="100" height="200" fill="#f4f3ee"/>
+<rect x="600" y="640" width="228" height="186" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S20</span><span class="nm">Bar parent</span></p>
+      <p class="idea">A long parent and a corner turn: the empty upper left is what makes it a mark.</p>
+    </figure>
+
+    <figure class="tile" id="S21">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Square pair">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="200" y="362" width="270" height="270" rx="28" fill="#f4f3ee"/>
+<rect x="470" y="472" width="84" height="90" fill="#f4f3ee"/>
+<rect x="554" y="362" width="270" height="270" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Square pair, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="194" y="356" width="282" height="282" rx="28" fill="#f4f3ee"/>
+<rect x="476" y="470" width="80" height="100" fill="#f4f3ee"/>
+<rect x="556" y="356" width="282" height="282" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S21</span><span class="nm">Square pair</span></p>
+      <p class="idea">Equal blocks with a short, fat edge: the calmest possible version of a branch.</p>
+    </figure>
+
+    <figure class="tile" id="S22">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Tall child">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="200" y="402" width="220" height="220" rx="26" fill="#f4f3ee"/>
+<rect x="420" y="472" width="100" height="90" fill="#f4f3ee"/>
+<rect x="520" y="300" width="180" height="460" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Tall child, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="194" y="396" width="230" height="230" rx="26" fill="#f4f3ee"/>
+<rect x="418" y="470" width="102" height="96" fill="#f4f3ee"/>
+<rect x="520" y="294" width="190" height="472" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S22</span><span class="nm">Tall child</span></p>
+      <p class="idea">The child outweighs the parent: the branch goes to a whole subtree, not to a caption.</p>
+    </figure>
+
+    <figure class="tile" id="S23">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Far small child">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="188" y="332" width="360" height="360" rx="30" fill="#f4f3ee"/>
+<rect x="548" y="467" width="140" height="90" fill="#f4f3ee"/>
+<rect x="688" y="420" width="140" height="140" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Far small child, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="182" y="326" width="372" height="372" rx="30" fill="#f4f3ee"/>
+<rect x="548" y="464" width="150" height="96" fill="#f4f3ee"/>
+<rect x="690" y="412" width="150" height="152" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S23</span><span class="nm">Far child</span></p>
+      <p class="idea">A long edge to a small block: the proportion that breaks first when an icon is too detailed.</p>
+    </figure>
+
+    <figure class="tile" id="S24">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Huge child">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="196" y="437" width="150" height="150" rx="22" fill="#f4f3ee"/>
+<rect x="346" y="477" width="80" height="70" fill="#f4f3ee"/>
+<rect x="426" y="300" width="400" height="400" rx="32" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Huge child, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="432" width="160" height="160" rx="22" fill="#f4f3ee"/>
+<rect x="350" y="476" width="80" height="76" fill="#f4f3ee"/>
+<rect x="430" y="294" width="412" height="412" rx="32" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S24</span><span class="nm">Huge child</span></p>
+      <p class="idea">A small block feeding an enormous one: the best argument that the icon is a structure.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f3">
+  <div class="sechead"><span class="n">03</span><h2>Fill and form</h2><span class="v">S25–S34</span></div>
+  <p class="fam">The same two-block sentence in every material and fill the app owns: rounded, sharp, one accent,
+    all accent, inverted, hollow, half-filled, duotone, accent-only edge, and a block with a shadow that is itself
+    a block.</p>
+  <div class="grid">
+
+    <figure class="tile" id="S25">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Rounded">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="362" width="280" height="300" rx="70" fill="#f4f3ee"/>
+<rect x="470" y="464" width="150" height="96" rx="48" fill="#f4f3ee"/>
+<rect x="620" y="392" width="200" height="240" rx="70" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Rounded, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="356" width="292" height="312" rx="74" fill="#f4f3ee"/>
+<rect x="476" y="460" width="146" height="104" rx="52" fill="#f4f3ee"/>
+<rect x="622" y="386" width="206" height="252" rx="74" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S25</span><span class="nm">Rounded</span></p>
+      <p class="idea">Everything soft, including the edge caps: a branch drawn with the card's own radius.</p>
+    </figure>
+
+    <figure class="tile" id="S26">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Sharp">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="362" width="280" height="300" fill="#f4f3ee"/>
+<rect x="470" y="464" width="150" height="96" fill="#f4f3ee"/>
+<rect x="620" y="392" width="200" height="240" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Sharp, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="356" width="292" height="312" fill="#f4f3ee"/>
+<rect x="476" y="460" width="146" height="104" fill="#f4f3ee"/>
+<rect x="622" y="386" width="206" height="252" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S26</span><span class="nm">Sharp</span></p>
+      <p class="idea">No radius anywhere: the same composition, colder and more architectural.</p>
+    </figure>
+
+    <figure class="tile" id="S27">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="One accent child">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="332" width="240" height="260" rx="28" fill="#f4f3ee"/>
+<path d="M430 422 H548 V332 H636 V692 H548 V502 H430 Z" fill="#f4f3ee"/>
+<rect x="636" y="332" width="190" height="160" rx="24" fill="#8fb0cd"/>
+<rect x="636" y="532" width="190" height="160" rx="24" fill="#8f969d"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="One accent child, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="326" width="252" height="272" rx="28" fill="#f4f3ee"/>
+<path d="M436 420 H548 V326 H642 V698 H548 V506 H436 Z" fill="#f4f3ee"/>
+<rect x="642" y="326" width="190" height="166" rx="24" fill="#8fb0cd"/>
+<rect x="642" y="532" width="190" height="166" rx="24" fill="#8f969d"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S27</span><span class="nm">One accent</span></p>
+      <p class="idea">The accent goes to a single child, so the eye learns the hierarchy before it reads anything.</p>
+    </figure>
+
+    <figure class="tile" id="S28">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="All accent">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="210" y="362" width="260" height="280" rx="28" fill="#8fb0cd"/>
+<rect x="470" y="464" width="150" height="96" fill="#8fb0cd"/>
+<rect x="620" y="402" width="190" height="200" rx="26" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="All accent, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="204" y="356" width="272" height="292" rx="28" fill="#8fb0cd"/>
+<rect x="476" y="460" width="146" height="104" fill="#8fb0cd"/>
+<rect x="622" y="396" width="196" height="212" rx="26" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S28</span><span class="nm">All accent</span></p>
+      <p class="idea">No paper at all: a structure in one colour, which is the user's accent applied to the mark.</p>
+    </figure>
+
+    <figure class="tile" id="S29">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Inverted structure">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="210" y="362" width="260" height="280" rx="28" fill="#15171a"/>
+<rect x="470" y="464" width="150" height="96" fill="#15171a"/>
+<rect x="620" y="402" width="190" height="200" rx="26" fill="#15171a"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Inverted structure, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f3ee"/>
+<rect x="204" y="356" width="272" height="292" rx="28" fill="#15171a"/>
+<rect x="476" y="460" width="146" height="104" fill="#15171a"/>
+<rect x="622" y="396" width="196" height="212" rx="26" fill="#15171a"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S29</span><span class="nm">Inverted</span></p>
+      <p class="idea">Paper field, ink structure: the light icon in a Dock full of dark squares.</p>
+    </figure>
+
+    <figure class="tile" id="S30">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Outline blocks">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="250" y="382" width="220" height="260" rx="22" fill="none" stroke="#f4f3ee" stroke-width="70"/>
+<rect x="470" y="477" width="150" height="70" fill="#f4f3ee"/>
+<rect x="620" y="420" width="180" height="180" rx="22" fill="none" stroke="#f4f3ee" stroke-width="70"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Outline blocks, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="244" y="376" width="230" height="272" rx="22" fill="none" stroke="#f4f3ee" stroke-width="80"/>
+<rect x="474" y="472" width="146" height="80" fill="#f4f3ee"/>
+<rect x="620" y="414" width="190" height="192" rx="22" fill="none" stroke="#f4f3ee" stroke-width="80"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S30</span><span class="nm">Outline</span></p>
+      <p class="idea">Hollow blocks and a solid branch: the edge becomes the only filled thing in the icon.</p>
+    </figure>
+
+    <figure class="tile" id="S31">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Half-filled parent">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="280" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="330" y="352" width="140" height="300" rx="28" fill="#8fb0cd"/>
+<rect x="330" y="352" width="40" height="300" fill="#8fb0cd"/>
+<rect x="470" y="464" width="150" height="96" fill="#f4f3ee"/>
+<rect x="620" y="402" width="190" height="200" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Half-filled parent, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="292" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="330" y="346" width="146" height="312" rx="28" fill="#8fb0cd"/>
+<rect x="330" y="346" width="46" height="312" fill="#8fb0cd"/>
+<rect x="476" y="460" width="146" height="104" fill="#f4f3ee"/>
+<rect x="622" y="396" width="196" height="212" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S31</span><span class="nm">Half-filled</span></p>
+      <p class="idea">The parent is half paper, half accent — a block that is also a state.</p>
+    </figure>
+
+    <figure class="tile" id="S32">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Duotone">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="280" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="470" y="464" width="150" height="96" fill="#c9c8c1"/>
+<rect x="620" y="402" width="190" height="200" rx="26" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Duotone, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="292" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="476" y="460" width="146" height="104" fill="#c9c8c1"/>
+<rect x="622" y="396" width="196" height="212" rx="26" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S32</span><span class="nm">Duotone</span></p>
+      <p class="idea">Paper parent, accent child, grey edge: three tones, no outline anywhere.</p>
+    </figure>
+
+    <figure class="tile" id="S33">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Accent edge">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="280" height="300" rx="28" fill="#8f969d"/>
+<rect x="470" y="464" width="150" height="96" fill="#8fb0cd"/>
+<rect x="620" y="402" width="190" height="200" rx="26" fill="#8f969d"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Accent edge, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="292" height="312" rx="28" fill="#8f969d"/>
+<rect x="476" y="460" width="146" height="104" fill="#8fb0cd"/>
+<rect x="622" y="396" width="196" height="212" rx="26" fill="#8f969d"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S33</span><span class="nm">Accent edge</span></p>
+      <p class="idea">Only the branch is coloured: the smallest possible dose of accent, and it still reads.</p>
+    </figure>
+
+    <figure class="tile" id="S34">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Shadow block">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="250" y="340" width="380" height="380" rx="28" fill="#262b31"/>
+<rect x="200" y="300" width="380" height="380" rx="28" fill="#f4f3ee"/>
+<rect x="690" y="560" width="146" height="146" rx="24" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Shadow block, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="256" y="346" width="384" height="384" rx="28" fill="#2a3037"/>
+<rect x="200" y="294" width="384" height="384" rx="28" fill="#f4f3ee"/>
+<rect x="690" y="556" width="150" height="150" rx="24" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S34</span><span class="nm">Shadow block</span></p>
+      <p class="idea">The shadow is a second block, offset by 50: depth without a filter, and a second mass.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f4">
+  <div class="sechead"><span class="n">04</span><h2>Ends</h2><span class="v">S35–S40</span></div>
+  <p class="fam">The most contested question of the previous rounds: arrowheads. Six answers, all entering from
+    the left and pointing right, all with an edge thick enough to survive. Where the head cannot survive at 16 px,
+    the small drawing drops it rather than smudging it.</p>
+  <div class="grid">
+
+    <figure class="tile" id="S35">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Blunt end">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="362" y="190" width="300" height="220" rx="28" fill="#f4f3ee"/>
+<rect x="380" y="410" width="110" height="200" fill="#f4f3ee"/>
+<rect x="490" y="610" width="300" height="200" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Blunt end, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="356" y="184" width="312" height="232" rx="28" fill="#f4f3ee"/>
+<rect x="374" y="410" width="120" height="200" fill="#f4f3ee"/>
+<rect x="494" y="610" width="312" height="206" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S35</span><span class="nm">Blunt</span></p>
+      <p class="idea">No head at all. The edge is a slab, the child's own edge is the terminus.</p>
+    </figure>
+
+    <figure class="tile key" id="S36">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Chunky head">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="260" height="280" rx="28" fill="#f4f3ee"/>
+<rect x="450" y="462" width="120" height="100" fill="#f4f3ee"/>
+<path d="M570 392 L690 512 L570 632 Z" fill="#f4f3ee"/>
+<rect x="690" y="402" width="146" height="220" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Chunky head, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="272" height="292" rx="28" fill="#f4f3ee"/>
+<rect x="456" y="460" width="146" height="104" fill="#f4f3ee"/>
+<rect x="690" y="396" width="152" height="232" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S36</span><span class="nm">Chunky head</span></p>
+      <p class="idea">A head the height of the child's edge survives 16 px; the small drawing drops it to a blunt end.</p>
+    </figure>
+
+    <figure class="tile" id="S37">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Notched entry">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="260" height="280" rx="28" fill="#f4f3ee"/>
+<rect x="450" y="470" width="250" height="80" fill="#f4f3ee"/>
+<path d="M700 400 H806 A24 24 0 0 1 830 424 V600 A24 24 0 0 1 806 624 H700 V550 H760 V474 H700 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Notched entry, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="272" height="292" rx="28" fill="#f4f3ee"/>
+<rect x="456" y="466" width="252" height="96" fill="#f4f3ee"/>
+<path d="M700 394 H806 A24 24 0 0 1 830 418 V606 A24 24 0 0 1 806 630 H700 V548 H766 V476 H700 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S37</span><span class="nm">Notched entry</span></p>
+      <p class="idea">The head is a notch cut into the child: the junction is drawn, the arrow is not.</p>
+    </figure>
+
+    <figure class="tile" id="S38">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Chisel end">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="260" height="280" rx="28" fill="#f4f3ee"/>
+<path d="M450 467 H590 L640 512 L590 557 H450 Z" fill="#f4f3ee"/>
+<rect x="640" y="402" width="190" height="220" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Chisel end, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="272" height="292" rx="28" fill="#f4f3ee"/>
+<path d="M456 466 H596 L648 512 L596 558 H456 Z" fill="#f4f3ee"/>
+<rect x="648" y="396" width="196" height="232" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S38</span><span class="nm">Chisel</span></p>
+      <p class="idea">A 45° cut instead of a head: directional, but flat enough to survive at 16.</p>
+    </figure>
+
+    <figure class="tile" id="S39">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Taper">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="260" height="280" rx="28" fill="#f4f3ee"/>
+<path d="M450 472 H640 V592 H450 Z" fill="#f4f3ee"/>
+<path d="M450 472 L640 432 V592 L450 552 Z" fill="#f4f3ee"/>
+<rect x="640" y="402" width="190" height="220" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Taper, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="272" height="292" rx="28" fill="#f4f3ee"/>
+<path d="M456 466 L648 424 V600 L456 558 Z" fill="#f4f3ee"/>
+<rect x="648" y="396" width="196" height="232" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S39</span><span class="nm">Taper</span></p>
+      <p class="idea">The edge widens into the child: direction with no head, and the safest of the six.</p>
+    </figure>
+
+    <figure class="tile" id="S40">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Double edge">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="260" height="280" rx="28" fill="#f4f3ee"/>
+<rect x="450" y="452" width="170" height="54" fill="#f4f3ee"/>
+<rect x="450" y="530" width="170" height="54" fill="#f4f3ee"/>
+<rect x="620" y="402" width="190" height="220" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Double edge, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="272" height="292" rx="28" fill="#f4f3ee"/>
+<rect x="456" y="450" width="166" height="60" fill="#f4f3ee"/>
+<rect x="456" y="526" width="166" height="60" fill="#f4f3ee"/>
+<rect x="622" y="396" width="196" height="232" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S40</span><span class="nm">Double edge</span></p>
+      <p class="idea">Two thin slabs instead of one fat one: elegant at 96, and they fuse into a smear at 16.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f5">
+  <div class="sechead"><span class="n">05</span><h2>Letters and directions</h2><span class="v">S41–S46</span></div>
+  <p class="fam">The composition that happens to be a letter or a direction. These are the closest to a real mark:
+    the structure is there, but the eye reads an L, an N or a colon first.</p>
+  <div class="grid">
+
+    <figure class="tile key" id="S41">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="L">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M200 200 H400 V300 H500 V640 H390 V410 H200 Z" fill="#f4f3ee"/>
+<rect x="330" y="640" width="440" height="180" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="L, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M194 194 H400 V296 H506 V640 H388 V404 H194 Z" fill="#f4f3ee"/>
+<rect x="326" y="640" width="450" height="186" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S41</span><span class="nm">L</span></p>
+      <p class="idea">Two shapes and the letter is free: a tall parent, an elbow, a wide child.</p>
+    </figure>
+
+    <figure class="tile" id="S42">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Depth">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="180" width="260" height="190" rx="28" fill="#f4f3ee"/>
+<path d="M450 240 H540 V470 H640 V560 H540 V520 H450 Z" fill="#f4f3ee"/>
+<rect x="540" y="470" width="240" height="170" rx="26" fill="#f4f3ee"/>
+<rect x="590" y="640" width="90" height="60" fill="#f4f3ee"/>
+<rect x="590" y="700" width="230" height="130" rx="24" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Depth, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="174" width="272" height="200" rx="28" fill="#f4f3ee"/>
+<path d="M456 240 H540 V468 H648 V562 H540 V516 H456 Z" fill="#f4f3ee"/>
+<rect x="540" y="468" width="248" height="176" rx="26" fill="#f4f3ee"/>
+<rect x="592" y="644" width="100" height="60" fill="#f4f3ee"/>
+<rect x="592" y="704" width="238" height="130" rx="24" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S42</span><span class="nm">Depth</span></p>
+      <p class="idea">Three levels: parent, child, grandchild, each a step lower and further right.</p>
+    </figure>
+
+    <figure class="tile key" id="S43">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="N">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="220" width="180" height="560" rx="26" fill="#f4f3ee"/>
+<path d="M370 280 L654 700 V780 L370 360 Z" fill="#f4f3ee"/>
+<rect x="654" y="220" width="180" height="560" rx="26" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="N, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="214" width="190" height="572" rx="26" fill="#f4f3ee"/>
+<path d="M374 280 L660 700 V784 L374 364 Z" fill="#f4f3ee"/>
+<rect x="660" y="214" width="190" height="572" rx="26" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S43</span><span class="nm">N</span></p>
+      <p class="idea">Two verticals and one descending diagonal: the letter, the initial and the branch are the same shape.</p>
+    </figure>
+
+    <figure class="tile" id="S44">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Step">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="190" width="300" height="240" rx="28" fill="#f4f3ee"/>
+<path d="M490 290 H620 V560 H510 V380 H490 Z" fill="#f4f3ee"/>
+<rect x="510" y="470" width="210" height="360" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Step, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M184 184 H496 V290 H628 V560 H510 V380 H184 Z" fill="#f4f3ee"/>
+<rect x="510" y="470" width="216" height="366" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S44</span><span class="nm">Step</span></p>
+      <p class="idea">A vertical block instead of a horizontal child: the step reads as a floor plan.</p>
+    </figure>
+
+    <figure class="tile" id="S45">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Stair">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="188" y="188" width="200" height="200" rx="22" fill="#f4f3ee"/>
+<path d="M388 268 H470 V400 H520 V480 H470 V440 H388 Z" fill="#f4f3ee"/>
+<rect x="418" y="418" width="200" height="200" rx="22" fill="#f4f3ee"/>
+<rect x="648" y="648" width="190" height="190" rx="22" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Stair, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="182" y="182" width="212" height="212" rx="22" fill="#f4f3ee"/>
+<path d="M394 262 H470 V400 H520 V482 H470 V440 H394 Z" fill="#f4f3ee"/>
+<rect x="418" y="418" width="212" height="212" rx="22" fill="#f4f3ee"/>
+<rect x="648" y="648" width="196" height="196" rx="22" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S45</span><span class="nm">Stair</span></p>
+      <p class="idea">Three steps descending; the last pair is fused, so the chain still fits four shapes.</p>
+    </figure>
+
+    <figure class="tile" id="S46">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Colon">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="362" y="220" width="300" height="240" rx="28" fill="#f4f3ee"/>
+<rect x="362" y="564" width="300" height="240" rx="28" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Colon, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="356" y="214" width="312" height="252" rx="28" fill="#f4f3ee"/>
+<rect x="356" y="558" width="312" height="252" rx="28" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S46</span><span class="nm">Colon</span></p>
+      <p class="idea">No edge drawn; the 100 px gap is the branch. Two blocks as punctuation.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f6">
+  <div class="sechead"><span class="n">06</span><h2>Edge cases</h2><span class="v">S47–S50</span></div>
+  <p class="fam">The awkward truths: a port where the branch lands, a child with two parents, two blocks so close
+    they almost merge, and two blocks that do merge. Half of these are probably not shippable; they are here because
+    they test the grammar instead of repeating it.</p>
+  <div class="grid">
+
+    <figure class="tile" id="S47">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Port">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="352" width="260" height="280" rx="28" fill="#f4f3ee"/>
+<rect x="450" y="462" width="120" height="100" fill="#f4f3ee"/>
+<rect x="570" y="402" width="250" height="200" rx="26" fill="#f4f3ee"/>
+<rect x="570" y="462" width="26" height="100" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Port, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="346" width="272" height="292" rx="28" fill="#f4f3ee"/>
+<rect x="456" y="460" width="116" height="104" fill="#f4f3ee"/>
+<rect x="572" y="396" width="256" height="212" rx="26" fill="#f4f3ee"/>
+<rect x="572" y="460" width="34" height="104" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S47</span><span class="nm">Port</span></p>
+      <p class="idea">An accent port on the child's left edge: the junction made explicit, and 0.5 px at 16.</p>
+    </figure>
+
+    <figure class="tile" id="S48">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Shared child">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="190" y="220" width="230" height="170" rx="26" fill="#f4f3ee"/>
+<rect x="420" y="270" width="120" height="80" fill="#f4f3ee"/>
+<rect x="190" y="560" width="230" height="170" rx="26" fill="#c9c8c1"/>
+<rect x="420" y="610" width="120" height="80" fill="#c9c8c1"/>
+<rect x="540" y="270" width="88" height="420" fill="#f4f3ee"/>
+<rect x="628" y="380" width="200" height="220" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Shared child, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="184" y="214" width="242" height="182" rx="26" fill="#f4f3ee"/>
+<rect x="426" y="266" width="118" height="86" fill="#f4f3ee"/>
+<rect x="184" y="556" width="242" height="182" rx="26" fill="#c9c8c1"/>
+<rect x="426" y="610" width="118" height="86" fill="#c9c8c1"/>
+<rect x="544" y="266" width="90" height="430" fill="#f4f3ee"/>
+<rect x="634" y="376" width="200" height="226" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S48</span><span class="nm">Shared child</span></p>
+      <p class="idea">Two parents, one child: the DAG, with the second parent in grey as a reference.</p>
+    </figure>
+
+    <figure class="tile" id="S49">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Dense pair">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="200" y="352" width="300" height="300" rx="28" fill="#f4f3ee"/>
+<rect x="500" y="477" width="80" height="80" fill="#f4f3ee"/>
+<rect x="580" y="402" width="250" height="250" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Dense pair, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="194" y="346" width="312" height="312" rx="28" fill="#f4f3ee"/>
+<rect x="506" y="474" width="76" height="86" fill="#f4f3ee"/>
+<rect x="582" y="396" width="260" height="260" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S49</span><span class="nm">Dense pair</span></p>
+      <p class="idea">An 80 px gap and an 80 px edge: the smallest interval that still reads as a branch.</p>
+    </figure>
+
+    <figure class="tile" id="S50">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Touching">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="202" y="202" width="320" height="320" rx="28" fill="#f4f3ee"/>
+<rect x="522" y="362" width="310" height="310" rx="28" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Touching, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="196" y="196" width="330" height="330" rx="28" fill="#f4f3ee"/>
+<rect x="526" y="362" width="316" height="316" rx="28" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">S50</span><span class="nm">Touching</span></p>
+      <p class="idea">No gap at all: two blocks fused into one L. The branch has become the seam.</p>
+    </figure>
+
+  </div>
+</section>
+
+<p class="foot">
+  Sheet 5 of 5 · 50 icons (S01–S50). Every composition uses at most four shapes, every edge is a slab at least a
+  third of its block's weight, every branch leaves right or down and enters a block's left side, and no arrow points up.
+  The 16 px drawing drops heads, ports and the double edge where they would smear.
+  → <a href="index.html">Index and shortlist</a> · <a href="sheet-1.html">Sheet 1, Object</a>
+</p>
+
+</div>
+</body>
+</html>

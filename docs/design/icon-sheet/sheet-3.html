@@ -1,0 +1,1096 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Icon sheet 3 — Geometric · NoteForest</title>
+<style>
+  :root{
+    --bg:#0d0e10; --panel:#15171a; --panel2:#191c20; --line:#25292e; --line2:#32373d;
+    --t1:#e9e9e6; --t2:#a5aab0; --t3:#6f767e; --accent:#8fb0cd; --green:#8fbf9f;
+    --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--t1);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  body{padding:0 20px 80px}
+  .wrap{max-width:1360px;margin:0 auto}
+  a{color:inherit}
+  .top{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+       padding:12px 0;margin-bottom:8px;background:linear-gradient(180deg,var(--bg) 72%,transparent);border-bottom:1px solid var(--line)}
+  .top .brand{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .top .brand em{font-style:normal;color:var(--t3);font-weight:400}
+  .top nav{display:flex;gap:4px;flex-wrap:wrap}
+  .top nav a{padding:4px 9px;border:1px solid transparent;border-radius:6px;color:var(--t2);font-size:11.5px;text-decoration:none}
+  .top nav a:hover{border-color:var(--line2);color:var(--t1)}
+  .top nav a.on{border-color:var(--line2);background:var(--panel2);color:var(--t1)}
+  .top .count{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+
+  header.sheet{padding:26px 0 6px}
+  .eyebrow{margin:0 0 8px;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+  h1{margin:0 0 12px;font-size:27px;font-weight:600;letter-spacing:-.015em}
+  .lede{margin:0;max-width:76ch;color:var(--t2);font-size:13.5px;line-height:1.62}
+  .lede b{color:var(--t1);font-weight:600}
+  .rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px}
+  .rules span{padding:5px 9px;border:1px solid var(--line);border-radius:5px;color:var(--t3);font:10px/1.4 var(--mono);letter-spacing:.03em}
+
+  .famnav{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0}
+  .famnav a{padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--t2);font-size:11px;text-decoration:none}
+  .famnav a:hover{border-color:var(--line2);color:var(--t1)}
+
+  section{padding-top:44px}
+  .sechead{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:6px}
+  .sechead h2{margin:0;font-size:15px;font-weight:600;letter-spacing:-.005em}
+  .sechead .n{color:var(--t3);font:10px/1 var(--mono);letter-spacing:.08em}
+  .sechead .v{margin-left:auto;color:var(--t3);font:10px/1 var(--mono);letter-spacing:.06em}
+  .fam{margin:8px 0 18px;max-width:84ch;color:var(--t3);font-size:12px;line-height:1.55}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(302px,1fr));gap:10px}
+  .tile{margin:0;padding:14px 14px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+        display:flex;flex-direction:column;gap:11px}
+  .tile:hover{border-color:var(--line2)}
+  .pair{display:flex;align-items:center;gap:18px;min-height:100px}
+  .slot{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .slot svg{display:block}
+  .slot b{font:9px/1 var(--mono);font-weight:400;color:var(--t3);letter-spacing:.08em}
+  .meta{margin:0;display:flex;align-items:baseline;gap:8px}
+  .id{font:10px/1 var(--mono);color:var(--accent);letter-spacing:.07em}
+  .nm{font-size:12.5px;font-weight:600;letter-spacing:-.005em}
+  .idea{margin:0;color:var(--t2);font-size:11.5px;line-height:1.5}
+
+  .foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--t3);font-size:11px;line-height:1.6}
+  .foot a{color:var(--t2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <span class="brand">NoteForest <em>· icon sheet</em></span>
+  <nav>
+    <a href="index.html">Index</a>
+    <a href="sheet-1.html">1 · Object</a>
+    <a href="sheet-2.html">2 · Nature</a>
+    <a class="on" href="sheet-3.html">3 · Geometric</a>
+    <a href="sheet-4.html">4 · Material</a>
+    <a href="sheet-5.html">5 · Structure</a>
+  </nav>
+  <span class="count">50 / 250</span>
+</div>
+
+<header class="sheet">
+  <p class="eyebrow">Sheet 3 of 5 · G01–G50</p>
+  <h1>Geometric</h1>
+  <p class="lede">
+    No object, no tree. This is the sheet that bets on pure form: a letter that is a mark, a single stroke, a hole,
+    a lattice, a cut. It is also where an app icon can look like a tool rather than like a stationery cupboard.
+    The monograms are the only place where letters are allowed, because there the letter <b>is</b> the mark.
+  </p>
+  <div class="rules">
+    <span>canvas 1024</span><span>squircle 824 × 824 · r 185</span><span>art inset 64–120</span>
+    <span>shown at 96 and 16</span><span>no text</span>
+  </div>
+  <div class="famnav">
+    <a href="#f1">Monograms</a>
+    <a href="#f2">Single strokes</a>
+    <a href="#f3">Negative space</a>
+    <a href="#f4">Grids and dots</a>
+    <a href="#f5">Concentric</a>
+    <a href="#f6">Cuts</a>
+    <a href="#f7">One line</a>
+  </div>
+</header>
+
+<section id="f1">
+  <div class="sechead"><span class="n">01</span><h2>Monograms</h2><span class="v">G01–G08</span></div>
+  <p class="fam">N for NoteForest, drawn as geometry rather than as type. These are the only letters in the set,
+    and they are the letters because the mark is the letter — not a caption.</p>
+  <div class="grid">
+
+    <figure class="tile" id="G01">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="N strokes">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="252" y="222" width="110" height="580" fill="#f4f3ee"/>
+<path d="M362 222 H472 L772 802 H662 Z" fill="#8fb0cd"/>
+<rect x="662" y="222" width="110" height="580" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="N strokes, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="246" y="216" width="124" height="592" fill="#f4f3ee"/>
+<path d="M370 216 H486 L778 808 H662 Z" fill="#8fb0cd"/>
+<rect x="654" y="216" width="124" height="592" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G01</span><span class="nm">N</span></p>
+      <p class="idea">Three strokes, the diagonal in accent: a monogram that survives as three marks at 16 px.</p>
+    </figure>
+
+    <figure class="tile" id="G02">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="N negative">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" fill="#f4f3ee"/>
+<rect x="282" y="262" width="90" height="500" fill="#111318"/>
+<path d="M282 262 H372 L742 762 H652 Z" fill="#111318"/>
+<rect x="652" y="262" width="90" height="500" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="N negative, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" fill="#f4f3ee"/>
+<rect x="272" y="252" width="112" height="520" fill="#111318"/>
+<path d="M272 252 H384 L752 772 H640 Z" fill="#111318"/>
+<rect x="640" y="252" width="112" height="520" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G02</span><span class="nm">N, cut</span></p>
+      <p class="idea">The letter cut out of a paper square: a letterpress block, and the strongest monogram here.</p>
+    </figure>
+
+    <figure class="tile" id="G03">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="N branch">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="252" y="222" width="110" height="580" fill="#f4f3ee"/>
+<path d="M362 222 H472 L772 602 H662 Z" fill="#f4f3ee"/>
+<rect x="662" y="482" width="110" height="320" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="N branch, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="246" y="216" width="124" height="592" fill="#f4f3ee"/>
+<path d="M370 216 H486 L778 600 H662 Z" fill="#f4f3ee"/>
+<rect x="654" y="478" width="124" height="330" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G03</span><span class="nm">N, shortened</span></p>
+      <p class="idea">The right stem starts halfway down: the letter and a branch at the same time.</p>
+    </figure>
+
+    <figure class="tile" id="G04">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="n arch">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M357 812 V462 A155 155 0 0 1 667 462 V812" fill="none" stroke="#f4f3ee" stroke-width="110"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" role="img" aria-label="n arch, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M350 822 V458 A162 162 0 0 1 674 458 V822" fill="none" stroke="#f4f3ee" stroke-width="124"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G04</span><span class="nm">n</span></p>
+      <p class="idea">Lowercase, one stroke, an arch: the softest monogram and the least corporate.</p>
+    </figure>
+
+    <figure class="tile" id="G05">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="N blocks">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="232" y="222" width="130" height="580" fill="#f4f3ee"/>
+<rect x="382" y="222" width="130" height="580" fill="#f4f3ee"/>
+<path d="M392 222 H462 L632 802 H562 Z" fill="#f4f3ee"/>
+<rect x="662" y="222" width="130" height="580" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" role="img" aria-label="N blocks, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="226" y="216" width="140" height="592" fill="#f4f3ee"/>
+<rect x="386" y="216" width="140" height="592" fill="#f4f3ee"/>
+<path d="M330 216 H452 L694 808 H572 Z" fill="#f4f3ee"/>
+<rect x="658" y="216" width="140" height="592" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G05</span><span class="nm">N, slabs</span></p>
+      <p class="idea">Three separate slabs with 30 px gaps: a stencil N that closes into a solid letter at 16.</p>
+    </figure>
+
+    <figure class="tile" id="G06">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="N foot">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="262" y="222" width="130" height="580" fill="#f4f3ee"/>
+<path d="M392 222 H522 L742 682 H612 Z" fill="#f4f3ee"/>
+<rect x="612" y="682" width="130" height="120" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" role="img" aria-label="N foot, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="256" y="216" width="142" height="592" fill="#f4f3ee"/>
+<path d="M398 216 H530 L750 676 H618 Z" fill="#f4f3ee"/>
+<rect x="618" y="676" width="142" height="132" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G06</span><span class="nm">N, foot</span></p>
+      <p class="idea">The diagonal stops in a foot instead of reaching the top: an unfinished N that reads as a fork.</p>
+    </figure>
+
+    <figure class="tile" id="G07">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="N half">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="252" y="222" width="110" height="580" fill="#f4f3ee"/>
+<path d="M362 222 H472 L772 802 H662 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="N half, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="246" y="216" width="124" height="592" fill="#f4f3ee"/>
+<path d="M370 216 H486 L778 808 H662 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G07</span><span class="nm">N, half</span></p>
+      <p class="idea">No right stem: the branch out of the block, with the letter as a shadow of it.</p>
+    </figure>
+
+    <figure class="tile" id="G08">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="NF">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="200" y="222" width="100" height="580" fill="#f4f3ee"/>
+<path d="M300 222 H400 L600 802 H500 Z" fill="#f4f3ee"/>
+<rect x="600" y="222" width="100" height="580" fill="#f4f3ee"/>
+<rect x="700" y="222" width="140" height="100" fill="#8fb0cd"/>
+<rect x="700" y="462" width="110" height="100" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="NF, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="216" width="112" height="592" fill="#f4f3ee"/>
+<path d="M304 216 H416 L608 808 H496 Z" fill="#f4f3ee"/>
+<rect x="608" y="216" width="112" height="592" fill="#f4f3ee"/>
+<rect x="720" y="216" width="120" height="112" fill="#8fb0cd"/>
+<rect x="720" y="464" width="92" height="112" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G08</span><span class="nm">NF</span></p>
+      <p class="idea">An F grown off the N's right stem: two letters, one ligature, no typography.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f2">
+  <div class="sechead"><span class="n">02</span><h2>Single strokes</h2><span class="v">G09–G16</span></div>
+  <p class="fam">One line does the whole icon. The family is a test of nerve: at 16 px it is a single bar and has
+    to be enough. G09 to G16 are ordered from one stroke to three.</p>
+  <div class="grid">
+
+    <figure class="tile" id="G09">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Diagonal">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="462" y="212" width="100" height="600" fill="#8fb0cd" transform="rotate(45 512 512)"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Diagonal, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="450" y="200" width="124" height="624" fill="#8fb0cd" transform="rotate(45 512 512)"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G09</span><span class="nm">Diagonal</span></p>
+      <p class="idea">One accent bar at 45°. At 16 it is a slash, and a slash is a mark.</p>
+    </figure>
+
+    <figure class="tile" id="G10">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Stem and foot">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M302 212 H412 V690 H702 V800 H302 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" role="img" aria-label="Stem and foot, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M294 204 H416 V686 H710 V806 H294 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G10</span><span class="nm">Foot</span></p>
+      <p class="idea">A stem with a foot: the smallest possible tree, or the smallest possible L.</p>
+    </figure>
+
+    <figure class="tile" id="G11">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Corner">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M812 212 H712 V712 H212 V812 H812 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Corner, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M820 204 H708 V708 H204 V820 H820 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G11</span><span class="nm">Corner</span></p>
+      <p class="idea">A bracket that is also a corner crop: heavy, off-centre, and no metaphor at all.</p>
+    </figure>
+
+    <figure class="tile" id="G12">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Arc">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M212 812 A600 600 0 0 1 812 212" fill="none" stroke="#f4f3ee" stroke-width="120"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Arc, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M204 820 A608 608 0 0 1 820 204" fill="none" stroke="#f4f3ee" stroke-width="136"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G12</span><span class="nm">Arc</span></p>
+      <p class="idea">One quarter of a circle: the only curved icon in the Geometric sheet.</p>
+    </figure>
+
+    <figure class="tile" id="G13">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Hook">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M352 212 V660 Q352 800 492 800 H760" fill="none" stroke="#f4f3ee" stroke-width="110"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" role="img" aria-label="Hook, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M344 204 V656 Q344 808 496 808 H768" fill="none" stroke="#f4f3ee" stroke-width="128"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G13</span><span class="nm">Hook</span></p>
+      <p class="idea">Down and right with one soft corner: the gentlest version of a branch.</p>
+    </figure>
+
+    <figure class="tile" id="G14">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Slash pair">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="452" y="232" width="90" height="560" fill="#f4f3ee" transform="rotate(45 512 512)"/>
+<rect x="612" y="232" width="90" height="560" fill="#8fb0cd" transform="rotate(45 512 512)"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Slash pair, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="440" y="220" width="104" height="584" fill="#f4f3ee" transform="rotate(45 512 512)"/>
+<rect x="608" y="220" width="104" height="584" fill="#8fb0cd" transform="rotate(45 512 512)"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G14</span><span class="nm">Slash pair</span></p>
+      <p class="idea">Two parallel diagonals, one paper and one accent: a mark with a repeat in it.</p>
+    </figure>
+
+    <figure class="tile" id="G15">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Dot and bar">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="380" cy="620" r="130" fill="#f4f3ee"/>
+<rect x="660" y="300" width="90" height="500" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Dot and bar, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="372" cy="620" r="146" fill="#f4f3ee"/>
+<rect x="656" y="292" width="104" height="516" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G15</span><span class="nm">Dot and bar</span></p>
+      <p class="idea">A node and a branch, detached: the smallest diagram that is not a diagram.</p>
+    </figure>
+
+    <figure class="tile" id="G16">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Tee">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="222" width="600" height="110" fill="#f4f3ee"/>
+<rect x="457" y="332" width="110" height="470" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Tee, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="204" y="214" width="616" height="124" fill="#f4f3ee"/>
+<rect x="450" y="338" width="124" height="476" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G16</span><span class="nm">Tee</span></p>
+      <p class="idea">A T, used as a plain form: no page, no tree, no branch direction implied.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f3">
+  <div class="sechead"><span class="n">03</span><h2>Negative space</h2><span class="v">G17–G24</span></div>
+  <p class="fam">A filled square is the cheapest shape in the world; a square with something removed is a mark.
+    Every icon in this family is one paper field and one cut, and the cut is the identity.</p>
+  <div class="grid">
+
+    <figure class="tile" id="G17">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Notched square">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" fill="#f4f3ee"/>
+<rect x="612" y="402" width="220" height="220" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Notched square, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" fill="#f4f3ee"/>
+<rect x="606" y="396" width="232" height="232" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G17</span><span class="nm">Bite, right</span></p>
+      <p class="idea">A square with one bite out of its right edge: the cut reads even at a glance.</p>
+    </figure>
+
+    <figure class="tile" id="G18">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="L cut">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" fill="#f4f3ee"/>
+<path d="M592 192 H832 V412 H712 V312 H592 Z" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="L cut, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" fill="#f4f3ee"/>
+<path d="M586 186 H838 V412 H710 V306 H586 Z" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G18</span><span class="nm">Bite, L</span></p>
+      <p class="idea">An L-shaped bite from the top-right corner: a step that reads as a cut, not as a shape.</p>
+    </figure>
+
+    <figure class="tile" id="G19">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Window">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" fill="#f4f3ee"/>
+<rect x="382" y="382" width="260" height="260" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Window, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" fill="#f4f3ee"/>
+<rect x="376" y="376" width="272" height="272" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G19</span><span class="nm">Window</span></p>
+      <p class="idea">A square within a square, the inner one empty: a frame, a page and a hole at once.</p>
+    </figure>
+
+    <figure class="tile" id="G20">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Overlap">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="520" height="520" fill="#f4f3ee"/>
+<rect x="460" y="460" width="400" height="400" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Overlap, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="532" height="532" fill="#f4f3ee"/>
+<rect x="452" y="452" width="408" height="408" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G20</span><span class="nm">Overlap</span></p>
+      <p class="idea">Two squares, one offset: the intersection is an accident of the drawing, and it works.</p>
+    </figure>
+
+    <figure class="tile" id="G21">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Offset frame">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="140" fill="#f4f3ee"/>
+<rect x="192" y="692" width="640" height="140" fill="#f4f3ee"/>
+<rect x="192" y="332" width="140" height="360" fill="#f4f3ee"/>
+<rect x="662" y="332" width="170" height="360" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Offset frame, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="152" fill="#f4f3ee"/>
+<rect x="186" y="686" width="652" height="152" fill="#f4f3ee"/>
+<rect x="186" y="338" width="152" height="348" fill="#f4f3ee"/>
+<rect x="656" y="338" width="182" height="348" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G21</span><span class="nm">Frame</span></p>
+      <p class="idea">A frame with one thick side: the rectangle is off-balance and stops being a box.</p>
+    </figure>
+
+    <figure class="tile" id="G22">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Split diagonal">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M192 832 V192 H832 Z" fill="#f4f3ee"/>
+<path d="M832 832 V292 L292 832 Z" fill="#5d666f"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Split diagonal, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M186 838 V186 H838 Z" fill="#f4f3ee"/>
+<path d="M838 838 V286 L286 838 Z" fill="#5d666f"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G22</span><span class="nm">Split</span></p>
+      <p class="idea">The square cut along the diagonal, with a gap: paper above, grey below.</p>
+    </figure>
+
+    <figure class="tile" id="G23">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Corner removed">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M192 192 H832 V512 H512 V832 H192 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Corner removed, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M186 186 H838 V514 H514 V838 H186 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G23</span><span class="nm">Step</span></p>
+      <p class="idea">A quarter removed as a step rather than a triangle: heavier, and it reads as a page turn.</p>
+    </figure>
+
+    <figure class="tile" id="G24">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Double bite">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="640" height="640" fill="#f4f3ee"/>
+<path d="M832 252 A120 120 0 0 0 832 492 Z" fill="#111318"/>
+<path d="M832 532 A120 120 0 0 0 832 772 Z" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Double bite, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="652" height="652" fill="#f4f3ee"/>
+<path d="M838 234 A132 132 0 0 0 838 498 Z" fill="#111318"/>
+<path d="M838 526 A132 132 0 0 0 838 790 Z" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G24</span><span class="nm">Double bite</span></p>
+      <p class="idea">Two bites, symmetric: the square becomes a paper with a scalloped edge.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f4">
+  <div class="sechead"><span class="n">04</span><h2>Grids and dots</h2><span class="v">G25–G33</span></div>
+  <p class="fam">The note forest as a lattice. Dots are the only element that can be repeated nine or sixteen times
+    and still read at 16 px, because the eye sees a texture rather than a count.</p>
+  <div class="grid">
+
+    <figure class="tile" id="G25">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Nine dots">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="312" cy="312" r="62"/><circle cx="512" cy="312" r="62"/><circle cx="712" cy="312" r="62"/>
+<circle cx="312" cy="512" r="62"/><circle cx="512" cy="512" r="62"/><circle cx="712" cy="512" r="62"/>
+<circle cx="312" cy="712" r="62"/><circle cx="512" cy="712" r="62"/><circle cx="712" cy="712" r="62"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Nine dots, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="300" cy="300" r="76"/><circle cx="512" cy="300" r="76"/><circle cx="724" cy="300" r="76"/>
+<circle cx="300" cy="512" r="76"/><circle cx="512" cy="512" r="76"/><circle cx="724" cy="512" r="76"/>
+<circle cx="300" cy="724" r="76"/><circle cx="512" cy="724" r="76"/><circle cx="724" cy="724" r="76"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G25</span><span class="nm">Nine</span></p>
+      <p class="idea">Nine dots: a grid, a page of bullets, and a texture that survives any size.</p>
+    </figure>
+
+    <figure class="tile" id="G26">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Sixteen dots">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="272" cy="272" r="46"/><circle cx="432" cy="272" r="46"/><circle cx="592" cy="272" r="46"/><circle cx="752" cy="272" r="46"/>
+<circle cx="272" cy="432" r="46"/><circle cx="432" cy="432" r="46"/><circle cx="592" cy="432" r="46"/><circle cx="752" cy="432" r="46"/>
+<circle cx="272" cy="592" r="46"/><circle cx="432" cy="592" r="46"/><circle cx="592" cy="592" r="46"/><circle cx="752" cy="592" r="46"/>
+<circle cx="272" cy="752" r="46"/><circle cx="432" cy="752" r="46"/><circle cx="592" cy="752" r="46"/><circle cx="752" cy="752" r="46"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Sixteen dots, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="262" cy="262" r="58"/><circle cx="430" cy="262" r="58"/><circle cx="598" cy="262" r="58"/><circle cx="766" cy="262" r="58"/>
+<circle cx="262" cy="430" r="58"/><circle cx="430" cy="430" r="58"/><circle cx="598" cy="430" r="58"/><circle cx="766" cy="430" r="58"/>
+<circle cx="262" cy="598" r="58"/><circle cx="430" cy="598" r="58"/><circle cx="598" cy="598" r="58"/><circle cx="766" cy="598" r="58"/>
+<circle cx="262" cy="766" r="58"/><circle cx="430" cy="766" r="58"/><circle cx="598" cy="766" r="58"/><circle cx="766" cy="766" r="58"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G26</span><span class="nm">Sixteen</span></p>
+      <p class="idea">Denser and smaller: at 16 the dots merge into a dot screen, which is the honest limit.</p>
+    </figure>
+
+    <figure class="tile" id="G27">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Diagonal dots">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="252" cy="772" r="58" fill="#c9c8c1"/>
+<circle cx="382" cy="642" r="58" fill="#c9c8c1"/>
+<circle cx="512" cy="512" r="58" fill="#f4f3ee"/>
+<circle cx="642" cy="382" r="58" fill="#c9c8c1"/>
+<circle cx="772" cy="252" r="58" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Diagonal dots, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="242" cy="782" r="74" fill="#c9c8c1"/>
+<circle cx="377" cy="647" r="74" fill="#f4f3ee"/>
+<circle cx="512" cy="512" r="74" fill="#c9c8c1"/>
+<circle cx="647" cy="377" r="74" fill="#f4f3ee"/>
+<circle cx="782" cy="242" r="74" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G27</span><span class="nm">Rising</span></p>
+      <p class="idea">Five dots on a diagonal, the last in accent: a sequence with a direction.</p>
+    </figure>
+
+    <figure class="tile" id="G28">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Grid with accent">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="312" cy="312" r="58"/><circle cx="512" cy="312" r="58"/><circle cx="712" cy="312" r="58"/>
+<circle cx="312" cy="512" r="58"/><circle cx="712" cy="512" r="58"/>
+<circle cx="312" cy="712" r="58"/><circle cx="512" cy="712" r="58"/><circle cx="712" cy="712" r="58"/>
+</g>
+<circle cx="512" cy="512" r="74" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Grid with accent, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="300" cy="300" r="74"/><circle cx="512" cy="300" r="74"/><circle cx="724" cy="300" r="74"/>
+<circle cx="300" cy="512" r="74"/><circle cx="724" cy="512" r="74"/>
+<circle cx="300" cy="724" r="74"/><circle cx="512" cy="724" r="74"/><circle cx="724" cy="724" r="74"/>
+</g>
+<circle cx="512" cy="512" r="88" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G28</span><span class="nm">One of nine</span></p>
+      <p class="idea">The centre dot is the accent: a grid where one note is the active one.</p>
+    </figure>
+
+    <figure class="tile" id="G29">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Lattice">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<rect x="272" y="222" width="44" height="580"/><rect x="502" y="222" width="44" height="580"/><rect x="732" y="222" width="44" height="580"/>
+<rect x="222" y="272" width="580" height="44"/><rect x="222" y="502" width="580" height="44"/><rect x="222" y="732" width="580" height="44"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Lattice, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<rect x="262" y="212" width="68" height="600"/><rect x="478" y="212" width="68" height="600"/><rect x="694" y="212" width="68" height="600"/>
+<rect x="212" y="262" width="600" height="68"/><rect x="212" y="478" width="600" height="68"/><rect x="212" y="694" width="600" height="68"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G29</span><span class="nm">Lattice</span></p>
+      <p class="idea">Three lines each way, no border: a grid that stops before it becomes graph paper.</p>
+    </figure>
+
+    <figure class="tile" id="G30">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Dot fade">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="272" cy="272" r="80"/><circle cx="432" cy="272" r="68"/><circle cx="592" cy="272" r="54"/><circle cx="752" cy="272" r="38"/>
+<circle cx="272" cy="432" r="68"/><circle cx="432" cy="432" r="58"/><circle cx="592" cy="432" r="44"/><circle cx="752" cy="432" r="30"/>
+<circle cx="272" cy="592" r="54"/><circle cx="432" cy="592" r="44"/><circle cx="592" cy="592" r="34"/><circle cx="752" cy="592" r="24"/>
+<circle cx="272" cy="752" r="38"/><circle cx="432" cy="752" r="30"/><circle cx="592" cy="752" r="24"/><circle cx="752" cy="752" r="18"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Dot fade, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="262" cy="262" r="92"/><circle cx="430" cy="262" r="70"/><circle cx="598" cy="262" r="48"/><circle cx="766" cy="262" r="30"/>
+<circle cx="262" cy="430" r="70"/><circle cx="430" cy="430" r="54"/><circle cx="598" cy="430" r="38"/><circle cx="766" cy="430" r="24"/>
+<circle cx="262" cy="598" r="48"/><circle cx="430" cy="598" r="38"/><circle cx="598" cy="598" r="26"/><circle cx="766" cy="598" r="18"/>
+<circle cx="262" cy="766" r="30"/><circle cx="430" cy="766" r="24"/><circle cx="598" cy="766" r="18"/><circle cx="766" cy="766" r="12"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G30</span><span class="nm">Fade</span></p>
+      <p class="idea">Sixteen dots shrinking: a gradient made of solid shapes, no opacity anywhere.</p>
+    </figure>
+
+    <figure class="tile" id="G31">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Missing dot">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="272" cy="272" r="52"/><circle cx="432" cy="272" r="52"/><circle cx="592" cy="272" r="52"/><circle cx="752" cy="272" r="52"/>
+<circle cx="272" cy="432" r="52"/><circle cx="592" cy="432" r="52"/><circle cx="752" cy="432" r="52"/>
+<circle cx="272" cy="592" r="52"/><circle cx="432" cy="592" r="52"/><circle cx="592" cy="592" r="52"/><circle cx="752" cy="592" r="52"/>
+<circle cx="272" cy="752" r="52"/><circle cx="432" cy="752" r="52"/><circle cx="592" cy="752" r="52"/><circle cx="752" cy="752" r="52"/>
+</g>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Missing dot, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<g fill="#f4f3ee">
+<circle cx="262" cy="262" r="62"/><circle cx="430" cy="262" r="62"/><circle cx="598" cy="262" r="62"/><circle cx="766" cy="262" r="62"/>
+<circle cx="262" cy="430" r="62"/><circle cx="598" cy="430" r="62"/><circle cx="766" cy="430" r="62"/>
+<circle cx="262" cy="598" r="62"/><circle cx="430" cy="598" r="62"/><circle cx="598" cy="598" r="62"/><circle cx="766" cy="598" r="62"/>
+<circle cx="262" cy="766" r="62"/><circle cx="430" cy="766" r="62"/><circle cx="598" cy="766" r="62"/><circle cx="766" cy="766" r="62"/>
+</g>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G31</span><span class="nm">Hole in the grid</span></p>
+      <p class="idea">One dot removed from sixteen: the absence is the idea, and it reads only if the grid is even.</p>
+    </figure>
+
+    <figure class="tile" id="G32">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Column and bar">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="332" cy="262" r="52" fill="#f4f3ee"/>
+<circle cx="332" cy="432" r="52" fill="#f4f3ee"/>
+<circle cx="332" cy="602" r="52" fill="#f4f3ee"/>
+<circle cx="332" cy="772" r="52" fill="#f4f3ee"/>
+<rect x="640" y="222" width="70" height="580" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Column and bar, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="320" cy="250" r="66" fill="#f4f3ee"/>
+<circle cx="320" cy="424" r="66" fill="#f4f3ee"/>
+<circle cx="320" cy="598" r="66" fill="#f4f3ee"/>
+<circle cx="320" cy="772" r="66" fill="#f4f3ee"/>
+<rect x="632" y="212" width="86" height="600" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G32</span><span class="nm">Column</span></p>
+      <p class="idea">A column of nodes and an accent bar: an outline and a text block, without drawing either.</p>
+    </figure>
+
+    <figure class="tile" id="G33">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Quincunx">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="72" fill="#8fb0cd"/>
+<circle cx="272" cy="272" r="64" fill="#f4f3ee"/>
+<circle cx="752" cy="272" r="64" fill="#f4f3ee"/>
+<circle cx="272" cy="752" r="64" fill="#f4f3ee"/>
+<circle cx="752" cy="752" r="64" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Quincunx, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="86" fill="#8fb0cd"/>
+<circle cx="262" cy="262" r="78" fill="#f4f3ee"/>
+<circle cx="762" cy="262" r="78" fill="#f4f3ee"/>
+<circle cx="262" cy="762" r="78" fill="#f4f3ee"/>
+<circle cx="762" cy="762" r="78" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G33</span><span class="nm">Quincunx</span></p>
+      <p class="idea">Four corners and a centre: the dice-five, and the most stable arrangement of five nodes.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f5">
+  <div class="sechead"><span class="n">05</span><h2>Concentric</h2><span class="v">G34–G40</span></div>
+  <p class="fam">Nesting is the cheapest way to make a shape feel deep without a gradient. Squares, circles and
+    arcs, all hollow, all with a deliberate break somewhere.</p>
+  <div class="grid">
+
+    <figure class="tile" id="G34">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Nested squares">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="600" height="600" fill="none" stroke="#f4f3ee" stroke-width="52"/>
+<rect x="322" y="322" width="380" height="380" fill="none" stroke="#f4f3ee" stroke-width="52"/>
+<rect x="432" y="432" width="160" height="160" fill="none" stroke="#8fb0cd" stroke-width="52"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Nested squares, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="206" y="206" width="612" height="612" fill="none" stroke="#f4f3ee" stroke-width="72"/>
+<rect x="330" y="330" width="364" height="364" fill="none" stroke="#8fb0cd" stroke-width="72"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G34</span><span class="nm">Nested squares</span></p>
+      <p class="idea">Three frames, the core in accent: depth by subtraction, no perspective.</p>
+    </figure>
+
+    <figure class="tile" id="G35">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Concentric circles">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="320" fill="none" stroke="#f4f3ee" stroke-width="60"/>
+<circle cx="512" cy="512" r="220" fill="none" stroke="#f4f3ee" stroke-width="60"/>
+<circle cx="512" cy="512" r="120" fill="none" stroke="#f4f3ee" stroke-width="60"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Concentric circles, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="320" fill="none" stroke="#f4f3ee" stroke-width="88"/>
+<circle cx="512" cy="512" r="180" fill="none" stroke="#f4f3ee" stroke-width="88"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G35</span><span class="nm">Rings</span></p>
+      <p class="idea">Three hollow circles: a target, a tree ring, a lens. The most neutral mark in the sheet.</p>
+    </figure>
+
+    <figure class="tile" id="G36">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Offset core">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="320" fill="none" stroke="#f4f3ee" stroke-width="60"/>
+<circle cx="512" cy="512" r="220" fill="none" stroke="#f4f3ee" stroke-width="60"/>
+<circle cx="592" cy="512" r="110" fill="none" stroke="#8fb0cd" stroke-width="60"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Offset core, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="320" fill="none" stroke="#f4f3ee" stroke-width="88"/>
+<circle cx="512" cy="512" r="180" fill="none" stroke="#f4f3ee" stroke-width="88"/>
+<circle cx="620" cy="512" r="76" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G36</span><span class="nm">Off-centre</span></p>
+      <p class="idea">The core is off-centre and accent: a target that has started to drift.</p>
+    </figure>
+
+    <figure class="tile" id="G37">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Nested arcs">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 812 A560 560 0 0 1 792 252" fill="none" stroke="#f4f3ee" stroke-width="70"/>
+<path d="M362 812 A430 430 0 0 1 792 382" fill="none" stroke="#f4f3ee" stroke-width="70"/>
+<path d="M492 812 A300 300 0 0 1 792 512" fill="none" stroke="#8fb0cd" stroke-width="70"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Nested arcs, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M220 818 A566 566 0 0 1 786 252" fill="none" stroke="#f4f3ee" stroke-width="96"/>
+<path d="M380 818 A406 406 0 0 1 786 412" fill="none" stroke="#8fb0cd" stroke-width="96"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G37</span><span class="nm">Arcs</span></p>
+      <p class="idea">Three quarter-arcs from one corner: a rainbow reduced to a measurement.</p>
+    </figure>
+
+    <figure class="tile" id="G38">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Square in disc">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="320" fill="#f4f3ee"/>
+<rect x="392" y="392" width="240" height="240" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Square in disc, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<circle cx="512" cy="512" r="326" fill="#f4f3ee"/>
+<rect x="376" y="376" width="272" height="272" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G38</span><span class="nm">Disc</span></p>
+      <p class="idea">A paper disc with an accent square inside: two opposed shapes, one accent.</p>
+    </figure>
+
+    <figure class="tile" id="G39">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Broken target">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M782 337 A320 320 0 1 0 782 687" fill="none" stroke="#f4f3ee" stroke-width="60"/>
+<path d="M702 397 A220 220 0 1 0 702 627" fill="none" stroke="#f4f3ee" stroke-width="60"/>
+<path d="M622 457 A120 120 0 1 0 622 567" fill="none" stroke="#8fb0cd" stroke-width="60"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Broken target, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M790 331 A324 324 0 1 0 790 693" fill="none" stroke="#f4f3ee" stroke-width="86"/>
+<path d="M694 393 A220 220 0 1 0 694 631" fill="none" stroke="#8fb0cd" stroke-width="86"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G39</span><span class="nm">Open target</span></p>
+      <p class="idea">Three rings broken on the right: the gap is where the branch would leave.</p>
+    </figure>
+
+    <figure class="tile" id="G40">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Nested rounded">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="600" height="600" rx="120" fill="none" stroke="#f4f3ee" stroke-width="56"/>
+<rect x="332" y="332" width="440" height="440" rx="90" fill="none" stroke="#f4f3ee" stroke-width="56"/>
+<rect x="452" y="452" width="280" height="280" rx="60" fill="none" stroke="#8fb0cd" stroke-width="56"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Nested rounded, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="204" y="204" width="616" height="616" rx="128" fill="none" stroke="#f4f3ee" stroke-width="78"/>
+<rect x="342" y="342" width="340" height="340" rx="76" fill="none" stroke="#8fb0cd" stroke-width="78"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G40</span><span class="nm">Squircle</span></p>
+      <p class="idea">Three rounded frames: the icon's own squircle echoed inside itself.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f6">
+  <div class="sechead"><span class="n">06</span><h2>Cuts</h2><span class="v">G41–G46</span></div>
+  <p class="fam">Paper folded as geometry. Every icon here is a division of one square into two or three regions,
+    with no object left inside — the composition is the whole mark.</p>
+  <div class="grid">
+
+    <figure class="tile" id="G41">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Diagonal split">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M192 832 V192 H832 Z" fill="#f4f3ee"/>
+<path d="M832 832 V372 L372 832 Z" fill="#c9c8c1"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Diagonal split, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M186 838 V186 H838 Z" fill="#f4f3ee"/>
+<path d="M838 838 V362 L362 838 Z" fill="#c9c8c1"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G41</span><span class="nm">Cut square</span></p>
+      <p class="idea">One diagonal, two tones, no gap: the square divided and the division left visible.</p>
+    </figure>
+
+    <figure class="tile" id="G42">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Z">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="212" y="212" width="600" height="130" fill="#f4f3ee"/>
+<rect x="212" y="682" width="600" height="130" fill="#f4f3ee"/>
+<path d="M482 342 H612 L342 682 H212 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Z, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="204" y="204" width="616" height="140" fill="#f4f3ee"/>
+<rect x="204" y="680" width="616" height="140" fill="#f4f3ee"/>
+<path d="M484 344 H620 L336 680 H204 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G42</span><span class="nm">Z</span></p>
+      <p class="idea">A Z drawn as one polygon: a fold, a step and a letter in the same mark.</p>
+    </figure>
+
+    <figure class="tile" id="G43">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Chevron">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M252 222 L752 512 L252 802 V622 L482 512 L252 402 Z" fill="#f4f3ee"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Chevron, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M244 212 L762 512 L244 812 V618 L480 512 L244 406 Z" fill="#f4f3ee"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G43</span><span class="nm">Chevron</span></p>
+      <p class="idea">A single chevron pointing right: a direction with a mass, not an arrowhead on a wire.</p>
+    </figure>
+
+    <figure class="tile" id="G44">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Half and half">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="192" y="192" width="320" height="640" fill="#f4f3ee"/>
+<rect x="512" y="192" width="320" height="640" fill="#8fb0cd"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Half and half, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<rect x="186" y="186" width="330" height="652" fill="#f4f3ee"/>
+<rect x="516" y="186" width="322" height="652" fill="#8fb0cd"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G44</span><span class="nm">Half</span></p>
+      <p class="idea">Exact halves, paper and accent: the simplest possible duotone, and it still has a seam.</p>
+    </figure>
+
+    <figure class="tile" id="G45">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Chevron cut">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M192 192 H832 V832 H192 Z" fill="#f4f3ee"/>
+<path d="M392 832 L512 602 L632 832 Z" fill="#111318"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Chevron cut, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M186 186 H838 V838 H186 Z" fill="#f4f3ee"/>
+<path d="M380 838 L512 590 L644 838 Z" fill="#111318"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G45</span><span class="nm">Notch</span></p>
+      <p class="idea">A chevron bitten out of the bottom edge: a page with a tab cut out of it.</p>
+    </figure>
+
+    <figure class="tile" id="G46">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Chamfer and rule">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M192 192 H832 V532 L532 832 H192 Z" fill="#f4f3ee"/>
+<path d="M612 192 L192 612" stroke="#8fb0cd" stroke-width="46" fill="none"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Chamfer and rule, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M186 186 H838 V536 L536 838 H186 Z" fill="#f4f3ee"/>
+<path d="M618 186 L186 618" stroke="#8fb0cd" stroke-width="62" fill="none"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G46</span><span class="nm">Chamfer</span></p>
+      <p class="idea">A chamfer with a parallel accent rule inside: a cut, and the measurement of the cut.</p>
+    </figure>
+
+  </div>
+</section>
+
+<section id="f7">
+  <div class="sechead"><span class="n">07</span><h2>One line</h2><span class="v">G47–G50</span></div>
+  <p class="fam">A single continuous stroke, bent two or three times. The most minimal family in the whole set,
+    and the one with the highest ratio of failures: a line is only a mark if its path is memorable.</p>
+  <div class="grid">
+
+    <figure class="tile" id="G47">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Snake">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M222 262 H702 V512 H322 V762 H802" fill="none" stroke="#f4f3ee" stroke-width="90" stroke-linejoin="miter"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Snake, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M212 254 H706 V512 H318 V770 H812" fill="none" stroke="#f4f3ee" stroke-width="112"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G47</span><span class="nm">Switchback</span></p>
+      <p class="idea">One line that turns three times: a path, a branch and a zigzag, all the same stroke.</p>
+    </figure>
+
+    <figure class="tile" id="G48">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Square spiral">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 512 H662 V362 H362 V662 H812 V212" fill="none" stroke="#f4f3ee" stroke-width="76"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Square spiral, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 512 H670 V354 H354 V670 H818 V202" fill="none" stroke="#f4f3ee" stroke-width="96"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G48</span><span class="nm">Spiral</span></p>
+      <p class="idea">A square spiral: unwinding from the centre, or winding in. The ambiguity is the point.</p>
+    </figure>
+
+    <figure class="tile" id="G49">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="Tree line">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M512 842 V302 H762 V562" fill="none" stroke="#f4f3ee" stroke-width="100"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="Tree line, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M506 848 V296 H766 V566" fill="none" stroke="#f4f3ee" stroke-width="124"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G49</span><span class="nm">Tree line</span></p>
+      <p class="idea">One stroke: up, right, down. A tree, a branch and an elbow, with no head at the end.</p>
+    </figure>
+
+    <figure class="tile" id="G50">
+      <div class="pair">
+        <div class="slot"><svg width="96" height="96" viewBox="0 0 1024 1024" role="img" aria-label="U">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M232 302 H792 V742 H232" fill="none" stroke="#f4f3ee" stroke-width="100"/>
+</svg><b>96</b></div>
+        <div class="slot"><svg width="16" height="16" viewBox="0 0 1024 1024" aria-label="U, small">
+<rect x="100" y="100" width="824" height="824" rx="185" fill="#111318"/>
+<path d="M222 294 H802 V750 H222" fill="none" stroke="#f4f3ee" stroke-width="124"/>
+</svg><b>16</b></div>
+      </div>
+      <p class="meta"><span class="id">G50</span><span class="nm">Return</span></p>
+      <p class="idea">Right, down and back: the only icon that points left, and the only one that closes.</p>
+    </figure>
+
+  </div>
+</section>
+
+<p class="foot">
+  Sheet 3 of 5 · 50 icons (G01–G50). Shown at 96 px and at 16 px from the same 1024 viewBox.
+  The monograms are the only letters in the whole set, because there the letter is the mark.
+  → <a href="sheet-4.html">Sheet 4, Material</a> · <a href="index.html">Index and shortlist</a>
+</p>
+
+</div>
+</body>
+</html>
