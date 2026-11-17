@@ -498,9 +498,10 @@ export function App(): JSX.Element {
         return;
       }
       // `⌘↑`/`⌘↓` move to the previous/next page start in Page. The movement is
-      // global to the surface (it keeps working after the page jump moved focus
-      // to the indicator), but never inside a text field or the Page Edit
-      // overlay: there the arrows belong to the caret.
+      // global to the surface: it keeps working from the toolbar pager — the
+      // page field included, since that field only ever holds a page number —
+      // but never inside another text field or the Page Edit overlay: there the
+      // arrows belong to the caret.
       if (
         layout === 'page' &&
         event.metaKey &&
@@ -510,7 +511,10 @@ export function App(): JSX.Element {
         (event.key === 'ArrowUp' || event.key === 'ArrowDown')
       ) {
         const target = event.target;
+        const inPager =
+          target instanceof Element && target.closest('[data-page-position-input]') !== null;
         if (
+          !inPager &&
           target instanceof Element &&
           target.closest('input, textarea, [contenteditable="true"]') !== null
         ) {

@@ -852,10 +852,16 @@ describe('V0 visual shell', () => {
     assert.equal(await header.locator('[data-header-redo="true"]').count(), 1);
     assert.equal(await header.locator('[data-page-nav]').count(), 0, 'no pager arrows (PG1)');
     assert.equal(await header.locator('[data-page-counter]').count(), 0, 'no page badge (PG1)');
+    const pager = page.locator('.nf-toolbar [data-page-position]');
+    assert.equal(
+      await pager.locator('[data-page-position-input]').inputValue(),
+      '1',
+      'the pager field reads the page under the viewport centre',
+    );
     assert.match(
-      await page.locator('.nf-toolbar [data-page-position]').innerText(),
-      /^1 \/ \d+$/,
-      'the Toolbar indicator reads the page under the viewport centre',
+      await pager.locator('[data-page-position-total]').innerText(),
+      /^\/ \d+$/,
+      'the label after the field names the total',
     );
     assert.equal(await header.locator('[data-page-export="true"]').count(), 1);
     assert.equal(await header.locator('[data-page-fit]').count(), 0, 'no page fit in the header');

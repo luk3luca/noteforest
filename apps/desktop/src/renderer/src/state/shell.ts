@@ -92,7 +92,6 @@ export type DialogState =
   | { kind: 'link'; href: string }
   | { kind: 'math'; mathKind: 'inline' | 'block'; latex: string; pos: number | null }
   | { kind: 'table-size' }
-  | { kind: 'page-jump' }
   | { kind: 'close-tab'; packagePath: string }
   | { kind: 'markdown-close'; path: string }
   | { kind: 'markdown-conflict'; path: string }

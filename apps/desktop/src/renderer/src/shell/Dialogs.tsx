@@ -52,7 +52,6 @@ import { Details, DetailsDialog } from './Details';
 import { errorToast } from '../lib/toast-details';
 import { Frame } from './DialogFrame';
 import { HealthRepairDialog } from './HealthRepairDialog';
-import { PageJumpDialog } from './PageJumpDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { TableSizeDialog } from './TableSizeDialog';
 
@@ -974,10 +973,6 @@ export function Dialogs(): JSX.Element | null {
 
   if (dialog.kind === 'table-size') {
     return <TableSizeDialog onClose={close} />;
-  }
-
-  if (dialog.kind === 'page-jump') {
-    return <PageJumpDialog onClose={close} />;
   }
 
   if (dialog.kind === 'close-tab') {

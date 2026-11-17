@@ -6,11 +6,11 @@ import { ZoomControls } from './ViewControls';
 import { isMarkdownPath } from '../../../shared/markdown';
 
 /**
- * The 44 px Toolbar (shell C): the document tab strip, the page indicator in
- * Page, the layout-aware zoom stepper, and the command palette. Layout/mode
+ * The 44 px Toolbar (shell C): the document tab strip, the page position pager
+ * in Page, the layout-aware zoom stepper, and the command palette. Layout/mode
  * moved to the fixed canvas header; the Toolbar no longer carries view
  * segments. A Markdown guest file has no continuous-canvas zoom or pages, so
- * the stepper and the indicator are absent there.
+ * the stepper and the pager are absent there.
  */
 export function Toolbar(): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);

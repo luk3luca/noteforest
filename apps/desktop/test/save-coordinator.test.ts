@@ -236,6 +236,42 @@ describe('SaveCoordinator failure, retry, and recovery', () => {
     expect(h.coordinator.saveError).toBeNull();
   });
 
+  it('drops the draft target failure once the draft materialized and saves again', async () => {
+    const h = harness();
+    // A live lock fails four consecutive writes (the last attempt exhausts the
+    // backoff), exactly as repeated content commits against a draft target do.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      h.saveResponses.push(failed('lock-lost', 'Another window has this note open.'));
+      await h.coordinator.saveNow();
+    }
+    expect(h.coordinator.saveState).toBe('error');
+    expect(h.coordinator.saveFailure?.attempt).toBe(4);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.writeOptions).toHaveLength(4);
+
+    // The package exists now: the verdict taken against the draft target is
+    // stale, so the recovery surface must go away and the autosave resume.
+    h.coordinator.materializationSucceeded();
+    expect(h.coordinator.saveFailure).toBeNull();
+    expect(h.coordinator.saveError).toBeNull();
+    expect(h.coordinator.saveState).toBe('unsaved');
+    expect(h.coordinator.dirty).toBe(true);
+
+    h.saveResponses.push(saved(7));
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
+    expect(h.writeOptions).toHaveLength(5);
+    expect(h.coordinator.saveState).toBe('saved');
+    expect(h.coordinator.saveFailure).toBeNull();
+  });
+
+  it('schedules no write when a materialization succeeds with nothing pending', async () => {
+    const h = harness();
+    h.coordinator.materializationSucceeded();
+    expect(h.coordinator.saveState).toBe('saved');
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.writeOptions).toHaveLength(0);
+  });
+
   it('skips the write when the content commit failed and keeps the typed failure', async () => {
     let coordinator: SaveCoordinator | null = null;
     const h = harness({

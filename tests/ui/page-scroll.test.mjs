@@ -13,11 +13,11 @@ import {
 } from '../support/page-fixtures.mjs';
 
 /**
- * PG1 — Page as a scroll of pages.
+ * PG1 — Page as a scroll of pages (PP1: toolbar pager).
  *
  * The surface is one vertical column of touching pages with a 1 px seam, free
- * scroll, and no paging state. The toolbar indicator names the page under the
- * centre of the viewport; the jump and `⌘↑`/`⌘↓` scroll to a page start; only
+ * scroll, and no paging state. The toolbar pager names the page under the
+ * centre of the viewport, moves with its arrows, and takes a typed page; only
  * the visible window ±2 is mounted over exact-size placeholders. Zoom is
  * fit-relative: 100 % fills the width, 200 % scrolls horizontally, 50 % leaves
  * margins. The page model, the page count, the page chrome and the PDF are
@@ -26,6 +26,7 @@ import {
 
 const tempRoot = artifactsPath('page-scroll-ui');
 const screenshotDir = artifactsPath('page-scroll');
+const polishDir = artifactsPath('page-polish');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
@@ -126,10 +127,55 @@ async function surface() {
       clientWidth: scroller.clientWidth,
       clientHeight: scroller.clientHeight,
       snap: getComputedStyle(scroller).scrollSnapType,
-      indicator: document.querySelector('.nf-toolbar [data-page-position]')?.textContent ?? '',
+      pager: (() => {
+        const root = document.querySelector('.nf-toolbar [data-page-position]');
+        if (root === null) return null;
+        const input = root.querySelector('[data-page-position-input]');
+        const total = root.querySelector('[data-page-position-total]');
+        return {
+          value: input?.value ?? '',
+          total: total?.textContent ?? '',
+          prevDisabled: root.querySelector('[data-page-position-prev]')?.disabled ?? null,
+          nextDisabled: root.querySelector('[data-page-position-next]')?.disabled ?? null,
+        };
+      })(),
       zoomLabel: document.querySelector('[data-zoom-value]')?.textContent ?? '',
     };
   });
+}
+
+/** The toolbar pager as the shell exposes it (PP1). */
+async function pagerState() {
+  return page.evaluate(() => {
+    const root = document.querySelector('.nf-toolbar [data-page-position]');
+    const input = root?.querySelector('[data-page-position-input]');
+    return {
+      value: input?.value ?? '',
+      total: root?.querySelector('[data-page-position-total]')?.textContent ?? '',
+      prevDisabled: root?.querySelector('[data-page-position-prev]')?.disabled ?? null,
+      nextDisabled: root?.querySelector('[data-page-position-next]')?.disabled ?? null,
+      focused: document.activeElement === input,
+      selectionStart: input?.selectionStart ?? null,
+      selectionEnd: input?.selectionEnd ?? null,
+      role: root?.getAttribute('role') ?? null,
+      ariaLabel: root?.getAttribute('aria-label') ?? null,
+      inputLabel: input?.getAttribute('aria-label') ?? null,
+      hasPopup: root?.getAttribute('aria-haspopup') ?? null,
+      jumpInputs: document.querySelectorAll('[data-page-jump-input], [data-page-jump-go]').length,
+    };
+  });
+}
+
+/** Wait for the pager field to show one page (a store round trip). */
+async function waitPagerValue(expected, { timeout = 10000 } = {}) {
+  await page.waitForFunction(
+    (value) => {
+      const input = document.querySelector('.nf-toolbar [data-page-position-input]');
+      return input !== null && input.value === String(value);
+    },
+    expected,
+    { timeout },
+  );
 }
 
 async function setScroll({ top, left }) {
@@ -158,6 +204,7 @@ describe('PG1 Page as a scroll of pages', () => {
   before(async () => {
     await rm(tempRoot, { recursive: true, force: true });
     await mkdir(screenshotDir, { recursive: true });
+    await mkdir(polishDir, { recursive: true });
   });
 
   afterEach(async () => {
@@ -228,8 +275,9 @@ describe('PG1 Page as a scroll of pages', () => {
       pageTwo !== null && pageThree !== null && pageTwo.bottom > 0 && pageThree.top < stopped.clientHeight,
       'the seam sits inside the viewport (bottom of one page and top of the next)',
     );
-    assert.equal(stopped.current, 3, 'the indicator names the page under the centre');
-    assert.equal(stopped.indicator, `3 / ${stopped.pageCount}`);
+    assert.equal(stopped.current, 3, 'the pager names the page under the centre');
+    assert.equal(stopped.pager?.value, '3');
+    assert.equal(stopped.pager?.total, `/ ${stopped.pageCount}`);
     assert.ok(
       stopped.scrollTop % 1 === 0 && stopped.scrollTop > 0,
       'the stopped offset is a free scroll position, not a page boundary',
@@ -315,12 +363,14 @@ describe('PG1 Page as a scroll of pages', () => {
     await ui.gotoPage(3);
     await ui.waitCurrentPage(3);
     const jumped = await surface();
-    assert.equal(jumped.indicator, `3 / ${jumped.pageCount}`);
+    assert.equal(jumped.pager?.value, '3', 'the pager field shows the jumped page');
+    assert.equal(jumped.pager?.total, `/ ${jumped.pageCount}`);
     const jumpedSheet = await sheetBox(3);
     assert.ok(jumpedSheet !== null && Math.abs(jumpedSheet.top) <= 2, 'the jump lands on the page start');
 
-    // The jump returns focus to the indicator: the movement keys still work
-    // there (they are a shell channel, not a page-local key handler).
+    // The pager keeps focus in its field after the jump: the movement keys
+    // still work there (a shell channel, with the page field as its one
+    // documented text-input exception).
     await page.keyboard.press('Meta+ArrowDown');
     await ui.waitCurrentPage(4);
     const fourth = await sheetBox(4);
@@ -337,10 +387,155 @@ describe('PG1 Page as a scroll of pages', () => {
     assert.ok(afterKey > beforeKey, `PageDown scrolls the pages (${beforeKey} -> ${afterKey})`);
     await page.keyboard.press('ArrowDown');
     await page.waitForTimeout(80);
+    const arrowKey = (await surface()).scrollTop;
+    assert.ok(arrowKey > afterKey, 'the arrow key keeps scrolling inside the region');
+    await page.keyboard.press('PageUp');
+    await page.waitForTimeout(120);
     assert.ok(
-      (await surface()).scrollTop > afterKey,
-      'the arrow key keeps scrolling inside the region',
+      (await surface()).scrollTop < arrowKey,
+      'PageUp scrolls one viewport back; the keys are never paging commands',
     );
+  });
+
+  it('pages with the toolbar arrows and a typed page, with no jump dialog', async () => {
+    await launch('pp1-pager');
+    await h.setWindowSize(1440, 900);
+    const env = ui.isolated('pp1-pager');
+    await openPackage(env, 'Page pager', longDocument());
+    await showPageRead();
+
+    const state = await surface();
+    const last = state.pageCount;
+    assert.ok(last >= 3, 'the fixture spans several pages');
+
+    // At rest: page 1, the up arrow disabled at the first page, a slash label.
+    const rest = await pagerState();
+    assert.equal(rest.role, 'group');
+    assert.equal(rest.ariaLabel, 'Page position');
+    assert.equal(rest.inputLabel, 'Page');
+    assert.equal(rest.value, '1');
+    assert.equal(rest.total, `/ ${last}`, 'a slash, not “of”');
+    assert.equal(rest.prevDisabled, true, 'Previous page is disabled on the first page');
+    assert.equal(rest.nextDisabled, false);
+    assert.equal(rest.hasPopup, null, 'the pager is not a dialog trigger');
+    assert.equal(rest.jumpInputs, 0, 'the page jump dialog is gone');
+    assert.equal(state.current, 1);
+    await h.screenshot(join(polishDir, 'pager-rest-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Clicking the field selects its content.
+    const input = page.locator('.nf-toolbar [data-page-position-input]');
+    await input.click();
+    const focused = await pagerState();
+    assert.equal(focused.focused, true, 'the field takes focus');
+    assert.equal(focused.selectionStart, 0);
+    assert.equal(focused.selectionEnd, focused.value.length, 'a click selects the page');
+    await h.screenshot(join(polishDir, 'pager-focused-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // Digits only: a stray letter never reaches the store.
+    await input.fill(`1a${last > 2 ? 2 : ''}`);
+    assert.equal(await input.inputValue(), `1${last > 2 ? 2 : ''}`);
+    assert.equal((await surface()).current, 1, 'typing alone never moves the surface');
+
+    // Enter jumps to the page start and keeps the value deterministic.
+    const entered = last > 2 ? 2 : last;
+    await input.fill(String(entered));
+    await input.press('Enter');
+    await ui.waitCurrentPage(entered);
+    await waitPagerValue(entered);
+    const enteredSheet = await sheetBox(entered);
+    assert.ok(
+      enteredSheet !== null && Math.abs(enteredSheet.top) <= 2,
+      'Enter lands on the page start',
+    );
+
+    // Escape restores the page you were on; it never jumps.
+    await input.fill(String(last));
+    await input.press('Escape');
+    await waitPagerValue(entered);
+    assert.equal((await surface()).current, entered, 'Escape leaves the page unchanged');
+    assert.equal(await input.inputValue(), String(entered), 'Escape restores the field');
+
+    // An empty value restores instead of jumping to 1.
+    await input.fill('');
+    await input.press('Enter');
+    await waitPagerValue(entered);
+    assert.equal((await surface()).current, entered, 'an empty value restores the page');
+
+    // Blur commits like Enter.
+    const blurTarget = last > 2 ? 3 : last;
+    await input.fill(String(blurTarget));
+    await page.locator('[data-zoom-value]').click();
+    await ui.waitCurrentPage(blurTarget);
+    await waitPagerValue(blurTarget);
+    const blurSheet = await sheetBox(blurTarget);
+    assert.ok(blurSheet !== null && Math.abs(blurSheet.top) <= 2, 'blur commits the typed page');
+
+    // Out-of-range values clamp; the last page disables Next page.
+    await input.fill('999');
+    await input.press('Enter');
+    await ui.waitCurrentPage(last);
+    await waitPagerValue(last);
+    const clamped = await pagerState();
+    assert.equal(clamped.prevDisabled, false);
+    assert.equal(clamped.nextDisabled, true, 'Next page is disabled on the last page');
+    await h.screenshot(join(polishDir, 'pager-last-page-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    await input.fill('0');
+    await input.press('Enter');
+    await ui.waitCurrentPage(1);
+    await waitPagerValue(1);
+    assert.equal(
+      (await pagerState()).prevDisabled,
+      true,
+      'the down-to-up clamp lands on the first page',
+    );
+    await h.screenshot(join(polishDir, 'pager-first-page-1440x900.png'), {
+      width: 1440,
+      height: 900,
+    });
+
+    // The arrows move one page start each, and scrolling writes the number
+    // back without a loop (the page model never re-runs).
+    const runs = (await surface()).runs;
+    await page.locator('[data-page-position-next]').click();
+    await ui.waitCurrentPage(2);
+    await waitPagerValue(2);
+    const second = await sheetBox(2);
+    assert.ok(second !== null && Math.abs(second.top) <= 2, 'Next page lands on a page start');
+
+    await page.locator('.nf-editor[data-active="true"] .nf-page-scroll').focus();
+    const beforeScroll = await surface();
+    const third = await sheetBox(3);
+    // Put the viewport centre 30 px inside page 3 (the store keeps the page
+    // the centre names, and the field follows that same page).
+    await setScroll({
+      top: beforeScroll.scrollTop + third.slotTop - beforeScroll.clientHeight / 2 + 30,
+    });
+    assert.equal((await surface()).current, 3, 'scrolling writes the page under the centre');
+    await waitPagerValue(3);
+    assert.equal((await surface()).runs, runs, 'no page-model run from the control');
+
+    // A typed page then an arrow applies the value once and steps once, never
+    // twice: the blur commit has already asked for page 2, so Next lands on 3.
+    await input.fill('2');
+    await page.locator('[data-page-position-next]').click();
+    await ui.waitCurrentPage(3);
+    await waitPagerValue(3);
+
+    await page.locator('[data-page-position-prev]').click();
+    await ui.waitCurrentPage(2);
+    await waitPagerValue(2);
+    const back = await sheetBox(2);
+    assert.ok(back !== null && Math.abs(back.top) <= 2, 'Previous page lands on a page start');
   });
 
   it('keeps 100 % at fit width, 200 % scrolling horizontally, and 50 % with margins', async () => {

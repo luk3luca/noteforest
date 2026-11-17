@@ -352,17 +352,17 @@ export function createUiSession({ tempRoot }) {
   }
 
   /**
-   * Scroll to one page start through the product path: the toolbar indicator
-   * opens the page jump. Waits until the page is mounted and its top sits at
-   * the top of the viewport (or the scroll is clamped at the end of the note).
+   * Scroll to one page start through the product path: the toolbar pager takes
+   * a typed page and `↵` (PP1; the jump dialog is gone). Waits until the page
+   * is mounted and its top sits at the top of the viewport (or the scroll is
+   * clamped at the end of the note).
    */
   async function gotoPage(pageNumber, { timeout = 15000 } = {}) {
-    const indicator = current().locator(
+    const position = current().locator(
       '.nf-toolbar [data-page-position][data-page-position-ready="true"]',
     );
-    await indicator.waitFor({ state: 'visible' });
-    await indicator.click();
-    const input = current().locator('[data-page-jump-input]');
+    await position.waitFor({ state: 'visible' });
+    const input = position.locator('[data-page-position-input]');
     await input.waitFor({ state: 'visible', timeout });
     await input.fill(String(pageNumber));
     await input.press('Enter');
