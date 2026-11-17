@@ -80,13 +80,13 @@ rule *is* the message, and a line crossing it would suggest a continuity the pap
 - Not a change to Continuous: it stays the canvas with branch arrows, no page chrome.
 - Not a two-page spread, not a thumbnail grid, not a book gutter.
 
-## 9. Open questions
+## 9. Resolved decisions (17 November 2026)
 
-1. **Seam thickness**: a 1 px rule with pages touching (recommended, "printed document"), or a 1 px
-   rule plus 6–8 px of background so the paper edge is legible at a glance?
-2. **Indicator placement**: in the toolbar next to the zoom (recommended), or floating over the paper in
-   the bottom-right corner like a page badge?
-3. **Zoom in**: allowed up to what ceiling — the existing 200 %, or a fixed "one page width ×2"?
+1. **Seam:** pages touch, a 1 px hairline in the page scope's existing rule colour (no new token), no
+   gap and no number in the seam. The "printed document" reading wins.
+2. **Indicator:** in the toolbar next to the zoom, not floating over the paper.
+3. **Zoom ceiling:** **200 %**, as today. `100 %` is fit width; below it the page shrinks with margins,
+   above it a horizontal scrollbar appears.
 
 ## 10. Migration notes (for the brief)
 
