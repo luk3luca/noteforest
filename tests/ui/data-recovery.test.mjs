@@ -4,7 +4,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { artifactsPath, killTestAppsUnder } from '../support/harness.mjs';
 import { createUiSession } from '../support/ui-session.mjs';
-import { pageDocument, writePagePackage } from '../support/page-fixtures.mjs';
+import { pageDocument, paragraph, writePagePackage } from '../support/page-fixtures.mjs';
 
 /**
  * Data and recovery (DR1, `core` reasons at the boundary).
@@ -21,6 +21,8 @@ import { pageDocument, writePagePackage } from '../support/page-fixtures.mjs';
 
 const tempRoot = artifactsPath('data-recovery-temp');
 const screenshotDir = artifactsPath('data-recovery');
+/** VH1 evidence (part B): the refused note with its Details open. */
+const hardeningDir = artifactsPath('v1-hardening');
 const ui = createUiSession({ tempRoot });
 const h = ui.harness;
 let page;
@@ -194,5 +196,202 @@ describe('core reasons at the boundary', () => {
     await details.locator('summary').click();
     const raw = await details.locator('[data-details-value="true"]').innerText();
     assert.match(raw, /newer than this app supports/);
+  });
+});
+
+/**
+ * VH1, part B: the table-cell load guard.
+ *
+ * The editor's table cells are inline-only. A canonical document whose cell
+ * holds block content opens in the existing unreadable/recovery state instead of
+ * being flattened on load (which destroyed the content on the first save), and
+ * opening it never writes `document.json`. An ordinary inline-only table is
+ * unaffected.
+ */
+describe('table cell guard (VH1)', () => {
+  before(async () => {
+    killTestAppsUnder(tempRoot);
+    await rm(tempRoot, { recursive: true, force: true });
+    await mkdir(tempRoot, { recursive: true });
+    await mkdir(screenshotDir, { recursive: true });
+    await mkdir(hardeningDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    try {
+      await h.quit();
+    } finally {
+      killTestAppsUnder(tempRoot);
+    }
+  });
+
+  after(async () => {
+    killTestAppsUnder(tempRoot);
+    await rm(tempRoot, { recursive: true, force: true });
+  });
+
+  /** A cell with exactly one paragraph: the shape the editor produces. */
+  function inlineCell(type, text) {
+    return { type, children: [paragraph(text)] };
+  }
+
+  /** A cell with block content: the shape the editor cannot represent. */
+  function richCell(texts) {
+    return { type: 'tableCell', children: texts.map((text) => paragraph(text)) };
+  }
+
+  /** Click at the far right of a cell so the caret lands after its text. */
+  async function clickCellEnd(cell) {
+    const box = await cell.boundingBox();
+    assert.ok(box !== null, 'the cell has a box');
+    await cell.click({ position: { x: box.width - 4, y: box.height / 2 } });
+  }
+
+  /** The visible text of one inline-only cell (its single paragraph's text). */
+  function cellText(cell) {
+    return (cell.children[0]?.children ?? []).map((child) => child.text ?? '').join('');
+  }
+
+  function tableDocument({ id, title, bodyCells }) {
+    return pageDocument({
+      id,
+      title,
+      blocks: [
+        {
+          id: `${id}-block`,
+          label: 'Table',
+          content: {
+            type: 'doc',
+            children: [
+              paragraph('A table follows.'),
+              {
+                type: 'table',
+                children: [
+                  {
+                    type: 'tableRow',
+                    children: [inlineCell('tableHeader', 'Head')],
+                  },
+                  {
+                    type: 'tableRow',
+                    children: [
+                      { type: 'tableCell', children: bodyCells },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    });
+  }
+
+  async function openFromLibrary(packagePath) {
+    await page.waitForSelector('[data-sidebar-panel="library"] [role="tree"]');
+    const row = page.locator(`[data-vault-path="${packagePath}"] [data-library-document="true"]`);
+    await row.waitFor({ timeout: 15000 });
+    await row.click();
+  }
+
+  it('refuses a rich cell, shows Details, and leaves document.json byte-identical', { timeout: 120000 }, async () => {
+    const env = ui.isolated('table-guard-rich');
+    const packagePath = await writePagePackage(
+      env.NOTEFOREST_LIBRARY,
+      'Rich cell',
+      tableDocument({
+        id: 'rich-cell',
+        title: 'Rich cell',
+        bodyCells: [paragraph('first line'), paragraph('second line')],
+      }),
+    );
+    const documentPath = join(packagePath, 'document.json');
+    const before = await readFile(documentPath);
+
+    await launch(env);
+    await openFromLibrary(packagePath);
+    await page.waitForSelector('[data-recovery-surface="true"]', { timeout: 20000 });
+
+    // The existing unreadable state, not an editor: the note never opened.
+    assert.equal(
+      await page.locator('[data-recovery-surface]').getAttribute('data-recovery-status'),
+      'unreadable',
+    );
+    assert.equal(
+      await page.locator('.nf-editor[data-active="true"] [data-block-card]').count(),
+      0,
+      'no editor mounts for a refused note',
+    );
+    const reasonCell = page.locator('[data-recovery-reason="true"]');
+    const reasonText = (await reasonCell.innerText()).split('\n')[0];
+    assert.equal(reasonText, 'The file isn’t valid NoteForest data.');
+    assert.doesNotMatch(reasonText, /table cell|paragraph|block/i);
+
+    const details = reasonCell.locator('details[data-details="true"]');
+    await details.waitFor();
+    assert.equal(await details.locator('summary').innerText(), 'Details');
+    await details.locator('summary').click();
+    const raw = await details.locator('[data-details-value="true"]').innerText();
+    assert.match(raw, /table cell holds 2 blocks \(paragraph\)/);
+    assert.match(raw, /blocks\.rich-cell-block\.content/);
+    await page.screenshot({ path: join(hardeningDir, 'refused-rich-table-cell-details.png') });
+
+    // Nothing was written: no lock, no migration, no autosave touched the file.
+    await page.waitForTimeout(1200);
+    const after = await readFile(documentPath);
+    assert.equal(Buffer.compare(before, after), 0, 'document.json stays byte-identical');
+  });
+
+  it('opens, edits, saves and reloads an ordinary inline-only table', { timeout: 180000 }, async () => {
+    const env = ui.isolated('table-guard-inline');
+    const packagePath = await writePagePackage(
+      env.NOTEFOREST_LIBRARY,
+      'Inline cell',
+      tableDocument({
+        id: 'inline-cell',
+        title: 'Inline cell',
+        bodyCells: [paragraph('typed later')],
+      }),
+    );
+    await launch(env);
+    await openFromLibrary(packagePath);
+
+    const table = page.locator('.nf-editor[data-active="true"] .nf-block-prose table').first();
+    await table.waitFor({ timeout: 20000 });
+    assert.equal(await table.locator('tr').count(), 2, 'one header row and one body row render');
+    assert.equal(await table.locator('th').count(), 1, 'the header cell renders');
+    assert.equal(await table.locator('td').count(), 1, 'the body cell renders');
+
+    const cell = table.locator('td').first();
+    await clickCellEnd(cell);
+    await page.keyboard.type(' and edited');
+    await h.waitSaved();
+
+    // The canonical cell keeps the inline-only shape: one paragraph, not a
+    // flattened projection and not a block list.
+    const saved = JSON.parse(await readFile(join(packagePath, 'document.json'), 'utf8'));
+    const body = saved.blocks['inline-cell-block'].content.children;
+    const tableNode = body.find((node) => node.type === 'table');
+    const bodyCell = tableNode.children[1].children[0];
+    assert.equal(bodyCell.type, 'tableCell');
+    assert.equal(bodyCell.children.length, 1, 'one paragraph, one cell');
+    assert.equal(bodyCell.children[0].type, 'paragraph');
+    assert.match(cellText(bodyCell), /typed later and edited/);
+
+    // Reload from disk: the edit is there and the table is still editable.
+    await h.quit();
+    await launch(env);
+    await openFromLibrary(packagePath);
+    const reloaded = page.locator('.nf-editor[data-active="true"] .nf-block-prose table').first();
+    await reloaded.waitFor({ timeout: 20000 });
+    assert.match(await reloaded.textContent(), /typed later and edited/);
+    await clickCellEnd(reloaded.locator('td').first());
+    await page.keyboard.type(' again');
+    await h.waitSaved();
+    const resaved = JSON.parse(await readFile(join(packagePath, 'document.json'), 'utf8'));
+    const resavedCell = resaved.blocks['inline-cell-block'].content.children.find(
+      (node) => node.type === 'table',
+    ).children[1].children[0];
+    assert.equal(resavedCell.children.length, 1, 'still one paragraph after the reload');
+    assert.match(cellText(resavedCell), /typed later and edited again/);
   });
 });

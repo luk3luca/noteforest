@@ -144,8 +144,8 @@ describe('M4b1b1 Page Edit overlay visual evidence', () => {
     await page.waitForSelector('.nf-editor[data-active="true"] [data-page-edit-overlay]', {
       state: 'detached',
     });
-    await page.locator('.nf-toolbar [data-page-position-input]').fill('2');
-    await page.locator('.nf-toolbar [data-page-position-input]').press('Enter');
+    await page.locator('.nf-canvas-header [data-page-position-input]').fill('2');
+    await page.locator('.nf-canvas-header [data-page-position-input]').press('Enter');
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
       undefined,

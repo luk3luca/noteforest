@@ -1,8 +1,9 @@
 /**
- * Page position pager in the Toolbar (PP1).
+ * Page position pager in the canvas header (PP1).
  *
- * `[↑] [↓] [ 3 ] / 61` next to the zoom: the page whose box contains the centre
- * of the viewport, published by the Page surface. Up and down move to the
+ * `[↑] [↓] [ 3 ] / 61` next to the zoom, on the right side of the 34 px canvas
+ * header (VH1): the page whose box contains the centre of the viewport,
+ * published by the Page surface. Up and down move to the
  * previous/next page start — up and down because the surface scrolls
  * vertically — and the bordered field takes a typed page. The label names the
  * total with a slash, matching the app's page notation; `of` belongs to the find

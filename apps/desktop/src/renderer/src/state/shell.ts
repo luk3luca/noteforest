@@ -145,7 +145,7 @@ interface ShellState {
   /** The issue row selected in the Health list; survives closing the modal. */
   healthSelectedRowId: string | null;
   /**
-   * Find surface (phase 6). One engine, two presentations: the toolbar cluster
+   * Find surface (phase 6). One engine, two presentations: the canvas-header cluster
    * (`findOpen`) and the sidebar Search section share `findQuery`, the result
    * set and the current index. `findQuery` survives closing (the session keeps
    * the last query); the results are cleared once no surface shows them.
@@ -398,7 +398,7 @@ export const useShell = create<ShellState>((set, get) => ({
       return {
         sidebarTab: next,
         sidebarTabBeforeSearch: null,
-        // The toolbar cluster may still be open; only the last surface clears
+        // The canvas-header cluster may still be open; only the last surface clears
         // the shared result set.
         ...(state.findOpen
           ? {}

@@ -1,11 +1,11 @@
 /**
- * Toolbar find cluster (`⌘F`, docs/design/find-bar.md §2).
+ * Canvas-header find cluster (`⌘F`, docs/design/find-bar.md §2).
  *
  * The VS Code widget minus the case/regex options: query, one shared `ab`
  * whole-word toggle, `1 of 4`, previous/next, close. No case switch, no regex,
  * no options menu, no results panel. Both presentations read and write the same
  * toggle, so a change in either changes both counts.
- * It is one 28 px cluster inside the canvas toolbar, between undo/redo and the
+ * It is one 28 px cluster inside the canvas header, between undo/redo and the
  * layout/mode controls: no card, no shadow, no extra row, nothing overlays the
  * note or the page.
  *

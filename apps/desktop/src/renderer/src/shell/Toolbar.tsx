@@ -1,29 +1,22 @@
 import { Command } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { TabStrip } from './TabBar';
-import { PagePosition } from './PagePosition';
-import { ZoomControls } from './ViewControls';
-import { isMarkdownPath } from '../../../shared/markdown';
 
 /**
- * The 44 px Toolbar (shell C): the document tab strip, the page position pager
- * in Page, the layout-aware zoom stepper, and the command palette. Layout/mode
- * moved to the fixed canvas header; the Toolbar no longer carries view
- * segments. A Markdown guest file has no continuous-canvas zoom or pages, so
- * the stepper and the pager are absent there.
+ * The 44 px Toolbar (shell C): the document tab strip and the command palette.
+ *
+ * It carries no canvas tool. The page position pager and the layout-aware zoom
+ * stepper are canvas controls and live in the 34 px fixed canvas header (VH1),
+ * next to undo/redo, Export, the find cluster, and the layout/mode segments.
  */
 export function Toolbar(): JSX.Element {
   const openPalette = useShell((state) => state.setPaletteOpen);
-  const activeTab = useShell((state) => state.activeTab);
-  const markdownActive = activeTab !== null && isMarkdownPath(activeTab);
 
   return (
     <header className="nf-toolbar" data-toolbar="true">
       <div className="nf-toolbar-leading">
         <TabStrip />
       </div>
-      {markdownActive ? null : <PagePosition />}
-      {markdownActive ? null : <ZoomControls />}
       <button
         type="button"
         className="nf-toolbar-button nf-palette-button"

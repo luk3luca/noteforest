@@ -345,7 +345,11 @@ describe('Markdown file view', () => {
     assert.equal(await editor.locator('[data-chapter-id]').count(), 0);
     assert.equal(await editor.locator('.nf-edge-path').count(), 0);
     assert.equal(await editor.locator('[data-page-counter]').count(), 0);
-    assert.equal(await page.locator('.nf-toolbar [data-page-position]').count(), 0);
+    // A guest file has no forest canvas: no page position and no zoom, in
+    // either bar (VH1 moved both into the canvas header).
+    assert.equal(await page.locator('[data-page-position]').count(), 0);
+    assert.equal(await page.locator('[data-zoom-value]').count(), 0);
+    assert.equal(await page.locator('[data-markdown-header] [data-zoom-value]').count(), 0);
     assert.equal(await editor.locator('[data-page-export]').count(), 0);
     assert.equal(await editor.locator('[data-view-layout="page"]').count(), 0);
     assert.equal((await state()).runtimes.length, 0);

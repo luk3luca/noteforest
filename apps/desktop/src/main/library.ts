@@ -14,6 +14,7 @@ import {
   createDocumentCopy,
   executeCommand,
   orderKeysAfter,
+  parseDocumentJson,
   validateDocument,
   type AssetAvailability,
   type Asset,
@@ -151,6 +152,7 @@ import {
   uniqueRestoreDestination,
 } from './backup-restore.js';
 import { recoveryDetails, recoveryStatus, recoveryTitle } from './recovery-view.js';
+import { mentionsTableCells, unrepresentableTableCells } from './table-cell-guard.js';
 import {
   IMAGE_EXTENSIONS,
   MAX_IMAGE_BYTES,
@@ -1435,6 +1437,44 @@ function recoveryViewForError(packagePath: string, message: string): RecoveryDoc
   };
 }
 
+/**
+ * VH1 table-cell guard: a canonical document whose table cell holds block
+ * content opens in the existing unreadable/recovery state instead of having the
+ * cell flattened (and its content silently destroyed) by the editor. The check
+ * runs **before** the package is opened, so no lock, migration, or save can
+ * touch `document.json`; a file that does not parse is left to the normal open
+ * path, which owns the corrupt/newer-schema reasons.
+ */
+async function refuseUnrepresentableTableCells(
+  packagePath: string,
+): Promise<RecoveryDocumentView | null> {
+  let text: string;
+  try {
+    text = await fs.readFile(documentJsonPath(packagePath), 'utf8');
+  } catch {
+    return null;
+  }
+  // Cheap gate: a document without tables needs no parse here; the normal open
+  // reads and validates it exactly once.
+  if (!mentionsTableCells(text)) return null;
+  const parsed = parseDocumentJson(text);
+  if (!parsed.ok) return null;
+  const refusal = unrepresentableTableCells(parsed.document)[0];
+  if (refusal === undefined) return null;
+  return {
+    recovery: true,
+    packagePath,
+    title: recoveryTitle(packagePath, text),
+    status: 'unreadable',
+    // The row says why the package cannot open; the raw sentence, which names a
+    // block and a cell path, opens under Details only (copy-plan §E).
+    reason: recoveryReasonText('unreadable'),
+    reasonDetails: refusal.message,
+    details: [refusal.message],
+    warnings: [],
+  };
+}
+
 export async function openStore(packagePath: string): Promise<OpenStoreResult> {
   if (isDraftKey(packagePath)) {
     const draft = draftSessionForPath(packagePath);
@@ -1452,6 +1492,9 @@ export async function openStore(packagePath: string): Promise<OpenStoreResult> {
     const current = await snapshot(existing);
     if (current !== null) return { store: existing, snapshot: current };
   }
+
+  const refused = await refuseUnrepresentableTableCells(resolved);
+  if (refused !== null) return { recovery: refused };
 
   const result = await repository.open(resolved, { registerRecent: true });
   if (result.document === null) {

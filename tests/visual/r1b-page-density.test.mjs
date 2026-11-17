@@ -189,10 +189,10 @@ async function pageCount() {
   return Number(await activePageView().getAttribute('data-page-count'));
 }
 
-/** PG1/PP1: navigate by scrolling to the page start through the toolbar pager. */
+/** PG1/PP1: navigate by scrolling to the page start through the canvas-header pager. */
 async function navigate(_direction, expected) {
-  await page.locator('.nf-toolbar [data-page-position-input]').fill(String(expected));
-  await page.locator('.nf-toolbar [data-page-position-input]').press('Enter');
+  await page.locator('.nf-canvas-header [data-page-position-input]').fill(String(expected));
+  await page.locator('.nf-canvas-header [data-page-position-input]').press('Enter');
   await page.waitForFunction(
     (value) => {
       const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');

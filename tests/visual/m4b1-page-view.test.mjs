@@ -108,9 +108,9 @@ describe('M4b1a editor layouts and modes visual evidence', () => {
     await showPageView();
     await shot('page-long-1440x900.png', 1440, 900);
 
-    // PG1/PP1: page navigation is a scroll to the page start (the toolbar pager).
-    await page.locator('.nf-toolbar [data-page-position-input]').fill('2');
-    await page.locator('.nf-toolbar [data-page-position-input]').press('Enter');
+    // PG1/PP1: page navigation is a scroll to the page start (the canvas-header pager).
+    await page.locator('.nf-canvas-header [data-page-position-input]').fill('2');
+    await page.locator('.nf-canvas-header [data-page-position-input]').press('Enter');
     await page.waitForSelector(
       '.nf-editor[data-active="true"] .nf-page-sheet[data-page-current="true"] [data-page-continued-from]',
     );
@@ -118,8 +118,8 @@ describe('M4b1a editor layouts and modes visual evidence', () => {
     await shot('page-long-continuation-1440x900.png', 1440, 900);
 
     await h.setWindowSize(960, 720);
-    await page.locator('.nf-toolbar [data-page-position-input]').fill('1');
-    await page.locator('.nf-toolbar [data-page-position-input]').press('Enter');
+    await page.locator('.nf-canvas-header [data-page-position-input]').fill('1');
+    await page.locator('.nf-canvas-header [data-page-position-input]').press('Enter');
     await page.waitForTimeout(120);
     await shot('page-long-960x720.png', 960, 720);
     await h.quit();

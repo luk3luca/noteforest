@@ -21,10 +21,6 @@ import {
   splitGfmRow,
 } from '../src/renderer/src/lib/gfm-table';
 import {
-  isInlineOnlyCell,
-  normalizeTableCellChildren,
-} from '../src/renderer/src/lib/table-cell';
-import {
   rememberTableSize,
   rememberedTableSize,
   TABLE_PICKER_MAX,
@@ -206,64 +202,6 @@ describe('GFM table serializer (D)', () => {
       '| Name | Value |\n| :---: | --- |\n| lambda | 1 \\| 2 |',
     );
     expect(gfmFromTableNode({ type: 'paragraph' })).toBeNull();
-  });
-});
-
-describe('inline-only cell normalisation (D)', () => {
-  it('keeps an already inline cell unchanged', () => {
-    const cell = [paragraph(text('one'))];
-    expect(normalizeTableCellChildren(cell)).toBe(cell);
-    expect(isInlineOnlyCell(cell)).toBe(true);
-  });
-
-  it('joins paragraphs with hard breaks', () => {
-    expect(
-      normalizeTableCellChildren([paragraph(text('one')), paragraph(text('two'))]),
-    ).toEqual([
-      {
-        type: 'paragraph',
-        children: [text('one'), { type: 'hardBreak' }, text('two')],
-      },
-    ]);
-  });
-
-  it('maps list items to one line each', () => {
-    const list: ContentNode = {
-      type: 'bulletList',
-      children: [
-        { type: 'listItem', children: [paragraph(text('a'))] },
-        { type: 'listItem', children: [paragraph(text('b'))] },
-      ],
-    };
-    expect(normalizeTableCellChildren([paragraph(text('head')), list])).toEqual([
-      {
-        type: 'paragraph',
-        children: [
-          text('head'),
-          { type: 'hardBreak' },
-          text('a'),
-          { type: 'hardBreak' },
-          text('b'),
-        ],
-      },
-    ]);
-  });
-
-  it('flattens a code block and a block formula to inline content', () => {
-    expect(
-      normalizeTableCellChildren([
-        { type: 'codeBlock', children: [text('const x = 1;')] },
-      ]),
-    ).toEqual([paragraph(text('const x = 1;'))]);
-    expect(
-      normalizeTableCellChildren([{ type: 'mathBlock', attrs: { latex: 'x^2' } }]),
-    ).toEqual([paragraph({ type: 'inlineMath', attrs: { latex: 'x^2' } })]);
-  });
-
-  it('turns an empty rich cell into one empty paragraph', () => {
-    expect(normalizeTableCellChildren([])).toEqual([{ type: 'paragraph' }]);
-    expect(normalizeTableCellChildren(undefined)).toEqual([{ type: 'paragraph' }]);
-    expect(isInlineOnlyCell(undefined)).toBe(false);
   });
 });
 

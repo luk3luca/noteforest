@@ -1,7 +1,7 @@
 /**
  * Shared find engine host (docs/design/find-bar.md §1, §4).
  *
- * One linear scan feeds both presentations: the toolbar cluster (`⌘F`) and the
+ * One linear scan feeds both presentations: the canvas-header cluster (`⌘F`) and the
  * sidebar Search view read the same query, result set and current index from
  * `state/shell.ts`. This component is mounted once by the shell, so typing in
  * either input produces exactly one scan and one navigation, and closing one

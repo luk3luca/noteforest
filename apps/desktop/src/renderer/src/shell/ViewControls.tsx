@@ -97,8 +97,8 @@ export function ViewControls(): JSX.Element {
 }
 
 /**
- * Layout-aware zoom stepper for the Toolbar: minus, the percentage (click
- * resets to actual size), and plus. The former Actual/Fit width/Fit page
+ * Layout-aware zoom stepper for the canvas header: minus, the percentage
+ * (click resets to actual size), and plus. The former Actual/Fit width/Fit page
  * dropdown is removed; the keyboard/menu/palette still expose the same
  * layout-aware commands.
  */
