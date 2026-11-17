@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>App icon — round 2, the app's grammar</title>
+    <style>
+      :root {
+        --bg: #101113;
+        --panel: #17181a;
+        --text-1: #e7e8ea;
+        --text-2: #a6abb2;
+        --text-3: #949aa2;
+        --border: #2e3238;
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--text-1); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+      body { padding: 24px 16px 64px; }
+      .lab { max-width: 840px; margin: 0 auto; }
+      .eyebrow { margin: 0 0 8px; color: var(--text-3); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+      h1 { margin: 0 0 10px; font-size: 25px; font-weight: 600; letter-spacing: -0.01em; }
+      .lede { margin: 0; max-width: 68ch; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
+      h2 { margin: 34px 0 12px; font-size: 15px; font-weight: 600; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .card { display: flex; gap: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+      .icon-frame { flex: 0 0 auto; width: 132px; height: 132px; }
+      .icon-frame svg { width: 132px; height: 132px; display: block; filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.4)); }
+      .meta { min-width: 0; }
+      .name { margin: 0 0 3px; font-size: 13px; font-weight: 600; }
+      .tag { display: inline-block; margin-bottom: 7px; color: var(--text-3); font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .why { margin: 0 0 6px; color: var(--text-2); font-size: 12px; line-height: 1.5; }
+      .small { margin: 0; color: var(--text-3); font-size: 11px; line-height: 1.45; }
+      .strip { display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; }
+      .strip .s { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-3); font-size: 9px; }
+      .dock { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; }
+      .dock.dark { background: rgb(40 40 44 / 0.9); border: 1px solid #3a3a3f; }
+      .dock.light { background: rgb(245 245 247 / 0.95); border: 1px solid #d8d8dd; }
+      .dock svg { width: 55px; height: 55px; display: block; filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.25)); }
+      .fake { width: 55px; height: 55px; border-radius: 13px; background: linear-gradient(180deg, #5b6b7a, #3d4a56); opacity: 0.45; }
+      .rule { color: var(--text-2); font-size: 12.5px; line-height: 1.6; margin: 10px 0 0; }
+      .panel { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: rgb(255 255 255 / 0.02); }
+      .panel p { margin: 0; color: var(--text-2); font-size: 12px; line-height: 1.55; }
+      .panel p + p { margin-top: 8px; }
+      .panel b { color: var(--text-1); }
+      .footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 11px; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main class="lab">
+      <header>
+        <p class="eyebrow">Design lab · round 2 · not coded</p>
+        <h1>App icon — the app's own grammar</h1>
+        <p class="lede">
+          Two rules from the product, not from taste: a branch leaves a block to the <strong>right</strong> or
+          <strong>down</strong> and its arrow <strong>enters the child from the left</strong> — never upward — and the glyph is
+          made of <strong>blocks and trunks</strong>, not of a page with text lines, because a page with lines is
+          every document app.
+        </p>
+      </header>
+
+      <h2>1 · Four shapes</h2>
+      <div class="grid">
+        <!-- G -->
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="A parent block with a trunk and two children">
+              <defs><linearGradient id="bgG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e2023"/><stop offset="1" stop-color="#0f1012"/></linearGradient></defs>
+              <rect width="1024" height="1024" rx="229" fill="url(#bgG)"/>
+              <rect x="196" y="136" width="430" height="164" rx="34" fill="#fbfbf9"/>
+              <path d="M410 300 V 820" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round"/>
+              <path d="M410 462 H 596" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round"/>
+              <path d="M596 424 L 664 462 L 596 500 Z" fill="#7fa6cf"/>
+              <rect x="676" y="394" width="252" height="136" rx="30" fill="#f2f6f9"/>
+              <path d="M410 694 H 596" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round"/>
+              <path d="M596 656 L 664 694 L 596 732 Z" fill="#7fa6cf"/>
+              <rect x="676" y="626" width="252" height="136" rx="30" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">G · trunk</p>
+            <p class="name">Parent, trunk, two children</p>
+            <p class="why">The layout's own picture: a block on top, a trunk down its bottom edge, branches that go right and arrows that enter each child from the left. A tree seen from the side, drawn with the app's grammar.</p>
+            <p class="small">At 16 px: three light blocks hanging off one blue stem. The stem is vertical, so it survives shrinking.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="196" y="136" width="430" height="164" rx="34" fill="#fbfbf9"/><path d="M410 300 V 820" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round"/><path d="M410 462 H 596" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round"/><path d="M590 420 L 664 462 L 590 504 Z" fill="#7fa6cf"/><rect x="676" y="394" width="252" height="136" rx="30" fill="#f2f6f9"/><path d="M410 694 H 596" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round"/><path d="M590 652 L 664 694 L 590 736 Z" fill="#7fa6cf"/><rect x="676" y="626" width="252" height="136" rx="30" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="196" y="136" width="430" height="164" rx="34" fill="#fbfbf9"/><path d="M410 300 V 820" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round"/><path d="M410 462 H 596" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round"/><path d="M580 410 L 676 462 L 580 514 Z" fill="#7fa6cf"/><rect x="686" y="394" width="242" height="136" rx="30" fill="#f2f6f9"/><path d="M410 694 H 596" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round"/><path d="M580 642 L 676 694 L 580 746 Z" fill="#7fa6cf"/><rect x="686" y="626" width="242" height="136" rx="30" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="196" y="136" width="430" height="164" rx="34" fill="#fbfbf9"/><path d="M410 300 V 820" stroke="#7fa6cf" stroke-width="120" fill="none" stroke-linecap="round"/><path d="M410 462 H 596" stroke="#7fa6cf" stroke-width="120" fill="none" stroke-linecap="round"/><rect x="700" y="400" width="228" height="124" rx="30" fill="#f2f6f9"/><path d="M410 694 H 596" stroke="#7fa6cf" stroke-width="120" fill="none" stroke-linecap="round"/><rect x="700" y="632" width="228" height="124" rx="30" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- H -->
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="A block with a trunk that goes down and then right">
+              <rect width="1024" height="1024" rx="229" fill="url(#bgG)"/>
+              <rect x="160" y="150" width="420" height="180" rx="34" fill="#fbfbf9"/>
+              <path d="M370 330 V 640" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round"/>
+              <path d="M370 640 H 590" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round"/>
+              <path d="M590 602 L 658 640 L 590 678 Z" fill="#7fa6cf"/>
+              <rect x="672" y="556" width="252" height="170" rx="32" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">H · down, then right</p>
+            <p class="name">The below-child connector</p>
+            <p class="why">The exact path the app draws for a child placed below its parent: out of the card's bottom, down, then right into the child's left edge.</p>
+            <p class="small">At 16 px: two blocks and an L. Readable, but the L is a generic connector — it could be a flowchart.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="160" y="150" width="420" height="180" rx="34" fill="#fbfbf9"/><path d="M370 330 V 640" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round"/><path d="M370 640 H 590" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round"/><path d="M586 600 L 660 640 L 586 680 Z" fill="#7fa6cf"/><rect x="672" y="556" width="252" height="170" rx="32" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="160" y="150" width="420" height="180" rx="34" fill="#fbfbf9"/><path d="M370 330 V 640" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round"/><path d="M370 640 H 590" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round"/><path d="M576 590 L 672 640 L 576 690 Z" fill="#7fa6cf"/><rect x="682" y="556" width="242" height="170" rx="32" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="160" y="150" width="420" height="180" rx="34" fill="#fbfbf9"/><path d="M370 330 V 640" stroke="#7fa6cf" stroke-width="120" fill="none" stroke-linecap="round"/><path d="M370 640 H 590" stroke="#7fa6cf" stroke-width="120" fill="none" stroke-linecap="round"/><rect x="690" y="562" width="234" height="156" rx="32" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- I -->
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="One block, one right child, one below child">
+              <rect width="1024" height="1024" rx="229" fill="url(#bgG)"/>
+              <rect x="150" y="392" width="330" height="200" rx="34" fill="#fbfbf9"/>
+              <path d="M480 492 H 592" stroke="#7fa6cf" stroke-width="44" fill="none" stroke-linecap="round"/>
+              <path d="M592 456 L 656 492 L 592 528 Z" fill="#7fa6cf"/>
+              <rect x="668" y="410" width="226" height="164" rx="30" fill="#f2f6f9"/>
+              <path d="M315 592 V 742 H 592" stroke="#7fa6cf" stroke-width="44" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M592 706 L 656 742 L 592 778 Z" fill="#7fa6cf"/>
+              <rect x="668" y="660" width="226" height="164" rx="30" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">I · both kinds of child</p>
+            <p class="name">Right child and below child</p>
+            <p class="why">One of each: the sibling placed beside, straight to the right, and the one that wraps below through the trunk. It explains the packing rule in a single glyph.</p>
+            <p class="small">At 16 px: four shapes — too many. This one is the most informative and the least legible.</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="150" y="392" width="330" height="200" rx="34" fill="#fbfbf9"/><path d="M480 492 H 592" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round"/><path d="M588 452 L 660 492 L 588 532 Z" fill="#7fa6cf"/><rect x="668" y="410" width="226" height="164" rx="30" fill="#f2f6f9"/><path d="M315 592 V 742 H 592" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M588 702 L 660 742 L 588 782 Z" fill="#7fa6cf"/><rect x="668" y="660" width="226" height="164" rx="30" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="150" y="392" width="330" height="200" rx="34" fill="#fbfbf9"/><path d="M480 492 H 592" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round"/><rect x="672" y="414" width="222" height="156" rx="30" fill="#f2f6f9"/><path d="M315 592 V 742 H 592" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="672" y="664" width="222" height="156" rx="30" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="150" y="392" width="330" height="200" rx="34" fill="#fbfbf9"/><path d="M480 492 H 592" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round"/><rect x="676" y="420" width="218" height="144" rx="30" fill="#f2f6f9"/><path d="M315 592 V 742 H 592" stroke="#7fa6cf" stroke-width="110" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="676" y="670" width="218" height="144" rx="30" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- K -->
+        <div class="card">
+          <div class="icon-frame">
+            <svg viewBox="0 0 1024 1024" role="img" aria-label="A block that branches below">
+              <rect width="1024" height="1024" rx="229" fill="url(#bgG)"/>
+              <rect x="216" y="180" width="470" height="330" rx="36" fill="#fbfbf9"/>
+              <path d="M340 510 V 668 H 596" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M596 630 L 664 668 L 596 706 Z" fill="#7fa6cf"/>
+              <rect x="678" y="598" width="248" height="140" rx="30" fill="#f2f6f9"/>
+            </svg>
+          </div>
+          <div class="meta">
+            <p class="tag">K · the card, corrected</p>
+            <p class="name">A block that branches below</p>
+            <p class="why">Round 1's card, with the arrow fixed: the trunk leaves the bottom edge and turns right into the child. The card is a block, not a page — no text lines.</p>
+            <p class="small">At 16 px: a big block and a small one, joined from below. Clean, and clearly "a note with a branch".</p>
+            <div class="strip">
+              <span class="s"><svg width="64" height="64" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="216" y="180" width="470" height="330" rx="36" fill="#fbfbf9"/><path d="M340 510 V 668 H 596" stroke="#7fa6cf" stroke-width="56" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M592 628 L 664 668 L 592 708 Z" fill="#7fa6cf"/><rect x="678" y="598" width="248" height="140" rx="30" fill="#f2f6f9"/></svg><span>64</span></span>
+              <span class="s"><svg width="32" height="32" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="216" y="180" width="470" height="330" rx="36" fill="#fbfbf9"/><path d="M340 510 V 668 H 596" stroke="#7fa6cf" stroke-width="76" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M584 618 L 670 668 L 584 718 Z" fill="#7fa6cf"/><rect x="686" y="598" width="240" height="140" rx="30" fill="#f2f6f9"/></svg><span>32</span></span>
+              <span class="s"><svg width="16" height="16" viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#141518"/><rect x="216" y="180" width="470" height="330" rx="36" fill="#fbfbf9"/><path d="M340 510 V 668 H 596" stroke="#7fa6cf" stroke-width="120" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="700" y="602" width="226" height="132" rx="30" fill="#f2f6f9"/></svg><span>16</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2>2 · Same shape, three colours</h2>
+      <p class="rule">The glyph is decided; the colour is not. The accent is a user setting, so the icon cannot follow it — but it can take the app's own secondary tone.</p>
+      <div class="dock dark" style="margin-top: 12px">
+        <span class="fake"></span>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="196" y="136" width="430" height="164" rx="34" fill="#fbfbf9"/><path d="M410 300 V 820" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M410 462 H 596" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M596 424 L 664 462 L 596 500 Z" fill="#7fa6cf"/><rect x="676" y="394" width="252" height="136" rx="30" fill="#f2f6f9"/><path d="M410 694 H 596" stroke="#7fa6cf" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M596 656 L 664 694 L 596 732 Z" fill="#7fa6cf"/><rect x="676" y="626" width="252" height="136" rx="30" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="196" y="136" width="430" height="164" rx="34" fill="#fbfbf9"/><path d="M410 300 V 820" stroke="#8fbf9f" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M410 462 H 596" stroke="#8fbf9f" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M596 424 L 664 462 L 596 500 Z" fill="#8fbf9f"/><rect x="676" y="394" width="252" height="136" rx="30" fill="#f2f6f9"/><path d="M410 694 H 596" stroke="#8fbf9f" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M596 656 L 664 694 L 596 732 Z" fill="#8fbf9f"/><rect x="676" y="626" width="252" height="136" rx="30" fill="#f2f6f9"/></svg>
+        <svg viewBox="0 0 1024 1024"><rect width="1024" height="1024" rx="229" fill="#1e2023"/><rect x="196" y="136" width="430" height="164" rx="34" fill="#fbfbf9"/><path d="M410 300 V 820" stroke="#c9d0d6" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M410 462 H 596" stroke="#c9d0d6" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M596 424 L 664 462 L 596 500 Z" fill="#c9d0d6"/><rect x="676" y="394" width="252" height="136" rx="30" fill="#f2f6f9"/><path d="M410 694 H 596" stroke="#c9d0d6" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M596 656 L 664 694 L 596 732 Z" fill="#c9d0d6"/><rect x="676" y="626" width="252" height="136" rx="30" fill="#f2f6f9"/></svg>
+      </div>
+      <p class="rule">Blue (the default accent) · the app's soft green · paper-grey, the quiet one.</p>
+
+      <h2>3 · Why round 1 failed</h2>
+      <div class="panel">
+        <p><b>Arrows went up.</b> In the product a branch leaves to the right or goes down, and the head always
+        enters the child from the left. An upward arrow is "growth", which is not what the app does — it is a
+        tree that grows sideways and downwards.</p>
+        <p><b>The page with lines is generic.</b> Squiggles mean "document"; every note app already owns that
+        shape. The mark here must be blocks and trunks, with the text removed.</p>
+      </div>
+
+      <p class="footer">
+        Lab only, no application code. The chosen SVG exports at 1024 with the heavier small-size variants, then
+        iconset, then <code>.icns</code>.
+      </p>
+    </main>
+  </body>
+</html>
