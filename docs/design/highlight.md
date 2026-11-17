@@ -2,7 +2,7 @@
 
 **Status:** design, 17 November 2026. Two sequential batches: **F4a** (find in Page) then **F4b** (the
 highlighter). **F4a is merged at `cee3577`** (find paints the mounted pages through `CSS.highlights`);
-**F4b is next** and reuses `page/find-page-ranges.ts` unchanged.
+**F4b is merged at `0c86e8a`**: the mark renders through the content schema and `applyMarks`; a stored mark never needed the find mapping.
 **Inputs:** the spike `docs/design/find-page-highlight.md` (node-path tags + CSS Custom Highlight API),
 `docs/design/find-bar.md` (the find model), the product-owner decisions of 16 November (4–5 tones, deleting
 the text removes the highlight, it exports to PDF, the find wins visually), `page/segments.ts` (which
