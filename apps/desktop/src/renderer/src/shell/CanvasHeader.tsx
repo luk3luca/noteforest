@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, FileDown, Redo2, Undo2 } from 'lucide-react';
+import { FileDown, Redo2, Undo2 } from 'lucide-react';
 import { useShell } from '../state/shell';
 import { useRuntime } from '../state/registry';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
@@ -8,22 +8,19 @@ import { FindBar } from './FindBar';
 import { ViewControls } from './ViewControls';
 
 export interface CanvasPageControls {
-  pageNumber: number;
-  pageCount: number;
+  /** The page model is re-measuring; the page indicator stays truthful. */
   updating: boolean;
-  onPrevious: () => void;
-  onNext: () => void;
 }
 
 /**
  * Shell C header: the fixed 34 px strip inside the canvas panel.
  *
  * It is a sibling of the scroll container, never a child, so the canvas can
- * scroll while the controls stay put. Undo/redo are on the left; Page adds page
- * navigation and Export after a divider; the find cluster sits in the empty
- * centre (it shrinks its input before the layout/mode controls); the icon-only
- * layout/mode segments sit on the right. The Toolbar keeps only tabs, `+`,
- * overflow, zoom, and palette.
+ * scroll while the controls stay put. Undo/redo are on the left; Page adds
+ * Export after a divider; the find cluster sits in the empty centre (it shrinks
+ * its input before the layout/mode controls); the icon-only layout/mode
+ * segments sit on the right. The Toolbar keeps only tabs, `+`, overflow, the
+ * page indicator next to the zoom, and palette.
  */
 export function CanvasHeader({
   page,
@@ -80,31 +77,6 @@ export function CanvasHeader({
         <>
           <span className="nf-header-divider" aria-hidden="true" />
           <div className="nf-header-group" role="group" aria-label="Page controls">
-            <button
-              type="button"
-              className="nf-header-button"
-              data-page-nav="prev"
-              aria-label="Previous page"
-              title="Previous page (⌥↑)"
-              disabled={page.pageNumber <= 1}
-              onClick={page.onPrevious}
-            >
-              <ChevronLeft size={14} strokeWidth={1.6} aria-hidden="true" />
-            </button>
-            <span className="nf-page-counter" data-page-counter="true">
-              Page {page.pageNumber} of {page.pageCount}
-            </span>
-            <button
-              type="button"
-              className="nf-header-button"
-              data-page-nav="next"
-              aria-label="Next page"
-              title="Next page (⌥↓)"
-              disabled={page.pageNumber >= page.pageCount}
-              onClick={page.onNext}
-            >
-              <ChevronRight size={14} strokeWidth={1.6} aria-hidden="true" />
-            </button>
             {page.updating ? (
               <span key="page-updating" className="nf-page-status">
                 Updating…

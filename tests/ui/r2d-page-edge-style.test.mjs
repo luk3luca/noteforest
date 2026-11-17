@@ -52,6 +52,16 @@ function activePageView() {
   return page.locator('.nf-editor[data-active="true"] .nf-page-view');
 }
 
+/** The sheet the toolbar indicator names: page-local queries read this one. */
+function currentSheet() {
+  return activePageView().locator('.nf-page-sheet[data-page-current="true"]');
+}
+
+/** The current page's slot: the sheet plus the Page Edit overlay over it. */
+function currentSlot() {
+  return activePageView().locator('[data-page-slot-current="true"]');
+}
+
 async function waitPageReady(expectedCount = null) {
   await page.waitForFunction(
     (count) => {
@@ -111,7 +121,7 @@ async function setPageSettingsOverride(packagePath, override) {
 }
 
 async function contentBox() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-content]')
     .evaluate((element) => ({
       width: Number.parseFloat(element.style.width),
@@ -120,7 +130,7 @@ async function contentBox() {
 }
 
 async function fragmentBoxes() {
-  return activePageView()
+  return currentSheet()
     .locator('.nf-page-fragment')
     .evaluateAll((elements) =>
       elements.map((element) => ({
@@ -184,7 +194,7 @@ function routeHitsRect(points, rect, tolerance = 1) {
 }
 
 async function readEdges() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-edge-id]')
     .evaluateAll((elements) =>
       elements.map((element) => {
@@ -307,7 +317,7 @@ async function assertOrthogonalPageRoutes(label) {
 }
 
 async function pointerProbe() {
-  return activePageView().locator('.nf-page-edges').evaluate((element) => {
+  return currentSheet().locator('.nf-page-edges').evaluate((element) => {
     const path = element.querySelector('.nf-page-edge-path');
     if (path === null || !(path instanceof SVGPathElement)) return null;
     const point = path.getPointAtLength(path.getTotalLength() / 2);
@@ -393,7 +403,7 @@ describe('R2d page edge style', () => {
     );
 
     // Page fragment selection still works through the arrow layer.
-    await activePageView().locator('[data-fragment-block="comp-child"]').click();
+    await currentSheet().locator('[data-fragment-block="comp-child"]').click();
     const state = await h.state();
     assert.equal(
       state.runtimes.find((item) => item.packagePath === state.activeTab)?.selectedBlockId,
@@ -469,8 +479,8 @@ describe('R2d page edge style', () => {
     await waitPageReady();
     await assertOrthogonalPageRoutes('Page Edit');
 
-    await activePageView().locator('[data-fragment-block="comp-child"]').dblclick();
-    const overlay = activePageView().locator('[data-page-edit-overlay="true"]');
+    await currentSheet().locator('[data-fragment-block="comp-child"]').dblclick();
+    const overlay = currentSlot().locator('[data-page-edit-overlay="true"]');
     await overlay.waitFor({ timeout: 10000 });
     const stacking = await overlay.evaluate((element) => {
       const overlayZ = Number(getComputedStyle(element).zIndex);
@@ -533,7 +543,7 @@ describe('R2d page edge style', () => {
     // Page 1 owns the two B2 trunk starts; the arms are on page 2.
     const firstEdges = await readEdges();
     assert.deepEqual(firstEdges, []);
-    const firstTrunks = await activePageView()
+    const firstTrunks = await currentSheet()
       .locator('[data-page-trunk-id]')
       .evaluateAll((elements) =>
         elements.map((element) => ({
@@ -559,22 +569,13 @@ describe('R2d page edge style', () => {
     assert.ok(calloutFirst !== undefined && childFirst !== undefined);
     assert.ok(childFirst.x < calloutFirst.x, 'the two trunks never merge');
     assert.equal(
-      await activePageView().locator('[data-page-edge-label]').count(),
+      await currentSheet().locator('[data-page-edge-label]').count(),
       0,
       'no p.N chip is drawn for a tree edge',
     );
 
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      () =>
-        Number(
-          document
-            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
-            ?.getAttribute('data-current-page'),
-        ) === 2,
-      undefined,
-      { timeout: 5000 },
-    );
+    await ui.gotoPage(2);
+    await ui.waitCurrentPage(2);
     await waitPageReady();
     const incoming = await assertOrthogonalPageRoutes('Page 2');
     const calloutIn = incoming.find((edge) => edge.branchId === 'branch-callout');
@@ -587,7 +588,7 @@ describe('R2d page edge style', () => {
     assert.equal(directIn.targetPage, null);
     assert.equal(directIn.entry, 'left');
     assert.equal(directIn.pathD.includes('C'), false);
-    const secondTrunks = await activePageView()
+    const secondTrunks = await currentSheet()
       .locator('[data-page-trunk-id]')
       .evaluateAll((elements) =>
         elements.map((element) => ({
@@ -609,28 +610,14 @@ describe('R2d page edge style', () => {
 
     // The reference target is on the last page and keeps the only page chip.
     const lastPage = count;
-    let current = 2;
-    while (current < lastPage) {
-      const next = current + 1;
-      await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-      await page.waitForFunction(
-        (expected) =>
-          Number(
-            document
-              .querySelector('.nf-editor[data-active="true"] .nf-page-view')
-              ?.getAttribute('data-current-page'),
-          ) === expected,
-        next,
-        { timeout: 5000 },
-      );
-      current = next;
-    }
+    await ui.gotoPage(lastPage);
+    await ui.waitCurrentPage(lastPage);
     const referenceIn = (await readEdges()).find(
       (edge) => edge.branchId === 'branch-reference',
     );
     assert.equal(referenceIn?.direction, 'from-edge');
     assert.equal(referenceIn?.targetPage, '1');
-    const inLabels = await activePageView()
+    const inLabels = await currentSheet()
       .locator('[data-page-edge-label="from-edge"]')
       .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
     assert.deepEqual(inLabels, ['← p.1'], 'only the reference keeps a page chip');
@@ -642,9 +629,9 @@ describe('R2d page edge style', () => {
       { timeout: 5000 },
     );
     await waitPageReady();
-    assert.equal(await activePageView().locator('.nf-page-edges').count(), 1);
-    assert.equal(await activePageView().locator('[data-page-edge-label="from-edge"]').count(), 1);
-    assert.equal(await activePageView().locator('[data-page-trunk-id]').count(), 0);
+    assert.equal(await currentSheet().locator('.nf-page-edges').count(), 1);
+    assert.equal(await currentSheet().locator('[data-page-edge-label="from-edge"]').count(), 1);
+    assert.equal(await currentSheet().locator('[data-page-trunk-id]').count(), 0);
     await h.screenshot(
       artifactsPath('r2d', 'ui', 'page-read-cross-page-1440x900.png'),
       { width: 1440, height: 900 },

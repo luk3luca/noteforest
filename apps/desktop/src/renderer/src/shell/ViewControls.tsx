@@ -8,6 +8,7 @@ import {
   setActiveInteractionMode,
 } from '../actions';
 import { resolveActiveZoom, zoomCommandsForLayout } from '../lib/view-zoom';
+import { usePageStatus } from '../page/use-page-status';
 
 /**
  * Icon-only layout/mode segmented controls (shell C).
@@ -107,7 +108,14 @@ export function ZoomControls(): JSX.Element {
   const view = useShell((state) =>
     state.activeTab === null ? undefined : state.viewByDoc[state.activeTab],
   );
-  const { layout, zoom, pageFit } = resolveActiveZoom(view);
+  const resolved = resolveActiveZoom(view);
+  const { layout, pageFit } = resolved;
+  // Page publishes the percentage the paper actually shows: 100 % is fit width
+  // and `fit page` is whatever the viewport allows. Continuous keeps its own
+  // stored zoom.
+  const status = usePageStatus(activeTab);
+  const zoom =
+    layout === 'page' && status !== null ? status.percent / 100 : resolved.zoom;
   const disabled = runtime === null;
   const zoomCommands = zoomCommandsForLayout(layout);
 
@@ -136,8 +144,8 @@ export function ZoomControls(): JSX.Element {
         type="button"
         className="nf-zoom-value"
         data-zoom-value="true"
-        aria-label={`Current zoom ${Math.round(zoom * 100)} percent. Reset to actual size`}
-        title="Reset zoom to actual size (⌘0)"
+        aria-label={`Current zoom ${Math.round(zoom * 100)} percent. Reset to 100 percent`}
+        title="Reset zoom to 100% (⌘0)"
         disabled={disabled}
         onClick={() => fitActiveLayout('actual')}
       >

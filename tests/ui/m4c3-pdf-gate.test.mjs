@@ -195,12 +195,17 @@ async function showPageReadActualSize() {
   await page.keyboard.press('Meta+3');
   await page.waitForSelector('.nf-editor[data-active="true"] .nf-page-view');
   await waitPageReady();
+  // ⌘0 is the rest state: fit width, which reads 100 %. The paper fills the
+  // viewport, so the gate reads the same geometry the PDF prints.
   await page.keyboard.press('Meta+0');
   await page.waitForFunction(
     () => {
       const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
-      const wrap = view?.querySelector('.nf-page-sheet-wrap');
-      return wrap !== null && wrap !== undefined && wrap.getAttribute('data-page-zoom') === '100';
+      return (
+        view !== null &&
+        view.getAttribute('data-page-zoom') === '100' &&
+        view.getAttribute('data-page-fit') === 'width'
+      );
     },
     undefined,
     { timeout: 10000 },
@@ -216,52 +221,30 @@ async function currentPageNumber() {
   );
 }
 
+/** Scroll to one page start through the jump surface. */
 async function gotoPage(target) {
-  let current = await currentPageNumber();
-  while (current < target) {
-    const next = current + 1;
-    await page.locator('[data-page-nav="next"]').click();
-    await page.waitForFunction(
-      (expected) =>
-        Number(
-          document
-            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
-            ?.getAttribute('data-current-page'),
-        ) === expected,
-      next,
-      { timeout: 10000 },
-    );
-    current = next;
-  }
-  while (current > target) {
-    const previous = current - 1;
-    await page.locator('[data-page-nav="prev"]').click();
-    await page.waitForFunction(
-      (expected) =>
-        Number(
-          document
-            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
-            ?.getAttribute('data-current-page'),
-        ) === expected,
-      previous,
-      { timeout: 10000 },
-    );
-    current = previous;
-  }
+  await ui.gotoPage(target);
+  await ui.waitCurrentPage(target);
 }
 
 async function readPageGeometry() {
   return page.evaluate(() => {
-    const sheet = document.querySelector('.nf-editor[data-active="true"] .nf-page-sheet');
+    const sheet = document.querySelector(
+      '.nf-editor[data-active="true"] .nf-page-sheet[data-page-current="true"]',
+    );
     if (sheet === null) return null;
     const sheetRect = sheet.getBoundingClientRect();
+    // The surface is a scale of the page model (100 % is fit width), so the
+    // measured boxes are divided by the same scale before mm conversion. The
+    // parity check stays a page-model check, not a window-size check.
+    const scale = sheetRect.width / Number(sheet.getAttribute('data-page-width-px'));
     const box = (element) => {
       if (element === null) return null;
       const rect = element.getBoundingClientRect();
       return {
         text: (element.textContent ?? '').trim(),
-        x: rect.left - sheetRect.left,
-        y: rect.top - sheetRect.top,
+        x: (rect.left - sheetRect.left) / scale,
+        y: (rect.top - sheetRect.top) / scale,
       };
     };
     return {
@@ -271,8 +254,9 @@ async function readPageGeometry() {
       footerNumber: box(sheet.querySelector('.nf-page-footer-number')),
       edges: sheet.querySelectorAll('[data-page-edge-id]').length,
       trunks: sheet.querySelectorAll('[data-page-trunk-id]').length,
-      width: sheetRect.width,
-      height: sheetRect.height,
+      scale,
+      width: sheetRect.width / scale,
+      height: sheetRect.height / scale,
     };
   });
 }

@@ -144,14 +144,16 @@ describe('M4b1b1 Page Edit overlay visual evidence', () => {
     await page.waitForSelector('.nf-editor[data-active="true"] [data-page-edit-overlay]', {
       state: 'detached',
     });
-    await activePageView().locator('[data-page-nav="next"]').click();
+    await page.locator('.nf-toolbar [data-page-position]').click();
+    await page.locator('[data-page-jump-input]').fill('2');
+    await page.locator('[data-page-jump-input]').press('Enter');
     await page.waitForFunction(
       () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
       undefined,
       { timeout: 10000 },
     );
     const continuation = activePageView()
-      .locator('.nf-page-fragment[data-fragment-block="child"][data-fragment-first="0"]')
+      .locator('.nf-page-sheet[data-page-current="true"] .nf-page-fragment[data-fragment-block="child"][data-fragment-first="0"]')
       .first();
     await continuation.waitFor();
     await continuation.dblclick();

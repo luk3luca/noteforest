@@ -49,8 +49,9 @@ function activePageView() {
   return page.locator('.nf-editor[data-active="true"] .nf-page-view');
 }
 
+/** Page mounts the visible window ±2; read the sheet of the indicator page. */
 function activeSheet() {
-  return activePageView().locator('.nf-page-sheet').first();
+  return activePageView().locator('.nf-page-sheet[data-page-current="true"]');
 }
 
 function overlay() {
@@ -201,6 +202,17 @@ describe('M4b1b1 Page Edit content overlay', () => {
       await activePageView().locator('[contenteditable="true"]').count(),
       0,
       'Page Edit has no editor until a block is opened',
+    );
+
+    // The typing guard is strong only when the page fit is not the default:
+    // give the surface Fit page now, so a stolen ⇧2 would flip it to width.
+    await page.keyboard.press('Shift+1');
+    await page.waitForFunction(
+      () =>
+        window.__noteforestTest.viewState()[window.__noteforestTest.state().activeTab]
+          ?.pageFit === 'page',
+      undefined,
+      { timeout: 5000 },
     );
 
     const firstId = blockIds[0];
@@ -716,26 +728,19 @@ describe('M4b1b1 Page Edit content overlay', () => {
     await waitPageReady();
     assert.match(JSON.stringify(await runtimeContent('parent')), /Esc commit\./);
 
-    // Page navigation from the toolbar commits the overlay first.
+    // An explicit page jump commits the overlay first; plain scrolling does
+    // not (the overlay scrolls with its page and keeps its text).
     await openOverlay('parent');
     await typeInOverlay(' Nav commit.');
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
-      undefined,
-      { timeout: 10000 },
-    );
+    await ui.gotoPage(2);
+    await ui.waitCurrentPage(2);
     assert.match(JSON.stringify(await runtimeContent('parent')), /Nav commit\./);
     assert.equal(await overlay().count(), 0);
     await waitPageReady();
 
     // Block selection commits the active block.
-    await page.locator('[data-canvas-header] [data-page-nav="prev"]').click();
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 1,
-      undefined,
-      { timeout: 10000 },
-    );
+    await ui.gotoPage(1);
+    await ui.waitCurrentPage(1);
     await waitPageReady();
     await openOverlay('parent');
     await typeInOverlay(' Selection commit.');
@@ -829,12 +834,8 @@ describe('M4b1b1 Page Edit content overlay', () => {
     await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card="parent"]');
     await showPageRead();
     await enterPageEdit();
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      () => Number(document.querySelector('.nf-editor[data-active="true"] .nf-page-view')?.getAttribute('data-current-page')) === 2,
-      undefined,
-      { timeout: 10000 },
-    );
+    await ui.gotoPage(2);
+    await ui.waitCurrentPage(2);
     const continuation = activePageView()
       .locator('.nf-page-fragment[data-fragment-block="child"][data-fragment-first="0"]')
       .first();

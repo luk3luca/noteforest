@@ -39,6 +39,16 @@ function activePageView() {
   return page.locator('.nf-editor[data-active="true"] .nf-page-view');
 }
 
+/** The sheet the toolbar indicator names: every page-local query reads this. */
+function currentSheet() {
+  return activePageView().locator('.nf-page-sheet[data-page-current="true"]');
+}
+
+/** The current page's slot: the sheet plus the Page Edit overlay over it. */
+function currentSlot() {
+  return activePageView().locator('[data-page-slot-current="true"]');
+}
+
 async function waitPageReady(expectedCount = null) {
   await page.waitForFunction(
     (count) => {
@@ -83,7 +93,7 @@ async function setPageSettingsOverride(packagePath, override) {
 }
 
 function edgeGroup(branchId) {
-  return activePageView().locator(`[data-page-edge-id="${branchId}"]`);
+  return currentSheet().locator(`[data-page-edge-id="${branchId}"]`);
 }
 
 async function edgeData(branchId) {
@@ -107,8 +117,8 @@ function parsePoint(value) {
 }
 
 async function fragmentBox(blockId) {
-  return page
-    .locator(`.nf-editor[data-active="true"] [data-fragment-block="${blockId}"]`)
+  return currentSheet()
+    .locator(`[data-fragment-block="${blockId}"]`)
     .evaluate((element) => ({
       left: Number.parseFloat(element.style.left),
       top: Number.parseFloat(element.style.top),
@@ -118,7 +128,7 @@ async function fragmentBox(blockId) {
 }
 
 async function allEdges() {
-  return activePageView()
+  return currentSheet()
     .locator('[data-page-edge-id]')
     .evaluateAll((elements) =>
       elements.map((element) => ({
@@ -153,7 +163,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
     await showPageRead();
 
     assert.equal(await pageCount(), 1, 'the short arrow fixture fits one page');
-    const svg = activePageView().locator('.nf-page-edges');
+    const svg = currentSheet().locator('.nf-page-edges');
     assert.equal(await svg.count(), 1, 'one SVG edge layer lives inside the page content');
     assert.equal(await svg.getAttribute('aria-hidden'), 'true');
     assert.equal(
@@ -238,7 +248,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
     assert.equal(hit.inLabels, false, 'labels never intercept the pointer');
 
     // Arrow chrome does not break the Page fragment selection path.
-    await activePageView().locator('[data-fragment-block="direct"]').click();
+    await currentSheet().locator('[data-fragment-block="direct"]').click();
     assert.equal(await selectedBlockId(), 'direct');
     assert.equal(await activePageView().locator('[contenteditable="true"]').count(), 0);
 
@@ -251,8 +261,8 @@ describe('R2a page arrows and Continuous cleanup', () => {
     );
     assert.equal(await svg.count(), 1, 'Page Edit keeps the edge layer');
     assert.equal(Number(await svg.getAttribute('data-page-edge-count')), 3);
-    await activePageView().locator('[data-fragment-block="direct"]').dblclick();
-    const overlay = activePageView().locator('[data-page-edit-overlay="true"]');
+    await currentSheet().locator('[data-fragment-block="direct"]').dblclick();
+    const overlay = currentSlot().locator('[data-page-edit-overlay="true"]');
     await overlay.waitFor({ timeout: 10000 });
     const stacking = await overlay.evaluate((element) => {
       const overlayZ = Number(getComputedStyle(element).zIndex);
@@ -297,11 +307,11 @@ describe('R2a page arrows and Continuous cleanup', () => {
     const first = await allEdges();
     assert.deepEqual(first, []);
     assert.equal(
-      await activePageView().locator('[data-page-edge-label]').count(),
+      await currentSheet().locator('[data-page-edge-label]').count(),
       0,
       'no p.N chip is drawn for a tree edge',
     );
-    const page1Trunks = await activePageView()
+    const page1Trunks = await currentSheet()
       .locator('[data-page-trunk-id]')
       .evaluateAll((elements) =>
         elements.map((element) => ({
@@ -317,7 +327,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
       ['source:below:callout', 'source:below:child'],
     );
     const source = await fragmentBox('source');
-    const pageContent = await activePageView()
+    const pageContent = await currentSheet()
       .locator('[data-page-content]')
       .evaluate((element) => Number.parseFloat(element.style.height));
     for (const trunk of page1Trunks) {
@@ -329,7 +339,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
     assert.ok(page1Callout !== undefined && page1Child !== undefined);
     assert.ok(page1Child.x < page1Callout.x, 'the two trunks stay independent');
 
-    const bounds = await activePageView().locator('[data-page-content]').evaluate((element) => {
+    const bounds = await currentSheet().locator('[data-page-content]').evaluate((element) => {
       const content = element.getBoundingClientRect();
       const svgElement = element.querySelector('.nf-page-edges');
       if (svgElement === null) return null;
@@ -345,22 +355,13 @@ describe('R2a page arrows and Continuous cleanup', () => {
     assert.ok(Math.abs(bounds.svg.top - bounds.content.top) <= 1);
     assert.ok(Math.abs(bounds.svg.bottom - bounds.content.bottom) <= 1);
     assert.equal(
-      await activePageView().locator('.nf-page-edges').evaluate((element) => getComputedStyle(element).overflow),
+      await currentSheet().locator('.nf-page-edges').evaluate((element) => getComputedStyle(element).overflow),
       'hidden',
       'trunk ink is clipped to the page content box',
     );
 
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      () =>
-        Number(
-          document
-            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
-            ?.getAttribute('data-current-page'),
-        ) === 2,
-      undefined,
-      { timeout: 5000 },
-    );
+    await ui.gotoPage(2);
+    await ui.waitCurrentPage(2);
     const second = await allEdges();
     const calloutIn = second.find((edge) => edge.branchId === 'branch-callout');
     const directIn = second.find((edge) => edge.branchId === 'branch-direct');
@@ -370,7 +371,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
     assert.equal(directIn?.direction, 'trunk');
     assert.equal(directIn?.targetPage, null);
     assert.equal(directIn?.trunkGroup, 'child');
-    const page2Trunks = await activePageView()
+    const page2Trunks = await currentSheet()
       .locator('[data-page-trunk-id]')
       .evaluateAll((elements) =>
         elements.map((element) => ({
@@ -395,22 +396,8 @@ describe('R2a page arrows and Continuous cleanup', () => {
 
     // The reference target is on the last page: only it gets a `← p.1` chip.
     const lastPage = count;
-    let current = Number(await activePageView().getAttribute('data-current-page'));
-    while (current < lastPage) {
-      const next = current + 1;
-      await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-      await page.waitForFunction(
-        (expected) =>
-          Number(
-            document
-              .querySelector('.nf-editor[data-active="true"] .nf-page-view')
-              ?.getAttribute('data-current-page'),
-          ) === expected,
-        next,
-        { timeout: 5000 },
-      );
-      current = next;
-    }
+    await ui.gotoPage(lastPage);
+    await ui.waitCurrentPage(lastPage);
     const lastEdges = await allEdges();
     const referenceIn = lastEdges.find((edge) => edge.branchId === 'branch-reference');
     assert.equal(referenceIn?.direction, 'from-edge');
@@ -419,7 +406,7 @@ describe('R2a page arrows and Continuous cleanup', () => {
       Math.abs(parsePoint(referenceIn?.from).x) <= 0.6,
       'reference indicator starts at the content edge',
     );
-    const inLabels = await activePageView()
+    const inLabels = await currentSheet()
       .locator('[data-page-edge-label="from-edge"]')
       .evaluateAll((elements) => elements.map((element) => element.textContent?.trim()));
     assert.deepEqual(inLabels, ['← p.1'], 'only the reference gets a page chip');
@@ -432,8 +419,8 @@ describe('R2a page arrows and Continuous cleanup', () => {
       packagePath,
       { timeout: 5000 },
     );
-    assert.equal(await activePageView().locator('[data-page-edge-label="from-edge"]').count(), 1);
-    assert.equal(await activePageView().locator('.nf-page-edges').count(), 1);
+    assert.equal(await currentSheet().locator('[data-page-edge-label="from-edge"]').count(), 1);
+    assert.equal(await currentSheet().locator('.nf-page-edges').count(), 1);
   });
 
   it('never measures pages or renders page chrome in Continuous at 1440 and 960', async () => {

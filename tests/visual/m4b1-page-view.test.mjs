@@ -108,16 +108,20 @@ describe('M4b1a editor layouts and modes visual evidence', () => {
     await showPageView();
     await shot('page-long-1440x900.png', 1440, 900);
 
-    const next = page.locator('.nf-editor[data-active="true"] [data-page-nav="next"]');
-    await next.click();
-    await page.waitForSelector('.nf-editor[data-active="true"] [data-page-continued-from]');
+    // PG1: page navigation is a scroll to the page start (the jump surface).
+    await page.locator('.nf-toolbar [data-page-position]').click();
+    await page.locator('[data-page-jump-input]').fill('2');
+    await page.locator('[data-page-jump-input]').press('Enter');
+    await page.waitForSelector(
+      '.nf-editor[data-active="true"] .nf-page-sheet[data-page-current="true"] [data-page-continued-from]',
+    );
     await page.waitForTimeout(120);
     await shot('page-long-continuation-1440x900.png', 1440, 900);
 
     await h.setWindowSize(960, 720);
-    await page
-      .locator('.nf-editor[data-active="true"] [data-page-nav="prev"]')
-      .click();
+    await page.locator('.nf-toolbar [data-page-position]').click();
+    await page.locator('[data-page-jump-input]').fill('1');
+    await page.locator('[data-page-jump-input]').press('Enter');
     await page.waitForTimeout(120);
     await shot('page-long-960x720.png', 960, 720);
     await h.quit();

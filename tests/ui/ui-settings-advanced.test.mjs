@@ -538,11 +538,27 @@ describe('Batch C Page advanced typography and layout', () => {
     assert.equal(css.cardBorder, '2px');
     assert.equal(css.segmentGap, '6px');
     assert.equal(css.maxCard, '360px');
-    const cardWidth = await activePageView()
+    // The cap is a page-model value; the surface is a scale of the page (100 %
+    // is fit width), so the rendered box is divided by the same scale and the
+    // card's own padding/border are added back. This is scale-independent and
+    // catches a card that ignores the setting at any zoom.
+    const cardBox = await activePageView()
       .locator('.nf-page-card')
       .first()
-      .evaluate((element) => element.getBoundingClientRect().width);
-    assert.ok(cardWidth <= 360.5, `page cards respect the 360 px cap (${cardWidth})`);
+      .evaluate((element) => {
+        const view = element.closest('.nf-page-view');
+        const scale = Number(view?.getAttribute('data-page-scale') ?? '1');
+        return { width: element.getBoundingClientRect().width / scale, scale };
+      });
+    const chrome = (Number.parseFloat(css.cardPadding) + Number.parseFloat(css.cardBorder)) * 2;
+    assert.ok(
+      cardBox.width <= 360 + chrome + 0.5,
+      `page cards respect the 360 px cap (${cardBox.width.toFixed(1)} <= ${360 + chrome} at scale ${cardBox.scale})`,
+    );
+    assert.ok(
+      cardBox.width >= 360,
+      `the long card fills the cap (${cardBox.width.toFixed(1)})`,
+    );
     assert.ok(
       Number(await activePageView().getAttribute('data-page-count')) >= 1,
       'the document still paginates',

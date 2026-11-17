@@ -345,6 +345,7 @@ describe('Markdown file view', () => {
     assert.equal(await editor.locator('[data-chapter-id]').count(), 0);
     assert.equal(await editor.locator('.nf-edge-path').count(), 0);
     assert.equal(await editor.locator('[data-page-counter]').count(), 0);
+    assert.equal(await page.locator('.nf-toolbar [data-page-position]').count(), 0);
     assert.equal(await editor.locator('[data-page-export]').count(), 0);
     assert.equal(await editor.locator('[data-view-layout="page"]').count(), 0);
     assert.equal((await state()).runtimes.length, 0);

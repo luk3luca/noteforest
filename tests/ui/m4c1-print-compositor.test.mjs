@@ -84,36 +84,10 @@ async function currentPage() {
   return Number(await activePageView().getAttribute('data-current-page'));
 }
 
+/** Scroll to one page start through the jump surface. */
 async function gotoPage(number) {
-  let current = await currentPage();
-  while (current < number) {
-    const next = current + 1;
-    await page.locator('[data-canvas-header] [data-page-nav="next"]').click();
-    await page.waitForFunction(
-      (expected) =>
-        Number(
-          document.querySelector('.nf-editor[data-active="true"] .nf-page-view')
-            ?.getAttribute('data-current-page'),
-        ) === expected,
-      next,
-      { timeout: 10000 },
-    );
-    current = next;
-  }
-  while (current > number) {
-    const previous = current - 1;
-    await page.locator('[data-canvas-header] [data-page-nav="prev"]').click();
-    await page.waitForFunction(
-      (expected) =>
-        Number(
-          document.querySelector('.nf-editor[data-active="true"] .nf-page-view')
-            ?.getAttribute('data-current-page'),
-        ) === expected,
-      previous,
-      { timeout: 10000 },
-    );
-    current = previous;
-  }
+  await ui.gotoPage(number);
+  await ui.waitCurrentPage(number);
 }
 
 async function setPageSettingsOverride(packagePath, override) {
@@ -138,10 +112,21 @@ async function setPageSettingsOverride(packagePath, override) {
   await waitPageReady();
 }
 
+/**
+ * Attributes that must be identical between Page Read and print. Viewport-only
+ * view state is not print content: `data-page-current` names the page under the
+ * centre of the canvas and the current page is read from the sheet selector.
+ */
+const VIEW_ONLY_ATTRIBUTES = new Set(['data-page-current']);
+
 function pickAttributes(attributes, prefixes) {
   return Object.fromEntries(
     Object.entries(attributes)
-      .filter(([name]) => prefixes.some((prefix) => name.startsWith(prefix)))
+      .filter(
+        ([name]) =>
+          !VIEW_ONLY_ATTRIBUTES.has(name) &&
+          prefixes.some((prefix) => name.startsWith(prefix)),
+      )
       .sort(([left], [right]) => left.localeCompare(right)),
   );
 }
@@ -250,7 +235,9 @@ async function readSnapshots(pageCount) {
   const snapshots = [];
   for (let number = 1; number <= pageCount; number += 1) {
     await gotoPage(number);
-    snapshots.push(await snapshotSheet(view.locator('.nf-page-sheet').first()));
+    // Page mounts the visible window ±2: read the named page, never "the first
+    // mounted sheet".
+    snapshots.push(await snapshotSheet(ui.pageSheet(number)));
   }
   await gotoPage(1);
   return snapshots;
@@ -472,7 +459,7 @@ describe('M4c1 print compositor parity', () => {
     const pageCount = Number(await activePageView().getAttribute('data-page-count'));
     assert.ok(pageCount >= 2, 'the manual breaks derive a continuation page');
     await gotoPage(pageCount);
-    const read = await computedMetrics('.nf-page-view', '.nf-page-sheet');
+    const read = await computedMetrics('.nf-page-view', '.nf-page-sheet[data-page-current="true"]');
     assert.ok(read !== null, 'Page Read metrics are readable');
     assert.equal(read.find((item) => item.selector === '.nf-page-card')?.present, true);
     assert.equal(

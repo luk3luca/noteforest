@@ -189,12 +189,11 @@ async function pageCount() {
   return Number(await activePageView().getAttribute('data-page-count'));
 }
 
-async function navigate(direction, expected) {
-  await page.evaluate((dir) => {
-    document
-      .querySelector(`.nf-editor[data-active="true"] [data-page-nav="${dir}"]`)
-      ?.click();
-  }, direction);
+/** PG1: navigate by scrolling to the page start through the jump surface. */
+async function navigate(_direction, expected) {
+  await page.locator('.nf-toolbar [data-page-position]').click();
+  await page.locator('[data-page-jump-input]').fill(String(expected));
+  await page.locator('[data-page-jump-input]').press('Enter');
   await page.waitForFunction(
     (value) => {
       const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
@@ -217,8 +216,8 @@ async function readPageMetrics() {
     const view = document.querySelector('.nf-editor[data-active="true"] .nf-page-view');
     const sheet = view.querySelector('.nf-page-sheet');
     const content = sheet.querySelector('.nf-page-content');
-    const wrap = view.querySelector('.nf-page-sheet-wrap');
-    const zoom = Number(wrap?.getAttribute('data-page-zoom') ?? '100') / 100;
+    // CSS scale of the sheet (100 % = fit width is `data-page-zoom`, not a factor).
+    const scale = Number(sheet.closest('.nf-page-slot')?.querySelector('.nf-page-sheet-wrap')?.getAttribute('data-page-scale') ?? '1');
     const contentWidth = Number.parseFloat(content.style.width);
     const contentHeight = Number.parseFloat(content.style.height);
     const fragments = [...view.querySelectorAll('.nf-page-fragment')].map((element) => ({
@@ -462,7 +461,7 @@ async function readPageMetrics() {
       let widest = '';
       for (const paragraph of view.querySelectorAll(selector)) {
         const card = paragraph.closest('.nf-page-card');
-        const cardWidth = card ? card.getBoundingClientRect().width / zoom : 0;
+        const cardWidth = card ? card.getBoundingClientRect().width / scale : 0;
         if (cappedMaxWidth !== null && cardWidth > cappedMaxWidth) continue;
         const style = getComputedStyle(paragraph);
         context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
@@ -487,7 +486,7 @@ async function readPageMetrics() {
           node = walker.nextNode();
         }
         for (const line of byLine.values()) {
-          const width = (line.right - line.left) / zoom;
+          const width = (line.right - line.left) / scale;
           if (width <= 0) continue;
           count += 1;
           if (width > maxPx) {

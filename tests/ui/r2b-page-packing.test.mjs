@@ -325,16 +325,17 @@ async function anchorBox(anchorId) {
     .locator(`[data-anchor-id="${anchorId}"]`)
     .evaluate((element) => {
       const view = element.closest('.nf-page-view');
-      const content = view.querySelector('.nf-page-content');
-      const wrap = view.querySelector('.nf-page-sheet-wrap');
-      const zoom = Number(wrap?.getAttribute('data-page-zoom') ?? '100') / 100;
+      const content = element.closest('.nf-page-sheet').querySelector('.nf-page-content');
+      // `data-page-scale` is the CSS scale of the sheet; `data-page-zoom` is
+      // the fit-relative percentage (100 = fit width), never a factor.
+      const scale = Number(element.closest('.nf-page-sheet-wrap')?.getAttribute('data-page-scale') ?? '1');
       const rect = element.getBoundingClientRect();
       const contentRect = content.getBoundingClientRect();
       return {
-        left: (rect.left - contentRect.left) / zoom,
-        top: (rect.top - contentRect.top) / zoom,
-        width: rect.width / zoom,
-        height: rect.height / zoom,
+        left: (rect.left - contentRect.left) / scale,
+        top: (rect.top - contentRect.top) / scale,
+        width: rect.width / scale,
+        height: rect.height / scale,
       };
     });
 }

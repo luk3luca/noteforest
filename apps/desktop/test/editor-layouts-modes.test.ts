@@ -86,12 +86,14 @@ describe('editor layout and interaction-mode state', () => {
       layout: 'continuous',
       interactionMode: 'edit',
       currentPage: 1,
-      pageZoom: 2.5,
-      pageFit: 'page',
+      pageZoom: 2,
+      pageFit: 'width',
     });
 
     expect(normalizeDocumentViewState({ zoom: 1.239 }).zoom).toBe(1.24);
-    expect(normalizeDocumentViewState({ pageZoom: 0 }).pageZoom).toBe(0.1);
+    // The ratified Page range is 50 %–200 % (fit-relative, 100 % = fit width).
+    expect(normalizeDocumentViewState({ pageZoom: 0 }).pageZoom).toBe(0.5);
+    expect(normalizeDocumentViewState({ pageZoom: 3 }).pageZoom).toBe(2);
     expect(normalizeDocumentViewState({ currentPage: 3.6 }).currentPage).toBe(4);
   });
 
@@ -147,7 +149,7 @@ describe('editor layout and interaction-mode state', () => {
     });
 
     useShell.getState().setDocumentPageZoom('doc', 99);
-    expect(useShell.getState().viewByDoc['doc']?.pageZoom).toBe(2.5);
+    expect(useShell.getState().viewByDoc['doc']?.pageZoom).toBe(2);
     useShell.getState().setDocumentZoom('doc', 0.01);
     expect(useShell.getState().viewByDoc['doc']?.zoom).toBe(0.5);
     useShell.getState().setDocumentPage('doc', -2);
@@ -222,7 +224,7 @@ describe('editor layout and interaction-mode state', () => {
       interactionMode: 'edit',
       currentPage: 1,
       pageZoom: 1,
-      pageFit: 'page',
+      pageFit: 'width',
       zoom: 1,
     });
     expect(session.tabs[1]).toMatchObject({
@@ -234,8 +236,8 @@ describe('editor layout and interaction-mode state', () => {
       // Explicit Page Edit is restored; corrupt values are handled above.
       interactionMode: 'edit',
       currentPage: 1,
-      pageZoom: 2.5,
-      pageFit: 'page',
+      pageZoom: 2,
+      pageFit: 'width',
       zoom: 0.5,
     });
   });
