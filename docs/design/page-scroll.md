@@ -43,7 +43,8 @@ the page model, the page count and the PDF are untouched.
 
 ## 4. The current page
 
-- **`3 / 61` in the toolbar**, next to the zoom. It shows the page that contains the **centre of the
+- **`3 / 61` in the canvas header** (corrected 17 November 2026 — it is a canvas tool, not a tab-bar
+  item; the zoom moves with it), next to the zoom. It shows the page that contains the **centre of the**
   viewport** — the same idea as "more than half", without its edge case: with free scroll a page is
   almost never entirely visible, so a majority rule would stay stuck.
 - If the centre lands exactly on a seam, the indicator **keeps the current page**: it must not flicker
