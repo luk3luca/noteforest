@@ -1,6 +1,8 @@
 # Keyboard shortcuts — inventory, defects and the catalogue
 
-**Status:** audit, 17 November 2026. No code changed. Decisions for the product owner are at the end.
+**Status:** audit, 17 November 2026; **implemented in B1** (`d1de7ac`, merged `e48e862`). This file stays as
+the record of the audit and the product rules; the shipped list has 34 rows in four groups and is rendered
+from `lib/shortcuts.ts`.
 **Why now:** the release is close, the Settings list is the only place a user can discover a shortcut, and
 nothing in the repository proves that list still matches a key that works.
 
@@ -277,12 +279,16 @@ need. A row exists because a user may need the key without the menu open, not be
 Decided by the product owner (17 November 2026): no bare-Shift chords; not every binding gets a shortcut;
 prefer the standard. K1 is scheduled after the find fixes.
 
-Still open, and cheap to answer when K1 starts:
+Resolved by B1:
 
-1. **Tabs:** drop `⌘1…⌘9` (recommended — the `⌘2`/`⌘3` collision disappears), or keep the digits and the
-   reservation?
-2. **Export PDF:** `⌘P` (recommended — the universal “produce a document”) in place of `⇧⌘E`, or keep
-   `⇧⌘E`?
-3. **Fit page / fit width:** menu items with no accelerator (recommended), or keep one chord on `⌘`?
-4. **Menu:** add `Edit → Find… / Find Next / Find Previous` with the standard accelerators (recommended),
-   and leave layout/mode in the toolbar and palette only?
+1. **Tabs:** `⌘1…⌘9` are gone; tabs cycle with `⌃Tab` / `⌃⇧Tab` and the strip. `⌘2`/`⌘3` keep the layout.
+2. **Fit page:** a `View` item with no accelerator, plus a palette row; fit width keeps `⇧⌘0`.
+3. **List:** 34 rows in `Shell`, `View`, `Editor`, `Page`; the find-field keys stay in the field's tooltips.
+
+Still open, and deliberately not in B1:
+
+- **Export PDF:** `⌘P` (the universal “produce a document”) in place of `⇧⌘E`, or keep `⇧⌘E`.
+- **Menu:** an `Edit → Find… / Find Next / Find Previous` group with the standard accelerators.
+- **Recorded deviations from B1:** `⇧Esc` no longer closes the find (only `Esc` does); the two shifted-bracket
+  tab bindings (`⌘⇧[` / `⌘⇧]`) are kept as shipped behaviour but `list: false`, because on a US layout the
+  shifted key reports `{`/`}` and they never fire — the two discoverable tab pairs are `⌃Tab` / `⌃⇧Tab`.

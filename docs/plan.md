@@ -643,12 +643,8 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 | 3 | **Data and recovery** | `core` command reasons mapped at the boundary — **merged at `646f343`**. `Unused images` in Health **merged at `2b5c582`**: previewed cleanup, bytes to the **OS Trash**, only when non-empty, backup-referenced assets kept. Follow-up: backup retention is now a **content reference** (`2e99e2d`): an image returns reclaimable when the backups that show it rotate out (floor 10, default 20 autosaves) — that is the grace period, and it is the honest one. **Batch 3 complete.** | 1 (Health rows and modal) |
 | 4 | **Page as a scroll of pages** | `docs/design/page-scroll.md`: one column, touching pages with a 1 px seam, free scroll, `N / M` from the viewport centre, zoom 50–200 % with 100 % as fit, mount visible ±2; harness `waitSaved` 30 s and `markdown-file-view` serial; 1,000-block measurement (53 pages, 520 ms mount, scroll p95 33.4 ms). **Merged at `5a8dfac`** | 3 (`styles.css`) |
 | 5 | **Find fidelity and highlighter** | `docs/design/highlight.md`. **F4a merged at `cee3577`** (paint over the mounted pages, repaint on the mount window, print-free). **F4b merged at `0c86e8a`**: the `highlight` mark with four tones, the bubble swatches and `⌘⇧H`, Continuous and Page rendering, the print tones, additive (no `schemaVersion` bump) | the spike (done: `docs/design/find-page-highlight.md`); F4b after F4a |
-| 5b | **B1 — v1 defects** | `docs/tasks/b1-v1-defects.md`: **A** Page anchor dot (6 px, 24 px hit, tooltip,
-click → Health), **no anchor marker in the print DOM or the PDF**, `⇧1`/`⇧2` removed with `View → Fit page`
-(no accelerator) and the `!`-in-the-find-field regression; **B** one shortcut catalogue the handlers *ask*,
-the Settings list rendered from it, the wrong page-navigation row fixed, and the subtractions (`⌥↑`/`⌥↓`
-page duplicate, `⌘1…⌘9` tab digits, `⌘⇧` → `⇧⌘`, `Actual size` → `Reset zoom`) | F4b |
-| 6 | **B2 — contrast** | Code-theme registry (**verbatim themes only, no colour edits**) with the measured
+| 5b | **B1 — v1 defects** | **Merged at `e48e862`** (`docs/tasks/b1-v1-defects.md`): **A** Page anchor dot (6 px, 24 px hit, tooltip, click/Enter → Health), no anchor marker in the print DOM or the PDF, `⇧1`/`⇧2` removed with `View → Fit page` (no accelerator) and the `!`-in-the-find-field regression; **B** one shortcut catalogue the handlers *ask* (`lib/shortcuts.ts`), the Settings list rendered from it (34 rows, 4 groups), and the subtractions (`⌥↑`/`⌥↓` page duplicate, `⌘1…⌘9` tab digits, `⌘⇧` → `⇧⌘`, `Actual size` → `Reset zoom`) | F4b |
+| 6 | **B2 — contrast** (next) | Code-theme registry (**verbatim themes only, no colour edits**) with the measured
 contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** — the
 muted state at 1.35:1, the light reference at ≈3.0, the arrowhead — as one measured contrast table per
 polarity and one visual pass | B1 |
@@ -744,8 +740,9 @@ Full audit, every binding, the defects and the proposed catalogue: `docs/design/
   findings fixed.
 - **Not shipped:** the list and the bindings are **four copies** — the `SHORTCUTS` literal, `App.tsx`'s
   hand-written matcher, the TipTap keymap and the native menu. Nothing proves a row still exists, and the
-  list omits 18 real bindings. **B1 Part B** is the fix: one catalogue module that the handlers *ask* (not
-  just a rendered table), the menu accelerators asserted against it, and the list rendered from it.
+  list omits 18 real bindings. **B1 Part B shipped at `d1de7ac` (merged `e48e862`)**: one catalogue module
+  that the handlers *ask*, the menu accelerators asserted against it, and the list rendered from it (34 rows,
+  4 groups). Remaining decisions, not in B1: `⌘P` for Export PDF and an `Edit → Find` group.
 - **Rules (product owner, 17 November 2026):** no bare-Shift chord in a writing app, so `⇧1`/`⇧2` are
   removed, not guarded; not every binding needs a shortcut, so K1 adds none; use the standard where one
   exists. The pass is subtractive — see `docs/design/shortcuts.md` §0 and §4.
