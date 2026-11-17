@@ -723,11 +723,13 @@ that is already unused, and **a fill must never force a wrap** — nothing moves
 - Start from the **children/grandchildren**, not the top level. If a grandchild wraps below, the child can
   take the width the grandchild no longer uses.
 - A **lone top-level** may take the whole sheet, half, or three quarters — the exact rule is still to
-  choose (a max share avoids a one-word card spanning the page).
-- A **top-level plus one child** can split half and half.
+  choose (a max share avoids a one-word card spanning the page), and it is **content-driven**, not fixed.
+- A **top-level plus one child** splits the space **in proportion to the text** — half and half only when
+  the two are comparable; the one with more text has more right to expand. Nothing here is a fixed rule.
 - A **top-level with two children**, one of which has a grandchild: the child without descendants may widen;
   the one with a subtree either follows the rule above, or they split the remaining space — **weighted by
-  text amount** (a card with a few words has no right to grow; more text earns more width).
+  text amount** (a card with a few words has no right to grow; more text earns more width). The same weight
+  applies everywhere: the fill is content-driven, never a fixed percentage.
 - The fill is a pre-pagination phase, so it can change the page count (wider cards reflow shorter). The lab
   measures the showcase and the PDF gate baseline before/after.
 - Continuous stays content-driven except for **large table blocks**, which may take more width.
@@ -763,7 +765,9 @@ This is a **v2 ADR decision**, not a v1 change. The shapes that keep "no server,
 
 Boundaries to settle before any of them: the operation schema (which commands, ids, anchors), atomicity,
 what happens if the app is open (live lock), whether delete is allowed, and how the result is reported back
-to the agent. The Markdown importer becomes a fallback, not the main path.
+to the agent. The Markdown importer becomes a fallback, not the main path. **Deferred by the owner
+(17 November 2026)** relative to the rest of the v2 list: the four answers and the ADR come later, and nothing
+is built before them.
 
 ## Known issues and follow-ups (17 November 2026)
 
