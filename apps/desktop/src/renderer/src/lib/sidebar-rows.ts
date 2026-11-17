@@ -29,3 +29,16 @@ export function sidebarDepthIndent(level: number): number {
   const depth = Math.max(0, Math.min(level - 1, SIDEBAR_DEPTH_CAP));
   return SIDEBAR_ROW_INDENT + depth * SIDEBAR_DEPTH_STEP;
 }
+
+/**
+ * The same ladder without the three-level cap.
+ *
+ * The Library tree is a real filesystem and can nest deeper than the Outline's
+ * reading depth, so every folder level keeps its 12 px step; the row height and
+ * the 17..253 grid are unchanged. Level 1 is the library root's own rows (a
+ * folder or a document directly inside the library), level 2 the documents of
+ * a folder, and so on (VF item 5).
+ */
+export function sidebarTreeIndent(level: number): number {
+  return SIDEBAR_ROW_INDENT + Math.max(0, level - 1) * SIDEBAR_DEPTH_STEP;
+}

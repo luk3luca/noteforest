@@ -7782,6 +7782,9 @@ body.nf-dragging-block .nf-gutter-handle {
   --nf-page-warning-ink: #7a4b00;
   --nf-page-warning-line: #e2b766;
   --nf-page-warning-bg: #fff6df;
+  /* The Page anchor dot's hover fill. The pale line token is 1.88:1 on paper,
+     so the hover lightens the resting ink only as far as 4.44:1 (VF S3-3). */
+  --nf-page-anchor-dot-hover: #a86a00;
   --nf-page-missing-ink: #7a4b00;
   --nf-page-missing-line: #b37400;
   --nf-page-missing-bg: #fff8e8;
@@ -8608,7 +8611,7 @@ body.nf-dragging-block .nf-gutter-handle {
 }
 
 .nf-page-anchor-dot:hover .nf-page-anchor-dot-shape {
-  background: var(--nf-page-warning-line);
+  background: var(--nf-page-anchor-dot-hover);
 }
 
 .nf-page-anchor-dot:focus-visible {

@@ -637,4 +637,102 @@ describe('R2d page edge style', () => {
       { width: 1440, height: 900 },
     );
   });
+
+  it('ends the primary shaft at the arrow base, so the head carries no darker band (VF item 4)', async () => {
+    const env = ui.isolated('vf-arrow-shaft');
+    await launch('vf-arrow-shaft');
+    await openPackage(env, 'VF arrow shaft', pageArrowsDocument());
+    await showPageRead();
+    await waitPageReady();
+
+    // The model route still ends at the tip: `data-page-edge-route` is the
+    // router's polyline and must not lose its last point to a render change.
+    const edges = await readEdges();
+    const primary = edges.filter((edge) => edge.role === 'primary');
+    const references = edges.filter((edge) => edge.role === 'reference');
+    assert.ok(primary.length >= 2, 'the fixture has more than one primary edge');
+    assert.ok(references.length >= 1, 'the fixture has a reference edge');
+
+    const arrowLength = 6;
+    const vector = { right: { x: 1, y: 0 }, left: { x: -1, y: 0 }, down: { x: 0, y: 1 }, up: { x: 0, y: -1 } };
+    const lastPoint = (pathD) => {
+      const match = pathD.match(/(?:L|M) (-?[\d.]+) (-?[\d.]+)\s*$/);
+      assert.ok(match !== null, `path "${pathD}" ends with a line command`);
+      return { x: Number(match[1]), y: Number(match[2]) };
+    };
+    for (const edge of primary) {
+      const tip = parsePoint(edge.tip);
+      const route = parseRoute(edge.route);
+      const routeTip = route.at(-1);
+      assert.ok(
+        Math.abs(routeTip.x - tip.x) <= 0.01 && Math.abs(routeTip.y - tip.y) <= 0.01,
+        `${edge.branchId}: the model route still ends at the tip`,
+      );
+      const end = lastPoint(edge.pathD);
+      const direction = vector[edge.arrow ?? 'right'];
+      assert.ok(direction !== undefined, `${edge.branchId}: known arrow direction`);
+      const base = {
+        x: tip.x - direction.x * arrowLength,
+        y: tip.y - direction.y * arrowLength,
+      };
+      assert.ok(
+        Math.hypot(end.x - base.x, end.y - base.y) <= 0.02,
+        `${edge.branchId}: the rendered shaft ends at the arrow base (${end.x},${end.y} vs ${base.x},${base.y})`,
+      );
+      assert.ok(
+        Math.abs(Math.hypot(tip.x - end.x, tip.y - end.y) - arrowLength) <= 0.02,
+        `${edge.branchId}: the shaft is one arrow length short of the tip`,
+      );
+    }
+    // The reference chevron keeps its line to the tip: it is an open head, so
+    // the shaft must reach it.
+    for (const edge of references) {
+      if (edge.direction !== 'same-page') continue;
+      const tip = parsePoint(edge.tip);
+      const end = lastPoint(edge.pathD);
+      assert.ok(
+        Math.abs(end.x - tip.x) <= 0.02 && Math.abs(end.y - tip.y) <= 0.02,
+        `${edge.branchId}: the reference route still reaches its chevron`,
+      );
+      assert.equal(edge.arrowD.endsWith('Z'), false, 'the reference head stays open');
+    }
+
+    // 200 % evidence: one arrow, cropped from the real Page Read surface.
+    for (let index = 0; index < 10; index += 1) {
+      await page.locator('[data-zoom-action="in"]').click();
+    }
+    await page.waitForFunction(
+      () =>
+        Number(
+          document
+            .querySelector('.nf-editor[data-active="true"] .nf-page-view')
+            ?.getAttribute('data-page-zoom'),
+        ) === 200,
+      undefined,
+      { timeout: 10000 },
+    );
+    const arrowHead = currentSheet()
+      .locator('[data-page-edge-id="branch-direct"] .nf-page-edge-arrow')
+      .first();
+    const box = await arrowHead.boundingBox();
+    assert.ok(box !== null, 'the arrowhead has a screen box at 200 %');
+    await h.screenshot(artifactsPath('vf-release-fixes', 'page-read-200-context.png'), {
+      width: 1440,
+      height: 900,
+    });
+    // Pixel-exact crop around the head: at 200 % the fixed 6 px head is 12 CSS
+    // px wide, so this is the largest honest Page Read view of the artefact.
+    const cropWidth = 56;
+    const cropHeight = 40;
+    await page.screenshot({
+      path: artifactsPath('vf-release-fixes', 'arrow-page-read-200.png'),
+      clip: {
+        x: Math.max(0, box.x + box.width / 2 - cropWidth / 2),
+        y: Math.max(0, box.y + box.height / 2 - cropHeight / 2),
+        width: cropWidth,
+        height: cropHeight,
+      },
+      scale: 'css',
+    });
+  });
 });

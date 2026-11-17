@@ -40,6 +40,7 @@ import {
   findNext,
   findPrevious,
   fitActiveLayout,
+  goToContinuous,
   openFind,
   openPath,
   runMenuCommand,
@@ -435,10 +436,18 @@ export function App(): JSX.Element {
         cycleActiveTab(-1);
         return;
       }
+      // The Page Edit overlay owns its own editor-local keys (Esc and ⌘⏎
+      // commit through the catalogue). The check runs before the find branch:
+      // an Escape that originates inside the overlay must commit it and leave
+      // the background find alone (VF S3-2).
+      const target = event.target;
+      const insidePageEdit =
+        target instanceof Element && target.closest('[data-page-edit-overlay]') !== null;
       // Escape closes the find bar and restores the selection the bar saved on
       // open. The bar is not a modal owner (⌘G must keep working while typing),
       // so this lives in the global channel; a dialog above it returned already.
       if (matches(event, 'close-find')) {
+        if (insidePageEdit) return;
         if (!useShell.getState().findOpen) return;
         event.preventDefault();
         closeFind();
@@ -451,9 +460,6 @@ export function App(): JSX.Element {
       // overlay's history handles text undo until the commit creates the one
       // structural entry. Save commits the overlay first so the file never
       // reports a saved state that excludes the typed text.
-      const target = event.target;
-      const insidePageEdit =
-        target instanceof Element && target.closest('[data-page-edit-overlay]') !== null;
       if (insidePageEdit && (matches(event, 'undo') || matches(event, 'redo'))) return;
       if (insidePageEdit && matches(event, 'save')) {
         event.preventDefault();
@@ -470,7 +476,7 @@ export function App(): JSX.Element {
       }
       if (matches(event, 'continuous-layout')) {
         event.preventDefault();
-        setActiveDocumentLayout('continuous');
+        goToContinuous();
         return;
       }
       if (matches(event, 'page-layout')) {

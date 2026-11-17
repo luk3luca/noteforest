@@ -653,4 +653,98 @@ describe('Vault library tree', () => {
     );
     await page.waitForFunction(() => window.__noteforestTest.state().tabs.length === 0);
   });
+
+  it('steps library rows on the shared sidebar ladder, equal to the Outline (VF item 5)', async () => {
+    const env = ui.isolated('indent');
+    const library = env.NOTEFOREST_LIBRARY;
+    // A folder chain five levels deep, a document at the root, one at depth 2,
+    // and an empty folder at every level so each row stays a row.
+    const chain = ['A-folder', 'A-folder/B-folder', 'A-folder/B-folder/C-folder', 'A-folder/B-folder/C-folder/D-folder', 'A-folder/B-folder/C-folder/D-folder/E-folder'];
+    for (const relative of chain) await mkdir(join(library, relative), { recursive: true });
+    await writePagePackage(
+      library,
+      'Z-root-note',
+      pageDocument({
+        id: 'indent-root-note',
+        title: 'Nota in radice',
+        chapterTitle: 'Radice',
+        blocks: [textBlock('r1', 'R1', 'Nota alla radice della libreria.')],
+      }),
+    );
+    await writePagePackage(
+      library,
+      'A-folder/nota-interna',
+      pageDocument({
+        id: 'indent-inner-note',
+        title: 'Nota interna',
+        chapterTitle: 'Interna',
+        blocks: [textBlock('i1', 'I1', 'Nota dentro una cartella.')],
+      }),
+    );
+    await launch(env);
+    await page.waitForSelector('[data-sidebar-panel="library"] [role="tree"]');
+
+    for (const relative of chain) {
+      await expandFolder(join(library, relative));
+    }
+
+    /** Computed `padding-inline-start` of one Library row. */
+    const indentOf = (selector) =>
+      page.locator(selector).first().evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).paddingInlineStart),
+      );
+    const folderIndent = (relative) =>
+      indentOf(
+        `[data-library-folder][data-vault-path="${join(library, relative)}"] > .nf-library-folder-row`,
+      );
+    // The document row wrapper carries the ladder value; the button inside it
+    // owns the hover/active geometry.
+    const documentIndent = (relative) =>
+      indentOf(`.nf-library-row[data-vault-path="${join(library, relative)}"]`);
+    const measured = {
+      rootFolder: await folderIndent('A-folder'),
+      rootDocument: await documentIndent('Z-root-note'),
+      depth2Folder: await folderIndent('A-folder/B-folder'),
+      depth2Document: await documentIndent('A-folder/nota-interna'),
+      depth3Folder: await folderIndent('A-folder/B-folder/C-folder'),
+      depth4Folder: await folderIndent('A-folder/B-folder/C-folder/D-folder'),
+      depth5Folder: await folderIndent('A-folder/B-folder/C-folder/D-folder/E-folder'),
+    };
+    // The folder button and the document row carry the ladder value itself; no
+    // component adds a second inset.
+    assert.deepEqual(measured, {
+      rootFolder: 6,
+      rootDocument: 6,
+      depth2Folder: 18,
+      depth2Document: 18,
+      depth3Folder: 30,
+      depth4Folder: 42,
+      depth5Folder: 54,
+    });
+    // Past the Outline's three-level cap the library keeps stepping.
+    assert.ok(measured.depth5Folder > measured.depth4Folder, 'depth 5 is further right');
+    assert.equal(measured.depth4Folder - measured.depth3Folder, 12, 'the step stays 12 px');
+    await page.screenshot({
+      path: artifactsPath('vf-release-fixes', 'library-indent-after.png'),
+      scale: 'css',
+    });
+
+    // The same ladder as the Outline: the chapter row (level 1) is the library
+    // root's 6 px, a top-level block (level 2) is a depth-2 document's 18 px.
+    await page
+      .locator(`.nf-library-row[data-vault-path="${join(library, 'Z-root-note')}"] .nf-library-open`)
+      .click();
+    await page.waitForSelector('.nf-editor[data-active="true"] [data-block-card]');
+    await ui.showOutline();
+    const outline = await page.evaluate(() => {
+      const read = (element) =>
+        element === null ? null : Number.parseFloat(getComputedStyle(element).paddingInlineStart);
+      return {
+        chapter: read(document.querySelector('.nf-tree-chapter-row')),
+        block: read(document.querySelector('.nf-tree-row[data-block-id]')),
+      };
+    });
+    assert.equal(outline.chapter, measured.rootFolder, 'folder depth 1 equals the chapter row');
+    assert.equal(outline.block, measured.depth2Document, 'a depth-2 row equals a top-level block');
+  });
 });

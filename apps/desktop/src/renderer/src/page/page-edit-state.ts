@@ -8,6 +8,8 @@
  * created. It holds no document content and never writes canonical data itself.
  */
 
+import { matches, type KeyEventLike } from '../lib/shortcuts';
+
 /** Why a Page Edit overlay was asked to commit. */
 export type PageEditCommitReason =
   | 'outside'
@@ -18,6 +20,35 @@ export type PageEditCommitReason =
   | 'mode'
   | 'block'
   | 'external';
+
+/**
+ * The catalogue entries the overlay commits on, each with the reason it means.
+ * The chords live in `lib/shortcuts.ts` (one writer for every chord in the
+ * app); only the *reason* is a Page Edit fact, so a rebound key reaches the
+ * overlay without a second key comparison here (VF S3-1).
+ */
+const PAGE_COMMIT_CHORDS: ReadonlyArray<readonly [string, PageEditCommitReason]> = [
+  ['page-commit-escape', 'escape'],
+  ['page-commit-shortcut', 'shortcut'],
+];
+
+/** The ids whose chords commit the overlay, for `aria-keyshortcuts`. */
+export const PAGE_COMMIT_SHORTCUT_IDS: readonly string[] = PAGE_COMMIT_CHORDS.map(
+  ([id]) => id,
+);
+
+/**
+ * The commit reason for a key event seen by the overlay, or null when the
+ * overlay does not own that chord. Pure, so the key set is testable without a
+ * DOM: adding, moving, or rebinding a `page-commit-*` chord changes what this
+ * returns, and nothing in the overlay compares a key by hand.
+ */
+export function pageCommitReason(event: KeyEventLike): PageEditCommitReason | null {
+  for (const [id, reason] of PAGE_COMMIT_CHORDS) {
+    if (matches(event, id)) return reason;
+  }
+  return null;
+}
 
 /**
  * DOM event a body-mounted Page Edit extension dispatches on the overlay root

@@ -43,7 +43,7 @@ import { shortcutHint } from '../lib/shortcuts';
 import { markdownTitleSuffix } from '../lib/library-rows';
 import { editingEnabledFor, READ_MODE_TITLE } from '../lib/editability';
 import { documentHealthBadgeLabel } from '../lib/document-health-sections';
-import { sidebarDepthIndent } from '../lib/sidebar-rows';
+import { sidebarDepthIndent, sidebarTreeIndent } from '../lib/sidebar-rows';
 import { useDocumentHealthReport } from './useDocumentHealth';
 import { HealthSection } from './HealthSection';
 import { SearchSection } from './SearchSection';
@@ -298,7 +298,7 @@ function LibraryDocumentRow({
       className="nf-library-row"
       data-active={isActive}
       data-vault-path={node.path}
-      style={{ paddingInlineStart: 6 + depth * 14 }}
+      style={{ paddingInlineStart: sidebarTreeIndent(depth) }}
     >
       <button
         type="button"
@@ -421,7 +421,7 @@ function LibraryFolderItem({
         className="nf-library-folder-row"
         aria-label={node.name}
         aria-expanded={expanded}
-        style={{ paddingInlineStart: 6 + depth * 14 }}
+        style={{ paddingInlineStart: sidebarTreeIndent(depth) }}
         onContextMenu={(event) => {
           event.preventDefault();
           openVaultFolderMenu(node.path, { x: event.clientX, y: event.clientY });

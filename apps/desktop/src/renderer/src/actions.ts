@@ -830,6 +830,43 @@ export function setActiveDocumentLayout(layout: DocumentLayout): void {
   });
 }
 
+/**
+ * The one Continuous verb for `⌘2`, the Continuous segment, and the palette.
+ *
+ * A plain layout switch preserves the surface state, but leaving Page with a
+ * block selected carries that block: select it, switch, reveal and scroll to
+ * it (and, in Edit, put the caret in it). With no selection — or from
+ * Continuous — this is exactly `setActiveDocumentLayout('continuous')`. The
+ * Edit/Read mode is preserved, so a Read user stays in Read; a pending Page
+ * Edit commit still wins, and a rejected commit keeps the overlay and the
+ * layout (VF item 6).
+ */
+export function goToContinuous(): void {
+  const path = shell().activeTab;
+  if (path === null) return;
+  if (isMarkdownPath(path)) return;
+  const runtime = activeRuntime();
+  const selected = runtime?.selectedBlockId ?? null;
+  const layout = shell().viewByDoc[path]?.layout ?? 'continuous';
+  if (layout !== 'page' || runtime === null || selected === null) {
+    setActiveDocumentLayout('continuous');
+    return;
+  }
+  void commitPageEdit(path).then((committed) => {
+    if (!committed) return;
+    // The document may have changed tabs while the commit awaited: never move
+    // a block in a layout the user is no longer looking at.
+    if (getRuntime(path) !== runtime) return;
+    runtime.selectBlock(selected);
+    shell().setDocumentLayout(path, 'continuous');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        runtime.focusBlock(selected, { scroll: true });
+      });
+    });
+  });
+}
+
 export function activeInteractionMode(): InteractionMode {
   const state = shell();
   return state.activeTab === null
@@ -1945,15 +1982,24 @@ export function navigateToManualBreak(blockId: string, pageNumber: number | null
 }
 
 /**
- * The Page card menu. Shell-level block authoring is Continuous-only by design
- * (`editingEnabledFor`), so the card menu carries the one page-settings item
- * instead of a block menu whose every other row would be disabled.
+ * The Page card menu. It carries one navigation item and the one page-settings
+ * item: shell-level block authoring is Continuous-only by design
+ * (`editingEnabledFor`), so a full block menu would have every other row
+ * disabled. "Open in Continuous" is navigation, not authoring, so it stays
+ * available in the Read mode preview (VF item 6A).
  */
 export function openPageCardMenu(blockId: string, anchor: { x: number; y: number }): void {
   const runtime = activeRuntime();
   if (runtime === null) return;
   if (runtime.document.blocks[blockId] === undefined) return;
-  shell().openContextMenu(anchor.x, anchor.y, [manualBreakEntry(runtime, blockId)]);
+  shell().openContextMenu(anchor.x, anchor.y, [
+    {
+      id: 'open-in-continuous',
+      label: 'Open in Continuous',
+      onSelect: () => openBlockInContinuous(blockId),
+    },
+    manualBreakEntry(runtime, blockId),
+  ]);
 }
 
 export function openBlockMenu(
@@ -2625,7 +2671,7 @@ export function paletteCommands(): MenuEntry[] {
     withDocument({ id: 'zoom-reset', label: 'Reset zoom', shortcut: shortcutHint('reset-zoom'), onSelect: resetActiveLayoutZoom }),
     withDocument({ id: 'fit-width', label: 'Fit width', shortcut: shortcutHint('fit-width'), onSelect: () => fitActiveLayout('fit-width') }),
     withDocument({ id: 'fit-page', label: 'Fit page', shortcut: shortcutHint('fit-page'), onSelect: () => fitActiveLayout('fit-page') }),
-    withDocument({ id: 'continuous-layout', label: 'Switch to Continuous', shortcut: shortcutHint('continuous-layout'), onSelect: () => setActiveDocumentLayout('continuous') }),
+    withDocument({ id: 'continuous-layout', label: 'Switch to Continuous', shortcut: shortcutHint('continuous-layout'), onSelect: () => goToContinuous() }),
     withDocument({ id: 'page-layout', label: 'Switch to Page', shortcut: shortcutHint('page-layout'), onSelect: () => setActiveDocumentLayout('page') }),
     withDocument({
       id: 'toggle-interaction-mode',

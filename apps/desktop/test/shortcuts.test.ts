@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { buildMenuTemplate } from '../src/main/menu-template';
 import {
   SHORTCUTS,
+  ariaKeyshortcuts,
   display,
   matches,
   shortcutHint,
@@ -376,10 +377,30 @@ describe('shortcut catalogue', () => {
   it('answers a palette hint or nothing at all', () => {
     expect(shortcutHint('save')).toBe('⌘S');
     expect(shortcutHint('redo')).toBe('⇧⌘Z');
-    expect(shortcutHint('page-commit')).toBe('Esc / ⌘⏎');
+    expect(shortcutHint('page-commit-escape')).toBe('Esc');
+    expect(shortcutHint('page-commit-shortcut')).toBe('⌘⏎');
+    expect(ariaKeyshortcuts(['page-commit-escape', 'page-commit-shortcut'])).toBe(
+      'Escape Meta+Enter',
+    );
     expect(shortcutHint('focus-branch')).toBe('⇧⌘F');
     expect(shortcutHint('fit-page')).toBeUndefined();
     expect(shortcutHint('branch-from-selection')).toBe('⇧⌘⏎');
+  });
+
+  it('keeps the two Page Edit commit ids on one Settings row (VF S3-1)', () => {
+    const escape = SHORTCUTS.find((shortcut) => shortcut.id === 'page-commit-escape');
+    const commit = SHORTCUTS.find((shortcut) => shortcut.id === 'page-commit-shortcut');
+    expect(escape?.chords).toEqual([{ key: 'Escape' }]);
+    expect(commit?.chords).toEqual([{ key: 'Enter', mod: true }]);
+    expect(escape?.row).toBe('page-commit');
+    expect(commit?.row).toBe('page-commit');
+    expect(escape?.scope).toBe('editor');
+    expect(commit?.scope).toBe('editor');
+    const page = shortcutsForList().find((group) => group.group === 'Page');
+    expect(page?.rows.find((row) => row.id === 'page-commit')).toMatchObject({
+      label: 'Commit Page Edit',
+      keys: 'Esc / ⌘⏎',
+    });
   });
 
   it('fails loudly on an unknown id', () => {

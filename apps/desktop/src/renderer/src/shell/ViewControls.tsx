@@ -4,6 +4,7 @@ import { useRuntime } from '../state/registry';
 import {
   adjustActiveLayoutZoom,
   fitActiveLayout,
+  goToContinuous,
   setActiveDocumentLayout,
   setActiveInteractionMode,
 } from '../actions';
@@ -48,7 +49,7 @@ export function ViewControls(): JSX.Element {
           aria-label="Continuous layout"
           title={disabledReason ?? `Continuous layout (${shortcutHint('continuous-layout')})`}
           disabled={disabled}
-          onClick={() => setActiveDocumentLayout('continuous')}
+          onClick={() => goToContinuous()}
         >
           <AlignLeft size={13} strokeWidth={1.5} aria-hidden="true" />
         </button>

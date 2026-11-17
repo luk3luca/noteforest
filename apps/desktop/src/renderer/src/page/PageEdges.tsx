@@ -17,6 +17,7 @@ import {
   pageEdgeAccessibleLabel,
   pageEdgeLabelLayout,
   roundedPath,
+  shortenPathEnd,
   type PageEdge,
   type PageEdgeLabelLayout,
   type PageEdgePoint,
@@ -49,8 +50,17 @@ function routeAttribute(route: PageRoute): string {
   return route.points.map((point) => pointAttribute(point)).join(' ');
 }
 
-function routePath(route: PageRoute): string {
-  return roundedPath(route.points, PAGE_EDGE_STYLE.radius);
+function routePath(edge: PageEdge): string {
+  // The primary shaft stops at the arrow base: the filled head is translucent
+  // (0.95) and the shaft (0.88), so a shaft drawn to the tip shows through the
+  // head as a darker band (VF item 4). The route itself keeps every point, so
+  // `data-page-edge-route`, the router, and the print model are unchanged; the
+  // reference chevron keeps the full line under its open head.
+  const points =
+    edge.role === 'primary'
+      ? shortenPathEnd(edge.route.points, PAGE_EDGE_STYLE.arrowLength)
+      : edge.route.points;
+  return roundedPath(points, PAGE_EDGE_STYLE.radius);
 }
 
 function routeArrow(edge: PageEdge): string {
@@ -158,7 +168,7 @@ export function PageEdges({ edges, trunks, geometry, labels: resolvedLabels }: P
             >
               <path
                 className={`nf-page-edge-path nf-page-edge-path-${edge.role}`}
-                d={routePath(edge.route)}
+                d={routePath(edge)}
                 vectorEffect="non-scaling-stroke"
                 fill="none"
               />

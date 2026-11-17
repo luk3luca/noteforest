@@ -634,12 +634,25 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     // The block overlay is a rich-text editor, so its keys are editor-local and
-    // the page canvas keeps Escape for the selection.
-    id: 'page-commit',
+    // the page canvas keeps Escape for the selection. Esc and ⌘⏎ are two ids
+    // because the overlay's commit *reason* differs (`escape` vs `shortcut`),
+    // and a reason is not a chord: the overlay asks the catalogue for both and
+    // never compares a key itself (VF S3-1). They share one Settings row.
+    id: 'page-commit-escape',
     label: 'Commit Page Edit',
     group: 'Page',
     scope: 'editor',
-    chords: [{ key: 'Escape' }, cmd('Enter')],
+    chords: [{ key: 'Escape' }],
+    row: 'page-commit',
+    rowLabel: 'Commit Page Edit',
+  },
+  {
+    id: 'page-commit-shortcut',
+    label: 'Commit Page Edit',
+    group: 'Page',
+    scope: 'editor',
+    chords: [cmd('Enter')],
+    row: 'page-commit',
   },
 
   /* ------------------------------------------------------------------- Find */
@@ -755,6 +768,43 @@ export function tiptapKeys(id: string): string[] {
     parts.push(tipTapKeyName(chord.key));
     return parts.join('-');
   });
+}
+
+/**
+ * The ARIA spelling of one chord (`Meta+Enter`, `Escape`). ARIA Keyshortcuts
+ * syntax: the modifiers in any order, then the key name; this app is
+ * Mac-first, so `mod` is `Meta` — the same spelling the other
+ * `aria-keyshortcuts` attributes in the shell already use.
+ */
+const ARIA_KEY_NAMES: Readonly<Record<string, string>> = {
+  ' ': 'Space',
+  Escape: 'Escape',
+  Enter: 'Enter',
+  Tab: 'Tab',
+  Backspace: 'Backspace',
+  Delete: 'Delete',
+  ArrowUp: 'ArrowUp',
+  ArrowDown: 'ArrowDown',
+  ArrowLeft: 'ArrowLeft',
+  ArrowRight: 'ArrowRight',
+};
+
+function ariaChord(chord: Chord): string {
+  let text = '';
+  if (chord.ctrl === true) text += 'Control+';
+  if (chord.alt === true) text += 'Alt+';
+  if (chord.shift === true) text += 'Shift+';
+  if (chord.mod === true) text += 'Meta+';
+  return `${text}${ARIA_KEY_NAMES[chord.key] ?? (chord.key.length === 1 ? chord.key.toUpperCase() : chord.key)}`;
+}
+
+/**
+ * `aria-keyshortcuts` for the given ids, in order: `Escape Meta+Enter`.
+ * Derived from the catalogue so the advertised keys cannot drift from the ones
+ * the handler accepts.
+ */
+export function ariaKeyshortcuts(ids: readonly string[]): string {
+  return ids.flatMap((id) => shortcutFor(id).chords.map(ariaChord)).join(' ');
 }
 
 export interface ShortcutListRow {

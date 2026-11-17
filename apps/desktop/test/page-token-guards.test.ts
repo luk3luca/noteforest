@@ -19,6 +19,7 @@ import {
   DESIGN_TOKENS,
   DESIGN_TOKEN_CSS_VARIABLES,
 } from '../src/renderer/src/lib/design-tokens';
+import { contrastRatio } from '../src/renderer/src/lib/code-themes';
 
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -34,6 +35,7 @@ const printDocumentSource = read('../src/renderer/src/print/PrintDocument.tsx');
 const indexDoc = read('../../../docs/design-tokens.md');
 const pageDoc = read('../../../docs/design-tokens-page.md');
 const continuousDoc = read('../../../docs/design-tokens-continuous.md');
+const printCssSource = read('../src/renderer/src/print/print.css');
 
 const css = stylesSource
   .replace(/\/\*[\s\S]*?\*\//g, ' ')
@@ -250,6 +252,45 @@ describe('Page CSS consumes only Page-owned variables', () => {
     expect(measurementSource).toContain('applyPageCssVariables(host, settings.theme)');
     expect(pageEditorSource).toContain('pageCssVariables(settings.theme)');
     expect(printDocumentSource).toContain('model.cssVariables');
+  });
+});
+
+describe('the Page anchor dot states (VF S3-3)', () => {
+  /** A fixed-host token value from the Page skin block in `styles.css`. */
+  const token = (name: string): string => {
+    const match = stylesSource.match(
+      new RegExp(`${escapeRegExp(name)}:\\s*(#[0-9a-fA-F]{6})`),
+    );
+    if (match === null) throw new Error(`missing token ${name}`);
+    return match[1] as string;
+  };
+
+  it('keeps every dot state at or above the 3:1 non-text bar on paper', () => {
+    const resting = token('--nf-page-warning-ink');
+    const hover = token('--nf-page-anchor-dot-hover');
+    // The resting ink is unchanged (7.41:1) and stays above the text bar.
+    expect(resting).toBe('#7a4b00');
+    expect(contrastRatio(resting, '#ffffff')).toBeCloseTo(7.41, 2);
+    expect(contrastRatio(resting, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    // The hover keeps the state change visible without leaving 3:1.
+    expect(hover).not.toBe(resting);
+    expect(contrastRatio(hover, '#ffffff')).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(hover, '#ffffff')).toBeLessThan(contrastRatio(resting, '#ffffff'));
+    // The pale rule token is a tint, not a foreground: it may never paint a state.
+    expect(contrastRatio(token('--nf-page-warning-line'), '#ffffff')).toBeLessThan(3);
+  });
+
+  it('paints both states from Page tokens and never prints the dot', () => {
+    expect(declaration('.nf-page-anchor-dot-shape', 'background')).toBe(
+      'var(--nf-page-warning-ink)',
+    );
+    expect(declaration('.nf-page-anchor-dot:hover .nf-page-anchor-dot-shape', 'background')).toBe(
+      'var(--nf-page-anchor-dot-hover)',
+    );
+    expect(stylesSource).not.toContain('background: var(--nf-page-warning-line)');
+    // The dot is Page-only chrome: the print skin has no rule for it.
+    expect(printCssSource).not.toContain('nf-page-anchor-dot');
+    expect(pageDoc).toContain('--nf-page-anchor-dot-hover');
   });
 });
 

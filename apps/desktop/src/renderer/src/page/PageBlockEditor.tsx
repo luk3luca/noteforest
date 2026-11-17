@@ -32,9 +32,12 @@ import {
 import { blockContentFromEditorJson, editorJsonIsEmpty } from '../lib/page-edit';
 import { blockTitle } from '../lib/tree';
 import { openTextOnlyContextMenu } from '../lib/editor-context-menu';
+import { ariaKeyshortcuts, shortcutHint } from '../lib/shortcuts';
 import type { DocumentRuntime } from '../state/runtime';
 import {
+  pageCommitReason,
   registerPageEdit,
+  PAGE_COMMIT_SHORTCUT_IDS,
   PAGE_EDIT_SHORTCUT_COMMIT_EVENT,
   type PageEditCommitReason,
 } from './page-edit-state';
@@ -240,17 +243,13 @@ export function PageBlockEditor({
   }, []);
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      void commit('escape');
-      return;
-    }
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-      event.preventDefault();
-      event.stopPropagation();
-      void commit('shortcut');
-    }
+    // The chords (Esc, ⌘⏎) come from the catalogue; only the commit reason is
+    // decided here, so this overlay is not a second chord writer (VF S3-1).
+    const reason = pageCommitReason(event);
+    if (reason === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void commit(reason);
   };
 
   // Page Edit is a one-block editor overlay: its prose owns a text-only menu
@@ -284,7 +283,7 @@ export function PageBlockEditor({
       role="dialog"
       aria-modal="false"
       aria-label={`Edit block: ${initial.title}`}
-      aria-keyshortcuts="Escape Meta+Enter"
+      aria-keyshortcuts={ariaKeyshortcuts(PAGE_COMMIT_SHORTCUT_IDS)}
       data-page-edit-overlay="true"
       data-page-edit-block={blockId}
       data-page-edit-spanning={spanning ? 'true' : undefined}
@@ -295,7 +294,10 @@ export function PageBlockEditor({
         <span className="nf-page-edit-title" data-page-edit-title="true" title={initial.title}>
           Editing <strong>{initial.title}</strong>
         </span>
-        <span className="nf-page-edit-hint">Esc or ⌘⏎ commits</span>
+        <span className="nf-page-edit-hint">
+          {shortcutHint(PAGE_COMMIT_SHORTCUT_IDS[0] ?? '') ?? ''} or{' '}
+          {shortcutHint(PAGE_COMMIT_SHORTCUT_IDS[1] ?? '') ?? ''} commits
+        </span>
         <button
           type="button"
           className="nf-button nf-page-edit-done"

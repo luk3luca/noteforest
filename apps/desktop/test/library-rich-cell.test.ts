@@ -11,6 +11,7 @@ import {
   dirtyDocuments,
   openStore,
   scanLibrary,
+  takeOverStaleLock,
 } from '../src/main/library';
 import { lockPathForPackage } from '@noteforest/core/node';
 import { stringifyDocument, type Block, type ContentNode, type Document } from '@noteforest/core';
@@ -184,5 +185,54 @@ describe('library scan and the rich table cell (P2)', () => {
     expect([...perDocument.keys()].sort()).toEqual(
       paths.map((packagePath) => path.join(packagePath, 'document.json')).sort(),
     );
+  });
+
+  it('refuses a stale-lock takeover of a rich-cell package (S4-2)', async () => {
+    await activeLibraryPath();
+    const packagePath = await createNote('Takeover cell');
+    const lockPath = lockPathForPackage(packagePath, support);
+    await fs.mkdir(path.dirname(lockPath), { recursive: true });
+    await fs.writeFile(
+      lockPath,
+      `${JSON.stringify(
+        {
+          version: 1,
+          documentPath: packagePath,
+          pid: 2_147_483_647,
+          host: os.hostname(),
+          sessionId: 'dead-session',
+          token: 'dead-token',
+          acquiredAt: '2020-01-01T00:00:00.000Z',
+          heartbeatAt: '2020-01-01T00:00:00.000Z',
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    // The note opens read-only on the stale lock…
+    const opened = await openStore(packagePath);
+    expect('store' in opened && opened.store.readOnly).toBe(true);
+
+    // …and another writer turns it into a rich-cell document before the user
+    // presses "Take over lock".
+    await addTableBlock(packagePath, 'rich-table', true);
+    const before = await documentHash(packagePath);
+
+    const taken = await takeOverStaleLock(packagePath);
+    expect(taken.ok).toBe(false);
+    if (!taken.ok) {
+      // The same judgement and the same short line `openStore` returns.
+      expect(taken.code).toBe('read-only');
+      expect(taken.message).toBe('The file isn’t valid NoteForest data.');
+      expect(taken.details).toMatch(/table cell holds one paragraph/);
+    }
+
+    // The refusal runs before the lock is broken: nothing was written, and the
+    // stale lock is still the other writer's.
+    expect(await documentHash(packagePath)).toBe(before);
+    const lockAfter = JSON.parse(await fs.readFile(lockPath, 'utf8')) as { token?: string };
+    expect(lockAfter.token).toBe('dead-token');
+    expect(dirtyDocuments()).toEqual([]);
   });
 });

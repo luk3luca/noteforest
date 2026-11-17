@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { sidebarDepthIndent } from '../src/renderer/src/lib/sidebar-rows';
+import {
+  SIDEBAR_DEPTH_STEP,
+  SIDEBAR_ROW_INDENT,
+  sidebarDepthIndent,
+  sidebarTreeIndent,
+} from '../src/renderer/src/lib/sidebar-rows';
 
 /**
  * S1 sidebar system guard (`docs/design/sidebar.md`, `docs/tasks/sidebar-system.md`).
@@ -19,6 +24,10 @@ import { sidebarDepthIndent } from '../src/renderer/src/lib/sidebar-rows';
 
 const stylesSource = readFileSync(
   resolve(import.meta.dirname, '../src/renderer/src/styles.css'),
+  'utf8',
+);
+const sidebarSource = readFileSync(
+  resolve(import.meta.dirname, '../src/renderer/src/shell/Sidebar.tsx'),
   'utf8',
 );
 
@@ -225,6 +234,31 @@ describe('sidebar row ladder', () => {
       6, 18, 30, 42, 42, 42,
     ]);
     expect(sidebarDepthIndent(0)).toBe(6);
+  });
+
+  it('gives the Library the same ladder without the three-level cap (VF item 5)', () => {
+    // A library folder at level 1 is the chapter row's 6 px; its documents at
+    // level 2 are the Outline's top-level 18 px, not 34.
+    expect(sidebarTreeIndent(1)).toBe(sidebarDepthIndent(1));
+    expect(sidebarTreeIndent(2)).toBe(sidebarDepthIndent(2));
+    expect(sidebarTreeIndent(2) - sidebarTreeIndent(1)).toBe(SIDEBAR_DEPTH_STEP);
+    // Only past the Outline's cap do the two ladders differ: a real filesystem
+    // can nest deeper, so every folder level keeps its 12 px step.
+    expect(sidebarTreeIndent(4)).toBe(42);
+    expect(sidebarTreeIndent(5)).toBe(54);
+    expect(sidebarTreeIndent(5)).toBeGreaterThan(sidebarTreeIndent(4));
+    expect([1, 2, 3, 4, 5, 9].map((level) => sidebarTreeIndent(level))).toEqual([
+      6, 18, 30, 42, 54, 102,
+    ]);
+    expect(sidebarTreeIndent(0)).toBe(SIDEBAR_ROW_INDENT);
+  });
+
+  it('renders both library rows from the shared ladder', () => {
+    // One formula, in `lib/sidebar-rows.ts`: the components never compute an
+    // indent of their own.
+    expect(sidebarSource).toContain('sidebarTreeIndent(depth)');
+    expect(sidebarSource).not.toMatch(/6 \+ depth \* 14/);
+    expect(sidebarSource.match(/sidebarTreeIndent\(depth\)/g) ?? []).toHaveLength(2);
   });
 });
 
