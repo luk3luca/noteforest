@@ -645,12 +645,15 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 | 5 | **Find fidelity and highlighter** | Page word highlight, one range for cross-line matches, table-cell fixture; then the persistent highlighter on the same offset→DOM primitive | a spike on the model→page mapping |
 | 6 | **Code themes, edge legibility, Settings pages** | Code-theme registry (**verbatim themes only, no colour edits**), picker with the measured contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** (see below); manual-break defaults and library/backup in Data & About | 2 for the Settings pages it shares |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
-| 8 | **v1 hardening** | Remove the legacy rich-cell projection in `lib/table-cell.ts` (no legacy files exist: the app never shipped) and replace its silent flattening with a loader guard that refuses a cell with block content; automated axe pass over the new surfaces; README only if the app is handed to someone else | — |
+| 8 | **v1 hardening** | Remove the legacy rich-cell projection in `lib/table-cell.ts` (no legacy files exist: the app never shipped) and replace its silent flattening with a loader guard that refuses a cell with block content. **Brief written** (`docs/tasks/table-cell-guard.md`) | — |
 
 **Not v1 work (decided 17 November 2026):** the name stays **NoteForest** — personal use, GitHub only, no
 public distribution, so no clearance and no notarization; the manual VoiceOver sweep is the product
 owner's own gate, not a batch; the 300/1,000 figures are design targets from the plan, not a promise, so
-they are measured once in batch 4 and acted on only if the number is bad.
+they are measured once in batch 4 and acted on only if the number is bad. **Accessibility is not a v1
+gate** (17 November 2026): the automated axe pass stays as a cheap guard, the manual VoiceOver sweep is
+not required. The name stays as is; the repository is public on the owner's GitHub and that is the whole
+distribution.
 
 ### Continuous edge legibility (17 November 2026, product-owner report)
 
