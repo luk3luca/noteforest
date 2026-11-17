@@ -642,10 +642,10 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 | 2 | **Manual breaks** | A break is a **horizontal page cut at a block's y**, not a per-branch break; only blocks that start a row can honour one; `Breaks` sidebar section for navigation and removal; cleanup on delete/split/merge; no break offered before a mode A callout (F11). **Merged at `f096933`** | 1 (the fifth activity-bar tab lives in `Sidebar.tsx`) |
 | 3 | **Data and recovery** | `core` command reasons mapped at the boundary — **merged at `646f343`**. `Unused images` in Health **merged at `2b5c582`**: previewed cleanup, bytes to the **OS Trash**, only when non-empty, backup-referenced assets kept. Follow-up: backup retention is now a **content reference** (`2e99e2d`): an image returns reclaimable when the backups that show it rotate out (floor 10, default 20 autosaves) — that is the grace period, and it is the honest one. **Batch 3 complete.** | 1 (Health rows and modal) |
 | 4 | **Page as a scroll of pages** | `docs/design/page-scroll.md`: one column, touching pages with a 1 px seam, free scroll, `N / M` from the viewport centre, zoom 50–200 % with 100 % as fit, mount visible ±2; harness `waitSaved` 30 s and `markdown-file-view` serial; 1,000-block measurement (53 pages, 520 ms mount, scroll p95 33.4 ms). **Merged at `5a8dfac`** | 3 (`styles.css`) |
-| 5 | **Find fidelity and highlighter** | Page word highlight, one range for cross-line matches, table-cell fixture; then the persistent highlighter on the same offset→DOM primitive | a spike on the model→page mapping |
+| 5 | **Find fidelity, highlighter, empty child card** | Page word highlight, one range for cross-line matches, table-cell fixture; the persistent highlighter on the same offset→DOM primitive; and the **empty child block** floor — an empty child has no content, so its content-driven width collapses and the card is unfindable (a minimum card width in Continuous, never touching Page measurement) | the spike (done: `docs/design/find-page-highlight.md`) |
 | 6 | **Code themes, edge legibility, Settings pages** | Code-theme registry (**verbatim themes only, no colour edits**), picker with the measured contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** (see below); manual-break defaults and library/backup in Data & About | 2 for the Settings pages it shares |
 | 7 | **Images** | Crop editor, region re-pick | product value unproven |
-| 8 | **v1 hardening** | Remove the legacy rich-cell projection in `lib/table-cell.ts` (no legacy files exist: the app never shipped) and replace its silent flattening with a loader guard that refuses a cell with block content. **Brief written** (`docs/tasks/table-cell-guard.md`) | — |
+| 8 | **v1 hardening** | The page controls into the canvas header, and the rich-cell guard. **In flight at `941046a`'s brief** (`docs/tasks/v1-hardening.md`) | — |
 
 **Not v1 work (decided 17 November 2026):** the name stays **NoteForest** — personal use, GitHub only, no
 public distribution, so no clearance and no notarization; the manual VoiceOver sweep is the product
@@ -709,3 +709,10 @@ does not have to rediscover it.
    the classic palettes stay unedited.
 5. **1,000-block scroll p95 33.4 ms**: one long frame when the mount window advances. Acceptable; revisit
    only if it is felt.
+
+### Order decided 17 November 2026
+
+The release comes **last**: v1 hardening → find/highlighter (with the empty-child card) → themes, edges and the
+Settings pages → release (`.icns` from **grid, blue, dark**, `electron-builder`, `npm run dist`,
+`npm run release`). The icon is chosen and recorded in `docs/design/icon-lab/index.html`; every earlier round
+stays in that file as the record.
