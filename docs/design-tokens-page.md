@@ -236,6 +236,25 @@ PageTheme and no dead Page geometry variables.
 values and are hidden until the floor/heading-order interaction is resolved; density remains the
 supported type lever.
 
+## Paper colours: stored highlights
+
+A stored text highlight (`highlight` mark, one `tone`) is a background tint and nothing else: no
+padding, border, or weight, so it cannot move a line, a card, or a page. The text colour never
+changes. The paper is always light, so the four tones are the light-theme role at 28 % over white;
+they never read the live shell accent (Page/print isolate from the accent registry, so the PDF is
+reproducible under any shell theme).
+
+| Tone | Paper tint | Derivation |
+|---|---|---|
+| `blue` | `#c5d2de` | light blue accent `#2f5f8a` at 28 % over white |
+| `green` | `#c5d6ce` | light `--success` `#2f6b4f` at 28 % over white |
+| `amber` | `#ded1b8` | light `--warning` `#8a5a00` at 28 % over white |
+| `rose` | `#e5c8c6` | light `--danger` `#a23b32` at 28 % over white |
+
+The variables are `--nf-page-highlight-{tone}` on the fixed Page skin in `styles.css`. The
+`.nf-page-scope .nf-highlight[data-highlight-tone]` rule sets `background-color` only, and the same
+rule reaches Page Read/Edit, the measurement host, and the print compositor.
+
 ## Layout engine defaults (`DEFAULT_LAYOUT_OPTIONS`)
 
 These are DOM-free engine defaults, not a Page or Continuous user setting. Page production overrides

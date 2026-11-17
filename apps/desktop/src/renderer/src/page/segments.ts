@@ -16,6 +16,7 @@
  */
 
 import katex from 'katex';
+import { normalizeHighlightTone } from '@noteforest/core';
 import type { AnchorRecord, ContentNode, SegmentKind } from '@noteforest/layout';
 import {
   codeAnchorSpans,
@@ -213,6 +214,13 @@ function applyMarks(text: string, marks: ContentNode['marks']): InlineResult {
         const title = href.length > 0 ? ` title=${attr(href)}` : '';
         html = `<span class="nf-link"${title}>${html}</span>`;
       }
+    }
+    // F4b stored text highlight. A background tint only: no padding, border, or
+    // weight, so the measured card cannot move. The tone is normalized, so an
+    // unknown id renders the default tone instead of dropping the mark.
+    else if (mark.type === 'highlight') {
+      const tone = normalizeHighlightTone(isRecord(mark.attrs) ? mark.attrs['tone'] : undefined);
+      html = `<span class="nf-highlight" data-highlight-tone=${attr(tone)}>${html}</span>`;
     }
   }
 

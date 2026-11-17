@@ -26,7 +26,7 @@ const h = ui.harness;
 let page;
 
 const ALL_GROUPS = ['Shell', 'Editor', 'Page'];
-const ALL_ROWS = 26;
+const ALL_ROWS = 27;
 
 async function launch(name) {
   page = await ui.launch({ ...ui.isolated(name), NOTEFOREST_E2E_HIDDEN: '1' });

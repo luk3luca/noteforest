@@ -255,6 +255,14 @@ fonts). They are part of the same shell design system but are not duplicated in 
 yet. Page skin colors (`--nf-page-ink` and the related Page color variables) are Page-only and are
 not Continuous tokens.
 
+Stored text highlights (`highlight` mark, one `tone`) are a background tint at the ratified
+strengths of the live roles: `--nf-highlight-blue` is the accent at 20 %, `green` is `--success` at
+20 %, `amber` is `--warning` at 22 %, and `rose` is `--danger` at 18 %, each mixed with
+`transparent` so the note surface shows through. The mark's span changes no other property (the text
+colour is inherited), so it cannot move text or the canvas. Page and PDF override these variables
+with their own fixed light paper tones; see
+[`design-tokens-page.md`](design-tokens-page.md#paper-colours-stored-highlights).
+
 Continuous cards use their own surface roles: `--note-surface` (`#1b1d20` dark, `#f2f6f9` light) and
 `--note-surface-hover` (`#202329`, `#e9f0f5`). Cards never use `--surface-1`: in light that role is
 white and equals the canvas. Top-level and child cards share the same surface.

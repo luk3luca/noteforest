@@ -20,6 +20,7 @@ import { ParenOrderedListInput } from './lists';
 import { BlockFormulaNode, InlineFormulaNode } from './formulas';
 import { TableEditing, TableExtensions } from './tables';
 import { FindHighlightExtension } from './find-decorations';
+import { HighlightMark } from './highlight-mark';
 
 /**
  * M3c3b1: canonical image nodes carry `assetId`, not a display path. The
@@ -336,6 +337,9 @@ export function createEditorExtensions(options: EditorExtensionOptions = {}) {
       includeChildren: true,
     }),
     AnchorMark,
+    // A stored inline text mark (F4b). It must be in the schema the Page Edit
+    // overlay also mounts, or ProseMirror drops it on the first edit.
+    HighlightMark,
     ChapterNode,
     BlockNode,
     BlockBodyNode,

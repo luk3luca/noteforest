@@ -41,6 +41,12 @@ export interface ContentNode extends JsonObject {
   children?: ContentNode[];
 }
 
+/**
+ * Inline mark. Marks are open data, not a whitelist: an unknown mark survives
+ * validation and save. The product marks are `anchor` (a semantic binding, see
+ * anchors.ts) and `highlight` (one `tone`, see `highlights.ts`); both are
+ * additive and need no `schemaVersion` bump.
+ */
 export interface ContentMark extends JsonObject {
   type: string;
   attrs?: JsonObject;

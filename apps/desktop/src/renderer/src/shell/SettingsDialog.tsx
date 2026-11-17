@@ -139,6 +139,7 @@ const SHORTCUTS: { group: string; rows: [string, string][] }[] = [
       ['Focus branch', '⇧⌘F'],
       ['Link', '⌘⇧K'],
       ['Link as reference', '⌘⇧L'],
+      ['Highlight', '⌘⇧H'],
       ['Focus previous / next block', '⌘↑ / ⌘↓'],
       ['Reorder sibling', '⌥↑ / ⌥↓'],
     ],

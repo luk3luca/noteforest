@@ -16,6 +16,7 @@ export * from './serialize.js';
 export * from './fractional-order.js';
 export * from './structure.js';
 export * from './anchors.js';
+export * from './highlights.js';
 export * from './block-ops.js';
 export * from './commands.js';
 export * from './duplicate.js';
