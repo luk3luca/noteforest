@@ -644,7 +644,7 @@ with an open batch goes into that batch. Nothing is scheduled as a one-off.
 | 4 | **Page as a scroll of pages** | `docs/design/page-scroll.md`: one column, touching pages with a 1 px seam, free scroll, `N / M` from the viewport centre, zoom 50–200 % with 100 % as fit, mount visible ±2; harness `waitSaved` 30 s and `markdown-file-view` serial; 1,000-block measurement (53 pages, 520 ms mount, scroll p95 33.4 ms). **Merged at `5a8dfac`** | 3 (`styles.css`) |
 | 5 | **Find fidelity and highlighter** | `docs/design/highlight.md`. **F4a merged at `cee3577`** (paint over the mounted pages, repaint on the mount window, print-free). **F4b merged at `0c86e8a`**: the `highlight` mark with four tones, the bubble swatches and `⌘⇧H`, Continuous and Page rendering, the print tones, additive (no `schemaVersion` bump) | the spike (done: `docs/design/find-page-highlight.md`); F4b after F4a |
 | 5b | **B1 — v1 defects** | **Merged at `e48e862`** (`docs/tasks/b1-v1-defects.md`): **A** Page anchor dot (6 px, 24 px hit, tooltip, click/Enter → Health), no anchor marker in the print DOM or the PDF, `⇧1`/`⇧2` removed with `View → Fit page` (no accelerator) and the `!`-in-the-find-field regression; **B** one shortcut catalogue the handlers *ask* (`lib/shortcuts.ts`), the Settings list rendered from it (34 rows, 4 groups), and the subtractions (`⌥↑`/`⌥↓` page duplicate, `⌘1…⌘9` tab digits, `⌘⇧` → `⇧⌘`, `Actual size` → `Reset zoom`) | F4b |
-| 6 | **B2 — contrast** (in flight, `docs/tasks/b2-contrast.md`) | Code-theme registry (**verbatim themes only, no colour edits**) with the measured
+| 6 | **B2 — contrast** | **Merged at `2e4d2d8`** (`docs/tasks/b2-contrast.md`). Code-theme registry (**verbatim themes only, no colour edits**) with the measured
 contrast per theme, screen only (the paper keeps `--nf-page-code-*`); **Continuous edge legibility** — the
 muted state at 1.35:1, the light reference at ≈3.0, the arrowhead — as one measured contrast table per
 polarity and one visual pass | B1 |
@@ -663,7 +663,7 @@ gate** (17 November 2026): the automated axe pass stays as a cheap guard, the ma
 not required. The name stays as is; the repository is public on the owner's GitHub and that is the whole
 distribution.
 
-### Continuous edge legibility (17 November 2026, product-owner report)
+### Continuous edge legibility (17 November 2026, product-owner report) — **fixed in B2 (`2e4d2d8`)**
 
 Measured against the canvas (`#17181a` dark, `#ffffff` light):
 
@@ -691,8 +691,9 @@ token), resting width 1.25 → 1.5, and an arrowhead that scales with the stroke
 
 ### Open product decisions
 
-- Code palette: the registry replaces the "AA or documented exception" question, but at least one
-  theme per polarity must pass 4.5:1 or the exception returns.
+- ~~Code palette: the registry replaces the "AA or documented exception" question, but at least one
+  theme per polarity must pass 4.5:1 or the exception returns.~~ **Closed by B2**: Dark+ (5.00) and
+  Light+ (4.59) pass per polarity; Monokai and One Light stay selectable and labelled.
 - Manual break on a block the layout cannot honour: warning (current preflight category) or blocking error.
 - Manual-break feedback in Continuous: R2a removed the page chrome, so a new, minimal signal is needed
   (a checked menu item is the cheapest honest answer).

@@ -1,9 +1,12 @@
 # Code palette and Page syntax colours
 
-**Status:** approved direction (14 November 2026). Implementation is batch B.
+**Status:** approved direction (14 November 2026); **implemented as the classic entries of the B2
+registry** (`lib/code-themes.ts`, merged `2e4d2d8`). The registry now also carries VS Code **Dark+** and
+**Light+** (verbatim, each with its own surface), and `auto` selects those by polarity; Monokai and One
+Light remain selectable with their measured worst role. See `docs/design/code-themes.md`.
 **Related:** `docs/design-tokens-continuous.md`, `docs/reviews/post-settings-library-special-text-review.md`.
-**Decision:** classic coding themes, not pastel. **Monokai** for dark, **One Light** for light.
-Page Read/Edit and PDF now render syntax colours too; the WYSIWYG page is exact.
+**Decision:** classic coding themes, not pastel. Page Read/Edit and PDF render syntax colours too; the
+WYSIWYG page is exact, and the paper keeps One Light regardless of the shell code theme.
 
 ## 1. Palette
 

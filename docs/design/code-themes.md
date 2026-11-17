@@ -1,6 +1,6 @@
 # Code themes — measured, verbatim
 
-**Status:** decision draft, 17 November 2026. Feeds the theme batch; no code yet.
+**Status:** **implemented in B2** (`715f55a`, merged `2e4d2d8`). The registry is `apps/desktop/src/renderer/src/lib/code-themes.ts`; the picker is Appearance → Code theme; the CSS blocks are asserted equal to the registry. Two measured corrections from the implementation: Monokai's worst role on **its own** surface is 3.03 (3.44 was on our note card), and the light reference at the old `0.78` was 3.01 — the 2.51 in the earlier edge note was the *muted* token at full opacity, whose faded value was 1.35/1.33. The picker labels are computed (`Dark+ AA 5.00`, `Light+ AA 4.59`, `Monokai 3.03`, `One Light 2.47`).
 **Inputs:** `docs/design/code-palette.md` (Monokai / One Light shipped), the product-owner decision that
 themes are **taken as they are, never recoloured**, `docs/plan.md` batch 6.
 

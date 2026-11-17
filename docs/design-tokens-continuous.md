@@ -270,11 +270,19 @@ white and equals the canvas. Top-level and child cards share the same surface.
 Resting primary edges derive from the accent: `--edge: var(--accent-strong)` (the same value as
 `--edge-active`), so an unselected tree already reads as one accent-colored structure. Selection is
 carried by width, not a second color: the selected path uses `--nf-edge-width-active` 1.75, every
-other branch uses `--edge-muted` (`#565f68` dark, `#9aa5ad` light, 0.35 opacity); the selected
-card's accent ring remains the block cue. Reference edges keep their neutral, lower-emphasis dashed
-stroke through `--edge-reference` (`#7b858f` dark, `#6c7882` light) and never become accent unless
-the reference itself is selected. Stroke widths (1.25 / 1.75 / 1) and the 6 × 3 arrowhead are
-unchanged. Page/PDF edge colors and the Page stroke width are a separate skin; see
+other branch uses `--edge-muted` (`#6a737c` dark, `#7c868f` light); the selected card's accent ring
+remains the block cue. Reference edges keep their neutral, lower-emphasis dashed stroke through
+`--edge-reference` (`#7b858f` dark, `#6c7882` light) and never become accent unless the reference
+itself is selected.
+
+**No edge state fades (B2).** The retired `0.35` / `0.78` opacities are gone from the paths and the
+arrowheads: distinction is carried by hue temperature and the user's widths, never by transparency. At
+full opacity, on `--bg-canvas`, the measured ratios are **dark 11.19 / 4.73 / 3.69** and **light 9.30 /
+4.52 / 3.71** for resting / reference / muted — every state clears the 3:1 non-text bar. The light
+reference at the old `0.78` was 3.01; the 2.51 in the earlier report was the muted token at full
+opacity, and the old faded muted was 1.35 / 1.33. Stroke widths (1.25 / 1.75 / 1) and the 6 × 3
+arrowhead are unchanged, and the R6 width settings still own them. Page/PDF edge colors and the Page
+stroke width are a separate skin; see
 [`design-tokens-page.md`](design-tokens-page.md#page-route-and-shared-edge-values).
 
 ## Future resize tokens (post-M4, not scheduled)
