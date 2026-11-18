@@ -58,15 +58,28 @@ values time out. Do not duplicate full runs.
 
 ## How work is done
 
-One batch = one surface. A batch has a brief with numbered acceptance criteria, a worktree, tests,
-a report, an independent review, and one full verify at integration. The current batch's
-`brief.md`, `report.md` and `review.md` live in `docs/batch/` and are replaced by the next batch;
-git keeps the history.
+One batch = one surface. The owner and the orchestrator decide scope; a planner turns it into a
+plan when the work needs one; a builder implements it; a sentinel judges it independently; the
+orchestrator integrates and runs one full verify. The current batch's `brief.md`, `plan.md`,
+`report.md` and `review.md` live in `docs/batch/` and are replaced by the next batch; git keeps the
+history.
 
-- **Orchestrator:** plan, briefs, integration, final report. Never writes product code.
-- **Builder:** one brief in a worktree, with tests. Never merges, never edits spec, UX, ADR or plan.
+**Always a branch.** Use a worktree when the work is long, touches more than one surface, changes
+dependencies or build, needs parallel builders, or when the main checkout must stay usable. A small
+fix in one or two files can work in place on a branch. Remove the worktree in the same step as the
+merge: a worktree that outlives its batch is a defect.
+
+- **Orchestrator:** scope, briefs, integration, final report. Never writes product code.
+- **Planner (conditional):** a plan package for new surfaces, schema changes, or an ADR. Never
+  writes code, priorities or product decisions.
+- **Builder:** one brief, with tests. The plan is the contract; its criteria are the floor. Never
+  merges, never edits spec, UX, ADR or plan.
 - **Sentinel:** independent review against `docs/review-checklist.md`. Never rewrites code.
+- **Scout (on demand):** one research question, with sources.
 - **Product owner:** product decisions and the manual visual/VoiceOver/PDF checks.
+
+Role contracts and the handoff format: `docs/agents/roles.md`; per-role prompts:
+`docs/agents/roles/`.
 
 Rules:
 

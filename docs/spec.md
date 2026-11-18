@@ -1,7 +1,7 @@
 # NoteForest — Product, Data Model, and Behavior Specification
 
 **Version:** v1.0, 18 November 2026 — describes the shipped 0.1.0 behavior.
-**Owner:** Planner / Architect.
+**Owner:** Planner.
 **Status:** Current. Where this document and `AGENTS.md` disagree, `AGENTS.md` wins.
 
 **Normative language.** **MUST** is required. **SHOULD** is expected unless a recorded decision

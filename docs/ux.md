@@ -1,7 +1,7 @@
 # NoteForest — UX and interaction
 
 **Version:** v2.0, 18 November 2026 — describes the shipped 0.1.0 behavior.
-**Owner:** UX / Product.
+**Owner:** Planner (UX).
 **Companion:** `docs/spec.md` (behavior and data model), `docs/design/shortcuts.md` (the full
 keyboard catalogue), `docs/design/*` (surface specs).
 

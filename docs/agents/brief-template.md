@@ -3,13 +3,17 @@
 Use one template per delegated task. Keep it specific: an agent must be able to finish without
 guessing. Delete sections that do not apply; never leave a section as "TBD".
 
+Role contracts: `docs/agents/roles.md`. Per-role prompts: `docs/agents/roles/`.
+
 ```markdown
 # <Task ID> — <specific deliverable>
 
-**Role:** Orchestrator / Scout / Architect / UX / Builder / Sentinel / Docs  
-**Milestone:** M<x>  
+**Role:** Orchestrator / Planner / Builder / Sentinel / Scout  
+**Batch:** <name>  
 **Base:** `<commit>`  
-**Worktree:** `<path>` (Builder/Sentinel only)  
+**Branch:** `<branch>`  
+**Worktree:** `<path>` or `main checkout` (per the policy in `AGENTS.md`)  
+**Plan:** `docs/batch/plan.md` (when the Planner ran)  
 **Timebox:** <hours>
 
 ## Context
@@ -33,9 +37,9 @@ chapter and its first block."
 
 ## Out of scope
 
-- M3 / page view / PDF unless this brief is explicitly that milestone.
+- Surfaces outside this batch.
 - Other findings, refactors, or polish not listed above.
-- Spec/UX/ADR changes unless the Architect owns this task.
+- Spec/UX/ADR changes unless the Planner owns this task.
 
 ## Files
 
@@ -94,7 +98,7 @@ The Orchestrator rejects a report that does not map back to the acceptance crite
 - [ ] Acceptance criteria observable and testable.
 - [ ] Tests named, with the budget.
 - [ ] Stop conditions listed.
-- [ ] Worktree/branch and base commit named.
-- [ ] Commit policy stated: one commit per worktree/slice unless the product owner explicitly asked for separate commits.
+- [ ] Branch and base commit named; worktree named only when the policy requires it.
+- [ ] Commit policy stated: one commit per branch unless the product owner explicitly asked for separate commits.
 - [ ] Report format included.
 - [ ] If the task needs two roles, split it.

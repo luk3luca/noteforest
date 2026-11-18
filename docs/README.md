@@ -32,9 +32,10 @@ git log --diff-filter=D --oneline -- docs/tasks docs/reports docs/reviews
 | `plan.md` | Next work, known issues, open decisions |
 | `definition-of-done.md` | What "done" means, test strategy, budgets |
 | `review-checklist.md` | How to review, severity, verdicts, report template |
-| `agents/roles.md` | Role contracts and handoff rules |
+| `agents/roles.md` | Role contracts, pipeline and handoff rules |
+| `agents/roles/` | Per-role prompts: orchestrator, planner, builder, sentinel, scout |
 | `agents/brief-template.md` | The brief format used for every delegated task |
-| `batch/` | The current batch only: `brief.md`, `report.md`, `review.md` |
+| `batch/` | The current batch only: `brief.md`, `plan.md`, `report.md`, `review.md` |
 
 ## Rule
 

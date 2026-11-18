@@ -1,6 +1,6 @@
 # Definition of Done
 
-**Owner:** Reviewer / Sentinel.
+**Owner:** Sentinel.
 **Language:** English.
 **Companion:** `docs/review-checklist.md` (review procedure, severity, template).
 

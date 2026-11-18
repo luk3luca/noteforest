@@ -1,6 +1,6 @@
 # Review checklist
 
-**Owner:** Reviewer / Sentinel.
+**Owner:** Sentinel.
 **Language:** English.
 **Companion:** `docs/definition-of-done.md` (budgets, test strategy, gates).
 
