@@ -17,6 +17,14 @@ manifest, four adapters, one owner per chord, the 120 ms throttle gone. Full ver
 files / 1,795 tests, e2e 16, UI **70/70** at concurrency 4. The workspace versions and the lockfile were
 synced (`11591b1`); a clean `npm ci` from a fresh archive now installs and typechecks.
 
+**Test-surface extraction (18 November 2026):** the `window.__noteforestTest` bridge moved from
+`App.tsx` to `renderer/src/test-surface.ts` (`826ced1`); `App.tsx` is 391 lines, the interface is
+unchanged and all 70 UI suites pass. Full verify green.
+
+**Dependency audit (18 November 2026):** 6 moderate advisories, all in electron-builder's build
+toolchain (`@electron/universal`, `app-builder-lib`, `dmg-builder`, `minimatch`); `npm audit
+--omit=dev` is clean. Upgrade electron-builder with the next packaging change.
+
 **Open gate:** the product owner's visual, VoiceOver and PDF pass on the installed app, plus the manual
 chord pass for the command surface (menu open, after refocusing).
 
